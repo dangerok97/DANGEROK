@@ -109,6 +109,15 @@ async def startup():
     await db.decision_action_history.create_index([("user_id", 1), ("decision_id", 1), ("timestamp", 1)])
     await db.decision_action_history.create_index([("user_id", 1), ("timestamp", -1)])
 
+    # Behavioral Intelligence (Iteration 15)
+    try:
+        from behavioral_intelligence import BehavioralIntelligenceService
+        bhv = BehavioralIntelligenceService(db)
+        await bhv.ensure_ready()
+        logger.info("Behavioral Intelligence indexes ready")
+    except Exception:
+        logger.exception("Behavioral Intelligence bootstrap failed (non-fatal)")
+
     # Sync capability registry to Mongo (idempotent, structural fields are
     # overwritten from code; ops metadata is preserved).
     try:
@@ -138,3 +147,60 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# --- Behavioral middleware (Iteration 15) ----------------------------
+# Purely observational: fires idempotent "first_app_open_today" and
+# "manual_refresh" events into the behavioral timeline. Never blocks the
+# request, never touches other modules. All failures are swallowed so a
+# behavioral hiccup can never break the API.
+import jwt as _pyjwt  # noqa: E402
+from deps import JWT_SECRET as _JWT_SECRET, JWT_ALGO as _JWT_ALGO  # noqa: E402
+from behavioral_intelligence import BehavioralIntelligenceService as _BhvSvc  # noqa: E402
+
+_bhv_singleton: _BhvSvc | None = None
+
+
+def _bhv() -> _BhvSvc:
+    global _bhv_singleton
+    if _bhv_singleton is None:
+        _bhv_singleton = _BhvSvc(db)
+    return _bhv_singleton
+
+
+def _user_id_from_request(headers) -> str | None:
+    auth = headers.get("authorization") or headers.get("Authorization")
+    if not auth or not auth.lower().startswith("bearer "):
+        return None
+    tok = auth.split(" ", 1)[1].strip()
+    try:
+        payload = _pyjwt.decode(tok, _JWT_SECRET, algorithms=[_JWT_ALGO])
+        return payload.get("user_id")
+    except Exception:
+        return None
+
+
+@app.middleware("http")
+async def behavioral_observer_middleware(request, call_next):
+    # Never block the response — do all work AFTER call_next.
+    response = await call_next(request)
+    try:
+        path = request.url.path
+        if not path.startswith("/api/") or "/behavior" in path:
+            return response
+        if request.method != "GET":
+            return response
+        uid = _user_id_from_request(request.headers)
+        if not uid:
+            return response
+        svc = _bhv()
+        # Refresh: any GET on decisions/top or daily/today is treated as a refresh
+        if path.endswith("/decisions/top") or path.endswith("/daily/today"):
+            await svc.observers.record_manual_refresh(uid)
+        # First open today: idempotent per (uid, UTC date)
+        await svc.observers.record_app_open_if_needed(uid)
+    except Exception:
+        # Behavioral engine is purely observational — never break requests.
+        logger.debug("behavioral middleware swallowed exception", exc_info=True)
+    return response
+

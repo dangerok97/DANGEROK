@@ -1,4 +1,98 @@
 # ==========================================================
+# ITERAZIONE 15 — Behavioral Intelligence Engine
+# ==========================================================
+# Status: DONE — 13/13 iter15 tests PASS, provider silent by default,
+# no writes on source collections, no LLM/ML dependencies.
+
+iter15:
+  module_created: /app/backend/behavioral_intelligence/
+  files:
+    - __init__.py
+    - types.py         # BehavioralEvent, BehaviorMetrics, BehaviorPattern, BehaviorProfile, Confidence, Trend
+    - storage.py       # append-only DAL with unique indexes
+    - timeline.py      # append_event / append_events (idempotent by source_ref)
+    - observers.py     # lazy-sync from decision_action_history, ingestion_events, connector_instances, daily_summaries, context_snapshots + middleware hooks (app_open/refresh/close)
+    - metrics.py       # deterministic incremental counters + hour/weekday heatmaps + rates
+    - patterns.py      # 7 deterministic detectors: morning_completer, evening_postponer, heavy_calendar_user, post_dinner_opener, quick_winner, weekday_power_user, weekend_light_user
+    - confidence.py    # LOW/MEDIUM/HIGH by sample size, aggregate = min
+    - service.py       # orchestrator with ensure_ready() and per-call lazy sync
+    - provider.py      # BehaviorProfileProvider gated by BEHAVIOR_PROFILE_ENABLED (default OFF)
+  router: /app/backend/routers/behavior.py (GET-only)
+  endpoints:
+    - GET /api/behavior/profile
+    - GET /api/behavior/metrics?window_days=60
+    - GET /api/behavior/patterns
+    - GET /api/behavior/timeline?since=&until=&event_types=&limit=&skip=
+    - GET /api/behavior/confidence
+  http_methods_rejected: [POST, PUT, DELETE]  # 405 verified
+  db_collections_added:
+    - behavioral_events         # append-only, unique (user_id, source_type, source_ref)
+    - behavioral_cursors        # progress markers for lazy sync
+    - behavior_metric_snapshots # versioned metric history
+    - behavior_profile_snapshots# versioned profile history
+    - behavior_pattern_snapshots# versioned pattern history
+  middleware:
+    - behavioral_observer_middleware (server.py): fires first_app_open_today + manual_refresh idempotently, never blocks response, all failures swallowed
+  feature_flag: BEHAVIOR_PROFILE_ENABLED  # default OFF
+  context_hash_invariance:
+    flag_off_provider_signals: []
+    flag_off_hash_stable: verified (provider not attached to ContextAssembler by default)
+  no_llm_check: pass (test_no_llm_imports scans forbidden imports; 0 hits)
+  files_not_touched_backend:
+    - decision_engine/*
+    - life_graph/*
+    - knowledge/*
+    - auto_link/*
+    - context_assembler/*  # provider ready but NOT wired to Context Assembler (per spec)
+    - permissions/*
+    - connectors/*
+    - ingestion/*
+    - daily_intelligence/*
+    - explainability/*
+    - action_center/*
+    - deps.py (services list unchanged)
+  files_touched_backend:
+    - server.py         # added Behavioral bootstrap in startup + observational middleware (non-blocking)
+    - routers/__init__.py # register behavior router
+  tests:
+    file: tests/test_iter15_behavioral_intelligence.py
+    passed: 13
+    failed: 0
+    coverage:
+      - timeline_append_only
+      - events_are_immutable
+      - metrics_incremental_from_source
+      - patterns_deterministic
+      - confidence_low_with_no_data
+      - confidence_scales_with_sample_size
+      - cross_user_isolation
+      - provider_is_silent_when_flag_off
+      - provider_emits_when_flag_on
+      - no_llm_imports
+      - performance_1000_events
+      - performance_10000_events
+      - behavioral_module_never_writes_to_source_collections
+  performance:
+    events_1000:   metrics computation <3s
+    events_10000:  metrics computation <8s
+  live_smoke_via_http:
+    demo_user_timeline_total: 31
+    patterns_detected: [quick_winner, weekday_power_user]
+    confidence_report: {metrics: medium, profile: medium, patterns: low, events_observed: 31}
+  regressions:
+    - iter11_explainability_action_center: 39/39 pass  # unchanged
+    - iter8_permissions_and_consent: pass
+    - iter9 parallel failures: PRE-EXISTING (iter13 populated real OAuth creds → test_j1 assumes empty creds; DuplicateKey collisions in parallel-xdist test iter9 email fixtures) — NOT caused by iter15
+  frontend_unchanged: true
+  home_unchanged: true
+  ranking_unchanged: true
+  explainability_unchanged: true
+  action_center_unchanged: true
+  daily_intelligence_unchanged: true
+  google_calendar_unchanged: true
+  token_vault_unchanged: true
+
+# ==========================================================
 # ITERAZIONE 14 — Real User Onboarding & Calendar UX
 # ==========================================================
 # Status: DONE — testing agent ALL PASS, zero bugs, zero regressions

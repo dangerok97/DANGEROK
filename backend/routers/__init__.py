@@ -5,6 +5,7 @@ from . import (
     admin,
     auth,
     auto_link as auto_link_router,
+    behavior as behavior_router,
     connectors as connectors_router,
     context as context_router,
     daily as daily_router,
@@ -32,4 +33,5 @@ ALL_ROUTERS = [
     ingestion_router.router,
     google_calendar_router,
     daily_router.router,
+    behavior_router.router,
 ]
