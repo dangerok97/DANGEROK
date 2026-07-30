@@ -118,6 +118,17 @@ async def startup():
     except Exception:
         logger.exception("Behavioral Intelligence bootstrap failed (non-fatal)")
 
+    # Behavior-Aware Shadow (Iteration 17) — always ensure indexes so
+    # activating BEHAVIOR_SHADOW_MODE at runtime is safe. The shadow
+    # service itself is idle unless BOTH flags are enabled.
+    try:
+        from behavior_aware_decisions import BehaviorShadowService
+        _shadow = BehaviorShadowService(db)
+        await _shadow.ensure_ready()
+        logger.info("Behavior-Aware Shadow indexes ready")
+    except Exception:
+        logger.exception("Behavior-Aware Shadow bootstrap failed (non-fatal)")
+
     # Sync capability registry to Mongo (idempotent, structural fields are
     # overwritten from code; ops metadata is preserved).
     try:

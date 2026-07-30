@@ -109,6 +109,26 @@ async def list_decisions(user=Depends(get_current_user)):
 async def top_decisions(limit: int = 3, user=Depends(get_current_user)):
     limit = max(1, min(limit, 20))
     items = await decisions.top(user["user_id"], limit=limit)
+
+    # ---- Behavior-Aware Shadow (Iter17) — automatic passive trigger.
+    # Non-blocking, non-mutating. Runs ONLY when BOTH
+    # BEHAVIOR_PROFILE_ENABLED and BEHAVIOR_SHADOW_MODE are true.
+    # NEVER affects `items` order or scores — it just persists
+    # shadow evaluations for later comparison via
+    # /api/behavior-shadow/comparison. Any failure is swallowed.
+    try:
+        prof = os.environ.get("BEHAVIOR_PROFILE_ENABLED", "false").lower() in ("1", "true", "yes", "on")
+        shad = os.environ.get("BEHAVIOR_SHADOW_MODE", "false").lower() in ("1", "true", "yes", "on")
+        if prof and shad and items:
+            import asyncio
+            from behavior_aware_decisions import BehaviorShadowService
+            shadow_svc = BehaviorShadowService(db)
+            # Fire-and-forget: response returns immediately, shadow
+            # evaluations land in `behavior_shadow_evaluations` async.
+            asyncio.create_task(shadow_svc.evaluate_batch(user["user_id"], list(items)))
+    except Exception:
+        logger.debug("shadow auto-trigger swallowed exception", exc_info=True)
+
     return {"items": items}
 
 
