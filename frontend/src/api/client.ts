@@ -30,11 +30,16 @@ async function request<T>(path: string, init: RequestInit = {}, auth = true): Pr
   const res = await fetch(`${BASE}/api${path}`, { ...init, headers });
   if (!res.ok) {
     let msg = `HTTP ${res.status}`;
+    let detail: any = null;
     try {
       const j = await res.json();
-      msg = j.detail || j.message || msg;
+      detail = j.detail || j;
+      msg = typeof detail === 'string' ? detail : (detail?.error || detail?.message || msg);
     } catch {}
-    throw new Error(msg);
+    const err: any = new Error(msg);
+    err.status = res.status;
+    err.detail = detail;
+    throw err;
   }
   return (await res.json()) as T;
 }
@@ -107,4 +112,148 @@ export const api = {
     request<{ items: { id: string; content: string; tags: string[]; created_at: string }[] }>('/memory'),
   askMemory: (question: string) =>
     request<{ answer: string; sources: any[] }>('/memory/ask', { method: 'POST', body: JSON.stringify({ question }) }),
+
+  // Decisions
+  topDecisions: (limit: number = 5) =>
+    request<{ items: ApiDecision[] }>(`/decisions/top?limit=${limit}`),
+  listDecisions: () => request<{ items: ApiDecision[] }>('/decisions'),
+  getDecision: (id: string) => request<ApiDecision>(`/decisions/${id}`),
+
+  // Explanation
+  getExplanation: (id: string) =>
+    request<DecisionExplanation>(`/decisions/${id}/explanation`),
+
+  // Action Center
+  startDecision: (id: string) =>
+    request<{ ok: boolean; decision: ApiDecision }>(`/decisions/${id}/start`, { method: 'POST' }),
+  completeDecision: (id: string, note?: string) =>
+    request<{ ok: boolean; decision: ApiDecision }>(`/decisions/${id}/complete`, {
+      method: 'POST',
+      body: JSON.stringify({ note: note ?? null }),
+    }),
+  partialDecision: (id: string, completion_percentage: number, remaining_minutes?: number, optional_note?: string) =>
+    request<{ ok: boolean; decision: ApiDecision }>(`/decisions/${id}/partial`, {
+      method: 'POST',
+      body: JSON.stringify({ completion_percentage, remaining_minutes, optional_note }),
+    }),
+  postponeDecision: (id: string, until_datetime: string, reason?: string) =>
+    request<{ ok: boolean; decision: ApiDecision }>(`/decisions/${id}/postpone`, {
+      method: 'POST',
+      body: JSON.stringify({ until_datetime, reason }),
+    }),
+  blockDecision: (id: string, reason: string) =>
+    request<{ ok: boolean; decision: ApiDecision }>(`/decisions/${id}/blocked`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    }),
+  dismissDecision: (id: string, reason?: string) =>
+    request<{ ok: boolean; decision?: ApiDecision }>(`/decisions/${id}/dismiss`, {
+      method: 'POST',
+      body: JSON.stringify({ reason: reason ?? null }),
+    }),
+  historyDecision: (id: string) =>
+    request<{ items: DecisionActionHistoryItem[] }>(`/decisions/${id}/history`),
+
+  // Daily
+  dailyToday: () => request<DailySummary>('/daily/today'),
+  dailyTomorrow: () => request<DailySummary>('/daily/tomorrow'),
+  dailyRefresh: () => request<{ today: DailySummary; tomorrow: DailySummary }>('/daily/refresh', { method: 'POST' }),
+
+  // Google Calendar connector (for empty states)
+  googleCalendarInstances: () =>
+    request<{ items: ConnectorInstance[] }>('/connectors/google-calendar/instances'),
+  googleCalendarConfig: () =>
+    request<GoogleCalendarConfigStatus>('/connectors/google-calendar/config-status'),
+};
+
+// Extra types
+export type ApiDecision = {
+  id: string;
+  title: string;
+  description?: string | null;
+  category?: string | null;
+  urgency: number; importance: number; risk: number;
+  time_required_min: number;
+  starts_at?: string | null;
+  deadline?: string | null;
+  status: string;
+  score?: number | null;
+  reason?: string | null;
+  reason_tags?: string[] | null;
+  node_ids?: string[];
+  action_state?: {
+    status?: string;
+    completion_percentage?: number | null;
+    remaining_minutes?: number | null;
+    last_action?: string | null;
+    last_action_at?: string | null;
+    postponed_until?: string | null;
+    blocked_reason?: string | null;
+  } | null;
+  metadata?: Record<string, any> | null;
+  last_resolution?: string | null;
+  created_at: string;
+};
+
+export type AppliedRule = { id: string; label: string; evidence: string[]; weight: 'low'|'medium'|'high' };
+export type DataSourceItem = { source: string; confidence: string; last_updated_at?: string | null; notes?: string | null };
+export type DecisionExplanation = {
+  decision_id: string;
+  priority_score?: number | null;
+  confidence: 'high'|'medium'|'low';
+  estimated_duration_minutes: number;
+  estimated_impact: 'low'|'medium'|'high';
+  estimated_postpone_risk: 'low'|'medium'|'high';
+  generated_at: string;
+  human_summary: string;
+  reasoning_steps: string[];
+  data_sources: DataSourceItem[];
+  applied_rules: AppliedRule[];
+  context_used: string[];
+  version: string;
+};
+
+export type DecisionActionHistoryItem = {
+  id: string; timestamp: string;
+  old_status: string | null;
+  new_status: string;
+  user_action: string;
+  completion_percentage?: number | null;
+  remaining_minutes?: number | null;
+  postponed_until?: string | null;
+  reason?: string | null;
+  note?: string | null;
+};
+
+export type DailySummary = {
+  date: string; timezone: string; generated_at: string;
+  score: number; confidence: 'high'|'medium'|'low';
+  total_events: number; all_day_events: number;
+  is_weekend: boolean; is_holiday: boolean; is_vacation_day: boolean;
+  busy_minutes: number; free_minutes: number;
+  consecutive_events: number; total_break_minutes: number;
+  first_event_at?: string | null; last_event_at?: string | null;
+  by_category: Record<string, number>;
+  busy_slots: { start: string; end: string; duration_min: number; category?: string | null }[];
+  free_slots: { start: string; end: string; duration_min: number }[];
+  signals: string[]; warnings: string[]; opportunities: string[];
+  energy_estimation: { level: 'high'|'medium'|'low'; score: number; reasons: string[] };
+  version: string; source_counts?: Record<string, number>;
+};
+
+export type ConnectorInstance = {
+  id: string; connector_id: string; status: string;
+  display_label?: string; last_sync_at?: string | null;
+  selected_resource_ids?: string[];
+};
+
+export type GoogleCalendarConfigStatus = {
+  provider_mode: 'real'|'fake';
+  client_id_configured: boolean;
+  client_secret_configured: boolean;
+  redirect_uri_configured: boolean;
+  token_vault_ready: boolean;
+  provider_ready: boolean;
+  missing_requirements: string[];
+  environment: string;
 };

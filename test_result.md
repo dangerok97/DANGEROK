@@ -523,3 +523,70 @@ agent_communication_iter9:
             permissions, connectors).
 
         Credenziali test: demo@ora.app / Demo!2026 (invariate).
+
+# ==========================================================
+# ITERAZIONE 12 — Home Experience + Explainability UI (Frontend)
+# ==========================================================
+
+frontend_iter12:
+  - task: "Home rewrite: Focus Now card + explainability + action center + daily summary + decision history"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/app/(tabs)/index.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: |
+          Iterazione 12 UI implementata (mantenuta la logica esistente scritta nella sessione precedente e aggiunti gli enhancement richiesti dall'utente):
+          - Design tokens estesi con colori semantici bg (successBg/warningBg/errorBg/infoBg), skeleton palette, motion (fast/base/slow), touch.min=44.
+          - Skeleton components (FocusSkeleton, DailySkeleton, LaterSkeleton) con shine reanimated al posto di ActivityIndicator generico.
+          - Reanimated LayoutTransition + FadeInDown/FadeOut 200–300ms su Focus Now, "Dopo" list e sheet.
+          - Sheet redesign: SlideInDown springy, backdrop con FadeIn/FadeOut, unmount pulito.
+          - Haptic differenziati via utils/haptic: tap (start/tap), select (refresh/pct), medium (complete/postpone/block), success (server ack), error (fail). No-op su web.
+          - Focus Now più dominante: pill "ORA" con dot, shadow leggera, title 24–26pt, summary box con border-left brand.
+          - Progress bar in_progress (info) e partially_completed (warning) con % opzionale.
+          - Pull-to-refresh già presente, ora con haptic select e tint dark-consistente.
+          - Offline banner: hook useOnlineStatus (web navigator.onLine + listener; native fallback via network-error detection). Mostra banner "Sei offline…" e header "Aggiornato N min fa".
+          - Accessibility: accessibilityRole/label/hint ovunque, touch target minimo 44x44, accessibilityLiveRegion sui banner.
+          - Errori 403/404/409/5xx + network mappati in messaggi umani e haptic error.
+          - MeetaGrid con colori semantici (Rimando Alto in error, Impatto Alto in warning).
+          - Layout responsive: content max 720px centrato su schermi ≥ 700px (desktop/tablet), font title 24 mobile / 26 wide.
+          - Feature flags gestiti a runtime: EXPLAINABILITY_ENABLED (probe su /explanation, fallback silenzioso), ACTION_CENTER_ENABLED (probe su /history), DAILY_SUMMARY_ENABLED.
+          - I supporting files nuovi: /app/frontend/src/components/Skeleton.tsx, /app/frontend/src/utils/haptic.ts, /app/frontend/src/hooks/use-online-status.ts. tokens.ts esteso. labels.ts esteso con formatRelativeAgo.
+          Screenshot manuali OK: home mobile, "Perché adesso?" sheet, Rimanda sheet, home desktop. Nessun errore compile.
+
+test_plan_iter12:
+  current_focus:
+    - "Login demo@ora.app / Demo!2026 → tab Home renderizza Focus Now"
+    - "FocusNowCard: mostra title, description, human_summary, meta (Durata/Impatto/Rimando/Confidenza), score/deadline se presenti"
+    - "Pulsante 'Perché adesso?' apre sheet con regole tradotte in italiano (labels.ts), passi di ragionamento, stime, data_sources, context_used"
+    - "Action Center: Inizia → status diventa 'In corso' + progress bar info. Risolvi → ConfirmSheet → completa (rimossa da attive). Parziale → PartialSheet (25/50/75%) + nota → status 'Parziale' con bar warning. Rimanda → PostponeSheet 3 opzioni + reason. Altro → MoreMenu (Blocca/Ignora/Cronologia)."
+    - "Blocca → ReasonSheet richiede motivo (obbligatorio). Ignora → ReasonSheet opzionale."
+    - "Cronologia → HistorySheet mostra timeline azioni con labels tradotti (USER_ACTION_LABELS)"
+    - "Daily card 'La tua giornata': score pill colorato, meta chips, warnings/opportunities chips con colori semantici, 'Vedi giornata' → DailyDetailSheet con busy/free slots + signals"
+    - "Later ('Dopo') cards con indice, meta, mini 'Perché?' che apre WhyNowSheet dedicato"
+    - "Empty states: nessuna decision → EmptyFocus. Calendar non collegato → 'Collega Google Calendar'. Calendar collegato ma non synced → 'Avvia sincronizzazione'."
+    - "Pull-to-refresh aggiorna dati senza mostrare skeleton (silent reload)"
+    - "Offline: nessuna connessione → banner 'Sei offline' + header status 'Offline'. Riconnessione → 'Aggiornato ora'."
+    - "Errori server: 403 → 'Permesso non concesso', 404 → 'non più disponibile', 409 → 'transizione non consentita', 5xx → 'servizio non disponibile'"
+    - "Feature flag degradation: se /explanation risponde 404 con detail 'abilitata', il pulsante 'Perché?' scompare; se /history è disattivato, action center resta ma history mostra fallback."
+    - "Accessibilità: touch target ≥44px, screen reader legge 'Focus adesso', 'Stato Da fare', 'Perché è prioritaria', ecc."
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication_iter12:
+  - agent: "main"
+    message: |
+      Iterazione 12 frontend pronta per validazione. Backend invariato al 100% (nessuna modifica).
+      Credenziali test: demo@ora.app / Demo!2026 (o /api/auth/register se non esiste).
+      URL: preview web (localhost:3000). Testing agent deve validare FRONTEND ONLY.
+      Note importanti:
+      - I test devono attendere caricamento (skeleton visibili) e poi verificare che il contenuto compaia con animazione.
+      - Non modificare direttamente lo stato via DB o via chiamate API dirette: il test deve avvenire tramite UI (login → home → interazione).
+      - Il backend usa CALENDAR_PROVIDER_MODE=fake di default; alcune Decision seed dovrebbero essere presenti dopo il register/login.
+      - Feature flags backend attivi di default; il fallback UI si verifica solo se disattivati manualmente.
+
