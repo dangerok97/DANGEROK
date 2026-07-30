@@ -110,6 +110,43 @@ Deterministic Decision ↔ Node link proposer. Independent module `/app/backend/
 ## Preliminary correction (iteration 6)
 `_refresh_time_anchors` and `_ensure_live_imminent` are now gated behind `is_demo=user.email in DEMO_EMAILS`. Real users' Decisions are never modified by login (5-login byte-stability test passes). Dedicated admin endpoint `POST /api/admin/demo/refresh` — 200 for demo users, 403 for everyone else.
 
+## Iteration 7 — Context Assembler (SHIPPED, flag OFF by default)
+Structured context snapshots for Decisions. Independent module `/app/backend/context_assembler/`. Decision Engine, Life Graph, Knowledge Layer, Auto-Link Engine untouched. Zero UI/design changes. No GPT, no external calls, no writes to other modules' collections.
+
+**Components** (`context_assembler/`):
+- `types.py` — `Signal` (13 fields), `ContextConflict`, `Freshness` enum, `SOURCE_RELIABILITY` table, `CATEGORY_ALLOWED_NODE_TYPES` matrix, `ASSEMBLER_VERSION="context_assembler/v1.0"`.
+- `redaction.py` — `HIGHLY_SENSITIVE_KEYS`, `redact_for_hash`, `safe_display`.
+- `freshness.py` — per-signal-key TTL `POLICY` → classification `fresh | aging | stale | unknown`.
+- `repository.py` — read-only DAO on decisions/nodes/knowledge/edges/link_proposals; writes only to own `context_snapshots` collection.
+- `providers.py` — 6 providers: `decision`, `linked_nodes`, `knowledge`, `graph`, `auto_link`, `system`. Each wrapped in `asyncio.wait_for(...)` (8s timeout) via `run_provider_safe` → a failing provider adds to `providers_failed` + `warnings`, never blocks.
+- `assembler.py` — pipeline: 6 providers → `dedupe_and_conflicts` → `compute_hash` (canonical, redacted, non-system signals only) → semantic groupings (facts/constraints/risks/people/locations/financial/temporal/dependencies).
+- `service.py` — `assemble` (idempotent), `refresh` (force), `latest`, `history`, `get_snapshot`, `is_enabled` (feature flag), `attach_to_decision_context` (no-op adapter).
+
+**Data model** `context_snapshots` (22 keys): `id, user_id, decision_id, decision_version, generated_at, expires_at (+6h), assembler_version, linked_node_ids, signals, facts, constraints, risks, dependencies, people, locations, financial_context, temporal_context, knowledge_versions, freshness, warnings, provenance, redaction_summary, context_hash, conflicts, status`.
+
+**Feature flag** `CONTEXT_ASSEMBLER_ENABLED`:
+- **OFF (default)**: `attach_to_decision_context` is a no-op. Decision Engine ranking byte-stable.
+- **ON**: adapter puts snapshot under `DecisionContext.signals["assembled_context"]`. Ranking still byte-stable (no rule reads that key yet).
+
+**Rules enforced & verified**:
+- 6 providers, each isolated (timeout + try/except) — failure never blocks others.
+- Data minimization by category (fitness excludes finance/home/car; bill allows home/car/subscription/contract/finance).
+- `highly_sensitive` excluded by default.
+- Deduplication by (key, canonical value); most reliable per `SOURCE_RELIABILITY` wins.
+- Conflicts detected (same key + different values) → both kept + `ContextConflict` + `warnings:conflict:<key>`.
+- Idempotence: same `(decision_signature, knowledge_versions, non-system signals)` → identical `context_hash` → reuse existing active snapshot.
+- Supersede-on-change: new hash → new snapshot, old marked `superseded`.
+- Cross-user isolation: 404 on all endpoints for other users. 401 without token.
+- Redaction: sensitive values become `<redacted>` in hash + logs; never leak to `warnings`.
+- Bounded graph traversal (depth ≤ 2), signal cap `MAX_SIGNALS_PER_SNAPSHOT=500`.
+
+**Endpoints** (all under `/api`, all require Bearer token):
+- `POST /context/decisions/{id}/assemble` — idempotent
+- `POST /context/decisions/{id}/refresh` — force new snapshot
+- `GET /context/decisions/{id}/latest`
+- `GET /context/decisions/{id}/history?limit=`
+- `GET /context/snapshots/{id}`
+
 ## API surface
 - `POST /api/auth/register` `POST /api/auth/login` `POST /api/auth/google-session` `GET /api/auth/me` `POST /api/auth/logout`
 - `GET /api/priorities` — top 5 open, sorted by score
