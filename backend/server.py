@@ -25,6 +25,7 @@ from emergentintegrations.llm.chat import LlmChat, UserMessage
 from decision_engine import DecisionService
 from decision_engine.service import build_seed_decisions
 from life_graph import LifeGraphService, NODE_TYPES, RELATION_TYPES
+from knowledge import KnowledgeService, SCHEMAS as KNOWLEDGE_SCHEMAS, schema_for as knowledge_schema_for
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -40,6 +41,7 @@ client = AsyncIOMotorClient(MONGO_URL)
 db = client[DB_NAME]
 decisions = DecisionService(db)
 life_graph = LifeGraphService(db)
+knowledge = KnowledgeService(db)
 
 app = FastAPI(title="ORA API")
 api = APIRouter(prefix="/api")
@@ -149,6 +151,19 @@ class EdgeIn(BaseModel):
 
 class DecisionNodesLinkIn(BaseModel):
     node_ids: List[str]
+
+
+# --- Knowledge Layer ---
+class KnowledgeReplaceIn(BaseModel):
+    properties: Dict[str, Any]
+
+
+class KnowledgeMergeIn(BaseModel):
+    properties: Dict[str, Any]
+
+
+class KnowledgePropertyIn(BaseModel):
+    value: Any = None
 
 
 # ============================================================
@@ -619,6 +634,74 @@ async def unlink_decision_from_node(decision_id: str, node_id: str, user=Depends
 
 
 # ============================================================
+# ROUTES: KNOWLEDGE LAYER (new, isolated module)
+# ============================================================
+@api.get("/knowledge/schemas")
+async def knowledge_schemas():
+    """Public catalog of all node-type schemas."""
+    return {"schemas": KNOWLEDGE_SCHEMAS, "types": sorted(KNOWLEDGE_SCHEMAS.keys())}
+
+
+@api.get("/knowledge/schemas/{node_type}")
+async def knowledge_schema(node_type: str):
+    return {"node_type": node_type, "schema": knowledge_schema_for(node_type)}
+
+
+@api.get("/knowledge/nodes/{node_id}")
+async def get_node_knowledge(node_id: str, user=Depends(get_current_user)):
+    doc = await knowledge.get(user["user_id"], node_id)
+    if doc is None:
+        raise HTTPException(status_code=404, detail="Nodo non trovato")
+    return doc
+
+
+@api.put("/knowledge/nodes/{node_id}")
+async def replace_node_knowledge(node_id: str, body: KnowledgeReplaceIn, user=Depends(get_current_user)):
+    doc = await knowledge.replace(user["user_id"], node_id, body.properties)
+    if doc is None:
+        raise HTTPException(status_code=404, detail="Nodo non trovato")
+    return doc
+
+
+@api.patch("/knowledge/nodes/{node_id}")
+async def merge_node_knowledge(node_id: str, body: KnowledgeMergeIn, user=Depends(get_current_user)):
+    doc = await knowledge.merge(user["user_id"], node_id, body.properties)
+    if doc is None:
+        raise HTTPException(status_code=404, detail="Nodo non trovato")
+    return doc
+
+
+@api.delete("/knowledge/nodes/{node_id}")
+async def clear_node_knowledge(node_id: str, user=Depends(get_current_user)):
+    doc = await knowledge.clear(user["user_id"], node_id)
+    if doc is None:
+        raise HTTPException(status_code=404, detail="Nodo non trovato")
+    return doc
+
+
+@api.put("/knowledge/nodes/{node_id}/properties/{key}")
+async def set_node_property(node_id: str, key: str, body: KnowledgePropertyIn, user=Depends(get_current_user)):
+    doc = await knowledge.set_property(user["user_id"], node_id, key, body.value)
+    if doc is None:
+        raise HTTPException(status_code=404, detail="Nodo non trovato")
+    return doc
+
+
+@api.delete("/knowledge/nodes/{node_id}/properties/{key}")
+async def remove_node_property(node_id: str, key: str, user=Depends(get_current_user)):
+    doc = await knowledge.remove_property(user["user_id"], node_id, key)
+    if doc is None:
+        raise HTTPException(status_code=404, detail="Nodo non trovato")
+    return doc
+
+
+@api.get("/knowledge")
+async def list_all_knowledge(user=Depends(get_current_user)):
+    items = await knowledge.list_for_user(user["user_id"])
+    return {"items": items}
+
+
+# ============================================================
 # ROUTES: MEMORY
 # ============================================================
 @api.post("/memory")
@@ -695,8 +778,11 @@ async def startup():
     await db.life_edges.create_index("id", unique=True)
     await db.life_edges.create_index([("user_id", 1), ("from_node", 1)])
     await db.life_edges.create_index([("user_id", 1), ("to_node", 1)])
+    # Knowledge Layer indexes.
+    await db.node_knowledge.create_index([("user_id", 1), ("node_id", 1)], unique=True)
+    await db.node_knowledge.create_index("id", unique=True, sparse=True)
     await db.memories.create_index([("user_id", 1), ("created_at", -1)])
-    logger.info("ORA backend ready. Decision Engine + Life Graph online.")
+    logger.info("ORA backend ready. Decision Engine + Life Graph + Knowledge Layer online.")
 
 
 @app.on_event("shutdown")
