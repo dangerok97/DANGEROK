@@ -6,6 +6,7 @@ from . import (
     auth,
     auto_link as auto_link_router,
     behavior as behavior_router,
+    behavior_shadow as behavior_shadow_router,
     connectors as connectors_router,
     context as context_router,
     daily as daily_router,
@@ -34,4 +35,5 @@ ALL_ROUTERS = [
     google_calendar_router,
     daily_router.router,
     behavior_router.router,
+    behavior_shadow_router.router,
 ]

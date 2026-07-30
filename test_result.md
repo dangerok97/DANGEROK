@@ -1,4 +1,87 @@
 # ==========================================================
+# ITERAZIONE 17 — Behavior-Aware Decision Engine — Shadow Mode
+# ==========================================================
+iter17:
+  status: DONE
+  module_created: /app/backend/behavior_aware_decisions/
+  files:
+    - __init__.py, types.py, rules.py, scoring.py, service.py, storage.py, audit.py, comparison.py
+  router: /app/backend/routers/behavior_shadow.py (5 GET endpoints)
+  endpoints:
+    - GET /api/behavior-shadow/rules
+    - GET /api/behavior-shadow/decisions/{decision_id}
+    - GET /api/behavior-shadow/evaluations
+    - GET /api/behavior-shadow/stats
+    - GET /api/behavior-shadow/comparison
+  http_methods_rejected: [POST, PUT, DELETE]  # 405 verified
+  feature_flags:
+    BEHAVIOR_PROFILE_ENABLED: false (default)
+    BEHAVIOR_SHADOW_MODE: false (default)
+    both_required_for_activation: true
+  db_collections_added:
+    - behavior_shadow_evaluations   # append-only, unique idempotency_key
+  rules_implemented: 8
+    - preferred_time_alignment (delta positive)
+    - historical_postponement_risk (delta positive)
+    - completion_affinity (delta positive lieve)
+    - low_success_window (delta positive)
+    - quick_win_affinity (delta positive lieve)
+    - category_procrastination (delta positive moderato)
+    - overload_protection (SOLA regola con delta negativo)
+    - deadline_guardrail (marker: clip delta<0 su urgenti/critiche)
+  caps:
+    per_rule: ±3.0
+    total_min: -5.0
+    total_max: +10.0
+    confidence_multipliers: {low: 0, medium: 0.5, high: 1.0}
+  invariants:
+    ranking_applied_always_false: verified
+    effective_score_never_modified: verified (test dedicato)
+    real_ranking_unchanged: kendall_tau=1.0 unchanged_ratio=1.0 (live smoke con flag OFF)
+    zero_ui_changes: verified (frontend intoccato)
+    zero_explainability_changes: verified
+  idempotency: verified via idempotency_key = sha256(user|dec|dec_v|profile_v|ctx|rule_v)
+  tests:
+    file: tests/test_iter17_behavior_aware_shadow.py
+    passed: 13
+    failed: 0
+    coverage:
+      - flags_off_zero_writes
+      - profile_on_shadow_off_no_write
+      - flags_on_persists_evaluation
+      - idempotency
+      - cap_enforcement_math
+      - deadline_guardrail_no_negative_on_urgent
+      - confidence_low_zero_delta
+      - confidence_medium_half_delta
+      - real_score_not_modified
+      - cross_user_isolation
+      - comparison_engine
+      - no_llm_imports_shadow
+      - fail_safe_profile_error
+  regression_check:
+    iter11_action_center: 39/39 pass
+    iter15_behavioral: 13/13 pass
+    iter16_wiring: 5/5 pass
+    iter17_shadow: 13/13 pass
+    total_recent_iters: 70/70 pass
+  live_smoke_flags_off:
+    endpoints_ok: 5/5
+    comparison_kendall_tau: 1.0
+    comparison_unchanged_ratio: 1.0
+    evaluations_persisted_with_zero_delta: yes (idempotenti)
+  files_touched_backend:
+    - routers/__init__.py (register behavior_shadow_router)
+  files_added:
+    - behavior_aware_decisions/* (7 files)
+    - routers/behavior_shadow.py
+    - tests/test_iter17_behavior_aware_shadow.py
+  modules_untouched:
+    - decision_engine, ranking, explainability, daily_intelligence,
+      action_center, google_calendar, life_graph, knowledge, ingestion,
+      token_vault, home, frontend (0 line changes)
+
+# ==========================================================
 # ITERAZIONE 16 — Behavioral Data Integrity & Context Wiring
 # ==========================================================
 # Status: DONE — 18/18 tests iter15+iter16 pass in isolation.
