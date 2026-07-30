@@ -1,3 +1,43 @@
+# ==========================================================
+# ITERAZIONE 13 — Primo collegamento REALE Google Calendar (E2E)
+# ==========================================================
+# Status: DONE — real OAuth completed, 1 real event ingested, all sec checks green
+
+iter13:
+  oauth_completed: true
+  used_fake_provider: false
+  auto_decisions_generated: 0
+  instance_id: "ci_5a58fde78638416b"
+  provider_account_id_hash: "acct_ae02ac2ef80cb65764106283"
+  display_label: "francesconicolocefala@gmail.com"
+  authorized_scopes:
+    - "https://www.googleapis.com/auth/calendar.readonly"
+    - "https://www.googleapis.com/auth/calendar.calendarlist.readonly"
+    - "openid"
+    - "email"
+    - "profile"
+  selected_calendars: ["francesconicolocefala@gmail.com"]
+  sync_window_days: {past: 30, future: 180}
+  sync_run_1: {received: 1, processed: 1, skipped: 0, quarantined: 0, failed: 0}
+  sync_run_2_idempotent: {received: 1, processed: 0, skipped: 1, quarantined: 0, failed: 0}
+  life_graph_calendar_nodes: 1  # "Buon compleanno!" all-day 2026-12-05
+  knowledge_calendar_facts: 1
+  security_checks:
+    zero_secret_leaks_in_logs: true
+    zero_client_secret_in_config_status: true
+    zero_event_title_in_logs: true
+    fake_callback_in_real_mode_404: true
+    cross_user_isolation_404: true
+    unauth_401: true
+    provider_mode: "real"
+    silent_downgrade_to_fake: false
+    token_vault_healthy: true
+    consent_active: true
+  home_ui:
+    calendar_empty_state_hidden: true  # ci sono istanze
+    daily_today_reflects_real_data: true  # 0 eventi oggi = calendar reale ha 0 eventi oggi
+    no_demo_data_shown: true  # demo decision seed rimangono ma sono voluti dal seed utente demo
+
 #====================================================================================================
 # START - Testing Protocol - DO NOT EDIT OR REMOVE THIS SECTION
 #====================================================================================================
