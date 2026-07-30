@@ -1,4 +1,95 @@
 # ==========================================================
+# ITERAZIONE 14 — Real User Onboarding & Calendar UX
+# ==========================================================
+# Status: DONE — testing agent ALL PASS, zero bugs, zero regressions
+
+iter14:
+  refactor:
+    index_tsx_lines_before: 1155
+    index_tsx_lines_after: 348
+    extracted_components:
+      - /app/frontend/src/components/home/HomeHeader.tsx (Header + SyncMeta + Offline/Error banners)
+      - /app/frontend/src/components/home/FocusNowCard.tsx
+      - /app/frontend/src/components/home/DailySummaryCard.tsx
+      - /app/frontend/src/components/home/LaterList.tsx
+      - /app/frontend/src/components/home/EmptyFocus.tsx
+      - /app/frontend/src/components/home/CalendarConnectionCard.tsx  # NEW — A/B/C states
+      - /app/frontend/src/components/sheets/Sheet.tsx (base wrapper)
+      - /app/frontend/src/components/sheets/DecisionSheets.tsx (Why/Daily/Confirm/Partial/Postpone/Reason/More/History)
+      - /app/frontend/src/components/ui/ActionBtn.tsx
+    utilities_added:
+      - /app/frontend/src/utils/errors.ts (humanizeError translation IT)
+    behavior_preserved: true
+
+  new_screens:
+    - /app/frontend/app/manage-calendars.tsx  # checkbox list, save selection
+    - /app/frontend/app/settings.tsx          # Account collegati: sync/manage/disconnect
+    - /app/frontend/app/how-it-works.tsx      # 4-step onboarding explainer
+
+  home_intelligence:
+    state_A_hero:
+      title: "Collega il tuo Google Calendar"
+      subtitle: "ORA può capire automaticamente i tuoi impegni e aiutarti a organizzare la giornata."
+      cta_primary: "Continua con Google"
+      cta_secondary: "Scopri come funziona"
+      tech_words_exposed: 0
+    state_B_never_synced: "Google Calendar collegato. Premi Sincronizza per importare i tuoi eventi."
+    state_C_synced: hidden_from_home  # replaced by DailySummaryCard per spec §6
+
+  sync_ux:
+    progressive_steps: [Connessione, Importazione eventi, Aggiornamento ORA, Completato]
+    haptic_feedback: differentiated (medium on start, success on done, error on fail)
+    inline_result: "N nuovi · M già presenti"
+
+  error_ux:
+    - humanizeError() translates status/detail/OAuth codes to Italian human messages
+    - never exposes: OAuth, Connector, Token, redirect_uri_mismatch, 401/403/404, GOCSPX, state, code
+    - contextual overrides per action (connect, sync, select, calendars, revoke)
+
+  api_client_extended:
+    - googleCalendarOAuthStart
+    - googleCalendarCalendars
+    - googleCalendarSelectCalendars
+    - googleCalendarSync
+    - googleCalendarInstanceStatus
+    - googleCalendarRevoke
+
+  testing_agent_summary:
+    outcome: ALL_PASS
+    regressions: 0
+    console_errors: 0
+    tech_word_leaks_in_dom: 0
+    checks:
+      state_A_hero_render: PASS
+      how_it_works_4steps: PASS
+      btn_connect_google_calls_start: PASS
+      state_C_demo_hides_calendar_cards: PASS
+      settings_meta_grid: PASS
+      manage_calendars_toggle_and_save: PASS
+      confirm_revoke_dialog_safe_cancel: PASS
+      iter12_regression: PASS
+      offline_banner: PASS
+      responsive_mobile_tablet_desktop: PASS
+      dark_mode_new_screens: PASS
+      touch_target_min_44: PASS
+      pull_to_refresh: PASS
+
+  files_changed:
+    - /app/frontend/app/(tabs)/index.tsx (refactor)
+    - /app/frontend/app/(tabs)/profilo.tsx (added Impostazioni row)
+    - /app/frontend/src/api/client.ts (extended endpoints + types)
+  files_added:
+    - /app/frontend/app/manage-calendars.tsx
+    - /app/frontend/app/settings.tsx
+    - /app/frontend/app/how-it-works.tsx
+    - /app/frontend/src/components/home/*.tsx (6 files)
+    - /app/frontend/src/components/sheets/Sheet.tsx
+    - /app/frontend/src/components/sheets/DecisionSheets.tsx
+    - /app/frontend/src/components/ui/ActionBtn.tsx
+    - /app/frontend/src/utils/errors.ts
+  files_unchanged_backend: all backend files untouched  # constraint respected
+
+# ==========================================================
 # ITERAZIONE 13 — Primo collegamento REALE Google Calendar (E2E)
 # ==========================================================
 # Status: DONE — real OAuth completed, 1 real event ingested, all sec checks green
