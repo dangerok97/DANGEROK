@@ -1,4 +1,68 @@
 # ==========================================================
+# ITERAZIONE 16 — Behavioral Data Integrity & Context Wiring
+# ==========================================================
+# Status: DONE — 18/18 tests iter15+iter16 pass in isolation.
+
+iter16:
+  fixes:
+    - timezone_aware_metrics: hour/weekday buckets now use ORA_DEFAULT_TZ (default Europe/Rome)
+    - sessionization: open + refresh + close events grouped in sessions with 30-min gap; avg_session_minutes now computed
+    - test_iter9_j1_real_mode_without_creds_is_503: monkeypatch.setenv(GOOGLE_OAUTH_CLIENT_ID/SECRET, "") to force empty creds regardless of .env
+    - test_iter9_email_collisions_in_xdist: TS uses uuid.uuid4() suffix instead of int(time.time())
+  context_assembler_wiring:
+    provider_registered: behavior_profile
+    module: /app/backend/context_assembler/behavior_provider.py
+    flag_off:
+      signals: 0
+      context_hash_stable: verified (hash1 == hash2 across two calls)
+      providers_run_lists_provider: true
+    flag_on:
+      signals: 1 (key=behavior.profile)
+      context_hash_changes_deterministically: verified
+      extra_signal_key: behavior.profile
+      other_signals_unchanged: verified
+  regression_guarantees:
+    ranking_untouched: true
+    decision_engine_untouched: true
+    explainability_untouched: true
+    daily_intelligence_untouched: true
+    action_center_untouched: true
+    google_calendar_untouched: true
+    token_vault_untouched: true
+  tests:
+    file: tests/test_iter16_wiring_and_integrity.py
+    passed: 5
+    failed: 0
+    coverage:
+      - timezone_bucket_uses_local_tz
+      - sessionization_pairs_open_and_refresh
+      - context_hash_stable_when_flag_off
+      - context_hash_changes_when_flag_on
+      - flag_on_does_not_write_to_decisions_collection
+  iter15_regression: 13/13 pass (unchanged)
+  iter11_regression: 39/39 pass (unchanged)
+  iter10_regression: 27/27 pass (unchanged)
+  iter9_regression: 25/25 pass (FIXED — was 22/25 with 3 fails/errors due to real OAuth creds in .env)
+  live_hash_stability_smoke:
+    off_hash1: "2e281769004e1cdb"
+    off_hash2: "2e281769004e1cdb"
+    on_hash:   "fdafa0b7bdeae482"
+    off_stable: true
+    on_diff: true
+    extra_key_on: [behavior.profile]
+  files_touched_backend:
+    - behavioral_intelligence/metrics.py     # tz-aware buckets + sessionization
+    - context_assembler/assembler.py         # register behavior_profile provider (10th)
+    - context_assembler/behavior_provider.py # NEW: strict no-op when flag off
+    - tests/test_iter9_ingestion_and_google_calendar.py  # fix pre-existing regressions
+  files_added:
+    - tests/test_iter16_wiring_and_integrity.py
+
+  next_iteration_gate:
+    behavior_aware_decision_engine_shadow_mode: PENDING  # not implemented in iter16
+    guardrail: any future iteration must keep BEHAVIOR_PROFILE_ENABLED=false gating priority modifications
+
+# ==========================================================
 # ITERAZIONE 15 — Behavioral Intelligence Engine
 # ==========================================================
 # Status: DONE — 13/13 iter15 tests PASS, provider silent by default,

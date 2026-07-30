@@ -4,11 +4,20 @@ Reads events from the append-only timeline and aggregates them into a
 ``BehaviorMetrics`` snapshot. All calculations are deterministic and O(N)
 on the events retrieved (bounded by the window). Older snapshots stay in
 the collection for auditability.
+
+Timezone handling
+-----------------
+Hour/weekday buckets are computed in the *user's local timezone*, taken
+from the ``ORA_DEFAULT_TZ`` environment variable (default
+``Europe/Rome``). This makes the "morning completer" pattern meaningful
+regardless of DST or how UTC-shifted the timestamps are.
 """
 from __future__ import annotations
 
+import os
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from .confidence import classify
 from .storage import BehavioralStorage
@@ -21,6 +30,14 @@ from .types import (
 )
 
 
+def _local_tz() -> ZoneInfo:
+    tz_name = os.environ.get("ORA_DEFAULT_TZ", "Europe/Rome")
+    try:
+        return ZoneInfo(tz_name)
+    except ZoneInfoNotFoundError:
+        return ZoneInfo("UTC")
+
+
 DECISION_EVENTS = {
     BehavioralEventType.DECISION_STARTED.value,
     BehavioralEventType.DECISION_COMPLETED.value,
@@ -30,14 +47,15 @@ DECISION_EVENTS = {
     BehavioralEventType.DECISION_DISMISSED.value,
 }
 
-
-def _hour_of(dt: datetime) -> int:
-    return int(dt.astimezone(timezone.utc).hour)
+SESSION_GAP_MINUTES = 30  # events farther apart start a new session
 
 
-def _weekday_of(dt: datetime) -> int:
-    # Monday=0
-    return int(dt.astimezone(timezone.utc).weekday())
+def _hour_of(dt: datetime, tz: ZoneInfo) -> int:
+    return int(dt.astimezone(tz).hour)
+
+
+def _weekday_of(dt: datetime, tz: ZoneInfo) -> int:
+    return int(dt.astimezone(tz).weekday())
 
 
 class MetricsBuilder:
@@ -45,6 +63,7 @@ class MetricsBuilder:
         self._store = storage
 
     async def compute(self, user_id: str, *, window_days: int = 60) -> BehaviorMetrics:
+        tz = _local_tz()
         now = datetime.now(timezone.utc)
         since = now - timedelta(days=window_days)
         # Pull decision & app-open & sync events for the window (bounded).
@@ -63,6 +82,8 @@ class MetricsBuilder:
 
         by_id: Dict[str, List[Dict[str, Any]]] = {}
         opens: List[datetime] = []
+        closes: List[datetime] = []
+        refreshes: List[datetime] = []
         completions_by_hour: Dict[int, int] = {}
         completions_by_weekday: Dict[int, int] = {}
         postpones_by_hour: Dict[int, int] = {}
@@ -94,12 +115,12 @@ class MetricsBuilder:
                 n_started += 1
             elif etype == BehavioralEventType.DECISION_COMPLETED.value:
                 n_completed += 1
-                h = _hour_of(occurred); w = _weekday_of(occurred)
+                h = _hour_of(occurred, tz); w = _weekday_of(occurred, tz)
                 completions_by_hour[h] = completions_by_hour.get(h, 0) + 1
                 completions_by_weekday[w] = completions_by_weekday.get(w, 0) + 1
             elif etype == BehavioralEventType.DECISION_POSTPONED.value:
                 n_postponed += 1
-                h = _hour_of(occurred); w = _weekday_of(occurred)
+                h = _hour_of(occurred, tz); w = _weekday_of(occurred, tz)
                 postpones_by_hour[h] = postpones_by_hour.get(h, 0) + 1
                 postpones_by_weekday[w] = postpones_by_weekday.get(w, 0) + 1
             elif etype == BehavioralEventType.DECISION_PARTIAL.value:
@@ -111,6 +132,10 @@ class MetricsBuilder:
             elif etype == BehavioralEventType.FIRST_APP_OPEN_TODAY.value:
                 opens.append(occurred)
                 last_open_at = max(last_open_at, occurred) if last_open_at else occurred
+            elif etype == BehavioralEventType.LAST_APP_CLOSE.value:
+                closes.append(occurred)
+            elif etype == BehavioralEventType.MANUAL_REFRESH.value:
+                refreshes.append(occurred)
             elif etype == BehavioralEventType.CALENDAR_SYNC.value:
                 calendar_syncs += 1
             elif etype == BehavioralEventType.CALENDAR_EVENT_IMPORTED.value:
@@ -140,11 +165,27 @@ class MetricsBuilder:
         def _avg(xs: List[float]) -> Optional[float]:
             return round(sum(xs) / len(xs), 2) if xs else None
 
-        # --- avg first-open local hour (UTC-based here; local TZ mapping is
-        # a future enhancement — recorded in metadata but not applied).
+        # --- avg first-open local hour (uses configured local timezone).
         avg_first_hour = None
         if opens:
-            avg_first_hour = round(sum(_hour_of(t) for t in opens) / len(opens), 2)
+            avg_first_hour = round(sum(_hour_of(t, tz) for t in opens) / len(opens), 2)
+
+        # --- Sessionization: chain first_open + refresh + close events into
+        # per-session windows. A gap > SESSION_GAP_MINUTES separates sessions.
+        activity_events = sorted(opens + refreshes + closes)
+        sessions: List[float] = []  # minutes
+        if activity_events:
+            session_start = activity_events[0]
+            session_last = activity_events[0]
+            for t in activity_events[1:]:
+                if (t - session_last).total_seconds() / 60.0 > SESSION_GAP_MINUTES:
+                    sessions.append((session_last - session_start).total_seconds() / 60.0)
+                    session_start = t
+                session_last = t
+            sessions.append((session_last - session_start).total_seconds() / 60.0)
+        # Filter zero-duration sessions (single tap) → cap at reasonable value
+        sessions = [s for s in sessions if 0 <= s <= 60 * 8]
+        avg_session_minutes = round(sum(sessions) / len(sessions), 2) if sessions else None
 
         decisions_touched = n_completed + n_postponed + n_dismissed + n_blocked + n_partial
         sample = max(n_started, decisions_touched, len(opens))
@@ -162,8 +203,8 @@ class MetricsBuilder:
             window_days=window_days,
             confidence=conf,
             daily_openings=len(opens),
-            total_sessions=len(opens),
-            avg_session_minutes=None,  # sessions require app-close pairing; kept None until reliably observable
+            total_sessions=len(sessions) if sessions else len(opens),
+            avg_session_minutes=avg_session_minutes,
             last_open_at=last_open_at,
             avg_first_open_local_hour=avg_first_hour,
             decisions_started=n_started,

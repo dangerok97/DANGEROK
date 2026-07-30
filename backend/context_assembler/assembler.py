@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Tuple
 from .calendar_provider import calendar_provider
 from .daily_summary_provider import daily_summary_provider
 from .permissions_provider import permissions_provider
+from .behavior_provider import behavior_profile_provider as _behavior_signals
 from .providers import (
     auto_link_provider,
     decision_provider,
@@ -169,7 +170,12 @@ async def assemble_pipeline(repo, user_id: str, decision: Dict[str, Any], *, all
     # metadata (no titles).
     p_daily = await run_provider_safe(daily_summary_provider(repo.db, user_id), "daily_summary")
 
-    all_results = [p_decision, p_linked, p_know, p_graph, p_auto, p_system, p_perms, p_cal, p_daily]
+    # Provider 10 (Behavior Profile) — feature-flagged (BEHAVIOR_PROFILE_ENABLED).
+    # OFF by default → strict no-op (zero signals, zero DB reads).
+    # NEVER modifies ranking, Decision Engine or Explainability.
+    p_bhv = await run_provider_safe(_behavior_signals(repo.db, user_id), "behavior_profile")
+
+    all_results = [p_decision, p_linked, p_know, p_graph, p_auto, p_system, p_perms, p_cal, p_daily, p_bhv]
 
     # Merge signals, cap total.
     raw_signals: List[Signal] = []

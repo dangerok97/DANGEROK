@@ -38,7 +38,7 @@ import server  # noqa: E402  (must import AFTER env setup)
 from connectors.google_calendar.provider import get_fake_provider  # noqa: E402
 from context_assembler import ASSEMBLER_VERSION  # noqa: E402
 
-TS = int(time.time())
+TS = f"{int(time.time())}_{uuid.uuid4().hex[:6]}"
 
 
 @pytest.fixture(scope="module")
@@ -419,6 +419,10 @@ class TestI_LatestEndpointStillWorks:
 class TestJ_VaultAndConfigGuards:
     def test_j1_real_mode_without_creds_is_503(self, client, user_a, monkeypatch):
         monkeypatch.setenv("CALENDAR_PROVIDER_MODE", "real")
+        # Iter16: previous iterations may have populated real OAuth creds in .env.
+        # Force them empty for this specific check so the guard is exercised.
+        monkeypatch.setenv("GOOGLE_OAUTH_CLIENT_ID", "")
+        monkeypatch.setenv("GOOGLE_OAUTH_CLIENT_SECRET", "")
         r = client.post("/api/connectors/google-calendar/oauth/start", headers=h(user_a), json={})
         assert r.status_code == 503
         assert r.json()["detail"]["error"] == "provider_not_configured"
