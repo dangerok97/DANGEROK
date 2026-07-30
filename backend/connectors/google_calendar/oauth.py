@@ -24,7 +24,7 @@ GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 GOOGLE_REVOKE_URL = "https://oauth2.googleapis.com/revoke"
 GOOGLE_USERINFO_URL = "https://openidconnect.googleapis.com/v1/userinfo"
 
-STATE_TTL_MINUTES = 10
+STATE_TTL_MINUTES = 30
 
 
 class OAuthConfigError(Exception):
