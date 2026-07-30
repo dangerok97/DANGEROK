@@ -10,7 +10,10 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.emergent.oradecisionengine.b7escs"
+      "bundleIdentifier": "com.emergent.oradecisionengine.b7escs",
+      "infoPlist": {
+        "NSCalendarsFullAccessUsageDescription": "Legge i tuoi eventi per aiutarti a organizzare la giornata."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -27,6 +30,12 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "Leggi gli eventi del tuo calendario per organizzare la giornata."
+        }
+      ],
       [
         "expo-splash-screen",
         {

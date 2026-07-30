@@ -1,4 +1,5 @@
 """ORA modular routers. Each domain owns its own router file."""
+from connectors.apple_calendar import apple_calendar_router
 from connectors.google_calendar import google_calendar_router
 
 from . import (
@@ -33,6 +34,7 @@ ALL_ROUTERS = [
     connectors_router.router,
     ingestion_router.router,
     google_calendar_router,
+    apple_calendar_router,
     daily_router.router,
     behavior_router.router,
     behavior_shadow_router.router,

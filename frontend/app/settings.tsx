@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
-  View, Text, StyleSheet, Pressable, ScrollView, ActivityIndicator,
+  View, Text, StyleSheet, Pressable, ScrollView, ActivityIndicator, Platform,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 
 import { tokens } from '@/src/theme/tokens';
-import { api, ConnectorInstance } from '@/src/api/client';
+import { api, ConnectorInstance, AppleCalendarConfigStatus } from '@/src/api/client';
 import { humanizeError } from '@/src/utils/errors';
 import { haptic } from '@/src/utils/haptic';
 import { ActionBtn } from '@/src/components/ui/ActionBtn';
@@ -18,21 +18,30 @@ export default function SettingsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [instance, setInstance] = useState<ConnectorInstance | null>(null);
+  const [appleConfig, setAppleConfig] = useState<AppleCalendarConfigStatus | null>(null);
+  const [appleInstance, setAppleInstance] = useState<ConnectorInstance | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirmRevoke, setConfirmRevoke] = useState(false);
+  const [confirmAppleRevoke, setConfirmAppleRevoke] = useState(false);
   const [eventsCount, setEventsCount] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
     try {
-      const [r, daily] = await Promise.all([
+      const [r, daily, aConfig, aInstances] = await Promise.all([
         api.googleCalendarInstances(),
         api.dailyToday().catch(() => null),
+        // Only iOS shows Apple settings — but we still fetch config to
+        // learn the feature-flag state (nothing shown if disabled).
+        Platform.OS === 'ios' ? api.appleCalendarConfig().catch(() => null) : Promise.resolve(null),
+        Platform.OS === 'ios' ? api.appleCalendarInstances().catch(() => ({ items: [] as ConnectorInstance[] })) : Promise.resolve({ items: [] as ConnectorInstance[] }),
       ]);
       setInstance((r.items || [])[0] || null);
       setEventsCount(daily?.total_events ?? null);
+      setAppleConfig(aConfig);
+      setAppleInstance((aInstances?.items || [])[0] || null);
     } catch (e: any) {
       setError(humanizeError(e));
     } finally {
@@ -68,6 +77,24 @@ export default function SettingsScreen() {
       await api.googleCalendarRevoke(instance.id);
       haptic('success');
       setConfirmRevoke(false);
+      await load();
+    } catch (e: any) {
+      haptic('error');
+      setError(humanizeError(e, 'revoke'));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const onAppleDisconnect = async () => {
+    if (!appleInstance) return;
+    haptic('warning');
+    setBusy('apple_revoke');
+    setError(null);
+    try {
+      await api.appleCalendarDisconnect(appleInstance.id);
+      haptic('success');
+      setConfirmAppleRevoke(false);
       await load();
     } catch (e: any) {
       haptic('error');
@@ -207,6 +234,16 @@ export default function SettingsScreen() {
             </View>
           </Animated.View>
         )}
+
+        {/* Apple Calendar row — iOS only, feature-flag gated */}
+        {Platform.OS === 'ios' && appleConfig?.enabled ? (
+          <AppleCalendarSection
+            instance={appleInstance}
+            onConnect={() => { haptic('tap'); router.push('/connect-apple-calendar'); }}
+            onDisconnect={() => { haptic('warning'); setConfirmAppleRevoke(true); }}
+            busy={busy}
+          />
+        ) : null}
       </ScrollView>
 
       {/* Confirm revoke */}
@@ -231,7 +268,104 @@ export default function SettingsScreen() {
           </Animated.View>
         </View>
       ) : null}
+      {/* Confirm revoke Apple */}
+      {confirmAppleRevoke ? (
+        <View style={styles.overlay}>
+          <Animated.View entering={FadeInDown.duration(220)} style={styles.confirmCard} testID="confirm-apple-revoke">
+            <Text style={styles.confirmTitle}>Vuoi davvero disconnettere Apple Calendar?</Text>
+            <Text style={styles.confirmBody}>
+              ORA smetterà di ricevere eventi dall{'\''}iPhone. Potrai ricollegarlo quando vuoi.
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+              <ActionBtn label="Annulla" icon="close" onPress={() => setConfirmAppleRevoke(false)} disabled={busy === 'apple_revoke'} />
+              <ActionBtn
+                variant="danger"
+                icon="unlink"
+                label="Disconnetti"
+                onPress={onAppleDisconnect}
+                loading={busy === 'apple_revoke'}
+                testID="btn-confirm-apple-revoke"
+              />
+            </View>
+          </Animated.View>
+        </View>
+      ) : null}
     </SafeAreaView>
+  );
+}
+
+function AppleCalendarSection({
+  instance, onConnect, onDisconnect, busy,
+}: {
+  instance: ConnectorInstance | null;
+  onConnect: () => void;
+  onDisconnect: () => void;
+  busy: string | null;
+}) {
+  if (!instance || instance.status === 'revoked') {
+    return (
+      <Animated.View entering={FadeInDown.duration(220)} style={styles.card} testID="apple-cal-empty">
+        <View style={styles.cardHead}>
+          <View style={styles.iconWrap}>
+            <Ionicons name="logo-apple" size={18} color={tokens.color.onSurface} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.cardTitle}>Apple Calendar</Text>
+            <Text style={styles.cardMeta}>Collega il calendario del tuo iPhone/iPad tramite EventKit.</Text>
+          </View>
+        </View>
+        <View style={styles.actionsRow}>
+          <ActionBtn
+            primary
+            icon="link-outline"
+            label={instance?.status === 'revoked' ? 'Ricollega' : 'Collega Apple Calendar'}
+            onPress={onConnect}
+            testID="btn-connect-apple"
+          />
+        </View>
+      </Animated.View>
+    );
+  }
+  return (
+    <Animated.View entering={FadeInDown.duration(220)} style={styles.card} testID="apple-cal-connected">
+      <View style={styles.cardHead}>
+        <View style={styles.iconWrap}>
+          <Ionicons name="logo-apple" size={18} color={tokens.color.onSurface} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.cardTitle}>Apple Calendar</Text>
+          {instance.display_label ? (
+            <Text style={styles.cardMeta}>{instance.display_label}</Text>
+          ) : null}
+        </View>
+        <View style={styles.statusPill}>
+          <View style={styles.statusDot} />
+          <Text style={styles.statusText}>Collegato</Text>
+        </View>
+      </View>
+      <View style={styles.metaGrid}>
+        <MetaItem
+          label="Ultima sincronizzazione"
+          value={instance.last_sync_at ? formatRelativeAgo(new Date(instance.last_sync_at)) : 'Mai'}
+        />
+        <MetaItem label="Calendari" value={String(instance.selected_resource_ids?.length || 0)} />
+      </View>
+      <View style={styles.actionsRow}>
+        <ActionBtn
+          icon="sync"
+          label="Sincronizza di nuovo"
+          onPress={onConnect}
+        />
+        <ActionBtn
+          variant="danger"
+          icon="unlink-outline"
+          label="Disconnetti"
+          onPress={onDisconnect}
+          disabled={busy === 'apple_revoke'}
+          testID="btn-apple-revoke"
+        />
+      </View>
+    </Animated.View>
   );
 }
 

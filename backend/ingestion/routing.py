@@ -23,6 +23,7 @@ import re
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 
+from .cross_provider import compute_content_key
 from .types import CalendarEventNormalized, RoutingActions
 
 logger = logging.getLogger("ora.ingestion.routing")
@@ -100,8 +101,17 @@ class CalendarEventRouter:
                 "attributes.canonical_key": canonical_key,
                 "status": "active",
             },
-            {"_id": 0, "id": 1},
+            {"_id": 0, "id": 1, "attributes": 1},
         )
+
+        # Preserve cross-provider bookkeeping when updating an existing
+        # node so `mirrored_sources` is never wiped by a routine sync.
+        preserved_mirrored: list = []
+        preserved_provider_primary: Optional[str] = None
+        if existing_node:
+            _ea = existing_node.get("attributes") or {}
+            preserved_mirrored = list(_ea.get("mirrored_sources") or [])
+            preserved_provider_primary = _ea.get("provider_primary")
 
         node_attrs = {
             "canonical_key": canonical_key,
@@ -115,7 +125,17 @@ class CalendarEventRouter:
             "location": event.location.value if event.location else None,
             "connector_id": connector_id,
             "connector_instance_id": connector_instance_id,
+            "provider_primary": preserved_provider_primary or connector_id,
             "source_hash": event.source_hash,
+            "content_key": compute_content_key(
+                user_id=user_id,
+                title=title,
+                starts_at=event.starts_at.value if event.starts_at else None,
+                ends_at=event.ends_at.value if event.ends_at else None,
+                location=event.location.value if event.location else None,
+                all_day=event.all_day,
+            ),
+            "mirrored_sources": preserved_mirrored,
         }
 
         if existing_node:

@@ -54,6 +54,7 @@ _permissions_service = None
 _connectors_service = None
 _ingestion_service = None
 _google_calendar_service = None
+_apple_calendar_service = None
 _token_vault = None
 _daily_summary_service = None
 _explanation_service = None
@@ -109,6 +110,18 @@ def get_google_calendar_service():
             vault=get_token_vault(),
         )
     return _google_calendar_service
+
+
+def get_apple_calendar_service():
+    global _apple_calendar_service
+    if _apple_calendar_service is None:
+        from connectors.apple_calendar import AppleCalendarService
+        _apple_calendar_service = AppleCalendarService(
+            db=db,
+            permissions=get_permissions_service(),
+            ingestion=get_ingestion_service(),
+        )
+    return _apple_calendar_service
 
 
 def get_daily_summary_service():

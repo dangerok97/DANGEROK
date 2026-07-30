@@ -3,6 +3,11 @@
 Generic ingest → normalize → dedupe → route → process pipeline.
 No connector-specific logic lives here; sources plug into it.
 """
+from .cross_provider import (
+    CrossProviderDedupService,
+    CrossProviderMatch,
+    compute_content_key,
+)
 from .service import IngestionService
 from .types import (
     INGESTION_STATUS_DEDUPLICATED,
@@ -22,6 +27,9 @@ from .types import (
 
 __all__ = [
     "IngestionService",
+    "CrossProviderDedupService",
+    "CrossProviderMatch",
+    "compute_content_key",
     "CalendarEventNormalized",
     "IngestionOutcome",
     "RoutedEntity",

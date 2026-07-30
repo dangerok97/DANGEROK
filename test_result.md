@@ -1,4 +1,84 @@
 # ==========================================================
+# ITERAZIONE 18 — Apple Calendar Connector (EventKit / iPhone-iPad)
+# ==========================================================
+iter18:
+  status: DONE (backend + frontend), TESTING FINALE PENDENTE SU IPHONE FISICO (EAS)
+  packages_added:
+    - expo-calendar@15.0.8 (via `yarn expo install`)
+  backend:
+    module_created: /app/backend/connectors/apple_calendar/
+    files:
+      - __init__.py, scopes.py, normalizer.py, service.py, router.py
+    ingestion_extensions:
+      - /app/backend/ingestion/cross_provider.py (nuovo — first-write-wins dedup)
+      - /app/backend/ingestion/routing.py (stampa content_key + provider_primary + mirrored_sources)
+    router: /app/backend/routers/__init__.py (aggiunto apple_calendar_router)
+    endpoints:
+      - GET  /api/connectors/apple-calendar/config-status
+      - POST /api/connectors/apple-calendar/connect
+      - GET  /api/connectors/apple-calendar/instances
+      - GET  /api/connectors/apple-calendar/instances/{id}
+      - GET  /api/connectors/apple-calendar/instances/{id}/status
+      - POST /api/connectors/apple-calendar/instances/{id}/select-calendars
+      - POST /api/connectors/apple-calendar/instances/{id}/sync
+      - POST /api/connectors/apple-calendar/instances/{id}/disconnect
+    feature_flag: APPLE_CALENDAR_ENABLED=false (default)
+    connector_id: calendar_apple
+    capability_id: calendar.read (già esistente, riutilizzata)
+    cross_provider_dedup:
+      strategy: first-write-wins
+      content_key: sha256(user_id + title_norm + starts_at + ends_at + location_norm + all_day)
+      match_criteria: strict (esatto, no fuzzy)
+      primary_never_overwritten: true
+      mirrored_sources_on_node: {provider, source_id, connector_instance_id, calendar_id, external_id, source_hash, first_seen_at, last_seen_at}
+      disconnect_behavior: pull mirrored_sources dell'istanza revocata, primary node preservato
+      promotion_from_mirrored: implementata (mirrored → primary quando primary revocato) in cross_provider.promote_from_mirrored
+    tests_created: /app/backend/tests/test_iter18_apple_calendar_connector.py
+    tests_count: 13
+    tests_result: 13/13 PASSED (isolated + con iter15/16/17)
+    tests_coverage:
+      A_feature_flag: 2 tests (503 quando off, config_status)
+      B_connect: 3 tests (crea instance, ownership isolation, status)
+      C_sync_happy: 2 tests (life_node creato, idempotenza)
+      D_cross_provider_dedup: 3 tests (Google→Apple, Apple→Google, content_key stabile)
+      E_quarantine: 2 tests (id mancante, times mancanti)
+      F_disconnect: 1 test (revoke + detach mirrored)
+  frontend:
+    files_created:
+      - /app/frontend/src/utils/apple-calendar.ts (wrapper platform-safe di expo-calendar con mock DEV per Web/Expo Go)
+      - /app/frontend/app/connect-apple-calendar.tsx (flow completo: intro → permessi → select → sync → done)
+    files_modified:
+      - /app/frontend/src/api/client.ts (aggiunta appleCalendarConfig/Instances/Connect/Sync/Disconnect + types)
+      - /app/frontend/app/settings.tsx (aggiunta AppleCalendarSection con render condizionale Platform.OS === 'ios' && appleConfig?.enabled)
+      - /app/frontend/app.json (permesso NSCalendarsFullAccessUsageDescription + plugin expo-calendar)
+    ui_flow:
+      1_intro: pre-permission explanation con bullets "Solo lettura / I dati restano tuoi / Zero duplicati"
+      2_permission: richiesta contestuale, handling granted/denied/blocked con Linking.openSettings()
+      3_select: multi-check calendari (default: tutti selezionati)
+      4_sync: chunked upload (200 eventi/batch), progress card
+      5_done: sommario (Eventi importati / Già presenti / Aggiornati / Ignorati)
+    conditional_visibility_rules:
+      ios_ipados: mostra Apple Calendar row
+      android: NASCONDE completamente (nessun placeholder)
+      web: NASCONDE completamente
+      feature_flag_off: NASCONDE anche su iOS
+    mock_mode:
+      env_var: EXPO_PUBLIC_APPLE_CALENDAR_MOCK=1 (solo DEV, per validazione UI su Web/Expo Go)
+      real_ios_behavior: bypass mock, chiamate EventKit dirette anche se mock è attivo
+      production_default: mock DISATTIVATO (variabile assente in .env)
+  validation_done_by_agent:
+    - screenshot: intro/select/done UI verificati su Web con MOCK_ENABLED=1
+    - end_to_end: connect → readEvents (mock 5 events) → sync → done card mostra "Eventi importati 5"
+    - platform_gating: verificato che su Web (non-iOS) la riga Apple Calendar in /settings è NASCOSTA
+    - unsupported_banner: verificato su Web che /connect-apple-calendar mostra banner "Solo iPhone e iPad"
+  cleanup_done:
+    - MOCK env rimosso da /app/frontend/.env
+    - APPLE_CALENDAR_ENABLED riportato a false in /app/backend/.env
+  ios_native_validation: PENDENTE (richiede EAS build su iPhone fisico — checklist consegnata a utente)
+  regression_status: nessuna regressione. Test iter9/10/11/15/16/17 continuano a passare in isolamento.
+
+
+# ==========================================================
 # ITERAZIONE 17 — Behavior-Aware Decision Engine — Shadow Mode
 # ==========================================================
 iter17:

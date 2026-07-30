@@ -185,6 +185,34 @@ export const api = {
       `/connectors/google-calendar/instances/${instanceId}/revoke`,
       { method: 'POST' },
     ),
+
+  // Apple Calendar connector (EventKit — iOS/iPadOS only)
+  appleCalendarConfig: () =>
+    request<AppleCalendarConfigStatus>('/connectors/apple-calendar/config-status'),
+  appleCalendarInstances: () =>
+    request<{ items: ConnectorInstance[] }>('/connectors/apple-calendar/instances'),
+  appleCalendarConnect: (body: AppleCalendarConnectPayload) =>
+    request<{ ok: boolean; instance: ConnectorInstance }>(
+      '/connectors/apple-calendar/connect',
+      { method: 'POST', body: JSON.stringify(body) },
+    ),
+  appleCalendarSelectCalendars: (instanceId: string, calendar_ids: string[]) =>
+    request<ConnectorInstance>(
+      `/connectors/apple-calendar/instances/${instanceId}/select-calendars`,
+      { method: 'POST', body: JSON.stringify({ calendar_ids }) },
+    ),
+  appleCalendarSync: (instanceId: string, events: AppleRawEvent[]) =>
+    request<AppleCalendarSyncResult>(
+      `/connectors/apple-calendar/instances/${instanceId}/sync`,
+      { method: 'POST', body: JSON.stringify({ events }) },
+    ),
+  appleCalendarStatus: (instanceId: string) =>
+    request<any>(`/connectors/apple-calendar/instances/${instanceId}/status`),
+  appleCalendarDisconnect: (instanceId: string) =>
+    request<{ ok: boolean; instance: ConnectorInstance; detached_mirrored_nodes: number }>(
+      `/connectors/apple-calendar/instances/${instanceId}/disconnect`,
+      { method: 'POST' },
+    ),
 };
 
 // Extra types
@@ -314,4 +342,71 @@ export type GoogleCalendarConfigStatus = {
   provider_ready: boolean;
   missing_requirements: string[];
   environment: string;
+};
+
+// --- Apple Calendar (EventKit) types ---
+export type AppleCalendarConfigStatus = {
+  enabled: boolean;
+  connector_id: string;
+  capability_id: string;
+  requires_native_build: boolean;
+  platforms: string[];
+  environment: string;
+  notes?: string;
+};
+
+export type AppleCalendarInfo = {
+  id: string;
+  title?: string | null;
+  color?: string | null;
+  allowsModifications?: boolean;
+  source?: string | null;
+};
+
+export type AppleCalendarConnectPayload = {
+  device_id: string;
+  device_name?: string | null;
+  platform?: 'ios' | 'ipados' | null;
+  calendars?: AppleCalendarInfo[];
+};
+
+export type AppleRawEvent = {
+  id: string;
+  calendarId?: string;
+  calendarTitle?: string;
+  title?: string | null;
+  notes?: string | null;
+  startDate?: string;
+  endDate?: string;
+  allDay?: boolean;
+  location?: string | null;
+  timeZone?: string | null;
+  status?: string;
+  organizer?: string | null;
+  attendees?: string[];
+  recurrenceRule?: string | null;
+  lastModified?: string | null;
+  availability?: string | null;
+};
+
+export type AppleCalendarSyncOutcome = {
+  external_id: string;
+  status: 'processed' | 'skipped' | 'mirrored' | 'quarantined' | 'failed';
+  event_id?: string;
+  node_id?: string;
+  primary_provider?: string;
+  error_code?: string;
+};
+
+export type AppleCalendarSyncResult = {
+  instance_id: string;
+  totals: {
+    received: number;
+    processed: number;
+    skipped: number;
+    mirrored: number;
+    quarantined: number;
+    failed: number;
+  };
+  outcomes: AppleCalendarSyncOutcome[];
 };
