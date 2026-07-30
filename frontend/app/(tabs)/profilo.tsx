@@ -21,10 +21,10 @@ export default function ProfiloScreen() {
   };
 
   const futureRows: Row[] = [
+    { icon: 'settings-outline', label: 'Impostazioni', sub: 'Account collegati', testID: 'profile-row-settings', onPress: () => router.push('/settings') },
     { icon: 'wallet-outline', label: 'Dashboard spese', sub: 'In arrivo', disabled: true, testID: 'profile-row-spese' },
     { icon: 'flag-outline', label: 'Obiettivi', sub: 'In arrivo', disabled: true, testID: 'profile-row-obiettivi' },
     { icon: 'document-text-outline', label: 'Documenti', sub: 'In arrivo', disabled: true, testID: 'profile-row-documenti' },
-    { icon: 'calendar-outline', label: 'Calendari', sub: 'In arrivo', disabled: true, testID: 'profile-row-calendari' },
     { icon: 'mail-outline', label: 'Email & Messaggi', sub: 'In arrivo', disabled: true, testID: 'profile-row-email' },
     { icon: 'card-outline', label: 'Banche & Wallet', sub: 'In arrivo', disabled: true, testID: 'profile-row-banche' },
   ];

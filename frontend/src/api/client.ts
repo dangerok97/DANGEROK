@@ -164,6 +164,27 @@ export const api = {
     request<{ items: ConnectorInstance[] }>('/connectors/google-calendar/instances'),
   googleCalendarConfig: () =>
     request<GoogleCalendarConfigStatus>('/connectors/google-calendar/config-status'),
+  googleCalendarOAuthStart: () =>
+    request<{ authorize_url: string; state: string; expires_at: string; provider_mode: string }>(
+      '/connectors/google-calendar/oauth/start',
+      { method: 'POST', body: JSON.stringify({}) },
+    ),
+  googleCalendarCalendars: (instanceId: string) =>
+    request<{ items: GoogleCalendarResource[] }>(`/connectors/google-calendar/instances/${instanceId}/calendars`),
+  googleCalendarSelectCalendars: (instanceId: string, calendar_ids: string[]) =>
+    request<ConnectorInstance>(
+      `/connectors/google-calendar/instances/${instanceId}/select-calendars`,
+      { method: 'POST', body: JSON.stringify({ calendar_ids }) },
+    ),
+  googleCalendarSync: (instanceId: string) =>
+    request<GoogleCalendarSyncResult>(`/connectors/google-calendar/instances/${instanceId}/sync`, { method: 'POST' }),
+  googleCalendarInstanceStatus: (instanceId: string) =>
+    request<any>(`/connectors/google-calendar/instances/${instanceId}/status`),
+  googleCalendarRevoke: (instanceId: string) =>
+    request<{ ok: boolean; instance: ConnectorInstance }>(
+      `/connectors/google-calendar/instances/${instanceId}/revoke`,
+      { method: 'POST' },
+    ),
 };
 
 // Extra types
@@ -245,6 +266,43 @@ export type ConnectorInstance = {
   id: string; connector_id: string; status: string;
   display_label?: string; last_sync_at?: string | null;
   selected_resource_ids?: string[];
+  consent_active?: boolean;
+  provider_mode?: 'real' | 'fake';
+  authorized_scopes?: string[];
+  vault_status?: string;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type GoogleCalendarResource = {
+  id: string;
+  summary: string;
+  description?: string | null;
+  primary?: boolean | null;
+  access_role?: string | null;
+  color?: string | null;
+  time_zone?: string | null;
+  selected?: boolean | null;
+};
+
+export type GoogleCalendarSyncResult = {
+  instance_id: string;
+  started_at: string;
+  finished_at?: string;
+  total_events_received: number;
+  total_events_processed: number;
+  total_events_skipped: number;
+  total_events_quarantined?: number;
+  total_events_failed?: number;
+  per_calendar: Array<{
+    calendar_id: string;
+    received: number;
+    processed: number;
+    skipped: number;
+    quarantined?: number;
+    failed?: number;
+  }>;
+  by_stage?: Record<string, { processed?: number; skipped?: number; failed?: number }>;
 };
 
 export type GoogleCalendarConfigStatus = {
