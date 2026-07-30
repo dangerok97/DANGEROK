@@ -1,0 +1,164 @@
+{
+  "app_name": "ORA",
+  "personality": "1 iOS-Native Clean (Monochromatic & Dark-First Utility fusion)",
+  "personality_one_liner": "A calm, intelligent, and timeless life operating system that instantly resolves cognitive load.",
+  "color": {
+    "surface": "#000000",
+    "onSurface": "#F2F2F2",
+    "surfaceSecondary": "#121212",
+    "onSurfaceSecondary": "#E5E5E5",
+    "surfaceTertiary": "#1C1C1E",
+    "onSurfaceTertiary": "#D1D1D6",
+    "surfaceInverse": "#FFFFFF",
+    "onSurfaceInverse": "#000000",
+    "brand": "#FAFAFA",
+    "brandPrimary": "#FAFAFA",
+    "onBrandPrimary": "#000000",
+    "brandSecondary": "#2C2C2E",
+    "onBrandSecondary": "#F2F2F2",
+    "brandTertiary": "#3A3A3C",
+    "onBrandTertiary": "#E5E5E5",
+    "success": "#30D158",
+    "onSuccess": "#000000",
+    "warning": "#FF9F0A",
+    "onWarning": "#000000",
+    "error": "#FF453A",
+    "onError": "#000000",
+    "info": "#0A84FF",
+    "onInfo": "#FFFFFF",
+    "border": "#2C2C2E",
+    "borderStrong": "#3A3A3C",
+    "divider": "#2C2C2E"
+  },
+  "typography": {
+    "displayFontFamily": "Geist",
+    "textFontFamily": "Geist",
+    "scale": {
+      "sm": 12,
+      "base": 14,
+      "lg": 16,
+      "xl": 20,
+      "2xl": 24,
+      "3xl": 32
+    }
+  },
+  "spacing": {
+    "rule": "Strict Apple HIG spacing. Generous vertical breathing room, content never feels cramped. 16pt margins globally.",
+    "xs": 4,
+    "sm": 8,
+    "md": 12,
+    "lg": 16,
+    "xl": 24,
+    "2xl": 32,
+    "3xl": 48
+  },
+  "radius_tokens": {
+    "sm": 6,
+    "md": 12,
+    "lg": 20,
+    "pill": 999
+  },
+  "shadow_tier": "1",
+  "navigation": "bottom_tabs",
+  "icon_set": "Ionicons",
+  "glassmorphism": {
+    "enabled": "true",
+    "do's": [
+      "Use on the bottom tab bar so content scrolls cleanly behind it.",
+      "Use on sticky headers or floating action sheets.",
+      "Keep the blur heavy and the tint background highly opaque (>= 75%)."
+    ],
+    "dont's": [
+      "Do not use on priority cards or standard list items.",
+      "Do not use behind dense text or inputs."
+    ]
+  },
+  "platform_libraries": {
+    "glass": {
+      "ios": "expo-glass-effect",
+      "android": "expo-blur",
+      "low_end_android_fallback": "solid surfaceSecondary"
+    },
+    "image": "expo-image",
+    "blur": "expo-blur",
+    "bottom_sheet": "@gorhom/bottom-sheet",
+    "animation": "react-native-reanimated",
+    "gesture": "react-native-gesture-handler"
+  },
+  "screens": [
+    {
+      "name": "Home",
+      "purpose": "Displays max 5 priority cards that demand immediate resolution.",
+      "states": {
+        "loading": "Subtle skeleton loaders matching the card dimensions.",
+        "empty": "A completely clear screen with a calm, subtle abstract background and a text reading 'Tutto risolto. Goditi il momento.'",
+        "error": "Minimal text warning and a retry action."
+      },
+      "layout": "Root is a safe-area ScrollView. Top header shows small 'ORA' above a massive 'Cosa conta adesso' title. Below, a column of cards (flexDirection column, gap lg, 16px horizontal margin). Each card has surfaceSecondary bg, lg radius, 0.5pt border. Inside card: top row with small metadata (e.g., 'Tra 25 min'), big summary text, and a sticky bottom massive 'RISOLVI' button (brandPrimary bg, onBrandPrimary text, 56pt tall, pill or md radius). Tab bar floats at the bottom with glass effect."
+    },
+    {
+      "name": "Memoria",
+      "purpose": "A search-first natural language interface to retrieve personal memory.",
+      "states": {
+        "loading": "Shimmer effect on result blocks.",
+        "empty": "Empty state shows the focused search bar and 2-3 minimal suggestion chips (e.g., 'Dove ho parcheggiato?').",
+        "error": "Quiet error text below the search bar."
+      },
+      "layout": "Keyboard-forward design. The search input is large and positioned centrally or at the top. Once submitted, results appear as calm, borderless text blocks (surfaceSecondary) below. Very minimal UI chrome. Focus is completely on the text query."
+    },
+    {
+      "name": "Aggiungi",
+      "purpose": "Quick capture modal for text, photos, or documents.",
+      "states": {
+        "loading": "Spinner during save.",
+        "empty": "N/A",
+        "error": "Toast with retry."
+      },
+      "layout": "A half-screen Gorhom bottom sheet. Contains 3 massive touch targets for Text, Photo, Document, inside a minimal grid. No clutter."
+    },
+    {
+      "name": "Profilo",
+      "purpose": "Settings and placeholders for future Life-OS dashboards.",
+      "states": {
+        "loading": "N/A",
+        "empty": "N/A",
+        "error": "N/A"
+      },
+      "layout": "Standard iOS grouped lists. surface background, surfaceSecondary list rows with dividers. Sections include: 'Dashboard spese', 'Obiettivi', 'Documenti' as placeholders."
+    },
+    {
+      "name": "Login",
+      "purpose": "Entry point offering Apple, Google, and Email sign in.",
+      "states": {
+        "loading": "Loading spinner inside the pressed button.",
+        "empty": "N/A",
+        "error": "Inline error text."
+      },
+      "layout": "Massive safe-area top padding. 'ORA' title. The bottom 1/3 of the screen contains the buttons. Apple button uses surfaceInverse, Google uses surfaceSecondary with border. Quiet, elegant."
+    }
+  ],
+  "images": {
+    "memoria_empty_aura": {
+      "url": "https://images.unsplash.com/photo-1654198340681-a2e0fc449f1b?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2MjJ8MHwxfHNlYXJjaHwxfHxtaW5pbWFsaXN0JTIwZGFyayUyMGdyYWRpZW50JTIwYWJzdHJhY3QlMjBhdXJhfGVufDB8fHx8MTc4NTQxNjk0N3ww&ixlib=rb-4.1.0&q=85",
+      "dark": "https://images.unsplash.com/photo-1654198340681-a2e0fc449f1b?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2MjJ8MHwxfHNlYXJjaHwxfHxtaW5pbWFsaXN0JTIwZGFyayUyMGdyYWRpZW50JTIwYWJzdHJhY3QlMjBhdXJhfGVufDB8fHx8MTc4NTQxNjk0N3ww&ixlib=rb-4.1.0&q=85",
+      "alt": "Minimalist dark gradient abstract aura"
+    }
+  },
+  "instructions_to_main_agent": [
+    "Follow the '1 iOS-Native Clean' structure but enforce a strict monochromatic 'Dark-First Utility' palette (like Linear or Nothing). Pure black background (#000000), crisp white (#FAFAFA) for primary accents like the RISOLVI button.",
+    "The app must feel calm and intelligent. Do not add decorative elements, gradients, or unnecessary icons. Text and spacing are the primary design tools.",
+    "Implement the 'RISOLVI' button in the Home cards as a massive, unignorable action button. Min 56pt height, crisp white background (in dark mode), black text.",
+    "Memoria should be a keyboard-forward, Arc Search inspired experience. Auto-focus the input on entry.",
+    "Apply Glassmorphism (@react-native-community/blur or expo-blur / expo-glass-effect) exclusively to the bottom tab bar and bottom sheets. Priority cards should be solid #121212 with a subtle #2C2C2E border.",
+    "Add fluid micro-animations (reanimated): gentle stagger on card entrance, scale-down (0.97) on card and button press, with corresponding haptics.",
+    "Do NOT use indigo, violet, blue, or purple. The palette is strictly neutral/monochrome.",
+    "Use Ionicons. For login buttons, use 'logo-apple' and 'logo-google' from Ionicons or MaterialCommunityIcons instead of fetching images, for a cleaner vector look."
+  ],
+  "haptics": {
+    "RISOLVI_button_press": "impactMedium",
+    "card_press": "impactLight",
+    "tab_change": "selection",
+    "search_submit": "impactMedium",
+    "quick_capture_open": "impactLight"
+  }
+}
