@@ -9,6 +9,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Tuple
 
+from .permissions_provider import permissions_provider
 from .providers import (
     auto_link_provider,
     decision_provider,
@@ -151,7 +152,12 @@ async def assemble_pipeline(repo, user_id: str, decision: Dict[str, Any], *, all
     # Provider 6 (System) — deterministic env context.
     p_system = await run_provider_safe(system_provider(repo, user_id), "system")
 
-    all_results = [p_decision, p_linked, p_know, p_graph, p_auto, p_system]
+    # Provider 7 (Permissions) — feature-flagged (PERMISSIONS_CONTEXT_ENABLED).
+    # When the flag is OFF the provider is a strict no-op: zero signals,
+    # zero DB reads. Included in `providers_run` telemetry either way.
+    p_perms = await run_provider_safe(permissions_provider(user_id), "permissions")
+
+    all_results = [p_decision, p_linked, p_know, p_graph, p_auto, p_system, p_perms]
 
     # Merge signals, cap total.
     raw_signals: List[Signal] = []
