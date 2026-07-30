@@ -29,6 +29,7 @@ const kindIcon: Record<string, keyof typeof Ionicons.glyphMap> = {
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const [tasks, setTasks] = useState<ApiTask[]>([]);
+  const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [resolveOpen, setResolveOpen] = useState(false);
@@ -36,9 +37,9 @@ export default function HomeScreen() {
   const [resolveText, setResolveText] = useState<string>('');
   const [resolveLoading, setResolveLoading] = useState(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (fullList = false) => {
     try {
-      const r = await api.priorities();
+      const r = fullList ? await api.priorities(20) : await api.priorities(3);
       setTasks(r.items);
     } catch (e) {
       // ignore, keep UI calm
@@ -48,11 +49,18 @@ export default function HomeScreen() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(false); }, [load]);
 
   const onRefresh = () => {
     setRefreshing(true);
-    load();
+    setExpanded(false);
+    load(false);
+  };
+
+  const onShowMore = async () => {
+    Haptics.selectionAsync();
+    setExpanded(true);
+    await load(true);
   };
 
   const openResolve = async (t: ApiTask) => {
@@ -139,6 +147,13 @@ export default function HomeScreen() {
                 <Text style={styles.cardTitle}>{t.title}</Text>
                 {t.context ? <Text style={styles.cardContext}>{t.context}</Text> : null}
 
+                {t.reason ? (
+                  <View style={styles.reasonRow} testID={`priority-reason-${i}`}>
+                    <View style={styles.reasonDot} />
+                    <Text style={styles.reasonText}>{t.reason}</Text>
+                  </View>
+                ) : null}
+
                 <Pressable
                   testID={`priority-resolve-${i}`}
                   onPress={() => openResolve(t)}
@@ -149,6 +164,18 @@ export default function HomeScreen() {
                 </Pressable>
               </Animated.View>
             ))}
+
+            {!expanded && tasks.length >= 3 && (
+              <Pressable
+                testID="home-show-more-button"
+                onPress={onShowMore}
+                style={({ pressed }) => [styles.showMore, pressed && { opacity: 0.55 }]}
+                hitSlop={8}
+              >
+                <Text style={styles.showMoreText}>Mostra altro</Text>
+                <Ionicons name="chevron-down" size={16} color={tokens.color.onSurfaceMuted} />
+              </Pressable>
+            )}
           </View>
         )}
       </ScrollView>
@@ -237,6 +264,40 @@ const styles = StyleSheet.create({
     color: tokens.color.onSurfaceMuted,
     fontSize: tokens.fs.base,
     lineHeight: 20,
+  },
+  reasonRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: tokens.spacing.sm,
+    marginTop: tokens.spacing.xs,
+  },
+  reasonDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    marginTop: 8,
+    backgroundColor: tokens.color.onSurfaceDim,
+  },
+  reasonText: {
+    flex: 1,
+    color: tokens.color.onSurfaceDim,
+    fontSize: tokens.fs.sm,
+    lineHeight: 18,
+    letterSpacing: 0.1,
+  },
+  showMore: {
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: tokens.spacing.md,
+    paddingHorizontal: tokens.spacing.lg,
+    marginTop: tokens.spacing.sm,
+  },
+  showMoreText: {
+    color: tokens.color.onSurfaceMuted,
+    fontSize: tokens.fs.base,
+    fontWeight: '500',
   },
   resolveBtn: {
     marginTop: tokens.spacing.xs,

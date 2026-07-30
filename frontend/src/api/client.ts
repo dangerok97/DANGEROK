@@ -65,6 +65,8 @@ export type ApiTask = {
   kind?: string | null;
   metadata?: Record<string, any> | null;
   score: number;
+  reason?: string | null;
+  reason_tags?: string[] | null;
   status: string;
   created_at: string;
   last_resolution?: string;
@@ -86,7 +88,8 @@ export const api = {
   logout: () => request<{ ok: boolean }>('/auth/logout', { method: 'POST' }),
 
   // Priorities / Tasks
-  priorities: () => request<{ items: ApiTask[] }>('/priorities'),
+  priorities: (limit: number = 3) =>
+    request<{ items: ApiTask[] }>(`/priorities?limit=${limit}`),
   listTasks: () => request<{ items: ApiTask[] }>('/tasks'),
   createTask: (t: Partial<ApiTask> & { title: string }) =>
     request<ApiTask>('/tasks', { method: 'POST', body: JSON.stringify(t) }),

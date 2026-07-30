@@ -1,0 +1,36 @@
+{
+  "summary": "ORA iteration 2 (Decision Engine) fully validated. Backend: 21/21 pytest cases pass in /app/backend/tests/test_ora_decision_engine.py — root, register+seed 7, /auth/me with/without token, wrong password 401, memory add+ask, /api/decisions returns 7 rich seeds with all required keys (id,title,description,origin,category,urgency,importance,risk,economic_impact,personal_impact,time_required_min,energy,place,people,starts_at,deadline,status,linked_to,metadata,history,created_at,score,reason,reason_tags), /decisions/top?limit=3 sorted desc with Italian reasons ending in '.', top-1 is 'Esci tra 25 minuti' with tag 'imminent', 'Prepara la valigia' in top-3 with linked_soon/deadline_24h/trip_prep tags, 'Hai risparmiato 220 €' insight excluded from top3 and tagged 'insight', POST /decisions creates dec_* with status open and 'created' history event, adding an exam within 24h dampens Palestra (tag dampened_by_stakes, score decreases), /decisions/{id}/resolve returns non-empty Italian solution (real gpt-5.2 call) and adds ai_resolution_proposed history event, complete+dismiss remove item from /top, invalid JWT → 401 on GET+POST, legacy /priorities default max 3 (each with reason), /priorities?limit=10 works, legacy POST /tasks with kind:'bill' maps to category:'bill' and appears in /decisions, /tasks/{id}/dismiss+complete+resolve delegate correctly, demo@ora.app user has decisions with origin 'migration:task' proving legacy migration ran. Frontend (mobile 390x844 Expo web): login demo@ora.app→Home, brand 'ORA' visible, EXACTLY 3 cards (priority-card-0/1/2 present, priority-card-3 absent), every visible card has non-empty priority-reason-N (e.g. 'Scade tra 3 giorni · Rimandarla ha conseguenze economiche · Richiede pochi minuti.'), home-show-more-button visible, tapping it loads priority-card-3, priority-resolve-0 opens resolve-modal and shows Italian AI solution within ~10s, resolve-done-button closes modal, /profilo route works and profile-logout-button returns to /login. No page errors, no red screen. One cosmetic warning persists: 'props.pointerEvents is deprecated. Use style.pointerEvents' (already reported in iteration 1).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {"component": "pointerEvents prop", "issue": "Console warning 'props.pointerEvents is deprecated. Use style.pointerEvents' still present from iteration 1. Cosmetic, harmless on web. Reference: likely from a child View/BlurView using pointerEvents prop somewhere under /app/frontend/app."}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_ora_decision_engine.py",
+    "/app/test_reports/pytest/ora_decision_engine.xml"
+  ],
+  "action_items": [
+    "(Optional/cosmetic) Migrate remaining `pointerEvents={...}` JSX props to `style={{ pointerEvents: ... }}` to silence the RN 0.74+ deprecation warning.",
+    "(Optional) Add testIDs on bottom tab bar items (tab-home/tab-memoria/tab-aggiungi/tab-profilo) — currently tabs work via routing but have no testID; direct URL navigation to /profilo works and profile-logout-button is present."
+  ],
+  "critical_code_review_comments": [
+    "decision_engine/service.py migrate_user_tasks is properly idempotent via `migrated_to` marker on legacy tasks.",
+    "reasoner rules are pure and independent — good extensibility. `_compose_reason` always appends '.' guaranteeing the frontend contract.",
+    "server.py /api/decisions/top clamps limit to [1,20] — good defensive default.",
+    "server.py still uses deprecated FastAPI @app.on_event handlers (already flagged iteration 1).",
+    "DecisionService.create always seeds status='open' and adds 'created' history event — matches the required contract."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_ora_decision_engine.py (new)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "seed_data_creation": "Tests create ephemeral fresh user brain_<ts>_<uuid>@ora.app which triggers 7 seeded decisions; then create an exam decision, a legacy /tasks bill, and two legacy dismiss/complete/resolve tasks. Also touched demo@ora.app (existing) to verify migration. No cleanup performed (harmless — unique emails).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Backend regression is at /app/backend/tests/test_ora_decision_engine.py — pytest, uses EXPO_PUBLIC_BACKEND_URL. Iteration 1 tests still live at /app/backend/tests/test_ora_backend.py. Frontend testIDs used and confirmed present: home-brand-title, priority-card-{0..3+}, priority-reason-{N}, priority-resolve-{N}, priority-dismiss-{N}, home-show-more-button, resolve-modal, resolve-solution-text, resolve-close-button, resolve-done-button, login-email-button, login-email-input, login-password-input, login-submit-button, profile-logout-button. Bottom tab items do NOT have testIDs (tabs work via Expo Router; /profilo route confirmed). Emergent LLM key returns valid Italian gpt-5.2 output for /decisions/{id}/resolve. Decision Engine seed produces 7 decisions and legacy tasks auto-migrate on login.",
+  "rca_of_issue": "No bugs found. All 30 acceptance criteria met (21 backend pytest + 9 frontend UI checks)."
+}

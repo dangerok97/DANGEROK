@@ -1,6 +1,9 @@
 """
 ORA - Life Operating System - Backend
 FastAPI + MongoDB + Emergent LLM (GPT-5.2) + Emergent Google OAuth + JWT
+
+The reasoning core is in `decision_engine/`. This file stays thin: it wires
+HTTP → service, and handles auth.
 """
 from fastapi import FastAPI, APIRouter, HTTPException, Header, Depends
 from dotenv import load_dotenv
@@ -14,10 +17,13 @@ import jwt as pyjwt
 import httpx
 from pathlib import Path
 from pydantic import BaseModel, EmailStr
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone, timedelta
 
 from emergentintegrations.llm.chat import LlmChat, UserMessage
+
+from decision_engine import DecisionService
+from decision_engine.service import build_seed_decisions
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -31,6 +37,7 @@ JWT_EXPIRY_DAYS = 30
 
 client = AsyncIOMotorClient(MONGO_URL)
 db = client[DB_NAME]
+decisions = DecisionService(db)
 
 app = FastAPI(title="ORA API")
 api = APIRouter(prefix="/api")
@@ -70,6 +77,26 @@ class AuthOut(BaseModel):
     user: UserOut
 
 
+class DecisionIn(BaseModel):
+    title: str
+    description: Optional[str] = None
+    category: Optional[str] = "generic"
+    urgency: int = 5
+    importance: int = 5
+    risk: int = 3
+    time_required_min: int = 15
+    place: Optional[str] = None
+    people: Optional[List[str]] = None
+    energy: int = 3
+    economic_impact: int = 3
+    personal_impact: int = 5
+    starts_at: Optional[str] = None
+    deadline: Optional[str] = None
+    linked_to: Optional[List[str]] = None
+    metadata: Optional[dict] = None
+
+
+# Legacy task input (kept for backward compatibility).
 class TaskIn(BaseModel):
     title: str
     context: Optional[str] = None
@@ -176,84 +203,53 @@ def user_to_out(u: dict) -> UserOut:
 
 
 # ============================================================
-# SCORING
+# SEED / MIGRATE FOR A USER
 # ============================================================
-def compute_score(t: dict) -> float:
-    time_factor = max(0, 10 - min(t.get("time_required_min", 15) / 15, 10))
-    energy_factor = max(0, 10 - t.get("energy", 3))
-    score = (
-        t.get("urgency", 5) * 2.2
-        + t.get("importance", 5) * 1.8
-        + t.get("risk", 3) * 1.4
-        + t.get("economic_impact", 3) * 1.0
-        + t.get("personal_impact", 5) * 1.2
-        + time_factor * 0.6
-        + energy_factor * 0.5
-    )
-    return round(score, 2)
+async def prepare_user_decisions(user_id: str):
+    """Called after any successful auth. Idempotent:
+       1) Migrate legacy tasks → decisions (once).
+       2) If user still has zero decisions, seed the rich starter set.
+    """
+    try:
+        await decisions.migrate_user_tasks(user_id)
+    except Exception:
+        logger.exception("Legacy task migration failed for %s", user_id)
+
+    count = await db.decisions.count_documents({"user_id": user_id})
+    if count == 0:
+        seeds = build_seed_decisions(user_id)
+        if seeds:
+            await db.decisions.insert_many(seeds)
 
 
 # ============================================================
-# SEED
+# LEGACY-COMPAT: decision → task-shape
 # ============================================================
-async def seed_priorities(user_id: str):
-    existing = await db.tasks.count_documents({"user_id": user_id})
-    if existing > 0:
-        return
-    now = datetime.now(timezone.utc)
-    seeds = [
-        {
-            "title": "Esci tra 25 minuti.",
-            "context": "Il traffico sta aumentando sul tuo tragitto.",
-            "urgency": 9, "importance": 8, "risk": 6, "time_required_min": 2,
-            "energy": 1, "economic_impact": 2, "personal_impact": 7,
-            "kind": "travel",
-            "metadata": {"destination": "Ufficio", "eta_min": 25},
-        },
-        {
-            "title": "La bolletta luce scade tra 3 giorni.",
-            "context": "€ 87,40 · Enel Energia",
-            "urgency": 8, "importance": 7, "risk": 7, "time_required_min": 5,
-            "energy": 1, "economic_impact": 6, "personal_impact": 5,
-            "kind": "bill",
-            "metadata": {"amount": 87.40, "provider": "Enel", "due_days": 3},
-        },
-        {
-            "title": "Marco aspetta ancora una tua risposta.",
-            "context": "Messaggio ricevuto 2 giorni fa.",
-            "urgency": 6, "importance": 6, "risk": 3, "time_required_min": 3,
-            "energy": 2, "economic_impact": 1, "personal_impact": 8,
-            "kind": "message",
-            "metadata": {"contact": "Marco", "channel": "WhatsApp"},
-        },
-        {
-            "title": "Hai dormito poco negli ultimi giorni.",
-            "context": "Media 5h 20min · consigliato 7h+",
-            "urgency": 4, "importance": 8, "risk": 6, "time_required_min": 10,
-            "energy": 2, "economic_impact": 1, "personal_impact": 9,
-            "kind": "health",
-            "metadata": {"avg_sleep_hours": 5.3},
-        },
-        {
-            "title": "Hai risparmiato 220 € questo mese.",
-            "context": "+18% rispetto al mese scorso. Ottimo lavoro.",
-            "urgency": 2, "importance": 4, "risk": 1, "time_required_min": 1,
-            "energy": 1, "economic_impact": 5, "personal_impact": 6,
-            "kind": "finance",
-            "metadata": {"saved_eur": 220, "delta_pct": 18},
-        },
-    ]
-    docs = []
-    for s in seeds:
-        s.update({
-            "id": f"task_{uuid.uuid4().hex[:12]}",
-            "user_id": user_id,
-            "status": "open",
-            "created_at": now.isoformat(),
-        })
-        s["score"] = compute_score(s)
-        docs.append(s)
-    await db.tasks.insert_many(docs)
+def decision_as_task(d: Dict[str, Any]) -> Dict[str, Any]:
+    """Return a task-shaped dict for old clients (frontend v1).
+    Retains `id`, adds `reason` and `kind` fields."""
+    return {
+        "id": d.get("id"),
+        "user_id": d.get("user_id"),
+        "title": d.get("title"),
+        "context": d.get("description"),
+        "urgency": d.get("urgency"),
+        "importance": d.get("importance"),
+        "risk": d.get("risk"),
+        "time_required_min": d.get("time_required_min"),
+        "energy": d.get("energy"),
+        "economic_impact": d.get("economic_impact"),
+        "personal_impact": d.get("personal_impact"),
+        "kind": d.get("category"),
+        "metadata": d.get("metadata"),
+        "score": d.get("score"),
+        "reason": d.get("reason"),
+        "reason_tags": d.get("reason_tags"),
+        "status": d.get("status"),
+        "created_at": d.get("created_at"),
+        "starts_at": d.get("starts_at"),
+        "deadline": d.get("deadline"),
+    }
 
 
 # ============================================================
@@ -276,7 +272,7 @@ async def register(body: RegisterIn):
         provider="email",
         password_hash=hash_password(body.password),
     )
-    await seed_priorities(user["user_id"])
+    await prepare_user_decisions(user["user_id"])
     return AuthOut(token=make_jwt(user["user_id"]), user=user_to_out(user))
 
 
@@ -287,13 +283,12 @@ async def login(body: LoginIn):
         raise HTTPException(status_code=401, detail="Credenziali non valide")
     if not verify_password(body.password, user["password_hash"]):
         raise HTTPException(status_code=401, detail="Credenziali non valide")
-    await seed_priorities(user["user_id"])
+    await prepare_user_decisions(user["user_id"])
     return AuthOut(token=make_jwt(user["user_id"]), user=user_to_out(user))
 
 
 @api.post("/auth/google-session", response_model=AuthOut)
 async def google_session(body: GoogleSessionIn):
-    """Exchange Emergent session_token (from Google OAuth) for our JWT."""
     async with httpx.AsyncClient(timeout=15) as h:
         r = await h.get(
             "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data",
@@ -308,7 +303,7 @@ async def google_session(body: GoogleSessionIn):
         picture=data.get("picture"),
         provider="google",
     )
-    await seed_priorities(user["user_id"])
+    await prepare_user_decisions(user["user_id"])
     return AuthOut(token=make_jwt(user["user_id"]), user=user_to_out(user))
 
 
@@ -323,70 +318,61 @@ async def logout(user=Depends(get_current_user)):
 
 
 # ============================================================
-# ROUTES: TASKS / PRIORITIES
+# ROUTES: DECISIONS (new canonical API)
 # ============================================================
-def _clean(doc: dict) -> dict:
-    doc.pop("_id", None)
+@api.get("/decisions")
+async def list_decisions(user=Depends(get_current_user)):
+    """All ranked decisions (any status)."""
+    items = await decisions.ranked(user["user_id"])
+    # Merge in non-open ones (unranked) at the end.
+    all_docs = await decisions.list_all(user["user_id"])
+    ranked_ids = {d["id"] for d in items}
+    tail = [d for d in all_docs if d["id"] not in ranked_ids]
+    return {"items": items + tail}
+
+
+@api.get("/decisions/top")
+async def top_decisions(limit: int = 3, user=Depends(get_current_user)):
+    limit = max(1, min(limit, 20))
+    items = await decisions.top(user["user_id"], limit=limit)
+    return {"items": items}
+
+
+@api.get("/decisions/{decision_id}")
+async def get_decision(decision_id: str, user=Depends(get_current_user)):
+    d = await decisions.get(user["user_id"], decision_id)
+    if not d:
+        raise HTTPException(status_code=404, detail="Decision non trovata")
+    return d
+
+
+@api.post("/decisions")
+async def create_decision(body: DecisionIn, user=Depends(get_current_user)):
+    doc = await decisions.create(user["user_id"], body.model_dump(), origin="user")
     return doc
 
 
-@api.get("/priorities")
-async def get_priorities(user=Depends(get_current_user)):
-    cursor = db.tasks.find(
-        {"user_id": user["user_id"], "status": "open"}, {"_id": 0}
-    ).sort("score", -1).limit(5)
-    tasks = await cursor.to_list(length=5)
-    return {"items": tasks}
-
-
-@api.get("/tasks")
-async def list_tasks(user=Depends(get_current_user)):
-    cursor = db.tasks.find({"user_id": user["user_id"]}, {"_id": 0}).sort("score", -1)
-    tasks = await cursor.to_list(length=200)
-    return {"items": tasks}
-
-
-@api.post("/tasks")
-async def create_task(body: TaskIn, user=Depends(get_current_user)):
-    doc = body.model_dump()
-    doc.update({
-        "id": f"task_{uuid.uuid4().hex[:12]}",
-        "user_id": user["user_id"],
-        "status": "open",
-        "created_at": datetime.now(timezone.utc).isoformat(),
-    })
-    doc["score"] = compute_score(doc)
-    await db.tasks.insert_one(doc)
-    return _clean(doc)
-
-
-@api.post("/tasks/{task_id}/dismiss")
-async def dismiss_task(task_id: str, user=Depends(get_current_user)):
-    res = await db.tasks.update_one(
-        {"id": task_id, "user_id": user["user_id"]},
-        {"$set": {"status": "dismissed"}},
-    )
-    if res.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Task non trovato")
+@api.post("/decisions/{decision_id}/dismiss")
+async def dismiss_decision(decision_id: str, user=Depends(get_current_user)):
+    ok = await decisions.dismiss(user["user_id"], decision_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Decision non trovata")
     return {"ok": True}
 
 
-@api.post("/tasks/{task_id}/complete")
-async def complete_task(task_id: str, user=Depends(get_current_user)):
-    res = await db.tasks.update_one(
-        {"id": task_id, "user_id": user["user_id"]},
-        {"$set": {"status": "resolved", "resolved_at": datetime.now(timezone.utc).isoformat()}},
-    )
-    if res.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Task non trovato")
+@api.post("/decisions/{decision_id}/complete")
+async def complete_decision(decision_id: str, user=Depends(get_current_user)):
+    ok = await decisions.complete(user["user_id"], decision_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Decision non trovata")
     return {"ok": True}
 
 
-@api.post("/tasks/{task_id}/resolve")
-async def resolve_task(task_id: str, user=Depends(get_current_user)):
-    task = await db.tasks.find_one({"id": task_id, "user_id": user["user_id"]}, {"_id": 0})
-    if not task:
-        raise HTTPException(status_code=404, detail="Task non trovato")
+@api.post("/decisions/{decision_id}/resolve")
+async def resolve_decision(decision_id: str, user=Depends(get_current_user)):
+    d = await decisions.get(user["user_id"], decision_id)
+    if not d:
+        raise HTTPException(status_code=404, detail="Decision non trovata")
 
     system = (
         "Sei ORA, un sistema operativo della vita quotidiana. "
@@ -399,15 +385,18 @@ async def resolve_task(task_id: str, user=Depends(get_current_user)):
         "Nessun preambolo. Nessuna scusa. Nessuna domanda. Sii diretto."
     )
     prompt = (
-        f"Situazione: {task['title']}\n"
-        f"Contesto: {task.get('context') or '-'}\n"
-        f"Tipo: {task.get('kind')}\n"
-        f"Dati: {task.get('metadata') or {}}"
+        f"Situazione: {d['title']}\n"
+        f"Contesto: {d.get('description') or '-'}\n"
+        f"Categoria: {d.get('category')}\n"
+        f"Deadline: {d.get('deadline') or '-'}\n"
+        f"Inizio: {d.get('starts_at') or '-'}\n"
+        f"Persone: {', '.join(d.get('people') or []) or '-'}\n"
+        f"Dati: {d.get('metadata') or {}}"
     )
     try:
         chat = LlmChat(
             api_key=EMERGENT_LLM_KEY,
-            session_id=f"resolve-{task_id}",
+            session_id=f"resolve-{decision_id}",
             system_message=system,
         ).with_model("openai", "gpt-5.2")
         result = await chat.send_message(UserMessage(text=prompt))
@@ -416,11 +405,59 @@ async def resolve_task(task_id: str, user=Depends(get_current_user)):
         logger.exception("AI resolve failed")
         raise HTTPException(status_code=502, detail=f"AI non disponibile: {e}")
 
-    await db.tasks.update_one(
-        {"id": task_id, "user_id": user["user_id"]},
-        {"$set": {"last_resolution": solution, "last_resolved_at": datetime.now(timezone.utc).isoformat()}},
-    )
-    return {"solution": solution, "task_id": task_id}
+    await decisions.attach_resolution(user["user_id"], decision_id, solution)
+    return {"solution": solution, "decision_id": decision_id, "task_id": decision_id}
+
+
+# ============================================================
+# ROUTES: LEGACY /tasks + /priorities (backward compatible)
+# ============================================================
+@api.get("/priorities")
+async def get_priorities(limit: int = 3, user=Depends(get_current_user)):
+    """Top decisions in the legacy task-shape (Home v1 uses this)."""
+    limit = max(1, min(limit, 20))
+    ranked = await decisions.top(user["user_id"], limit=limit)
+    return {"items": [decision_as_task(d) for d in ranked]}
+
+
+@api.get("/tasks")
+async def list_tasks(user=Depends(get_current_user)):
+    ranked = await decisions.ranked(user["user_id"])
+    all_docs = await decisions.list_all(user["user_id"])
+    ranked_ids = {d["id"] for d in ranked}
+    tail = [d for d in all_docs if d["id"] not in ranked_ids]
+    return {"items": [decision_as_task(d) for d in ranked + tail]}
+
+
+@api.post("/tasks")
+async def create_task_legacy(body: TaskIn, user=Depends(get_current_user)):
+    payload = body.model_dump()
+    payload["description"] = payload.pop("context", None)
+    payload["category"] = payload.pop("kind", "generic")
+    doc = await decisions.create(user["user_id"], payload, origin="user:legacy_task")
+    return decision_as_task(doc)
+
+
+@api.post("/tasks/{task_id}/dismiss")
+async def dismiss_task_legacy(task_id: str, user=Depends(get_current_user)):
+    ok = await decisions.dismiss(user["user_id"], task_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Task non trovato")
+    return {"ok": True}
+
+
+@api.post("/tasks/{task_id}/complete")
+async def complete_task_legacy(task_id: str, user=Depends(get_current_user)):
+    ok = await decisions.complete(user["user_id"], task_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Task non trovato")
+    return {"ok": True}
+
+
+@api.post("/tasks/{task_id}/resolve")
+async def resolve_task_legacy(task_id: str, user=Depends(get_current_user)):
+    # Delegate to the new endpoint.
+    return await resolve_decision(task_id, user)
 
 
 # ============================================================
@@ -488,9 +525,13 @@ async def ask_memory(body: MemoryAskIn, user=Depends(get_current_user)):
 async def startup():
     await db.users.create_index("email", unique=True)
     await db.users.create_index("user_id", unique=True)
+    # Legacy tasks index (kept).
     await db.tasks.create_index([("user_id", 1), ("status", 1), ("score", -1)])
+    # Decisions indexes.
+    await db.decisions.create_index([("user_id", 1), ("status", 1)])
+    await db.decisions.create_index("id", unique=True)
     await db.memories.create_index([("user_id", 1), ("created_at", -1)])
-    logger.info("ORA backend ready.")
+    logger.info("ORA backend ready. Decision Engine online.")
 
 
 @app.on_event("shutdown")
