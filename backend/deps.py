@@ -56,6 +56,8 @@ _ingestion_service = None
 _google_calendar_service = None
 _token_vault = None
 _daily_summary_service = None
+_explanation_service = None
+_action_center_service = None
 
 
 def get_permissions_service():
@@ -115,6 +117,28 @@ def get_daily_summary_service():
         from daily_intelligence import DailySummaryService
         _daily_summary_service = DailySummaryService(db)
     return _daily_summary_service
+
+
+def get_explanation_service():
+    global _explanation_service
+    if _explanation_service is None:
+        from explainability import ExplanationService
+        _explanation_service = ExplanationService(
+            db,
+            life_graph=life_graph,
+            context_asm=context_asm,
+            decisions=decisions,
+            daily=get_daily_summary_service(),
+        )
+    return _explanation_service
+
+
+def get_action_center_service():
+    global _action_center_service
+    if _action_center_service is None:
+        from action_center import ActionCenterService
+        _action_center_service = ActionCenterService(db)
+    return _action_center_service
 
 
 # --- Auth helpers ----------------------------------------------------

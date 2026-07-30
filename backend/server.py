@@ -104,6 +104,11 @@ async def startup():
     await db.google_oauth_sessions.create_index("expires_at")
     await db.data_revocation_plans.create_index([("user_id", 1), ("connector_instance_id", 1)])
 
+    # Action Center (Iteration 11)
+    await db.decision_action_history.create_index("id", unique=True)
+    await db.decision_action_history.create_index([("user_id", 1), ("decision_id", 1), ("timestamp", 1)])
+    await db.decision_action_history.create_index([("user_id", 1), ("timestamp", -1)])
+
     # Sync capability registry to Mongo (idempotent, structural fields are
     # overwritten from code; ops metadata is preserved).
     try:

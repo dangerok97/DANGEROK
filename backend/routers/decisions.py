@@ -1,20 +1,32 @@
-"""DECISIONS router: canonical decision endpoints + AI resolve."""
+"""DECISIONS router: canonical decision endpoints + AI resolve + action center + explanation."""
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any, Dict, List, Optional
 
 from emergentintegrations.llm.chat import LlmChat, UserMessage
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from deps import (
     EMERGENT_LLM_KEY,
     db,
     decisions,
+    get_action_center_service,
     get_current_user,
+    get_explanation_service,
     life_graph,
 )
+
+
+def _explainability_enabled() -> bool:
+    return os.environ.get("EXPLAINABILITY_ENABLED", "true").lower() in ("1", "true", "yes")
+
+
+def _action_center_enabled() -> bool:
+    return os.environ.get("ACTION_CENTER_ENABLED", "true").lower() in ("1", "true", "yes")
+
 
 logger = logging.getLogger("ora.decisions")
 
@@ -115,7 +127,18 @@ async def create_decision(body: DecisionIn, user=Depends(get_current_user)):
 
 
 @router.post("/{decision_id}/dismiss")
-async def dismiss_decision(decision_id: str, user=Depends(get_current_user)):
+async def dismiss_decision(decision_id: str, body: Optional[Dict[str, Any]] = None, user=Depends(get_current_user)):
+    reason = (body or {}).get("reason") if isinstance(body, dict) else None
+    if _action_center_enabled():
+        try:
+            from action_center import InvalidTransition
+            svc = get_action_center_service()
+            doc = await svc.dismiss(user["user_id"], decision_id, reason=reason)
+            return {"ok": True, "decision": doc}
+        except LookupError:
+            raise HTTPException(status_code=404, detail="Decision non trovata")
+        except InvalidTransition as e:
+            raise HTTPException(status_code=409, detail={"error": "invalid_transition", "current": e.current, "requested": e.requested})
     ok = await decisions.dismiss(user["user_id"], decision_id)
     if not ok:
         raise HTTPException(status_code=404, detail="Decision non trovata")
@@ -123,11 +146,137 @@ async def dismiss_decision(decision_id: str, user=Depends(get_current_user)):
 
 
 @router.post("/{decision_id}/complete")
-async def complete_decision(decision_id: str, user=Depends(get_current_user)):
+async def complete_decision(decision_id: str, body: Optional[Dict[str, Any]] = None, user=Depends(get_current_user)):
+    note = (body or {}).get("note") if isinstance(body, dict) else None
+    if _action_center_enabled():
+        try:
+            from action_center import InvalidTransition
+            svc = get_action_center_service()
+            doc = await svc.complete(user["user_id"], decision_id, note=note)
+            return {"ok": True, "decision": doc}
+        except LookupError:
+            raise HTTPException(status_code=404, detail="Decision non trovata")
+        except InvalidTransition as e:
+            raise HTTPException(status_code=409, detail={"error": "invalid_transition", "current": e.current, "requested": e.requested})
     ok = await decisions.complete(user["user_id"], decision_id)
     if not ok:
         raise HTTPException(status_code=404, detail="Decision non trovata")
     return {"ok": True}
+
+
+# ---------------------------------------------------------------------
+# Action Center — new endpoints (gated by ACTION_CENTER_ENABLED)
+# ---------------------------------------------------------------------
+class PartialIn(BaseModel):
+    completion_percentage: int
+    remaining_minutes: Optional[int] = None
+    optional_note: Optional[str] = None
+
+
+class PostponeIn(BaseModel):
+    until_datetime: str
+    reason: Optional[str] = None
+
+
+class BlockedIn(BaseModel):
+    reason: str
+
+
+def _require_action_center():
+    if not _action_center_enabled():
+        raise HTTPException(status_code=404, detail="Action Center non abilitato")
+
+
+def _handle_transition_errors(exc: Exception):
+    from action_center import InvalidTransition
+    if isinstance(exc, LookupError):
+        raise HTTPException(status_code=404, detail="Decision non trovata")
+    if isinstance(exc, InvalidTransition):
+        raise HTTPException(
+            status_code=409,
+            detail={"error": "invalid_transition", "current": exc.current, "requested": exc.requested},
+        )
+    raise exc
+
+
+@router.post("/{decision_id}/start")
+async def start_decision(decision_id: str, user=Depends(get_current_user)):
+    _require_action_center()
+    svc = get_action_center_service()
+    try:
+        return {"ok": True, "decision": await svc.start(user["user_id"], decision_id)}
+    except Exception as e:
+        _handle_transition_errors(e)
+
+
+@router.post("/{decision_id}/partial")
+async def partial_decision(decision_id: str, body: PartialIn, user=Depends(get_current_user)):
+    _require_action_center()
+    svc = get_action_center_service()
+    try:
+        doc = await svc.partial(
+            user["user_id"], decision_id,
+            completion_percentage=body.completion_percentage,
+            remaining_minutes=body.remaining_minutes,
+            note=body.optional_note,
+        )
+        return {"ok": True, "decision": doc}
+    except Exception as e:
+        _handle_transition_errors(e)
+
+
+@router.post("/{decision_id}/postpone")
+async def postpone_decision(decision_id: str, body: PostponeIn, user=Depends(get_current_user)):
+    _require_action_center()
+    svc = get_action_center_service()
+    try:
+        doc = await svc.postpone(
+            user["user_id"], decision_id,
+            until_datetime=body.until_datetime, reason=body.reason,
+        )
+        return {"ok": True, "decision": doc}
+    except Exception as e:
+        _handle_transition_errors(e)
+
+
+@router.post("/{decision_id}/blocked")
+async def block_decision(decision_id: str, body: BlockedIn, user=Depends(get_current_user)):
+    _require_action_center()
+    svc = get_action_center_service()
+    try:
+        doc = await svc.block(user["user_id"], decision_id, reason=body.reason)
+        return {"ok": True, "decision": doc}
+    except Exception as e:
+        _handle_transition_errors(e)
+
+
+@router.get("/{decision_id}/history")
+async def decision_action_history(decision_id: str, user=Depends(get_current_user)):
+    _require_action_center()
+    # Ownership check
+    d = await db.decisions.find_one({"id": decision_id, "user_id": user["user_id"]}, {"_id": 0, "id": 1})
+    if not d:
+        raise HTTPException(status_code=404, detail="Decision non trovata")
+    svc = get_action_center_service()
+    return {"items": await svc.get_history(user["user_id"], decision_id)}
+
+
+# ---------------------------------------------------------------------
+# Explainability — deterministic explanation
+# ---------------------------------------------------------------------
+@router.get("/{decision_id}/explanation")
+async def decision_explanation(decision_id: str, user=Depends(get_current_user)):
+    if not _explainability_enabled():
+        raise HTTPException(status_code=404, detail="Explainability non abilitata")
+    svc = get_explanation_service()
+    try:
+        exp = await svc.build(user["user_id"], decision_id)
+    except Exception:
+        logger.exception("explanation build failed")
+        raise HTTPException(status_code=500, detail="Errore interno")
+    if exp is None:
+        raise HTTPException(status_code=404, detail="Decision non trovata")
+    return exp.to_dict()
 
 
 @router.post("/{decision_id}/resolve")
