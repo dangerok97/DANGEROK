@@ -165,3 +165,12 @@ async def get_status(instance_id: str, user=Depends(get_current_user)):
         return await svc.status(user_id=user["user_id"], instance_id=instance_id)
     except LookupError:
         raise HTTPException(status_code=404, detail="Istanza connector non trovata")
+
+
+@router.get("/config-status")
+async def get_config_status(user=Depends(get_current_user)):
+    """Diagnostic endpoint (authenticated). Reports only boolean readiness
+    of the real Google Calendar configuration — NEVER any value, secret,
+    token, redirect URI, or partial credential."""
+    svc = get_google_calendar_service()
+    return await svc.config_status()

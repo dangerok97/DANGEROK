@@ -1,0 +1,37 @@
+{
+  "summary": "Iteration 11 — Diagnostic endpoint GET /api/connectors/google-calendar/config-status: FULL PASS on all 7 verification items. (1) Auth-required: unauthenticated → 401 {'detail':'Missing bearer token'}; bad bearer → 401. (2) Authenticated shape: 200 with EXACTLY the 10 spec keys (provider_mode, client_id_configured, client_secret_configured, redirect_uri_configured, token_vault_ready, provider_ready, missing_requirements, environment, connector_id, capability_id) — no extras, no omissions; types verified (bool flags, list[str] missing_requirements, enum provider_mode ∈ {real,fake}, enum environment ∈ {preview,production,test}); connector_id=='calendar_google', capability_id=='calendar.read'. (3) Current env state matches spec exactly: {provider_mode:'real', client_id_configured:false, client_secret_configured:false, redirect_uri_configured:true, token_vault_ready:true, provider_ready:false, missing_requirements:['GOOGLE_OAUTH_CLIENT_ID','GOOGLE_OAUTH_CLIENT_SECRET'], environment:'preview'}. (4) No leakage verified: raw response body (case-insensitive) does NOT contain the redirect URI literal, does NOT contain 'oauth/callback', does NOT contain TOKEN_VAULT_KEY (or ANY contiguous 20-char slice of it), does NOT contain 'client_secret=', 'access_token=', 'refresh_token=', 'authorization: bearer', and none of the forbidden secret-shaped keys (client_id, client_secret, redirect_uri, token_vault_key, access_token, refresh_token) appear as top-level fields. (5) In-process creds flip: with GOOGLE_OAUTH_CLIENT_ID=fake / GOOGLE_OAUTH_CLIENT_SECRET=fake exported before importing deps, GoogleCalendarService.config_status() returns provider_ready==True and missing_requirements==[] (confirmed via direct asyncio call — no backend restart, no side-effects on the preview process). (6) No regression: tests/test_iter9_ingestion_and_google_calendar.py -n 0 with CALENDAR_PROVIDER_MODE=fake → 25/25 PASS in 2.50s. (7) No Iter8 regression: tests/test_iter8_permissions_connectors.py -n 0 → 40/40 PASS in 12.37s. GRAND TOTAL: 11 (new diagnostic) + 25 (iter9) + 40 (iter8) = 76/76 backend tests GREEN, 0 product bugs, 0 leaks.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter9_config_status.py (NEW — 11 tests, 5 test classes: TestAuthRequired, TestShapeAndTypes, TestCurrentEnvState, TestNoLeakage, TestNoRegressionOfExistingKeys)",
+    "/app/test_reports/pytest/iter9_config_status.xml",
+    "/app/test_reports/pytest/iter9_main.xml",
+    "/app/test_reports/pytest/iter8.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "connectors/google_calendar/service.py:460-503 (config_status): correctly returns a boolean-only view. Reads os.environ.get('GOOGLE_OAUTH_CLIENT_ID/SECRET/REDIRECT_URI') and coerces to bool via strip() — so an empty string counts as NOT configured (matches spec). token_vault_ready uses security.is_configured(self.vault) which is the same helper used by the real-mode config guard, so both paths agree. provider_ready is computed as (mode=='real' and not missing), which is stricter than a mere key check — fake mode always reports False here (fake is not a 'real' provider health). environment mapping is exhaustive: prod/production→'production', test/testing/ci→'test', else→'preview' (safe default). connector_id='calendar_google' and capability_id='calendar.read' are hardcoded constants imported from .scopes so they cannot drift.",
+    "connectors/google_calendar/router.py:170-176 (GET /config-status): correctly guarded by Depends(get_current_user) → unauth returns 401 via existing FastAPI auth machinery. No custom code path, no exception handling needed (endpoint cannot raise unless the vault helper does, which it doesn't). Response is the raw dict from service — no repackaging, no leakage risk.",
+    "Cross-verified against actual env values: the response body does NOT contain the literal GOOGLE_OAUTH_REDIRECT_URI (=https://ora-decision-engine.preview.emergentagent.com/api/connectors/google-calendar/oauth/callback), does NOT contain any 20-char slice of the TOKEN_VAULT_KEY, and does NOT contain 'oauth/callback' anywhere. The boolean flag redirect_uri_configured=true is the ONLY signal about the URI's presence."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter9_config_status.py (NEW)"
+  ],
+  "success_rate": {
+    "backend": "100% (76/76: 11 new + 25 iter9 regression + 40 iter8 regression)",
+    "frontend": "n/a (backend-only per request)"
+  },
+  "seed_data_creation": "One ephemeral user per module run: cfgstat_<ts>_<hex>@ora.app registered via POST /api/auth/register. No cleanup needed — harmless in preview DB.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Diagnostic endpoint tests live at /app/backend/tests/test_iter9_config_status.py — 11 tests covering auth, shape, types, current env state, no-leakage, and no-regression on secret-shaped keys. Reproduce with `cd /app/backend && python -m pytest tests/test_iter9_config_status.py -n 0 -v` (~2s). If GOOGLE_OAUTH_CLIENT_ID/SECRET are later populated in backend/.env, TestCurrentEnvState.test_env_snapshot will need to be updated (currently asserts client_id_configured==false / provider_ready==false which reflects the empty-string state). The no-leakage tests read backend/.env at fixture-time and will automatically pick up any new secret values — so they self-adapt to production credentials without code changes.",
+  "rca_of_issue": "N/A — no product regressions, no defects found. The endpoint is a pure config-inspection view; implementation exactly matches the Italian spec verbatim."
+}

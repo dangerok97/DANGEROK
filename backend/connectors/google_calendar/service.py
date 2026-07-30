@@ -452,3 +452,52 @@ class GoogleCalendarService:
             "provider_mode": _flag_provider_mode(),
             "real_provider_configured": is_real_provider_configured(),
         }
+
+    # ------------------------------------------------------------------
+    # Diagnostic — safe boolean-only view of connector configuration.
+    # Never leaks values, secrets, tokens, redirect URIs, or account ids.
+    # ------------------------------------------------------------------
+    async def config_status(self) -> Dict[str, Any]:
+        from security import is_configured as vault_configured
+
+        client_id_configured = bool(os.environ.get("GOOGLE_OAUTH_CLIENT_ID", "").strip())
+        client_secret_configured = bool(os.environ.get("GOOGLE_OAUTH_CLIENT_SECRET", "").strip())
+        redirect_uri_configured = bool(os.environ.get("GOOGLE_OAUTH_REDIRECT_URI", "").strip())
+        token_vault_ready = vault_configured(self.vault)
+        provider_mode = _flag_provider_mode()
+
+        missing: list = []
+        if not client_id_configured:
+            missing.append("GOOGLE_OAUTH_CLIENT_ID")
+        if not client_secret_configured:
+            missing.append("GOOGLE_OAUTH_CLIENT_SECRET")
+        if not redirect_uri_configured:
+            missing.append("GOOGLE_OAUTH_REDIRECT_URI")
+        if not token_vault_ready:
+            missing.append("TOKEN_VAULT_KEY")
+
+        # provider_ready is TRUE only when running in real mode AND all
+        # requirements are satisfied. Fake mode never reports "ready" here
+        # because this endpoint is meant for real-provider health checks.
+        provider_ready = provider_mode == "real" and not missing
+
+        env_hint = os.environ.get("ENVIRONMENT", "").strip().lower()
+        if env_hint in ("production", "prod"):
+            environment = "production"
+        elif env_hint in ("test", "testing", "ci"):
+            environment = "test"
+        else:
+            environment = "preview"
+
+        return {
+            "provider_mode": provider_mode,
+            "client_id_configured": client_id_configured,
+            "client_secret_configured": client_secret_configured,
+            "redirect_uri_configured": redirect_uri_configured,
+            "token_vault_ready": token_vault_ready,
+            "provider_ready": provider_ready,
+            "missing_requirements": missing,
+            "environment": environment,
+            "connector_id": CONNECTOR_ID,
+            "capability_id": CAPABILITY_ID,
+        }
