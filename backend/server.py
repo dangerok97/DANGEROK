@@ -25,7 +25,13 @@ from emergentintegrations.llm.chat import LlmChat, UserMessage
 from decision_engine import DecisionService
 from decision_engine.service import build_seed_decisions
 from life_graph import LifeGraphService, NODE_TYPES, RELATION_TYPES
-from knowledge import KnowledgeService, SCHEMAS as KNOWLEDGE_SCHEMAS, schema_for as knowledge_schema_for
+from knowledge import (
+    KnowledgeService,
+    VersionConflict as KnowledgeVersionConflict,
+    NormalizationError as KnowledgeNormalizationError,
+    SCHEMAS as KNOWLEDGE_SCHEMAS,
+    schema_for as knowledge_schema_for,
+)
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -154,16 +160,27 @@ class DecisionNodesLinkIn(BaseModel):
 
 
 # --- Knowledge Layer ---
-class KnowledgeReplaceIn(BaseModel):
+class KnowledgeMeta(BaseModel):
+    expected_version: Optional[int] = None
+    reason: Optional[str] = None
+    source_type: Optional[str] = None  # user_input | ai_extraction | ...
+    actor_type: Optional[str] = None   # user | ai | system
+
+
+class KnowledgeReplaceIn(KnowledgeMeta):
     properties: Dict[str, Any]
 
 
-class KnowledgeMergeIn(BaseModel):
+class KnowledgeMergeIn(KnowledgeMeta):
     properties: Dict[str, Any]
 
 
-class KnowledgePropertyIn(BaseModel):
+class KnowledgePropertyIn(KnowledgeMeta):
     value: Any = None
+
+
+class KnowledgeArchiveIn(BaseModel):
+    reason: Optional[str] = None
 
 
 # ============================================================
@@ -250,10 +267,76 @@ def user_to_out(u: dict) -> UserOut:
 # ============================================================
 # SEED / MIGRATE FOR A USER
 # ============================================================
+async def _refresh_time_anchors(user_id: str):
+    """Idempotent: re-anchor `starts_at`/`deadline` on any decision whose
+    metadata carries `eta_min` or `due_days`. This keeps decisions like
+    "Esci tra 25 minuti" perpetually valid across sessions and fixes drift
+    on users seeded/migrated long ago (e.g. the demo user)."""
+    now = datetime.now(timezone.utc)
+    cursor = db.decisions.find(
+        {
+            "user_id": user_id,
+            "status": "open",
+            "$or": [
+                {"metadata.eta_min": {"$type": "number"}},
+                {"metadata.due_days": {"$type": "number"}},
+            ],
+        },
+        {"_id": 0, "id": 1, "metadata": 1, "starts_at": 1, "deadline": 1},
+    )
+    async for d in cursor:
+        md = d.get("metadata") or {}
+        updates: Dict[str, Any] = {}
+        if isinstance(md.get("eta_min"), (int, float)):
+            updates["starts_at"] = (now + timedelta(minutes=float(md["eta_min"]))).isoformat()
+        if isinstance(md.get("due_days"), (int, float)):
+            updates["deadline"] = (now + timedelta(days=float(md["due_days"]))).isoformat()
+        if updates:
+            await db.decisions.update_one({"id": d["id"], "user_id": user_id}, {"$set": updates})
+
+
+async def _ensure_live_imminent(user_id: str):
+    """Ensure the user always has at least one OPEN imminent-event decision.
+    Only kicks in for users who have interacted with ORA before (i.e. have any
+    decision in their history). Never touches existing docs; only inserts."""
+    total = await db.decisions.count_documents({"user_id": user_id})
+    if total == 0:
+        return  # Brand-new users get the full seed via caller; nothing to do here.
+    open_imminent = await db.decisions.count_documents({
+        "user_id": user_id,
+        "status": "open",
+        "metadata.eta_min": {"$type": "number"},
+    })
+    if open_imminent > 0:
+        return
+    now = datetime.now(timezone.utc)
+    doc = {
+        "id": f"dec_{uuid.uuid4().hex[:12]}",
+        "user_id": user_id,
+        "title": "Esci tra 25 minuti.",
+        "description": "Il traffico sta aumentando sul tuo tragitto.",
+        "origin": "seed:refresh",
+        "category": "travel",
+        "urgency": 9, "importance": 8, "risk": 6, "time_required_min": 2,
+        "energy": 1, "economic_impact": 2, "personal_impact": 7,
+        "place": "Ufficio", "people": [],
+        "starts_at": (now + timedelta(minutes=25)).isoformat(),
+        "deadline": None,
+        "status": "open",
+        "linked_to": [],
+        "metadata": {"eta_min": 25, "destination": "Ufficio"},
+        "history": [{"at": now.isoformat(), "event": "auto_seeded_imminent", "data": {}}],
+        "created_at": now.isoformat(),
+    }
+    await db.decisions.insert_one(doc)
+
+
 async def prepare_user_decisions(user_id: str):
     """Called after any successful auth. Idempotent:
        1) Migrate legacy tasks → decisions (once).
        2) If user still has zero decisions, seed the rich starter set.
+       3) Refresh relative time anchors (eta_min / due_days) so demo seeds stay valid.
+       4) Ensure at least one imminent-event decision is open, for existing users.
     """
     try:
         await decisions.migrate_user_tasks(user_id)
@@ -265,6 +348,16 @@ async def prepare_user_decisions(user_id: str):
         seeds = build_seed_decisions(user_id)
         if seeds:
             await db.decisions.insert_many(seeds)
+
+    try:
+        await _refresh_time_anchors(user_id)
+    except Exception:
+        logger.exception("Anchor refresh failed for %s", user_id)
+
+    try:
+        await _ensure_live_imminent(user_id)
+    except Exception:
+        logger.exception("Live imminent refresh failed for %s", user_id)
 
 
 # ============================================================
@@ -636,6 +729,24 @@ async def unlink_decision_from_node(decision_id: str, node_id: str, user=Depends
 # ============================================================
 # ROUTES: KNOWLEDGE LAYER (new, isolated module)
 # ============================================================
+def _knowledge_write_kwargs(body: KnowledgeMeta, user: dict) -> Dict[str, Any]:
+    return {
+        "expected_version": body.expected_version,
+        "reason": body.reason,
+        "source_type": body.source_type or "user_input",
+        "actor_type": body.actor_type or "user",
+        "actor_id": user["user_id"],
+    }
+
+
+def _map_knowledge_error(e: Exception) -> HTTPException:
+    if isinstance(e, KnowledgeVersionConflict):
+        return HTTPException(status_code=409, detail={"error": "version_conflict", "expected": e.expected, "current": e.current})
+    if isinstance(e, KnowledgeNormalizationError):
+        return HTTPException(status_code=400, detail=str(e))
+    return HTTPException(status_code=500, detail="Errore interno")
+
+
 @api.get("/knowledge/schemas")
 async def knowledge_schemas():
     """Public catalog of all node-type schemas."""
@@ -648,16 +759,38 @@ async def knowledge_schema(node_type: str):
 
 
 @api.get("/knowledge/nodes/{node_id}")
-async def get_node_knowledge(node_id: str, user=Depends(get_current_user)):
-    doc = await knowledge.get(user["user_id"], node_id)
+async def get_node_knowledge(node_id: str, include_archived: bool = False, user=Depends(get_current_user)):
+    doc = await knowledge.get(user["user_id"], node_id, include_archived=include_archived)
     if doc is None:
         raise HTTPException(status_code=404, detail="Nodo non trovato")
     return doc
 
 
+@api.get("/knowledge/nodes/{node_id}/history")
+async def get_node_knowledge_history(node_id: str, limit: int = 200, user=Depends(get_current_user)):
+    events = await knowledge.history(user["user_id"], node_id, limit=limit)
+    if events is None:
+        raise HTTPException(status_code=404, detail="Nodo non trovato")
+    return {"items": events}
+
+
+@api.get("/knowledge/nodes/{node_id}/properties/{key}")
+async def get_node_property(node_id: str, key: str, user=Depends(get_current_user)):
+    try:
+        result = await knowledge.get_property(user["user_id"], node_id, key)
+    except KnowledgeNormalizationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if result is None:
+        raise HTTPException(status_code=404, detail="Nodo non trovato")
+    return result
+
+
 @api.put("/knowledge/nodes/{node_id}")
 async def replace_node_knowledge(node_id: str, body: KnowledgeReplaceIn, user=Depends(get_current_user)):
-    doc = await knowledge.replace(user["user_id"], node_id, body.properties)
+    try:
+        doc = await knowledge.replace(user["user_id"], node_id, body.properties, **_knowledge_write_kwargs(body, user))
+    except (KnowledgeVersionConflict, KnowledgeNormalizationError) as e:
+        raise _map_knowledge_error(e)
     if doc is None:
         raise HTTPException(status_code=404, detail="Nodo non trovato")
     return doc
@@ -665,15 +798,29 @@ async def replace_node_knowledge(node_id: str, body: KnowledgeReplaceIn, user=De
 
 @api.patch("/knowledge/nodes/{node_id}")
 async def merge_node_knowledge(node_id: str, body: KnowledgeMergeIn, user=Depends(get_current_user)):
-    doc = await knowledge.merge(user["user_id"], node_id, body.properties)
+    """Atomic multi-property merge. Use `null` values to erase specific keys."""
+    try:
+        doc = await knowledge.merge(user["user_id"], node_id, body.properties, **_knowledge_write_kwargs(body, user))
+    except (KnowledgeVersionConflict, KnowledgeNormalizationError) as e:
+        raise _map_knowledge_error(e)
     if doc is None:
         raise HTTPException(status_code=404, detail="Nodo non trovato")
     return doc
 
 
 @api.delete("/knowledge/nodes/{node_id}")
-async def clear_node_knowledge(node_id: str, user=Depends(get_current_user)):
-    doc = await knowledge.clear(user["user_id"], node_id)
+async def archive_node_knowledge(node_id: str, reason: Optional[str] = None, user=Depends(get_current_user)):
+    """Soft delete: sets status=archived. Use POST /restore to bring back."""
+    doc = await knowledge.archive(user["user_id"], node_id, reason=reason, actor_id=user["user_id"])
+    if doc is None:
+        raise HTTPException(status_code=404, detail="Nodo non trovato")
+    return doc
+
+
+@api.post("/knowledge/nodes/{node_id}/restore")
+async def restore_node_knowledge(node_id: str, body: Optional[KnowledgeArchiveIn] = None, user=Depends(get_current_user)):
+    reason = body.reason if body else None
+    doc = await knowledge.restore(user["user_id"], node_id, reason=reason, actor_id=user["user_id"])
     if doc is None:
         raise HTTPException(status_code=404, detail="Nodo non trovato")
     return doc
@@ -681,23 +828,30 @@ async def clear_node_knowledge(node_id: str, user=Depends(get_current_user)):
 
 @api.put("/knowledge/nodes/{node_id}/properties/{key}")
 async def set_node_property(node_id: str, key: str, body: KnowledgePropertyIn, user=Depends(get_current_user)):
-    doc = await knowledge.set_property(user["user_id"], node_id, key, body.value)
+    """Atomic upsert of a single property."""
+    try:
+        doc = await knowledge.set_property(user["user_id"], node_id, key, body.value, **_knowledge_write_kwargs(body, user))
+    except (KnowledgeVersionConflict, KnowledgeNormalizationError) as e:
+        raise _map_knowledge_error(e)
     if doc is None:
         raise HTTPException(status_code=404, detail="Nodo non trovato")
     return doc
 
 
 @api.delete("/knowledge/nodes/{node_id}/properties/{key}")
-async def remove_node_property(node_id: str, key: str, user=Depends(get_current_user)):
-    doc = await knowledge.remove_property(user["user_id"], node_id, key)
+async def remove_node_property(node_id: str, key: str, reason: Optional[str] = None, user=Depends(get_current_user)):
+    try:
+        doc = await knowledge.remove_property(user["user_id"], node_id, key, reason=reason, actor_id=user["user_id"])
+    except (KnowledgeVersionConflict, KnowledgeNormalizationError) as e:
+        raise _map_knowledge_error(e)
     if doc is None:
         raise HTTPException(status_code=404, detail="Nodo non trovato")
     return doc
 
 
 @api.get("/knowledge")
-async def list_all_knowledge(user=Depends(get_current_user)):
-    items = await knowledge.list_for_user(user["user_id"])
+async def list_all_knowledge(include_archived: bool = False, user=Depends(get_current_user)):
+    items = await knowledge.list_for_user(user["user_id"], include_archived=include_archived)
     return {"items": items}
 
 

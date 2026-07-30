@@ -6,21 +6,22 @@ Design notes
 - Schemas are DATA, not Pydantic classes. Adding a new field means editing
   a dict; no code changes, no migrations, no restarts of the frontend.
 - The schemas describe the shape the KnowledgeService *knows about*. Unknown
-  keys are TOLERATED (stored under `extra`) so integrations can push new
+  keys are TOLERATED (stored under `_extra`) so integrations can push new
   fields without waiting for a schema update.
-- `type` values are lightweight hints: "string", "string_list", "number",
-  "boolean", "date", "iso_datetime", "object". They inform validation and
-  future UI. Nothing is enforced strictly — soft-coerce, never reject.
-- Each property has: key, label (Italian), type, optional `options`
-  (allowed values for enum-like fields), optional `example`.
+- Every entry declares: `key, label, type, sensitivity` (+ optional
+  `options`, `unit`, `format`, `example`).
+- `sensitivity` values: `public | personal | sensitive | highly_sensitive`.
+  Nothing in this catalog is `highly_sensitive` by default; that tier is
+  reserved for future integrations dealing with credentials, health records,
+  full card numbers, etc.
 """
 from __future__ import annotations
 
 from typing import Any, Dict, List
 
 
-def _prop(key: str, label: str, type: str = "string", **rest: Any) -> Dict[str, Any]:
-    p = {"key": key, "label": label, "type": type}
+def _prop(key: str, label: str, type: str = "string", sensitivity: str = "personal", **rest: Any) -> Dict[str, Any]:
+    p = {"key": key, "label": label, "type": type, "sensitivity": sensitivity}
     p.update(rest)
     return p
 
@@ -31,36 +32,36 @@ def _prop(key: str, label: str, type: str = "string", **rest: Any) -> Dict[str, 
 SCHEMAS: Dict[str, List[Dict[str, Any]]] = {
     "home": [
         _prop("home_type", "Tipo casa", "string", options=["casa_principale", "seconda_casa", "affitto", "in_costruzione"]),
-        _prop("address", "Indirizzo"),
+        _prop("address", "Indirizzo", sensitivity="sensitive"),
         _prop("owner", "Proprietario"),
-        _prop("residents", "Residenti", "string_list"),
+        _prop("residents", "Residenti", "string_list", sensitivity="sensitive"),
         _prop("utilities", "Forniture", "string_list", example=["luce", "gas", "acqua", "internet"]),
         _prop("contracts", "Contratti", "string_list"),
-        _prop("mortgage", "Mutuo", "object"),
+        _prop("mortgage", "Mutuo", "object", sensitivity="sensitive"),
         _prop("notary", "Notaio", "object"),
         _prop("insurances", "Assicurazioni", "string_list"),
         _prop("documents", "Documenti", "string_list"),
-        _prop("recurring_expenses", "Spese ricorrenti", "object_list"),
+        _prop("recurring_expenses", "Spese ricorrenti", "object_list", unit="EUR"),
         _prop("purchase_date", "Data acquisto", "date"),
     ],
     "car": [
-        _prop("brand", "Marca"),
-        _prop("model", "Modello"),
-        _prop("plate", "Targa"),
+        _prop("brand", "Marca", sensitivity="public"),
+        _prop("model", "Modello", sensitivity="public"),
+        _prop("plate", "Targa", sensitivity="sensitive"),
         _prop("insurance", "Assicurazione", "object"),
-        _prop("road_tax", "Bollo", "object"),
+        _prop("road_tax", "Bollo", "object", unit="EUR"),
         _prop("mot", "Revisione", "object"),
         _prop("services", "Tagliandi", "object_list"),
         _prop("tires", "Gomme", "object"),
         _prop("warranty", "Garanzia", "object"),
         _prop("owner", "Proprietario"),
         _prop("purchase_date", "Data acquisto", "date"),
-        _prop("mileage_km", "Chilometri", "number"),
+        _prop("mileage_km", "Chilometri", "number", unit="km"),
     ],
     "person": [
         _prop("name", "Nome"),
         _prop("relation", "Relazione", "string", options=["partner", "familiare", "amico", "collega", "professionista", "altro"]),
-        _prop("contacts", "Contatti", "object", example={"phone": "", "email": ""}),
+        _prop("contacts", "Contatti", "object", sensitivity="sensitive", example={"phone": "", "email": ""}),
         _prop("birthday", "Compleanno", "date"),
         _prop("shared_documents", "Documenti condivisi", "string_list"),
         _prop("shared_events", "Eventi condivisi", "string_list"),
@@ -74,16 +75,16 @@ SCHEMAS: Dict[str, List[Dict[str, Any]]] = {
         _prop("links", "Collegamenti", "string_list"),
         _prop("state", "Stato", "string", options=["valido", "in_scadenza", "scaduto", "archiviato"]),
         _prop("issuer", "Emesso da"),
-        _prop("storage", "Dove è archiviato"),
+        _prop("storage", "Dove è archiviato", sensitivity="sensitive"),
     ],
     "subscription": [
         _prop("provider", "Fornitore"),
         _prop("plan", "Piano"),
-        _prop("amount", "Importo", "number"),
+        _prop("amount", "Importo", "number", unit="EUR"),
         _prop("currency", "Valuta", "string", options=["EUR", "USD", "GBP", "CHF"]),
         _prop("frequency", "Frequenza", "string", options=["mensile", "bimestrale", "trimestrale", "annuale"]),
         _prop("next_payment", "Prossimo pagamento", "date"),
-        _prop("payment_method", "Metodo di pagamento"),
+        _prop("payment_method", "Metodo di pagamento", sensitivity="sensitive"),
         _prop("auto_renew", "Rinnovo automatico", "boolean"),
         _prop("start_date", "Data inizio", "date"),
         _prop("end_date", "Data fine", "date"),
@@ -94,20 +95,20 @@ SCHEMAS: Dict[str, List[Dict[str, Any]]] = {
         _prop("signed_at", "Data firma", "date"),
         _prop("start_date", "Inizio", "date"),
         _prop("end_date", "Fine", "date"),
-        _prop("notice_period_days", "Preavviso disdetta (giorni)", "number"),
+        _prop("notice_period_days", "Preavviso disdetta (giorni)", "number", unit="giorni"),
         _prop("attachments", "Allegati", "string_list"),
-        _prop("value", "Valore economico", "number"),
+        _prop("value", "Valore economico", "number", unit="EUR"),
         _prop("status", "Stato", "string", options=["attivo", "in_scadenza", "cessato"]),
     ],
     "health": [
-        _prop("focus", "Ambito", "string", options=["generale", "cardio", "dentistico", "oculistico", "mentale", "altro"]),
-        _prop("doctor", "Medico di riferimento"),
-        _prop("last_visit", "Ultima visita", "date"),
+        _prop("focus", "Ambito", "string", sensitivity="sensitive", options=["generale", "cardio", "dentistico", "oculistico", "mentale", "altro"]),
+        _prop("doctor", "Medico di riferimento", sensitivity="sensitive"),
+        _prop("last_visit", "Ultima visita", "date", sensitivity="sensitive"),
         _prop("next_checkup", "Prossimo controllo", "date"),
-        _prop("medications", "Farmaci", "string_list"),
-        _prop("allergies", "Allergie", "string_list"),
-        _prop("blood_type", "Gruppo sanguigno"),
-        _prop("emergency_contact", "Contatto di emergenza", "object"),
+        _prop("medications", "Farmaci", "string_list", sensitivity="highly_sensitive"),
+        _prop("allergies", "Allergie", "string_list", sensitivity="highly_sensitive"),
+        _prop("blood_type", "Gruppo sanguigno", sensitivity="highly_sensitive"),
+        _prop("emergency_contact", "Contatto di emergenza", "object", sensitivity="sensitive"),
     ],
     "university": [
         _prop("institution", "Ateneo"),
@@ -124,7 +125,7 @@ SCHEMAS: Dict[str, List[Dict[str, Any]]] = {
         _prop("role", "Ruolo"),
         _prop("started_at", "Data inizio", "date"),
         _prop("employment_type", "Tipo contratto", "string", options=["indeterminato", "determinato", "partita_iva", "stage", "collaborazione"]),
-        _prop("salary_gross_year", "Retribuzione annua lorda", "number"),
+        _prop("salary_gross_year", "Retribuzione annua lorda", "number", unit="EUR", sensitivity="sensitive"),
         _prop("manager", "Responsabile"),
         _prop("office_address", "Sede"),
         _prop("remote_days_per_week", "Giorni di smart working", "number"),
@@ -136,17 +137,17 @@ SCHEMAS: Dict[str, List[Dict[str, Any]]] = {
         _prop("transport", "Trasporto", "string_list", example=["volo", "treno", "auto"]),
         _prop("accommodation", "Alloggio", "object"),
         _prop("companions", "Compagni di viaggio", "string_list"),
-        _prop("budget", "Budget", "number"),
+        _prop("budget", "Budget", "number", unit="EUR"),
         _prop("bookings", "Prenotazioni", "string_list"),
     ],
     "purchase": [
         _prop("item", "Oggetto"),
         _prop("vendor", "Venditore"),
-        _prop("amount", "Importo", "number"),
+        _prop("amount", "Importo", "number", unit="EUR"),
         _prop("currency", "Valuta"),
         _prop("purchased_at", "Data acquisto", "date"),
         _prop("warranty_until", "Fine garanzia", "date"),
-        _prop("payment_method", "Metodo di pagamento"),
+        _prop("payment_method", "Metodo di pagamento", sensitivity="sensitive"),
         _prop("receipt", "Ricevuta / scontrino"),
     ],
     "pet": [
@@ -155,7 +156,7 @@ SCHEMAS: Dict[str, List[Dict[str, Any]]] = {
         _prop("breed", "Razza"),
         _prop("birthday", "Compleanno", "date"),
         _prop("vet", "Veterinario"),
-        _prop("microchip", "Microchip"),
+        _prop("microchip", "Microchip", sensitivity="sensitive"),
         _prop("vaccinations", "Vaccinazioni", "object_list"),
         _prop("food_brand", "Cibo abituale"),
     ],
@@ -163,7 +164,7 @@ SCHEMAS: Dict[str, List[Dict[str, Any]]] = {
         _prop("category", "Categoria", "string", options=["finanza", "salute", "lavoro", "studio", "personale", "relazioni"]),
         _prop("target", "Obiettivo misurabile"),
         _prop("target_date", "Data obiettivo", "date"),
-        _prop("progress_pct", "Progresso (%)", "number"),
+        _prop("progress_pct", "Progresso (%)", "number", unit="%"),
         _prop("motivation", "Motivazione"),
         _prop("milestones", "Milestone", "object_list"),
     ],
@@ -179,14 +180,14 @@ SCHEMAS: Dict[str, List[Dict[str, Any]]] = {
     "finance": [
         _prop("account_type", "Tipo conto", "string", options=["corrente", "risparmio", "investimento", "carta_credito", "carta_debito", "wallet"]),
         _prop("bank", "Banca / Istituto"),
-        _prop("iban_masked", "IBAN (mascherato)"),
-        _prop("balance", "Saldo", "number"),
+        _prop("iban_masked", "IBAN (mascherato)", sensitivity="sensitive"),
+        _prop("balance", "Saldo", "number", unit="EUR", sensitivity="sensitive"),
         _prop("currency", "Valuta"),
-        _prop("linked_cards", "Carte collegate", "string_list"),
+        _prop("linked_cards", "Carte collegate", "string_list", sensitivity="sensitive"),
     ],
     "generic": [
         _prop("summary", "Descrizione sintetica"),
-        _prop("tags", "Tag", "string_list"),
+        _prop("tags", "Tag", "string_list", sensitivity="public"),
         _prop("notes", "Note"),
     ],
 }
@@ -200,53 +201,11 @@ def schema_for(node_type: str) -> List[Dict[str, Any]]:
     return SCHEMAS.get(node_type) or SCHEMAS["generic"]
 
 
-# ------------------------------------------------------------------
-# Soft validation & coercion
-# ------------------------------------------------------------------
-def _to_number(v: Any) -> Any:
-    if v is None or v == "":
-        return None
-    try:
-        f = float(v)
-        return int(f) if f.is_integer() else f
-    except (TypeError, ValueError):
-        return None
+def schema_index(node_type: str) -> Dict[str, Dict[str, Any]]:
+    """Return schema as {key: entry} for O(1) lookup."""
+    return {p["key"]: p for p in schema_for(node_type)}
 
 
-_TYPE_COERCERS = {
-    "string": lambda v: None if v is None else str(v),
-    "number": _to_number,
-    "boolean": lambda v: bool(v) if v is not None else None,
-    "date": lambda v: None if v is None else str(v),
-    "iso_datetime": lambda v: None if v is None else str(v),
-    "object": lambda v: v if v is None or isinstance(v, dict) else {"value": v},
-    "string_list": lambda v: [] if v is None else [str(x) for x in (v if isinstance(v, list) else [v])],
-    "object_list": lambda v: [] if v is None else [x if isinstance(x, dict) else {"value": x} for x in (v if isinstance(v, list) else [v])],
-}
-
-
-def coerce_properties(node_type: str, incoming: Dict[str, Any]) -> Dict[str, Any]:
-    """Soft-coerce input against the schema for `node_type`.
-
-    Behavior:
-      - Known keys: coerced to the declared type.
-      - Unknown keys: kept as-is under `_extra`. Never rejected.
-      - `None` values erase the field on merge (see service.merge).
-    """
-    if not isinstance(incoming, dict):
-        return {}
-    schema = {p["key"]: p for p in schema_for(node_type)}
-    out: Dict[str, Any] = {}
-    extra: Dict[str, Any] = {}
-    for k, v in incoming.items():
-        if k == "_extra" and isinstance(v, dict):
-            extra.update(v)
-            continue
-        if k in schema:
-            coercer = _TYPE_COERCERS.get(schema[k]["type"])
-            out[k] = coercer(v) if coercer else v
-        else:
-            extra[k] = v
-    if extra:
-        out["_extra"] = extra
-    return out
+def sensitive_keys_of(node_type: str) -> List[str]:
+    """Keys marked `sensitive` or `highly_sensitive` in the schema."""
+    return [p["key"] for p in schema_for(node_type) if p.get("sensitivity") in ("sensitive", "highly_sensitive")]
