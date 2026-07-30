@@ -59,11 +59,21 @@ async def oauth_callback(request: Request, state: str = Query(...), code: str = 
 
 
 @router.post("/oauth/callback-fake")
-async def oauth_callback_fake(body: OAuthCallbackFakeIn):
-    """Test-only callback. Rejected unless CALENDAR_PROVIDER_MODE=fake."""
+async def oauth_callback_fake(request: Request):
+    """Test-only callback. Rejected unless CALENDAR_PROVIDER_MODE=fake.
+    Guard runs BEFORE Pydantic body validation so real-mode never leaks
+    the endpoint's schema."""
     import os
     if os.environ.get("CALENDAR_PROVIDER_MODE", "real").lower() != "fake":
         raise HTTPException(status_code=404, detail="Fake callback disabled")
+    try:
+        body_json = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
+    try:
+        body = OAuthCallbackFakeIn(**body_json)
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=str(e))
     svc = get_google_calendar_service()
     try:
         instance = await svc.handle_oauth_callback(
