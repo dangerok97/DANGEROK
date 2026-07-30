@@ -52,6 +52,9 @@ context_asm = ContextAssemblerService(db)
 # Lazily-imported to avoid circular refs at bootstrap time.
 _permissions_service = None
 _connectors_service = None
+_ingestion_service = None
+_google_calendar_service = None
+_token_vault = None
 
 
 def get_permissions_service():
@@ -68,6 +71,41 @@ def get_connectors_service():
         from connectors import ConnectorService
         _connectors_service = ConnectorService(db, permissions=get_permissions_service())
     return _connectors_service
+
+
+def get_token_vault():
+    global _token_vault
+    if _token_vault is None:
+        from security import build_token_vault
+        _token_vault = build_token_vault(db)
+    return _token_vault
+
+
+def get_ingestion_service():
+    global _ingestion_service
+    if _ingestion_service is None:
+        from ingestion import IngestionService
+        _ingestion_service = IngestionService(
+            db,
+            life_graph=life_graph,
+            knowledge=knowledge,
+            decisions=decisions,
+            auto_link=auto_link,
+        )
+    return _ingestion_service
+
+
+def get_google_calendar_service():
+    global _google_calendar_service
+    if _google_calendar_service is None:
+        from connectors.google_calendar import GoogleCalendarService
+        _google_calendar_service = GoogleCalendarService(
+            db=db,
+            permissions=get_permissions_service(),
+            ingestion=get_ingestion_service(),
+            vault=get_token_vault(),
+        )
+    return _google_calendar_service
 
 
 # --- Auth helpers ----------------------------------------------------

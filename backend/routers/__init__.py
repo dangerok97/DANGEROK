@@ -1,16 +1,19 @@
 """ORA modular routers. Each domain owns its own router file."""
+from connectors.google_calendar import google_calendar_router
+
 from . import (
+    admin,
     auth,
+    auto_link as auto_link_router,
+    connectors as connectors_router,
+    context as context_router,
     decisions as decisions_router,
+    ingestion as ingestion_router,
+    knowledge as knowledge_router,
     legacy_tasks,
     life_graph as life_graph_router,
-    knowledge as knowledge_router,
-    auto_link as auto_link_router,
-    context as context_router,
-    admin,
     memory as memory_router,
     permissions as permissions_router,
-    connectors as connectors_router,
 )
 
 ALL_ROUTERS = [
@@ -25,4 +28,6 @@ ALL_ROUTERS = [
     memory_router.router,
     permissions_router.router,
     connectors_router.router,
+    ingestion_router.router,
+    google_calendar_router,
 ]

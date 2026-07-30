@@ -70,6 +70,7 @@ _CONNECTORS: Tuple[Dict[str, Any], ...] = (
         optional_capabilities=("calendar.write",),
         auth_flow="oauth2",
         icon_key="calendar_google",
+        status="available",
     ),
     _conn(
         id="calendar_apple",

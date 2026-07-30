@@ -83,6 +83,27 @@ async def startup():
     await db.permission_audit.create_index([("connector_id", 1), ("timestamp", -1)])
     await db.permission_audit.create_index([("capability_id", 1), ("timestamp", -1)])
 
+    # Ingestion + Connectors + Vault (Iteration 9)
+    await db.ingestion_events.create_index("id", unique=True)
+    await db.ingestion_events.create_index(
+        [("user_id", 1), ("connector_instance_id", 1), ("external_id", 1), ("ingested_at", -1)],
+        name="idx_ing_user_instance_ext",
+    )
+    await db.ingestion_events.create_index([("user_id", 1), ("ingestion_status", 1), ("ingested_at", -1)])
+    await db.ingestion_events.create_index([("user_id", 1), ("connector_id", 1), ("ingested_at", -1)])
+    await db.connector_instances.create_index("id", unique=True)
+    await db.connector_instances.create_index(
+        [("user_id", 1), ("connector_id", 1), ("provider_account_id_hash", 1)],
+        unique=True, name="uniq_user_conn_account",
+    )
+    await db.connector_instances.create_index([("user_id", 1), ("status", 1)])
+    await db.secret_vault.create_index("id", unique=True)
+    await db.secret_vault.create_index([("user_id", 1), ("purpose", 1)])
+    await db.google_oauth_sessions.create_index("state", unique=True)
+    await db.google_oauth_sessions.create_index([("user_id", 1), ("created_at", -1)])
+    await db.google_oauth_sessions.create_index("expires_at")
+    await db.data_revocation_plans.create_index([("user_id", 1), ("connector_instance_id", 1)])
+
     # Sync capability registry to Mongo (idempotent, structural fields are
     # overwritten from code; ops metadata is preserved).
     try:

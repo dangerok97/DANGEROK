@@ -9,6 +9,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Tuple
 
+from .calendar_provider import calendar_provider
 from .permissions_provider import permissions_provider
 from .providers import (
     auto_link_provider,
@@ -157,7 +158,12 @@ async def assemble_pipeline(repo, user_id: str, decision: Dict[str, Any], *, all
     # zero DB reads. Included in `providers_run` telemetry either way.
     p_perms = await run_provider_safe(permissions_provider(user_id), "permissions")
 
-    all_results = [p_decision, p_linked, p_know, p_graph, p_auto, p_system, p_perms]
+    # Provider 8 (Calendar) — feature-flagged (CALENDAR_CONTEXT_ENABLED).
+    # When the flag is OFF the provider is a strict no-op: zero signals,
+    # zero DB reads.
+    p_cal = await run_provider_safe(calendar_provider(repo, user_id), "calendar")
+
+    all_results = [p_decision, p_linked, p_know, p_graph, p_auto, p_system, p_perms, p_cal]
 
     # Merge signals, cap total.
     raw_signals: List[Signal] = []

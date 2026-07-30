@@ -285,3 +285,241 @@ agent_communication:
              PERMISSIONS_CONTEXT_ENABLED=false (default).
 
         Credenziali test: demo@ora.app / Demo!2026 (già presenti in /app/memory/test_credentials.md).
+
+
+
+# =====================================================================
+# ITERAZIONE 9 — Ingestion Core + Google Calendar Connector
+# =====================================================================
+user_problem_statement_iter9: |
+  Ingestion Core generico (types, event_model, normalizer, dedup, pipeline,
+  routing, provenance, repository, service) + primo connector reale
+  (Google Calendar) con OAuth 2.0 + PKCE, TokenVault astratto con
+  implementazione Fernet dev, ConnectorInstance model, FakeProvider
+  attivabile via CALENDAR_PROVIDER_MODE=fake. Nessuna chiamata reale
+  senza credenziali. CalendarContextProvider dietro flag
+  CALENDAR_CONTEXT_ENABLED (default OFF). Nessuna Decision generation
+  senza CALENDAR_DECISION_GENERATION_ENABLED=true.
+
+backend_iter9:
+  - task: "TokenVault abstraction + Fernet dev impl (security/token_vault.py)"
+    implemented: true
+    working: true
+    file: "/app/backend/security/token_vault.py"
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: true
+          agent: "main"
+          comment: |
+            Abstract TokenVault protocol + Fernet dev impl. DisabledVault sentinel
+            raises VaultNotConfigured with clean error when TOKEN_VAULT_KEY missing.
+            Ciphertext stored in `secret_vault` collection, keyed by opaque `sv_<hex>`.
+            Real provider gated: fails with 503 provider_not_configured if the vault
+            is disabled. No hardcoded key fallback.
+
+  - task: "Ingestion Core module (ingestion/*)"
+    implemented: true
+    working: true
+    file: "/app/backend/ingestion/*.py"
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: true
+          agent: "main"
+          comment: |
+            IngestionEventRepository with sanitized raw_reference (blacklist of
+            token/password/authorization keys). DeduplicationService keyed by
+            (user, connector_instance, external_id, source_hash). Pipeline runs
+            receive → normalized → dedupe → route → processed and marks
+            SUPERSEDED on updates. Malformed payloads land in QUARANTINED with
+            error_code but never carry the original content. CalendarEventRouter
+            uses ONLY official services (LifeGraphService.create_node/update_node,
+            KnowledgeService.merge, DecisionService.create + link via
+            LifeGraphService.link_decision). Cancelled events archive the node
+            instead of deleting it.
+
+  - task: "CalendarEventNormalizer + provenance-first canonical model"
+    implemented: true
+    working: true
+    file: "/app/backend/ingestion/normalizer.py, /app/backend/ingestion/types.py"
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: true
+          agent: "main"
+          comment: |
+            Google Calendar → CalendarEventNormalized. Every field carries its
+            own provenance + sensitivity (NormalizedField). Length caps on
+            title/description/attendees/reminders. Deterministic `source_hash`
+            over the raw payload (excluding provenance timestamps) → dedup-stable.
+            NormalizationError raised for missing_id / payload_not_object /
+            missing_start_end → pipeline quarantines the event.
+
+  - task: "Google Calendar connector (real provider + FakeProvider)"
+    implemented: true
+    working: true
+    file: "/app/backend/connectors/google_calendar/*.py"
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: true
+          agent: "main"
+          comment: |
+            OAuth 2.0 Authorization Code + PKCE (S256). State persisted in
+            `google_oauth_sessions` for 10 min; one-shot consumption. Scopes
+            minimal: calendar.readonly + calendarlist.readonly + openid/email/profile.
+            Token vault: refresh + access tokens stored encrypted; access token
+            auto-refreshed on expiry. RealGoogleCalendarProvider talks to
+            googleapis.com; FakeGoogleCalendarProvider (in-memory, deterministic
+            seeder) activated ONLY when CALENDAR_PROVIDER_MODE=fake.
+            build_calendar_provider() never falls back to fake silently.
+            When CALENDAR_PROVIDER_MODE=real but creds missing → clean 503
+            provider_not_configured.
+
+  - task: "ConnectorInstance model + per-account state"
+    implemented: true
+    working: true
+    file: "/app/backend/connectors/instances.py"
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: true
+          agent: "main"
+          comment: |
+            provider_account_id_hash keyed via SHA-256 (no plaintext account id).
+            Unique index on (user_id, connector_id, provider_account_id_hash).
+            Fields: authorized_scopes, selected_resource_ids, sync_mode, cursor,
+            secret_reference, status ∈ {pending, connected, syncing, degraded,
+            reauthorization_required, revoked, disabled}, poll_interval_min,
+            window_past_days, window_future_days (all configurable per instance).
+
+  - task: "AccessGuard integration on every read"
+    implemented: true
+    working: true
+    file: "/app/backend/connectors/google_calendar/service.py"
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: true
+          agent: "main"
+          comment: |
+            Every read (list_calendars, sync, refresh) calls
+            PermissionService.check_access(user, calendar.read, calendar_google,
+            instance_id) BEFORE any Google HTTP call. Denied → 403 consent_denied,
+            audited. Post-callback the ORA-side consent is granted automatically
+            for the exact connector-instance (separate from Google's consent).
+
+  - task: "Ingestion + connector endpoints"
+    implemented: true
+    working: true
+    file: "/app/backend/routers/ingestion.py, /app/backend/connectors/google_calendar/router.py"
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: true
+          agent: "main"
+          comment: |
+            POST /api/connectors/google-calendar/oauth/start
+            GET  /api/connectors/google-calendar/oauth/callback (real)
+            POST /api/connectors/google-calendar/oauth/callback-fake (fake mode only, 404 in real)
+            GET  /api/connectors/google-calendar/instances
+            GET  /api/connectors/google-calendar/instances/{id}
+            GET  /api/connectors/google-calendar/instances/{id}/calendars
+            POST /api/connectors/google-calendar/instances/{id}/select-calendars
+            POST /api/connectors/google-calendar/instances/{id}/sync
+            POST /api/connectors/google-calendar/instances/{id}/refresh
+            POST /api/connectors/google-calendar/instances/{id}/revoke
+            GET  /api/connectors/google-calendar/instances/{id}/status
+            GET  /api/ingestion/events, /{id}, /stats
+
+  - task: "Sync: initial + incremental with sync_token cursor"
+    implemented: true
+    working: true
+    file: "/app/backend/connectors/google_calendar/service.py"
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: true
+          agent: "main"
+          comment: |
+            Initial window: -30 / +180 days (configurable per instance,
+            capped by GOOGLE_CALENDAR_MAX_WINDOW_DAYS). Subsequent syncs use
+            the per-calendar sync_token cursor → incremental. force_full=True
+            (via /refresh) bypasses the cursor. Poll interval 15 min default,
+            per-instance configurable.
+
+  - task: "Data revocation flow"
+    implemented: true
+    working: true
+    file: "/app/backend/connectors/google_calendar/service.py"
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: true
+          agent: "main"
+          comment: |
+            On /revoke: (1) Google-side token revoke (best-effort);
+            (2) vault entry revoked; (3) ORA consent revoked for instance;
+            (4) ConnectorInstance status → 'revoked'; (5) DataRevocationPlan
+            doc inserted; (6) ingested events marked source_status='detached'.
+            User-verified facts (Knowledge Layer values) are NOT deleted.
+            Post-revoke sync attempts → 403 consent_denied.
+
+  - task: "CalendarContextProvider (flag-gated CALENDAR_CONTEXT_ENABLED)"
+    implemented: true
+    working: true
+    file: "/app/backend/context_assembler/calendar_provider.py, /app/backend/context_assembler/assembler.py"
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+        - working: true
+          agent: "main"
+          comment: |
+            Provider 8 in the pipeline. Flag OFF (default) → zero signals,
+            context_hash byte-stable. Flag ON → reads ONLY from ingested,
+            already-consented events (metadata only: title, starts_at,
+            calendar_id, instance_id) — never re-fetches from Google.
+
+test_plan_iter9:
+  current_focus:
+    - "TokenVault abstraction + Fernet dev impl (security/token_vault.py)"
+    - "Ingestion Core module (ingestion/*)"
+    - "Google Calendar connector (real provider + FakeProvider)"
+    - "ConnectorInstance model + per-account state"
+    - "AccessGuard integration on every read"
+    - "Sync: initial + incremental with sync_token cursor"
+    - "Data revocation flow"
+    - "CalendarContextProvider (flag-gated CALENDAR_CONTEXT_ENABLED)"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication_iter9:
+    - agent: "main"
+      message: |
+        Iterazione 9 completata. Tutto verde in locale:
+          - 25/25 tests in tests/test_iter9_ingestion_and_google_calendar.py
+          - 40/40 tests in tests/test_iter8_permissions_connectors.py (nessuna regressione)
+          - 86/86 tests nelle suite legacy (life_graph + context_assembler + auto_link)
+        Il connector reale è pronto ma disabilitato senza credenziali:
+        `POST /api/connectors/google-calendar/oauth/start` → 503
+        `provider_not_configured` finché GOOGLE_OAUTH_CLIENT_ID / SECRET /
+        REDIRECT_URI non vengono impostati. Il FakeProvider è attivabile via
+        CALENDAR_PROVIDER_MODE=fake (default `real`, no silent downgrade).
+
+        Test in-process: la suite iter9 usa `TestClient(server.app)` e imposta
+        env `CALENDAR_PROVIDER_MODE=fake` PRIMA di importare server.py.
+        Il testing agent DEVE eseguire questa suite con
+          env CALENDAR_PROVIDER_MODE=fake python -m pytest tests/test_iter9_… -n 0
+        (l'endpoint /oauth/callback-fake ritorna 404 senza il flag).
+
+        Per la verifica dal preview backend (senza fake mode):
+          - /oauth/start → 503 provider_not_configured
+          - /instances → []
+          - /ingestion/stats → {total: 0, by_connector: {}}
+          - Nessuna regressione sugli endpoint pre-esistenti (auth, decisions,
+            life-graph, knowledge, auto-link, context, memory, admin,
+            permissions, connectors).
+
+        Credenziali test: demo@ora.app / Demo!2026 (invariate).
