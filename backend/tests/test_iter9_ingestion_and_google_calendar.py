@@ -42,9 +42,8 @@ TS = int(time.time())
 
 
 @pytest.fixture(scope="module")
-def client():
-    with TestClient(server.app) as c:
-        yield c
+def client(shared_client):
+    return shared_client
 
 
 @pytest.fixture(scope="module")

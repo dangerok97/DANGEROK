@@ -55,6 +55,7 @@ _connectors_service = None
 _ingestion_service = None
 _google_calendar_service = None
 _token_vault = None
+_daily_summary_service = None
 
 
 def get_permissions_service():
@@ -106,6 +107,14 @@ def get_google_calendar_service():
             vault=get_token_vault(),
         )
     return _google_calendar_service
+
+
+def get_daily_summary_service():
+    global _daily_summary_service
+    if _daily_summary_service is None:
+        from daily_intelligence import DailySummaryService
+        _daily_summary_service = DailySummaryService(db)
+    return _daily_summary_service
 
 
 # --- Auth helpers ----------------------------------------------------

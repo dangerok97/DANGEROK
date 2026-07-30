@@ -10,6 +10,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Tuple
 
 from .calendar_provider import calendar_provider
+from .daily_summary_provider import daily_summary_provider
 from .permissions_provider import permissions_provider
 from .providers import (
     auto_link_provider,
@@ -163,7 +164,12 @@ async def assemble_pipeline(repo, user_id: str, decision: Dict[str, Any], *, all
     # zero DB reads.
     p_cal = await run_provider_safe(calendar_provider(repo, user_id), "calendar")
 
-    all_results = [p_decision, p_linked, p_know, p_graph, p_auto, p_system, p_perms, p_cal]
+    # Provider 9 (Daily Summary) — feature-flagged (DAILY_SUMMARY_ENABLED).
+    # OFF by default → strict no-op. When ON emits deterministic day-level
+    # metadata (no titles).
+    p_daily = await run_provider_safe(daily_summary_provider(repo.db, user_id), "daily_summary")
+
+    all_results = [p_decision, p_linked, p_know, p_graph, p_auto, p_system, p_perms, p_cal, p_daily]
 
     # Merge signals, cap total.
     raw_signals: List[Signal] = []
