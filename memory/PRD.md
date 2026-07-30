@@ -43,6 +43,18 @@ Behavior added:
 - Full history log per decision (created, resolved, dismissed, ai_resolution_proposed, migrated_from_task, seeded).
 - Legacy `/api/tasks` + `/api/priorities` still work (read/write decisions transparently).
 
+## Iteration 3 — Life Graph Core (SHIPPED)
+Persistent representation of the user's life as a graph of Nodes + typed Edges. Independent module `/app/backend/life_graph/`. **Decision Engine untouched.** No UI/design changes.
+
+- **Node types**: `home, car, person, job, university, trip, subscription, contract, document, purchase, health, pet, goal, event, finance, generic`.
+- **Relation types**: `owns, lives_at, belongs_to, pays_for, documents, assigned_to, has_member, related_to, parent_of, generic`.
+- **Decision ↔ Node**: decisions gain an optional `node_ids: []` field written exclusively by the `LifeGraphService` (idempotent `$addToSet`, history-logged). Decision Engine payloads pass through unchanged.
+- **Traversal**: in-memory BFS `neighborhood(node_id, depth)` returning `{root, nodes, edges, distances, decisions}`. Bounded depth ≤ 6.
+- **Seed**: idempotent `POST /api/life-graph/seed` creates a demo graph: Io → lives_at → Casa → parent_of → Bolletta Luce; Io → owns → Auto → assigned_to → Assicurazione; Io → has_member → Lavoro; Io → related_to → {Salute, Università}.
+- **Endpoints**: `GET /api/life-graph/vocabulary`, `POST /api/life-graph/seed`, full CRUD on `/nodes` and `/edges`, `GET /nodes/{id}/graph?depth=`, `GET /nodes/{id}/decisions`, `POST /life-graph/decisions/{id}/nodes`, `DELETE /life-graph/decisions/{id}/nodes/{node_id}`.
+- **Cascade**: archiving a node removes its edges and unlinks it from all decisions.
+- **Cross-user isolation**: every query filtered by `user_id`.
+
 ## API surface
 - `POST /api/auth/register` `POST /api/auth/login` `POST /api/auth/google-session` `GET /api/auth/me` `POST /api/auth/logout`
 - `GET /api/priorities` — top 5 open, sorted by score
