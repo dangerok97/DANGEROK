@@ -1,0 +1,51 @@
+{
+  "summary": "Iteration 5 re-verification after coercion fix in /app/backend/knowledge/provenance.py::_coerce_value: 47/47 pass (100%) on /app/backend/tests/test_knowledge_hardening.py — the previous sole failure (numeric-string coercion) is FIXED. Explicit new assertions for the fix (all green): (1) bare {mileage_km:'48500'} → envelope.value == 48500 (Python int) with value_type='number' and unit='km' (test_01_bare_values_wrap, extended); (2) NEW test_01b_boolean_coercion: bare {auto_renew:'true'} on subscription node → envelope.value is True, value_type='boolean'; (3) NEW test_01c_string_list_wrap: bare {residents:'Marco'} on home node → envelope.value == ['Marco'], value_type='string_list'. All previously-passing tests remain green: envelope wrapping w/ defaults & schema-driven sensitivity, rich AI-extraction envelopes with confidence clamping & invalid-source fallback, same-value reconfirm (extracted_at preserved, last_confirmed_at bumped), rich audit history (redaction for sensitive plate/medications enforced — no raw leaks), optimistic concurrency w/ 409 body {error:'version_conflict',expected,current}, security 400s (dollar-prefixed keys, dot-in-keys, __proto__/constructor/prototype, over-length keys/values >64/>10k, nested $/. operators, NaN=>422, 'Mileage KM' normalization), soft-delete/restore lifecycle w/ 'restored' history event, single-property PUT/GET/DELETE atomic API (nonexistent key returns 200 {envelope:null,value:null}), cross-user 404 isolation on all endpoints, no-bearer 401, no-side-effects from knowledge writes (decision & edge counts unchanged), iteration 1-4 regression (top decisions, GPT-5.2 Italian resolve, node graph, legacy priorities, memory/ask, auth me), demo drift fix (top-1='Esci tra 25 minuti' w/ 'imminent' reason_tag, no decision growth on repeated logins). Iteration 4 test file (/app/backend/tests/test_knowledge_layer.py): 9 shape-drift failures — NOT modified per primary directive; these are pre-existing since the envelope migration and are pure test-assertion updates (see action_items). Other regression suites: test_life_graph (all pass), test_ora_backend (2 pre-existing seed-size-drift failures unrelated to this fix — expects 5 seeded priorities but current seed size is 3), test_ora_decision_engine (collection error: KeyError EXPO_PUBLIC_BACKEND_URL — env-loading test bug, unrelated). NOTE for future testing agents: pytest.ini defaults to `-n 2 --dist loadscope` (parallel xdist); this suite REQUIRES `-n 0` (serial) because of module-scoped shared state between test classes.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "/app/backend/tests/test_knowledge_layer.py (iteration 4)",
+        "issue": "9 shape-drift assertion failures — tests still expect pre-envelope bare-value shape (e.g. `d['properties']['mileage_km'] == 48500` instead of `d['properties']['mileage_km']['value'] == 48500`). Failing tests: test_10_patch_creates, test_11_patch_merges, test_13_put_replaces, test_14_car_coercion_and_extras, test_15_extra_null_removes, test_16_string_list_autowrap, test_17_put_property, test_19_clear, test_20_list_all. Not touched here per the 'do NOT modify iteration 4 tests' directive."
+      },
+      {
+        "endpoint": "/app/backend/tests/test_ora_backend.py::test_02, test_06",
+        "issue": "Pre-existing failure: asserts `len(priorities)==5` but current seed size is 3. Unrelated to this iteration."
+      },
+      {
+        "endpoint": "/app/backend/tests/test_ora_decision_engine.py",
+        "issue": "Collection error: KeyError 'EXPO_PUBLIC_BACKEND_URL' at import — test uses bracket lookup instead of `os.environ.get(...)`. Unrelated to this iteration."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_knowledge_hardening.py",
+    "/app/test_reports/pytest/knowledge_hardening.xml"
+  ],
+  "action_items": [
+    "Coercion fix is verified — no further backend action needed for iteration 5.",
+    "Update /app/backend/tests/test_knowledge_layer.py (iteration 4) to accept envelope shape: replace `d['properties'][K] == V` with `d['properties'][K]['value'] == V` (and similar for list/dict comparisons) across the 9 failing tests. Also test_20_list_all's assertion depends on ordering of node creation across module state — inspect and adjust.",
+    "Fix /app/backend/tests/test_ora_decision_engine.py env access: change `os.environ['EXPO_PUBLIC_BACKEND_URL']` → `os.environ.get('EXPO_PUBLIC_BACKEND_URL')`.",
+    "Fix /app/backend/tests/test_ora_backend.py::test_02/test_06: update expected priorities count from 5 → 3, or align seed size to intent."
+  ],
+  "critical_code_review_comments": [
+    "Coercion helper `_coerce_value` in /app/backend/knowledge/provenance.py is well-scoped: never raises, handles number/boolean/string/string_list/object_list/object explicitly, treats bool as non-numeric (avoids `True == 1` conflation), rejects NaN/Inf by falling back to original string. Italian truthy strings 'si'/'sì' correctly included.",
+    "pytest.ini forces `-n 2 --dist loadscope` by default; the knowledge_hardening suite shares module-scope state fixture across classes and hits `KeyError('car_id')` when classes land on different workers. Consider either (a) documenting `-n 0` requirement in a docstring/header comment, or (b) refactoring TestSetup into an autouse session fixture that always runs before other classes on each worker, or (c) merging class-level state into a class-scoped fixture that self-seeds.",
+    "Iteration 4 test file was flagged in iteration_5.json action_items but not updated; the accumulating shape-drift makes CI regressions noisy. Recommend addressing in the next iteration or adding an `xfail(reason='envelope shape migration pending')` marker.",
+    "provenance.build_envelope is now the single coercion + provenance choke-point — good separation of concerns. As Knowledge grows, consider centralizing schema-type discovery here too (currently done in service.py)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_knowledge_hardening.py (added TestA2_Coercion class with test_01b_boolean_coercion and test_01c_string_list_wrap to explicitly cover the review request points 2 & 3)"
+  ],
+  "success_rate": {"backend": "100% (47/47 iteration 5 tests); iteration 4 has 9 known shape-drift failures documented for main agent", "frontend": "n/a (backend-only iteration)"},
+  "seed_data_creation": "Two fresh users per run (iter5_a_<ts>@ora.app, iter5_b_<ts>@ora.app), Life Graph seeded for A, plus a subscription node created dynamically in TestA2_Coercion for the boolean-coercion check. Demo user demo@ora.app exercised in TestL_DemoDrift.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "MUST run knowledge_hardening suite with `-n 0` (serial) — pytest.ini defaults to `-n 2 --dist loadscope` which breaks module-scope shared state. Command: `pytest /app/backend/tests/test_knowledge_hardening.py -v -n 0`. Iteration 5 (Knowledge Layer hardening) is fully green: 47/47. The coercion fix in provenance.py::_coerce_value is verified for number/boolean/string_list cases; object/object_list wrap paths are exercised implicitly by test_02_ai_extraction_envelope and test_28. If iteration 4 (test_knowledge_layer.py) is retested, expect 9 shape-drift failures that need envelope-aware assertion updates.",
+  "rca_of_issue": "N/A — original coercion regression is fixed. Fix summary: /app/backend/knowledge/provenance.py::build_envelope now invokes _coerce_value(value, value_type) both for is_envelope(raw) and bare-value paths, applying: number→int/float via float() then int-check; boolean→lowercased true/1/yes/si/sì/on→True and false/0/no/off/''→False; string_list→[str(x)] wrap for scalars, coerce list items to str; object_list→[{value:x}] wrap for scalars; object→{value:x} wrap for non-dict; string→str(x). Guarded by try/except so non-coercible values pass through untouched. Confirmed by test_01 (mileage_km:'48500'→int 48500), test_01b (auto_renew:'true'→bool True), test_01c (residents:'Marco'→['Marco'])."
+}

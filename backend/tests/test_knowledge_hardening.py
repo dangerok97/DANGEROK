@@ -93,6 +93,35 @@ class TestA_Envelope:
 
 
 # ============================================================
+# A2. Coercion (boolean strings, string_list wrap)
+# ============================================================
+class TestA2_Coercion:
+    def test_01b_boolean_coercion(self, sess, state):
+        # Create a subscription node
+        r = sess.post(f"{BASE_URL}/api/life-graph/nodes", headers=state["ha"],
+                      json={"type": "subscription", "label": "Netflix"})
+        assert r.status_code == 200, r.text
+        sub_id = r.json()["id"]
+        state["sub_id"] = sub_id
+        r = sess.patch(f"{BASE_URL}/api/knowledge/nodes/{sub_id}",
+                       json={"properties": {"auto_renew": "true"}},
+                       headers=state["ha"])
+        assert r.status_code == 200, r.text
+        ar = r.json()["properties"]["auto_renew"]
+        assert ar["value_type"] == "boolean"
+        assert ar["value"] is True, f"expected True, got {ar['value']!r}"
+
+    def test_01c_string_list_wrap(self, sess, state):
+        r = sess.patch(f"{BASE_URL}/api/knowledge/nodes/{state['home_id']}",
+                       json={"properties": {"residents": "Marco"}},
+                       headers=state["ha"])
+        assert r.status_code == 200, r.text
+        res = r.json()["properties"]["residents"]
+        assert res["value_type"] == "string_list"
+        assert res["value"] == ["Marco"], f"expected ['Marco'], got {res['value']!r}"
+
+
+# ============================================================
 # B. Rich envelope input (AI extraction)
 # ============================================================
 class TestB_RichEnvelope:

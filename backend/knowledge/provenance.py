@@ -41,6 +41,64 @@ VALID_VALUE_TYPES = frozenset({
 })
 
 
+def _coerce_value(value: Any, value_type: str) -> Any:
+    """Best-effort coercion of `value` to match `value_type`.
+
+    Rules:
+      - Never raise; if coercion fails, return the original value untouched.
+      - `number`: string with digits → int/float; empty/None → None.
+      - `boolean`: recognizable truthy/falsy strings, else bool(value).
+      - `string_list`: scalar → [str(scalar)]; list → coerced to strings.
+      - `object_list`: scalar → [{"value": scalar}]; list untouched.
+      - `object`: scalar → {"value": scalar}; dict untouched.
+      - `string`: any → str(value).
+      - `date`/`iso_datetime`: pass-through (string expected).
+    """
+    if value is None:
+        return None
+    if value_type == "number":
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, (int, float)):
+            return value
+        if isinstance(value, str):
+            s = value.strip()
+            if s == "":
+                return None
+            try:
+                f = float(s)
+                if f != f or f in (float("inf"), float("-inf")):
+                    return value
+                return int(f) if f.is_integer() else f
+            except ValueError:
+                return value
+        return value
+    if value_type == "boolean":
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            s = value.strip().lower()
+            if s in ("true", "1", "yes", "si", "sì", "on"):
+                return True
+            if s in ("false", "0", "no", "off", ""):
+                return False
+        return bool(value)
+    if value_type == "string":
+        return value if isinstance(value, str) else str(value)
+    if value_type == "string_list":
+        if isinstance(value, list):
+            return [x if isinstance(x, str) else str(x) for x in value]
+        return [value if isinstance(value, str) else str(value)]
+    if value_type == "object_list":
+        if isinstance(value, list):
+            return [x if isinstance(x, dict) else {"value": x} for x in value]
+        return [value if isinstance(value, dict) else {"value": value}]
+    if value_type == "object":
+        return value if isinstance(value, dict) else {"value": value}
+    # date / iso_datetime: leave as-is (already sanitized upstream).
+    return value
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -139,6 +197,7 @@ def build_envelope(
         # value_type: explicit > schema > inferred
         vt = raw.get("value_type") or (schema_hint or {}).get("type") or infer_value_type(value)
         env["value_type"] = vt if vt in VALID_VALUE_TYPES else "string"
+        env["value"] = _coerce_value(value, env["value_type"])
         env["unit"] = raw.get("unit") or (schema_hint or {}).get("unit")
         env["format"] = raw.get("format") or (schema_hint or {}).get("format")
         env["sensitivity"] = raw.get("sensitivity") or (schema_hint or {}).get("sensitivity") or "personal"
@@ -149,9 +208,10 @@ def build_envelope(
     else:
         value = raw
         vt = (schema_hint or {}).get("type") or infer_value_type(value)
+        vt = vt if vt in VALID_VALUE_TYPES else "string"
         env = {
-            "value": value,
-            "value_type": vt if vt in VALID_VALUE_TYPES else "string",
+            "value": _coerce_value(value, vt),
+            "value_type": vt,
             "unit": (schema_hint or {}).get("unit"),
             "format": (schema_hint or {}).get("format"),
             "sensitivity": (schema_hint or {}).get("sensitivity") or "personal",
