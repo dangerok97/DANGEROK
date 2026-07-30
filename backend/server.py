@@ -33,6 +33,7 @@ from knowledge import (
     schema_for as knowledge_schema_for,
 )
 from auto_link import AutoLinkService, MATCHER_VERSION as AUTOLINK_MATCHER_VERSION
+from context_assembler import ContextAssemblerService, ASSEMBLER_VERSION
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -50,6 +51,7 @@ decisions = DecisionService(db)
 life_graph = LifeGraphService(db)
 knowledge = KnowledgeService(db)
 auto_link = AutoLinkService(db, life_graph)
+context_asm = ContextAssemblerService(db)
 
 app = FastAPI(title="ORA API")
 api = APIRouter(prefix="/api")
@@ -925,6 +927,53 @@ async def auto_link_reject(proposal_id: str, body: Optional[AutoLinkReasonIn] = 
 
 
 # ============================================================
+# ROUTES: CONTEXT ASSEMBLER (new, isolated module)
+# ============================================================
+@api.post("/context/decisions/{decision_id}/assemble")
+async def context_assemble(decision_id: str, user=Depends(get_current_user)):
+    snap = await context_asm.assemble(user["user_id"], decision_id, force=False)
+    if snap is None:
+        raise HTTPException(status_code=404, detail="Decision non trovata")
+    return snap
+
+
+@api.post("/context/decisions/{decision_id}/refresh")
+async def context_refresh(decision_id: str, user=Depends(get_current_user)):
+    snap = await context_asm.refresh(user["user_id"], decision_id)
+    if snap is None:
+        raise HTTPException(status_code=404, detail="Decision non trovata")
+    return snap
+
+
+@api.get("/context/decisions/{decision_id}/latest")
+async def context_latest(decision_id: str, user=Depends(get_current_user)):
+    d = await db.decisions.find_one({"id": decision_id, "user_id": user["user_id"]}, {"_id": 0, "id": 1})
+    if not d:
+        raise HTTPException(status_code=404, detail="Decision non trovata")
+    snap = await context_asm.latest(user["user_id"], decision_id)
+    if not snap:
+        return {"snapshot": None}
+    return snap
+
+
+@api.get("/context/decisions/{decision_id}/history")
+async def context_history(decision_id: str, limit: int = 20, user=Depends(get_current_user)):
+    d = await db.decisions.find_one({"id": decision_id, "user_id": user["user_id"]}, {"_id": 0, "id": 1})
+    if not d:
+        raise HTTPException(status_code=404, detail="Decision non trovata")
+    items = await context_asm.history(user["user_id"], decision_id, limit=limit)
+    return {"items": items, "assembler_version": ASSEMBLER_VERSION}
+
+
+@api.get("/context/snapshots/{snapshot_id}")
+async def context_get(snapshot_id: str, user=Depends(get_current_user)):
+    snap = await context_asm.get_snapshot(user["user_id"], snapshot_id)
+    if not snap:
+        raise HTTPException(status_code=404, detail="Snapshot non trovato")
+    return snap
+
+
+# ============================================================
 # ROUTES: ADMIN (demo-only)
 # ============================================================
 @api.post("/admin/demo/refresh")
@@ -1022,8 +1071,12 @@ async def startup():
     await db.link_proposals.create_index("id", unique=True)
     await db.link_proposals.create_index([("user_id", 1), ("decision_id", 1), ("node_id", 1), ("status", 1)])
     await db.link_proposals.create_index([("user_id", 1), ("status", 1), ("created_at", -1)])
+    # Context Assembler indexes.
+    await db.context_snapshots.create_index("id", unique=True)
+    await db.context_snapshots.create_index([("user_id", 1), ("decision_id", 1), ("status", 1), ("generated_at", -1)])
+    await db.context_snapshots.create_index([("user_id", 1), ("decision_id", 1), ("context_hash", 1)])
     await db.memories.create_index([("user_id", 1), ("created_at", -1)])
-    logger.info("ORA backend ready. Decision Engine + Life Graph + Knowledge + Auto-Link online.")
+    logger.info("ORA backend ready. Decision Engine + Life Graph + Knowledge + Auto-Link + Context Assembler online.")
 
 
 @app.on_event("shutdown")
