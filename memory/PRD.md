@@ -55,6 +55,26 @@ Persistent representation of the user's life as a graph of Nodes + typed Edges. 
 - **Cascade**: archiving a node removes its edges and unlinks it from all decisions.
 - **Cross-user isolation**: every query filtered by `user_id`.
 
+## Iteration 4 — Knowledge Layer (SHIPPED, hardened in iteration 5)
+Structured, per-node-type properties on top of Life Graph nodes. Independent module `/app/backend/knowledge/`. Own collection `node_knowledge` keyed by `(user_id, node_id)`.
+
+**Iteration 5 hardening added:**
+- **Property envelope** on every stored property: `{value, value_type, unit, format, sensitivity, provenance}`.
+- **Provenance metadata**: `source_type ∈ {user_input, ai_extraction, document, email, calendar, banking, system, migration}`, `source_id`, `confidence ∈ [0,1]`, `verified_by_user`, `extracted_at`, `last_confirmed_at`. Same-value re-declaration preserves `extracted_at` and bumps `last_confirmed_at`.
+- **Sensitivity classification**: `public | personal | sensitive | highly_sensitive` — encoded in schema per property, sensitive values are redacted in audit history and logs.
+- **Optimistic concurrency**: `version` per doc; writes accept `expected_version`; mismatch → 409 `{error: version_conflict}`.
+- **Rich audit**: every mutation → history entry `{at, event, property, previous, next, actor_type, actor_id, source_type, reason}`. Sensitive properties in `previous/next` become `{redacted: true, value_type: …}`.
+- **Soft delete + restore**: `DELETE` sets `status=archived, archived_at/by/reason`; `POST /restore` reactivates; permanent purge intentionally not exposed.
+- **Input safety**: normalization module rejects `$`-prefix, `.`-embedded, `__proto__`/`constructor`/`prototype` keys; caps key length (64), value length (10k), property count (200), list length (500), depth (6), serialized payload (~60 KB). Reject NaN/Inf. Applied recursively.
+- **Soft coercion**: numeric strings → int/float, truthy/falsy strings → bool, scalars → auto-wrapped lists/objects when schema declares them.
+- **Atomic single-property API**: `GET/PUT/DELETE /knowledge/nodes/{id}/properties/{key}`. GET on missing key returns `{envelope: null, value: null}`.
+- **Cross-user isolation**: every op filters by `user_id` + verifies ownership by reading `life_nodes` read-only.
+- **No premature interpretation**: writes never create decisions, never edit life-graph edges, never call GPT, never auto-link.
+
+**Endpoints**: `/api/knowledge/schemas`, `/schemas/{node_type}`, `/knowledge`, `/knowledge/nodes/{id}` (GET/PUT/PATCH/DELETE), `/nodes/{id}/history`, `/nodes/{id}/restore` (POST), `/nodes/{id}/properties/{key}` (GET/PUT/DELETE).
+
+**Demo user drift fix (iteration 5)**: `prepare_user_decisions` now refreshes relative time anchors (`metadata.eta_min` → `starts_at`, `metadata.due_days` → `deadline`) on every login, and if the user has no OPEN imminent decision, seeds a fresh `Esci tra 25 minuti`. Idempotent; never grows the collection unboundedly.
+
 ## API surface
 - `POST /api/auth/register` `POST /api/auth/login` `POST /api/auth/google-session` `GET /api/auth/me` `POST /api/auth/logout`
 - `GET /api/priorities` — top 5 open, sorted by score

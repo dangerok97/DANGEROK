@@ -32,6 +32,7 @@ from knowledge import (
     SCHEMAS as KNOWLEDGE_SCHEMAS,
     schema_for as knowledge_schema_for,
 )
+from auto_link import AutoLinkService, MATCHER_VERSION as AUTOLINK_MATCHER_VERSION
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -48,6 +49,7 @@ db = client[DB_NAME]
 decisions = DecisionService(db)
 life_graph = LifeGraphService(db)
 knowledge = KnowledgeService(db)
+auto_link = AutoLinkService(db, life_graph)
 
 app = FastAPI(title="ORA API")
 api = APIRouter(prefix="/api")
@@ -183,6 +185,11 @@ class KnowledgeArchiveIn(BaseModel):
     reason: Optional[str] = None
 
 
+# --- Auto-Link ---
+class AutoLinkReasonIn(BaseModel):
+    reason: Optional[str] = None
+
+
 # ============================================================
 # AUTH HELPERS
 # ============================================================
@@ -267,11 +274,13 @@ def user_to_out(u: dict) -> UserOut:
 # ============================================================
 # SEED / MIGRATE FOR A USER
 # ============================================================
+DEMO_EMAILS = frozenset({"demo@ora.app"})
+
+
 async def _refresh_time_anchors(user_id: str):
     """Idempotent: re-anchor `starts_at`/`deadline` on any decision whose
-    metadata carries `eta_min` or `due_days`. This keeps decisions like
-    "Esci tra 25 minuti" perpetually valid across sessions and fixes drift
-    on users seeded/migrated long ago (e.g. the demo user)."""
+    metadata carries `eta_min` or `due_days`. Reserved for demo users only.
+    """
     now = datetime.now(timezone.utc)
     cursor = db.decisions.find(
         {
@@ -297,11 +306,10 @@ async def _refresh_time_anchors(user_id: str):
 
 async def _ensure_live_imminent(user_id: str):
     """Ensure the user always has at least one OPEN imminent-event decision.
-    Only kicks in for users who have interacted with ORA before (i.e. have any
-    decision in their history). Never touches existing docs; only inserts."""
+    Reserved for demo users only."""
     total = await db.decisions.count_documents({"user_id": user_id})
     if total == 0:
-        return  # Brand-new users get the full seed via caller; nothing to do here.
+        return
     open_imminent = await db.decisions.count_documents({
         "user_id": user_id,
         "status": "open",
@@ -331,12 +339,14 @@ async def _ensure_live_imminent(user_id: str):
     await db.decisions.insert_one(doc)
 
 
-async def prepare_user_decisions(user_id: str):
-    """Called after any successful auth. Idempotent:
-       1) Migrate legacy tasks → decisions (once).
-       2) If user still has zero decisions, seed the rich starter set.
-       3) Refresh relative time anchors (eta_min / due_days) so demo seeds stay valid.
-       4) Ensure at least one imminent-event decision is open, for existing users.
+async def prepare_user_decisions(user_id: str, *, is_demo: bool = False):
+    """Called after any successful auth. Side-effect boundary is strict:
+       - Migration from legacy tasks: one-shot (has `migrated_to` marker), safe for all.
+       - Initial seed: runs only when the user has ZERO decisions (brand-new user).
+       - Demo refresh (`_refresh_time_anchors` + `_ensure_live_imminent`):
+         DEMO USERS ONLY. Never runs for real users.
+
+    Real users' Decision documents are NEVER touched by login.
     """
     try:
         await decisions.migrate_user_tasks(user_id)
@@ -349,15 +359,12 @@ async def prepare_user_decisions(user_id: str):
         if seeds:
             await db.decisions.insert_many(seeds)
 
-    try:
-        await _refresh_time_anchors(user_id)
-    except Exception:
-        logger.exception("Anchor refresh failed for %s", user_id)
-
-    try:
-        await _ensure_live_imminent(user_id)
-    except Exception:
-        logger.exception("Live imminent refresh failed for %s", user_id)
+    if is_demo:
+        try:
+            await _refresh_time_anchors(user_id)
+            await _ensure_live_imminent(user_id)
+        except Exception:
+            logger.exception("Demo refresh failed for %s", user_id)
 
 
 # ============================================================
@@ -410,7 +417,7 @@ async def register(body: RegisterIn):
         provider="email",
         password_hash=hash_password(body.password),
     )
-    await prepare_user_decisions(user["user_id"])
+    await prepare_user_decisions(user["user_id"], is_demo=user["email"] in DEMO_EMAILS)
     return AuthOut(token=make_jwt(user["user_id"]), user=user_to_out(user))
 
 
@@ -421,7 +428,7 @@ async def login(body: LoginIn):
         raise HTTPException(status_code=401, detail="Credenziali non valide")
     if not verify_password(body.password, user["password_hash"]):
         raise HTTPException(status_code=401, detail="Credenziali non valide")
-    await prepare_user_decisions(user["user_id"])
+    await prepare_user_decisions(user["user_id"], is_demo=user["email"] in DEMO_EMAILS)
     return AuthOut(token=make_jwt(user["user_id"]), user=user_to_out(user))
 
 
@@ -441,7 +448,7 @@ async def google_session(body: GoogleSessionIn):
         picture=data.get("picture"),
         provider="google",
     )
-    await prepare_user_decisions(user["user_id"])
+    await prepare_user_decisions(user["user_id"], is_demo=user["email"] in DEMO_EMAILS)
     return AuthOut(token=make_jwt(user["user_id"]), user=user_to_out(user))
 
 
@@ -856,6 +863,82 @@ async def list_all_knowledge(include_archived: bool = False, user=Depends(get_cu
 
 
 # ============================================================
+# ROUTES: AUTO-LINK ENGINE (new, isolated module)
+# ============================================================
+@api.post("/auto-link/decisions/{decision_id}/analyze")
+async def auto_link_analyze(decision_id: str, user=Depends(get_current_user)):
+    """Run matcher over a Decision. Idempotent: returns already-existing proposals
+    if the Decision and the underlying knowledge are unchanged."""
+    result = await auto_link.analyze(user["user_id"], decision_id, force=False)
+    if result.get("error") == "decision_not_found":
+        raise HTTPException(status_code=404, detail="Decision non trovata")
+    return result
+
+
+@api.post("/auto-link/decisions/{decision_id}/reanalyze")
+async def auto_link_reanalyze(decision_id: str, user=Depends(get_current_user)):
+    """Force a re-analysis: supersedes stale proposals; ignores rejection suppression."""
+    result = await auto_link.reanalyze(user["user_id"], decision_id)
+    if result.get("error") == "decision_not_found":
+        raise HTTPException(status_code=404, detail="Decision non trovata")
+    return result
+
+
+@api.get("/auto-link/decisions/{decision_id}/proposals")
+async def auto_link_list_proposals(
+    decision_id: str,
+    include_all: bool = False,
+    user=Depends(get_current_user),
+):
+    # Verify the decision belongs to the user before listing (cross-user guard).
+    d = await db.decisions.find_one({"id": decision_id, "user_id": user["user_id"]}, {"_id": 0, "id": 1})
+    if not d:
+        raise HTTPException(status_code=404, detail="Decision non trovata")
+    items = await auto_link.list_proposals(user["user_id"], decision_id, include_all=include_all)
+    return {"items": items, "matcher_version": AUTOLINK_MATCHER_VERSION}
+
+
+@api.get("/auto-link/proposals/{proposal_id}")
+async def auto_link_get_proposal(proposal_id: str, user=Depends(get_current_user)):
+    doc = await auto_link.get_proposal(user["user_id"], proposal_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Proposta non trovata")
+    return doc
+
+
+@api.post("/auto-link/proposals/{proposal_id}/accept")
+async def auto_link_accept(proposal_id: str, body: Optional[AutoLinkReasonIn] = None, user=Depends(get_current_user)):
+    reason = body.reason if body else None
+    doc = await auto_link.accept(user["user_id"], proposal_id, reason=reason)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Proposta non trovata o in stato non accettabile")
+    return doc
+
+
+@api.post("/auto-link/proposals/{proposal_id}/reject")
+async def auto_link_reject(proposal_id: str, body: Optional[AutoLinkReasonIn] = None, user=Depends(get_current_user)):
+    reason = body.reason if body else None
+    doc = await auto_link.reject(user["user_id"], proposal_id, reason=reason)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Proposta non trovata o in stato non rifiutabile")
+    return doc
+
+
+# ============================================================
+# ROUTES: ADMIN (demo-only)
+# ============================================================
+@api.post("/admin/demo/refresh")
+async def admin_demo_refresh(user=Depends(get_current_user)):
+    """Manually re-run demo maintenance (anchor refresh + ensure imminent).
+    Reserved to demo accounts."""
+    if user["email"] not in DEMO_EMAILS:
+        raise HTTPException(status_code=403, detail="Endpoint riservato agli utenti demo")
+    await _refresh_time_anchors(user["user_id"])
+    await _ensure_live_imminent(user["user_id"])
+    return {"ok": True, "email": user["email"]}
+
+
+# ============================================================
 # ROUTES: MEMORY
 # ============================================================
 @api.post("/memory")
@@ -935,8 +1018,12 @@ async def startup():
     # Knowledge Layer indexes.
     await db.node_knowledge.create_index([("user_id", 1), ("node_id", 1)], unique=True)
     await db.node_knowledge.create_index("id", unique=True, sparse=True)
+    # Auto-Link indexes.
+    await db.link_proposals.create_index("id", unique=True)
+    await db.link_proposals.create_index([("user_id", 1), ("decision_id", 1), ("node_id", 1), ("status", 1)])
+    await db.link_proposals.create_index([("user_id", 1), ("status", 1), ("created_at", -1)])
     await db.memories.create_index([("user_id", 1), ("created_at", -1)])
-    logger.info("ORA backend ready. Decision Engine + Life Graph + Knowledge Layer online.")
+    logger.info("ORA backend ready. Decision Engine + Life Graph + Knowledge + Auto-Link online.")
 
 
 @app.on_event("shutdown")
