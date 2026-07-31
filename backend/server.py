@@ -129,6 +129,14 @@ async def startup():
     except Exception:
         logger.exception("Behavior-Aware Shadow bootstrap failed (non-fatal)")
 
+    # Documents (Iteration 19) — indexes for the new module.
+    try:
+        from deps import get_document_service
+        await get_document_service().ensure_ready()
+        logger.info("Documents indexes ready")
+    except Exception:
+        logger.exception("Documents bootstrap failed (non-fatal)")
+
     # Sync capability registry to Mongo (idempotent, structural fields are
     # overwritten from code; ops metadata is preserved).
     try:

@@ -1,4 +1,98 @@
 # ==========================================================
+# ITERAZIONE 19 — Documents Foundation
+# ==========================================================
+iter19:
+  status: DONE
+  scope: foundation-only (NO OCR, NO AI, NO estrazione)
+  backend:
+    module: /app/backend/documents/
+    files: __init__.py, storage.py (abstraction + LocalFilesystemStorage), service.py, router.py, context_provider.py
+    storage:
+      interface: DocumentStorageProvider (ABC)
+      default_impl: LocalFilesystemStorage (base=/app/backend/data/documents/<user>/<hash_prefix>/<hash>.bin)
+      swappable: S3/GCS/Azure senza toccare service/router
+    api_endpoints:
+      - POST   /api/documents/upload         (multipart, file+tags+notes)
+      - GET    /api/documents                (query: q, tag, mime, archived, sort, limit, offset)
+      - GET    /api/documents/{id}
+      - GET    /api/documents/{id}/download  (ownership-guarded)
+      - PATCH  /api/documents/{id}           (filename, tags, notes)
+      - DELETE /api/documents/{id}?hard=bool (soft by default)
+      - POST   /api/documents/{id}/archive
+      - POST   /api/documents/{id}/restore
+    schema_documents_collection:
+      - id, user_id, filename, original_filename
+      - mime_type, size, hash (sha256)
+      - storage_provider, storage_key
+      - upload_source, tags, notes
+      - archived (bool), deleted (bool), deleted_at
+      - life_node_id, knowledge_synced
+      - version (predisposizione versioning)
+      - created_at, updated_at
+    indexes_ensured:
+      - user_id + hash (dedup)
+      - user_id + created_at
+      - user_id + archived + deleted
+      - text index su filename/notes/tags
+    security:
+      - ownership check su GET/PATCH/DELETE/download/archive/restore
+      - mime whitelist (env DOCUMENT_ALLOWED_MIMES override)
+      - max size configurabile (DOCUMENT_MAX_SIZE_BYTES, default 25MB)
+      - path traversal protection (basename sanitize)
+      - hash SHA-256 stampato + dedup per (user, hash)
+    wiring:
+      - server.py::startup → DocumentService.ensure_ready() (idempotente)
+      - routers/__init__.py → documents_router mounted
+      - Life Graph: ogni upload crea automaticamente node type=document con attrs mime_type/size/hash/source
+      - Knowledge Layer: schema `document` esteso con filename+mime_type+tags+notes; knowledge.merge chiamata al momento dell'upload
+      - Memory router GET /api/memory ora restituisce anche `documents: [{id, filename, mime_type, tags, created_at}]` (retrocompat: `items` invariato)
+      - Context Assembler provider preparato ma NO-OP (DOCUMENT_CONTEXT_ENABLED=false)
+  feature_flags:
+    DOCUMENT_STORAGE_BACKEND: "local"
+    DOCUMENT_MAX_SIZE_BYTES: "26214400"
+    DOCUMENT_CONTEXT_ENABLED: "false"
+    DOCUMENT_AI_ENABLED: "false"
+    DOCUMENT_OCR_ENABLED: "false"
+    DOCUMENT_EXTRACTION_ENABLED: "false"
+  tests:
+    file: /app/backend/tests/test_iter19_documents.py
+    total: 18
+    passed: 18
+    coverage:
+      A_upload: upload OK, dedup by hash, mime block, empty content block (4)
+      B_list: user isolation, search by q, filter tag+mime, sort (4)
+      C_detail: ownership on GET/download, PATCH, download bytes exact (3)
+      D_lifecycle: archive/restore, soft delete, hard delete (3)
+      E_wiring: life_graph node type=document, knowledge facts present, memory tab includes documents (3)
+      F_context_provider: NO-OP quando flag off (1)
+  frontend:
+    files_created:
+      - /app/frontend/app/(tabs)/documenti.tsx (schermata completa)
+    files_modified:
+      - /app/frontend/app/(tabs)/_layout.tsx (tab "Documenti" tra Memoria e Aggiungi)
+      - /app/frontend/src/api/client.ts (API + types DocumentItem, DocumentsListResponse)
+    packages_added:
+      - expo-document-picker@14.0.8
+    ui_features:
+      - lista con FlatList + pull-to-refresh
+      - ricerca live (nome/tag/tipo/note)
+      - chip filtri sort: Recenti / A-Z / Peso
+      - toggle Attivi/Archivio
+      - upload via DocumentPicker (multipart)
+      - dettaglio in modal sheet (meta, hash, tag, note, stato)
+      - azioni: archivia / ripristina / elimina
+      - empty state con CTA
+      - error banner inline
+      - loading spinner
+  regressions_checked:
+    - iter18_2 (9 tests) + iter18 (13 tests) + iter19 (18 tests) = 40/40 PASSED
+    - Zero modifiche a decision_engine/, explainability/, action_center/, ranking/
+    - Ranking utente invariato (verificato B2 iter18.2)
+  screenshot:
+    - /tmp/ora_docs.png (empty state con tab attivo)
+
+
+# ==========================================================
 # ITERAZIONE 18.2 — Existing Features Activation Audit & Wiring
 # ==========================================================
 iter18_2:

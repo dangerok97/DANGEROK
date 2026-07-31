@@ -213,6 +213,76 @@ export const api = {
       `/connectors/apple-calendar/instances/${instanceId}/disconnect`,
       { method: 'POST' },
     ),
+
+  // Documents (Iterazione 19)
+  documentsList: (params: { q?: string; tag?: string; mime?: string; archived?: boolean; sort?: string; limit?: number; offset?: number } = {}) => {
+    const qs = new URLSearchParams();
+    if (params.q) qs.append('q', params.q);
+    if (params.tag) qs.append('tag', params.tag);
+    if (params.mime) qs.append('mime', params.mime);
+    if (typeof params.archived === 'boolean') qs.append('archived', String(params.archived));
+    if (params.sort) qs.append('sort', params.sort);
+    if (params.limit) qs.append('limit', String(params.limit));
+    if (params.offset) qs.append('offset', String(params.offset));
+    const q = qs.toString();
+    return request<DocumentsListResponse>(`/documents${q ? `?${q}` : ''}`);
+  },
+  documentGet: (id: string) => request<DocumentItem>(`/documents/${id}`),
+  documentPatch: (id: string, body: { filename?: string; tags?: string[]; notes?: string }) =>
+    request<DocumentItem>(`/documents/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  documentArchive: (id: string) => request<DocumentItem>(`/documents/${id}/archive`, { method: 'POST' }),
+  documentRestore: (id: string) => request<DocumentItem>(`/documents/${id}/restore`, { method: 'POST' }),
+  documentDelete: (id: string, hard = false) =>
+    request<{ ok: boolean; hard: boolean; id: string }>(`/documents/${id}${hard ? '?hard=true' : ''}`, { method: 'DELETE' }),
+  documentUpload: async (file: { uri: string; name: string; type: string }, tags?: string[], notes?: string) => {
+    // Multipart upload — reuse the fetch layer since request() uses JSON only.
+    const form = new FormData();
+    // @ts-ignore RN FormData accepts { uri, name, type }
+    form.append('file', file as any);
+    if (tags?.length) form.append('tags', tags.join(','));
+    if (notes) form.append('notes', notes);
+    const token = await authToken.get();
+    const res = await fetch(`${BASE}/api/documents/upload`, {
+      method: 'POST',
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: form as any,
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      let msg = text;
+      try { msg = JSON.parse(text)?.detail?.message || msg; } catch {}
+      throw new Error(msg || `HTTP ${res.status}`);
+    }
+    return res.json() as Promise<{ duplicate: boolean; document: DocumentItem }>;
+  },
+};
+
+// --- Documents (Iterazione 19) ---
+export type DocumentItem = {
+  id: string;
+  user_id: string;
+  filename: string;
+  original_filename: string;
+  mime_type: string;
+  size: number;
+  hash: string;
+  tags: string[];
+  notes: string;
+  archived: boolean;
+  deleted: boolean;
+  life_node_id?: string | null;
+  knowledge_synced?: boolean;
+  upload_source?: string;
+  version?: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DocumentsListResponse = {
+  items: DocumentItem[];
+  total: number;
+  limit: number;
+  offset: number;
 };
 
 // Extra types
