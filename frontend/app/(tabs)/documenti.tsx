@@ -8,7 +8,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, FlatList, RefreshControl, Pressable, TextInput,
-  ActivityIndicator, Modal, Platform,
+  ActivityIndicator, Platform,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -53,6 +53,7 @@ function formatDate(iso?: string | null) {
 
 export default function DocumentiScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const [items, setItems] = useState<DocumentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -61,7 +62,6 @@ export default function DocumentiScreen() {
   const [sort, setSort] = useState<SortOpt>('created_desc');
   const [showArchived, setShowArchived] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [selected, setSelected] = useState<DocumentItem | null>(null);
 
   const load = useCallback(async (opts?: { silent?: boolean }) => {
     if (!opts?.silent) setLoading(true);
@@ -107,22 +107,6 @@ export default function DocumentiScreen() {
     } finally {
       setUploading(false);
     }
-  };
-
-  const onArchive = async (doc: DocumentItem) => {
-    haptic('tap');
-    try { await api.documentArchive(doc.id); await load({ silent: true }); }
-    catch (e: any) { setError(humanizeError(e)); }
-  };
-  const onRestore = async (doc: DocumentItem) => {
-    haptic('tap');
-    try { await api.documentRestore(doc.id); await load({ silent: true }); }
-    catch (e: any) { setError(humanizeError(e)); }
-  };
-  const onDelete = async (doc: DocumentItem) => {
-    haptic('warning');
-    try { await api.documentDelete(doc.id); await load({ silent: true }); setSelected(null); }
-    catch (e: any) { setError(humanizeError(e)); }
   };
 
   const empty = !loading && items.length === 0;
@@ -204,23 +188,6 @@ export default function DocumentiScreen() {
           )}
         />
       )}
-
-      <Modal
-        visible={!!selected}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setSelected(null)}
-      >
-        {selected ? (
-          <DetailSheet
-            doc={selected}
-            onClose={() => setSelected(null)}
-            onArchive={() => onArchive(selected)}
-            onRestore={() => onRestore(selected)}
-            onDelete={() => onDelete(selected)}
-          />
-        ) : null}
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -281,48 +248,13 @@ function EmptyState({ onUpload, archived }: { onUpload: () => void; archived: bo
   );
 }
 
-function DetailSheet({ doc, onClose, onArchive, onRestore, onDelete }: {
-  doc: DocumentItem; onClose: () => void; onArchive: () => void; onRestore: () => void; onDelete: () => void;
-}) {
-  return (
-    <View style={styles.sheetOverlay}>
-      <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-      <Animated.View entering={FadeInDown.duration(220)} style={styles.sheet}>
-        <View style={styles.sheetHead}>
-          <View style={styles.iconWrap}>
-            <Ionicons name={iconFor(doc.mime_type)} size={22} color={tokens.color.onSurface} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.sheetTitle} numberOfLines={2}>{doc.filename}</Text>
-            <Text style={styles.rowMeta}>{doc.mime_type} · {formatSize(doc.size)}</Text>
-          </View>
-          <Pressable onPress={onClose} hitSlop={12} accessibilityLabel="Chiudi">
-            <Ionicons name="close" size={20} color={tokens.color.onSurfaceMuted} />
-          </Pressable>
-        </View>
-
-        <View style={styles.metaBlock}>
-          <MetaLine k="Caricato" v={formatDate(doc.created_at)} />
-          <MetaLine k="Aggiornato" v={formatDate(doc.updated_at)} />
-          <MetaLine k="Hash" v={doc.hash.slice(0, 10) + '…'} />
-          {doc.tags?.length ? <MetaLine k="Tag" v={doc.tags.join(', ')} /> : null}
-          {doc.notes ? <MetaLine k="Note" v={doc.notes} /> : null}
-          <MetaLine k="Stato" v={doc.archived ? 'Archiviato' : 'Attivo'} />
-        </View>
-
-        <View style={{ gap: 8, marginTop: 12 }}>
-          {doc.archived ? (
-            <ActionBtn icon="refresh" label="Ripristina" onPress={onRestore} />
-          ) : (
-            <ActionBtn icon="archive-outline" label="Archivia" onPress={onArchive} />
-          )}
-          <ActionBtn variant="danger" icon="trash-outline" label="Elimina" onPress={onDelete} testID="btn-delete-doc" />
-        </View>
-      </Animated.View>
-    </View>
-  );
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function DetailSheet(_props: any) {
+  // Removed in Iter21: dettaglio ora vive in app/document/[id].tsx.
+  return null;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function MetaLine({ k, v }: { k: string; v: string }) {
   return (
     <View style={styles.metaLine}>
