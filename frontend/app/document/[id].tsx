@@ -23,18 +23,20 @@ import { ActionBtn } from '@/src/components/ui/ActionBtn';
 type Tab = 'info' | 'insights' | 'content' | 'meta';
 
 const ENTITY_LABELS: Record<string, { label: string; icon: keyof typeof Ionicons.glyphMap }> = {
-  persons:       { label: 'Persone',       icon: 'people-outline' },
-  organizations: { label: 'Aziende',       icon: 'business-outline' },
-  places:        { label: 'Luoghi',        icon: 'location-outline' },
-  dates:         { label: 'Date',          icon: 'calendar-outline' },
-  times:         { label: 'Orari',         icon: 'time-outline' },
-  numbers:       { label: 'Numeri',        icon: 'pricetag-outline' },
-  amounts:       { label: 'Importi',       icon: 'cash-outline' },
-  emails:        { label: 'Email',         icon: 'mail-outline' },
-  phones:        { label: 'Telefono',      icon: 'call-outline' },
-  urls:          { label: 'Link',          icon: 'link-outline' },
-  iban:          { label: 'IBAN',          icon: 'card-outline' },
-  tax_ids:       { label: 'Codici fiscali',icon: 'id-card-outline' },
+  persons:        { label: 'Persone',              icon: 'people-outline' },
+  organizations:  { label: 'Aziende',              icon: 'business-outline' },
+  places:         { label: 'Luoghi',               icon: 'location-outline' },
+  dates:          { label: 'Date',                 icon: 'calendar-outline' },
+  times:          { label: 'Orari',                icon: 'time-outline' },
+  numbers:        { label: 'Numeri',               icon: 'pricetag-outline' },
+  amounts:        { label: 'Importi',              icon: 'cash-outline' },
+  emails:         { label: 'Email',                icon: 'mail-outline' },
+  phones:         { label: 'Telefono',             icon: 'call-outline' },
+  urls:           { label: 'Link',                 icon: 'link-outline' },
+  iban:           { label: 'IBAN',                 icon: 'card-outline' },
+  tax_ids:        { label: 'Codici fiscali',       icon: 'id-card-outline' },
+  order_ids:      { label: 'Numeri di ordine',     icon: 'receipt-outline' },
+  technical_ids:  { label: 'Identificativi tecnici', icon: 'construct-outline' },
 };
 
 function formatBytes(n?: number) {
@@ -160,13 +162,39 @@ export default function DocumentDetailScreen() {
 
 // -----------------------------------------------------------------
 function TabInfo({ ins, doc }: { ins: DocumentInsights; doc: DocumentItem }) {
+  // Iter22: preferisci resolved_fields (schema-driven, confidence-aware).
+  const resolved = (ins.resolved_fields || []).filter(f => f.value && f.value.trim().length > 0);
+  const hasResolved = resolved.length > 0;
+
   return (
     <Animated.View entering={FadeInDown.duration(180)} style={{ gap: 12 }}>
-      <Card title="Riepilogo strutturato">
-        {ins.summary.fields.map((f, i) => (
-          <FieldRow key={`${f.label}-${i}`} k={f.label} v={f.value} />
-        ))}
+      <Card title={ins.classification?.type_label || ins.type_label || 'Documento'}
+            icon="document-text-outline">
+        <FieldRow k="Tipo documento" v={ins.type_label} />
+        {ins.classification?.confidence != null ? (
+          <FieldRow k="Affidabilità" v={`${ins.classification.confidence}/100`} />
+        ) : null}
+        <FieldRow k="Nome file" v={ins.filename} />
       </Card>
+
+      {hasResolved ? (
+        <Card title="Informazioni principali">
+          {resolved.map((f, i) => (
+            <FieldRow key={`${f.field_key}-${i}`} k={f.label} v={f.value} />
+          ))}
+        </Card>
+      ) : (
+        // Fallback Iter21: usa il legacy summary.fields (salta "Tipo" perché
+        // già mostrato nell'header sopra).
+        <Card title="Riepilogo">
+          {ins.summary.fields
+            .filter(f => f.label !== 'Tipo')
+            .map((f, i) => (
+              <FieldRow key={`${f.label}-${i}`} k={f.label} v={f.value} />
+            ))}
+        </Card>
+      )}
+
       <Card title="Storico">
         <FieldRow k="Caricato" v={formatDate(ins.history.created_at)} />
         <FieldRow k="Aggiornato" v={formatDate(ins.history.updated_at)} />
@@ -179,19 +207,64 @@ function TabInfo({ ins, doc }: { ins: DocumentInsights; doc: DocumentItem }) {
 }
 
 function TabInsights({ ins }: { ins: DocumentInsights }) {
-  const entityKeys = useMemo(() => Object.keys(ins.entities).filter(k => (ins.entities[k]?.length || 0) > 0), [ins.entities]);
+  // Iter22: nascondi dall'elenco entities i valori già risolti come campo
+  // semantico (evita duplicazione visiva tra "Info" e "Insights").
+  const resolvedValues = useMemo(() => {
+    const set = new Set<string>();
+    (ins.resolved_fields || []).forEach(f => { if (f.value) set.add(f.value); });
+    return set;
+  }, [ins.resolved_fields]);
+
+  const techFlat = ins.technical_identifiers?.flat || [];
+
+  const entityKeys = useMemo(
+    () => Object.keys(ins.entities)
+      .filter(k => k !== 'technical_ids')  // shown as a dedicated section
+      .filter(k => (ins.entities[k]?.length || 0) > 0),
+    [ins.entities],
+  );
+
+  const filteredEntities = useMemo(() => {
+    const out: Record<string, string[]> = {};
+    for (const k of entityKeys) {
+      const vals = (ins.entities[k] || []).filter(v => !resolvedValues.has(v));
+      if (vals.length > 0) out[k] = vals;
+    }
+    return out;
+  }, [entityKeys, ins.entities, resolvedValues]);
+
+  const hasAnyEntity = Object.keys(filteredEntities).length > 0;
+  const hasTech = techFlat.length > 0;
+
   return (
     <Animated.View entering={FadeInDown.duration(180)} style={{ gap: 12 }}>
-      {entityKeys.length === 0 ? (
-        <Card title="Nessuna entità estratta">
-          <Text style={styles.metaVal}>ORA non ha rilevato entità nel testo del documento. Prova a caricare un file con più contenuto testuale.</Text>
+      {hasTech ? (
+        <Card title="Identificativi tecnici" icon="construct-outline">
+          <View style={styles.chipWrap}>
+            {techFlat.map((v, i) => (
+              <View key={`tech-${i}`} style={styles.chipEntity}>
+                <Text style={styles.chipEntityText} numberOfLines={1}>{v}</Text>
+              </View>
+            ))}
+          </View>
         </Card>
-      ) : entityKeys.map(k => {
-        const info = ENTITY_LABELS[k] || { label: k, icon: 'ellipse-outline' as const };
+      ) : null}
+
+      {!hasAnyEntity && !hasTech ? (
+        <Card title="Nessuna entità estratta">
+          <Text style={styles.metaVal}>
+            ORA non ha rilevato entità aggiuntive nel testo del documento.
+            Le informazioni principali sono già mostrate nella tab Info.
+          </Text>
+        </Card>
+      ) : null}
+
+      {Object.keys(filteredEntities).map(k => {
+        const info = ENTITY_LABELS[k] || { label: humanEntityKey(k), icon: 'ellipse-outline' as const };
         return (
           <Card key={k} title={info.label} icon={info.icon}>
             <View style={styles.chipWrap}>
-              {ins.entities[k].map((v, i) => (
+              {filteredEntities[k].map((v, i) => (
                 <View key={`${k}-${i}`} style={styles.chipEntity}>
                   <Text style={styles.chipEntityText} numberOfLines={1}>{v}</Text>
                 </View>
@@ -202,6 +275,14 @@ function TabInsights({ ins }: { ins: DocumentInsights }) {
       })}
     </Animated.View>
   );
+}
+
+function humanEntityKey(k: string): string {
+  // Fallback per chiavi tecniche non mappate: converte "order_ids" → "Order Ids"
+  return k
+    .replace(/_/g, ' ')
+    .replace(/\bids?\b/gi, 'Id')
+    .replace(/\b\w/g, c => c.toUpperCase());
 }
 
 function TabContent({ ins, query, setQuery }: { ins: DocumentInsights; query: string; setQuery: (v: string) => void }) {

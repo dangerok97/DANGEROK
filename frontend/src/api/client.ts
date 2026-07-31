@@ -306,12 +306,48 @@ export type DocumentsListResponse = {
   offset: number;
 };
 
-// Iterazione 21 — Document Insights (deterministico, no LLM)
+// Iterazione 22 — Document Understanding Engine (deterministico, no LLM).
+// Il tipo estende Iter21 in modo retrocompatibile aggiungendo:
+//   - classification, schema_used, resolved_fields, hidden_fields,
+//     technical_identifiers
+export type ResolvedField = {
+  field_key: string;
+  label: string;
+  value: string;
+  confidence: number;
+  source_snippet?: string;
+  source_page?: number | null;
+  resolver_rule?: string;
+};
+
 export type DocumentInsights = {
   id: string;
   filename: string;
   type_key: string;
   type_label: string;
+  // Iter22 additions
+  classification?: {
+    type_key: string;
+    type_label: string;
+    confidence: number;
+    matched_rules: string[];
+    scores: Record<string, number>;
+    threshold_visible: number;
+    threshold_hidden: number;
+  };
+  schema_used?: {
+    type_key: string;
+    type_label: string;
+    version: number;
+    info_order: string[];
+  } | null;
+  resolved_fields?: ResolvedField[];
+  hidden_fields?: ResolvedField[];
+  technical_identifiers?: {
+    grouped: Record<string, string[]>;
+    flat: string[];
+  };
+  // Retrocompat (Iter21)
   summary: { fields: { label: string; value: string }[] };
   entities: Record<string, string[]>;
   extraction: {
