@@ -1,4 +1,46 @@
 # ==========================================================
+# ITERAZIONE 18.2 — Existing Features Activation Audit & Wiring
+# ==========================================================
+iter18_2:
+  status: DONE
+  scope: audit + wiring, ZERO new features
+  respected_constraints:
+    - no new features built
+    - no new connectors added
+    - no changes to real Decision Engine ranking
+    - Behavior-Aware Real Mode NOT activated
+    - no architectural changes
+  wiring_completed:
+    - server.py::startup → BehaviorShadowService.ensure_ready() (indexes on `behavior_shadow_evaluations`)
+    - routers/decisions.py::/decisions/top → fire-and-forget shadow.evaluate_batch (gated by BEHAVIOR_PROFILE_ENABLED && BEHAVIOR_SHADOW_MODE; ranking_applied invariant preserved)
+    - .env → explicit BEHAVIOR_PROFILE_ENABLED=false, BEHAVIOR_SHADOW_MODE=false, CONTEXT_ASSEMBLER_ENABLED=true, PERMISSIONS_CONTEXT_ENABLED=true (documented)
+    - routers/memory.py::/memory POST → mirror to life_graph (type=generic, subtype=memory) + knowledge.merge(summary, notes, tags). db.memories doc unchanged (retrocompat) + back-reference life_node_id/knowledge_synced
+    - routers/memory.py::/memory/ask POST → additively includes knowledge facts from memory nodes in LLM context; primary db.memories path unchanged
+  tests_created: /app/backend/tests/test_iter18_2_audit_wiring.py (9 tests, all passing)
+  regression_check:
+    - iter15/16/17/18 + iter18.2 together (correct order): 53/53 PASSED
+    - decision_engine/*, explainability/*, action_center/*: NEVER touched
+  modules_not_wired: none — all built modules are now either actively used or explicitly gated by a documented flag
+  memory_wiring_details:
+    node_type: generic
+    subtype_attribute: memory
+    knowledge_source_type: user_memory
+    back_reference: memories.life_node_id, memories.knowledge_synced
+    fallback: if life_graph or knowledge fails, memory doc is still persisted in db.memories (retrocompat guaranteed)
+  auto_shadow_trigger_details:
+    entry_point: GET /api/decisions/top
+    mode: asyncio.create_task (fire-and-forget)
+    invariant: ranking_applied == False on every persisted eval
+    inspection: GET /api/behavior-shadow/comparison, /api/behavior-shadow/evaluations, /api/behavior-shadow/stats
+    activation_command: |
+      # Both flags must be true to activate
+      export BEHAVIOR_PROFILE_ENABLED=true
+      export BEHAVIOR_SHADOW_MODE=true
+      sudo supervisorctl restart backend
+  updated_completion_estimate: ~90% (from 85%): every built backend module is now wired to the user flow or explicitly documented as gated
+
+
+# ==========================================================
 # ITERAZIONE 18 — Apple Calendar Connector (EventKit / iPhone-iPad)
 # ==========================================================
 iter18:
