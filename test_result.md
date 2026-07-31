@@ -1,4 +1,45 @@
 # ==========================================================
+# ITERAZIONE 21 (bug-fix) — Document Insights: reduce false positives
+# ==========================================================
+iter21_bugfix_false_positives:
+  status: DONE
+  problem: |
+    L'estrazione deterministica classificava:
+      - technical IDs (TktID / order / unix timestamp) come "phones"
+      - sequenze 11-digit come "Codice Fiscale" (che è 16 alfanumerico)
+      - token "biglietto CONCERTO" come order_id (label troppo debole)
+  fix:
+    - insights.py: nuova pipeline priority-based con span reservation.
+    - Phones: label OBBLIGATORIA (tel/cell/mob/phone/fax/contatto/whatsapp) o
+      prefisso intl `+XX` o formato IT mobile `3XX + 6-7 digits`. 7..15 cifre.
+    - Codice Fiscale (persona): regex rigida 16-char italiana.
+    - P.IVA / CF numerico: 11 cifre + label obbligatoria a distanza max 25 char
+      non-digit non-newline (permette "P.IVA emittente: NNNNNNNNNNN").
+    - Order/Ticket IDs: label obbligatoria; captured value deve contenere una
+      cifra (rifiuta "CONCERTO" dopo "BIGLIETTO"); mai un token che sembra date/time.
+    - `numbers` unifica order_ids + generic long IDs su span NON claimed
+      (backward compat con test_i1).
+    - build_structured_summary: ticket/invoice ora usano `order_ids[0]` prima
+      del fallback `numbers[0]`.
+  files_modified:
+    - /app/backend/documents/insights.py
+    - /app/backend/tests/test_iter21_document_insights.py (aggiunta classe
+      TestInsightsFalsePositiveGuards con 5 nuovi test)
+    - /app/frontend/app/(tabs)/documenti.tsx (cleanup: rimossi
+      DetailSheet/MetaLine dead code e stili orfani sheetOverlay/sheet/
+      sheetHead/sheetTitle/metaBlock/metaLine/metaKey/metaVal)
+  tests:
+    - 13 test iter21 passano (8 originali + 5 nuovi false-positive guards).
+    - Live smoke sull'ingress pubblico: 4/4 pass (test_iter21_live_smoke.py).
+    - Regressione totale documents: 41 test passano.
+    - No LLM call sul path insights (test_i6 stable duration_ms).
+  no_regressions:
+    - test_i1_ticket_type_detected (order "1284925775" ancora in numbers)
+    - test_i2_email_url_phone_extracted (email/url/phone tutti ok)
+    - test_i7_invoice_type (invoice ancora rilevato, P.IVA in tax_ids)
+
+
+# ==========================================================
 # ITERAZIONE 20 — Document Intelligence (OCR & Text Extraction)
 # ==========================================================
 iter20:
