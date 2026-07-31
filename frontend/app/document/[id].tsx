@@ -19,6 +19,8 @@ import { api, DocumentInsights, DocumentItem } from '@/src/api/client';
 import { haptic } from '@/src/utils/haptic';
 import { humanizeError } from '@/src/utils/errors';
 import { ActionBtn } from '@/src/components/ui/ActionBtn';
+import { DocumentActionsBar } from '@/src/components/DocumentActionsBar';
+import * as Clipboard from 'expo-clipboard';
 
 type Tab = 'info' | 'insights' | 'content' | 'meta';
 
@@ -195,6 +197,9 @@ function TabInfo({ ins, doc }: { ins: DocumentInsights; doc: DocumentItem }) {
         </Card>
       )}
 
+      {/* Iter23 — Barra azioni contestuali (solo se ci sono azioni valide). */}
+      <DocumentActionsBar insights={ins} />
+
       <Card title="Storico">
         <FieldRow k="Caricato" v={formatDate(ins.history.created_at)} />
         <FieldRow k="Aggiornato" v={formatDate(ins.history.updated_at)} />
@@ -242,9 +247,22 @@ function TabInsights({ ins }: { ins: DocumentInsights }) {
         <Card title="Identificativi tecnici" icon="construct-outline">
           <View style={styles.chipWrap}>
             {techFlat.map((v, i) => (
-              <View key={`tech-${i}`} style={styles.chipEntity}>
+              <Pressable
+                key={`tech-${i}`}
+                onPress={async () => {
+                  try {
+                    await Clipboard.setStringAsync(v);
+                    haptic('success');
+                  } catch { haptic('error'); }
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={`Copia identificativo ${v}`}
+                testID={`tech-copy-${i}`}
+                style={({ pressed }) => [styles.chipEntity, pressed && styles.pressed]}
+              >
+                <Ionicons name="copy-outline" size={12} color={tokens.color.onSurfaceMuted} style={{ marginRight: 4 }} />
                 <Text style={styles.chipEntityText} numberOfLines={1}>{v}</Text>
-              </View>
+              </Pressable>
             ))}
           </View>
         </Card>
@@ -396,8 +414,9 @@ const styles = StyleSheet.create({
   metaKey: { color: tokens.color.onSurfaceMuted, fontSize: 12, width: 120 },
   metaVal: { color: tokens.color.onSurface, fontSize: 12, flex: 1 },
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  chipEntity: { backgroundColor: tokens.color.surfaceTertiary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, maxWidth: '100%' },
+  chipEntity: { flexDirection: 'row', alignItems: 'center', backgroundColor: tokens.color.surfaceTertiary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, maxWidth: '100%' },
   chipEntityText: { color: tokens.color.onSurface, fontSize: 12 },
+  pressed: { opacity: 0.6 },
   searchBox: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: tokens.color.surfaceSecondary, borderRadius: tokens.radius.md, paddingHorizontal: 10, paddingVertical: 8, borderWidth: 1, borderColor: tokens.color.border },
   searchInput: { flex: 1, color: tokens.color.onSurface, fontSize: 13 },
   contentText: { color: tokens.color.onSurface, fontSize: 12, lineHeight: 18, fontFamily: 'monospace' as any },
