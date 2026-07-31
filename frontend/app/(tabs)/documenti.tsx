@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import * as DocumentPicker from 'expo-document-picker';
 
@@ -199,7 +200,7 @@ export default function DocumentiScreen() {
             <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load({ silent: true }); }} tintColor={tokens.color.onSurfaceMuted} />
           }
           renderItem={({ item }) => (
-            <DocRow item={item} onOpen={() => setSelected(item)} />
+            <DocRow item={item} onOpen={() => { haptic('tap'); router.push(`/document/${item.id}` as any); }} />
           )}
         />
       )}
