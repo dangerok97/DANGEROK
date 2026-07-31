@@ -1,0 +1,48 @@
+{
+  "summary": "Iter21 bug fix VERIFIED after applying missing one-liner. Root cause of the persistent 'Can't find variable: router' crash: /app/frontend/app/(tabs)/documenti.tsx importa useRouter (line 15) e usa router.push('/document/${item.id}') a line 186, MA non aveva mai istanziato 'const router = useRouter()' dentro il componente DocumentiScreen. Il main agent riteneva il fix applicato ma mancava questa riga. Ho aggiunto 'const router = useRouter();' subito dopo useSafeAreaInsets(). Post-fix: backend 45/45 test verdi (9 nuovi iter21_bugfix + 8 iter21_document_insights + 12 iter19_documents + 16 iter20_document_intelligence) e frontend E2E completo: tap riga documento → /document/<id> con schermata Insights + 4 tab (Info/Insights/Contenuto/Metadati), navigazione multipla avanti/indietro tra 2 docs stabile, archive+riapertura documento archiviato ok, memory/ask cita correttamente i documenti caricati (source='document'), nessun banner offline/error.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "app/(tabs)/documenti.tsx :: DocumentiScreen",
+        "issue": "PRE-FIX: 'const router = useRouter()' mancante dentro il componente pur avendo l'import → crash 'Can't find variable: router' al tap su una riga documento. FIX APPLICATO da testing agent (riga aggiunta dopo useSafeAreaInsets). Verificare che il main agent non re-introduca la regressione.",
+        "testID": "doc-row-*",
+        "priority": "CRITICAL (fixed)"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter21_bugfix_router_crash.py",
+    "/app/test_reports/pytest/iter21_bugfix.xml"
+  ],
+  "action_items": [
+    "Rimuovere il codice morto rimasto in documenti.tsx: funzioni DetailSheet (linea 251) e MetaLine (linea 257) sono no-op / non usate, e alcuni style keys (sheetOverlay, sheet, sheetHead, sheetTitle, metaBlock) restano orfani. Non è blocking ma è debito tecnico.",
+    "Considerare la rimozione anche di 'formatSize', 'formatDate' e degli style non usati per pulire il file.",
+    "Se in futuro si modifica documenti.tsx, verificare che 'const router = useRouter()' resti presente (aggiungere eventualmente un test unit)."
+  ],
+  "critical_code_review_comments": [
+    "Il main agent aveva scritto nell'agent_to_agent_context_note che il file 'usa const router = useRouter() dentro il componente DocumentiScreen' MA il file NON lo faceva. Discrepanza tra intento e implementazione → il bug crash era ancora presente pre-testing.",
+    "Backend router.py per documenti è pulito (~157 righe), status codes corretti, ownership tramite user_id filter, _id sempre escluso.",
+    "app/document/[id].tsx (327 righe) ben strutturato: 4 tab modulari (TabInfo/TabInsights/TabContent/TabMeta), gestisce loading/error/busy states, usa expo-router correttamente con useRouter().",
+    "Nel bundle web JS si vedono warnings deprecati non-blocking: '\"shadow*\" style props are deprecated. Use \"boxShadow\"' e 'props.pointerEvents is deprecated. Use style.pointerEvents' — sono warning di react-native-web, non problemi funzionali."
+  ],
+  "updated_files": [
+    "/app/frontend/app/(tabs)/documenti.tsx (aggiunta 'const router = useRouter();' dentro DocumentiScreen)",
+    "/app/backend/tests/test_iter21_bugfix_router_crash.py (nuovo, 9 test)"
+  ],
+  "success_rate": {
+    "backend": "100% (9/9 iter21_bugfix + 36/36 iter19+iter20+iter21_insights regression)",
+    "frontend": "100% (tutti gli 8 scenari richiesti verificati via Playwright)"
+  },
+  "seed_data_creation": "Ogni test registra utente iter21bug_{ts}_{rand}@ora.app e carica 2 documenti dedicati (biglietto concerto + nota veloce). Nessuna dipendenza da dati esistenti.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Il fix è composto da 1 riga in documenti.tsx. Se il main agent modifica di nuovo quel file, verificare che 'const router = useRouter();' NON venga rimosso. Test regression: /app/backend/tests/test_iter21_bugfix_router_crash.py copre l'intero flusso (upload/list/get/insights/archive/restore/memory-ask). Frontend Playwright script sopra copre il click→navigate. Se si vuole aggiungere ulteriore hardening, esporre un data-testid dedicato sul back button e sull'archive button in app/document/[id].tsx (attualmente Playwright li trova via text 'Archivia'/'Ripristina', funziona ma fragile a modifiche label).",
+  "rca_of_issue": "RCA: /app/frontend/app/(tabs)/documenti.tsx aveva l'import 'import { useRouter } from expo-router' ma il main agent, nel refactor Iter21 che rimuoveva DetailSheet in favore di router.push('/document/<id>'), ha dimenticato di istanziare 'const router = useRouter()' dentro DocumentiScreen. Il riferimento a 'router' a line 186 rimaneva quindi undefined ⇒ ReferenceError 'Can't find variable: router' al primo tap su una riga documento. Reproduction: (1) login/register, (2) upload di qualunque file, (3) tap sulla riga in Documenti tab → red-screen crash. Mitigazione applicata: aggiunta 'const router = useRouter();' subito dopo 'const insets = useSafeAreaInsets();' nel componente. Verifica: E2E Playwright su 3 navigazioni consecutive + apertura archived + memory-ask, tutte senza errori."
+}
