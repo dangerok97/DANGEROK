@@ -21,6 +21,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
+from .extraction import ExtractionPipeline, ExtractionResult, now_iso as _ext_now
 from .storage import DocumentStorageProvider, StoredObject
 
 logger = logging.getLogger("ora.documents")
@@ -87,6 +88,7 @@ class DocumentService:
         self.storage = storage
         self.life_graph = life_graph
         self.knowledge = knowledge
+        self.pipeline = ExtractionPipeline()
 
     # ------------------------------------------------------------------
     # Bootstrap: ensure indexes idempotently.
@@ -97,7 +99,7 @@ class DocumentService:
             await col.create_index([("user_id", 1), ("hash", 1)], name="user_hash")
             await col.create_index([("user_id", 1), ("created_at", -1)], name="user_created")
             await col.create_index([("user_id", 1), ("archived", 1), ("deleted", 1)], name="user_state")
-            await col.create_index([("user_id", 1), ("filename", "text"), ("notes", "text"), ("tags", "text")], name="user_text")
+            await col.create_index([("user_id", 1), ("filename", "text"), ("notes", "text"), ("tags", "text"), ("extracted_text", "text")], name="user_text")
         except Exception:
             logger.debug("documents index creation swallowed", exc_info=True)
 
@@ -223,7 +225,96 @@ class DocumentService:
         }
         await self.db.documents.insert_one(doc)
         doc.pop("_id", None)
+
+        # Iterazione 20: text extraction pipeline. Sync (blocking) so
+        # the freshly-uploaded doc is immediately searchable and the
+        # response carries the flag `text_extracted`. Duplicate cache is
+        # handled higher up (identical hash → we return existing doc
+        # without re-running extraction).
+        try:
+            extracted = await self._extract_and_persist(
+                user_id=user_id, doc_id=doc_id, blob=content, mime_type=mime,
+                life_node_id=life_node_id,
+            )
+            if extracted:
+                doc.update({
+                    "text_extracted": True,
+                    "ocr_used": extracted.get("ocr_used", False),
+                    "extraction_engine": extracted.get("engine"),
+                    "pages": extracted.get("pages"),
+                    "language": extracted.get("language"),
+                    "confidence": extracted.get("confidence"),
+                    "extracted_at": extracted.get("extracted_at"),
+                })
+        except Exception:
+            logger.exception("documents: extraction pipeline failed (soft-fail)")
         return {"duplicate": False, "document": doc}
+
+    # ------------------------------------------------------------------
+    # Extraction (Iterazione 20)
+    # ------------------------------------------------------------------
+    _EXTRACTED_TEXT_LIMIT = 500_000  # 500 KB cap on stored text
+
+    async def _extract_and_persist(
+        self, *, user_id: str, doc_id: str, blob: bytes, mime_type: str,
+        life_node_id: Optional[str],
+    ) -> Optional[Dict[str, Any]]:
+        result: ExtractionResult = self.pipeline.run(blob=blob, mime_type=mime_type)
+        extracted_text = (result.text or "")[: self._EXTRACTED_TEXT_LIMIT]
+        payload = {
+            "text_extracted": bool(extracted_text),
+            "extracted_text": extracted_text,
+            "extraction_engine": result.engine,
+            "ocr_used": result.ocr_used,
+            "pages": result.pages,
+            "detected_language": result.language,
+            "confidence": result.confidence,
+            "extraction_error_code": result.error_code,
+            "extraction_warnings": result.warnings[:20],
+            "extraction_duration_ms": round(result.duration_ms, 1),
+            "extracted_at": _ext_now(),
+            "updated_at": _ext_now(),
+        }
+        await self.db.documents.update_one(
+            {"id": doc_id, "user_id": user_id}, {"$set": payload},
+        )
+        # Life Graph: aggiorna attributi del nodo documento (best-effort).
+        if life_node_id and self.life_graph is not None:
+            try:
+                node = await self.db.life_nodes.find_one(
+                    {"id": life_node_id, "user_id": user_id}, {"_id": 0, "attributes": 1},
+                )
+                if node:
+                    attrs = dict(node.get("attributes") or {})
+                    attrs.update({
+                        "text_extracted": payload["text_extracted"],
+                        "ocr_used": payload["ocr_used"],
+                        "pages": payload["pages"],
+                        "language": payload["detected_language"],
+                        "confidence": payload["confidence"],
+                    })
+                    await self.life_graph.update_node(user_id, life_node_id, {"attributes": attrs})
+            except Exception:
+                logger.debug("documents: life-graph attrs update soft-fail", exc_info=True)
+        # Knowledge Layer: merge testo, pages, lingua, confidence.
+        if life_node_id and self.knowledge is not None:
+            try:
+                await self.knowledge.merge(
+                    user_id, life_node_id,
+                    {
+                        "notes": (extracted_text or "")[:1000],
+                        # Additional fields piggyback under a generic
+                        # keyed pattern; schema `document` welcomes them
+                        # only when defined. Fall back gracefully.
+                    },
+                    source_type="document_extraction",
+                    actor_type="system",
+                    actor_id="ora.documents.extraction",
+                    reason=f"document_extract:{doc_id}",
+                )
+            except Exception:
+                logger.debug("documents: knowledge extraction merge soft-fail", exc_info=True)
+        return payload
 
     # ------------------------------------------------------------------
     # Read
@@ -257,7 +348,7 @@ class DocumentService:
         if tag:
             query["tags"] = tag
         if q:
-            # Case-insensitive OR: filename/notes/tags
+            # Case-insensitive OR: filename/notes/tags/mime + extracted_text
             rx = {"$regex": q, "$options": "i"}
             query["$or"] = [
                 {"filename": rx},
@@ -265,6 +356,7 @@ class DocumentService:
                 {"notes": rx},
                 {"tags": rx},
                 {"mime_type": rx},
+                {"extracted_text": rx},
             ]
         sort_map = {
             "created_desc": [("created_at", -1)],
