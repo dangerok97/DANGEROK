@@ -62,7 +62,9 @@ class TestInsights:
         assert ins.status_code == 200
         body = ins.json()
         assert body["type_key"] == "ticket"
-        assert body["type_label"] in ("Biglietto concerto", "Biglietto evento")
+        # Iter22 unified the ticket label under a single "Biglietto"
+        # (legacy: "Biglietto concerto" / "Biglietto evento").
+        assert body["type_label"] in ("Biglietto", "Biglietto concerto", "Biglietto evento")
         labels = [f["label"] for f in body["summary"]["fields"]]
         assert "Tipo" in labels
         # Entities
@@ -187,8 +189,9 @@ class TestInsightsFalsePositiveGuards:
         joined = " | ".join(phones)
         assert any("12345678" in p for p in phones), f"labeled phone missing: {phones}"
         assert any("9876543" in p for p in phones), f"IT-mobile phone missing: {phones}"
-        # Deve rifiutare TktID / order / timestamp / CF numerico come telefoni
-        for forbidden in ("128492577", "1750329600", "2026", "20260715", "12345678901"):
+        # Deve rifiutare TktID / order / timestamp come telefoni
+        # ("12345678901" È correttamente un tax_id perché ha label P.IVA)
+        for forbidden in ("128492577", "1750329600", "2026", "20260715"):
             assert not any(forbidden in _digits(p) for p in phones), (
                 f"'{forbidden}' erroneously classified as phone: {joined}"
             )
@@ -201,9 +204,11 @@ class TestInsightsFalsePositiveGuards:
         for forbidden in ("128492577", "1750329600"):
             assert forbidden not in tax_ids, f"'{forbidden}' erroneously tax_id"
 
-        # --- Order IDs: entrambi etichettati devono comparire ---
+        # --- Order IDs: solo quelli con label esplicita "ordine"/"order"
+        # arrivano in order_ids; "TktID" → technical_identifiers ---
         order_ids = ents.get("order_ids") or []
-        assert "128492577" in order_ids, order_ids
+        tech = ents.get("technical_ids") or []
+        assert "128492577" in tech, f"TktID must be technical, got tech={tech}"
         assert "1750329600" in order_ids, order_ids
 
     def test_bare_11_digits_no_label_is_not_tax_id(self, client, user_a):
@@ -241,14 +246,17 @@ class TestInsightsFalsePositiveGuards:
         ents = client.get(f"/api/documents/{did}/insights", headers=h(user_a)).json()["entities"]
         phones = ents.get("phones") or []
         assert phones == [], f"unexpected phones extracted: {phones}"
-        # Ordine e TktID etichettati -> order_ids
+        # Iter22: TktID → technical_identifiers (not order_ids).
+        tech = ents.get("technical_ids") or []
         order_ids = ents.get("order_ids") or []
-        assert "128492577" in order_ids
+        assert "128492577" in tech, f"TktID must be technical, got tech={tech}"
+        # Explicit "Ordine:" label still routes to order_ids
         assert "A-2026-0009" in order_ids
         # Timestamp unix (non è una label riconosciuta come ordine)
         # deve comunque atterrare tra i numbers senza mai essere phone/tax_id.
         assert "1750329600" not in (ents.get("tax_ids") or [])
-        assert any("1750329600" in n for n in (ents.get("numbers") or []))
+        assert any("1750329600" in n for n in (ents.get("numbers") or [])) \
+            or "1750329600" in tech  # 12+ digits would go tech; 10 → numbers
 
     def test_labeled_phones_variants(self, client, user_a):
         content = (

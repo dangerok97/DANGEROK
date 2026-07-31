@@ -1,0 +1,51 @@
+{
+  "summary": "Iterazione 22 (Document Understanding Engine) backend testing COMPLETE. All 26 new Iter22 unit tests PASS (10 classification, 4 resolved_fields, 6 priority/anti-hallucination, 2 confidence, 2 retrocompat, 1 extensibility, 1 unknown->generic). Full regression on Iter19 (17/17) + Iter20 (10/10) + Iter21 (14/14 insights + 9/9 bugfix-router-crash) all green when run standalone: 50/50 legacy document tests. New live-smoke suite hits public EXPO_PUBLIC_BACKEND_URL for ticket/invoice/contract + env-threshold module constants: 4/4 PASS. All anti-hallucination rules verified end-to-end: TktID never becomes order_number (routed to technical_identifiers.flat), Posto Unico/Tribuna Rossa/Platea Sinistra never become persons, bare 11-digit sequences never become tax_ids, Data ordine never overrides Data evento, no value appears in two resolved_fields, generic fallback used when nothing exceeds threshold. Iter21 legacy payload keys (summary/entities/extraction/technical_metadata/history/content) 100% preserved. Deterministic pipeline confirmed — no LLM invoked on insights path.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "tests/test_iter21_bugfix_router_crash.py::TestMemoryAskRegression::test_ask_cites_document", "issue": "Pre-existing test isolation issue with pytest-xdist: module-scoped `user` fixture uses live-ingress HTTP (requests, not TestClient); when xdist splits TestDocumentsAPI and TestMemoryAskRegression across workers (gw0/gw1), the second worker instantiates its own `user` fixture with no uploaded docs, so /api/memory/ask returns 0 doc sources. Confirmed by re-running with `-o addopts=` (no xdist): 9/9 pass. NOT an Iter22 regression. Recommend either module-level ordering hint (@pytest.mark.dependency or xdist_group) or merging the two classes."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter22_document_understanding.py",
+    "/app/backend/tests/test_iter22_live_smoke.py (new — public ingress smoke + env threshold check)",
+    "/app/test_reports/pytest/iter22.xml (26/26 pass)",
+    "/app/test_reports/pytest/iter22_live_smoke.xml (4/4 pass)",
+    "/app/test_reports/pytest/iter22_regression_iter19_21.xml (31/31 pass — iter19+iter21_insights)",
+    "/app/test_reports/pytest/iter22_iter21_bugfix.xml (xdist-affected; sequential re-run 9/9 pass)"
+  ],
+  "action_items": [
+    "OPTIONAL: fix pytest-xdist isolation in /app/backend/tests/test_iter21_bugfix_router_crash.py by adding `@pytest.mark.xdist_group('iter21_bugfix')` on both classes (or merging TestMemoryAskRegression into TestDocumentsAPI) so they share the same worker and doc uploads.",
+    "OPTIONAL cleanup: rename `HIDDEN_LOWER` in documents/field_resolver.py to `HIDDEN_LOWER_THRESHOLD` for symmetry with `VISIBLE_THRESHOLD` and env var name `DOCUMENT_INSIGHTS_HIDDEN_LOWER_THRESHOLD` (purely cosmetic; caught during live smoke test writing).",
+    "No functional changes required — Iter22 is production-ready per the spec."
+  ],
+  "critical_code_review_comments": [
+    "documents/document_classifier.py: multi-signal classifier (keywords + label coverage + filename + coherence) is deterministic and well-scoped. `classify()` returns a Classification with type_key + scores, cleanly consumed by insights.compute_insights.",
+    "documents/field_resolver.py: VISIBLE_THRESHOLD (60) and HIDDEN_LOWER (40) read from env at import; ResolvedField dataclass carries all 7 required keys (field_key, label, value, confidence, source_snippet<=170, source_page, resolver_rule). Confidence pipeline correctly buckets into visible/hidden/dropped.",
+    "documents/schema_registry.py: register_document_type() + get_schema() + all_schemas() expose a clean extension API; test_register_new_document_type_works confirms firearm_license schema is auto-picked-up by classifier without code changes — extensibility contract met.",
+    "documents/person_detector.py + technical_ids.py: role-labels blacklist (Posto Unico, Tribuna, Platea) prevents seat labels from being misclassified as persons; TktID/UUID/barcode/long-numeric routed exclusively to technical_identifiers.flat. Anti-hallucination guardrails hold across 6 dedicated tests.",
+    "documents/insights.py: extract_entities now delegates to _run_pipeline(text) → (entities, tech_grouped). Priority pipeline emails→urls→iban→amounts→dates→times→tax_ids→phones→order_ids→technical_ids→numbers is character-span-reserved, so no double-classification. _ORDER_LABELED_RE no longer matches `tkt` — confirmed via test_tktid_never_becomes_order_number.",
+    "insights.py compute_insights payload: correctly ADDS classification/schema_used/resolved_fields/hidden_fields/technical_identifiers WITHOUT removing legacy Iter21 keys — full backward-compat preserved (test_iter21_payload_shape_preserved passes).",
+    "No LLM/OCR re-run on insights path — Iter22 is 100% deterministic as specified. Emergent LLM key present in .env but never invoked from insights code path.",
+    "Env-configurable thresholds correctly read at module import (VISIBLE_THRESHOLD=60, HIDDEN_LOWER=40 from DOCUMENT_INSIGHTS_CONFIDENCE_THRESHOLD / DOCUMENT_INSIGHTS_HIDDEN_LOWER_THRESHOLD).",
+    "No files >700 LOC in documents/. Code is well-modularised across schema_registry / document_classifier / field_resolver / person_detector / technical_ids / insights."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter22_live_smoke.py (new — 4 tests, live ingress smoke + env-threshold module-constant check)"
+  ],
+  "success_rate": {
+    "backend": "100% on all Iter22-scope suites: Iter22 unit 26/26, Iter22 live smoke 4/4, Iter19 17/17, Iter20 10/10, Iter21 insights 14/14, Iter21 bugfix-router-crash 9/9 (sequential). Total in-scope: 80/80.",
+    "frontend": "not tested (backend-only per request)"
+  },
+  "seed_data_creation": "None persistent. Per-run test users registered with TS-prefixed emails (iter22_<ts>_<uuid>@ora.app and iter22smoke_<ts>_<uuid>@ora.app). Test documents uploaded per user; isolated.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iter22 Document Understanding Engine is production-ready. Deterministic pipeline verified (no LLM on insights). Anti-hallucination guards hold across 6 dedicated tests + live smoke. Iter19/20/21 fully backward-compat. Known cosmetic: field_resolver exports `HIDDEN_LOWER` (not `HIDDEN_LOWER_THRESHOLD`) — env var name follows the *_THRESHOLD convention but the Python constant is shortened. Known pre-existing infra flake: test_iter21_bugfix_router_crash.py's TestMemoryAskRegression fails under pytest-xdist due to worker isolation of its live-ingress module-scoped `user` fixture; workaround: run with `-o addopts=` (no xdist), or mark both classes with @pytest.mark.xdist_group. When running the entire /app/backend/tests/ dir together, the pre-existing Motor + TestClient 'event loop is closed' infra issue (documented in conftest.py + iteration_17.json) will still appear across unrelated modules — NOT caused by Iter22.",
+  "rca_of_issue": "N/A — no bugs found in Iter22 scope. The single failure surfaced (test_ask_cites_document) is a pytest-xdist worker-isolation issue in the test file itself, orthogonal to Iter22. Root cause: TestDocumentsAPI uploads docs into a module-scoped `user` fixture; TestMemoryAskRegression asserts those docs are cited. Under xdist load-scheduling with class distribution, gw1 creates its own instance of the module (and thus a fresh `user` with no uploads), so the assertion fails deterministically. Mitigation: mark the classes with the same xdist_group, or merge them, or force serial execution for that file."
+}

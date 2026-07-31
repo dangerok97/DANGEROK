@@ -9,11 +9,10 @@ from __future__ import annotations
 
 import os
 import time
-from typing import Any, Dict, List
+from typing import List
 
 from context_assembler.types import (
     ProviderResult,
-    SOURCE_RELIABILITY,
     Signal,
 )
 

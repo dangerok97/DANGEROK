@@ -99,7 +99,7 @@ _ORDER_LABEL_ALT = (
     r"conferma\s*(?:n[.°]?|id|numero)?|"
     r"riferimento|ref(?:erence)?(?:\s*(?:id|n[.°]?|no|number))?|"
     r"codice\s+(?:ordine|prenotazione|biglietto|conferma|transazione|operazione)|"
-    r"tkt(?:\s*id)?|ticket(?:\s*(?:id|number|n[.°]?))?|"
+    r"ticket(?:\s*(?:id|number|n[.°]?))?|"
     r"biglietto\s+(?:n[.°]?|id|numero)|"
     r"fattura\s+n[.°]?"
 )
@@ -121,20 +121,9 @@ _ORG_HINTS = (
 
 
 # ---------------------------------------------------------------------
-# Structured summary — keyword-based type detection + heuristic fields
+# Structured summary (legacy Iter21 layer) — kept for backward-compat.
+# The new Iter22 Info tab is powered by ``resolved_fields`` (see below).
 # ---------------------------------------------------------------------
-_TYPE_HINTS: List[Tuple[str, str, Tuple[str, ...]]] = [
-    ("Biglietto concerto", "ticket", ("biglietto", "concerto", "ingresso", "porte", "gate", "posto", "settore")),
-    ("Biglietto evento",   "ticket", ("biglietto", "evento", "manifestazione", "spettacolo")),
-    ("Biglietto viaggio",  "ticket", ("volo", "flight", "boarding", "carta d'imbarco", "treno", "italo", "trenitalia")),
-    ("Fattura",            "invoice", ("fattura", "invoice", "totale imponibile", "iva", "vat")),
-    ("Scontrino",          "receipt", ("scontrino", "ricevuta fiscale", "totale complessivo")),
-    ("Contratto",          "contract", ("contratto", "agreement", "sottoscritto", "clausola", "articolo 1")),
-    ("Bolletta",           "bill", ("bolletta", "utenza", "consumo", "importo da pagare", "scadenza pagamento")),
-    ("Certificato",        "certificate", ("certificato", "attestato", "certifica")),
-    ("Referto sanitario",  "medical", ("referto", "analisi", "esami", "diagnosi", "medico")),
-    ("Documento identità", "id",       ("carta d'identità", "codice fiscale", "passaporto", "patente")),
-]
 
 
 def _norm_ws(s: str) -> str:
@@ -185,8 +174,25 @@ def _digits_only(s: str) -> str:
 # root.
 # ---------------------------------------------------------------------
 def extract_entities(text: str) -> Dict[str, List[str]]:
+    """Extract entities from ``text``. Backwards-compat public API.
+
+    Internally calls :func:`_run_pipeline`; discards the ``tech_grouped``
+    payload since legacy callers don't need it.
+    """
+    ents, _tech = _run_pipeline(text)
+    return ents
+
+
+def _run_pipeline(text: str) -> Tuple[Dict[str, List[str]], Dict[str, List[str]]]:
+    """Full deterministic pipeline. Returns ``(entities, tech_grouped)``.
+
+    ``tech_grouped`` is the technical-identifiers dict shaped as
+    ``{"uuids": [...], "hashes": [...], "labelled": [...], "long_numeric": [...]}``
+    (empty buckets dropped). ``entities`` includes a flat
+    ``technical_ids`` list for convenience/backward-compat.
+    """
     if not text:
-        return {}
+        return {}, {}
 
     claimed: List[Tuple[int, int]] = []
     entities: Dict[str, List[str]] = {}
@@ -282,6 +288,15 @@ def extract_entities(text: str) -> Dict[str, List[str]]:
         claimed.append((ms, me))
     entities["order_ids"] = _dedup(order_vals, 20)
 
+    # 7b. Technical identifiers (TktID/UUID/hash/etc). MUST run BEFORE
+    # the generic number fallback so tokens like "TktID: 128492577"
+    # never fall through to `numbers`.
+    from documents import technical_ids as _tech  # local import: avoid cycle
+    _tech_groups = _tech.extract_technical_identifiers(text, claimed)
+    _tech_flat = _tech.flatten(_tech_groups)
+    if _tech_flat:
+        entities["technical_ids"] = _tech_flat
+
     # 8. Generic long numeric IDs (fallback, unclaimed spans only)
     generic_nums: List[str] = []
     for m in _NUMBER_RE.finditer(text):
@@ -301,33 +316,43 @@ def extract_entities(text: str) -> Dict[str, List[str]]:
     orgs = [ln.strip() for ln in text.splitlines()
             if any(h in ln.lower() for h in _ORG_HINTS)]
     entities["organizations"] = _dedup(orgs, 10)
-    # Persons — extremely conservative: uppercase bigrams at line start
+    # Persons — deterministic Italian first+last name patterns.
+    # Handles both `Mario Rossi` and ALL-CAPS `MARIO ROSSI` (ID cards).
     person_re = re.compile(
-        r"^([A-ZÀÈÉÌÒÙ][a-zà-ù]+(?:\s+[A-ZÀÈÉÌÒÙ][a-zà-ù]+){1,2})$",
+        r"^([A-ZÀÈÉÌÒÙ][a-zà-ù]+(?:\s+[A-ZÀÈÉÌÒÙ][a-zà-ù]+){1,2}"
+        r"|[A-ZÀÈÉÌÒÙ]{2,30}(?:\s+[A-ZÀÈÉÌÒÙ]{2,30}){1,2})$",
         re.MULTILINE,
     )
     entities["persons"] = _dedup(person_re.findall(text), 15)
+    # Iter22: filter out role/label false positives ("Posto Unico",
+    # "Tribuna Rossa", "Emittente", …) from the persons bucket.
+    try:
+        from documents.person_detector import filter_persons as _fp
+        if entities.get("persons"):
+            entities["persons"] = _fp(entities["persons"])
+    except ImportError:
+        pass
 
-    # Drop empty categories to keep the payload lean.
-    return {k: v for k, v in entities.items() if v}
+    entities_clean = {k: v for k, v in entities.items() if v}
+    return entities_clean, _tech_groups
 
 
 # ---------------------------------------------------------------------
-# Type detection + structured summary
+# Type detection — Iterazione 22: delegated to the schema-driven
+# document classifier while preserving the legacy signature.
 # ---------------------------------------------------------------------
 def detect_type(text: str, filename: str, mime_type: str) -> Tuple[str, str]:
-    """Returns (label, key). Falls back to a mime-based generic label."""
-    if not text:
+    """Returns ``(label, key)``. Falls back to a mime-based generic label.
+
+    Kept for backward compatibility. New callers should use
+    :func:`documents.document_classifier.classify` directly.
+    """
+    from documents.document_classifier import classify
+    result = classify(text or "", filename or "", mime_type or "")
+    if result.type_key == "generic":
+        # Preserve the mime-specific generic label from previous behaviour.
         return _fallback_type(filename, mime_type)
-    lower = (text + " " + (filename or "")).lower()
-    best: Optional[Tuple[str, str, int]] = None
-    for label, key, hints in _TYPE_HINTS:
-        score = sum(1 for h in hints if h in lower)
-        if score > 0 and (best is None or score > best[2]):
-            best = (label, key, score)
-    if best:
-        return best[0], best[1]
-    return _fallback_type(filename, mime_type)
+    return result.type_label, result.type_key
 
 
 def _fallback_type(filename: str, mime_type: str) -> Tuple[str, str]:
@@ -444,26 +469,83 @@ def build_structured_summary(
 
 
 # ---------------------------------------------------------------------
-# Main entry
+# Main entry — Iterazione 22
 # ---------------------------------------------------------------------
 def compute_insights(doc: Dict[str, Any]) -> Dict[str, Any]:
+    """Assemble the full Document Understanding payload.
+
+    Backwards-compatible superset of the Iter21 payload. New keys:
+      * ``classification`` — output of the multi-signal classifier.
+      * ``schema_used`` — active schema + version (or ``None`` for generic).
+      * ``resolved_fields`` — visible schema fields with confidence≥threshold.
+      * ``hidden_fields`` — fields between the hidden and visible thresholds
+                            (available to the API but never shown in Info).
+      * ``technical_identifiers`` — TktID/UUID/hash/etc, separated.
+    ``entities`` is kept, but values that were promoted to a resolved
+    field are de-duped from the generic buckets so the UI can render
+    ``entities`` without producing visual duplicates.
+    """
+    from documents.document_classifier import classify
+    from documents.field_resolver import (
+        resolve_fields,
+        VISIBLE_THRESHOLD,
+        HIDDEN_LOWER,
+    )
+    from documents.schema_registry import get_schema
+
     text = doc.get("extracted_text") or ""
     filename = doc.get("filename") or ""
     mime = doc.get("mime_type") or ""
-    entities = extract_entities(text)
-    type_label, type_key = detect_type(text, filename, mime)
 
-    summary = build_structured_summary(text, entities, type_key, doc)
-    # Inject the detected type as the first field of the summary
-    summary_fields = [{"label": "Tipo", "value": type_label}] + summary["fields"]
+    # 1. Entity extraction + technical IDs (single pass, span-reserved).
+    entities, tech_groups = _run_pipeline(text)
+    tech_flat = []
+    if entities.get("technical_ids"):
+        # Take the flat list produced by the pipeline; grouped form is
+        # the authoritative payload for the UI.
+        tech_flat = entities["technical_ids"]
+
+    # 2. Classification (multi-signal, deterministic).
+    cls = classify(text, filename, mime)
+
+    # 3. Field resolver (schema-driven).
+    visible_fields, hidden_fields, _used_positions = resolve_fields(text, entities, cls.type_key)
+    schema = get_schema(cls.type_key)
+
+    # 5. Legacy structured summary (still used by Iter21 clients).
+    summary = build_structured_summary(text, entities, cls.type_key, doc)
+    summary_fields = [{"label": "Tipo", "value": cls.type_label}] + summary["fields"]
+
+    # 6. Retrocompatibilità entities: manteniamo le entities COMPLETE nel
+    #    payload API (usate da debug/tab Insights). Il de-dup visivo è
+    #    responsabilità della UI (che sa quali valori sono stati promossi
+    #    a resolved_fields).
+    entities_clean = entities
 
     return {
         "id": doc.get("id"),
         "filename": filename,
-        "type_key": type_key,
-        "type_label": type_label,
+        "type_key": cls.type_key,
+        "type_label": cls.type_label,
+        # ----- Iter22 additions -----
+        "classification": {
+            **cls.as_dict(),
+            "threshold_visible": VISIBLE_THRESHOLD,
+            "threshold_hidden": HIDDEN_LOWER,
+        },
+        "schema_used": (
+            {"type_key": schema.type_key,
+             "type_label": schema.type_label,
+             "version": schema.version,
+             "info_order": schema.info_order}
+            if schema is not None else None
+        ),
+        "resolved_fields": [rf.as_dict() for rf in visible_fields],
+        "hidden_fields":   [rf.as_dict() for rf in hidden_fields],
+        "technical_identifiers": {"grouped": tech_groups, "flat": tech_flat},
+        # ----- retrocompatibility -----
         "summary": {"fields": summary_fields},
-        "entities": entities,
+        "entities": entities_clean,
         "extraction": {
             "engine": doc.get("extraction_engine"),
             "method": ("OCR" if doc.get("ocr_used") else "PDF" if (mime == "application/pdf") else "TEXT"),
@@ -496,3 +578,25 @@ def compute_insights(doc: Dict[str, Any]) -> Dict[str, Any]:
             "length": len(text),
         },
     }
+
+
+# ---------------------------------------------------------------------
+# Iter22 helpers
+# ---------------------------------------------------------------------
+def _dedup_entities_against_resolved(
+    entities: Dict[str, List[str]],
+    resolved: List[Any],
+) -> Dict[str, List[str]]:
+    """Drop values from ``entities`` that were already surfaced as
+    resolved schema fields (to avoid visual duplicates in the UI).
+    Preserves buckets and ordering.
+    """
+    resolved_values = {rf.value for rf in resolved}
+    if not resolved_values:
+        return entities
+    out: Dict[str, List[str]] = {}
+    for bucket, values in entities.items():
+        kept = [v for v in values if v not in resolved_values]
+        if kept:
+            out[bucket] = kept
+    return out
