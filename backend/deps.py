@@ -124,6 +124,22 @@ def get_apple_calendar_service():
     return _apple_calendar_service
 
 
+_document_service = None
+
+
+def get_document_service():
+    global _document_service
+    if _document_service is None:
+        from documents import DocumentService, build_default_storage
+        _document_service = DocumentService(
+            db=db,
+            storage=build_default_storage(),
+            life_graph=life_graph,
+            knowledge=knowledge,
+        )
+    return _document_service
+
+
 def get_daily_summary_service():
     global _daily_summary_service
     if _daily_summary_service is None:

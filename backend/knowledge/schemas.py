@@ -68,6 +68,8 @@ SCHEMAS: Dict[str, List[Dict[str, Any]]] = {
         _prop("notes", "Note", "string"),
     ],
     "document": [
+        _prop("filename", "Nome file"),
+        _prop("mime_type", "Tipo MIME"),
         _prop("doc_type", "Tipo", "string", options=["identita", "sanitario", "fiscale", "contratto", "fattura", "scontrino", "certificato", "altro"]),
         _prop("category", "Categoria"),
         _prop("issued_at", "Data emissione", "date"),
@@ -76,6 +78,8 @@ SCHEMAS: Dict[str, List[Dict[str, Any]]] = {
         _prop("state", "Stato", "string", options=["valido", "in_scadenza", "scaduto", "archiviato"]),
         _prop("issuer", "Emesso da"),
         _prop("storage", "Dove è archiviato", sensitivity="sensitive"),
+        _prop("tags", "Tag", "string_list", sensitivity="public"),
+        _prop("notes", "Note"),
     ],
     "subscription": [
         _prop("provider", "Fornitore"),

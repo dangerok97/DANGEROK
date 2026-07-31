@@ -225,8 +225,19 @@ async def add_memory(body: MemoryIn, user=Depends(get_current_user)):
 @router.get("")
 async def list_memory(user=Depends(get_current_user)):
     cursor = db.memories.find({"user_id": user["user_id"]}, {"_id": 0}).sort("created_at", -1)
-    items = await cursor.to_list(length=500)
-    return {"items": items}
+    memories = await cursor.to_list(length=500)
+    # Additive: la schermata Memoria vede anche i documenti (Iter19).
+    # Ritorniamo la stessa forma sotto `items` (retrocompat) + un campo
+    # `documents` con titolo/tipo/data/tag (nessun contenuto).
+    try:
+        cur2 = db.documents.find(
+            {"user_id": user["user_id"], "deleted": {"$ne": True}, "archived": {"$ne": True}},
+            {"_id": 0, "id": 1, "filename": 1, "mime_type": 1, "tags": 1, "created_at": 1},
+        ).sort("created_at", -1).limit(200)
+        docs = await cur2.to_list(length=200)
+    except Exception:
+        docs = []
+    return {"items": memories, "documents": docs}
 
 
 @router.post("/ask")
