@@ -1,0 +1,40 @@
+{
+  "summary": "Iter21 Document Insights bug-fix backend testing complete. All 41 iter19+iter20+iter21 unit tests pass in-process (5 new TestInsightsFalsePositiveGuards cases included). Added a live-smoke suite that hits the public EXPO_PUBLIC_BACKEND_URL end-to-end (register → upload → GET /insights) and verified the deterministic label-aware extractor over ingress: 4/4 live tests pass. Phones no longer capture TktID/order numbers/timestamps/11-digit sequences; tax_ids only accept strict 16-char Italian CF or label-prefixed 11-digit P.IVA; 11-digit bare sequences are correctly demoted to numbers only; order_ids bucket populated correctly for TktID/Numero ordine/A-2026-0009. Full-suite regression across ALL backend tests shows pre-existing Motor 'event loop is closed' infra errors (documented in conftest.py) when unrelated modules run in the same process — NOT caused by iter21 (individual re-runs pass).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "tests/*", "issue": "Pre-existing test infra issue: modules defining their own module-scoped TestClient hit 'Event loop is closed' when full suite runs together (Motor + TestClient lifespan). Documented in /app/backend/tests/conftest.py. Not caused by Iter21. Recommend migrating remaining modules to use `shared_client` fixture."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter21_document_insights.py",
+    "/app/backend/tests/test_iter21_live_smoke.py",
+    "/app/test_reports/pytest/iter21_bugfix_v2.xml",
+    "/app/test_reports/pytest/iter21_live_smoke.xml",
+    "/app/test_reports/pytest/iter21_docs_regression.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "insights.py extract_entities is well-structured with span reservation; priority order (emails→urls→iban→amounts→dates→times→tax_ids→phones→order_ids→numbers) is defensible.",
+    "_PIVA_LABELED_RE correctly enforces label prefix and (?!\\d) tail-guard.",
+    "_ORDER_LABELED_RE captures full match span (including label) via m.span(0), which is critical for correctly preventing lower-priority patterns from re-consuming the numeric tail.",
+    "insights.py is ~500 LOC — under the 700 threshold; no split required.",
+    "build_structured_summary correctly prefers order_ids[0] over numbers[0] for ticket & invoice branches.",
+    "No LLM/OCR re-run on insights path — confirmed via test_i6 (duration_ms and extracted_at stable across calls)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter21_live_smoke.py (new — live smoke against public EXPO_PUBLIC_BACKEND_URL)"
+  ],
+  "success_rate": {"backend": "100% on in-scope suites (iter19+iter20+iter21 = 41/41 + live smoke 4/4)", "frontend": "not tested"},
+  "seed_data_creation": "None persistent. Test users registered per-run with TS-prefixed emails (iter21_<ts>_<uuid>@ora.app). Test documents uploaded per user and left in place (isolated per-user).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "The 'event loop is closed' errors seen when running the ENTIRE /app/backend/tests/ directory together are a well-known Motor + TestClient issue documented in /app/backend/tests/conftest.py — NOT bugs. They only occur when multiple modules define their own module-scoped TestClient fixture. Individual modules and small groups (like iter19+iter20+iter21) run cleanly. Prefer running scoped subsets or using the `shared_client` session fixture. Live smoke against ingress works via EXPO_PUBLIC_BACKEND_URL (not EXPO_BACKEND_URL) as the ORA app defines it in /app/frontend/.env.",
+  "rca_of_issue": "Original bug: phone/tax_id extractors used loose numeric-run regexes that matched TktID, order numbers, Unix timestamps, and any 11-digit sequence. Fix (verified): rewrote extract_entities as a priority pipeline with character-span reservation — self-anchored patterns (emails/urls/iban) claim spans first, then amounts/dates/times, then tax_ids (strict 16-char CF alfanumerico OR label-prefixed 11-digit P.IVA), then phones (label OR intl + OR IT mobile 3XX+6-7digits), then labelled order/ticket IDs, then generic long numbers on unclaimed spans only. Since each pattern claims m.span(0) (the FULL match including its label), lower-priority patterns cannot re-consume the digits. Verified end-to-end via 5 new guard tests + 4 live smoke tests over ingress."
+}
