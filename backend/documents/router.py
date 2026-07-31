@@ -93,6 +93,17 @@ async def get_document(doc_id: str, user=Depends(get_current_user)):
         raise HTTPException(status_code=404, detail="Documento non trovato")
 
 
+@router.get("/{doc_id}/insights")
+async def get_document_insights(doc_id: str, user=Depends(get_current_user)):
+    """Iter21: deterministic insights. NO LLM, NO re-OCR."""
+    try:
+        doc = await _svc().get(user_id=user["user_id"], doc_id=doc_id)
+    except DocumentNotFound:
+        raise HTTPException(status_code=404, detail="Documento non trovato")
+    from .insights import compute_insights
+    return compute_insights(doc)
+
+
 @router.get("/{doc_id}/download")
 async def download_document(doc_id: str, user=Depends(get_current_user)):
     try:

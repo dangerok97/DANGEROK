@@ -229,6 +229,7 @@ export const api = {
     return request<DocumentsListResponse>(`/documents${q ? `?${q}` : ''}`);
   },
   documentGet: (id: string) => request<DocumentItem>(`/documents/${id}`),
+  documentInsights: (id: string) => request<DocumentInsights>(`/documents/${id}/insights`),
   documentPatch: (id: string, body: { filename?: string; tags?: string[]; notes?: string }) =>
     request<DocumentItem>(`/documents/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   documentArchive: (id: string) => request<DocumentItem>(`/documents/${id}/archive`, { method: 'POST' }),
@@ -303,6 +304,44 @@ export type DocumentsListResponse = {
   total: number;
   limit: number;
   offset: number;
+};
+
+// Iterazione 21 — Document Insights (deterministico, no LLM)
+export type DocumentInsights = {
+  id: string;
+  filename: string;
+  type_key: string;
+  type_label: string;
+  summary: { fields: { label: string; value: string }[] };
+  entities: Record<string, string[]>;
+  extraction: {
+    engine?: string;
+    method: 'PDF' | 'OCR' | 'TEXT';
+    text_extracted: boolean;
+    ocr_used: boolean;
+    pages?: number | null;
+    language?: string | null;
+    confidence?: number | null;
+    duration_ms?: number | null;
+    extracted_at?: string | null;
+    error_code?: string | null;
+  };
+  technical_metadata: {
+    hash?: string;
+    size?: number;
+    mime_type?: string;
+    storage_provider?: string;
+    original_filename?: string;
+  };
+  history: {
+    created_at?: string;
+    updated_at?: string;
+    archived: boolean;
+    deleted: boolean;
+    version: number;
+    upload_source?: string;
+  };
+  content: { text: string; length: number };
 };
 
 // Extra types
