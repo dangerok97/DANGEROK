@@ -1,6 +1,7 @@
 /**
  * ORA API client — reads Bearer token from secure storage.
  */
+import { Platform } from 'react-native';
 import { storage } from '@/src/utils/storage';
 
 const BASE = process.env.EXPO_PUBLIC_BACKEND_URL;
@@ -235,10 +236,25 @@ export const api = {
   documentDelete: (id: string, hard = false) =>
     request<{ ok: boolean; hard: boolean; id: string }>(`/documents/${id}${hard ? '?hard=true' : ''}`, { method: 'DELETE' }),
   documentUpload: async (file: { uri: string; name: string; type: string }, tags?: string[], notes?: string) => {
-    // Multipart upload — reuse the fetch layer since request() uses JSON only.
     const form = new FormData();
-    // @ts-ignore RN FormData accepts { uri, name, type }
-    form.append('file', file as any);
+    if (Platform.OS === 'web') {
+      // Web/Safari/Chrome: FormData does not accept the RN shape
+      // {uri,name,type}. We must upload a real Blob/File. Fetch the
+      // picker's blob-URI (or data-URI) and append as Blob.
+      let blob: Blob;
+      try {
+        const r = await fetch(file.uri);
+        blob = await r.blob();
+      } catch (e: any) {
+        throw new Error('Impossibile leggere il file dal browser: ' + (e?.message || 'errore'));
+      }
+      form.append('file', blob, file.name);
+    } else {
+      // React Native (iOS / Android app): the native FormData polyfill
+      // understands this exact shape.
+      // @ts-ignore RN FormData accepts { uri, name, type }
+      form.append('file', file as any);
+    }
     if (tags?.length) form.append('tags', tags.join(','));
     if (notes) form.append('notes', notes);
     const token = await authToken.get();
@@ -250,8 +266,12 @@ export const api = {
     if (!res.ok) {
       const text = await res.text();
       let msg = text;
-      try { msg = JSON.parse(text)?.detail?.message || msg; } catch {}
-      throw new Error(msg || `HTTP ${res.status}`);
+      let detail: any = null;
+      try { const j = JSON.parse(text); detail = j.detail || j; msg = detail?.message || detail?.error || msg; } catch {}
+      const err: any = new Error(msg || `HTTP ${res.status}`);
+      err.status = res.status;
+      err.detail = detail;
+      throw err;
     }
     return res.json() as Promise<{ duplicate: boolean; document: DocumentItem }>;
   },
