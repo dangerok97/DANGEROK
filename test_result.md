@@ -1,4 +1,79 @@
 # ==========================================================
+# ITERAZIONE 23 — Document Actions (barra azioni contestuali)
+# ==========================================================
+iter23_document_actions:
+  status: DONE
+  goal: |
+    Rendere i campi estratti "azionabili" senza modificare estrattore,
+    resolver, classifier, memory o decision engine. Le azioni partono
+    esclusivamente da resolved_fields con confidence ≥ threshold.
+  new_frontend_modules:
+    - src/utils/document_actions.ts       # builder + runner + validator (puro)
+    - src/components/DocumentActionsBar.tsx  # UI orizzontale scrollabile
+  frontend_dependencies_added:
+    - expo-clipboard@8.0.8 (nuovo)
+    - expo-calendar, expo-linking, expo-web-browser, expo-haptics: già presenti
+  api_changes: NESSUNA — Iter23 è 100% frontend.
+  actions_supported_priority_order:
+    - 1. calendar_event    (event_date) → conferma + expo-calendar; web → Google Calendar template
+    - 2. calendar_deadline (due_date / expiry_date) — collassano in una sola
+    - 3. calendar_start    (effective_date)
+    - 4. map               (venue + city preferito) — apple/geo/gmaps con fallback
+    - 5. copy_iban         (rimuove whitespace)
+    - 6. email             (mailto:) — normalizzata + validata
+    - 7. phone             (tel:) — normalizzato, min 7 digits
+    - 8. url               (WebBrowser.openBrowserAsync + window.open sul web) — solo http/https
+    - 9. copy_id           (tax_id / invoice_number / order_number / …)
+    - 10. copy_amount      (total → balance → price → subtotal)
+    - 11. share            (Share API native / navigator.share web / clipboard fallback)
+  rules_honored:
+    - Confidence < threshold_visible (60): 0 azioni generate
+    - hidden_fields: MAI usate come sorgente
+    - technical_identifiers: MAI nella barra principale; SOLO "copia" contestuale nel tab Insights
+    - Nessuna azione automatica; ogni tap è esplicito
+    - Permesso calendario chiesto SOLO al tap (mai all'apertura)
+    - Anteprima+conferma modale prima di createEvent
+    - birth_date / signature_date / issue_date → nessuna azione calendario
+    - venue+city / IBAN / URL / azioni: dedup automatico su chiave semantica
+    - Blocca schemi URL non sicuri (javascript:, data:, file:, vbscript:)
+  ui_scope:
+    - Modificato SOLO tab Info (nuova sezione "Azioni disponibili")
+    - Tab Insights: aggiunta azione "Copia" contestuale sui chip technical_identifiers
+    - Invariati: Contenuto, Metadati, upload, archiviazione, eliminazione, navigazione
+  tests:
+    - test_iter23_document_actions.py: 7 test PASS
+        threshold esposto, resolved ≥ threshold, hidden < threshold,
+        technical_ids separati, IBAN copiabile, retrocompat Iter22,
+        nessun side-effect backend
+    - Regressione Iter19-22: 18+10+13+26 = 67 test PASS, 0 regressioni
+    - Test totali: 74 PASS
+  live_evidence_playwright:
+    - BIGLIETTO doc_6026c67f955f:
+        Azioni visibili: "Aggiungi evento", "Copia identificativo", "Copia importo", "Condividi contenuto"
+        Click "Aggiungi evento" → fallback web Google Calendar aperto:
+          calendar.google.com/render?action=TEMPLATE&text=OLLY+LIVE+2026&
+          dates=20260630T214500Z/20260630T231500Z&
+          details=Apertura+porte%3A+17%3A00·Ordine+1284925775·Biglietto+998877
+        Toast: "Apri Google Calendar per confermare"
+    - FATTURA doc_22025928b88d:
+        Azioni: "Aggiungi scadenza", "Copia IBAN", "Copia identificativo", "Copia importo", "Condividi contenuto"
+        Click "Copia IBAN" → toast "IBAN copiato"
+    - CURRICULUM doc_91ee6941c3e6:
+        Azioni: "Email", "Telefono", "Condividi contenuto"
+        birth_date NON ha generato azione calendario ✓
+        testID accessibility: action-email, action-phone, action-share ✓
+  screenshots:
+    - /app/docs/screenshots/iter23_biglietto_actions.jpg     (Aggiungi evento visibile)
+    - /app/docs/screenshots/iter23_fattura_copy_iban.jpg     (Copia IBAN + toast)
+  constraints_honored:
+    - NO backend changes (nessuna nuova rotta né logica di estrazione)
+    - NO LLM, NO AI generativa
+    - NO auto-execution: tutte le azioni richiedono tap
+    - Threshold NON hard-coded nel frontend: letto da ins.classification.threshold_visible
+    - Fallback safe cross-platform (iOS/Android/web) per calendario/mappe/condivisione
+
+
+# ==========================================================
 # ITERAZIONE 22 — Document Understanding Engine (generico, no LLM)
 # ==========================================================
 iter22_document_understanding_engine:
