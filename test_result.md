@@ -1,4 +1,75 @@
 # ==========================================================
+# ITERAZIONE 22 — Document Understanding Engine (generico, no LLM)
+# ==========================================================
+iter22_document_understanding_engine:
+  status: DONE
+  goal: |
+    Trasformare Document Insights in un motore documentale generico,
+    schema-driven, estendibile. NO LLM, NO AI generativa. Retrocompat
+    100% con GET /api/documents/{id}/insights.
+  new_modules:
+    - documents/schema_registry.py    # registry con 13 schemi + register API
+    - documents/document_classifier.py # multi-signal (keyword+label+filename+coherence)
+    - documents/field_resolver.py      # label-aware, confidence-scored resolver
+    - documents/person_detector.py     # blacklist role/label (no falsi Posto Unico…)
+    - documents/technical_ids.py       # TktID/UUID/hash/barcode → categoria dedicata
+  api_additions:
+    - classification: {type_key,type_label,confidence,matched_rules,scores,thresholds}
+    - schema_used:    {type_key,type_label,version,info_order}
+    - resolved_fields[]:  field_key,label,value,confidence,source_snippet,source_page,resolver_rule
+    - hidden_fields[]:    40..59 confidence (API-only, mai in UI)
+    - technical_identifiers: {grouped:{labelled,uuids,hashes,long_numeric}, flat[]}
+    - Iter21 keys (summary, entities, extraction, technical_metadata, history, content) PRESERVED
+  thresholds_env:
+    - DOCUMENT_INSIGHTS_CONFIDENCE_THRESHOLD=60  (visibile)
+    - DOCUMENT_INSIGHTS_HIDDEN_LOWER_THRESHOLD=40
+    - classification: ≥70 tipo specifico | 50-69 con coherence | <50 generic
+  documents_supported: [ticket, invoice, receipt, contract, bill, medical,
+                        certificate, id_card, passport, cv, bank_statement,
+                        tax_doc, generic-fallback]
+  anti_hallucination_verified:
+    - Data ordine NON sostituisce Data evento (context bias)
+    - Ora emissione NON sostituisce Apertura porte / Ora evento
+    - TktID → technical_identifiers, MAI order_number né phones
+    - Posto Unico / Tribuna / Platea NON diventano persone
+    - 11 cifre senza label NON diventano P.IVA/CF
+    - Stesso valore NON compare in due resolved_fields
+    - Generic fallback su documento ambiguo
+  ui_changes:
+    - app/document/[id].tsx:
+        Info → usa resolved_fields (fallback summary.fields se vuoto)
+        Insights → dedica sezione "Identificativi tecnici" + nasconde valori
+                   già promossi a resolved_fields (no duplicazione visiva)
+        Etichette italiane: ENTITY_LABELS mappa order_ids→"Numeri di ordine",
+                            technical_ids→"Identificativi tecnici" ecc.
+    - src/api/client.ts: DocumentInsights + ResolvedField types aggiornati
+  extensibility:
+    - Nuovo tipo doc = register_document_type(DocumentSchema(...))
+    - Zero modifiche al codice esistente. Test extensibility incluso.
+  tests:
+    - test_iter22_document_understanding.py: 26 test PASS
+        * 10 classification (tutti i tipi + generic fallback)
+        * 4 resolved_fields (ticket/invoice/contract/id_card)
+        * 6 priority rules (anti-hallucination §8)
+        * 2 confidence (thresholds + snippet length)
+        * 2 retrocompat Iter21
+        * 1 extensibility (registrazione live)
+        * 1 unknown→generic
+    - Regressione Iter19/20/21: 18+10+13 = 41 test PASS, 0 regressioni
+    - Live smoke (testing_agent): 4/4 PASS su ingress pubblico
+    - Report: /app/test_reports/iteration_18.json + junit XML
+  screenshots:
+    - /app/docs/screenshots/iter22_biglietto_info.jpg  (tab Info biglietto)
+    - /app/docs/screenshots/iter22_biglietto_insights.jpg  (Identificativi tecnici)
+    - /app/docs/screenshots/iter22_fattura_info.jpg    (tab Info fattura)
+    - /app/docs/screenshots/iter22_contratto_info.jpg  (tab Info contratto)
+  constraints_honored:
+    - NO LLM, NO AI generativa
+    - Decision Engine, Ranking, Explainability, Behavior, Memory,
+      Upload, OCR, Storage: INVARIATI
+
+
+# ==========================================================
 # ITERAZIONE 21 (bug-fix) — Document Insights: reduce false positives
 # ==========================================================
 iter21_bugfix_false_positives:
