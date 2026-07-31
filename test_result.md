@@ -1,4 +1,70 @@
 # ==========================================================
+# ITERAZIONE 20 — Document Intelligence (OCR & Text Extraction)
+# ==========================================================
+iter20:
+  status: DONE
+  scope: pipeline testo (PDF nativo + OCR + text/plain) — NO AI, NO summary, NO classifier, NO decisioni
+  pipeline:
+    - Upload → ExtractionPipeline → TextCleaner → LanguageDetector → persist(documents/life_graph/knowledge)
+    - PDFTextProvider (astratto) → impl PyPDFProvider (pypdf 6.14.2). Motivo: puro Python, no wrapper C, robusto per PDF nativi con testo.
+    - OCRProvider (astratto) → impl TesseractOCRProvider (pytesseract 0.3.13 + binario tesseract 5.3 con lingua ita+eng). Motivo: motore locale, offline, deterministico, gratuito, sostituibile.
+    - TextFileProvider per text/plain, text/csv, text/markdown, text/rtf
+    - Sostituibilità: PDFTextProvider/OCRProvider sono ABC — sostituire con Vision API, AWS Textract, ecc. senza cambiare service/router.
+  files_created:
+    - /app/backend/documents/extraction.py (pipeline + provider + cleaner + language detector)
+    - /app/backend/tests/test_iter20_document_intelligence.py
+  files_modified:
+    - /app/backend/documents/service.py (upload triggerà _extract_and_persist; ricerca ora include extracted_text)
+    - /app/backend/documents/context_provider.py (aggiunge excerpt, pages, language, ocr_used, text_extracted)
+    - /app/backend/routers/memory.py (Memory Ask legge extracted_text con cap 2500 char/doc)
+    - /app/backend/.env (DOCUMENT_OCR_ENABLED=true, DOCUMENT_EXTRACTION_ENABLED=true, DOCUMENT_CONTEXT_ENABLED=false, DOCUMENT_AI_ENABLED=false, DOCUMENT_OCR_LANGS="ita+eng")
+    - /app/backend/requirements.txt (pypdf, pytesseract)
+  db_schema_extensions_on_documents:
+    - text_extracted (bool)
+    - extracted_text (string, cap 500KB)
+    - extraction_engine (string)
+    - ocr_used (bool)
+    - pages (int)
+    - detected_language (string, "it"|"en"|null) — NB: rinominato da `language` per evitare conflitto MongoDB text-index override
+    - confidence (float, OCR only)
+    - extraction_error_code (string|null)
+    - extraction_warnings (string[])
+    - extraction_duration_ms (float)
+    - extracted_at (iso)
+  wiring:
+    - Life Graph node type=document: attributes ora includono text_extracted, ocr_used, pages, language, confidence (aggiornato via life_graph.update_node)
+    - Knowledge Layer: knowledge.merge chiamata con notes=extracted_text[:1000], source_type="document_extraction"
+    - Memory Ask (POST /api/memory/ask): ora costruisce blocco "Documenti dell'utente" con excerpt di contenuto (fino a 2500 char/doc), permette domande su contenuto e numeri specifici (es. "numero fattura", "totale bolletta")
+    - Search (GET /api/documents?q=): OR regex include extracted_text (funziona anche prima che l'indice text sia disponibile)
+    - Text index MongoDB: user_id + filename + notes + tags + extracted_text
+    - Context Assembler provider documents: espone excerpt/pages/language/text_extracted — ma resta NO-OP dietro DOCUMENT_CONTEXT_ENABLED=false
+  error_handling:
+    - PDF corrotto → extraction_engine="pypdf", error_code="pdf_corrupted", upload comunque OK
+    - PDF cifrato → error_code="pdf_encrypted" (soft-fail)
+    - OCR binario mancante → error_code="ocr_engine_unavailable" (fallback silenzioso)
+    - Immagine non decodificabile → error_code="image_unreadable"
+    - Timeout / decode / anche exception generica sotto la pipeline: upload NON fallisce mai per problemi di estrazione (soft-fail garantito via try/except esterno)
+    - Deduplica: same hash → NON riestrae. `documents.find_one({user_id, hash, deleted!=true})` restituisce doc originale con extracted_text già presente.
+  tests:
+    file: /app/backend/tests/test_iter20_document_intelligence.py
+    total: 10
+    passed: 10
+    coverage:
+      A_pdf: extraction metadata presente + search per marker su extracted_text (2)
+      B_ocr: image upload triggera pipeline OCR con engine=tesseract (1)
+      C_text: text/plain passthrough + ricerca per contenuto (2)
+      D_life_graph: nodo documento aggiornato con text_extracted/pages/language (1)
+      E_memory_ask: risposta cita documento e sources include entry con source=document (1)
+      F_dedup: re-upload stesso content NON crea nuovo doc + NON riestrae (1)
+      G_error: PDF corrotto → soft-fail (1)
+      H_context_provider: NO-OP quando DOCUMENT_CONTEXT_ENABLED=false (1)
+  regressions_checked:
+    - iter18.2 + iter19 + iter20 = 37/37 PASSED
+    - Zero modifiche a decision_engine/, ranking/, explainability/, action_center/, behavior_engine/
+    - Ranking utente invariato
+
+
+# ==========================================================
 # ITERAZIONE 19 — Documents Foundation
 # ==========================================================
 iter19:

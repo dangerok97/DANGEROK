@@ -32,7 +32,9 @@ async def documents_provider(db, user_id: str) -> ProviderResult:
     try:
         cursor = db.documents.find(
             {"user_id": user_id, "deleted": {"$ne": True}, "archived": {"$ne": True}},
-            {"_id": 0, "id": 1, "filename": 1, "mime_type": 1, "tags": 1, "created_at": 1, "size": 1},
+            {"_id": 0, "id": 1, "filename": 1, "mime_type": 1, "tags": 1,
+             "created_at": 1, "size": 1, "pages": 1, "detected_language": 1,
+             "text_extracted": 1, "ocr_used": 1, "extracted_text": 1},
         ).sort("created_at", -1).limit(50)
         docs = await cursor.to_list(length=50)
         signals.append(Signal(
@@ -44,6 +46,7 @@ async def documents_provider(db, user_id: str) -> ProviderResult:
             verified=True,
         ))
         for d in docs[:20]:
+            excerpt = (d.get("extracted_text") or "")[:1200]
             signals.append(Signal(
                 key=f"document.item.{d['id']}",
                 value={
@@ -51,6 +54,11 @@ async def documents_provider(db, user_id: str) -> ProviderResult:
                     "mime_type": d.get("mime_type"),
                     "tags": d.get("tags") or [],
                     "size": d.get("size"),
+                    "pages": d.get("pages"),
+                    "language": d.get("detected_language"),
+                    "text_extracted": bool(d.get("text_extracted")),
+                    "ocr_used": bool(d.get("ocr_used")),
+                    "excerpt": excerpt,
                 },
                 source_module="documents",
                 reliability_tier="official",

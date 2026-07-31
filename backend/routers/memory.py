@@ -243,7 +243,9 @@ async def list_memory(user=Depends(get_current_user)):
 async def _list_user_documents(user_id: str, limit: int = 100) -> List[Dict[str, Any]]:
     """Return non-deleted documents owned by the user. Includes archived
     ones (marked explicitly) so ask can answer "quali documenti ho".
-    Ownership check via `user_id` field. Never raises.
+    Ownership check via `user_id` field. Never raises. From Iter20 the
+    projection also returns `extracted_text` (truncated) so /ask can
+    answer questions about document CONTENT.
     """
     try:
         cursor = db.documents.find(
@@ -251,7 +253,8 @@ async def _list_user_documents(user_id: str, limit: int = 100) -> List[Dict[str,
             {
                 "_id": 0, "id": 1, "filename": 1, "original_filename": 1,
                 "mime_type": 1, "tags": 1, "notes": 1, "created_at": 1,
-                "archived": 1,
+                "archived": 1, "extracted_text": 1, "pages": 1,
+                "detected_language": 1, "text_extracted": 1, "ocr_used": 1,
             },
         ).sort("created_at", -1).limit(max(1, min(limit, 500)))
         return await cursor.to_list(length=500)
@@ -286,6 +289,7 @@ async def ask_memory(body: MemoryAskIn, user=Depends(get_current_user)):
     # kept but tagged so the LLM can mention their status.
     documents = await _list_user_documents(user["user_id"])
     doc_lines: List[str] = []
+    _DOC_TEXT_CTX_MAX = 2500  # per-doc excerpt cap fed to the LLM
     for d in documents:
         state = " (archiviato)" if d.get("archived") else ""
         parts = [
@@ -293,10 +297,17 @@ async def ask_memory(body: MemoryAskIn, user=Depends(get_current_user)):
             f"tipo: {d.get('mime_type') or 'n/d'}",
             f"caricato: {(d.get('created_at') or '')[:10]}",
         ]
+        if d.get("pages"):
+            parts.append(f"pagine: {d['pages']}")
+        if d.get("detected_language"):
+            parts.append(f"lingua: {d['detected_language']}")
         if d.get("tags"):
             parts.append(f"tag: {', '.join(d['tags'])}")
         if d.get("notes"):
             parts.append(f"note: {d['notes'][:200]}")
+        extracted = (d.get("extracted_text") or "").strip()
+        if extracted:
+            parts.append(f"contenuto: {extracted[:_DOC_TEXT_CTX_MAX]}")
         doc_lines.append(" | ".join(parts))
 
     if not items and not extra_lines and not doc_lines:
