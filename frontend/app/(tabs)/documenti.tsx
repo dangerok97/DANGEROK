@@ -248,21 +248,8 @@ function EmptyState({ onUpload, archived }: { onUpload: () => void; archived: bo
   );
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function DetailSheet(_props: any) {
-  // Removed in Iter21: dettaglio ora vive in app/document/[id].tsx.
-  return null;
-}
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function MetaLine({ k, v }: { k: string; v: string }) {
-  return (
-    <View style={styles.metaLine}>
-      <Text style={styles.metaKey}>{k}</Text>
-      <Text style={styles.metaVal} numberOfLines={3}>{v}</Text>
-    </View>
-  );
-}
+// Nota: il vecchio `DetailSheet` inline e il componente `MetaLine` sono stati
+// rimossi in Iter21: il dettaglio documento vive ora in `app/document/[id].tsx`.
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: tokens.color.surface },
@@ -319,19 +306,5 @@ const styles = StyleSheet.create({
   tagsRow: { flexDirection: 'row', gap: 6, marginTop: 6, flexWrap: 'wrap' },
   tag: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, backgroundColor: tokens.color.surfaceTertiary },
   tagText: { color: tokens.color.onSurfaceMuted, fontSize: 10, fontWeight: '600' },
-  sheetOverlay: { flex: 1, backgroundColor: tokens.color.scrim, justifyContent: 'flex-end' },
-  sheet: {
-    backgroundColor: tokens.color.surface,
-    borderTopLeftRadius: 20, borderTopRightRadius: 20,
-    padding: 20, paddingBottom: 32,
-    borderTopWidth: 1, borderTopColor: tokens.color.border,
-    gap: 8,
-  },
-  sheetHead: { flexDirection: 'row', gap: 12, alignItems: 'center' },
-  sheetTitle: { color: tokens.color.onSurface, fontSize: 16, fontWeight: '700' },
-  metaBlock: { marginTop: 12, gap: 6 },
-  metaLine: { flexDirection: 'row', gap: 8 },
-  metaKey: { color: tokens.color.onSurfaceMuted, fontSize: 12, width: 90 },
-  metaVal: { color: tokens.color.onSurface, fontSize: 12, flex: 1 },
   pressed: { opacity: 0.7 },
 });
