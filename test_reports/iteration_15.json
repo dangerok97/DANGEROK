@@ -1,0 +1,38 @@
+{
+  "summary": "Bug fix verified: POST /api/memory/ask ora usa additivamente db.documents come fonte per il contesto LLM. 10/10 nuovi test dedicati (test_iter19_2_memory_ask_documents.py) passano, 27/27 test di regressione (iter18.2 + iter19) restano verdi. LLM gpt-5.2 disponibile in CI (nessun 502 osservato). Verificati tutti i casi richiesti: zero data → messaggio storico; memoria classica ancora funziona (cita MediaWorld); documenti singolo/multipli citati con source='document'; ricerca per nome file e per tag; soft-delete escluso; archived incluso con flag archived=true; ownership rispettata (user A non vede docs di user B); contratto sources include chiavi id/filename/mime_type/tags/archived/source/created_at.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter19_2_memory_ask_documents.py",
+    "/app/test_reports/pytest/iter19_2_memory_ask.xml",
+    "/app/test_reports/pytest/iter19_2_regression.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "/app/backend/routers/memory.py: file 370 righe, sotto la soglia 700, OK.",
+    "MongoDB _id già escluso ovunque nei projection: OK.",
+    "Ownership sui documents applicata via filter {user_id: user['user_id']} — corretto.",
+    "Soft-delete filtrato con {deleted: {$ne: True}} — include correttamente doc senza campo `deleted`.",
+    "sources ha un cap totale di 8 elementi (5 memorie + 3 KL + rimanenti docs). In scenari con molti docs alcuni potrebbero essere troncati dalla lista sources ma restano comunque nel prompt LLM."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter19_2_memory_ask_documents.py (new)"
+  ],
+  "success_rate": {
+    "backend": "100% (10/10 nuovi + 27/27 regressione)",
+    "frontend": "not_tested (backend-only request)"
+  },
+  "seed_data_creation": "Ogni test registra un nuovo utente con email univoca (prefisso iter192_{ts}_{tag}) e carica documenti dedicati. Nessuna dipendenza da dati preesistenti; sicuro per esecuzioni multiple.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Il bug fix in /app/backend/routers/memory.py::ask_memory è verificato. Se in futuro si aggiunge full-text search o ranking sui documenti nell'endpoint ask, riutilizzare test_iter19_2_memory_ask_documents.py come base — copre soft-delete, archived, ownership, sources contract e la regressione 'nessun dato → messaggio storico'.",
+  "rca_of_issue": "Prima del fix, /api/memory/ask leggeva solo db.memories e knowledge facts di tipo memory, ignorando db.documents. Utente iPhone caricava un file (che finiva in db.documents via /api/documents/upload) ma la domanda 'Ho caricato qualche documento?' rispondeva 'Non risulta nella tua memoria' perché il contesto LLM non conteneva alcuna informazione sui documenti. Fix: aggiunta funzione _list_user_documents (filtra deleted=True, mantiene archived con flag) e integrazione nel prompt con blocco 'Documenti dell'utente' + estensione del campo sources con oggetti source='document'. Additivo: la risposta storica per utenti senza dati rimane invariata (branch not items and not extra_lines and not doc_lines)."
+}

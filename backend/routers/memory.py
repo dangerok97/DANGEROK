@@ -240,6 +240,26 @@ async def list_memory(user=Depends(get_current_user)):
     return {"items": memories, "documents": docs}
 
 
+async def _list_user_documents(user_id: str, limit: int = 100) -> List[Dict[str, Any]]:
+    """Return non-deleted documents owned by the user. Includes archived
+    ones (marked explicitly) so ask can answer "quali documenti ho".
+    Ownership check via `user_id` field. Never raises.
+    """
+    try:
+        cursor = db.documents.find(
+            {"user_id": user_id, "deleted": {"$ne": True}},
+            {
+                "_id": 0, "id": 1, "filename": 1, "original_filename": 1,
+                "mime_type": 1, "tags": 1, "notes": 1, "created_at": 1,
+                "archived": 1,
+            },
+        ).sort("created_at", -1).limit(max(1, min(limit, 500)))
+        return await cursor.to_list(length=500)
+    except Exception:
+        logger.debug("memory ask: documents query failed", exc_info=True)
+        return []
+
+
 @router.post("/ask")
 async def ask_memory(body: MemoryAskIn, user=Depends(get_current_user)):
     # 1) Primary source: db.memories (behavior identical to previous iter).
@@ -261,7 +281,25 @@ async def ask_memory(body: MemoryAskIn, user=Depends(get_current_user)):
         seen_texts.add(t.lower())
         extra_lines.append(f"- (knowledge) {t}")
 
-    if not items and not extra_lines:
+    # 3) Additive source: Documents. Ownership already enforced by the
+    # query filter. Soft-deleted docs are excluded; archived ones are
+    # kept but tagged so the LLM can mention their status.
+    documents = await _list_user_documents(user["user_id"])
+    doc_lines: List[str] = []
+    for d in documents:
+        state = " (archiviato)" if d.get("archived") else ""
+        parts = [
+            f"- (documento{state}) {d.get('filename') or d.get('original_filename') or 'documento'}",
+            f"tipo: {d.get('mime_type') or 'n/d'}",
+            f"caricato: {(d.get('created_at') or '')[:10]}",
+        ]
+        if d.get("tags"):
+            parts.append(f"tag: {', '.join(d['tags'])}")
+        if d.get("notes"):
+            parts.append(f"note: {d['notes'][:200]}")
+        doc_lines.append(" | ".join(parts))
+
+    if not items and not extra_lines and not doc_lines:
         return {
             "answer": (
                 "Non ho ancora nulla salvato nella tua memoria. Aggiungi "
@@ -273,20 +311,26 @@ async def ask_memory(body: MemoryAskIn, user=Depends(get_current_user)):
     memory_block = "\n".join(
         [f"- ({m.get('created_at','')[:10]}) {m['content']}" for m in items]
     )
-    parts: List[str] = []
+    parts_ctx: List[str] = []
     if memory_block:
-        parts.append(memory_block)
+        parts_ctx.append("Ricordi:\n" + memory_block)
     if extra_lines:
-        parts.append("\n".join(extra_lines))
-    context_block = "\n".join(parts)
+        parts_ctx.append("Knowledge:\n" + "\n".join(extra_lines))
+    if doc_lines:
+        parts_ctx.append(f"Documenti dell'utente ({len(documents)} totali):\n" + "\n".join(doc_lines))
+    context_block = "\n\n".join(parts_ctx)
 
     system = (
         "Sei la memoria personale di ORA. "
         "Rispondi SOLO usando le informazioni fornite nel contesto. "
+        "Il contesto può includere ricordi testuali, fatti di knowledge e "
+        "documenti caricati dall'utente (con nome file, tipo, data, tag, note). "
+        "Se la domanda riguarda documenti, cita esplicitamente i nomi file "
+        "e usa 'Sì, hai caricato ...' oppure 'Non risultano documenti caricati.' "
         "Se la risposta non è presente, dì onestamente: 'Non risulta nella tua memoria.' "
-        "Rispondi in italiano, breve e diretto. Max 2 frasi."
+        "Rispondi in italiano, breve e diretto. Max 3 frasi."
     )
-    prompt = f"Contesto (memoria dell'utente):\n{context_block}\n\nDomanda: {body.question}"
+    prompt = f"Contesto:\n{context_block}\n\nDomanda: {body.question}"
     try:
         chat = LlmChat(
             api_key=EMERGENT_LLM_KEY,
@@ -299,14 +343,28 @@ async def ask_memory(body: MemoryAskIn, user=Depends(get_current_user)):
         logger.exception("AI memory failed")
         raise HTTPException(status_code=502, detail=f"AI non disponibile: {e}")
 
-    # sources includes primary memories + additional knowledge facts (max 5 total).
+    # sources includes primary memories + additional knowledge facts +
+    # documents (max 8 total, cap ensures the response stays lean).
     combined_sources: List[Dict[str, Any]] = list(items[:5])
-    if len(combined_sources) < 5:
-        for f in kl_facts[: 5 - len(combined_sources)]:
+    remaining = 8 - len(combined_sources)
+    if remaining > 0:
+        for f in kl_facts[: min(remaining, 3)]:
             combined_sources.append({
                 "id": f["node_id"],
                 "content": f["text"],
                 "source": "knowledge_layer",
                 "created_at": f.get("updated_at"),
+            })
+        remaining = 8 - len(combined_sources)
+    if remaining > 0:
+        for d in documents[:remaining]:
+            combined_sources.append({
+                "id": d["id"],
+                "filename": d.get("filename"),
+                "mime_type": d.get("mime_type"),
+                "tags": d.get("tags") or [],
+                "archived": bool(d.get("archived")),
+                "source": "document",
+                "created_at": d.get("created_at"),
             })
     return {"answer": answer, "sources": combined_sources}
