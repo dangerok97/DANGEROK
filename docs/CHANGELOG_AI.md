@@ -1,5 +1,37 @@
 # ORA — AI Changelog
 
+## 2026-08-04 — Functional audit + product roadmap
+
+### Request
+
+Full functional verification (no new features) and roadmap/backlog docs.
+
+### Actions
+
+- Inventory of screens, APIs, DB, integrations
+- HTTP audit script: 30/30 checks (auth, decisions, memory, daily, docs list, calendars gated, registries)
+- pytest `test_local_smoke.py`: 5 passed
+- UI web: login, home with seeded decisions, aggiungi, documenti empty, memoria, profilo, settings, how-it-works
+- Updated `docs/PRODUCT.md`; created `FUNCTIONAL_AUDIT.md`, `ROADMAP.md`, `BACKLOG.md`
+
+### Tests
+
+- HTTP functional suite (ad hoc): 30 passed
+- pytest local smoke: 5 passed
+- UI navigation (authenticated web session)
+
+### Result
+
+Documentation-only delivery; recommended next: BACKLOG-001 UI coherence.
+
+### Open issues
+
+- LLM / Google OAuth still credential-gated
+- Document upload not re-verified in this UI pass
+- Native mobile not verified
+
+---
+
 ## 2026-08-04 — Verified local development without Emergent
 
 ### Request

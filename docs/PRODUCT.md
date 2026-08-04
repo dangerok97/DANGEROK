@@ -1,44 +1,132 @@
-# ORA — Product
+# ORA — Product (struttura reale)
+
+Ultimo aggiornamento: 2026-08-04 — audit funzionale locale (web + API).
 
 ## Vision
 
-ORA is the operating system of daily life. It turns personal information into ranked, resolvable actions so the user does not have to organize everything manually.
+ORA è il sistema operativo della vita quotidiana: riduce il carico cognitivo mostrando **cosa fare adesso**, con decisioni ordinate, memoria personale e documenti.
 
-## Principles
+## Utenti
 
-- Never a chatbot-first experience.
-- Never a generic task manager / calendar clone.
-- Every screen answers one question.
-- Design: dark-first, Apple HIG, monochrome, calm.
+Persone che vogliono una priorità unica chiara (non un task manager generico), con calendario, documenti e memoria collegati.
 
-## Users
+## Navigazione frontend (expo-router)
 
-People who juggle calendar events, documents, memories, and priorities and want a single “what matters now” surface.
+| Route | Schermata | Ruolo |
+|-------|-----------|--------|
+| `/login` | Login | Auth email/Google/Apple |
+| `/(tabs)` → index | Home “Adesso” | Decision focus + daily + calendario CTA |
+| `/(tabs)/memoria` | Memoria | Q&A e salvataggio ricordi |
+| `/(tabs)/documenti` | Documenti | Lista/upload/dettaglio documenti |
+| `/(tabs)/aggiungi` | Aggiungi | Capture priorità / ricordo |
+| `/(tabs)/profilo` | Profilo | Account, placeholder moduli, logout |
+| `/settings` | Impostazioni | Account collegati (calendari) |
+| `/manage-calendars` | Gestione calendari | Selezione calendari Google |
+| `/connect-apple-calendar` | Apple Calendar | Flusso nativo iOS |
+| `/how-it-works` | Onboarding informativo | Spiega Google Calendar |
+| `/document/[id]` | Dettaglio documento | Insights + azioni |
 
-## Main flows
+## Moduli prodotto
 
-1. **Auth** — Register/login with email+password; Google via Emergent bridge; Apple placeholder.
-2. **Home (“Cosa conta adesso”)** — Ranked decisions with resolve actions.
-3. **Aggiungi** — Capture a priority or a memory.
-4. **Memoria** — Natural-language Q&A over saved memories (LLM-backed).
-5. **Documenti** — Upload/browse documents, insights, contextual actions (copy IBAN, add calendar event, …).
-6. **Profilo / Settings** — Account, connectors, calendars.
-7. **Calendars** — Google Calendar OAuth connector; Apple Calendar (device / mock / EAS notes).
+### 1. Autenticazione
 
-## Feature areas (shipped in Emergent iterations)
+- **Scopo:** accedere e mantenere sessione JWT.
+- **Stato:** email register/login/logout/me **operativi** (verificati HTTP + UI sessione web).
+- **Flusso:** Login → email → register/login → token in storage → tab Home.
+- **Backend:** `/api/auth/*`.
+- **DB:** `users`.
+- **Esterni:** Google via Emergent (**bloccato**, off di default); Apple (**solo UI**).
+- **Aperti:** OAuth Google first-party; Apple Sign-In; hardening sessioni (refresh/revoca server-side).
 
-| Area | Status (as imported) |
-|------|----------------------|
-| Decision Engine | Shipped |
-| Life Graph + Knowledge | Shipped |
-| Auto-Link | Shipped |
-| Permissions + Connectors | Shipped |
-| Google Calendar ingestion | Shipped (needs OAuth env) |
-| Apple Calendar | Partial (mock + native path; EAS checklist) |
-| Daily intelligence / explainability / action center | Shipped |
-| Behavioral intelligence + shadow mode | Shipped (flagged) |
-| Documents + insights + actions | Shipped through Iter 23 |
+### 2. Decision Engine / “Cosa conta adesso”
 
-## Out of scope for Cursor platform setup
+- **Scopo:** ranking e azioni su decisioni (start/complete/postpone/block/dismiss/partial/resolve).
+- **Stato:** **parzialmente operativo** — lista, seed al register, azioni e explanation OK; **resolve** bloccato senza LLM.
+- **Flusso UI:** Home mostra focus + later; sheet azioni; “Risolvi” richiede provider LLM.
+- **Backend:** `/api/decisions/*`, `decision_engine/`, action center, explainability.
+- **DB:** `decisions`, `decision_action_history`, (legacy `tasks`).
+- **Aperti:** UX resolve senza LLM; progetti/task manager non esistono come modulo separato.
 
-Changing product vision, replacing the stack, or removing shipped modules.
+### 3. Daily Intelligence
+
+- **Scopo:** riassunto giornata (eventi, finestre, energia).
+- **Stato:** **operativo** a livello API/UI (verificato: card “La tua giornata” con 0 eventi senza calendario).
+- **Backend:** `/api/daily/*`, `daily_intelligence/`.
+- **DB:** deriva da ingestion/life graph/calendar events.
+- **Dipendenze:** ricchezza dati aumenta con Google/Apple Calendar.
+
+### 4. Memoria
+
+- **Scopo:** salvare ricordi e interrogare in linguaggio naturale.
+- **Stato:** add/list **operativi**; ask **bloccato da LLM** (503 chiaro).
+- **Backend:** `/api/memory`, `/api/memory/ask` + wiring life_graph/knowledge.
+- **DB:** `memories`, nodi `life_nodes`, `node_knowledge`.
+
+### 5. Documenti
+
+- **Scopo:** upload, archiviazione, insights, azioni contestuali (copia IBAN, calendario, …).
+- **Stato:** lista/empty **operativi** (UI verificata); upload/insights **parziali** (API presenti, upload non rieseguito in questo audit web); OCR opzionale off.
+- **Backend:** `/api/documents/*`, `documents/`.
+- **DB:** collezioni documenti + storage file locale `backend/data/documents/`.
+- **Incoerenza UI:** in Profilo e Aggiungi “Documenti/Foto In arrivo” mentre il tab Documenti esiste.
+
+### 6. Calendario Google
+
+- **Scopo:** OAuth + sync eventi → decisioni/daily.
+- **Stato:** codice **presente**; locale **bloccato da credenziali** (`GOOGLE_OAUTH_*`); UI CTA e settings gestiscono assenza account.
+- **Backend:** `/api/connectors/google-calendar/*`.
+- **DB:** `connector_instances`, `google_oauth_sessions`, `secret_vault`, `ingestion_events`.
+
+### 7. Calendario Apple
+
+- **Scopo:** EventKit → sync eventi (iOS).
+- **Stato:** backend config `enabled:false` in locale; FE mock opzionale (`EXPO_PUBLIC_APPLE_CALENDAR_MOCK`); **non verificato su device**.
+- **Backend:** `/api/connectors/apple-calendar/*`.
+
+### 8. Life Graph / Knowledge / Auto-Link
+
+- **Scopo:** grafo vita, fatti, proposta link decision↔nodo.
+- **Stato:** API **operative** (nodes/registry verificati); **poca/nessuna UI** dedicata (servizi dietro memoria/documenti/decision).
+- **DB:** `life_nodes`, `life_edges`, `node_knowledge`, `link_proposals`.
+
+### 9. Permissions & Connectors framework
+
+- **Scopo:** consensi capability, registry connettori, audit.
+- **Stato:** API registry **operative**; UI limitata a calendari in Settings.
+- **DB:** `permission_*`, `connector_instances`.
+
+### 10. Behavioral Intelligence / Shadow
+
+- **Scopo:** osservazione comportamento; ranking shadow opzionale.
+- **Stato:** API profile **risponde**; middleware osservazionale attivo; **nessuna UI** prodotto; shadow mode off.
+
+### 11. Context Assembler / Ingestion
+
+- **Scopo:** snapshot contesto decisioni; pipeline eventi connettori.
+- **Stato:** backend **implementato**; UI non diretta; dipende da connettori.
+
+### 12. Notifiche / Email / Push / Promemoria dedicati
+
+- **Stato:** **non implementati** come prodotto (solo placeholder “Email & Messaggi” in Profilo). Postpone decisioni ≠ sistema notifiche.
+
+### 13. Progetti
+
+- **Stato:** **non implementato** come modulo UI/API dedicato (non confondere con life graph).
+
+### 14. Impostazioni & Profilo
+
+- **Profilo:** operativo per email/logout; molte righe “In arrivo”.
+- **Settings:** operativo per stato “nessun account collegato”.
+
+## Flussi principali verificati
+
+1. Register email → seed 5 decisioni → Home con focus reale.
+2. Login / me / logout / re-login.
+3. Memoria add/list; ask senza LLM → errore esplicito.
+4. Documenti empty state.
+5. Google Calendar non configurato → 503/config-status false, UI invita a collegare.
+6. Sessione web persistita via storage token.
+
+## Fuori scope attuale
+
+Chatbot generico, Gmail, push, analytics produzione, multi-tenant admin UI, deploy store.
