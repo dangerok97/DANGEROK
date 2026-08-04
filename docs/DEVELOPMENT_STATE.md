@@ -1,6 +1,8 @@
 # ORA — Development State
 
-Last updated: 2026-08-04 (verified local boot without Emergent)
+Last updated: 2026-08-04 (functional audit + roadmap)
+
+See also: `docs/FUNCTIONAL_AUDIT.md`, `docs/ROADMAP.md`, `docs/BACKLOG.md`.
 
 ## Branch
 
