@@ -1,0 +1,35 @@
+---
+description: ORA core autonomy, completion criteria, and non-negotiables
+alwaysApply: true
+---
+
+# ORA Core
+
+You are building **ORA** inside this repo. Cursor is the main IDE. Work autonomously: analyze → plan → implement → verify → document.
+
+## Non-negotiables
+
+- Do not rewrite the app from scratch.
+- Do not replace Expo / FastAPI / MongoDB without an explicit, strong technical reason approved by the user.
+- Do not delete existing features to “simplify”.
+- Do not invent test results or claim a feature works without verification.
+- Do not present Emergent-only integrations as locally operational.
+
+## Completion bar
+
+Done = compiles + build OK + no blocking errors + main tests pass + flow verified + docs updated.
+
+## Docs to keep current
+
+- `docs/PRODUCT.md`
+- `docs/ARCHITECTURE.md`
+- `docs/DEVELOPMENT_STATE.md`
+- `docs/CHANGELOG_AI.md`
+
+## Scripts
+
+Prefer `scripts/setup`, `scripts/dev`, `scripts/test`, `scripts/verify`, `scripts/build` (`.ps1` on Windows, `.sh` on Unix).
+
+## Emergent legacy
+
+`.emergent/`, `emergentintegrations`, and `auth.emergentagent.com` are legacy. Local work must document gaps and prefer portable replacements over pretending they work offline.

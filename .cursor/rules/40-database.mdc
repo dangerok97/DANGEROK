@@ -1,0 +1,29 @@
+---
+description: MongoDB schema, indexes, and data safety for ORA
+globs: backend/**/*.py
+alwaysApply: false
+---
+
+# Database (MongoDB)
+
+## Access
+
+- Connection: `MONGO_URL`, database name `DB_NAME` from env (required at import).
+- Client: Motor `AsyncIOMotorClient` in `deps.py`.
+
+## Schema approach
+
+- Document model (no Prisma/Alembic). Indexes created in `server.py` startup and service `ensure_ready()` helpers.
+- Prefer additive fields and new collections.
+- Keep unique indexes consistent with existing patterns (`user_id`, `id`, compound user+status).
+
+## Safety
+
+- Never drop collections or wipe user data without explicit user consent.
+- Treat `backend/data/documents/` as potentially sensitive; do not copy real user binaries into docs or commits needlessly.
+- Seed/demo data only for known demo emails (see `DEMO_EMAILS` in deps) or explicit fixtures.
+
+## Migrations
+
+- Prefer idempotent startup index creation.
+- For destructive migrations: stop, explain, get consent, provide rollback plan.

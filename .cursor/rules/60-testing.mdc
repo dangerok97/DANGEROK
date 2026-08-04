@@ -1,0 +1,26 @@
+---
+description: Testing, lint, and verification expectations for ORA
+alwaysApply: true
+---
+
+# Testing & Verification
+
+## Commands (prefer scripts)
+
+- Frontend lint: `cd frontend && yarn lint` (or npm).
+- Backend tests: `cd backend && python -m pytest` (use scripts/test).
+- Full gate: `scripts/verify`.
+
+## Rules
+
+- Do not claim PASS without running the command.
+- If Emergent preview URLs are the default in a test, override with local `EXPO_PUBLIC_BACKEND_URL` or skip live tests when offline.
+- Add regression tests near the changed domain (`test_iter*` style is fine).
+- After fixes: re-run the failing suite, then a focused regression set.
+
+## Definition of verified
+
+- Relevant pytest green (or failures explained as pre-existing with evidence)
+- Lint clean or only pre-existing issues noted
+- App/server started when the feature is runtime-visible
+- Manual/API check of the user-facing flow documented in CHANGELOG_AI

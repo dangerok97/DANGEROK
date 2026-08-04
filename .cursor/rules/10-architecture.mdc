@@ -1,0 +1,33 @@
+---
+description: ORA architecture boundaries and module ownership
+alwaysApply: true
+---
+
+# Architecture
+
+## Shape
+
+- `backend/server.py` stays thin: FastAPI app, CORS, startup indexes, router mount.
+- Domain logic lives in packages (`decision_engine/`, `life_graph/`, `knowledge/`, `documents/`, …).
+- HTTP surface lives in `backend/routers/` and connector routers.
+- Shared deps/auth/DB in `backend/deps.py`.
+- Frontend routes in `frontend/app/` (expo-router). Shared UI/API in `frontend/src/`.
+
+## API
+
+- All HTTP APIs under `/api`.
+- Health: `GET /api/` → `{ "app": "ORA", "status": "ok" }`.
+- Auth: Bearer JWT from email/password or Google session bridge.
+
+## Change rules
+
+- Prefer extending an existing domain package over new top-level folders.
+- Avoid cross-importing router files into other routers; go through services/deps.
+- Feature flags via env vars (see existing `*_ENABLED` patterns).
+- Keep Decision Engine / Life Graph / Knowledge boundaries intact unless the task explicitly requires crossing them.
+
+## Naming
+
+- Python: snake_case modules/functions, PascalCase classes.
+- TS/TSX: camelCase values, PascalCase components, kebab-case route folders as already used.
+- Collections: plural snake_case Mongo collections already in startup indexes.
