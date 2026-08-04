@@ -7,9 +7,10 @@
 | Mobile/Web client | Expo 54, React Native, TypeScript, expo-router |
 | API | FastAPI + Uvicorn |
 | DB | MongoDB via Motor |
-| Auth | JWT (HS256) + bcrypt; Google session bridge (Emergent) |
-| LLM | `emergentintegrations` → OpenAI model (`gpt-5.2`) with `EMERGENT_LLM_KEY` |
+| Auth | JWT (HS256) + bcrypt; Google Emergent bridge **optional** (`EMERGENT_GOOGLE_AUTH`) |
+| LLM | Provider adapter `backend/llm/` — `none` / `openai` / `emergent` (not required at boot) |
 | Design tokens | `design_guidelines.json`, `frontend/src/theme/tokens.ts` |
+| Local deps | `backend/requirements-local.txt` (Emergent CDN packages excluded) |
 
 ## Repository map
 
@@ -57,7 +58,16 @@ All routes under `/api` via `ALL_ROUTERS`:
 - `daily`, `behavior`, `behavior_shadow`
 - `documents`, `admin`, `memory`
 
-Health: `GET /api/` → `{ "app": "ORA", "status": "ok" }`.
+Health:
+
+- `GET /api/` → `{ "app": "ORA", "status": "ok" }`
+- `GET /api/health` → app + database + llm configured flag + integration flags (no secrets)
+
+## Local topology
+
+```
+MongoDB :27017  →  FastAPI :8000  →  Expo web :8081 (EXPO_PUBLIC_BACKEND_URL)
+```
 
 ## Data store
 

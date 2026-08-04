@@ -5,12 +5,10 @@ import logging
 import os
 from typing import Any, Dict, List, Optional
 
-from emergentintegrations.llm.chat import LlmChat, UserMessage
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from deps import (
-    EMERGENT_LLM_KEY,
     db,
     decisions,
     get_action_center_service,
@@ -18,6 +16,7 @@ from deps import (
     get_explanation_service,
     life_graph,
 )
+from llm import LLMNotConfigured, chat_completion
 
 
 def _explainability_enabled() -> bool:
@@ -325,16 +324,16 @@ async def resolve_decision(decision_id: str, user=Depends(get_current_user)):
         f"Dati: {d.get('metadata') or {}}"
     )
     try:
-        chat = LlmChat(
-            api_key=EMERGENT_LLM_KEY,
+        solution = await chat_completion(
+            system=system,
+            user=prompt,
             session_id=f"resolve-{decision_id}",
-            system_message=system,
-        ).with_model("openai", "gpt-5.2")
-        result = await chat.send_message(UserMessage(text=prompt))
-        solution = result if isinstance(result, str) else str(result)
+        )
+    except LLMNotConfigured as e:
+        raise HTTPException(status_code=503, detail=str(e)) from e
     except Exception as e:
         logger.exception("AI resolve failed")
-        raise HTTPException(status_code=502, detail=f"AI non disponibile: {e}")
+        raise HTTPException(status_code=502, detail=f"AI non disponibile: {e}") from e
 
     await decisions.attach_resolution(user["user_id"], decision_id, solution)
     return {"solution": solution, "decision_id": decision_id, "task_id": decision_id}

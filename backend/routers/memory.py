@@ -21,17 +21,16 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from emergentintegrations.llm.chat import LlmChat, UserMessage
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from deps import (
-    EMERGENT_LLM_KEY,
     db,
     get_current_user,
     knowledge,
     life_graph,
 )
+from llm import LLMNotConfigured, chat_completion
 
 logger = logging.getLogger("ora.memory")
 
@@ -343,16 +342,16 @@ async def ask_memory(body: MemoryAskIn, user=Depends(get_current_user)):
     )
     prompt = f"Contesto:\n{context_block}\n\nDomanda: {body.question}"
     try:
-        chat = LlmChat(
-            api_key=EMERGENT_LLM_KEY,
+        answer = await chat_completion(
+            system=system,
+            user=prompt,
             session_id=f"mem-{user['user_id']}",
-            system_message=system,
-        ).with_model("openai", "gpt-5.2")
-        result = await chat.send_message(UserMessage(text=prompt))
-        answer = result if isinstance(result, str) else str(result)
+        )
+    except LLMNotConfigured as e:
+        raise HTTPException(status_code=503, detail=str(e)) from e
     except Exception as e:
         logger.exception("AI memory failed")
-        raise HTTPException(status_code=502, detail=f"AI non disponibile: {e}")
+        raise HTTPException(status_code=502, detail=f"AI non disponibile: {e}") from e
 
     # sources includes primary memories + additional knowledge facts +
     # documents (max 8 total, cap ensures the response stays lean).

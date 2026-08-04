@@ -83,7 +83,7 @@ export function DocumentActionsBar({ insights }: Props) {
           <Ionicons
             name={toast.kind === 'error' ? 'alert-circle-outline' : 'checkmark-circle-outline'}
             size={16}
-            color={toast.kind === 'error' ? tokens.color.danger : tokens.color.success}
+            color={toast.kind === 'error' ? tokens.color.error : tokens.color.success}
           />
           <Text style={styles.toastText}>{toast.text}</Text>
         </Animated.View>

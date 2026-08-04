@@ -35,6 +35,10 @@ function runArgs(cmd, args) {
 const INSTALL_FORM = "yarn expo install";
 
 function runPreinstall() {
+  // Allow local Cursor / non-Emergent installs to skip Emergent package policy.
+  if (process.env.ORA_SKIP_CMD_GUARD === "1" || process.env.CI === "true") {
+    process.exit(0);
+  }
   const { list, source } = loadRules();
   maybeLogSource(list, source);
 

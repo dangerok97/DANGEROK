@@ -99,3 +99,8 @@ credentials.json
 # Expo / Metro
 frontend/.metro-cache/
 frontend/.expo/
+
+# Local runtime logs
+backend/uvicorn.*.log
+*.out.log
+*.err.log

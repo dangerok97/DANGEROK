@@ -29,10 +29,22 @@ from context_assembler import ContextAssemblerService
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
 
-MONGO_URL = os.environ["MONGO_URL"]
-DB_NAME = os.environ["DB_NAME"]
-EMERGENT_LLM_KEY = os.environ["EMERGENT_LLM_KEY"]
-JWT_SECRET = os.environ["JWT_SECRET"]
+
+def _require_env(name: str) -> str:
+    value = (os.environ.get(name) or "").strip()
+    if not value:
+        raise RuntimeError(
+            f"Variabile d'ambiente obbligatoria mancante: {name}. "
+            f"Copia backend/.env.example in backend/.env e compilala."
+        )
+    return value
+
+
+MONGO_URL = _require_env("MONGO_URL")
+DB_NAME = _require_env("DB_NAME")
+JWT_SECRET = _require_env("JWT_SECRET")
+# Deprecated alias — LLM uses llm.provider; kept for any legacy imports.
+EMERGENT_LLM_KEY = (os.environ.get("EMERGENT_LLM_KEY") or "").strip()
 JWT_ALGO = "HS256"
 JWT_EXPIRY_DAYS = 30
 

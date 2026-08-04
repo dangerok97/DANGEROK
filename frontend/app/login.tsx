@@ -72,45 +72,12 @@ export default function LoginScreen() {
   }, [signIn, router]);
 
   const handleGoogle = async () => {
-    setErr(null);
+    // Local Cursor builds do not use the Emergent Google bridge by default.
+    // Keep the button, but be honest: email/password is the supported path.
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    try {
-      setBusy('google');
-      const redirectUrl =
-        Platform.OS === 'web'
-          // eslint-disable-next-line no-undef
-          ? (typeof window !== 'undefined' ? (window as any).location.origin + '/login' : '')
-          : Linking.createURL('');
-      const authUrl = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
-
-      if (Platform.OS === 'web') {
-        // eslint-disable-next-line no-undef
-        (window as any).location.href = authUrl;
-        return;
-      }
-
-      const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUrl);
-      if (result.type !== 'success' || !result.url) {
-        setBusy(null);
-        return;
-      }
-      const url = result.url;
-      const hashMatch = url.match(/#session_id=([^&]+)/);
-      const queryMatch = url.match(/[?&]session_id=([^&]+)/);
-      const sid = hashMatch ? decodeURIComponent(hashMatch[1]) : queryMatch ? decodeURIComponent(queryMatch[1]) : null;
-      if (!sid) {
-        setErr('Nessuna sessione ricevuta');
-        setBusy(null);
-        return;
-      }
-      const auth = await api.googleSession(sid);
-      await signIn(auth.token, auth.user);
-      router.replace('/(tabs)');
-    } catch (e: any) {
-      setErr(e.message || 'Errore Google');
-    } finally {
-      setBusy(null);
-    }
+    setErr(
+      'Login Google non configurato in locale (integrazione Emergent disabilitata). Usa Continua con Email.'
+    );
   };
 
   const handleEmail = async () => {
