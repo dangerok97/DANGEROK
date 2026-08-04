@@ -1,13 +1,14 @@
 # ORA — Development State
 
-Last updated: 2026-08-04 (functional audit + roadmap)
+Last updated: 2026-08-04 (documents UI alignment + verified workflow)
 
-See also: `docs/FUNCTIONAL_AUDIT.md`, `docs/ROADMAP.md`, `docs/BACKLOG.md`.
+See also: `docs/FUNCTIONAL_AUDIT.md`, `docs/ROADMAP.md`, `docs/BACKLOG.md`, `docs/DOCUMENTS_VERIFICATION.md`.
 
 ## Branch
 
-- Working branch: `ora/cursor-platform`
-- Commits: platform scaffold + local Emergent isolation
+- Base: `ora/cursor-platform`
+- Feature (local, no push): `feature/documents-ui-alignment`
+- Prior commits on platform: scaffold + Emergent isolation + functional audit docs
 
 ## Environment (verified on this machine)
 
@@ -28,10 +29,12 @@ See also: `docs/FUNCTIONAL_AUDIT.md`, `docs/ROADMAP.md`, `docs/BACKLOG.md`.
 - `GET /api/health` → app/db/llm/integrations status (no secrets)
 - Email register/login against live API
 - Google session returns 503 when Emergent bridge off
-- Expo Metro web on `127.0.0.1:8081` (HTML 200, bundle completed)
-- `tests/test_local_smoke.py` — 5 passed (`-n 0`)
-- Python `compileall` OK
-- Frontend `tsc --noEmit` OK after `tokens.color.error` fix
+- Expo Metro web on `127.0.0.1:8081`
+- Documents: upload / list / detail / user isolation / empty list / invalid MIME / 404 (pytest + HTTP)
+- Documents UI labels: Profilo + Aggiungi allineati; empty state web verificato
+- `tests/test_local_smoke.py` + `tests/test_documents_local.py` — 11 passed (`-n 0`)
+- Frontend `tsc --noEmit` OK
+- `expo lint` — 0 errors (warnings preesistenti)
 
 ## Incomplete / needs credentials
 
@@ -42,6 +45,12 @@ See also: `docs/FUNCTIONAL_AUDIT.md`, `docs/ROADMAP.md`, `docs/BACKLOG.md`.
 | Google Calendar sync | Needs `GOOGLE_OAUTH_CLIENT_ID/SECRET/REDIRECT_URI` |
 | Apple Sign-In | UI placeholder |
 | Native iOS/Android device run | Not verified in this session (web only) |
+
+## Documents storage (local)
+
+- Path: `backend/data/documents/<user_id>/…` (gitignored)
+- Max size: 25 MB default
+- No cloud storage in this phase
 
 ## Emergent isolation summary
 
@@ -59,7 +68,7 @@ See also: `docs/FUNCTIONAL_AUDIT.md`, `docs/ROADMAP.md`, `docs/BACKLOG.md`.
 
 ## Priorities
 
-1. Optional: wire OpenAI key for AI features
-2. First-party Google OAuth for login
-3. Generate frontend lockfile (`package-lock.json` present after npm install — keep committed if desired)
+1. BACKLOG-003 — messaggi UI quando LLM assente
+2. BACKLOG-004 — E2E Decision complete/postpone in UI
+3. Optional: OpenAI key / Google OAuth locale
 4. Verify mobile emulator/device separately

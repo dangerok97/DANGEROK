@@ -7,7 +7,14 @@ import { useRouter } from 'expo-router';
 import { tokens } from '@/src/theme/tokens';
 import { useAuth } from '@/src/contexts/AuthContext';
 
-type Row = { icon: keyof typeof Ionicons.glyphMap; label: string; sub?: string; disabled?: boolean; testID: string; onPress?: () => void };
+type Row = {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  sub?: string;
+  disabled?: boolean;
+  testID: string;
+  onPress?: () => void;
+};
 
 export default function ProfiloScreen() {
   const insets = useSafeAreaInsets();
@@ -20,14 +27,74 @@ export default function ProfiloScreen() {
     router.replace('/login');
   };
 
+  const activeRows: Row[] = [
+    {
+      icon: 'settings-outline',
+      label: 'Impostazioni',
+      sub: 'Account collegati',
+      testID: 'profile-row-settings',
+      onPress: () => router.push('/settings'),
+    },
+    {
+      icon: 'document-text-outline',
+      label: 'Documenti',
+      sub: 'File caricati e archivio',
+      testID: 'profile-row-documenti',
+      onPress: () => router.push('/(tabs)/documenti'),
+    },
+  ];
+
   const futureRows: Row[] = [
-    { icon: 'settings-outline', label: 'Impostazioni', sub: 'Account collegati', testID: 'profile-row-settings', onPress: () => router.push('/settings') },
     { icon: 'wallet-outline', label: 'Dashboard spese', sub: 'In arrivo', disabled: true, testID: 'profile-row-spese' },
     { icon: 'flag-outline', label: 'Obiettivi', sub: 'In arrivo', disabled: true, testID: 'profile-row-obiettivi' },
-    { icon: 'document-text-outline', label: 'Documenti', sub: 'In arrivo', disabled: true, testID: 'profile-row-documenti' },
     { icon: 'mail-outline', label: 'Email & Messaggi', sub: 'In arrivo', disabled: true, testID: 'profile-row-email' },
     { icon: 'card-outline', label: 'Banche & Wallet', sub: 'In arrivo', disabled: true, testID: 'profile-row-banche' },
   ];
+
+  const renderRow = (r: Row, i: number, total: number) => {
+    const body = (
+      <>
+        <Ionicons
+          name={r.icon}
+          size={20}
+          color={r.disabled ? tokens.color.onSurfaceMuted : tokens.color.onSurface}
+        />
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.rowLabel, r.disabled && { color: tokens.color.onSurfaceMuted }]}>{r.label}</Text>
+          {r.sub ? <Text style={styles.rowSub}>{r.sub}</Text> : null}
+        </View>
+        <Ionicons name="chevron-forward" size={16} color={tokens.color.onSurfaceDim} />
+      </>
+    );
+
+    const rowStyle = [
+      styles.row,
+      i < total - 1 && styles.rowDivider,
+      r.disabled && styles.rowDisabled,
+    ];
+
+    if (r.disabled || !r.onPress) {
+      return (
+        <View key={r.testID} style={rowStyle} testID={r.testID}>
+          {body}
+        </View>
+      );
+    }
+
+    return (
+      <Pressable
+        key={r.testID}
+        testID={r.testID}
+        onPress={() => {
+          Haptics.selectionAsync();
+          r.onPress?.();
+        }}
+        style={({ pressed }) => [...rowStyle, pressed && styles.pressed]}
+      >
+        {body}
+      </Pressable>
+    );
+  };
 
   return (
     <SafeAreaView edges={['top']} style={styles.root}>
@@ -41,26 +108,14 @@ export default function ProfiloScreen() {
           <Text style={styles.email} testID="profile-email-text">{user?.email}</Text>
         </View>
 
+        <Text style={styles.sectionLabel}>IL TUO SPAZIO</Text>
+        <View style={styles.group}>
+          {activeRows.map((r, i) => renderRow(r, i, activeRows.length))}
+        </View>
+
         <Text style={styles.sectionLabel}>PROSSIMAMENTE</Text>
         <View style={styles.group}>
-          {futureRows.map((r, i) => (
-            <View
-              key={r.testID}
-              style={[
-                styles.row,
-                i < futureRows.length - 1 && styles.rowDivider,
-                r.disabled && styles.rowDisabled,
-              ]}
-              testID={r.testID}
-            >
-              <Ionicons name={r.icon} size={20} color={tokens.color.onSurfaceMuted} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.rowLabel}>{r.label}</Text>
-                {r.sub && <Text style={styles.rowSub}>{r.sub}</Text>}
-              </View>
-              <Ionicons name="chevron-forward" size={16} color={tokens.color.onSurfaceDim} />
-            </View>
-          ))}
+          {futureRows.map((r, i) => renderRow(r, i, futureRows.length))}
         </View>
 
         <Text style={styles.sectionLabel}>ACCOUNT</Text>

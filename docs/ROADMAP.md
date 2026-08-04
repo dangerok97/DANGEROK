@@ -6,7 +6,7 @@ Basata sull’audit funzionale del 2026-08-04. Ordine: fondamenta → organizzaz
 
 | Attività | Priorità | Dipendenze | Complessità | Criterio di completamento |
 |----------|----------|------------|-------------|---------------------------|
-| A1 Allineare Profilo/Aggiungi con moduli reali (niente “In arrivo” su Documenti attivo) | critica | — | S | UI coerente; smoke UI manuale |
+| A1 Allineare Profilo/Aggiungi con moduli reali (niente “In arrivo” su Documenti attivo) | critica | — | S | **DONE** 2026-08-04 — UI coerente web |
 | A2 Harden auth: messaggi errore, rate-limit login, documentare JWT expiry | alta | Auth email OK | M | Test 401/409; doc sicurezza aggiornata |
 | A3 Session UX: splash loading + redirect affidabile post-login web | alta | AuthContext | S | Login → Home senza flicker; refresh mantiene sessione |
 | A4 Error banner + empty/offline già presenti: checklist su ogni tab | alta | Home pattern | S | Ogni tab ha empty/error/loading verificati |
@@ -26,8 +26,8 @@ Basata sull’audit funzionale del 2026-08-04. Ordine: fondamenta → organizzaz
 
 | Attività | Priorità | Dipendenze | Complessità | Criterio di completamento |
 |----------|----------|------------|-------------|---------------------------|
-| C1 Test upload documento web + download | critica | Documents API | M | File in lista + dettaglio apribile |
-| C2 Collegare Aggiungi→Documento al flusso upload reale | alta | C1 | S | Nessun “In arrivo” fuorviante |
+| C1 Test upload documento web + download | critica | Documents API | M | **DONE** API upload/list/detail/persistenza; download non rieseguito UI |
+| C2 Collegare Aggiungi→Documento al flusso upload reale | alta | C1 | S | **DONE** Aggiungi → tab Documenti |
 | C3 Insights + DocumentActionsBar verificati su 1 PDF/immagine | alta | C1 | M | Azioni copia/link senza crash |
 | C4 Scope “Progetti”: decidere se life_nodes type=project o rimandare | media | Product | S | Dec di decisione + issue backlog |
 | C5 Ricerca documenti (già q=) esposta meglio in UI | media | C1 | S | Query restituisce match | 

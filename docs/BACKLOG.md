@@ -6,9 +6,11 @@ Attività piccole e verificabili derivate da `docs/ROADMAP.md` e dall’audit.
 
 ## BACKLOG-001 — Allineare label “In arrivo” su moduli già vivi
 
+- **Stato:** completato (2026-08-04, branch `feature/documents-ui-alignment`)
 - **Obiettivo:** eliminare messaggi fuorvianti su Documenti/Foto in Profilo e Aggiungi.
 - **Aree:** `frontend/app/(tabs)/profilo.tsx`, `frontend/app/(tabs)/aggiungi.tsx`
 - **Accettazione:** Profilo non dice “Documenti In arrivo”; Aggiungi punta a upload/documenti reale o nasconde voci false.
+- **Esito:** Profilo → Documenti attivo (“File caricati e archivio”); Aggiungi → Documento “Carica un file”; Foto resta “In arrivo”.
 - **Test:** verifica UI manuale web su `/profilo` e `/aggiungi`.
 - **Dipendenze:** nessuna.
 - **Rischi:** basso.
@@ -16,10 +18,12 @@ Attività piccole e verificabili derivate da `docs/ROADMAP.md` e dall’audit.
 
 ## BACKLOG-002 — Smoke upload documento (web)
 
+- **Stato:** completato (2026-08-04; dettagli in `docs/DOCUMENTS_VERIFICATION.md`)
 - **Obiettivo:** dimostrare upload → list → detail.
-- **Aree:** `frontend` documenti, `backend/documents`, test pytest nuovo o estensione smoke.
+- **Aree:** `frontend` documenti, `backend/documents`, `backend/tests/test_documents_local.py`.
 - **Accettazione:** un PDF/txt di prova appare in lista; GET dettaglio 200; file su disco locale.
-- **Test:** HTTP multipart + UI opzionale.
+- **Esito:** pytest 6/6 + HTTP persistenza post re-login; storage locale `backend/data/documents/`.
+- **Test:** HTTP multipart + UI empty state web; file picker OS non automatizzato.
 - **Dipendenze:** backend up, Mongo.
 - **Rischi:** differenze FormData web/native.
 - **Priorità:** critica.

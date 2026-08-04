@@ -104,3 +104,6 @@ frontend/.expo/
 backend/uvicorn.*.log
 *.out.log
 *.err.log
+
+# Local document blob storage (never commit uploads)
+backend/data/
