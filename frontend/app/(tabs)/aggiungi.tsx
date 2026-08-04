@@ -14,6 +14,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 
 import { tokens } from '@/src/theme/tokens';
 import { api } from '@/src/api/client';
@@ -22,6 +23,7 @@ type Mode = 'menu' | 'task' | 'memory';
 
 export default function AggiungiScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const [mode, setMode] = useState<Mode>('menu');
   const [title, setTitle] = useState('');
   const [context, setContext] = useState('');
@@ -95,15 +97,22 @@ export default function AggiungiScreen() {
                 <Text style={styles.tileSub}>Da salvare in memoria</Text>
               </Pressable>
 
+              <Pressable
+                testID="add-document-tile"
+                style={({ pressed }) => [styles.tile, pressed && styles.pressed]}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  router.push('/(tabs)/documenti');
+                }}
+              >
+                <Ionicons name="document-text-outline" size={28} color={tokens.color.onSurface} />
+                <Text style={styles.tileTitle}>Documento</Text>
+                <Text style={styles.tileSub}>Carica un file</Text>
+              </Pressable>
+
               <View style={[styles.tile, styles.tileDisabled]} testID="add-photo-tile">
                 <Ionicons name="camera-outline" size={28} color={tokens.color.onSurfaceDim} />
                 <Text style={[styles.tileTitle, { color: tokens.color.onSurfaceDim }]}>Foto</Text>
-                <Text style={styles.tileSub}>In arrivo</Text>
-              </View>
-
-              <View style={[styles.tile, styles.tileDisabled]} testID="add-document-tile">
-                <Ionicons name="document-text-outline" size={28} color={tokens.color.onSurfaceDim} />
-                <Text style={[styles.tileTitle, { color: tokens.color.onSurfaceDim }]}>Documento</Text>
                 <Text style={styles.tileSub}>In arrivo</Text>
               </View>
             </View>

@@ -25,14 +25,14 @@ Branch: `ora/cursor-platform`
 | `/login` | parzialmente operativo | Email OK; Google messaggio non-config; Apple “in arrivo” |
 | Home `/(tabs)` | operativo | Decisioni seed, daily, CTA Google, azioni UI presenti |
 | Memoria | parzialmente operativo | UI + add/list OK; ask serve LLM |
-| Documenti | parzialmente operativo | Empty state OK; API list OK; upload non rieseguito qui |
-| Aggiungi | parzialmente operativo | Priorità/Ricordo; Foto/Documento “In arrivo” |
-| Profilo | parzialmente operativo | Nome/email/logout OK; moduli futuri disabilitati |
+| Documenti | operativo (web) | Empty + upload/list/detail/persistenza verificati 2026-08-04; vedi `docs/DOCUMENTS_VERIFICATION.md` |
+| Aggiungi | parzialmente operativo | Priorità/Ricordo/Documento attivi; Foto “In arrivo” |
+| Profilo | parzialmente operativo | Documenti attivo; spese/obiettivi/email/banche “In arrivo” |
 | Settings | operativo | “Nessun account collegato” corretto |
 | manage-calendars | bloccato da credenziali | Dipende da Google OAuth |
 | connect-apple-calendar | non verificato / mock | Web non nativo; mock flag esiste |
 | how-it-works | operativo | Contenuto statico verificato |
-| document/[id] | non verificato UI | Route presente; non aperta (nessun doc) |
+| document/[id] | operativo (API+route) | Dettaglio via HTTP + navigazione post-upload; UI web non cliccata su ogni tab insights |
 
 ## Matrice funzionale
 
@@ -52,9 +52,10 @@ Branch: `ora/cursor-platform`
 | Daily | Today summary | DailySummaryCard | /daily/today | derived | HTTP+UI | operativo | vuoto senza calendario | media | — |
 | Memory | Add/list | Aggiungi/Memoria | /memory | memories | HTTP | operativo | — | alta | — |
 | Memory | Ask AI | Memoria | /memory/ask | memories+KL | HTTP 503 | bloccato da credenziali | LLM | alta | provider LLM |
-| Documents | List/empty | documenti | /documents | docs | HTTP+UI | operativo | — | alta | — |
-| Documents | Upload | documenti/aggiungi | /documents/upload | docs+files | codice | parzialmente operativo | upload non rieseguito in audit | alta | test upload web |
-| Documents | Insights/actions | document/[id] | /insights + FE actions | docs | codice/test iter | parzialmente operativo | UI dettaglio non aperta | media | aprire con file reale |
+| Documents | List/empty | documenti | /documents | docs | HTTP+UI+pytest | operativo | web only | alta | native smoke |
+| Documents | Upload | documenti/aggiungi | /documents/upload | docs+files | pytest+HTTP | operativo (web API) | picker UI non e2e-automatizzato | alta | device test |
+| Documents | Isolation/auth | — | get/list/upload | docs | pytest | operativo | — | critica | — |
+| Documents | Insights/actions | document/[id] | /insights + FE actions | docs | HTTP detail OK | parzialmente operativo | azioni UI non tutte cliccate | media | C3 roadmap |
 | Google Calendar | OAuth/sync | Home/Settings | connectors/google-calendar | connectors, vault | config-status | bloccato da credenziali | GOOGLE_OAUTH_* | alta | setup OAuth locale |
 | Apple Calendar | Connect/sync | settings iOS | apple-calendar | connectors | config enabled:false | mock / non verificato | device + flag | media | EAS/device |
 | Life Graph | CRUD nodes | — | /life-graph | life_* | HTTP nodes | non utilizzato | no UI | media | decidere se esporre |
@@ -82,12 +83,16 @@ Branch: `ora/cursor-platform`
 
 ## Problemi UI osservati
 
-1. Profilo elenca “Documenti — In arrivo” ma tab Documenti è attivo.
-2. Aggiungi: “Foto/Documento — In arrivo” mentre Documenti ha “Carica”.
+1. ~~Profilo “Documenti — In arrivo”~~ → corretto (attivo, “File caricati e archivio”).
+2. ~~Aggiungi “Documento — In arrivo”~~ → corretto (“Carica un file”); Foto resta “In arrivo”.
 3. Google/Apple login non operativi in locale (messaggi onesti).
 4. Home CTA “Continua con Google” per calendar: richiede OAuth non configurato.
 5. RN-web accessibility tree povero (testID poco esposti agli screen reader).
 6. Dark UI: screenshot neri se contenuto non ancora montato (false alarm).
+
+## Aggiornamento 2026-08-04 — Documenti (post BACKLOG-001/002)
+
+Vedi `docs/DOCUMENTS_VERIFICATION.md`. Label allineate; upload/list/detail/isolamento/persistenza verificati via pytest + HTTP; UI web empty/labels verificati in browser. Native non verificato. Storage locale only.
 
 ## Conteggi (questo audit)
 

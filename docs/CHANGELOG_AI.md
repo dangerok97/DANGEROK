@@ -1,5 +1,41 @@
 # ORA — AI Changelog
 
+## 2026-08-04 — Documents UI alignment + verified workflow
+
+### Request
+
+Correggere BACKLOG-001 (label “In arrivo”) e verificare end-to-end il modulo Documenti su branch `feature/documents-ui-alignment`.
+
+### Actions
+
+- Branch locale `feature/documents-ui-alignment` da `ora/cursor-platform` (no push)
+- Profilo: Documenti in “IL TUO SPAZIO” → tab documenti
+- Aggiungi: Documento attivo (“Carica un file”); Foto resta “In arrivo”
+- Documenti: filtro `archived` booleano; post-upload → dettaglio; empty upload loading/disabled
+- pytest `backend/tests/test_documents_local.py` (auth, isolation, mime, 404, empty, roundtrip)
+- `.gitignore`: `backend/data/` (blob locali)
+- Docs: `DOCUMENTS_VERIFICATION.md` + aggiornamenti audit/backlog/state
+
+### Tests
+
+- pytest documents + local smoke: 11 passed
+- tsc `--noEmit`: OK
+- expo lint: 0 errors
+- HTTP persistenza post re-login: OK
+- Browser web: Profilo/Aggiungi labels + Documenti empty state
+
+### Result
+
+Release locale piccola: UI coerente + workflow documenti verificato (web/API). Native non verificato.
+
+### Open issues
+
+- File picker UI non automatizzato end-to-end
+- Insights/actions UI non tutte cliccate
+- Storage solo locale
+
+---
+
 ## 2026-08-04 — Functional audit + product roadmap
 
 ### Request

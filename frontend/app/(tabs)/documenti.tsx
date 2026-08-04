@@ -69,7 +69,7 @@ export default function DocumentiScreen() {
     try {
       const res = await api.documentsList({
         q: query || undefined,
-        archived: showArchived ? true : undefined,
+        archived: showArchived,
         sort,
         limit: 200,
       });
@@ -93,6 +93,7 @@ export default function DocumentiScreen() {
       if (res.canceled || !res.assets?.[0]) return;
       const asset = res.assets[0];
       setUploading(true);
+      setError(null);
       const up = await api.documentUpload({
         uri: asset.uri,
         name: asset.name || 'documento',
@@ -100,7 +101,11 @@ export default function DocumentiScreen() {
       });
       haptic(up.duplicate ? 'warning' : 'success');
       await load({ silent: true });
-      if (up.duplicate) setError('Questo file era già stato caricato. Ne trovi la copia in elenco.');
+      if (up.duplicate) {
+        setError('Questo file era già stato caricato. Ne trovi la copia in elenco.');
+      } else if (up.document?.id) {
+        router.push(`/document/${up.document.id}` as any);
+      }
     } catch (e: any) {
       haptic('error');
       setError(humanizeError(e));
@@ -174,7 +179,7 @@ export default function DocumentiScreen() {
       {loading ? (
         <View style={styles.centerBox}><ActivityIndicator color={tokens.color.onSurfaceMuted} /></View>
       ) : empty ? (
-        <EmptyState onUpload={onUpload} archived={showArchived} />
+        <EmptyState onUpload={onUpload} archived={showArchived} uploading={uploading} />
       ) : (
         <FlatList
           data={items}
@@ -227,7 +232,9 @@ function DocRow({ item, onOpen }: { item: DocumentItem; onOpen: () => void }) {
   );
 }
 
-function EmptyState({ onUpload, archived }: { onUpload: () => void; archived: boolean }) {
+function EmptyState({
+  onUpload, archived, uploading,
+}: { onUpload: () => void; archived: boolean; uploading: boolean }) {
   return (
     <Animated.View entering={FadeInDown.duration(200)} style={styles.centerBox}>
       <Ionicons name={archived ? 'archive-outline' : 'document-outline'} size={40} color={tokens.color.onSurfaceMuted} />
@@ -237,11 +244,18 @@ function EmptyState({ onUpload, archived }: { onUpload: () => void; archived: bo
       <Text style={styles.emptyBody}>
         {archived
           ? 'Quando archivi un documento lo trovi qui.'
-          : 'Carica il tuo primo file per iniziare. Contratti, ricevute, scontrini, foto — tutto al sicuro.'}
+          : 'Carica il tuo primo file per iniziare. Contratti, ricevute, scontrini — tutto al sicuro in locale.'}
       </Text>
       {!archived ? (
         <View style={{ marginTop: 16, width: 240 }}>
-          <ActionBtn primary icon="cloud-upload-outline" label="Carica un documento" onPress={onUpload} />
+          <ActionBtn
+            primary
+            icon="cloud-upload-outline"
+            label="Carica un documento"
+            onPress={onUpload}
+            loading={uploading}
+            disabled={uploading}
+          />
         </View>
       ) : null}
     </Animated.View>
