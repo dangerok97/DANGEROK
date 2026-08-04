@@ -1,5 +1,31 @@
 # ORA — AI Changelog
 
+## 2026-08-05 — Intelligent document understanding and actions
+
+### Request
+
+Evolvere Documenti: pipeline, classificazione, event candidate, studio, Brain, calendario interno, Maps, UI.
+
+### Actions
+
+- Branch `feature/intelligent-documents`
+- `backend/documents/intelligence/*` (pipeline, taxonomy, analyzer, worker, calendar adapter)
+- API analyze / events / ask / search / calendar drafts
+- FE detail: stato, evento, studio, ask; list titles/status
+- Docs INTELLIGENT_DOCUMENTS_*
+- No Google Calendar write
+
+### Tests
+
+- `test_intelligent_documents.py` + documents local: 13 passed
+- tsc OK
+
+### Result
+
+Archivio esistente preservato; comprensione strutturata locale verificata con fixture; AI esterna opzionale.
+
+---
+
 ## 2026-08-04 — Unified Google and Apple authentication
 
 ### Request

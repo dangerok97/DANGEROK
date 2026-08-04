@@ -217,8 +217,12 @@ function DocRow({ item, onOpen }: { item: DocumentItem; onOpen: () => void }) {
         <Ionicons name={iconFor(item.mime_type)} size={20} color={tokens.color.onSurface} />
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={styles.rowTitle} numberOfLines={1}>{item.filename}</Text>
-        <Text style={styles.rowMeta}>{formatDate(item.created_at)} · {formatSize(item.size)}</Text>
+        <Text style={styles.rowTitle} numberOfLines={1}>{item.display_title || item.user_title || item.filename}</Text>
+        <Text style={styles.rowMeta}>
+          {formatDate(item.created_at)} · {formatSize(item.size)}
+          {item.pipeline_status_label ? ` · ${item.pipeline_status_label}` : ''}
+          {item.analysis?.macro_category ? ` · ${item.analysis.macro_category}` : ''}
+        </Text>
         {item.tags?.length ? (
           <View style={styles.tagsRow}>
             {item.tags.slice(0, 3).map(t => (

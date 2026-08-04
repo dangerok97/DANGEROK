@@ -8,14 +8,20 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, TextInput,
+  View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, TextInput, Linking,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import { tokens } from '@/src/theme/tokens';
-import { api, DocumentInsights, DocumentItem } from '@/src/api/client';
+import {
+  api,
+  DocumentAnalysisResponse,
+  DocumentInsights,
+  DocumentItem,
+  EventCandidate,
+} from '@/src/api/client';
 import { haptic } from '@/src/utils/haptic';
 import { humanizeError } from '@/src/utils/errors';
 import { ActionBtn } from '@/src/components/ui/ActionBtn';
@@ -59,26 +65,43 @@ export default function DocumentDetailScreen() {
   const insets = useSafeAreaInsets();
   const [doc, setDoc] = useState<DocumentItem | null>(null);
   const [ins, setIns] = useState<DocumentInsights | null>(null);
+  const [analysis, setAnalysis] = useState<DocumentAnalysisResponse | null>(null);
   const [tab, setTab] = useState<Tab>('info');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [query, setQuery] = useState('');
+  const [askQ, setAskQ] = useState('');
+  const [askA, setAskA] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
     if (!id) return;
-    setLoading(true);
+    if (!opts?.silent) setLoading(true);
     setError(null);
     try {
-      const [d, i] = await Promise.all([api.documentGet(String(id)), api.documentInsights(String(id))]);
+      const [d, i, a] = await Promise.all([
+        api.documentGet(String(id)),
+        api.documentInsights(String(id)),
+        api.documentAnalysis(String(id)).catch(() => null),
+      ]);
       setDoc(d);
       setIns(i);
+      setAnalysis(a);
     } catch (e: any) {
       setError(humanizeError(e));
     } finally { setLoading(false); }
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Poll while pipeline is running
+  useEffect(() => {
+    const st = analysis?.pipeline_status;
+    if (!st || ['completed', 'failed', 'needs_review', 'action_required'].includes(st)) return;
+    if (analysis?.analysis && st === 'action_required') return;
+    const t = setInterval(() => { load({ silent: true }); }, 1500);
+    return () => clearInterval(t);
+  }, [analysis?.pipeline_status, analysis?.analysis, load]);
 
   const onArchive = async () => {
     if (!doc) return;
@@ -121,8 +144,13 @@ export default function DocumentDetailScreen() {
           <Ionicons name="chevron-back" size={22} color={tokens.color.onSurface} />
         </Pressable>
         <View style={{ flex: 1 }}>
-          <Text style={styles.title} numberOfLines={1}>{doc.filename}</Text>
-          <Text style={styles.subtitle}>{ins.type_label}</Text>
+          <Text style={styles.title} numberOfLines={2}>
+            {analysis?.display_title || analysis?.analysis?.suggested_title || doc.display_title || doc.filename}
+          </Text>
+          <Text style={styles.subtitle}>
+            {analysis?.pipeline_status_label || ins.type_label}
+            {analysis?.analysis?.macro_category ? ` · ${analysis.analysis.macro_category}` : ''}
+          </Text>
         </View>
       </View>
 
@@ -144,7 +172,64 @@ export default function DocumentDetailScreen() {
       ) : null}
 
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 100, gap: 12 }}>
-        {tab === 'info' && <TabInfo ins={ins} doc={doc} />}
+        {tab === 'info' && (
+          <TabInfo
+            ins={ins}
+            doc={doc}
+            analysis={analysis}
+            busy={busy}
+            onConfirmEvent={async (ev) => {
+              setBusy(`ev-${ev.id}`);
+              try {
+                await api.documentConfirmEvent(doc.id, ev.id);
+                haptic('success');
+                await load({ silent: true });
+              } catch (e: any) {
+                setError(humanizeError(e));
+              } finally { setBusy(null); }
+            }}
+            onDismissEvent={async (ev) => {
+              setBusy(`ev-${ev.id}`);
+              try {
+                await api.documentDismissEvent(doc.id, ev.id);
+                await load({ silent: true });
+              } catch (e: any) {
+                setError(humanizeError(e));
+              } finally { setBusy(null); }
+            }}
+            onRemindEvent={async (ev) => {
+              setBusy(`ev-${ev.id}`);
+              try {
+                await api.documentRemindEvent(doc.id, ev.id);
+                await load({ silent: true });
+              } catch (e: any) {
+                setError(humanizeError(e));
+              } finally { setBusy(null); }
+            }}
+            onReanalyze={async () => {
+              setBusy('reanalyze');
+              try {
+                await api.documentReanalyze(doc.id);
+                await load({ silent: true });
+              } catch (e: any) {
+                setError(humanizeError(e));
+              } finally { setBusy(null); }
+            }}
+            askQ={askQ}
+            setAskQ={setAskQ}
+            askA={askA}
+            onAsk={async () => {
+              if (!askQ.trim()) return;
+              setBusy('ask');
+              try {
+                const r = await api.documentAsk(doc.id, askQ.trim());
+                setAskA(`[${r.grounding}] ${r.answer}`);
+              } catch (e: any) {
+                setError(humanizeError(e));
+              } finally { setBusy(null); }
+            }}
+          />
+        )}
         {tab === 'insights' && <TabInsights ins={ins} />}
         {tab === 'content' && <TabContent ins={ins} query={query} setQuery={setQuery} />}
         {tab === 'meta' && <TabMeta ins={ins} />}
@@ -163,20 +248,121 @@ export default function DocumentDetailScreen() {
 }
 
 // -----------------------------------------------------------------
-function TabInfo({ ins, doc }: { ins: DocumentInsights; doc: DocumentItem }) {
+function TabInfo({
+  ins, doc, analysis, busy, onConfirmEvent, onDismissEvent, onRemindEvent, onReanalyze,
+  askQ, setAskQ, askA, onAsk,
+}: {
+  ins: DocumentInsights;
+  doc: DocumentItem;
+  analysis: DocumentAnalysisResponse | null;
+  busy: string | null;
+  onConfirmEvent: (ev: EventCandidate) => void;
+  onDismissEvent: (ev: EventCandidate) => void;
+  onRemindEvent: (ev: EventCandidate) => void;
+  onReanalyze: () => void;
+  askQ: string;
+  setAskQ: (v: string) => void;
+  askA: string | null;
+  onAsk: () => void;
+}) {
   // Iter22: preferisci resolved_fields (schema-driven, confidence-aware).
   const resolved = (ins.resolved_fields || []).filter(f => f.value && f.value.trim().length > 0);
   const hasResolved = resolved.length > 0;
+  const a = analysis?.analysis;
+  const events = (analysis?.event_candidates || []).filter((e) => e.status === 'proposed' || e.status === 'remind_later' || e.status === 'confirmed');
+  const edu = analysis?.education_analysis;
 
   return (
     <Animated.View entering={FadeInDown.duration(180)} style={{ gap: 12 }}>
-      <Card title={ins.classification?.type_label || ins.type_label || 'Documento'}
+      {analysis?.pipeline_status_label ? (
+        <Card title="Elaborazione" icon="pulse-outline">
+          <FieldRow k="Stato" v={analysis.pipeline_status_label} />
+          {analysis.pipeline_error ? <FieldRow k="Errore" v={analysis.pipeline_error} /> : null}
+          {a?.local_only ? <FieldRow k="Modalità" v="Analisi locale (AI esterna non usata)" /> : null}
+          {a?.ai_used ? <FieldRow k="Modalità" v="Arricchita con AI" /> : null}
+          <View style={{ marginTop: 8 }}>
+            <ActionBtn icon="refresh" label="Riesegui analisi" onPress={onReanalyze} loading={busy === 'reanalyze'} />
+          </View>
+        </Card>
+      ) : null}
+
+      <Card title={a?.suggested_title || ins.classification?.type_label || ins.type_label || 'Documento'}
             icon="document-text-outline">
-        <FieldRow k="Tipo documento" v={ins.type_label} />
-        {ins.classification?.confidence != null ? (
+        <FieldRow k="Tipo documento" v={a?.subcategory || ins.type_label} />
+        {a?.macro_category ? <FieldRow k="Macrocategoria" v={a.macro_category} /> : null}
+        {a?.confidence != null ? (
+          <FieldRow k="Affidabilità" v={`${Math.round(a.confidence * 100)}%`} />
+        ) : ins.classification?.confidence != null ? (
           <FieldRow k="Affidabilità" v={`${ins.classification.confidence}/100`} />
         ) : null}
-        <FieldRow k="Nome file" v={ins.filename} />
+        <FieldRow k="Nome file" v={doc.original_filename || ins.filename} />
+        {a?.summary ? <FieldRow k="Riepilogo" v={a.summary} /> : null}
+        {a?.reasoning_summary ? <FieldRow k="Perché" v={a.reasoning_summary} /> : null}
+        {a?.keywords?.length ? <FieldRow k="Parole chiave" v={a.keywords.slice(0, 8).join(', ')} /> : null}
+      </Card>
+
+      {events.map((ev) => (
+        <Card key={ev.id} title="ORA ha trovato un possibile appuntamento" icon="calendar-outline">
+          <FieldRow k="Titolo" v={ev.title} />
+          <FieldRow k="Data/ora" v={ev.start_datetime ? new Date(ev.start_datetime).toLocaleString('it-IT') : 'Da confermare'} />
+          <FieldRow k="Luogo" v={[ev.venue_name, ev.address, ev.city].filter(Boolean).join(', ') || 'Da verificare'} />
+          <FieldRow k="Priorità" v={ev.priority || '—'} />
+          <FieldRow k="Urgenza" v={ev.urgency || '—'} />
+          {ev.ambiguous_date ? <FieldRow k="Attenzione" v="Data ambigua — conferma prima di salvare" /> : null}
+          {ev.missing_fields?.length ? <FieldRow k="Campi mancanti" v={ev.missing_fields.join(', ')} /> : null}
+          <FieldRow k="Stato" v={ev.status || 'proposed'} />
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
+            {ev.status === 'proposed' || ev.status === 'remind_later' ? (
+              <>
+                <ActionBtn primary icon="checkmark" label="Aggiungi al calendario" onPress={() => onConfirmEvent(ev)} loading={busy === `ev-${ev.id}`} />
+                <ActionBtn icon="close" label="Non aggiungere" onPress={() => onDismissEvent(ev)} />
+                <ActionBtn icon="time-outline" label="Ricordamelo più tardi" onPress={() => onRemindEvent(ev)} />
+              </>
+            ) : (
+              <Text style={{ color: tokens.color.onSurfaceMuted, fontSize: 13 }}>Evento già gestito ({ev.status})</Text>
+            )}
+            {ev.maps_url ? (
+              <ActionBtn
+                icon="map-outline"
+                label="Apri su Google Maps"
+                onPress={() => Linking.openURL(ev.maps_url!)}
+              />
+            ) : null}
+            {ev.directions_url ? (
+              <ActionBtn
+                icon="navigate-outline"
+                label="Indicazioni"
+                onPress={() => Linking.openURL(ev.directions_url!)}
+              />
+            ) : null}
+          </View>
+        </Card>
+      ))}
+
+      {edu ? (
+        <Card title="Studio" icon="school-outline">
+          {edu.subject ? <FieldRow k="Materia" v={edu.subject} /> : null}
+          {edu.topic ? <FieldRow k="Argomento" v={edu.topic} /> : null}
+          {edu.summary_short ? <FieldRow k="Riepilogo" v={edu.summary_short} /> : null}
+          {edu.key_concepts?.length ? <FieldRow k="Concetti" v={edu.key_concepts.slice(0, 6).join(' · ')} /> : null}
+          {edu.definitions?.length ? <FieldRow k="Definizioni" v={edu.definitions.slice(0, 4).join(' · ')} /> : null}
+          {edu.questions_for_review?.length ? <FieldRow k="Ripasso" v={edu.questions_for_review.join(' | ')} /> : null}
+        </Card>
+      ) : null}
+
+      <Card title="Chiedi al documento" icon="chatbubble-ellipses-outline">
+        <TextInput
+          value={askQ}
+          onChangeText={setAskQ}
+          placeholder="Domanda sul contenuto…"
+          placeholderTextColor={tokens.color.onSurfaceMuted}
+          style={{
+            borderWidth: 1, borderColor: tokens.color.border, borderRadius: 10,
+            padding: 10, color: tokens.color.onSurface, marginBottom: 8,
+          }}
+        />
+        <ActionBtn primary icon="send" label="Chiedi" onPress={onAsk} loading={busy === 'ask'} />
+        {askA ? <Text style={{ marginTop: 8, color: tokens.color.onSurface, fontSize: 13, lineHeight: 18 }}>{askA}</Text> : null}
       </Card>
 
       {hasResolved ? (

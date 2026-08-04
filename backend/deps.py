@@ -152,6 +152,17 @@ def get_document_service():
     return _document_service
 
 
+_intelligence_service = None
+
+
+def get_intelligence_service():
+    global _intelligence_service
+    if _intelligence_service is None:
+        from documents.intelligence.service import IntelligenceService
+        _intelligence_service = IntelligenceService(db, get_document_service())
+    return _intelligence_service
+
+
 def get_daily_summary_service():
     global _daily_summary_service
     if _daily_summary_service is None:

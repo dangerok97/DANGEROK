@@ -129,6 +129,12 @@ Attività piccole e verificabili derivate da `docs/ROADMAP.md` e dall’audit.
 - **Rischi:** alto (sessione, redirect).
 - **Priorità:** critica (prossimo passo: credenziali).
 
+## BACKLOG-014 — Documenti intelligenti (pipeline + azioni)
+
+- **Stato:** codice completato su `feature/intelligent-documents`; test locali sintetici OK; OCR/LLM/device da verificare in ambiente reale
+- **Obiettivo:** documento → comprensione → event/studio/azioni con conferma utente
+- **Rimandato:** sync Google Calendar da documenti; UI mobile nativa
+
 ## BACKLOG-013 — Apple Sign-In reale (web e/o iOS)
 
 - **Stato:** codice completato; verifica reale bloccata da credenziali / device

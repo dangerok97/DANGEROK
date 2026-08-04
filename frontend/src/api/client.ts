@@ -299,6 +299,34 @@ export const api = {
   },
   documentGet: (id: string) => request<DocumentItem>(`/documents/${id}`),
   documentInsights: (id: string) => request<DocumentInsights>(`/documents/${id}/insights`),
+  documentAnalysis: (id: string) => request<DocumentAnalysisResponse>(`/documents/${id}/analysis`),
+  documentAnalyze: (id: string) =>
+    request<{ ok: boolean; pipeline_status?: string }>(`/documents/${id}/analyze`, { method: 'POST' }),
+  documentReanalyze: (id: string) =>
+    request<{ ok: boolean }>(`/documents/${id}/reanalyze`, { method: 'POST' }),
+  documentPatchAnalysis: (id: string, body: { user_title?: string; analysis?: Record<string, unknown> }) =>
+    request<DocumentAnalysisResponse>(`/documents/${id}/analysis`, { method: 'PATCH', body: JSON.stringify(body) }),
+  documentClearAnalysis: (id: string) =>
+    request<{ ok: boolean }>(`/documents/${id}/analysis`, { method: 'DELETE' }),
+  documentConfirmEvent: (docId: string, eventId: string, overrides?: Record<string, unknown>) =>
+    request<{ ok: boolean; calendar_event?: Record<string, unknown> }>(
+      `/documents/${docId}/events/${eventId}/confirm`,
+      { method: 'POST', body: JSON.stringify({ overrides }) },
+    ),
+  documentDismissEvent: (docId: string, eventId: string) =>
+    request<{ ok: boolean }>(`/documents/${docId}/events/${eventId}/dismiss`, { method: 'POST' }),
+  documentRemindEvent: (docId: string, eventId: string) =>
+    request<{ ok: boolean }>(`/documents/${docId}/events/${eventId}/remind-later`, { method: 'POST' }),
+  documentPatchEvent: (docId: string, eventId: string, patch: Record<string, unknown>) =>
+    request<DocumentAnalysisResponse>(`/documents/${docId}/events/${eventId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
+    }),
+  documentAsk: (id: string, question: string) =>
+    request<{ answer: string; grounding: string; ai_used: boolean }>(`/documents/${id}/ask`, {
+      method: 'POST',
+      body: JSON.stringify({ question }),
+    }),
   documentPatch: (id: string, body: { filename?: string; tags?: string[]; notes?: string }) =>
     request<DocumentItem>(`/documents/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   documentArchive: (id: string) => request<DocumentItem>(`/documents/${id}/archive`, { method: 'POST' }),
@@ -366,6 +394,75 @@ export type DocumentItem = {
   version?: number;
   created_at: string;
   updated_at: string;
+  pipeline_status?: string;
+  pipeline_status_label?: string;
+  display_title?: string;
+  user_title?: string;
+  analysis?: DocumentAnalysisPayload | null;
+  event_candidates?: EventCandidate[];
+  education_analysis?: EducationAnalysis | null;
+};
+
+export type DocumentAnalysisPayload = {
+  suggested_title?: string;
+  short_description?: string;
+  macro_category?: string;
+  subcategory?: string;
+  confidence?: number;
+  summary?: string;
+  summary_detailed?: string;
+  keywords?: string[];
+  requires_review?: boolean;
+  reasoning_summary?: string;
+  ai_used?: boolean;
+  local_only?: boolean;
+  warnings?: string[];
+};
+
+export type EventCandidate = {
+  id: string;
+  title: string;
+  description?: string;
+  start_datetime?: string | null;
+  end_datetime?: string | null;
+  venue_name?: string | null;
+  address?: string | null;
+  city?: string | null;
+  priority?: string;
+  urgency?: string;
+  confidence?: number;
+  status?: string;
+  ambiguous_date?: boolean;
+  missing_fields?: string[];
+  maps_url?: string | null;
+  directions_url?: string | null;
+  maps_query?: string | null;
+  booking_reference?: string | null;
+};
+
+export type EducationAnalysis = {
+  subject?: string | null;
+  topic?: string | null;
+  summary_short?: string;
+  summary_detailed?: string;
+  key_concepts?: string[];
+  definitions?: string[];
+  questions_for_review?: string[];
+  keywords?: string[];
+  confidence?: number;
+};
+
+export type DocumentAnalysisResponse = {
+  document_id: string;
+  pipeline_status?: string;
+  pipeline_status_label?: string;
+  pipeline_error?: string | null;
+  display_title?: string;
+  user_title?: string | null;
+  analysis?: DocumentAnalysisPayload | null;
+  event_candidates?: EventCandidate[];
+  education_analysis?: EducationAnalysis | null;
+  ai_consent_required_note?: string | null;
 };
 
 export type DocumentsListResponse = {

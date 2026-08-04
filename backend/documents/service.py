@@ -100,6 +100,7 @@ class DocumentService:
             await col.create_index([("user_id", 1), ("created_at", -1)], name="user_created")
             await col.create_index([("user_id", 1), ("archived", 1), ("deleted", 1)], name="user_state")
             await col.create_index([("user_id", 1), ("filename", "text"), ("notes", "text"), ("tags", "text"), ("extracted_text", "text")], name="user_text")
+            await col.create_index([("user_id", 1), ("pipeline_status", 1)], name="user_pipeline")
         except Exception:
             logger.debug("documents index creation swallowed", exc_info=True)
 
@@ -248,6 +249,23 @@ class DocumentService:
                 })
         except Exception:
             logger.exception("documents: extraction pipeline failed (soft-fail)")
+
+        # Intelligent documents: enqueue async analysis (does not block upload).
+        try:
+            from documents.intelligence.pipeline import PipelineState
+            from documents.intelligence.worker import enqueue_document_job
+
+            init = PipelineState.initial()
+            queued = PipelineState.set_status({**doc, **init}, "queued")
+            await self.db.documents.update_one(
+                {"id": doc_id, "user_id": user_id},
+                {"$set": {**init, **queued}},
+            )
+            doc.update({**init, **queued})
+            await enqueue_document_job(user_id, doc_id, reason="upload")
+        except Exception:
+            logger.exception("documents: intelligence enqueue soft-fail")
+
         return {"duplicate": False, "document": doc}
 
     # ------------------------------------------------------------------
@@ -348,7 +366,7 @@ class DocumentService:
         if tag:
             query["tags"] = tag
         if q:
-            # Case-insensitive OR: filename/notes/tags/mime + extracted_text
+            # Case-insensitive OR: filename/notes/tags/mime + extracted_text + intel fields
             rx = {"$regex": q, "$options": "i"}
             query["$or"] = [
                 {"filename": rx},
@@ -357,6 +375,15 @@ class DocumentService:
                 {"tags": rx},
                 {"mime_type": rx},
                 {"extracted_text": rx},
+                {"display_title": rx},
+                {"user_title": rx},
+                {"analysis.suggested_title": rx},
+                {"analysis.keywords": rx},
+                {"analysis.macro_category": rx},
+                {"analysis.subcategory": rx},
+                {"education_analysis.subject": rx},
+                {"event_candidates.venue_name": rx},
+                {"event_candidates.city": rx},
             ]
         sort_map = {
             "created_desc": [("created_at", -1)],

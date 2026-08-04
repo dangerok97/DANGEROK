@@ -34,6 +34,8 @@ backend/
   explainability/
   action_center/
   social_auth/           # Google/Apple verify, identities, linking
+  documents/             # storage, extraction, insights
+  documents/intelligence/# pipeline, taxonomy, analyzer, calendar drafts
   security/              # token vault
   tests/                 # pytest
 frontend/
@@ -42,7 +44,7 @@ frontend/
   src/auth/              # Google/Apple client helpers
   src/components/        # UI
   src/theme/tokens.ts
-docs/                    # living engineering docs (+ SOCIAL_AUTH_*)
+docs/                    # SOCIAL_AUTH_* + INTELLIGENT_DOCUMENTS_*
 scripts/                 # local automation
 .emergent/               # legacy Emergent runtime (non-portable)
 .cursor/                 # Cursor autonomy rules/agents/hooks
