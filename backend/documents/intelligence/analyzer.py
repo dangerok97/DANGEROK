@@ -1,7 +1,7 @@
 """Local (+ optional LLM) structured document analysis."""
 from __future__ import annotations
 
-import json
+import hashlib
 import logging
 import os
 import re
@@ -17,13 +17,16 @@ from documents.intelligence.schemas import (
     EntityItem,
     EventCandidate,
     GenericAction,
+    LLMDocumentEnrichment,
 )
 from documents.intelligence.taxonomy import candidate_actions, refine_taxonomy
-from llm import LLMNotConfigured, chat_completion, llm_status
+from llm import LLMNotConfigured, llm_status
+from llm.errors import LLMQuotaError, LLMRateLimitError, LLMTimeoutError
+from llm.structured import chat_json, chunk_text
 
 logger = logging.getLogger("ora.documents.intel")
 
-PROMPT_VERSION = "doc-intel-json-1"
+PROMPT_VERSION = "doc-intel-json-2"
 
 _IT_MONTHS = {
     "gennaio": 1, "febbraio": 2, "marzo": 3, "aprile": 4, "maggio": 5, "giugno": 6,
@@ -159,21 +162,64 @@ def _field_map(insights: dict) -> dict[str, str]:
     return out
 
 
+def _clean_field(v: Optional[str]) -> Optional[str]:
+    if not v:
+        return None
+    s = str(v).strip()
+    # Drop values that look like labeled leftovers
+    if re.match(r"(?i)^(indirizzo|luogo|data|ora|citt[aà]|venue)\s*:", s):
+        return None
+    return s[:120]
+
+
 def _suggest_title(macro: str, sub: str, fields: dict, filename: str, text: str) -> str:
-    if macro == "event" or "ticket" in sub or "appointment" in sub:
-        artist = fields.get("artist") or fields.get("event_name") or fields.get("title")
-        venue = fields.get("venue") or fields.get("location")
-        date = fields.get("event_date") or fields.get("date")
+    if macro == "medical" or "appointment" in sub:
+        struct = _clean_field(
+            fields.get("venue")
+            or _extract_labeled(text, ("Struttura", "Presso", "Luogo"))
+        )
+        date = _clean_field(
+            fields.get("event_date")
+            or fields.get("date")
+            or _extract_labeled(text, ("Data", "Data visita"))
+        )
+        parts = [p for p in ("Visita specialistica", struct, date) if p]
+        return " – ".join(parts)[:160]
+    if macro == "travel" and "train" in sub:
+        origin = _extract_labeled(text, ("Stazione partenza", "Partenza da", "Origine", "Da"))
+        dest = _extract_labeled(text, ("Stazione arrivo", "Arrivo a", "Destinazione", "A"))
+        if origin or dest:
+            return f"Treno {(origin or '?')} -> {(dest or '?')}"[:160]
+    if macro == "event" or "ticket" in sub:
+        artist = _clean_field(
+            fields.get("artist")
+            or fields.get("event_name")
+            or _extract_labeled(text, ("Artista", "Evento", "Titolo"))
+            or fields.get("title")
+        )
+        venue = _clean_field(
+            fields.get("venue")
+            or _extract_labeled(text, ("Venue", "Luogo", "Struttura"))
+        )
+        date = _clean_field(
+            fields.get("event_date")
+            or fields.get("date")
+            or _extract_labeled(text, ("Data", "Data evento"))
+        )
         parts = [p for p in (artist, venue, date) if p]
         if parts:
             return " – ".join(parts)[:160]
     if macro == "education":
         subject = fields.get("subject") or _guess_subject(text)
-        topic = fields.get("topic")
+        topic = fields.get("topic") or _extract_labeled(text, ("Argomento", "Topic"))
         if subject and topic:
             return f"{subject} – {topic}"[:160]
         if subject:
             return f"Dispensa / appunti – {subject}"[:160]
+    if macro == "administrative":
+        obj = _extract_labeled(text, ("Oggetto", "Subject"))
+        if obj:
+            return f"Comunicazione – {obj}"[:160]
     if macro == "financial" or sub == "invoice":
         supplier = fields.get("supplier") or fields.get("vendor")
         date = fields.get("date") or fields.get("invoice_date")
@@ -185,7 +231,7 @@ def _suggest_title(macro: str, sub: str, fields: dict, filename: str, text: str)
             return f"Ricevuta – {merchant}"[:160]
     # clean filename
     base = re.sub(r"[_-]+", " ", os_path_stem(filename)).strip()
-    if re.match(r"^(img|scan|documento|doc|ticket|file)\s*\d*$", base, re.I):
+    if re.match(r"^(img|scan|documento|doc|ticket|file|caso)\s*", base, re.I):
         return f"Documento {macro}" if macro != "generic" else base[:120] or filename
     return base[:160] or filename
 
@@ -208,6 +254,30 @@ def _guess_subject(text: str) -> Optional[str]:
     return None
 
 
+def _extract_labeled(text: str, labels: tuple[str, ...]) -> Optional[str]:
+    for lab in labels:
+        m = re.search(rf"(?im)^\s*{re.escape(lab)}\s*[:\-]\s*(.+)$", text or "")
+        if m:
+            return m.group(1).strip()[:200]
+    return None
+
+
+def _doors_vs_event_times(text: str) -> tuple[Optional[str], Optional[str]]:
+    """Return (doors_open_hhmm, event_start_hhmm) without confusing the two."""
+    doors = None
+    start = None
+    m = re.search(r"(?i)apertura\s+porte\s*[:\-]?\s*(\d{1,2})[:\.](\d{2})", text or "")
+    if m:
+        doors = f"{int(m.group(1)):02d}:{m.group(2)}"
+    m = re.search(
+        r"(?i)(?:inizio\s+(?:evento|concerto|spettacolo)|ora\s+inizio|ore)\s*[:\-]?\s*(\d{1,2})[:\.](\d{2})",
+        text or "",
+    )
+    if m:
+        start = f"{int(m.group(1)):02d}:{m.group(2)}"
+    return doors, start
+
+
 def _build_events(
     *,
     doc_id: str,
@@ -226,37 +296,95 @@ def _build_events(
     times = list(entities.get("times") or [])
     places = list(entities.get("places") or [])
 
-    date_src = fields.get("event_date") or fields.get("date") or (dates[0] if dates else "")
-    time_src = fields.get("event_time") or fields.get("time") or (times[0] if times else "")
+    date_src = (
+        fields.get("event_date")
+        or fields.get("date")
+        or _extract_labeled(text, ("Data", "Data evento", "Data visita", "Giorno"))
+        or (dates[0] if dates else "")
+    )
+    doors_t, event_t = _doors_vs_event_times(text)
+    time_src = (
+        fields.get("event_time")
+        or event_t
+        or fields.get("time")
+        or _extract_labeled(text, ("Ora", "Orario", "Ora visita", "Partenza"))
+        or (times[0] if times else "")
+    )
+    # Prefer event start over doors-open for the calendar start
+    if event_t:
+        time_src = event_t
     combined = f"{date_src} {time_src}".strip()
     start, ambiguous, original = _parse_italian_datetime(combined or text[:500])
     if start is None and date_src:
         start, ambiguous, original = _parse_italian_datetime(date_src)
 
-    venue = fields.get("venue") or fields.get("location") or (places[0] if places else None)
-    address = fields.get("address")
-    city = fields.get("city")
-    title = (
-        fields.get("event_name")
-        or fields.get("artist")
-        or fields.get("title")
-        or ("Visita medica" if macro == "medical" else "Appuntamento")
+    # For ambiguous numeric dates with insufficient context, do not silently pick
+    if ambiguous and not re.search(r"(?i)\b(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)\b", text or ""):
+        start = None
+
+    origin = _extract_labeled(text, ("Stazione partenza", "Partenza da", "Origine", "Da"))
+    dest = _extract_labeled(text, ("Stazione arrivo", "Arrivo a", "Destinazione", "A"))
+    if sub == "train_ticket" or (origin and dest):
+        venue = f"{origin or '?'} → {dest or '?'}"
+        address = None
+        city = dest or fields.get("city")
+        title = f"Treno {origin or ''} → {dest or ''}".strip()
+    else:
+        venue = (
+            _clean_field(fields.get("venue"))
+            or _clean_field(fields.get("location"))
+            or _extract_labeled(text, ("Venue", "Struttura", "Luogo", "Presso"))
+            or _clean_field(places[0] if places else None)
+        )
+        address = _clean_field(fields.get("address")) or _extract_labeled(text, ("Indirizzo", "Address"))
+        city = _clean_field(fields.get("city")) or _extract_labeled(text, ("Città", "Citta", "City"))
+        title = (
+            _clean_field(fields.get("event_name"))
+            or _clean_field(fields.get("artist"))
+            or _extract_labeled(text, ("Artista", "Evento", "Titolo"))
+            or _clean_field(fields.get("title"))
+            or ("Visita medica" if macro == "medical" else "Appuntamento")
+        )
+
+    booking = (
+        fields.get("order_id")
+        or fields.get("booking_reference")
+        or fields.get("pnr")
+        or _extract_labeled(text, ("Codice prenotazione", "Codice ordine", "PNR", "Ordine"))
     )
-    booking = fields.get("order_id") or fields.get("booking_reference") or fields.get("pnr")
     missing = []
     if not start:
         missing.append("start_datetime")
-    if not venue and not address:
+    if not venue and not address and not (origin or dest):
         missing.append("location")
     if not title or title == "Appuntamento":
         missing.append("title")
+    if ambiguous:
+        missing.append("date_disambiguation")
 
     priority, urgency = _priority_urgency(macro, sub, start)
+    venue = _clean_field(venue)
+    address = _clean_field(address)
+    city = _clean_field(city)
+    # If field map polluted venue with address label, recover from labels
+    if not venue:
+        venue = _extract_labeled(text, ("Venue", "Struttura", "Luogo", "Presso"))
     loc_parts = [p for p in (venue, address, city) if p]
     maps_q = ", ".join(loc_parts) if loc_parts else None
 
     end = None
-    if start and time_src and re.search(r"(\d{1,2}[:\.]\d{2})\s*[-–]\s*(\d{1,2}[:\.]\d{2})", time_src):
+    arrival = _extract_labeled(text, ("Orario arrivo", "Arrivo", "Ora arrivo"))
+    if start and arrival:
+        am = re.search(r"(\d{1,2})[:\.](\d{2})", arrival)
+        if am:
+            try:
+                local_end = start.astimezone(ZoneInfo("Europe/Rome")).replace(
+                    hour=int(am.group(1)), minute=int(am.group(2)),
+                )
+                end = local_end.astimezone(timezone.utc).isoformat()
+            except Exception:
+                end = (start + timedelta(hours=2)).isoformat()
+    elif start and time_src and re.search(r"(\d{1,2}[:\.]\d{2})\s*[-–]\s*(\d{1,2}[:\.]\d{2})", time_src):
         m = re.search(r"(\d{1,2})[:\.](\d{2})\s*[-–]\s*(\d{1,2})[:\.](\d{2})", time_src)
         if m and start:
             try:
@@ -276,6 +404,12 @@ def _build_events(
         conf -= 0.25
     conf = max(0.15, min(0.95, conf))
 
+    notes = ["Estrazione locale da testo e campi risolti"]
+    if doors_t and event_t and doors_t != event_t:
+        notes.append(f"Apertura porte {doors_t}; inizio evento {event_t} (usato inizio evento)")
+    if origin and dest:
+        notes.append(f"Origine/destinazione distinte: {origin} / {dest}")
+
     ev = EventCandidate(
         id=_new_event_id(),
         title=str(title)[:160],
@@ -293,7 +427,7 @@ def _build_events(
         urgency=urgency,  # type: ignore
         confidence=conf,
         missing_fields=missing,
-        extraction_notes="Estrazione locale da testo e campi risolti",
+        extraction_notes="; ".join(notes),
         ambiguous_date=ambiguous,
         maps_query=maps_q,
         status="proposed",
@@ -333,16 +467,26 @@ def _build_education(text: str, fields: dict, keywords: list[str]) -> Optional[E
     )
 
 
+def content_fingerprint(text: str, filename: str = "") -> str:
+    h = hashlib.sha256()
+    h.update((filename or "").encode("utf-8", errors="replace"))
+    h.update(b"\0")
+    h.update((text or "").encode("utf-8", errors="replace"))
+    return h.hexdigest()[:32]
+
+
 async def analyze_document(
     doc: dict[str, Any],
     *,
     user: Optional[dict] = None,
     force_local: bool = False,
+    force_ai: bool = False,
 ) -> dict[str, Any]:
     """Return validated analysis payload to persist on the document."""
     insights = compute_insights(doc)
-    text = (doc.get("extracted_text") or "")[:20000]
+    text = (doc.get("extracted_text") or "")
     filename = doc.get("original_filename") or doc.get("filename") or "documento"
+    content_hash = content_fingerprint(text, filename)
     type_key = insights.get("type_key") or insights.get("classification", {}).get("type_key") or "generic"
     tax = refine_taxonomy(type_key=type_key, text=text, filename=filename)
     fields = _field_map(insights)
@@ -391,9 +535,18 @@ async def analyze_document(
     )
 
     ai_used = False
+    ai_skipped_dedupe = False
     model_name = "local-deterministic"
+    usage_meta: dict[str, Any] = {}
     summary = (text[:280] if text else f"Documento {tax['macro_category']}").strip()
     summary_detailed = (text[:1200] if text else summary).strip()
+
+    prev = doc.get("analysis") or {}
+    same_content = (
+        prev.get("content_hash") == content_hash
+        and prev.get("ai_used")
+        and prev.get("prompt_version") == PROMPT_VERSION
+    )
 
     allow_ai = (
         not force_local
@@ -402,12 +555,25 @@ async def analyze_document(
         and llm_status().get("configured")
         and bool(text.strip())
     )
-    if allow_ai:
+    if allow_ai and same_content and not force_ai:
+        # Deduplicate: reuse previous AI enrichment fields, recompute local events
+        ai_used = True
+        ai_skipped_dedupe = True
+        model_name = prev.get("model") or llm_status().get("model") or "llm"
+        title = prev.get("suggested_title") or title
+        summary = prev.get("summary") or summary
+        summary_detailed = prev.get("summary_detailed") or summary_detailed
+        if prev.get("keywords"):
+            keywords = list(dict.fromkeys(list(prev.get("keywords") or []) + keywords))[:15]
+        usage_meta = {"deduplicated": True, "content_hash": content_hash}
+        warnings.append("Analisi AI deduplicata: contenuto invariato, nessuna nuova chiamata.")
+    elif allow_ai:
         try:
             enriched = await _llm_enrich(doc["id"], text, tax, title)
             if enriched:
                 ai_used = True
                 model_name = enriched.get("model") or llm_status().get("model") or "llm"
+                usage_meta = enriched.get("usage") or {}
                 title = enriched.get("suggested_title") or title
                 summary = enriched.get("summary") or summary
                 summary_detailed = enriched.get("summary_detailed") or summary_detailed
@@ -415,13 +581,24 @@ async def analyze_document(
                     keywords = list(dict.fromkeys(keywords + enriched["keywords"]))[:15]
                 if enriched.get("education") and tax["macro_category"] == "education":
                     try:
-                        education = EducationAnalysis(**{**(education.model_dump() if education else {}), **enriched["education"]})
+                        edu_src = enriched["education"]
+                        if hasattr(edu_src, "model_dump"):
+                            edu_src = edu_src.model_dump()
+                        education = EducationAnalysis(
+                            **{**(education.model_dump() if education else {}), **edu_src}
+                        )
                     except Exception:
                         pass
         except LLMNotConfigured:
             warnings.append("Provider AI non configurato: usata solo analisi locale.")
-        except Exception as e:
-            logger.warning("LLM enrich failed: %s", type(e).__name__)
+        except LLMRateLimitError:
+            warnings.append("Rate limit provider AI: usata analisi locale.")
+        except LLMTimeoutError:
+            warnings.append("Timeout provider AI: usata analisi locale.")
+        except LLMQuotaError:
+            warnings.append("Quota provider AI esaurita: usata analisi locale.")
+        except Exception:
+            logger.warning("LLM enrich failed type=%s", "Exception")
             warnings.append("Arricchimento AI non riuscito: mantenuta analisi locale.")
 
     analysis = DocumentAnalysis(
@@ -450,12 +627,32 @@ async def analyze_document(
         created_at=_now(),
         model=model_name,
         prompt_version=PROMPT_VERSION if ai_used else "none",
-        analysis_version=int(doc.get("analysis_version") or 0) + 1,
+        analysis_version=int(doc.get("analysis_version") or prev.get("analysis_version") or 0) + (0 if ai_skipped_dedupe else 1),
         ai_used=ai_used,
         local_only=not ai_used,
     )
+    analysis_dump = analysis.model_dump()
+    analysis_dump["content_hash"] = content_hash
+    analysis_dump["usage"] = usage_meta
 
     generic_actions: list[GenericAction] = []
+    due = None
+    if tax["macro_category"] == "administrative":
+        due_raw = _extract_labeled(text, ("Scadenza", "Entro il", "Data limite"))
+        if due_raw:
+            due_dt, _, _ = _parse_italian_datetime(due_raw)
+            due = due_dt.isoformat() if due_dt else None
+        generic_actions.append(
+            GenericAction(
+                action_type="generic_action",
+                title="Azione richiesta dalla comunicazione",
+                description=_extract_labeled(text, ("Azione richiesta", "Richiesta", "Oggetto")) or analysis.short_description,
+                due_datetime=due,
+                priority="high",
+                urgency="soon" if due else "upcoming",
+                requires_confirmation=True,
+            )
+        )
     for a in actions:
         if a in ("create_reminder", "needs_review"):
             generic_actions.append(
@@ -470,7 +667,7 @@ async def analyze_document(
             )
 
     return {
-        "analysis": analysis.model_dump(),
+        "analysis": analysis_dump,
         "event_candidates": [e.model_dump() for e in events],
         "education_analysis": education.model_dump() if education else None,
         "generic_actions": [g.model_dump() for g in generic_actions],
@@ -479,33 +676,43 @@ async def analyze_document(
             "type_label": insights.get("type_label"),
             "classification": insights.get("classification"),
         },
+        "content_hash": content_hash,
+        "ai_deduplicated": ai_skipped_dedupe,
     }
 
 
 async def _llm_enrich(doc_id: str, text: str, tax: dict, title: str) -> Optional[dict]:
-    system = (
-        "Sei il modulo Document Intelligence di ORA. Rispondi SOLO con JSON valido, "
-        "senza markdown. Non inventare fatti assenti dal testo. "
-        "Campi: suggested_title, summary, summary_detailed, keywords (array), "
-        "education (oggetto opzionale con subject, topic, key_concepts, definitions). "
-        "Distingui solo contenuto presente nel documento."
-    )
-    user = json.dumps(
-        {
-            "macro_category": tax["macro_category"],
-            "subcategory": tax["subcategory"],
-            "current_title": title,
-            "document_text": text[:12000],
-        },
-        ensure_ascii=False,
-    )
-    raw = await chat_completion(system=system, user=user, session_id=f"ora-doc-{doc_id}")
-    raw = raw.strip()
-    if raw.startswith("```"):
-        raw = re.sub(r"^```(?:json)?\s*", "", raw)
-        raw = re.sub(r"\s*```$", "", raw)
-    data = json.loads(raw)
-    if not isinstance(data, dict):
+    """Structured LLM enrichment with chunking + Pydantic validation."""
+    chunks = chunk_text(text)
+    if not chunks:
         return None
-    data["model"] = llm_status().get("model")
+    system = (
+        "Sei il modulo Document Intelligence di ORA. Rispondi SOLO con JSON valido "
+        "conforme allo schema richiesto. Non inventare fatti assenti dal testo. "
+        "Non fornire consigli clinici. Distingui solo contenuto presente nel documento. "
+        "Campi JSON: suggested_title, summary, summary_detailed, keywords (array di stringhe), "
+        "education (opzionale: subject, topic, key_concepts, definitions, questions_for_review), notes."
+    )
+    # Use first chunk primarily; mention more chunks only as context summary budget
+    payload = {
+        "macro_category": tax["macro_category"],
+        "subcategory": tax["subcategory"],
+        "current_title": title,
+        "chunk_index": 1,
+        "chunk_total": len(chunks),
+        "document_text": chunks[0],
+    }
+    if len(chunks) > 1:
+        payload["additional_chunk_previews"] = [c[:400] for c in chunks[1:]]
+    import json
+    user = json.dumps(payload, ensure_ascii=False)
+    parsed, meta = await chat_json(
+        system=system,
+        user=user,
+        model_cls=LLMDocumentEnrichment,
+        session_id=f"ora-doc-{doc_id}",
+    )
+    data = parsed.model_dump()
+    data["model"] = meta.get("model") or llm_status().get("model")
+    data["usage"] = {**meta, "chunks_sent": len(chunks)}
     return data

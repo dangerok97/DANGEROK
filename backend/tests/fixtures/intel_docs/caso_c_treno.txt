@@ -1,0 +1,7 @@
+BIGLIETTO FERROVIARIO
+Stazione partenza: Firenze Santa Maria Novella
+Stazione arrivo: Roma Termini
+Data: 05 novembre 2027
+Orario partenza: 08:15
+Orario arrivo: 09:52
+Codice prenotazione: PNR-DEMO-3322

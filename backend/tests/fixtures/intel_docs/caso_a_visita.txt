@@ -1,0 +1,9 @@
+CONFERMA VISITA SPECIALISTICA
+Struttura: Poliambulatorio Nord Demo
+Indirizzo: Via dei Campioni 12
+Città: Milano
+Data: 18 settembre 2027
+Ora: 10:30
+Istruzioni: Presentarsi 15 minuti prima con tessera sanitaria.
+Codice prenotazione: PREN-DEMO-4411
+Nota: documento sintetico di test — nessun dato reale.

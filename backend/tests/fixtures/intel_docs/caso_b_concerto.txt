@@ -1,0 +1,9 @@
+BIGLIETTO CONCERTO
+Artista: Aurora Nova
+Data: 22 ottobre 2027
+Apertura porte: 19:30
+Inizio evento: 21:00
+Venue: Arena Demo
+Indirizzo: Piazza delle Prove 3
+Città: Bologna
+Codice ordine: ORD-DEMO-7788

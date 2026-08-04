@@ -44,6 +44,18 @@ class InternalCalendarProvider:
         overrides: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
         ov = overrides or {}
+        # Idempotency guard at provider level
+        existing = await self.db.calendar_event_drafts.find_one(
+            {
+                "user_id": user_id,
+                "source_document_id": candidate["source_document_id"],
+                "source_event_candidate_id": candidate["id"],
+                "status": {"$ne": "cancelled"},
+            },
+            {"_id": 0},
+        )
+        if existing:
+            return existing
         now = _now()
         draft = CalendarEventDraft(
             id=_new_id(),

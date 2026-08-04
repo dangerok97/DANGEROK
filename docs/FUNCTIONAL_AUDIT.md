@@ -57,6 +57,9 @@ Branch: `ora/cursor-platform`
 | Documents | Upload | documenti/aggiungi | /documents/upload | docs+files | pytest+HTTP | operativo (web API) | picker UI non e2e-automatizzato | alta | device test |
 | Documents | Isolation/auth | — | get/list/upload | docs | pytest | operativo | — | critica | — |
 | Documents | Insights/actions | document/[id] | /insights + FE actions | docs | HTTP detail OK | parzialmente operativo | azioni UI non tutte cliccate | media | C3 roadmap |
+| Documents | Intel pipeline | document/[id] | analyze/events/ask | intel | pytest+HTTP+OCR | operativo locale+OCR | OpenAI reale bloccato; picker no | critica | chiave OpenAI + UI pass |
+| Documents | OCR | upload image/PDF | extraction | files | real Tesseract | operativo (host) | qualità OCR variabile | alta | — |
+| Documents | Calendar draft | event confirm | calendar_event_drafts | drafts | HTTP confirm/dedupe | operativo interno | no Google sync | alta | Google later |
 | Google Calendar | OAuth/sync | Home/Settings | connectors/google-calendar | connectors, vault | config-status | bloccato da credenziali | GOOGLE_OAUTH_* | alta | setup OAuth locale |
 | Apple Calendar | Connect/sync | settings iOS | apple-calendar | connectors | config enabled:false | mock / non verificato | device + flag | media | EAS/device |
 | Life Graph | CRUD nodes | — | /life-graph | life_* | HTTP nodes | non utilizzato | no UI | media | decidere se esporre |
@@ -94,6 +97,10 @@ Branch: `ora/cursor-platform`
 ## Aggiornamento 2026-08-04 — Documenti (post BACKLOG-001/002)
 
 Vedi `docs/DOCUMENTS_VERIFICATION.md`. Label allineate; upload/list/detail/isolamento/persistenza verificati via pytest + HTTP; UI web empty/labels verificati in browser. Native non verificato. Storage locale only.
+
+## Aggiornamento 2026-08-05 — Documenti intelligenti (verifica reale)
+
+Vedi `docs/INTELLIGENT_DOCUMENTS_VERIFICATION.md`. Casi A–F sintetici + OCR reale + DOCX/PPTX extract + calendario interno idempotente verificati. OpenAI reale **non** eseguito (chiave assente). File picker UI e mobile non verificati. Google Calendar da documenti non avviato.
 
 ## Conteggi (questo audit)
 

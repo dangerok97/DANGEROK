@@ -120,3 +120,21 @@ class CalendarEventDraft(BaseModel):
     status: Literal["draft", "confirmed", "cancelled"] = "confirmed"
     created_at: str
     updated_at: str
+
+
+class LLMEducationEnrichment(BaseModel):
+    subject: Optional[str] = None
+    topic: Optional[str] = None
+    key_concepts: List[str] = Field(default_factory=list)
+    definitions: List[str] = Field(default_factory=list)
+    questions_for_review: List[str] = Field(default_factory=list)
+
+
+class LLMDocumentEnrichment(BaseModel):
+    """Validated structured enrichment from OpenAI/emergent — never free-form."""
+    suggested_title: Optional[str] = None
+    summary: Optional[str] = None
+    summary_detailed: Optional[str] = None
+    keywords: List[str] = Field(default_factory=list)
+    education: Optional[LLMEducationEnrichment] = None
+    notes: Optional[str] = None
