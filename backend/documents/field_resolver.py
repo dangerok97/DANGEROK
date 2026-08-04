@@ -107,6 +107,55 @@ def _snippet(text: str, start: int, end: int, radius: int = 60) -> str:
     return snip
 
 
+# Separator chars that may legitimately sit between a label and its value:
+# ``:``, ``-``, ``–``, ``—``, ``·``, ``|``, ``.``, ``\t`` and whitespace.
+_LABEL_SEP_STRIP = " \t:.\-\u2013\u2014·|"
+
+
+def _strip_label_prefix(value: str, aliases: List[str]) -> str:
+    """Iterazione 23 micro-fix.
+
+    Rimuove dalla testa di ``value`` una eventuale label (alias del campo)
+    seguita da separatori tipici (``:``, ``-``, ``–``, ``—``, ``|``, ``·``,
+    ``.``, spazi/tab). Applicato SOLO ai campi label-aware di tipo
+    ``text``/``person``/``place`` (per gli altri semantic types il valore
+    non contiene mai la label, dato che l'estrazione avviene su entità
+    specifiche o via regex con gruppo di cattura).
+
+    Regole:
+      * matching case-insensitive, boundary sui caratteri Unicode di parola
+      * rimozione UNA sola volta (no ricorsione, evita ambiguità)
+      * se la label NON è presente all'inizio → valore restituito invariato
+      * preserva i caratteri accentati e le sequenze di più parole
+        (es. ``Partita IVA``).
+    """
+    v = (value or "").strip()
+    if not v or not aliases:
+        return v
+    low = v.lower()
+    # Try longest aliases first — evita che "iva" mangi il prefisso di "partita iva".
+    for alias in sorted({a.strip() for a in aliases if a and a.strip()},
+                        key=len, reverse=True):
+        a_low = alias.lower()
+        if not low.startswith(a_low):
+            continue
+        end = len(a_low)
+        if end >= len(v):
+            # La stringa è ESATTAMENTE la label → non è un contenuto utile.
+            return v
+        # Richiede un separatore ESPLICITO fra label e valore
+        # (``:`` ``-`` ``–`` ``—`` ``|`` ``·`` ``.``), eventualmente seguito
+        # da altri caratteri di separazione/whitespace. Uno spazio da solo
+        # NON basta: preserva espressioni come ``Fornitura elettrica`` dove
+        # ``Fornitura`` combacia con la label ma è parte del contenuto.
+        m = re.match(r"[ \t]*[:\-\u2013\u2014·|.]+[ \t]*", v[end:])
+        if not m:
+            continue
+        stripped = v[end + m.end():].strip()
+        return stripped or v
+    return v
+
+
 def _value_is_already_typed(value: str, entities: Dict[str, List[str]]) -> bool:
     """Detect values that were already classified by the deterministic
     pipeline with a stronger semantic type. Prevents a `text` field from
@@ -318,6 +367,9 @@ def resolve_fields(
             )
             if val is None:
                 continue
+            # Iter23 fix: strip residual label prefix if the picker
+            # captured "Label: value" (e.g. next-line fallback).
+            val = _strip_label_prefix(val, [f.label, *f.aliases])
             # Skip tail values that were already classified with a stronger
             # semantic type — e.g. "P.IVA emittente: 12345678901" would
             # otherwise pull the digits into a text "Emittente" field.
@@ -338,6 +390,17 @@ def resolve_fields(
         # For `person` fields, filter with the person detector.
         if f.type == "person":
             candidates = filter_persons(candidates)
+
+        # Iter23 fix: for label-aware semantic types (place/person) the
+        # entity pool may contain values with the label baked in (e.g.
+        # entities.places on line "Luogo: Ippodromo Capannelle"). Strip
+        # the label prefix so the resolved value is clean.
+        if f.type in ("place", "person") and candidates:
+            candidates = [
+                _strip_label_prefix(c, [f.label, *f.aliases]) for c in candidates
+            ]
+            # drop empties produced by the strip
+            candidates = [c for c in candidates if c]
 
         # Try to score candidates first; if none reaches HIDDEN_LOWER (or
         # the pool is empty), for person fields we fall back to label-tail
@@ -370,6 +433,10 @@ def resolve_fields(
             val, conf, reason, l_pos = _extract_text_field(
                 text, text_low, lines, label_positions,
             )
+            # Iter23 fix: even the label-tail path may include the label
+            # (rare, but happens with next-line fallback).
+            if val:
+                val = _strip_label_prefix(val, [f.label, *f.aliases])
             validator = (
                 looks_like_single_name
                 if f.key in ("name", "surname", "given_name", "family_name")
