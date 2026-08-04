@@ -115,6 +115,29 @@ class PyPDFProvider(PDFTextProvider):
 # ---------------------------------------------------------------------
 # Impl: pytesseract
 # ---------------------------------------------------------------------
+def _configure_tesseract(pytesseract) -> Optional[str]:
+    """Resolve tesseract binary; never log full env. Returns path or None."""
+    cmd = (os.environ.get("TESSERACT_CMD") or "").strip()
+    candidates = [
+        cmd,
+        r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+        r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+        "tesseract",
+    ]
+    for c in candidates:
+        if not c:
+            continue
+        if c != "tesseract" and not os.path.isfile(c):
+            continue
+        try:
+            pytesseract.pytesseract.tesseract_cmd = c
+            pytesseract.get_tesseract_version()
+            return c
+        except Exception:
+            continue
+    return None
+
+
 class TesseractOCRProvider(OCRProvider):
     name = "tesseract"
 
@@ -122,15 +145,12 @@ class TesseractOCRProvider(OCRProvider):
         r = ExtractionResult(engine=self.name, ocr_used=True)
         try:
             import pytesseract
-            from PIL import Image, ImageOps
+            from PIL import Image, ImageOps, ImageFilter, ImageEnhance
         except Exception as e:
             r.error_code = "ocr_lib_missing"
-            r.warnings.append(str(e))
+            r.warnings.append(type(e).__name__)
             return r
-        # Verify tesseract binary exists
-        try:
-            pytesseract.get_tesseract_version()
-        except Exception:
+        if not _configure_tesseract(pytesseract):
             r.error_code = "ocr_engine_unavailable"
             return r
         try:
@@ -138,14 +158,16 @@ class TesseractOCRProvider(OCRProvider):
             img = ImageOps.exif_transpose(img)
             if img.mode not in ("RGB", "L"):
                 img = img.convert("RGB")
+            # Light preprocess for tilted / low-contrast scans
+            img = ImageOps.autocontrast(img)
+            img = img.filter(ImageFilter.SHARPEN)
         except Exception as e:
             r.error_code = "image_unreadable"
-            r.warnings.append(str(e))
+            r.warnings.append(type(e).__name__)
             return r
         langs = os.environ.get("DOCUMENT_OCR_LANGS", "ita+eng")
         try:
             text = pytesseract.image_to_string(img, lang=langs)
-            # Confidence via data (mean of positive confidences)
             try:
                 data = pytesseract.image_to_data(img, lang=langs, output_type=pytesseract.Output.DICT)
                 confs = [int(c) for c in data.get("conf", []) if str(c).lstrip("-").isdigit() and int(c) >= 0]
@@ -155,10 +177,14 @@ class TesseractOCRProvider(OCRProvider):
                 pass
         except Exception as e:
             r.error_code = "ocr_failed"
-            r.warnings.append(str(e))
+            r.warnings.append(type(e).__name__)
             return r
         r.text = text.strip()
         r.pages = 1
+        if not r.text or (r.confidence is not None and r.confidence < 0.25):
+            r.warnings.append("ocr_low_quality")
+            if not r.text:
+                r.error_code = r.error_code or "ocr_empty"
         return r
 
 
@@ -267,11 +293,14 @@ class ExtractionPipeline:
 
         if mime == "application/pdf":
             r = self.pdf.extract(blob)
-            # Fallback OCR when PDF has zero text and OCR enabled — for
-            # scanned PDFs. Iter20 keeps this minimal: only if the whole
-            # extraction is empty AND we recognize no error.
+            # Fallback OCR for scanned PDFs: rasterize first page when empty.
             if ocr_enabled and (not r.text or len(r.text.strip()) < 5) and not r.error_code:
                 r.warnings.append("pdf_empty_text")
+                ocr_page = _pdf_first_page_ocr(blob, self.ocr)
+                if ocr_page and ocr_page.text:
+                    ocr_page.warnings = list(r.warnings) + list(ocr_page.warnings)
+                    ocr_page.pages = max(r.pages, ocr_page.pages)
+                    r = ocr_page
         elif mime in self.OCR_MIMES:
             if not ocr_enabled:
                 r = ExtractionResult(engine="ocr_disabled", warnings=["ocr_flag_off"])
@@ -280,7 +309,12 @@ class ExtractionPipeline:
         elif mime in self.TEXT_MIMES:
             r = self.text.extract(blob, mime)
         else:
-            r = ExtractionResult(engine="unsupported", warnings=[f"mime_not_supported:{mime}"])
+            from documents.office_extract import extract_by_mime
+            office = extract_by_mime(blob, mime)
+            if office is not None:
+                r = office
+            else:
+                r = ExtractionResult(engine="unsupported", warnings=[f"mime_not_supported:{mime}"])
 
         # Cleaning + language detection (always safe)
         cleaned = clean_text(r.text or "")
@@ -293,5 +327,31 @@ class ExtractionPipeline:
 # ---------------------------------------------------------------------
 # Utilities
 # ---------------------------------------------------------------------
+def _pdf_first_page_ocr(blob: bytes, ocr: OCRProvider) -> Optional[ExtractionResult]:
+    """Best-effort: render page 1 to PNG then OCR. Soft-fail if deps missing."""
+    try:
+        import pypdfium2 as pdfium
+        from PIL import Image
+    except Exception:
+        return ExtractionResult(engine="pdf_ocr_fallback", warnings=["pdf_raster_lib_missing"], ocr_used=False)
+    try:
+        pdf = pdfium.PdfDocument(blob)
+        if len(pdf) < 1:
+            return None
+        page = pdf[0]
+        bitmap = page.render(scale=2)
+        pil = bitmap.to_pil()
+        buf = io.BytesIO()
+        pil.save(buf, format="PNG")
+        return ocr.extract(buf.getvalue(), "image/png")
+    except Exception as e:
+        return ExtractionResult(
+            engine="pdf_ocr_fallback",
+            warnings=[f"pdf_raster_failed:{type(e).__name__}"],
+            ocr_used=False,
+            error_code="pdf_ocr_failed",
+        )
+
+
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()

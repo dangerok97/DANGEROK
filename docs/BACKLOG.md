@@ -131,8 +131,9 @@ Attività piccole e verificabili derivate da `docs/ROADMAP.md` e dall’audit.
 
 ## BACKLOG-014 — Documenti intelligenti (pipeline + azioni)
 
-- **Stato:** codice completato su `feature/intelligent-documents`; test locali sintetici OK; OCR/LLM/device da verificare in ambiente reale
+- **Stato:** verifica reale parziale su `feature/intelligent-documents-real-verification` (OCR+HTTP+local OK; OpenAI reale bloccato da chiave; picker UI/mobile no)
 - **Obiettivo:** documento → comprensione → event/studio/azioni con conferma utente
+- **Prossimo:** fornire `OPENAI_API_KEY` e rieseguire smoke AI; pass manuale file picker web
 - **Rimandato:** sync Google Calendar da documenti; UI mobile nativa
 
 ## BACKLOG-013 — Apple Sign-In reale (web e/o iOS)

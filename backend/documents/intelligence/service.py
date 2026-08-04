@@ -177,10 +177,23 @@ class IntelligenceService:
                 actor_id="ora.documents.intel",
                 reason=f"document_intel:{doc['id']}",
             )
-            # Relations via life graph edges (best-effort)
+            # Relations via life graph edges (best-effort, idempotent on reanalyze)
             if self.docs.life_graph is not None:
+                existing_ids: set[str] = set()
+                try:
+                    # Prefer attribute lookup when available; fallback soft
+                    nodes = await self.docs.life_graph.list_nodes(doc["user_id"], node_type="event")
+                    for n in nodes or []:
+                        attrs = n.get("attributes") or {}
+                        if attrs.get("source_document_id") == doc["id"] and attrs.get("event_candidate_id"):
+                            existing_ids.add(str(attrs["event_candidate_id"]))
+                except Exception:
+                    existing_ids = set()
                 for ev in events:
                     if ev.get("status") == "dismissed":
+                        continue
+                    eid = str(ev.get("id") or "")
+                    if eid and eid in existing_ids:
                         continue
                     try:
                         enode = await self.docs.life_graph.create_node(
@@ -205,6 +218,8 @@ class IntelligenceService:
                             type="documents",
                             attributes={"kind": "document_has_event"},
                         )
+                        if eid:
+                            existing_ids.add(eid)
                     except Exception:
                         logger.debug("brain event node soft-fail", exc_info=True)
                 if education and education.get("subject"):
@@ -288,18 +303,38 @@ class IntelligenceService:
         doc = await self.docs.get(user_id=user_id, doc_id=doc_id)
         events = list(doc.get("event_candidates") or [])
         target = None
+        target_idx = -1
         for i, ev in enumerate(events):
             if ev.get("id") == event_id:
-                if overrides:
-                    ev = {**ev, **overrides, "user_overrides": {**(ev.get("user_overrides") or {}), **overrides}}
-                ev["status"] = "confirmed"
-                events[i] = ev
                 target = ev
+                target_idx = i
                 break
         if not target:
             raise DocumentNotFound()
+
+        # Idempotent double-confirm: return existing draft, no duplicate insert
+        existing = await self.db.calendar_event_drafts.find_one(
+            {
+                "user_id": user_id,
+                "source_document_id": doc_id,
+                "source_event_candidate_id": event_id,
+                "status": {"$ne": "cancelled"},
+            },
+            {"_id": 0},
+        )
+        if existing and target.get("status") == "confirmed":
+            return {"ok": True, "event_candidate": target, "calendar_event": existing, "deduplicated": True}
+
+        if overrides:
+            target = {
+                **target,
+                **overrides,
+                "user_overrides": {**(target.get("user_overrides") or {}), **overrides},
+            }
         if target.get("ambiguous_date") and not (overrides or {}).get("start_datetime") and not target.get("start_datetime"):
             raise ValueError("Data ambigua: fornisci start_datetime prima di confermare")
+        target["status"] = "confirmed"
+        events[target_idx] = target
         cal = await self.calendar.get("internal").create_from_candidate(
             user_id=user_id, candidate=target, overrides=overrides,
         )
@@ -312,7 +347,7 @@ class IntelligenceService:
                 "updated_at": _now(),
             }},
         )
-        return {"ok": True, "event_candidate": target, "calendar_event": cal}
+        return {"ok": True, "event_candidate": target, "calendar_event": cal, "deduplicated": False}
 
     async def dismiss_event(self, *, user_id: str, doc_id: str, event_id: str, remind_later: bool = False) -> dict:
         doc = await self.docs.get(user_id=user_id, doc_id=doc_id)
@@ -360,17 +395,31 @@ class IntelligenceService:
             }
         from llm import LLMNotConfigured, chat_completion, llm_status
         if not llm_status().get("configured"):
-            # local keyword answer
-            q = question.lower()
-            hits = [ln for ln in text.splitlines() if any(w in ln.lower() for w in q.split() if len(w) > 3)][:5]
+            # local keyword answer — strip stopwords, keep meaningful tokens
+            import re as _re
+            tokens = [
+                w for w in _re.findall(r"[a-zA-Zàèéìòù]{4,}", question.lower())
+                if w not in {"come", "dove", "quando", "quale", "quali", "questo", "questa", "documento"}
+            ]
+            hits = [
+                ln for ln in text.splitlines()
+                if any(w in ln.lower() for w in tokens)
+            ][:5]
             if hits:
                 return {
-                    "answer": "Dal testo del documento:\n" + "\n".join(hits),
+                    "answer": "[CONTENUTO] Dal testo del documento:\n" + "\n".join(hits),
                     "grounding": "document_content",
                     "ai_used": False,
                 }
+            # summary fallback
+            if analysis.get("summary") and tokens:
+                return {
+                    "answer": "[SINTESI] " + str(analysis.get("summary"))[:400],
+                    "grounding": "summary",
+                    "ai_used": False,
+                }
             return {
-                "answer": "Informazione non trovata nel testo estratto (AI non configurata).",
+                "answer": "[NON TROVATO] Informazione non presente nel testo estratto (AI non configurata).",
                 "grounding": "not_found",
                 "ai_used": False,
             }

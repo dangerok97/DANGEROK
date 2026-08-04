@@ -36,7 +36,11 @@ _EVENT_KW = (
     "concerto", "cinema", "spettacolo", "mostra", "biglietto", "ingresso", "gate",
     "appuntamento", "visita", "convocazione", "ingresso", "ore ", "h.",
 )
-_MED_APPT_KW = ("visita", "ambulatorio", "ospedale", "prenotazione sanitaria", "referto", "prescrizione")
+_MED_APPT_KW = ("visita", "ambulatorio", "ospedale", "prenotazione sanitaria", "referto", "prescrizione", "visita specialistica")
+_ADMIN_KW = (
+    "comunicazione", "scadenza", "protocollo", "ufficio", "amministrazione",
+    "richiesta di", "azione richiesta", "oggetto:", "mittente", "comune di",
+)
 
 
 def map_legacy(type_key: str) -> tuple[str, str]:
@@ -93,7 +97,7 @@ def refine_taxonomy(
             sub = sub if sub != "generic" else "concert_ticket"
         reasons.append("Segnali evento/appuntamento")
 
-    if type_key == "medical":
+    if type_key == "medical" or (any(k in blob for k in _MED_APPT_KW) and "concerto" not in blob):
         if any(k in blob for k in ("prescrizione", "farmaco", "ricetta")):
             sub = "prescription"
         elif any(k in blob for k in ("referto", "esame emato", "diagnosi")):
@@ -101,6 +105,14 @@ def refine_taxonomy(
         else:
             sub = "medical_appointment"
         macro = "medical"
+        reasons.append("Segnali sanitari")
+
+    admin_hits = sum(1 for k in _ADMIN_KW if k in blob)
+    if admin_hits >= 2 and macro in ("generic", "unknown", "event"):
+        # Prefer admin over weak event signals when no concert/ticket markers
+        if not any(k in blob for k in ("concerto", "biglietto", "stadio", "treno", "visita specialistica")):
+            macro, sub = "administrative", "official_communication"
+            reasons.append(f"Segnali amministrativi ({admin_hits})")
 
     if macro not in MACRO_CATEGORIES:
         macro = "unknown"

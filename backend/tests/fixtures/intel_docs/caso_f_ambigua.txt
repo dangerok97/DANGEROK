@@ -1,0 +1,5 @@
+Appuntamento generico
+Data: 03/04/2027
+Ora: 10:30
+Luogo: Ufficio
+Contesto insufficiente per disambiguare giorno/mese.

@@ -1,44 +1,54 @@
 # ORA — Intelligent Documents Architecture
 
-Branch: `feature/intelligent-documents`  
+Branch: `feature/intelligent-documents-real-verification`  
 Data: 2026-08-05
 
-## 1. Architettura attuale (pre)
+## Overview
 
-- Upload sync → storage locale → Mongo `documents` → Life Graph + Knowledge
-- Extraction sync (PDF/OCR/text) in `documents/extraction.py`
-- Insights on-read: `compute_insights` (classificazione deterministica + campi)
-- Nessuna pipeline a stati, nessun event candidate persistito, nessun calendario interno server-side
-- LLM adapter `backend/llm` non usato dai documenti
+Upload remains fast and isolated. Understanding runs asynchronously:
 
-## 2. Elementi riutilizzabili
+```
+Upload → storage + Mongo doc → queue job
+  → extract (PDF / OCR / text / DOCX / PPTX)
+  → classify (legacy insights + taxonomy refine)
+  → analyze (local structured + optional LLM JSON)
+  → persist analysis / event_candidates / education
+  → merge Knowledge / Life Graph (idempotent)
+  → UI: confirm event / ask / maps / reanalyze
+```
 
-- `DocumentService.upload` / storage / auth isolation
-- `ExtractionPipeline`, classifier, field_resolver, insights
-- `llm.chat_completion` (opzionale)
-- Knowledge merge + Life Graph nodes
-- FE detail tabs + DocumentActionsBar
+## Packages
 
-## 3. Elementi mancanti (questo intervento)
+| Path | Role |
+| --- | --- |
+| `backend/documents/extraction.py` | PDF, OCR (Tesseract), text; scanned-PDF OCR fallback via pypdfium2 |
+| `backend/documents/office_extract.py` | DOCX / PPTX local extract |
+| `backend/documents/intelligence/*` | pipeline, taxonomy, analyzer, worker, calendar |
+| `backend/llm/provider.py` | `none` / `openai` / `emergent` |
+| `backend/llm/structured.py` | validated JSON + chunking / cost controls |
 
-- Stati pipeline + worker locale
-- Tassonomia estensibile macro/sub
-- Analysis persistita (DOCUMENT_ANALYSIS, EVENT_CANDIDATE, EDUCATION)
-- Calendar draft interno provider-agnostic
-- UI conferma evento / studio / progress
-- Consenso AI documenti
+## Pipeline states
 
-## 4. Rischi
+`uploaded → queued → extracting → classifying → analyzing → action_required|needs_review|completed|failed`
 
-- LLM assente → analisi locale solo (non spacciare per AI completa)
-- OCR dipendente da Tesseract sul host
-- Worker in-process: non multi-istanza
-- Privacy: testo inviato a provider solo se consenso + LLM configurato
+## AI enrichment
 
-## 5. Piano
+- Optional; never required to boot or upload
+- Structured schema `LLMDocumentEnrichment` (Pydantic)
+- Chunking: `DOCUMENT_AI_MAX_CHARS` / `DOCUMENT_AI_MAX_CHUNKS`
+- Dedup: `content_hash` skips new LLM call if unchanged
+- Errors: not configured / timeout / rate limit / quota → local fallback + warning
 
-1. Persistenza stati + job queue locale
-2. Analyzer locale + LLM JSON opzionale
-3. API analyze / events / calendar
-4. FE sezioni dinamiche
-5. Test fixture sintetiche
+## Calendar
+
+- Confirmation creates `calendar_event_drafts` with `provider=internal`
+- Idempotent on double confirm
+- Google/Apple write **not** wired from documents
+
+## Worker limits
+
+In-process asyncio queue + recovery loop. Suitable for local/single instance only.
+
+## Privacy
+
+See `INTELLIGENT_DOCUMENTS_PRIVACY.md`.

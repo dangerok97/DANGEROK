@@ -1,5 +1,33 @@
 # ORA — AI Changelog
 
+## 2026-08-05 — Real verification of intelligent documents
+
+### Request
+
+Portare Documenti da “fixture mock” a verifica reale (OpenAI, OCR, formati, UI, Brain, calendario interno, worker). No Google Calendar.
+
+### Actions
+
+- Branch `feature/intelligent-documents-real-verification`
+- Structured LLM (`llm/structured.py`, Pydantic enrichment), cost controls, content-hash dedupe
+- OCR host path + scanned PDF fallback; DOCX/PPTX extractors
+- Worker locks / recovery / max attempts
+- Synthetic fixtures A–F + OCR/office samples
+- Docs matrix + privacy/architecture/verification updates
+
+### Tests
+
+- pytest intel suites: 28 passed, 1 skipped (real OpenAI)
+- Real OCR verified (Tesseract)
+- HTTP upload/analyze/confirm/ask/maps/isolation
+- Real OpenAI: **not run** (API key absent)
+
+### Result
+
+Local+OCR+HTTP verification advanced; OpenAI real enrichment still blocked by credentials.
+
+---
+
 ## 2026-08-05 — Intelligent document understanding and actions
 
 ### Request
