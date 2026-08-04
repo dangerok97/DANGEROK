@@ -1,0 +1,40 @@
+---
+description: FastAPI backend conventions for ORA
+globs: backend/**/*.py
+alwaysApply: false
+---
+
+# Backend (FastAPI)
+
+## Entry & wiring
+
+- Entry: `backend/server.py`.
+- Register routers via `backend/routers/__init__.py` → `ALL_ROUTERS`.
+- Services/DB/auth helpers: `backend/deps.py` (`load_dotenv(backend/.env)`).
+
+## Style
+
+- Async endpoints and Motor async DB access.
+- Pydantic models for request/response where the file already uses them.
+- Raise `HTTPException` with clear `detail` strings (Italian OK for user-facing product errors if surrounding code does so).
+- Logging via module loggers; never log tokens, passwords, or vault secrets.
+
+## Domains
+
+Prefer existing packages:
+
+- `decision_engine`, `life_graph`, `knowledge`, `auto_link`, `context_assembler`
+- `permissions`, `connectors`, `ingestion`, `documents`
+- `daily_intelligence`, `behavioral_intelligence`, `behavior_aware_decisions`
+- `explainability`, `action_center`, `security`
+
+## LLM
+
+- Current path: `emergentintegrations.llm.chat.LlmChat` + `EMERGENT_LLM_KEY`.
+- Do not scatter new LLM clients; centralize or reuse decisions/memory patterns.
+- If Emergent packages are unavailable locally, document the gap; do not fake success.
+
+## Tests
+
+- Add/extend pytest under `backend/tests/`.
+- Prefer offline unit tests; live smoke tests that hit Emergent preview must be optional / env-gated.

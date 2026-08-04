@@ -1,0 +1,38 @@
+---
+description: Expo React Native frontend conventions for ORA
+globs: frontend/**/*.{ts,tsx,js,jsx,json}
+alwaysApply: false
+---
+
+# Frontend (Expo / React Native)
+
+## Stack
+
+Expo 54, React 19, RN 0.81, TypeScript, expo-router, Yarn preferred (`packageManager` field).
+
+## UI identity
+
+- Source of truth: `frontend/src/theme/tokens.ts` + root `design_guidelines.json`.
+- Dark-first, monochrome, calm Apple HIG spacing.
+- Icons: Ionicons (`@expo/vector-icons`).
+- Glass: `expo-glass-effect` / `expo-blur` only where guidelines allow (tab bar, sheets) — not on priority cards.
+
+## Patterns
+
+- API calls through `frontend/src/api/client.ts` only.
+- Auth token via secure storage helpers in `src/utils/storage`.
+- Reuse `Skeleton`, sheets, home cards before inventing new primitives.
+- Every interactive control must do something real or show an honest “not available” state.
+- Include loading / empty / error states for data views.
+- Keep `testID`s on key controls (login, primary actions).
+
+## Config
+
+- Backend URL: `EXPO_PUBLIC_BACKEND_URL` (no trailing assumptions beyond client usage).
+- Apple calendar mock only when `EXPO_PUBLIC_APPLE_CALENDAR_MOCK=1`.
+
+## Do not
+
+- Add a second design system or random UI kit.
+- Hard-code hex colors when a token exists.
+- Call Emergent URLs from new code without documenting the dependency.

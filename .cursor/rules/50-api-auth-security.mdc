@@ -1,0 +1,34 @@
+---
+description: API, auth, and security rules for ORA
+alwaysApply: true
+---
+
+# API, Auth, Security
+
+## Auth
+
+- Email register/login: bcrypt password hashes + JWT (`JWT_SECRET`, HS256, ~30 days).
+- Google login currently bridges Emergent (`auth.emergentagent.com` + session-data endpoint). New Google work should plan a first-party OAuth path and keep `.env.example` honest.
+- Apple login is a UI placeholder — do not claim it works.
+- Protect user routes with `get_current_user` / existing Depends patterns.
+
+## API
+
+- Prefix `/api`.
+- Validate inputs with Pydantic.
+- Return consistent error details; do not leak stack traces to clients.
+
+## Secrets
+
+- Never commit `.env`, tokens, credentials JSON, vault keys.
+- Update `backend/.env.example` and `frontend/.env.example` when adding config.
+- Token vault: `TOKEN_VAULT_BACKEND` / `TOKEN_VAULT_KEY` — do not log decrypted secrets.
+- Google Calendar OAuth needs `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_OAUTH_REDIRECT_URI`.
+
+## Security checklist on auth/API changes
+
+- AuthN + AuthZ on sensitive routes
+- Input validation
+- No secret in responses/logs
+- Session/token handling unchanged or improved
+- Dependency risk considered

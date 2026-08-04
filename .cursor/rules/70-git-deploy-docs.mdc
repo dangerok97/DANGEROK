@@ -1,0 +1,32 @@
+---
+description: Git, deployment consent, and documentation update rules
+alwaysApply: true
+---
+
+# Git, Deploy, Docs
+
+## Git
+
+- Check status before large edits.
+- Branch for meaningful work; avoid committing secrets.
+- Local commits OK when the task batch is coherent; push only with user consent.
+- Never force-push or rewrite shared history without consent.
+- Do not merge to `master`/`main` without consent (`master` historically held only the empty README).
+
+## Deploy
+
+- No production publish, DNS, paid activation, or Emergent Publish from the agent without consent.
+- Local/dev preview is encouraged.
+
+## Documentation
+
+After each completed activity update:
+
+| File | Content |
+|------|---------|
+| `docs/PRODUCT.md` | Features, users, main flows |
+| `docs/ARCHITECTURE.md` | Stack, modules, API, integrations, deploy |
+| `docs/DEVELOPMENT_STATE.md` | Working / incomplete / bugs / missing credentials / priorities |
+| `docs/CHANGELOG_AI.md` | Date, request, files, tests, result, open issues |
+
+Keep language clear enough for a non-developer supervisor.

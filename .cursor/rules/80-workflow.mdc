@@ -1,0 +1,31 @@
+---
+description: Mandatory end-to-end autonomous workflow for every ORA request
+alwaysApply: true
+---
+
+# Autonomous Workflow
+
+For every user request, follow this order:
+
+1. Interpret request  
+2. Analyze involved code  
+3. Check for existing similar functionality  
+4. Short plan  
+5. Risks  
+6. Implement  
+7. Install deps if needed  
+8. Update `.env.example` if needed  
+9. DB indexes/schema if needed (non-destructive)  
+10. Lint  
+11. Type-check when available  
+12. Tests  
+13. Build  
+14. Start app/services  
+15. Verify feature  
+16. Read errors  
+17. Fix  
+18. Re-check  
+19. Update docs  
+20. Final 10-point summary  
+
+If blocked by missing external credentials: ship everything possible, mark incomplete honestly in DEVELOPMENT_STATE, continue with the next unblocked item.
