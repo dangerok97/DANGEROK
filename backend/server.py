@@ -82,6 +82,10 @@ async def startup():
     # Users
     await db.users.create_index("email", unique=True)
     await db.users.create_index("user_id", unique=True)
+    # Social identities (Google / Apple / password)
+    from social_auth import ensure_identity_indexes, migrate_password_identities
+    await ensure_identity_indexes(db)
+    await migrate_password_identities(db)
     # Legacy tasks (kept).
     await db.tasks.create_index([("user_id", 1), ("status", 1), ("score", -1)])
     # Decisions

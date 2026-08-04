@@ -107,3 +107,13 @@ backend/uvicorn.*.log
 
 # Local document blob storage (never commit uploads)
 backend/data/
+
+# Apple / OAuth key material
+*.p8
+*.p12
+*.pem
+!**/certificates/**/*.pem
+**/AuthKey_*.p8
+**/apple-*.p8
+**/secrets/
+**/oauth-keys/

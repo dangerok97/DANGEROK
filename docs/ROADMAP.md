@@ -7,6 +7,10 @@ Basata sull’audit funzionale del 2026-08-04. Ordine: fondamenta → organizzaz
 | Attività | Priorità | Dipendenze | Complessità | Criterio di completamento |
 |----------|----------|------------|-------------|---------------------------|
 | A1 Allineare Profilo/Aggiungi con moduli reali (niente “In arrivo” su Documenti attivo) | critica | — | S | **DONE** 2026-08-04 — UI coerente web |
+| Auth-S1 Google Sign-In first-party (codice) | critica | — | L | **DONE** codice + mock; E2E reale in attesa client ID |
+| Auth-S2 Apple Sign-In (codice) | critica | — | L | **DONE** codice + mock; E2E reale in attesa Apple |
+| Auth-S3 Verifica reale Google web | critica | Google Cloud client | M | consent → JWT ORA → refresh |
+| Auth-S4 Verifica reale Apple web/iOS | critica | Apple Developer | M | consent → JWT ORA |
 | A2 Harden auth: messaggi errore, rate-limit login, documentare JWT expiry | alta | Auth email OK | M | Test 401/409; doc sicurezza aggiornata |
 | A3 Session UX: splash loading + redirect affidabile post-login web | alta | AuthContext | S | Login → Home senza flicker; refresh mantiene sessione |
 | A4 Error banner + empty/offline già presenti: checklist su ogni tab | alta | Home pattern | S | Ogni tab ha empty/error/loading verificati |

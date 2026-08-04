@@ -12,16 +12,22 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import * as WebBrowser from 'expo-web-browser';
-import * as Linking from 'expo-linking';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 
 import { tokens } from '@/src/theme/tokens';
 import { api } from '@/src/api/client';
 import { useAuth } from '@/src/contexts/AuthContext';
+import {
+  googleConfiguredForPlatform,
+  appleConfiguredForPlatform,
+  notConfiguredMessage,
+} from '@/src/auth/providersConfig';
+import { useGoogleAuthRequest, promptGoogleSignIn } from '@/src/auth/googleSignIn';
+import { signInWithApple, isAppleNativeAvailable } from '@/src/auth/appleSignIn';
 
 type Mode = 'buttons' | 'email';
+type Busy = 'google' | 'apple' | 'email' | null;
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -31,56 +37,102 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
-  const [busy, setBusy] = useState<'google' | 'email' | null>(null);
+  const [busy, setBusy] = useState<Busy>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [appleNative, setAppleNative] = useState(false);
+  const [backendGoogle, setBackendGoogle] = useState<boolean | null>(null);
+  const [backendApple, setBackendApple] = useState<boolean | null>(null);
+
+  const [googleRequest, , googlePrompt] = useGoogleAuthRequest();
 
   useEffect(() => {
     if (!loading && user) router.replace('/(tabs)');
   }, [loading, user, router]);
 
-  // Handle web session_id from URL fragment/query (Emergent OAuth web return)
   useEffect(() => {
-    if (Platform.OS !== 'web') return;
-    // eslint-disable-next-line no-undef
-    const win: any = typeof window !== 'undefined' ? window : null;
-    if (!win) return;
-    const parseSession = (): string | null => {
-      const hash: string = win.location?.hash || '';
-      const search: string = win.location?.search || '';
-      const m1 = hash.match(/session_id=([^&]+)/);
-      if (m1) return decodeURIComponent(m1[1]);
-      const m2 = search.match(/session_id=([^&]+)/);
-      if (m2) return decodeURIComponent(m2[1]);
-      return null;
-    };
-    const sid = parseSession();
-    if (!sid) return;
-    (async () => {
-      try {
-        setBusy('google');
-        const auth = await api.googleSession(sid);
-        await signIn(auth.token, auth.user);
-        // clean URL
-        win.history.replaceState(null, '', win.location.pathname);
-        router.replace('/(tabs)');
-      } catch (e: any) {
-        setErr(e.message || 'Google sign-in failed');
-      } finally {
-        setBusy(null);
-      }
-    })();
-  }, [signIn, router]);
+    isAppleNativeAvailable().then(setAppleNative).catch(() => setAppleNative(false));
+    api.authProviders()
+      .then((s) => {
+        setBackendGoogle(!!s.google?.configured);
+        setBackendApple(!!s.apple?.configured);
+      })
+      .catch(() => {
+        setBackendGoogle(null);
+        setBackendApple(null);
+      });
+  }, []);
+
+  const googleReady = googleConfiguredForPlatform() && backendGoogle !== false;
+  const appleReady =
+    Platform.OS === 'ios'
+      ? appleNative || appleConfiguredForPlatform()
+      : appleConfiguredForPlatform() && backendApple !== false;
 
   const handleGoogle = async () => {
-    // Local Cursor builds do not use the Emergent Google bridge by default.
-    // Keep the button, but be honest: email/password is the supported path.
+    if (busy) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setErr(
-      'Login Google non configurato in locale (integrazione Emergent disabilitata). Usa Continua con Email.'
-    );
+    setErr(null);
+    if (!googleConfiguredForPlatform()) {
+      setErr(notConfiguredMessage());
+      return;
+    }
+    if (backendGoogle === false) {
+      setErr(notConfiguredMessage());
+      return;
+    }
+    if (!googleRequest) {
+      setErr(notConfiguredMessage());
+      return;
+    }
+    try {
+      setBusy('google');
+      const res = await promptGoogleSignIn(googlePrompt);
+      if (!res.ok) {
+        if (!res.cancelled) setErr(res.error);
+        return;
+      }
+      const auth = await api.authGoogle(res.idToken, res.nonce);
+      await signIn(auth.token, auth.user);
+      router.replace('/(tabs)');
+    } catch (e: any) {
+      setErr(e.message || 'Errore Google');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleApple = async () => {
+    if (busy) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setErr(null);
+    if (!appleReady) {
+      setErr(notConfiguredMessage());
+      return;
+    }
+    try {
+      setBusy('apple');
+      const res = await signInWithApple();
+      if (!res.ok) {
+        if (!res.cancelled) setErr(res.error);
+        return;
+      }
+      const auth = await api.authApple({
+        id_token: res.idToken,
+        nonce: res.nonce,
+        email: res.email,
+        full_name: res.fullName,
+      });
+      await signIn(auth.token, auth.user);
+      router.replace('/(tabs)');
+    } catch (e: any) {
+      setErr(e.message || 'Errore Apple');
+    } finally {
+      setBusy(null);
+    }
   };
 
   const handleEmail = async () => {
+    if (busy) return;
     setErr(null);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (!email || !password) {
@@ -89,7 +141,9 @@ export default function LoginScreen() {
     }
     try {
       setBusy('email');
-      const auth = isRegister ? await api.register(email, password, name || undefined) : await api.login(email, password);
+      const auth = isRegister
+        ? await api.register(email, password, name || undefined)
+        : await api.login(email, password);
       await signIn(auth.token, auth.user);
       router.replace('/(tabs)');
     } catch (e: any) {
@@ -98,6 +152,8 @@ export default function LoginScreen() {
       setBusy(null);
     }
   };
+
+  const showAppleButton = Platform.OS === 'ios' || appleConfiguredForPlatform();
 
   return (
     <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
@@ -110,7 +166,6 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Top: identity */}
           <View style={styles.identity}>
             <Text style={styles.title} testID="login-title">ORA</Text>
             <Text style={styles.tagline}>Il sistema operativo{'\n'}della tua vita.</Text>
@@ -118,23 +173,39 @@ export default function LoginScreen() {
 
           <View style={{ flex: 1 }} />
 
-          {/* Bottom: actions */}
           <View style={styles.actions}>
             {mode === 'buttons' && (
               <>
-                <Pressable
-                  testID="login-apple-button"
-                  style={({ pressed }) => [styles.btnLight, pressed && styles.pressed]}
-                  onPress={() => setErr('Login Apple in arrivo. Usa Google o Email.')}
-                >
-                  <Ionicons name="logo-apple" size={20} color={tokens.color.onBrand} />
-                  <Text style={styles.btnLightText}>Continua con Apple</Text>
-                </Pressable>
+                {showAppleButton ? (
+                  <Pressable
+                    testID="login-apple-button"
+                    disabled={!!busy}
+                    style={({ pressed }) => [
+                      styles.btnLight,
+                      (!appleReady || !!busy) && styles.btnDisabled,
+                      pressed && styles.pressed,
+                    ]}
+                    onPress={handleApple}
+                  >
+                    {busy === 'apple' ? (
+                      <ActivityIndicator color={tokens.color.onBrand} />
+                    ) : (
+                      <>
+                        <Ionicons name="logo-apple" size={20} color={tokens.color.onBrand} />
+                        <Text style={styles.btnLightText}>Continua con Apple</Text>
+                      </>
+                    )}
+                  </Pressable>
+                ) : null}
 
                 <Pressable
                   testID="login-google-button"
-                  disabled={busy === 'google'}
-                  style={({ pressed }) => [styles.btnDark, pressed && styles.pressed]}
+                  disabled={!!busy}
+                  style={({ pressed }) => [
+                    styles.btnDark,
+                    (!googleReady || !!busy) && styles.btnDisabled,
+                    pressed && styles.pressed,
+                  ]}
                   onPress={handleGoogle}
                 >
                   {busy === 'google' ? (
@@ -149,6 +220,7 @@ export default function LoginScreen() {
 
                 <Pressable
                   testID="login-email-button"
+                  disabled={!!busy}
                   style={({ pressed }) => [styles.btnGhost, pressed && styles.pressed]}
                   onPress={() => setMode('email')}
                 >
@@ -271,6 +343,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: tokens.spacing.sm,
   },
+  btnDisabled: { opacity: 0.55 },
   btnDarkText: { color: tokens.color.onSurface, fontSize: tokens.fs.lg, fontWeight: '500' },
   pressed: { opacity: 0.6 },
   form: { gap: tokens.spacing.md },

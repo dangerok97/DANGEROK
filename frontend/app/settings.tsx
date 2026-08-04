@@ -8,11 +8,14 @@ import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 
 import { tokens } from '@/src/theme/tokens';
-import { api, ConnectorInstance, AppleCalendarConfigStatus } from '@/src/api/client';
+import { api, ConnectorInstance, AppleCalendarConfigStatus, AuthIdentitiesResponse } from '@/src/api/client';
 import { humanizeError } from '@/src/utils/errors';
 import { haptic } from '@/src/utils/haptic';
 import { ActionBtn } from '@/src/components/ui/ActionBtn';
 import { formatRelativeAgo } from '@/src/utils/labels';
+import { useGoogleAuthRequest, promptGoogleSignIn } from '@/src/auth/googleSignIn';
+import { signInWithApple } from '@/src/auth/appleSignIn';
+import { googleConfiguredForPlatform, appleConfiguredForPlatform, notConfiguredMessage } from '@/src/auth/providersConfig';
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -20,28 +23,32 @@ export default function SettingsScreen() {
   const [instance, setInstance] = useState<ConnectorInstance | null>(null);
   const [appleConfig, setAppleConfig] = useState<AppleCalendarConfigStatus | null>(null);
   const [appleInstance, setAppleInstance] = useState<ConnectorInstance | null>(null);
+  const [identities, setIdentities] = useState<AuthIdentitiesResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirmRevoke, setConfirmRevoke] = useState(false);
   const [confirmAppleRevoke, setConfirmAppleRevoke] = useState(false);
   const [eventsCount, setEventsCount] = useState<number | null>(null);
+  const [googleRequest, , googlePrompt] = useGoogleAuthRequest();
 
   const load = useCallback(async () => {
     setError(null);
     try {
-      const [r, daily, aConfig, aInstances] = await Promise.all([
+      const [r, daily, aConfig, aInstances, idents] = await Promise.all([
         api.googleCalendarInstances(),
         api.dailyToday().catch(() => null),
         // Only iOS shows Apple settings — but we still fetch config to
         // learn the feature-flag state (nothing shown if disabled).
         Platform.OS === 'ios' ? api.appleCalendarConfig().catch(() => null) : Promise.resolve(null),
         Platform.OS === 'ios' ? api.appleCalendarInstances().catch(() => ({ items: [] as ConnectorInstance[] })) : Promise.resolve({ items: [] as ConnectorInstance[] }),
+        api.authIdentities().catch(() => null),
       ]);
       setInstance((r.items || [])[0] || null);
       setEventsCount(daily?.total_events ?? null);
       setAppleConfig(aConfig);
       setAppleInstance((aInstances?.items || [])[0] || null);
+      setIdentities(idents);
     } catch (e: any) {
       setError(humanizeError(e));
     } finally {
@@ -123,7 +130,108 @@ export default function SettingsScreen() {
         contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 24, gap: 16 }}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.sectionLabel}>Account collegati</Text>
+        <Text style={styles.sectionLabel}>Metodi di accesso</Text>
+        {identities ? (
+          <View style={styles.card} testID="settings-auth-methods">
+            <AuthMethodRow
+              label="Email"
+              linked={identities.methods.password.linked}
+              detail={identities.methods.password.email || identities.email}
+            />
+            <AuthMethodRow
+              label="Google"
+              linked={identities.methods.google.linked}
+              detail={identities.methods.google.email}
+              actionLabel={identities.methods.google.linked ? (identities.can_unlink.google ? 'Scollega' : undefined) : 'Collega'}
+              busy={busy === 'link_google' || busy === 'unlink_google'}
+              onAction={async () => {
+                if (identities.methods.google.linked) {
+                  if (!identities.can_unlink.google) {
+                    setError('Non puoi scollegare l’unico metodo di accesso.');
+                    return;
+                  }
+                  haptic('warning');
+                  setBusy('unlink_google');
+                  try {
+                    await api.unlinkProvider('google');
+                    await load();
+                  } catch (e: any) {
+                    setError(humanizeError(e));
+                  } finally {
+                    setBusy(null);
+                  }
+                  return;
+                }
+                if (!googleConfiguredForPlatform() || !googleRequest) {
+                  setError(notConfiguredMessage());
+                  return;
+                }
+                haptic('tap');
+                setBusy('link_google');
+                try {
+                  const res = await promptGoogleSignIn(googlePrompt);
+                  if (!res.ok) {
+                    if (!res.cancelled) setError(res.error);
+                    return;
+                  }
+                  await api.linkGoogle(res.idToken, res.nonce);
+                  await load();
+                } catch (e: any) {
+                  setError(humanizeError(e));
+                } finally {
+                  setBusy(null);
+                }
+              }}
+            />
+            <AuthMethodRow
+              label="Apple"
+              linked={identities.methods.apple.linked}
+              detail={identities.methods.apple.email}
+              actionLabel={
+                identities.methods.apple.linked
+                  ? (identities.can_unlink.apple ? 'Scollega' : undefined)
+                  : (Platform.OS === 'ios' || appleConfiguredForPlatform() ? 'Collega' : undefined)
+              }
+              busy={busy === 'link_apple' || busy === 'unlink_apple'}
+              onAction={async () => {
+                if (identities.methods.apple.linked) {
+                  if (!identities.can_unlink.apple) {
+                    setError('Non puoi scollegare l’unico metodo di accesso.');
+                    return;
+                  }
+                  haptic('warning');
+                  setBusy('unlink_apple');
+                  try {
+                    await api.unlinkProvider('apple');
+                    await load();
+                  } catch (e: any) {
+                    setError(humanizeError(e));
+                  } finally {
+                    setBusy(null);
+                  }
+                  return;
+                }
+                haptic('tap');
+                setBusy('link_apple');
+                try {
+                  const res = await signInWithApple();
+                  if (!res.ok) {
+                    if (!res.cancelled) setError(res.error);
+                    return;
+                  }
+                  await api.linkApple({ id_token: res.idToken, nonce: res.nonce });
+                  await load();
+                } catch (e: any) {
+                  setError(humanizeError(e));
+                } finally {
+                  setBusy(null);
+                }
+              }}
+            />
+          </View>
+        ) : null}
+
+        <Text style={styles.sectionLabel}>Calendari collegati</Text>
 
         {loading ? (
           <View style={{ padding: 24, alignItems: 'center' }}>
@@ -369,6 +477,45 @@ function AppleCalendarSection({
   );
 }
 
+function AuthMethodRow({
+  label, linked, detail, actionLabel, onAction, busy,
+}: {
+  label: string;
+  linked: boolean;
+  detail?: string | null;
+  actionLabel?: string;
+  onAction?: () => void;
+  busy?: boolean;
+}) {
+  return (
+    <View style={styles.authRow} testID={`auth-method-${label.toLowerCase()}`}>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.cardTitle}>{label}</Text>
+        <Text style={styles.cardMeta}>
+          {linked ? (detail || 'Collegato') : 'Non collegato'}
+        </Text>
+      </View>
+      <View style={styles.statusPill}>
+        <View style={[styles.statusDot, !linked && { backgroundColor: tokens.color.onSurfaceMuted }]} />
+        <Text style={styles.statusText}>{linked ? 'Collegato' : 'Assente'}</Text>
+      </View>
+      {actionLabel && onAction ? (
+        <Pressable
+          onPress={onAction}
+          disabled={busy}
+          style={({ pressed }) => [{ marginLeft: 8, paddingVertical: 6, paddingHorizontal: 8 }, pressed && styles.pressed]}
+        >
+          {busy ? (
+            <ActivityIndicator color={tokens.color.onSurfaceMuted} />
+          ) : (
+            <Text style={{ color: tokens.color.brand, fontWeight: '600', fontSize: 13 }}>{actionLabel}</Text>
+          )}
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
 function MetaItem({ label, value }: { label: string; value: string }) {
   return (
     <View style={styles.metaBox} accessible accessibilityLabel={`${label}: ${value}`}>
@@ -399,6 +546,12 @@ const styles = StyleSheet.create({
     padding: tokens.spacing.lg,
     gap: 12,
     borderWidth: 1, borderColor: tokens.color.border,
+  },
+  authRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: tokens.color.border,
   },
   cardHead: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   iconWrap: {

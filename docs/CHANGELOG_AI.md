@@ -1,5 +1,32 @@
 # ORA — AI Changelog
 
+## 2026-08-04 — Unified Google and Apple authentication
+
+### Request
+
+Consolidare autenticazione sociale (Google, Apple, email) con identità unica ORA, verifica backend, linking sicuro.
+
+### Actions
+
+- Branch `feature/social-auth`
+- Package `backend/social_auth/` (JWKS verify, identities, link/unlink, migrate password)
+- Endpoint `/api/auth/google|apple|link/*|identities|providers`
+- FE: expo-auth-session / apple-authentication; login + settings metodi di accesso
+- Docs `SOCIAL_AUTH_*`; env examples; gitignore `.p8`
+- Legacy Emergent `google-session` resta gated
+
+### Tests
+
+- pytest social + smoke: 19 passed (mock claims; non prove reali provider)
+- tsc OK
+- Real Google/Apple E2E: bloccati da credenziali
+
+### Result
+
+Codice completato; verifica reale provider in attesa secret utente.
+
+---
+
 ## 2026-08-04 — Documents UI alignment + verified workflow
 
 ### Request

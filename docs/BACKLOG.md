@@ -120,10 +120,18 @@ Attività piccole e verificabili derivate da `docs/ROADMAP.md` e dall’audit.
 
 ## BACKLOG-012 — Google Login senza Emergent
 
+- **Stato:** codice completato su `feature/social-auth`; **verifica reale bloccata da credenziali**
 - **Obiettivo:** sostituire bridge Emergent con OAuth Google Identity.
-- **Aree:** `auth.py`, login.tsx, env.
+- **Aree:** `backend/social_auth`, `auth.py`, login.tsx, env.
 - **Accettazione:** login Google funziona in locale/staging senza `auth.emergentagent.com`.
-- **Test:** E2E login.
+- **Test:** mock OK; E2E reale dopo `GOOGLE_WEB_CLIENT_ID`.
 - **Dipendenze:** Google Cloud OAuth web client.
 - **Rischi:** alto (sessione, redirect).
-- **Priorità:** media.
+- **Priorità:** critica (prossimo passo: credenziali).
+
+## BACKLOG-013 — Apple Sign-In reale (web e/o iOS)
+
+- **Stato:** codice completato; verifica reale bloccata da credenziali / device
+- **Obiettivo:** Sign in with Apple verificato almeno su web o iOS nativo.
+- **Dipendenze:** Apple Developer (Services ID, key `.p8`, capability).
+- **Priorità:** critica.

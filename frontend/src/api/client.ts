@@ -56,6 +56,28 @@ export type ApiUser = {
 
 export type ApiAuth = { token: string; user: ApiUser };
 
+export type AuthProvidersStatus = {
+  google: { configured: boolean; platforms: Record<string, boolean>; legacy_emergent?: boolean };
+  apple: {
+    configured: boolean;
+    platforms: Record<string, boolean>;
+    web_secret_ready?: boolean;
+  };
+  password: { configured: boolean };
+};
+
+export type AuthIdentitiesResponse = {
+  user_id: string;
+  email?: string;
+  methods: {
+    password: { linked: boolean; email?: string | null };
+    google: { linked: boolean; email?: string | null };
+    apple: { linked: boolean; email?: string | null };
+  };
+  identities: Array<Record<string, unknown>>;
+  can_unlink: { google: boolean; apple: boolean };
+};
+
 export type ApiTask = {
   id: string;
   user_id: string;
@@ -88,6 +110,53 @@ export const api = {
 
   googleSession: (session_token: string) =>
     request<ApiAuth>('/auth/google-session', { method: 'POST', body: JSON.stringify({ session_token }) }, false),
+
+  authProviders: () =>
+    request<AuthProvidersStatus>('/auth/providers', {}, false),
+
+  authGoogle: (id_token: string, nonce?: string) =>
+    request<ApiAuth>(
+      '/auth/google',
+      { method: 'POST', body: JSON.stringify({ id_token, nonce }) },
+      false,
+    ),
+
+  authApple: (payload: {
+    id_token: string;
+    nonce?: string;
+    email?: string | null;
+    full_name?: { givenName?: string | null; familyName?: string | null } | null;
+  }) =>
+    request<ApiAuth>(
+      '/auth/apple',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          id_token: payload.id_token,
+          nonce: payload.nonce,
+          email: payload.email,
+          full_name: payload.full_name,
+        }),
+      },
+      false,
+    ),
+
+  linkGoogle: (id_token: string, nonce?: string) =>
+    request<{ ok: boolean }>('/auth/link/google', {
+      method: 'POST',
+      body: JSON.stringify({ id_token, nonce }),
+    }),
+
+  linkApple: (payload: { id_token: string; nonce?: string }) =>
+    request<{ ok: boolean }>('/auth/link/apple', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  unlinkProvider: (provider: 'google' | 'apple') =>
+    request<{ ok: boolean }>(`/auth/link/${provider}`, { method: 'DELETE' }),
+
+  authIdentities: () => request<AuthIdentitiesResponse>('/auth/identities'),
 
   me: () => request<ApiUser>('/auth/me'),
 
