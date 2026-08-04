@@ -7,7 +7,7 @@
 | Mobile/Web client | Expo 54, React Native, TypeScript, expo-router |
 | API | FastAPI + Uvicorn |
 | DB | MongoDB via Motor |
-| Auth | JWT (HS256) + bcrypt; Google Emergent bridge **optional** (`EMERGENT_GOOGLE_AUTH`) |
+| Auth | JWT ORA (HS256) + bcrypt; Google/Apple ID-token verify (`backend/social_auth/`); Emergent bridge legacy optional |
 | LLM | Provider adapter `backend/llm/` — `none` / `openai` / `emergent` (not required at boot) |
 | Design tokens | `design_guidelines.json`, `frontend/src/theme/tokens.ts` |
 | Local deps | `backend/requirements-local.txt` (Emergent CDN packages excluded) |
@@ -33,14 +33,16 @@ backend/
   behavior_aware_decisions/
   explainability/
   action_center/
+  social_auth/           # Google/Apple verify, identities, linking
   security/              # token vault
   tests/                 # pytest
 frontend/
   app/                   # expo-router screens
   src/api/client.ts      # HTTP client
+  src/auth/              # Google/Apple client helpers
   src/components/        # UI
   src/theme/tokens.ts
-docs/                    # living engineering docs
+docs/                    # living engineering docs (+ SOCIAL_AUTH_*)
 scripts/                 # local automation
 .emergent/               # legacy Emergent runtime (non-portable)
 .cursor/                 # Cursor autonomy rules/agents/hooks

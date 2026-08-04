@@ -1,74 +1,50 @@
 # ORA — Development State
 
-Last updated: 2026-08-04 (documents UI alignment + verified workflow)
+Last updated: 2026-08-04 (unified Google/Apple auth implementation)
 
-See also: `docs/FUNCTIONAL_AUDIT.md`, `docs/ROADMAP.md`, `docs/BACKLOG.md`, `docs/DOCUMENTS_VERIFICATION.md`.
+See also: `docs/SOCIAL_AUTH_ARCHITECTURE.md`, `docs/SOCIAL_AUTH_SETUP.md`, `docs/SOCIAL_AUTH_VERIFICATION.md`.
 
 ## Branch
 
-- Base: `ora/cursor-platform`
-- Feature (local, no push): `feature/documents-ui-alignment`
-- Prior commits on platform: scaffold + Emergent isolation + functional audit docs
+- Feature (local, no push): `feature/social-auth` (from documents commit on `ora/cursor-platform` lineage)
+- Prior: `feature/documents-ui-alignment` → documents workflow verified
 
 ## Environment (verified on this machine)
 
 | Tool | Status |
 |------|--------|
-| Windows 10/11 | OK |
-| Python 3.12.10 | Installed |
-| Node v24 / npm 11 | OK |
-| MongoDB Server 8.x service | Running (`MongoDB`) |
-| Docker | Not installed (compose file provided for later) |
-| Yarn | Not required (npm used) |
+| Windows | OK |
+| Python 3.12 + venv | OK |
+| Node / npm | OK |
+| MongoDB service | OK |
+| Backend `:8000` | OK |
+| Expo web `:8081` | OK (when Metro running) |
 
-## Operative locally (verified)
+## Auth status
 
-- Backend uvicorn on `127.0.0.1:8000`
-- MongoDB ping + health `database.ok=true`
-- `GET /api/` → `{app:ORA,status:ok}`
-- `GET /api/health` → app/db/llm/integrations status (no secrets)
-- Email register/login against live API
-- Google session returns 503 when Emergent bridge off
-- Expo Metro web on `127.0.0.1:8081`
-- Documents: upload / list / detail / user isolation / empty list / invalid MIME / 404 (pytest + HTTP)
-- Documents UI labels: Profilo + Aggiungi allineati; empty state web verificato
-- `tests/test_local_smoke.py` + `tests/test_documents_local.py` — 11 passed (`-n 0`)
-- Frontend `tsc --noEmit` OK
-- `expo lint` — 0 errors (warnings preesistenti)
+| Method | Code | Mock/unit tests | Real provider E2E |
+|--------|------|-----------------|-------------------|
+| Email/password | operativo | pass | pass (locale) |
+| Google ID token | implementato | pass (claims mock) | **bloccato da credenziali** |
+| Apple ID token | implementato | pass (claims mock) | **bloccato da credenziali** |
+| iOS / Android native | codice + plugins | — | **non verificato su device** |
 
-## Incomplete / needs credentials
+## Tests (latest)
 
-| Feature | Status |
-|---------|--------|
-| LLM resolve / memory ask | Needs `LLM_PROVIDER=openai` + `OPENAI_API_KEY` (or Emergent provider) |
-| Google login | Needs first-party OAuth or `EMERGENT_GOOGLE_AUTH=1` + Emergent bridge |
-| Google Calendar sync | Needs `GOOGLE_OAUTH_CLIENT_ID/SECRET/REDIRECT_URI` |
-| Apple Sign-In | UI placeholder |
-| Native iOS/Android device run | Not verified in this session (web only) |
+- `pytest tests/test_social_auth_unit.py tests/test_local_smoke.py` — 19 passed
+- `tsc --noEmit` — OK
+- `GET /api/auth/providers` — OK (`google/apple.configured=false` senza env)
 
-## Documents storage (local)
+## Credenziali ancora necessarie
 
-- Path: `backend/data/documents/<user_id>/…` (gitignored)
-- Max size: 25 MB default
-- No cloud storage in this phase
+Vedi `docs/SOCIAL_AUTH_SETUP.md`:
 
-## Emergent isolation summary
+- `GOOGLE_WEB_CLIENT_ID` (+ iOS/Android) e mirror `EXPO_PUBLIC_GOOGLE_*`
+- Apple Team/Key/Services ID + `.p8` path; `EXPO_PUBLIC_APPLE_SERVICE_ID` per web
 
-- Boot no longer requires `EMERGENT_LLM_KEY`
-- LLM behind `backend/llm/provider.py`
-- Local deps: `backend/requirements-local.txt` (no Emergent CDN wheel)
-- Google login gated; FE shows explicit “non configurato”
-- cmd-guard: `node` preinstall + `ORA_SKIP_CMD_GUARD=1`
+## Priorities next
 
-## URLs used
-
-- Backend: `http://127.0.0.1:8000`
-- Frontend web: `http://127.0.0.1:8081`
-- LAN hint for phones: `192.168.0.123` (machine-specific; see `frontend/.env` `EXPO_PUBLIC_LAN_IP`)
-
-## Priorities
-
-1. BACKLOG-003 — messaggi UI quando LLM assente
-2. BACKLOG-004 — E2E Decision complete/postpone in UI
-3. Optional: OpenAI key / Google OAuth locale
-4. Verify mobile emulator/device separately
+1. Fornire credenziali Google Web → verifica reale browser
+2. Fornire Apple Services ID / key → verifica web o iOS build
+3. BACKLOG-003 LLM UX messages
+4. Non iniziare Attività/Promemoria finché social auth non è verificata dove possibile

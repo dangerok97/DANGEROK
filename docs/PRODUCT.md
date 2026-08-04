@@ -1,6 +1,6 @@
 # ORA — Product (struttura reale)
 
-Ultimo aggiornamento: 2026-08-04 — audit funzionale locale (web + API).
+Ultimo aggiornamento: 2026-08-04 — social auth unificata (Google/Apple/email).
 
 ## Vision
 
@@ -30,13 +30,14 @@ Persone che vogliono una priorità unica chiara (non un task manager generico), 
 
 ### 1. Autenticazione
 
-- **Scopo:** accedere e mantenere sessione JWT.
-- **Stato:** email register/login/logout/me **operativi** (verificati HTTP + UI sessione web).
-- **Flusso:** Login → email → register/login → token in storage → tab Home.
-- **Backend:** `/api/auth/*`.
-- **DB:** `users`.
-- **Esterni:** Google via Emergent (**bloccato**, off di default); Apple (**solo UI**).
-- **Aperti:** OAuth Google first-party; Apple Sign-In; hardening sessioni (refresh/revoca server-side).
+- **Scopo:** una sola identità ORA (JWT) per email, Google e Apple.
+- **Stato:** email **operativa**; Google/Apple **implementati** (verifica ID token backend + identity store); **verifica reale provider bloccata da credenziali**.
+- **Flusso:** FE ottiene ID token → backend verifica JWKS → `user_identities` → JWT ORA.
+- **Backend:** `/api/auth/register|login|google|apple|link/*|identities|providers|me|logout`.
+- **DB:** `users` + `user_identities`.
+- **Esterni:** Google Cloud OAuth clients; Apple Sign In (App ID / Services ID / key). Legacy Emergent opzionale.
+- **Docs:** `docs/SOCIAL_AUTH_*.md`.
+- **Aperti:** credenziali reali; device iOS/Android; revoca JWT server-side.
 
 ### 2. Decision Engine / “Cosa conta adesso”
 

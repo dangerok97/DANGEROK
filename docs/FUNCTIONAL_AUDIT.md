@@ -22,7 +22,7 @@ Branch: `ora/cursor-platform`
 
 | Elemento | Stato | Note verifica |
 |----------|-------|---------------|
-| `/login` | parzialmente operativo | Email OK; Google messaggio non-config; Apple “in arrivo” |
+| `/login` | parzialmente operativo | Email OK; Google/Apple codice pronto, UI “non configurata” senza client ID (non mock) |
 | Home `/(tabs)` | operativo | Decisioni seed, daily, CTA Google, azioni UI presenti |
 | Memoria | parzialmente operativo | UI + add/list OK; ask serve LLM |
 | Documenti | operativo (web) | Empty + upload/list/detail/persistenza verificati 2026-08-04; vedi `docs/DOCUMENTS_VERIFICATION.md` |
@@ -43,8 +43,9 @@ Branch: `ora/cursor-platform`
 | Auth | Logout | profilo | POST /auth/logout | — | HTTP | operativo | logout server non invalida JWT | alta | blacklist/TTL docs |
 | Auth | Me / sessione | AuthContext | GET /auth/me | users | HTTP+UI | operativo | storage web AsyncStorage | critica | — |
 | Auth | Validazione credenziali | login form | 401/409 | users | HTTP | operativo | — | alta | — |
-| Auth | Google login | login button | google-session | users | HTTP 503 | bloccato da credenziali | Emergent off | media | OAuth first-party |
-| Auth | Apple login | button | — | — | UI | soltanto UI | non implementato | bassa | Sign in with Apple |
+| Auth | Google login | login + authGoogle | /auth/google | users+identities | mock+HTTP | bloccato da credenziali | manca GOOGLE_*_CLIENT_ID | critica | setup console |
+| Auth | Apple login | login + authApple | /auth/apple | users+identities | mock | bloccato da credenziali | manca Apple keys/Services ID | critica | setup Apple |
+| Auth | Identities / link | settings | /auth/identities|link | user_identities | HTTP email | operativo (email path) | social link senza credenziali | alta | — |
 | Decisions | Top / seed | Home | /decisions/top | decisions | HTTP+UI | operativo | — | critica | — |
 | Decisions | Azioni (start/…) | sheets | /decisions/{id}/* | decisions, history | HTTP start/history | operativo | non tutte le azioni cliccate in UI | alta | E2E UI azioni |
 | Decisions | Explanation | Perché adesso | /explanation | — | HTTP 200 | operativo | — | media | — |
