@@ -91,6 +91,22 @@ async def login(body: LoginIn):
 
 @router.post("/google-session", response_model=AuthOut)
 async def google_session(body: GoogleSessionIn):
+    """Google login via Emergent session bridge (optional / legacy).
+
+    Disabled unless EMERGENT_GOOGLE_AUTH=1. Local email/password auth is
+    the supported path without Emergent.
+    """
+    import os
+
+    if os.environ.get("EMERGENT_GOOGLE_AUTH", "0").lower() not in ("1", "true", "yes"):
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Login Google non configurato in ambiente locale. "
+                "Usa email/password, oppure imposta EMERGENT_GOOGLE_AUTH=1 "
+                "se disponi del bridge Emergent."
+            ),
+        )
     async with httpx.AsyncClient(timeout=15) as h:
         r = await h.get(
             "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data",

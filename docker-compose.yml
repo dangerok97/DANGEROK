@@ -1,0 +1,14 @@
+# Optional local MongoDB when Docker is available.
+# Usage: docker compose up -d
+services:
+  mongo:
+    image: mongo:7
+    container_name: ora-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - ora_mongo_data:/data/db
+    restart: unless-stopped
+
+volumes:
+  ora_mongo_data:

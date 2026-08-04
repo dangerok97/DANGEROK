@@ -33,6 +33,45 @@ async def root():
     return {"app": "ORA", "status": "ok"}
 
 
+@api.get("/health")
+async def health():
+    """Minimal non-sensitive health check for local / CI verification."""
+    import os
+    from llm import llm_status
+
+    db_ok = False
+    try:
+        await client.admin.command("ping")
+        db_ok = True
+    except Exception:
+        db_ok = False
+
+    llm = llm_status()
+    google_oauth = all(
+        (os.environ.get(k) or "").strip()
+        for k in (
+            "GOOGLE_OAUTH_CLIENT_ID",
+            "GOOGLE_OAUTH_CLIENT_SECRET",
+            "GOOGLE_OAUTH_REDIRECT_URI",
+        )
+    )
+    return {
+        "app": "ORA",
+        "status": "ok" if db_ok else "degraded",
+        "environment": os.environ.get("ENVIRONMENT", "development"),
+        "database": {"ok": db_ok, "name": os.environ.get("DB_NAME", "")},
+        "llm": {
+            "provider": llm.get("provider"),
+            "configured": bool(llm.get("configured")),
+        },
+        "integrations": {
+            "google_oauth_configured": google_oauth,
+            "emergent_google_auth": os.environ.get("EMERGENT_GOOGLE_AUTH", "0").lower()
+            in ("1", "true", "yes"),
+        },
+    }
+
+
 # Mount every domain router under /api.
 for r in ALL_ROUTERS:
     api.include_router(r)

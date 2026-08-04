@@ -1,46 +1,55 @@
 # ORA — AI Changelog
 
+## 2026-08-04 — Verified local development without Emergent
+
+### Request
+
+First verified local boot of ORA; isolate Emergent blockers; commit platform + fix.
+
+### Actions
+
+- Commit 1: Cursor autonomous platform scaffold
+- Installed Python 3.12 + MongoDB Server via winget
+- Added `backend/requirements-local.txt` (no Emergent packages)
+- LLM adapter `backend/llm/` (`none`/`openai`/`emergent`)
+- Made `EMERGENT_LLM_KEY` optional at boot
+- Added `GET /api/health`
+- Gated Emergent Google login (`EMERGENT_GOOGLE_AUTH`)
+- Honest Google button message on FE
+- Fixed Windows `preinstall` (`node ./scripts/cmd-guard.js`)
+- cmd-guard skip via `ORA_SKIP_CMD_GUARD`
+- Local `.env` files (gitignored) with generated JWT
+- Smoke tests `tests/test_local_smoke.py`
+- Fixed `tokens.color.danger` → `error`
+- docker-compose.yml for optional Mongo
+- Docs/README updated
+
+### Tests
+
+- `pytest tests/test_local_smoke.py -n 0` → **5 passed**
+- Live HTTP: `/api/`, `/api/health`, register, google-session 503
+- `tsc --noEmit` → OK
+- `compileall` → OK
+- Expo web: Metro bundled, HTTP 200 on `:8081`
+
+### Result
+
+Local backend + Mongo + Expo web verified without Emergent runtime.
+
+### Open issues
+
+- AI features need an LLM API key
+- Google login/calendar need OAuth credentials
+- Mobile native not verified this session
+
+---
+
 ## 2026-08-04 — Cursor autonomous platform bootstrap
 
 ### Request
 
-Configure the repository so Cursor works as an Emergent-like autonomous development platform for ORA; start from analysis, then create automation files without rewriting the app.
-
-### Actions
-
-- Cloned/analyzed remote; discovered real code on `conflict_040826_1759` (not `master`)
-- Created branch `ora/cursor-platform` tracking that code
-- Added AGENTS.md, `.cursor/rules`, `.cursor/agents`, `.cursor/hooks`
-- Added living docs under `docs/`
-- Added `scripts/setup|dev|test|verify|build` (`.ps1` + `.sh`)
-- Added `backend/.env.example` and `frontend/.env.example`
-- Updated root `README.md` for local Cursor workflow
-
-### Files touched (platform only)
-
-- `AGENTS.md`
-- `.cursor/**`
-- `docs/PRODUCT.md`, `docs/ARCHITECTURE.md`, `docs/DEVELOPMENT_STATE.md`, `docs/CHANGELOG_AI.md`
-- `scripts/**`
-- `backend/.env.example`, `frontend/.env.example`
-- `README.md`
-- `.gitignore` (hook log ignore)
-
-### Tests run
-
-- Not run in this step (platform/docs only; no app behavior change intended)
-
-### Build
-
-- Not run in this step
+Configure Cursor as Emergent-like autonomous platform; analysis then automation files.
 
 ### Result
 
-- Cursor automation scaffold in place on branch with full ORA source
-- Application modules unchanged aside from env examples / docs / tooling
-
-### Open issues
-
-- Local install of Python deps may fail on Emergent-hosted `litellm` wheel
-- Google auth + LLM still Emergent-dependent
-- Full `scripts/setup` verification pending machine Mongo/Node/Python readiness
+`AGENTS.md`, `.cursor/*`, docs, scripts, env examples on `ora/cursor-platform`.

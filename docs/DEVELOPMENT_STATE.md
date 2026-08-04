@@ -1,80 +1,63 @@
 # ORA — Development State
 
-Last updated: 2026-08-04 (Cursor platform bootstrap)
+Last updated: 2026-08-04 (verified local boot without Emergent)
 
 ## Branch
 
-- Working branch: `ora/cursor-platform` (from `origin/conflict_040826_1759`)
-- `master` on origin still contains only the empty README — do not assume master has the app
+- Working branch: `ora/cursor-platform`
+- Commits: platform scaffold + local Emergent isolation
 
-## Operative (imported from Emergent)
+## Environment (verified on this machine)
 
-- Decision engine, life graph, knowledge, auto-link
-- Permissions, connectors framework
-- Google Calendar connector code paths
-- Documents pipeline + document actions (Iter 23)
-- Daily intelligence, explainability, action center
-- Behavioral intelligence modules (feature-flagged)
-- Email/password auth + JWT
-- Expo UI shells for home, memoria, documenti, profilo, calendars
+| Tool | Status |
+|------|--------|
+| Windows 10/11 | OK |
+| Python 3.12.10 | Installed |
+| Node v24 / npm 11 | OK |
+| MongoDB Server 8.x service | Running (`MongoDB`) |
+| Docker | Not installed (compose file provided for later) |
+| Yarn | Not required (npm used) |
 
-## Incomplete / blocked locally
+## Operative locally (verified)
 
-| Item | Why |
-|------|-----|
-| Google login | Depends on Emergent OAuth bridge |
-| LLM resolve / memory ask | Needs `EMERGENT_LLM_KEY` + `emergentintegrations` |
-| `pip install` full requirements | `litellm` wheel hosted on Emergent CDN |
-| Apple Sign-In | UI placeholder only |
-| Production deploy from Cursor | Not configured |
-| Frontend lockfile | No `yarn.lock` / `package-lock.json` in repo |
-| `.env` files | Not in git (expected); examples added |
+- Backend uvicorn on `127.0.0.1:8000`
+- MongoDB ping + health `database.ok=true`
+- `GET /api/` → `{app:ORA,status:ok}`
+- `GET /api/health` → app/db/llm/integrations status (no secrets)
+- Email register/login against live API
+- Google session returns 503 when Emergent bridge off
+- Expo Metro web on `127.0.0.1:8081` (HTML 200, bundle completed)
+- `tests/test_local_smoke.py` — 5 passed (`-n 0`)
+- Python `compileall` OK
+- Frontend `tsc --noEmit` OK after `tokens.color.error` fix
 
-## Bugs / risks
+## Incomplete / needs credentials
 
-- ~900+ binaries under `backend/data/documents/` may include user uploads — treat as sensitive; avoid spreading.
-- Many pytest “live smoke” tests default to Emergent preview URL.
-- `frontend/scripts/cmd-guard` may interfere with installs outside Emergent — watch preinstall failures.
+| Feature | Status |
+|---------|--------|
+| LLM resolve / memory ask | Needs `LLM_PROVIDER=openai` + `OPENAI_API_KEY` (or Emergent provider) |
+| Google login | Needs first-party OAuth or `EMERGENT_GOOGLE_AUTH=1` + Emergent bridge |
+| Google Calendar sync | Needs `GOOGLE_OAUTH_CLIENT_ID/SECRET/REDIRECT_URI` |
+| Apple Sign-In | UI placeholder |
+| Native iOS/Android device run | Not verified in this session (web only) |
 
-## Missing credentials (fill locally, never commit)
+## Emergent isolation summary
 
-Copy examples:
+- Boot no longer requires `EMERGENT_LLM_KEY`
+- LLM behind `backend/llm/provider.py`
+- Local deps: `backend/requirements-local.txt` (no Emergent CDN wheel)
+- Google login gated; FE shows explicit “non configurato”
+- cmd-guard: `node` preinstall + `ORA_SKIP_CMD_GUARD=1`
 
-- `backend/.env.example` → `backend/.env`
-- `frontend/.env.example` → `frontend/.env`
+## URLs used
 
-Required minimum for API boot:
+- Backend: `http://127.0.0.1:8000`
+- Frontend web: `http://127.0.0.1:8081`
+- LAN hint for phones: `192.168.0.123` (machine-specific; see `frontend/.env` `EXPO_PUBLIC_LAN_IP`)
 
-- `MONGO_URL`
-- `DB_NAME`
-- `JWT_SECRET`
-- `EMERGENT_LLM_KEY` (or later a portable LLM key after migration)
+## Priorities
 
-For Google Calendar:
-
-- `GOOGLE_OAUTH_CLIENT_ID`
-- `GOOGLE_OAUTH_CLIENT_SECRET`
-- `GOOGLE_OAUTH_REDIRECT_URI`
-
-For Expo:
-
-- `EXPO_PUBLIC_BACKEND_URL=http://localhost:8000`
-
-## Priorities (suggested)
-
-1. Finish local setup verification (`scripts/setup` → `scripts/dev` → health check)
-2. Make requirements installable offline (replace Emergent litellm URL)
-3. First-party Google OAuth for login (replace Emergent bridge)
-4. Portable LLM provider adapter behind the same service interface
-5. Add lockfile for frontend
-
-## Cursor automation
-
-Present:
-
-- `AGENTS.md`
-- `.cursor/rules/*`
-- `.cursor/agents/*`
-- `.cursor/hooks.json` + safety gate
-- `docs/*` living docs
-- `scripts/*` setup/dev/test/verify/build
+1. Optional: wire OpenAI key for AI features
+2. First-party Google OAuth for login
+3. Generate frontend lockfile (`package-lock.json` present after npm install — keep committed if desired)
+4. Verify mobile emulator/device separately
