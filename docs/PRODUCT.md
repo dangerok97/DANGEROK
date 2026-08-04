@@ -1,6 +1,6 @@
 # ORA — Product (struttura reale)
 
-Ultimo aggiornamento: 2026-08-04 — social auth unificata (Google/Apple/email).
+Ultimo aggiornamento: 2026-08-05 — documenti intelligenti (pipeline + azioni).
 
 ## Vision
 
@@ -65,11 +65,11 @@ Persone che vogliono una priorità unica chiara (non un task manager generico), 
 
 ### 5. Documenti
 
-- **Scopo:** upload, archiviazione, insights, azioni contestuali (copia IBAN, calendario, …).
-- **Stato:** lista/empty **operativi** (UI verificata); upload/insights **parziali** (API presenti, upload non rieseguito in questo audit web); OCR opzionale off.
-- **Backend:** `/api/documents/*`, `documents/`.
-- **DB:** collezioni documenti + storage file locale `backend/data/documents/`.
-- **Incoerenza UI:** in Profilo e Aggiungi “Documenti/Foto In arrivo” mentre il tab Documenti esiste.
+- **Scopo:** acquisire, comprendere e trasformare i file in conoscenza/azioni (eventi, studio, scadenze), non solo archiviarli.
+- **Stato:** upload/lista/dettaglio operativi; pipeline intelligente locale + LLM opzionale; event candidate con conferma; calendario interno draft; Google Calendar write **non** incluso.
+- **Backend:** `/api/documents/*` + analyze/events/ask; `documents/intelligence/`.
+- **DB:** `documents` (+ analysis fields), `calendar_event_drafts`, Life Graph / Knowledge.
+- **Docs:** `docs/INTELLIGENT_DOCUMENTS_*.md`.
 
 ### 6. Calendario Google
 

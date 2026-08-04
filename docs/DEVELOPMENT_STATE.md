@@ -1,50 +1,34 @@
 # ORA — Development State
 
-Last updated: 2026-08-04 (unified Google/Apple auth implementation)
-
-See also: `docs/SOCIAL_AUTH_ARCHITECTURE.md`, `docs/SOCIAL_AUTH_SETUP.md`, `docs/SOCIAL_AUTH_VERIFICATION.md`.
+Last updated: 2026-08-05 (intelligent documents)
 
 ## Branch
 
-- Feature (local, no push): `feature/social-auth` (from documents commit on `ora/cursor-platform` lineage)
-- Prior: `feature/documents-ui-alignment` → documents workflow verified
+- `feature/intelligent-documents` (local, no push)
+- Prior: `feature/social-auth`, documents UI alignment
 
-## Environment (verified on this machine)
+## Verified locally
 
-| Tool | Status |
-|------|--------|
-| Windows | OK |
-| Python 3.12 + venv | OK |
-| Node / npm | OK |
-| MongoDB service | OK |
-| Backend `:8000` | OK |
-| Expo web `:8081` | OK (when Metro running) |
+- Intelligent docs pytest: 7 passed (+ documents local suite → 13 combined in last run)
+- Frontend `tsc --noEmit` OK
+- Backend restarted with intel worker
+- Upload archive still works; analysis local without LLM
 
-## Auth status
+## Document intelligence
 
-| Method | Code | Mock/unit tests | Real provider E2E |
-|--------|------|-----------------|-------------------|
-| Email/password | operativo | pass | pass (locale) |
-| Google ID token | implementato | pass (claims mock) | **bloccato da credenziali** |
-| Apple ID token | implementato | pass (claims mock) | **bloccato da credenziali** |
-| iOS / Android native | codice + plugins | — | **non verificato su device** |
+| Piece | Status |
+|-------|--------|
+| Pipeline states + in-process worker | implemented |
+| Local taxonomy / events / education | implemented + tested |
+| LLM enrichment | optional (`DOCUMENT_AI_ENABLED` + LLM provider) |
+| Internal calendar drafts | implemented |
+| Google Calendar sync from docs | deferred |
+| OCR | existing Tesseract path; host-dependent |
+| Mobile UI | not verified |
 
-## Tests (latest)
+## Next
 
-- `pytest tests/test_social_auth_unit.py tests/test_local_smoke.py` — 19 passed
-- `tsc --noEmit` — OK
-- `GET /api/auth/providers` — OK (`google/apple.configured=false` senza env)
-
-## Credenziali ancora necessarie
-
-Vedi `docs/SOCIAL_AUTH_SETUP.md`:
-
-- `GOOGLE_WEB_CLIENT_ID` (+ iOS/Android) e mirror `EXPO_PUBLIC_GOOGLE_*`
-- Apple Team/Key/Services ID + `.p8` path; `EXPO_PUBLIC_APPLE_SERVICE_ID` per web
-
-## Priorities next
-
-1. Fornire credenziali Google Web → verifica reale browser
-2. Fornire Apple Services ID / key → verifica web o iOS build
-3. BACKLOG-003 LLM UX messages
-4. Non iniziare Attività/Promemoria finché social auth non è verificata dove possibile
+1. Real Google login E2E (credentials already partially set)
+2. OpenAI key for document AI enrichment smoke
+3. Apple Sign-In credentials
+4. Do not start Attività/Promemoria until auth/docs stabilize

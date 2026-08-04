@@ -86,6 +86,11 @@ async def startup():
     from social_auth import ensure_identity_indexes, migrate_password_identities
     await ensure_identity_indexes(db)
     await migrate_password_identities(db)
+    # Document intelligence worker + indexes
+    from documents.intelligence.worker import start_worker
+    from deps import get_intelligence_service
+    await get_intelligence_service().ensure_ready()
+    start_worker()
     # Legacy tasks (kept).
     await db.tasks.create_index([("user_id", 1), ("status", 1), ("score", -1)])
     # Decisions
