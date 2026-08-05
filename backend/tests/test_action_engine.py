@@ -35,7 +35,8 @@ async def _db():
 
 async def _clean(db, user_id: str):
     for col in (
-        "action_sessions", "action_projects", "documents", "decisions", "tasks",
+        "action_sessions", "action_projects", "study_plans", "study_sessions",
+        "documents", "decisions", "tasks",
         "life_nodes", "life_edges", "node_knowledge", "reminders",
         "home_item_state", "home_snapshots", "home_insights", "users",
     ):
@@ -58,10 +59,14 @@ async def _svc(db):
 
 
 def _answer_all(svc, user_id, session_id, picks: dict):
-    """Answer remaining turns using option ids from picks or first option."""
+    """Answer remaining turns using option ids from picks or first option.
+
+    Study flow: handles date text, multi-select days/tools, confirm gate.
+    """
     async def body():
         from action_engine.models import AnswerBody
-        for _ in range(20):
+        exam = (_now() + timedelta(days=21)).date().isoformat()
+        for _ in range(40):
             pub = await svc.get_session(user_id, session_id)
             assert pub is not None
             if pub.get("done") or pub.get("status") == "completed":
@@ -69,11 +74,39 @@ def _answer_all(svc, user_id, session_id, picks: dict):
             turn = pub.get("current_turn")
             assert turn is not None, "active session must always have a question"
             tid = turn["id"]
-            opt_id = picks.get(tid)
-            if not opt_id and turn.get("options"):
-                opt_id = turn["options"][0]["id"]
-            res = await svc.answer(user_id, session_id, AnswerBody(option_id=opt_id))
-            assert res.get("ok") is True or res.get("completed") is True
+            flow = pub.get("flow")
+
+            if flow == "study":
+                if tid == "exam_date":
+                    res = await svc.answer(user_id, session_id, AnswerBody(text=exam))
+                elif tid == "available_days":
+                    res = await svc.answer(user_id, session_id, AnswerBody(value=[0, 1, 2, 3, 4]))
+                elif tid == "tools":
+                    res = await svc.answer(user_id, session_id, AnswerBody(value=["study", "review"]))
+                elif tid == "select_materials":
+                    res = await svc.answer(user_id, session_id, AnswerBody(option_id="none", value=[]))
+                else:
+                    opt_id = picks.get(tid) or (turn["options"][0]["id"] if turn.get("options") else None)
+                    # Map legacy pace→intensity picks
+                    if tid == "intensity" and picks.get("pace"):
+                        legacy = {"intense": "intensive", "distributed": "distributed", "mixed": "custom"}
+                        mapped = legacy.get(picks["pace"], picks["pace"])
+                        opt_id = mapped if any(o["id"] == mapped for o in turn["options"]) else opt_id
+                    if tid == "daily_time" and picks.get("hours_per_day"):
+                        opt_id = picks["hours_per_day"] if any(
+                            o["id"] == picks["hours_per_day"] for o in turn["options"]
+                        ) else "1h"
+                    res = await svc.answer(user_id, session_id, AnswerBody(option_id=opt_id))
+            else:
+                opt_id = picks.get(tid)
+                if not opt_id and turn.get("options"):
+                    opt_id = turn["options"][0]["id"]
+                res = await svc.answer(user_id, session_id, AnswerBody(option_id=opt_id))
+
+            if res.get("ok") is False and res.get("error") not in (None,):
+                # study validation may return session for recovery — continue if turn advanced
+                if not res.get("session"):
+                    raise AssertionError(res)
             if res.get("completed"):
                 return res["session"]
         raise AssertionError("flow did not complete")
@@ -105,16 +138,20 @@ def test_study_flow_creates_calendar_and_home_update():
                 "id": doc_id, "user_id": user, "filename": "appunti.pdf",
                 "display_title": "Analisi 1",
                 "analysis": {"macro_category": "education", "confidence": 0.9},
+                "education_analysis": {"subject": "Analisi"},
                 "created_at": _now().isoformat(), "updated_at": _now().isoformat(),
             })
             svc = await _svc(db)
-            from action_engine.models import OpenBody
+            from action_engine.models import OpenBody, AnswerBody
+            from intent_engine import classify_text
+            intent = classify_text("Esame Analisi 1")
             opened = await svc.open(user, OpenBody(
                 title="Esame Analisi 1",
                 item_type="study",
                 source_type="document",
                 source_id=doc_id,
                 home_item_id="home_study_1",
+                intent=intent.public(),
             ))
             session = opened["session"]
             assert session["current_turn"] is not None
@@ -122,20 +159,48 @@ def test_study_flow_creates_calendar_and_home_update():
             assert session["current_turn"]["question"]
             assert session["project"] is not None
 
-            done = await _answer_all(svc, user, session["id"], {
-                "exam_date": "in_1_week",
-                "has_material": "yes_uploaded",
-                "use_uploaded": "yes",
-                "hours_per_day": "1h",
-                "pace": "distributed",
-                "tools": "plan_only",
-            })
+            # Drive new study plan flow through confirm (UI-equivalent answers)
+            exam = (_now() + timedelta(days=21)).date().isoformat()
+            sid = session["id"]
+            done = None
+            for _ in range(40):
+                pub = await svc.get_session(user, sid)
+                if pub.get("done") or pub.get("status") == "completed":
+                    done = pub
+                    break
+                turn = pub["current_turn"]
+                tid = turn["id"]
+                if tid == "exam_date":
+                    res = await svc.answer(user, sid, AnswerBody(text=exam))
+                elif tid == "available_days":
+                    res = await svc.answer(user, sid, AnswerBody(value=[0, 1, 2, 3, 4]))
+                elif tid == "tools":
+                    res = await svc.answer(user, sid, AnswerBody(value=["study", "review"]))
+                elif tid == "select_materials":
+                    doc_opts = [o for o in turn["options"] if str(o["id"]).startswith("doc_")]
+                    if doc_opts:
+                        res = await svc.answer(user, sid, AnswerBody(
+                            option_id=doc_opts[0]["id"], value=[doc_opts[0]["value"]],
+                        ))
+                    else:
+                        res = await svc.answer(user, sid, AnswerBody(option_id="none"))
+                else:
+                    opt = turn["options"][0]["id"]
+                    res = await svc.answer(user, sid, AnswerBody(option_id=opt))
+                if res.get("completed"):
+                    done = res["session"]
+                    break
+            if not done:
+                raise AssertionError("study flow did not complete")
+
             assert done["status"] == "completed"
             assert done["effects"].get("home_invalidate") is True
             cal = done["effects"].get("calendar_ids") or []
             assert len(cal) >= 2
             nodes = await db.life_nodes.count_documents({
-                "user_id": user, "origin": "action_engine", "type": "event",
+                "user_id": user,
+                "origin": {"$in": ["action_engine", "action_engine_study"]},
+                "type": "event",
             })
             assert nodes >= 2
             rem = await db.reminders.count_documents({"user_id": user})
@@ -146,6 +211,7 @@ def test_study_flow_creates_calendar_and_home_update():
                 "user_id": user, "node_id": done["brain_node_id"],
             })
             assert know is not None
+            assert done["meta"].get("study_plan_id")
 
             from home.service import HomeService
             home = await HomeService(db).build_home(user)

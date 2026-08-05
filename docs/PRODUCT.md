@@ -1,6 +1,6 @@
 # ORA — Product (struttura reale)
 
-Ultimo aggiornamento: 2026-08-05 — Intent Classification Engine + Action Engine + Home V2.
+Ultimo aggiornamento: 2026-08-05 — Study Action Flow end-to-end + Intent Engine + Home V2.
 
 ## Vision
 
@@ -27,6 +27,7 @@ Persone che vogliono una priorità unica chiara (non un task manager generico), 
 | `/how-it-works` | Onboarding informativo | Spiega Google Calendar |
 | `/document/[id]` | Dettaglio documento | Insights + azioni |
 | `/action/[sessionId]` | Guida Action Engine | Una domanda per schermo |
+| `/study-plan/[id]` | Piano di studio | Progresso, sessioni, flashcard, Interrogami |
 | `/action/open` | Bridge apertura guida | Da Home Apri/Organizza/Inizia |
 
 ## Moduli prodotto
@@ -70,6 +71,15 @@ Persone che vogliono una priorità unica chiara (non un task manager generico), 
 - **DB:** `action_sessions`, `action_projects` (+ life_nodes, reminders, decisions, knowledge).
 - **Docs:** `docs/ACTION_ENGINE_*.md`.
 - **Aperti:** smoke collaborativo device/web; weather bloccato senza credenziali; medical = solo logistica.
+
+### 2c. Study Action Flow (end-to-end)
+
+- **Scopo:** da priorità studio/esame a piano confermato con sessioni, materiali, flashcard/Interrogami e sync calendario.
+- **Stato:** **implementato** — step conversazionali, preview/confirm obbligatorio, piani `study_plans`/`study_sessions`.
+- **API:** `/api/action-engine/sessions/{id}/…` (answer/back/draft/search-docs/preview/modify/confirm) + `/api/study-plans/*`.
+- **UI:** `/action/[sessionId]` (multi-chip/preview) + `/study-plan/[id]`; Home mostra piano attivo e ripresa bozza.
+- **Docs:** `docs/STUDY_ACTION_FLOW_*.md`, `STUDY_PLAN_GENERATION.md`.
+- **Limiti:** Google sync solo se collegato; Gemini topic-split opzionale; mobile native non verificato.
 
 ### 3. Decision Engine
 

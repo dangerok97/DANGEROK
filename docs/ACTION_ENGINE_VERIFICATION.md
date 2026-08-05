@@ -1,6 +1,13 @@
 # Action Engine — Verification
 
-Last updated: 2026-08-05 (collaborative feel smoke)
+Last updated: 2026-08-05 (Study Action Flow complete)
+
+## Study flow (2026-08-05)
+
+- Full study plan path: see `docs/STUDY_ACTION_FLOW_VERIFICATION.md`
+- pytest: `tests/test_study_action_flow.py` + study case in `test_action_engine.py` (**12 focused passed**)
+- Study side effects only after **confirm** (API `/complete` without confirm → `confirm_required`)
+- Playwright FULL UI: `frontend/e2e/study-action-flow.spec.ts`
 
 ## Automated unit / API
 

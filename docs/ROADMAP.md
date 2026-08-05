@@ -26,6 +26,7 @@ Basata sull’audit funzionale del 2026-08-04. Ordine: fondamenta → organizzaz
 | B3 Agenda / situazione completa (sostituisce giornata score) | media | Home V2 | M | **DONE** `/situazione` + indicatori reali |
 | B4 Notifiche locali (expo-notifications) opzionali | media | B2 | L | Reminder locale su decision con deadline |
 | B5 Google Calendar OAuth + write sync end-to-end | alta | GOOGLE_OAUTH_* | L | Write reale verificato (evento sintetico) |
+| B5b Study Action Flow end-to-end | critica | Intent Engine + AE | L | **DONE** 2026-08-05 — branch `feature/complete-study-action-flow` |
 | B6 Documents V2 intelligent hub | alta | — | L | Branch `feature/rebuild-intelligent-documents` |
 
 ## FASE C — Progetti e documenti

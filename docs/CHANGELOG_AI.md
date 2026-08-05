@@ -1,5 +1,32 @@
 # ORA — AI Changelog
 
+## 2026-08-05 — Complete end-to-end Study Action Flow
+
+### Request
+
+Finish study Action Flow end-to-end from Intent Engine commit `66b7775`: audit → plan model → conversational steps → Documents V2 → generator → preview/confirm → sessions → flashcards/Interrogami → Brain → Google → Home → resume → API → tests → Playwright → docs → commit. Study only; no Intent Engine rewrite; no push.
+
+### Actions
+
+- Branch `feature/complete-study-action-flow` from `66b7775`
+- Package `backend/action_engine/study/` (models, date parser, docs search, generator, plan service, tools, Google, Brain, flow)
+- AE service/router: back/draft/search-docs/preview/modify/confirm; `/api/study-plans/*`; confirm-gated side effects
+- Home study adapter + actions catalog for plans; FE action UI multi/preview + `/study-plan/[id]`
+- pytest `test_study_action_flow.py` **12 passed**; AE study test updated
+- Playwright `frontend/e2e/study-action-flow.spec.ts` (UI-only completion after fixture seed)
+- Docs: `STUDY_ACTION_FLOW_*.md`, `STUDY_PLAN_GENERATION.md` + PRODUCT/ARCHITECTURE/DEVELOPMENT_STATE/CHANGELOG
+
+### Result
+
+Study priorities produce real confirmed plans (not mock). Intent still routes. Google/Gemini optional. Native mobile not verified. No push/merge.
+
+### Open
+
+- Live Playwright evidence archive when Expo web running
+- Device smoke for plan screen
+
+---
+
 ## 2026-08-05 — Intent Classification Engine (flow router brain)
 
 ### Request

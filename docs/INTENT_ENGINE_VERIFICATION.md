@@ -16,6 +16,7 @@ Corpus: `backend/tests/fixtures/intent_corpus_it.json` (**124** Italian phrases)
 Psychology phrase asserted explicitly:
 - text → `study` / `exam_preparation` / subject `Psicologia`
 - AE open with `item_type=event` still → flow `study`, first turn `exam_date` (no biglietto)
+- Study Action Flow (2026-08-05) consumes this Intent unchanged for routing; subject skip + full plan after exam_date — see `STUDY_ACTION_FLOW_VERIFICATION.md`
 
 ## Playwright (Expo web)
 

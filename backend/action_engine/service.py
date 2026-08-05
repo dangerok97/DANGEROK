@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 import uuid
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from action_engine.brain import (
     ensure_brain_node,
@@ -20,10 +20,36 @@ from action_engine.models import (
     AnswerBody,
     OpenBody,
     ProjectLink,
+    ProposedAction,
+    QuestionTurn,
     TurnAnswer,
     now_iso,
 )
 from action_engine.projects import create_or_link_project, merge_projects
+from action_engine.study.documents import search_study_documents
+from action_engine.study.flow import (
+    STEP_AVAILABLE_DAYS,
+    STEP_CALENDAR_SYNC,
+    STEP_CONFIRM,
+    STEP_CONFIRM_SUBJECT,
+    STEP_DAILY_TIME,
+    STEP_DUPLICATE,
+    STEP_EXAM_DATE,
+    STEP_EXAM_DATE_CONFIRM,
+    STEP_INTENSITY,
+    STEP_PREFERRED_RANGES,
+    STEP_PREVIEW,
+    STEP_SELECT_MATERIALS,
+    STEP_TOOLS,
+    inject_ambiguous_date_turn,
+    inject_duplicate_turn,
+    jump_target,
+    normalize_answer,
+    rebuild_material_turn,
+)
+from action_engine.study.google_sync import is_google_connected
+from action_engine.study.models import DEFAULT_TZ, PlanModifyBody
+from action_engine.study.plan_service import StudyPlanService
 from intent_engine import classify_text, get_intent_engine
 from intent_engine.models import IntentResult
 
@@ -40,6 +66,9 @@ class ActionEngineService:
         self.life_graph = life_graph
         self.knowledge = knowledge
         self.decisions = decisions
+        self.study_plans = StudyPlanService(
+            db, life_graph=life_graph, knowledge=knowledge, decisions=decisions,
+        )
 
     @property
     def col(self):
@@ -56,6 +85,7 @@ class ActionEngineService:
             await self.db.reminders.create_index([("user_id", 1), ("status", 1), ("due_at", 1)])
         except Exception:
             pass
+        await self.study_plans.ensure_indexes()
 
     def _ctx_from_open(self, body: OpenBody) -> Dict[str, Any]:
         item = body.home_item or {}
@@ -205,8 +235,34 @@ class ActionEngineService:
         ctx = self._ctx_with_intent(ctx, intent)
         await self._persist_intent_on_source(user_id, ctx, intent)
 
+        google_ok = False
+        if flow == "study":
+            google_ok = await is_google_connected(self.db, user_id)
+            ctx["google_connected"] = google_ok
+            ctx["timezone"] = DEFAULT_TZ
+
         turns = build_flow_turns(flow, ctx)
-        first = turns[0] if turns else None
+        answers: Dict[str, Any] = {}
+        # Skip confirm_subject when Intent already extracted subject
+        if flow == "study":
+            entities = ctx.get("intent_entities") or {}
+            subject = entities.get("subject")
+            if subject and not any(t.id == STEP_CONFIRM_SUBJECT for t in turns):
+                answers[STEP_CONFIRM_SUBJECT] = subject
+            # Pre-search docs for materials step
+            try:
+                docs_res = await search_study_documents(
+                    self.db,
+                    user_id=user_id,
+                    subject=subject or ctx.get("display_title"),
+                    exam_name=ctx.get("original_title") or ctx.get("title"),
+                )
+                turns = rebuild_material_turn(turns, docs_res.get("items") or [])
+                ctx["study_documents"] = docs_res.get("items") or []
+            except Exception as e:
+                logger.info("study doc search on open: %s", type(e).__name__)
+
+        first = next_unanswered(turns, answers) or (turns[0] if turns else None)
 
         brain_node_id = None
         similar = None
@@ -235,6 +291,7 @@ class ActionEngineService:
             home_item_id=home_item_id,
             home_item_type=ctx.get("item_type"),
             turns=turns,
+            answers=answers,
             current_turn_id=first.id if first else None,
             brain_node_id=brain_node_id,
             engine_version=ENGINE_VERSION,
@@ -250,6 +307,9 @@ class ActionEngineService:
                 "classifier_version": intent.classifier_version,
                 "needs_clarify": intent.needs_clarify,
                 "intent_reason": intent.reason,
+                "google_connected": google_ok,
+                "timezone": DEFAULT_TZ,
+                "study_documents": ctx.get("study_documents") or [],
                 **{k: v for k, v in (ctx.get("meta") or {}).items() if k not in ("intent_result",)},
             },
         )
@@ -412,6 +472,10 @@ class ActionEngineService:
             await self.col.replace_one({"id": sess.id, "user_id": user_id}, sess.model_dump())
             return {"ok": True, "session": sess.public(), "completed": False, "clarified": True}
 
+        # === Study flow: validate, preview, confirm (no silent side effects) ===
+        if sess.flow == "study":
+            return await self._answer_study(user_id, sess, turn, option_id, value, body)
+
         sess.answers[turn.id] = value
         sess.turn_history.append(TurnAnswer(
             turn_id=turn.id,
@@ -441,6 +505,434 @@ class ActionEngineService:
         await self.col.replace_one({"id": sess.id, "user_id": user_id}, sess.model_dump())
         return await self.complete(user_id, session_id)
 
+    async def _answer_study(
+        self,
+        user_id: str,
+        sess: ActionSession,
+        turn: QuestionTurn,
+        option_id: Optional[str],
+        value: Any,
+        body: AnswerBody,
+    ) -> Dict[str, Any]:
+        sess.meta.pop("validation_error", None)
+        norm, err = normalize_answer(turn.id, value, body.text)
+        if err:
+            if err.get("error") == "ambiguous" and turn.id == STEP_EXAM_DATE:
+                sess.turns = inject_ambiguous_date_turn(sess.turns, err.get("candidates") or [])
+                sess.current_turn_id = STEP_EXAM_DATE_CONFIRM
+                sess.meta["validation_error"] = err
+                sess.updated_at = now_iso()
+                await self.col.replace_one({"id": sess.id, "user_id": user_id}, sess.model_dump())
+                return {
+                    "ok": False,
+                    "error": "ambiguous_date",
+                    "message": err.get("message"),
+                    "candidates": err.get("candidates"),
+                    "session": sess.public(),
+                }
+            sess.meta["validation_error"] = err
+            sess.updated_at = now_iso()
+            await self.col.replace_one({"id": sess.id, "user_id": user_id}, sess.model_dump())
+            return {
+                "ok": False,
+                "error": err.get("error") or "validation",
+                "message": err.get("message") or "Risposta non valida.",
+                "session": sess.public(),
+            }
+
+        # Upload mid-flow — pause answers, keep draft
+        if turn.id == STEP_SELECT_MATERIALS and isinstance(norm, dict) and norm.get("action") == "upload":
+            await self.save_draft(user_id, sess.id)
+            sess.meta["awaiting_upload"] = True
+            sess.updated_at = now_iso()
+            await self.col.replace_one({"id": sess.id, "user_id": user_id}, sess.model_dump())
+            return {
+                "ok": True,
+                "session": sess.public(),
+                "completed": False,
+                "upload_required": True,
+                "upload_route": "/documents",
+                "message": "Carica il documento, poi riprendi da Home — le risposte restano salvate.",
+            }
+
+        # Preview edit jumps
+        if turn.id == STEP_PREVIEW and norm in (
+            "edit_time", "edit_intensity", "edit_materials", "edit_calendar",
+        ):
+            target = jump_target(str(norm))
+            if target:
+                sess.answers.pop(target, None)
+                # Clear downstream so preview regenerates
+                for tid in (
+                    STEP_PREVIEW, STEP_CONFIRM, STEP_DUPLICATE,
+                    STEP_DAILY_TIME, STEP_AVAILABLE_DAYS, STEP_PREFERRED_RANGES,
+                    STEP_INTENSITY, STEP_TOOLS, STEP_CALENDAR_SYNC, STEP_SELECT_MATERIALS,
+                ):
+                    if tid == target:
+                        break
+                    # keep prior
+                # Remove answers from target onward for re-ask
+                order = [t.id for t in sess.turns]
+                if target in order:
+                    for tid in order[order.index(target):]:
+                        sess.answers.pop(tid, None)
+                sess.current_turn_id = target
+                sess.updated_at = now_iso()
+                await self.col.replace_one({"id": sess.id, "user_id": user_id}, sess.model_dump())
+                return {"ok": True, "session": sess.public(), "completed": False, "edited": True}
+
+        if turn.id == STEP_CONFIRM and norm == "back":
+            sess.answers.pop(STEP_CONFIRM, None)
+            sess.answers.pop(STEP_PREVIEW, None)
+            sess.current_turn_id = STEP_PREVIEW
+            sess.updated_at = now_iso()
+            await self.col.replace_one({"id": sess.id, "user_id": user_id}, sess.model_dump())
+            return {"ok": True, "session": sess.public(), "completed": False}
+
+        sess.answers[turn.id] = norm
+        sess.turn_history.append(TurnAnswer(
+            turn_id=turn.id, option_id=option_id, value=norm, text=body.text,
+        ))
+
+        if self.knowledge and sess.brain_node_id:
+            await record_answer(
+                self.knowledge,
+                user_id=user_id,
+                node_id=sess.brain_node_id,
+                brain_key=turn.brain_key,
+                value=norm,
+                turn_id=turn.id,
+            )
+
+        # Refresh materials search after subject/date known
+        if turn.id in (STEP_CONFIRM_SUBJECT, STEP_EXAM_DATE, STEP_EXAM_DATE_CONFIRM):
+            subject = sess.answers.get(STEP_CONFIRM_SUBJECT) or (
+                (sess.meta.get("intent_entities") or {}).get("subject")
+            )
+            try:
+                docs_res = await search_study_documents(
+                    self.db,
+                    user_id=user_id,
+                    subject=str(subject) if subject else None,
+                    exam_name=sess.title,
+                )
+                sess.turns = rebuild_material_turn(sess.turns, docs_res.get("items") or [])
+                sess.meta["study_documents"] = docs_res.get("items") or []
+            except Exception:
+                pass
+
+        # Entering preview — build draft plan
+        nxt = next_unanswered(sess.turns, sess.answers)
+        if nxt and nxt.id == STEP_PREVIEW:
+            draft = self.study_plans.build_draft_from_answers(
+                user_id=user_id, answers=sess.answers, session=sess.model_dump(),
+                meta=sess.meta,
+            )
+            similar = await self.study_plans.find_similar(
+                user_id,
+                exam_name=draft.exam_name,
+                exam_date=draft.exam_date,
+                source_priority_id=draft.source_priority_id,
+            )
+            if similar and similar.get("status") == "active" and STEP_DUPLICATE not in sess.answers:
+                if not any(t.id == STEP_DUPLICATE for t in sess.turns):
+                    sess.turns = inject_duplicate_turn(sess.turns, similar)
+                sess.meta["duplicate_plan"] = {
+                    "id": similar.get("id"),
+                    "exam_name": similar.get("exam_name"),
+                    "status": similar.get("status"),
+                }
+                sess.current_turn_id = STEP_DUPLICATE
+                sess.updated_at = now_iso()
+                await self.col.replace_one({"id": sess.id, "user_id": user_id}, sess.model_dump())
+                return {"ok": True, "session": sess.public(), "completed": False, "duplicate": True}
+
+            await self.study_plans.upsert_draft(draft)
+            titles = [
+                d.get("title") for d in (sess.meta.get("study_documents") or [])
+                if d.get("id") in (draft.document_ids or [])
+            ]
+            prev = await self.study_plans.build_preview(draft, doc_titles=titles)
+            if not prev.get("ok"):
+                sess.meta["validation_error"] = prev
+                # Send user back to fix constraints
+                sess.answers.pop(STEP_AVAILABLE_DAYS, None)
+                sess.current_turn_id = STEP_AVAILABLE_DAYS
+                sess.updated_at = now_iso()
+                await self.col.replace_one({"id": sess.id, "user_id": user_id}, sess.model_dump())
+                return {
+                    "ok": False,
+                    "error": prev.get("error") or "impossible_plan",
+                    "message": prev.get("message") or "Piano impossibile con questi vincoli.",
+                    "session": sess.public(),
+                }
+            sess.meta["study_plan_id"] = draft.id
+            sess.meta["study_preview"] = prev.get("preview") or draft.preview
+            # Attach preview summary onto turn meta for UI
+            for i, t in enumerate(sess.turns):
+                if t.id == STEP_PREVIEW:
+                    sess.turns[i] = QuestionTurn(
+                        **{
+                            **t.model_dump(),
+                            "explanation": self._preview_explanation(prev.get("preview") or {}),
+                            "meta": {"preview": prev.get("preview")},
+                        }
+                    )
+                    break
+
+        # Duplicate resolution
+        if turn.id == STEP_DUPLICATE:
+            sess.meta["duplicate_action"] = norm
+            if norm == "open":
+                dup = sess.meta.get("duplicate_plan") or {}
+                sess.status = "cancelled"
+                sess.updated_at = now_iso()
+                await self.col.replace_one({"id": sess.id, "user_id": user_id}, sess.model_dump())
+                plan = await self.study_plans.get_plan(user_id, dup.get("id"))
+                return {
+                    "ok": True,
+                    "session": sess.public(),
+                    "completed": True,
+                    "opened_plan_id": dup.get("id"),
+                    "plan": plan,
+                }
+
+        # Confirm → real create
+        if turn.id == STEP_CONFIRM and norm == "confirm":
+            return await self._confirm_study_session(user_id, sess)
+
+        sess.updated_at = now_iso()
+        nxt = next_unanswered(sess.turns, sess.answers)
+        if nxt:
+            sess.current_turn_id = nxt.id
+            # Auto-save draft after each answer
+            try:
+                await self.save_draft(user_id, sess.id, sess=sess)
+            except Exception:
+                pass
+            await self.col.replace_one({"id": sess.id, "user_id": user_id}, sess.model_dump())
+            pub = sess.public()
+            if sess.meta.get("study_preview"):
+                pub["meta"]["study_preview"] = sess.meta["study_preview"]
+            return {"ok": True, "session": pub, "completed": False}
+
+        # Safety: should not complete study without confirm
+        sess.current_turn_id = STEP_CONFIRM
+        await self.col.replace_one({"id": sess.id, "user_id": user_id}, sess.model_dump())
+        return {"ok": True, "session": sess.public(), "completed": False}
+
+    def _preview_explanation(self, preview: dict) -> str:
+        if not preview:
+            return "Riepilogo piano."
+        return (
+            f"{preview.get('session_count', 0)} sessioni · "
+            f"{preview.get('total_hours', 0)}h totali · "
+            f"esame {preview.get('exam_label') or ''} · "
+            f"intensità {preview.get('intensity')} · "
+            f"{preview.get('daily_minutes')} min/giorno"
+        )
+
+    async def _confirm_study_session(self, user_id: str, sess: ActionSession) -> Dict[str, Any]:
+        plan_id = sess.meta.get("study_plan_id")
+        if not plan_id:
+            draft = self.study_plans.build_draft_from_answers(
+                user_id=user_id, answers=sess.answers, session=sess.model_dump(), meta=sess.meta,
+            )
+            await self.study_plans.upsert_draft(draft)
+            await self.study_plans.build_preview(draft)
+            plan_id = draft.id
+            sess.meta["study_plan_id"] = plan_id
+
+        dup_action = sess.answers.get(STEP_DUPLICATE) or sess.meta.get("duplicate_action")
+        result = await self.study_plans.confirm(
+            user_id, plan_id,
+            duplicate_action=str(dup_action) if dup_action else None,
+            force=dup_action == "create_anyway",
+        )
+        if not result.get("ok"):
+            if result.get("error") == "duplicate":
+                sess.meta["duplicate_plan"] = result.get("duplicate")
+                if not any(t.id == STEP_DUPLICATE for t in sess.turns):
+                    sess.turns = inject_duplicate_turn(sess.turns, result.get("duplicate") or {})
+                sess.answers.pop(STEP_CONFIRM, None)
+                sess.current_turn_id = STEP_DUPLICATE
+                await self.col.replace_one({"id": sess.id, "user_id": user_id}, sess.model_dump())
+                return {
+                    "ok": False,
+                    "error": "duplicate",
+                    "message": "Esiste già un piano simile.",
+                    "session": sess.public(),
+                    "duplicate": result.get("duplicate"),
+                }
+            sess.meta["validation_error"] = result
+            await self.col.replace_one({"id": sess.id, "user_id": user_id}, sess.model_dump())
+            return {
+                "ok": False,
+                "error": result.get("error") or "confirm_failed",
+                "message": result.get("message") or "Conferma non riuscita. Riprova.",
+                "session": sess.public(),
+            }
+
+        effects = result.get("effects") or {}
+        actions_raw = result.get("actions") or []
+        sess.proposed_actions = [
+            ProposedAction(**a) if isinstance(a, dict) else a for a in actions_raw
+        ]
+        sess.effects = effects
+        sess.status = "completed"
+        sess.completed_at = now_iso()
+        sess.updated_at = sess.completed_at
+        sess.current_turn_id = None
+        sess.meta["next_focus_hint"] = result.get("next_focus_hint") or effects.get("next_focus_hint")
+        sess.meta["home_invalidate"] = True
+        sess.meta["study_plan_id"] = plan_id
+        if effects.get("google_sync", {}).get("banner"):
+            sess.meta["google_banner"] = effects["google_sync"]["banner"]
+
+        if self.knowledge and sess.brain_node_id:
+            await upsert_summary(
+                self.knowledge,
+                user_id=user_id,
+                node_id=sess.brain_node_id,
+                summary=f"Piano studio confermato: {sess.title}. {sess.meta.get('next_focus_hint')}",
+                tags=["action_engine", "study", "confirmed"],
+            )
+
+        await self.col.replace_one({"id": sess.id, "user_id": user_id}, sess.model_dump())
+        return {
+            "ok": True,
+            "session": sess.public(),
+            "completed": True,
+            "plan": result.get("plan"),
+            "home_invalidate": True,
+            "next_focus_hint": sess.meta.get("next_focus_hint"),
+        }
+
+    async def save_draft(
+        self, user_id: str, session_id: str, *, sess: Optional[ActionSession] = None,
+    ) -> Dict[str, Any]:
+        if sess is None:
+            doc = await self.col.find_one({"id": session_id, "user_id": user_id}, {"_id": 0})
+            if not doc:
+                return {"ok": False, "error": "not_found"}
+            sess = ActionSession(**doc)
+        if sess.flow != "study":
+            sess.updated_at = now_iso()
+            await self.col.replace_one({"id": sess.id, "user_id": user_id}, sess.model_dump())
+            return {"ok": True, "session": sess.public(), "draft": True}
+        draft = self.study_plans.build_draft_from_answers(
+            user_id=user_id, answers=sess.answers, session=sess.model_dump(), meta=sess.meta,
+        )
+        await self.study_plans.upsert_draft(draft)
+        sess.meta["study_plan_id"] = draft.id
+        sess.updated_at = now_iso()
+        await self.col.replace_one({"id": sess.id, "user_id": user_id}, sess.model_dump())
+        return {"ok": True, "session": sess.public(), "plan_id": draft.id, "draft": True}
+
+    async def back(
+        self, user_id: str, session_id: str, to_turn_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        doc = await self.col.find_one({"id": session_id, "user_id": user_id}, {"_id": 0})
+        if not doc:
+            return {"ok": False, "error": "not_found"}
+        sess = ActionSession(**doc)
+        if sess.status != "active":
+            return {"ok": False, "error": "not_active", "session": sess.public()}
+        order = [t.id for t in sess.turns]
+        current = sess.current_turn_id
+        if to_turn_id and to_turn_id in order:
+            target = to_turn_id
+        else:
+            if not current or current not in order:
+                return {"ok": False, "error": "no_back", "session": sess.public()}
+            idx = order.index(current)
+            if idx <= 0:
+                return {"ok": False, "error": "no_back", "session": sess.public()}
+            target = order[idx - 1]
+        # Clear answers from target onward
+        for tid in order[order.index(target):]:
+            sess.answers.pop(tid, None)
+        sess.current_turn_id = target
+        sess.updated_at = now_iso()
+        await self.col.replace_one({"id": sess.id, "user_id": user_id}, sess.model_dump())
+        return {"ok": True, "session": sess.public()}
+
+    async def search_docs(self, user_id: str, session_id: str) -> Dict[str, Any]:
+        doc = await self.col.find_one({"id": session_id, "user_id": user_id}, {"_id": 0})
+        if not doc:
+            return {"ok": False, "error": "not_found"}
+        sess = ActionSession(**doc)
+        subject = sess.answers.get(STEP_CONFIRM_SUBJECT) or (
+            (sess.meta.get("intent_entities") or {}).get("subject")
+        )
+        res = await search_study_documents(
+            self.db, user_id=user_id, subject=str(subject) if subject else None, exam_name=sess.title,
+        )
+        sess.turns = rebuild_material_turn(sess.turns, res.get("items") or [])
+        sess.meta["study_documents"] = res.get("items") or []
+        # Resume after upload
+        if sess.meta.get("awaiting_upload"):
+            sess.meta["awaiting_upload"] = False
+            if sess.current_turn_id != STEP_SELECT_MATERIALS:
+                sess.current_turn_id = STEP_SELECT_MATERIALS
+                sess.answers.pop(STEP_SELECT_MATERIALS, None)
+        sess.updated_at = now_iso()
+        await self.col.replace_one({"id": sess.id, "user_id": user_id}, sess.model_dump())
+        return {"ok": True, "session": sess.public(), "documents": res}
+
+    async def preview_study(self, user_id: str, session_id: str) -> Dict[str, Any]:
+        doc = await self.col.find_one({"id": session_id, "user_id": user_id}, {"_id": 0})
+        if not doc:
+            return {"ok": False, "error": "not_found"}
+        sess = ActionSession(**doc)
+        draft = self.study_plans.build_draft_from_answers(
+            user_id=user_id, answers=sess.answers, session=sess.model_dump(), meta=sess.meta,
+        )
+        await self.study_plans.upsert_draft(draft)
+        prev = await self.study_plans.build_preview(draft)
+        if prev.get("ok"):
+            sess.meta["study_plan_id"] = draft.id
+            sess.meta["study_preview"] = prev.get("preview")
+            await self.col.replace_one({"id": sess.id, "user_id": user_id}, sess.model_dump())
+        return {**prev, "session": sess.public()}
+
+    async def modify_preview(
+        self, user_id: str, session_id: str, body: PlanModifyBody,
+    ) -> Dict[str, Any]:
+        doc = await self.col.find_one({"id": session_id, "user_id": user_id}, {"_id": 0})
+        if not doc:
+            return {"ok": False, "error": "not_found"}
+        sess = ActionSession(**doc)
+        plan_id = sess.meta.get("study_plan_id")
+        if not plan_id:
+            draft = self.study_plans.build_draft_from_answers(
+                user_id=user_id, answers=sess.answers, session=sess.model_dump(), meta=sess.meta,
+            )
+            await self.study_plans.upsert_draft(draft)
+            plan_id = draft.id
+            sess.meta["study_plan_id"] = plan_id
+        res = await self.study_plans.modify_draft(user_id, plan_id, body)
+        if res.get("ok"):
+            sess.meta["study_preview"] = res.get("preview")
+            # Sync answers from modify
+            if body.daily_minutes is not None:
+                sess.answers[STEP_DAILY_TIME] = body.daily_minutes
+            if body.available_days is not None:
+                sess.answers[STEP_AVAILABLE_DAYS] = body.available_days
+            if body.intensity is not None:
+                sess.answers[STEP_INTENSITY] = body.intensity
+            if body.document_ids is not None:
+                sess.answers[STEP_SELECT_MATERIALS] = body.document_ids
+            if body.calendar_sync is not None:
+                sess.answers[STEP_CALENDAR_SYNC] = body.calendar_sync
+            if body.tools is not None:
+                sess.answers[STEP_TOOLS] = body.tools
+            if body.preferred_ranges is not None:
+                sess.answers[STEP_PREFERRED_RANGES] = [r.model_dump() for r in body.preferred_ranges]
+            sess.updated_at = now_iso()
+            await self.col.replace_one({"id": sess.id, "user_id": user_id}, sess.model_dump())
+        return {**res, "session": sess.public()}
+
     async def complete(self, user_id: str, session_id: str) -> Dict[str, Any]:
         doc = await self.col.find_one({"id": session_id, "user_id": user_id}, {"_id": 0})
         if not doc:
@@ -448,6 +940,29 @@ class ActionEngineService:
         sess = ActionSession(**doc)
         if sess.status == "completed":
             return {"ok": True, "session": sess.public(), "completed": True}
+
+        # Study: complete only via confirm path (prevents API-only silent create)
+        if sess.flow == "study":
+            if sess.answers.get(STEP_CONFIRM) == "confirm" or sess.meta.get("study_plan_id"):
+                # Require explicit confirm answer
+                if sess.answers.get(STEP_CONFIRM) != "confirm":
+                    sess.current_turn_id = STEP_CONFIRM
+                    await self.col.replace_one({"id": sess.id, "user_id": user_id}, sess.model_dump())
+                    return {
+                        "ok": False,
+                        "error": "confirm_required",
+                        "message": "Conferma il piano per crearlo.",
+                        "session": sess.public(),
+                    }
+                return await self._confirm_study_session(user_id, sess)
+            sess.current_turn_id = sess.current_turn_id or STEP_CONFIRM
+            await self.col.replace_one({"id": sess.id, "user_id": user_id}, sess.model_dump())
+            return {
+                "ok": False,
+                "error": "confirm_required",
+                "message": "Completa le domande e conferma il piano.",
+                "session": sess.public(),
+            }
 
         actions, effects = await apply_completion_effects(
             db=self.db,

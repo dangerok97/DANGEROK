@@ -32,6 +32,7 @@ backend/
   home/                  # Home V2 aggregator + ranking + adapters
   intent_engine/         # Intent Classification — single brain for flow routing
   action_engine/         # Guided conversational flows (consumes Intent)
+    study/               # Study plan model, generator, confirm, Google/tools/Brain
   daily_intelligence/    # daily summary (situation indicators)
   behavioral_intelligence/
   behavior_aware_decisions/
@@ -77,7 +78,9 @@ Health:
 - `POST /api/intent/classify` → Intent Classification Engine (deterministic; optional LLM enrich)
 - `POST /api/action-engine/open` → classify Intent → start/resume guided flow
 - `GET /api/action-engine/sessions/{id}` → session + current turn
-- `POST /api/action-engine/sessions/{id}/answer|complete|cancel` → progress flow
+- `POST /api/action-engine/sessions/{id}/answer|back|draft|search-docs|preview|modify|confirm|complete|cancel`
+- `GET/PATCH/DELETE /api/study-plans/{id}` (+ sessions actions, sync/retry)
+- Mongo: `study_plans`, `study_sessions` (UTC; default TZ Europe/Rome)
 
 ## Local topology
 
