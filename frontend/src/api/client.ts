@@ -330,6 +330,37 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
+  // Action Engine — guided priority flows
+  actionEngineOpen: (body: ActionEngineOpenBody) =>
+    request<ActionEngineOpenResult>('/action-engine/open', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  actionEngineGetSession: (sessionId: string) =>
+    request<{ session: ActionEngineSession }>(`/action-engine/sessions/${sessionId}`),
+  actionEngineAnswer: (
+    sessionId: string,
+    body: { option_id?: string; value?: unknown; text?: string; skip?: boolean },
+  ) =>
+    request<ActionEngineAnswerResult>(`/action-engine/sessions/${sessionId}/answer`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  actionEngineComplete: (sessionId: string) =>
+    request<ActionEngineAnswerResult>(`/action-engine/sessions/${sessionId}/complete`, {
+      method: 'POST',
+    }),
+  actionEngineCancel: (sessionId: string) =>
+    request<{ ok: boolean; session: ActionEngineSession }>(
+      `/action-engine/sessions/${sessionId}/cancel`,
+      { method: 'POST' },
+    ),
+  actionEngineMergeProject: (sessionId: string, target_project_id: string) =>
+    request<{ ok: boolean; project_id?: string; session: ActionEngineSession }>(
+      `/action-engine/sessions/${sessionId}/merge-project`,
+      { method: 'POST', body: JSON.stringify({ target_project_id }) },
+    ),
+
   // Documents V2 — intelligent actions engine
   documentsHub: (limit = 40) =>
     request<DocumentsHubResponse>(`/documents/hub?limit=${limit}`),
@@ -1139,4 +1170,81 @@ export type HomeActionRequest = {
   reason?: string;
   priority?: HomePriorityBand;
   note?: string;
+};
+
+// --- Action Engine ---
+export type ActionEngineSession = {
+  id: string;
+  status: 'active' | 'completed' | 'cancelled';
+  flow: string;
+  engine_version: string;
+  title: string;
+  description?: string | null;
+  source_type?: string | null;
+  source_id?: string | null;
+  home_item_id?: string | null;
+  home_item_type?: string | null;
+  current_turn: {
+    id: string;
+    question: string;
+    explanation?: string | null;
+    input_kind: string;
+    options: { id: string; label: string; value?: unknown }[];
+    allow_skip?: boolean;
+    required?: boolean;
+  } | null;
+  answers: Record<string, unknown>;
+  progress: number;
+  done: boolean;
+  proposed_actions: {
+    id: string;
+    kind: string;
+    label: string;
+    detail?: string | null;
+    status: string;
+    meta?: Record<string, unknown>;
+  }[];
+  project?: {
+    project_id: string;
+    title: string;
+    created: boolean;
+    merge_candidate_id?: string | null;
+    merge_candidate_title?: string | null;
+  } | null;
+  brain_node_id?: string | null;
+  effects?: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+  completed_at?: string | null;
+  meta?: Record<string, unknown>;
+};
+
+export type ActionEngineOpenBody = {
+  home_item?: Partial<HomeItem> | Record<string, unknown>;
+  home_item_id?: string;
+  source_type?: string;
+  source_id?: string;
+  item_type?: string;
+  title?: string;
+  description?: string;
+  location?: string;
+  due_at?: string;
+  start_at?: string;
+  meta?: Record<string, unknown>;
+  force_new?: boolean;
+};
+
+export type ActionEngineOpenResult = {
+  session: ActionEngineSession;
+  resumed?: boolean;
+  merge_proposal?: { project_id: string; title?: string } | null;
+};
+
+export type ActionEngineAnswerResult = {
+  ok: boolean;
+  session: ActionEngineSession;
+  completed?: boolean;
+  home_invalidate?: boolean;
+  next_focus_hint?: string | null;
+  error?: string;
 };

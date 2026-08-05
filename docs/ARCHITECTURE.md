@@ -30,6 +30,7 @@ backend/
   documents/             # document intelligence
   documents/intelligence/# pipeline, taxonomy, analyzer, calendar drafts
   home/                  # Home V2 aggregator + ranking + adapters
+  action_engine/         # Guided conversational flows for Home priorities
   daily_intelligence/    # daily summary (situation indicators)
   behavioral_intelligence/
   behavior_aware_decisions/
@@ -44,8 +45,9 @@ frontend/
   src/api/client.ts      # HTTP client incl. /home
   src/auth/              # Google/Apple client helpers
   src/components/home/v2 # Home V2 blocks
+  src/action-engine/     # ActionEngine.open(item) central entry
   src/theme/tokens.ts
-docs/                    # HOME_V2_* + DOCUMENTS_V2_* + SOCIAL_AUTH_*
+docs/                    # ACTION_ENGINE_* + HOME_V2_* + DOCUMENTS_V2_* + SOCIAL_AUTH_*
 scripts/                 # local automation
 .emergent/               # legacy Emergent runtime (non-portable)
 .cursor/                 # Cursor autonomy rules/agents/hooks
@@ -61,7 +63,7 @@ All routes under `/api` via `ALL_ROUTERS`:
 - `permissions`, `connectors`, `ingestion`
 - `google_calendar`, `apple_calendar`
 - `daily`, `behavior`, `behavior_shadow`
-- `documents`, `home` (V2 intelligence dashboard), `admin`, `memory`
+- `documents`, `home` (V2 intelligence dashboard), `action-engine`, `admin`, `memory`
 
 Health:
 
@@ -71,6 +73,9 @@ Health:
 - `GET /api/home/situation` → full situation view payload
 - `POST /api/home/actions` → complete / snooze / ignore / correct / insight / banner
 - `POST /api/home/refresh` → rebuild ranking snapshot
+- `POST /api/action-engine/open` → start/resume guided flow
+- `GET /api/action-engine/sessions/{id}` → session + current turn
+- `POST /api/action-engine/sessions/{id}/answer|complete|cancel` → progress flow
 
 ## Local topology
 

@@ -1,6 +1,6 @@
 # ORA — Product (struttura reale)
 
-Ultimo aggiornamento: 2026-08-05 — Home V2 intelligence dashboard.
+Ultimo aggiornamento: 2026-08-05 — Action Engine + Home V2.
 
 ## Vision
 
@@ -26,6 +26,8 @@ Persone che vogliono una priorità unica chiara (non un task manager generico), 
 | `/connect-apple-calendar` | Apple Calendar | Flusso nativo iOS |
 | `/how-it-works` | Onboarding informativo | Spiega Google Calendar |
 | `/document/[id]` | Dettaglio documento | Insights + azioni |
+| `/action/[sessionId]` | Guida Action Engine | Una domanda per schermo |
+| `/action/open` | Bridge apertura guida | Da Home Apri/Organizza/Inizia |
 
 ## Moduli prodotto
 
@@ -44,11 +46,21 @@ Persone che vogliono una priorità unica chiara (non un task manager generico), 
 
 - **Scopo:** rispondere “cosa è più utile sapere o fare adesso” con ranking multi-fonte (documenti, calendario, studio, decisioni, …).
 - **Stato:** **operativo (web)** — `GET /api/home`, ranking `home-rank-1.0` senza Gemini, UI Adesso/Perché/azioni tipizzate/situazione/priorità/insights/resume; banner Google compatto.
-- **Flusso UI:** Home → focus reale → `/situazione`; azioni complete/snooze/ignore/correct; refresh on focus + pull-to-refresh.
-- **Backend:** `backend/home/` + adapters fail-soft.
+- **Flusso UI:** Home → focus → **Action Engine** (Apri/Organizza/Inizia/card); complete/snooze/ignore/correct; refresh on focus + pull-to-refresh.
+- **Backend:** `backend/home/` + adapters fail-soft (+ Action Engine adapter).
 - **DB:** `home_snapshots`, `home_item_state`, `home_insights` (+ fonti esistenti).
 - **Docs:** `docs/HOME_V2_*.md`.
 - **Aperti:** native mobile non verificato.
+
+### 2b. Action Engine — Guided priority flows
+
+- **Scopo:** trasformare una priorità Home in una breve conversazione a chip (una domanda per schermo) che crea calendario, promemoria, progetto e aggiorna Brain — mai una pagina vuota.
+- **Stato:** **implementato** — API `/api/action-engine/*`, flussi study/event/travel/medical/admin/generic; FE `ActionEngine.open(item)`.
+- **Flusso UI:** Home tap → sessione → domande → complete → Home refresh con prossimo passo.
+- **Backend:** `backend/action_engine/`.
+- **DB:** `action_sessions`, `action_projects` (+ life_nodes, reminders, decisions, knowledge).
+- **Docs:** `docs/ACTION_ENGINE_*.md`.
+- **Aperti:** smoke collaborativo device/web; weather bloccato senza credenziali; medical = solo logistica.
 
 ### 3. Decision Engine
 

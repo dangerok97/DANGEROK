@@ -1,5 +1,25 @@
 # ORA — AI Changelog
 
+## 2026-08-05 — ORA Action Engine (guided priority flows)
+
+### Request
+
+Build core Action Engine from `feature/home-v2-intelligence` @ `01e50de`: central guided flows for Home Apri/Organizza/Inizia (never empty page), Brain/projects/calendar hooks, tests, docs, local commit only.
+
+### Actions
+
+- Branch `feature/ora-action-engine` from Home V2 tip
+- Backend package `action_engine/` (flows, service, brain, projects, effects, router)
+- Home catalog + adapter wired to Action Engine; frontend `ActionEngine.open` + conversational screen
+- Docs: `ACTION_ENGINE_*.md` + PRODUCT / ARCHITECTURE / DEVELOPMENT_STATE / FUNCTIONAL_AUDIT / BACKLOG
+- Tests: `tests/test_action_engine.py` **11 passed**; regression `test_home_v2` + `test_documents_v2` **36 passed**; `npx tsc --noEmit` **OK**; `compileall action_engine` **OK**
+
+### Result
+
+Action Engine implemented. Empty Apri fixed in code paths (guided entry via `ActionEngine.open`); full device/web collaborative feel **must be manually verified**. No push/merge. Google login untouched.
+
+---
+
 ## 2026-08-05 — Rebuild Home as ORA intelligence dashboard
 
 ### Request

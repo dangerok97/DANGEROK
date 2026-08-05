@@ -23,7 +23,9 @@ Branch: `ora/cursor-platform`
 | Elemento | Stato | Note verifica |
 |----------|-------|---------------|
 | `/login` | parzialmente operativo | Email OK; Google/Apple codice pronto, UI “non configurata” senza client ID (non mock) |
-| Home `/(tabs)` | operativo (web Home V2) | Aggregato `/api/home`; Adesso/Perché/azioni tipizzate/situazione/priorità/insights/resume; banner Google compatto; niente 100/100 né Dopo numerato |
+| Home `/(tabs)` | operativo (web Home V2) | Aggregato `/api/home`; Adesso/Perché/azioni tipizzate → Action Engine; situazione/priorità/insights/resume; banner Google compatto |
+| `/action/[sessionId]` | implementato (da verificare UI) | Guida una-domanda; entry da Apri/Organizza/Inizia/card |
+| `/action/open` | implementato | Bridge deep-link verso Action Engine |
 | `/situazione` | operativo (web) | Vista completa reale da CTA Home |
 | Memoria | parzialmente operativo | UI + add/list OK; ask serve LLM |
 | Documenti | operativo (web) | Empty + upload/list/detail/persistenza verificati 2026-08-04; vedi `docs/DOCUMENTS_VERIFICATION.md` |
