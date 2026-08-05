@@ -7,7 +7,8 @@ from typing import Any, Dict, List, Literal, Optional
 from pydantic import BaseModel, Field
 
 
-RANKING_VERSION = "home-rank-1.0"
+# 1.1 — Goal-aware scoring/dedupe (flag-gated); identical to 1.0 when GOAL_ENGINE_ENABLED=0
+RANKING_VERSION = "home-rank-1.1"
 
 ItemType = Literal[
     "event",
@@ -75,11 +76,25 @@ class HomeItem(BaseModel):
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
     meta: Dict[str, Any] = Field(default_factory=dict)
+    # Goal context (invisible layer — no Goal UX). Present only when linked + flag ON.
+    goal_id: Optional[str] = None
+    goal_title: Optional[str] = None
+    goal_status: Optional[str] = None
+    goal_progress: Optional[float] = None  # 0–100 completion_percentage
+    goal_progress_label: Optional[str] = None
+    goal_next_action: Optional[str] = None
 
     def to_public(self) -> Dict[str, Any]:
         """Serialize for API — omit raw score from client payloads."""
         d = self.model_dump()
         d.pop("score", None)
+        # Drop null goal_* when flag off / unlinked — keep payload lean
+        for k in (
+            "goal_id", "goal_title", "goal_status",
+            "goal_progress", "goal_progress_label", "goal_next_action",
+        ):
+            if d.get(k) is None:
+                d.pop(k, None)
         return d
 
 

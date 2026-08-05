@@ -17,6 +17,12 @@ export function AdessoCard({ item }: { item: HomeItem }) {
   if (item.location) fields.push({ icon: 'location-outline', label: 'Luogo', value: item.location });
   if (item.amount) fields.push({ icon: 'cash-outline', label: 'Importo', value: item.amount });
   if (item.duration_minutes) fields.push({ icon: 'hourglass-outline', label: 'Durata', value: `${item.duration_minutes} min` });
+  // Goal context on existing Adesso card — no Goal tab / section
+  if (item.goal_progress != null && item.goal_title) {
+    const pct = Math.round(Number(item.goal_progress));
+    const label = item.goal_progress_label || `${pct}%`;
+    fields.push({ icon: 'flag-outline', label: 'Progresso', value: label.includes('%') ? label : `${pct}% · ${label}` });
+  }
 
   const intentLabel = INTENT_LABELS[(item.meta as any)?.intent as string] || INTENT_LABELS[item.subtype || ''];
   const typeLabel = intentLabel || TYPE_LABELS[item.type] || item.type;

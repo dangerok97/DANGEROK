@@ -3,7 +3,7 @@
 **Status:** Implemented (backend-only, invisible)  
 **Branch:** `feature/goal-engine-foundation`  
 **Date:** 2026-08-06  
-**Goal UX:** **NOT implemented** — no screens, tabs, Home ranking changes, or Goal cards.
+**Goal UX:** **NOT implemented** — no Goal screens/tabs. Home is **Goal-aware** (context/dedupe only); see `docs/HOME_GOAL_AWARE.md` on `feature/goal-aware-home`.
 
 Aligned with `docs/GOAL_ENGINE_ARCHITECTURAL_AUDIT.md` recommended architecture.
 
@@ -11,7 +11,7 @@ Aligned with `docs/GOAL_ENGINE_ARCHITECTURAL_AUDIT.md` recommended architecture.
 
 ```
 Input → Intent → Goal Engine (identity/lifecycle) → Action Engine (conversation)
-      → Study/Travel (typed artifacts) → Projects (bags) → Brain → Home (unchanged)
+      → Study/Travel (typed artifacts) → Projects (bags) → Brain → Home (reads Goals for context)
 ```
 
 ## What shipped
@@ -34,7 +34,7 @@ Input → Intent → Goal Engine (identity/lifecycle) → Action Engine (convers
 - **Study / Travel** — remain typed artifacts (`study_plans`, `travel_projects`).
 - **`action_projects`** — remain AE link bags.
 - **Brain** — graph identity/facts; Goal owns product lifecycle.
-- **Home** — unchanged this phase (no Goals adapter, no ranking change).
+- **Home** — Goal-aware context on `feature/goal-aware-home` (dedupe/ranking/insights); **still no Goal UX**.
 
 ## Flag
 
@@ -42,17 +42,17 @@ Input → Intent → Goal Engine (identity/lifecycle) → Action Engine (convers
 GOAL_ENGINE_ENABLED=1
 ```
 
-Set `0` / `false` to disable shadow upserts entirely.
+Set `0` / `false` to disable shadow upserts and Home Goal attach/dedupe.
 
-## Non-goals (this phase)
+## Non-goals (foundation + Home-aware)
 
-- No Goal screens / tabs / Home primary_focus from Goals
+- No Goal screens / tabs / dedicated Goals section on Home
 - No collapsing Study/Travel into the `goals` table
 - No fuzzy auto-merge without explicit merge API
 - No production deploy
 
 ## Next phases (from audit)
 
-- M1/P4: Home `meta.goal_id` dedupe
+- ~~M1/P4: Home `meta.goal_id` dedupe~~ → done in Goal-aware Home (`docs/HOME_GOAL_AWARE.md`)
 - P5: Progress projection on session complete / travel phase tick
-- P6: Optional FE read API consumers
+- P6: Optional FE Goals read surface (later — still not Goal UX on Home)

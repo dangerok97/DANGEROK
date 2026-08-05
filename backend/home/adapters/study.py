@@ -67,6 +67,7 @@ async def load_study_state(
                 meta={
                     "dedupe_key": f"study_plan_draft:{p['id']}",
                     "study_plan_id": p["id"],
+                    "goal_id": p.get("goal_id"),
                     "resume_kind": "study_plan",
                     "why_now_factors": [
                         {"code": "draft_resume", "label": "Piano in bozza", "weight": 0.9},
@@ -103,6 +104,7 @@ async def load_study_state(
             meta={
                 "dedupe_key": f"study_plan:{p['id']}",
                 "study_plan_id": p["id"],
+                "goal_id": p.get("goal_id"),
                 "intensity": p.get("intensity"),
                 "progress_ratio": (completed / total) if total else 0,
                 "next_session": next_s,

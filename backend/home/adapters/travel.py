@@ -82,6 +82,7 @@ async def load_travel_state(
                 meta={
                     "dedupe_key": f"travel_project_draft:{p['id']}",
                     "travel_project_id": p["id"],
+                    "goal_id": p.get("goal_id"),
                     "resume_kind": "travel_project",
                     "phase": phase,
                     "why_now_factors": [
@@ -135,6 +136,7 @@ async def load_travel_state(
             meta={
                 "dedupe_key": f"travel_project:{p['id']}",
                 "travel_project_id": p["id"],
+                "goal_id": p.get("goal_id"),
                 "phase": phase,
                 "days_until": days_until,
                 "transport": p.get("transport"),

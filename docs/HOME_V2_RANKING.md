@@ -1,10 +1,10 @@
 # Home V2 — Ranking
 
-Last updated: 2026-08-05
+Last updated: 2026-08-06
 
 ## Version
 
-`ranking_version = home-rank-1.0`
+`ranking_version = home-rank-1.1` (Goal-aware factors + dedupe; flag-gated)
 
 ## Properties
 
@@ -16,6 +16,8 @@ Last updated: 2026-08-05
 ## Inputs
 
 Type weights, due/start proximity, overdue, amount present, confidence (low boosts review), needs_review, incomplete study sessions, overdue activities. Soft dampening of leisure activities when critical bills exist.
+
+**1.1 Goal factors** (only if item has `goal_id`): importance, urgency, deadline pressure vs progress, next_action, progress label. See `docs/HOME_GOAL_AWARE.md`.
 
 ## Outputs (persisted)
 
