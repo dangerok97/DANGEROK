@@ -27,7 +27,9 @@ from .oauth import (
     exchange_code_for_tokens,
     fetch_userinfo,
     refresh_access_token,
+    resolve_redirect_uri,
     revoke_token,
+    sanitize_redirect_after,
 )
 from .provider import (
     CalendarProviderProtocol,
@@ -92,15 +94,32 @@ class GoogleCalendarService:
     # ------------------------------------------------------------------
     # OAuth flow
     # ------------------------------------------------------------------
-    async def start_oauth(self, *, user_id: str, redirect_after: Optional[str] = None) -> Dict[str, Any]:
+    async def start_oauth(
+        self,
+        *,
+        user_id: str,
+        redirect_after: Optional[str] = None,
+        request_base: Optional[str] = None,
+        preferred_redirect_uri: Optional[str] = None,
+    ) -> Dict[str, Any]:
         self._require_real_or_fake()  # config check
-        session = await self.oauth_state.create(user_id=user_id, redirect_after=redirect_after)
+        redirect_uri = None
+        mode = _flag_provider_mode()
+        if mode != "fake":
+            redirect_uri = resolve_redirect_uri(
+                preferred=preferred_redirect_uri,
+                request_base=request_base,
+            )
+        session = await self.oauth_state.create(
+            user_id=user_id,
+            redirect_after=sanitize_redirect_after(redirect_after),
+            redirect_uri=redirect_uri,
+        )
         await self.permissions.audit.log(
             user_id=user_id, event_type="oauth.start", connector_id=CONNECTOR_ID,
             capability_id=CAPABILITY_ID, success=True, reason_code="state_created",
             data_classification="public",
         )
-        mode = _flag_provider_mode()
         if mode == "fake":
             # Fake mode: return a synthetic authorize URL clients can hit
             # directly against /oauth/callback in tests.
@@ -111,7 +130,11 @@ class GoogleCalendarService:
                 "expires_at": session["expires_at"],
             }
         return {
-            "authorize_url": build_authorize_url(state=session["state"], code_challenge=session["code_challenge"]),
+            "authorize_url": build_authorize_url(
+                state=session["state"],
+                code_challenge=session["code_challenge"],
+                redirect_uri=session.get("redirect_uri"),
+            ),
             "state": session["state"],
             "provider_mode": "real",
             "expires_at": session["expires_at"],
@@ -124,8 +147,10 @@ class GoogleCalendarService:
         code: str,
         fake_account: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
+        """Returns ``{instance, redirect_after}`` after a successful callback."""
         session = await self.oauth_state.consume(state=state)
         user_id = session["user_id"]
+        redirect_after = sanitize_redirect_after(session.get("redirect_after"))
 
         mode = _flag_provider_mode()
         if mode == "fake":
@@ -140,7 +165,11 @@ class GoogleCalendarService:
             }
             userinfo = fake_account
         else:
-            tokens = await exchange_code_for_tokens(code=code, code_verifier=session["code_verifier"])
+            tokens = await exchange_code_for_tokens(
+                code=code,
+                code_verifier=session["code_verifier"],
+                redirect_uri=session.get("redirect_uri"),
+            )
             userinfo = await fetch_userinfo(tokens["access_token"])
 
         provider_account_id = userinfo.get("sub") or userinfo.get("email")
@@ -216,7 +245,7 @@ class GoogleCalendarService:
             success=True, reason_code="connected",
             data_classification="personal",
         )
-        return instance
+        return {"instance": instance, "redirect_after": redirect_after}
 
     # ------------------------------------------------------------------
     # Helpers

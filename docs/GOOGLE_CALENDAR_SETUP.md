@@ -35,9 +35,23 @@ python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().d
 
 ## Redirect URI
 
-Deve coincidere **esattamente** con Google Cloud Console:
+Registra **entrambi** i callback loopback in Google Cloud Console (sono URI diversi):
 
-`http://localhost:8000/api/connectors/google-calendar/oauth/callback`
+```
+http://localhost:8000/api/connectors/google-calendar/oauth/callback
+http://127.0.0.1:8000/api/connectors/google-calendar/oauth/callback
+```
+
+In `backend/.env` imposta il primario (es. `localhost`); in `ENVIRONMENT=development` ORA accetta automaticamente il twin `127.0.0.1` ↔ `localhost` e sceglie quello allineato all’host della richiesta API.
+
+Frontend Expo (post-OAuth return) — stesso discorso, entrambi gli origin:
+
+```
+http://localhost:8081
+http://127.0.0.1:8081
+```
+
+(Authorized JavaScript origins sul client Web, se usati; il connettore Calendar usa redirect server-side sul backend.)
 
 ## Separazione login vs Calendar
 

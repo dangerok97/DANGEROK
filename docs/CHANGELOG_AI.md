@@ -1,5 +1,43 @@
 # ORA — AI Changelog
 
+## 2026-08-05 — Google OAuth works on localhost and 127.0.0.1
+
+### Request
+
+Connect Google works on `http://127.0.0.1:8081/` but fails on `http://localhost:8081/` (Windows). Fix redirect/origin mismatch; accept both in local/dev; document Console checklist; commit locally; no push.
+
+### Root cause
+
+`localhost` and `127.0.0.1` are **different origins** to Google and to the browser. If Cloud Console only lists `127.0.0.1:8081` (Sign-In) or only one of the `:8000` Calendar callbacks, the other host fails with `redirect_uri_mismatch` / origin errors. Frontend also preferred `127.0.0.1` in docs/env while Calendar env used `localhost:8000`.
+
+### Actions
+
+- Calendar OAuth: auto-expand loopback twin in development; pick callback URI from API request host; store per-session `redirect_uri`; sanitize `redirect_after`; browser redirect after callback
+- FE: pass `window.location.origin` for Calendar return + Sign-In `redirectUri`
+- Docs / `.env.example`: require both hosts in Google Console
+- Unit tests: `test_oauth_loopback_hosts.py`
+
+### Google Cloud Console checklist (manual)
+
+**Sign-In Web client** (`EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`):
+- Origins: `http://localhost:8081`, `http://127.0.0.1:8081`
+- Redirect URIs: `http://localhost:8081`, `http://127.0.0.1:8081`
+
+**Calendar Web client** (`GOOGLE_OAUTH_CLIENT_*`):
+- Redirect URIs:  
+  `http://localhost:8000/api/connectors/google-calendar/oauth/callback`  
+  `http://127.0.0.1:8000/api/connectors/google-calendar/oauth/callback`
+
+### Result
+
+Code + docs accept both loopback hosts. Live localhost connect still needs the Console entries above (cannot be fixed by code alone).
+
+### Open
+
+- User adds Console URIs; restart Expo if env changed; re-test both hosts
+
+---
+
 ## 2026-08-05 — Complete end-to-end Study Action Flow
 
 ### Request

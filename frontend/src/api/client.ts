@@ -270,11 +270,19 @@ export const api = {
     request<{ items: ConnectorInstance[] }>('/connectors/google-calendar/instances'),
   googleCalendarConfig: () =>
     request<GoogleCalendarConfigStatus>('/connectors/google-calendar/config-status'),
-  googleCalendarOAuthStart: () =>
-    request<{ authorize_url: string; state: string; expires_at: string; provider_mode: string }>(
+  googleCalendarOAuthStart: (opts?: { redirect_after?: string }) => {
+    // Prefer the live browser origin so localhost and 127.0.0.1 both round-trip.
+    let redirect_after = opts?.redirect_after;
+    if (!redirect_after && typeof window !== 'undefined' && window.location?.origin) {
+      redirect_after = `${window.location.origin}/settings`;
+    }
+    const body: Record<string, string> = {};
+    if (redirect_after) body.redirect_after = redirect_after;
+    return request<{ authorize_url: string; state: string; expires_at: string; provider_mode: string }>(
       '/connectors/google-calendar/oauth/start',
-      { method: 'POST', body: JSON.stringify({}) },
-    ),
+      { method: 'POST', body: JSON.stringify(body) },
+    );
+  },
   googleCalendarCalendars: (instanceId: string) =>
     request<{ items: GoogleCalendarResource[] }>(`/connectors/google-calendar/instances/${instanceId}/calendars`),
   googleCalendarSelectCalendars: (instanceId: string, calendar_ids: string[]) =>
