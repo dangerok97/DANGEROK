@@ -24,7 +24,8 @@ Upload → storage + Mongo doc → queue job
 | `backend/documents/extraction.py` | PDF, OCR (Tesseract), text; scanned-PDF OCR fallback via pypdfium2 |
 | `backend/documents/office_extract.py` | DOCX / PPTX local extract |
 | `backend/documents/intelligence/*` | pipeline, taxonomy, analyzer, worker, calendar |
-| `backend/llm/provider.py` | `none` / `openai` / `emergent` |
+| `backend/llm/manager.py` | Provider Manager (gemini → openai → ollama → emergent) |
+| `backend/llm/providers/gemini.py` | Gemini via official `google-genai` Client |
 | `backend/llm/structured.py` | validated JSON + chunking / cost controls |
 
 ## Pipeline states
@@ -38,6 +39,7 @@ Upload → storage + Mongo doc → queue job
 - Chunking: `DOCUMENT_AI_MAX_CHARS` / `DOCUMENT_AI_MAX_CHUNKS`
 - Dedup: `content_hash` skips new LLM call if unchanged
 - Errors: not configured / timeout / rate limit / quota → local fallback + warning
+- Gemini SDK: `google-genai` (not deprecated `google-generativeai`)
 
 ## Calendar
 

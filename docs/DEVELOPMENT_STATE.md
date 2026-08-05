@@ -1,36 +1,35 @@
 # ORA — Development State
 
-Last updated: 2026-08-05 (Gemini real verification)
+Last updated: 2026-08-05 (Gemini SDK migration `google-genai`)
 
 ## Branch
 
-- Active: `feature/ai-provider-manager` (local, no push)
+- Active: `chore/migrate-gemini-sdk` (local, no push)
+- Base ancestor: `80a4300125ff0b27e6cfdf43dafbf0ed7fb7a0d2` (Gemini real verification)
 
 ## AI providers
 
 | Provider | Configured | Real verified |
 |----------|------------|---------------|
-| Gemini | yes (`GEMINI_API_KEY`) | **yes** — model `gemini-flash-lite-latest` |
+| Gemini | yes (`GEMINI_API_KEY`) | **yes** — SDK `google-genai`, model `gemini-flash-lite-latest` |
 | OpenAI | yes | no (quota exceeded) |
 | Ollama | off / not running | no |
 | Emergent | no | no |
 
 Default priority: Gemini → OpenAI → Ollama → Emergent.  
-Note: `gemini-2.0-flash` returned 429 quota; `gemini-flash-lite-latest` succeeded.
+SDK: `google-generativeai` **removed**; adapter uses official `google-genai` Client.
 
-## Gemini verification (synthetic fixtures)
+## Gemini verification (synthetic fixtures, post-migration)
 
 | Fixture | ai_used | Notes |
 |---------|---------|-------|
-| caso_b_concerto | yes | title/summary + event start |
-| caso_d_dispensa | yes | education enrich (after dict→list coerce) |
-| caso_e_admin | yes | administrative summary |
-| caso_a_visita | yes | medical appointment event |
-
-Avg latency (successful AI calls): ~1.6–2.6s.
+| caso_b_concerto | yes | ~3.4s |
+| caso_d_dispensa | yes | ~2.4s |
+| caso_e_admin | yes | ~2.0s |
+| caso_a_visita | yes | ~2.2s |
 
 ## Next
 
-1. Migrate SDK from deprecated `google.generativeai` → `google.genai`
-2. Rotate Gemini key (pasted in chat)
-3. Optional: OpenAI billing restore for failover smoke
+1. Rotate Gemini key (pasted in prior chat)
+2. Optional: OpenAI billing restore for failover smoke
+3. Optional: prune unused transitive pins left from old generativeai stack

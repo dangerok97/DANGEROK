@@ -285,7 +285,7 @@ def test_no_llm_imports():
     import behavioral_intelligence as bi
     import pkgutil
     forbidden = (
-        "openai", "anthropic", "google.generativeai", "transformers",
+        "openai", "anthropic", "google.generativeai", "google.genai", "transformers",
         "torch", "sklearn", "tensorflow", "langchain", "chromadb", "faiss",
         "sentence_transformers", "cohere", "huggingface",
     )
