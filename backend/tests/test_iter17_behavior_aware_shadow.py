@@ -244,7 +244,7 @@ def test_comparison_engine():
 def test_no_llm_imports_shadow():
     import os
     root = "/app/backend/behavior_aware_decisions"
-    forbidden = ("openai", "anthropic", "google.generativeai", "transformers",
+    forbidden = ("openai", "anthropic", "google.generativeai", "google.genai", "transformers",
                  "torch", "sklearn", "tensorflow", "langchain", "chromadb", "faiss")
     hits = []
     for dp, _, fns in os.walk(root):

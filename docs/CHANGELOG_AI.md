@@ -1,5 +1,38 @@
 # ORA — AI Changelog
 
+## 2026-08-05 — Migrate Gemini provider to google-genai
+
+### Request
+
+Non-functional migration from deprecated `google.generativeai` to official `google.genai`. Keep behavior, schemas, fallback, Provider Manager, tests, `GEMINI_API_KEY`, configurable model.
+
+### Actions
+
+- Branch `chore/migrate-gemini-sdk` from `80a4300`
+- Rewrote `backend/llm/providers/gemini.py` → `google.genai.Client` (API key only)
+- Model chain: `GEMINI_MODEL` → alternate → Provider Manager failover; usage telemetry without prompts/keys
+- Removed `google-generativeai` from venv + `requirements.txt` / `requirements-local.txt`; kept `google-genai==2.15.0`
+- Updated unit mocks; docs + `.env.example` (`GEMINI_FALLBACK_MODEL`)
+
+### Tests
+
+- `pytest tests/test_ai_provider_manager.py` → 9 passed (incl. real Gemini optional)
+- Broader: `test_ai_provider_manager` + iter15 + iter17 → 35 passed
+- Real smoke fixtures concerto/dispensa/admin/visita → **4/4 ai_used** (`gemini-flash-lite-latest`, `google-genai`)
+- `compileall` llm; frontend `tsc --noEmit` OK
+
+### Result
+
+Migration complete; old SDK unused/removed; real Gemini success confirmed on new SDK.
+
+### Open issues
+
+- Rotate Gemini key (exposed in prior session chat)
+- OpenAI real failover still blocked by quota
+- Optional cleanup of leftover `google-ai-generativelanguage` pin
+
+---
+
 ## 2026-08-05 — Gemini real verification on synthetic docs
 
 ### Request

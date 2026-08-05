@@ -10,7 +10,8 @@ Data: 2026-08-05
 | --- | --- |
 | Local parsing / taxonomy / events | **Verified** (pytest + HTTP) |
 | Real OCR (Tesseract 5.4 host) | **Verified** (PNG/JPG/PDF scan + HTTP PNG) |
-| Real OpenAI enrichment | **Not verified** — `OPENAI_API_KEY` absent in local `.env` |
+| Real Gemini enrichment | **Verified** — `google-genai` + `gemini-flash-lite-latest` (4/4 fixtures) |
+| Real OpenAI enrichment | **Not verified** — quota / failover path only |
 | Internal calendar drafts | **Verified** (confirm + dedupe) |
 | Brain merge / ask isolation | **Verified** (HTTP ask + 404 other user; Knowledge path best-effort) |
 | Browser UI shell | **Partial** — `/documenti` empty state + upload CTAs visible |
@@ -60,17 +61,21 @@ Fixtures: `backend/tests/fixtures/intel_docs/` (synthetic only).
 - Temp files: none persisted by OCR path (in-memory buffers)
 - Logs: no document body logged
 
-## OpenAI provider
+## Gemini provider (default)
 
-Configured adapter path:
+- SDK: official `google-genai` (`Client` + `aio.models.generate_content`); deprecated `google-generativeai` removed
+- Key: `GEMINI_API_KEY` only; model `GEMINI_MODEL` (default `gemini-flash-lite-latest`)
+- Structured JSON via `response_mime_type=application/json` + `llm.structured.chat_json`
+- Real smoke 2026-08-05 post-migration: concerto / dispensa / admin / visita → `ai_used=true` (4/4)
 
-- `LLM_PROVIDER=none|openai|emergent`
+## OpenAI provider (failover)
+
 - Key only from backend env; never returned to FE; not logged; not committed
 - Structured output via `llm.structured.chat_json` + Pydantic `LLMDocumentEnrichment`
 - Cost controls: `DOCUMENT_AI_MAX_CHARS`, `DOCUMENT_AI_MAX_CHUNKS`, timeout, retries, content-hash dedupe
-- Missing key: upload/archive/local analysis continue
+- Missing key / quota: upload/archive/local analysis continue; manager fails over
 
-**Real OpenAI calls were not executed** in this session (`OPENAI_API_KEY` empty). Model intended when enabled: value of `OPENAI_MODEL` (example `gpt-4o-mini`).
+**Real OpenAI enrichment not re-verified** in SDK migration (quota). Model: `OPENAI_MODEL` (example `gpt-4o-mini`).
 
 ## Worker
 

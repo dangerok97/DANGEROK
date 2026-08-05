@@ -103,8 +103,76 @@ def test_chat_json_validates_schema():
 def test_gemini_not_configured_without_key():
     from llm.providers.gemini import GeminiProvider
 
-    with patch.dict(os.environ, {"GEMINI_API_KEY": "", "GOOGLE_API_KEY": ""}, clear=False):
+    with patch.dict(os.environ, {"GEMINI_API_KEY": ""}, clear=False):
         assert GeminiProvider().is_configured() is False
+
+
+def test_gemini_uses_google_genai_not_generativeai():
+    """Adapter must import google.genai Client, not deprecated google.generativeai."""
+    import ast
+    from pathlib import Path
+
+    src = Path("llm/providers/gemini.py").read_text(encoding="utf-8")
+    tree = ast.parse(src)
+    imports: list[str] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            imports.extend(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            imports.append(node.module)
+    joined = " ".join(imports)
+    assert "google.generativeai" not in joined
+    assert "google.genai" in src or "from google import genai" in src
+    assert "GenerativeModel" not in src
+    assert "genai.configure" not in src
+
+
+def test_gemini_chat_mock_google_genai():
+    """Unit mock of google.genai Client.aio.models.generate_content."""
+    from llm.providers.gemini import GeminiProvider
+    import google.genai as genai_mod
+
+    class _Resp:
+        text = '{"ok": true}'
+        usage_metadata = None
+
+    async def fake_generate_content(**kwargs):
+        assert kwargs.get("model")
+        assert kwargs.get("contents")
+        return _Resp()
+
+    class _Models:
+        generate_content = staticmethod(fake_generate_content)
+
+    class _Aio:
+        models = _Models()
+
+        async def aclose(self):
+            return None
+
+    class _Client:
+        def __init__(self, *a, **k):
+            assert k.get("api_key"), "Client must receive api_key"
+            self.aio = _Aio()
+
+    async def body():
+        with patch.dict(
+            os.environ,
+            {
+                "GEMINI_API_KEY": "test-key-not-real",
+                "GEMINI_MODEL": "gemini-flash-lite-latest",
+            },
+            clear=False,
+        ), patch.object(genai_mod, "Client", _Client):
+            p = GeminiProvider()
+            res = await p.chat(system="s", user="u", json_mode=True)
+            assert res.provider == "gemini"
+            assert res.text
+            assert res.usage.get("outcome") == "success"
+            assert res.usage.get("fallback_used") is False
+            assert "models_tried" in res.usage
+
+    _run(body())
 
 
 @pytest.mark.skipif(
