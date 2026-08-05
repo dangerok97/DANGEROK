@@ -1,5 +1,24 @@
 # ORA — AI Changelog
 
+## 2026-08-05 — Verify Action Engine collaborative feel (Playwright)
+
+### Request
+
+Verify guided flow on live backend + Expo web: Inizia → first question/chips → multi-step answers → Home evolves. Commit only if Playwright/docs evidence added.
+
+### Actions
+
+- Confirmed tip `cca0acb`; restarted stale uvicorn (was 404 on `/action-engine`) and Expo web for `/action/*`
+- Added `frontend/e2e/action-engine.spec.ts`
+- Playwright **1 passed** (~19–24s); screenshots + `smoke-log.json` under `frontend/test-results/action-engine-smoke/`
+- Updated `docs/ACTION_ENGINE_VERIFICATION.md`, DEVELOPMENT_STATE
+
+### Result
+
+**PASS** collaborative feel on Expo web: not blank; 3 UI chip steps; Home primary became «Sessione 1: Esame Analisi E2E». Native still unverified.
+
+---
+
 ## 2026-08-05 — ORA Action Engine (guided priority flows)
 
 ### Request

@@ -37,4 +37,9 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
+# Playwright / local smoke evidence
+test-results/
+playwright-report/
+blob-report/
+
 app-example
