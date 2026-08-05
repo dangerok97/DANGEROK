@@ -9,7 +9,9 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "test:e2e": "playwright test",
+    "test:e2e:home": "playwright test e2e/home-v2.spec.ts"
   },
   "dependencies": {
     "@expo/metro-runtime": "6.1.2",
@@ -52,6 +54,7 @@
     "react-native-worklets": "0.5.1"
   },
   "devDependencies": {
+    "@playwright/test": "1.54.2",
     "@types/react": "19.1.10",
     "eslint": "9.25.0",
     "eslint-config-expo": "10.0.0",

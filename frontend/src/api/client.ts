@@ -320,6 +320,16 @@ export const api = {
       { method: 'POST' },
     ),
 
+  // Home V2 — intelligence dashboard
+  getHome: () => request<HomeV2Response>('/home'),
+  refreshHome: () => request<HomeV2Response>('/home/refresh', { method: 'POST' }),
+  getHomeSituation: () => request<HomeSituationResponse>('/home/situation'),
+  homeAction: (body: HomeActionRequest) =>
+    request<{ ok: boolean; action: string; item_id?: string }>('/home/actions', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
   // Documents V2 — intelligent actions engine
   documentsHub: (limit = 40) =>
     request<DocumentsHubResponse>(`/documents/hub?limit=${limit}`),
@@ -990,4 +1000,143 @@ export type AppleCalendarSyncResult = {
     failed: number;
   };
   outcomes: AppleCalendarSyncOutcome[];
+};
+
+// --- Home V2 ---
+export type HomePriorityBand = 'critical' | 'today' | 'this_week' | 'waiting' | 'later';
+export type HomeItemType =
+  | 'event' | 'travel' | 'bill' | 'study' | 'verify' | 'visit'
+  | 'reply' | 'activity' | 'payment' | 'needs_review' | 'insight' | 'resume' | 'generic';
+
+export type HomeActionDef = {
+  id: string;
+  label: string;
+  kind: string;
+  route?: string | null;
+  params?: Record<string, unknown>;
+  primary?: boolean;
+};
+
+export type HomeReasonFactor = {
+  code: string;
+  label: string;
+  weight: number;
+  detail?: string | null;
+};
+
+export type HomeItem = {
+  id: string;
+  type: HomeItemType;
+  subtype?: string | null;
+  title: string;
+  description?: string | null;
+  source_type: string;
+  source_id: string;
+  priority: HomePriorityBand;
+  urgency: string;
+  confidence?: number | null;
+  due_at?: string | null;
+  start_at?: string | null;
+  end_at?: string | null;
+  duration_minutes?: number | null;
+  location?: string | null;
+  amount?: string | null;
+  status: string;
+  actions: HomeActionDef[];
+  reason_factors: HomeReasonFactor[];
+  reason_summary?: string | null;
+  ranking_version?: string;
+  created_at?: string | null;
+  updated_at?: string | null;
+  meta?: Record<string, unknown>;
+};
+
+export type HomeExplanation = {
+  summary: string;
+  factors: HomeReasonFactor[];
+  sources: { type: string; id: string; title?: string }[];
+  confidence?: number | null;
+  missing_data: string[];
+  ranking_version: string;
+  item_id?: string | null;
+};
+
+export type HomeSituationIndicator = {
+  id: string;
+  label: string;
+  value: string;
+  tone: 'default' | 'warning' | 'success' | 'info';
+  detail?: string | null;
+};
+
+export type HomeCurrentSituation = {
+  indicators: HomeSituationIndicator[];
+  free_window?: string | null;
+  next_commitment?: string | null;
+  open_actions_count: number;
+  needs_review_count: number;
+  cta_label: string;
+  cta_route: string;
+};
+
+export type HomePriorityGroup = {
+  key: HomePriorityBand;
+  label: string;
+  items: HomeItem[];
+};
+
+export type HomeInsight = {
+  id: string;
+  text: string;
+  source: string;
+  action?: HomeActionDef | null;
+  status: string;
+  created_at: string;
+  valid_until?: string | null;
+  dedupe_key: string;
+};
+
+export type HomeConnectionWarning = {
+  code: string;
+  message: string;
+  severity: 'info' | 'warning';
+  dismissible: boolean;
+};
+
+export type HomeV2Response = {
+  primary_focus: HomeItem | null;
+  explanation: HomeExplanation | null;
+  current_situation: HomeCurrentSituation;
+  priorities: HomePriorityGroup[];
+  insights: HomeInsight[];
+  resume_item: HomeItem | null;
+  connection_warnings: HomeConnectionWarning[];
+  google_calendar: {
+    connected: boolean;
+    show_banner: boolean;
+    last_sync_at?: string | null;
+    instance_id?: string | null;
+  };
+  generated_at: string;
+  ranking_version: string;
+  partial: boolean;
+};
+
+export type HomeSituationResponse = {
+  generated_at: string;
+  ranking_version: string;
+  current_situation: HomeCurrentSituation;
+  priorities: HomePriorityGroup[];
+  primary_focus: HomeItem | null;
+  connection_warnings: HomeConnectionWarning[];
+  google_calendar: HomeV2Response['google_calendar'];
+};
+
+export type HomeActionRequest = {
+  item_id: string;
+  action: string;
+  until?: string;
+  reason?: string;
+  priority?: HomePriorityBand;
+  note?: string;
 };

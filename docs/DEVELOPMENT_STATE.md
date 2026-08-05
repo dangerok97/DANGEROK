@@ -1,31 +1,38 @@
 # ORA — Development State
 
-Last updated: 2026-08-05 (Documents V2 + real Gemini/Google smoke)
+Last updated: 2026-08-05 (Home V2 intelligence dashboard)
 
 ## Branch
 
-- Active: `feature/documents-v2-completion` (local, no push)
-- Completion commit: `ff42f7bea2ff405ae100ce28f1428b3be03d4c0a`
-- Base: `feature/rebuild-intelligent-documents` @ `3ff825d`
+- Active: `feature/home-v2-intelligence` (local, no push)
+- Base: `feature/documents-v2-completion` @ `03028dc` (includes `ff42f7b` Documents V2 completion)
+
+## Home V2
+
+| Item | Stato |
+|------|--------|
+| Aggregator `GET /api/home` + actions + situation | **implemented** |
+| Deterministic ranking `home-rank-1.0` (no Gemini required) | **implemented** |
+| Frontend Home blocks (Adesso → resume) | **implemented** |
+| Large Google card / 100/100 / Dopo numbering | **removed from Home** |
+| pytest `test_home_v2.py` | **21 passed** |
+| Expo web + Playwright | **2 passed** (`e2e/home-v2.spec.ts`) |
+| Native mobile Home V2 | **not verified** |
 
 ## Documents V2
 
 | Item | Stato |
 |------|--------|
-| Hub / pipeline / study / quiz / admin / browser E2E | **complete** (see verification doc) |
-| pytest `test_documents_v2.py` | **15 passed** |
-| Browser Chromium E2E | **ok** |
-| Gemini live (study fixture) | **verified this pass** — `ai_used`, model `gemini-flash-lite-latest` |
-| Google Calendar live | **verified this pass** — Google event id `4rtfghqbv5de67vfvn32te0e3k` |
+| Hub / pipeline / study / quiz / admin | **complete** (base branch) |
 | Mobile native | **not verified** |
 
 ## Open / next
 
-1. Device smoke (iOS/Android) for upload + study UI
-2. Admin multi-document compare (still deferred)
+1. Device smoke (iOS/Android) for Home V2 + Documents
+2. Wire more Brain/Memory signals into ORA osserva when real patterns exist
 3. Rotate OAuth client secret if it was pasted in chat (still recommended)
 
 ## Credentials / safety
 
 - Never commit `.env` / tokens
-- Rotate OAuth client secret if it was pasted in chat (still recommended)
+- Home ranking works without LLM keys

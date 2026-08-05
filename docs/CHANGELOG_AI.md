@@ -1,5 +1,26 @@
 # ORA — AI Changelog
 
+## 2026-08-05 — Rebuild Home as ORA intelligence dashboard
+
+### Request
+
+Rebuild Home V2 on branch from Documents V2 completion: real ranking dashboard, `/api/home`, type-specific UI, remove seed/static/dead CTAs, Expo web + Playwright, docs, local commit only.
+
+### Actions
+
+- Branch `feature/home-v2-intelligence` from `feature/documents-v2-completion` @ `03028dc`
+- Backend package `home/` (models, ranking `home-rank-1.0`, adapters, service, router)
+- Frontend Home rewrite + `/situazione` + `components/home/v2/*`
+- Removed large Google hero, 100/100, Dopo numbering from Home
+- Tests: `tests/test_home_v2.py` (21 passed); Playwright `e2e/home-v2.spec.ts`
+- Docs: HOME_V2_*, PRODUCT, ARCHITECTURE, DEVELOPMENT_STATE, FUNCTIONAL_AUDIT, ROADMAP, BACKLOG
+
+### Result
+
+Home V2 implemented and backend-tested. Native mobile **not** claimed.
+
+---
+
 ## 2026-08-05 — Documents V2 real Gemini + Google Calendar smoke
 
 ### Request
