@@ -40,9 +40,19 @@ Last updated: 2026-08-05 (Study Action Flow complete)
 | event / travel / medical / admin / generic / clarify | **unchanged** (study-only expansion) |
 | Medical no-advice | **enforced** |
 
+## Google OAuth localhost vs 127.0.0.1
+
+| Item | Stato |
+|------|--------|
+| Calendar OAuth accepts both loopback callback URIs in dev | **fixed** (auto twin + host-matched start) |
+| Frontend `redirect_after` from `window.location.origin` | **fixed** |
+| Sign-In uses live `window.location.origin` | **fixed** |
+| Google Console must list BOTH hosts | **manual** (see Console checklist in CHANGELOG) |
+| Verified live on localhost:8081 after Console update | **pending user Console edit** |
+
 ## Open / next
 
-1. Run Playwright study E2E on live Expo web; archive screenshots
+1. Add missing Google Console origins/redirects for localhost + 127.0.0.1; re-test connect on both hosts
 2. Device smoke (iOS/Android) for study plan screen
 3. Wire Parla / notifications to Intent Engine
 4. Harden Google create_event path across provider signatures

@@ -42,8 +42,8 @@ export function humanizeError(err: AnyErr, action: string = 'default'): string {
   if (rawMsg.includes('access_denied') || rawMsg.includes('user_denied')) {
     return 'Non hai completato l\'accesso a Google. Riprova quando vuoi.';
   }
-  if (rawMsg.includes('redirect_uri_mismatch') || rawMsg.includes('invalid_client')) {
-    return 'Non siamo riusciti a completare il collegamento. Ci stiamo lavorando — riprova più tardi.';
+  if (rawMsg.includes('redirect_uri_mismatch') || rawMsg.includes('invalid_client') || rawMsg.includes('Origin is not allowed')) {
+    return 'Google ha rifiutato l\'URL di ritorno. In Cloud Console registra sia localhost sia 127.0.0.1 (stessa porta) tra origins e redirect URI.';
   }
   if (rawMsg.includes('invalid_scope') || rawMsg.includes('insufficient_scope')) {
     return 'Google non ha concesso i permessi necessari. Riprova selezionando tutti i consensi.';

@@ -39,7 +39,7 @@ Persone che vogliono una priorità unica chiara (non un task manager generico), 
 - **Flusso:** FE ottiene ID token → backend verifica JWKS → `user_identities` → JWT ORA.
 - **Backend:** `/api/auth/register|login|google|apple|link/*|identities|providers|me|logout`.
 - **DB:** `users` + `user_identities`.
-- **Esterni:** Google Cloud OAuth clients; Apple Sign In (App ID / Services ID / key). Legacy Emergent opzionale.
+- **Esterni:** Google Cloud OAuth clients; Apple Sign In (App ID / Services ID / key). Legacy Emergent opzionale. In locale, `localhost` e `127.0.0.1` vanno entrambi registrati in Google Console (origin diversi).
 - **Docs:** `docs/SOCIAL_AUTH_*.md`.
 - **Aperti:** credenziali reali; device iOS/Android; revoca JWT server-side.
 

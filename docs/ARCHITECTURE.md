@@ -88,6 +88,8 @@ Health:
 MongoDB :27017  →  FastAPI :8000  →  Expo web :8081 (EXPO_PUBLIC_BACKEND_URL)
 ```
 
+Local Google OAuth: `localhost` and `127.0.0.1` are different browser/API origins. Dev accepts both loopback twins for Calendar callback + frontend `redirect_after`; Google Cloud Console must still list both explicitly (Sign-In web client on `:8081`, Calendar callbacks on `:8000`).
+
 ## Data store
 
 MongoDB collections created/indexed at startup (users, tasks, decisions, life_nodes/edges, node_knowledge, link_proposals, context_snapshots, memories, permission_*, ingestion_events, connector_instances, secret_vault, google_oauth_sessions, documents-related, `home_snapshots` / `home_item_state` / `home_insights`, behavioral collections, …).

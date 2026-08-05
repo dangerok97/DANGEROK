@@ -7,8 +7,8 @@ Istruzioni ufficiali. Non inserire secret in git. Bundle/package attuali del pro
 | iOS bundle ID | `com.emergent.oradecisionengine.b7escs` |
 | Android package | `com.emergent.oradecisionengine.b7escs` |
 | URL scheme | `frontend` |
-| Backend locale | `http://127.0.0.1:8000` |
-| Expo web | `http://127.0.0.1:8081` |
+| Backend locale | `http://127.0.0.1:8000` (also `http://localhost:8000`) |
+| Expo web | `http://127.0.0.1:8081` **and** `http://localhost:8081` (different origins) |
 
 ---
 
@@ -23,12 +23,14 @@ Portale: [Google Cloud Console](https://console.cloud.google.com/)
 ### Client Web
 
 - Tipo: **Web application**
-- Authorized JavaScript origins (dev):
+- Authorized JavaScript origins (dev) — **entrambi obbligatori** se usi entrambi gli host:
   - `http://127.0.0.1:8081`
   - `http://localhost:8081`
-- Authorized redirect URIs (dev, tipici Expo AuthSession):
+- Authorized redirect URIs (dev, Expo AuthSession / `window.location.origin`) — **entrambi**:
   - `http://127.0.0.1:8081`
+  - `http://localhost:8081`
   - `https://auth.expo.io/@YOUR_EXPO_USERNAME/frontend` (se usi proxy Expo)
+- Se manca un host, Google mostra `redirect_uri_mismatch` / origin error su quell’URL (es. login OK su `127.0.0.1:8081` e fallisce su `localhost:8081`).
 - Copia il **Client ID** → `GOOGLE_WEB_CLIENT_ID` e `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`
 
 ### Client iOS

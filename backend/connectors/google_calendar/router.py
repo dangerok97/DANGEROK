@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse
@@ -10,7 +11,7 @@ from pydantic import BaseModel
 from deps import get_current_user, get_google_calendar_service
 from permissions import ConsentDenied
 
-from .oauth import OAuthConfigError, OAuthStateInvalid
+from .oauth import OAuthConfigError, OAuthStateInvalid, sanitize_redirect_after
 from .provider import ProviderNotConfigured
 
 router = APIRouter(prefix="/connectors/google-calendar", tags=["google_calendar"])
@@ -18,6 +19,8 @@ router = APIRouter(prefix="/connectors/google-calendar", tags=["google_calendar"
 
 class OAuthStartIn(BaseModel):
     redirect_after: Optional[str] = None
+    # Optional explicit backend callback URI (must be allowlisted).
+    redirect_uri: Optional[str] = None
 
 
 class OAuthCallbackFakeIn(BaseModel):
@@ -30,11 +33,27 @@ class SelectCalendarsIn(BaseModel):
     calendar_ids: List[str]
 
 
+def _request_base(request: Request) -> str:
+    return str(request.base_url).rstrip("/")
+
+
+def _append_query(url: str, **params: str) -> str:
+    parsed = urlparse(url)
+    q = dict(parse_qsl(parsed.query, keep_blank_values=True))
+    q.update({k: v for k, v in params.items() if v is not None})
+    return urlunparse(parsed._replace(query=urlencode(q)))
+
+
 @router.post("/oauth/start")
-async def oauth_start(body: OAuthStartIn, user=Depends(get_current_user)):
+async def oauth_start(body: OAuthStartIn, request: Request, user=Depends(get_current_user)):
     svc = get_google_calendar_service()
     try:
-        return await svc.start_oauth(user_id=user["user_id"], redirect_after=body.redirect_after)
+        return await svc.start_oauth(
+            user_id=user["user_id"],
+            redirect_after=body.redirect_after,
+            request_base=_request_base(request),
+            preferred_redirect_uri=body.redirect_uri,
+        )
     except ProviderNotConfigured as e:
         raise HTTPException(status_code=503, detail={"error": "provider_not_configured", "message": str(e)})
     except OAuthConfigError as e:
@@ -45,16 +64,28 @@ async def oauth_start(body: OAuthStartIn, user=Depends(get_current_user)):
 async def oauth_callback(request: Request, state: str = Query(...), code: str = Query(...)):
     """Real OAuth callback — hit by Google after the user authorizes.
     Requires no auth header (Google-provided state binds the flow to the
-    user that started it)."""
+    user that started it). Redirects to the allowlisted frontend origin when
+    ``redirect_after`` was supplied at start; otherwise returns JSON.
+    """
     svc = get_google_calendar_service()
     try:
-        instance = await svc.handle_oauth_callback(state=state, code=code)
+        result = await svc.handle_oauth_callback(state=state, code=code)
     except OAuthStateInvalid as e:
         raise HTTPException(status_code=400, detail={"error": "oauth_state_invalid", "message": str(e)})
     except OAuthConfigError as e:
         raise HTTPException(status_code=503, detail={"error": "oauth_config_error", "message": str(e)})
     except ProviderNotConfigured as e:
         raise HTTPException(status_code=503, detail={"error": "provider_not_configured", "message": str(e)})
+
+    instance = result["instance"]
+    redirect_after = sanitize_redirect_after(result.get("redirect_after"))
+    if redirect_after:
+        target = _append_query(
+            redirect_after,
+            google_calendar="connected",
+            instance_id=instance.get("id") or "",
+        )
+        return RedirectResponse(url=target, status_code=302)
     return {"ok": True, "instance": instance}
 
 
@@ -76,12 +107,12 @@ async def oauth_callback_fake(request: Request):
         raise HTTPException(status_code=422, detail=str(e))
     svc = get_google_calendar_service()
     try:
-        instance = await svc.handle_oauth_callback(
+        result = await svc.handle_oauth_callback(
             state=body.state, code=body.code or "fake-code", fake_account=body.fake_account,
         )
     except OAuthStateInvalid as e:
         raise HTTPException(status_code=400, detail={"error": "oauth_state_invalid", "message": str(e)})
-    return {"ok": True, "instance": instance}
+    return {"ok": True, "instance": result["instance"]}
 
 
 @router.get("/instances")
