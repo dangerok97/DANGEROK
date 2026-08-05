@@ -1,61 +1,56 @@
 # ORA — Development State
 
-Last updated: 2026-08-05 (Travel Action Flow — first Life Planner slice)
+Last updated: 2026-08-06 (Goal Engine Foundation — shadow)
 
 ## Branch
 
-- Active: `feature/travel-action-flow` (local, no push)
-- Base: `feature/complete-study-action-flow` @ `eca96af`
+- Active: `feature/goal-engine-foundation` (local, no push)
+- Base: `feature/travel-action-flow` @ `cda5017` (+ audit doc)
+
+## Goal Engine Foundation (backend-only)
+
+| Item | Stato |
+|------|--------|
+| Package `backend/goal_engine/` | **implemented** |
+| Mongo `goals` + `goal_events` + indexes | **implemented** |
+| Flag `GOAL_ENGINE_ENABLED` (default ON) | **implemented** |
+| Shadow upsert on Study confirm | **implemented** |
+| Shadow upsert on Travel confirm | **implemented** |
+| Dedupe / merge / timeline / progress | **implemented** |
+| Brain link (`goal_id` on node) | **implemented** |
+| API `/api/goals/*` (unused by UI) | **implemented** |
+| Goal UX / Home ranking / tabs | **NOT implemented** (by design) |
+| pytest `test_goal_engine.py` | **9 passed** |
+| pytest study+travel regression | **22 passed** |
+| Playwright shadow API assert | **2 passed** — `frontend/e2e/goal-engine-shadow.spec.ts` |
 
 ## Travel Action Flow (Life Planner slice)
 
 | Item | Stato |
 |------|--------|
-| Intent travel/vacation + period extract | **implemented** |
-| Conversational missing-only + preview/confirm | **implemented** |
-| TravelProject model + calendar propose | **implemented** |
-| Google sync only after confirm (`calendar_google`) | **implemented** |
-| Maps deep link + honest estimates | **implemented** |
-| Home phases (upcoming→welcome_back) | **implemented** |
-| Brain trip↔destination↔docs | **implemented** |
-| Prep optional; weather/email honest stubs | **implemented** |
-| FE `/travel-project/[id]` + AE preview | **implemented** |
-| pytest travel suite | **12 passed** |
-| Playwright travel UI | **PASS** 1/1 — evidence `frontend/e2e-evidence/travel-action-flow/` |
-| Google live travel events | **PASS** create×3 + cleanup cancelled (francesconicolocefala@gmail.com) |
-| Weather / email auto-find / native mobile | **not verified / not implemented** |
+| Full travel confirm + Home phases + Brain | **intact** (prior branch) |
 
 ## Study Action Flow
 
 | Item | Stato |
 |------|--------|
-| Full study plan E2E + Google sync verify | **intact** (prior branch) |
-| Playwright study FULL UI | **PASS** (prior) |
+| Full study plan E2E + Google sync | **intact** |
 
 ## Intent Classification Engine
 
 | Item | Stato |
 |------|--------|
-| Package + AE routing via Intent | **intact** (+ travel period entities) |
-
-## Action Engine (other flows)
-
-| Item | Stato |
-|------|--------|
-| event / medical / admin / generic / clarify | **unchanged** |
-| travel | **upgraded** to Travel Project confirm path |
-| Medical no-advice | **enforced** |
+| Package + AE routing via Intent | **intact** (does not create Goals) |
 
 ## Open / next
 
-1. Playwright travel E2E with servers running + evidence screenshots  
-2. Live Google travel sync for connected test user + cleanup  
-3. Device smoke (iOS/Android) for travel project screen  
-4. Weather API when credentials available (honest until then)  
-5. Email auto-find module (hook only today)
+1. Home `meta.goal_id` dedupe (audit M2 / P4) — **not started**
+2. Progress refresh on session complete / travel phase tick
+3. Optional FE Goals read surface (later)
+4. Weather / email auto-find / native mobile (travel)
 
 ## Credentials / safety
 
-- Never commit `.env` / tokens  
-- Travel flow needs no secrets; Google/Nominatim/weather optional  
-- Never invent weather/traffic/medical advice  
+- Never commit `.env` / tokens
+- Goal Engine needs no new secrets
+- Flag off → shadow upsert no-op

@@ -1,5 +1,50 @@
 # ORA — AI Changelog
 
+## 2026-08-06 — Goal Engine Foundation (shadow, backend-only)
+
+### Request
+
+Implement ORA Goal Engine Foundation: invisible backend layer, shadow Goals on Study/Travel confirm, API unused by UI, no Goal UX / Home changes. Branch `feature/goal-engine-foundation`, commit, no push.
+
+### Actions
+
+- Created `backend/goal_engine/` (models, service, repository, router, dedupe, progress, types, strategy, events, lifecycle)
+- Mounted `/api/goals/*`; startup indexes for `goals` / `goal_events`
+- Wired `GoalService.upsert_from_*_confirm` into Study/Travel confirm (flag `GOAL_ENGINE_ENABLED`, default ON)
+- Docs: `GOAL_ENGINE_FOUNDATION.md`, `GOAL_DATA_MODEL.md`, `GOAL_LIFECYCLE.md` + ARCHITECTURE / ROADMAP / DEVELOPMENT_STATE
+- Tests: `backend/tests/test_goal_engine.py`; Playwright `frontend/e2e/goal-engine-shadow.spec.ts`
+- Included prior audit doc if still uncommitted
+
+### Results
+
+- Goal UX: **NOT implemented** (confirmed)
+- Home ranking / screens: unchanged
+- pytest `test_goal_engine.py`: **9 passed**
+- pytest study + travel regression: **22 passed**
+- Playwright `e2e/goal-engine-shadow.spec.ts`: **2 passed** (API assert after Study/Travel confirm; no Goal UI)
+
+### Commit
+
+`feat: introduce Goal Engine Foundation`
+
+---
+
+## 2026-08-05 — Goal Engine architectural audit (docs only)
+
+### Request
+
+Architectural audit only for introducing ORA Goal Engine — no feature implementation.
+
+### Actions
+
+- Added `docs/GOAL_ENGINE_ARCHITECTURAL_AUDIT.md` (current map, overlaps, proposed model/flow, migration, phased plan)
+
+### Results
+
+- Audit complete on `feature/travel-action-flow`; no application code changes
+
+---
+
 ## 2026-08-05 — Verify travel action flow browser and Google sync
 
 ### Request

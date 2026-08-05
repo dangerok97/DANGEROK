@@ -34,6 +34,7 @@ backend/
   action_engine/         # Guided conversational flows (consumes Intent)
     study/               # Study plan model, generator, confirm, Google/tools/Brain
     travel/              # Travel Project: period, maps, calendar confirm, Brain/Home
+  goal_engine/           # Goal identity/lifecycle (shadow; no Goal UX yet)
   daily_intelligence/    # daily summary (situation indicators)
   behavioral_intelligence/
   behavior_aware_decisions/
@@ -66,7 +67,7 @@ All routes under `/api` via `ALL_ROUTERS`:
 - `permissions`, `connectors`, `ingestion`
 - `google_calendar`, `apple_calendar`
 - `daily`, `behavior`, `behavior_shadow`
-- `documents`, `home` (V2 intelligence dashboard), `intent`, `action-engine`, `admin`, `memory`
+- `documents`, `home` (V2 intelligence dashboard), `intent`, `action-engine`, `goals` (Goal Engine — backend only, unused by UI), `admin`, `memory`
 
 Health:
 
@@ -82,6 +83,8 @@ Health:
 - `POST /api/action-engine/sessions/{id}/answer|back|draft|search-docs|preview|modify|confirm|complete|cancel`
 - `GET/PATCH/DELETE /api/study-plans/{id}` (+ sessions actions, sync/retry)
 - Mongo: `study_plans`, `study_sessions` (UTC; default TZ Europe/Rome)
+- Goal Engine (shadow; **no Goal UX**): `GET/POST/PATCH/DELETE /api/goals`, `POST /api/goals/search|merge`, `POST /api/goals/{id}/archive`, `GET /api/goals/{id}/timeline`
+- Mongo: `goals`, `goal_events` — Study/Travel confirm upserts Goals when `GOAL_ENGINE_ENABLED=1`
 
 ## Local topology
 
@@ -93,7 +96,7 @@ Local Google OAuth: `localhost` and `127.0.0.1` are different browser/API origin
 
 ## Data store
 
-MongoDB collections created/indexed at startup (users, tasks, decisions, life_nodes/edges, node_knowledge, link_proposals, context_snapshots, memories, permission_*, ingestion_events, connector_instances, secret_vault, google_oauth_sessions, documents-related, `home_snapshots` / `home_item_state` / `home_insights`, behavioral collections, …).
+MongoDB collections created/indexed at startup (users, tasks, decisions, life_nodes/edges, node_knowledge, link_proposals, context_snapshots, memories, permission_*, ingestion_events, connector_instances, secret_vault, google_oauth_sessions, documents-related, `home_snapshots` / `home_item_state` / `home_insights`, behavioral collections, `goals` / `goal_events`, …).
 
 Document binaries: local storage under `backend/data/documents/` (S3 backend stubbed for future).
 

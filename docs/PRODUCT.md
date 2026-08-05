@@ -1,6 +1,6 @@
 # ORA — Product (struttura reale)
 
-Ultimo aggiornamento: 2026-08-05 — Travel Action Flow (Life Planner) + Study Action Flow + Intent Engine + Home V2.
+Ultimo aggiornamento: 2026-08-06 — Goal Engine Foundation (shadow, no UX) + Travel/Study + Intent + Home V2.
 
 ## Vision
 
@@ -89,6 +89,15 @@ Persone che vogliono una priorità unica chiara (non un task manager generico), 
 - **UI:** `/action/[sessionId]` (preview viaggio) + `/travel-project/[id]`.
 - **Docs:** `docs/TRAVEL_ACTION_FLOW_*.md`.
 - **Limiti:** meteo/email auto-find non implementati (onesti); Google eventi solo dopo conferma; mobile native non verificato.
+
+### 2e. Goal Engine (foundation — invisible)
+
+- **Scopo:** identità e lifecycle dell’*outcome* utente (“Preparare esame X”, “Vacanza Y”) tra Intent e Home — senza sostituire Study/Travel.
+- **Stato:** **backend shadow** — alla conferma Study/Travel viene creato/aggiornato un Goal in Mongo; **nessuna UI Goal**, nessun tab, Home invariata.
+- **API:** `/api/goals/*` (protetta, non usata dal FE in questa fase).
+- **Flag:** `GOAL_ENGINE_ENABLED` (default ON in locale).
+- **Docs:** `docs/GOAL_ENGINE_FOUNDATION.md`, `GOAL_DATA_MODEL.md`, `GOAL_LIFECYCLE.md`, audit.
+- **Aperti:** Home dedupe via `goal_id`; eventuale UI Goals in fasi successive.
 
 ### 3. Decision Engine
 

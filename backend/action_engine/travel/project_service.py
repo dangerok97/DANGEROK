@@ -565,6 +565,29 @@ class TravelProjectService:
         if google_res.get("banner"):
             effects["google_banner"] = google_res["banner"]
 
+        # Goal Engine shadow upsert (no UX) — Action Engine does not invent Goals ad-hoc
+        try:
+            from goal_engine import get_goal_service
+            goal_res = await get_goal_service(
+                self.db, life_graph=self.life_graph, knowledge=self.knowledge,
+            ).upsert_from_travel_confirm(plan.model_dump(), effects=effects)
+            effects["goal"] = {
+                "goal_id": goal_res.get("goal_id"),
+                "created": goal_res.get("created"),
+                "skipped": goal_res.get("skipped"),
+            }
+            if goal_res.get("goal_id"):
+                try:
+                    await self.projects.update_one(
+                        {"id": plan.id, "user_id": user_id},
+                        {"$set": {"goal_id": goal_res["goal_id"]}},
+                    )
+                except Exception:
+                    pass
+        except Exception as e:
+            logger.info("goal shadow travel soft-fail: %s", type(e).__name__)
+            effects["goal"] = {"error": type(e).__name__, "soft_fail": True}
+
         return {
             "ok": True,
             "plan": plan.public(),
