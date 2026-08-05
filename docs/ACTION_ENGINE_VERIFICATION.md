@@ -1,14 +1,13 @@
 # Action Engine — Verification
 
-Last updated: 2026-08-05
+Last updated: 2026-08-05 (collaborative feel smoke)
 
-## Automated
+## Automated unit / API
 
 ```powershell
 cd backend
-python -m pytest tests/test_action_engine.py -q
-python -m pytest tests/test_home_v2.py -q
-python -m pytest tests/test_documents_v2.py -q
+.\.venv\Scripts\python.exe -m pytest tests/test_action_engine.py -q
+.\.venv\Scripts\python.exe -m pytest tests/test_home_v2.py tests/test_documents_v2.py -q
 ```
 
 ```powershell
@@ -16,30 +15,75 @@ cd frontend
 npx tsc --noEmit
 ```
 
+## Playwright collaborative-feel smoke (PASS 2026-08-05)
+
+**Branch tip at verify start:** `cca0acb`  
+**Spec:** `frontend/e2e/action-engine.spec.ts`  
+**Command:**
+
 ```powershell
-python -m compileall backend/action_engine backend/home
+# Backend must be THIS branch (has /api/action-engine/*). Restart uvicorn if 404.
+cd backend
+.\.venv\Scripts\python.exe -m uvicorn server:app --host 127.0.0.1 --port 8000 --reload
+
+# Expo web (restart after adding /action/* routes)
+cd frontend
+npx expo start --web --port 8081
+
+cd frontend
+$env:E2E_BASE_URL="http://127.0.0.1:8081"
+$env:E2E_API_URL="http://127.0.0.1:8000"
+$env:EXPO_PUBLIC_BACKEND_URL="http://127.0.0.1:8000"
+npx playwright test e2e/action-engine.spec.ts --reporter=list
 ```
 
-## Manual (collaborative feel)
+### Result: **PASS** (1/1, ~19–24s)
 
-1. Start backend + Expo (`scripts/dev` or local uvicorn + `npx expo start`).
-2. Home with a study / bill / event priority.
-3. Tap **Inizia** / **Organizza** / **Apri** or the Adesso card.
-4. Expect: conversational screen with **one question** and chips — not an empty page.
-5. Answer chips until complete.
-6. Expect completion summary with calendar/reminder actions.
-7. Return to Home → pull to refresh → primary focus / priorities reflect sessions or next hint.
-8. Medical item: confirm disclaimer text (no medical advice).
+| Check | Result |
+|-------|--------|
+| Login + seeded study priority on Home | PASS |
+| Primary action **Inizia** (`kind=guide`) present | PASS |
+| Tap opens guided UI — **not blank** | PASS |
+| First question + chips visible (`action-question`, `action-chips`) | PASS |
+| Answer ≥3 chip steps in UI | PASS (3) |
+| Flow complete → `next_focus_hint` | PASS (`Sessione 1 tra 1g · esame tra 3g`) |
+| Home refresh evolved (sessions / ripasso / hint) | PASS |
 
-## Platforms not verified in this pass
+### Evidence (local, gitignored `test-results/`)
 
-- iOS / Android device builds  
-- Playwright E2E (optional; not required for backend green)  
-- Google Calendar live sync of Action Engine events (Life Graph events are written; Google write is separate)
+Path: `frontend/test-results/action-engine-smoke/`
 
-## Known limits
+| File | Content |
+|------|---------|
+| `01-home-priority.png` | Home with «Esame Analisi E2E» + Inizia |
+| `02-first-question.png` | One question + chips |
+| `03-second-question.png` | Next question after chip |
+| `04-after-chips.png` | After 3 UI chip answers |
+| `05-home-after-refresh.png` | Home after complete/refresh |
+| `smoke-log.json` | Structured evidence (titles, session id, hint) |
 
-- No dedicated Projects product domain — `action_projects` is the aggregator.
-- Weather / live traffic blocked without credentials.
-- Flashcard/quiz generation depends on document intelligence readiness.
-"""
+Sample from `smoke-log.json`:
+
+- `guideLabel`: Inizia  
+- `firstQuestion`: exam date question for «Esame Analisi E2E»  
+- `uiStepsAnswered`: 3  
+- `homeTitlesAfter`: Sessione 1/2, Studio, Ripasso, project hint  
+
+### Incident during verify
+
+First Playwright run failed with `POST /api/action-engine/open` → **404**. Cause: stale uvicorn still serving pre–Action Engine code (openapi had no `/action-engine` routes; Home actions lacked `Inizia`). Restarted backend from `feature/ora-action-engine` → probe + Playwright **PASS**.
+
+## Manual checklist (still useful)
+
+1. Backend + Expo from this branch.  
+2. Home priority → **Inizia** / **Organizza** / **Apri** / card.  
+3. One question + chips — not empty.  
+4. Complete → Home shows session/hint.  
+5. Medical: disclaimer, no advice.
+
+## Platforms / gaps still open
+
+- iOS / Android native builds: **not verified**  
+- Google Calendar live sync of AE events: **not verified** (Life Graph events yes)  
+- Weather / live traffic: blocked placeholders  
+- Playwright finishes long study turns via API after 3 UI chips (UI path for full 5–6 turns exercised partially; collaborative open + multi-step chips + Home evolution verified)

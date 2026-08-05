@@ -14,12 +14,13 @@ Last updated: 2026-08-05 (Action Engine)
 | Backend `action_engine/` + `/api/action-engine/*` | **implemented** |
 | Flows: study, event, travel, medical, admin, generic | **implemented** |
 | Frontend `ActionEngine.open(item)` + `/action/[sessionId]` | **implemented** |
-| Home Apri/Organizza/Inizia/card → guided flow | **wired** (verify manually on device/web) |
+| Home Apri/Organizza/Inizia/card → guided flow | **verified Expo web Playwright** (2026-08-05) |
 | Brain (Life Graph + Knowledge) + action_projects | **implemented** |
 | Medical: no advice / no diagnosis | **enforced in copy + tests** |
 | Weather / live Maps traffic | **blocked placeholders** (honest) |
 | pytest `test_action_engine.py` | **11 passed** |
-| Native / Playwright Action Engine E2E | **not verified** |
+| Playwright `e2e/action-engine.spec.ts` | **1 passed** (web); evidence `frontend/test-results/action-engine-smoke/` |
+| Native iOS/Android Action Engine | **not verified** |
 
 ## Home V2
 
