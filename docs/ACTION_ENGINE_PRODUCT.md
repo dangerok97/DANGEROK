@@ -20,7 +20,7 @@ ORA turns a Home priority into a short guided conversation (one question per scr
 |------|------|---------|
 | Study | Exam / education | Plan, calendar sessions, flashcard/quiz hooks, reminders |
 | Event | Concert / appointment | Calendar, Maps, leave-time reminder |
-| Travel | Trip | Destination/transport intake → calendar, luggage, docs; weather blocked if no creds |
+| Travel | Trip / vacation | Travel Project (period, destination, maps, calendar propose→confirm); Home phases; weather/email blocked honestly |
 | Medical | Visit | Calendar, Maps, doc checklist, reminder — no clinical content |
 | Admin | Bill / payment / paperwork | Reminder, calendar deadline, document link |
 | Generic | Anything else | Still helps (organize / remind / calendar) |

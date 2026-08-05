@@ -299,49 +299,18 @@ async def apply_completion_effects(
         next_hint = f"Evento: {title}"
 
     elif flow == "travel":
+        # Legacy fallback — Travel Action Flow owns confirm via TravelProjectService.
+        # Never create Google Calendar events here; never invent period/destination.
         dest = answers.get("destination") or location or title
         if dest == "from_title":
             dest = title
-        start = datetime.now(timezone.utc) + timedelta(days=3)
-        if answers.get("prep") in ("calendar", "all"):
-            node = await _create_life_event(
-                life_graph, user_id=user_id,
-                title=f"Viaggio: {dest}",
-                starts_at=start,
-                location=str(dest),
-                attributes={"kind": "travel", "transport": answers.get("transport")},
-            )
-            effects["calendar_ids"].append(node["id"])
-            actions.append(ProposedAction(
-                id=f"cal_{node['id']}", kind="calendar", label="Viaggio in calendario",
-                status="done",
-            ))
-            rem = await _create_reminder(
-                db, user_id=user_id, title=f"Prepara viaggio: {dest}",
-                due_at=start - timedelta(days=1), meta={"kind": "travel"},
-            )
-            effects["reminder_ids"].append(rem["id"])
-        if answers.get("prep") in ("luggage", "all"):
-            dec = await _create_decision(
-                decisions, user_id=user_id,
-                title=f"Lista bagagli: {dest}",
-                kind="travel",
-                metadata={"checklist": ["documenti", "caricatore", "farmaci base", "abbigliamento"]},
-            )
-            if dec:
-                effects["decision_ids"].append(dec.get("id"))
-                actions.append(ProposedAction(
-                    id=f"dec_{dec.get('id')}", kind="decision", label="Lista bagagli",
-                    status="done",
-                ))
-        if answers.get("prep") in ("docs", "all"):
-            actions.append(ProposedAction(
-                id="travel_docs", kind="document",
-                label="Controlla documenti di viaggio",
-                detail="Passaporto/CI/biglietti — verifica sui tuoi documenti ORA se presenti.",
-                status="proposed",
-            ))
-        # Weather: honest placeholder without credentials
+        actions.append(ProposedAction(
+            id="travel_use_confirm",
+            kind="blocked",
+            label="Completa e conferma il Travel Project",
+            detail="Il flusso viaggio richiede anteprima e conferma esplicita.",
+            status="blocked",
+        ))
         actions.append(ProposedAction(
             id="weather", kind="blocked",
             label="Meteo destinazione",

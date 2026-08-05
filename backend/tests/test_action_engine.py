@@ -36,6 +36,7 @@ async def _db():
 async def _clean(db, user_id: str):
     for col in (
         "action_sessions", "action_projects", "study_plans", "study_sessions",
+        "travel_projects",
         "documents", "decisions", "tasks",
         "life_nodes", "life_edges", "node_knowledge", "reminders",
         "home_item_state", "home_snapshots", "home_insights", "users",
@@ -96,6 +97,34 @@ def _answer_all(svc, user_id, session_id, picks: dict):
                         opt_id = picks["hours_per_day"] if any(
                             o["id"] == picks["hours_per_day"] for o in turn["options"]
                         ) else "1h"
+                    res = await svc.answer(user_id, session_id, AnswerBody(option_id=opt_id))
+            elif flow == "travel":
+                if tid == "period":
+                    res = await svc.answer(
+                        user_id, session_id,
+                        AnswerBody(text=picks.get("period_text") or "dal 9 al 24 agosto 2026"),
+                    )
+                elif tid == "destination":
+                    res = await svc.answer(
+                        user_id, session_id,
+                        AnswerBody(text=picks.get("destination_text") or "Roma"),
+                    )
+                elif tid == "prep":
+                    res = await svc.answer(user_id, session_id, AnswerBody(skip=True))
+                else:
+                    # Map legacy people→companions
+                    key = tid
+                    if tid == "companions" and picks.get("people"):
+                        key = "companions"
+                        opt_id = picks.get("people")
+                    else:
+                        opt_id = picks.get(tid)
+                    if not opt_id and turn.get("options"):
+                        opt_id = turn["options"][0]["id"]
+                    if tid == "companions" and picks.get("people"):
+                        opt_id = picks["people"]
+                    if tid == "calendar_sync" and picks.get("prep") == "all":
+                        opt_id = picks.get("calendar_sync") or "no"
                     res = await svc.answer(user_id, session_id, AnswerBody(option_id=opt_id))
             else:
                 opt_id = picks.get(tid)
@@ -278,18 +307,24 @@ def test_travel_flow():
                 title="Vacanza weekend a Roma",
                 item_type="travel",
                 home_item_id="home_trv_1",
+                meta={"skip_maps_network": True},
             ))
             assert opened["session"]["flow"] == "travel"
             done = await _answer_all(svc, user, opened["session"]["id"], {
-                "destination": "from_title",
+                "destination_text": "Roma",
                 "transport": "train",
                 "bookings": "partial",
-                "people": "solo",
-                "prep": "all",
+                "companions": "solo",
+                "calendar_sync": "no",
+                "preview": "accept",
+                "confirm": "confirm",
             })
             assert done["status"] == "completed"
+            assert done["meta"].get("travel_project_id")
             assert any(a["status"] == "blocked" for a in done.get("proposed_actions", []))  # weather honest
-            assert await db.life_nodes.count_documents({"user_id": user, "type": "event"}) >= 1
+            assert await db.travel_projects.count_documents(
+                {"user_id": user, "status": "active"},
+            ) >= 1
         finally:
             await _clean(db, user)
             client.close()

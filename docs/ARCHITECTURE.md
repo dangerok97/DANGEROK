@@ -33,6 +33,7 @@ backend/
   intent_engine/         # Intent Classification — single brain for flow routing
   action_engine/         # Guided conversational flows (consumes Intent)
     study/               # Study plan model, generator, confirm, Google/tools/Brain
+    travel/              # Travel Project: period, maps, calendar confirm, Brain/Home
   daily_intelligence/    # daily summary (situation indicators)
   behavioral_intelligence/
   behavior_aware_decisions/

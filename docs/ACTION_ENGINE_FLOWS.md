@@ -1,6 +1,6 @@
 # Action Engine — Flows
 
-Last updated: 2026-08-05 (Study Action Flow)
+Last updated: 2026-08-05 (Travel Action Flow)
 
 ## Study
 
@@ -34,8 +34,17 @@ See `docs/STUDY_ACTION_FLOW_*.md`.
 
 ## Travel
 
-Asks only missing pieces: destination, transport, bookings, people, prep focus.  
-Weather proposal is **blocked** until a weather integration exists.
+Full Travel Project path (see `TRAVEL_ACTION_FLOW_*.md`):
+
+1. Period (skip if Intent extracted)  
+2. Destination (skip if known)  
+3. Departure place (Brain/home confirm)  
+4. Transport · bookings · companions  
+5. Calendar sync opt-in (Google create **only after confirm**)  
+6. Prep optional / skip  
+7. Preview · Confirm  
+
+Maps deep link + honest distance estimates. Weather / email auto-find **blocked** until real integrations exist.
 
 ## Medical
 

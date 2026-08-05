@@ -70,6 +70,27 @@ def actions_for(item: HomeItem) -> List[HomeAction]:
             ))
         return acts
 
+    if t == "travel" and item.source_type == "travel_project":
+        maps = (item.meta or {}).get("maps") or {}
+        acts = [
+            HomeAction(
+                id="open_travel_project",
+                label="Apri viaggio",
+                kind="navigate",
+                route=f"/travel-project/{sid}",
+                primary=True,
+            ),
+        ]
+        if maps.get("deep_link") or item.location:
+            acts.append(HomeAction(
+                id="open_maps",
+                label="Apri Maps",
+                kind="maps",
+                params={"query": item.location or item.title, "url": maps.get("deep_link")},
+            ))
+        acts.append(snooze)
+        return acts
+
     if t == "travel":
         return [
             HomeAction(id="open_travel", label="Organizza viaggio", kind="guide", route="/action/open", primary=True),

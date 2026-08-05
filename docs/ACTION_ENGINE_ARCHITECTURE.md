@@ -8,6 +8,7 @@ Last updated: 2026-08-05
 backend/action_engine/
   models.py          session, turn, answer, project link
   flows/             study|event|travel|medical|admin|generic
+  travel/            TravelProject draft/preview/confirm + maps + google_sync
   service.py         open / answer / complete / cancel / merge
   brain.py           Life Graph + Knowledge (deduped merges)
   projects.py        action_projects aggregator

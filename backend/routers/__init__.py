@@ -1,5 +1,5 @@
 """ORA modular routers. Each domain owns its own router file."""
-from action_engine import action_engine_router, study_plans_router
+from action_engine import action_engine_router, study_plans_router, travel_projects_router
 from connectors.apple_calendar import apple_calendar_router
 from connectors.google_calendar import google_calendar_router
 from documents import documents_router
@@ -48,5 +48,6 @@ ALL_ROUTERS = [
     intent_engine_router,
     action_engine_router,
     study_plans_router,
+    travel_projects_router,
     llm_router,
 ]

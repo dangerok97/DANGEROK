@@ -18,6 +18,7 @@ from .google_calendar import load_google_calendar_events, google_connection_stat
 from .internal_calendar import load_internal_calendar
 from .reminders import load_reminders
 from .study import load_study_state
+from .travel import load_travel_state
 
 logger = logging.getLogger("ora.home.adapters")
 
@@ -54,6 +55,7 @@ async def gather_all(db, user_id: str) -> Tuple[List[HomeItem], List[ConnectionW
         _safe("event_candidates", load_event_candidates(db, user_id)),
         _safe("document_actions", load_document_actions(db, user_id)),
         _safe("study", load_study_state(db, user_id)),
+        _safe("travel", load_travel_state(db, user_id)),
         _safe("activities", load_activities(db, user_id)),
         _safe("reminders", load_reminders(db, user_id)),
         _safe("decisions", load_decisions(db, user_id)),

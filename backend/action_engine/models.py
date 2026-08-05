@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Literal, Optional
 from pydantic import BaseModel, Field
 
 
-ENGINE_VERSION = "action-engine-1.2"
+ENGINE_VERSION = "action-engine-1.3"
 
 FlowCategory = Literal[
     "study",
@@ -145,6 +145,10 @@ class ActionSession(BaseModel):
                     "study_plan_id",
                     "study_preview",
                     "study_documents",
+                    "travel_project_id",
+                    "travel_preview",
+                    "travel_documents",
+                    "home_place",
                     "google_connected",
                     "google_banner",
                     "validation_error",
@@ -152,6 +156,7 @@ class ActionSession(BaseModel):
                     "timezone",
                 )
             },
+            "turns": [t.model_dump() for t in self.turns],
             "turn_history": [
                 {"turn_id": t.turn_id, "option_id": t.option_id, "value": t.value}
                 for t in self.turn_history

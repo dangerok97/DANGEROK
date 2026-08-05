@@ -421,6 +421,21 @@ export const api = {
       method: 'POST',
     }),
 
+  // Travel projects
+  travelProjectsList: (status?: string) =>
+    request<{ items: TravelProject[] }>(`/travel-projects${status ? `?status=${status}` : ''}`),
+  travelProjectGet: (projectId: string) =>
+    request<{ project: TravelProject }>(`/travel-projects/${projectId}`),
+  travelProjectDelete: (projectId: string, cleanupGoogle = false) =>
+    request<{ ok: boolean }>(
+      `/travel-projects/${projectId}?cleanup_google=${cleanupGoogle ? 'true' : 'false'}`,
+      { method: 'DELETE' },
+    ),
+  travelProjectSync: (projectId: string) =>
+    request<{ ok: boolean; google_sync?: unknown }>(`/travel-projects/${projectId}/retry-sync`, {
+      method: 'POST',
+    }),
+
   // Documents V2 — intelligent actions engine
   documentsHub: (limit = 40) =>
     request<DocumentsHubResponse>(`/documents/hub?limit=${limit}`),
@@ -1298,6 +1313,32 @@ export type StudyPlan = {
   google_sync?: Record<string, unknown>;
   preview?: Record<string, unknown>;
   progress?: Record<string, unknown>;
+  confirmed_at?: string | null;
+};
+
+export type TravelProject = {
+  id: string;
+  status: string;
+  title: string;
+  destination?: string | null;
+  departure_place?: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  transport?: string | null;
+  bookings?: string | null;
+  companions?: number | null;
+  calendar_sync?: boolean;
+  calendar_events?: Array<Record<string, unknown>>;
+  maps?: Record<string, unknown>;
+  prep_items?: Array<Record<string, unknown>>;
+  document_ids?: string[];
+  google_sync?: Record<string, unknown>;
+  preview?: Record<string, unknown>;
+  phase?: string;
+  days_until?: number | null;
+  weather?: Record<string, unknown>;
+  departure_advice?: Record<string, unknown>;
+  email_search?: Record<string, unknown>;
   confirmed_at?: string | null;
 };
 
