@@ -298,7 +298,13 @@ class IntelligenceService:
         return await self.get_analysis(user_id=user_id, doc_id=doc_id)
 
     async def confirm_event(
-        self, *, user_id: str, doc_id: str, event_id: str, overrides: Optional[dict] = None
+        self,
+        *,
+        user_id: str,
+        doc_id: str,
+        event_id: str,
+        overrides: Optional[dict] = None,
+        sync_to_google: bool = False,
     ) -> dict:
         doc = await self.docs.get(user_id=user_id, doc_id=doc_id)
         events = list(doc.get("event_candidates") or [])
@@ -323,31 +329,72 @@ class IntelligenceService:
             {"_id": 0},
         )
         if existing and target.get("status") == "confirmed":
-            return {"ok": True, "event_candidate": target, "calendar_event": existing, "deduplicated": True}
+            cal = existing
+            dedup = True
+        else:
+            if overrides:
+                target = {
+                    **target,
+                    **overrides,
+                    "user_overrides": {**(target.get("user_overrides") or {}), **overrides},
+                }
+            if target.get("ambiguous_date") and not (overrides or {}).get("start_datetime") and not target.get("start_datetime"):
+                raise ValueError("Data ambigua: fornisci start_datetime prima di confermare")
+            if not target.get("start_datetime") and not (overrides or {}).get("start_datetime"):
+                raise ValueError("Data/ora mancante: non posso creare l'evento")
+            target["status"] = "confirmed"
+            events[target_idx] = target
+            cal = await self.calendar.get("internal").create_from_candidate(
+                user_id=user_id, candidate=target, overrides=overrides,
+            )
+            await self.db.documents.update_one(
+                {"id": doc_id, "user_id": user_id},
+                {"$set": {
+                    "event_candidates": events,
+                    "pipeline_status": "completed",
+                    "pipeline_status_label": "Analisi completata",
+                    "updated_at": _now(),
+                }},
+            )
+            dedup = False
 
-        if overrides:
-            target = {
-                **target,
-                **overrides,
-                "user_overrides": {**(target.get("user_overrides") or {}), **overrides},
-            }
-        if target.get("ambiguous_date") and not (overrides or {}).get("start_datetime") and not target.get("start_datetime"):
-            raise ValueError("Data ambigua: fornisci start_datetime prima di confermare")
-        target["status"] = "confirmed"
-        events[target_idx] = target
-        cal = await self.calendar.get("internal").create_from_candidate(
-            user_id=user_id, candidate=target, overrides=overrides,
-        )
-        await self.db.documents.update_one(
-            {"id": doc_id, "user_id": user_id},
-            {"$set": {
-                "event_candidates": events,
-                "pipeline_status": "completed",
-                "pipeline_status_label": "Analisi completata",
-                "updated_at": _now(),
-            }},
-        )
-        return {"ok": True, "event_candidate": target, "calendar_event": cal, "deduplicated": False}
+        google_result = None
+        if sync_to_google:
+            try:
+                from deps import get_google_calendar_service
+                from documents.intelligence.google_sync import GoogleCalendarSyncService
+                sync = GoogleCalendarSyncService(db=self.db, google_calendar_service=get_google_calendar_service())
+                macro = (doc.get("analysis") or {}).get("macro_category")
+                maps = target.get("maps_url")
+                google_result = await sync.sync_draft(
+                    user_id=user_id,
+                    draft_id=cal["id"],
+                    macro_category=macro,
+                    maps_url=maps,
+                )
+                cal = google_result
+            except Exception as e:
+                logger.warning("google sync after confirm failed type=%s", type(e).__name__)
+                google_result = {
+                    "ok": False,
+                    "sync_status": "failed",
+                    "sync_error": type(e).__name__,
+                    "error": str(e)[:240] or type(e).__name__,
+                }
+            else:
+                if isinstance(google_result, dict):
+                    google_result = {
+                        **google_result,
+                        "ok": google_result.get("sync_status") == "synced",
+                    }
+
+        return {
+            "ok": True,
+            "event_candidate": target,
+            "calendar_event": cal,
+            "deduplicated": dedup,
+            "google_sync": google_result,
+        }
 
     async def dismiss_event(self, *, user_id: str, doc_id: str, event_id: str, remind_later: bool = False) -> dict:
         doc = await self.docs.get(user_id=user_id, doc_id=doc_id)

@@ -59,8 +59,8 @@ Branch: `ora/cursor-platform`
 | Documents | Insights/actions | document/[id] | /insights + FE actions | docs | HTTP detail OK | parzialmente operativo | azioni UI non tutte cliccate | media | C3 roadmap |
 | Documents | Intel pipeline | document/[id] | analyze/events/ask | intel | pytest+HTTP+OCR | operativo locale+OCR | OpenAI reale bloccato; picker no | critica | chiave OpenAI + UI pass |
 | Documents | OCR | upload image/PDF | extraction | files | real Tesseract | operativo (host) | qualità OCR variabile | alta | — |
-| Documents | Calendar draft | event confirm | calendar_event_drafts | drafts | HTTP confirm/dedupe | operativo interno | no Google sync | alta | Google later |
-| Google Calendar | OAuth/sync | Home/Settings | connectors/google-calendar | connectors, vault | config-status | bloccato da credenziali | GOOGLE_OAUTH_* | alta | setup OAuth locale |
+| Documents | Calendar draft | event confirm | calendar_event_drafts | drafts | HTTP confirm/dedupe + optional Google write | operativo interno; write Google codice OK | verifica reale Google bloccata | alta | OAuth client locale |
+| Google Calendar | OAuth read+write | Home/Settings + doc confirm | connectors/google-calendar + documents/calendar | connectors, vault, drafts | fake suite + config-status | write implementato; reale bloccato da credenziali | GOOGLE_OAUTH_* | alta | setup OAuth + verify event |
 | Apple Calendar | Connect/sync | settings iOS | apple-calendar | connectors | config enabled:false | mock / non verificato | device + flag | media | EAS/device |
 | Life Graph | CRUD nodes | — | /life-graph | life_* | HTTP nodes | non utilizzato | no UI | media | decidere se esporre |
 | Knowledge | Facts | dietro memoria | /knowledge | node_knowledge | codice | non utilizzato | no UI | media | — |

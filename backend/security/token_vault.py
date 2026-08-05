@@ -193,23 +193,46 @@ class FernetTokenVault:
         return json.loads(raw.decode("utf-8"))
 
 
+def _fernet_key_bytes(raw: str) -> bytes:
+    """Accept a Fernet key or derive one from a passphrase (local/dev).
+
+    Prefer `Fernet.generate_key()` output in production. Passphrases are
+    hashed with SHA-256 and urlsafe-base64-encoded to 32 bytes.
+    """
+    import hashlib
+
+    raw_b = raw.strip().encode("utf-8")
+    try:
+        Fernet(raw_b)
+        return raw_b
+    except Exception:
+        digest = hashlib.sha256(raw_b).digest()
+        return base64.urlsafe_b64encode(digest)
+
+
 def build_token_vault(db) -> "TokenVault | DisabledVault":
-    """Factory. Reads TOKEN_VAULT_BACKEND + TOKEN_VAULT_KEY from env."""
+    """Factory. Reads TOKEN_VAULT_BACKEND + TOKEN_VAULT_KEY from env.
+
+    `local` is accepted as an alias of `fernet` for local/dev (same cipher).
+    Encryption key: TOKEN_VAULT_KEY or OAUTH_TOKEN_ENCRYPTION_KEY.
+    """
     backend = os.environ.get("TOKEN_VAULT_BACKEND", "").strip().lower()
-    if backend == "fernet":
-        key = os.environ.get("TOKEN_VAULT_KEY", "").strip()
+    if backend in ("fernet", "local"):
+        key = (
+            os.environ.get("TOKEN_VAULT_KEY", "").strip()
+            or os.environ.get("OAUTH_TOKEN_ENCRYPTION_KEY", "").strip()
+        )
         if not key:
-            logger.error("TOKEN_VAULT_KEY missing while backend=fernet")
+            logger.error("TOKEN_VAULT_KEY / OAUTH_TOKEN_ENCRYPTION_KEY missing")
             return DisabledVault(reason="TOKEN_VAULT_KEY missing")
         try:
-            return FernetTokenVault(db, key.encode("ascii"))
+            return FernetTokenVault(db, _fernet_key_bytes(key))
         except VaultNotConfigured as e:
             logger.error("FernetTokenVault init failed: %s", e)
             return DisabledVault(reason=str(e))
     if backend in ("", "disabled"):
         return DisabledVault(reason="TOKEN_VAULT_BACKEND not set")
     return DisabledVault(reason=f"Unsupported backend: {backend}")
-
 
 # convenience for callers
 def is_configured(vault) -> bool:

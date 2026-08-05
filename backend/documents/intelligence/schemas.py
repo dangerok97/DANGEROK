@@ -104,6 +104,11 @@ class GenericAction(BaseModel):
     requires_confirmation: bool = True
 
 
+SyncStatus = Literal[
+    "local_only", "pending", "synced", "failed", "conflict", "revoked",
+]
+
+
 class CalendarEventDraft(BaseModel):
     id: str
     user_id: str
@@ -120,6 +125,18 @@ class CalendarEventDraft(BaseModel):
     status: Literal["draft", "confirmed", "cancelled"] = "confirmed"
     created_at: str
     updated_at: str
+    # Google sync linkage
+    sync_provider: Optional[Literal["internal", "google", "apple"]] = "internal"
+    sync_status: SyncStatus = "local_only"
+    google_calendar_id: Optional[str] = None
+    google_event_id: Optional[str] = None
+    google_event_html_link: Optional[str] = None
+    google_event_etag: Optional[str] = None
+    last_synced_at: Optional[str] = None
+    sync_error: Optional[str] = None
+    sync_version: int = 0
+    priority: Optional[str] = None
+    urgency: Optional[str] = None
 
 
 def _coerce_str_list(v: Any) -> List[str]:

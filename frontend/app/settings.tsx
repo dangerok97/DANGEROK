@@ -38,12 +38,21 @@ export default function SettingsScreen() {
   const [confirmRevoke, setConfirmRevoke] = useState(false);
   const [confirmAppleRevoke, setConfirmAppleRevoke] = useState(false);
   const [eventsCount, setEventsCount] = useState<number | null>(null);
+  const [gcalWrite, setGcalWrite] = useState<{
+    connected: boolean;
+    needs_reconnect?: boolean;
+    account_email?: string | null;
+    default_calendar_id?: string | null;
+    write_capable?: boolean;
+    last_sync_at?: string | null;
+    scopes?: string[];
+  } | null>(null);
   const [googleRequest, , googlePrompt] = useGoogleAuthRequest();
 
   const load = useCallback(async () => {
     setError(null);
     try {
-      const [r, daily, aConfig, aInstances, idents, llm] = await Promise.all([
+      const [r, daily, aConfig, aInstances, idents, llm, writeStatus] = await Promise.all([
         api.googleCalendarInstances(),
         api.dailyToday().catch(() => null),
         // Only iOS shows Apple settings — but we still fetch config to
@@ -52,6 +61,7 @@ export default function SettingsScreen() {
         Platform.OS === 'ios' ? api.appleCalendarInstances().catch(() => ({ items: [] as ConnectorInstance[] })) : Promise.resolve({ items: [] as ConnectorInstance[] }),
         api.authIdentities().catch(() => null),
         api.llmProviders().catch(() => null),
+        api.googleCalendarWriteStatus().catch(() => null),
       ]);
       setInstance((r.items || [])[0] || null);
       setEventsCount(daily?.total_events ?? null);
@@ -59,6 +69,7 @@ export default function SettingsScreen() {
       setAppleInstance((aInstances?.items || [])[0] || null);
       setIdentities(idents);
       setLlmStatus(llm);
+      setGcalWrite(writeStatus);
     } catch (e: any) {
       setError(humanizeError(e));
     } finally {
@@ -342,10 +353,33 @@ export default function SettingsScreen() {
                 label="Calendari"
                 value={String(instance.selected_resource_ids?.length || 0)}
               />
+              <MetaItem
+                label="Scrittura eventi"
+                value={
+                  gcalWrite?.write_capable
+                    ? 'Attiva'
+                    : gcalWrite?.needs_reconnect
+                      ? 'Ri-autorizza'
+                      : 'Non disponibile'
+                }
+              />
+              <MetaItem
+                label="Calendario predefinito"
+                value={gcalWrite?.default_calendar_id || 'Principale'}
+              />
               {typeof eventsCount === 'number' ? (
                 <MetaItem label="Eventi oggi" value={String(eventsCount)} />
               ) : null}
             </View>
+
+            {gcalWrite?.needs_reconnect ? (
+              <Animated.View entering={FadeIn.duration(180)} style={styles.errorBanner}>
+                <Ionicons name="alert-circle" size={16} color={tokens.color.error} />
+                <Text style={styles.errorText}>
+                  Per salvare eventi da ORA a Google serve ri-autorizzare con lo scope scrittura eventi.
+                </Text>
+              </Animated.View>
+            ) : null}
 
             {error ? (
               <Animated.View entering={FadeIn.duration(180)} style={styles.errorBanner}>
@@ -360,7 +394,7 @@ export default function SettingsScreen() {
                   <ActionBtn
                     primary
                     icon="sync"
-                    label={busy === 'sync' ? 'Sincronizzo…' : 'Sincronizza'}
+                    label={busy === 'sync' ? 'Sincronizzo…' : 'Sincronizza (lettura)'}
                     onPress={onSync}
                     loading={busy === 'sync'}
                     testID="btn-settings-sync"
@@ -372,6 +406,23 @@ export default function SettingsScreen() {
                     onPress={() => { haptic('tap'); router.push(`/manage-calendars?instance=${instance.id}`); }}
                     testID="btn-settings-manage"
                   />
+                  {gcalWrite?.needs_reconnect ? (
+                    <ActionBtn
+                      primary
+                      icon="logo-google"
+                      label="Collega scrittura Google"
+                      onPress={async () => {
+                        haptic('tap');
+                        try {
+                          const r = await api.googleCalendarOAuthStart();
+                          const win: any = typeof window !== 'undefined' ? window : null;
+                          if (win?.location) win.location.assign(r.authorize_url);
+                        } catch (e: any) {
+                          setError(humanizeError(e, 'connect'));
+                        }
+                      }}
+                    />
+                  ) : null}
                 </>
               )}
               {instance.status !== 'revoked' && (
@@ -405,13 +456,27 @@ export default function SettingsScreen() {
           </Animated.View>
         ) : (
           <Animated.View entering={FadeInDown.duration(220)} style={styles.card}>
-            <Text style={styles.cardTitle}>Nessun account collegato</Text>
-            <Text style={styles.cardMeta}>Torna alla Home per collegare Google Calendar.</Text>
+            <Text style={styles.cardTitle}>Google Calendar</Text>
+            <Text style={styles.cardMeta}>
+              Collega Google Calendar per leggere eventi e salvare in Google quelli confermati da documenti.
+              Il login Google all'account ORA è separato e non richiede accesso al calendario.
+            </Text>
             <View style={styles.actionsRow}>
               <ActionBtn
-                icon="home-outline"
-                label="Vai alla Home"
-                onPress={() => { haptic('tap'); router.push('/(tabs)'); }}
+                primary
+                icon="logo-google"
+                label="Collega Google Calendar"
+                onPress={async () => {
+                  haptic('tap');
+                  try {
+                    const r = await api.googleCalendarOAuthStart();
+                    const win: any = typeof window !== 'undefined' ? window : null;
+                    if (win?.location) win.location.assign(r.authorize_url);
+                    else router.push('/(tabs)');
+                  } catch (e: any) {
+                    setError(humanizeError(e, 'connect'));
+                  }
+                }}
               />
             </View>
           </Animated.View>

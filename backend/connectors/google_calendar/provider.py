@@ -1,6 +1,6 @@
 """Provider abstraction — real Google client vs in-memory fake.
 
-The provider ONLY performs data-plane calls (list calendars, list
+The provider ONLY performs data-plane calls (list calendars, list/write
 events). OAuth token acquisition happens in `oauth.py`; the provider
 receives an already-materialized access token from the caller and never
 persists it.
@@ -11,12 +11,20 @@ import hashlib
 import os
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Protocol
+from urllib.parse import quote
 
 import httpx
 
 
 class ProviderNotConfigured(Exception):
     """The real provider was requested but env is missing configuration."""
+
+
+class GoogleCalendarAPIError(Exception):
+    def __init__(self, status_code: int, message: str = "", *, etag_conflict: bool = False):
+        super().__init__(message or f"google_calendar_http_{status_code}")
+        self.status_code = status_code
+        self.etag_conflict = etag_conflict
 
 
 @dataclass
@@ -35,6 +43,10 @@ class EventsPage:
     next_sync_token: Optional[str] = None
 
 
+def _cal_path(calendar_id: str) -> str:
+    return quote(calendar_id, safe="")
+
+
 class CalendarProviderProtocol(Protocol):
     """Interface implemented by both real and fake providers."""
 
@@ -51,6 +63,28 @@ class CalendarProviderProtocol(Protocol):
         sync_token: Optional[str] = None,
         max_results: int = 250,
     ) -> EventsPage: ...
+
+    async def create_event(
+        self, *, access_token: str, calendar_id: str, body: Dict[str, Any],
+    ) -> Dict[str, Any]: ...
+
+    async def get_event(
+        self, *, access_token: str, calendar_id: str, event_id: str,
+    ) -> Dict[str, Any]: ...
+
+    async def update_event(
+        self,
+        *,
+        access_token: str,
+        calendar_id: str,
+        event_id: str,
+        body: Dict[str, Any],
+        etag: Optional[str] = None,
+    ) -> Dict[str, Any]: ...
+
+    async def delete_event(
+        self, *, access_token: str, calendar_id: str, event_id: str,
+    ) -> bool: ...
 
 
 # ============================================================
@@ -107,7 +141,7 @@ class RealGoogleCalendarProvider:
             params["pageToken"] = page_token
         async with httpx.AsyncClient(timeout=30) as h:
             r = await h.get(
-                f"{self.BASE}/calendars/{httpx.URL(calendar_id).host or calendar_id}/events",
+                f"{self.BASE}/calendars/{_cal_path(calendar_id)}/events",
                 headers={"Authorization": f"Bearer {access_token}"},
                 params=params,
             )
@@ -118,6 +152,79 @@ class RealGoogleCalendarProvider:
             next_page_token=body.get("nextPageToken"),
             next_sync_token=body.get("nextSyncToken"),
         )
+
+    async def create_event(
+        self, *, access_token: str, calendar_id: str, body: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        async with httpx.AsyncClient(timeout=30) as h:
+            r = await h.post(
+                f"{self.BASE}/calendars/{_cal_path(calendar_id)}/events",
+                headers={
+                    "Authorization": f"Bearer {access_token}",
+                    "Content-Type": "application/json",
+                },
+                json=body,
+            )
+            if r.status_code >= 400:
+                raise GoogleCalendarAPIError(r.status_code, r.text[:200])
+            return r.json()
+
+    async def get_event(
+        self, *, access_token: str, calendar_id: str, event_id: str,
+    ) -> Dict[str, Any]:
+        async with httpx.AsyncClient(timeout=30) as h:
+            r = await h.get(
+                f"{self.BASE}/calendars/{_cal_path(calendar_id)}/events/{quote(event_id, safe='')}",
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+            if r.status_code == 404:
+                raise GoogleCalendarAPIError(404, "not_found")
+            if r.status_code >= 400:
+                raise GoogleCalendarAPIError(r.status_code, r.text[:200])
+            return r.json()
+
+    async def update_event(
+        self,
+        *,
+        access_token: str,
+        calendar_id: str,
+        event_id: str,
+        body: Dict[str, Any],
+        etag: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json",
+        }
+        if etag:
+            headers["If-Match"] = etag
+        async with httpx.AsyncClient(timeout=30) as h:
+            r = await h.patch(
+                f"{self.BASE}/calendars/{_cal_path(calendar_id)}/events/{quote(event_id, safe='')}",
+                headers=headers,
+                json=body,
+            )
+            if r.status_code == 412:
+                raise GoogleCalendarAPIError(412, "etag_conflict", etag_conflict=True)
+            if r.status_code == 404:
+                raise GoogleCalendarAPIError(404, "not_found")
+            if r.status_code >= 400:
+                raise GoogleCalendarAPIError(r.status_code, r.text[:200])
+            return r.json()
+
+    async def delete_event(
+        self, *, access_token: str, calendar_id: str, event_id: str,
+    ) -> bool:
+        async with httpx.AsyncClient(timeout=30) as h:
+            r = await h.delete(
+                f"{self.BASE}/calendars/{_cal_path(calendar_id)}/events/{quote(event_id, safe='')}",
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+            if r.status_code in (204, 200, 410):
+                return True
+            if r.status_code == 404:
+                return True  # already gone
+            raise GoogleCalendarAPIError(r.status_code, r.text[:200])
 
 
 # ============================================================
@@ -151,14 +258,19 @@ class FakeGoogleCalendarProvider:
         self.events.setdefault(calendar_id, {})[event["id"]] = dict(event)
         self._sync_generation += 1
 
-    def update_event(self, *, calendar_id: str, event_id: str, patch: Dict[str, Any]):
+    def patch_seeded_event(self, *, calendar_id: str, event_id: str, patch: Dict[str, Any]):
+        """Test helper — must not collide with async update_event protocol method."""
         assert calendar_id in self.events, f"unknown calendar {calendar_id}"
         assert event_id in self.events[calendar_id], f"unknown event {event_id}"
         self.events[calendar_id][event_id].update(patch)
         self._sync_generation += 1
 
+    # Back-compat alias for older tests/fixtures
+    def update_seeded_event(self, *, calendar_id: str, event_id: str, patch: Dict[str, Any]):
+        return self.patch_seeded_event(calendar_id=calendar_id, event_id=event_id, patch=patch)
+
     def cancel_event(self, *, calendar_id: str, event_id: str):
-        self.update_event(calendar_id=calendar_id, event_id=event_id, patch={"status": "cancelled"})
+        self.patch_seeded_event(calendar_id=calendar_id, event_id=event_id, patch={"status": "cancelled"})
 
     # ---- provider interface ----
     async def list_calendars(self, *, access_token: str) -> List[CalendarSummary]:
@@ -195,6 +307,63 @@ class FakeGoogleCalendarProvider:
             next_page_token=None,
             next_sync_token=f"fake:{self._sync_generation}",
         )
+
+    async def create_event(
+        self, *, access_token: str, calendar_id: str, body: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        if calendar_id not in self.calendars:
+            raise GoogleCalendarAPIError(404, "calendar_not_found")
+        eid = body.get("id") or f"fake_{hashlib.sha1(repr(body).encode()).hexdigest()[:12]}"
+        # idempotency via extendedProperties.private.ora_event_id
+        ora_id = ((body.get("extendedProperties") or {}).get("private") or {}).get("ora_event_id")
+        if ora_id:
+            for existing in self.events.get(calendar_id, {}).values():
+                priv = ((existing.get("extendedProperties") or {}).get("private") or {})
+                if priv.get("ora_event_id") == ora_id:
+                    return existing
+        event = {
+            **body,
+            "id": eid,
+            "etag": f"etag-{self._sync_generation + 1}",
+            "htmlLink": f"https://calendar.google.com/event?eid={eid}",
+            "status": "confirmed",
+        }
+        self.seed_event(calendar_id=calendar_id, event=event)
+        return event
+
+    async def get_event(
+        self, *, access_token: str, calendar_id: str, event_id: str,
+    ) -> Dict[str, Any]:
+        ev = (self.events.get(calendar_id) or {}).get(event_id)
+        if not ev or ev.get("status") == "cancelled":
+            raise GoogleCalendarAPIError(404, "not_found")
+        return dict(ev)
+
+    async def update_event(
+        self,
+        *,
+        access_token: str,
+        calendar_id: str,
+        event_id: str,
+        body: Dict[str, Any],
+        etag: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        ev = (self.events.get(calendar_id) or {}).get(event_id)
+        if not ev:
+            raise GoogleCalendarAPIError(404, "not_found")
+        if etag and ev.get("etag") and etag != ev.get("etag"):
+            raise GoogleCalendarAPIError(412, "etag_conflict", etag_conflict=True)
+        ev.update(body)
+        ev["etag"] = f"etag-{self._sync_generation + 1}"
+        self._sync_generation += 1
+        return dict(ev)
+
+    async def delete_event(
+        self, *, access_token: str, calendar_id: str, event_id: str,
+    ) -> bool:
+        if calendar_id in self.events and event_id in self.events[calendar_id]:
+            self.cancel_event(calendar_id=calendar_id, event_id=event_id)
+        return True
 
 
 # ============================================================
