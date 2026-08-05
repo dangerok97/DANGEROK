@@ -3,7 +3,7 @@
 **Status:** Implemented (backend-only, invisible)  
 **Branch:** `feature/goal-engine-foundation`  
 **Date:** 2026-08-06  
-**Goal UX:** **NOT implemented** — no Goal screens/tabs. Home is **Goal-aware** (context/dedupe only); see `docs/HOME_GOAL_AWARE.md` on `feature/goal-aware-home`.
+**Goal UX:** **NOT implemented** — no Goal screens/tabs. Home is **Goal-aware** (context/dedupe only); see `docs/GOAL_AWARE_HOME.md` (alias `HOME_GOAL_AWARE.md`) on `feature/goal-aware-home`.
 
 Aligned with `docs/GOAL_ENGINE_ARCHITECTURAL_AUDIT.md` recommended architecture.
 
@@ -34,7 +34,7 @@ Input → Intent → Goal Engine (identity/lifecycle) → Action Engine (convers
 - **Study / Travel** — remain typed artifacts (`study_plans`, `travel_projects`).
 - **`action_projects`** — remain AE link bags.
 - **Brain** — graph identity/facts; Goal owns product lifecycle.
-- **Home** — Goal-aware context on `feature/goal-aware-home` (dedupe/ranking/insights); **still no Goal UX**.
+- **Home** — Goal-aware context on `feature/goal-aware-home` (`home-rank-1.2`, dedupe/ranking/insights); **still no Goal UX**.
 
 ## Flag
 
@@ -53,6 +53,6 @@ Set `0` / `false` to disable shadow upserts and Home Goal attach/dedupe.
 
 ## Next phases (from audit)
 
-- ~~M1/P4: Home `meta.goal_id` dedupe~~ → done in Goal-aware Home (`docs/HOME_GOAL_AWARE.md`)
+- ~~M1/P4: Home `meta.goal_id` dedupe~~ → done in Goal-aware Home (`docs/GOAL_AWARE_HOME.md`)
 - P5: Progress projection on session complete / travel phase tick
 - P6: Optional FE Goals read surface (later — still not Goal UX on Home)

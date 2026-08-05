@@ -4,7 +4,15 @@ Last updated: 2026-08-06
 
 ## Version
 
-`ranking_version = home-rank-1.1` (Goal-aware factors + dedupe; flag-gated)
+`ranking_version = home-rank-1.2` (Goal-aware factors + blockers/stale/prep/skipped; flag-gated)
+
+### Changelog
+
+| Version | Change |
+|---------|--------|
+| `1.0` | Base type/due/confidence ranking |
+| `1.1` | Goal importance/urgency/deadline/next_action/progress + goal dedupe |
+| `1.2` | + status/blockers/stale/skipped sessions/missing prep/calendar; travel phase progress (no fake %); session_today |
 
 ## Properties
 
@@ -17,7 +25,9 @@ Last updated: 2026-08-06
 
 Type weights, due/start proximity, overdue, amount present, confidence (low boosts review), needs_review, incomplete study sessions, overdue activities. Soft dampening of leisure activities when critical bills exist.
 
-**1.1 Goal factors** (only if item has `goal_id`): importance, urgency, deadline pressure vs progress, next_action, progress label. See `docs/HOME_GOAL_AWARE.md`.
+**1.2 Goal factors** (only if item has `goal_id`): importance, urgency, status (blocked/waiting/paused), blockers, deadline vs progress, next_action, progress/% or phase label, stale advance, skipped sessions, missing prep, calendar links. See `docs/GOAL_AWARE_HOME.md`.
+
+**Brain** contributes verify/link items as context — not a Goal score input.
 
 ## Outputs (persisted)
 

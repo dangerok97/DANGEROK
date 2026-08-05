@@ -73,7 +73,7 @@ Health:
 
 - `GET /api/` → `{ "app": "ORA", "status": "ok" }`
 - `GET /api/health` → app + database + llm configured flag + integration flags (no secrets)
-- `GET /api/home` → Home V2 aggregate (`primary_focus`, situation, priorities, insights, resume, warnings); Goal-aware when `GOAL_ENGINE_ENABLED` (item `goal_*` fields + dedupe; no Goals section — `docs/HOME_GOAL_AWARE.md`)
+- `GET /api/home` → Home V2 aggregate (`primary_focus`, situation, priorities, insights, resume, warnings); Goal-aware when `GOAL_ENGINE_ENABLED` (`home-rank-1.2`, item `goal_*` refs + dedupe; no Goals section — `docs/GOAL_AWARE_HOME.md`)
 - `GET /api/home/situation` → full situation view payload
 - `POST /api/home/actions` → complete / snooze / ignore / correct / insight / banner
 - `POST /api/home/refresh` → rebuild ranking snapshot

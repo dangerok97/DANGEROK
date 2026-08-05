@@ -7,21 +7,59 @@ import { ActionEngine } from '@/src/action-engine';
 import { formatWhen } from './homeNav';
 import { haptic } from '@/src/utils/haptic';
 
+function progressDisplay(item: HomeItem): string | null {
+  const label = item.goal_progress_label?.trim();
+  // Travel soft progress / phase: prefer honest label, never invent precise %
+  if (item.goal_type === 'travel' && label) return label;
+  if (item.goal_progress == null) return label || null;
+  const pct = Math.round(Number(item.goal_progress));
+  if (label) {
+    if (label.includes('%') || label.includes('/')) return label;
+    return `${pct}% · ${label}`;
+  }
+  return `${pct}%`;
+}
+
 /** Type-specific primary focus — card press opens Action Engine. */
 export function AdessoCard({ item }: { item: HomeItem }) {
   const router = useRouter();
-  const when = formatWhen(item.start_at || item.due_at);
+  const when = formatWhen(item.start_at || item.due_at || item.goal_target_date);
   const fields: { icon: keyof typeof Ionicons.glyphMap; label: string; value: string }[] = [];
 
   if (when) fields.push({ icon: 'time-outline', label: item.due_at && !item.start_at ? 'Scadenza' : 'Quando', value: when });
   if (item.location) fields.push({ icon: 'location-outline', label: 'Luogo', value: item.location });
   if (item.amount) fields.push({ icon: 'cash-outline', label: 'Importo', value: item.amount });
   if (item.duration_minutes) fields.push({ icon: 'hourglass-outline', label: 'Durata', value: `${item.duration_minutes} min` });
+
   // Goal context on existing Adesso card — no Goal tab / section
-  if (item.goal_progress != null && item.goal_title) {
-    const pct = Math.round(Number(item.goal_progress));
-    const label = item.goal_progress_label || `${pct}%`;
-    fields.push({ icon: 'flag-outline', label: 'Progresso', value: label.includes('%') ? label : `${pct}% · ${label}` });
+  if (item.goal_title) {
+    fields.push({ icon: 'flag-outline', label: 'Obiettivo', value: item.goal_title });
+  }
+  const prog = progressDisplay(item);
+  if (prog) {
+    fields.push({ icon: 'trending-up-outline', label: 'Progresso', value: prog });
+  }
+  if (item.goal_target_date) {
+    const targetWhen = formatWhen(item.goal_target_date);
+    if (targetWhen && targetWhen !== when) {
+      fields.push({ icon: 'calendar-outline', label: 'Target', value: targetWhen });
+    }
+  }
+  if (item.goal_next_action) {
+    fields.push({ icon: 'play-outline', label: 'Prossima', value: item.goal_next_action });
+  }
+  if (item.goal_status && ['blocked', 'waiting', 'paused'].includes(item.goal_status)) {
+    const statusLabel =
+      item.goal_status === 'blocked' ? 'Bloccato'
+        : item.goal_status === 'waiting' ? 'In attesa'
+          : 'In pausa';
+    fields.push({ icon: 'alert-circle-outline', label: 'Stato', value: statusLabel });
+  }
+  if (item.goal_blockers?.length) {
+    fields.push({ icon: 'warning-outline', label: 'Blocco', value: item.goal_blockers[0] });
+  }
+  if (item.goal_project_id && item.source_type !== 'action_project') {
+    fields.push({ icon: 'folder-outline', label: 'Progetto', value: 'Collegato' });
   }
 
   const intentLabel = INTENT_LABELS[(item.meta as any)?.intent as string] || INTENT_LABELS[item.subtype || ''];
@@ -47,13 +85,16 @@ export function AdessoCard({ item }: { item: HomeItem }) {
       </View>
       <Text style={styles.title} accessibilityRole="header">{item.title}</Text>
       {item.description ? <Text style={styles.desc}>{item.description}</Text> : null}
+      {item.goal_title && !(item.description || '').includes('Obiettivo:') ? (
+        <Text style={styles.goalCtx} testID="adesso-goal-context">Obiettivo: {item.goal_title}</Text>
+      ) : null}
       {fields.length > 0 ? (
         <View style={styles.metaGrid}>
           {fields.map((f) => (
             <View key={f.label} style={styles.meta} accessible accessibilityLabel={`${f.label}: ${f.value}`}>
               <Ionicons name={f.icon} size={13} color={tokens.color.onSurfaceMuted} />
               <Text style={styles.metaLabel}>{f.label}</Text>
-              <Text style={styles.metaValue}>{f.value}</Text>
+              <Text style={styles.metaValue} numberOfLines={2}>{f.value}</Text>
             </View>
           ))}
         </View>
@@ -117,13 +158,15 @@ const styles = StyleSheet.create({
   type: { fontSize: 12, color: tokens.color.onSurfaceMuted, fontWeight: '600', textTransform: 'uppercase' },
   title: { fontSize: 24, fontWeight: '700', color: tokens.color.onSurface, lineHeight: 30, letterSpacing: -0.3 },
   desc: { fontSize: 14, color: tokens.color.onSurfaceMuted, lineHeight: 20 },
+  goalCtx: { fontSize: 13, color: tokens.color.onSurface, fontWeight: '600', lineHeight: 18 },
   metaGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: tokens.spacing.sm },
   meta: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     paddingHorizontal: 10, paddingVertical: 7, borderRadius: tokens.radius.md,
     backgroundColor: tokens.color.surfaceTertiary,
+    maxWidth: '100%',
   },
   metaLabel: { fontSize: 11, color: tokens.color.onSurfaceMuted },
-  metaValue: { fontSize: 12, color: tokens.color.onSurface, fontWeight: '600' },
+  metaValue: { fontSize: 12, color: tokens.color.onSurface, fontWeight: '600', flexShrink: 1 },
   hint: { fontSize: 12, color: tokens.color.onSurfaceDim, marginTop: 2 },
 });

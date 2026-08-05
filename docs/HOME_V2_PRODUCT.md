@@ -6,7 +6,7 @@ Last updated: 2026-08-06
 
 **What is most useful to know or do now?**
 
-Goals are **not** a Home block. They may enrich Adesso / Priorità / Perché / Osserva / Continua as context (see `docs/HOME_GOAL_AWARE.md`). **No Goal tab or Goals list.**
+Goals are **not** a Home block. They may enrich Adesso / Priorità / Perché / Osserva / Continua as context (see `docs/GOAL_AWARE_HOME.md`). **No Goal tab or Goals list.**
 
 ## Blocks (max 5 primary content regions + supporting)
 

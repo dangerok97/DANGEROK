@@ -46,7 +46,7 @@ Persone che vogliono una priorità unica chiara (non un task manager generico), 
 ### 2. Home V2 — Intelligence dashboard
 
 - **Scopo:** rispondere “cosa è più utile sapere o fare adesso” con ranking multi-fonte (documenti, calendario, studio, decisioni, …).
-- **Stato:** **operativo (web)** — `GET /api/home`, ranking `home-rank-1.0` senza Gemini, UI Adesso/Perché/azioni tipizzate/situazione/priorità/insights/resume; banner Google compatto.
+- **Stato:** **operativo (web)** — `GET /api/home`, ranking `home-rank-1.2` Goal-aware (flag) senza Gemini, UI Adesso/Perché/azioni tipizzate/situazione/priorità/insights/resume; banner Google compatto; no Goal tab.
 - **Flusso UI:** Home → focus → **Action Engine** (Apri/Organizza/Inizia/card); complete/snooze/ignore/correct; refresh on focus + pull-to-refresh.
 - **Backend:** `backend/home/` + adapters fail-soft (+ Action Engine adapter).
 - **DB:** `home_snapshots`, `home_item_state`, `home_insights` (+ fonti esistenti).
@@ -96,7 +96,7 @@ Persone che vogliono una priorità unica chiara (non un task manager generico), 
 - **Stato:** **backend shadow** + **Home context** — conferma Study/Travel crea/aggiorna Goal; Home allega `goal_*`, dedupe stesso `goal_id`, fattori ranking/insights/resume. **Nessuna UI Goal**, nessun tab, nessuna sezione Goals su Home.
 - **API:** `/api/goals/*` (protetta; non c’è schermata Goals). Home arricchita via `GET /api/home`.
 - **Flag:** `GOAL_ENGINE_ENABLED` (default ON; OFF → Home come prima + shadow no-op).
-- **Docs:** `docs/HOME_GOAL_AWARE.md`, `GOAL_ENGINE_FOUNDATION.md`, `GOAL_DATA_MODEL.md`, `GOAL_LIFECYCLE.md`.
+- **Docs:** `docs/GOAL_AWARE_HOME.md` (alias `HOME_GOAL_AWARE.md`), `GOAL_ENGINE_FOUNDATION.md`, `GOAL_DATA_MODEL.md`, `GOAL_LIFECYCLE.md`.
 - **Aperti:** refresh progress su session complete; eventuale UI Goals in fasi successive (non su Home come modulo).
 
 ### 3. Decision Engine

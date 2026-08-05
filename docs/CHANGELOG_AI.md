@@ -1,6 +1,37 @@
 # ORA — AI Changelog
 
-## 2026-08-06 — Goal-aware Home V2 (no Goal UX)
+## 2026-08-06 — Goal-aware Home complete (full checklist)
+
+### Request
+
+Align/complete Goal-aware Home against full checklist on `feature/goal-aware-home` (base `a702d1e` / Foundation `7352f7c`). No Goal UX. Commit message exactly `feat: make Home goal-aware`.
+
+### Gaps filled vs `a702d1e`
+
+- Schema refs: `goal_type`, `goal_target_date`, `goal_blockers`, `goal_project_id` (+ existing fields)
+- Ranking bumped `home-rank-1.1` → `home-rank-1.2` (blockers/status/stale/skipped/prep/calendar; travel soft progress)
+- Primary focus enrich (`Obiettivo:` / Blocco); idle Goal proposal; resume ≠ same-goal duplicate
+- AdessoCard: obiettivo/progresso/target/next/stato/blocchi; travel no fake %
+- Tests expanded (≥12 checklist cases); Playwright Study/Travel + refresh/logout
+- Canonical doc `docs/GOAL_AWARE_HOME.md`; `HOME_GOAL_AWARE.md` alias; FUNCTIONAL_AUDIT + HOME_V2_* / FOUNDATION / DEVELOPMENT_STATE
+
+### Results
+
+- Goal UX: **NOT implemented**
+- pytest `test_home_goal_aware` + `test_home_v2`: **39 passed**
+- pytest `test_goal_engine`: **9 passed**
+- `compileall home` OK; `tsc --noEmit` OK
+- lint: pre-existing `settings.tsx` unescaped-entities error (unrelated); no new errors in Home files
+- Playwright `e2e/home-goal-aware.spec.ts` vs `:8010` (GOAL_ENGINE_ENABLED): **2 passed**
+- Secret scan on touched paths: clean
+
+### Commit
+
+`feat: make Home goal-aware`
+
+---
+
+## 2026-08-06 — Goal-aware Home V2 (no Goal UX) — initial
 
 ### Request
 
@@ -25,7 +56,7 @@ Make Home V2 Goal-aware for primary focus, next action, progress, motivation, de
 
 ### Commit
 
-`feat: make Home V2 Goal-aware without Goal UX`
+`a702d1e` — `feat: make Home V2 Goal-aware without Goal UX`
 
 ---
 

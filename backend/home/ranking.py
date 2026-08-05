@@ -128,12 +128,33 @@ def score_item(item: HomeItem, now: datetime) -> Tuple[float, List[ReasonFactor]
         score += 9
         factors.append(ReasonFactor(code="resume_study", label="Sessione studio da riprendere", weight=9))
 
-    # Goal-aware boost (home-rank-1.1) — only when goal_id attached
+    # Goal-aware boost (home-rank-1.2) — only when goal_id attached; Brain ≠ score
     if item.goal_id:
         from home.goal_context import goal_score_delta
         g_delta, g_factors = goal_score_delta(item, now)
         score += g_delta
         factors.extend(g_factors)
+
+    # Session-today / skipped from study meta (independent of Goal attach)
+    if item.meta.get("session_today"):
+        score += 7
+        factors.append(ReasonFactor(code="session_today", label="Sessione oggi", weight=7))
+    if item.meta.get("skipped_sessions"):
+        try:
+            n = int(item.meta["skipped_sessions"])
+        except (TypeError, ValueError):
+            n = 0
+        if n > 0 and not item.goal_id:
+            w = min(10.0, 4.0 + n)
+            score += w
+            factors.append(ReasonFactor(
+                code="skipped_sessions", label="Sessioni saltate", weight=w, detail=str(n),
+            ))
+    if item.meta.get("missing_prep") and not item.goal_id:
+        score += 8
+        factors.append(ReasonFactor(
+            code="missing_prep", label="Preparazione mancante", weight=8,
+        ))
 
     # Soft dampen leisure-like activities when critical bills/events exist — applied later in rank_items
     summary_parts = [f.label for f in sorted(factors, key=lambda x: -x.weight)[:3]]

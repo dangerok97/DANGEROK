@@ -16,7 +16,7 @@ async function register(prefix: string) {
   });
   const data = await res.json();
   if (!res.ok || !data.token) throw new Error(`register failed: ${JSON.stringify(data)}`);
-  return { token: data.token as string };
+  return { token: data.token as string, email, password };
 }
 
 function auth(token: string) {
@@ -148,9 +148,9 @@ function collectSurface(home: any) {
 }
 
 test.describe('Home V2 Goal-aware (no Goal UX)', () => {
-  test('Study confirm → Home has one goal-linked representative', async () => {
+  test('STUDY: confirm → Home session + Goal context → no dupes → Perché → open plan', async () => {
     test.setTimeout(120_000);
-    const { token } = await register('study');
+    const { token, email, password } = await register('study');
     await driveToConfirm(token, {
       title: 'Preparazione esame di Psicologia',
       description: "Devo preparare l'esame di Psicologia entro tre settimane",
@@ -163,23 +163,58 @@ test.describe('Home V2 Goal-aware (no Goal UX)', () => {
     expect(goals.length).toBeGreaterThanOrEqual(1);
     const goalId = goals[0].id as string;
 
-    const homeRes = await fetch(`${API}/api/home`, { headers: auth(token) });
+    let homeRes = await fetch(`${API}/api/home`, { headers: auth(token) });
     expect(homeRes.ok).toBeTruthy();
-    const home = await homeRes.json();
-    expect(home.ranking_version).toBe('home-rank-1.1');
+    let home = await homeRes.json();
+    expect(home.ranking_version).toBe('home-rank-1.2');
 
-    const surface = collectSurface(home);
-    const linked = surface.filter((i) => i.goal_id === goalId);
+    let surface = collectSurface(home);
+    let linked = surface.filter((i) => i.goal_id === goalId);
     expect(linked.length).toBe(1);
     expect(linked[0].goal_title).toBeTruthy();
     expect(String(linked[0].goal_title).toLowerCase()).toMatch(/psicolog/);
+    expect(linked[0].goal_type).toBe('study');
+    // Goal as context on primary
+    const primary = home.primary_focus;
+    if (primary?.goal_id === goalId) {
+      expect(
+        (primary.description || '').includes('Obiettivo:') || primary.goal_title,
+      ).toBeTruthy();
+      const codes = (home.explanation?.factors || []).map((f: any) => f.code);
+      expect(codes.some((c: string) => String(c).startsWith('goal_') || c === 'session_today')).toBeTruthy();
+    }
+    // Open plan action — not a Goal page
+    const acts = linked[0].actions || [];
+    const planAct = acts.find((a: any) => a.label === 'Apri piano' || (a.route || '').includes('/study-plan/'));
+    expect(planAct).toBeTruthy();
+    expect(acts.every((a: any) => !(a.route || '').includes('/goals'))).toBeTruthy();
 
     // No Goals section / tab in payload shape
     expect(home.goals).toBeUndefined();
     expect(home.goal_list).toBeUndefined();
+
+    // Refresh — still one representative
+    homeRes = await fetch(`${API}/api/home`, { headers: auth(token) });
+    home = await homeRes.json();
+    surface = collectSurface(home);
+    linked = surface.filter((i) => i.goal_id === goalId);
+    expect(linked.length).toBe(1);
+
+    // Logout / login persistence
+    await fetch(`${API}/api/auth/logout`, { method: 'POST', headers: auth(token) });
+    const login = await fetch(`${API}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    const logged = await login.json();
+    expect(login.ok && logged.token).toBeTruthy();
+    const home2 = await (await fetch(`${API}/api/home`, { headers: auth(logged.token) })).json();
+    const linked2 = collectSurface(home2).filter((i) => i.goal_id === goalId);
+    expect(linked2.length).toBe(1);
   });
 
-  test('Travel confirm → Home collapses travel+project under one goal_id', async () => {
+  test('TRAVEL: confirm → next prep + vacation context → no dupes', async () => {
     test.setTimeout(120_000);
     const { token } = await register('travel');
     const start = new Date(Date.now() + 30 * 86400_000).toISOString().slice(0, 10);
@@ -196,9 +231,17 @@ test.describe('Home V2 Goal-aware (no Goal UX)', () => {
     const goalId = goals[0].id as string;
 
     const home = await (await fetch(`${API}/api/home`, { headers: auth(token) })).json();
+    expect(home.ranking_version).toBe('home-rank-1.2');
     const surface = collectSurface(home);
     const linked = surface.filter((i) => i.goal_id === goalId);
     expect(linked.length).toBe(1);
+    expect(linked[0].goal_type).toBe('travel');
+    // Soft progress: phase/label OK; precise % not required
+    if (linked[0].goal_progress != null) {
+      expect(linked[0].goal_progress_label).toBeTruthy();
+    }
     expect(home.goals).toBeUndefined();
+    const routes = (linked[0].actions || []).map((a: any) => a.route || '');
+    expect(routes.every((r: string) => !r.includes('/goals'))).toBeTruthy();
   });
 });

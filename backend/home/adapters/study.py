@@ -43,6 +43,13 @@ async def load_study_state(
             if (s.get("starts_at") or "")[:10] == today
             and s.get("status") in ("planned", "in_progress")
         )
+        skipped_count = sum(1 for s in sessions if s.get("status") == "skipped")
+        missed_count = sum(
+            1 for s in sessions
+            if s.get("status") in ("planned", "in_progress", "snoozed")
+            and (s.get("starts_at") or "")[:10]
+            and (s.get("starts_at") or "")[:10] < today
+        )
         exam_date = p.get("exam_date") or ""
         countdown = None
         if exam_date:
@@ -112,6 +119,9 @@ async def load_study_state(
                 "interrogami_document_ids": iq,
                 "document_ids": p.get("document_ids") or [],
                 "exam_countdown_days": countdown,
+                "skipped_sessions": skipped_count,
+                "missed_sessions": missed_count,
+                "session_today": today_count > 0,
                 "google_sync": p.get("google_sync") or {},
                 "why_now_factors": [
                     f for f in [
@@ -119,6 +129,8 @@ async def load_study_state(
                         if countdown is not None and countdown <= 14 else None,
                         {"code": "session_today", "label": "Sessione oggi", "weight": 0.9}
                         if today_count else None,
+                        {"code": "skipped_sessions", "label": f"{skipped_count} sessioni saltate", "weight": 0.85}
+                        if skipped_count else None,
                         {"code": "flashcards", "label": "Flashcard pronte", "weight": 0.6}
                         if fc else None,
                         {"code": "plan_active", "label": "Piano attivo", "weight": 0.7},

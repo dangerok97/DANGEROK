@@ -9,8 +9,10 @@ from home.adapters import gather_all
 from home.goal_context import (
     attach_goal_context,
     build_goal_insight_candidates,
+    enrich_focus_with_goal,
     enrich_resume_with_goal,
     load_active_goals,
+    proposal_from_idle_goals,
 )
 from home.models import (
     RANKING_VERSION,
@@ -120,6 +122,28 @@ class HomeService:
         # waiting snoozed items still appear in priorities under waiting
         primary = focus_pool[0] if focus_pool else None
 
+        # Draft-only: promote resume into Adesso so Home is not empty
+        promoted_resume_id: Optional[str] = None
+        if primary is None and resume_candidates:
+            resume_candidates.sort(key=lambda x: x.updated_at or "", reverse=True)
+            promoted = resume_candidates[0]
+            primary = enrich_focus_with_goal(enrich_resume_with_goal(promoted)) or promoted
+            promoted_resume_id = promoted.id
+
+        # Goals exist but no actionable artifact / resume → useful proposal
+        if primary is None and goals:
+            covered = {r.goal_id for r in resume_candidates if r.goal_id}
+            idle = proposal_from_idle_goals(goals, now=now)
+            if idle and idle.goal_id and idle.goal_id in covered:
+                idle = None
+            if idle:
+                idle_ranked = rank_items([idle], now=now)
+                primary = idle_ranked[0] if idle_ranked else idle
+                ranked = dedupe_items(ranked + [primary])
+
+        if primary and not promoted_resume_id:
+            primary = enrich_focus_with_goal(primary) or primary
+
         explanation = None
         if primary:
             missing = list(primary.meta.get("missing_fields") or [])
@@ -144,10 +168,23 @@ class HomeService:
         insights = await self._build_insights(user_id, ranked, gcal, now, goals=goals)
         resume = None
         if resume_candidates:
-            # pick most recently updated
+            # pick most recently updated — must not duplicate primary
             resume_candidates.sort(key=lambda x: x.updated_at or "", reverse=True)
-            resume_item = enrich_resume_with_goal(resume_candidates[0])
-            resume = resume_item.to_public() if resume_item else None
+            resume_pick = next(
+                (r for r in resume_candidates if r.id != (primary.id if primary else None)
+                 and r.id != promoted_resume_id),
+                None,
+            )
+            if resume_pick and primary and resume_pick.goal_id and resume_pick.goal_id == primary.goal_id:
+                # Same Goal: keep Continua only if a distinct artifact; else drop dupe
+                resume_pick = next(
+                    (r for r in resume_candidates
+                     if r.id != primary.id and r.goal_id != primary.goal_id),
+                    None,
+                )
+            if resume_pick:
+                resume_item = enrich_resume_with_goal(resume_pick)
+                resume = resume_item.to_public() if resume_item else None
 
         # Google: connected → no promo; disconnected → compact banner flag
         google_block = {
