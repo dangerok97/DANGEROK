@@ -50,6 +50,14 @@ Last updated: 2026-08-05 (Study Action Flow complete)
 | Google Console must list BOTH hosts | **manual** (see Console checklist in CHANGELOG) |
 | Verified live on localhost:8081 after Console update | **pending user Console edit** |
 
+## Study plan ↔ Google Calendar (real)
+
+| Item | Stato |
+|------|--------|
+| Connector id lookup (`calendar_google`) | **fixed** |
+| Create / snooze-update / delete on Google | **PASS** 2026-08-05 (live) |
+| Script | `backend/scripts/verify_study_google_sync.py` |
+
 ## Open / next
 
 1. Add missing Google Console origins/redirects for localhost + 127.0.0.1; re-test connect on both hosts
