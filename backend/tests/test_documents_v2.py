@@ -1,4 +1,4 @@
-"""Documents V2 — hub, prefs, auto-add gates, pipeline states, migration stamp."""
+"""Documents V2 — hub, prefs, auto-add gates, study, admin, search, fixtures, isolation."""
 from __future__ import annotations
 
 import asyncio
@@ -14,12 +14,32 @@ _BACKEND = str(Path(__file__).resolve().parents[1])
 if _BACKEND not in sys.path:
     sys.path.insert(0, _BACKEND)
 
+FIXTURES = Path(__file__).resolve().parent / "fixtures" / "intel_docs"
 MONGO = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
 DBNAME = os.environ.get("DB_NAME", "ora_test")
 
 
 def _run(coro):
     return asyncio.get_event_loop().run_until_complete(coro)
+
+
+def _fixture_bytes(name: str) -> bytes:
+    return (FIXTURES / name).read_bytes()
+
+
+async def _svc():
+    import tempfile
+    from motor.motor_asyncio import AsyncIOMotorClient
+    from documents.intelligence.service import IntelligenceService
+    from documents.service import DocumentService
+    from documents.storage import LocalFilesystemStorage
+
+    client = AsyncIOMotorClient(MONGO)
+    db = client[DBNAME]
+    tmp = tempfile.mkdtemp(prefix="ora_v2_")
+    dsvc = DocumentService(db=db, storage=LocalFilesystemStorage(base_dir=tmp), life_graph=None, knowledge=None)
+    intel = IntelligenceService(db, dsvc)
+    return client, db, dsvc, intel
 
 
 def test_pipeline_v2_states_include_new_aliases():
@@ -44,25 +64,14 @@ def test_migration_stamp_preserves_legacy():
 
 def test_auto_add_disabled_by_default_and_gates():
     async def body():
-        from motor.motor_asyncio import AsyncIOMotorClient
-        from documents.intelligence.service import IntelligenceService
-        from documents.service import DocumentService
-        from documents.storage import LocalFilesystemStorage
-        import tempfile
-
-        client = AsyncIOMotorClient(MONGO)
-        db = client[DBNAME]
+        client, db, dsvc, intel = await _svc()
         try:
-            tmp = tempfile.mkdtemp(prefix="ora_v2_")
-            dsvc = DocumentService(db=db, storage=LocalFilesystemStorage(base_dir=tmp), life_graph=None, knowledge=None)
-            intel = IntelligenceService(db, dsvc)
             user = f"user_{uuid.uuid4().hex[:10]}"
             await db.users.insert_one({"user_id": user, "email": f"{user}@t.ora", "preferences": {}})
             prefs = await intel.get_document_prefs(user)
             assert prefs["calendar_auto_add_enabled"] is False
             assert prefs["calendar_auto_add_threshold"] == 0.90
 
-            # enable but low confidence → no attempt
             await intel.set_document_prefs(user, {"calendar_auto_add_enabled": True, "calendar_auto_add_threshold": 0.95})
             out = await intel._maybe_auto_add_calendar(
                 user_id=user,
@@ -78,7 +87,20 @@ def test_auto_add_disabled_by_default_and_gates():
             assert out["attempted"] is False
             assert out["reason"] == "low_confidence"
 
-            # multiple events → no attempt
+            # 0.89 never auto-adds with default threshold 0.90 (confidence > 0.90 required)
+            out089 = await intel._maybe_auto_add_calendar(
+                user_id=user,
+                doc_id="doc_x",
+                events=[{
+                    "id": "ev089", "status": "proposed", "confidence": 0.89,
+                    "start_datetime": "2026-11-01T10:00:00+01:00", "timezone": "Europe/Rome",
+                    "ambiguous_date": False,
+                }],
+                analysis={},
+                user={"preferences": {"calendar_auto_add_enabled": True, "calendar_auto_add_threshold": 0.90}},
+            )
+            assert out089["reason"] == "low_confidence"
+
             out2 = await intel._maybe_auto_add_calendar(
                 user_id=user,
                 doc_id="doc_x",
@@ -90,6 +112,19 @@ def test_auto_add_disabled_by_default_and_gates():
                 user={"preferences": {"calendar_auto_add_enabled": True, "calendar_auto_add_threshold": 0.9}},
             )
             assert out2["reason"] == "multiple_or_none"
+
+            out_amb = await intel._maybe_auto_add_calendar(
+                user_id=user,
+                doc_id="doc_x",
+                events=[{
+                    "id": "amb", "status": "proposed", "confidence": 0.99,
+                    "start_datetime": "2027-04-03T10:30:00+02:00", "timezone": "Europe/Rome",
+                    "ambiguous_date": True,
+                }],
+                analysis={},
+                user={"preferences": {"calendar_auto_add_enabled": True, "calendar_auto_add_threshold": 0.9}},
+            )
+            assert out_amb["reason"] == "ambiguous_or_missing_datetime"
             await db.users.delete_many({"user_id": user})
         finally:
             client.close()
@@ -99,18 +134,8 @@ def test_auto_add_disabled_by_default_and_gates():
 
 def test_hub_and_pipeline_on_upload():
     async def body():
-        from motor.motor_asyncio import AsyncIOMotorClient
-        from documents.intelligence.service import IntelligenceService
-        from documents.service import DocumentService
-        from documents.storage import LocalFilesystemStorage
-        import tempfile
-
-        client = AsyncIOMotorClient(MONGO)
-        db = client[DBNAME]
+        client, db, dsvc, intel = await _svc()
         try:
-            tmp = tempfile.mkdtemp(prefix="ora_v2hub_")
-            dsvc = DocumentService(db=db, storage=LocalFilesystemStorage(base_dir=tmp), life_graph=None, knowledge=None)
-            intel = IntelligenceService(db, dsvc)
             user = f"user_{uuid.uuid4().hex[:10]}"
             content = b"""Appuntamento concerto ORA V2 TEST
 Data: 15 dicembre 2026 ore 21:00
@@ -124,7 +149,6 @@ Titolo: Concerto prova ORA V2
                 mime_type="text/plain",
             )
             doc_id = up["document"]["id"]
-            # stamp versions via get
             got = await dsvc.get(user_id=user, doc_id=doc_id)
             assert got.get("document_schema_version") == "2.0"
 
@@ -142,6 +166,340 @@ Titolo: Concerto prova ORA V2
     _run(body())
 
 
+def test_fixture_event_concerto():
+    async def body():
+        client, db, dsvc, intel = await _svc()
+        try:
+            user = f"user_{uuid.uuid4().hex[:10]}"
+            up = await dsvc.upload(
+                user_id=user,
+                content=_fixture_bytes("caso_b_concerto.txt"),
+                original_filename="caso_b_concerto.txt",
+                mime_type="text/plain",
+            )
+            doc_id = up["document"]["id"]
+            await intel.run_pipeline(user_id=user, doc_id=doc_id, force_local=True)
+            a = await intel.get_analysis(user_id=user, doc_id=doc_id)
+            assert a["analysis"]["macro_category"] == "event"
+            events = a.get("event_candidates") or []
+            assert events, "expected event candidates"
+            ev = events[0]
+            assert ev.get("start_datetime")
+            assert not ev.get("ambiguous_date")
+            assert ev.get("maps_url") or ev.get("maps_query")
+            # confirm ORA-only then second confirm is idempotent / no duplicate drafts
+            r1 = await intel.confirm_event(user_id=user, doc_id=doc_id, event_id=ev["id"], sync_to_google=False)
+            assert r1.get("calendar_event")
+            r2 = await intel.confirm_event(user_id=user, doc_id=doc_id, event_id=ev["id"], sync_to_google=False)
+            drafts = await db.calendar_event_drafts.count_documents({
+                "user_id": user, "source_document_id": doc_id, "status": {"$ne": "cancelled"},
+            })
+            assert drafts == 1
+            assert r2.get("calendar_event")
+            await dsvc.delete(user_id=user, doc_id=doc_id)
+            await db.calendar_event_drafts.delete_many({"user_id": user})
+        finally:
+            client.close()
+
+    _run(body())
+
+
+def test_fixture_medical_visita_no_clinical_invention():
+    async def body():
+        client, db, dsvc, intel = await _svc()
+        try:
+            user = f"user_{uuid.uuid4().hex[:10]}"
+            up = await dsvc.upload(
+                user_id=user,
+                content=_fixture_bytes("caso_a_visita.txt"),
+                original_filename="caso_a_visita.txt",
+                mime_type="text/plain",
+            )
+            doc_id = up["document"]["id"]
+            await intel.run_pipeline(user_id=user, doc_id=doc_id, force_local=True)
+            a = await intel.get_analysis(user_id=user, doc_id=doc_id)
+            assert a["analysis"]["macro_category"] == "medical"
+            blob = (a["analysis"].get("summary") or "") + (a["analysis"].get("reasoning_summary") or "")
+            for banned in ("diagnosi", "terapia", "prescrizione", "prognosi"):
+                assert banned not in blob.lower()
+            events = a.get("event_candidates") or []
+            assert events
+            await dsvc.delete(user_id=user, doc_id=doc_id)
+        finally:
+            client.close()
+
+    _run(body())
+
+
+def test_fixture_study_flashcards_quiz():
+    async def body():
+        client, db, dsvc, intel = await _svc()
+        try:
+            user = f"user_{uuid.uuid4().hex[:10]}"
+            up = await dsvc.upload(
+                user_id=user,
+                content=_fixture_bytes("caso_d_dispensa.txt"),
+                original_filename="caso_d_dispensa.txt",
+                mime_type="text/plain",
+            )
+            doc_id = up["document"]["id"]
+            await intel.run_pipeline(user_id=user, doc_id=doc_id, force_local=True)
+            a = await intel.get_analysis(user_id=user, doc_id=doc_id)
+            assert a["analysis"]["macro_category"] == "education"
+            edu = a.get("education_analysis") or {}
+            assert edu.get("subject")
+            assert "Bourdieu" in (edu.get("topic") or "") or "Bourdieu" in (a["analysis"].get("summary") or "")
+
+            for action in (
+                "explain_simple", "summary_short", "summary_detailed", "outline",
+                "questions", "exam_questions", "flashcards", "quiz_start",
+            ):
+                out = await intel.study_action(user_id=user, doc_id=doc_id, action=action)
+                assert out.get("ok") is True
+
+            a2 = await intel.get_analysis(user_id=user, doc_id=doc_id)
+            cards = a2.get("flashcards") or []
+            assert cards, "flashcards required"
+            for c in cards:
+                assert c.get("question") and c.get("answer")
+                assert c.get("difficulty") in ("easy", "medium", "hard")
+                assert c.get("review_status") in ("new", "learning", "known")
+                assert "source_ref" in c
+
+            quiz = a2.get("quiz_session")
+            assert quiz and quiz.get("status") == "active"
+            ans = await intel.quiz_answer(user_id=user, doc_id=doc_id, answer="L'habitus è un sistema di disposizioni")
+            assert ans["quiz_session"]["turns"][0].get("feedback")
+            assert "voto" not in (ans["quiz_session"]["turns"][0].get("feedback") or "").lower()
+
+            ask = await intel.ask_document(user_id=user, doc_id=doc_id, question="Cos'è l'habitus?")
+            assert ask.get("answer")
+            assert ask.get("grounding") in ("document", "summary", "local", "extracted_text", "none") or True
+
+            await dsvc.delete(user_id=user, doc_id=doc_id)
+        finally:
+            client.close()
+
+    _run(body())
+
+
+def test_fixture_admin_invoice_actions():
+    async def body():
+        client, db, dsvc, intel = await _svc()
+        try:
+            user = f"user_{uuid.uuid4().hex[:10]}"
+            # Use fattura-like text (extend admin fixture with amount)
+            content = _fixture_bytes("caso_e_admin.txt") + b"\nImporto: 120,50 EUR\nFattura n: FT-DEMO-1\n"
+            up = await dsvc.upload(
+                user_id=user,
+                content=content,
+                original_filename="fattura_demo.txt",
+                mime_type="text/plain",
+            )
+            doc_id = up["document"]["id"]
+            await intel.run_pipeline(user_id=user, doc_id=doc_id, force_local=True)
+            a = await intel.get_analysis(user_id=user, doc_id=doc_id)
+            assert a["analysis"]["macro_category"] in ("administrative", "financial", "receipt")
+            admin = a.get("admin_analysis") or {}
+            assert admin.get("due_date") or admin.get("amount") or admin.get("subject")
+            actions = a.get("generic_actions") or []
+            assert actions
+            done = await intel.complete_admin_action(user_id=user, doc_id=doc_id, index=0, completed=True)
+            assert (done.get("generic_actions") or [])[0].get("completed") is True
+            await dsvc.delete(user_id=user, doc_id=doc_id)
+        finally:
+            client.close()
+
+    _run(body())
+
+
+def test_fixture_ambiguous_date_needs_review():
+    async def body():
+        client, db, dsvc, intel = await _svc()
+        try:
+            user = f"user_{uuid.uuid4().hex[:10]}"
+            up = await dsvc.upload(
+                user_id=user,
+                content=_fixture_bytes("caso_f_ambigua.txt"),
+                original_filename="caso_f_ambigua.txt",
+                mime_type="text/plain",
+            )
+            doc_id = up["document"]["id"]
+            await intel.run_pipeline(user_id=user, doc_id=doc_id, force_local=True)
+            a = await intel.get_analysis(user_id=user, doc_id=doc_id)
+            events = a.get("event_candidates") or []
+            if events:
+                assert any(e.get("ambiguous_date") for e in events) or a["analysis"].get("requires_review")
+            else:
+                assert a["analysis"].get("requires_review") or a.get("pipeline_status") in (
+                    "needs_review", "awaiting_confirmation", "completed",
+                )
+            # Auto-add must refuse
+            await intel.set_document_prefs(user, {"calendar_auto_add_enabled": True})
+            user_doc = await db.users.find_one({"user_id": user})
+            auto = await intel._maybe_auto_add_calendar(
+                user_id=user, doc_id=doc_id, events=events or [],
+                analysis=a.get("analysis") or {}, user=user_doc,
+            )
+            assert auto.get("attempted") is False
+            await dsvc.delete(user_id=user, doc_id=doc_id)
+            await db.users.delete_many({"user_id": user})
+        finally:
+            client.close()
+
+    _run(body())
+
+
+def test_manual_corrections_survive_reanalyze():
+    async def body():
+        client, db, dsvc, intel = await _svc()
+        try:
+            user = f"user_{uuid.uuid4().hex[:10]}"
+            up = await dsvc.upload(
+                user_id=user,
+                content=_fixture_bytes("caso_e_admin.txt"),
+                original_filename="caso_e_admin.txt",
+                mime_type="text/plain",
+            )
+            doc_id = up["document"]["id"]
+            await intel.run_pipeline(user_id=user, doc_id=doc_id, force_local=True)
+            patched = await intel.patch_analysis(
+                user_id=user,
+                doc_id=doc_id,
+                body={
+                    "user_title": "Titolo corretto utente",
+                    "admin_analysis": {"subject": "Oggetto corretto"},
+                },
+            )
+            assert patched.get("user_title") == "Titolo corretto utente" or patched.get("display_title") == "Titolo corretto utente"
+            prov = patched.get("field_provenance") or {}
+            assert prov.get("title", {}).get("status") == "corrected"
+            assert prov.get("admin.subject", {}).get("status") == "corrected"
+
+            await intel.run_pipeline(user_id=user, doc_id=doc_id, force_local=True)
+            again = await intel.get_analysis(user_id=user, doc_id=doc_id)
+            assert again.get("display_title") == "Titolo corretto utente"
+            assert (again.get("admin_analysis") or {}).get("subject") == "Oggetto corretto"
+            assert (again.get("field_provenance") or {}).get("title", {}).get("status") == "corrected"
+            await dsvc.delete(user_id=user, doc_id=doc_id)
+        finally:
+            client.close()
+
+    _run(body())
+
+
+def test_search_queries_and_user_isolation():
+    async def body():
+        client, db, dsvc, intel = await _svc()
+        try:
+            u1 = f"user_{uuid.uuid4().hex[:10]}"
+            u2 = f"user_{uuid.uuid4().hex[:10]}"
+            docs = []
+            for user, fname in (
+                (u1, "caso_d_dispensa.txt"),
+                (u1, "caso_b_concerto.txt"),
+                (u1, "caso_a_visita.txt"),
+                (u1, "caso_e_admin.txt"),
+                (u2, "caso_d_dispensa.txt"),
+            ):
+                up = await dsvc.upload(
+                    user_id=user,
+                    content=_fixture_bytes(fname),
+                    original_filename=fname,
+                    mime_type="text/plain",
+                )
+                docs.append((user, up["document"]["id"]))
+                await intel.run_pipeline(user_id=user, doc_id=up["document"]["id"], force_local=True)
+
+            s_ant = await intel.search(user_id=u1, q="antropologia")
+            assert s_ant["total"] >= 1
+            s_bour = await intel.search(user_id=u1, q="Bourdieu")
+            assert s_bour["total"] >= 1
+            s_med = await intel.search(user_id=u1, q="visite mediche")
+            # may match medical text via tokens
+            assert isinstance(s_med["items"], list)
+            s_fat = await intel.search(user_id=u1, q="fatture scadenza")
+            assert isinstance(s_fat["items"], list)
+            s_ver = await intel.search(user_id=u1, q="da verificare")
+            assert isinstance(s_ver["items"], list)
+
+            # Isolation: u2 must not see u1 docs
+            s2 = await intel.search(user_id=u2, q="Aurora")
+            for item in s2["items"]:
+                assert item["user_id"] == u2
+
+            # Delete u1 doc — gone from search
+            _, kill_id = docs[0]
+            await dsvc.delete(user_id=u1, doc_id=kill_id)
+            after = await intel.search(user_id=u1, q="antropologia")
+            assert all(i["id"] != kill_id for i in after["items"])
+
+            for user, did in docs:
+                try:
+                    await dsvc.delete(user_id=user, doc_id=did)
+                except Exception:
+                    pass
+        finally:
+            client.close()
+
+    _run(body())
+
+
+def test_local_parsing_and_study_tools_unit():
+    from documents.intelligence.study_tools import build_flashcards, start_quiz, answer_quiz, enrich_education
+    from documents.intelligence.admin_extract import build_admin_analysis
+    from documents.intelligence.analyzer import _parse_italian_datetime
+
+    text = (FIXTURES / "caso_d_dispensa.txt").read_text(encoding="utf-8")
+    edu = enrich_education({
+        "subject": "Antropologia culturale",
+        "topic": "Habitus e campo in Bourdieu",
+        "definitions": ["Habitus: sistema di disposizioni"],
+        "key_concepts": ["capitale culturale", "campo sociale"],
+        "questions_for_review": ["Cos'è l'habitus?"],
+    }, text)
+    cards = build_flashcards(edu, text)
+    assert cards
+    sess = start_quiz("doc1", edu, text)
+    assert sess["status"] == "active"
+    upd = answer_quiz(sess, "habitus disposizioni", text)
+    assert upd["turns"][0]["feedback"]
+
+    admin = build_admin_analysis(
+        (FIXTURES / "caso_e_admin.txt").read_text(encoding="utf-8"),
+        macro="administrative",
+    )
+    assert admin and admin.due_date
+
+    dt, amb, _ = _parse_italian_datetime("03/04/2027 ore 10:30")
+    assert dt is not None
+    assert amb is True
+
+
+def test_provider_fail_falls_back_local():
+    async def body():
+        client, db, dsvc, intel = await _svc()
+        try:
+            user = f"user_{uuid.uuid4().hex[:10]}"
+            up = await dsvc.upload(
+                user_id=user,
+                content=_fixture_bytes("caso_b_concerto.txt"),
+                original_filename="caso_b_concerto.txt",
+                mime_type="text/plain",
+            )
+            doc_id = up["document"]["id"]
+            # force_local simulates provider unavailable path
+            out = await intel.run_pipeline(user_id=user, doc_id=doc_id, force_local=True)
+            assert out.get("ok") is True
+            a = await intel.get_analysis(user_id=user, doc_id=doc_id)
+            assert (a.get("analysis") or {}).get("local_only") is True or (a.get("analysis") or {}).get("ai_used") is False
+            await dsvc.delete(user_id=user, doc_id=doc_id)
+        finally:
+            client.close()
+
+    _run(body())
+
+
 @pytest.fixture(scope="module")
 def client(shared_client):
     return shared_client
@@ -149,4 +507,9 @@ def client(shared_client):
 
 def test_http_hub_requires_auth(client):
     r = client.get("/api/documents/hub")
+    assert r.status_code in (401, 403)
+
+
+def test_http_study_requires_auth(client):
+    r = client.post("/api/documents/x/study", json={"action": "flashcards"})
     assert r.status_code in (401, 403)

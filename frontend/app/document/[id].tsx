@@ -5,7 +5,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, TextInput, Linking,
+  View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, TextInput,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
@@ -23,6 +23,7 @@ import { haptic } from '@/src/utils/haptic';
 import { humanizeError } from '@/src/utils/errors';
 import { ActionBtn } from '@/src/components/ui/ActionBtn';
 import { DocumentActionsBar } from '@/src/components/DocumentActionsBar';
+import { DocumentUtilityPanel } from '@/src/components/documents/DocumentUtilityPanel';
 import * as Clipboard from 'expo-clipboard';
 
 type Tab = 'info' | 'insights' | 'content' | 'meta';
@@ -70,6 +71,8 @@ export default function DocumentDetailScreen() {
   const [query, setQuery] = useState('');
   const [askQ, setAskQ] = useState('');
   const [askA, setAskA] = useState<string | null>(null);
+  const [flashOpen, setFlashOpen] = useState<Record<string, boolean>>({});
+  const [quizAnswer, setQuizAnswer] = useState('');
 
   const load = useCallback(async (opts?: { silent?: boolean }) => {
     if (!id) return;
@@ -179,6 +182,10 @@ export default function DocumentDetailScreen() {
             doc={doc}
             analysis={analysis}
             busy={busy}
+            flashOpen={flashOpen}
+            setFlashOpen={setFlashOpen}
+            quizAnswer={quizAnswer}
+            setQuizAnswer={setQuizAnswer}
             onConfirmEvent={async (ev, syncToGoogle) => {
               setBusy(`ev-${ev.id}${syncToGoogle ? '-g' : ''}`);
               try {
@@ -226,6 +233,57 @@ export default function DocumentDetailScreen() {
                 setError(humanizeError(e));
               } finally { setBusy(null); }
             }}
+            onStudy={async (action) => {
+              setBusy(`study-${action}`);
+              try {
+                await api.documentStudy(doc.id, action);
+                haptic('success');
+                await load({ silent: true });
+              } catch (e: any) {
+                setError(humanizeError(e));
+              } finally { setBusy(null); }
+            }}
+            onQuizAnswer={async () => {
+              setBusy('quiz');
+              try {
+                await api.documentQuizAnswer(doc.id, quizAnswer);
+                setQuizAnswer('');
+                haptic('success');
+                await load({ silent: true });
+              } catch (e: any) {
+                setError(humanizeError(e));
+              } finally { setBusy(null); }
+            }}
+            onAdminComplete={async (index) => {
+              setBusy(`admin-${index}`);
+              try {
+                await api.documentAdminComplete(doc.id, index, true);
+                haptic('success');
+                await load({ silent: true });
+              } catch (e: any) {
+                setError(humanizeError(e));
+              } finally { setBusy(null); }
+            }}
+            onAdminDeadline={async (syncGoogle) => {
+              setBusy('deadline');
+              try {
+                await api.documentAdminDeadline(doc.id, syncGoogle);
+                haptic('success');
+                await load({ silent: true });
+              } catch (e: any) {
+                setError(humanizeError(e));
+              } finally { setBusy(null); }
+            }}
+            onPatchFields={async (body) => {
+              setBusy('patch');
+              try {
+                await api.documentPatchAnalysis(doc.id, body);
+                haptic('success');
+                await load({ silent: true });
+              } catch (e: any) {
+                setError(humanizeError(e));
+              } finally { setBusy(null); }
+            }}
             askQ={askQ}
             setAskQ={setAskQ}
             askA={askA}
@@ -261,7 +319,8 @@ export default function DocumentDetailScreen() {
 // -----------------------------------------------------------------
 function TabInfo({
   ins, doc, analysis, busy, onConfirmEvent, onDismissEvent, onRemindEvent, onReanalyze,
-  askQ, setAskQ, askA, onAsk,
+  onStudy, onQuizAnswer, onAdminComplete, onAdminDeadline, onPatchFields,
+  askQ, setAskQ, askA, onAsk, flashOpen, setFlashOpen, quizAnswer, setQuizAnswer,
 }: {
   ins: DocumentInsights;
   doc: DocumentItem;
@@ -271,145 +330,51 @@ function TabInfo({
   onDismissEvent: (ev: EventCandidate) => void;
   onRemindEvent: (ev: EventCandidate) => void;
   onReanalyze: () => void;
+  onStudy: (action: string) => void;
+  onQuizAnswer: () => void;
+  onAdminComplete: (index: number) => void;
+  onAdminDeadline: (syncGoogle: boolean) => void;
+  onPatchFields: (body: {
+    user_title?: string;
+    admin_analysis?: Record<string, unknown>;
+  }) => void;
   askQ: string;
   setAskQ: (v: string) => void;
   askA: string | null;
   onAsk: () => void;
+  flashOpen: Record<string, boolean>;
+  setFlashOpen: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+  quizAnswer: string;
+  setQuizAnswer: (v: string) => void;
 }) {
-  // Iter22: preferisci resolved_fields (schema-driven, confidence-aware).
-  const resolved = (ins.resolved_fields || []).filter(f => f.value && f.value.trim().length > 0);
-  const hasResolved = resolved.length > 0;
-  const a = analysis?.analysis;
-  const events = (analysis?.event_candidates || []).filter((e) => e.status === 'proposed' || e.status === 'remind_later' || e.status === 'confirmed');
-  const edu = analysis?.education_analysis;
-
   return (
     <Animated.View entering={FadeInDown.duration(180)} style={{ gap: 12 }}>
-      {analysis?.pipeline_status_label ? (
-        <Card title="Elaborazione" icon="pulse-outline">
-          <FieldRow k="Stato" v={analysis.pipeline_status_label} />
-          {analysis.pipeline_error ? <FieldRow k="Errore" v={analysis.pipeline_error} /> : null}
-          {a?.local_only ? <FieldRow k="Modalità" v="Analisi locale (AI esterna non usata)" /> : null}
-          {a?.ai_used ? <FieldRow k="Modalità" v="Arricchita con AI" /> : null}
-          <View style={{ marginTop: 8 }}>
-            <ActionBtn icon="refresh" label="Riesegui analisi" onPress={onReanalyze} loading={busy === 'reanalyze'} />
-          </View>
-        </Card>
-      ) : null}
-
-      <Card title={a?.suggested_title || ins.classification?.type_label || ins.type_label || 'Documento'}
-            icon="document-text-outline">
-        <FieldRow k="Tipo documento" v={a?.subcategory || ins.type_label} />
-        {a?.macro_category ? <FieldRow k="Macrocategoria" v={a.macro_category} /> : null}
-        {a?.confidence != null ? (
-          <FieldRow k="Affidabilità" v={`${Math.round(a.confidence * 100)}%`} />
-        ) : ins.classification?.confidence != null ? (
-          <FieldRow k="Affidabilità" v={`${ins.classification.confidence}/100`} />
-        ) : null}
-        <FieldRow k="Nome file" v={doc.original_filename || ins.filename} />
-        {a?.summary ? <FieldRow k="Riepilogo" v={a.summary} /> : null}
-        {a?.reasoning_summary ? <FieldRow k="Perché" v={a.reasoning_summary} /> : null}
-        {a?.keywords?.length ? <FieldRow k="Parole chiave" v={a.keywords.slice(0, 8).join(', ')} /> : null}
-      </Card>
-
-      {events.map((ev) => (
-        <Card key={ev.id} title="ORA ha trovato un possibile appuntamento" icon="calendar-outline">
-          <FieldRow k="Titolo" v={ev.title} />
-          <FieldRow k="Data/ora" v={ev.start_datetime ? new Date(ev.start_datetime).toLocaleString('it-IT') : 'Da confermare'} />
-          <FieldRow k="Luogo" v={[ev.venue_name, ev.address, ev.city].filter(Boolean).join(', ') || 'Da verificare'} />
-          <FieldRow k="Priorità" v={ev.priority || '—'} />
-          <FieldRow k="Urgenza" v={ev.urgency || '—'} />
-          {ev.ambiguous_date ? <FieldRow k="Attenzione" v="Data ambigua — conferma prima di salvare" /> : null}
-          {ev.missing_fields?.length ? <FieldRow k="Campi mancanti" v={ev.missing_fields.join(', ')} /> : null}
-          <FieldRow k="Stato" v={ev.status || 'proposed'} />
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
-            {ev.status === 'proposed' || ev.status === 'remind_later' ? (
-              <>
-                <ActionBtn
-                  primary
-                  icon="checkmark"
-                  label="Salva solo in ORA"
-                  onPress={() => onConfirmEvent(ev, false)}
-                  loading={busy === `ev-${ev.id}`}
-                />
-                <ActionBtn
-                  primary
-                  icon="logo-google"
-                  label="ORA + Google Calendar"
-                  onPress={() => onConfirmEvent(ev, true)}
-                  loading={busy === `ev-${ev.id}-g`}
-                />
-                <ActionBtn icon="close" label="Non aggiungere" onPress={() => onDismissEvent(ev)} />
-                <ActionBtn icon="time-outline" label="Ricordamelo più tardi" onPress={() => onRemindEvent(ev)} />
-              </>
-            ) : (
-              <Text style={{ color: tokens.color.onSurfaceMuted, fontSize: 13 }}>Evento già gestito ({ev.status})</Text>
-            )}
-            {ev.maps_url ? (
-              <ActionBtn
-                icon="map-outline"
-                label="Apri su Google Maps"
-                onPress={() => Linking.openURL(ev.maps_url!)}
-              />
-            ) : null}
-            {ev.directions_url ? (
-              <ActionBtn
-                icon="navigate-outline"
-                label="Indicazioni"
-                onPress={() => Linking.openURL(ev.directions_url!)}
-              />
-            ) : null}
-          </View>
-        </Card>
-      ))}
-
-      {edu ? (
-        <Card title="Studio" icon="school-outline">
-          {edu.subject ? <FieldRow k="Materia" v={edu.subject} /> : null}
-          {edu.topic ? <FieldRow k="Argomento" v={edu.topic} /> : null}
-          {edu.summary_short ? <FieldRow k="Riepilogo" v={edu.summary_short} /> : null}
-          {edu.key_concepts?.length ? <FieldRow k="Concetti" v={edu.key_concepts.slice(0, 6).join(' · ')} /> : null}
-          {edu.definitions?.length ? <FieldRow k="Definizioni" v={edu.definitions.slice(0, 4).join(' · ')} /> : null}
-          {edu.questions_for_review?.length ? <FieldRow k="Ripasso" v={edu.questions_for_review.join(' | ')} /> : null}
-        </Card>
-      ) : null}
-
-      <Card title="Chiedi al documento" icon="chatbubble-ellipses-outline">
-        <TextInput
-          value={askQ}
-          onChangeText={setAskQ}
-          placeholder="Domanda sul contenuto…"
-          placeholderTextColor={tokens.color.onSurfaceMuted}
-          style={{
-            borderWidth: 1, borderColor: tokens.color.border, borderRadius: 10,
-            padding: 10, color: tokens.color.onSurface, marginBottom: 8,
-          }}
-        />
-        <ActionBtn primary icon="send" label="Chiedi" onPress={onAsk} loading={busy === 'ask'} />
-        {askA ? <Text style={{ marginTop: 8, color: tokens.color.onSurface, fontSize: 13, lineHeight: 18 }}>{askA}</Text> : null}
-      </Card>
-
-      {hasResolved ? (
-        <Card title="Informazioni principali">
-          {resolved.map((f, i) => (
-            <FieldRow key={`${f.field_key}-${i}`} k={f.label} v={f.value} />
-          ))}
-        </Card>
-      ) : (
-        // Fallback Iter21: usa il legacy summary.fields (salta "Tipo" perché
-        // già mostrato nell'header sopra).
-        <Card title="Riepilogo">
-          {ins.summary.fields
-            .filter(f => f.label !== 'Tipo')
-            .map((f, i) => (
-              <FieldRow key={`${f.label}-${i}`} k={f.label} v={f.value} />
-            ))}
-        </Card>
-      )}
-
-      {/* Iter23 — Barra azioni contestuali (solo se ci sono azioni valide). */}
+      <DocumentUtilityPanel
+        doc={doc}
+        ins={ins}
+        analysis={analysis}
+        h={{
+          busy,
+          onConfirmEvent,
+          onDismissEvent,
+          onRemindEvent,
+          onReanalyze,
+          onStudy,
+          onQuizAnswer,
+          onAdminComplete,
+          onAdminDeadline,
+          onPatchFields,
+          askQ,
+          setAskQ,
+          askA,
+          onAsk,
+          quizAnswer,
+          setQuizAnswer,
+          flashOpen,
+          setFlashOpen,
+        }}
+      />
       <DocumentActionsBar insights={ins} />
-
       <Card title="Storico">
         <FieldRow k="Caricato" v={formatDate(ins.history.created_at)} />
         <FieldRow k="Aggiornato" v={formatDate(ins.history.updated_at)} />

@@ -155,6 +155,70 @@ async def patch_document_preferences(body: DocumentPrefsIn, user=Depends(get_cur
     return await _intel().set_document_prefs(user["user_id"], body.model_dump(exclude_none=True))
 
 
+class StudyActionIn(BaseModel):
+    action: str = Field(
+        ...,
+        pattern="^(explain_simple|summary_short|summary_detailed|outline|questions|exam_questions|flashcards|quiz_start)$",
+    )
+
+
+class QuizAnswerIn(BaseModel):
+    answer: str = Field(..., min_length=0, max_length=4000)
+
+
+class AdminActionCompleteIn(BaseModel):
+    index: int = Field(..., ge=0)
+    completed: bool = True
+
+
+class AdminDeadlineIn(BaseModel):
+    sync_to_google: bool = False
+
+
+@router.post("/{doc_id}/study")
+async def document_study_action(doc_id: str, body: StudyActionIn, user=Depends(get_current_user)):
+    try:
+        return await _intel().study_action(user_id=user["user_id"], doc_id=doc_id, action=body.action)
+    except DocumentNotFound:
+        raise HTTPException(status_code=404, detail="Documento non trovato")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/{doc_id}/quiz/answer")
+async def document_quiz_answer(doc_id: str, body: QuizAnswerIn, user=Depends(get_current_user)):
+    try:
+        return await _intel().quiz_answer(user_id=user["user_id"], doc_id=doc_id, answer=body.answer)
+    except DocumentNotFound:
+        raise HTTPException(status_code=404, detail="Documento non trovato")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/{doc_id}/admin/actions/complete")
+async def document_admin_complete(doc_id: str, body: AdminActionCompleteIn, user=Depends(get_current_user)):
+    try:
+        return await _intel().complete_admin_action(
+            user_id=user["user_id"], doc_id=doc_id, index=body.index, completed=body.completed,
+        )
+    except DocumentNotFound:
+        raise HTTPException(status_code=404, detail="Documento non trovato")
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Azione non trovata")
+
+
+@router.post("/{doc_id}/admin/deadline-calendar")
+async def document_admin_deadline(doc_id: str, body: AdminDeadlineIn = AdminDeadlineIn(), user=Depends(get_current_user)):
+    try:
+        return await _intel().add_admin_deadline_calendar(
+            user_id=user["user_id"], doc_id=doc_id, sync_to_google=body.sync_to_google,
+        )
+    except DocumentNotFound:
+        raise HTTPException(status_code=404, detail="Documento non trovato")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @router.get("/search/intelligent")
 async def search_intelligent_documents(
     q: Optional[str] = Query(default=None),
