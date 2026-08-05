@@ -62,7 +62,7 @@ class InternalCalendarProvider:
             user_id=user_id,
             provider="internal",
             title=str(ov.get("title") or candidate.get("title") or "Evento"),
-            description=str(ov.get("description") or candidate.get("description") or ""),
+            description=str(ov.get("description") or candidate.get("description") or "")[:400],
             start_datetime=ov.get("start_datetime") or candidate.get("start_datetime"),
             end_datetime=ov.get("end_datetime") or candidate.get("end_datetime"),
             timezone=str(ov.get("timezone") or candidate.get("timezone") or "Europe/Rome"),
@@ -73,6 +73,10 @@ class InternalCalendarProvider:
             status="confirmed",
             created_at=now,
             updated_at=now,
+            sync_provider="internal",
+            sync_status="local_only",
+            priority=candidate.get("priority"),
+            urgency=candidate.get("urgency"),
         )
         doc = draft.model_dump()
         await self.db.calendar_event_drafts.insert_one(doc)

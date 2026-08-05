@@ -344,11 +344,62 @@ export const api = {
     request<DocumentAnalysisResponse>(`/documents/${id}/analysis`, { method: 'PATCH', body: JSON.stringify(body) }),
   documentClearAnalysis: (id: string) =>
     request<{ ok: boolean }>(`/documents/${id}/analysis`, { method: 'DELETE' }),
-  documentConfirmEvent: (docId: string, eventId: string, overrides?: Record<string, unknown>) =>
-    request<{ ok: boolean; calendar_event?: Record<string, unknown> }>(
+  documentConfirmEvent: (
+    docId: string,
+    eventId: string,
+    opts?: { overrides?: Record<string, unknown>; sync_to_google?: boolean },
+  ) =>
+    request<{
+      ok: boolean;
+      calendar_event?: Record<string, unknown>;
+      google_sync?: Record<string, unknown> | null;
+      deduplicated?: boolean;
+    }>(
       `/documents/${docId}/events/${eventId}/confirm`,
-      { method: 'POST', body: JSON.stringify({ overrides }) },
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          overrides: opts?.overrides,
+          sync_to_google: !!opts?.sync_to_google,
+        }),
+      },
     ),
+  googleCalendarWriteStatus: () =>
+    request<{
+      connected: boolean;
+      needs_reconnect?: boolean;
+      account_email?: string | null;
+      default_calendar_id?: string | null;
+      write_capable?: boolean;
+      last_sync_at?: string | null;
+    }>('/documents/calendar/google/status'),
+  setGoogleCalendarDefault: (calendar_id: string) =>
+    request<Record<string, unknown>>('/documents/calendar/google/default', {
+      method: 'PATCH',
+      body: JSON.stringify({ calendar_id }),
+    }),
+  syncCalendarDraft: (draftId: string) =>
+    request<Record<string, unknown>>(`/documents/calendar/events/${draftId}/sync`, { method: 'POST' }),
+  retryCalendarDraft: (draftId: string) =>
+    request<Record<string, unknown>>(`/documents/calendar/events/${draftId}/retry`, { method: 'POST' }),
+  resolveCalendarConflict: (draftId: string, resolution: 'keep_google' | 'overwrite_ora' | 'unlink') =>
+    request<Record<string, unknown>>(`/documents/calendar/events/${draftId}/resolve-conflict`, {
+      method: 'POST',
+      body: JSON.stringify({ resolution }),
+    }),
+  deleteCalendarDraft: (draftId: string, also_delete_google = false) =>
+    request<{ ok: boolean }>(
+      `/documents/calendar/events/${draftId}?also_delete_google=${also_delete_google ? 'true' : 'false'}`,
+      { method: 'DELETE' },
+    ),
+  googleCalendarWriteCalendars: () =>
+    request<{
+      items: Array<{ id: string; summary?: string; primary?: boolean }>;
+      default_calendar_id?: string | null;
+      account_email?: string | null;
+      write_capable?: boolean;
+      needs_reconnect?: boolean;
+    }>('/documents/calendar/google/calendars'),
   documentDismissEvent: (docId: string, eventId: string) =>
     request<{ ok: boolean }>(`/documents/${docId}/events/${eventId}/dismiss`, { method: 'POST' }),
   documentRemindEvent: (docId: string, eventId: string) =>

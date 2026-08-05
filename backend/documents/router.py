@@ -41,6 +41,19 @@ class EventPatchIn(BaseModel):
 
 class EventConfirmIn(BaseModel):
     overrides: Optional[Dict[str, Any]] = None
+    sync_to_google: bool = False
+
+
+class CalendarDefaultIn(BaseModel):
+    calendar_id: str = Field(..., min_length=1, max_length=512)
+
+
+class ConflictResolveIn(BaseModel):
+    resolution: str = Field(..., pattern="^(keep_google|overwrite_ora|unlink)$")
+
+
+class DeleteSyncedIn(BaseModel):
+    also_delete_google: bool = False
 
 
 class AskDocumentIn(BaseModel):
@@ -143,6 +156,106 @@ async def search_intelligent_documents(
 @router.get("/calendar/drafts")
 async def list_calendar_drafts(user=Depends(get_current_user)):
     return {"items": await _intel().calendar.list_for_user(user["user_id"])}
+
+
+@router.get("/calendar/google/status")
+async def google_calendar_write_status(user=Depends(get_current_user)):
+    from deps import get_google_calendar_service
+    from documents.intelligence.google_sync import GoogleCalendarSyncService
+    sync = GoogleCalendarSyncService(db=_intel().db, google_calendar_service=get_google_calendar_service())
+    return await sync.connection_status(user["user_id"])
+
+
+@router.get("/calendar/google/calendars")
+async def google_calendar_list_for_write(user=Depends(get_current_user)):
+    """List Google calendars for the active connector instance (write UI)."""
+    from deps import get_google_calendar_service
+    from documents.intelligence.google_sync import GoogleCalendarSyncService
+    gcal = get_google_calendar_service()
+    sync = GoogleCalendarSyncService(db=_intel().db, google_calendar_service=gcal)
+    status = await sync.connection_status(user["user_id"])
+    if not status.get("connected") or not status.get("instance_id"):
+        raise HTTPException(status_code=400, detail="Google Calendar non collegato")
+    try:
+        items = await gcal.list_calendars_for_instance(
+            user_id=user["user_id"], instance_id=status["instance_id"],
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e)[:240])
+    return {
+        "items": items,
+        "default_calendar_id": status.get("default_calendar_id"),
+        "account_email": status.get("account_email"),
+        "write_capable": status.get("write_capable"),
+        "needs_reconnect": status.get("needs_reconnect"),
+    }
+
+
+@router.patch("/calendar/google/default")
+async def google_calendar_set_default(body: CalendarDefaultIn, user=Depends(get_current_user)):
+    from deps import get_google_calendar_service
+    from documents.intelligence.google_sync import GoogleCalendarSyncService
+    sync = GoogleCalendarSyncService(db=_intel().db, google_calendar_service=get_google_calendar_service())
+    try:
+        return await sync.set_default_calendar(user_id=user["user_id"], calendar_id=body.calendar_id)
+    except RuntimeError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/calendar/events/{draft_id}/sync")
+async def sync_calendar_draft(draft_id: str, user=Depends(get_current_user)):
+    from deps import get_google_calendar_service
+    from documents.intelligence.google_sync import GoogleCalendarSyncService
+    sync = GoogleCalendarSyncService(db=_intel().db, google_calendar_service=get_google_calendar_service())
+    try:
+        return await sync.sync_draft(user_id=user["user_id"], draft_id=draft_id)
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Evento non trovato")
+    except RuntimeError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/calendar/events/{draft_id}/retry")
+async def retry_calendar_draft(draft_id: str, user=Depends(get_current_user)):
+    return await sync_calendar_draft(draft_id, user)
+
+
+@router.post("/calendar/events/{draft_id}/resolve-conflict")
+async def resolve_calendar_conflict(
+    draft_id: str, body: ConflictResolveIn, user=Depends(get_current_user),
+):
+    from deps import get_google_calendar_service
+    from documents.intelligence.google_sync import GoogleCalendarSyncService
+    sync = GoogleCalendarSyncService(db=_intel().db, google_calendar_service=get_google_calendar_service())
+    try:
+        return await sync.resolve_conflict(
+            user_id=user["user_id"], draft_id=draft_id, resolution=body.resolution,
+        )
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Evento non trovato")
+    except (RuntimeError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.delete("/calendar/events/{draft_id}")
+async def delete_calendar_draft(
+    draft_id: str,
+    also_delete_google: bool = Query(default=False),
+    user=Depends(get_current_user),
+):
+    from deps import get_google_calendar_service
+    from documents.intelligence.google_sync import GoogleCalendarSyncService
+    sync = GoogleCalendarSyncService(db=_intel().db, google_calendar_service=get_google_calendar_service())
+    try:
+        return await sync.delete_remote(
+            user_id=user["user_id"],
+            draft_id=draft_id,
+            also_delete_google=also_delete_google,
+        )
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Evento non trovato")
 
 
 @router.get("/{doc_id}")
@@ -292,6 +405,7 @@ async def confirm_event_candidate(
             doc_id=doc_id,
             event_id=event_id,
             overrides=body.overrides,
+            sync_to_google=bool(body.sync_to_google),
         )
     except DocumentNotFound:
         raise HTTPException(status_code=404, detail="Evento o documento non trovato")
@@ -323,7 +437,7 @@ async def remind_event_candidate(doc_id: str, event_id: str, user=Depends(get_cu
 async def event_to_calendar(
     doc_id: str, event_id: str, body: EventConfirmIn = EventConfirmIn(), user=Depends(get_current_user),
 ):
-    """Confirm candidate and create internal calendar draft (no Google sync)."""
+    """Confirm candidate; optional Google sync via body.sync_to_google."""
     return await confirm_event_candidate(doc_id, event_id, body, user)
 
 

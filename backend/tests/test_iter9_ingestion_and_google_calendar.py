@@ -239,7 +239,7 @@ class TestD_SyncPipeline:
         p.seed_event(calendar_id="cal-d3", event=self._mk_event("evt-d3-1", "Meeting", 60))
         client.post(f"/api/connectors/google-calendar/instances/{inst['id']}/sync", headers=h(user_a))
         # patch title
-        p.update_event(calendar_id="cal-d3", event_id="evt-d3-1",
+        p.patch_seeded_event(calendar_id="cal-d3", event_id="evt-d3-1",
                        patch={"summary": "Meeting AGGIORNATO", "updated": _iso(datetime.now(timezone.utc))})
         r = client.post(f"/api/connectors/google-calendar/instances/{inst['id']}/sync", headers=h(user_a))
         body = r.json()

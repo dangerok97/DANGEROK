@@ -24,7 +24,7 @@ Basata sull’audit funzionale del 2026-08-04. Ordine: fondamenta → organizzaz
 | B2 Modello “promemoria” leggero su postpone/deadline (senza push) | media | B1 | M | Lista scadenze o badge Home verificabile |
 | B3 Agenda giornaliera da Daily (solo lettura) | media | Daily OK | M | Schermata/sheet “giornata” navigabile |
 | B4 Notifiche locali (expo-notifications) opzionali | media | B2 | L | Reminder locale su decision con deadline |
-| B5 Google Calendar OAuth locale end-to-end | alta | GOOGLE_OAUTH_* | L | Sync eventi → daily/decisions aggiornati |
+| B5 Google Calendar OAuth + write sync end-to-end | alta | GOOGLE_OAUTH_* | L | Codice write pronto; manca evento reale su Google |
 
 ## FASE C — Progetti e documenti
 

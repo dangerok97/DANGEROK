@@ -1,5 +1,39 @@
 # ORA — AI Changelog
 
+## 2026-08-05 — Google Calendar write sync (document events)
+
+### Request
+
+Integrate ORA internal calendar with real Google Calendar write when user confirms a document event. Separate login OAuth from Calendar OAuth. Encrypt tokens. Conflict/idempotency/privacy. Commit local only.
+
+### Actions
+
+- Branch `feature/google-calendar-sync` from `a12fae3`
+- Scopes: `calendar.events` + `calendar.calendarlist.readonly` (+ openid/email/profile)
+- Vault: `TOKEN_VAULT_BACKEND=local` alias Fernet; `OAUTH_TOKEN_ENCRYPTION_KEY` accepted
+- Provider write API + `GoogleCalendarSyncService` (create/update/delete/conflict/idempotency)
+- Confirm event: `sync_to_google`; draft sync fields
+- API under `/api/documents/calendar/google/*` and draft sync/retry/conflict/delete
+- UI: document “Salva solo in ORA” / “ORA + Google Calendar”; Settings write status + reconnect
+- Docs: `GOOGLE_CALENDAR_{ARCHITECTURE,SETUP,VERIFICATION,PRIVACY}.md` + product/arch/state updates
+
+### Tests
+
+- `tests/test_google_calendar_write_sync.py` (fake provider — not real Google)
+- Real Google event creation: **not run** (missing `GOOGLE_OAUTH_CLIENT_*`)
+
+### Result
+
+Code path complete for local/fake verification. **Integration not complete** until a synthetic event appears on real Google Calendar.
+
+### Open issues
+
+- Configure Google OAuth client + complete real verification checklist
+- Users with old read-only scopes must reconnect
+- Mobile native Calendar connect not verified
+
+---
+
 ## 2026-08-05 — Migrate Gemini provider to google-genai
 
 ### Request

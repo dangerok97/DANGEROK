@@ -178,11 +178,21 @@ export default function DocumentDetailScreen() {
             doc={doc}
             analysis={analysis}
             busy={busy}
-            onConfirmEvent={async (ev) => {
-              setBusy(`ev-${ev.id}`);
+            onConfirmEvent={async (ev, syncToGoogle) => {
+              setBusy(`ev-${ev.id}${syncToGoogle ? '-g' : ''}`);
               try {
-                await api.documentConfirmEvent(doc.id, ev.id);
+                const res = await api.documentConfirmEvent(doc.id, ev.id, {
+                  sync_to_google: !!syncToGoogle,
+                });
                 haptic('success');
+                if (syncToGoogle && res.google_sync && (res.google_sync as any).ok === false) {
+                  setError(
+                    String(
+                      (res.google_sync as any).error ||
+                        'Salvato in ORA; sincronizzazione Google non riuscita.',
+                    ),
+                  );
+                }
                 await load({ silent: true });
               } catch (e: any) {
                 setError(humanizeError(e));
@@ -256,7 +266,7 @@ function TabInfo({
   doc: DocumentItem;
   analysis: DocumentAnalysisResponse | null;
   busy: string | null;
-  onConfirmEvent: (ev: EventCandidate) => void;
+  onConfirmEvent: (ev: EventCandidate, syncToGoogle?: boolean) => void;
   onDismissEvent: (ev: EventCandidate) => void;
   onRemindEvent: (ev: EventCandidate) => void;
   onReanalyze: () => void;
@@ -314,7 +324,20 @@ function TabInfo({
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
             {ev.status === 'proposed' || ev.status === 'remind_later' ? (
               <>
-                <ActionBtn primary icon="checkmark" label="Aggiungi al calendario" onPress={() => onConfirmEvent(ev)} loading={busy === `ev-${ev.id}`} />
+                <ActionBtn
+                  primary
+                  icon="checkmark"
+                  label="Salva solo in ORA"
+                  onPress={() => onConfirmEvent(ev, false)}
+                  loading={busy === `ev-${ev.id}`}
+                />
+                <ActionBtn
+                  primary
+                  icon="logo-google"
+                  label="ORA + Google Calendar"
+                  onPress={() => onConfirmEvent(ev, true)}
+                  loading={busy === `ev-${ev.id}-g`}
+                />
                 <ActionBtn icon="close" label="Non aggiungere" onPress={() => onDismissEvent(ev)} />
                 <ActionBtn icon="time-outline" label="Ricordamelo più tardi" onPress={() => onRemindEvent(ev)} />
               </>

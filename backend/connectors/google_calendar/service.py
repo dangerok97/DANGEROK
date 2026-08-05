@@ -195,6 +195,18 @@ class GoogleCalendarService:
                 scopes=list(GOOGLE_CALENDAR_SCOPES),
                 actor_type="user",
             )
+            # Write capability when calendar.events was granted by Google.
+            from .scopes import CAPABILITY_WRITE_ID
+            if any("calendar.events" in s for s in authorized_scopes):
+                await self.permissions.grant(
+                    user_id=user_id,
+                    capability_id=CAPABILITY_WRITE_ID,
+                    connector_id=CONNECTOR_ID,
+                    connector_instance_id=instance["id"],
+                    purpose_id="calendar_write_sync",
+                    scopes=list(GOOGLE_CALENDAR_SCOPES),
+                    actor_type="user",
+                )
         except Exception:
             logger.exception("permissions grant failed post-callback")
 
