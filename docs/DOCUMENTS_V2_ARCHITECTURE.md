@@ -1,54 +1,64 @@
 # Documents V2 — Architecture
 
-Branch: `feature/rebuild-intelligent-documents`
+Branch: `feature/documents-v2-completion` (from `feature/rebuild-intelligent-documents` @ `3ff825d`)
 
 ## Product shift
 
 From file archive → **intelligent actions engine**: every upload is classified and produces utility (events, study aids, deadlines, Brain facts).
 
-## Legacy map (pre-rebuild)
+## Modules
 
 | Layer | Paths |
 |-------|--------|
-| FE list | `frontend/app/(tabs)/documenti.tsx` (was Iter19 archive) |
-| FE detail | `frontend/app/document/[id].tsx` |
+| FE hub | `frontend/app/(tabs)/documenti.tsx` |
+| FE detail | `frontend/app/document/[id].tsx` + `DocumentUtilityPanel.tsx` |
 | API | `backend/documents/router.py` |
-| CRUD/storage | `backend/documents/service.py`, `storage.py`, `extraction.py` |
-| Intel | `backend/documents/intelligence/*` |
-| Calendar write | `google_sync.py` + connectors |
-| Brain | Life Graph + Knowledge merge |
+| Orchestration | `backend/documents/intelligence/service.py` |
+| Analyze / taxonomy | `analyzer.py`, `taxonomy.py` |
+| Study | `study_tools.py` (flashcards, quiz, outline, explain) |
+| Admin extract | `admin_extract.py` |
+| Calendar / Maps / Google | `calendar_adapter.py`, `google_sync.py` |
+| Brain | Life Graph + Knowledge merge in `service._merge_brain` |
 
 **Extended, not deleted:** storage, extraction, OCR, LLM manager, Google sync, Brain hooks, JWT auth.
-
-**Replaced UX:** list hub + utility-first detail labels; archival-only framing removed.
 
 ## Pipeline V2
 
 `uploaded → queued → extracting → classifying → understanding → generating_actions → awaiting_confirmation | completed | needs_review | failed`
 
-Legacy aliases kept: `analyzing`, `action_required`.
-
 Versions: `document_schema_version=2.0`, `analysis_version=2.0`, `processing_version=intel-docs-2.0`.
+
+## Study / quiz / admin API
+
+| Method | Path |
+|--------|------|
+| POST | `/api/documents/{id}/study` — `explain_simple`, `summary_*`, `outline`, `questions`, `exam_questions`, `flashcards`, `quiz_start` |
+| POST | `/api/documents/{id}/quiz/answer` |
+| POST | `/api/documents/{id}/admin/actions/complete` |
+| POST | `/api/documents/{id}/admin/deadline-calendar` |
+| PATCH | `/api/documents/{id}/analysis` — user corrections + provenance |
+
+## Provenance
+
+`field_provenance` per field: extracted / suggested / confirmed / corrected + confidence + source.  
+Reanalyze **never overwrites** confirmed/corrected values (title, admin.*, edu.*, analysis scalars).
 
 ## Auto-add calendar
 
-User pref (default **off**):
+Prefs (default **off**): `calendar_auto_add_enabled`, `calendar_auto_add_threshold` (0.90).
 
-- `calendar_auto_add_enabled`
-- `calendar_auto_add_threshold` (default `0.90`)
+Gates: single proposed event, **confidence > threshold**, datetime present & not ambiguous, no critical missing fields, not `requires_review`, no existing draft → `confirm_event(sync_to_google=True)`.
 
-Gates: single proposed event, confidence ≥ threshold, datetime unambiguous, not `requires_review` → `confirm_event(sync_to_google=True)`.
+## Search
 
-## Hub API
-
-`GET /api/documents/hub` — aggregates for home UI.  
-`GET|PATCH /api/documents/preferences` — AI consent + auto-add.
+`GET /api/documents/search/intelligent` — multi-token AND across title/text/edu/admin; special phrases `azioni aperte`, `da verificare`; always filtered by `user_id`.
 
 ## Dynamic utility by macro
 
-| Macro | Utility |
-|-------|---------|
-| event / travel | Confirm → ORA + Google Calendar, Maps |
-| education | Summary, concepts, Q&A, Brain |
-| administrative / financial | Deadlines, amounts, reminders |
-| medical | Discrete titles, appointments only, no diagnosis |
+| Macro | Utility UI |
+|-------|------------|
+| event / travel | Confirm ORA / Google, Maps, directions |
+| education | Study panel + flashcards + Interrogami |
+| administrative / financial | Admin panel + editable fields + deadline calendar |
+| medical | Appointment only + medical disclaimer (no clinical invention) |
+| generic | Summary / keywords / resolved fields |

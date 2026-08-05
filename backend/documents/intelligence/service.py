@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from datetime import datetime, timezone
 from typing import Any, Optional
 
@@ -129,14 +130,69 @@ class IntelligenceService:
 
             brain = await self._merge_brain(doc, analysis, merged_events, result.get("education_analysis"))
 
+            # Preserve user field corrections / confirmed titles across reanalyze
+            provenance = dict(doc.get("field_provenance") or {})
+            # Seed extracted provenance for key fields (do not clobber confirmed/corrected)
+            for fk, val in (
+                ("title", analysis.get("suggested_title")),
+                ("summary", analysis.get("summary")),
+                ("macro_category", analysis.get("macro_category")),
+            ):
+                if val is None:
+                    continue
+                cur = provenance.get(fk) or {}
+                if cur.get("status") in ("confirmed", "corrected"):
+                    continue
+                provenance[fk] = {
+                    "field_key": fk,
+                    "extracted": val,
+                    "suggested": val,
+                    "status": "extracted",
+                    "source": analysis.get("model") or "local",
+                    "confidence": analysis.get("confidence"),
+                }
+            if doc.get("user_title"):
+                display_title = doc["user_title"]
+                provenance.setdefault("title", {})
+                provenance["title"] = {
+                    **(provenance.get("title") or {}),
+                    "corrected": doc["user_title"],
+                    "status": "corrected",
+                    "source": "user",
+                }
+
+            edu_out = result.get("education_analysis")
+            admin_out = result.get("admin_analysis")
+            edu_out = _apply_corrected_fields(
+                edu_out, doc.get("education_analysis"), provenance, prefix="edu.",
+            )
+            admin_out = _apply_corrected_fields(
+                admin_out, doc.get("admin_analysis"), provenance, prefix="admin.",
+            )
+            # Never overwrite confirmed/corrected analysis scalars
+            for key, meta in list(provenance.items()):
+                if not isinstance(meta, dict):
+                    continue
+                if meta.get("status") not in ("confirmed", "corrected"):
+                    continue
+                locked = meta.get("corrected") if meta.get("corrected") is not None else meta.get("confirmed")
+                if key in ("summary", "short_description", "keywords", "macro_category", "subcategory"):
+                    if locked is not None:
+                        analysis[key] = locked
+
             payload = {
                 "analysis": analysis,
                 "event_candidates": merged_events,
-                "education_analysis": result.get("education_analysis"),
-                "generic_actions": result.get("generic_actions") or [],
+                "education_analysis": edu_out,
+                "admin_analysis": admin_out,
+                "generic_actions": _merge_generic_actions(
+                    doc.get("generic_actions") or [],
+                    result.get("generic_actions") or [],
+                ),
                 "insights_snapshot": result.get("insights_snapshot"),
                 "display_title": display_title,
                 "brain_synced": brain,
+                "field_provenance": provenance,
                 "analysis_version": "2.0",
                 "document_schema_version": "2.0",
                 "processing_version": "intel-docs-2.0",
@@ -260,7 +316,11 @@ class IntelligenceService:
             "analysis": doc.get("analysis"),
             "event_candidates": events,
             "education_analysis": doc.get("education_analysis"),
+            "admin_analysis": doc.get("admin_analysis"),
             "generic_actions": doc.get("generic_actions") or [],
+            "flashcards": doc.get("flashcards") or [],
+            "quiz_session": doc.get("quiz_session"),
+            "field_provenance": doc.get("field_provenance") or {},
             "ai_consent_required_note": (
                 None
                 if (doc.get("analysis") or {}).get("ai_used")
@@ -271,17 +331,176 @@ class IntelligenceService:
     async def patch_analysis(self, *, user_id: str, doc_id: str, body: dict) -> dict:
         doc = await self.docs.get(user_id=user_id, doc_id=doc_id)
         updates: dict[str, Any] = {"updated_at": _now()}
+        provenance = dict(doc.get("field_provenance") or {})
         if "user_title" in body and body["user_title"] is not None:
             updates["user_title"] = str(body["user_title"])[:200]
             updates["display_title"] = updates["user_title"]
+            provenance["title"] = {
+                "field_key": "title",
+                "extracted": (doc.get("analysis") or {}).get("suggested_title"),
+                "corrected": updates["user_title"],
+                "status": "corrected",
+                "source": "user",
+                "confidence": 1.0,
+            }
         if "analysis" in body and isinstance(body["analysis"], dict):
             analysis = dict(doc.get("analysis") or {})
+            # Do not overwrite confirmed/corrected title via reanalyze-style patches
             for k in ("summary", "short_description", "keywords", "macro_category", "subcategory"):
                 if k in body["analysis"]:
                     analysis[k] = body["analysis"][k]
+                    provenance[k] = {
+                        "field_key": k,
+                        "extracted": (doc.get("analysis") or {}).get(k),
+                        "corrected": body["analysis"][k],
+                        "status": "corrected",
+                        "source": "user",
+                        "confidence": 1.0,
+                    }
             updates["analysis"] = analysis
+        if "admin_analysis" in body and isinstance(body["admin_analysis"], dict):
+            admin = dict(doc.get("admin_analysis") or {})
+            for k, v in body["admin_analysis"].items():
+                admin[k] = v
+                provenance[f"admin.{k}"] = {
+                    "field_key": f"admin.{k}",
+                    "corrected": v,
+                    "status": "corrected",
+                    "source": "user",
+                    "confidence": 1.0,
+                }
+            updates["admin_analysis"] = admin
+        if "education_analysis" in body and isinstance(body["education_analysis"], dict):
+            edu = dict(doc.get("education_analysis") or {})
+            for k, v in body["education_analysis"].items():
+                edu[k] = v
+                provenance[f"edu.{k}"] = {
+                    "field_key": f"edu.{k}",
+                    "corrected": v,
+                    "status": "corrected",
+                    "source": "user",
+                    "confidence": 1.0,
+                }
+            updates["education_analysis"] = edu
+        updates["field_provenance"] = provenance
         await self.db.documents.update_one({"id": doc_id, "user_id": user_id}, {"$set": updates})
         return await self.get_analysis(user_id=user_id, doc_id=doc_id)
+
+    async def study_action(self, *, user_id: str, doc_id: str, action: str) -> dict:
+        """Generate study artifacts grounded on document content."""
+        from documents.intelligence.study_tools import (
+            build_flashcards,
+            enrich_education,
+            start_quiz,
+            build_simple_explanation,
+            build_outline,
+            build_exam_questions,
+        )
+        doc = await self.docs.get(user_id=user_id, doc_id=doc_id)
+        text = doc.get("extracted_text") or ""
+        edu = enrich_education(dict(doc.get("education_analysis") or {}), text)
+        updates: dict[str, Any] = {"education_analysis": edu, "updated_at": _now()}
+        out: dict[str, Any] = {"ok": True, "action": action, "education_analysis": edu}
+        if action == "explain_simple":
+            edu["simple_explanation"] = build_simple_explanation(edu, text)
+            updates["education_analysis"] = edu
+            out["result"] = edu["simple_explanation"]
+        elif action == "summary_short":
+            out["result"] = edu.get("summary_short") or (text[:280] if text else "")
+        elif action == "summary_detailed":
+            out["result"] = edu.get("summary_detailed") or (text[:1200] if text else "")
+        elif action == "outline":
+            edu["outline"] = build_outline(edu, text)
+            updates["education_analysis"] = edu
+            out["result"] = edu["outline"]
+        elif action == "questions":
+            out["result"] = edu.get("questions_for_review") or []
+        elif action == "exam_questions":
+            edu["exam_questions"] = build_exam_questions(edu)
+            updates["education_analysis"] = edu
+            out["result"] = edu["exam_questions"]
+        elif action == "flashcards":
+            cards = build_flashcards(edu, text)
+            updates["flashcards"] = cards
+            out["result"] = cards
+            out["flashcards"] = cards
+        elif action == "quiz_start":
+            sess = start_quiz(doc_id, edu, text)
+            updates["quiz_session"] = sess
+            out["quiz_session"] = sess
+            out["result"] = sess
+        else:
+            raise ValueError(f"azione studio non supportata: {action}")
+        await self.db.documents.update_one({"id": doc_id, "user_id": user_id}, {"$set": updates})
+        return out
+
+    async def quiz_answer(self, *, user_id: str, doc_id: str, answer: str) -> dict:
+        from documents.intelligence.study_tools import answer_quiz
+        doc = await self.docs.get(user_id=user_id, doc_id=doc_id)
+        sess = doc.get("quiz_session")
+        if not sess:
+            raise ValueError("Nessuna sessione Interrogami attiva")
+        updated = answer_quiz(sess, answer, doc.get("extracted_text") or "")
+        await self.db.documents.update_one(
+            {"id": doc_id, "user_id": user_id},
+            {"$set": {"quiz_session": updated, "updated_at": _now()}},
+        )
+        return {"ok": True, "quiz_session": updated}
+
+    async def complete_admin_action(self, *, user_id: str, doc_id: str, index: int, completed: bool = True) -> dict:
+        doc = await self.docs.get(user_id=user_id, doc_id=doc_id)
+        actions = list(doc.get("generic_actions") or [])
+        if index < 0 or index >= len(actions):
+            raise LookupError("action_not_found")
+        actions[index]["completed"] = bool(completed)
+        admin = dict(doc.get("admin_analysis") or {})
+        if completed and all(a.get("completed") for a in actions):
+            admin["completed"] = True
+        await self.db.documents.update_one(
+            {"id": doc_id, "user_id": user_id},
+            {"$set": {"generic_actions": actions, "admin_analysis": admin, "updated_at": _now()}},
+        )
+        return await self.get_analysis(user_id=user_id, doc_id=doc_id)
+
+    async def add_admin_deadline_calendar(self, *, user_id: str, doc_id: str, sync_to_google: bool = False) -> dict:
+        """Create calendar draft from admin due_date (requires confirmation path via sync flag)."""
+        doc = await self.docs.get(user_id=user_id, doc_id=doc_id)
+        admin = doc.get("admin_analysis") or {}
+        due = admin.get("due_date")
+        if not due:
+            raise ValueError("Nessuna scadenza estratta")
+        from documents.intelligence.analyzer import _parse_italian_datetime
+        due_dt, _, amb = _parse_italian_datetime(str(due))
+        if not due_dt or amb:
+            raise ValueError("Scadenza ambigua: conferma manualmente la data")
+        candidate = {
+            "id": f"evc_admin_{doc_id[-8:]}",
+            "source_document_id": doc_id,
+            "title": (admin.get("subject") or "Scadenza documento")[:160],
+            "description": (admin.get("simple_explanation") or "")[:400],
+            "start_datetime": due_dt.isoformat(),
+            "end_datetime": due_dt.isoformat(),
+            "timezone": "Europe/Rome",
+            "all_day": True,
+            "status": "proposed",
+            "confidence": float(admin.get("confidence") or 0.6),
+            "priority": admin.get("priority") or "high",
+            "urgency": admin.get("urgency") or "soon",
+        }
+        # Inject as candidate then confirm
+        events = list(doc.get("event_candidates") or [])
+        if not any(e.get("id") == candidate["id"] for e in events):
+            events.append(candidate)
+            await self.db.documents.update_one(
+                {"id": doc_id, "user_id": user_id},
+                {"$set": {"event_candidates": events, "updated_at": _now()}},
+            )
+        return await self.confirm_event(
+            user_id=user_id,
+            doc_id=doc_id,
+            event_id=candidate["id"],
+            sync_to_google=sync_to_google,
+        )
 
     async def update_event_candidate(
         self, *, user_id: str, doc_id: str, event_id: str, patch: dict
@@ -571,12 +790,28 @@ class IntelligenceService:
             return {"attempted": False, "reason": "requires_review"}
         ev = proposed[0]
         conf = float(ev.get("confidence") or 0)
-        if conf < auto["threshold"]:
+        # Spec: auto-add only when confidence > threshold (default 0.90 ⇒ 0.89 never auto-adds).
+        if conf <= float(auto["threshold"]):
             return {"attempted": False, "reason": "low_confidence", "confidence": conf}
         if ev.get("ambiguous_date") or not ev.get("start_datetime"):
             return {"attempted": False, "reason": "ambiguous_or_missing_datetime"}
+        critical_missing = [
+            f for f in (ev.get("missing_fields") or [])
+            if f in ("start_datetime", "date", "time", "title")
+        ]
+        if critical_missing:
+            return {"attempted": False, "reason": "critical_missing", "missing": critical_missing}
         if not (ev.get("timezone") or "Europe/Rome"):
             return {"attempted": False, "reason": "invalid_timezone"}
+        # Dedupe: already confirmed calendar draft for this candidate
+        existing = await self.db.calendar_event_drafts.find_one({
+            "user_id": user_id,
+            "source_document_id": doc_id,
+            "source_event_candidate_id": ev["id"],
+            "status": {"$ne": "cancelled"},
+        })
+        if existing:
+            return {"attempted": False, "reason": "already_exists", "calendar_event_id": existing.get("id")}
         try:
             res = await self.confirm_event(
                 user_id=user_id,
@@ -692,26 +927,90 @@ class IntelligenceService:
         if has_open_actions:
             query["event_candidates"] = {"$elemMatch": {"status": "proposed"}}
         if q:
-            rx = {"$regex": q, "$options": "i"}
-            query["$or"] = [
-                {"filename": rx},
-                {"original_filename": rx},
-                {"display_title": rx},
-                {"user_title": rx},
-                {"analysis.suggested_title": rx},
-                {"analysis.keywords": rx},
-                {"analysis.summary": rx},
-                {"extracted_text": rx},
-                {"analysis.macro_category": rx},
-                {"analysis.subcategory": rx},
-                {"event_candidates.venue_name": rx},
-                {"event_candidates.city": rx},
-                {"education_analysis.subject": rx},
-            ]
+            ql = q.strip().lower()
+            if ql in ("azioni aperte", "open actions"):
+                query["generic_actions"] = {"$elemMatch": {"completed": {"$ne": True}}}
+            elif ql in ("da verificare", "needs review", "needs_review"):
+                query["pipeline_status"] = {
+                    "$in": ["needs_review", "awaiting_confirmation", "action_required"],
+                }
+            else:
+                # Multi-token: require all tokens via AND of regexes on text fields
+                tokens = [t for t in re.split(r"\s+", q.strip()) if t]
+                fields = [
+                    "filename", "original_filename", "display_title", "user_title",
+                    "analysis.suggested_title", "analysis.keywords", "analysis.summary",
+                    "extracted_text", "analysis.macro_category", "analysis.subcategory",
+                    "event_candidates.venue_name", "event_candidates.city",
+                    "education_analysis.subject", "education_analysis.topic",
+                    "education_analysis.key_concepts", "education_analysis.definitions",
+                    "admin_analysis.subject", "admin_analysis.sender",
+                    "admin_analysis.document_number",
+                ]
+                if len(tokens) <= 1:
+                    rx = {"$regex": q, "$options": "i"}
+                    query["$or"] = [{f: rx} for f in fields]
+                else:
+                    and_clauses = []
+                    for tok in tokens:
+                        rx = {"$regex": tok, "$options": "i"}
+                        and_clauses.append({"$or": [{f: rx} for f in fields]})
+                    query["$and"] = and_clauses
         cur = self.db.documents.find(query, {"_id": 0, "extracted_text": 0}).sort("created_at", -1).skip(offset).limit(limit)
         items = await cur.to_list(limit)
         total = await self.db.documents.count_documents(query)
         return {"items": items, "total": total, "limit": limit, "offset": offset}
+
+
+def _apply_corrected_fields(
+    fresh: Optional[dict],
+    previous: Optional[dict],
+    provenance: dict,
+    *,
+    prefix: str,
+) -> Optional[dict]:
+    """Re-apply user confirmed/corrected values after reanalyze; never overwrite them."""
+    if fresh is None and previous is None:
+        return None
+    out = dict(fresh or previous or {})
+    prev = previous or {}
+    for key, meta in provenance.items():
+        if not isinstance(meta, dict) or not str(key).startswith(prefix):
+            continue
+        if meta.get("status") not in ("confirmed", "corrected"):
+            continue
+        field = str(key)[len(prefix):]
+        locked = meta.get("corrected") if meta.get("corrected") is not None else meta.get("confirmed")
+        if field and locked is not None:
+            out[field] = locked
+        elif field in prev:
+            out[field] = prev[field]
+    # Preserve completed flag if user already completed
+    if prev.get("completed") and "completed" not in {
+        str(k)[len(prefix):] for k, m in provenance.items()
+        if isinstance(m, dict) and str(k).startswith(prefix) and m.get("status") == "corrected"
+    }:
+        if prev.get("completed"):
+            out["completed"] = True
+    return out
+
+
+def _merge_generic_actions(previous: list, fresh: list) -> list:
+    """Keep completed flags for matching action titles across reanalyze."""
+    if not previous:
+        return list(fresh or [])
+    if not fresh:
+        return list(previous)
+    prev_by_title = {str(a.get("title") or ""): a for a in previous}
+    out = []
+    for a in fresh:
+        title = str(a.get("title") or "")
+        merged = dict(a)
+        old = prev_by_title.get(title)
+        if old and old.get("completed"):
+            merged["completed"] = True
+        out.append(merged)
+    return out
 
 
 def _utility_label(analysis: dict, events: list, education: Optional[dict]) -> str:

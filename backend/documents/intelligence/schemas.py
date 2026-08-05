@@ -82,15 +82,82 @@ class EducationAnalysis(BaseModel):
     topic: Optional[str] = None
     level: Optional[str] = None
     suggested_title: str = ""
+    simple_explanation: str = ""
     summary_short: str = ""
     summary_detailed: str = ""
+    outline: List[str] = Field(default_factory=list)
     key_concepts: List[str] = Field(default_factory=list)
     definitions: List[str] = Field(default_factory=list)
     important_people: List[str] = Field(default_factory=list)
     important_dates: List[str] = Field(default_factory=list)
+    formulas: List[str] = Field(default_factory=list)
+    examples: List[str] = Field(default_factory=list)
     questions_for_review: List[str] = Field(default_factory=list)
+    exam_questions: List[str] = Field(default_factory=list)
     keywords: List[str] = Field(default_factory=list)
+    estimated_read_minutes: Optional[int] = None
+    difficulty: Optional[str] = None
     confidence: float = Field(ge=0, le=1, default=0.5)
+
+
+class Flashcard(BaseModel):
+    id: str
+    question: str
+    answer: str
+    source_ref: Optional[str] = None
+    difficulty: Literal["easy", "medium", "hard"] = "medium"
+    review_status: Literal["new", "learning", "known"] = "new"
+
+
+class QuizTurn(BaseModel):
+    question: str
+    expected_points: List[str] = Field(default_factory=list)
+    user_answer: Optional[str] = None
+    feedback: Optional[str] = None
+    covered: bool = False
+
+
+class QuizSession(BaseModel):
+    id: str
+    document_id: str
+    turns: List[QuizTurn] = Field(default_factory=list)
+    current_index: int = 0
+    status: Literal["active", "completed"] = "active"
+    created_at: str
+    updated_at: str
+
+
+class AdminAnalysis(BaseModel):
+    sender: Optional[str] = None
+    recipient: Optional[str] = None
+    subject: Optional[str] = None
+    document_number: Optional[str] = None
+    amount: Optional[str] = None
+    currency: Optional[str] = None
+    issue_date: Optional[str] = None
+    due_date: Optional[str] = None
+    payment_method: Optional[str] = None
+    required_actions: List[str] = Field(default_factory=list)
+    duration: Optional[str] = None
+    renewal: Optional[str] = None
+    cancellation: Optional[str] = None
+    contacts: List[str] = Field(default_factory=list)
+    simple_explanation: str = ""
+    completed: bool = False
+    priority: Priority = "medium"
+    urgency: Urgency = "none"
+    confidence: float = Field(ge=0, le=1, default=0.5)
+
+
+class FieldProvenance(BaseModel):
+    field_key: str
+    extracted: Optional[Any] = None
+    suggested: Optional[Any] = None
+    confirmed: Optional[Any] = None
+    corrected: Optional[Any] = None
+    status: Literal["extracted", "suggested", "confirmed", "corrected", "rejected"] = "extracted"
+    confidence: Optional[float] = None
+    source: Optional[str] = None
 
 
 class GenericAction(BaseModel):
@@ -98,10 +165,12 @@ class GenericAction(BaseModel):
     title: str
     description: str = ""
     due_datetime: Optional[str] = None
+    amount: Optional[str] = None
     priority: Priority = "medium"
     urgency: Urgency = "none"
     confidence: float = Field(ge=0, le=1, default=0.5)
     requires_confirmation: bool = True
+    completed: bool = False
 
 
 SyncStatus = Literal[

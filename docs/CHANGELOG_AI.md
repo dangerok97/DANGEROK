@@ -1,5 +1,35 @@
 # ORA — AI Changelog
 
+## 2026-08-05 — Complete and verify intelligent Documents V2
+
+### Request
+
+Finish Documents V2: dynamic detail by macro, study tools (flashcards, Interrogami), admin actions, auto-add gates, provenance, Brain/search, fixtures, real browser E2E, tests, docs, local commit only.
+
+### Actions
+
+- Branch `feature/documents-v2-completion` from `3ff825d`
+- Backend: `study_tools.py`, `admin_extract.py`, study/quiz/admin routes, provenance merge on reanalyze, stricter auto-add, richer search
+- Frontend: wire `TabInfo` → `DocumentUtilityPanel`; editable admin fields; client types
+- Tests: expanded `test_documents_v2.py` (15 passed)
+- Browser: Playwright Chromium E2E vs Expo web (flashcards/quiz/dynamic detail verified)
+- Docs: DOCUMENTS_V2_*, DEVELOPMENT_STATE, FUNCTIONAL_AUDIT, BACKLOG, this changelog
+
+### Tests / verify
+
+- pytest V2: 15 passed
+- tsc --noEmit: OK
+- compileall intelligence: OK
+- Browser E2E: ok (see `docs/DOCUMENTS_V2_VERIFICATION.md`)
+- Gemini live / Google live: not re-run this session
+- Mobile: not verified
+
+### Result
+
+Documents V2 completion criteria met for web: flashcards, Interrogami, dynamic detail, and real browser E2E verified. Mobile and live Gemini re-check remain open.
+
+---
+
 ## 2026-08-05 — Rebuild Documents as intelligent actions engine (V2)
 
 ### Request

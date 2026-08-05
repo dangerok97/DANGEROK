@@ -458,7 +458,7 @@ def _build_education(text: str, fields: dict, keywords: list[str]) -> Optional[E
     defs = [c for c in concepts if ":" in c][:6]
     summary = " ".join((text or "").split())[:400]
     detailed = " ".join((text or "").split())[:1200]
-    return EducationAnalysis(
+    edu = EducationAnalysis(
         subject=subject,
         topic=fields.get("topic"),
         suggested_title=f"{subject or 'Studio'} – appunti"[:160],
@@ -473,6 +473,8 @@ def _build_education(text: str, fields: dict, keywords: list[str]) -> Optional[E
         ],
         confidence=0.55 if subject else 0.4,
     )
+    from documents.intelligence.study_tools import enrich_education
+    return EducationAnalysis(**enrich_education(edu.model_dump(), text))
 
 
 def content_fingerprint(text: str, filename: str = "") -> str:
@@ -653,7 +655,45 @@ async def analyze_document(
 
     generic_actions: list[GenericAction] = []
     due = None
-    if tax["macro_category"] == "administrative":
+    from documents.intelligence.admin_extract import build_admin_analysis
+    admin = build_admin_analysis(
+        text,
+        macro=tax["macro_category"],
+        amounts=list(entities_raw.get("amounts") or []),
+    )
+    if admin:
+        due = None
+        if admin.due_date:
+            due_dt, _, _ = _parse_italian_datetime(admin.due_date)
+            due = due_dt.isoformat() if due_dt else None
+        if admin.required_actions:
+            for ra in admin.required_actions:
+                generic_actions.append(
+                    GenericAction(
+                        action_type="generic_action",
+                        title="Azione richiesta",
+                        description=ra,
+                        due_datetime=due,
+                        amount=admin.amount,
+                        priority=admin.priority,
+                        urgency=admin.urgency,
+                        requires_confirmation=True,
+                    )
+                )
+        if admin.due_date or admin.amount:
+            generic_actions.append(
+                GenericAction(
+                    action_type="create_reminder",
+                    title="Promemoria scadenza" if admin.due_date else "Promemoria pagamento",
+                    description=admin.simple_explanation,
+                    due_datetime=due,
+                    amount=admin.amount,
+                    priority="high",
+                    urgency="soon" if due else "upcoming",
+                    requires_confirmation=True,
+                )
+            )
+    elif tax["macro_category"] == "administrative":
         due_raw = _extract_labeled(text, ("Scadenza", "Entro il", "Data limite"))
         if due_raw:
             due_dt, _, _ = _parse_italian_datetime(due_raw)
@@ -682,10 +722,16 @@ async def analyze_document(
                 )
             )
 
+    edu_dump = education.model_dump() if education else None
+    if edu_dump:
+        from documents.intelligence.study_tools import enrich_education
+        edu_dump = enrich_education(edu_dump, text)
+
     return {
         "analysis": analysis_dump,
         "event_candidates": [e.model_dump() for e in events],
-        "education_analysis": education.model_dump() if education else None,
+        "education_analysis": edu_dump,
+        "admin_analysis": admin.model_dump() if admin else None,
         "generic_actions": [g.model_dump() for g in generic_actions],
         "insights_snapshot": {
             "type_key": type_key,

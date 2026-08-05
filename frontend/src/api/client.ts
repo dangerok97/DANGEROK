@@ -366,7 +366,12 @@ export const api = {
     request<{ ok: boolean; pipeline_status?: string }>(`/documents/${id}/analyze`, { method: 'POST' }),
   documentReanalyze: (id: string) =>
     request<{ ok: boolean }>(`/documents/${id}/reanalyze`, { method: 'POST' }),
-  documentPatchAnalysis: (id: string, body: { user_title?: string; analysis?: Record<string, unknown> }) =>
+  documentPatchAnalysis: (id: string, body: {
+    user_title?: string;
+    analysis?: Record<string, unknown>;
+    admin_analysis?: Record<string, unknown>;
+    education_analysis?: Record<string, unknown>;
+  }) =>
     request<DocumentAnalysisResponse>(`/documents/${id}/analysis`, { method: 'PATCH', body: JSON.stringify(body) }),
   documentClearAnalysis: (id: string) =>
     request<{ ok: boolean }>(`/documents/${id}/analysis`, { method: 'DELETE' }),
@@ -440,6 +445,33 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ question }),
     }),
+  documentStudy: (id: string, action: string) =>
+    request<{
+      ok: boolean;
+      action: string;
+      result?: unknown;
+      flashcards?: Flashcard[];
+      quiz_session?: QuizSession;
+      education_analysis?: EducationAnalysis;
+    }>(`/documents/${id}/study`, {
+      method: 'POST',
+      body: JSON.stringify({ action }),
+    }),
+  documentQuizAnswer: (id: string, answer: string) =>
+    request<{ ok: boolean; quiz_session: QuizSession }>(`/documents/${id}/quiz/answer`, {
+      method: 'POST',
+      body: JSON.stringify({ answer }),
+    }),
+  documentAdminComplete: (id: string, index: number, completed = true) =>
+    request<DocumentAnalysisResponse>(`/documents/${id}/admin/actions/complete`, {
+      method: 'POST',
+      body: JSON.stringify({ index, completed }),
+    }),
+  documentAdminDeadline: (id: string, sync_to_google = false) =>
+    request<{ ok: boolean; calendar_event?: Record<string, unknown> }>(
+      `/documents/${id}/admin/deadline-calendar`,
+      { method: 'POST', body: JSON.stringify({ sync_to_google }) },
+    ),
   documentPatch: (id: string, body: { filename?: string; tags?: string[]; notes?: string }) =>
     request<DocumentItem>(`/documents/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   documentArchive: (id: string) => request<DocumentItem>(`/documents/${id}/archive`, { method: 'POST' }),
@@ -556,13 +588,76 @@ export type EventCandidate = {
 export type EducationAnalysis = {
   subject?: string | null;
   topic?: string | null;
+  level?: string | null;
+  suggested_title?: string;
+  simple_explanation?: string;
   summary_short?: string;
   summary_detailed?: string;
+  outline?: string[];
   key_concepts?: string[];
   definitions?: string[];
+  important_people?: string[];
+  important_dates?: string[];
+  formulas?: string[];
+  examples?: string[];
   questions_for_review?: string[];
+  exam_questions?: string[];
   keywords?: string[];
+  estimated_read_minutes?: number;
+  difficulty?: string;
   confidence?: number;
+};
+
+export type AdminAnalysis = {
+  sender?: string | null;
+  recipient?: string | null;
+  subject?: string | null;
+  document_number?: string | null;
+  amount?: string | null;
+  currency?: string | null;
+  issue_date?: string | null;
+  due_date?: string | null;
+  payment_method?: string | null;
+  required_actions?: string[];
+  simple_explanation?: string;
+  completed?: boolean;
+  priority?: string;
+  urgency?: string;
+  confidence?: number;
+};
+
+export type Flashcard = {
+  id: string;
+  question: string;
+  answer: string;
+  source_ref?: string | null;
+  difficulty?: string;
+  review_status?: string;
+};
+
+export type QuizSession = {
+  id: string;
+  document_id: string;
+  turns: Array<{
+    question: string;
+    expected_points?: string[];
+    user_answer?: string | null;
+    feedback?: string | null;
+    covered?: boolean;
+  }>;
+  current_index: number;
+  status: string;
+};
+
+export type GenericAction = {
+  action_type: string;
+  title: string;
+  description?: string;
+  due_datetime?: string | null;
+  amount?: string | null;
+  completed?: boolean;
+  priority?: string;
+  urgency?: string;
 };
 
 export type DocumentAnalysisResponse = {
@@ -575,6 +670,11 @@ export type DocumentAnalysisResponse = {
   analysis?: DocumentAnalysisPayload | null;
   event_candidates?: EventCandidate[];
   education_analysis?: EducationAnalysis | null;
+  admin_analysis?: AdminAnalysis | null;
+  generic_actions?: GenericAction[];
+  flashcards?: Flashcard[];
+  quiz_session?: QuizSession | null;
+  field_provenance?: Record<string, unknown>;
   ai_consent_required_note?: string | null;
 };
 
