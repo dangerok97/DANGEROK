@@ -599,8 +599,14 @@ async def analyze_document(
                         )
                     except Exception:
                         pass
-        except LLMNotConfigured:
-            warnings.append("Provider AI non configurato: usata solo analisi locale.")
+        except LLMNotConfigured as e:
+            msg = str(e).lower()
+            if "disponibile" in msg or "fallback" in msg or "nessun provider" in msg:
+                warnings.append(
+                    "Nessun provider AI disponibile (quota/errori/failover esaurito): usata analisi locale."
+                )
+            else:
+                warnings.append("Provider AI non configurato: usata solo analisi locale.")
         except LLMRateLimitError:
             warnings.append("Rate limit provider AI: usata analisi locale.")
         except LLMTimeoutError:

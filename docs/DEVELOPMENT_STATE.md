@@ -1,33 +1,36 @@
 # ORA — Development State
 
-Last updated: 2026-08-05 (AI Provider Manager)
+Last updated: 2026-08-05 (Gemini real verification)
 
 ## Branch
 
 - Active: `feature/ai-provider-manager` (local, no push)
-- Prior: `feature/intelligent-documents-real-verification`
 
 ## AI providers
 
-| Provider | Configured locally | Real verified |
-|----------|-------------------|---------------|
-| Gemini | no key yet | **no** |
-| OpenAI | key present | quota exceeded (not usable until billing) |
-| Ollama | not running | no |
+| Provider | Configured | Real verified |
+|----------|------------|---------------|
+| Gemini | yes (`GEMINI_API_KEY`) | **yes** — model `gemini-flash-lite-latest` |
+| OpenAI | yes | no (quota exceeded) |
+| Ollama | off / not running | no |
 | Emergent | no | no |
 
 Default priority: Gemini → OpenAI → Ollama → Emergent.  
-Local parsing always available.
+Note: `gemini-2.0-flash` returned 429 quota; `gemini-flash-lite-latest` succeeded.
 
-## Verified
+## Gemini verification (synthetic fixtures)
 
-- Provider Manager unit tests (failover mock) passed
-- Intelligent docs local/OCR suite still green
-- Settings UI section “AI Provider” added
-- API `GET/PATCH /api/llm/*`
+| Fixture | ai_used | Notes |
+|---------|---------|-------|
+| caso_b_concerto | yes | title/summary + event start |
+| caso_d_dispensa | yes | education enrich (after dict→list coerce) |
+| caso_e_admin | yes | administrative summary |
+| caso_a_visita | yes | medical appointment event |
+
+Avg latency (successful AI calls): ~1.6–2.6s.
 
 ## Next
 
-1. Add `GEMINI_API_KEY` and run real Gemini smoke on synthetic docs
-2. Rotate exposed OpenAI key; fix OpenAI billing if needed
-3. Manual UI pass on Settings → AI Provider
+1. Migrate SDK from deprecated `google.generativeai` → `google.genai`
+2. Rotate Gemini key (pasted in chat)
+3. Optional: OpenAI billing restore for failover smoke

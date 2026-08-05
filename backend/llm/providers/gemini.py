@@ -34,7 +34,7 @@ class GeminiProvider(BaseLLMProvider):
         return (
             os.environ.get("GEMINI_MODEL")
             or os.environ.get("LLM_MODEL")
-            or "gemini-2.0-flash"
+            or "gemini-flash-lite-latest"
         ).strip()
 
     async def chat(
