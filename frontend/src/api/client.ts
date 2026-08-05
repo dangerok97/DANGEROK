@@ -66,6 +66,28 @@ export type AuthProvidersStatus = {
   password: { configured: boolean };
 };
 
+export type LLMProviderId = 'gemini' | 'openai' | 'ollama' | 'emergent';
+
+export type LLMProviderInfo = {
+  id: LLMProviderId;
+  label: string;
+  configured: boolean;
+  available: boolean;
+  model?: string | null;
+  priority: number;
+};
+
+export type LLMProvidersStatus = {
+  active: string | null;
+  preferred?: string | null;
+  user_preference?: string;
+  configured: boolean;
+  fallback_chain: string[];
+  priority: string[];
+  providers: LLMProviderInfo[];
+  note?: string;
+};
+
 export type AuthIdentitiesResponse = {
   user_id: string;
   email?: string;
@@ -157,6 +179,20 @@ export const api = {
     request<{ ok: boolean }>(`/auth/link/${provider}`, { method: 'DELETE' }),
 
   authIdentities: () => request<AuthIdentitiesResponse>('/auth/identities'),
+
+  llmProviders: () => request<LLMProvidersStatus>('/llm/providers'),
+
+  setLlmProvider: (provider: LLMProviderId | 'auto') =>
+    request<{
+      ok: boolean;
+      user_preference: string;
+      active: string | null;
+      providers: LLMProviderInfo[];
+      fallback_chain: string[];
+    }>('/llm/preferences', {
+      method: 'PATCH',
+      body: JSON.stringify({ provider }),
+    }),
 
   me: () => request<ApiUser>('/auth/me'),
 

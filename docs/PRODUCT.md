@@ -1,6 +1,6 @@
 # ORA — Product (struttura reale)
 
-Ultimo aggiornamento: 2026-08-05 — documenti intelligenti (pipeline + azioni).
+Ultimo aggiornamento: 2026-08-05 — AI Provider Manager (Gemini default).
 
 ## Vision
 
@@ -20,7 +20,7 @@ Persone che vogliono una priorità unica chiara (non un task manager generico), 
 | `/(tabs)/documenti` | Documenti | Lista/upload/dettaglio documenti |
 | `/(tabs)/aggiungi` | Aggiungi | Capture priorità / ricordo |
 | `/(tabs)/profilo` | Profilo | Account, placeholder moduli, logout |
-| `/settings` | Impostazioni | Account collegati (calendari) |
+| `/settings` | Impostazioni | AI Provider + account/calendari |
 | `/manage-calendars` | Gestione calendari | Selezione calendari Google |
 | `/connect-apple-calendar` | Apple Calendar | Flusso nativo iOS |
 | `/how-it-works` | Onboarding informativo | Spiega Google Calendar |
