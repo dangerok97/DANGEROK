@@ -1,56 +1,41 @@
 # ORA — Development State
 
-Last updated: 2026-08-06 (Goal Engine Foundation — shadow)
+Last updated: 2026-08-06 (Goal-aware Home V2 — no Goal UX)
 
 ## Branch
 
-- Active: `feature/goal-engine-foundation` (local, no push)
-- Base: `feature/travel-action-flow` @ `cda5017` (+ audit doc)
+- Active: `feature/goal-aware-home` (local, no push)
+- Base: `feature/goal-engine-foundation` @ `7352f7c`
 
-## Goal Engine Foundation (backend-only)
-
-| Item | Stato |
-|------|--------|
-| Package `backend/goal_engine/` | **implemented** |
-| Mongo `goals` + `goal_events` + indexes | **implemented** |
-| Flag `GOAL_ENGINE_ENABLED` (default ON) | **implemented** |
-| Shadow upsert on Study confirm | **implemented** |
-| Shadow upsert on Travel confirm | **implemented** |
-| Dedupe / merge / timeline / progress | **implemented** |
-| Brain link (`goal_id` on node) | **implemented** |
-| API `/api/goals/*` (unused by UI) | **implemented** |
-| Goal UX / Home ranking / tabs | **NOT implemented** (by design) |
-| pytest `test_goal_engine.py` | **9 passed** |
-| pytest study+travel regression | **22 passed** |
-| Playwright shadow API assert | **2 passed** — `frontend/e2e/goal-engine-shadow.spec.ts` |
-
-## Travel Action Flow (Life Planner slice)
+## Goal-aware Home V2 (no Goal UX)
 
 | Item | Stato |
 |------|--------|
-| Full travel confirm + Home phases + Brain | **intact** (prior branch) |
+| Home loads active Goals when `GOAL_ENGINE_ENABLED` | **implemented** |
+| Attach `goal_*` on study/travel/AE/resume items | **implemented** |
+| Dedupe same `goal_id` → one focus + one resume | **implemented** |
+| Ranking `home-rank-1.1` Goal factors | **implemented** |
+| Insights / resume / Perché cite Goal honestly | **implemented** |
+| Flag OFF → pre–Goal-aware behavior | **implemented** |
+| Goal tab / list / Goals Home section | **NOT implemented** (by design) |
+| Docs `HOME_GOAL_AWARE.md` | **implemented** |
 
-## Study Action Flow
+## Goal Engine Foundation (backend)
 
 | Item | Stato |
 |------|--------|
-| Full study plan E2E + Google sync | **intact** |
-
-## Intent Classification Engine
-
-| Item | Stato |
-|------|--------|
-| Package + AE routing via Intent | **intact** (does not create Goals) |
+| Package `backend/goal_engine/` + shadow Study/Travel | **intact** |
+| API `/api/goals/*` (unused by Goal UI) | **intact** |
+| Flag `GOAL_ENGINE_ENABLED` | **intact** (also gates Home attach) |
 
 ## Open / next
 
-1. Home `meta.goal_id` dedupe (audit M2 / P4) — **not started**
-2. Progress refresh on session complete / travel phase tick
-3. Optional FE Goals read surface (later)
-4. Weather / email auto-find / native mobile (travel)
+1. Progress refresh on session complete / travel phase tick
+2. Optional FE Goals read surface (later — still not a Home Goals module)
+3. Weather / email auto-find / native mobile (travel)
 
 ## Credentials / safety
 
 - Never commit `.env` / tokens
-- Goal Engine needs no new secrets
-- Flag off → shadow upsert no-op
+- Goal Engine / Goal-aware Home need no new secrets
+- Flag off → shadow upsert no-op + Home ignores Goals

@@ -32,7 +32,11 @@ async def load_action_engine_items(db, user_id: str) -> Tuple[List[HomeItem], Li
                 code="action_engine_resume", label="Guida in corso", weight=0.7,
             )],
             reason_summary="Hai una guida Action Engine da completare",
-            meta={"dedupe_key": f"ae_session:{s['id']}", "flow": s.get("flow")},
+            meta={
+                "dedupe_key": f"ae_session:{s['id']}",
+                "flow": s.get("flow"),
+                "goal_id": s.get("goal_id"),
+            },
             created_at=s.get("created_at"),
             updated_at=s.get("updated_at"),
             actions=[
@@ -86,6 +90,7 @@ async def load_action_engine_items(db, user_id: str) -> Tuple[List[HomeItem], Li
                 "dedupe_key": f"ae_proj:{p['id']}",
                 "flow": flow,
                 "project_id": p["id"],
+                "goal_id": p.get("goal_id"),
             },
             created_at=p.get("created_at"),
             updated_at=p.get("updated_at") or now.isoformat(),

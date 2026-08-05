@@ -1,15 +1,17 @@
 # Home V2 — Product
 
-Last updated: 2026-08-05
+Last updated: 2026-08-06
 
 ## Question Home answers
 
 **What is most useful to know or do now?**
 
+Goals are **not** a Home block. They may enrich Adesso / Priorità / Perché / Osserva / Continua as context (see `docs/HOME_GOAL_AWARE.md`). **No Goal tab or Goals list.**
+
 ## Blocks (max 5 primary content regions + supporting)
 
-1. **Adesso** — one primary focus from real multi-source ranking; type-specific layout (bill / concert / visit / study…); empty fields hidden.
-2. **Perché adesso?** — ranking explanation from real factors/sources/confidence/missing data/`ranking_version`; correct / ignore. No chain-of-thought, no invented reasons.
+1. **Adesso** — one primary focus from real multi-source ranking; type-specific layout (bill / concert / visit / study…); empty fields hidden. Same Goal → one coherent card (not plan + project + session as rivals).
+2. **Perché adesso?** — ranking explanation from real factors/sources/confidence/missing data/`ranking_version` (may include Goal factors when linked); correct / ignore. No chain-of-thought, no invented reasons.
 3. **Dynamic actions** — only type-specific actions from the API (event / study / payment / needs_review / reply / generic). No dead buttons.
 4. **La tua situazione** — replaces “La tua giornata”; max 4 real indicators; CTA **Vedi situazione completa** → `/situazione` (real view).
 5. **Google Calendar** — large connect card removed. Connected: no promo. Disconnected: compact banner (Collega / Non ora). Full config in Settings.

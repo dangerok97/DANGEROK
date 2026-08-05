@@ -1,15 +1,17 @@
 # Home V2 — Verification
 
-Last updated: 2026-08-05
+Last updated: 2026-08-06
 
 ## Backend
 
 ```bash
 cd backend
-python -m pytest tests/test_home_v2.py -q
+.venv\Scripts\python.exe -m pytest tests/test_home_v2.py tests/test_home_goal_aware.py -q
 ```
 
 Coverage includes: empty home, bill (3d), concert tomorrow, visit, needs_review, study/resume, invoice, overdue activity, multi priority, primary focus, ranking/explanation/insight, resume, Google on/off, Gemini absent, source error, user isolation, dedupe, snooze, complete, update after document, free-window indicators, 3 deferred admin tasks, incomplete flashcard/quiz. Fixtures A–G.
+
+**Goal-aware (2026-08-06):** same-goal collapse, study/travel shadow → Home context, flag off, isolation, resume Goal mention, ranking factors — `tests/test_home_goal_aware.py`.
 
 ## Frontend checks
 
@@ -27,9 +29,12 @@ Verified 2026-08-05: **2 passed** against local backend `:8000` + Expo web `:808
 ```bash
 cd frontend
 npx playwright test e2e/home-v2.spec.ts
+npx playwright test e2e/home-goal-aware.spec.ts
 ```
 
 Covers: API `/home` schema (no score leak), Home shell, Adesso/Perché/actions/situazione/Google banner, no 100/100 / Dopo, situazione route, refresh, responsive widths, bottom nav, logout/login when logout control is present.
+
+**Goal-aware smoke:** after Study/Travel confirm, `GET /api/home` has one item per `goal_id` with `goal_title` — no `goals` block / Goal tab (`e2e/home-goal-aware.spec.ts`, verified on `:8003`).
 
 ## Not verified
 

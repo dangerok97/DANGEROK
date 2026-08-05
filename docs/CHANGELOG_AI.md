@@ -1,5 +1,34 @@
 # ORA — AI Changelog
 
+## 2026-08-06 — Goal-aware Home V2 (no Goal UX)
+
+### Request
+
+Make Home V2 Goal-aware for primary focus, next action, progress, motivation, dedupe, resume, insights — without Goal tab/list/module UX. Branch `feature/goal-aware-home` from Goal Engine Foundation `7352f7c`.
+
+### Actions
+
+- Added `backend/home/goal_context.py` (load/attach/dedupe/insights/resume enrich/ranking delta)
+- Wired into `HomeService.build_home` + `ranking.py` (`home-rank-1.1`); adapters pass `meta.goal_id`
+- Minimal FE: optional progress field on Adesso + `HomeItem` goal_* types
+- Docs: `HOME_GOAL_AWARE.md` + HOME_V2_* / GOAL_ENGINE_* / ARCHITECTURE / DEVELOPMENT_STATE
+- Tests: `test_home_goal_aware.py`; Playwright `e2e/home-goal-aware.spec.ts`
+
+### Results
+
+- Goal UX: **NOT implemented** (confirmed — no Goals section/tab)
+- Flag OFF: no `goal_*` on Home items
+- Same Goal → single focus/priority representative
+- pytest `test_home_goal_aware` + `test_home_v2` + `test_goal_engine`: **38 passed**
+- pytest study + action_engine regression: **22 passed**
+- Playwright `e2e/home-goal-aware.spec.ts`: **2 passed** (API assert on `:8003`)
+
+### Commit
+
+`feat: make Home V2 Goal-aware without Goal UX`
+
+---
+
 ## 2026-08-06 — Goal Engine Foundation (shadow, backend-only)
 
 ### Request

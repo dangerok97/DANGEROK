@@ -6,6 +6,12 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 from home.adapters import gather_all
+from home.goal_context import (
+    attach_goal_context,
+    build_goal_insight_candidates,
+    enrich_resume_with_goal,
+    load_active_goals,
+)
 from home.models import (
     RANKING_VERSION,
     ConnectionWarning,
@@ -87,6 +93,10 @@ class HomeService:
     async def build_home(self, user_id: str) -> HomeResponse:
         now = datetime.now(timezone.utc)
         raw_items, warnings, gcal = await gather_all(self.db, user_id)
+        # Goal context layer (flag-gated) — no Goal UX / no Goals section
+        goals = await load_active_goals(self.db, user_id)
+        if goals:
+            raw_items = attach_goal_context(raw_items, goals, now=now)
         state = await self._load_state_map(user_id)
         filtered = self._apply_state(raw_items, state, now)
         ranked = rank_items(filtered, now=now)
@@ -131,12 +141,13 @@ class HomeService:
 
         situation = await self._build_situation(user_id, ranked, now)
         priorities = self._group_priorities(ranked, primary.id if primary else None)
-        insights = await self._build_insights(user_id, ranked, gcal, now)
+        insights = await self._build_insights(user_id, ranked, gcal, now, goals=goals)
         resume = None
         if resume_candidates:
             # pick most recently updated
             resume_candidates.sort(key=lambda x: x.updated_at or "", reverse=True)
-            resume = resume_candidates[0].to_public()
+            resume_item = enrich_resume_with_goal(resume_candidates[0])
+            resume = resume_item.to_public() if resume_item else None
 
         # Google: connected → no promo; disconnected → compact banner flag
         google_block = {
@@ -246,6 +257,8 @@ class HomeService:
         items: List[HomeItem],
         gcal: dict,
         now: datetime,
+        *,
+        goals: Optional[list] = None,
     ) -> List[InsightItem]:
         candidates: List[InsightItem] = []
 
@@ -290,6 +303,15 @@ class HomeService:
                 valid_until=(now + timedelta(days=1)).isoformat(),
                 dedupe_key=f"study_nudge:{s.source_id}",
             ))
+
+        # Goal progress insights (honest, deduped) — fill remaining slots up to 2
+        if goals and len(candidates) < 2:
+            for gi in build_goal_insight_candidates(items, goals, now=now):
+                if len(candidates) >= 2:
+                    break
+                if any(c.dedupe_key == gi.dedupe_key for c in candidates):
+                    continue
+                candidates.append(gi)
 
         # Persist + filter ignored/read
         out: List[InsightItem] = []

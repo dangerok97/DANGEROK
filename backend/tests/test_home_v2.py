@@ -51,7 +51,7 @@ async def _svc(db):
 
 def test_ranking_version_constant():
     from home.models import RANKING_VERSION
-    assert RANKING_VERSION == "home-rank-1.0"
+    assert RANKING_VERSION == "home-rank-1.1"
 
 
 def test_empty_home():
@@ -66,7 +66,7 @@ def test_empty_home():
             assert home.primary_focus is None
             assert home.priorities == []
             assert home.resume_item is None
-            assert home.ranking_version == "home-rank-1.0"
+            assert home.ranking_version == "home-rank-1.1"
             assert home.google_calendar["connected"] is False
             assert home.google_calendar["show_banner"] is True
         finally:
@@ -600,7 +600,7 @@ def test_gemini_absent_ranking_still_works(monkeypatch):
     ranked = rank_items(items)
     assert ranked[0].type == "bill"
     assert ranked[0].reason_factors
-    assert ranked[0].ranking_version == "home-rank-1.0"
+    assert ranked[0].ranking_version == "home-rank-1.1"
 
 
 def test_api_home_router_registered():

@@ -1,6 +1,6 @@
 # ORA — Product (struttura reale)
 
-Ultimo aggiornamento: 2026-08-06 — Goal Engine Foundation (shadow, no UX) + Travel/Study + Intent + Home V2.
+Ultimo aggiornamento: 2026-08-06 — Goal-aware Home V2 (no Goal UX) + Goal Engine Foundation + Travel/Study + Intent.
 
 ## Vision
 
@@ -90,14 +90,14 @@ Persone che vogliono una priorità unica chiara (non un task manager generico), 
 - **Docs:** `docs/TRAVEL_ACTION_FLOW_*.md`.
 - **Limiti:** meteo/email auto-find non implementati (onesti); Google eventi solo dopo conferma; mobile native non verificato.
 
-### 2e. Goal Engine (foundation — invisible)
+### 2e. Goal Engine + Goal-aware Home (no Goal UX)
 
 - **Scopo:** identità e lifecycle dell’*outcome* utente (“Preparare esame X”, “Vacanza Y”) tra Intent e Home — senza sostituire Study/Travel.
-- **Stato:** **backend shadow** — alla conferma Study/Travel viene creato/aggiornato un Goal in Mongo; **nessuna UI Goal**, nessun tab, Home invariata.
-- **API:** `/api/goals/*` (protetta, non usata dal FE in questa fase).
-- **Flag:** `GOAL_ENGINE_ENABLED` (default ON in locale).
-- **Docs:** `docs/GOAL_ENGINE_FOUNDATION.md`, `GOAL_DATA_MODEL.md`, `GOAL_LIFECYCLE.md`, audit.
-- **Aperti:** Home dedupe via `goal_id`; eventuale UI Goals in fasi successive.
+- **Stato:** **backend shadow** + **Home context** — conferma Study/Travel crea/aggiorna Goal; Home allega `goal_*`, dedupe stesso `goal_id`, fattori ranking/insights/resume. **Nessuna UI Goal**, nessun tab, nessuna sezione Goals su Home.
+- **API:** `/api/goals/*` (protetta; non c’è schermata Goals). Home arricchita via `GET /api/home`.
+- **Flag:** `GOAL_ENGINE_ENABLED` (default ON; OFF → Home come prima + shadow no-op).
+- **Docs:** `docs/HOME_GOAL_AWARE.md`, `GOAL_ENGINE_FOUNDATION.md`, `GOAL_DATA_MODEL.md`, `GOAL_LIFECYCLE.md`.
+- **Aperti:** refresh progress su session complete; eventuale UI Goals in fasi successive (non su Home come modulo).
 
 ### 3. Decision Engine
 

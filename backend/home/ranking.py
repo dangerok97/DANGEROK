@@ -128,6 +128,13 @@ def score_item(item: HomeItem, now: datetime) -> Tuple[float, List[ReasonFactor]
         score += 9
         factors.append(ReasonFactor(code="resume_study", label="Sessione studio da riprendere", weight=9))
 
+    # Goal-aware boost (home-rank-1.1) — only when goal_id attached
+    if item.goal_id:
+        from home.goal_context import goal_score_delta
+        g_delta, g_factors = goal_score_delta(item, now)
+        score += g_delta
+        factors.extend(g_factors)
+
     # Soft dampen leisure-like activities when critical bills/events exist — applied later in rank_items
     summary_parts = [f.label for f in sorted(factors, key=lambda x: -x.weight)[:3]]
     reason_summary = "; ".join(summary_parts) if summary_parts else "Priorità calcolata da regole ORA"
@@ -197,6 +204,12 @@ def dedupe_items(items: List[HomeItem]) -> List[HomeItem]:
         if it and it.id not in used:
             used.add(it.id)
             out.append(it)
+    # Goal-aware collapse (same goal_id → one focus + one resume representative)
+    try:
+        from home.goal_context import dedupe_by_goal
+        out = dedupe_by_goal(out)
+    except Exception:
+        pass
     return out
 
 
