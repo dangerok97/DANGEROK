@@ -3,6 +3,7 @@ from action_engine import action_engine_router, study_plans_router, travel_proje
 from connectors.apple_calendar import apple_calendar_router
 from connectors.google_calendar import google_calendar_router
 from documents import documents_router
+from goal_engine import goal_engine_router
 from home import router as home_router
 from intent_engine import intent_engine_router
 from llm.router import router as llm_router
@@ -49,5 +50,6 @@ ALL_ROUTERS = [
     action_engine_router,
     study_plans_router,
     travel_projects_router,
+    goal_engine_router,
     llm_router,
 ]

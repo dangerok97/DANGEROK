@@ -494,6 +494,29 @@ class StudyPlanService:
             except Exception:
                 pass
 
+        # Goal Engine shadow upsert (no UX) — Action Engine does not invent Goals ad-hoc
+        try:
+            from goal_engine import get_goal_service
+            goal_res = await get_goal_service(
+                self.db, life_graph=self.life_graph, knowledge=self.knowledge,
+            ).upsert_from_study_confirm(plan.model_dump(), effects=effects)
+            effects["goal"] = {
+                "goal_id": goal_res.get("goal_id"),
+                "created": goal_res.get("created"),
+                "skipped": goal_res.get("skipped"),
+            }
+            if goal_res.get("goal_id"):
+                try:
+                    await self.plans.update_one(
+                        {"id": plan.id, "user_id": user_id},
+                        {"$set": {"goal_id": goal_res["goal_id"]}},
+                    )
+                except Exception:
+                    pass
+        except Exception as e:
+            logger.info("goal shadow study soft-fail: %s", type(e).__name__)
+            effects["goal"] = {"error": type(e).__name__, "soft_fail": True}
+
         return {
             "ok": True,
             "plan": plan.public(),

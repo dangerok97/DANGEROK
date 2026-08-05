@@ -207,6 +207,15 @@ async def startup():
     except Exception:
         logger.exception("Action Engine bootstrap failed (non-fatal)")
 
+    # Goal Engine — shadow identity/lifecycle (no Home UX yet)
+    try:
+        from goal_engine import GoalService
+        from deps import knowledge as _kn_ge, life_graph as _lg_ge
+        await GoalService(db, life_graph=_lg_ge, knowledge=_kn_ge).ensure_indexes()
+        logger.info("Goal Engine indexes ready")
+    except Exception:
+        logger.exception("Goal Engine bootstrap failed (non-fatal)")
+
     # Sync capability registry to Mongo (idempotent, structural fields are
     # overwritten from code; ops metadata is preserved).
     try:
@@ -219,7 +228,7 @@ async def startup():
     logger.info(
         "ORA backend ready. Modules online: decision_engine, life_graph, "
         "knowledge, auto_link, context_assembler, permissions, connectors, "
-        "home_v2, action_engine."
+        "home_v2, action_engine, goal_engine."
     )
 
 
