@@ -142,6 +142,30 @@ async def get_decision(decision_id: str, user=Depends(get_current_user)):
 @router.post("")
 async def create_decision(body: DecisionIn, user=Depends(get_current_user)):
     payload = body.model_dump()
+    # Intent Classification Engine — persist Intent so Home labels / AE use it
+    try:
+        from intent_engine import classify_text
+        from intent_engine.mapping import decision_category_for_intent, home_type_for_intent
+        ir = classify_text(
+            payload.get("title") or "",
+            description=payload.get("description"),
+        )
+        payload["intent"] = ir.intent
+        payload["intent_subtype"] = ir.subtype
+        payload["intent_confidence"] = ir.confidence
+        payload["intent_entities"] = ir.entities.as_dict()
+        payload["intent_reason"] = ir.reason
+        payload["classifier_version"] = ir.classifier_version
+        cat = (payload.get("category") or "generic").lower()
+        if cat in ("", "generic", "event", "leisure") and not ir.needs_clarify and ir.confidence >= 0.62:
+            # Override weak/wrong category from free-text create
+            payload["category"] = decision_category_for_intent(ir.intent)
+        payload.setdefault("metadata", {})
+        if isinstance(payload.get("metadata"), dict):
+            payload["metadata"]["home_type_hint"] = home_type_for_intent(ir.intent)
+            payload["metadata"]["needs_clarify"] = ir.needs_clarify
+    except Exception:
+        logger.debug("intent classify on create_decision failed", exc_info=True)
     return await create_decision_with_nodes(user["user_id"], payload, origin="user")
 
 

@@ -8,10 +8,16 @@ from action_engine.models import QuestionTurn
 
 
 def build_turns(ctx: Dict[str, Any]) -> List[QuestionTurn]:
-    title = ctx.get("title") or "esame"
+    entities = ctx.get("intent_entities") or {}
+    title = (
+        entities.get("subject")
+        or ctx.get("display_title")
+        or ctx.get("title")
+        or "esame"
+    )
     has_doc = bool(ctx.get("source_id") and ctx.get("source_type") in (
         "document", "study", "document_action", "quiz_session",
-    ))
+    )) or bool(entities.get("document"))
     turns = [
         turn(
             "exam_date",

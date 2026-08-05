@@ -40,10 +40,23 @@ export function PrioritaList({ groups }: { groups: HomePriorityGroup[] }) {
   );
 }
 
+function displayType(item: HomeItem): string {
+  const intent = (item.meta as any)?.intent as string | undefined;
+  const subtype = item.subtype || (item.meta as any)?.intent_subtype;
+  if (intent === 'study' || subtype === 'exam_preparation') return 'studio';
+  if (intent === 'event') return 'evento';
+  if (intent === 'travel' || subtype === 'vacation') return 'viaggio';
+  if (intent === 'medical') return 'visita';
+  if (intent === 'payment' || intent === 'financial') return 'pagamento';
+  return item.type;
+}
+
 function PriorityCard({ item }: { item: HomeItem }) {
   const router = useRouter();
   const when = formatWhen(item.start_at || item.due_at);
-  const icon = TYPE_ICON[item.type] || 'ellipse-outline';
+  const label = displayType(item);
+  const iconKey = item.type === 'generic' && label === 'studio' ? 'study' : item.type;
+  const icon = TYPE_ICON[iconKey] || TYPE_ICON[label === 'studio' ? 'study' : item.type] || 'ellipse-outline';
   return (
     <Pressable
       style={({ pressed }) => [styles.card, pressed && { opacity: 0.85 }]}
@@ -60,7 +73,7 @@ function PriorityCard({ item }: { item: HomeItem }) {
       <View style={styles.body}>
         <Text style={styles.title} numberOfLines={2}>{item.title}</Text>
         <View style={styles.meta}>
-          <Text style={styles.metaText}>{item.type}</Text>
+          <Text style={styles.metaText}>{label}</Text>
           {when ? <Text style={styles.metaText}>· {when}</Text> : null}
           {item.amount ? <Text style={styles.metaText}>· {item.amount}</Text> : null}
           {item.location ? <Text style={styles.metaText}>· {item.location}</Text> : null}

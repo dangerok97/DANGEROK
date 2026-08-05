@@ -18,7 +18,8 @@ export function AdessoCard({ item }: { item: HomeItem }) {
   if (item.amount) fields.push({ icon: 'cash-outline', label: 'Importo', value: item.amount });
   if (item.duration_minutes) fields.push({ icon: 'hourglass-outline', label: 'Durata', value: `${item.duration_minutes} min` });
 
-  const typeLabel = TYPE_LABELS[item.type] || item.type;
+  const intentLabel = INTENT_LABELS[(item.meta as any)?.intent as string] || INTENT_LABELS[item.subtype || ''];
+  const typeLabel = intentLabel || TYPE_LABELS[item.type] || item.type;
 
   return (
     <Pressable
@@ -69,6 +70,25 @@ const TYPE_LABELS: Record<string, string> = {
   activity: 'Attività',
   generic: 'Priorità',
   resume: 'In corso',
+};
+
+/** Prefer Intent Classification labels over erroneous source typing. */
+const INTENT_LABELS: Record<string, string> = {
+  study: 'Studio',
+  exam_preparation: 'Studio · esame',
+  travel: 'Viaggio',
+  vacation: 'Vacanza',
+  event: 'Evento',
+  medical: 'Visita',
+  payment: 'Pagamento',
+  financial: 'Finanze',
+  administrative: 'Pratica',
+  document_review: 'Documento',
+  task: 'Attività',
+  communication: 'Messaggio',
+  shopping: 'Acquisto',
+  project: 'Progetto',
+  generic: 'Priorità',
 };
 
 const styles = StyleSheet.create({
