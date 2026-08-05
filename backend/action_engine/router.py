@@ -17,6 +17,8 @@ from action_engine.models import (
 from action_engine.service import ActionEngineService
 from action_engine.study.models import PlanModifyBody, SessionActionBody
 from action_engine.study.google_sync import retry_sync
+from action_engine.travel.google_sync import retry_sync as retry_travel_sync
+from action_engine.travel.models import TravelModifyBody
 from deps import db, decisions, get_current_user, knowledge, life_graph
 
 router = APIRouter(prefix="/action-engine", tags=["action_engine"])
@@ -154,27 +156,64 @@ async def search_docs(session_id: str, user=Depends(get_current_user)):
 @router.post("/sessions/{session_id}/preview")
 async def preview_plan(session_id: str, user=Depends(get_current_user)):
     svc = get_action_engine()
-    result = await svc.preview_study(user["user_id"], session_id)
+    session = await svc.get_session(user["user_id"], session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session.get("flow") == "travel":
+        result = await svc.preview_travel(user["user_id"], session_id)
+    else:
+        result = await svc.preview_study(user["user_id"], session_id)
     if result.get("error") == "not_found":
         raise HTTPException(status_code=404, detail="Session not found")
     return result
 
 
 @router.post("/sessions/{session_id}/modify")
-async def modify_preview(session_id: str, body: PlanModifyBody, user=Depends(get_current_user)):
+async def modify_preview(session_id: str, body: Dict[str, Any], user=Depends(get_current_user)):
     svc = get_action_engine()
-    result = await svc.modify_preview(user["user_id"], session_id, body)
+    session = await svc.get_session(user["user_id"], session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session.get("flow") == "travel":
+        result = await svc.modify_travel_preview(
+            user["user_id"], session_id, TravelModifyBody(**{
+                k: v for k, v in body.items() if k in TravelModifyBody.model_fields
+            }),
+        )
+    else:
+        result = await svc.modify_preview(
+            user["user_id"], session_id, PlanModifyBody(**{
+                k: v for k, v in body.items() if k in PlanModifyBody.model_fields
+            }),
+        )
     if result.get("error") == "not_found":
         raise HTTPException(status_code=404, detail="Session not found")
     return result
 
 
 @router.post("/sessions/{session_id}/confirm")
-async def confirm_study(session_id: str, body: ConfirmStudyBody = ConfirmStudyBody(), user=Depends(get_current_user)):
-    """Confirm study plan — same as answering confirm chip (UI-primary)."""
+async def confirm_session(
+    session_id: str,
+    body: ConfirmStudyBody = ConfirmStudyBody(),
+    user=Depends(get_current_user),
+):
+    """Confirm study/travel plan — same as answering confirm chip (UI-primary)."""
     svc = get_action_engine()
     from action_engine.models import AnswerBody as AB
-    # Set duplicate action on session meta via draft path if provided
+    session = await svc.get_session(user["user_id"], session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    if session.get("flow") == "travel":
+        result = await svc.answer(
+            user["user_id"], session_id,
+            AB(option_id="confirm", value="confirm"),
+        )
+        if result.get("error") == "not_found":
+            raise HTTPException(status_code=404, detail="Session not found")
+        return result
+
+    # Study path
     if body.duplicate_action:
         doc = await svc.col.find_one({"id": session_id, "user_id": user["user_id"]}, {"_id": 0})
         if not doc:
@@ -307,4 +346,45 @@ async def delete_plan(plan_id: str, user=Depends(get_current_user)):
     result = await svc.study_plans.delete_plan(user["user_id"], plan_id, soft=True)
     if result.get("error") == "not_found":
         raise HTTPException(status_code=404, detail="Plan not found")
+    return result
+
+
+# --- Travel projects (read/manage after confirm) ---
+
+travel_router = APIRouter(prefix="/travel-projects", tags=["travel_projects"])
+
+
+@travel_router.get("")
+async def list_travel_projects(status: Optional[str] = None, user=Depends(get_current_user)):
+    svc = get_action_engine()
+    items = await svc.travel_projects.list_projects(user["user_id"], status=status)
+    return {"items": items}
+
+
+@travel_router.get("/{project_id}")
+async def get_travel_project(project_id: str, user=Depends(get_current_user)):
+    svc = get_action_engine()
+    plan = await svc.travel_projects.get_project(user["user_id"], project_id)
+    if not plan:
+        raise HTTPException(status_code=404, detail="Travel project not found")
+    return {"project": plan}
+
+
+@travel_router.post("/{project_id}/retry-sync")
+async def retry_travel_project_sync(project_id: str, user=Depends(get_current_user)):
+    return await retry_travel_sync(db, user["user_id"], project_id)
+
+
+@travel_router.delete("/{project_id}")
+async def delete_travel_project(
+    project_id: str,
+    cleanup_google: bool = False,
+    user=Depends(get_current_user),
+):
+    svc = get_action_engine()
+    result = await svc.travel_projects.delete_project(
+        user["user_id"], project_id, soft=True, cleanup_google=cleanup_google,
+    )
+    if result.get("error") == "not_found":
+        raise HTTPException(status_code=404, detail="Travel project not found")
     return result

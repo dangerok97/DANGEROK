@@ -1,6 +1,6 @@
 # ORA — Product (struttura reale)
 
-Ultimo aggiornamento: 2026-08-05 — Study Action Flow end-to-end + Intent Engine + Home V2.
+Ultimo aggiornamento: 2026-08-05 — Travel Action Flow (Life Planner) + Study Action Flow + Intent Engine + Home V2.
 
 ## Vision
 
@@ -80,6 +80,15 @@ Persone che vogliono una priorità unica chiara (non un task manager generico), 
 - **UI:** `/action/[sessionId]` (multi-chip/preview) + `/study-plan/[id]`; Home mostra piano attivo e ripresa bozza.
 - **Docs:** `docs/STUDY_ACTION_FLOW_*.md`, `STUDY_PLAN_GENERATION.md`.
 - **Limiti:** Google sync solo se collegato; Gemini topic-split opzionale; mobile native non verificato.
+
+### 2d. Travel Action Flow (Life Planner slice)
+
+- **Scopo:** da «vado in vacanza…» a **Travel Project** vivo (periodo, destinazione, trasporto, prenotazioni, Maps, calendario proposto) — non checklist.
+- **Stato:** **implementato** — missing-only questions, preview/confirm, Home phases (countdown → partenza → durante → bentornato).
+- **API:** Action Engine + `/api/travel-projects/*`.
+- **UI:** `/action/[sessionId]` (preview viaggio) + `/travel-project/[id]`.
+- **Docs:** `docs/TRAVEL_ACTION_FLOW_*.md`.
+- **Limiti:** meteo/email auto-find non implementati (onesti); Google eventi solo dopo conferma; mobile native non verificato.
 
 ### 3. Decision Engine
 

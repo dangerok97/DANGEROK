@@ -52,6 +52,10 @@ class IntentEntities(BaseModel):
     exam: Optional[str] = None
     deadline: Optional[str] = None
     goal: Optional[str] = None
+    start_date: Optional[str] = None  # travel period start YYYY-MM-DD
+    end_date: Optional[str] = None
+    period: Optional[str] = None  # raw / label
+    departure: Optional[str] = None
     extra: Dict[str, Any] = Field(default_factory=dict)
 
     def as_dict(self) -> Dict[str, Any]:

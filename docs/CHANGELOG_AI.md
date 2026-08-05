@@ -1,5 +1,26 @@
 # ORA — AI Changelog
 
+## 2026-08-05 — Complete Travel Action Flow (Life Planner slice)
+
+### Request
+
+Build ORA Travel / Vacation Action Flow as first real Life Planner: Intent reuse, study-like conversational AE, Travel Project, calendar confirm, Maps, Home phases, Brain, tests, docs, local commit `feat: complete travel action flow`. No push.
+
+### Actions
+
+- Package `backend/action_engine/travel/` (models, period parser, flow, maps, docs, prep, google_sync, brain, project_service)
+- Service confirm gate (no silent Google create); router `/travel-projects`
+- Intent entities: `start_date` / `end_date` / `period` extraction for vacation text
+- Home adapter phases + catalog; FE travel preview + `/travel-project/[id]`
+- pytest `test_travel_action_flow.py` (12 passed); Playwright spec authored
+- Docs: `TRAVEL_ACTION_FLOW_*.md` + DEVELOPMENT_STATE / PRODUCT / ARCHITECTURE updates
+
+### Result
+
+Backend travel suite **PASS** (12). Weather/email/native/Google-live travel: honest incomplete. Branch `feature/travel-action-flow` local only.
+
+---
+
 ## 2026-08-05 — Verify study plan Google Calendar sync (real)
 
 ### Request

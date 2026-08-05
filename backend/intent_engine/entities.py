@@ -117,12 +117,37 @@ def extract_entities(text: str, *, intent: Optional[str] = None) -> IntentEntiti
 
     if intent == "travel" or re.search(r"vacanza|viaggio|volare", t, re.I):
         dest = re.search(
-            r"(?:a|in|per)\s+([A-ZÀÈÉÌÒÙ][\wàèéìòù'\-]{2,30})",
+            r"(?:a|in|per)\s+([A-ZÀÈÉÌÒÙ][\wàèéìòù'\-]{2,40}(?:\s+[A-ZÀÈÉÌÒÙ][\wàèéìòù'\-]{2,30})?)",
             t,
         )
         if dest:
             ent.travel = _title_case_it(dest.group(1))
             ent.place = ent.place or ent.travel
+        # Multi-word destinations like "Vibo Marina" without preposition
+        if not ent.travel:
+            m_vac = re.search(
+                r"(?:vacanza|viaggio)\s+(?:a\s+|in\s+|per\s+)?([A-ZÀÈÉÌÒÙ][\wàèéìòù'\- ]{2,40})",
+                t,
+            )
+            if m_vac:
+                cand = m_vac.group(1).strip()
+                # Stop at date words
+                cand = re.split(
+                    r"\s+(?:dal|da|il|dal\s+\d)", cand, maxsplit=1, flags=re.I,
+                )[0].strip()
+                if cand and cand.lower() not in ("dal", "da"):
+                    ent.travel = _title_case_it(cand)
+                    ent.place = ent.place or ent.travel
+        try:
+            from action_engine.travel.period_parser import extract_period_from_text
+            period = extract_period_from_text(t)
+            if period.get("ok"):
+                ent.start_date = period.get("start_date")
+                ent.end_date = period.get("end_date")
+                ent.period = period.get("label")
+                ent.date = ent.date or period.get("start_date")
+        except Exception:
+            pass
 
     if intent == "event" or re.search(r"concerto|biglietto|spettacolo", t, re.I):
         em = re.search(

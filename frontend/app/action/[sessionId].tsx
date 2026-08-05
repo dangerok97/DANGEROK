@@ -44,7 +44,11 @@ export default function ActionSessionScreen() {
   useEffect(() => { load(); }, [load]);
 
   const turn = session?.current_turn;
-  const preview = (session?.meta?.study_preview || turn?.meta?.preview) as Record<string, unknown> | undefined;
+  const preview = (
+    session?.meta?.travel_preview
+    || session?.meta?.study_preview
+    || turn?.meta?.preview
+  ) as Record<string, unknown> | undefined;
 
   const submit = async (optionId?: string, value?: unknown, skip?: boolean) => {
     if (!sessionId || busy) return;
@@ -88,10 +92,7 @@ export default function ActionSessionScreen() {
 
       if (res.completed || res.session?.done) {
         try { await api.refreshHome(); } catch { /* non-blocking */ }
-        const planId = (res.plan as any)?.id || res.session?.meta?.study_plan_id;
-        if (planId && res.session?.flow === 'study') {
-          // Stay on complete screen; CTA can open plan
-        }
+        // Stay on complete screen; CTA opens study or travel project
       }
     } catch (e: any) {
       setError(humanizeError(e, 'default'));
@@ -175,8 +176,11 @@ export default function ActionSessionScreen() {
 
   if (session.done || session.status === 'completed') {
     const actions = session.proposed_actions || [];
-    const planId = session.meta?.study_plan_id as string | undefined;
+    const studyPlanId = session.meta?.study_plan_id as string | undefined;
+    const travelProjectId = session.meta?.travel_project_id as string | undefined;
+    const planId = studyPlanId || travelProjectId;
     const googleBanner = session.meta?.google_banner as { message?: string } | undefined;
+    const isTravel = session.flow === 'travel';
     return (
       <SafeAreaView style={styles.safe} testID="action-complete">
         <ScrollView contentContainerStyle={styles.content}>
@@ -184,7 +188,9 @@ export default function ActionSessionScreen() {
           <Text style={styles.title} accessibilityRole="header">{session.title}</Text>
           <Text style={styles.explain}>
             {(session.meta?.next_focus_hint as string)
-              || 'Piano creato. Home si aggiorna con sessioni e countdown esame.'}
+              || (isTravel
+                ? 'Travel Project creato. Home evolve con countdown e fase viaggio.'
+                : 'Piano creato. Home si aggiorna con sessioni e countdown esame.')}
           </Text>
           {googleBanner?.message ? (
             <Text style={styles.banner} testID="google-banner">{googleBanner.message}</Text>
@@ -206,10 +212,19 @@ export default function ActionSessionScreen() {
           {planId ? (
             <Pressable
               style={styles.primaryCta}
-              onPress={() => { haptic('tap'); router.replace(`/study-plan/${planId}` as any); }}
+              onPress={() => {
+                haptic('tap');
+                if (isTravel && travelProjectId) {
+                  router.replace(`/travel-project/${travelProjectId}` as any);
+                } else if (studyPlanId) {
+                  router.replace(`/study-plan/${studyPlanId}` as any);
+                }
+              }}
               testID="action-open-plan"
             >
-              <Text style={styles.primaryCtaText}>Apri piano di studio</Text>
+              <Text style={styles.primaryCtaText}>
+                {isTravel ? 'Apri progetto viaggio' : 'Apri piano di studio'}
+              </Text>
             </Pressable>
           ) : null}
           <Pressable
@@ -268,18 +283,53 @@ export default function ActionSessionScreen() {
 
         {isPreview && preview ? (
           <View style={styles.previewBox} testID="action-preview">
-            <Text style={styles.previewLine}>
-              {(preview.session_count as number) || 0} sessioni · {String(preview.total_hours || 0)}h ·{' '}
-              {String(preview.intensity || '')} · {String(preview.daily_minutes || '')} min/giorno
-            </Text>
-            <Text style={styles.previewLine}>Esame: {String(preview.exam_label || preview.exam_date || '')}</Text>
-            {Array.isArray(preview.sessions_summary) ? (
-              (preview.sessions_summary as any[]).slice(0, 6).map((s) => (
-                <Text key={s.id} style={styles.previewSession}>
-                  · {s.title} ({s.duration_minutes}m)
+            {session.flow === 'travel' ? (
+              <>
+                <Text style={styles.previewLine}>
+                  {String(preview.destination || '')} · {String(preview.period_label || '')}
                 </Text>
-              ))
-            ) : null}
+                <Text style={styles.previewLine}>
+                  {String(preview.transport_label || preview.transport || '')}
+                  {preview.companions ? ` · ${preview.companions} pers.` : ''}
+                  {preview.calendar_proposed
+                    ? ` · ${preview.calendar_event_count || 0} eventi calendario`
+                    : ''}
+                </Text>
+                {(preview.maps as any)?.duration_label || (preview.maps as any)?.distance_km ? (
+                  <Text style={styles.previewLine}>
+                    Maps: {(preview.maps as any).distance_km
+                      ? `${(preview.maps as any).distance_km} km`
+                      : ''}
+                    {(preview.maps as any).duration_label
+                      ? ` · ${(preview.maps as any).duration_label}`
+                      : ''}
+                  </Text>
+                ) : null}
+                {(preview.honesty as any)?.maps ? (
+                  <Text style={styles.previewSession}>{String((preview.honesty as any).maps)}</Text>
+                ) : null}
+                {Array.isArray(preview.calendar_events_summary) ? (
+                  (preview.calendar_events_summary as any[]).map((e) => (
+                    <Text key={e.kind} style={styles.previewSession}>· {e.title}</Text>
+                  ))
+                ) : null}
+              </>
+            ) : (
+              <>
+                <Text style={styles.previewLine}>
+                  {(preview.session_count as number) || 0} sessioni · {String(preview.total_hours || 0)}h ·{' '}
+                  {String(preview.intensity || '')} · {String(preview.daily_minutes || '')} min/giorno
+                </Text>
+                <Text style={styles.previewLine}>Esame: {String(preview.exam_label || preview.exam_date || '')}</Text>
+                {Array.isArray(preview.sessions_summary) ? (
+                  (preview.sessions_summary as any[]).slice(0, 6).map((s) => (
+                    <Text key={s.id} style={styles.previewSession}>
+                      · {s.title} ({s.duration_minutes}m)
+                    </Text>
+                  ))
+                ) : null}
+              </>
+            )}
           </View>
         ) : null}
 

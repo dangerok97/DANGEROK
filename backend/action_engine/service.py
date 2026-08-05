@@ -50,6 +50,27 @@ from action_engine.study.flow import (
 from action_engine.study.google_sync import is_google_connected
 from action_engine.study.models import DEFAULT_TZ, PlanModifyBody
 from action_engine.study.plan_service import StudyPlanService
+from action_engine.travel.documents import search_travel_documents
+from action_engine.travel.flow import (
+    STEP_BOOKINGS as T_BOOKINGS,
+    STEP_CALENDAR_SYNC as T_CALENDAR_SYNC,
+    STEP_COMPANIONS as T_COMPANIONS,
+    STEP_CONFIRM as T_CONFIRM,
+    STEP_DEPARTURE as T_DEPARTURE,
+    STEP_DESTINATION as T_DESTINATION,
+    STEP_PERIOD as T_PERIOD,
+    STEP_PREP as T_PREP,
+    STEP_PREVIEW as T_PREVIEW,
+    STEP_TRANSPORT as T_TRANSPORT,
+    jump_target as travel_jump_target,
+    known_departure,
+    known_destination,
+    known_period,
+    normalize_answer as normalize_travel_answer,
+    preview_explanation as travel_preview_explanation,
+)
+from action_engine.travel.models import TravelModifyBody
+from action_engine.travel.project_service import TravelProjectService
 from intent_engine import classify_text, get_intent_engine
 from intent_engine.models import IntentResult
 
@@ -69,6 +90,9 @@ class ActionEngineService:
         self.study_plans = StudyPlanService(
             db, life_graph=life_graph, knowledge=knowledge, decisions=decisions,
         )
+        self.travel_projects = TravelProjectService(
+            db, life_graph=life_graph, knowledge=knowledge, decisions=decisions,
+        )
 
     @property
     def col(self):
@@ -86,6 +110,7 @@ class ActionEngineService:
         except Exception:
             pass
         await self.study_plans.ensure_indexes()
+        await self.travel_projects.ensure_indexes()
 
     def _ctx_from_open(self, body: OpenBody) -> Dict[str, Any]:
         item = body.home_item or {}
@@ -163,6 +188,8 @@ class ActionEngineService:
         # Study: prefer subject in questions
         if intent.intent == "study" and entities.get("subject"):
             display_title = entities["subject"]
+        if intent.intent == "travel" and (entities.get("travel") or entities.get("place")):
+            display_title = entities.get("travel") or entities.get("place")
         out = {
             **ctx,
             "intent": intent.intent,
@@ -173,10 +200,50 @@ class ActionEngineService:
                 [c.model_dump() if hasattr(c, "model_dump") else c for c in (intent.clarify_options or [])]
             ),
             "display_title": display_title,
-            "title": display_title if intent.intent == "study" and entities.get("subject") else ctx.get("title"),
+            "title": (
+                display_title if intent.intent == "study" and entities.get("subject")
+                else display_title if intent.intent == "travel" and (entities.get("travel") or entities.get("place"))
+                else ctx.get("title")
+            ),
             "original_title": ctx.get("title"),
         }
         return out
+
+    async def _resolve_home_place(self, user_id: str) -> Optional[str]:
+        """Best-effort Brain / profile departure place (e.g. Tarquinia)."""
+        try:
+            node = await self.db.life_nodes.find_one(
+                {
+                    "user_id": user_id,
+                    "type": {"$in": ["home", "generic", "place"]},
+                    "status": {"$ne": "deleted"},
+                    "$or": [
+                        {"type": "home"},
+                        {"attributes.kind": "home"},
+                        {"attributes.is_home": True},
+                        {"label": {"$regex": "tarquinia", "$options": "i"}},
+                    ],
+                },
+                {"_id": 0, "label": 1},
+            )
+            if node and node.get("label"):
+                return str(node["label"])
+        except Exception:
+            pass
+        try:
+            user = await self.db.users.find_one(
+                {"user_id": user_id}, {"_id": 0, "profile": 1, "home_place": 1, "city": 1},
+            )
+            if user:
+                for key in ("home_place", "city"):
+                    if user.get(key):
+                        return str(user[key])
+                profile = user.get("profile") or {}
+                if profile.get("home_place") or profile.get("city"):
+                    return str(profile.get("home_place") or profile.get("city"))
+        except Exception:
+            pass
+        return None
 
     async def _persist_intent_on_source(self, user_id: str, ctx: Dict[str, Any], intent: IntentResult) -> None:
         """Best-effort: store Intent on decision so Home labels stay correct."""
@@ -236,10 +303,16 @@ class ActionEngineService:
         await self._persist_intent_on_source(user_id, ctx, intent)
 
         google_ok = False
-        if flow == "study":
+        if flow in ("study", "travel"):
             google_ok = await is_google_connected(self.db, user_id)
             ctx["google_connected"] = google_ok
             ctx["timezone"] = DEFAULT_TZ
+
+        if flow == "travel":
+            home_place = await self._resolve_home_place(user_id)
+            if home_place:
+                ctx["home_place"] = home_place
+                ctx["brain_home"] = home_place
 
         turns = build_flow_turns(flow, ctx)
         answers: Dict[str, Any] = {}
@@ -261,6 +334,30 @@ class ActionEngineService:
                 ctx["study_documents"] = docs_res.get("items") or []
             except Exception as e:
                 logger.info("study doc search on open: %s", type(e).__name__)
+
+        if flow == "travel":
+            period = known_period(ctx)
+            if period:
+                answers[T_PERIOD] = period
+            dest = known_destination(ctx)
+            if dest and not any(t.id == T_DESTINATION for t in turns):
+                answers[T_DESTINATION] = dest
+            elif dest and any(t.id == T_DESTINATION for t in turns):
+                # Still ask if turn present (missing from build) — pre-seed only when skipped
+                pass
+            # If destination turn was omitted because known, seed answer
+            if dest and T_DESTINATION not in answers:
+                if not any(t.id == T_DESTINATION for t in turns):
+                    answers[T_DESTINATION] = dest
+            try:
+                docs_res = await search_travel_documents(
+                    self.db,
+                    user_id=user_id,
+                    destination=dest or ctx.get("display_title"),
+                )
+                ctx["travel_documents"] = docs_res.get("items") or []
+            except Exception as e:
+                logger.info("travel doc search on open: %s", type(e).__name__)
 
         first = next_unanswered(turns, answers) or (turns[0] if turns else None)
 
@@ -310,6 +407,8 @@ class ActionEngineService:
                 "google_connected": google_ok,
                 "timezone": DEFAULT_TZ,
                 "study_documents": ctx.get("study_documents") or [],
+                "travel_documents": ctx.get("travel_documents") or [],
+                "home_place": ctx.get("home_place"),
                 **{k: v for k, v in (ctx.get("meta") or {}).items() if k not in ("intent_result",)},
             },
         )
@@ -475,6 +574,10 @@ class ActionEngineService:
         # === Study flow: validate, preview, confirm (no silent side effects) ===
         if sess.flow == "study":
             return await self._answer_study(user_id, sess, turn, option_id, value, body)
+
+        # === Travel flow: validate, preview, confirm (no silent calendar create) ===
+        if sess.flow == "travel":
+            return await self._answer_travel(user_id, sess, turn, option_id, value, body)
 
         sess.answers[turn.id] = value
         sess.turn_history.append(TurnAnswer(
@@ -808,6 +911,222 @@ class ActionEngineService:
             "next_focus_hint": sess.meta.get("next_focus_hint"),
         }
 
+    async def _answer_travel(
+        self,
+        user_id: str,
+        sess: ActionSession,
+        turn: QuestionTurn,
+        option_id: Optional[str],
+        value: Any,
+        body: AnswerBody,
+    ) -> Dict[str, Any]:
+        sess.meta.pop("validation_error", None)
+        # Skip prep when allow_skip
+        if turn.id == T_PREP and (body.skip or option_id == "skip" or value in ("__skip__", "skip")):
+            norm: Any = []
+        else:
+            norm, err = normalize_travel_answer(turn.id, value, body.text)
+            if err:
+                sess.meta["validation_error"] = err
+                sess.updated_at = now_iso()
+                await self.col.replace_one({"id": sess.id, "user_id": user_id}, sess.model_dump())
+                return {
+                    "ok": False,
+                    "error": err.get("error") or "validation",
+                    "message": err.get("message") or "Risposta non valida.",
+                    "session": sess.public(),
+                }
+
+        if turn.id == T_PREVIEW and norm in ("edit_dest", "edit_period", "edit_calendar"):
+            target = travel_jump_target(str(norm))
+            if target:
+                order = [t.id for t in sess.turns]
+                if target in order:
+                    for tid in order[order.index(target):]:
+                        sess.answers.pop(tid, None)
+                sess.current_turn_id = target
+                sess.updated_at = now_iso()
+                await self.col.replace_one({"id": sess.id, "user_id": user_id}, sess.model_dump())
+                return {"ok": True, "session": sess.public(), "completed": False, "edited": True}
+
+        if turn.id == T_CONFIRM and norm == "back":
+            sess.answers.pop(T_CONFIRM, None)
+            sess.answers.pop(T_PREVIEW, None)
+            sess.current_turn_id = T_PREVIEW
+            sess.updated_at = now_iso()
+            await self.col.replace_one({"id": sess.id, "user_id": user_id}, sess.model_dump())
+            return {"ok": True, "session": sess.public(), "completed": False}
+
+        sess.answers[turn.id] = norm
+        sess.turn_history.append(TurnAnswer(
+            turn_id=turn.id, option_id=option_id, value=norm, text=body.text,
+        ))
+
+        if self.knowledge and sess.brain_node_id:
+            await record_answer(
+                self.knowledge,
+                user_id=user_id,
+                node_id=sess.brain_node_id,
+                brain_key=turn.brain_key,
+                value=norm,
+                turn_id=turn.id,
+            )
+
+        # Entering preview — build Travel Project draft
+        nxt = next_unanswered(sess.turns, sess.answers)
+        if nxt and nxt.id == T_PREVIEW:
+            # Ensure period/destination seeded from intent if answered via skip path
+            if T_PERIOD not in sess.answers:
+                period = known_period({
+                    **sess.meta,
+                    "intent_entities": sess.meta.get("intent_entities") or {},
+                    "title": sess.title,
+                    "description": sess.description,
+                    "original_title": sess.title,
+                })
+                if period:
+                    sess.answers[T_PERIOD] = period
+            if T_DESTINATION not in sess.answers:
+                dest = known_destination({
+                    "intent_entities": sess.meta.get("intent_entities") or {},
+                    "location": sess.meta.get("location"),
+                    "title": sess.title,
+                })
+                if dest:
+                    sess.answers[T_DESTINATION] = dest
+
+            draft = self.travel_projects.build_draft_from_answers(
+                user_id=user_id, answers=sess.answers, session=sess.model_dump(),
+                meta=sess.meta,
+            )
+            await self.travel_projects.upsert_draft(draft)
+            # Tests / offline: skip Nominatim when meta says so
+            allow_net = not sess.meta.get("skip_maps_network")
+            prev = await self.travel_projects.build_preview(draft, allow_network_maps=allow_net)
+            if not prev.get("ok"):
+                sess.meta["validation_error"] = prev
+                if prev.get("error") == "missing_period":
+                    sess.answers.pop(T_PERIOD, None)
+                    sess.current_turn_id = T_PERIOD
+                else:
+                    sess.answers.pop(T_DESTINATION, None)
+                    sess.current_turn_id = T_DESTINATION
+                sess.updated_at = now_iso()
+                await self.col.replace_one({"id": sess.id, "user_id": user_id}, sess.model_dump())
+                return {
+                    "ok": False,
+                    "error": prev.get("error") or "preview_failed",
+                    "message": prev.get("message") or "Anteprima non disponibile.",
+                    "session": sess.public(),
+                }
+            sess.meta["travel_project_id"] = draft.id
+            sess.meta["travel_preview"] = prev.get("preview") or draft.preview
+            for i, t in enumerate(sess.turns):
+                if t.id == T_PREVIEW:
+                    sess.turns[i] = QuestionTurn(
+                        **{
+                            **t.model_dump(),
+                            "explanation": travel_preview_explanation(prev.get("preview") or {}),
+                            "meta": {"preview": prev.get("preview")},
+                        }
+                    )
+                    break
+
+        if turn.id == T_CONFIRM and norm == "confirm":
+            return await self._confirm_travel_session(user_id, sess)
+
+        sess.updated_at = now_iso()
+        nxt = next_unanswered(sess.turns, sess.answers)
+        if nxt:
+            sess.current_turn_id = nxt.id
+            try:
+                await self.save_draft(user_id, sess.id, sess=sess)
+            except Exception:
+                pass
+            await self.col.replace_one({"id": sess.id, "user_id": user_id}, sess.model_dump())
+            pub = sess.public()
+            if sess.meta.get("travel_preview"):
+                pub["meta"]["travel_preview"] = sess.meta["travel_preview"]
+            return {"ok": True, "session": pub, "completed": False}
+
+        sess.current_turn_id = T_CONFIRM
+        await self.col.replace_one({"id": sess.id, "user_id": user_id}, sess.model_dump())
+        return {"ok": True, "session": sess.public(), "completed": False}
+
+    async def _confirm_travel_session(self, user_id: str, sess: ActionSession) -> Dict[str, Any]:
+        plan_id = sess.meta.get("travel_project_id")
+        if not plan_id:
+            draft = self.travel_projects.build_draft_from_answers(
+                user_id=user_id, answers=sess.answers, session=sess.model_dump(), meta=sess.meta,
+            )
+            await self.travel_projects.upsert_draft(draft)
+            await self.travel_projects.build_preview(
+                draft, allow_network_maps=not sess.meta.get("skip_maps_network"),
+            )
+            plan_id = draft.id
+            sess.meta["travel_project_id"] = plan_id
+
+        result = await self.travel_projects.confirm(user_id, plan_id)
+        if not result.get("ok"):
+            sess.meta["validation_error"] = result
+            await self.col.replace_one({"id": sess.id, "user_id": user_id}, sess.model_dump())
+            return {
+                "ok": False,
+                "error": result.get("error") or "confirm_failed",
+                "message": result.get("message") or "Conferma non riuscita.",
+                "session": sess.public(),
+                "duplicate": result.get("duplicate"),
+            }
+
+        effects = result.get("effects") or {}
+        actions_raw = result.get("actions") or []
+        sess.proposed_actions = [
+            ProposedAction(**a) if isinstance(a, dict) else a for a in actions_raw
+        ]
+        sess.effects = effects
+        sess.status = "completed"
+        sess.completed_at = now_iso()
+        sess.updated_at = sess.completed_at
+        sess.current_turn_id = None
+        sess.meta["next_focus_hint"] = result.get("next_focus_hint") or effects.get("next_focus_hint")
+        sess.meta["home_invalidate"] = True
+        sess.meta["travel_project_id"] = plan_id
+        if effects.get("google_sync", {}).get("banner"):
+            sess.meta["google_banner"] = effects["google_sync"]["banner"]
+
+        if self.knowledge and sess.brain_node_id:
+            await upsert_summary(
+                self.knowledge,
+                user_id=user_id,
+                node_id=sess.brain_node_id,
+                summary=f"Travel Project confermato: {sess.title}. {sess.meta.get('next_focus_hint')}",
+                tags=["action_engine", "travel", "confirmed"],
+            )
+
+        if sess.project and sess.project.project_id:
+            try:
+                await self.db.action_projects.update_one(
+                    {"id": sess.project.project_id, "user_id": user_id},
+                    {"$set": {
+                        "next_focus_hint": sess.meta.get("next_focus_hint"),
+                        "travel_project_id": plan_id,
+                        "updated_at": now_iso(),
+                        "status": "active",
+                    }},
+                )
+            except Exception:
+                pass
+
+        await self.col.replace_one({"id": sess.id, "user_id": user_id}, sess.model_dump())
+        return {
+            "ok": True,
+            "session": sess.public(),
+            "completed": True,
+            "plan": result.get("plan"),
+            "home_invalidate": True,
+            "next_focus_hint": sess.meta.get("next_focus_hint"),
+        }
+
     async def save_draft(
         self, user_id: str, session_id: str, *, sess: Optional[ActionSession] = None,
     ) -> Dict[str, Any]:
@@ -816,6 +1135,15 @@ class ActionEngineService:
             if not doc:
                 return {"ok": False, "error": "not_found"}
             sess = ActionSession(**doc)
+        if sess.flow == "travel":
+            draft = self.travel_projects.build_draft_from_answers(
+                user_id=user_id, answers=sess.answers, session=sess.model_dump(), meta=sess.meta,
+            )
+            await self.travel_projects.upsert_draft(draft)
+            sess.meta["travel_project_id"] = draft.id
+            sess.updated_at = now_iso()
+            await self.col.replace_one({"id": sess.id, "user_id": user_id}, sess.model_dump())
+            return {"ok": True, "session": sess.public(), "plan_id": draft.id, "draft": True}
         if sess.flow != "study":
             sess.updated_at = now_iso()
             await self.col.replace_one({"id": sess.id, "user_id": user_id}, sess.model_dump())
@@ -896,6 +1224,62 @@ class ActionEngineService:
             await self.col.replace_one({"id": sess.id, "user_id": user_id}, sess.model_dump())
         return {**prev, "session": sess.public()}
 
+    async def preview_travel(self, user_id: str, session_id: str) -> Dict[str, Any]:
+        doc = await self.col.find_one({"id": session_id, "user_id": user_id}, {"_id": 0})
+        if not doc:
+            return {"ok": False, "error": "not_found"}
+        sess = ActionSession(**doc)
+        draft = self.travel_projects.build_draft_from_answers(
+            user_id=user_id, answers=sess.answers, session=sess.model_dump(), meta=sess.meta,
+        )
+        await self.travel_projects.upsert_draft(draft)
+        prev = await self.travel_projects.build_preview(
+            draft, allow_network_maps=not sess.meta.get("skip_maps_network"),
+        )
+        if prev.get("ok"):
+            sess.meta["travel_project_id"] = draft.id
+            sess.meta["travel_preview"] = prev.get("preview")
+            await self.col.replace_one({"id": sess.id, "user_id": user_id}, sess.model_dump())
+        return {**prev, "session": sess.public()}
+
+    async def modify_travel_preview(
+        self, user_id: str, session_id: str, body: TravelModifyBody,
+    ) -> Dict[str, Any]:
+        doc = await self.col.find_one({"id": session_id, "user_id": user_id}, {"_id": 0})
+        if not doc:
+            return {"ok": False, "error": "not_found"}
+        sess = ActionSession(**doc)
+        plan_id = sess.meta.get("travel_project_id")
+        if not plan_id:
+            draft = self.travel_projects.build_draft_from_answers(
+                user_id=user_id, answers=sess.answers, session=sess.model_dump(), meta=sess.meta,
+            )
+            await self.travel_projects.upsert_draft(draft)
+            plan_id = draft.id
+            sess.meta["travel_project_id"] = plan_id
+        res = await self.travel_projects.modify_draft(user_id, plan_id, body)
+        if res.get("ok"):
+            sess.meta["travel_preview"] = res.get("preview")
+            if body.destination is not None:
+                sess.answers[T_DESTINATION] = body.destination
+            if body.departure_place is not None:
+                sess.answers[T_DEPARTURE] = body.departure_place
+            if body.start_date is not None and body.end_date is not None:
+                sess.answers[T_PERIOD] = {
+                    "start_date": body.start_date, "end_date": body.end_date,
+                }
+            if body.transport is not None:
+                sess.answers[T_TRANSPORT] = body.transport
+            if body.bookings is not None:
+                sess.answers[T_BOOKINGS] = body.bookings
+            if body.companions is not None:
+                sess.answers[T_COMPANIONS] = body.companions
+            if body.calendar_sync is not None:
+                sess.answers[T_CALENDAR_SYNC] = body.calendar_sync
+            sess.updated_at = now_iso()
+            await self.col.replace_one({"id": sess.id, "user_id": user_id}, sess.model_dump())
+        return {**res, "session": sess.public()}
+
     async def modify_preview(
         self, user_id: str, session_id: str, body: PlanModifyBody,
     ) -> Dict[str, Any]:
@@ -961,6 +1345,19 @@ class ActionEngineService:
                 "ok": False,
                 "error": "confirm_required",
                 "message": "Completa le domande e conferma il piano.",
+                "session": sess.public(),
+            }
+
+        # Travel: same confirm gate — never silent Google Calendar create
+        if sess.flow == "travel":
+            if sess.answers.get(T_CONFIRM) == "confirm":
+                return await self._confirm_travel_session(user_id, sess)
+            sess.current_turn_id = sess.current_turn_id or T_CONFIRM
+            await self.col.replace_one({"id": sess.id, "user_id": user_id}, sess.model_dump())
+            return {
+                "ok": False,
+                "error": "confirm_required",
+                "message": "Conferma il Travel Project per crearlo.",
                 "session": sess.public(),
             }
 
