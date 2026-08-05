@@ -2,7 +2,7 @@ import { View, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { HomeActionDef, HomeItem } from '@/src/api/client';
 import { ActionBtn } from '@/src/components/ui/ActionBtn';
-import { navigateHomeAction } from './homeNav';
+import { isGuidedAction, navigateHomeAction } from './homeNav';
 
 type Props = {
   item: HomeItem;
@@ -16,6 +16,7 @@ const ICON: Record<string, any> = {
   ignore: 'close',
   correct: 'swap-vertical',
   open: 'open-outline',
+  guide: 'sparkles-outline',
   navigate: 'arrow-forward',
   maps: 'map-outline',
   pay: 'card-outline',
@@ -24,7 +25,7 @@ const ICON: Record<string, any> = {
   resume: 'play',
 };
 
-/** Only type-specific actions from API — no dead generic set. */
+/** Only type-specific actions from API — guided actions go through ActionEngine. */
 export function DynamicActions({ item, busy, onAction }: Props) {
   const router = useRouter();
   const actions = item.actions || [];
@@ -33,7 +34,15 @@ export function DynamicActions({ item, busy, onAction }: Props) {
   return (
     <View style={styles.row} testID="dynamic-actions">
       {actions.map((a) => {
-        const navOnly = a.kind === 'maps' || a.kind === 'navigate' || a.kind === 'open' || a.kind === 'study' || a.kind === 'resume' || a.kind === 'confirm';
+        const navOnly =
+          a.kind === 'maps' ||
+          a.kind === 'navigate' ||
+          a.kind === 'open' ||
+          a.kind === 'guide' ||
+          a.kind === 'study' ||
+          a.kind === 'resume' ||
+          a.kind === 'confirm' ||
+          isGuidedAction(a);
         return (
           <ActionBtn
             key={a.id}
@@ -42,11 +51,11 @@ export function DynamicActions({ item, busy, onAction }: Props) {
             icon={ICON[a.kind] || 'ellipse-outline'}
             loading={busy === a.id}
             testID={`home-action-${a.id}`}
-            onPress={() => {
-              if (navOnly && (a.route || a.kind === 'maps')) {
-                navigateHomeAction(router, a, item);
+            onPress={async () => {
+              if (navOnly) {
+                await navigateHomeAction(router, a, item);
               }
-              onAction(a);
+              await onAction(a);
             }}
           />
         );

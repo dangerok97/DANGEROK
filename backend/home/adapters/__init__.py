@@ -7,6 +7,7 @@ from typing import Any, Callable, Dict, List, Tuple
 
 from home.models import ConnectionWarning, HomeItem
 
+from .action_engine_adapter import load_action_engine_items
 from .activities import load_activities
 from .brain import load_brain_signals
 from .decisions_adapter import load_decisions
@@ -57,6 +58,7 @@ async def gather_all(db, user_id: str) -> Tuple[List[HomeItem], List[ConnectionW
         _safe("reminders", load_reminders(db, user_id)),
         _safe("decisions", load_decisions(db, user_id)),
         _safe("brain", load_brain_signals(db, user_id)),
+        _safe("action_engine", load_action_engine_items(db, user_id)),
     )
 
     items: List[HomeItem] = []

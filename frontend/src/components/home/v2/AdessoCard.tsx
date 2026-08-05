@@ -1,11 +1,15 @@
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { tokens } from '@/src/theme/tokens';
 import { HomeItem } from '@/src/api/client';
+import { ActionEngine } from '@/src/action-engine';
 import { formatWhen } from './homeNav';
+import { haptic } from '@/src/utils/haptic';
 
-/** Type-specific primary focus — hide empty fields. */
+/** Type-specific primary focus — card press opens Action Engine. */
 export function AdessoCard({ item }: { item: HomeItem }) {
+  const router = useRouter();
   const when = formatWhen(item.start_at || item.due_at);
   const fields: { icon: keyof typeof Ionicons.glyphMap; label: string; value: string }[] = [];
 
@@ -17,7 +21,16 @@ export function AdessoCard({ item }: { item: HomeItem }) {
   const typeLabel = TYPE_LABELS[item.type] || item.type;
 
   return (
-    <View style={styles.card} testID="adesso-card">
+    <Pressable
+      style={({ pressed }) => [styles.card, pressed && { opacity: 0.92 }]}
+      onPress={async () => {
+        haptic('tap');
+        await ActionEngine.open(item, router);
+      }}
+      accessibilityRole="button"
+      accessibilityLabel={`Apri guida per ${item.title}`}
+      testID="adesso-card"
+    >
       <View style={styles.header}>
         <View style={styles.pill}>
           <View style={styles.pillDot} />
@@ -38,7 +51,8 @@ export function AdessoCard({ item }: { item: HomeItem }) {
           ))}
         </View>
       ) : null}
-    </View>
+      <Text style={styles.hint}>Tocca per iniziare la guida ORA</Text>
+    </Pressable>
   );
 }
 
@@ -54,6 +68,7 @@ const TYPE_LABELS: Record<string, string> = {
   reply: 'Risposta',
   activity: 'Attività',
   generic: 'Priorità',
+  resume: 'In corso',
 };
 
 const styles = StyleSheet.create({
@@ -84,4 +99,5 @@ const styles = StyleSheet.create({
   },
   metaLabel: { fontSize: 11, color: tokens.color.onSurfaceMuted },
   metaValue: { fontSize: 12, color: tokens.color.onSurface, fontWeight: '600' },
+  hint: { fontSize: 12, color: tokens.color.onSurfaceDim, marginTop: 2 },
 });

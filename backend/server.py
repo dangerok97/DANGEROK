@@ -196,6 +196,17 @@ async def startup():
     except Exception:
         logger.exception("Home V2 bootstrap failed (non-fatal)")
 
+    # Action Engine — guided priority flows
+    try:
+        from action_engine import ActionEngineService
+        from deps import decisions as _decisions, knowledge as _knowledge, life_graph as _life_graph
+        await ActionEngineService(
+            db, life_graph=_life_graph, knowledge=_knowledge, decisions=_decisions,
+        ).ensure_indexes()
+        logger.info("Action Engine indexes ready")
+    except Exception:
+        logger.exception("Action Engine bootstrap failed (non-fatal)")
+
     # Sync capability registry to Mongo (idempotent, structural fields are
     # overwritten from code; ops metadata is preserved).
     try:
@@ -207,7 +218,8 @@ async def startup():
 
     logger.info(
         "ORA backend ready. Modules online: decision_engine, life_graph, "
-        "knowledge, auto_link, context_assembler, permissions, connectors, home_v2."
+        "knowledge, auto_link, context_assembler, permissions, connectors, "
+        "home_v2, action_engine."
     )
 
 

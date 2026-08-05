@@ -20,8 +20,8 @@ export function ResumeCard({ item, onResume }: { item: HomeItem; onResume?: () =
         label={action?.label || 'Continua'}
         icon="play"
         testID="btn-resume"
-        onPress={() => {
-          if (action) navigateHomeAction(router, action, item);
+        onPress={async () => {
+          if (action) await navigateHomeAction(router, action, item);
           onResume?.();
         }}
       />

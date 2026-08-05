@@ -96,9 +96,9 @@ export default function HomeScreen() {
       setCorrectOpen(true);
       return;
     }
-    if (['maps', 'navigate', 'open', 'study', 'resume', 'confirm'].includes(action.kind)) {
-      // navigation handled in DynamicActions; still record open/resume
-      if (action.kind === 'resume' || action.kind === 'open') {
+    if (['maps', 'navigate', 'open', 'guide', 'study', 'resume', 'confirm'].includes(action.kind)) {
+      // navigation / ActionEngine handled in DynamicActions; record open/resume
+      if (action.kind === 'resume' || action.kind === 'open' || action.kind === 'guide') {
         await runHomeAction(focus.id, action.kind === 'resume' ? 'resume' : 'open');
       }
       return;

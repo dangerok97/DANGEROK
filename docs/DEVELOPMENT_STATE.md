@@ -1,38 +1,50 @@
 # ORA — Development State
 
-Last updated: 2026-08-05 (Home V2 intelligence dashboard)
+Last updated: 2026-08-05 (Action Engine)
 
 ## Branch
 
-- Active: `feature/home-v2-intelligence` (local, no push)
-- Base: `feature/documents-v2-completion` @ `03028dc` (includes `ff42f7b` Documents V2 completion)
+- Active: `feature/ora-action-engine` (local, no push)
+- Base: `feature/home-v2-intelligence` @ `01e50de`
+
+## Action Engine
+
+| Item | Stato |
+|------|--------|
+| Backend `action_engine/` + `/api/action-engine/*` | **implemented** |
+| Flows: study, event, travel, medical, admin, generic | **implemented** |
+| Frontend `ActionEngine.open(item)` + `/action/[sessionId]` | **implemented** |
+| Home Apri/Organizza/Inizia/card → guided flow | **wired** (verify manually on device/web) |
+| Brain (Life Graph + Knowledge) + action_projects | **implemented** |
+| Medical: no advice / no diagnosis | **enforced in copy + tests** |
+| Weather / live Maps traffic | **blocked placeholders** (honest) |
+| pytest `test_action_engine.py` | **11 passed** |
+| Native / Playwright Action Engine E2E | **not verified** |
 
 ## Home V2
 
 | Item | Stato |
 |------|--------|
-| Aggregator `GET /api/home` + actions + situation | **implemented** |
-| Deterministic ranking `home-rank-1.0` (no Gemini required) | **implemented** |
-| Frontend Home blocks (Adesso → resume) | **implemented** |
-| Large Google card / 100/100 / Dopo numbering | **removed from Home** |
-| pytest `test_home_v2.py` | **21 passed** |
-| Expo web + Playwright | **2 passed** (`e2e/home-v2.spec.ts`) |
+| Aggregator + ranking | **implemented** (base) |
+| Guide actions (`kind=guide`) + AE adapter | **updated** |
 | Native mobile Home V2 | **not verified** |
 
 ## Documents V2
 
 | Item | Stato |
 |------|--------|
-| Hub / pipeline / study / quiz / admin | **complete** (base branch) |
+| Hub / pipeline / study / quiz / admin | **complete** (untouched) |
 | Mobile native | **not verified** |
 
 ## Open / next
 
-1. Device smoke (iOS/Android) for Home V2 + Documents
-2. Wire more Brain/Memory signals into ORA osserva when real patterns exist
-3. Rotate OAuth client secret if it was pasted in chat (still recommended)
+1. Manual collaborative smoke: Home priority → first question → chip → Home refresh
+2. Optional Playwright smoke for Action Engine
+3. Device smoke (iOS/Android)
+4. Weather integration when credentials exist
 
 ## Credentials / safety
 
 - Never commit `.env` / tokens
-- Home ranking works without LLM keys
+- Action Engine needs no new env vars
+- Home ranking / Action Engine work without LLM keys (study flashcard hook optional)

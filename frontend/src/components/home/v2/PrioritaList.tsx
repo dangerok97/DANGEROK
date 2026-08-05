@@ -3,7 +3,9 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { tokens } from '@/src/theme/tokens';
 import { HomeItem, HomePriorityGroup } from '@/src/api/client';
-import { formatWhen, routeForItem } from './homeNav';
+import { ActionEngine } from '@/src/action-engine';
+import { formatWhen } from './homeNav';
+import { haptic } from '@/src/utils/haptic';
 
 const TYPE_ICON: Record<string, keyof typeof Ionicons.glyphMap> = {
   event: 'calendar-outline',
@@ -17,6 +19,7 @@ const TYPE_ICON: Record<string, keyof typeof Ionicons.glyphMap> = {
   reply: 'chatbubble-outline',
   activity: 'checkbox-outline',
   generic: 'ellipse-outline',
+  resume: 'play',
 };
 
 export function PrioritaList({ groups }: { groups: HomePriorityGroup[] }) {
@@ -44,7 +47,11 @@ function PriorityCard({ item }: { item: HomeItem }) {
   return (
     <Pressable
       style={({ pressed }) => [styles.card, pressed && { opacity: 0.85 }]}
-      onPress={() => router.push(routeForItem(item) as any)}
+      onPress={async () => {
+        haptic('tap');
+        // Whole card → Action Engine guided flow (never empty route)
+        await ActionEngine.open(item, router);
+      }}
       accessibilityRole="button"
       accessibilityLabel={item.title}
       testID={`priority-card-${item.type}`}

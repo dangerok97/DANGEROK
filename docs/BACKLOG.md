@@ -38,6 +38,16 @@ Attività piccole e verificabili derivate da `docs/ROADMAP.md` e dall’audit.
 - **Non verificato:** native mobile.
 - **Priorità:** critica.
 
+## BACKLOG-ACTION-ENGINE — Guided priority flows
+
+- **Stato:** codice + pytest (2026-08-05, branch `feature/ora-action-engine`)
+- **Obiettivo:** Apri/Organizza/Inizia/card aprono sempre un flusso guidato (mai pagina vuota).
+- **Aree:** `backend/action_engine/*`, `frontend/src/action-engine/*`, `frontend/app/action/*`, Home wiring.
+- **Accettazione:** API open→answer→complete; Brain/project/calendar/reminder; Home refresh; medical senza consigli.
+- **Test:** `tests/test_action_engine.py`; regressione home_v2 / documents_v2.
+- **Non verificato:** Playwright E2E Action Engine; native; weather live.
+- **Priorità:** critica.
+
 ## BACKLOG-003 — Messaggi UI per LLM assente
 
 - **Obiettivo:** su “Risolvi” e “Chiedi alla memoria”, mostrare copy italiano “AI non configurata” invece di errore grezzo.

@@ -1,6 +1,7 @@
 import { Linking, Platform } from 'react-native';
 import { Router } from 'expo-router';
 import { HomeActionDef, HomeItem } from '@/src/api/client';
+import { ActionEngine } from '@/src/action-engine';
 
 export function openMapsQuery(query?: string | null) {
   if (!query) return;
@@ -15,13 +16,50 @@ export function openMapsQuery(query?: string | null) {
   });
 }
 
-export function navigateHomeAction(router: Router, action: HomeActionDef, item?: HomeItem | null) {
+/** True when this action must open the guided Action Engine (never empty page). */
+export function isGuidedAction(action: HomeActionDef): boolean {
+  if (action.kind === 'guide') return true;
+  if (action.kind === 'open') return true;
+  if (action.route === '/action/open') return true;
+  if (action.route?.startsWith('/action/') && action.kind === 'resume') return false;
+  const labels = (action.label || '').toLowerCase();
+  return ['apri', 'organizza', 'inizia'].some((l) => labels === l || labels.startsWith(l + ' '));
+}
+
+export async function navigateHomeAction(
+  router: Router,
+  action: HomeActionDef,
+  item?: HomeItem | null,
+) {
   if (action.kind === 'maps') {
     openMapsQuery((action.params?.query as string) || item?.location || item?.title);
     return;
   }
+
+  // Resume existing action session
+  if (action.kind === 'resume' && action.route?.startsWith('/action/')) {
+    router.push(action.route as any);
+    return;
+  }
+
+  // Central Action Engine — Apri / Organizza / Inizia / guide
+  if (item && isGuidedAction(action)) {
+    await ActionEngine.open(item, router);
+    return;
+  }
+
+  // Document study modes (flashcards/quiz) stay on document route
   const route = action.route || (item ? routeForItem(item) : null);
-  if (!route) return;
+  if (!route) {
+    if (item) {
+      await ActionEngine.open(item, router);
+    }
+    return;
+  }
+  if (route === '/action/open' && item) {
+    await ActionEngine.open(item, router);
+    return;
+  }
   const mode = action.params?.mode;
   if (mode && route.startsWith('/document/')) {
     router.push({ pathname: route as any, params: { mode: String(mode) } } as any);
@@ -33,13 +71,10 @@ export function navigateHomeAction(router: Router, action: HomeActionDef, item?:
 export function routeForItem(item: HomeItem): string {
   const st = item.source_type;
   const sid = item.source_id;
-  if (['document', 'event_candidate', 'document_action', 'study', 'admin', 'quiz_session'].includes(st)) {
-    return `/document/${sid}`;
-  }
-  if (st === 'life_node' || st === 'google_calendar' || st === 'internal_calendar') {
-    return '/situazione';
-  }
-  return '/situazione';
+  if (st === 'action_session') return `/action/${sid}`;
+  if (st === 'action_project') return '/action/open';
+  // Card press → Action Engine (guided), not empty document/situazione
+  return '/action/open';
 }
 
 export function formatWhen(iso?: string | null): string | null {
