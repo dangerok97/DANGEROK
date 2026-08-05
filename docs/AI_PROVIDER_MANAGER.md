@@ -36,7 +36,7 @@ Se nessuno è disponibile → parsing locale + warning (upload non bloccato).
 | --- | --- |
 | `LLM_PROVIDER` | Preferenza processo (`gemini` default consigliato, o `auto`) |
 | `GEMINI_API_KEY` | Chiave Google AI Studio / Cloud |
-| `GEMINI_MODEL` | default `gemini-2.0-flash` |
+| `GEMINI_MODEL` | default `gemini-flash-lite-latest` (free-tier friendly; `gemini-2.0-flash` may 429 sooner) |
 | `OPENAI_API_KEY` / `OPENAI_MODEL` | OpenAI |
 | `OLLAMA_ENABLED` / `OLLAMA_BASE_URL` / `OLLAMA_MODEL` | Locale |
 | `EMERGENT_LLM_KEY` | Opzionale |
@@ -48,10 +48,18 @@ Stato: `GET /api/llm/providers`.
 
 | Provider | Costo tipico dev | Note |
 | --- | --- | --- |
-| Gemini Flash | quota gratuita generosa | ideale per sviluppo |
-| OpenAI | a consumo / quota account | failover |
+| Gemini Flash Lite | quota gratuita | **verificato** in locale su fixture sintetiche |
+| Gemini 2.0 Flash | free tier | osservato 429 quota sullo stesso account |
+| OpenAI | a consumo / quota account | failover (quota esaurita in test) |
 | Ollama | gratis (locale) | richiede demone |
 | Emergent | dipende dal piano | opzionale |
+
+## Verifica reale (2026-08-05)
+
+- Provider attivo: `gemini` / modello `gemini-flash-lite-latest`
+- Fixture: concerto, dispensa, admin, visita → `ai_used=true`
+- Latenza tipica: ~1.2–2.6 s per enrich
+- Failover: attivato solo quando Flash standard era in 429; con lite non necessario
 
 ## Privacy
 

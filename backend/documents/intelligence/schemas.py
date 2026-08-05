@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Any, List, Literal, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator  # noqa: F401 — field_validator used below
 
 
 Priority = Literal["low", "medium", "high", "critical"]
@@ -122,6 +122,25 @@ class CalendarEventDraft(BaseModel):
     updated_at: str
 
 
+def _coerce_str_list(v: Any) -> List[str]:
+    """Accept list[str] or dict[str,str] (common Gemini shape for definitions)."""
+    if v is None:
+        return []
+    if isinstance(v, dict):
+        out: List[str] = []
+        for k, val in v.items():
+            if val is None:
+                out.append(str(k))
+            else:
+                out.append(f"{k}: {val}")
+        return out
+    if isinstance(v, list):
+        return [str(x) for x in v if x is not None]
+    if isinstance(v, str) and v.strip():
+        return [v.strip()]
+    return []
+
+
 class LLMEducationEnrichment(BaseModel):
     subject: Optional[str] = None
     topic: Optional[str] = None
@@ -129,12 +148,22 @@ class LLMEducationEnrichment(BaseModel):
     definitions: List[str] = Field(default_factory=list)
     questions_for_review: List[str] = Field(default_factory=list)
 
+    @field_validator("key_concepts", "definitions", "questions_for_review", mode="before")
+    @classmethod
+    def _lists(cls, v: Any) -> List[str]:
+        return _coerce_str_list(v)
+
 
 class LLMDocumentEnrichment(BaseModel):
-    """Validated structured enrichment from OpenAI/emergent — never free-form."""
+    """Validated structured enrichment from providers — never free-form."""
     suggested_title: Optional[str] = None
     summary: Optional[str] = None
     summary_detailed: Optional[str] = None
     keywords: List[str] = Field(default_factory=list)
     education: Optional[LLMEducationEnrichment] = None
     notes: Optional[str] = None
+
+    @field_validator("keywords", mode="before")
+    @classmethod
+    def _kw(cls, v: Any) -> List[str]:
+        return _coerce_str_list(v)

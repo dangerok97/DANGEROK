@@ -1,5 +1,29 @@
 # ORA — AI Changelog
 
+## 2026-08-05 — Gemini real verification on synthetic docs
+
+### Request
+
+Store `GEMINI_API_KEY` locally and verify Provider Manager with real Gemini.
+
+### Actions
+
+- Key in gitignored `backend/.env` only
+- Default model → `gemini-flash-lite-latest` (`gemini-2.0-flash` hit 429)
+- Coerce Gemini dict-shaped `definitions` into list for Pydantic
+- Honest docs update
+
+### Tests
+
+- Real Gemini AI enrich: concerto, dispensa, admin, visita — **4/4 ai_used**
+- Avg latency ~1.6–2.6s; provider `gemini`; no failover needed on success path
+
+### Result
+
+Gemini verified as default working provider for document intelligence (free-tier lite model).
+
+---
+
 ## 2026-08-05 — Multi-provider Manager with Gemini default
 
 ### Request
@@ -18,12 +42,12 @@ Provider-agnostic AI: Gemini default, keep OpenAI, add Ollama, Emergent optional
 ### Tests
 
 - `test_ai_provider_manager.py` (failover mock) + intel suite green
-- Real Gemini: **not run** (no `GEMINI_API_KEY`)
+- Real Gemini: later verified (see entry above)
 - OpenAI: configured but quota exceeded
 
 ### Result
 
-Architecture multi-provider ready; waiting for Gemini key for real verification.
+Architecture multi-provider ready; Gemini subsequently verified with flash-lite.
 
 ---
 
