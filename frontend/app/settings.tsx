@@ -137,7 +137,11 @@ export default function SettingsScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.header}>
         <Pressable
-          onPress={() => { haptic('tap'); router.back(); }}
+          onPress={() => {
+            haptic('tap');
+            if (router.canGoBack()) router.back();
+            else router.replace('/(tabs)');
+          }}
           style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
           accessibilityRole="button" accessibilityLabel="Torna indietro" hitSlop={12}
         >

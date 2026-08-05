@@ -125,7 +125,18 @@ class GoogleCalendarSyncService:
     async def _instance_for_user(self, user_id: str) -> Optional[dict]:
         items = await self.gcal.list_instances(user_id)
         active = [i for i in items if i.get("status") != "revoked"]
-        return active[0] if active else None
+        if not active:
+            return None
+        # Prefer real OAuth instances over leftover fake/test connectors.
+        real = [
+            i for i in active
+            if (i.get("metadata") or {}).get("provider_mode") == "real"
+            or not str((i.get("metadata") or {}).get("provider_mode") or "").startswith("fake")
+        ]
+        pool = real or active
+        # Most recently updated first when available
+        pool = sorted(pool, key=lambda x: x.get("updated_at") or "", reverse=True)
+        return pool[0]
 
     async def connection_status(self, user_id: str) -> dict[str, Any]:
         try:
