@@ -78,7 +78,8 @@ class StudySessionItem(BaseModel):
     document_ids: List[str] = Field(default_factory=list)
     calendar_node_id: Optional[str] = None
     google_event_id: Optional[str] = None
-    google_sync_status: Optional[str] = None  # synced|failed|pending|skipped
+    google_calendar_id: Optional[str] = None
+    google_sync_status: Optional[str] = None  # synced|failed|pending|skipped|deleted
     completed_at: Optional[str] = None
     snoozed_until: Optional[str] = None
     meta: Dict[str, Any] = Field(default_factory=dict)

@@ -1,5 +1,35 @@
 # ORA — AI Changelog
 
+## 2026-08-05 — Verify study plan Google Calendar sync (real)
+
+### Request
+
+Google Calendar manually connected for local test user. Verify real study-plan sync create/update/delete; update verification docs; local commit; no push.
+
+### Root cause (blocking sync)
+
+Study sync looked up `connector_id: "google_calendar"` but instances use `calendar_google`, and create called a missing `get_provider_for_user` with wrong `create_event` signature.
+
+### Actions
+
+- Rewrite `action_engine/study/google_sync.py` to use `GoogleCalendarService` + real provider create/update/delete; store `google_calendar_id`
+- Wire snooze → Google PATCH; plan delete → Google DELETE
+- Script `backend/scripts/verify_study_google_sync.py` against live Google
+- Docs: `STUDY_ACTION_FLOW_VERIFICATION.md`, this changelog
+
+### Evidence (PASS)
+
+- Account / calendar: `francesconicolocefala@gmail.com` (primary)
+- `google_event_id`: `bj6unbrqrfhce10afscmoh89so`
+- `sync_status`: `synced` → update OK → Google status `cancelled` after delete
+- Title / Europe/Rome times correct; no duplicates; synthetic event cleaned up
+
+### Result
+
+PASS. Commit message: `test: verify study plan Google Calendar sync`. No push.
+
+---
+
 ## 2026-08-05 — Google OAuth works on localhost and 127.0.0.1
 
 ### Request

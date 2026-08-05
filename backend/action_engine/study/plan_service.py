@@ -8,7 +8,12 @@ from typing import Any, Dict, List, Optional
 from action_engine.models import ProposedAction, now_iso
 from action_engine.study.brain_links import link_plan_to_brain
 from action_engine.study.generator import generate_plan_sessions, maybe_split_topics
-from action_engine.study.google_sync import is_google_connected, sync_plan_sessions
+from action_engine.study.google_sync import (
+    delete_plan_google_events,
+    is_google_connected,
+    sync_plan_sessions,
+    update_session_google_event,
+)
 from action_engine.study.models import (
     DEFAULT_TZ,
     PlanModifyBody,
@@ -539,7 +544,15 @@ class StudyPlanService:
         await self.sessions.update_one({"id": session_id}, {"$set": s.model_dump()})
         # Update plan progress
         await self._refresh_progress(user_id, s.plan_id)
-        return {"ok": True, "session": s.model_dump()}
+        google_result = None
+        if action == "snooze" and s.google_event_id:
+            google_result = await update_session_google_event(
+                self.db, user_id, s.model_dump(),
+            )
+        out: Dict[str, Any] = {"ok": True, "session": s.model_dump()}
+        if google_result is not None:
+            out["google_sync"] = google_result
+        return out
 
     async def _refresh_progress(self, user_id: str, plan_id: str) -> None:
         sessions = await self.sessions.find(
@@ -601,6 +614,7 @@ class StudyPlanService:
         doc = await self.plans.find_one({"id": plan_id, "user_id": user_id}, {"_id": 0})
         if not doc:
             return {"ok": False, "error": "not_found"}
+        google_cleanup = await delete_plan_google_events(self.db, user_id, plan_id)
         if soft:
             await self.plans.update_one(
                 {"id": plan_id},
@@ -613,7 +627,7 @@ class StudyPlanService:
         else:
             await self.plans.delete_one({"id": plan_id, "user_id": user_id})
             await self.sessions.delete_many({"plan_id": plan_id, "user_id": user_id})
-        return {"ok": True}
+        return {"ok": True, "google_sync": google_cleanup}
 
     async def google_status(self, user_id: str) -> Dict[str, Any]:
         connected = await is_google_connected(self.db, user_id)
