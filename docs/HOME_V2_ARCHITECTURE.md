@@ -29,16 +29,16 @@ POST /api/home/refresh
 | `connection_warnings` | Partial-source / Google banner signals |
 | `google_calendar` | `{ connected, show_banner, … }` |
 | `generated_at` | ISO |
-| `ranking_version` | `home-rank-1.1` |
+| `ranking_version` | `home-rank-1.2` |
 | `partial` | True if a source adapter failed |
 
-**No Goals section** — Goals are not listed on Home. See `docs/HOME_GOAL_AWARE.md`.
+**No Goals section** — Goals are not listed on Home. See `docs/GOAL_AWARE_HOME.md` (alias `HOME_GOAL_AWARE.md`).
 
 ## Unified item model
 
 `id, type, subtype, title, description, source_type, source_id, priority, urgency, confidence, due_at, start_at, end_at, duration_minutes, location, amount, status, actions, reason_factors, created_at, updated_at` (+ internal `score` persisted only).
 
-Optional Goal context (when `GOAL_ENGINE_ENABLED` + linked): `goal_id`, `goal_title`, `goal_status`, `goal_progress`, `goal_progress_label`, `goal_next_action`.
+Optional Goal context refs (when `GOAL_ENGINE_ENABLED` + linked): `goal_id`, `goal_title`, `goal_type`, `goal_status`, `goal_progress`, `goal_progress_label`, `goal_next_action`, `goal_target_date`, `goal_blockers`, `goal_project_id`.
 
 ## Adapters (fail-soft)
 

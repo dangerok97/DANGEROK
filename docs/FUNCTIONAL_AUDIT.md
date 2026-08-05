@@ -23,7 +23,7 @@ Branch: `ora/cursor-platform`
 | Elemento | Stato | Note verifica |
 |----------|-------|---------------|
 | `/login` | parzialmente operativo | Email OK; Google/Apple codice pronto, UI “non configurata” senza client ID (non mock) |
-| Home `/(tabs)` | operativo (web Home V2) | Aggregato `/api/home`; Adesso/Perché/azioni tipizzate → Action Engine; situazione/priorità/insights/resume; banner Google compatto |
+| Home `/(tabs)` | operativo (web Home V2 Goal-aware) | Aggregato `/api/home` `home-rank-1.2`; Adesso/Perché/azioni → Action Engine; Goal context refs (no Goal tab); situazione/priorità/insights/resume; banner Google |
 | `/action/[sessionId]` | operativo (web study) | Guida una-domanda; study: multi-chip/preview/confirm |
 | `/action/open` | implementato | Bridge deep-link verso Action Engine |
 | `/study-plan/[id]` | implementato (web) | Piano attivo: sessioni, pause, sync, delete |
@@ -105,6 +105,16 @@ Vedi `docs/DOCUMENTS_VERIFICATION.md`. Label allineate; upload/list/detail/isola
 ## Aggiornamento 2026-08-05 — Documenti intelligenti (verifica reale)
 
 Vedi `docs/INTELLIGENT_DOCUMENTS_VERIFICATION.md`. Casi A–F sintetici + OCR reale + DOCX/PPTX extract + calendario interno idempotente verificati. OpenAI reale **non** eseguito (chiave assente). File picker UI e mobile non verificati. Google Calendar da documenti non avviato.
+
+## Aggiornamento 2026-08-06 — Goal-aware Home (no Goal UX)
+
+| Modulo | Funzione | Stato | Note |
+|--------|----------|-------|------|
+| Home V2 | Goal context on items | operativo (flag ON) | `goal_*` refs; see `docs/GOAL_AWARE_HOME.md` |
+| Home V2 | Dedupe same Goal | operativo | one focus + one resume |
+| Home V2 | Ranking 1.2 | operativo | blockers/stale/prep/skipped |
+| Home V2 | Goal tab / list | **non implementato** | by design |
+| Goal Engine | Shadow Study/Travel | operativo (backend) | Foundation intact |
 
 ## Conteggi (questo audit)
 

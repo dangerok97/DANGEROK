@@ -1158,10 +1158,14 @@ export type HomeItem = {
   /** Goal context (invisible layer — no Goal screens). Present when linked. */
   goal_id?: string | null;
   goal_title?: string | null;
+  goal_type?: string | null;
   goal_status?: string | null;
   goal_progress?: number | null;
   goal_progress_label?: string | null;
   goal_next_action?: string | null;
+  goal_target_date?: string | null;
+  goal_blockers?: string[] | null;
+  goal_project_id?: string | null;
 };
 
 export type HomeExplanation = {

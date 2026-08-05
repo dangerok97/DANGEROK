@@ -110,6 +110,23 @@ async def load_travel_state(
         if maps.get("duration_label"):
             desc_parts.append(maps["duration_label"])
 
+        prep = p.get("prep_items") or []
+        missing_prep = [
+            (x.get("label") or x.get("title") or "Prep")
+            for x in prep
+            if isinstance(x, dict) and not x.get("done")
+        ]
+        # If prep has no done flags yet, treat all listed items as pending prep
+        if prep and not missing_prep and not any(
+            isinstance(x, dict) and x.get("done") is True for x in prep
+        ):
+            missing_prep = [
+                (x.get("label") or x.get("title") or "Prep")
+                for x in prep if isinstance(x, dict)
+            ]
+        if missing_prep:
+            desc_parts.append(f"Manca: {missing_prep[0]}")
+
         weight = 0.7
         if phase == "departure_day":
             weight = 0.98
@@ -119,6 +136,14 @@ async def load_travel_state(
             weight = 0.85
         elif phase == "welcome_back":
             weight = 0.6
+
+        why = [{"code": f"travel_{phase}", "label": phase_label, "weight": weight}]
+        if missing_prep:
+            why.append({
+                "code": "missing_prep",
+                "label": f"Prep: {missing_prep[0]}",
+                "weight": 0.88,
+            })
 
         items.append(HomeItem(
             id=stable_id("travel_project", user_id, p["id"]),
@@ -141,11 +166,11 @@ async def load_travel_state(
                 "days_until": days_until,
                 "transport": p.get("transport"),
                 "maps": maps,
+                "missing_prep": missing_prep,
+                "prep_items": prep,
                 "google_sync": p.get("google_sync") or {},
                 "calendar_sync": p.get("calendar_sync"),
-                "why_now_factors": [
-                    {"code": f"travel_{phase}", "label": phase_label, "weight": weight},
-                ],
+                "why_now_factors": why,
             },
         ))
 

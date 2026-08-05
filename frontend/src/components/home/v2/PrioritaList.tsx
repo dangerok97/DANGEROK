@@ -77,6 +77,12 @@ function PriorityCard({ item }: { item: HomeItem }) {
           {when ? <Text style={styles.metaText}>· {when}</Text> : null}
           {item.amount ? <Text style={styles.metaText}>· {item.amount}</Text> : null}
           {item.location ? <Text style={styles.metaText}>· {item.location}</Text> : null}
+          {item.goal_title ? (
+            <Text style={styles.metaText} numberOfLines={1}>· Obiettivo: {item.goal_title}</Text>
+          ) : null}
+          {item.goal_blockers?.[0] ? (
+            <Text style={styles.metaText} numberOfLines={1}>· {item.goal_blockers[0]}</Text>
+          ) : null}
         </View>
       </View>
       <Ionicons name="chevron-forward" size={14} color={tokens.color.onSurfaceDim} />
