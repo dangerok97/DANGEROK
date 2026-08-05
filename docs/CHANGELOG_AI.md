@@ -1,5 +1,32 @@
 # ORA — AI Changelog
 
+## 2026-08-05 — Multi-provider Manager with Gemini default
+
+### Request
+
+Provider-agnostic AI: Gemini default, keep OpenAI, add Ollama, Emergent optional, failover, settings UI.
+
+### Actions
+
+- `backend/llm/manager.py` + adapters (`gemini`, `openai`, `ollama`, `emergent`)
+- Common interface (`chat`, analyze/classify/summarize/ask/extract_*)
+- API `GET /api/llm/providers`, `PATCH /api/llm/preferences` (no restart)
+- Settings → AI Provider radios
+- Docs `AI_PROVIDER_MANAGER.md`; `.env.example` updated
+- OpenAI retained; Gemini preferred in priority chain
+
+### Tests
+
+- `test_ai_provider_manager.py` (failover mock) + intel suite green
+- Real Gemini: **not run** (no `GEMINI_API_KEY`)
+- OpenAI: configured but quota exceeded
+
+### Result
+
+Architecture multi-provider ready; waiting for Gemini key for real verification.
+
+---
+
 ## 2026-08-05 — Real verification of intelligent documents
 
 ### Request

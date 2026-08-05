@@ -8,7 +8,7 @@
 | API | FastAPI + Uvicorn |
 | DB | MongoDB via Motor |
 | Auth | JWT ORA (HS256) + bcrypt; Google/Apple ID-token verify (`backend/social_auth/`); Emergent bridge legacy optional |
-| LLM | Provider adapter `backend/llm/` — `none` / `openai` / `emergent` (not required at boot) |
+| LLM | Provider Manager `backend/llm/` — Gemini (default) → OpenAI → Ollama → Emergent; failover automatico; non required at boot |
 | Design tokens | `design_guidelines.json`, `frontend/src/theme/tokens.ts` |
 | Local deps | `backend/requirements-local.txt` (Emergent CDN packages excluded) |
 
@@ -34,6 +34,7 @@ backend/
   explainability/
   action_center/
   social_auth/           # Google/Apple verify, identities, linking
+  llm/                   # Provider Manager + adapters (gemini/openai/ollama/emergent)
   documents/             # storage, extraction, insights
   documents/intelligence/# pipeline, taxonomy, analyzer, calendar drafts
   security/              # token vault

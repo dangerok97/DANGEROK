@@ -393,9 +393,15 @@ class IntelligenceService:
                 "grounding": "not_found",
                 "ai_used": False,
             }
-        from llm import LLMNotConfigured, chat_completion, llm_status
-        if not llm_status().get("configured"):
-            # local keyword answer — strip stopwords, keep meaningful tokens
+        from llm import LLMNotConfigured
+        from llm.manager import get_manager
+
+        user_doc = await self.db.users.find_one(
+            {"user_id": user_id}, {"_id": 0, "preferences": 1}
+        )
+        pref = ((user_doc or {}).get("preferences") or {}).get("llm_provider")
+
+        def _local_ask():
             import re as _re
             tokens = [
                 w for w in _re.findall(r"[a-zA-Zàèéìòù]{4,}", question.lower())
@@ -411,7 +417,6 @@ class IntelligenceService:
                     "grounding": "document_content",
                     "ai_used": False,
                 }
-            # summary fallback
             if analysis.get("summary") and tokens:
                 return {
                     "answer": "[SINTESI] " + str(analysis.get("summary"))[:400],
@@ -423,22 +428,31 @@ class IntelligenceService:
                 "grounding": "not_found",
                 "ai_used": False,
             }
+
         try:
-            system = (
-                "Rispondi in italiano. Usa SOLO il testo del documento. "
-                "Se non trovi l'informazione di' esplicitamente 'non trovato nel documento'. "
-                "Prefissa la risposta con [CONTENUTO] o [SINTESI] o [NON TROVATO]."
+            result = await get_manager().ask_document(
+                text=f"Titolo: {analysis.get('suggested_title')}\n\n{text}",
+                question=question,
+                user_preference=pref,
             )
-            user = f"Domanda: {question}\n\nTitolo: {analysis.get('suggested_title')}\n\nTesto:\n{text}"
-            answer = await chat_completion(system=system, user=user, session_id=f"ora-doc-ask-{doc_id}")
+            answer = result.text
             grounding = "document_content"
             if answer.strip().startswith("[NON TROVATO]"):
                 grounding = "not_found"
             elif answer.strip().startswith("[SINTESI]"):
                 grounding = "summary"
-            return {"answer": answer, "grounding": grounding, "ai_used": True}
+            return {
+                "answer": answer,
+                "grounding": grounding,
+                "ai_used": True,
+                "provider": result.provider,
+                "model": result.model,
+            }
         except LLMNotConfigured:
-            return {"answer": "AI non configurata.", "grounding": "not_found", "ai_used": False}
+            return _local_ask()
+        except Exception:
+            logger.warning("ask_document provider failed; local fallback")
+            return _local_ask()
 
     async def search(
         self,

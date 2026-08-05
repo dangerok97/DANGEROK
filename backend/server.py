@@ -63,6 +63,9 @@ async def health():
         "llm": {
             "provider": llm.get("provider"),
             "configured": bool(llm.get("configured")),
+            "model": llm.get("model"),
+            "preferred": llm.get("preferred"),
+            "priority": ["gemini", "openai", "ollama", "emergent"],
         },
         "integrations": {
             "google_oauth_configured": google_oauth,

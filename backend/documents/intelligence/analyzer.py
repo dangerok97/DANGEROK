@@ -24,6 +24,14 @@ from llm import LLMNotConfigured, llm_status
 from llm.errors import LLMQuotaError, LLMRateLimitError, LLMTimeoutError
 from llm.structured import chat_json, chunk_text
 
+
+def _user_llm_pref(user: Optional[dict]) -> Optional[str]:
+    if not user:
+        return None
+    prefs = user.get("preferences") or {}
+    val = (prefs.get("llm_provider") or "").strip().lower()
+    return val or None
+
 logger = logging.getLogger("ora.documents.intel")
 
 PROMPT_VERSION = "doc-intel-json-2"
@@ -569,7 +577,9 @@ async def analyze_document(
         warnings.append("Analisi AI deduplicata: contenuto invariato, nessuna nuova chiamata.")
     elif allow_ai:
         try:
-            enriched = await _llm_enrich(doc["id"], text, tax, title)
+            enriched = await _llm_enrich(
+                doc["id"], text, tax, title, user_preference=_user_llm_pref(user),
+            )
             if enriched:
                 ai_used = True
                 model_name = enriched.get("model") or llm_status().get("model") or "llm"
@@ -681,7 +691,13 @@ async def analyze_document(
     }
 
 
-async def _llm_enrich(doc_id: str, text: str, tax: dict, title: str) -> Optional[dict]:
+async def _llm_enrich(
+    doc_id: str,
+    text: str,
+    tax: dict,
+    title: str,
+    user_preference: Optional[str] = None,
+) -> Optional[dict]:
     """Structured LLM enrichment with chunking + Pydantic validation."""
     chunks = chunk_text(text)
     if not chunks:
@@ -693,7 +709,6 @@ async def _llm_enrich(doc_id: str, text: str, tax: dict, title: str) -> Optional
         "Campi JSON: suggested_title, summary, summary_detailed, keywords (array di stringhe), "
         "education (opzionale: subject, topic, key_concepts, definitions, questions_for_review), notes."
     )
-    # Use first chunk primarily; mention more chunks only as context summary budget
     payload = {
         "macro_category": tax["macro_category"],
         "subcategory": tax["subcategory"],
@@ -711,8 +726,9 @@ async def _llm_enrich(doc_id: str, text: str, tax: dict, title: str) -> Optional
         user=user,
         model_cls=LLMDocumentEnrichment,
         session_id=f"ora-doc-{doc_id}",
+        user_preference=user_preference,
     )
     data = parsed.model_dump()
-    data["model"] = meta.get("model") or llm_status().get("model")
+    data["model"] = meta.get("model") or meta.get("provider") or llm_status().get("model")
     data["usage"] = {**meta, "chunks_sent": len(chunks)}
     return data

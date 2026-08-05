@@ -8,7 +8,14 @@ import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 
 import { tokens } from '@/src/theme/tokens';
-import { api, ConnectorInstance, AppleCalendarConfigStatus, AuthIdentitiesResponse } from '@/src/api/client';
+import {
+  api,
+  ConnectorInstance,
+  AppleCalendarConfigStatus,
+  AuthIdentitiesResponse,
+  LLMProvidersStatus,
+  LLMProviderId,
+} from '@/src/api/client';
 import { humanizeError } from '@/src/utils/errors';
 import { haptic } from '@/src/utils/haptic';
 import { ActionBtn } from '@/src/components/ui/ActionBtn';
@@ -24,6 +31,7 @@ export default function SettingsScreen() {
   const [appleConfig, setAppleConfig] = useState<AppleCalendarConfigStatus | null>(null);
   const [appleInstance, setAppleInstance] = useState<ConnectorInstance | null>(null);
   const [identities, setIdentities] = useState<AuthIdentitiesResponse | null>(null);
+  const [llmStatus, setLlmStatus] = useState<LLMProvidersStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +43,7 @@ export default function SettingsScreen() {
   const load = useCallback(async () => {
     setError(null);
     try {
-      const [r, daily, aConfig, aInstances, idents] = await Promise.all([
+      const [r, daily, aConfig, aInstances, idents, llm] = await Promise.all([
         api.googleCalendarInstances(),
         api.dailyToday().catch(() => null),
         // Only iOS shows Apple settings — but we still fetch config to
@@ -43,12 +51,14 @@ export default function SettingsScreen() {
         Platform.OS === 'ios' ? api.appleCalendarConfig().catch(() => null) : Promise.resolve(null),
         Platform.OS === 'ios' ? api.appleCalendarInstances().catch(() => ({ items: [] as ConnectorInstance[] })) : Promise.resolve({ items: [] as ConnectorInstance[] }),
         api.authIdentities().catch(() => null),
+        api.llmProviders().catch(() => null),
       ]);
       setInstance((r.items || [])[0] || null);
       setEventsCount(daily?.total_events ?? null);
       setAppleConfig(aConfig);
       setAppleInstance((aInstances?.items || [])[0] || null);
       setIdentities(idents);
+      setLlmStatus(llm);
     } catch (e: any) {
       setError(humanizeError(e));
     } finally {
@@ -130,6 +140,70 @@ export default function SettingsScreen() {
         contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 24, gap: 16 }}
         showsVerticalScrollIndicator={false}
       >
+        <Text style={styles.sectionLabel}>AI Provider</Text>
+        <View style={styles.card} testID="settings-ai-provider">
+          <Text style={styles.aiActive}>
+            Attivo:{' '}
+            <Text style={styles.aiActiveValue}>
+              {llmStatus?.active ? llmStatus.active : 'nessuno (parsing locale)'}
+            </Text>
+          </Text>
+          <Text style={styles.aiHint}>
+            Priorità: Gemini → OpenAI → Ollama → Emergent. Fallback automatico su errori.
+          </Text>
+          {(['gemini', 'openai', 'ollama', 'emergent'] as LLMProviderId[]).map((id) => {
+            const info = llmStatus?.providers?.find((p) => p.id === id);
+            const selected = (llmStatus?.user_preference || llmStatus?.preferred || 'auto') === id
+              || (!llmStatus?.user_preference && !llmStatus?.preferred && llmStatus?.active === id);
+            const available = !!info?.available;
+            const configured = !!info?.configured;
+            return (
+              <Pressable
+                key={id}
+                testID={`ai-provider-${id}`}
+                onPress={async () => {
+                  haptic('tap');
+                  setBusy(`llm_${id}`);
+                  setError(null);
+                  try {
+                    const res = await api.setLlmProvider(id);
+                    setLlmStatus((prev) => prev ? {
+                      ...prev,
+                      active: res.active,
+                      user_preference: res.user_preference,
+                      providers: res.providers,
+                      fallback_chain: res.fallback_chain,
+                      preferred: res.user_preference === 'auto' ? null : res.user_preference,
+                    } : prev);
+                    haptic('success');
+                  } catch (e: any) {
+                    haptic('error');
+                    setError(humanizeError(e));
+                  } finally {
+                    setBusy(null);
+                  }
+                }}
+                style={({ pressed }) => [styles.aiRow, pressed && styles.pressed]}
+                accessibilityRole="radio"
+                accessibilityState={{ selected }}
+              >
+                <View style={[styles.radio, selected && styles.radioOn]} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.aiLabel}>{info?.label || id}</Text>
+                  <Text style={styles.aiMeta}>
+                    {!configured && !available
+                      ? 'Non configurato'
+                      : available
+                        ? `Disponibile${info?.model ? ` · ${info.model}` : ''}`
+                        : 'Configurato ma non disponibile'}
+                  </Text>
+                </View>
+                {busy === `llm_${id}` ? <ActivityIndicator color={tokens.color.onSurface} /> : null}
+              </Pressable>
+            );
+          })}
+        </View>
+
         <Text style={styles.sectionLabel}>Metodi di accesso</Text>
         {identities ? (
           <View style={styles.card} testID="settings-auth-methods">
@@ -598,5 +672,22 @@ const styles = StyleSheet.create({
   },
   confirmTitle: { fontSize: 17, fontWeight: '700', color: tokens.color.onSurface },
   confirmBody: { fontSize: 13, color: tokens.color.onSurfaceMuted, lineHeight: 19, marginTop: 8 },
+  aiActive: { fontSize: 13, color: tokens.color.onSurfaceMuted, marginBottom: 4 },
+  aiActiveValue: { color: tokens.color.onSurface, fontWeight: '700' },
+  aiHint: { fontSize: 12, color: tokens.color.onSurfaceMuted, lineHeight: 17, marginBottom: 8 },
+  aiRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingVertical: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: tokens.color.border,
+  },
+  radio: {
+    width: 18, height: 18, borderRadius: 9,
+    borderWidth: 2, borderColor: tokens.color.onSurfaceMuted,
+  },
+  radioOn: {
+    borderColor: tokens.color.brand,
+    backgroundColor: tokens.color.brand,
+  },
+  aiLabel: { fontSize: 15, fontWeight: '600', color: tokens.color.onSurface },
+  aiMeta: { fontSize: 12, color: tokens.color.onSurfaceMuted, marginTop: 2 },
   pressed: { opacity: 0.7 },
 });
