@@ -423,20 +423,37 @@ class TravelProjectService:
         if brain.get("brain_node_id"):
             plan.brain_node_id = brain["brain_node_id"]
 
+        # Prefer latest answer over stale draft field (never silent create)
+        if "calendar_sync" in (plan.answers or {}):
+            plan.calendar_sync = bool(plan.answers.get("calendar_sync"))
+
         # Google sync ONLY if user opted in — never silent
         google_res: Dict[str, Any] = {"skipped": ["not_requested"]}
         if plan.calendar_sync:
             google_res = await sync_travel_events(
                 db=self.db, user_id=user_id, project=plan.model_dump(),
             )
-            # Reload events with google ids
+            # Reload events with google ids (sync persists full array)
             refreshed = await self.projects.find_one(
-                {"id": plan.id, "user_id": user_id}, {"_id": 0, "calendar_events": 1},
+                {"id": plan.id, "user_id": user_id},
+                {"_id": 0, "calendar_events": 1, "google_sync": 1},
             )
             if refreshed and refreshed.get("calendar_events"):
                 plan.calendar_events = [
                     TravelCalendarEvent(**e) for e in refreshed["calendar_events"]
                 ]
+            # Mirror ids from sync result if array fields still empty
+            by_local = {
+                s.get("event_local_id"): s
+                for s in (google_res.get("synced") or [])
+                if s.get("event_local_id") and s.get("event_id")
+            }
+            for ev in plan.calendar_events:
+                hit = by_local.get(ev.id)
+                if hit and not ev.google_event_id:
+                    ev.google_event_id = hit["event_id"]
+                    ev.google_calendar_id = hit.get("calendar_id")
+                    ev.google_sync_status = "synced"
         plan.google_sync = google_res
 
         # Optional prep decisions

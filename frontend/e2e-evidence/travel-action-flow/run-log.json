@@ -1,0 +1,11 @@
+{
+  "email": "e2e_travel_1785959852553@example.com",
+  "api": "http://127.0.0.1:8001",
+  "steps_answered_via_ui": 9,
+  "opened_via_ui": true,
+  "travel_project_id": "trp_c08c5b734cde46",
+  "destination": "Vibo Marina",
+  "ok": true,
+  "at": "2026-08-05T19:58:00.931Z",
+  "evidence_dir": "C:\\Users\\asiac\\Desktop\\DANGEROK\\frontend\\e2e-evidence\\travel-action-flow"
+}

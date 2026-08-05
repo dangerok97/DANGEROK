@@ -123,6 +123,7 @@ async def sync_travel_events(
                 "event_local_id": ev.get("id"),
                 "event_id": ev["google_event_id"],
                 "kind": ev.get("kind"),
+                "calendar_id": ev.get("google_calendar_id") or cal_id,
                 "status": "exists",
             })
             continue
@@ -147,15 +148,9 @@ async def sync_travel_events(
             )
             eid = (created or {}).get("id")
             if eid:
-                await db.travel_projects.update_one(
-                    {"id": project["id"], "user_id": user_id, "calendar_events.id": ev["id"]},
-                    {"$set": {
-                        "calendar_events.$.google_event_id": eid,
-                        "calendar_events.$.google_calendar_id": cal_id,
-                        "calendar_events.$.google_sync_status": "synced",
-                        "updated_at": _now_iso(),
-                    }},
-                )
+                ev["google_event_id"] = eid
+                ev["google_calendar_id"] = cal_id
+                ev["google_sync_status"] = "synced"
                 result["synced"].append({
                     "event_local_id": ev.get("id"),
                     "event_id": eid,
@@ -164,10 +159,25 @@ async def sync_travel_events(
                     "status": "created",
                 })
             else:
+                ev["google_sync_status"] = "failed"
                 result["failed"].append({"event_local_id": ev.get("id"), "error": "no_event_id"})
         except Exception as e:
             logger.info("travel google sync fail: %s", type(e).__name__)
+            ev["google_sync_status"] = "failed"
             result["failed"].append({"event_local_id": ev.get("id"), "error": type(e).__name__})
+
+    # Persist full events array (positional $ updates are brittle across reloads)
+    try:
+        await db.travel_projects.update_one(
+            {"id": project["id"], "user_id": user_id},
+            {"$set": {
+                "calendar_events": events,
+                "google_sync": result,
+                "updated_at": _now_iso(),
+            }},
+        )
+    except Exception as e:
+        logger.info("persist travel google events failed: %s", type(e).__name__)
 
     if result["failed"] and result["synced"]:
         result["banner"] = {
@@ -193,18 +203,39 @@ async def delete_travel_google_events(db, user_id: str, project: dict) -> Dict[s
         access = await gcal._get_access_token(user_id=user_id, instance=inst)
     except Exception as e:
         return {**out, "failed": [{"error": type(e).__name__}]}
+
+    # Collect ids from embedded events + google_sync.synced (fallback)
+    targets: List[Dict[str, Any]] = []
+    seen = set()
     for ev in project.get("calendar_events") or []:
         eid = ev.get("google_event_id")
-        cal = ev.get("google_calendar_id") or "primary"
-        if not eid:
+        if not eid or eid in seen:
             continue
+        seen.add(eid)
+        targets.append({
+            "event_id": eid,
+            "calendar_id": ev.get("google_calendar_id") or (project.get("google_sync") or {}).get("calendar_id") or "primary",
+        })
+    for s in (project.get("google_sync") or {}).get("synced") or []:
+        eid = s.get("event_id")
+        if not eid or eid in seen:
+            continue
+        seen.add(eid)
+        targets.append({
+            "event_id": eid,
+            "calendar_id": s.get("calendar_id") or (project.get("google_sync") or {}).get("calendar_id") or "primary",
+        })
+
+    for t in targets:
         try:
             await gcal.provider.delete_event(
-                access_token=access, calendar_id=cal, event_id=eid,
+                access_token=access,
+                calendar_id=t["calendar_id"],
+                event_id=t["event_id"],
             )
-            out["deleted"].append(eid)
+            out["deleted"].append(t["event_id"])
         except Exception as e:
-            out["failed"].append({"event_id": eid, "error": type(e).__name__})
+            out["failed"].append({"event_id": t["event_id"], "error": type(e).__name__})
     return out
 
 

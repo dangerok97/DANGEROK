@@ -1,0 +1,190 @@
+{
+  "ok": true,
+  "steps": [
+    {
+      "step": "connector",
+      "connected": true,
+      "vault_secret_ref": true,
+      "has_calendar_events": true,
+      "email": "francesconicoloefala@gmail.com"
+    },
+    {
+      "step": "open",
+      "flow": "travel",
+      "session_id": "aes_391a70588cfd4f"
+    },
+    {
+      "step": "confirm_done",
+      "status": "completed",
+      "travel_project_id": "trp_909806018a814b"
+    },
+    {
+      "step": "google_create",
+      "calendar_sync": true,
+      "synced_count": 3,
+      "kinds": [
+        "vacation_block",
+        "outbound",
+        "return"
+      ],
+      "event_ids": [
+        "pak7nvaer40p9v6b9cji5hl8o4",
+        "7gj9vqeu21lb74qp2ekn0s0h2g",
+        "f0m3kb7sahnkk19e54ctblltr8"
+      ],
+      "skipped": [],
+      "failed": [],
+      "banner": null
+    },
+    {
+      "step": "google_get",
+      "readable": 3,
+      "total": 3
+    },
+    {
+      "step": "no_duplicate_ids",
+      "unique": true,
+      "listed": 0
+    },
+    {
+      "step": "cleanup_google",
+      "deleted_count": 3,
+      "failed": []
+    },
+    {
+      "step": "post_cleanup_status",
+      "ok": true,
+      "events": [
+        {
+          "event_id": "pak7nvaer40p9v6b9cji5hl8o4",
+          "status": "cancelled",
+          "kind": "vacation_block"
+        },
+        {
+          "event_id": "7gj9vqeu21lb74qp2ekn0s0h2g",
+          "status": "cancelled",
+          "kind": "outbound"
+        },
+        {
+          "event_id": "f0m3kb7sahnkk19e54ctblltr8",
+          "status": "cancelled",
+          "kind": "return"
+        }
+      ]
+    }
+  ],
+  "db": "ora_local",
+  "connector_id": "calendar_google",
+  "account_email": "francesconicoloefala@gmail.com",
+  "user_id": "user_a5b68525b040",
+  "instance_id": "ci_b6ffa48558cb47ac",
+  "google_available": true,
+  "action_session_id": "aes_391a70588cfd4f",
+  "travel_project_id": "trp_909806018a814b",
+  "calendar_sync_flag": true,
+  "answers_calendar_sync": true,
+  "calendar_events": [
+    {
+      "kind": "vacation_block",
+      "google_event_id": "pak7nvaer40p9v6b9cji5hl8o4",
+      "status": "synced",
+      "calendar_id": "francesconicolocefala@gmail.com"
+    },
+    {
+      "kind": "outbound",
+      "google_event_id": "7gj9vqeu21lb74qp2ekn0s0h2g",
+      "status": "synced",
+      "calendar_id": "francesconicolocefala@gmail.com"
+    },
+    {
+      "kind": "return",
+      "google_event_id": "f0m3kb7sahnkk19e54ctblltr8",
+      "status": "synced",
+      "calendar_id": "francesconicolocefala@gmail.com"
+    }
+  ],
+  "google_sync": {
+    "connected": true,
+    "synced": [
+      {
+        "event_local_id": "tce_8400915905a246",
+        "event_id": "pak7nvaer40p9v6b9cji5hl8o4",
+        "kind": "vacation_block",
+        "calendar_id": "francesconicolocefala@gmail.com",
+        "status": "created"
+      },
+      {
+        "event_local_id": "tce_1995ed3acdde4e",
+        "event_id": "7gj9vqeu21lb74qp2ekn0s0h2g",
+        "kind": "outbound",
+        "calendar_id": "francesconicolocefala@gmail.com",
+        "status": "created"
+      },
+      {
+        "event_local_id": "tce_046be33c22d448",
+        "event_id": "f0m3kb7sahnkk19e54ctblltr8",
+        "kind": "return",
+        "calendar_id": "francesconicolocefala@gmail.com",
+        "status": "created"
+      }
+    ],
+    "failed": [],
+    "skipped": [],
+    "banner": null,
+    "calendar_id": "francesconicolocefala@gmail.com"
+  },
+  "calendar_id": "francesconicolocefala@gmail.com",
+  "verified_events": [
+    {
+      "kind": "vacation_block",
+      "event_id": "pak7nvaer40p9v6b9cji5hl8o4",
+      "summary": "Vacanza: Vibo Marina",
+      "status": "confirmed",
+      "readable": true
+    },
+    {
+      "kind": "outbound",
+      "event_id": "7gj9vqeu21lb74qp2ekn0s0h2g",
+      "summary": "Andata \u2192 Vibo Marina",
+      "status": "confirmed",
+      "readable": true
+    },
+    {
+      "kind": "return",
+      "event_id": "f0m3kb7sahnkk19e54ctblltr8",
+      "summary": "Ritorno \u2190 Vibo Marina",
+      "status": "confirmed",
+      "readable": true
+    }
+  ],
+  "duplicate_check": {
+    "unique_ids": true,
+    "listed_verify_tagged": 0
+  },
+  "cleanup": {
+    "ok": true,
+    "deleted": [
+      "pak7nvaer40p9v6b9cji5hl8o4",
+      "7gj9vqeu21lb74qp2ekn0s0h2g",
+      "f0m3kb7sahnkk19e54ctblltr8"
+    ],
+    "failed": []
+  },
+  "post_cleanup": [
+    {
+      "event_id": "pak7nvaer40p9v6b9cji5hl8o4",
+      "status": "cancelled",
+      "kind": "vacation_block"
+    },
+    {
+      "event_id": "7gj9vqeu21lb74qp2ekn0s0h2g",
+      "status": "cancelled",
+      "kind": "outbound"
+    },
+    {
+      "event_id": "f0m3kb7sahnkk19e54ctblltr8",
+      "status": "cancelled",
+      "kind": "return"
+    }
+  ]
+}

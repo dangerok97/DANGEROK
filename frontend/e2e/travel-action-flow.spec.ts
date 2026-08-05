@@ -1,14 +1,15 @@
 /**
- * FULL UI Travel Action Flow — Vacanza Vibo Marina / period chips.
- * Fixture seeds decision; ALL subsequent steps via UI chips/text.
+ * FULL UI Travel Action Flow — Vacanza Vibo Marina.
+ * Fixture seeds decision; subsequent steps via UI chips/text (API open only as fallback).
  * Screenshots under frontend/test-results/travel-action-flow/
  */
 import { test, expect, Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
 
-const API = process.env.EXPO_PUBLIC_BACKEND_URL || process.env.E2E_API_URL || 'http://127.0.0.1:8000';
-const EVIDENCE_DIR = path.join(__dirname, '..', 'test-results', 'travel-action-flow');
+const API = process.env.EXPO_PUBLIC_BACKEND_URL || process.env.E2E_API_URL || 'http://127.0.0.1:8001';
+// Keep outside Playwright's default test-results wipe directory
+const EVIDENCE_DIR = path.join(__dirname, '..', 'e2e-evidence', 'travel-action-flow');
 
 async function apiRegister() {
   const email = `e2e_travel_${Date.now()}@example.com`;
@@ -67,77 +68,120 @@ async function answerCurrentTurn(page: Page, step: number) {
   const q = (await page.getByTestId('action-question').innerText()).toLowerCase();
   const nextBtn = page.getByTestId('action-next');
 
+  // Period free text
+  if ((q.includes('parti') && q.includes('torni')) || q.includes('quando parti')) {
+    const input = page.getByTestId('action-text');
+    if (await input.isVisible().catch(() => false)) {
+      await input.fill('dal 9 al 24 agosto 2026');
+      await nextBtn.click();
+      await page.waitForTimeout(900);
+      return;
+    }
+  }
+
+  // Destination free text
   if (q.includes('destinazione')) {
     const input = page.getByTestId('action-text');
     if (await input.isVisible().catch(() => false)) {
       await input.fill('Vibo Marina');
       await nextBtn.click();
+      await page.waitForTimeout(900);
       return;
     }
   }
 
-  if (q.includes('parti') && q.includes('torni')) {
-    const input = page.getByTestId('action-text');
-    if (await input.isVisible().catch(() => false)) {
-      await input.fill('dal 9 al 24 agosto 2026');
-      await nextBtn.click();
+  // Prep multi — skip
+  if (q.includes('preparazione') || q.includes('suggerimenti')) {
+    const skip = page.getByTestId('action-chip-skip');
+    if (await skip.isVisible().catch(() => false)) {
+      await skip.click();
+      await page.waitForTimeout(300);
+      if (await nextBtn.isVisible().catch(() => false) && await nextBtn.isEnabled().catch(() => false)) {
+        await nextBtn.click();
+      }
+      await page.waitForTimeout(900);
       return;
     }
   }
 
+  // Prefer explicit chip ids (calendar: no for browser e2e; confirm last)
   const preferIds = [
-    'confirm', 'accept', 'car', 'partial', 'solo', 'no', 'skip',
-    'tarquinia', 'brain', 'yes', 'train',
+    'confirm', 'accept', 'car', 'partial', 'solo', 'no',
+    'tarquinia', 'brain', 'roma', 'train',
   ];
   for (const id of preferIds) {
     const chip = page.getByTestId(`action-chip-${id}`);
     if (!(await chip.isVisible().catch(() => false))) continue;
     await chip.click();
-    // chips auto-submit for chips/preview; multi may need next
-    await page.waitForTimeout(400);
+    await page.waitForTimeout(300);
     if (await page.getByTestId('action-complete').isVisible().catch(() => false)) return;
-    if (await nextBtn.isVisible().catch(() => false) && id === 'skip') {
-      await nextBtn.click().catch(() => {});
+    if (await nextBtn.isVisible().catch(() => false) && await nextBtn.isEnabled().catch(() => false)) {
+      // chips_or_text needs Avanti when only selected without auto-submit
+      const kindHint = q;
+      if (kindHint.includes('dove parti') || kindHint.includes('destinazione')) {
+        await nextBtn.click().catch(() => {});
+      }
     }
+    await page.waitForTimeout(900);
     return;
   }
 
-  // Fallback: first chip
-  const chips = page.locator('[data-testid^="action-chip-"]');
-  const n = await chips.count();
-  if (n > 0) {
+  // Fallback first chip
+  const chips = page.getByTestId('action-chips').locator('[data-testid^="action-chip-"]');
+  const count = await chips.count();
+  if (count > 0) {
     await chips.first().click();
+    await page.waitForTimeout(300);
+    if (await nextBtn.isVisible().catch(() => false) && await nextBtn.isEnabled().catch(() => false)) {
+      await nextBtn.click().catch(() => {});
+    }
+    await page.waitForTimeout(900);
     return;
   }
+
   if (await nextBtn.isVisible().catch(() => false)) {
     await nextBtn.click();
+    await page.waitForTimeout(900);
+    return;
   }
+
+  throw new Error(`No way to answer travel turn: ${q}`);
 }
 
 test.describe('Travel Action Flow UI', () => {
   test('Vacanza Vibo Marina full path', async ({ page }) => {
     test.setTimeout(180_000);
+    fs.mkdirSync(EVIDENCE_DIR, { recursive: true });
+
     const creds = await apiRegister();
     await seedVacationPriority(creds.token);
+
+    // Probe travel API on this backend
+    const probe = await fetch(`${API}/api/travel-projects`, {
+      headers: { Authorization: `Bearer ${creds.token}` },
+    });
+    expect(probe.status).toBe(200);
+
     await loginUI(page, creds.email, creds.password);
+    await page.goto('/');
+    await page.waitForTimeout(2000);
     await shot(page, '00-home');
 
-    // Open travel from Home — Inizia / Organizza / Adesso
-    const starters = [
-      page.getByText(/Organizza viaggio|Inizia|Apri|Vacanza|Vibo/i).first(),
-      page.getByTestId('adesso-primary-cta'),
-      page.getByTestId('priority-primary-cta').first(),
-    ];
-    let opened = false;
-    for (const el of starters) {
-      if (await el.isVisible().catch(() => false)) {
-        await el.click();
-        opened = true;
-        break;
-      }
+    // Prefer UI open; fallback API open + navigate (still answers via UI)
+    const guideBtn = page
+      .getByTestId(/home-action-(guide|organize|open_source|open_travel)/)
+      .or(page.getByRole('button', { name: /Inizia|Organizza|Apri/i }))
+      .first();
+    let openedViaUi = false;
+    if (await guideBtn.isVisible().catch(() => false)) {
+      await guideBtn.click();
+      openedViaUi = true;
+    } else if (await page.getByTestId('adesso-card').isVisible().catch(() => false)) {
+      await page.getByTestId('adesso-card').click();
+      openedViaUi = true;
     }
-    if (!opened) {
-      // Deep link open via API then navigate
+
+    if (!openedViaUi || !(await page.getByTestId('action-session').isVisible().catch(() => false))) {
       const openRes = await fetch(`${API}/api/action-engine/open`, {
         method: 'POST',
         headers: {
@@ -151,35 +195,54 @@ test.describe('Travel Action Flow UI', () => {
         }),
       });
       const openData = await openRes.json();
+      expect(openRes.ok).toBeTruthy();
+      expect(openData.session?.flow).toBe('travel');
       const sid = openData.session?.id;
       expect(sid).toBeTruthy();
       await page.goto(`/action/${sid}`);
     }
 
-    await expect(page.getByTestId('action-session').or(page.getByTestId('action-complete')))
-      .toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId('action-session')).toBeVisible({ timeout: 30_000 });
+    await shot(page, '01-first-question');
 
-    for (let step = 1; step <= 25; step++) {
+    let steps = 0;
+    while (steps < 25) {
       if (await page.getByTestId('action-complete').isVisible().catch(() => false)) break;
-      await answerCurrentTurn(page, step);
-      await page.waitForTimeout(600);
+      await answerCurrentTurn(page, steps + 2);
+      steps += 1;
+      await page.waitForTimeout(400);
     }
 
     await expect(page.getByTestId('action-complete')).toBeVisible({ timeout: 30_000 });
     await shot(page, '99-complete');
 
     const openPlan = page.getByTestId('action-open-plan');
-    if (await openPlan.isVisible().catch(() => false)) {
-      await openPlan.click();
-      await expect(page.getByTestId('travel-project')).toBeVisible({ timeout: 20_000 });
-      await shot(page, '100-travel-project');
-    }
+    expect(await openPlan.isVisible()).toBeTruthy();
+    await openPlan.click();
+    await expect(page.getByTestId('travel-project')).toBeVisible({ timeout: 20_000 });
+    await shot(page, '100-travel-project');
 
-    // Persist evidence log
-    fs.mkdirSync(EVIDENCE_DIR, { recursive: true });
+    // API: project exists for user
+    const list = await fetch(`${API}/api/travel-projects`, {
+      headers: { Authorization: `Bearer ${creds.token}` },
+    });
+    const listed = await list.json();
+    const active = (listed.items || []).filter((p: any) => p.status === 'active');
+    expect(active.length).toBeGreaterThanOrEqual(1);
+
     fs.writeFileSync(
       path.join(EVIDENCE_DIR, 'run-log.json'),
-      JSON.stringify({ email: creds.email, ok: true, at: new Date().toISOString() }, null, 2),
+      JSON.stringify({
+        email: creds.email,
+        api: API,
+        steps_answered_via_ui: steps,
+        opened_via_ui: openedViaUi,
+        travel_project_id: active[0]?.id,
+        destination: active[0]?.destination,
+        ok: true,
+        at: new Date().toISOString(),
+        evidence_dir: EVIDENCE_DIR,
+      }, null, 2),
     );
   });
 });
