@@ -58,13 +58,13 @@ Evidence: `backend/data/e2e_documents_v2_browser.json` + `.png`
 | Interrogami quiz | yes | yes | yes | — | — | **not verified** |
 | Admin actions + edit fields | yes | yes | partial (API+UI wired) | deadline path mocked/fake in tests | — | **not verified** |
 | Auto-add gates | yes | yes | prefs UI prior | auto uses confirm+sync | — | **not verified** |
-| Google Calendar confirm sync | yes (prior session) | yes | prior | **yes (prior real account)** | — | **not verified** |
+| Google Calendar confirm sync | yes | yes | prior UI | **yes this pass** (see Real provider smoke) | — | **not verified** |
 | Maps links | yes | yes | event panel shown | — | — | **not verified** |
 | Brain merge | yes | soft (no LG in unit svc) | — | — | — | **not verified** |
 | Intelligent search | yes | yes | yes | — | — | **not verified** |
 | User corrections provenance | yes | yes | UI save admin fields | — | — | **not verified** |
 | Synthetic fixtures A–F | yes | yes | study+event | — | — | **not verified** |
-| Gemini real smoke | optional | not run this session | — | — | **not this session** | — |
+| Gemini real smoke | yes | **yes this pass** | — | — | **yes this pass** | — |
 
 ## Manual procedure (supervisor)
 
@@ -80,10 +80,38 @@ Evidence: `backend/data/e2e_documents_v2_browser.json` + `.png`
 10. Logout/login → documents still present.
 11. Optional: connect Google Calendar and confirm one synthetic event.
 
+## Real provider smoke (this follow-up pass)
+
+Script: `backend/scripts/smoke_documents_v2_real.py`  
+Evidence JSON: `backend/data/documents_v2_real_smoke.json` (local; may be gitignored)
+
+### Gemini (study fixture `caso_d_dispensa.txt`, `force_local=False`)
+
+| Field | Value |
+|-------|--------|
+| Result | **OK** |
+| `ai_used` | true |
+| `local_only` | false |
+| model | `gemini-flash-lite-latest` |
+| macro | education |
+| education_analysis | present |
+| document_id | `doc_b36660744fed` (smoke run) |
+
+### Google Calendar (synthetic concert → confirm + sync)
+
+| Field | Value |
+|-------|--------|
+| Result | **OK** |
+| connector instance | `ci_8720104e2b28455d` (`calendar_google`, connected) |
+| document_id | `doc_b3c3dfda9abb` |
+| event_candidate_id | `evc_f7db712c9192` |
+| ORA calendar draft | `ced_bd8109cca231` |
+| **Google event id** | `4rtfghqbv5de67vfvn32te0e3k` |
+| sync_status | synced |
+
 ## Limits
 
 - Mobile native (iOS/Android) **not verified**.
-- Gemini live enrichment **not re-run** in this completion session (local `force_local` path verified).
-- Google live create **not re-run** here; relies on prior `feature/google-calendar-sync` verification.
 - Brain Life Graph edges soft-fail when LG not wired in unit tests.
 - Browser MCP Glass tab flaky; Playwright is the recorded browser evidence.
+- Google smoke used an existing connected OAuth instance in local Mongo (`ora_local`); not a new OAuth consent flow.
