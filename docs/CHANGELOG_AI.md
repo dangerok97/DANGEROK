@@ -1,5 +1,25 @@
 # ORA — AI Changelog
 
+## 2026-08-05 — Documents V2 real Gemini + Google Calendar smoke
+
+### Request
+
+Follow-up after completion commit: confirm whether Gemini and Google Calendar live paths were verified; run minimal real smokes if credentials present; document honestly.
+
+### Actions
+
+- Confirmed branch `feature/documents-v2-completion` @ `ff42f7b`
+- Ran `backend/scripts/smoke_documents_v2_real.py`
+- Gemini: study fixture analyzed with `ai_used=true`, model `gemini-flash-lite-latest`
+- Google: synthetic concert confirmed; Google event id `4rtfghqbv5de67vfvn32te0e3k` (`sync_status=synced`)
+- Updated `DOCUMENTS_V2_VERIFICATION.md`, `DEVELOPMENT_STATE.md`, this changelog
+
+### Result
+
+Both live smokes **passed** this pass. Mobile still not verified.
+
+---
+
 ## 2026-08-05 — Complete and verify intelligent Documents V2
 
 ### Request
