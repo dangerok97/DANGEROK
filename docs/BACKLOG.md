@@ -28,6 +28,16 @@ Attività piccole e verificabili derivate da `docs/ROADMAP.md` e dall’audit.
 - **Rischi:** differenze FormData web/native.
 - **Priorità:** critica.
 
+## BACKLOG-HOME-V2 — Rebuild Home as intelligence dashboard
+
+- **Stato:** completato codice + pytest (2026-08-05, branch `feature/home-v2-intelligence`)
+- **Obiettivo:** Home risponde “cosa è più utile sapere/fare adesso” con ranking reale multi-fonte.
+- **Aree:** `backend/home/*`, `frontend/app/(tabs)/index.tsx`, `frontend/src/components/home/v2/*`, `frontend/app/situazione.tsx`, docs `HOME_V2_*`.
+- **Accettazione:** `/api/home` aggrega fonti fail-soft; UI senza seed/static/dead buttons; Playwright web.
+- **Test:** `tests/test_home_v2.py` (21); Playwright `e2e/home-v2.spec.ts`.
+- **Non verificato:** native mobile.
+- **Priorità:** critica.
+
 ## BACKLOG-003 — Messaggi UI per LLM assente
 
 - **Obiettivo:** su “Risolvi” e “Chiedi alla memoria”, mostrare copy italiano “AI non configurata” invece di errore grezzo.

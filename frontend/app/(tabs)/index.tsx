@@ -1,207 +1,129 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, ScrollView, RefreshControl } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { View, ScrollView, RefreshControl, Text, StyleSheet, Modal, Pressable, TextInput } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { FadeInDown, FadeOut, LinearTransition } from 'react-native-reanimated';
-import { useFocusEffect } from 'expo-router';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { useFocusEffect, useRouter } from 'expo-router';
 
 import { tokens } from '@/src/theme/tokens';
 import {
-  api, ApiDecision, DecisionExplanation, DailySummary, ConnectorInstance,
-  DecisionActionHistoryItem,
+  api, HomeV2Response, HomeActionDef, HomePriorityBand,
 } from '@/src/api/client';
 import { haptic } from '@/src/utils/haptic';
 import { useOnlineStatus, isNetworkError } from '@/src/hooks/use-online-status';
 import { humanizeError } from '@/src/utils/errors';
-import { FocusSkeleton, DailySkeleton, LaterSkeleton } from '@/src/components/Skeleton';
-
+import { FocusSkeleton } from '@/src/components/Skeleton';
 import { HomeHeader, OfflineBanner, ErrorBanner } from '@/src/components/home/HomeHeader';
-import { FocusNowCard } from '@/src/components/home/FocusNowCard';
-import { DailySummaryCard } from '@/src/components/home/DailySummaryCard';
-import { LaterList } from '@/src/components/home/LaterList';
-import { EmptyFocus } from '@/src/components/home/EmptyFocus';
-import { CalendarConnectionCard } from '@/src/components/home/CalendarConnectionCard';
-
-import {
-  WhyNowSheet, DailyDetailSheet, ConfirmSheet, PartialSheet,
-  PostponeSheet, ReasonSheet, MoreMenu, HistorySheet,
-} from '@/src/components/sheets/DecisionSheets';
-
-type Flags = { explain: boolean; action: boolean; daily: boolean };
-
-async function safe<T>(fn: () => Promise<T>): Promise<{ data?: T; error?: any; status?: number }> {
-  try { return { data: await fn() }; }
-  catch (e: any) { return { error: e, status: e?.status }; }
-}
+import { AdessoCard } from '@/src/components/home/v2/AdessoCard';
+import { PercheAdesso } from '@/src/components/home/v2/PercheAdesso';
+import { DynamicActions } from '@/src/components/home/v2/DynamicActions';
+import { SituazioneCard } from '@/src/components/home/v2/SituazioneCard';
+import { GoogleBanner } from '@/src/components/home/v2/GoogleBanner';
+import { PrioritaList } from '@/src/components/home/v2/PrioritaList';
+import { OraOsserva } from '@/src/components/home/v2/OraOsserva';
+import { ResumeCard } from '@/src/components/home/v2/ResumeCard';
+import { EmptyHome } from '@/src/components/home/v2/EmptyHome';
 
 const CONTAINER_MAX_WIDTH = 720;
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const [decisions, setDecisions] = useState<ApiDecision[]>([]);
-  const [explanation, setExplanation] = useState<DecisionExplanation | null>(null);
-  const [daily, setDaily] = useState<DailySummary | null>(null);
-  const [instance, setInstance] = useState<ConnectorInstance | null>(null);
-  const [flags, setFlags] = useState<Flags>({ explain: true, action: true, daily: true });
+  const router = useRouter();
+  const [home, setHome] = useState<HomeV2Response | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [lastSuccessAt, setLastSuccessAt] = useState<Date | null>(null);
-  const [, setTick] = useState(0);
-  const [whyOpen, setWhyOpen] = useState(false);
-  const [dailyDetailOpen, setDailyDetailOpen] = useState(false);
-  const [actionBusy, setActionBusy] = useState<string | null>(null);
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
-  const [postponeOpen, setPostponeOpen] = useState(false);
-  const [partialOpen, setPartialOpen] = useState(false);
-  const [blockOpen, setBlockOpen] = useState(false);
-  const [dismissOpen, setDismissOpen] = useState(false);
-  const [confirmCompleteOpen, setConfirmCompleteOpen] = useState(false);
-  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
-  const [historyOpen, setHistoryOpen] = useState(false);
-  const [history, setHistory] = useState<DecisionActionHistoryItem[] | null>(null);
-  const [otherWhy, setOtherWhy] = useState<DecisionExplanation | null>(null);
-  const [otherWhyLoading, setOtherWhyLoading] = useState<string | null>(null);
+  const [actionBusy, setActionBusy] = useState<string | null>(null);
+  const [correctOpen, setCorrectOpen] = useState(false);
+  const [snoozeOpen, setSnoozeOpen] = useState(false);
+  const [pendingItemId, setPendingItemId] = useState<string | null>(null);
   const { online, markOffline, markOnline } = useOnlineStatus();
-  const inflight = useRef<Set<string>>(new Set());
-
-  const activeDecisions = useMemo(
-    () => decisions.filter((d) => !['completed', 'dismissed'].includes(d.status)),
-    [decisions],
-  );
-  const focus = activeDecisions[0] || null;
-  const later = activeDecisions.slice(1);
+  const inflight = useRef(false);
 
   const load = useCallback(async (opts?: { silent?: boolean }) => {
     if (!opts?.silent) setLoading(true);
-    const [decRes, dailyRes, calRes] = await Promise.all([
-      safe(() => api.topDecisions(10)),
-      safe(() => api.dailyToday()),
-      safe(() => api.googleCalendarInstances()),
-    ]);
-    const allErrors = [decRes.error, dailyRes.error, calRes.error].filter(Boolean);
-    const allNetwork = allErrors.length === 3 && allErrors.every(isNetworkError);
-    if (allNetwork) markOffline();
-    else { markOnline(); setLastSuccessAt(new Date()); }
-
-    const items = decRes.data?.items || [];
-    setDecisions(items);
-    setDaily(dailyRes.data || null);
-    const insts = calRes.data?.items || [];
-    setInstance(insts[0] || null);
-
-    if (items.length && flags.explain) {
-      const exp = await safe(() => api.getExplanation(items[0].id));
-      if (exp.status === 404 && String(exp.error?.detail?.detail || exp.error?.detail || '').includes('abilitata')) {
-        setFlags((f) => ({ ...f, explain: false }));
-        setExplanation(null);
-      } else {
-        setExplanation(exp.data || null);
-      }
-    } else {
-      setExplanation(null);
+    try {
+      const data = await api.getHome();
+      setHome(data);
+      markOnline();
+      setLastSuccessAt(new Date());
+      setErrorBanner(null);
+    } catch (e: any) {
+      if (isNetworkError(e)) markOffline();
+      else setErrorBanner(humanizeError(e, 'default'));
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-  }, [flags.explain, markOffline, markOnline]);
+  }, [markOffline, markOnline]);
 
   useEffect(() => { load(); }, [load]);
-
-  // reload when returning from other screens (manage-calendars, settings, oauth callback)
   useFocusEffect(useCallback(() => { load({ silent: true }); }, [load]));
 
-  useEffect(() => {
-    const id = setInterval(() => setTick((n) => n + 1), 30_000);
-    return () => clearInterval(id);
-  }, []);
-
-  const runAction = useCallback(async (
-    key: string,
-    fn: () => Promise<any>,
-    opts?: { onDone?: () => void; hapticIntent?: 'tap' | 'medium' | 'heavy' },
+  const runHomeAction = useCallback(async (
+    itemId: string,
+    action: string,
+    extra?: { until?: string; priority?: HomePriorityBand; reason?: string },
   ) => {
-    if (inflight.current.has(key)) return;
-    inflight.current.add(key);
-    setActionBusy(key);
+    if (inflight.current) return;
+    inflight.current = true;
+    setActionBusy(action);
     setErrorBanner(null);
-    haptic(opts?.hapticIntent || 'tap');
     try {
-      await fn();
+      await api.homeAction({ item_id: itemId, action, ...extra });
       haptic('success');
       await load({ silent: true });
-      opts?.onDone?.();
     } catch (e: any) {
       if (isNetworkError(e)) markOffline();
       setErrorBanner(humanizeError(e, 'default'));
       haptic('error');
     } finally {
-      inflight.current.delete(key);
+      inflight.current = false;
       setActionBusy(null);
     }
   }, [load, markOffline]);
 
-  const openWhy = useCallback(async () => {
-    if (!focus || !flags.explain) return;
-    haptic('tap');
-    setWhyOpen(true);
-    if (!explanation) {
-      const exp = await safe(() => api.getExplanation(focus.id));
-      if (exp.status === 404) setFlags((f) => ({ ...f, explain: false }));
-      else setExplanation(exp.data || null);
-    }
-  }, [focus, explanation, flags.explain]);
-
-  const openHistory = useCallback(async () => {
+  const onDynamicAction = useCallback(async (action: HomeActionDef) => {
+    const focus = home?.primary_focus;
     if (!focus) return;
     haptic('tap');
-    setHistoryOpen(true);
-    setHistory(null);
-    const r = await safe(() => api.historyDecision(focus.id));
-    if (r.status === 404 && String(r.error?.detail?.detail || r.error?.detail || '').includes('abilitato')) {
-      setFlags((f) => ({ ...f, action: false }));
-      setHistory([]);
-    } else {
-      setHistory(r.data?.items || []);
+    if (action.kind === 'snooze') {
+      setPendingItemId(focus.id);
+      setSnoozeOpen(true);
+      return;
     }
-  }, [focus]);
-
-  const openOtherWhy = useCallback(async (id: string) => {
-    haptic('tap');
-    setOtherWhyLoading(id);
-    const exp = await safe(() => api.getExplanation(id));
-    setOtherWhyLoading(null);
-    if (exp.data) setOtherWhy(exp.data);
-  }, []);
-
-  const onStart = () => focus && runAction(`start:${focus.id}`, () => api.startDecision(focus.id), { hapticIntent: 'tap' });
-  const onComplete = () => focus && runAction(`complete:${focus.id}`, () => api.completeDecision(focus.id), {
-    onDone: () => setConfirmCompleteOpen(false), hapticIntent: 'medium',
-  });
-  const onPartial = (pct: number, note?: string) =>
-    focus && runAction(`partial:${focus.id}:${pct}`, () => api.partialDecision(focus.id, pct, undefined, note), {
-      onDone: () => setPartialOpen(false), hapticIntent: 'medium',
-    });
-  const onPostpone = (until: string, reason?: string) =>
-    focus && runAction(`postpone:${focus.id}`, () => api.postponeDecision(focus.id, until, reason), {
-      onDone: () => setPostponeOpen(false), hapticIntent: 'medium',
-    });
-  const onBlock = (reason: string) =>
-    focus && runAction(`block:${focus.id}`, () => api.blockDecision(focus.id, reason), {
-      onDone: () => setBlockOpen(false), hapticIntent: 'medium',
-    });
-  const onDismiss = (reason?: string) =>
-    focus && runAction(`dismiss:${focus.id}`, () => api.dismissDecision(focus.id, reason), {
-      onDone: () => setDismissOpen(false), hapticIntent: 'tap',
-    });
+    if (action.kind === 'correct') {
+      setPendingItemId(focus.id);
+      setCorrectOpen(true);
+      return;
+    }
+    if (['maps', 'navigate', 'open', 'study', 'resume', 'confirm'].includes(action.kind)) {
+      // navigation handled in DynamicActions; still record open/resume
+      if (action.kind === 'resume' || action.kind === 'open') {
+        await runHomeAction(focus.id, action.kind === 'resume' ? 'resume' : 'open');
+      }
+      return;
+    }
+    await runHomeAction(focus.id, action.kind === 'complete' ? 'complete' : action.kind);
+  }, [home?.primary_focus, runHomeAction]);
 
   const onRefresh = useCallback(async () => {
     haptic('select');
     setRefreshing(true);
-    await load({ silent: true });
-    setRefreshing(false);
-  }, [load]);
+    try {
+      const data = await api.refreshHome();
+      setHome(data);
+      markOnline();
+      setLastSuccessAt(new Date());
+    } catch (e: any) {
+      if (isNetworkError(e)) markOffline();
+      await load({ silent: true });
+    } finally {
+      setRefreshing(false);
+    }
+  }, [load, markOffline, markOnline]);
 
-  // Show calendar card only if the user has no instance yet (Hero A)
-  // or has instance but never synced (Hero B). If synced (state C), we hide
-  // the card from Home per spec §6: "sostituirlo con La tua giornata" — the DailyCard.
-  const showCalendarCard = !instance || !instance.last_sync_at;
+  const focus = home?.primary_focus || null;
+  const showGoogleBanner = !!home?.google_calendar?.show_banner;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: tokens.color.surface }} edges={['top']} testID="home-safe">
@@ -212,7 +134,7 @@ export default function HomeScreen() {
           maxWidth: CONTAINER_MAX_WIDTH,
           width: '100%',
           alignSelf: 'center',
-          paddingBottom: insets.bottom + 96,
+          paddingBottom: Math.max(insets.bottom, 16) + 108,
         }}
         refreshControl={
           <RefreshControl
@@ -227,119 +149,182 @@ export default function HomeScreen() {
         testID="home-scroll"
       >
         <HomeHeader online={online} lastSuccessAt={lastSuccessAt} />
-
         {!online ? <OfflineBanner /> : null}
         {errorBanner ? <ErrorBanner message={errorBanner} onDismiss={() => setErrorBanner(null)} /> : null}
+        {home?.partial ? (
+          <View style={styles.warn} testID="partial-warning">
+            <Text style={styles.warnText}>Alcune fonti non sono disponibili. Mostro i dati parziali.</Text>
+          </View>
+        ) : null}
 
         {loading ? (
           <FocusSkeleton />
         ) : focus ? (
-          <Animated.View
-            key={focus.id}
-            entering={FadeInDown.duration(tokens.motion.slow)}
-            exiting={FadeOut.duration(tokens.motion.fast)}
-            layout={LinearTransition.duration(tokens.motion.base)}
-          >
-            <FocusNowCard
-              decision={focus}
-              explanation={explanation}
-              explainEnabled={flags.explain}
-              actionEnabled={flags.action}
-              actionBusy={actionBusy}
-              onWhy={openWhy}
-              onStart={onStart}
-              onComplete={() => { haptic('tap'); setConfirmCompleteOpen(true); }}
-              onPartial={() => { haptic('tap'); setPartialOpen(true); }}
-              onPostpone={() => { haptic('tap'); setPostponeOpen(true); }}
-              onMore={() => { haptic('tap'); setMoreMenuOpen(true); }}
-            />
+          <Animated.View entering={FadeInDown.duration(tokens.motion.slow)} style={{ gap: tokens.spacing.md }}>
+            <AdessoCard item={focus} />
+            {home?.explanation ? (
+              <PercheAdesso
+                explanation={home.explanation}
+                onCorrect={() => { setPendingItemId(focus.id); setCorrectOpen(true); }}
+                onIgnore={() => runHomeAction(focus.id, 'ignore')}
+              />
+            ) : null}
+            <DynamicActions item={focus} busy={actionBusy} onAction={onDynamicAction} />
           </Animated.View>
         ) : (
-          <Animated.View entering={FadeInDown.duration(tokens.motion.slow)}>
-            <EmptyFocus />
-          </Animated.View>
+          <EmptyHome />
         )}
 
-        {loading ? (
-          <DailySkeleton />
-        ) : flags.daily && daily ? (
-          <DailySummaryCard daily={daily} onOpen={() => { haptic('tap'); setDailyDetailOpen(true); }} />
-        ) : null}
-
-        {!loading && showCalendarCard ? (
-          <CalendarConnectionCard
-            instance={instance}
-            eventsIngested={daily?.total_events}
-            onAfterSync={() => load({ silent: true })}
-            onAfterConnect={() => load({ silent: true })}
+        {!loading && home?.current_situation ? (
+          <SituazioneCard
+            situation={home.current_situation}
+            onOpen={() => { haptic('tap'); router.push('/situazione'); }}
           />
         ) : null}
 
-        <LaterList
-          items={later}
-          explainEnabled={flags.explain}
-          onWhy={openOtherWhy}
-          loadingWhyId={otherWhyLoading}
-        />
+        {!loading ? (
+          <GoogleBanner
+            visible={showGoogleBanner}
+            onDismiss={() => runHomeAction('__google_banner__', 'dismiss_banner')}
+            onConnected={() => load({ silent: true })}
+          />
+        ) : null}
 
-        {loading && (
-          <View style={{ gap: tokens.spacing.sm }}>
-            <LaterSkeleton />
-            <LaterSkeleton />
-          </View>
-        )}
+        {!loading && home?.priorities ? <PrioritaList groups={home.priorities} /> : null}
+
+        {!loading && home?.insights ? (
+          <OraOsserva
+            insights={home.insights}
+            onIgnore={(id) => runHomeAction(id, 'ignore')}
+            onAction={(ins) => {
+              if (ins.action?.route) router.push(ins.action.route as any);
+              runHomeAction(ins.id, 'mark_insight_read');
+            }}
+          />
+        ) : null}
+
+        {!loading && home?.resume_item ? (
+          <ResumeCard
+            item={home.resume_item}
+            onResume={() => runHomeAction(home.resume_item!.id, 'resume')}
+          />
+        ) : null}
       </ScrollView>
 
-      {/* Modals */}
-      <WhyNowSheet open={whyOpen} onClose={() => setWhyOpen(false)} explanation={explanation} />
-      <DailyDetailSheet open={dailyDetailOpen} onClose={() => setDailyDetailOpen(false)} daily={daily} />
-      <ConfirmSheet
-        open={confirmCompleteOpen}
-        onClose={() => setConfirmCompleteOpen(false)}
-        title="Segnare come completata?"
-        body="Verrà rimossa dal Focus Now."
-        confirmLabel="Completa"
-        onConfirm={onComplete}
-        loading={actionBusy?.startsWith('complete:')}
+      <CorrectPriorityModal
+        open={correctOpen}
+        onClose={() => setCorrectOpen(false)}
+        onPick={(p) => {
+          if (pendingItemId) runHomeAction(pendingItemId, 'correct', { priority: p });
+          setCorrectOpen(false);
+        }}
       />
-      <PartialSheet
-        open={partialOpen}
-        onClose={() => setPartialOpen(false)}
-        onSubmit={onPartial}
-        loading={actionBusy?.startsWith('partial:')}
+      <SnoozeModal
+        open={snoozeOpen}
+        onClose={() => setSnoozeOpen(false)}
+        onSubmit={(until) => {
+          if (pendingItemId) runHomeAction(pendingItemId, 'snooze', { until });
+          setSnoozeOpen(false);
+        }}
       />
-      <PostponeSheet
-        open={postponeOpen}
-        onClose={() => setPostponeOpen(false)}
-        onSubmit={onPostpone}
-        loading={actionBusy?.startsWith('postpone:')}
-      />
-      <ReasonSheet
-        open={blockOpen}
-        onClose={() => setBlockOpen(false)}
-        title="Blocca la Decision"
-        placeholder="Motivo del blocco (obbligatorio)"
-        required
-        onSubmit={onBlock}
-        loading={actionBusy?.startsWith('block:')}
-      />
-      <ReasonSheet
-        open={dismissOpen}
-        onClose={() => setDismissOpen(false)}
-        title="Ignora la Decision"
-        placeholder="Motivo (opzionale)"
-        onSubmit={onDismiss}
-        loading={actionBusy?.startsWith('dismiss:')}
-      />
-      <MoreMenu
-        open={moreMenuOpen}
-        onClose={() => setMoreMenuOpen(false)}
-        onBlock={() => { setMoreMenuOpen(false); setBlockOpen(true); }}
-        onDismiss={() => { setMoreMenuOpen(false); setDismissOpen(true); }}
-        onHistory={() => { setMoreMenuOpen(false); openHistory(); }}
-      />
-      <HistorySheet open={historyOpen} onClose={() => setHistoryOpen(false)} items={history} />
-      <WhyNowSheet open={!!otherWhy} onClose={() => setOtherWhy(null)} explanation={otherWhy} />
     </SafeAreaView>
   );
 }
+
+function CorrectPriorityModal({
+  open, onClose, onPick,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onPick: (p: HomePriorityBand) => void;
+}) {
+  const opts: HomePriorityBand[] = ['critical', 'today', 'this_week', 'waiting', 'later'];
+  const labels: Record<HomePriorityBand, string> = {
+    critical: 'Critico', today: 'Oggi', this_week: 'Questa settimana', waiting: 'In attesa', later: 'Più avanti',
+  };
+  return (
+    <Modal visible={open} transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable style={styles.modalScrim} onPress={onClose}>
+        <View style={styles.modalCard}>
+          <Text style={styles.modalTitle}>Correggi priorità</Text>
+          {opts.map((p) => (
+            <Pressable key={p} style={styles.modalRow} onPress={() => onPick(p)} testID={`correct-${p}`}>
+              <Text style={styles.modalRowText}>{labels[p]}</Text>
+            </Pressable>
+          ))}
+        </View>
+      </Pressable>
+    </Modal>
+  );
+}
+
+function SnoozeModal({
+  open, onClose, onSubmit,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onSubmit: (until: string) => void;
+}) {
+  const [hours, setHours] = useState('4');
+  return (
+    <Modal visible={open} transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable style={styles.modalScrim} onPress={onClose}>
+        <View style={styles.modalCard} onStartShouldSetResponder={() => true}>
+          <Text style={styles.modalTitle}>Rimanda (ore)</Text>
+          <TextInput
+            style={styles.input}
+            value={hours}
+            onChangeText={setHours}
+            keyboardType="number-pad"
+            testID="snooze-hours"
+          />
+          <Pressable
+            style={styles.modalRow}
+            onPress={() => {
+              const h = Math.max(1, parseInt(hours || '4', 10) || 4);
+              const until = new Date(Date.now() + h * 3600_000).toISOString();
+              onSubmit(until);
+            }}
+            testID="snooze-confirm"
+          >
+            <Text style={styles.modalRowText}>Conferma</Text>
+          </Pressable>
+        </View>
+      </Pressable>
+    </Modal>
+  );
+}
+
+const styles = StyleSheet.create({
+  warn: {
+    backgroundColor: tokens.color.warningBg,
+    borderColor: tokens.color.warning,
+    borderWidth: 1,
+    borderRadius: tokens.radius.md,
+    padding: 12,
+  },
+  warnText: { color: tokens.color.onSurface, fontSize: 13 },
+  modalScrim: {
+    flex: 1, backgroundColor: tokens.color.scrim,
+    justifyContent: 'center', padding: 24,
+  },
+  modalCard: {
+    backgroundColor: tokens.color.surfaceSecondary,
+    borderRadius: tokens.radius.lg,
+    padding: 16,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: tokens.color.border,
+  },
+  modalTitle: { fontSize: 16, fontWeight: '700', color: tokens.color.onSurface, marginBottom: 4 },
+  modalRow: {
+    paddingVertical: 12, paddingHorizontal: 8,
+    borderRadius: tokens.radius.md, backgroundColor: tokens.color.surfaceTertiary,
+  },
+  modalRowText: { color: tokens.color.onSurface, fontSize: 14, fontWeight: '600' },
+  input: {
+    borderWidth: 1, borderColor: tokens.color.borderStrong,
+    borderRadius: tokens.radius.md, padding: 12,
+    color: tokens.color.onSurface, backgroundColor: tokens.color.surfaceTertiary,
+  },
+});

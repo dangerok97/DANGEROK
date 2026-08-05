@@ -1,6 +1,6 @@
 # ORA — Product (struttura reale)
 
-Ultimo aggiornamento: 2026-08-05 — AI Provider Manager (Gemini default).
+Ultimo aggiornamento: 2026-08-05 — Home V2 intelligence dashboard.
 
 ## Vision
 
@@ -15,7 +15,8 @@ Persone che vogliono una priorità unica chiara (non un task manager generico), 
 | Route | Schermata | Ruolo |
 |-------|-----------|--------|
 | `/login` | Login | Auth email/Google/Apple |
-| `/(tabs)` → index | Home “Adesso” | Decision focus + daily + calendario CTA |
+| `/(tabs)` → index | Home V2 “Adesso” | Ranking multi-fonte, situazione, priorità, insights, resume |
+| `/situazione` | Situazione completa | Vista reale da CTA Home |
 | `/(tabs)/memoria` | Memoria | Q&A e salvataggio ricordi |
 | `/(tabs)/documenti` | Documenti | Lista/upload/dettaglio documenti |
 | `/(tabs)/aggiungi` | Aggiungi | Capture priorità / ricordo |
@@ -39,22 +40,28 @@ Persone che vogliono una priorità unica chiara (non un task manager generico), 
 - **Docs:** `docs/SOCIAL_AUTH_*.md`.
 - **Aperti:** credenziali reali; device iOS/Android; revoca JWT server-side.
 
-### 2. Decision Engine / “Cosa conta adesso”
+### 2. Home V2 — Intelligence dashboard
 
-- **Scopo:** ranking e azioni su decisioni (start/complete/postpone/block/dismiss/partial/resolve).
-- **Stato:** **parzialmente operativo** — lista, seed al register, azioni e explanation OK; **resolve** bloccato senza LLM.
-- **Flusso UI:** Home mostra focus + later; sheet azioni; “Risolvi” richiede provider LLM.
+- **Scopo:** rispondere “cosa è più utile sapere o fare adesso” con ranking multi-fonte (documenti, calendario, studio, decisioni, …).
+- **Stato:** **operativo (web)** — `GET /api/home`, ranking `home-rank-1.0` senza Gemini, UI Adesso/Perché/azioni tipizzate/situazione/priorità/insights/resume; banner Google compatto.
+- **Flusso UI:** Home → focus reale → `/situazione`; azioni complete/snooze/ignore/correct; refresh on focus + pull-to-refresh.
+- **Backend:** `backend/home/` + adapters fail-soft.
+- **DB:** `home_snapshots`, `home_item_state`, `home_insights` (+ fonti esistenti).
+- **Docs:** `docs/HOME_V2_*.md`.
+- **Aperti:** native mobile non verificato.
+
+### 3. Decision Engine
+
+- **Scopo:** ranking e azioni su decisioni (start/complete/postpone/block/dismiss/partial/resolve); alimenta anche Home V2 via adapter.
+- **Stato:** **parzialmente operativo** — API OK; Home non dipende più solo da questo.
 - **Backend:** `/api/decisions/*`, `decision_engine/`, action center, explainability.
 - **DB:** `decisions`, `decision_action_history`, (legacy `tasks`).
-- **Aperti:** UX resolve senza LLM; progetti/task manager non esistono come modulo separato.
 
-### 3. Daily Intelligence
+### 3b. Daily Intelligence
 
-- **Scopo:** riassunto giornata (eventi, finestre, energia).
-- **Stato:** **operativo** a livello API/UI (verificato: card “La tua giornata” con 0 eventi senza calendario).
+- **Scopo:** indicatori giornata (eventi, finestre) usati da “La tua situazione”.
+- **Stato:** **operativo** API; Home non mostra più score 100/100.
 - **Backend:** `/api/daily/*`, `daily_intelligence/`.
-- **DB:** deriva da ingestion/life graph/calendar events.
-- **Dipendenze:** ricchezza dati aumenta con Google/Apple Calendar.
 
 ### 4. Memoria
 

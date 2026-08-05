@@ -28,24 +28,24 @@ backend/
   connectors/            # google_calendar, apple_calendar
   ingestion/             # event pipeline
   documents/             # document intelligence
-  daily_intelligence/    # daily summary
+  documents/intelligence/# pipeline, taxonomy, analyzer, calendar drafts
+  home/                  # Home V2 aggregator + ranking + adapters
+  daily_intelligence/    # daily summary (situation indicators)
   behavioral_intelligence/
   behavior_aware_decisions/
   explainability/
   action_center/
   social_auth/           # Google/Apple verify, identities, linking
   llm/                   # Provider Manager + adapters (gemini/openai/ollama/emergent)
-  documents/             # storage, extraction, insights
-  documents/intelligence/# pipeline, taxonomy, analyzer, calendar drafts
   security/              # token vault
   tests/                 # pytest
 frontend/
-  app/                   # expo-router screens
-  src/api/client.ts      # HTTP client
+  app/                   # expo-router screens (Home V2 + /situazione)
+  src/api/client.ts      # HTTP client incl. /home
   src/auth/              # Google/Apple client helpers
-  src/components/        # UI
+  src/components/home/v2 # Home V2 blocks
   src/theme/tokens.ts
-docs/                    # SOCIAL_AUTH_* + INTELLIGENT_DOCUMENTS_*
+docs/                    # HOME_V2_* + DOCUMENTS_V2_* + SOCIAL_AUTH_*
 scripts/                 # local automation
 .emergent/               # legacy Emergent runtime (non-portable)
 .cursor/                 # Cursor autonomy rules/agents/hooks
@@ -61,12 +61,16 @@ All routes under `/api` via `ALL_ROUTERS`:
 - `permissions`, `connectors`, `ingestion`
 - `google_calendar`, `apple_calendar`
 - `daily`, `behavior`, `behavior_shadow`
-- `documents`, `admin`, `memory`
+- `documents`, `home` (V2 intelligence dashboard), `admin`, `memory`
 
 Health:
 
 - `GET /api/` → `{ "app": "ORA", "status": "ok" }`
 - `GET /api/health` → app + database + llm configured flag + integration flags (no secrets)
+- `GET /api/home` → Home V2 aggregate (`primary_focus`, situation, priorities, insights, resume, warnings)
+- `GET /api/home/situation` → full situation view payload
+- `POST /api/home/actions` → complete / snooze / ignore / correct / insight / banner
+- `POST /api/home/refresh` → rebuild ranking snapshot
 
 ## Local topology
 
@@ -76,7 +80,7 @@ MongoDB :27017  →  FastAPI :8000  →  Expo web :8081 (EXPO_PUBLIC_BACKEND_URL
 
 ## Data store
 
-MongoDB collections created/indexed at startup (users, tasks, decisions, life_nodes/edges, node_knowledge, link_proposals, context_snapshots, memories, permission_*, ingestion_events, connector_instances, secret_vault, google_oauth_sessions, documents-related, behavioral collections, …).
+MongoDB collections created/indexed at startup (users, tasks, decisions, life_nodes/edges, node_knowledge, link_proposals, context_snapshots, memories, permission_*, ingestion_events, connector_instances, secret_vault, google_oauth_sessions, documents-related, `home_snapshots` / `home_item_state` / `home_insights`, behavioral collections, …).
 
 Document binaries: local storage under `backend/data/documents/` (S3 backend stubbed for future).
 

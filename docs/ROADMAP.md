@@ -21,8 +21,9 @@ Basata sull’audit funzionale del 2026-08-04. Ordine: fondamenta → organizzaz
 | Attività | Priorità | Dipendenze | Complessità | Criterio di completamento |
 |----------|----------|------------|-------------|---------------------------|
 | B1 Completare E2E azioni Decision in UI (complete/postpone/block) | alta | A3 | M | Azioni cambiano status in Mongo + Home aggiornata |
+| B1b Home V2 intelligence dashboard | critica | Documents V2 + Calendar | L | **DONE** branch `feature/home-v2-intelligence` — `/api/home` + ranking + Expo web |
 | B2 Modello “promemoria” leggero su postpone/deadline (senza push) | media | B1 | M | Lista scadenze o badge Home verificabile |
-| B3 Agenda giornaliera da Daily (solo lettura) | media | Daily OK | M | Schermata/sheet “giornata” navigabile |
+| B3 Agenda / situazione completa (sostituisce giornata score) | media | Home V2 | M | **DONE** `/situazione` + indicatori reali |
 | B4 Notifiche locali (expo-notifications) opzionali | media | B2 | L | Reminder locale su decision con deadline |
 | B5 Google Calendar OAuth + write sync end-to-end | alta | GOOGLE_OAUTH_* | L | Write reale verificato (evento sintetico) |
 | B6 Documents V2 intelligent hub | alta | — | L | Branch `feature/rebuild-intelligent-documents` |

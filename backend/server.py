@@ -188,6 +188,14 @@ async def startup():
     except Exception:
         logger.exception("Documents bootstrap failed (non-fatal)")
 
+    # Home V2 intelligence dashboard
+    try:
+        from home.service import HomeService
+        await HomeService(db).ensure_indexes()
+        logger.info("Home V2 indexes ready")
+    except Exception:
+        logger.exception("Home V2 bootstrap failed (non-fatal)")
+
     # Sync capability registry to Mongo (idempotent, structural fields are
     # overwritten from code; ops metadata is preserved).
     try:
@@ -199,7 +207,7 @@ async def startup():
 
     logger.info(
         "ORA backend ready. Modules online: decision_engine, life_graph, "
-        "knowledge, auto_link, context_assembler, permissions, connectors."
+        "knowledge, auto_link, context_assembler, permissions, connectors, home_v2."
     )
 
 
