@@ -19,11 +19,12 @@ export type QuestionTurn = {
   id: string;
   question: string;
   explanation?: string | null;
-  input_kind: 'chips' | 'chips_or_text' | 'text';
+  input_kind: 'chips' | 'chips_or_text' | 'text' | 'multi_chips' | 'preview' | 'date';
   options: AnswerOption[];
   allow_skip?: boolean;
   required?: boolean;
   brain_key?: string | null;
+  meta?: Record<string, unknown>;
 };
 
 export type ProposedAction = {
@@ -79,4 +80,9 @@ export type AnswerResult = {
   home_invalidate?: boolean;
   next_focus_hint?: string | null;
   error?: string;
+  message?: string;
+  upload_required?: boolean;
+  upload_route?: string;
+  plan?: Record<string, unknown>;
+  opened_plan_id?: string;
 };

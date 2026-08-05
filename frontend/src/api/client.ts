@@ -360,6 +360,58 @@ export const api = {
       `/action-engine/sessions/${sessionId}/merge-project`,
       { method: 'POST', body: JSON.stringify({ target_project_id }) },
     ),
+  actionEngineBack: (sessionId: string, to_turn_id?: string) =>
+    request<ActionEngineAnswerResult>(`/action-engine/sessions/${sessionId}/back`, {
+      method: 'POST',
+      body: JSON.stringify({ to_turn_id }),
+    }),
+  actionEngineDraft: (sessionId: string, answers?: Record<string, unknown>) =>
+    request<ActionEngineAnswerResult>(`/action-engine/sessions/${sessionId}/draft`, {
+      method: 'POST',
+      body: JSON.stringify({ answers }),
+    }),
+  actionEngineSearchDocs: (sessionId: string) =>
+    request<{ ok: boolean; session: ActionEngineSession; documents?: unknown }>(
+      `/action-engine/sessions/${sessionId}/search-docs`,
+      { method: 'POST' },
+    ),
+  actionEnginePreview: (sessionId: string) =>
+    request<{ ok: boolean; preview?: unknown; plan?: unknown; session?: ActionEngineSession }>(
+      `/action-engine/sessions/${sessionId}/preview`,
+      { method: 'POST' },
+    ),
+  actionEngineConfirm: (sessionId: string, body: { duplicate_action?: string; force?: boolean } = {}) =>
+    request<ActionEngineAnswerResult>(`/action-engine/sessions/${sessionId}/confirm`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  // Study plans
+  studyPlansList: (status?: string) =>
+    request<{ items: StudyPlan[] }>(`/study-plans${status ? `?status=${status}` : ''}`),
+  studyPlanGet: (planId: string) =>
+    request<{ plan: StudyPlan }>(`/study-plans/${planId}`),
+  studyPlanSessionAction: (
+    planId: string,
+    sessionId: string,
+    action: 'start' | 'complete' | 'snooze' | 'skip',
+    snooze_minutes?: number,
+  ) =>
+    request<{ ok: boolean; session?: unknown }>(
+      `/study-plans/${planId}/sessions/${sessionId}/action`,
+      { method: 'POST', body: JSON.stringify({ action, snooze_minutes }) },
+    ),
+  studyPlanUpdate: (planId: string, body: Record<string, unknown>) =>
+    request<{ ok: boolean; plan?: StudyPlan }>(`/study-plans/${planId}/update`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  studyPlanDelete: (planId: string) =>
+    request<{ ok: boolean }>(`/study-plans/${planId}`, { method: 'DELETE' }),
+  studyPlanSync: (planId: string) =>
+    request<{ ok: boolean; google_sync?: unknown }>(`/study-plans/${planId}/retry-sync`, {
+      method: 'POST',
+    }),
 
   // Documents V2 — intelligent actions engine
   documentsHub: (limit = 40) =>
@@ -1192,6 +1244,7 @@ export type ActionEngineSession = {
     options: { id: string; label: string; value?: unknown }[];
     allow_skip?: boolean;
     required?: boolean;
+    meta?: Record<string, unknown>;
   } | null;
   answers: Record<string, unknown>;
   progress: number;
@@ -1217,6 +1270,27 @@ export type ActionEngineSession = {
   updated_at: string;
   completed_at?: string | null;
   meta?: Record<string, unknown>;
+};
+
+export type StudyPlan = {
+  id: string;
+  status: string;
+  exam_name: string;
+  subject?: string | null;
+  exam_date?: string | null;
+  intensity?: string;
+  daily_minutes?: number;
+  available_days?: number[];
+  tools?: string[];
+  document_ids?: string[];
+  calendar_sync?: boolean;
+  sessions?: Array<Record<string, unknown>>;
+  flashcard_document_ids?: string[];
+  interrogami_document_ids?: string[];
+  google_sync?: Record<string, unknown>;
+  preview?: Record<string, unknown>;
+  progress?: Record<string, unknown>;
+  confirmed_at?: string | null;
 };
 
 export type ActionEngineOpenBody = {
@@ -1249,4 +1323,9 @@ export type ActionEngineAnswerResult = {
   home_invalidate?: boolean;
   next_focus_hint?: string | null;
   error?: string;
+  message?: string;
+  upload_required?: boolean;
+  upload_route?: string;
+  plan?: StudyPlan | Record<string, unknown>;
+  opened_plan_id?: string;
 };

@@ -24,8 +24,9 @@ Branch: `ora/cursor-platform`
 |----------|-------|---------------|
 | `/login` | parzialmente operativo | Email OK; Google/Apple codice pronto, UI “non configurata” senza client ID (non mock) |
 | Home `/(tabs)` | operativo (web Home V2) | Aggregato `/api/home`; Adesso/Perché/azioni tipizzate → Action Engine; situazione/priorità/insights/resume; banner Google compatto |
-| `/action/[sessionId]` | implementato (da verificare UI) | Guida una-domanda; entry da Apri/Organizza/Inizia/card |
+| `/action/[sessionId]` | operativo (web study) | Guida una-domanda; study: multi-chip/preview/confirm |
 | `/action/open` | implementato | Bridge deep-link verso Action Engine |
+| `/study-plan/[id]` | implementato (web) | Piano attivo: sessioni, pause, sync, delete |
 | `/situazione` | operativo (web) | Vista completa reale da CTA Home |
 | Memoria | parzialmente operativo | UI + add/list OK; ask serve LLM |
 | Documenti | operativo (web) | Empty + upload/list/detail/persistenza verificati 2026-08-04; vedi `docs/DOCUMENTS_VERIFICATION.md` |

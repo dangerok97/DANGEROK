@@ -86,6 +86,34 @@ def actions_for(item: HomeItem) -> List[HomeAction]:
             correct,
         ]
 
+    if t == "study" and item.source_type == "study_plan":
+        acts = [
+            HomeAction(
+                id="open_plan", label="Apri piano", kind="navigate",
+                route=f"/study-plan/{sid}", primary=True,
+            ),
+        ]
+        next_s = (item.meta or {}).get("next_session") or {}
+        if next_s.get("id"):
+            acts.append(HomeAction(
+                id="start_session", label="Inizia sessione", kind="study",
+                route=f"/study-plan/{sid}", params={"session_id": next_s["id"], "action": "start"},
+            ))
+        fc_ids = (item.meta or {}).get("flashcard_document_ids") or []
+        iq_ids = (item.meta or {}).get("interrogami_document_ids") or []
+        if fc_ids:
+            acts.append(HomeAction(
+                id="flashcards", label="Flashcard", kind="study",
+                route=f"/document/{fc_ids[0]}", params={"mode": "flashcards"},
+            ))
+        if iq_ids:
+            acts.append(HomeAction(
+                id="quiz", label="Interrogami", kind="study",
+                route=f"/document/{iq_ids[0]}", params={"mode": "quiz"},
+            ))
+        acts.append(snooze)
+        return acts
+
     if t == "study":
         return [
             guide,

@@ -48,6 +48,16 @@ Attività piccole e verificabili derivate da `docs/ROADMAP.md` e dall’audit.
 - **Non verificato:** Playwright E2E Action Engine; native; weather live.
 - **Priorità:** critica.
 
+## BACKLOG-STUDY-ACTION-FLOW — Complete study plan conversational flow
+
+- **Stato:** completato codice + pytest (2026-08-05, branch `feature/complete-study-action-flow`)
+- **Obiettivo:** Intent study → piano confermato con sessioni/materiali/tools/Home/resume.
+- **Aree:** `backend/action_engine/study/*`, AE router/service, Home study adapter, `frontend/app/action/*`, `frontend/app/study-plan/*`.
+- **Accettazione:** preview+confirm obbligatori; idempotency; Google/Gemini opzionali; niente complete silenzioso via API.
+- **Test:** `tests/test_study_action_flow.py`; Playwright `e2e/study-action-flow.spec.ts`.
+- **Non verificato:** native mobile; Google sync senza credenziali.
+- **Priorità:** critica.
+
 ## BACKLOG-003 — Messaggi UI per LLM assente
 
 - **Obiettivo:** su “Risolvi” e “Chiedi alla memoria”, mostrare copy italiano “AI non configurata” invece di errore grezzo.

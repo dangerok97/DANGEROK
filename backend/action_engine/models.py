@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Literal, Optional
 from pydantic import BaseModel, Field
 
 
-ENGINE_VERSION = "action-engine-1.1"
+ENGINE_VERSION = "action-engine-1.2"
 
 FlowCategory = Literal[
     "study",
@@ -36,11 +36,14 @@ class QuestionTurn(BaseModel):
     id: str
     question: str
     explanation: Optional[str] = None
-    input_kind: Literal["chips", "chips_or_text", "text"] = "chips"
+    input_kind: Literal[
+        "chips", "chips_or_text", "text", "multi_chips", "preview", "date",
+    ] = "chips"
     options: List[AnswerOption] = Field(default_factory=list)
     allow_skip: bool = False
     required: bool = True
     brain_key: Optional[str] = None  # knowledge property key
+    meta: Dict[str, Any] = Field(default_factory=dict)
 
 
 class TurnAnswer(BaseModel):
@@ -139,8 +142,20 @@ class ActionSession(BaseModel):
                     "intent_entities",
                     "classifier_version",
                     "needs_clarify",
+                    "study_plan_id",
+                    "study_preview",
+                    "study_documents",
+                    "google_connected",
+                    "google_banner",
+                    "validation_error",
+                    "duplicate_plan",
+                    "timezone",
                 )
             },
+            "turn_history": [
+                {"turn_id": t.turn_id, "option_id": t.option_id, "value": t.value}
+                for t in self.turn_history
+            ],
         }
 
 
@@ -170,6 +185,19 @@ class AnswerBody(BaseModel):
     value: Any = None
     text: Optional[str] = None
     skip: bool = False
+
+
+class BackBody(BaseModel):
+    to_turn_id: Optional[str] = None
+
+
+class DraftBody(BaseModel):
+    answers: Optional[Dict[str, Any]] = None
+
+
+class ConfirmStudyBody(BaseModel):
+    duplicate_action: Optional[str] = None
+    force: bool = False
 
 
 class MergeProjectBody(BaseModel):

@@ -1,54 +1,53 @@
 # ORA — Development State
 
-Last updated: 2026-08-05 (Intent Classification Engine)
+Last updated: 2026-08-05 (Study Action Flow complete)
 
 ## Branch
 
-- Active: `feature/intent-classification-engine` (local, no push)
-- Base: `feature/ora-action-engine` @ `6b3831b`
+- Active: `feature/complete-study-action-flow` (local, no push)
+- Base: `feature/intent-classification-engine` @ `66b7775`
+
+## Study Action Flow
+
+| Item | Stato |
+|------|--------|
+| Conversational steps 1–12 + preview/confirm | **implemented** |
+| StudyPlan model + sessions + intensities/states | **implemented** |
+| Documents V2 material search + upload resume | **implemented** |
+| Deterministic generator (+ optional Gemini topics) | **implemented** |
+| Flashcards / Interrogami on confirm (no dupes) | **implemented** |
+| Brain links (no dup nodes) | **implemented** |
+| Google sync if connected; banner if not | **implemented** (partial fail OK) |
+| Home plan card + draft resume CTA | **implemented** |
+| Plan UI `/study-plan/[id]` | **implemented** |
+| pytest study suite | **12 passed** (focused) |
+| Playwright FULL UI | **PASS** (1/1, ~29s) — evidence `frontend/test-results/study-action-flow/` |
+| Gemini | Optional / absent OK |
+| Google credentials | Not required to complete plan |
+| Native mobile | **not verified** |
 
 ## Intent Classification Engine
 
 | Item | Stato |
 |------|--------|
-| Package `backend/intent_engine/` | **implemented** |
-| Deterministic classifier + KB (IT) | **implemented** |
-| Optional LLM enricher (`INTENT_LLM_ENRICH`) | **implemented** (off by default) |
-| `POST /api/intent/classify` | **implemented** |
-| AE open routes via Intent (not item_type) | **implemented** |
-| Clarify flow on low confidence | **implemented** |
-| Persist Intent on decisions + Home labels | **implemented** |
-| Corpus ≥100 IT phrases | **124** in fixtures |
-| pytest intent + AE | **147 passed** |
-| Playwright psychology exam | **1 passed** (Expo web) |
-| Native mobile Intent→AE | **not verified** |
+| Package + AE routing via Intent | **intact** (untouched except consumption) |
+| Psychology → study / exam_preparation | **working** |
 
-## Action Engine
+## Action Engine (other flows)
 
 | Item | Stato |
 |------|--------|
-| Flows study/event/travel/medical/admin/generic/clarify | **implemented** |
-| Flow choice via Intent Engine | **required** |
-| Title heuristics inside AE for flow choice | **removed** |
+| event / travel / medical / admin / generic / clarify | **unchanged** (study-only expansion) |
 | Medical no-advice | **enforced** |
-| Weather / live Maps | **blocked placeholders** |
-
-## Home V2 / Documents V2
-
-| Item | Stato |
-|------|--------|
-| Home V2 aggregator + ranking | **implemented** (labels prefer Intent) |
-| Documents V2 | **untouched / intact** |
-| Native mobile | **not verified** |
 
 ## Open / next
 
-1. Wire Parla / notifications / email ingest to same Intent Engine
-2. Expand KB for more languages / edge cases
-3. Device smoke (iOS/Android)
-4. Optional LLM enrich evaluation with Gemini key
+1. Run Playwright study E2E on live Expo web; archive screenshots
+2. Device smoke (iOS/Android) for study plan screen
+3. Wire Parla / notifications to Intent Engine
+4. Harden Google create_event path across provider signatures
 
 ## Credentials / safety
 
 - Never commit `.env` / tokens
-- Intent Engine needs no secrets; LLM enrich optional via existing provider keys
+- Study flow needs no secrets; Google/Gemini optional
