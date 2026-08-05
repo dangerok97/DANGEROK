@@ -21,8 +21,8 @@ Last updated: 2026-08-05 (Travel Action Flow — first Life Planner slice)
 | Prep optional; weather/email honest stubs | **implemented** |
 | FE `/travel-project/[id]` + AE preview | **implemented** |
 | pytest travel suite | **12 passed** |
-| Playwright travel UI | **authored** — run when servers up |
-| Google live travel events | **optional manual** |
+| Playwright travel UI | **PASS** 1/1 — evidence `frontend/e2e-evidence/travel-action-flow/` |
+| Google live travel events | **PASS** create×3 + cleanup cancelled (francesconicolocefala@gmail.com) |
 | Weather / email auto-find / native mobile | **not verified / not implemented** |
 
 ## Study Action Flow

@@ -1,5 +1,30 @@
 # ORA — AI Changelog
 
+## 2026-08-05 — Verify travel action flow browser and Google sync
+
+### Request
+
+Close verification gaps: Playwright travel E2E green; live Google Calendar create/cleanup for connected test account; docs + local commit. No push.
+
+### Actions
+
+- Restarted travel-branch API on `:8001` (stale `:8000` lacked `/travel-projects`); Expo web `:8081` → 8001
+- Playwright `e2e/travel-action-flow.spec.ts` hardened; evidence under `frontend/e2e-evidence/travel-action-flow/`
+- Script `backend/scripts/verify_travel_google_sync.py` — confirm + 3 Google events + cleanup
+- Fixed travel Google persist/cleanup (`calendar_events` full-array write; delete uses `google_sync.synced` fallback)
+
+### Results
+
+- Playwright: **PASS** 1/1 (~29s) — screenshots + `run-log.json`
+- Google: **PASS** — event ids `pak7nvaer40p9v6b9cji5hl8o4` / `7gj9vqeu21lb74qp2ekn0s0h2g` / `f0m3kb7sahnkk19e54ctblltr8` created then `cancelled`; calendar `francesconicolocefala@gmail.com`
+- Remaining: weather, email auto-find, native mobile
+
+### Commit
+
+`test: verify travel action flow browser and google sync`
+
+---
+
 ## 2026-08-05 — Complete Travel Action Flow (Life Planner slice)
 
 ### Request

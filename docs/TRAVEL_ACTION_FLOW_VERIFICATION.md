@@ -9,37 +9,59 @@ cd backend
 .\.venv\Scripts\python.exe -m pytest tests/test_travel_action_flow.py tests/test_action_engine.py::test_travel_flow -q
 ```
 
-**Result (2026-08-05): 12 passed**
+**Result: 12 passed** (feature commit `ed332c2`)
 
-Coverage includes: period parse, intent vacation+period, missing-only questions, destination/departure, transport/bookings/companions, project create, calendar propose + Google absent, Maps links, Home phase, Brain links, resume/draft, isolation, confirm gate (no silent calendar create).
-
-## Playwright
+## Playwright (browser E2E)
 
 ```text
+# Backend with travel routes (this branch). Used :8001 when :8000 held a stale process.
+# Expo web on :8081 with EXPO_PUBLIC_BACKEND_URL pointing at that backend.
 cd frontend
+$env:E2E_API_URL="http://127.0.0.1:8001"
+$env:EXPO_PUBLIC_BACKEND_URL="http://127.0.0.1:8001"
+$env:E2E_BASE_URL="http://127.0.0.1:8081"
 npx playwright test e2e/travel-action-flow.spec.ts
 ```
 
-Requires local backend + Expo web. Evidence dir: `frontend/test-results/travel-action-flow/`.
+**Result (2026-08-05): PASS (1/1, ~29–45s)**
 
-**Status:** authored; run when servers up (see CHANGELOG for result).
+Evidence (outside Playwright wipe dir):
 
-## Google Calendar (optional live)
+- `frontend/e2e-evidence/travel-action-flow/run-log.json`
+- Screenshots: `00-home.png` … `10-turn.png`, `99-complete.png`, `100-travel-project.png`
 
-When connector `calendar_google` is connected for a test user:
+## Google Calendar live sync
 
-1. Run travel flow with calendar sync = yes → confirm  
-2. Expect Google event ids on vacation_block and/or outbound/return  
-3. Cleanup: `DELETE /api/travel-projects/{id}?cleanup_google=true`  
+```text
+cd backend
+.\.venv\Scripts\python.exe scripts\verify_travel_google_sync.py
+```
 
-**Live create for francesconicolocefala@gmail.com:** run manually when connected — not claimed in this commit unless evidence recorded.
+**Result (2026-08-05): PASS**
 
-## Honest gaps
+| Field | Value |
+|-------|--------|
+| Connector | `calendar_google` + vault |
+| Calendar | `francesconicolocefala@gmail.com` (primary) |
+| Travel project | `trp_909806018a814b` |
+| vacation_block | `pak7nvaer40p9v6b9cji5hl8o4` → cancelled |
+| outbound | `7gj9vqeu21lb74qp2ekn0s0h2g` → cancelled |
+| return | `f0m3kb7sahnkk19e54ctblltr8` → cancelled |
+| Duplicates | unique ids (no dupes) |
+| Cleanup | `delete_project(cleanup_google=True)` deleted 3; GET status `cancelled` |
 
-| Item | Verified? |
-|------|-----------|
-| Weather | No — skipped honestly |
-| Email auto-find | No — stub only |
-| Native iOS/Android | No |
-| Nominatim distance | Soft; tests use `skip_maps_network` |
-| Google live travel sync | Pending optional manual |
+Report: `frontend/e2e-evidence/travel-action-flow/google-verify-report.json`
+
+### Fix during verify
+
+Positional Mongo `$` updates did not persist `google_event_id` on `calendar_events`; sync now writes the full events array, and delete falls back to `google_sync.synced` ids. Confirm re-reads `calendar_sync` from answers.
+
+## Honest gaps remaining
+
+| Item | Status |
+|------|--------|
+| Weather API | not implemented |
+| Email auto-find | stub only |
+| Native iOS/Android | not verified |
+| Nominatim distance in E2E | skipped (`skip_maps_network`) |
+| Stale uvicorn on :8000 | may lack travel routes — prefer clean process / :8001 |
