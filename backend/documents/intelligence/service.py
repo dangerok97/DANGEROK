@@ -79,15 +79,16 @@ class IntelligenceService:
                     logger.debug("re-extract soft-fail", exc_info=True)
 
             await phase("classifying")
-            await phase("analyzing", provider="local")
+            await phase("understanding", provider="local")
             result = await analyze_document(doc, user=user, force_local=force_local)
             analysis = result["analysis"]
             events = result["event_candidates"]
             for i, ev in enumerate(events):
                 events[i] = {**ev, **enrich_maps(ev)}
 
+            await phase("generating_actions", provider=analysis.get("model") or "local")
+
             # Preserve user title and confirmed event overrides
-            prev = doc.get("analysis") or {}
             if doc.get("user_title"):
                 analysis["suggested_title"] = doc["user_title"]
                 analysis["title_locked"] = True
@@ -116,9 +117,10 @@ class IntelligenceService:
                     merged_events.append(ev)
 
             display_title = doc.get("user_title") or analysis.get("suggested_title") or doc.get("filename")
-            terminal = "action_required" if (analysis.get("requires_review") or any(
-                e.get("status") == "proposed" for e in merged_events
-            )) else "completed"
+            has_proposed = any(e.get("status") == "proposed" for e in merged_events)
+            terminal = "awaiting_confirmation" if (
+                analysis.get("requires_review") or has_proposed
+            ) else "completed"
             if analysis.get("requires_review") and not merged_events:
                 terminal = "needs_review"
 
@@ -135,18 +137,30 @@ class IntelligenceService:
                 "insights_snapshot": result.get("insights_snapshot"),
                 "display_title": display_title,
                 "brain_synced": brain,
+                "analysis_version": "2.0",
+                "document_schema_version": "2.0",
+                "processing_version": "intel-docs-2.0",
                 "updated_at": _now(),
             }
-            # Optionally update filename display only if not user-locked
-            if not doc.get("user_title") and analysis.get("suggested_title"):
-                # keep filename as original storage name; store suggested separately
-                pass
 
             await self.db.documents.update_one(
                 {"id": doc_id, "user_id": user_id},
                 {"$set": payload},
             )
-            return {"ok": True, "status": terminal, "document_id": doc_id}
+
+            auto = await self._maybe_auto_add_calendar(
+                user_id=user_id,
+                doc_id=doc_id,
+                events=merged_events,
+                analysis=analysis,
+                user=user,
+            )
+            return {
+                "ok": True,
+                "status": terminal,
+                "document_id": doc_id,
+                "auto_calendar": auto,
+            }
         except Exception as e:
             logger.exception("pipeline failed")
             await phase("failed", error=str(e)[:300])
@@ -501,6 +515,161 @@ class IntelligenceService:
             logger.warning("ask_document provider failed; local fallback")
             return _local_ask()
 
+    async def _calendar_auto_prefs(self, user: Optional[dict]) -> dict[str, Any]:
+        prefs = ((user or {}).get("preferences") or {})
+        enabled = bool(prefs.get("calendar_auto_add_enabled", False))
+        try:
+            threshold = float(prefs.get("calendar_auto_add_threshold", 0.90))
+        except (TypeError, ValueError):
+            threshold = 0.90
+        threshold = max(0.5, min(1.0, threshold))
+        return {"enabled": enabled, "threshold": threshold}
+
+    async def get_document_prefs(self, user_id: str) -> dict[str, Any]:
+        user = await self.db.users.find_one({"user_id": user_id}, {"_id": 0, "preferences": 1})
+        prefs = (user or {}).get("preferences") or {}
+        auto = await self._calendar_auto_prefs(user)
+        return {
+            "document_ai_analysis": prefs.get("document_ai_analysis", True) is not False,
+            "calendar_auto_add_enabled": auto["enabled"],
+            "calendar_auto_add_threshold": auto["threshold"],
+        }
+
+    async def set_document_prefs(self, user_id: str, body: dict) -> dict[str, Any]:
+        updates: dict[str, Any] = {}
+        if "document_ai_analysis" in body:
+            updates["preferences.document_ai_analysis"] = bool(body["document_ai_analysis"])
+        if "calendar_auto_add_enabled" in body:
+            updates["preferences.calendar_auto_add_enabled"] = bool(body["calendar_auto_add_enabled"])
+        if "calendar_auto_add_threshold" in body:
+            try:
+                t = float(body["calendar_auto_add_threshold"])
+            except (TypeError, ValueError):
+                t = 0.90
+            updates["preferences.calendar_auto_add_threshold"] = max(0.5, min(1.0, t))
+        if updates:
+            await self.db.users.update_one({"user_id": user_id}, {"$set": updates})
+        return await self.get_document_prefs(user_id)
+
+    async def _maybe_auto_add_calendar(
+        self,
+        *,
+        user_id: str,
+        doc_id: str,
+        events: list,
+        analysis: dict,
+        user: Optional[dict],
+    ) -> dict[str, Any]:
+        """Safe default off. Auto-confirm + Google sync only for a single high-confidence event."""
+        auto = await self._calendar_auto_prefs(user)
+        if not auto["enabled"]:
+            return {"attempted": False, "reason": "disabled"}
+        proposed = [e for e in events if e.get("status") == "proposed"]
+        if len(proposed) != 1:
+            return {"attempted": False, "reason": "multiple_or_none"}
+        if analysis.get("requires_review"):
+            return {"attempted": False, "reason": "requires_review"}
+        ev = proposed[0]
+        conf = float(ev.get("confidence") or 0)
+        if conf < auto["threshold"]:
+            return {"attempted": False, "reason": "low_confidence", "confidence": conf}
+        if ev.get("ambiguous_date") or not ev.get("start_datetime"):
+            return {"attempted": False, "reason": "ambiguous_or_missing_datetime"}
+        if not (ev.get("timezone") or "Europe/Rome"):
+            return {"attempted": False, "reason": "invalid_timezone"}
+        try:
+            res = await self.confirm_event(
+                user_id=user_id,
+                doc_id=doc_id,
+                event_id=ev["id"],
+                sync_to_google=True,
+            )
+            return {
+                "attempted": True,
+                "ok": True,
+                "event_id": ev["id"],
+                "calendar_event_id": (res.get("calendar_event") or {}).get("id"),
+                "google_sync": res.get("google_sync"),
+            }
+        except Exception as e:
+            logger.warning("auto_add calendar failed type=%s", type(e).__name__)
+            return {"attempted": True, "ok": False, "error": type(e).__name__}
+
+    async def hub(self, *, user_id: str, limit: int = 40) -> dict:
+        """Documents home aggregates for V2 UI."""
+        base = {"user_id": user_id, "deleted": {"$ne": True}, "archived": {"$ne": True}}
+        proj = {"_id": 0, "extracted_text": 0}
+
+        async def _fetch(extra: dict, lim: int = limit):
+            cur = self.db.documents.find({**base, **extra}, proj).sort("updated_at", -1).limit(lim)
+            return await cur.to_list(lim)
+
+        recent = await _fetch({})
+        needs_review = await _fetch({
+            "pipeline_status": {"$in": [
+                "needs_review", "awaiting_confirmation", "action_required", "failed",
+            ]},
+        })
+        events_found = await _fetch({
+            "event_candidates": {"$elemMatch": {"status": "proposed"}},
+        })
+        study = await _fetch({"analysis.macro_category": "education"})
+        admin = await _fetch({
+            "analysis.macro_category": {"$in": ["administrative", "financial", "receipt", "contract"]},
+        })
+        medical = await _fetch({"analysis.macro_category": "medical"})
+        failed = await _fetch({"pipeline_status": "failed"})
+        with_actions = await _fetch({
+            "$or": [
+                {"event_candidates": {"$elemMatch": {"status": "proposed"}}},
+                {"generic_actions.0": {"$exists": True}},
+            ],
+        })
+
+        def _card(d: dict) -> dict:
+            a = d.get("analysis") or {}
+            evs = d.get("event_candidates") or []
+            open_ev = next((e for e in evs if e.get("status") == "proposed"), None)
+            return {
+                "id": d.get("id"),
+                "display_title": d.get("display_title") or d.get("user_title") or a.get("suggested_title") or d.get("filename"),
+                "original_filename": d.get("original_filename") or d.get("filename"),
+                "macro_category": a.get("macro_category") or "generic",
+                "subcategory": a.get("subcategory"),
+                "short_description": a.get("short_description") or (a.get("summary") or "")[:160],
+                "pipeline_status": d.get("pipeline_status"),
+                "pipeline_status_label": d.get("pipeline_status_label"),
+                "confidence": a.get("confidence"),
+                "utility": _utility_label(a, evs, d.get("education_analysis")),
+                "event_start": (open_ev or {}).get("start_datetime") or (evs[0].get("start_datetime") if evs else None),
+                "event_location": (open_ev or {}).get("venue_name") or (open_ev or {}).get("city"),
+                "open_actions": sum(1 for e in evs if e.get("status") == "proposed"),
+                "updated_at": d.get("updated_at") or d.get("created_at"),
+                "mime_type": d.get("mime_type"),
+            }
+
+        return {
+            "recent": [_card(d) for d in recent],
+            "needs_review": [_card(d) for d in needs_review],
+            "events_found": [_card(d) for d in events_found],
+            "study": [_card(d) for d in study],
+            "administrative": [_card(d) for d in admin],
+            "medical": [_card(d) for d in medical],
+            "failed": [_card(d) for d in failed],
+            "with_actions": [_card(d) for d in with_actions],
+            "counts": {
+                "recent": len(recent),
+                "needs_review": len(needs_review),
+                "events_found": len(events_found),
+                "study": len(study),
+                "administrative": len(admin),
+                "medical": len(medical),
+                "failed": len(failed),
+                "with_actions": len(with_actions),
+            },
+            "prefs": await self.get_document_prefs(user_id),
+        }
+
     async def search(
         self,
         *,
@@ -543,3 +712,23 @@ class IntelligenceService:
         items = await cur.to_list(limit)
         total = await self.db.documents.count_documents(query)
         return {"items": items, "total": total, "limit": limit, "offset": offset}
+
+
+def _utility_label(analysis: dict, events: list, education: Optional[dict]) -> str:
+    macro = analysis.get("macro_category") or "generic"
+    proposed = [e for e in events if e.get("status") == "proposed"]
+    confirmed = [e for e in events if e.get("status") == "confirmed"]
+    if proposed:
+        return f"{len(proposed)} evento/i da confermare"
+    if confirmed:
+        return "Evento in calendario"
+    if macro == "education":
+        subj = (education or {}).get("subject") or "Studio"
+        return f"Materiale di studio · {subj}"
+    if macro in ("administrative", "financial", "receipt", "contract"):
+        return "Scadenze / azioni amministrative"
+    if macro == "medical":
+        return "Documento sanitario (sintesi discreta)"
+    if analysis.get("summary"):
+        return "Riepilogo disponibile"
+    return "In elaborazione" if not analysis else "Informazioni estratte"

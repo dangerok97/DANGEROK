@@ -87,6 +87,7 @@ Document binaries: local storage under `backend/data/documents/` (S3 backend stu
 | Emergent Google login | `auth.emergentagent.com` + demobackend session-data | Not portable |
 | Emergent LLM | `emergentintegrations` + `EMERGENT_LLM_KEY` | Key + package required |
 | Google Calendar OAuth + write sync | `connectors/google_calendar` + `documents/intelligence/google_sync` | Scopes `calendar.events`; vault Fernet; see `docs/GOOGLE_CALENDAR_ARCHITECTURE.md` |
+| Documents V2 (intelligent actions) | `documents/` + `documents/intelligence/` + FE hub | Pipeline `intel-docs-2.0`; hub/prefs; see `docs/DOCUMENTS_V2_ARCHITECTURE.md` |
 | Apple Calendar | expo-calendar / mock flag | Device or mock |
 | litellm wheel | Emergent asset URL in requirements | May fail outside Emergent |
 

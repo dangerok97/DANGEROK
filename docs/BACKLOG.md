@@ -134,7 +134,8 @@ Attività piccole e verificabili derivate da `docs/ROADMAP.md` e dall’audit.
 - **Stato:** verifica reale parziale su `feature/intelligent-documents-real-verification` (OCR+HTTP+local OK; OpenAI reale bloccato da chiave; picker UI/mobile no)
 - **Obiettivo:** documento → comprensione → event/studio/azioni con conferma utente
 - **Prossimo:** fornire `OPENAI_API_KEY` e rieseguire smoke AI; pass manuale file picker web
-- **In corso / bloccato da credenziali:** sync Google Calendar write da documenti (codice su `feature/google-calendar-sync`; manca verifica reale)
+- **In corso:** Documents V2 (`feature/rebuild-intelligent-documents`) — hub/pipeline/auto-add; flashcard/quiz UI e confronto documenti rimandati
+- **Fatto (locale):** Google Calendar write sync verificato su evento sintetico
 - **Rimandato:** UI mobile nativa Calendar connect
 
 ## BACKLOG-013 — Apple Sign-In reale (web e/o iOS)

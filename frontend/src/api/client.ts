@@ -320,7 +320,33 @@ export const api = {
       { method: 'POST' },
     ),
 
-  // Documents (Iterazione 19)
+  // Documents V2 — intelligent actions engine
+  documentsHub: (limit = 40) =>
+    request<DocumentsHubResponse>(`/documents/hub?limit=${limit}`),
+  documentsSearchIntelligent: (params: {
+    q?: string;
+    macro_category?: string;
+    pipeline_status?: string;
+    has_open_actions?: boolean;
+    limit?: number;
+  } = {}) => {
+    const qs = new URLSearchParams();
+    if (params.q) qs.append('q', params.q);
+    if (params.macro_category) qs.append('macro_category', params.macro_category);
+    if (params.pipeline_status) qs.append('pipeline_status', params.pipeline_status);
+    if (typeof params.has_open_actions === 'boolean') {
+      qs.append('has_open_actions', String(params.has_open_actions));
+    }
+    if (params.limit) qs.append('limit', String(params.limit));
+    const q = qs.toString();
+    return request<DocumentsListResponse>(`/documents/search/intelligent${q ? `?${q}` : ''}`);
+  },
+  documentPreferences: () => request<DocumentPreferences>(`/documents/preferences`),
+  setDocumentPreferences: (body: Partial<DocumentPreferences>) =>
+    request<DocumentPreferences>(`/documents/preferences`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
   documentsList: (params: { q?: string; tag?: string; mime?: string; archived?: boolean; sort?: string; limit?: number; offset?: number } = {}) => {
     const qs = new URLSearchParams();
     if (params.q) qs.append('q', params.q);
@@ -550,6 +576,43 @@ export type DocumentAnalysisResponse = {
   event_candidates?: EventCandidate[];
   education_analysis?: EducationAnalysis | null;
   ai_consent_required_note?: string | null;
+};
+
+export type DocumentHubCard = {
+  id: string;
+  display_title?: string;
+  original_filename?: string;
+  macro_category?: string;
+  subcategory?: string;
+  short_description?: string;
+  pipeline_status?: string;
+  pipeline_status_label?: string;
+  confidence?: number;
+  utility?: string;
+  event_start?: string | null;
+  event_location?: string | null;
+  open_actions?: number;
+  updated_at?: string;
+  mime_type?: string;
+};
+
+export type DocumentPreferences = {
+  document_ai_analysis: boolean;
+  calendar_auto_add_enabled: boolean;
+  calendar_auto_add_threshold: number;
+};
+
+export type DocumentsHubResponse = {
+  recent: DocumentHubCard[];
+  needs_review: DocumentHubCard[];
+  events_found: DocumentHubCard[];
+  study: DocumentHubCard[];
+  administrative: DocumentHubCard[];
+  medical: DocumentHubCard[];
+  failed: DocumentHubCard[];
+  with_actions: DocumentHubCard[];
+  counts: Record<string, number>;
+  prefs?: DocumentPreferences;
 };
 
 export type DocumentsListResponse = {

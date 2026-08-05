@@ -344,7 +344,17 @@ class DocumentService:
         doc = await self.db.documents.find_one(q, {"_id": 0})
         if not doc:
             raise DocumentNotFound()
-        return doc
+        try:
+            from documents.intelligence.migration import stamp_document_versions, with_versions
+            patch = stamp_document_versions(doc)
+            if patch:
+                await self.db.documents.update_one(
+                    {"id": doc_id, "user_id": user_id}, {"$set": patch},
+                )
+                doc = {**doc, **patch}
+            return with_versions(doc)
+        except Exception:
+            return doc
 
     async def list(
         self,

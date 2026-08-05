@@ -101,7 +101,10 @@ async def recover_stale_jobs() -> int:
     from deps import db
     from documents.intelligence.pipeline import PipelineState
 
-    stale = ["queued", "extracting", "classifying", "analyzing"]
+    stale = [
+        "queued", "extracting", "classifying", "analyzing",
+        "understanding", "generating_actions",
+    ]
     cur = db.documents.find(
         {"deleted": {"$ne": True}, "pipeline_status": {"$in": stale}},
         {"_id": 0, "id": 1, "user_id": 1, "pipeline_attempts": 1, "pipeline_status": 1},

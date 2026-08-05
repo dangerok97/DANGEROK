@@ -130,6 +130,31 @@ async def list_documents(
     )
 
 
+@router.get("/hub")
+async def documents_hub(
+    limit: int = Query(default=40, ge=1, le=100),
+    user=Depends(get_current_user),
+):
+    """Documents V2 home: intelligent aggregates, not a plain file archive."""
+    return await _intel().hub(user_id=user["user_id"], limit=limit)
+
+
+@router.get("/preferences")
+async def get_document_preferences(user=Depends(get_current_user)):
+    return await _intel().get_document_prefs(user["user_id"])
+
+
+class DocumentPrefsIn(BaseModel):
+    document_ai_analysis: Optional[bool] = None
+    calendar_auto_add_enabled: Optional[bool] = None
+    calendar_auto_add_threshold: Optional[float] = Field(default=None, ge=0.5, le=1.0)
+
+
+@router.patch("/preferences")
+async def patch_document_preferences(body: DocumentPrefsIn, user=Depends(get_current_user)):
+    return await _intel().set_document_prefs(user["user_id"], body.model_dump(exclude_none=True))
+
+
 @router.get("/search/intelligent")
 async def search_intelligent_documents(
     q: Optional[str] = Query(default=None),
