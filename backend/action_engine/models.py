@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Literal, Optional
 from pydantic import BaseModel, Field
 
 
-ENGINE_VERSION = "action-engine-1.0"
+ENGINE_VERSION = "action-engine-1.1"
 
 FlowCategory = Literal[
     "study",
@@ -16,6 +16,7 @@ FlowCategory = Literal[
     "medical",
     "admin",
     "generic",
+    "clarify",
 ]
 
 SessionStatus = Literal["active", "completed", "cancelled"]
@@ -128,13 +129,26 @@ class ActionSession(BaseModel):
             "completed_at": self.completed_at,
             "meta": {
                 k: v for k, v in self.meta.items()
-                if k in ("merge_proposal", "next_focus_hint", "home_invalidate")
+                if k in (
+                    "merge_proposal",
+                    "next_focus_hint",
+                    "home_invalidate",
+                    "intent",
+                    "intent_subtype",
+                    "intent_confidence",
+                    "intent_entities",
+                    "classifier_version",
+                    "needs_clarify",
+                )
             },
         }
 
 
 class OpenBody(BaseModel):
-    """Open a guided flow from a Home item or source refs."""
+    """Open a guided flow from a Home item or source refs.
+
+    Flow selection uses Intent Classification Engine (precomputed Intent optional).
+    """
     home_item: Optional[Dict[str, Any]] = None
     home_item_id: Optional[str] = None
     source_type: Optional[str] = None
@@ -147,6 +161,8 @@ class OpenBody(BaseModel):
     start_at: Optional[str] = None
     meta: Dict[str, Any] = Field(default_factory=dict)
     force_new: bool = False
+    # Precomputed Intent from Intent Engine (optional)
+    intent: Optional[Dict[str, Any]] = None
 
 
 class AnswerBody(BaseModel):

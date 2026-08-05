@@ -1232,6 +1232,8 @@ export type ActionEngineOpenBody = {
   start_at?: string;
   meta?: Record<string, unknown>;
   force_new?: boolean;
+  /** Precomputed Intent from Intent Classification Engine */
+  intent?: Record<string, unknown>;
 };
 
 export type ActionEngineOpenResult = {

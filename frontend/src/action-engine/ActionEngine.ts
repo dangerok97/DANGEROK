@@ -11,6 +11,19 @@ export type ActionEngineItem = Pick<
 > & { actions?: HomeItem['actions'] };
 
 async function openSession(item: ActionEngineItem): Promise<ActionEngineOpenResult> {
+  const meta = item.meta || {};
+  const precomputed =
+    (meta as any).classified_intent ||
+    ((meta as any).intent
+      ? {
+          intent: (meta as any).intent,
+          subtype: (meta as any).intent_subtype,
+          confidence: (meta as any).intent_confidence ?? 0.9,
+          entities: (meta as any).intent_entities || {},
+          needs_clarify: false,
+          reason: 'home_meta',
+        }
+      : undefined);
   return api.actionEngineOpen({
     home_item: {
       id: item.id,
@@ -23,17 +36,24 @@ async function openSession(item: ActionEngineItem): Promise<ActionEngineOpenResu
       due_at: item.due_at,
       start_at: item.start_at,
       amount: item.amount,
-      meta: item.meta || {},
+      meta,
+      intent: (meta as any).intent,
+      intent_subtype: (meta as any).intent_subtype,
+      intent_confidence: (meta as any).intent_confidence,
+      intent_entities: (meta as any).intent_entities,
     },
     home_item_id: item.id,
     source_type: item.source_type,
     source_id: item.source_id,
+    // item_type is informational only — Intent Engine owns flow choice
     item_type: item.type,
     title: item.title,
     description: item.description || undefined,
     location: item.location || undefined,
     due_at: item.due_at || undefined,
     start_at: item.start_at || undefined,
+    intent: precomputed,
+    meta,
   });
 }
 

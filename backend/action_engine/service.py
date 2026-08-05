@@ -1,4 +1,4 @@
-"""Action Engine service — open / answer / complete / cancel."""
+"""Action Engine service — Intent → Flow → open / answer / complete / cancel."""
 from __future__ import annotations
 
 import logging
@@ -12,7 +12,7 @@ from action_engine.brain import (
     upsert_summary,
 )
 from action_engine.effects import apply_completion_effects
-from action_engine.flows import build_flow_turns, resolve_category
+from action_engine.flows import build_flow_turns, resolve_flow_from_intent
 from action_engine.flows.base import next_unanswered
 from action_engine.models import (
     ENGINE_VERSION,
@@ -24,6 +24,8 @@ from action_engine.models import (
     now_iso,
 )
 from action_engine.projects import create_or_link_project, merge_projects
+from intent_engine import classify_text, get_intent_engine
+from intent_engine.models import IntentResult
 
 logger = logging.getLogger("ora.action_engine")
 
@@ -71,9 +73,106 @@ class ActionEngineService:
             "meta": {**(item.get("meta") or {}), **(body.meta or {})},
         }
 
+    def _intent_from_body(self, body: OpenBody, ctx: Dict[str, Any]) -> IntentResult:
+        """Resolve Intent object — never raw title heuristics inside AE for flow choice."""
+        # 1) Explicit precomputed Intent on body
+        if body.intent and isinstance(body.intent, dict) and body.intent.get("intent"):
+            try:
+                return IntentResult(**{
+                    k: v for k, v in body.intent.items()
+                    if k in IntentResult.model_fields
+                })
+            except Exception:
+                pass
+
+        # 2) Persisted intent on home item / meta
+        item = body.home_item or {}
+        meta = ctx.get("meta") or {}
+        persisted = item.get("intent") or meta.get("intent_result") or meta.get("classified_intent")
+        if isinstance(persisted, dict) and persisted.get("intent"):
+            try:
+                ir = IntentResult(**{
+                    k: v for k, v in persisted.items()
+                    if k in IntentResult.model_fields
+                })
+                if ir.confidence >= 0.62 and not ir.needs_clarify:
+                    return ir
+            except Exception:
+                pass
+        # Compact persisted fields on home item
+        if item.get("intent") and isinstance(item.get("intent"), str):
+            from intent_engine.models import IntentEntities
+            ent_raw = item.get("intent_entities") or meta.get("intent_entities") or {}
+            try:
+                ents = IntentEntities(**ent_raw) if isinstance(ent_raw, dict) else IntentEntities()
+            except Exception:
+                ents = IntentEntities()
+            conf = float(item.get("intent_confidence") or meta.get("intent_confidence") or 0.9)
+            if conf >= 0.62:
+                return IntentResult(
+                    intent=item["intent"],  # type: ignore[arg-type]
+                    subtype=item.get("intent_subtype") or meta.get("intent_subtype"),
+                    confidence=conf,
+                    reason="persisted_on_item",
+                    entities=ents,
+                    needs_clarify=False,
+                )
+
+        # 3) Classify via Intent Engine (deterministic; Action Engine does not parse text for flow)
+        return classify_text(
+            ctx.get("title") or "",
+            description=ctx.get("description"),
+            source_type=ctx.get("source_type"),
+            item_type=None,  # do not trust erroneous home type for routing
+            meta={"source_item_type": ctx.get("item_type")},
+        )
+
+    def _ctx_with_intent(self, ctx: Dict[str, Any], intent: IntentResult) -> Dict[str, Any]:
+        entities = intent.entities.as_dict() if hasattr(intent.entities, "as_dict") else dict(intent.entities or {})
+        display_title = ctx.get("title") or "Priorità"
+        # Study: prefer subject in questions
+        if intent.intent == "study" and entities.get("subject"):
+            display_title = entities["subject"]
+        out = {
+            **ctx,
+            "intent": intent.intent,
+            "intent_subtype": intent.subtype,
+            "intent_confidence": intent.confidence,
+            "intent_entities": entities,
+            "clarify_options": (
+                [c.model_dump() if hasattr(c, "model_dump") else c for c in (intent.clarify_options or [])]
+            ),
+            "display_title": display_title,
+            "title": display_title if intent.intent == "study" and entities.get("subject") else ctx.get("title"),
+            "original_title": ctx.get("title"),
+        }
+        return out
+
+    async def _persist_intent_on_source(self, user_id: str, ctx: Dict[str, Any], intent: IntentResult) -> None:
+        """Best-effort: store Intent on decision so Home labels stay correct."""
+        if ctx.get("source_type") != "decision" or not ctx.get("source_id"):
+            return
+        try:
+            from intent_engine.mapping import decision_category_for_intent
+            patch: Dict[str, Any] = {
+                "intent": intent.intent,
+                "intent_subtype": intent.subtype,
+                "intent_confidence": intent.confidence,
+                "intent_entities": intent.entities.as_dict(),
+                "intent_reason": intent.reason,
+                "classifier_version": intent.classifier_version,
+            }
+            if not intent.needs_clarify:
+                patch["category"] = decision_category_for_intent(intent.intent)
+            await self.db.decisions.update_one(
+                {"id": ctx["source_id"], "user_id": user_id},
+                {"$set": patch},
+            )
+        except Exception as e:
+            logger.debug("persist intent skipped: %s", type(e).__name__)
+
     async def open(self, user_id: str, body: OpenBody) -> Dict[str, Any]:
         ctx = self._ctx_from_open(body)
-        category = resolve_category(ctx.get("item_type"), ctx.get("source_type"))
         home_item_id = ctx.get("home_item_id")
 
         # Resume active session for same home item (unless force_new)
@@ -86,21 +185,41 @@ class ActionEngineService:
                 sess = ActionSession(**existing)
                 return {"session": sess.public(), "resumed": True}
 
-        turns = build_flow_turns(category, ctx)
+        # === Intent Classification Engine (mandatory brain for flow choice) ===
+        intent = self._intent_from_body(body, ctx)
+        # Allow async path with optional LLM only if client asked via meta
+        if (body.meta or {}).get("use_llm_intent"):
+            intent = await get_intent_engine().classify(
+                ctx.get("title") or "",
+                description=ctx.get("description"),
+                source_type=ctx.get("source_type"),
+                item_type=None,
+                use_llm=True,
+            )
+
+        flow = resolve_flow_from_intent(
+            intent.intent,
+            intent.subtype,
+            needs_clarify=intent.needs_clarify,
+        )
+        ctx = self._ctx_with_intent(ctx, intent)
+        await self._persist_intent_on_source(user_id, ctx, intent)
+
+        turns = build_flow_turns(flow, ctx)
         first = turns[0] if turns else None
 
         brain_node_id = None
         similar = None
         if self.life_graph and self.knowledge:
             similar = await find_similar_goal(
-                self.db, user_id, ctx["title"], flow=category,
+                self.db, user_id, ctx.get("original_title") or ctx["title"], flow=flow,
             )
             brain_node_id = await ensure_brain_node(
                 self.life_graph,
                 self.knowledge,
                 user_id=user_id,
-                title=ctx["title"],
-                flow=category,
+                title=ctx.get("original_title") or ctx["title"],
+                flow=flow,
                 source_type=ctx.get("source_type"),
                 source_id=ctx.get("source_id"),
             )
@@ -108,8 +227,8 @@ class ActionEngineService:
         session = ActionSession(
             id=_sid(),
             user_id=user_id,
-            flow=category,  # type: ignore[arg-type]
-            title=ctx["title"],
+            flow=flow,  # type: ignore[arg-type]
+            title=ctx.get("original_title") or ctx["title"],
             description=ctx.get("description"),
             source_type=ctx.get("source_type"),
             source_id=ctx.get("source_id"),
@@ -118,22 +237,30 @@ class ActionEngineService:
             turns=turns,
             current_turn_id=first.id if first else None,
             brain_node_id=brain_node_id,
+            engine_version=ENGINE_VERSION,
             meta={
                 "location": ctx.get("location"),
                 "due_at": ctx.get("due_at"),
                 "start_at": ctx.get("start_at"),
                 "amount": ctx.get("amount"),
-                **(ctx.get("meta") or {}),
+                "intent": intent.intent,
+                "intent_subtype": intent.subtype,
+                "intent_confidence": intent.confidence,
+                "intent_entities": ctx.get("intent_entities") or {},
+                "classifier_version": intent.classifier_version,
+                "needs_clarify": intent.needs_clarify,
+                "intent_reason": intent.reason,
+                **{k: v for k, v in (ctx.get("meta") or {}).items() if k not in ("intent_result",)},
             },
         )
 
-        # Multi-step → create project early
-        if len(turns) >= 2:
+        # Multi-step → create project early (skip for clarify)
+        if flow != "clarify" and len(turns) >= 2:
             link, _proj = await create_or_link_project(
                 self.db,
                 user_id=user_id,
-                title=ctx["title"],
-                flow=category,
+                title=session.title,
+                flow=flow,
                 session_id=session.id,
                 brain_node_id=brain_node_id,
                 source_type=ctx.get("source_type"),
@@ -154,6 +281,7 @@ class ActionEngineService:
             "session": session.public(),
             "resumed": False,
             "merge_proposal": session.meta.get("merge_proposal"),
+            "intent": intent.public(),
         }
 
     async def get_session(self, user_id: str, session_id: str) -> Optional[Dict[str, Any]]:
@@ -161,6 +289,70 @@ class ActionEngineService:
         if not doc:
             return None
         return ActionSession(**doc).public()
+
+    async def _apply_clarified_intent(
+        self, sess: ActionSession, intent_name: str, subtype: Optional[str],
+    ) -> ActionSession:
+        """After clarify answer — rebuild real flow turns from chosen Intent."""
+        from intent_engine.models import IntentEntities
+        intent = IntentResult(
+            intent=intent_name,  # type: ignore[arg-type]
+            subtype=subtype,
+            confidence=0.99,
+            reason="user_clarified",
+            needs_clarify=False,
+            entities=IntentEntities(**(sess.meta.get("intent_entities") or {})),
+        )
+        # Re-extract if we have title
+        if sess.title:
+            fresh = classify_text(sess.title, description=sess.description)
+            if fresh.intent == intent_name:
+                intent.entities = fresh.entities
+                intent.subtype = subtype or fresh.subtype
+
+        flow = resolve_flow_from_intent(intent.intent, intent.subtype, needs_clarify=False)
+        ctx = {
+            "title": (intent.entities.subject if intent.intent == "study" and intent.entities.subject else sess.title),
+            "original_title": sess.title,
+            "description": sess.description,
+            "source_type": sess.source_type,
+            "source_id": sess.source_id,
+            "location": sess.meta.get("location"),
+            "due_at": sess.meta.get("due_at"),
+            "start_at": sess.meta.get("start_at"),
+            "amount": sess.meta.get("amount"),
+            "intent_entities": intent.entities.as_dict(),
+            **{k: v for k, v in sess.meta.items()},
+        }
+        turns = build_flow_turns(flow, ctx)
+        sess.flow = flow  # type: ignore[assignment]
+        sess.turns = turns
+        sess.answers = {}
+        sess.turn_history = []
+        sess.current_turn_id = turns[0].id if turns else None
+        sess.meta["intent"] = intent.intent
+        sess.meta["intent_subtype"] = intent.subtype
+        sess.meta["intent_confidence"] = intent.confidence
+        sess.meta["intent_entities"] = intent.entities.as_dict()
+        sess.meta["needs_clarify"] = False
+        sess.meta["clarified"] = True
+        sess.updated_at = now_iso()
+
+        if flow != "clarify" and len(turns) >= 2 and not sess.project:
+            link, _ = await create_or_link_project(
+                self.db,
+                user_id=sess.user_id,
+                title=sess.title,
+                flow=flow,
+                session_id=sess.id,
+                brain_node_id=sess.brain_node_id,
+                source_type=sess.source_type,
+                source_id=sess.source_id,
+                similar=None,
+                answers={},
+            )
+            sess.project = link
+        return sess
 
     async def answer(self, user_id: str, session_id: str, body: AnswerBody) -> Dict[str, Any]:
         doc = await self.col.find_one({"id": session_id, "user_id": user_id}, {"_id": 0})
@@ -176,7 +368,6 @@ class ActionEngineService:
                 turn = t
                 break
         if not turn:
-            # Already past questions — complete
             return await self.complete(user_id, session_id)
 
         if body.skip and turn.allow_skip:
@@ -194,6 +385,32 @@ class ActionEngineService:
                 value = body.text.strip()
             if value is None and turn.required and not body.skip:
                 return {"ok": False, "error": "answer_required", "session": sess.public()}
+
+        # Clarify branch → rebuild flow from chosen Intent
+        if turn.id == "clarify_intent" and sess.flow == "clarify":
+            chosen_intent = None
+            chosen_subtype = None
+            if isinstance(value, dict):
+                chosen_intent = value.get("intent")
+                chosen_subtype = value.get("subtype")
+            elif isinstance(value, str) and value in (
+                "study", "event", "travel", "medical", "payment", "task", "generic",
+            ):
+                chosen_intent = value
+            if not chosen_intent and option_id:
+                for o in turn.options:
+                    if o.id == option_id and isinstance(o.value, dict):
+                        chosen_intent = o.value.get("intent")
+                        chosen_subtype = o.value.get("subtype")
+                        break
+            if not chosen_intent:
+                chosen_intent = "generic"
+            sess.turn_history.append(TurnAnswer(
+                turn_id=turn.id, option_id=option_id, value=value, text=body.text,
+            ))
+            sess = await self._apply_clarified_intent(sess, chosen_intent, chosen_subtype)
+            await self.col.replace_one({"id": sess.id, "user_id": user_id}, sess.model_dump())
+            return {"ok": True, "session": sess.public(), "completed": False, "clarified": True}
 
         sess.answers[turn.id] = value
         sess.turn_history.append(TurnAnswer(
@@ -220,7 +437,6 @@ class ActionEngineService:
             await self.col.replace_one({"id": sess.id, "user_id": user_id}, sess.model_dump())
             return {"ok": True, "session": sess.public(), "completed": False}
 
-        # All answered → auto-complete
         sess.current_turn_id = None
         await self.col.replace_one({"id": sess.id, "user_id": user_id}, sess.model_dump())
         return await self.complete(user_id, session_id)

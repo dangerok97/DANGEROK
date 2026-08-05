@@ -34,20 +34,11 @@ def turn(
 
 
 def resolve_category(item_type: Optional[str], source_type: Optional[str] = None) -> str:
-    t = (item_type or "").lower()
-    st = (source_type or "").lower()
-    if t == "study" or st in ("study", "quiz_session"):
-        return "study"
-    if t == "event" or st in ("event_candidate", "google_calendar", "internal_calendar"):
-        return "event"
-    if t == "travel":
-        return "travel"
-    if t in ("visit", "medical"):
-        return "medical"
-    if t in ("bill", "payment", "admin") or st == "admin":
-        return "admin"
-    if t in ("needs_review", "verify") and st in ("document", "document_action"):
-        return "admin"
+    """DEPRECATED — do not use for flow selection. Kept for import compatibility.
+
+    Flow choice is owned by Intent Classification Engine.
+    """
+    _ = (item_type, source_type)
     return "generic"
 
 

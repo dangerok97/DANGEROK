@@ -55,4 +55,8 @@ Indexes created non-destructively on startup.
 1. Open always returns a `current_turn` while `status=active` (else HTTP 500).
 2. Medical copy includes no-advice disclaimer.
 3. Credential-blocked integrations are `status=blocked` with honest detail (e.g. weather).
-"""
+4. Flow selection uses **Intent Classification Engine** only — never raw home `item_type` / title heuristics inside AE.
+
+## Intent integration
+
+See `docs/INTENT_ENGINE_ARCHITECTURE.md`. `POST /api/action-engine/open` classifies (or accepts precomputed Intent) then maps intent(+subtype) → study|event|travel|medical|admin|generic|clarify.

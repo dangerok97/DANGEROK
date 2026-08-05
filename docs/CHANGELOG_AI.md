@@ -1,5 +1,31 @@
 # ORA — AI Changelog
 
+## 2026-08-05 — Intent Classification Engine (flow router brain)
+
+### Request
+
+Critical rebuild: wrong flow for “devo studiare l'esame di psicologia” (event/ticket). Replace Action Engine text/type heuristics with reusable Intent Classification Engine; tests ≥100 phrases; Playwright; docs; local commit; no push.
+
+### Actions
+
+- Branch `feature/intent-classification-engine` from `feature/ora-action-engine` @ `6b3831b`
+- Package `backend/intent_engine/` (KB, deterministic classifier, entities, optional LLM enricher, mapping, `POST /api/intent/classify`)
+- Restructured `action_engine` open path: Intent → flow registry; clarify flow; persist Intent on decisions
+- Home decisions adapter + FE labels prefer Intent; decision create classifies on write
+- Corpus 124 IT phrases; pytest **147 passed**; Playwright `intent-psychology.spec.ts` **1 passed**
+- Docs: `INTENT_ENGINE_*.md` + PRODUCT / ARCHITECTURE / DEVELOPMENT_STATE; `.env.example` `INTENT_LLM_ENRICH`
+
+### Result
+
+Psychology phrase → study / exam_preparation → first question exam date (never ticket). Works without Gemini. No push/merge.
+
+### Open
+
+- Wire Parla / email / notifications to same Intent brain
+- Native mobile re-verify
+
+---
+
 ## 2026-08-05 — Verify Action Engine collaborative feel (Playwright)
 
 ### Request

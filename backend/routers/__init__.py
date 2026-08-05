@@ -4,6 +4,7 @@ from connectors.apple_calendar import apple_calendar_router
 from connectors.google_calendar import google_calendar_router
 from documents import documents_router
 from home import router as home_router
+from intent_engine import intent_engine_router
 from llm.router import router as llm_router
 
 from . import (
@@ -44,6 +45,7 @@ ALL_ROUTERS = [
     behavior_shadow_router.router,
     documents_router,
     home_router,
+    intent_engine_router,
     action_engine_router,
     llm_router,
 ]

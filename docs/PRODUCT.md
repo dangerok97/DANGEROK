@@ -1,6 +1,6 @@
 # ORA — Product (struttura reale)
 
-Ultimo aggiornamento: 2026-08-05 — Action Engine + Home V2.
+Ultimo aggiornamento: 2026-08-05 — Intent Classification Engine + Action Engine + Home V2.
 
 ## Vision
 
@@ -52,11 +52,20 @@ Persone che vogliono una priorità unica chiara (non un task manager generico), 
 - **Docs:** `docs/HOME_V2_*.md`.
 - **Aperti:** native mobile non verificato.
 
+### 2a. Intent Classification Engine — single intent brain
+
+- **Scopo:** capire *cosa vuole fare l’utente* da testo libero (e meta) e produrre un oggetto **Intent** riusabile (Home, Parla, Documents, …).
+- **Stato:** **operativo** — regole deterministiche + KB italiana; Gemini opzionale (`INTENT_LLM_ENRICH`); bassa confidence → chiarimento, mai flusso sbagliato.
+- **Flusso:** priorità/testo → `intent_engine` → Intent → Action Engine sceglie il flow.
+- **Esempio:** “devo studiare l'esame di psicologia” → study / exam_preparation → domanda data esame (non biglietto).
+- **Backend:** `backend/intent_engine/`, `POST /api/intent/classify`.
+- **Docs:** `docs/INTENT_ENGINE_*.md`.
+
 ### 2b. Action Engine — Guided priority flows
 
 - **Scopo:** trasformare una priorità Home in una breve conversazione a chip (una domanda per schermo) che crea calendario, promemoria, progetto e aggiorna Brain — mai una pagina vuota.
-- **Stato:** **implementato** — API `/api/action-engine/*`, flussi study/event/travel/medical/admin/generic; FE `ActionEngine.open(item)`.
-- **Flusso UI:** Home tap → sessione → domande → complete → Home refresh con prossimo passo.
+- **Stato:** **implementato** — API `/api/action-engine/*`, flussi study/event/travel/medical/admin/generic/clarify; FE `ActionEngine.open(item)`. Routing flow **solo via Intent** (non da `item.type` grezzo).
+- **Flusso UI:** Home tap → Intent → sessione → domande → complete → Home refresh con prossimo passo.
 - **Backend:** `backend/action_engine/`.
 - **DB:** `action_sessions`, `action_projects` (+ life_nodes, reminders, decisions, knowledge).
 - **Docs:** `docs/ACTION_ENGINE_*.md`.

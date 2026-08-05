@@ -80,16 +80,17 @@ def _answer_all(svc, user_id, session_id, picks: dict):
     return body()
 
 
-def test_resolve_categories():
-    from action_engine.flows.base import resolve_category
-    assert resolve_category("study") == "study"
-    assert resolve_category("event") == "event"
-    assert resolve_category("travel") == "travel"
-    assert resolve_category("visit") == "medical"
-    assert resolve_category("bill") == "admin"
-    assert resolve_category("payment") == "admin"
-    assert resolve_category("activity") == "generic"
-    assert resolve_category(None, "document") == "generic"
+def test_intent_to_flow_mapping():
+    """Flow registry is keyed by Intent — not home item_type strings."""
+    from intent_engine.mapping import flow_for_intent
+    from action_engine.flows import resolve_flow_from_intent
+    assert flow_for_intent("study", "exam_preparation") == "study"
+    assert flow_for_intent("event") == "event"
+    assert flow_for_intent("travel", "vacation") == "travel"
+    assert flow_for_intent("medical") == "medical"
+    assert flow_for_intent("payment") == "admin"
+    assert flow_for_intent("task") == "generic"
+    assert resolve_flow_from_intent("study", needs_clarify=True) == "clarify"
 
 
 def test_study_flow_creates_calendar_and_home_update():
@@ -208,7 +209,7 @@ def test_travel_flow():
             svc = await _svc(db)
             from action_engine.models import OpenBody
             opened = await svc.open(user, OpenBody(
-                title="Weekend Roma",
+                title="Vacanza weekend a Roma",
                 item_type="travel",
                 home_item_id="home_trv_1",
             ))
@@ -311,10 +312,11 @@ def test_generic_never_empty():
             svc = await _svc(db)
             from action_engine.models import OpenBody
             opened = await svc.open(user, OpenBody(
-                title="Chiamare il commercialista",
+                title="Sistemare la scrivania oggi",
                 item_type="activity",
                 home_item_id="home_gen_1",
             ))
+            # task → generic flow; never empty question
             assert opened["session"]["flow"] == "generic"
             assert opened["session"]["current_turn"] is not None
             assert opened["session"]["current_turn"]["options"]

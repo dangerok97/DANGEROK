@@ -30,7 +30,8 @@ backend/
   documents/             # document intelligence
   documents/intelligence/# pipeline, taxonomy, analyzer, calendar drafts
   home/                  # Home V2 aggregator + ranking + adapters
-  action_engine/         # Guided conversational flows for Home priorities
+  intent_engine/         # Intent Classification — single brain for flow routing
+  action_engine/         # Guided conversational flows (consumes Intent)
   daily_intelligence/    # daily summary (situation indicators)
   behavioral_intelligence/
   behavior_aware_decisions/
@@ -63,7 +64,7 @@ All routes under `/api` via `ALL_ROUTERS`:
 - `permissions`, `connectors`, `ingestion`
 - `google_calendar`, `apple_calendar`
 - `daily`, `behavior`, `behavior_shadow`
-- `documents`, `home` (V2 intelligence dashboard), `action-engine`, `admin`, `memory`
+- `documents`, `home` (V2 intelligence dashboard), `intent`, `action-engine`, `admin`, `memory`
 
 Health:
 
@@ -73,7 +74,8 @@ Health:
 - `GET /api/home/situation` → full situation view payload
 - `POST /api/home/actions` → complete / snooze / ignore / correct / insight / banner
 - `POST /api/home/refresh` → rebuild ranking snapshot
-- `POST /api/action-engine/open` → start/resume guided flow
+- `POST /api/intent/classify` → Intent Classification Engine (deterministic; optional LLM enrich)
+- `POST /api/action-engine/open` → classify Intent → start/resume guided flow
 - `GET /api/action-engine/sessions/{id}` → session + current turn
 - `POST /api/action-engine/sessions/{id}/answer|complete|cancel` → progress flow
 
