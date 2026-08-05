@@ -1,36 +1,32 @@
 # ORA — Development State
 
-Last updated: 2026-08-05 (Google Calendar write sync)
+Last updated: 2026-08-05 (Documents V2 rebuild)
 
 ## Branch
 
-- Active: `feature/google-calendar-sync` (local, no push)
-- Base ancestor: `a12fae3` (`chore: migrate Gemini provider to google-genai`)
+- Active: `feature/rebuild-intelligent-documents` (local, no push)
+- Ancestor: `feature/google-calendar-sync` @ `213ea4f` (real Google create/update verified)
 
-## Google Calendar write sync
+## Documents V2
 
 | Item | Stato |
 |------|--------|
-| Scope `calendar.events` + OAuth separato dal login | implementato |
-| Vault `local`/`fernet` + `OAUTH_TOKEN_ENCRYPTION_KEY` | implementato |
-| Draft sync fields + create/update/delete/conflict | implementato |
-| UI conferma doc + Impostazioni write status | implementato |
-| Test fake provider | suite `test_google_calendar_write_sync.py` |
-| Verifica reale Google (evento su calendar.google.com) | **BLOCCATA** — manca `GOOGLE_OAUTH_CLIENT_ID/SECRET` in `.env` |
+| Hub API + prefs (auto-add default off) | implementato |
+| Pipeline states V2 + migration stamp | implementato |
+| FE hub `documenti.tsx` | ricostruito |
+| FE detail utility-first labels | aggiornato |
+| Settings auto-add toggle | implementato |
+| Dati esistenti | preservati (no wipe) |
+| Test `test_documents_v2.py` | da eseguire in sessione |
+| Flashcard / interrogami avanzato | rimandato (hooks ask/summary presenti) |
+| Confronto documenti admin | rimandato |
 
-Documentazione: `docs/GOOGLE_CALENDAR_*.md`.
+## Google Calendar
 
-## AI providers
-
-| Provider | Configured | Real verified |
-|----------|------------|---------------|
-| Gemini | yes (`GEMINI_API_KEY`) | **yes** — SDK `google-genai`, model `gemini-flash-lite-latest` |
-| OpenAI | yes | no (quota exceeded) |
-| Ollama | off / not running | no |
-| Emergent | no | no |
+Real sync verified earlier on connected account (synthetic event). Auto-add uses same confirm+sync path.
 
 ## Next
 
-1. Aggiungere `GOOGLE_OAUTH_*` locali e completare checklist in `GOOGLE_CALENDAR_VERIFICATION.md`
-2. Rotate Gemini key (pasted in prior chat)
-3. Optional: OpenAI billing restore for failover smoke
+1. Complete browser verification checklist in `DOCUMENTS_V2_VERIFICATION.md`
+2. Expand study flashcard / quiz UI
+3. Rotate OAuth client secret (was pasted in chat)

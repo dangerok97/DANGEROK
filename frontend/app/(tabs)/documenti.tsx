@@ -1,88 +1,144 @@
 /**
- * ORA — Iterazione 19
- * Tab Documenti: lista, ricerca, filtri, ordinamento, archivio, eliminazione,
- * dettaglio (in-line), upload via expo-document-picker.
- *
- * NON gestisce OCR / AI / estrazione: solo foundation.
+ * ORA Documents V2 — intelligent actions hub (not a file archive).
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View, Text, StyleSheet, FlatList, RefreshControl, Pressable, TextInput,
-  ActivityIndicator, Platform,
+  ActivityIndicator, ScrollView,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import * as DocumentPicker from 'expo-document-picker';
 
 import { tokens } from '@/src/theme/tokens';
-import { api, DocumentItem } from '@/src/api/client';
+import { api, DocumentHubCard } from '@/src/api/client';
 import { haptic } from '@/src/utils/haptic';
 import { humanizeError } from '@/src/utils/errors';
-import { ActionBtn } from '@/src/components/ui/ActionBtn';
 
-type SortOpt = 'created_desc' | 'created_asc' | 'name_asc' | 'size_desc';
+type FilterId =
+  | 'all'
+  | 'events'
+  | 'study'
+  | 'admin'
+  | 'medical'
+  | 'review'
+  | 'actions'
+  | 'done';
 
-const MIME_ICON: Record<string, keyof typeof Ionicons.glyphMap> = {
-  'application/pdf': 'document-text-outline',
-  'image/png': 'image-outline',
-  'image/jpeg': 'image-outline',
-  'image/webp': 'image-outline',
-  'text/plain': 'document-outline',
-  'text/csv': 'grid-outline',
-  'application/zip': 'folder-outline',
+const FILTERS: { id: FilterId; label: string }[] = [
+  { id: 'all', label: 'Tutti' },
+  { id: 'events', label: 'Eventi' },
+  { id: 'study', label: 'Studio' },
+  { id: 'admin', label: 'Amministrativi' },
+  { id: 'medical', label: 'Medici' },
+  { id: 'review', label: 'Da verificare' },
+  { id: 'actions', label: 'Con azioni' },
+  { id: 'done', label: 'Completati' },
+];
+
+const MACRO_LABEL: Record<string, string> = {
+  event: 'Evento',
+  education: 'Studio',
+  administrative: 'Amministrativo',
+  financial: 'Finanziario',
+  medical: 'Medico',
+  travel: 'Viaggio',
+  receipt: 'Ricevuta',
+  contract: 'Contratto',
+  generic: 'Generico',
+  unknown: 'Da classificare',
 };
 
-function iconFor(mime: string) {
-  return MIME_ICON[mime] || 'document-attach-outline';
-}
-
-function formatSize(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function formatDate(iso?: string | null) {
-  if (!iso) return '';
+function formatWhen(iso?: string | null) {
+  if (!iso) return null;
   try {
-    return new Date(iso).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' });
-  } catch { return ''; }
+    return new Date(iso).toLocaleString('it-IT', {
+      day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+    });
+  } catch {
+    return null;
+  }
 }
 
 export default function DocumentiScreen() {
-  const insets = useSafeAreaInsets();
   const router = useRouter();
-  const [items, setItems] = useState<DocumentItem[]>([]);
+  const [hub, setHub] = useState<Awaited<ReturnType<typeof api.documentsHub>> | null>(null);
+  const [searchItems, setSearchItems] = useState<DocumentHubCard[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
-  const [sort, setSort] = useState<SortOpt>('created_desc');
-  const [showArchived, setShowArchived] = useState(false);
+  const [filter, setFilter] = useState<FilterId>('all');
   const [uploading, setUploading] = useState(false);
 
   const load = useCallback(async (opts?: { silent?: boolean }) => {
     if (!opts?.silent) setLoading(true);
     setError(null);
     try {
-      const res = await api.documentsList({
-        q: query || undefined,
-        archived: showArchived,
-        sort,
-        limit: 200,
-      });
-      setItems(res.items);
+      if (query.trim()) {
+        const res = await api.documentsSearchIntelligent({ q: query.trim(), limit: 80 });
+        setSearchItems(
+          (res.items || []).map((d) => ({
+            id: d.id,
+            display_title: d.display_title || d.user_title || d.filename,
+            original_filename: d.original_filename || d.filename,
+            macro_category: d.analysis?.macro_category || 'generic',
+            short_description: d.analysis?.short_description || d.analysis?.summary,
+            pipeline_status: d.pipeline_status,
+            pipeline_status_label: d.pipeline_status_label,
+            confidence: d.analysis?.confidence,
+            utility: d.pipeline_status_label,
+            event_start: d.event_candidates?.[0]?.start_datetime,
+            event_location: d.event_candidates?.[0]?.venue_name || d.event_candidates?.[0]?.city,
+            open_actions: (d.event_candidates || []).filter((e) => e.status === 'proposed').length,
+            updated_at: d.updated_at,
+            mime_type: d.mime_type,
+          })),
+        );
+        setHub(null);
+      } else {
+        setSearchItems(null);
+        setHub(await api.documentsHub(50));
+      }
     } catch (e: any) {
       setError(humanizeError(e));
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [query, sort, showArchived]);
+  }, [query]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Poll while pipelines are active
+  useEffect(() => {
+    const active = (hub?.recent || []).some((d) =>
+      ['queued', 'extracting', 'understanding', 'classifying', 'analyzing', 'generating_actions'].includes(
+        d.pipeline_status || '',
+      ),
+    );
+    if (!active) return;
+    const t = setInterval(() => load({ silent: true }), 2500);
+    return () => clearInterval(t);
+  }, [hub, load]);
+
+  const items = useMemo(() => {
+    if (searchItems) return searchItems;
+    if (!hub) return [];
+    switch (filter) {
+      case 'events': return hub.events_found;
+      case 'study': return hub.study;
+      case 'admin': return hub.administrative;
+      case 'medical': return hub.medical;
+      case 'review': return hub.needs_review;
+      case 'actions': return hub.with_actions;
+      case 'done':
+        return hub.recent.filter((d) => d.pipeline_status === 'completed');
+      default: return hub.recent;
+    }
+  }, [hub, filter, searchItems]);
 
   const onUpload = async () => {
     haptic('tap');
@@ -102,8 +158,9 @@ export default function DocumentiScreen() {
       haptic(up.duplicate ? 'warning' : 'success');
       await load({ silent: true });
       if (up.duplicate) {
-        setError('Questo file era già stato caricato. Ne trovi la copia in elenco.');
-      } else if (up.document?.id) {
+        setError('File già presente — apro la copia esistente.');
+      }
+      if (up.document?.id) {
         router.push(`/document/${up.document.id}` as any);
       }
     } catch (e: any) {
@@ -114,12 +171,13 @@ export default function DocumentiScreen() {
     }
   };
 
-  const empty = !loading && items.length === 0;
-
   return (
     <SafeAreaView style={styles.safe} edges={['top']} testID="documenti-screen">
-      <View style={[styles.header, { paddingTop: 4 }]}>
-        <Text style={styles.title}>Documenti</Text>
+      <View style={styles.header}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.title}>Documenti</Text>
+          <Text style={styles.subtitle}>ORA legge, classifica e propone azioni utili</Text>
+        </View>
         <Pressable
           onPress={onUpload}
           disabled={uploading}
@@ -130,66 +188,86 @@ export default function DocumentiScreen() {
         >
           {uploading
             ? <ActivityIndicator color={tokens.color.onBrand} />
-            : <><Ionicons name="cloud-upload-outline" size={16} color={tokens.color.onBrand} />
+            : <><Ionicons name="add" size={18} color={tokens.color.onBrand} />
                 <Text style={styles.uploadTxt}>Carica</Text></>}
         </Pressable>
       </View>
 
-      <View style={styles.searchRow}>
-        <View style={styles.searchBox}>
-          <Ionicons name="search" size={16} color={tokens.color.onSurfaceMuted} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Cerca per nome, tag, tipo…"
-            placeholderTextColor={tokens.color.onSurfaceMuted}
-            value={query}
-            onChangeText={setQuery}
-            onSubmitEditing={() => load()}
-            returnKeyType="search"
-            testID="doc-search-input"
-          />
-          {query ? (
-            <Pressable onPress={() => { setQuery(''); }} hitSlop={10}>
-              <Ionicons name="close-circle" size={16} color={tokens.color.onSurfaceMuted} />
-            </Pressable>
-          ) : null}
-        </View>
-      </View>
+      {hub?.counts ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statsRow}>
+          <Stat chip="Da verificare" n={hub.counts.needs_review || 0} />
+          <Stat chip="Eventi" n={hub.counts.events_found || 0} />
+          <Stat chip="Studio" n={hub.counts.study || 0} />
+          <Stat chip="Azioni" n={hub.counts.with_actions || 0} />
+          <Stat chip="Errori" n={hub.counts.failed || 0} />
+        </ScrollView>
+      ) : null}
 
-      <View style={styles.chipsRow}>
-        <FilterChip label="Recenti" active={sort === 'created_desc'} onPress={() => setSort('created_desc')} />
-        <FilterChip label="A-Z"     active={sort === 'name_asc'}     onPress={() => setSort('name_asc')} />
-        <FilterChip label="Peso"    active={sort === 'size_desc'}    onPress={() => setSort('size_desc')} />
-        <View style={{ width: 8 }} />
-        <FilterChip
-          label={showArchived ? 'Archivio' : 'Attivi'}
-          icon={showArchived ? 'archive' : 'file-tray-full-outline'}
-          active
-          onPress={() => setShowArchived(v => !v)}
+      <View style={styles.searchBox}>
+        <Ionicons name="search" size={16} color={tokens.color.onSurfaceMuted} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Cerca contenuto, materia, luogo, scadenza…"
+          placeholderTextColor={tokens.color.onSurfaceMuted}
+          value={query}
+          onChangeText={setQuery}
+          onSubmitEditing={() => load()}
+          returnKeyType="search"
+          testID="doc-search-input"
         />
       </View>
 
-      {error ? (
-        <Animated.View entering={FadeIn.duration(160)} style={styles.errorBanner}>
-          <Ionicons name="alert-circle" size={14} color={tokens.color.error} />
-          <Text style={styles.errorText} numberOfLines={2}>{error}</Text>
-        </Animated.View>
+      {!query.trim() ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
+          {FILTERS.map((f) => (
+            <Pressable
+              key={f.id}
+              onPress={() => { haptic('tap'); setFilter(f.id); }}
+              style={[styles.filterChip, filter === f.id && styles.filterChipOn]}
+            >
+              <Text style={[styles.filterTxt, filter === f.id && styles.filterTxtOn]}>{f.label}</Text>
+            </Pressable>
+          ))}
+        </ScrollView>
       ) : null}
 
-      {loading ? (
-        <View style={styles.centerBox}><ActivityIndicator color={tokens.color.onSurfaceMuted} /></View>
-      ) : empty ? (
-        <EmptyState onUpload={onUpload} archived={showArchived} uploading={uploading} />
+      {error ? (
+        <Text style={styles.error} testID="doc-error">{error}</Text>
+      ) : null}
+
+      {loading && !refreshing ? (
+        <View style={styles.center}><ActivityIndicator color={tokens.color.onSurfaceMuted} /></View>
       ) : (
         <FlatList
           data={items}
-          keyExtractor={(x) => x.id}
-          contentContainerStyle={{ paddingBottom: insets.bottom + 96, paddingHorizontal: 16, gap: 8 }}
+          keyExtractor={(it) => it.id}
+          contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 10 }}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load({ silent: true }); }} tintColor={tokens.color.onSurfaceMuted} />
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => { setRefreshing(true); load({ silent: true }); }}
+              tintColor={tokens.color.onSurfaceMuted}
+            />
           }
-          renderItem={({ item }) => (
-            <DocRow item={item} onOpen={() => { haptic('tap'); router.push(`/document/${item.id}` as any); }} />
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <Ionicons name="sparkles-outline" size={36} color={tokens.color.onSurfaceMuted} />
+              <Text style={styles.emptyTitle}>Nessun documento qui</Text>
+              <Text style={styles.emptyBody}>
+                Carica un file: ORA lo interpreta e propone eventi, riassunti o scadenze.
+              </Text>
+            </View>
+          }
+          renderItem={({ item, index }) => (
+            <Animated.View entering={FadeInDown.delay(Math.min(index, 8) * 40).duration(220)}>
+              <DocCard
+                item={item}
+                onPress={() => {
+                  haptic('tap');
+                  router.push(`/document/${item.id}` as any);
+                }}
+              />
+            </Animated.View>
           )}
         />
       )}
@@ -197,132 +275,109 @@ export default function DocumentiScreen() {
   );
 }
 
-function FilterChip({ label, active, onPress, icon }: { label: string; active: boolean; onPress: () => void; icon?: keyof typeof Ionicons.glyphMap }) {
+function Stat({ chip, n }: { chip: string; n: number }) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.chip, active && styles.chipActive, pressed && styles.pressed]}>
-      {icon ? <Ionicons name={icon} size={12} color={active ? tokens.color.onBrand : tokens.color.onSurface} /> : null}
-      <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
-    </Pressable>
+    <View style={styles.stat}>
+      <Text style={styles.statN}>{n}</Text>
+      <Text style={styles.statL}>{chip}</Text>
+    </View>
   );
 }
 
-function DocRow({ item, onOpen }: { item: DocumentItem; onOpen: () => void }) {
+function DocCard({ item, onPress }: { item: DocumentHubCard; onPress: () => void }) {
+  const when = formatWhen(item.event_start);
+  const cat = MACRO_LABEL[item.macro_category || 'generic'] || item.macro_category;
   return (
     <Pressable
-      onPress={onOpen}
-      style={({ pressed }) => [styles.row, pressed && styles.pressed]}
-      testID={`doc-row-${item.id}`}
+      onPress={onPress}
+      style={({ pressed }) => [styles.card, pressed && styles.pressed]}
+      testID={`doc-card-${item.id}`}
     >
-      <View style={styles.iconWrap}>
-        <Ionicons name={iconFor(item.mime_type)} size={20} color={tokens.color.onSurface} />
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.rowTitle} numberOfLines={1}>{item.display_title || item.user_title || item.filename}</Text>
-        <Text style={styles.rowMeta}>
-          {formatDate(item.created_at)} · {formatSize(item.size)}
-          {item.pipeline_status_label ? ` · ${item.pipeline_status_label}` : ''}
-          {item.analysis?.macro_category ? ` · ${item.analysis.macro_category}` : ''}
+      <View style={styles.cardTop}>
+        <Text style={styles.cardTitle} numberOfLines={2}>
+          {item.display_title || 'Documento'}
         </Text>
-        {item.tags?.length ? (
-          <View style={styles.tagsRow}>
-            {item.tags.slice(0, 3).map(t => (
-              <View key={t} style={styles.tag}><Text style={styles.tagText}>{t}</Text></View>
-            ))}
-          </View>
+        {typeof item.confidence === 'number' ? (
+          <Text style={styles.conf}>{Math.round(item.confidence * 100)}%</Text>
         ) : null}
       </View>
-      {item.archived ? <Ionicons name="archive" size={16} color={tokens.color.onSurfaceMuted} /> : null}
+      <Text style={styles.cardFile} numberOfLines={1}>{item.original_filename}</Text>
+      <View style={styles.metaRow}>
+        <Text style={styles.badge}>{cat}</Text>
+        <Text style={styles.status}>{item.pipeline_status_label || item.pipeline_status || '—'}</Text>
+      </View>
+      {item.short_description ? (
+        <Text style={styles.desc} numberOfLines={2}>{item.short_description}</Text>
+      ) : null}
+      {item.utility ? <Text style={styles.utility}>{item.utility}</Text> : null}
+      {(when || item.event_location) ? (
+        <Text style={styles.extra} numberOfLines={1}>
+          {[when, item.event_location].filter(Boolean).join(' · ')}
+        </Text>
+      ) : null}
+      {(item.open_actions || 0) > 0 ? (
+        <Text style={styles.actionHint}>{item.open_actions} azione/i da confermare</Text>
+      ) : null}
     </Pressable>
   );
 }
-
-function EmptyState({
-  onUpload, archived, uploading,
-}: { onUpload: () => void; archived: boolean; uploading: boolean }) {
-  return (
-    <Animated.View entering={FadeInDown.duration(200)} style={styles.centerBox}>
-      <Ionicons name={archived ? 'archive-outline' : 'document-outline'} size={40} color={tokens.color.onSurfaceMuted} />
-      <Text style={styles.emptyTitle}>
-        {archived ? 'Nessun documento archiviato' : 'Nessun documento ancora'}
-      </Text>
-      <Text style={styles.emptyBody}>
-        {archived
-          ? 'Quando archivi un documento lo trovi qui.'
-          : 'Carica il tuo primo file per iniziare. Contratti, ricevute, scontrini — tutto al sicuro in locale.'}
-      </Text>
-      {!archived ? (
-        <View style={{ marginTop: 16, width: 240 }}>
-          <ActionBtn
-            primary
-            icon="cloud-upload-outline"
-            label="Carica un documento"
-            onPress={onUpload}
-            loading={uploading}
-            disabled={uploading}
-          />
-        </View>
-      ) : null}
-    </Animated.View>
-  );
-}
-
-// Nota: il vecchio `DetailSheet` inline e il componente `MetaLine` sono stati
-// rimossi in Iter21: il dettaglio documento vive ora in `app/document/[id].tsx`.
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: tokens.color.surface },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 8 },
-  title: { fontSize: 22, fontWeight: '800', color: tokens.color.onSurface },
+  header: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingHorizontal: 16, paddingTop: 8, paddingBottom: 8,
+  },
+  title: { color: tokens.color.onSurface, fontSize: 28, fontWeight: '700', letterSpacing: -0.5 },
+  subtitle: { color: tokens.color.onSurfaceMuted, fontSize: 13, marginTop: 2 },
   uploadBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: tokens.color.brand, borderRadius: 20,
-    paddingHorizontal: 12, paddingVertical: 8, minWidth: 80, justifyContent: 'center',
+    backgroundColor: tokens.color.brand, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12,
   },
-  uploadTxt: { color: tokens.color.onBrand, fontWeight: '700', fontSize: 13 },
-  searchRow: { paddingHorizontal: 16, paddingBottom: 8 },
+  uploadTxt: { color: tokens.color.onBrand, fontWeight: '600', fontSize: 14 },
+  pressed: { opacity: 0.85 },
+  statsRow: { paddingHorizontal: 16, gap: 8, paddingBottom: 8 },
+  stat: {
+    backgroundColor: tokens.color.surface, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8,
+    minWidth: 72, borderWidth: StyleSheet.hairlineWidth, borderColor: tokens.color.border,
+  },
+  statN: { color: tokens.color.onSurface, fontWeight: '700', fontSize: 18 },
+  statL: { color: tokens.color.onSurfaceMuted, fontSize: 11, marginTop: 2 },
   searchBox: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: tokens.color.surfaceSecondary,
-    borderRadius: tokens.radius.md,
-    paddingHorizontal: 12, paddingVertical: Platform.OS === 'ios' ? 10 : 4,
-    borderWidth: 1, borderColor: tokens.color.border,
+    marginHorizontal: 16, marginBottom: 8, flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: tokens.color.surface, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10,
+    borderWidth: StyleSheet.hairlineWidth, borderColor: tokens.color.border,
   },
-  searchInput: { flex: 1, color: tokens.color.onSurface, fontSize: 14, paddingVertical: 4 },
-  chipsRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingBottom: 10, flexWrap: 'wrap' },
-  chip: {
-    flexDirection: 'row', gap: 4, alignItems: 'center',
-    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16,
-    backgroundColor: tokens.color.surfaceSecondary,
-    borderWidth: 1, borderColor: tokens.color.border,
+  searchInput: { flex: 1, color: tokens.color.onSurface, fontSize: 15, padding: 0 },
+  filters: { paddingHorizontal: 16, gap: 8, paddingBottom: 8 },
+  filterChip: {
+    paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999,
+    backgroundColor: tokens.color.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: tokens.color.border,
   },
-  chipActive: { backgroundColor: tokens.color.brand, borderColor: tokens.color.brand },
-  chipText: { color: tokens.color.onSurface, fontSize: 12, fontWeight: '600' },
-  chipTextActive: { color: tokens.color.onBrand },
-  errorBanner: {
-    marginHorizontal: 16, marginBottom: 8, padding: 10, borderRadius: tokens.radius.md,
-    borderWidth: 1, borderColor: tokens.color.error, backgroundColor: tokens.color.errorBg,
-    flexDirection: 'row', gap: 8, alignItems: 'center',
+  filterChipOn: { backgroundColor: tokens.color.onSurface },
+  filterTxt: { color: tokens.color.onSurfaceMuted, fontSize: 13, fontWeight: '500' },
+  filterTxtOn: { color: tokens.color.surface },
+  error: { color: tokens.color.error, paddingHorizontal: 16, marginBottom: 6, fontSize: 13 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  empty: { alignItems: 'center', paddingTop: 48, gap: 8, paddingHorizontal: 24 },
+  emptyTitle: { color: tokens.color.onSurface, fontSize: 17, fontWeight: '600' },
+  emptyBody: { color: tokens.color.onSurfaceMuted, fontSize: 14, textAlign: 'center', lineHeight: 20 },
+  card: {
+    backgroundColor: tokens.color.surfaceSecondary, borderRadius: 16, padding: 14, gap: 4,
+    borderWidth: StyleSheet.hairlineWidth, borderColor: tokens.color.border,
   },
-  errorText: { color: tokens.color.onSurface, fontSize: 12, flex: 1 },
-  centerBox: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24, gap: 6 },
-  emptyTitle: { color: tokens.color.onSurface, fontWeight: '700', fontSize: 16, marginTop: 12 },
-  emptyBody: { color: tokens.color.onSurfaceMuted, fontSize: 13, textAlign: 'center', lineHeight: 18 },
-  row: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    padding: 12, borderRadius: tokens.radius.md,
-    backgroundColor: tokens.color.surfaceSecondary,
-    borderWidth: 1, borderColor: tokens.color.border,
-    minHeight: 60,
+  cardTop: { flexDirection: 'row', justifyContent: 'space-between', gap: 8, alignItems: 'flex-start' },
+  cardTitle: { flex: 1, color: tokens.color.onSurface, fontSize: 16, fontWeight: '600' },
+  conf: { color: tokens.color.onSurfaceMuted, fontSize: 12, fontWeight: '600' },
+  cardFile: { color: tokens.color.onSurfaceMuted, fontSize: 12 },
+  metaRow: { flexDirection: 'row', gap: 8, alignItems: 'center', marginTop: 4 },
+  badge: {
+    color: tokens.color.onSurface, fontSize: 11, fontWeight: '600',
+    backgroundColor: tokens.color.surfaceSecondary, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, overflow: 'hidden',
   },
-  iconWrap: {
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: tokens.color.surfaceTertiary,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  rowTitle: { color: tokens.color.onSurface, fontSize: 14, fontWeight: '600' },
-  rowMeta: { color: tokens.color.onSurfaceMuted, fontSize: 11, marginTop: 2 },
-  tagsRow: { flexDirection: 'row', gap: 6, marginTop: 6, flexWrap: 'wrap' },
-  tag: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, backgroundColor: tokens.color.surfaceTertiary },
-  tagText: { color: tokens.color.onSurfaceMuted, fontSize: 10, fontWeight: '600' },
-  pressed: { opacity: 0.7 },
+  status: { color: tokens.color.onSurfaceMuted, fontSize: 12 },
+  desc: { color: tokens.color.onSurfaceMuted, fontSize: 13, lineHeight: 18, marginTop: 4 },
+  utility: { color: tokens.color.brand, fontSize: 13, fontWeight: '500', marginTop: 4 },
+  extra: { color: tokens.color.onSurfaceMuted, fontSize: 12, marginTop: 2 },
+  actionHint: { color: tokens.color.warning, fontSize: 12, fontWeight: '600', marginTop: 4 },
 });

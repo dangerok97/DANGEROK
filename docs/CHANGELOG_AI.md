@@ -1,5 +1,25 @@
 # ORA — AI Changelog
 
+## 2026-08-05 — Rebuild Documents as intelligent actions engine (V2)
+
+### Request
+
+Replace archival Documents UX with dynamic intelligent pipeline: classify, utility, calendar auto-add opt-in, Brain, Maps, non-destructive migration, full docs, local commit.
+
+### Actions
+
+- Branch `feature/rebuild-intelligent-documents` from Google Calendar sync work
+- Pipeline V2 states + version fields; hub + preferences APIs; auto-add gates
+- FE hub rebuild; detail utility tabs; settings auto-add
+- Docs `DOCUMENTS_V2_*.md` + product/state updates
+- Tests `test_documents_v2.py`
+
+### Result
+
+Module reframed as actions engine; data preserved. Advanced study flashcards / multi-doc compare deferred.
+
+---
+
 ## 2026-08-05 — Google Calendar write sync (document events)
 
 ### Request

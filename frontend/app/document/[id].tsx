@@ -1,10 +1,7 @@
 /**
- * ORA — Iterazione 21
- * Document Insights: dettaglio documento a sezioni (Informazioni /
- * Insights / Contenuto / Metadati / Azioni).
- *
- * Deterministico: nessun LLM, nessun re-OCR. Legge /api/documents/{id}
- * e /api/documents/{id}/insights.
+ * ORA Documents V2 — dynamic detail by document utility.
+ * Primary surface: intelligent analysis, events, study, actions.
+ * Original file always available under Contenuto / Metadati.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -97,7 +94,7 @@ export default function DocumentDetailScreen() {
   // Poll while pipeline is running
   useEffect(() => {
     const st = analysis?.pipeline_status;
-    if (!st || ['completed', 'failed', 'needs_review', 'action_required'].includes(st)) return;
+    if (!st || ['completed', 'failed', 'needs_review', 'action_required', 'awaiting_confirmation'].includes(st)) return;
     if (analysis?.analysis && st === 'action_required') return;
     const t = setInterval(() => { load({ silent: true }); }, 1500);
     return () => clearInterval(t);
@@ -140,7 +137,11 @@ export default function DocumentDetailScreen() {
     <SafeAreaView style={styles.safe} edges={['top']} testID="document-detail">
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.header}>
-        <Pressable onPress={() => { haptic('tap'); router.back(); }} hitSlop={12} style={styles.backBtn}>
+        <Pressable           onPress={() => {
+            haptic('tap');
+            if (router.canGoBack()) router.back();
+            else router.replace('/(tabs)/documenti' as any);
+          }} hitSlop={12} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={22} color={tokens.color.onSurface} />
         </Pressable>
         <View style={{ flex: 1 }}>
@@ -158,7 +159,7 @@ export default function DocumentDetailScreen() {
         {(['info', 'insights', 'content', 'meta'] as Tab[]).map(t => (
           <Pressable key={t} onPress={() => setTab(t)} style={[styles.tab, tab === t && styles.tabActive]}>
             <Text style={[styles.tabText, tab === t && styles.tabTextActive]}>
-              {t === 'info' ? 'Info' : t === 'insights' ? 'Insights' : t === 'content' ? 'Contenuto' : 'Metadati'}
+              {t === 'info' ? 'Utilità' : t === 'insights' ? 'Dettagli' : t === 'content' ? 'Originale' : 'File'}
             </Text>
           </Pressable>
         ))}

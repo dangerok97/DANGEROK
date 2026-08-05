@@ -66,7 +66,7 @@ Persone che vogliono una priorità unica chiara (non un task manager generico), 
 ### 5. Documenti
 
 - **Scopo:** acquisire, comprendere e trasformare i file in conoscenza/azioni (eventi, studio, scadenze), non solo archiviarli.
-- **Stato:** upload/lista/dettaglio operativi; pipeline intelligente locale + LLM opzionale; event candidate con conferma; calendario interno draft; sync Google write implementata (conferma → solo ORA oppure ORA+Google). **Verifica reale Google bloccata** senza `GOOGLE_OAUTH_CLIENT_*` locale.
+- **Stato (V2):** hub azioni intelligenti (non archivio); classificazione dinamica; pipeline `intel-docs-2.0`; conferma eventi + sync Google; auto-add calendario **opt-in** (soglia 0.90); Brain merge; migrazione non distruttiva con version fields. UI tab Documenti ricostruita.
 - **Backend:** `/api/documents/*` + analyze/events/ask; `documents/intelligence/`.
 - **DB:** `documents` (+ analysis fields), `calendar_event_drafts`, Life Graph / Knowledge.
 - **Docs:** `docs/INTELLIGENT_DOCUMENTS_*.md`.

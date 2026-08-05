@@ -47,12 +47,17 @@ export default function SettingsScreen() {
     last_sync_at?: string | null;
     scopes?: string[];
   } | null>(null);
+  const [docPrefs, setDocPrefs] = useState<{
+    document_ai_analysis: boolean;
+    calendar_auto_add_enabled: boolean;
+    calendar_auto_add_threshold: number;
+  } | null>(null);
   const [googleRequest, , googlePrompt] = useGoogleAuthRequest();
 
   const load = useCallback(async () => {
     setError(null);
     try {
-      const [r, daily, aConfig, aInstances, idents, llm, writeStatus] = await Promise.all([
+      const [r, daily, aConfig, aInstances, idents, llm, writeStatus, dPrefs] = await Promise.all([
         api.googleCalendarInstances(),
         api.dailyToday().catch(() => null),
         // Only iOS shows Apple settings — but we still fetch config to
@@ -62,6 +67,7 @@ export default function SettingsScreen() {
         api.authIdentities().catch(() => null),
         api.llmProviders().catch(() => null),
         api.googleCalendarWriteStatus().catch(() => null),
+        api.documentPreferences().catch(() => null),
       ]);
       setInstance((r.items || [])[0] || null);
       setEventsCount(daily?.total_events ?? null);
@@ -70,6 +76,7 @@ export default function SettingsScreen() {
       setIdentities(idents);
       setLlmStatus(llm);
       setGcalWrite(writeStatus);
+      setDocPrefs(dPrefs);
     } catch (e: any) {
       setError(humanizeError(e));
     } finally {
@@ -217,6 +224,40 @@ export default function SettingsScreen() {
               </Pressable>
             );
           })}
+        </View>
+
+        <Text style={styles.sectionLabel}>Documenti intelligenti</Text>
+        <View style={styles.card} testID="settings-doc-prefs">
+          <Text style={styles.cardTitle}>Calendario automatico</Text>
+          <Text style={styles.cardMeta}>
+            Aggiungi automaticamente al calendario gli eventi riconosciuti con alta affidabilità
+            (soglia {Math.round((docPrefs?.calendar_auto_add_threshold ?? 0.9) * 100)}%). Default: disattivato.
+          </Text>
+          <View style={styles.actionsRow}>
+            <ActionBtn
+              primary={!!docPrefs?.calendar_auto_add_enabled}
+              icon={docPrefs?.calendar_auto_add_enabled ? 'checkmark-circle' : 'close-circle-outline'}
+              label={docPrefs?.calendar_auto_add_enabled ? 'Auto-add attivo' : 'Auto-add disattivato'}
+              loading={busy === 'doc_auto'}
+              onPress={async () => {
+                haptic('tap');
+                setBusy('doc_auto');
+                try {
+                  const next = !(docPrefs?.calendar_auto_add_enabled);
+                  const res = await api.setDocumentPreferences({
+                    calendar_auto_add_enabled: next,
+                    calendar_auto_add_threshold: docPrefs?.calendar_auto_add_threshold ?? 0.9,
+                  });
+                  setDocPrefs(res);
+                  haptic('success');
+                } catch (e: any) {
+                  setError(humanizeError(e));
+                } finally {
+                  setBusy(null);
+                }
+              }}
+            />
+          </View>
         </View>
 
         <Text style={styles.sectionLabel}>Metodi di accesso</Text>
