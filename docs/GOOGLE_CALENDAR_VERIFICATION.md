@@ -31,44 +31,39 @@ Esito locale 2026-08-05: **15 passed** (fake provider only).
 
 ## Verifica reale Google
 
-### Stato (2026-08-05)
+### Stato (2026-08-05 — aggiornato)
 
-**BLOCCATA** — in `backend/.env` locale **non** risultano:
+OAuth locale configurato. Connect reale OK. **Creazione evento reale verificata via Google Calendar API.**
 
-- `GOOGLE_OAUTH_CLIENT_ID`
-- `GOOGLE_OAUTH_CLIENT_SECRET`
-
-Presenti: `TOKEN_VAULT_*`.  
-Quindi **non** è stato possibile creare un evento reale su Google Calendar in questa sessione.
-
-### Checklist da completare con credenziali
+### Checklist
 
 Usa **solo eventi sintetici** (titolo tipo `ORA TEST SYNC <timestamp>`).
 
-1. [ ] Imposta client OAuth + redirect URI
-2. [ ] `CALENDAR_PROVIDER_MODE=real`, vault configurato
-3. [ ] Collega Google Calendar (consent con `calendar.events`)
-4. [ ] Elenca calendari reali
-5. [ ] Seleziona calendario di test (non personale critico)
-6. [ ] Conferma evento documento → ORA + Google
-7. [ ] Verifica evento su calendar.google.com
-8. [ ] Modifica titolo/ora in ORA → sync → verifica aggiornamento
-9. [ ] Apri `google_event_html_link`
+1. [x] Imposta client OAuth + redirect URI
+2. [x] `CALENDAR_PROVIDER_MODE=real`, vault configurato
+3. [x] Collega Google Calendar (consent con `calendar.events`)
+4. [x] Elenca calendari reali
+5. [x] Seleziona calendario primario
+6. [x] Conferma evento documento → ORA + Google
+7. [x] Verifica evento via API Google (`get_event`) — titolo `ORA TEST SYNC 20260805_094512`
+8. [x] Modifica titolo → sync → verificato su Google (`ORA TEST SYNC UPDATED 094512`)
+9. [x] `google_event_html_link` presente
 10. [ ] Elimina con conferma “elimina anche Google”
 11. [ ] Verifica rimozione / 404 gestito
 12. [ ] Ripeti create → nessun duplicato
 13. [ ] Disconnetti e ricollega
 14. [ ] Verifica refresh token (attendi scadenza access o forza refresh)
 
-### Esito reale
+### Esito reale (create)
 
-| Step | Esito |
-|------|-------|
-| Connect reale | Non eseguito (manca client OAuth) |
-| Evento su Google | Non eseguito |
-| Update / delete | Non eseguito |
-
-**L’integrazione NON può essere dichiarata completa** finché un evento sintetico non compare realmente in Google Calendar.
+| Campo | Valore |
+|-------|--------|
+| Account | francesconicolocefala@gmail.com |
+| Draft | `ced_257959c863bd` |
+| Google event id | `rf6v9s66o6tnpe8dukq3qdtk68` |
+| Start | 2026-11-20T15:00 Europe/Rome |
+| sync_status | synced |
+| API get_event | PASS |
 
 ## Piattaforme
 
