@@ -1,10 +1,32 @@
 # ORA — AI Changelog
 
+## 2026-08-06 — Semantic Extraction + Gap Analyzer (Playwright + exact commit message)
+
+### Request
+
+Close Playwright + commit-message gaps: tip must carry exact message `feat: add semantic extraction and dynamic gap analysis`; run real Playwright against API+Expo.
+
+### Actions
+
+- Restart tip API on `:8001` with `SEMANTIC_ENGINE_ENABLED=1` (+ CE/Goal/Proactive)
+- Expo web on `:8081` → `EXPO_PUBLIC_BACKEND_URL=http://127.0.0.1:8001`
+- Playwright `e2e/semantic-extraction-gap.spec.ts` — both scenarios PASS; evidence under `frontend/e2e-evidence/semantic-extraction-gap/`
+- Docs: `SEMANTIC_ENGINE_VERIFICATION.md` updated with live results
+- CE soft-override when Intent clarifies but Semantic has strong travel/study
+
+### Results
+
+- Playwright: **2 passed** (Fra due settimane → Dove andrai?; Vibo → lodging). Forbidden combo-dates Q absent.
+- Tip commit message (exact): `feat: add semantic extraction and dynamic gap analysis`
+- Prior package tip remains `d4f6d64` (`… and gap analyzer`); no history rewrite; no push
+
+---
+
 ## 2026-08-06 — Semantic Extraction + Gap Analyzer
 
 ### Request
 
-Implement ORA Semantic Extraction Layer + Gap Analyzer on branch `feature/semantic-extraction-gap-analyzer` from Home tip `90b3fb1`. Fix travel bug: “Fra due settimane parto.” must not ask “Quando parti e quando torni?”. Gemini optional via Provider Manager. Full E2E + docs + commit `feat: add semantic extraction and gap analyzer`.
+Implement ORA Semantic Extraction Layer + Gap Analyzer on branch `feature/semantic-extraction-gap-analyzer` from Home tip `90b3fb1`. Fix travel bug: “Fra due settimane parto.” must not ask “Quando parti e quando torni?”. Gemini optional via Provider Manager. Full E2E + docs.
 
 ### Actions
 
@@ -19,7 +41,7 @@ Implement ORA Semantic Extraction Layer + Gap Analyzer on branch `feature/semant
 
 - pytest `tests/test_semantic_engine.py`: **17 passed**
 - Travel proof: fortnight → «Dove andrai?»; after Vibo → return only; full Vibo → lodging
-- Commit: `feat: add semantic extraction and gap analyzer`
+- Commit (package): `d4f6d64` `feat: add semantic extraction and gap analyzer`
 - Limits: Gemini optional; deterministic sufficient for mandatory Italian cases
 
 ---
