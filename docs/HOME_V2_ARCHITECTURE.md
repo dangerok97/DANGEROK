@@ -7,9 +7,10 @@ Last updated: 2026-08-06
 ```
 frontend/app/(tabs)/index.tsx          → Home V2 screen
 frontend/app/situazione.tsx            → full situation view
-frontend/src/components/home/v2/*      → Adesso, Perché, actions, situazione, banner, priorità, insights, resume
+frontend/src/components/home/v2/*      → Adesso, Perché, actions, situazione, banner, priorità, ORA TI CONSIGLIA, insights, resume
 backend/home/                          → aggregator + ranking + actions
 backend/home/adapters/*                → per-source loaders (fail-soft)
+backend/proactive_engine/              → suggestions for ora_ti_consiglia
 GET  /api/home
 GET  /api/home/situation
 POST /api/home/actions
@@ -26,6 +27,7 @@ POST /api/home/refresh
 | `priorities` | Non-empty groups |
 | `insights` | ≤2 deduped insights |
 | `resume_item` | One resume or null |
+| `ora_ti_consiglia` | ≤3 Proactive Engine suggestions (hidden when empty); see `docs/PROACTIVE_ENGINE_PRODUCT.md` |
 | `connection_warnings` | Partial-source / Google banner signals |
 | `google_calendar` | `{ connected, show_banner, … }` |
 | `generated_at` | ISO |

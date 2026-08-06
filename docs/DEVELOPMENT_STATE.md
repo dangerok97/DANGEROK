@@ -1,45 +1,43 @@
 # ORA — Development State
 
-Last updated: 2026-08-06 (Goal-aware Home complete vs full checklist — no Goal UX)
+Last updated: 2026-08-06 (Proactive Engine foundation)
 
 ## Branch
 
-- Active: `feature/goal-aware-home` (local, no push)
-- Base: `feature/goal-engine-foundation` @ `7352f7c`
-- Follow-up on `a702d1e`: schema fields, ranking `1.2`, blockers/prep/skipped, idle proposal, docs `GOAL_AWARE_HOME.md`
+- Active: `feature/proactive-engine` (local, no push)
+- Base: `feature/goal-aware-home` @ `6297bc3`
 
-## Goal-aware Home V2 (no Goal UX)
-
-| Item | Stato |
-|------|--------|
-| Home loads active Goals when `GOAL_ENGINE_ENABLED` | **implemented** |
-| Attach full `goal_*` refs (type/target/blockers/project) | **implemented** |
-| Dedupe same `goal_id` → one focus + one resume | **implemented** |
-| Ranking `home-rank-1.2` Goal factors | **implemented** |
-| Travel soft progress = phase/label (no fake %) | **implemented** |
-| Primary focus: action + Obiettivo / blocked surface | **implemented** |
-| Idle Goals → useful proposal (not empty) | **implemented** |
-| Insights / resume / Perché cite Goal honestly | **implemented** |
-| Flag OFF → pre–Goal-aware behavior | **implemented** |
-| Goal tab / list / Goals Home section | **NOT implemented** (by design) |
-| Docs `GOAL_AWARE_HOME.md` (+ `HOME_GOAL_AWARE.md` alias) | **implemented** |
-
-## Goal Engine Foundation (backend)
+## Proactive Engine foundation
 
 | Item | Stato |
 |------|--------|
-| Package `backend/goal_engine/` + shadow Study/Travel | **intact** |
-| API `/api/goals/*` (unused by Goal UI) | **intact** |
-| Flag `GOAL_ENGINE_ENABLED` | **intact** (also gates Home attach) |
+| Package `backend/proactive_engine/` | **implemented** |
+| Generators Study / Travel / Calendar / Documents | **implemented** (grounded) |
+| Scoring + Decision gate + Dedupe + Learning + Explain | **implemented** |
+| Notification policy (no push blast) | **implemented** (policy layer only) |
+| API `/api/suggestions/*` + flag `PROACTIVE_ENGINE_ENABLED` | **implemented** |
+| Home `ora_ti_consiglia` max 3 + FE Accetta/Ignora/Snooze/Apri | **implemented** |
+| Accept study recovery session | **implemented** (planned session; honesty documented) |
+| Email / Finance / Weather / Health | **predisposed stubs only** — never invent |
+| WhatsApp | **NOT implemented** |
+| Push notifications | **NOT implemented** (policy defers) |
+
+## Goal-aware Home V2 (prior)
+
+| Item | Stato |
+|------|--------|
+| Goal attach / dedupe / ranking 1.2 / Adesso context | **intact** |
+| Goal tab / Goals Home section | **NOT implemented** (by design) |
 
 ## Open / next
 
-1. Progress refresh on session complete / travel phase tick
-2. Optional FE Goals read surface (later — still not a Home Goals module)
-3. Weather / email auto-find / native mobile (travel)
+1. Wire real email/finance/weather connectors into stub generators (still gate ruthlessly)
+2. Progress refresh on session complete / travel phase tick
+3. Optional FE Goals read surface (later)
+4. Push channel behind notification policy (opt-in)
 
 ## Credentials / safety
 
 - Never commit `.env` / tokens
-- Goal Engine / Goal-aware Home need no new secrets
-- Flag off → shadow upsert no-op + Home ignores Goals
+- Proactive Engine needs no new secrets
+- Flag off → no suggestions; Home section empty

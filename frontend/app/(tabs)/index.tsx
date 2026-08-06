@@ -20,6 +20,7 @@ import { SituazioneCard } from '@/src/components/home/v2/SituazioneCard';
 import { GoogleBanner } from '@/src/components/home/v2/GoogleBanner';
 import { PrioritaList } from '@/src/components/home/v2/PrioritaList';
 import { OraOsserva } from '@/src/components/home/v2/OraOsserva';
+import { OraTiConsiglia } from '@/src/components/home/v2/OraTiConsiglia';
 import { ResumeCard } from '@/src/components/home/v2/ResumeCard';
 import { EmptyHome } from '@/src/components/home/v2/EmptyHome';
 
@@ -34,6 +35,7 @@ export default function HomeScreen() {
   const [lastSuccessAt, setLastSuccessAt] = useState<Date | null>(null);
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
   const [actionBusy, setActionBusy] = useState<string | null>(null);
+  const [suggestionBusy, setSuggestionBusy] = useState<string | null>(null);
   const [correctOpen, setCorrectOpen] = useState(false);
   const [snoozeOpen, setSnoozeOpen] = useState(false);
   const [pendingItemId, setPendingItemId] = useState<string | null>(null);
@@ -191,6 +193,58 @@ export default function HomeScreen() {
         ) : null}
 
         {!loading && home?.priorities ? <PrioritaList groups={home.priorities} /> : null}
+
+        {!loading && (home?.ora_ti_consiglia?.length ?? 0) > 0 ? (
+          <OraTiConsiglia
+            suggestions={home!.ora_ti_consiglia!}
+            busyId={suggestionBusy}
+            onAccept={async (id) => {
+              setSuggestionBusy(id);
+              try {
+                const res = await api.acceptSuggestion(id);
+                haptic('success');
+                const route = (res.result as any)?.route;
+                await load({ silent: true });
+                if (route) router.push(route as any);
+              } catch (e: any) {
+                if (isNetworkError(e)) markOffline();
+                setErrorBanner(humanizeError(e, 'default'));
+                haptic('error');
+              } finally {
+                setSuggestionBusy(null);
+              }
+            }}
+            onDismiss={async (id) => {
+              setSuggestionBusy(id);
+              try {
+                await api.dismissSuggestion(id);
+                haptic('success');
+                await load({ silent: true });
+              } catch (e: any) {
+                if (isNetworkError(e)) markOffline();
+                setErrorBanner(humanizeError(e, 'default'));
+              } finally {
+                setSuggestionBusy(null);
+              }
+            }}
+            onSnooze={async (id, preset) => {
+              setSuggestionBusy(id);
+              try {
+                await api.snoozeSuggestion(id, { preset });
+                haptic('success');
+                await load({ silent: true });
+              } catch (e: any) {
+                if (isNetworkError(e)) markOffline();
+                setErrorBanner(humanizeError(e, 'default'));
+              } finally {
+                setSuggestionBusy(null);
+              }
+            }}
+            onOpen={(s) => {
+              if (s.action?.route) router.push(s.action.route as any);
+            }}
+          />
+        ) : null}
 
         {!loading && home?.insights ? (
           <OraOsserva

@@ -1,6 +1,6 @@
 # ORA — Product (struttura reale)
 
-Ultimo aggiornamento: 2026-08-06 — Goal-aware Home V2 (no Goal UX) + Goal Engine Foundation + Travel/Study + Intent.
+Ultimo aggiornamento: 2026-08-06 — Proactive Engine foundation + Goal-aware Home V2 + Goal Engine + Travel/Study + Intent.
 
 ## Vision
 
@@ -15,7 +15,7 @@ Persone che vogliono una priorità unica chiara (non un task manager generico), 
 | Route | Schermata | Ruolo |
 |-------|-----------|--------|
 | `/login` | Login | Auth email/Google/Apple |
-| `/(tabs)` → index | Home V2 “Adesso” | Ranking multi-fonte, situazione, priorità, insights, resume |
+| `/(tabs)` → index | Home V2 “Adesso” | Ranking multi-fonte, situazione, priorità, ORA TI CONSIGLIA, insights, resume |
 | `/situazione` | Situazione completa | Vista reale da CTA Home |
 | `/(tabs)/memoria` | Memoria | Q&A e salvataggio ricordi |
 | `/(tabs)/documenti` | Documenti | Lista/upload/dettaglio documenti |
@@ -46,8 +46,9 @@ Persone che vogliono una priorità unica chiara (non un task manager generico), 
 ### 2. Home V2 — Intelligence dashboard
 
 - **Scopo:** rispondere “cosa è più utile sapere o fare adesso” con ranking multi-fonte (documenti, calendario, studio, decisioni, …).
-- **Stato:** **operativo (web)** — `GET /api/home`, ranking `home-rank-1.2` Goal-aware (flag) senza Gemini, UI Adesso/Perché/azioni tipizzate/situazione/priorità/insights/resume; banner Google compatto; no Goal tab.
-- **Flusso UI:** Home → focus → **Action Engine** (Apri/Organizza/Inizia/card); complete/snooze/ignore/correct; refresh on focus + pull-to-refresh.
+- **Stato:** **operativo (web)** — `GET /api/home`, ranking `home-rank-1.2` Goal-aware (flag) senza Gemini, UI Adesso/Perché/azioni tipizzate/situazione/priorità/**ORA TI CONSIGLIA**/insights/resume; banner Google compatto; no Goal tab.
+- **Flusso UI:** Home → focus → **Action Engine** (Apri/Organizza/Inizia/card); complete/snooze/ignore/correct; Proactive Accetta/Ignora/Snooze; refresh on focus + pull-to-refresh.
+- **Proactive:** `docs/PROACTIVE_ENGINE_PRODUCT.md` — Email/Finance/Weather/WhatsApp predisposti, non operativi.
 - **Backend:** `backend/home/` + adapters fail-soft (+ Action Engine adapter).
 - **DB:** `home_snapshots`, `home_item_state`, `home_insights` (+ fonti esistenti).
 - **Docs:** `docs/HOME_V2_*.md`.

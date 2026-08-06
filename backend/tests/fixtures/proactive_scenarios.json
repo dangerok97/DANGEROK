@@ -1,0 +1,3026 @@
+{
+  "version": 1,
+  "count": 224,
+  "scenarios": [
+    {
+      "id": "study_skip_1_3",
+      "category": "study",
+      "expect_emit": true,
+      "setup": {
+        "kind": "study_skipped",
+        "skipped_count": 1,
+        "days_to_exam": 3
+      },
+      "assert": {
+        "type": "study",
+        "min_score": 0.3,
+        "action_kind": "recover_session"
+      }
+    },
+    {
+      "id": "study_skip_1_7",
+      "category": "study",
+      "expect_emit": true,
+      "setup": {
+        "kind": "study_skipped",
+        "skipped_count": 1,
+        "days_to_exam": 7
+      },
+      "assert": {
+        "type": "study",
+        "min_score": 0.3,
+        "action_kind": "recover_session"
+      }
+    },
+    {
+      "id": "study_skip_1_14",
+      "category": "study",
+      "expect_emit": true,
+      "setup": {
+        "kind": "study_skipped",
+        "skipped_count": 1,
+        "days_to_exam": 14
+      },
+      "assert": {
+        "type": "study",
+        "min_score": 0.3,
+        "action_kind": "recover_session"
+      }
+    },
+    {
+      "id": "study_skip_1_30",
+      "category": "study",
+      "expect_emit": true,
+      "setup": {
+        "kind": "study_skipped",
+        "skipped_count": 1,
+        "days_to_exam": 30
+      },
+      "assert": {
+        "type": "study",
+        "min_score": 0.3,
+        "action_kind": "recover_session"
+      }
+    },
+    {
+      "id": "study_skip_2_3",
+      "category": "study",
+      "expect_emit": true,
+      "setup": {
+        "kind": "study_skipped",
+        "skipped_count": 2,
+        "days_to_exam": 3
+      },
+      "assert": {
+        "type": "study",
+        "min_score": 0.3,
+        "action_kind": "recover_session"
+      }
+    },
+    {
+      "id": "study_skip_2_7",
+      "category": "study",
+      "expect_emit": true,
+      "setup": {
+        "kind": "study_skipped",
+        "skipped_count": 2,
+        "days_to_exam": 7
+      },
+      "assert": {
+        "type": "study",
+        "min_score": 0.3,
+        "action_kind": "recover_session"
+      }
+    },
+    {
+      "id": "study_skip_2_14",
+      "category": "study",
+      "expect_emit": true,
+      "setup": {
+        "kind": "study_skipped",
+        "skipped_count": 2,
+        "days_to_exam": 14
+      },
+      "assert": {
+        "type": "study",
+        "min_score": 0.3,
+        "action_kind": "recover_session"
+      }
+    },
+    {
+      "id": "study_skip_2_30",
+      "category": "study",
+      "expect_emit": true,
+      "setup": {
+        "kind": "study_skipped",
+        "skipped_count": 2,
+        "days_to_exam": 30
+      },
+      "assert": {
+        "type": "study",
+        "min_score": 0.3,
+        "action_kind": "recover_session"
+      }
+    },
+    {
+      "id": "study_skip_3_3",
+      "category": "study",
+      "expect_emit": true,
+      "setup": {
+        "kind": "study_skipped",
+        "skipped_count": 3,
+        "days_to_exam": 3
+      },
+      "assert": {
+        "type": "study",
+        "min_score": 0.3,
+        "action_kind": "recover_session"
+      }
+    },
+    {
+      "id": "study_skip_3_7",
+      "category": "study",
+      "expect_emit": true,
+      "setup": {
+        "kind": "study_skipped",
+        "skipped_count": 3,
+        "days_to_exam": 7
+      },
+      "assert": {
+        "type": "study",
+        "min_score": 0.3,
+        "action_kind": "recover_session"
+      }
+    },
+    {
+      "id": "study_skip_3_14",
+      "category": "study",
+      "expect_emit": true,
+      "setup": {
+        "kind": "study_skipped",
+        "skipped_count": 3,
+        "days_to_exam": 14
+      },
+      "assert": {
+        "type": "study",
+        "min_score": 0.3,
+        "action_kind": "recover_session"
+      }
+    },
+    {
+      "id": "study_skip_3_30",
+      "category": "study",
+      "expect_emit": true,
+      "setup": {
+        "kind": "study_skipped",
+        "skipped_count": 3,
+        "days_to_exam": 30
+      },
+      "assert": {
+        "type": "study",
+        "min_score": 0.3,
+        "action_kind": "recover_session"
+      }
+    },
+    {
+      "id": "study_skip_4_3",
+      "category": "study",
+      "expect_emit": true,
+      "setup": {
+        "kind": "study_skipped",
+        "skipped_count": 4,
+        "days_to_exam": 3
+      },
+      "assert": {
+        "type": "study",
+        "min_score": 0.3,
+        "action_kind": "recover_session"
+      }
+    },
+    {
+      "id": "study_skip_4_7",
+      "category": "study",
+      "expect_emit": true,
+      "setup": {
+        "kind": "study_skipped",
+        "skipped_count": 4,
+        "days_to_exam": 7
+      },
+      "assert": {
+        "type": "study",
+        "min_score": 0.3,
+        "action_kind": "recover_session"
+      }
+    },
+    {
+      "id": "study_skip_4_14",
+      "category": "study",
+      "expect_emit": true,
+      "setup": {
+        "kind": "study_skipped",
+        "skipped_count": 4,
+        "days_to_exam": 14
+      },
+      "assert": {
+        "type": "study",
+        "min_score": 0.3,
+        "action_kind": "recover_session"
+      }
+    },
+    {
+      "id": "study_skip_4_30",
+      "category": "study",
+      "expect_emit": true,
+      "setup": {
+        "kind": "study_skipped",
+        "skipped_count": 4,
+        "days_to_exam": 30
+      },
+      "assert": {
+        "type": "study",
+        "min_score": 0.3,
+        "action_kind": "recover_session"
+      }
+    },
+    {
+      "id": "study_skip_5_3",
+      "category": "study",
+      "expect_emit": true,
+      "setup": {
+        "kind": "study_skipped",
+        "skipped_count": 5,
+        "days_to_exam": 3
+      },
+      "assert": {
+        "type": "study",
+        "min_score": 0.3,
+        "action_kind": "recover_session"
+      }
+    },
+    {
+      "id": "study_skip_5_7",
+      "category": "study",
+      "expect_emit": true,
+      "setup": {
+        "kind": "study_skipped",
+        "skipped_count": 5,
+        "days_to_exam": 7
+      },
+      "assert": {
+        "type": "study",
+        "min_score": 0.3,
+        "action_kind": "recover_session"
+      }
+    },
+    {
+      "id": "study_skip_5_14",
+      "category": "study",
+      "expect_emit": true,
+      "setup": {
+        "kind": "study_skipped",
+        "skipped_count": 5,
+        "days_to_exam": 14
+      },
+      "assert": {
+        "type": "study",
+        "min_score": 0.3,
+        "action_kind": "recover_session"
+      }
+    },
+    {
+      "id": "study_skip_5_30",
+      "category": "study",
+      "expect_emit": true,
+      "setup": {
+        "kind": "study_skipped",
+        "skipped_count": 5,
+        "days_to_exam": 30
+      },
+      "assert": {
+        "type": "study",
+        "min_score": 0.3,
+        "action_kind": "recover_session"
+      }
+    },
+    {
+      "id": "study_skip_6_3",
+      "category": "study",
+      "expect_emit": true,
+      "setup": {
+        "kind": "study_skipped",
+        "skipped_count": 6,
+        "days_to_exam": 3
+      },
+      "assert": {
+        "type": "study",
+        "min_score": 0.3,
+        "action_kind": "recover_session"
+      }
+    },
+    {
+      "id": "study_skip_6_7",
+      "category": "study",
+      "expect_emit": true,
+      "setup": {
+        "kind": "study_skipped",
+        "skipped_count": 6,
+        "days_to_exam": 7
+      },
+      "assert": {
+        "type": "study",
+        "min_score": 0.3,
+        "action_kind": "recover_session"
+      }
+    },
+    {
+      "id": "study_skip_6_14",
+      "category": "study",
+      "expect_emit": true,
+      "setup": {
+        "kind": "study_skipped",
+        "skipped_count": 6,
+        "days_to_exam": 14
+      },
+      "assert": {
+        "type": "study",
+        "min_score": 0.3,
+        "action_kind": "recover_session"
+      }
+    },
+    {
+      "id": "study_skip_6_30",
+      "category": "study",
+      "expect_emit": true,
+      "setup": {
+        "kind": "study_skipped",
+        "skipped_count": 6,
+        "days_to_exam": 30
+      },
+      "assert": {
+        "type": "study",
+        "min_score": 0.3,
+        "action_kind": "recover_session"
+      }
+    },
+    {
+      "id": "study_skip_7_3",
+      "category": "study",
+      "expect_emit": true,
+      "setup": {
+        "kind": "study_skipped",
+        "skipped_count": 7,
+        "days_to_exam": 3
+      },
+      "assert": {
+        "type": "study",
+        "min_score": 0.3,
+        "action_kind": "recover_session"
+      }
+    },
+    {
+      "id": "study_skip_7_7",
+      "category": "study",
+      "expect_emit": true,
+      "setup": {
+        "kind": "study_skipped",
+        "skipped_count": 7,
+        "days_to_exam": 7
+      },
+      "assert": {
+        "type": "study",
+        "min_score": 0.3,
+        "action_kind": "recover_session"
+      }
+    },
+    {
+      "id": "study_skip_7_14",
+      "category": "study",
+      "expect_emit": true,
+      "setup": {
+        "kind": "study_skipped",
+        "skipped_count": 7,
+        "days_to_exam": 14
+      },
+      "assert": {
+        "type": "study",
+        "min_score": 0.3,
+        "action_kind": "recover_session"
+      }
+    },
+    {
+      "id": "study_skip_7_30",
+      "category": "study",
+      "expect_emit": true,
+      "setup": {
+        "kind": "study_skipped",
+        "skipped_count": 7,
+        "days_to_exam": 30
+      },
+      "assert": {
+        "type": "study",
+        "min_score": 0.3,
+        "action_kind": "recover_session"
+      }
+    },
+    {
+      "id": "study_skip_8_3",
+      "category": "study",
+      "expect_emit": true,
+      "setup": {
+        "kind": "study_skipped",
+        "skipped_count": 8,
+        "days_to_exam": 3
+      },
+      "assert": {
+        "type": "study",
+        "min_score": 0.3,
+        "action_kind": "recover_session"
+      }
+    },
+    {
+      "id": "study_skip_8_7",
+      "category": "study",
+      "expect_emit": true,
+      "setup": {
+        "kind": "study_skipped",
+        "skipped_count": 8,
+        "days_to_exam": 7
+      },
+      "assert": {
+        "type": "study",
+        "min_score": 0.3,
+        "action_kind": "recover_session"
+      }
+    },
+    {
+      "id": "study_skip_8_14",
+      "category": "study",
+      "expect_emit": true,
+      "setup": {
+        "kind": "study_skipped",
+        "skipped_count": 8,
+        "days_to_exam": 14
+      },
+      "assert": {
+        "type": "study",
+        "min_score": 0.3,
+        "action_kind": "recover_session"
+      }
+    },
+    {
+      "id": "study_skip_8_30",
+      "category": "study",
+      "expect_emit": true,
+      "setup": {
+        "kind": "study_skipped",
+        "skipped_count": 8,
+        "days_to_exam": 30
+      },
+      "assert": {
+        "type": "study",
+        "min_score": 0.3,
+        "action_kind": "recover_session"
+      }
+    },
+    {
+      "id": "study_skip_9_3",
+      "category": "study",
+      "expect_emit": true,
+      "setup": {
+        "kind": "study_skipped",
+        "skipped_count": 9,
+        "days_to_exam": 3
+      },
+      "assert": {
+        "type": "study",
+        "min_score": 0.3,
+        "action_kind": "recover_session"
+      }
+    },
+    {
+      "id": "study_skip_9_7",
+      "category": "study",
+      "expect_emit": true,
+      "setup": {
+        "kind": "study_skipped",
+        "skipped_count": 9,
+        "days_to_exam": 7
+      },
+      "assert": {
+        "type": "study",
+        "min_score": 0.3,
+        "action_kind": "recover_session"
+      }
+    },
+    {
+      "id": "study_skip_9_14",
+      "category": "study",
+      "expect_emit": true,
+      "setup": {
+        "kind": "study_skipped",
+        "skipped_count": 9,
+        "days_to_exam": 14
+      },
+      "assert": {
+        "type": "study",
+        "min_score": 0.3,
+        "action_kind": "recover_session"
+      }
+    },
+    {
+      "id": "study_skip_9_30",
+      "category": "study",
+      "expect_emit": true,
+      "setup": {
+        "kind": "study_skipped",
+        "skipped_count": 9,
+        "days_to_exam": 30
+      },
+      "assert": {
+        "type": "study",
+        "min_score": 0.3,
+        "action_kind": "recover_session"
+      }
+    },
+    {
+      "id": "study_skip_10_3",
+      "category": "study",
+      "expect_emit": true,
+      "setup": {
+        "kind": "study_skipped",
+        "skipped_count": 10,
+        "days_to_exam": 3
+      },
+      "assert": {
+        "type": "study",
+        "min_score": 0.3,
+        "action_kind": "recover_session"
+      }
+    },
+    {
+      "id": "study_skip_10_7",
+      "category": "study",
+      "expect_emit": true,
+      "setup": {
+        "kind": "study_skipped",
+        "skipped_count": 10,
+        "days_to_exam": 7
+      },
+      "assert": {
+        "type": "study",
+        "min_score": 0.3,
+        "action_kind": "recover_session"
+      }
+    },
+    {
+      "id": "study_skip_10_14",
+      "category": "study",
+      "expect_emit": true,
+      "setup": {
+        "kind": "study_skipped",
+        "skipped_count": 10,
+        "days_to_exam": 14
+      },
+      "assert": {
+        "type": "study",
+        "min_score": 0.3,
+        "action_kind": "recover_session"
+      }
+    },
+    {
+      "id": "study_skip_10_30",
+      "category": "study",
+      "expect_emit": true,
+      "setup": {
+        "kind": "study_skipped",
+        "skipped_count": 10,
+        "days_to_exam": 30
+      },
+      "assert": {
+        "type": "study",
+        "min_score": 0.3,
+        "action_kind": "recover_session"
+      }
+    },
+    {
+      "id": "travel_dep_0_prep_0",
+      "category": "travel",
+      "expect_emit": true,
+      "setup": {
+        "kind": "travel_departure",
+        "days_to_departure": 0,
+        "incomplete_prep": 0
+      },
+      "assert": {
+        "type": "travel",
+        "action_kind": "prep"
+      }
+    },
+    {
+      "id": "travel_dep_0_prep_1",
+      "category": "travel",
+      "expect_emit": true,
+      "setup": {
+        "kind": "travel_departure",
+        "days_to_departure": 0,
+        "incomplete_prep": 1
+      },
+      "assert": {
+        "type": "travel",
+        "action_kind": "prep"
+      }
+    },
+    {
+      "id": "travel_dep_0_prep_3",
+      "category": "travel",
+      "expect_emit": true,
+      "setup": {
+        "kind": "travel_departure",
+        "days_to_departure": 0,
+        "incomplete_prep": 3
+      },
+      "assert": {
+        "type": "travel",
+        "action_kind": "prep"
+      }
+    },
+    {
+      "id": "travel_dep_0_prep_5",
+      "category": "travel",
+      "expect_emit": true,
+      "setup": {
+        "kind": "travel_departure",
+        "days_to_departure": 0,
+        "incomplete_prep": 5
+      },
+      "assert": {
+        "type": "travel",
+        "action_kind": "prep"
+      }
+    },
+    {
+      "id": "travel_dep_1_prep_0",
+      "category": "travel",
+      "expect_emit": true,
+      "setup": {
+        "kind": "travel_departure",
+        "days_to_departure": 1,
+        "incomplete_prep": 0
+      },
+      "assert": {
+        "type": "travel",
+        "action_kind": "prep"
+      }
+    },
+    {
+      "id": "travel_dep_1_prep_1",
+      "category": "travel",
+      "expect_emit": true,
+      "setup": {
+        "kind": "travel_departure",
+        "days_to_departure": 1,
+        "incomplete_prep": 1
+      },
+      "assert": {
+        "type": "travel",
+        "action_kind": "prep"
+      }
+    },
+    {
+      "id": "travel_dep_1_prep_3",
+      "category": "travel",
+      "expect_emit": true,
+      "setup": {
+        "kind": "travel_departure",
+        "days_to_departure": 1,
+        "incomplete_prep": 3
+      },
+      "assert": {
+        "type": "travel",
+        "action_kind": "prep"
+      }
+    },
+    {
+      "id": "travel_dep_1_prep_5",
+      "category": "travel",
+      "expect_emit": true,
+      "setup": {
+        "kind": "travel_departure",
+        "days_to_departure": 1,
+        "incomplete_prep": 5
+      },
+      "assert": {
+        "type": "travel",
+        "action_kind": "prep"
+      }
+    },
+    {
+      "id": "travel_dep_2_prep_0",
+      "category": "travel",
+      "expect_emit": true,
+      "setup": {
+        "kind": "travel_departure",
+        "days_to_departure": 2,
+        "incomplete_prep": 0
+      },
+      "assert": {
+        "type": "travel",
+        "action_kind": "prep"
+      }
+    },
+    {
+      "id": "travel_dep_2_prep_1",
+      "category": "travel",
+      "expect_emit": true,
+      "setup": {
+        "kind": "travel_departure",
+        "days_to_departure": 2,
+        "incomplete_prep": 1
+      },
+      "assert": {
+        "type": "travel",
+        "action_kind": "prep"
+      }
+    },
+    {
+      "id": "travel_dep_2_prep_3",
+      "category": "travel",
+      "expect_emit": true,
+      "setup": {
+        "kind": "travel_departure",
+        "days_to_departure": 2,
+        "incomplete_prep": 3
+      },
+      "assert": {
+        "type": "travel",
+        "action_kind": "prep"
+      }
+    },
+    {
+      "id": "travel_dep_2_prep_5",
+      "category": "travel",
+      "expect_emit": true,
+      "setup": {
+        "kind": "travel_departure",
+        "days_to_departure": 2,
+        "incomplete_prep": 5
+      },
+      "assert": {
+        "type": "travel",
+        "action_kind": "prep"
+      }
+    },
+    {
+      "id": "travel_dep_3_prep_0",
+      "category": "travel",
+      "expect_emit": true,
+      "setup": {
+        "kind": "travel_departure",
+        "days_to_departure": 3,
+        "incomplete_prep": 0
+      },
+      "assert": {
+        "type": "travel",
+        "action_kind": "prep"
+      }
+    },
+    {
+      "id": "travel_dep_3_prep_1",
+      "category": "travel",
+      "expect_emit": true,
+      "setup": {
+        "kind": "travel_departure",
+        "days_to_departure": 3,
+        "incomplete_prep": 1
+      },
+      "assert": {
+        "type": "travel",
+        "action_kind": "prep"
+      }
+    },
+    {
+      "id": "travel_dep_3_prep_3",
+      "category": "travel",
+      "expect_emit": true,
+      "setup": {
+        "kind": "travel_departure",
+        "days_to_departure": 3,
+        "incomplete_prep": 3
+      },
+      "assert": {
+        "type": "travel",
+        "action_kind": "prep"
+      }
+    },
+    {
+      "id": "travel_dep_3_prep_5",
+      "category": "travel",
+      "expect_emit": true,
+      "setup": {
+        "kind": "travel_departure",
+        "days_to_departure": 3,
+        "incomplete_prep": 5
+      },
+      "assert": {
+        "type": "travel",
+        "action_kind": "prep"
+      }
+    },
+    {
+      "id": "travel_dep_4_prep_0",
+      "category": "travel",
+      "expect_emit": true,
+      "setup": {
+        "kind": "travel_departure",
+        "days_to_departure": 4,
+        "incomplete_prep": 0
+      },
+      "assert": {
+        "type": "travel",
+        "action_kind": "prep"
+      }
+    },
+    {
+      "id": "travel_dep_4_prep_1",
+      "category": "travel",
+      "expect_emit": true,
+      "setup": {
+        "kind": "travel_departure",
+        "days_to_departure": 4,
+        "incomplete_prep": 1
+      },
+      "assert": {
+        "type": "travel",
+        "action_kind": "prep"
+      }
+    },
+    {
+      "id": "travel_dep_4_prep_3",
+      "category": "travel",
+      "expect_emit": true,
+      "setup": {
+        "kind": "travel_departure",
+        "days_to_departure": 4,
+        "incomplete_prep": 3
+      },
+      "assert": {
+        "type": "travel",
+        "action_kind": "prep"
+      }
+    },
+    {
+      "id": "travel_dep_4_prep_5",
+      "category": "travel",
+      "expect_emit": true,
+      "setup": {
+        "kind": "travel_departure",
+        "days_to_departure": 4,
+        "incomplete_prep": 5
+      },
+      "assert": {
+        "type": "travel",
+        "action_kind": "prep"
+      }
+    },
+    {
+      "id": "travel_dep_5_prep_0",
+      "category": "travel",
+      "expect_emit": true,
+      "setup": {
+        "kind": "travel_departure",
+        "days_to_departure": 5,
+        "incomplete_prep": 0
+      },
+      "assert": {
+        "type": "travel",
+        "action_kind": "prep"
+      }
+    },
+    {
+      "id": "travel_dep_5_prep_1",
+      "category": "travel",
+      "expect_emit": true,
+      "setup": {
+        "kind": "travel_departure",
+        "days_to_departure": 5,
+        "incomplete_prep": 1
+      },
+      "assert": {
+        "type": "travel",
+        "action_kind": "prep"
+      }
+    },
+    {
+      "id": "travel_dep_5_prep_3",
+      "category": "travel",
+      "expect_emit": true,
+      "setup": {
+        "kind": "travel_departure",
+        "days_to_departure": 5,
+        "incomplete_prep": 3
+      },
+      "assert": {
+        "type": "travel",
+        "action_kind": "prep"
+      }
+    },
+    {
+      "id": "travel_dep_5_prep_5",
+      "category": "travel",
+      "expect_emit": true,
+      "setup": {
+        "kind": "travel_departure",
+        "days_to_departure": 5,
+        "incomplete_prep": 5
+      },
+      "assert": {
+        "type": "travel",
+        "action_kind": "prep"
+      }
+    },
+    {
+      "id": "travel_dep_6_prep_0",
+      "category": "travel",
+      "expect_emit": true,
+      "setup": {
+        "kind": "travel_departure",
+        "days_to_departure": 6,
+        "incomplete_prep": 0
+      },
+      "assert": {
+        "type": "travel",
+        "action_kind": "prep"
+      }
+    },
+    {
+      "id": "travel_dep_6_prep_1",
+      "category": "travel",
+      "expect_emit": true,
+      "setup": {
+        "kind": "travel_departure",
+        "days_to_departure": 6,
+        "incomplete_prep": 1
+      },
+      "assert": {
+        "type": "travel",
+        "action_kind": "prep"
+      }
+    },
+    {
+      "id": "travel_dep_6_prep_3",
+      "category": "travel",
+      "expect_emit": true,
+      "setup": {
+        "kind": "travel_departure",
+        "days_to_departure": 6,
+        "incomplete_prep": 3
+      },
+      "assert": {
+        "type": "travel",
+        "action_kind": "prep"
+      }
+    },
+    {
+      "id": "travel_dep_6_prep_5",
+      "category": "travel",
+      "expect_emit": true,
+      "setup": {
+        "kind": "travel_departure",
+        "days_to_departure": 6,
+        "incomplete_prep": 5
+      },
+      "assert": {
+        "type": "travel",
+        "action_kind": "prep"
+      }
+    },
+    {
+      "id": "travel_dep_7_prep_0",
+      "category": "travel",
+      "expect_emit": true,
+      "setup": {
+        "kind": "travel_departure",
+        "days_to_departure": 7,
+        "incomplete_prep": 0
+      },
+      "assert": {
+        "type": "travel",
+        "action_kind": "prep"
+      }
+    },
+    {
+      "id": "travel_dep_7_prep_1",
+      "category": "travel",
+      "expect_emit": true,
+      "setup": {
+        "kind": "travel_departure",
+        "days_to_departure": 7,
+        "incomplete_prep": 1
+      },
+      "assert": {
+        "type": "travel",
+        "action_kind": "prep"
+      }
+    },
+    {
+      "id": "travel_dep_7_prep_3",
+      "category": "travel",
+      "expect_emit": true,
+      "setup": {
+        "kind": "travel_departure",
+        "days_to_departure": 7,
+        "incomplete_prep": 3
+      },
+      "assert": {
+        "type": "travel",
+        "action_kind": "prep"
+      }
+    },
+    {
+      "id": "travel_dep_7_prep_5",
+      "category": "travel",
+      "expect_emit": true,
+      "setup": {
+        "kind": "travel_departure",
+        "days_to_departure": 7,
+        "incomplete_prep": 5
+      },
+      "assert": {
+        "type": "travel",
+        "action_kind": "prep"
+      }
+    },
+    {
+      "id": "travel_far_10",
+      "category": "travel",
+      "expect_emit": false,
+      "setup": {
+        "kind": "travel_departure",
+        "days_to_departure": 10,
+        "incomplete_prep": 2
+      },
+      "assert": {
+        "type": "travel"
+      }
+    },
+    {
+      "id": "travel_far_14",
+      "category": "travel",
+      "expect_emit": false,
+      "setup": {
+        "kind": "travel_departure",
+        "days_to_departure": 14,
+        "incomplete_prep": 2
+      },
+      "assert": {
+        "type": "travel"
+      }
+    },
+    {
+      "id": "travel_far_21",
+      "category": "travel",
+      "expect_emit": false,
+      "setup": {
+        "kind": "travel_departure",
+        "days_to_departure": 21,
+        "incomplete_prep": 2
+      },
+      "assert": {
+        "type": "travel"
+      }
+    },
+    {
+      "id": "travel_far_30",
+      "category": "travel",
+      "expect_emit": false,
+      "setup": {
+        "kind": "travel_departure",
+        "days_to_departure": 30,
+        "incomplete_prep": 2
+      },
+      "assert": {
+        "type": "travel"
+      }
+    },
+    {
+      "id": "travel_far_45",
+      "category": "travel",
+      "expect_emit": false,
+      "setup": {
+        "kind": "travel_departure",
+        "days_to_departure": 45,
+        "incomplete_prep": 2
+      },
+      "assert": {
+        "type": "travel"
+      }
+    },
+    {
+      "id": "travel_far_60",
+      "category": "travel",
+      "expect_emit": false,
+      "setup": {
+        "kind": "travel_departure",
+        "days_to_departure": 60,
+        "incomplete_prep": 2
+      },
+      "assert": {
+        "type": "travel"
+      }
+    },
+    {
+      "id": "travel_far_90",
+      "category": "travel",
+      "expect_emit": false,
+      "setup": {
+        "kind": "travel_departure",
+        "days_to_departure": 90,
+        "incomplete_prep": 2
+      },
+      "assert": {
+        "type": "travel"
+      }
+    },
+    {
+      "id": "travel_far_120",
+      "category": "travel",
+      "expect_emit": false,
+      "setup": {
+        "kind": "travel_departure",
+        "days_to_departure": 120,
+        "incomplete_prep": 2
+      },
+      "assert": {
+        "type": "travel"
+      }
+    },
+    {
+      "id": "cal_overlap_0",
+      "category": "calendar",
+      "expect_emit": true,
+      "setup": {
+        "kind": "calendar_overlap",
+        "offset_hours": 0
+      },
+      "assert": {
+        "type": "calendar",
+        "action_kind": "modify_event"
+      }
+    },
+    {
+      "id": "cal_overlap_1",
+      "category": "calendar",
+      "expect_emit": true,
+      "setup": {
+        "kind": "calendar_overlap",
+        "offset_hours": 1
+      },
+      "assert": {
+        "type": "calendar",
+        "action_kind": "modify_event"
+      }
+    },
+    {
+      "id": "cal_overlap_2",
+      "category": "calendar",
+      "expect_emit": true,
+      "setup": {
+        "kind": "calendar_overlap",
+        "offset_hours": 2
+      },
+      "assert": {
+        "type": "calendar",
+        "action_kind": "modify_event"
+      }
+    },
+    {
+      "id": "cal_overlap_3",
+      "category": "calendar",
+      "expect_emit": true,
+      "setup": {
+        "kind": "calendar_overlap",
+        "offset_hours": 3
+      },
+      "assert": {
+        "type": "calendar",
+        "action_kind": "modify_event"
+      }
+    },
+    {
+      "id": "cal_overlap_4",
+      "category": "calendar",
+      "expect_emit": true,
+      "setup": {
+        "kind": "calendar_overlap",
+        "offset_hours": 4
+      },
+      "assert": {
+        "type": "calendar",
+        "action_kind": "modify_event"
+      }
+    },
+    {
+      "id": "cal_overlap_5",
+      "category": "calendar",
+      "expect_emit": true,
+      "setup": {
+        "kind": "calendar_overlap",
+        "offset_hours": 5
+      },
+      "assert": {
+        "type": "calendar",
+        "action_kind": "modify_event"
+      }
+    },
+    {
+      "id": "cal_overlap_6",
+      "category": "calendar",
+      "expect_emit": true,
+      "setup": {
+        "kind": "calendar_overlap",
+        "offset_hours": 6
+      },
+      "assert": {
+        "type": "calendar",
+        "action_kind": "modify_event"
+      }
+    },
+    {
+      "id": "cal_overlap_7",
+      "category": "calendar",
+      "expect_emit": true,
+      "setup": {
+        "kind": "calendar_overlap",
+        "offset_hours": 7
+      },
+      "assert": {
+        "type": "calendar",
+        "action_kind": "modify_event"
+      }
+    },
+    {
+      "id": "cal_overlap_8",
+      "category": "calendar",
+      "expect_emit": true,
+      "setup": {
+        "kind": "calendar_overlap",
+        "offset_hours": 8
+      },
+      "assert": {
+        "type": "calendar",
+        "action_kind": "modify_event"
+      }
+    },
+    {
+      "id": "cal_overlap_9",
+      "category": "calendar",
+      "expect_emit": true,
+      "setup": {
+        "kind": "calendar_overlap",
+        "offset_hours": 9
+      },
+      "assert": {
+        "type": "calendar",
+        "action_kind": "modify_event"
+      }
+    },
+    {
+      "id": "cal_overlap_10",
+      "category": "calendar",
+      "expect_emit": true,
+      "setup": {
+        "kind": "calendar_overlap",
+        "offset_hours": 10
+      },
+      "assert": {
+        "type": "calendar",
+        "action_kind": "modify_event"
+      }
+    },
+    {
+      "id": "cal_overlap_11",
+      "category": "calendar",
+      "expect_emit": true,
+      "setup": {
+        "kind": "calendar_overlap",
+        "offset_hours": 11
+      },
+      "assert": {
+        "type": "calendar",
+        "action_kind": "modify_event"
+      }
+    },
+    {
+      "id": "cal_overlap_12",
+      "category": "calendar",
+      "expect_emit": true,
+      "setup": {
+        "kind": "calendar_overlap",
+        "offset_hours": 12
+      },
+      "assert": {
+        "type": "calendar",
+        "action_kind": "modify_event"
+      }
+    },
+    {
+      "id": "cal_overlap_13",
+      "category": "calendar",
+      "expect_emit": true,
+      "setup": {
+        "kind": "calendar_overlap",
+        "offset_hours": 13
+      },
+      "assert": {
+        "type": "calendar",
+        "action_kind": "modify_event"
+      }
+    },
+    {
+      "id": "cal_overlap_14",
+      "category": "calendar",
+      "expect_emit": true,
+      "setup": {
+        "kind": "calendar_overlap",
+        "offset_hours": 14
+      },
+      "assert": {
+        "type": "calendar",
+        "action_kind": "modify_event"
+      }
+    },
+    {
+      "id": "cal_overlap_15",
+      "category": "calendar",
+      "expect_emit": true,
+      "setup": {
+        "kind": "calendar_overlap",
+        "offset_hours": 15
+      },
+      "assert": {
+        "type": "calendar",
+        "action_kind": "modify_event"
+      }
+    },
+    {
+      "id": "cal_overlap_16",
+      "category": "calendar",
+      "expect_emit": true,
+      "setup": {
+        "kind": "calendar_overlap",
+        "offset_hours": 16
+      },
+      "assert": {
+        "type": "calendar",
+        "action_kind": "modify_event"
+      }
+    },
+    {
+      "id": "cal_overlap_17",
+      "category": "calendar",
+      "expect_emit": true,
+      "setup": {
+        "kind": "calendar_overlap",
+        "offset_hours": 17
+      },
+      "assert": {
+        "type": "calendar",
+        "action_kind": "modify_event"
+      }
+    },
+    {
+      "id": "cal_overlap_18",
+      "category": "calendar",
+      "expect_emit": true,
+      "setup": {
+        "kind": "calendar_overlap",
+        "offset_hours": 18
+      },
+      "assert": {
+        "type": "calendar",
+        "action_kind": "modify_event"
+      }
+    },
+    {
+      "id": "cal_overlap_19",
+      "category": "calendar",
+      "expect_emit": true,
+      "setup": {
+        "kind": "calendar_overlap",
+        "offset_hours": 19
+      },
+      "assert": {
+        "type": "calendar",
+        "action_kind": "modify_event"
+      }
+    },
+    {
+      "id": "cal_clear_0",
+      "category": "calendar",
+      "expect_emit": false,
+      "setup": {
+        "kind": "calendar_clear",
+        "offset_hours": 0
+      },
+      "assert": {
+        "type": "calendar"
+      }
+    },
+    {
+      "id": "cal_clear_1",
+      "category": "calendar",
+      "expect_emit": false,
+      "setup": {
+        "kind": "calendar_clear",
+        "offset_hours": 3
+      },
+      "assert": {
+        "type": "calendar"
+      }
+    },
+    {
+      "id": "cal_clear_2",
+      "category": "calendar",
+      "expect_emit": false,
+      "setup": {
+        "kind": "calendar_clear",
+        "offset_hours": 6
+      },
+      "assert": {
+        "type": "calendar"
+      }
+    },
+    {
+      "id": "cal_clear_3",
+      "category": "calendar",
+      "expect_emit": false,
+      "setup": {
+        "kind": "calendar_clear",
+        "offset_hours": 9
+      },
+      "assert": {
+        "type": "calendar"
+      }
+    },
+    {
+      "id": "cal_clear_4",
+      "category": "calendar",
+      "expect_emit": false,
+      "setup": {
+        "kind": "calendar_clear",
+        "offset_hours": 12
+      },
+      "assert": {
+        "type": "calendar"
+      }
+    },
+    {
+      "id": "cal_clear_5",
+      "category": "calendar",
+      "expect_emit": false,
+      "setup": {
+        "kind": "calendar_clear",
+        "offset_hours": 15
+      },
+      "assert": {
+        "type": "calendar"
+      }
+    },
+    {
+      "id": "cal_clear_6",
+      "category": "calendar",
+      "expect_emit": false,
+      "setup": {
+        "kind": "calendar_clear",
+        "offset_hours": 18
+      },
+      "assert": {
+        "type": "calendar"
+      }
+    },
+    {
+      "id": "cal_clear_7",
+      "category": "calendar",
+      "expect_emit": false,
+      "setup": {
+        "kind": "calendar_clear",
+        "offset_hours": 21
+      },
+      "assert": {
+        "type": "calendar"
+      }
+    },
+    {
+      "id": "cal_clear_8",
+      "category": "calendar",
+      "expect_emit": false,
+      "setup": {
+        "kind": "calendar_clear",
+        "offset_hours": 24
+      },
+      "assert": {
+        "type": "calendar"
+      }
+    },
+    {
+      "id": "cal_clear_9",
+      "category": "calendar",
+      "expect_emit": false,
+      "setup": {
+        "kind": "calendar_clear",
+        "offset_hours": 27
+      },
+      "assert": {
+        "type": "calendar"
+      }
+    },
+    {
+      "id": "doc_edu_0",
+      "category": "documents",
+      "expect_emit": true,
+      "setup": {
+        "kind": "education_doc",
+        "linked": true,
+        "has_flashcards": false
+      },
+      "assert": {
+        "type": "documents",
+        "action_kind": "flashcards"
+      }
+    },
+    {
+      "id": "doc_edu_1",
+      "category": "documents",
+      "expect_emit": true,
+      "setup": {
+        "kind": "education_doc",
+        "linked": false,
+        "has_flashcards": false
+      },
+      "assert": {
+        "type": "documents",
+        "action_kind": "flashcards"
+      }
+    },
+    {
+      "id": "doc_edu_2",
+      "category": "documents",
+      "expect_emit": true,
+      "setup": {
+        "kind": "education_doc",
+        "linked": true,
+        "has_flashcards": false
+      },
+      "assert": {
+        "type": "documents",
+        "action_kind": "flashcards"
+      }
+    },
+    {
+      "id": "doc_edu_3",
+      "category": "documents",
+      "expect_emit": true,
+      "setup": {
+        "kind": "education_doc",
+        "linked": false,
+        "has_flashcards": false
+      },
+      "assert": {
+        "type": "documents",
+        "action_kind": "flashcards"
+      }
+    },
+    {
+      "id": "doc_edu_4",
+      "category": "documents",
+      "expect_emit": true,
+      "setup": {
+        "kind": "education_doc",
+        "linked": true,
+        "has_flashcards": false
+      },
+      "assert": {
+        "type": "documents",
+        "action_kind": "flashcards"
+      }
+    },
+    {
+      "id": "doc_edu_5",
+      "category": "documents",
+      "expect_emit": true,
+      "setup": {
+        "kind": "education_doc",
+        "linked": false,
+        "has_flashcards": false
+      },
+      "assert": {
+        "type": "documents",
+        "action_kind": "flashcards"
+      }
+    },
+    {
+      "id": "doc_edu_6",
+      "category": "documents",
+      "expect_emit": true,
+      "setup": {
+        "kind": "education_doc",
+        "linked": true,
+        "has_flashcards": false
+      },
+      "assert": {
+        "type": "documents",
+        "action_kind": "flashcards"
+      }
+    },
+    {
+      "id": "doc_edu_7",
+      "category": "documents",
+      "expect_emit": true,
+      "setup": {
+        "kind": "education_doc",
+        "linked": false,
+        "has_flashcards": false
+      },
+      "assert": {
+        "type": "documents",
+        "action_kind": "flashcards"
+      }
+    },
+    {
+      "id": "doc_edu_8",
+      "category": "documents",
+      "expect_emit": true,
+      "setup": {
+        "kind": "education_doc",
+        "linked": true,
+        "has_flashcards": false
+      },
+      "assert": {
+        "type": "documents",
+        "action_kind": "flashcards"
+      }
+    },
+    {
+      "id": "doc_edu_9",
+      "category": "documents",
+      "expect_emit": true,
+      "setup": {
+        "kind": "education_doc",
+        "linked": false,
+        "has_flashcards": false
+      },
+      "assert": {
+        "type": "documents",
+        "action_kind": "flashcards"
+      }
+    },
+    {
+      "id": "doc_edu_10",
+      "category": "documents",
+      "expect_emit": true,
+      "setup": {
+        "kind": "education_doc",
+        "linked": true,
+        "has_flashcards": false
+      },
+      "assert": {
+        "type": "documents",
+        "action_kind": "flashcards"
+      }
+    },
+    {
+      "id": "doc_edu_11",
+      "category": "documents",
+      "expect_emit": true,
+      "setup": {
+        "kind": "education_doc",
+        "linked": false,
+        "has_flashcards": false
+      },
+      "assert": {
+        "type": "documents",
+        "action_kind": "flashcards"
+      }
+    },
+    {
+      "id": "doc_edu_12",
+      "category": "documents",
+      "expect_emit": true,
+      "setup": {
+        "kind": "education_doc",
+        "linked": true,
+        "has_flashcards": false
+      },
+      "assert": {
+        "type": "documents",
+        "action_kind": "flashcards"
+      }
+    },
+    {
+      "id": "doc_edu_13",
+      "category": "documents",
+      "expect_emit": true,
+      "setup": {
+        "kind": "education_doc",
+        "linked": false,
+        "has_flashcards": false
+      },
+      "assert": {
+        "type": "documents",
+        "action_kind": "flashcards"
+      }
+    },
+    {
+      "id": "doc_edu_14",
+      "category": "documents",
+      "expect_emit": true,
+      "setup": {
+        "kind": "education_doc",
+        "linked": true,
+        "has_flashcards": false
+      },
+      "assert": {
+        "type": "documents",
+        "action_kind": "flashcards"
+      }
+    },
+    {
+      "id": "doc_edu_15",
+      "category": "documents",
+      "expect_emit": true,
+      "setup": {
+        "kind": "education_doc",
+        "linked": false,
+        "has_flashcards": false
+      },
+      "assert": {
+        "type": "documents",
+        "action_kind": "flashcards"
+      }
+    },
+    {
+      "id": "doc_edu_16",
+      "category": "documents",
+      "expect_emit": true,
+      "setup": {
+        "kind": "education_doc",
+        "linked": true,
+        "has_flashcards": false
+      },
+      "assert": {
+        "type": "documents",
+        "action_kind": "flashcards"
+      }
+    },
+    {
+      "id": "doc_edu_17",
+      "category": "documents",
+      "expect_emit": true,
+      "setup": {
+        "kind": "education_doc",
+        "linked": false,
+        "has_flashcards": false
+      },
+      "assert": {
+        "type": "documents",
+        "action_kind": "flashcards"
+      }
+    },
+    {
+      "id": "doc_edu_18",
+      "category": "documents",
+      "expect_emit": true,
+      "setup": {
+        "kind": "education_doc",
+        "linked": true,
+        "has_flashcards": false
+      },
+      "assert": {
+        "type": "documents",
+        "action_kind": "flashcards"
+      }
+    },
+    {
+      "id": "doc_edu_19",
+      "category": "documents",
+      "expect_emit": true,
+      "setup": {
+        "kind": "education_doc",
+        "linked": false,
+        "has_flashcards": false
+      },
+      "assert": {
+        "type": "documents",
+        "action_kind": "flashcards"
+      }
+    },
+    {
+      "id": "doc_has_fc_0",
+      "category": "documents",
+      "expect_emit": false,
+      "setup": {
+        "kind": "education_doc",
+        "linked": true,
+        "has_flashcards": true
+      },
+      "assert": {
+        "type": "documents"
+      }
+    },
+    {
+      "id": "doc_has_fc_1",
+      "category": "documents",
+      "expect_emit": false,
+      "setup": {
+        "kind": "education_doc",
+        "linked": true,
+        "has_flashcards": true
+      },
+      "assert": {
+        "type": "documents"
+      }
+    },
+    {
+      "id": "doc_has_fc_2",
+      "category": "documents",
+      "expect_emit": false,
+      "setup": {
+        "kind": "education_doc",
+        "linked": true,
+        "has_flashcards": true
+      },
+      "assert": {
+        "type": "documents"
+      }
+    },
+    {
+      "id": "doc_has_fc_3",
+      "category": "documents",
+      "expect_emit": false,
+      "setup": {
+        "kind": "education_doc",
+        "linked": true,
+        "has_flashcards": true
+      },
+      "assert": {
+        "type": "documents"
+      }
+    },
+    {
+      "id": "doc_has_fc_4",
+      "category": "documents",
+      "expect_emit": false,
+      "setup": {
+        "kind": "education_doc",
+        "linked": true,
+        "has_flashcards": true
+      },
+      "assert": {
+        "type": "documents"
+      }
+    },
+    {
+      "id": "doc_has_fc_5",
+      "category": "documents",
+      "expect_emit": false,
+      "setup": {
+        "kind": "education_doc",
+        "linked": true,
+        "has_flashcards": true
+      },
+      "assert": {
+        "type": "documents"
+      }
+    },
+    {
+      "id": "doc_has_fc_6",
+      "category": "documents",
+      "expect_emit": false,
+      "setup": {
+        "kind": "education_doc",
+        "linked": true,
+        "has_flashcards": true
+      },
+      "assert": {
+        "type": "documents"
+      }
+    },
+    {
+      "id": "doc_has_fc_7",
+      "category": "documents",
+      "expect_emit": false,
+      "setup": {
+        "kind": "education_doc",
+        "linked": true,
+        "has_flashcards": true
+      },
+      "assert": {
+        "type": "documents"
+      }
+    },
+    {
+      "id": "doc_receipt_0",
+      "category": "documents",
+      "expect_emit": false,
+      "setup": {
+        "kind": "receipt_doc"
+      },
+      "assert": {
+        "type": "documents"
+      }
+    },
+    {
+      "id": "doc_receipt_1",
+      "category": "documents",
+      "expect_emit": false,
+      "setup": {
+        "kind": "receipt_doc"
+      },
+      "assert": {
+        "type": "documents"
+      }
+    },
+    {
+      "id": "doc_receipt_2",
+      "category": "documents",
+      "expect_emit": false,
+      "setup": {
+        "kind": "receipt_doc"
+      },
+      "assert": {
+        "type": "documents"
+      }
+    },
+    {
+      "id": "doc_receipt_3",
+      "category": "documents",
+      "expect_emit": false,
+      "setup": {
+        "kind": "receipt_doc"
+      },
+      "assert": {
+        "type": "documents"
+      }
+    },
+    {
+      "id": "doc_receipt_4",
+      "category": "documents",
+      "expect_emit": false,
+      "setup": {
+        "kind": "receipt_doc"
+      },
+      "assert": {
+        "type": "documents"
+      }
+    },
+    {
+      "id": "doc_receipt_5",
+      "category": "documents",
+      "expect_emit": false,
+      "setup": {
+        "kind": "receipt_doc"
+      },
+      "assert": {
+        "type": "documents"
+      }
+    },
+    {
+      "id": "doc_receipt_6",
+      "category": "documents",
+      "expect_emit": false,
+      "setup": {
+        "kind": "receipt_doc"
+      },
+      "assert": {
+        "type": "documents"
+      }
+    },
+    {
+      "id": "doc_receipt_7",
+      "category": "documents",
+      "expect_emit": false,
+      "setup": {
+        "kind": "receipt_doc"
+      },
+      "assert": {
+        "type": "documents"
+      }
+    },
+    {
+      "id": "stub_emails_0",
+      "category": "stub",
+      "expect_emit": false,
+      "setup": {
+        "kind": "stub_only",
+        "stub_type": "emails",
+        "fake_signal": 0
+      },
+      "assert": {
+        "type": "emails",
+        "must_not_invent": true
+      }
+    },
+    {
+      "id": "stub_emails_1",
+      "category": "stub",
+      "expect_emit": false,
+      "setup": {
+        "kind": "stub_only",
+        "stub_type": "emails",
+        "fake_signal": 1
+      },
+      "assert": {
+        "type": "emails",
+        "must_not_invent": true
+      }
+    },
+    {
+      "id": "stub_emails_2",
+      "category": "stub",
+      "expect_emit": false,
+      "setup": {
+        "kind": "stub_only",
+        "stub_type": "emails",
+        "fake_signal": 2
+      },
+      "assert": {
+        "type": "emails",
+        "must_not_invent": true
+      }
+    },
+    {
+      "id": "stub_emails_3",
+      "category": "stub",
+      "expect_emit": false,
+      "setup": {
+        "kind": "stub_only",
+        "stub_type": "emails",
+        "fake_signal": 3
+      },
+      "assert": {
+        "type": "emails",
+        "must_not_invent": true
+      }
+    },
+    {
+      "id": "stub_emails_4",
+      "category": "stub",
+      "expect_emit": false,
+      "setup": {
+        "kind": "stub_only",
+        "stub_type": "emails",
+        "fake_signal": 4
+      },
+      "assert": {
+        "type": "emails",
+        "must_not_invent": true
+      }
+    },
+    {
+      "id": "stub_emails_5",
+      "category": "stub",
+      "expect_emit": false,
+      "setup": {
+        "kind": "stub_only",
+        "stub_type": "emails",
+        "fake_signal": 5
+      },
+      "assert": {
+        "type": "emails",
+        "must_not_invent": true
+      }
+    },
+    {
+      "id": "stub_emails_6",
+      "category": "stub",
+      "expect_emit": false,
+      "setup": {
+        "kind": "stub_only",
+        "stub_type": "emails",
+        "fake_signal": 6
+      },
+      "assert": {
+        "type": "emails",
+        "must_not_invent": true
+      }
+    },
+    {
+      "id": "stub_emails_7",
+      "category": "stub",
+      "expect_emit": false,
+      "setup": {
+        "kind": "stub_only",
+        "stub_type": "emails",
+        "fake_signal": 7
+      },
+      "assert": {
+        "type": "emails",
+        "must_not_invent": true
+      }
+    },
+    {
+      "id": "stub_emails_8",
+      "category": "stub",
+      "expect_emit": false,
+      "setup": {
+        "kind": "stub_only",
+        "stub_type": "emails",
+        "fake_signal": 8
+      },
+      "assert": {
+        "type": "emails",
+        "must_not_invent": true
+      }
+    },
+    {
+      "id": "stub_emails_9",
+      "category": "stub",
+      "expect_emit": false,
+      "setup": {
+        "kind": "stub_only",
+        "stub_type": "emails",
+        "fake_signal": 9
+      },
+      "assert": {
+        "type": "emails",
+        "must_not_invent": true
+      }
+    },
+    {
+      "id": "stub_finance_0",
+      "category": "stub",
+      "expect_emit": false,
+      "setup": {
+        "kind": "stub_only",
+        "stub_type": "finance",
+        "fake_signal": 0
+      },
+      "assert": {
+        "type": "finance",
+        "must_not_invent": true
+      }
+    },
+    {
+      "id": "stub_finance_1",
+      "category": "stub",
+      "expect_emit": false,
+      "setup": {
+        "kind": "stub_only",
+        "stub_type": "finance",
+        "fake_signal": 1
+      },
+      "assert": {
+        "type": "finance",
+        "must_not_invent": true
+      }
+    },
+    {
+      "id": "stub_finance_2",
+      "category": "stub",
+      "expect_emit": false,
+      "setup": {
+        "kind": "stub_only",
+        "stub_type": "finance",
+        "fake_signal": 2
+      },
+      "assert": {
+        "type": "finance",
+        "must_not_invent": true
+      }
+    },
+    {
+      "id": "stub_finance_3",
+      "category": "stub",
+      "expect_emit": false,
+      "setup": {
+        "kind": "stub_only",
+        "stub_type": "finance",
+        "fake_signal": 3
+      },
+      "assert": {
+        "type": "finance",
+        "must_not_invent": true
+      }
+    },
+    {
+      "id": "stub_finance_4",
+      "category": "stub",
+      "expect_emit": false,
+      "setup": {
+        "kind": "stub_only",
+        "stub_type": "finance",
+        "fake_signal": 4
+      },
+      "assert": {
+        "type": "finance",
+        "must_not_invent": true
+      }
+    },
+    {
+      "id": "stub_finance_5",
+      "category": "stub",
+      "expect_emit": false,
+      "setup": {
+        "kind": "stub_only",
+        "stub_type": "finance",
+        "fake_signal": 5
+      },
+      "assert": {
+        "type": "finance",
+        "must_not_invent": true
+      }
+    },
+    {
+      "id": "stub_finance_6",
+      "category": "stub",
+      "expect_emit": false,
+      "setup": {
+        "kind": "stub_only",
+        "stub_type": "finance",
+        "fake_signal": 6
+      },
+      "assert": {
+        "type": "finance",
+        "must_not_invent": true
+      }
+    },
+    {
+      "id": "stub_finance_7",
+      "category": "stub",
+      "expect_emit": false,
+      "setup": {
+        "kind": "stub_only",
+        "stub_type": "finance",
+        "fake_signal": 7
+      },
+      "assert": {
+        "type": "finance",
+        "must_not_invent": true
+      }
+    },
+    {
+      "id": "stub_finance_8",
+      "category": "stub",
+      "expect_emit": false,
+      "setup": {
+        "kind": "stub_only",
+        "stub_type": "finance",
+        "fake_signal": 8
+      },
+      "assert": {
+        "type": "finance",
+        "must_not_invent": true
+      }
+    },
+    {
+      "id": "stub_finance_9",
+      "category": "stub",
+      "expect_emit": false,
+      "setup": {
+        "kind": "stub_only",
+        "stub_type": "finance",
+        "fake_signal": 9
+      },
+      "assert": {
+        "type": "finance",
+        "must_not_invent": true
+      }
+    },
+    {
+      "id": "stub_weather_0",
+      "category": "stub",
+      "expect_emit": false,
+      "setup": {
+        "kind": "stub_only",
+        "stub_type": "weather",
+        "fake_signal": 0
+      },
+      "assert": {
+        "type": "weather",
+        "must_not_invent": true
+      }
+    },
+    {
+      "id": "stub_weather_1",
+      "category": "stub",
+      "expect_emit": false,
+      "setup": {
+        "kind": "stub_only",
+        "stub_type": "weather",
+        "fake_signal": 1
+      },
+      "assert": {
+        "type": "weather",
+        "must_not_invent": true
+      }
+    },
+    {
+      "id": "stub_weather_2",
+      "category": "stub",
+      "expect_emit": false,
+      "setup": {
+        "kind": "stub_only",
+        "stub_type": "weather",
+        "fake_signal": 2
+      },
+      "assert": {
+        "type": "weather",
+        "must_not_invent": true
+      }
+    },
+    {
+      "id": "stub_weather_3",
+      "category": "stub",
+      "expect_emit": false,
+      "setup": {
+        "kind": "stub_only",
+        "stub_type": "weather",
+        "fake_signal": 3
+      },
+      "assert": {
+        "type": "weather",
+        "must_not_invent": true
+      }
+    },
+    {
+      "id": "stub_weather_4",
+      "category": "stub",
+      "expect_emit": false,
+      "setup": {
+        "kind": "stub_only",
+        "stub_type": "weather",
+        "fake_signal": 4
+      },
+      "assert": {
+        "type": "weather",
+        "must_not_invent": true
+      }
+    },
+    {
+      "id": "stub_weather_5",
+      "category": "stub",
+      "expect_emit": false,
+      "setup": {
+        "kind": "stub_only",
+        "stub_type": "weather",
+        "fake_signal": 5
+      },
+      "assert": {
+        "type": "weather",
+        "must_not_invent": true
+      }
+    },
+    {
+      "id": "stub_weather_6",
+      "category": "stub",
+      "expect_emit": false,
+      "setup": {
+        "kind": "stub_only",
+        "stub_type": "weather",
+        "fake_signal": 6
+      },
+      "assert": {
+        "type": "weather",
+        "must_not_invent": true
+      }
+    },
+    {
+      "id": "stub_weather_7",
+      "category": "stub",
+      "expect_emit": false,
+      "setup": {
+        "kind": "stub_only",
+        "stub_type": "weather",
+        "fake_signal": 7
+      },
+      "assert": {
+        "type": "weather",
+        "must_not_invent": true
+      }
+    },
+    {
+      "id": "stub_weather_8",
+      "category": "stub",
+      "expect_emit": false,
+      "setup": {
+        "kind": "stub_only",
+        "stub_type": "weather",
+        "fake_signal": 8
+      },
+      "assert": {
+        "type": "weather",
+        "must_not_invent": true
+      }
+    },
+    {
+      "id": "stub_weather_9",
+      "category": "stub",
+      "expect_emit": false,
+      "setup": {
+        "kind": "stub_only",
+        "stub_type": "weather",
+        "fake_signal": 9
+      },
+      "assert": {
+        "type": "weather",
+        "must_not_invent": true
+      }
+    },
+    {
+      "id": "stub_health_0",
+      "category": "stub",
+      "expect_emit": false,
+      "setup": {
+        "kind": "stub_only",
+        "stub_type": "health",
+        "fake_signal": 0
+      },
+      "assert": {
+        "type": "health",
+        "must_not_invent": true
+      }
+    },
+    {
+      "id": "stub_health_1",
+      "category": "stub",
+      "expect_emit": false,
+      "setup": {
+        "kind": "stub_only",
+        "stub_type": "health",
+        "fake_signal": 1
+      },
+      "assert": {
+        "type": "health",
+        "must_not_invent": true
+      }
+    },
+    {
+      "id": "stub_health_2",
+      "category": "stub",
+      "expect_emit": false,
+      "setup": {
+        "kind": "stub_only",
+        "stub_type": "health",
+        "fake_signal": 2
+      },
+      "assert": {
+        "type": "health",
+        "must_not_invent": true
+      }
+    },
+    {
+      "id": "stub_health_3",
+      "category": "stub",
+      "expect_emit": false,
+      "setup": {
+        "kind": "stub_only",
+        "stub_type": "health",
+        "fake_signal": 3
+      },
+      "assert": {
+        "type": "health",
+        "must_not_invent": true
+      }
+    },
+    {
+      "id": "stub_health_4",
+      "category": "stub",
+      "expect_emit": false,
+      "setup": {
+        "kind": "stub_only",
+        "stub_type": "health",
+        "fake_signal": 4
+      },
+      "assert": {
+        "type": "health",
+        "must_not_invent": true
+      }
+    },
+    {
+      "id": "stub_health_5",
+      "category": "stub",
+      "expect_emit": false,
+      "setup": {
+        "kind": "stub_only",
+        "stub_type": "health",
+        "fake_signal": 5
+      },
+      "assert": {
+        "type": "health",
+        "must_not_invent": true
+      }
+    },
+    {
+      "id": "stub_health_6",
+      "category": "stub",
+      "expect_emit": false,
+      "setup": {
+        "kind": "stub_only",
+        "stub_type": "health",
+        "fake_signal": 6
+      },
+      "assert": {
+        "type": "health",
+        "must_not_invent": true
+      }
+    },
+    {
+      "id": "stub_health_7",
+      "category": "stub",
+      "expect_emit": false,
+      "setup": {
+        "kind": "stub_only",
+        "stub_type": "health",
+        "fake_signal": 7
+      },
+      "assert": {
+        "type": "health",
+        "must_not_invent": true
+      }
+    },
+    {
+      "id": "stub_health_8",
+      "category": "stub",
+      "expect_emit": false,
+      "setup": {
+        "kind": "stub_only",
+        "stub_type": "health",
+        "fake_signal": 8
+      },
+      "assert": {
+        "type": "health",
+        "must_not_invent": true
+      }
+    },
+    {
+      "id": "stub_health_9",
+      "category": "stub",
+      "expect_emit": false,
+      "setup": {
+        "kind": "stub_only",
+        "stub_type": "health",
+        "fake_signal": 9
+      },
+      "assert": {
+        "type": "health",
+        "must_not_invent": true
+      }
+    },
+    {
+      "id": "gate_low_score_0",
+      "category": "decision",
+      "expect_emit": false,
+      "setup": {
+        "kind": "low_value_generic",
+        "variant": 0
+      },
+      "assert": {
+        "meta": true
+      }
+    },
+    {
+      "id": "gate_low_score_1",
+      "category": "decision",
+      "expect_emit": false,
+      "setup": {
+        "kind": "low_value_generic",
+        "variant": 1
+      },
+      "assert": {
+        "meta": true
+      }
+    },
+    {
+      "id": "gate_low_score_2",
+      "category": "decision",
+      "expect_emit": false,
+      "setup": {
+        "kind": "low_value_generic",
+        "variant": 2
+      },
+      "assert": {
+        "meta": true
+      }
+    },
+    {
+      "id": "gate_quiet_low_0",
+      "category": "decision",
+      "expect_emit": false,
+      "setup": {
+        "kind": "quiet_hours_low",
+        "variant": 0
+      },
+      "assert": {
+        "meta": true
+      }
+    },
+    {
+      "id": "gate_quiet_low_1",
+      "category": "decision",
+      "expect_emit": false,
+      "setup": {
+        "kind": "quiet_hours_low",
+        "variant": 1
+      },
+      "assert": {
+        "meta": true
+      }
+    },
+    {
+      "id": "gate_quiet_low_2",
+      "category": "decision",
+      "expect_emit": false,
+      "setup": {
+        "kind": "quiet_hours_low",
+        "variant": 2
+      },
+      "assert": {
+        "meta": true
+      }
+    },
+    {
+      "id": "gate_driving_0",
+      "category": "decision",
+      "expect_emit": false,
+      "setup": {
+        "kind": "during_driving",
+        "variant": 0
+      },
+      "assert": {
+        "meta": true
+      }
+    },
+    {
+      "id": "gate_driving_1",
+      "category": "decision",
+      "expect_emit": false,
+      "setup": {
+        "kind": "during_driving",
+        "variant": 1
+      },
+      "assert": {
+        "meta": true
+      }
+    },
+    {
+      "id": "gate_driving_2",
+      "category": "decision",
+      "expect_emit": false,
+      "setup": {
+        "kind": "during_driving",
+        "variant": 2
+      },
+      "assert": {
+        "meta": true
+      }
+    },
+    {
+      "id": "gate_dedupe_0",
+      "category": "decision",
+      "expect_emit": false,
+      "setup": {
+        "kind": "duplicate_window",
+        "variant": 0
+      },
+      "assert": {
+        "meta": true
+      }
+    },
+    {
+      "id": "gate_dedupe_1",
+      "category": "decision",
+      "expect_emit": false,
+      "setup": {
+        "kind": "duplicate_window",
+        "variant": 1
+      },
+      "assert": {
+        "meta": true
+      }
+    },
+    {
+      "id": "gate_dedupe_2",
+      "category": "decision",
+      "expect_emit": false,
+      "setup": {
+        "kind": "duplicate_window",
+        "variant": 2
+      },
+      "assert": {
+        "meta": true
+      }
+    },
+    {
+      "id": "learning_suppress_0",
+      "category": "learning",
+      "expect_emit": false,
+      "setup": {
+        "kind": "high_dismiss_rate",
+        "variant": 0
+      },
+      "assert": {
+        "meta": true
+      }
+    },
+    {
+      "id": "learning_suppress_1",
+      "category": "learning",
+      "expect_emit": false,
+      "setup": {
+        "kind": "high_dismiss_rate",
+        "variant": 1
+      },
+      "assert": {
+        "meta": true
+      }
+    },
+    {
+      "id": "learning_suppress_2",
+      "category": "learning",
+      "expect_emit": false,
+      "setup": {
+        "kind": "high_dismiss_rate",
+        "variant": 2
+      },
+      "assert": {
+        "meta": true
+      }
+    },
+    {
+      "id": "flag_off_0",
+      "category": "flag",
+      "expect_emit": false,
+      "setup": {
+        "kind": "flag_disabled",
+        "variant": 0
+      },
+      "assert": {
+        "meta": true
+      }
+    },
+    {
+      "id": "flag_off_1",
+      "category": "flag",
+      "expect_emit": false,
+      "setup": {
+        "kind": "flag_disabled",
+        "variant": 1
+      },
+      "assert": {
+        "meta": true
+      }
+    },
+    {
+      "id": "flag_off_2",
+      "category": "flag",
+      "expect_emit": false,
+      "setup": {
+        "kind": "flag_disabled",
+        "variant": 2
+      },
+      "assert": {
+        "meta": true
+      }
+    },
+    {
+      "id": "user_isolation_0",
+      "category": "isolation",
+      "expect_emit": true,
+      "setup": {
+        "kind": "other_user_data",
+        "variant": 0
+      },
+      "assert": {
+        "meta": true
+      }
+    },
+    {
+      "id": "user_isolation_1",
+      "category": "isolation",
+      "expect_emit": true,
+      "setup": {
+        "kind": "other_user_data",
+        "variant": 1
+      },
+      "assert": {
+        "meta": true
+      }
+    },
+    {
+      "id": "user_isolation_2",
+      "category": "isolation",
+      "expect_emit": true,
+      "setup": {
+        "kind": "other_user_data",
+        "variant": 2
+      },
+      "assert": {
+        "meta": true
+      }
+    },
+    {
+      "id": "rank_order_0",
+      "category": "ranking",
+      "expect_emit": true,
+      "setup": {
+        "kind": "multi_candidates_rank",
+        "variant": 0
+      },
+      "assert": {
+        "meta": true
+      }
+    },
+    {
+      "id": "rank_order_1",
+      "category": "ranking",
+      "expect_emit": true,
+      "setup": {
+        "kind": "multi_candidates_rank",
+        "variant": 1
+      },
+      "assert": {
+        "meta": true
+      }
+    },
+    {
+      "id": "rank_order_2",
+      "category": "ranking",
+      "expect_emit": true,
+      "setup": {
+        "kind": "multi_candidates_rank",
+        "variant": 2
+      },
+      "assert": {
+        "meta": true
+      }
+    },
+    {
+      "id": "no_dupes_home_0",
+      "category": "dedupe",
+      "expect_emit": true,
+      "setup": {
+        "kind": "home_max3_dedupe",
+        "variant": 0
+      },
+      "assert": {
+        "meta": true
+      }
+    },
+    {
+      "id": "no_dupes_home_1",
+      "category": "dedupe",
+      "expect_emit": true,
+      "setup": {
+        "kind": "home_max3_dedupe",
+        "variant": 1
+      },
+      "assert": {
+        "meta": true
+      }
+    },
+    {
+      "id": "no_dupes_home_2",
+      "category": "dedupe",
+      "expect_emit": true,
+      "setup": {
+        "kind": "home_max3_dedupe",
+        "variant": 2
+      },
+      "assert": {
+        "meta": true
+      }
+    },
+    {
+      "id": "notif_no_push_0",
+      "category": "notification",
+      "expect_emit": true,
+      "setup": {
+        "kind": "notification_policy",
+        "variant": 0
+      },
+      "assert": {
+        "meta": true
+      }
+    },
+    {
+      "id": "notif_no_push_1",
+      "category": "notification",
+      "expect_emit": true,
+      "setup": {
+        "kind": "notification_policy",
+        "variant": 1
+      },
+      "assert": {
+        "meta": true
+      }
+    },
+    {
+      "id": "notif_no_push_2",
+      "category": "notification",
+      "expect_emit": true,
+      "setup": {
+        "kind": "notification_policy",
+        "variant": 2
+      },
+      "assert": {
+        "meta": true
+      }
+    },
+    {
+      "id": "study_noskip_0",
+      "category": "study",
+      "expect_emit": false,
+      "setup": {
+        "kind": "study_clean",
+        "sessions": 5
+      },
+      "assert": {
+        "type": "study"
+      }
+    },
+    {
+      "id": "study_noskip_1",
+      "category": "study",
+      "expect_emit": false,
+      "setup": {
+        "kind": "study_clean",
+        "sessions": 6
+      },
+      "assert": {
+        "type": "study"
+      }
+    },
+    {
+      "id": "study_noskip_2",
+      "category": "study",
+      "expect_emit": false,
+      "setup": {
+        "kind": "study_clean",
+        "sessions": 7
+      },
+      "assert": {
+        "type": "study"
+      }
+    },
+    {
+      "id": "study_noskip_3",
+      "category": "study",
+      "expect_emit": false,
+      "setup": {
+        "kind": "study_clean",
+        "sessions": 8
+      },
+      "assert": {
+        "type": "study"
+      }
+    },
+    {
+      "id": "study_noskip_4",
+      "category": "study",
+      "expect_emit": false,
+      "setup": {
+        "kind": "study_clean",
+        "sessions": 9
+      },
+      "assert": {
+        "type": "study"
+      }
+    },
+    {
+      "id": "study_noskip_5",
+      "category": "study",
+      "expect_emit": false,
+      "setup": {
+        "kind": "study_clean",
+        "sessions": 10
+      },
+      "assert": {
+        "type": "study"
+      }
+    },
+    {
+      "id": "study_noskip_6",
+      "category": "study",
+      "expect_emit": false,
+      "setup": {
+        "kind": "study_clean",
+        "sessions": 11
+      },
+      "assert": {
+        "type": "study"
+      }
+    },
+    {
+      "id": "study_noskip_7",
+      "category": "study",
+      "expect_emit": false,
+      "setup": {
+        "kind": "study_clean",
+        "sessions": 12
+      },
+      "assert": {
+        "type": "study"
+      }
+    }
+  ]
+}

@@ -164,6 +164,8 @@ class HomeResponse(BaseModel):
     priorities: List[PriorityGroup] = Field(default_factory=list)
     insights: List[InsightItem] = Field(default_factory=list)
     resume_item: Optional[Dict[str, Any]] = None
+    # Proactive Engine — max 3; omit/empty → FE hides section (no spam)
+    ora_ti_consiglia: List[Dict[str, Any]] = Field(default_factory=list)
     connection_warnings: List[ConnectionWarning] = Field(default_factory=list)
     google_calendar: Dict[str, Any] = Field(default_factory=dict)
     generated_at: str

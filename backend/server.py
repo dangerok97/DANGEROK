@@ -216,6 +216,14 @@ async def startup():
     except Exception:
         logger.exception("Goal Engine bootstrap failed (non-fatal)")
 
+    # Proactive Engine — IF/WHEN/HOW/WHY intervene (Home "ORA TI CONSIGLIA")
+    try:
+        from proactive_engine import ProactiveEngineService
+        await ProactiveEngineService(db).ensure_indexes()
+        logger.info("Proactive Engine indexes ready")
+    except Exception:
+        logger.exception("Proactive Engine bootstrap failed (non-fatal)")
+
     # Sync capability registry to Mongo (idempotent, structural fields are
     # overwritten from code; ops metadata is preserved).
     try:
@@ -228,7 +236,7 @@ async def startup():
     logger.info(
         "ORA backend ready. Modules online: decision_engine, life_graph, "
         "knowledge, auto_link, context_assembler, permissions, connectors, "
-        "home_v2, action_engine, goal_engine."
+        "home_v2, action_engine, goal_engine, proactive_engine."
     )
 
 
