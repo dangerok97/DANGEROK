@@ -23,12 +23,12 @@ Refine AI Document Understanding on `feature/life-experience-ai-documents` @ `36
 - pytest focused (`test_analysis_versions` + `test_ai_document_understanding` + `test_documents_v2`): **32 passed**
 - pytest LE docs: **62 passed**
 - Gemini live smoke (key present): **VERIFICATO** contratto_telefono / busta_paga / verbale → `docs/evidence_ai_document_understanding_gemini.json`
-- Playwright: AUTO + BOLLETTA **passed**; CASA 1× flake login (element detached) — ritentare
+- Playwright CASA/AUTO/BOLLETTA: **3 passed** (re-login harden con clear storage)
+- Commit: `42e3cc2` (no push)
 
 ### Open
 
 - Brain UI still absent (API memory best-effort only)
-- CASA Playwright login flake occasionale
 
 ---
 
