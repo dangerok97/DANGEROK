@@ -177,11 +177,25 @@ def build_turns(ctx: Dict[str, Any]) -> List[QuestionTurn]:
     next_slot = gap.get("next_slot")
     next_q = gap.get("next_best_question")
 
-    # --- Date questions: NEVER «Quando parti e quando torni?» when departure known ---
+    # --- Date / destination order (Gap-driven) ---
+    # Mandatory: departure-only → ask DESTINATION first, then return — never both dates.
+    if not dest:
+        q = next_q if next_slot == "destination" and next_q else "Dove andrai?"
+        turns.append(turn(
+            STEP_DESTINATION,
+            q,
+            explanation=f"Parto da «{title}» — dimmi dove vai." if title else "Dimmi la destinazione.",
+            input_kind="chips_or_text",
+            options=[
+                opt("from_title", f"Usa «{title}»", "from_title"),
+            ],
+            brain_key="travel_destination",
+        ))
+
     if period:
-        pass  # both dates known — skip
+        pass  # both dates known — skip date questions
     elif dep_date and not ret_date:
-        # Departure known → ask return only (contextual)
+        # Only after destination is queued (or known): ask return alone
         label = _departure_label(ctx)
         q = next_q if next_slot == "return_date" and next_q else (
             f"Perfetto, partirai il {label}. Quando pensi di rientrare?"
@@ -201,7 +215,6 @@ def build_turns(ctx: Dict[str, Any]) -> List[QuestionTurn]:
             brain_key="travel_return",
         ))
     elif not dep_date:
-        # No departure — ask departure only (not both)
         q = next_q if next_slot == "departure_date" and next_q else "Quando parti?"
         turns.append(turn(
             STEP_DEPARTURE_DATE,
@@ -216,26 +229,12 @@ def build_turns(ctx: Dict[str, Any]) -> List[QuestionTurn]:
             ],
             brain_key="travel_departure_date",
         ))
-        # Return asked later after departure answered — placeholder skipped until known
-    else:
-        # dep+ret somehow without period dict
-        pass
-
-    if not dest:
-        q = next_q if next_slot == "destination" and next_q else "Dove andrai?"
-        turns.append(turn(
-            STEP_DESTINATION,
-            q,
-            explanation=f"Parto da «{title}» — dimmi dove vai." if title else "Dimmi la destinazione.",
-            input_kind="chips_or_text",
-            options=[
-                opt("from_title", f"Usa «{title}»", "from_title"),
-            ],
-            brain_key="travel_destination",
-        ))
 
     # When gap says lodging first (full extraction) — put bookings early
-    prefer_lodging = next_slot in ("lodging", "accommodation", "bookings") and dest and period and transport
+    prefer_lodging = (
+        next_slot in ("lodging", "accommodation", "bookings")
+        or bool(dest and period and transport)
+    ) and bool(dest and (period or (dep_date and ret_date)) and transport)
 
     dep_opts = []
     if departure:
@@ -387,39 +386,73 @@ def build_turns(ctx: Dict[str, Any]) -> List[QuestionTurn]:
 def normalize_answer(
     turn_id: str, value: Any, text: Optional[str] = None,
 ) -> Tuple[Any, Optional[Dict[str, Any]]]:
-    if turn_id in (STEP_PERIOD, STEP_DEPARTURE_DATE, STEP_RETURN_DATE):
+    if turn_id == STEP_RETURN_DATE:
         raw = text or value
-        if turn_id == STEP_RETURN_DATE and value in ("plus_7", "plus_14"):
-            days = 7 if value == "plus_7" else 14
+        code = str(raw).lower().strip() if raw is not None else ""
+        if code in ("plus_7", "plus_14", "+7", "+14"):
+            days = 14 if "14" in code else 7
             return {"return_offset_days": days}, None
-        if turn_id == STEP_RETURN_DATE and value == "__skip__":
+        if code in ("__skip__", "unsure", "skip"):
             return {"skipped": True}, None
+        try:
+            from semantic_engine.dates import parse_relative_single, parse_range_it
+            rng = parse_range_it(str(raw))
+            if rng and (rng.get("return_date") or rng.get("end_date") or rng.get("departure_date")):
+                d = rng.get("return_date") or rng.get("end_date") or rng.get("departure_date")
+                return {"return_date": d, "end_date": d, "label": rng.get("label")}, None
+            single = parse_relative_single(str(raw))
+            if single and single.get("date"):
+                return {"return_date": single["date"], "end_date": single["date"], "label": single.get("label")}, None
+        except Exception:
+            pass
+        s = str(raw).strip()
+        if len(s) >= 10 and s[4] == "-":
+            return {"return_date": s[:10], "end_date": s[:10]}, None
+        return None, {"error": "unparsed", "message": "Indica la data di rientro (es. tra 2 settimane)."}
+
+    if turn_id in (STEP_PERIOD, STEP_DEPARTURE_DATE):
+        raw = text or value
         if turn_id == STEP_DEPARTURE_DATE:
-            from semantic_engine.dates import parse_relative_single
-            parsed_rel = parse_relative_single(str(raw))
-            if parsed_rel and parsed_rel.get("date"):
-                return {
-                    "departure_date": parsed_rel["date"],
-                    "start_date": parsed_rel["date"],
-                    "end_date": parsed_rel.get("end_date"),
-                    "departure_only": not parsed_rel.get("end_date"),
-                    "label": parsed_rel.get("label"),
-                }, None
+            try:
+                from semantic_engine.dates import parse_relative_single, parse_range_it
+                rng = parse_range_it(str(raw))
+                if rng and rng.get("departure_date"):
+                    out: Dict[str, Any] = {
+                        "departure_date": rng["departure_date"],
+                        "start_date": rng["departure_date"],
+                        "label": rng.get("label"),
+                    }
+                    if rng.get("return_date"):
+                        out["return_date"] = rng["return_date"]
+                        out["end_date"] = rng["return_date"]
+                    return out, None
+                parsed_rel = parse_relative_single(str(raw))
+                if parsed_rel and parsed_rel.get("date"):
+                    return {
+                        "departure_date": parsed_rel["date"],
+                        "start_date": parsed_rel["date"],
+                        "label": parsed_rel.get("label"),
+                        "departure_only": True,
+                    }, None
+            except Exception:
+                pass
         parsed = parse_travel_period(raw)
         if not parsed.get("ok"):
-            # For return-only free text try single date
-            if turn_id == STEP_RETURN_DATE:
-                from semantic_engine.dates import parse_relative_single
-                single = parse_relative_single(str(raw))
-                if single and single.get("date"):
-                    return {"end_date": single["date"], "label": single.get("label")}, None
             return None, {
                 "error": parsed.get("error") or "unparsed",
-                "message": parsed.get("message") or "Periodo non valido.",
+                "message": parsed.get("message") or "Data non valida.",
             }
+        if turn_id == STEP_DEPARTURE_DATE and parsed.get("source") == "relative":
+            return {
+                "departure_date": parsed["start_date"],
+                "start_date": parsed["start_date"],
+                "label": parsed.get("label"),
+            }, None
         return {
             "start_date": parsed["start_date"],
             "end_date": parsed["end_date"],
+            "departure_date": parsed["start_date"],
+            "return_date": parsed["end_date"],
             "label": parsed.get("label"),
         }, None
 
@@ -444,6 +477,16 @@ def normalize_answer(
             return None, {"error": "departure_required", "message": "Indica da dove parti."}
         return str(v).strip(), None
 
+    if turn_id == STEP_LODGING:
+        if value in ("__skip__",) or text == "__skip__":
+            return "__skip__", None
+        return value if value is not None else text, None
+
+    if turn_id == STEP_PREP:
+        if value == "__skip__" or (isinstance(value, list) and "__skip__" in value):
+            return [], None
+        return value if value is not None else text, None
+
     return value if value is not None else text, None
 
 
@@ -456,9 +499,17 @@ def jump_target(option_id: str) -> Optional[str]:
     }.get(option_id or "")
 
 
-def preview_explanation(ctx: Dict[str, Any], answers: Dict[str, Any]) -> str:
-    dest = answers.get(STEP_DESTINATION) or known_destination(ctx) or "?"
-    period = answers.get(STEP_PERIOD) or known_period(ctx)
+def preview_explanation(preview_or_ctx: Any, answers: Optional[Dict[str, Any]] = None) -> str:
+    """Accept preview dict (AE service) or (ctx, answers)."""
+    if answers is None and isinstance(preview_or_ctx, dict):
+        preview = preview_or_ctx
+        dest = preview.get("destination") or "?"
+        label = preview.get("period_label") or preview.get("label") or ""
+        return f"{dest} · {label}".strip(" ·")
+    ctx = preview_or_ctx if isinstance(preview_or_ctx, dict) else {}
+    ans = answers or {}
+    dest = ans.get(STEP_DESTINATION) or known_destination(ctx) or "?"
+    period = ans.get(STEP_PERIOD) or known_period(ctx)
     if isinstance(period, dict):
         label = period.get("label") or f"{period.get('start_date')} – {period.get('end_date')}"
     else:
