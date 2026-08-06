@@ -4,25 +4,25 @@
 
 ```bash
 cd backend
-python -m pytest life_objects/tests/test_life_object_engine.py -q
+python -m pytest life_objects/tests/ -q
 ```
 
 ### Scenari coperti
 
 | Scenario | Atteso |
 |----------|--------|
-| Rogito → Mutuo → Bolletta | **1** HOME attivo, 3 documenti linkati |
-| Libretto + Polizza auto | **1** VEHICLE (targa) |
-| University / Job / Family | tipi corretti |
-| Merge + link | unione identity_keys + relationship |
-| Travel / Study / Goal hooks | TRAVEL / COURSE + `life_object_id` su goal |
-| Flag OFF | zero writes |
-| Isolamento utenti | user B non vede oggetti di A |
-| Gemini assente | fallback deterministico, `ai_used=False` |
-| Title-only bolletta | non crea terza Casa active |
-| Casa enrichment | narrative + questions + health explainable + identity/state + temporal/insights |
-| Auto / Università / Lavoro enrichment | narrative + identity/state + health reasons |
-| Home V3 DTO | `enabled=false` quando flag OFF; card senza branding “Life Object” |
+| Rogito → Mutuo → Bolletta | **1** HOME, titolo Casa (mai Lavoro), mutuo+bolletta assimilati |
+| Registry / validator / titles / link states / health 2.0 | unit green |
+| Real-life growth (d1→d400) | **sempre 1 HOME** che evolve |
+| No domanda catastale se presente; no «Hai un mutuo?» se assimilato | gaps OK |
+| Solo REAL_CONFLICT in merge_proposals user-facing | quiet LINK_PROBABLE |
+| Provenance tipizzata | `document_sources` + `total_sources` |
+| Home V3 DTO | campi completi; `enabled=false` |
+| Flag OFF / isolamento / Gemini assente | invariati |
+
+## FAIL criteria (ruthless)
+
+Se dopo rogito+mutuo+bolletta il titolo è ancora «Lavoro», o i merge si accumulano senza assimilare → **FAIL**.
 
 ## Playwright (shadow API)
 
@@ -31,23 +31,15 @@ cd frontend
 npx playwright test e2e/life-experience-documents.spec.ts -g "SHADOW Life Objects"
 ```
 
-Assert: dopo upload rogito+mutuo+bolletta via API → `GET /api/life-objects?type=HOME` count=1, `home_ui_enabled=false`, e dopo `POST .../enrich` esistono `narrative.text`, `pending_questions`, `insights`, `health.completeness/reliability/reasons`. Feed Home V3 `enabled=false`.
-
-Evidence: `frontend/e2e-evidence/life-experience-documents/shadow-life-objects-casa.json`
-
 ## Manuale smoke
 
-1. `LIFE_OBJECT_ENGINE_ENABLED=1`, `LIFE_OBJECT_HOME_UI_ENABLED=0`, opzionale `LIFE_OBJECT_GEMINI=0`
-2. Avvia backend + registra utente
-3. `GET /api/life-objects/status` → `mode: shadow`, `home_ui_enabled: false`
-4. Consuma rogito → mutuo → bolletta → lista HOME length 1
-5. `GET /api/life-objects/{id}/narrative` → testo italiano naturale
-6. `GET /api/life-objects/{id}/health` → completeness/reliability/reasons
-7. Home UI invariata (nessuna vista oggetti)
+1. Flags: engine=1, home_ui=0, gemini=0  
+2. Consuma rogito → mutuo → bolletta → 1 HOME, titolo Casa*, state con lender + supplier  
+3. `GET .../health` → dimensioni Health 2.0 + reasons  
+4. Home UX invariata  
 
 ## Limiti onesti
 
-- Home V3 **non shippata** (SHADOW / PREDISPOSTO)
-- Playwright UI Life Objects: non applicabile (UX non cambiata)
-- Gemini live sul reasoner/enrichment: **opzionale** — CI usa fallback italiano deterministico
-- Nessun branding “Life Object” in Home
+- Home V3 **non shippata**
+- Gemini live **opzionale**
+- Conversazioni/calendar come fonti provenance: struttura pronta, hook conversazione non esteso in questo batch

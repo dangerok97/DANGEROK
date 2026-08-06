@@ -168,14 +168,14 @@ def add_relationship(obj: LifeObject, target_id: str, relation: str, confidence:
 
 
 def link_document(obj: LifeObject, document_id: str) -> LifeObject:
-    if document_id and document_id not in obj.documents:
-        obj.documents.append(document_id)
-        obj.source_count = len(obj.documents) + len(obj.goals) + len(obj.projects)
+    if document_id:
+        from life_objects.provenance import add_source
+        add_source(obj, kind="document", source_id=document_id)
     return obj
 
 
 def link_goal(obj: LifeObject, goal_id: str) -> LifeObject:
-    if goal_id and goal_id not in obj.goals:
-        obj.goals.append(goal_id)
-        obj.source_count = len(obj.documents) + len(obj.goals) + len(obj.projects)
+    if goal_id:
+        from life_objects.provenance import add_source
+        add_source(obj, kind="goal", source_id=goal_id)
     return obj

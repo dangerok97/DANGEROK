@@ -26,34 +26,19 @@ def life_object_gemini_enabled() -> bool:
 
 
 def _default_title(object_type: str, keys: Dict[str, str], reasoning: Dict[str, Any]) -> str:
-    if object_type == "HOME":
-        addr = keys.get("address_norm") or ""
-        if addr:
-            # Title-case lightly from normalized
-            return "Casa — " + " ".join(w.capitalize() for w in addr.split()[:6])
-        return "Casa"
-    if object_type == "VEHICLE":
-        plate = keys.get("plate") or ""
-        brand = ""
-        ts = reasoning.get("type_specific") or {}
-        if isinstance(ts, dict):
-            brand = str(ts.get("brand") or "")
-            model = str(ts.get("model") or "")
-            if brand or model:
-                return f"{brand} {model}".strip() + (f" ({plate})" if plate else "")
-        return f"Veicolo {plate}".strip() if plate else "Veicolo"
-    if object_type == "UNIVERSITY":
-        return keys.get("institution") and f"Università — {keys['institution'].title()}" or "Università"
-    if object_type == "COURSE":
-        return "Corso di studi"
-    if object_type == "JOB":
-        emp = keys.get("employer")
-        return f"Lavoro — {emp.title()}" if emp else "Lavoro"
-    if object_type == "TRAVEL":
-        return reasoning.get("title") or "Viaggio"
-    if object_type == "FAMILY_MEMBER":
-        return "Familiare"
-    return reasoning.get("title") or object_type.title()
+    """Suggestion only — Semantic Validator regenerates canonical title before persist."""
+    from life_objects.property_registry import map_properties
+    from life_objects.title_generator import generate_canonical_title
+
+    ts = reasoning.get("type_specific") if isinstance(reasoning.get("type_specific"), dict) else {}
+    mapped = map_properties(ts)
+    return generate_canonical_title(
+        object_type,
+        identity=mapped,
+        state=mapped,
+        properties=mapped,
+        identity_keys=keys,
+    )
 
 
 def deterministic_reason_from_document(
@@ -155,7 +140,9 @@ def deterministic_reason_from_document(
         elif isinstance(a, str):
             suggested.append(a)
 
-    return ObjectReasoningDecision(
+    from life_objects.semantic_validator import validate_decision_consultant
+
+    decision = ObjectReasoningDecision(
         action=action,  # type: ignore[arg-type]
         object_type=object_type,  # type: ignore[arg-type]
         object_id=matched_id,
@@ -176,6 +163,7 @@ def deterministic_reason_from_document(
         provider="local-deterministic",
         model="local-deterministic",
     )
+    return validate_decision_consultant(decision, document_type=doc_type, domain=domain)
 
 
 async def reason_from_document(
@@ -251,6 +239,8 @@ async def reason_from_document(
             session_id=f"ora-life-object-{reasoning.get('document_id') or 'doc'}",
             user_preference=user_preference,
         )
+        from life_objects.semantic_validator import validate_decision_consultant
+
         if parsed.invented_facts:
             logger.info("rejecting AI decision: invented_facts=true")
             return fallback
@@ -274,7 +264,12 @@ async def reason_from_document(
         # Fill properties from deterministic if empty
         if not parsed.properties_delta:
             parsed.properties_delta = fallback.properties_delta
-        return parsed
+        # Gemini = consultant; backend coerces type/title/properties
+        return validate_decision_consultant(
+            parsed,
+            document_type=str(reasoning.get("document_type") or ""),
+            domain=str(reasoning.get("domain") or ""),
+        )
     except Exception as e:
         logger.info("life_object Gemini soft-fail → deterministic: %s", type(e).__name__)
         return fallback

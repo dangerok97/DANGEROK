@@ -1,31 +1,26 @@
 # Life Object Engine
 
-**Stato:** SHADOW + AI enrichment (2026-08-07)  
+**Stato:** SHADOW + Semantic Integrity v2 (2026-08-07)  
 **Branch:** `feature/life-object-engine`  
-**Home V3 Life Objects UI:** PREDISPOSTO (`LIFE_OBJECT_HOME_UI_ENABLED=0`) — **non shippato**. Home resta Goal-aware. Nessuna schermata “Life Object” per l’utente.
+**Home V3 Life Objects UI:** PREDISPOSTO (`LIFE_OBJECT_HOME_UI_ENABLED=0`) — **non shippato**. Home resta Goal-aware.
 
-## Visione (framing canonico)
+## Visione
 
-Il Life Object Engine è il **modello canonico della realtà dell’utente**.  
-Gli altri motori **continuano a esistere** e non vengono eliminati: Conversation, Goal, Documents, Brain, Proactive, Home, Travel, Study restano operativi come **satelliti / fonti**.  
-Non possiedono più “la verità” da soli: **leggono e aggiornano** i Life Object.
+Il Life Object Engine è il **modello vivente della realtà dell’utente**.  
+Nuovi documenti e conversazioni arricchiscono entità reali; l’AI interpreta/collega/propone; il **backend garantisce coerenza, integrità e assenza di invenzioni**.
 
 ```
-                    ┌──────────────────────────┐
-                    │      LIFE OBJECTS        │
-                    │  (verità canonica user)  │
-                    │  identity / state        │
-                    │  narrative · insights    │
-                    └────────────▲─────────────┘
-           read/write │          │          │ read/write
-    ┌─────────────────┼──────────┼──────────┼─────────────────┐
-    │                 │          │          │                 │
- Documents V2    Goal Engine   Brain    Conversation     Proactive
- (upload/OCR)    (outcomes)   (edges)   Life Experience    Home
-    │                 │                     │
- Travel / Study   Action Engine        (UX Home ancora Goal-aware;
- artifact tipizzati                     Home V3 oggetti = OFF)
+Document → OCR → Document AI → Life Object AI → Semantic Validator → Canonical Object → (future Home)
 ```
+
+Il **Semantic Validator** gira **sempre** prima del persist.
+
+## AI = consultant; Backend = autorità
+
+| Ruolo | Può | Non può |
+|-------|-----|---------|
+| **Gemini** | suggerire, classificare, spiegare, estrarre, proporre merge | decidere titolo/tipo finale, auto-merge, cancellare, inventare campi, creare conflitti |
+| **Backend** | tipo, titolo canonico, assimilazione, campi, link state, persist | — |
 
 ## Feature flags
 
@@ -33,51 +28,41 @@ Non possiedono più “la verità” da soli: **leggono e aggiornano** i Life Ob
 |------|---------|---------|
 | `LIFE_OBJECT_ENGINE_ENABLED` | `1` | Shadow writes ON |
 | `LIFE_OBJECT_HOME_UI_ENABLED` | `0` | Home V3 oggetti OFF (UX invariata) |
-| `LIFE_OBJECT_GEMINI` | `1` | Reasoning + enrichment Gemini; fallback italiano deterministico se assente |
+| `LIFE_OBJECT_GEMINI` | `1` | Reasoning + enrichment Gemini; fallback IT se assente |
+
+## Componenti v2
+
+| Modulo | Ruolo |
+|--------|-------|
+| `semantic_validator.py` | Coerenza type/title/fields; blocca HOME+«Lavoro» |
+| `title_generator.py` | Titoli deterministici (mai testo AI finale) |
+| `property_registry.py` | Campi canonici + alias + mapper |
+| `knowledge_gaps.py` | Domande su CONCETTI (non nomi grezzi) |
+| `assimilation.py` | Mutuo/bolletta aggiornano HOME.state (no pile merge) |
+| `link_states.py` | LINK_CONFIRMED / PROBABLE / UNCERTAIN / REAL_CONFLICT |
+| Health 2.0 | Dimensioni spiegabili; mai 100% con conflitti/mutuo non assimilato |
+| Provenance | `document_sources`, `goal_sources`, … + `total_sources` |
 
 ## Identity vs State
 
 | Piano | Significato | Esempi |
 |-------|-------------|--------|
-| **Identity** | Cosa definisce l’oggetto | indirizzo, catastale, POD/PDR, targa, VIN, ateneo, datore |
-| **State** | Cosa cambia nel tempo | fornitore, importi, rata, consumi, compagnia, scadenze |
+| **Identity** | Cosa definisce l’oggetto | indirizzo, catastale, POD/PDR, targa, VIN |
+| **State** | Cosa cambia nel tempo | fornitore, importi, rata, compagnia |
 
-`properties` resta come bag di compatibilità; migrazione non distruttiva in `identity` / `state`.
+## Link states
 
-## AI enrichment (backend only)
+- **LINK_CONFIRMED / LINK_PROBABLE** — silenziosi; assimilazione consentita  
+- **LINK_UNCERTAIN** — backend trattiene; no seconda Casa silenziosa  
+- **REAL_CONFLICT** — **unico** user-facing / home-disturbing  
 
-Dopo ogni shadow upsert (documento / goal / travel / study), best-effort:
+## Home V3 DTO (flag OFF)
 
-1. **Narrative** — descrizione naturale della situazione (versionata), non dump campi  
-2. **Questions** — domande intelligenti che aumentano la capacità di aiutare ORA  
-3. **Insights** — osservazioni (non notifiche) da storia completa  
-4. **Temporal** — presente vs storia (bollette, fornitori)  
-5. **Life Health** — valutazione spiegabile: completeness, reliability, missing_info, opportunities, risks (+ score overall con reasons)
-
-Gemini via Provider Manager (Pydantic strutturato). Se assente → fallback italiano deterministico. **Mai inventare fatti.**
-
-## Tipi
-
-`HOME`, `VEHICLE`, `PERSON`, `JOB`, `UNIVERSITY`, `COURSE`, `PET`, `UTILITY`, `INSURANCE`, `BANK_ACCOUNT`, `MORTGAGE`, `SUBSCRIPTION`, `TRAVEL`, `DEVICE`, `INVESTMENT`, `HEALTH_PROVIDER`, `COMPANY`, `FAMILY_MEMBER`, `CUSTOM`
-
-## Motori satelliti (tutti conservati)
-
-- **Documents V2** — unica pipeline upload/OCR; dopo understanding → aggiorna Life Object + enrichment  
-- **Goal Engine** — resta; shadow field `life_object_id`  
-- **Travel / Study** — restano artifact; aggiornano TRAVEL / UNIVERSITY|COURSE  
-- **Brain / Conversation / Proactive / Home** — restano; Home UX non sostituita
-
-## API (auth, non usata dalla UI principale)
-
-`/api/life-objects` — CRUD, search, link, merge, reason, trend, status  
-`/api/life-objects/{id}/narrative|questions|insights|health|history|relationships|temporal`  
-`POST .../enrich` e `.../*/refresh` — ri-eseguono AI/fallback  
-`GET /api/life-objects/home-v3-feed` — DTO interno PREDISPOSTO (flag OFF)
+Campi: `life_object_id`, `life_domain`, `health`, `next_action`, `benefits`, `questions`, `insights`, `timeline`, `related_documents`, `related_goals`, `related_projects`.
 
 ## Cosa NON fa ancora
 
 - Nessuna modifica UX Home  
 - Nessuna schermata Life Objects  
 - Home V3 non attiva (solo serializer interno)  
-- Non sostituisce Travel Project / Goal / Documents  
-- Gemini live opzionale: CI verde con fallback
+- Gemini live opzionale: CI verde con fallback  

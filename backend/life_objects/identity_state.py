@@ -101,19 +101,35 @@ def apply_identity_state_migration(obj: LifeObject) -> LifeObject:
 
 
 def apply_properties_delta(obj: LifeObject, delta: Dict[str, Any]) -> None:
-    """Merge a properties delta into identity/state/properties (non-destructive)."""
-    props = dict(obj.properties or {})
-    identity = dict(obj.identity or {})
-    state = dict(obj.state or {})
-    for k, v in (delta or {}).items():
-        if v in (None, "", [], {}):
-            continue
-        props[k] = v
-        if classify_property_key(k) == "identity":
-            identity[k] = v
-        else:
-            state[k] = v
-    obj.properties = props
-    obj.identity = identity
-    obj.state = state
+    """Merge a properties delta into identity/state/properties (non-destructive).
+
+    Routes aliases through property_registry canonical names when available.
+    """
+    try:
+        from life_objects.property_registry import merge_mapped_into
+
+        id_out, st_out, props_out = merge_mapped_into(
+            identity=dict(obj.identity or {}),
+            state=dict(obj.state or {}),
+            properties=dict(obj.properties or {}),
+            delta=delta or {},
+        )
+        obj.identity = id_out
+        obj.state = st_out
+        obj.properties = props_out
+    except Exception:
+        props = dict(obj.properties or {})
+        identity = dict(obj.identity or {})
+        state = dict(obj.state or {})
+        for k, v in (delta or {}).items():
+            if v in (None, "", [], {}):
+                continue
+            props[k] = v
+            if classify_property_key(k) == "identity":
+                identity[k] = v
+            else:
+                state[k] = v
+        obj.properties = props
+        obj.identity = identity
+        obj.state = state
     apply_identity_state_migration(obj)

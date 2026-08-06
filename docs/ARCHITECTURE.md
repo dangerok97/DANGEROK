@@ -1,9 +1,10 @@
 # ORA — Architecture
 
-## Life Object Engine — modello canonico (SHADOW + AI enrichment, 2026-08-07)
+## Life Object Engine — modello canonico (SHADOW + Semantic Integrity v2, 2026-08-07)
 
 **Life Objects = verità canonica sulla realtà dell’utente** (HOME, VEHICLE, UNIVERSITY, JOB, …).  
-Conversation, Goal, Documents, Brain, Proactive, Home, Travel, Study **continuano a esistere**: non vengono eliminati. Diventano **satelliti / fonti** che leggono e aggiornano i Life Object — non posseggono più “la verità” da soli.  
+**Gemini = consultant; backend = autorità** (Semantic Validator sempre prima del persist).  
+Conversation, Goal, Documents, Brain, Proactive, Home, Travel, Study **continuano a esistere**: non vengono eliminati. Diventano **satelliti / fonti** che leggono e aggiornano i Life Object — non posseggono più “la verità” da soli.
 Enrichment backend: narrative versionata, questions, insights, temporal, health spiegabile; split **identity / state**. Gemini opzionale via Provider Manager; fallback italiano deterministico.
 
 ```
@@ -15,9 +16,10 @@ Enrichment backend: narrative versionata, questions, insights, temporal, health 
    Life Experience Travel/Study Home (ancora Goal-aware; V3 UI OFF)
 ```
 
-- Package: `backend/life_objects/` — models, repository, service, reasoner, enrichment, identity_state, home_v3, dedupe, linking, memory, router, shadow hooks
+- Package: `backend/life_objects/` — models, repository, service, reasoner, enrichment, semantic_validator, title_generator, property_registry, assimilation, link_states, knowledge_gaps, provenance, identity_state, home_v3, dedupe, linking, memory, router, shadow hooks
+- Pipeline: Document → OCR → Document AI → Life Object AI → **Semantic Validator** → Canonical Object
 - Flags: `LIFE_OBJECT_ENGINE_ENABLED=1` (shadow ON), `LIFE_OBJECT_HOME_UI_ENABLED=0` (UX invariata), `LIFE_OBJECT_GEMINI=1` (fallback se assente)
-- Collection: `life_objects` (`identity`/`state`/`narrative`/`insights`/`temporal`/`health`)
+- Collection: `life_objects` (`identity`/`state`/`narrative`/`insights`/`temporal`/`health` 2.0 + typed provenance)
 - API: `/api/life-objects/*` + narrative/questions/insights/health/history/enrich + `home-v3-feed` (auth; unused by main UI)
 - Docs: `LIFE_OBJECT_ENGINE.md`, `LIFE_OBJECT_REASONING.md`, `LIFE_OBJECT_ARCHITECTURE.md`, `LIFE_OBJECT_VERIFICATION.md`
 - **Home V3 Life Objects = PREDISPOSTO, non shippato.** Home resta Goal-aware.
