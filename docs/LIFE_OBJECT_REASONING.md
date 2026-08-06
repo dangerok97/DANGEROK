@@ -2,54 +2,69 @@
 
 ## Principi
 
-1. **Mai inventare fatti** — solo ciò che è nel documento / artifact / storia oggetto.
-2. **Mai matchare solo sul titolo** — chiave = address, catastale, POD/PDR, targa, VIN, lender+property, coords.
-3. **Mai creare silenziosamente “Casa 2”** — in conflitto → `propose_merge` o `uncertain`.
-4. Output sempre **Pydantic** (`ObjectReasoningDecision`, risultati enrichment).
-5. Contesto Gemini **minimale** (no segreti, no dump completi).
+1. **Mai inventare fatti** — solo documento / artifact / storia.
+2. **Mai matchare solo sul titolo**.
+3. **Mai creare silenziosamente “Casa 2”**.
+4. **Gemini = consultant** — suggerisce; non decide titolo/tipo/merge finali.
+5. **Backend = autorità** — Semantic Validator prima di ogni persist.
+6. Output sempre **Pydantic**; contesto Gemini minimale.
 
-## Flusso identity
+## Flusso
 
 ```
-DocumentReasoning (Documents V2 / Life Experience)
+DocumentReasoning
         ↓
-Life Object Reasoner (Gemini via Provider Manager)
-        ↓  (fallback deterministico se Gemini assente/invalido)
-ObjectReasoningDecision { action, type, identity_keys, improves, worsens, next_question }
+Life Object Reasoner (Gemini consultant / fallback)
+        ↓  validate_decision_consultant (type/title/properties)
+ObjectReasoningDecision
         ↓
-LifeObjectService upsert (dedupe + history + identity/state split)
+Dedupe + link_state (CONFIRMED|PROBABLE|UNCERTAIN|REAL_CONFLICT)
         ↓
-Enrichment (narrative / questions / insights / temporal / health)
+Assimilation (mutuo/bolletta → HOME.state) se quiet link
+        ↓
+Semantic Validator (type, canonical title, registry map)
+        ↓
+Persist + Enrichment (narrative / gaps / insights / temporal / health 2.0)
 ```
 
-## Azioni reasoner
+## Titoli canonici (deterministici)
 
-| action | Significato |
-|--------|-------------|
-| `create` | Nuovo oggetto con identity keys forti |
-| `update` | Stesso oggetto (match key / soft address) |
-| `propose_merge` | Conflitto tra candidati — chiedere all’utente |
-| `uncertain` | Identity troppo debole — status `uncertain`, non active silenzioso |
-| `skip` | Documento non mappa a un Life Object |
+| Tipo | Ordine |
+|------|--------|
+| HOME | address → via+city → Casa → Casa #N |
+| VEHICLE | brand → brand+model → plate → Auto |
+| JOB | company → profession → Lavoro |
+| UNIVERSITY | university → course → Università |
+| TRAVEL | destination → Viaggio |
 
-## Enrichment AI
+**Mai** testo AI come titolo finale. **Mai** HOME con titolo «Lavoro».
 
-| Sezione | Scopo | Fallback |
-|---------|-------|----------|
-| Narrative | Situazione naturale in italiano (versionata) | Template per tipo (Casa/Auto/…) |
-| Questions | Domande che aumentano capacità di aiutare | Gap identity/state tipizzati |
-| Insights | Osservazioni da storia (cambio fornitore, trend, rata) | `detect_state_changes` + trend |
-| Temporal | Presente vs storia stesso oggetto | Serie bollette + cambi state |
-| Health | completeness, reliability, missing_info, opportunities, risks, reasons | Score derivato spiegabile |
+## Link states
 
-## Domande
+| Stato | User-facing? | Assimilazione |
+|-------|--------------|---------------|
+| LINK_CONFIRMED | no | sì |
+| LINK_PROBABLE | no (quiet) | sì |
+| LINK_UNCERTAIN | no | limitata |
+| REAL_CONFLICT | **sì** | no auto |
 
-Il reasoner può proporre `next_question`; l’enrichment **rinfresca** `pending_questions` a ogni nuova fonte. Nessuna UX dedicata in questa fase.
+## Knowledge gaps
+
+Domande su **concetti** (registry). Se catastale presente sotto qualsiasi alias → non chiedere.  
+Se mutuo assimilato → mai «Hai un mutuo?».
+
+## Narrative / Insights
+
+- **Narrative:** consulente personale — cos’è, cosa sa ORA, cosa manca, come aiuta, rischi, prossimo documento. No dump campi.
+- **Insights:** osservazioni («cambiato fornitore due volte»), non descrizioni («hai una casa»).
+
+## Health 2.0
+
+Dimensioni: `identity_completeness`, `state_completeness`, `reliability`, `source_consistency`, `temporal_confidence`, `pending_conflicts`, `pending_links`, `ai_confidence` + score spiegabile.  
+Mai «100% healthy» con mutuo non assimilato / merge aperti / domande duplicate.
 
 ## Gemini
 
-- Via `llm.structured.chat_json` + Provider Manager
-- Se `invented_facts=true` → scarta e usa fallback
-- Identity keys deterministiche **sempre unite** al risultato AI
-- Flag: `LIFE_OBJECT_GEMINI=0` forza fallback (usato in pytest)
-- Honest: Gemini è **opzionale**; CI e smoke usano il fallback italiano
+- Opzionale (`LIFE_OBJECT_GEMINI=0` in pytest)
+- `invented_facts=true` → scarta
+- Identity keys deterministiche sempre unite al risultato AI

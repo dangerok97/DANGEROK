@@ -1,12 +1,12 @@
 # ORA — Product (struttura reale)
 
-Ultimo aggiornamento: 2026-08-07 — Life Object Engine SHADOW + AI narrative/reasoning (Home UX invariata).
+Ultimo aggiornamento: 2026-08-07 — Life Object Engine v2 Semantic Integrity (Home UX invariata).
 
 ## Vision
 
 ORA è il sistema operativo della vita quotidiana: riduce il carico cognitivo mostrando **cosa fare adesso**, con decisioni ordinate, memoria personale e documenti.
 
-I **Life Objects** (Casa, Auto, Università, Lavoro, …) sono il **modello canonico della realtà dell’utente**. Conversation, Goal, Documents, Brain, Proactive e Home **continuano a esistere** come satelliti che leggono/aggiornano gli oggetti — non posseggono più “la verità” da soli. In questa fase gli aggiornamenti sono **shadow** (paralleli): la Home resta Goal-aware; Home V3 oggetti è solo predisposta (`LIFE_OBJECT_HOME_UI_ENABLED=0`).
+I **Life Objects** (Casa, Auto, Università, Lavoro, …) sono il **modello vivente della realtà dell’utente**. L’AI (Gemini) è **consultant**; il backend è **autorità** su tipo, titolo, merge e campi (Semantic Validator prima del persist). Conversation, Goal, Documents, Brain, Proactive e Home **continuano a esistere** come satelliti. Aggiornamenti **shadow**; Home resta Goal-aware; Home V3 oggetti solo predisposta (`LIFE_OBJECT_HOME_UI_ENABLED=0`).
 
 ## Utenti
 
@@ -51,7 +51,7 @@ Persone che vogliono una priorità unica chiara (non un task manager generico), 
 
 - **Scopo:** verità canonica sulla realtà dell’utente (HOME, VEHICLE, UNIVERSITY, JOB, …). Gli altri motori restano e aggiornano questi oggetti.
 - **Stato:** **SHADOW FUNZIONANTE** — writes paralleli ON; **nessuna modifica UX importante**; Home V3 oggetti **PREDISPOSTO / OFF**.
-- **Flusso:** dopo understanding Documents V2 → upsert Life Object (dedupe per indirizzo/targa/…, mai solo titolo) → enrichment (narrative, domande, insight, temporal, health spiegabile); Goal ottiene `life_object_id`; Travel/Study aggiornano oggetti in parallelo.
+- **Flusso:** Documents V2 → Life Object AI → **Semantic Validator** → oggetto canonico (titolo deterministico, assimilazione mutuo/bolletta, gap su concetti, Health 2.0) → enrichment; Goal ottiene `life_object_id`; Travel/Study aggiornano in parallelo.
 - **Identity vs State:** identità stabile (indirizzo/targa/…) separata dallo stato che cambia (fornitori, importi, rate).
 - **Backend:** `/api/life-objects/*` (+ narrative/questions/insights/health/history/enrich); flag `LIFE_OBJECT_ENGINE_ENABLED`, `LIFE_OBJECT_HOME_UI_ENABLED`, `LIFE_OBJECT_GEMINI`.
 - **Docs:** `LIFE_OBJECT_ENGINE.md`, `LIFE_OBJECT_REASONING.md`, `LIFE_OBJECT_ARCHITECTURE.md`, `LIFE_OBJECT_VERIFICATION.md`.

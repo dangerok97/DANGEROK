@@ -30,13 +30,15 @@ IDENTITY_PROPERTY_KEYS = frozenset({
     "travel_dest_period", "iban_last4", "company_name_norm",
 })
 STATE_PROPERTY_KEYS = frozenset({
-    "supplier", "utility_type", "amount_total", "amount", "consumption",
+    "supplier", "utility_supplier", "utility_type", "utility_amount",
+    "utility_due_date", "amount_total", "amount", "consumption",
     "monthly_installment", "rate", "interest_rate", "company",
-    "policy_number", "contract_code", "insured_object", "lender",
-    "price", "status_detail", "coverage", "expiry", "due_date",
-    "course_name", "subject", "destination", "start_date", "end_date",
-    "document_type", "domain", "travel_project_id", "study_plan_id",
-    "goal_id", "goal_type",
+    "insurance_company", "policy_number", "contract_code", "insured_object",
+    "lender", "loan_number", "mortgage_years_left", "mortgage_assimilated",
+    "utility_assimilated", "price", "status_detail", "coverage", "expiry",
+    "due_date", "course_name", "subject", "destination", "start_date",
+    "end_date", "profession", "document_type", "domain",
+    "travel_project_id", "study_plan_id", "goal_id", "goal_type",
 })
 
 
@@ -123,18 +125,27 @@ class TemporalComparison(BaseModel):
 
 
 class LifeObjectHealth(BaseModel):
-    """Explainable life-health evaluation (not a bare scalar)."""
+    """Explainable life-health evaluation (Health 2.0 — not a bare scalar)."""
 
     model_config = ConfigDict(extra="ignore")
     score: float = Field(ge=0, le=1, default=0.5)  # overall derived
     label: str = "unknown"
     issues: List[str] = Field(default_factory=list)  # legacy compat
-    completeness: float = Field(ge=0, le=1, default=0.5)
+    completeness: float = Field(ge=0, le=1, default=0.5)  # legacy = identity_completeness
     reliability: float = Field(ge=0, le=1, default=0.5)
+    # Health 2.0 dimensions (explainable)
+    identity_completeness: float = Field(ge=0, le=1, default=0.5)
+    state_completeness: float = Field(ge=0, le=1, default=0.5)
+    source_consistency: float = Field(ge=0, le=1, default=0.5)
+    temporal_confidence: float = Field(ge=0, le=1, default=0.5)
+    pending_conflicts: float = Field(ge=0, le=1, default=0.0)  # 0 clean → 1 many
+    pending_links: float = Field(ge=0, le=1, default=0.0)
+    ai_confidence: float = Field(ge=0, le=1, default=0.0)
     missing_info: List[str] = Field(default_factory=list)
     opportunities: List[str] = Field(default_factory=list)
     risks: List[str] = Field(default_factory=list)
     reasons: List[str] = Field(default_factory=list)
+    dimensions: Dict[str, Any] = Field(default_factory=dict)  # explainable dump
     updated_at: Optional[str] = None
     source: str = "deterministic"
 
@@ -172,7 +183,15 @@ class LifeObject(BaseModel):
     insights: List[AIInsight] = Field(default_factory=list)
     temporal: Optional[TemporalComparison] = None
     health: LifeObjectHealth = Field(default_factory=LifeObjectHealth)
-    source_count: int = 0
+    # Provenance (typed sources) — source_count kept as alias of total_sources
+    document_sources: List[str] = Field(default_factory=list)
+    conversation_sources: List[str] = Field(default_factory=list)
+    goal_sources: List[str] = Field(default_factory=list)
+    calendar_sources: List[str] = Field(default_factory=list)
+    brain_sources: List[str] = Field(default_factory=list)
+    manual_sources: List[str] = Field(default_factory=list)
+    total_sources: int = 0
+    source_count: int = 0  # legacy alias of total_sources
     last_reasoning: Optional[Dict[str, Any]] = None
     next_reasoning: Optional[str] = None
     origin: str = "unknown"
@@ -184,8 +203,12 @@ class LifeObject(BaseModel):
     identity_keys: Dict[str, str] = Field(default_factory=dict)
     merged_into_id: Optional[str] = None
     merged_from_ids: List[str] = Field(default_factory=list)
-    # Merge proposals when conflict (never silent second Casa)
+    # Merge proposals — only REAL_CONFLICT should disturb the user
     merge_proposals: List[Dict[str, Any]] = Field(default_factory=list)
+    pending_links: List[Dict[str, Any]] = Field(default_factory=list)
+    # Last semantic validation meta (backend authority)
+    last_validation: Optional[Dict[str, Any]] = None
+    assimilated_kinds: List[str] = Field(default_factory=list)
 
     @field_validator("type", mode="before")
     @classmethod
@@ -388,6 +411,13 @@ class HealthAIResult(BaseModel):
     model_config = ConfigDict(extra="ignore")
     completeness: float = Field(ge=0, le=1, default=0.5)
     reliability: float = Field(ge=0, le=1, default=0.5)
+    identity_completeness: Optional[float] = None
+    state_completeness: Optional[float] = None
+    source_consistency: Optional[float] = None
+    temporal_confidence: Optional[float] = None
+    pending_conflicts: Optional[float] = None
+    pending_links: Optional[float] = None
+    ai_confidence: Optional[float] = None
     missing_info: List[str] = Field(default_factory=list)
     opportunities: List[str] = Field(default_factory=list)
     risks: List[str] = Field(default_factory=list)
@@ -398,7 +428,12 @@ class HealthAIResult(BaseModel):
     provider: str = "local-deterministic"
     model: str = "local-deterministic"
 
-    @field_validator("completeness", "reliability", "overall_score", mode="before")
+    @field_validator(
+        "completeness", "reliability", "overall_score",
+        "identity_completeness", "state_completeness", "source_consistency",
+        "temporal_confidence", "pending_conflicts", "pending_links", "ai_confidence",
+        mode="before",
+    )
     @classmethod
     def _score(cls, v: Any) -> Any:
         if v is None:

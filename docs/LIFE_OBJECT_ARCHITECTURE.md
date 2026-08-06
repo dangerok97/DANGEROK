@@ -2,71 +2,65 @@
 
 ## Framing
 
-Life Objects sono il **modello canonico** della realtà utente.  
-Goal Engine, Documents V2, Brain, Conversation, Proactive, Home, Travel, Study **restano**: leggono/scrivono oggetti; non detengono più la verità in isolamento.
+Life Objects = **modello canonico** della realtà utente.  
+Gemini = **consultant**; backend = **autorità finale** su type, title, merge, fields.  
+Goal / Documents / Brain / Conversation / Proactive / Home / Travel / Study restano satelliti R/W.
+
+## Pipeline
+
+```
+Document → OCR → Document AI → Life Object AI → Semantic Validator → Canonical Object → (future Home)
+```
+
+Il Validator gira **sempre** prima del persist.
 
 ## Package
 
 ```
 backend/life_objects/
-  models.py          # LifeObject + reasoning/enrichment Pydantic
-  types.py           # type catalog
-  repository.py      # Mongo `life_objects` + identity indexes
-  deduplication.py   # strong keys, soft address, merge fields
-  identity_state.py  # identity vs state split (non-destructive)
-  reasoner.py        # Gemini + deterministic document mapping
-  enrichment.py      # narrative / questions / insights / temporal / health
-  linking.py         # Brain edges object↔object / object↔doc
-  memory.py          # history + utility trend + state changes
-  home_v3.py         # DTO card PREDISPOSTO (flag OFF)
-  service.py         # CRUD + shadow upserts + enrichment refresh
-  shadow.py          # soft-fail wrappers
-  router.py          # /api/life-objects
+  models.py               # LifeObject + Health 2.0 + provenance
+  types.py                # type catalog + DOC_TYPE_TO_OBJECT
+  repository.py           # Mongo life_objects
+  deduplication.py        # strong keys + soft address
+  identity_state.py       # identity vs state (+ registry map)
+  property_registry.py    # canonical fields + aliases
+  title_generator.py      # titoli deterministici
+  semantic_validator.py   # autorità pre-persist
+  assimilation.py         # mutuo/bolletta → HOME.state
+  link_states.py          # 4 stati link/merge
+  knowledge_gaps.py       # gap su concetti
+  provenance.py           # fonti tipizzate
+  reasoner.py             # Gemini consultant + fallback
+  enrichment.py           # narrative/questions/insights/temporal/health 2.0
+  linking.py / memory.py
+  home_v3.py              # DTO PREDISPOSTO (flag OFF)
+  service.py              # CRUD + shadow + validator
+  shadow.py / router.py
   tests/
 ```
 
 ## Collection Mongo
 
-`life_objects` — indexes su `id`, `(user_id, type, status)`, identity_keys sparse (`address_norm`, `cadastral`, `pod`, `pdr`, `plate`, `vin`, `lender_property`, …).
+`life_objects` — indexes su `id`, `(user_id, type, status)`, identity_keys sparse.
 
-Campi enrichment: `identity`, `state`, `narrative`, `insights`, `temporal`, `health` (explainable), `pending_questions`, `ai_enrichment_version`.  
-`properties` conservato (compat).
+Campi v2: `identity`, `state`, `narrative`, `insights`, `temporal`, `health` (Health 2.0),  
+`document_sources` / `conversation_sources` / `goal_sources` / `calendar_sources` / `brain_sources` / `manual_sources` / `total_sources`  
+(`source_count` = alias di `total_sources`), `assimilated_kinds`, `last_validation`, `pending_links`, `merge_proposals` (solo REAL_CONFLICT user-facing).
 
-## Shadow hooks
+## Assimilation
 
-| Fonte | Dove | Funzione |
-|-------|------|----------|
-| Documents / Life Experience | `life_setup.service.consume_document` dopo `persist_document_understanding` | `shadow_upsert_from_document` → enrich |
-| Goal Engine | `GoalService.upsert` | `shadow_attach_goal` → `goals.life_object_id` |
-| Travel confirm | `TravelProjectService.confirm` | `shadow_upsert_from_travel` → enrich |
-| Study confirm | `StudyPlanService.confirm` | `shadow_upsert_from_study` → enrich |
+Quando identity è LINK_CONFIRMED / LINK_PROBABLE:
 
-Enrichment è **best-effort**: non rompe il consume documento.
+- **mutuo** → aggiorna `state` (lender, monthly_installment, loan_number…)  
+- **bolletta** → aggiorna `state` (utility_supplier, utility_amount, POD…)  
 
-## Modello (campi chiave)
+L’oggetto cresce; **non** si accumulano merge_proposals per aggiornamenti chiari.
 
-`id`, `user_id`, `type`, `title`, `status`, `confidence`, `created_at`, `updated_at`, `summary`, `relationships`, `documents`, `calendar_events`, `goals`, `projects`, `brain_nodes`, `knowledge`, `history`, `properties`, **`identity`**, **`state`**, `pending_questions`, `suggested_actions`, **`narrative`**, **`insights`**, **`temporal`**, `health`, `source_count`, `last_reasoning`, `next_reasoning`, `origin`, `ai_summary`, `ai_reasoning_version`, `ai_enrichment_version`, `ai_confidence`, `identity_keys`, `merge_proposals`
+## Home V3 DTO
 
-## Dedupe
+`life_object_id`, `life_domain`, `health`, `next_action`, `benefits`, `questions`, `insights`, `timeline`, `related_documents`, `related_goals`, `related_projects`.  
+Flag `LIFE_OBJECT_HOME_UI_ENABLED=0` — UX Home invariata.
 
-- **HOME:** cadastral, POD/PDR, address (soft containment), coords, lender+property  
-- **VEHICLE:** plate, VIN  
-- Conflitto → `merge_proposals` (mai silent Casa 2)
+## API
 
-## API surface
-
-Auth Bearer. Prefisso `/api/life-objects`.
-
-| Endpoint | Uso |
-|----------|-----|
-| `GET/POST /`, `GET/PATCH/DELETE /{id}` | CRUD |
-| `POST /search`, `/merge`, `/reason` | ricerca / merge / reason |
-| `GET /{id}/narrative\|questions\|insights\|health\|history\|relationships\|temporal\|trend` | lettura |
-| `POST /{id}/enrich`, `.../*/refresh` | ri-esegue AI/fallback |
-| `GET /home-v3-feed` | DTO futuro Home (OFF) |
-
-## Home
-
-Home V2 **invariata** (Goal-aware).  
-`LIFE_OBJECT_HOME_UI_ENABLED` predispone Home V3 — non attiva.  
-Serializer `home_v3.py` esiste ma non è collegato alla UI.
+Auth Bearer. Prefisso `/api/life-objects` — CRUD, enrich, narrative/questions/insights/health/history/relationships/temporal, `GET /home-v3-feed` (OFF).

@@ -1,5 +1,36 @@
 # ORA — AI Changelog
 
+## 2026-08-07 — Harden Life Object semantic integrity and AI validation
+
+### Request
+
+On `feature/life-object-engine` (~`0ab2f2b`): Life Object Engine v2 — Semantic Integrity & AI Validation. Gemini=consultant, backend=authority. Validator before persist. Titles/registry/gaps/assimilation/link states/Health 2.0/provenance/Home V3 DTO. Tests + docs. Commit. No push/merge. No Home UX.
+
+### Actions
+
+- `semantic_validator.py`, `title_generator.py`, `property_registry.py`, `assimilation.py`, `link_states.py`, `knowledge_gaps.py`, `provenance.py`
+- Models: Health 2.0 dimensions, typed provenance, `last_validation`, `assimilated_kinds`
+- Service: validator ALWAYS before persist; quiet assimilate vs REAL_CONFLICT only
+- Enrichment: consultant narrative, concept gaps, observation insights, Health 2.0
+- Home V3 DTO: `life_object_id`, `life_domain`, health, next_action, benefits, questions, insights, timeline, related_*
+- Tests: `test_semantic_integrity.py`, `test_real_life_growth.py` + existing suite
+- Docs: LIFE_OBJECT_*, ARCHITECTURE, DEVELOPMENT_STATE, CHANGELOG
+
+### Results
+
+- pytest `life_objects/tests/`: **23 passed**
+- FAIL criteria checked: no HOME title «Lavoro»; mutuo/bolletta assimilati; no merge piles on clear updates
+- Home UX: **unchanged** (`LIFE_OBJECT_HOME_UI_ENABLED=0`)
+- Commit: `feat: harden Life Object semantic integrity and AI validation` (no push)
+
+### Open
+
+- Home V3 UI not shipped
+- Conversation provenance hooks not fully wired
+- Gemini live optional
+
+---
+
 ## 2026-08-07 — Enrich Life Objects with AI narrative and reasoning
 
 ### Request

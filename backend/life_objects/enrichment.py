@@ -46,19 +46,26 @@ def _minimal_context(obj: LifeObject) -> Dict[str, Any]:
             "worsens": (h.worsens or [])[:4],
             "delta_keys": list((h.delta or {}).keys())[:8],
         })
+    state_pub = {
+        k: v for k, v in (obj.state or {}).items()
+        if v not in (None, "", [], {}) and not str(k).startswith("_")
+    }
     return {
         "id": obj.id,
         "type": obj.type,
         "title": obj.title,
         "status": obj.status,
         "identity": {k: v for k, v in (obj.identity or {}).items() if v not in (None, "", [], {})},
-        "state": {k: v for k, v in (obj.state or {}).items() if v not in (None, "", [], {})},
+        "state": state_pub,
         "identity_keys": dict(obj.identity_keys or {}),
         "documents_count": len(obj.documents or []),
         "goals_count": len(obj.goals or []),
         "relationships_count": len(obj.relationships or []),
         "history_tail": hist_summaries,
-        "source_count": obj.source_count or len(obj.documents or []),
+        "document_sources": list(getattr(obj, "document_sources", None) or obj.documents or []),
+        "total_sources": int(getattr(obj, "total_sources", None) or obj.source_count or 0),
+        "assimilated_kinds": list(getattr(obj, "assimilated_kinds", None) or []),
+        "role": "Gemini=consultant; backend=authority on type/title/merge/fields",
     }
 
 
@@ -73,65 +80,88 @@ def _safe_str(v: Any) -> str:
 # ---------------------------------------------------------------------------
 
 def deterministic_narrative(obj: LifeObject) -> NarrativeAIResult:
-    """Natural Italian situation description from known facts only."""
+    """Personal-consultant narrative: what it is, what ORA knows, gaps, help, risks, next doc.
+
+    Never invent / never dump raw field lists.
+    """
     t = obj.type
     identity = obj.identity or {}
     state = obj.state or {}
     parts: List[str] = []
 
     if t == "HOME":
-        addr = _safe_str(identity.get("address") or identity.get("property_address") or (obj.identity_keys or {}).get("address_norm"))
-        if addr:
-            parts.append(f"Hai una casa collegata a {addr}.")
-        else:
-            parts.append("Hai una casa in ORA, ma manca ancora un indirizzo stabile.")
+        addr = _safe_str(
+            identity.get("address")
+            or identity.get("property_address")
+            or (obj.identity_keys or {}).get("address_norm")
+        )
+        parts.append(
+            f"Questa è la tua casa{(' a ' + addr) if addr else ''}."
+            if addr else
+            "Questa è una casa in ORA, ancora senza indirizzo stabile."
+        )
+        known: List[str] = []
+        if identity.get("cadastral_data") or identity.get("cadastral") or (obj.identity_keys or {}).get("cadastral"):
+            known.append("dati catastali")
         lender = _safe_str(state.get("lender"))
         installment = _safe_str(state.get("monthly_installment"))
         if lender and installment:
-            parts.append(f"Risulta un mutuo con {lender} (rata circa {installment}).")
+            known.append(f"mutuo con {lender} (rata ~{installment})")
         elif lender:
-            parts.append(f"Risulta un mutuo collegato con {lender}.")
-        supplier = _safe_str(state.get("supplier"))
-        utility = _safe_str(state.get("utility_type")) or "utenze"
-        amount = _safe_str(state.get("amount_total") or state.get("amount"))
+            known.append(f"mutuo con {lender}")
+        supplier = _safe_str(state.get("utility_supplier") or state.get("supplier"))
+        amount = _safe_str(state.get("utility_amount") or state.get("amount_total") or state.get("amount"))
         if supplier and amount:
-            parts.append(f"Per le utenze ({utility}) il fornitore noto è {supplier}, ultima bolletta {amount}.")
+            known.append(f"utenze con {supplier} (ultima bolletta {amount})")
         elif supplier:
-            parts.append(f"Fornitore utenze noto: {supplier}.")
-        cadastral = _safe_str(identity.get("cadastral_data") or identity.get("cadastral"))
-        if cadastral:
-            parts.append("I dati catastali sono presenti.")
+            known.append(f"fornitore utenze {supplier}")
+        if known:
+            parts.append("ORA sa già: " + "; ".join(known) + ".")
+        missing: List[str] = []
+        if not addr:
+            missing.append("indirizzo completo")
+        if not (identity.get("cadastral_data") or (obj.identity_keys or {}).get("cadastral")):
+            missing.append("riferimento catastale")
+        if missing:
+            parts.append("Manca ancora: " + ", ".join(missing) + ".")
+        parts.append("ORA può aiutarti a tenere insieme mutuo, utenze e documenti senza duplicare la casa.")
+        if not lender and not state.get("mortgage_assimilated"):
+            parts.append("Un prossimo documento utile sarebbe il contratto di mutuo, se presente.")
+        elif not supplier:
+            parts.append("Un prossimo documento utile sarebbe l'ultima bolletta utenze.")
+        else:
+            parts.append("Se cambi fornitore o rata, carica il nuovo documento: aggiorno lo stato della stessa casa.")
     elif t == "VEHICLE":
         plate = _safe_str(identity.get("plate") or (obj.identity_keys or {}).get("plate"))
         brand = _safe_str(identity.get("brand"))
         model = _safe_str(identity.get("model"))
         label = " ".join(x for x in (brand, model) if x).strip() or "veicolo"
-        if plate:
-            parts.append(f"Hai un {label} con targa {plate}.")
-        else:
-            parts.append(f"Hai un {label}, ma manca la targa come chiave primaria.")
-        company = _safe_str(state.get("company"))
+        parts.append(
+            f"Questo è il tuo {label}" + (f" (targa {plate})." if plate else ", ancora senza targa primaria.")
+        )
+        company = _safe_str(state.get("insurance_company") or state.get("company"))
         if company:
-            parts.append(f"Assicurazione nota: {company}.")
-        if identity.get("vin"):
-            parts.append("Il telaio (VIN) è registrato.")
+            parts.append(f"ORA conosce l'assicurazione con {company}.")
+        if not plate:
+            parts.append("Manca la targa per unificare libretto e polizza.")
+        parts.append("Carica polizza o libretto per rafforzare identità e scadenze.")
     elif t in ("UNIVERSITY", "COURSE"):
         inst = _safe_str(identity.get("institution") or identity.get("university") or (obj.identity_keys or {}).get("institution"))
         course = _safe_str(state.get("course_name") or state.get("subject") or identity.get("course_name"))
         if inst and course:
-            parts.append(f"Il tuo percorso di studi riguarda {course} presso {inst}.")
+            parts.append(f"Il tuo percorso riguarda {course} presso {inst}.")
         elif inst:
             parts.append(f"Hai un legame universitario con {inst}.")
-        elif course:
-            parts.append(f"Stai seguendo il corso {course}.")
         else:
             parts.append("Hai un oggetto di studio, ma mancano ateneo o corso.")
+        parts.append("ORA può collegare esami, dispense e scadenze allo stesso percorso.")
     elif t == "JOB":
         emp = _safe_str(identity.get("employer") or state.get("employer") or (obj.identity_keys or {}).get("employer"))
         if emp:
             parts.append(f"Il tuo lavoro è collegato a {emp}.")
         else:
             parts.append("Hai un oggetto Lavoro, ma manca il datore di lavoro.")
+        parts.append("Una busta paga o un contratto rafforza affidabilità senza inventare dati.")
     elif t == "TRAVEL":
         dest = _safe_str(state.get("destination") or identity.get("destination"))
         start = _safe_str(state.get("start_date"))
@@ -142,6 +172,7 @@ def deterministic_narrative(obj: LifeObject) -> NarrativeAIResult:
             parts.append(f"Hai un viaggio verso {dest}.")
         else:
             parts.append("Hai un progetto di viaggio in ORA.")
+        parts.append("Prenotazioni e documenti di viaggio aggiornano questo stesso oggetto.")
     else:
         title = _safe_str(obj.title) or t
         parts.append(f"Oggetto «{title}» con {len(obj.documents or [])} documenti collegati.")
@@ -161,170 +192,54 @@ def deterministic_narrative(obj: LifeObject) -> NarrativeAIResult:
 
 
 def deterministic_questions(obj: LifeObject) -> QuestionsAIResult:
-    """Intelligent pending questions that increase ORA's ability to help."""
-    qs: List[QuestionItemAI] = []
+    """Concept-based gap questions (Knowledge Gap Engine)."""
+    from life_objects.knowledge_gaps import build_gap_questions
 
-    identity = obj.identity or {}
-    state = obj.state or {}
-    ik = obj.identity_keys or {}
-    t = obj.type
-
-    def add(q: str, why: str, priority: str = "medium", category: str = "missing_info"):
-        qs.append(QuestionItemAI(question=q, why=why, priority=priority, category=category))  # type: ignore[arg-type]
-
-    if t == "HOME":
-        if not (identity.get("address") or ik.get("address_norm")):
-            add(
-                "Qual è l'indirizzo completo di questa casa?",
-                "Senza indirizzo ORA non può unificare rogito, mutuo e bollette sulla stessa casa.",
-                "high",
-            )
-        if not (identity.get("cadastral_data") or ik.get("cadastral")):
-            add(
-                "Hai il riferimento catastale (foglio/particella/sub)?",
-                "Il catastale rafforza l'identità e evita una seconda Casa.",
-                "medium",
-            )
-        if not state.get("lender") and not any(
-            (h.delta or {}).get("properties", {}).get("lender") for h in (obj.history or [])
-        ):
-            # Only ask if mortgage-like docs not already linking lender
-            if not any("mutuo" in str((h.delta or {}).get("properties", {}).get("document_type") or "") for h in (obj.history or [])):
-                add(
-                    "Hai un mutuo su questa casa? Se sì, con quale banca?",
-                    "Sapere banca e rata aiuta ORA a monitorare impegno finanziario e scadenze.",
-                    "medium",
-                    "help_ability",
-                )
-        if not (ik.get("pod") or identity.get("pod")):
-            add(
-                "Conosci il codice POD della fornitura elettrica?",
-                "Il POD collega bollette luce alla stessa casa in modo stabile.",
-                "low",
-                "help_ability",
-            )
-        if state.get("supplier") and not state.get("amount_total"):
-            add(
-                "Puoi caricare l'ultima bolletta con l'importo?",
-                "Serve a leggere andamento consumi/spesa nel tempo.",
-                "medium",
-                "help_ability",
-            )
-    elif t == "VEHICLE":
-        if not (identity.get("plate") or ik.get("plate")):
-            add(
-                "Qual è la targa del veicolo?",
-                "La targa è la chiave primaria per unificare libretto e polizza.",
-                "high",
-            )
-        if not state.get("company"):
-            add(
-                "Con quale compagnia è assicurata l'auto?",
-                "Serve per scadenze e confronti di copertura.",
-                "medium",
-                "help_ability",
-            )
-        if not (identity.get("vin") or ik.get("vin")):
-            add(
-                "Hai il numero di telaio (VIN)?",
-                "Il VIN rafforza l'identità se la targa cambia o manca.",
-                "low",
-            )
-    elif t in ("UNIVERSITY", "COURSE"):
-        if not (identity.get("institution") or ik.get("institution")):
-            add(
-                "Presso quale università o istituto studi?",
-                "L'ateneo è la chiave per non duplicare percorsi di studio.",
-                "high",
-            )
-        if not (state.get("course_name") or state.get("subject")):
-            add(
-                "Qual è il corso di laurea o la materia principale?",
-                "Serve a collegare esami, dispense e scadenze al percorso giusto.",
-                "medium",
-                "help_ability",
-            )
-    elif t == "JOB":
-        if not (identity.get("employer") or ik.get("employer")):
-            add(
-                "Qual è il nome del datore di lavoro?",
-                "Il datore di lavoro identifica in modo stabile l'oggetto Lavoro.",
-                "high",
-            )
-        add(
-            "Puoi caricare l'ultima busta paga o il contratto?",
-            "Documenti reali riducono domande e migliorano affidabilità.",
-            "medium",
-            "help_ability",
-        )
-    elif t == "TRAVEL":
-        if not state.get("destination"):
-            add(
-                "Qual è la destinazione del viaggio?",
-                "La destinazione definisce l'oggetto viaggio e collega prenotazioni.",
-                "high",
-            )
-        if not state.get("start_date"):
-            add(
-                "Quando parti?",
-                "Le date consentono scadenze e priorità nel tempo.",
-                "medium",
-                "help_ability",
-            )
-    else:
-        if not obj.documents:
-            add(
-                "Hai un documento che descrive meglio questo oggetto?",
-                "Una fonte documentale aumenta affidabilità e riduce ambiguità.",
-                "medium",
-                "help_ability",
-            )
-
-    if obj.status == "uncertain":
-        add(
-            "Queste informazioni appartengono allo stesso oggetto di vita?",
-            "Lo stato è incerto: una conferma evita duplicati.",
-            "high",
-            "clarify",
-        )
-    if obj.merge_proposals:
-        add(
-            "Vuoi unire le informazioni in conflitto in un unico oggetto?",
-            "Ci sono proposte di merge in sospeso.",
-            "high",
-            "clarify",
-        )
-
-    # Cap + dedupe
-    seen = set()
-    unique: List[QuestionItemAI] = []
-    for q in qs:
-        key = q.question.strip().lower()
-        if key in seen or not q.question.strip():
-            continue
-        seen.add(key)
-        unique.append(q)
-    return QuestionsAIResult(questions=unique[:6], invented_facts=False, ai_used=False)
+    return QuestionsAIResult(
+        questions=build_gap_questions(obj),
+        invented_facts=False,
+        ai_used=False,
+    )
 
 
 def deterministic_insights(obj: LifeObject) -> InsightsAIResult:
+    """Observations, not descriptions — never «hai una casa»."""
     items: List[InsightItemAI] = []
     state = obj.state or {}
     changes = detect_state_changes(obj)
     series = utility_amount_series(obj)
     trend = basic_utility_trend(obj)
 
+    supplier_changes = [
+        ch for ch in changes
+        if ch.get("field") in ("supplier", "utility_supplier")
+    ]
+    if len(supplier_changes) >= 2:
+        items.append(InsightItemAI(
+            kind="observation",
+            title="Cambi fornitore ripetuti",
+            detail=(
+                f"Hai cambiato fornitore energia/utenze {len(supplier_changes)} volte "
+                "nelle fonti osservate."
+            ),
+            evidence=[str(ch.get("at") or "") for ch in supplier_changes[:4]],
+            confidence=0.85,
+        ))
+    elif len(supplier_changes) == 1:
+        ch = supplier_changes[0]
+        items.append(InsightItemAI(
+            kind="change",
+            title="Cambio fornitore",
+            detail=f"Fornitore passato da «{ch.get('from')}» a «{ch.get('to')}».",
+            evidence=[str(ch.get("at") or "")],
+            confidence=0.8,
+        ))
+
     for ch in changes[:5]:
         field = ch.get("field")
-        if field == "supplier":
-            items.append(InsightItemAI(
-                kind="change",
-                title="Cambio fornitore",
-                detail=f"Fornitore passato da «{ch.get('from')}» a «{ch.get('to')}».",
-                evidence=[str(ch.get("at") or "")],
-                confidence=0.8,
-            ))
-        elif field in ("amount_total", "amount"):
+        if field in ("supplier", "utility_supplier"):
+            continue  # handled above
+        if field in ("amount_total", "amount", "utility_amount"):
             items.append(InsightItemAI(
                 kind="trend",
                 title="Importo bolletta aggiornato",
@@ -332,7 +247,7 @@ def deterministic_insights(obj: LifeObject) -> InsightsAIResult:
                 evidence=[str(ch.get("at") or "")],
                 confidence=0.7,
             ))
-        elif field == "company":
+        elif field in ("company", "insurance_company"):
             items.append(InsightItemAI(
                 kind="change",
                 title="Cambio compagnia",
@@ -348,14 +263,6 @@ def deterministic_insights(obj: LifeObject) -> InsightsAIResult:
                 evidence=[str(ch.get("at") or "")],
                 confidence=0.7,
             ))
-        else:
-            items.append(InsightItemAI(
-                kind="change",
-                title=f"Variazione {field}",
-                detail=f"{field}: {ch.get('from')} → {ch.get('to')}",
-                evidence=[str(ch.get("at") or "")],
-                confidence=0.6,
-            ))
 
     if trend.get("trend") in ("rising", "falling") and trend.get("points", 0) >= 2:
         label = "in aumento" if trend["trend"] == "rising" else "in calo"
@@ -370,7 +277,6 @@ def deterministic_insights(obj: LifeObject) -> InsightsAIResult:
             confidence=0.75,
         ))
 
-    # Mortgage years left — only if both term and years_elapsed present (never invent)
     years_left = state.get("mortgage_years_left") or state.get("years_remaining")
     if years_left not in (None, ""):
         items.append(InsightItemAI(
@@ -384,8 +290,8 @@ def deterministic_insights(obj: LifeObject) -> InsightsAIResult:
     if len(obj.documents or []) >= 3 and obj.type == "HOME":
         items.append(InsightItemAI(
             kind="opportunity",
-            title="Casa ben documentata",
-            detail="Più fonti (es. rogito/mutuo/bolletta) aumentano l'affidabilità dell'oggetto Casa.",
+            title="Documentazione casa in crescita",
+            detail="Rogito/mutuo/bolletta (o equivalenti) stanno consolidando lo stesso oggetto Casa.",
             evidence=[f"documents={len(obj.documents or [])}"],
             confidence=0.7,
         ))
@@ -408,7 +314,15 @@ def deterministic_insights(obj: LifeObject) -> InsightsAIResult:
             confidence=0.55,
         ))
 
-    return InsightsAIResult(insights=items[:8], invented_facts=False, ai_used=False)
+    # Drop descriptive fluff
+    filtered = []
+    for it in items:
+        blob = f"{it.title} {it.detail}".lower()
+        if "hai una casa" in blob or blob.strip() in ("hai una casa", "hai un lavoro"):
+            continue
+        filtered.append(it)
+
+    return InsightsAIResult(insights=filtered[:8], invented_facts=False, ai_used=False)
 
 
 def deterministic_temporal(obj: LifeObject) -> TemporalAIResult:
@@ -437,6 +351,11 @@ def deterministic_temporal(obj: LifeObject) -> TemporalAIResult:
 
 
 def deterministic_health(obj: LifeObject) -> HealthAIResult:
+    """Health 2.0 — explainable dimensions. Never 100% if open merges / unassimilated mutuo / dup Q."""
+    from life_objects.assimilation import mortgage_assimilated, open_real_conflicts, utility_assimilated
+    from life_objects.knowledge_gaps import concept_satisfied
+    from life_objects.link_states import summarize_pending_links
+
     missing: List[str] = []
     opportunities: List[str] = []
     risks: List[str] = []
@@ -446,7 +365,6 @@ def deterministic_health(obj: LifeObject) -> HealthAIResult:
     state = obj.state or {}
     ik = obj.identity_keys or {}
 
-    # Completeness by type
     needed_identity = {
         "HOME": ["address"],
         "VEHICLE": ["plate"],
@@ -462,60 +380,165 @@ def deterministic_health(obj: LifeObject) -> HealthAIResult:
             present += 1
         else:
             missing.append(key)
-    completeness = 0.4
-    if needed_identity:
-        completeness = present / max(1, len(needed_identity))
-    else:
-        completeness = 0.6 if (identity or ik) else 0.35
-    if obj.documents:
-        completeness = min(1.0, completeness + min(0.25, 0.05 * len(obj.documents)))
-        reasons.append(f"{len(obj.documents)} documenti collegati migliorano la completezza.")
-    if identity or ik:
-        reasons.append("Chiavi di identità presenti.")
-    else:
-        reasons.append("Poche chiavi di identità: completezza limitata.")
+    identity_completeness = present / max(1, len(needed_identity)) if needed_identity else (
+        0.6 if (identity or ik) else 0.35
+    )
+    if t == "HOME" and concept_satisfied(obj, "cadastral"):
+        identity_completeness = min(1.0, identity_completeness + 0.15)
+        reasons.append("Catastale presente rafforza identity_completeness.")
+    elif t == "HOME" and "cadastral" not in missing and not concept_satisfied(obj, "cadastral"):
+        missing.append("cadastral")
 
+    # State completeness by type
+    state_needed = {
+        "HOME": ["lender_or_utility"],
+        "VEHICLE": ["insurance_company"],
+        "JOB": [],
+        "TRAVEL": ["start_date"],
+    }.get(t, [])
+    state_hits = 0
+    state_total = max(1, len(state_needed)) if state_needed else 1
+    if t == "HOME":
+        state_total = 2
+        if mortgage_assimilated(obj) or state.get("lender"):
+            state_hits += 1
+        else:
+            missing.append("mortgage_state")
+        if utility_assimilated(obj) or state.get("utility_supplier") or state.get("supplier"):
+            state_hits += 1
+        else:
+            missing.append("utility_state")
+    else:
+        for key in state_needed:
+            if key == "insurance_company" and (
+                state.get("insurance_company") or state.get("company")
+            ):
+                state_hits += 1
+            elif state.get(key):
+                state_hits += 1
+            else:
+                missing.append(key)
+    state_completeness = state_hits / max(1, state_total) if state_needed or t == "HOME" else 0.5
+
+    # Reliability
     reliability = 0.45
-    if obj.documents:
-        reliability += min(0.3, 0.08 * len(obj.documents))
+    n_docs = len(obj.documents or [])
+    if n_docs:
+        reliability += min(0.3, 0.08 * n_docs)
+        reasons.append(f"{n_docs} documenti collegati migliorano reliability.")
     if obj.confidence:
         reliability = (reliability + float(obj.confidence)) / 2
     if obj.status == "uncertain":
         reliability = min(reliability, 0.35)
         risks.append("Identità uncertain")
-        reasons.append("Stato uncertain riduce l'affidabilità.")
-    if obj.merge_proposals:
-        reliability -= 0.1
-        risks.append("Merge in sospeso")
-        reasons.append("Ci sono proposte di merge non risolte.")
-    reliability = max(0.0, min(1.0, reliability))
+        reasons.append("Stato uncertain riduce reliability.")
 
-    # Opportunities / risks from facts
-    if t == "HOME" and state.get("supplier") and len(utility_amount_series(obj)) >= 2:
+    # Source consistency
+    source_consistency = 0.7
+    if n_docs >= 2:
+        source_consistency = min(1.0, 0.7 + 0.05 * n_docs)
+        reasons.append("Più fonti documentali migliorano source_consistency.")
+    if obj.status == "uncertain":
+        source_consistency = min(source_consistency, 0.4)
+
+    # Temporal confidence
+    series = utility_amount_series(obj)
+    temporal_confidence = 0.3
+    if len(series) >= 2:
+        temporal_confidence = 0.75
+        reasons.append("Serie temporale utenze ≥2 punti.")
+    elif len(series) == 1:
+        temporal_confidence = 0.45
+    elif len(obj.history or []) >= 3:
+        temporal_confidence = 0.5
+
+    # Pending conflicts / links
+    conflicts = open_real_conflicts(obj)
+    link_counts = summarize_pending_links(obj.public() if hasattr(obj, "public") else {})
+    pending_conflict_score = min(1.0, conflicts * 0.5)
+    quiet_links = link_counts.get("LINK_PROBABLE", 0) + link_counts.get("LINK_UNCERTAIN", 0)
+    pending_links_score = min(1.0, quiet_links * 0.25 + conflicts * 0.5)
+    if conflicts:
+        reliability -= 0.15
+        risks.append("Conflitto reale in sospeso")
+        reasons.append("REAL_CONFLICT aperti: score abbassato.")
+    # Quiet LINK_PROBABLE must NOT tank health like conflicts
+    if link_counts.get("LINK_PROBABLE", 0) and not conflicts:
+        reasons.append("LINK_PROBABLE silenziosi: non disturbano l'utente.")
+
+    # Duplicate / stale questions penalty
+    qtexts = [(q.question or "").strip().lower() for q in (obj.pending_questions or [])]
+    dup_q = len(qtexts) - len(set(qtexts))
+    if dup_q > 0:
+        reliability -= 0.05 * dup_q
+        reasons.append("Domande duplicate: reliability ridotta.")
+
+    # Never claim full health if mortgage docs exist but not assimilated
+    hist_blob = " ".join(
+        (h.summary or "") + str((h.delta or {}).get("properties", {}))
+        for h in (obj.history or [])
+    ).lower()
+    docs_blob = " ".join(obj.documents or []).lower()
+    mutuo_seen = "mutuo" in hist_blob or "doc_mutuo" in docs_blob or any(
+        "mutuo" in str((h.delta or {}).get("properties", {}).get("document_type") or "")
+        for h in (obj.history or [])
+    )
+    if t == "HOME" and mutuo_seen and not mortgage_assimilated(obj):
+        risks.append("Mutuo non assimilato")
+        reasons.append("Mutuo visto ma non assimilato nello state: no 100% healthy.")
+        state_completeness = min(state_completeness, 0.4)
+        reliability = min(reliability, 0.55)
+
+    if obj.merge_proposals and conflicts:
+        opportunities.append("Risolvere il conflitto reale per ripristinare coerenza")
+    if t == "HOME" and (state.get("utility_supplier") or state.get("supplier")) and len(series) >= 2:
         opportunities.append("Confrontare andamento bollette nel tempo")
-    if t == "HOME" and not state.get("lender"):
+    if t == "HOME" and not mortgage_assimilated(obj) and not state.get("lender"):
         opportunities.append("Collegare il mutuo se presente")
-    if t == "VEHICLE" and not state.get("company"):
+    if t == "VEHICLE" and not (state.get("insurance_company") or state.get("company")):
         opportunities.append("Aggiungere polizza per scadenze")
-    if t in ("UNIVERSITY", "COURSE") and not state.get("course_name"):
-        opportunities.append("Specificare corso/materia")
+
     for w in (obj.last_reasoning or {}).get("worsens") or []:
         risks.append(str(w))
 
-    if not missing and completeness >= 0.7:
-        reasons.append("Informazioni essenziali presenti.")
-    if missing:
-        reasons.append("Mancano: " + ", ".join(missing))
+    reliability = max(0.0, min(1.0, reliability))
+    ai_conf = float(obj.ai_confidence or 0.0)
 
-    overall = round((completeness * 0.45 + reliability * 0.55), 3)
-    overall = max(0.0, min(1.0, overall))
+    # Weighted score — conflicts / unassimilated hard-cap below 1.0
+    overall = (
+        identity_completeness * 0.22
+        + state_completeness * 0.18
+        + reliability * 0.18
+        + source_consistency * 0.12
+        + temporal_confidence * 0.10
+        + (1.0 - pending_conflict_score) * 0.10
+        + (1.0 - pending_links_score) * 0.05
+        + ai_conf * 0.05
+    )
+    overall = max(0.0, min(1.0, round(overall, 3)))
+    if conflicts or (t == "HOME" and mutuo_seen and not mortgage_assimilated(obj)) or dup_q > 0:
+        overall = min(overall, 0.92)
+        reasons.append("Cap <1.0: conflitti / mutuo non assimilato / domande duplicate.")
+
+    if identity or ik:
+        reasons.append("Chiavi di identità presenti.")
+    if missing:
+        reasons.append("Mancano: " + ", ".join(missing[:6]))
+
     return HealthAIResult(
-        completeness=round(completeness, 3),
+        completeness=round(identity_completeness, 3),
         reliability=round(reliability, 3),
-        missing_info=missing,
+        identity_completeness=round(identity_completeness, 3),
+        state_completeness=round(state_completeness, 3),
+        source_consistency=round(source_consistency, 3),
+        temporal_confidence=round(temporal_confidence, 3),
+        pending_conflicts=round(pending_conflict_score, 3),
+        pending_links=round(pending_links_score, 3),
+        ai_confidence=round(ai_conf, 3),
+        missing_info=missing[:10],
         opportunities=opportunities[:6],
         risks=risks[:6],
-        reasons=reasons[:8],
+        reasons=reasons[:10],
         overall_score=overall,
         invented_facts=False,
         ai_used=False,
@@ -554,14 +577,20 @@ async def enrich_narrative(obj: LifeObject) -> NarrativeAIResult:
         return fallback
     try:
         system = (
-            "Sei il narratore Life Object di ORA. Scrivi UNA descrizione naturale in italiano "
-            "della situazione attuale dell'oggetto, NON un elenco di campi. "
-            "Usa SOLO i fatti nel JSON. Non inventare. invented_facts=false sempre. "
-            "Rispondi SOLO JSON schema NarrativeAIResult."
+            "Sei il consulente personale Life Object di ORA (Gemini=consultant). "
+            "Scrivi in italiano: cos'è l'oggetto, cosa ORA sa, cosa manca, come ORA può aiutare, "
+            "rischi, prossimo documento utile, relazioni note. "
+            "NON elencare campi. NON inventare. NON ripetere campi grezzi. "
+            "Il backend resta autorità su type/title/merge. invented_facts=false. "
+            "JSON NarrativeAIResult."
         )
         parsed = await _chat_enrich(
             system,
-            {"task": "narrative", "object": _minimal_context(obj), "style": "Casa naturale, frasi brevi"},
+            {
+                "task": "narrative_consultant",
+                "object": _minimal_context(obj),
+                "style": "consulente personale, frasi brevi, zero invenzioni",
+            },
             NarrativeAIResult,
             f"ora-lo-narrative-{obj.id}",
         )
@@ -574,21 +603,25 @@ async def enrich_narrative(obj: LifeObject) -> NarrativeAIResult:
 
 
 async def enrich_questions(obj: LifeObject) -> QuestionsAIResult:
+    from life_objects.knowledge_gaps import filter_ai_questions
+
     fallback = deterministic_questions(obj)
     if not life_object_gemini_enabled():
         return fallback
     try:
         system = (
-            "Sei il question planner Life Object di ORA. Proponi fino a 5 domande in italiano "
-            "che aumentano la capacità di ORA di aiutare (non casuali). "
-            "Non chiedere password, PIN, OTP, IBAN completi, CVV. "
-            "Non inventare fatti. invented_facts=false. JSON QuestionsAIResult."
+            "Sei il question planner Life Object di ORA (consultant). "
+            "Domande su CONCETTI mancanti (non nomi campo grezzi). "
+            "Se catastale/mutuo già presenti sotto qualsiasi alias, NON chiederli. "
+            "Mai «Hai un mutuo?» se il mutuo è già assimilato. "
+            "No password/PIN/OTP/IBAN/CVV. invented_facts=false. JSON QuestionsAIResult."
         )
         parsed = await _chat_enrich(
             system,
             {
-                "task": "questions",
+                "task": "questions_concepts",
                 "object": _minimal_context(obj),
+                "known_concepts_hint": "use only canonical concepts; backend filters aliases",
                 "existing_questions": [q.question for q in (obj.pending_questions or [])[:8]],
             },
             QuestionsAIResult,
@@ -596,15 +629,13 @@ async def enrich_questions(obj: LifeObject) -> QuestionsAIResult:
         )
         if not parsed or not parsed.questions:
             return fallback
-        # Merge with deterministic must-haves (identity gaps)
-        det_qs = {q.question for q in fallback.questions}
         for dq in fallback.questions:
             if dq.priority == "high" and dq.question not in {x.question for x in parsed.questions}:
                 parsed.questions.insert(0, dq)
-        # Drop empties
-        parsed.questions = [q for q in parsed.questions if (q.question or "").strip()][:6]
-        # Keep det_qs unused warning quiet
-        _ = det_qs
+        parsed.questions = [
+            q for q in filter_ai_questions(obj, parsed.questions)
+            if (q.question or "").strip()
+        ][:6]
         return parsed
     except Exception as e:
         logger.info("questions Gemini soft-fail: %s", type(e).__name__)
@@ -617,14 +648,15 @@ async def enrich_insights(obj: LifeObject) -> InsightsAIResult:
         return fallback
     try:
         system = (
-            "Sei l'insight engine Life Object di ORA. Osservazioni (NON notificazioni) "
-            "da storia + fatti noti: cambi fornitore, trend consumi, rata mutuo, ecc. "
-            "Mai inventare. invented_facts=false. JSON InsightsAIResult."
+            "Sei l'insight engine Life Object di ORA. Produci OSSERVAZIONI, non descrizioni. "
+            "Esempio buono: «hai cambiato fornitore energia due volte in 18 mesi». "
+            "Esempio vietato: «hai una casa». "
+            "Solo fatti da storia. Mai inventare. invented_facts=false. JSON InsightsAIResult."
         )
         parsed = await _chat_enrich(
             system,
             {
-                "task": "insights",
+                "task": "insights_observations",
                 "object": _minimal_context(obj),
                 "deterministic_hints": [i.model_dump() for i in fallback.insights[:6]],
             },
@@ -633,6 +665,14 @@ async def enrich_insights(obj: LifeObject) -> InsightsAIResult:
         )
         if not parsed or not parsed.insights:
             return fallback
+        # Drop descriptive fluff from AI
+        cleaned = []
+        for ii in parsed.insights:
+            blob = f"{ii.title} {ii.detail}".lower()
+            if "hai una casa" in blob or blob.strip() == "hai un lavoro":
+                continue
+            cleaned.append(ii)
+        parsed.insights = cleaned or fallback.insights
         return parsed
     except Exception as e:
         logger.info("insights Gemini soft-fail: %s", type(e).__name__)
@@ -673,19 +713,21 @@ async def enrich_temporal(obj: LifeObject) -> TemporalAIResult:
 
 
 async def enrich_health(obj: LifeObject) -> HealthAIResult:
+    """Health 2.0: backend dimensions are authoritative; Gemini may only suggest reasons."""
     fallback = deterministic_health(obj)
     if not life_object_gemini_enabled():
         return fallback
     try:
         system = (
-            "Sei il life-health evaluator di ORA. Valuta completeness, reliability, "
-            "missing_info, opportunities, risks con reasons. Score overall derivato. "
-            "Mai inventare. invented_facts=false. JSON HealthAIResult."
+            "Sei il life-health evaluator di ORA (consultant). "
+            "Puoi suggerire reasons/opportunities/risks. "
+            "NON dichiarare 100% healthy se ci sono merge aperti, mutuo non assimilato "
+            "o domande duplicate. invented_facts=false. JSON HealthAIResult."
         )
         parsed = await _chat_enrich(
             system,
             {
-                "task": "health",
+                "task": "health_2",
                 "object": _minimal_context(obj),
                 "deterministic": fallback.model_dump(),
             },
@@ -694,11 +736,21 @@ async def enrich_health(obj: LifeObject) -> HealthAIResult:
         )
         if not parsed:
             return fallback
-        # Prefer AI scores but keep missing_info union
+        # Backend dimensions win
+        parsed.identity_completeness = fallback.identity_completeness
+        parsed.state_completeness = fallback.state_completeness
+        parsed.source_consistency = fallback.source_consistency
+        parsed.temporal_confidence = fallback.temporal_confidence
+        parsed.pending_conflicts = fallback.pending_conflicts
+        parsed.pending_links = fallback.pending_links
+        parsed.ai_confidence = fallback.ai_confidence
+        parsed.completeness = fallback.completeness
+        parsed.reliability = fallback.reliability
+        parsed.overall_score = fallback.overall_score
         miss = list(dict.fromkeys((parsed.missing_info or []) + (fallback.missing_info or [])))
         parsed.missing_info = miss[:10]
-        if parsed.overall_score is None:
-            parsed.overall_score = fallback.overall_score
+        if not parsed.reasons:
+            parsed.reasons = fallback.reasons
         return parsed
     except Exception as e:
         logger.info("health Gemini soft-fail: %s", type(e).__name__)
@@ -796,16 +848,36 @@ async def refresh_enrichment(
         hres = await enrich_health(obj)
         score = float(hres.overall_score if hres.overall_score is not None else 0.5)
         issues = list(hres.risks or []) + list(hres.missing_info or [])
+        id_c = float(hres.identity_completeness if hres.identity_completeness is not None else hres.completeness or 0.5)
+        st_c = float(hres.state_completeness if hres.state_completeness is not None else 0.5)
         obj.health = LifeObjectHealth(
             score=score,
             label=_health_label(score),
             issues=issues[:12],
-            completeness=float(hres.completeness or 0.5),
+            completeness=id_c,
             reliability=float(hres.reliability or 0.5),
+            identity_completeness=id_c,
+            state_completeness=st_c,
+            source_consistency=float(hres.source_consistency if hres.source_consistency is not None else 0.5),
+            temporal_confidence=float(hres.temporal_confidence if hres.temporal_confidence is not None else 0.5),
+            pending_conflicts=float(hres.pending_conflicts or 0.0),
+            pending_links=float(hres.pending_links or 0.0),
+            ai_confidence=float(hres.ai_confidence if hres.ai_confidence is not None else obj.ai_confidence or 0.0),
             missing_info=list(hres.missing_info or []),
             opportunities=list(hres.opportunities or []),
             risks=list(hres.risks or []),
             reasons=list(hres.reasons or []),
+            dimensions={
+                "identity_completeness": id_c,
+                "state_completeness": st_c,
+                "reliability": float(hres.reliability or 0.5),
+                "source_consistency": float(hres.source_consistency or 0.5),
+                "temporal_confidence": float(hres.temporal_confidence or 0.5),
+                "pending_conflicts": float(hres.pending_conflicts or 0.0),
+                "pending_links": float(hres.pending_links or 0.0),
+                "ai_confidence": float(hres.ai_confidence or 0.0),
+                "score": score,
+            },
             updated_at=now_iso(),
             source="gemini" if hres.ai_used else "deterministic",
         )

@@ -323,8 +323,22 @@ class LifeObjectDeduper:
         for k, v in incoming_keys.items():
             old = (existing.identity_keys or {}).get(k)
             if old and v and old != v:
-                # address_norm soft: allow if one contains the other
-                if k == "address_norm" and (old in v or v in old):
+                # address_norm soft: containment OR street+number token overlap
+                if k == "address_norm" and self._address_soft_equal(old, v):
                     continue
                 return True
         return False
+
+    @staticmethod
+    def _address_soft_equal(a: str, b: str) -> bool:
+        if not a or not b:
+            return False
+        if a == b or a in b or b in a:
+            return True
+        ta, tb = set(a.split()), set(b.split())
+        shared = ta & tb
+        # Drop pure CAP tokens for overlap (5-digit)
+        shared_sig = {t for t in shared if not (t.isdigit() and len(t) == 5)}
+        has_num = any(t.isdigit() for t in shared_sig)
+        streetish = any(t in shared_sig for t in ("via", "viale", "corso", "piazza", "vicolo"))
+        return has_num and (streetish or len(shared_sig) >= 3)
