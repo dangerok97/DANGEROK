@@ -104,7 +104,11 @@ async def chat_json(
             raise
         except ValidationError as e:
             last_err = LLMInvalidResponseError(f"schema_invalid:{e.error_count()}")
-            logger.warning("LLM JSON schema invalid (attempt %s)", attempt + 1)
+            first = e.errors()[0] if e.errors() else {}
+            logger.warning(
+                "LLM JSON schema invalid (attempt %s) count=%s loc=%s type=%s",
+                attempt + 1, e.error_count(), first.get("loc"), first.get("type"),
+            )
         except json.JSONDecodeError:
             last_err = LLMInvalidResponseError("json_decode")
             logger.warning("LLM JSON decode failed (attempt %s)", attempt + 1)

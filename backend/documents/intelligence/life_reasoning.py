@@ -21,7 +21,7 @@ import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Literal, Optional, Type
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from llm import LLMNotConfigured, chat_json, llm_status
 from llm.errors import LLMQuotaError, LLMRateLimitError, LLMTimeoutError
@@ -29,8 +29,8 @@ from llm.structured import chunk_text
 
 logger = logging.getLogger("ora.documents.life_reasoning")
 
-LIFE_REASONING_VERSION = "life-doc-understanding-1.0"
-PROMPT_VERSION = "life-doc-reasoning-1"
+LIFE_REASONING_VERSION = "life-doc-understanding-2.0"
+PROMPT_VERSION = "life-doc-reasoning-2"
 
 # Document types Life Experience actively reasons about (spec priority list).
 DOCUMENT_TYPES = (
@@ -47,9 +47,13 @@ DOCUMENT_TYPES = (
     "dispensa",
     "calendario_esami",
     "contratto",
+    "contratto_telefono",
+    "contratto_luce",
     "comunicazione",
     "fattura",
     "ricevuta",
+    "busta_paga",
+    "verbale",
     "altro",
 )
 
@@ -65,67 +69,190 @@ AmountRole = Literal["total", "installment", "fee", "recurring"]
 # Generic structured reasoning
 # --------------------------------------------------------------------------
 class EntityRef(BaseModel):
-    type: str
-    value: str
+    model_config = ConfigDict(extra="ignore")
+    type: str = ""
+    value: str = ""
     confidence: float = Field(ge=0, le=1, default=0.5)
+
+    @field_validator("type", "value", mode="before")
+    @classmethod
+    def _s(cls, v: Any) -> str:
+        return "" if v is None else str(v)
+
+    @field_validator("confidence", mode="before")
+    @classmethod
+    def _c(cls, v: Any) -> float:
+        try:
+            return max(0.0, min(1.0, float(v)))
+        except (TypeError, ValueError):
+            return 0.5
 
 
 class RelationshipItem(BaseModel):
-    subject: str
-    relation: str
-    object: str
+    model_config = ConfigDict(extra="ignore")
+    subject: str = ""
+    relation: str = ""
+    object: str = ""
     confidence: float = Field(ge=0, le=1, default=0.5)
+
+    @field_validator("subject", "relation", "object", mode="before")
+    @classmethod
+    def _s(cls, v: Any) -> str:
+        return "" if v is None else str(v)
+
+    @field_validator("confidence", mode="before")
+    @classmethod
+    def _c(cls, v: Any) -> float:
+        try:
+            return max(0.0, min(1.0, float(v)))
+        except (TypeError, ValueError):
+            return 0.5
 
 
 class DateItem(BaseModel):
+    model_config = ConfigDict(extra="ignore")
     value: Optional[str] = None
-    role: DateRole = "reference"
+    role: str = "reference"
     label: str = ""
     confidence: float = Field(ge=0, le=1, default=0.5)
 
-    @field_validator("value", mode="before")
+    @field_validator("value", "label", mode="before")
     @classmethod
     def _coerce_value(cls, v: Any) -> Optional[str]:
         return _coerce_optional_str(v)
+
+    @field_validator("role", mode="before")
+    @classmethod
+    def _role(cls, v: Any) -> str:
+        s = str(v or "reference").strip().lower()
+        return s if s in ("reference", "deadline", "contract_start", "contract_end") else "reference"
+
+    @field_validator("confidence", mode="before")
+    @classmethod
+    def _conf(cls, v: Any) -> float:
+        try:
+            return max(0.0, min(1.0, float(v)))
+        except (TypeError, ValueError):
+            return 0.5
 
 
 class AmountItem(BaseModel):
+    model_config = ConfigDict(extra="ignore")
     value: Optional[str] = None
     currency: str = "EUR"
-    role: AmountRole = "total"
+    role: str = "total"
     label: str = ""
     confidence: float = Field(ge=0, le=1, default=0.5)
 
-    @field_validator("value", mode="before")
+    @field_validator("value", "label", "currency", mode="before")
     @classmethod
     def _coerce_value(cls, v: Any) -> Optional[str]:
         return _coerce_optional_str(v)
 
+    @field_validator("role", mode="before")
+    @classmethod
+    def _role(cls, v: Any) -> str:
+        s = str(v or "total").strip().lower()
+        return s if s in ("total", "installment", "fee", "recurring") else "total"
+
+    @field_validator("confidence", mode="before")
+    @classmethod
+    def _conf(cls, v: Any) -> float:
+        try:
+            return max(0.0, min(1.0, float(v)))
+        except (TypeError, ValueError):
+            return 0.5
+
 
 class RecurringObligation(BaseModel):
-    description: str
+    model_config = ConfigDict(extra="ignore")
+    description: str = ""
     frequency: Optional[str] = None  # monthly/annual/bimonthly/...
     amount: Optional[str] = None
     next_due: Optional[str] = None
     confidence: float = Field(ge=0, le=1, default=0.5)
 
+    @field_validator("description", "frequency", "amount", "next_due", mode="before")
+    @classmethod
+    def _s(cls, v: Any) -> Optional[str]:
+        return _coerce_optional_str(v)
+
+    @field_validator("confidence", mode="before")
+    @classmethod
+    def _c(cls, v: Any) -> float:
+        try:
+            return max(0.0, min(1.0, float(v)))
+        except (TypeError, ValueError):
+            return 0.5
+
 
 class RecommendedActionItem(BaseModel):
-    action_type: str  # e.g. create_reminder, draft_calendar_event, confirm_field, link_document
-    title: str
+    model_config = ConfigDict(extra="ignore")
+    action_type: str = "generic_action"
+    title: str = ""
     description: str = ""
+    motivo: str = ""
+    beneficio: str = ""
+    confidence: float = Field(ge=0, le=1, default=0.5)
+    origine: str = "ai"
+    documento: str = ""
+    spiegazione: str = ""
+    priority: str = "medium"
     requires_consent: bool = True
+
+    @field_validator("title", "description", "motivo", "beneficio", "origine",
+                      "documento", "spiegazione", "action_type", "priority", mode="before")
+    @classmethod
+    def _str_fields(cls, v: Any) -> str:
+        return "" if v is None else str(v)
+
+    @field_validator("confidence", mode="before")
+    @classmethod
+    def _conf(cls, v: Any) -> float:
+        try:
+            return max(0.0, min(1.0, float(v)))
+        except (TypeError, ValueError):
+            return 0.5
+
+    @field_validator("requires_consent", mode="before")
+    @classmethod
+    def _boolish(cls, v: Any) -> bool:
+        if isinstance(v, bool):
+            return v
+        if v is None:
+            return True
+        return str(v).strip().lower() not in ("0", "false", "no", "off")
 
 
 class LinkedLifeObjectRef(BaseModel):
-    object_type: str  # house/vehicle/supplier/course/insurance_policy
-    identifier: str  # normalized key used for cross-document matching
+    model_config = ConfigDict(extra="ignore")
+    object_type: str = ""  # house/vehicle/supplier/course/insurance_policy
+    identifier: str = ""  # normalized key used for cross-document matching
     confidence: float = Field(ge=0, le=1, default=0.5)
+
+    @field_validator("object_type", "identifier", mode="before")
+    @classmethod
+    def _s(cls, v: Any) -> str:
+        return "" if v is None else str(v)
+
+    @field_validator("confidence", mode="before")
+    @classmethod
+    def _c(cls, v: Any) -> float:
+        try:
+            return max(0.0, min(1.0, float(v)))
+        except (TypeError, ValueError):
+            return 0.5
 
 
 class Ambiguity(BaseModel):
-    field: str
-    description: str
+    model_config = ConfigDict(extra="ignore")
+    field: str = ""
+    description: str = ""
+
+    @field_validator("field", "description", mode="before")
+    @classmethod
+    def _s(cls, v: Any) -> str:
+        return "" if v is None else str(v)
 
 
 def _coerce_list(v: Any) -> List[Any]:
@@ -150,16 +277,67 @@ def _coerce_optional_str(v: Any) -> Optional[str]:
     return str(v)
 
 
+class DocumentKnowledge(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    keywords: List[str] = Field(default_factory=list)
+    facts: List[str] = Field(default_factory=list)
+    notes: str = ""
+
+    @field_validator("keywords", "facts", mode="before")
+    @classmethod
+    def _lists(cls, v: Any) -> List[Any]:
+        return [str(x) for x in _coerce_list(v) if x]
+
+    @field_validator("notes", mode="before")
+    @classmethod
+    def _notes(cls, v: Any) -> str:
+        return "" if v is None else str(v)
+
+
+class RelatedDocRef(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    document_id: str = ""
+    relation: str = ""
+    confidence: float = Field(ge=0, le=1, default=0.5)
+    ask_user: bool = False
+
+    @field_validator("document_id", "relation", mode="before")
+    @classmethod
+    def _s(cls, v: Any) -> str:
+        return "" if v is None else str(v)
+
+    @field_validator("confidence", mode="before")
+    @classmethod
+    def _c(cls, v: Any) -> float:
+        try:
+            return max(0.0, min(1.0, float(v)))
+        except (TypeError, ValueError):
+            return 0.5
+
+    @field_validator("ask_user", mode="before")
+    @classmethod
+    def _b(cls, v: Any) -> bool:
+        if isinstance(v, bool):
+            return v
+        if v is None:
+            return False
+        return str(v).strip().lower() in ("1", "true", "yes", "on")
+
+
 class DocumentReasoning(BaseModel):
     """Validated structured document understanding — Pydantic only, no free JSON."""
+
+    model_config = ConfigDict(extra="ignore")
 
     document_id: str = ""
     document_type: str = "altro"
     document_subtype: Optional[str] = None
-    domain: DomainKey = "generico"
+    domain: str = "generico"
     purpose: str = ""
     title: str = ""
     summary: str = ""
+    context: str = ""  # life context: why this doc matters to the user
+    benefit: str = ""  # concrete benefit for the user
     entities: List[EntityRef] = Field(default_factory=list)
     relationships: List[RelationshipItem] = Field(default_factory=list)
     dates: List[DateItem] = Field(default_factory=list)
@@ -167,22 +345,85 @@ class DocumentReasoning(BaseModel):
     recurring_obligations: List[RecurringObligation] = Field(default_factory=list)
     recommended_actions: List[RecommendedActionItem] = Field(default_factory=list)
     linked_life_objects: List[LinkedLifeObjectRef] = Field(default_factory=list)
+    related_docs: List[RelatedDocRef] = Field(default_factory=list)
     ambiguities: List[Ambiguity] = Field(default_factory=list)
+    knowledge: DocumentKnowledge = Field(default_factory=DocumentKnowledge)
     type_specific: Dict[str, Any] = Field(default_factory=dict)
+    priority: str = "medium"
+    criticality: str = "none"
+    deadlines: List[DateItem] = Field(default_factory=list)
     confidence: float = Field(ge=0, le=1, default=0.4)
     reason_summary: str = ""  # short, user-facing rationale — never chain-of-thought
     provider: str = "local-deterministic"
     model: str = "local-deterministic"
-    analysis_version: int = 1
+    analysis_version: int = 1  # integer revision counter — never a "2.0" string
+    analysis_schema_version: str = "2.0"
     ai_used: bool = False
     content_hash: str = ""
     created_at: str = ""
 
     @field_validator("entities", "relationships", "dates", "amounts", "recurring_obligations",
-                      "recommended_actions", "linked_life_objects", "ambiguities", mode="before")
+                      "recommended_actions", "linked_life_objects", "related_docs",
+                      "ambiguities", "deadlines", mode="before")
     @classmethod
     def _lists(cls, v: Any) -> List[Any]:
-        return _coerce_list(v)
+        items = _coerce_list(v)
+        # Drop bare strings / nulls that Gemini sometimes emits in list slots
+        return [x for x in items if isinstance(x, dict) or hasattr(x, "model_dump")]
+
+    @field_validator("type_specific", mode="before")
+    @classmethod
+    def _type_specific(cls, v: Any) -> Dict[str, Any]:
+        if v is None or v == "":
+            return {}
+        if isinstance(v, dict):
+            return v
+        return {"raw": str(v)[:500]}
+
+    @field_validator("knowledge", mode="before")
+    @classmethod
+    def _knowledge(cls, v: Any) -> Any:
+        if v is None:
+            return {}
+        if isinstance(v, list):
+            return {"facts": [str(x) for x in v if x]}
+        if isinstance(v, str):
+            return {"notes": v}
+        return v
+
+    @field_validator("priority", mode="before")
+    @classmethod
+    def _priority(cls, v: Any) -> str:
+        s = str(v or "medium").strip().lower()
+        return s if s in ("low", "medium", "high", "critical") else "medium"
+
+    @field_validator("criticality", mode="before")
+    @classmethod
+    def _criticality(cls, v: Any) -> str:
+        s = str(v or "none").strip().lower()
+        return s if s in ("none", "low", "medium", "high", "critical") else "none"
+
+    @field_validator("domain", mode="before")
+    @classmethod
+    def _domain(cls, v: Any) -> str:
+        s = str(v or "generico").strip().lower()
+        allowed = ("casa", "auto", "studio", "amministrativo", "assicurazioni", "finanze", "generico")
+        return s if s in allowed else "generico"
+
+    @field_validator("confidence", mode="before")
+    @classmethod
+    def _confidence(cls, v: Any) -> float:
+        try:
+            f = float(v)
+        except (TypeError, ValueError):
+            return 0.4
+        return max(0.0, min(1.0, f))
+
+    @field_validator("analysis_version", mode="before")
+    @classmethod
+    def _analysis_version(cls, v: Any) -> int:
+        from documents.intelligence.versions import coerce_analysis_revision
+        return coerce_analysis_revision(v) or 1
 
 
 # --------------------------------------------------------------------------
@@ -315,6 +556,14 @@ def guess_document_type(doc: Dict[str, Any], hint: Optional[str] = None) -> str:
         return "mutuo"
     if any(k in blob for k in ("bolletta", "fattura energia", "fattura gas", "consumo kwh", "consumo smc")):
         return "bolletta"
+    if any(k in blob for k in ("contratto luce", "contratto energia", "fornitura energia elettrica")):
+        return "contratto_luce"
+    if any(k in blob for k in ("contratto telefon", "contratto mobile", "sim ", "piano tariffario")):
+        return "contratto_telefono"
+    if any(k in blob for k in ("busta paga", "cedolino", "retribuzione")):
+        return "busta_paga"
+    if any(k in blob for k in ("verbale d'esame", "verbale di esame", "verbale esame", "esito esame")):
+        return "verbale"
     if any(k in blob for k in ("libretto di circolazione", "carta di circolazione")):
         return "libretto"
     if "polizza" in blob and any(k in blob for k in ("auto", "rc auto", "targa")):
@@ -347,6 +596,7 @@ DOMAIN_BY_TYPE: Dict[str, DomainKey] = {
     "contratto_locazione": "casa",
     "mutuo": "casa",
     "bolletta": "casa",
+    "contratto_luce": "casa",
     "libretto": "auto",
     "polizza_auto": "assicurazioni",
     "polizza_casa": "assicurazioni",
@@ -355,33 +605,43 @@ DOMAIN_BY_TYPE: Dict[str, DomainKey] = {
     "piano_di_studi": "studio",
     "dispensa": "studio",
     "calendario_esami": "studio",
+    "verbale": "studio",
     "contratto": "amministrativo",
+    "contratto_telefono": "amministrativo",
     "comunicazione": "amministrativo",
     "fattura": "finanze",
     "ricevuta": "finanze",
+    "busta_paga": "finanze",
     "altro": "generico",
 }
 
 
 def _system_prompt() -> str:
     return (
-        "Sei il modulo AI Document Understanding di ORA per la Life Experience. "
-        "Rispondi SOLO con JSON valido conforme allo schema richiesto — mai testo libero, "
-        "mai markdown, mai catena di ragionamento (solo un breve reason_summary finale). "
-        "Non inventare fatti assenti dal testo: se un dato non è presente, ometti il campo o lascialo vuoto. "
-        "Non includere MAI password, PIN, OTP, codici di accesso, IBAN completi o dati di carte di pagamento "
-        "anche se presenti nel testo: ometti sempre questi valori. "
-        "Distingui esplicitamente le date che sono scadenze/azioni (role=deadline) da date puramente "
-        "informative (role=reference, contract_start, contract_end). "
-        "Distingui gli importi totali (role=total) da rate/canoni (role=installment), spese accessorie "
-        "(role=fee) e importi ricorrenti (role=recurring). "
-        "Campi JSON richiesti: document_type, document_subtype, domain, purpose, title, summary, "
+        "Sei l'assistente personale di ORA: organizzatore amministrativo e segretario di fiducia. "
+        "Il tuo compito è capire documenti reali della vita dell'utente e strutturare ciò che serve "
+        "per agire (scadenze, obblighi, collegamenti casa/auto/studio), senza chiacchiere. "
+        "Rispondi SOLO con JSON valido conforme allo schema — mai testo libero, mai markdown, "
+        "mai catena di ragionamento interna (solo un breve reason_summary utente-facing). "
+        "REGOLE ASSOLUTE: non inventare date, importi, scadenze, nomi o fatti assenti dal testo del documento; "
+        "se manca un dato, ometti il campo o lascialo vuoto. "
+        "Non includere MAI password, PIN, OTP, codici di accesso, IBAN completi o dati di carte di pagamento. "
+        "Usa il contesto vita (profilo/obiettivi/calendario/documenti noti) SOLO per collegare e contestualizzare, "
+        "mai per inventare contenuti del documento. "
+        "Ipotesi di vita (es. proprietà vs affitto da una bolletta) vanno in ambiguities o come linked_life_objects "
+        "con confidence bassa — mai come fatti certi. "
+        "Per i titoli dei promemoria preferisci 'Pagamento bolletta Enel' / 'Pagamento rata mutuo Intesa' "
+        "quando fornitore/istituto è noto, non 'Scadenza pagamento 87 EUR'. "
+        "Distingui date deadline vs reference/contract_start/contract_end; "
+        "importi total vs installment/fee/recurring. "
+        "Campi JSON: document_type, document_subtype, domain, purpose, title, summary, context, benefit, "
         "entities[{type,value,confidence}], relationships[{subject,relation,object,confidence}], "
         "dates[{value,role,label,confidence}], amounts[{value,currency,role,label,confidence}], "
-        "recurring_obligations[{description,frequency,amount,next_due,confidence}], "
-        "recommended_actions[{action_type,title,description,requires_consent}], "
-        "linked_life_objects[{object_type,identifier,confidence}], ambiguities[{field,description}], "
-        "type_specific (oggetto con i campi specifici del tipo documento), confidence (0-1), reason_summary."
+        "deadlines[{value,role,label,confidence}], recurring_obligations[...], "
+        "recommended_actions[{action_type,title,description,motivo,beneficio,confidence,origine,spiegazione,requires_consent}], "
+        "linked_life_objects[{object_type,identifier,confidence}], related_docs[{document_id,relation,confidence,ask_user}], "
+        "ambiguities[{field,description}], knowledge[{keywords,facts,notes}], "
+        "type_specific, priority, criticality, confidence (0-1), reason_summary."
     )
 
 
@@ -392,12 +652,15 @@ async def run_life_document_reasoning(
     doc_type_hint: Optional[str] = None,
     force: bool = False,
     user_preference: Optional[str] = None,
+    db: Any = None,
 ) -> Dict[str, Any]:
     """Run (or reuse cached) AI Document Understanding for a Documents V2 document.
 
     Returns a dict: {"reasoning": DocumentReasoning.model_dump(), "cached": bool,
     "telemetry": {...no content, no prompt, no secrets...}}.
     """
+    from documents.intelligence.versions import next_analysis_revision
+
     text = doc.get("extracted_text") or ""
     filename = doc.get("original_filename") or doc.get("filename") or "documento"
     content_hash = content_fingerprint(text, filename)
@@ -414,12 +677,14 @@ async def run_life_document_reasoning(
 
     t0 = time.perf_counter()
     telemetry: Dict[str, Any] = {"doc_type": doc_type, "domain": domain}
+    next_rev = next_analysis_revision(prev.get("analysis_version"))
 
     if _env_enabled() and text.strip():
         try:
             reasoning, meta = await _llm_reason(
                 doc=doc, text=text, doc_type=doc_type, domain=domain,
                 content_hash=content_hash, user_preference=user_preference,
+                db=db, user=user, analysis_revision=next_rev,
             )
             telemetry.update({
                 "provider": meta.get("provider"),
@@ -429,6 +694,7 @@ async def run_life_document_reasoning(
                 "completion_tokens": meta.get("completion_tokens") or meta.get("approx_tokens_out"),
                 "fallback_used": meta.get("fallback_used", False),
                 "ai_used": True,
+                "context_attached": bool(meta.get("context_attached")),
             })
             dump = reasoning.model_dump()
             dump["analysis_version_tag"] = LIFE_REASONING_VERSION
@@ -444,7 +710,10 @@ async def run_life_document_reasoning(
     else:
         telemetry["fallback_reason"] = "disabled_or_no_text"
 
-    reasoning = _deterministic_fallback(doc=doc, doc_type=doc_type, domain=domain, content_hash=content_hash)
+    reasoning = _deterministic_fallback(
+        doc=doc, doc_type=doc_type, domain=domain, content_hash=content_hash,
+        analysis_revision=next_rev,
+    )
     telemetry["ai_used"] = False
     telemetry["latency_ms"] = round((time.perf_counter() - t0) * 1000, 1)
     dump = reasoning.model_dump()
@@ -456,12 +725,20 @@ async def run_life_document_reasoning(
 async def _llm_reason(
     *, doc: Dict[str, Any], text: str, doc_type: str, domain: str,
     content_hash: str, user_preference: Optional[str] = None,
+    db: Any = None, user: Optional[Dict[str, Any]] = None,
+    analysis_revision: int = 1,
 ) -> tuple[DocumentReasoning, Dict[str, Any]]:
     chunks = chunk_text(text)
     if not chunks:
         raise LLMNotConfigured("nessun testo utile")
     analysis = doc.get("analysis") or {}
     import json
+    from documents.intelligence.document_context import assemble_document_context
+
+    life_ctx = await assemble_document_context(
+        doc, user=user, db=db, doc_type_hint=doc_type,
+        estimated_category=analysis.get("macro_category"),
+    )
     payload = {
         "document_type_hint": doc_type,
         "domain_hint": domain,
@@ -470,6 +747,7 @@ async def _llm_reason(
         "filename": doc.get("original_filename") or doc.get("filename"),
         "document_text": chunks[0],
         "chunk_total": len(chunks),
+        "life_context": life_ctx,
     }
     if len(chunks) > 1:
         payload["additional_chunk_previews"] = [c[:400] for c in chunks[1:]]
@@ -491,7 +769,16 @@ async def _llm_reason(
     parsed.ai_used = True
     parsed.content_hash = content_hash
     parsed.created_at = _now()
-    parsed.analysis_version = int((doc.get("life_reasoning") or {}).get("analysis_version") or 0) + 1
+    parsed.analysis_version = analysis_revision
+    parsed.analysis_schema_version = "2.0"
+    # Mirror deadline-role dates into deadlines if model omitted the dedicated list
+    if not parsed.deadlines:
+        parsed.deadlines = [d for d in parsed.dates if d.role == "deadline"]
+    for action in parsed.recommended_actions:
+        if not action.documento:
+            action.documento = parsed.document_id
+        if not action.origine:
+            action.origine = "ai"
     # Best-effort validation of type_specific against the known schema (never fatal).
     schema_cls = TYPE_SCHEMAS.get(parsed.document_type)
     if schema_cls is not None and parsed.type_specific:
@@ -501,11 +788,14 @@ async def _llm_reason(
             parsed.ambiguities.append(
                 Ambiguity(field="type_specific", description="Campi specifici non pienamente validati.")
             )
+    meta = dict(meta or {})
+    meta["context_attached"] = True
     return parsed, meta
 
 
 def _deterministic_fallback(
     *, doc: Dict[str, Any], doc_type: str, domain: str, content_hash: str,
+    analysis_revision: int = 1,
 ) -> DocumentReasoning:
     """No Gemini available/valid — build a conservative reasoning from existing
     Documents V2 analysis fields. Never claims AI understanding."""
@@ -514,10 +804,14 @@ def _deterministic_fallback(
     edu = doc.get("education_analysis") or {}
     events = doc.get("event_candidates") or []
     text = doc.get("extracted_text") or ""
+    sender = admin.get("sender") or ""
 
     dates: List[DateItem] = []
+    deadlines: List[DateItem] = []
     if admin.get("due_date"):
-        dates.append(DateItem(value=admin["due_date"], role="deadline", label="Scadenza", confidence=0.5))
+        d = DateItem(value=admin["due_date"], role="deadline", label="Scadenza", confidence=0.5)
+        dates.append(d)
+        deadlines.append(d)
     if admin.get("issue_date"):
         dates.append(DateItem(value=admin["issue_date"], role="reference", label="Data emissione", confidence=0.4))
     for ev in events[:5]:
@@ -538,10 +832,23 @@ def _deterministic_fallback(
 
     recommended: List[RecommendedActionItem] = []
     if admin.get("due_date") or admin.get("amount"):
+        if doc_type == "bolletta":
+            rem_title = f"Pagamento bolletta{(' ' + sender) if sender else ''}".strip()
+        elif doc_type == "mutuo":
+            rem_title = f"Pagamento rata mutuo{(' ' + sender) if sender else ''}".strip()
+        else:
+            rem_title = "Proponi promemoria scadenza"
         recommended.append(RecommendedActionItem(
             action_type="draft_calendar_event",
-            title="Proponi promemoria scadenza",
+            title=rem_title[:160],
             description="Creare un promemoria per la scadenza rilevata (richiede conferma).",
+            motivo="Scadenza o importo rilevati localmente dal documento",
+            beneficio="Ricorda l'adempimento senza creare eventi irreversibili",
+            confidence=0.45,
+            origine="local-assist",
+            documento=doc.get("id") or "",
+            spiegazione="Fallback locale: Gemini non disponibile o output non valido.",
+            priority="high",
             requires_consent=True,
         ))
     if edu.get("subject"):
@@ -549,11 +856,23 @@ def _deterministic_fallback(
             action_type="study_plan",
             title="Avvia percorso di studio",
             description=f"Collegare {edu.get('subject')} a un piano di studio.",
+            motivo="Materia rilevata nel documento",
+            beneficio="Organizzare lo studio con ORA",
+            confidence=0.4,
+            origine="local-assist",
+            documento=doc.get("id") or "",
+            spiegazione="Fallback locale su analisi education.",
             requires_consent=True,
         ))
 
     summary = admin.get("simple_explanation") or edu.get("summary_short") or analysis.get("summary") or ""
     title = analysis.get("suggested_title") or doc.get("filename") or "Documento"
+    ambiguities: List[Ambiguity] = []
+    if doc_type == "bolletta":
+        ambiguities.append(Ambiguity(
+            field="casa.ownership_hypothesis",
+            description="La bolletta suggerisce un'utenza domestica: proprietà o affitto vanno confermati (ipotesi, non fatto).",
+        ))
 
     return DocumentReasoning(
         document_id=doc.get("id") or "",
@@ -562,14 +881,26 @@ def _deterministic_fallback(
         purpose="Analisi locale deterministica (nessuna comprensione AI disponibile).",
         title=str(title)[:160],
         summary=(summary or text[:280])[:600],
+        context="Contesto vita non arricchito: provider AI assente.",
+        benefit="Campi e scadenze base estratti localmente; conferma richiesta prima di azioni.",
         dates=dates,
+        deadlines=deadlines,
         amounts=amounts,
         recommended_actions=recommended,
+        ambiguities=ambiguities,
+        knowledge=DocumentKnowledge(
+            keywords=[doc_type, domain],
+            facts=[],
+            notes="Fallback locale — non AI.",
+        ),
+        priority="high" if deadlines else "medium",
+        criticality="medium" if deadlines else "none",
         confidence=0.35,
         reason_summary="Analisi locale: nessun provider AI disponibile o testo insufficiente.",
         provider="local-deterministic",
         model="local-deterministic",
-        analysis_version=int((doc.get("life_reasoning") or {}).get("analysis_version") or 0) + 1,
+        analysis_version=analysis_revision,
+        analysis_schema_version="2.0",
         ai_used=False,
         content_hash=content_hash,
         created_at=_now(),

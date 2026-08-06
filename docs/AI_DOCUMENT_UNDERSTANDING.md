@@ -1,73 +1,71 @@
 # AI Document Understanding
 
-Branch: `feature/life-experience-ai-documents` (from `feature/life-experience-ai` @ `c518a23`)
+Branch: `feature/life-experience-ai-documents`
 
 ## Cos'è
 
-Un livello di ragionamento AI **aggiuntivo** sopra Documents V2 (OCR/estrazione/classificazione invariati). Dopo che Documents V2 produce `extracted_text` + `analysis`, questo modulo chiama Gemini (via Provider Manager) per capire il documento a livello "life": tipo, dominio, entità, date con ruolo, importi con ruolo, obblighi ricorrenti, ambiguità, azioni consigliate — output **strutturato Pydantic**, mai JSON libero, mai chain-of-thought (solo `reason_summary` breve).
+Un livello di ragionamento AI **aggiuntivo** sopra Documents V2 (OCR/estrazione/classificazione invariati). Dopo che Documents V2 produce `extracted_text` + `analysis`, il **Document Reasoner** chiama Gemini (via Provider Manager) per capire il documento a livello "life": tipo reale, contesto, beneficio, azioni, knowledge, relazioni, priorità, scadenze, criticità, documenti correlati — output **strutturato Pydantic**, mai JSON libero, mai chain-of-thought (solo `reason_summary` breve).
 
-Il risultato è scritto come `doc["life_reasoning"]` **sullo stesso documento Documents V2** — nessuna seconda pipeline, nessun secondo storage.
+Il risultato è scritto come `doc["life_reasoning"]` **sullo stesso documento Documents V2** — nessuna seconda pipeline.
 
-## Modulo
+## Moduli
 
-`backend/documents/intelligence/life_reasoning.py`
-
-| Funzione | Ruolo |
+| Modulo | Ruolo |
 |---|---|
-| `guess_document_type(text)` | Euristica di tipo documento da testo, usata come hint pre-Gemini |
-| `content_fingerprint(text)` | Hash SHA-256 del testo → cache/dedup per `analysis_version` |
-| `run_life_document_reasoning(doc, user, doc_type_hint, force)` | Entry point: cache → Gemini → fallback deterministico |
-| `_system_prompt(...)` | Prompt di sistema IT, contesto minimo (mai credenziali/PIN/OTP) |
-| `_llm_reason(...)` | Chiamata Gemini con chunking (max N chunk, skip pagine vuote/duplicate) |
-| `_deterministic_fallback(...)` | Estrazione locale (regex/euristica) quando Gemini non è disponibile o l'output non valida |
+| `documents/intelligence/document_reasoner.py` | Façade stabile |
+| `documents/intelligence/life_reasoning.py` | Schema `DocumentReasoning`, prompt, Gemini + fallback |
+| `documents/intelligence/document_context.py` | Contesto vita privacy-safe (profilo/goal/calendario/brain/doc noti) |
+| `documents/intelligence/document_actions.py` | Azioni AI-first per «Cosa posso fare» |
+| `documents/intelligence/document_memory.py` | Persistenza best-effort su Brain/Knowledge |
+| `documents/intelligence/versions.py` | Schema version (stringa) vs revision counter (int) — **mai** `int("2.0")` |
 
-## Modello `DocumentReasoning` (Pydantic)
+## Versioni (importante)
 
-Campi principali: `document_type`, `document_subtype`, `domain`, `purpose`, `title`, `summary`, `entities[]`, `relationships[]`, `dates[]` (con `role`: `reference|deadline|contract_start|contract_end`), `amounts[]` (con `role`: `total|installment|fee|recurring`), `recurring_obligations[]`, `recommended_actions[]`, `linked_life_objects[]`, `ambiguities[]`, `type_specific` (schema per tipo — vedi sotto), `confidence`, `reason_summary`, `provider`, `model`, `analysis_version`, `ai_used`.
+| Campo | Tipo | Significato |
+|---|---|---|
+| `document_schema_version` | stringa semantica (`"2.0"`) | Forma del documento |
+| `analysis_schema_version` | stringa semantica (`"2.0"`) | Forma del payload analysis |
+| `analysis_version` | **int** (revision counter) | Quante volte è stata rianalizzata |
+| `life_reasoning.analysis_version_tag` | stringa (`life-doc-understanding-2.0`) | Versione del reasoner |
+| `processing_version` | stringa | Pipeline (`intel-docs-2.0`) |
 
-Validazione difensiva: Gemini a volte restituisce numeri JSON dove lo schema si aspetta stringhe (es. importi `87.40` invece di `"87,40"`) — un validator `_coerce_optional_str` normalizza questi campi prima della validazione Pydantic, evitando fallback spurii.
+Legacy: se in Mongo resta `analysis_version: "2.0"`, la migration lo sposta in `analysis_schema_version` e imposta il counter a `1`. Tutti i bump usano `coerce_analysis_revision` / `next_analysis_revision`.
 
-## Schema per tipo documento (`type_specific`)
+## Contesto inviato a Gemini (minimo, privacy-safe)
 
-| `document_type` | Campi chiave |
-|---|---|
-| `rogito` | `address`, `price`, `deed_date`, `property_type`, `parties` |
-| `contratto_locazione` | `address`, `monthly_rent`, `landlord`, `tenant` |
-| `mutuo` | `lender`, `principal_amount`, `monthly_installment`, `interest_rate`, `end_date`, `property_address` |
-| `bolletta` | `supplier`, `utility_type`, `amount_total`, `due_date`, `address`, `contract_code` |
-| `libretto` | `plate`, `brand`, `model`, `vin`, `first_registration_date`, `fuel_type` |
-| `polizza_auto` / `polizza_casa` | `company`, `policy_number`, `end_date`, `coverage_type`, `premium` |
-| `piano_di_studi` | `institution`, `course_name`, `academic_year`, `exams[]`, `total_cfu` |
+- Testo OCR (chunkato) + metadata file + categoria stimata
+- Slice Life Profile (valori + status, no dump completo)
+- Goals / calendario / brain summary / documenti noti (titolo+tipo)
+- Storia reasoner precedente (tipo/confidenza, non testo)
+- **Mai**: password, PIN, OTP, IBAN completi, dati carta, dump interi di collezioni
+
+## Schema `DocumentReasoning` (estratto)
+
+`document_type`, `context`, `benefit`, `entities`, `relationships`, `dates`/`deadlines`, `amounts`, `recommended_actions` (motivo, beneficio, confidence, origine, documento, spiegazione), `knowledge`, `related_docs`, `linked_life_objects`, `priority`, `criticality`, `type_specific`, `confidence`, `reason_summary`, `ai_used`.
+
+## Life Profile
+
+Il mapping (`document_mapping.py`) applica fatti con provenance. Ipotesi (es. bolletta → contratto energia + `ownership_hypothesis`) restano **`suggested`**, mai overwrite di campi `confirmed`/`corrected`.
+
+## Cross-document
+
+`cross_document.py` collega (non fonde) rogito+mutuo+bollette sulla stessa casa, libretto+polizza sulla stessa targa, piano studi+verbale sullo stesso corso — solo identificatori normalizzati ad alta confidenza. Contraddizioni → conferma utente.
+
+## Azioni e titoli promemoria
+
+Azioni da AI reasoning (fallback locale assist-only). Titoli preferiti: «Pagamento bolletta Enel» / «Pagamento rata mutuo Intesa» invece di «Scadenza pagamento 87 EUR» (`_admin_deadline_title`).
 
 ## Fallback onesto
 
-Se Gemini non è configurato, è irraggiungibile, oppure il suo output non valida contro `DocumentReasoning` dopo i tentativi di normalizzazione: si usa `_deterministic_fallback` (regex/euristica locale). Il risultato porta sempre `ai_used=False`, `provider="local-deterministic"`, `model="local-deterministic"`, confidenza tipicamente bassa (~0.3–0.5). **La UI non mostra mai "Compreso da Gemini" se `ai_used` è falso** — mostra invece "Analisi locale — Gemini non disponibile in questo momento".
+Senza Gemini: `ai_used=False`, `provider=local-deterministic`. La UI non deve mostrare «Compreso da Gemini».
 
-## Cache / dedup / telemetria
+## Test
 
-- Chiave cache: `content_fingerprint(text)` + `analysis_version` + `doc_type_hint`
-- `force=True` (retry esplicito) bypassa la cache
-- Telemetria salvata in `doc["life_reasoning_telemetry"]`: `latency_ms`, provider/model — **mai** testo del documento, mai prompt completo, mai segreti
-- Chunking: testo lungo diviso in blocchi con un tetto massimo di chunk; pagine vuote o duplicate scartate prima dell'invio
+- `tests/test_analysis_versions.py` — regressione `int("2.0")`
+- `tests/test_ai_document_understanding.py` — fixture sintetiche (bolletta, mutuo, rogito, libretto, polizza, contratti, piano studi, busta paga, verbale, ambiguous, incomplete, duplicate, updated) + smoke Gemini opzionale
+- `ai_life_strategist/tests/test_life_experience_documents.py` — LE E2E
+- Playwright `life-experience-documents.spec.ts` — CASA / AUTO / BOLLETTA
 
-## Verifica reale (Gemini live, questa sessione)
+## CI
 
-Query diretta su MongoDB (`documents.life_reasoning`) dopo le run E2E/pytest con `GEMINI_API_KEY` presente in `backend/.env`:
-
-| `document_type` | `ai_used` | `provider` | `model` | `confidence` | `latency_ms` |
-|---|---|---|---|---|---|
-| rogito | true | gemini | gemini-flash-lite-latest | 0.99 | ~5820 |
-| libretto | true | gemini | gemini-flash-lite-latest | 1.00 | ~4550–5510 |
-| bolletta | true | gemini | gemini-flash-lite-latest | 1.00 | ~5740 |
-| piano_di_studi | true | gemini | gemini-flash-lite-latest | 0.98 | ~5350 |
-| (documento ambiguo/`altro`) | false | local-deterministic | local-deterministic | 0.35 | ~0.3 |
-
-Nessun conteggio token esposto dal client `google-genai` in uso in questa versione — latenza sì.
-
-## Privacy
-
-- **Onestà sui limiti:** per capire un documento, il suo testo estratto (OCR/parsing di Documents V2) viene inviato a Gemini — non esiste redazione automatica di eventuali IBAN/PIN presenti nel testo sorgente stesso. Il guard `user_text_is_credential_dump` (usato lato chat conversazionale) qui **non** si applica in input, perché l'input è un documento intero, non testo libero digitato dall'utente.
-- Cosa è realmente garantito lato **output**: il system prompt istruisce Gemini a non riportare mai password/PIN/OTP/IBAN completi/dati carta nei campi strutturati restituiti (`entities`, `type_specific`, ecc.) — questi valori vengono omessi anche se presenti nel testo.
-- Contesto minimo: solo testo del documento corrente + hint di tipo, **mai** altri documenti dell'utente nello stesso prompt (no cross-document leakage all'AI).
-- Raccomandazione prodotto: i tipi di documento supportati (rogito, bolletta, libretto, polizza, piano di studi, ecc.) non sono pensati per contenere credenziali; l'utente resta responsabile di non caricare documenti con dati di accesso.
-- Log/telemetria: solo provider/model/latenza/esito — mai contenuto del documento, mai prompt completo, mai segreti.
+`.github/workflows/ci.yml` — secret scan, compileall, pytest focused, tsc, Playwright web. Test Gemini reali **skip** senza `GEMINI_API_KEY`.

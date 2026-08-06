@@ -20,6 +20,7 @@ from documents.intelligence.schemas import (
     LLMDocumentEnrichment,
 )
 from documents.intelligence.taxonomy import candidate_actions, refine_taxonomy
+from documents.intelligence.versions import coerce_analysis_revision
 from llm import LLMNotConfigured, llm_status
 from llm.errors import LLMQuotaError, LLMRateLimitError, LLMTimeoutError
 from llm.structured import chat_json, chunk_text
@@ -286,6 +287,43 @@ def _doors_vs_event_times(text: str) -> tuple[Optional[str], Optional[str]]:
     return doors, start
 
 
+def _admin_deadline_title(*, admin: Any, title: str, text: str) -> str:
+    """Prefer human titles like "Pagamento bolletta Enel" over bare amounts."""
+    sender = _clean_field(getattr(admin, "sender", None))
+    subject = _clean_field(getattr(admin, "subject", None))
+    blob = f"{title or ''} {subject or ''} {text or ''}".lower()
+    amount = getattr(admin, "amount", None)
+    currency = getattr(admin, "currency", None) or "EUR"
+
+    is_bolletta = any(k in blob for k in ("bolletta", "energia", "elettric", "gas", "kwh", "smc"))
+    is_mutuo = any(k in blob for k in ("mutuo", "rata mutuo", "ammortamento"))
+    is_polizza = "polizza" in blob or "premio" in blob
+    is_fattura = "fattura" in blob
+
+    if is_bolletta and sender:
+        return f"Pagamento bolletta {sender}"[:160]
+    if is_bolletta:
+        return "Pagamento bolletta"[:160]
+    if is_mutuo and sender:
+        return f"Pagamento rata mutuo {sender}"[:160]
+    if is_mutuo:
+        return "Pagamento rata mutuo"[:160]
+    if is_polizza and sender:
+        return f"Rinnovo polizza {sender}"[:160]
+    if is_fattura and sender:
+        return f"Pagamento fattura {sender}"[:160]
+    if subject and sender:
+        return f"{subject} — {sender}"[:160]
+    if subject:
+        return f"Scadenza: {subject}"[:160]
+    if sender:
+        return f"Pagamento {sender}"[:160]
+    if amount:
+        return f"Scadenza pagamento: {amount} {currency}".strip()[:160]
+    label = subject or title or "scadenza"
+    return f"Scadenza: {label}"[:160]
+
+
 def _build_admin_deadline_event(
     *, doc_id: str, macro: str, admin: Optional[Any], title: str, text: str,
 ) -> Optional[EventCandidate]:
@@ -307,11 +345,7 @@ def _build_admin_deadline_event(
         missing.append("start_datetime")
     if ambiguous:
         missing.append("date_disambiguation")
-    label = _clean_field(getattr(admin, "subject", None)) or title
-    deadline_title = f"Scadenza: {label}"[:160]
-    if getattr(admin, "amount", None):
-        currency = getattr(admin, "currency", None) or "EUR"
-        deadline_title = f"Scadenza pagamento: {admin.amount} {currency}".strip()[:160]
+    deadline_title = _admin_deadline_title(admin=admin, title=title, text=text)
     conf = float(getattr(admin, "confidence", None) or 0.5)
     if missing:
         conf -= 0.2 * len(missing)
@@ -707,7 +741,14 @@ async def analyze_document(
         created_at=_now(),
         model=model_name,
         prompt_version=PROMPT_VERSION if ai_used else "none",
-        analysis_version=int(doc.get("analysis_version") or prev.get("analysis_version") or 0) + (0 if ai_skipped_dedupe else 1),
+        analysis_version=(
+            coerce_analysis_revision(
+                doc.get("analysis_version")
+                if doc.get("analysis_version") is not None
+                else prev.get("analysis_version")
+            )
+            + (0 if ai_skipped_dedupe else 1)
+        ),
         ai_used=ai_used,
         local_only=not ai_used,
     )

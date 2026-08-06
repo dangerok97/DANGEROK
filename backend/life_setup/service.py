@@ -796,21 +796,38 @@ class LifeSetupService:
             }
 
         from documents.intelligence.life_reasoning import run_life_document_reasoning
+        from documents.intelligence.document_actions import build_document_actions
+        from documents.intelligence.document_memory import persist_document_understanding
+        from documents.intelligence.versions import coerce_analysis_revision
         from life_setup.document_mapping import map_document_reasoning
         from life_setup.cross_document import detect_conflicts, find_related_documents
 
         user_doc = await self.db.users.find_one({"user_id": user_id}, {"_id": 0, "preferences": 1})
         result = await run_life_document_reasoning(
             doc, user=user_doc, doc_type_hint=sess.pending_document_type, force=force,
+            db=self.db,
         )
         reasoning = result["reasoning"]
+        # Ensure analysis_version is a safe int (never leave a "2.0" string)
+        reasoning["analysis_version"] = coerce_analysis_revision(reasoning.get("analysis_version")) or 1
+        ai_actions = build_document_actions(doc=doc, reasoning=reasoning)
         await self.db.documents.update_one(
             {"id": document_id, "user_id": user_id},
             {"$set": {
                 "life_reasoning": reasoning,
                 "life_reasoning_telemetry": result.get("telemetry"),
+                "life_actions": ai_actions,
                 "updated_at": now_iso(),
             }},
+        )
+        # Best-effort Brain/Knowledge memory (user-isolated, no dupes)
+        try:
+            from deps import get_document_service
+            knowledge = getattr(get_document_service(), "knowledge", None)
+        except Exception:
+            knowledge = None
+        await persist_document_understanding(
+            db=self.db, user_id=user_id, doc=doc, reasoning=reasoning, knowledge=knowledge,
         )
 
         domain = reasoning.get("domain") or "documenti"
@@ -829,7 +846,7 @@ class LifeSetupService:
             source_document_id=document_id,
             provider=reasoning.get("provider"),
             model=reasoning.get("model"),
-            analysis_version=reasoning.get("analysis_version"),
+            analysis_version=coerce_analysis_revision(reasoning.get("analysis_version")) or 1,
         )
         for c in conflicts:
             await self.profiles.add_pending_confirmation(user_id, domain, {
@@ -875,17 +892,39 @@ class LifeSetupService:
         # Deadlines found in the SAME Documents V2 document analysis (never a
         # new pipeline) — surfaced as draft-only; confirm goes through the
         # existing Documents V2 event-candidate confirm endpoint.
-        draft_events = [
-            {
+        # Prefer AI / type-aware reminder titles when supplier/name is known.
+        preferred_title = None
+        for a in ai_actions:
+            if a.get("action_type") in ("draft_calendar_event", "create_reminder") and a.get("title"):
+                preferred_title = a["title"]
+                break
+        ts = reasoning.get("type_specific") or {}
+        if not preferred_title and ts.get("supplier") and (reasoning.get("document_type") == "bolletta"):
+            preferred_title = f"Pagamento bolletta {ts['supplier']}"
+        if not preferred_title and ts.get("lender") and (reasoning.get("document_type") == "mutuo"):
+            preferred_title = f"Pagamento rata mutuo {ts['lender']}"
+
+        draft_events = []
+        for ev in (doc.get("event_candidates") or []):
+            if ev.get("status") != "proposed":
+                continue
+            title = preferred_title or ev.get("title")
+            draft_events.append({
                 "event_id": ev.get("id"),
-                "title": ev.get("title"),
+                "title": title,
                 "start_datetime": ev.get("start_datetime"),
                 "confidence": ev.get("confidence"),
                 "confirm_endpoint": f"/api/documents/{document_id}/events/{ev.get('id')}/confirm",
-            }
-            for ev in (doc.get("event_candidates") or [])
-            if ev.get("status") == "proposed"
-        ]
+            })
+            # Persist improved title on the candidate (best-effort, draft only)
+            if preferred_title and preferred_title != ev.get("title"):
+                try:
+                    await self.db.documents.update_one(
+                        {"id": document_id, "user_id": user_id, "event_candidates.id": ev.get("id")},
+                        {"$set": {"event_candidates.$.title": preferred_title}},
+                    )
+                except Exception:
+                    pass
 
         document_result = {
             "document_id": document_id,
@@ -908,7 +947,7 @@ class LifeSetupService:
                 for c in conflicts
             ],
             "ambiguities": reasoning.get("ambiguities") or [],
-            "cosa_posso_fare": reasoning.get("recommended_actions") or [],
+            "cosa_posso_fare": ai_actions or reasoning.get("recommended_actions") or [],
             "draft_events": draft_events,
             "related_documents": related_links and [
                 {"document_id": l.document_id, "reason": l.reason} for l in related_links

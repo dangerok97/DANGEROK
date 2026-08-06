@@ -17,7 +17,8 @@
 | Intent Engine | VERIFICATO | unit+API+browser | Corpus IT 124+; psychology Playwright |
 | Semantic Engine | VERIFICATO | unit+API+browser | Gap analyzer; Gemini opzionale |
 | AI Life Strategist | VERIFICATO | unit+API+browser | Reasoning loop + fallback IT; Gemini live per conversazione NON VERIFICATO in questo audit (Gemini per Document Understanding sì, vedi riga sotto) |
-| Life Setup / Life Experience | VERIFICATO | unit+API+browser+Gemini reale (documenti) | Anti-wizard; **upload binario V2 reale + AI Document Understanding ora completo** (`feature/life-experience-ai-documents`) — 4/13 tipi documento con Gemini reale confermato (rogito/bolletta/libretto/piano di studi), vedi `LIFE_EXPERIENCE_DOCUMENT_VERIFICATION.md` |
+| Life Setup / Life Experience | VERIFICATO | unit+API+browser+Gemini reale (documenti) | Anti-wizard; upload V2 + AI Document Understanding v2 (contesto vita, azioni AI, memory Brain/Knowledge, versioni harden). Gemini reale storico: rogito/bolletta/libretto/piano; tipi nuovi = fixture+fallback, smoke live **opzionale** |
+| AI Document Reasoner | FUNZIONANTE | unit (+optional Gemini) | Post-OCR; Pydantic; fallback onesto; CI senza secret |
 | Goal Engine | VERIFICATO | unit+API+browser | Shadow + Home context; **no Goal UX** |
 | Action Engine (generic) | VERIFICATO | unit+API+browser | Guided flows |
 | Study Action Flow | VERIFICATO | unit+API+browser+real Google | Plan/sessions/Home; mobile never |
