@@ -1,5 +1,35 @@
 # ORA — AI Changelog
 
+## 2026-08-06 — Introduce Life Object Engine as the core of ORA (SHADOW)
+
+### Request
+
+Life Objects as **canonical model of user reality** (shadow) from `feature/life-experience-ai-documents` @ `b80d18a`. Branch `feature/life-object-engine`. Other engines keep existing as satellites that read/write objects — they no longer own “the truth” alone. No major UX; Home stays Goal-aware. No push/merge.
+
+### Actions
+
+- Package `backend/life_objects/` — models, types, repository, dedupe, reasoner, linking, memory/trends, service, shadow, router, tests
+- Flags: `LIFE_OBJECT_ENGINE_ENABLED=1`, `LIFE_OBJECT_HOME_UI_ENABLED=0`, `LIFE_OBJECT_GEMINI=1`
+- Shadow hooks: `life_setup.consume_document`, `GoalService.upsert` (+ `life_object_id`), Travel/Study confirm
+- Goal model: optional `life_object_id` (non-breaking)
+- API `/api/life-objects` mounted; Mongo indexes at startup
+- Playwright: API-driven Casa chain assert single HOME
+- Docs: `LIFE_OBJECT_*.md` + ARCHITECTURE/PRODUCT/STATE/MATRIX
+
+### Results
+
+- pytest `life_objects/tests/test_life_object_engine.py`: **11 passed**
+- Home UX: **unchanged** (SHADOW / Home V3 PREDISPOSTO)
+- Framing: Life Objects = verità canonica; altri motori restano satelliti R/W
+- Commit: `feat: introduce Life Object Engine as the core of ORA` (no push)
+
+### Open
+
+- Home V3 Life Objects UI not shipped
+- Richer Conversation/Proactive object-driven suggestions later
+
+---
+
 ## 2026-08-06 — Deepen AI Document Understanding + harden analysis versions
 
 ### Request

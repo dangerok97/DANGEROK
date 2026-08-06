@@ -1,0 +1,10 @@
+CONTRATTO DI MUTUO IPOTECARIO - Documento sintetico di test
+Istituto erogante: Banca Esempio Test SpA
+Mutuatario: Mario Rossi Test
+Immobile ipotecato: Via Roma 10, Milano
+Importo finanziato: EUR 180.000,00
+Tasso di interesse: 3,20% fisso
+Durata: 300 mesi
+Rata mensile: EUR 872,45
+Data inizio ammortamento: 1 aprile 2026
+Data fine ammortamento: 1 aprile 2051

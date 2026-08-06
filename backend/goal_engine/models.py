@@ -48,6 +48,8 @@ class Goal(BaseModel):
     progress: GoalProgress = Field(default_factory=GoalProgress)
     completion_percentage: float = 0.0  # 0–100, derived from progress.ratio
     brain_node_id: Optional[str] = None
+    # Shadow link to Life Object Engine (non-breaking; optional)
+    life_object_id: Optional[str] = None
     project_id: Optional[str] = None  # action_projects id (bag ≠ Goal)
     study_plan_id: Optional[str] = None
     travel_project_id: Optional[str] = None
@@ -108,6 +110,7 @@ class GoalCreateBody(BaseModel):
     target_date: Optional[str] = None
     start_date: Optional[str] = None
     brain_node_id: Optional[str] = None
+    life_object_id: Optional[str] = None
 
 
 class GoalPatchBody(BaseModel):
@@ -125,6 +128,7 @@ class GoalPatchBody(BaseModel):
     study_plan_id: Optional[str] = None
     travel_project_id: Optional[str] = None
     brain_node_id: Optional[str] = None
+    life_object_id: Optional[str] = None
     linked_documents: Optional[List[str]] = None
     linked_calendar_events: Optional[List[str]] = None
     linked_decisions: Optional[List[str]] = None

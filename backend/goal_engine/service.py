@@ -294,11 +294,31 @@ class GoalService:
                 "travel_project_id": goal.travel_project_id,
             },
         )
+
+        # Life Object Engine shadow — attach life_object_id (non-breaking)
+        life_object_meta: Dict[str, Any] = {"skipped": True}
+        try:
+            from life_objects.shadow import shadow_attach_goal
+            life_object_meta = await shadow_attach_goal(
+                self.db,
+                user_id=goal.user_id,
+                goal=goal.public(),
+                life_graph=self.life_graph,
+            )
+            lo_id = life_object_meta.get("life_object_id")
+            if lo_id and not goal.life_object_id:
+                goal.life_object_id = lo_id
+                await self.repo.upsert(goal)
+        except Exception as e:
+            logger.info("life_object goal shadow soft-fail: %s", type(e).__name__)
+            life_object_meta = {"ok": False, "soft_fail": True, "error": type(e).__name__}
+
         return {
             "ok": True,
             "created": created,
             "goal": goal.public(),
             "goal_id": goal.id,
+            "life_object": life_object_meta,
         }
 
     async def upsert_from_study_confirm(

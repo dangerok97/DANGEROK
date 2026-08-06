@@ -1,10 +1,12 @@
 # ORA — Product (struttura reale)
 
-Ultimo aggiornamento: 2026-08-06 — AI-first Life Experience (conversazione naturale, benefici Home/Proactive in italiano, non wizard).
+Ultimo aggiornamento: 2026-08-06 — Life Object Engine introdotto come **core in SHADOW** (Home UX invariata).
 
 ## Vision
 
 ORA è il sistema operativo della vita quotidiana: riduce il carico cognitivo mostrando **cosa fare adesso**, con decisioni ordinate, memoria personale e documenti.
+
+I **Life Objects** (Casa, Auto, Università, Lavoro, …) sono il **modello canonico della realtà dell’utente**. Conversation, Goal, Documents, Brain, Proactive e Home **continuano a esistere** come satelliti che leggono/aggiornano gli oggetti — non posseggono più “la verità” da soli. In questa fase gli aggiornamenti sono **shadow** (paralleli): la Home resta Goal-aware; Home V3 oggetti è solo predisposta (`LIFE_OBJECT_HOME_UI_ENABLED=0`).
 
 ## Utenti
 
@@ -44,6 +46,15 @@ Persone che vogliono una priorità unica chiara (non un task manager generico), 
 - **Esterni:** Google Cloud OAuth clients; Apple Sign In (App ID / Services ID / key). Legacy Emergent opzionale. In locale, `localhost` e `127.0.0.1` vanno entrambi registrati in Google Console (origin diversi).
 - **Docs:** `docs/SOCIAL_AUTH_*.md`.
 - **Aperti:** credenziali reali; device iOS/Android; revoca JWT server-side.
+
+### 1b. Life Object Engine (modello canonico — SHADOW)
+
+- **Scopo:** verità canonica sulla realtà dell’utente (HOME, VEHICLE, UNIVERSITY, JOB, …). Gli altri motori restano e aggiornano questi oggetti.
+- **Stato:** **SHADOW FUNZIONANTE** — writes paralleli ON; **nessuna modifica UX importante**; Home V3 oggetti **OFF**.
+- **Flusso:** dopo understanding Documents V2 → upsert Life Object (dedupe per indirizzo/targa/…, mai solo titolo); Goal ottiene `life_object_id`; Travel/Study aggiornano oggetti in parallelo.
+- **Backend:** `/api/life-objects/*`; flag `LIFE_OBJECT_ENGINE_ENABLED`, `LIFE_OBJECT_HOME_UI_ENABLED`.
+- **Docs:** `LIFE_OBJECT_ENGINE.md`, `LIFE_OBJECT_REASONING.md`, `LIFE_OBJECT_ARCHITECTURE.md`, `LIFE_OBJECT_VERIFICATION.md`.
+- **Aperti:** Home V3 UI; wiring Conversation/Proactive più ricco; trend bollette avanzato.
 
 ### 2. Home V2 — Intelligence dashboard
 
