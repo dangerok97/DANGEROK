@@ -1,6 +1,6 @@
 # ORA — Product (struttura reale)
 
-Ultimo aggiornamento: 2026-08-06 — AI Life Setup + AI Life Strategist foundation (first-launch conversation, not wizard).
+Ultimo aggiornamento: 2026-08-06 — AI-first Life Experience (conversazione naturale, benefici Home/Proactive in italiano, non wizard).
 
 ## Vision
 
@@ -16,7 +16,7 @@ Persone che vogliono una priorità unica chiara (non un task manager generico), 
 |-------|-----------|--------|
 | `/login` | Login | Auth email/Google/Apple |
 | `/(tabs)` → index | Home V2 “Adesso” | PARLA CON ORA + ranking, ORA TI CONSIGLIA, insights, resume Continua |
-| `/life-setup` | First-launch conversation | Conversazione naturale Life Setup (mai wizard/form; poi invisibile) |
+| `/life-setup` | Life Experience (primo avvio) | Conversazione naturale con ORA (mai wizard/form; poi invisibile; Home mostra benefici) |
 | `/conversation` | Entry Conversation Engine | Bridge a guida AE (mai chat thread) |
 | `/situazione` | Situazione completa | Vista reale da CTA Home |
 | `/(tabs)/memoria` | Memoria | Q&A e salvataggio ricordi |
@@ -56,14 +56,14 @@ Persone che vogliono una priorità unica chiara (non un task manager generico), 
 - **Docs:** `docs/HOME_V2_*.md`.
 - **Aperti:** native mobile non verificato.
 
-### 2x. Life Setup + AI Life Strategist (first-launch conversation)
+### 2x. Life Experience + AI Life Strategist (first-launch conversation)
 
-- **Scopo:** prima conversazione naturale per costruire contesto di vita (domini Casa/Auto/Studio/…) con domande benefit-driven o upload documenti — **non** wizard/questionario/settings.
-- **Stato:** **foundation** — `backend/ai_life_strategist/`, `backend/life_setup/`, API `/api/life-setup/*` + `/api/strategist/next-question`, FE `/life-setup`, sync Life Profile → Graph/Goal/Proactive/Home.
-- **Dopo complete/skip/interrupt:** modulo invisibile per sempre; al massimo **una** suggestion «ORA può aiutarti ancora di più».
-- **Flag:** `LIFE_SETUP_ENABLED`, `AI_LIFE_STRATEGIST_ENABLED` (default ON locale).
+- **Scopo:** prima conversazione naturale per costruire contesto di vita (domini in qualsiasi ordine) con reasoning loop benefit-driven o upload documenti — **non** wizard/questionario/settings.
+- **Stato:** **Life Experience** — reasoning loop, Gemini contesto strutturato, fallback IT, Home card «Adesso posso…», Proactive con beneficio.
+- **Dopo complete:** modulo invisibile; Home mostra **benefici** (non Life Setup); interrupt → soft resume «ORA può aiutarti ancora di più».
+- **Flag:** `LIFE_SETUP_ENABLED`, `AI_LIFE_STRATEGIST_ENABLED`, `AI_LIFE_STRATEGIST_GEMINI`.
 - **Non fatto:** Email / Open Banking / WhatsApp / Weather (solo stub).
-- **Docs:** `LIFE_SETUP_PRODUCT.md`, `AI_LIFE_STRATEGIST.md`, `LIFE_PROFILE.md`, `BENEFIT_ENGINE.md`, `QUESTION_PLANNING.md`, `LIFE_GRAPH.md`.
+- **Docs:** `LIFE_EXPERIENCE.md`, `AI_REASONING_LOOP.md`, `AI_PROMPTING_GUIDE.md`, `AI_DECISION_POLICY.md`, `CONVERSATION_EXPERIENCE.md`, `BENEFIT_ENGINE.md`.
 
 ### 2z. Conversation Engine — entry orchestrator (NOT a chatbot)
 

@@ -1,11 +1,14 @@
 # ORA — Architecture
 
-## Life Setup / Strategist (2026-08-06)
+## Life Experience / Strategist (2026-08-06)
 
-- CE origin `life_setup` accepted; strategist plans turns (structured Pydantic).
+- AI-first Life Experience: reasoning loop every turn → structured `StrategistPlan`.
+- Gemini via Provider Manager with structured context JSON; deterministic Italian fallback.
+- CE origin `life_setup` accepted; route `/life-setup` = Life Experience UX (not wizard).
 - Collections: `life_setup_sessions`, `life_profiles`.
-- Home adapter: optional one soft resume insight — **no** Life Setup section.
-- Proactive generator: soft resume after interrupt/skip.
+- Home adapter: **Italian benefit cards** after setup («Adesso posso…») + soft resume if interrupted — **no** Life Setup section.
+- Proactive generator: benefit-driven suggestions + soft resume; never «Completa il profilo».
+- Docs: `LIFE_EXPERIENCE.md`, `AI_REASONING_LOOP.md`, `AI_PROMPTING_GUIDE.md`, `AI_DECISION_POLICY.md`, `CONVERSATION_EXPERIENCE.md`.
 - Adapter stubs only: email, open_banking, whatsapp, weather.
 
 ## Stack
@@ -46,8 +49,8 @@ backend/
   proactive_engine/      # IF/WHEN/HOW/WHY intervene → suggestions + Home ORA TI CONSIGLIA
   conversation_engine/   # Entry orchestrator (NOT chatbot) → Semantic→Intent→Gap→Goal→AE
   semantic_engine/       # Structured extraction + Gap Analyzer (Gemini optional)
-  ai_life_strategist/    # Structured next-question plans (Gemini + deterministic fallback)
-  life_setup/            # First-launch conversation + Life Profile persistence/sync
+  ai_life_strategist/    # Life Experience reasoning loop + StrategistPlan (Gemini + IT fallback)
+  life_setup/            # First-launch Life Experience session + Life Profile persistence/sync
   daily_intelligence/    # daily summary (situation indicators)
   behavioral_intelligence/
   behavior_aware_decisions/

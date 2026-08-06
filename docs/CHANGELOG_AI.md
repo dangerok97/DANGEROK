@@ -1,5 +1,35 @@
 # ORA — AI Changelog
 
+## 2026-08-06 — AI-first Life Experience
+
+### Request
+
+Build AI-first Life Experience on `feature/ai-life-setup-foundation` @ `b68cbdc`: natural conversation (not wizard), AI reasoning loop every turn, Gemini structured prompting (Italian), deterministic Italian fallback, document strategy, Home/Proactive benefit cards, Playwright E2E, docs; commit exactly `feat: introduce AI-first Life Experience`. Branch `feature/life-experience-ai`. No push/merge.
+
+### Actions
+
+- `reasoning_loop.py` + structured Gemini context (`to_gemini_context_json`) + task «Qual è la prossima domanda…»
+- Extended `StrategistPlan` / `ReasoningContext` (refused/postponed, user_explanation, summaries)
+- Benefit Engine Italian `home_signal` / `proactive_signal` + Home/Proactive adapters
+- Domains any order (gain-ranked); piano di studi in document strategy
+- FE Life Experience markers + multi-doc upload; Playwright `life-experience-ai.spec.ts`
+- Docs: LIFE_EXPERIENCE, AI_REASONING_LOOP, AI_PROMPTING_GUIDE, AI_DECISION_POLICY, CONVERSATION_EXPERIENCE + ARCHITECTURE/ROADMAP/DEVELOPMENT_STATE/PRODUCT/BENEFIT_ENGINE
+
+### Results
+
+- Anti-wizard UX; Home benefits after setup; Proactive never «Completa il profilo»
+- pytest `test_life_experience.py` + `test_strategist_foundation.py`: **30 passed**
+- Playwright `e2e/life-experience-ai.spec.ts`: **2 passed**
+- Commit message (exact): `feat: introduce AI-first Life Experience`
+- No push
+
+### Open
+
+- Real Documents V2 binary upload from conversation
+- Calendar consent UI for strategist drafts
+
+---
+
 ## 2026-08-06 — AI Life Setup + AI Life Strategist foundation
 
 ### Request

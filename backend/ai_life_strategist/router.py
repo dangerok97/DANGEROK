@@ -16,6 +16,8 @@ class NextQuestionBody(BaseModel):
     known_facts: Dict[str, Any] = Field(default_factory=dict)
     asked_questions: List[str] = Field(default_factory=list)
     asked_keys: List[str] = Field(default_factory=list)
+    refused_keys: List[str] = Field(default_factory=list)
+    postponed_keys: List[str] = Field(default_factory=list)
     linked_doc_types: List[str] = Field(default_factory=list)
     last_user_text: Optional[str] = None
     session_phase: str = "active"
@@ -29,9 +31,11 @@ async def strategist_status(user=Depends(get_current_user)):
     return {
         "ok": True,
         "enabled": svc.enabled(),
-        "engine": "ai-life-strategist-1.0",
+        "engine": "ai-life-experience-1.0",
+        "experience": "life_experience",
         "domains": svc.domains(),
         "flag": "AI_LIFE_STRATEGIST_ENABLED",
+        "gemini_task": "Qual è la prossima domanda che produrrà il maggior beneficio concreto per l'utente?",
     }
 
 
@@ -46,6 +50,8 @@ async def next_question(body: NextQuestionBody, user=Depends(get_current_user)):
         known_facts=body.known_facts,
         asked_questions=body.asked_questions,
         asked_keys=body.asked_keys,
+        refused_keys=body.refused_keys,
+        postponed_keys=body.postponed_keys,
         linked_doc_types=body.linked_doc_types,
         last_user_text=body.last_user_text,
         session_phase=body.session_phase,

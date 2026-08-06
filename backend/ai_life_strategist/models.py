@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
-ENGINE_VERSION = "ai-life-strategist-1.0"
+ENGINE_VERSION = "ai-life-experience-1.0"
 
 DomainId = Literal[
     "casa",
@@ -41,6 +41,21 @@ DOMAINS: tuple[str, ...] = (
     "abbonamenti",
     "internet",
     "servizi",
+)
+
+# Domains the product narrative highlights (AI may still use all DOMAINS).
+LIFE_EXPERIENCE_DOMAINS: tuple[str, ...] = (
+    "casa",
+    "auto",
+    "studio",
+    "lavoro",
+    "salute",
+    "finanze",
+    "famiglia",
+    "animali",
+    "viaggi",
+    "assicurazioni",
+    "abbonamenti",
 )
 
 DOMAIN_LABELS_IT: Dict[str, str] = {
@@ -92,7 +107,7 @@ def new_plan_id() -> str:
 class RecommendedDocument(BaseModel):
     """Document the strategist prefers over another spoken answer."""
 
-    doc_type: str  # e.g. rogito, bolletta, libretto, polizza
+    doc_type: str  # e.g. rogito, bolletta, libretto, polizza, piano_di_studi
     label: str
     reason: str
     expected_fields: List[str] = Field(default_factory=list)
@@ -117,7 +132,10 @@ class StrategistPlan(BaseModel):
     privacy_safe: bool = True
     source: PlanSource = "deterministic_fallback"
     asked_keys: List[str] = Field(default_factory=list)
+    refused_keys: List[str] = Field(default_factory=list)
+    postponed_keys: List[str] = Field(default_factory=list)
     gap_keys: List[str] = Field(default_factory=list)
+    user_explanation: Optional[str] = None  # Italian, simple — never internal CoT
     meta: Dict[str, Any] = Field(default_factory=dict)
     created_at: str = Field(default_factory=now_iso)
     engine_version: str = ENGINE_VERSION
@@ -126,9 +144,11 @@ class StrategistPlan(BaseModel):
         return self.model_dump()
 
     def explain_for_user(self) -> str:
-        """User-facing explanation — benefit first, never jargon."""
+        """User-facing explanation — benefit first, never jargon or CoT."""
+        if self.user_explanation:
+            return self.user_explanation.strip()
         parts = [self.expected_benefit.strip()]
-        if self.question_reason:
+        if self.question_reason and self.question_reason.strip() != self.expected_benefit.strip():
             parts.append(self.question_reason.strip())
         return " ".join(p for p in parts if p)
 
@@ -152,8 +172,22 @@ class BenefitDescriptor(BaseModel):
     user_benefit: str  # concrete, never vague
     requires: List[str] = Field(default_factory=list)
     activates_when: List[str] = Field(default_factory=list)
-    home_signal: Optional[str] = None
-    proactive_signal: Optional[str] = None
+    home_signal: Optional[str] = None  # Italian Home card copy
+    proactive_signal: Optional[str] = None  # Italian Proactive copy
+    chain: Optional[str] = None  # e.g. casa→mutuo→scadenze
+
+
+class ContextSummaries(BaseModel):
+    """Compact proportional summaries for Gemini — never secrets."""
+
+    known: Dict[str, Any] = Field(default_factory=dict)
+    missing: List[str] = Field(default_factory=list)
+    confidence: float = 0.5
+    domains: List[str] = Field(default_factory=list)
+    goals_summary: str = ""
+    calendar_summary: str = ""
+    documents_summary: str = ""
+    conversation_summary: str = ""
 
 
 class ReasoningContext(BaseModel):
@@ -164,8 +198,19 @@ class ReasoningContext(BaseModel):
     known_facts: Dict[str, Any] = Field(default_factory=dict)
     missing_keys: List[str] = Field(default_factory=list)
     asked_questions: List[str] = Field(default_factory=list)
+    asked_keys: List[str] = Field(default_factory=list)
+    refused_keys: List[str] = Field(default_factory=list)
+    postponed_keys: List[str] = Field(default_factory=list)
     linked_doc_types: List[str] = Field(default_factory=list)
     last_user_text: Optional[str] = None
     session_phase: str = "active"  # greeting|active|document|wrap
     benefits_available: List[str] = Field(default_factory=list)
     benefits_active: List[str] = Field(default_factory=list)
+    # Structured summaries for Gemini prompting
+    goals_summary: str = ""
+    calendar_summary: str = ""
+    documents_summary: str = ""
+    conversation_summary: str = ""
+    confidence_overall: float = 0.5
+    useful_next: List[str] = Field(default_factory=list)
+    highest_benefit_code: Optional[str] = None

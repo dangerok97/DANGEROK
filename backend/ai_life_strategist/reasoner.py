@@ -9,17 +9,25 @@ from typing import Any, Dict, Optional
 from ai_life_strategist.models import RecommendedDocument, ReasoningContext, StrategistPlan
 from ai_life_strategist.policy import filter_unsafe_plan_fields, sanitize_known_facts
 from ai_life_strategist.question_planner import avoid_duplicate, plan_greeting, plan_next
+from ai_life_strategist.reasoning_loop import to_gemini_context_json
 
 logger = logging.getLogger("ora.ai_life_strategist.reasoner")
 
 SYSTEM_PROMPT = """Sei l'AI Life Strategist di ORA (Life Operating System).
 NON sei un chatbot generico. NON produci saggi. NON fai questionari.
-Dirigi una conversazione naturale di first-launch: scegli COSA chiedere, QUANDO e PERCHÉ.
-Preferisci upload documenti quando più informativi delle risposte a voce.
+Dirigi una conversazione naturale: scegli COSA chiedere, QUANDO e PERCHÉ.
+Una sola domanda per turno. Preferisci upload documenti quando sostituiscono molte domande
+(rogito, libretto, piano di studi, polizze).
 Mai chiedere password, PIN, OTP, IBAN, CVV o credenziali bancarie.
-Mai proporre eliminazione dati o azioni irreversibili senza consenso esplicito.
-Rispondi SOLO con JSON valido secondo lo schema richiesto. Nessun testo fuori dal JSON.
+Mai proporre eliminazioni o azioni irreversibili senza consenso esplicito.
+Tutte le stringhe rivolte all'utente devono essere in italiano semplice.
+Rispondi SOLO con JSON valido secondo lo schema. Nessun testo fuori dal JSON.
+Nessuna catena di pensiero interna nell'output.
 """
+
+GEMINI_TASK_QUESTION = (
+    "Qual è la prossima domanda che produrrà il maggior beneficio concreto per l'utente?"
+)
 
 
 def strategist_gemini_enabled() -> bool:
@@ -29,9 +37,10 @@ def strategist_gemini_enabled() -> bool:
 
 def _schema_hint() -> Dict[str, Any]:
     return {
-        "next_best_question": "string",
-        "question_reason": "string",
-        "expected_benefit": "string (beneficio concreto per l'utente)",
+        "next_best_question": "string (UNA sola domanda in italiano)",
+        "question_reason": "string (perché questa domanda, italiano semplice)",
+        "expected_benefit": "string (beneficio concreto per l'utente, italiano)",
+        "user_explanation": "string (spiegazione breve per l'utente, senza gergo interno)",
         "information_gain": 0.0,
         "recommended_document": {
             "doc_type": "string|null",
@@ -58,34 +67,29 @@ async def reason_with_gemini(ctx: ReasoningContext) -> Optional[StrategistPlan]:
         logger.info("ProviderManager unavailable: %s", e)
         return None
 
-    safe_facts = sanitize_known_facts(ctx.known_facts)
+    context_json = to_gemini_context_json(ctx)
     user_payload = {
-        "phase": ctx.session_phase,
-        "last_user_text": (ctx.last_user_text or "")[:500],
-        "known_facts": safe_facts,
-        "missing_keys": ctx.missing_keys[:40],
-        "asked_questions": ctx.asked_questions[-20:],
-        "linked_doc_types": ctx.linked_doc_types,
-        "domains_touched": ctx.domains_touched,
-        "benefits_available": ctx.benefits_available,
-        "benefits_active": ctx.benefits_active,
+        "context": context_json,
         "output_schema": _schema_hint(),
-        "rules": [
-            "Prefer document upload for rogito after house purchase.",
-            "Every question must state a concrete benefit.",
-            "No duplicate questions from asked_questions.",
-            "Italian language for user-facing strings.",
+        "regole": [
+            "Una sola domanda in next_best_question — mai due domande insieme.",
+            "Preferisci il documento se sostituisce molte domande (rogito, libretto, piano di studi).",
+            "Ogni domanda deve avere un beneficio concreto in expected_benefit.",
+            "Non ripetere asked_questions, asked_keys, refused_keys, postponed_keys.",
+            "Tutte le stringhe utente in italiano.",
+            "Non chiedere password, PIN, OTP o dati bancari.",
+            "Non dire «continua liberamente» né «completa il profilo».",
         ],
     }
     user = (
-        "Contesto Life Setup (proporzionato, senza segreti):\n"
+        "Contesto strutturato Life Experience (proporzionato, senza segreti):\n"
         + json.dumps(user_payload, ensure_ascii=False, default=str)
-        + "\n\nProduci il prossimo StrategistPlan JSON."
+        + f"\n\n{GEMINI_TASK_QUESTION}\n"
+        + "Produci SOLO lo StrategistPlan JSON."
     )
 
     try:
         mgr = ProviderManager()
-        # Prefer gemini; failover still ok but we only accept structured JSON
         res = await mgr.chat(
             system=SYSTEM_PROMPT,
             user=user,
@@ -126,14 +130,22 @@ async def reason_with_gemini(ctx: ReasoningContext) -> Optional[StrategistPlan]:
         q = str(data.get("next_best_question") or "").strip()
         reason = str(data.get("question_reason") or "").strip()
         benefit = str(data.get("expected_benefit") or "").strip()
+        user_expl = str(data.get("user_explanation") or "").strip() or None
         if not q or not benefit:
             return None
+        # Reject multi-question dumps (heuristic)
+        if q.count("?") > 1 or q.count("？") > 1:
+            logger.info("gemini returned multiple questions — discard")
+            return None
         q, reason, benefit, refused = filter_unsafe_plan_fields(q, reason, benefit)
+        if user_expl:
+            _, _, user_expl, _ = filter_unsafe_plan_fields(user_expl, user_expl, user_expl)
         domain = str(data.get("domain") or "casa")
         plan = StrategistPlan(
             next_best_question=q,
             question_reason=reason or benefit,
             expected_benefit=benefit,
+            user_explanation=user_expl or benefit,
             information_gain=float(data.get("information_gain") or 0.5),
             recommended_document=rec_doc,
             alternative_question=data.get("alternative_question"),
@@ -142,8 +154,16 @@ async def reason_with_gemini(ctx: ReasoningContext) -> Optional[StrategistPlan]:
             priority=int(data.get("priority") or 50),
             prefer_document=bool(data.get("prefer_document") or rec_doc),
             source="gemini",
+            asked_keys=list(ctx.asked_keys),
+            refused_keys=list(ctx.refused_keys),
+            postponed_keys=list(ctx.postponed_keys),
             gap_keys=list(data.get("gap_keys") or []),
-            meta={"privacy_refused": refused, "phase": ctx.session_phase},
+            meta={
+                "privacy_refused": refused,
+                "phase": ctx.session_phase,
+                "highest_benefit_code": ctx.highest_benefit_code,
+                "reasoning_loop": True,
+            },
         )
         return avoid_duplicate(plan, ctx.asked_questions)
     except Exception as e:
@@ -152,7 +172,7 @@ async def reason_with_gemini(ctx: ReasoningContext) -> Optional[StrategistPlan]:
 
 
 async def reason(ctx: ReasoningContext, *, force_fallback: bool = False) -> StrategistPlan:
-    """Produce structured plan: Gemini if available, else deterministic fallback."""
+    """Produce structured plan: Gemini if available, else deterministic Italian fallback."""
     if ctx.session_phase == "greeting" and not ctx.last_user_text:
         return plan_greeting(domains_touched=ctx.domains_touched)
 
