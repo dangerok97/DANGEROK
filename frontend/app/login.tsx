@@ -25,6 +25,7 @@ import {
 } from '@/src/auth/providersConfig';
 import { useGoogleAuthRequest, promptGoogleSignIn } from '@/src/auth/googleSignIn';
 import { signInWithApple, isAppleNativeAvailable } from '@/src/auth/appleSignIn';
+import { routeAfterAuth } from '@/src/life-setup/routeAfterAuth';
 
 type Mode = 'buttons' | 'email';
 type Busy = 'google' | 'apple' | 'email' | null;
@@ -46,7 +47,9 @@ export default function LoginScreen() {
   const [googleRequest, , googlePrompt] = useGoogleAuthRequest();
 
   useEffect(() => {
-    if (!loading && user) router.replace('/(tabs)');
+    if (!loading && user) {
+      routeAfterAuth(router).catch(() => router.replace('/(tabs)' as any));
+    }
   }, [loading, user, router]);
 
   useEffect(() => {
@@ -93,7 +96,7 @@ export default function LoginScreen() {
       }
       const auth = await api.authGoogle(res.idToken, res.nonce);
       await signIn(auth.token, auth.user);
-      router.replace('/(tabs)');
+      await routeAfterAuth(router);
     } catch (e: any) {
       setErr(e.message || 'Errore Google');
     } finally {
@@ -123,7 +126,7 @@ export default function LoginScreen() {
         full_name: res.fullName,
       });
       await signIn(auth.token, auth.user);
-      router.replace('/(tabs)');
+      await routeAfterAuth(router);
     } catch (e: any) {
       setErr(e.message || 'Errore Apple');
     } finally {
@@ -145,7 +148,7 @@ export default function LoginScreen() {
         ? await api.register(email, password, name || undefined)
         : await api.login(email, password);
       await signIn(auth.token, auth.user);
-      router.replace('/(tabs)');
+      await routeAfterAuth(router);
     } catch (e: any) {
       setErr(e.message || 'Errore');
     } finally {

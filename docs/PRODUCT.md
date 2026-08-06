@@ -1,6 +1,6 @@
 # ORA — Product (struttura reale)
 
-Ultimo aggiornamento: 2026-08-06 — Semantic Extraction + Gap Analyzer + Conversation/Action wiring.
+Ultimo aggiornamento: 2026-08-06 — AI Life Setup + AI Life Strategist foundation (first-launch conversation, not wizard).
 
 ## Vision
 
@@ -16,6 +16,7 @@ Persone che vogliono una priorità unica chiara (non un task manager generico), 
 |-------|-----------|--------|
 | `/login` | Login | Auth email/Google/Apple |
 | `/(tabs)` → index | Home V2 “Adesso” | PARLA CON ORA + ranking, ORA TI CONSIGLIA, insights, resume Continua |
+| `/life-setup` | First-launch conversation | Conversazione naturale Life Setup (mai wizard/form; poi invisibile) |
 | `/conversation` | Entry Conversation Engine | Bridge a guida AE (mai chat thread) |
 | `/situazione` | Situazione completa | Vista reale da CTA Home |
 | `/(tabs)/memoria` | Memoria | Q&A e salvataggio ricordi |
@@ -54,6 +55,15 @@ Persone che vogliono una priorità unica chiara (non un task manager generico), 
 - **DB:** `home_snapshots`, `home_item_state`, `home_insights` (+ fonti esistenti).
 - **Docs:** `docs/HOME_V2_*.md`.
 - **Aperti:** native mobile non verificato.
+
+### 2x. Life Setup + AI Life Strategist (first-launch conversation)
+
+- **Scopo:** prima conversazione naturale per costruire contesto di vita (domini Casa/Auto/Studio/…) con domande benefit-driven o upload documenti — **non** wizard/questionario/settings.
+- **Stato:** **foundation** — `backend/ai_life_strategist/`, `backend/life_setup/`, API `/api/life-setup/*` + `/api/strategist/next-question`, FE `/life-setup`, sync Life Profile → Graph/Goal/Proactive/Home.
+- **Dopo complete/skip/interrupt:** modulo invisibile per sempre; al massimo **una** suggestion «ORA può aiutarti ancora di più».
+- **Flag:** `LIFE_SETUP_ENABLED`, `AI_LIFE_STRATEGIST_ENABLED` (default ON locale).
+- **Non fatto:** Email / Open Banking / WhatsApp / Weather (solo stub).
+- **Docs:** `LIFE_SETUP_PRODUCT.md`, `AI_LIFE_STRATEGIST.md`, `LIFE_PROFILE.md`, `BENEFIT_ENGINE.md`, `QUESTION_PLANNING.md`, `LIFE_GRAPH.md`.
 
 ### 2z. Conversation Engine — entry orchestrator (NOT a chatbot)
 

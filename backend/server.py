@@ -235,6 +235,18 @@ async def startup():
     except Exception:
         logger.exception("Conversation Engine bootstrap failed (non-fatal)")
 
+    # Life Setup + AI Life Strategist — first-launch conversation (NOT a wizard)
+    try:
+        from life_setup import get_life_setup_service
+        from deps import knowledge as _kn_ls, life_graph as _lg_ls
+        svc = get_life_setup_service(db)
+        svc.life_graph = _lg_ls
+        svc.knowledge = _kn_ls
+        await svc.ensure_indexes()
+        logger.info("Life Setup indexes ready")
+    except Exception:
+        logger.exception("Life Setup bootstrap failed (non-fatal)")
+
     # Sync capability registry to Mongo (idempotent, structural fields are
     # overwritten from code; ops metadata is preserved).
     try:

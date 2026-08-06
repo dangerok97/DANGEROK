@@ -10,6 +10,8 @@ from llm.router import router as llm_router
 from proactive_engine import router as proactive_engine_router
 from conversation_engine import conversation_engine_router
 from semantic_engine.router import semantic_engine_router
+from ai_life_strategist.router import router as strategist_router
+from life_setup.router import router as life_setup_router
 
 from . import (
     admin,
@@ -57,5 +59,7 @@ ALL_ROUTERS = [
     proactive_engine_router,
     conversation_engine_router,
     semantic_engine_router,
+    strategist_router,
+    life_setup_router,
     llm_router,
 ]

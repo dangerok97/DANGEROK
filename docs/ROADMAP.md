@@ -32,6 +32,7 @@ Basata sull’audit funzionale del 2026-08-04. Ordine: fondamenta → organizzaz
 | B5e Goal → Home dedupe (`goal_id`) | alta | B5d | M | **DONE** Goal-aware Home (`feature/goal-aware-home`) |
 | B5f Proactive Engine foundation | critica | B5d + Home V2 | L | **DONE** 2026-08-06 — `feature/proactive-engine` (ORA TI CONSIGLIA; Email/Finance/Weather/WhatsApp predisposed only) |
 | B5g Conversation Engine foundation | critica | Intent + AE + Goal + Proactive | L | **DONE** 2026-08-06 — `feature/conversation-engine` (orchestrator; NOT chatbot; PARLA CON ORA; STT stub) |
+| B5h AI Life Setup + Life Strategist foundation | critica | CE + Semantic + Goal + Proactive | L | **DONE** 2026-08-06 — `feature/ai-life-setup-foundation` (conversation NOT wizard; Email/Bank/WA/Weather stubs only) |
 | B6 Documents V2 intelligent hub | alta | — | L | Branch `feature/rebuild-intelligent-documents` |
 
 ## FASE C — Progetti e documenti
