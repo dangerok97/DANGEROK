@@ -5,6 +5,22 @@ from typing import Any, Dict, List, Optional
 
 from life_objects.models import LifeObject, LifeObjectHistoryEntry, now_iso
 
+# State fields watched for temporal comparisons across history.
+_TRACKED_STATE_FIELDS = (
+    "supplier",
+    "amount_total",
+    "amount",
+    "utility_type",
+    "company",
+    "monthly_installment",
+    "consumption",
+    "rate",
+    "interest_rate",
+    "lender",
+    "policy_number",
+    "contract_code",
+)
+
 
 def append_history(
     obj: LifeObject,
@@ -93,3 +109,53 @@ def basic_utility_trend(obj: LifeObject, *, utility_type: Optional[str] = None) 
         "previous": a,
         "utility_type": utility_type,
     }
+
+
+def detect_state_changes(obj: LifeObject) -> List[Dict[str, Any]]:
+    """Compare successive history deltas for state field changes (present vs past)."""
+    snapshots: List[Dict[str, Any]] = []
+    for h in obj.history or []:
+        delta = h.delta or {}
+        props = delta.get("properties") if isinstance(delta.get("properties"), dict) else {}
+        snap: Dict[str, Any] = {"at": h.at, "source_id": h.source_id}
+        for field in _TRACKED_STATE_FIELDS:
+            val = delta.get(field)
+            if val in (None, "", [], {}):
+                val = props.get(field)
+            if val not in (None, "", [], {}):
+                snap[field] = val
+        # Also mirror current object state as final snapshot later
+        if len(snap) > 2:
+            snapshots.append(snap)
+
+    # Append current state as present
+    present: Dict[str, Any] = {"at": now_iso(), "source_id": None}
+    state = getattr(obj, "state", None) or {}
+    props = obj.properties or {}
+    for field in _TRACKED_STATE_FIELDS:
+        val = state.get(field)
+        if val in (None, "", [], {}):
+            val = props.get(field)
+        if val not in (None, "", [], {}):
+            present[field] = val
+    if len(present) > 2:
+        snapshots.append(present)
+
+    changes: List[Dict[str, Any]] = []
+    last_seen: Dict[str, Any] = {}
+    for snap in snapshots:
+        for field in _TRACKED_STATE_FIELDS:
+            if field not in snap:
+                continue
+            cur = snap[field]
+            prev = last_seen.get(field)
+            if prev is not None and str(prev) != str(cur):
+                changes.append({
+                    "field": field,
+                    "from": prev,
+                    "to": cur,
+                    "at": snap.get("at"),
+                    "source_id": snap.get("source_id"),
+                })
+            last_seen[field] = cur
+    return changes

@@ -543,3 +543,217 @@ def test_dedup_normalize_helpers():
     assert keys.get("address_norm")
     # Title must not appear as identity key
     assert "title" not in keys
+
+
+# ---------------------------------------------------------------------------
+# AI enrichment — narrative / questions / insights / temporal / health
+# identity vs state — Gemini-absent fallback — Casa/Auto/Uni/Lavoro
+# ---------------------------------------------------------------------------
+def test_enrichment_casa_narrative_questions_health_identity_state():
+    async def body():
+        client, db = await _db()
+        user_id = uid("enrich_casa")
+        await _clean(db, user_id)
+        svc = _svc(db)
+
+        r1 = await svc.upsert_from_document(
+            user_id, {"id": "doc_rogito"}, _rogito_reasoning(),
+        )
+        home = r1["object"]
+        assert home["identity"].get("address") or home["identity_keys"].get("address_norm")
+        assert "address" in (home["identity"] or {}) or "cadastral_data" in (home["identity"] or {})
+        # properties preserved (non-destructive)
+        assert home["properties"].get("address") or home["identity"].get("address")
+
+        nar = home.get("narrative") or {}
+        assert (nar.get("text") or "").strip()
+        assert "casa" in nar["text"].lower() or "via" in nar["text"].lower()
+        assert nar.get("version", 0) >= 1
+        assert nar.get("source") == "deterministic"  # GEMINI=0
+
+        health = home.get("health") or {}
+        assert "completeness" in health
+        assert "reliability" in health
+        assert "missing_info" in health
+        assert "reasons" in health
+        assert isinstance(health.get("reasons"), list)
+
+        # mutuo + bollette → state fields + temporal/insights
+        await svc.upsert_from_document(user_id, {"id": "doc_mutuo"}, _mutuo_reasoning())
+        await svc.upsert_from_document(
+            user_id, {"id": "doc_b1"}, _bolletta_reasoning("doc_b1", "80,00"),
+        )
+        # Supplier change
+        bol2 = _bolletta_reasoning("doc_b2", "95,00")
+        bol2["type_specific"]["supplier"] = "NuovoFornitore SpA"
+        r_final = await svc.upsert_from_document(user_id, {"id": "doc_b2"}, bol2)
+        obj = r_final["object"]
+        assert obj["state"].get("supplier") == "NuovoFornitore SpA"
+        assert obj["state"].get("lender") or obj["properties"].get("lender")
+
+        insights = obj.get("insights") or []
+        assert isinstance(insights, list)
+        # temporal comparison present
+        assert obj.get("temporal") is not None
+        assert (obj["temporal"].get("observations") or [])
+
+        # Refresh questions via service API helper
+        qres = await svc.get_questions(user_id, obj["id"], refresh=True)
+        assert qres.get("ok")
+        assert isinstance(qres.get("pending_questions"), list)
+
+        hres = await svc.get_health(user_id, obj["id"], refresh=True)
+        assert hres["health"]["completeness"] is not None
+        assert hres["health"]["score"] is not None
+
+        await _clean(db, user_id)
+        client.close()
+
+    _run(body())
+
+
+def test_enrichment_auto_university_lavoro():
+    async def body():
+        client, db = await _db()
+        user_id = uid("enrich_avl")
+        await _clean(db, user_id)
+        svc = _svc(db)
+
+        auto = await svc.upsert_from_document(
+            user_id, {"id": "doc_lib"}, _libretto_reasoning(),
+        )
+        assert auto["object"]["type"] == "VEHICLE"
+        assert auto["object"]["identity"].get("plate") or auto["object"]["identity_keys"].get("plate")
+        assert "targa" in (auto["object"]["narrative"]["text"] or "").lower() or "panda" in (
+            auto["object"]["narrative"]["text"] or ""
+        ).lower()
+        await svc.upsert_from_document(
+            user_id, {"id": "doc_pol"}, _polizza_auto_reasoning(),
+        )
+        vehicles = await svc.list_objects(user_id, object_type="VEHICLE")
+        assert len(vehicles) == 1
+        assert vehicles[0]["state"].get("company") or vehicles[0]["properties"].get("company")
+
+        uni = await svc.upsert_from_document(
+            user_id,
+            {"id": "doc_piano"},
+            {
+                "document_type": "piano_di_studi",
+                "domain": "studio",
+                "title": "Piano di studi",
+                "summary": "Informatica Uni Test",
+                "confidence": 0.8,
+                "type_specific": {
+                    "institution": "Universita Test di Milano",
+                    "course_name": "Informatica",
+                },
+            },
+        )
+        assert uni["object"]["narrative"]["text"]
+        assert uni["object"]["health"]["reasons"]
+
+        job = await svc.upsert_from_document(
+            user_id,
+            {"id": "doc_busta"},
+            {
+                "document_type": "busta_paga",
+                "domain": "finanze",
+                "title": "Busta paga",
+                "summary": "Lavoro presso ACME",
+                "confidence": 0.7,
+                "type_specific": {"employer": "ACME Test SpA", "company": "ACME Test SpA"},
+            },
+        )
+        assert job["object"]["type"] == "JOB"
+        assert job["object"]["identity"].get("employer") or job["object"]["identity_keys"].get("employer")
+        assert job["object"]["narrative"]["text"]
+        assert job["object"]["pending_questions"] is not None
+
+        await _clean(db, user_id)
+        client.close()
+
+    _run(body())
+
+
+def test_enrichment_gemini_absent_fallback_and_isolation():
+    from life_objects.enrichment import (
+        deterministic_narrative,
+        deterministic_health,
+        refresh_enrichment,
+    )
+    from life_objects.models import LifeObject
+
+    async def body():
+        client, db = await _db()
+        u1, u2 = uid("en1"), uid("en2")
+        await _clean(db, u1)
+        await _clean(db, u2)
+        svc = _svc(db)
+        os.environ["LIFE_OBJECT_GEMINI"] = "0"
+
+        r = await svc.upsert_from_document(u1, {"id": "d"}, _rogito_reasoning())
+        obj = r["object"]
+        assert obj["narrative"]["source"] == "deterministic"
+        assert obj["health"]["source"] == "deterministic"
+
+        # Pure unit deterministic
+        lo = LifeObject(
+            user_id=u1,
+            type="HOME",
+            title="Casa",
+            identity={"address": "Via Roma 10"},
+            state={"supplier": "X"},
+            identity_keys={"address_norm": "via roma 10"},
+        )
+        nar = deterministic_narrative(lo)
+        assert nar.ai_used is False
+        assert nar.invented_facts is False
+        assert "casa" in nar.narrative.lower()
+        health = deterministic_health(lo)
+        assert 0 <= health.completeness <= 1
+        assert health.reasons
+
+        await refresh_enrichment(lo)
+        assert lo.narrative.text
+        assert lo.temporal is not None
+
+        # Isolation: u2 sees nothing
+        assert await svc.list_objects(u2, object_type="HOME") == []
+
+        await _clean(db, u1)
+        await _clean(db, u2)
+        client.close()
+
+    _run(body())
+
+
+def test_home_v3_dto_flag_off():
+    from life_objects.home_v3 import serialize_home_v3_feed, to_home_v3_card
+
+    os.environ["LIFE_OBJECT_HOME_UI_ENABLED"] = "0"
+    feed = serialize_home_v3_feed([{
+        "id": "lo_x",
+        "type": "HOME",
+        "title": "Casa",
+        "status": "active",
+        "narrative": {"text": "Hai una casa"},
+        "health": {"score": 0.8, "label": "healthy", "completeness": 0.9, "reliability": 0.7},
+        "insights": [{"title": "ok"}],
+        "pending_questions": [{"question": "POD?"}],
+        "documents": ["a"],
+        "updated_at": "2026-08-07",
+    }])
+    assert feed["enabled"] is False
+    assert feed["cards"] == []
+    card = to_home_v3_card({
+        "id": "lo_x",
+        "type": "HOME",
+        "title": "Casa",
+        "narrative": {"text": "Hai una casa in Via Roma"},
+        "health": {"score": 0.8, "label": "healthy"},
+        "insights": [],
+        "pending_questions": [],
+        "documents": [],
+    })
+    assert card["narrative"]
+    assert "Life Object" not in (card["narrative"] or "")

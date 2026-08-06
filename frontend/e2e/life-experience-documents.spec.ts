@@ -455,11 +455,66 @@ test.describe('Life Experience — REAL document upload + AI Document Understand
     expect(loBody.objects[0].type).toBe('HOME');
     expect((loBody.objects[0].documents || []).length).toBeGreaterThanOrEqual(2);
 
+    const home = loBody.objects[0];
+    const homeId = home.id as string;
+
+    // AI enrichment (deterministic fallback if Gemini absent) — API only, no Life Objects UI
+    const enrichRes = await fetch(`${API}/api/life-objects/${homeId}/enrich`, {
+      method: 'POST',
+      headers: auth(token),
+      body: JSON.stringify({
+        sections: ['narrative', 'questions', 'insights', 'temporal', 'health'],
+      }),
+    });
+    expect(enrichRes.ok).toBeTruthy();
+    const enrichBody = await enrichRes.json();
+    const enriched = enrichBody.object || home;
+
+    expect((enriched.narrative?.text || '').length).toBeGreaterThan(10);
+    expect(Array.isArray(enriched.pending_questions)).toBeTruthy();
+    expect(Array.isArray(enriched.insights)).toBeTruthy();
+    expect(enriched.health?.completeness).toBeDefined();
+    expect(enriched.health?.reliability).toBeDefined();
+    expect(enriched.health?.reasons).toBeTruthy();
+    expect(enriched.identity || enriched.identity_keys).toBeTruthy();
+    expect(enriched.state || enriched.properties).toBeTruthy();
+
+    const narRes = await fetch(`${API}/api/life-objects/${homeId}/narrative`, {
+      headers: auth(token),
+    });
+    expect(narRes.ok).toBeTruthy();
+    const narBody = await narRes.json();
+    expect((narBody.narrative?.text || '').length).toBeGreaterThan(5);
+
+    // Home V3 feed predisposto OFF — no branding surface
+    const feedRes = await fetch(`${API}/api/life-objects/home-v3-feed`, {
+      headers: auth(token),
+    });
+    expect(feedRes.ok).toBeTruthy();
+    const feedBody = await feedRes.json();
+    expect(feedBody.enabled).toBeFalsy();
+
     // Persist evidence for CI/manual review
     fs.mkdirSync(EVIDENCE_DIR, { recursive: true });
     fs.writeFileSync(
       path.join(EVIDENCE_DIR, 'shadow-life-objects-casa.json'),
-      JSON.stringify(loBody, null, 2),
+      JSON.stringify(
+        {
+          list: loBody,
+          enrichment: {
+            narrative: enriched.narrative,
+            pending_questions: enriched.pending_questions,
+            insights: enriched.insights,
+            health: enriched.health,
+            identity: enriched.identity,
+            state: enriched.state,
+            temporal: enriched.temporal,
+          },
+          home_v3_feed: feedBody,
+        },
+        null,
+        2,
+      ),
     );
   });
 });
