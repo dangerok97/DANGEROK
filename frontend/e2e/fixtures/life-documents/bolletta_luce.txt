@@ -1,0 +1,9 @@
+BOLLETTA ENERGIA ELETTRICA - Documento sintetico di test
+Fornitore: EnergiaTest SpA
+Cliente: Mario Rossi Test
+Fornitura per l'indirizzo: Via Roma 10, Milano
+Periodo di riferimento: 01/06/2026 - 31/07/2026
+Codice contratto: ET-998877
+Importo totale da pagare: EUR 87,40
+Scadenza pagamento: 15 settembre 2026
+Consumo: 210 kWh

@@ -198,6 +198,7 @@ test.describe('Life Experience AI-first', () => {
   });
 
   test('UI: conversazione naturale + upload + explain + exit', async ({ page }) => {
+    test.setTimeout(180_000);
     const { email, password } = await apiRegister('ui');
     await loginUI(page, email, password);
     const conv = page.getByTestId('life-setup-conversation');
@@ -219,9 +220,16 @@ test.describe('Life Experience AI-first', () => {
 
     const upload = page.getByTestId('life-setup-upload-doc');
     if (await upload.isVisible().catch(() => false)) {
-      await upload.click();
-      await page.waitForTimeout(2000);
-      await shot(page, '04-after-rogito');
+      // REAL Expo file picker (expo-document-picker web => native <input type=file>).
+      // Playwright intercepts the OS file chooser and feeds it a real synthetic fixture.
+      const fixture = path.join(__dirname, 'fixtures', 'life-documents', 'rogito.pdf');
+      const [chooser] = await Promise.all([page.waitForEvent('filechooser'), upload.click()]);
+      await chooser.setFiles(fixture);
+      await shot(page, '04-after-rogito-uploading');
+      await expect(page.getByTestId('life-setup-doc-result')).toBeVisible({ timeout: 90_000 });
+      await shot(page, '04-after-rogito-result');
+      await page.getByTestId('life-setup-doc-continue').click();
+      await page.waitForTimeout(1000);
     }
 
     if (await page.getByTestId('life-setup-why').isVisible().catch(() => false)) {

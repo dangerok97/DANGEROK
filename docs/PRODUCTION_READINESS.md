@@ -43,8 +43,8 @@ Stati usati nel resto dell’audit: `NON ESISTE` | `ARCHITETTURA` | `PROTOTIPO` 
 |------|-----|
 | Auth | Apple real; Google web client; JWT revoke; SecureStore device |
 | Home / Proactive | Stub channels empty; no push; Goal tab assente by design |
-| Life Experience | Upload binario Documents V2 da conversazione incompleto; consent UI calendario strategist |
-| Documents | Mobile picker/OCR device; storage locale-only |
+| Life Experience | Upload binario reale + AI Document Understanding (Gemini) **completato** (`feature/life-experience-ai-documents`); resta: consent UI calendario strategist, 9/13 tipi documento senza conferma Gemini reale dedicata (vedi `LIFE_EXPERIENCE_DOCUMENT_VERIFICATION.md`) |
+| Documents | Mobile picker/OCR device; storage locale-only; Life Experience file picker verificato solo su Expo web (Playwright), non su emulatore/device |
 | Calendar | Apple device; Google delete/reconnect completeness |
 | Comms | Email/WhatsApp zero |
 | Money | Finance/Open Banking zero |

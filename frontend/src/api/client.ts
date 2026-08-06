@@ -5,6 +5,7 @@ import { Platform } from 'react-native';
 import { storage } from '@/src/utils/storage';
 
 const BASE = process.env.EXPO_PUBLIC_BACKEND_URL;
+export const API_BASE_URL = BASE;
 const TOKEN_KEY = 'ora_auth_token';
 
 export const authToken = {
@@ -520,6 +521,86 @@ export const api = {
       wizard?: boolean;
       message?: string;
     }>('/life-setup/cancel', { method: 'POST', body: JSON.stringify({}) }),
+
+  // Life Experience — REAL document understanding (Documents V2 is the ONLY
+  // upload/OCR/storage pipeline; these calls only attach/poll/consume the
+  // SAME document and never re-implement upload or analysis).
+  lifeSetupAttachDocument: (documentId: string, docType?: string) =>
+    request<{
+      ok: boolean;
+      session?: Record<string, unknown>;
+      document_id?: string;
+      doc_type?: string;
+      pipeline_status?: string;
+      pipeline_status_label?: string;
+      message?: string;
+      error?: string;
+      wizard?: boolean;
+    }>('/life-setup/documents/attach', {
+      method: 'POST',
+      body: JSON.stringify({ document_id: documentId, doc_type: docType }),
+    }),
+  lifeSetupDocumentStatus: (documentId: string) =>
+    request<{
+      ok: boolean;
+      document_id?: string;
+      pipeline_status?: string;
+      pipeline_status_label?: string;
+      ready_for_consume?: boolean;
+      failed?: boolean;
+      life_reasoning_ready?: boolean;
+      requires_review?: boolean;
+      error?: string;
+    }>(`/life-setup/documents/${documentId}/status`),
+  lifeSetupConsumeDocument: (documentId: string, force = false) =>
+    request<{
+      ok: boolean;
+      session?: Record<string, unknown>;
+      turn?: LifeSetupTurn;
+      document_result?: LifeSetupDocumentResult;
+      profile?: Record<string, unknown> | null;
+      error?: string;
+      pipeline_status?: string;
+      resumable?: boolean;
+      wizard?: boolean;
+    }>(`/life-setup/documents/${documentId}/consume`, {
+      method: 'POST',
+      body: JSON.stringify({ force }),
+    }),
+  lifeSetupRetryDocument: (documentId: string) =>
+    request<{ ok: boolean; pipeline_status?: string; error?: string; wizard?: boolean }>(
+      `/life-setup/documents/${documentId}/retry`,
+      { method: 'POST' },
+    ),
+  lifeSetupDetachDocument: (documentId: string) =>
+    request<{ ok: boolean; document_id?: string; wizard?: boolean }>(
+      `/life-setup/documents/${documentId}/detach`,
+      { method: 'POST' },
+    ),
+  lifeSetupConfirmField: (domain: string, key: string) =>
+    request<{ ok: boolean; profile?: Record<string, unknown>; turn?: LifeSetupTurn; wizard?: boolean }>(
+      '/life-setup/documents/confirm-field',
+      { method: 'POST', body: JSON.stringify({ domain, key }) },
+    ),
+  lifeSetupCorrectField: (domain: string, key: string, value: unknown) =>
+    request<{ ok: boolean; profile?: Record<string, unknown>; turn?: LifeSetupTurn; wizard?: boolean }>(
+      '/life-setup/documents/correct-field',
+      { method: 'POST', body: JSON.stringify({ domain, key, value }) },
+    ),
+  lifeSetupRejectField: (domain: string, key: string) =>
+    request<{ ok: boolean; profile?: Record<string, unknown>; turn?: LifeSetupTurn; wizard?: boolean }>(
+      '/life-setup/documents/reject-field',
+      { method: 'POST', body: JSON.stringify({ domain, key }) },
+    ),
+  lifeSetupResolveConfirmation: (
+    domain: string,
+    key: string,
+    resolution: 'keep_existing' | 'use_new' | 'dismiss',
+  ) =>
+    request<{ ok: boolean; profile?: Record<string, unknown>; wizard?: boolean }>(
+      '/life-setup/documents/resolve-confirmation',
+      { method: 'POST', body: JSON.stringify({ domain, key, resolution }) },
+    ),
 
   // Action Engine — guided priority flows
   actionEngineOpen: (body: ActionEngineOpenBody) =>
@@ -1701,7 +1782,7 @@ export type LifeSetupTurn = {
     upload_hint?: string;
   } | null;
   alternative_question?: string | null;
-  actions?: Array<{ id: string; label: string; doc_type?: string }>;
+  actions?: { id: string; label: string; doc_type?: string }[];
   ui?: {
     mode?: string;
     wizard?: boolean;
@@ -1711,4 +1792,43 @@ export type LifeSetupTurn = {
     indicative_minutes?: string;
   };
   plan?: Record<string, unknown>;
+};
+
+/** A single data point found (or to verify) in a REAL, Gemini-understood
+ * document — never raw JSON, always a labeled/valued field for the UI. */
+export type LifeSetupDocumentField = {
+  key: string;
+  label: string;
+  value?: unknown;
+  existing_value?: unknown;
+  new_value?: unknown;
+  confidence?: number;
+  kind?: string;
+  needs_confirmation?: boolean;
+};
+
+/** Result of `POST /life-setup/documents/{id}/consume` — the ONLY document
+ * pipeline is Documents V2; this is the extra "life reasoning" read-out. */
+export type LifeSetupDocumentResult = {
+  document_id: string;
+  doc_type?: string;
+  domain?: string;
+  cosa_ho_capito?: string;
+  reason_summary?: string;
+  dati_trovati?: LifeSetupDocumentField[];
+  dati_da_verificare?: LifeSetupDocumentField[];
+  ambiguities?: { field: string; description: string }[];
+  cosa_posso_fare?: { action_type: string; title: string; description?: string; requires_consent?: boolean }[];
+  draft_events?: {
+    event_id?: string;
+    title?: string;
+    start_datetime?: string;
+    confidence?: number;
+    confirm_endpoint?: string;
+  }[];
+  related_documents?: { document_id: string; reason: string }[];
+  documento_originale?: { document_id: string; filename?: string; mime_type?: string; download_url?: string };
+  ai_used?: boolean;
+  provider?: string;
+  model?: string;
 };

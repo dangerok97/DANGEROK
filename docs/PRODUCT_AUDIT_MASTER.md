@@ -10,6 +10,8 @@
 | Mobile nativo | **NON VERIFICATO** (never) su tutte le feature UI |
 | PRODUZIONE | **Non assegnata** a nessun modulo |
 
+> **Aggiornamento post-audit (2026-08-06, branch `feature/life-experience-ai-documents`):** implementato upload documento reale (file picker Expo) + AI Document Understanding (Gemini) in Life Experience, precedentemente marcato "upload binario V2 incompleto" nella riga Life Setup sotto. Vedi `LIFE_EXPERIENCE_REAL_DOCUMENTS.md`, `AI_DOCUMENT_UNDERSTANDING.md`, `LIFE_DOCUMENT_MAPPING.md`, `CROSS_DOCUMENT_REASONING.md`, `LIFE_EXPERIENCE_DOCUMENT_VERIFICATION.md` per il dettaglio onesto (per tipo documento) — questo audit di base resta lo snapshot originale del `09404f1`.
+
 ### Legenda stato (unica ammessa)
 
 | Stato | Significato |

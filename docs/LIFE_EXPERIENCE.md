@@ -1,7 +1,7 @@
 # Life Experience — esperienza AI-first di ORA
 
 Ultimo aggiornamento: 2026-08-06  
-Branch: `feature/life-experience-ai`
+Branch: `feature/life-experience-ai-documents` (da `feature/life-experience-ai`)
 
 ## Cos’è
 
@@ -38,12 +38,17 @@ ORA (AI Life Strategist) dirige la conversazione: decide *cosa* chiedere, *quand
 | Auto | auto → libretto → assicurazione → revisione → bollo → reminder |
 | Università | università → piano studi → esami → docs → study plan |
 
+## Documenti reali + AI Document Understanding
+
+Da `feature/life-experience-ai-documents`: quando ORA raccomanda un documento (rogito, libretto, bolletta, mutuo, piano di studi…), la conversazione apre il **vero file picker Expo**, avvia l'upload attraverso Documents V2 (unica pipeline), e dopo l'estrazione esegue un livello aggiuntivo di comprensione AI (Gemini via Provider Manager, fallback deterministico onesto se assente) che mappa i dati nel Life Profile con provenienza completa. Dettagli: `LIFE_EXPERIENCE_REAL_DOCUMENTS.md`, `AI_DOCUMENT_UNDERSTANDING.md`, `LIFE_DOCUMENT_MAPPING.md`, `CROSS_DOCUMENT_REASONING.md`, verifica onesta per tipo in `LIFE_EXPERIENCE_DOCUMENT_VERIFICATION.md`.
+
 ## Stack tecnico
 
 - `backend/ai_life_strategist/` — reasoning loop, Gemini (Provider Manager), fallback
-- `backend/life_setup/` — sessione, Life Profile, sync Graph/Goal
+- `backend/life_setup/` — sessione, Life Profile, sync Graph/Goal, documenti reali (`document_mapping.py`, `cross_document.py`)
+- `backend/documents/intelligence/life_reasoning.py` — AI Document Understanding (Gemini, structured Pydantic, fallback)
 - Home adapter + Proactive generator — benefit cards italiane
-- FE `frontend/app/life-setup/` — conversazione (route legacy, esperienza Life Experience)
+- FE `frontend/app/life-setup/` — conversazione (route legacy, esperienza Life Experience) + file picker reale + pannello risultato documento
 
 ## Fuori scope (stub)
 

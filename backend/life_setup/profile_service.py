@@ -51,27 +51,46 @@ class LifeProfileService:
         linked_doc_ids: Optional[List[str]] = None,
         confirmed: bool = False,
         allow_overwrite_confirmed: bool = False,
+        raw_value: Any = None,
+        status: Optional[str] = None,
+        source_document_id: Optional[str] = None,
+        source_page: Optional[int] = None,
+        provider: Optional[str] = None,
+        model: Optional[str] = None,
+        analysis_version: Optional[int] = None,
     ) -> LifeProfile:
         profile = await self.get_or_create(user_id)
         if domain not in profile.domains:
             profile.domains[domain] = DomainProfile(domain=domain)
         dom = profile.domains[domain]
         existing = dom.objects.get(key)
-        if existing and existing.confirmed and not allow_overwrite_confirmed:
-            # AI / system cannot overwrite confirmed
+        if existing and existing.status in ("confirmed", "corrected") and not allow_overwrite_confirmed:
+            # AI / system cannot overwrite a user-confirmed or user-corrected field.
+            if source != "user_confirmed":
+                return profile
+        elif existing and existing.confirmed and not allow_overwrite_confirmed:
             if source != "user_confirmed":
                 return profile
         conf = confidence if confidence is not None else source_confidence(source)
         if existing:
             conf = merge_confidence(existing.confidence, conf, overwrite_confirmed=allow_overwrite_confirmed)
+        field_status = status or ("confirmed" if confirmed else "extracted")
         dom.objects[key] = ProfileObject(
             key=key,
             value=value,
+            raw_value=raw_value if raw_value is not None else value,
             confidence=conf,
             source=source,
+            status=field_status,  # type: ignore[arg-type]
             updated_at=now_iso(),
             linked_doc_ids=list(linked_doc_ids or (existing.linked_doc_ids if existing else [])),
             confirmed=confirmed or (existing.confirmed if existing else False),
+            source_document_id=source_document_id or (existing.source_document_id if existing else None),
+            source_page=source_page if source_page is not None else (existing.source_page if existing else None),
+            provider=provider or (existing.provider if existing else None),
+            model=model or (existing.model if existing else None),
+            analysis_version=analysis_version if analysis_version is not None else (existing.analysis_version if existing else None),
+            confirmed_at=now_iso() if confirmed else (existing.confirmed_at if existing else None),
         )
         if linked_doc_ids:
             for did in linked_doc_ids:
@@ -117,8 +136,158 @@ class LifeProfileService:
             source="user_confirmed",
             confidence=0.95,
             confirmed=True,
+            status="corrected",
             allow_overwrite_confirmed=True,
         )
+
+    async def apply_mapped_fields(
+        self,
+        user_id: str,
+        mapped_fields: List[Any],
+        *,
+        source_document_id: str,
+        provider: Optional[str] = None,
+        model: Optional[str] = None,
+        analysis_version: Optional[int] = None,
+    ) -> LifeProfile:
+        """Apply document-extracted fields (see `life_setup.document_mapping`).
+
+        Never overwrites a confirmed/corrected field — the caller is expected
+        to have already run `cross_document.detect_conflicts` and routed any
+        conflicting fields to `pending_confirmations` instead of here.
+        """
+        profile = await self.get_or_create(user_id)
+        for mf in mapped_fields:
+            domain = mf.domain
+            if domain not in profile.domains:
+                profile.domains[domain] = DomainProfile(domain=domain)
+            dom = profile.domains[domain]
+            existing = dom.objects.get(mf.key)
+            if existing and existing.status in ("confirmed", "corrected"):
+                continue  # protected — never silently overwritten
+            profile = await self.upsert_fact(
+                user_id,
+                domain=domain,
+                key=mf.key,
+                value=mf.value,
+                raw_value=mf.raw_value,
+                source="document_extract",
+                confidence=mf.confidence,
+                status=mf.status,
+                linked_doc_ids=[source_document_id],
+                source_document_id=source_document_id,
+                source_page=mf.source_page,
+                provider=provider,
+                model=model,
+                analysis_version=analysis_version,
+            )
+        return profile
+
+    async def confirm_field(self, user_id: str, domain: str, key: str) -> LifeProfile:
+        """User confirms a suggested/extracted field as-is."""
+        profile = await self.get_or_create(user_id)
+        dom = profile.domains.get(domain)
+        obj = dom.objects.get(key) if dom else None
+        if not obj:
+            return profile
+        return await self.upsert_fact(
+            user_id,
+            domain=domain,
+            key=key,
+            value=obj.value,
+            raw_value=obj.raw_value,
+            source="user_confirmed",
+            confidence=max(obj.confidence, 0.9),
+            confirmed=True,
+            status="confirmed",
+            allow_overwrite_confirmed=True,
+            source_document_id=obj.source_document_id,
+            provider=obj.provider,
+            model=obj.model,
+            analysis_version=obj.analysis_version,
+        )
+
+    async def reject_field(self, user_id: str, domain: str, key: str) -> LifeProfile:
+        """User rejects a suggested/extracted field — value cleared, status=rejected."""
+        profile = await self.get_or_create(user_id)
+        dom = profile.domains.get(domain)
+        if not dom or key not in dom.objects:
+            return profile
+        obj = dom.objects[key]
+        obj.status = "rejected"  # type: ignore[assignment]
+        obj.value = None
+        obj.confirmed = False
+        obj.updated_at = now_iso()
+        self._refresh_domain(dom)
+        await self.repo.save_profile(profile)
+        return profile
+
+    async def add_pending_confirmation(self, user_id: str, domain: str, request: Dict[str, Any]) -> LifeProfile:
+        profile = await self.get_or_create(user_id)
+        if domain not in profile.domains:
+            profile.domains[domain] = DomainProfile(domain=domain)
+        dom = profile.domains[domain]
+        dedupe_key = (request.get("key"), request.get("source_document_id"))
+        dom.pending_confirmations = [
+            p for p in dom.pending_confirmations
+            if (p.get("key"), p.get("source_document_id")) != dedupe_key
+        ]
+        dom.pending_confirmations.append(request)
+        dom.updated_at = now_iso()
+        await self.repo.save_profile(profile)
+        return profile
+
+    async def resolve_pending_confirmation(
+        self, user_id: str, domain: str, key: str, resolution: str,
+    ) -> LifeProfile:
+        profile = await self.get_or_create(user_id)
+        dom = profile.domains.get(domain)
+        if not dom:
+            return profile
+        match = next((p for p in dom.pending_confirmations if p.get("key") == key), None)
+        dom.pending_confirmations = [p for p in dom.pending_confirmations if p.get("key") != key]
+        await self.repo.save_profile(profile)
+        if match and resolution == "use_new":
+            field = match.get("field") or {}
+            profile = await self.upsert_fact(
+                user_id,
+                domain=domain,
+                key=key,
+                value=field.get("value"),
+                raw_value=field.get("raw_value"),
+                source="user_confirmed",
+                confidence=field.get("confidence") or 0.9,
+                confirmed=True,
+                status="confirmed",
+                allow_overwrite_confirmed=True,
+                source_document_id=match.get("source_document_id"),
+            )
+        return profile
+
+    async def add_related_documents(self, user_id: str, domain: str, links: List[Any]) -> LifeProfile:
+        profile = await self.get_or_create(user_id)
+        if domain not in profile.domains:
+            profile.domains[domain] = DomainProfile(domain=domain)
+        dom = profile.domains[domain]
+        seen = {(r.get("document_id"), r.get("object_type")) for r in dom.related_documents}
+        changed = False
+        for link in links:
+            key = (link.document_id, link.object_type)
+            if key in seen:
+                continue
+            seen.add(key)
+            changed = True
+            dom.related_documents.append({
+                "document_id": link.document_id,
+                "object_type": link.object_type,
+                "identifier": link.identifier,
+                "match_confidence": link.match_confidence,
+                "reason": link.reason,
+            })
+        if changed:
+            dom.updated_at = now_iso()
+            await self.repo.save_profile(profile)
+        return profile
 
     async def delete_fact(self, user_id: str, domain: str, key: str) -> LifeProfile:
         """User delete — never AI."""
