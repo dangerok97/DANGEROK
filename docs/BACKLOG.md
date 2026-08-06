@@ -4,6 +4,15 @@ Attività piccole e verificabili derivate da `docs/ROADMAP.md` e dall’audit.
 
 ---
 
+## BACKLOG-SEMANTIC — Semantic Extraction + Gap Analyzer
+
+- **Stato:** completato (2026-08-06, branch `feature/semantic-extraction-gap-analyzer`)
+- **Obiettivo:** estrarre slot strutturati; domande dinamiche; fix “Fra due settimane parto”.
+- **Aree:** `backend/semantic_engine/`, CE orchestrator, AE travel flow, FE action summary
+- **Accettazione:** departure-only → destinazione; Vibo → alloggio; pytest 17; Playwright `semantic-extraction-gap.spec.ts`
+- **Esito:** implementato; Gemini opzionale
+- **Priorità:** critica (fatto)
+
 ## BACKLOG-001 — Allineare label “In arrivo” su moduli già vivi
 
 - **Stato:** completato (2026-08-04, branch `feature/documents-ui-alignment`)

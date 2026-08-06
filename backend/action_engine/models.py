@@ -154,6 +154,11 @@ class ActionSession(BaseModel):
                     "validation_error",
                     "duplicate_plan",
                     "timezone",
+                    "known_slots",
+                    "gap",
+                    "next_slot",
+                    "next_best_question",
+                    "understood_summary",
                 )
             },
             "turns": [t.model_dump() for t in self.turns],

@@ -1,0 +1,1572 @@
+[
+  {
+    "text": "Fra due settimane parto.",
+    "intent": "travel",
+    "expect_slots": [
+      "departure_date"
+    ],
+    "forbid_next_contains": "quando parti e quando torni"
+  },
+  {
+    "text": "Tra due settimane parto per le vacanze.",
+    "intent": "travel",
+    "expect_slots": [
+      "departure_date"
+    ]
+  },
+  {
+    "text": "Fra tre giorni parto.",
+    "intent": "travel",
+    "expect_slots": [
+      "departure_date"
+    ],
+    "forbid_next_contains": "quando parti e quando torni"
+  },
+  {
+    "text": "Tra tre giorni parto per le vacanze.",
+    "intent": "travel",
+    "expect_slots": [
+      "departure_date"
+    ]
+  },
+  {
+    "text": "Fra una settimana parto.",
+    "intent": "travel",
+    "expect_slots": [
+      "departure_date"
+    ],
+    "forbid_next_contains": "quando parti e quando torni"
+  },
+  {
+    "text": "Tra una settimana parto per le vacanze.",
+    "intent": "travel",
+    "expect_slots": [
+      "departure_date"
+    ]
+  },
+  {
+    "text": "Fra un mese parto.",
+    "intent": "travel",
+    "expect_slots": [
+      "departure_date"
+    ],
+    "forbid_next_contains": "quando parti e quando torni"
+  },
+  {
+    "text": "Tra un mese parto per le vacanze.",
+    "intent": "travel",
+    "expect_slots": [
+      "departure_date"
+    ]
+  },
+  {
+    "text": "Fra quattro giorni parto.",
+    "intent": "travel",
+    "expect_slots": [
+      "departure_date"
+    ],
+    "forbid_next_contains": "quando parti e quando torni"
+  },
+  {
+    "text": "Tra quattro giorni parto per le vacanze.",
+    "intent": "travel",
+    "expect_slots": [
+      "departure_date"
+    ]
+  },
+  {
+    "text": "Fra cinque settimane parto.",
+    "intent": "travel",
+    "expect_slots": [
+      "departure_date"
+    ],
+    "forbid_next_contains": "quando parti e quando torni"
+  },
+  {
+    "text": "Tra cinque settimane parto per le vacanze.",
+    "intent": "travel",
+    "expect_slots": [
+      "departure_date"
+    ]
+  },
+  {
+    "text": "Fra dieci giorni parto.",
+    "intent": "travel",
+    "expect_slots": [
+      "departure_date"
+    ],
+    "forbid_next_contains": "quando parti e quando torni"
+  },
+  {
+    "text": "Tra dieci giorni parto per le vacanze.",
+    "intent": "travel",
+    "expect_slots": [
+      "departure_date"
+    ]
+  },
+  {
+    "text": "Fra sei mesi parto.",
+    "intent": "travel",
+    "expect_slots": [
+      "departure_date"
+    ],
+    "forbid_next_contains": "quando parti e quando torni"
+  },
+  {
+    "text": "Tra sei mesi parto per le vacanze.",
+    "intent": "travel",
+    "expect_slots": [
+      "departure_date"
+    ]
+  },
+  {
+    "text": "Vado a Roma in auto.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination",
+      "transport"
+    ]
+  },
+  {
+    "text": "Dal 1 al 15 settembre vado a Roma.",
+    "intent": "travel",
+    "expect_slots": [
+      "departure_date",
+      "return_date",
+      "destination"
+    ]
+  },
+  {
+    "text": "Vado a Milano in auto.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination",
+      "transport"
+    ]
+  },
+  {
+    "text": "Dal 1 al 15 settembre vado a Milano.",
+    "intent": "travel",
+    "expect_slots": [
+      "departure_date",
+      "return_date",
+      "destination"
+    ]
+  },
+  {
+    "text": "Vado a Napoli in auto.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination",
+      "transport"
+    ]
+  },
+  {
+    "text": "Dal 1 al 15 settembre vado a Napoli.",
+    "intent": "travel",
+    "expect_slots": [
+      "departure_date",
+      "return_date",
+      "destination"
+    ]
+  },
+  {
+    "text": "Vado a Palermo in auto.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination",
+      "transport"
+    ]
+  },
+  {
+    "text": "Dal 1 al 15 settembre vado a Palermo.",
+    "intent": "travel",
+    "expect_slots": [
+      "departure_date",
+      "return_date",
+      "destination"
+    ]
+  },
+  {
+    "text": "Vado a Firenze in auto.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination",
+      "transport"
+    ]
+  },
+  {
+    "text": "Dal 1 al 15 settembre vado a Firenze.",
+    "intent": "travel",
+    "expect_slots": [
+      "departure_date",
+      "return_date",
+      "destination"
+    ]
+  },
+  {
+    "text": "Vado a Bologna in auto.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination",
+      "transport"
+    ]
+  },
+  {
+    "text": "Dal 1 al 15 settembre vado a Bologna.",
+    "intent": "travel",
+    "expect_slots": [
+      "departure_date",
+      "return_date",
+      "destination"
+    ]
+  },
+  {
+    "text": "Vado a Torino in auto.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination",
+      "transport"
+    ]
+  },
+  {
+    "text": "Dal 1 al 15 settembre vado a Torino.",
+    "intent": "travel",
+    "expect_slots": [
+      "departure_date",
+      "return_date",
+      "destination"
+    ]
+  },
+  {
+    "text": "Vado a Bari in auto.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination",
+      "transport"
+    ]
+  },
+  {
+    "text": "Dal 1 al 15 settembre vado a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "departure_date",
+      "return_date",
+      "destination"
+    ]
+  },
+  {
+    "text": "Vado a Catania in auto.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination",
+      "transport"
+    ]
+  },
+  {
+    "text": "Dal 1 al 15 settembre vado a Catania.",
+    "intent": "travel",
+    "expect_slots": [
+      "departure_date",
+      "return_date",
+      "destination"
+    ]
+  },
+  {
+    "text": "Vado a Genova in auto.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination",
+      "transport"
+    ]
+  },
+  {
+    "text": "Dal 1 al 15 settembre vado a Genova.",
+    "intent": "travel",
+    "expect_slots": [
+      "departure_date",
+      "return_date",
+      "destination"
+    ]
+  },
+  {
+    "text": "Dal 5 al 12 gennaio parto per la Sicilia.",
+    "intent": "travel",
+    "expect_slots": [
+      "departure_date",
+      "return_date"
+    ]
+  },
+  {
+    "text": "Dal 5 al 12 febbraio parto per la Sicilia.",
+    "intent": "travel",
+    "expect_slots": [
+      "departure_date",
+      "return_date"
+    ]
+  },
+  {
+    "text": "Dal 5 al 12 marzo parto per la Sicilia.",
+    "intent": "travel",
+    "expect_slots": [
+      "departure_date",
+      "return_date"
+    ]
+  },
+  {
+    "text": "Dal 5 al 12 aprile parto per la Sicilia.",
+    "intent": "travel",
+    "expect_slots": [
+      "departure_date",
+      "return_date"
+    ]
+  },
+  {
+    "text": "Dal 5 al 12 maggio parto per la Sicilia.",
+    "intent": "travel",
+    "expect_slots": [
+      "departure_date",
+      "return_date"
+    ]
+  },
+  {
+    "text": "Dal 5 al 12 giugno parto per la Sicilia.",
+    "intent": "travel",
+    "expect_slots": [
+      "departure_date",
+      "return_date"
+    ]
+  },
+  {
+    "text": "Dal 5 al 12 luglio parto per la Sicilia.",
+    "intent": "travel",
+    "expect_slots": [
+      "departure_date",
+      "return_date"
+    ]
+  },
+  {
+    "text": "Dal 5 al 12 agosto parto per la Sicilia.",
+    "intent": "travel",
+    "expect_slots": [
+      "departure_date",
+      "return_date"
+    ]
+  },
+  {
+    "text": "Dal 5 al 12 settembre parto per la Sicilia.",
+    "intent": "travel",
+    "expect_slots": [
+      "departure_date",
+      "return_date"
+    ]
+  },
+  {
+    "text": "Dal 5 al 12 ottobre parto per la Sicilia.",
+    "intent": "travel",
+    "expect_slots": [
+      "departure_date",
+      "return_date"
+    ]
+  },
+  {
+    "text": "Dal 5 al 12 novembre parto per la Sicilia.",
+    "intent": "travel",
+    "expect_slots": [
+      "departure_date",
+      "return_date"
+    ]
+  },
+  {
+    "text": "Dal 5 al 12 dicembre parto per la Sicilia.",
+    "intent": "travel",
+    "expect_slots": [
+      "departure_date",
+      "return_date"
+    ]
+  },
+  {
+    "text": "Devo preparare l'esame di Psicologia.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Esame di Psicologia il 18 settembre.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo preparare l'esame di Matematica.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Esame di Matematica il 18 settembre.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo preparare l'esame di Fisica.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Esame di Fisica il 18 settembre.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo preparare l'esame di Storia.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Esame di Storia il 18 settembre.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo preparare l'esame di Diritto.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Esame di Diritto il 18 settembre.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo preparare l'esame di Economia.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Esame di Economia il 18 settembre.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo preparare l'esame di Biologia.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Esame di Biologia il 18 settembre.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo preparare l'esame di Chimica.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Esame di Chimica il 18 settembre.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo preparare l'esame di Informatica.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Esame di Informatica il 18 settembre.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo preparare l'esame di Filosofia.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Esame di Filosofia il 18 settembre.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Ho il dentista domani alle 15.",
+    "intent": "medical",
+    "expect_slots": [
+      "appointment_type"
+    ]
+  },
+  {
+    "text": "Visita medica dopodomani alle 10.",
+    "intent": "medical",
+    "expect_slots": [
+      "appointment_type"
+    ]
+  },
+  {
+    "text": "Dentista lunedì prossimo alle 16.",
+    "intent": "medical",
+    "expect_slots": [
+      "appointment_type"
+    ]
+  },
+  {
+    "text": "Visita oculistica oggi alle 11.",
+    "intent": "medical",
+    "expect_slots": [
+      "appointment_type"
+    ]
+  },
+  {
+    "text": "Devo pagare la bolletta Enel di 87 euro.",
+    "intent": "payment",
+    "expect_slots": [
+      "amount"
+    ]
+  },
+  {
+    "text": "Fattura Acea 45 euro.",
+    "intent": "payment",
+    "expect_slots": [
+      "amount"
+    ]
+  },
+  {
+    "text": "Pagare TIM 29 euro entro venerdì.",
+    "intent": "payment",
+    "expect_slots": [
+      "amount"
+    ]
+  },
+  {
+    "text": "Bolletta gas 120 euro.",
+    "intent": "payment",
+    "expect_slots": [
+      "amount"
+    ]
+  },
+  {
+    "text": "Oggi parto.",
+    "intent": null,
+    "expect_slots": []
+  },
+  {
+    "text": "Domani ho un esame.",
+    "intent": null,
+    "expect_slots": []
+  },
+  {
+    "text": "Dopodomani visita.",
+    "intent": null,
+    "expect_slots": []
+  },
+  {
+    "text": "Questo weekend vado via.",
+    "intent": null,
+    "expect_slots": []
+  },
+  {
+    "text": "Lunedì prossimo esame.",
+    "intent": null,
+    "expect_slots": []
+  },
+  {
+    "text": "Stasera alle 21 cena.",
+    "intent": null,
+    "expect_slots": []
+  },
+  {
+    "text": "Per tre giorni a Roma.",
+    "intent": null,
+    "expect_slots": []
+  },
+  {
+    "text": "Fra due settimane parto.",
+    "intent": null,
+    "expect_slots": []
+  },
+  {
+    "text": "Dal 9 al 24 agosto vado a Vibo Marina in auto.",
+    "intent": null,
+    "expect_slots": []
+  },
+  {
+    "text": "Appuntamento il 03/04/2027.",
+    "intent": null,
+    "expect_slots": []
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 1 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 1.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 2 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 2.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 3 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 3.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 4 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 4.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 5 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 5.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 6 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 6.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 7 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 7.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 8 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 8.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 9 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 9.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 10 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 10.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 11 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 11.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 12 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 12.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 13 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 13.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 14 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 14.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 15 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 15.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 16 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 16.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 17 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 17.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 18 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 18.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 19 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 19.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 20 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 20.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 21 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 21.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 22 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 22.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 23 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 23.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 24 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 24.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 25 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 25.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 26 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 26.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 27 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 27.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 28 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 28.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 29 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 29.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 30 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 30.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 31 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 31.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 32 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 32.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 33 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 33.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 34 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 34.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 35 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 35.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 36 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 36.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 37 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 37.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 38 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 38.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 39 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 39.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 40 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 40.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 41 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 41.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 42 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 42.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 43 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 43.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 44 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 44.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 45 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 45.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 46 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 46.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 47 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 47.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 48 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 48.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 49 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 49.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 50 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 50.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 51 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 51.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 52 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 52.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 53 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 53.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 54 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 54.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 55 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 55.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 56 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 56.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 57 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 57.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 58 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 58.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 59 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 59.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 60 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 60.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 61 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 61.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 62 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 62.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 63 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 63.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 64 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 64.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 65 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 65.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 66 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 66.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  },
+  {
+    "text": "Devo organizzare il viaggio numero 67 a Bari.",
+    "intent": "travel",
+    "expect_slots": [
+      "destination"
+    ]
+  },
+  {
+    "text": "Preparare esame Storia Medievale variante 67.",
+    "intent": "study",
+    "expect_slots": [
+      "subject"
+    ]
+  }
+]

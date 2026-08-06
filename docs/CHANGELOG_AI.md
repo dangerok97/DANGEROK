@@ -1,5 +1,29 @@
 # ORA — AI Changelog
 
+## 2026-08-06 — Semantic Extraction + Gap Analyzer
+
+### Request
+
+Implement ORA Semantic Extraction Layer + Gap Analyzer on branch `feature/semantic-extraction-gap-analyzer` from Home tip `90b3fb1`. Fix travel bug: “Fra due settimane parto.” must not ask “Quando parti e quando torni?”. Gemini optional via Provider Manager. Full E2E + docs + commit `feat: add semantic extraction and gap analyzer`.
+
+### Actions
+
+- Package `backend/semantic_engine/` (models, dates, deterministic, gemini optional, normalizer, context_merge, gap_analyzer, schemas, cache, service, router)
+- Wire Conversation Engine → Semantic → Gap → Action Engine; session entity fields
+- Travel AE: split departure_date / return_date; lodging when core known; ban combined dates Q
+- FE: dynamic questions + understood summary (Partenza/Destinazione/Ritorno)
+- Tests: `test_semantic_engine.py` (**17 passed**) + corpus ≥200; Playwright `semantic-extraction-gap.spec.ts`
+- Docs: SEMANTIC_ENGINE_*, ENTITY_MODEL, GAP_ANALYZER, SEMANTIC_ENGINE_VERIFICATION + architecture updates
+
+### Results
+
+- pytest `tests/test_semantic_engine.py`: **17 passed**
+- Travel proof: fortnight → «Dove andrai?»; after Vibo → return only; full Vibo → lodging
+- Commit: `feat: add semantic extraction and gap analyzer`
+- Limits: Gemini optional; deterministic sufficient for mandatory Italian cases
+
+---
+
 ## 2026-08-06 — Home Goal presentation aggregation
 
 ### Request

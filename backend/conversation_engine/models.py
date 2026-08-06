@@ -86,6 +86,12 @@ class ConversationSession(BaseModel):
     voice_meta: Optional[Dict[str, Any]] = None
     suggestion_id: Optional[str] = None
     known_slots: Dict[str, Any] = Field(default_factory=dict)
+    extracted_entities: Dict[str, Any] = Field(default_factory=dict)
+    confirmed_entities: Dict[str, Any] = Field(default_factory=dict)
+    missing_slots: List[str] = Field(default_factory=list)
+    ambiguous_slots: List[str] = Field(default_factory=list)
+    extraction_version: Optional[str] = None
+    last_extraction_at: Optional[str] = None
     meta: Dict[str, Any] = Field(default_factory=dict)
 
     def touch(self) -> None:
@@ -117,6 +123,36 @@ class ConversationSession(BaseModel):
         self.artifacts.append(ArtifactRef(kind=kind, id=aid, label=label, meta=meta))
         self.touch()
 
+    def understood_summary(self) -> Dict[str, str]:
+        """Compact human labels — no technical field names for UI."""
+        labels = {
+            "departure_date": "Partenza",
+            "return_date": "Ritorno",
+            "destination": "Destinazione",
+            "transport": "Trasporto",
+            "lodging": "Alloggio",
+            "subject": "Materia",
+            "exam_date": "Data esame",
+            "appointment_type": "Visita",
+            "appointment_date": "Data",
+            "appointment_time": "Ora",
+            "payee": "Beneficiario",
+            "amount": "Importo",
+        }
+        out: Dict[str, str] = {}
+        src = {**(self.known_slots or {}), **{
+            k: (v.get("normalized") if isinstance(v, dict) else v)
+            for k, v in (self.extracted_entities or {}).items()
+        }}
+        for key, label in labels.items():
+            v = src.get(key)
+            if v in (None, "", []):
+                continue
+            if isinstance(v, dict):
+                v = v.get("label") or v.get("normalized") or v.get("start_date") or v
+            out[label] = str(v)
+        return out
+
     def public(self, *, include_history: bool = False) -> Dict[str, Any]:
         d: Dict[str, Any] = {
             "id": self.id,
@@ -135,6 +171,13 @@ class ConversationSession(BaseModel):
             "voice_meta": self.voice_meta,
             "suggestion_id": self.suggestion_id,
             "known_slots": self.known_slots,
+            "extracted_entities": self.extracted_entities,
+            "confirmed_entities": self.confirmed_entities,
+            "missing_slots": self.missing_slots,
+            "ambiguous_slots": self.ambiguous_slots,
+            "extraction_version": self.extraction_version,
+            "last_extraction_at": self.last_extraction_at,
+            "understood_summary": self.understood_summary(),
             "created_at": self.created_at,
             "updated_at": self.updated_at,
             "meta": {
@@ -149,6 +192,8 @@ class ConversationSession(BaseModel):
                     "stub_origin",
                     "proactive_context",
                     "synthetic_prompt",
+                    "gap",
+                    "reason_summary",
                 )
             },
         }

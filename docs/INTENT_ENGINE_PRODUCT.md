@@ -16,7 +16,8 @@ Home → Priority → Intent Classification → Intent → Action Engine → Flo
 
 - High confidence → open the correct flow immediately.
 - Low confidence → ask: *“Non sono sicuro. Vuoi preparare un esame oppure creare un evento?”* — never open the wrong flow.
-- Action Engine never parses free text for routing; it only consumes an **Intent** object.
+- Intent classifies; Semantic Extraction fills entities/slots (no duplicate intent logic).
+- Action Engine never parses free text for routing; it consumes **Intent** + Gap Analyzer slots.
 
 ## Recognized intents (v1)
 

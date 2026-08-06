@@ -16,6 +16,43 @@ import { haptic } from '@/src/utils/haptic';
 import { humanizeError } from '@/src/utils/errors';
 import { api, ActionEngineSession } from '@/src/api/client';
 
+/** Compact human summary — never show technical slot ids. */
+function buildUnderstoodSummary(session: ActionEngineSession): Record<string, string> {
+  const fromMeta = (session.meta?.understood_summary || {}) as Record<string, string>;
+  if (fromMeta && Object.keys(fromMeta).length) return fromMeta;
+  const ent = (session.meta?.intent_entities || {}) as Record<string, unknown>;
+  const answers = (session.answers || {}) as Record<string, unknown>;
+  const known = (session.meta?.known_slots || {}) as Record<string, unknown>;
+  const pick = (...keys: string[]) => {
+    for (const k of keys) {
+      let v: unknown = known[k] ?? ent[k] ?? answers[k];
+      if (v && typeof v === 'object' && v !== null) {
+        const o = v as Record<string, unknown>;
+        v = o.label ?? o.normalized ?? o.departure_date ?? o.start_date ?? o.return_date ?? o.end_date;
+      }
+      if (v !== undefined && v !== null && String(v).trim()) return String(v);
+    }
+    return null;
+  };
+  const out: Record<string, string> = {};
+  const dep = pick('departure_date', 'start_date');
+  const dest = pick('destination', 'travel', 'place');
+  const ret = pick('return_date', 'end_date');
+  const transport = pick('transport');
+  if (dep) out.Partenza = dep;
+  if (dest) out.Destinazione = dest;
+  if (ret) out.Ritorno = ret;
+  if (transport) {
+    const map: Record<string, string> = { car: 'Auto', train: 'Treno', plane: 'Aereo' };
+    out.Trasporto = map[transport] || transport;
+  }
+  const subj = pick('subject');
+  const exam = pick('exam_date');
+  if (subj) out.Materia = subj;
+  if (exam) out['Data esame'] = exam;
+  return out;
+}
+
 export default function ActionSessionScreen() {
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>();
   const router = useRouter();
@@ -274,6 +311,20 @@ export default function ActionSessionScreen() {
 
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Text style={styles.kicker}>{session.title}</Text>
+        {(() => {
+          const summary = buildUnderstoodSummary(session);
+          const entries = Object.entries(summary);
+          if (!entries.length) return null;
+          return (
+            <View style={styles.understoodBox} testID="understood-summary">
+              {entries.map(([label, val]) => (
+                <Text key={label} style={styles.understoodLine} testID={`understood-${label.toLowerCase()}`}>
+                  {label}: {val}
+                </Text>
+              ))}
+            </View>
+          );
+        })()}
         <Text style={styles.question} accessibilityRole="header" testID="action-question">
           {turn.question}
         </Text>
@@ -425,6 +476,20 @@ const styles = StyleSheet.create({
     width: '100%',
     alignSelf: 'center',
     paddingBottom: 48,
+  },
+  understoodBox: {
+    gap: 4,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: tokens.radius.md,
+    backgroundColor: tokens.color.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: tokens.color.border,
+  },
+  understoodLine: {
+    fontSize: 13,
+    color: tokens.color.onSurfaceMuted,
+    fontWeight: '500',
   },
   kicker: {
     fontSize: 12, fontWeight: '700', color: tokens.color.onSurfaceMuted,

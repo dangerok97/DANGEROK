@@ -3,10 +3,11 @@
 ## Place in the pipeline
 
 ```
-Input → Conversation Engine → Intent → Goal → Action Engine → Projects → Brain → Proactive → Home
+Input → Conversation Engine → Semantic Extraction → Intent → Gap Analyzer
+  → Goal → Action Engine → Projects → Brain → Proactive → Home
 ```
 
-CE is the **entry orchestrator**. It never duplicates study/travel/calendar domain logic.
+CE is the **entry orchestrator**. It runs Semantic Extraction + Gap Analyzer before Action Engine, then passes `known_slots` + `next_best_question`. It never duplicates study/travel/calendar domain logic.
 
 ## Package
 
