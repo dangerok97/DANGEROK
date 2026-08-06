@@ -1,5 +1,38 @@
 # ORA — AI Changelog
 
+## 2026-08-07 — Enrich Life Objects with AI narrative and reasoning
+
+### Request
+
+On `feature/life-object-engine` (~`253fa65`): AI narrative, questions, insights, temporal reasoning, explainable life health, identity vs state, APIs, Home V3 prep only (flag OFF). No Home UX / no Life Objects screen. Gemini via Provider Manager + Italian deterministic fallback. Commit exact message. No push/merge.
+
+### Actions
+
+- Models: `identity`/`state`, `AINarrative`, `AIInsight`, `TemporalComparison`, explainable `LifeObjectHealth`, enrichment Pydantic results
+- `identity_state.py` — split non-distruttivo da `properties`
+- `enrichment.py` — narrative/questions/insights/temporal/health (Gemini + fallback IT)
+- `memory.py` — `detect_state_changes`
+- `home_v3.py` — DTO card PREDISPOSTO
+- Service: best-effort enrich after shadow upserts; API helpers
+- Router: `/narrative`, `/questions`, `/insights`, `/health`, `/history`, `/relationships`, `/temporal`, `/enrich`, `/home-v3-feed`
+- Tests: Casa/Auto/Università/Lavoro enrichment, fallback, isolation, Home V3 OFF
+- Playwright: assert enrichment after Casa chain + feed OFF
+- Docs: LIFE_OBJECT_* + DEVELOPMENT_STATE + CHANGELOG
+
+### Results
+
+- pytest `life_objects/tests/test_life_object_engine.py`: **15 passed**
+- Gemini: **optional** — CI/tests use deterministic Italian fallback (`LIFE_OBJECT_GEMINI=0`)
+- Home UX: **unchanged**; Home V3 PREDISPOSTO
+- Commit: `feat: enrich Life Objects with AI narrative and reasoning` (no push)
+
+### Open
+
+- Home V3 UI not shipped
+- Live Gemini enrichment not required for green CI
+
+---
+
 ## 2026-08-06 — Introduce Life Object Engine as the core of ORA (SHADOW)
 
 ### Request

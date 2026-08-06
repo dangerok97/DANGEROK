@@ -6,6 +6,8 @@ import os
 from typing import Any, Dict, List, Optional
 
 from life_objects.deduplication import LifeObjectDeduper, extract_identity_keys_from_reasoning
+from life_objects.enrichment import refresh_enrichment
+from life_objects.identity_state import apply_identity_state_migration, apply_properties_delta
 from life_objects.linking import (
     add_relationship,
     ensure_brain_node,
@@ -18,8 +20,6 @@ from life_objects.models import (
     AI_REASONING_VERSION,
     LifeObject,
     LifeObjectCreateBody,
-    LifeObjectHealth,
-    LifeObjectHistoryEntry,
     LifeObjectPatchBody,
     PendingQuestion,
     SuggestedAction,
@@ -118,10 +118,13 @@ class LifeObjectService:
             title=body.title.strip(),
             summary=body.summary or "",
             properties=dict(body.properties or {}),
+            identity=dict(body.identity or {}),
+            state=dict(body.state or {}),
             identity_keys=dict(body.identity_keys or {}),
             origin=body.origin or "api",
             confidence=body.confidence,
         )
+        apply_identity_state_migration(obj)
         # Dedup before create
         match, key, candidates = await self.deduper.find_match(
             user_id, object_type=obj.type, identity_keys=obj.identity_keys,
@@ -137,6 +140,7 @@ class LifeObjectService:
                 decision_meta={"matched_key": key, "candidates": len(candidates)},
             )
         append_history(obj, event="created", source="api", summary="Created via API")
+        await self._best_effort_enrich(obj)
         await self.repo.upsert(obj)
         try:
             await ensure_brain_node(life_graph=self.life_graph, obj=obj)
@@ -153,7 +157,9 @@ class LifeObjectService:
         for k, v in data.items():
             if v is not None:
                 setattr(obj, k, v)
+        apply_identity_state_migration(obj)
         append_history(obj, event="patched", source="api", summary="Patched via API", delta=data)
+        await self._best_effort_enrich(obj)
         await self.repo.upsert(obj)
         return {"ok": True, "object": obj.public(), "created": False}
 
@@ -253,6 +259,108 @@ class LifeObjectService:
         if not obj:
             return {"ok": False, "error": "not_found"}
         return {"ok": True, "object_id": object_id, **basic_utility_trend(obj, utility_type=utility_type)}
+
+    # --- Enrichment API helpers --------------------------------------
+
+    async def get_history(self, user_id: str, object_id: str) -> Dict[str, Any]:
+        obj = await self.repo.get(user_id, object_id)
+        if not obj:
+            return {"ok": False, "error": "not_found"}
+        return {
+            "ok": True,
+            "object_id": object_id,
+            "history": [h.model_dump() for h in (obj.history or [])],
+            "count": len(obj.history or []),
+        }
+
+    async def get_relationships(self, user_id: str, object_id: str) -> Dict[str, Any]:
+        obj = await self.repo.get(user_id, object_id)
+        if not obj:
+            return {"ok": False, "error": "not_found"}
+        return {
+            "ok": True,
+            "object_id": object_id,
+            "relationships": [r.model_dump() for r in (obj.relationships or [])],
+            "count": len(obj.relationships or []),
+        }
+
+    async def refresh_section(
+        self,
+        user_id: str,
+        object_id: str,
+        *,
+        sections: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        obj = await self.repo.get(user_id, object_id)
+        if not obj:
+            return {"ok": False, "error": "not_found"}
+        await refresh_enrichment(obj, sections=sections)
+        await self.repo.upsert(obj)
+        return {"ok": True, "object": obj.public(), "sections": sections or ["all"]}
+
+    async def get_narrative(self, user_id: str, object_id: str, *, refresh: bool = False) -> Dict[str, Any]:
+        if refresh:
+            res = await self.refresh_section(user_id, object_id, sections=["narrative"])
+            if not res.get("ok"):
+                return res
+            obj = res["object"]
+        else:
+            obj = await self.get(user_id, object_id)
+            if not obj:
+                return {"ok": False, "error": "not_found"}
+        return {"ok": True, "object_id": object_id, "narrative": obj.get("narrative") or {}}
+
+    async def get_questions(self, user_id: str, object_id: str, *, refresh: bool = False) -> Dict[str, Any]:
+        if refresh:
+            res = await self.refresh_section(user_id, object_id, sections=["questions"])
+            if not res.get("ok"):
+                return res
+            obj = res["object"]
+        else:
+            obj = await self.get(user_id, object_id)
+            if not obj:
+                return {"ok": False, "error": "not_found"}
+        return {
+            "ok": True,
+            "object_id": object_id,
+            "pending_questions": obj.get("pending_questions") or [],
+        }
+
+    async def get_insights(self, user_id: str, object_id: str, *, refresh: bool = False) -> Dict[str, Any]:
+        if refresh:
+            res = await self.refresh_section(user_id, object_id, sections=["insights", "temporal"])
+            if not res.get("ok"):
+                return res
+            obj = res["object"]
+        else:
+            obj = await self.get(user_id, object_id)
+            if not obj:
+                return {"ok": False, "error": "not_found"}
+        return {
+            "ok": True,
+            "object_id": object_id,
+            "insights": obj.get("insights") or [],
+            "temporal": obj.get("temporal"),
+        }
+
+    async def get_health(self, user_id: str, object_id: str, *, refresh: bool = False) -> Dict[str, Any]:
+        if refresh:
+            res = await self.refresh_section(user_id, object_id, sections=["health"])
+            if not res.get("ok"):
+                return res
+            obj = res["object"]
+        else:
+            obj = await self.get(user_id, object_id)
+            if not obj:
+                return {"ok": False, "error": "not_found"}
+        return {"ok": True, "object_id": object_id, "health": obj.get("health") or {}}
+
+    async def home_v3_feed(self, user_id: str, *, limit: int = 20) -> Dict[str, Any]:
+        from life_objects.home_v3 import serialize_home_v3_feed
+
+        objs = await self.list_objects(user_id, status="active", limit=limit)
+        feed = serialize_home_v3_feed(objs)
+        return feed or {"enabled": False, "cards": []}
 
     # --- Shadow upserts ----------------------------------------------
 
@@ -379,6 +487,7 @@ class LifeObjectService:
                 ai_confidence=float(decision.confidence or 0),
                 last_reasoning=decision.model_dump(),
             )
+            apply_properties_delta(obj, decision.properties_delta or {})
             if document_id:
                 link_document(obj, document_id)
             self._apply_decision_side_effects(obj, decision)
@@ -388,6 +497,7 @@ class LifeObjectService:
                 improves=decision.improves, worsens=decision.worsens,
                 delta={"properties": decision.properties_delta},
             )
+            await self._best_effort_enrich(obj)
             await self.repo.upsert(obj)
             return {
                 "ok": True,
@@ -431,10 +541,10 @@ class LifeObjectService:
             last_reasoning=decision.model_dump(),
             next_reasoning=decision.next_question,
         )
+        apply_properties_delta(obj, decision.properties_delta or {})
         if document_id:
             link_document(obj, document_id)
         self._apply_decision_side_effects(obj, decision)
-        self._refresh_health(obj)
         append_history(
             obj,
             event="created",
@@ -449,6 +559,7 @@ class LifeObjectService:
                 "utility_type": (decision.properties_delta or {}).get("utility_type"),
             },
         )
+        await self._best_effort_enrich(obj)
         await self.repo.upsert(obj)
         try:
             await ensure_brain_node(life_graph=self.life_graph, obj=obj)
@@ -529,8 +640,10 @@ class LifeObjectService:
                 confidence=0.45,
                 properties={"goal_id": goal_id, "goal_type": goal.get("goal_type")},
             )
+            apply_properties_delta(obj, obj.properties)
             link_goal(obj, goal_id)
             append_history(obj, event="created", source="goal", source_id=goal_id, summary="From Goal Engine")
+            await self._best_effort_enrich(obj)
             await self.repo.upsert(obj)
             await self._write_goal_life_object_id(user_id, goal_id, obj.id)
             return {"ok": True, "life_object_id": obj.id, "created": True}
@@ -574,12 +687,14 @@ class LifeObjectService:
                 ai_summary=decision.summary,
                 last_reasoning=decision.model_dump(),
             )
+            apply_properties_delta(obj, decision.properties_delta or {})
             if project_id and project_id not in obj.projects:
                 obj.projects.append(project_id)
             append_history(
                 obj, event="created", source="travel_project", source_id=project_id,
                 summary="TRAVEL from Travel Project confirm",
             )
+            await self._best_effort_enrich(obj)
             await self.repo.upsert(obj)
             res = {"ok": True, "created": True, "object": obj.public(), "decision": decision.model_dump()}
 
@@ -639,12 +754,14 @@ class LifeObjectService:
                 confidence=float(decision.confidence or 0.7),
                 last_reasoning=decision.model_dump(),
             )
+            apply_properties_delta(obj, decision.properties_delta or {})
             if plan_id and plan_id not in obj.projects:
                 obj.projects.append(plan_id)
             append_history(
                 obj, event="created", source="study_plan", source_id=plan_id,
                 summary="UNIVERSITY/COURSE from Study Plan confirm",
             )
+            await self._best_effort_enrich(obj)
             await self.repo.upsert(obj)
             res = {"ok": True, "created": True, "object": obj.public(), "decision": decision.model_dump()}
 
@@ -672,7 +789,7 @@ class LifeObjectService:
 
     def _apply_decision_side_effects(self, obj: LifeObject, decision) -> None:
         if decision.next_question:
-            # Avoid duplicate pending questions
+            # Seed; enrichment refresh may replace with smarter set
             texts = {q.question for q in (obj.pending_questions or [])}
             if decision.next_question not in texts:
                 obj.pending_questions.append(
@@ -680,6 +797,8 @@ class LifeObjectService:
                         question=decision.next_question,
                         why=decision.next_question_why or "",
                         priority="medium",
+                        category="missing_info",
+                        source="reasoner",
                     )
                 )
             obj.next_reasoning = decision.next_question
@@ -692,25 +811,12 @@ class LifeObjectService:
         obj.ai_confidence = float(decision.confidence or obj.ai_confidence)
         obj.ai_reasoning_version = AI_REASONING_VERSION
 
-    def _refresh_health(self, obj: LifeObject) -> None:
-        issues = []
-        score = 0.5
-        if obj.identity_keys:
-            score += 0.2
-        if obj.documents:
-            score += min(0.2, 0.05 * len(obj.documents))
-        if obj.status == "uncertain":
-            issues.append("uncertain_identity")
-            score -= 0.2
-        if obj.merge_proposals:
-            issues.append("pending_merge")
-            score -= 0.1
-        for w in (obj.last_reasoning or {}).get("worsens") or []:
-            issues.append(str(w))
-            score -= 0.05
-        score = max(0.0, min(1.0, score))
-        label = "healthy" if score >= 0.7 else ("ok" if score >= 0.45 else "attention")
-        obj.health = LifeObjectHealth(score=score, label=label, issues=issues, updated_at=now_iso())
+    async def _best_effort_enrich(self, obj: LifeObject) -> None:
+        """Refresh narrative/questions/insights/health — never break consume path."""
+        try:
+            await refresh_enrichment(obj)
+        except Exception as e:
+            logger.info("life_object enrichment soft-fail: %s", type(e).__name__)
 
     async def _apply_update(
         self,
@@ -731,11 +837,7 @@ class LifeObjectService:
             obj.title = title
         if summary:
             obj.summary = summary
-        props = dict(obj.properties or {})
-        for k, v in (properties or {}).items():
-            if v not in (None, "", [], {}):
-                props[k] = v
-        obj.properties = props
+        apply_properties_delta(obj, properties or {})
         ik = dict(obj.identity_keys or {})
         for k, v in (identity_keys or {}).items():
             if v and k not in ik:
@@ -753,6 +855,7 @@ class LifeObjectService:
             elif v:
                 ik[k] = v
         obj.identity_keys = ik
+        apply_identity_state_migration(obj)
         if source == "document" and source_id:
             link_document(obj, source_id)
         if source == "travel_project" and source_id and source_id not in obj.projects:
@@ -761,7 +864,6 @@ class LifeObjectService:
             obj.projects.append(source_id)
         if decision is not None:
             self._apply_decision_side_effects(obj, decision)
-        self._refresh_health(obj)
         append_history(
             obj,
             event="updated",
@@ -777,6 +879,7 @@ class LifeObjectService:
                 "meta": decision_meta or {},
             },
         )
+        await self._best_effort_enrich(obj)
         await self.repo.upsert(obj)
         try:
             await ensure_brain_node(life_graph=self.life_graph, obj=obj)

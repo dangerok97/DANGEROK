@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from deps import db, get_current_user, knowledge, life_graph
 from life_objects.models import (
     LifeObjectCreateBody,
+    LifeObjectEnrichBody,
     LifeObjectLinkBody,
     LifeObjectMergeBody,
     LifeObjectPatchBody,
@@ -33,8 +34,18 @@ async def life_objects_status(user=Depends(get_current_user)):
         "enabled": life_object_engine_enabled(),
         "home_ui_enabled": life_object_home_ui_enabled(),
         "mode": "shadow",
+        "enrichment": "narrative|questions|insights|temporal|health",
         "user_id": user["user_id"],
     }
+
+
+@router.get("/home-v3-feed")
+async def life_objects_home_v3_feed(
+    limit: int = Query(20, ge=1, le=50),
+    user=Depends(get_current_user),
+):
+    """Internal DTO for future Home V3 — default OFF, no FE branding."""
+    return await _svc().home_v3_feed(user["user_id"], limit=limit)
 
 
 @router.get("")
@@ -157,6 +168,142 @@ async def life_object_trend(
     user=Depends(get_current_user),
 ):
     res = await _svc().trend(user["user_id"], object_id, utility_type=utility_type)
+    if not res.get("ok"):
+        raise HTTPException(status_code=404, detail=res.get("error") or "not_found")
+    return res
+
+
+@router.get("/{object_id}/narrative")
+async def life_object_narrative(
+    object_id: str,
+    refresh: bool = Query(False),
+    user=Depends(get_current_user),
+):
+    res = await _svc().get_narrative(user["user_id"], object_id, refresh=refresh)
+    if not res.get("ok"):
+        raise HTTPException(status_code=404, detail=res.get("error") or "not_found")
+    return res
+
+
+@router.post("/{object_id}/narrative/refresh")
+async def life_object_narrative_refresh(object_id: str, user=Depends(get_current_user)):
+    res = await _svc().get_narrative(user["user_id"], object_id, refresh=True)
+    if not res.get("ok"):
+        raise HTTPException(status_code=404, detail=res.get("error") or "not_found")
+    return res
+
+
+@router.get("/{object_id}/questions")
+async def life_object_questions(
+    object_id: str,
+    refresh: bool = Query(False),
+    user=Depends(get_current_user),
+):
+    res = await _svc().get_questions(user["user_id"], object_id, refresh=refresh)
+    if not res.get("ok"):
+        raise HTTPException(status_code=404, detail=res.get("error") or "not_found")
+    return res
+
+
+@router.post("/{object_id}/questions/refresh")
+async def life_object_questions_refresh(object_id: str, user=Depends(get_current_user)):
+    res = await _svc().get_questions(user["user_id"], object_id, refresh=True)
+    if not res.get("ok"):
+        raise HTTPException(status_code=404, detail=res.get("error") or "not_found")
+    return res
+
+
+@router.get("/{object_id}/insights")
+async def life_object_insights(
+    object_id: str,
+    refresh: bool = Query(False),
+    user=Depends(get_current_user),
+):
+    res = await _svc().get_insights(user["user_id"], object_id, refresh=refresh)
+    if not res.get("ok"):
+        raise HTTPException(status_code=404, detail=res.get("error") or "not_found")
+    return res
+
+
+@router.post("/{object_id}/insights/refresh")
+async def life_object_insights_refresh(object_id: str, user=Depends(get_current_user)):
+    res = await _svc().get_insights(user["user_id"], object_id, refresh=True)
+    if not res.get("ok"):
+        raise HTTPException(status_code=404, detail=res.get("error") or "not_found")
+    return res
+
+
+@router.get("/{object_id}/health")
+async def life_object_health(
+    object_id: str,
+    refresh: bool = Query(False),
+    user=Depends(get_current_user),
+):
+    res = await _svc().get_health(user["user_id"], object_id, refresh=refresh)
+    if not res.get("ok"):
+        raise HTTPException(status_code=404, detail=res.get("error") or "not_found")
+    return res
+
+
+@router.post("/{object_id}/health/refresh")
+async def life_object_health_refresh(object_id: str, user=Depends(get_current_user)):
+    res = await _svc().get_health(user["user_id"], object_id, refresh=True)
+    if not res.get("ok"):
+        raise HTTPException(status_code=404, detail=res.get("error") or "not_found")
+    return res
+
+
+@router.get("/{object_id}/history")
+async def life_object_history(object_id: str, user=Depends(get_current_user)):
+    res = await _svc().get_history(user["user_id"], object_id)
+    if not res.get("ok"):
+        raise HTTPException(status_code=404, detail=res.get("error") or "not_found")
+    return res
+
+
+@router.get("/{object_id}/relationships")
+async def life_object_relationships(object_id: str, user=Depends(get_current_user)):
+    res = await _svc().get_relationships(user["user_id"], object_id)
+    if not res.get("ok"):
+        raise HTTPException(status_code=404, detail=res.get("error") or "not_found")
+    return res
+
+
+@router.get("/{object_id}/temporal")
+async def life_object_temporal(
+    object_id: str,
+    refresh: bool = Query(True),
+    user=Depends(get_current_user),
+):
+    res = await _svc().refresh_section(
+        user["user_id"], object_id, sections=["temporal"],
+    ) if refresh else None
+    if refresh:
+        if not res or not res.get("ok"):
+            raise HTTPException(status_code=404, detail=(res or {}).get("error") or "not_found")
+        obj = res["object"]
+        return {
+            "ok": True,
+            "object_id": object_id,
+            "temporal": obj.get("temporal"),
+        }
+    obj = await _svc().get(user["user_id"], object_id)
+    if not obj:
+        raise HTTPException(status_code=404, detail="not_found")
+    return {"ok": True, "object_id": object_id, "temporal": obj.get("temporal")}
+
+
+@router.post("/{object_id}/enrich")
+async def life_object_enrich(
+    object_id: str,
+    body: Optional[LifeObjectEnrichBody] = None,
+    user=Depends(get_current_user),
+):
+    """Re-run AI/fallback enrichment for selected sections."""
+    payload = body or LifeObjectEnrichBody()
+    res = await _svc().refresh_section(
+        user["user_id"], object_id, sections=payload.sections,
+    )
     if not res.get("ok"):
         raise HTTPException(status_code=404, detail=res.get("error") or "not_found")
     return res

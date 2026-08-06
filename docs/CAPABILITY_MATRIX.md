@@ -1,7 +1,7 @@
 # ORA — Capability Matrix
 
 **Audit tip:** `feature/life-object-engine`  
-**Data:** 2026-08-06  
+**Data:** 2026-08-07  
 **Legenda stato:** `NON ESISTE` | `ARCHITETTURA` | `PROTOTIPO` | `PARZIALE` | `FUNZIONANTE` | `VERIFICATO` | `PRODUZIONE`  
 **Livello verifica:** unit | API | browser (Playwright/Expo web) | real smoke (provider/device) | never
 
@@ -10,8 +10,8 @@
 
 | Modulo | Stato | Verifica | Note oneste |
 |--------|-------|----------|-------------|
-| Life Object Engine | FUNZIONANTE | unit+API (+Playwright API) | **SHADOW — verità canonica user**; Home V3 UI OFF; dedupe address/plate; Gemini fallback; altri motori restano e R/W oggetti |
-| Home V3 Life Objects UI | ARCHITETTURA | never | Flag `LIFE_OBJECT_HOME_UI_ENABLED=0`; Home resta Goal-aware |
+| Life Object Engine | FUNZIONANTE | unit+API (+Playwright API) | **SHADOW — verità canonica**; identity/state; narrative/questions/insights/temporal/health; Gemini opzionale + fallback IT; Home UX invariata |
+| Home V3 Life Objects UI | ARCHITETTURA | never | Flag `LIFE_OBJECT_HOME_UI_ENABLED=0`; DTO `home-v3-feed` PREDISPOSTO; Home resta Goal-aware |
 | Authentication (email/password) | VERIFICATO | unit+API+browser | Register/login/me; logout non invalida JWT |
 | Google Login | PARZIALE | unit only | Codice+JWKS; reale bloccato da `GOOGLE_WEB_CLIENT_ID` |
 | Apple Login | PROTOTIPO | unit only | Placeholder UI senza keys; iOS non verificato |

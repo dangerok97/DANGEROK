@@ -1,6 +1,6 @@
 # ORA — Product (struttura reale)
 
-Ultimo aggiornamento: 2026-08-06 — Life Object Engine introdotto come **core in SHADOW** (Home UX invariata).
+Ultimo aggiornamento: 2026-08-07 — Life Object Engine SHADOW + AI narrative/reasoning (Home UX invariata).
 
 ## Vision
 
@@ -47,14 +47,15 @@ Persone che vogliono una priorità unica chiara (non un task manager generico), 
 - **Docs:** `docs/SOCIAL_AUTH_*.md`.
 - **Aperti:** credenziali reali; device iOS/Android; revoca JWT server-side.
 
-### 1b. Life Object Engine (modello canonico — SHADOW)
+### 1b. Life Object Engine (modello canonico — SHADOW + AI enrichment)
 
 - **Scopo:** verità canonica sulla realtà dell’utente (HOME, VEHICLE, UNIVERSITY, JOB, …). Gli altri motori restano e aggiornano questi oggetti.
-- **Stato:** **SHADOW FUNZIONANTE** — writes paralleli ON; **nessuna modifica UX importante**; Home V3 oggetti **OFF**.
-- **Flusso:** dopo understanding Documents V2 → upsert Life Object (dedupe per indirizzo/targa/…, mai solo titolo); Goal ottiene `life_object_id`; Travel/Study aggiornano oggetti in parallelo.
-- **Backend:** `/api/life-objects/*`; flag `LIFE_OBJECT_ENGINE_ENABLED`, `LIFE_OBJECT_HOME_UI_ENABLED`.
+- **Stato:** **SHADOW FUNZIONANTE** — writes paralleli ON; **nessuna modifica UX importante**; Home V3 oggetti **PREDISPOSTO / OFF**.
+- **Flusso:** dopo understanding Documents V2 → upsert Life Object (dedupe per indirizzo/targa/…, mai solo titolo) → enrichment (narrative, domande, insight, temporal, health spiegabile); Goal ottiene `life_object_id`; Travel/Study aggiornano oggetti in parallelo.
+- **Identity vs State:** identità stabile (indirizzo/targa/…) separata dallo stato che cambia (fornitori, importi, rate).
+- **Backend:** `/api/life-objects/*` (+ narrative/questions/insights/health/history/enrich); flag `LIFE_OBJECT_ENGINE_ENABLED`, `LIFE_OBJECT_HOME_UI_ENABLED`, `LIFE_OBJECT_GEMINI`.
 - **Docs:** `LIFE_OBJECT_ENGINE.md`, `LIFE_OBJECT_REASONING.md`, `LIFE_OBJECT_ARCHITECTURE.md`, `LIFE_OBJECT_VERIFICATION.md`.
-- **Aperti:** Home V3 UI; wiring Conversation/Proactive più ricco; trend bollette avanzato.
+- **Aperti:** Home V3 UI; wiring Conversation/Proactive più ricco.
 
 ### 2. Home V2 — Intelligence dashboard
 
