@@ -1,40 +1,42 @@
 # ORA — Development State
 
-Last updated: 2026-08-06 (Semantic Extraction + Gap Analyzer)
+Last updated: 2026-08-06 (AI Life Setup + AI Life Strategist foundation)
 
 ## Branch
 
-- Active: `feature/semantic-extraction-gap-analyzer` (local, no push)
-- Base: `feature/home-goal-presentation-dedupe` @ `90b3fb1`
+- Active: `feature/ai-life-setup-foundation` (local, no push)
+- Base: `feature/semantic-extraction-gap-analyzer` @ `8cddcac` (history includes `a7cae9e`)
 
-## Semantic Extraction + Gap Analyzer
+## AI Life Setup + Strategist
 
 | Item | Stato |
 |------|--------|
-| Package `backend/semantic_engine/` | **implemented** |
-| Deterministic IT dates/entities | **implemented** |
-| Gap schemas (study/travel/medical/payment/…) | **implemented** |
-| Conversation session entity fields | **implemented** |
-| Action Engine travel split departure/return | **implemented** |
-| APIs `/api/semantic/*` | **implemented** |
-| FE understood summary (Partenza/Destinazione/Ritorno) | **implemented** |
-| pytest `test_semantic_engine.py` | **17 passed** (corpus ≥200) |
-| Playwright `semantic-extraction-gap.spec.ts` | **2 passed** (API :8001 + Expo :8081) |
-| Docs SEMANTIC_* / ENTITY_MODEL / GAP_ANALYZER | **implemented** |
-| Gemini extraction | **optional** via Provider Manager |
+| Package `backend/ai_life_strategist/` | **implemented** |
+| Package `backend/life_setup/` (+ Life Profile) | **implemented** |
+| Structured StrategistPlan (Pydantic) | **implemented** |
+| Gemini via Provider Manager + deterministic fallback | **implemented** |
+| API `/api/life-setup/*` + `/api/strategist/*` | **implemented** |
+| FE `/life-setup` natural conversation (not wizard) | **implemented** |
+| First-launch gate in `app/index.tsx` | **implemented** |
+| Sync Life Graph / Goal shadow / Proactive / Home | **implemented** |
+| Email/Banking/WhatsApp/Weather | **stubs only** |
+| pytest foundation suite | **run in session** |
+| Playwright `life-setup-strategist.spec.ts` | **added** |
+| Docs LIFE_SETUP_* / AI_LIFE_STRATEGIST / LIFE_PROFILE / … | **implemented** |
 
 ## Prior (intact)
 
-- Home Presentation Aggregation / Goal-aware Home
-- Conversation Engine / Proactive / Intent / Action / Travel / Study
+- Semantic Extraction + Gap Analyzer
+- Conversation Engine / Proactive / Goal / Home / Intent / Action
 
 ## Open / next
 
-1. Optional Gemini rephrase for questions (`SEMANTIC_GEMINI_REPHRASE`)
-2. Real STT behind voice origin
-3. Richer medical/payment flows using gap chips in AE UI
+1. Richer Documents V2 upload UX from Life Setup (beyond synthetic/e2e path)
+2. Calendar drafts from strategist only with explicit consent UI
+3. Do **not** add Open Banking / Email / WhatsApp / Weather as real integrations here
 
 ## Credentials / safety
 
 - Never commit `.env` / tokens
-- Semantic path works without Gemini (`SEMANTIC_GEMINI_ENABLED=0`)
+- Strategist works without Gemini (`AI_LIFE_STRATEGIST_GEMINI=0` → deterministic planner)
+- AI cannot delete profile facts or overwrite confirmed values

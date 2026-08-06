@@ -1,5 +1,36 @@
 # ORA — AI Changelog
 
+## 2026-08-06 — AI Life Setup + AI Life Strategist foundation
+
+### Request
+
+Build ORA Life Setup + AI Life Strategist foundation: first-launch natural conversation (not wizard), structured strategist plans via Gemini Provider Manager + deterministic fallback, Life Profile domains, APIs, integrations, tests, Playwright, docs; commit `feat: introduce AI-driven ORA Life Setup`. Branch `feature/ai-life-setup-foundation` from semantic-extraction tip. No push/merge.
+
+### Actions
+
+- Packages `backend/ai_life_strategist/` + `backend/life_setup/` (profile, sync, stubs, router)
+- Flags `LIFE_SETUP_ENABLED` / `AI_LIFE_STRATEGIST_ENABLED` (+ cache/gemini) in `.env.example`
+- CE origin `life_setup`; Home/Proactive soft resume (never «Completa il profilo»)
+- FE `/life-setup` conversation + first-launch gate; no permanent Life Setup section
+- Tests: `test_ai_life_setup_foundation.py` / strategist suite; Playwright `life-setup-strategist.spec.ts`
+- Docs: LIFE_SETUP_PRODUCT, AI_LIFE_STRATEGIST, LIFE_PROFILE, LIFE_GRAPH, BENEFIT_ENGINE, QUESTION_PLANNING + PRODUCT/ARCHITECTURE/ROADMAP/DEVELOPMENT_STATE
+
+### Results
+
+- Conversation-first UX (anti-wizard markers); Casa→rogito→profile/goal path; interrupt hides module
+- pytest `ai_life_strategist/tests/test_strategist_foundation.py`: **19 passed**
+- Playwright `e2e/life-setup-strategist.spec.ts`: **3 passed**
+- Email/Open Banking/WhatsApp/Weather: stubs only (honest)
+- Commit message (exact): `feat: introduce AI-driven ORA Life Setup`
+- No push
+
+### Open
+
+- Full Documents V2 binary upload UX from Life Setup beyond synthetic path
+- Real Gemini plans when `GEMINI_API_KEY` set (fallback always available)
+
+---
+
 ## 2026-08-06 — Semantic Extraction + Gap Analyzer (Playwright + exact commit message)
 
 ### Request

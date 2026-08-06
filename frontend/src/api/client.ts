@@ -430,6 +430,97 @@ export const api = {
       `/conversation?limit=${limit}`,
     ),
 
+  // Life Setup — first-launch natural conversation (NOT a wizard / settings form)
+  lifeSetupStatus: () =>
+    request<{
+      ok: boolean;
+      should_show?: boolean;
+      module_visible?: boolean;
+      wizard?: boolean;
+      session?: Record<string, unknown> | null;
+      profile_summary?: { domains?: string[]; updated_at?: string } | null;
+      ui_mode?: string;
+      enabled?: boolean;
+    }>('/life-setup/status'),
+  lifeSetupStart: (force = false) =>
+    request<{
+      ok: boolean;
+      session?: Record<string, unknown>;
+      turn?: LifeSetupTurn;
+      wizard?: boolean;
+      ui_mode?: string;
+      already_finished?: boolean;
+      should_show?: boolean;
+      philosophy?: string;
+      resume_hint?: Record<string, unknown>;
+    }>('/life-setup/start', { method: 'POST', body: JSON.stringify({ force }) }),
+  lifeSetupAnswer: (text: string, skip_domain = false) =>
+    request<{
+      ok: boolean;
+      session?: Record<string, unknown>;
+      turn?: LifeSetupTurn;
+      wizard?: boolean;
+      privacy_refusal?: boolean;
+      message?: string;
+      profile?: Record<string, unknown> | null;
+    }>('/life-setup/answer', {
+      method: 'POST',
+      body: JSON.stringify({ text, skip_domain }),
+    }),
+  lifeSetupSkip: (body?: { domain?: string; postpone_all?: boolean }) =>
+    request<{
+      ok: boolean;
+      session?: Record<string, unknown>;
+      should_show?: boolean;
+      module_visible?: boolean;
+      resume_suggestion?: Record<string, unknown>;
+      wizard?: boolean;
+      turn?: LifeSetupTurn;
+    }>('/life-setup/skip', {
+      method: 'POST',
+      body: JSON.stringify(body || { postpone_all: true }),
+    }),
+  lifeSetupUploadDoc: (body: {
+    document_id?: string;
+    doc_type?: string;
+    synthetic_text?: string;
+    filename?: string;
+  }) =>
+    request<{
+      ok: boolean;
+      session?: Record<string, unknown>;
+      turn?: LifeSetupTurn;
+      document_id?: string;
+      doc_type?: string;
+      extracted_keys?: string[];
+      wizard?: boolean;
+      profile?: Record<string, unknown> | null;
+    }>('/life-setup/upload-doc', { method: 'POST', body: JSON.stringify(body) }),
+  lifeSetupExplain: (plan?: Record<string, unknown>) =>
+    request<{ ok: boolean; explain?: Record<string, unknown>; wizard?: boolean }>(
+      '/life-setup/explain',
+      { method: 'POST', body: JSON.stringify({ plan }) },
+    ),
+  lifeSetupComplete: () =>
+    request<{
+      ok: boolean;
+      session?: Record<string, unknown>;
+      should_show?: boolean;
+      module_visible?: boolean;
+      wizard?: boolean;
+      profile?: Record<string, unknown> | null;
+    }>('/life-setup/complete', { method: 'POST', body: JSON.stringify({}) }),
+  lifeSetupCancel: () =>
+    request<{
+      ok: boolean;
+      session?: Record<string, unknown>;
+      should_show?: boolean;
+      module_visible?: boolean;
+      resume_suggestion?: Record<string, unknown>;
+      wizard?: boolean;
+      message?: string;
+    }>('/life-setup/cancel', { method: 'POST', body: JSON.stringify({}) }),
+
   // Action Engine — guided priority flows
   actionEngineOpen: (body: ActionEngineOpenBody) =>
     request<ActionEngineOpenResult>('/action-engine/open', {
@@ -1592,4 +1683,32 @@ export type ConversationStartResult = {
   error?: string;
   handoff?: string;
   completed?: boolean;
+};
+
+/** Life Setup turn — natural conversation, never a wizard step form. */
+export type LifeSetupTurn = {
+  kind?: string;
+  role?: string;
+  text?: string;
+  question?: string | null;
+  explain?: string;
+  expected_benefit?: string;
+  recommended_document?: {
+    doc_type: string;
+    label: string;
+    reason: string;
+    expected_fields?: string[];
+    upload_hint?: string;
+  } | null;
+  alternative_question?: string | null;
+  actions?: Array<{ id: string; label: string; doc_type?: string }>;
+  ui?: {
+    mode?: string;
+    wizard?: boolean;
+    form?: boolean;
+    progress_bar?: boolean;
+    done?: boolean;
+    indicative_minutes?: string;
+  };
+  plan?: Record<string, unknown>;
 };

@@ -1,5 +1,13 @@
 # ORA — Architecture
 
+## Life Setup / Strategist (2026-08-06)
+
+- CE origin `life_setup` accepted; strategist plans turns (structured Pydantic).
+- Collections: `life_setup_sessions`, `life_profiles`.
+- Home adapter: optional one soft resume insight — **no** Life Setup section.
+- Proactive generator: soft resume after interrupt/skip.
+- Adapter stubs only: email, open_banking, whatsapp, weather.
+
 ## Stack
 
 | Layer | Choice |
@@ -38,6 +46,8 @@ backend/
   proactive_engine/      # IF/WHEN/HOW/WHY intervene → suggestions + Home ORA TI CONSIGLIA
   conversation_engine/   # Entry orchestrator (NOT chatbot) → Semantic→Intent→Gap→Goal→AE
   semantic_engine/       # Structured extraction + Gap Analyzer (Gemini optional)
+  ai_life_strategist/    # Structured next-question plans (Gemini + deterministic fallback)
+  life_setup/            # First-launch conversation + Life Profile persistence/sync
   daily_intelligence/    # daily summary (situation indicators)
   behavioral_intelligence/
   behavior_aware_decisions/
