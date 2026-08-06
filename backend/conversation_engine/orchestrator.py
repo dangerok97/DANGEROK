@@ -185,6 +185,19 @@ class ConversationOrchestrator:
                 elif v is not None and entities.get(k) in (None, "", []):
                     entities[k] = v
             intent_dict["entities"] = entities
+            # If Intent asked to clarify but Semantic already has a clear travel/study domain, prefer it
+            flow_hint = (extraction.flow_hint or "").lower()
+            intent_name = (intent_dict.get("intent") or "").lower()
+            needs_clarify = bool(intent_dict.get("needs_clarify")) or intent_name in ("clarify", "generic", "")
+            strong_travel = flow_hint in ("travel", "vacation") and (
+                entities.get("destination") or entities.get("departure_date") or entities.get("period")
+            )
+            strong_study = flow_hint in ("study", "exam_preparation") and entities.get("subject")
+            if needs_clarify and (strong_travel or strong_study):
+                intent_dict["intent"] = "travel" if strong_travel else "study"
+                intent_dict["needs_clarify"] = False
+                intent_dict["confidence"] = max(float(intent_dict.get("confidence") or 0), 0.86)
+                intent_dict["reason"] = "semantic_flow_override"
         except Exception as e:
             logger.info("semantic extraction soft-fail: %s", type(e).__name__)
 

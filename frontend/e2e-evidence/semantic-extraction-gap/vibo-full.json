@@ -1,0 +1,773 @@
+{
+  "ok": true,
+  "session": {
+    "id": "ces_bface79666b542",
+    "status": "waiting_user",
+    "origin": "text",
+    "input": "Dal 9 al 24 agosto vado a Vibo Marina in auto.",
+    "intent": {
+      "intent": "travel",
+      "subtype": null,
+      "confidence": 0.99,
+      "reason": "keywords:in auto,vado a + deterministic_rules",
+      "entities": {
+        "place": "Vibo",
+        "date": "agosto",
+        "travel": "Vibo Marina",
+        "start_date": "2026-08-09",
+        "end_date": "2026-08-24",
+        "period": "9–24/8/2026",
+        "departure_date": "2026-08-09",
+        "return_date": "2026-08-24",
+        "destination": "Vibo Marina",
+        "transport": "car"
+      },
+      "clarify_options": null,
+      "needs_clarify": false,
+      "classifier_version": "intent-engine-1.0",
+      "scores": {
+        "travel": 7
+      },
+      "source_hints_used": []
+    },
+    "goal_id": "goal_b3379fc1cd924f",
+    "project_id": "aproj_98990a9753d7",
+    "action_session_id": "aes_0616307e861648",
+    "current_step": "lodging",
+    "artifacts": [
+      {
+        "kind": "action_session",
+        "id": "aes_0616307e861648",
+        "label": "Dal 9 al 24 agosto vado a Vibo Marina in auto.",
+        "meta": {}
+      },
+      {
+        "kind": "goal",
+        "id": "goal_b3379fc1cd924f",
+        "label": "Organizzare viaggio — Vibo Marina",
+        "meta": {}
+      },
+      {
+        "kind": "project",
+        "id": "aproj_98990a9753d7",
+        "label": "Dal 9 al 24 agosto vado a Vibo Marina in auto.",
+        "meta": {}
+      }
+    ],
+    "summary": "Stiamo organizzando la tua vacanza.",
+    "resume_token": "crt_DE6eY_EmQLlJlAvOPoVImFbA",
+    "engine_version": "conversation-engine-1.0",
+    "voice_meta": null,
+    "suggestion_id": null,
+    "known_slots": {
+      "destination": "Vibo Marina",
+      "departure_date": "2026-08-09",
+      "start_date": "2026-08-09",
+      "return_date": "2026-08-24",
+      "end_date": "2026-08-24",
+      "period": {
+        "start_date": "2026-08-09",
+        "end_date": "2026-08-24"
+      },
+      "transport": "car",
+      "travel": "Vibo Marina",
+      "place": "Vibo Marina"
+    },
+    "extracted_entities": {
+      "departure_date": {
+        "raw": "dal 9 al 24 agosto",
+        "normalized": "2026-08-09",
+        "confidence": 0.96,
+        "status": "known",
+        "source": "deterministic",
+        "timezone": "Europe/Rome",
+        "ambiguity": null,
+        "ambiguous": false,
+        "candidates": [],
+        "label": "9 agosto 2026",
+        "meta": {}
+      },
+      "start_date": {
+        "raw": "dal 9 al 24 agosto",
+        "normalized": "2026-08-09",
+        "confidence": 0.96,
+        "status": "known",
+        "source": "deterministic",
+        "timezone": "Europe/Rome",
+        "ambiguity": null,
+        "ambiguous": false,
+        "candidates": [],
+        "label": "9 agosto 2026",
+        "meta": {}
+      },
+      "return_date": {
+        "raw": "dal 9 al 24 agosto",
+        "normalized": "2026-08-24",
+        "confidence": 0.96,
+        "status": "known",
+        "source": "deterministic",
+        "timezone": "Europe/Rome",
+        "ambiguity": null,
+        "ambiguous": false,
+        "candidates": [],
+        "label": "24 agosto 2026",
+        "meta": {}
+      },
+      "end_date": {
+        "raw": "dal 9 al 24 agosto",
+        "normalized": "2026-08-24",
+        "confidence": 0.96,
+        "status": "known",
+        "source": "deterministic",
+        "timezone": "Europe/Rome",
+        "ambiguity": null,
+        "ambiguous": false,
+        "candidates": [],
+        "label": "24 agosto 2026",
+        "meta": {}
+      },
+      "period": {
+        "raw": "dal 9 al 24 agosto",
+        "normalized": {
+          "start_date": "2026-08-09",
+          "end_date": "2026-08-24"
+        },
+        "confidence": 0.95,
+        "status": "known",
+        "source": "deterministic",
+        "timezone": "Europe/Rome",
+        "ambiguity": null,
+        "ambiguous": false,
+        "candidates": [],
+        "label": "9–24 agosto 2026",
+        "meta": {}
+      },
+      "destination": {
+        "raw": "Vibo Marina",
+        "normalized": "Vibo Marina",
+        "confidence": 0.92,
+        "status": "known",
+        "source": "deterministic",
+        "timezone": null,
+        "ambiguity": null,
+        "ambiguous": false,
+        "candidates": [],
+        "label": "Vibo Marina",
+        "meta": {}
+      },
+      "travel": {
+        "raw": "Vibo Marina",
+        "normalized": "Vibo Marina",
+        "confidence": 0.92,
+        "status": "known",
+        "source": "deterministic",
+        "timezone": null,
+        "ambiguity": null,
+        "ambiguous": false,
+        "candidates": [],
+        "label": "Vibo Marina",
+        "meta": {}
+      },
+      "place": {
+        "raw": "Vibo Marina",
+        "normalized": "Vibo Marina",
+        "confidence": 0.92,
+        "status": "known",
+        "source": "deterministic",
+        "timezone": null,
+        "ambiguity": null,
+        "ambiguous": false,
+        "candidates": [],
+        "label": "Vibo Marina",
+        "meta": {}
+      },
+      "transport": {
+        "raw": "Auto",
+        "normalized": "car",
+        "confidence": 0.95,
+        "status": "known",
+        "source": "deterministic",
+        "timezone": null,
+        "ambiguity": null,
+        "ambiguous": false,
+        "candidates": [],
+        "label": "Auto",
+        "meta": {}
+      }
+    },
+    "confirmed_entities": {},
+    "missing_slots": [
+      "lodging",
+      "departure_place",
+      "companions"
+    ],
+    "ambiguous_slots": [],
+    "extraction_version": "semantic-engine-1.0",
+    "last_extraction_at": "2026-08-06T08:59:02.178525+00:00",
+    "understood_summary": {
+      "Partenza": "2026-08-09",
+      "Ritorno": "2026-08-24",
+      "Destinazione": "Vibo Marina",
+      "Trasporto": "car"
+    },
+    "created_at": "2026-08-06T09:00:04.210535+00:00",
+    "updated_at": "2026-08-06T09:00:04.473739+00:00",
+    "meta": {
+      "ui_mode": "action_engine",
+      "proactive_context": null,
+      "synthetic_prompt": "Perfetto. Organizziamo il viaggio.",
+      "gap": {
+        "flow": "travel",
+        "domain": "travel",
+        "known_slots": {
+          "departure_date": "2026-08-09",
+          "start_date": "2026-08-09",
+          "return_date": "2026-08-24",
+          "end_date": "2026-08-24",
+          "period": {
+            "start_date": "2026-08-09",
+            "end_date": "2026-08-24"
+          },
+          "destination": "Vibo Marina",
+          "travel": "Vibo Marina",
+          "place": "Vibo Marina",
+          "transport": "car"
+        },
+        "missing_required": [],
+        "missing_conditional": [
+          "lodging",
+          "departure_place",
+          "companions"
+        ],
+        "missing_optional": [
+          "budget",
+          "stops",
+          "preferences"
+        ],
+        "ambiguous_slots": [],
+        "next_best_question": "Hai già un alloggio o prenotazioni?",
+        "next_slot": "lodging",
+        "question_reason": "Date, destinazione e trasporto noti — prossimo pezzo utile: alloggio.",
+        "suggested_chips": [
+          {
+            "id": "booked",
+            "label": "Già prenotato",
+            "value": "booked"
+          },
+          {
+            "id": "need",
+            "label": "Da cercare",
+            "value": "need"
+          },
+          {
+            "id": "host",
+            "label": "Ospiti / casa",
+            "value": "host"
+          }
+        ],
+        "completion_ready": true,
+        "reason_summary": "noti: departure_date, start_date, return_date, end_date, period, destination; prossima: lodging",
+        "analysis_version": "semantic-engine-1.0"
+      },
+      "reason_summary": "destinazione nota; prossima domanda: lodging",
+      "action_flow": "travel",
+      "route": "/action/aes_0616307e861648",
+      "first_question": "Hai già un alloggio o prenotazioni?"
+    },
+    "history": [
+      {
+        "at": "2026-08-06T09:00:04.210535+00:00",
+        "role": "user",
+        "kind": "start",
+        "text": "Dal 9 al 24 agosto vado a Vibo Marina in auto.",
+        "step_id": null,
+        "meta": {}
+      },
+      {
+        "at": "2026-08-06T09:00:04.210535+00:00",
+        "role": "ora",
+        "kind": "intent",
+        "text": "travel",
+        "step_id": null,
+        "meta": {
+          "confidence": 0.99
+        }
+      },
+      {
+        "at": "2026-08-06T09:00:04.210535+00:00",
+        "role": "ora",
+        "kind": "extraction",
+        "text": "destinazione nota; prossima domanda: lodging",
+        "step_id": null,
+        "meta": {
+          "known": [
+            "destination",
+            "departure_date",
+            "start_date",
+            "return_date",
+            "end_date",
+            "period",
+            "transport",
+            "travel",
+            "place"
+          ],
+          "next_slot": "lodging"
+        }
+      },
+      {
+        "at": "2026-08-06T09:00:04.323127+00:00",
+        "role": "ora",
+        "kind": "question",
+        "text": "Hai già un alloggio o prenotazioni?",
+        "step_id": "lodging",
+        "meta": {}
+      },
+      {
+        "at": "2026-08-06T09:00:04.473739+00:00",
+        "role": "system",
+        "kind": "goal",
+        "text": "goal_b3379fc1cd924f",
+        "step_id": null,
+        "meta": {}
+      }
+    ]
+  },
+  "action_session": {
+    "id": "aes_0616307e861648",
+    "status": "active",
+    "flow": "travel",
+    "engine_version": "action-engine-1.3",
+    "title": "Dal 9 al 24 agosto vado a Vibo Marina in auto.",
+    "description": "Dal 9 al 24 agosto vado a Vibo Marina in auto.",
+    "source_type": "conversation",
+    "source_id": "ces_bface79666b542",
+    "home_item_id": null,
+    "home_item_type": null,
+    "current_turn": {
+      "id": "lodging",
+      "question": "Hai già un alloggio o prenotazioni?",
+      "explanation": "Biglietti / hotel — utile per il progetto viaggio.",
+      "input_kind": "chips",
+      "options": [
+        {
+          "id": "all",
+          "label": "Sì, tutto",
+          "value": "all"
+        },
+        {
+          "id": "partial",
+          "label": "Parziali",
+          "value": "partial"
+        },
+        {
+          "id": "none",
+          "label": "Ancora no",
+          "value": "none"
+        },
+        {
+          "id": "booked",
+          "label": "Già prenotato",
+          "value": "booked"
+        },
+        {
+          "id": "need",
+          "label": "Da cercare",
+          "value": "need"
+        }
+      ],
+      "allow_skip": false,
+      "required": true,
+      "brain_key": "travel_lodging",
+      "meta": {}
+    },
+    "answers": {
+      "period": {
+        "start_date": "2026-08-09",
+        "end_date": "2026-08-24"
+      },
+      "departure_date": {
+        "departure_date": "2026-08-09",
+        "start_date": "2026-08-09",
+        "return_date": "2026-08-24",
+        "end_date": "2026-08-24"
+      },
+      "return_date": {
+        "return_date": "2026-08-24",
+        "end_date": "2026-08-24"
+      },
+      "destination": "Vibo Marina",
+      "transport": "car",
+      "travel": "Vibo Marina",
+      "place": "Vibo Marina"
+    },
+    "progress": 0,
+    "done": false,
+    "proposed_actions": [],
+    "project": {
+      "project_id": "aproj_98990a9753d7",
+      "title": "Dal 9 al 24 agosto vado a Vibo Marina in auto.",
+      "created": true,
+      "merge_candidate_id": null,
+      "merge_candidate_title": null
+    },
+    "brain_node_id": "node_e726eb5ba17c",
+    "effects": {},
+    "created_at": "2026-08-06T09:00:04.293105+00:00",
+    "updated_at": "2026-08-06T09:00:04.293105+00:00",
+    "completed_at": null,
+    "meta": {
+      "intent": "travel",
+      "intent_subtype": null,
+      "intent_confidence": 0.99,
+      "intent_entities": {
+        "place": "Vibo",
+        "date": "agosto",
+        "travel": "Vibo Marina",
+        "start_date": "2026-08-09",
+        "end_date": "2026-08-24",
+        "period": "9–24/8/2026",
+        "departure_date": "2026-08-09",
+        "return_date": "2026-08-24",
+        "destination": "Vibo Marina",
+        "transport": "car"
+      },
+      "classifier_version": "intent-engine-1.0",
+      "needs_clarify": false,
+      "google_connected": false,
+      "timezone": "Europe/Rome",
+      "study_documents": [],
+      "travel_documents": [],
+      "home_place": null,
+      "known_slots": {
+        "destination": "Vibo Marina",
+        "departure_date": "2026-08-09",
+        "start_date": "2026-08-09",
+        "return_date": "2026-08-24",
+        "end_date": "2026-08-24",
+        "period": {
+          "start_date": "2026-08-09",
+          "end_date": "2026-08-24"
+        },
+        "transport": "car",
+        "travel": "Vibo Marina",
+        "place": "Vibo Marina"
+      },
+      "gap": {
+        "flow": "travel",
+        "domain": "travel",
+        "known_slots": {
+          "departure_date": "2026-08-09",
+          "start_date": "2026-08-09",
+          "return_date": "2026-08-24",
+          "end_date": "2026-08-24",
+          "period": {
+            "start_date": "2026-08-09",
+            "end_date": "2026-08-24"
+          },
+          "destination": "Vibo Marina",
+          "travel": "Vibo Marina",
+          "place": "Vibo Marina",
+          "transport": "car"
+        },
+        "missing_required": [],
+        "missing_conditional": [
+          "lodging",
+          "departure_place",
+          "companions"
+        ],
+        "missing_optional": [
+          "budget",
+          "stops",
+          "preferences"
+        ],
+        "ambiguous_slots": [],
+        "next_best_question": "Hai già un alloggio o prenotazioni?",
+        "next_slot": "lodging",
+        "question_reason": "Date, destinazione e trasporto noti — prossimo pezzo utile: alloggio.",
+        "suggested_chips": [
+          {
+            "id": "booked",
+            "label": "Già prenotato",
+            "value": "booked"
+          },
+          {
+            "id": "need",
+            "label": "Da cercare",
+            "value": "need"
+          },
+          {
+            "id": "host",
+            "label": "Ospiti / casa",
+            "value": "host"
+          }
+        ],
+        "completion_ready": true,
+        "reason_summary": "noti: departure_date, start_date, return_date, end_date, period, destination; prossima: lodging",
+        "analysis_version": "semantic-engine-1.0"
+      },
+      "understood_summary": {
+        "Partenza": "2026-08-09",
+        "Destinazione": "Vibo Marina",
+        "Ritorno": "2026-08-24",
+        "Trasporto": "car"
+      },
+      "next_slot": "lodging",
+      "next_best_question": "Hai già un alloggio o prenotazioni?"
+    },
+    "turns": [
+      {
+        "id": "lodging",
+        "question": "Hai già un alloggio o prenotazioni?",
+        "explanation": "Biglietti / hotel — utile per il progetto viaggio.",
+        "input_kind": "chips",
+        "options": [
+          {
+            "id": "all",
+            "label": "Sì, tutto",
+            "value": "all"
+          },
+          {
+            "id": "partial",
+            "label": "Parziali",
+            "value": "partial"
+          },
+          {
+            "id": "none",
+            "label": "Ancora no",
+            "value": "none"
+          },
+          {
+            "id": "booked",
+            "label": "Già prenotato",
+            "value": "booked"
+          },
+          {
+            "id": "need",
+            "label": "Da cercare",
+            "value": "need"
+          }
+        ],
+        "allow_skip": false,
+        "required": true,
+        "brain_key": "travel_lodging",
+        "meta": {}
+      },
+      {
+        "id": "departure_place",
+        "question": "Da dove parti?",
+        "explanation": "Serve per Maps e orario di partenza (stimato).",
+        "input_kind": "chips_or_text",
+        "options": [
+          {
+            "id": "tarquinia",
+            "label": "Tarquinia",
+            "value": "Tarquinia"
+          },
+          {
+            "id": "roma",
+            "label": "Roma",
+            "value": "Roma"
+          },
+          {
+            "id": "other",
+            "label": "Altro",
+            "value": "__other__"
+          }
+        ],
+        "allow_skip": false,
+        "required": true,
+        "brain_key": "travel_departure",
+        "meta": {}
+      },
+      {
+        "id": "bookings",
+        "question": "Hai già prenotazioni (biglietti / hotel)?",
+        "explanation": null,
+        "input_kind": "chips",
+        "options": [
+          {
+            "id": "all",
+            "label": "Sì, tutto",
+            "value": "all"
+          },
+          {
+            "id": "partial",
+            "label": "Parziali",
+            "value": "partial"
+          },
+          {
+            "id": "none",
+            "label": "Ancora no",
+            "value": "none"
+          }
+        ],
+        "allow_skip": false,
+        "required": true,
+        "brain_key": "travel_bookings",
+        "meta": {}
+      },
+      {
+        "id": "companions",
+        "question": "Con chi viaggi?",
+        "explanation": null,
+        "input_kind": "chips",
+        "options": [
+          {
+            "id": "solo",
+            "label": "Solo io",
+            "value": 1
+          },
+          {
+            "id": "2",
+            "label": "In 2",
+            "value": 2
+          },
+          {
+            "id": "family",
+            "label": "3+",
+            "value": 3
+          }
+        ],
+        "allow_skip": false,
+        "required": true,
+        "brain_key": "travel_companions",
+        "meta": {}
+      },
+      {
+        "id": "calendar_sync",
+        "question": "Vuoi proporre eventi su Google Calendar?",
+        "explanation": "Google non collegato: il progetto resta su ORA. Puoi collegare Google dopo.",
+        "input_kind": "chips",
+        "options": [
+          {
+            "id": "yes",
+            "label": "Sì, proponi eventi",
+            "value": true
+          },
+          {
+            "id": "no",
+            "label": "No, solo su ORA",
+            "value": false
+          }
+        ],
+        "allow_skip": false,
+        "required": true,
+        "brain_key": "travel_calendar_sync",
+        "meta": {}
+      },
+      {
+        "id": "prep",
+        "question": "Suggerimenti di preparazione? (opzionale)",
+        "explanation": "Valigia, documenti, auto, carburante, animali, farmaci, caricatore — solo se ti servono.",
+        "input_kind": "multi_chips",
+        "options": [
+          {
+            "id": "luggage",
+            "label": "Valigia",
+            "value": "luggage"
+          },
+          {
+            "id": "docs",
+            "label": "Documenti",
+            "value": "docs"
+          },
+          {
+            "id": "car",
+            "label": "Auto",
+            "value": "car"
+          },
+          {
+            "id": "fuel",
+            "label": "Carburante",
+            "value": "fuel"
+          },
+          {
+            "id": "pets",
+            "label": "Animali",
+            "value": "pets"
+          },
+          {
+            "id": "medicine",
+            "label": "Farmaci",
+            "value": "medicine"
+          },
+          {
+            "id": "charger",
+            "label": "Caricatore",
+            "value": "charger"
+          },
+          {
+            "id": "skip",
+            "label": "Nessuno / salta",
+            "value": "__skip__"
+          }
+        ],
+        "allow_skip": true,
+        "required": true,
+        "brain_key": "travel_prep",
+        "meta": {}
+      },
+      {
+        "id": "preview",
+        "question": "Ecco il progetto viaggio — va bene?",
+        "explanation": "Controlla periodo, destinazione, calendario proposto e Maps.",
+        "input_kind": "preview",
+        "options": [
+          {
+            "id": "accept",
+            "label": "Sì, continua",
+            "value": "accept"
+          },
+          {
+            "id": "edit_dest",
+            "label": "Cambia destinazione",
+            "value": "edit_dest"
+          },
+          {
+            "id": "edit_period",
+            "label": "Cambia date",
+            "value": "edit_period"
+          },
+          {
+            "id": "edit_calendar",
+            "label": "Cambia sync calendario",
+            "value": "edit_calendar"
+          }
+        ],
+        "allow_skip": false,
+        "required": true,
+        "brain_key": "travel_preview",
+        "meta": {}
+      },
+      {
+        "id": "confirm",
+        "question": "Confermi e creo il Travel Project?",
+        "explanation": "Solo ora creo eventi Google (se li hai chiesti). Niente sync silenziosa.",
+        "input_kind": "chips",
+        "options": [
+          {
+            "id": "confirm",
+            "label": "Conferma",
+            "value": "confirm"
+          },
+          {
+            "id": "back",
+            "label": "Indietro",
+            "value": "back"
+          }
+        ],
+        "allow_skip": false,
+        "required": true,
+        "brain_key": "travel_confirm",
+        "meta": {}
+      }
+    ],
+    "turn_history": []
+  },
+  "route": "/action/aes_0616307e861648",
+  "first_question": "Hai già un alloggio o prenotazioni?",
+  "synthetic_prompt": "Perfetto. Organizziamo il viaggio.",
+  "ui_mode": "action_engine",
+  "resumed": false,
+  "enabled": true
+}

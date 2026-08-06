@@ -1,0 +1,710 @@
+{
+  "extraction": {
+    "ok": true,
+    "extraction": {
+      "entities": {
+        "departure_date": {
+          "raw": "fra due settimane",
+          "normalized": "2026-08-20",
+          "confidence": 0.93,
+          "status": "known",
+          "source": "deterministic",
+          "timezone": "Europe/Rome",
+          "ambiguity": null,
+          "ambiguous": false,
+          "candidates": [],
+          "label": "20 agosto 2026",
+          "meta": {}
+        },
+        "start_date": {
+          "raw": "fra due settimane",
+          "normalized": "2026-08-20",
+          "confidence": 0.93,
+          "status": "known",
+          "source": "deterministic",
+          "timezone": "Europe/Rome",
+          "ambiguity": null,
+          "ambiguous": false,
+          "candidates": [],
+          "label": "20 agosto 2026",
+          "meta": {}
+        }
+      },
+      "missing_slots": [
+        "destination",
+        "return_date"
+      ],
+      "ambiguous_slots": [],
+      "known_slots": {
+        "departure_date": "2026-08-20",
+        "start_date": "2026-08-20"
+      },
+      "needs_clarification": true,
+      "reason_summary": "partenza nota senza rientro; prossima domanda: destination",
+      "flow_hint": "travel",
+      "intent_hint": null,
+      "domain": "travel",
+      "extraction_version": "semantic-engine-1.0",
+      "extracted_at": "2026-08-06T08:59:39.617647+00:00",
+      "used_gemini": false,
+      "cache_hit": false,
+      "usage": {},
+      "meta": {
+        "next_slot": "destination",
+        "next_question": "Dove andrai?"
+      }
+    },
+    "user_id": "user_b3659740b312"
+  },
+  "conversation": {
+    "ok": true,
+    "session": {
+      "id": "ces_ad47eae537cf4c",
+      "status": "waiting_user",
+      "origin": "text",
+      "input": "Fra due settimane parto.",
+      "intent": {
+        "intent": "travel",
+        "subtype": null,
+        "confidence": 0.99,
+        "reason": "keywords:parto,due settimane parto + deterministic_rules",
+        "entities": {
+          "departure_date": "2026-08-20",
+          "start_date": "2026-08-20"
+        },
+        "clarify_options": null,
+        "needs_clarify": false,
+        "classifier_version": "intent-engine-1.0",
+        "scores": {
+          "travel": 7.8
+        },
+        "source_hints_used": []
+      },
+      "goal_id": "goal_449db44a962442",
+      "project_id": "aproj_8e000a9f3803",
+      "action_session_id": "aes_7d55fd243a844b",
+      "current_step": "destination",
+      "artifacts": [
+        {
+          "kind": "action_session",
+          "id": "aes_7d55fd243a844b",
+          "label": "Fra due settimane parto.",
+          "meta": {}
+        },
+        {
+          "kind": "goal",
+          "id": "goal_449db44a962442",
+          "label": "Organizzare viaggio",
+          "meta": {}
+        },
+        {
+          "kind": "project",
+          "id": "aproj_8e000a9f3803",
+          "label": "Fra due settimane parto.",
+          "meta": {}
+        }
+      ],
+      "summary": "Stiamo organizzando la tua vacanza.",
+      "resume_token": "crt_fB4PTSrhYrm6CLNBKsto-fFk",
+      "engine_version": "conversation-engine-1.0",
+      "voice_meta": null,
+      "suggestion_id": null,
+      "known_slots": {
+        "departure_date": "2026-08-20",
+        "start_date": "2026-08-20"
+      },
+      "extracted_entities": {
+        "departure_date": {
+          "raw": "fra due settimane",
+          "normalized": "2026-08-20",
+          "confidence": 0.93,
+          "status": "known",
+          "source": "deterministic",
+          "timezone": "Europe/Rome",
+          "ambiguity": null,
+          "ambiguous": false,
+          "candidates": [],
+          "label": "20 agosto 2026",
+          "meta": {}
+        },
+        "start_date": {
+          "raw": "fra due settimane",
+          "normalized": "2026-08-20",
+          "confidence": 0.93,
+          "status": "known",
+          "source": "deterministic",
+          "timezone": "Europe/Rome",
+          "ambiguity": null,
+          "ambiguous": false,
+          "candidates": [],
+          "label": "20 agosto 2026",
+          "meta": {}
+        }
+      },
+      "confirmed_entities": {},
+      "missing_slots": [
+        "destination"
+      ],
+      "ambiguous_slots": [],
+      "extraction_version": "semantic-engine-1.0",
+      "last_extraction_at": "2026-08-06T08:58:17.520129+00:00",
+      "understood_summary": {
+        "Partenza": "2026-08-20"
+      },
+      "created_at": "2026-08-06T08:59:39.654208+00:00",
+      "updated_at": "2026-08-06T08:59:40.203105+00:00",
+      "meta": {
+        "ui_mode": "action_engine",
+        "proactive_context": null,
+        "synthetic_prompt": "Perfetto. Dove andrai?",
+        "gap": {
+          "flow": "travel",
+          "domain": "travel",
+          "known_slots": {
+            "departure_date": "2026-08-20",
+            "start_date": "2026-08-20"
+          },
+          "missing_required": [
+            "destination"
+          ],
+          "missing_conditional": [
+            "return_date"
+          ],
+          "missing_optional": [
+            "budget",
+            "stops",
+            "preferences"
+          ],
+          "ambiguous_slots": [],
+          "next_best_question": "Dove andrai?",
+          "next_slot": "destination",
+          "question_reason": "Serve la destinazione per organizzare il viaggio.",
+          "suggested_chips": [
+            {
+              "id": "vibo",
+              "label": "Vibo Marina",
+              "value": "Vibo Marina"
+            },
+            {
+              "id": "roma",
+              "label": "Roma",
+              "value": "Roma"
+            },
+            {
+              "id": "milano",
+              "label": "Milano",
+              "value": "Milano"
+            }
+          ],
+          "completion_ready": false,
+          "reason_summary": "noti: departure_date, start_date; mancano: destination; prossima: destination",
+          "analysis_version": "semantic-engine-1.0"
+        },
+        "reason_summary": "partenza nota senza rientro; prossima domanda: destination",
+        "action_flow": "travel",
+        "route": "/action/aes_7d55fd243a844b",
+        "first_question": "Dove andrai?"
+      },
+      "history": [
+        {
+          "at": "2026-08-06T08:59:39.654208+00:00",
+          "role": "user",
+          "kind": "start",
+          "text": "Fra due settimane parto.",
+          "step_id": null,
+          "meta": {}
+        },
+        {
+          "at": "2026-08-06T08:59:39.654208+00:00",
+          "role": "ora",
+          "kind": "intent",
+          "text": "travel",
+          "step_id": null,
+          "meta": {
+            "confidence": 0.99
+          }
+        },
+        {
+          "at": "2026-08-06T08:59:39.654208+00:00",
+          "role": "ora",
+          "kind": "extraction",
+          "text": "partenza nota senza rientro; prossima domanda: destination",
+          "step_id": null,
+          "meta": {
+            "known": [
+              "departure_date",
+              "start_date"
+            ],
+            "next_slot": "destination"
+          }
+        },
+        {
+          "at": "2026-08-06T08:59:39.950996+00:00",
+          "role": "ora",
+          "kind": "question",
+          "text": "Dove andrai?",
+          "step_id": "destination",
+          "meta": {}
+        },
+        {
+          "at": "2026-08-06T08:59:40.203105+00:00",
+          "role": "system",
+          "kind": "goal",
+          "text": "goal_449db44a962442",
+          "step_id": null,
+          "meta": {}
+        }
+      ]
+    },
+    "action_session": {
+      "id": "aes_7d55fd243a844b",
+      "status": "active",
+      "flow": "travel",
+      "engine_version": "action-engine-1.3",
+      "title": "Fra due settimane parto.",
+      "description": "Fra due settimane parto.",
+      "source_type": "conversation",
+      "source_id": "ces_ad47eae537cf4c",
+      "home_item_id": null,
+      "home_item_type": null,
+      "current_turn": {
+        "id": "destination",
+        "question": "Dove andrai?",
+        "explanation": "Parto da «Fra due settimane parto.» — dimmi dove vai.",
+        "input_kind": "chips_or_text",
+        "options": [
+          {
+            "id": "from_title",
+            "label": "Usa «Fra due settimane parto.»",
+            "value": "from_title"
+          }
+        ],
+        "allow_skip": false,
+        "required": true,
+        "brain_key": "travel_destination",
+        "meta": {}
+      },
+      "answers": {
+        "departure_date": {
+          "departure_date": "2026-08-20",
+          "start_date": "2026-08-20"
+        }
+      },
+      "progress": 0,
+      "done": false,
+      "proposed_actions": [],
+      "project": {
+        "project_id": "aproj_8e000a9f3803",
+        "title": "Fra due settimane parto.",
+        "created": true,
+        "merge_candidate_id": null,
+        "merge_candidate_title": null
+      },
+      "brain_node_id": "node_1bb5d20490c6",
+      "effects": {},
+      "created_at": "2026-08-06T08:59:39.923941+00:00",
+      "updated_at": "2026-08-06T08:59:39.923941+00:00",
+      "completed_at": null,
+      "meta": {
+        "intent": "travel",
+        "intent_subtype": null,
+        "intent_confidence": 0.99,
+        "intent_entities": {
+          "departure_date": "2026-08-20",
+          "start_date": "2026-08-20"
+        },
+        "classifier_version": "intent-engine-1.0",
+        "needs_clarify": false,
+        "google_connected": false,
+        "timezone": "Europe/Rome",
+        "study_documents": [],
+        "travel_documents": [],
+        "home_place": null,
+        "known_slots": {
+          "departure_date": "2026-08-20",
+          "start_date": "2026-08-20"
+        },
+        "gap": {
+          "flow": "travel",
+          "domain": "travel",
+          "known_slots": {
+            "departure_date": "2026-08-20",
+            "start_date": "2026-08-20"
+          },
+          "missing_required": [
+            "destination"
+          ],
+          "missing_conditional": [
+            "return_date"
+          ],
+          "missing_optional": [
+            "budget",
+            "stops",
+            "preferences"
+          ],
+          "ambiguous_slots": [],
+          "next_best_question": "Dove andrai?",
+          "next_slot": "destination",
+          "question_reason": "Serve la destinazione per organizzare il viaggio.",
+          "suggested_chips": [
+            {
+              "id": "vibo",
+              "label": "Vibo Marina",
+              "value": "Vibo Marina"
+            },
+            {
+              "id": "roma",
+              "label": "Roma",
+              "value": "Roma"
+            },
+            {
+              "id": "milano",
+              "label": "Milano",
+              "value": "Milano"
+            }
+          ],
+          "completion_ready": false,
+          "reason_summary": "noti: departure_date, start_date; mancano: destination; prossima: destination",
+          "analysis_version": "semantic-engine-1.0"
+        },
+        "understood_summary": {
+          "Partenza": "2026-08-20"
+        },
+        "next_slot": "destination",
+        "next_best_question": "Dove andrai?"
+      },
+      "turns": [
+        {
+          "id": "destination",
+          "question": "Dove andrai?",
+          "explanation": "Parto da «Fra due settimane parto.» — dimmi dove vai.",
+          "input_kind": "chips_or_text",
+          "options": [
+            {
+              "id": "from_title",
+              "label": "Usa «Fra due settimane parto.»",
+              "value": "from_title"
+            }
+          ],
+          "allow_skip": false,
+          "required": true,
+          "brain_key": "travel_destination",
+          "meta": {}
+        },
+        {
+          "id": "return_date",
+          "question": "Perfetto, partirai il 20 agosto. Quando pensi di rientrare?",
+          "explanation": "La partenza è già nota — serve solo il rientro.",
+          "input_kind": "chips_or_text",
+          "options": [
+            {
+              "id": "plus_7",
+              "label": "+7 giorni",
+              "value": "plus_7"
+            },
+            {
+              "id": "plus_14",
+              "label": "+14 giorni",
+              "value": "plus_14"
+            },
+            {
+              "id": "unsure",
+              "label": "Non ancora",
+              "value": "__skip__"
+            }
+          ],
+          "allow_skip": false,
+          "required": true,
+          "brain_key": "travel_return",
+          "meta": {}
+        },
+        {
+          "id": "transport",
+          "question": "Come ti sposti?",
+          "explanation": "Adatto Maps, soste e consigli di partenza.",
+          "input_kind": "chips",
+          "options": [
+            {
+              "id": "train",
+              "label": "Treno",
+              "value": "train"
+            },
+            {
+              "id": "plane",
+              "label": "Aereo",
+              "value": "plane"
+            },
+            {
+              "id": "car",
+              "label": "Auto",
+              "value": "car"
+            },
+            {
+              "id": "other",
+              "label": "Altro",
+              "value": "other"
+            }
+          ],
+          "allow_skip": false,
+          "required": true,
+          "brain_key": "travel_transport",
+          "meta": {}
+        },
+        {
+          "id": "departure_place",
+          "question": "Da dove parti?",
+          "explanation": "Serve per Maps e orario di partenza (stimato).",
+          "input_kind": "chips_or_text",
+          "options": [
+            {
+              "id": "tarquinia",
+              "label": "Tarquinia",
+              "value": "Tarquinia"
+            },
+            {
+              "id": "roma",
+              "label": "Roma",
+              "value": "Roma"
+            },
+            {
+              "id": "other",
+              "label": "Altro",
+              "value": "__other__"
+            }
+          ],
+          "allow_skip": false,
+          "required": true,
+          "brain_key": "travel_departure",
+          "meta": {}
+        },
+        {
+          "id": "lodging",
+          "question": "Hai già un alloggio o prenotazioni?",
+          "explanation": "Biglietti / hotel — utile per il progetto viaggio.",
+          "input_kind": "chips",
+          "options": [
+            {
+              "id": "all",
+              "label": "Sì, tutto",
+              "value": "all"
+            },
+            {
+              "id": "partial",
+              "label": "Parziali",
+              "value": "partial"
+            },
+            {
+              "id": "none",
+              "label": "Ancora no",
+              "value": "none"
+            },
+            {
+              "id": "booked",
+              "label": "Già prenotato",
+              "value": "booked"
+            },
+            {
+              "id": "need",
+              "label": "Da cercare",
+              "value": "need"
+            }
+          ],
+          "allow_skip": false,
+          "required": true,
+          "brain_key": "travel_lodging",
+          "meta": {}
+        },
+        {
+          "id": "bookings",
+          "question": "Hai già prenotazioni (biglietti / hotel)?",
+          "explanation": null,
+          "input_kind": "chips",
+          "options": [
+            {
+              "id": "all",
+              "label": "Sì, tutto",
+              "value": "all"
+            },
+            {
+              "id": "partial",
+              "label": "Parziali",
+              "value": "partial"
+            },
+            {
+              "id": "none",
+              "label": "Ancora no",
+              "value": "none"
+            }
+          ],
+          "allow_skip": false,
+          "required": true,
+          "brain_key": "travel_bookings",
+          "meta": {}
+        },
+        {
+          "id": "companions",
+          "question": "Con chi viaggi?",
+          "explanation": null,
+          "input_kind": "chips",
+          "options": [
+            {
+              "id": "solo",
+              "label": "Solo io",
+              "value": 1
+            },
+            {
+              "id": "2",
+              "label": "In 2",
+              "value": 2
+            },
+            {
+              "id": "family",
+              "label": "3+",
+              "value": 3
+            }
+          ],
+          "allow_skip": false,
+          "required": true,
+          "brain_key": "travel_companions",
+          "meta": {}
+        },
+        {
+          "id": "calendar_sync",
+          "question": "Vuoi proporre eventi su Google Calendar?",
+          "explanation": "Google non collegato: il progetto resta su ORA. Puoi collegare Google dopo.",
+          "input_kind": "chips",
+          "options": [
+            {
+              "id": "yes",
+              "label": "Sì, proponi eventi",
+              "value": true
+            },
+            {
+              "id": "no",
+              "label": "No, solo su ORA",
+              "value": false
+            }
+          ],
+          "allow_skip": false,
+          "required": true,
+          "brain_key": "travel_calendar_sync",
+          "meta": {}
+        },
+        {
+          "id": "prep",
+          "question": "Suggerimenti di preparazione? (opzionale)",
+          "explanation": "Valigia, documenti, auto, carburante, animali, farmaci, caricatore — solo se ti servono.",
+          "input_kind": "multi_chips",
+          "options": [
+            {
+              "id": "luggage",
+              "label": "Valigia",
+              "value": "luggage"
+            },
+            {
+              "id": "docs",
+              "label": "Documenti",
+              "value": "docs"
+            },
+            {
+              "id": "car",
+              "label": "Auto",
+              "value": "car"
+            },
+            {
+              "id": "fuel",
+              "label": "Carburante",
+              "value": "fuel"
+            },
+            {
+              "id": "pets",
+              "label": "Animali",
+              "value": "pets"
+            },
+            {
+              "id": "medicine",
+              "label": "Farmaci",
+              "value": "medicine"
+            },
+            {
+              "id": "charger",
+              "label": "Caricatore",
+              "value": "charger"
+            },
+            {
+              "id": "skip",
+              "label": "Nessuno / salta",
+              "value": "__skip__"
+            }
+          ],
+          "allow_skip": true,
+          "required": true,
+          "brain_key": "travel_prep",
+          "meta": {}
+        },
+        {
+          "id": "preview",
+          "question": "Ecco il progetto viaggio — va bene?",
+          "explanation": "Controlla periodo, destinazione, calendario proposto e Maps.",
+          "input_kind": "preview",
+          "options": [
+            {
+              "id": "accept",
+              "label": "Sì, continua",
+              "value": "accept"
+            },
+            {
+              "id": "edit_dest",
+              "label": "Cambia destinazione",
+              "value": "edit_dest"
+            },
+            {
+              "id": "edit_period",
+              "label": "Cambia date",
+              "value": "edit_period"
+            },
+            {
+              "id": "edit_calendar",
+              "label": "Cambia sync calendario",
+              "value": "edit_calendar"
+            }
+          ],
+          "allow_skip": false,
+          "required": true,
+          "brain_key": "travel_preview",
+          "meta": {}
+        },
+        {
+          "id": "confirm",
+          "question": "Confermi e creo il Travel Project?",
+          "explanation": "Solo ora creo eventi Google (se li hai chiesti). Niente sync silenziosa.",
+          "input_kind": "chips",
+          "options": [
+            {
+              "id": "confirm",
+              "label": "Conferma",
+              "value": "confirm"
+            },
+            {
+              "id": "back",
+              "label": "Indietro",
+              "value": "back"
+            }
+          ],
+          "allow_skip": false,
+          "required": true,
+          "brain_key": "travel_confirm",
+          "meta": {}
+        }
+      ],
+      "turn_history": []
+    },
+    "route": "/action/aes_7d55fd243a844b",
+    "first_question": "Dove andrai?",
+    "synthetic_prompt": "Perfetto. Dove andrai?",
+    "ui_mode": "action_engine",
+    "resumed": false,
+    "enabled": true
+  },
+  "firstQ": "Dove andrai?"
+}

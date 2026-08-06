@@ -19,7 +19,7 @@ Last updated: 2026-08-06 (Semantic Extraction + Gap Analyzer)
 | APIs `/api/semantic/*` | **implemented** |
 | FE understood summary (Partenza/Destinazione/Ritorno) | **implemented** |
 | pytest `test_semantic_engine.py` | **17 passed** (corpus ≥200) |
-| Playwright `semantic-extraction-gap.spec.ts` | **implemented** |
+| Playwright `semantic-extraction-gap.spec.ts` | **2 passed** (API :8001 + Expo :8081) |
 | Docs SEMANTIC_* / ENTITY_MODEL / GAP_ANALYZER | **implemented** |
 | Gemini extraction | **optional** via Provider Manager |
 
