@@ -376,6 +376,60 @@ export const api = {
       `/suggestions/${id}/explain`,
     ),
 
+  // Conversation Engine — entry orchestrator (NOT a chatbot)
+  conversationStart: (body: ConversationStartBody) =>
+    request<ConversationStartResult>('/conversation/start', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  conversationGet: (sessionId: string) =>
+    request<{
+      ok: boolean;
+      session: ConversationSession;
+      action_session?: ActionEngineSession | null;
+      route?: string | null;
+    }>(`/conversation/sessions/${sessionId}`),
+  conversationMessage: (
+    sessionId: string,
+    body: { text?: string; option_id?: string; value?: unknown; skip?: boolean },
+  ) =>
+    request<ConversationStartResult>(`/conversation/${sessionId}/message`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  conversationContinue: (sessionId: string, note?: string) =>
+    request<ConversationStartResult>(`/conversation/${sessionId}/continue`, {
+      method: 'POST',
+      body: JSON.stringify({ note }),
+    }),
+  conversationCancel: (sessionId: string, reason?: string) =>
+    request<{ ok: boolean; session: ConversationSession }>(
+      `/conversation/${sessionId}/cancel`,
+      { method: 'POST', body: JSON.stringify({ reason }) },
+    ),
+  conversationResume: (body: { session_id?: string; resume_token?: string }) =>
+    request<ConversationStartResult>('/conversation/resume', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  conversationHistory: (sessionId: string) =>
+    request<{ ok: boolean; steps: Array<Record<string, unknown>>; not_chat: boolean }>(
+      `/conversation/${sessionId}/history`,
+    ),
+  conversationSummary: (sessionId: string) =>
+    request<{
+      ok: boolean;
+      summary?: string;
+      resume_token?: string;
+      goal_id?: string;
+      project_id?: string;
+      action_session_id?: string;
+    }>(`/conversation/${sessionId}/summary`),
+  conversationList: (limit = 10) =>
+    request<{ ok: boolean; sessions: ConversationSession[]; enabled: boolean }>(
+      `/conversation?limit=${limit}`,
+    ),
+
   // Action Engine — guided priority flows
   actionEngineOpen: (body: ActionEngineOpenBody) =>
     request<ActionEngineOpenResult>('/action-engine/open', {
@@ -1457,4 +1511,51 @@ export type ActionEngineAnswerResult = {
   upload_route?: string;
   plan?: StudyPlan | Record<string, unknown>;
   opened_plan_id?: string;
+};
+
+/** Conversation Engine — orchestration session (not a chat thread). */
+export type ConversationSession = {
+  id: string;
+  status: string;
+  origin: string;
+  input?: string | null;
+  intent?: Record<string, unknown> | null;
+  goal_id?: string | null;
+  project_id?: string | null;
+  action_session_id?: string | null;
+  current_step?: string | null;
+  artifacts?: Array<{ kind: string; id: string; label?: string | null }>;
+  summary?: string | null;
+  resume_token?: string;
+  engine_version?: string;
+  known_slots?: Record<string, unknown>;
+  meta?: Record<string, unknown>;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type ConversationStartBody = {
+  text?: string;
+  origin?: string;
+  voice_meta?: Record<string, unknown>;
+  suggestion_id?: string;
+  context?: Record<string, unknown>;
+  force_new?: boolean;
+};
+
+export type ConversationStartResult = {
+  ok: boolean;
+  enabled?: boolean;
+  session?: ConversationSession;
+  action_session?: ActionEngineSession | null;
+  route?: string | null;
+  first_question?: string | null;
+  synthetic_prompt?: string | null;
+  ui_mode?: string;
+  resumed?: boolean;
+  stub?: boolean;
+  honesty?: string;
+  error?: string;
+  handoff?: string;
+  completed?: boolean;
 };

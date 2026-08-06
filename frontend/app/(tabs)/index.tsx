@@ -21,6 +21,7 @@ import { GoogleBanner } from '@/src/components/home/v2/GoogleBanner';
 import { PrioritaList } from '@/src/components/home/v2/PrioritaList';
 import { OraOsserva } from '@/src/components/home/v2/OraOsserva';
 import { OraTiConsiglia } from '@/src/components/home/v2/OraTiConsiglia';
+import { ParlaConOra } from '@/src/components/home/v2/ParlaConOra';
 import { ResumeCard } from '@/src/components/home/v2/ResumeCard';
 import { EmptyHome } from '@/src/components/home/v2/EmptyHome';
 
@@ -150,6 +151,7 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
         testID="home-scroll"
       >
+        <ParlaConOra onError={(msg) => setErrorBanner(msg)} />
         <HomeHeader online={online} lastSuccessAt={lastSuccessAt} />
         {!online ? <OfflineBanner /> : null}
         {errorBanner ? <ErrorBanner message={errorBanner} onDismiss={() => setErrorBanner(null)} /> : null}
@@ -203,7 +205,11 @@ export default function HomeScreen() {
               try {
                 const res = await api.acceptSuggestion(id);
                 haptic('success');
-                const route = (res.result as any)?.route;
+                const r = (res.result || {}) as Record<string, unknown>;
+                // Conversation handoff → AE guided UI (never chat)
+                const route =
+                  (r.route as string | undefined) ||
+                  ((r.result as any)?.route as string | undefined);
                 await load({ silent: true });
                 if (route) router.push(route as any);
               } catch (e: any) {

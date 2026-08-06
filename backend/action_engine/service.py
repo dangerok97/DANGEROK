@@ -359,6 +359,29 @@ class ActionEngineService:
             except Exception as e:
                 logger.info("travel doc search on open: %s", type(e).__name__)
 
+        # Conversation Engine memory: never re-ask answered slots
+        known_slots = (body.meta or {}).get("known_slots") or {}
+        if isinstance(known_slots, dict):
+            alias = {
+                "subject": STEP_CONFIRM_SUBJECT if flow == "study" else None,
+                "confirm_subject": STEP_CONFIRM_SUBJECT if flow == "study" else None,
+                "period": T_PERIOD if flow == "travel" else None,
+                "destination": T_DESTINATION if flow == "travel" else None,
+                "departure": "departure_place" if flow == "travel" else None,
+                "departure_place": "departure_place" if flow == "travel" else None,
+                "exam_date": "exam_date" if flow == "study" else None,
+            }
+            for key, val in known_slots.items():
+                if val in (None, "", []):
+                    continue
+                target = alias.get(key, key)
+                if not target or target in answers:
+                    continue
+                # Seed only when the turn was omitted (already known) or value is structured
+                turn_present = any(t.id == target for t in turns)
+                if not turn_present:
+                    answers[target] = val
+
         first = next_unanswered(turns, answers) or (turns[0] if turns else None)
 
         brain_node_id = None

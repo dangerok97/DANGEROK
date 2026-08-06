@@ -17,9 +17,21 @@ def _uid(prefix: str) -> str:
 
 async def handle_accept(db, user_id: str, suggestion: Suggestion) -> Dict[str, Any]:
     kind = (suggestion.action.kind if suggestion.action else "") or ""
+    # Conversation Engine handoff — resume interrupted guided sessions
+    if kind in ("resume_conversation", "conversation") or (
+        (suggestion.meta or {}).get("conversation_session_id")
+    ):
+        return await _accept_conversation_handoff(db, user_id, suggestion)
     if suggestion.type == "study" or kind == "recover_session":
+        # Prefer Conversation resume when a linked CE session exists
+        ce = await _try_conversation_handoff(db, user_id, suggestion)
+        if ce:
+            return ce
         return await _accept_study_recovery(db, user_id, suggestion)
     if suggestion.type == "travel" or kind == "prep":
+        ce = await _try_conversation_handoff(db, user_id, suggestion)
+        if ce:
+            return ce
         return await _accept_travel_prep(db, user_id, suggestion)
     if suggestion.type == "documents" or kind == "flashcards":
         return await _accept_documents_flashcards(db, user_id, suggestion)
@@ -30,6 +42,86 @@ async def handle_accept(db, user_id: str, suggestion: Suggestion) -> Dict[str, A
         "effect": "marked_accepted",
         "next_action": (suggestion.action.route if suggestion.action else None),
         "honesty": "No typed handler — accepted + route preserved; nothing fabricated.",
+    }
+
+
+async def _try_conversation_handoff(
+    db, user_id: str, suggestion: Suggestion,
+) -> Optional[Dict[str, Any]]:
+    """If a paused/active Conversation Session matches, resume via CE."""
+    meta = suggestion.meta or {}
+    ces_id = meta.get("conversation_session_id")
+    if not ces_id and suggestion.id:
+        doc = await db.conversation_sessions.find_one(
+            {
+                "user_id": user_id,
+                "suggestion_id": suggestion.id,
+                "status": {"$in": ["active", "waiting_user", "running_action", "paused"]},
+            },
+            {"_id": 0, "id": 1},
+        )
+        if doc:
+            ces_id = doc.get("id")
+    if not ces_id and suggestion.goal_id:
+        doc = await db.conversation_sessions.find_one(
+            {
+                "user_id": user_id,
+                "goal_id": suggestion.goal_id,
+                "status": {"$in": ["active", "waiting_user", "running_action", "paused"]},
+            },
+            {"_id": 0, "id": 1},
+        )
+        if doc:
+            ces_id = doc.get("id")
+    if not ces_id:
+        return None
+    return await _accept_conversation_handoff(db, user_id, suggestion, session_id=ces_id)
+
+
+async def _accept_conversation_handoff(
+    db,
+    user_id: str,
+    suggestion: Suggestion,
+    *,
+    session_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    try:
+        from conversation_engine.service import (
+            ConversationEngineService,
+            conversation_engine_enabled,
+        )
+    except Exception:
+        return {
+            "ok": True,
+            "effect": "marked_accepted",
+            "honesty": "Conversation Engine unavailable — accept recorded only.",
+        }
+    if not conversation_engine_enabled():
+        return {
+            "ok": True,
+            "effect": "marked_accepted",
+            "honesty": "Conversation Engine disabled — accept recorded only.",
+        }
+    svc = ConversationEngineService(db)
+    sug_dict = suggestion.model_dump()
+    if session_id:
+        sug_dict.setdefault("meta", {})["conversation_session_id"] = session_id
+    result = await svc.start_from_proactive(user_id, sug_dict)
+    route = result.get("route")
+    ces = (result.get("session") or {}).get("id")
+    return {
+        "ok": bool(result.get("ok")),
+        "effect": "conversation_handoff",
+        "handoff": result.get("handoff") or "start_conversation",
+        "conversation_session_id": ces,
+        "action_session_id": (result.get("session") or {}).get("action_session_id"),
+        "route": route,
+        "first_question": result.get("first_question"),
+        "honesty": "Opened/resumed Conversation Engine session; domain work stays in Action Engine.",
+        "result": {
+            k: result.get(k)
+            for k in ("ok", "route", "first_question", "ui_mode", "resumed", "handoff")
+        },
     }
 
 

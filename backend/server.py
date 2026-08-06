@@ -224,6 +224,17 @@ async def startup():
     except Exception:
         logger.exception("Proactive Engine bootstrap failed (non-fatal)")
 
+    # Conversation Engine — entry orchestrator (NOT a chatbot)
+    try:
+        from conversation_engine import ConversationEngineService
+        from deps import decisions as _dec_ce, knowledge as _kn_ce, life_graph as _lg_ce
+        await ConversationEngineService(
+            db, life_graph=_lg_ce, knowledge=_kn_ce, decisions=_dec_ce,
+        ).ensure_indexes()
+        logger.info("Conversation Engine indexes ready")
+    except Exception:
+        logger.exception("Conversation Engine bootstrap failed (non-fatal)")
+
     # Sync capability registry to Mongo (idempotent, structural fields are
     # overwritten from code; ops metadata is preserved).
     try:
@@ -236,7 +247,7 @@ async def startup():
     logger.info(
         "ORA backend ready. Modules online: decision_engine, life_graph, "
         "knowledge, auto_link, context_assembler, permissions, connectors, "
-        "home_v2, action_engine, goal_engine, proactive_engine."
+        "home_v2, action_engine, goal_engine, proactive_engine, conversation_engine."
     )
 
 

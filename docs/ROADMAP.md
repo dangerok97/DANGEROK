@@ -31,6 +31,7 @@ Basata sull’audit funzionale del 2026-08-04. Ordine: fondamenta → organizzaz
 | B5d Goal Engine Foundation (shadow) | critica | Study + Travel | L | **DONE** 2026-08-06 — `feature/goal-engine-foundation` (backend only; **no Goal UX**) |
 | B5e Goal → Home dedupe (`goal_id`) | alta | B5d | M | **DONE** Goal-aware Home (`feature/goal-aware-home`) |
 | B5f Proactive Engine foundation | critica | B5d + Home V2 | L | **DONE** 2026-08-06 — `feature/proactive-engine` (ORA TI CONSIGLIA; Email/Finance/Weather/WhatsApp predisposed only) |
+| B5g Conversation Engine foundation | critica | Intent + AE + Goal + Proactive | L | **DONE** 2026-08-06 — `feature/conversation-engine` (orchestrator; NOT chatbot; PARLA CON ORA; STT stub) |
 | B6 Documents V2 intelligent hub | alta | — | L | Branch `feature/rebuild-intelligent-documents` |
 
 ## FASE C — Progetti e documenti
@@ -51,7 +52,7 @@ Basata sull’audit funzionale del 2026-08-04. Ordine: fondamenta → organizzaz
 | D2 UX quando LLM assente: CTA “configura AI” non solo 502/503 grezzo in UI | alta | adapter LLM | S | Messaggio IT in Home/Memoria |
 | D3 Memoria ask con citazione sources in UI | media | D1 | M | Sources visibili sotto risposta |
 | D4 Guardrail: niente auto-azioni irreversibili da LLM | alta | D1 | M | Test: resolve non completa da sola |
-| D5 Chat libera | bassa | Product | L | Solo se vision lo richiede (oggi no) |
+| D5 Chat libera | bassa | Product | L | **Explicitly out of scope** — Conversation Engine is guided collaboration, not free chat |
 
 ## FASE E — Integrazioni
 
