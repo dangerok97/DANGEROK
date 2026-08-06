@@ -517,6 +517,24 @@ class StudyPlanService:
             logger.info("goal shadow study soft-fail: %s", type(e).__name__)
             effects["goal"] = {"error": type(e).__name__, "soft_fail": True}
 
+        # Life Object Engine shadow — UNIVERSITY/COURSE alongside Study Plan
+        try:
+            from life_objects.shadow import shadow_upsert_from_study
+            lo_res = await shadow_upsert_from_study(
+                self.db,
+                user_id=user_id,
+                plan=plan.model_dump(),
+                life_graph=self.life_graph,
+            )
+            effects["life_object"] = {
+                "life_object_id": (lo_res.get("object") or {}).get("id"),
+                "created": lo_res.get("created"),
+                "skipped": lo_res.get("skipped"),
+            }
+        except Exception as e:
+            logger.info("life_object study shadow soft-fail: %s", type(e).__name__)
+            effects["life_object"] = {"error": type(e).__name__, "soft_fail": True}
+
         return {
             "ok": True,
             "plan": plan.public(),

@@ -1,5 +1,26 @@
 # ORA — Architecture
 
+## Life Object Engine — modello canonico (SHADOW, 2026-08-06)
+
+**Life Objects = verità canonica sulla realtà dell’utente** (HOME, VEHICLE, UNIVERSITY, JOB, …).  
+Conversation, Goal, Documents, Brain, Proactive, Home, Travel, Study **continuano a esistere**: non vengono eliminati. Diventano **satelliti / fonti** che leggono e aggiornano i Life Object — non posseggono più “la verità” da soli.
+
+```
+                 ┌──────────────────────────┐
+                 │      LIFE OBJECTS        │  ← canonical truth (shadow writes)
+                 └────────────▲─────────────┘
+        read/write │          │          │
+   Documents V2   Goal Engine   Brain / Conversation / Proactive
+   Life Experience Travel/Study Home (ancora Goal-aware; V3 UI OFF)
+```
+
+- Package: `backend/life_objects/` — models, repository, service, reasoner, dedupe, linking, memory, router, shadow hooks
+- Flags: `LIFE_OBJECT_ENGINE_ENABLED=1` (shadow ON), `LIFE_OBJECT_HOME_UI_ENABLED=0` (UX invariata)
+- Collection: `life_objects`
+- API: `/api/life-objects/*` (auth; unused by main UI)
+- Docs: `LIFE_OBJECT_ENGINE.md`, `LIFE_OBJECT_REASONING.md`, `LIFE_OBJECT_ARCHITECTURE.md`, `LIFE_OBJECT_VERIFICATION.md`
+- **Home V3 Life Objects = PREDISPOSTO, non shippato.** Home resta Goal-aware.
+
 ## Life Experience / Strategist (2026-08-06)
 
 - AI-first Life Experience: reasoning loop every turn → structured `StrategistPlan`.
@@ -51,6 +72,7 @@ backend/
   semantic_engine/       # Structured extraction + Gap Analyzer (Gemini optional)
   ai_life_strategist/    # Life Experience reasoning loop + StrategistPlan (Gemini + IT fallback)
   life_setup/            # First-launch Life Experience session + Life Profile persistence/sync
+  life_objects/          # Life Object Engine (core identity; SHADOW mode)
   daily_intelligence/    # daily summary (situation indicators)
   behavioral_intelligence/
   behavior_aware_decisions/
@@ -84,7 +106,7 @@ All routes under `/api` via `ALL_ROUTERS`:
 - `permissions`, `connectors`, `ingestion`
 - `google_calendar`, `apple_calendar`
 - `daily`, `behavior`, `behavior_shadow`
-- `documents`, `home` (V2 intelligence dashboard), `intent`, `action-engine`, `goals` (Goal Engine — backend only, unused by UI), `suggestions` (Proactive Engine), `conversation` (Conversation Engine orchestrator), `admin`, `memory`
+- `documents`, `home` (V2 intelligence dashboard), `intent`, `action-engine`, `goals` (Goal Engine — backend only, unused by UI), `life-objects` (Life Object Engine — shadow; unused by main UI), `suggestions` (Proactive Engine), `conversation` (Conversation Engine orchestrator), `admin`, `memory`
 
 Health:
 
@@ -104,6 +126,7 @@ Health:
 - Mongo: `study_plans`, `study_sessions` (UTC; default TZ Europe/Rome)
 - Goal Engine (shadow + Home context; **no Goal UX**): `GET/POST/PATCH/DELETE /api/goals`, `POST /api/goals/search|merge`, `POST /api/goals/{id}/archive`, `GET /api/goals/{id}/timeline`
 - Mongo: `goals`, `goal_events` — Study/Travel confirm upserts Goals when `GOAL_ENGINE_ENABLED=1`
+- Life Object Engine (shadow): `GET/POST/PATCH/DELETE /api/life-objects`, search/merge/link/reason/trend/status; Mongo `life_objects`. Shadow hooks from Documents consume, Goal upsert, Travel/Study confirm. `LIFE_OBJECT_HOME_UI_ENABLED=0` → no Home UX change.
 - Proactive Engine: `GET/POST /api/suggestions/*` (list, regenerate, search, dismiss/accept/complete/snooze/explain); Mongo `proactive_suggestions`, `proactive_learning`. Email/Finance/Weather/Health/WhatsApp **predisposed only** — never invent facts.
 
 ## Local topology
@@ -116,7 +139,7 @@ Local Google OAuth: `localhost` and `127.0.0.1` are different browser/API origin
 
 ## Data store
 
-MongoDB collections created/indexed at startup (users, tasks, decisions, life_nodes/edges, node_knowledge, link_proposals, context_snapshots, memories, permission_*, ingestion_events, connector_instances, secret_vault, google_oauth_sessions, documents-related, `home_snapshots` / `home_item_state` / `home_insights`, behavioral collections, `goals` / `goal_events`, `proactive_suggestions` / `proactive_learning`, …).
+MongoDB collections created/indexed at startup (users, tasks, decisions, life_nodes/edges, node_knowledge, link_proposals, context_snapshots, memories, permission_*, ingestion_events, connector_instances, secret_vault, google_oauth_sessions, documents-related, `home_snapshots` / `home_item_state` / `home_insights`, behavioral collections, `goals` / `goal_events`, `life_objects`, `proactive_suggestions` / `proactive_learning`, …).
 
 Document binaries: local storage under `backend/data/documents/` (S3 backend stubbed for future).
 

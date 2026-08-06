@@ -247,6 +247,15 @@ async def startup():
     except Exception:
         logger.exception("Life Setup bootstrap failed (non-fatal)")
 
+    # Life Object Engine — core identity (shadow writes; Home UX unchanged)
+    try:
+        from life_objects import LifeObjectService
+        from deps import knowledge as _kn_lo, life_graph as _lg_lo
+        await LifeObjectService(db, life_graph=_lg_lo, knowledge=_kn_lo).ensure_indexes()
+        logger.info("Life Object Engine indexes ready")
+    except Exception:
+        logger.exception("Life Object Engine bootstrap failed (non-fatal)")
+
     # Sync capability registry to Mongo (idempotent, structural fields are
     # overwritten from code; ops metadata is preserved).
     try:

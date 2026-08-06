@@ -830,6 +830,21 @@ class LifeSetupService:
             db=self.db, user_id=user_id, doc=doc, reasoning=reasoning, knowledge=knowledge,
         )
 
+        # Life Object Engine shadow upsert (parallel; does not replace profile/goals)
+        life_object_shadow: Dict[str, Any] = {"skipped": True}
+        try:
+            from life_objects.shadow import shadow_upsert_from_document
+            life_object_shadow = await shadow_upsert_from_document(
+                self.db,
+                user_id=user_id,
+                doc=doc,
+                reasoning=reasoning,
+                life_graph=self.life_graph,
+            )
+        except Exception as e:
+            logger.info("life_object document shadow soft-fail: %s", type(e).__name__)
+            life_object_shadow = {"ok": False, "soft_fail": True, "error": type(e).__name__}
+
         domain = reasoning.get("domain") or "documenti"
         mapped_fields = map_document_reasoning(reasoning)
 
@@ -981,6 +996,7 @@ class LifeSetupService:
             "turn": turn,
             "document_result": document_result,
             "profile": profile.public() if profile else None,
+            "life_object": life_object_shadow,
             "wizard": False,
         }
 

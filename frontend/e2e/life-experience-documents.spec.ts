@@ -380,4 +380,86 @@ test.describe('Life Experience — REAL document upload + AI Document Understand
     }
     await shot(page, '04-bolletta-final');
   });
+
+  /**
+   * Life Object Engine (SHADOW) — API-driven Casa chain.
+   * UX unchanged (Home still Goal-aware). Asserts /api/life-objects after
+   * rogito → mutuo → bolletta yields exactly one HOME.
+   */
+  test('SHADOW Life Objects: rogito+mutuo+bolletta → single HOME via API', async () => {
+    test.setTimeout(180_000);
+    const { token } = await apiRegister('lo_casa');
+
+    // Start Life Experience so consume_document is available
+    await fetch(`${API}/api/life-setup/start`, {
+      method: 'POST',
+      headers: auth(token),
+      body: JSON.stringify({}),
+    });
+
+    async function uploadAndConsume(filename: string, mime: string) {
+      const filePath = path.join(FIXTURES, filename);
+      const bytes = fs.readFileSync(filePath);
+      const form = new FormData();
+      form.append(
+        'file',
+        new Blob([bytes], { type: mime }),
+        filename,
+      );
+      const up = await fetch(`${API}/api/documents/upload`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: form,
+      });
+      const upBody = await up.json();
+      expect(up.ok).toBeTruthy();
+      const docId = upBody.document?.id || upBody.id;
+      expect(docId).toBeTruthy();
+
+      // Wait for pipeline terminal (Documents V2)
+      let ready = false;
+      for (let i = 0; i < 40; i++) {
+        const st = await fetch(`${API}/api/documents/${docId}`, { headers: auth(token) });
+        const doc = await st.json();
+        const status = doc.document?.pipeline_status || doc.pipeline_status;
+        if (['completed', 'needs_review', 'awaiting_confirmation', 'action_required', 'failed'].includes(status)) {
+          ready = true;
+          break;
+        }
+        await new Promise((r) => setTimeout(r, 500));
+      }
+      expect(ready).toBeTruthy();
+
+      const consume = await fetch(`${API}/api/life-setup/documents/${docId}/consume`, {
+        method: 'POST',
+        headers: auth(token),
+        body: JSON.stringify({ force: true }),
+      });
+      const consumeBody = await consume.json();
+      expect(consume.ok || consumeBody.ok).toBeTruthy();
+      return { docId, consumeBody };
+    }
+
+    await uploadAndConsume('rogito.pdf', 'application/pdf');
+    await uploadAndConsume('mutuo.txt', 'text/plain');
+    await uploadAndConsume('bolletta_luce.txt', 'text/plain');
+
+    const loRes = await fetch(`${API}/api/life-objects?type=HOME&status=active`, {
+      headers: auth(token),
+    });
+    expect(loRes.ok).toBeTruthy();
+    const loBody = await loRes.json();
+    expect(loBody.enabled).toBeTruthy();
+    expect(loBody.home_ui_enabled).toBeFalsy();
+    expect(loBody.count).toBe(1);
+    expect(loBody.objects[0].type).toBe('HOME');
+    expect((loBody.objects[0].documents || []).length).toBeGreaterThanOrEqual(2);
+
+    // Persist evidence for CI/manual review
+    fs.mkdirSync(EVIDENCE_DIR, { recursive: true });
+    fs.writeFileSync(
+      path.join(EVIDENCE_DIR, 'shadow-life-objects-casa.json'),
+      JSON.stringify(loBody, null, 2),
+    );
+  });
 });

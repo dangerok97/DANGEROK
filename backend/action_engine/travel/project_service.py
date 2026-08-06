@@ -601,6 +601,24 @@ class TravelProjectService:
             logger.info("goal shadow travel soft-fail: %s", type(e).__name__)
             effects["goal"] = {"error": type(e).__name__, "soft_fail": True}
 
+        # Life Object Engine shadow — TRAVEL object alongside Travel Project
+        try:
+            from life_objects.shadow import shadow_upsert_from_travel
+            lo_res = await shadow_upsert_from_travel(
+                self.db,
+                user_id=user_id,
+                project=plan.model_dump(),
+                life_graph=self.life_graph,
+            )
+            effects["life_object"] = {
+                "life_object_id": (lo_res.get("object") or {}).get("id"),
+                "created": lo_res.get("created"),
+                "skipped": lo_res.get("skipped"),
+            }
+        except Exception as e:
+            logger.info("life_object travel shadow soft-fail: %s", type(e).__name__)
+            effects["life_object"] = {"error": type(e).__name__, "soft_fail": True}
+
         return {
             "ok": True,
             "plan": plan.public(),
