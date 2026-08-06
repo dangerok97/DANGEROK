@@ -57,13 +57,20 @@ class LifeProfileService:
         source_page: Optional[int] = None,
         provider: Optional[str] = None,
         model: Optional[str] = None,
-        analysis_version: Optional[int] = None,
+        analysis_version: Optional[Any] = None,
     ) -> LifeProfile:
+        from documents.intelligence.versions import coerce_analysis_revision, is_semantic_version_string
+
         profile = await self.get_or_create(user_id)
         if domain not in profile.domains:
             profile.domains[domain] = DomainProfile(domain=domain)
         dom = profile.domains[domain]
         existing = dom.objects.get(key)
+        # Normalize legacy "2.0" schema labels — never store int("2.0")
+        if is_semantic_version_string(analysis_version):
+            analysis_version = coerce_analysis_revision(analysis_version) or 1
+        elif analysis_version is not None:
+            analysis_version = coerce_analysis_revision(analysis_version)
         if existing and existing.status in ("confirmed", "corrected") and not allow_overwrite_confirmed:
             # AI / system cannot overwrite a user-confirmed or user-corrected field.
             if source != "user_confirmed":
@@ -148,7 +155,7 @@ class LifeProfileService:
         source_document_id: str,
         provider: Optional[str] = None,
         model: Optional[str] = None,
-        analysis_version: Optional[int] = None,
+        analysis_version: Optional[Any] = None,
     ) -> LifeProfile:
         """Apply document-extracted fields (see `life_setup.document_mapping`).
 
@@ -156,6 +163,12 @@ class LifeProfileService:
         to have already run `cross_document.detect_conflicts` and routed any
         conflicting fields to `pending_confirmations` instead of here.
         """
+        from documents.intelligence.versions import coerce_analysis_revision, is_semantic_version_string
+
+        if is_semantic_version_string(analysis_version):
+            analysis_version = coerce_analysis_revision(analysis_version) or 1
+        elif analysis_version is not None:
+            analysis_version = coerce_analysis_revision(analysis_version)
         profile = await self.get_or_create(user_id)
         for mf in mapped_fields:
             domain = mf.domain

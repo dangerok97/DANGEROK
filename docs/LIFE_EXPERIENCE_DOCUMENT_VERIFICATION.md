@@ -79,7 +79,9 @@ Tutti e 3 gli scenari usano il **vero file picker Expo** (`expo-document-picker`
 3. `DOC_PIPELINE_TERMINAL` in Life Setup include `awaiting_confirmation` / `action_required`.
 4. Playwright BOLLETTA richiede il bottone e il messaggio di conferma (non più soft-if).
 
-**Non fatto / residuale:** sync Google Calendar reale dopo confirm (resta `sync_to_google=false` / draft ORA); bug preesistente `analysis_version` string `"2.0"` vs int può far fallire re-analyze di documenti stale in recovery worker.
+**Non fatto / residuale:** sync Google Calendar reale dopo confirm (resta `sync_to_google=false` / draft ORA).
+
+**2026-08-06 deepen:** `analysis_version` string `"2.0"` **risolto** (`versions.py` + migration heal). Reasoner con contesto vita, azioni AI-first, ipotesi ownership suggested, titoli promemoria con fornitore, CI GitHub Actions. Fixture sintetiche estese (contratto telefono/luce, busta paga, verbale, ambiguous/incomplete/duplicate/updated). Smoke Gemini su tipi nuovi: **PREDISPOSTO / skip senza chiave**.
 
 ## Limiti noti
 

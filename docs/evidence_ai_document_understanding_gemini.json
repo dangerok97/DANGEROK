@@ -1,0 +1,33 @@
+{
+  "status": "VERIFICATO",
+  "ai_ok_count": 3,
+  "evidence": [
+    {
+      "key": "contratto_telefono",
+      "ai_used": true,
+      "provider": "gemini",
+      "model": "gemini-flash-lite-latest",
+      "document_type": "contratto",
+      "confidence": 1.0,
+      "fallback_reason": null
+    },
+    {
+      "key": "busta_paga",
+      "ai_used": true,
+      "provider": "gemini",
+      "model": "gemini-flash-lite-latest",
+      "document_type": "busta_paga",
+      "confidence": 1.0,
+      "fallback_reason": null
+    },
+    {
+      "key": "verbale",
+      "ai_used": true,
+      "provider": "gemini",
+      "model": "gemini-flash-lite-latest",
+      "document_type": "verbale",
+      "confidence": 1.0,
+      "fallback_reason": null
+    }
+  ]
+}

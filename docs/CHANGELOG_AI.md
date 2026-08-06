@@ -1,5 +1,37 @@
 # ORA — AI Changelog
 
+## 2026-08-06 — Deepen AI Document Understanding + harden analysis versions
+
+### Request
+
+Refine AI Document Understanding on `feature/life-experience-ai-documents` @ `36da3b6`: fix `int("2.0")`, strengthen Document Reasoner with life context, Life Profile hypotheses, cross-doc, AI actions, reminder titles, memory, Gemini prompt, tests, Playwright, CI. No push/merge.
+
+### Actions
+
+- `documents/intelligence/versions.py` — schema string vs int revision; never `int("2.0")`
+- `migration.py` / `service.py` / `analyzer.py` / `life_reasoning.py` / profile — all bump/compare/heal paths
+- `document_context.py`, `document_actions.py`, `document_memory.py`, `document_reasoner.py`
+- Prompt rewrite (assistente/segretario); schema arricchito (context/benefit/knowledge/deadlines/…)
+- Bolletta → contratto energia + ownership **suggested**; cross-doc affinity casa/auto/studio
+- Titoli promemoria con fornitore; «Cosa posso fare» AI-first
+- Tests: `test_analysis_versions.py`, `test_ai_document_understanding.py` (+ fixture nuove)
+- CI: `.github/workflows/ci.yml` (pytest focused, tsc, compileall, Playwright, secret scan)
+- Docs: AI_DOCUMENT_UNDERSTANDING, DEVELOPMENT_STATE, CAPABILITY_MATRIX, verification
+
+### Results
+
+- pytest focused (`test_analysis_versions` + `test_ai_document_understanding` + `test_documents_v2`): **32 passed**
+- pytest LE docs: **62 passed**
+- Gemini live smoke (key present): **VERIFICATO** contratto_telefono / busta_paga / verbale → `docs/evidence_ai_document_understanding_gemini.json`
+- Playwright: AUTO + BOLLETTA **passed**; CASA 1× flake login (element detached) — ritentare
+
+### Open
+
+- Brain UI still absent (API memory best-effort only)
+- CASA Playwright login flake occasionale
+
+---
+
 ## 2026-08-06 — Fix: reminder draft for admin document deadlines
 
 ### Request
@@ -30,7 +62,7 @@ Finish interrupted fix on `feature/life-experience-ai-documents` @ `9a12db3`: ut
 ### Open
 
 - Google Calendar confirm path not re-exercised live
-- Pre-existing: document `analysis_version` sometimes stored as string `"2.0"` breaks int coercion on re-analyze/recovery
+- ~~`analysis_version` string `"2.0"`~~ → fixed in deepen batch above
 
 ---
 

@@ -56,10 +56,34 @@ def test_migration_stamp_preserves_legacy():
     patch = stamp_document_versions(doc)
     assert patch["document_schema_version"] == "2.0"
     assert patch["legacy_data_preserved"] is True
-    assert patch["analysis_version"] == "2.0"
+    assert patch["analysis_schema_version"] == "2.0"
+    assert isinstance(patch["analysis_version"], int)
     view = with_versions({**doc, **patch})
     assert view["filename"] == "old.pdf"
     assert view["analysis"]["summary"] == "x"
+    assert isinstance(view["analysis_version"], int)
+
+
+def test_migration_heals_legacy_string_analysis_version():
+    """Regression: analysis_version stored as '2.0' must never be int()-parsed."""
+    from documents.intelligence.migration import stamp_document_versions, with_versions
+    from documents.intelligence.versions import coerce_analysis_revision, next_analysis_revision
+
+    doc = {
+        "id": "d2", "filename": "stale.pdf",
+        "analysis": {"summary": "x"},
+        "analysis_version": "2.0",  # legacy schema label wrongly stored as counter
+    }
+    # Direct coerce must NOT raise and must NOT equal int("2.0")
+    assert coerce_analysis_revision("2.0") == 0
+    assert next_analysis_revision("2.0") == 1
+    patch = stamp_document_versions(doc)
+    assert patch.get("analysis_schema_version") == "2.0"
+    assert patch.get("analysis_version") == 1
+    view = with_versions({**doc, **patch})
+    assert isinstance(view["analysis_version"], int)
+    # Bumping must work after heal
+    assert next_analysis_revision(view["analysis_version"]) == 2
 
 
 def test_auto_add_disabled_by_default_and_gates():

@@ -131,8 +131,21 @@ def map_mutuo(reasoning: Dict[str, Any]) -> List[MappedField]:
 def map_bolletta(reasoning: Dict[str, Any]) -> List[MappedField]:
     ts = reasoning.get("type_specific") or {}
     conf = float(reasoning.get("confidence") or 0.5)
+    # Energy/utility contract is fairly grounded; ownership/rental is only a hypothesis.
+    hyp_conf = min(0.45, conf * 0.6)
     out: List[MappedField] = [
         MappedField("casa", "casa.utenze", True, confidence=conf, label="Utenze collegate"),
+        MappedField(
+            "casa", "casa.contratto_energia", True,
+            confidence=min(conf, 0.75), label="Contratto energia (ipotesi da bolletta)",
+            status="suggested",
+        ),
+        MappedField(
+            "casa", "casa.ownership_hypothesis", "owned_or_rental_unknown",
+            confidence=hyp_conf,
+            label="Ipotesi possesso abitazione (da confermare)",
+            status="suggested",
+        ),
         MappedField("documenti", "doc.bolletta", True, confidence=conf, label="Bolletta caricata"),
     ]
     if ts.get("supplier"):
@@ -265,11 +278,59 @@ def map_generic_admin(reasoning: Dict[str, Any]) -> List[MappedField]:
     return out
 
 
+def map_contratto_luce(reasoning: Dict[str, Any]) -> List[MappedField]:
+    base = map_bolletta(reasoning)
+    conf = float(reasoning.get("confidence") or 0.5)
+    base.append(MappedField(
+        "documenti", "doc.contratto_luce", True, confidence=conf, label="Contratto luce caricato",
+    ))
+    return base
+
+
+def map_contratto_telefono(reasoning: Dict[str, Any]) -> List[MappedField]:
+    conf = float(reasoning.get("confidence") or 0.5)
+    ts = reasoning.get("type_specific") or {}
+    out: List[MappedField] = [
+        MappedField("amministrativo", "amministrativo.contratto_telefono", True, confidence=conf, label="Contratto telefono"),
+        MappedField("documenti", "doc.contratto_telefono", True, confidence=conf, label="Contratto telefono caricato"),
+    ]
+    supplier = ts.get("supplier") or _entity_value(reasoning, "supplier")
+    if supplier:
+        out.append(MappedField("amministrativo", "amministrativo.telco", supplier, confidence=conf, label="Operatore"))
+    return out
+
+
+def map_busta_paga(reasoning: Dict[str, Any]) -> List[MappedField]:
+    conf = float(reasoning.get("confidence") or 0.5)
+    out: List[MappedField] = [
+        MappedField("finanze", "finanze.busta_paga", True, confidence=conf, label="Busta paga caricata"),
+        MappedField("documenti", "doc.busta_paga", True, confidence=conf, label="Busta paga"),
+    ]
+    total = _amount_by_role(reasoning, "total")
+    if total:
+        out.append(MappedField("finanze", "finanze.stipendio", total["value"], confidence=float(total.get("confidence") or conf), label="Retribuzione", status="suggested"))
+    return out
+
+
+def map_verbale(reasoning: Dict[str, Any]) -> List[MappedField]:
+    conf = float(reasoning.get("confidence") or 0.5)
+    out: List[MappedField] = [
+        MappedField("studio", "studio.active", True, confidence=conf, label="Percorso di studio attivo"),
+        MappedField("documenti", "doc.verbale", True, confidence=conf, label="Verbale esame caricato"),
+    ]
+    subj = _entity_value(reasoning, "subject") or _entity_value(reasoning, "materia")
+    if subj:
+        out.append(MappedField("studio", "studio.esame", subj, confidence=conf, label="Materia verbale"))
+    return out
+
+
 MAPPERS = {
     "rogito": map_rogito,
     "contratto_locazione": map_contratto_locazione,
     "mutuo": map_mutuo,
     "bolletta": map_bolletta,
+    "contratto_luce": map_contratto_luce,
+    "contratto_telefono": map_contratto_telefono,
     "libretto": map_libretto,
     "polizza_auto": map_polizza,
     "polizza_casa": map_polizza,
@@ -278,6 +339,8 @@ MAPPERS = {
     "piano_di_studi": map_piano_di_studi,
     "dispensa": map_dispensa,
     "calendario_esami": map_calendario_esami,
+    "verbale": map_verbale,
+    "busta_paga": map_busta_paga,
     "contratto": map_generic_admin,
     "comunicazione": map_generic_admin,
     "fattura": map_generic_admin,

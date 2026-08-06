@@ -1818,7 +1818,18 @@ export type LifeSetupDocumentResult = {
   dati_trovati?: LifeSetupDocumentField[];
   dati_da_verificare?: LifeSetupDocumentField[];
   ambiguities?: { field: string; description: string }[];
-  cosa_posso_fare?: { action_type: string; title: string; description?: string; requires_consent?: boolean }[];
+  cosa_posso_fare?: {
+    action_type: string;
+    title: string;
+    description?: string;
+    motivo?: string;
+    beneficio?: string;
+    confidence?: number;
+    origine?: string;
+    documento?: string;
+    spiegazione?: string;
+    requires_consent?: boolean;
+  }[];
   draft_events?: {
     event_id?: string;
     title?: string;

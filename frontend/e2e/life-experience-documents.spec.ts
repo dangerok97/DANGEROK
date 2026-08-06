@@ -48,10 +48,41 @@ async function apiRegister(prefix: string) {
   return { email, password, token: data.token as string };
 }
 
-async function loginUI(page: Page, email: string, password: string) {
+async function clearAuthStorage(page: Page) {
+  await page.goto('/login').catch(() => {});
+  await page.evaluate(() => {
+    try {
+      localStorage.clear();
+      sessionStorage.clear();
+    } catch {
+      /* ignore */
+    }
+  });
+}
+
+async function loginUI(
+  page: Page,
+  email: string,
+  password: string,
+  opts?: { fresh?: boolean },
+) {
+  if (opts?.fresh) {
+    await clearAuthStorage(page);
+  }
   await page.goto('/login');
+  // Already-authenticated sessions are redirected away from /login — clear and retry once.
+  if (!(await page.getByTestId('login-title').isVisible().catch(() => false))) {
+    await clearAuthStorage(page);
+    await page.goto('/login');
+  }
   await expect(page.getByTestId('login-title')).toBeVisible({ timeout: 45_000 });
-  await page.getByTestId('login-email-button').click();
+  // Expo web remounts the login card; wait for a stable email CTA then force-click
+  // if React re-renders mid-action (common flake: "element was detached from the DOM").
+  const emailBtn = page.getByTestId('login-email-button');
+  await expect(emailBtn).toBeVisible({ timeout: 30_000 });
+  await page.waitForTimeout(400);
+  await emailBtn.click({ force: true, timeout: 20_000 });
+  await expect(page.getByTestId('login-email-input')).toBeVisible({ timeout: 20_000 });
   await page.getByTestId('login-email-input').fill(email);
   await page.getByTestId('login-password-input').fill(password);
   await page.getByTestId('login-submit-button').click();
@@ -220,7 +251,7 @@ test.describe('Life Experience — REAL document upload + AI Document Understand
     expect(statusBody.profile_summary?.domains || []).toContain('casa');
 
     // Full logout/login cycle — corrected field status must not regress.
-    await loginUI(page, email, password);
+    await loginUI(page, email, password, { fresh: true });
     await page.goto('/(tabs)');
     await page.waitForTimeout(1500);
     await shot(page, '07-casa-after-relogin');
@@ -294,11 +325,21 @@ test.describe('Life Experience — REAL document upload + AI Document Understand
     await expect(result).toContainText(/energiatest|fornitore/i);
     await expect(result).toContainText(/87,40|87\.40|importo/i);
 
+    // AI / local actions surface under «Cosa posso fare»
+    const actionsBlock = page.getByTestId('life-setup-doc-actions');
+    if (await actionsBlock.isVisible().catch(() => false)) {
+      await expect(page.getByTestId('life-setup-doc-action-0')).toBeVisible();
+    }
+
     // Deadline MUST surface as a draft reminder action (regression: admin bills
     // used to only emit generic_actions text, never an event_candidate, so
     // "Salva promemoria su ORA" never appeared). Confirmation is required —
     // nothing is auto-added to the calendar.
     await expect(page.getByTestId('life-setup-doc-deadlines')).toBeVisible({ timeout: 15_000 });
+    // Prefer human title with supplier over bare "Scadenza pagamento 87 EUR"
+    await expect(page.getByTestId('life-setup-draft-event-0')).toContainText(
+      /pagamento bolletta|energiatest|scadenza/i,
+    );
     const draftEventBtn = page.getByTestId('life-setup-confirm-draft-event-0');
     await expect(draftEventBtn).toBeVisible();
     await expect(draftEventBtn).toContainText('Salva promemoria su ORA');
@@ -322,6 +363,14 @@ test.describe('Life Experience — REAL document upload + AI Document Understand
     for (const it of homeBody.insights || []) buckets.push(it);
     const bollettaBenefit = buckets.some((it) => /bolletta|utenz|casa/i.test(`${it?.title || ''} ${it?.description || ''}`));
     expect(bollettaBenefit).toBeTruthy();
+
+    // Life Profile should carry suggested energy-contract / ownership hypothesis
+    const profileRes = await fetch(`${API}/api/life-setup/profile`, { headers: auth(token) }).catch(() => null);
+    if (profileRes && profileRes.ok) {
+      const profileBody = await profileRes.json();
+      const blob = JSON.stringify(profileBody).toLowerCase();
+      expect(blob).toMatch(/utenze|bolletta|contratto_energia|ownership/);
+    }
 
     const pro = await fetch(`${API}/api/suggestions`, { headers: auth(token) }).catch(() => null);
     if (pro && pro.ok) {

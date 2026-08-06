@@ -51,7 +51,8 @@ class ProfileObject(BaseModel):
     source_page: Optional[int] = None
     provider: Optional[str] = None
     model: Optional[str] = None
-    analysis_version: Optional[int] = None
+    # Integer revision preferred; legacy semantic strings accepted & coerced upstream
+    analysis_version: Optional[Any] = None
     confirmed_at: Optional[str] = None
 
 

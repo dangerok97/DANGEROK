@@ -670,10 +670,17 @@ export default function LifeSetupConversationScreen() {
 
               {documentResult.cosa_posso_fare?.length ? (
                 <>
-                  <Text style={styles.docResultTitle}>Cosa posso fare</Text>
+                  <Text style={styles.docResultTitle} testID="life-setup-doc-actions">
+                    Cosa posso fare
+                  </Text>
                   {documentResult.cosa_posso_fare.map((a, i) => (
-                    <Text key={`${a.action_type}-${i}`} style={styles.docResultText}>
-                      • {a.title}{a.description ? ` — ${a.description}` : ''}
+                    <Text
+                      key={`${a.action_type}-${i}`}
+                      style={styles.docResultText}
+                      testID={`life-setup-doc-action-${i}`}
+                    >
+                      • {a.title}
+                      {a.beneficio ? ` — ${a.beneficio}` : a.description ? ` — ${a.description}` : ''}
                     </Text>
                   ))}
                 </>

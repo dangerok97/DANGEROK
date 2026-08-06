@@ -37,6 +37,22 @@ IDENTIFIER_KEYS_BY_TYPE = {
     "house": ("casa.indirizzo",),
     "vehicle": ("auto.targa",),
     "supplier": ("casa.bolletta_fornitore",),
+    "course": ("studio.corso", "studio.universita"),
+    "exam": ("studio.esame",),
+}
+
+# Cross-type affinity: same house / car / course without title-similarity merge
+CROSS_TYPE_AFFINITY = {
+    "rogito": ("mutuo", "bolletta", "contratto_luce", "polizza_casa", "contratto_locazione"),
+    "mutuo": ("rogito", "bolletta", "contratto_luce"),
+    "bolletta": ("rogito", "mutuo", "contratto_luce", "contratto_locazione"),
+    "contratto_luce": ("bolletta", "rogito", "mutuo"),
+    "libretto": ("polizza_auto", "prestito_auto", "polizza"),
+    "polizza_auto": ("libretto", "prestito_auto"),
+    "prestito_auto": ("libretto", "polizza_auto"),
+    "piano_di_studi": ("verbale", "calendario_esami", "dispensa"),
+    "verbale": ("piano_di_studi", "calendario_esami"),
+    "calendario_esami": ("piano_di_studi", "verbale"),
 }
 
 
@@ -62,6 +78,29 @@ class ConfirmationRequest:
     field: Dict[str, Any] = field(default_factory=dict)
 
 
+def _identifier_from_reasoning(reasoning: Dict[str, Any]) -> tuple[Optional[str], Optional[str], float]:
+    """Return (object_type, identifier, confidence) from type_specific / entities."""
+    ts = reasoning.get("type_specific") or {}
+    doc_type = reasoning.get("document_type") or ""
+    conf = float(reasoning.get("confidence") or 0.5)
+    if doc_type in ("rogito", "mutuo", "bolletta", "contratto_luce", "contratto_locazione", "polizza_casa"):
+        addr = ts.get("address") or ts.get("property_address")
+        if addr:
+            return "house", addr, conf
+    if doc_type in ("libretto", "polizza_auto", "prestito_auto"):
+        plate = ts.get("plate") or ts.get("insured_object")
+        if plate:
+            return "vehicle", plate, conf
+    if doc_type in ("piano_di_studi", "verbale", "calendario_esami"):
+        course = ts.get("course_name") or ts.get("institution")
+        if course:
+            return "course", course, conf
+    for lo in reasoning.get("linked_life_objects") or []:
+        if lo.get("object_type") and lo.get("identifier"):
+            return lo.get("object_type"), lo.get("identifier"), float(lo.get("confidence") or conf)
+    return None, None, 0.0
+
+
 def find_related_documents(
     profile: Optional[LifeProfile],
     *,
@@ -69,16 +108,24 @@ def find_related_documents(
     reasoning: Dict[str, Any],
     new_document_id: str,
 ) -> List[RelatedDocumentLink]:
-    """High-confidence-only linking of the new document to existing life objects."""
+    """High-confidence-only linking of the new document to existing life objects.
+
+    Never merges on title similarity — only normalized address / plate / course.
+    """
     if not profile:
         return []
     links: List[RelatedDocumentLink] = []
-    linked_objects = reasoning.get("linked_life_objects") or []
-    dom = profile.domains.get(domain)
-    if not dom:
-        return []
+    seen: set = set()
 
-    for lo in linked_objects:
+    def _add(link: RelatedDocumentLink) -> None:
+        key = (link.document_id, link.object_type, _normalize(link.identifier))
+        if key in seen or link.document_id == new_document_id:
+            return
+        seen.add(key)
+        links.append(link)
+
+    # 1) Explicit linked_life_objects from AI
+    for lo in reasoning.get("linked_life_objects") or []:
         conf = float(lo.get("confidence") or 0)
         if conf < HIGH_MATCH_CONFIDENCE:
             continue
@@ -87,19 +134,81 @@ def find_related_documents(
         if not obj_type or not identifier:
             continue
         norm_new = _normalize_plate(identifier) if obj_type == "vehicle" else _normalize(identifier)
-        for key in IDENTIFIER_KEYS_BY_TYPE.get(obj_type, ()):
-            existing = dom.objects.get(key)
-            if not existing or not existing.value:
-                continue
-            norm_existing = _normalize_plate(existing.value) if obj_type == "vehicle" else _normalize(existing.value)
-            if norm_existing and norm_new and norm_existing == norm_new:
-                for did in existing.linked_doc_ids:
-                    if did != new_document_id:
-                        links.append(RelatedDocumentLink(
+        for dname, dom in profile.domains.items():
+            for key in IDENTIFIER_KEYS_BY_TYPE.get(obj_type, ()):
+                existing = dom.objects.get(key)
+                if not existing or not existing.value:
+                    continue
+                norm_existing = _normalize_plate(existing.value) if obj_type == "vehicle" else _normalize(existing.value)
+                if norm_existing and norm_new and norm_existing == norm_new:
+                    for did in existing.linked_doc_ids:
+                        _add(RelatedDocumentLink(
                             document_id=did, object_type=obj_type, identifier=identifier,
                             match_confidence=conf,
                             reason=f"Stesso {obj_type} ({key}) rilevato con alta confidenza.",
                         ))
+
+    # 2) Cross-type affinity via shared grounded identifier (rogito+mutuo+bolletta, …)
+    obj_type, identifier, conf = _identifier_from_reasoning(reasoning)
+    doc_type = reasoning.get("document_type") or ""
+    if obj_type and identifier and conf >= HIGH_MATCH_CONFIDENCE:
+        norm_new = _normalize_plate(identifier) if obj_type == "vehicle" else _normalize(identifier)
+        affinity = CROSS_TYPE_AFFINITY.get(doc_type, ())
+        for dname, dom in profile.domains.items():
+            for key in IDENTIFIER_KEYS_BY_TYPE.get(obj_type, ()):
+                existing = dom.objects.get(key)
+                if not existing or not existing.value:
+                    continue
+                norm_existing = _normalize_plate(existing.value) if obj_type == "vehicle" else _normalize(existing.value)
+                if not (norm_existing and norm_new and norm_existing == norm_new):
+                    continue
+                for did in existing.linked_doc_ids:
+                    _add(RelatedDocumentLink(
+                        document_id=did, object_type=obj_type, identifier=identifier,
+                        match_confidence=conf,
+                        reason=f"Stesso {obj_type} condiviso tra documenti correlati ({doc_type}).",
+                    ))
+            # Also scan doc.* markers for affinity types linked on same identifier
+            for atype in affinity:
+                marker = dom.objects.get(f"doc.{atype}")
+                if not marker or not marker.linked_doc_ids:
+                    continue
+                # Only link if the domain also shares the identifier key
+                id_keys = IDENTIFIER_KEYS_BY_TYPE.get(obj_type, ())
+                shares = False
+                for ik in id_keys:
+                    ex = dom.objects.get(ik)
+                    if not ex or not ex.value:
+                        continue
+                    nex = _normalize_plate(ex.value) if obj_type == "vehicle" else _normalize(ex.value)
+                    if nex == norm_new:
+                        shares = True
+                        break
+                if not shares:
+                    continue
+                for did in marker.linked_doc_ids:
+                    _add(RelatedDocumentLink(
+                        document_id=did, object_type=obj_type, identifier=identifier,
+                        match_confidence=conf,
+                        reason=f"Affinità {doc_type}↔{atype} sullo stesso {obj_type} (no merge, solo link).",
+                    ))
+
+    # 3) AI-proposed related_docs with ask_user on low confidence / contradictions
+    for rd in reasoning.get("related_docs") or []:
+        did = rd.get("document_id")
+        if not did:
+            continue
+        rconf = float(rd.get("confidence") or 0)
+        if rconf < HIGH_MATCH_CONFIDENCE and not rd.get("ask_user"):
+            continue
+        _add(RelatedDocumentLink(
+            document_id=did,
+            object_type=rd.get("relation") or "related",
+            identifier=identifier or did,
+            match_confidence=rconf,
+            reason=rd.get("relation") or "Collegamento proposto dall'AI (verifica richiesta).",
+        ))
+
     return links
 
 
