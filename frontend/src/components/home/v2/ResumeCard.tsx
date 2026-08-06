@@ -20,6 +20,7 @@ export function ResumeCard({ item, onResume }: { item: HomeItem; onResume?: () =
         label={action?.label || 'Continua'}
         icon="play"
         testID="btn-resume"
+        // Never "Apri chat" — Continua only
         onPress={async () => {
           if (action) await navigateHomeAction(router, action, item);
           onResume?.();

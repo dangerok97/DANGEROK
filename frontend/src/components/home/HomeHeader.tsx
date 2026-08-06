@@ -4,10 +4,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { tokens } from '@/src/theme/tokens';
 import { formatRelativeAgo } from '@/src/utils/labels';
 
+/** Sync meta under PARLA CON ORA — no competing "Adesso" hero title. */
 export function HomeHeader({ online, lastSuccessAt }: { online: boolean; lastSuccessAt: Date | null }) {
   return (
-    <View style={styles.header}>
-      <Text style={styles.h1} accessibilityRole="header">Adesso</Text>
+    <View style={styles.header} testID="home-sync-meta">
       <SyncMeta online={online} lastSuccessAt={lastSuccessAt} />
     </View>
   );
@@ -72,11 +72,10 @@ const styles = StyleSheet.create({
   header: {
     marginBottom: tokens.spacing.sm,
     flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
   },
-  h1: { fontSize: 34, fontWeight: '700', color: tokens.color.onSurface, letterSpacing: -0.5 },
-  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingBottom: 6 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingBottom: 2 },
   dot: { width: 6, height: 6, borderRadius: 3 },
   metaText: { fontSize: 11, color: tokens.color.onSurfaceDim, fontWeight: '500' },
   banner: {

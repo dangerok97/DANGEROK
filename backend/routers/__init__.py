@@ -8,6 +8,7 @@ from home import router as home_router
 from intent_engine import intent_engine_router
 from llm.router import router as llm_router
 from proactive_engine import router as proactive_engine_router
+from conversation_engine import conversation_engine_router
 
 from . import (
     admin,
@@ -53,5 +54,6 @@ ALL_ROUTERS = [
     travel_projects_router,
     goal_engine_router,
     proactive_engine_router,
+    conversation_engine_router,
     llm_router,
 ]

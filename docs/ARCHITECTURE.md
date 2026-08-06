@@ -36,6 +36,7 @@ backend/
     travel/              # Travel Project: period, maps, calendar confirm, Brain/Home
   goal_engine/           # Goal identity/lifecycle (shadow; no Goal UX yet)
   proactive_engine/      # IF/WHEN/HOW/WHY intervene → suggestions + Home ORA TI CONSIGLIA
+  conversation_engine/   # Entry orchestrator (NOT chatbot) → Intent→Goal→AE
   daily_intelligence/    # daily summary (situation indicators)
   behavioral_intelligence/
   behavior_aware_decisions/
@@ -51,8 +52,9 @@ frontend/
   src/auth/              # Google/Apple client helpers
   src/components/home/v2 # Home V2 blocks
   src/action-engine/     # ActionEngine.open(item) central entry
+  src/conversation-engine/ # ConversationEngine.start → bridges to AE UI
   src/theme/tokens.ts
-docs/                    # ACTION_ENGINE_* + HOME_V2_* + DOCUMENTS_V2_* + SOCIAL_AUTH_*
+docs/                    # CONVERSATION_ENGINE_* + ACTION_ENGINE_* + HOME_V2_* + …
 scripts/                 # local automation
 .emergent/               # legacy Emergent runtime (non-portable)
 .cursor/                 # Cursor autonomy rules/agents/hooks
@@ -68,13 +70,15 @@ All routes under `/api` via `ALL_ROUTERS`:
 - `permissions`, `connectors`, `ingestion`
 - `google_calendar`, `apple_calendar`
 - `daily`, `behavior`, `behavior_shadow`
-- `documents`, `home` (V2 intelligence dashboard), `intent`, `action-engine`, `goals` (Goal Engine — backend only, unused by UI), `suggestions` (Proactive Engine), `admin`, `memory`
+- `documents`, `home` (V2 intelligence dashboard), `intent`, `action-engine`, `goals` (Goal Engine — backend only, unused by UI), `suggestions` (Proactive Engine), `conversation` (Conversation Engine orchestrator), `admin`, `memory`
 
 Health:
 
 - `GET /api/` → `{ "app": "ORA", "status": "ok" }`
 - `GET /api/health` → app + database + llm configured flag + integration flags (no secrets)
-- `GET /api/home` → Home V2 aggregate (`primary_focus`, situation, priorities, insights, resume, `ora_ti_consiglia` ≤3, warnings); Goal-aware when `GOAL_ENGINE_ENABLED` (`home-rank-1.2`, item `goal_*` refs + dedupe; no Goals section — `docs/GOAL_AWARE_HOME.md`); Proactive when `PROACTIVE_ENGINE_ENABLED` — `docs/PROACTIVE_ENGINE_ARCHITECTURE.md`
+- `GET /api/home` → Home V2 aggregate (`primary_focus`, situation, priorities, insights, resume, `ora_ti_consiglia` ≤3, warnings); Goal-aware when `GOAL_ENGINE_ENABLED` (`home-rank-1.2`, item `goal_*` refs + dedupe; no Goals section — `docs/GOAL_AWARE_HOME.md`); Proactive when `PROACTIVE_ENGINE_ENABLED` — `docs/PROACTIVE_ENGINE_ARCHITECTURE.md`; Conversation resume via CE adapter — `docs/CONVERSATION_ENGINE_ARCHITECTURE.md`
+- `/api/conversation/*` → start / message / continue / cancel / resume / history / summary (flag `CONVERSATION_ENGINE_ENABLED`); Conversation resume items when `CONVERSATION_ENGINE_ENABLED` — `docs/CONVERSATION_ENGINE_ARCHITECTURE.md`
+- `POST /api/conversation/start|resume` + `/{id}/message|continue|cancel|pause` + history/summary — entry orchestrator (bridges to Action Engine UI)
 - `GET /api/home/situation` → full situation view payload
 - `POST /api/home/actions` → complete / snooze / ignore / correct / insight / banner
 - `POST /api/home/refresh` → rebuild ranking snapshot

@@ -59,6 +59,12 @@ INTENT_PATTERNS: Dict[str, List[Pattern]] = {
         ("hotel", 2.5),
         ("albergo", 2.2),
         ("prenotare viaggio", 4.0),
+        # Natural departure phrases (Conversation Engine entry)
+        ("parto", 3.6),
+        ("partire", 3.4),
+        ("parto per", 4.0),
+        ("parto a", 3.8),
+        ("due settimane parto", 4.2),
         ("partenza", 1.5),
         ("destinazione", 2.0),
         ("bagaglio", 2.0),

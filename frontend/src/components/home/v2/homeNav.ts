@@ -2,6 +2,7 @@ import { Linking, Platform } from 'react-native';
 import { Router } from 'expo-router';
 import { HomeActionDef, HomeItem } from '@/src/api/client';
 import { ActionEngine } from '@/src/action-engine';
+import { ConversationEngine } from '@/src/conversation-engine';
 
 export function openMapsQuery(query?: string | null) {
   if (!query) return;
@@ -36,8 +37,27 @@ export async function navigateHomeAction(
     return;
   }
 
+  // Resume Conversation Engine → bridge to AE one-question UI
+  const cesId =
+    (action.params?.conversation_session_id as string | undefined) ||
+    (item?.source_type === 'conversation_session' ? item.source_id : undefined) ||
+    (item?.meta?.conversation_session_id as string | undefined);
+  if (action.kind === 'resume' && cesId && item?.source_type === 'conversation_session') {
+    await ConversationEngine.resume(router, { session_id: cesId });
+    return;
+  }
+
   // Resume existing action session
   if (action.kind === 'resume' && action.route?.startsWith('/action/')) {
+    router.push(action.route as any);
+    return;
+  }
+
+  if (action.kind === 'resume' && action.route?.startsWith('/conversation')) {
+    if (cesId) {
+      await ConversationEngine.resume(router, { session_id: cesId });
+      return;
+    }
     router.push(action.route as any);
     return;
   }
@@ -71,6 +91,11 @@ export async function navigateHomeAction(
 export function routeForItem(item: HomeItem): string {
   const st = item.source_type;
   const sid = item.source_id;
+  if (st === 'conversation_session') {
+    const actionSid = item.meta?.action_session_id as string | undefined;
+    if (actionSid) return `/action/${actionSid}`;
+    return `/conversation?resume=${sid}`;
+  }
   if (st === 'action_session') return `/action/${sid}`;
   if (st === 'action_project') return '/action/open';
   // Card press → Action Engine (guided), not empty document/situazione

@@ -1,5 +1,29 @@
 # ORA — AI Changelog
 
+## 2026-08-06 — Conversation Engine orchestration
+
+### Request
+
+Build ORA Conversation Engine on `feature/conversation-engine` from `feature/proactive-engine` @ `319859e`. Stateful orchestrator (NOT chatbot): Input → CE → Intent → Goal → Action → Projects → Brain → Proactive → Home. Home PARLA CON ORA; Playwright travel + study phrases.
+
+### Actions
+
+- Package `backend/conversation_engine/` (models, repo, memory, orchestrator, service, router, adapters)
+- Wire indexes in `server.py`, router in `ALL_ROUTERS`, flag `CONVERSATION_ENGINE_ENABLED`
+- Home adapter + PARLA CON ORA FE; resume Continua; Proactive resume_conversation generator + accept handoff
+- Intent patterns for natural “parto…” phrases; AE known_slots seed from CE memory
+- Docs: CONVERSATION_ENGINE_PRODUCT/ARCHITECTURE, SESSION_MODEL, ORCHESTRATION + ARCHITECTURE/ROADMAP/DEVELOPMENT_STATE
+- Tests: `backend/tests/test_conversation_engine.py`, `frontend/e2e/conversation-engine.spec.ts`
+
+### Results
+
+- pytest `tests/test_conversation_engine.py`: **9 passed**
+- Playwright `e2e/conversation-engine.spec.ts`: **2 passed** (travel + study via CE → AE → artifacts → Home)
+- Commit: `feat: introduce Conversation Engine orchestration`
+- Limits: STT stub; email/WA/open_banking stubs; no chatbot UX; Metro may need `--clear` for PARLA bundle
+
+---
+
 ## 2026-08-06 — Proactive Engine foundation
 
 ### Request
