@@ -62,8 +62,20 @@ export function AdessoCard({ item }: { item: HomeItem }) {
     fields.push({ icon: 'folder-outline', label: 'Progetto', value: 'Collegato' });
   }
 
+  const details = item.supporting_details
+    || ((item.meta as { supporting_details?: { label?: string }[] } | undefined)?.supporting_details);
+  const hidden = item.hidden_artifact_count
+    ?? (item.meta as { hidden_artifact_count?: number } | undefined)?.hidden_artifact_count;
+  if (typeof hidden === 'number' && hidden > 0) {
+    fields.push({
+      icon: 'layers-outline',
+      label: 'Dettagli',
+      value: `${hidden} collegati`,
+    });
+  }
+
   const intentLabel = INTENT_LABELS[(item.meta as any)?.intent as string] || INTENT_LABELS[item.subtype || ''];
-  const typeLabel = intentLabel || TYPE_LABELS[item.type] || item.type;
+  const typeLabel = intentLabel || TYPE_LABELS[item.card_type || ''] || TYPE_LABELS[item.type] || item.type;
 
   return (
     <Pressable
@@ -88,6 +100,9 @@ export function AdessoCard({ item }: { item: HomeItem }) {
       {item.goal_title && !(item.description || '').includes('Obiettivo:') ? (
         <Text style={styles.goalCtx} testID="adesso-goal-context">Obiettivo: {item.goal_title}</Text>
       ) : null}
+      {item.subtitle && item.subtitle !== item.description ? (
+        <Text style={styles.desc} testID="adesso-subtitle">{item.subtitle}</Text>
+      ) : null}
       {fields.length > 0 ? (
         <View style={styles.metaGrid}>
           {fields.map((f) => (
@@ -96,6 +111,15 @@ export function AdessoCard({ item }: { item: HomeItem }) {
               <Text style={styles.metaLabel}>{f.label}</Text>
               <Text style={styles.metaValue} numberOfLines={2}>{f.value}</Text>
             </View>
+          ))}
+        </View>
+      ) : null}
+      {Array.isArray(details) && details.length > 0 ? (
+        <View style={styles.details} testID="adesso-supporting-details">
+          {details.slice(0, 4).map((d, idx) => (
+            <Text key={`${d.label || 'd'}-${idx}`} style={styles.detailRow} numberOfLines={1}>
+              · {d.label}
+            </Text>
           ))}
         </View>
       ) : null}
@@ -168,5 +192,7 @@ const styles = StyleSheet.create({
   },
   metaLabel: { fontSize: 11, color: tokens.color.onSurfaceMuted },
   metaValue: { fontSize: 12, color: tokens.color.onSurface, fontWeight: '600', flexShrink: 1 },
+  details: { gap: 4 },
+  detailRow: { fontSize: 12, color: tokens.color.onSurfaceMuted, lineHeight: 16 },
   hint: { fontSize: 12, color: tokens.color.onSurfaceDim, marginTop: 2 },
 });

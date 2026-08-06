@@ -31,7 +31,7 @@ async def load_active_goals(db, user_id: str) -> List[Any]:
 
 
 class GoalIndex:
-    """Lookup Goals by artifact / session / document links."""
+    """Lookup Goals by artifact / session / document / calendar links."""
 
     def __init__(self, goals: List[Any]):
         self.by_id: Dict[str, Any] = {}
@@ -40,6 +40,8 @@ class GoalIndex:
         self.by_project: Dict[str, Any] = {}
         self.by_session: Dict[str, Any] = {}
         self.by_document: Dict[str, Any] = {}
+        self.by_calendar: Dict[str, Any] = {}
+        self.by_conversation: Dict[str, Any] = {}
         for g in goals:
             self.by_id[g.id] = g
             if g.study_plan_id:
@@ -53,39 +55,90 @@ class GoalIndex:
             for doc_id in g.linked_documents or []:
                 if doc_id and doc_id not in self.by_document:
                     self.by_document[doc_id] = g
+            for cal_id in getattr(g, "linked_calendar_events", None) or []:
+                if cal_id and cal_id not in self.by_calendar:
+                    self.by_calendar[cal_id] = g
+            # Conversation sessions stamped on Goal meta / artifacts
+            for cid in (getattr(g, "linked_conversation_sessions", None) or []):
+                if cid and cid not in self.by_conversation:
+                    self.by_conversation[cid] = g
+            art = getattr(g, "artifacts", None) or {}
+            if isinstance(art, dict):
+                for cid in art.get("conversation_session_ids") or []:
+                    if cid and cid not in self.by_conversation:
+                        self.by_conversation[cid] = g
 
     def match(self, item: HomeItem) -> Optional[Any]:
         meta = item.meta or {}
-        gid = meta.get("goal_id") or item.goal_id
+        gid = meta.get("goal_id") or item.goal_id or meta.get("ora_goal_id")
         if gid and gid in self.by_id:
             return self.by_id[gid]
 
-        for key in (meta.get("study_plan_id"),):
+        for key in (
+            meta.get("study_plan_id"),
+            meta.get("ora_study_plan_id"),
+            meta.get("plan_id"),
+        ):
             if key and key in self.by_study_plan:
                 return self.by_study_plan[key]
         if item.source_type == "study_plan" and item.source_id in self.by_study_plan:
             return self.by_study_plan[item.source_id]
 
-        for key in (meta.get("travel_project_id"),):
+        for key in (
+            meta.get("travel_project_id"),
+            meta.get("ora_travel_project_id"),
+        ):
             if key and key in self.by_travel:
                 return self.by_travel[key]
         if item.source_type == "travel_project" and item.source_id in self.by_travel:
             return self.by_travel[item.source_id]
 
-        proj = meta.get("project_id")
+        proj = meta.get("project_id") or meta.get("action_project_id")
         if proj and proj in self.by_project:
             return self.by_project[proj]
         if item.source_type == "action_project" and item.source_id in self.by_project:
             return self.by_project[item.source_id]
 
-        if item.source_type == "action_session" and item.source_id in self.by_session:
-            return self.by_session[item.source_id]
+        for sid in (
+            item.source_id if item.source_type == "action_session" else None,
+            meta.get("action_session_id"),
+            meta.get("source_action_session_id"),
+        ):
+            if sid and sid in self.by_session:
+                return self.by_session[sid]
+
+        for cid in (
+            item.source_id if item.source_type == "conversation_session" else None,
+            meta.get("conversation_session_id"),
+        ):
+            if cid and cid in self.by_conversation:
+                return self.by_conversation[cid]
 
         doc_id = meta.get("document_id") or (
             item.source_id if item.source_type in ("study", "document", "quiz_session") else None
         )
         if doc_id and doc_id in self.by_document:
             return self.by_document[doc_id]
+
+        # Calendar / life_node / Google via linked ids or study_session refs
+        for cal_key in (
+            item.source_id if item.source_type in ("life_node", "google_calendar", "internal_calendar") else None,
+            meta.get("calendar_node_id"),
+            meta.get("life_node_id"),
+            meta.get("external_id"),
+            meta.get("ora_event_id"),
+        ):
+            if cal_key and cal_key in self.by_calendar:
+                return self.by_calendar[cal_key]
+
+        # Study session id → plan via attributes stamped by Action Engine
+        sess = meta.get("study_session_id")
+        if sess:
+            for g in self.by_study_plan.values():
+                # soft: if session id appears in goal artifacts
+                arts = getattr(g, "artifacts", None) or {}
+                if isinstance(arts, dict) and sess in (arts.get("session_ids") or []):
+                    return g
 
         return None
 

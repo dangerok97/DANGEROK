@@ -21,6 +21,7 @@ async def load_reminders(
         return [], []
     items: List[HomeItem] = []
     for r in docs:
+        rmeta = r.get("meta") or {}
         items.append(HomeItem(
             id=stable_id("rem", user_id, r.get("id", "")),
             type="activity",
@@ -33,6 +34,12 @@ async def load_reminders(
             status="open",
             created_at=r.get("created_at") or now_iso(),
             updated_at=r.get("updated_at") or now_iso(),
-            meta={"dedupe_key": f"rem:{r.get('id')}"},
+            meta={
+                "dedupe_key": f"rem:{r.get('id')}",
+                "study_plan_id": rmeta.get("study_plan_id") or r.get("study_plan_id"),
+                "travel_project_id": rmeta.get("travel_project_id") or r.get("travel_project_id"),
+                "goal_id": rmeta.get("goal_id") or r.get("goal_id"),
+                "kind": rmeta.get("kind"),
+            },
         ))
     return items, []

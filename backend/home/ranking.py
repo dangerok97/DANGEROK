@@ -195,14 +195,27 @@ def rank_items(items: List[HomeItem], *, now: Optional[datetime] = None) -> List
     return enriched
 
 
-def dedupe_items(items: List[HomeItem]) -> List[HomeItem]:
-    """Collapse duplicates by source or normalized title+time window."""
+def dedupe_items(items: List[HomeItem], *, collapse_goals: bool = False) -> List[HomeItem]:
+    """
+    Collapse duplicates by source or normalized title+time window.
+
+    Goal collapse is owned by the Presentation Aggregation Layer
+    (`home.presentation.aggregate_presentation`) so supporting_details can
+    retain sibling artifacts. Pass collapse_goals=True only as a legacy fallback.
+    """
     seen: Dict[str, HomeItem] = {}
     order: List[str] = []
     for item in items:
         key = item.meta.get("dedupe_key") or f"{item.source_type}:{item.source_id}:{item.type}"
-        title_key = f"{(item.title or '').strip().lower()}|{(item.start_at or item.due_at or '')[:13]}"
+        # Never merge distinct Goals on title alone — scope title_dedupe by goal_id
+        gid = item.goal_id or (item.meta or {}).get("goal_id") or ""
+        title_key = (
+            f"{gid}|{(item.title or '').strip().lower()}|"
+            f"{(item.start_at or item.due_at or '')[:13]}"
+        )
         alt = item.meta.get("title_dedupe") or title_key
+        if gid and not str(alt).startswith(str(gid)):
+            alt = f"{gid}|{alt}"
         existing = seen.get(key) or seen.get(alt)
         if existing is None:
             seen[key] = item
@@ -225,12 +238,12 @@ def dedupe_items(items: List[HomeItem]) -> List[HomeItem]:
         if it and it.id not in used:
             used.add(it.id)
             out.append(it)
-    # Goal-aware collapse (same goal_id → one focus + one resume representative)
-    try:
-        from home.goal_context import dedupe_by_goal
-        out = dedupe_by_goal(out)
-    except Exception:
-        pass
+    if collapse_goals:
+        try:
+            from home.goal_context import dedupe_by_goal
+            out = dedupe_by_goal(out)
+        except Exception:
+            pass
     return out
 
 

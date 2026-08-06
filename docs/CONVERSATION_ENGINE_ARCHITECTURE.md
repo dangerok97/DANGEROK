@@ -60,6 +60,10 @@ backend/conversation_engine/
 - `/conversation` entry bridge for deep links / resume.
 - ResumeCard + Proactive **Riprendi** → CE resume → AE UI.
 
+## Home presentation
+
+Interrupted CE sessions with a `goal_id` are **not** shown as a second Home card. The Presentation Aggregation Layer folds them into the Goal card as action **Continua organizzazione** / **Riprendi conversazione** (`docs/HOME_PRESENTATION_AGGREGATION.md`).
+
 ## Indexes
 
 `conversation_sessions`: unique `id`, unique `resume_token`, `(user_id, status, updated_at)`, `(user_id, origin)`, `(user_id, action_session_id)`, `(user_id, goal_id)`.

@@ -3,14 +3,15 @@
 **Status:** Implemented  
 **Branch:** `feature/goal-aware-home`  
 **Date:** 2026-08-06  
-**Ranking:** `home-rank-1.2`  
+**Ranking:** `home-rank-1.3`  
+**Presentation:** `home-pres-1.0` — see [`HOME_PRESENTATION_AGGREGATION.md`](./HOME_PRESENTATION_AGGREGATION.md)  
 **Alias:** `docs/HOME_GOAL_AWARE.md` points here (same product feature).
 
 ## Principle
 
 Goals are an **invisible context layer**. Home remains the only surface (Adesso / Situazione / Priorità / Osserva / Continua). **No Goal tab, list page, Goals Home section, or parallel Goal UX.**
 
-A Goal does **not** replace Home items; it stamps refs for ranking, dedupe, motivation factors, progress, next_action, blockers, resume, and insights.
+A Goal stamps refs for ranking and presentation. The **Presentation Aggregation Layer** then collapses all artifacts sharing that `goal_id` into **one** Home card (details/actions for siblings — never N priority cards).
 
 ## Item schema (refs, not full Goal)
 
@@ -44,15 +45,16 @@ Omitted when null. **No** `goals[]` block on `GET /api/home`.
 4. Goals but no artifact → idle proposal from `next_action` (opens plan/travel/project — **not** a Goal page).
 5. No Goals → legacy Home unchanged.
 
-## Dedupe
+## Dedupe / presentation
 
-1. Source/title dedupe.
-2. `dedupe_by_goal`: same `goal_id` → one **focus** + one **resume** lane.
-3. Prefer: blocked surface → draft resume → next session → travel phase/prep → study/travel project → docs → **action_project last**.
+1. Source dedupe (title scoped by `goal_id` — never merge distinct Goals by similar titles).
+2. `aggregate_presentation`: same `goal_id` → **one** presentation card with `supporting_details`.
+3. Preference: imminent → blocker → recovery → next session → synthetic plan/travel → resume.
+4. Conversation / suggestion for that Goal → actions / `next_action` on the card, not new cards.
 
-## Ranking (`home-rank-1.2`)
+## Ranking (`home-rank-1.3`)
 
-Bump from `1.1`: blockers, status, stale advance, skipped sessions, missing prep, calendar links, travel phase progress factor.
+Bump from `1.2`: presentation aggregation after rank; priorities max one card per Goal.
 
 | Factor | Meaning |
 |--------|---------|

@@ -166,7 +166,7 @@ test.describe('Home V2 Goal-aware (no Goal UX)', () => {
     let homeRes = await fetch(`${API}/api/home`, { headers: auth(token) });
     expect(homeRes.ok).toBeTruthy();
     let home = await homeRes.json();
-    expect(home.ranking_version).toBe('home-rank-1.2');
+    expect(home.ranking_version).toBe('home-rank-1.3');
 
     let surface = collectSurface(home);
     let linked = surface.filter((i) => i.goal_id === goalId);
@@ -231,7 +231,7 @@ test.describe('Home V2 Goal-aware (no Goal UX)', () => {
     const goalId = goals[0].id as string;
 
     const home = await (await fetch(`${API}/api/home`, { headers: auth(token) })).json();
-    expect(home.ranking_version).toBe('home-rank-1.2');
+    expect(home.ranking_version).toBe('home-rank-1.3');
     const surface = collectSurface(home);
     const linked = surface.filter((i) => i.goal_id === goalId);
     expect(linked.length).toBe(1);

@@ -1222,6 +1222,21 @@ export type HomeReasonFactor = {
   detail?: string | null;
 };
 
+export type HomeSupportingDetail = {
+  kind: string;
+  label: string;
+  source_type?: string;
+  source_id?: string;
+  when?: string;
+  next_session?: string;
+  phase?: string;
+  exam_in_days?: number;
+  days_until?: number;
+  skipped?: number;
+  missing_prep?: string[] | string;
+  resume_kind?: string;
+};
+
 export type HomeItem = {
   id: string;
   type: HomeItemType;
@@ -1258,6 +1273,17 @@ export type HomeItem = {
   goal_target_date?: string | null;
   goal_blockers?: string[] | null;
   goal_project_id?: string | null;
+  /** Presentation Aggregation Layer — one card per Goal */
+  presentation_id?: string | null;
+  card_type?: string | null;
+  subtitle?: string | null;
+  next_action?: string | null;
+  supporting_details?: HomeSupportingDetail[] | null;
+  source_refs?: { type: string; id: string; item_id?: string; title?: string }[] | null;
+  hidden_artifact_count?: number | null;
+  presentation_badges?: string[] | null;
+  presentation_version?: string | null;
+  generated_at?: string | null;
 };
 
 export type HomeExplanation = {

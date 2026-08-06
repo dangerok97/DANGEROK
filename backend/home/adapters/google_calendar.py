@@ -61,6 +61,8 @@ async def load_google_calendar_events(
             continue
         loc = payload.get("location")
         eid = d.get("id") or d.get("external_id") or title
+        ext = payload.get("extendedProperties") or payload.get("extended_properties") or {}
+        priv = (ext.get("private") or {}) if isinstance(ext, dict) else {}
         items.append(HomeItem(
             id=stable_id("gcal", user_id, str(eid)),
             type="event",
@@ -76,6 +78,15 @@ async def load_google_calendar_events(
             confidence=0.9,
             created_at=d.get("ingested_at") or now_iso(),
             updated_at=d.get("source_updated_at") or now_iso(),
-            meta={"dedupe_key": f"gcal:{eid}", "external_id": d.get("external_id")},
+            meta={
+                "dedupe_key": f"gcal:{eid}",
+                "external_id": d.get("external_id"),
+                "ora_event_id": priv.get("ora_event_id") or payload.get("ora_event_id"),
+                "ora_goal_id": priv.get("ora_goal_id") or payload.get("ora_goal_id"),
+                "goal_id": priv.get("ora_goal_id") or priv.get("goal_id") or payload.get("goal_id"),
+                "study_plan_id": priv.get("ora_study_plan_id") or priv.get("study_plan_id") or payload.get("study_plan_id"),
+                "travel_project_id": priv.get("ora_travel_project_id") or priv.get("travel_project_id") or payload.get("travel_project_id"),
+                "ora_document_id": priv.get("ora_document_id"),
+            },
         ))
     return items, []

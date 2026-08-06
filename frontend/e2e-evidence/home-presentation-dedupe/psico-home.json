@@ -1,0 +1,537 @@
+{
+  "primary_focus": {
+    "id": "pres_goal_goal_c0c6b77a09c448",
+    "type": "study",
+    "subtype": "internal",
+    "title": "Preparare esame Psicologia",
+    "description": "Sessione oggi 16:00 · Psicologia · 0/7 sessioni · Obiettivo: Preparare esame Psicologia",
+    "source_type": "life_node",
+    "source_id": "node_e01cd44ce9af",
+    "priority": "today",
+    "urgency": "soon",
+    "confidence": 0.85,
+    "due_at": null,
+    "start_at": "2026-08-06T16:00:00+00:00",
+    "end_at": "2026-08-06T17:00:00+00:00",
+    "duration_minutes": null,
+    "location": null,
+    "amount": null,
+    "status": "open",
+    "actions": [
+      {
+        "id": "open_event",
+        "label": "Organizza",
+        "kind": "guide",
+        "route": "/action/open",
+        "params": {},
+        "primary": true
+      },
+      {
+        "id": "snooze",
+        "label": "Rimanda",
+        "kind": "snooze",
+        "route": null,
+        "params": {},
+        "primary": false
+      },
+      {
+        "id": "open_plan",
+        "label": "Apri piano",
+        "kind": "navigate",
+        "route": "/study-plan/spl_81862b97d5e446",
+        "params": {},
+        "primary": false
+      },
+      {
+        "id": "continua_studio",
+        "label": "Continua",
+        "kind": "study",
+        "route": "/study-plan/spl_81862b97d5e446",
+        "params": {
+          "session_id": "ssn_cae0cb0e596748",
+          "action": "start"
+        },
+        "primary": true
+      }
+    ],
+    "reason_factors": [
+      {
+        "code": "type",
+        "label": "Tipo event",
+        "weight": 14,
+        "detail": null
+      },
+      {
+        "code": "within_24h",
+        "label": "Entro 24 ore",
+        "weight": 28,
+        "detail": null
+      },
+      {
+        "code": "high_confidence",
+        "label": "Alta confidenza dati",
+        "weight": 4,
+        "detail": null
+      },
+      {
+        "code": "goal_importance",
+        "label": "Importanza obiettivo",
+        "weight": 4.5,
+        "detail": "Preparare esame Psicologia"
+      },
+      {
+        "code": "goal_urgency",
+        "label": "Urgenza obiettivo",
+        "weight": 4.4,
+        "detail": "Preparare esame Psicologia"
+      },
+      {
+        "code": "goal_next_action",
+        "label": "Prossima azione obiettivo",
+        "weight": 4,
+        "detail": "Sessione oggi 16:00 · Psicologia"
+      },
+      {
+        "code": "goal_progress",
+        "label": "Progresso 0%",
+        "weight": 2,
+        "detail": "0/7 sessioni"
+      },
+      {
+        "code": "goal_calendar",
+        "label": "Collegato al calendario",
+        "weight": 2,
+        "detail": "7 eventi"
+      }
+    ],
+    "reason_summary": "Entro 24 ore; Tipo event; Importanza obiettivo",
+    "ranking_version": "home-rank-1.3",
+    "created_at": "2026-08-06T08:18:38.109646+00:00",
+    "updated_at": "2026-08-06T08:18:38.109646+00:00",
+    "meta": {
+      "dedupe_key": "presentation:goal_c0c6b77a09c448",
+      "title_dedupe": "studio: psicologia|2026-08-06T16",
+      "study_plan_id": "spl_81862b97d5e446",
+      "study_session_id": "ssn_cae0cb0e596748",
+      "travel_project_id": null,
+      "action_session_id": "aes_31f65d43fe9944",
+      "goal_id": "goal_c0c6b77a09c448",
+      "kind": "study_session",
+      "calendar_node_id": "node_e01cd44ce9af",
+      "goal_title": "Preparare esame Psicologia",
+      "goal_type": "study",
+      "goal_status": "active",
+      "goal_progress": 0,
+      "goal_progress_label": "0/7 sessioni",
+      "goal_next_action": "Sessione oggi 16:00 · Psicologia",
+      "goal_target_date": "2026-08-27T07:00:00+00:00",
+      "goal_blockers": [],
+      "goal_project_id": "aproj_278ec1519b38",
+      "goal_urgency": 4,
+      "goal_importance": 5,
+      "goal_days_remaining": 21,
+      "goal_progress_source": "study_sessions",
+      "goal_hours_since_advance": 0.00016575555555555557,
+      "goal_calendar_links": 7,
+      "goal_dedupe_key": "goal:goal_c0c6b77a09c448",
+      "presentation_id": "pres_goal_goal_c0c6b77a09c448",
+      "presentation_version": "home-pres-1.0",
+      "card_type": "study",
+      "subtitle": "Sessione oggi 16:00 · Psicologia · 0/7 sessioni",
+      "next_action": "Sessione oggi 16:00 · Psicologia",
+      "supporting_details": [
+        {
+          "kind": "life_node",
+          "label": "Studio: Psicologia",
+          "source_type": "life_node",
+          "source_id": "node_94f2eefbb399",
+          "when": "2026-08-10T16:00:00+00:00"
+        },
+        {
+          "kind": "study_plan",
+          "label": "Studio: Psicologia",
+          "source_type": "study_plan",
+          "source_id": "spl_81862b97d5e446",
+          "when": "2026-08-27T07:00:00+00:00",
+          "next_session": "Studio: Psicologia",
+          "exam_in_days": 21
+        },
+        {
+          "kind": "life_node",
+          "label": "Studio: Psicologia",
+          "source_type": "life_node",
+          "source_id": "node_38a074b2140e",
+          "when": "2026-08-13T16:00:00+00:00"
+        },
+        {
+          "kind": "life_node",
+          "label": "Studio: Psicologia",
+          "source_type": "life_node",
+          "source_id": "node_442f57089425",
+          "when": "2026-08-17T16:00:00+00:00"
+        },
+        {
+          "kind": "life_node",
+          "label": "Studio: Psicologia",
+          "source_type": "life_node",
+          "source_id": "node_f5fc79cceee7",
+          "when": "2026-08-19T16:00:00+00:00"
+        },
+        {
+          "kind": "action_project",
+          "label": "Sessione oggi 16:00 · Psicologia",
+          "source_type": "action_project",
+          "source_id": "aproj_278ec1519b38"
+        },
+        {
+          "kind": "reminder",
+          "label": "Ripasso: Psicologia",
+          "source_type": "reminder",
+          "source_id": "rem_spl_81862b97",
+          "when": "2026-08-26T07:00:00+00:00"
+        }
+      ],
+      "source_refs": [
+        {
+          "type": "life_node",
+          "id": "node_e01cd44ce9af",
+          "item_id": "hi_b29c988123bdb5dd",
+          "title": "Studio: Psicologia"
+        },
+        {
+          "type": "life_node",
+          "id": "node_94f2eefbb399",
+          "item_id": "hi_af00b6e22e8d38d1",
+          "title": "Studio: Psicologia"
+        },
+        {
+          "type": "study_plan",
+          "id": "spl_81862b97d5e446",
+          "item_id": "hi_910dfa83a49aa2ad",
+          "title": "Studio: Psicologia"
+        },
+        {
+          "type": "life_node",
+          "id": "node_38a074b2140e",
+          "item_id": "hi_d621f5e2969e1462",
+          "title": "Studio: Psicologia"
+        },
+        {
+          "type": "life_node",
+          "id": "node_442f57089425",
+          "item_id": "hi_fde6513cef95c32e",
+          "title": "Studio: Psicologia"
+        },
+        {
+          "type": "life_node",
+          "id": "node_f5fc79cceee7",
+          "item_id": "hi_5a13b3775f50cb79",
+          "title": "Studio: Psicologia"
+        },
+        {
+          "type": "action_project",
+          "id": "aproj_278ec1519b38",
+          "item_id": "ae_proj_aproj_278ec1519b38",
+          "title": "Sessione oggi 16:00 · Psicologia"
+        },
+        {
+          "type": "reminder",
+          "id": "rem_spl_81862b97",
+          "item_id": "hi_731e825f67dbe38d",
+          "title": "Ripasso: Psicologia"
+        }
+      ],
+      "hidden_artifact_count": 7,
+      "presentation_badges": [],
+      "aggregated_member_ids": [
+        "hi_b29c988123bdb5dd",
+        "hi_af00b6e22e8d38d1",
+        "hi_910dfa83a49aa2ad",
+        "hi_d621f5e2969e1462",
+        "hi_fde6513cef95c32e",
+        "hi_5a13b3775f50cb79",
+        "ae_proj_aproj_278ec1519b38",
+        "hi_731e825f67dbe38d"
+      ],
+      "aggregated_at": "2026-08-06T08:18:38.902039+00:00"
+    },
+    "goal_id": "goal_c0c6b77a09c448",
+    "goal_title": "Preparare esame Psicologia",
+    "goal_type": "study",
+    "goal_status": "active",
+    "goal_progress": 0,
+    "goal_progress_label": "0/7 sessioni",
+    "goal_next_action": "Sessione oggi 16:00 · Psicologia",
+    "goal_target_date": "2026-08-27T07:00:00+00:00",
+    "goal_project_id": "aproj_278ec1519b38",
+    "presentation_id": "pres_goal_goal_c0c6b77a09c448",
+    "card_type": "study",
+    "subtitle": "Sessione oggi 16:00 · Psicologia · 0/7 sessioni",
+    "next_action": "Sessione oggi 16:00 · Psicologia",
+    "supporting_details": [
+      {
+        "kind": "life_node",
+        "label": "Studio: Psicologia",
+        "source_type": "life_node",
+        "source_id": "node_94f2eefbb399",
+        "when": "2026-08-10T16:00:00+00:00"
+      },
+      {
+        "kind": "study_plan",
+        "label": "Studio: Psicologia",
+        "source_type": "study_plan",
+        "source_id": "spl_81862b97d5e446",
+        "when": "2026-08-27T07:00:00+00:00",
+        "next_session": "Studio: Psicologia",
+        "exam_in_days": 21
+      },
+      {
+        "kind": "life_node",
+        "label": "Studio: Psicologia",
+        "source_type": "life_node",
+        "source_id": "node_38a074b2140e",
+        "when": "2026-08-13T16:00:00+00:00"
+      },
+      {
+        "kind": "life_node",
+        "label": "Studio: Psicologia",
+        "source_type": "life_node",
+        "source_id": "node_442f57089425",
+        "when": "2026-08-17T16:00:00+00:00"
+      },
+      {
+        "kind": "life_node",
+        "label": "Studio: Psicologia",
+        "source_type": "life_node",
+        "source_id": "node_f5fc79cceee7",
+        "when": "2026-08-19T16:00:00+00:00"
+      },
+      {
+        "kind": "action_project",
+        "label": "Sessione oggi 16:00 · Psicologia",
+        "source_type": "action_project",
+        "source_id": "aproj_278ec1519b38"
+      },
+      {
+        "kind": "reminder",
+        "label": "Ripasso: Psicologia",
+        "source_type": "reminder",
+        "source_id": "rem_spl_81862b97",
+        "when": "2026-08-26T07:00:00+00:00"
+      }
+    ],
+    "source_refs": [
+      {
+        "type": "life_node",
+        "id": "node_e01cd44ce9af",
+        "item_id": "hi_b29c988123bdb5dd",
+        "title": "Studio: Psicologia"
+      },
+      {
+        "type": "life_node",
+        "id": "node_94f2eefbb399",
+        "item_id": "hi_af00b6e22e8d38d1",
+        "title": "Studio: Psicologia"
+      },
+      {
+        "type": "study_plan",
+        "id": "spl_81862b97d5e446",
+        "item_id": "hi_910dfa83a49aa2ad",
+        "title": "Studio: Psicologia"
+      },
+      {
+        "type": "life_node",
+        "id": "node_38a074b2140e",
+        "item_id": "hi_d621f5e2969e1462",
+        "title": "Studio: Psicologia"
+      },
+      {
+        "type": "life_node",
+        "id": "node_442f57089425",
+        "item_id": "hi_fde6513cef95c32e",
+        "title": "Studio: Psicologia"
+      },
+      {
+        "type": "life_node",
+        "id": "node_f5fc79cceee7",
+        "item_id": "hi_5a13b3775f50cb79",
+        "title": "Studio: Psicologia"
+      },
+      {
+        "type": "action_project",
+        "id": "aproj_278ec1519b38",
+        "item_id": "ae_proj_aproj_278ec1519b38",
+        "title": "Sessione oggi 16:00 · Psicologia"
+      },
+      {
+        "type": "reminder",
+        "id": "rem_spl_81862b97",
+        "item_id": "hi_731e825f67dbe38d",
+        "title": "Ripasso: Psicologia"
+      }
+    ],
+    "hidden_artifact_count": 7,
+    "presentation_badges": [],
+    "presentation_version": "home-pres-1.0",
+    "generated_at": "2026-08-06T08:18:38.902039+00:00"
+  },
+  "explanation": {
+    "summary": "Entro 24 ore; Tipo event; Importanza obiettivo",
+    "factors": [
+      {
+        "code": "type",
+        "label": "Tipo event",
+        "weight": 14,
+        "detail": null
+      },
+      {
+        "code": "within_24h",
+        "label": "Entro 24 ore",
+        "weight": 28,
+        "detail": null
+      },
+      {
+        "code": "high_confidence",
+        "label": "Alta confidenza dati",
+        "weight": 4,
+        "detail": null
+      },
+      {
+        "code": "goal_importance",
+        "label": "Importanza obiettivo",
+        "weight": 4.5,
+        "detail": "Preparare esame Psicologia"
+      },
+      {
+        "code": "goal_urgency",
+        "label": "Urgenza obiettivo",
+        "weight": 4.4,
+        "detail": "Preparare esame Psicologia"
+      },
+      {
+        "code": "goal_next_action",
+        "label": "Prossima azione obiettivo",
+        "weight": 4,
+        "detail": "Sessione oggi 16:00 · Psicologia"
+      },
+      {
+        "code": "goal_progress",
+        "label": "Progresso 0%",
+        "weight": 2,
+        "detail": "0/7 sessioni"
+      },
+      {
+        "code": "goal_calendar",
+        "label": "Collegato al calendario",
+        "weight": 2,
+        "detail": "7 eventi"
+      }
+    ],
+    "sources": [
+      {
+        "type": "life_node",
+        "id": "node_e01cd44ce9af",
+        "title": "Studio: Psicologia"
+      },
+      {
+        "type": "life_node",
+        "id": "node_94f2eefbb399",
+        "title": "Studio: Psicologia"
+      },
+      {
+        "type": "study_plan",
+        "id": "spl_81862b97d5e446",
+        "title": "Studio: Psicologia"
+      },
+      {
+        "type": "life_node",
+        "id": "node_38a074b2140e",
+        "title": "Studio: Psicologia"
+      },
+      {
+        "type": "life_node",
+        "id": "node_442f57089425",
+        "title": "Studio: Psicologia"
+      },
+      {
+        "type": "life_node",
+        "id": "node_f5fc79cceee7",
+        "title": "Studio: Psicologia"
+      }
+    ],
+    "confidence": 0.85,
+    "missing_data": [],
+    "ranking_version": "home-rank-1.3",
+    "item_id": "pres_goal_goal_c0c6b77a09c448"
+  },
+  "current_situation": {
+    "indicators": [
+      {
+        "id": "events_today",
+        "label": "Impegni oggi",
+        "value": "1",
+        "tone": "info",
+        "detail": null
+      },
+      {
+        "id": "open_actions",
+        "label": "Azioni aperte",
+        "value": "1",
+        "tone": "default",
+        "detail": null
+      },
+      {
+        "id": "today",
+        "label": "Priorità oggi",
+        "value": "1",
+        "tone": "info",
+        "detail": null
+      },
+      {
+        "id": "free",
+        "label": "Finestra libera",
+        "value": "2026-08-06T08:00:00Z–2026-08-06T16:00:00Z",
+        "tone": "success",
+        "detail": null
+      }
+    ],
+    "free_window": "2026-08-06T08:00:00Z–2026-08-06T16:00:00Z",
+    "next_commitment": null,
+    "open_actions_count": 1,
+    "needs_review_count": 0,
+    "cta_label": "Vedi situazione completa",
+    "cta_route": "/situazione"
+  },
+  "priorities": [],
+  "insights": [
+    {
+      "id": "ins_goal_goal_c0c6b77a09c448",
+      "text": "Preparare esame Psicologia al 0%, esame tra 21 giorni (0/7 sessioni)",
+      "source": "goal_engine",
+      "action": null,
+      "status": "active",
+      "created_at": "2026-08-06T08:18:38.807969+00:00",
+      "valid_until": "2026-08-08T08:18:38.807969+00:00",
+      "dedupe_key": "goal_progress:goal_c0c6b77a09c448"
+    }
+  ],
+  "resume_item": null,
+  "ora_ti_consiglia": [],
+  "connection_warnings": [
+    {
+      "code": "google_calendar_disconnected",
+      "message": "Collega Google Calendar per arricchire le priorità",
+      "severity": "info",
+      "dismissible": true
+    }
+  ],
+  "google_calendar": {
+    "connected": false,
+    "show_banner": true,
+    "last_sync_at": null,
+    "instance_id": null
+  },
+  "generated_at": "2026-08-06T08:18:38.807969+00:00",
+  "ranking_version": "home-rank-1.3",
+  "partial": false
+}

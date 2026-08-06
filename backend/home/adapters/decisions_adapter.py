@@ -83,10 +83,16 @@ async def load_decisions(
         st = d.get("status") or "open"
         intent = d.get("intent")
         # If still unresolved, classify now and attach to meta for AE
+        dmeta = d.get("metadata") or {}
         intent_meta = {
             "dedupe_key": f"dec:{d.get('id')}",
             "decision_status": st,
             "origin": origin,
+            "study_plan_id": dmeta.get("study_plan_id") or d.get("study_plan_id"),
+            "travel_project_id": dmeta.get("travel_project_id") or d.get("travel_project_id"),
+            "action_session_id": dmeta.get("action_session_id") or d.get("action_session_id"),
+            "project_id": dmeta.get("project_id") or d.get("project_id"),
+            "goal_id": dmeta.get("goal_id") or d.get("goal_id"),
         }
         if intent:
             intent_meta["intent"] = intent
