@@ -29,7 +29,8 @@ Basata sull’audit funzionale del 2026-08-04. Ordine: fondamenta → organizzaz
 | B5b Study Action Flow end-to-end | critica | Intent Engine + AE | L | **DONE** 2026-08-05 — branch `feature/complete-study-action-flow` |
 | B5c Travel Action Flow | critica | Intent + AE | L | **DONE** 2026-08-05 — branch `feature/travel-action-flow` |
 | B5d Goal Engine Foundation (shadow) | critica | Study + Travel | L | **DONE** 2026-08-06 — `feature/goal-engine-foundation` (backend only; **no Goal UX**) |
-| B5e Goal → Home dedupe (`goal_id`) | alta | B5d | M | Home adapters emit `meta.goal_id`; no duplicate cards |
+| B5e Goal → Home dedupe (`goal_id`) | alta | B5d | M | **DONE** Goal-aware Home (`feature/goal-aware-home`) |
+| B5f Proactive Engine foundation | critica | B5d + Home V2 | L | **DONE** 2026-08-06 — `feature/proactive-engine` (ORA TI CONSIGLIA; Email/Finance/Weather/WhatsApp predisposed only) |
 | B6 Documents V2 intelligent hub | alta | — | L | Branch `feature/rebuild-intelligent-documents` |
 
 ## FASE C — Progetti e documenti

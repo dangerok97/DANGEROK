@@ -338,6 +338,44 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
+  // Proactive Engine — suggestions
+  listSuggestions: (params?: { status?: string; type?: string; limit?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.status) q.set('status', params.status);
+    if (params?.type) q.set('type', params.type);
+    if (params?.limit) q.set('limit', String(params.limit));
+    const qs = q.toString();
+    return request<{ suggestions: ProactiveSuggestion[]; enabled: boolean; count: number }>(
+      `/suggestions${qs ? `?${qs}` : ''}`,
+    );
+  },
+  regenerateSuggestions: () =>
+    request<{ ok: boolean; created: number; rejected: number }>('/suggestions/regenerate', {
+      method: 'POST',
+    }),
+  acceptSuggestion: (id: string) =>
+    request<{ ok: boolean; id: string; status: string; result?: Record<string, unknown> }>(
+      `/suggestions/${id}/accept`,
+      { method: 'POST' },
+    ),
+  dismissSuggestion: (id: string) =>
+    request<{ ok: boolean; id: string; status: string }>(`/suggestions/${id}/dismiss`, {
+      method: 'POST',
+    }),
+  completeSuggestion: (id: string) =>
+    request<{ ok: boolean; id: string; status: string }>(`/suggestions/${id}/complete`, {
+      method: 'POST',
+    }),
+  snoozeSuggestion: (id: string, body: { preset?: string; until?: string }) =>
+    request<{ ok: boolean; id: string; status: string; snooze_until?: string }>(
+      `/suggestions/${id}/snooze`,
+      { method: 'POST', body: JSON.stringify(body) },
+    ),
+  explainSuggestion: (id: string) =>
+    request<{ ok: boolean; reason: string; explain?: Record<string, unknown> }>(
+      `/suggestions/${id}/explain`,
+    ),
+
   // Action Engine — guided priority flows
   actionEngineOpen: (body: ActionEngineOpenBody) =>
     request<ActionEngineOpenResult>('/action-engine/open', {
@@ -1220,6 +1258,36 @@ export type HomeConnectionWarning = {
   dismissible: boolean;
 };
 
+export type ProactiveSuggestionAction = {
+  kind: string;
+  label: string;
+  route?: string | null;
+  params?: Record<string, unknown>;
+};
+
+export type ProactiveSuggestion = {
+  id: string;
+  title: string;
+  description?: string | null;
+  reason?: string;
+  type?: string;
+  priority?: string;
+  importance?: number;
+  urgency?: number;
+  confidence?: number;
+  source?: string;
+  goal_id?: string | null;
+  project_id?: string | null;
+  document_id?: string | null;
+  study_plan_id?: string | null;
+  travel_project_id?: string | null;
+  action?: ProactiveSuggestionAction | null;
+  status?: string;
+  expires_at?: string | null;
+  snooze_until?: string | null;
+  created_at?: string;
+};
+
 export type HomeV2Response = {
   primary_focus: HomeItem | null;
   explanation: HomeExplanation | null;
@@ -1227,6 +1295,7 @@ export type HomeV2Response = {
   priorities: HomePriorityGroup[];
   insights: HomeInsight[];
   resume_item: HomeItem | null;
+  ora_ti_consiglia?: ProactiveSuggestion[];
   connection_warnings: HomeConnectionWarning[];
   google_calendar: {
     connected: boolean;

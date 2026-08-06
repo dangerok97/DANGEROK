@@ -1,5 +1,32 @@
 # ORA — AI Changelog
 
+## 2026-08-06 — Proactive Engine foundation
+
+### Request
+
+Build ORA Proactive Engine foundation on `feature/proactive-engine` from `feature/goal-aware-home` @ `6297bc3`. Decide IF/WHEN/HOW/WHY to intervene; Home **ORA TI CONSIGLIA** max 3; Email/Finance/Weather/WhatsApp predisposed only.
+
+### Actions
+
+- Package `backend/proactive_engine/` (models, generators, scoring, decision gate, notification policy, learning, explain, dedupe, lifecycle, accept, repo, service, router)
+- Real generators: study (skip→recovery), travel (≤7d prep), calendar (overlap), documents (education→flashcards path)
+- Stub generators: emails/finance/weather/health always empty
+- Mount `/api/suggestions/*`; flag `PROACTIVE_ENGINE_ENABLED` (default ON); indexes on startup
+- Home `ora_ti_consiglia` + FE `OraTiConsiglia` (Accetta/Ignora/Ricordamelo/Apri)
+- Fixtures `backend/tests/fixtures/proactive_scenarios.json` (~224 scenarios)
+- Docs: PROACTIVE_ENGINE_PRODUCT/ARCHITECTURE, SUGGESTION_MODEL, DECISION_ENGINE; ROADMAP/ARCHITECTURE/DEVELOPMENT_STATE/HOME updates
+
+### Results
+
+- pytest `test_proactive_engine.py`: **232 passed** (224 fixture scenarios + focused tests)
+- `compileall proactive_engine` OK; `tsc --noEmit` OK
+- Playwright `e2e/proactive-engine.spec.ts` vs `:8011`: **2 passed** (skip→Home→Accept recovery; stubs never invent)
+- Secret scan: only E2E test password literal (same pattern as other e2e)
+- Email/Finance/Weather/Health/WhatsApp: **not** claimed complete
+- Commit: `feat: introduce proactive engine foundation`
+
+---
+
 ## 2026-08-06 — Goal-aware Home complete (full checklist)
 
 ### Request

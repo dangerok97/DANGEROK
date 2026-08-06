@@ -35,6 +35,7 @@ backend/
     study/               # Study plan model, generator, confirm, Google/tools/Brain
     travel/              # Travel Project: period, maps, calendar confirm, Brain/Home
   goal_engine/           # Goal identity/lifecycle (shadow; no Goal UX yet)
+  proactive_engine/      # IF/WHEN/HOW/WHY intervene → suggestions + Home ORA TI CONSIGLIA
   daily_intelligence/    # daily summary (situation indicators)
   behavioral_intelligence/
   behavior_aware_decisions/
@@ -67,13 +68,13 @@ All routes under `/api` via `ALL_ROUTERS`:
 - `permissions`, `connectors`, `ingestion`
 - `google_calendar`, `apple_calendar`
 - `daily`, `behavior`, `behavior_shadow`
-- `documents`, `home` (V2 intelligence dashboard), `intent`, `action-engine`, `goals` (Goal Engine — backend only, unused by UI), `admin`, `memory`
+- `documents`, `home` (V2 intelligence dashboard), `intent`, `action-engine`, `goals` (Goal Engine — backend only, unused by UI), `suggestions` (Proactive Engine), `admin`, `memory`
 
 Health:
 
 - `GET /api/` → `{ "app": "ORA", "status": "ok" }`
 - `GET /api/health` → app + database + llm configured flag + integration flags (no secrets)
-- `GET /api/home` → Home V2 aggregate (`primary_focus`, situation, priorities, insights, resume, warnings); Goal-aware when `GOAL_ENGINE_ENABLED` (`home-rank-1.2`, item `goal_*` refs + dedupe; no Goals section — `docs/GOAL_AWARE_HOME.md`)
+- `GET /api/home` → Home V2 aggregate (`primary_focus`, situation, priorities, insights, resume, `ora_ti_consiglia` ≤3, warnings); Goal-aware when `GOAL_ENGINE_ENABLED` (`home-rank-1.2`, item `goal_*` refs + dedupe; no Goals section — `docs/GOAL_AWARE_HOME.md`); Proactive when `PROACTIVE_ENGINE_ENABLED` — `docs/PROACTIVE_ENGINE_ARCHITECTURE.md`
 - `GET /api/home/situation` → full situation view payload
 - `POST /api/home/actions` → complete / snooze / ignore / correct / insight / banner
 - `POST /api/home/refresh` → rebuild ranking snapshot
@@ -85,6 +86,7 @@ Health:
 - Mongo: `study_plans`, `study_sessions` (UTC; default TZ Europe/Rome)
 - Goal Engine (shadow + Home context; **no Goal UX**): `GET/POST/PATCH/DELETE /api/goals`, `POST /api/goals/search|merge`, `POST /api/goals/{id}/archive`, `GET /api/goals/{id}/timeline`
 - Mongo: `goals`, `goal_events` — Study/Travel confirm upserts Goals when `GOAL_ENGINE_ENABLED=1`
+- Proactive Engine: `GET/POST /api/suggestions/*` (list, regenerate, search, dismiss/accept/complete/snooze/explain); Mongo `proactive_suggestions`, `proactive_learning`. Email/Finance/Weather/Health/WhatsApp **predisposed only** — never invent facts.
 
 ## Local topology
 
@@ -96,7 +98,7 @@ Local Google OAuth: `localhost` and `127.0.0.1` are different browser/API origin
 
 ## Data store
 
-MongoDB collections created/indexed at startup (users, tasks, decisions, life_nodes/edges, node_knowledge, link_proposals, context_snapshots, memories, permission_*, ingestion_events, connector_instances, secret_vault, google_oauth_sessions, documents-related, `home_snapshots` / `home_item_state` / `home_insights`, behavioral collections, `goals` / `goal_events`, …).
+MongoDB collections created/indexed at startup (users, tasks, decisions, life_nodes/edges, node_knowledge, link_proposals, context_snapshots, memories, permission_*, ingestion_events, connector_instances, secret_vault, google_oauth_sessions, documents-related, `home_snapshots` / `home_item_state` / `home_insights`, behavioral collections, `goals` / `goal_events`, `proactive_suggestions` / `proactive_learning`, …).
 
 Document binaries: local storage under `backend/data/documents/` (S3 backend stubbed for future).
 

@@ -166,6 +166,7 @@ class HomeService:
         situation = await self._build_situation(user_id, ranked, now)
         priorities = self._group_priorities(ranked, primary.id if primary else None)
         insights = await self._build_insights(user_id, ranked, gcal, now, goals=goals)
+        ora_ti_consiglia = await self._load_ora_ti_consiglia(user_id)
         resume = None
         if resume_candidates:
             # pick most recently updated — must not duplicate primary
@@ -207,12 +208,24 @@ class HomeService:
             priorities=priorities,
             insights=insights,
             resume_item=resume,
+            ora_ti_consiglia=ora_ti_consiglia,
             connection_warnings=warnings,
             google_calendar=google_block,
             generated_at=now.isoformat(),
             ranking_version=RANKING_VERSION,
             partial=partial,
         )
+
+    async def _load_ora_ti_consiglia(self, user_id: str) -> List[Dict[str, Any]]:
+        """Proactive suggestions for Home — max 3, fail-soft, hidden when empty."""
+        try:
+            from proactive_engine.service import ProactiveEngineService, proactive_engine_enabled
+            if not proactive_engine_enabled():
+                return []
+            return await ProactiveEngineService(self.db).home_suggestions(user_id, limit=3)
+        except Exception as e:
+            logger.warning("ora_ti_consiglia load failed: %s", type(e).__name__)
+            return []
 
     async def _build_situation(self, user_id: str, items: List[HomeItem], now: datetime) -> CurrentSituation:
         indicators: List[SituationIndicator] = []

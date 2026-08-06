@@ -16,8 +16,9 @@ Goals are **not** a Home block. They may enrich Adesso / Priorità / Perché / O
 4. **La tua situazione** — replaces “La tua giornata”; max 4 real indicators; CTA **Vedi situazione completa** → `/situazione` (real view).
 5. **Google Calendar** — large connect card removed. Connected: no promo. Disconnected: compact banner (Collega / Non ora). Full config in Settings.
 6. **Priorità** — replaces “Dopo”; groups Critico / Oggi / Questa settimana / In attesa / Più avanti; only non-empty; type-specific cards.
-7. **ORA osserva** — max 1–2 real insights (text, source, action, status, created, validity, ignore, dedupe).
-8. **Continua da dove avevi lasciato** — one real resume item (flashcard/quiz) or hidden.
+7. **ORA TI CONSIGLIA** — max 3 Proactive Engine suggestions (Accetta / Ignora / Ricordamelo dopo / Apri); hidden when empty. See `docs/PROACTIVE_ENGINE_PRODUCT.md`. Email/Finance/Weather/WhatsApp predisposed only.
+8. **ORA osserva** — max 1–2 real insights (text, source, action, status, created, validity, ignore, dedupe).
+9. **Continua da dove avevi lasciato** — one real resume item (flashcard/quiz) or hidden.
 
 ## Removed from Home
 
