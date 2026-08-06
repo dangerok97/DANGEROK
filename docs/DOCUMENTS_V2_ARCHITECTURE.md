@@ -53,6 +53,10 @@ Gates: single proposed event, **confidence > threshold**, datetime present & not
 
 `GET /api/documents/search/intelligent` — multi-token AND across title/text/edu/admin; special phrases `azioni aperte`, `da verificare`; always filtered by `user_id`.
 
+## Life Experience integration (no second pipeline)
+
+`backend/life_setup/` (Life Experience) reuses Documents V2 as its **only** document pipeline: it never re-implements upload, MIME/size validation, storage, OCR, extraction, classification, retry, reanalyze or delete. It only attaches a `document_id` to the conversation session, polls `pipeline_status`, and — once ready — runs an **extra** reasoning layer (`backend/documents/intelligence/life_reasoning.py`, Gemini via Provider Manager) that writes `doc["life_reasoning"]` onto the same document and maps the result into the Life Profile (`backend/life_setup/document_mapping.py`). See `LIFE_EXPERIENCE_REAL_DOCUMENTS.md` and `AI_DOCUMENT_UNDERSTANDING.md`.
+
 ## Dynamic utility by macro
 
 | Macro | Utility UI |

@@ -1,5 +1,40 @@
 # ORA — AI Changelog
 
+## 2026-08-06 — AI Document Understanding in Life Experience
+
+### Request
+
+Real document upload + AI Document Understanding wired into ORA Life Experience on `feature/life-experience-ai` @ `c518a23`: real Expo file picker (not synthetic-only), Documents V2 as the only pipeline, Gemini structured document understanding, Life Profile mapping with provenance, cross-document reasoning, confidence-driven confirmation, draft-only calendar events, Home/Proactive updates, ≥30 backend tests, 3 UI-driven Playwright scenarios, Gemini real verification, docs. Branch `feature/life-experience-ai-documents`. No push/merge.
+
+### Actions
+
+- `backend/documents/intelligence/life_reasoning.py` — AI Document Understanding: `DocumentReasoning` (Pydantic), Gemini call with chunking, deterministic fallback, content-hash cache, per-type `type_specific` schemas (rogito/mutuo/bolletta/libretto/polizza/piano di studi/…)
+- `backend/life_setup/document_mapping.py` — declarative mappers → `MappedField` with provenance, confidence-driven status (`extracted`/`suggested`)
+- `backend/life_setup/cross_document.py` — link (never merge) related documents, conflict/duplicate detection
+- `backend/life_setup/{models,profile_service,service,router}.py` — field provenance/status enum, `attach/status/consume/retry/detach` + `confirm-field/correct-field/reject-field/resolve-confirmation` endpoints, pending-document resume on reopen
+- `frontend/app/life-setup/index.tsx` — real `expo-document-picker` flow (upload → attach → poll → consume), Document Result UI (Cosa ho capito / Dati trovati / Dati da verificare / Cosa posso fare / Documento originale), inline field correction (cross-platform, replaces `Alert.prompt`)
+- `frontend/src/api/client.ts` — new `lifeSetup*` document API functions + types
+- `backend/tests/fixtures/life_documents/` + `frontend/e2e/fixtures/life-documents/` — synthetic (fake data) PDF/TXT fixtures per document type
+- `frontend/e2e/life-experience-documents.spec.ts` (new) — CASA/AUTO/BOLLETTA scenarios, real file picker via `page.waitForEvent('filechooser')`
+- Docs: `LIFE_EXPERIENCE_REAL_DOCUMENTS.md`, `AI_DOCUMENT_UNDERSTANDING.md`, `LIFE_DOCUMENT_MAPPING.md`, `CROSS_DOCUMENT_REASONING.md`, `LIFE_EXPERIENCE_DOCUMENT_VERIFICATION.md` (new); `PRODUCT_AUDIT_MASTER`, `CAPABILITY_MATRIX`, `PRODUCTION_READINESS`, `LIFE_EXPERIENCE`, `AI_REASONING_LOOP`, `DOCUMENTS_V2_ARCHITECTURE`, `DEVELOPMENT_STATE` (updated)
+
+### Results
+
+- pytest `test_life_experience_documents.py`: **62 passed**; regression `life_setup`+`ai_life_strategist`+`documents`: **92 passed**
+- `python -m compileall`, `npx tsc --noEmit`, `npx eslint` (changed files clean, pre-existing issues untouched): all OK
+- Playwright `e2e/life-experience-documents.spec.ts`: **3 passed** (CASA, AUTO, BOLLETTA — real file picker, real Documents V2 upload, real Document Result UI); regression `e2e/life-experience-ai.spec.ts`: **2 passed**
+- Real Gemini verified (provider=`gemini`, model=`gemini-flash-lite-latest`) for rogito (conf. 0.99), bolletta (1.00), libretto (1.00), piano di studi (0.98) — latency ~4.5–5.8s each
+- 9/13 catalogued document types have classification + generic mapping tested but **no dedicated real-Gemini verification** in this session (see `LIFE_EXPERIENCE_DOCUMENT_VERIFICATION.md` for the full honest per-type matrix)
+- Mobile (iOS/Android) DocumentPicker: compatibility notes written, **not verified** on device/emulator
+
+### Open
+
+- Consent UI for calendar drafts → Google (draft-only events exist; Google confirm path not re-exercised here)
+- Extend real-Gemini verification to the remaining 9 document types
+- Mobile native verification (device/emulator)
+
+---
+
 ## 2026-08-06 — Product capability audit (CTO docs)
 
 Docs-only: `PRODUCT_AUDIT_MASTER.md`, `CAPABILITY_MATRIX.md`, `PRODUCTION_READINESS.md`, `FEATURE_STATUS.md` — base `09404f1`; message `docs: complete product capability audit`.

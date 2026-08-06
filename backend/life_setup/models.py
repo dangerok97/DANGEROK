@@ -34,14 +34,25 @@ def new_setup_id() -> str:
     return f"lsu_{uuid.uuid4().hex[:14]}"
 
 
+FieldStatus = Literal["extracted", "suggested", "confirmed", "corrected", "rejected"]
+
+
 class ProfileObject(BaseModel):
     key: str
     value: Any = None
+    raw_value: Any = None
     confidence: float = 0.5
     source: FactSource = "user_said"
+    status: FieldStatus = "extracted"
     updated_at: str = Field(default_factory=now_iso)
     linked_doc_ids: List[str] = Field(default_factory=list)
     confirmed: bool = False
+    source_document_id: Optional[str] = None
+    source_page: Optional[int] = None
+    provider: Optional[str] = None
+    model: Optional[str] = None
+    analysis_version: Optional[int] = None
+    confirmed_at: Optional[str] = None
 
 
 class DomainProfile(BaseModel):
@@ -56,6 +67,8 @@ class DomainProfile(BaseModel):
     linked_docs: List[str] = Field(default_factory=list)
     goal_id: Optional[str] = None
     life_node_id: Optional[str] = None
+    pending_confirmations: List[Dict[str, Any]] = Field(default_factory=list)
+    related_documents: List[Dict[str, Any]] = Field(default_factory=list)
 
     def known_keys(self) -> List[str]:
         return [k for k, o in self.objects.items() if o.value not in (None, "", [], False)]
@@ -95,6 +108,8 @@ class LifeSetupSession(BaseModel):
     phase: str = "greeting"
     show_wizard_later: bool = False  # ALWAYS false — module becomes invisible
     resume_suggestion_emitted: bool = False
+    pending_document_id: Optional[str] = None
+    pending_document_type: Optional[str] = None
     meta: Dict[str, Any] = Field(default_factory=dict)
 
     def touch(self) -> None:
@@ -131,3 +146,33 @@ class UploadDocBody(BaseModel):
 
 class ExplainBody(BaseModel):
     plan: Optional[Dict[str, Any]] = None
+
+
+class AttachDocumentBody(BaseModel):
+    """Attach a REAL Documents V2 document (already uploaded) to the
+    Life Experience conversation. No file bytes travel through this body —
+    upload always goes through `POST /api/documents/upload` first."""
+    document_id: str
+    doc_type: Optional[str] = None
+
+
+class ConfirmFieldBody(BaseModel):
+    domain: str
+    key: str
+
+
+class CorrectFieldBody(BaseModel):
+    domain: str
+    key: str
+    value: Any
+
+
+class RejectFieldBody(BaseModel):
+    domain: str
+    key: str
+
+
+class ResolveConfirmationBody(BaseModel):
+    domain: str
+    key: str
+    resolution: Literal["keep_existing", "use_new", "dismiss"]

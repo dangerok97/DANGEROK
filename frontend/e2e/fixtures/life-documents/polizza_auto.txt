@@ -1,0 +1,8 @@
+POLIZZA ASSICURATIVA RC AUTO - Documento sintetico di test
+Compagnia: Assicurazioni Test SpA
+Numero polizza: POL-AUTO-556677
+Targa assicurata: AB123CD
+Contraente: Mario Rossi Test
+Decorrenza: 1 gennaio 2026
+Scadenza: 31 dicembre 2026
+Premio annuo: EUR 480,00

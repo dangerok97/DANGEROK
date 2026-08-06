@@ -1,0 +1,8 @@
+LIBRETTO DI CIRCOLAZIONE - Documento sintetico di test
+Targa: AB123CD
+Marca: Fiat
+Modello: Panda
+Numero di telaio: ZFA31200000TEST01
+Data di prima immatricolazione: 10 gennaio 2020
+Intestatario: Mario Rossi Test
+Alimentazione: benzina

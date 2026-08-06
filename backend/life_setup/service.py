@@ -22,6 +22,22 @@ from life_setup.sync import (
 
 logger = logging.getLogger("ora.life_setup")
 
+DOC_PIPELINE_TERMINAL = ("completed", "needs_review", "failed")
+DOC_PIPELINE_LABELS_IT = {
+    "rogito": "il rogito",
+    "contratto_locazione": "il contratto di locazione",
+    "mutuo": "il contratto di mutuo",
+    "bolletta": "la bolletta",
+    "libretto": "il libretto di circolazione",
+    "polizza_auto": "la polizza auto",
+    "polizza_casa": "la polizza casa",
+    "polizza": "la polizza",
+    "prestito_auto": "il finanziamento auto",
+    "piano_di_studi": "il piano di studi",
+    "dispensa": "la dispensa",
+    "calendario_esami": "il calendario esami",
+}
+
 _SERVICE: Optional["LifeSetupService"] = None
 
 
@@ -111,11 +127,13 @@ class LifeSetupService:
                 turn = await self._plan_turn(existing)
                 existing.last_turn = turn
                 await self.repo.save_session(existing)
+            pending_doc = await self._pending_document_resume(existing)
             return {
                 "ok": True,
                 "session": existing.public(),
                 "turn": turn,
                 "resumed": True,
+                "pending_document": pending_doc,
                 "wizard": False,
             }
 
@@ -618,3 +636,378 @@ class LifeSetupService:
         if not stub:
             return {"ok": False, "error": "unknown_stub"}
         return await stub.fetch()
+
+    # ------------------------------------------------------------------
+    # Real Documents V2 attach / poll / consume / confirm / correct / reject
+    #
+    # Life Experience NEVER creates a second document pipeline. Upload,
+    # MIME/size validation, storage, OCR/extraction, classification and the
+    # base Gemini analysis all happen exclusively in Documents V2
+    # (`documents.service.DocumentService` + `documents.intelligence`).
+    # This layer only: links a real document_id to the conversation, polls
+    # its pipeline status, runs ONE additional structured "life reasoning"
+    # step on top of the existing analysis, maps the result into the Life
+    # Profile, and re-runs the AI Reasoning Loop.
+    # ------------------------------------------------------------------
+    def _doc_label(self, doc_type: Optional[str]) -> str:
+        return DOC_PIPELINE_LABELS_IT.get(doc_type or "", "il documento")
+
+    async def _pending_document_resume(self, sess: LifeSetupSession) -> Optional[Dict[str, Any]]:
+        """Never lose document_id / pipeline status across restarts or reopen."""
+        if not sess.pending_document_id:
+            return None
+        from deps import get_document_service
+        from documents.service import DocumentNotFound
+
+        try:
+            doc = await get_document_service().get(user_id=sess.user_id, doc_id=sess.pending_document_id)
+        except DocumentNotFound:
+            return None
+        status = doc.get("pipeline_status") or "uploaded"
+        label = self._doc_label(sess.pending_document_type)
+        if status in DOC_PIPELINE_TERMINAL:
+            message = f"Ho finito di leggere {label}. Vuoi vedere cosa ho capito?"
+        else:
+            message = f"Stavo ancora analizzando {label}… ({doc.get('pipeline_status_label') or status})"
+        return {
+            "document_id": sess.pending_document_id,
+            "doc_type": sess.pending_document_type,
+            "pipeline_status": status,
+            "pipeline_status_label": doc.get("pipeline_status_label"),
+            "ready_for_consume": status in DOC_PIPELINE_TERMINAL,
+            "message": message,
+        }
+
+    async def attach_document(
+        self, user_id: str, document_id: str, doc_type: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        if not life_setup_enabled():
+            return self._disabled()
+        sess = await self.repo.latest_session(user_id)
+        if not sess or sess.status != "active":
+            return {"ok": False, "error": "no_active_session"}
+
+        from deps import get_document_service
+        from documents.service import DocumentNotFound
+
+        try:
+            doc = await get_document_service().get(user_id=user_id, doc_id=document_id)
+        except DocumentNotFound:
+            return {"ok": False, "error": "document_not_found"}
+
+        from documents.intelligence.life_reasoning import guess_document_type
+
+        resolved_type = guess_document_type(doc, doc_type)
+        if document_id not in sess.linked_doc_ids:
+            sess.linked_doc_ids.append(document_id)
+        if resolved_type and resolved_type not in sess.linked_doc_types:
+            sess.linked_doc_types.append(resolved_type)
+        sess.pending_document_id = document_id
+        sess.pending_document_type = resolved_type
+        sess.meta["last_user_text"] = f"[upload:{resolved_type}]"
+
+        # Documents V2 auto-enqueues on upload; ensure it is queued in case
+        # the client attaches an already-existing document (re-attach flow).
+        if doc.get("pipeline_status") in (None, "uploaded"):
+            try:
+                from deps import get_intelligence_service
+                await get_intelligence_service().mark_uploaded_and_queue(
+                    user_id=user_id, doc_id=document_id,
+                )
+                doc["pipeline_status"] = "queued"
+            except Exception:
+                logger.exception("life_setup: failed to enqueue attached document")
+
+        await self.repo.save_session(sess)
+        label = self._doc_label(resolved_type)
+        return {
+            "ok": True,
+            "session": sess.public(),
+            "document_id": document_id,
+            "doc_type": resolved_type,
+            "pipeline_status": doc.get("pipeline_status"),
+            "pipeline_status_label": doc.get("pipeline_status_label"),
+            "message": f"Documento ricevuto. Sto leggendo {label}…",
+            "wizard": False,
+        }
+
+    async def document_status(self, user_id: str, document_id: str) -> Dict[str, Any]:
+        from deps import get_document_service
+        from documents.service import DocumentNotFound
+
+        try:
+            doc = await get_document_service().get(user_id=user_id, doc_id=document_id)
+        except DocumentNotFound:
+            return {"ok": False, "error": "document_not_found"}
+        status = doc.get("pipeline_status") or "uploaded"
+        return {
+            "ok": True,
+            "document_id": document_id,
+            "pipeline_status": status,
+            "pipeline_status_label": doc.get("pipeline_status_label"),
+            "ready_for_consume": status in DOC_PIPELINE_TERMINAL,
+            "failed": status == "failed",
+            "life_reasoning_ready": bool(doc.get("life_reasoning")),
+            "requires_review": bool((doc.get("analysis") or {}).get("requires_review")),
+        }
+
+    async def consume_document(
+        self, user_id: str, document_id: str, *, force: bool = False,
+    ) -> Dict[str, Any]:
+        if not life_setup_enabled():
+            return self._disabled()
+        sess = await self.repo.latest_session(user_id)
+        if not sess or sess.status != "active":
+            return {"ok": False, "error": "no_active_session"}
+
+        from deps import get_document_service
+        from documents.service import DocumentNotFound
+
+        try:
+            doc = await get_document_service().get(user_id=user_id, doc_id=document_id)
+        except DocumentNotFound:
+            return {"ok": False, "error": "document_not_found"}
+
+        status = doc.get("pipeline_status") or "uploaded"
+        if status not in DOC_PIPELINE_TERMINAL:
+            return {
+                "ok": False,
+                "error": "pipeline_not_ready",
+                "pipeline_status": status,
+                "pipeline_status_label": doc.get("pipeline_status_label"),
+            }
+        if status == "failed" and not force:
+            return {
+                "ok": False,
+                "error": "analysis_failed",
+                "pipeline_status": status,
+                "resumable": True,
+            }
+
+        from documents.intelligence.life_reasoning import run_life_document_reasoning
+        from life_setup.document_mapping import map_document_reasoning
+        from life_setup.cross_document import detect_conflicts, find_related_documents
+
+        user_doc = await self.db.users.find_one({"user_id": user_id}, {"_id": 0, "preferences": 1})
+        result = await run_life_document_reasoning(
+            doc, user=user_doc, doc_type_hint=sess.pending_document_type, force=force,
+        )
+        reasoning = result["reasoning"]
+        await self.db.documents.update_one(
+            {"id": document_id, "user_id": user_id},
+            {"$set": {
+                "life_reasoning": reasoning,
+                "life_reasoning_telemetry": result.get("telemetry"),
+                "updated_at": now_iso(),
+            }},
+        )
+
+        domain = reasoning.get("domain") or "documenti"
+        mapped_fields = map_document_reasoning(reasoning)
+
+        profile = await self.profiles.get(user_id)
+        conflicts = detect_conflicts(
+            profile, domain=domain, mapped_fields=mapped_fields, source_document_id=document_id,
+        )
+        conflict_keys = {c.key for c in conflicts}
+        clean_fields = [mf for mf in mapped_fields if mf.key not in conflict_keys]
+
+        await self.profiles.apply_mapped_fields(
+            user_id,
+            clean_fields,
+            source_document_id=document_id,
+            provider=reasoning.get("provider"),
+            model=reasoning.get("model"),
+            analysis_version=reasoning.get("analysis_version"),
+        )
+        for c in conflicts:
+            await self.profiles.add_pending_confirmation(user_id, domain, {
+                "domain": c.domain, "key": c.key, "label": c.label,
+                "existing_value": c.existing_value, "new_value": c.new_value,
+                "new_confidence": c.new_confidence, "source_document_id": c.source_document_id,
+                "kind": c.kind, "field": c.field, "created_at": now_iso(),
+            })
+
+        related_links = find_related_documents(
+            profile, domain=domain, reasoning=reasoning, new_document_id=document_id,
+        )
+        if related_links:
+            await self.profiles.add_related_documents(user_id, domain, related_links)
+
+        if domain not in sess.domains_touched:
+            sess.domains_touched.append(domain)
+        doc_type = reasoning.get("document_type")
+        if doc_type and doc_type not in sess.linked_doc_types:
+            sess.linked_doc_types.append(doc_type)
+        for k in document_keys_from_upload(doc_type or ""):
+            sess.known_facts[k] = True
+        if sess.pending_document_id == document_id:
+            sess.pending_document_id = None
+            sess.pending_document_type = None
+
+        await self._sync_domain(sess, domain)
+
+        # Benefit delta — before/after — for the immediate concrete-benefit message.
+        from ai_life_strategist.benefit_engine import active_benefits
+
+        profile = await self.profiles.get(user_id)
+        facts = dict(sess.known_facts)
+        if profile:
+            facts.update(self.profiles.flat_known(profile))
+        known = {k for k, v in facts.items() if v not in (None, False, "", [])}
+        new_benefits = active_benefits(known, domain=domain)
+        benefit_message = new_benefits[0].home_signal if new_benefits else None
+
+        label = self._doc_label(doc_type)
+        ack = f"Ho letto {label}. " + (benefit_message or "Ho aggiornato il tuo profilo con i dati trovati.")
+
+        # Deadlines found in the SAME Documents V2 document analysis (never a
+        # new pipeline) — surfaced as draft-only; confirm goes through the
+        # existing Documents V2 event-candidate confirm endpoint.
+        draft_events = [
+            {
+                "event_id": ev.get("id"),
+                "title": ev.get("title"),
+                "start_datetime": ev.get("start_datetime"),
+                "confidence": ev.get("confidence"),
+                "confirm_endpoint": f"/api/documents/{document_id}/events/{ev.get('id')}/confirm",
+            }
+            for ev in (doc.get("event_candidates") or [])
+            if ev.get("status") == "proposed"
+        ]
+
+        document_result = {
+            "document_id": document_id,
+            "doc_type": doc_type,
+            "domain": domain,
+            "cosa_ho_capito": reasoning.get("summary") or reasoning.get("purpose") or "",
+            "reason_summary": reasoning.get("reason_summary"),
+            "dati_trovati": [
+                {"key": mf.key, "label": mf.label, "value": mf.value, "confidence": mf.confidence}
+                for mf in clean_fields if mf.status == "extracted"
+            ],
+            "dati_da_verificare": [
+                {"key": mf.key, "label": mf.label, "value": mf.value, "confidence": mf.confidence}
+                for mf in clean_fields if mf.status == "suggested"
+            ] + [
+                {
+                    "key": c.key, "label": c.label, "existing_value": c.existing_value,
+                    "new_value": c.new_value, "kind": c.kind, "needs_confirmation": True,
+                }
+                for c in conflicts
+            ],
+            "ambiguities": reasoning.get("ambiguities") or [],
+            "cosa_posso_fare": reasoning.get("recommended_actions") or [],
+            "draft_events": draft_events,
+            "related_documents": related_links and [
+                {"document_id": l.document_id, "reason": l.reason} for l in related_links
+            ] or [],
+            "documento_originale": {
+                "document_id": document_id,
+                "filename": doc.get("filename"),
+                "mime_type": doc.get("mime_type"),
+                "download_url": f"/api/documents/{document_id}/download",
+            },
+            "ai_used": reasoning.get("ai_used"),
+            "provider": reasoning.get("provider"),
+            "model": reasoning.get("model"),
+        }
+
+        turn = await self._plan_turn(sess, ack=ack)
+        sess.last_turn = turn
+        if turn.get("plan"):
+            sess.last_plan = turn["plan"]
+            gap_key = (turn["plan"].get("meta") or {}).get("gap_key")
+            q = turn["plan"].get("next_best_question")
+            if q and q not in sess.asked_questions:
+                sess.asked_questions.append(q)
+            if gap_key and gap_key not in sess.asked_keys:
+                sess.asked_keys.append(gap_key)
+        await self.repo.save_session(sess)
+
+        return {
+            "ok": True,
+            "session": sess.public(),
+            "turn": turn,
+            "document_result": document_result,
+            "profile": profile.public() if profile else None,
+            "wizard": False,
+        }
+
+    async def confirm_field(self, user_id: str, domain: str, key: str) -> Dict[str, Any]:
+        profile = await self.profiles.confirm_field(user_id, domain, key)
+        sess = await self.repo.latest_session(user_id)
+        turn = None
+        if sess and sess.status == "active":
+            turn = await self._plan_turn(sess)
+            sess.last_turn = turn
+            await self.repo.save_session(sess)
+        return {"ok": True, "profile": profile.public(), "turn": turn, "wizard": False}
+
+    async def correct_field(self, user_id: str, domain: str, key: str, value: Any) -> Dict[str, Any]:
+        profile = await self.profiles.correct_fact(user_id, domain, key, value)
+        sess = await self.repo.latest_session(user_id)
+        turn = None
+        if sess and sess.status == "active":
+            turn = await self._plan_turn(sess)
+            sess.last_turn = turn
+            await self.repo.save_session(sess)
+        return {"ok": True, "profile": profile.public(), "turn": turn, "wizard": False}
+
+    async def reject_field(self, user_id: str, domain: str, key: str) -> Dict[str, Any]:
+        profile = await self.profiles.reject_field(user_id, domain, key)
+        sess = await self.repo.latest_session(user_id)
+        turn = None
+        if sess and sess.status == "active":
+            turn = await self._plan_turn(sess)
+            sess.last_turn = turn
+            await self.repo.save_session(sess)
+        return {"ok": True, "profile": profile.public(), "turn": turn, "wizard": False}
+
+    async def resolve_confirmation(
+        self, user_id: str, domain: str, key: str, resolution: str,
+    ) -> Dict[str, Any]:
+        profile = await self.profiles.resolve_pending_confirmation(user_id, domain, key, resolution)
+        return {"ok": True, "profile": profile.public(), "wizard": False}
+
+    async def retry_document(self, user_id: str, document_id: str) -> Dict[str, Any]:
+        from deps import get_document_service, get_intelligence_service
+        from documents.service import DocumentNotFound
+
+        try:
+            await get_document_service().get(user_id=user_id, doc_id=document_id)
+        except DocumentNotFound:
+            return {"ok": False, "error": "document_not_found"}
+        await self.db.documents.update_one(
+            {"id": document_id, "user_id": user_id},
+            {"$unset": {"life_reasoning": "", "life_reasoning_telemetry": ""}},
+        )
+        await get_intelligence_service().mark_uploaded_and_queue(user_id=user_id, doc_id=document_id)
+        sess = await self.repo.latest_session(user_id)
+        if sess:
+            sess.pending_document_id = document_id
+            await self.repo.save_session(sess)
+        return {"ok": True, "pipeline_status": "queued", "wizard": False}
+
+    async def detach_document(self, user_id: str, document_id: str) -> Dict[str, Any]:
+        """Remove the document from Life Experience knowledge — the file and
+        its Documents V2 record are NEVER deleted by this call."""
+        sess = await self.repo.latest_session(user_id)
+        if sess:
+            sess.linked_doc_ids = [d for d in sess.linked_doc_ids if d != document_id]
+            if sess.pending_document_id == document_id:
+                sess.pending_document_id = None
+                sess.pending_document_type = None
+            await self.repo.save_session(sess)
+        profile = await self.profiles.get(user_id)
+        if profile:
+            for dom in profile.domains.values():
+                dom.linked_docs = [d for d in dom.linked_docs if d != document_id]
+                for obj in dom.objects.values():
+                    if document_id in obj.linked_doc_ids:
+                        obj.linked_doc_ids = [d for d in obj.linked_doc_ids if d != document_id]
+                dom.related_documents = [
+                    r for r in dom.related_documents if r.get("document_id") != document_id
+                ]
+            await self.profiles.repo.save_profile(profile)
+        return {"ok": True, "document_id": document_id, "wizard": False}
