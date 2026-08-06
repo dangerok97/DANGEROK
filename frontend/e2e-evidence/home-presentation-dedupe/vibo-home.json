@@ -1,0 +1,415 @@
+{
+  "primary_focus": {
+    "id": "pres_goal_goal_fbaedf4dc60d44",
+    "type": "travel",
+    "subtype": "travel_project",
+    "title": "Vacanza: Vibo Marina",
+    "description": "Partenza tra 14 giorni · Vacanza Vibo Marina tra 14 giorni · Obiettivo: Vacanza: Vibo Marina",
+    "source_type": "travel_project",
+    "source_id": "trp_736bc7fb22e14b",
+    "priority": "later",
+    "urgency": "none",
+    "confidence": null,
+    "due_at": "2026-08-20",
+    "start_at": null,
+    "end_at": null,
+    "duration_minutes": null,
+    "location": "Vibo Marina",
+    "amount": null,
+    "status": "open",
+    "actions": [
+      {
+        "id": "open_travel_project",
+        "label": "Apri viaggio",
+        "kind": "navigate",
+        "route": "/travel-project/trp_736bc7fb22e14b",
+        "params": {},
+        "primary": true
+      },
+      {
+        "id": "open_maps",
+        "label": "Apri Maps",
+        "kind": "maps",
+        "route": null,
+        "params": {
+          "query": "Vibo Marina",
+          "url": null
+        },
+        "primary": false
+      },
+      {
+        "id": "snooze",
+        "label": "Rimanda",
+        "kind": "snooze",
+        "route": null,
+        "params": {},
+        "primary": false
+      },
+      {
+        "id": "open_calendar",
+        "label": "Calendario",
+        "kind": "navigate",
+        "route": "/situazione",
+        "params": {},
+        "primary": false
+      },
+      {
+        "id": "continua_travel",
+        "label": "Continua",
+        "kind": "navigate",
+        "route": "/travel-project/trp_736bc7fb22e14b",
+        "params": {},
+        "primary": true
+      }
+    ],
+    "reason_factors": [
+      {
+        "code": "type",
+        "label": "Tipo travel",
+        "weight": 15,
+        "detail": null
+      },
+      {
+        "code": "goal_importance",
+        "label": "Importanza obiettivo",
+        "weight": 2.7,
+        "detail": "Vacanza: Vibo Marina"
+      },
+      {
+        "code": "goal_urgency",
+        "label": "Urgenza obiettivo",
+        "weight": 3.3000000000000003,
+        "detail": "Vacanza: Vibo Marina"
+      },
+      {
+        "code": "goal_next_action",
+        "label": "Prossima azione obiettivo",
+        "weight": 4,
+        "detail": "Vacanza Vibo Marina tra 14 giorni"
+      },
+      {
+        "code": "goal_progress_phase",
+        "label": "Avanzamento obiettivo",
+        "weight": 2,
+        "detail": "fase: days_until"
+      },
+      {
+        "code": "goal_calendar",
+        "label": "Collegato al calendario",
+        "weight": 2,
+        "detail": "3 eventi"
+      }
+    ],
+    "reason_summary": "Tipo travel; Prossima azione obiettivo; Urgenza obiettivo",
+    "ranking_version": "home-rank-1.3",
+    "created_at": "2026-08-06T08:19:03.829439+00:00",
+    "updated_at": "2026-08-06T08:19:07.057571+00:00",
+    "meta": {
+      "dedupe_key": "presentation:goal_fbaedf4dc60d44",
+      "travel_project_id": "trp_736bc7fb22e14b",
+      "goal_id": "goal_fbaedf4dc60d44",
+      "phase": "days_until",
+      "days_until": 14,
+      "transport": "car",
+      "maps": {
+        "deep_link": null,
+        "origin": null,
+        "destination": null,
+        "distance_km": null,
+        "duration_minutes": null,
+        "duration_label": null,
+        "estimate_source": "unavailable",
+        "suggested_stops": [],
+        "tolls_note": null,
+        "honesty": ""
+      },
+      "missing_prep": [],
+      "prep_items": [],
+      "google_sync": {
+        "skipped": [
+          "not_requested"
+        ]
+      },
+      "calendar_sync": false,
+      "why_now_factors": [
+        {
+          "code": "travel_days_until",
+          "label": "Vacanza in arrivo",
+          "weight": 0.7
+        }
+      ],
+      "goal_title": "Vacanza: Vibo Marina",
+      "goal_type": "travel",
+      "goal_status": "active",
+      "goal_progress": null,
+      "goal_progress_label": "fase: days_until",
+      "goal_next_action": "Vacanza Vibo Marina tra 14 giorni",
+      "goal_target_date": "2026-08-27",
+      "goal_blockers": [],
+      "goal_project_id": "aproj_2767dcee36ac",
+      "goal_urgency": 3,
+      "goal_importance": 3,
+      "goal_days_remaining": 21,
+      "goal_progress_source": "travel_phase",
+      "goal_hours_since_advance": 0.00004447861111111111,
+      "goal_calendar_links": 3,
+      "goal_dedupe_key": "goal:goal_fbaedf4dc60d44",
+      "presentation_id": "pres_goal_goal_fbaedf4dc60d44",
+      "presentation_version": "home-pres-1.0",
+      "card_type": "travel",
+      "subtitle": "Partenza tra 14 giorni · Vacanza Vibo Marina tra 14 giorni",
+      "next_action": "Vacanza Vibo Marina tra 14 giorni",
+      "supporting_details": [
+        {
+          "kind": "life_node",
+          "label": "Andata → Vibo Marina",
+          "source_type": "life_node",
+          "source_id": "node_8535e4193a6b",
+          "when": "2026-08-20T06:00:00+00:00"
+        },
+        {
+          "kind": "life_node",
+          "label": "Vacanza: Vibo Marina",
+          "source_type": "life_node",
+          "source_id": "node_82d6bc254d26",
+          "when": "2026-08-20T07:00:00+00:00"
+        },
+        {
+          "kind": "action_project",
+          "label": "Vacanza Vibo Marina tra 14 giorni",
+          "source_type": "action_project",
+          "source_id": "aproj_2767dcee36ac"
+        }
+      ],
+      "source_refs": [
+        {
+          "type": "life_node",
+          "id": "node_8535e4193a6b",
+          "item_id": "hi_2f7a91e07a4cc349",
+          "title": "Andata → Vibo Marina"
+        },
+        {
+          "type": "life_node",
+          "id": "node_82d6bc254d26",
+          "item_id": "hi_467cb4c7bc0f5315",
+          "title": "Vacanza: Vibo Marina"
+        },
+        {
+          "type": "action_project",
+          "id": "aproj_2767dcee36ac",
+          "item_id": "ae_proj_aproj_2767dcee36ac",
+          "title": "Vacanza Vibo Marina tra 14 giorni"
+        },
+        {
+          "type": "travel_project",
+          "id": "trp_736bc7fb22e14b",
+          "item_id": "hi_f83b0ab0a7b462a8",
+          "title": "Vacanza: Vibo Marina"
+        }
+      ],
+      "hidden_artifact_count": 3,
+      "presentation_badges": [],
+      "aggregated_member_ids": [
+        "hi_2f7a91e07a4cc349",
+        "hi_467cb4c7bc0f5315",
+        "ae_proj_aproj_2767dcee36ac",
+        "hi_f83b0ab0a7b462a8"
+      ],
+      "aggregated_at": "2026-08-06T08:19:07.384708+00:00"
+    },
+    "goal_id": "goal_fbaedf4dc60d44",
+    "goal_title": "Vacanza: Vibo Marina",
+    "goal_type": "travel",
+    "goal_status": "active",
+    "goal_progress_label": "fase: days_until",
+    "goal_next_action": "Vacanza Vibo Marina tra 14 giorni",
+    "goal_target_date": "2026-08-27",
+    "goal_project_id": "aproj_2767dcee36ac",
+    "presentation_id": "pres_goal_goal_fbaedf4dc60d44",
+    "card_type": "travel",
+    "subtitle": "Partenza tra 14 giorni · Vacanza Vibo Marina tra 14 giorni",
+    "next_action": "Vacanza Vibo Marina tra 14 giorni",
+    "supporting_details": [
+      {
+        "kind": "life_node",
+        "label": "Andata → Vibo Marina",
+        "source_type": "life_node",
+        "source_id": "node_8535e4193a6b",
+        "when": "2026-08-20T06:00:00+00:00"
+      },
+      {
+        "kind": "life_node",
+        "label": "Vacanza: Vibo Marina",
+        "source_type": "life_node",
+        "source_id": "node_82d6bc254d26",
+        "when": "2026-08-20T07:00:00+00:00"
+      },
+      {
+        "kind": "action_project",
+        "label": "Vacanza Vibo Marina tra 14 giorni",
+        "source_type": "action_project",
+        "source_id": "aproj_2767dcee36ac"
+      }
+    ],
+    "source_refs": [
+      {
+        "type": "life_node",
+        "id": "node_8535e4193a6b",
+        "item_id": "hi_2f7a91e07a4cc349",
+        "title": "Andata → Vibo Marina"
+      },
+      {
+        "type": "life_node",
+        "id": "node_82d6bc254d26",
+        "item_id": "hi_467cb4c7bc0f5315",
+        "title": "Vacanza: Vibo Marina"
+      },
+      {
+        "type": "action_project",
+        "id": "aproj_2767dcee36ac",
+        "item_id": "ae_proj_aproj_2767dcee36ac",
+        "title": "Vacanza Vibo Marina tra 14 giorni"
+      },
+      {
+        "type": "travel_project",
+        "id": "trp_736bc7fb22e14b",
+        "item_id": "hi_f83b0ab0a7b462a8",
+        "title": "Vacanza: Vibo Marina"
+      }
+    ],
+    "hidden_artifact_count": 3,
+    "presentation_badges": [],
+    "presentation_version": "home-pres-1.0",
+    "generated_at": "2026-08-06T08:19:07.384708+00:00"
+  },
+  "explanation": {
+    "summary": "Tipo travel; Prossima azione obiettivo; Urgenza obiettivo",
+    "factors": [
+      {
+        "code": "type",
+        "label": "Tipo travel",
+        "weight": 15,
+        "detail": null
+      },
+      {
+        "code": "goal_importance",
+        "label": "Importanza obiettivo",
+        "weight": 2.7,
+        "detail": "Vacanza: Vibo Marina"
+      },
+      {
+        "code": "goal_urgency",
+        "label": "Urgenza obiettivo",
+        "weight": 3.3000000000000003,
+        "detail": "Vacanza: Vibo Marina"
+      },
+      {
+        "code": "goal_next_action",
+        "label": "Prossima azione obiettivo",
+        "weight": 4,
+        "detail": "Vacanza Vibo Marina tra 14 giorni"
+      },
+      {
+        "code": "goal_progress_phase",
+        "label": "Avanzamento obiettivo",
+        "weight": 2,
+        "detail": "fase: days_until"
+      },
+      {
+        "code": "goal_calendar",
+        "label": "Collegato al calendario",
+        "weight": 2,
+        "detail": "3 eventi"
+      }
+    ],
+    "sources": [
+      {
+        "type": "life_node",
+        "id": "node_8535e4193a6b",
+        "title": "Andata → Vibo Marina"
+      },
+      {
+        "type": "life_node",
+        "id": "node_82d6bc254d26",
+        "title": "Vacanza: Vibo Marina"
+      },
+      {
+        "type": "action_project",
+        "id": "aproj_2767dcee36ac",
+        "title": "Vacanza Vibo Marina tra 14 giorni"
+      },
+      {
+        "type": "travel_project",
+        "id": "trp_736bc7fb22e14b",
+        "title": "Vacanza: Vibo Marina"
+      }
+    ],
+    "confidence": null,
+    "missing_data": [],
+    "ranking_version": "home-rank-1.3",
+    "item_id": "pres_goal_goal_fbaedf4dc60d44"
+  },
+  "current_situation": {
+    "indicators": [
+      {
+        "id": "events_today",
+        "label": "Impegni oggi",
+        "value": "0",
+        "tone": "info",
+        "detail": null
+      },
+      {
+        "id": "open_actions",
+        "label": "Azioni aperte",
+        "value": "1",
+        "tone": "default",
+        "detail": null
+      },
+      {
+        "id": "free",
+        "label": "Finestra libera",
+        "value": "2026-08-06T08:00:00Z–2026-08-06T22:00:00Z",
+        "tone": "success",
+        "detail": null
+      }
+    ],
+    "free_window": "2026-08-06T08:00:00Z–2026-08-06T22:00:00Z",
+    "next_commitment": null,
+    "open_actions_count": 1,
+    "needs_review_count": 0,
+    "cta_label": "Vedi situazione completa",
+    "cta_route": "/situazione"
+  },
+  "priorities": [],
+  "insights": [
+    {
+      "id": "ins_goal_goal_fbaedf4dc60d44",
+      "text": "Vacanza: Vibo Marina (fase: days_until), partenza tra 21 giorni",
+      "source": "goal_engine",
+      "action": null,
+      "status": "active",
+      "created_at": "2026-08-06T08:19:07.236142+00:00",
+      "valid_until": "2026-08-08T08:19:07.236142+00:00",
+      "dedupe_key": "goal_progress:goal_fbaedf4dc60d44"
+    }
+  ],
+  "resume_item": null,
+  "ora_ti_consiglia": [],
+  "connection_warnings": [
+    {
+      "code": "google_calendar_disconnected",
+      "message": "Collega Google Calendar per arricchire le priorità",
+      "severity": "info",
+      "dismissible": true
+    }
+  ],
+  "google_calendar": {
+    "connected": false,
+    "show_banner": true,
+    "last_sync_at": null,
+    "instance_id": null
+  },
+  "generated_at": "2026-08-06T08:19:07.236142+00:00",
+  "ranking_version": "home-rank-1.3",
+  "partial": false
+}

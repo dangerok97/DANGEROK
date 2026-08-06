@@ -15,6 +15,7 @@ from home.goal_context import (
     proposal_from_idle_goals,
 )
 from home.models import (
+    PRESENTATION_VERSION,
     RANKING_VERSION,
     ConnectionWarning,
     CurrentSituation,
@@ -25,6 +26,10 @@ from home.models import (
     PriorityGroup,
     SituationIndicator,
     now_iso,
+)
+from home.presentation import (
+    aggregate_presentation,
+    enforce_one_card_per_goal,
 )
 from home.ranking import dedupe_items, persist_payload, rank_items
 
@@ -104,11 +109,22 @@ class HomeService:
         ranked = rank_items(filtered, now=now)
         ranked = dedupe_items(ranked)
 
-        # Persist snapshot (including scores)
+        # Load proactive suggestions early so presentation can incorporate them
+        ora_raw = await self._load_ora_ti_consiglia(user_id)
+
+        # Presentation Aggregation Layer — ONE card per Goal (non-destructive)
+        ranked, ora_ti_consiglia, pres_stats = aggregate_presentation(
+            ranked, now=now, suggestions=ora_raw,
+        )
+        ranked = enforce_one_card_per_goal(ranked)
+
+        # Persist snapshot (including scores + presentation meta)
         snap = {
             "user_id": user_id,
             "generated_at": now.isoformat(),
             "ranking_version": RANKING_VERSION,
+            "presentation_version": PRESENTATION_VERSION,
+            "presentation_stats": pres_stats,
             "items": persist_payload(ranked),
         }
         try:
@@ -116,10 +132,10 @@ class HomeService:
         except Exception as e:
             logger.warning("home snapshot persist failed: %s", type(e).__name__)
 
-        # Split resume vs focus candidates
+        # Split resume vs focus — presentation cards are never type=resume
+        # (conversation resumes are folded into Goal card actions)
         resume_candidates = [i for i in ranked if i.type == "resume"]
         focus_pool = [i for i in ranked if i.type != "resume" and i.status != "waiting"]
-        # waiting snoozed items still appear in priorities under waiting
         primary = focus_pool[0] if focus_pool else None
 
         # Draft-only: promote resume into Adesso so Home is not empty
@@ -133,13 +149,14 @@ class HomeService:
         # Goals exist but no actionable artifact / resume → useful proposal
         if primary is None and goals:
             covered = {r.goal_id for r in resume_candidates if r.goal_id}
+            covered |= {i.goal_id for i in ranked if i.goal_id}
             idle = proposal_from_idle_goals(goals, now=now)
             if idle and idle.goal_id and idle.goal_id in covered:
                 idle = None
             if idle:
                 idle_ranked = rank_items([idle], now=now)
                 primary = idle_ranked[0] if idle_ranked else idle
-                ranked = dedupe_items(ranked + [primary])
+                ranked = enforce_one_card_per_goal(dedupe_items(ranked + [primary]))
 
         if primary and not promoted_resume_id:
             primary = enrich_focus_with_goal(primary) or primary
@@ -149,14 +166,21 @@ class HomeService:
             missing = list(primary.meta.get("missing_fields") or [])
             if primary.confidence is not None and primary.confidence < 0.55:
                 missing.append("confidenza_bassa")
+            sources = list(primary.meta.get("source_refs") or [])
+            if not sources:
+                sources = [{
+                    "type": primary.source_type,
+                    "id": primary.source_id,
+                    "title": primary.title,
+                }]
             explanation = ExplanationBlock(
                 summary=primary.reason_summary or "Priorità determinata da regole ORA",
                 factors=primary.reason_factors,
                 sources=[{
-                    "type": primary.source_type,
-                    "id": primary.source_id,
-                    "title": primary.title,
-                }],
+                    "type": s.get("type") or "",
+                    "id": s.get("id") or "",
+                    "title": s.get("title") or "",
+                } for s in sources[:6]],
                 confidence=primary.confidence,
                 missing_data=missing,
                 ranking_version=RANKING_VERSION,
@@ -164,25 +188,41 @@ class HomeService:
             )
 
         situation = await self._build_situation(user_id, ranked, now)
-        priorities = self._group_priorities(ranked, primary.id if primary else None)
+        priorities = self._group_priorities(ranked, primary.id if primary else None, primary_goal_id=primary.goal_id if primary else None)
         insights = await self._build_insights(user_id, ranked, gcal, now, goals=goals)
-        ora_ti_consiglia = await self._load_ora_ti_consiglia(user_id)
+
+        # Filter ORA TI CONSIGLIA: drop anything that duplicates primary Goal card
+        primary_gid = primary.goal_id if primary else None
+        if primary_gid:
+            ora_ti_consiglia = [
+                s for s in ora_ti_consiglia
+                if s.get("goal_id") != primary_gid
+            ]
+        # Also drop suggestions whose study_plan/travel already is the primary source
+        if primary:
+            plan_id = (primary.meta or {}).get("study_plan_id")
+            travel_id = (primary.meta or {}).get("travel_project_id")
+            ora_ti_consiglia = [
+                s for s in ora_ti_consiglia
+                if not (
+                    (plan_id and s.get("study_plan_id") == plan_id)
+                    or (travel_id and s.get("travel_project_id") == travel_id)
+                )
+            ]
+
         resume = None
         if resume_candidates:
-            # pick most recently updated — must not duplicate primary
             resume_candidates.sort(key=lambda x: x.updated_at or "", reverse=True)
+            primary_gid = primary.goal_id if primary else None
             resume_pick = next(
-                (r for r in resume_candidates if r.id != (primary.id if primary else None)
-                 and r.id != promoted_resume_id),
+                (
+                    r for r in resume_candidates
+                    if r.id != (primary.id if primary else None)
+                    and r.id != promoted_resume_id
+                    and (not primary_gid or r.goal_id != primary_gid)
+                ),
                 None,
             )
-            if resume_pick and primary and resume_pick.goal_id and resume_pick.goal_id == primary.goal_id:
-                # Same Goal: keep Continua only if a distinct artifact; else drop dupe
-                resume_pick = next(
-                    (r for r in resume_candidates
-                     if r.id != primary.id and r.goal_id != primary.goal_id),
-                    None,
-                )
             if resume_pick:
                 resume_item = enrich_resume_with_goal(resume_pick)
                 resume = resume_item.to_public() if resume_item else None
@@ -194,7 +234,6 @@ class HomeService:
             "last_sync_at": gcal.get("last_sync_at"),
             "instance_id": (gcal.get("instance") or {}).get("id"),
         }
-        # Dismissed banner?
         banner_state = state.get("__google_banner__") or {}
         if banner_state.get("status") == "dismissed":
             google_block["show_banner"] = False
@@ -208,7 +247,7 @@ class HomeService:
             priorities=priorities,
             insights=insights,
             resume_item=resume,
-            ora_ti_consiglia=ora_ti_consiglia,
+            ora_ti_consiglia=ora_ti_consiglia[:3],
             connection_warnings=warnings,
             google_calendar=google_block,
             generated_at=now.isoformat(),
@@ -287,13 +326,27 @@ class HomeService:
             needs_review_count=needs_review,
         )
 
-    def _group_priorities(self, items: List[HomeItem], primary_id: Optional[str]) -> List[PriorityGroup]:
+    def _group_priorities(
+        self,
+        items: List[HomeItem],
+        primary_id: Optional[str],
+        *,
+        primary_goal_id: Optional[str] = None,
+    ) -> List[PriorityGroup]:
+        """Priorities: max one card per Goal; never re-list primary Goal."""
         groups: Dict[str, List[Dict[str, Any]]] = {k: [] for k in PRIORITY_ORDER}
+        seen_goals: set = set()
+        if primary_goal_id:
+            seen_goals.add(primary_goal_id)
         for it in items:
             if it.type == "resume":
                 continue
             if primary_id and it.id == primary_id:
                 continue
+            if it.goal_id:
+                if it.goal_id in seen_goals:
+                    continue
+                seen_goals.add(it.goal_id)
             groups[it.priority].append(it.to_public())
         out: List[PriorityGroup] = []
         for key in PRIORITY_ORDER:

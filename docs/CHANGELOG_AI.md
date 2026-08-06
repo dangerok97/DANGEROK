@@ -1,5 +1,30 @@
 # ORA — AI Changelog
 
+## 2026-08-06 — Home Goal presentation aggregation
+
+### Request
+
+Fix ORA Home so each Goal shows ONE main card via a Presentation Aggregation Layer. Branch `feature/home-goal-presentation-dedupe` from `feature/conversation-engine` @ `e1cbe43`. Non-destructive; legacy audit/migrate; ≥13 tests + Playwright Psicologia/Vibo.
+
+### Actions
+
+- `backend/home/presentation.py` — aggregate by `goal_id`, preference order, supporting_details/actions/source_refs
+- Wire into `HomeService.build_home`; ranking `home-rank-1.3` / `home-pres-1.0`
+- Stronger GoalIndex + adapter refs (life_nodes, reminders, decisions, Google extended props)
+- Legacy `scripts/audit_home_goal_links.py` (audit/migrate/archive-fixtures; no deletes)
+- FE: presentation fields on `HomeItem`; Adesso/Priorità show supporting details
+- Docs: HOME_PRESENTATION_AGGREGATION, HOME_DEDUPLICATION_VERIFICATION + architecture updates
+- Tests: `test_home_presentation_aggregation.py`, Playwright `home-presentation-dedupe.spec.ts`
+
+### Results
+
+- pytest `test_home_presentation_aggregation.py` + `test_home_goal_aware.py`: **33 passed**
+- Playwright `e2e/home-presentation-dedupe.spec.ts`: **2 passed** (Psicologia collapsed 7 artifacts → 1 card; Vibo 1 card; relogin ok)
+- Commit: `fix: aggregate Home artifacts by Goal`
+- Limits: orphans without reconstructible refs stay ungrouped; no auto-delete of legacy fixtures
+
+---
+
 ## 2026-08-06 — Conversation Engine orchestration
 
 ### Request

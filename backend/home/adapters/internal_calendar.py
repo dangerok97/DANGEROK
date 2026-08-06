@@ -58,6 +58,16 @@ async def load_internal_calendar(
             confidence=0.85,
             created_at=d.get("created_at") or now_iso(),
             updated_at=d.get("updated_at") or now_iso(),
-            meta={"dedupe_key": f"life:{nid}", "title_dedupe": f"{title.lower()}|{(start or '')[:13]}"},
+            meta={
+                "dedupe_key": f"life:{nid}",
+                "title_dedupe": f"{title.lower()}|{(start or '')[:13]}",
+                "study_plan_id": attrs.get("study_plan_id"),
+                "study_session_id": attrs.get("study_session_id"),
+                "travel_project_id": attrs.get("travel_project_id"),
+                "action_session_id": attrs.get("action_session_id"),
+                "goal_id": attrs.get("goal_id"),
+                "kind": attrs.get("kind"),
+                "calendar_node_id": str(nid),
+            },
         ))
     return items, []

@@ -4,7 +4,7 @@ Last updated: 2026-08-06
 
 ## Version
 
-`ranking_version = home-rank-1.2` (Goal-aware factors + blockers/stale/prep/skipped; flag-gated)
+`ranking_version = home-rank-1.3` (Goal-aware + Presentation Aggregation Layer; flag-gated)
 
 ### Changelog
 
@@ -13,6 +13,7 @@ Last updated: 2026-08-06
 | `1.0` | Base type/due/confidence ranking |
 | `1.1` | Goal importance/urgency/deadline/next_action/progress + goal dedupe |
 | `1.2` | + status/blockers/stale/skipped sessions/missing prep/calendar; travel phase progress (no fake %); session_today |
+| `1.3` | Presentation Aggregation Layer (`home-pres-1.0`): one card per Goal; siblings → supporting_details; title-dedupe scoped by goal_id |
 
 ## Properties
 

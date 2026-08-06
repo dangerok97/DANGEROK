@@ -39,9 +39,12 @@
 Goal Engine ──refs──► Suggestion.goal_id / project_id
 Action Engine / Study / Travel ──artifacts──► generators
 Documents / Calendar ──evidence──► generators
-Home V2 ──GET /api/home──► ora_ti_consiglia[]
+Home V2 Presentation Layer ──incorporates suggestion into Goal card when goal_id matches
+Home V2 ──GET /api/home──► ora_ti_consiglia[] (only non-duplicative of primary Goal card)
 Notification Policy ──future channel──► no blast in foundation
 ```
+
+When a suggestion shares `goal_id` with a Home presentation card, Home may absorb it into `next_action` / card actions and **omit** it from `ora_ti_consiglia` (see `docs/HOME_PRESENTATION_AGGREGATION.md`).
 
 ## API
 

@@ -7,9 +7,10 @@ from typing import Any, Dict, List, Literal, Optional
 from pydantic import BaseModel, Field
 
 
-# 1.2 — Goal-aware scoring/dedupe + blockers/stale/prep/skipped (flag-gated);
+# 1.3 — Presentation Aggregation Layer: one card per Goal (flag-gated attach);
 # identical to 1.0 inputs when GOAL_ENGINE_ENABLED=0 (no goal_* attached).
-RANKING_VERSION = "home-rank-1.2"
+RANKING_VERSION = "home-rank-1.3"
+PRESENTATION_VERSION = "home-pres-1.0"
 
 ItemType = Literal[
     "event",
@@ -102,6 +103,17 @@ class HomeItem(BaseModel):
         ):
             if d.get(k) is None or d.get(k) == []:
                 d.pop(k, None)
+        # Promote presentation aggregation fields to top-level for FE
+        meta = d.get("meta") or {}
+        for pk in (
+            "presentation_id", "card_type", "subtitle", "next_action",
+            "supporting_details", "source_refs", "hidden_artifact_count",
+            "presentation_badges", "presentation_version",
+        ):
+            if meta.get(pk) is not None and pk not in d:
+                d[pk] = meta[pk]
+        if d.get("presentation_id") and not d.get("generated_at"):
+            d["generated_at"] = meta.get("aggregated_at")
         return d
 
 

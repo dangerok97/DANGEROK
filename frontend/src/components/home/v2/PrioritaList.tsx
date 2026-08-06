@@ -83,6 +83,9 @@ function PriorityCard({ item }: { item: HomeItem }) {
           {item.goal_blockers?.[0] ? (
             <Text style={styles.metaText} numberOfLines={1}>· {item.goal_blockers[0]}</Text>
           ) : null}
+          {typeof item.hidden_artifact_count === 'number' && item.hidden_artifact_count > 0 ? (
+            <Text style={styles.metaText}>· {item.hidden_artifact_count} dettagli</Text>
+          ) : null}
         </View>
       </View>
       <Ionicons name="chevron-forward" size={14} color={tokens.color.onSurfaceDim} />
