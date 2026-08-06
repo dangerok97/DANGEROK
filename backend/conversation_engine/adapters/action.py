@@ -22,6 +22,7 @@ class ActionAdapter:
         origin: str = "text",
         conversation_session_id: Optional[str] = None,
         known_slots: Optional[Dict[str, Any]] = None,
+        gap: Optional[Dict[str, Any]] = None,
         force_new: bool = False,
     ) -> Dict[str, Any]:
         entities: Dict[str, Any] = {}
@@ -46,7 +47,11 @@ class ActionAdapter:
             "conversation_session_id": conversation_session_id,
             "conversation_origin": origin,
             "known_slots": known_slots or {},
+            "gap": gap or {},
         }
+        if gap:
+            meta["next_slot"] = gap.get("next_slot")
+            meta["next_best_question"] = gap.get("next_best_question")
         if intent:
             meta["classified_intent"] = {**intent, "entities": entities}
             meta["intent"] = intent.get("intent")

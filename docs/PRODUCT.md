@@ -1,6 +1,6 @@
 # ORA — Product (struttura reale)
 
-Ultimo aggiornamento: 2026-08-06 — Conversation Engine foundation + Proactive + Goal-aware Home + Travel/Study + Intent.
+Ultimo aggiornamento: 2026-08-06 — Semantic Extraction + Gap Analyzer + Conversation/Action wiring.
 
 ## Vision
 
@@ -59,11 +59,19 @@ Persone che vogliono una priorità unica chiara (non un task manager generico), 
 
 - **Scopo:** unico ingresso linguaggio naturale → collaborazione guidata a un passo → artefatti (Goal, Project, calendario, …) via motori esistenti.
 - **Stato:** **foundation implementata** — `backend/conversation_engine/`, API `/api/conversation/*`, FE PARLA CON ORA + bridge `/action/[sessionId]`.
-- **Flusso:** testo/voce-stub → Intent → Goal shadow → Action Engine → Projects/Brain/Proactive/Home.
+- **Flusso:** testo/voce-stub → **Semantic Extraction → Intent → Gap Analyzer** → Goal shadow → Action Engine → Projects/Brain/Proactive/Home.
 - **Flag:** `CONVERSATION_ENGINE_ENABLED` (default ON).
 - **Origini stub:** email / whatsapp / open_banking (struttura only).
 - **Docs:** `docs/CONVERSATION_ENGINE_*.md`, `SESSION_MODEL.md`, `ORCHESTRATION.md`.
 - **Limiti:** STT non cablato; origini email/WA/banking non simulate.
+
+### 2y. Semantic Extraction + Gap Analyzer
+
+- **Scopo:** estrarre significato strutturato (date, destinazione, materia, importi…) e decidere la **prossima domanda utile** — senza duplicare Intent.
+- **Stato:** **implementato** — `backend/semantic_engine/`, API `/api/semantic/*`, wiring CE→AE, FE summary Partenza/Destinazione/Ritorno.
+- **Bugfix:** «Fra due settimane parto.» → «Dove andrai?» (mai «Quando parti e quando torni?»).
+- **Flag:** `SEMANTIC_ENGINE_ENABLED` (default ON). Gemini opzionale.
+- **Docs:** `docs/SEMANTIC_ENGINE_*.md`, `ENTITY_MODEL.md`, `GAP_ANALYZER.md`.
 
 ### 2a. Intent Classification Engine — single intent brain
 

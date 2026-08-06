@@ -1,6 +1,6 @@
 # Action Engine — Architecture
 
-Last updated: 2026-08-05
+Last updated: 2026-08-06 — receives Gap Analyzer `next_slot` / `next_best_question` + known entities from Semantic Layer. Travel asks departure and return separately (never combined when departure known).
 
 ## Shape
 

@@ -1555,6 +1555,14 @@ export type ConversationSession = {
   resume_token?: string;
   engine_version?: string;
   known_slots?: Record<string, unknown>;
+  extracted_entities?: Record<string, unknown>;
+  confirmed_entities?: Record<string, unknown>;
+  missing_slots?: string[];
+  ambiguous_slots?: string[];
+  extraction_version?: string | null;
+  last_extraction_at?: string | null;
+  /** Human labels only: Partenza / Destinazione / Ritorno … */
+  understood_summary?: Record<string, string>;
   meta?: Record<string, unknown>;
   created_at?: string;
   updated_at?: string;

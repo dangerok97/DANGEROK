@@ -36,7 +36,8 @@ backend/
     travel/              # Travel Project: period, maps, calendar confirm, Brain/Home
   goal_engine/           # Goal identity/lifecycle (shadow; no Goal UX yet)
   proactive_engine/      # IF/WHEN/HOW/WHY intervene → suggestions + Home ORA TI CONSIGLIA
-  conversation_engine/   # Entry orchestrator (NOT chatbot) → Intent→Goal→AE
+  conversation_engine/   # Entry orchestrator (NOT chatbot) → Semantic→Intent→Gap→Goal→AE
+  semantic_engine/       # Structured extraction + Gap Analyzer (Gemini optional)
   daily_intelligence/    # daily summary (situation indicators)
   behavioral_intelligence/
   behavior_aware_decisions/

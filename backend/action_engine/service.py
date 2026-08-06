@@ -57,15 +57,22 @@ from action_engine.travel.flow import (
     STEP_COMPANIONS as T_COMPANIONS,
     STEP_CONFIRM as T_CONFIRM,
     STEP_DEPARTURE as T_DEPARTURE,
+    STEP_DEPARTURE_DATE as T_DEPARTURE_DATE,
     STEP_DESTINATION as T_DESTINATION,
+    STEP_LODGING as T_LODGING,
     STEP_PERIOD as T_PERIOD,
     STEP_PREP as T_PREP,
     STEP_PREVIEW as T_PREVIEW,
+    STEP_RETURN_DATE as T_RETURN_DATE,
     STEP_TRANSPORT as T_TRANSPORT,
     jump_target as travel_jump_target,
     known_departure,
+    known_departure_date,
     known_destination,
+    known_lodging,
     known_period,
+    known_return_date,
+    known_transport,
     normalize_answer as normalize_travel_answer,
     preview_explanation as travel_preview_explanation,
 )
@@ -336,19 +343,51 @@ class ActionEngineService:
                 logger.info("study doc search on open: %s", type(e).__name__)
 
         if flow == "travel":
+            # Pass known_slots + gap into ctx for turn builders
+            known_slots_meta = (body.meta or {}).get("known_slots") or {}
+            if isinstance(known_slots_meta, dict):
+                ctx["known_slots"] = known_slots_meta
+            if (body.meta or {}).get("gap"):
+                ctx["gap"] = body.meta["gap"]
+            # Rebuild turns with enriched ctx (departure/return/dest/transport)
+            turns = build_flow_turns(flow, ctx)
+
             period = known_period(ctx)
+            dep_d = known_departure_date(ctx)
+            ret_d = known_return_date(ctx)
             if period:
                 answers[T_PERIOD] = period
+                answers[T_DEPARTURE_DATE] = {
+                    "departure_date": period["start_date"],
+                    "start_date": period["start_date"],
+                    "return_date": period["end_date"],
+                    "end_date": period["end_date"],
+                }
+                answers[T_RETURN_DATE] = {
+                    "return_date": period["end_date"],
+                    "end_date": period["end_date"],
+                }
+            elif dep_d:
+                answers[T_DEPARTURE_DATE] = {
+                    "departure_date": dep_d,
+                    "start_date": dep_d,
+                }
+                if ret_d:
+                    answers[T_DEPARTURE_DATE]["return_date"] = ret_d
+                    answers[T_DEPARTURE_DATE]["end_date"] = ret_d
+                    answers[T_RETURN_DATE] = {"return_date": ret_d, "end_date": ret_d}
+                    answers[T_PERIOD] = {"start_date": dep_d, "end_date": ret_d}
             dest = known_destination(ctx)
             if dest and not any(t.id == T_DESTINATION for t in turns):
                 answers[T_DESTINATION] = dest
-            elif dest and any(t.id == T_DESTINATION for t in turns):
-                # Still ask if turn present (missing from build) — pre-seed only when skipped
-                pass
-            # If destination turn was omitted because known, seed answer
-            if dest and T_DESTINATION not in answers:
-                if not any(t.id == T_DESTINATION for t in turns):
-                    answers[T_DESTINATION] = dest
+            if dest and T_DESTINATION not in answers and not any(t.id == T_DESTINATION for t in turns):
+                answers[T_DESTINATION] = dest
+            tr = known_transport(ctx)
+            if tr and not any(t.id == T_TRANSPORT for t in turns):
+                answers[T_TRANSPORT] = tr
+            lod = known_lodging(ctx)
+            if lod and not any(t.id == T_LODGING for t in turns):
+                answers[T_LODGING] = lod
             try:
                 docs_res = await search_travel_documents(
                     self.db,
@@ -366,7 +405,13 @@ class ActionEngineService:
                 "subject": STEP_CONFIRM_SUBJECT if flow == "study" else None,
                 "confirm_subject": STEP_CONFIRM_SUBJECT if flow == "study" else None,
                 "period": T_PERIOD if flow == "travel" else None,
+                "departure_date": T_DEPARTURE_DATE if flow == "travel" else None,
+                "return_date": T_RETURN_DATE if flow == "travel" else None,
+                "start_date": T_DEPARTURE_DATE if flow == "travel" else None,
+                "end_date": T_RETURN_DATE if flow == "travel" else None,
                 "destination": T_DESTINATION if flow == "travel" else None,
+                "transport": T_TRANSPORT if flow == "travel" else None,
+                "lodging": T_LODGING if flow == "travel" else None,
                 "departure": "departure_place" if flow == "travel" else None,
                 "departure_place": "departure_place" if flow == "travel" else None,
                 "exam_date": "exam_date" if flow == "study" else None,
@@ -380,7 +425,12 @@ class ActionEngineService:
                 # Seed only when the turn was omitted (already known) or value is structured
                 turn_present = any(t.id == target for t in turns)
                 if not turn_present:
-                    answers[target] = val
+                    if target == T_DEPARTURE_DATE and not isinstance(val, dict):
+                        answers[target] = {"departure_date": str(val)[:10], "start_date": str(val)[:10]}
+                    elif target == T_RETURN_DATE and not isinstance(val, dict):
+                        answers[target] = {"return_date": str(val)[:10], "end_date": str(val)[:10]}
+                    else:
+                        answers[target] = val
 
         first = next_unanswered(turns, answers) or (turns[0] if turns else None)
 
@@ -399,6 +449,27 @@ class ActionEngineService:
                 source_type=ctx.get("source_type"),
                 source_id=ctx.get("source_id"),
             )
+
+        # Compact understood summary for UI (human labels)
+        _ent = ctx.get("intent_entities") or {}
+        _ks = ctx.get("known_slots") or (body.meta or {}).get("known_slots") or {}
+        understood = {}
+        def _u(label, *keys):
+            for k in keys:
+                v = _ks.get(k) if isinstance(_ks, dict) else None
+                if v is None:
+                    v = _ent.get(k)
+                if isinstance(v, dict):
+                    v = v.get("label") or v.get("normalized") or v.get("date")
+                if v not in (None, "", []):
+                    understood[label] = str(v)
+                    return
+        _u("Partenza", "departure_date", "start_date")
+        _u("Destinazione", "destination", "travel", "place")
+        _u("Ritorno", "return_date", "end_date")
+        _u("Trasporto", "transport")
+        _u("Materia", "subject")
+        _u("Data esame", "exam_date")
 
         session = ActionSession(
             id=_sid(),
@@ -432,6 +503,9 @@ class ActionEngineService:
                 "study_documents": ctx.get("study_documents") or [],
                 "travel_documents": ctx.get("travel_documents") or [],
                 "home_place": ctx.get("home_place"),
+                "known_slots": _ks if isinstance(_ks, dict) else {},
+                "gap": (body.meta or {}).get("gap") or ctx.get("gap") or {},
+                "understood_summary": understood,
                 **{k: v for k, v in (ctx.get("meta") or {}).items() if k not in ("intent_result",)},
             },
         )
@@ -980,7 +1054,37 @@ class ActionEngineService:
             await self.col.replace_one({"id": sess.id, "user_id": user_id}, sess.model_dump())
             return {"ok": True, "session": sess.public(), "completed": False}
 
+        # Resolve return_offset_days against known departure
+        if turn.id == T_RETURN_DATE and isinstance(norm, dict) and norm.get("return_offset_days"):
+            from datetime import date as date_cls, timedelta
+            dep_ans = sess.answers.get(T_DEPARTURE_DATE) or {}
+            dep_s = None
+            if isinstance(dep_ans, dict):
+                dep_s = dep_ans.get("departure_date") or dep_ans.get("start_date")
+            if not dep_s:
+                dep_s = known_departure_date({
+                    "intent_entities": sess.meta.get("intent_entities") or {},
+                    "known_slots": sess.meta.get("known_slots") or {},
+                })
+            if dep_s:
+                end = date_cls.fromisoformat(str(dep_s)[:10]) + timedelta(days=int(norm["return_offset_days"]))
+                norm = {"return_date": end.isoformat(), "end_date": end.isoformat()}
+
         sess.answers[turn.id] = norm
+        # Keep period in sync when both dates known
+        if turn.id in (T_DEPARTURE_DATE, T_RETURN_DATE):
+            dep_ans = sess.answers.get(T_DEPARTURE_DATE) or {}
+            ret_ans = sess.answers.get(T_RETURN_DATE) or {}
+            start = None
+            end = None
+            if isinstance(dep_ans, dict):
+                start = dep_ans.get("departure_date") or dep_ans.get("start_date")
+                end = dep_ans.get("return_date") or dep_ans.get("end_date") or end
+            if isinstance(ret_ans, dict):
+                end = ret_ans.get("return_date") or ret_ans.get("end_date") or end
+            if start and end:
+                sess.answers[T_PERIOD] = {"start_date": str(start)[:10], "end_date": str(end)[:10]}
+
         sess.turn_history.append(TurnAnswer(
             turn_id=turn.id, option_id=option_id, value=norm, text=body.text,
         ))
@@ -1003,15 +1107,24 @@ class ActionEngineService:
                 period = known_period({
                     **sess.meta,
                     "intent_entities": sess.meta.get("intent_entities") or {},
+                    "known_slots": sess.meta.get("known_slots") or {},
                     "title": sess.title,
                     "description": sess.description,
                     "original_title": sess.title,
                 })
                 if period:
                     sess.answers[T_PERIOD] = period
+                else:
+                    dep_ans = sess.answers.get(T_DEPARTURE_DATE) or {}
+                    ret_ans = sess.answers.get(T_RETURN_DATE) or {}
+                    start = (dep_ans or {}).get("departure_date") or (dep_ans or {}).get("start_date") if isinstance(dep_ans, dict) else None
+                    end = (ret_ans or {}).get("return_date") or (ret_ans or {}).get("end_date") if isinstance(ret_ans, dict) else None
+                    if start and end:
+                        sess.answers[T_PERIOD] = {"start_date": str(start)[:10], "end_date": str(end)[:10]}
             if T_DESTINATION not in sess.answers:
                 dest = known_destination({
                     "intent_entities": sess.meta.get("intent_entities") or {},
+                    "known_slots": sess.meta.get("known_slots") or {},
                     "location": sess.meta.get("location"),
                     "title": sess.title,
                 })
@@ -1030,7 +1143,7 @@ class ActionEngineService:
                 sess.meta["validation_error"] = prev
                 if prev.get("error") == "missing_period":
                     sess.answers.pop(T_PERIOD, None)
-                    sess.current_turn_id = T_PERIOD
+                    sess.current_turn_id = T_RETURN_DATE if T_DEPARTURE_DATE in sess.answers else T_DEPARTURE_DATE
                 else:
                     sess.answers.pop(T_DESTINATION, None)
                     sess.current_turn_id = T_DESTINATION

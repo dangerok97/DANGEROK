@@ -1,0 +1,802 @@
+[
+  {
+    "text": "Fra 1 settimane parto.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 2 settimane parto.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 3 settimane parto.",
+    "domain": "travel"
+  },
+  {
+    "text": "Tra 1 giorni vado in vacanza.",
+    "domain": "travel"
+  },
+  {
+    "text": "Tra 2 giorni vado in vacanza.",
+    "domain": "travel"
+  },
+  {
+    "text": "Tra 3 giorni vado in vacanza.",
+    "domain": "travel"
+  },
+  {
+    "text": "Dal 10 al 21 agosto vado a Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Dal 11 al 22 agosto vado a Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Dal 12 al 23 agosto vado a Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Dal 10 al 21 agosto vado a Milano.",
+    "domain": "travel"
+  },
+  {
+    "text": "Dal 11 al 22 agosto vado a Milano.",
+    "domain": "travel"
+  },
+  {
+    "text": "Dal 12 al 23 agosto vado a Milano.",
+    "domain": "travel"
+  },
+  {
+    "text": "Dal 10 al 21 agosto vado a Vibo Marina.",
+    "domain": "travel"
+  },
+  {
+    "text": "Dal 11 al 22 agosto vado a Vibo Marina.",
+    "domain": "travel"
+  },
+  {
+    "text": "Il 10 settembre ho l'esame di psicologia.",
+    "domain": "study"
+  },
+  {
+    "text": "Il 15 settembre ho l'esame di psicologia.",
+    "domain": "study"
+  },
+  {
+    "text": "Il 18 settembre ho l'esame di psicologia.",
+    "domain": "study"
+  },
+  {
+    "text": "Il 22 settembre ho l'esame di psicologia.",
+    "domain": "study"
+  },
+  {
+    "text": "Il 28 settembre ho l'esame di psicologia.",
+    "domain": "study"
+  },
+  {
+    "text": "Il 10 settembre ho l'esame di matematica.",
+    "domain": "study"
+  },
+  {
+    "text": "Il 15 settembre ho l'esame di matematica.",
+    "domain": "study"
+  },
+  {
+    "text": "Il 18 settembre ho l'esame di matematica.",
+    "domain": "study"
+  },
+  {
+    "text": "Il 22 settembre ho l'esame di matematica.",
+    "domain": "study"
+  },
+  {
+    "text": "Il 28 settembre ho l'esame di matematica.",
+    "domain": "study"
+  },
+  {
+    "text": "Il 10 settembre ho l'esame di fisica.",
+    "domain": "study"
+  },
+  {
+    "text": "Il 15 settembre ho l'esame di fisica.",
+    "domain": "study"
+  },
+  {
+    "text": "Il 18 settembre ho l'esame di fisica.",
+    "domain": "study"
+  },
+  {
+    "text": "Il 22 settembre ho l'esame di fisica.",
+    "domain": "study"
+  },
+  {
+    "text": "Il 28 settembre ho l'esame di fisica.",
+    "domain": "study"
+  },
+  {
+    "text": "Il 10 settembre ho l'esame di storia.",
+    "domain": "study"
+  },
+  {
+    "text": "Il 15 settembre ho l'esame di storia.",
+    "domain": "study"
+  },
+  {
+    "text": "Il 18 settembre ho l'esame di storia.",
+    "domain": "study"
+  },
+  {
+    "text": "Il 22 settembre ho l'esame di storia.",
+    "domain": "study"
+  },
+  {
+    "text": "Il 28 settembre ho l'esame di storia.",
+    "domain": "study"
+  },
+  {
+    "text": "Il 10 settembre ho l'esame di diritto.",
+    "domain": "study"
+  },
+  {
+    "text": "Il 15 settembre ho l'esame di diritto.",
+    "domain": "study"
+  },
+  {
+    "text": "Il 18 settembre ho l'esame di diritto.",
+    "domain": "study"
+  },
+  {
+    "text": "Il 22 settembre ho l'esame di diritto.",
+    "domain": "study"
+  },
+  {
+    "text": "Il 28 settembre ho l'esame di diritto.",
+    "domain": "study"
+  },
+  {
+    "text": "Il 10 settembre ho l'esame di economia.",
+    "domain": "study"
+  },
+  {
+    "text": "Il 15 settembre ho l'esame di economia.",
+    "domain": "study"
+  },
+  {
+    "text": "Il 18 settembre ho l'esame di economia.",
+    "domain": "study"
+  },
+  {
+    "text": "Il 22 settembre ho l'esame di economia.",
+    "domain": "study"
+  },
+  {
+    "text": "Il 28 settembre ho l'esame di economia.",
+    "domain": "study"
+  },
+  {
+    "text": "Il 10 settembre ho l'esame di biologia.",
+    "domain": "study"
+  },
+  {
+    "text": "Il 15 settembre ho l'esame di biologia.",
+    "domain": "study"
+  },
+  {
+    "text": "Il 18 settembre ho l'esame di biologia.",
+    "domain": "study"
+  },
+  {
+    "text": "Il 22 settembre ho l'esame di biologia.",
+    "domain": "study"
+  },
+  {
+    "text": "Il 28 settembre ho l'esame di biologia.",
+    "domain": "study"
+  },
+  {
+    "text": "Il 10 settembre ho l'esame di chimica.",
+    "domain": "study"
+  },
+  {
+    "text": "Il 15 settembre ho l'esame di chimica.",
+    "domain": "study"
+  },
+  {
+    "text": "Il 18 settembre ho l'esame di chimica.",
+    "domain": "study"
+  },
+  {
+    "text": "Il 22 settembre ho l'esame di chimica.",
+    "domain": "study"
+  },
+  {
+    "text": "Il 28 settembre ho l'esame di chimica.",
+    "domain": "study"
+  },
+  {
+    "text": "Il 10 settembre ho l'esame di informatica.",
+    "domain": "study"
+  },
+  {
+    "text": "Il 15 settembre ho l'esame di informatica.",
+    "domain": "study"
+  },
+  {
+    "text": "Il 18 settembre ho l'esame di informatica.",
+    "domain": "study"
+  },
+  {
+    "text": "Il 22 settembre ho l'esame di informatica.",
+    "domain": "study"
+  },
+  {
+    "text": "Il 28 settembre ho l'esame di informatica.",
+    "domain": "study"
+  },
+  {
+    "text": "Il 10 settembre ho l'esame di filosofia.",
+    "domain": "study"
+  },
+  {
+    "text": "Il 15 settembre ho l'esame di filosofia.",
+    "domain": "study"
+  },
+  {
+    "text": "Il 18 settembre ho l'esame di filosofia.",
+    "domain": "study"
+  },
+  {
+    "text": "Il 22 settembre ho l'esame di filosofia.",
+    "domain": "study"
+  },
+  {
+    "text": "Il 28 settembre ho l'esame di filosofia.",
+    "domain": "study"
+  },
+  {
+    "text": "Domani ho il dentista alle 9.",
+    "domain": "medical"
+  },
+  {
+    "text": "Domani ho il dentista alle 11.",
+    "domain": "medical"
+  },
+  {
+    "text": "Domani ho il dentista alle 16.",
+    "domain": "medical"
+  },
+  {
+    "text": "Domani ho il dentista alle 18.",
+    "domain": "medical"
+  },
+  {
+    "text": "Ho una visita medica il 8 agosto.",
+    "domain": "medical"
+  },
+  {
+    "text": "Ho una visita medica il 12 agosto.",
+    "domain": "medical"
+  },
+  {
+    "text": "Ho una visita medica il 20 agosto.",
+    "domain": "medical"
+  },
+  {
+    "text": "Appuntamento dal medico dopodomani alle 9.",
+    "domain": "medical"
+  },
+  {
+    "text": "Appuntamento dal medico dopodomani alle 11.",
+    "domain": "medical"
+  },
+  {
+    "text": "Appuntamento dal medico dopodomani alle 16.",
+    "domain": "medical"
+  },
+  {
+    "text": "Appuntamento dal medico dopodomani alle 18.",
+    "domain": "medical"
+  },
+  {
+    "text": "Dentista venerdì alle 9.",
+    "domain": "medical"
+  },
+  {
+    "text": "Dentista venerdì alle 11.",
+    "domain": "medical"
+  },
+  {
+    "text": "Dentista venerdì alle 16.",
+    "domain": "medical"
+  },
+  {
+    "text": "Dentista venerdì alle 18.",
+    "domain": "medical"
+  },
+  {
+    "text": "Devo pagare la bolletta Enel entro venerdì, sono 45 euro.",
+    "domain": "payment"
+  },
+  {
+    "text": "Devo pagare la bolletta Enel entro venerdì, sono 87 euro.",
+    "domain": "payment"
+  },
+  {
+    "text": "Devo pagare la bolletta Enel entro venerdì, sono 120 euro.",
+    "domain": "payment"
+  },
+  {
+    "text": "Devo pagare la bolletta Enel entro venerdì, sono 33 euro.",
+    "domain": "payment"
+  },
+  {
+    "text": "Devo pagare la bolletta Acea entro venerdì, sono 45 euro.",
+    "domain": "payment"
+  },
+  {
+    "text": "Devo pagare la bolletta Acea entro venerdì, sono 87 euro.",
+    "domain": "payment"
+  },
+  {
+    "text": "Devo pagare la bolletta Acea entro venerdì, sono 120 euro.",
+    "domain": "payment"
+  },
+  {
+    "text": "Devo pagare la bolletta Acea entro venerdì, sono 33 euro.",
+    "domain": "payment"
+  },
+  {
+    "text": "Devo pagare la bolletta Tim entro venerdì, sono 45 euro.",
+    "domain": "payment"
+  },
+  {
+    "text": "Devo pagare la bolletta Tim entro venerdì, sono 87 euro.",
+    "domain": "payment"
+  },
+  {
+    "text": "Devo pagare la bolletta Tim entro venerdì, sono 120 euro.",
+    "domain": "payment"
+  },
+  {
+    "text": "Devo pagare la bolletta Tim entro venerdì, sono 33 euro.",
+    "domain": "payment"
+  },
+  {
+    "text": "Devo pagare la bolletta Vodafone entro venerdì, sono 45 euro.",
+    "domain": "payment"
+  },
+  {
+    "text": "Devo pagare la bolletta Vodafone entro venerdì, sono 87 euro.",
+    "domain": "payment"
+  },
+  {
+    "text": "Devo pagare la bolletta Vodafone entro venerdì, sono 120 euro.",
+    "domain": "payment"
+  },
+  {
+    "text": "Devo pagare la bolletta Vodafone entro venerdì, sono 33 euro.",
+    "domain": "payment"
+  },
+  {
+    "text": "Devo pagare la bolletta Sky entro venerdì, sono 45 euro.",
+    "domain": "payment"
+  },
+  {
+    "text": "Devo pagare la bolletta Sky entro venerdì, sono 87 euro.",
+    "domain": "payment"
+  },
+  {
+    "text": "Devo pagare la bolletta Sky entro venerdì, sono 120 euro.",
+    "domain": "payment"
+  },
+  {
+    "text": "Devo pagare la bolletta Sky entro venerdì, sono 33 euro.",
+    "domain": "payment"
+  },
+  {
+    "text": "Organizza il mio concerto a Roma il 5 ottobre.",
+    "domain": "event"
+  },
+  {
+    "text": "Devo rinnovare la carta d'identità.",
+    "domain": "administrative"
+  },
+  {
+    "text": "Rivedi il documento del contratto.",
+    "domain": "document_review"
+  },
+  {
+    "text": "Oggi parto.",
+    "domain": "travel"
+  },
+  {
+    "text": "Dopodomani esame di anatomia.",
+    "domain": "study"
+  },
+  {
+    "text": "Bolletta luce 50 euro entro lunedì.",
+    "domain": "payment"
+  },
+  {
+    "text": "Visita oculista tra 3 giorni alle 10.",
+    "domain": "medical"
+  },
+  {
+    "text": "Vacanza in Sardegna dal 1 al 15 luglio.",
+    "domain": "travel"
+  },
+  {
+    "text": "Studio per l'esame di sociologia.",
+    "domain": "study"
+  },
+  {
+    "text": "Pagare fattura Netflix 15 euro.",
+    "domain": "payment"
+  },
+  {
+    "text": "Fra 10 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 1 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 2 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 3 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 4 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 5 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 6 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 7 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 8 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 9 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 10 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 1 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 2 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 3 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 4 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 5 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 6 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 7 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 8 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 9 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 10 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 1 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 2 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 3 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 4 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 5 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 6 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 7 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 8 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 9 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 10 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 1 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 2 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 3 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 4 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 5 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 6 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 7 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 8 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 9 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 10 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 1 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 2 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 3 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 4 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 5 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 6 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 7 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 8 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 9 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 10 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 1 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 2 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 3 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 4 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 5 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 6 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 7 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 8 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 9 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 10 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 1 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 2 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 3 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 4 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 5 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 6 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 7 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 8 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 9 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 10 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 1 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 2 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 3 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 4 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 5 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 6 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 7 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 8 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 9 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 10 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 1 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 2 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 3 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 4 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 5 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 6 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 7 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 8 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 9 settimane parto per Roma.",
+    "domain": "travel"
+  },
+  {
+    "text": "Fra 10 settimane parto per Roma.",
+    "domain": "travel"
+  }
+]

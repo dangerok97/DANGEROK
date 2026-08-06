@@ -119,14 +119,27 @@ class TravelProjectService:
                 "start_date": parsed.get("start_date"),
                 "end_date": parsed.get("end_date"),
             } if parsed.get("ok") else {}
-        start = period.get("start_date") or entities.get("start_date")
-        end = period.get("end_date") or entities.get("end_date")
+        dep_ans = answers.get("departure_date") or {}
+        ret_ans = answers.get("return_date") or {}
+        start = period.get("start_date") or entities.get("start_date") or entities.get("departure_date")
+        end = period.get("end_date") or entities.get("end_date") or entities.get("return_date")
+        if isinstance(dep_ans, dict):
+            start = start or dep_ans.get("departure_date") or dep_ans.get("start_date")
+            end = end or dep_ans.get("return_date") or dep_ans.get("end_date")
+        elif dep_ans:
+            start = start or str(dep_ans)[:10]
+        if isinstance(ret_ans, dict):
+            end = end or ret_ans.get("return_date") or ret_ans.get("end_date")
+        elif ret_ans:
+            end = end or str(ret_ans)[:10]
 
-        dest = answers.get(STEP_DESTINATION) or entities.get("travel") or entities.get("place")
+        dest = answers.get(STEP_DESTINATION) or entities.get("travel") or entities.get("place") or entities.get("destination")
         if dest == "from_title":
             dest = session.get("title")
         departure = answers.get(STEP_DEPARTURE) or meta.get("home_place")
-        transport = answers.get(STEP_TRANSPORT) or "car"
+        transport = answers.get(STEP_TRANSPORT) or entities.get("transport") or "car"
+        if isinstance(transport, dict):
+            transport = transport.get("normalized") or transport.get("raw") or "car"
         bookings = answers.get(STEP_BOOKINGS) or "none"
         companions = answers.get(STEP_COMPANIONS) or 1
         try:

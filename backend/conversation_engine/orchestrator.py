@@ -28,12 +28,14 @@ def synthetic_prompt_for_intent(intent_name: str, entities: Dict[str, Any]) -> O
     """Short ORA line — never a ChatGPT essay."""
     if intent_name == "travel":
         if entities.get("destination") or entities.get("travel") or entities.get("place"):
-            return "Perfetto. Confermiamo destinazione e periodo?"
-        return "Perfetto. Dove parti e quando?"
+            return "Perfetto. Organizziamo il viaggio."
+        if entities.get("departure_date") or entities.get("start_date"):
+            return "Perfetto. Dove andrai?"
+        return "Perfetto. Organizziamo il viaggio."
     if intent_name == "study":
         subj = entities.get("subject")
         if subj:
-            return f"Ok — prepariamo {subj}. Quando è l'esame?"
+            return f"Ok — prepariamo {subj}."
         return "Ok. Quale esame vuoi preparare?"
     if intent_name == "clarify":
         return "Dimmi in una frase cosa vuoi organizzare."
@@ -152,7 +154,52 @@ class ConversationOrchestrator:
             entities = intent_result.entities.as_dict()
             intent_dict["entities"] = entities
 
-        known = merge_slots(entities_to_slots(entities), ctx.get("known_slots"))
+        # === Semantic Extraction → Gap Analyzer (before Action Engine) ===
+        extraction_pub: Dict[str, Any] = {}
+        gap_pub: Dict[str, Any] = {}
+        try:
+            from semantic_engine.service import get_semantic_engine
+            sem = get_semantic_engine()
+            extraction = await sem.extract(
+                text or "",
+                intent=intent_dict.get("intent"),
+                flow=intent_dict.get("intent"),
+                confirmed_entities=ctx.get("confirmed_entities"),
+                prior_entities=ctx.get("prior_entities") or ctx.get("known_slots"),
+                context={"proactive": ctx.get("proactive")},
+                use_gemini=False,  # deterministic first; Gemini optional via API/flag
+            )
+            extraction_pub = extraction.public()
+            gaps_res = await sem.gaps(
+                flow=extraction.flow_hint or intent_dict.get("intent"),
+                intent=intent_dict.get("intent"),
+                entities=extraction.known_slots,
+                confirmed_entities=ctx.get("confirmed_entities"),
+                use_gemini=False,
+            )
+            gap_pub = (gaps_res.get("gaps") or {}) if isinstance(gaps_res, dict) else {}
+            # Merge semantic known into intent entities for AE
+            for k, v in (extraction.known_slots or {}).items():
+                if v is not None and k not in entities:
+                    entities[k] = v
+                elif v is not None and entities.get(k) in (None, "", []):
+                    entities[k] = v
+            intent_dict["entities"] = entities
+        except Exception as e:
+            logger.info("semantic extraction soft-fail: %s", type(e).__name__)
+
+        known = merge_slots(
+            entities_to_slots(entities),
+            entities_to_slots(extraction_pub.get("entities") if extraction_pub else None),
+            extraction_pub.get("known_slots") if extraction_pub else None,
+            ctx.get("known_slots"),
+        )
+
+        # Dynamic first question from Gap Analyzer — never static "Quando parti e quando torni?"
+        dynamic_q = gap_pub.get("next_best_question")
+        if dynamic_q and "quando parti e quando torni" in dynamic_q.lower():
+            # Hard guard — should never happen with travel schema
+            dynamic_q = "Dove andrai?" if known.get("departure_date") else "Quando parti?"
 
         sess = ConversationSession(
             user_id=user_id,
@@ -163,12 +210,20 @@ class ConversationOrchestrator:
             voice_meta=voice_meta,
             suggestion_id=suggestion_id,
             known_slots=known,
+            extracted_entities=extraction_pub.get("entities") or {},
+            confirmed_entities=dict(ctx.get("confirmed_entities") or {}),
+            missing_slots=list(gap_pub.get("missing_required") or extraction_pub.get("missing_slots") or []),
+            ambiguous_slots=list(gap_pub.get("ambiguous_slots") or extraction_pub.get("ambiguous_slots") or []),
+            extraction_version=extraction_pub.get("extraction_version"),
+            last_extraction_at=extraction_pub.get("extracted_at"),
             meta={
                 "ui_mode": "action_engine",
                 "proactive_context": ctx.get("proactive"),
                 "synthetic_prompt": synthetic_prompt_for_intent(
                     intent_dict.get("intent") or "", entities,
                 ),
+                "gap": gap_pub,
+                "reason_summary": extraction_pub.get("reason_summary") or gap_pub.get("reason_summary"),
             },
         )
         sess.append_history(role="user", kind="start", text=text)
@@ -178,8 +233,15 @@ class ConversationOrchestrator:
             text=intent_dict.get("intent"),
             meta={"confidence": intent_dict.get("confidence")},
         )
+        if extraction_pub:
+            sess.append_history(
+                role="ora",
+                kind="extraction",
+                text=extraction_pub.get("reason_summary"),
+                meta={"known": list(known.keys())[:12], "next_slot": gap_pub.get("next_slot")},
+            )
 
-        # Open Action Engine flow (domain)
+        # Open Action Engine flow (domain) — receives structured entities + gap next question
         ae_res = await self.action.open_from_text(
             user_id,
             text=text or sess.meta.get("synthetic_prompt") or "Parla con ORA",
@@ -187,6 +249,7 @@ class ConversationOrchestrator:
             origin=origin,
             conversation_session_id=sess.id,
             known_slots=known,
+            gap=gap_pub,
             force_new=force_new,
         )
         ae = ae_res.get("session") or {}
@@ -203,13 +266,19 @@ class ConversationOrchestrator:
         sess.meta["route"] = f"/action/{action_id}"
         turn = ae.get("current_turn") or {}
         sess.current_step = turn.get("id")
-        if turn.get("question"):
-            sess.meta["first_question"] = turn.get("question")
+        first_q = turn.get("question") or dynamic_q
+        # Prefer Gap Analyzer question when AE still shows the banned combined-dates prompt
+        if first_q and "quando parti e quando torni" in str(first_q).lower():
+            first_q = dynamic_q or ("Dove andrai?" if known.get("departure_date") else "Quando parti?")
+            if turn:
+                turn = {**turn, "question": first_q}
+        if first_q:
+            sess.meta["first_question"] = first_q
             sess.append_history(
                 role="ora",
                 kind="question",
-                text=turn.get("question"),
-                step_id=turn.get("id"),
+                text=first_q,
+                step_id=turn.get("id") if turn else gap_pub.get("next_slot"),
             )
         sess.status = "waiting_user"
         sess.known_slots = merge_slots(known, slots_from_ae_answers(ae.get("answers")))
@@ -276,6 +345,56 @@ class ConversationOrchestrator:
             step_id=sess.current_step,
         )
         sess.status = "running_action"
+
+        # Re-run Semantic on the answer for the current slot — no free-text flow selection
+        if text and sess.current_step:
+            try:
+                from semantic_engine.service import get_semantic_engine
+                from semantic_engine.context_merge import apply_confirmation
+                from semantic_engine.normalizer import normalize_entity, entities_to_known_slots
+                sem = get_semantic_engine()
+                slot = sess.current_step
+                # Map AE step ids to semantic slots
+                slot_map = {
+                    "destination": "destination",
+                    "departure_date": "departure_date",
+                    "return_date": "return_date",
+                    "period": "period",
+                    "transport": "transport",
+                    "lodging": "lodging",
+                    "confirm_subject": "subject",
+                    "exam_date": "exam_date",
+                }
+                sem_slot = slot_map.get(slot, slot)
+                patched = sem.confirm_entity(
+                    sess.extracted_entities or {},
+                    sem_slot,
+                    text or value,
+                )
+                sess.extracted_entities = patched.get("entities") or sess.extracted_entities
+                sess.confirmed_entities = {
+                    **(sess.confirmed_entities or {}),
+                    sem_slot: text or value,
+                }
+                sess.known_slots = merge_slots(
+                    sess.known_slots,
+                    patched.get("known_slots"),
+                    {sem_slot: text or value},
+                )
+                gaps_res = await sem.gaps(
+                    flow=(sess.intent or {}).get("intent"),
+                    intent=(sess.intent or {}).get("intent"),
+                    entities=sess.known_slots,
+                    confirmed_entities=sess.confirmed_entities,
+                    use_gemini=False,
+                )
+                gap_pub = gaps_res.get("gaps") or {}
+                sess.missing_slots = list(gap_pub.get("missing_required") or [])
+                sess.ambiguous_slots = list(gap_pub.get("ambiguous_slots") or [])
+                sess.meta["gap"] = gap_pub
+            except Exception as e:
+                logger.info("semantic answer merge soft-fail: %s", type(e).__name__)
+
         await self.repo.replace(sess)
 
         ae_res = await self.action.answer(
