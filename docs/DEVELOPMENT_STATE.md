@@ -1,6 +1,6 @@
 # ORA — Development State
 
-Last updated: 2026-08-06 (AI Document Understanding in Life Experience)
+Last updated: 2026-08-06 (admin deadline reminder draft fix)
 
 ## Branch
 
@@ -19,7 +19,7 @@ Last updated: 2026-08-06 (AI Document Understanding in Life Experience)
 | Cross-document reasoning (link/conflict/duplicate) (`cross_document.py`) | **implemented** |
 | Confidence-driven field status (extracted/suggested/confirmed/corrected/rejected) | **implemented** |
 | Document Result UI (Cosa ho capito / Dati trovati / Dati da verificare / Cosa posso fare) | **implemented** |
-| Draft-only deadline events (no auto-create) | **implemented** (reuses Documents V2 event candidates) |
+| Draft-only deadline events (no auto-create) | **implemented + fixed** — admin/financial bills now emit deadline `event_candidate`; Life Setup consumes `awaiting_confirmation`; UI «Salva promemoria su ORA» confirmed via Playwright BOLLETTA |
 | Error/resume handling (interrupted upload, OCR failure, Gemini unavailable, timeout) | **implemented** |
 | pytest `test_life_experience_documents.py` | **added, 62 passed** |
 | Playwright `life-experience-documents.spec.ts` (CASA/AUTO/BOLLETTA) | **added, 3 passed** |

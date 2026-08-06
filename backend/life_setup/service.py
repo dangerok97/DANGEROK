@@ -22,7 +22,18 @@ from life_setup.sync import (
 
 logger = logging.getLogger("ora.life_setup")
 
-DOC_PIPELINE_TERMINAL = ("completed", "needs_review", "failed")
+# Documents V2 ends in awaiting_confirmation whenever proposed event
+# candidates exist (e.g. a bolletta due_date → deadline draft). That is a
+# terminal analysis state for Life Experience: the Document Result UI is
+# where the user confirms "Salva promemoria su ORA". action_required is the
+# legacy alias of awaiting_confirmation.
+DOC_PIPELINE_TERMINAL = (
+    "completed",
+    "needs_review",
+    "failed",
+    "awaiting_confirmation",
+    "action_required",
+)
 DOC_PIPELINE_LABELS_IT = {
     "rogito": "il rogito",
     "contratto_locazione": "il contratto di locazione",

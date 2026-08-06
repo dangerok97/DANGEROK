@@ -9,7 +9,16 @@ from documents.intelligence.schemas import AdminAnalysis
 
 def _labeled(text: str, labels: tuple[str, ...]) -> Optional[str]:
     for lab in labels:
-        m = re.search(rf"{re.escape(lab)}\s*[:\-]\s*(.+)", text, re.I)
+        # Allow a short qualifier between the label and the separator, e.g.
+        # "Scadenza pagamento:" / "Scadenza contratto:" (real-world bills use
+        # these compound labels, not just the bare "Scadenza:"). Anchor at
+        # line start so a later label like "Pagamento" cannot steal the value
+        # from "Scadenza pagamento:".
+        m = re.search(
+            rf"(?:^|\n)\s*{re.escape(lab)}[^\n:\-]{{0,24}}[:\-]\s*(.+)",
+            text,
+            re.I,
+        )
         if m:
             return m.group(1).strip()[:240]
     return None

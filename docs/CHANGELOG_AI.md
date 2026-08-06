@@ -1,5 +1,39 @@
 # ORA — AI Changelog
 
+## 2026-08-06 — Fix: reminder draft for admin document deadlines
+
+### Request
+
+Finish interrupted fix on `feature/life-experience-ai-documents` @ `9a12db3`: utility bills with a due date must surface an actionable draft reminder («Salva promemoria su ORA» / deadline-calendar) requiring confirmation — no irreversible auto calendar. Pytest + Playwright bolletta + docs + local commit. No push/merge.
+
+### Root cause
+
+1. Documents V2 built `event_candidates` only for event/travel/medical macros — admin/financial bills never got a deadline candidate despite extracting `due_date`.
+2. Label matcher required exact `Scadenza:` and missed real-world `Scadenza pagamento:`.
+3. (Wiring gap found while finishing) Life Setup `DOC_PIPELINE_TERMINAL` omitted `awaiting_confirmation`, so once a deadline candidate existed the UI never reached consume / Document Result.
+
+### Actions
+
+- `backend/documents/intelligence/admin_extract.py` — compound deadline labels; line-anchored match
+- `backend/documents/intelligence/analyzer.py` — `_build_admin_deadline_event` → proposed deadline `event_candidate`
+- `backend/life_setup/service.py` — treat `awaiting_confirmation` / `action_required` as ready to consume
+- Tests: `test_documents_v2.py`, `test_life_experience_documents.py`; Playwright BOLLETTA hard-asserts reminder confirm
+- FE testIDs on draft-event confirm control; E2E API default aligned to `:8000`
+
+### Results
+
+- pytest `test_documents_v2.py` + `test_life_experience_documents.py`: **78 passed**
+- Playwright BOLLETTA: **passed** (reminder button → «Promemoria salvato su ORA.»)
+- Live API smoke: bolletta → deadline proposed → confirm → `google_sync=null`, draft persisted
+- Commit message (exact): `fix: surface reminder draft for admin document deadlines`
+
+### Open
+
+- Google Calendar confirm path not re-exercised live
+- Pre-existing: document `analysis_version` sometimes stored as string `"2.0"` breaks int coercion on re-analyze/recovery
+
+---
+
 ## 2026-08-06 — AI Document Understanding in Life Experience
 
 ### Request
