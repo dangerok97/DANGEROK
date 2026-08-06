@@ -55,6 +55,16 @@ DOC_CATALOG: Dict[str, Dict[str, Any]] = {
         "upload_hint": "PDF o appunti.",
         "domains": ["studio"],
     },
+    "piano_di_studi": {
+        "label": "Piano di studi",
+        "reason": (
+            "Il piano di studi sostituisce molte domande: "
+            "ORA legge esami e percorsi in un colpo solo."
+        ),
+        "expected_fields": ["corso", "esami", "cfu", "anno"],
+        "upload_hint": "PDF del piano di studi o del libretto universitario.",
+        "domains": ["studio"],
+    },
     "contratto_internet": {
         "label": "Contratto internet",
         "reason": "Utile per scadenze e collegamento alle utenze casa.",
@@ -88,9 +98,10 @@ def recommend_document(
         return None
     meta = DOC_CATALOG.get(doc_type)
     if not meta:
+        label_it = doc_type.replace("_", " ")
         return RecommendedDocument(
             doc_type=doc_type,
-            label=doc_type.replace("_", " ").title(),
+            label=label_it,
             reason="Un documento riduce domande e aumenta l’accuratezza.",
             expected_fields=[],
             upload_hint="PDF o foto leggibile.",
@@ -128,9 +139,13 @@ def document_keys_from_upload(doc_type: str) -> List[str]:
     if doc_type == "rogito":
         keys.extend(["casa.owned", "casa.purchased", "doc.rogito"])
     elif doc_type == "libretto":
-        keys.extend(["auto.owned", "doc.libretto"])
+        keys.extend(["auto.owned", "doc.libretto", "auto.targa"])
     elif doc_type == "bolletta":
         keys.extend(["casa.utenze", "doc.bolletta"])
+    elif doc_type == "piano_di_studi":
+        keys.extend(["studio.active", "studio.universita", "doc.piano_di_studi"])
+    elif doc_type == "dispensa":
+        keys.extend(["studio.active", "doc.dispensa", "studio.esame"])
     elif doc_type in ("polizza_auto", "polizza_casa", "polizza"):
         keys.append(f"doc.{doc_type}")
         if doc_type == "polizza_casa":

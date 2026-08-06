@@ -1,12 +1,12 @@
 """Deterministic benefit-driven question planner (fallback when Gemini absent)."""
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Set
+from typing import List, Optional, Set
 
 from ai_life_strategist.benefit_engine import explain_benefit, pick_best_benefit_for_gap
 from ai_life_strategist.confidence_manager import plan_confidence
 from ai_life_strategist.document_strategy import recommend_document, should_prefer_document
-from ai_life_strategist.knowledge_gap import OPENING_DOMAIN_ORDER, compute_gaps, infer_domain_from_text
+from ai_life_strategist.knowledge_gap import compute_gaps, infer_domain_from_text
 from ai_life_strategist.models import DOMAIN_LABELS_IT, ReasoningContext, StrategistPlan
 from ai_life_strategist.policy import filter_unsafe_plan_fields
 
@@ -33,6 +33,7 @@ def plan_greeting(*, domains_touched: Optional[List[str]] = None) -> StrategistP
             "posticipare un tema o uscire in qualsiasi momento."
         ),
         expected_benefit=GREETING_BENEFIT,
+        user_explanation=GREETING_BENEFIT,
         information_gain=0.4,
         recommended_document=None,
         alternative_question="Se preferisci, dimmi solo: hai casa, auto o un esame in corso?",
@@ -54,25 +55,25 @@ def plan_next(
     for k, v in (ctx.known_facts or {}).items():
         if v is not None and v is not False and v != "" and v != []:
             known.add(k)
-    asked: Set[str] = set(ctx.asked_questions or [])
 
-    # Infer focus from last utterance
+    asked: Set[str] = set(ctx.asked_keys or [])
+    # Also treat prior question texts as asked for gap keys already recorded
+    refused: Set[str] = set(ctx.refused_keys or [])
+    postponed: Set[str] = set(ctx.postponed_keys or [])
+
     inferred = infer_domain_from_text(ctx.last_user_text or "")
     domain = focus_domain or inferred
     if not domain and ctx.domains_touched:
         domain = ctx.domains_touched[-1]
-    if not domain:
-        domain = OPENING_DOMAIN_ORDER[0]
 
     gaps = compute_gaps(
         known,
         asked_keys=asked,
-        focus_domain=domain if inferred or focus_domain else None,
-        domains=None if (inferred or focus_domain) else OPENING_DOMAIN_ORDER,
+        refused_keys=refused,
+        postponed_keys=postponed,
+        focus_domain=domain,
+        domains=None,  # all domains — benefit/gain decides order
     )
-    # If focused domain exhausted, widen
-    if not gaps and (inferred or focus_domain):
-        gaps = compute_gaps(known, asked_keys=asked, domains=OPENING_DOMAIN_ORDER)
 
     if not gaps:
         return StrategistPlan(
@@ -80,16 +81,23 @@ def plan_next(
                 "Per ora ho abbastanza contesto per aiutarti. "
                 "Vuoi aggiungere altro, oppure concludere e lasciare che ORA lavori in background?"
             ),
-            question_reason="I gap prioritari di questa sessione sono coperti.",
+            question_reason="I gap prioritari di questa conversazione sono coperti.",
             expected_benefit=(
-                "ORA userà ciò che sa su Home e suggerimenti intelligenti — "
+                "ORA userà ciò che sa su Home e nei suggerimenti — "
                 "senza chiederti di «completare il profilo»."
+            ),
+            user_explanation=(
+                "Ho abbastanza contesto per iniziare ad aiutarti in concreto. "
+                "Puoi aggiungere altro quando vuoi."
             ),
             information_gain=0.2,
             confidence=0.8,
-            domain=domain if domain in DOMAIN_LABELS_IT else "casa",  # type: ignore[arg-type]
+            domain=(domain if domain in DOMAIN_LABELS_IT else "casa"),  # type: ignore[arg-type]
             priority=90,
             source="deterministic_fallback",
+            asked_keys=list(asked),
+            refused_keys=list(refused),
+            postponed_keys=list(postponed),
             meta={"phase": "wrap", "gaps_remaining": 0},
         )
 
@@ -116,23 +124,23 @@ def plan_next(
         alt = gaps[1].question_template
 
     expected = benefit.user_benefit or explain_benefit(gap.benefit_code)
-    reason = (
-        f"Serve per «{benefit.title}»: {expected}"
-    )
-    question, reason, expected, refused = filter_unsafe_plan_fields(question, reason, expected)
+    reason = f"Serve per «{benefit.title}»: {expected}"
+    user_expl = expected
+    question, reason, expected, refused_flag = filter_unsafe_plan_fields(question, reason, expected)
 
     coverage = min(1.0, len(known) / 12.0)
     conf = plan_confidence(
         gap_gain=gap.information_gain,
         domain_coverage=coverage,
         used_gemini=False,
-        privacy_ok=not refused,
+        privacy_ok=not refused_flag,
     )
 
     return StrategistPlan(
         next_best_question=question,
         question_reason=reason,
         expected_benefit=expected,
+        user_explanation=user_expl,
         information_gain=gap.information_gain,
         recommended_document=rec_doc,
         alternative_question=alt,
@@ -142,18 +150,22 @@ def plan_next(
         prefer_document=bool(prefer_doc and rec_doc),
         source="deterministic_fallback",
         asked_keys=list(asked),
+        refused_keys=list(refused),
+        postponed_keys=list(postponed),
         gap_keys=[g.key for g in gaps[:5]],
         meta={
             "phase": "document" if prefer_doc else "active",
             "gap_key": gap.key,
             "benefit_code": benefit.code,
-            "privacy_refused": refused,
+            "privacy_refused": refused_flag,
+            "chain": benefit.chain,
+            "reasoning_loop": True,
         },
     )
 
 
 def avoid_duplicate(plan: StrategistPlan, asked_questions_text: List[str]) -> StrategistPlan:
-    """If the same question text was already asked, try alternative."""
+    """If the same question text was already asked, try alternative — never repeat."""
     norm = {(q or "").strip().lower() for q in asked_questions_text}
     if plan.next_best_question.strip().lower() not in norm:
         return plan
@@ -162,7 +174,6 @@ def avoid_duplicate(plan: StrategistPlan, asked_questions_text: List[str]) -> St
         plan.next_best_question = plan.alternative_question
         plan.meta = {**(plan.meta or {}), "deduped": True}
         return plan
-    # Soften to wrap-style
     plan = plan.model_copy(deep=True)
     plan.next_best_question = (
         "Vuoi approfondire un altro aspetto della tua vita con ORA, "

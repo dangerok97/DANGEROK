@@ -1,4 +1,4 @@
-"""Conversation planner — turn structure for Life Setup (not a wizard)."""
+"""Conversation planner — Life Experience turns (not a wizard)."""
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
@@ -25,6 +25,7 @@ FORBIDDEN_PHRASES = (
     "completa la configurazione",
     "wizard",
     "questionario obbligatorio",
+    "completa il questionario",
 )
 
 
@@ -49,6 +50,7 @@ def build_greeting_turn(plan: StrategistPlan) -> Dict[str, Any]:
             "form": False,
             "progress_bar": False,
             "indicative_minutes": "10–15",
+            "experience": "life_experience",
         },
         "plan": plan.public(),
     }
@@ -86,6 +88,7 @@ def build_active_turn(plan: StrategistPlan, *, ack: Optional[str] = None) -> Dic
             "wizard": False,
             "form": False,
             "progress_bar": False,
+            "experience": "life_experience",
         },
         "plan": plan.public(),
     }
@@ -98,7 +101,7 @@ def build_resume_suggestion() -> Dict[str, Any]:
         "description": INTERRUPT_HOME_HINT,
         "reason": "Hai interrotto la prima conversazione; un solo suggerimento gentile, senza moduli.",
         "type": "life",
-        "source": "life_setup_interrupt",
+        "source": "life_experience_interrupt",
         "action": {
             "kind": "resume_life_conversation",
             "label": "Continua con ORA",
@@ -115,16 +118,21 @@ def assert_not_wizard_copy(text: str) -> bool:
 
 def wrap_up_turn(*, domains: List[str], benefits: List[str]) -> Dict[str, Any]:
     dom = ", ".join(domains[:4]) if domains else "il tuo contesto"
-    ben = benefits[0] if benefits else "suggerimenti più utili su Home"
+    ben = benefits[0] if benefits else "azioni più utili su Home"
     return {
         "kind": "conversation_turn",
         "role": "ora",
         "text": (
             f"Perfetto. Userò ciò che so su {dom} per {ben}. "
-            "Non vedrai una sezione «Life Setup»: da qui in poi ORA impara da conversazioni, "
-            "documenti e obiettivi."
+            "Da qui in poi ORA impara da conversazioni, documenti e obiettivi — "
+            "senza moduli da completare."
         ),
         "question": None,
-        "ui": {"mode": "natural_conversation", "wizard": False, "done": True},
+        "ui": {
+            "mode": "natural_conversation",
+            "wizard": False,
+            "done": True,
+            "experience": "life_experience",
+        },
         "actions": [{"id": "done", "label": "Vai alla Home"}],
     }

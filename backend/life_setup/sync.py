@@ -66,7 +66,7 @@ async def sync_domain_to_life_graph(
             user_id,
             type=ntype,
             label=lbl,
-            description=f"Dominio {domain} da conversazione Life Setup",
+            description=f"Dominio {domain} da conversazione Life Experience",
             attributes=attrs,
             origin="life_setup",
         )

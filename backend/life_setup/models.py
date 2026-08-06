@@ -84,7 +84,10 @@ class LifeSetupSession(BaseModel):
     domains_touched: List[str] = Field(default_factory=list)
     asked_questions: List[str] = Field(default_factory=list)
     asked_keys: List[str] = Field(default_factory=list)
+    refused_keys: List[str] = Field(default_factory=list)
+    postponed_keys: List[str] = Field(default_factory=list)
     known_facts: Dict[str, Any] = Field(default_factory=dict)
+    benefits_active: List[str] = Field(default_factory=list)
     linked_doc_types: List[str] = Field(default_factory=list)
     linked_doc_ids: List[str] = Field(default_factory=list)
     last_plan: Optional[Dict[str, Any]] = None

@@ -130,9 +130,13 @@ class LifeSetupService:
                 )
                 started = await ce.start(
                     user_id,
-                    text="Inizio conversazione Life Setup",
+                    text="Inizio conversazione Life Experience con ORA",
                     origin="life_setup",
-                    context={"life_setup": True, "ui_mode": "natural_conversation"},
+                    context={
+                        "life_setup": True,
+                        "life_experience": True,
+                        "ui_mode": "natural_conversation",
+                    },
                     force_new=True,
                 )
                 if started.get("ok") and started.get("session"):
@@ -156,6 +160,7 @@ class LifeSetupService:
 
     async def _plan_turn(self, sess: LifeSetupSession, *, ack: Optional[str] = None) -> Dict[str, Any]:
         strategist = get_strategist_service()
+        strategist.db = self.db
         profile = await self.profiles.get(sess.user_id)
         facts = dict(sess.known_facts)
         if profile:
@@ -165,13 +170,24 @@ class LifeSetupService:
             known_facts=facts,
             asked_questions=sess.asked_questions,
             asked_keys=sess.asked_keys,
+            refused_keys=sess.refused_keys,
+            postponed_keys=sess.postponed_keys,
             linked_doc_types=sess.linked_doc_types,
             last_user_text=sess.meta.get("last_user_text"),
             session_phase=sess.phase,
             domains_touched=sess.domains_touched,
             force_fallback=not strategist.enabled() or bool(sess.meta.get("force_fallback")),
             ack=ack,
+            db=self.db,
         )
+        # Refresh active benefits after each plan (for Home after complete)
+        try:
+            from ai_life_strategist.benefit_engine import active_benefits
+
+            known = {k for k, v in facts.items() if v not in (None, False, "", [])}
+            sess.benefits_active = [b.code for b in active_benefits(known)]
+        except Exception:
+            pass
         if turn.get("plan"):
             sess.last_plan = turn["plan"]
             gap_key = (turn["plan"].get("meta") or {}).get("gap_key")
@@ -210,10 +226,15 @@ class LifeSetupService:
             domain = infer_domain_from_text(text) or (
                 (sess.last_plan or {}).get("domain") if sess.last_plan else None
             )
+            gap_key = (sess.last_plan or {}).get("meta", {}).get("gap_key") if sess.last_plan else None
+            if gap_key and gap_key not in sess.refused_keys:
+                sess.refused_keys.append(gap_key)
             if domain:
                 sess.known_facts[f"{domain}._skipped"] = True
                 if f"{domain}._skipped" not in sess.asked_keys:
                     sess.asked_keys.append(f"{domain}._skipped")
+                if f"{domain}._skipped" not in sess.postponed_keys:
+                    sess.postponed_keys.append(f"{domain}._skipped")
             ack = "Ok, saltiamo questo tema."
         else:
             sess.meta["last_user_text"] = text
@@ -241,6 +262,22 @@ class LifeSetupService:
             except Exception:
                 logger.info("semantic extract in life_setup skipped", exc_info=True)
 
+            # Soft refuse / postpone from natural language
+            low = (text or "").lower()
+            gap_key = (sess.last_plan.get("meta") or {}).get("gap_key") if sess.last_plan else None
+            if gap_key and any(
+                x in low for x in ("non voglio", "preferisco non", "non te lo dico", "niente di questo")
+            ):
+                if gap_key not in sess.refused_keys:
+                    sess.refused_keys.append(gap_key)
+                ack = "Va bene, non insisto su questo punto."
+            if gap_key and any(x in low for x in ("più tardi", "dopo", "non ora", "rimandiamo")):
+                if gap_key not in sess.postponed_keys:
+                    sess.postponed_keys.append(gap_key)
+                ack = "Ok, riprendiamo più avanti."
+
+            # Drop internal soft signals from persistence
+            inferred.pop("_soft_refuse_signal", None)
             sess.known_facts.update(inferred)
             await self.profiles.apply_facts(
                 user_id,
@@ -253,13 +290,12 @@ class LifeSetupService:
                 q = sess.last_plan.get("next_best_question")
                 if q and q not in sess.asked_questions:
                     sess.asked_questions.append(q)
-                gap_key = (sess.last_plan.get("meta") or {}).get("gap_key")
                 if gap_key and gap_key not in sess.asked_keys:
                     sess.asked_keys.append(gap_key)
 
             if domain:
                 await self._sync_domain(sess, domain)
-            if domain == "casa" and inferred.get("casa.purchased"):
+            if domain == "casa" and inferred.get("casa.purchased") and not ack:
                 ack = "Hai comprato casa — ottimo punto di partenza."
 
             sess.meta["last_extraction"] = {
@@ -490,6 +526,58 @@ class LifeSetupService:
         # Final sync for touched domains
         for d in sess.domains_touched:
             await self._sync_domain(sess, d)
+        # Dismiss interrupt soft-resume suggestions — Home shows benefits now
+        try:
+            await self.db.proactive_suggestions.update_many(
+                {
+                    "user_id": user_id,
+                    "source": {"$in": ["life_setup_interrupt", "life_experience_interrupt"]},
+                    "status": "active",
+                },
+                {"$set": {"status": "dismissed", "dismissed": True, "updated_at": now_iso()}},
+            )
+        except Exception:
+            pass
+        # Close CE bridge session so Home resume is not «completa la guida»
+        if sess.conversation_session_id:
+            try:
+                await self.db.conversation_sessions.update_one(
+                    {"id": sess.conversation_session_id, "user_id": user_id},
+                    {"$set": {"status": "completed", "updated_at": now_iso()}},
+                )
+                await self.db.action_sessions.update_many(
+                    {"user_id": user_id, "conversation_session_id": sess.conversation_session_id},
+                    {"$set": {"status": "completed", "updated_at": now_iso()}},
+                )
+            except Exception:
+                pass
+        # Persist active benefits on profile for Home / Proactive
+        try:
+            from ai_life_strategist.benefit_engine import active_benefits, home_benefit_cards
+
+            profile = await self.profiles.get(user_id)
+            facts = dict(sess.known_facts)
+            if profile:
+                facts.update(self.profiles.flat_known(profile))
+            known = {k for k, v in facts.items() if v not in (None, False, "", [])}
+            active = active_benefits(known)
+            sess.benefits_active = [b.code for b in active]
+            if profile:
+                for b in active:
+                    if b.domain not in profile.domains:
+                        from life_setup.models import DomainProfile
+
+                        profile.domains[b.domain] = DomainProfile(domain=b.domain)
+                    profile.domains[b.domain].benefits_active = list(
+                        {*(profile.domains[b.domain].benefits_active or []), b.code}
+                    )
+                await self.profiles.repo.save_profile(profile)
+            sess.meta["home_benefits"] = [
+                {"code": b.code, "home_signal": b.home_signal, "domain": b.domain}
+                for b in home_benefit_cards(known)
+            ]
+        except Exception:
+            logger.info("benefit persistence on complete skipped", exc_info=True)
         await self.repo.save_session(sess)
         return {
             "ok": True,
@@ -497,6 +585,7 @@ class LifeSetupService:
             "should_show": False,
             "module_visible": False,
             "wizard": False,
+            "benefits_active": sess.benefits_active,
             "profile": (await self.profiles.get(user_id)).public() if await self.profiles.get(user_id) else None,
         }
 

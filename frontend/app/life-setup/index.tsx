@@ -1,7 +1,8 @@
 /**
- * Life Setup — first-launch NATURAL conversation with ORA.
+ * Life Experience — first-launch NATURAL conversation with ORA.
  * NOT a wizard, questionnaire, or settings form.
  * After complete/skip/exit this route is not a permanent module.
+ * Route path stays /life-setup for compatibility; UX is Life Experience.
  */
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -98,21 +99,32 @@ export default function LifeSetupConversationScreen() {
     }
   };
 
-  const uploadRogito = async () => {
+  const uploadRecommendedDoc = async () => {
+    const docType = turn?.recommended_document?.doc_type || 'rogito';
+    const label = turn?.recommended_document?.label || docType;
     setSending(true);
     setError(null);
-    setBubbles((prev) => [...prev, { role: 'user', text: '[Carico il rogito]' }]);
+    setBubbles((prev) => [...prev, { role: 'user', text: `[Carico: ${label}]` }]);
     try {
-      const synthetic = [
-        'ATTO DI COMPRAVENDITA (ROGITO)',
-        'Immobile sito in Via Roma 10, Milano',
-        'Compravendita conclusa il 15 marzo 2026',
-        'Acquirente: Mario Rossi',
-      ].join('\n');
+      const syntheticByType: Record<string, string> = {
+        rogito: [
+          'ATTO DI COMPRAVENDITA (ROGITO)',
+          'Immobile sito in Via Roma 10, Milano',
+          'Compravendita conclusa il 15 marzo 2026',
+          'Acquirente: Mario Rossi',
+        ].join('\n'),
+        libretto: 'LIBRETTO DI CIRCOLAZIONE Targa AB123CD Fiat Panda',
+        piano_di_studi: 'PIANO DI STUDI Informatica CFU esami programmati',
+        bolletta: 'BOLLETTA ENERGIA Importo 80 EUR Scadenza 15/09/2026',
+        dispensa: 'PROGRAMMA ESAME Analisi Matematica argomenti',
+      };
+      const synthetic =
+        syntheticByType[docType] ||
+        `DOCUMENTO ${label}\nCaricato durante la conversazione con ORA.`;
       const res = await api.lifeSetupUploadDoc({
-        doc_type: 'rogito',
+        doc_type: docType,
         synthetic_text: synthetic,
-        filename: 'rogito-sintetico.txt',
+        filename: `${docType}-sintetico.txt`,
       });
       applyTurn(res.turn);
     } catch (e: any) {
@@ -197,9 +209,10 @@ export default function LifeSetupConversationScreen() {
         {/* Explicit anti-wizard markers for E2E */}
         <View
           testID="life-setup-not-wizard"
-          accessibilityLabel="natural-conversation-not-wizard"
+          accessibilityLabel="conversazione-naturale-non-wizard"
           style={{ height: 0 }}
         />
+        <View testID="life-experience-root" style={{ height: 0 }} />
 
         <ScrollView style={styles.thread} contentContainerStyle={{ paddingBottom: 24, gap: 12 }}>
           {bubbles.map((b, i) => (
@@ -229,7 +242,7 @@ export default function LifeSetupConversationScreen() {
             {turn?.recommended_document ? (
               <Pressable
                 style={styles.docBtn}
-                onPress={uploadRogito}
+                onPress={uploadRecommendedDoc}
                 testID="life-setup-upload-doc"
                 disabled={sending}
               >

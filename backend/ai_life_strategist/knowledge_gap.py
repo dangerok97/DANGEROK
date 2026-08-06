@@ -131,6 +131,19 @@ DOMAIN_GAPS: Dict[str, List[Dict[str, Any]]] = {
             "question_template": "Quale esame vuoi preparare? Se hai una dispensa o un programma, puoi caricarlo.",
             "when": ["studio.active"],
         },
+        {
+            "key": "doc.piano_di_studi",
+            "label": "piano di studi",
+            "information_gain": 0.9,
+            "prefer_document": True,
+            "document_type": "piano_di_studi",
+            "benefit_code": "studio_universita",
+            "question_template": (
+                "Se hai il piano di studi, caricalo: "
+                "estraggo esami e percorsi senza farti compilare un questionario."
+            ),
+            "when": ["studio.active", "studio.universita"],
+        },
     ],
     "lavoro": [
         {
@@ -241,7 +254,8 @@ DOMAIN_GAPS: Dict[str, List[Dict[str, Any]]] = {
     ],
 }
 
-# Opening domain order for first launch — benefit-driven, not alphabetical form.
+# Legacy alias — domains are NOT a wizard sequence.
+# Gaps are ranked by information_gain across all domains; AI/user decide order.
 OPENING_DOMAIN_ORDER: List[str] = [
     "casa",
     "auto",
@@ -259,6 +273,9 @@ OPENING_DOMAIN_ORDER: List[str] = [
     "servizi",
 ]
 
+# All domains eligible every turn (any order — benefit decides).
+ALL_GAP_DOMAINS: List[str] = list(OPENING_DOMAIN_ORDER)
+
 
 def _when_satisfied(when: Optional[List[str]], known: Set[str]) -> bool:
     if not when:
@@ -272,26 +289,36 @@ def compute_gaps(
     asked_keys: Optional[Set[str]] = None,
     domains: Optional[List[str]] = None,
     focus_domain: Optional[str] = None,
+    refused_keys: Optional[Set[str]] = None,
+    postponed_keys: Optional[Set[str]] = None,
 ) -> List[GapItem]:
+    """Rank gaps by information_gain. focus_domain boosts but never locks a wizard path."""
     asked = asked_keys or set()
-    domain_list = [focus_domain] if focus_domain else (domains or OPENING_DOMAIN_ORDER)
+    refused = refused_keys or set()
+    postponed = postponed_keys or set()
+    skip = asked | refused | postponed
+    # Scan all domains unless caller passes an explicit shortlist
+    domain_list = list(domains) if domains is not None else list(ALL_GAP_DOMAINS)
     gaps: List[GapItem] = []
     for domain in domain_list:
         for raw in DOMAIN_GAPS.get(domain, []):
             key = raw["key"]
             if key in known_keys:
                 continue
-            if key in asked:
+            if key in skip:
                 continue
             if not _when_satisfied(raw.get("when"), known_keys):
-                # Special: if when requires purchased/owned and we have signal, ok
                 continue
+            gain = float(raw.get("information_gain") or 0.5)
+            # Soft boost when user just steered into a domain — not a fixed order
+            if focus_domain and domain == focus_domain:
+                gain = min(1.0, gain + 0.08)
             gaps.append(
                 GapItem(
                     key=key,
                     domain=domain,  # type: ignore[arg-type]
                     label=raw["label"],
-                    information_gain=float(raw.get("information_gain") or 0.5),
+                    information_gain=gain,
                     prefer_document=bool(raw.get("prefer_document")),
                     document_type=raw.get("document_type"),
                     benefit_code=raw.get("benefit_code") or "",
@@ -299,7 +326,7 @@ def compute_gaps(
                     asked=False,
                 )
             )
-    gaps.sort(key=lambda g: (-g.information_gain, g.domain, g.key))
+    gaps.sort(key=lambda g: (-g.information_gain, g.key))
     return gaps
 
 
@@ -347,6 +374,12 @@ def infer_known_from_text(text: str) -> Dict[str, Any]:
         known["studio.active"] = True
     if "mutuo" in t:
         known["casa.owned"] = True
+        known["casa.mutuo"] = True
         if "sotto controllo" in t or "ok" in t:
             known["casa.mutuo"] = "ok"
+    if any(x in t for x in ("piano di studi", "piano studi")):
+        known["studio.active"] = True
+        known["doc.piano_di_studi"] = True
+    if any(x in t for x in ("non voglio", "preferisco non", "non te lo dico", "salta")):
+        known["_soft_refuse_signal"] = True
     return known
