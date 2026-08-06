@@ -681,12 +681,17 @@ export default function LifeSetupConversationScreen() {
 
               {documentResult.draft_events?.length ? (
                 <>
-                  <Text style={styles.docResultTitle}>Scadenze trovate</Text>
+                  <Text style={styles.docResultTitle} testID="life-setup-doc-deadlines">
+                    Scadenze trovate
+                  </Text>
                   {documentResult.draft_events.map((ev, i) => (
-                    <View key={ev.event_id || i} style={styles.fieldRow}>
+                    <View key={ev.event_id || i} style={styles.fieldRow} testID={`life-setup-draft-event-${i}`}>
                       <Text style={styles.fieldLabel}>{ev.title}</Text>
                       <Text style={styles.fieldValue}>{ev.start_datetime}</Text>
-                      <Pressable onPress={() => confirmDraftEvent(ev.event_id)}>
+                      <Pressable
+                        onPress={() => confirmDraftEvent(ev.event_id)}
+                        testID={`life-setup-confirm-draft-event-${i}`}
+                      >
                         <Text style={styles.link}>Salva promemoria su ORA</Text>
                       </Pressable>
                     </View>

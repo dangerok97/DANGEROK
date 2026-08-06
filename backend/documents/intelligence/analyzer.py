@@ -286,6 +286,55 @@ def _doors_vs_event_times(text: str) -> tuple[Optional[str], Optional[str]]:
     return doors, start
 
 
+def _build_admin_deadline_event(
+    *, doc_id: str, macro: str, admin: Optional[Any], title: str, text: str,
+) -> Optional[EventCandidate]:
+    """Administrative/financial documents (bollette, fatture, comunicazioni con
+    scadenza) have their own deadline-candidate path, separate from the
+    event/travel/medical builder below but persisted the same way
+    (EventCandidate, status="proposed"). This is what feeds Documents V2's
+    generic confirm/dismiss/calendar endpoints and the Life Experience
+    "Salva promemoria su ORA" action — previously only event/travel/medical
+    macro-category documents produced an event_candidate at all, so admin
+    deadlines never surfaced an actionable reminder despite being extracted."""
+    if macro not in ("administrative", "financial", "receipt", "contract", "legal"):
+        return None
+    if admin is None or not getattr(admin, "due_date", None):
+        return None
+    due_dt, ambiguous, _original = _parse_italian_datetime(str(admin.due_date))
+    missing: list[str] = []
+    if not due_dt:
+        missing.append("start_datetime")
+    if ambiguous:
+        missing.append("date_disambiguation")
+    label = _clean_field(getattr(admin, "subject", None)) or title
+    deadline_title = f"Scadenza: {label}"[:160]
+    if getattr(admin, "amount", None):
+        currency = getattr(admin, "currency", None) or "EUR"
+        deadline_title = f"Scadenza pagamento: {admin.amount} {currency}".strip()[:160]
+    conf = float(getattr(admin, "confidence", None) or 0.5)
+    if missing:
+        conf -= 0.2 * len(missing)
+    conf = max(0.15, min(0.95, conf))
+    return EventCandidate(
+        id=_new_event_id(),
+        title=deadline_title,
+        description=(getattr(admin, "simple_explanation", None) or text or "")[:400],
+        start_datetime=due_dt.isoformat() if due_dt else None,
+        end_datetime=due_dt.isoformat() if due_dt else None,
+        all_day=True,
+        source_document_id=doc_id,
+        category="deadline",
+        priority=getattr(admin, "priority", "high"),  # type: ignore[arg-type]
+        urgency=getattr(admin, "urgency", "soon"),  # type: ignore[arg-type]
+        confidence=conf,
+        missing_fields=missing,
+        extraction_notes="Scadenza amministrativa/finanziaria rilevata da estrazione locale",
+        ambiguous_date=ambiguous,
+        status="proposed",
+    )
+
+
 def _build_events(
     *,
     doc_id: str,
@@ -294,11 +343,16 @@ def _build_events(
     fields: dict,
     text: str,
     entities: dict,
+    admin: Optional[Any] = None,
+    title: str = "",
 ) -> list[EventCandidate]:
     if macro not in ("event", "travel", "medical") and "ticket" not in sub and "appointment" not in sub:
         # still check strong event signals
         if not re.search(r"(?i)\b(concerto|biglietto|appuntamento|visita|spettacolo|cinema)\b", text or ""):
-            return []
+            admin_event = _build_admin_deadline_event(
+                doc_id=doc_id, macro=macro, admin=admin, title=title, text=text,
+            )
+            return [admin_event] if admin_event else []
 
     dates = list(entities.get("dates") or [])
     times = list(entities.get("times") or [])
@@ -510,6 +564,12 @@ async def analyze_document(
 
     base_conf = float(insights.get("classification", {}).get("confidence") or 50) / 100.0
     title = _suggest_title(tax["macro_category"], tax["subcategory"], fields, filename, text)
+    from documents.intelligence.admin_extract import build_admin_analysis
+    admin = build_admin_analysis(
+        text,
+        macro=tax["macro_category"],
+        amounts=list(entities_raw.get("amounts") or []),
+    )
     events = _build_events(
         doc_id=doc["id"],
         macro=tax["macro_category"],
@@ -517,6 +577,8 @@ async def analyze_document(
         fields=fields,
         text=text,
         entities=entities_raw,
+        admin=admin,
+        title=title,
     )
     education = None
     if tax["macro_category"] == "education":
@@ -655,12 +717,8 @@ async def analyze_document(
 
     generic_actions: list[GenericAction] = []
     due = None
-    from documents.intelligence.admin_extract import build_admin_analysis
-    admin = build_admin_analysis(
-        text,
-        macro=tax["macro_category"],
-        amounts=list(entities_raw.get("amounts") or []),
-    )
+    # `admin` was already computed above (before _build_events) so the admin
+    # deadline event candidate and these generic_actions stay consistent.
     if admin:
         due = None
         if admin.due_date:

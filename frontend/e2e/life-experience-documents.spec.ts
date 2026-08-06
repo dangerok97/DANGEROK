@@ -23,7 +23,11 @@ import * as path from 'path';
 // Must match the backend the ALREADY-RUNNING frontend dev server was bundled
 // against (Metro does not hot-reload EXPO_PUBLIC_* env vars) — verified via
 // live network inspection, not assumed from `.env`.
-const API = process.env.EXPO_PUBLIC_BACKEND_URL || process.env.E2E_API_URL || 'http://127.0.0.1:8001';
+// Must match the backend the running Expo web bundle was started with
+// (Metro does not hot-reload EXPO_PUBLIC_*). Default 8000 — the local ORA
+// backend that mounts life-setup; 8001 has historically been a stale/partial
+// instance without those routes.
+const API = process.env.EXPO_PUBLIC_BACKEND_URL || process.env.E2E_API_URL || 'http://127.0.0.1:8000';
 const EVIDENCE_DIR = path.join(__dirname, '..', 'e2e-evidence', 'life-experience-documents');
 const FIXTURES = path.join(__dirname, 'fixtures', 'life-documents');
 
@@ -290,13 +294,17 @@ test.describe('Life Experience — REAL document upload + AI Document Understand
     await expect(result).toContainText(/energiatest|fornitore/i);
     await expect(result).toContainText(/87,40|87\.40|importo/i);
 
-    // Deadline → draft event proposal, never auto-created without consent.
-    const draftEventBtn = page.getByText('Salva promemoria su ORA');
-    if (await draftEventBtn.isVisible().catch(() => false)) {
-      await draftEventBtn.click();
-      await page.waitForTimeout(800);
-      await shot(page, '03-bolletta-event-confirmed');
-    }
+    // Deadline MUST surface as a draft reminder action (regression: admin bills
+    // used to only emit generic_actions text, never an event_candidate, so
+    // "Salva promemoria su ORA" never appeared). Confirmation is required —
+    // nothing is auto-added to the calendar.
+    await expect(page.getByTestId('life-setup-doc-deadlines')).toBeVisible({ timeout: 15_000 });
+    const draftEventBtn = page.getByTestId('life-setup-confirm-draft-event-0');
+    await expect(draftEventBtn).toBeVisible();
+    await expect(draftEventBtn).toContainText('Salva promemoria su ORA');
+    await draftEventBtn.click();
+    await expect(page.getByText('Promemoria salvato su ORA.')).toBeVisible({ timeout: 15_000 });
+    await shot(page, '03-bolletta-event-confirmed');
 
     const confirmAll = page.getByTestId('life-setup-doc-confirm-all');
     if (await confirmAll.isVisible().catch(() => false)) {

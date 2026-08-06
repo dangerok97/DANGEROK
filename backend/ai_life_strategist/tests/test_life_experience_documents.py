@@ -100,16 +100,29 @@ async def _extract_only(doc_svc, user_id: str, doc_id: str) -> None:
 
 async def _force_pipeline_completed(db, user_id: str, doc_id: str) -> None:
     """Deterministically drive the Documents V2 pipeline to a terminal state
-    for tests (real analyzer call — force_local, no network dependency)."""
+    for tests (real analyzer call — force_local, no network dependency).
+
+    Mirrors IntelligenceService.run_pipeline terminal selection: proposed
+    event candidates (e.g. bolletta deadline) → awaiting_confirmation, not
+    completed — Life Experience must treat that as ready_for_consume.
+    """
     from documents.intelligence.analyzer import analyze_document
     from documents.intelligence.pipeline import PipelineState
 
     doc = await db.documents.find_one({"id": doc_id, "user_id": user_id}, {"_id": 0})
     result = await analyze_document(doc, user=None, force_local=True)
+    analysis = result["analysis"] or {}
+    events = result["event_candidates"] or []
+    has_proposed = any(e.get("status") == "proposed" for e in events)
+    terminal = "awaiting_confirmation" if (
+        analysis.get("requires_review") or has_proposed
+    ) else "completed"
+    if analysis.get("requires_review") and not events:
+        terminal = "needs_review"
     updates = {
-        **PipelineState.set_status(doc, "completed", provider="local"),
-        "analysis": result["analysis"],
-        "event_candidates": result["event_candidates"],
+        **PipelineState.set_status(doc, terminal, provider="local"),
+        "analysis": analysis,
+        "event_candidates": events,
         "education_analysis": result["education_analysis"],
         "admin_analysis": result["admin_analysis"],
         "generic_actions": result["generic_actions"],
@@ -560,11 +573,21 @@ def test_attach_consume_real_document_updates_life_profile(key, as_pdf):
             doc_id = await _upload_and_complete(db, doc_svc, user, key, as_pdf=as_pdf)
             attach = await svc.attach_document(user, doc_id)
             assert attach["ok"] is True
-            assert attach["pipeline_status"] in ("completed", "queued", "understanding", "extracting")
+            assert attach["pipeline_status"] in (
+                "completed",
+                "awaiting_confirmation",
+                "needs_review",
+                "queued",
+                "understanding",
+                "extracting",
+            )
 
             status = await svc.document_status(user, doc_id)
             assert status["ok"] is True
             assert status["ready_for_consume"] is True
+            assert status["pipeline_status"] in (
+                "completed", "awaiting_confirmation", "needs_review", "failed",
+            )
 
             consume = await svc.consume_document(user, doc_id)
             assert consume["ok"] is True
@@ -638,7 +661,36 @@ def test_deadline_found_surfaces_draft_event_not_auto_created():
             # status=proposed (never auto-confirmed) after Life Experience consume.
             for ev in doc.get("event_candidates") or []:
                 assert ev.get("status") == "proposed"
-            assert isinstance(consume["document_result"]["draft_events"], list)
+
+            # Regression: a utility bill with a real "Scadenza pagamento: ..."
+            # due date must surface an actionable deadline candidate — this is
+            # what drives the "Salva promemoria su ORA" button in the Life
+            # Experience document result screen. It used to stay an empty
+            # list because event_candidates were only ever built for
+            # event/travel/medical macro-category documents.
+            draft_events = consume["document_result"]["draft_events"]
+            assert isinstance(draft_events, list)
+            assert draft_events, "bolletta with a due_date must produce a draft deadline event"
+            ev = draft_events[0]
+            assert ev.get("start_datetime")
+            assert ev.get("confirm_endpoint") == f"/api/documents/{doc_id}/events/{ev['event_id']}/confirm"
+
+            deadline_candidates = [
+                e for e in (doc.get("event_candidates") or []) if e.get("category") == "deadline"
+            ]
+            assert deadline_candidates
+            assert deadline_candidates[0]["status"] == "proposed"
+
+            # Confirming is an explicit user action (never automatic) and
+            # actually persists a draft in ORA's own calendar_event_drafts.
+            from documents.intelligence.service import IntelligenceService
+            intel_svc = IntelligenceService(db, doc_svc)
+            confirmed = await intel_svc.confirm_event(
+                user_id=user, doc_id=doc_id, event_id=ev["event_id"], sync_to_google=False,
+            )
+            assert confirmed["ok"] is True
+            assert confirmed["event_candidate"]["status"] == "confirmed"
+            assert confirmed["google_sync"] is None
         finally:
             client.close()
 

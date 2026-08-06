@@ -313,6 +313,76 @@ def test_fixture_admin_invoice_actions():
     _run(body())
 
 
+def test_admin_bill_due_date_produces_deadline_event_candidate():
+    """Regression: administrative/financial documents (bollette, fatture) with
+    a clear due_date must produce an actionable draft deadline candidate, not
+    just plain-text generic_actions. Previously event_candidates were only
+    built for event/travel/medical macro categories, so a utility bill's
+    "Scadenza pagamento: ..." never surfaced a "Salva promemoria su ORA"
+    action even though the deadline was extracted into admin_analysis."""
+    async def body():
+        client, db, dsvc, intel = await _svc()
+        try:
+            user = f"user_{uuid.uuid4().hex[:10]}"
+            content = (
+                "BOLLETTA ENERGIA ELETTRICA - Documento sintetico di test\n"
+                "Fornitore: EnergiaTest SpA\n"
+                "Cliente: Mario Rossi Test\n"
+                "Fornitura per l'indirizzo: Via Roma 10, Milano\n"
+                "Periodo di riferimento: 01/06/2026 - 31/07/2026\n"
+                "Codice contratto: ET-998877\n"
+                "Importo totale da pagare: EUR 87,40\n"
+                "Scadenza pagamento: 15 settembre 2026\n"
+                "Consumo: 210 kWh\n"
+            ).encode("utf-8")
+            up = await dsvc.upload(
+                user_id=user,
+                content=content,
+                original_filename="bolletta_luce.txt",
+                mime_type="text/plain",
+            )
+            doc_id = up["document"]["id"]
+            await intel.run_pipeline(user_id=user, doc_id=doc_id, force_local=True)
+            a = await intel.get_analysis(user_id=user, doc_id=doc_id)
+
+            admin = a.get("admin_analysis") or {}
+            assert admin.get("due_date"), "due_date should be extracted from 'Scadenza pagamento:' label"
+
+            events = a.get("event_candidates") or []
+            deadlines = [e for e in events if e.get("category") == "deadline"]
+            assert deadlines, "a utility bill with a due_date must produce a deadline event_candidate"
+            ev = deadlines[0]
+            assert ev.get("status") == "proposed", "must be a draft, not auto-confirmed"
+            assert ev.get("start_datetime"), "deadline candidate must carry the parsed due date"
+            assert ev.get("source_document_id") == doc_id
+
+            # Confirmation is required before anything is persisted as a real
+            # reminder/calendar entry — dismiss/no-op state stays a draft.
+            drafts_before = await db.calendar_event_drafts.count_documents(
+                {"user_id": user, "source_document_id": doc_id}
+            )
+            assert drafts_before == 0
+
+            confirmed = await intel.confirm_event(
+                user_id=user, doc_id=doc_id, event_id=ev["id"], sync_to_google=False,
+            )
+            assert confirmed["ok"] is True
+            assert confirmed["event_candidate"]["status"] == "confirmed"
+            assert confirmed["calendar_event"]["id"]
+            assert confirmed["google_sync"] is None, "must not auto-sync to Google without explicit consent"
+
+            drafts_after = await db.calendar_event_drafts.count_documents(
+                {"user_id": user, "source_document_id": doc_id}
+            )
+            assert drafts_after == 1
+
+            await dsvc.delete(user_id=user, doc_id=doc_id)
+        finally:
+            client.close()
+
+    _run(body())
+
+
 def test_fixture_ambiguous_date_needs_review():
     async def body():
         client, db, dsvc, intel = await _svc()
