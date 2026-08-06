@@ -1,5 +1,11 @@
 # ORA — AI Changelog
 
+## 2026-08-06 — Product capability audit (CTO docs)
+
+Docs-only: `PRODUCT_AUDIT_MASTER.md`, `CAPABILITY_MATRIX.md`, `PRODUCTION_READINESS.md`, `FEATURE_STATUS.md` — base `09404f1`; message `docs: complete product capability audit`.
+
+---
+
 ## 2026-08-06 — AI-first Life Experience
 
 ### Request
