@@ -1,0 +1,328 @@
+{
+  "list": {
+    "objects": [
+      {
+        "id": "lo_cbcaa748fb4846",
+        "user_id": "user_57a23bf49efc",
+        "type": "HOME",
+        "title": "Lavoro",
+        "status": "active",
+        "confidence": 1,
+        "created_at": "2026-08-06T23:17:54.084971+00:00",
+        "updated_at": "2026-08-06T23:19:04.398384+00:00",
+        "summary": "",
+        "relationships": [],
+        "documents": [
+          "doc_c3b19f7e3b8d",
+          "doc_196f7a7c4977",
+          "doc_614fb5e5658f"
+        ],
+        "calendar_events": [],
+        "goals": [
+          "goal_06d960f1021e46"
+        ],
+        "projects": [],
+        "brain_nodes": [
+          "node_c458ccab4ac3"
+        ],
+        "knowledge": {},
+        "history": [
+          {
+            "at": "2026-08-06T23:17:54.085975+00:00",
+            "event": "created",
+            "source": "document",
+            "source_id": "doc_c3b19f7e3b8d",
+            "summary": "Created from document",
+            "delta": {
+              "properties": {
+                "repertorio": "45872",
+                "notaio": "Dott. Paolo Bianchi Neri",
+                "dati_catastali": "Foglio 12 Particella 345 Sub 6 Categoria A/2",
+                "document_type": "contratto",
+                "domain": "casa"
+              },
+              "amount": null,
+              "utility_type": null
+            },
+            "improves": [],
+            "worsens": []
+          },
+          {
+            "at": "2026-08-06T23:18:46.288281+00:00",
+            "event": "merge_proposed",
+            "source": "document",
+            "source_id": "doc_196f7a7c4977",
+            "summary": "Analisi locale: nessun provider AI disponibile o testo insufficiente.",
+            "delta": {
+              "incoming_keys": {}
+            },
+            "improves": [],
+            "worsens": []
+          },
+          {
+            "at": "2026-08-06T23:19:04.397383+00:00",
+            "event": "merge_proposed",
+            "source": "document",
+            "source_id": "doc_614fb5e5658f",
+            "summary": "Analisi locale: nessun provider AI disponibile o testo insufficiente.",
+            "delta": {
+              "incoming_keys": {}
+            },
+            "improves": [],
+            "worsens": []
+          }
+        ],
+        "properties": {
+          "repertorio": "45872",
+          "notaio": "Dott. Paolo Bianchi Neri",
+          "dati_catastali": "Foglio 12 Particella 345 Sub 6 Categoria A/2",
+          "document_type": "contratto",
+          "domain": "casa",
+          "address": "via roma 10 20100 milano mi"
+        },
+        "identity": {
+          "address": "via roma 10 20100 milano mi"
+        },
+        "state": {
+          "repertorio": "45872",
+          "notaio": "Dott. Paolo Bianchi Neri",
+          "dati_catastali": "Foglio 12 Particella 345 Sub 6 Categoria A/2",
+          "document_type": "contratto",
+          "domain": "casa"
+        },
+        "pending_questions": [],
+        "suggested_actions": [],
+        "narrative": {
+          "text": "Hai una casa collegata a via roma 10 20100 milano mi. Fonti documentali collegate: 1.",
+          "version": 1,
+          "updated_at": "2026-08-06T23:18:07.806936+00:00",
+          "source": "deterministic",
+          "provider": "local-deterministic",
+          "model": "local-deterministic",
+          "confidence": 0.7000000000000001,
+          "enrichment_version": "life-object-enrichment-1.0"
+        },
+        "insights": [],
+        "temporal": {
+          "observations": [
+            "Non ci sono ancora confronti temporali sufficienti su questo oggetto."
+          ],
+          "changes": [],
+          "utility_trend": {
+            "trend": "unknown",
+            "points": 0,
+            "delta": null,
+            "latest": null
+          },
+          "compared_at": "2026-08-06T23:18:23.006028+00:00",
+          "source": "deterministic",
+          "provider": "local-deterministic",
+          "model": "local-deterministic"
+        },
+        "health": {
+          "score": 0.871,
+          "label": "healthy",
+          "issues": [],
+          "completeness": 1,
+          "reliability": 0.765,
+          "missing_info": [],
+          "opportunities": [
+            "Collegare il mutuo se presente"
+          ],
+          "risks": [],
+          "reasons": [
+            "1 documenti collegati migliorano la completezza.",
+            "Chiavi di identità presenti.",
+            "Informazioni essenziali presenti."
+          ],
+          "updated_at": "2026-08-06T23:18:28.098070+00:00",
+          "source": "deterministic"
+        },
+        "source_count": 4,
+        "last_reasoning": {
+          "action": "create",
+          "object_type": "HOME",
+          "object_id": null,
+          "merge_with_id": null,
+          "title": "Lavoro",
+          "summary": "",
+          "identity_keys": {
+            "address_norm": "via roma 10 20100 milano mi"
+          },
+          "properties_delta": {
+            "repertorio": "45872",
+            "notaio": "Dott. Paolo Bianchi Neri",
+            "dati_catastali": "Foglio 12 Particella 345 Sub 6 Categoria A/2",
+            "document_type": "contratto",
+            "domain": "casa"
+          },
+          "improves": [],
+          "worsens": [],
+          "next_question": null,
+          "next_question_why": "",
+          "suggested_actions": [],
+          "confidence": 1,
+          "reason_summary": "",
+          "invented_facts": false,
+          "ai_used": true,
+          "provider": "gemini",
+          "model": "gemini-flash-lite-latest"
+        },
+        "next_reasoning": null,
+        "origin": "document",
+        "ai_summary": "Hai una casa collegata a via roma 10 20100 milano mi. Fonti documentali collegate: 1.",
+        "ai_reasoning_version": "life-object-reasoner-1.0",
+        "ai_confidence": 1,
+        "ai_enrichment_version": "life-object-enrichment-1.0",
+        "identity_keys": {
+          "address_norm": "via roma 10 20100 milano mi"
+        },
+        "merged_into_id": null,
+        "merged_from_ids": [],
+        "merge_proposals": [
+          {
+            "at": "2026-08-06T23:18:46.288281+00:00",
+            "document_id": "doc_196f7a7c4977",
+            "candidate_ids": [
+              "lo_cbcaa748fb4846"
+            ],
+            "incoming_keys": {},
+            "reason": "Analisi locale: nessun provider AI disponibile o testo insufficiente."
+          },
+          {
+            "at": "2026-08-06T23:19:04.397383+00:00",
+            "document_id": "doc_614fb5e5658f",
+            "candidate_ids": [
+              "lo_cbcaa748fb4846"
+            ],
+            "incoming_keys": {},
+            "reason": "Analisi locale: nessun provider AI disponibile o testo insufficiente."
+          }
+        ]
+      }
+    ],
+    "count": 1,
+    "enabled": true,
+    "home_ui_enabled": false
+  },
+  "enrichment": {
+    "narrative": {
+      "text": "Hai una casa collegata a via roma 10 20100 milano mi. Fonti documentali collegate: 3.",
+      "version": 2,
+      "updated_at": "2026-08-06T23:19:09.753853+00:00",
+      "source": "deterministic",
+      "provider": "local-deterministic",
+      "model": "local-deterministic",
+      "confidence": 0.8,
+      "enrichment_version": "life-object-enrichment-1.0"
+    },
+    "pending_questions": [
+      {
+        "id": "pq_87f3c07ef2",
+        "question": "Hai il riferimento catastale (foglio/particella/sub)?",
+        "why": "Il catastale rafforza l'identità e evita una seconda Casa.",
+        "priority": "medium",
+        "category": "missing_info",
+        "source": "deterministic",
+        "created_at": "2026-08-06T23:19:14.928252+00:00"
+      },
+      {
+        "id": "pq_1da0baa340",
+        "question": "Hai un mutuo su questa casa? Se sì, con quale banca?",
+        "why": "Sapere banca e rata aiuta ORA a monitorare impegno finanziario e scadenze.",
+        "priority": "medium",
+        "category": "help_ability",
+        "source": "deterministic",
+        "created_at": "2026-08-06T23:19:14.929247+00:00"
+      },
+      {
+        "id": "pq_506cfee1bf",
+        "question": "Conosci il codice POD della fornitura elettrica?",
+        "why": "Il POD collega bollette luce alla stessa casa in modo stabile.",
+        "priority": "low",
+        "category": "help_ability",
+        "source": "deterministic",
+        "created_at": "2026-08-06T23:19:14.929247+00:00"
+      },
+      {
+        "id": "pq_58614dfc04",
+        "question": "Vuoi unire le informazioni in conflitto in un unico oggetto?",
+        "why": "Ci sono proposte di merge in sospeso.",
+        "priority": "high",
+        "category": "clarify",
+        "source": "deterministic",
+        "created_at": "2026-08-06T23:19:14.929247+00:00"
+      }
+    ],
+    "insights": [
+      {
+        "id": "ins_3958d4d293",
+        "kind": "opportunity",
+        "title": "Casa ben documentata",
+        "detail": "Più fonti (es. rogito/mutuo/bolletta) aumentano l'affidabilità dell'oggetto Casa.",
+        "evidence": [
+          "documents=3"
+        ],
+        "confidence": 0.7,
+        "created_at": "2026-08-06T23:19:20.297833+00:00",
+        "source": "deterministic"
+      }
+    ],
+    "health": {
+      "score": 0.86,
+      "label": "healthy",
+      "issues": [
+        "Merge in sospeso"
+      ],
+      "completeness": 1,
+      "reliability": 0.745,
+      "missing_info": [],
+      "opportunities": [
+        "Collegare il mutuo se presente"
+      ],
+      "risks": [
+        "Merge in sospeso"
+      ],
+      "reasons": [
+        "3 documenti collegati migliorano la completezza.",
+        "Chiavi di identità presenti.",
+        "Ci sono proposte di merge non risolte.",
+        "Informazioni essenziali presenti."
+      ],
+      "updated_at": "2026-08-06T23:19:31.504881+00:00",
+      "source": "deterministic"
+    },
+    "identity": {
+      "address": "via roma 10 20100 milano mi"
+    },
+    "state": {
+      "repertorio": "45872",
+      "notaio": "Dott. Paolo Bianchi Neri",
+      "dati_catastali": "Foglio 12 Particella 345 Sub 6 Categoria A/2",
+      "document_type": "contratto",
+      "domain": "casa"
+    },
+    "temporal": {
+      "observations": [
+        "Non ci sono ancora confronti temporali sufficienti su questo oggetto."
+      ],
+      "changes": [],
+      "utility_trend": {
+        "trend": "unknown",
+        "points": 0,
+        "delta": null,
+        "latest": null
+      },
+      "compared_at": "2026-08-06T23:19:25.930046+00:00",
+      "source": "deterministic",
+      "provider": "local-deterministic",
+      "model": "local-deterministic"
+    }
+  },
+  "home_v3_feed": {
+    "enabled": false,
+    "home_ui_enabled": false,
+    "cards": [],
+    "note": "Home V3 PREDISPOSTO — LIFE_OBJECT_HOME_UI_ENABLED=0"
+  }
+}
