@@ -19,16 +19,19 @@ python -m pytest life_objects/tests/ -q
 | Provenance tipizzata | `document_sources` + `total_sources` |
 | Home V3 DTO | campi completi; `enabled=false` |
 | Flag OFF / isolamento / Gemini assente | invariati |
+| Knowledge Model (`test_knowledge_model.py`) | Fact immutabili; hyp→confirm/reject; never_ask_again; supersede fornitore; timeline; isolation |
 
 ## FAIL criteria (ruthless)
 
-Se dopo rogito+mutuo+bolletta il titolo è ancora «Lavoro», o i merge si accumulano senza assimilare → **FAIL**.
+Se dopo rogito+mutuo+bolletta il titolo è ancora «Lavoro», o i merge si accumulano senza assimilare → **FAIL**.  
+Se un Fact può essere hard-deleted, o un'Hypothesis è trattata come Fact senza conferma → **FAIL**.
 
 ## Playwright (shadow API)
 
 ```bash
 cd frontend
 npx playwright test e2e/life-experience-documents.spec.ts -g "SHADOW Life Objects"
+npx playwright test e2e/life-object-knowledge-model.spec.ts
 ```
 
 ## Manuale smoke

@@ -1,5 +1,37 @@
 # ORA — AI Changelog
 
+## 2026-08-07 — Introduce Digital Twin Knowledge Model
+
+### Request
+
+On `feature/life-object-engine` (~`a5b490c`): Digital Twin Knowledge Model — facts/hypotheses/decisions/goals(link)/memory + timeline. Fact never deleted (supersede). Gemini=consultant. Read APIs + minimal write for tests. No Home UX. Commit exact message. No push/merge.
+
+### Actions
+
+- Package `backend/life_objects/knowledge_model/` (models, facts, hypotheses, decisions, memory, timeline, migration, integration, prompts, service)
+- LifeObject fields: `facts`, `hypotheses`, `decisions`, `memory`, `knowledge_migrated`
+- Wire ingest on document create/update; never_ask_again filters on enrichment
+- API: `GET .../facts|hypotheses|decisions|timeline|knowledge`; POST propose/confirm/reject/outcome
+- Home V3 predisposed `knowledge_summary` (flag OFF)
+- Tests: `test_knowledge_model.py` + full suite regression
+- Playwright: `e2e/life-object-knowledge-model.spec.ts`
+- Docs: `LIFE_KNOWLEDGE_MODEL.md`, `DIGITAL_TWIN_MODEL.md`, `FACTS_HYPOTHESES_DECISIONS.md` + LIFE_OBJECT_* / ARCHITECTURE / DEVELOPMENT_STATE
+
+### Results
+
+- pytest `life_objects/tests/`: **31 passed**
+- FAIL criteria: Fact hard-delete blocked; hypotheses not auto-promoted; supplier supersede keeps history
+- Home UX: **unchanged**
+- Commit: `feat: introduce Digital Twin Knowledge Model` (no push)
+
+### Open
+
+- Confirm/reject UI not shipped
+- Conversation → knowledge hooks partial
+- Home V3 UI off
+
+---
+
 ## 2026-08-07 — Harden Life Object semantic integrity and AI validation
 
 ### Request

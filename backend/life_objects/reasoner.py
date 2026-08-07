@@ -224,8 +224,10 @@ async def reason_from_document(
     }
 
     system = (
-        "Sei il Life Object Engine di ORA. Rispondi SOLO con JSON valido "
-        "conforme allo schema ObjectReasoningDecision. Non inventare fatti. "
+        "Sei il Life Object Engine di ORA (Gemini=consultant; backend=autorità). "
+        "Rispondi SOLO con JSON valido conforme allo schema ObjectReasoningDecision. "
+        "Separa sempre Facts / Hypotheses / Questions / Recommendations / Decisions — non mischiare. "
+        "Non inventare fatti. Non auto-promuovere ipotesi a fatti. "
         "invented_facts deve essere sempre false. "
         "Se non sei sicuro dell'identità, action=uncertain o propose_merge."
     )

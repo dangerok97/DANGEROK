@@ -7,6 +7,12 @@ from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from life_objects.knowledge_model.models import (
+    KnowledgeDecision,
+    KnowledgeFact,
+    KnowledgeHypothesis,
+    MemoryEvent,
+)
 from life_objects.types import LIFE_OBJECT_TYPES, LifeObjectStatus, LifeObjectType
 
 
@@ -170,7 +176,14 @@ class LifeObject(BaseModel):
     goals: List[str] = Field(default_factory=list)
     projects: List[str] = Field(default_factory=list)
     brain_nodes: List[str] = Field(default_factory=list)
-    knowledge: Dict[str, Any] = Field(default_factory=dict)
+    knowledge: Dict[str, Any] = Field(default_factory=dict)  # legacy bag
+    # Digital Twin Knowledge Model — five independent sections
+    facts: List[KnowledgeFact] = Field(default_factory=list)
+    hypotheses: List[KnowledgeHypothesis] = Field(default_factory=list)
+    decisions: List[KnowledgeDecision] = Field(default_factory=list)
+    # goals: List[str] already above — link-only, no Goal Engine duplication
+    memory: List[MemoryEvent] = Field(default_factory=list)
+    knowledge_migrated: bool = False
     history: List[LifeObjectHistoryEntry] = Field(default_factory=list)
     # Legacy bag — kept; migrated non-destructively into identity / state
     properties: Dict[str, Any] = Field(default_factory=dict)
