@@ -1,49 +1,45 @@
 # ORA — Development State
 
-Last updated: 2026-08-07 (Digital Twin Knowledge Model)
+Last updated: 2026-08-07 (ORA Quiet Premium Design System v1)
 
 ## Branch
 
-- Active: `feature/life-object-engine` (tip ~`a5b490c` + knowledge model commit)
-- No push / no merge
+- Active: `feature/ora-quiet-premium-design-system`
+- Base: `feature/life-object-engine`
+- No push / no merge unless requested
 
-## Digital Twin Knowledge Model (this batch)
+## ORA Quiet Premium Design System (this batch)
 
-**Framing:** cinque sezioni indipendenti su ogni Life Object. Gemini=consultant; backend=autorità. **Fact mai cancellato.** Home UX **invariata**.
-
-| Item | Stato |
-|------|--------|
-| Package `life_objects/knowledge_model/` | **implemented** |
-| Facts (supersede/archive, no delete) | **implemented** |
-| Hypotheses (confirm→Fact, reject) | **implemented** |
-| Decisions + never_ask_again | **implemented** |
-| Goals link-only | **yes** (no Goal Engine dup) |
-| Memory narrativa + Timeline semantica | **implemented** |
-| Assimilation / upsert → Fact o Hypothesis | **wired** |
-| Migration identity/state → knowledge | **non-destructive** |
-| API read + write minimi test | **implemented** |
-| Home V3 `knowledge_summary` | **PREDISPOSTO** (flag OFF) |
-| Tests knowledge + regression | **31 passed** (`life_objects/tests/`) |
-| Playwright knowledge API | `e2e/life-object-knowledge-model.spec.ts` |
-| Home UX / schermata Life Objects | **NON toccata** |
-
-## Prior — Life Object Engine v2 (ancora valido)
+**Scope:** frontend design system only. Backend / ranking / Action / Conversation / Home logic **not** modified.
 
 | Item | Stato |
 |------|--------|
-| Semantic Validator / titles / registry / gaps / assimilation | **implemented** |
-| Link states / Health 2.0 / provenance | **implemented** |
-| `LIFE_OBJECT_ENGINE_ENABLED=1` / `HOME_UI=0` | **yes** |
+| Semantic color system (light + dark) | **implemented** |
+| Accent Deep Indigo | **yes** (`#3D4A8C`) |
+| Typography / spacing / radius / shadows / motion / haptics / icons | **implemented** |
+| ThemeProvider (light / dark / system) | **wired** in `app/_layout.tsx` |
+| Legacy token aliases (`brand`, `onSurface`, …) | **kept** — existing screens compile |
+| UI primitives (`src/components/ui/*`) | **available**, not adopted everywhere |
+| `design_guidelines.json` Quiet Premium | **updated** |
+| Screen restyle (Home, Login, …) | **Prompt 2** — not this PR |
+
+## Prior — Digital Twin / Life Object Engine (ancora valido)
+
+| Item | Stato |
+|------|--------|
+| Life Object Engine + Knowledge Model | **implemented** (shadow) |
+| `LIFE_OBJECT_HOME_UI_ENABLED=0` | **yes** — Home UX invariata lato prodotto |
+| Facts never deleted | **yes** |
 
 ## Open / next
 
-1. Home V3 UI — solo con flag=1 — **non fare ora**
-2. UX confirm/reject ipotesi (oggi API interna)
-3. Hook conversazione → facts/hypotheses
-4. Non aggiungere Email / Open Banking / WhatsApp / Weather qui
+1. **Prompt 2** — adopt Quiet Premium primitives on Login / Home chrome / tab bar (no business logic)
+2. Theme toggle in Profilo settings
+3. Migrate StyleSheet.create screens from static `tokens` → `useTheme()` gradually
+4. Home V3 UI — solo con flag=1 — **non fare ora**
 
 ## Credentials / safety
 
 - Never commit `.env` / tokens
 - CI green senza secret; Gemini gated / fallback
-- AI cannot invent facts; no silent Casa 2; Facts immutable history
+- No new UI libraries added

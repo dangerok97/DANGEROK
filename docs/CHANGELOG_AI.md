@@ -1,5 +1,32 @@
 # ORA — AI Changelog
 
+## 2026-08-07 — ORA Quiet Premium Design System (Visual Foundation v1)
+
+### Request
+
+PROMPT 1 — Design System + Tokens + Primitives + Theming. Leave backend / ranking / Action / Conversation / Home logic untouched. Language: ORA Quiet Premium (Apple HIG; Deep Indigo; light+dark designed; glass chrome-only).
+
+### Actions
+
+- Rewrote `frontend/src/theme/*`: palettes, typography, spacing, radius, shadows, motion, haptics, icons, tokens (legacy aliases), ThemeProvider, responsive helpers
+- Added UI primitives under `frontend/src/components/ui/` (AppScreen, AppCard, AppButton variants, IconButton, FAB, headers, ListItem, inputs, Chip, Badge, Divider, Glass/BottomSheet, Skeleton, Empty/Error, Avatar, Metric, TimelineDot)
+- Wired `ThemeProvider` in `frontend/app/_layout.tsx`
+- Updated `design_guidelines.json` + PRODUCT / ARCHITECTURE / DEVELOPMENT_STATE
+
+### Results
+
+- Existing screens keep working via legacy token aliases (`brand`→accent, `onSurface`→textPrimary, …)
+- Static `tokens` defaults to dark Quiet Premium (deep surfaces, not #000)
+- Primitives available; not mass-migrated yet
+
+### Open
+
+- Prompt 2: restyle key screens + tab bar glass with new primitives
+- Profile theme toggle UI
+- Gradual `useTheme()` migration off static StyleSheet colors
+
+---
+
 ## 2026-08-07 — Introduce Digital Twin Knowledge Model
 
 ### Request

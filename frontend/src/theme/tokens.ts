@@ -1,79 +1,150 @@
 /**
- * ORA Design Tokens — dark-first, monochromatic, Apple HIG inspired.
- * Semantic colors are consistent between fill/on/soft variants so components
- * can express state (info/success/warning/error) without hard-coded hex values.
+ * ORA Quiet Premium — design tokens (static export for StyleSheet compat).
+ *
+ * New semantic names live alongside legacy aliases so existing screens keep working.
+ * Dynamic light/dark resolution goes through ThemeProvider + useTheme().
+ * Static `tokens` defaults to the dark Quiet Premium palette (deep surfaces, Deep Indigo accent).
  */
+
+import { darkColors, lightColors, type SemanticColors } from './palettes';
+import { spacing as spacingScale } from './spacing';
+import { radius as radiusScale } from './radius';
+import { typography, fsLegacy } from './typography';
+import { motion as motionTokens } from './motion';
+import { iconSize, iconStroke } from './icons';
+import { getShadows } from './shadows';
+
+export type { SemanticColors };
+export { darkColors, lightColors, ACCENT_DEEP_INDIGO } from './palettes';
+export { typography } from './typography';
+export { spacing as spacingScale } from './spacing';
+export { radius as radiusScale } from './radius';
+export { motion as motionTokens } from './motion';
+export { haptics, triggerHaptic } from './haptics';
+export { iconSize, iconStroke } from './icons';
+export { getShadows, shadowStyle } from './shadows';
+
+/** Map semantic palette → color object with legacy aliases */
+export function colorsFromPalette(c: SemanticColors) {
+  return {
+    // —— New Quiet Premium semantic ——
+    backgroundPrimary: c.backgroundPrimary,
+    backgroundSecondary: c.backgroundSecondary,
+    surface: c.surface,
+    surfaceElevated: c.surfaceElevated,
+    surfaceGlass: c.surfaceGlass,
+    divider: c.divider,
+    border: c.border,
+    borderStrong: c.borderStrong,
+    textPrimary: c.textPrimary,
+    textSecondary: c.textSecondary,
+    textTertiary: c.textTertiary,
+    placeholder: c.placeholder,
+    success: c.success,
+    warning: c.warning,
+    error: c.error,
+    info: c.info,
+    successBg: c.successBg,
+    warningBg: c.warningBg,
+    errorBg: c.errorBg,
+    infoBg: c.infoBg,
+    accent: c.accent,
+    onAccent: c.onAccent,
+    accentMuted: c.accentMuted,
+    focusGlow: c.focusGlow,
+    scrim: c.scrim,
+    skeleton: c.skeleton,
+    skeletonShine: c.skeletonShine,
+
+    // —— Legacy aliases (do not remove — used across app) ——
+    surfaceSecondary: c.backgroundSecondary,
+    surfaceTertiary: c.surface,
+    surfaceQuaternary: c.surfaceElevated,
+    onSurface: c.textPrimary,
+    onSurfaceMuted: c.textSecondary,
+    onSurfaceDim: c.textTertiary,
+    brand: c.accent,
+    onBrand: c.onAccent,
+  } as const;
+}
+
+/** Legacy spacing keys preserved for StyleSheet.create consumers */
+const legacySpacing = {
+  xs: 4,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 24,
+  xxl: 32,
+  xxxl: 48,
+  // New scale also available by number-like names
+  '4': spacingScale[4],
+  '8': spacingScale[8],
+  '12': spacingScale[12],
+  '16': spacingScale[16],
+  '20': spacingScale[20],
+  '24': spacingScale[24],
+  '32': spacingScale[32],
+  '40': spacingScale[40],
+  '48': spacingScale[48],
+  '64': spacingScale[64],
+  '80': spacingScale[80],
+} as const;
+
+const legacyRadius = {
+  xs: radiusScale.xs,
+  sm: radiusScale.sm,
+  md: radiusScale.md,
+  lg: radiusScale.lg,
+  xl: radiusScale.xl,
+  '2xl': radiusScale['2xl'],
+  full: radiusScale.full,
+  pill: radiusScale.pill,
+} as const;
+
+const legacyMotion = {
+  fast: motionTokens.duration.fast,
+  base: motionTokens.duration.normal,
+  normal: motionTokens.duration.normal,
+  slow: motionTokens.duration.slow,
+  hero: motionTokens.duration.hero,
+  press: motionTokens.press,
+  fadeIn: motionTokens.fadeIn,
+  sheet: motionTokens.sheet,
+  pressScale: motionTokens.pressScale,
+  stagger: motionTokens.stagger,
+  curve: motionTokens.curve,
+} as const;
+
 export const tokens = {
-  color: {
-    // Surfaces
-    surface: '#000000',
-    surfaceSecondary: '#121212',
-    surfaceTertiary: '#1C1C1E',
-    surfaceQuaternary: '#242426',
-    surfaceElevated: '#1A1A1C',
-
-    // Text
-    onSurface: '#F2F2F2',
-    onSurfaceMuted: '#8E8E93',
-    onSurfaceDim: '#6B6B70',
-
-    // Brand (light-on-dark)
-    brand: '#FAFAFA',
-    onBrand: '#000000',
-
-    // Borders
-    border: '#2C2C2E',
-    borderStrong: '#3A3A3C',
-    divider: '#2C2C2E',
-
-    // Semantic — foreground
-    success: '#30D158',
-    warning: '#FF9F0A',
-    error: '#FF453A',
-    info: '#0A84FF',
-
-    // Semantic — background (soft tints for banners / chips)
-    successBg: '#0F2A15',
-    warningBg: '#2E1F09',
-    errorBg: '#2E1414',
-    infoBg: '#0C1E33',
-
-    // Overlays
-    scrim: 'rgba(0,0,0,0.55)',
-    skeleton: '#1A1A1C',
-    skeletonShine: '#26262A',
-  },
-  spacing: {
-    xs: 4,
-    sm: 8,
-    md: 12,
-    lg: 16,
-    xl: 24,
-    xxl: 32,
-    xxxl: 48,
-  },
-  radius: {
-    sm: 6,
-    md: 12,
-    lg: 20,
-    xl: 28,
-    pill: 999,
-  },
-  fs: {
-    sm: 12,
-    base: 14,
-    lg: 16,
-    xl: 20,
-    xxl: 24,
-    xxxl: 32,
-    display: 40,
-  },
-  motion: {
-    fast: 180,
-    base: 240,
-    slow: 320,
-  },
+  language: 'ORA Quiet Premium' as const,
+  color: colorsFromPalette(darkColors),
+  colorLight: colorsFromPalette(lightColors),
+  colorDark: colorsFromPalette(darkColors),
+  spacing: legacySpacing,
+  radius: legacyRadius,
+  fs: fsLegacy,
+  typography,
+  motion: legacyMotion,
   touch: {
     min: 44,
   },
+  icon: {
+    size: iconSize,
+    stroke: iconStroke,
+  },
+  shadow: getShadows('dark'),
+  shadowLight: getShadows('light'),
+  responsive: {
+    phoneMax: 767,
+    tabletMax: 1023,
+    desktopMin: 1024,
+  },
+  a11y: {
+    minTouch: 44,
+    preferReducedMotionKey: 'reduceMotion',
+  },
 } as const;
+
+export type AppTokens = typeof tokens;
+export type AppColorTokens = ReturnType<typeof colorsFromPalette>;

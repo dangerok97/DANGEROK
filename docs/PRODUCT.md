@@ -1,10 +1,14 @@
 # ORA — Product (struttura reale)
 
-Ultimo aggiornamento: 2026-08-07 — Life Object Engine v2 Semantic Integrity (Home UX invariata).
+Ultimo aggiornamento: 2026-08-07 — ORA Quiet Premium Design System (Visual Foundation v1).
 
 ## Vision
 
 ORA è il sistema operativo della vita quotidiana: riduce il carico cognitivo mostrando **cosa fare adesso**, con decisioni ordinate, memoria personale e documenti.
+
+## Design — ORA Quiet Premium
+
+Linguaggio visivo **calmo, editoriale, premium** (Apple HIG; riferimenti Calendar/Journal/Reminders/Health, Things 3, Notion Mobile, Arc Search, Day One — non Linear). Accent **Deep Indigo**. Temi Light / Dark / System. Primitive UI disponibili in `frontend/src/components/ui/` (adozione graduale; schermate esistenti restano compatibili via alias token). Glass solo su tab bar / sheet / controlli floating.
 
 I **Life Objects** (Casa, Auto, Università, Lavoro, …) sono il **modello vivente della realtà dell’utente**. L’AI (Gemini) è **consultant**; il backend è **autorità** su tipo, titolo, merge e campi (Semantic Validator prima del persist). Conversation, Goal, Documents, Brain, Proactive e Home **continuano a esistere** come satelliti. Aggiornamenti **shadow**; Home resta Goal-aware; Home V3 oggetti solo predisposta (`LIFE_OBJECT_HOME_UI_ENABLED=0`).
 

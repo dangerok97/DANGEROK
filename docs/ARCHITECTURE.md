@@ -45,7 +45,7 @@ Enrichment backend: narrative versionata, questions, insights, temporal, health 
 | DB | MongoDB via Motor |
 | Auth | JWT ORA (HS256) + bcrypt; Google/Apple ID-token verify (`backend/social_auth/`); Emergent bridge legacy optional |
 | LLM | Provider Manager `backend/llm/` — Gemini (default) → OpenAI → Ollama → Emergent; failover automatico; non required at boot |
-| Design tokens | `design_guidelines.json`, `frontend/src/theme/tokens.ts` |
+| Design system | **ORA Quiet Premium** — `design_guidelines.json`, `frontend/src/theme/*` (tokens, palettes light/dark, ThemeProvider, motion/haptics/shadows), primitives in `frontend/src/components/ui/` |
 | Local deps | `backend/requirements-local.txt` (Emergent CDN packages excluded) |
 
 ## Repository map
@@ -93,7 +93,8 @@ frontend/
   src/components/home/v2 # Home V2 blocks
   src/action-engine/     # ActionEngine.open(item) central entry
   src/conversation-engine/ # ConversationEngine.start → bridges to AE UI
-  src/theme/tokens.ts
+  src/theme/          # Quiet Premium: tokens, palettes, ThemeProvider, motion, haptics, shadows
+  src/components/ui/  # Design primitives (AppScreen, AppCard, AppButton, …) + legacy ActionBtn
 docs/                    # CONVERSATION_ENGINE_* + ACTION_ENGINE_* + HOME_V2_* + …
 scripts/                 # local automation
 .emergent/               # legacy Emergent runtime (non-portable)
