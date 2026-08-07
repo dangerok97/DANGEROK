@@ -1,9 +1,10 @@
 # ORA — Architecture
 
-## Life Object Engine — modello canonico (SHADOW + Semantic Integrity v2, 2026-08-07)
+## Life Object Engine — modello canonico (SHADOW + Semantic Integrity + Digital Twin Knowledge, 2026-08-07)
 
-**Life Objects = verità canonica sulla realtà dell’utente** (HOME, VEHICLE, UNIVERSITY, JOB, …).  
-**Gemini = consultant; backend = autorità** (Semantic Validator sempre prima del persist).  
+**Life Objects = verità canonica sulla realtà dell’utente** (HOME, VEHICLE, UNIVERSITY, JOB, …).
+**Gemini = consultant; backend = autorità** (Semantic Validator sempre prima del persist).
+**Digital Twin Knowledge Model:** `facts` / `hypotheses` / `decisions` / `goals`(link) / `memory` + timeline semantica. **Fact mai cancellato** (supersede/archive). Hypothesis mai auto-promossa.
 Conversation, Goal, Documents, Brain, Proactive, Home, Travel, Study **continuano a esistere**: non vengono eliminati. Diventano **satelliti / fonti** che leggono e aggiornano i Life Object — non posseggono più “la verità” da soli.
 Enrichment backend: narrative versionata, questions, insights, temporal, health spiegabile; split **identity / state**. Gemini opzionale via Provider Manager; fallback italiano deterministico.
 
@@ -16,12 +17,12 @@ Enrichment backend: narrative versionata, questions, insights, temporal, health 
    Life Experience Travel/Study Home (ancora Goal-aware; V3 UI OFF)
 ```
 
-- Package: `backend/life_objects/` — models, repository, service, reasoner, enrichment, semantic_validator, title_generator, property_registry, assimilation, link_states, knowledge_gaps, provenance, identity_state, home_v3, dedupe, linking, memory, router, shadow hooks
-- Pipeline: Document → OCR → Document AI → Life Object AI → **Semantic Validator** → Canonical Object
+- Package: `backend/life_objects/` — models, repository, service, reasoner, enrichment, semantic_validator, title_generator, property_registry, assimilation, link_states, knowledge_gaps, **knowledge_model/**, provenance, identity_state, home_v3, dedupe, linking, memory, router, shadow hooks
+- Pipeline: Document → OCR → Document AI → Life Object AI → **Semantic Validator** → **Knowledge ingest** → Canonical Object
 - Flags: `LIFE_OBJECT_ENGINE_ENABLED=1` (shadow ON), `LIFE_OBJECT_HOME_UI_ENABLED=0` (UX invariata), `LIFE_OBJECT_GEMINI=1` (fallback se assente)
-- Collection: `life_objects` (`identity`/`state`/`narrative`/`insights`/`temporal`/`health` 2.0 + typed provenance)
-- API: `/api/life-objects/*` + narrative/questions/insights/health/history/enrich + `home-v3-feed` (auth; unused by main UI)
-- Docs: `LIFE_OBJECT_ENGINE.md`, `LIFE_OBJECT_REASONING.md`, `LIFE_OBJECT_ARCHITECTURE.md`, `LIFE_OBJECT_VERIFICATION.md`
+- Collection: `life_objects` (`identity`/`state`/`facts`/`hypotheses`/`decisions`/`memory`/`narrative`/`insights`/`temporal`/`health` 2.0 + typed provenance)
+- API: `/api/life-objects/*` + narrative/questions/insights/health/history/enrich + **`/{id}/facts|hypotheses|decisions|timeline|knowledge`** + minimal confirm/reject/outcome + `home-v3-feed` (auth; unused by main UI)
+- Docs: `LIFE_OBJECT_*`, `LIFE_KNOWLEDGE_MODEL.md`, `DIGITAL_TWIN_MODEL.md`, `FACTS_HYPOTHESES_DECISIONS.md`
 - **Home V3 Life Objects = PREDISPOSTO, non shippato.** Home resta Goal-aware.
 
 ## Life Experience / Strategist (2026-08-06)
@@ -129,7 +130,7 @@ Health:
 - Mongo: `study_plans`, `study_sessions` (UTC; default TZ Europe/Rome)
 - Goal Engine (shadow + Home context; **no Goal UX**): `GET/POST/PATCH/DELETE /api/goals`, `POST /api/goals/search|merge`, `POST /api/goals/{id}/archive`, `GET /api/goals/{id}/timeline`
 - Mongo: `goals`, `goal_events` — Study/Travel confirm upserts Goals when `GOAL_ENGINE_ENABLED=1`
-- Life Object Engine (shadow + enrichment): `GET/POST/PATCH/DELETE /api/life-objects`, search/merge/link/reason/trend/status; `/{id}/narrative|questions|insights|health|history|relationships|temporal` + refresh/enrich; `GET /home-v3-feed` (OFF). Mongo `life_objects`. Shadow hooks from Documents consume, Goal upsert, Travel/Study confirm → best-effort enrich. `LIFE_OBJECT_HOME_UI_ENABLED=0` → no Home UX change.
+- Life Object Engine (shadow + enrichment + Digital Twin Knowledge): `GET/POST/PATCH/DELETE /api/life-objects`, search/merge/link/reason/trend/status; `/{id}/narrative|questions|insights|health|history|relationships|temporal` + refresh/enrich; `/{id}/facts|hypotheses|decisions|timeline|knowledge` (+ confirm/reject/outcome write minimi); `GET /home-v3-feed` (OFF). Mongo `life_objects`. Shadow hooks from Documents consume, Goal upsert, Travel/Study confirm → best-effort enrich + knowledge ingest. `LIFE_OBJECT_HOME_UI_ENABLED=0` → no Home UX change.
 - Proactive Engine: `GET/POST /api/suggestions/*` (list, regenerate, search, dismiss/accept/complete/snooze/explain); Mongo `proactive_suggestions`, `proactive_learning`. Email/Finance/Weather/Health/WhatsApp **predisposed only** — never invent facts.
 
 ## Local topology

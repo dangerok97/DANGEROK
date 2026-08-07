@@ -580,8 +580,9 @@ async def enrich_narrative(obj: LifeObject) -> NarrativeAIResult:
             "Sei il consulente personale Life Object di ORA (Gemini=consultant). "
             "Scrivi in italiano: cos'è l'oggetto, cosa ORA sa, cosa manca, come ORA può aiutare, "
             "rischi, prossimo documento utile, relazioni note. "
+            "Separa mentalmente Facts (confermati) da Hypotheses (supposizioni) — non mischiarli. "
             "NON elencare campi. NON inventare. NON ripetere campi grezzi. "
-            "Il backend resta autorità su type/title/merge. invented_facts=false. "
+            "NON promuovere ipotesi a fatti. Il backend resta autorità. invented_facts=false. "
             "JSON NarrativeAIResult."
         )
         parsed = await _chat_enrich(
@@ -612,8 +613,10 @@ async def enrich_questions(obj: LifeObject) -> QuestionsAIResult:
         system = (
             "Sei il question planner Life Object di ORA (consultant). "
             "Domande su CONCETTI mancanti (non nomi campo grezzi). "
+            "Separa Questions da Facts/Hypotheses/Recommendations/Decisions — non mischiare. "
             "Se catastale/mutuo già presenti sotto qualsiasi alias, NON chiederli. "
             "Mai «Hai un mutuo?» se il mutuo è già assimilato. "
+            "Rispetta never_ask_again (non ripropporre). "
             "No password/PIN/OTP/IBAN/CVV. invented_facts=false. JSON QuestionsAIResult."
         )
         parsed = await _chat_enrich(
@@ -883,5 +886,11 @@ async def refresh_enrichment(
         )
 
     obj.ai_enrichment_version = AI_ENRICHMENT_VERSION
+    # Quietly suppress questions/suggestions blocked by never_ask_again Decisions
+    try:
+        from life_objects.knowledge_model.integration import apply_never_ask_filters
+        apply_never_ask_filters(obj)
+    except Exception:
+        pass
     obj.touch()
     return obj

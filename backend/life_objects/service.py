@@ -383,6 +383,92 @@ class LifeObjectService:
         feed = serialize_home_v3_feed(objs)
         return feed or {"enabled": False, "cards": []}
 
+    # --- Digital Twin Knowledge Model (read + minimal write) ----------
+
+    def _knowledge(self):
+        from life_objects.knowledge_model.service import KnowledgeModelService
+        return KnowledgeModelService(self.repo)
+
+    async def get_facts(self, user_id: str, object_id: str) -> Dict[str, Any]:
+        return await self._knowledge().get_facts(user_id, object_id)
+
+    async def get_hypotheses(self, user_id: str, object_id: str) -> Dict[str, Any]:
+        return await self._knowledge().get_hypotheses(user_id, object_id)
+
+    async def get_decisions_km(self, user_id: str, object_id: str) -> Dict[str, Any]:
+        return await self._knowledge().get_decisions(user_id, object_id)
+
+    async def get_timeline_km(self, user_id: str, object_id: str) -> Dict[str, Any]:
+        return await self._knowledge().get_timeline(user_id, object_id)
+
+    async def get_knowledge_bundle(self, user_id: str, object_id: str) -> Dict[str, Any]:
+        return await self._knowledge().get_knowledge(user_id, object_id)
+
+    async def propose_hypothesis(
+        self,
+        user_id: str,
+        object_id: str,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        return await self._knowledge().propose_hypothesis(user_id, object_id, **kwargs)
+
+    async def confirm_hypothesis(
+        self,
+        user_id: str,
+        object_id: str,
+        *,
+        hypothesis_id: str,
+        verified_by: str = "user",
+    ) -> Dict[str, Any]:
+        return await self._knowledge().confirm_hypothesis(
+            user_id, object_id, hypothesis_id=hypothesis_id, verified_by=verified_by,
+        )
+
+    async def reject_hypothesis(
+        self,
+        user_id: str,
+        object_id: str,
+        *,
+        hypothesis_id: str,
+        reason: str = "",
+    ) -> Dict[str, Any]:
+        return await self._knowledge().reject_hypothesis(
+            user_id, object_id, hypothesis_id=hypothesis_id, reason=reason,
+        )
+
+    async def set_knowledge_decision_outcome(
+        self,
+        user_id: str,
+        object_id: str,
+        *,
+        decision_id: str,
+        outcome: str,
+        user_choice: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        return await self._knowledge().set_decision_outcome(
+            user_id, object_id,
+            decision_id=decision_id, outcome=outcome, user_choice=user_choice,
+        )
+
+    async def propose_knowledge_decision(
+        self,
+        user_id: str,
+        object_id: str,
+        *,
+        title: str,
+        reason: str = "",
+        benefit: str = "",
+        risk: str = "",
+        alternatives: Optional[List[str]] = None,
+        ai_reasoning: str = "",
+        kind: str = "suggestion",
+    ) -> Dict[str, Any]:
+        return await self._knowledge().propose_decision(
+            user_id, object_id,
+            title=title, reason=reason, benefit=benefit, risk=risk,
+            alternatives=alternatives, ai_reasoning=ai_reasoning, kind=kind,
+        )
+
     # --- Shadow upserts ----------------------------------------------
 
     async def upsert_from_document(
@@ -652,6 +738,32 @@ class LifeObjectService:
         if document_id:
             link_document(obj, document_id)
         self._apply_decision_side_effects(obj, decision)
+        try:
+            from life_objects.knowledge_model.integration import (
+                apply_never_ask_filters,
+                elevate_suggestions_to_decisions,
+                ingest_properties_into_knowledge,
+            )
+
+            ingest_properties_into_knowledge(
+                obj,
+                properties=decision.properties_delta or {},
+                source="document",
+                source_id=document_id,
+                document_type=doc_type,
+                confidence=float(decision.confidence or 0.5),
+                link_state="LINK_CONFIRMED",
+                reason_summary=decision.reason_summary or "",
+            )
+            if decision.suggested_actions:
+                elevate_suggestions_to_decisions(
+                    obj,
+                    list(decision.suggested_actions or []),
+                    ai_reasoning=decision.reason_summary or "",
+                )
+            apply_never_ask_filters(obj)
+        except Exception:
+            logger.info("knowledge_model create ingest soft-fail", exc_info=True)
         append_history(
             obj,
             event="created",
@@ -1084,6 +1196,35 @@ class LifeObjectService:
             obj.projects.append(source_id)
         if decision is not None:
             self._apply_decision_side_effects(obj, decision)
+        # Digital Twin Knowledge Model — Facts vs Hypotheses (never auto-promote)
+        try:
+            from life_objects.knowledge_model.integration import (
+                apply_never_ask_filters,
+                elevate_suggestions_to_decisions,
+                ingest_properties_into_knowledge,
+            )
+
+            conf = float(decision.confidence) if decision is not None else float(obj.confidence or 0.5)
+            ingest_properties_into_knowledge(
+                obj,
+                properties=properties or {},
+                source=source,
+                source_id=source_id,
+                document_type=doc_type,
+                confidence=conf,
+                link_state=link_state or (obj.last_validation or {}).get("link_state"),
+                verified=False,
+                reason_summary=(decision.reason_summary if decision else "") or "",
+            )
+            if decision is not None and decision.suggested_actions:
+                elevate_suggestions_to_decisions(
+                    obj,
+                    list(decision.suggested_actions or []),
+                    ai_reasoning=decision.reason_summary or "",
+                )
+            apply_never_ask_filters(obj)
+        except Exception:
+            logger.info("knowledge_model ingest soft-fail", exc_info=True)
         append_history(
             obj,
             event="updated",

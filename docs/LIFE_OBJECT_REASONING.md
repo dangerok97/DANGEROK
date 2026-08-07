@@ -24,8 +24,15 @@ Assimilation (mutuo/bolletta → HOME.state) se quiet link
         ↓
 Semantic Validator (type, canonical title, registry map)
         ↓
+Knowledge Model ingest (Fact se path verificato, else Hypothesis; memory + decisions)
+        ↓
 Persist + Enrichment (narrative / gaps / insights / temporal / health 2.0)
 ```
+
+## Separazione Knowledge (prompt Gemini)
+
+Sempre sezioni distinte: **Facts / Hypotheses / Questions / Recommendations / Decisions**.  
+Mai auto-promuovere Hypothesis → Fact. Fact storici immutabili (supersede only).
 
 ## Titoli canonici (deterministici)
 

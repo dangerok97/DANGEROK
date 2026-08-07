@@ -147,6 +147,23 @@ def to_home_v3_card(obj: Dict[str, Any]) -> Dict[str, Any]:
         "related_documents": list(obj.get("document_sources") or obj.get("documents") or []),
         "related_goals": list(obj.get("goal_sources") or obj.get("goals") or []),
         "related_projects": list(obj.get("projects") or []),
+        # Digital Twin Knowledge Model — PREDISPOSTO (no Home UX change)
+        "knowledge_summary": {
+            "facts_count": len(obj.get("facts") or []),
+            "hypotheses_count": len(obj.get("hypotheses") or []),
+            "decisions_count": len(obj.get("decisions") or []),
+            "memory_count": len(obj.get("memory") or []),
+            "active_facts": [
+                {"type": f.get("type"), "value": f.get("value"), "status": f.get("status")}
+                for f in (obj.get("facts") or [])
+                if isinstance(f, dict) and f.get("status") == "current" and f.get("active")
+            ][:8],
+            "active_hypotheses": [
+                {"type": h.get("type"), "value": h.get("value"), "confidence": h.get("confidence")}
+                for h in (obj.get("hypotheses") or [])
+                if isinstance(h, dict) and h.get("status") == "active"
+            ][:5],
+        },
         # Compact legacy
         "top_insight": (insights[0].get("title") if insights and isinstance(insights[0], dict) else None),
         "pending_question": (

@@ -18,7 +18,7 @@ Il Validator gira **sempre** prima del persist.
 
 ```
 backend/life_objects/
-  models.py               # LifeObject + Health 2.0 + provenance
+  models.py               # LifeObject + Health 2.0 + provenance + knowledge sections
   types.py                # type catalog + DOC_TYPE_TO_OBJECT
   repository.py           # Mongo life_objects
   deduplication.py        # strong keys + soft address
@@ -29,15 +29,21 @@ backend/life_objects/
   assimilation.py         # mutuo/bolletta → HOME.state
   link_states.py          # 4 stati link/merge
   knowledge_gaps.py       # gap su concetti
+  knowledge_model/        # Digital Twin: facts/hypotheses/decisions/memory/timeline
   provenance.py           # fonti tipizzate
   reasoner.py             # Gemini consultant + fallback
   enrichment.py           # narrative/questions/insights/temporal/health 2.0
   linking.py / memory.py
-  home_v3.py              # DTO PREDISPOSTO (flag OFF)
-  service.py              # CRUD + shadow + validator
+  home_v3.py              # DTO PREDISPOSTO (flag OFF) + knowledge_summary
+  service.py              # CRUD + shadow + validator + knowledge APIs
   shadow.py / router.py
   tests/
 ```
+
+## Digital Twin sections (per object)
+
+`facts` · `hypotheses` · `decisions` · `goals` (link-only) · `memory` + derived `timeline`  
+**Fact never deleted** (supersede/archive only). See `LIFE_KNOWLEDGE_MODEL.md`.
 
 ## Collection Mongo
 

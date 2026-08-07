@@ -1,8 +1,14 @@
 # Life Object Engine
 
-**Stato:** SHADOW + Semantic Integrity v2 (2026-08-07)  
+**Stato:** SHADOW + Semantic Integrity v2 + **Digital Twin Knowledge Model** (2026-08-07)  
 **Branch:** `feature/life-object-engine`  
 **Home V3 Life Objects UI:** PREDISPOSTO (`LIFE_OBJECT_HOME_UI_ENABLED=0`) — **non shippato**. Home resta Goal-aware.
+
+## Digital Twin Knowledge Model
+
+Layer interno (`life_objects/knowledge_model/`): **facts | hypotheses | decisions | goals(link) | memory** + timeline semantica.  
+**Fact mai cancellato** (solo supersede/archive). Hypothesis mai auto-promossa a Fact.  
+Dettaglio: `LIFE_KNOWLEDGE_MODEL.md`, `DIGITAL_TWIN_MODEL.md`, `FACTS_HYPOTHESES_DECISIONS.md`.
 
 ## Visione
 
