@@ -1,75 +1,146 @@
 {
   "app_name": "ORA",
-  "personality": "1 iOS-Native Clean (Monochromatic & Dark-First Utility fusion)",
+  "design_language": "ORA Quiet Premium",
+  "personality": "Calm editorial life OS — Apple HIG base, never Linear/dashboard",
   "personality_one_liner": "A calm, intelligent, and timeless life operating system that instantly resolves cognitive load.",
+  "references": [
+    "Apple Calendar",
+    "Apple Journal",
+    "Apple Reminders",
+    "Apple Health",
+    "Things 3",
+    "Notion Mobile",
+    "Arc Search",
+    "Day One"
+  ],
+  "qualities": ["calma", "chiarezza", "fiducia", "spazio", "gerarchia"],
   "color": {
-    "surface": "#000000",
-    "onSurface": "#F2F2F2",
-    "surfaceSecondary": "#121212",
-    "onSurfaceSecondary": "#E5E5E5",
-    "surfaceTertiary": "#1C1C1E",
-    "onSurfaceTertiary": "#D1D1D6",
-    "surfaceInverse": "#FFFFFF",
-    "onSurfaceInverse": "#000000",
-    "brand": "#FAFAFA",
-    "brandPrimary": "#FAFAFA",
-    "onBrandPrimary": "#000000",
-    "brandSecondary": "#2C2C2E",
-    "onBrandSecondary": "#F2F2F2",
-    "brandTertiary": "#3A3A3C",
-    "onBrandTertiary": "#E5E5E5",
-    "success": "#30D158",
-    "onSuccess": "#000000",
-    "warning": "#FF9F0A",
-    "onWarning": "#000000",
-    "error": "#FF453A",
-    "onError": "#000000",
-    "info": "#0A84FF",
-    "onInfo": "#FFFFFF",
-    "border": "#2C2C2E",
-    "borderStrong": "#3A3A3C",
-    "divider": "#2C2C2E"
+    "accent": "#3D4A8C",
+    "accent_name": "Deep Indigo",
+    "onAccent": "#FFFFFF",
+    "light": {
+      "backgroundPrimary": "#F6F4F1",
+      "backgroundSecondary": "#EFECE7",
+      "surface": "#FFFFFF",
+      "surfaceElevated": "#FFFFFF",
+      "surfaceGlass": "rgba(255, 255, 255, 0.78)",
+      "divider": "#E5E2DC",
+      "border": "#DAD6CF",
+      "borderStrong": "#C4C0B8",
+      "textPrimary": "#1C1C1E",
+      "textSecondary": "#5C5C66",
+      "textTertiary": "#8E8E96",
+      "placeholder": "#A1A1AA",
+      "success": "#248A3D",
+      "warning": "#C77C00",
+      "error": "#D70015",
+      "info": "#3D4A8C",
+      "focusGlow": "rgba(61, 74, 140, 0.28)"
+    },
+    "dark": {
+      "backgroundPrimary": "#0E0E12",
+      "backgroundSecondary": "#16161C",
+      "surface": "#1A1A22",
+      "surfaceElevated": "#22222C",
+      "surfaceGlass": "rgba(26, 26, 34, 0.82)",
+      "divider": "#2C2C36",
+      "border": "#2E2E3A",
+      "borderStrong": "#3C3C4A",
+      "textPrimary": "#F4F4F6",
+      "textSecondary": "#A1A1AA",
+      "textTertiary": "#71717A",
+      "placeholder": "#63636E",
+      "success": "#34C759",
+      "warning": "#FF9F0A",
+      "error": "#FF453A",
+      "info": "#5B6CDB",
+      "focusGlow": "rgba(61, 74, 140, 0.45)"
+    },
+    "legacy_aliases": {
+      "surface": "maps to semantic surface / backgroundPrimary depending on context",
+      "brand": "maps to accent (Deep Indigo)",
+      "onBrand": "maps to onAccent",
+      "onSurface": "maps to textPrimary",
+      "onSurfaceMuted": "maps to textSecondary"
+    },
+    "rules": [
+      "Never hardcode colors in components — use semantic tokens.",
+      "Never use pure black #000000 for surfaces.",
+      "Never use electric blue or purple as primary accent.",
+      "Light mode is designed, not inverted dark.",
+      "Glass only for tab bar, bottom sheet, floating controls — never cards."
+    ]
   },
   "typography": {
     "displayFontFamily": "Geist",
     "textFontFamily": "Geist",
     "scale": {
-      "sm": 12,
-      "base": 14,
-      "lg": 16,
-      "xl": 20,
-      "2xl": 24,
-      "3xl": 32
+      "display": { "fontSize": 40, "fontWeight": "700", "lineHeight": 48, "letterSpacing": -1.2 },
+      "hero": { "fontSize": 32, "fontWeight": "700", "lineHeight": 40, "letterSpacing": -0.8 },
+      "title": { "fontSize": 28, "fontWeight": "700", "lineHeight": 34, "letterSpacing": -0.5 },
+      "headline": { "fontSize": 22, "fontWeight": "600", "lineHeight": 28, "letterSpacing": -0.3 },
+      "body": { "fontSize": 17, "fontWeight": "400", "lineHeight": 24, "letterSpacing": -0.2 },
+      "bodySmall": { "fontSize": 15, "fontWeight": "400", "lineHeight": 22, "letterSpacing": -0.1 },
+      "caption": { "fontSize": 13, "fontWeight": "400", "lineHeight": 18, "letterSpacing": 0 },
+      "footnote": { "fontSize": 12, "fontWeight": "400", "lineHeight": 16, "letterSpacing": 0.1 },
+      "label": { "fontSize": 13, "fontWeight": "600", "lineHeight": 18, "letterSpacing": 0.1 },
+      "button": { "fontSize": 16, "fontWeight": "600", "lineHeight": 22, "letterSpacing": -0.2 }
     }
   },
   "spacing": {
-    "rule": "Strict Apple HIG spacing. Generous vertical breathing room, content never feels cramped. 16pt margins globally.",
+    "rule": "Strict Apple HIG spacing. Generous vertical breathing room. Prefer 16–24pt margins.",
+    "scale": [4, 8, 12, 16, 20, 24, 32, 40, 48, 64, 80]
+  },
+  "radius_tokens": {
     "xs": 4,
     "sm": 8,
     "md": 12,
     "lg": 16,
-    "xl": 24,
-    "2xl": 32,
-    "3xl": 48
+    "xl": 20,
+    "2xl": 28,
+    "full": 9999
   },
-  "radius_tokens": {
-    "sm": 6,
-    "md": 12,
-    "lg": 20,
-    "pill": 999
+  "shadows": ["none", "soft", "medium", "floating"],
+  "motion": {
+    "fast": 120,
+    "normal": 220,
+    "slow": 360,
+    "pressScale": 0.97,
+    "stagger": 40
   },
-  "shadow_tier": "1",
+  "iconography": {
+    "set": "Ionicons",
+    "sizes": [16, 20, 24, 28, 32],
+    "stroke": 1.75
+  },
+  "theming": {
+    "modes": ["light", "dark", "system"],
+    "provider": "frontend/src/theme/ThemeProvider.tsx"
+  },
+  "accessibility": {
+    "minTouch": 44,
+    "dynamicType": "prefer semantic typography; avoid fixed tiny labels",
+    "contrast": "high contrast text on surfaces; verify WCAG AA for primary text",
+    "voiceOver": "every interactive control needs accessibilityLabel",
+    "focusOrder": "top-to-bottom, primary action last in card when natural"
+  },
+  "responsive": {
+    "phoneMax": 767,
+    "tabletMax": 1023,
+    "desktopMin": 1024,
+    "contentMaxWidth": { "tablet": 720, "desktop": 840 }
+  },
+  "shadow_tier": "soft-by-default",
   "navigation": "bottom_tabs",
-  "icon_set": "Ionicons",
   "glassmorphism": {
     "enabled": "true",
     "do's": [
       "Use on the bottom tab bar so content scrolls cleanly behind it.",
-      "Use on sticky headers or floating action sheets.",
-      "Keep the blur heavy and the tint background highly opaque (>= 75%)."
+      "Use on bottom sheets and floating controls.",
+      "Keep the blur soft and tint from surfaceGlass semantic token."
     ],
     "dont's": [
-      "Do not use on priority cards or standard list items.",
+      "Do not use glass on priority cards or standard list items.",
       "Do not use behind dense text or inputs."
     ]
   },
@@ -77,7 +148,7 @@
     "glass": {
       "ios": "expo-glass-effect",
       "android": "expo-blur",
-      "low_end_android_fallback": "solid surfaceSecondary"
+      "low_end_android_fallback": "solid surfaceElevated"
     },
     "image": "expo-image",
     "blur": "expo-blur",
@@ -85,26 +156,53 @@
     "animation": "react-native-reanimated",
     "gesture": "react-native-gesture-handler"
   },
+  "primitives": [
+    "AppScreen",
+    "AppCard",
+    "AppButton",
+    "PrimaryButton",
+    "SecondaryButton",
+    "GhostButton",
+    "DangerButton",
+    "IconButton",
+    "FAB",
+    "SectionHeader",
+    "ScreenHeader",
+    "ListItem",
+    "AppInput",
+    "SearchInput",
+    "Chip",
+    "Badge",
+    "Divider",
+    "BottomSheetContainer",
+    "GlassContainer",
+    "LoadingSkeleton",
+    "EmptyState",
+    "ErrorState",
+    "Avatar",
+    "Metric",
+    "TimelineDot"
+  ],
   "screens": [
     {
       "name": "Home",
       "purpose": "Displays max 5 priority cards that demand immediate resolution.",
       "states": {
         "loading": "Subtle skeleton loaders matching the card dimensions.",
-        "empty": "A completely clear screen with a calm, subtle abstract background and a text reading 'Tutto risolto. Goditi il momento.'",
+        "empty": "A completely clear screen with calm space and text reading 'Tutto risolto. Goditi il momento.'",
         "error": "Minimal text warning and a retry action."
       },
-      "layout": "Root is a safe-area ScrollView. Top header shows small 'ORA' above a massive 'Cosa conta adesso' title. Below, a column of cards (flexDirection column, gap lg, 16px horizontal margin). Each card has surfaceSecondary bg, lg radius, 0.5pt border. Inside card: top row with small metadata (e.g., 'Tra 25 min'), big summary text, and a sticky bottom massive 'RISOLVI' button (brandPrimary bg, onBrandPrimary text, 56pt tall, pill or md radius). Tab bar floats at the bottom with glass effect."
+      "layout": "Root is a safe-area ScrollView. Editorial header (small ORA eyebrow, large title). Column of solid AppCards — never glass. Primary action uses Deep Indigo accent. Tab bar floats with glass."
     },
     {
       "name": "Memoria",
       "purpose": "A search-first natural language interface to retrieve personal memory.",
       "states": {
         "loading": "Shimmer effect on result blocks.",
-        "empty": "Empty state shows the focused search bar and 2-3 minimal suggestion chips (e.g., 'Dove ho parcheggiato?').",
+        "empty": "Empty state shows the focused search bar and 2-3 minimal suggestion chips.",
         "error": "Quiet error text below the search bar."
       },
-      "layout": "Keyboard-forward design. The search input is large and positioned centrally or at the top. Once submitted, results appear as calm, borderless text blocks (surfaceSecondary) below. Very minimal UI chrome. Focus is completely on the text query."
+      "layout": "Keyboard-forward, Arc Search inspired. Large SearchInput. Results as calm text blocks. Minimal chrome."
     },
     {
       "name": "Aggiungi",
@@ -114,17 +212,17 @@
         "empty": "N/A",
         "error": "Toast with retry."
       },
-      "layout": "A half-screen Gorhom bottom sheet. Contains 3 massive touch targets for Text, Photo, Document, inside a minimal grid. No clutter."
+      "layout": "Half-screen bottom sheet (GlassContainer / BottomSheetContainer). Three large touch targets. No clutter."
     },
     {
       "name": "Profilo",
-      "purpose": "Settings and placeholders for future Life-OS dashboards.",
+      "purpose": "Settings and placeholders for future Life-OS surfaces.",
       "states": {
         "loading": "N/A",
         "empty": "N/A",
         "error": "N/A"
       },
-      "layout": "Standard iOS grouped lists. surface background, surfaceSecondary list rows with dividers. Sections include: 'Dashboard spese', 'Obiettivi', 'Documenti' as placeholders."
+      "layout": "iOS-style grouped lists on warm/deep background. Theme preference (Light / Dark / System) lives here when wired."
     },
     {
       "name": "Login",
@@ -134,27 +232,36 @@
         "empty": "N/A",
         "error": "Inline error text."
       },
-      "layout": "Massive safe-area top padding. 'ORA' title. The bottom 1/3 of the screen contains the buttons. Apple button uses surfaceInverse, Google uses surfaceSecondary with border. Quiet, elegant."
+      "layout": "Generous top padding. ORA as brand signal. Primary CTA Deep Indigo. Quiet, elegant, never dashboard."
     }
   ],
   "images": {
     "memoria_empty_aura": {
       "url": "https://images.unsplash.com/photo-1654198340681-a2e0fc449f1b?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2MjJ8MHwxfHNlYXJjaHwxfHxtaW5pbWFsaXN0JTIwZGFyayUyMGdyYWRpZW50JTIwYWJzdHJhY3QlMjBhdXJhfGVufDB8fHx8MTc4NTQxNjk0N3ww&ixlib=rb-4.1.0&q=85",
       "dark": "https://images.unsplash.com/photo-1654198340681-a2e0fc449f1b?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2MjJ8MHwxfHNlYXJjaHwxfHxtaW5pbWFsaXN0JTIwZGFyayUyMGdyYWRpZW50JTIwYWJzdHJhY3QlMjBhdXJhfGVufDB8fHx8MTc4NTQxNjk0N3ww&ixlib=rb-4.1.0&q=85",
-      "alt": "Minimalist dark gradient abstract aura"
+      "alt": "Minimalist gradient abstract aura"
     }
   },
   "instructions_to_main_agent": [
-    "Follow the '1 iOS-Native Clean' structure but enforce a strict monochromatic 'Dark-First Utility' palette (like Linear or Nothing). Pure black background (#000000), crisp white (#FAFAFA) for primary accents like the RISOLVI button.",
-    "The app must feel calm and intelligent. Do not add decorative elements, gradients, or unnecessary icons. Text and spacing are the primary design tools.",
-    "Implement the 'RISOLVI' button in the Home cards as a massive, unignorable action button. Min 56pt height, crisp white background (in dark mode), black text.",
-    "Memoria should be a keyboard-forward, Arc Search inspired experience. Auto-focus the input on entry.",
-    "Apply Glassmorphism (@react-native-community/blur or expo-blur / expo-glass-effect) exclusively to the bottom tab bar and bottom sheets. Priority cards should be solid #121212 with a subtle #2C2C2E border.",
-    "Add fluid micro-animations (reanimated): gentle stagger on card entrance, scale-down (0.97) on card and button press, with corresponding haptics.",
-    "Do NOT use indigo, violet, blue, or purple. The palette is strictly neutral/monochrome.",
-    "Use Ionicons. For login buttons, use 'logo-apple' and 'logo-google' from Ionicons or MaterialCommunityIcons instead of fetching images, for a cleaner vector look."
+    "Follow ORA Quiet Premium. Apple HIG is the base. References: Apple Calendar/Journal/Reminders/Health, Things 3, Notion Mobile, Arc Search, Day One — NOT Linear.",
+    "Accent is Deep Indigo (#3D4A8C). Never electric blue, never purple, never pure black surfaces.",
+    "Light and dark are both designed. Use ThemeProvider (light / dark / system). Prefer useTheme()/useColors() for new UI; legacy tokens.* aliases remain for existing screens.",
+    "Never hardcode hex in components. Use semantic tokens from frontend/src/theme.",
+    "Glass only on tab bar, bottom sheets, floating controls. Cards are solid AppCard surfaces.",
+    "No new UI libraries (NativeBase, Tamagui, Paper, UI Kitten, Tailwind UI).",
+    "Primitives in frontend/src/components/ui are available — adopt gradually; do not rewrite all screens in one PR.",
+    "The app must feel calm and intelligent. Space and typography hierarchy over chrome. Never dashboard density.",
+    "Micro-motion: press scale 0.97, gentle stagger, semantic haptics. Prefer reduced-motion when system requests it.",
+    "Accessibility: 44pt min touch, VoiceOver labels, high contrast primary text, Dynamic Type-friendly type scale."
   ],
   "haptics": {
+    "selection": "selection",
+    "success": "notificationSuccess",
+    "warning": "notificationWarning",
+    "error": "notificationError",
+    "impactLight": "impactLight",
+    "impactMedium": "impactMedium",
+    "impactHeavy": "impactHeavy",
     "RISOLVI_button_press": "impactMedium",
     "card_press": "impactLight",
     "tab_change": "selection",
