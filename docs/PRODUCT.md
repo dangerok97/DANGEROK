@@ -1,6 +1,6 @@
 # ORA — Product (struttura reale)
 
-Ultimo aggiornamento: 2026-08-07 — ORA Quiet Premium Design System (Visual Foundation v1).
+Ultimo aggiornamento: 2026-08-07 — ORA Home Quiet Premium V1.
 
 ## Vision
 
@@ -8,7 +8,11 @@ ORA è il sistema operativo della vita quotidiana: riduce il carico cognitivo mo
 
 ## Design — ORA Quiet Premium
 
-Linguaggio visivo **calmo, editoriale, premium** (Apple HIG; riferimenti Calendar/Journal/Reminders/Health, Things 3, Notion Mobile, Arc Search, Day One — non Linear). Accent **Deep Indigo**. Temi Light / Dark / System. Primitive UI disponibili in `frontend/src/components/ui/` (adozione graduale; schermate esistenti restano compatibili via alias token). Glass solo su tab bar / sheet / controlli floating.
+Linguaggio visivo **calmo, editoriale, premium** (Apple HIG; riferimenti Calendar/Journal/Reminders/Health, Things 3, Notion Mobile, Arc Search, Day One — non Linear). Accent **Deep Indigo**. Temi Light / Dark / System. Primitive UI in `frontend/src/components/ui/`. Glass solo su tab bar / sheet / controlli floating.
+
+### Home Quiet Premium V1
+
+La Home risponde a **“Cosa conta per me in questo momento?”** — non è dashboard, widget wall o chat. Gerarchia: Ambient Header → Daily Focus (hero + Focus Glow) → Ask Bar → Focus Horizon → Priorità leggere → Aggiornamenti → Situazione → Continua. Stessi dati `HomeV2Response` / stessi flussi Action Engine e Conversation Engine; solo presentazione.
 
 I **Life Objects** (Casa, Auto, Università, Lavoro, …) sono il **modello vivente della realtà dell’utente**. L’AI (Gemini) è **consultant**; il backend è **autorità** su tipo, titolo, merge e campi (Semantic Validator prima del persist). Conversation, Goal, Documents, Brain, Proactive e Home **continuano a esistere** come satelliti. Aggiornamenti **shadow**; Home resta Goal-aware; Home V3 oggetti solo predisposta (`LIFE_OBJECT_HOME_UI_ENABLED=0`).
 
@@ -21,7 +25,7 @@ Persone che vogliono una priorità unica chiara (non un task manager generico), 
 | Route | Schermata | Ruolo |
 |-------|-----------|--------|
 | `/login` | Login | Auth email/Google/Apple |
-| `/(tabs)` → index | Home V2 “Adesso” | PARLA CON ORA + ranking, ORA TI CONSIGLIA, insights, resume Continua |
+| `/(tabs)` → index | Home Quiet Premium | Daily Focus + Ask Bar + Horizon + priorità/aggiornamenti (stesso ranking API) |
 | `/life-setup` | Life Experience (primo avvio) | Conversazione naturale con ORA (mai wizard/form; poi invisibile; Home mostra benefici) |
 | `/conversation` | Entry Conversation Engine | Bridge a guida AE (mai chat thread) |
 | `/situazione` | Situazione completa | Vista reale da CTA Home |

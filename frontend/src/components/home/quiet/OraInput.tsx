@@ -1,0 +1,164 @@
+/**
+ * Universal Capture / Ask Bar — Conversation Engine entry (never a chat).
+ * Keeps ParlaConOra testIDs for e2e compatibility.
+ */
+import { useState } from 'react';
+import {
+  View, Text, TextInput, Pressable, StyleSheet, ActivityIndicator,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { useTheme } from '@/src/theme/ThemeProvider';
+import { tokens } from '@/src/theme/tokens';
+import { ConversationEngine } from '@/src/conversation-engine';
+import { triggerHaptic } from '@/src/theme/haptics';
+import { humanizeError } from '@/src/utils/errors';
+
+type Props = {
+  onError?: (msg: string) => void;
+};
+
+export function OraInput({ onError }: Props) {
+  const { colors, isDark } = useTheme();
+  const router = useRouter();
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [voiceHint, setVoiceHint] = useState<string | null>(null);
+
+  const submit = async (origin: 'home' | 'voice' = 'home') => {
+    const t = text.trim();
+    if (!t || busy) return;
+    setBusy(true);
+    setVoiceHint(null);
+    try {
+      void triggerHaptic('selection');
+      if (origin === 'voice') {
+        await ConversationEngine.startFromVoiceStub(t, router);
+      } else {
+        await ConversationEngine.start(t, router, { origin: 'home' });
+      }
+      setText('');
+      void triggerHaptic('success');
+    } catch (e: any) {
+      void triggerHaptic('error');
+      onError?.(humanizeError(e, 'default'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <View style={styles.wrap} testID="parla-con-ora">
+      <View
+        style={[
+          styles.row,
+          {
+            backgroundColor: colors.backgroundSecondary,
+            borderColor: colors.border,
+          },
+        ]}
+      >
+        <Pressable
+          testID="parla-mic"
+          accessibilityLabel="Voce (riconoscimento non ancora attivo — usa il testo)"
+          accessibilityRole="button"
+          style={({ pressed }) => [
+            styles.iconBtn,
+            { backgroundColor: colors.surface, opacity: pressed ? 0.7 : 1 },
+          ]}
+          onPress={() => {
+            void triggerHaptic('selection');
+            setVoiceHint(
+              'Voce pronta nella struttura: per ora digita il testo — stesso motore, niente STT.',
+            );
+            if (text.trim()) void submit('voice');
+          }}
+          disabled={busy}
+        >
+          <Ionicons name="mic-outline" size={tokens.icon.size[20]} color={colors.textPrimary} />
+        </Pressable>
+        <TextInput
+          testID="parla-input"
+          value={text}
+          onChangeText={setText}
+          placeholder="Dimmi cosa sta succedendo…"
+          placeholderTextColor={colors.placeholder}
+          style={[styles.input, { color: colors.textPrimary }]}
+          editable={!busy}
+          returnKeyType="send"
+          onSubmitEditing={() => void submit('home')}
+          keyboardAppearance={isDark ? 'dark' : 'light'}
+          accessibilityLabel="Scrivi o parla con ORA"
+        />
+        <Pressable
+          testID="parla-send"
+          accessibilityLabel="Invia a ORA"
+          accessibilityRole="button"
+          style={({ pressed }) => [
+            styles.send,
+            {
+              backgroundColor: colors.accent,
+              opacity: !text.trim() || busy ? 0.4 : pressed ? 0.85 : 1,
+              transform: [{ scale: pressed ? tokens.motion.pressScale : 1 }],
+            },
+          ]}
+          onPress={() => void submit('home')}
+          disabled={busy || !text.trim()}
+        >
+          {busy ? (
+            <ActivityIndicator color={colors.onAccent} size="small" />
+          ) : (
+            <Ionicons name="arrow-up" size={tokens.icon.size[20]} color={colors.onAccent} />
+          )}
+        </Pressable>
+      </View>
+      {voiceHint ? (
+        <Text style={[styles.hint, { color: colors.textTertiary }]} testID="parla-voice-stub-hint">
+          {voiceHint}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
+/** Alias — e2e and older imports */
+export const ParlaConOra = OraInput;
+
+const styles = StyleSheet.create({
+  wrap: { gap: tokens.spacing.xs },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: tokens.spacing.sm,
+    borderRadius: tokens.radius.full,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: tokens.spacing.sm,
+    paddingVertical: 6,
+    minHeight: tokens.touch.min,
+  },
+  iconBtn: {
+    width: tokens.touch.min,
+    height: tokens.touch.min,
+    borderRadius: tokens.radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  input: {
+    flex: 1,
+    minHeight: 40,
+    fontSize: tokens.typography.bodySmall.fontSize,
+    paddingVertical: 8,
+  },
+  send: {
+    width: tokens.touch.min,
+    height: tokens.touch.min,
+    borderRadius: tokens.radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  hint: {
+    fontSize: tokens.typography.footnote.fontSize,
+    lineHeight: 14,
+    paddingHorizontal: tokens.spacing.sm,
+  },
+});

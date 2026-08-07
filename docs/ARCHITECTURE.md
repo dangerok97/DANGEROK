@@ -87,10 +87,11 @@ backend/
   security/              # token vault
   tests/                 # pytest
 frontend/
-  app/                   # expo-router screens (Home V2 + /situazione)
+  app/                   # expo-router screens (Home Quiet Premium + /situazione)
   src/api/client.ts      # HTTP client incl. /home
   src/auth/              # Google/Apple client helpers
-  src/components/home/v2 # Home V2 blocks
+  src/components/home/quiet/ # Home Quiet Premium V1 (DailyFocus, OraInput, Horizon, …)
+  src/components/home/v2 # Legacy helpers + /situazione PrioritaList
   src/action-engine/     # ActionEngine.open(item) central entry
   src/conversation-engine/ # ConversationEngine.start → bridges to AE UI
   src/theme/          # Quiet Premium: tokens, palettes, ThemeProvider, motion, haptics, shadows

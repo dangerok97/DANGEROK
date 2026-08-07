@@ -1,36 +1,38 @@
 import { View, Text, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '@/src/theme/ThemeProvider';
 import { tokens } from '@/src/theme/tokens';
 
+/** Calm empty — control, not celebration. Ask bar remains available above. */
 export function EmptyHome() {
+  const { colors } = useTheme();
   return (
-    <View style={styles.card} testID="empty-home">
-      <View style={styles.iconWrap}>
-        <Ionicons name="checkmark-done-outline" size={32} color={tokens.color.success} />
-      </View>
-      <Text style={styles.title}>Niente di urgente adesso.</Text>
-      <Text style={styles.body}>
-        Quando arrivano documenti, impegni o scadenze, ORA li ordina qui.
+    <View style={styles.wrap} testID="empty-home" accessibilityRole="summary">
+      <Text style={[styles.title, { color: colors.textPrimary }]}>
+        {"Per ora non c'è nulla che richieda la tua attenzione."}
+      </Text>
+      <Text style={[styles.body, { color: colors.textSecondary }]}>
+        Quando arrivano scadenze, impegni o documenti, ORA li ordina qui.
       </Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: tokens.color.surfaceSecondary,
-    borderRadius: tokens.radius.lg,
-    padding: tokens.spacing.xl,
-    alignItems: 'center',
-    gap: 10,
-    borderWidth: 1,
-    borderColor: tokens.color.border,
+  wrap: {
+    paddingVertical: tokens.spacing['48'],
+    paddingHorizontal: tokens.spacing.sm,
+    gap: tokens.spacing.md,
+    alignItems: 'flex-start',
   },
-  iconWrap: {
-    width: 56, height: 56, borderRadius: 28,
-    backgroundColor: tokens.color.successBg,
-    alignItems: 'center', justifyContent: 'center',
+  title: {
+    fontSize: tokens.typography.headline.fontSize,
+    fontWeight: tokens.typography.headline.fontWeight,
+    letterSpacing: tokens.typography.headline.letterSpacing,
+    lineHeight: tokens.typography.headline.lineHeight,
   },
-  title: { fontSize: 17, fontWeight: '600', color: tokens.color.onSurface, textAlign: 'center' },
-  body: { fontSize: 13, color: tokens.color.onSurfaceMuted, textAlign: 'center', lineHeight: 19 },
+  body: {
+    fontSize: tokens.typography.bodySmall.fontSize,
+    lineHeight: tokens.typography.bodySmall.lineHeight,
+    maxWidth: 360,
+  },
 });
