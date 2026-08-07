@@ -1,45 +1,45 @@
 # ORA — Development State
 
-Last updated: 2026-08-07 (ORA Quiet Premium Design System v1)
+Last updated: 2026-08-07 (ORA Home Quiet Premium V1)
 
 ## Branch
 
 - Active: `feature/ora-quiet-premium-design-system`
-- Base: `feature/life-object-engine`
 - No push / no merge unless requested
 
-## ORA Quiet Premium Design System (this batch)
+## ORA Home Quiet Premium V1 (this batch)
 
-**Scope:** frontend design system only. Backend / ranking / Action / Conversation / Home logic **not** modified.
-
-| Item | Stato |
-|------|--------|
-| Semantic color system (light + dark) | **implemented** |
-| Accent Deep Indigo | **yes** (`#3D4A8C`) |
-| Typography / spacing / radius / shadows / motion / haptics / icons | **implemented** |
-| ThemeProvider (light / dark / system) | **wired** in `app/_layout.tsx` |
-| Legacy token aliases (`brand`, `onSurface`, …) | **kept** — existing screens compile |
-| UI primitives (`src/components/ui/*`) | **available**, not adopted everywhere |
-| `design_guidelines.json` Quiet Premium | **updated** |
-| Screen restyle (Home, Login, …) | **Prompt 2** — not this PR |
-
-## Prior — Digital Twin / Life Object Engine (ancora valido)
+**Scope:** Home presentation/UX only. Backend, ranking, engines, APIs **unchanged**.
 
 | Item | Stato |
 |------|--------|
+| AppScreen + useTheme on Home | **yes** |
+| Daily Focus + Focus Glow | **yes** |
+| OraInput (Ask Bar → Conversation Engine) | **yes** |
+| Focus Horizon (real temporal fields only) | **yes** (hidden if empty) |
+| Light PrioritySection | **yes** |
+| Unified Aggiornamenti | **yes** |
+| Situation / Continua / Google notice | **yes** (light) |
+| testIDs e2e preserved | **yes** |
+| Home V3 Life Objects UI | **still OFF** |
+
+## Prior — Design System + Life Objects
+
+| Item | Stato |
+|------|--------|
+| Quiet Premium tokens / ThemeProvider / primitives | **implemented** |
 | Life Object Engine + Knowledge Model | **implemented** (shadow) |
-| `LIFE_OBJECT_HOME_UI_ENABLED=0` | **yes** — Home UX invariata lato prodotto |
-| Facts never deleted | **yes** |
+| `LIFE_OBJECT_HOME_UI_ENABLED=0` | **yes** |
 
 ## Open / next
 
-1. **Prompt 2** — adopt Quiet Premium primitives on Login / Home chrome / tab bar (no business logic)
-2. Theme toggle in Profilo settings
-3. Migrate StyleSheet.create screens from static `tokens` → `useTheme()` gradually
-4. Home V3 UI — solo con flag=1 — **non fare ora**
+1. **Prompt 3** — tab bar glass + Login Quiet Premium (no Home logic)
+2. Theme toggle in Profilo
+3. Playwright Home full stack when API+Expo up
+4. Home V3 UI — solo con flag=1
 
 ## Credentials / safety
 
 - Never commit `.env` / tokens
-- CI green senza secret; Gemini gated / fallback
-- No new UI libraries added
+- No new UI libraries
+- No backend changes in this batch

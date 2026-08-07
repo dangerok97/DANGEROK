@@ -1,5 +1,32 @@
 # ORA — AI Changelog
 
+## 2026-08-07 — ORA Home Quiet Premium V1
+
+### Request
+
+PROMPT 2 — Redesign Home presentation only with Quiet Premium. No backend/ranking/engines/API changes. Daily Focus, Ask Bar, Focus Horizon, light priorities, unified Aggiornamenti.
+
+### Actions
+
+- New `frontend/src/components/home/quiet/*` (AmbientHeader, OraInput, DailyFocus, FocusHorizon, PrioritySection, UpdatesSection, SituationSummary, ContinueSection, loading/notices/modals)
+- `app/(tabs)/index.tsx` orchestration + `AppScreen`/`useTheme`
+- EmptyHome + DynamicActions + ParlaConOra re-export themed
+- Docs PRODUCT / ARCHITECTURE / DEVELOPMENT_STATE
+
+### Results
+
+- Preserved testIDs: `adesso-card`, `perche-adesso`, `parla-*`, `dynamic-actions`, `priorita-list`, `situazione-card`, `google-banner`, suggestion/insight actions, modals
+- Focus Horizon from real `start_at`/`due_at`/`goal_target_date` only
+- tsc / lint (Home files) / expo web export OK
+
+### Open
+
+- Theme toggle UI in Profilo
+- Tab bar / Login restyle (Prompt 3)
+- Playwright Home against live API when stack available
+
+---
+
 ## 2026-08-07 — ORA Quiet Premium Design System (Visual Foundation v1)
 
 ### Request

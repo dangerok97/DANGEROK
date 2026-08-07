@@ -1,7 +1,7 @@
 import { View, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { HomeActionDef, HomeItem } from '@/src/api/client';
-import { ActionBtn } from '@/src/components/ui/ActionBtn';
+import { AppButton } from '@/src/components/ui/AppButton';
 import { isGuidedAction, navigateHomeAction } from './homeNav';
 
 type Props = {
@@ -33,7 +33,7 @@ export function DynamicActions({ item, busy, onAction }: Props) {
 
   return (
     <View style={styles.row} testID="dynamic-actions">
-      {actions.map((a) => {
+      {actions.map((a, index) => {
         const navOnly =
           a.kind === 'maps' ||
           a.kind === 'navigate' ||
@@ -43,14 +43,22 @@ export function DynamicActions({ item, busy, onAction }: Props) {
           a.kind === 'resume' ||
           a.kind === 'confirm' ||
           isGuidedAction(a);
+        const isPrimary = !!a.primary || index === 0;
+        const variant =
+          a.kind === 'ignore' || a.kind === 'snooze'
+            ? 'ghost'
+            : isPrimary
+              ? 'primary'
+              : 'secondary';
         return (
-          <ActionBtn
+          <AppButton
             key={a.id}
-            primary={!!a.primary}
+            variant={variant}
             label={a.label}
             icon={ICON[a.kind] || 'ellipse-outline'}
             loading={busy === a.id}
             testID={`home-action-${a.id}`}
+            haptic={false}
             onPress={async () => {
               if (navOnly) {
                 await navigateHomeAction(router, a, item);
