@@ -1,5 +1,5 @@
 /**
- * Universal Capture / Ask Bar — Conversation Engine entry (never a chat).
+ * Universal Capture / Ask Bar — Apple Search calm, never chat chrome.
  * Keeps ParlaConOra testIDs for e2e compatibility.
  */
 import { useState } from 'react';
@@ -24,6 +24,7 @@ export function OraInput({ onError }: Props) {
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [voiceHint, setVoiceHint] = useState<string | null>(null);
+  const canSend = Boolean(text.trim()) && !busy;
 
   const submit = async (origin: 'home' | 'voice' = 'home') => {
     const t = text.trim();
@@ -53,8 +54,8 @@ export function OraInput({ onError }: Props) {
         style={[
           styles.row,
           {
-            backgroundColor: colors.backgroundSecondary,
-            borderColor: colors.border,
+            backgroundColor: isDark ? colors.surface : colors.surface,
+            borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(28,28,30,0.06)',
           },
         ]}
       >
@@ -64,7 +65,7 @@ export function OraInput({ onError }: Props) {
           accessibilityRole="button"
           style={({ pressed }) => [
             styles.iconBtn,
-            { backgroundColor: colors.surface, opacity: pressed ? 0.7 : 1 },
+            { opacity: pressed ? 0.55 : 0.72 },
           ]}
           onPress={() => {
             void triggerHaptic('selection');
@@ -75,13 +76,13 @@ export function OraInput({ onError }: Props) {
           }}
           disabled={busy}
         >
-          <Ionicons name="mic-outline" size={tokens.icon.size[20]} color={colors.textPrimary} />
+          <Ionicons name="mic-outline" size={18} color={colors.textTertiary} />
         </Pressable>
         <TextInput
           testID="parla-input"
           value={text}
           onChangeText={setText}
-          placeholder="Dimmi cosa sta succedendo…"
+          placeholder="Cosa vuoi raccontare a ORA…"
           placeholderTextColor={colors.placeholder}
           style={[styles.input, { color: colors.textPrimary }]}
           editable={!busy}
@@ -97,18 +98,21 @@ export function OraInput({ onError }: Props) {
           style={({ pressed }) => [
             styles.send,
             {
-              backgroundColor: colors.accent,
-              opacity: !text.trim() || busy ? 0.4 : pressed ? 0.85 : 1,
-              transform: [{ scale: pressed ? tokens.motion.pressScale : 1 }],
+              backgroundColor: canSend ? colors.accentMuted : 'transparent',
+              opacity: !canSend ? 0.35 : pressed ? 0.8 : 1,
             },
           ]}
           onPress={() => void submit('home')}
-          disabled={busy || !text.trim()}
+          disabled={!canSend}
         >
           {busy ? (
-            <ActivityIndicator color={colors.onAccent} size="small" />
+            <ActivityIndicator color={colors.accent} size="small" />
           ) : (
-            <Ionicons name="arrow-up" size={tokens.icon.size[20]} color={colors.onAccent} />
+            <Ionicons
+              name="arrow-up"
+              size={18}
+              color={canSend ? colors.accent : colors.textTertiary}
+            />
           )}
         </Pressable>
       </View>
@@ -121,7 +125,6 @@ export function OraInput({ onError }: Props) {
   );
 }
 
-/** Alias — e2e and older imports */
 export const ParlaConOra = OraInput;
 
 const styles = StyleSheet.create({
@@ -129,12 +132,12 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: tokens.spacing.sm,
+    gap: 4,
     borderRadius: tokens.radius.full,
     borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: tokens.spacing.sm,
-    paddingVertical: 6,
-    minHeight: tokens.touch.min,
+    paddingHorizontal: tokens.spacing.md,
+    paddingVertical: 4,
+    minHeight: 56,
   },
   iconBtn: {
     width: tokens.touch.min,
@@ -145,20 +148,21 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    minHeight: 40,
-    fontSize: tokens.typography.bodySmall.fontSize,
-    paddingVertical: 8,
+    minHeight: 48,
+    fontSize: tokens.typography.body.fontSize,
+    paddingVertical: 10,
+    letterSpacing: -0.2,
   },
   send: {
-    width: tokens.touch.min,
-    height: tokens.touch.min,
-    borderRadius: tokens.radius.full,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
   hint: {
     fontSize: tokens.typography.footnote.fontSize,
     lineHeight: 14,
-    paddingHorizontal: tokens.spacing.sm,
+    paddingHorizontal: tokens.spacing.md,
   },
 });

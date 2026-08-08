@@ -193,13 +193,14 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   kind: {
-    fontSize: tokens.typography.footnote.fontSize,
-    fontWeight: '600',
-    letterSpacing: 0.2,
+    fontSize: 11,
+    fontWeight: '500',
+    letterSpacing: 0.15,
   },
   title: {
     fontSize: tokens.typography.body.fontSize,
-    fontWeight: '600',
+    fontWeight: '500',
+    letterSpacing: -0.15,
   },
   desc: {
     fontSize: tokens.typography.bodySmall.fontSize,

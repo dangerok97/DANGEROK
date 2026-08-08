@@ -1,26 +1,25 @@
 # ORA — Development State
 
-Last updated: 2026-08-07 (ORA Home Quiet Premium V1)
+Last updated: 2026-08-08 (ORA Home Quiet Premium Polish 2.1)
 
 ## Branch
 
 - Active: `feature/ora-quiet-premium-design-system`
 - No push / no merge unless requested
 
-## ORA Home Quiet Premium V1 (this batch)
+## ORA Home Quiet Premium Polish 2.1 (this batch)
 
-**Scope:** Home presentation/UX only. Backend, ranking, engines, APIs **unchanged**.
+**Scope:** Home UI polish only — no new features, no backend/engines.
 
 | Item | Stato |
 |------|--------|
-| AppScreen + useTheme on Home | **yes** |
-| Daily Focus + Focus Glow | **yes** |
-| OraInput (Ask Bar → Conversation Engine) | **yes** |
-| Focus Horizon (real temporal fields only) | **yes** (hidden if empty) |
-| Light PrioritySection | **yes** |
-| Unified Aggiornamenti | **yes** |
-| Situation / Continua / Google notice | **yes** (light) |
-| testIDs e2e preserved | **yes** |
+| Daily Focus less “card”, felt Focus Glow | **yes** |
+| CTA hierarchy (filled / outline / ghost) | **yes** (`FocusActions`) |
+| Perché adesso editorial (not a second card) | **yes** |
+| Ask Bar Apple-Search calm | **yes** |
+| Header + Horizon rewrite | **yes** |
+| Quieter priorities / borders / motion | **yes** |
+| Desktop column ~860 | **yes** |
 | Home V3 Life Objects UI | **still OFF** |
 
 ## Prior — Design System + Life Objects

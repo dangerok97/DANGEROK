@@ -60,16 +60,17 @@ const styles = StyleSheet.create({
     gap: tokens.spacing.md,
   },
   h: {
-    fontSize: tokens.typography.headline.fontSize,
-    fontWeight: tokens.typography.headline.fontWeight,
+    fontSize: tokens.typography.body.fontSize,
+    fontWeight: '600',
+    letterSpacing: -0.2,
   },
   ctaHit: { minHeight: tokens.touch.min, justifyContent: 'center' },
   cta: {
-    fontSize: tokens.typography.label.fontSize,
-    fontWeight: '600',
+    fontSize: tokens.typography.caption.fontSize,
+    fontWeight: '500',
   },
   summary: {
-    fontSize: tokens.typography.bodySmall.fontSize,
-    lineHeight: tokens.typography.bodySmall.lineHeight,
+    fontSize: tokens.typography.caption.fontSize,
+    lineHeight: 18,
   },
 });

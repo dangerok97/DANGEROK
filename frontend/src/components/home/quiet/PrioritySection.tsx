@@ -6,7 +6,6 @@ import { HomeItem, HomePriorityGroup } from '@/src/api/client';
 import { ActionEngine } from '@/src/action-engine';
 import { formatWhen } from '@/src/components/home/v2/homeNav';
 import { triggerHaptic } from '@/src/theme/haptics';
-import { AppDivider } from '@/src/components/ui/AppDivider';
 
 function displayType(item: HomeItem): string {
   const intent = (item.meta as { intent?: string } | undefined)?.intent;
@@ -19,7 +18,7 @@ function displayType(item: HomeItem): string {
   return item.type;
 }
 
-/** Light typography-first priorities — max visual weight on first 3 overall. */
+/** Typography + space + hairline — no card chrome. */
 export function PrioritySection({ groups }: { groups: HomePriorityGroup[] }) {
   const { colors } = useTheme();
   const nonEmpty = (groups || []).filter((g) => g.items?.length);
@@ -29,10 +28,7 @@ export function PrioritySection({ groups }: { groups: HomePriorityGroup[] }) {
 
   return (
     <View style={styles.section} testID="priorita-list">
-      <Text
-        style={[styles.h, { color: colors.textPrimary }]}
-        accessibilityRole="header"
-      >
+      <Text style={[styles.h, { color: colors.textPrimary }]} accessibilityRole="header">
         Priorità
       </Text>
       {nonEmpty.map((g) => (
@@ -45,7 +41,9 @@ export function PrioritySection({ groups }: { groups: HomePriorityGroup[] }) {
             return (
               <View key={item.id}>
                 <PriorityRow item={item} emphasize={emphasize} />
-                {idx < g.items.length - 1 ? <AppDivider /> : null}
+                {idx < g.items.length - 1 ? (
+                  <View style={[styles.hairline, { backgroundColor: colors.divider }]} />
+                ) : null}
               </View>
             );
           })}
@@ -65,10 +63,7 @@ function PriorityRow({ item, emphasize }: { item: HomeItem; emphasize: boolean }
     <Pressable
       style={({ pressed }) => [
         styles.row,
-        {
-          opacity: pressed ? 0.75 : 1,
-          transform: [{ scale: pressed ? tokens.motion.pressScale : 1 }],
-        },
+        { opacity: pressed ? 0.7 : 1 },
       ]}
       onPress={async () => {
         void triggerHaptic('impactLight');
@@ -81,14 +76,14 @@ function PriorityRow({ item, emphasize }: { item: HomeItem; emphasize: boolean }
       <View style={styles.body}>
         <Text
           style={[
-            styles.title,
             {
               color: colors.textPrimary,
-              fontSize: emphasize ? tokens.typography.headline.fontSize : tokens.typography.body.fontSize,
+              fontSize: emphasize
+                ? tokens.typography.body.fontSize + 1
+                : tokens.typography.body.fontSize,
               fontWeight: emphasize ? '600' : '500',
-              lineHeight: emphasize
-                ? tokens.typography.headline.lineHeight
-                : tokens.typography.body.lineHeight,
+              letterSpacing: -0.2,
+              lineHeight: emphasize ? 26 : 24,
             },
           ]}
           numberOfLines={2}
@@ -97,7 +92,7 @@ function PriorityRow({ item, emphasize }: { item: HomeItem; emphasize: boolean }
         </Text>
         <Text style={[styles.meta, { color: colors.textTertiary }]} numberOfLines={1}>
           {label}
-          {when ? ` · ${when}` : ''}
+          {when ? `  ·  ${when}` : ''}
         </Text>
       </View>
     </Pressable>
@@ -105,29 +100,33 @@ function PriorityRow({ item, emphasize }: { item: HomeItem; emphasize: boolean }
 }
 
 const styles = StyleSheet.create({
-  section: { gap: tokens.spacing.sm },
+  section: { gap: tokens.spacing.md },
   h: {
     fontSize: tokens.typography.headline.fontSize,
-    fontWeight: tokens.typography.headline.fontWeight,
-    letterSpacing: tokens.typography.headline.letterSpacing,
-    marginBottom: 4,
+    fontWeight: '600',
+    letterSpacing: -0.3,
+    marginBottom: 2,
   },
   group: { marginBottom: tokens.spacing.sm },
   groupLabel: {
-    fontSize: tokens.typography.footnote.fontSize,
-    fontWeight: '600',
-    marginBottom: 4,
-    letterSpacing: 0.2,
+    fontSize: 11,
+    fontWeight: '500',
+    marginBottom: 2,
+    letterSpacing: 0.15,
   },
   row: {
     minHeight: tokens.touch.min,
-    paddingVertical: tokens.spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
+    paddingVertical: tokens.spacing.md + 2,
   },
-  body: { flex: 1, gap: 2 },
-  title: {},
+  body: { flex: 1, gap: 3 },
   meta: {
-    fontSize: tokens.typography.caption.fontSize,
+    fontSize: 11,
+    fontWeight: '400',
+    letterSpacing: 0.05,
+  },
+  hairline: {
+    height: StyleSheet.hairlineWidth,
+    width: '100%',
+    opacity: 0.7,
   },
 });

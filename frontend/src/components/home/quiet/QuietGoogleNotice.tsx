@@ -41,11 +41,11 @@ export function QuietGoogleNotice({ visible, onDismiss, onConnected }: Props) {
 
   return (
     <View
-      style={[styles.wrap, { borderColor: colors.divider }]}
+      style={styles.wrap}
       testID="google-banner"
       accessibilityRole="summary"
     >
-      <Text style={[styles.text, { color: colors.textSecondary }]}>
+      <Text style={[styles.text, { color: colors.textTertiary }]}>
         Google Calendar non collegato — arricchisce le priorità.
       </Text>
       <View style={styles.actions}>
@@ -76,14 +76,12 @@ export function QuietGoogleNotice({ visible, onDismiss, onConnected }: Props) {
 
 const styles = StyleSheet.create({
   wrap: {
-    gap: 6,
-    paddingVertical: tokens.spacing.sm,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: 4,
+    paddingVertical: tokens.spacing.xs,
   },
   text: {
-    fontSize: tokens.typography.caption.fontSize,
-    lineHeight: 18,
+    fontSize: tokens.typography.footnote.fontSize,
+    lineHeight: 16,
   },
   actions: { flexDirection: 'row', gap: tokens.spacing.lg },
   hit: { minHeight: tokens.touch.min, justifyContent: 'center' },

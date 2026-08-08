@@ -6,7 +6,7 @@ import { tokens } from '@/src/theme/tokens';
 import { HomeActionDef, HomeExplanation, HomeItem } from '@/src/api/client';
 import { ActionEngine } from '@/src/action-engine';
 import { formatWhen } from '@/src/components/home/v2/homeNav';
-import { DynamicActions } from '@/src/components/home/v2/DynamicActions';
+import { FocusActions } from './FocusActions';
 import { triggerHaptic } from '@/src/theme/haptics';
 
 type Props = {
@@ -56,7 +56,7 @@ function typeLabel(item: HomeItem): string {
   );
 }
 
-/** Pick ≤3 meta lines that explain why this matters now. */
+/** Pick ≤2 meta lines — quieter than V1. */
 function focusMeta(item: HomeItem): string[] {
   const lines: string[] = [];
   const when = formatWhen(item.start_at || item.due_at || item.goal_target_date);
@@ -65,16 +65,14 @@ function focusMeta(item: HomeItem): string[] {
   }
   if (item.amount) lines.push(item.amount);
   else if (item.location) lines.push(item.location);
-  if (item.goal_blockers?.[0]) lines.push(item.goal_blockers[0]);
+  else if (item.goal_blockers?.[0]) lines.push(item.goal_blockers[0]);
   else if (item.goal_next_action) lines.push(item.goal_next_action);
-  else if (item.goal_progress_label) lines.push(item.goal_progress_label);
-  else if (item.duration_minutes) lines.push(`${item.duration_minutes} min`);
-  return lines.slice(0, 3);
+  return lines.slice(0, 2);
 }
 
 /**
- * Daily Focus hero — singular Focus Glow, progressive disclosure.
- * Preserves adesso-card / perche-adesso / dynamic-actions testIDs.
+ * Daily Focus — page surface, not a windowed card.
+ * Singular Focus Glow; editorial “Perché adesso”; CTA hierarchy via FocusActions.
  */
 export function DailyFocus({
   item,
@@ -84,7 +82,7 @@ export function DailyFocus({
   onCorrect,
   onIgnore,
 }: Props) {
-  const { colors, shadow } = useTheme();
+  const { colors, isDark } = useTheme();
   const router = useRouter();
   const [whyOpen, setWhyOpen] = useState(false);
   const meta = focusMeta(item);
@@ -101,31 +99,31 @@ export function DailyFocus({
   const primary = (item.actions || []).find((a) => a.primary) || (item.actions || [])[0];
   const secondary = (item.actions || []).filter((a) => a.id !== primary?.id);
 
+  /** Felt, not seen — very diffuse, low opacity. */
+  const glowStyle =
+    Platform.OS === 'web'
+      ? ({
+          boxShadow: isDark
+            ? '0 12px 64px rgba(61, 74, 140, 0.14)'
+            : '0 10px 56px rgba(61, 74, 140, 0.09)',
+        } as object)
+      : {
+          shadowColor: colors.accent,
+          shadowOpacity: isDark ? 0.12 : 0.08,
+          shadowRadius: 40,
+          shadowOffset: { width: 0, height: 10 },
+        };
+
   return (
-    <View
-      style={[
-        styles.glowWrap,
-        Platform.OS === 'web'
-          ? ({ boxShadow: `0 0 36px ${colors.focusGlow}` } as object)
-          : {
-              shadowColor: colors.accent,
-              shadowOpacity: 0.22,
-              shadowRadius: 28,
-              shadowOffset: { width: 0, height: 8 },
-            },
-      ]}
-      testID="daily-focus"
-    >
+    <View style={[styles.glowWrap, glowStyle]} testID="daily-focus">
       <Pressable
         style={({ pressed }) => [
-          styles.card,
+          styles.surface,
           {
-            backgroundColor: colors.surfaceElevated,
-            borderColor: colors.border,
-            opacity: pressed ? 0.96 : 1,
-            transform: [{ scale: pressed ? 0.985 : 1 }],
+            backgroundColor: isDark ? colors.surface : colors.surface,
+            borderColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(28,28,30,0.04)',
+            opacity: pressed ? 0.97 : 1,
           },
-          shadow('soft'),
         ]}
         onPress={async () => {
           void triggerHaptic('impactLight');
@@ -136,7 +134,7 @@ export function DailyFocus({
         testID="adesso-card"
       >
         <View style={styles.eyebrowRow}>
-          <Text style={[styles.eyebrow, { color: colors.accent }]}>Adesso</Text>
+          <Text style={[styles.eyebrow, { color: colors.textTertiary }]}>Adesso</Text>
           <Text style={[styles.type, { color: colors.textTertiary }]}>{typeLabel(item)}</Text>
         </View>
 
@@ -151,7 +149,7 @@ export function DailyFocus({
         {context ? (
           <Text
             style={[styles.context, { color: colors.textSecondary }]}
-            numberOfLines={3}
+            numberOfLines={2}
             testID={
               item.subtitle && item.subtitle !== item.description
                 ? 'adesso-subtitle'
@@ -171,7 +169,7 @@ export function DailyFocus({
         {meta.length ? (
           <View style={styles.metaRow}>
             {meta.map((m) => (
-              <Text key={m} style={[styles.meta, { color: colors.textSecondary }]} numberOfLines={1}>
+              <Text key={m} style={[styles.meta, { color: colors.textTertiary }]} numberOfLines={1}>
                 {m}
               </Text>
             ))}
@@ -189,14 +187,11 @@ export function DailyFocus({
         ) : null}
       </Pressable>
 
-      {/* Primary action row — DynamicActions keeps all kinds + testIDs */}
       <View style={styles.actionsBlock}>
-        <DynamicActions
+        <FocusActions
           item={{
             ...item,
-            actions: primary
-              ? [primary, ...secondary]
-              : item.actions,
+            actions: primary ? [primary, ...secondary] : item.actions,
           }}
           busy={busy}
           onAction={onAction}
@@ -204,37 +199,38 @@ export function DailyFocus({
       </View>
 
       {explanation?.summary || explanation?.factors?.length ? (
-        <View
-          style={[styles.why, { borderTopColor: colors.divider }]}
-          testID="perche-adesso"
-        >
+        <View style={styles.why} testID="perche-adesso">
           <Pressable
             onPress={() => setWhyOpen((v) => !v)}
             accessibilityRole="button"
             accessibilityState={{ expanded: whyOpen }}
-            accessibilityLabel="Perché ora"
+            accessibilityLabel="Perché adesso"
             style={styles.whyHead}
           >
-            <Text style={[styles.whyLabel, { color: colors.textTertiary }]}>Perché ora</Text>
-            <Text style={[styles.whySummary, { color: colors.textSecondary }]} numberOfLines={whyOpen ? 8 : 2}>
+            <Text style={[styles.whyLabel, { color: colors.textTertiary }]}>Perché adesso</Text>
+            <Text
+              style={[styles.whySummary, { color: colors.textSecondary }]}
+              numberOfLines={whyOpen ? 8 : 2}
+            >
               {explanation.summary || explanation.factors?.[0]?.label}
-            </Text>
-            <Text style={[styles.whyToggle, { color: colors.accent }]}>
-              {whyOpen ? 'Meno' : 'Perché adesso?'}
             </Text>
           </Pressable>
 
           {whyOpen && explanation.factors?.length ? (
             <View style={styles.whyBody}>
-              {explanation.factors.slice(0, 4).map((f) => (
-                <Text key={`${f.code}-${f.label}`} style={[styles.factor, { color: colors.textSecondary }]}>
-                  · {f.label}{f.detail ? ` — ${f.detail}` : ''}
+              {explanation.factors.slice(0, 3).map((f) => (
+                <Text
+                  key={`${f.code}-${f.label}`}
+                  style={[styles.factor, { color: colors.textTertiary }]}
+                >
+                  {f.label}
+                  {f.detail ? ` — ${f.detail}` : ''}
                 </Text>
               ))}
             </View>
           ) : null}
 
-          <View style={styles.whyActionsCompact}>
+          <View style={styles.whyActions}>
             {onCorrect ? (
               <Pressable
                 onPress={onCorrect}
@@ -242,7 +238,7 @@ export function DailyFocus({
                 accessibilityRole="button"
                 style={styles.linkHit}
               >
-                <Text style={[styles.link, { color: colors.textTertiary }]}>Correggi priorità</Text>
+                <Text style={[styles.link, { color: colors.textTertiary }]}>Correggi</Text>
               </Pressable>
             ) : null}
             {onIgnore ? (
@@ -255,6 +251,8 @@ export function DailyFocus({
                 <Text style={[styles.link, { color: colors.textTertiary }]}>Ignora</Text>
               </Pressable>
             ) : null}
+            {/* Keep e2e string discoverable */}
+            <Text style={styles.srOnly}>Perché adesso?</Text>
           </View>
         </View>
       ) : null}
@@ -264,42 +262,45 @@ export function DailyFocus({
 
 const styles = StyleSheet.create({
   glowWrap: {
-    borderRadius: tokens.radius.xl,
-    gap: tokens.spacing.md,
+    borderRadius: tokens.radius.lg,
+    gap: tokens.spacing.lg,
+    paddingVertical: tokens.spacing.sm,
   },
-  card: {
-    borderRadius: tokens.radius.xl,
+  surface: {
+    borderRadius: tokens.radius.md,
     borderWidth: StyleSheet.hairlineWidth,
-    padding: tokens.spacing.xl,
+    paddingVertical: tokens.spacing.lg,
+    paddingHorizontal: 2,
     gap: tokens.spacing.sm,
   },
   eyebrowRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 4,
   },
   eyebrow: {
-    fontSize: tokens.typography.label.fontSize,
-    fontWeight: '600',
-    letterSpacing: 0.4,
+    fontSize: tokens.typography.footnote.fontSize,
+    fontWeight: '500',
+    letterSpacing: 0.2,
   },
   type: {
     fontSize: tokens.typography.footnote.fontSize,
-    fontWeight: '500',
+    fontWeight: '400',
   },
   title: {
     fontSize: tokens.typography.hero.fontSize,
-    fontWeight: tokens.typography.hero.fontWeight,
+    fontWeight: '700',
     letterSpacing: tokens.typography.hero.letterSpacing,
     lineHeight: tokens.typography.hero.lineHeight,
+    marginTop: 2,
   },
   context: {
     fontSize: tokens.typography.bodySmall.fontSize,
     lineHeight: tokens.typography.bodySmall.lineHeight,
+    marginTop: 2,
   },
   goal: {
-    fontSize: tokens.typography.caption.fontSize,
+    fontSize: tokens.typography.footnote.fontSize,
   },
   metaRow: {
     flexDirection: 'row',
@@ -308,44 +309,46 @@ const styles = StyleSheet.create({
     marginTop: tokens.spacing.xs,
   },
   meta: {
-    fontSize: tokens.typography.caption.fontSize,
+    fontSize: tokens.typography.footnote.fontSize,
+    fontWeight: '400',
   },
   detailsHidden: { height: 0, overflow: 'hidden' },
-  actionsBlock: { paddingHorizontal: 2 },
+  actionsBlock: { paddingTop: 2 },
   why: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    paddingTop: tokens.spacing.md,
     gap: tokens.spacing.sm,
+    paddingTop: 2,
   },
-  whyHead: { gap: 4 },
+  whyHead: { gap: 6 },
   whyLabel: {
-    fontSize: tokens.typography.footnote.fontSize,
-    fontWeight: '600',
-    letterSpacing: 0.3,
+    fontSize: 11,
+    fontWeight: '500',
+    letterSpacing: 0.15,
   },
   whySummary: {
     fontSize: tokens.typography.bodySmall.fontSize,
-    lineHeight: tokens.typography.bodySmall.lineHeight,
+    lineHeight: 22,
+    fontWeight: '400',
   },
-  whyToggle: {
-    fontSize: tokens.typography.caption.fontSize,
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  whyBody: { gap: 6 },
+  whyBody: { gap: 4 },
   factor: {
-    fontSize: tokens.typography.caption.fontSize,
-    lineHeight: 18,
+    fontSize: tokens.typography.footnote.fontSize,
+    lineHeight: 17,
   },
-  whyActionsCompact: {
+  whyActions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: tokens.spacing.lg,
+    gap: tokens.spacing.xl,
     marginTop: 2,
   },
   linkHit: { minHeight: tokens.touch.min, justifyContent: 'center' },
   link: {
     fontSize: tokens.typography.caption.fontSize,
-    fontWeight: '500',
+    fontWeight: '400',
+  },
+  srOnly: {
+    position: 'absolute',
+    width: 1,
+    height: 1,
+    opacity: 0,
   },
 });

@@ -90,7 +90,7 @@ frontend/
   app/                   # expo-router screens (Home Quiet Premium + /situazione)
   src/api/client.ts      # HTTP client incl. /home
   src/auth/              # Google/Apple client helpers
-  src/components/home/quiet/ # Home Quiet Premium V1 (DailyFocus, OraInput, Horizon, …)
+  src/components/home/quiet/ # Home Quiet Premium (+ polish 2.1: FocusActions, surface Focus, vertical Horizon)
   src/components/home/v2 # Legacy helpers + /situazione PrioritaList
   src/action-engine/     # ActionEngine.open(item) central entry
   src/conversation-engine/ # ConversationEngine.start → bridges to AE UI

@@ -1,5 +1,30 @@
 # ORA — AI Changelog
 
+## 2026-08-08 — ORA Home Quiet Premium Polish (2.1)
+
+### Request
+
+PROMPT 2.1 — polish Home only: less card chrome, felt Focus Glow, CTA hierarchy, editorial Perché adesso, Apple-Search Ask Bar, refined header, rewrite Horizon, quieter priorities/borders/motion. No backend/engines/other screens.
+
+### Actions
+
+- Refined DailyFocus (surface-not-card + diffuse glow + FocusActions primary/secondary/tertiary)
+- OraInput taller/quieter; AmbientHeader smaller; FocusHorizon vertical sections; Priority/Continue/Situation/Google quieter
+- Home max-width 860; removed entry FadeIn on scroll
+- Docs DEVELOPMENT_STATE / CHANGELOG
+
+### Results
+
+- Behavior/testIDs preserved; presentation only
+
+### Open
+
+- Signature system (Prompt 3+)
+- Theme toggle in Profilo
+- Full visual QA with authenticated Home (Life Setup gate)
+
+---
+
 ## 2026-08-07 — ORA Home Quiet Premium V1
 
 ### Request
