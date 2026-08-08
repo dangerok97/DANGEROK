@@ -1,25 +1,30 @@
 # ORA — Development State
 
-Last updated: 2026-08-08 (ORA Home Quiet Premium Polish 2.1)
+Last updated: 2026-08-08 (Home Quiet Premium V1 — technical consolidation 2.2)
 
 ## Branch
 
 - Active: `feature/ora-quiet-premium-design-system`
 - No push / no merge unless requested
 
-## ORA Home Quiet Premium Polish 2.1 (this batch)
+## Home Quiet Premium V1 — technical consolidation (2.2)
 
-**Scope:** Home UI polish only — no new features, no backend/engines.
+**Scope:** code quality only — **no intentional visual change**. Preparing Frozen V1.
 
 | Item | Stato |
 |------|--------|
-| Daily Focus less “card”, felt Focus Glow | **yes** |
-| CTA hierarchy (filled / outline / ghost) | **yes** (`FocusActions`) |
-| Perché adesso editorial (not a second card) | **yes** |
-| Ask Bar Apple-Search calm | **yes** |
-| Header + Horizon rewrite | **yes** |
-| Quieter priorities / borders / motion | **yes** |
-| Desktop column ~860 | **yes** |
+| `getFocusGlow(scheme)` in theme | **yes** |
+| CTA busy disables sibling actions | **yes** |
+| Nav+action dual-step documented (intentional) | **yes** |
+| Redundant surface ternaries removed | **yes** |
+| `focusPresentation` helpers | **yes** |
+| Visual design (polish 2.1) | **frozen intent** |
+
+## Prior — Home Quiet Premium Polish 2.1
+
+| Item | Stato |
+|------|--------|
+| Daily Focus / CTA hierarchy / Horizon / Ask Bar | **yes** |
 | Home V3 Life Objects UI | **still OFF** |
 
 ## Prior — Design System + Life Objects
