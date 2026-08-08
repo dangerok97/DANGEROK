@@ -54,7 +54,7 @@ export function OraInput({ onError }: Props) {
         style={[
           styles.row,
           {
-            backgroundColor: isDark ? colors.surface : colors.surface,
+            backgroundColor: colors.surface,
             borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(28,28,30,0.06)',
           },
         ]}

@@ -1,3 +1,4 @@
+import { useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, Pressable, ActivityIndicator,
 } from 'react-native';
@@ -23,32 +24,49 @@ function tierFor(action: HomeActionDef, index: number, primaryId?: string): Tier
   return 'secondary';
 }
 
+function isNavKind(a: HomeActionDef): boolean {
+  return (
+    a.kind === 'maps' ||
+    a.kind === 'navigate' ||
+    a.kind === 'open' ||
+    a.kind === 'guide' ||
+    a.kind === 'study' ||
+    a.kind === 'resume' ||
+    a.kind === 'confirm' ||
+    isGuidedAction(a)
+  );
+}
+
 /**
  * CTA hierarchy for Daily Focus — one filled primary, light outline secondary, ghost tertiary.
+ *
+ * Navigation + parent onAction (intentional, matches Home V2 DynamicActions):
+ * - maps / navigate / study / confirm (+ guided): navigateHomeAction, then onAction
+ *   (parent records nothing for these kinds — early return after optional haptic).
+ * - open / guide / resume: navigateHomeAction, then onAction which records open|resume.
+ * - complete / pay / etc.: onAction only (API homeAction).
+ * - snooze / correct / ignore: onAction only (modal or ignore).
+ *
  * Preserves home-action-* testIDs.
  */
 export function FocusActions({ item, busy, onAction }: Props) {
   const { colors } = useTheme();
   const router = useRouter();
   const actions = item.actions || [];
+  const [localBusyId, setLocalBusyId] = useState<string | null>(null);
+  const inflight = useRef(false);
+
   if (!actions.length) return null;
 
   const primaryId = actions.find((a) => a.primary)?.id ?? actions[0]?.id;
+  const anyBusy = Boolean(busy) || Boolean(localBusyId);
 
   return (
     <View style={styles.row} testID="dynamic-actions">
       {actions.map((a, index) => {
         const tier = tierFor(a, index, primaryId);
-        const navOnly =
-          a.kind === 'maps' ||
-          a.kind === 'navigate' ||
-          a.kind === 'open' ||
-          a.kind === 'guide' ||
-          a.kind === 'study' ||
-          a.kind === 'resume' ||
-          a.kind === 'confirm' ||
-          isGuidedAction(a);
-        const loading = busy === a.id || busy === a.kind;
+        const loading = busy === a.id || busy === a.kind || localBusyId === a.id;
+        const disabled = anyBusy;
 
         return (
           <Pressable
@@ -56,10 +74,22 @@ export function FocusActions({ item, busy, onAction }: Props) {
             testID={`home-action-${a.id}`}
             accessibilityRole="button"
             accessibilityLabel={a.label}
-            disabled={!!loading}
+            accessibilityState={{ disabled, busy: loading }}
+            disabled={disabled}
             onPress={async () => {
-              if (navOnly) await navigateHomeAction(router, a, item);
-              await onAction(a);
+              if (inflight.current || busy) return;
+              inflight.current = true;
+              setLocalBusyId(a.id);
+              try {
+                // See file header: navigate then onAction is intentional for nav kinds.
+                if (isNavKind(a)) {
+                  await navigateHomeAction(router, a, item);
+                }
+                await onAction(a);
+              } finally {
+                inflight.current = false;
+                setLocalBusyId(null);
+              }
             }}
             style={({ pressed }) => [
               styles.base,
@@ -76,7 +106,10 @@ export function FocusActions({ item, busy, onAction }: Props) {
                 borderColor: 'transparent',
                 paddingHorizontal: 8,
               },
-              { opacity: loading ? 0.55 : pressed ? 0.82 : 1 },
+              {
+                // Keep readable while locked — not broken, not hidden.
+                opacity: disabled ? (loading ? 0.7 : 0.45) : pressed ? 0.82 : 1,
+              },
             ]}
           >
             {loading ? (

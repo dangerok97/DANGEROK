@@ -1,5 +1,30 @@
 # ORA — AI Changelog
 
+## 2026-08-08 — Home Quiet Premium V1 — technical consolidation (2.2)
+
+### Request
+
+PROMPT 2.2 — no visual change. Tokenize Focus Glow, remove redundant ternaries, coherent CTA busy (disable siblings), verify nav+action dual-step, light DailyFocus helpers, a11y busy. No commit/push.
+
+### Actions
+
+- `frontend/src/theme/focusGlow.ts` + `getFocusGlow(scheme)` consumed by DailyFocus
+- `focusPresentation.ts` for typeLabel/focusMeta
+- FocusActions: any-busy lock + accessibilityState busy/disabled; documented intentional navigate→onAction
+- Cleared `isDark ? colors.surface : colors.surface` in DailyFocus/OraInput
+- index onDynamicAction comment for dual-step semantics
+
+### Results
+
+- Visual intent unchanged; race on double-tap CTA mitigated
+
+### Open
+
+- Playwright Life Setup / ranking_version mismatches remain pre-existing
+- Prompt 3 (other screens) not started
+
+---
+
 ## 2026-08-08 — ORA Home Quiet Premium Polish (2.1)
 
 ### Request

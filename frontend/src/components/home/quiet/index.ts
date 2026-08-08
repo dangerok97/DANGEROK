@@ -13,3 +13,4 @@ export { OfflineBanner, ErrorBanner, PartialWarning } from './HomeNotices';
 export { CorrectPriorityModal } from './CorrectPriorityModal';
 export { SnoozeModal } from './SnoozeModal';
 export { buildFocusHorizon } from './buildFocusHorizon';
+export { typeLabel, focusMeta } from './focusPresentation';

@@ -105,6 +105,13 @@ export default function HomeScreen() {
     }
   }, [load, markOffline]);
 
+  /**
+   * Called after FocusActions may have already navigated (navigateHomeAction).
+   * Intentional dual-step (unchanged from Home V2):
+   * - maps/navigate/study/confirm: navigation only here (no homeAction record)
+   * - open/guide/resume: record open|resume via API after navigation
+   * - snooze/correct: open modal; complete/etc: homeAction only
+   */
   const onDynamicAction = useCallback(async (action: HomeActionDef) => {
     const focus = home?.primary_focus;
     if (!focus) return;

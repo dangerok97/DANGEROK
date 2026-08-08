@@ -1,12 +1,13 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/src/theme/ThemeProvider';
 import { tokens } from '@/src/theme/tokens';
+import { getFocusGlow } from '@/src/theme/focusGlow';
 import { HomeActionDef, HomeExplanation, HomeItem } from '@/src/api/client';
 import { ActionEngine } from '@/src/action-engine';
-import { formatWhen } from '@/src/components/home/v2/homeNav';
 import { FocusActions } from './FocusActions';
+import { focusMeta, typeLabel } from './focusPresentation';
 import { triggerHaptic } from '@/src/theme/haptics';
 
 type Props = {
@@ -17,58 +18,6 @@ type Props = {
   onCorrect?: () => void;
   onIgnore?: () => void;
 };
-
-const TYPE_LABELS: Record<string, string> = {
-  bill: 'Bolletta',
-  payment: 'Pagamento',
-  event: 'Evento',
-  visit: 'Visita',
-  study: 'Studio',
-  travel: 'Viaggio',
-  needs_review: 'Da verificare',
-  verify: 'Verifica',
-  reply: 'Risposta',
-  activity: 'Attività',
-  generic: 'Priorità',
-  resume: 'In corso',
-};
-
-const INTENT_LABELS: Record<string, string> = {
-  study: 'Studio',
-  exam_preparation: 'Studio · esame',
-  travel: 'Viaggio',
-  vacation: 'Viaggio',
-  event: 'Evento',
-  payment: 'Pagamento',
-  financial: 'Pagamento',
-  medical: 'Visita',
-};
-
-function typeLabel(item: HomeItem): string {
-  const intent = (item.meta as { intent?: string } | undefined)?.intent;
-  const subtype = item.subtype || '';
-  return (
-    INTENT_LABELS[intent || ''] ||
-    INTENT_LABELS[subtype] ||
-    TYPE_LABELS[item.card_type || ''] ||
-    TYPE_LABELS[item.type] ||
-    item.type
-  );
-}
-
-/** Pick ≤2 meta lines — quieter than V1. */
-function focusMeta(item: HomeItem): string[] {
-  const lines: string[] = [];
-  const when = formatWhen(item.start_at || item.due_at || item.goal_target_date);
-  if (when) {
-    lines.push(item.due_at && !item.start_at ? `Scade ${when}` : when);
-  }
-  if (item.amount) lines.push(item.amount);
-  else if (item.location) lines.push(item.location);
-  else if (item.goal_blockers?.[0]) lines.push(item.goal_blockers[0]);
-  else if (item.goal_next_action) lines.push(item.goal_next_action);
-  return lines.slice(0, 2);
-}
 
 /**
  * Daily Focus — page surface, not a windowed card.
@@ -82,7 +31,7 @@ export function DailyFocus({
   onCorrect,
   onIgnore,
 }: Props) {
-  const { colors, isDark } = useTheme();
+  const { colors, scheme } = useTheme();
   const router = useRouter();
   const [whyOpen, setWhyOpen] = useState(false);
   const meta = focusMeta(item);
@@ -98,30 +47,16 @@ export function DailyFocus({
 
   const primary = (item.actions || []).find((a) => a.primary) || (item.actions || [])[0];
   const secondary = (item.actions || []).filter((a) => a.id !== primary?.id);
-
-  /** Felt, not seen — very diffuse, low opacity. */
-  const glowStyle =
-    Platform.OS === 'web'
-      ? ({
-          boxShadow: isDark
-            ? '0 12px 64px rgba(61, 74, 140, 0.14)'
-            : '0 10px 56px rgba(61, 74, 140, 0.09)',
-        } as object)
-      : {
-          shadowColor: colors.accent,
-          shadowOpacity: isDark ? 0.12 : 0.08,
-          shadowRadius: 40,
-          shadowOffset: { width: 0, height: 10 },
-        };
+  const softBorder = scheme === 'dark' ? 'rgba(255,255,255,0.04)' : 'rgba(28,28,30,0.04)';
 
   return (
-    <View style={[styles.glowWrap, glowStyle]} testID="daily-focus">
+    <View style={[styles.glowWrap, getFocusGlow(scheme) as object]} testID="daily-focus">
       <Pressable
         style={({ pressed }) => [
           styles.surface,
           {
-            backgroundColor: isDark ? colors.surface : colors.surface,
-            borderColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(28,28,30,0.04)',
+            backgroundColor: colors.surface,
+            borderColor: softBorder,
             opacity: pressed ? 0.97 : 1,
           },
         ]}
@@ -251,7 +186,6 @@ export function DailyFocus({
                 <Text style={[styles.link, { color: colors.textTertiary }]}>Ignora</Text>
               </Pressable>
             ) : null}
-            {/* Keep e2e string discoverable */}
             <Text style={styles.srOnly}>Perché adesso?</Text>
           </View>
         </View>
