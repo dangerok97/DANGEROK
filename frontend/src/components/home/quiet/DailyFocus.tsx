@@ -49,6 +49,10 @@ export function DailyFocus({
   const secondary = (item.actions || []).filter((a) => a.id !== primary?.id);
   const softBorder = scheme === 'dark' ? 'rgba(255,255,255,0.04)' : 'rgba(28,28,30,0.04)';
 
+  // Backend Presentation Semantics: explanation.summary is human Italian.
+  const whySummary = explanation?.summary || null;
+  const showWhy = Boolean(whySummary || explanation?.factors?.length);
+
   return (
     <View style={[styles.glowWrap, getFocusGlow(scheme) as object]} testID="daily-focus">
       <Pressable
@@ -133,7 +137,7 @@ export function DailyFocus({
         />
       </View>
 
-      {explanation?.summary || explanation?.factors?.length ? (
+      {showWhy ? (
         <View style={styles.why} testID="perche-adesso">
           <Pressable
             onPress={() => setWhyOpen((v) => !v)}
@@ -143,15 +147,17 @@ export function DailyFocus({
             style={styles.whyHead}
           >
             <Text style={[styles.whyLabel, { color: colors.textTertiary }]}>Perché adesso</Text>
-            <Text
-              style={[styles.whySummary, { color: colors.textSecondary }]}
-              numberOfLines={whyOpen ? 8 : 2}
-            >
-              {explanation.summary || explanation.factors?.[0]?.label}
-            </Text>
+            {whySummary ? (
+              <Text
+                style={[styles.whySummary, { color: colors.textSecondary }]}
+                numberOfLines={whyOpen ? 8 : 2}
+              >
+                {whySummary}
+              </Text>
+            ) : null}
           </Pressable>
 
-          {whyOpen && explanation.factors?.length ? (
+          {whyOpen && explanation?.factors?.length ? (
             <View style={styles.whyBody}>
               {explanation.factors.slice(0, 3).map((f) => (
                 <Text

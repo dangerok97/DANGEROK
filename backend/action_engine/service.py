@@ -334,8 +334,8 @@ class ActionEngineService:
                 docs_res = await search_study_documents(
                     self.db,
                     user_id=user_id,
-                    subject=subject or ctx.get("display_title"),
-                    exam_name=ctx.get("original_title") or ctx.get("title"),
+                    subject=subject,
+                    exam_name=subject,
                 )
                 turns = rebuild_material_turn(turns, docs_res.get("items") or [])
                 ctx["study_documents"] = docs_res.get("items") or []
@@ -814,7 +814,7 @@ class ActionEngineService:
                     self.db,
                     user_id=user_id,
                     subject=str(subject) if subject else None,
-                    exam_name=sess.title,
+                    exam_name=str(subject) if subject else None,
                 )
                 sess.turns = rebuild_material_turn(sess.turns, docs_res.get("items") or [])
                 sess.meta["study_documents"] = docs_res.get("items") or []

@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from .actions_catalog import actions_for
 from .models import RANKING_VERSION, HomeItem, PriorityBand, ReasonFactor, UrgencyLevel
+from .reason_presentation import format_reason_summary
 
 
 def _parse_dt(value: Optional[str]) -> Optional[datetime]:
@@ -156,9 +157,8 @@ def score_item(item: HomeItem, now: datetime) -> Tuple[float, List[ReasonFactor]
             code="missing_prep", label="Preparazione mancante", weight=8,
         ))
 
-    # Soft dampen leisure-like activities when critical bills/events exist — applied later in rank_items
-    summary_parts = [f.label for f in sorted(factors, key=lambda x: -x.weight)[:3]]
-    reason_summary = "; ".join(summary_parts) if summary_parts else "Priorità calcolata da regole ORA"
+    # PRESENTATION summary from factor codes + type — never join raw "Tipo …" labels
+    reason_summary = format_reason_summary(factors, item_type=item.type)
 
     return round(score, 2), factors, reason_summary
 
@@ -180,7 +180,7 @@ def rank_items(items: List[HomeItem], *, now: Optional[datetime] = None) -> List
         if has_critical_bill and item.type == "activity" and item.subtype in ("fitness", "leisure", None):
             score -= 12
             factors.append(ReasonFactor(code="dampened", label="Rimandabile rispetto a scadenze", weight=-12))
-            summary = f"{summary}; rimandabile rispetto a scadenze"
+            summary = format_reason_summary(factors, item_type=item.type)
 
         item.score = score
         item.reason_factors = factors

@@ -51,7 +51,7 @@ async def _svc(db):
 
 def test_ranking_version_constant():
     from home.models import RANKING_VERSION
-    assert RANKING_VERSION == "home-rank-1.2"
+    assert RANKING_VERSION == "home-rank-1.3"
 
 
 def test_empty_home():
@@ -66,7 +66,7 @@ def test_empty_home():
             assert home.primary_focus is None
             assert home.priorities == []
             assert home.resume_item is None
-            assert home.ranking_version == "home-rank-1.2"
+            assert home.ranking_version == "home-rank-1.3"
             assert home.google_calendar["connected"] is False
             assert home.google_calendar["show_banner"] is True
         finally:
@@ -600,7 +600,7 @@ def test_gemini_absent_ranking_still_works(monkeypatch):
     ranked = rank_items(items)
     assert ranked[0].type == "bill"
     assert ranked[0].reason_factors
-    assert ranked[0].ranking_version == "home-rank-1.2"
+    assert ranked[0].ranking_version == "home-rank-1.3"
 
 
 def test_api_home_router_registered():
@@ -667,3 +667,80 @@ def test_incomplete_flashcard_quiz_sessions():
             await _clean_user(db, user)
             client.close()
     _run(body())
+
+
+def _assert_no_type_leak(summary: str) -> None:
+    low = (summary or "").lower()
+    assert "tipo " not in low
+    assert "tipo travel" not in low
+    assert "; tipo" not in low
+
+
+def test_reason_summary_human_presentation_and_score_invariant():
+    """3.S — human Italian summary from factor codes; scores/order unchanged."""
+    from home.models import HomeItem
+    from home.ranking import rank_items, score_item
+
+    now = datetime(2026, 8, 9, 12, 0, 0, tzinfo=timezone.utc)
+
+    travel_imminent = HomeItem(
+        id="tr_im", type="travel", title="Viaggio sud",
+        source_type="travel_project", source_id="tp_im",
+        start_at=(now + timedelta(hours=2)).isoformat(),
+    )
+    s1, f1, sum1 = score_item(travel_imminent, now)
+    assert "viaggio" in sum1.lower()
+    assert "imminente" in sum1.lower()
+    _assert_no_type_leak(sum1)
+    s1b, f1b, _ = score_item(travel_imminent, now)
+    assert s1 == s1b
+    assert [x.code for x in f1] == [x.code for x in f1b]
+    assert [x.weight for x in f1] == [x.weight for x in f1b]
+
+    travel_prep = HomeItem(
+        id="tr_prep", type="travel", title="Viaggio",
+        source_type="travel_project", source_id="tp_p",
+        start_at=(now + timedelta(hours=2)).isoformat(),
+        meta={"missing_prep": ["documenti"]},
+    )
+    s2, f2, sum2 = score_item(travel_prep, now)
+    assert "viaggio" in sum2.lower()
+    assert "preparare" in sum2.lower() or "manca" in sum2.lower()
+    assert "valigia" not in sum2.lower()
+    assert "domani" not in sum2.lower()
+    _assert_no_type_leak(sum2)
+    assert any(x.code == "missing_prep" for x in f2)
+    assert s2 > s1  # prep boost still applied
+
+    study_near = HomeItem(
+        id="st_near", type="study", title="Studio",
+        source_type="study_plan", source_id="sp1",
+        due_at=(now + timedelta(hours=20)).isoformat(),
+    )
+    s3, f3, sum3 = score_item(study_near, now)
+    assert "studio" in sum3.lower()
+    assert "vicin" in sum3.lower()
+    _assert_no_type_leak(sum3)
+    assert any(x.code in ("within_24h", "imminent") for x in f3)
+
+    weak = HomeItem(
+        id="weak", type="needs_review", title="Da verificare",
+        source_type="document", source_id="d1",
+        confidence=0.3,
+    )
+    s4, f4, sum4 = score_item(weak, now)
+    assert len(sum4) < 120
+    assert "verific" in sum4.lower() or "incomplet" in sum4.lower() or "dati" in sum4.lower()
+    _assert_no_type_leak(sum4)
+    assert any(x.code in ("low_confidence", "needs_review", "type") for x in f4)
+
+    # Ranking order/scores invariant across re-rank (same inputs → same scores)
+    items = [travel_imminent, travel_prep, study_near, weak]
+    ranked_a = rank_items(items, now=now)
+    ranked_b = rank_items(items, now=now)
+    assert [i.id for i in ranked_a] == [i.id for i in ranked_b]
+    assert [i.score for i in ranked_a] == [i.score for i in ranked_b]
+    for it in ranked_a:
+        _assert_no_type_leak(it.reason_summary or "")
+        # Internal type factor label may still say Tipo … for debug — summary must not
+        assert not (it.reason_summary or "").startswith("Tipo ")
