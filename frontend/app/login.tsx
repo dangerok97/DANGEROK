@@ -48,7 +48,9 @@ export default function LoginScreen() {
 
   useEffect(() => {
     if (!loading && user) {
-      routeAfterAuth(router).catch(() => router.replace('/(tabs)' as any));
+      routeAfterAuth(router, user.user_id).catch(() =>
+        router.replace('/life-setup' as any),
+      );
     }
   }, [loading, user, router]);
 
@@ -96,7 +98,7 @@ export default function LoginScreen() {
       }
       const auth = await api.authGoogle(res.idToken, res.nonce);
       await signIn(auth.token, auth.user);
-      await routeAfterAuth(router);
+      await routeAfterAuth(router, auth.user.user_id);
     } catch (e: any) {
       setErr(e.message || 'Errore Google');
     } finally {
@@ -126,7 +128,7 @@ export default function LoginScreen() {
         full_name: res.fullName,
       });
       await signIn(auth.token, auth.user);
-      await routeAfterAuth(router);
+      await routeAfterAuth(router, auth.user.user_id);
     } catch (e: any) {
       setErr(e.message || 'Errore Apple');
     } finally {
@@ -148,7 +150,7 @@ export default function LoginScreen() {
         ? await api.register(email, password, name || undefined)
         : await api.login(email, password);
       await signIn(auth.token, auth.user);
-      await routeAfterAuth(router);
+      await routeAfterAuth(router, auth.user.user_id);
     } catch (e: any) {
       setErr(e.message || 'Errore');
     } finally {

@@ -1,5 +1,30 @@
 # ORA — AI Changelog
 
+## 2026-08-08 — Sprint 1: Life Setup Gate (Pre-Home)
+
+### Request
+
+Gate so incomplete Life Setup never reaches Home Quiet Premium. Placeholder Completa Setup. Persistent flag. No Home UI changes. No commit/push.
+
+### Actions
+
+- `src/life-setup/gate.ts` — local flag `ora.lifeSetupCompleted.<userId>` + backend status sync; fail closed to setup
+- Placeholder at `/life-setup`; conversation preserved in `LifeSetupConversationScreen.tsx`
+- Cold start `app/index.tsx`, `routeAfterAuth`, login, tabs shell redirect use gate
+- Home components untouched
+
+### Results
+
+- New users → placeholder; Completa Setup → Home; reopen → Home via persisted flag
+- Gate uses `ApiUser.user_id` (not `id`); `tsc --noEmit` clean on touched path
+
+### Open
+
+- Swap placeholder for conversational Life Experience next sprint (same gate)
+- Review before commit
+
+---
+
 ## 2026-08-08 — Home Quiet Premium V1 — technical consolidation (2.2)
 
 ### Request

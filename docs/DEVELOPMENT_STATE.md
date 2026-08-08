@@ -1,13 +1,24 @@
 # ORA — Development State
 
-Last updated: 2026-08-08 (Home Quiet Premium V1 — technical consolidation 2.2)
+Last updated: 2026-08-08 (Sprint 1 — Life Setup Gate)
 
 ## Branch
 
 - Active: `feature/ora-quiet-premium-design-system`
 - No push / no merge unless requested
 
-## Home Quiet Premium V1 — technical consolidation (2.2)
+## Sprint 1 — Life Setup Gate (this batch)
+
+| Item | Stato |
+|------|--------|
+| Persistent `ora.lifeSetupCompleted.<userId>` | **yes** |
+| Gate module `src/life-setup/gate.ts` | **yes** |
+| Placeholder Completa Setup | **yes** (`/life-setup`) |
+| Home unaware / unchanged | **yes** |
+| Conversation Life Experience preserved (unmounted) | **yes** |
+| Commit | **pending review** |
+
+## Prior — Home Quiet Premium V1 — technical consolidation (2.2)
 
 **Scope:** code quality only — **no intentional visual change**. Preparing Frozen V1.
 

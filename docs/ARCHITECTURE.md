@@ -25,11 +25,26 @@ Enrichment backend: narrative versionata, questions, insights, temporal, health 
 - Docs: `LIFE_OBJECT_*`, `LIFE_KNOWLEDGE_MODEL.md`, `DIGITAL_TWIN_MODEL.md`, `FACTS_HYPOTHESES_DECISIONS.md`
 - **Home V3 Life Objects = PREDISPOSTO, non shippato.** Home resta Goal-aware.
 
+## Life Setup Gate (Sprint 1, 2026-08-08)
+
+Application **initial state** before Home. Home Quiet Premium stays unaware.
+
+```
+Auth → resolveLifeSetupGate(userId) → /life-setup | /(tabs) Home
+```
+
+- Module: `frontend/src/life-setup/gate.ts`
+- Local persistence: AsyncStorage `ora.lifeSetupCompleted.<userId>` (`1`/`0`)
+- Sync: backend `GET /api/life-setup/status` (`should_show` / `enabled`); fail-closed → setup if API down and local not completed
+- Complete: `completeLifeSetupGate` (best-effort API start/complete/skip + local `true`)
+- Entry points: cold start `app/index.tsx`, post-auth `routeAfterAuth`, tabs shell redirect
+- Sprint 1 UI: `PlaceholderLifeSetup` at `/life-setup`; conversation preserved unmounted in `LifeSetupConversationScreen.tsx`
+
 ## Life Experience / Strategist (2026-08-06)
 
 - AI-first Life Experience: reasoning loop every turn → structured `StrategistPlan`.
 - Gemini via Provider Manager with structured context JSON; deterministic Italian fallback.
-- CE origin `life_setup` accepted; route `/life-setup` = Life Experience UX (not wizard).
+- CE origin `life_setup` accepted; route `/life-setup` = gate surface (Sprint 1 placeholder; conversation next).
 - Collections: `life_setup_sessions`, `life_profiles`.
 - Home adapter: **Italian benefit cards** after setup («Adesso posso…») + soft resume if interrupted — **no** Life Setup section.
 - Proactive generator: benefit-driven suggestions + soft resume; never «Completa il profilo».

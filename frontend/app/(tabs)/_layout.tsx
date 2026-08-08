@@ -1,10 +1,13 @@
-import { Tabs } from 'expo-router';
+import { useEffect } from 'react';
+import { Tabs, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Platform, StyleSheet, View } from 'react-native';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 
 import { tokens } from '@/src/theme/tokens';
+import { useAuth } from '@/src/contexts/AuthContext';
+import { resolveLifeSetupGate } from '@/src/life-setup/gate';
 
 function TabBarBackground() {
   if (Platform.OS === 'ios') {
@@ -19,7 +22,27 @@ function TabBarBackground() {
   return <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(12,12,12,0.96)' }]} />;
 }
 
+/**
+ * Tabs shell — UI unchanged. Gate only: incomplete Life Setup cannot stay on Home/tabs.
+ */
 export default function TabsLayout() {
+  const { user, loading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (loading || !user?.user_id) return;
+    let cancelled = false;
+    (async () => {
+      const target = await resolveLifeSetupGate(user.user_id);
+      if (!cancelled && target === 'life-setup') {
+        router.replace('/life-setup' as any);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, user?.user_id, router]);
+
   return (
     <Tabs
       screenOptions={{
