@@ -133,6 +133,18 @@ class AnswerBody(BaseModel):
     skip_domain: bool = False
 
 
+class ReverseGeocodeBody(BaseModel):
+    """Coarse reverse-geocode for life_places assist — city label only, no coord persistence."""
+    lat: float = Field(..., ge=-90, le=90)
+    lon: float = Field(..., ge=-180, le=180)
+
+
+class ConfirmLocationBody(BaseModel):
+    """Confirm or reject a city suggested from reverse geocode (no coords stored)."""
+    city: str = Field(..., min_length=1, max_length=80)
+    confirmed: bool = True
+
+
 class SkipBody(BaseModel):
     domain: Optional[str] = None
     postpone_all: bool = False

@@ -39,6 +39,9 @@ def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     return 2 * r * math.asin(math.sqrt(a))
 
 
+_NOMINATIM_UA = "ORA-TravelFlow/1.0 (local-dev; contact=dev@ora.local)"
+
+
 async def _nominatim_geocode(query: str) -> Optional[Tuple[float, float]]:
     """Optional public Nominatim — soft fail, never invents coordinates."""
     if not query or not query.strip():
@@ -47,7 +50,7 @@ async def _nominatim_geocode(query: str) -> Optional[Tuple[float, float]]:
         import httpx
 
         url = "https://nominatim.openstreetmap.org/search"
-        headers = {"User-Agent": "ORA-TravelFlow/1.0 (local-dev; contact=dev@ora.local)"}
+        headers = {"User-Agent": _NOMINATIM_UA}
         async with httpx.AsyncClient(timeout=6.0, headers=headers) as client:
             r = await client.get(url, params={"q": query, "format": "json", "limit": 1})
             if r.status_code != 200:
@@ -58,6 +61,55 @@ async def _nominatim_geocode(query: str) -> Optional[Tuple[float, float]]:
             return float(data[0]["lat"]), float(data[0]["lon"])
     except Exception as e:
         logger.info("geocode unavailable: %s", type(e).__name__)
+        return None
+
+
+async def nominatim_reverse_city(lat: float, lon: float) -> Optional[str]:
+    """
+    Reverse-geocode to a city/town label only.
+    Soft fail — never invents a place. Does not persist coordinates.
+    """
+    try:
+        lat_f = float(lat)
+        lon_f = float(lon)
+    except (TypeError, ValueError):
+        return None
+    if not (-90.0 <= lat_f <= 90.0 and -180.0 <= lon_f <= 180.0):
+        return None
+    try:
+        import httpx
+
+        url = "https://nominatim.openstreetmap.org/reverse"
+        headers = {"User-Agent": _NOMINATIM_UA}
+        params = {
+            "lat": lat_f,
+            "lon": lon_f,
+            "format": "json",
+            "zoom": 10,
+            "addressdetails": 1,
+        }
+        async with httpx.AsyncClient(timeout=6.0, headers=headers) as client:
+            r = await client.get(url, params=params)
+            if r.status_code != 200:
+                return None
+            data = r.json() or {}
+            addr = data.get("address") or {}
+            for key in (
+                "city",
+                "town",
+                "village",
+                "municipality",
+                "city_district",
+                "county",
+            ):
+                val = addr.get(key)
+                if val and isinstance(val, str) and val.strip():
+                    return val.strip()
+            # Fallback: first token of display_name
+            display = (data.get("display_name") or "").split(",")[0].strip()
+            return display or None
+    except Exception as e:
+        logger.info("reverse geocode unavailable: %s", type(e).__name__)
         return None
 
 

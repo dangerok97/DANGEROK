@@ -256,12 +256,23 @@ async def assemble_reasoning_context(
     )
 
 
-def to_gemini_context_json(ctx: ReasoningContext) -> Dict[str, Any]:
-    """Structured context for Gemini — NOT only the user message."""
+def to_gemini_context_json(
+    ctx: ReasoningContext,
+    *,
+    question_goal: Optional[Dict[str, Any]] = None,
+    planner_gap_key: Optional[str] = None,
+    planner_next_best_question: Optional[str] = None,
+    mlc_nucleus: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Structured context for Gemini — known facts + latest user message as primary ack evidence.
+
+    When planner intent is supplied, question_goal is BINDING: Gemini owns wording only.
+    """
     safe = sanitize_known_facts(ctx.known_facts)
     # Keep payload minimal
     known_compact = {k: v for k, v in list(safe.items())[:40]}
-    return {
+    latest = (ctx.last_user_text or "")[:500]
+    payload: Dict[str, Any] = {
         "known": known_compact,
         "missing": ctx.missing_keys[:40],
         "confidence": ctx.confidence_overall,
@@ -280,5 +291,38 @@ def to_gemini_context_json(ctx: ReasoningContext) -> Dict[str, Any]:
         "useful_next": ctx.useful_next[:8],
         "highest_benefit_code": ctx.highest_benefit_code,
         "phase": ctx.session_phase,
-        "last_user_text": (ctx.last_user_text or "")[:500],
+        "last_user_text": latest,
+        "latest_user_message": latest,
+        "acknowledgement_instruction": (
+            "Reflect important meaning from latest_user_message (desires, tensions, "
+            "balances) — not only structured MLC slots. Fact-bounded: do not invent "
+            "professions/cities/names absent from the message or known facts. "
+            "Natural tone; NO judgment words (giustamente, ovviamente, correttamente). "
+            "No advice; no invented profession. One short acknowledgement sentence, "
+            "then spoken_question for the planner gap (question_goal). "
+            "If the user mentions work taking too much time AND wanting more time for family, "
+            "BOTH must appear in acknowledgement (paraphrased, ORA→user perspective)."
+        ),
     }
+    if question_goal:
+        payload["question_goal"] = question_goal
+        payload["spoken_question_instruction"] = (
+            "spoken_question MUST match question_goal.meaning. Wording may vary; "
+            "semantic intent MUST NOT change. Do NOT use any forbidden_interpretations. "
+            "For ask_primary_home_city stay equivalent to: "
+            "«Dove vivi principalmente in questo periodo? Basta la città.» "
+            "(ask where they LIVE / home city — never workplace, study place, "
+            "where they spend the day, or GPS.)"
+        )
+    if planner_gap_key:
+        payload["planner_gap_key"] = planner_gap_key
+    if mlc_nucleus:
+        payload["mlc_nucleus"] = mlc_nucleus
+    if planner_next_best_question:
+        payload["planner_next_best_question"] = planner_next_best_question
+        payload["next_best_question_note"] = (
+            "next_best_question should stay aligned with planner_next_best_question "
+            "(semantic goal / SAFE fallback). spoken_question is the natural paraphrase."
+        )
+    return payload
+

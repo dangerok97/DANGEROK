@@ -89,48 +89,125 @@ NUCLEUS_QUESTIONS: Dict[str, Dict[str, str]] = {
     "identity": {
         "label": "identità conversazionale",
         "question": "Come preferisci che ti chiami?",
-        "benefit": "Così posso parlarti in modo naturale, non come a uno sconosciuto.",
+        "benefit": "Mi aiuta a parlarti in modo naturale, non come a uno sconosciuto.",
         "domain": "servizi",
         "gain": "0.98",
     },
     "current_situation": {
         "label": "situazione attuale",
-        "question": (
-            "In questo periodo la tua vita è più incentrata sul lavoro, "
-            "sullo studio, su entrambi, o su qualcos’altro?"
-        ),
-        "benefit": "Capisco il ritmo delle tue giornate e cosa ha senso proporti per primo.",
+        "question": "In questo periodo lavori, studi, fai entrambe le cose, o qualcos’altro?",
+        "benefit": "Mi aiuta a capire il ritmo delle tue giornate e a proporti cose realistiche.",
         "domain": "lavoro",
         "gain": "0.96",
     },
     "life_places": {
         "label": "luoghi di vita",
-        "question": "Dove vivi principalmente in questo periodo? Basta la città, senza indirizzo.",
-        "benefit": "Luogo e contesto mi aiutano a collegare scadenze, spostamenti e priorità reali.",
+        "question": "Dove vivi principalmente in questo periodo? Basta la città.",
+        "benefit": "Mi aiuta a collegare scadenze e priorità al posto in cui vivi davvero.",
         "domain": "casa",
         "gain": "0.9",
     },
     "responsibilities": {
         "label": "impegni concreti",
-        "question": (
-            "Quali impegni ti occupano di più adesso — lavoro, università, casa, "
-            "famiglia, un progetto, o altro?"
-        ),
-        "benefit": "Così so su quali responsabilità posso davvero alleggerirti.",
+        "question": "Quali impegni ti occupano di più adesso?",
+        "benefit": "Mi aiuta a capire su cosa posso alleggerirti davvero, senza liste da compilare.",
         "domain": "lavoro",
         "gain": "0.93",
     },
     "immediate_priority": {
         "label": "priorità immediata",
-        "question": (
-            "C’è una cosa concreta su cui vorresti che iniziassi ad aiutarti "
-            "— studio, lavoro, scadenze, casa, un viaggio, documenti, o altro?"
-        ),
-        "benefit": "Mi dice da dove ha senso partire appena entri in Home.",
+        "question": "C’è qualcosa che vorresti riuscire a gestire meglio proprio adesso?",
+        "benefit": "Mi aiuta a capire da dove ha senso partire quando entri in ORA.",
         "domain": "servizi",
         "gain": "0.97",
     },
 }
+
+# Planner-owned semantic intent for AI wording (Sprint 4.2 Final Fix).
+# Gemini may rephrase; must not change meaning or hit forbidden_interpretations.
+QUESTION_GOALS: Dict[str, Dict[str, Any]] = {
+    "mlc.life_places.home": {
+        "id": "ask_primary_home_city",
+        "meaning": "Ask which city the user primarily lives in during this period.",
+        "required_semantics": ["primary residence / current living city"],
+        "forbidden_interpretations": [
+            "workplace",
+            "study location",
+            "place where user spends the day",
+            "current GPS location",
+        ],
+        "safe_question": NUCLEUS_QUESTIONS["life_places"]["question"],
+    },
+    "mlc.identity.name": {
+        "id": "ask_preferred_name",
+        "meaning": "Ask how the user prefers to be called.",
+        "required_semantics": ["preferred name / how to address the user"],
+        "forbidden_interpretations": [
+            "legal full name document request",
+            "surname only",
+            "username or email",
+        ],
+        "safe_question": NUCLEUS_QUESTIONS["identity"]["question"],
+    },
+    "mlc.current_situation": {
+        "id": "ask_current_situation",
+        "meaning": "Ask whether the user currently works, studies, both, or something else.",
+        "required_semantics": ["work / study / both / other life rhythm"],
+        "forbidden_interpretations": [
+            "job title interview",
+            "company name",
+            "university enrollment paperwork",
+        ],
+        "safe_question": NUCLEUS_QUESTIONS["current_situation"]["question"],
+    },
+    "mlc.immediate_priority": {
+        "id": "ask_immediate_priority",
+        "meaning": "Ask what the user would most like to manage better right now.",
+        "required_semantics": ["near-term priority / what to improve now"],
+        "forbidden_interpretations": [
+            "long-term life goals questionnaire",
+            "full todo list dump",
+            "therapy diagnosis",
+        ],
+        "safe_question": NUCLEUS_QUESTIONS["immediate_priority"]["question"],
+    },
+    "mlc.responsibilities": {
+        "id": "ask_main_responsibilities",
+        "meaning": "Ask which concrete commitments take most of the user's time now.",
+        "required_semantics": ["main commitments / what occupies them"],
+        "forbidden_interpretations": [
+            "formal job description",
+            "tax or contract details",
+            "complete schedule dump",
+        ],
+        "safe_question": NUCLEUS_QUESTIONS["responsibilities"]["question"],
+    },
+}
+
+
+def question_goal_for_gap(gap_key: Optional[str], nucleus: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """Return a copy of the structured question goal for an MLC gap key / nucleus."""
+    key = (gap_key or "").strip()
+    if key in QUESTION_GOALS:
+        return dict(QUESTION_GOALS[key])
+    if key.startswith("mlc.life_places"):
+        return dict(QUESTION_GOALS["mlc.life_places.home"])
+    if nucleus:
+        mapped = NUCLEUS_GAP_KEY.get(nucleus)
+        if mapped and mapped in QUESTION_GOALS:
+            return dict(QUESTION_GOALS[mapped])
+    return None
+
+
+def safe_question_for_gap(gap_key: Optional[str], nucleus: Optional[str] = None) -> Optional[str]:
+    """Deterministic SAFE question wording for a gap (NUCLEUS_QUESTIONS / goal template)."""
+    goal = question_goal_for_gap(gap_key, nucleus)
+    if goal and goal.get("safe_question"):
+        return str(goal["safe_question"])
+    if nucleus and nucleus in NUCLEUS_QUESTIONS:
+        return NUCLEUS_QUESTIONS[nucleus]["question"]
+    return None
+
 
 WEAK_FOLLOWUPS: Dict[str, Dict[str, str]] = {
     "current_situation:studio": {

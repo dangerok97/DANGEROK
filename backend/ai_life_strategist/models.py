@@ -136,6 +136,10 @@ class StrategistPlan(BaseModel):
     postponed_keys: List[str] = Field(default_factory=list)
     gap_keys: List[str] = Field(default_factory=list)
     user_explanation: Optional[str] = None  # Italian, simple — never internal CoT
+    # Sprint 4.2 — same-call Gemini user-facing copy (Architecture A)
+    acknowledgement: Optional[str] = None  # short ack; never with conversational_bridge
+    spoken_question: Optional[str] = None  # natural Italian question (turn bubble)
+    conversational_bridge: Optional[str] = None  # soft progress; never with acknowledgement
     meta: Dict[str, Any] = Field(default_factory=dict)
     created_at: str = Field(default_factory=now_iso)
     engine_version: str = ENGINE_VERSION

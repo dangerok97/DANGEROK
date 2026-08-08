@@ -40,6 +40,7 @@ Auth → resolveLifeSetupGate(userId) → /life-setup | /(tabs) Home
 - Complete path: successful `lifeSetupComplete` → `completeLifeSetupGate(userId)` → `routeByLifeSetupGate`
 - Entry points: cold start `app/index.tsx`, post-auth `routeAfterAuth`, tabs shell redirect (2nd line of defense)
 - UI: `LifeSetupConversationScreen` at `/life-setup`; `PlaceholderLifeSetup` kept for rollback only
+- Soft-exit (Esci / Più tardi): FE `allowSoftExit = ?resume= || start.resumed`; show only when `allowSoftExit && !done` (`frontend/src/life-setup/softExit.ts`). First-run incomplete never shows soft-exit; backend may still emit exit/postpone actions.
 
 ## Minimum Life Context V1 (Sprint 3, 2026-08-08)
 
@@ -58,6 +59,45 @@ answer → infer_known_from_text (+ profile) → evaluate_mlc_coverage → plan_
 - NLP heuristics (`infer_known_from_text`) persist via profile `source=inferred` + `status=suggested` (`source_confidence` ~0.55) — not high-certainty
 - Persistence: `known_facts` on sessions + `life_profiles`; `session.meta.mlc_coverage` (not a UI checklist)
 - Documents V2 optional; Gate Sprint 2B unchanged
+
+## Conversational Experience V1 + Walkthrough 4.1 + AI Rendering 4.2 (2026-08-08)
+
+Copy/rhythm layer on top of MLC + Gate — **not** a frontend conversation engine.
+
+```
+greeting (deterministic shell + 1 open Q)
+  → answer → infer facts (deterministic)
+  → Gemini StrategistPlan SAME call: acknowledgement + spoken_question
+      (+ conversational_bridge XOR ack) + next_best_question
+  → render_conversational_turn validates AI copy → else SAFE deterministic fallback
+  → MLC sufficient → ONE optional Gemini wrap synthesis (structured facts)
+      → else hardened / SAFE wrap → CTA Entra in ORA
+  → lifeSetupComplete → completeLifeSetupGate → Home
+```
+
+### DETERMINISTIC vs AI (Sprint 4.2 Architecture A)
+
+| DETERMINISTIC (authority) | AI (Gemini via ProviderManager) |
+|---------------------------|----------------------------------|
+| MLC coverage, gaps, gate, completion | `acknowledgement` (≤1 sentence) |
+| Fact inference & profile persistence | `spoken_question` (natural ask) |
+| `next_best_question` + `question_goal` (intent) | Wording only — intent frozen by planner |
+| Greeting shell, actions/UI contract | Optional wrap `spoken_text` (rare, end only) |
+| Location / soft-exit / Home unlock | Quiet Premium Italian phrasing |
+| SAFE fallbacks if Gemini fails / `force_fallback` | Must pass `validate_rendered_text` + goal check |
+
+**Critical invariant:** never render `lavori come {x}` unless `x` is a short structured `lavoro.ruolo` title (`looks_like_role_title`). Free-text priority / responsibilities must not become a job title.
+
+- Module: `backend/ai_life_strategist/conversational_voice.py` (`render_conversational_turn`, `validate_rendered_text`, `safe_*_fallback`, `render_wrap_synthesis`)
+- Reasoner: same-call spoken fields on `StrategistPlan` (`reasoner.py`)
+- Turn assembly: `conversation_planner.py` (greeting / active / wrap)
+- No second Gemini call on the happy active-turn path
+- No progress bar / checklist / % in UI; soft progress only when near-complete + rich facts (4.1)
+- FE thinking: in-thread “ORA sta pensando…” while composer disabled (no modal)
+- First-run pre-MLC: FE hides Esci / Più tardi (backend cancel/postpone unchanged)
+- life_places assist: action `use_current_location` → browser geolocation → `POST /api/life-setup/reverse-geocode` (Nominatim city) → user confirm → `POST /api/life-setup/confirm-location` (city only; **no** coord persistence; **no** expo-location)
+- User-facing strings must not expose MLC / coverage / Life Graph / planner jargon
+- Documents V2 pipeline unchanged; proposal copy frames upload as optional accelerator; turn actions include Non ora / Preferisco rispondere
 
 ## Life Experience / Strategist (2026-08-06)
 

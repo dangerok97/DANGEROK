@@ -36,8 +36,47 @@ import {
   routeByLifeSetupGate,
   setLocalLifeSetupCompleted,
 } from '@/src/life-setup/gate';
+import { computeAllowSoftExit, shouldShowSoftExit } from '@/src/life-setup/softExit';
 
 type Bubble = { role: 'ora' | 'user'; text: string };
+
+/** Browser / RN web Geolocation — no expo-location dependency. */
+function requestDevicePosition(): Promise<{ lat: number; lon: number } | null> {
+  const geo = (globalThis as any)?.navigator?.geolocation;
+  if (!geo?.getCurrentPosition) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    try {
+      geo.getCurrentPosition(
+        (pos: { coords?: { latitude?: number; longitude?: number } }) => {
+          const lat = pos?.coords?.latitude;
+          const lon = pos?.coords?.longitude;
+          if (typeof lat === 'number' && typeof lon === 'number') {
+            resolve({ lat, lon });
+          } else {
+            resolve(null);
+          }
+        },
+        () => resolve(null),
+        { enableHighAccuracy: false, timeout: 12000, maximumAge: 120000 },
+      );
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+function ThinkingDots() {
+  const [n, setN] = useState(1);
+  useEffect(() => {
+    const id = setInterval(() => setN((v) => (v % 3) + 1), 420);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <Text style={styles.thinkingText} testID="life-setup-thinking">
+      ORA sta pensando{'.'.repeat(n)}
+    </Text>
+  );
+}
 
 /** Real Life Experience document flow state — Documents V2 remains the ONLY
  * upload/OCR/storage pipeline; this only tracks attach → poll → consume. */
@@ -66,6 +105,15 @@ export function LifeSetupConversationScreen() {
   const [draft, setDraft] = useState('');
   const [explain, setExplain] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  /**
+   * Soft-exit (Esci / Più tardi) only on returning/resume flows.
+   * Set from `?resume=` or start.resumed — never from wrap `done` or message count.
+   * onExit → force start must NOT flip this to true (still first-run until MLC).
+   */
+  const [allowSoftExit, setAllowSoftExit] = useState(false);
+  /** Pending city from reverse-geocode — confirm before save. */
+  const [pendingLocationCity, setPendingLocationCity] = useState<string | null>(null);
+  const [locating, setLocating] = useState(false);
 
   // --- REAL document upload + AI Document Understanding state ---
   const [docPhase, setDocPhase] = useState<DocFlowPhase>('idle');
@@ -78,6 +126,9 @@ export function LifeSetupConversationScreen() {
   const [editingFieldValue, setEditingFieldValue] = useState('');
   const pollCancelled = useRef(false);
   const pendingTurnRef = useRef<LifeSetupTurn | null>(null);
+
+  // showEsci / showPostpone — never tie visibility to wrap `done` alone
+  const showSoftExit = shouldShowSoftExit({ allowSoftExit, done });
 
   const applyTurn = useCallback((t: LifeSetupTurn | undefined | null, oraExtra?: string) => {
     if (!t) return;
@@ -144,6 +195,13 @@ export function LifeSetupConversationScreen() {
           }
         }
 
+        // Soft-exit only for resume/returning — not mandatory first incomplete Life Setup.
+        setAllowSoftExit(
+          computeAllowSoftExit({
+            resumeParam: params.resume,
+            resumed: Boolean(res.resumed),
+          }),
+        );
         applyTurn(res.turn);
         const pending = (res as any).pending_document as
           | { document_id: string; doc_type?: string; ready_for_consume?: boolean; message?: string }
@@ -175,7 +233,7 @@ export function LifeSetupConversationScreen() {
 
   const send = async () => {
     const text = draft.trim();
-    if (!text || sending) return;
+    if (!text || sending || locating) return;
     setSending(true);
     setError(null);
     setBubbles((prev) => [...prev, { role: 'user', text }]);
@@ -186,6 +244,68 @@ export function LifeSetupConversationScreen() {
         setBubbles((prev) => [...prev, { role: 'ora', text: res.message || 'Non memorizzo credenziali.' }]);
         return;
       }
+      applyTurn(res.turn);
+    } catch (e: any) {
+      setError(humanizeError(e, 'default'));
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const useCurrentLocation = async () => {
+    if (sending || locating || pendingLocationCity) return;
+    setLocating(true);
+    setError(null);
+    setBubbles((prev) => [...prev, { role: 'user', text: 'Usa la mia posizione' }]);
+    try {
+      const pos = await requestDevicePosition();
+      if (!pos) {
+        // Permission denied / unavailable — never block; text input continues
+        setBubbles((prev) => [
+          ...prev,
+          {
+            role: 'ora',
+            text: 'Ok, niente posizione — puoi scrivere pure la città.',
+          },
+        ]);
+        return;
+      }
+      const res = await api.lifeSetupReverseGeocode(pos.lat, pos.lon);
+      if (!res.ok || !res.city) {
+        setBubbles((prev) => [
+          ...prev,
+          {
+            role: 'ora',
+            text: res.message || 'Non riesco a capire la città da qui — puoi scriverla tu?',
+          },
+        ]);
+        return;
+      }
+      setPendingLocationCity(res.city);
+      setBubbles((prev) => [
+        ...prev,
+        { role: 'ora', text: res.confirm_prompt || `Sembra che tu sia a ${res.city}. È qui che vivi principalmente?` },
+      ]);
+    } catch {
+      setBubbles((prev) => [
+        ...prev,
+        { role: 'ora', text: 'Ok, niente posizione — puoi scrivere pure la città.' },
+      ]);
+      setError(null);
+    } finally {
+      setLocating(false);
+    }
+  };
+
+  const confirmPendingLocation = async (confirmed: boolean) => {
+    if (!pendingLocationCity || sending) return;
+    const city = pendingLocationCity;
+    setSending(true);
+    setError(null);
+    setBubbles((prev) => [...prev, { role: 'user', text: confirmed ? 'Sì' : 'No' }]);
+    setPendingLocationCity(null);
+    try {
+      const res = await api.lifeSetupConfirmLocation(city, confirmed);
       applyTurn(res.turn);
     } catch (e: any) {
       setError(humanizeError(e, 'default'));
@@ -531,6 +651,8 @@ export function LifeSetupConversationScreen() {
       } catch {}
     }
     // Session is terminal after cancel — open a fresh setup turn in-place (still pre-Home).
+    // Force start creates a NEW session without resumed=true; do NOT set allowSoftExit
+    // from that response (first-run incomplete stays without Esci unless ?resume=1).
     try {
       const res = await api.lifeSetupStart(true);
       if (!res.already_finished) {
@@ -539,17 +661,28 @@ export function LifeSetupConversationScreen() {
         setExplain(null);
         setDocPhase('idle');
         setDocumentResult(null);
+        // Keep allowSoftExit only if route still has resume; never promote from force start.
+        setAllowSoftExit(
+          computeAllowSoftExit({
+            resumeParam: params.resume,
+            resumed: false,
+          }),
+        );
         applyTurn(res.turn);
       }
     } catch {
       // Keep screen; user can reopen app — gate still blocks Home
     }
-    setNotice('Setup sospeso. Puoi continuare qui — la Home resta chiusa finché non completi.');
+    setNotice(
+      'Ok, restiamo qui. ORA ha bisogno di un minimo di contesto prima di iniziare — quando vuoi, riprendiamo.',
+    );
   };
 
   const onPostpone = async () => {
     // postponed !== completed — do not terminal-skip to Home.
-    setNotice('Ok, riprendiamo quando vuoi. Resta in Life Setup finché non completi.');
+    setNotice(
+      'Va bene. Quando sei pronto, continuiamo da qui: mi serve ancora un po’ di contesto per aiutarti davvero.',
+    );
     setError(null);
     if (user?.user_id) {
       try {
@@ -596,11 +729,14 @@ export function LifeSetupConversationScreen() {
         <View style={styles.header}>
           <Text style={styles.brand} testID="life-setup-brand">ORA</Text>
           <Text style={styles.hint} testID="life-setup-hint">
-            Conversazione · ~10–15 min · non un questionario
+            Prima conversazione con ORA
           </Text>
-          <Pressable onPress={onExit} testID="life-setup-exit" accessibilityRole="button">
-            <Text style={styles.exit}>Esci</Text>
-          </Pressable>
+          {/* Esci only on resume/returning (!allowSoftExit hides first-run); backend cancel remains */}
+          {showSoftExit ? (
+            <Pressable onPress={onExit} testID="life-setup-exit" accessibilityRole="button">
+              <Text style={styles.exit}>Esci</Text>
+            </Pressable>
+          ) : null}
         </View>
 
         {/* Explicit anti-wizard markers for E2E */}
@@ -621,6 +757,11 @@ export function LifeSetupConversationScreen() {
               <Text style={styles.bubbleText}>{b.text}</Text>
             </View>
           ))}
+          {(sending || locating) && !pendingLocationCity ? (
+            <View style={[styles.bubble, styles.oraBubble, styles.thinkingBubble]} testID="life-setup-thinking-bubble">
+              <ThinkingDots />
+            </View>
+          ) : null}
           {turn?.expected_benefit ? (
             <Text style={styles.benefit} testID="life-setup-benefit">
               {turn.expected_benefit}
@@ -820,23 +961,63 @@ export function LifeSetupConversationScreen() {
 
         {!done ? (
           <View style={styles.composer}>
+            {pendingLocationCity ? (
+              <View style={styles.actions} testID="life-setup-location-confirm">
+                <Pressable
+                  onPress={() => confirmPendingLocation(true)}
+                  disabled={sending}
+                  testID="life-setup-location-yes"
+                >
+                  <Text style={styles.link}>Sì</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => confirmPendingLocation(false)}
+                  disabled={sending}
+                  testID="life-setup-location-no"
+                >
+                  <Text style={styles.link}>No</Text>
+                </Pressable>
+              </View>
+            ) : null}
+            {turn?.actions?.some((a) => a.id === 'use_current_location') &&
+            !pendingLocationCity &&
+            docPhase === 'idle' ? (
+              <Pressable
+                onPress={useCurrentLocation}
+                disabled={sending || locating}
+                testID="life-setup-use-location"
+              >
+                <Text style={styles.link}>
+                  {turn.actions.find((a) => a.id === 'use_current_location')?.label ||
+                    'Usa la mia posizione'}
+                </Text>
+              </Pressable>
+            ) : null}
             {turn?.recommended_document && docPhase === 'idle' ? (
               <>
                 <Pressable
                   style={styles.docBtn}
                   onPress={pickAndUploadDocument}
                   testID="life-setup-upload-doc"
-                  disabled={sending}
+                  disabled={sending || locating}
                 >
                   <Text style={styles.docBtnText}>
                     Carica {turn.recommended_document.label}
                   </Text>
                 </Pressable>
                 <View style={styles.actions}>
-                  <Pressable onPress={notNowDocument} testID="life-setup-doc-not-now">
+                  <Pressable
+                    onPress={notNowDocument}
+                    disabled={sending || locating}
+                    testID="life-setup-doc-not-now"
+                  >
                     <Text style={styles.link}>Non ora</Text>
                   </Pressable>
-                  <Pressable onPress={preferAnswerInstead} testID="life-setup-doc-prefer-answer">
+                  <Pressable
+                    onPress={preferAnswerInstead}
+                    disabled={sending || locating}
+                    testID="life-setup-doc-prefer-answer"
+                  >
                     <Text style={styles.link}>Preferisco rispondere</Text>
                   </Pressable>
                 </View>
@@ -850,28 +1031,39 @@ export function LifeSetupConversationScreen() {
                 onChangeText={setDraft}
                 placeholder="Racconta a ORA…"
                 placeholderTextColor={tokens.color.onSurfaceDim}
-                editable={!sending}
+                editable={!sending && !locating}
                 onSubmitEditing={send}
               />
               <Pressable
-                style={styles.send}
+                style={[styles.send, (sending || locating || !draft.trim()) && { opacity: 0.55 }]}
                 onPress={send}
                 testID="life-setup-send"
-                disabled={sending || !draft.trim()}
+                disabled={sending || locating || !draft.trim()}
               >
                 <Text style={styles.sendText}>Invia</Text>
               </Pressable>
             </View>
             <View style={styles.actions}>
-              <Pressable onPress={onExplain} testID="life-setup-why">
+              <Pressable onPress={onExplain} disabled={sending || locating} testID="life-setup-why">
                 <Text style={styles.link}>Perché me lo chiedi?</Text>
               </Pressable>
-              <Pressable onPress={onSkipDomain} testID="life-setup-skip-domain">
+              <Pressable
+                onPress={onSkipDomain}
+                disabled={sending || locating}
+                testID="life-setup-skip-domain"
+              >
                 <Text style={styles.link}>Salta tema</Text>
               </Pressable>
-              <Pressable onPress={onPostpone} testID="life-setup-postpone">
-                <Text style={styles.link}>Più tardi</Text>
-              </Pressable>
+              {/* Più tardi only on resume/returning; backend postpone can remain */}
+              {showSoftExit ? (
+                <Pressable
+                  onPress={onPostpone}
+                  disabled={sending || locating}
+                  testID="life-setup-postpone"
+                >
+                  <Text style={styles.link}>Più tardi</Text>
+                </Pressable>
+              ) : null}
             </View>
           </View>
         ) : (
@@ -885,7 +1077,9 @@ export function LifeSetupConversationScreen() {
             {completing ? (
               <ActivityIndicator color={tokens.color.onBrand} />
             ) : (
-              <Text style={styles.doneText}>Vai alla Home</Text>
+              <Text style={styles.doneText}>
+                {turn?.actions?.find((a) => a.id === 'done')?.label || 'Entra in ORA'}
+              </Text>
             )}
           </Pressable>
         )}
@@ -906,6 +1100,13 @@ const styles = StyleSheet.create({
   oraBubble: { backgroundColor: tokens.color.surfaceSecondary, alignSelf: 'flex-start' },
   userBubble: { backgroundColor: tokens.color.surfaceTertiary, alignSelf: 'flex-end' },
   bubbleText: { color: tokens.color.onSurface, fontSize: 16, lineHeight: 22 },
+  thinkingBubble: { opacity: 0.85 },
+  thinkingText: {
+    color: tokens.color.onSurfaceMuted,
+    fontSize: 14,
+    fontStyle: 'italic',
+    letterSpacing: 0.2,
+  },
   benefit: { color: tokens.color.onSurfaceMuted, fontSize: 13, fontStyle: 'italic' },
   explain: { color: tokens.color.info, fontSize: 13 },
   notice: { color: tokens.color.onSurfaceMuted, fontSize: 13 },

@@ -3,14 +3,24 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
+from ai_life_strategist.conversational_voice import (
+    render_conversational_turn,
+    render_wrap_synthesis,
+    resolve_turn_question,
+    synthesize_first_picture,
+    validate_rendered_text,
+)
 from ai_life_strategist.models import StrategistPlan
 
+LIFE_PLACES_GAP_KEYS = frozenset({
+    "mlc.life_places.home",
+    "mlc.life_places",
+})
+
 PHILOSOPHY_GREETING = (
-    "Ciao — sono ORA. Non ti farò un questionario: "
-    "voglio capire la tua vita abbastanza da aiutarti davvero, "
-    "con scadenze, documenti e priorità. "
-    "Possiamo parlarne 10–15 minuti, oppure saltare e riprendere più avanti "
-    "quando ti fa comodo. Puoi uscire in qualsiasi momento."
+    "Ciao, sono ORA.\n\n"
+    "Prima di iniziare vorrei conoscerti un po’. "
+    "Non serve raccontarmi tutto: partiamo da quello che conta per te adesso."
 )
 
 INTERRUPT_HOME_HINT = (
@@ -18,7 +28,7 @@ INTERRUPT_HOME_HINT = (
     "o carica un documento utile."
 )
 
-# Forbidden UX copy (wizard smell)
+# Forbidden UX copy (wizard smell + internal jargon)
 FORBIDDEN_PHRASES = (
     "completa il profilo",
     "life setup",
@@ -26,15 +36,24 @@ FORBIDDEN_PHRASES = (
     "wizard",
     "questionario obbligatorio",
     "completa il questionario",
+    "minimum life context",
+    "mlc",
+    "life graph",
+    "coverage",
 )
 
 
 def build_greeting_turn(plan: StrategistPlan) -> Dict[str, Any]:
+    # First contact shell stays deterministic; question may use validated spoken_question
+    q = validate_rendered_text(plan.spoken_question, kind="question") or (
+        plan.next_best_question or ""
+    ).strip()
+    body = f"{PHILOSOPHY_GREETING}\n\n{q}"
     return {
         "kind": "conversation_turn",
         "role": "ora",
-        "text": PHILOSOPHY_GREETING,
-        "question": plan.next_best_question,
+        "text": body,
+        "question": q or plan.next_best_question,
         "explain": plan.explain_for_user(),
         "expected_benefit": plan.expected_benefit,
         "recommended_document": plan.recommended_document.model_dump() if plan.recommended_document else None,
@@ -49,35 +68,77 @@ def build_greeting_turn(plan: StrategistPlan) -> Dict[str, Any]:
             "wizard": False,
             "form": False,
             "progress_bar": False,
-            "indicative_minutes": "10–15",
             "experience": "life_experience",
         },
         "plan": plan.public(),
     }
 
 
-def build_active_turn(plan: StrategistPlan, *, ack: Optional[str] = None) -> Dict[str, Any]:
-    text_parts = []
-    if ack:
-        text_parts.append(ack)
-    text_parts.append(plan.next_best_question)
+def build_active_turn(
+    plan: StrategistPlan,
+    *,
+    ack: Optional[str] = None,
+    last_bridge: Optional[str] = None,
+    known_facts: Optional[Dict[str, Any]] = None,
+    spoken_text: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Assemble active turn. Prefer validated Gemini spoken fields (Architecture A)
+    via render_conversational_turn; SAFE deterministic fallback otherwise.
+    """
+    if spoken_text and spoken_text.strip():
+        text = spoken_text.strip()
+        used_bridge = None
+    else:
+        text = render_conversational_turn(
+            {
+                "plan": plan,
+                "ack": ack,
+                "last_bridge": last_bridge,
+                "known_facts": known_facts or {},
+            }
+        )
+        used_bridge = None
+        bridge = plan.conversational_bridge or (plan.meta or {}).get("conversational_bridge")
+        if (
+            bridge
+            and not (plan.acknowledgement or ack)
+            and bridge.strip() in text
+            and (not last_bridge or bridge.strip() != str(last_bridge).strip())
+        ):
+            used_bridge = str(bridge).strip()
+
     actions = [
         {"id": "answer", "label": "Rispondi"},
         {"id": "skip_domain", "label": "Salta questo tema"},
         {"id": "explain", "label": "Perché me lo chiedi?"},
+        # exit/postpone remain in contract for resume paths; FE hides on first-run pre-MLC
         {"id": "exit", "label": "Esci"},
     ]
+    gap_key = str((plan.meta or {}).get("gap_key") or "")
+    nucleus = str((plan.meta or {}).get("mlc_nucleus") or "")
+    if gap_key in LIFE_PLACES_GAP_KEYS or nucleus == "life_places" or gap_key.startswith(
+        "mlc.life_places"
+    ):
+        actions.insert(
+            0,
+            {"id": "use_current_location", "label": "Usa la mia posizione"},
+        )
     if plan.prefer_document and plan.recommended_document:
         actions.insert(0, {
             "id": "upload_doc",
             "label": f"Carica {plan.recommended_document.label}",
             "doc_type": plan.recommended_document.doc_type,
         })
+        actions.append({"id": "doc_not_now", "label": "Non ora"})
+        actions.append({"id": "doc_prefer_answer", "label": "Preferisco rispondere"})
+
+    question = resolve_turn_question(plan) or plan.next_best_question
     return {
         "kind": "conversation_turn",
         "role": "ora",
-        "text": " ".join(text_parts),
-        "question": plan.next_best_question,
+        "text": text,
+        "question": question,
         "explain": plan.explain_for_user(),
         "expected_benefit": plan.expected_benefit,
         "recommended_document": plan.recommended_document.model_dump() if plan.recommended_document else None,
@@ -91,6 +152,7 @@ def build_active_turn(plan: StrategistPlan, *, ack: Optional[str] = None) -> Dic
             "experience": "life_experience",
         },
         "plan": plan.public(),
+        "meta": {"used_bridge": used_bridge} if used_bridge else {},
     }
 
 
@@ -116,16 +178,23 @@ def assert_not_wizard_copy(text: str) -> bool:
     return not any(p in low for p in FORBIDDEN_PHRASES)
 
 
-def wrap_up_turn(*, domains: List[str], benefits: List[str]) -> Dict[str, Any]:
-    ben = benefits[0] if benefits else "iniziare ad aiutarti in concreto"
+async def wrap_up_turn(
+    *,
+    known_facts: Optional[Dict[str, Any]] = None,
+    domains: Optional[List[str]] = None,
+    benefits: Optional[List[str]] = None,
+    force_fallback: bool = False,
+) -> Dict[str, Any]:
+    """Final moment — AI wrap synthesis (optional) or SAFE/hardened deterministic. CTA: Entra in ORA."""
+    _ = domains, benefits  # kept for call-site compatibility; synthesis uses facts
+    text = await render_wrap_synthesis(known_facts or {}, force_fallback=force_fallback)
+    # Absolute last resort
+    if not (text or "").strip():
+        text = synthesize_first_picture(known_facts or {})
     return {
         "kind": "conversation_turn",
         "role": "ora",
-        "text": (
-            "Adesso conosco abbastanza della tua situazione per iniziare ad aiutarti. "
-            f"Userò questo contesto minimo — {ben} — e continuerò a conoscerti nel tempo, "
-            "senza moduli da completare."
-        ),
+        "text": text,
         "question": None,
         "ui": {
             "mode": "natural_conversation",
@@ -133,5 +202,5 @@ def wrap_up_turn(*, domains: List[str], benefits: List[str]) -> Dict[str, Any]:
             "done": True,
             "experience": "life_experience",
         },
-        "actions": [{"id": "done", "label": "Vai alla Home"}],
+        "actions": [{"id": "done", "label": "Entra in ORA"}],
     }

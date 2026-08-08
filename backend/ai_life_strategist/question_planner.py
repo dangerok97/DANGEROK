@@ -11,25 +11,24 @@ from ai_life_strategist.benefit_engine import explain_benefit, pick_best_benefit
 from ai_life_strategist.confidence_manager import plan_confidence
 from ai_life_strategist.document_strategy import recommend_document, should_prefer_document
 from ai_life_strategist.knowledge_gap import compute_gaps, infer_domain_from_text
+from ai_life_strategist.conversational_voice import near_mlc_bridge
 from ai_life_strategist.minimum_life_context import (
     NUCLEUS_QUESTIONS,
     compute_mlc_gaps,
     evaluate_mlc_coverage,
     is_mlc_sufficient,
+    question_goal_for_gap,
     wrap_plan_meta,
 )
 from ai_life_strategist.models import DOMAIN_LABELS_IT, ReasoningContext, StrategistPlan
 from ai_life_strategist.policy import filter_unsafe_plan_fields
 
 
-GREETING_QUESTION = (
-    "Raccontami qualcosa di te — come preferisci che ti chiami e cosa sta "
-    "riempiendo le tue giornate in questo periodo?"
-)
+GREETING_QUESTION = "Cosa occupa principalmente le tue giornate in questo periodo?"
 
 GREETING_BENEFIT = (
-    "Mi serve solo il contesto minimo per iniziare ad aiutarti in concreto — "
-    "non un profilo completo della tua vita."
+    "Capire come sono organizzate le tue giornate mi aiuta a proporti cose "
+    "realistiche, nel momento giusto — senza chiederti tutto subito."
 )
 
 
@@ -39,15 +38,12 @@ def plan_greeting(*, domains_touched: Optional[List[str]] = None) -> StrategistP
         domain = "servizi"
     return StrategistPlan(
         next_best_question=GREETING_QUESTION,
-        question_reason=(
-            "Non è un questionario: è una conversazione. Puoi saltare un tema "
-            "o uscire — ORA continua a imparare dopo la Home."
-        ),
+        question_reason=GREETING_BENEFIT,
         expected_benefit=GREETING_BENEFIT,
         user_explanation=GREETING_BENEFIT,
         information_gain=0.4,
         recommended_document=None,
-        alternative_question="Se preferisci, dimmi solo dove vivi e se lavori o studi.",
+        alternative_question="Se preferisci, dimmi se lavori, studi, o entrambe le cose.",
         confidence=0.85,
         domain=domain,  # type: ignore[arg-type]
         priority=10,
@@ -69,19 +65,22 @@ def _wrap_plan(ctx: ReasoningContext, domain: Optional[str], coverage) -> Strate
     asked: Set[str] = set(ctx.asked_keys or [])
     refused: Set[str] = set(ctx.refused_keys or [])
     postponed: Set[str] = set(ctx.postponed_keys or [])
+    meta = wrap_plan_meta(coverage)
     return StrategistPlan(
         next_best_question=(
-            "Adesso conosco abbastanza della tua situazione per iniziare ad aiutarti. "
-            "Vuoi aggiungere altro, oppure entrare in Home e lasciare che ORA lavori con questo contesto?"
+            "È abbastanza per iniziare. Quando vuoi, entra in ORA — "
+            "continueremo a conoscerci mentre la usi."
         ),
-        question_reason="Minimum Life Context raggiunto — non un profilo completo.",
+        question_reason=(
+            "Ho un primo quadro della tua situazione; il resto emerge cammin facendo."
+        ),
         expected_benefit=(
-            "Userò questo contesto minimo su Home e nei suggerimenti, "
-            "e continuerò a conoscerti nel tempo."
+            "Userò questo contesto per proporti cose utili da subito, "
+            "senza chiederti di «completare il profilo»."
         ),
         user_explanation=(
-            "Ho il contesto minimo per iniziare ad aiutarti in concreto. "
-            "Non serve «completare il profilo» — il resto emerge cammin facendo."
+            "Ho abbastanza contesto per iniziare ad aiutarti in concreto. "
+            "Continueremo a conoscerci mentre userai ORA."
         ),
         information_gain=0.2,
         confidence=0.88,
@@ -91,7 +90,7 @@ def _wrap_plan(ctx: ReasoningContext, domain: Optional[str], coverage) -> Strate
         asked_keys=list(asked),
         refused_keys=list(refused),
         postponed_keys=list(postponed),
-        meta=wrap_plan_meta(coverage),
+        meta=meta,
     )
 
 
@@ -159,9 +158,18 @@ def plan_next(
                     "gap_key": pri_key,
                     "benefit_code": "mlc_immediate_priority",
                     "mlc_nucleus": "immediate_priority",
+                    "question_goal": question_goal_for_gap(
+                        pri_key, "immediate_priority"
+                    ),
                     "mlc": coverage.public(),
                     "mlc_version": "mlc-v1",
                     "mlc_priority_preferred_ask": True,
+                    "conversational_bridge": near_mlc_bridge(
+                        covered_count=coverage.covered_count,
+                        missing=list(coverage.missing),
+                        sufficient=False,
+                        known_facts=known_facts,
+                    ),
                     "privacy_refused": refused_flag,
                     "reasoning_loop": True,
                 },
@@ -213,8 +221,15 @@ def plan_next(
                 "gap_key": gap.key,
                 "benefit_code": gap.benefit_code,
                 "mlc_nucleus": nucleus,
+                "question_goal": question_goal_for_gap(gap.key, nucleus),
                 "mlc": coverage.public(),
                 "mlc_version": "mlc-v1",
+                "conversational_bridge": near_mlc_bridge(
+                    covered_count=coverage.covered_count,
+                    missing=list(coverage.missing),
+                    sufficient=coverage.sufficient,
+                    known_facts=known_facts,
+                ),
                 "privacy_refused": refused_flag,
                 "reasoning_loop": True,
             },
@@ -250,6 +265,10 @@ def plan_next(
             meta={
                 "phase": "active",
                 "gap_key": "mlc.immediate_priority",
+                "mlc_nucleus": "immediate_priority",
+                "question_goal": question_goal_for_gap(
+                    "mlc.immediate_priority", "immediate_priority"
+                ),
                 "mlc": coverage.public(),
                 "mlc_version": "mlc-v1",
                 "privacy_refused": refused_flag,
@@ -292,8 +311,8 @@ def plan_domain_gap_legacy(
     question = gap.question_template
     if prefer_doc and rec_doc:
         question = (
-            f"{rec_doc.label}: {rec_doc.reason} "
-            f"Vuoi caricarlo ora, oppure preferisci rispondermi a voce?"
+            f"Se vuoi, puoi farmi leggere {rec_doc.label.lower()}: {rec_doc.reason} "
+            "Altrimenti puoi rispondermi a voce — non è obbligatorio."
         )
     expected = benefit.user_benefit or explain_benefit(gap.benefit_code)
     reason = f"Serve per «{benefit.title}»: {expected}"
@@ -350,6 +369,48 @@ def avoid_duplicate(plan: StrategistPlan, asked_questions_text: List[str]) -> St
     return plan
 
 
+def bind_planner_intent(
+    ai_plan: StrategistPlan,
+    planner_plan: StrategistPlan,
+) -> StrategistPlan:
+    """Planner owns gap intent; AI plan keeps wording fields only.
+
+    Copies gap_key / question_goal / nucleus and forces next_best_question to the
+    deterministic template when the planner is on an active MLC gap.
+    """
+    pmeta = planner_plan.meta or {}
+    if (pmeta.get("phase") or "") == "wrap":
+        return planner_plan
+    gap_key = pmeta.get("gap_key")
+    if not gap_key:
+        return ai_plan
+    plan = ai_plan.model_copy(deep=True)
+    meta = dict(plan.meta or {})
+    meta["gap_key"] = gap_key
+    if pmeta.get("mlc_nucleus") is not None:
+        meta["mlc_nucleus"] = pmeta.get("mlc_nucleus")
+    goal = pmeta.get("question_goal") or question_goal_for_gap(
+        str(gap_key), pmeta.get("mlc_nucleus")
+    )
+    if goal:
+        meta["question_goal"] = goal
+    if pmeta.get("benefit_code"):
+        meta["benefit_code"] = pmeta["benefit_code"]
+    if pmeta.get("mlc") is not None:
+        meta["mlc"] = pmeta["mlc"]
+    meta["mlc_version"] = pmeta.get("mlc_version") or "mlc-v1"
+    meta["planner_owns_intent"] = True
+    plan.meta = meta
+    # Semantic question template is always the planner's (SAFE fallback wording)
+    if planner_plan.next_best_question:
+        plan.next_best_question = planner_plan.next_best_question
+    if planner_plan.gap_keys:
+        plan.gap_keys = list(planner_plan.gap_keys)
+    if planner_plan.expected_benefit and not (plan.expected_benefit or "").strip():
+        plan.expected_benefit = planner_plan.expected_benefit
+    return plan
+
+
 def enforce_mlc_on_plan(plan: StrategistPlan, ctx: ReasoningContext) -> StrategistPlan:
     """Gate Gemini/deterministic plans: wrap iff MLC sufficient."""
     coverage = evaluate_mlc_coverage(
@@ -366,5 +427,14 @@ def enforce_mlc_on_plan(plan: StrategistPlan, ctx: ReasoningContext) -> Strategi
     if (plan.meta or {}).get("phase") == "wrap":
         return plan_next(ctx)
     plan = plan.model_copy(deep=True)
-    plan.meta = {**(plan.meta or {}), "mlc": coverage.public(), "mlc_version": "mlc-v1"}
+    meta = {**(plan.meta or {}), "mlc": coverage.public(), "mlc_version": "mlc-v1"}
+    # Ensure question_goal is present for validation even if Gemini omitted it
+    gap_key = meta.get("gap_key")
+    nucleus = meta.get("mlc_nucleus")
+    if gap_key and not meta.get("question_goal"):
+        goal = question_goal_for_gap(str(gap_key), nucleus)
+        if goal:
+            meta["question_goal"] = goal
+    plan.meta = meta
     return plan
+

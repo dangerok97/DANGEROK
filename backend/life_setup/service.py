@@ -207,8 +207,12 @@ class LifeSetupService:
             domains_touched=sess.domains_touched,
             force_fallback=not strategist.enabled() or bool(sess.meta.get("force_fallback")),
             ack=ack,
+            last_bridge=sess.meta.get("last_bridge"),
             db=self.db,
         )
+        used_bridge = (turn.get("meta") or {}).get("used_bridge")
+        if used_bridge:
+            sess.meta["last_bridge"] = used_bridge
         # Refresh active benefits after each plan (for Home after complete)
         try:
             from ai_life_strategist.benefit_engine import active_benefits
@@ -294,16 +298,27 @@ class LifeSetupService:
             except Exception:
                 logger.info("semantic extract in life_setup skipped", exc_info=True)
 
-            # Soft refuse / postpone from natural language
+            # Soft refuse / postpone from natural language (semantic refuse — no fact save)
             low = (text or "").lower()
             gap_key = (sess.last_plan.get("meta") or {}).get("gap_key") if sess.last_plan else None
-            if gap_key and any(
-                x in low for x in ("non voglio", "preferisco non", "non te lo dico", "niente di questo")
-            ):
+            refuse_signals = (
+                "non voglio",
+                "preferisco non",
+                "non te lo dico",
+                "niente di questo",
+                "non voglio dirlo",
+                "preferisco non parlarne",
+                "non voglio parlarne",
+            )
+            if gap_key and any(x in low for x in refuse_signals):
                 if gap_key not in sess.refused_keys:
                     sess.refused_keys.append(gap_key)
-                ack = "Va bene, non insisto su questo punto."
+                ack = "Va bene, rispetto la tua scelta — non insisto su questo punto."
                 soft_refuse = True
+            if soft_refuse:
+                # No fake fact save on semantic refuse
+                nlp_inferred = {}
+                extraction_facts = {}
             if gap_key and any(x in low for x in ("più tardi", "dopo", "non ora", "rimandiamo")):
                 if gap_key not in sess.postponed_keys:
                     sess.postponed_keys.append(gap_key)
@@ -348,10 +363,18 @@ class LifeSetupService:
             if domain == "casa" and merged.get("casa.purchased") and not ack:
                 ack = "Hai comprato casa — ottimo punto di partenza."
 
+            # Free-text turns: do NOT override with rich build_acknowledgement.
+            # Gemini acknowledgement (same StrategistPlan call) owns meaning-preserving
+            # ack; render_conversational_turn falls back to SAFE "Capito." + question.
+            # Keep system/refusal/skip/doc acks above as explicit overrides only.
+
             sess.meta["last_extraction"] = {
                 "ok": bool(extraction_pub),
                 "keys": list(merged.keys())[:20],
             }
+
+        if ack:
+            sess.meta["last_ack"] = ack
 
         turn = await self._plan_turn(sess, ack=ack)
         sess.last_turn = turn
@@ -511,7 +534,7 @@ class LifeSetupService:
         sess.meta["last_user_text"] = f"[upload:{doc_type}]"
         turn = await self._plan_turn(
             sess,
-            ack=f"Documento «{doc_type}» ricevuto. Aggiorno il tuo contesto.",
+            ack="Ho ricevuto il documento. Lo uso per capire meglio il tuo contesto, senza farti ripetere tutto.",
         )
         sess.last_turn = turn
         if turn.get("plan"):
@@ -926,7 +949,9 @@ class LifeSetupService:
         benefit_message = new_benefits[0].home_signal if new_benefits else None
 
         label = self._doc_label(doc_type)
-        ack = f"Ho letto {label}. " + (benefit_message or "Ho aggiornato il tuo profilo con i dati trovati.")
+        ack = f"Ho letto {label}. " + (
+            benefit_message or "Ho ricavato le informazioni utili — senza farti inserire tutto a mano."
+        )
 
         # Deadlines found in the SAME Documents V2 document analysis (never a
         # new pipeline) — surfaced as draft-only; confirm goes through the
@@ -1101,3 +1126,84 @@ class LifeSetupService:
                 ]
             await self.profiles.repo.save_profile(profile)
         return {"ok": True, "document_id": document_id, "wizard": False}
+
+    async def reverse_geocode(self, user_id: str, lat: float, lon: float) -> Dict[str, Any]:
+        """City label only — never store precise coordinates on the session/profile."""
+        _ = user_id
+        from action_engine.travel.maps import nominatim_reverse_city
+        from ai_life_strategist.conversational_voice import location_confirm_prompt
+
+        city = await nominatim_reverse_city(lat, lon)
+        if not city:
+            return {
+                "ok": False,
+                "error": "geocode_unavailable",
+                "message": "Non riesco a capire la città da qui — puoi scriverla tu?",
+                "wizard": False,
+            }
+        return {
+            "ok": True,
+            "city": city,
+            "confirm_prompt": location_confirm_prompt(city),
+            "wizard": False,
+            # Honesty: coarse city only; coords are not persisted
+            "persists_coordinates": False,
+        }
+
+    async def confirm_location(
+        self, user_id: str, city: str, *, confirmed: bool
+    ) -> Dict[str, Any]:
+        """
+        On confirm → save city as life_places home via normal fact path.
+        On reject → replan with a normal city question (no place saved).
+        """
+        if not life_setup_enabled():
+            return self._disabled()
+        sess = await self.repo.latest_session(user_id)
+        if not sess or sess.status != "active":
+            return {"ok": False, "error": "no_active_session", "wizard": False}
+
+        city_clean = (city or "").strip()[:80]
+        if confirmed and city_clean:
+            facts = {
+                "mlc.life_places.home": city_clean,
+                "casa.citta": city_clean,
+            }
+            sess.known_facts.update(facts)
+            await self.profiles.apply_facts(
+                user_id, facts, source="user_confirmed", domain_hint="casa"
+            )
+            gap_key = (sess.last_plan or {}).get("meta", {}).get("gap_key") if sess.last_plan else None
+            if gap_key and gap_key not in sess.asked_keys:
+                sess.asked_keys.append(gap_key)
+            ack = f"Ok, segno {city_clean} come luogo principale."
+            turn = await self._plan_turn(sess, ack=ack)
+        else:
+            ack = "Nessun problema — in quale città vivi principalmente?"
+            # Keep gap open; just replan with ack as the city ask
+            turn = await self._plan_turn(sess, ack=ack)
+            # Ensure text still asks for city if planner moved on oddly
+            if turn and not (turn.get("question") or "").strip():
+                turn = dict(turn)
+                turn["text"] = ack
+                turn["question"] = "Dove vivi principalmente in questo periodo? Basta la città."
+
+        sess.last_turn = turn
+        if turn.get("plan"):
+            sess.last_plan = turn["plan"]
+            if turn.get("ui", {}).get("done"):
+                sess.phase = "wrap"
+        sess.meta["last_ack"] = ack
+        # Never store lat/lon
+        sess.meta.pop("pending_lat", None)
+        sess.meta.pop("pending_lon", None)
+        await self.repo.save_session(sess)
+        profile = await self.profiles.get(user_id)
+        return {
+            "ok": True,
+            "session": sess.public(),
+            "turn": turn,
+            "wizard": False,
+            "profile": profile.public() if profile else None,
+            "location_confirmed": bool(confirmed and city_clean),
+        }

@@ -8,49 +8,61 @@ from ai_life_strategist.models import RecommendedDocument
 DOC_CATALOG: Dict[str, Dict[str, Any]] = {
     "rogito": {
         "label": "Rogito / atto di compravendita",
-        "reason": "Dal rogito ORA estrae indirizzo e dati casa in un colpo solo.",
+        "reason": (
+            "posso ricavare io indirizzo e dati casa senza farti inserire tutto a mano. "
+            "È un acceleratore, non un obbligo"
+        ),
         "expected_fields": ["indirizzo", "data_rogito", "parti", "immobile"],
         "upload_hint": "PDF o foto nitida della prima pagina va bene.",
         "domains": ["casa", "documenti"],
     },
     "bolletta": {
         "label": "Bolletta utenze",
-        "reason": "Una bolletta collega utenze, indirizzo e scadenze alla Casa.",
+        "reason": (
+            "posso collegare utenze, indirizzo e scadenze senza domande ripetute. "
+            "Se preferisci, rispondi pure a voce"
+        ),
         "expected_fields": ["fornitore", "importo", "scadenza", "indirizzo"],
         "upload_hint": "PDF della bolletta recente.",
         "domains": ["casa", "finanze", "internet"],
     },
     "libretto": {
         "label": "Libretto di circolazione",
-        "reason": "Dal libretto ORA legge targa e dati veicolo senza digitazione.",
+        "reason": (
+            "posso leggere targa e dati veicolo senza digitazione. "
+            "Non è obbligatorio per iniziare"
+        ),
         "expected_fields": ["targa", "marca", "modello", "telaio"],
         "upload_hint": "Foto di entrambe le facciate se possibile.",
         "domains": ["auto"],
     },
     "polizza_auto": {
         "label": "Polizza RC auto",
-        "reason": "Serve a ricordarti la scadenza senza chiedere il PIN della compagnia.",
+        "reason": (
+            "posso ricordarti la scadenza senza chiederti il PIN della compagnia. "
+            "Solo se ti fa comodo"
+        ),
         "expected_fields": ["compagnia", "scadenza", "targa"],
         "upload_hint": "PDF o foto della polizza.",
         "domains": ["auto", "assicurazioni"],
     },
     "polizza_casa": {
         "label": "Polizza casa",
-        "reason": "Collega copertura e rinnovo al profilo Casa.",
+        "reason": "posso collegare copertura e rinnovo al tuo contesto casa, senza form",
         "expected_fields": ["compagnia", "scadenza", "immobile"],
         "upload_hint": "PDF della polizza.",
         "domains": ["casa", "assicurazioni"],
     },
     "polizza": {
         "label": "Polizza assicurativa",
-        "reason": "Una polizza permette scadenze e rinnovi senza questionario.",
+        "reason": "posso tenere d’occhio scadenze e rinnovi senza un questionario",
         "expected_fields": ["tipo", "compagnia", "scadenza"],
         "upload_hint": "PDF o foto.",
         "domains": ["assicurazioni"],
     },
     "dispensa": {
         "label": "Dispensa / programma d’esame",
-        "reason": "Da un documento di studio ORA può avviare un piano senza form.",
+        "reason": "posso avviare un piano di studio da lì, senza form",
         "expected_fields": ["materia", "argomenti"],
         "upload_hint": "PDF o appunti.",
         "domains": ["studio"],
@@ -58,8 +70,8 @@ DOC_CATALOG: Dict[str, Dict[str, Any]] = {
     "piano_di_studi": {
         "label": "Piano di studi",
         "reason": (
-            "Il piano di studi sostituisce molte domande: "
-            "ORA legge esami e percorsi in un colpo solo."
+            "posso ricavare esami e percorsi in un colpo solo, "
+            "senza farti elencare tutto. Non è obbligatorio"
         ),
         "expected_fields": ["corso", "esami", "cfu", "anno"],
         "upload_hint": "PDF del piano di studi o del libretto universitario.",
@@ -67,21 +79,24 @@ DOC_CATALOG: Dict[str, Dict[str, Any]] = {
     },
     "contratto_internet": {
         "label": "Contratto internet",
-        "reason": "Utile per scadenze e collegamento alle utenze casa.",
+        "reason": (
+            "posso ricavare io le informazioni utili su scadenze e operatore "
+            "senza farti inserire tutto a mano"
+        ),
         "expected_fields": ["operatore", "scadenza"],
         "upload_hint": "PDF contratto.",
         "domains": ["internet", "casa"],
     },
     "documento": {
         "label": "Documento importante",
-        "reason": "ORA estrae ciò che serve e lo collega al dominio giusto.",
+        "reason": "posso estrarre ciò che serve e collegarlo al tema giusto — solo se ti aiuta",
         "expected_fields": [],
         "upload_hint": "PDF o immagine.",
         "domains": ["documenti"],
     },
     "referti": {
         "label": "Prenotazione / promemoria visita",
-        "reason": "Solo dati di appuntamento — non cartelle cliniche complete.",
+        "reason": "solo dati di appuntamento — non cartelle cliniche complete",
         "expected_fields": ["data", "tipo_visita"],
         "upload_hint": "Promemoria o prenotazione, non referti sensibili.",
         "domains": ["salute"],
@@ -102,7 +117,7 @@ def recommend_document(
         return RecommendedDocument(
             doc_type=doc_type,
             label=label_it,
-            reason="Un documento riduce domande e aumenta l’accuratezza.",
+            reason="posso ricavare io le informazioni utili senza farti inserire tutto a mano",
             expected_fields=[],
             upload_hint="PDF o foto leggibile.",
         )

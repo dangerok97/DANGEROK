@@ -89,6 +89,9 @@ def test_gemini_context_has_structured_fields_not_only_message():
     assert "calendar_summary" in payload
     assert "documents_summary" in payload
     assert "conversation_summary" in payload
+    assert payload.get("last_user_text") == "Ho il mutuo"
+    assert payload.get("latest_user_message") == "Ho il mutuo"
+    assert "acknowledgement_instruction" in payload
     assert "beneficio" in GEMINI_TASK_QUESTION.lower()
     assert "continua liberamente" not in GEMINI_TASK_QUESTION.lower()
 
@@ -160,9 +163,12 @@ def test_home_signals_italian():
 
 
 def test_wrap_copy_no_life_setup_phrase():
+    import asyncio
     from ai_life_strategist.conversation_planner import wrap_up_turn, assert_not_wizard_copy
 
-    turn = wrap_up_turn(domains=["casa"], benefits=["seguire il mutuo"])
+    turn = asyncio.get_event_loop().run_until_complete(
+        wrap_up_turn(domains=["casa"], benefits=["seguire il mutuo"], force_fallback=True)
+    )
     assert assert_not_wizard_copy(turn["text"])
     assert "life setup" not in turn["text"].lower()
 

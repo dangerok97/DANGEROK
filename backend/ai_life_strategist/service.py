@@ -151,15 +151,25 @@ class AILifeStrategistService:
     ) -> Dict[str, Any]:
         phase = kwargs.get("session_phase") or "active"
         ack = kwargs.pop("ack", None)
+        last_bridge = kwargs.pop("last_bridge", None)
+        force_fallback = bool(kwargs.get("force_fallback"))
         plan = await self.next_question(user_id, **kwargs)
+        known = kwargs.get("known_facts") or {}
         if phase == "greeting" and not kwargs.get("last_user_text"):
             return build_greeting_turn(plan)
         if plan.meta.get("phase") == "wrap":
-            return wrap_up_turn(
+            return await wrap_up_turn(
+                known_facts=known,
                 domains=kwargs.get("domains_touched") or [plan.domain],
                 benefits=[plan.expected_benefit],
+                force_fallback=force_fallback or not self.enabled(),
             )
-        return build_active_turn(plan, ack=ack)
+        return build_active_turn(
+            plan,
+            ack=ack,
+            last_bridge=last_bridge,
+            known_facts=known,
+        )
 
     def resume_suggestion(self) -> Dict[str, Any]:
         return build_resume_suggestion()

@@ -232,6 +232,19 @@ export default function LoginScreen() {
                   <Ionicons name="mail-outline" size={18} color={tokens.color.onSurface} />
                   <Text style={styles.btnDarkText}>Continua con Email</Text>
                 </Pressable>
+
+                <Pressable
+                  testID="login-create-account-cta"
+                  disabled={!!busy}
+                  onPress={() => {
+                    setIsRegister(true);
+                    setMode('email');
+                    setErr(null);
+                  }}
+                  hitSlop={12}
+                >
+                  <Text style={styles.subtleLink}>Nuovo? Crea un account</Text>
+                </Pressable>
               </>
             )}
 
