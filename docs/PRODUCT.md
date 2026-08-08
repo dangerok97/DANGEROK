@@ -1,6 +1,6 @@
 # ORA — Product (struttura reale)
 
-Ultimo aggiornamento: 2026-08-07 — ORA Home Quiet Premium V1.
+Ultimo aggiornamento: 2026-08-09 — Application Shell V1 Visual Correction (Prompt 3.1).
 
 ## Vision
 
@@ -9,6 +9,10 @@ ORA è il sistema operativo della vita quotidiana: riduce il carico cognitivo mo
 ## Design — ORA Quiet Premium
 
 Linguaggio visivo **calmo, editoriale, premium** (Apple HIG; riferimenti Calendar/Journal/Reminders/Health, Things 3, Notion Mobile, Arc Search, Day One — non Linear). Accent **Deep Indigo**. Temi Light / Dark / System. Primitive UI in `frontend/src/components/ui/`. Glass solo su tab bar / sheet / controlli floating.
+
+### Signature Language — Application Shell V1
+
+ORA si presenta in tre modalità: **Ambient** (navigazione vita quotidiana), **Focus** (una guida / un compito), **Immersive** (attenzione piena). Barra Ambient primaria: Home · Contesti · ORA · Memoria · Profilo. Su desktop la rail Ambient è una colonna compatta (~80px), non una sidebar SaaS a metà schermo; il contenuto Home si bilancia nella regione rimanente. **ORA** al centro apre il percorso Conversation Engine (stesso Ask Bar della Home), non una chat e non Aggiungi. Documenti resta raggiungibile da Profilo. Le guide Action Engine usano chrome Focus (←, Continua, progresso “N di M” quando noto) con colonna decisione più stretta della Home; niente chip “capito” che competono con la domanda.
 
 ### Home Quiet Premium V1 (+ polish 2.1)
 
@@ -26,19 +30,21 @@ Persone che vogliono una priorità unica chiara (non un task manager generico), 
 |-------|-----------|--------|
 | `/login` | Login | Auth email/Google/Apple; CTA testuale **Nuovo? Crea un account** → registrazione email |
 | `/(tabs)` → index | Home Quiet Premium | Daily Focus + Ask Bar + Horizon + priorità/aggiornamenti (stesso ranking API) |
+| `/(tabs)/contesti` | Contesti | Placeholder Quiet Premium (nessuna dashboard) |
+| `/(tabs)/ora` | ORA entry | Ask Bar → Conversation Engine (mai chat) |
 | `/life-setup` | Life Setup Gate (primo avvio) | Sprint 4/4.1/4.2: conversazione Quiet Premium (intro → domanda → thinking in-thread → ack AI o fallback sicuro → sintesi → **Entra in ORA**); copy AI fact-bounded con intent domanda fissato dal planner (`question_goal`); Esci/Più tardi solo su resume (`?resume=1` / `start.resumed`); posizione opzionale per città; MLC Sprint 3; gate Sprint 2B; Home solo dopo complete valido |
 | `/conversation` | Entry Conversation Engine | Bridge a guida AE (mai chat thread) |
 | `/situazione` | Situazione completa | Vista reale da CTA Home |
 | `/(tabs)/memoria` | Memoria | Q&A e salvataggio ricordi |
-| `/(tabs)/documenti` | Documenti | Lista/upload/dettaglio documenti |
-| `/(tabs)/aggiungi` | Aggiungi | Capture priorità / ricordo |
-| `/(tabs)/profilo` | Profilo | Account, placeholder moduli, logout |
+| `/(tabs)/documenti` | Documenti | Lista/upload/dettaglio (nascosto dalla barra primaria; da Profilo) |
+| `/(tabs)/aggiungi` | Aggiungi | Capture (nascosto dalla barra primaria) |
+| `/(tabs)/profilo` | Profilo | Account, link Documenti, placeholder moduli, logout |
 | `/settings` | Impostazioni | AI Provider + account/calendari |
 | `/manage-calendars` | Gestione calendari | Selezione calendari Google |
 | `/connect-apple-calendar` | Apple Calendar | Flusso nativo iOS |
 | `/how-it-works` | Onboarding informativo | Spiega Google Calendar |
 | `/document/[id]` | Dettaglio documento | Insights + azioni |
-| `/action/[sessionId]` | Guida Action Engine | Una domanda per schermo |
+| `/action/[sessionId]` | Guida Action Engine (Focus) | Una domanda per schermo; chrome ← / Continua; no Ambient nav |
 | `/study-plan/[id]` | Piano di studio | Progresso, sessioni, flashcard, Interrogami |
 | `/action/open` | Bridge apertura guida | Da Home Apri/Organizza/Inizia |
 

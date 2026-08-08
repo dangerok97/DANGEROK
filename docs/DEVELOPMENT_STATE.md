@@ -1,12 +1,88 @@
 # ORA — Development State
 
-Last updated: 2026-08-08 (Sprint 4.2 Final Fix — question intent constrained)
+Last updated: 2026-08-09 (Micro-batch 3.S — Human Presentation Semantics)
 
 ## Branch
 
 - Active: `feature/ora-quiet-premium-design-system`
 - Baseline: `9722724`
 - No push / no merge unless requested
+
+## Micro-batch 3.S — Human Presentation Semantics (this batch)
+
+| Item | Stato |
+|------|--------|
+| Human Italian `reason_summary` from factor codes | **yes** — `home/reason_presentation.py` |
+| Ranking scores/weights/order unchanged | **yes** |
+| DailyFocus `"Tipo "` omit removed | **yes** — backend fixed |
+| Study exam identity ≠ Home/insight title | **yes** — `study/flow.py` + `plan_service` |
+| Shell / Home visual / Daily Focus layout | **untouched** |
+| Commit / push | **no** |
+
+### INTERNAL ≠ PRESENTATION
+
+- **INTERNAL:** `ReasonFactor` codes + weights drive ranking; type factor may still label `Tipo travel` for debug API.
+- **PRESENTATION:** `format_reason_summary(factors, item_type=…)` → short Italian; wired in `ranking.score_item` / dampen path → `explanation.summary`.
+- **Study:** subject identity = `intent_entities.subject|exam` only. Never `display_title` / `ctx.title` / `session.title`. Known → `Quando è l'esame di {Subject}?`; unknown → `Quando è l'esame?` + `Quale esame vuoi preparare?`.
+
+## Application Shell V1 Visual Correction (Prompt 3.1) — prior
+
+| Item | Stato |
+|------|--------|
+| Desktop rail fixed 80px (remove `railWrap` flex:1) | **yes** |
+| `useAmbientInset.paddingLeft` = 0 (rail is layout sibling) | **yes** |
+| Rail active state quieter (weight; no rail dots; ORA not FAB) | **yes** |
+| Action Focus decision max-width 720 (`FOCUS_DECISION_MAX_WIDTH`) | **yes** |
+| Focus understood-summary chips hidden (Destinazione: Partenza noise) | **yes** — session data kept |
+| DailyFocus omit engine `reason_summary` with `"Tipo "` | **superseded by 3.S** |
+| Presentation Semantics Issue (full human Perché copy) | **closed in 3.S** |
+| Exam title bug (`study/flow.py`) | **fixed in 3.S** |
+| Home layout / DailyFocus structure / max-width | **frozen** |
+| Backend / commit / push | **no** |
+
+### Visual QA — manual repro (auth-gated; no auth bypass)
+
+**Screenshot A — Home desktop compact rail**
+
+1. `scripts/dev` (or Expo web + backend) with a logged-in user.
+2. Resize viewport ≥1024px width.
+3. Open Home `/(tabs)`.
+4. Confirm left Ambient rail ≈80px; content (DailyFocus / AskBar / Horizon) centers in the *remaining* viewport, not the full window ignoring the rail.
+5. Capture Screenshot A.
+
+**Screenshot B — Action Focus**
+
+1. From Home Daily Focus, open an Action guide (`/action/[sessionId]`).
+2. Confirm: no Ambient rail/bar; Focus chrome ← only; decision column ~720px; Continua full-width inside column; no “Destinazione: Partenza” chips above the question.
+3. Capture Screenshot B.
+
+### Manual checklist (shell)
+
+1. Tabs: Home · Contesti · ORA · Memoria · Profilo
+2. ≥1024: compact rail 80px, not 50/50
+3. Narrow: floating Ambient bar unchanged
+4. Action: Focus width ~720; no understood-summary noise; Continua primary
+5. Light/Dark via tokens
+6. Reduce motion: shell fade 0
+
+## Application Shell V1 (Prompt 3) — foundation
+
+| Item | Stato |
+|------|--------|
+| `OraShellMode` ambient / focus / immersive | **yes** (`frontend/src/shell/`) |
+| AmbientTabBar floating + GlassContainer | **yes** |
+| Desktop Ambient rail via `useBreakpoint` | **yes** (geometry corrected in 3.1) |
+| Primary IA Home · Contesti · ORA · Memoria · Profilo | **yes** |
+| Contesti Quiet Premium placeholder | **yes** |
+| ORA center → ConversationEngine Ask path | **yes** (`/(tabs)/ora`) |
+| Documenti / Aggiungi `href: null` (Profilo → Documenti) | **yes** |
+| FocusScreen / FocusChrome | **yes** |
+| ImmersiveScreen foundation | **yes** (no Life Setup redesign) |
+| Action `/action/[sessionId]` Focus chrome + useTheme | **yes** |
+| Shell transition ~240ms + reduce-motion | **yes** |
+| Home Frozen — shell glue + safe presentation omit only | **yes** |
+| Life Setup / Backend | **untouched** |
+| Commit / push | **no** (per request) |
 
 ## Sprint 4.2 Final Fix — question intent constrained
 
@@ -143,10 +219,11 @@ Last updated: 2026-08-08 (Sprint 4.2 Final Fix — question intent constrained)
 ## Open / next
 
 1. **Manual new-user Life Setup walkthrough** (Sprint 4 feel test A–G) before more features
-2. **Prompt 3** — tab bar glass + Login Quiet Premium (no Home logic)
+2. **Login Quiet Premium** restyle (shell done; login polish still open)
 3. Theme toggle in Profilo
-4. Playwright Home full stack when API+Expo up
-5. Home V3 UI — solo con flag=1
+4. Backend: exam title in `action_engine/study/flow.py` (`title = subject or ctx.get("title") or "esame"` can surface wrong labels)
+5. Playwright Ambient IA + Action Focus smoke
+6. Home V3 UI — solo con flag=1
 
 ## Credentials / safety
 

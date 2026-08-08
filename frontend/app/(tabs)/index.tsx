@@ -10,7 +10,6 @@ import {
   StyleSheet,
   useWindowDimensions,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 
 import { useTheme } from '@/src/theme/ThemeProvider';
@@ -40,15 +39,16 @@ import {
   SnoozeModal,
 } from '@/src/components/home/quiet';
 import { EmptyHome } from '@/src/components/home/v2/EmptyHome';
+import { useAmbientInset } from '@/src/shell';
 
 /** Editorial column — generous but not dashboard-wide */
 const HOME_MAX_WIDTH = 860;
 
 export default function HomeScreen() {
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { colors } = useTheme();
   const { width } = useWindowDimensions();
+  const ambient = useAmbientInset();
   const padH = width < 360 ? tokens.spacing.lg : tokens.spacing.xl; // 16 / 24
   const [home, setHome] = useState<HomeV2Response | null>(null);
   const [loading, setLoading] = useState(true);
@@ -169,7 +169,8 @@ export default function HomeScreen() {
           maxWidth: HOME_MAX_WIDTH,
           width: '100%',
           alignSelf: 'center',
-          paddingBottom: Math.max(insets.bottom, 16) + 108,
+          // Shell glue only — clearance for Ambient floating bar / rail
+          paddingBottom: ambient.paddingBottom,
         }}
         refreshControl={
           <RefreshControl

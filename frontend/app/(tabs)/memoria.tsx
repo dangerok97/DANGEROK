@@ -10,13 +10,14 @@ import {
   Platform,
   ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeIn } from 'react-native-reanimated';
 
 import { tokens } from '@/src/theme/tokens';
 import { api } from '@/src/api/client';
+import { useAmbientInset } from '@/src/shell';
 
 const SUGGESTIONS = [
   'Dove ho parcheggiato?',
@@ -25,7 +26,7 @@ const SUGGESTIONS = [
 ];
 
 export default function MemoriaScreen() {
-  const insets = useSafeAreaInsets();
+  const ambient = useAmbientInset();
   const inputRef = useRef<TextInput>(null);
   const [q, setQ] = useState('');
   const [answer, setAnswer] = useState<string | null>(null);
@@ -52,7 +53,7 @@ export default function MemoriaScreen() {
     <SafeAreaView edges={['top']} style={styles.root}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
-          contentContainerStyle={[styles.scroll, { paddingBottom: 96 + insets.bottom }]}
+          contentContainerStyle={[styles.scroll, { paddingBottom: ambient.paddingBottom }]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >

@@ -7,7 +7,7 @@ import { ActionEngine } from '@/src/action-engine';
 import { formatWhen } from '@/src/components/home/v2/homeNav';
 import { triggerHaptic } from '@/src/theme/haptics';
 
-function displayType(item: HomeItem): string {
+function displayType(item: HomeItem): string | null {
   const intent = (item.meta as { intent?: string } | undefined)?.intent;
   const subtype = item.subtype || (item.meta as { intent_subtype?: string } | undefined)?.intent_subtype;
   if (intent === 'study' || subtype === 'exam_preparation') return 'studio';
@@ -15,7 +15,23 @@ function displayType(item: HomeItem): string {
   if (intent === 'travel' || subtype === 'vacation') return 'viaggio';
   if (intent === 'medical') return 'visita';
   if (intent === 'payment' || intent === 'financial') return 'pagamento';
-  return item.type;
+  // Omit raw engine types (e.g. "insight") — Quiet Premium, no jargon
+  if (!item.type || item.type === 'insight' || item.type === 'generic' || item.type === 'needs_review') {
+    return null;
+  }
+  const human: Record<string, string> = {
+    bill: 'pagamento',
+    study: 'studio',
+    travel: 'viaggio',
+    visit: 'visita',
+    event: 'evento',
+    payment: 'pagamento',
+    verify: 'da verificare',
+    reply: 'risposta',
+    activity: 'attività',
+    resume: 'continua',
+  };
+  return human[item.type] || null;
 }
 
 /** Typography + space + hairline — no card chrome. */
@@ -90,10 +106,11 @@ function PriorityRow({ item, emphasize }: { item: HomeItem; emphasize: boolean }
         >
           {item.title}
         </Text>
-        <Text style={[styles.meta, { color: colors.textTertiary }]} numberOfLines={1}>
-          {label}
-          {when ? `  ·  ${when}` : ''}
-        </Text>
+        {label || when ? (
+          <Text style={[styles.meta, { color: colors.textTertiary }]} numberOfLines={1}>
+            {[label, when].filter(Boolean).join('  ·  ')}
+          </Text>
+        ) : null}
       </View>
     </Pressable>
   );

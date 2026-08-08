@@ -1,11 +1,12 @@
 import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 
 import { tokens } from '@/src/theme/tokens';
 import { useAuth } from '@/src/contexts/AuthContext';
+import { useAmbientInset } from '@/src/shell';
 
 type Row = {
   icon: keyof typeof Ionicons.glyphMap;
@@ -17,7 +18,7 @@ type Row = {
 };
 
 export default function ProfiloScreen() {
-  const insets = useSafeAreaInsets();
+  const ambient = useAmbientInset();
   const { user, signOut } = useAuth();
   const router = useRouter();
 
@@ -99,7 +100,7 @@ export default function ProfiloScreen() {
   return (
     <SafeAreaView edges={['top']} style={styles.root}>
       <ScrollView
-        contentContainerStyle={[styles.scroll, { paddingBottom: 96 + insets.bottom }]}
+        contentContainerStyle={[styles.scroll, { paddingBottom: ambient.paddingBottom }]}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
