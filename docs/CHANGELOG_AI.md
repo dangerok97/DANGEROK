@@ -1,5 +1,195 @@
 # ORA — AI Changelog
 
+## 2026-08-08 — Sprint 4.2 Final Fix: question intent constrained
+
+### Request
+
+Gemini ACTIVE drifted on `mlc.life_places.home` (“gestire la giornata” / workplace) and used judgmental ack (“giustamente”). Constrain AI rendering to planner-owned question intent. Architecture A (one StrategistPlan call). Freeze MLC/gate/location/Docs/Home/auth/soft-exit. No FE. No commit/push.
+
+### Actions
+
+- `minimum_life_context.py`: `QUESTION_GOALS` + `question_goal_for_gap` / `safe_question_for_gap` (home + identity/situation/priority/responsibilities)
+- `question_planner.py`: attach `question_goal` on MLC plans; `bind_planner_intent` merges planner gap into Gemini plan
+- `reasoning_loop.py` / `reasoner.py`: binding `question_goal` in Gemini context; prompt forbids judgment + intent drift; planner computed before ONE Gemini call
+- `conversational_voice.py`: `validate_spoken_question_for_goal`, `sanitize_acknowledgement`, `resolve_turn_question` (drift → deterministic SAFE question; judgment → sanitize/`Capito.`)
+- Tests 4.2ff A–F in `test_conversational_experience.py`
+
+### Results
+
+- conversational + MLC + strategist foundation + life_experience: **88 passed**
+- Workplace / “gestire la giornata” spoken_question → deterministic home-city fallback
+- Ack “giustamente” sanitized; work+family meaning preserved without judgment
+
+### Open
+
+- Review before commit
+
+---
+
+## 2026-08-08 — Fix: acknowledgement reflects full user meaning
+
+### Request
+
+Acknowledgements dropped family/desire meaning when NLP only set `mlc.current_situation=lavoro`; rich `build_acknowledgement` override then emitted situation-only “il lavoro occupa…”. Prefer Gemini ack from `latest_user_message`; SAFE fallback = “Capito.” + question. Freeze MLC/gate/location. No commit/push.
+
+### Actions
+
+- `reasoner.py`: `latest_user_message` as primary ack evidence; work+family both required in prompt/regole
+- `reasoning_loop.py`: `latest_user_message` + `acknowledgement_instruction` in Gemini context
+- `life_setup/service.py`: stop passing rich `build_acknowledgement` as default override
+- `conversational_voice.py`: SAFE “Capito.” when Gemini ack missing
+- Tests 42b A–F + regression in `test_conversational_experience.py`
+
+### Results
+
+- conversational + MLC + strategist foundation + life_experience: **82 passed**
+- Free-text path no longer overrides with situation-only `build_acknowledgement`
+
+### Open
+
+- Review before commit
+
+---
+
+## 2026-08-08 — Sprint 4.2: AI-Native Conversational Rendering (Architecture A)
+
+### Request
+
+Extend same-call Gemini `StrategistPlan` with user-facing copy (`acknowledgement`, `spoken_question`, `conversational_bridge` XOR ack). Validate then SAFE fallback. Fix critical bug: never `lavori come {priority sentence}`. Optional ONE Gemini wrap synthesis. Freeze MLC/gate/location/soft-exit/Home. No commit/push.
+
+### Actions
+
+- `models.py`: spoken fields on `StrategistPlan`
+- `reasoner.py`: fact-bounded SYSTEM_PROMPT + schema + parse spoken fields
+- `conversational_voice.py`: `looks_like_role_title` / `structured_work_role`, `validate_rendered_text`, `render_conversational_turn`, `safe_*_fallback`, `render_wrap_synthesis`; harden `_situation_phrase` / synthesize
+- `conversation_planner.py` + `service.py`: prefer validated AI spoken text; async wrap
+- Docs: DETERMINISTIC vs AI split in ARCHITECTURE.md
+- Tests A–F + walkthrough + validation + mocked Gemini JSON
+
+### Results
+
+- conversational + MLC + strategist foundation + life_experience + documents: **137 passed**
+- FE untouched (no tsc/eslint)
+
+### Open
+
+- Review before commit
+
+---
+
+## 2026-08-08 — Sprint 4.1 final: USER→ORA priority perspective
+
+### Request
+
+Fix synthesis/ack leaking user first-person priority text (`il mio tempo libero…` → “Ti preme soprattutto il mio…”). Render-time only; do not rewrite stored MLC facts. No MLC/gate/location/softExit/FE/docs sprawl.
+
+### Actions
+
+- `conversational_voice.py`: `render_priority_for_ora` (semantic Italian patterns + careful perspective rewrite); used in `synthesize_first_picture` and `build_acknowledgement`
+- `near_mlc_bridge` unchanged (truthiness only)
+- Tests A–F in `test_conversational_experience.py`
+
+### Results
+
+- Perspective tests A–F + conversational experience + MLC + strategist foundation + life_experience (+ documents): **127 passed**
+- FE untouched (no tsc/eslint)
+
+### Open
+
+- Review before commit
+
+---
+
+## 2026-08-08 — Sprint 4.1 residual: Esci/Più tardi first-run soft-exit
+
+### Request
+
+Fix incorrect soft-exit visibility: Esci/Più tardi were tied to wrap `done` (`firstRunMandatory = !done`), so they never appeared until wrap and first-run vs resume was wrong. FE-only; no commit/push.
+
+### Actions
+
+- Source of truth: `allowSoftExit = Boolean(?resume=) || Boolean(start.resumed)`
+- `showEsci` / `showPostpone` = `allowSoftExit && !done`
+- Helper `frontend/src/life-setup/softExit.ts` + unit tests A–D
+- `lifeSetupStart` client type includes `resumed?: boolean`
+- `onExit` force start does not promote soft-exit (stays hidden unless `?resume=1`)
+
+### Results
+
+- Soft-exit unit tests A–D: **passed** (`node --experimental-strip-types src/life-setup/softExit.test.ts`)
+- `tsc --noEmit`: **PASS**; ESLint on changed life-setup files: **0 errors**
+- Backend actions (exit/postpone) left unchanged; FE gates visibility
+
+### Open
+
+- Review before commit
+
+---
+
+## 2026-08-08 — Sprint 4.1: Life Setup Walkthrough Corrections
+
+### Request
+
+Walkthrough UX/copy fixes on top of Sprint 4: auth CTA, hide Esci/Più tardi on first-run, thinking state, near-MLC + synthesis paraphrase, explain tone, location-assisted life_places. No MLC/Gate/Documents/Home/auth-backend changes. No commit/push.
+
+### Actions
+
+- Auth: “Nuovo? Crea un account” on initial buttons → email register mode
+- FE: hide Esci / Più tardi while pre-MLC (`!done`); keep Salta tema; no Home access
+  *(superseded residual: visibility now from resume/`resumed`, not `!done` alone)*
+- FE: on send → user bubble + disable composer + “ORA sta pensando…” dots in thread (no modal)
+- Voice: `near_mlc_bridge` no false “quadro chiaro” on thin knowledge; fact-grounded ack preferred
+- Voice: rewrite `synthesize_first_picture` (independent facts, paraphrased priority, Guardia di Finanza phrasing)
+- Explain: NUCLEUS benefit copy first-person (esp. immediate_priority)
+- Location: turn action `use_current_location`; `navigator.geolocation` + `POST /api/life-setup/reverse-geocode` (Nominatim); confirm via `/confirm-location`; city only, no coord persistence; no expo-location
+- Document turn actions: Non ora / Preferisco rispondere in contract
+- Tests: refusal, document proposal, synthesis regressions, location (in `test_conversational_experience.py`)
+- Thinking FE: static verification (no new test stack)
+
+### Results
+
+- Backend strategist/MLC/conversational/life_experience: **59 passed**
+- Frontend: `tsc --noEmit` PASS; ESLint changed paths: 0 errors (pre-existing array-type warnings in client.ts)
+- Frozen: MLC semantics, Gate, Documents V2, Home Quiet Premium, auth backend, Google OAuth
+
+### Open
+
+- Native (non-web) geolocation may be unavailable without a platform API — falls back to text city
+- Nominatim soft-fail when offline
+- Review before commit
+
+---
+
+## 2026-08-08 — Sprint 4: Life Setup Conversational Experience V1
+
+### Request
+
+First contact feels like an AI-guided conversation (copy, rhythm, acknowledgement, final moment, CTA). No Gate/MLC/Documents/Home architecture changes. Prefer strategist over frontend if/else. No commit/push.
+
+### Actions
+
+- Added `conversational_voice.py` (ack, near-MLC bridge, fact-grounded final synthesis)
+- Greeting: brief ORA intro + one open question (`conversation_planner` + `question_planner`)
+- Answer path: contextual ack from real facts; soft progress bridge de-duplicated
+- Wrap: personalized first picture + continuous-learning line; CTA **Entra in ORA**
+- Document proposal / catalog reasons: optional accelerator copy; Gemini prompts avoid jargon
+- Frontend: CTA label from turn action; softer Exit/Più tardi notices; quieter header hint
+- Tests: `test_conversational_experience.py` (+ existing MLC/strategist/life_experience)
+
+### Results
+
+- Backend strategist/MLC/conversational: **48 passed**
+- Frontend: `tsc --noEmit` PASS; ESLint life-setup PASS
+- Frozen: Gate, MLC v1 semantics, Documents V2 pipeline, Home Quiet Premium
+
+### Open
+
+- Manual new-user walkthrough (tests A–G) before next sprint
+- Gemini quality still depends on key / enforce_mlc; deterministic fallback covers offline
+- Review before commit
+
+---
+
 ## 2026-08-08 — Sprint 3: Minimum Life Context V1
 
 ### Request

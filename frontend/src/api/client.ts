@@ -454,6 +454,8 @@ export const api = {
       should_show?: boolean;
       philosophy?: string;
       resume_hint?: Record<string, unknown>;
+      /** True when an existing active session was resumed (not a brand-new first-run). */
+      resumed?: boolean;
     }>('/life-setup/start', { method: 'POST', body: JSON.stringify({ force }) }),
   lifeSetupAnswer: (text: string, skip_domain = false) =>
     request<{
@@ -521,6 +523,31 @@ export const api = {
       wizard?: boolean;
       message?: string;
     }>('/life-setup/cancel', { method: 'POST', body: JSON.stringify({}) }),
+  lifeSetupReverseGeocode: (lat: number, lon: number) =>
+    request<{
+      ok: boolean;
+      city?: string;
+      confirm_prompt?: string;
+      message?: string;
+      error?: string;
+      persists_coordinates?: boolean;
+      wizard?: boolean;
+    }>('/life-setup/reverse-geocode', {
+      method: 'POST',
+      body: JSON.stringify({ lat, lon }),
+    }),
+  lifeSetupConfirmLocation: (city: string, confirmed: boolean) =>
+    request<{
+      ok: boolean;
+      turn?: LifeSetupTurn;
+      session?: Record<string, unknown>;
+      location_confirmed?: boolean;
+      wizard?: boolean;
+      error?: string;
+    }>('/life-setup/confirm-location', {
+      method: 'POST',
+      body: JSON.stringify({ city, confirmed }),
+    }),
 
   // Life Experience — REAL document understanding (Documents V2 is the ONLY
   // upload/OCR/storage pipeline; these calls only attach/poll/consume the

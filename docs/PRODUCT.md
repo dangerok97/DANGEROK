@@ -24,9 +24,9 @@ Persone che vogliono una priorità unica chiara (non un task manager generico), 
 
 | Route | Schermata | Ruolo |
 |-------|-----------|--------|
-| `/login` | Login | Auth email/Google/Apple |
+| `/login` | Login | Auth email/Google/Apple; CTA testuale **Nuovo? Crea un account** → registrazione email |
 | `/(tabs)` → index | Home Quiet Premium | Daily Focus + Ask Bar + Horizon + priorità/aggiornamenti (stesso ranking API) |
-| `/life-setup` | Life Setup Gate (primo avvio) | Sprint 3: conversazione fino a Minimum Life Context (non questionario); gate Sprint 2B; Home solo dopo complete valido |
+| `/life-setup` | Life Setup Gate (primo avvio) | Sprint 4/4.1/4.2: conversazione Quiet Premium (intro → domanda → thinking in-thread → ack AI o fallback sicuro → sintesi → **Entra in ORA**); copy AI fact-bounded con intent domanda fissato dal planner (`question_goal`); Esci/Più tardi solo su resume (`?resume=1` / `start.resumed`); posizione opzionale per città; MLC Sprint 3; gate Sprint 2B; Home solo dopo complete valido |
 | `/conversation` | Entry Conversation Engine | Bridge a guida AE (mai chat thread) |
 | `/situazione` | Situazione completa | Vista reale da CTA Home |
 | `/(tabs)/memoria` | Memoria | Q&A e salvataggio ricordi |
@@ -79,7 +79,7 @@ Persone che vogliono una priorità unica chiara (non un task manager generico), 
 ### 2x. Life Experience + AI Life Strategist (first-launch conversation)
 
 - **Scopo:** prima conversazione naturale per costruire contesto di vita (domini in qualsiasi ordine) con reasoning loop benefit-driven o upload documenti — **non** wizard/questionario/settings.
-- **Stato:** **Life Experience** — reasoning loop, Gemini contesto strutturato, fallback IT, Home card «Adesso posso…», Proactive con beneficio.
+- **Stato:** **Life Experience V1 conversazionale** — first contact (chi è ORA + una domanda aperta), acknowledgement contestuale, explain orientato al beneficio, documenti come acceleratore opzionale, momento finale con restituzione dai facts reali, CTA **Entra in ORA** (stesso flusso gate).
 - **Dopo complete:** modulo invisibile; Home mostra **benefici** (non Life Setup); interrupt → soft resume «ORA può aiutarti ancora di più».
 - **Flag:** `LIFE_SETUP_ENABLED`, `AI_LIFE_STRATEGIST_ENABLED`, `AI_LIFE_STRATEGIST_GEMINI`.
 - **Non fatto:** Email / Open Banking / WhatsApp / Weather (solo stub).

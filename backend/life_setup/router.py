@@ -11,10 +11,12 @@ from life_setup.models import (
     AnswerBody,
     AttachDocumentBody,
     ConfirmFieldBody,
+    ConfirmLocationBody,
     CorrectFieldBody,
     ExplainBody,
     RejectFieldBody,
     ResolveConfirmationBody,
+    ReverseGeocodeBody,
     SkipBody,
     StartBody,
     UploadDocBody,
@@ -94,6 +96,26 @@ async def cancel(user=Depends(get_current_user)):
         raise HTTPException(status_code=503, detail="life_setup_disabled")
     svc = get_life_setup_service()
     return await svc.cancel(user["user_id"])
+
+
+@router.post("/reverse-geocode")
+async def reverse_geocode(body: ReverseGeocodeBody, user=Depends(get_current_user)):
+    """Coarse city from lat/lon via Nominatim — auth required; coords not persisted."""
+    if not life_setup_enabled():
+        raise HTTPException(status_code=503, detail="life_setup_disabled")
+    svc = get_life_setup_service()
+    return await svc.reverse_geocode(user["user_id"], body.lat, body.lon)
+
+
+@router.post("/confirm-location")
+async def confirm_location(body: ConfirmLocationBody, user=Depends(get_current_user)):
+    """Confirm/reject suggested city for mlc.life_places — no coordinate storage."""
+    if not life_setup_enabled():
+        raise HTTPException(status_code=503, detail="life_setup_disabled")
+    svc = get_life_setup_service()
+    return await svc.confirm_location(
+        user["user_id"], body.city, confirmed=body.confirmed
+    )
 
 
 @router.get("/profile")
