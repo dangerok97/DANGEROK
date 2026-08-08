@@ -1,8 +1,32 @@
 {
   "app_name": "ORA",
   "design_language": "ORA Quiet Premium",
+  "signature_language": "ORA Signature Language — Application Shell V1 (Ambient / Focus / Immersive)",
   "personality": "Calm editorial life OS — Apple HIG base, never Linear/dashboard",
   "personality_one_liner": "A calm, intelligent, and timeless life operating system that instantly resolves cognitive load.",
+  "application_shell": {
+    "version": "V1",
+    "modes": ["ambient", "focus", "immersive"],
+    "ambient_ia": ["Home", "Contesti", "ORA", "Memoria", "Profilo"],
+    "hidden_from_primary_bar": ["Documenti", "Aggiungi"],
+    "ora_center": {
+      "accessibilityLabel": "Apri ORA",
+      "entry": "ConversationEngine Ask path — not Aggiungi, not chat, no FAB/+/sparkle"
+    },
+    "breakpoints": { "phoneMax": 767, "tabletMax": 1023, "desktopMin": 1024 },
+    "desktop_chrome": "Compact Ambient Rail ~72–88px left via useBreakpoint",
+    "phone_tablet_chrome": "Floating AmbientTabBar with GlassContainer + solid fallback",
+    "focus": {
+      "primitives": ["FocusScreen", "FocusChrome"],
+      "rules": ["back OR close never both", "prefer N di M progress", "never fake 0%", "no Ambient nav"]
+    },
+    "immersive": {
+      "primitives": ["ImmersiveScreen"],
+      "note": "Foundation only — do not redesign Life Setup / conversation internals"
+    },
+    "transitions_ms": { "ambient_focus": 240, "range": [220, 280], "reduced_motion": 0 },
+    "implementation": "frontend/src/shell/"
+  },
   "references": [
     "Apple Calendar",
     "Apple Journal",
@@ -131,7 +155,7 @@
     "contentMaxWidth": { "tablet": 720, "desktop": 840 }
   },
   "shadow_tier": "soft-by-default",
-  "navigation": "bottom_tabs",
+  "navigation": "ambient_shell_v1",
   "glassmorphism": {
     "enabled": "true",
     "do's": [
@@ -205,14 +229,44 @@
       "layout": "Keyboard-forward, Arc Search inspired. Large SearchInput. Results as calm text blocks. Minimal chrome."
     },
     {
+      "name": "Contesti",
+      "purpose": "Placeholder for life contexts (studio, lavoro, casa).",
+      "states": {
+        "loading": "N/A",
+        "empty": "Title Contesti + one Quiet Premium sentence — no dashboard.",
+        "error": "N/A"
+      },
+      "layout": "Ambient tab. Editorial title and short body. No cards, no widgets."
+    },
+    {
+      "name": "ORA",
+      "purpose": "Center Ambient entry to Conversation Engine Ask path.",
+      "states": {
+        "loading": "Ask Bar busy state.",
+        "empty": "Prompt + OraInput.",
+        "error": "Inline error from ConversationEngine."
+      },
+      "layout": "Distinct center mark (word ORA), not FAB/+/sparkle. Same engine as Home Ask Bar."
+    },
+    {
       "name": "Aggiungi",
-      "purpose": "Quick capture modal for text, photos, or documents.",
+      "purpose": "Quick capture (hidden from primary Ambient bar; route kept).",
       "states": {
         "loading": "Spinner during save.",
         "empty": "N/A",
         "error": "Toast with retry."
       },
-      "layout": "Half-screen bottom sheet (GlassContainer / BottomSheetContainer). Three large touch targets. No clutter."
+      "layout": "Not on primary bar. Reachable only if deep-linked; prefer ORA Ask path for capture intent."
+    },
+    {
+      "name": "Action Focus",
+      "purpose": "One-question Action Engine guide in Focus mode.",
+      "states": {
+        "loading": "FocusScreen + spinner.",
+        "empty": "Session missing → back.",
+        "error": "Inline Quiet Premium error."
+      },
+      "layout": "FocusChrome ← only; Continua/Avanti primary; progress N di M when known; theme via useTheme."
     },
     {
       "name": "Profilo",
@@ -248,11 +302,14 @@
     "Light and dark are both designed. Use ThemeProvider (light / dark / system). Prefer useTheme()/useColors() for new UI; legacy tokens.* aliases remain for existing screens.",
     "Never hardcode hex in components. Use semantic tokens from frontend/src/theme.",
     "Glass only on tab bar, bottom sheets, floating controls. Cards are solid AppCard surfaces.",
+    "Application Shell V1: declare ambient | focus | immersive via frontend/src/shell. Ambient IA is Home · Contesti · ORA · Memoria · Profilo.",
+    "ORA center opens Conversation Engine — never a new chat, never Aggiungi FAB aesthetics.",
+    "Focus chrome: back OR close (not both); hide fake 0% progress; no Ambient nav on Action.",
     "No new UI libraries (NativeBase, Tamagui, Paper, UI Kitten, Tailwind UI).",
     "Primitives in frontend/src/components/ui are available — adopt gradually; do not rewrite all screens in one PR.",
     "The app must feel calm and intelligent. Space and typography hierarchy over chrome. Never dashboard density.",
-    "Micro-motion: press scale 0.97, gentle stagger, semantic haptics. Prefer reduced-motion when system requests it.",
-    "Accessibility: 44pt min touch, VoiceOver labels, high contrast primary text, Dynamic Type-friendly type scale."
+    "Micro-motion: press scale 0.97, gentle stagger, semantic haptics. Prefer reduced-motion when system requests it. Ambient↔Focus ~220–280ms.",
+    "Accessibility: 44pt min touch, VoiceOver labels, high contrast primary text, Dynamic Type-friendly type scale. ORA tab accessibilityLabel: Apri ORA."
   ],
   "haptics": {
     "selection": "selection",

@@ -119,7 +119,7 @@ greeting (deterministic shell + 1 open Q)
 | DB | MongoDB via Motor |
 | Auth | JWT ORA (HS256) + bcrypt; Google/Apple ID-token verify (`backend/social_auth/`); Emergent bridge legacy optional |
 | LLM | Provider Manager `backend/llm/` — Gemini (default) → OpenAI → Ollama → Emergent; failover automatico; non required at boot |
-| Design system | **ORA Quiet Premium** — `design_guidelines.json`, `frontend/src/theme/*` (tokens, palettes light/dark, ThemeProvider, motion/haptics/shadows), primitives in `frontend/src/components/ui/` |
+| Design system | **ORA Quiet Premium** + **Signature Language** — `design_guidelines.json`, `frontend/src/theme/*`, shell modes in `frontend/src/shell/` (`ambient` / `focus` / `immersive`), primitives in `frontend/src/components/ui/` |
 | Local deps | `backend/requirements-local.txt` (Emergent CDN packages excluded) |
 
 ## Repository map
@@ -140,6 +140,8 @@ backend/
   documents/             # document intelligence
   documents/intelligence/# pipeline, taxonomy, analyzer, calendar drafts
   home/                  # Home V2 aggregator + ranking + adapters
+                         # INTERNAL ranking (codes/weights) ≠ PRESENTATION
+                         # (reason_presentation.format_reason_summary → human Italian)
   intent_engine/         # Intent Classification — single brain for flow routing
   action_engine/         # Guided conversational flows (consumes Intent)
     study/               # Study plan model, generator, confirm, Google/tools/Brain
@@ -162,14 +164,17 @@ backend/
   tests/                 # pytest
 frontend/
   app/                   # expo-router screens (Home Quiet Premium + /situazione)
+  app/(tabs)/            # Ambient IA: Home · Contesti · ORA · Memoria · Profilo (Documenti/Aggiungi href:null)
+  app/action/[sessionId] # Action Engine UI — Focus shell chrome (no Ambient nav)
   src/api/client.ts      # HTTP client incl. /home
   src/auth/              # Google/Apple client helpers
+  src/shell/             # Application Shell V1: OraShellMode, AmbientTabBar, FocusScreen/Chrome, ImmersiveScreen
   src/components/home/quiet/ # Home Quiet Premium (+ polish 2.1: FocusActions, surface Focus, vertical Horizon)
   src/components/home/v2 # Legacy helpers + /situazione PrioritaList
   src/action-engine/     # ActionEngine.open(item) central entry
   src/conversation-engine/ # ConversationEngine.start → bridges to AE UI
   src/theme/          # Quiet Premium: tokens, palettes, ThemeProvider, motion, haptics, shadows
-  src/components/ui/  # Design primitives (AppScreen, AppCard, AppButton, …) + legacy ActionBtn
+  src/components/ui/  # Design primitives (AppScreen, AppCard, AppButton, GlassContainer, …)
 docs/                    # CONVERSATION_ENGINE_* + ACTION_ENGINE_* + HOME_V2_* + …
 scripts/                 # local automation
 .emergent/               # legacy Emergent runtime (non-portable)
@@ -208,6 +213,22 @@ Health:
 - Mongo: `goals`, `goal_events` — Study/Travel confirm upserts Goals when `GOAL_ENGINE_ENABLED=1`
 - Life Object Engine (shadow + enrichment + Digital Twin Knowledge): `GET/POST/PATCH/DELETE /api/life-objects`, search/merge/link/reason/trend/status; `/{id}/narrative|questions|insights|health|history|relationships|temporal` + refresh/enrich; `/{id}/facts|hypotheses|decisions|timeline|knowledge` (+ confirm/reject/outcome write minimi); `GET /home-v3-feed` (OFF). Mongo `life_objects`. Shadow hooks from Documents consume, Goal upsert, Travel/Study confirm → best-effort enrich + knowledge ingest. `LIFE_OBJECT_HOME_UI_ENABLED=0` → no Home UX change.
 - Proactive Engine: `GET/POST /api/suggestions/*` (list, regenerate, search, dismiss/accept/complete/snooze/explain); Mongo `proactive_suggestions`, `proactive_learning`. Email/Finance/Weather/Health/WhatsApp **predisposed only** — never invent facts.
+
+## Application Shell V1 (Signature Language)
+
+Three presentation modes (`OraShellMode` in `frontend/src/shell/`):
+
+| Mode | Role | Chrome |
+|------|------|--------|
+| `ambient` | Life OS browsing (tabs) | `AmbientTabBar` — floating glass bottom on phone/tablet; compact left rail **fixed `AMBIENT_RAIL_WIDTH` (80px)** at `desktop` breakpoint (`useBreakpoint`, not `Platform.OS===web`). Rail must not use `flex:1` (that stole ~50% width). Scene = remaining viewport. `useAmbientInset` only clears bottom bar — never `paddingLeft` for the rail. |
+| `focus` | One-task guided work | `FocusScreen` + `FocusChrome` — single back **or** close, progress “N di M” when known, no Ambient nav. Action decision column uses `FOCUS_DECISION_MAX_WIDTH` (720), independent of Home editorial width. |
+| `immersive` | Full attention | `ImmersiveScreen` foundation (Life Setup / deep flows keep their own UI) |
+
+Primary Ambient IA: **Home · Contesti · ORA · Memoria · Profilo**. Documenti and Aggiungi stay as routes with `href: null` (reachable from Profilo). Center **ORA** opens the Conversation Engine Ask path (`/(tabs)/ora` + `OraInput`), not Aggiungi and not a chat. Glass via `GlassContainer` for Ambient nav only. Ambient ↔ Focus transition ~240ms; respects reduce-motion.
+
+Action proof path: `/action/[sessionId]` uses Focus chrome + `useTheme` (Light/Dark). Understood-summary chips are presentation-hidden in Focus (session slots unchanged).
+
+**INTERNAL ≠ PRESENTATION (Micro-batch 3.S):** Ranking keeps `ReasonFactor` codes/weights for score/order. `reason_summary` / `explanation.summary` are human Italian from `home.reason_presentation` (never `"Tipo travel"` label joins). Study exam questions use entity `subject`/`exam` only — never Home/insight `title` / `display_title` as exam identity (`Quando è l'esame di {Subject}?` vs neutral `Quando è l'esame?`).
 
 ## Local topology
 

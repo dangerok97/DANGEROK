@@ -1,5 +1,131 @@
 # ORA — AI Changelog
 
+## 2026-08-09 — Micro-batch 3.S Human Presentation Semantics
+
+### Request
+
+Human Italian `reason_summary` from structured factors (no `"Tipo travel"` leakage); study exam questions must not use Home/insight titles as exam identity. No ranking score/order change; no Shell/Home visual redesign; no commit/push.
+
+### Actions
+
+- Added `backend/home/reason_presentation.py` — `format_reason_summary` from factor codes + item type
+- Wired in `ranking.score_item` / dampen path (replaced `"; ".join(labels)`)
+- Study: removed `display_title`/`title` from exam identity; known/unknown question conventions; `plan_service` ignores `session.title`
+- Removed DailyFocus `contains("Tipo ")` omit
+- Docs: INTERNAL ≠ PRESENTATION
+
+### Files
+
+| File | Change |
+|------|--------|
+| `backend/home/reason_presentation.py` | new presentation formatter |
+| `backend/home/ranking.py` | use formatter for `reason_summary` |
+| `backend/action_engine/study/flow.py` | exam identity / questions |
+| `backend/action_engine/study/plan_service.py` | no session.title as exam |
+| `backend/action_engine/service.py` | doc search without title-as-subject |
+| `frontend/src/components/home/quiet/DailyFocus.tsx` | remove Tipo omit |
+| `backend/tests/test_home_v2.py` | human summary + score invariant |
+| `backend/tests/test_study_action_flow.py` | A/B/C/D exam identity |
+| `docs/ARCHITECTURE.md` / `DEVELOPMENT_STATE.md` / `CHANGELOG_AI.md` | 3.S |
+
+### Tests / verify
+
+- `pytest` focused 3.S + study e2e — **9 passed** (reason summary invariant; exam identity A/B/C/D; e2e Psicologia)
+- Full `test_home_v2` + presentation + study: **48+ passed**; pre-existing `test_dedupe_same_event` still fails (unrelated)
+- `npx tsc --noEmit` — **PASS**
+- eslint `DailyFocus.tsx` — **PASS**
+- `npx expo export --platform web` — **PASS** → `frontend/dist`
+
+### Result
+
+Presentation summaries human; ranking math unchanged; study questions use entity subjects only.
+
+### Open
+
+- Expanded “Perché” factor rows may still show internal `Tipo …` labels (summary fixed)
+- Pre-existing `test_dedupe_same_event` failure
+- Authenticated Screenshot A/B from 3.1 still manual
+
+---
+
+## 2026-08-09 — Application Shell V1 Visual Correction (Prompt 3.1)
+
+### Request
+
+Correct Shell V1 visuals on `feature/ora-quiet-premium-design-system`: desktop rail 72–88px (not 50/50), quiet rail polish, Action Focus decision width ~720, hide Focus understood-summary noise, safe Home presentation omit / document semantics; no backend, no Home redesign, no commit/push.
+
+### Actions
+
+- `AmbientTabBar` railWrap: removed `flex:1`; fixed `AMBIENT_RAIL_WIDTH` (80) + `alignSelf: 'stretch'`; quieter active (weight; no rail dots; ORA not FAB)
+- `Tabs` `_layout`: `tabBarStyle` width/maxWidth synced to 80
+- `useAmbientInset`: `paddingLeft` always 0; bottom clearance only for floating bar
+- `FOCUS_DECISION_MAX_WIDTH` (720) + `FocusScreen.maxWidth`; Action uses it
+- Action: `SHOW_UNDERSTOOD_SUMMARY = false` (keep `buildUnderstoodSummary` / session data)
+- DailyFocus: omit `explanation.summary` when it contains `"Tipo "` (no Tipo→Viaggio map)
+- Docs: Presentation Semantics Issue + exam title backend-only + visual QA repro
+
+### Home files touched
+
+| File | Reason |
+|------|--------|
+| `frontend/app/(tabs)/index.tsx` | **none this batch** (already shell paddingBottom only) |
+| `frontend/src/components/home/quiet/DailyFocus.tsx` | Safe omit of engine `reason_summary` line with `"Tipo "` |
+
+### Tests / verify
+
+- `npx tsc --noEmit` — **PASS**
+- eslint modified files — **PASS** (0 issues)
+- `node --experimental-strip-types src/shell/actionLabels.test.ts` — **PASS**
+- `npx expo export --platform web` — **PASS** → `frontend/dist`
+- Screenshots A/B: auth-gated; manual steps in DEVELOPMENT_STATE (not captured this session)
+
+### Result
+
+Shell rail geometry + Focus presentation corrections applied; Home Frozen except safe summary omit; no backend/commit/push.
+
+### Open
+
+- Presentation Semantics Issue (full human Perché / factor labels)
+- Backend exam title fix (`study/flow.py`)
+- Authenticated Screenshot A/B capture
+
+---
+
+## 2026-08-08 — Application Shell V1 (Prompt 3 / Signature Language)
+
+### Request
+
+Implement Application Shell V1 on `feature/ora-quiet-premium-design-system`: Ambient / Focus / Immersive modes; Ambient IA Home · Contesti · ORA · Memoria · Profilo; Contesti placeholder; ORA → ConversationEngine; Focus chrome on Action; Home Frozen (padding only); no Life Setup / backend / commit / push.
+
+### Actions
+
+- New `frontend/src/shell/*` — modes, AmbientTabBar (+ desktop rail), FocusScreen/Chrome, ImmersiveScreen, transitions, ambient insets, action labels
+- Tabs layout: custom Ambient tabBar; Contesti + ORA routes; Documenti/Aggiungi `href: null`
+- Action `[sessionId].tsx` → Focus chrome + `useTheme`; Continua primary; hide fake 0%; map flow → Studio/Viaggio/…
+- Home/Memoria/Profilo: Ambient clearance padding only; PrioritySection omits raw `insight` type label
+- Docs + `design_guidelines.json` Signature Language / Shell V1
+- Exam title bug documented (backend `study/flow.py`) — no FE hack
+
+### Tests / verify
+
+- `npx tsc --noEmit` — pass
+- eslint changed files — pass (1 pre-existing unused `e` warning in memoria)
+- `node --experimental-strip-types src/shell/actionLabels.test.ts` — pass
+- `npx expo export --platform web` — pass (dist)
+- Screenshots: Ambient shell auth-gated; manual repro in DEVELOPMENT_STATE checklist
+
+### Result
+
+Application Shell V1 foundation shipped in FE; Life Setup and backend untouched; no commit/push.
+
+### Open
+
+- Login Quiet Premium polish
+- Backend exam title fix
+- Visual QA on device / authenticated web
+
+---
+
 ## 2026-08-08 — Sprint 4.2 Final Fix: question intent constrained
 
 ### Request

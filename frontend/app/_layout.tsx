@@ -9,19 +9,23 @@ import { useIconFonts } from '@/src/hooks/use-icon-fonts';
 import { AuthProvider } from '@/src/contexts/AuthContext';
 import { ThemeProvider, useTheme } from '@/src/theme/ThemeProvider';
 import { tokens } from '@/src/theme/tokens';
+import { ShellModeProvider, useShellTransitionMs } from '@/src/shell';
 
 LogBox.ignoreAllLogs(true);
 SplashScreen.preventAutoHideAsync();
 
 function ThemedStack() {
   const { colors } = useTheme();
+  const transitionMs = useShellTransitionMs();
   return (
     <View style={{ flex: 1, backgroundColor: colors.backgroundPrimary }}>
       <Stack
         screenOptions={{
           headerShown: false,
           contentStyle: { backgroundColor: colors.backgroundPrimary },
-          animation: 'fade',
+          // Ambient ↔ Focus foundation (~220–280ms); 0 when reduce-motion
+          animation: transitionMs === 0 ? 'none' : 'fade',
+          animationDuration: transitionMs || undefined,
         }}
       />
     </View>
@@ -43,9 +47,11 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: tokens.color.backgroundPrimary }}>
       <SafeAreaProvider>
         <ThemeProvider>
-          <AuthProvider>
-            <ThemedStack />
-          </AuthProvider>
+          <ShellModeProvider>
+            <AuthProvider>
+              <ThemedStack />
+            </AuthProvider>
+          </ShellModeProvider>
         </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

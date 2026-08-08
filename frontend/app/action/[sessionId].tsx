@@ -1,22 +1,33 @@
 /**
- * One-question conversational screen for Action Engine.
+ * One-question conversational screen for Action Engine — Focus shell chrome.
  * Study flow: chips, multi-select, date text, preview, confirm.
+ * Questions/content unchanged; chrome uses FocusScreen + useTheme.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View, Text, StyleSheet, Pressable, TextInput, ScrollView, ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { tokens } from '@/src/theme/tokens';
+import { useTheme } from '@/src/theme/ThemeProvider';
 import { ActionEngine } from '@/src/action-engine';
 import { haptic } from '@/src/utils/haptic';
 import { humanizeError } from '@/src/utils/errors';
 import { api, ActionEngineSession } from '@/src/api/client';
+import {
+  FocusScreen,
+  FOCUS_DECISION_MAX_WIDTH,
+  actionProgressLabel,
+  flowContextLabel,
+} from '@/src/shell';
 
-/** Compact human summary — never show technical slot ids. */
+/**
+ * Kept for workflow/debug — Prompt 3.1 Focus UI does not render this surface.
+ * Slot data remains on the session; presentation chips competed with the question
+ * (e.g. noise like "Destinazione: Partenza").
+ */
 function buildUnderstoodSummary(session: ActionEngineSession): Record<string, string> {
   const fromMeta = (session.meta?.understood_summary || {}) as Record<string, string>;
   if (fromMeta && Object.keys(fromMeta).length) return fromMeta;
@@ -53,9 +64,13 @@ function buildUnderstoodSummary(session: ActionEngineSession): Record<string, st
   return out;
 }
 
+/** Prompt 3.1: hide Focus understood-summary chips (presentation noise). */
+const SHOW_UNDERSTOOD_SUMMARY = false;
+
 export default function ActionSessionScreen() {
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>();
   const router = useRouter();
+  const { colors, isDark } = useTheme();
   const [session, setSession] = useState<ActionEngineSession | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -87,6 +102,9 @@ export default function ActionSessionScreen() {
     || turn?.meta?.preview
   ) as Record<string, unknown> | undefined;
 
+  const progressLabel = useMemo(() => actionProgressLabel(session), [session]);
+  const contextLabel = useMemo(() => flowContextLabel(session?.flow), [session?.flow]);
+
   const submit = async (optionId?: string, value?: unknown, skip?: boolean) => {
     if (!sessionId || busy) return;
     setBusy(true);
@@ -117,7 +135,6 @@ export default function ActionSessionScreen() {
 
       if (res.upload_required) {
         setError(res.message || 'Carica un documento, poi riprendi da Home.');
-        // Keep session active — user can open Documents
         return;
       }
 
@@ -129,7 +146,6 @@ export default function ActionSessionScreen() {
 
       if (res.completed || res.session?.done) {
         try { await api.refreshHome(); } catch { /* non-blocking */ }
-        // Stay on complete screen; CTA opens study or travel project
       }
     } catch (e: any) {
       setError(humanizeError(e, 'default'));
@@ -145,7 +161,6 @@ export default function ActionSessionScreen() {
       const o = turn.options.find((x) => x.id === id);
       return o?.value !== undefined ? o.value : id;
     });
-    // Flatten doc ids; keep upload sentinel
     const flat: unknown[] = [];
     for (const v of values) {
       if (Array.isArray(v)) flat.push(...v);
@@ -172,16 +187,7 @@ export default function ActionSessionScreen() {
     }
   };
 
-  const onCancel = async () => {
-    if (!sessionId) return;
-    try {
-      await api.actionEngineDraft(sessionId);
-    } catch { /* ignore */ }
-    try { await ActionEngine.cancel(sessionId); } catch { /* ignore */ }
-    router.back();
-  };
-
-  const onSaveDraft = async () => {
+  const onSaveDraftAndLeave = async () => {
     if (!sessionId) return;
     try {
       await api.actionEngineDraft(sessionId);
@@ -192,22 +198,91 @@ export default function ActionSessionScreen() {
     }
   };
 
+  /** Single Focus back: push within flow, else soft draft exit. */
+  const onChromeBack = async () => {
+    const answered = Object.keys(session?.answers || {}).length;
+    if (answered > 0) {
+      await onBack();
+      return;
+    }
+    await onSaveDraftAndLeave();
+  };
+
+  const themed = {
+    kicker: { color: colors.textTertiary },
+    title: { color: colors.textPrimary },
+    question: { color: colors.textPrimary },
+    explain: { color: colors.textSecondary },
+    error: { color: colors.error },
+    chip: {
+      backgroundColor: colors.backgroundSecondary,
+      borderColor: colors.border,
+    },
+    chipOn: {
+      backgroundColor: colors.accent,
+      borderColor: colors.accent,
+    },
+    chipText: { color: colors.textPrimary },
+    chipTextOn: { color: colors.onAccent },
+    input: {
+      backgroundColor: colors.surface,
+      color: colors.textPrimary,
+      borderColor: colors.border,
+    },
+    primaryCta: { backgroundColor: colors.accent },
+    primaryCtaText: { color: colors.onAccent },
+    secondaryCta: {
+      backgroundColor: colors.backgroundSecondary,
+      borderColor: colors.border,
+    },
+    secondaryCtaText: { color: colors.textPrimary },
+    skip: { color: colors.textSecondary },
+    understoodBox: {
+      backgroundColor: colors.backgroundSecondary,
+      borderColor: colors.border,
+    },
+    understoodLine: { color: colors.textSecondary },
+    previewBox: {
+      backgroundColor: colors.backgroundSecondary,
+      borderColor: colors.border,
+    },
+    previewLine: { color: colors.textPrimary },
+    previewSession: { color: colors.textSecondary },
+    banner: {
+      color: colors.info,
+      backgroundColor: colors.surface,
+    },
+    actionLabel: { color: colors.textPrimary },
+  };
+
   if (loading) {
     return (
-      <SafeAreaView style={styles.safe} testID="action-loading">
-        <ActivityIndicator color={tokens.color.onSurface} />
-      </SafeAreaView>
+      <FocusScreen
+        testID="action-loading"
+        maxWidth={FOCUS_DECISION_MAX_WIDTH}
+        contentStyle={styles.centerContent}
+      >
+        <ActivityIndicator color={colors.textPrimary} />
+      </FocusScreen>
     );
   }
 
   if (!session) {
     return (
-      <SafeAreaView style={styles.safe}>
-        <Text style={styles.error}>{error || 'Sessione non trovata'}</Text>
+      <FocusScreen
+        testID="action-missing"
+        maxWidth={FOCUS_DECISION_MAX_WIDTH}
+        chrome={{
+          leading: 'back',
+          onLeadingPress: () => router.back(),
+        }}
+        contentStyle={styles.centerContent}
+      >
+        <Text style={[styles.error, themed.error]}>{error || 'Sessione non trovata'}</Text>
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={styles.backText}>Torna indietro</Text>
+          <Text style={[styles.backText, { color: colors.textPrimary }]}>Torna indietro</Text>
         </Pressable>
-      </SafeAreaView>
+      </FocusScreen>
     );
   }
 
@@ -219,18 +294,26 @@ export default function ActionSessionScreen() {
     const googleBanner = session.meta?.google_banner as { message?: string } | undefined;
     const isTravel = session.flow === 'travel';
     return (
-      <SafeAreaView style={styles.safe} testID="action-complete">
-        <ScrollView contentContainerStyle={styles.content}>
-          <Text style={styles.kicker}>FATTO</Text>
-          <Text style={styles.title} accessibilityRole="header">{session.title}</Text>
-          <Text style={styles.explain}>
+      <FocusScreen
+        testID="action-complete"
+        maxWidth={FOCUS_DECISION_MAX_WIDTH}
+        chrome={{
+          leading: 'back',
+          onLeadingPress: () => router.replace('/(tabs)' as any),
+          contextLabel,
+        }}
+      >
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          <Text style={[styles.kicker, themed.kicker]}>FATTO</Text>
+          <Text style={[styles.title, themed.title]} accessibilityRole="header">{session.title}</Text>
+          <Text style={[styles.explain, themed.explain]}>
             {(session.meta?.next_focus_hint as string)
               || (isTravel
                 ? 'Travel Project creato. Home evolve con countdown e fase viaggio.'
                 : 'Piano creato. Home si aggiorna con sessioni e countdown esame.')}
           </Text>
           {googleBanner?.message ? (
-            <Text style={styles.banner} testID="google-banner">{googleBanner.message}</Text>
+            <Text style={[styles.banner, themed.banner]} testID="google-banner">{googleBanner.message}</Text>
           ) : null}
           {actions.length > 0 ? (
             <View style={styles.actionsList}>
@@ -239,16 +322,16 @@ export default function ActionSessionScreen() {
                   <Ionicons
                     name={a.status === 'done' ? 'checkmark-circle' : a.status === 'blocked' ? 'alert-circle' : 'ellipse-outline'}
                     size={16}
-                    color={a.status === 'done' ? tokens.color.success : tokens.color.onSurfaceMuted}
+                    color={a.status === 'done' ? colors.success : colors.textSecondary}
                   />
-                  <Text style={styles.actionLabel}>{a.label}</Text>
+                  <Text style={[styles.actionLabel, themed.actionLabel]}>{a.label}</Text>
                 </View>
               ))}
             </View>
           ) : null}
           {planId ? (
             <Pressable
-              style={styles.primaryCta}
+              style={[styles.primaryCta, themed.primaryCta]}
               onPress={() => {
                 haptic('tap');
                 if (isTravel && travelProjectId) {
@@ -259,87 +342,117 @@ export default function ActionSessionScreen() {
               }}
               testID="action-open-plan"
             >
-              <Text style={styles.primaryCtaText}>
+              <Text style={[styles.primaryCtaText, themed.primaryCtaText]}>
                 {isTravel ? 'Apri progetto viaggio' : 'Apri piano di studio'}
               </Text>
             </Pressable>
           ) : null}
           <Pressable
-            style={[styles.primaryCta, planId ? styles.secondaryCta : null]}
+            style={[
+              styles.primaryCta,
+              planId ? [styles.secondaryCta, themed.secondaryCta] : themed.primaryCta,
+            ]}
             onPress={() => { haptic('tap'); router.replace('/(tabs)' as any); }}
             testID="action-done-home"
           >
-            <Text style={[styles.primaryCtaText, planId ? styles.secondaryCtaText : null]}>Torna a Home</Text>
+            <Text
+              style={[
+                styles.primaryCtaText,
+                planId ? themed.secondaryCtaText : themed.primaryCtaText,
+              ]}
+            >
+              Torna a Home
+            </Text>
           </Pressable>
         </ScrollView>
-      </SafeAreaView>
+      </FocusScreen>
     );
   }
 
   if (!turn) {
     return (
-      <SafeAreaView style={styles.safe}>
-        <Text style={styles.error}>Nessuna domanda — chiudo la guida.</Text>
+      <FocusScreen
+        maxWidth={FOCUS_DECISION_MAX_WIDTH}
+        chrome={{
+          leading: 'back',
+          onLeadingPress: () => router.replace('/(tabs)' as any),
+        }}
+        contentStyle={styles.centerContent}
+      >
+        <Text style={[styles.error, themed.error]}>Nessuna domanda — chiudo la guida.</Text>
         <Pressable
           onPress={() => router.replace('/(tabs)' as any)}
           style={styles.backBtn}
         >
-          <Text style={styles.backText}>Home</Text>
+          <Text style={[styles.backText, { color: colors.textPrimary }]}>Home</Text>
         </Pressable>
-      </SafeAreaView>
+      </FocusScreen>
     );
   }
 
   const showText = turn.input_kind === 'text' || turn.input_kind === 'chips_or_text' || turn.input_kind === 'date';
   const isMulti = turn.input_kind === 'multi_chips';
   const isPreview = turn.input_kind === 'preview' || turn.id === 'preview';
+  const showPrimaryCta =
+    showText || isMulti || (turn.input_kind !== 'chips' && turn.input_kind !== 'preview');
 
   return (
-    <SafeAreaView style={styles.safe} testID="action-session">
-      <View style={styles.topBar}>
-        <Pressable onPress={onCancel} hitSlop={12} accessibilityLabel="Annulla" testID="action-cancel">
-          <Ionicons name="close" size={22} color={tokens.color.onSurfaceMuted} />
-        </Pressable>
-        <Pressable onPress={onBack} hitSlop={12} testID="action-back">
-          <Text style={styles.backLink}>Indietro</Text>
-        </Pressable>
-        <Text style={styles.progress}>{Math.round((session.progress || 0) * 100)}%</Text>
-        <Pressable onPress={onSaveDraft} testID="action-save-draft">
-          <Text style={styles.backLink}>Salva</Text>
-        </Pressable>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <Text style={styles.kicker}>{session.title}</Text>
-        {(() => {
-          const summary = buildUnderstoodSummary(session);
-          const entries = Object.entries(summary);
-          if (!entries.length) return null;
-          return (
-            <View style={styles.understoodBox} testID="understood-summary">
-              {entries.map(([label, val]) => (
-                <Text key={label} style={styles.understoodLine} testID={`understood-${label.toLowerCase()}`}>
-                  {label}: {val}
-                </Text>
-              ))}
-            </View>
-          );
-        })()}
-        <Text style={styles.question} accessibilityRole="header" testID="action-question">
+    <FocusScreen
+      testID="action-session"
+      maxWidth={FOCUS_DECISION_MAX_WIDTH}
+      chrome={{
+        leading: 'back',
+        onLeadingPress: () => { void onChromeBack(); },
+        progressLabel,
+        contextLabel,
+        // Salva only as tertiary when no primary Avanti (chip-only turns)
+        trailingLabel: showPrimaryCta ? null : 'Salva',
+        onTrailingPress: showPrimaryCta ? undefined : () => { void onSaveDraftAndLeave(); },
+      }}
+    >
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {contextLabel ? null : (
+          <Text style={[styles.kicker, themed.kicker]}>{session.title}</Text>
+        )}
+        {SHOW_UNDERSTOOD_SUMMARY
+          ? (() => {
+              const summary = buildUnderstoodSummary(session);
+              const entries = Object.entries(summary);
+              if (!entries.length) return null;
+              return (
+                <View style={[styles.understoodBox, themed.understoodBox]} testID="understood-summary">
+                  {entries.map(([label, val]) => (
+                    <Text
+                      key={label}
+                      style={[styles.understoodLine, themed.understoodLine]}
+                      testID={`understood-${label.toLowerCase()}`}
+                    >
+                      {label}: {val}
+                    </Text>
+                  ))}
+                </View>
+              );
+            })()
+          : null}
+        <Text style={[styles.question, themed.question]} accessibilityRole="header" testID="action-question">
           {turn.question}
         </Text>
         {turn.explanation ? (
-          <Text style={styles.explain} testID="action-explanation">{turn.explanation}</Text>
+          <Text style={[styles.explain, themed.explain]} testID="action-explanation">{turn.explanation}</Text>
         ) : null}
 
         {isPreview && preview ? (
-          <View style={styles.previewBox} testID="action-preview">
+          <View style={[styles.previewBox, themed.previewBox]} testID="action-preview">
             {session.flow === 'travel' ? (
               <>
-                <Text style={styles.previewLine}>
+                <Text style={[styles.previewLine, themed.previewLine]}>
                   {String(preview.destination || '')} · {String(preview.period_label || '')}
                 </Text>
-                <Text style={styles.previewLine}>
+                <Text style={[styles.previewLine, themed.previewLine]}>
                   {String(preview.transport_label || preview.transport || '')}
                   {preview.companions ? ` · ${preview.companions} pers.` : ''}
                   {preview.calendar_proposed
@@ -347,7 +460,7 @@ export default function ActionSessionScreen() {
                     : ''}
                 </Text>
                 {(preview.maps as any)?.duration_label || (preview.maps as any)?.distance_km ? (
-                  <Text style={styles.previewLine}>
+                  <Text style={[styles.previewLine, themed.previewLine]}>
                     Maps: {(preview.maps as any).distance_km
                       ? `${(preview.maps as any).distance_km} km`
                       : ''}
@@ -357,24 +470,30 @@ export default function ActionSessionScreen() {
                   </Text>
                 ) : null}
                 {(preview.honesty as any)?.maps ? (
-                  <Text style={styles.previewSession}>{String((preview.honesty as any).maps)}</Text>
+                  <Text style={[styles.previewSession, themed.previewSession]}>
+                    {String((preview.honesty as any).maps)}
+                  </Text>
                 ) : null}
                 {Array.isArray(preview.calendar_events_summary) ? (
                   (preview.calendar_events_summary as any[]).map((e) => (
-                    <Text key={e.kind} style={styles.previewSession}>· {e.title}</Text>
+                    <Text key={e.kind} style={[styles.previewSession, themed.previewSession]}>
+                      · {e.title}
+                    </Text>
                   ))
                 ) : null}
               </>
             ) : (
               <>
-                <Text style={styles.previewLine}>
+                <Text style={[styles.previewLine, themed.previewLine]}>
                   {(preview.session_count as number) || 0} sessioni · {String(preview.total_hours || 0)}h ·{' '}
                   {String(preview.intensity || '')} · {String(preview.daily_minutes || '')} min/giorno
                 </Text>
-                <Text style={styles.previewLine}>Esame: {String(preview.exam_label || preview.exam_date || '')}</Text>
+                <Text style={[styles.previewLine, themed.previewLine]}>
+                  Esame: {String(preview.exam_label || preview.exam_date || '')}
+                </Text>
                 {Array.isArray(preview.sessions_summary) ? (
                   (preview.sessions_summary as any[]).slice(0, 6).map((s) => (
-                    <Text key={s.id} style={styles.previewSession}>
+                    <Text key={s.id} style={[styles.previewSession, themed.previewSession]}>
                       · {s.title} ({s.duration_minutes}m)
                     </Text>
                   ))
@@ -385,7 +504,7 @@ export default function ActionSessionScreen() {
         ) : null}
 
         {!session.meta?.google_connected && turn.id === 'calendar_sync' ? (
-          <Text style={styles.banner} testID="google-disconnected-banner">
+          <Text style={[styles.banner, themed.banner]} testID="google-disconnected-banner">
             Google Calendar non collegato — il piano resta su ORA.
           </Text>
         ) : null}
@@ -396,7 +515,7 @@ export default function ActionSessionScreen() {
             return (
               <Pressable
                 key={o.id}
-                style={[styles.chip, on && styles.chipOn]}
+                style={[styles.chip, themed.chip, on && themed.chipOn]}
                 onPress={() => {
                   haptic('select');
                   if (isMulti) {
@@ -413,7 +532,7 @@ export default function ActionSessionScreen() {
                 disabled={busy}
                 testID={`action-chip-${o.id}`}
               >
-                <Text style={[styles.chipText, on && styles.chipTextOn]}>{o.label}</Text>
+                <Text style={[styles.chipText, themed.chipText, on && themed.chipTextOn]}>{o.label}</Text>
               </Pressable>
             );
           })}
@@ -421,121 +540,111 @@ export default function ActionSessionScreen() {
 
         {showText ? (
           <TextInput
-            style={styles.input}
+            style={[styles.input, themed.input]}
             placeholder="Oppure scrivi (es. 15/09/2026)…"
-            placeholderTextColor={tokens.color.onSurfaceDim}
+            placeholderTextColor={colors.placeholder}
             value={text}
             onChangeText={setText}
             editable={!busy}
+            keyboardAppearance={isDark ? 'dark' : 'light'}
             testID="action-text"
           />
         ) : null}
 
-        {error ? <Text style={styles.error} testID="action-error">{error}</Text> : null}
+        {error ? <Text style={[styles.error, themed.error]} testID="action-error">{error}</Text> : null}
 
-        {(showText || isMulti || (turn.input_kind !== 'chips' && turn.input_kind !== 'preview')) ? (
+        {showPrimaryCta ? (
           <Pressable
-            style={[styles.primaryCta, busy && { opacity: 0.5 }]}
+            style={[styles.primaryCta, themed.primaryCta, busy && { opacity: 0.5 }]}
             disabled={busy || (isMulti ? multi.length === 0 : (!selected && !text.trim() && !turn.allow_skip))}
             onPress={() => {
               if (isMulti) submitMulti();
               else submit(selected || undefined, undefined);
             }}
             testID="action-next"
+            accessibilityLabel="Continua"
           >
             {busy ? (
-              <ActivityIndicator color={tokens.color.onBrand} />
+              <ActivityIndicator color={colors.onAccent} />
             ) : (
-              <Text style={styles.primaryCtaText}>Avanti</Text>
+              <Text style={[styles.primaryCtaText, themed.primaryCtaText]}>Continua</Text>
             )}
           </Pressable>
         ) : null}
 
         {turn.allow_skip ? (
           <Pressable onPress={() => submit(undefined, undefined, true)} disabled={busy}>
-            <Text style={styles.skip}>Salta</Text>
+            <Text style={[styles.skip, themed.skip]}>Salta</Text>
           </Pressable>
         ) : null}
       </ScrollView>
-    </SafeAreaView>
+    </FocusScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: tokens.color.surface, justifyContent: 'center' },
-  topBar: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: tokens.spacing.lg, paddingVertical: tokens.spacing.md, gap: 8,
+  centerContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
   },
-  progress: { fontSize: 12, color: tokens.color.onSurfaceMuted, fontWeight: '600' },
-  backLink: { fontSize: 13, color: tokens.color.onSurfaceMuted, fontWeight: '600' },
   content: {
-    padding: tokens.spacing.xl,
     gap: tokens.spacing.md,
-    maxWidth: 640,
-    width: '100%',
-    alignSelf: 'center',
     paddingBottom: 48,
+    paddingTop: tokens.spacing.sm,
   },
   understoodBox: {
     gap: 4,
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: tokens.radius.md,
-    backgroundColor: tokens.color.surfaceSecondary,
     borderWidth: 1,
-    borderColor: tokens.color.border,
   },
   understoodLine: {
     fontSize: 13,
-    color: tokens.color.onSurfaceMuted,
     fontWeight: '500',
   },
   kicker: {
-    fontSize: 12, fontWeight: '700', color: tokens.color.onSurfaceMuted,
+    fontSize: 12, fontWeight: '700',
     letterSpacing: 1, textTransform: 'uppercase',
   },
-  title: { fontSize: 26, fontWeight: '700', color: tokens.color.onSurface, letterSpacing: -0.3 },
+  title: { fontSize: 26, fontWeight: '700', letterSpacing: -0.3 },
   question: {
-    fontSize: 28, fontWeight: '700', color: tokens.color.onSurface,
+    fontSize: 28, fontWeight: '700',
     lineHeight: 34, letterSpacing: -0.4,
   },
-  explain: { fontSize: 15, color: tokens.color.onSurfaceMuted, lineHeight: 22 },
+  explain: { fontSize: 15, lineHeight: 22 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
   chip: {
     paddingHorizontal: 14, paddingVertical: 12, borderRadius: tokens.radius.md,
-    backgroundColor: tokens.color.surfaceSecondary, borderWidth: 1, borderColor: tokens.color.border,
+    borderWidth: 1,
   },
-  chipOn: { backgroundColor: tokens.color.brand, borderColor: tokens.color.brand },
-  chipText: { fontSize: 15, color: tokens.color.onSurface, fontWeight: '600' },
-  chipTextOn: { color: tokens.color.onBrand },
+  chipText: { fontSize: 15, fontWeight: '600' },
   input: {
     marginTop: 8, borderRadius: tokens.radius.md, padding: 14,
-    backgroundColor: tokens.color.surfaceTertiary, color: tokens.color.onSurface,
-    borderWidth: 1, borderColor: tokens.color.border, fontSize: 15,
+    borderWidth: 1, fontSize: 15,
   },
   primaryCta: {
-    marginTop: 16, backgroundColor: tokens.color.brand, borderRadius: tokens.radius.md,
+    marginTop: 16, borderRadius: tokens.radius.md,
     paddingVertical: 14, alignItems: 'center',
   },
-  primaryCtaText: { color: tokens.color.onBrand, fontWeight: '700', fontSize: 16 },
-  secondaryCta: { backgroundColor: tokens.color.surfaceSecondary, borderWidth: 1, borderColor: tokens.color.border },
-  secondaryCtaText: { color: tokens.color.onSurface },
-  skip: { textAlign: 'center', color: tokens.color.onSurfaceMuted, marginTop: 12, fontSize: 14 },
-  error: { color: tokens.color.error, fontSize: 14 },
+  primaryCtaText: { fontWeight: '700', fontSize: 16 },
+  secondaryCta: { borderWidth: 1 },
+  skip: { textAlign: 'center', marginTop: 12, fontSize: 14 },
+  error: { fontSize: 14 },
   backBtn: { marginTop: 16, alignSelf: 'center' },
-  backText: { color: tokens.color.onSurface, fontWeight: '600' },
+  backText: { fontWeight: '600' },
   actionsList: { gap: 8, marginTop: 8 },
   actionRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  actionLabel: { fontSize: 14, color: tokens.color.onSurface },
+  actionLabel: { fontSize: 14 },
   previewBox: {
-    backgroundColor: tokens.color.surfaceSecondary, borderRadius: tokens.radius.md,
-    padding: 14, gap: 6, borderWidth: 1, borderColor: tokens.color.border,
+    borderRadius: tokens.radius.md,
+    padding: 14, gap: 6, borderWidth: 1,
   },
-  previewLine: { fontSize: 14, color: tokens.color.onSurface, fontWeight: '600' },
-  previewSession: { fontSize: 13, color: tokens.color.onSurfaceMuted },
+  previewLine: { fontSize: 14, fontWeight: '600' },
+  previewSession: { fontSize: 13 },
   banner: {
-    fontSize: 13, color: tokens.color.info, lineHeight: 18,
-    backgroundColor: tokens.color.surfaceTertiary, padding: 10, borderRadius: tokens.radius.md,
+    fontSize: 13, lineHeight: 18,
+    padding: 10, borderRadius: tokens.radius.md,
   },
 });

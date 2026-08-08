@@ -1,33 +1,23 @@
 import { useEffect } from 'react';
 import { Tabs, useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { Platform, StyleSheet, View } from 'react-native';
-import { BlurView } from 'expo-blur';
-import * as Haptics from 'expo-haptics';
 
-import { tokens } from '@/src/theme/tokens';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { resolveLifeSetupGate } from '@/src/life-setup/gate';
-
-function TabBarBackground() {
-  if (Platform.OS === 'ios') {
-    return (
-      <BlurView
-        tint="dark"
-        intensity={80}
-        style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(10,10,10,0.55)' }]}
-      />
-    );
-  }
-  return <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(12,12,12,0.96)' }]} />;
-}
+import { AmbientTabBar, AMBIENT_RAIL_WIDTH } from '@/src/shell';
+import { useBreakpoint } from '@/src/theme/responsive';
+import { useTheme } from '@/src/theme/ThemeProvider';
 
 /**
- * Tabs shell — UI unchanged. Gate only: incomplete Life Setup cannot stay on Home/tabs.
+ * Ambient shell — primary IA: Home · Contesti · ORA · Memoria · Profilo.
+ * Documenti / Aggiungi remain as routes (href:null), reachable from Profilo.
+ * Life Setup gate unchanged.
  */
 export default function TabsLayout() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const bp = useBreakpoint();
+  const { colors } = useTheme();
+  const isRail = bp === 'desktop';
 
   useEffect(() => {
     if (loading || !user?.user_id) return;
@@ -45,59 +35,47 @@ export default function TabsLayout() {
 
   return (
     <Tabs
+      tabBar={(props) => <AmbientTabBar {...props} />}
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: tokens.color.onSurface,
-        tabBarInactiveTintColor: tokens.color.onSurfaceDim,
-        tabBarStyle: {
-          position: 'absolute',
-          borderTopColor: tokens.color.border,
-          borderTopWidth: StyleSheet.hairlineWidth,
-          backgroundColor: 'transparent',
-          elevation: 0,
-        },
-        tabBarBackground: () => <TabBarBackground />,
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '500' },
-      }}
-      screenListeners={{
-        tabPress: () => {
-          if (Platform.OS !== 'web') Haptics.selectionAsync();
-        },
+        // Desktop breakpoint → left rail; phone/tablet → floating bottom
+        tabBarPosition: isRail ? 'left' : 'bottom',
+        // Width must match AmbientTabBar railWrap (no flex:1) — scene gets remaining viewport
+        tabBarStyle: isRail
+          ? {
+              width: AMBIENT_RAIL_WIDTH,
+              maxWidth: AMBIENT_RAIL_WIDTH,
+              backgroundColor: colors.backgroundSecondary,
+              borderTopWidth: 0,
+              borderRightWidth: 0,
+              elevation: 0,
+            }
+          : {
+              position: 'absolute',
+              backgroundColor: 'transparent',
+              borderTopWidth: 0,
+              elevation: 0,
+              height: 0,
+            },
       }}
     >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Home',
-          tabBarIcon: ({ color, size }) => <Ionicons name="ellipse-outline" size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="memoria"
-        options={{
-          title: 'Memoria',
-          tabBarIcon: ({ color, size }) => <Ionicons name="search-outline" size={size} color={color} />,
-        }}
-      />
+      <Tabs.Screen name="index" options={{ title: 'Home' }} />
+      <Tabs.Screen name="contesti" options={{ title: 'Contesti' }} />
+      <Tabs.Screen name="ora" options={{ title: 'ORA' }} />
+      <Tabs.Screen name="memoria" options={{ title: 'Memoria' }} />
+      <Tabs.Screen name="profilo" options={{ title: 'Profilo' }} />
       <Tabs.Screen
         name="documenti"
         options={{
           title: 'Documenti',
-          tabBarIcon: ({ color, size }) => <Ionicons name="document-text-outline" size={size} color={color} />,
+          href: null,
         }}
       />
       <Tabs.Screen
         name="aggiungi"
         options={{
           title: 'Aggiungi',
-          tabBarIcon: ({ color, size }) => <Ionicons name="add-circle-outline" size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="profilo"
-        options={{
-          title: 'Profilo',
-          tabBarIcon: ({ color, size }) => <Ionicons name="person-outline" size={size} color={color} />,
+          href: null,
         }}
       />
     </Tabs>
