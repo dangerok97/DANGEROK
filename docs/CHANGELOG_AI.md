@@ -1,5 +1,55 @@
 # ORA — AI Changelog
 
+## 2026-08-08 — Sprint 3: Minimum Life Context V1
+
+### Request
+
+Life Setup ends when MLC is sufficient (5 semantic nuclei), not a fixed question sequence. Extend existing strategist/planner. No Home/Gate/Documents rewrite. No commit/push.
+
+### Actions
+
+- Added `backend/ai_life_strategist/minimum_life_context.py` (coverage + MLC gaps)
+- `plan_next` / `enforce_mlc_on_plan` / Gemini prompt: wrap only if MLC sufficient
+- Expanded `infer_known_from_text` for multi-nucleus extraction
+- Persist `session.meta.mlc_coverage`; free-text answers bind to current `mlc.*` gap
+- Tests: `test_minimum_life_context.py` scenarios A–F; updated strategist/life_experience expectations
+
+### Results
+
+- 38 strategist/MLC tests passed; frontend `tsc`/eslint clean on life-setup paths
+- Home Quiet Premium + Gate Sprint 2B + Documents V2 unchanged
+
+### Open
+
+- Gemini may still propose off-MLC questions; `enforce_mlc_on_plan` corrects wrap
+- Review before commit
+
+---
+
+## 2026-08-08 — Sprint 2B: Mount Life Setup Conversation behind Gate
+
+### Request
+
+Remount `LifeSetupConversationScreen` at `/life-setup`; close all Home bypasses; reliable complete via gate; Exit/Più tardi ≠ Home. No Home/Documents rewrite. No commit/push.
+
+### Actions
+
+- `app/life-setup/index.tsx` mounts conversation; placeholder rollback-only
+- `gate.ts`: Home only if `session.status === completed` (or disabled); `completeLifeSetupGate` no longer treats skip as success
+- Conversation: early exits via `routeByLifeSetupGate`; `onComplete` requires successful `lifeSetupComplete` then gate; Exit cancel + stay; Più tardi notice without `postpone_all`/Home
+
+### Results
+
+- Incomplete users cannot reach Home through conversation redirects
+- Documents V2 flow and Home Quiet Premium untouched
+
+### Open
+
+- Manual Tests A–H on device/simulator
+- Review before commit
+
+---
+
 ## 2026-08-08 — Sprint 1: Life Setup Gate (Pre-Home)
 
 ### Request

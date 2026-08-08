@@ -77,8 +77,9 @@ def test_domains_complete():
 
 
 def test_casa_purchase_prefers_rogito():
+    """Domain document preference remains available via legacy helper; MLC gates wrap."""
     from ai_life_strategist.models import ReasoningContext
-    from ai_life_strategist.question_planner import plan_next
+    from ai_life_strategist.question_planner import plan_domain_gap_legacy, plan_next
     from ai_life_strategist.knowledge_gap import infer_known_from_text
 
     facts = infer_known_from_text("Ho comprato casa.")
@@ -90,7 +91,13 @@ def test_casa_purchase_prefers_rogito():
         session_phase="active",
         domains_touched=["casa"],
     )
-    plan = plan_next(ctx, focus_domain="casa")
+    # First-launch planner targets MLC gaps (not a document wizard)
+    mlc_plan = plan_next(ctx, focus_domain="casa")
+    assert (mlc_plan.meta or {}).get("phase") != "wrap"
+    assert str((mlc_plan.meta or {}).get("gap_key") or "").startswith("mlc.")
+    # Progressive domain preference still available
+    plan = plan_domain_gap_legacy(ctx, focus_domain="casa")
+    assert plan is not None
     assert plan.domain == "casa"
     assert plan.prefer_document is True
     assert plan.recommended_document is not None
@@ -219,12 +226,15 @@ def test_scenario_casa_mutuo_bollette():
             turn = ans["turn"]
             plan = turn.get("plan") or {}
             text = (turn.get("text") or turn.get("question") or "").lower()
-            assert (
-                plan.get("prefer_document")
-                or (plan.get("recommended_document") or {}).get("doc_type") == "rogito"
-                or "rogito" in text
+            # MLC-first: after house purchase, ask next nucleus — documents optional
+            assert str((plan.get("meta") or {}).get("gap_key") or "").startswith("mlc.")
+            assert plan.get("prefer_document") is not True
+            assert any(
+                w in text
+                for w in ("chiami", "lavoro", "studio", "vivi", "aiut", "impegni", "prior")
             )
 
+            # Optional document still works (not required for MLC)
             up = await svc.upload_doc(
                 user,
                 {
@@ -237,11 +247,19 @@ def test_scenario_casa_mutuo_bollette():
             profile = up.get("profile") or {}
             assert "casa" in (profile.get("domains") or {})
 
-            q = (up["turn"].get("question") or up["turn"].get("text") or "").lower()
-            # After rogito, should move on (mutuo/bollette/polizza) — not only re-ask rogito
-            assert "mutuo" in q or "bolletta" in q or "polizza" in q or "utenze" in q or "assicur" in q or "documento" in q or "concludere" in q or "altro" in q
+            # Reach MLC via conversation, then complete through Sprint 2B API
+            for msg in (
+                "Mi chiamo Luca",
+                "Vivo a Milano",
+                "Lavoro come architetto",
+                "La priorità è gestire le scadenze di casa",
+            ):
+                step = await svc.answer(user, msg)
+                assert step["ok"]
 
+            # May already be done mid-way; complete must still succeed
             done = await svc.complete(user)
+            assert done.get("ok") is not False
             assert done["should_show"] is False
             assert done["module_visible"] is False
             st2 = await svc.status(user)

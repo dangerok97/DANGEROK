@@ -1,12 +1,11 @@
 /**
- * Life Setup route — Sprint 1 gate placeholder.
+ * Life Setup route — mounts conversational Life Experience behind the Gate.
  *
- * Conversational Life Experience is preserved at
- * `src/life-setup/LifeSetupConversationScreen.tsx` for the next sprint.
- * The gate (`src/life-setup/gate.ts`) owns routing; Home stays unaware.
+ * Sprint 1 placeholder remains at `PlaceholderLifeSetup` for rollback only.
+ * Gate (`src/life-setup/gate.ts`) owns Home access; Home stays unaware.
  */
-import { PlaceholderLifeSetup } from '@/src/life-setup/PlaceholderLifeSetup';
+import { LifeSetupConversationScreen } from '@/src/life-setup/LifeSetupConversationScreen';
 
 export default function LifeSetupScreen() {
-  return <PlaceholderLifeSetup />;
+  return <LifeSetupConversationScreen />;
 }

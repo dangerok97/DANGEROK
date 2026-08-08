@@ -26,7 +26,7 @@ Persone che vogliono una priorità unica chiara (non un task manager generico), 
 |-------|-----------|--------|
 | `/login` | Login | Auth email/Google/Apple |
 | `/(tabs)` → index | Home Quiet Premium | Daily Focus + Ask Bar + Horizon + priorità/aggiornamenti (stesso ranking API) |
-| `/life-setup` | Life Setup Gate (primo avvio) | Sprint 1: placeholder Completa Setup → Home; gate persistente; conversazione Life Experience pronta per lo sprint successivo |
+| `/life-setup` | Life Setup Gate (primo avvio) | Sprint 3: conversazione fino a Minimum Life Context (non questionario); gate Sprint 2B; Home solo dopo complete valido |
 | `/conversation` | Entry Conversation Engine | Bridge a guida AE (mai chat thread) |
 | `/situazione` | Situazione completa | Vista reale da CTA Home |
 | `/(tabs)/memoria` | Memoria | Q&A e salvataggio ricordi |

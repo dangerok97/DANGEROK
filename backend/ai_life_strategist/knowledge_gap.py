@@ -1,6 +1,7 @@
 """Knowledge Gap — domain-specific missing info (never random field filling)."""
 from __future__ import annotations
 
+import re
 from typing import Any, Dict, List, Optional, Set
 
 from ai_life_strategist.models import GapItem
@@ -358,19 +359,27 @@ def infer_domain_from_text(text: str) -> Optional[str]:
 
 
 def infer_known_from_text(text: str) -> Dict[str, Any]:
-    """Lightweight signals from natural language (not a form parser)."""
-    t = (text or "").lower()
+    """Lightweight signals from natural language (not a form parser).
+
+    Also fills Minimum Life Context keys when the user volunteers them so one
+    utterance can cover multiple nuclei without re-asking.
+    """
+    raw = (text or "").strip()
+    t = raw.lower()
     known: Dict[str, Any] = {}
     if any(x in t for x in ("ho comprato casa", "comprato casa", "abbiamo comprato", "acquistato casa")):
         known["casa.purchased"] = True
         known["casa.owned"] = True
+        known["mlc.responsibilities"] = known.get("mlc.responsibilities") or "casa"
     if any(x in t for x in ("ho una casa", "casa di proprietà", "mia casa")):
         known["casa.owned"] = True
+        known["mlc.responsibilities"] = known.get("mlc.responsibilities") or "casa"
     if "affitto" in t or "inquilino" in t:
         known["casa.affitto"] = True
+        known["mlc.responsibilities"] = known.get("mlc.responsibilities") or "affitto"
     if any(x in t for x in ("ho un'auto", "ho una macchina", "la mia auto", "la macchina")):
         known["auto.owned"] = True
-    if any(x in t for x in ("università", "universita", "studio", "esame")):
+    if any(x in t for x in ("università", "universita", "studio", "esame", "esami")):
         known["studio.active"] = True
     if "mutuo" in t:
         known["casa.owned"] = True
@@ -382,4 +391,92 @@ def infer_known_from_text(text: str) -> Dict[str, Any]:
         known["doc.piano_di_studi"] = True
     if any(x in t for x in ("non voglio", "preferisco non", "non te lo dico", "salta")):
         known["_soft_refuse_signal"] = True
+
+    # --- Minimum Life Context signals ---
+    m_name = re.search(
+        r"\b(?:mi chiamo|sono|il mio nome [eè])\s+([A-Za-zÀ-ÖØ-öø-ÿ][A-Za-zÀ-ÖØ-öø-ÿ'\-]{1,40})",
+        raw,
+        flags=re.IGNORECASE,
+    )
+    if m_name:
+        name = m_name.group(1).strip().rstrip(".,;:")
+        # Avoid false positives like "sono stanco"
+        if name.lower() not in {
+            "stanco", "stanca", "qui", "là", "la", "lo", "un", "una", "in", "a",
+            "di", "studente", "studentessa", "lavoratore",
+        }:
+            known["mlc.identity.name"] = name
+            known["identity.preferred_name"] = name
+
+    m_city = re.search(
+        r"\b(?:vivo|abito|sto)\s+(?:a|ad|in|nel|nella|a)\s+([A-Za-zÀ-ÖØ-öø-ÿ][A-Za-zÀ-ÖØ-öø-ÿ\s'\-]{1,40})",
+        raw,
+        flags=re.IGNORECASE,
+    )
+    if m_city:
+        city = m_city.group(1).strip().rstrip(".,;:")
+        city = re.split(r"\s+e\s+|\s*,\s*", city, maxsplit=1)[0].strip()
+        if len(city) >= 2:
+            known["mlc.life_places.home"] = city
+            known["casa.citta"] = city
+
+    m_job = re.search(
+        r"\blavoro(?:\s+come)?\s+([A-Za-zÀ-ÖØ-öø-ÿ][A-Za-zÀ-ÖØ-öø-ÿ\s'\-]{1,60})",
+        raw,
+        flags=re.IGNORECASE,
+    )
+    if m_job or re.search(r"\b(?:lavoro|lavoratore|impiegat[oa]|architett[oa]|ingegner[ea])\b", t):
+        if m_job:
+            role = m_job.group(1).strip().rstrip(".,;:")
+            role = re.split(r"\s+e\s+|\s+ma\s+", role, maxsplit=1)[0].strip()
+            if role and role.lower() not in {"e", "anche", "poco", "tanto"}:
+                known["lavoro.ruolo"] = role
+                known["mlc.responsibilities"] = role
+        known["lavoro.active"] = True
+
+    works = bool(
+        known.get("lavoro.active")
+        or known.get("lavoro.ruolo")
+        or re.search(r"\blavoro\b", t)
+    )
+    studies = bool(
+        known.get("studio.active")
+        or re.search(r"\b(?:studio|studiare|universit[aà]|esame|esami)\b", t)
+    )
+    if works and studies:
+        known["mlc.current_situation"] = "lavoro_studio"
+        known["studio.active"] = True
+        known["lavoro.active"] = True
+    elif works:
+        known["mlc.current_situation"] = "lavoro"
+    elif studies:
+        known["mlc.current_situation"] = "studio"
+        known["studio.active"] = True
+
+    # Immediate priority cues
+    pri = None
+    m_pri = re.search(
+        r"(?:pi[uù]\s+importante|priorit[aà]|vorrei\s+(?:che\s+)?(?:mi\s+)?aiutassi\s+(?:con|a)|"
+        r"devo\s+(?:preparare|organizzare|gestire)|preparare\s+(?:gli\s+)?esami|"
+        r"organizzare\s+(?:lo\s+)?studio|gestire\s+il\s+lavoro)",
+        t,
+    )
+    if "preparare gli esami" in t or "preparare esami" in t or "gli esami" in t:
+        pri = "preparare gli esami"
+        known["studio.esame"] = True
+        known["studio.active"] = True
+    elif "organizzare lo studio" in t or "organizzare studio" in t:
+        pri = "organizzare lo studio"
+    elif "gestire il lavoro" in t or "gestire lavoro" in t:
+        pri = "gestire il lavoro"
+    elif "scadenze" in t:
+        pri = "ricordare scadenze"
+    elif "viaggio" in t or "vacanza" in t:
+        pri = "preparare un viaggio"
+        known["viaggi.destinazione"] = known.get("viaggi.destinazione") or True
+    elif m_pri:
+        pri = raw.strip()[:180]
+    if pri:
+        known["mlc.immediate_priority"] = pri
+
     return known

@@ -8,8 +8,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { tokens } from '@/src/theme/tokens';
 import { useAuth } from '@/src/contexts/AuthContext';
-import { completeLifeSetupGate } from '@/src/life-setup/gate';
+import { completeLifeSetupGate, routeByLifeSetupGate } from '@/src/life-setup/gate';
 
+/** Rollback-only UI — not mounted on the normal /life-setup path (Sprint 2B). */
 export function PlaceholderLifeSetup() {
   const router = useRouter();
   const { user } = useAuth();
@@ -22,7 +23,7 @@ export function PlaceholderLifeSetup() {
     setErr(null);
     try {
       await completeLifeSetupGate(user.user_id);
-      router.replace('/(tabs)' as any);
+      await routeByLifeSetupGate(router, user.user_id);
     } catch {
       setErr('Non sono riuscito a salvare il completamento. Riprova.');
     } finally {

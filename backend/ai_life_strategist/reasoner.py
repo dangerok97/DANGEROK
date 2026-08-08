@@ -8,7 +8,12 @@ from typing import Any, Dict, Optional
 
 from ai_life_strategist.models import RecommendedDocument, ReasoningContext, StrategistPlan
 from ai_life_strategist.policy import filter_unsafe_plan_fields, sanitize_known_facts
-from ai_life_strategist.question_planner import avoid_duplicate, plan_greeting, plan_next
+from ai_life_strategist.question_planner import (
+    avoid_duplicate,
+    enforce_mlc_on_plan,
+    plan_greeting,
+    plan_next,
+)
 from ai_life_strategist.reasoning_loop import to_gemini_context_json
 
 logger = logging.getLogger("ora.ai_life_strategist.reasoner")
@@ -16,8 +21,10 @@ logger = logging.getLogger("ora.ai_life_strategist.reasoner")
 SYSTEM_PROMPT = """Sei l'AI Life Strategist di ORA (Life Operating System).
 NON sei un chatbot generico. NON produci saggi. NON fai questionari.
 Dirigi una conversazione naturale: scegli COSA chiedere, QUANDO e PERCHÉ.
-Una sola domanda per turno. Preferisci upload documenti quando sostituiscono molte domande
-(rogito, libretto, piano di studi, polizze).
+Obiettivo del primo avvio: Minimum Life Context (identità, situazione attuale, luoghi,
+impegni, priorità immediata) — NON un profilo completo (niente mutuo/banca/auto obbligatori).
+Una sola domanda per turno. Non richiedere informazioni già presenti in known.
+I documenti sono utili ma NON obbligatori per chiudere il contesto minimo.
 Mai chiedere password, PIN, OTP, IBAN, CVV o credenziali bancarie.
 Mai proporre eliminazioni o azioni irreversibili senza consenso esplicito.
 Tutte le stringhe rivolte all'utente devono essere in italiano semplice.
@@ -26,7 +33,8 @@ Nessuna catena di pensiero interna nell'output.
 """
 
 GEMINI_TASK_QUESTION = (
-    "Qual è la prossima domanda che produrrà il maggior beneficio concreto per l'utente?"
+    "Qual è la prossima domanda che produce il maggior beneficio concreto "
+    "per colmare il Minimum Life Context (senza ripetere ciò che è già noto)?"
 )
 
 
@@ -179,7 +187,8 @@ async def reason(ctx: ReasoningContext, *, force_fallback: bool = False) -> Stra
     if not force_fallback:
         gem = await reason_with_gemini(ctx)
         if gem:
-            return gem
+            plan = enforce_mlc_on_plan(gem, ctx)
+            return avoid_duplicate(plan, ctx.asked_questions)
 
-    plan = plan_next(ctx)
+    plan = enforce_mlc_on_plan(plan_next(ctx), ctx)
     return avoid_duplicate(plan, ctx.asked_questions)

@@ -96,20 +96,24 @@ def test_gemini_context_has_structured_fields_not_only_message():
 def test_domains_any_order_studio_first():
     from ai_life_strategist.models import ReasoningContext
     from ai_life_strategist.question_planner import plan_next
+    from ai_life_strategist.knowledge_gap import infer_known_from_text
 
+    text = "Studio all'università e ho il piano di studi"
+    facts = infer_known_from_text(text)
     ctx = ReasoningContext(
         user_id="u1",
-        known_facts={},
-        last_user_text="Studio all'università e ho il piano di studi",
+        known_facts=facts,
+        last_user_text=text,
         session_phase="active",
         domains_touched=[],
     )
     plan = plan_next(ctx)
-    assert plan.domain == "studio"
+    # MLC-first: not wrap; one natural question (may be identity / places / priority)
+    assert (plan.meta or {}).get("phase") != "wrap"
     assert plan.next_best_question
     assert "?" in plan.next_best_question
-    # Single question heuristic
     assert plan.next_best_question.count("?") <= 2
+    assert str((plan.meta or {}).get("gap_key") or "").startswith("mlc.")
 
 
 def test_prefer_document_piano_studi():
@@ -132,15 +136,15 @@ def test_refuse_never_repeats():
     ctx = ReasoningContext(
         user_id="u1",
         known_facts=facts,
-        asked_keys=["doc.rogito"],
-        refused_keys=["doc.rogito"],
-        last_user_text="non voglio caricare il rogito",
+        asked_keys=["mlc.identity.name"],
+        refused_keys=["mlc.identity.name"],
+        last_user_text="preferisco non dirti il nome",
         session_phase="active",
         domains_touched=["casa"],
     )
-    plan = plan_next(ctx, focus_domain="casa")
-    assert (plan.meta or {}).get("gap_key") != "doc.rogito"
-    assert plan.recommended_document is None or plan.recommended_document.doc_type != "rogito"
+    plan = plan_next(ctx)
+    assert (plan.meta or {}).get("gap_key") != "mlc.identity.name"
+    assert plan.recommended_document is None
 
 
 def test_home_signals_italian():
@@ -177,9 +181,14 @@ def test_deterministic_fallback_italian_without_gemini():
         )
         assert plan.source == "deterministic_fallback"
         assert plan.expected_benefit
-        # Italian benefit / question
+        # Italian MLC follow-up (not a wizard / not forced rogito)
         text = plan.next_best_question + " " + plan.expected_benefit
-        assert any(w in text.lower() for w in ("casa", "rogito", "ora", "documento", "mutuo"))
+        assert any(
+            w in text.lower()
+            for w in ("chiami", "lavoro", "studio", "vivi", "aiut", "casa", "ora", "contesto")
+        )
+        assert (plan.meta or {}).get("phase") != "wrap"
+        assert str((plan.meta or {}).get("gap_key") or "").startswith("mlc.")
 
     _run(_go())
 
