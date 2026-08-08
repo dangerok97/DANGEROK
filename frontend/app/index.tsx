@@ -3,9 +3,13 @@ import { View, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { useAuth } from '@/src/contexts/AuthContext';
-import { api } from '@/src/api/client';
 import { tokens } from '@/src/theme/tokens';
+import { resolveLifeSetupGate } from '@/src/life-setup/gate';
 
+/**
+ * Cold start entry — auth then Life Setup Gate.
+ * Home is never the default for incomplete setup.
+ */
 export default function Index() {
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -18,18 +22,13 @@ export default function Index() {
     }
     let cancelled = false;
     (async () => {
-      try {
-        const st = await api.lifeSetupStatus();
-        if (cancelled) return;
-        // First-launch conversation only — never a permanent Life Setup section
-        if (st.ok && st.should_show && st.module_visible === false) {
-          router.replace('/life-setup' as any);
-          return;
-        }
-      } catch {
-        // Fail soft → Home
+      const target = await resolveLifeSetupGate(user.user_id);
+      if (cancelled) return;
+      if (target === 'life-setup') {
+        router.replace('/life-setup' as any);
+      } else {
+        router.replace('/(tabs)' as any);
       }
-      if (!cancelled) router.replace('/(tabs)');
     })();
     return () => {
       cancelled = true;

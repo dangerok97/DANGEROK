@@ -1,19 +1,12 @@
 /**
- * After login/register: first-launch conversation if eligible.
- * Never opens a permanent Life Setup module/section.
+ * After login/register: Life Setup Gate → Home only when completed.
  */
 import { Router } from 'expo-router';
-import { api } from '@/src/api/client';
+import { routeByLifeSetupGate } from '@/src/life-setup/gate';
 
-export async function routeAfterAuth(router: Router): Promise<void> {
-  try {
-    const st = await api.lifeSetupStatus();
-    if (st.ok && st.should_show) {
-      router.replace('/life-setup' as any);
-      return;
-    }
-  } catch {
-    // Fail soft → Home
-  }
-  router.replace('/(tabs)' as any);
+export async function routeAfterAuth(
+  router: Router,
+  userId: string,
+): Promise<void> {
+  await routeByLifeSetupGate(router, userId);
 }
