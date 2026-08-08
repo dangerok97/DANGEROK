@@ -1,17 +1,16 @@
 /**
- * ORA Home Quiet Premium V1 — orchestration only.
+ * ORA Home Quiet Premium — orchestration only.
  * Presentation/UX; no ranking/API/engine changes.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  View,
   ScrollView,
   RefreshControl,
   StyleSheet,
-  AccessibilityInfo,
   useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { FadeIn } from 'react-native-reanimated';
 import { useFocusEffect, useRouter } from 'expo-router';
 
 import { useTheme } from '@/src/theme/ThemeProvider';
@@ -42,7 +41,8 @@ import {
 } from '@/src/components/home/quiet';
 import { EmptyHome } from '@/src/components/home/v2/EmptyHome';
 
-const HOME_MAX_WIDTH = 720;
+/** Editorial column — generous but not dashboard-wide */
+const HOME_MAX_WIDTH = 860;
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -60,21 +60,8 @@ export default function HomeScreen() {
   const [correctOpen, setCorrectOpen] = useState(false);
   const [snoozeOpen, setSnoozeOpen] = useState(false);
   const [pendingItemId, setPendingItemId] = useState<string | null>(null);
-  const [reduceMotion, setReduceMotion] = useState(false);
   const { online, markOffline, markOnline } = useOnlineStatus();
   const inflight = useRef(false);
-
-  useEffect(() => {
-    let mounted = true;
-    AccessibilityInfo.isReduceMotionEnabled()
-      .then((v) => { if (mounted) setReduceMotion(v); })
-      .catch(() => undefined);
-    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
-    return () => {
-      mounted = false;
-      sub.remove();
-    };
-  }, []);
 
   const load = useCallback(async (opts?: { silent?: boolean }) => {
     if (!opts?.silent) setLoading(true);
@@ -159,7 +146,6 @@ export default function HomeScreen() {
 
   const focus = home?.primary_focus || null;
   const showGoogleBanner = !!home?.google_calendar?.show_banner;
-  const enter = reduceMotion ? undefined : FadeIn.duration(tokens.motion.normal);
 
   return (
     <AppScreen
@@ -171,8 +157,8 @@ export default function HomeScreen() {
       <ScrollView
         contentContainerStyle={{
           paddingHorizontal: padH,
-          paddingTop: tokens.spacing.md,
-          gap: tokens.spacing.xl,
+          paddingTop: tokens.spacing.lg,
+          gap: tokens.spacing['32'],
           maxWidth: HOME_MAX_WIDTH,
           width: '100%',
           alignSelf: 'center',
@@ -200,7 +186,7 @@ export default function HomeScreen() {
         {loading ? (
           <HomeLoading />
         ) : focus ? (
-          <Animated.View entering={enter} style={styles.focusBlock}>
+          <View style={styles.focusBlock}>
             <DailyFocus
               item={focus}
               explanation={home?.explanation}
@@ -209,7 +195,7 @@ export default function HomeScreen() {
               onCorrect={() => { setPendingItemId(focus.id); setCorrectOpen(true); }}
               onIgnore={() => runHomeAction(focus.id, 'ignore')}
             />
-          </Animated.View>
+          </View>
         ) : (
           <EmptyHome />
         )}

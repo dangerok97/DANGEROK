@@ -24,26 +24,48 @@ function greetingForHour(h: number): string | null {
   return null;
 }
 
-/** Soft date + optional greeting; sync meta stays subordinate. */
+/** Fresh sync (< 90s) stays almost invisible — only Offline is assertive. */
+function syncLabel(online: boolean, lastSuccessAt: Date | null): string | null {
+  if (!online) return 'Offline';
+  if (!lastSuccessAt) return null;
+  const ageMs = Date.now() - lastSuccessAt.getTime();
+  if (ageMs < 90_000) return null;
+  return `Aggiornato ${formatRelativeAgo(lastSuccessAt)}`;
+}
+
+/** Editorial date — refined, not a page title. */
 export function HomeAmbientHeader({ online, lastSuccessAt }: Props) {
   const { colors } = useTheme();
   const greet = greetingForHour(new Date().getHours());
+  const sync = syncLabel(online, lastSuccessAt);
 
   return (
     <View style={styles.wrap} testID="home-ambient-header" accessibilityRole="header">
       <View style={styles.row}>
         <View style={styles.left}>
-          <Text style={[styles.date, { color: colors.textPrimary }]}>{formatAmbientDate()}</Text>
+          <Text style={[styles.date, { color: colors.textSecondary }]}>{formatAmbientDate()}</Text>
           {greet ? (
-            <Text style={[styles.greet, { color: colors.textSecondary }]}>{greet}</Text>
+            <Text style={[styles.greet, { color: colors.textTertiary }]}>{greet}</Text>
           ) : null}
         </View>
         <View style={styles.meta} testID="home-sync-meta">
-          {!online ? (
-            <Text style={[styles.metaText, { color: colors.warning }]}>Offline</Text>
-          ) : lastSuccessAt ? (
+          {sync ? (
             <Text
-              style={[styles.metaText, { color: colors.textTertiary }]}
+              style={[
+                styles.metaText,
+                { color: online ? colors.textTertiary : colors.warning },
+              ]}
+              accessibilityLabel={
+                online && lastSuccessAt
+                  ? `Ultimo aggiornamento ${formatRelativeAgo(lastSuccessAt)}`
+                  : 'Offline'
+              }
+            >
+              {sync}
+            </Text>
+          ) : online && lastSuccessAt ? (
+            <Text
+              style={{ position: 'absolute', width: 1, height: 1, opacity: 0 }}
               accessibilityLabel={`Ultimo aggiornamento ${formatRelativeAgo(lastSuccessAt)}`}
             >
               Aggiornato {formatRelativeAgo(lastSuccessAt)}
@@ -56,7 +78,7 @@ export function HomeAmbientHeader({ online, lastSuccessAt }: Props) {
 }
 
 const styles = StyleSheet.create({
-  wrap: { marginBottom: tokens.spacing.sm },
+  wrap: { marginBottom: tokens.spacing.xs },
   row: {
     flexDirection: 'row',
     alignItems: 'flex-end',
@@ -65,19 +87,20 @@ const styles = StyleSheet.create({
   },
   left: { flex: 1, gap: 2 },
   date: {
-    fontSize: tokens.typography.headline.fontSize,
-    fontWeight: tokens.typography.headline.fontWeight,
-    letterSpacing: tokens.typography.headline.letterSpacing,
-    lineHeight: tokens.typography.headline.lineHeight,
+    fontSize: tokens.typography.body.fontSize,
+    fontWeight: '500',
+    letterSpacing: -0.2,
+    lineHeight: tokens.typography.body.lineHeight,
   },
   greet: {
-    fontSize: tokens.typography.caption.fontSize,
-    lineHeight: tokens.typography.caption.lineHeight,
-  },
-  meta: { paddingBottom: 2, maxWidth: '40%', alignItems: 'flex-end' },
-  metaText: {
     fontSize: tokens.typography.footnote.fontSize,
-    fontWeight: '500',
+    lineHeight: 16,
+    fontWeight: '400',
+  },
+  meta: { paddingBottom: 2, maxWidth: '42%', alignItems: 'flex-end' },
+  metaText: {
+    fontSize: 11,
+    fontWeight: '400',
     textAlign: 'right',
   },
 });

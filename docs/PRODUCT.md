@@ -10,9 +10,9 @@ ORA è il sistema operativo della vita quotidiana: riduce il carico cognitivo mo
 
 Linguaggio visivo **calmo, editoriale, premium** (Apple HIG; riferimenti Calendar/Journal/Reminders/Health, Things 3, Notion Mobile, Arc Search, Day One — non Linear). Accent **Deep Indigo**. Temi Light / Dark / System. Primitive UI in `frontend/src/components/ui/`. Glass solo su tab bar / sheet / controlli floating.
 
-### Home Quiet Premium V1
+### Home Quiet Premium V1 (+ polish 2.1)
 
-La Home risponde a **“Cosa conta per me in questo momento?”** — non è dashboard, widget wall o chat. Gerarchia: Ambient Header → Daily Focus (hero + Focus Glow) → Ask Bar → Focus Horizon → Priorità leggere → Aggiornamenti → Situazione → Continua. Stessi dati `HomeV2Response` / stessi flussi Action Engine e Conversation Engine; solo presentazione.
+La Home risponde a **“Cosa conta per me in questo momento?”** — non è dashboard, widget wall o chat. Gerarchia: Ambient Header → Daily Focus (superficie + Focus Glow sentito) → Ask Bar (Apple Search) → Focus Horizon (sezioni temporali) → Priorità tipografiche → Aggiornamenti → Situazione → Continua. CTA a tre livelli. Stessi dati `HomeV2Response` / stessi flussi Action Engine e Conversation Engine; solo presentazione.
 
 I **Life Objects** (Casa, Auto, Università, Lavoro, …) sono il **modello vivente della realtà dell’utente**. L’AI (Gemini) è **consultant**; il backend è **autorità** su tipo, titolo, merge e campi (Semantic Validator prima del persist). Conversation, Goal, Documents, Brain, Proactive e Home **continuano a esistere** come satelliti. Aggiornamenti **shadow**; Home resta Goal-aware; Home V3 oggetti solo predisposta (`LIFE_OBJECT_HOME_UI_ENABLED=0`).
 

@@ -1,6 +1,7 @@
 export { HomeAmbientHeader } from './HomeAmbientHeader';
 export { OraInput, ParlaConOra } from './OraInput';
 export { DailyFocus } from './DailyFocus';
+export { FocusActions } from './FocusActions';
 export { FocusHorizon } from './FocusHorizon';
 export { PrioritySection } from './PrioritySection';
 export { UpdatesSection } from './UpdatesSection';
