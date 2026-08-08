@@ -528,3 +528,84 @@ def test_upload_mid_flow_keeps_answers():
             await _clean(db, user)
             client.close()
     _run(body())
+
+
+def test_study_exam_identity_a_known_subject_psicologia():
+    """A — known subject → exam question contains Psicologia (schema convention)."""
+    from action_engine.study.flow import build_turns
+
+    turns = build_turns({
+        "intent_entities": {"subject": "Psicologia"},
+        "title": "Preparazione esame di Psicologia",
+        "display_title": "Psicologia",
+    })
+    date_q = next(t for t in turns if t.id == "exam_date")
+    assert "Psicologia" in date_q.question
+    assert date_q.question == "Quando è l'esame di Psicologia?"
+    assert not any(t.id == "confirm_subject" for t in turns)
+
+
+def test_study_exam_identity_b_insight_title_not_exam_name():
+    """B — unknown exam + insight/home title must NOT appear in questions."""
+    from action_engine.study.flow import build_turns, _subject_from_ctx
+
+    insight = "Adesso posso seguire il ritmo dello studio senza perdere pezzi"
+    ctx = {
+        "intent_entities": {},
+        "title": insight,
+        "display_title": insight,
+    }
+    assert _subject_from_ctx(ctx) is None
+    turns = build_turns(ctx)
+    parts: list[str] = []
+    for t in turns:
+        parts.append(t.question or "")
+        for o in (t.options or []):
+            parts.append(o.label or "")
+            parts.append(str(o.value))
+    blob = " ".join(parts)
+    assert insight not in blob
+    assert "Adesso posso seguire" not in blob
+    date_q = next(t for t in turns if t.id == "exam_date")
+    assert date_q.question == "Quando è l'esame?"
+
+
+def test_study_exam_identity_c_unknown_neutral_question():
+    """C — unknown → neutral exam date question."""
+    from action_engine.study.flow import build_turns
+
+    turns = build_turns({
+        "intent_entities": {},
+        "title": "Priorità generica",
+        "display_title": "Priorità generica",
+    })
+    confirm = next(t for t in turns if t.id == "confirm_subject")
+    assert "Quale esame" in confirm.question
+    assert "Priorità generica" not in confirm.question
+    date_q = next(t for t in turns if t.id == "exam_date")
+    assert date_q.question == "Quando è l'esame?"
+
+
+def test_study_exam_identity_d_plan_service_ignores_session_title():
+    """D — plan_service must not use session.title as exam identity; e2e still ok."""
+    from action_engine.study.plan_service import StudyPlanService
+
+    svc = StudyPlanService(db=None)  # type: ignore[arg-type]
+    insight = "Adesso posso seguire..."
+    plan = svc.build_draft_from_answers(
+        user_id="u_id",
+        answers={
+            "exam_date": (_now() + timedelta(days=14)).date().isoformat(),
+            "daily_time": 60,
+            "available_days": [0, 1, 2],
+            "preferred_time_ranges": [{"start": "18:00", "end": "20:00"}],
+            "intensity": "distributed",
+            "tools": ["study"],
+            "calendar_sync": False,
+        },
+        session={"title": insight, "home_item_id": "h1", "meta": {"intent_entities": {}}},
+        meta={"timezone": "Europe/Rome"},
+    )
+    assert insight not in (plan.exam_name or "")
+    assert plan.exam_name == "Esame"
+    assert plan.subject is None

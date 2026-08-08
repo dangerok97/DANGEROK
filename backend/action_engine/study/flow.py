@@ -36,13 +36,17 @@ DAY_OPTS = [
 
 
 def _subject_from_ctx(ctx: Dict[str, Any]) -> Optional[str]:
+    """Exam/subject entity only — never home/insight presentation titles."""
     entities = ctx.get("intent_entities") or {}
-    return (
-        entities.get("subject")
-        or entities.get("exam")
-        or ctx.get("display_title")
-        or None
-    )
+    for key in ("subject", "exam"):
+        raw = entities.get(key)
+        if raw is None:
+            continue
+        text = str(raw).strip()
+        if text:
+            return text[:80]
+    # Do NOT use display_title / title / session title — those are presentation
+    return None
 
 
 def _known_exam_date(ctx: Dict[str, Any]) -> Optional[str]:
@@ -60,27 +64,46 @@ def _known_exam_date(ctx: Dict[str, Any]) -> Optional[str]:
     return None
 
 
+def _exam_date_question(subject: Optional[str]) -> str:
+    """semantic_engine study schema: known → «di {subject}»; unknown → neutral."""
+    if subject:
+        return f"Quando è l'esame di {subject}?"
+    return "Quando è l'esame?"
+
+
 def build_turns(ctx: Dict[str, Any]) -> List[QuestionTurn]:
     """Initial turn list — subject skipped when Intent already has it."""
     subject = _subject_from_ctx(ctx)
-    title = subject or ctx.get("title") or "esame"
     turns: List[QuestionTurn] = []
 
-    if not subject or ctx.get("force_confirm_subject"):
+    if subject and not ctx.get("force_confirm_subject"):
+        # Known entity — confirm step skipped; service pre-seeds answers
+        pass
+    elif subject:
+        # Real entity only — never confirm a home/insight presentation title
         turns.append(turn(
             STEP_CONFIRM_SUBJECT,
-            f"Confermi che l'esame è «{title}»?",
+            f"Confermi che l'esame è «{subject}»?",
             explanation="Puoi correggere la materia se ho capito male.",
             input_kind="chips_or_text",
             options=[
-                opt("yes", f"Sì, {title}", title),
+                opt("yes", f"Sì, {subject}", subject),
                 opt("other", "No, correggi", "__other__"),
             ],
             brain_key="study_subject",
         ))
     else:
-        # Pre-seed answer later in service; still expose for transparency if needed
-        pass
+        # Unknown exam identity — ask for subject; never quote ctx.title
+        turns.append(turn(
+            STEP_CONFIRM_SUBJECT,
+            "Quale esame vuoi preparare?",
+            explanation="Serve la materia.",
+            input_kind="chips_or_text",
+            options=[
+                opt("other", "Scrivi la materia", "__other__"),
+            ],
+            brain_key="study_subject",
+        ))
 
     known_date = _known_exam_date(ctx)
     date_opts = [
@@ -97,7 +120,7 @@ def build_turns(ctx: Dict[str, Any]) -> List[QuestionTurn]:
 
     turns.append(turn(
         STEP_EXAM_DATE,
-        f"Quando è l'esame «{title}»?",
+        _exam_date_question(subject),
         explanation=explanation,
         input_kind="chips_or_text",
         options=date_opts,

@@ -92,12 +92,16 @@ class StudyPlanService:
     ) -> StudyPlan:
         meta = meta or {}
         entities = (session.get("meta") or {}).get("intent_entities") or {}
+        # Exam identity = confirmed/entity subject only — never session.title
+        # (Home/insight presentation titles must not become exam_name).
         subject = (
             answers.get("confirm_subject")
             or entities.get("subject")
-            or session.get("title")
+            or entities.get("exam")
         )
-        exam_name = str(subject or session.get("title") or "Esame")
+        if isinstance(subject, str):
+            subject = subject.strip() or None
+        exam_name = str(subject or "Esame")
         exam_date = answers.get("exam_date_confirm") or answers.get("exam_date")
         daily = int(answers.get("daily_time") or 60)
         days = answers.get("available_days") or [0, 1, 2, 3, 4]
