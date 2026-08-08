@@ -25,7 +25,7 @@ Enrichment backend: narrative versionata, questions, insights, temporal, health 
 - Docs: `LIFE_OBJECT_*`, `LIFE_KNOWLEDGE_MODEL.md`, `DIGITAL_TWIN_MODEL.md`, `FACTS_HYPOTHESES_DECISIONS.md`
 - **Home V3 Life Objects = PREDISPOSTO, non shippato.** Home resta Goal-aware.
 
-## Life Setup Gate (Sprint 1, 2026-08-08)
+## Life Setup Gate (Sprint 1 + 2B, 2026-08-08)
 
 Application **initial state** before Home. Home Quiet Premium stays unaware.
 
@@ -35,16 +35,35 @@ Auth → resolveLifeSetupGate(userId) → /life-setup | /(tabs) Home
 
 - Module: `frontend/src/life-setup/gate.ts`
 - Local persistence: AsyncStorage `ora.lifeSetupCompleted.<userId>` (`1`/`0`)
-- Sync: backend `GET /api/life-setup/status` (`should_show` / `enabled`); fail-closed → setup if API down and local not completed
-- Complete: `completeLifeSetupGate` (best-effort API start/complete/skip + local `true`)
-- Entry points: cold start `app/index.tsx`, post-auth `routeAfterAuth`, tabs shell redirect
-- Sprint 1 UI: `PlaceholderLifeSetup` at `/life-setup`; conversation preserved unmounted in `LifeSetupConversationScreen.tsx`
+- Unlock Home only when `session.status === 'completed'` (or feature disabled). `interrupted` / `skipped` / `cancelled` ≠ completed
+- Offline: trust local completed; else fail-closed → life-setup
+- Complete path: successful `lifeSetupComplete` → `completeLifeSetupGate(userId)` → `routeByLifeSetupGate`
+- Entry points: cold start `app/index.tsx`, post-auth `routeAfterAuth`, tabs shell redirect (2nd line of defense)
+- UI: `LifeSetupConversationScreen` at `/life-setup`; `PlaceholderLifeSetup` kept for rollback only
+
+## Minimum Life Context V1 (Sprint 3, 2026-08-08)
+
+First-launch wrap/`ui.done` is gated by **semantic MLC coverage**, not by exhausting `DOMAIN_GAPS` or a fixed question count.
+
+```
+answer → infer_known_from_text (+ profile) → evaluate_mlc_coverage → plan_next
+  → wrap only if MLC sufficient → wrap_up_turn (ui.done)
+```
+
+- Module: `backend/ai_life_strategist/minimum_life_context.py` (`mlc-v1` **heuristic**, not irreversible domain law)
+- Nuclei: `identity`, `current_situation`, `life_places`, `responsibilities`, `immediate_priority`
+- **Addressed** = `covered` | `skipped` (explicit refuse/postpone) | `implicit` (rich core context). **Not** “question was asked” (`asked_keys` only de-prioritize)
+- `immediate_priority` strongly preferred (one ask even when implicit); rich core (4 covered) can still suffice without perfect priority phrasing
+- One utterance may cover multiple nuclei; planner asks highest-gain unaddressed gap
+- NLP heuristics (`infer_known_from_text`) persist via profile `source=inferred` + `status=suggested` (`source_confidence` ~0.55) — not high-certainty
+- Persistence: `known_facts` on sessions + `life_profiles`; `session.meta.mlc_coverage` (not a UI checklist)
+- Documents V2 optional; Gate Sprint 2B unchanged
 
 ## Life Experience / Strategist (2026-08-06)
 
 - AI-first Life Experience: reasoning loop every turn → structured `StrategistPlan`.
 - Gemini via Provider Manager with structured context JSON; deterministic Italian fallback.
-- CE origin `life_setup` accepted; route `/life-setup` = gate surface (Sprint 1 placeholder; conversation next).
+- CE origin `life_setup` accepted; route `/life-setup` = conversational Life Experience behind the Gate.
 - Collections: `life_setup_sessions`, `life_profiles`.
 - Home adapter: **Italian benefit cards** after setup («Adesso posso…») + soft resume if interrupted — **no** Life Setup section.
 - Proactive generator: benefit-driven suggestions + soft resume; never «Completa il profilo».

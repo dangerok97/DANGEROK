@@ -130,6 +130,8 @@ class LifeProfileService:
                 key=key,
                 value=value,
                 source=source,
+                # NLP / heuristic inferences stay suggested + source_confidence("inferred")
+                status="suggested" if source == "inferred" else None,
             )
         return profile
 

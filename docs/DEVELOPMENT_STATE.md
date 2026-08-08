@@ -1,22 +1,52 @@
 # ORA — Development State
 
-Last updated: 2026-08-08 (Sprint 1 — Life Setup Gate)
+Last updated: 2026-08-08 (Sprint 3 — Minimum Life Context V1)
 
 ## Branch
 
 - Active: `feature/ora-quiet-premium-design-system`
 - No push / no merge unless requested
 
-## Sprint 1 — Life Setup Gate (this batch)
+## Sprint 3 — Minimum Life Context V1 (this batch)
+
+| Item | Stato |
+|------|--------|
+| `minimum_life_context.py` coverage model | **yes** |
+| `plan_next` wrap only when MLC sufficient | **yes** |
+| Multi-nucleus infer from natural language | **yes** |
+| Persist coverage via `known_facts` + `meta.mlc_coverage` | **yes** |
+| Documents not required for done | **yes** |
+| Gate Sprint 2B / Home untouched | **yes** |
+| Backend tests MLC + strategist | **38 passed** |
+| Commit | **pending review** |
+
+## Sprint 2B — Life Setup Conversation behind Gate
+
+| Item | Stato |
+|------|--------|
+| `/life-setup` mounts `LifeSetupConversationScreen` | **yes** |
+| Raw `/(tabs)` bypasses removed from conversation | **yes** |
+| Complete → `lifeSetupComplete` then `completeLifeSetupGate` | **yes** |
+| Exit / Più tardi do not open Home | **yes** |
+| Gate unlocks Home only on `session.status === completed` | **yes** |
+| Tabs guard kept (2nd defense) | **yes** |
+| Home / Documents pipeline untouched | **yes** |
+| Commit | **pending review** |
+
+### Resume limits (documented)
+
+- Active session: cold start resumes via `lifeSetupStart(false)`.
+- After Esci (`lifeSetupCancel`): session terminal → in-place `start(force=true)` (new turn, not mid-thread restore).
+- “Più tardi” no longer calls `postpone_all` (that marked `skipped` and unlocked Home under old `should_show` semantics).
+
+## Sprint 1 — Life Setup Gate
 
 | Item | Stato |
 |------|--------|
 | Persistent `ora.lifeSetupCompleted.<userId>` | **yes** |
 | Gate module `src/life-setup/gate.ts` | **yes** |
-| Placeholder Completa Setup | **yes** (`/life-setup`) |
+| Placeholder Completa Setup | **rollback only** (not normal path) |
 | Home unaware / unchanged | **yes** |
-| Conversation Life Experience preserved (unmounted) | **yes** |
-| Commit | **pending review** |
 
 ## Prior — Home Quiet Premium V1 — technical consolidation (2.2)
 

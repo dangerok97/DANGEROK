@@ -1,7 +1,7 @@
 /**
- * Life Experience — conversational first-launch (preserved for next sprint).
- * Sprint 1 serves PlaceholderLifeSetup at /life-setup; this screen is not mounted.
+ * Life Experience — conversational first-launch behind the Life Setup Gate.
  * NOT a wizard, questionnaire, or settings form.
+ * Home access only via completeLifeSetupGate after a successful lifeSetupComplete.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -30,6 +30,12 @@ import {
   LifeSetupDocumentField,
 } from '@/src/api/client';
 import { humanizeError } from '@/src/utils/errors';
+import { useAuth } from '@/src/contexts/AuthContext';
+import {
+  completeLifeSetupGate,
+  routeByLifeSetupGate,
+  setLocalLifeSetupCompleted,
+} from '@/src/life-setup/gate';
 
 type Bubble = { role: 'ora' | 'user'; text: string };
 
@@ -48,10 +54,13 @@ function fmtFieldValue(v: unknown): string {
 
 export function LifeSetupConversationScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const params = useLocalSearchParams<{ resume?: string }>();
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [completing, setCompleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [turn, setTurn] = useState<LifeSetupTurn | null>(null);
   const [bubbles, setBubbles] = useState<Bubble[]>([]);
   const [draft, setDraft] = useState('');
@@ -88,18 +97,53 @@ export function LifeSetupConversationScreen() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      if (!user?.user_id) {
+        if (!cancelled) setLoading(false);
+        return;
+      }
       try {
         const st = await api.lifeSetupStatus();
-        if (!st.should_show && !params.resume) {
-          router.replace('/(tabs)' as any);
-          return;
-        }
-        const res = await api.lifeSetupStart(Boolean(params.resume));
         if (cancelled) return;
-        if (res.already_finished) {
-          router.replace('/(tabs)' as any);
+
+        // Completed (or disabled) → gate decides Home. Never raw-redirect to tabs.
+        const sessStatus =
+          st.session && typeof st.session === 'object'
+            ? (st.session as { status?: string }).status
+            : undefined;
+        if (sessStatus === 'completed' || st.enabled === false) {
+          await routeByLifeSetupGate(router, user.user_id);
           return;
         }
+
+        // Interrupted/skipped/cancelled: force a new session so user stays in setup.
+        // Active/not_started: normal start (resume=true forces when requested).
+        const force =
+          Boolean(params.resume) ||
+          sessStatus === 'interrupted' ||
+          sessStatus === 'skipped' ||
+          sessStatus === 'cancelled';
+
+        let res = await api.lifeSetupStart(force);
+        if (cancelled) return;
+
+        if (res.already_finished) {
+          const finishedStatus =
+            res.session && typeof res.session === 'object'
+              ? (res.session as { status?: string }).status
+              : undefined;
+          if (finishedStatus === 'completed') {
+            await routeByLifeSetupGate(router, user.user_id);
+            return;
+          }
+          // Non-completed terminal — force restart inside Life Setup
+          res = await api.lifeSetupStart(true);
+          if (cancelled) return;
+          if (res.already_finished) {
+            await routeByLifeSetupGate(router, user.user_id);
+            return;
+          }
+        }
+
         applyTurn(res.turn);
         const pending = (res as any).pending_document as
           | { document_id: string; doc_type?: string; ready_for_consume?: boolean; message?: string }
@@ -127,7 +171,7 @@ export function LifeSetupConversationScreen() {
     // finishConsumeFlow/pollDocumentStatus are stable useCallback refs defined
     // below and only invoked here for the one-time pending-document resume.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [applyTurn, params.resume, router]);
+  }, [applyTurn, params.resume, router, user?.user_id]);
 
   const send = async () => {
     const text = draft.trim();
@@ -473,17 +517,65 @@ export function LifeSetupConversationScreen() {
   };
 
   const onExit = async () => {
+    // Backend interrupt (optional soft-resume signal) — never Home, never gate complete.
+    setNotice(null);
+    setError(null);
     try {
       await api.lifeSetupCancel();
-    } catch {}
-    router.replace('/(tabs)' as any);
+    } catch {
+      // Stay on Life Setup even if cancel fails
+    }
+    if (user?.user_id) {
+      try {
+        await setLocalLifeSetupCompleted(user.user_id, false);
+      } catch {}
+    }
+    // Session is terminal after cancel — open a fresh setup turn in-place (still pre-Home).
+    try {
+      const res = await api.lifeSetupStart(true);
+      if (!res.already_finished) {
+        setBubbles([]);
+        setDone(false);
+        setExplain(null);
+        setDocPhase('idle');
+        setDocumentResult(null);
+        applyTurn(res.turn);
+      }
+    } catch {
+      // Keep screen; user can reopen app — gate still blocks Home
+    }
+    setNotice('Setup sospeso. Puoi continuare qui — la Home resta chiusa finché non completi.');
+  };
+
+  const onPostpone = async () => {
+    // postponed !== completed — do not terminal-skip to Home.
+    setNotice('Ok, riprendiamo quando vuoi. Resta in Life Setup finché non completi.');
+    setError(null);
+    if (user?.user_id) {
+      try {
+        await setLocalLifeSetupCompleted(user.user_id, false);
+      } catch {}
+    }
   };
 
   const onComplete = async () => {
+    if (!user?.user_id || completing) return;
+    setCompleting(true);
+    setError(null);
+    setNotice(null);
     try {
-      await api.lifeSetupComplete();
-    } catch {}
-    router.replace('/(tabs)' as any);
+      const done = await api.lifeSetupComplete();
+      if (!done.ok) {
+        setError(humanizeError({ message: 'complete_failed' } as any, 'default'));
+        return;
+      }
+      await completeLifeSetupGate(user.user_id);
+      await routeByLifeSetupGate(router, user.user_id);
+    } catch (e: any) {
+      setError(humanizeError(e, 'default'));
+    } finally {
+      setCompleting(false);
+    }
   };
 
   if (loading) {
@@ -537,6 +629,11 @@ export function LifeSetupConversationScreen() {
           {explain ? (
             <Text style={styles.explain} testID="life-setup-explain">
               {explain}
+            </Text>
+          ) : null}
+          {notice ? (
+            <Text style={styles.notice} accessibilityLiveRegion="polite" testID="life-setup-notice">
+              {notice}
             </Text>
           ) : null}
           {error ? <Text style={styles.err}>{error}</Text> : null}
@@ -772,20 +869,24 @@ export function LifeSetupConversationScreen() {
               <Pressable onPress={onSkipDomain} testID="life-setup-skip-domain">
                 <Text style={styles.link}>Salta tema</Text>
               </Pressable>
-              <Pressable
-                onPress={async () => {
-                  await api.lifeSetupSkip({ postpone_all: true });
-                  router.replace('/(tabs)' as any);
-                }}
-                testID="life-setup-postpone"
-              >
+              <Pressable onPress={onPostpone} testID="life-setup-postpone">
                 <Text style={styles.link}>Più tardi</Text>
               </Pressable>
             </View>
           </View>
         ) : (
-          <Pressable style={styles.doneBtn} onPress={onComplete} testID="life-setup-done">
-            <Text style={styles.doneText}>Vai alla Home</Text>
+          <Pressable
+            style={[styles.doneBtn, completing && { opacity: 0.55 }]}
+            onPress={onComplete}
+            disabled={completing}
+            accessibilityState={{ busy: completing, disabled: completing }}
+            testID="life-setup-done"
+          >
+            {completing ? (
+              <ActivityIndicator color={tokens.color.onBrand} />
+            ) : (
+              <Text style={styles.doneText}>Vai alla Home</Text>
+            )}
           </Pressable>
         )}
       </KeyboardAvoidingView>
@@ -807,6 +908,7 @@ const styles = StyleSheet.create({
   bubbleText: { color: tokens.color.onSurface, fontSize: 16, lineHeight: 22 },
   benefit: { color: tokens.color.onSurfaceMuted, fontSize: 13, fontStyle: 'italic' },
   explain: { color: tokens.color.info, fontSize: 13 },
+  notice: { color: tokens.color.onSurfaceMuted, fontSize: 13 },
   err: { color: tokens.color.error, fontSize: 13 },
   composer: { paddingVertical: 12, gap: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: tokens.color.border },
   row: { flexDirection: 'row', gap: 8, alignItems: 'center' },

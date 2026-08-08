@@ -117,14 +117,13 @@ def assert_not_wizard_copy(text: str) -> bool:
 
 
 def wrap_up_turn(*, domains: List[str], benefits: List[str]) -> Dict[str, Any]:
-    dom = ", ".join(domains[:4]) if domains else "il tuo contesto"
-    ben = benefits[0] if benefits else "azioni più utili su Home"
+    ben = benefits[0] if benefits else "iniziare ad aiutarti in concreto"
     return {
         "kind": "conversation_turn",
         "role": "ora",
         "text": (
-            f"Perfetto. Userò ciò che so su {dom} per {ben}. "
-            "Da qui in poi ORA impara da conversazioni, documenti e obiettivi — "
+            "Adesso conosco abbastanza della tua situazione per iniziare ad aiutarti. "
+            f"Userò questo contesto minimo — {ben} — e continuerò a conoscerti nel tempo, "
             "senza moduli da completare."
         ),
         "question": None,

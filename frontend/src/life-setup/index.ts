@@ -4,6 +4,7 @@ export {
   routeByLifeSetupGate,
   getLocalLifeSetupCompleted,
   setLocalLifeSetupCompleted,
+  isLifeSetupFullyCompleted,
 } from './gate';
 export type { LifeSetupGateTarget } from './gate';
 export { routeAfterAuth } from './routeAfterAuth';

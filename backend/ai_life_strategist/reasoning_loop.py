@@ -14,6 +14,7 @@ from ai_life_strategist.benefit_engine import (
     pick_best_benefit_for_gap,
 )
 from ai_life_strategist.knowledge_gap import compute_gaps, infer_domain_from_text, infer_known_from_text
+from ai_life_strategist.minimum_life_context import compute_mlc_gaps, evaluate_mlc_coverage
 from ai_life_strategist.models import ReasoningContext
 from ai_life_strategist.policy import sanitize_known_facts, user_text_is_credential_dump
 
@@ -183,20 +184,37 @@ async def assemble_reasoning_context(
     if inferred and inferred not in touched:
         touched.append(inferred)
 
-    gaps = compute_gaps(
+    # Prefer MLC gaps for first-launch planning; domain gaps remain available as fallback list
+    mlc_gaps = compute_mlc_gaps(
+        facts,
+        asked_keys=skip_keys,
+        refused_keys=set(refused_keys or []),
+        postponed_keys=set(postponed_keys or []),
+    )
+    gaps = mlc_gaps or compute_gaps(
         known_keys,
         asked_keys=skip_keys,
         focus_domain=inferred,
-        # All domains — AI decides order via information_gain, not wizard sequence
         domains=None,
     )
     missing = [g.key for g in gaps]
+    mlc_cov = evaluate_mlc_coverage(
+        facts,
+        refused_keys=set(refused_keys or []),
+        postponed_keys=set(postponed_keys or []),
+    )
     avail = available_benefits(known_keys)
     active = active_benefits(known_keys)
     useful, highest = compute_useful_and_highest(
         known_keys, missing, focus_domain=inferred
     )
+    # Surface MLC gaps first for Gemini / observability (not a UI checklist)
+    useful = [f"mlc_missing:{n}" for n in mlc_cov.missing] + [
+        u for u in useful if not str(u).startswith("mlc_missing:")
+    ]
     conf = confidence_from_coverage(known_keys, missing)
+    if not mlc_cov.sufficient:
+        conf = min(conf, 0.55 + 0.08 * mlc_cov.covered_count)
 
     goals_s = calendar_s = docs_s = conv_s = ""
     if db is not None:
