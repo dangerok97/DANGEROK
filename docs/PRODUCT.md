@@ -1,6 +1,6 @@
 # ORA — Product (struttura reale)
 
-Ultimo aggiornamento: 2026-08-09 — Application Shell V1 Visual Correction (Prompt 3.1).
+Ultimo aggiornamento: 2026-08-09 — Login Quiet Premium V1 (Prompt 4).
 
 ## Vision
 
@@ -9,6 +9,10 @@ ORA è il sistema operativo della vita quotidiana: riduce il carico cognitivo mo
 ## Design — ORA Quiet Premium
 
 Linguaggio visivo **calmo, editoriale, premium** (Apple HIG; riferimenti Calendar/Journal/Reminders/Health, Things 3, Notion Mobile, Arc Search, Day One — non Linear). Accent **Deep Indigo**. Temi Light / Dark / System. Primitive UI in `frontend/src/components/ui/`. Glass solo su tab bar / sheet / controlli floating.
+
+### Login Quiet Premium V1
+
+`/login` è Immersive (canvas, niente card): wordmark ORA, headline *Tutto ciò che conta, nel momento giusto.*, *Accedi per continuare.*, poi Apple → Google → Email (stessi metodi reali; credential-gated). Registrazione via **Nuovo? Crea un account**. Post-auth invariato (`routeAfterAuth` → Life Setup o Home).
 
 ### Signature Language — Application Shell V1
 
@@ -28,7 +32,7 @@ Persone che vogliono una priorità unica chiara (non un task manager generico), 
 
 | Route | Schermata | Ruolo |
 |-------|-----------|--------|
-| `/login` | Login | Auth email/Google/Apple; CTA testuale **Nuovo? Crea un account** → registrazione email |
+| `/login` | Login Quiet Premium | Immersive canvas (no card): headline *Tutto ciò che conta, nel momento giusto.*; Apple → Google → Email; CTA **Nuovo? Crea un account**; stessi flussi auth + `routeAfterAuth` / Life Setup gate |
 | `/(tabs)` → index | Home Quiet Premium | Daily Focus + Ask Bar + Horizon + priorità/aggiornamenti (stesso ranking API) |
 | `/(tabs)/contesti` | Contesti | Placeholder Quiet Premium (nessuna dashboard) |
 | `/(tabs)/ora` | ORA entry | Ask Bar → Conversation Engine (mai chat) |
