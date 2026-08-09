@@ -1,6 +1,6 @@
 # ORA — Development State
 
-Last updated: 2026-08-09 (Micro-batch 3.S — Human Presentation Semantics)
+Last updated: 2026-08-09 (Prompt 4 — Login Quiet Premium V1)
 
 ## Branch
 
@@ -8,7 +8,41 @@ Last updated: 2026-08-09 (Micro-batch 3.S — Human Presentation Semantics)
 - Baseline: `9722724`
 - No push / no merge unless requested
 
-## Micro-batch 3.S — Human Presentation Semantics (this batch)
+## Prompt 4 — Login Quiet Premium V1 (this batch)
+
+| Item | Stato |
+|------|--------|
+| ImmersiveScreen canvas, no login card | **yes** |
+| Canonical headline + supporting copy | **yes** |
+| AppButton / AppInput / AppDivider + useTheme | **yes** |
+| Apple → Google → Email order; modes + register toggle | **yes** |
+| Forgot password / legal links | **omitted** (did not exist) |
+| Password visibility toggle | **omitted** (did not exist) |
+| `routeAfterAuth` / Life Setup / Home / Shell | **frozen / untouched** |
+| Backend / AuthContext / api client | **untouched** |
+| Commit / push | **no** |
+
+### Visual QA — manual repro (Login)
+
+**Desktop Dark / Light**
+
+1. `scripts/dev` (or Expo web); open `/login` logged out.
+2. Viewport ≥1024px: content column ~420–480px, centered, slightly above vertical middle; lots of whitespace; no card.
+3. Toggle theme preference Light/Dark/System — surfaces/text/accent from semantic tokens.
+4. Providers: Apple (if shown) → Google → divider → Continua con Email; dimmed if unconfigured; tap unconfigured → human config message.
+5. Email form: Accedi primary Deep Indigo; toggle *Nuovo? Crea un account*; loading disables double submit; bad password → human error.
+6. Capture Screenshot A (Dark) + B (Light).
+
+**Mobile**
+
+1. Narrow viewport / device: full-height Immersive, safe-area, keyboard opens without clipping submit.
+2. Capture Screenshot C.
+
+**Post-auth (routing frozen)**
+
+1. New user → Life Setup gate; completed user → Home. Do not bypass gate for QA.
+
+## Micro-batch 3.S — Human Presentation Semantics (prior)
 
 | Item | Stato |
 |------|--------|
@@ -219,11 +253,11 @@ Last updated: 2026-08-09 (Micro-batch 3.S — Human Presentation Semantics)
 ## Open / next
 
 1. **Manual new-user Life Setup walkthrough** (Sprint 4 feel test A–G) before more features
-2. **Login Quiet Premium** restyle (shell done; login polish still open)
+2. **Login Quiet Premium** — CPO/CDO visual review (Screenshot A/B/C); commit when approved
 3. Theme toggle in Profilo
-4. Backend: exam title in `action_engine/study/flow.py` (`title = subject or ctx.get("title") or "esame"` can surface wrong labels)
-5. Playwright Ambient IA + Action Focus smoke
-6. Home V3 UI — solo con flag=1
+4. Playwright Ambient IA + Action Focus smoke
+5. Home V3 UI — solo con flag=1
+6. Exam presentation already fixed in 3.S — monitor residual Perché factor rows
 
 ## Credentials / safety
 

@@ -1,5 +1,70 @@
 # ORA — AI Changelog
 
+## 2026-08-09 — Login Quiet Premium visual polish (Prompt 4.1)
+
+### Request
+
+Visual polish only on `frontend/app/login.tsx`: stronger ORA wordmark, editorial rhythm, Google > Email hierarchy without Deep Indigo on Google, quieter Email / “oppure” divider, readable register cue. No auth/routing/backend changes; no commit/push.
+
+### Files
+
+| File | Change |
+|------|--------|
+| `frontend/app/login.tsx` | Prompt 4.1 presentation polish |
+| `docs/CHANGELOG_AI.md` | this note |
+
+### Tests / verify
+
+- `npx tsc --noEmit` PASS; `eslint app/login.tsx` PASS; `npx expo export --platform web` PASS → `frontend/dist`
+- Visual QA: Screenshot A/B/C still manual (see OUTPUT §25)
+
+### Result
+
+Login hierarchy and typography tightened; handlers / modes / testIDs preserved.
+
+---
+
+## 2026-08-09 — Login Quiet Premium V1 (Prompt 4)
+
+### Request
+
+Presentation-only Login restyle on `feature/ora-quiet-premium-design-system`: Immersive canvas, Quiet Premium identity, no card; preserve auth methods / `routeAfterAuth` / Life Setup gate. No backend, no Shell/Home/Life Setup redesign, no commit/push.
+
+### Actions
+
+- Rewrote `frontend/app/login.tsx` on `ImmersiveScreen` + `useTheme` + `AppButton` / `AppInput` / `AppDivider`
+- Canonical copy; desktop column max-width 460, optically above center; modes `buttons` | `email` + register toggle preserved
+- Providers secondary/ghost; email submit primary Deep Indigo; tertiary register/toggle; humanized auth errors; double-submit guard
+- Docs: PRODUCT / DEVELOPMENT_STATE / CHANGELOG
+
+### Files
+
+| File | Change |
+|------|--------|
+| `frontend/app/login.tsx` | Quiet Premium Immersive login presentation |
+| `docs/PRODUCT.md` | Login Quiet Premium note |
+| `docs/DEVELOPMENT_STATE.md` | Prompt 4 status |
+| `docs/CHANGELOG_AI.md` | this entry |
+
+### Tests / verify
+
+- Baseline: `npx tsc --noEmit` PASS; `eslint app/login.tsx` PASS
+- After: `npx tsc --noEmit` PASS; `eslint app/login.tsx` PASS; `npx expo export --platform web` PASS → `frontend/dist`
+- No dedicated FE login unit tests; auth E2E helpers still use same `login-*` testIDs
+- Visual QA: manual desktop Light/Dark + mobile (see DEVELOPMENT_STATE)
+
+### Result
+
+Login presents as Quiet Premium Immersive; auth contracts and post-auth routing unchanged.
+
+### Open
+
+- Manual Screenshot A/B/C for CPO/CDO review
+- Google/Apple still credential-gated per environment
+- Forgot password still absent (by design — no dead link)
+
+---
+
 ## 2026-08-09 — Micro-batch 3.S Human Presentation Semantics
 
 ### Request
