@@ -1,196 +1,194 @@
-import { useRef, useState } from 'react';
+/**
+ * Memoria — Life Memory V1 (Quiet Premium).
+ * Prefers GET /life-memory. No FE compose of raw profile/notes into "memory".
+ * Visual: inspectable durable knowledge — not ask-search, not Contesti clone.
+ */
+import { useCallback, useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  TextInput,
-  StyleSheet,
-  Pressable,
+  RefreshControl,
   ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-  ActivityIndicator,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import * as Haptics from 'expo-haptics';
-import { Ionicons } from '@expo/vector-icons';
-import Animated, { FadeIn } from 'react-native-reanimated';
+import { useFocusEffect, useRouter } from 'expo-router';
 
-import { tokens } from '@/src/theme/tokens';
 import { api } from '@/src/api/client';
+import { useTheme } from '@/src/theme/ThemeProvider';
+import { tokens } from '@/src/theme/tokens';
+import { ErrorState } from '@/src/components/ui/ErrorState';
 import { useAmbientInset } from '@/src/shell';
+import { isNetworkError, useOnlineStatus } from '@/src/hooks/use-online-status';
+import { humanizeError } from '@/src/utils/errors';
+import { ConversationEngine } from '@/src/conversation-engine';
+import {
+  MemoryEmpty,
+  MemoryGroupSection,
+  MemoryHeader,
+  MemoryLoading,
+  mapFromMemoryApi,
+  type MemoryMapModel,
+  type MemoryRowModel,
+} from '@/src/components/memory/quiet';
 
-const SUGGESTIONS = [
-  'Dove ho parcheggiato?',
-  'Quanto ho speso per la macchina quest\'anno?',
-  'Quando ho cambiato gli pneumatici?',
-];
+const MEMORIA_MAX_WIDTH = 800;
+
+const EMPTY_MAP: MemoryMapModel = { groups: [], partial: false };
 
 export default function MemoriaScreen() {
+  const { colors } = useTheme();
   const ambient = useAmbientInset();
-  const inputRef = useRef<TextInput>(null);
-  const [q, setQ] = useState('');
-  const [answer, setAnswer] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const router = useRouter();
+  const { width } = useWindowDimensions();
+  const padH = width < 360 ? tokens.spacing.lg : tokens.spacing.xl;
+  const { markOffline, markOnline } = useOnlineStatus();
 
-  const ask = async (question?: string) => {
-    const text = (question ?? q).trim();
-    if (!text) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setQ(text);
-    setBusy(true);
-    setAnswer(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [map, setMap] = useState<MemoryMapModel>(EMPTY_MAP);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async (opts?: { silent?: boolean; force?: boolean }) => {
+    if (!opts?.silent) setLoading(true);
+
     try {
-      const r = await api.askMemory(text);
-      setAnswer(r.answer);
+      const lifeMemory = await api.getLifeMemory({ force: opts?.force === true });
+      if (!lifeMemory?.ok || !Array.isArray(lifeMemory.memories)) {
+        throw new Error('life_memory_invalid_response');
+      }
+      markOnline();
+      setMap(mapFromMemoryApi(lifeMemory));
+      setError(null);
     } catch (e: any) {
-      setAnswer('Non riesco a rispondere adesso. Riprova.');
-    } finally {
-      setBusy(false);
+      if (__DEV__) {
+        console.warn(
+          '[Memoria] life-memory unavailable — honest empty/error (no FE invent)',
+          e?.status || e?.message || e,
+        );
+      }
+      if (isNetworkError(e)) markOffline();
+      else markOnline();
+      setMap(EMPTY_MAP);
+      setError(humanizeError(e, 'default'));
     }
-  };
+
+    setLoading(false);
+    setRefreshing(false);
+  }, [markOffline, markOnline]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void load({ silent: true });
+    }, [load]),
+  );
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    void load({ silent: true, force: true });
+  }, [load]);
+
+  const onClarify = useCallback(
+    async (item: MemoryRowModel) => {
+      try {
+        await ConversationEngine.start(item.beliefStatement || item.statement, router, {
+          origin: 'memoria',
+          context: {
+            memory_id: item.id,
+            memory_clarification: { memory_id: item.id },
+          },
+        });
+      } catch {
+        // Fallback: direct clarify API if CE bridge fails
+        try {
+          const res = await api.lifeMemoryClarifyStart(item.id);
+          if (res?.route) router.push(res.route as any);
+          else if (res?.session?.id) router.push(`/memory-clarify/${res.session.id}` as any);
+        } catch (e2: any) {
+          setError(humanizeError(e2, 'default'));
+        }
+      }
+    },
+    [router],
+  );
+
+  const hasContent = map.groups.some((g) => g.items.length > 0);
 
   return (
-    <SafeAreaView edges={['top']} style={styles.root}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView
-          contentContainerStyle={[styles.scroll, { paddingBottom: ambient.paddingBottom }]}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.header}>
-            <Text style={styles.brand}>MEMORIA</Text>
-            <Text style={styles.h1}>Chiedi{'\n'}alla tua memoria.</Text>
-          </View>
+    <SafeAreaView
+      edges={['top']}
+      style={[styles.root, { backgroundColor: colors.backgroundPrimary }]}
+      testID="memoria-screen"
+    >
+      <ScrollView
+        contentContainerStyle={[
+          styles.scroll,
+          {
+            paddingBottom: ambient.paddingBottom + tokens.spacing.xxl,
+            paddingHorizontal: padH,
+          },
+        ]}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.textTertiary}
+          />
+        }
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={[styles.column, { maxWidth: MEMORIA_MAX_WIDTH }]}>
+          <MemoryHeader />
 
-          <View style={styles.searchWrap}>
-            <Ionicons name="search" size={18} color={tokens.color.onSurfaceMuted} />
-            <TextInput
-              testID="memory-search-input"
-              ref={inputRef}
-              autoFocus={Platform.OS !== 'web'}
-              value={q}
-              onChangeText={setQ}
-              onSubmitEditing={() => ask()}
-              returnKeyType="search"
-              placeholder="Dove ho comprato il televisore?"
-              placeholderTextColor={tokens.color.onSurfaceMuted}
-              style={styles.searchInput}
-              keyboardAppearance="dark"
+          {loading && !hasContent ? (
+            <MemoryLoading />
+          ) : error && !hasContent ? (
+            <ErrorState
+              title="Non riesco a caricare Memoria"
+              message={error}
+              onRetry={() => void load()}
             />
-            {q.length > 0 && (
-              <Pressable
-                testID="memory-clear-button"
-                onPress={() => { setQ(''); setAnswer(null); }}
-                hitSlop={12}
-              >
-                <Ionicons name="close-circle" size={18} color={tokens.color.onSurfaceDim} />
-              </Pressable>
-            )}
-          </View>
-
-          {!answer && !busy && (
-            <View style={styles.suggestions}>
-              <Text style={styles.suggestLabel}>PROVA</Text>
-              {SUGGESTIONS.map((s, i) => (
-                <Pressable
-                  key={s}
-                  testID={`memory-suggestion-${i}`}
-                  onPress={() => ask(s)}
-                  style={({ pressed }) => [styles.suggestChip, pressed && styles.pressed]}
+          ) : !hasContent ? (
+            <MemoryEmpty onTellOra={() => router.push('/(tabs)/ora' as any)} />
+          ) : (
+            <>
+              {map.partial ? (
+                <Text
+                  style={[styles.partial, { color: colors.textTertiary }]}
+                  testID="memory-partial"
                 >
-                  <Text style={styles.suggestText}>{s}</Text>
-                  <Ionicons name="arrow-forward" size={16} color={tokens.color.onSurfaceMuted} />
-                </Pressable>
+                  Alcune fonti non sono disponibili al momento.
+                </Text>
+              ) : null}
+              {map.groups.map((g) => (
+                <MemoryGroupSection key={g.id} group={g} onClarify={onClarify} />
               ))}
-            </View>
+            </>
           )}
-
-          {busy && (
-            <View style={styles.answerBlock}>
-              <ActivityIndicator color={tokens.color.onSurfaceMuted} />
-              <Text style={styles.thinking}>ORA sta cercando…</Text>
-            </View>
-          )}
-
-          {answer && !busy && (
-            <Animated.View entering={FadeIn.duration(300)} style={styles.answerBlock} testID="memory-answer-block">
-              <Text style={styles.answerKicker}>RISPOSTA</Text>
-              <Text style={styles.answerText}>{answer}</Text>
-            </Animated.View>
-          )}
-        </ScrollView>
-      </KeyboardAvoidingView>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: tokens.color.surface },
-  scroll: { paddingHorizontal: tokens.spacing.lg, paddingTop: tokens.spacing.sm },
-  header: { paddingHorizontal: tokens.spacing.xs, marginBottom: tokens.spacing.xl, gap: tokens.spacing.xs },
-  brand: { color: tokens.color.onSurfaceMuted, fontSize: tokens.fs.sm, fontWeight: '700', letterSpacing: 2 },
-  h1: { color: tokens.color.onSurface, fontSize: tokens.fs.xxxl, fontWeight: '700', lineHeight: 38, letterSpacing: -0.8 },
-  searchWrap: {
-    height: 56,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: tokens.spacing.sm,
-    paddingHorizontal: tokens.spacing.lg,
-    borderRadius: tokens.radius.lg,
-    backgroundColor: tokens.color.surfaceSecondary,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: tokens.color.border,
+  root: { flex: 1 },
+  scroll: {
+    flexGrow: 1,
+    paddingTop: tokens.spacing.lg,
   },
-  searchInput: {
-    flex: 1,
-    color: tokens.color.onSurface,
-    fontSize: tokens.fs.lg,
+  column: {
+    width: '100%',
+    alignSelf: 'center',
   },
-  suggestions: { marginTop: tokens.spacing.xl, gap: tokens.spacing.sm },
-  suggestLabel: {
-    color: tokens.color.onSurfaceMuted,
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 1.6,
-    marginBottom: tokens.spacing.xs,
+  partial: {
+    fontSize: tokens.typography.caption.fontSize,
+    lineHeight: tokens.typography.caption.lineHeight,
+    marginBottom: tokens.spacing.lg,
   },
-  suggestChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: tokens.spacing.md,
-    paddingHorizontal: tokens.spacing.lg,
-    borderRadius: tokens.radius.md,
-    backgroundColor: tokens.color.surfaceSecondary,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: tokens.color.border,
-  },
-  suggestText: { color: tokens.color.onSurface, fontSize: tokens.fs.lg },
-  answerBlock: {
-    marginTop: tokens.spacing.xl,
-    padding: tokens.spacing.lg,
-    borderRadius: tokens.radius.lg,
-    backgroundColor: tokens.color.surfaceSecondary,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: tokens.color.border,
-    gap: tokens.spacing.sm,
-  },
-  answerKicker: {
-    color: tokens.color.onSurfaceMuted,
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 1.6,
-  },
-  answerText: {
-    color: tokens.color.onSurface,
-    fontSize: tokens.fs.lg,
-    lineHeight: 26,
-  },
-  thinking: {
-    color: tokens.color.onSurfaceMuted,
-    marginTop: tokens.spacing.sm,
-    textAlign: 'center',
-    fontSize: tokens.fs.base,
-  },
-  pressed: { opacity: 0.65 },
 });

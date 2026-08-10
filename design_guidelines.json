@@ -227,10 +227,10 @@
     },
     {
       "name": "Memoria",
-      "purpose": "A search-first natural language interface to retrieve personal memory.",
+      "purpose": "Life Memory V1 — calm inspectable view of durable facts ORA has learned; not DB rows, not Contesti situations, not ask-search primary.",
       "states": {
-        "loading": "Shimmer effect on result blocks.",
-        "empty": "Empty state shows the focused search bar and 2-3 minimal suggestion chips.",
+        "loading": "Quiet hairline skeleton lines (no card grid).",
+        "empty": "ORA sta ancora imparando a conoscerti — optional CTA to ORA conversation.",
         "error": "Quiet error text below the search bar."
       },
       "layout": "Keyboard-forward, Arc Search inspired. Large SearchInput. Results as calm text blocks. Minimal chrome."

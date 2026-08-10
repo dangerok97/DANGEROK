@@ -1,6 +1,6 @@
 /**
  * Conversation Engine entry — NOT a chatbot.
- * Starts orchestration then bridges to Action Engine one-question UI.
+ * Bridges to Action Engine Focus UI, or Memory clarification Focus UI.
  */
 import { Router } from 'expo-router';
 import {
@@ -17,12 +17,16 @@ export type ConversationOrigin =
   | 'documents'
   | 'notifications'
   | 'proactive'
+  | 'life_setup'
+  | 'memoria'
   | 'email'
   | 'whatsapp'
   | 'open_banking';
 
 function routeFromResult(result: ConversationStartResult): string | null {
   if (result.route) return result.route;
+  const clarifyId = (result as any)?.clarify?.id;
+  if (clarifyId) return `/memory-clarify/${clarifyId}`;
   const actionId =
     result.action_session?.id || result.session?.action_session_id || null;
   if (actionId) return `/action/${actionId}`;
@@ -41,12 +45,12 @@ export const ConversationEngine = {
     },
   ): Promise<ConversationStartResult> {
     const body: ConversationStartBody = {
-      text: text.trim(),
+      text: (text || '').trim() || undefined,
       origin: opts?.origin || 'home',
       voice_meta: opts?.voice_meta,
       suggestion_id: opts?.suggestion_id,
       context: opts?.context,
-    };
+    } as ConversationStartBody;
     const result = await api.conversationStart(body);
     if (result.stub) {
       throw new Error(result.honesty || 'Origine non ancora disponibile');
@@ -58,7 +62,7 @@ export const ConversationEngine = {
     if (!route) {
       throw new Error('Conversation Engine non ha aperto una guida');
     }
-    // Bridge to AE one-question UI — never a chat thread
+    // Focus bridge — Action Engine or Memory clarification (never a chat thread)
     router.push(route as any);
     return result;
   },

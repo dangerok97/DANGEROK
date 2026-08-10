@@ -642,6 +642,30 @@ export const api = {
     return request<LifeMapResponse>(`/life-map${qs ? `?${qs}` : ''}`);
   },
 
+  /** Life Memory — Memoria durable learned facts (Prompt 6). */
+  getLifeMemory: (opts?: { force?: boolean; enrich?: boolean }) => {
+    const q = new URLSearchParams();
+    if (opts?.force) q.set('force', 'true');
+    if (opts?.enrich === true) q.set('enrich', 'true');
+    if (opts?.enrich === false) q.set('enrich', 'false');
+    const qs = q.toString();
+    return request<LifeMemoryResponse>(`/life-memory${qs ? `?${qs}` : ''}`);
+  },
+  lifeMemoryClarifyStart: (memoryId: string) =>
+    request<{ ok: boolean; session: MemoryClarifySession; route?: string }>(
+      '/life-memory/clarify/start',
+      { method: 'POST', body: JSON.stringify({ memory_id: memoryId }) },
+    ),
+  lifeMemoryClarifyGet: (sessionId: string) =>
+    request<{ ok: boolean; session: MemoryClarifySession }>(
+      `/life-memory/clarify/${sessionId}`,
+    ),
+  lifeMemoryClarifyAnswer: (sessionId: string, text: string) =>
+    request<MemoryClarifyAnswerResult>(`/life-memory/clarify/${sessionId}/answer`, {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    }),
+
   // Action Engine — guided priority flows
   actionEngineOpen: (body: ActionEngineOpenBody) =>
     request<ActionEngineOpenResult>('/action-engine/open', {
@@ -1858,6 +1882,80 @@ export type LifeMapResponse = {
   deterministic?: boolean;
   ai_enrichment?: 'off' | 'cached' | 'fresh' | 'failed' | 'skipped';
   generated_at?: string;
+};
+
+/** Life Memory API — durable learned facts for Memoria (Prompt 6 / 6.1). */
+export type LifeMemoryResponse = {
+  ok: boolean;
+  version?: string;
+  memories: Array<{
+    id: string;
+    kind?: string;
+    statement: string;
+    belief_statement?: string | null;
+    domain?: string | null;
+    group_label?: string | null;
+    status?: 'known' | 'likely' | 'ambiguous' | 'superseded' | string;
+    evidence_refs?: string[];
+    source_refs?: string[];
+    provenance_label?: string | null;
+    learned_at?: string | null;
+    updated_at?: string | null;
+    editable?: boolean;
+    sensitivity?: string;
+    slot?: string | null;
+    candidate_values?: string[];
+    clarifiable?: boolean;
+    clarification_goal?: string | null;
+  }>;
+  groups: Array<{
+    id: string;
+    label: string;
+    domain?: string | null;
+    memory_ids?: string[];
+  }>;
+  fingerprint?: string;
+  deterministic?: boolean;
+  ai_enrichment?: 'off' | 'cached' | 'fresh' | 'failed' | 'skipped';
+  partial?: boolean;
+  partial_sources?: string[];
+  generated_at?: string;
+  controls?: {
+    correct?: boolean;
+    forget?: boolean;
+    confirm?: boolean;
+    clarify?: boolean;
+    note?: string;
+  };
+};
+
+export type MemoryClarifySession = {
+  id: string;
+  memory_id: string;
+  belief_statement?: string;
+  status_before?: string;
+  question: string;
+  clarification_goal?: string;
+  candidate_values?: string[];
+  provenance_label?: string | null;
+  state?: string;
+  resolution?: string | null;
+  conversation_session_id?: string | null;
+  needs_followup?: boolean;
+  followup_question?: string | null;
+  route?: string;
+};
+
+export type MemoryClarifyAnswerResult = {
+  ok: boolean;
+  session?: MemoryClarifySession;
+  resolution?: string;
+  applied?: Array<Record<string, unknown>>;
+  gemini?: boolean;
+  memory?: LifeMemoryResponse | null;
+  error?: string;
+  message?: string;
+  needs_followup?: boolean;
 };
 
 /** Life Profile public dump — domains ORA already knows (Contesti Life Map V1). */

@@ -49,6 +49,51 @@ evidence → identity resolution → canonical situations
 - `life_map_snapshots` caches optional Gemini interpretation only — identity/assemble always recomputed. Stale uvicorn without this router causes Contesti FE fallback duplicates.
 - Local AI: `LIFE_MAP_GEMINI=1` + `GEMINI_API_KEY`; default `0`.
 
+### Life Memory (`backend/life_memory/`) — Memoria cognition foundation (Prompt 6)
+
+```
+DATABASE RECORD ≠ MEMORY
+MEMORY ≠ CURRENT CONTEXT (Life Map / Contesti)
+AI INTERPRETATION ≠ EVIDENCE
+```
+
+Pipeline:
+
+```
+raw sources → normalize candidates → memory identity
+           → contradiction governance → canonical memories
+           → optional Gemini wording → Memoria UI
+```
+
+- **Sources V1:** Life Profile facts (primary), durable study *subject* (not exam countdown), user notes (`db.memories`). Travel projects / Home priorities / chat turns **out**.
+- **Identity:** same slot family (e.g. `casa.city`) + same value → one memory; study entity keys merge polluted titles.
+- **Contradiction:** stronger/fresher authoritative source supersedes; unresolved weak conflict → `ambiguous` (not false fact).
+- **Gemini (`MEMORY_GEMINI`, default 0):** wording polish only via Provider Manager; hallucinated memory ids rejected; failure keeps deterministic statements.
+- **`GET /api/life-memory`** — presentation-ready; Memoria FE must not invent memory from raw profile compose. On API failure → honest empty/error (`__DEV__` warn).
+- **Cache:** `life_memory_snapshots` = Gemini wording only (fingerprint + TTL); assemble/identity always recompute.
+- **Legacy:** `GET/POST /api/memory`, `POST /api/memory/ask` unchanged (notes + Q&A).
+- **Life Objects:** hybrid path — LO = entity evidence authority later; V1 reads Profile first (no LO refactor).
+- **Conversation→Memory:** CE slots stay session-local today; promotion to durable Profile missing (documented gap).
+- **Controls:** `clarify=true` for ambiguous items; Correct/Forget form editors still off.
+- **Clarification loop (Prompt 6.1):**
+
+```
+Memoria “Da chiarire”
+  → POST /life-memory/clarify/start (or CE origin=memoria)
+  → Gemini question (minimized pack) / deterministic fallback
+  → Focus `/memory-clarify/{id}` free-text answer
+  → Gemini structured resolution → validate targets/ids
+  → LifeProfileService.correct_fact / apply_facts(suggest)
+  → invalidate cache → recompute Life Memory
+```
+
+- Gemini never writes truth; hallucinated memory ids / unauthorized keys rejected.
+- Additional facts from answers → `source=inferred` suggested only.
+- CE session linked (`ui_mode=memory_clarify`) for continuity — **not** Action Engine.
+- **Epistemic authority (6.1.1):** `user_confirmed` / `user_said` / account / document → **known** (not clarifiable). `inferred`/`suggested` → likely/ambiguous. Device/GPS ≠ residence known. Life Setup first-person NLP persists as `user_said` (not inferred). Clarify questions must address USER (never “mi chiamo…” as ORA).
+- Local AI: `MEMORY_GEMINI=1` + `GEMINI_API_KEY`; clarify uses Provider Manager whenever available (soft-fail keeps ambiguity).
+- `MEMORY_DEBUG=1` for evidence/resolution in response.
+
 ## Life Object Engine — modello canonico (SHADOW + Semantic Integrity + Digital Twin Knowledge, 2026-08-07)
 
 **Life Objects = verità canonica sulla realtà dell’utente** (HOME, VEHICLE, UNIVERSITY, JOB, …).

@@ -264,6 +264,16 @@ async def startup():
     except Exception:
         logger.exception("Life Map bootstrap failed (non-fatal)")
 
+    # Life Memory — Memoria durable learned facts (deterministic + optional Gemini)
+    try:
+        from life_memory.service import get_life_memory_service
+        from life_memory.clarify import get_clarification_service
+        await get_life_memory_service(db).ensure_indexes()
+        await get_clarification_service(db).ensure_indexes()
+        logger.info("Life Memory indexes ready")
+    except Exception:
+        logger.exception("Life Memory bootstrap failed (non-fatal)")
+
     # Sync capability registry to Mongo (idempotent, structural fields are
     # overwritten from code; ops metadata is preserved).
     try:

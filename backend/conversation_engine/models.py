@@ -18,6 +18,7 @@ Origin = Literal[
     "notifications",
     "proactive",
     "life_setup",
+    "memoria",
     # Future stubs — accepted but not simulated
     "email",
     "whatsapp",

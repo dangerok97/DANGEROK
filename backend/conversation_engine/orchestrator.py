@@ -134,6 +134,33 @@ class ConversationOrchestrator:
                 if not text:
                     text = sug.get("title") or sug.get("description")
 
+        # Memory clarification — AI-native loop (not Action Engine)
+        mem_clarify = ctx.get("memory_clarification") or {}
+        memory_id = mem_clarify.get("memory_id") or ctx.get("memory_id")
+        if origin == "memoria" and memory_id:
+            from life_memory.clarify import get_clarification_service
+
+            clarify = await get_clarification_service(self.db).start(
+                user_id, str(memory_id)
+            )
+            if not clarify.get("ok"):
+                return {"ok": False, "error": clarify.get("error") or "clarify_failed"}
+            return {
+                "ok": True,
+                "session": {
+                    "id": clarify.get("session", {}).get("conversation_session_id"),
+                    "origin": "memoria",
+                    "meta": {
+                        "ui_mode": "memory_clarify",
+                        "memory_clarify_id": clarify.get("session", {}).get("id"),
+                        "memory_id": memory_id,
+                    },
+                },
+                "clarify": clarify.get("session"),
+                "route": clarify.get("route"),
+                "ui_mode": "memory_clarify",
+            }
+
         text = (text or "").strip()
         if not text and not ctx.get("proactive"):
             return {"ok": False, "error": "text_required"}
