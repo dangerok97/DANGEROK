@@ -1,6 +1,6 @@
 # ORA — Product (struttura reale)
 
-Ultimo aggiornamento: 2026-08-09 — Login Quiet Premium V1 (Prompt 4).
+Ultimo aggiornamento: 2026-08-09 — Contesti Life Map + AI-native foundation (Prompt 5 / 5.1).
 
 ## Vision
 
@@ -18,6 +18,19 @@ Linguaggio visivo **calmo, editoriale, premium** (Apple HIG; riferimenti Calenda
 
 ORA si presenta in tre modalità: **Ambient** (navigazione vita quotidiana), **Focus** (una guida / un compito), **Immersive** (attenzione piena). Barra Ambient primaria: Home · Contesti · ORA · Memoria · Profilo. Su desktop la rail Ambient è una colonna compatta (~80px), non una sidebar SaaS a metà schermo; il contenuto Home si bilancia nella regione rimanente. **ORA** al centro apre il percorso Conversation Engine (stesso Ask Bar della Home), non una chat e non Aggiungi. Documenti resta raggiungibile da Profilo. Le guide Action Engine usano chrome Focus (←, Continua, progresso “N di M” quando noto) con colonna decisione più stretta della Home; niente chip “capito” che competono con la domanda.
 
+### Contesti — Life Map V1
+
+**Contesti non è il menu delle categorie di ORA. È la mappa della vita che ORA ha compreso.**
+
+Domanda implicita: *di quali parti della mia vita ORA ha una comprensione?* — non *quale categoria vuoi aprire?*
+
+- **In questo periodo** — situazioni vive con identità propria (piani di studio / progetti viaggio attivi), non priorità Home.
+- **La tua vita** — ambiti persistenti già presenti nel Life Profile con fatti conosciuti (nessuna tassonomia fissa vuota).
+- Nessun “+ Nuovo contesto”, nessun CRUD cartelle, nessuna dashboard a icone.
+- Dettaglio contesto generico **non** in V1: le situazioni aprono route esistenti (`/study-plan/[id]`, `/travel-project/[id]`); gli ambiti sono editoriali finché non esiste un detail sensato.
+- Empty: *ORA sta ancora conoscendo la tua vita.*
+- **Prompt 5.1/5.2:** Contesti legge preferibilmente `GET /api/life-map`. Gemini (`LIFE_MAP_GEMINI`, default off) può produrre situazioni novel *grounded* (open semantics, senza enum palestra/gym) mostrate in “In questo periodo” in modo generico; ambiguità restano nel modello, non in UI Contesti. Se l’API fallisce, resta il compose frontend Prompt 5.
+
 ### Home Quiet Premium V1 (+ polish 2.1)
 
 La Home risponde a **“Cosa conta per me in questo momento?”** — non è dashboard, widget wall o chat. Gerarchia: Ambient Header → Daily Focus (superficie + Focus Glow sentito) → Ask Bar (Apple Search) → Focus Horizon (sezioni temporali) → Priorità tipografiche → Aggiornamenti → Situazione → Continua. CTA a tre livelli. Stessi dati `HomeV2Response` / stessi flussi Action Engine e Conversation Engine; solo presentazione.
@@ -34,7 +47,7 @@ Persone che vogliono una priorità unica chiara (non un task manager generico), 
 |-------|-----------|--------|
 | `/login` | Login Quiet Premium | Immersive canvas (no card): headline *Tutto ciò che conta, nel momento giusto.*; Apple → Google → Email; CTA **Nuovo? Crea un account**; stessi flussi auth + `routeAfterAuth` / Life Setup gate |
 | `/(tabs)` → index | Home Quiet Premium | Daily Focus + Ask Bar + Horizon + priorità/aggiornamenti (stesso ranking API) |
-| `/(tabs)/contesti` | Contesti | Placeholder Quiet Premium (nessuna dashboard) |
+| `/(tabs)/contesti` | Contesti Life Map V1 | Mappa della vita che ORA conosce (non menu categorie): “In questo periodo” + “La tua vita” da dati reali |
 | `/(tabs)/ora` | ORA entry | Ask Bar → Conversation Engine (mai chat) |
 | `/life-setup` | Life Setup Gate (primo avvio) | Sprint 4/4.1/4.2: conversazione Quiet Premium (intro → domanda → thinking in-thread → ack AI o fallback sicuro → sintesi → **Entra in ORA**); copy AI fact-bounded con intent domanda fissato dal planner (`question_goal`); Esci/Più tardi solo su resume (`?resume=1` / `start.resumed`); posizione opzionale per città; MLC Sprint 3; gate Sprint 2B; Home solo dopo complete valido |
 | `/conversation` | Entry Conversation Engine | Bridge a guida AE (mai chat thread) |

@@ -1,5 +1,54 @@
 # ORA — Architecture
 
+## AI-Native cognition principle (Prompt 5.1, 2026-08-09)
+
+```
+REAL USER DATA
+  → STRUCTURED ORA STATE          (= source of truth)
+  → GEMINI SEMANTIC REASONING     (= cognition, optional)
+  → STRUCTURED INTERPRETATION     (= validated JSON)
+  → ORA VALIDATION / GOVERNANCE   (= engines)
+  → HUMAN PRESENTATION            (= UI)
+  → USER
+```
+
+| Layer | Role |
+|-------|------|
+| **Gemini** | Comprendere, classificare, collegare, sintetizzare, ambiguità — **non** database, non fatti inventati, non UI |
+| **Structured data** | Source of truth (Life Profile, Study/Travel, Life Objects, …) |
+| **Engines** | Governance / action / validation |
+| **UI** | Presentation only |
+
+**AI-NATIVE ≠ AI-INVENTED.**  
+**AI failure must not erase deterministic user reality.**
+
+Shared LLM path: `backend/llm/` (Provider Manager + `chat_json`). No second Gemini client.
+
+### Life Map (`backend/life_map/`) — Contesti cognition foundation
+
+- **Life Map = DERIVED SEMANTIC PROJECTION** — not memory, not source of truth, not taxonomy.
+- **DATABASE RECORD ≠ LIFE SITUATION.** Contesti shows canonical life situations, not raw study/travel rows.
+- **SAME ≠ RELATED.** Only `same` collapses Contesti rows; `related` stays separate (e.g. same subject, different exam dates).
+- Pipeline:
+
+```
+evidence → identity resolution → canonical situations
+        → optional Gemini interpretation → presentation → Contesti
+```
+
+- Identity (`identity.py`): Level 1 structured (`source_id`, shared `source_priority_id` lineage, future Life Object id) → Level 2 correlation (entity keys ∩ + same temporal anchor) → Level 3 Gemini consultant (capped pairs) → Level 4 do-not-merge.
+- Entity keys are open-semantic (normalize + optional post-`:` segment) — **not** subject-specific hacks.
+- Stable canonical IDs from sorted `source_refs` / evidence — never `hash(label)`.
+- Gemini must not override structured temporal conflicts.
+- **OPEN SEMANTICS:** novel situations need no frontend category enums.
+- **DETERMINISTIC REALITY > AI INTERPRETATION** (`governance.py` + identity).
+- `GET /api/life-map` — presentation-ready canonical rows; Contesti does not invent semantics or dedupe.
+- Cache: Mongo `life_map_snapshots` = **DERIVED / REBUILDABLE**; Never SoT.
+- Life Objects (future): `life_object_ids` on candidates already reserved as Level-1 identity signal — no LO refactor now.
+- Contesti FE prefers `/life-map`, falls back to `buildContextsMap` only if the API fails/invalid (never overwrites a valid canonical payload). Pull-to-refresh uses `force=true`.
+- `life_map_snapshots` caches optional Gemini interpretation only — identity/assemble always recomputed. Stale uvicorn without this router causes Contesti FE fallback duplicates.
+- Local AI: `LIFE_MAP_GEMINI=1` + `GEMINI_API_KEY`; default `0`.
+
 ## Life Object Engine — modello canonico (SHADOW + Semantic Integrity + Digital Twin Knowledge, 2026-08-07)
 
 **Life Objects = verità canonica sulla realtà dell’utente** (HOME, VEHICLE, UNIVERSITY, JOB, …).
@@ -225,6 +274,8 @@ Three presentation modes (`OraShellMode` in `frontend/src/shell/`):
 | `immersive` | Full attention | `ImmersiveScreen` foundation (Life Setup / deep flows keep their own UI) |
 
 Primary Ambient IA: **Home · Contesti · ORA · Memoria · Profilo**. Documenti and Aggiungi stay as routes with `href: null` (reachable from Profilo). Center **ORA** opens the Conversation Engine Ask path (`/(tabs)/ora` + `OraInput`), not Aggiungi and not a chat. Glass via `GlassContainer` for Ambient nav only. Ambient ↔ Focus transition ~240ms; respects reduce-motion.
+
+**Contesti Life Map V1 (Prompt 5):** Ambient screen `/(tabs)/contesti` composes existing reads only — `GET /life-setup/profile`, `GET /study-plans`, `GET /travel-projects` — via `frontend/src/components/contexts/quiet/` (`buildContextsMap`). No Contesti/Context Engine backend, no Life Graph UI, no Home priorities reuse. Sections omit when empty. Presentation labels for domains mirror `DOMAIN_LABELS_IT` (FE) without inventing missing areas. Life Objects list APIs exist (shadow) but are **not** wired into Contesti V1 to avoid duplicate/HOME-flag coupling.
 
 Action proof path: `/action/[sessionId]` uses Focus chrome + `useTheme` (Light/Dark). Understood-summary chips are presentation-hidden in Focus (session slots unchanged).
 

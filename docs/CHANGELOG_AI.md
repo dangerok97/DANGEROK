@@ -1,5 +1,139 @@
 # ORA — AI Changelog
 
+## 2026-08-10 — Life Map Contesti runtime integration debug (Prompt 5.3.1)
+
+### Request
+
+Authenticated Contesti still showed Psicologia ×3 despite 5.3 tests. Trace real `/api/life-map`, FE fallback, cache, semantic SAME/RELATED; minimal fix; no visual changes; no commit/push.
+
+### Root cause
+
+Live uvicorn (started 2026-08-09, no `--reload`) predated Prompt 5.3: OpenAPI had **no** `/api/life-map` → Contesti `getLifeMap` 404 → `buildContextsMap` fallback → one row per study_plan. Identity code on disk was correct; runtime never served it. `life_map_snapshots` empty (cache not the mask).
+
+### Semantic truth (three plans)
+
+SAME situation (not two distinct exams): shared `home_item:hi_e56b48d7ae1a7ec2` lineage merges Aug-12/Aug-13; polluted `Studio: Psicologia` merges same-day via entity+anchor; pair with different dates alone is RELATED but transitive SAME via middle plan. Freshest → Aug-13 / “Esame tra 3 giorni”.
+
+### Actions
+
+- Restarted backend with current `life_map` router
+- Contesti: validate API payload; DEV warn on fallback; pull-to-refresh `force=true`
+- `LIFE_MAP_DEBUG` identity trace; regression tests CASE N + stale-lineage SAME
+- Docs + `.env.example`
+
+### Verification
+
+- `GET /api/life-map?force=true` → **1** Psicologia + Vibo (`API_PSICO_COUNT 1`)
+- `pytest life_map/tests` → **38 passed**
+- Zero Contesti visual redesign
+
+---
+
+## 2026-08-10 — Life Map semantic identity & deduplication (Prompt 5.3)
+
+### Request
+
+Entity resolution so Contesti shows life situations, not duplicate DB rows (Psicologia ×3). No title hacks; SAME≠RELATED; Gemini consultant only; freeze Contesti visuals; no commit/push.
+
+### Root cause (traced)
+
+For `user_0ea622447cfc`: three active `study_plans` — `Psicologia` (Aug 12), `Studio: Psicologia` (Aug 12, Home title leaked into subject), `Psicologia` (Aug 13, same `source_priority_id` as first). Assemble emitted one row per `study_plan_id`.
+
+### Actions
+
+- `life_map/identity.py` + `gemini_identity.py`; assemble emits `SituationCandidate`; service resolves before presentation
+- Level 1 lineage/source_id; Level 2 entity keys + temporal anchor; Level 3 capped Gemini; structured temporal conflict blocks unsafe Gemini SAME
+- Canonical title prefers clean entity; freshest plan wins dates/href
+- Tests A–N in `test_life_map_identity.py`
+
+### Result
+
+Screenshot shape → one Psicologia + Vibo when evidence establishes identity. No taxonomy hack.
+
+---
+
+## 2026-08-10 — Grounded Gemini Life Map vertical slice (Prompt 5.2)
+
+### Request
+
+Close 5.1 gap: grounded novel situations must reach Contesti presentation without taxonomy enums; evidence validation, stable IDs, dedup, det>AI, Gemini down/off. No commit/push.
+
+### Root cause (5.1)
+
+`merge_presentation` kept AI situations on interpretation only; Contesti filtered to `study|travel` + href.
+
+### Actions
+
+- `governance.py`: presentability, stable evidence IDs, merge/dedup
+- Novel presentable situations → Life Map `situations` (empty href OK)
+- FE: open `kind`, informational `LiveSituationRow`, `mapFromLifeMapApi`
+- Tests: novel / hallucination / ambiguity / conflict / dedup / Gemini down / feature-off
+- Docs: Life Map = derived projection; open semantics; conversation out
+
+### Result
+
+End-to-end vertical slice for open-semantic grounded situations. `LIFE_MAP_GEMINI` still default off.
+
+---
+
+## 2026-08-09 — AI-Native Life Map foundation (Prompt 5.1)
+
+### Request
+
+Audit Gemini / LO / Contesti; choose A/B/C; prepare Contesti for semantic Life Map without giant engine. No Contesti UI redesign. No commit/push.
+
+### Decision
+
+**Option B** — thin `backend/life_map/` on shared Provider Manager. Contesti UI unchanged; deterministic fallback preserved. `LIFE_MAP_GEMINI=0` by default.
+
+### Actions
+
+- Models + evidence-gated validation + deterministic assemble (profile/study/travel)
+- Optional Gemini interpret + fingerprint cache `life_map_snapshots`
+- `GET /api/life-map`; Contesti prefers API, FE compose on failure
+- Docs: cognition principle; PRODUCT / DEVELOPMENT_STATE / CHANGELOG; `.env.example`
+
+### Result
+
+Foundation only — not “ORA understands whole life.” Novel AI situations stay on interpretation (not Contesti rows yet). Conversation→evidence not wired.
+
+---
+
+## 2026-08-09 — Contesti Life Map V1 (Prompt 5)
+
+### Request
+
+Replace Contesti placeholder with Life Map V1 on `feature/ora-quiet-premium-design-system`: IA/UX/presentation from real data only; Quiet Premium quieter than Home; no hardcoded taxonomy; no “+ Nuovo contesto”; no backend/Context Engine; Home/Life Setup/Memoria/Shell frozen; no commit/push — stop for CPO/CDO review.
+
+### Actions
+
+- Audit: Contesti ← Life Profile domains + active study/travel; skip Home priorities; skip LO shadow list for V1; no generic Context Detail
+- FE: `frontend/src/components/contexts/quiet/*` + rewrite `app/(tabs)/contesti.tsx`
+- Thin client: `api.lifeSetupProfile` + `LifeProfile` types (existing `GET /life-setup/profile`)
+- Docs + `design_guidelines.json` Contesti rule
+
+### Files
+
+| File | Change |
+|------|--------|
+| `frontend/app/(tabs)/contesti.tsx` | Life Map screen |
+| `frontend/src/components/contexts/quiet/*` | Header, sections, rows, empty/loading, `buildContextsMap` |
+| `frontend/src/api/client.ts` | `lifeSetupProfile` + types |
+| `docs/PRODUCT.md` / `ARCHITECTURE.md` / `DEVELOPMENT_STATE.md` / `CHANGELOG_AI.md` | Contesti Life Map |
+| `design_guidelines.json` | Contesti = Life Map rule |
+
+### Tests / verify
+
+- Baseline: `npx tsc --noEmit` PASS; eslint Contesti PASS
+- Final: `node --experimental-strip-types src/components/contexts/quiet/buildContextsMap.test.ts` OK; `tsc` PASS; eslint Contesti components PASS (client.ts pre-existing array-type warnings only); `npx expo export --platform web` PASS → `frontend/dist`
+- Visual QA: authenticated Contesti screenshots deferred to CPO/CDO (browser automation blocked; Expo :8081 + API :8000 available locally)
+
+### Result
+
+Contesti is an editorial life map from existing contracts. Gaps: Context Detail, relationships, Life Objects UI, history. No commit/push.
+
+---
+
 ## 2026-08-09 — Login Quiet Premium visual polish (Prompt 4.1)
 
 ### Request

@@ -13,6 +13,7 @@ from semantic_engine.router import semantic_engine_router
 from ai_life_strategist.router import router as strategist_router
 from life_setup.router import router as life_setup_router
 from life_objects import life_objects_router
+from life_map import life_map_router
 
 from . import (
     admin,
@@ -63,5 +64,6 @@ ALL_ROUTERS = [
     strategist_router,
     life_setup_router,
     life_objects_router,
+    life_map_router,
     llm_router,
 ]
