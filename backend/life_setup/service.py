@@ -325,22 +325,25 @@ class LifeSetupService:
                 ack = "Ok, riprendiamo più avanti."
 
             user_answer_facts: Dict[str, Any] = {}
-            # Persist free-text answers against the current MLC gap key (user_said)
-            if (
-                gap_key
-                and str(gap_key).startswith("mlc.")
-                and gap_key not in nlp_inferred
-                and gap_key not in extraction_facts
-                and (text or "").strip()
-                and not soft_refuse
-            ):
+            # Direct answer to the open gap — always user authority (even if NLP also saw it)
+            if gap_key and (text or "").strip() and not soft_refuse:
                 user_answer_facts[str(gap_key)] = (text or "").strip()[:500]
 
-            merged = {**nlp_inferred, **extraction_facts, **user_answer_facts}
+            # First-person NLP from THIS user utterance is USER_STATED, not AI_INFERRED.
+            # (Bug root: inferred+suggested made confirmed Life Setup facts look ambiguous.)
+            volunteered_nlp: Dict[str, Any] = {}
+            if not soft_refuse:
+                volunteered_nlp = {
+                    k: v
+                    for k, v in (nlp_inferred or {}).items()
+                    if not str(k).startswith("_")
+                }
+
+            merged = {**volunteered_nlp, **extraction_facts, **user_answer_facts}
             sess.known_facts.update(merged)
-            if nlp_inferred:
+            if volunteered_nlp:
                 await self.profiles.apply_facts(
-                    user_id, nlp_inferred, source="inferred", domain_hint=domain
+                    user_id, volunteered_nlp, source="user_said", domain_hint=domain
                 )
             if extraction_facts:
                 await self.profiles.apply_facts(

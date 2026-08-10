@@ -124,16 +124,63 @@ class LifeProfileService:
             if key.startswith("doc."):
                 domain = domain or "documenti"
             domain = domain or "servizi"
+            # Epistemic: user-stated / confirmed answers are durable KNOWN authority.
+            # AI inferred heuristics stay suggested and must not masquerade as confirmed.
+            if source == "inferred":
+                st: Optional[str] = "suggested"
+                conf_flag = False
+            elif source in ("user_said", "user_confirmed"):
+                st = "confirmed"
+                conf_flag = True
+            else:
+                st = None
+                conf_flag = False
             profile = await self.upsert_fact(
                 user_id,
                 domain=domain,
                 key=key,
                 value=value,
                 source=source,
-                # NLP / heuristic inferences stay suggested + source_confidence("inferred")
-                status="suggested" if source == "inferred" else None,
+                status=st,
+                confirmed=conf_flag,
+                allow_overwrite_confirmed=source in ("user_said", "user_confirmed"),
             )
         return profile
+
+    async def repair_utterance_inferred_authority(self, user_id: str) -> int:
+        """Promote Life Setup NLP leftovers: inferred durable utterance keys → user_said.
+
+        GPS/device never writes these keys as inferred (confirm_location → user_confirmed).
+        Inferred name/home/role therefore came from the user's own words and must not
+        stay ambiguous forever. Idempotent; no value hardcoding.
+        """
+        from life_memory.authority import UTTERANCE_DURABLE_KEYS
+
+        profile = await self.get_or_create(user_id)
+        promoted = 0
+        for domain, dom in list(profile.domains.items()):
+            for key, obj in list(dom.objects.items()):
+                if key not in UTTERANCE_DURABLE_KEYS:
+                    continue
+                if obj.source != "inferred" or obj.status not in ("suggested", "extracted"):
+                    continue
+                if obj.value in (None, "", [], False):
+                    continue
+                await self.upsert_fact(
+                    user_id,
+                    domain=domain,
+                    key=key,
+                    value=obj.value,
+                    source="user_said",
+                    status="confirmed",
+                    confirmed=True,
+                    confidence=max(float(obj.confidence or 0.5), 0.9),
+                    allow_overwrite_confirmed=True,
+                    raw_value=obj.raw_value,
+                    linked_doc_ids=list(obj.linked_doc_ids or []),
+                )
+                promoted += 1
+        return promoted
 
     async def correct_fact(self, user_id: str, domain: str, key: str, value: Any) -> LifeProfile:
         """User correction — allowed to overwrite confirmed."""

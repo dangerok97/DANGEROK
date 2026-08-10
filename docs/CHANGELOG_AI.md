@@ -1,5 +1,71 @@
 # ORA — AI Changelog
 
+## 2026-08-10 — Memory epistemic authority (Prompt 6.1.1)
+
+### Request
+
+Fix wrong clarify persona (“mi chiamo…”); stop marking Life Setup–stated facts as ambiguous; GPS ≠ residence. No commit/push.
+
+### Root causes
+
+- Life Setup NLP wrote first-person facts as `inferred`/`suggested` (skipped `user_said` when NLP hit the same key).
+- Memory mapped inferred+0.55 → ambiguous → false “Da chiarire”.
+- Gemini clarify prompt lacked fixed ORA-vs-USER roles.
+
+### Fix
+
+- Authority bands + `needs_clarification`; Life Setup utterance → `user_said`/`confirmed`; repair inferred durable utterance keys; account name boost; device/GPS cannot create known residence; Gemini persona constraints + reject bad questions.
+
+### Tests
+
+`test_life_memory_authority.py` A–J (+ account boost). Suite green.
+
+---
+
+## 2026-08-10 — Memory clarification loop (Prompt 6.1)
+
+### Request
+
+Turn Memory “Da chiarire” into an AI-native clarification loop via Gemini + governance + Life Profile write; Focus UX; no forms/taxonomy; no commit/push.
+
+### Actions
+
+- Clarification contract on MemoryItem (`slot`, `profile_targets`, `clarifiable`, soft statement language)
+- `POST /api/life-memory/clarify/start|…/answer` + CE `origin=memoria` bridge (non-AE)
+- Gemini question + free-text resolution; validate ids/targets; Profile `correct_fact` authority
+- Additional facts → suggest only; Focus screen `/memory-clarify/[sessionId]`
+- Memoria actionable “Da chiarire”; tests clarify A–O style
+
+### Result
+
+Ambiguous memories open ORA clarification Focus; confirmed/corrected update Profile and recompute Memory. Gemini failure keeps ambiguity.
+
+---
+
+## 2026-08-10 — Memoria Life Memory V1 (Prompt 6)
+
+### Request
+
+Redesign Memoria into AI-native personal memory: “Che cosa sa e ricorda ORA di me?” — not DB inspector, not Contesti clone. Audit sources; canonical API; identity/contradiction; optional Gemini wording; Quiet Premium UI; no commit/push.
+
+### Architecture
+
+- Package `backend/life_memory/`: assemble → identity → contradiction → optional Gemini polish → `GET /api/life-memory`
+- Sources: Life Profile facts, durable study subject, user notes. Skip sensitive keys, weak inference, exam countdown (Contesti).
+- FE: `frontend/src/components/memory/quiet/*` + `memoria.tsx`; prefer API; no silent FE invent on failure
+- Legacy `/api/memory` notes+ask preserved
+
+### Tests / verify
+
+- `pytest life_memory/tests` (A–N)
+- Frontend map unit test + tsc/eslint/export as run in session
+
+### Gaps
+
+Conversation→durable promotion; LO evidence hybrid deferred; Correct/Forget UI deferred (read-only V1).
+
+---
+
 ## 2026-08-10 — Life Map Contesti runtime integration debug (Prompt 5.3.1)
 
 ### Request

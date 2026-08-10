@@ -1,6 +1,6 @@
 # ORA — Product (struttura reale)
 
-Ultimo aggiornamento: 2026-08-09 — Contesti Life Map + AI-native foundation (Prompt 5 / 5.1).
+Ultimo aggiornamento: 2026-08-10 — Memoria Life Memory V1 (Prompt 6).
 
 ## Vision
 
@@ -31,6 +31,25 @@ Domanda implicita: *di quali parti della mia vita ORA ha una comprensione?* — 
 - Empty: *ORA sta ancora conoscendo la tua vita.*
 - **Prompt 5.1/5.2:** Contesti legge preferibilmente `GET /api/life-map`. Gemini (`LIFE_MAP_GEMINI`, default off) può produrre situazioni novel *grounded* (open semantics, senza enum palestra/gym) mostrate in “In questo periodo” in modo generico; ambiguità restano nel modello, non in UI Contesti. Se l’API fallisce, resta il compose frontend Prompt 5.
 
+### Memoria — Life Memory V1
+
+**Memoria non è l’elenco dei record nel database. È ciò che ORA ha imparato e trattiene su di te.**
+
+| Superficie | Domanda |
+|------------|---------|
+| **Home** | Cosa conta adesso? |
+| **Contesti** | Quali ambiti/situazioni compongono la mia vita ora? |
+| **Memoria** | Che cosa sa e ricorda ORA di me? |
+| **Documenti** | Quali materiali/file ho dato a ORA? |
+| **ORA (Conversation)** | Come comunico con ORA? |
+
+- Fatti duraturi in linguaggio naturale (*Lavori nella Guardia di Finanza*, *Vivi a Tarquinia*).
+- Gruppi solo se c’è contenuto reale (nessuna tassonomia fissa vuota).
+- Provenienza in progressive disclosure; **“Da chiarire”** apre un chiarimento Focus con ORA (linguaggio naturale, non form).
+- Empty: *ORA sta ancora imparando a conoscerti.* → CTA quiet verso conversazione ORA.
+- API: `GET /api/life-memory` + `POST /api/life-memory/clarify/*` (legacy `/api/memory` resta note + ask).
+- **DATABASE RECORD ≠ MEMORY.** **MEMORY ≠ CURRENT CONTEXT.** **AI ≠ EVIDENCE.**
+
 ### Home Quiet Premium V1 (+ polish 2.1)
 
 La Home risponde a **“Cosa conta per me in questo momento?”** — non è dashboard, widget wall o chat. Gerarchia: Ambient Header → Daily Focus (superficie + Focus Glow sentito) → Ask Bar (Apple Search) → Focus Horizon (sezioni temporali) → Priorità tipografiche → Aggiornamenti → Situazione → Continua. CTA a tre livelli. Stessi dati `HomeV2Response` / stessi flussi Action Engine e Conversation Engine; solo presentazione.
@@ -52,7 +71,7 @@ Persone che vogliono una priorità unica chiara (non un task manager generico), 
 | `/life-setup` | Life Setup Gate (primo avvio) | Sprint 4/4.1/4.2: conversazione Quiet Premium (intro → domanda → thinking in-thread → ack AI o fallback sicuro → sintesi → **Entra in ORA**); copy AI fact-bounded con intent domanda fissato dal planner (`question_goal`); Esci/Più tardi solo su resume (`?resume=1` / `start.resumed`); posizione opzionale per città; MLC Sprint 3; gate Sprint 2B; Home solo dopo complete valido |
 | `/conversation` | Entry Conversation Engine | Bridge a guida AE (mai chat thread) |
 | `/situazione` | Situazione completa | Vista reale da CTA Home |
-| `/(tabs)/memoria` | Memoria | Q&A e salvataggio ricordi |
+| `/(tabs)/memoria` | Memoria Life Memory V1 | Cosa ORA ha imparato su di te (fatti duraturi); non Q&A, non Contesti |
 | `/(tabs)/documenti` | Documenti | Lista/upload/dettaglio (nascosto dalla barra primaria; da Profilo) |
 | `/(tabs)/aggiungi` | Aggiungi | Capture (nascosto dalla barra primaria) |
 | `/(tabs)/profilo` | Profilo | Account, link Documenti, placeholder moduli, logout |
@@ -185,12 +204,13 @@ Persone che vogliono una priorità unica chiara (non un task manager generico), 
 - **Stato:** **operativo** API; Home non mostra più score 100/100.
 - **Backend:** `/api/daily/*`, `daily_intelligence/`.
 
-### 4. Memoria
+### 4. Memoria (Life Memory V1)
 
-- **Scopo:** salvare ricordi e interrogare in linguaggio naturale.
-- **Stato:** add/list **operativi**; ask **bloccato da LLM** (503 chiaro).
-- **Backend:** `/api/memory`, `/api/memory/ask` + wiring life_graph/knowledge.
-- **DB:** `memories`, nodi `life_nodes`, `node_knowledge`.
+- **Scopo:** mostrare i fatti duraturi che ORA ha imparato (Life Profile, soggetto di studio, appunti utente).
+- **Stato:** browse Quiet Premium su `GET /api/life-memory` **operativo** (deterministico); Gemini wording opzionale (`MEMORY_GEMINI=0`). Legacy ask/add restano su `/api/memory*`.
+- **Stato UI:** read-only V1; Correct/Forget/Confirm non finti (API Life Profile esistono ma non wireate in Memoria).
+- **Backend:** `life_memory/` + legacy `routers/memory.py`.
+- **DB:** fonti `life_profiles`, `study_plans`, `memories`; cache `life_memory_snapshots` (derived only).
 
 ### 5. Documenti
 

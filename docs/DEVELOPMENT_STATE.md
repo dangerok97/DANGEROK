@@ -1,6 +1,20 @@
 # ORA — Development State
 
-Last updated: 2026-08-10 (Prompt 5.3.1 — Contesti Life Map runtime debug)
+Last updated: 2026-08-10 (Prompt 6.1.1 — Memory epistemic authority)
+
+## Prompt 6.1.1 — Epistemic authority (this batch)
+
+| Item | Stato |
+|------|--------|
+| Life Setup utterance → user_said/confirmed | **yes** |
+| Inferred leftover repair (name/home/role keys) | **yes** (idempotent) |
+| Account name → known | **yes** |
+| GPS/device ≠ known residence | **yes** |
+| needs_clarification only if weak authority | **yes** |
+| Gemini persona (never “mi chiamo”) | **yes** |
+| Commit / push | **no** |
+
+Last prior: 2026-08-10 (Prompt 6.1 — Memory clarification loop)
 
 ## Branch
 
@@ -8,7 +22,41 @@ Last updated: 2026-08-10 (Prompt 5.3.1 — Contesti Life Map runtime debug)
 - Baseline: `9722724`
 - No push / no merge unless requested
 
-## Prompt 5.3.1 — Runtime integration (this batch)
+## Prompt 6.1 — Clarification loop (this batch)
+
+| Item | Stato |
+|------|--------|
+| Actionable “Da chiarire” | **yes** |
+| `POST /life-memory/clarify/*` | **yes** |
+| CE `origin=memoria` → Focus clarify (not AE) | **yes** |
+| Gemini question + free-text resolve | **yes** (Provider Manager; soft-fail) |
+| Governance → Life Profile correct_fact | **yes** |
+| Additional facts as suggest only | **yes** |
+| Soft language for ambiguous/likely | **yes** |
+| Fake Correct/Forget buttons | **no** |
+| Home / Contesti / Login / Life Setup / Shell | **frozen** |
+| Commit / push | **no** |
+
+## Prompt 6 — Memoria Life Memory V1 (prior)
+
+| Item | Stato |
+|------|--------|
+| `GET /api/life-memory` deterministic | **yes** |
+| Identity + contradiction governance | **yes** |
+| Gemini wording (`MEMORY_GEMINI`, default 0) | **yes** (optional) |
+| Memoria Quiet Premium browse UI | **yes** (replaces ask-first) |
+| FE invent from raw sources on API fail | **no** (honest empty/error) |
+| Correct / Forget / Confirm in UI | **clarify loop** (not form editors) |
+| Conversation → durable memory promotion | **partial** (clarify path; general CE promotion still gap) |
+| Life Objects as Memory evidence | **gap** (hybrid documented; Profile-first V1) |
+| Home / Contesti / Login / Life Setup / Shell | **frozen** |
+| Commit / push | **no** (CPO/CDO review) |
+
+### Boundaries
+
+- Home = now · Contesti = current situations · Memoria = durable learned · Documenti = files · ORA = talk
+
+## Prompt 5.3.1 — Runtime integration (prior)
 
 | Item | Stato |
 |------|--------|
