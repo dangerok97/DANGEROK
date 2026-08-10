@@ -1,6 +1,6 @@
 # ORA — Development State
 
-Last updated: 2026-08-09 (Prompt 4 — Login Quiet Premium V1)
+Last updated: 2026-08-10 (Prompt 5.3.1 — Contesti Life Map runtime debug)
 
 ## Branch
 
@@ -8,7 +8,110 @@ Last updated: 2026-08-09 (Prompt 4 — Login Quiet Premium V1)
 - Baseline: `9722724`
 - No push / no merge unless requested
 
-## Prompt 4 — Login Quiet Premium V1 (this batch)
+## Prompt 5.3.1 — Runtime integration (this batch)
+
+| Item | Stato |
+|------|--------|
+| Live API had `/life-map` before restart? | **no** (stale uvicorn Aug 9 → 404 → FE fallback) |
+| After restart `force=true` Psicologia count | **1** canonical + Vibo |
+| Snapshot cache masking identity? | **no** (no snapshot; cache is Gemini-only) |
+| Contesti uses API when available | **yes** (+ DEV warn on fallback; refresh `force=true`) |
+| Semantic truth three plans | **SAME** (lineage + same-day polluted title; not two exams) |
+| Contesti visual redesign | **no** |
+| Commit / push | **no** |
+
+### Restart reminder
+
+Backend must run **current** tree (prefer `--reload`). Old process without `life_map` router → Contesti shows raw study plans again.
+
+## Prompt 5.3 — Semantic identity & deduplication (prior)
+
+| Item | Stato |
+|------|--------|
+| Root cause Psicologia ×3 | **3 study_plans** (incl. `Studio: Psicologia` title leak + lineage re-confirm) |
+| Level 1/2 deterministic identity | **yes** (`identity.py`) |
+| SAME ≠ RELATED | **yes** |
+| Gemini identity consultant (capped) | **yes** when `LIFE_MAP_GEMINI=1` |
+| Contesti visual redesign | **no** |
+| Frontend dedup | **no** (API returns canonical) |
+| Home / Life Setup / Memoria / Shell | **frozen** |
+| Commit / push | **no** |
+
+### Screenshot expectation (user_0ea622447cfc shape)
+
+BEFORE: 3 Psicologia study rows + Vibo. AFTER: 1 canonical Psicologia + Vibo.
+
+## Prompt 5.2 — Grounded Gemini Life Map vertical slice (prior)
+
+| Item | Stato |
+|------|--------|
+| Novel grounded situation → Contesti rows | **yes** (open semantics, no gym enum) |
+| Stable identity from evidence refs | **yes** |
+| Hallucination drop / ambiguity preserve / dedup / det wins | **yes** (tests) |
+| `LIFE_MAP_GEMINI` default 0; works when 1 | **yes** |
+| Contesti visual redesign | **no** |
+| Raw conversation → Life Map | **no** (deliberate) |
+| Home / Life Setup / Memoria / Shell | **frozen** |
+| Commit / push | **no** (CPO/architecture review) |
+
+### Local AI check
+
+1. `LIFE_MAP_GEMINI=1` + `GEMINI_API_KEY` in `backend/.env`
+2. Life Profile fact with free-text novel activity (e.g. salute.attivita)
+3. `GET /api/life-map?force=true` → `situations` may include `kind=inferred`
+4. Contesti “In questo periodo” shows row without special-case FE
+
+## Prompt 5.1 — AI-Native Life Map foundation (prior)
+
+| Item | Stato |
+|------|--------|
+| Option | **B** — thin `backend/life_map/` on shared Provider Manager |
+| Principle GEMINI=cognition / data=truth | **documented + coded** |
+| `GET /api/life-map` deterministic assemble | **yes** |
+| Gemini enrichment | **foundation only** (`LIFE_MAP_GEMINI=0` default) |
+| Contesti UI redesign | **no** (unchanged Quiet Premium) |
+| Novel situations in Contesti rows | **not yet** (validated in interpretation only) |
+| Conversation → Life Map evidence | **gap** (not wired) |
+| Life Objects projection | **gap** (interpretation layer designed; LO not assembled yet) |
+| Home / Life Setup / Memoria / Shell | **frozen** |
+| Commit / push | **no** (CPO/architecture review) |
+
+### Gaps / next (5.1)
+
+- Wire conversation-confirmed facts into evidence pack.
+- Optionally surface grounded inferred situations in Contesti when product defines nav.
+- Life Object list as additional structured source (avoid Profile duplicate).
+- Enable `LIFE_MAP_GEMINI=1` only after review + cost/latency check.
+
+## Prompt 5 — Contesti Life Map V1 (prior)
+
+| Item | Stato |
+|------|--------|
+| Placeholder Contesti sostituito | **yes** |
+| Life Map (not category menu) | **yes** |
+| Dati: Life Profile + study/travel attivi | **yes** (no new backend) |
+| Nessuna tassonomia fissa vuota / + Nuovo contesto | **yes** |
+| Sezioni solo se contenuto reale | **yes** |
+| Context Detail generico | **no** (deliberato — gap documentato) |
+| Life Objects / relazioni / history in Contesti | **no** (gap — shadow / non affidabili per V1) |
+| Home / Life Setup / Memoria / Shell | **frozen / untouched** |
+| Commit / push | **no** (fermo per review CPO/CDO) |
+
+### Visual QA — Contesti (desktop Light)
+
+1. `scripts/dev`; login utente con Life Profile popolato e/o studio/viaggio attivi.
+2. Tab Contesti: titolo + supporting copy; max-width ~800; Ambient rail invariata.
+3. Con dati: “In questo periodo” e/o “La tua vita” senza card grid / icone categoria.
+4. Utente nuovo / pochi dati: empty *ORA sta ancora conoscendo la tua vita.*
+5. Capture Screenshot A (con dati) + B (empty) se possibile.
+
+### Gaps / next
+
+- Generic Context Detail quando esisterà destinazione sensata (Life Object o profile domain).
+- Relazioni reali (non string-match) se Life Graph / LO relationships sono product-ready.
+- Opzionale: Life Objects active list come spine aggiuntiva (oggi shadow; rischio duplicato con Profile).
+
+## Prompt 4 — Login Quiet Premium V1 (prior)
 
 | Item | Stato |
 |------|--------|
@@ -107,7 +210,7 @@ Last updated: 2026-08-09 (Prompt 4 — Login Quiet Premium V1)
 | AmbientTabBar floating + GlassContainer | **yes** |
 | Desktop Ambient rail via `useBreakpoint` | **yes** (geometry corrected in 3.1) |
 | Primary IA Home · Contesti · ORA · Memoria · Profilo | **yes** |
-| Contesti Quiet Premium placeholder | **yes** |
+| Contesti Quiet Premium placeholder | **replaced** by Life Map V1 (Prompt 5) |
 | ORA center → ConversationEngine Ask path | **yes** (`/(tabs)/ora`) |
 | Documenti / Aggiungi `href: null` (Profilo → Documenti) | **yes** |
 | FocusScreen / FocusChrome | **yes** |

@@ -8,6 +8,13 @@
     "version": "V1",
     "modes": ["ambient", "focus", "immersive"],
     "ambient_ia": ["Home", "Contesti", "ORA", "Memoria", "Profilo"],
+    "contesti": {
+      "definition": "Life Map — parts of life ORA understands; not category navigation",
+      "not": ["category menu", "folder browser", "task manager", "Home priorities clone", "+ Nuovo contesto"],
+      "sections": ["In questo periodo (live situations only if real)", "La tua vita (persistent domains with known facts only)"],
+      "visual": "Quieter than Home; typography + hairline rows; no Focus Glow; no icon taxonomy grid",
+      "cognition": "Gemini may enrich structured Life Map interpretation; never invents UI or ungrounded facts; deterministic Contesti remains if AI off/fails"
+    },
     "hidden_from_primary_bar": ["Documenti", "Aggiungi"],
     "ora_center": {
       "accessibilityLabel": "Apri ORA",

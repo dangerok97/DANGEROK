@@ -256,6 +256,14 @@ async def startup():
     except Exception:
         logger.exception("Life Object Engine bootstrap failed (non-fatal)")
 
+    # Life Map — Contesti cognition foundation (deterministic + optional Gemini)
+    try:
+        from life_map.service import get_life_map_service
+        await get_life_map_service(db).ensure_indexes()
+        logger.info("Life Map indexes ready")
+    except Exception:
+        logger.exception("Life Map bootstrap failed (non-fatal)")
+
     # Sync capability registry to Mongo (idempotent, structural fields are
     # overwritten from code; ops metadata is preserved).
     try:

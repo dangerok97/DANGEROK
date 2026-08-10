@@ -628,6 +628,19 @@ export const api = {
       '/life-setup/documents/resolve-confirmation',
       { method: 'POST', body: JSON.stringify({ domain, key, resolution }) },
     ),
+  /** Life Profile — knowledge ORA already holds (not a Contesti engine). */
+  lifeSetupProfile: () =>
+    request<{ ok: boolean; profile: LifeProfile }>('/life-setup/profile'),
+
+  /** Life Map — Contesti cognition foundation (deterministic + optional AI). */
+  getLifeMap: (opts?: { force?: boolean; enrich?: boolean }) => {
+    const q = new URLSearchParams();
+    if (opts?.force) q.set('force', 'true');
+    if (opts?.enrich === true) q.set('enrich', 'true');
+    if (opts?.enrich === false) q.set('enrich', 'false');
+    const qs = q.toString();
+    return request<LifeMapResponse>(`/life-map${qs ? `?${qs}` : ''}`);
+  },
 
   // Action Engine — guided priority flows
   actionEngineOpen: (body: ActionEngineOpenBody) =>
@@ -1819,6 +1832,66 @@ export type LifeSetupTurn = {
     indicative_minutes?: string;
   };
   plan?: Record<string, unknown>;
+};
+
+/** Life Map API — presentation rows + optional AI interpretation (Prompt 5.1). */
+export type LifeMapResponse = {
+  ok: boolean;
+  version?: string;
+  areas: Array<{
+    id: string;
+    domain: string;
+    title: string;
+    identity?: string | null;
+  }>;
+  situations: Array<{
+    id: string;
+    kind: string;
+    title: string;
+    temporal?: string | null;
+    summary?: string | null;
+    href: string;
+  }>;
+  evidence?: Array<{ id: string; kind: string; label?: string; summary?: string }>;
+  interpretation?: Record<string, unknown> | null;
+  fingerprint?: string;
+  deterministic?: boolean;
+  ai_enrichment?: 'off' | 'cached' | 'fresh' | 'failed' | 'skipped';
+  generated_at?: string;
+};
+
+/** Life Profile public dump — domains ORA already knows (Contesti Life Map V1). */
+export type LifeProfileFact = {
+  key: string;
+  value?: unknown;
+  confidence?: number;
+  source?: string;
+  status?: string;
+  confirmed?: boolean;
+  updated_at?: string;
+  linked_doc_ids?: string[];
+};
+
+export type LifeDomainProfile = {
+  domain: string;
+  objects?: Record<string, LifeProfileFact>;
+  confidence?: number;
+  source?: string;
+  updated_at?: string;
+  benefits_available?: string[];
+  benefits_active?: string[];
+  missing_info?: string[];
+  linked_docs?: string[];
+  goal_id?: string | null;
+  life_node_id?: string | null;
+};
+
+export type LifeProfile = {
+  user_id: string;
+  domains: Record<string, LifeDomainProfile>;
+  created_at?: string;
+  updated_at?: string;
+  version?: string;
 };
 
 /** A single data point found (or to verify) in a REAL, Gemini-understood
