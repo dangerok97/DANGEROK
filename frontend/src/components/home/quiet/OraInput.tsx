@@ -1,6 +1,6 @@
 /**
  * Universal Capture / Ask Bar — Apple Search calm, never chat chrome.
- * Keeps ParlaConOra testIDs for e2e compatibility.
+ * Production entry → AI Core via /ora (not Conversation Engine / Action Engine).
  */
 import { useState } from 'react';
 import {
@@ -10,15 +10,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/src/theme/ThemeProvider';
 import { tokens } from '@/src/theme/tokens';
-import { ConversationEngine } from '@/src/conversation-engine';
 import { triggerHaptic } from '@/src/theme/haptics';
 import { humanizeError } from '@/src/utils/errors';
+import { startOraConversation } from '@/src/ora/startOraConversation';
 
 type Props = {
   onError?: (msg: string) => void;
+  /** Ambient ORA tab vs Home ask bar */
+  entryPoint?: 'home' | 'ora';
 };
 
-export function OraInput({ onError }: Props) {
+export function OraInput({ onError, entryPoint = 'home' }: Props) {
   const { colors, isDark } = useTheme();
   const router = useRouter();
   const [text, setText] = useState('');
@@ -33,17 +35,18 @@ export function OraInput({ onError }: Props) {
     setVoiceHint(null);
     try {
       void triggerHaptic('selection');
-      if (origin === 'voice') {
-        await ConversationEngine.startFromVoiceStub(t, router);
-      } else {
-        await ConversationEngine.start(t, router, { origin: 'home' });
-      }
+      await startOraConversation(router, {
+        text: t,
+        entryPoint,
+        origin: origin === 'voice' ? 'voice' : 'home',
+      });
       setText('');
       void triggerHaptic('success');
+      // busy stays true until unmount / navigation; reset if still mounted
+      setBusy(false);
     } catch (e: any) {
       void triggerHaptic('error');
       onError?.(humanizeError(e, 'default'));
-    } finally {
       setBusy(false);
     }
   };

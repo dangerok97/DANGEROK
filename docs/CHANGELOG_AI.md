@@ -1,5 +1,399 @@
 # ORA — AI Changelog
 
+## 2026-08-15 — Prompt V2.6.2 Context change & persistent replanning
+
+### Request
+
+After file reconciliation, Continua con ORA + “vincolo tempo cambiato” answered “Sto evitando di ripetere la stessa operazione.” Fix generic cross-turn adaptation. No commit/push.
+
+### Root cause
+
+`run_cognitive_loop` loaded `tool_signatures` from **session** state. Prior-turn `update_plan`/`update_object` fingerprints blocked later turns. Governance converted the block into user-facing copy.
+
+### Fix
+
+- Reasoning epoch per turn; idempotency only within the turn; reuse prior observation on same-turn duplicate
+- Clear cross-turn ban list; keep `last_mutations` for observability
+- Prompt + Life OS context: new facts may supersede persisted constraints
+- `user_fact_summary` → conversational evidence; merge must not let conversation supersede `user_file`
+
+### Live (scripted)
+
+Plan `lop_93e3f8760a2c4e` same; object `lgo_95b229af1a934e` rev 2→3; script item 12→5; session `ces_2930e157b4094e`.
+
+**NO COMMIT / NO PUSH.**
+
+---
+
+## 2026-08-14 — Prompt V2.6.1 Source-grounded reconciliation
+
+### Request
+
+After V2.6 file evidence, Goal Workspace showed old assumed plan items **plus** new ones (append). Fonti showed internal ids. Fix generic reconciliation + human sources + light theme renderer. No commit/push.
+
+### Root cause
+
+`LifeOsService.update_plan` only supported `add_items` (append) and `item_updates`. V2.6 QA / AI path used `add_items`, so assumptions survived. Fonti fell back to `ev.ref` (`lcf_`/`doc_`). GenerativeObjectRenderer used static `tokens.color` (dark default) inside light Workspace cards.
+
+### Fix
+
+- `replace_items` + `reconciliation_mode` + `remove_item_ids`; observation retained/removed/added
+- PlanItem `origin`; EvidenceRef `display_name`/`status`/`source_*`; `public_evidence_sources`
+- Workspace Fonti from `public_sources`; renderer `useTheme`
+
+### Live QA
+
+- Plan `lop_0aecb72a15cf49` same; target `2026-08-23`; session `ces_d45b4b7de74d42`
+- Items: 8 mixed → 5 official modules; Spazi/QR/legacy gone
+- Object `lgo_44b1f457f1c247` rev 8→9
+- Fonti: `Programma ufficiale QA Matematica Computazionale.pdf` · Fornito da te
+
+**NO COMMIT / NO PUSH.**
+
+---
+
+## 2026-08-14 — Prompt V2.6 AI-native files, evidence & context
+
+### Request
+
+Give ORA a general capability to receive user files as evidence, make them available to AI Core, and let AI decide whether to update existing plans/objects — no domain PDF workflows. Fix capability honesty (paperclip was a stub). No commit/push.
+
+### Audit (Phase A summary)
+
+| Component | Class |
+|-----------|--------|
+| Documents V2 upload/extract/storage | REUSE |
+| OraComposer paperclip stub | EXTEND |
+| AI Core MessageBody / orchestrator | EXTEND |
+| evidence_refs / Life OS update_* | EXTEND |
+| Life Setup DocumentPicker UX pattern | EXTEND (pattern only) |
+| Gemini chat multimodal vision | DO NOT USE (unavailable) |
+| Drive connectors / StudyFlow / Prompt 7.x | DO NOT USE |
+
+### Implemented
+
+- `ContextFile` + `ContextFileService` (Documents V2 blob + `life_os_context_files`)
+- Upload API `POST /api/conversation/ai-core/files/upload`
+- Caps: `list_session_files`, `get_file_context`, `get_file_content`, `link_file_context`
+- Orchestrator bind attachments; file-only turns; session_files in life_os context
+- Prompt: untrusted file data, capability honesty, same-plan adaptation
+- FE: real OraComposer attachments + `aiCoreFileUpload`; Workspace Fonti
+- Tests: `test_ai_native_files_v26.py` (16); live script `_qa_files_v26_live.py`
+
+### Live QA (scripted cognition on real DB)
+
+- Plan **before/after**: `lop_0aecb72a15cf49` (same)
+- Object **before/after**: `lgo_44b1f457f1c247` rev **7 → 8**
+- Evidence: `USER_PROVIDED_CONTENT` / `doc_8f6a9d2aeeef` / `programma_ufficiale_qa.txt`
+- AI_CALLS=4 TOOL_CALLS=3; session_files=1; memory injection dump=0
+- HTTP upload 200; ownership cross-user get=None
+- Non-study uploads: bolletta / contratto / ambiguo (generic, no handlers)
+- Image vision: `unavailable` (honest)
+
+### Result
+
+Plumbing proven: upload → extract → AI read → same plan/object update + evidence. **NO COMMIT / NO PUSH.**
+
+---
+
+## 2026-08-13 — Prompt V2.5.1 Blank Home runtime fix
+
+### Request
+
+After V2.5, `http://127.0.0.1:8081/` was a blank white page. Fix frontend/runtime only. No commit/push.
+
+### Exact error (Metro)
+
+```
+Unable to resolve "./nav" from "src\ora\startOraConversation.ts"
+```
+Import stack: `OraInput` → `startOraConversation` → `./nav` (Home/Ambient pull this into the app graph). Later also `Unable to resolve "@/src/ora/nav"`.
+
+### Root cause
+
+Metro could not resolve module `nav.ts` under `frontend/src/ora/` (file existed on disk; Node could see it; Expo bundler could not). Blank page = failed web bundle.
+
+### Fix
+
+Rename to `oraNav.ts`, update imports, delete `nav.ts`. Regression: `test_ora_nav_module_resolvable_for_metro`.
+
+### Result
+
+Metro `Web Bundled` succeeds; `/ora` production surface renders. **NO COMMIT / NO PUSH.**
+
+---
+
+## 2026-08-13 — Prompt V2.5 Production ORA surface integration
+
+### Request
+
+Integrate AI-native runtime into Home / Ambient ORA / Goal Workspace so there is one ORA. `/ora-ai` becomes DEV-only. Quiet Premium Workspace. No commit/push.
+
+### Implemented
+
+- Production routes `/ora`, `/ora/{sessionId}` + shared `OraConversationScreen` / `OraComposer`
+- Home `OraInput` + Ambient tab → `startOraConversation` → AI Core (no CE→AE)
+- Workspace Continua / per-object CTA → `/ora` + `lifeOsSessionFocus`
+- `buildOraConversationHref` / opaque URL state; AI Core `route` → `/ora/{id}`
+- Goal Workspace Quiet Premium (`AppScreen`, `ScreenHeader`, `AppCard`)
+- Daily Focus card press uses canonical Home nav (no Life OS → AE bypass)
+- Tests `test_ora_surface_v25.py` + `nav.regression.mjs`
+
+### Result
+
+One conversation runtime for production entry points. `/ora-ai` marked DEV. Stash 7.x untouched. **NO COMMIT / NO PUSH.**
+
+---
+
+## 2026-08-13 — Prompt V2.4.3 GenerativeObject reveal contract
+
+### Request
+
+Goal Workspace “Tocca per rivelare” left the card blank. Fix generic GenerativeObject render/interaction contract only. No AI cognition / Home / commit / push.
+
+### Audited live object (`lgo_44b1f457f1c247`, rev 7)
+
+`content.blocks`: heading, text, then `card` with `title` set and **empty** `front`/`back`. No hidden reveal text existed in persistence.
+
+### Root cause
+
+**A + B + D** (not CSS): AI left reveal fields empty; schema accepted it; FE mapped only `front`/`back` and always showed reveal affordance → blank on click.
+
+### Implemented
+
+- Canonical item: `{ front, back, revealable }` via `normalize_reveal_card_item`
+- Compat aliases: front←`front|question|prompt|title|text`; back←`back|answer|reveal|hidden|body|detail`
+- Validator: `card_deck` requires non-empty front+back after normalize; single `card` may be static
+- API display normalize in `GenerativeObject.public()`
+- FE `revealCard.ts` + `CardDeck`: reveal only if `revealable`; fallback never blank; `reveal` event; nav resets
+
+### Tests
+
+- `test_generative_card_reveal_v243.py` + `revealCard.regression.mjs`
+- V2.4 / V2.4.2 / V2.1–V2.3 AI suites: **106 passed** (38+68 focused batches)
+
+### Live QA
+
+`public()` → front from title, `revealable: false`. Browser workspace blocked (no bearer). Stash 7.x untouched. **NO COMMIT / NO PUSH.**
+
+---
+
+## 2026-08-13 — Prompt V2.4.2 Persistent object adaptation
+
+### Request
+
+Conversational “spiegamelo più semplice” did not call `update_object`; Goal Workspace stayed stale. Fix generically. No Home ranking changes. No commit/push.
+
+### Root cause
+
+AI payload only had `active_plan_id` / bare ids — no `active_object_ref`. Prompt under-specified durable vs chat-only adapt. Persist-before-claim ignored “ho semplificato…”. Workspace Continua did not bind object focus on the session.
+
+### Implemented
+
+- `ai_core/life_os_context.py` — hydrate + lightweight refs/previews
+- Prompt section on durable object adaptation (AI-owned decision)
+- `update_object` append/remove blocks, revision, evidence preserve, adaptation_note
+- Loop: inject object_id, adapt-claim nudge, set active ref after writes
+- `/life-os/session-focus` + Workspace/ora-ai continuity
+- Tests `test_ai_native_object_adapt_v242.py`
+
+### Live QA
+
+Matematica object `lgo_44b1f457f1c247`: rev 1→2 (simplify) →3 (append example); same id. Non-study checklist shorten via same path.
+
+### Tests
+
+V1–V2.4.2 focused suite: **117 passed**. Stash 7.x untouched. **NO COMMIT / NO PUSH.**
+
+---
+
+## 2026-08-13 — Prompt V2.4.1 Canonical Home integration
+
+### Request
+
+Life OS plan visible in Contesti but Home Daily Focus still dominated by expired/legacy Psychology Study/Decision state. Fix canonical ownership, ranking, routing, stale suppression. No AI cognition redesign. No commit/push.
+
+### Root cause (audited, not guessed)
+
+1. Past plan deadlines received bill-style **overdue boosts** (+26–40) plus Goal Engine factors.
+2. Legacy `action_engine_study` **decisions** were not plan shells → treated as real overdue debt.
+3. `EXPIRED_RECOVERABLE` study shells + Goal boosts could still become Daily Focus.
+4. Primary selection did not prefer freshest **Life OS plan shell** over reminders/decisions.
+
+### Implemented
+
+- `home/temporal.py` + ranking `home-rank-1.4` (canonical_active, fresh_canonical, expired penalties)
+- Study / decision / reminder adapters: `plan_shell`, ownership, temporal_state
+- Daily Focus: skip stale/recoverable when canonical actionable exists; pick freshest Life OS shell
+- Horizon FE: skip EXPIRED_STALE / past calendar days
+- Contesti: hide exam-day study with no open session; DEV presentation_trace
+- `dev_rank_trace` on HomeResponse; DEV cleanup script (QA provenance only)
+- GenerativeObject `revision` bump on `update_object`
+- Tests: `test_home_canonical_life_os_v241.py` (A–T style)
+
+### Live QA (user with Life OS + 13 legacy study plans)
+
+- Daily Focus: **Matematica Computazionale** Life OS → `/goal-workspace/lop_0aecb72a15cf49`
+- Continue: same Life OS plan
+- Contesti: Matematica Life OS present; past exam-day Psychology study suppressed; future distinct Psychology rows remain
+- Adaptation: **no** `update_object` in linked session — object unchanged
+
+### Tests
+
+`test_home_canonical_life_os_v241.py` + V2.3/V2.4 generative: **55 passed** (focused). Stash 7.x untouched. **NO COMMIT / NO PUSH.**
+
+---
+
+## 2026-08-13 — Prompt V2.4 Generative Workspaces (remove predefined artifacts)
+
+### Request
+
+CPO direction: stop predefined flashcards/quiz/map/guide cognition. AI authors declarative GenerativeObjects; app provides primitives + renderer. No commit/push.
+
+### Removed / deprecated (AI-native path)
+
+- Closed `generate_artifact` capability + type-specific `artifact_gen` product pipeline
+- Prompt/loop product nouns forcing flashcards/maps as features
+- Life OS Home decisions routing into legacy Action Engine `/action`
+
+### Added
+
+- `GenerativeObject` + `validate_generative_spec` (safe UI primitives)
+- Caps: `create_object`, `update_object`, `get_object`, `list_goal_objects`, `record_object_interaction`
+- Goal Workspace FE `/goal-workspace/[planId]` + `GenerativeObjectRenderer`
+- HTTP `/api/life-os/plans/{id}`, `/objects/{id}`, interact
+- Stale-context demotion for ambiguous new goals vs historical subjects
+- Tests `test_ai_native_generative_v24.py`; V2.3 suite updated
+
+### Retained
+
+LifeOsPlan, create_plan/update_plan/create_actions, evidence calibration, persist-before-claim, Home/Life Map wiring (routes → Goal Workspace).
+
+### Result
+
+`conversation_engine/tests/`: **90 passed**. Stash 7.x untouched. **NO COMMIT / NO PUSH.**
+
+---
+
+## 2026-08-13 — Prompt V2.3 generic Life OS plans, artifacts & Home execution
+
+### Request
+
+Extend AI-native core so conversation can create durable Life OS state (plans, actions, artifacts) without StudyFlow/TravelFlow/etc. Wire Home/Continue/Horizon. Fix raw Markdown in `/ora-ai`. No commit/push. Stash 7.x untouched.
+
+### Implemented
+
+- `backend/life_os/` — domain-neutral `LifeOsPlan` / `PlanItem` / `LifeOsArtifact` + evidence calibration
+- Capabilities: `create_plan`, `update_plan`, `create_actions`, `generate_artifact`, `get_active_plan`, `mark_plan_progress`
+- Goal Engine upsert (generic) + Decision actions for Home
+- Home adapter `life_os_plan` + actions/Continue route to `/ora-ai/{session}`
+- Life Map situations for active Life OS plans
+- Staged generation budgets (writes/artifacts); partial failure first-class
+- `/ora-ai` `RichOraText` (headings/lists/emphasis/math cleanup)
+- Tests `test_ai_native_life_os_v23.py` A–Z
+
+### Principle
+
+AI decides what. Life OS capabilities execute how. Legacy Study/Travel remain infrastructure, not conversational brains.
+
+### Live QA (2026-08-13, local)
+
+Exam dialogue → `create_plan` + `create_actions` (and staged artifacts). Mongo: plan `target_date=2026-08-23`, Home `primary_focus` from Decision `origin=life_os`, surface `life_os_plan`, structured `flashcards`/`concept_map`/`guide` persisted. Persist-before-claim soft re-entry added so `note_intention` cannot fake durable plans. Trace aggregates always expose `tool_names` / `write_calls` / `artifact_generations`.
+
+### Tests
+
+`conversation_engine/tests/test_ai_native_life_os_v23.py` + V1/V2.1 regression: **51+ passed** (local). Full suite re-run before CPO stop.
+
+---
+
+## 2026-08-13 — Prompt 7 V2.2 general tool use & grounded external knowledge
+
+### Request
+
+Live Rome travel QA invented operational drive times/traffic without tools. Fix general epistemic/tool architecture (not a TravelFlow). No commit/push. Stash 7.x untouched.
+
+### Implemented
+
+- Tool Registry V2 (capability metadata: classification, side_effect, freshness, availability)
+- `web_search` capability + provider failover Tavily → Brave → Gemini Search
+- `ExternalObservation` evidence re-entry (search ≠ synthesis)
+- Tool-before-claim + autonomous READ_ONLY policy in prompt/governance
+- Query minimization; failure taxonomy; loop bounds (MAX_STEPS=6, tools=3, external=2)
+- `current_facts.*` temporal scope (temporary overrides for active goal; no Profile rewrite)
+- Quiet harness “Controllo…” + optional source lines
+- Tests `test_ai_native_tools_v22.py` A–J; combined AI-core suite **55 passed**
+- `.env.example`: `RESEARCH_ENABLED`, `TAVILY_API_KEY`, `BRAVE_SEARCH_API_KEY`, `GEMINI_SEARCH_ENABLED`
+
+### Principle
+
+AI reasons. Context = personal knowledge. Tools = external capabilities. Governance = epistemic confidence + side effects. Observations return to the same loop.
+
+---
+
+## 2026-08-12 — Prompt 7 V2.1 AI-Native personal context retrieval
+
+### Request
+
+Live “Come mi chiamo?” asked for the name despite account/Profile/Memory identity. Fix must be general (AI → Context Broker → re-entry), not keyword name branches. No commit/push.
+
+### Root cause
+
+Context Broker Stage A treated `LifeProfile` as a flat dict (always empty) and never loaded `users.name`. Gemini therefore saw no identity facts.
+
+### Fix
+
+- Stage A baseline: authenticated account display name + active goal (tiny, high authority)
+- Stage B: semantic personal-context query → Profile/Memory with provenance/authority/status
+- Prompt: authority-aware answers; prefer context before asking
+- Loop: preserve original `user_message` on context re-entry; DEV payload size trace
+- Governance: block over-broad context queries
+- Tests: `test_ai_native_personal_context_v21.py` A–L
+
+### Result
+
+34 AI-core tests passed (20 V2 + 14 V2.1). No domain/name hardcoding. STOP for CPO.
+
+---
+
+## 2026-08-12 — Prompt 7 V2 AI-Native Cognitive Core (foundation)
+
+### Request
+
+Rebuild cognition AI-first after abandoning Prompt 7.x. No domain flows, no slot question templates. Foundation only. No commit/push.
+
+### Implemented
+
+- `backend/conversation_engine/ai_core/` — orchestrator, decision contract, prompt, context broker, tool registry, governance, bounded loop, fallback, trace
+- API: `POST /api/conversation/ai-core/start|/{id}/message`, `GET /api/conversation/ai-core/{id}`
+- Minimal FE harness `/ora-ai` with ScrollView + pinned composer
+- Tests `test_ai_native_core_v1.py` A–T + generality (**20 passed**)
+- Provider via existing `llm.manager.get_manager().chat` (mocked in tests)
+
+### Principle
+
+AI owns cognition. Deterministic code validates tools/state/memory candidates — does not script dialogue.
+
+---
+
+## 2026-08-12 — ORA Cognitive Reset (abandon Prompt 7.x)
+
+### Request
+
+Stop Prompt 7.x experimental cognitive architecture after failed live QA. Safety-stash uncommitted work; restore clean HEAD. Do not reimplement. No commit/push.
+
+### Action
+
+- Confirmed branch `feature/ora-quiet-premium-design-system` at `258cd85`
+- `git stash push -u -m "backup: abandoned Prompt 7.x cognitive architecture"`
+- Working tree clean at committed Life Memory baseline
+- Recorded AI-first rebuild principle; no new cognitive engine code
+
+### Result
+
+Abandoned architecture recoverable from stash only. Stable product surfaces unchanged. Next: CPO architecture review for AI-first conversation loop.
+
+---
+
 ## 2026-08-10 — Memory epistemic authority (Prompt 6.1.1)
 
 ### Request

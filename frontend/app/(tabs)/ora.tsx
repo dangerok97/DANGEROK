@@ -1,6 +1,6 @@
 /**
- * ORA Ambient entry — same ConversationEngine path as Home Ask Bar.
- * Not Aggiungi, not a chat thread.
+ * Ambient ORA tab — production entry to AI Core (fresh thread).
+ * Not a second product; not /ora-ai; not Action Engine.
  */
 import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -31,13 +31,13 @@ export default function OraEntryScreen() {
           style={[styles.title, { color: colors.textPrimary }]}
           accessibilityRole="header"
         >
-          Cosa vuoi risolvere?
+          Parla con ORA
         </Text>
         <Text style={[styles.body, { color: colors.textSecondary }]}>
-          Scrivi o parla — ORA apre il prossimo passo, non una chat.
+          Una conversazione. Contesto e memoria restano con te — senza flussi di dominio.
         </Text>
         <View style={styles.ask}>
-          <OraInput />
+          <OraInput entryPoint="ora" />
         </View>
       </View>
     </SafeAreaView>

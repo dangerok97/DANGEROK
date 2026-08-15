@@ -59,7 +59,25 @@ def representation_rank(item: HomeItem, now: datetime) -> Tuple[int, float, str]
             return (_PREF_IMMINENT, score, item.id)
     if item.type == "travel" and meta.get("phase") in ("departure_day", "during"):
         return (_PREF_IMMINENT, score, item.id)
-    if hrs is not None and hrs < 0 and item.type in ("study", "travel", "event", "bill", "payment"):
+    # Expired plan shells must NOT win cluster shell as "imminent"
+    tstate = meta.get("temporal_state")
+    if tstate in ("EXPIRED_STALE", "SUPERSEDED"):
+        return (_PREF_SYNTHETIC - 20, score, item.id)
+    if meta.get("canonical_execution") and meta.get("actionable_now"):
+        return (_PREF_IMMINENT + 2, score + 8, item.id)
+    if (
+        hrs is not None
+        and hrs < 0
+        and item.type in ("study", "travel", "event", "bill", "payment")
+        and tstate != "EXPIRED_STALE"
+        and not meta.get("plan_shell")
+    ):
+        return (_PREF_IMMINENT, score + 5, item.id)
+    if (
+        hrs is not None
+        and hrs < 0
+        and item.type in ("bill", "payment")
+    ):
         return (_PREF_IMMINENT, score + 5, item.id)
 
     # 2. Blocker (non-blocked status but has blockers / missing prep)
@@ -85,8 +103,8 @@ def representation_rank(item: HomeItem, now: datetime) -> Tuple[int, float, str]
         return (_PREF_NEXT_SESSION - 2, score, item.id)
 
     # 5. Synthetic Goal card (plan/project shells)
-    if item.source_type in ("study_plan", "travel_project"):
-        return (_PREF_SYNTHETIC, score, item.id)
+    if item.source_type in ("study_plan", "travel_project", "life_os_plan"):
+        return (_PREF_SYNTHETIC + (10 if meta.get("canonical_execution") else 0), score, item.id)
     if item.subtype == "action_project":
         return (_PREF_SYNTHETIC - 10, score, item.id)
 

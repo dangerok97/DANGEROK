@@ -178,6 +178,7 @@ def assemble_life_map(
     study_plans: Optional[List[Dict[str, Any]]],
     travel_projects: Optional[List[Dict[str, Any]]],
     today: Optional[date] = None,
+    life_os_plans: Optional[List[Dict[str, Any]]] = None,
 ) -> Tuple[
     List[PresentationArea],
     List[PresentationSituation],
@@ -246,20 +247,72 @@ def assemble_life_map(
     order = {d: i for i, d in enumerate(DOMAIN_ORDER)}
     areas.sort(key=lambda a: (order.get(a.domain, 1000), a.title))
 
+    # DEV presentation trace: why study/life_os rows are shown or hidden
+    import os as _os
+
+    _dev_trace = (_os.environ.get("LIFE_MAP_TRACE") or _os.environ.get("DEV") or "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+    presentation_trace: List[Dict[str, Any]] = []
+
     for plan in study_plans or []:
         status = str(plan.get("status") or "").lower()
         if status not in LIVE_STATUSES:
+            if _dev_trace:
+                presentation_trace.append({
+                    "source": "study_plan",
+                    "id": plan.get("id"),
+                    "shown": False,
+                    "reason": f"status:{status}",
+                })
             continue
         title = (plan.get("exam_name") or plan.get("subject") or "").strip()
         if not title:
             continue
         n = _days_until(plan.get("exam_date"), today)
+        sessions = plan.get("sessions") or []
+        open_today = any(
+            (s.get("starts_at") or "")[:10] == today.isoformat()
+            and (s.get("status") or "") in ("planned", "in_progress")
+            for s in sessions
+        )
+        # Past exam, or exam-day with no remaining sessions → hide from Contesti
+        # (non-destructive; legacy row remains in DB)
         if n is not None and n < 0:
+            if _dev_trace:
+                presentation_trace.append({
+                    "source": "study_plan",
+                    "id": plan.get("id"),
+                    "shown": False,
+                    "reason": "EXPIRED_STALE",
+                    "relation": "HISTORICAL",
+                })
+            continue
+        if n == 0 and not open_today:
+            if _dev_trace:
+                presentation_trace.append({
+                    "source": "study_plan",
+                    "id": plan.get("id"),
+                    "shown": False,
+                    "reason": "EXPIRED_STALE_exam_day_no_session",
+                    "relation": "HISTORICAL",
+                })
             continue
         pid = str(plan.get("id") or "")
         if not pid:
             continue
         temporal = _study_temporal(plan.get("exam_date"), today)
+        if _dev_trace:
+            presentation_trace.append({
+                "source": "study_plan",
+                "id": pid,
+                "shown": True,
+                "reason": "ACTIVE_OR_UPCOMING",
+                "relation": "DISTINCT",
+            })
         subject = plan.get("subject")
         summary = subject if subject and subject != title else None
         sid = f"study:{pid}"
@@ -375,6 +428,73 @@ def assemble_life_map(
             )
         )
 
+    for plan in life_os_plans or []:
+        status = str(plan.get("status") or "").lower()
+        if status not in LIVE_STATUSES:
+            continue
+        title = (plan.get("summary") or "").strip()
+        if not title:
+            continue
+        pid = str(plan.get("id") or "")
+        if not pid:
+            continue
+        target = (plan.get("target_date") or "")[:10]
+        temporal = None
+        if target:
+            try:
+                td = datetime.fromisoformat(target).date()
+                days = (td - today).days
+                temporal = f"tra {days}g" if days >= 0 else "scadenza"
+            except Exception:
+                temporal = target
+        next_title = None
+        for it in sorted(
+            plan.get("items") or [],
+            key=lambda x: (x.get("order") or 0, x.get("due_date") or ""),
+        ):
+            if it.get("status") in ("not_started", "in_progress", None, ""):
+                next_title = (it.get("title") or "").strip() or None
+                break
+        sid = f"life_os:{pid}"
+        sess = plan.get("conversation_session_id")
+        href = f"/goal-workspace/{pid}" if pid else (f"/ora/{sess}" if sess else None)
+        evidence.append(
+            EvidenceRef(
+                id=sid,
+                kind="life_os_plan",
+                label=title,
+                summary=(next_title or plan.get("desired_outcome") or title)[:120],
+            )
+        )
+        situations.append(
+            PresentationSituation(
+                id=sid,
+                kind="life_os",
+                title=title,
+                temporal=temporal,
+                summary=next_title or plan.get("desired_outcome") or "",
+                href=href,
+            )
+        )
+        candidates.append(
+            SituationCandidate(
+                candidate_id=sid,
+                kind="life_os",
+                title=title,
+                temporal=temporal,
+                summary=next_title or "",
+                href=href,
+                source_type="life_os_plan",
+                source_id=pid,
+                lineage_refs=[],
+                entity_raw=title,
+                temporal_anchor=temporal_anchor_day(target) if target else None,
+                updated_at=plan.get("updated_at"),
+                evidence_refs=[sid],
+                life_object_ids=[],
+            )
+        )
+
     situations.sort(key=lambda s: (0 if s.temporal else 1, s.title))
 
     # Fingerprint from evidence + candidate identity signals (not presentation noise)
@@ -396,5 +516,14 @@ def assemble_life_map(
     fingerprint = hashlib.sha256(
         json.dumps(fp_payload, sort_keys=True, ensure_ascii=False).encode("utf-8")
     ).hexdigest()[:24]
+
+    if _dev_trace and presentation_trace:
+        import logging
+
+        logging.getLogger("ora.life_map").info(
+            "life_map presentation_trace count=%s sample=%s",
+            len(presentation_trace),
+            presentation_trace[:12],
+        )
 
     return areas, situations, evidence, fingerprint, candidates

@@ -548,6 +548,12 @@ def goal_score_delta(item: HomeItem, now: datetime) -> Tuple[float, List[ReasonF
     factors: List[ReasonFactor] = []
     delta = 0.0
     meta = item.meta or {}
+    # Stale/superseded/recoverable plan shells must not receive full Goal Engine
+    # boosts that would let them displace a current canonical plan as Daily Focus.
+    if meta.get("temporal_state") in ("EXPIRED_STALE", "SUPERSEDED"):
+        return 0.0, []
+    if meta.get("temporal_state") == "EXPIRED_RECOVERABLE" and meta.get("plan_shell"):
+        return 0.0, []
 
     importance = meta.get("goal_importance")
     urgency = meta.get("goal_urgency")

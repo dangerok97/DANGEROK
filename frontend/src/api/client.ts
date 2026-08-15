@@ -4,8 +4,30 @@
 import { Platform } from 'react-native';
 import { storage } from '@/src/utils/storage';
 
-const BASE = process.env.EXPO_PUBLIC_BACKEND_URL;
-export const API_BASE_URL = BASE;
+/**
+ * Resolve backend origin (no trailing slash, no /api suffix).
+ * Missing EXPO_PUBLIC_BACKEND_URL previously produced fetch("undefined/api/...")
+ * → browser "Failed to fetch" before the request ever reached FastAPI.
+ */
+function resolveBackendBaseUrl(): string {
+  const fromEnv = String(process.env.EXPO_PUBLIC_BACKEND_URL || '')
+    .trim()
+    .replace(/\/$/, '');
+  if (fromEnv) return fromEnv;
+  // Local web only: keep hostname aligned with the page origin
+  // (http://localhost:8081 vs http://127.0.0.1:8081).
+  if (typeof window !== 'undefined') {
+    const host = window.location?.hostname;
+    if (host === 'localhost' || host === '127.0.0.1') {
+      return `http://${host}:8000`;
+    }
+  }
+  return '';
+}
+
+const BASE = resolveBackendBaseUrl();
+export const API_BASE_URL = BASE || undefined;
+
 const TOKEN_KEY = 'ora_auth_token';
 
 export const authToken = {
@@ -20,7 +42,20 @@ export const authToken = {
   },
 };
 
+function networkError(message: string, code: string): Error {
+  const err: any = new Error(message);
+  err.code = code;
+  err.network = true;
+  return err;
+}
+
 async function request<T>(path: string, init: RequestInit = {}, auth = true): Promise<T> {
+  if (!BASE) {
+    throw networkError(
+      'Backend URL non configurata (EXPO_PUBLIC_BACKEND_URL).',
+      'backend_url_missing',
+    );
+  }
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(init.headers as Record<string, string> | undefined),
@@ -29,7 +64,13 @@ async function request<T>(path: string, init: RequestInit = {}, auth = true): Pr
     const t = await authToken.get();
     if (t) headers.Authorization = `Bearer ${t}`;
   }
-  const res = await fetch(`${BASE}/api${path}`, { ...init, headers });
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}/api${path}`, { ...init, headers });
+  } catch (e: any) {
+    const msg = String(e?.message || e || 'Failed to fetch');
+    throw networkError(msg, 'network_unreachable');
+  }
   if (!res.ok) {
     let msg = `HTTP ${res.status}`;
     let detail: any = null;
@@ -41,6 +82,9 @@ async function request<T>(path: string, init: RequestInit = {}, auth = true): Pr
     const err: any = new Error(msg);
     err.status = res.status;
     err.detail = detail;
+    if (res.status === 401) err.code = 'unauthorized';
+    else if (res.status >= 500) err.code = 'backend_error';
+    else err.code = 'http_error';
     throw err;
   }
   return (await res.json()) as T;
@@ -383,6 +427,128 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+  /** AI Core — production ORA runtime (also used by DEV /ora-ai harness) */
+  aiCoreStart: (body: {
+    text?: string;
+    origin?: string;
+    entry_point?: string;
+    plan_id?: string;
+    object_id?: string;
+    attachments?: Array<{
+      file_id?: string;
+      document_id?: string;
+      display_name?: string;
+      mime_type?: string;
+    }>;
+  }) =>
+    request<{
+      ok: boolean;
+      session_id: string;
+      ora_text?: string;
+      question?: string | null;
+      mode?: string;
+      route?: string;
+      entry_point?: string;
+      history?: Array<{ role?: string; text?: string; kind?: string }>;
+      sources?: Array<{ title?: string; url?: string }>;
+      working_hint?: string | null;
+      ai_calls?: number;
+      tool_calls?: number;
+      error?: string;
+    }>('/conversation/ai-core/start', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  aiCoreMessage: (
+    sessionId: string,
+    body: {
+      text?: string;
+      attachments?: Array<{
+        file_id?: string;
+        document_id?: string;
+        display_name?: string;
+        mime_type?: string;
+      }>;
+    },
+  ) =>
+    request<{
+      ok: boolean;
+      session_id: string;
+      ora_text?: string;
+      question?: string | null;
+      mode?: string;
+      route?: string;
+      history?: Array<{ role?: string; text?: string; kind?: string }>;
+      sources?: Array<{ title?: string; url?: string }>;
+      working_hint?: string | null;
+      ai_calls?: number;
+      tool_calls?: number;
+      attachments?: Array<Record<string, unknown>>;
+      error?: string;
+    }>(`/conversation/ai-core/${sessionId}/message`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  aiCoreFileUpload: async (
+    file: { uri: string; name: string; type: string },
+    sessionId?: string | null,
+  ) => {
+    const form = new FormData();
+    if (Platform.OS === 'web') {
+      let blob: Blob;
+      try {
+        const r = await fetch(file.uri);
+        blob = await r.blob();
+      } catch (e: any) {
+        throw new Error('Impossibile leggere il file: ' + (e?.message || 'errore'));
+      }
+      form.append('file', blob, file.name);
+    } else {
+      // @ts-ignore RN FormData
+      form.append('file', file as any);
+    }
+    if (sessionId) form.append('session_id', String(sessionId));
+    const token = await authToken.get();
+    const res = await fetch(`${BASE}/api/conversation/ai-core/files/upload`, {
+      method: 'POST',
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: form as any,
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      let msg = text;
+      let detail: any = null;
+      try {
+        const j = JSON.parse(text);
+        detail = j.detail || j;
+        msg = detail?.message || detail?.error || msg;
+      } catch {}
+      const err: any = new Error(msg || `HTTP ${res.status}`);
+      err.status = res.status;
+      err.detail = detail;
+      throw err;
+    }
+    return res.json() as Promise<{
+      ok: boolean;
+      file_id?: string;
+      document_id?: string;
+      status?: string;
+      text_available?: boolean;
+      file?: Record<string, unknown>;
+      error?: string;
+      message?: string;
+    }>;
+  },
+  aiCoreGet: (sessionId: string) =>
+    request<{
+      ok: boolean;
+      session_id: string;
+      ora_text?: string;
+      history?: Array<{ role?: string; text?: string; kind?: string }>;
+      active_goal?: Record<string, unknown>;
+      route?: string;
+      error?: string;
+    }>(`/conversation/ai-core/${sessionId}`),
   conversationGet: (sessionId: string) =>
     request<{
       ok: boolean;
@@ -631,6 +797,44 @@ export const api = {
   /** Life Profile — knowledge ORA already holds (not a Contesti engine). */
   lifeSetupProfile: () =>
     request<{ ok: boolean; profile: LifeProfile }>('/life-setup/profile'),
+
+  /** Life OS — Goal Workspace (plans + generative objects). */
+  getLifeOsPlan: (planId: string) =>
+    request<{
+      ok: boolean;
+      plan: any;
+      objects: any[];
+      next_item?: any;
+      today_items?: any[];
+      progress_ratio?: number;
+      workspace_route?: string;
+    }>(`/life-os/plans/${planId}`),
+  getLifeOsObject: (objectId: string) =>
+    request<{ ok: boolean; object: any }>(`/life-os/objects/${objectId}`),
+  lifeOsObjectInteract: (
+    objectId: string,
+    body: { event_type: string; payload?: Record<string, unknown> },
+  ) =>
+    request<{ ok: boolean }>(`/life-os/objects/${objectId}/interact`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  /** Bind active object / plan item onto linked AI Core session (Workspace → chat). */
+  lifeOsSessionFocus: (body: {
+    session_id: string;
+    object_id?: string;
+    plan_id?: string;
+    plan_item_id?: string;
+    event_type?: string;
+  }) =>
+    request<{
+      ok: boolean;
+      session_id?: string;
+      active_object_ref?: Record<string, unknown>;
+    }>('/life-os/session-focus', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
 
   /** Life Map — Contesti cognition foundation (deterministic + optional AI). */
   getLifeMap: (opts?: { force?: boolean; enrich?: boolean }) => {

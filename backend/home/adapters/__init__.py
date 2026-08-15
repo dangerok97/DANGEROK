@@ -12,6 +12,7 @@ from .activities import load_activities
 from .brain import load_brain_signals
 from .conversation_adapter import load_conversation_items
 from .life_setup import load_life_setup_items
+from .life_os_plan import load_life_os_plans
 from .decisions_adapter import load_decisions
 from .document_actions import load_document_actions
 from .documents import load_documents
@@ -65,6 +66,7 @@ async def gather_all(db, user_id: str) -> Tuple[List[HomeItem], List[ConnectionW
         _safe("action_engine", load_action_engine_items(db, user_id)),
         _safe("conversation", load_conversation_items(db, user_id)),
         _safe("life_setup", load_life_setup_items(db, user_id)),
+        _safe("life_os_plan", load_life_os_plans(db, user_id)),
     )
 
     items: List[HomeItem] = []

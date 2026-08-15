@@ -1,10 +1,27 @@
 # ORA — Product (struttura reale)
 
-Ultimo aggiornamento: 2026-08-10 — Memoria Life Memory V1 (Prompt 6).
+Ultimo aggiornamento: 2026-08-15 — Prompt V2.6.2 context change & persistent replanning.
+
+## ORA (production conversation)
+
+**ORA** is the production conversational surface (`/ora`, Ambient tab, Home ask bar).  
+**AI Core** is the cognitive runtime behind it.  
+**Life OS** is execution/persistence.  
+**GenerativeObjects** are AI-created work products.  
+**Goal Workspace** is the persistent work surface.  
+**`/ora-ai` is DEV/diagnostic only** — not linked from Home, Ambient, Continue, or Workspace.
+
+There is one ORA: you talk, ORA understands context, may research, creates and adapts useful work, and keeps plans organized. Not a menu of domain wizards. Revealable cards use a single front/back contract. Home / Contesti / Goal Workspace share the same plan identities. Rich text for answers (no raw `###` / `$$` as UX).
+
+### Files as evidence (V2.6 / V2.6.1 / V2.6.2)
+
+Users can attach files in the shared OraComposer (paperclip). A file is **contextual evidence**, not a workflow. When new evidence supersedes prior assumptions, ORA can **reconcile** the same plan/object (`replace_items`) instead of appending duplicates. A later conversational fact (e.g. a changed time/budget/date constraint) can likewise adapt the **same** artifacts — idempotency only prevents identical writes inside one turn, not future replanning. Goal Workspace **Fonti** shows human labels (e.g. “Fornito da te”), never internal ids.
 
 ## Vision
 
 ORA è il sistema operativo della vita quotidiana: riduce il carico cognitivo mostrando **cosa fare adesso**, con decisioni ordinate, memoria personale e documenti.
+
+**ORA IS AI-FIRST.** L’LLM possiede comprensione dell’obiettivo e la decisione sul prossimo passo (rispondere / chiedere / recuperare contesto / usare un tool / agire). Il backend fornisce contesto, capacità, stato e governance — non sequenze di slot. Prompt 7.x (requirements deterministici) è abbandonato. Prompt 7 V2 introduce il nucleo cognitivo AI-native (foundation); ricerca web e piani dominio arriveranno come tool, non come wizard.
 
 ## Design — ORA Quiet Premium
 
@@ -16,7 +33,7 @@ Linguaggio visivo **calmo, editoriale, premium** (Apple HIG; riferimenti Calenda
 
 ### Signature Language — Application Shell V1
 
-ORA si presenta in tre modalità: **Ambient** (navigazione vita quotidiana), **Focus** (una guida / un compito), **Immersive** (attenzione piena). Barra Ambient primaria: Home · Contesti · ORA · Memoria · Profilo. Su desktop la rail Ambient è una colonna compatta (~80px), non una sidebar SaaS a metà schermo; il contenuto Home si bilancia nella regione rimanente. **ORA** al centro apre il percorso Conversation Engine (stesso Ask Bar della Home), non una chat e non Aggiungi. Documenti resta raggiungibile da Profilo. Le guide Action Engine usano chrome Focus (←, Continua, progresso “N di M” quando noto) con colonna decisione più stretta della Home; niente chip “capito” che competono con la domanda.
+ORA si presenta in tre modalità: **Ambient** (navigazione vita quotidiana), **Focus** (una guida / un compito), **Immersive** (attenzione piena). Barra Ambient primaria: Home · Contesti · ORA · Memoria · Profilo. Su desktop la rail Ambient è una colonna compatta (~80px), non una sidebar SaaS a metà schermo; il contenuto Home si bilancia nella regione rimanente. **ORA** al centro apre la superficie di produzione `/ora` (AI Core — stesso Ask Bar della Home e Continua da Goal Workspace), non una chat e non Aggiungi. Documenti resta raggiungibile da Profilo. Le guide Action Engine usano chrome Focus (←, Continua, progresso “N di M” quando noto) con colonna decisione più stretta della Home; niente chip “capito” che competono con la domanda.
 
 ### Contesti — Life Map V1
 
@@ -52,7 +69,7 @@ Domanda implicita: *di quali parti della mia vita ORA ha una comprensione?* — 
 
 ### Home Quiet Premium V1 (+ polish 2.1)
 
-La Home risponde a **“Cosa conta per me in questo momento?”** — non è dashboard, widget wall o chat. Gerarchia: Ambient Header → Daily Focus (superficie + Focus Glow sentito) → Ask Bar (Apple Search) → Focus Horizon (sezioni temporali) → Priorità tipografiche → Aggiornamenti → Situazione → Continua. CTA a tre livelli. Stessi dati `HomeV2Response` / stessi flussi Action Engine e Conversation Engine; solo presentazione.
+La Home risponde a **“Cosa conta per me in questo momento?”** — non è dashboard, widget wall o chat. Gerarchia: Ambient Header → Daily Focus (superficie + Focus Glow sentito) → Ask Bar (Apple Search) → Focus Horizon (sezioni temporali) → Priorità tipografiche → Aggiornamenti → Situazione → Continua. CTA a tre livelli. Stessi dati `HomeV2Response`; quando esiste un piano Life OS attivo e actionable, quello è il focus/continue (Goal Workspace), non uno StudyPlan/Decision legacy scaduto.
 
 I **Life Objects** (Casa, Auto, Università, Lavoro, …) sono il **modello vivente della realtà dell’utente**. L’AI (Gemini) è **consultant**; il backend è **autorità** su tipo, titolo, merge e campi (Semantic Validator prima del persist). Conversation, Goal, Documents, Brain, Proactive e Home **continuano a esistere** come satelliti. Aggiornamenti **shadow**; Home resta Goal-aware; Home V3 oggetti solo predisposta (`LIFE_OBJECT_HOME_UI_ENABLED=0`).
 
@@ -67,7 +84,7 @@ Persone che vogliono una priorità unica chiara (non un task manager generico), 
 | `/login` | Login Quiet Premium | Immersive canvas (no card): headline *Tutto ciò che conta, nel momento giusto.*; Apple → Google → Email; CTA **Nuovo? Crea un account**; stessi flussi auth + `routeAfterAuth` / Life Setup gate |
 | `/(tabs)` → index | Home Quiet Premium | Daily Focus + Ask Bar + Horizon + priorità/aggiornamenti (stesso ranking API) |
 | `/(tabs)/contesti` | Contesti Life Map V1 | Mappa della vita che ORA conosce (non menu categorie): “In questo periodo” + “La tua vita” da dati reali |
-| `/(tabs)/ora` | ORA entry | Ask Bar → Conversation Engine (mai chat) |
+| `/(tabs)/ora` | ORA entry | Ask Bar → produzione `/ora` → AI Core (mai chat; `/ora-ai` solo DEV) |
 | `/life-setup` | Life Setup Gate (primo avvio) | Sprint 4/4.1/4.2: conversazione Quiet Premium (intro → domanda → thinking in-thread → ack AI o fallback sicuro → sintesi → **Entra in ORA**); copy AI fact-bounded con intent domanda fissato dal planner (`question_goal`); Esci/Più tardi solo su resume (`?resume=1` / `start.resumed`); posizione opzionale per città; MLC Sprint 3; gate Sprint 2B; Home solo dopo complete valido |
 | `/conversation` | Entry Conversation Engine | Bridge a guida AE (mai chat thread) |
 | `/situazione` | Situazione completa | Vista reale da CTA Home |
@@ -111,7 +128,7 @@ Persone che vogliono una priorità unica chiara (non un task manager generico), 
 
 - **Scopo:** rispondere “cosa è più utile sapere o fare adesso” con ranking multi-fonte (documenti, calendario, studio, decisioni, …).
 - **Stato:** **operativo (web)** — `GET /api/home`, ranking `home-rank-1.2` Goal-aware (flag) senza Gemini, UI **PARLA CON ORA** + Adesso/Perché/azioni tipizzate/situazione/priorità/**ORA TI CONSIGLIA**/insights/resume Continua; banner Google compatto; no Goal tab; **no chat**.
-- **Flusso UI:** PARLA → **Conversation Engine** → guida AE; oppure focus → Action Engine; Proactive Accetta può riprendere una Conversation Session.
+- **Flusso UI:** Ask / PARLA → produzione **`/ora` → AI Core** (Life OS); Continua da Goal Workspace rientra nella stessa sessione ORA. Item legacy possono ancora aprire Conversation Engine → Action Engine.
 - **Proactive:** `docs/PROACTIVE_ENGINE_PRODUCT.md` — Email/Finance/Weather/WhatsApp predisposti, non operativi.
 - **Backend:** `backend/home/` + adapters fail-soft (+ Action Engine + Conversation adapters).
 - **DB:** `home_snapshots`, `home_item_state`, `home_insights` (+ fonti esistenti).

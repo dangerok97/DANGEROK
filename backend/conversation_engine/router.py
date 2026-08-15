@@ -1,7 +1,9 @@
 """HTTP API under /api/conversation — orchestration only, not a chatbot."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from typing import Optional
+
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 
 from conversation_engine.models import (
     CancelBody,
@@ -97,6 +99,84 @@ async def conversation_by_resume_token(token: str, user=Depends(get_current_user
 async def conversation_get(session_id: str, user=Depends(get_current_user)):
     res = await get_conversation_engine().get(user["user_id"], session_id)
     if not res.get("ok"):
+        _raise(res)
+    return res
+
+
+# --- Prompt 7 V2 AI-Native Cognitive Core (static paths before /{session_id}) ---
+
+@router.post("/ai-core/files/upload")
+async def ai_core_file_upload(
+    file: UploadFile = File(...),
+    session_id: Optional[str] = Form(None),
+    user=Depends(get_current_user),
+):
+    """Upload user file for ORA context (Documents V2 storage + ContextFile bind)."""
+    from conversation_engine.ai_core.files.service import ContextFileService
+
+    raw = await file.read()
+    svc = ContextFileService(db)
+    await svc.ensure_indexes()
+    res = await svc.upload_and_bind(
+        user_id=user["user_id"],
+        content=raw,
+        filename=file.filename or "file.bin",
+        mime_type=file.content_type or "application/octet-stream",
+        session_id=session_id,
+    )
+    if not res.get("ok"):
+        code = res.get("error") or "upload_failed"
+        status = 400
+        if code in ("file_too_large",):
+            status = 413
+        if code in ("mime_not_allowed",):
+            status = 415
+        raise HTTPException(status_code=status, detail=res)
+    return res
+
+
+@router.post("/ai-core/start")
+async def ai_core_start(body: StartBody, user=Depends(get_current_user)):
+    from conversation_engine.ai_core.orchestrator import AICoreOrchestrator
+
+    orch = AICoreOrchestrator(db)
+    res = await orch.start(
+        user["user_id"],
+        text=body.text or "",
+        origin=body.origin or "text",
+        entry_point=body.entry_point,
+        plan_id=body.plan_id,
+        object_id=body.object_id,
+        attachments=list(body.attachments or []),
+    )
+    if not res.get("ok") and res.get("error"):
+        _raise(res)
+    return res
+
+
+@router.post("/ai-core/{session_id}/message")
+async def ai_core_message(session_id: str, body: MessageBody, user=Depends(get_current_user)):
+    from conversation_engine.ai_core.orchestrator import AICoreOrchestrator
+
+    orch = AICoreOrchestrator(db)
+    res = await orch.message(
+        user["user_id"],
+        session_id,
+        text=body.text or "",
+        attachments=list(body.attachments or []),
+    )
+    if not res.get("ok") and res.get("error"):
+        _raise(res)
+    return res
+
+
+@router.get("/ai-core/{session_id}")
+async def ai_core_get(session_id: str, user=Depends(get_current_user)):
+    from conversation_engine.ai_core.orchestrator import AICoreOrchestrator
+
+    orch = AICoreOrchestrator(db)
+    res = await orch.get(user["user_id"], session_id)
+    if not res.get("ok") and res.get("error"):
         _raise(res)
     return res
 

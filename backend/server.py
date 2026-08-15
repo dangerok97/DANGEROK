@@ -274,6 +274,23 @@ async def startup():
     except Exception:
         logger.exception("Life Memory bootstrap failed (non-fatal)")
 
+    # Life OS — generic plans & artifacts (AI Core execution layer)
+    try:
+        from life_os.service import LifeOsService
+        await LifeOsService(db).ensure_indexes()
+        logger.info("Life OS indexes ready")
+    except Exception:
+        logger.exception("Life OS bootstrap failed (non-fatal)")
+
+    # AI Core ContextFile — session evidence refs (Documents V2 holds blobs)
+    try:
+        from conversation_engine.ai_core.files.service import ContextFileService
+
+        await ContextFileService(db).ensure_indexes()
+        logger.info("Life OS context file indexes ready")
+    except Exception:
+        logger.exception("ContextFile indexes failed (non-fatal)")
+
     # Sync capability registry to Mongo (idempotent, structural fields are
     # overwritten from code; ops metadata is preserved).
     try:

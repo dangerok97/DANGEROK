@@ -5,10 +5,10 @@ import { useTheme } from '@/src/theme/ThemeProvider';
 import { tokens } from '@/src/theme/tokens';
 import { getFocusGlow } from '@/src/theme/focusGlow';
 import { HomeActionDef, HomeExplanation, HomeItem } from '@/src/api/client';
-import { ActionEngine } from '@/src/action-engine';
 import { FocusActions } from './FocusActions';
 import { focusMeta, typeLabel } from './focusPresentation';
 import { triggerHaptic } from '@/src/theme/haptics';
+import { navigateHomeAction } from '@/src/components/home/v2/homeNav';
 
 type Props = {
   item: HomeItem;
@@ -66,10 +66,15 @@ export function DailyFocus({
         ]}
         onPress={async () => {
           void triggerHaptic('impactLight');
-          await ActionEngine.open(item, router);
+          // Canonical Home nav — Life OS → Workspace; legacy AE only when appropriate
+          if (primary) {
+            await onAction(primary);
+          } else {
+            await navigateHomeAction(router, { id: 'open', kind: 'open', label: 'Apri' }, item);
+          }
         }}
         accessibilityRole="button"
-        accessibilityLabel={`Apri guida per ${item.title}`}
+        accessibilityLabel={`Apri ${item.title}`}
         testID="adesso-card"
       >
         <View style={styles.eyebrowRow}>

@@ -47,6 +47,42 @@ def actions_for(item: HomeItem) -> List[HomeAction]:
             ignore,
         ]
 
+    # AI-native Life OS (plans + decisions spawned from plans) — never Action Engine.
+    life_os_id = (item.meta or {}).get("life_os_plan_id")
+    if item.source_type == "life_os_plan" or (
+        life_os_id and (item.meta or {}).get("avoid_action_engine")
+    ) or (
+        item.source_type == "decision"
+        and (item.meta or {}).get("source") == "life_os_plan"
+    ):
+        route = (
+            (item.meta or {}).get("route")
+            or (f"/goal-workspace/{life_os_id}" if life_os_id else None)
+            or None
+        )
+        acts = []
+        if route:
+            acts.append(
+                HomeAction(
+                    id="resume_life_os",
+                    label="Continua",
+                    kind="resume",
+                    route=str(route),
+                    primary=True,
+                )
+            )
+        acts.append(
+            HomeAction(
+                id="open_life_os",
+                label="Apri",
+                kind="navigate",
+                route=str(route) if route else "/ora",
+                primary=not bool(route),
+            )
+        )
+        acts.extend([snooze, ignore])
+        return acts
+
     if t == "event":
         acts = [
             HomeAction(id="open_event", label="Organizza", kind="guide", route="/action/open", primary=True),
