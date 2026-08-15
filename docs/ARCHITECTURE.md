@@ -1,5 +1,161 @@
 # ORA — Architecture
 
+## Prompt V2.6.2 — Context change & turn-scoped idempotency (2026-08-15)
+
+Invariant: **New evidence may invalidate persisted state. Idempotency is execution safety, not a ban on future adaptation.**
+
+```
+each user turn → new reasoning_epoch
+same-turn identical tool_signature → reuse observation (no second write)
+cross-turn same target + new fact → update_plan / update_object allowed
+user_fact_summary → USER_PROVIDED_CONTENT (source_type=user_conversation)
+user_conversation must not supersede user_file evidence
+```
+
+## Prompt V2.6.1 — Source-grounded reconciliation (2026-08-14)
+
+```
+new evidence → AI chooses reconciliation_mode
+  preserve | patch | replace_scope | rebuild_from_evidence
+update_plan:
+  replace_items | remove_item_ids | add_items | item_updates
+  → same plan_id; optional progress map by title; item.origin provenance
+evidence:
+  status active|superseded|historical
+  public_sources[] for Workspace (human display_name only)
+GenerativeObjectRenderer: useTheme() colors (not static dark tokens.color)
+```
+
+## Prompt V2.6 — ContextFile / AI Core file evidence (2026-08-14)
+
+```
+OraComposer paperclip
+  → POST /api/conversation/ai-core/files/upload  (auth, Documents V2 storage)
+  → ContextFile (life_os_context_files) + session_files in AI state
+  → message attachments: [{file_id, display_name, mime_type}]
+  → AI Core tools: list_session_files / get_file_context / get_file_content / link_file_context
+  → existing Life OS: update_plan / update_object + evidence_refs (USER_PROVIDED_CONTENT)
+```
+
+- Blobs stay in Documents V2 (local/dev storage abstraction already there); messages hold refs only.
+- Staged retrieval: lightweight `session_files` in Context Broker payload; full text via chunked `get_file_content`.
+- No domain document routers. File text is UNTRUSTED DATA (prompt + observation notices).
+- `runtime_capabilities` exposed to the model for capability honesty (`image_vision_multimodal: unavailable` today).
+- Indexes: `life_os_context_files` on startup via `ContextFileService.ensure_indexes`.
+
+## Prompt V2.5 — Production ORA surface (2026-08-13)
+
+```
+Home OraInput / Ambient ORA tab / Workspace “Continua con ORA”
+       → buildOraConversationHref / startOraConversation
+       → /ora/{sessionId}  (production)
+       → POST /api/conversation/ai-core/*  (same AI Core runtime)
+       → Life OS plans + GenerativeObjects → Goal Workspace
+/ora-ai/* = DEV harness only (shared OraConversationScreen)
+```
+
+| Piece | Role |
+|-------|------|
+| Production ORA | `/ora`, `/ora/{sessionId}` — Quiet Premium conversation |
+| Entry points | `home` \| `ora` \| `goal_workspace` \| `continue` \| `focus` \| `object` |
+| Nav helpers | `frontend/src/ora/oraNav.ts`, `startOraConversation.ts` |
+| Composer | `OraComposer` — shared; Home compact `OraInput` feeds same runtime |
+| Session policy | Coherent thread; goal-bound work reuses `plan.conversation_session_id`; general ORA creates a new thread when starting fresh |
+| Legacy boundary | CE→AE remains for genuine legacy items; new Life OS work never opens Study/Action wizards |
+
+## Prompt V2.4 — Generative Workspaces (2026-08-13)
+
+```
+AI Core → create_plan / create_actions / create_object
+       → life_os_plans + life_os_objects (declarative UI blocks)
+       → Goal Workspace + Home / Contesti (same identities)
+       → Observation → AI answer
+```
+
+| Piece | Role |
+|-------|------|
+| `GenerativeObject` | AI-authored durable object; `object_kind` is a label only |
+| UI primitives | text, card_deck, timeline, task_group, relation_graph, … |
+| Revealable card contract | Canonical `{front, back, revealable}`; `card_deck` requires both; API/FE normalize small legacy aliases (`title`/`question`/`answer`/…) |
+| Governance | size/nesting/primitive/executable validation |
+| Goal Workspace | `/goal-workspace/{planId}` + `GenerativeObjectRenderer` |
+| Decisions from Life OS | route to Goal Workspace — never legacy `/action` |
+| Budgets | MAX_STEPS=8, tools=5, writes=4, objects=2, external=2 |
+
+Closed V2.3 artifact types (`generate_artifact` flashcards/quiz/…) removed from AI Core. Legacy StudyPlan/Travel/Action Engine unchanged as compatibility infrastructure.
+
+## Prompt 7 V2.2 — Tools & grounded external knowledge (2026-08-13)
+
+```
+USER → AI
+     → personal context (Context Broker) and/or READ_ONLY tool
+     → Governance (capability, side-effect, query sanitize, budgets)
+     → Observation (ExternalObservation / personal facts)
+     → AI re-entry
+     → answer | ask | finish | act
+```
+
+| Layer | Role |
+|-------|------|
+| Cognition | Chooses capability ids (`web_search`), never provider brands |
+| Tool Registry V2 | Metadata: classification, side_effect (READ_ONLY / REVERSIBLE_WRITE / CONSEQUENTIAL_WRITE), freshness, availability |
+| Provider layer | Tavily → Brave → Gemini Search failover for `web_search` only when prior fails / empty |
+| Observations | Evidence snippets + authority hints; provider “answers” not authoritative |
+| Epistemics | Tool-before-claim for current/operational external facts; no silent model substitution on tool failure |
+| Temporal | `current_facts.*` for temporary/goal facts; durable Profile unchanged |
+
+`web_search` ≠ live traffic / Maps routing / booking / weather APIs.
+
+## Prompt 7 V2.1 — Personal context retrieval (2026-08-12)
+
+```
+USER → AI (Stage A: account name + goal)
+     → if needs more: response_mode=context + semantic context_query
+     → Context Broker Stage B (Profile/Memory, filtered, provenance)
+     → AI re-entry (original question preserved) → answer
+```
+
+| Layer | Role |
+|-------|------|
+| Stage A | Tiny high-authority baseline (`users.name` as `structured_account`, active goal) — enables 1-call identity answers |
+| Stage B | Semantic categories (identity/residence/employment/study/general) over Profile + Memory; no full dump |
+| Authority | Reuses Life Memory `authority_band` / `memory_status_from_authority` — conflicts exposed, not flattened |
+| Governance | Blocks over-broad queries (“entire database”, “full profile”) |
+
+Unavoidable schema maps live only inside the Context Broker (Profile slot families via `normalize_slot`). They do **not** script dialogue.
+
+## Prompt 7 V2 — AI-Native Cognitive Core (2026-08-12)
+
+**AI owns cognition. Deterministic systems own capabilities and governance.**
+
+```text
+USER → AI ORCHESTRATOR → (optional Context Broker / Tool)
+     → GOVERNANCE → OBSERVATION → AI again (bounded)
+     → FINAL RESPONSE (answer | ask | finish | act)
+```
+
+Package: `backend/conversation_engine/ai_core/`
+
+| Piece | Role |
+|-------|------|
+| `CognitiveDecision` | Structured AI decision (no domain slots) |
+| Context Broker | Small relevant Profile/Memory pack (stage A/B) |
+| Tool Registry | Semantic capabilities (`search_life_memory`, …) |
+| Governance | Schema/tool/permission/state allowlist; memory = proposals only |
+| Bounded loop | `MAX_STEPS=4`; duplicate tool signatures blocked |
+| Provider | Generic `llm.manager` — not vendor-hardwired cognition |
+
+HTTP (parallel to legacy AE Conversation path): `/api/conversation/ai-core/*`  
+Production ORA: `/ora` (scroll + composer). DEV harness: `/ora-ai` (same components).
+
+**Prompt 7.x — abandoned experiment** (stash only). Do not restore its readiness/requirements/discriminator orchestration.
+
+## Conversation architecture reset (2026-08-12)
+
+Prompt 7.x experimental cognitive orchestration (deterministic GoalRequirements / readiness / research discriminators owning dialogue) was **abandoned** after live QA failure. Uncommitted work is in git stash only; working tree restored to Life Memory baseline `258cd85`.
+
+**Rebuild direction (not implemented yet):** AI-first orchestrator owns cognition (understand → ask|research|tool|act → re-enter). Deterministic layer owns auth, schemas, provenance, privacy, tool execution, safety, persistence. New domains add tools/capabilities — not question wizards.
+
 ## AI-Native cognition principle (Prompt 5.1, 2026-08-09)
 
 ```
@@ -291,7 +447,8 @@ Health:
 
 - `GET /api/` → `{ "app": "ORA", "status": "ok" }`
 - `GET /api/health` → app + database + llm configured flag + integration flags (no secrets)
-- `GET /api/home` → Home V2 aggregate (`primary_focus`, situation, priorities, insights, resume, `ora_ti_consiglia` ≤3, warnings); Goal-aware when `GOAL_ENGINE_ENABLED` (`home-rank-1.2`, item `goal_*` refs + dedupe; no Goals section — `docs/GOAL_AWARE_HOME.md`); Proactive when `PROACTIVE_ENGINE_ENABLED` — `docs/PROACTIVE_ENGINE_ARCHITECTURE.md`; Conversation resume via CE adapter — `docs/CONVERSATION_ENGINE_ARCHITECTURE.md`
+- `GET /api/home` → Home V2 aggregate (`primary_focus`, situation, priorities, insights, resume, `ora_ti_consiglia` ≤3, warnings); ranking `home-rank-1.4` with temporal ownership (`ACTIVE` / `UPCOMING` / `EXPIRED_*` / `SUPERSEDED`) so actionable canonical LifeOsPlan shells outrank stale legacy plan decisions; Life OS CTAs → `/goal-workspace/{planId}`; optional `dev_rank_trace` when `HOME_RANK_TRACE`/`DEV`; Goal-aware when `GOAL_ENGINE_ENABLED` (item `goal_*` refs + dedupe — `docs/GOAL_AWARE_HOME.md`); Proactive when `PROACTIVE_ENGINE_ENABLED` — `docs/PROACTIVE_ENGINE_ARCHITECTURE.md`; Conversation resume via CE adapter — `docs/CONVERSATION_ENGINE_ARCHITECTURE.md`
+- AI Core Life OS context: session `active_object_ref` / `current_plan_item_ref` / recent object refs (previews only); durable adaptations via `update_object` (revision + evidence preserve); `POST /api/life-os/session-focus` binds Workspace → chat continuity
 - `/api/conversation/*` → start / message / continue / cancel / resume / history / summary (flag `CONVERSATION_ENGINE_ENABLED`); Conversation resume items when `CONVERSATION_ENGINE_ENABLED` — `docs/CONVERSATION_ENGINE_ARCHITECTURE.md`
 - `POST /api/conversation/start|resume` + `/{id}/message|continue|cancel|pause` + history/summary — entry orchestrator (bridges to Action Engine UI)
 - `GET /api/home/situation` → full situation view payload

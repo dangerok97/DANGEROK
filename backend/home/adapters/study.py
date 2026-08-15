@@ -58,6 +58,37 @@ async def load_study_state(
                 countdown = (ed - datetime.now(timezone.utc).date()).days
             except Exception:
                 pass
+        # Temporal ownership for ranking (generic — not domain-specific)
+        from home.temporal import (
+            TEMPORAL_ACTIVE,
+            TEMPORAL_EXPIRED_RECOVERABLE,
+            TEMPORAL_EXPIRED_STALE,
+            TEMPORAL_UPCOMING,
+        )
+
+        recovery = missed_count > 0 or skipped_count > 0
+        # Past exam day, or exam-day with no remaining sessions → not primary focus
+        if countdown is not None and countdown < 0 and not today_count:
+            temporal = (
+                TEMPORAL_EXPIRED_RECOVERABLE if recovery else TEMPORAL_EXPIRED_STALE
+            )
+            actionable = bool(recovery and next_s)
+        elif countdown == 0 and not today_count:
+            # "Tra 0 giorni" without open work today is stale/recovery, not ACTIVE
+            temporal = (
+                TEMPORAL_EXPIRED_RECOVERABLE if recovery else TEMPORAL_EXPIRED_STALE
+            )
+            actionable = bool(recovery and next_s)
+        elif today_count or (next_s and countdown is not None and countdown > 0):
+            temporal = TEMPORAL_ACTIVE
+            actionable = True
+        elif countdown is not None and countdown > 0:
+            temporal = TEMPORAL_UPCOMING
+            actionable = bool(next_s)
+        else:
+            temporal = TEMPORAL_UPCOMING
+            actionable = bool(next_s)
+
         if status in ("draft", "awaiting_confirmation") and p.get("action_session_id"):
             items.append(HomeItem(
                 id=stable_id("study_draft", user_id, p["id"]),
@@ -87,7 +118,10 @@ async def load_study_state(
 
         desc_parts = []
         if countdown is not None:
-            desc_parts.append(f"Esame tra {countdown}g")
+            if countdown < 0:
+                desc_parts.append("Scadenza già passata")
+            else:
+                desc_parts.append(f"Esame tra {countdown}g")
         if next_s:
             desc_parts.append(next_s.get("title") or "Prossima sessione")
         if today_count:
@@ -112,6 +146,13 @@ async def load_study_state(
                 "dedupe_key": f"study_plan:{p['id']}",
                 "study_plan_id": p["id"],
                 "goal_id": p.get("goal_id"),
+                "plan_shell": True,
+                "canonical_execution": False,
+                "ownership": "legacy",
+                "actionable_now": actionable,
+                "has_open_near_term": bool(next_s) or today_count > 0,
+                "temporal_state": temporal,
+                "recovery_debt": recovery,
                 "intensity": p.get("intensity"),
                 "progress_ratio": (completed / total) if total else 0,
                 "next_session": next_s,
@@ -126,14 +167,17 @@ async def load_study_state(
                 "why_now_factors": [
                     f for f in [
                         {"code": "exam_countdown", "label": f"Esame tra {countdown} giorni", "weight": 0.95}
-                        if countdown is not None and countdown <= 14 else None,
+                        if countdown is not None and 0 <= countdown <= 14 else None,
+                        {"code": "expired_stale", "label": "Scadenza passata", "weight": 0.2}
+                        if temporal == TEMPORAL_EXPIRED_STALE else None,
                         {"code": "session_today", "label": "Sessione oggi", "weight": 0.9}
                         if today_count else None,
                         {"code": "skipped_sessions", "label": f"{skipped_count} sessioni saltate", "weight": 0.85}
                         if skipped_count else None,
                         {"code": "flashcards", "label": "Flashcard pronte", "weight": 0.6}
                         if fc else None,
-                        {"code": "plan_active", "label": "Piano attivo", "weight": 0.7},
+                        {"code": "plan_active", "label": "Piano attivo", "weight": 0.7}
+                        if temporal == TEMPORAL_ACTIVE else None,
                     ] if f
                 ],
             },

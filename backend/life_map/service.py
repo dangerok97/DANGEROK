@@ -89,6 +89,7 @@ class LifeMapService:
 
         study_plans: List[Dict[str, Any]] = []
         travel_projects: List[Dict[str, Any]] = []
+        life_os_plans: List[Dict[str, Any]] = []
         try:
             from action_engine.study.plan_service import StudyPlanService
 
@@ -101,11 +102,24 @@ class LifeMapService:
             travel_projects = await TravelProjectService(self.db).list_projects(user_id)
         except Exception as e:
             logger.info("life_map travel list soft-fail: %s", type(e).__name__)
+        try:
+            cur = (
+                self.db.life_os_plans.find(
+                    {"user_id": user_id, "status": {"$in": ["active", "paused"]}},
+                    {"_id": 0},
+                )
+                .sort("updated_at", -1)
+                .limit(20)
+            )
+            life_os_plans = await cur.to_list(20)
+        except Exception as e:
+            logger.info("life_map life_os list soft-fail: %s", type(e).__name__)
 
         return {
             "profile": profile_dict,
             "study_plans": study_plans,
             "travel_projects": travel_projects,
+            "life_os_plans": life_os_plans,
         }
 
     async def _get_cache(self, user_id: str) -> Optional[Dict[str, Any]]:
@@ -153,6 +167,7 @@ class LifeMapService:
             profile=sources.get("profile"),
             study_plans=sources.get("study_plans"),
             travel_projects=sources.get("travel_projects"),
+            life_os_plans=sources.get("life_os_plans"),
         )
 
         # Identity resolution BEFORE presentation / Gemini enrich

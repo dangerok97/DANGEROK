@@ -30,6 +30,7 @@ from . import (
     knowledge as knowledge_router,
     legacy_tasks,
     life_graph as life_graph_router,
+    life_os as life_os_router,
     memory as memory_router,
     permissions as permissions_router,
 )
@@ -67,5 +68,6 @@ ALL_ROUTERS = [
     life_objects_router,
     life_map_router,
     life_memory_router,
+    life_os_router.router,
     llm_router,
 ]

@@ -7,29 +7,30 @@ from typing import Any, Dict, List, Optional, Tuple
 from .actions_catalog import actions_for
 from .models import RANKING_VERSION, HomeItem, PriorityBand, ReasonFactor, UrgencyLevel
 from .reason_presentation import format_reason_summary
+from .temporal import (
+    TEMPORAL_EXPIRED_RECOVERABLE,
+    TEMPORAL_EXPIRED_STALE,
+    TEMPORAL_SUPERSEDED,
+    enrich_item_temporal_meta,
+    hours_until as _hours_until,
+    is_plan_shell,
+)
 
 
 def _parse_dt(value: Optional[str]) -> Optional[datetime]:
-    if not value:
-        return None
-    try:
-        s = value.replace("Z", "+00:00")
-        dt = datetime.fromisoformat(s)
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        return dt.astimezone(timezone.utc)
-    except Exception:
-        return None
+    from .temporal import parse_dt
 
-
-def _hours_until(value: Optional[str], now: datetime) -> Optional[float]:
-    dt = _parse_dt(value)
-    if dt is None:
-        return None
-    return (dt - now).total_seconds() / 3600.0
+    return parse_dt(value)
 
 
 def classify_urgency(item: HomeItem, now: datetime) -> UrgencyLevel:
+    meta = item.meta or {}
+    state = meta.get("temporal_state")
+    # Expired plan shells are stale — not "overdue urgency" for Daily Focus
+    if state == TEMPORAL_EXPIRED_STALE:
+        return "none"
+    if state == TEMPORAL_EXPIRED_RECOVERABLE:
+        return "soon"
     hrs = _hours_until(item.due_at or item.start_at, now)
     if hrs is None:
         return item.urgency if item.urgency != "none" else "none"
@@ -47,8 +48,13 @@ def classify_urgency(item: HomeItem, now: datetime) -> UrgencyLevel:
 def classify_priority(item: HomeItem, now: datetime, score: float) -> PriorityBand:
     if item.status in ("waiting", "deferred", "in_attesa"):
         return "waiting"
+    state = (item.meta or {}).get("temporal_state")
+    if state == TEMPORAL_EXPIRED_STALE or state == TEMPORAL_SUPERSEDED:
+        return "later"
     urg = item.urgency
     hrs = _hours_until(item.due_at or item.start_at, now)
+    if state == TEMPORAL_EXPIRED_RECOVERABLE:
+        return "this_week" if score < 60 else "today"
     if urg == "overdue" or score >= 80:
         return "critical"
     if urg == "urgent" or (hrs is not None and 0 <= hrs <= 24) or score >= 60:
@@ -65,6 +71,10 @@ def score_item(item: HomeItem, now: datetime) -> Tuple[float, List[ReasonFactor]
     factors: List[ReasonFactor] = []
     score = 10.0  # base presence
 
+    # Enrich temporal / ownership meta before scoring
+    item.meta = enrich_item_temporal_meta(item, now)
+    state = item.meta.get("temporal_state")
+
     # Type base weights
     type_weights = {
         "bill": 18, "payment": 18, "visit": 16, "event": 14, "travel": 15,
@@ -75,15 +85,107 @@ def score_item(item: HomeItem, now: datetime) -> Tuple[float, List[ReasonFactor]
     score += tw
     factors.append(ReasonFactor(code="type", label=f"Tipo {item.type}", weight=tw))
 
+    # Canonical active execution (Life OS or any adapter that opts in) — not source hardcode
+    if item.meta.get("canonical_execution") and item.meta.get("actionable_now"):
+        score += 26.0
+        factors.append(
+            ReasonFactor(
+                code="canonical_active",
+                label="Piano canonico attivo",
+                weight=26,
+            )
+        )
+    elif item.meta.get("canonical_execution"):
+        score += 12.0
+        factors.append(
+            ReasonFactor(code="canonical_plan", label="Piano canonico", weight=12)
+        )
+
+    # Freshness for canonical plans (recently updated execution state)
+    if item.meta.get("canonical_execution"):
+        fresh = item.meta.get("freshness") or item.updated_at
+        if fresh:
+            try:
+                from .temporal import parse_dt
+
+                fdt = parse_dt(str(fresh))
+                if fdt is not None:
+                    age_h = (now - fdt).total_seconds() / 3600.0
+                    if age_h <= 24:
+                        score += 4.0
+                        factors.append(
+                            ReasonFactor(
+                                code="fresh_canonical",
+                                label="Aggiornato di recente",
+                                weight=4,
+                            )
+                        )
+                    elif age_h <= 72:
+                        score += 2.0
+                        factors.append(
+                            ReasonFactor(
+                                code="fresh_canonical",
+                                label="Piano recente",
+                                weight=2,
+                            )
+                        )
+            except Exception:
+                pass
+
     hrs_due = _hours_until(item.due_at, now)
     hrs_start = _hours_until(item.start_at, now)
     hrs = hrs_due if hrs_due is not None else hrs_start
 
-    if hrs is not None:
+    if state == TEMPORAL_SUPERSEDED:
+        score -= 40.0
+        factors.append(
+            ReasonFactor(code="superseded", label="Sostituito da piano più recente", weight=-40)
+        )
+    elif state == TEMPORAL_EXPIRED_STALE:
+        # Past plan deadline without open work must NOT win Daily Focus
+        score -= 38.0
+        factors.append(
+            ReasonFactor(
+                code="expired_stale",
+                label="Scadenza passata senza azione aperta",
+                weight=-38,
+                detail=f"{abs(hrs):.1f}h fa" if hrs is not None else None,
+            )
+        )
+    elif state == TEMPORAL_EXPIRED_RECOVERABLE:
+        # Mild recovery signal — must stay below an active canonical plan (~46)
+        w = 6.0
+        score += w
+        factors.append(
+            ReasonFactor(
+                code="expired_recoverable",
+                label="Recupero possibile",
+                weight=w,
+            )
+        )
+    elif hrs is not None:
         if hrs < 0:
-            w = min(40.0, 22.0 + abs(hrs) * 0.5)
-            score += w
-            factors.append(ReasonFactor(code="overdue", label="Scadenza superata", weight=w, detail=f"{abs(hrs):.1f}h fa"))
+            # True overdue debt (bills, explicit overdue activities) — not plan shells
+            if is_plan_shell(item) and not item.meta.get("overdue_activity"):
+                score -= 20.0
+                factors.append(
+                    ReasonFactor(
+                        code="expired_plan",
+                        label="Orizzonte piano passato",
+                        weight=-20,
+                    )
+                )
+            else:
+                w = min(40.0, 22.0 + abs(hrs) * 0.5)
+                score += w
+                factors.append(
+                    ReasonFactor(
+                        code="overdue",
+                        label="Scadenza superata",
+                        weight=w,
+                        detail=f"{abs(hrs):.1f}h fa",
+                    )
+                )
         elif hrs <= 3:
             w = 35.0
             score += w
@@ -167,17 +269,50 @@ def rank_items(items: List[HomeItem], *, now: Optional[datetime] = None) -> List
     now = now or datetime.now(timezone.utc)
     enriched: List[HomeItem] = []
 
+    # Pre-enrich temporal so bill criticality ignores stale plan shells
+    prepped: List[HomeItem] = []
+    for raw in items:
+        it = raw.model_copy(deep=True)
+        it.meta = enrich_item_temporal_meta(it, now)
+        prepped.append(it)
+
+    # Mark legacy plan shells superseded when a canonical active plan exists
+    # for the same goal_id (generic — not title matching).
+    active_canonical_goals = {
+        (i.meta or {}).get("goal_id") or i.goal_id
+        for i in prepped
+        if (i.meta or {}).get("canonical_execution")
+        and (i.meta or {}).get("actionable_now")
+        and ((i.meta or {}).get("goal_id") or i.goal_id)
+    }
+    for i in prepped:
+        gid = (i.meta or {}).get("goal_id") or i.goal_id
+        if (
+            gid
+            and gid in active_canonical_goals
+            and not (i.meta or {}).get("canonical_execution")
+            and is_plan_shell(i)
+        ):
+            i.meta = {**(i.meta or {}), "temporal_state": TEMPORAL_SUPERSEDED, "supersession": "canonical_active"}
+
     has_critical_bill = any(
-        i.type in ("bill", "payment") and classify_urgency(i, now) in ("overdue", "urgent", "soon")
-        for i in items
+        i.type in ("bill", "payment")
+        and (i.meta or {}).get("temporal_state") not in (TEMPORAL_EXPIRED_STALE, TEMPORAL_SUPERSEDED)
+        and classify_urgency(i, now) in ("overdue", "urgent", "soon")
+        for i in prepped
     )
 
-    for raw in items:
-        item = raw.model_copy(deep=True)
+    for item in prepped:
         item.urgency = classify_urgency(item, now)
         score, factors, summary = score_item(item, now)
 
-        if has_critical_bill and item.type == "activity" and item.subtype in ("fitness", "leisure", None):
+        # Do not dampen canonical Life OS / active plans as "leisure"
+        if (
+            has_critical_bill
+            and item.type == "activity"
+            and item.subtype in ("fitness", "leisure", None)
+            and not (item.meta or {}).get("canonical_execution")
+        ):
             score -= 12
             factors.append(ReasonFactor(code="dampened", label="Rimandabile rispetto a scadenze", weight=-12))
             summary = format_reason_summary(factors, item_type=item.type)

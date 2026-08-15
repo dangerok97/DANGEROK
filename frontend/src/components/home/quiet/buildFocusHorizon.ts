@@ -66,9 +66,20 @@ export function buildFocusHorizon(home: HomeV2Response | null, now = new Date())
 
   const push = (item: HomeItem | null | undefined) => {
     if (!item?.id || seen.has(item.id)) return;
+    const anyItem = item as HomeItem & {
+      temporal_state?: string;
+      ownership?: string;
+      canonical_execution?: boolean;
+    };
+    const tstate = anyItem.temporal_state || (item as any).meta?.temporal_state;
+    // Expired/superseded plan shells are not future Horizon targets
+    if (tstate === 'EXPIRED_STALE' || tstate === 'SUPERSEDED') return;
     const at = parseWhen(item);
     if (!at) return;
-    // Skip far-past noise (more than 1 day ago)
+    // Skip past dates (same calendar day past-due still excluded from "future")
+    const sod = startOfDay(now).getTime();
+    if (startOfDay(at).getTime() < sod) return;
+    // Also skip far-past absolute timestamps
     if (at.getTime() < now.getTime() - 86400_000) return;
     seen.add(item.id);
     collected.push({

@@ -271,7 +271,10 @@ def test_case_g_gemini_same_blocked_by_structured_temporal_conflict():
 def test_case_h_i_assemble_without_gemini():
     plans = [_study("spl_a", exam_name="Psicologia", exam_date="2026-08-12T07:00:00+00:00")]
     areas, sits, evid, fp, cands = assemble_life_map(
-        profile=None, study_plans=plans, travel_projects=[]
+        profile=None,
+        study_plans=plans,
+        travel_projects=[],
+        today=__import__("datetime").date(2026, 8, 10),
     )
     cans, _ = resolve_candidates_deterministic(cands)
     assert len(cans) == 1

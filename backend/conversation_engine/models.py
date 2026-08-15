@@ -213,6 +213,12 @@ class StartBody(BaseModel):
     suggestion_id: Optional[str] = None
     context: Optional[Dict[str, Any]] = None
     force_new: bool = False
+    # V2.5 production entry metadata (opaque refs only — not cognition)
+    entry_point: Optional[str] = None
+    plan_id: Optional[str] = None
+    object_id: Optional[str] = None
+    # V2.6 attachments
+    attachments: Optional[List[Dict[str, Any]]] = None
 
 
 class MessageBody(BaseModel):
@@ -220,6 +226,15 @@ class MessageBody(BaseModel):
     option_id: Optional[str] = None
     value: Any = None
     skip: bool = False
+    # V2.6 — opaque ContextFile / document refs (not binary)
+    attachments: Optional[List[Dict[str, Any]]] = None
+
+
+class AttachmentRef(BaseModel):
+    file_id: Optional[str] = None
+    document_id: Optional[str] = None
+    display_name: Optional[str] = None
+    mime_type: Optional[str] = None
 
 
 class ContinueBody(BaseModel):

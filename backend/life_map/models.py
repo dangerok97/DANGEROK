@@ -13,6 +13,7 @@ EvidenceKind = Literal[
     "life_profile_fact",
     "study_plan",
     "travel_project",
+    "life_os_plan",
     "life_object",
     "document",
     "conversation_fact",

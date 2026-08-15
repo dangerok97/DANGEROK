@@ -145,7 +145,7 @@ def _focus_and_priority_items(home):
 def test_ranking_version_goal_aware():
     from home.models import RANKING_VERSION
     # Bumped by Presentation Aggregation Layer (still Goal-aware)
-    assert RANKING_VERSION == "home-rank-1.3"
+    assert RANKING_VERSION == "home-rank-1.4"
 
 
 def test_goal_context_attach_fields_unit():
@@ -374,7 +374,7 @@ def test_multi_artifact_same_goal_and_dedupe():
             assert rep.get("subtype") != "action_project"
             ae = [i for i in surface if i.get("source_type") == "action_project" and i.get("goal_id") == goal_id]
             assert ae == []
-            assert home.ranking_version == "home-rank-1.3"
+            assert home.ranking_version == "home-rank-1.4"
             # Actions: Apri piano / Inizia where applicable
             acts = {a.get("label") for a in (rep.get("actions") or [])}
             assert acts & {"Apri piano", "Inizia sessione", "Inizia", "Flashcard", "Interrogami"}
@@ -534,7 +534,7 @@ def test_no_goals_legacy_home():
             surface = _focus_and_priority_items(home)
             for i in surface:
                 assert not i.get("goal_id")
-            assert home.ranking_version == "home-rank-1.3"
+            assert home.ranking_version == "home-rank-1.4"
         finally:
             await _clean(db, uid)
             client.close()

@@ -136,7 +136,93 @@ class HomeService:
         # (conversation resumes are folded into Goal card actions)
         resume_candidates = [i for i in ranked if i.type == "resume"]
         focus_pool = [i for i in ranked if i.type != "resume" and i.status != "waiting"]
-        primary = focus_pool[0] if focus_pool else None
+        # Expired/superseded plan shells cannot be Daily Focus when any active
+        # actionable item exists (generic temporal ownership).
+        from home.temporal import (
+            TEMPORAL_EXPIRED_RECOVERABLE,
+            TEMPORAL_EXPIRED_STALE,
+            TEMPORAL_SUPERSEDED,
+            public_rank_trace_row,
+        )
+
+        has_canonical_actionable = any(
+            (i.meta or {}).get("canonical_execution")
+            and (i.meta or {}).get("actionable_now")
+            for i in focus_pool
+        )
+
+        def _focus_eligible(it) -> bool:
+            st = (it.meta or {}).get("temporal_state")
+            if st in (TEMPORAL_EXPIRED_STALE, TEMPORAL_SUPERSEDED):
+                return False
+            # Recovery leftovers must not displace a current canonical plan
+            if has_canonical_actionable and st == TEMPORAL_EXPIRED_RECOVERABLE:
+                return False
+            return True
+
+        eligible = [i for i in focus_pool if _focus_eligible(i)]
+        primary = (eligible[0] if eligible else None) or (
+            focus_pool[0] if focus_pool else None
+        )
+        # Prefer canonical actionable when top eligible is still a weak stale leftover
+        if primary and (primary.meta or {}).get("temporal_state") in (
+            TEMPORAL_EXPIRED_STALE,
+            TEMPORAL_SUPERSEDED,
+            TEMPORAL_EXPIRED_RECOVERABLE,
+        ):
+            for cand in eligible:
+                if (cand.meta or {}).get("canonical_execution") and (
+                    cand.meta or {}
+                ).get("actionable_now"):
+                    primary = cand
+                    break
+        def _pick_canonical_focus(cands: List[HomeItem]) -> Optional[HomeItem]:
+            """Prefer Life OS plan shells over plan-item decisions; then freshest."""
+            actionable = [
+                c
+                for c in cands
+                if (c.meta or {}).get("canonical_execution")
+                and (c.meta or {}).get("actionable_now")
+                and (c.meta or {}).get("temporal_state")
+                not in (TEMPORAL_EXPIRED_STALE, TEMPORAL_SUPERSEDED)
+            ]
+            if not actionable:
+                return None
+            shells = [
+                c
+                for c in actionable
+                if c.source_type == "life_os_plan"
+                and c.type != "resume"
+                and not (c.meta or {}).get("plan_item_id")
+            ]
+            pool = shells or [c for c in actionable if c.type != "resume"] or actionable
+            top = max((c.score or 0) for c in pool)
+            near = [c for c in pool if abs((c.score or 0) - top) <= 2.0]
+            near.sort(
+                key=lambda c: (
+                    c.updated_at or (c.meta or {}).get("freshness") or ""
+                ),
+                reverse=True,
+            )
+            return near[0] if near else pool[0]
+
+        if primary and has_canonical_actionable and not (primary.meta or {}).get(
+            "canonical_execution"
+        ):
+            # Do not let legacy/recovery/reminders outrank current canonical work
+            # unless primary is a true overdue debt (bill/payment).
+            if primary.type not in ("bill", "payment"):
+                picked = _pick_canonical_focus(eligible)
+                if picked:
+                    primary = picked
+        elif (
+            primary
+            and (primary.meta or {}).get("canonical_execution")
+            and has_canonical_actionable
+        ):
+            picked = _pick_canonical_focus(eligible)
+            if picked:
+                primary = picked
 
         # Draft-only: promote resume into Adesso so Home is not empty
         promoted_resume_id: Optional[str] = None
@@ -212,7 +298,15 @@ class HomeService:
 
         resume = None
         if resume_candidates:
-            resume_candidates.sort(key=lambda x: x.updated_at or "", reverse=True)
+            # Prefer Life OS plan resumes (durable goal) over bare conversation_session.
+            def _resume_rank(r) -> tuple:
+                life = 1 if (
+                    r.source_type == "life_os_plan"
+                    or (r.meta or {}).get("resume_kind") == "life_os_plan"
+                ) else 0
+                return (life, r.updated_at or "")
+
+            resume_candidates.sort(key=_resume_rank, reverse=True)
             primary_gid = primary.goal_id if primary else None
             resume_pick = next(
                 (
@@ -240,6 +334,22 @@ class HomeService:
 
         partial = any(w.code.startswith("source_error_") for w in warnings)
 
+        # DEV ranking trace (no PII dumps) — HOME_RANK_TRACE=1 or DEV=1
+        import os as _os
+
+        rank_trace = None
+        if (_os.environ.get("HOME_RANK_TRACE") or _os.environ.get("DEV") or "").strip().lower() in (
+            "1",
+            "true",
+            "yes",
+            "on",
+        ):
+            rank_trace = []
+            for it in ranked[:24]:
+                row = public_rank_trace_row(it)
+                row["selected"] = bool(primary and it.id == primary.id)
+                rank_trace.append(row)
+
         return HomeResponse(
             primary_focus=primary.to_public() if primary else None,
             explanation=explanation,
@@ -253,6 +363,7 @@ class HomeService:
             generated_at=now.isoformat(),
             ranking_version=RANKING_VERSION,
             partial=partial,
+            dev_rank_trace=rank_trace,
         )
 
     async def _load_ora_ti_consiglia(self, user_id: str) -> List[Dict[str, Any]]:
@@ -342,6 +453,11 @@ class HomeService:
             if it.type == "resume":
                 continue
             if primary_id and it.id == primary_id:
+                continue
+            # Horizon/priority: suppress expired/superseded plan shells from
+            # competing as "future" priorities (still available via Contesti/legacy).
+            tstate = (it.meta or {}).get("temporal_state")
+            if tstate in ("EXPIRED_STALE", "SUPERSEDED") and (it.meta or {}).get("plan_shell"):
                 continue
             if it.goal_id:
                 if it.goal_id in seen_goals:

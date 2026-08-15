@@ -62,7 +62,32 @@ export async function navigateHomeAction(
     return;
   }
 
-  // Central Action Engine — Apri / Organizza / Inizia / guide
+  // Life OS / AI Core — Goal Workspace or production /ora (never Action Engine, never /ora-ai)
+  const lifeOsPlanId =
+    (item?.meta?.life_os_plan_id as string | undefined) ||
+    (item?.source_type === 'life_os_plan' ? item.source_id : undefined);
+  let lifeOsRoute =
+    action.route ||
+    (typeof item?.meta?.route === 'string' ? item.meta.route : null) ||
+    (lifeOsPlanId ? `/goal-workspace/${lifeOsPlanId}` : null);
+  // Migrate any lingering DEV harness links to production /ora
+  if (typeof lifeOsRoute === 'string' && lifeOsRoute.startsWith('/ora-ai/')) {
+    lifeOsRoute = lifeOsRoute.replace('/ora-ai/', '/ora/');
+  }
+  if (
+    lifeOsRoute &&
+    (lifeOsRoute.startsWith('/goal-workspace/') ||
+      lifeOsRoute.startsWith('/ora/') ||
+      item?.source_type === 'life_os_plan' ||
+      item?.meta?.resume_kind === 'life_os_plan' ||
+      item?.meta?.avoid_action_engine === true ||
+      item?.meta?.source === 'life_os_plan')
+  ) {
+    router.push(lifeOsRoute as any);
+    return;
+  }
+
+  // Central Action Engine — Apri / Organizza / Inizia / guide (legacy only)
   if (item && isGuidedAction(action)) {
     await ActionEngine.open(item, router);
     return;
@@ -98,6 +123,12 @@ export function routeForItem(item: HomeItem): string {
   }
   if (st === 'action_session') return `/action/${sid}`;
   if (st === 'action_project') return '/action/open';
+  if (st === 'life_os_plan') {
+    const r = item.meta?.route as string | undefined;
+    if (r?.startsWith('/ora-ai/')) return r.replace('/ora-ai/', '/ora/');
+    if (r) return r;
+    return `/goal-workspace/${sid}`;
+  }
   // Card press → Action Engine (guided), not empty document/situazione
   return '/action/open';
 }

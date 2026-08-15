@@ -1,8 +1,262 @@
 # ORA — Development State
 
-Last updated: 2026-08-10 (Prompt 6.1.1 — Memory epistemic authority)
+Last updated: 2026-08-15 (Prompt V2.6.2 — context change & persistent replanning)
 
-## Prompt 6.1.1 — Epistemic authority (this batch)
+## Prompt V2.6.2 — Context change & persistent replanning (this batch)
+
+| Item | Stato |
+|------|--------|
+| Root cause: session-persisted `tool_signatures` banned cross-turn `update_*` | **fixed** |
+| Turn-scoped reasoning epoch + same-turn duplicate reuse | **yes** |
+| Duplicate UX leak ("Sto evitando di ripetere…") removed | **yes** |
+| Prompt: new conversational facts ≠ duplicate execution | **yes** |
+| `user_fact_summary` → USER_PROVIDED_CONTENT / user_conversation | **yes** |
+| Conversational evidence must not supersede user_file | **yes** |
+| Live `lop_93e3f8760a2c4e`: 12→5 item reconciled; obj rev 2→3 | **yes** (scripted) |
+| Unscripted live LLM proof | **not claimed** |
+| Prompt 7.x stash | **untouched** |
+| Commit / push | **no** — STOP for CPO |
+
+## Prompt V2.6.1 — Source-grounded reconciliation (prior)
+
+| Item | Stato |
+|------|--------|
+| Root cause: `update_plan` only `add_items` (append) — no replace | **fixed** |
+| `replace_items` + `reconciliation_mode` + remove_item_ids | **yes** |
+| Same plan/object identity; target_date/session preserved | **yes** (live) |
+| PlanItem `origin` provenance | **yes** |
+| Evidence status active/superseded + public_sources | **yes** |
+| Workspace Fonti human labels (no lcf_/doc_) | **yes** |
+| GenerativeObjectRenderer uses `useTheme` (light readable) | **yes** |
+| Live Matematica: 8 mixed items → 5 official modules; obj rev 8→9 | **yes** |
+| Non-study move + quote reconciliation | **yes** |
+| Prompt 7.x stash | **untouched** |
+| Commit / push | **no** — STOP for CPO |
+
+## Prompt V2.6 — Files / evidence / context (prior)
+
+| Item | Stato |
+|------|--------|
+| ContextFile model + Documents V2 storage reuse | **yes** |
+| `POST /api/conversation/ai-core/files/upload` (auth, ownership) | **yes** |
+| OraComposer real attach (chip, upload, remove, multi, file-only) | **yes** — shared composer |
+| AI Core caps: list/get context/content/link | **yes** — no domain handlers |
+| Context Broker `session_files` + staged chunks | **yes** |
+| Capability honesty + untrusted-file prompt rules | **yes** |
+| Evidence refs `USER_PROVIDED_CONTENT` / `user_file` | **yes** |
+| Workspace quiet Fonti | **yes** |
+| Live scripted QA: same plan `lop_0aecb72a15cf49`, object `lgo_44b1f457f1c247` rev 7→8 | **yes** |
+| Live unscripted multi-turn LLM exam PDF in browser | **partial** — needs bearer session; plumbing proven scripted |
+| Image multimodal understanding | **unavailable** (OCR text only if extracted; honesty in caps) |
+| Orphan upload GC / full Files product UI | **not in scope** — deferred |
+| Production object storage (S3/GCS) | **migration path** — still Documents V2 local abstraction |
+| Prompt 7.x stash | **untouched** |
+| Commit / push | **no** — STOP for CPO |
+
+## Prompt V2.5.1 — Blank Home runtime fix (prior)
+
+| Item | Stato |
+|------|--------|
+| Metro `Unable to resolve "./nav"` / `@/src/ora/nav` | **fixed** — module renamed `oraNav.ts` |
+| Blank white `/` from failed bundle | **fixed** |
+| Home OraInput still → `/ora` (not `/ora-ai`) | **yes** |
+| Cognitive / ranking / Life OS semantics | **unchanged** |
+| Commit / push | **no** — STOP for CPO |
+
+## Prompt V2.5 — Production ORA surface (prior)
+
+| Item | Stato |
+|------|--------|
+| Canonical `/ora` + `/ora/{sessionId}` on AI Core | **yes** |
+| Home OraInput → AI Core (not CE→AE) | **yes** |
+| Ambient ORA tab → AI Core fresh thread | **yes** |
+| Goal Workspace Continua → `/ora` + session-focus | **yes** |
+| Object “Continua con ORA” binds active_object | **yes** |
+| `/ora-ai` DEV-only, shared components | **yes** |
+| Quiet Premium Goal Workspace | **yes** (presentation) |
+| Nav helpers opaque ids only | **yes** |
+| Attachment pipeline in composer | **superseded by V2.6** — real ContextFile path |
+| Live Home/ORA/Workspace LLM QA | **partial** — browser often missing bearer; automated ownership/route tests green |
+| Home ranking / AI Core loop / Context Broker | **unchanged** |
+| Prompt 7.x stash | **untouched** |
+| Commit / push | **no** — STOP for CPO |
+
+## Prompt V2.4.3 — GenerativeObject card/reveal fix (prior)
+
+| Item | Stato |
+|------|--------|
+| Live object `lgo_44b1f457f1c247` audited (rev 7): `card` with empty `front`/`back`, content only in `title` | **yes** |
+| Root cause: A+B+D (malformed card + validator allowed empty reveal + FE ignored `title`, always showed “Tocca per rivelare”) | **fixed** |
+| Canonical revealable item `{front, back, revealable}` + small alias normalize | **yes** |
+| `card_deck` validation rejects missing front/back after normalize | **yes** |
+| Single `card` may be static (`revealable: false`) when only title/front exists | **yes** |
+| API `GenerativeObject.public()` display-normalize for older shapes | **yes** |
+| FE `CardDeck`: no reveal affordance without back; never blank; nav resets reveal; event `reveal` | **yes** |
+| Browser Goal Workspace live click | **blocked** — missing bearer token in browser session |
+| Live public() QA: title → front, `revealable: false` (no blank reveal) | **yes** |
+| Home / AI Core cognition / Context Broker | **unchanged** |
+| Prompt 7.x stash | **untouched** |
+| Commit / push | **no** — STOP for CPO |
+
+## Prompt V2.4.2 — Persistent GenerativeObject adaptation (prior)
+
+| Item | Stato |
+|------|--------|
+| Root cause: chat-only answer, no `update_object`, empty object refs in AI payload | **fixed** |
+| `active_object_ref` / `recent_object_refs` / `current_plan_item_ref` in session | **yes** |
+| Life OS AI payload includes lightweight object previews | **yes** |
+| Prompt: durable adapt → `update_object`; conversational-only OK | **yes** (AI decides) |
+| Persist-before-claim for “ho semplificato / aggiornato…” | **yes** |
+| `update_object`: content/spec/append/remove + revision + evidence preserve | **yes** |
+| Workspace interact / Continua → session focus bind | **yes** |
+| Live Matematica object `lgo_44b1f457f1c247` rev 1→3 via adaptation path | **yes** (scripted decision_fn on real DB) |
+| Live unscripted LLM always calls `update_object` | **partial** — depends on model; nudge + context in place |
+| Home ranking | **unchanged** this prompt |
+| Prompt 7.x stash | **untouched** |
+| Commit / push | **no** — STOP for CPO |
+
+## Prompt V2.4.1 — Canonical Home ownership (prior)
+
+| Item | Stato |
+|------|--------|
+| Root cause: past plan deadlines scored as overdue (+Goal boosts) | **fixed** |
+| Temporal states ACTIVE / UPCOMING / EXPIRED_* / SUPERSEDED | **yes** (`home/temporal.py`) |
+| Ranking `home-rank-1.4` — canonical_active + stale penalties | **yes** |
+| Daily Focus prefers actionable LifeOsPlan over expired legacy | **yes** (live QA) |
+| Horizon skips EXPIRED_STALE / past dates | **yes** |
+| Life OS Home routes → `/goal-workspace/{planId}` | **yes** |
+| Continue prefers Life OS resume | **yes** |
+| Contesti hides exam-day/past study with no session | **yes** (presentation) |
+| DEV rank trace `HOME_RANK_TRACE` / `dev_rank_trace` | **yes** |
+| DEV QA cleanup utility (provenance-gated) | **yes** (no auto-wipe) |
+| Persistent `update_object` after “spiegamelo più semplice” | **no** — session has no `update_object` tool call |
+| Object `revision` bump on update | **yes** (code path; live object never updated) |
+| Prompt 7.x stash | **untouched** |
+| Commit / push | **no** — STOP for CPO |
+
+## Prompt V2.4 — AI-native Generative Workspaces (prior)
+
+| Item | Stato |
+|------|--------|
+| Closed flashcards/quiz/map artifact cognition removed from AI Core | **yes** |
+| `GenerativeObject` + declarative UI primitives | **yes** |
+| Capabilities `create_object` / `update_object` / `get_object` / `list_goal_objects` | **yes** |
+| Generic FE `GenerativeObjectRenderer` + `/goal-workspace/[planId]` | **yes** |
+| Life OS actions never open legacy `/action` | **yes** |
+| Stale historical goal demotion (ambiguous exam) | **yes** |
+| `generate_artifact` / type-specific generators | **deprecated / removed from registry** |
+| Legacy `life_os_artifacts` | **read-only compat** |
+| Prompt 7.x stash | **untouched** |
+| Commit / push | **no** — STOP for CPO |
+
+## Prompt V2.3 — Generic Life OS execution (prior; artifact catalog superseded)
+
+| Item | Stato |
+|------|--------|
+| `life_os` plans/artifacts collections | **yes** |
+| Capabilities create/update plan, actions, artifacts | **yes** |
+| Evidence calibration (general vs target-specific) | **yes** |
+| Home adapter + Continue `/ora-ai` | **yes** |
+| Focus Horizon via `due_at` / `goal_target_date` | **yes** |
+| Life Map situations | **yes** |
+| Staged artifact generation budgets | **yes** |
+| Rich text harness `/ora-ai` | **yes** |
+| Tests V2.3 A–Z | **yes** |
+| Persist-before-claim (Life OS writes) | **yes** (soft re-entry; note_intention insufficient) |
+| Live exam → Home + artifacts | **yes** (local Mongo + `/home`) |
+| Resume prefers life_os over chat-only | **partial** — plan/actions on Home; resume_item may still be conversation_session |
+| Evidence wording always calibrated | **partial** — governance + prompt; model may still overclaim without TARGET_SPECIFIC |
+| StudyFlow / domain wizards | **not added** |
+| Prompt 7.x stash | **untouched** |
+| Commit / push | **no** — STOP for CPO |
+
+## Prompt 7 V2.2 — General tool use & grounded external knowledge (prior)
+
+| Item | Stato |
+|------|--------|
+| Tool Registry V2 (capability metadata) | **yes** |
+| `web_search` capability | **yes** |
+| Provider failover Tavily→Brave→Gemini Search | **yes** (config-dependent) |
+| ExternalObservation re-entry | **yes** |
+| Tool-before-claim governance | **yes** (prompt + policy) |
+| Autonomous READ_ONLY tools | **yes** |
+| CONSEQUENTIAL_WRITE blocked | **yes** |
+| Query minimization | **yes** |
+| `current_facts` temporal scope | **yes** |
+| Tests A–J `test_ai_native_tools_v22.py` | **yes** |
+| Combined AI-core pytest | **55 passed** |
+| Live research QA | **depends on RESEARCH_ENABLED + keys** |
+| Prompt 7.x stash | **untouched** |
+| Commit / push | **no** — STOP for CPO |
+
+## Prompt 7 V2.1 — Personal context retrieval (prior)
+
+| Item | Stato |
+|------|--------|
+| Stage A account display name | **yes** |
+| Semantic Stage B personal lookup | **yes** (identity/residence/employment/study/general) |
+| Provenance + authority reuse (Life Memory bands) | **yes** |
+| Context re-entry keeps original question | **yes** |
+| Over-broad context query blocked | **yes** |
+| No name/residence/job conversation branches | **yes** |
+| Tests `test_ai_native_personal_context_v21.py` | **yes** (A–L) |
+| Combined AI-core pytest | **34 passed** |
+| Live Gemini QA name/residence/work | **yes** — synthetic user: name 1-call; residence/work 2-call |
+| Commit / push | **no** — STOP for CPO |
+
+## Prompt 7 V2 — AI-Native Cognitive Core (prior)
+
+| Item | Stato |
+|------|--------|
+| Package `conversation_engine/ai_core/` | **yes** |
+| AI owns cognition (decision contract) | **yes** |
+| Context Broker stage A/B | **yes** (upgraded in V2.1) |
+| Tool Registry (read + soft note) | **yes** |
+| Bounded loop MAX_STEPS=4 | **yes** |
+| Governance without domain wizards | **yes** |
+| Minimal harness `/ora-ai` + scroll | **yes** |
+| Mocked suite `test_ai_native_core_v1.py` | **yes** (20 passed) |
+| Web research / Tavily / learning artifacts | **not in scope** |
+| Prompt 7.x stash restored | **no** |
+| Commit / push | **no** — STOP for CPO |
+
+### Principle
+
+**AI owns cognition. Deterministic systems own capabilities and governance.**
+
+### Abandoned
+
+Prompt 7.x remains in `stash@{0}: backup: abandoned Prompt 7.x cognitive architecture` — do not restore.
+
+## Cognitive Reset — Prompt 7.x abandoned (prior)
+
+| Item | Stato |
+|------|--------|
+| Working tree restored to HEAD `258cd85` | **yes** |
+| Safety stash `backup: abandoned Prompt 7.x cognitive architecture` | **yes** (`stash@{0}`) |
+| Cognitive Focus / requirements / research orchestration removed from tree | **yes** (in stash only) |
+| New AI-first cognitive engine | **not started** — STOP for CPO |
+| Commit / push | **no** |
+
+### Why abandoned
+
+Live QA showed deterministic readiness/requirements/question planners owning dialogue before the LLM: repeated asks, unnatural copy, discriminator loops, research/action at the wrong time. Not fixable by micro-patch.
+
+### Canonical rebuild direction (next prompt — do not implement yet)
+
+**ORA IS AI-FIRST.** The LLM owns goal understanding, what to ask/research/tool/act, and the next conversational turn. Deterministic code validates (auth, schemas, provenance, privacy, idempotency, tool execution, safety) — it does **not** script the conversation via fixed slot sequences.
+
+Target loop (conceptual only): USER → AI orchestrator → structured next action → governance → tool → AI again → response.
+
+### Reusable infrastructure proven in 7.x (capabilities, not conversation architecture)
+
+Gemini provider · Groq provider · Tavily retrieval · Brave fallback · provider failover · source provenance · web evidence · document attachments · StudyPlan persistence · Life Profile · Life Memory · Life Map
+
+### Preserved committed surfaces
+
+Quiet Premium · Home · Shell · Login · Contesti/Life Map · Memoria/Life Memory · Life Setup · auth · canonical backend services · committed Study/Travel services
+
+## Prompt 6.1.1 — Epistemic authority (prior)
 
 | Item | Stato |
 |------|--------|

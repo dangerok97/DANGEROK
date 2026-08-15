@@ -1,8 +1,15 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import List, Tuple
 
 from home.models import ConnectionWarning, HomeItem
+from home.temporal import (
+    TEMPORAL_ACTIVE,
+    TEMPORAL_EXPIRED_STALE,
+    TEMPORAL_UPCOMING,
+    hours_until,
+)
 
 from ._util import now_iso, stable_id
 
@@ -93,8 +100,48 @@ async def load_decisions(
             "action_session_id": dmeta.get("action_session_id") or d.get("action_session_id"),
             "project_id": dmeta.get("project_id") or d.get("project_id"),
             "goal_id": dmeta.get("goal_id") or d.get("goal_id"),
+            # AI-native Life OS — keep identity so Home never opens Action Engine
+            "life_os_plan_id": dmeta.get("life_os_plan_id"),
+            "plan_item_id": dmeta.get("plan_item_id"),
+            "source": dmeta.get("source"),
+            "resume_kind": dmeta.get("resume_kind"),
+            "route": dmeta.get("route"),
+            "avoid_action_engine": bool(dmeta.get("avoid_action_engine")),
+            "conversation_session_id": dmeta.get("conversation_session_id"),
         }
-        if intent:
+        is_life_os = (
+            str(origin) == "life_os"
+            or bool(dmeta.get("life_os_plan_id"))
+            or dmeta.get("source") == "life_os_plan"
+        )
+        study_plan_id = intent_meta.get("study_plan_id")
+        travel_project_id = intent_meta.get("travel_project_id")
+        life_os_plan_id = intent_meta.get("life_os_plan_id")
+        # Legacy Action Engine / plan-linked decisions are plan shells for ranking
+        # (past deadlines must not receive bill-style overdue Daily Focus boosts).
+        is_legacy_plan = bool(
+            study_plan_id
+            or travel_project_id
+            or str(origin).startswith("action_engine_")
+        )
+        if is_life_os:
+            # Keep generic — never reclassify into study/travel Action Engine paths
+            itype = "activity"
+            subtype = "life_os_plan"
+            life_os_plan_id = life_os_plan_id or dmeta.get("life_os_plan_id")
+            intent_meta["life_os_plan_id"] = life_os_plan_id
+            intent_meta["canonical_execution"] = True
+            intent_meta["ownership"] = "canonical"
+            intent_meta["plan_shell"] = True
+            intent_meta["avoid_action_engine"] = True
+            if life_os_plan_id and not intent_meta.get("route"):
+                intent_meta["route"] = f"/goal-workspace/{life_os_plan_id}"
+            intent_meta["actionable_now"] = st in ("open", "in_progress", "partially_completed")
+        elif is_legacy_plan:
+            intent_meta["plan_shell"] = True
+            intent_meta["ownership"] = "legacy"
+            intent_meta["canonical_execution"] = False
+        elif intent:
             intent_meta["intent"] = intent
             intent_meta["intent_subtype"] = d.get("intent_subtype")
             intent_meta["intent_confidence"] = d.get("intent_confidence")
@@ -122,6 +169,33 @@ async def load_decisions(
             except Exception:
                 pass
 
+        due_at = d.get("deadline")
+        start_at = d.get("starts_at")
+        now = datetime.now(timezone.utc)
+        # Temporal ownership for plan-linked decisions (generic — not domain-specific)
+        if intent_meta.get("plan_shell"):
+            hrs = hours_until(due_at or start_at, now)
+            if is_life_os and intent_meta.get("actionable_now"):
+                if hrs is not None and hrs < 0:
+                    # Past step due on an active canonical plan → still ACTIVE work
+                    intent_meta["temporal_state"] = TEMPORAL_ACTIVE
+                elif hrs is not None and hrs <= 72:
+                    intent_meta["temporal_state"] = TEMPORAL_ACTIVE
+                else:
+                    intent_meta["temporal_state"] = TEMPORAL_UPCOMING
+            elif hrs is not None and hrs < 0:
+                intent_meta["temporal_state"] = TEMPORAL_EXPIRED_STALE
+                intent_meta["actionable_now"] = False
+            elif hrs is not None and 0 <= hrs <= 72:
+                intent_meta["temporal_state"] = TEMPORAL_ACTIVE
+                intent_meta["actionable_now"] = True
+            elif hrs is not None:
+                intent_meta["temporal_state"] = TEMPORAL_UPCOMING
+                intent_meta["actionable_now"] = True
+            else:
+                intent_meta["temporal_state"] = TEMPORAL_UPCOMING
+                intent_meta.setdefault("actionable_now", True)
+
         items.append(HomeItem(
             id=stable_id("dec", user_id, d.get("id", "")),
             type=itype,  # type: ignore[arg-type]
@@ -130,8 +204,8 @@ async def load_decisions(
             description=d.get("description"),
             source_type="decision",
             source_id=d.get("id") or "",
-            due_at=d.get("deadline"),
-            start_at=d.get("starts_at"),
+            due_at=due_at,
+            start_at=start_at,
             duration_minutes=d.get("time_required_min"),
             location=d.get("place"),
             status="waiting" if st == "postponed" else "open",

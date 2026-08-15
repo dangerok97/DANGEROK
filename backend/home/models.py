@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 
 # 1.3 — Presentation Aggregation Layer: one card per Goal (flag-gated attach);
 # identical to 1.0 inputs when GOAL_ENGINE_ENABLED=0 (no goal_* attached).
-RANKING_VERSION = "home-rank-1.3"
+RANKING_VERSION = "home-rank-1.4"
 PRESENTATION_VERSION = "home-pres-1.0"
 
 ItemType = Literal[
@@ -109,6 +109,9 @@ class HomeItem(BaseModel):
             "presentation_id", "card_type", "subtitle", "next_action",
             "supporting_details", "source_refs", "hidden_artifact_count",
             "presentation_badges", "presentation_version",
+            # Ranking/presentation signals for Horizon + FE (no PII)
+            "temporal_state", "actionable_now", "route", "canonical_execution",
+            "life_os_plan_id", "current_item_title", "ownership",
         ):
             if meta.get(pk) is not None and pk not in d:
                 d[pk] = meta[pk]
@@ -183,6 +186,8 @@ class HomeResponse(BaseModel):
     generated_at: str
     ranking_version: str = RANKING_VERSION
     partial: bool = False
+    # DEV-only ranking trace (HOME_RANK_TRACE=1 or DEV=1) — no PII dumps
+    dev_rank_trace: Optional[List[Dict[str, Any]]] = None
 
 
 class HomeActionBody(BaseModel):

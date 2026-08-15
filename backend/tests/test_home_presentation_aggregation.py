@@ -389,7 +389,7 @@ def test_05_artifact_without_goal_safe_fallback():
             surface = _surface(home)
             # Must not crash; orphan task may or may not surface depending on adapters
             assert home.generated_at
-            assert home.ranking_version == "home-rank-1.3"
+            assert home.ranking_version == "home-rank-1.4"
             # No false goal_id invented
             for i in surface:
                 if "latte" in (i.get("title") or "").lower():
@@ -652,7 +652,7 @@ def test_13_legacy_audit_and_migrate():
 
 def test_ranking_version_presentation():
     from home.models import RANKING_VERSION, PRESENTATION_VERSION
-    assert RANKING_VERSION == "home-rank-1.3"
+    assert RANKING_VERSION == "home-rank-1.4"
     assert PRESENTATION_VERSION == "home-pres-1.0"
 
 
