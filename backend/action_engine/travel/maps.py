@@ -66,7 +66,11 @@ async def _nominatim_geocode(query: str) -> Optional[Tuple[float, float]]:
 
 async def nominatim_reverse_city(lat: float, lon: float) -> Optional[str]:
     """
-    Reverse-geocode to a city/town label only.
+    Reverse-geocode to a city/town label only (Life Setup / coarse home assist).
+
+    Intentionally municipality-scale (zoom=10). Presence / foreground location
+    uses ``location.place_label.nominatim_reverse_place`` instead, which can
+    surface locality when the provider returns it.
     Soft fail — never invents a place. Does not persist coordinates.
     """
     try:

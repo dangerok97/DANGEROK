@@ -121,3 +121,4 @@ class CognitiveTurnResult(BaseModel):
     elapsed_ms: int = 0
     sources: List[Dict[str, str]] = Field(default_factory=list)
     working_hint: Optional[str] = None
+    client_actions: List[Dict[str, Any]] = Field(default_factory=list)

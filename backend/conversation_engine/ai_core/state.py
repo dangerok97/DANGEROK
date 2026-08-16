@@ -69,6 +69,64 @@ def append_turn(
     state["recent_turns"] = turns[-20:]
 
 
+def public_pending_turn(state: Dict[str, Any]) -> Dict[str, Any]:
+    """Opaque pending-turn status for FE mount handoff (no user text in URLs)."""
+    pt = state.get("pending_turn")
+    cap = state.get("pending_client_capability") or {}
+    if not isinstance(cap, dict):
+        cap = {}
+
+    def _actions_from_cap() -> List[Dict[str, Any]]:
+        if cap.get("action"):
+            return [
+                {
+                    "type": cap.get("action"),
+                    "refresh": bool(cap.get("refresh")),
+                    "reason": "Resume pending client capability.",
+                }
+            ]
+        return []
+
+    if isinstance(pt, dict) and pt.get("status") == "awaiting_client":
+        actions = pt.get("client_actions")
+        if not isinstance(actions, list) or not actions:
+            actions = _actions_from_cap()
+        return {
+            "id": str(pt.get("id") or "")[:40],
+            "status": "awaiting_client",
+            "capability": pt.get("capability") or cap.get("capability"),
+            "client_actions": actions,
+        }
+    if state.get("pending_client_resume_message") and (
+        cap or state.get("pending_client_actions")
+    ):
+        actions = state.get("pending_client_actions")
+        if not isinstance(actions, list) or not actions:
+            actions = _actions_from_cap()
+        return {
+            "id": f"legacy_{(cap.get('action') or 'client')}"[:40],
+            "status": "awaiting_client",
+            "capability": cap.get("capability"),
+            "client_actions": actions,
+        }
+    status = "idle"
+    if isinstance(pt, dict) and pt.get("status") in ("completed", "failed"):
+        status = str(pt.get("status"))
+    return {"id": None, "status": status, "client_actions": []}
+
+
+def clear_pending_turn(state: Dict[str, Any], *, status: str = "completed") -> None:
+    state.pop("pending_client_capability", None)
+    state.pop("pending_client_resume_message", None)
+    state.pop("pending_client_actions", None)
+    prev = dict(state.get("pending_turn") or {})
+    state["pending_turn"] = {
+        "id": prev.get("id"),
+        "status": status,
+        "client_actions": [],
+    }
+
+
 def apply_state_updates(state: Dict[str, Any], updates: List[StateUpdate] | List[dict]) -> None:
     goal = dict(state.get("active_goal") or {})
     for u in updates or []:

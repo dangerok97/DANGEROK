@@ -373,6 +373,58 @@ class ToolRegistry:
             )
         )
         self._register_files()
+        self._register_location()
+
+    def _register_location(self) -> None:
+        from location import caps as loc_caps
+
+        self.register(
+            CapabilitySpec(
+                capability="get_current_location",
+                description=(
+                    "Read the user's current device location / presence when relevant. "
+                    "Returns freshness (CURRENT|RECENT|STALE|UNKNOWN), optional coarse "
+                    "place_label, and may need a client-side foreground GPS grant. "
+                    "NOT residence/home/work — never invent coordinates. "
+                    "If status is stale/unknown/denied/unavailable, say so honestly."
+                ),
+                input_schema={"type": "object", "properties": {}},
+                classification="personal",
+                side_effect="READ_ONLY",
+                risk="read",
+                handler=loc_caps.get_current_location,
+                tags=["location", "presence"],
+            )
+        )
+        self.register(
+            CapabilitySpec(
+                capability="get_current_presence",
+                description=(
+                    "Read minimized PresenceContext (freshness, last_seen, coarse label). "
+                    "Prefer this over assuming the user is at their Profile residence."
+                ),
+                input_schema={"type": "object", "properties": {}},
+                classification="personal",
+                side_effect="READ_ONLY",
+                risk="read",
+                handler=loc_caps.get_current_presence,
+                tags=["location", "presence"],
+            )
+        )
+        self.register(
+            CapabilitySpec(
+                capability="get_recent_presence_context",
+                description=(
+                    "Latest presence context only (V2.7.1 — no GPS history trail)."
+                ),
+                input_schema={"type": "object", "properties": {}},
+                classification="personal",
+                side_effect="READ_ONLY",
+                risk="read",
+                handler=loc_caps.get_recent_presence_context,
+                tags=["location", "presence"],
+            )
+        )
 
     def _register_files(self) -> None:
         from conversation_engine.ai_core.files import caps as file_caps

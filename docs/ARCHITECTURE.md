@@ -1,5 +1,42 @@
 # ORA — Architecture
 
+## Prompt V2.7.1 — Foreground location + PresenceContext (2026-08-15; STALE refresh + Home handoff 2026-08-16)
+
+```
+Home Ask / startOraConversation
+  → POST /ai-core/start (ONE cognitive turn; persist user message + message_id)
+  → navigate /ora/{sessionId} only (no text/coords in URL)
+  → OraConversationScreen GET history + pending_turn
+  → if awaiting_client: fulfill client_actions once → client-resume
+  → if completed: render history (user + ora)
+```
+
+```
+AI get_current_location / get_current_presence
+  → preference off → needs_client + request_location_permission (ORA consent)
+  → STALE / no signal + while_using → needs_client + request_foreground_location
+      (refresh: true on STALE; maximumAge 0 on FE)
+  → CognitiveTurnResult.client_actions + pending_turn (persisted; survives navigation)
+  → FE: sheet only for ORA consent; if while_using + Chrome granted → getCurrentPosition directly
+  → POST /api/location/signal  (auth, user-scoped; reverse place label)
+  → PresenceContext upsert (CURRENT)
+  → POST /api/conversation/ai-core/{id}/client-resume
+  → AI answers from CURRENT/RECENT — STALE never claimed as now
+  → timeout/denied/unavailable recorded distinctly; transient errors clear on next user turn
+  → pending_client_capability enables generic “try again” without hardcoding phrases
+```
+
+| Concept | Storage | Notes |
+|---------|---------|--------|
+| LocationSignal | `location_signals` | TTL **2h** via `expires_at`; not Memory |
+| PresenceContext | `user_presence` | Latest per user; AI consumes `for_ai()` / broker slice |
+| Preference | `users.settings.location_mode` | `off` \| `while_using` (≠ browser permission) |
+| Freshness | CURRENT ≤5m, RECENT ≤30m, else STALE | UNKNOWN if none |
+
+Native / background: **unsupported / unavailable**. No geofence→action. Residence remains Profile/Memory.
+
+**Canonical:** Location is sensor evidence. Presence is contextual state. Meaning remains governed/AI-interpreted. Memory remains governed.
+
 ## Prompt V2.6.2 — Context change & turn-scoped idempotency (2026-08-15)
 
 Invariant: **New evidence may invalidate persisted state. Idempotency is execution safety, not a ban on future adaptation.**

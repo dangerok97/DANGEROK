@@ -1,6 +1,13 @@
 /**
  * Production entry into AI Core — frontend is not cognition.
  * Starts/resumes via API then navigates to /ora/{sessionId}.
+ *
+ * Canonical Home handoff:
+ * - Backend runs ONE cognitive turn on start/message (persists user message).
+ * - Response may include ora_text and/or pending_turn / client_actions.
+ * - Navigation carries ONLY opaque session id (never user text / coords).
+ * - OraConversationScreen mount loads history + pending_turn and fulfills
+ *   client capabilities / renders completed answers — never re-sends the text.
  */
 import type { Router } from 'expo-router';
 import { api } from '@/src/api/client';

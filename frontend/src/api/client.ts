@@ -449,9 +449,16 @@ export const api = {
       mode?: string;
       route?: string;
       entry_point?: string;
-      history?: Array<{ role?: string; text?: string; kind?: string }>;
+      history?: Array<{ role?: string; text?: string; kind?: string; message_id?: string }>;
       sources?: Array<{ title?: string; url?: string }>;
       working_hint?: string | null;
+      client_actions?: Array<{ type?: string; reason?: string; refresh?: boolean }>;
+      pending_turn?: {
+        id?: string | null;
+        status?: string;
+        capability?: string | null;
+        client_actions?: Array<{ type?: string; reason?: string; refresh?: boolean }>;
+      };
       ai_calls?: number;
       tool_calls?: number;
       error?: string;
@@ -469,6 +476,7 @@ export const api = {
         display_name?: string;
         mime_type?: string;
       }>;
+      client_message_id?: string;
     },
   ) =>
     request<{
@@ -478,17 +486,88 @@ export const api = {
       question?: string | null;
       mode?: string;
       route?: string;
-      history?: Array<{ role?: string; text?: string; kind?: string }>;
+      history?: Array<{ role?: string; text?: string; kind?: string; message_id?: string }>;
       sources?: Array<{ title?: string; url?: string }>;
       working_hint?: string | null;
-      ai_calls?: number;
-      tool_calls?: number;
+      client_actions?: Array<{ type?: string; reason?: string; refresh?: boolean }>;
+      pending_turn?: {
+        id?: string | null;
+        status?: string;
+        capability?: string | null;
+        client_actions?: Array<{ type?: string; reason?: string; refresh?: boolean }>;
+      };
       attachments?: Array<Record<string, unknown>>;
       error?: string;
     }>(`/conversation/ai-core/${sessionId}/message`, {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+  aiCoreClientResume: (
+    sessionId: string,
+    body?: { completed?: string[] },
+  ) =>
+    request<{
+      ok: boolean;
+      session_id: string;
+      ora_text?: string;
+      question?: string | null;
+      mode?: string;
+      sources?: Array<{ title?: string; url?: string }>;
+      working_hint?: string | null;
+      client_actions?: Array<{ type?: string; reason?: string; refresh?: boolean }>;
+      pending_turn?: {
+        id?: string | null;
+        status?: string;
+        client_actions?: Array<{ type?: string; reason?: string; refresh?: boolean }>;
+      };
+      history?: Array<{ role?: string; text?: string; kind?: string; message_id?: string }>;
+      error?: string;
+    }>(`/conversation/ai-core/${sessionId}/client-resume`, {
+      method: 'POST',
+      body: JSON.stringify(body || {}),
+    }),
+  locationGetPreference: () =>
+    request<{
+      ok: boolean;
+      mode: 'off' | 'while_using';
+      background_available?: boolean;
+      native_available?: boolean;
+    }>('/location/preference'),
+  locationSetPreference: (mode: 'off' | 'while_using') =>
+    request<{ ok: boolean; mode: 'off' | 'while_using' }>('/location/preference', {
+      method: 'PUT',
+      body: JSON.stringify({ mode }),
+    }),
+  locationPostSignal: (body: {
+    latitude: number;
+    longitude: number;
+    accuracy_meters?: number;
+    session_id?: string;
+    reverse_geocode?: boolean;
+  }) =>
+    request<{
+      ok: boolean;
+      signal_id?: string;
+      presence?: Record<string, unknown>;
+      error?: string;
+    }>('/location/signal', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  locationPermissionOutcome: (
+    state:
+      | 'denied'
+      | 'unavailable'
+      | 'not_requested'
+      | 'timeout'
+      | 'position_unavailable',
+  ) =>
+    request<{ ok: boolean }>('/location/permission-outcome', {
+      method: 'POST',
+      body: JSON.stringify({ state }),
+    }),
+  locationGetPresence: () =>
+    request<{ ok: boolean; presence?: Record<string, unknown> }>('/location/presence'),
   aiCoreFileUpload: async (
     file: { uri: string; name: string; type: string },
     sessionId?: string | null,
@@ -544,7 +623,14 @@ export const api = {
       ok: boolean;
       session_id: string;
       ora_text?: string;
-      history?: Array<{ role?: string; text?: string; kind?: string }>;
+      history?: Array<{ role?: string; text?: string; kind?: string; message_id?: string }>;
+      pending_turn?: {
+        id?: string | null;
+        status?: string;
+        capability?: string | null;
+        client_actions?: Array<{ type?: string; reason?: string; refresh?: boolean }>;
+      };
+      client_actions?: Array<{ type?: string; reason?: string; refresh?: boolean }>;
       active_goal?: Record<string, unknown>;
       route?: string;
       error?: string;

@@ -71,3 +71,11 @@ ALL_ROUTERS = [
     life_os_router.router,
     llm_router,
 ]
+
+# Foreground location + presence (V2.7.1)
+try:
+    from location.router import router as location_router
+
+    ALL_ROUTERS.append(location_router)
+except Exception:
+    pass
