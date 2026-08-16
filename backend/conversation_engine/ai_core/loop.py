@@ -5,6 +5,7 @@ import json
 import logging
 import re
 import time
+import uuid
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Set
 
 from conversation_engine.ai_core.context_broker import ContextBroker, context_payload_stats
@@ -29,7 +30,7 @@ from conversation_engine.ai_core.tools.registry import (
     tool_signature,
 )
 from conversation_engine.ai_core.trace import add_step, new_trace, public_trace
-from conversation_engine.models import ConversationSession
+from conversation_engine.models import ConversationSession, now_iso
 
 logger = logging.getLogger("ora.ai_core.loop")
 
@@ -75,6 +76,53 @@ _PERSIST_CLAIM_RE = re.compile(
     r"here\s+is\s+(your|the)\s+(plan|material|session)"
     r")\b"
 )
+# Current-location questions must go through location capabilities (consent bridge).
+_LOCATION_NOW_ASK_RE = re.compile(
+    r"(?i)\b("
+    r"dove\s+sono(\s+adesso)?|"
+    r"where\s+am\s+i|"
+    r"posizione\s+attuale|"
+    r"current\s+location|"
+    r"my\s+location\s+now"
+    r")\b"
+)
+_LOCATION_CAPS = frozenset(
+    {
+        "get_current_location",
+        "get_current_presence",
+        "get_recent_presence_context",
+    }
+)
+
+
+def _has_terminal_location_obs(observations: List[Dict[str, Any]]) -> bool:
+    """True when a location tool already returned a terminal (non-bridge) result."""
+    for o in observations:
+        if not isinstance(o, dict):
+            continue
+        if o.get("name") not in _LOCATION_CAPS:
+            continue
+        if o.get("status") == "needs_client":
+            continue
+        payload = o.get("payload") or {}
+        pstatus = str(payload.get("status") or "")
+        if pstatus in (
+            "stale",
+            "needs_client",
+            "consent_required",
+            "permission_required",
+        ):
+            continue
+        if payload.get("needs_client") and pstatus not in (
+            "ok",
+            "denied",
+            "unavailable",
+            "timeout",
+            "error",
+        ):
+            continue
+        return True
+    return False
 # Claims that saved material was adapted — require update_object observation.
 _ADAPT_CLAIM_RE = re.compile(
     r"(?i)\b("
@@ -98,6 +146,7 @@ async def run_cognitive_loop(
     db=None,
     decision_fn: Optional[DecisionFn] = None,
     max_steps: int = MAX_STEPS,
+    resume_client: bool = False,
 ) -> CognitiveTurnResult:
     t0 = time.perf_counter()
     trace = new_trace()
@@ -105,8 +154,22 @@ async def run_cognitive_loop(
     broker = ContextBroker(db)
     st = state_mod.get_ai_state(sess)
 
-    state_mod.append_turn(st, role="user", text=user_message)
-    add_step(trace, event="TURN", user_message=user_message[:200])
+    # Client-resume continues the SAME user turn — do not duplicate recent_turns.
+    if not resume_client:
+        state_mod.append_turn(st, role="user", text=user_message)
+        # New user message: allow another foreground refresh after timeout/unavailable.
+        if db is not None and sess.user_id:
+            try:
+                from location.service import LocationService
+
+                await LocationService(db).clear_transient_acquisition_error(sess.user_id)
+            except Exception:
+                pass
+    add_step(
+        trace,
+        event="TURN_RESUME" if resume_client else "TURN",
+        user_message=user_message[:200],
+    )
 
     context_facts = await broker.retrieve(
         user_id=sess.user_id,
@@ -159,6 +222,7 @@ async def run_cognitive_loop(
     public_sources: List[Dict[str, str]] = []
     working_hint: Optional[str] = None
     persist_nudge_used = False
+    location_nudge_used = False
     life_os_writes_this_turn = 0
     update_object_ok_this_turn = False
 
@@ -351,6 +415,45 @@ async def run_cognitive_loop(
         mode = decision.response_mode
         if mode in ("answer", "ask", "finish", "act"):
             ora = _compose_user_text(decision)
+            # Location-before-claim: current-location asks (and pending refresh retries)
+            # must call location caps so the FE consent / geolocation bridge can run.
+            pending_loc = st.get("pending_client_capability") or {}
+            pending_loc_cap = str(pending_loc.get("capability") or "")
+            force_loc = pending_loc_cap in _LOCATION_CAPS
+            has_loc_obs = _has_terminal_location_obs(observations)
+            if (
+                mode in ("answer", "ask", "finish")
+                and not location_nudge_used
+                and not has_loc_obs
+                and step + 1 < max_steps
+                and (
+                    force_loc
+                    or _LOCATION_NOW_ASK_RE.search(user_message or "")
+                )
+            ):
+                location_nudge_used = True
+                observations.append(
+                    Observation(
+                        kind="system",
+                        name="location_before_claim",
+                        status="nudge",
+                        payload={
+                            "failure_code": "LOCATION_CAPABILITY_REQUIRED",
+                            "reason": (
+                                "A current-location capability is still pending or the user "
+                                "asked for current device location. Call get_current_location "
+                                "(response_mode=tool) before answering. "
+                                "STALE/needs_client observations are not final — refresh via the "
+                                "client bridge. Do not claim permission is disabled unless the "
+                                "observation status is denied. "
+                                "requires_consent means the client will show ORA consent."
+                            ),
+                            "pending_capability": pending_loc_cap or "get_current_location",
+                        },
+                    ).model_dump()
+                )
+                add_step(trace, event="LOCATION_NUDGE")
+                continue
             # Persist-before-claim: one soft re-entry if AI narrates durable writes
             # without a successful write observation this turn.
             if (
@@ -547,10 +650,85 @@ async def run_cognitive_loop(
                     "session_id": sess.id,
                     "db": db,
                     "reasoning_epoch": epoch,
+                    "platform": "web",
                 },
             )
             tool_calls += 1
             trace["tool_calls"] = tool_calls
+            # Client-side capability bridge (foreground location) — pause for FE
+            if obs.status == "needs_client":
+                ca = (obs.payload or {}).get("client_action")
+                # Defensive: STALE historically set needs_client without client_action
+                if not (isinstance(ca, dict) and ca.get("type")):
+                    if (obs.payload or {}).get("needs_client") or (
+                        (obs.payload or {}).get("status") in (
+                            "stale",
+                            "needs_client",
+                            "consent_required",
+                        )
+                    ):
+                        ca = {
+                            "type": "request_foreground_location",
+                            "reason": "Refresh foreground location for this turn.",
+                            "refresh": True,
+                        }
+                if isinstance(ca, dict) and ca.get("type"):
+                    observations.append(obs.model_dump())
+                    st["pending_client_resume_message"] = user_message
+                    st["pending_client_capability"] = {
+                        "capability": cap,
+                        "action": str(ca.get("type"))[:64],
+                        "refresh": bool(ca.get("refresh")),
+                    }
+                    # Generic pending-turn contract (survives Home → /ora navigation)
+                    st["pending_turn"] = {
+                        "id": f"pt_{uuid.uuid4().hex[:12]}",
+                        "status": "awaiting_client",
+                        "capability": cap,
+                        "client_actions": [ca],
+                        "user_message_preview": (user_message or "")[:80],
+                        "created_at": now_iso(),
+                    }
+                    st["observations"] = observations[-12:]
+                    state_mod.save_ai_state(sess, st)
+                    add_step(
+                        trace,
+                        event="CLIENT_ACTION",
+                        name=str(ca.get("type"))[:64],
+                    )
+                    return CognitiveTurnResult(
+                        ok=True,
+                        mode="answer",
+                        ora_text="",
+                        session_id=sess.id,
+                        active_goal=ActiveGoal.model_validate(
+                            st.get("active_goal") or {}
+                        ),
+                        memory_candidates=[],
+                        trace=public_trace(trace),
+                        ai_calls=ai_calls,
+                        tool_calls=tool_calls,
+                        context_calls=int(trace.get("context_calls") or 0),
+                        external_queries=external_queries,
+                        elapsed_ms=int((time.perf_counter() - t0) * 1000),
+                        sources=[],
+                        working_hint="Posizione…",
+                        client_actions=[ca],
+                    )
+            # Fresh CURRENT/RECENT location — clear pending bridge so retries stop
+            if (
+                cap in _LOCATION_CAPS
+                and obs.status == "ok"
+                and not (obs.payload or {}).get("needs_client")
+            ):
+                st.pop("pending_client_capability", None)
+                st.pop("pending_client_resume_message", None)
+                st.pop("pending_client_actions", None)
+                pt = dict(st.get("pending_turn") or {})
+                if pt:
+                    pt["status"] = "completed"
+                    pt.pop("client_actions", None)
+                    st["pending_turn"] = pt
             if cap == "web_search":
                 external_queries += 1
                 trace["external_queries"] = external_queries

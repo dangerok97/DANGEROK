@@ -204,7 +204,7 @@ async def build_life_os_ai_payload(db, sess, state: Dict[str, Any]) -> Dict[str,
         "recent_object_interactions": recent_ix,
         "object_ids": (state.get("object_ids") or [])[:8],
         "session_files": list(state.get("session_files") or [])[:8],
-        "runtime_capabilities": _runtime_caps_safe(),
+        "runtime_capabilities": await _runtime_caps_merged(db, sess.user_id),
         "reasoning_epoch": state.get("reasoning_epoch"),
         "last_mutations": list(state.get("last_mutations") or [])[-4:],
         "note": (
@@ -218,15 +218,29 @@ async def build_life_os_ai_payload(db, sess, state: Dict[str, Any]) -> Dict[str,
             "Idempotency only blocks identical mutations inside THIS reasoning turn. "
             "Use get_object for full blocks before rewriting. "
             "Conversational-only answers do not change Goal Workspace. "
-            "Never claim you read/updated a file/plan/object without a matching observation."
+            "Never claim you read/updated a file/plan/object without a matching observation. "
+            "Device presence (location caps) is not residence."
         ),
     }
+
+
+async def _runtime_caps_merged(db, user_id: str) -> Dict[str, str]:
+    caps = _runtime_caps_safe()
+    try:
+        from location.service import LocationService, runtime_location_capabilities
+
+        pref = await LocationService(db).get_preference(user_id)
+        caps.update(runtime_location_capabilities(preference=pref, platform="web"))
+    except Exception:
+        caps.setdefault("current_location", "unavailable")
+        caps.setdefault("background_location", "unavailable")
+    return caps
 
 
 def _runtime_caps_safe() -> Dict[str, str]:
     try:
         from conversation_engine.ai_core.files.service import runtime_file_capabilities
 
-        return runtime_file_capabilities()
+        return dict(runtime_file_capabilities())
     except Exception:
         return {"file_upload": "available"}

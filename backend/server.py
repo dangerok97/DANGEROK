@@ -291,6 +291,15 @@ async def startup():
     except Exception:
         logger.exception("ContextFile indexes failed (non-fatal)")
 
+    # Location signals + presence (V2.7.1 — short TTL raw GPS)
+    try:
+        from location.service import LocationService
+
+        await LocationService(db).ensure_indexes()
+        logger.info("Location indexes ready")
+    except Exception:
+        logger.exception("Location indexes failed (non-fatal)")
+
     # Sync capability registry to Mongo (idempotent, structural fields are
     # overwritten from code; ops metadata is preserved).
     try:

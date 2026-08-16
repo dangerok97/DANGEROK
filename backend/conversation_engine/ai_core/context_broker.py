@@ -24,6 +24,7 @@ ALLOWED_CATEGORIES = frozenset(
         "study",
         "goal",
         "general",
+        "presence",
     }
 )
 
@@ -53,13 +54,24 @@ _CATEGORY_HINTS: Dict[str, Tuple[str, ...]] = {
         "home",
         "vivi",
         "vivo",
-        "dove",
+        "dove vivo",
+        "dove abito",
         "città",
         "citta",
         "city",
         "address",
         "indirizzo",
         "casa",
+    ),
+    "presence": (
+        "presence",
+        "current location",
+        "dove sono",
+        "where am i",
+        "posizione attuale",
+        "adesso dove",
+        "device location",
+        "foreground location",
     ),
     "employment": (
         "employment",
@@ -168,15 +180,81 @@ class ContextBroker:
         if stage == "A":
             return _finalize(facts, limit=STAGE_A_MAX)
 
-        # --- Stage B: Profile + Memory, filtered by semantic category ---
+        # --- Stage B: Profile + Memory + minimized presence ---
         facts.extend(
             await self._profile_facts(user_id, categories=categories, query=query or "")
         )
         facts.extend(
             await self._memory_facts(user_id, categories=categories, query=query or "")
         )
+        if "presence" in categories or "general" in categories:
+            facts.extend(await self._presence_facts(user_id))
 
         return _finalize(facts, limit=STAGE_B_MAX)
+
+    async def _presence_facts(self, user_id: str) -> List[ContextFact]:
+        """Minimized presence — never a GPS trail; never overwrites residence."""
+        out: List[ContextFact] = []
+        try:
+            from location.service import LocationService
+
+            presence = await LocationService(self.db).build_presence(user_id)
+            slice_ = presence.for_broker()
+        except Exception as e:
+            logger.info("context broker presence soft-fail: %s", type(e).__name__)
+            return out
+        freshness = slice_.get("freshness") or "UNKNOWN"
+        if freshness == "UNKNOWN":
+            stmt = (
+                "Device presence: unknown — no usable current location signal. "
+                "Do not claim where the user is now."
+            )
+        elif freshness == "STALE":
+            label = slice_.get("label")
+            stmt = (
+                "Device presence is STALE"
+                + (f" (last coarse place: {label})" if label else "")
+                + ". Do NOT say the user is there now."
+            )
+        else:
+            label = slice_.get("label")
+            locality = slice_.get("locality")
+            municipality = slice_.get("municipality")
+            region = slice_.get("region")
+            if label or locality or municipality:
+                parts = [f"display={label}"] if label else []
+                if locality:
+                    parts.append(f"locality={locality}")
+                if municipality and (
+                    not locality or municipality.lower() != str(locality).lower()
+                ):
+                    parts.append(f"municipality={municipality}")
+                if region:
+                    parts.append(f"region={region}")
+                stmt = (
+                    f"Current device presence ({freshness}): {'; '.join(parts)}. "
+                    "This is NOT durable residence. Prefer display/locality when answering; "
+                    "mention municipality only as admin context when helpful."
+                )
+            elif slice_.get("coordinates"):
+                stmt = (
+                    f"Current device presence ({freshness}): coordinates available. "
+                    "This is NOT durable residence. Prefer place_label when answering."
+                )
+            else:
+                stmt = f"Current device presence freshness={freshness}."
+        out.append(
+            ContextFact(
+                statement=stmt[:280],
+                fact=stmt[:280],
+                source="presence",
+                authority="device_signal",
+                status="known" if freshness in ("CURRENT", "RECENT") else "ambiguous",
+                timestamp=slice_.get("last_seen_at"),
+                ref="presence:current",
+            )
+        )
+        return out
 
     async def _account_facts(self, user_id: str) -> List[ContextFact]:
         out: List[ContextFact] = []

@@ -228,6 +228,8 @@ class MessageBody(BaseModel):
     skip: bool = False
     # V2.6 — opaque ContextFile / document refs (not binary)
     attachments: Optional[List[Dict[str, Any]]] = None
+    # Client-generated message identity (idempotency; not text-based dedupe)
+    client_message_id: Optional[str] = None
 
 
 class AttachmentRef(BaseModel):

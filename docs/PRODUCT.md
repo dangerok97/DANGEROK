@@ -1,6 +1,6 @@
 # ORA — Product (struttura reale)
 
-Ultimo aggiornamento: 2026-08-15 — Prompt V2.6.2 context change & persistent replanning.
+Ultimo aggiornamento: 2026-08-16 — Home → ORA first-turn handoff + location presence.
 
 ## ORA (production conversation)
 
@@ -12,6 +12,14 @@ Ultimo aggiornamento: 2026-08-15 — Prompt V2.6.2 context change & persistent r
 **`/ora-ai` is DEV/diagnostic only** — not linked from Home, Ambient, Continue, or Workspace.
 
 There is one ORA: you talk, ORA understands context, may research, creates and adapts useful work, and keeps plans organized. Not a menu of domain wizards. Revealable cards use a single front/back contract. Home / Contesti / Goal Workspace share the same plan identities. Rich text for answers (no raw `###` / `$$` as UX).
+
+### Device presence vs residence (V2.7.1)
+
+**Canonical:** Location is sensor evidence. Presence is contextual state. Meaning remains governed/AI-interpreted. Memory remains governed.
+
+On **web**, ORA can ask for **foreground** device location while you use the app (never on silent launch). Settings → Posizione: *Disattivata* or *Durante l'uso di ORA*. Background location is **not available**. Native apps: not yet supported. If the last fix is outdated, ORA refreshes via the browser (Chrome Location already allowed does **not** require re-enabling settings — only ORA’s own preference must be *Durante l'uso*). Failed refresh wording stays honest: timeout ≠ permission denied. Asking from **Home** opens `/ora` and completes the same turn automatically (including location) — you should not need to type the question twice.
+
+**Residence** (Profile / “dove vivo”) and **current presence** (“dove sono adesso”) are different. Device GPS does not overwrite where you live. Temporary user statements and goal-specific origins stay authoritative for that conversation. Raw GPS is short-lived sensor evidence — never Life Memory.
 
 ### Files as evidence (V2.6 / V2.6.1 / V2.6.2)
 

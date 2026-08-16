@@ -52,12 +52,13 @@ export default function SettingsScreen() {
     calendar_auto_add_enabled: boolean;
     calendar_auto_add_threshold: number;
   } | null>(null);
+  const [locationMode, setLocationMode] = useState<'off' | 'while_using'>('off');
   const [googleRequest, , googlePrompt] = useGoogleAuthRequest();
 
   const load = useCallback(async () => {
     setError(null);
     try {
-      const [r, daily, aConfig, aInstances, idents, llm, writeStatus, dPrefs] = await Promise.all([
+      const [r, daily, aConfig, aInstances, idents, llm, writeStatus, dPrefs, locPref] = await Promise.all([
         api.googleCalendarInstances(),
         api.dailyToday().catch(() => null),
         // Only iOS shows Apple settings — but we still fetch config to
@@ -68,6 +69,7 @@ export default function SettingsScreen() {
         api.llmProviders().catch(() => null),
         api.googleCalendarWriteStatus().catch(() => null),
         api.documentPreferences().catch(() => null),
+        api.locationGetPreference().catch(() => null),
       ]);
       setInstance((r.items || [])[0] || null);
       setEventsCount(daily?.total_events ?? null);
@@ -77,6 +79,8 @@ export default function SettingsScreen() {
       setLlmStatus(llm);
       setGcalWrite(writeStatus);
       setDocPrefs(dPrefs);
+      if (locPref?.mode === 'while_using') setLocationMode('while_using');
+      else setLocationMode('off');
     } catch (e: any) {
       setError(humanizeError(e));
     } finally {
@@ -258,6 +262,55 @@ export default function SettingsScreen() {
               }}
             />
           </View>
+        </View>
+
+        <Text style={styles.sectionLabel}>Posizione</Text>
+        <View style={styles.card} testID="settings-location">
+          <Text style={styles.cardTitle}>Posizione dispositivo</Text>
+          <Text style={styles.cardMeta}>
+            Solo mentre usi ORA (web). Lo sfondo non è disponibile in questa versione.
+          </Text>
+          {([
+            { id: 'off' as const, label: 'Disattivata' },
+            { id: 'while_using' as const, label: "Durante l'uso di ORA" },
+          ]).map((opt) => {
+            const selected = locationMode === opt.id;
+            return (
+              <Pressable
+                key={opt.id}
+                testID={`location-mode-${opt.id}`}
+                onPress={async () => {
+                  haptic('tap');
+                  setBusy(`loc_${opt.id}`);
+                  setError(null);
+                  try {
+                    const res = await api.locationSetPreference(opt.id);
+                    setLocationMode(res.mode === 'while_using' ? 'while_using' : 'off');
+                    haptic('success');
+                  } catch (e: any) {
+                    haptic('error');
+                    setError(humanizeError(e));
+                  } finally {
+                    setBusy(null);
+                  }
+                }}
+                style={({ pressed }) => [styles.aiRow, pressed && styles.pressed]}
+                accessibilityRole="radio"
+                accessibilityState={{ selected }}
+              >
+                <View style={[styles.radio, selected && styles.radioOn]} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.aiLabel}>{opt.label}</Text>
+                </View>
+                {busy === `loc_${opt.id}` ? (
+                  <ActivityIndicator color={tokens.color.onSurface} />
+                ) : null}
+              </Pressable>
+            );
+          })}
+          <Text style={[styles.cardMeta, { marginTop: 8 }]}>
+            In background: non disponibile (futuro).
+          </Text>
         </View>
 
         <Text style={styles.sectionLabel}>Metodi di accesso</Text>

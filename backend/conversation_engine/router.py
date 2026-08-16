@@ -164,6 +164,28 @@ async def ai_core_message(session_id: str, body: MessageBody, user=Depends(get_c
         session_id,
         text=body.text or "",
         attachments=list(body.attachments or []),
+        client_message_id=getattr(body, "client_message_id", None),
+    )
+    if not res.get("ok") and res.get("error"):
+        _raise(res)
+    return res
+
+
+@router.post("/ai-core/{session_id}/client-resume")
+async def ai_core_client_resume(
+    session_id: str,
+    body: dict | None = None,
+    user=Depends(get_current_user),
+):
+    """Resume cognition after a client capability (foreground location)."""
+    from conversation_engine.ai_core.orchestrator import AICoreOrchestrator
+
+    orch = AICoreOrchestrator(db)
+    completed = list((body or {}).get("completed") or [])
+    res = await orch.client_resume(
+        user["user_id"],
+        session_id,
+        completed=completed,
     )
     if not res.get("ok") and res.get("error"):
         _raise(res)

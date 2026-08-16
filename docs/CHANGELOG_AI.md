@@ -1,5 +1,150 @@
 # ORA — AI Changelog
 
+## 2026-08-16 — V2.7.1 Home → ORA first-turn handoff
+
+### Exact root cause
+
+Home `startOraConversation` correctly called `POST /ai-core/start` (runs `run_cognitive_loop`, may return `client_actions` / `ora_text`), then **discarded the response** and navigated with only `sessionId`. `OraConversationScreen` mount only `GET` history and never resumed `pending_turn` / `client_actions`. Location worked on a second in-ORA send; the first user bubble could vanish due to **text-based** consecutive-user dedupe + backend text duplicate skip.
+
+### Fix
+
+- Persist generic `pending_turn` (`awaiting_client` + `client_actions` + id) in AI state on client pause
+- `GET /ai-core/{id}` returns `pending_turn` + `client_actions` for mount resume
+- ORA mount fulfills pending client actions once (idempotent Set) → client-resume → render; never re-sends user text
+- History / message identity via `message_id` / `step_id`; remove text-only dedupe
+- `client_message_id` idempotency on message endpoint
+
+### Tests
+
+- `test_ai_native_home_handoff_v271.py` + location v271: **52 passed**
+- V1 / life_os / context_change: **45 passed**
+- `tsc --noEmit`: **ok**
+
+Live Home Chrome re-QA: **pending CPO** after backend reload.
+
+**NO COMMIT / NO PUSH.** stash@{0} untouched.
+
+---
+
+## 2026-08-16 — V2.7.1 STALE → fresh foreground refresh (live fix)
+
+### Exact root cause
+
+STALE `get_current_location` set `needs_client: True` but historically could omit `client_action`. The cognitive loop only pauses when `needs_client` **and** `client_action.type` exist — so the FE never ran `navigator.geolocation`, never POSTed `/location/signal`, and the model answered from the stale observation (often with incorrect “could not obtain / permission” wording).
+
+Place-label “Vibo Marina” was already correct; Chrome site Location was already granted. First failing layer = **capability → loop bridge** (missing/ignored `client_action`), not browser permission and not reverse-geocode.
+
+### Fix
+
+- STALE + ORA `while_using` → `client_action: request_foreground_location` (`refresh: true`)
+- STALE + ORA `off` → still `request_location_permission` (product consent ≠ Chrome)
+- Loop: defensive synthesize `client_action` if `needs_client` without one; `pending_client_capability` for generic follow-up retries; location nudge ignores non-terminal STALE/needs_client obs
+- Preserve acquisition_error on failed refresh (timeout/denied/unavailable) so resume is terminal; clear transient errors on next user turn for retry
+- FE: skip consent sheet on `request_foreground_location`; `maximumAge: 0` when `refresh`; distinct outcome recording; signal POST failure → resume with failure state
+- Honesty: permission wording only on `denied`
+
+### Tests
+
+- `test_ai_native_location_v271.py`: **46 passed**
+- AI-native V1 / life_os v23 / context_change v262: **45 passed**
+- Frontend `tsc --noEmit`: **ok**
+
+### Live browser QA
+
+Instrumented path verified in unit/loop tests. Full Chrome re-QA of Dove sono / retry after backend reload: **pending CPO** (no commit).
+
+**NO COMMIT / NO PUSH.** stash@{0} untouched.
+
+---
+
+## 2026-08-16 — V2.7.1 live label trace: CURRENT cache + settlement order
+
+### Exact root cause (proven on live Mongo)
+
+1. Fresh `/ora` still reused **user-scoped** CURRENT/RECENT `LocationSignal` → no new GPS, no reverse-geocode.
+2. Persisted `place_label=Vibo Valentia` from old municipality-only mapper (`place_resolver_version` absent).
+3. Provider on that signal actually returned `village=Vibo Marina` + `neighbourhood=Pennello` + `town=Vibo Valentia`; early v2 resolver preferred neighbourhood first.
+
+### Fix
+
+- `place_resolver_version` + semantic re-resolve from stored coords when version outdated (no wipe, no forced prompt if GPS still fresh)
+- Settlement-first locality order: village/suburb before neighbourhood/quarter
+- Version bump `v2_locality_settlement`
+
+Live upgrade on stored signal → display **Vibo Marina**, municipality **Vibo Valentia**. Signal now STALE → next ask may refresh GPS via needs_client.
+
+**NO COMMIT / NO PUSH.**
+
+---
+
+## 2026-08-16 — V2.7.1 place-label precision (locality vs municipality)
+
+### Live QA
+
+“Sei a Vibo Valentia” while physically in Vibo Marina (frazione). GPS consistent; mapper wrong.
+
+### Root cause
+
+`nominatim_reverse_city` used `zoom=10` (hides locality) and preferred `city`/`town` before `village`/`suburb`.
+
+### Fix
+
+- `location/place_label.py`: generic resolver; Nominatim zoom=16; structured `display_label` / locality / municipality / region / country
+- Accuracy gate: poor GPS → admin-only label
+- Life Setup keeps city-only reverse helper
+
+**NO COMMIT / NO PUSH.**
+
+---
+
+## 2026-08-16 — V2.7.1 live QA fix: foreground geolocation consent bridge
+
+### Root cause
+
+Default `location_mode=off` was advertised to the model as `runtime_capabilities.current_location=disabled_by_user`. On “Dove sono adesso?” the LLM answered without calling `get_current_location`, so no `client_actions` reached the FE and Chrome never prompted.
+
+### Fix
+
+- Caps: `requires_consent` (not device-disabled); observation `consent_required` + `request_location_permission`
+- Loop: location-before-claim nudge when answering a current-location ask without a location tool obs
+- Distinct outcomes: denied / timeout / position_unavailable / unavailable
+- Resume: `resume_client=True` does not duplicate user in `recent_turns`; history/UI dedupe guards
+- FE: consent sheet → preference → `getCurrentPosition`; sending lock
+
+**NO COMMIT / NO PUSH.** stash@{0} untouched.
+
+---
+
+## 2026-08-15 — Prompt V2.7.1 Foreground location + PresenceContext (slice 1)
+
+### Request
+
+Implement foreground web location, short-lived LocationSignal, PresenceContext, AI Core location caps, Context Broker presence, permission honesty, minimal settings control, tests. No background/geofence/TravelFlow/MeaningfulPlace. No commit/push.
+
+### Decisions
+
+- Raw signal TTL **2 hours** (Mongo `expires_at` TTL index) — shorter than permissions registry’s illustrative 7-day consent metadata; raw GPS is sensor evidence, not Memory.
+- Freshness: CURRENT ≤5m, RECENT ≤30m, else STALE; no signal → UNKNOWN.
+- Bridge: capability `needs_client` → `client_actions` on turn → FE geolocation → `POST /api/location/signal` → `POST .../client-resume`.
+- Reverse geocode: reuse `nominatim_reverse_city` (Life Setup); soft-fail → coordinate-only presence.
+- Native: unsupported (no `expo-location`); background: unavailable.
+
+### Files (main)
+
+- `backend/location/*` (models, repo, service, caps, router)
+- AI Core: registry, loop pause, orchestrator resume, prompt, context_broker, trace redact, life_os_context caps
+- FE: `foregroundGeo.ts`, LocationPermissionSheet, OraConversationScreen bridge, settings Posizione, client APIs
+- Tests: `test_ai_native_location_v271.py`
+
+### Tests
+
+- Location suite + V1–V2.6.2 focused: **180 passed** (`-n0`)
+- Live interactive browser permission QA: **pending CPO**
+
+**NO COMMIT / NO PUSH.** stash@{0} untouched.
+
+---
+
 ## 2026-08-15 — Prompt V2.6.2 Context change & persistent replanning
 
 ### Request

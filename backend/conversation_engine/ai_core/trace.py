@@ -24,18 +24,35 @@ def new_trace() -> Dict[str, Any]:
 
 
 def add_step(trace: Dict[str, Any], **fields: Any) -> None:
-    # Strip oversized payloads
+    # Strip oversized payloads + exact coordinates
     safe = {}
     for k, v in fields.items():
-        if k in ("profile_dump", "raw_document", "secrets"):
+        if k in ("profile_dump", "raw_document", "secrets", "latitude", "longitude", "coordinates"):
             continue
         if isinstance(v, str) and len(v) > 500:
             safe[k] = v[:500] + "…"
         elif isinstance(v, list) and len(v) > 12:
             safe[k] = v[:12]
+        elif isinstance(v, dict):
+            safe[k] = _redact_coords(v)
         else:
             safe[k] = v
     trace.setdefault("steps", []).append(safe)
+
+
+def _redact_coords(obj: Any) -> Any:
+    if isinstance(obj, dict):
+        out = {}
+        for k, v in obj.items():
+            lk = str(k).lower()
+            if lk in ("latitude", "longitude", "lat", "lon", "lng", "coordinates"):
+                out[k] = "[redacted]"
+            else:
+                out[k] = _redact_coords(v)
+        return out
+    if isinstance(obj, list):
+        return [_redact_coords(x) for x in obj[:12]]
+    return obj
 
 
 def public_trace(trace: Dict[str, Any]) -> Dict[str, Any]:
@@ -59,11 +76,18 @@ def public_trace(trace: Dict[str, Any]) -> Dict[str, Any]:
             s.get("event")
             for s in (trace.get("steps") or [])
             if s.get("event")
-            in ("PERSIST_NUDGE", "WRITE_BUDGET", "TOOL_BUDGET", "OBJECT_BUDGET", "ARTIFACT_BUDGET")
+            in (
+                "PERSIST_NUDGE",
+                "WRITE_BUDGET",
+                "TOOL_BUDGET",
+                "OBJECT_BUDGET",
+                "ARTIFACT_BUDGET",
+                "CLIENT_ACTION",
+            )
         ][-6:],
     }
     if not tracing_enabled():
         return base
-    out = dict(trace)
+    out = _redact_coords(dict(trace))
     out.update(base)
     return out

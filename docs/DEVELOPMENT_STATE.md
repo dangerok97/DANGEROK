@@ -1,8 +1,66 @@
 # ORA — Development State
 
-Last updated: 2026-08-15 (Prompt V2.6.2 — context change & persistent replanning)
+Last updated: 2026-08-16 (V2.7.1 pre-commit gate — READY pending CPO commit command)
 
-## Prompt V2.6.2 — Context change & persistent replanning (this batch)
+## Prompt V2.7.1 — Home → ORA first-turn handoff (this batch)
+
+| Item | Stato |
+|------|--------|
+| Root cause: start response discarded; mount ignored pending client_actions | **fixed** |
+| Generic `pending_turn` on GET (not location-specific) | **yes** |
+| Mount fulfills awaiting_client once → client-resume | **yes** |
+| message_id identity; no text-only history dedupe | **yes** |
+| Home Ask ≡ in-ORA send (one user turn) | **yes** (unit) |
+| Live Home → Dove sono / Come mi chiamo | **pending CPO** |
+| Handoff + location tests | **52 passed** |
+| V1→V2.6.2 focused | **45 passed** |
+| TypeScript | **ok** |
+| stash@{0} | **untouched** |
+| Commit / push | **NO** |
+
+## Prompt V2.7.1 — STALE → fresh foreground refresh (prior)
+
+| Item | Stato |
+|------|--------|
+| Root cause: STALE `needs_client` without usable `client_action` / loop pause | **fixed** |
+| STALE + while_using → `request_foreground_location` (`refresh`) | **yes** |
+| Browser granted + ORA while_using → direct `getCurrentPosition` (no sheet) | **yes** |
+| `maximumAge: 0` on refresh; default 60s otherwise | **yes** |
+| timeout / denied / unavailable / POST failure distinct | **yes** |
+| pending_client_capability generic retry (no hardcoding “prova ora”) | **yes** |
+| Place-label resolver | **unchanged** this batch |
+| Unit tests location v271 | **46 passed** |
+| V1→V2.6.2 focused (core + life_os + context_change) | **45 passed** |
+| TypeScript `tsc --noEmit` | **ok** |
+| Live Chrome re-QA | **partial** — location OK on 2nd in-ORA send; Home first turn blocked until handoff fix |
+| Prompt 7.x stash@{0} | **untouched** |
+| Commit / push | **NO** — STOP for CPO |
+
+## Prompt V2.7.1 — Foreground location + PresenceContext (prior)
+
+| Item | Stato |
+|------|--------|
+| LocationSignal short-lived (TTL **2h**) user-scoped | **yes** |
+| PresenceContext CURRENT/RECENT/STALE/UNKNOWN | **yes** |
+| Web `navigator.geolocation` foreground bridge via `client_actions` | **yes** |
+| AI caps: get_current_location / get_current_presence / get_recent_presence_context | **yes** |
+| Context Broker minimized presence (≠ residence) | **yes** |
+| Settings: Disattivata / Durante l'uso — background **not available** | **yes** |
+| Quiet Premium permission sheet (no silent launch request) | **yes** |
+| Native foreground (`expo-location`) | **unsupported** (not installed) |
+| Background tracking / geofencing / proactive / routines | **NOT implemented** |
+| MeaningfulPlace / home-work inference / TravelFlow | **NOT this slice** |
+| Device must not overwrite residence | **enforced** |
+| Raw GPS → Life Memory / Life Map | **never** |
+| Unit tests `test_ai_native_location_v271.py` | **pass** |
+| V1→V2.6.2 focused regression | **180 passed** (`-n0`) |
+| Live browser QA (Dove sono / vivo / deny / stale) | **fix 2026-08-16** — false `disabled_by_user` skipped consent/geo; requires_consent + location nudge |
+| Live re-QA after consent fix | **partial** — label Vibo Marina OK; STALE refresh blocked until this batch |
+| Place-label precision (locality vs municipality) | **fixed 2026-08-16** — generic resolver; provider supports Vibo Marina at zoom≥14 |
+| Prompt 7.x stash@{0} | **untouched** |
+| Commit / push | **NO** — STOP for CPO / architecture review |
+
+## Prompt V2.6.2 — Context change & persistent replanning (prior)
 
 | Item | Stato |
 |------|--------|
