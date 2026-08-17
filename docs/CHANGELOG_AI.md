@@ -1,5 +1,31 @@
 # ORA — AI Changelog
 
+## 2026-08-17 — Google Login V2 multipiattaforma
+
+### Architettura
+
+- Web: Google Identity Services lazy, popup/callback `credential`; nessun token negli URL ORA
+- iOS/Android: `@react-native-google-signin/google-signin` `16.1.4`; development/EAS build, non Expo Go
+- Adapter unico consumato da Login e Settings; assenza config non monta provider e lascia Email/Register operativi
+- ID token effimero → backend ORA → JWT ORA; nessun access token Google persistito
+- Persistenza JWT atomica prima di aggiornare `AuthContext` e fare routing
+- Audience backend esplicite via `GOOGLE_ALLOWED_CLIENT_IDS`; fallback legacy documentato ai soli client Login
+- Errori temporanei JWKS → `503`; token invalidi → `401`; `email_verified` normalizzato rigorosamente
+- Google Login e Google Calendar OAuth restano contratti separati
+
+### Verifica iniziale
+
+- Frontend auth regression: **8 passed**
+- Backend `test_social_auth_unit.py`: **20 passed**
+- `expo config --type public` senza Google config: **ok**
+- V2.7.1 Home handoff + location: **52 passed**
+- TypeScript: **ok**; lint **0 errori** (42 warning preesistenti); Expo web export **ok**
+- Dev server offline `/login`: HTTP **200**; UI browser/Incognito/Google OAuth **non verificati** per runtime browser locale indisponibile
+
+**NO COMMIT / NO PUSH.** stash@{0} untouched.
+
+---
+
 ## 2026-08-16 — V2.7.1 Home → ORA first-turn handoff
 
 ### Exact root cause

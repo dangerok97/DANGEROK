@@ -23,32 +23,56 @@ Portale: [Google Cloud Console](https://console.cloud.google.com/)
 ### Client Web
 
 - Tipo: **Web application**
+- ORA web usa **Google Identity Services (GIS)** in modalità popup e riceve una `credential` ID token in callback.
 - Authorized JavaScript origins (dev) — **entrambi obbligatori** se usi entrambi gli host:
   - `http://127.0.0.1:8081`
   - `http://localhost:8081`
-- Authorized redirect URIs (dev, Expo AuthSession / `window.location.origin`) — **entrambi**:
-  - `http://127.0.0.1:8081`
-  - `http://localhost:8081`
-  - `https://auth.expo.io/@YOUR_EXPO_USERNAME/frontend` (se usi proxy Expo)
-- Se manca un host, Google mostra `redirect_uri_mismatch` / origin error su quell’URL (es. login OK su `127.0.0.1:8081` e fallisce su `localhost:8081`).
+- Produzione: aggiungi l'origin HTTPS esatto (schema + host + eventuale porta, senza path).
+- **Authorized redirect URIs:** non richiesti dal flusso GIS popup di ORA. Non aggiungere callback Calendar o URL contenenti token.
+- Se manca un origin, GIS non autorizza il frontend su quell’host.
 - Copia il **Client ID** → `GOOGLE_WEB_CLIENT_ID` e `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`
+- Imposta anche `GOOGLE_ALLOWED_CLIENT_IDS` con le audience effettivamente emesse (normalmente il Web/Server Client ID).
 
 ### Client iOS
 
 - Tipo: **iOS**
 - Bundle ID: `com.emergent.oradecisionengine.b7escs`
 - → `GOOGLE_IOS_CLIENT_ID` / `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`
+- `app.config.ts` deriva il reversed client ID e abilita il config plugin solo quando il valore è presente.
+- Richiede development build/EAS; **Expo Go non è il target supportato**.
 
 ### Client Android
 
 - Tipo: **Android**
 - Package: `com.emergent.oradecisionengine.b7escs`
-- SHA-1 (debug): da `keytool -list -v -keystore ~/.android/debug.keystore` (password `android`)
+- Registra gli SHA-1 reali: debug, development/EAS, release e Play App Signing quando applicabili. Non copiarli da esempi.
 - → `GOOGLE_ANDROID_CLIENT_ID` / `EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID`
+- Richiede development build/EAS con il modulo native installato.
 
-**Nota:** non riusare il solo client Web per iOS/Android in produzione. Il backend accetta come `aud` tutti i client ID configurati.
+Il native SDK usa anche il Web/Server Client ID per richiedere l'ID token destinato al backend. I client iOS/Android identificano l'app installata. Verifica l'`aud` reale e inserisci nell'allowlist soltanto le audience necessarie.
 
-Calendar OAuth (`GOOGLE_OAUTH_CLIENT_*`) resta un flusso **separato** (connettore).
+### Contratto runtime ORA
+
+Frontend (valori pubblici, nessun secret):
+
+```env
+EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=
+EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID=
+EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID=
+```
+
+Backend:
+
+```env
+GOOGLE_WEB_CLIENT_ID=
+GOOGLE_IOS_CLIENT_ID=
+GOOGLE_ANDROID_CLIENT_ID=
+GOOGLE_ALLOWED_CLIENT_IDS=
+```
+
+`GOOGLE_ALLOWED_CLIENT_IDS` è la allowlist esplicita. Se vuota, il fallback legacy accetta esclusivamente i tre client ID Login configurati. Non include mai `GOOGLE_OAUTH_CLIENT_ID`.
+
+Calendar OAuth (`GOOGLE_OAUTH_CLIENT_*`, secret, callback, scope e refresh token) resta un flusso **separato** dal Login e non viene riutilizzato automaticamente.
 
 ---
 
