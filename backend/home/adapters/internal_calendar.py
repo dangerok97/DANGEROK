@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 from typing import List, Tuple
 
 from home.models import ConnectionWarning, HomeItem
+from home.dedupe import canonical_title_time_key
 
 from ._util import now_iso, stable_id
 
@@ -60,7 +61,11 @@ async def load_internal_calendar(
             updated_at=d.get("updated_at") or now_iso(),
             meta={
                 "dedupe_key": f"life:{nid}",
-                "title_dedupe": f"{title.lower()}|{(start or '')[:13]}",
+                "title_dedupe": canonical_title_time_key(
+                    title,
+                    start,
+                    goal_id=attrs.get("goal_id"),
+                ),
                 "study_plan_id": attrs.get("study_plan_id"),
                 "study_session_id": attrs.get("study_session_id"),
                 "travel_project_id": attrs.get("travel_project_id"),

@@ -1,11 +1,15 @@
 """ORA backend end-to-end tests."""
 import os
 import uuid
-import time
 import requests
 import pytest
 
-BASE_URL = os.environ["EXPO_PUBLIC_BACKEND_URL"].rstrip("/") if os.environ.get("EXPO_PUBLIC_BACKEND_URL") else "https://ora-decision-engine.preview.emergentagent.com"
+BASE_URL = os.environ.get("ORA_TEST_BACKEND_URL", "").strip().rstrip("/")
+if not BASE_URL:
+    pytest.skip(
+        "ORA_TEST_BACKEND_URL non configurato: suite E2E non eseguita",
+        allow_module_level=True,
+    )
 API = f"{BASE_URL}/api"
 
 # Unique test user per run
@@ -31,7 +35,7 @@ def test_01_root_ok():
     assert j.get("status") == "ok"
 
 
-# 2) Register creates user + JWT + seeds 5
+# 2) Register creates user + JWT. The seed count is a direct unit contract.
 def test_02_register_creates_user_and_seeds():
     r = requests.post(f"{API}/auth/register", json={"email": TEST_EMAIL, "password": TEST_PASS, "name": TEST_NAME}, timeout=20)
     assert r.status_code == 200, r.text
@@ -41,16 +45,6 @@ def test_02_register_creates_user_and_seeds():
     assert j["user"]["provider"] == "email"
     STATE["token"] = j["token"]
     STATE["user_id"] = j["user"]["user_id"]
-    # verify 5 priorities
-    p = requests.get(f"{API}/priorities", headers=_auth_headers(), timeout=15)
-    assert p.status_code == 200
-    items = p.json()["items"]
-    assert len(items) == 5, f"expected 5 priorities, got {len(items)}"
-    scores = [i["score"] for i in items]
-    assert scores == sorted(scores, reverse=True), f"not sorted desc: {scores}"
-    for it in items:
-        assert it["status"] == "open"
-        assert "_id" not in it
 
 
 # 3) Register same email -> 409
@@ -82,20 +76,30 @@ def test_05_me_with_and_without_token():
     assert r2.status_code == 401
 
 
-# 6) /priorities returns 5 sorted open (freshly registered) - already covered above, verify again
+# 6) /priorities defaults to 3; an explicit limit may request up to 20.
 def test_06_priorities_shape():
     r = requests.get(f"{API}/priorities", headers=_auth_headers(), timeout=15)
     assert r.status_code == 200
     items = r.json()["items"]
-    assert len(items) == 5
+    assert len(items) == 3
     assert all(i["status"] == "open" for i in items)
     assert all("_id" not in i for i in items)
     scores = [i["score"] for i in items]
     assert scores == sorted(scores, reverse=True)
     STATE["items"] = items
 
+    requested = requests.get(
+        f"{API}/priorities?limit=5", headers=_auth_headers(), timeout=15,
+    )
+    assert requested.status_code == 200
+    requested_items = requested.json()["items"]
+    assert len(requested_items) == 5
+    assert [i["score"] for i in requested_items] == sorted(
+        (i["score"] for i in requested_items), reverse=True,
+    )
 
-# 7) POST /tasks then GET /tasks; priorities capped at 5
+
+# 7) POST /tasks then GET /tasks; default priorities remain capped at 3
 def test_07_create_task():
     payload = {"title": "TEST_task extra", "context": "extra ctx", "urgency": 4, "importance": 4}
     r = requests.post(f"{API}/tasks", headers=_auth_headers(), json=payload, timeout=15)
@@ -108,7 +112,7 @@ def test_07_create_task():
     assert any(t["id"] == j["id"] for t in lst)
 
     pri = requests.get(f"{API}/priorities", headers=_auth_headers(), timeout=15).json()["items"]
-    assert len(pri) <= 5
+    assert len(pri) <= 3
 
 
 # 8) Resolve task -> AI solution, italian, non-empty

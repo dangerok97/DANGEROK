@@ -1,5 +1,11 @@
 # ORA — AI Changelog
 
+## 2026-08-17 — Home dedupe e legacy E2E hygiene
+
+- Normalized exact title/hour dedupe keys consistently across legacy Home sources while preserving `goal_id` isolation.
+- Aligned legacy `/priorities` tests with its canonical default `limit=3`; the seven-decision seed contract is now tested directly.
+- `test_ora_backend.py` now requires explicit `ORA_TEST_BACKEND_URL` and never falls back silently to a preview backend.
+
 ## 2026-08-17 — Google Login V2 multipiattaforma
 
 ### Architettura

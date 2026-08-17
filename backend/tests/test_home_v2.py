@@ -8,8 +8,6 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-import pytest
-
 os.environ.setdefault("CALENDAR_PROVIDER_MODE", "fake")
 _BACKEND = str(Path(__file__).resolve().parents[1])
 if _BACKEND not in sys.path:
@@ -479,6 +477,72 @@ def test_dedupe_same_event():
             await _clean_user(db, user)
             client.close()
     _run(body())
+
+
+def test_dedupe_contract_title_time_and_goal_identity():
+    from home.models import HomeItem
+    from home.ranking import dedupe_items
+
+    def item(
+        item_id: str,
+        title: str,
+        start: str,
+        *,
+        source_type: str,
+        goal_id: str | None = None,
+    ) -> HomeItem:
+        return HomeItem(
+            id=item_id,
+            type="event",
+            title=title,
+            source_type=source_type,
+            source_id=item_id,
+            start_at=start,
+            goal_id=goal_id,
+            meta={"dedupe_key": f"{source_type}:{item_id}"},
+        )
+
+    hour = "2026-08-18T09:15:00+00:00"
+
+    # A — same legacy event, different sources, exact normalized title/hour.
+    assert len(dedupe_items([
+        item("life-1", "  Weekly   Standup ", hour, source_type="life_node"),
+        item("dec-1", "weekly standup", hour, source_type="decision"),
+    ])) == 1
+
+    # B — same Goal and equivalent presentation identity.
+    assert len(dedupe_items([
+        item("goal-a1", "Esame Psicologia", hour, source_type="study", goal_id="goal-a"),
+        item("goal-a2", "esame psicologia", hour, source_type="decision", goal_id="goal-a"),
+    ])) == 1
+
+    # C — distinct Goals must remain distinct even with identical title/hour.
+    assert len(dedupe_items([
+        item("goal-a", "Standup", hour, source_type="decision", goal_id="goal-a"),
+        item("goal-b", "Standup", hour, source_type="decision", goal_id="goal-b"),
+    ])) == 2
+
+    # D — similar, non-equivalent titles are not fuzzy-matched.
+    assert len(dedupe_items([
+        item("similar-1", "Standup", hour, source_type="life_node"),
+        item("similar-2", "Standup progetto", hour, source_type="decision"),
+    ])) == 2
+
+    # E — the canonical time window is one hour, not an unbounded match.
+    assert len(dedupe_items([
+        item("time-1", "Standup", hour, source_type="life_node"),
+        item("time-2", "Standup", "2026-08-18T10:00:00+00:00", source_type="decision"),
+    ])) == 2
+
+
+def test_seed_decision_contract_is_direct_and_not_priorities_projection():
+    from decision_engine.service import build_seed_decisions
+
+    seeds = build_seed_decisions("seed_contract_user")
+    assert len(seeds) == 7
+    assert len({row["id"] for row in seeds}) == 7
+    assert all(row["user_id"] == "seed_contract_user" for row in seeds)
+    assert all(row["status"] == "open" for row in seeds)
 
 
 def test_snooze_and_complete_update_home():
