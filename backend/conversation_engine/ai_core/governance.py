@@ -7,6 +7,7 @@ from conversation_engine.ai_core.context_broker import validate_context_query
 from conversation_engine.ai_core.models import CognitiveDecision, MemoryCandidate, ToolCall
 from conversation_engine.ai_core.tools.registry import ToolRegistry, tool_signature
 from conversation_engine.ai_core.tools.sanitize import sanitize_external_query
+from situations.models import SituationUpdate
 
 ALLOWED_MODES = frozenset({"answer", "ask", "tool", "act", "context", "finish"})
 ALLOWED_STATUS = frozenset(
@@ -202,6 +203,20 @@ def validate_decision(
     message = _sanitize_copy(message)
     question = _sanitize_copy(question)
 
+    situation_update = None
+    raw_situation = data.get("situation_update")
+    if raw_situation is not None:
+        try:
+            situation_update = SituationUpdate.model_validate(raw_situation)
+            if situation_update.operation == "create" and situation_update.situation_id:
+                errors.append("situation_create_with_id")
+                situation_update = None
+            elif situation_update.operation in ("update", "cancel", "resolve") and not situation_update.situation_id:
+                errors.append("situation_update_without_id")
+                situation_update = None
+        except Exception:
+            errors.append("bad_situation_update")
+
     try:
         tc_model = ToolCall.model_validate(tool_call) if tool_call else None
         decision = CognitiveDecision(
@@ -221,6 +236,7 @@ def validate_decision(
             memory_candidates=mem_cands,
             confidence=_clamp_conf(data.get("confidence")),
             claim_grounding=data.get("claim_grounding"),
+            situation_update=situation_update,
         )
     except Exception:
         return GovernanceResult(False, errors=errors + ["pydantic_fail"])

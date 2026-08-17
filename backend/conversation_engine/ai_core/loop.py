@@ -76,6 +76,10 @@ _PERSIST_CLAIM_RE = re.compile(
     r"here\s+is\s+(your|the)\s+(plan|material|session)"
     r")\b"
 )
+_DURABLE_MEMORY_CLAIM_RE = re.compile(
+    r"(?i)\b(ho\s+memorizzato|ho\s+salvato\s+(in\s+)?memoria|"
+    r"i('|’)?ve\s+memorized|saved\s+(it\s+)?to\s+memory)\b"
+)
 # Current-location questions must go through location capabilities (consent bridge).
 _LOCATION_NOW_ASK_RE = re.compile(
     r"(?i)\b("
@@ -123,6 +127,8 @@ def _has_terminal_location_obs(observations: List[Dict[str, Any]]) -> bool:
             continue
         return True
     return False
+
+
 # Claims that saved material was adapted — require update_object observation.
 _ADAPT_CLAIM_RE = re.compile(
     r"(?i)\b("
@@ -176,6 +182,7 @@ async def run_cognitive_loop(
         user_message=user_message,
         active_goal=st.get("active_goal"),
         stage="A",
+        session_id=sess.id,
     )
     # Merge temporary current_facts (do not overwrite durable Profile)
     context_facts = merge_context_with_current(context_facts, st)
@@ -208,7 +215,9 @@ async def run_cognitive_loop(
     # V2.6.2 — mutation idempotency is TURN-SCOPED (reasoning epoch).
     # Session-persisted signatures must NOT ban legitimate cross-turn replanning
     # when the user provides new facts/evidence that change persisted state.
-    epoch = new_reasoning_epoch()
+    epoch = str(st.get("reasoning_epoch") or "") if resume_client else ""
+    if not epoch:
+        epoch = new_reasoning_epoch()
     st["reasoning_epoch"] = epoch
     recent_tool_sigs: Set[str] = set()
     st["turn_tool_signatures"] = []
@@ -225,6 +234,10 @@ async def run_cognitive_loop(
     location_nudge_used = False
     life_os_writes_this_turn = 0
     update_object_ok_this_turn = False
+    situation_result: Optional[Dict[str, Any]] = None
+    situation_plan_nudge_used = False
+    linked_plan_pending_id: Optional[str] = None
+    linked_plan_reconciled_this_turn = False
 
     # Hydrate plan/object conversational focus for linked sessions
     from conversation_engine.ai_core.life_os_context import (
@@ -394,6 +407,38 @@ async def run_cognitive_loop(
                 if step + 1 < max_steps:
                     continue
         state_mod.apply_state_updates(st, decision.state_updates)
+        if decision.situation_update and decision.situation_update.operation != "none":
+            try:
+                from situations.service import SituationService
+
+                situation_result = await SituationService(db).apply(
+                    user_id=sess.user_id,
+                    session_id=sess.id,
+                    update=decision.situation_update,
+                    reasoning_epoch=epoch,
+                )
+                st["active_situation_ref"] = dict(situation_result.get("situation") or {})
+                observations.append(Observation(
+                    kind="tool", name="situation_mutation", status="ok",
+                    payload=situation_result,
+                    provenance=list(decision.situation_update.source_refs or ["user_conversation"]),
+                ).model_dump())
+                add_step(trace, event="SITUATION_MUTATION", operation=decision.situation_update.operation)
+                linked_plan = ((situation_result or {}).get("situation") or {}).get("linked_plan_id")
+                if decision.situation_update.operation == "cancel" and linked_plan:
+                    linked_plan_pending_id = str(linked_plan)
+            except Exception as e:
+                code = str(getattr(e, "code", "PERSISTENCE_ERROR"))[:80]
+                observations.append(Observation(
+                    kind="error", name="situation_mutation", status="error",
+                    payload={
+                        "failure_code": code,
+                        "reason": "Situation state was not persisted. Do not claim it was updated. Recover from context or explain honestly.",
+                    },
+                ).model_dump())
+                add_step(trace, event="SITUATION_MUTATION_FAIL", code=code)
+                if step + 1 < max_steps:
+                    continue
         # Refresh context merge after current_facts updates
         context_facts = merge_context_with_current(
             [f for f in context_facts if not (f.ref or "").startswith("current_facts:")],
@@ -414,7 +459,53 @@ async def run_cognitive_loop(
 
         mode = decision.response_mode
         if mode in ("answer", "ask", "finish", "act"):
+            if linked_plan_pending_id and not linked_plan_reconciled_this_turn:
+                first_nudge = not situation_plan_nudge_used
+                situation_plan_nudge_used = True
+                observations.append(Observation(
+                    kind="system", name="linked_plan_reconciliation", status="nudge",
+                    payload={
+                        "failure_code": "LINKED_PLAN_DECISION_REQUIRED",
+                        "plan_id": linked_plan_pending_id,
+                        "reason": (
+                            "The contextual Situation is cancelled but its linked plan was not changed. "
+                            "Decide whether that plan still serves a valid outcome. If the abandoned activity "
+                            "made the plan obsolete, call update_plan on the same id with patch.status=cancelled. "
+                            "Otherwise preserve/adapt it and state that distinction honestly. "
+                            "Do not repeat the Situation mutation; it already succeeded."
+                        ),
+                        "repeated_after_ignored_nudge": not first_nudge,
+                    },
+                ).model_dump())
+                add_step(trace, event="SITUATION_PLAN_NUDGE")
+                if step + 1 < max_steps:
+                    continue
+                decision.response_mode = "answer"
+                decision.question = None
+                decision.message_to_user = (
+                    "Ho aggiornato la situazione, ma non sono riuscita a riconciliare il piano "
+                    "collegato. Il piano potrebbe essere ancora attivo: non lo considero annullato."
+                )
             ora = _compose_user_text(decision)
+            if (
+                decision.situation_update
+                and decision.situation_update.operation != "none"
+                and _DURABLE_MEMORY_CLAIM_RE.search(ora or "")
+                and step + 1 < max_steps
+            ):
+                observations.append(Observation(
+                    kind="system", name="situation_memory_separation", status="nudge",
+                    payload={
+                        "failure_code": "SITUATION_IS_NOT_MEMORY",
+                        "reason": (
+                            "The Situation mutation succeeded only as contextual state. "
+                            "Do not say it was memorized or saved to durable Memory. "
+                            "Answer naturally that you are keeping the current situation in view."
+                        ),
+                    },
+                ).model_dump())
+                add_step(trace, event="SITUATION_MEMORY_NUDGE")
+                continue
             # Location-before-claim: current-location asks (and pending refresh retries)
             # must call location caps so the FE consent / geolocation bridge can run.
             pending_loc = st.get("pending_client_capability") or {}
@@ -531,6 +622,7 @@ async def run_cognitive_loop(
                 elapsed_ms=int((time.perf_counter() - t0) * 1000),
                 sources=public_sources[:MAX_SOURCES_UI],
                 working_hint=None,
+                situation=(situation_result or {}).get("situation") or st.get("active_situation_ref"),
             )
 
         if mode == "context":
@@ -541,6 +633,7 @@ async def run_cognitive_loop(
                 active_goal=st.get("active_goal"),
                 query=cq or user_message,
                 stage="B",
+                session_id=sess.id,
             )
             trace["context_calls"] = int(trace.get("context_calls") or 0) + 1
             existing = {f.ref or f.statement or f.fact for f in context_facts}
@@ -743,6 +836,12 @@ async def run_cognitive_loop(
                 or (obs.payload or {}).get("status") == "success"
             ):
                 life_os_writes_this_turn += 1
+                if (
+                    cap == "update_plan"
+                    and linked_plan_pending_id
+                    and str(args.get("plan_id") or "") == linked_plan_pending_id
+                ):
+                    linked_plan_reconciled_this_turn = True
             if cap == "create_object":
                 object_gens += 1
                 trace["object_generations"] = object_gens
@@ -833,6 +932,11 @@ async def run_cognitive_loop(
         or (last_decision.question if last_decision else None)
         or "Sto ancora ragionando su questo — dimmi pure se vuoi aggiungere qualcosa."
     )
+    if linked_plan_pending_id and not linked_plan_reconciled_this_turn:
+        ora = (
+            "Ho aggiornato la situazione, ma non sono riuscita a riconciliare il piano "
+            "collegato. Il piano potrebbe essere ancora attivo: non lo considero annullato."
+        )
     state_mod.append_turn(st, role="ora", text=ora, kind="answer")
     st["observations"] = observations[-12:]
     state_mod.save_ai_state(sess, st)
@@ -855,6 +959,7 @@ async def run_cognitive_loop(
         sources=public_sources[:MAX_SOURCES_UI],
         working_hint=working_hint,
         error="loop_bound" if ai_calls >= max_steps else None,
+        situation=(situation_result or {}).get("situation") or st.get("active_situation_ref"),
     )
 
 

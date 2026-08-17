@@ -284,6 +284,15 @@ async def startup():
 
     # AI Core ContextFile — session evidence refs (Documents V2 holds blobs)
     try:
+        from situations.service import SituationService
+
+        await SituationService(db).ensure_indexes()
+        logger.info("Situation indexes ready")
+    except Exception:
+        logger.exception("Situation indexes failed (non-fatal)")
+
+    # AI Core ContextFile — session evidence refs (Documents V2 holds blobs)
+    try:
         from conversation_engine.ai_core.files.service import ContextFileService
 
         await ContextFileService(db).ensure_indexes()

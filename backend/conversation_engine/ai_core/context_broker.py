@@ -122,6 +122,7 @@ class ContextBroker:
         active_goal: Optional[Dict[str, Any]] = None,
         query: Optional[str] = None,
         stage: str = "A",
+        session_id: Optional[str] = None,
     ) -> List[ContextFact]:
         """
         Stage A: minimal high-authority baseline (account display name + active goal).
@@ -178,7 +179,8 @@ class ContextBroker:
 
         # Stage A stops here — do not stuff Profile/Memory.
         if stage == "A":
-            return _finalize(facts, limit=STAGE_A_MAX)
+            facts.extend(await self._situation_facts(user_id, session_id=session_id, detailed=False))
+            return _finalize(facts, limit=STAGE_A_MAX + 4)
 
         # --- Stage B: Profile + Memory + minimized presence ---
         facts.extend(
@@ -189,8 +191,36 @@ class ContextBroker:
         )
         if "presence" in categories or "general" in categories:
             facts.extend(await self._presence_facts(user_id))
+        if "general" in categories or "goal" in categories:
+            facts.extend(await self._situation_facts(user_id, session_id=session_id, detailed=True))
 
         return _finalize(facts, limit=STAGE_B_MAX)
+
+    async def _situation_facts(self, user_id: str, *, session_id: Optional[str], detailed: bool) -> List[ContextFact]:
+        try:
+            from situations.service import SituationService
+
+            items = await SituationService(self.db).list_context(
+                user_id, session_id=session_id, limit=4 if detailed else 3
+            )
+        except Exception as e:
+            logger.info("context broker situations soft-fail: %s", type(e).__name__)
+            return []
+        out: List[ContextFact] = []
+        for item in items:
+            preview = item.context_preview()
+            statement = (
+                f"Situation {item.id} revision={item.revision} status={item.status}: "
+                f"{item.summary}"
+            )
+            if detailed:
+                statement += f"; details={json.dumps(preview, ensure_ascii=False)}"
+            out.append(ContextFact(
+                statement=statement[:700], fact=statement[:700], source="situation",
+                authority="user_context", status=item.status, timestamp=item.updated_at,
+                ref=f"situation:{item.id}", temporal_scope=item.temporal_scope,
+            ))
+        return out
 
     async def _presence_facts(self, user_id: str) -> List[ContextFact]:
         """Minimized presence — never a GPS trail; never overwrites residence."""
