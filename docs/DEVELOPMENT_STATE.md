@@ -324,6 +324,20 @@ Live QA showed deterministic readiness/requirements/question planners owning dia
 
 **ORA IS AI-FIRST.** The LLM owns goal understanding, what to ask/research/tool/act, and the next conversational turn. Deterministic code validates (auth, schemas, provenance, privacy, idempotency, tool execution, safety) — it does **not** script the conversation via fixed slot sequences.
 
+### V2.8.1 Situation Model V1
+
+| Contract | State |
+|---|---|
+| User-scoped Situation persistence | **implemented** |
+| Cross-session current/recent context slice | **implemented** |
+| AI-owned create/update/cancel/resolve/none | **implemented** |
+| Runtime ids, ownership, revision, transition validation | **implemented** |
+| Same-turn/client-resume idempotency | **implemented** |
+| Cross-turn corrections and supersession history | **implemented** |
+| Automatic Situation → Memory promotion | **forbidden** |
+| Automatic linked plan/object mutation | **forbidden** — AI must use Life OS capability |
+| Dedicated Situation UI/Home card | **not implemented by design** |
+
 Target loop (conceptual only): USER → AI orchestrator → structured next action → governance → tool → AI again → response.
 
 ### Reusable infrastructure proven in 7.x (capabilities, not conversation architecture)

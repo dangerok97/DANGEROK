@@ -63,6 +63,22 @@ evidence:
 GenerativeObjectRenderer: useTheme() colors (not static dark tokens.color)
 ```
 
+## V2.8.1 — Situation Model V1
+
+`backend/situations/` provides user-scoped, cross-session contextual state for
+the production AI Core. `CognitiveDecision.situation_update` is optional and
+domain-neutral. The AI selects semantic operation and content; runtime assigns
+ids and guarantees ownership, optimistic revision checks, valid terminal
+transitions, provenance history and reasoning-epoch idempotency.
+
+Mongo collection `situations` uses non-destructive indexes on `(user_id,id)`,
+`(user_id,status,updated_at)`, `(user_id,session_id,updated_at)` and
+`(user_id,linked_plan_id)`. Context Broker Stage A adds only a small session/
+recent slice; Stage B can include bounded details. Situation writes do not
+write Life Memory and do not implicitly mutate linked plans or objects.
+
+Canonical contract: [COGNITIVE_ARCHITECTURE.md](COGNITIVE_ARCHITECTURE.md).
+
 ## Prompt V2.6 — ContextFile / AI Core file evidence (2026-08-14)
 
 ```

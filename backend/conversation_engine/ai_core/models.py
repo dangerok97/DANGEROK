@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field, model_validator
+from situations.models import SituationUpdate
 
 ResponseMode = Literal["answer", "ask", "tool", "act", "context", "finish"]
 ReasoningStatus = Literal[
@@ -80,6 +81,7 @@ class CognitiveDecision(BaseModel):
     confidence: Optional[float] = None
     # Optional epistemic self-report (not shown to user)
     claim_grounding: Optional[GroundingKind] = None
+    situation_update: Optional[SituationUpdate] = None
 
 
 class ContextFact(BaseModel):
@@ -122,3 +124,4 @@ class CognitiveTurnResult(BaseModel):
     sources: List[Dict[str, str]] = Field(default_factory=list)
     working_hint: Optional[str] = None
     client_actions: List[Dict[str, Any]] = Field(default_factory=list)
+    situation: Optional[Dict[str, Any]] = None

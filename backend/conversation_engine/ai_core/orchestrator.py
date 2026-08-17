@@ -324,6 +324,7 @@ class AICoreOrchestrator:
             "active_goal": st.get("active_goal"),
             "active_plan_id": st.get("active_plan_id"),
             "active_goal_id": st.get("active_goal_id"),
+            "active_situation": st.get("active_situation_ref"),
             "artifact_ids": list(st.get("artifact_ids") or [])[-12:],
             "history": [
                 {
@@ -358,6 +359,7 @@ class AICoreOrchestrator:
             "mode": result.mode,
             "active_goal": result.active_goal.model_dump() if result.active_goal else None,
             "memory_candidates": [m.model_dump() for m in result.memory_candidates],
+            "situation": getattr(result, "situation", None) or st.get("active_situation_ref"),
             "ui_mode": "ai_core",
             "route": f"/ora/{sess.id}",
             "entry_point": (sess.meta or {}).get("entry_point"),

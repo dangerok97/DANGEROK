@@ -6,6 +6,15 @@ Ultimo aggiornamento: 2026-08-16 — Home → ORA first-turn handoff + location 
 
 **ORA** is the production conversational surface (`/ora`, Ambient tab, Home ask bar).  
 **AI Core** is the cognitive runtime behind it.  
+
+### Situation continuity (V2.8.1)
+
+ORA can keep one general-purpose Situation across turns and sessions: something
+expected, ongoing, changed, resolved or cancelled in the user's life. The AI
+decides semantic continuity; the system owns canonical identity, revision,
+ownership and provenance. Situation is neither Life Memory nor a domain flow.
+Linked plans/objects are changed only when the AI separately invokes successful
+Life OS capabilities.
 **Life OS** is execution/persistence.  
 **GenerativeObjects** are AI-created work products.  
 **Goal Workspace** is the persistent work surface.  

@@ -109,6 +109,19 @@ Live upgrade on stored signal → display **Vibo Marina**, municipality **Vibo V
 
 ---
 
+## 2026-08-17 — V2.8.1 Situation Model V1
+
+- Added domain-neutral, user-scoped `situations` persistence with canonical ids,
+  optimistic revisions, terminal transitions, provenance/history and bounded schema.
+- Extended `CognitiveDecision` with optional AI-owned `situation_update`.
+- Context Broker now supplies a minimized session/recent Situation slice.
+- Situation persistence failures re-enter cognition before user-facing success claims.
+- Client resume reuses the same reasoning epoch; later user turns remain mutable.
+- Situation remains separate from Life Memory and does not implicitly change linked
+  Life OS plans/objects.
+- Added dedicated V2.8.1 contract/regression tests and canonical cognitive architecture.
+- No domain handler, dependency, migration, commit or push.
+
 ## 2026-08-16 — V2.7.1 place-label precision (locality vs municipality)
 
 ### Live QA
