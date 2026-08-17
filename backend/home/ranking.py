@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from .actions_catalog import actions_for
+from .dedupe import canonical_title_time_key
 from .models import RANKING_VERSION, HomeItem, PriorityBand, ReasonFactor, UrgencyLevel
 from .reason_presentation import format_reason_summary
 from .temporal import (
@@ -342,15 +343,15 @@ def dedupe_items(items: List[HomeItem], *, collapse_goals: bool = False) -> List
     order: List[str] = []
     for item in items:
         key = item.meta.get("dedupe_key") or f"{item.source_type}:{item.source_id}:{item.type}"
-        # Never merge distinct Goals on title alone — scope title_dedupe by goal_id
+        # Never merge distinct Goals on title alone. Legacy items without a Goal
+        # retain the exact normalized title + hour cross-source fallback.
         gid = item.goal_id or (item.meta or {}).get("goal_id") or ""
-        title_key = (
-            f"{gid}|{(item.title or '').strip().lower()}|"
-            f"{(item.start_at or item.due_at or '')[:13]}"
+        title_key = canonical_title_time_key(
+            item.title,
+            item.start_at or item.due_at,
+            goal_id=gid or None,
         )
         alt = item.meta.get("title_dedupe") or title_key
-        if gid and not str(alt).startswith(str(gid)):
-            alt = f"{gid}|{alt}"
         existing = seen.get(key) or seen.get(alt)
         if existing is None:
             seen[key] = item
