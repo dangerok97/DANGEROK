@@ -7,6 +7,7 @@ from typing import Any, Optional
 import httpx
 import jwt as pyjwt
 from jwt import PyJWKClient
+from jwt.exceptions import PyJWKClientConnectionError
 
 from .config import google_audiences, google_configured
 from .models import VerifiedIdentity
@@ -67,6 +68,11 @@ def verify_google_id_token(
                 audience=auds,
                 options={"require": ["exp", "iat", "sub", "iss", "aud"]},
             )
+        except PyJWKClientConnectionError as e:
+            raise GoogleTokenError(
+                "provider_unavailable",
+                "Verifica Google temporaneamente non disponibile",
+            ) from e
         except pyjwt.ExpiredSignatureError as e:
             raise GoogleTokenError("expired", "Token Google scaduto") from e
         except pyjwt.InvalidAudienceError as e:
@@ -99,7 +105,11 @@ def verify_google_id_token(
             raise GoogleTokenError("bad_audience", "Audience Google non valida")
 
     email = claims.get("email")
-    email_verified = bool(claims.get("email_verified"))
+    raw_email_verified = claims.get("email_verified")
+    email_verified = raw_email_verified is True or (
+        isinstance(raw_email_verified, str)
+        and raw_email_verified.strip().lower() == "true"
+    )
     name = claims.get("name")
     picture = claims.get("picture")
 

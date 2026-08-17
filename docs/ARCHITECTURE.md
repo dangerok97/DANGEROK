@@ -404,7 +404,7 @@ greeting (deterministic shell + 1 open Q)
 | Mobile/Web client | Expo 54, React Native, TypeScript, expo-router |
 | API | FastAPI + Uvicorn |
 | DB | MongoDB via Motor |
-| Auth | JWT ORA (HS256) + bcrypt; Google/Apple ID-token verify (`backend/social_auth/`); Emergent bridge legacy optional |
+| Auth | JWT ORA (HS256) + bcrypt; Google Login V2: GIS web + native Google Sign-In → ID token → `backend/social_auth/`; Apple ID-token verify; Emergent bridge legacy optional |
 | LLM | Provider Manager `backend/llm/` — Gemini (default) → OpenAI → Ollama → Emergent; failover automatico; non required at boot |
 | Design system | **ORA Quiet Premium** + **Signature Language** — `design_guidelines.json`, `frontend/src/theme/*`, shell modes in `frontend/src/shell/` (`ambient` / `focus` / `immersive`), primitives in `frontend/src/components/ui/` |
 | Local deps | `backend/requirements-local.txt` (Emergent CDN packages excluded) |
@@ -454,7 +454,7 @@ frontend/
   app/(tabs)/            # Ambient IA: Home · Contesti · ORA · Memoria · Profilo (Documenti/Aggiungi href:null)
   app/action/[sessionId] # Action Engine UI — Focus shell chrome (no Ambient nav)
   src/api/client.ts      # HTTP client incl. /home
-  src/auth/              # Google/Apple client helpers
+  src/auth/              # Adapter Google unico (.web GIS / .native SDK), availability, Apple helper
   src/shell/             # Application Shell V1: OraShellMode, AmbientTabBar, FocusScreen/Chrome, ImmersiveScreen
   src/components/home/quiet/ # Home Quiet Premium (+ polish 2.1: FocusActions, surface Focus, vertical Horizon)
   src/components/home/v2 # Legacy helpers + /situazione PrioritaList
@@ -526,7 +526,7 @@ Action proof path: `/action/[sessionId]` uses Focus chrome + `useTheme` (Light/D
 MongoDB :27017  →  FastAPI :8000  →  Expo web :8081 (EXPO_PUBLIC_BACKEND_URL)
 ```
 
-Local Google OAuth: `localhost` and `127.0.0.1` are different browser/API origins. Dev accepts both loopback twins for Calendar callback + frontend `redirect_after`; Google Cloud Console must still list both explicitly (Sign-In web client on `:8081`, Calendar callbacks on `:8000`).
+Google Login V2: `localhost` e `127.0.0.1` sono Authorized JavaScript Origins distinti per GIS (`:8081`); il popup restituisce l'ID token in callback, mai nell'URL ORA. Google Calendar OAuth è separato: callback backend `:8000`, client secret/scopes/refresh token propri. Il backend verifica firma, issuer, scadenza, subject, nonce quando presente e `aud` contro `GOOGLE_ALLOWED_CLIENT_IDS` (fallback legacy esplicito ai soli client ID Login).
 
 ## Data store
 

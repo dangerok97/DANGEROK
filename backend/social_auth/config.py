@@ -9,8 +9,7 @@ def _env(name: str) -> str:
     return (os.environ.get(name) or "").strip()
 
 
-def google_audiences() -> list[str]:
-    """Accepted Google ID token audiences (client IDs)."""
+def _legacy_google_client_ids() -> list[str]:
     ids: list[str] = []
     for key in (
         "GOOGLE_WEB_CLIENT_ID",
@@ -20,14 +19,29 @@ def google_audiences() -> list[str]:
         v = _env(key)
         if v and v not in ids:
             ids.append(v)
-    # Optional comma-separated extras
+    return ids
+
+
+def google_audiences() -> list[str]:
+    """Explicit ID-token audience allowlist, with an auditable legacy fallback.
+
+    New environments should set GOOGLE_ALLOWED_CLIENT_IDS. When it is absent or
+    empty, existing deployments retain their prior behavior by accepting only
+    the configured Login client IDs (never GOOGLE_OAUTH_CLIENT_ID / Calendar).
+    """
     extra = _env("GOOGLE_ALLOWED_CLIENT_IDS")
     if extra:
+        ids: list[str] = []
         for part in extra.split(","):
             p = part.strip()
             if p and p not in ids:
                 ids.append(p)
-    return ids
+        return ids
+    return _legacy_google_client_ids()
+
+
+def google_audience_mode() -> str:
+    return "explicit_allowlist" if _env("GOOGLE_ALLOWED_CLIENT_IDS") else "legacy_client_ids"
 
 
 def google_configured() -> bool:
@@ -66,6 +80,7 @@ def social_auth_status() -> dict[str, Any]:
         "google": {
             "configured": bool(g_aud),
             "audiences_configured": len(g_aud),
+            "audience_mode": google_audience_mode(),
             "platforms": {
                 "web": bool(_env("GOOGLE_WEB_CLIENT_ID")),
                 "ios": bool(_env("GOOGLE_IOS_CLIENT_ID")),

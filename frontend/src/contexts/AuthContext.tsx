@@ -44,7 +44,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [refresh]);
 
   const signIn = useCallback(async (token: string, u: ApiUser) => {
-    await authToken.set(token);
+    const persisted = await authToken.set(token);
+    if (!persisted) {
+      await authToken.clear();
+      throw new Error('auth_storage_failed');
+    }
     setUser(u);
   }, []);
 

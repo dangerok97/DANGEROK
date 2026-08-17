@@ -3,7 +3,7 @@
  * Auth logic frozen: same providers, modes, routeAfterAuth / Life Setup gate.
  * Prompt 4.1 — visual polish only.
  */
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -29,10 +29,11 @@ import {
   appleConfiguredForPlatform,
   notConfiguredMessage,
 } from '@/src/auth/providersConfig';
-import { useGoogleAuthRequest, promptGoogleSignIn } from '@/src/auth/googleSignIn';
+import { useGoogleAuth } from '@/src/auth/googleAuth';
 import { signInWithApple, isAppleNativeAvailable } from '@/src/auth/appleSignIn';
 import { routeAfterAuth } from '@/src/life-setup/routeAfterAuth';
 import { humanizeError } from '@/src/utils/errors';
+import type { GoogleAuthResult } from '@/src/auth/googleAuth.types';
 
 type Mode = 'buttons' | 'email';
 type Busy = 'google' | 'apple' | 'email' | null;
@@ -125,8 +126,10 @@ export default function LoginScreen() {
   const [appleNative, setAppleNative] = useState(false);
   const [backendGoogle, setBackendGoogle] = useState<boolean | null>(null);
   const [backendApple, setBackendApple] = useState<boolean | null>(null);
+  const googleButtonHost = useRef<View | null>(null);
 
-  const [googleRequest, , googlePrompt] = useGoogleAuthRequest();
+  const googleAuth = useGoogleAuth();
+  const renderGoogleButton = googleAuth.renderButton;
 
   useEffect(() => {
     if (!loading && user) {
@@ -150,37 +153,58 @@ export default function LoginScreen() {
       });
   }, []);
 
-  const googleReady = googleConfiguredForPlatform() && backendGoogle !== false;
+  const googleButtonConfigured = googleConfiguredForPlatform() && backendGoogle !== false;
+  const googleReady =
+    googleAuth.availability.status === 'ready' && googleButtonConfigured;
   const appleReady =
     Platform.OS === 'ios'
       ? appleNative || appleConfiguredForPlatform()
       : appleConfiguredForPlatform() && backendApple !== false;
 
+  const handleGoogleResult = useCallback(async (res: GoogleAuthResult) => {
+    if (!res.ok) {
+      if (!res.cancelled) setErr(res.safeMessage);
+      return;
+    }
+    try {
+      setBusy('google');
+      const auth = await api.authGoogle(res.idToken, res.nonce);
+      await signIn(auth.token, auth.user);
+      await routeAfterAuth(router, auth.user.user_id);
+    } catch (e: unknown) {
+      setErr(authErrorMessage(e, 'Non riusciamo ad accedere con Google. Riprova.'));
+    } finally {
+      setBusy(null);
+    }
+  }, [router, signIn]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !googleButtonConfigured || !renderGoogleButton) return;
+    const host = googleButtonHost.current as unknown as HTMLElement | null;
+    if (!host) return;
+    const width = host.getBoundingClientRect?.().width || 400;
+    renderGoogleButton(host, (result) => {
+      void handleGoogleResult(result);
+    }, { width }).catch(() => {
+      setErr('Accesso con Google non disponibile in questo momento.');
+    });
+  }, [googleButtonConfigured, renderGoogleButton, handleGoogleResult]);
+
   const handleGoogle = async () => {
     if (busy) return;
     setErr(null);
-    if (!googleConfiguredForPlatform()) {
-      setErr(notConfiguredMessage());
+    if (googleAuth.availability.status !== 'ready' || !googleConfiguredForPlatform()) {
+      setErr(googleAuth.availability.safeMessage || notConfiguredMessage());
       return;
     }
     if (backendGoogle === false) {
       setErr(notConfiguredMessage());
       return;
     }
-    if (!googleRequest) {
-      setErr(notConfiguredMessage());
-      return;
-    }
     try {
       setBusy('google');
-      const res = await promptGoogleSignIn(googlePrompt);
-      if (!res.ok) {
-        if (!res.cancelled) setErr(res.error);
-        return;
-      }
-      const auth = await api.authGoogle(res.idToken, res.nonce);
-      await signIn(auth.token, auth.user);
-      await routeAfterAuth(router, auth.user.user_id);
+      const res = await googleAuth.signIn();
+      await handleGoogleResult(res);
     } catch (e: unknown) {
       setErr(authErrorMessage(e, 'Non riusciamo ad accedere con Google. Riprova.'));
     } finally {
@@ -330,23 +354,31 @@ export default function LoginScreen() {
                       />
                     ) : null}
 
-                    <AppButton
-                      testID="login-google-button"
-                      label="Continua con Google"
-                      icon="logo-google"
-                      variant="secondary"
-                      fullWidth
-                      loading={busy === 'google'}
-                      disabled={anyBusy}
-                      onPress={handleGoogle}
-                      style={{
-                        ...googleSurfaceStyle,
-                        ...(!googleReady ? styles.dimmed : null),
-                      }}
-                      accessibilityHint={
-                        googleReady ? undefined : 'Accesso Google non configurato in questo ambiente'
-                      }
-                    />
+                    {Platform.OS === 'web' && googleButtonConfigured ? (
+                      <View
+                        ref={googleButtonHost}
+                        testID="login-google-button"
+                        style={styles.googleOfficialButtonHost}
+                      />
+                    ) : (
+                      <AppButton
+                        testID="login-google-button"
+                        label="Continua con Google"
+                        icon="logo-google"
+                        variant="secondary"
+                        fullWidth
+                        loading={busy === 'google'}
+                        disabled={anyBusy || !googleReady}
+                        onPress={handleGoogle}
+                        style={{
+                          ...googleSurfaceStyle,
+                          ...(!googleReady ? styles.dimmed : null),
+                        }}
+                        accessibilityHint={
+                          googleReady ? undefined : 'Accesso Google non configurato in questo ambiente'
+                        }
+                      />
+                    )}
                   </View>
 
                   <View style={styles.oppureRow} accessibilityElementsHidden importantForAccessibility="no">
@@ -473,6 +505,7 @@ export default function LoginScreen() {
                   </Text>
                 ) : null}
               </View>
+
             </View>
           </Animated.View>
         </ScrollView>
@@ -595,4 +628,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   dimmed: { opacity: 0.55 },
+  googleOfficialButtonHost: {
+    width: '100%',
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });

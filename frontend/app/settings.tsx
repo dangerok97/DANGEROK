@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import {
   View, Text, StyleSheet, Pressable, ScrollView, ActivityIndicator, Platform,
 } from 'react-native';
@@ -20,9 +21,10 @@ import { humanizeError } from '@/src/utils/errors';
 import { haptic } from '@/src/utils/haptic';
 import { ActionBtn } from '@/src/components/ui/ActionBtn';
 import { formatRelativeAgo } from '@/src/utils/labels';
-import { useGoogleAuthRequest, promptGoogleSignIn } from '@/src/auth/googleSignIn';
+import { useGoogleAuth } from '@/src/auth/googleAuth';
 import { signInWithApple } from '@/src/auth/appleSignIn';
 import { googleConfiguredForPlatform, appleConfiguredForPlatform, notConfiguredMessage } from '@/src/auth/providersConfig';
+import type { GoogleAuthResult } from '@/src/auth/googleAuth.types';
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -53,7 +55,9 @@ export default function SettingsScreen() {
     calendar_auto_add_threshold: number;
   } | null>(null);
   const [locationMode, setLocationMode] = useState<'off' | 'while_using'>('off');
-  const [googleRequest, , googlePrompt] = useGoogleAuthRequest();
+  const googleAuth = useGoogleAuth();
+  const renderGoogleButton = googleAuth.renderButton;
+  const googleLinkButtonHost = useRef<View | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -89,6 +93,38 @@ export default function SettingsScreen() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  const handleGoogleLinkResult = useCallback(async (result: GoogleAuthResult) => {
+    if (!result.ok) {
+      if (!result.cancelled) setError(result.safeMessage);
+      return;
+    }
+    setBusy('link_google');
+    try {
+      await api.linkGoogle(result.idToken, result.nonce);
+      await load();
+    } catch (e: any) {
+      setError(humanizeError(e));
+    } finally {
+      setBusy(null);
+    }
+  }, [load]);
+
+  useEffect(() => {
+    if (
+      Platform.OS !== 'web' ||
+      identities?.methods.google.linked !== false ||
+      googleAuth.availability.status !== 'ready' ||
+      !renderGoogleButton
+    ) return;
+    const host = googleLinkButtonHost.current as unknown as HTMLElement | null;
+    if (!host) return;
+    renderGoogleButton(host, (result) => {
+      void handleGoogleLinkResult(result);
+    }, { width: 210 }).catch(() => {
+      setError('Accesso con Google non disponibile in questo momento.');
+    });
+  }, [googleAuth.availability.status, handleGoogleLinkResult, identities?.methods.google.linked, renderGoogleButton]);
 
   const onSync = async () => {
     if (!instance) return;
@@ -325,7 +361,16 @@ export default function SettingsScreen() {
               label="Google"
               linked={identities.methods.google.linked}
               detail={identities.methods.google.email}
-              actionLabel={identities.methods.google.linked ? (identities.can_unlink.google ? 'Scollega' : undefined) : 'Collega'}
+              actionLabel={
+                identities.methods.google.linked
+                  ? (identities.can_unlink.google ? 'Scollega' : undefined)
+                  : Platform.OS === 'web' ? undefined : 'Collega'
+              }
+              actionSlot={
+                !identities.methods.google.linked && Platform.OS === 'web' ? (
+                  <View ref={googleLinkButtonHost} style={styles.googleOfficialButtonHost} />
+                ) : undefined
+              }
               busy={busy === 'link_google' || busy === 'unlink_google'}
               onAction={async () => {
                 if (identities.methods.google.linked) {
@@ -345,16 +390,19 @@ export default function SettingsScreen() {
                   }
                   return;
                 }
-                if (!googleConfiguredForPlatform() || !googleRequest) {
-                  setError(notConfiguredMessage());
+                if (
+                  googleAuth.availability.status !== 'ready' ||
+                  !googleConfiguredForPlatform()
+                ) {
+                  setError(googleAuth.availability.safeMessage || notConfiguredMessage());
                   return;
                 }
                 haptic('tap');
                 setBusy('link_google');
                 try {
-                  const res = await promptGoogleSignIn(googlePrompt);
+                  const res = await googleAuth.signIn();
                   if (!res.ok) {
-                    if (!res.cancelled) setError(res.error);
+                    if (!res.cancelled) setError(res.safeMessage);
                     return;
                   }
                   await api.linkGoogle(res.idToken, res.nonce);
@@ -557,7 +605,7 @@ export default function SettingsScreen() {
             <Text style={styles.cardTitle}>Google Calendar</Text>
             <Text style={styles.cardMeta}>
               Collega Google Calendar per leggere eventi e salvare in Google quelli confermati da documenti.
-              Il login Google all'account ORA è separato e non richiede accesso al calendario.
+              Il login Google all’account ORA è separato e non richiede accesso al calendario.
             </Text>
             <View style={styles.actionsRow}>
               <ActionBtn
@@ -715,12 +763,13 @@ function AppleCalendarSection({
 }
 
 function AuthMethodRow({
-  label, linked, detail, actionLabel, onAction, busy,
+  label, linked, detail, actionLabel, actionSlot, onAction, busy,
 }: {
   label: string;
   linked: boolean;
   detail?: string | null;
   actionLabel?: string;
+  actionSlot?: ReactNode;
   onAction?: () => void;
   busy?: boolean;
 }) {
@@ -749,6 +798,7 @@ function AuthMethodRow({
           )}
         </Pressable>
       ) : null}
+      {actionSlot}
     </View>
   );
 }
@@ -853,4 +903,5 @@ const styles = StyleSheet.create({
   aiLabel: { fontSize: 15, fontWeight: '600', color: tokens.color.onSurface },
   aiMeta: { fontSize: 12, color: tokens.color.onSurfaceMuted, marginTop: 2 },
   pressed: { opacity: 0.7 },
+  googleOfficialButtonHost: { width: 210, minHeight: 40 },
 });

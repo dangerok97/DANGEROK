@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import os
 import time
+from types import SimpleNamespace
 import uuid
 from typing import Any
 
@@ -100,6 +101,109 @@ def test_google_valid_unit():
     )
     assert v.subject == "g-sub-ok"
     assert v.email_verified is True
+
+
+def test_google_multiple_allowed_audiences_unit():
+    from social_auth.google import verify_google_id_token
+
+    v = verify_google_id_token(
+        "unused",
+        audiences=["web-aud", "native-aud"],
+        _claims={
+            "iss": "accounts.google.com",
+            "sub": "g-sub-multi",
+            "aud": "native-aud",
+            "exp": int(time.time()) + 3600,
+            "iat": int(time.time()),
+            "email": "multi@example.com",
+            "email_verified": True,
+        },
+    )
+    assert v.subject == "g-sub-multi"
+
+
+def test_google_bad_issuer_unit():
+    from social_auth.google import GoogleTokenError, verify_google_id_token
+
+    with pytest.raises(GoogleTokenError) as ei:
+        verify_google_id_token(
+            "unused",
+            audiences=["aud"],
+            _claims={
+                "iss": "https://evil.example",
+                "sub": "g-sub-bad-iss",
+                "aud": "aud",
+                "exp": int(time.time()) + 3600,
+                "iat": int(time.time()),
+            },
+        )
+    assert ei.value.code == "bad_issuer"
+
+
+def test_google_email_verified_is_strict_unit():
+    from social_auth.google import verify_google_id_token
+
+    base = {
+        "iss": "https://accounts.google.com",
+        "sub": "g-sub-email-verified",
+        "aud": "aud",
+        "exp": int(time.time()) + 3600,
+        "iat": int(time.time()),
+        "email": "strict@example.com",
+    }
+    false_value = verify_google_id_token(
+        "unused", audiences=["aud"], _claims={**base, "email_verified": "false"}
+    )
+    true_value = verify_google_id_token(
+        "unused", audiences=["aud"], _claims={**base, "email_verified": "true"}
+    )
+    assert false_value.email_verified is False
+    assert true_value.email_verified is True
+
+
+def test_google_jwks_connection_failure_maps_to_provider_unavailable(monkeypatch):
+    from jwt.exceptions import PyJWKClientConnectionError
+    from social_auth import google as google_mod
+
+    class BrokenClient:
+        def get_signing_key_from_jwt(self, _token):
+            raise PyJWKClientConnectionError("temporary network failure")
+
+    monkeypatch.setattr(google_mod, "_client", lambda: BrokenClient())
+    with pytest.raises(google_mod.GoogleTokenError) as ei:
+        google_mod.verify_google_id_token("header.payload.signature", audiences=["aud"])
+    assert ei.value.code == "provider_unavailable"
+
+
+def test_google_provider_unavailable_maps_to_http_503(monkeypatch):
+    from fastapi import HTTPException
+    from social_auth.google import GoogleTokenError
+    from social_auth import service as service_mod
+
+    def unavailable(*_args, **_kwargs):
+        raise GoogleTokenError(
+            "provider_unavailable", "Verifica Google temporaneamente non disponibile"
+        )
+
+    monkeypatch.setattr(service_mod, "verify_google_id_token", unavailable)
+    svc = service_mod.SocialAuthService(SimpleNamespace(user_identities=None))
+    with pytest.raises(HTTPException) as ei:
+        svc.verify_google("header.payload.signature")
+    assert ei.value.status_code == 503
+
+
+def test_google_audience_allowlist_explicit_and_legacy(monkeypatch):
+    from social_auth.config import google_audience_mode, google_audiences
+
+    monkeypatch.setenv("GOOGLE_WEB_CLIENT_ID", "legacy-web")
+    monkeypatch.setenv("GOOGLE_IOS_CLIENT_ID", "legacy-ios")
+    monkeypatch.delenv("GOOGLE_ALLOWED_CLIENT_IDS", raising=False)
+    assert google_audiences() == ["legacy-web", "legacy-ios"]
+    assert google_audience_mode() == "legacy_client_ids"
+
+    monkeypatch.setenv("GOOGLE_ALLOWED_CLIENT_IDS", "server-aud, native-aud, server-aud")
+    assert google_audiences() == ["server-aud", "native-aud"]
+    assert google_audience_mode() == "explicit_allowlist"
 
 
 def test_apple_bad_nonce_unit():

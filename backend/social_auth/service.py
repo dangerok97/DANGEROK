@@ -34,7 +34,7 @@ class SocialAuthService:
         try:
             return verify_google_id_token(id_token, expected_nonce=nonce, _claims=_claims)
         except GoogleTokenError as e:
-            status = 503 if e.code == "not_configured" else 401
+            status = 503 if e.code in {"not_configured", "provider_unavailable"} else 401
             raise HTTPException(status_code=status, detail=e.message) from e
 
     def verify_apple(

@@ -1,6 +1,26 @@
 # ORA — Development State
 
-Last updated: 2026-08-16 (V2.7.1 pre-commit gate — READY pending CPO commit command)
+Last updated: 2026-08-17 (Google Login V2 multipiattaforma — uncommitted)
+
+## Google Login V2 — GIS web + native SDK (this batch)
+
+| Item | Stato |
+|------|--------|
+| Web Google Identity Services lazy/popup | **implemented** |
+| iOS/Android `@react-native-google-signin/google-signin` | **implemented; device not tested** |
+| Login missing config → no crash; Email/Register available | **covered by regression test** |
+| Settings link/unlink via same adapter | **implemented** |
+| JWT persistence atomic before user/routing | **implemented** |
+| Explicit backend audience allowlist + documented legacy fallback | **implemented** |
+| JWKS temporary failure → controlled 503 | **implemented/tested** |
+| Google Login ≠ Google Calendar OAuth | **enforced/documented** |
+| Frontend auth regression | **8 passed** |
+| Backend social auth | **20 passed** |
+| V2.7.1 Home handoff + location regression | **52 passed** |
+| TypeScript / lint / Expo web export | **ok** (lint: 42 pre-existing warnings) |
+| Real GIS / native OAuth | **not completed** — browser runtime unavailable; native build absent |
+| Commit / push | **NO** |
+| stash@{0} | **untouched** |
 
 ## Prompt V2.7.1 — Home → ORA first-turn handoff (this batch)
 

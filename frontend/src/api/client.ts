@@ -35,7 +35,7 @@ export const authToken = {
     return await storage.secureGet<string>(TOKEN_KEY, '' as string).then((v) => (v ? String(v) : null));
   },
   async set(token: string) {
-    await storage.secureSet(TOKEN_KEY, token);
+    return await storage.secureSet(TOKEN_KEY, token);
   },
   async clear() {
     await storage.secureRemove(TOKEN_KEY);

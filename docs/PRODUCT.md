@@ -37,7 +37,7 @@ Linguaggio visivo **calmo, editoriale, premium** (Apple HIG; riferimenti Calenda
 
 ### Login Quiet Premium V1
 
-`/login` è Immersive (canvas, niente card): wordmark ORA, headline *Tutto ciò che conta, nel momento giusto.*, *Accedi per continuare.*, poi Apple → Google → Email (stessi metodi reali; credential-gated). Registrazione via **Nuovo? Crea un account**. Post-auth invariato (`routeAfterAuth` → Life Setup o Home).
+`/login` è Immersive (canvas, niente card): wordmark ORA, headline *Tutto ciò che conta, nel momento giusto.*, *Accedi per continuare.*, poi Apple → Google → Email. Google Login V2 usa GIS popup sul web e Google Sign-In native su iOS/Android; se Google non è configurato, la CTA è realmente disabilitata e Email/registrazione restano operative. Registrazione via **Nuovo? Crea un account**. Post-auth invariato (`routeAfterAuth` → Life Setup o Home).
 
 ### Signature Language — Application Shell V1
 
@@ -114,11 +114,11 @@ Persone che vogliono una priorità unica chiara (non un task manager generico), 
 ### 1. Autenticazione
 
 - **Scopo:** una sola identità ORA (JWT) per email, Google e Apple.
-- **Stato:** email **operativa**; Google/Apple **implementati** (verifica ID token backend + identity store); **verifica reale provider bloccata da credenziali**.
+- **Stato:** email **operativa**; Google Login V2 **implementato** (GIS web + SDK native, verifica ID token backend + identity store), live OAuth ancora dipendente da credenziali/build reali; Apple implementato.
 - **Flusso:** FE ottiene ID token → backend verifica JWKS → `user_identities` → JWT ORA.
 - **Backend:** `/api/auth/register|login|google|apple|link/*|identities|providers|me|logout`.
 - **DB:** `users` + `user_identities`.
-- **Esterni:** Google Cloud OAuth clients; Apple Sign In (App ID / Services ID / key). Legacy Emergent opzionale. In locale, `localhost` e `127.0.0.1` vanno entrambi registrati in Google Console (origin diversi).
+- **Esterni:** Google Cloud OAuth clients; Apple Sign In (App ID / Services ID / key). Legacy Emergent opzionale. In locale, `localhost` e `127.0.0.1` vanno entrambi registrati come Authorized JavaScript Origins (origin diversi). Google Login è identità; Google Calendar è un OAuth separato.
 - **Docs:** `docs/SOCIAL_AUTH_*.md`.
 - **Aperti:** credenziali reali; device iOS/Android; revoca JWT server-side.
 
