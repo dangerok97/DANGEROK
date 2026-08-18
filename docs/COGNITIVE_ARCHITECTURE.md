@@ -52,7 +52,33 @@ by a few recent active/changed user situations. It never receives a full dump.
 | Life Profile / Memory | Durable knowledge about the person | Governed epistemic state |
 
 No Situation mutation promotes a fact into Memory. Memory candidates remain
-proposals under the existing authority and clarification rules.
+proposals under governed learning.
+
+## Memory Proposal & Governed Learning V2.8.3
+
+The AI decides whether a turn contains potentially durable learning and expresses
+an optional `MemoryCandidate`. The runtime never learns every turn: it validates
+schema, ownership, provenance, temporal scope, authority, sensitivity, revision
+and idempotency, then returns a structured observation. The AI reasons again.
+
+- `Situation` is temporal/contextual state; `Memory` is selective cross-session knowledge.
+- `tentative` and `inferred` propositions require clarification; confidence cannot erase uncertainty.
+- Direct durable user evidence can be promoted; raw device presence cannot.
+- Corrections and supersessions preserve prior records and history.
+- Forgetting targets an exact user-owned id and creates a logical tombstone.
+- Open `kind`/`identity_key` support identity validation only; they never route cognition.
+- Preferences influence reasoning as evidence and never become unconditional behavior rules.
+- Stage A exposes only an opaque existence index for active governed Memory. Stage B
+  retrieves bounded detail; actionable governed refs are distinguished from read-only
+  derived Life Memory evidence.
+- Runtime re-entry blocks save/forget claims without a persisted governance outcome and
+  blocks a later active-only lookup from contradicting a successful write in the same turn.
+
+```text
+AI decides candidate and semantic relationship
+→ System guarantees governance, identity and persistence
+→ Context Broker retrieves active promoted evidence when useful
+```
 
 ## Mutation flow
 
@@ -67,3 +93,12 @@ AI structured decision
 
 Client-side capability resume reuses the same reasoning epoch. A new user turn
 gets a new epoch, so later corrections can update the same Situation.
+
+## Provider failure boundary (V2.8.3a)
+
+Provider reliability remains below cognition: it does not change prompts,
+decisions, Memory, Situation or Context Broker semantics. Typed external
+failures can move to the next configured provider; unknown internal ORA errors
+cannot. When the configured chain is exhausted, AI Core receives a sanitized
+`LLMProviderUnavailable` and follows its existing honest soft-failure path
+without exposing vendor, quota or authentication detail to the user.

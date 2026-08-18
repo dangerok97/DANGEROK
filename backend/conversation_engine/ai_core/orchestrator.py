@@ -1,4 +1,5 @@
 """AI Core orchestrator — session lifecycle for the cognitive loop."""
+
 from __future__ import annotations
 
 import logging
@@ -43,10 +44,21 @@ class AICoreOrchestrator:
         sess = ConversationSession(
             id=new_session_id(),
             user_id=user_id,
-            origin=origin if origin in (
-                "home", "voice", "text", "documents", "notifications",
-                "proactive", "life_setup", "memoria",
-            ) else "text",
+            origin=(
+                origin
+                if origin
+                in (
+                    "home",
+                    "voice",
+                    "text",
+                    "documents",
+                    "notifications",
+                    "proactive",
+                    "life_setup",
+                    "memoria",
+                )
+                else "text"
+            ),
             input=text or "[attachment]",
             status="waiting_user",
             engine_version="ai-core-1.0",
@@ -94,9 +106,11 @@ class AICoreOrchestrator:
             kind="start",
             text=(text or user_msg)[:400],
             step_id=user_mid,
-            meta={"attachments": bound, "message_id": user_mid}
-            if bound
-            else {"message_id": user_mid},
+            meta=(
+                {"attachments": bound, "message_id": user_mid}
+                if bound
+                else {"message_id": user_mid}
+            ),
         )
         result = await run_cognitive_loop(
             sess=sess,
@@ -117,7 +131,9 @@ class AICoreOrchestrator:
             if not (getattr(result, "client_actions", None) or []):
                 state_mod.clear_pending_turn(st, status="completed")
                 state_mod.save_ai_state(sess, st)
-        sess.summary = (result.active_goal.summary if result.active_goal else "") or user_msg[:120]
+        sess.summary = (
+            result.active_goal.summary if result.active_goal else ""
+        ) or user_msg[:120]
         sess.status = "waiting_user"
         # Observability (no PII)
         meta = dict(sess.meta or {})
@@ -211,13 +227,8 @@ class AICoreOrchestrator:
             db=self.db,
             decision_fn=self.decision_fn,
         )
-        # Memory candidates stay proposals — never auto-promote
-        if result.memory_candidates:
-            st = state_mod.get_ai_state(sess)
-            pending = list(st.get("memory_candidates_pending") or [])
-            pending.extend([m.model_dump() for m in result.memory_candidates])
-            st["memory_candidates_pending"] = pending[-20:]
-            state_mod.save_ai_state(sess, st)
+        # Memory candidates are governed inside the cognitive loop. Keeping a
+        # second pending queue would create a competing, unaudited write path.
 
         if (result.ora_text or "").strip():
             ora_mid = _new_message_id()
@@ -273,11 +284,6 @@ class AICoreOrchestrator:
             resume_client=True,
         )
         st = state_mod.get_ai_state(sess)
-        if result.memory_candidates:
-            pending_m = list(st.get("memory_candidates_pending") or [])
-            pending_m.extend([m.model_dump() for m in result.memory_candidates])
-            st["memory_candidates_pending"] = pending_m[-20:]
-            state_mod.save_ai_state(sess, st)
 
         if (result.ora_text or "").strip():
             ora_mid = _new_message_id()
@@ -337,9 +343,11 @@ class AICoreOrchestrator:
                 for h in (sess.history or [])[-40:]
             ],
             "pending_turn": pending,
-            "client_actions": list(pending.get("client_actions") or [])
-            if pending.get("status") == "awaiting_client"
-            else [],
+            "client_actions": (
+                list(pending.get("client_actions") or [])
+                if pending.get("status") == "awaiting_client"
+                else []
+            ),
             "ui_mode": "ai_core",
             "route": f"/ora/{sess.id}",
             "entry_point": (sess.meta or {}).get("entry_point"),
@@ -357,9 +365,12 @@ class AICoreOrchestrator:
             "ora_text": result.ora_text,
             "question": result.question,
             "mode": result.mode,
-            "active_goal": result.active_goal.model_dump() if result.active_goal else None,
+            "active_goal": (
+                result.active_goal.model_dump() if result.active_goal else None
+            ),
             "memory_candidates": [m.model_dump() for m in result.memory_candidates],
-            "situation": getattr(result, "situation", None) or st.get("active_situation_ref"),
+            "situation": getattr(result, "situation", None)
+            or st.get("active_situation_ref"),
             "ui_mode": "ai_core",
             "route": f"/ora/{sess.id}",
             "entry_point": (sess.meta or {}).get("entry_point"),

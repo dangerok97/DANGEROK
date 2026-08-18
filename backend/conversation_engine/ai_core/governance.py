@@ -1,10 +1,16 @@
 """Governance — validates AI decisions without replacing cognition."""
+
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Set
 
 from conversation_engine.ai_core.context_broker import validate_context_need
-from conversation_engine.ai_core.models import CognitiveDecision, ContextNeed, MemoryCandidate, ToolCall
+from conversation_engine.ai_core.models import (
+    CognitiveDecision,
+    ContextNeed,
+    MemoryCandidate,
+    ToolCall,
+)
 from conversation_engine.ai_core.tools.registry import ToolRegistry, tool_signature
 from conversation_engine.ai_core.tools.sanitize import sanitize_external_query
 from situations.models import SituationUpdate
@@ -139,7 +145,9 @@ def validate_decision(
                         )
                         tool_call = None
                     else:
-                        clean, reason = sanitize_external_query(str(args.get("query") or ""))
+                        clean, reason = sanitize_external_query(
+                            str(args.get("query") or "")
+                        )
                         if not clean:
                             errors.append(f"bad_external_query:{reason}")
                             mode = "answer"
@@ -169,10 +177,14 @@ def validate_decision(
     elif mode == "context":
         if context_need is None:
             if not (context_query and str(context_query).strip()):
-                context_query = data.get("user_intent_summary") or "relevant personal facts"
+                context_query = (
+                    data.get("user_intent_summary") or "relevant personal facts"
+                )
             context_need = ContextNeed(
                 query=str(context_query),
-                purpose=str(data.get("user_intent_summary") or "current reasoning step")[:240],
+                purpose=str(
+                    data.get("user_intent_summary") or "current reasoning step"
+                )[:240],
             )
         context_query = context_need.query
         ok_q, reason = validate_context_need(context_need)
@@ -190,7 +202,9 @@ def validate_decision(
             tool_call = None
     else:
         tool_call = None
-        if mode in ("answer", "finish", "act") and not (message and str(message).strip()):
+        if mode in ("answer", "finish", "act") and not (
+            message and str(message).strip()
+        ):
             if question and str(question).strip():
                 mode = "ask"
             else:
@@ -208,11 +222,11 @@ def validate_decision(
         updates.append(u)
 
     mem_cands = []
-    for m in data.get("memory_candidates") or []:
-        if isinstance(m, dict) and str(m.get("fact_summary") or "").strip():
-            mem_cands.append(m)
-        elif isinstance(m, MemoryCandidate) and m.fact_summary.strip():
-            mem_cands.append(m.model_dump())
+    for m in (data.get("memory_candidates") or [])[:3]:
+        try:
+            mem_cands.append(MemoryCandidate.model_validate(m).model_dump())
+        except Exception:
+            errors.append("bad_memory_candidate")
 
     message = _sanitize_copy(message)
     question = _sanitize_copy(question)
@@ -225,7 +239,10 @@ def validate_decision(
             if situation_update.operation == "create" and situation_update.situation_id:
                 errors.append("situation_create_with_id")
                 situation_update = None
-            elif situation_update.operation in ("update", "cancel", "resolve") and not situation_update.situation_id:
+            elif (
+                situation_update.operation in ("update", "cancel", "resolve")
+                and not situation_update.situation_id
+            ):
                 errors.append("situation_update_without_id")
                 situation_update = None
         except Exception:
@@ -256,10 +273,10 @@ def validate_decision(
     except Exception:
         return GovernanceResult(False, errors=errors + ["pydantic_fail"])
 
-    ok = mode in ALLOWED_MODES and (
-        mode != "ask" or bool(decision.question)
-    ) and (
-        mode != "tool" or decision.tool_call is not None
+    ok = (
+        mode in ALLOWED_MODES
+        and (mode != "ask" or bool(decision.question))
+        and (mode != "tool" or decision.tool_call is not None)
     )
     return GovernanceResult(ok=ok, decision=decision, errors=errors)
 

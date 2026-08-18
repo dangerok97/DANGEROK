@@ -4,6 +4,7 @@ AI decides when personal context may answer; this module only retrieves.
 No conversational keyword branches. Schema field maps exist only to read
 existing Profile / Memory / Account structures.
 """
+
 from __future__ import annotations
 
 import json
@@ -153,9 +154,7 @@ class ContextBroker:
                 self.last_report = RetrievalReport(status="access_denied")
                 return []
             if legacy_query:
-                return await self._retrieve_legacy(
-                    user_id=user_id, query=need.query
-                )
+                return await self._retrieve_legacy(user_id=user_id, query=need.query)
 
         facts: List[ContextFact] = []
 
@@ -164,7 +163,9 @@ class ContextBroker:
             facts.extend(await self._account_facts(user_id))
 
         # --- Active goal (tiny) — historical context, not a binding command ---
-        if active_goal and (active_goal.get("summary") or active_goal.get("desired_outcome")):
+        if active_goal and (
+            active_goal.get("summary") or active_goal.get("desired_outcome")
+        ):
             if stage == "A":
                 summary = (active_goal.get("summary") or "").strip()
                 outcome = (active_goal.get("desired_outcome") or "").strip()
@@ -196,12 +197,19 @@ class ContextBroker:
 
         # Stage A stops here — do not stuff Profile/Memory.
         if stage == "A":
-            facts.extend(await self._situation_facts(user_id, session_id=session_id, detailed=False))
+            facts.extend(
+                await self._situation_facts(
+                    user_id, session_id=session_id, detailed=False
+                )
+            )
+            facts.extend(await self._memory_index_facts(user_id))
             final = _finalize(facts, limit=STAGE_A_MAX)
             stats = context_payload_stats(final)
             self.last_report = RetrievalReport(
-                status="ok", queried_sources=["account", "situations"],
-                candidate_count=len(facts), final_count=len(final),
+                status="ok",
+                queried_sources=["account", "situations", "memory_index"],
+                candidate_count=len(facts),
+                final_count=len(final),
                 payload_chars=stats["payload_chars"],
             )
             return final
@@ -216,18 +224,45 @@ class ContextBroker:
             anchor=_situation_anchor(anchor_facts, user_message, active_goal),
         )
 
+    async def _memory_index_facts(self, user_id: str) -> List[ContextFact]:
+        """Expose existence only; durable Memory detail remains Stage B-only."""
+        try:
+            exists = await self.db.memories.find_one(
+                {"user_id": user_id, "status": "active"}, {"_id": 0, "id": 1}
+            )
+        except Exception as exc:
+            logger.info("context broker memory index soft-fail: %s", type(exc).__name__)
+            return []
+        if not exists:
+            return []
+        statement = (
+            "Governed durable Memory contains active personal evidence; details are not "
+            "loaded in Stage A; unresolved_personal_context=true."
+        )
+        return [
+            ContextFact(
+                statement=statement,
+                fact=statement,
+                source="memory_index",
+                authority="system_index",
+                status="index_only",
+                ref="memory:index",
+                sensitivity="personal",
+            )
+        ]
+
     async def _retrieve_legacy(self, *, user_id: str, query: str) -> List[ContextFact]:
         """V2.1 compatibility only; new AI decisions use ContextNeed/registry."""
         categories = infer_categories(query)
         facts: List[ContextFact] = []
         if "identity" in categories or "general" in categories:
             facts.extend(await self._account_facts(user_id))
-        facts.extend(await self._profile_facts(
-            user_id, categories=categories, query=query
-        ))
-        facts.extend(await self._memory_facts(
-            user_id, categories=categories, query=query
-        ))
+        facts.extend(
+            await self._profile_facts(user_id, categories=categories, query=query)
+        )
+        facts.extend(
+            await self._memory_facts(user_id, categories=categories, query=query)
+        )
         if "presence" in categories or "general" in categories:
             facts.extend(await self._presence_facts(user_id))
         final = _finalize(facts, limit=STAGE_B_MAX)
@@ -235,7 +270,8 @@ class ContextBroker:
         self.last_report = RetrievalReport(
             status="ok" if final else "no_relevant_evidence",
             queried_sources=["legacy_profile_memory"],
-            candidate_count=len(facts), final_count=len(final),
+            candidate_count=len(facts),
+            final_count=len(final),
             payload_chars=stats["payload_chars"],
         )
         return final
@@ -264,22 +300,31 @@ class ContextBroker:
             try:
                 found = await source.retrieve(user_id, need, session_id)
                 candidates.extend(found[:30])
-                report.outcomes.append(SourceOutcome(
-                    source=source.name,
-                    status="ok" if found else "no_relevant_evidence",
-                    candidate_count=len(found),
-                    duration_ms=int((time.perf_counter() - started) * 1000),
-                ))
+                report.outcomes.append(
+                    SourceOutcome(
+                        source=source.name,
+                        status="ok" if found else "no_relevant_evidence",
+                        candidate_count=len(found),
+                        duration_ms=int((time.perf_counter() - started) * 1000),
+                    )
+                )
             except Exception as exc:
-                logger.info("context source %s soft-fail: %s", source.name, type(exc).__name__)
-                report.outcomes.append(SourceOutcome(
-                    source=source.name, status="source_unavailable",
-                    duration_ms=int((time.perf_counter() - started) * 1000),
-                    reason=type(exc).__name__,
-                ))
+                logger.info(
+                    "context source %s soft-fail: %s", source.name, type(exc).__name__
+                )
+                report.outcomes.append(
+                    SourceOutcome(
+                        source=source.name,
+                        status="source_unavailable",
+                        duration_ms=int((time.perf_counter() - started) * 1000),
+                        reason=type(exc).__name__,
+                    )
+                )
         report.candidate_count = len(candidates)
         selected, exhausted = rank_evidence(
-            candidates, need, anchor=anchor,
+            candidates,
+            need,
+            anchor=anchor,
             max_items=min(need.max_items, STAGE_B_MAX),
             max_chars=MAX_PAYLOAD_CHARS,
         )
@@ -289,13 +334,16 @@ class ContextBroker:
         if not selected:
             report.status = (
                 "source_unavailable"
-                if report.outcomes and all(o.status == "source_unavailable" for o in report.outcomes)
+                if report.outcomes
+                and all(o.status == "source_unavailable" for o in report.outcomes)
                 else "no_relevant_evidence"
             )
         self.last_report = report
         return selected
 
-    async def _situation_facts(self, user_id: str, *, session_id: Optional[str], detailed: bool) -> List[ContextFact]:
+    async def _situation_facts(
+        self, user_id: str, *, session_id: Optional[str], detailed: bool
+    ) -> List[ContextFact]:
         try:
             from situations.service import SituationService
 
@@ -324,11 +372,18 @@ class ContextBroker:
                 )
                 if preview.get("assumptions"):
                     statement += "; unresolved_detail=true"
-            out.append(ContextFact(
-                statement=statement[:700], fact=statement[:700], source="situation",
-                authority="user_context", status=item.status, timestamp=item.updated_at,
-                ref=f"situation:{item.id}", temporal_scope=item.temporal_scope,
-            ))
+            out.append(
+                ContextFact(
+                    statement=statement[:700],
+                    fact=statement[:700],
+                    source="situation",
+                    authority="user_context",
+                    status=item.status,
+                    timestamp=item.updated_at,
+                    ref=f"situation:{item.id}",
+                    temporal_scope=item.temporal_scope,
+                )
+            )
         return out
 
     async def _presence_facts(self, user_id: str) -> List[ContextFact]:
@@ -451,7 +506,10 @@ class ContextBroker:
             domains = profile.get("domains") or {}
 
         try:
-            from life_memory.authority import authority_band, memory_status_from_authority
+            from life_memory.authority import (
+                authority_band,
+                memory_status_from_authority,
+            )
             from life_memory.statements import (
                 is_sensitive_key,
                 is_transient_key,
@@ -459,7 +517,9 @@ class ContextBroker:
                 statement_for_profile_fact,
             )
         except Exception as e:
-            logger.info("context broker profile imports soft-fail: %s", type(e).__name__)
+            logger.info(
+                "context broker profile imports soft-fail: %s", type(e).__name__
+            )
             return out
 
         want_slots = _slots_for_categories(categories)
@@ -474,7 +534,9 @@ class ContextBroker:
             for key, obj in objects.items():
                 if is_sensitive_key(str(key)) or is_transient_key(str(key)):
                     continue
-                value, source, field_status, confirmed, updated = _unwrap_profile_obj(obj)
+                value, source, field_status, confirmed, updated = _unwrap_profile_obj(
+                    obj
+                )
                 if value in (None, "", []):
                     continue
                 slot = normalize_slot(str(domain), str(key))
@@ -574,7 +636,14 @@ class ContextBroker:
                     authority=auth,
                     status=str(getattr(m, "status", None) or "known"),
                     timestamp=str(getattr(m, "updated_at", None) or "") or None,
-                    ref=str(getattr(m, "id", None) or "memory"),
+                    ref=next(
+                        (
+                            str(ref).split("user_memory:", 1)[1]
+                            for ref in (getattr(m, "source_refs", None) or [])
+                            if str(ref).startswith("user_memory:")
+                        ),
+                        str(getattr(m, "id", None) or "memory"),
+                    ),
                 )
             )
         return out
@@ -607,10 +676,12 @@ def _situation_anchor(
 ) -> str:
     parts = [user_message]
     if active_goal:
-        parts.extend([
-            str(active_goal.get("summary") or ""),
-            str(active_goal.get("desired_outcome") or ""),
-        ])
+        parts.extend(
+            [
+                str(active_goal.get("summary") or ""),
+                str(active_goal.get("desired_outcome") or ""),
+            ]
+        )
     parts.extend(f.statement for f in facts if f.source == "situation")
     return " ".join(parts)[:1200]
 

@@ -1,4 +1,5 @@
 """Bounded agentic reasoning loop — AI decides; tools/context observe."""
+
 from __future__ import annotations
 
 import json
@@ -8,7 +9,10 @@ import time
 import uuid
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Set
 
-from conversation_engine.ai_core.context_broker import ContextBroker, context_payload_stats
+from conversation_engine.ai_core.context_broker import (
+    ContextBroker,
+    context_payload_stats,
+)
 from conversation_engine.ai_core.fallback import (
     fallback_decision_after_malformed,
     provider_unavailable_result,
@@ -22,7 +26,10 @@ from conversation_engine.ai_core.models import (
     ContextFact,
     Observation,
 )
-from conversation_engine.ai_core.prompt import COGNITIVE_SYSTEM_PROMPT, build_user_payload
+from conversation_engine.ai_core.prompt import (
+    COGNITIVE_SYSTEM_PROMPT,
+    build_user_payload,
+)
 from conversation_engine.ai_core import state as state_mod
 from conversation_engine.ai_core.tools.registry import (
     ToolRegistry,
@@ -79,7 +86,18 @@ _PERSIST_CLAIM_RE = re.compile(
 )
 _DURABLE_MEMORY_CLAIM_RE = re.compile(
     r"(?i)\b(ho\s+memorizzato|ho\s+salvato\s+(in\s+)?memoria|"
-    r"i('|’)?ve\s+memorized|saved\s+(it\s+)?to\s+memory)\b"
+    r"ho\s+preso\s+nota|terrò\s+presente\s+(in\s+futuro|d'ora\s+in\s+poi)|"
+    r"ho\s+dimenticato|ho\s+rimosso\s+(dalla\s+)?memoria|"
+    r"ho\s+rimosso\b.{0,100}\bmemorizzat[oa]|"
+    r"i('|’)?ve\s+memorized|saved\s+(it\s+)?to\s+memory|"
+    r"i('|’)?ve\s+forgotten|removed\s+(it\s+)?from\s+memory|"
+    r"i('ll|\s+will)\s+remember\s+(it|that)\s+(in\s+the\s+future|going\s+forward))\b"
+)
+_MEMORY_NOT_FOUND_CLAIM_RE = re.compile(
+    r"(?i)\b(non\s+ho\s+trovato.{0,120}\bmemoria|"
+    r"non\s+c('|’|i\s+)è\s+alcun[ao].{0,100}\bda\s+dimenticare|"
+    r"no\s+(matching|specific)\s+memory\s+(was\s+)?found|"
+    r"there\s+is\s+nothing.{0,80}\bto\s+forget)\b"
 )
 # Current-location questions must go through location capabilities (consent bridge).
 _LOCATION_NOW_ASK_RE = re.compile(
@@ -169,7 +187,9 @@ async def run_cognitive_loop(
             try:
                 from location.service import LocationService
 
-                await LocationService(db).clear_transient_acquisition_error(sess.user_id)
+                await LocationService(db).clear_transient_acquisition_error(
+                    sess.user_id
+                )
             except Exception:
                 pass
     add_step(
@@ -239,6 +259,11 @@ async def run_cognitive_loop(
     situation_plan_nudge_used = False
     linked_plan_pending_id: Optional[str] = None
     linked_plan_reconciled_this_turn = False
+    memory_governance_rounds = 0
+    memory_write_confirmed_this_turn = False
+    memory_write_decisions_this_turn: List[str] = []
+    memory_claim_nudge_used = False
+    memory_result_nudge_used = False
 
     # Hydrate plan/object conversational focus for linked sessions
     from conversation_engine.ai_core.life_os_context import (
@@ -317,7 +342,9 @@ async def run_cognitive_loop(
                 mode=decision.response_mode,
                 status=decision.reasoning_status,
                 tool=(
-                    decision.tool_call.resolved_capability if decision.tool_call else None
+                    decision.tool_call.resolved_capability
+                    if decision.tool_call
+                    else None
                 ),
                 has_question=bool(decision.question),
             )
@@ -357,11 +384,16 @@ async def run_cognitive_loop(
                 if not args_try.get("plan_id") and not args_try.get("plan_ref"):
                     if st.get("active_plan_id"):
                         args_try["plan_id"] = st["active_plan_id"]
-                if cap_try in (
-                    "update_object",
-                    "get_object",
-                    "record_object_interaction",
-                ) and not args_try.get("object_id") and not args_try.get("id"):
+                if (
+                    cap_try
+                    in (
+                        "update_object",
+                        "get_object",
+                        "record_object_interaction",
+                    )
+                    and not args_try.get("object_id")
+                    and not args_try.get("id")
+                ):
                     oid = (st.get("active_object_ref") or {}).get("id")
                     if oid:
                         args_try["object_id"] = oid
@@ -418,31 +450,111 @@ async def run_cognitive_loop(
                     update=decision.situation_update,
                     reasoning_epoch=epoch,
                 )
-                st["active_situation_ref"] = dict(situation_result.get("situation") or {})
-                observations.append(Observation(
-                    kind="tool", name="situation_mutation", status="ok",
-                    payload=situation_result,
-                    provenance=list(decision.situation_update.source_refs or ["user_conversation"]),
-                ).model_dump())
-                add_step(trace, event="SITUATION_MUTATION", operation=decision.situation_update.operation)
-                linked_plan = ((situation_result or {}).get("situation") or {}).get("linked_plan_id")
+                st["active_situation_ref"] = dict(
+                    situation_result.get("situation") or {}
+                )
+                observations.append(
+                    Observation(
+                        kind="tool",
+                        name="situation_mutation",
+                        status="ok",
+                        payload=situation_result,
+                        provenance=list(
+                            decision.situation_update.source_refs
+                            or ["user_conversation"]
+                        ),
+                    ).model_dump()
+                )
+                add_step(
+                    trace,
+                    event="SITUATION_MUTATION",
+                    operation=decision.situation_update.operation,
+                )
+                linked_plan = ((situation_result or {}).get("situation") or {}).get(
+                    "linked_plan_id"
+                )
                 if decision.situation_update.operation == "cancel" and linked_plan:
                     linked_plan_pending_id = str(linked_plan)
             except Exception as e:
                 code = str(getattr(e, "code", "PERSISTENCE_ERROR"))[:80]
-                observations.append(Observation(
-                    kind="error", name="situation_mutation", status="error",
-                    payload={
-                        "failure_code": code,
-                        "reason": "Situation state was not persisted. Do not claim it was updated. Recover from context or explain honestly.",
-                    },
-                ).model_dump())
+                observations.append(
+                    Observation(
+                        kind="error",
+                        name="situation_mutation",
+                        status="error",
+                        payload={
+                            "failure_code": code,
+                            "reason": "Situation state was not persisted. Do not claim it was updated. Recover from context or explain honestly.",
+                        },
+                    ).model_dump()
+                )
                 add_step(trace, event="SITUATION_MUTATION_FAIL", code=code)
                 if step + 1 < max_steps:
                     continue
+        if decision.memory_candidates and memory_governance_rounds < 2:
+            memory_governance_rounds += 1
+            try:
+                from life_memory.governance import MemoryGovernanceService
+
+                memory_outcomes = await MemoryGovernanceService(db).process(
+                    user_id=sess.user_id,
+                    session_id=sess.id,
+                    reasoning_epoch=epoch,
+                    candidates=list(decision.memory_candidates),
+                )
+                memory_write_confirmed_this_turn = any(
+                    item.persisted for item in memory_outcomes
+                )
+                memory_write_decisions_this_turn = [
+                    item.decision for item in memory_outcomes if item.persisted
+                ]
+                observations.append(
+                    Observation(
+                        kind="tool",
+                        name="memory_governance",
+                        status="ok",
+                        payload={
+                            "outcomes": [item.public() for item in memory_outcomes],
+                            "reason": (
+                                "Durable Memory changes exist only where persisted=true. "
+                                "CLARIFY requires a natural user question; REJECT means keep the "
+                                "information conversational/Situation-only. Never claim an unpersisted write."
+                            ),
+                        },
+                        provenance=["user_conversation"],
+                    ).model_dump()
+                )
+                add_step(
+                    trace,
+                    event="MEMORY_GOVERNANCE",
+                    outcomes=[item.decision for item in memory_outcomes],
+                )
+            except Exception as e:
+                code = str(getattr(e, "code", "MEMORY_PERSISTENCE_ERROR"))[:80]
+                observations.append(
+                    Observation(
+                        kind="error",
+                        name="memory_governance",
+                        status="error",
+                        payload={
+                            "failure_code": code,
+                            "reason": (
+                                "No durable Memory change was confirmed. Do not say it was saved; "
+                                "continue honestly or ask the user to retry."
+                            ),
+                        },
+                    ).model_dump()
+                )
+                add_step(trace, event="MEMORY_GOVERNANCE_FAIL", code=code)
+            if step + 1 < max_steps:
+                continue
         # Refresh context merge after current_facts updates
         context_facts = merge_context_with_current(
-            [f for f in context_facts if not (f.ref or "").startswith("current_facts:")],
+            [
+                f
+                for f in context_facts
+                if not (f.ref or "").startswith("current_facts:")
+            ],
             st,
         )
         context_facts = [
@@ -463,21 +575,25 @@ async def run_cognitive_loop(
             if linked_plan_pending_id and not linked_plan_reconciled_this_turn:
                 first_nudge = not situation_plan_nudge_used
                 situation_plan_nudge_used = True
-                observations.append(Observation(
-                    kind="system", name="linked_plan_reconciliation", status="nudge",
-                    payload={
-                        "failure_code": "LINKED_PLAN_DECISION_REQUIRED",
-                        "plan_id": linked_plan_pending_id,
-                        "reason": (
-                            "The contextual Situation is cancelled but its linked plan was not changed. "
-                            "Decide whether that plan still serves a valid outcome. If the abandoned activity "
-                            "made the plan obsolete, call update_plan on the same id with patch.status=cancelled. "
-                            "Otherwise preserve/adapt it and state that distinction honestly. "
-                            "Do not repeat the Situation mutation; it already succeeded."
-                        ),
-                        "repeated_after_ignored_nudge": not first_nudge,
-                    },
-                ).model_dump())
+                observations.append(
+                    Observation(
+                        kind="system",
+                        name="linked_plan_reconciliation",
+                        status="nudge",
+                        payload={
+                            "failure_code": "LINKED_PLAN_DECISION_REQUIRED",
+                            "plan_id": linked_plan_pending_id,
+                            "reason": (
+                                "The contextual Situation is cancelled but its linked plan was not changed. "
+                                "Decide whether that plan still serves a valid outcome. If the abandoned activity "
+                                "made the plan obsolete, call update_plan on the same id with patch.status=cancelled. "
+                                "Otherwise preserve/adapt it and state that distinction honestly. "
+                                "Do not repeat the Situation mutation; it already succeeded."
+                            ),
+                            "repeated_after_ignored_nudge": not first_nudge,
+                        },
+                    ).model_dump()
+                )
                 add_step(trace, event="SITUATION_PLAN_NUDGE")
                 if step + 1 < max_steps:
                     continue
@@ -489,22 +605,92 @@ async def run_cognitive_loop(
                 )
             ora = _compose_user_text(decision)
             if (
+                memory_write_confirmed_this_turn
+                and not memory_result_nudge_used
+                and _MEMORY_NOT_FOUND_CLAIM_RE.search(ora or "")
+                and step + 1 < max_steps
+            ):
+                memory_result_nudge_used = True
+                observations.append(
+                    Observation(
+                        kind="system",
+                        name="memory_result_consistency",
+                        status="nudge",
+                        payload={
+                            "failure_code": "MEMORY_RESULT_CONTRADICTION",
+                            "persisted_decisions": memory_write_decisions_this_turn,
+                            "reason": (
+                                "A Memory governance operation was persisted in this turn. "
+                                "Answer from that persisted outcome; do not claim that no matching "
+                                "memory existed merely because a later active-only lookup is empty."
+                            ),
+                        },
+                    ).model_dump()
+                )
+                add_step(trace, event="MEMORY_RESULT_NUDGE")
+                continue
+            unpersisted_memory_claim = (
+                mode in ("answer", "finish", "act")
+                and not memory_write_confirmed_this_turn
+                and _DURABLE_MEMORY_CLAIM_RE.search(ora or "")
+            )
+            if (
+                unpersisted_memory_claim
+                and not memory_claim_nudge_used
+                and step + 1 < max_steps
+            ):
+                memory_claim_nudge_used = True
+                observations.append(
+                    Observation(
+                        kind="system",
+                        name="memory_persist_before_claim",
+                        status="nudge",
+                        payload={
+                            "failure_code": "MEMORY_PERSIST_REQUIRED",
+                            "reason": (
+                                "No persisted Memory governance outcome exists for this turn. "
+                                "If durable learning is warranted, emit a bounded memory_candidate "
+                                "and wait for memory_governance. Otherwise answer without claiming "
+                                "that anything was remembered, saved, forgotten, or noted for future use."
+                            ),
+                        },
+                    ).model_dump()
+                )
+                add_step(trace, event="MEMORY_PERSIST_NUDGE")
+                continue
+            if unpersisted_memory_claim:
+                # The model exhausted its reasoning budget without a persisted
+                # governance outcome. Never let a final-turn wording bypass the
+                # persist-before-claim invariant.
+                decision.message_to_user = (
+                    "Non sono riuscita a salvare questa informazione in memoria "
+                    "in questo momento. Possiamo riprovare."
+                )
+                decision.question = None
+                mode = "answer"
+                ora = _compose_user_text(decision)
+                add_step(trace, event="MEMORY_CLAIM_BLOCKED_TERMINAL")
+            if (
                 decision.situation_update
                 and decision.situation_update.operation != "none"
                 and _DURABLE_MEMORY_CLAIM_RE.search(ora or "")
                 and step + 1 < max_steps
             ):
-                observations.append(Observation(
-                    kind="system", name="situation_memory_separation", status="nudge",
-                    payload={
-                        "failure_code": "SITUATION_IS_NOT_MEMORY",
-                        "reason": (
-                            "The Situation mutation succeeded only as contextual state. "
-                            "Do not say it was memorized or saved to durable Memory. "
-                            "Answer naturally that you are keeping the current situation in view."
-                        ),
-                    },
-                ).model_dump())
+                observations.append(
+                    Observation(
+                        kind="system",
+                        name="situation_memory_separation",
+                        status="nudge",
+                        payload={
+                            "failure_code": "SITUATION_IS_NOT_MEMORY",
+                            "reason": (
+                                "The Situation mutation succeeded only as contextual state. "
+                                "Do not say it was memorized or saved to durable Memory. "
+                                "Answer naturally that you are keeping the current situation in view."
+                            ),
+                        },
+                    ).model_dump()
+                )
                 add_step(trace, event="SITUATION_MEMORY_NUDGE")
                 continue
             # Location-before-claim: current-location asks (and pending refresh retries)
@@ -518,10 +704,7 @@ async def run_cognitive_loop(
                 and not location_nudge_used
                 and not has_loc_obs
                 and step + 1 < max_steps
-                and (
-                    force_loc
-                    or _LOCATION_NOW_ASK_RE.search(user_message or "")
-                )
+                and (force_loc or _LOCATION_NOW_ASK_RE.search(user_message or ""))
             ):
                 location_nudge_used = True
                 observations.append(
@@ -540,7 +723,8 @@ async def run_cognitive_loop(
                                 "observation status is denied. "
                                 "requires_consent means the client will show ORA consent."
                             ),
-                            "pending_capability": pending_loc_cap or "get_current_location",
+                            "pending_capability": pending_loc_cap
+                            or "get_current_location",
                         },
                     ).model_dump()
                 )
@@ -587,7 +771,9 @@ async def run_cognitive_loop(
                                     "workspace was updated."
                                 )
                                 if has_obj
-                                and _claims_unverified_object_adapt(ora, has_active_object=True)
+                                and _claims_unverified_object_adapt(
+                                    ora, has_active_object=True
+                                )
                                 else (
                                     "You claimed a durable Life OS plan/object without a successful "
                                     "create_plan / create_actions / create_object / update_object "
@@ -623,19 +809,24 @@ async def run_cognitive_loop(
                 elapsed_ms=int((time.perf_counter() - t0) * 1000),
                 sources=public_sources[:MAX_SOURCES_UI],
                 working_hint=None,
-                situation=(situation_result or {}).get("situation") or st.get("active_situation_ref"),
+                situation=(situation_result or {}).get("situation")
+                or st.get("active_situation_ref"),
             )
 
         if mode == "context":
             cq = (decision.context_query or "").strip()
             if int(trace.get("context_calls") or 0) >= MAX_CONTEXT_CALLS:
-                observations.append(Observation(
-                    kind="context", name="context_broker", status="budget_exhausted",
-                    payload={
-                        "failure_code": "CONTEXT_BUDGET_EXHAUSTED",
-                        "reason": "No more personal-context retrieval calls are allowed this turn.",
-                    },
-                ).model_dump())
+                observations.append(
+                    Observation(
+                        kind="context",
+                        name="context_broker",
+                        status="budget_exhausted",
+                        payload={
+                            "failure_code": "CONTEXT_BUDGET_EXHAUSTED",
+                            "reason": "No more personal-context retrieval calls are allowed this turn.",
+                        },
+                    ).model_dump()
+                )
                 add_step(trace, event="CONTEXT_BUDGET")
                 if step + 1 < max_steps:
                     continue
@@ -667,12 +858,17 @@ async def run_cognitive_loop(
             obs = Observation(
                 kind="context",
                 name="context_broker",
-                status="ok" if more else str(report.get("status") or "no_relevant_evidence"),
+                status=(
+                    "ok"
+                    if more
+                    else str(report.get("status") or "no_relevant_evidence")
+                ),
                 payload={
                     "facts": [f.model_dump() for f in more],
                     "context_need": (
                         decision.context_need.model_dump()
-                        if decision.context_need else {"query": cq}
+                        if decision.context_need
+                        else {"query": cq}
                     ),
                     "item_count": len(more),
                     "grounding": "PERSONAL_CONTEXT",
@@ -699,7 +895,10 @@ async def run_cognitive_loop(
                         kind="system",
                         name="tool_budget",
                         status="blocked",
-                        payload={"failure_code": "UNSUPPORTED", "reason": "max_tool_calls"},
+                        payload={
+                            "failure_code": "UNSUPPORTED",
+                            "reason": "max_tool_calls",
+                        },
                     ).model_dump()
                 )
                 add_step(trace, event="TOOL_BUDGET")
@@ -710,7 +909,10 @@ async def run_cognitive_loop(
                         kind="system",
                         name="write_budget",
                         status="blocked",
-                        payload={"failure_code": "UNSUPPORTED", "reason": "max_write_calls"},
+                        payload={
+                            "failure_code": "UNSUPPORTED",
+                            "reason": "max_write_calls",
+                        },
                     ).model_dump()
                 )
                 add_step(trace, event="WRITE_BUDGET")
@@ -748,11 +950,16 @@ async def run_cognitive_loop(
                         args["plan_id"] = st["active_plan_id"]
                         if cap == "create_object":
                             args["plan_ref"] = st["active_plan_id"]
-                if cap in (
-                    "update_object",
-                    "get_object",
-                    "record_object_interaction",
-                ) and not args.get("object_id") and not args.get("id"):
+                if (
+                    cap
+                    in (
+                        "update_object",
+                        "get_object",
+                        "record_object_interaction",
+                    )
+                    and not args.get("object_id")
+                    and not args.get("id")
+                ):
                     oid = (st.get("active_object_ref") or {}).get("id")
                     if oid:
                         args["object_id"] = oid
@@ -777,7 +984,8 @@ async def run_cognitive_loop(
                 # Defensive: STALE historically set needs_client without client_action
                 if not (isinstance(ca, dict) and ca.get("type")):
                     if (obs.payload or {}).get("needs_client") or (
-                        (obs.payload or {}).get("status") in (
+                        (obs.payload or {}).get("status")
+                        in (
                             "stale",
                             "needs_client",
                             "consent_required",
@@ -848,9 +1056,9 @@ async def run_cognitive_loop(
             if cap == "web_search":
                 external_queries += 1
                 trace["external_queries"] = external_queries
-                st["external_query_count_session"] = int(
-                    st.get("external_query_count_session") or 0
-                ) + 1
+                st["external_query_count_session"] = (
+                    int(st.get("external_query_count_session") or 0) + 1
+                )
             if cap in _WRITE_CAPS:
                 write_calls += 1
                 trace["write_calls"] = write_calls
@@ -894,13 +1102,11 @@ async def run_cognitive_loop(
             # Persist active plan/goal refs for Continue / later turns
             payload = obs.payload or {}
             if payload.get("plan_id") and (
-                obs.status in ("ok", "success")
-                or payload.get("status") == "success"
+                obs.status in ("ok", "success") or payload.get("status") == "success"
             ):
                 st["active_plan_id"] = payload["plan_id"]
             if payload.get("goal_id") and (
-                obs.status in ("ok", "success")
-                or payload.get("status") == "success"
+                obs.status in ("ok", "success") or payload.get("status") == "success"
             ):
                 st["active_goal_id"] = payload["goal_id"]
             if payload.get("object_id") and payload.get("status") == "success":
@@ -919,7 +1125,8 @@ async def run_cognitive_loop(
                             "object_kind": payload.get("object_kind"),
                             "revision": payload.get("revision"),
                             "updated_at": payload.get("updated_at"),
-                            "plan_id": payload.get("plan_id") or st.get("active_plan_id"),
+                            "plan_id": payload.get("plan_id")
+                            or st.get("active_plan_id"),
                         },
                     )
                 if cap == "update_object":
@@ -982,7 +1189,8 @@ async def run_cognitive_loop(
         sources=public_sources[:MAX_SOURCES_UI],
         working_hint=working_hint,
         error="loop_bound" if ai_calls >= max_steps else None,
-        situation=(situation_result or {}).get("situation") or st.get("active_situation_ref"),
+        situation=(situation_result or {}).get("situation")
+        or st.get("active_situation_ref"),
     )
 
 

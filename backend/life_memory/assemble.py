@@ -1,4 +1,5 @@
 """Assemble Memory candidates from durable sources — no Gemini, no Contesti temporals."""
+
 from __future__ import annotations
 
 import hashlib
@@ -176,8 +177,10 @@ def assemble_life_memory(
             has_doc = bool(obj.get("source_document_id") or obj.get("linked_doc_ids"))
             slot = normalize_slot(domain, k)
             # Prefer presentation domain of the slot family (responsibilities → Lavoro)
-            present_domain = slot.split(".")[0] if "." in slot else (
-                "identity" if domain == "mlc" else domain
+            present_domain = (
+                slot.split(".")[0]
+                if "." in slot
+                else ("identity" if domain == "mlc" else domain)
             )
             if present_domain == "mlc":
                 present_domain = "identity"
@@ -206,7 +209,9 @@ def assemble_life_memory(
                     updated_at=obj.get("updated_at"),
                     value_norm=vnorm,
                     source_priority=pri,
-                    sensitivity="sensitive" if domain in ("salute", "finanze") else "normal",
+                    sensitivity=(
+                        "sensitive" if domain in ("salute", "finanze") else "normal"
+                    ),
                     editable=False,
                 )
             )
@@ -294,7 +299,10 @@ def assemble_life_memory(
         )
 
     for note in user_notes or []:
-        content = note.get("content") or ""
+        durable_status = str(note.get("status") or "active")
+        if durable_status in ("superseded", "forgotten", "rejected", "expired"):
+            continue
+        content = note.get("statement") or note.get("content") or ""
         statement = statement_for_note(str(content))
         if not statement:
             continue
@@ -313,19 +321,23 @@ def assemble_life_memory(
         candidates.append(
             MemoryCandidate(
                 candidate_id=f"cand:{eid}",
-                kind="note",
+                kind=str(note.get("kind") or "note")[:80],
                 statement=statement,
                 domain="note",
                 group_label=group_label_for_domain("note"),
                 slot=f"note:{mid}",
                 entity_keys=_entity_keys(statement),
-                status="known",
-                authority="user_stated",
-                evidence_refs=[eid],
-                source_refs=[eid],
-                provenance_label=provenance_label("user_memory"),
+                status="known" if durable_status == "active" else durable_status,
+                authority=str(note.get("authority") or "user_stated"),
+                evidence_refs=list(note.get("evidence_refs") or [eid])[:8],
+                source_refs=list(
+                    dict.fromkeys([eid] + list(note.get("provenance") or []))
+                )[:8],
+                provenance_label=provenance_label(
+                    str(note.get("authority") or "user_memory")
+                ),
                 learned_at=note.get("created_at"),
-                updated_at=note.get("created_at"),
+                updated_at=note.get("updated_at") or note.get("created_at"),
                 value_norm=_norm_value(statement),
                 source_priority=_SOURCE_PRIORITY["user_memory"],
                 editable=False,

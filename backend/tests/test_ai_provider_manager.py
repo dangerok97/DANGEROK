@@ -60,19 +60,264 @@ def test_failover_on_quota():
 
 
 def test_no_provider_raises_not_configured():
+    from contextlib import ExitStack
+
     from llm.errors import LLMNotConfigured
     from llm.manager import ProviderManager
 
     mgr = ProviderManager()
 
     async def body():
-        for name in ("gemini", "openai", "ollama", "emergent"):
-            p = mgr.get(name)
-            with patch.object(p, "is_configured", return_value=False):
-                pass
-        with patch.object(mgr, "_available", new=AsyncMock(return_value=False)):
-            with pytest.raises(LLMNotConfigured):
+        with ExitStack() as stack:
+            for name in ("gemini", "openai", "ollama", "emergent"):
+                stack.enter_context(
+                    patch.object(mgr.get(name), "is_configured", return_value=False)
+                )
+            with pytest.raises(LLMNotConfigured) as caught:
                 await mgr.chat(system="s", user="u")
+        assert type(caught.value) is LLMNotConfigured
+
+    _run(body())
+
+
+def _configured_chain(mgr, enabled=("gemini", "openai")):
+    """Patch configuration only; callers still own chat mocks."""
+    return [
+        patch.object(mgr.get(name), "is_configured", return_value=name in enabled)
+        for name in ("gemini", "openai", "ollama", "emergent")
+    ]
+
+
+def test_all_configured_quota_raises_provider_unavailable_with_safe_causes():
+    from contextlib import ExitStack
+
+    from llm.errors import LLMProviderUnavailable, LLMQuotaError
+    from llm.manager import ProviderManager
+
+    mgr = ProviderManager()
+
+    async def body():
+        with ExitStack() as stack:
+            for ctx in _configured_chain(mgr):
+                stack.enter_context(ctx)
+            stack.enter_context(
+                patch.object(mgr.get("gemini"), "chat", new=AsyncMock(side_effect=LLMQuotaError("sensitive-a")))
+            )
+            stack.enter_context(
+                patch.object(mgr.get("openai"), "chat", new=AsyncMock(side_effect=LLMQuotaError("sensitive-b")))
+            )
+            with pytest.raises(LLMProviderUnavailable) as caught:
+                await mgr.chat(system="private prompt", user="private user text")
+        assert [x["failure_kind"] for x in caught.value.attempts] == ["quota", "quota"]
+        serialized = repr(caught.value.attempts)
+        assert "sensitive" not in serialized and "private" not in serialized
+
+    _run(body())
+
+
+@pytest.mark.parametrize(
+    "failure_type",
+    [
+        "LLMTimeoutError",
+        "LLMNetworkError",
+        "LLMAuthenticationError",
+        "LLMModelUnavailableError",
+    ],
+)
+def test_typed_provider_failures_fail_over(failure_type):
+    from contextlib import ExitStack
+
+    from llm import errors
+    from llm.base import LLMResult
+    from llm.manager import ProviderManager
+
+    mgr = ProviderManager()
+    failure = getattr(errors, failure_type)("sanitized")
+
+    async def body():
+        with ExitStack() as stack:
+            for ctx in _configured_chain(mgr):
+                stack.enter_context(ctx)
+            stack.enter_context(patch.object(mgr.get("gemini"), "chat", new=AsyncMock(side_effect=failure)))
+            openai = AsyncMock(return_value=LLMResult(text="ok", provider="openai"))
+            stack.enter_context(patch.object(mgr.get("openai"), "chat", new=openai))
+            result = await mgr.chat(system="s", user="u")
+        assert result.provider == "openai"
+        openai.assert_awaited_once()
+
+    _run(body())
+
+
+def test_internal_error_is_not_masked_by_failover():
+    from contextlib import ExitStack
+
+    from llm.errors import LLMInternalError
+    from llm.manager import ProviderManager
+
+    mgr = ProviderManager()
+
+    async def body():
+        with ExitStack() as stack:
+            for ctx in _configured_chain(mgr):
+                stack.enter_context(ctx)
+            stack.enter_context(patch.object(mgr.get("gemini"), "chat", new=AsyncMock(side_effect=ValueError("bug"))))
+            openai = AsyncMock()
+            stack.enter_context(patch.object(mgr.get("openai"), "chat", new=openai))
+            with pytest.raises(LLMInternalError):
+                await mgr.chat(system="s", user="u")
+        openai.assert_not_awaited()
+
+    _run(body())
+
+
+def test_invalid_provider_response_has_explicit_failover_policy():
+    from contextlib import ExitStack
+
+    from llm.base import LLMResult
+    from llm.errors import LLMInvalidResponseError
+    from llm.manager import ProviderManager
+
+    mgr = ProviderManager()
+
+    async def body():
+        with ExitStack() as stack:
+            for ctx in _configured_chain(mgr):
+                stack.enter_context(ctx)
+            stack.enter_context(
+                patch.object(mgr.get("gemini"), "chat", new=AsyncMock(side_effect=LLMInvalidResponseError("malformed")))
+            )
+            stack.enter_context(
+                patch.object(mgr.get("openai"), "chat", new=AsyncMock(return_value=LLMResult(text="ok", provider="openai")))
+            )
+            result = await mgr.chat(system="s", user="u")
+        assert result.provider == "openai"
+
+    _run(body())
+
+
+def test_circuit_breaker_skips_then_retries_after_expiry_and_status_is_passive():
+    from contextlib import ExitStack
+
+    from llm.base import LLMResult
+    from llm.errors import LLMQuotaError
+    from llm.manager import ProviderManager
+
+    mgr = ProviderManager()
+    now = [100.0]
+    mgr._clock = lambda: now[0]
+
+    async def body():
+        gemini = AsyncMock(side_effect=[LLMQuotaError("quota"), LLMResult(text="g", provider="gemini")])
+        openai = AsyncMock(return_value=LLMResult(text="o", provider="openai"))
+        with ExitStack() as stack:
+            for ctx in _configured_chain(mgr):
+                stack.enter_context(ctx)
+            stack.enter_context(patch.object(mgr.get("gemini"), "chat", new=gemini))
+            stack.enter_context(patch.object(mgr.get("openai"), "chat", new=openai))
+            assert (await mgr.chat(system="s", user="u")).provider == "openai"
+            status = await mgr.status()
+            gemini_status = next(p for p in status["providers"] if p["id"] == "gemini")
+            assert gemini_status["runtime_state"] == "cooldown"
+            assert (await mgr.chat(system="s", user="u")).provider == "openai"
+            assert gemini.await_count == 1
+            now[0] += 61.0
+            assert (await mgr.chat(system="s", user="u")).provider == "gemini"
+            assert gemini.await_count == 2
+
+    _run(body())
+
+
+def test_retry_after_extends_cooldown_without_sleeping():
+    from llm.errors import LLMRateLimitError
+    from llm.manager import ProviderManager
+
+    mgr = ProviderManager()
+    now = [10.0]
+    mgr._clock = lambda: now[0]
+
+    async def body():
+        await mgr._record_failure("gemini", LLMRateLimitError("rate", retry_after=120))
+        assert mgr._runtime["gemini"].cooldown_until == 130.0
+        assert await mgr._available("gemini") is False
+
+    with patch.object(mgr.get("gemini"), "is_configured", return_value=True):
+        _run(body())
+
+
+def test_disabled_provider_is_skipped():
+    from contextlib import ExitStack
+
+    from llm.base import LLMResult
+    from llm.manager import ProviderManager
+
+    mgr = ProviderManager()
+
+    async def body():
+        gemini = AsyncMock()
+        openai = AsyncMock(return_value=LLMResult(text="ok", provider="openai"))
+        with ExitStack() as stack:
+            for ctx in _configured_chain(mgr, enabled=("openai",)):
+                stack.enter_context(ctx)
+            stack.enter_context(patch.object(mgr.get("gemini"), "chat", new=gemini))
+            stack.enter_context(patch.object(mgr.get("openai"), "chat", new=openai))
+            assert (await mgr.chat(system="s", user="u")).provider == "openai"
+        gemini.assert_not_awaited()
+
+    _run(body())
+
+
+def test_gemini_connector_failure_maps_to_network_error():
+    from llm.errors import LLMNetworkError
+    from llm.providers.gemini import _map_api_error
+
+    ClientConnectorError = type("ClientConnectorError", (RuntimeError,), {})
+    mapped = _map_api_error(ClientConnectorError("Cannot connect to provider"))
+    assert isinstance(mapped, LLMNetworkError)
+
+
+def test_status_is_passive_and_does_not_probe_ollama():
+    from contextlib import ExitStack
+
+    from llm.manager import ProviderManager
+
+    mgr = ProviderManager()
+
+    async def body():
+        probe = AsyncMock()
+        with ExitStack() as stack:
+            for ctx in _configured_chain(mgr, enabled=("ollama",)):
+                stack.enter_context(ctx)
+            stack.enter_context(patch.object(mgr.get("ollama"), "probe", new=probe))
+            status = await mgr.status()
+        assert next(p for p in status["providers"] if p["id"] == "ollama")[
+            "runtime_state"
+        ] == "unknown"
+        probe.assert_not_awaited()
+
+    _run(body())
+
+
+def test_retry_after_header_is_sanitized_and_bounded():
+    from llm.errors import retry_after_seconds
+
+    response = type("Response", (), {"headers": {"Retry-After": "9999"}})()
+    error = type("ProviderError", (RuntimeError,), {"response": response})()
+    assert retry_after_seconds(error) == 300.0
+
+
+def test_auth_failure_reports_config_error_after_cooldown():
+    from llm.errors import LLMAuthenticationError
+    from llm.manager import ProviderManager
+
+    mgr = ProviderManager()
+    now = [10.0]
+    mgr._clock = lambda: now[0]
+
+    async def body():
+        await mgr._record_failure("gemini", LLMAuthenticationError("auth"))
+        assert mgr.runtime_snapshot("gemini")["runtime_state"] == "cooldown"
+        now[0] += 301.0
+        assert mgr.runtime_snapshot("gemini")["runtime_state"] == "config_error"
 
     _run(body())
 

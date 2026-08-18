@@ -1,5 +1,42 @@
 # ORA — Development State
 
+## V2.8.3a — Provider Reliability & Error Taxonomy
+
+- Provider order remains Gemini → OpenAI → Ollama → Emergent.
+- `LLMNotConfigured` now means only that no provider is enabled/configured;
+  exhaustion of a configured chain raises `LLMProviderUnavailable` with
+  bounded sanitized attempt kinds.
+- External quota/rate/timeout/network/auth/model/protocol failures are typed
+  and fail over. Unknown internal ORA/adapter errors fail fast and cannot be
+  hidden by another provider.
+- Recent failures drive an in-memory, per-process cooldown. There is no Redis,
+  polling, blocking sleep or additional provider call. Status is a passive
+  snapshot (`unknown`, `healthy`, `degraded`, `cooldown`, `disabled`).
+
+## V2.8.3 — Memory Proposal & Governed Learning
+
+Final provider-real gate: explicit Memory authorization now remains authoritative after
+an empty bounded lookup; correction/forget must retrieve the governed Memory ref and reuse
+its canonical `identity_key`. A terminal runtime guard blocks unpersisted Memory claims if
+the model exhausts its reasoning budget. Provider-real PROMOTE, temporary/inference
+isolation, cross-session correction/supersession and targeted Forget are green.
+
+| Item | Stato |
+|------|--------|
+| `MemoryCandidate` AI-owned, optional, bounded | **implemented** |
+| Governance PROMOTE/CLARIFY/REJECT/SUPERSEDE/FORGET | **implemented** |
+| Temporary Situation → no durable Memory | **enforced** |
+| Tentative/inferred/device evidence → no silent promotion | **enforced** |
+| User-scoped correction, history, revision, logical forget | **implemented** |
+| Same-turn idempotency / cross-turn learning | **implemented** |
+| Context Broker cross-session read of promoted Memory | **implemented** |
+| Stage A Memory existence index / Stage B governed target metadata | **implemented, bounded** |
+| Persist-before-claim and post-write result consistency | **enforced** |
+| Second LLM / domain router / new dependency | **none** |
+| Live gate on canonical local backend `:8000` | **passed** |
+
+Last updated: 2026-08-18 (V2.8.3a provider reliability)
+
 ## V2.8.2 — Context Broker V3
 
 | Item | Stato |

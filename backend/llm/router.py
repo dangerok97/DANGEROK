@@ -32,7 +32,7 @@ async def list_providers(user=Depends(get_current_user)):
     return {
         **status,
         "user_preference": pref or "auto",
-        "note": "Cambio provider senza riavvio. Fallback automatico su errori quota/timeout/rate-limit.",
+        "note": "Fallback typed con stato runtime process-local; nessun health probe viene eseguito.",
         "default_priority": list(DEFAULT_PRIORITY),
     }
 
