@@ -9,11 +9,16 @@ from typing import Any, Optional
 
 from llm.base import BaseLLMProvider, LLMResult
 from llm.errors import (
+    LLMAuthenticationError,
+    LLMConfigurationError,
     LLMInvalidResponseError,
+    LLMModelUnavailableError,
+    LLMNetworkError,
     LLMNotConfigured,
     LLMQuotaError,
     LLMRateLimitError,
     LLMTimeoutError,
+    retry_after_seconds,
 )
 
 logger = logging.getLogger("ora.llm.gemini")
@@ -44,19 +49,20 @@ def _map_api_error(exc: BaseException) -> BaseException:
     status = (getattr(exc, "status", None) or "").lower()
     msg = str(exc).lower()
     name = type(exc).__name__
+    retry_after = retry_after_seconds(exc)
 
     if isinstance(exc, asyncio.TimeoutError) or "timeout" in msg or "timed out" in msg:
         return LLMTimeoutError("timeout")
 
     # Auth
     if code in (401, 403) or "unauthenticated" in msg or "permission_denied" in status:
-        return LLMNotConfigured("auth")
+        return LLMAuthenticationError("authentication")
 
     # Quota / rate
     if code == 429 or "resource_exhausted" in msg or "resource_exhausted" in status:
         if "quota" in msg or "billing" in msg or "exceeded" in msg:
-            return LLMQuotaError("quota")
-        return LLMRateLimitError("rate_limit")
+            return LLMQuotaError("quota", retry_after=retry_after)
+        return LLMRateLimitError("rate_limit", retry_after=retry_after)
     if "quota" in msg or "billing" in msg:
         return LLMQuotaError("quota")
     if "rate" in msg or name == "ResourceExhausted":
@@ -64,7 +70,7 @@ def _map_api_error(exc: BaseException) -> BaseException:
 
     # Model unavailable
     if code == 404 or "not_found" in status or "not found" in msg or "is not found" in msg:
-        return RuntimeError("model_unavailable")
+        return LLMModelUnavailableError("model_unavailable")
 
     # Safety / blocked
     if "blocked" in msg or "safety" in msg or "prohibit" in msg:
@@ -76,7 +82,22 @@ def _map_api_error(exc: BaseException) -> BaseException:
 
     # Transient server
     if code in (500, 502, 503, 504) or "unavailable" in status or "internal" in status:
-        return RuntimeError("temporary")
+        return LLMNetworkError("provider_unavailable")
+
+    if (
+        "connector" in name.lower()
+        or any(
+            marker in msg
+            for marker in (
+                "connection",
+                "cannot connect",
+                "connecterror",
+                "dns",
+                "network",
+            )
+        )
+    ):
+        return LLMNetworkError("network")
 
     return exc
 
@@ -118,7 +139,7 @@ class GeminiProvider(BaseLLMProvider):
             from google import genai
             from google.genai import types
         except ImportError as e:
-            raise LLMNotConfigured(
+            raise LLMConfigurationError(
                 "Pacchetto google-genai non installato"
             ) from e
 
@@ -159,9 +180,8 @@ class GeminiProvider(BaseLLMProvider):
                     last_error = mapped
                     # Alternate model on unavailable / blocked / invalid / temp.
                     # Quota / rate / auth / timeout → Provider Manager failover.
-                    retryable = (
-                        isinstance(mapped, RuntimeError)
-                        and str(mapped) in ("model_unavailable", "temporary")
+                    retryable = isinstance(
+                        mapped, (LLMModelUnavailableError, LLMNetworkError)
                     ) or (
                         isinstance(mapped, LLMInvalidResponseError)
                         and str(mapped) in ("blocked", "invalid", "empty")

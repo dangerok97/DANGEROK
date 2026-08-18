@@ -12,14 +12,19 @@ from __future__ import annotations
 import logging
 import os
 import time
+import asyncio
+from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 from llm.base import BaseLLMProvider, LLMResult
 from llm.errors import (
+    LLMError,
+    LLMConfigurationError,
+    LLMInternalError,
     LLMNotConfigured,
-    LLMQuotaError,
-    LLMRateLimitError,
-    LLMTimeoutError,
+    LLMProviderUnavailable,
+    is_failoverable,
 )
 from llm.providers import (
     EmergentProvider,
@@ -32,6 +37,28 @@ logger = logging.getLogger("ora.llm.manager")
 
 DEFAULT_PRIORITY = ("gemini", "openai", "ollama", "emergent")
 VALID_PROVIDERS = frozenset(DEFAULT_PRIORITY)
+
+# Conservative, process-local cooldowns. Retry-After may extend these up to
+# MAX_RETRY_AFTER_S; no request sleeps while a circuit is open.
+COOLDOWN_SECONDS = {
+    "quota": 60.0,
+    "rate_limit": 30.0,
+    "timeout": 5.0,
+    "network": 5.0,
+    "authentication": 300.0,
+    "configuration": 300.0,
+    "model_unavailable": 60.0,
+    "invalid_response": 5.0,
+}
+MAX_RETRY_AFTER_S = 300.0
+
+
+@dataclass
+class _RuntimeState:
+    state: str = "unknown"
+    failure_kind: Optional[str] = None
+    cooldown_until: float = 0.0
+
 
 # Process-level preferred override (also updated via API without restart)
 _runtime_preferred: Optional[str] = None
@@ -60,6 +87,9 @@ class ProviderManager:
             "ollama": OllamaProvider(),
             "emergent": EmergentProvider(),
         }
+        self._runtime = {name: _RuntimeState() for name in DEFAULT_PRIORITY}
+        self._state_lock = asyncio.Lock()
+        self._clock = time.monotonic
 
     def get(self, name: str) -> BaseLLMProvider:
         if name not in self._providers:
@@ -90,20 +120,59 @@ class ProviderManager:
         p = self._providers[name]
         if not p.is_configured():
             return False
-        if name == "ollama":
-            return await p.probe()  # type: ignore[attr-defined]
-        return True
+        async with self._state_lock:
+            return self._runtime[name].cooldown_until <= self._clock()
+
+    async def _record_failure(self, name: str, error: LLMError) -> None:
+        duration = COOLDOWN_SECONDS.get(error.kind, 0.0)
+        if error.retry_after is not None:
+            duration = max(duration, min(MAX_RETRY_AFTER_S, max(0.0, error.retry_after)))
+        async with self._state_lock:
+            self._runtime[name] = _RuntimeState(
+                state=(
+                    "config_error"
+                    if error.kind in ("authentication", "configuration")
+                    else ("cooldown" if duration else "degraded")
+                ),
+                failure_kind=error.kind,
+                cooldown_until=self._clock() + duration,
+            )
+
+    async def _record_success(self, name: str) -> None:
+        async with self._state_lock:
+            self._runtime[name] = _RuntimeState(state="healthy")
+
+    def runtime_snapshot(self, name: str) -> dict[str, Any]:
+        """Non-blocking process-local snapshot for synchronous health views."""
+        runtime = self._runtime[name]
+        cooling = runtime.cooldown_until > self._clock()
+        return {
+            "runtime_state": "cooldown" if cooling else (
+                "degraded" if runtime.state == "cooldown" else runtime.state
+            ),
+            "failure_kind": runtime.failure_kind,
+        }
+
+    @staticmethod
+    def _attempt(name: str, kind: str, retryable: bool) -> dict[str, Any]:
+        return {
+            "provider": name,
+            "failure_kind": kind,
+            "retryable": retryable,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
 
     async def status(self, user_preference: Optional[str] = None) -> dict[str, Any]:
         items = []
         for name in DEFAULT_PRIORITY:
             p = self._providers[name]
             configured = p.is_configured()
-            available = await self._available(name) if configured or name == "ollama" else False
-            # For ollama without OLLAMA_ENABLED, still probe for UI
-            if name == "ollama" and not configured:
-                available = await p.probe()  # type: ignore[attr-defined]
-                configured = available
+            async with self._state_lock:
+                snapshot = self.runtime_snapshot(name)
+                cooling = snapshot["runtime_state"] == "cooldown"
+                runtime_state = "disabled" if not configured else snapshot["runtime_state"]
+                failure_kind = snapshot["failure_kind"]
+            available = configured and not cooling
             items.append({
                 "id": name,
                 "label": {
@@ -113,7 +182,10 @@ class ProviderManager:
                     "emergent": "Emergent",
                 }.get(name, name),
                 "configured": configured,
+                "enabled": configured,
                 "available": available,
+                "runtime_state": runtime_state,
+                "failure_kind": failure_kind,
                 "model": p.model_name() if configured or available else None,
                 "priority": DEFAULT_PRIORITY.index(name) + 1,
             })
@@ -144,8 +216,17 @@ class ProviderManager:
         user_preference: Optional[str] = None,
     ) -> LLMResult:
         errors: list[str] = []
+        attempts: list[dict[str, Any]] = []
+        configured = [name for name in self.ordered_names(user_preference) if self._providers[name].is_configured()]
+        if not configured:
+            raise LLMNotConfigured("No LLM provider is configured")
         for name in self.ordered_names(user_preference):
             if not await self._available(name):
+                if self._providers[name].is_configured():
+                    attempts.append(self._attempt(name, "cooldown", True))
+                    logger.info("LLM provider=%s result=cooldown", name)
+                else:
+                    logger.debug("LLM provider=%s result=skip", name)
                 continue
             p = self._providers[name]
             t0 = time.perf_counter()
@@ -161,22 +242,31 @@ class ProviderManager:
                     "latency_ms": round((time.perf_counter() - t0) * 1000, 1),
                     "failover_errors": errors,
                 }
+                await self._record_success(name)
+                logger.info("LLM provider=%s result=success latency_ms=%.1f", name, result.usage["latency_ms"])
                 return result
-            except (LLMQuotaError, LLMRateLimitError, LLMTimeoutError) as e:
-                errors.append(f"{name}:{type(e).__name__}")
-                logger.warning("LLM failover from %s due to %s", name, type(e).__name__)
-                continue
             except LLMNotConfigured:
-                errors.append(f"{name}:not_configured")
+                # Adapter/runtime configuration drift: fail over, but do not
+                # redefine the manager-level meaning of LLMNotConfigured.
+                error = LLMConfigurationError("configuration")
+                await self._record_failure(name, error)
+                attempts.append(self._attempt(name, "configuration", True))
+                errors.append(f"{name}:configuration")
+                logger.warning("LLM provider=%s result=fail failure_kind=configuration", name)
                 continue
-            except Exception as e:
-                errors.append(f"{name}:{type(e).__name__}")
-                logger.warning("LLM failover from %s type=%s", name, type(e).__name__)
+            except LLMError as e:
+                if not is_failoverable(e):
+                    logger.error("LLM provider=%s result=fail failure_kind=%s", name, e.kind)
+                    raise
+                await self._record_failure(name, e)
+                attempts.append(self._attempt(name, e.kind, True))
+                errors.append(f"{name}:{e.kind}")
+                logger.warning("LLM provider=%s result=fail failure_kind=%s", name, e.kind)
                 continue
-        raise LLMNotConfigured(
-            "Nessun provider LLM disponibile. "
-            "Configura GEMINI_API_KEY (consigliato), OPENAI_API_KEY, Ollama o EMERGENT_LLM_KEY."
-        )
+            except Exception:
+                logger.error("LLM provider=%s result=internal_error", name)
+                raise LLMInternalError("Internal ORA/provider adapter error") from None
+        raise LLMProviderUnavailable(attempts)
 
     async def analyze_document(self, *, text: str, context: dict, user_preference: Optional[str] = None) -> LLMResult:
         return await self._capability("analyze_document", user_preference=user_preference, text=text, context=context)
@@ -186,8 +276,14 @@ class ProviderManager:
 
     async def _capability(self, method: str, user_preference: Optional[str] = None, **kwargs) -> LLMResult:
         errors: list[str] = []
+        attempts: list[dict[str, Any]] = []
+        configured = [name for name in self.ordered_names(user_preference) if self._providers[name].is_configured()]
+        if not configured:
+            raise LLMNotConfigured("No LLM provider is configured")
         for name in self.ordered_names(user_preference):
             if not await self._available(name):
+                if self._providers[name].is_configured():
+                    attempts.append(self._attempt(name, "cooldown", True))
                 continue
             p = self._providers[name]
             t0 = time.perf_counter()
@@ -199,16 +295,23 @@ class ProviderManager:
                     "latency_ms": round((time.perf_counter() - t0) * 1000, 1),
                     "failover_errors": errors,
                 }
+                await self._record_success(name)
                 return result
-            except (LLMQuotaError, LLMRateLimitError, LLMTimeoutError, LLMNotConfigured) as e:
-                errors.append(f"{name}:{type(e).__name__}")
-                logger.warning("LLM capability %s failover %s", method, type(e).__name__)
+            except LLMNotConfigured:
+                error = LLMConfigurationError("configuration")
+                await self._record_failure(name, error)
+                attempts.append(self._attempt(name, "configuration", True))
                 continue
-            except Exception as e:
-                errors.append(f"{name}:{type(e).__name__}")
-                logger.warning("LLM capability %s error type=%s", method, type(e).__name__)
+            except LLMError as e:
+                if not is_failoverable(e):
+                    raise
+                await self._record_failure(name, e)
+                attempts.append(self._attempt(name, e.kind, True))
+                errors.append(f"{name}:{e.kind}")
                 continue
-        raise LLMNotConfigured("Nessun provider LLM disponibile")
+            except Exception:
+                raise LLMInternalError("Internal ORA/provider adapter error") from None
+        raise LLMProviderUnavailable(attempts)
 
 
 _manager: Optional[ProviderManager] = None

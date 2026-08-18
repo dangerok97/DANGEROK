@@ -8,7 +8,16 @@ from typing import Optional
 import httpx
 
 from llm.base import BaseLLMProvider, LLMResult
-from llm.errors import LLMNotConfigured, LLMTimeoutError
+from llm.errors import (
+    LLMAuthenticationError,
+    LLMInvalidResponseError,
+    LLMModelUnavailableError,
+    LLMNetworkError,
+    LLMNotConfigured,
+    LLMRateLimitError,
+    LLMTimeoutError,
+    retry_after_seconds,
+)
 
 logger = logging.getLogger("ora.llm.ollama")
 
@@ -64,10 +73,25 @@ class OllamaProvider(BaseLLMProvider):
                 data = r.json()
         except httpx.TimeoutException as e:
             raise LLMTimeoutError("timeout") from e
+        except httpx.ConnectError as e:
+            raise LLMNetworkError("network") from e
+        except httpx.HTTPStatusError as e:
+            code = e.response.status_code
+            if code == 429:
+                raise LLMRateLimitError(
+                    "rate_limit", retry_after=retry_after_seconds(e)
+                ) from e
+            if code in (401, 403):
+                raise LLMAuthenticationError("authentication") from e
+            if code == 404:
+                raise LLMModelUnavailableError("model_unavailable") from e
+            if code >= 500:
+                raise LLMNetworkError("provider_unavailable") from e
+            raise LLMInvalidResponseError("provider_protocol") from e
         except Exception as e:
             logger.warning("Ollama error type=%s", type(e).__name__)
             raise
         msg = (data.get("message") or {}).get("content") or ""
         if not msg:
-            raise RuntimeError("Risposta Ollama vuota")
+            raise LLMInvalidResponseError("empty")
         return LLMResult(text=msg, provider=self.name, model=model)

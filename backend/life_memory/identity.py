@@ -3,6 +3,7 @@
 DATABASE RECORD ≠ MEMORY. SAME ≠ RELATED.
 Structured slot identity first → value correlation → safe no-merge.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -143,25 +144,35 @@ def resolve_memory_candidates(
 def _pair_relation(a: MemoryCandidate, b: MemoryCandidate) -> Optional[ResolutionNote]:
     # Same authoritative source id
     if a.source_refs and a.source_refs == b.source_refs:
-        return ResolutionNote(a.candidate_id, b.candidate_id, "same", "same_source_refs")
+        return ResolutionNote(
+            a.candidate_id, b.candidate_id, "same", "same_source_refs"
+        )
 
     # Same slot → identity family (city, role, …)
     if a.slot and a.slot == b.slot and not a.slot.startswith("note:"):
         if a.value_norm and b.value_norm and a.value_norm == b.value_norm:
-            return ResolutionNote(a.candidate_id, b.candidate_id, "same", "same_slot_value")
+            return ResolutionNote(
+                a.candidate_id, b.candidate_id, "same", "same_slot_value"
+            )
         # Contradiction handled at build time within slot group — still merge slot
-        return ResolutionNote(a.candidate_id, b.candidate_id, "same", "same_slot_family")
+        return ResolutionNote(
+            a.candidate_id, b.candidate_id, "same", "same_slot_family"
+        )
 
     # Study subject entity overlap
     if a.kind == "study_subject" and b.kind == "study_subject":
         if set(a.entity_keys) & set(b.entity_keys):
-            return ResolutionNote(a.candidate_id, b.candidate_id, "same", "same_study_entity")
+            return ResolutionNote(
+                a.candidate_id, b.candidate_id, "same", "same_study_entity"
+            )
 
     # Strong statement correlation (same domain + high entity overlap)
     if a.domain and a.domain == b.domain and a.kind == b.kind == "fact":
         ea, eb = set(a.entity_keys), set(b.entity_keys)
         if ea and eb and ea == eb and a.value_norm == b.value_norm:
-            return ResolutionNote(a.candidate_id, b.candidate_id, "same", "entity_value_match")
+            return ResolutionNote(
+                a.candidate_id, b.candidate_id, "same", "entity_value_match"
+            )
 
     return None
 
@@ -182,9 +193,7 @@ def _build_canonical(members: Sequence[MemoryCandidate]) -> MemoryItem:
     if len(values) > 1:
         # Contradiction within same slot family
         confirmed = [
-            m
-            for m in ordered
-            if m.source_priority <= 20 or m.status == "known"
+            m for m in ordered if m.source_priority <= 20 or m.status == "known"
         ]
         if confirmed:
             # Explicit user correction / strong source wins — others superseded
@@ -217,7 +226,9 @@ def _build_canonical(members: Sequence[MemoryCandidate]) -> MemoryItem:
         if ref.startswith("life_profile:"):
             parts = ref.split(":", 2)
             if len(parts) == 3 and parts[1] and parts[2]:
-                profile_targets.append(ProfileWriteTarget(domain=parts[1], key=parts[2]))
+                profile_targets.append(
+                    ProfileWriteTarget(domain=parts[1], key=parts[2])
+                )
     # Dedupe targets
     seen_t = set()
     uniq_targets: List[ProfileWriteTarget] = []
@@ -244,13 +255,17 @@ def _build_canonical(members: Sequence[MemoryCandidate]) -> MemoryItem:
         key=lambda a: auth_rank.get(a, 9),
     )
     # If any member is strong authority with same value → known
-    if authority in (
-        "user_confirmed",
-        "user_stated",
-        "structured_account",
-        "authoritative_document",
-        "structured_system",
-    ) and status != "superseded":
+    if (
+        authority
+        in (
+            "user_confirmed",
+            "user_stated",
+            "structured_account",
+            "authoritative_document",
+            "structured_system",
+        )
+        and status != "superseded"
+    ):
         if len(values) <= 1:
             status = "known"
 
@@ -270,7 +285,7 @@ def _build_canonical(members: Sequence[MemoryCandidate]) -> MemoryItem:
 
     return MemoryItem(
         id=mid,
-        kind=winner.kind if winner.kind in ("fact", "note", "study_subject") else "fact",
+        kind=winner.kind,
         statement=presented,
         belief_statement=belief,
         domain=winner.domain,

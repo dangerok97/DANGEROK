@@ -1,6 +1,8 @@
 """AI decision contract — domain-neutral. No domain field dictionaries."""
+
 from __future__ import annotations
 
+import json
 from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field, model_validator
@@ -65,11 +67,54 @@ class StateUpdate(BaseModel):
 
 
 class MemoryCandidate(BaseModel):
-    """Proposal only — never auto-promoted to canonical Memory."""
+    """AI proposal; deterministic governance owns every durable mutation."""
 
-    fact_summary: str
-    confidence: float = 0.5
-    evidence_refs: List[str] = Field(default_factory=list)
+    operation: Literal["propose", "correct", "supersede", "forget"] = "propose"
+    summary: Optional[str] = Field(default=None, max_length=600)
+    fact_summary: Optional[str] = Field(default=None, max_length=600)  # legacy alias
+    kind: Optional[str] = Field(default=None, max_length=80)
+    identity_key: Optional[str] = Field(default=None, max_length=120)
+    value: Any = None
+    confidence: float = Field(default=0.5, ge=0.0, le=1.0)
+    authority: Literal[
+        "user_confirmed", "user_stated", "document", "structured", "inferred", "device"
+    ] = "inferred"
+    epistemic_status: Literal["tentative", "asserted", "confirmed", "inferred"] = (
+        "inferred"
+    )
+    provenance: List[str] = Field(default_factory=list, max_length=8)
+    evidence_refs: List[str] = Field(default_factory=list, max_length=8)
+    permanence: Literal["temporary", "indefinite", "durable", "unknown"] = "unknown"
+    starts_at: Optional[str] = Field(default=None, max_length=80)
+    ends_at: Optional[str] = Field(default=None, max_length=80)
+    recurrence: Optional[str] = Field(default=None, max_length=120)
+    sensitivity: Literal["normal", "sensitive", "high"] = "normal"
+    existing_memory_ref: Optional[str] = Field(default=None, max_length=120)
+    supersedes_refs: List[str] = Field(default_factory=list, max_length=6)
+    coexists_with_refs: List[str] = Field(default_factory=list, max_length=6)
+    reason_for_future_utility: Optional[str] = Field(default=None, max_length=300)
+    requires_confirmation: bool = False
+    user_authorized: bool = False
+
+    @model_validator(mode="after")
+    def _normalize_summary(self) -> "MemoryCandidate":
+        text = (self.summary or self.fact_summary or "").strip()
+        if not text:
+            raise ValueError("memory summary required")
+        self.summary = text
+        self.fact_summary = text
+        self.provenance = [
+            str(x)[:160] for x in dict.fromkeys(self.provenance or self.evidence_refs)
+        ][:8]
+        self.evidence_refs = [str(x)[:160] for x in self.evidence_refs][:8]
+        self.supersedes_refs = [str(x)[:120] for x in self.supersedes_refs][:6]
+        self.coexists_with_refs = [str(x)[:120] for x in self.coexists_with_refs][:6]
+        try:
+            if len(json.dumps(self.value, ensure_ascii=False, default=str)) > 2000:
+                raise ValueError("memory value too large")
+        except TypeError as exc:
+            raise ValueError("memory value is not serializable") from exc
+        return self
 
 
 class ActiveGoal(BaseModel):

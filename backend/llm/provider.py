@@ -10,6 +10,7 @@ from typing import Any, Dict, Optional
 
 from llm.errors import (
     LLMNotConfigured,
+    LLMProviderUnavailable,
     LLMQuotaError,
     LLMRateLimitError,
     LLMTimeoutError,
@@ -20,6 +21,7 @@ logger = logging.getLogger("ora.llm")
 
 __all__ = [
     "LLMNotConfigured",
+    "LLMProviderUnavailable",
     "LLMRateLimitError",
     "LLMTimeoutError",
     "LLMQuotaError",
@@ -29,10 +31,7 @@ __all__ = [
 
 
 def llm_status() -> Dict[str, Any]:
-    """Sync snapshot for health checks (no Ollama probe await).
-
-    For full async status with probes use `get_manager().status()`.
-    """
+    """Sync configuration snapshot; it never probes or calls a provider."""
     import asyncio
     mgr = get_manager()
     try:
@@ -48,23 +47,26 @@ def llm_status() -> Dict[str, Any]:
 def _sync_status_snapshot() -> Dict[str, Any]:
     mgr = get_manager()
     pref = mgr.preferred_name()
-    # Prefer configured cloud providers without network probe
+    # Prefer configured providers without network probes. Runtime state is
+    # exposed by the authenticated async /llm/status endpoint.
     for name in mgr.ordered_names(pref):
         p = mgr.get(name)
-        if name == "ollama":
-            continue
         if p.is_configured():
+            runtime = mgr.runtime_snapshot(name)
             return {
                 "provider": name,
                 "configured": True,
+                "enabled": True,
+                "runtime_state": runtime["runtime_state"],
                 "model": p.model_name(),
                 "preferred": pref,
                 "active": name,
             }
-    # If only ollama might be up, report preferred/none without claiming available
     return {
         "provider": pref or "none",
         "configured": False,
+        "enabled": False,
+        "runtime_state": "disabled",
         "model": None,
         "preferred": pref,
         "active": None,

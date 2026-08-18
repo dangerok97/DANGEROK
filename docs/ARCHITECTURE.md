@@ -437,7 +437,27 @@ greeting (deterministic shell + 1 open Q)
 | API | FastAPI + Uvicorn |
 | DB | MongoDB via Motor |
 | Auth | JWT ORA (HS256) + bcrypt; Google Login V2: GIS web + native Google Sign-In → ID token → `backend/social_auth/`; Apple ID-token verify; Emergent bridge legacy optional |
-| LLM | Provider Manager `backend/llm/` — Gemini (default) → OpenAI → Ollama → Emergent; failover automatico; non required at boot |
+| LLM | Provider Manager `backend/llm/` — Gemini (default) → OpenAI → Ollama → Emergent; typed failover + process-local circuit breaker; non required at boot |
+
+### Provider reliability contract (V2.8.3a)
+
+Provider adapters translate external failures into a shared taxonomy. Quota,
+rate limit, timeout, network, authentication/configuration, unavailable model
+and malformed provider responses may fail over. An unknown ORA/application
+error is non-failoverable and fails fast, so switching vendors cannot hide a
+schema or implementation bug.
+
+`LLMNotConfigured` means no enabled/configured provider. If at least one
+configured provider was attempted, skipped for cooldown, or otherwise failed,
+the manager raises `LLMProviderUnavailable` with at most eight sanitized
+`provider/failure_kind/retryable/timestamp` records. No prompt, response,
+credential, header or raw exception is retained.
+
+The circuit breaker is bounded and process-local. Quota/rate-limit receive a
+short cooldown, network/timeout a shorter one, and auth/configuration a longer
+one. Numeric `Retry-After` can extend the cooldown up to five minutes; the
+request never sleeps. `/llm/status` reads recent in-memory state without a
+provider probe, continuous polling or distributed health claim.
 | Design system | **ORA Quiet Premium** + **Signature Language** — `design_guidelines.json`, `frontend/src/theme/*`, shell modes in `frontend/src/shell/` (`ambient` / `focus` / `immersive`), primitives in `frontend/src/components/ui/` |
 | Local deps | `backend/requirements-local.txt` (Emergent CDN packages excluded) |
 
@@ -565,6 +585,39 @@ Google Login V2: `localhost` e `127.0.0.1` sono Authorized JavaScript Origins di
 MongoDB collections created/indexed at startup (users, tasks, decisions, life_nodes/edges, node_knowledge, link_proposals, context_snapshots, memories, permission_*, ingestion_events, connector_instances, secret_vault, google_oauth_sessions, documents-related, `home_snapshots` / `home_item_state` / `home_insights`, behavioral collections, `goals` / `goal_events`, `life_objects`, `proactive_suggestions` / `proactive_learning`, …).
 
 Document binaries: local storage under `backend/data/documents/` (S3 backend stubbed for future).
+
+## Memory Proposal & Governed Learning V2.8.3
+
+```text
+AI MemoryCandidate
+→ schema/budget validation
+→ deterministic Memory Governance
+→ PROMOTE | CLARIFY | REJECT | SUPERSEDE | FORGET_ALLOWED | FORGET_DENIED
+→ idempotent user-scoped persistence
+→ observation
+→ AI reasons again before user-facing claim
+```
+
+`MemoryCandidate` è opzionale, bounded e general-purpose: summary/value, open `kind` e
+`identity_key`, authority, epistemic status, confidence, temporal scope, sensitivity,
+provenance e relationship refs. La policy non interpreta domini o keyword: valida
+durabilità, ownership, evidenza, incertezza, sensibilità e collisioni d'identità.
+Quando presente, `identity_key` è la chiave canonica di collisione; l'open `kind`
+resta fallback descrittivo e non può essere assunto stabile tra chiamate provider.
+Le correzioni creano una nuova revisione canonica e marcano la precedente
+`superseded`; Forget marca `forgotten`, senza delete distruttivo. `reasoning_epoch`
+e `governance_key` impediscono doppie scritture sullo stesso turno/client-resume.
+
+La collection sorgente resta `memories`; `life_memory_snapshots` resta cache derivata.
+Indici non distruttivi: `(user_id,status,updated_at)` e unique sparse
+`(user_id,governance_key)`. Il Context Broker legge soltanto record attivi e rende le
+memorie promosse recuperabili cross-session. Nessuna Situation o device signal viene
+promossa automaticamente.
+
+Stage A espone soltanto un indice opaco dell'esistenza di Memory attiva; i contenuti
+restano Stage B-only. Il ranking rispetta gli `source_hints` AI validati e distingue
+ref governati mutabili da evidence Life Memory derivata/read-only. Guardrail di re-entry
+impediscono claim di save/forget senza persistenza e contraddizioni dopo una mutation riuscita.
 
 ## External integrations
 

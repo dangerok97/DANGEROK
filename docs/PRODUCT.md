@@ -248,13 +248,15 @@ Persone che vogliono una priorità unica chiara (non un task manager generico), 
 - **Stato:** **operativo** API; Home non mostra più score 100/100.
 - **Backend:** `/api/daily/*`, `daily_intelligence/`.
 
-### 4. Memoria (Life Memory V1)
+### 4. Memoria (Life Memory V1 + Governed Learning V2.8.3)
 
 - **Scopo:** mostrare i fatti duraturi che ORA ha imparato (Life Profile, soggetto di studio, appunti utente).
-- **Stato:** browse Quiet Premium su `GET /api/life-memory` **operativo** (deterministico); Gemini wording opzionale (`MEMORY_GEMINI=0`). Legacy ask/add restano su `/api/memory*`.
+- **Stato:** browse Quiet Premium su `GET /api/life-memory` **operativo** (deterministico); Gemini wording opzionale (`MEMORY_GEMINI=0`). Il brain `/ora` può proporre apprendimento durevole, ma una governance deterministica decide `PROMOTE`, `CLARIFY`, `REJECT`, `SUPERSEDE` o oblio controllato prima di qualsiasi claim. Legacy ask/add restano su `/api/memory*`.
 - **Stato UI:** read-only V1; Correct/Forget/Confirm non finti (API Life Profile esistono ma non wireate in Memoria).
 - **Backend:** `life_memory/` + legacy `routers/memory.py`.
-- **DB:** fonti `life_profiles`, `study_plans`, `memories`; cache `life_memory_snapshots` (derived only).
+- **DB:** fonti `life_profiles`, `study_plans`, `memories`; i record governed sono user-scoped, versionati, con provenance e history; cache `life_memory_snapshots` (derived only).
+- **Contratto:** Situation temporanea ≠ Memory; inferenza ≠ fatto; preferenza = evidence utile, non regola deterministica. Correzioni supersedono senza cancellare history; Forget usa tombstone logico e ownership.
+- **Continuità:** Stage A segnala soltanto che esiste evidence durevole; Stage B recupera il dettaglio bounded quando l'AI lo richiede. I claim di memoria salvata/corretta/dimenticata sono consentiti soltanto dopo una mutation realmente persistita.
 
 ### 5. Documenti
 

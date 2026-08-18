@@ -1,4 +1,5 @@
 """Life Memory models — durable learned facts + clarification contract (Prompt 6.1)."""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -9,7 +10,7 @@ from pydantic import BaseModel, Field
 LIFE_MEMORY_VERSION = "life-memory-1.1"
 
 MemoryStatus = Literal["known", "likely", "ambiguous", "superseded"]
-MemoryKind = Literal["fact", "note", "study_subject"]
+MemoryKind = str
 AiEnrichmentStatus = Literal["off", "cached", "fresh", "failed", "skipped"]
 ClarifyResolution = Literal["confirmed", "corrected", "still_ambiguous", "failed"]
 
@@ -49,6 +50,10 @@ class MemoryItem(BaseModel):
     updated_at: Optional[str] = None
     editable: bool = False
     sensitivity: Literal["normal", "sensitive"] = "normal"
+    authority: Optional[str] = None
+    confidence: Optional[float] = None
+    temporal_scope: Optional[Dict[str, Any]] = None
+    revision: Optional[int] = None
     # Clarification contract (generic — no city/job UI knowledge)
     slot: Optional[str] = None
     candidate_values: List[str] = Field(default_factory=list)

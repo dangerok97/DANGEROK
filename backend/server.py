@@ -7,6 +7,7 @@ logic sits in dedicated packages: `decision_engine/`, `life_graph/`,
 `knowledge/`, `auto_link/`, `context_assembler/`, `permissions/`,
 `connectors/`.
 """
+
 from __future__ import annotations
 
 import logging
@@ -87,11 +88,13 @@ async def startup():
     await db.users.create_index("user_id", unique=True)
     # Social identities (Google / Apple / password)
     from social_auth import ensure_identity_indexes, migrate_password_identities
+
     await ensure_identity_indexes(db)
     await migrate_password_identities(db)
     # Document intelligence worker + indexes
     from documents.intelligence.worker import start_worker
     from deps import get_intelligence_service
+
     await get_intelligence_service().ensure_ready()
     start_worker()
     # Legacy tasks (kept).
@@ -111,18 +114,34 @@ async def startup():
     await db.node_knowledge.create_index("id", unique=True, sparse=True)
     # Auto-Link
     await db.link_proposals.create_index("id", unique=True)
-    await db.link_proposals.create_index([("user_id", 1), ("decision_id", 1), ("node_id", 1), ("status", 1)])
-    await db.link_proposals.create_index([("user_id", 1), ("status", 1), ("created_at", -1)])
+    await db.link_proposals.create_index(
+        [("user_id", 1), ("decision_id", 1), ("node_id", 1), ("status", 1)]
+    )
+    await db.link_proposals.create_index(
+        [("user_id", 1), ("status", 1), ("created_at", -1)]
+    )
     # Context Assembler
     await db.context_snapshots.create_index("id", unique=True)
-    await db.context_snapshots.create_index([("user_id", 1), ("decision_id", 1), ("status", 1), ("generated_at", -1)])
-    await db.context_snapshots.create_index([("user_id", 1), ("decision_id", 1), ("context_hash", 1)])
+    await db.context_snapshots.create_index(
+        [("user_id", 1), ("decision_id", 1), ("status", 1), ("generated_at", -1)]
+    )
+    await db.context_snapshots.create_index(
+        [("user_id", 1), ("decision_id", 1), ("context_hash", 1)]
+    )
     # Memory
     await db.memories.create_index([("user_id", 1), ("created_at", -1)])
+    from life_memory.governance import MemoryGovernanceService
+
+    await MemoryGovernanceService(db).ensure_indexes()
 
     # Permissions
     await db.permission_consents.create_index(
-        [("user_id", 1), ("capability_id", 1), ("connector_id", 1), ("connector_instance_id", 1)],
+        [
+            ("user_id", 1),
+            ("capability_id", 1),
+            ("connector_id", 1),
+            ("connector_instance_id", 1),
+        ],
         unique=True,
         name="uniq_user_cap_conn_instance",
     )
@@ -137,15 +156,25 @@ async def startup():
     # Ingestion + Connectors + Vault (Iteration 9)
     await db.ingestion_events.create_index("id", unique=True)
     await db.ingestion_events.create_index(
-        [("user_id", 1), ("connector_instance_id", 1), ("external_id", 1), ("ingested_at", -1)],
+        [
+            ("user_id", 1),
+            ("connector_instance_id", 1),
+            ("external_id", 1),
+            ("ingested_at", -1),
+        ],
         name="idx_ing_user_instance_ext",
     )
-    await db.ingestion_events.create_index([("user_id", 1), ("ingestion_status", 1), ("ingested_at", -1)])
-    await db.ingestion_events.create_index([("user_id", 1), ("connector_id", 1), ("ingested_at", -1)])
+    await db.ingestion_events.create_index(
+        [("user_id", 1), ("ingestion_status", 1), ("ingested_at", -1)]
+    )
+    await db.ingestion_events.create_index(
+        [("user_id", 1), ("connector_id", 1), ("ingested_at", -1)]
+    )
     await db.connector_instances.create_index("id", unique=True)
     await db.connector_instances.create_index(
         [("user_id", 1), ("connector_id", 1), ("provider_account_id_hash", 1)],
-        unique=True, name="uniq_user_conn_account",
+        unique=True,
+        name="uniq_user_conn_account",
     )
     await db.connector_instances.create_index([("user_id", 1), ("status", 1)])
     await db.secret_vault.create_index("id", unique=True)
@@ -153,16 +182,21 @@ async def startup():
     await db.google_oauth_sessions.create_index("state", unique=True)
     await db.google_oauth_sessions.create_index([("user_id", 1), ("created_at", -1)])
     await db.google_oauth_sessions.create_index("expires_at")
-    await db.data_revocation_plans.create_index([("user_id", 1), ("connector_instance_id", 1)])
+    await db.data_revocation_plans.create_index(
+        [("user_id", 1), ("connector_instance_id", 1)]
+    )
 
     # Action Center (Iteration 11)
     await db.decision_action_history.create_index("id", unique=True)
-    await db.decision_action_history.create_index([("user_id", 1), ("decision_id", 1), ("timestamp", 1)])
+    await db.decision_action_history.create_index(
+        [("user_id", 1), ("decision_id", 1), ("timestamp", 1)]
+    )
     await db.decision_action_history.create_index([("user_id", 1), ("timestamp", -1)])
 
     # Behavioral Intelligence (Iteration 15)
     try:
         from behavioral_intelligence import BehavioralIntelligenceService
+
         bhv = BehavioralIntelligenceService(db)
         await bhv.ensure_ready()
         logger.info("Behavioral Intelligence indexes ready")
@@ -174,6 +208,7 @@ async def startup():
     # service itself is idle unless BOTH flags are enabled.
     try:
         from behavior_aware_decisions import BehaviorShadowService
+
         _shadow = BehaviorShadowService(db)
         await _shadow.ensure_ready()
         logger.info("Behavior-Aware Shadow indexes ready")
@@ -183,6 +218,7 @@ async def startup():
     # Documents (Iteration 19) — indexes for the new module.
     try:
         from deps import get_document_service
+
         await get_document_service().ensure_ready()
         logger.info("Documents indexes ready")
     except Exception:
@@ -191,6 +227,7 @@ async def startup():
     # Home V2 intelligence dashboard
     try:
         from home.service import HomeService
+
         await HomeService(db).ensure_indexes()
         logger.info("Home V2 indexes ready")
     except Exception:
@@ -199,9 +236,17 @@ async def startup():
     # Action Engine — guided priority flows
     try:
         from action_engine import ActionEngineService
-        from deps import decisions as _decisions, knowledge as _knowledge, life_graph as _life_graph
+        from deps import (
+            decisions as _decisions,
+            knowledge as _knowledge,
+            life_graph as _life_graph,
+        )
+
         await ActionEngineService(
-            db, life_graph=_life_graph, knowledge=_knowledge, decisions=_decisions,
+            db,
+            life_graph=_life_graph,
+            knowledge=_knowledge,
+            decisions=_decisions,
         ).ensure_indexes()
         logger.info("Action Engine indexes ready")
     except Exception:
@@ -211,6 +256,7 @@ async def startup():
     try:
         from goal_engine import GoalService
         from deps import knowledge as _kn_ge, life_graph as _lg_ge
+
         await GoalService(db, life_graph=_lg_ge, knowledge=_kn_ge).ensure_indexes()
         logger.info("Goal Engine indexes ready")
     except Exception:
@@ -219,6 +265,7 @@ async def startup():
     # Proactive Engine — IF/WHEN/HOW/WHY intervene (Home "ORA TI CONSIGLIA")
     try:
         from proactive_engine import ProactiveEngineService
+
         await ProactiveEngineService(db).ensure_indexes()
         logger.info("Proactive Engine indexes ready")
     except Exception:
@@ -228,8 +275,12 @@ async def startup():
     try:
         from conversation_engine import ConversationEngineService
         from deps import decisions as _dec_ce, knowledge as _kn_ce, life_graph as _lg_ce
+
         await ConversationEngineService(
-            db, life_graph=_lg_ce, knowledge=_kn_ce, decisions=_dec_ce,
+            db,
+            life_graph=_lg_ce,
+            knowledge=_kn_ce,
+            decisions=_dec_ce,
         ).ensure_indexes()
         logger.info("Conversation Engine indexes ready")
     except Exception:
@@ -239,6 +290,7 @@ async def startup():
     try:
         from life_setup import get_life_setup_service
         from deps import knowledge as _kn_ls, life_graph as _lg_ls
+
         svc = get_life_setup_service(db)
         svc.life_graph = _lg_ls
         svc.knowledge = _kn_ls
@@ -251,7 +303,10 @@ async def startup():
     try:
         from life_objects import LifeObjectService
         from deps import knowledge as _kn_lo, life_graph as _lg_lo
-        await LifeObjectService(db, life_graph=_lg_lo, knowledge=_kn_lo).ensure_indexes()
+
+        await LifeObjectService(
+            db, life_graph=_lg_lo, knowledge=_kn_lo
+        ).ensure_indexes()
         logger.info("Life Object Engine indexes ready")
     except Exception:
         logger.exception("Life Object Engine bootstrap failed (non-fatal)")
@@ -259,6 +314,7 @@ async def startup():
     # Life Map — Contesti cognition foundation (deterministic + optional Gemini)
     try:
         from life_map.service import get_life_map_service
+
         await get_life_map_service(db).ensure_indexes()
         logger.info("Life Map indexes ready")
     except Exception:
@@ -268,6 +324,7 @@ async def startup():
     try:
         from life_memory.service import get_life_memory_service
         from life_memory.clarify import get_clarification_service
+
         await get_life_memory_service(db).ensure_indexes()
         await get_clarification_service(db).ensure_indexes()
         logger.info("Life Memory indexes ready")
@@ -277,6 +334,7 @@ async def startup():
     # Life OS — generic plans & artifacts (AI Core execution layer)
     try:
         from life_os.service import LifeOsService
+
         await LifeOsService(db).ensure_indexes()
         logger.info("Life OS indexes ready")
     except Exception:
@@ -348,7 +406,9 @@ app.add_middleware(
 # behavioral hiccup can never break the API.
 import jwt as _pyjwt  # noqa: E402
 from deps import JWT_SECRET as _JWT_SECRET, JWT_ALGO as _JWT_ALGO  # noqa: E402
-from behavioral_intelligence import BehavioralIntelligenceService as _BhvSvc  # noqa: E402
+from behavioral_intelligence import (
+    BehavioralIntelligenceService as _BhvSvc,
+)  # noqa: E402
 
 _bhv_singleton: _BhvSvc | None = None
 
@@ -395,4 +455,3 @@ async def behavioral_observer_middleware(request, call_next):
         # Behavioral engine is purely observational — never break requests.
         logger.debug("behavioral middleware swallowed exception", exc_info=True)
     return response
-

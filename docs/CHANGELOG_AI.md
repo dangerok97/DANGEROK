@@ -1,5 +1,48 @@
 # ORA — AI Changelog
 
+## 2026-08-18 — V2.8.3a Provider Reliability & Error Taxonomy
+
+- Split manager-level `LLMNotConfigured` (no enabled/configured provider) from
+  `LLMProviderUnavailable` (configured chain exhausted).
+- Added typed quota, rate-limit, timeout, network, authentication,
+  configuration, model, provider-response and internal ORA failures with one
+  explicit failover policy.
+- Added bounded, sanitized provider-attempt metadata and safe outcome logs;
+  prompts, responses, credentials and raw provider errors are never recorded.
+- Added a conservative process-local circuit breaker. `Retry-After` extends a
+  bounded cooldown without sleeping or blocking a worker.
+- Made `/llm/status` passive: configured/enabled and recent runtime state are
+  exposed without provider probes or extra quota consumption.
+
+## 2026-08-18 — V2.8.3 Memory Proposal & Governed Learning
+
+- Extended the optional AI `MemoryCandidate` with open semantic identity,
+  epistemic status, temporal scope, authority, provenance, sensitivity and
+  explicit correction/forget relationships.
+- Added deterministic, user-scoped Memory Governance with bounded outcomes:
+  promotion, clarification, rejection, supersession and governed forgetting.
+- Added idempotent persistence by reasoning epoch, non-destructive history,
+  revisions, cache invalidation and startup indexes on the existing `memories`
+  source of truth.
+- Re-entered AI reasoning from a structured governance observation so ORA never
+  claims an unconfirmed write and can resolve identity collisions explicitly.
+- Preserved Situation/Memory separation, inference/fact distinction, raw device
+  exclusion and cross-session Context Broker retrieval.
+- Added deterministic and opt-in real-provider V2.8.3 evaluation suites.
+- Final live QA on the canonical local backend added Memory-specific
+  persist-before-claim/result-consistency re-entry, a minimized Stage A Memory
+  existence index, source-hint-aware Stage B ranking and explicit separation
+  between governed mutation refs and read-only derived Life Memory evidence.
+- Made `identity_key` the canonical collision key when present (with open `kind`
+  as fallback), preventing duplicate active facts when provider label wording varies.
+- Final provider-real gate hardened the AI contract for explicit remember/correct/forget
+  instructions: no redundant confirmation, governed Memory retrieval before mutation,
+  canonical `identity_key`/ref reuse, and no correction degraded into a fresh proposal.
+- Added a terminal persist-before-claim guard so an exhausted reasoning budget can never
+  emit a durable-memory success claim without a persisted governance outcome.
+- Verified live promotion, cross-session retrieval, temporary rejection,
+  correction/supersession, inference isolation and user-scoped logical forget.
+
 ## 2026-08-18 — V2.8.2 Context Broker V3
 
 - Added optional, bounded `ContextNeed` to `CognitiveDecision`; legacy
