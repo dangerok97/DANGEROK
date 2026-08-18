@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
 
 def tracing_enabled() -> bool:
@@ -61,6 +61,11 @@ def public_trace(trace: Dict[str, Any]) -> Dict[str, Any]:
         "ai_calls": trace.get("ai_calls", 0),
         "tool_calls": trace.get("tool_calls", 0),
         "context_calls": trace.get("context_calls", 0),
+        "context_sources": list(trace.get("context_sources") or [])[:8],
+        "context_candidate_count": trace.get("context_candidate_count", 0),
+        "context_final_count": trace.get("context_final_count", 0),
+        "context_payload_chars": trace.get("context_payload_chars", 0),
+        "context_failure_status": trace.get("context_failure_status"),
         "external_queries": trace.get("external_queries", 0),
         "write_calls": trace.get("write_calls", 0),
         "object_generations": trace.get("object_generations", 0),

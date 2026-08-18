@@ -11,7 +11,13 @@ import logging
 import re
 from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 
-from conversation_engine.ai_core.models import ContextFact
+from conversation_engine.ai_core.context_sources import (
+    ContextSourceRegistry,
+    RetrievalReport,
+    SourceOutcome,
+    rank_evidence,
+)
+from conversation_engine.ai_core.models import ContextFact, ContextNeed
 
 logger = logging.getLogger("ora.ai_core.context_broker")
 
@@ -113,6 +119,8 @@ MAX_PAYLOAD_CHARS = 2400
 class ContextBroker:
     def __init__(self, db=None):
         self.db = db
+        self.registry = ContextSourceRegistry(db) if db is not None else None
+        self.last_report = RetrievalReport(status="not_started")
 
     async def retrieve(
         self,
@@ -121,6 +129,7 @@ class ContextBroker:
         user_message: str = "",
         active_goal: Optional[Dict[str, Any]] = None,
         query: Optional[str] = None,
+        context_need: Optional[ContextNeed] = None,
         stage: str = "A",
         session_id: Optional[str] = None,
     ) -> List[ContextFact]:
@@ -132,23 +141,31 @@ class ContextBroker:
             return []
 
         if stage == "B":
-            ok, reason = validate_context_query(query or "")
+            legacy_query = context_need is None
+            need = context_need or ContextNeed(query=(query or "").strip())
+            ok, reason = (
+                validate_context_query(need.query)
+                if legacy_query
+                else validate_context_need(need)
+            )
             if not ok:
                 logger.info("context query blocked: %s", reason)
+                self.last_report = RetrievalReport(status="access_denied")
                 return []
+            if legacy_query:
+                return await self._retrieve_legacy(
+                    user_id=user_id, query=need.query
+                )
 
         facts: List[ContextFact] = []
 
-        # --- Account (Stage A always; Stage B when identity/general) ---
-        categories = infer_categories(
-            (query or user_message) if stage == "B" else ""
-        )
-        if stage == "A" or "identity" in categories or "general" in categories:
+        # Account identity is Stage A only; Stage B uses registered evidence sources.
+        if stage == "A":
             facts.extend(await self._account_facts(user_id))
 
         # --- Active goal (tiny) — historical context, not a binding command ---
         if active_goal and (active_goal.get("summary") or active_goal.get("desired_outcome")):
-            if stage == "A" or "goal" in categories or "general" in categories:
+            if stage == "A":
                 summary = (active_goal.get("summary") or "").strip()
                 outcome = (active_goal.get("desired_outcome") or "").strip()
                 msg = (user_message or "").strip()
@@ -180,21 +197,103 @@ class ContextBroker:
         # Stage A stops here — do not stuff Profile/Memory.
         if stage == "A":
             facts.extend(await self._situation_facts(user_id, session_id=session_id, detailed=False))
-            return _finalize(facts, limit=STAGE_A_MAX + 4)
+            final = _finalize(facts, limit=STAGE_A_MAX)
+            stats = context_payload_stats(final)
+            self.last_report = RetrievalReport(
+                status="ok", queried_sources=["account", "situations"],
+                candidate_count=len(facts), final_count=len(final),
+                payload_chars=stats["payload_chars"],
+            )
+            return final
 
-        # --- Stage B: Profile + Memory + minimized presence ---
-        facts.extend(
-            await self._profile_facts(user_id, categories=categories, query=query or "")
+        anchor_facts = await self._situation_facts(
+            user_id, session_id=session_id, detailed=False
         )
-        facts.extend(
-            await self._memory_facts(user_id, categories=categories, query=query or "")
+        return await self._retrieve_v3(
+            user_id=user_id,
+            need=need,
+            session_id=session_id,
+            anchor=_situation_anchor(anchor_facts, user_message, active_goal),
         )
+
+    async def _retrieve_legacy(self, *, user_id: str, query: str) -> List[ContextFact]:
+        """V2.1 compatibility only; new AI decisions use ContextNeed/registry."""
+        categories = infer_categories(query)
+        facts: List[ContextFact] = []
+        if "identity" in categories or "general" in categories:
+            facts.extend(await self._account_facts(user_id))
+        facts.extend(await self._profile_facts(
+            user_id, categories=categories, query=query
+        ))
+        facts.extend(await self._memory_facts(
+            user_id, categories=categories, query=query
+        ))
         if "presence" in categories or "general" in categories:
             facts.extend(await self._presence_facts(user_id))
-        if "general" in categories or "goal" in categories:
-            facts.extend(await self._situation_facts(user_id, session_id=session_id, detailed=True))
+        final = _finalize(facts, limit=STAGE_B_MAX)
+        stats = context_payload_stats(final)
+        self.last_report = RetrievalReport(
+            status="ok" if final else "no_relevant_evidence",
+            queried_sources=["legacy_profile_memory"],
+            candidate_count=len(facts), final_count=len(final),
+            payload_chars=stats["payload_chars"],
+        )
+        return final
 
-        return _finalize(facts, limit=STAGE_B_MAX)
+    async def _retrieve_v3(
+        self,
+        *,
+        user_id: str,
+        need: ContextNeed,
+        session_id: Optional[str],
+        anchor: str,
+    ) -> List[ContextFact]:
+        import time
+
+        report = RetrievalReport()
+        if self.registry is None:
+            report.status = "retrieval_failure"
+            self.last_report = report
+            return []
+        sources, excluded = self.registry.select(need, maximum=6)
+        report.excluded_sources = excluded
+        candidates: List[ContextFact] = []
+        for source in sources:
+            started = time.perf_counter()
+            report.queried_sources.append(source.name)
+            try:
+                found = await source.retrieve(user_id, need, session_id)
+                candidates.extend(found[:30])
+                report.outcomes.append(SourceOutcome(
+                    source=source.name,
+                    status="ok" if found else "no_relevant_evidence",
+                    candidate_count=len(found),
+                    duration_ms=int((time.perf_counter() - started) * 1000),
+                ))
+            except Exception as exc:
+                logger.info("context source %s soft-fail: %s", source.name, type(exc).__name__)
+                report.outcomes.append(SourceOutcome(
+                    source=source.name, status="source_unavailable",
+                    duration_ms=int((time.perf_counter() - started) * 1000),
+                    reason=type(exc).__name__,
+                ))
+        report.candidate_count = len(candidates)
+        selected, exhausted = rank_evidence(
+            candidates, need, anchor=anchor,
+            max_items=min(need.max_items, STAGE_B_MAX),
+            max_chars=MAX_PAYLOAD_CHARS,
+        )
+        report.final_count = len(selected)
+        report.payload_chars = context_payload_stats(selected)["payload_chars"]
+        report.budget_exhausted = exhausted
+        if not selected:
+            report.status = (
+                "source_unavailable"
+                if report.outcomes and all(o.status == "source_unavailable" for o in report.outcomes)
+                else "no_relevant_evidence"
+            )
+        self.last_report = report
+        return selected
 
     async def _situation_facts(self, user_id: str, *, session_id: Optional[str], detailed: bool) -> List[ContextFact]:
         try:
@@ -215,6 +314,16 @@ class ContextBroker:
             )
             if detailed:
                 statement += f"; details={json.dumps(preview, ensure_ascii=False)}"
+            else:
+                # Stage A is an index: expose only the existence of hidden detail
+                # so the model can request it instead of inventing it.
+                statement += (
+                    f"; detail_counts=constraints:{len(preview.get('constraints') or [])},"
+                    f"facts:{len(preview.get('facts') or [])},"
+                    f"assumptions:{len(preview.get('assumptions') or [])}"
+                )
+                if preview.get("assumptions"):
+                    statement += "; unresolved_detail=true"
             out.append(ContextFact(
                 statement=statement[:700], fact=statement[:700], source="situation",
                 authority="user_context", status=item.status, timestamp=item.updated_at,
@@ -480,6 +589,30 @@ def validate_context_query(query: str) -> Tuple[bool, str]:
     if _BLOCKED_QUERY.search(q):
         return False, "overbroad_query"
     return True, "ok"
+
+
+def validate_context_need(need: ContextNeed) -> Tuple[bool, str]:
+    ok, reason = validate_context_query(need.query)
+    if not ok:
+        return ok, reason
+    if need.max_items > STAGE_B_MAX:
+        return False, "item_budget_exceeded"
+    if not (need.purpose or "").strip() and len(_tokens(need.query)) < 2:
+        return False, "insufficient_purpose"
+    return True, "ok"
+
+
+def _situation_anchor(
+    facts: List[ContextFact], user_message: str, active_goal: Optional[Dict[str, Any]]
+) -> str:
+    parts = [user_message]
+    if active_goal:
+        parts.extend([
+            str(active_goal.get("summary") or ""),
+            str(active_goal.get("desired_outcome") or ""),
+        ])
+    parts.extend(f.statement for f in facts if f.source == "situation")
+    return " ".join(parts)[:1200]
 
 
 def infer_categories(text: str) -> Set[str]:

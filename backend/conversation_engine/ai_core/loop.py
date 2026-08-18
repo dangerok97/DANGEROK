@@ -37,6 +37,7 @@ logger = logging.getLogger("ora.ai_core.loop")
 MAX_STEPS = 8
 MAX_TOOL_CALLS = 5
 MAX_EXTERNAL_QUERIES = 2
+MAX_CONTEXT_CALLS = 2
 MAX_WRITE_CALLS = 4
 MAX_OBJECT_GENERATIONS = 2
 MAX_SOURCES_UI = 5
@@ -627,11 +628,24 @@ async def run_cognitive_loop(
 
         if mode == "context":
             cq = (decision.context_query or "").strip()
+            if int(trace.get("context_calls") or 0) >= MAX_CONTEXT_CALLS:
+                observations.append(Observation(
+                    kind="context", name="context_broker", status="budget_exhausted",
+                    payload={
+                        "failure_code": "CONTEXT_BUDGET_EXHAUSTED",
+                        "reason": "No more personal-context retrieval calls are allowed this turn.",
+                    },
+                ).model_dump())
+                add_step(trace, event="CONTEXT_BUDGET")
+                if step + 1 < max_steps:
+                    continue
+                break
             more = await broker.retrieve(
                 user_id=sess.user_id,
                 user_message=user_message,
                 active_goal=st.get("active_goal"),
                 query=cq or user_message,
+                context_need=decision.context_need,
                 stage="B",
                 session_id=sess.id,
             )
@@ -645,15 +659,24 @@ async def run_cognitive_loop(
             stats_b = context_payload_stats(context_facts)
             trace["context_item_count"] = stats_b["item_count"]
             trace["context_payload_chars"] = stats_b["payload_chars"]
+            report = broker.last_report.public()
+            trace["context_sources"] = report.get("queried_sources") or []
+            trace["context_candidate_count"] = report.get("candidate_count") or 0
+            trace["context_final_count"] = report.get("final_count") or 0
+            trace["context_failure_status"] = report.get("status")
             obs = Observation(
                 kind="context",
                 name="context_broker",
-                status="ok" if more else "empty",
+                status="ok" if more else str(report.get("status") or "no_relevant_evidence"),
                 payload={
                     "facts": [f.model_dump() for f in more],
-                    "context_query": cq,
+                    "context_need": (
+                        decision.context_need.model_dump()
+                        if decision.context_need else {"query": cq}
+                    ),
                     "item_count": len(more),
                     "grounding": "PERSONAL_CONTEXT",
+                    "retrieval": report,
                 },
                 provenance=[f.ref for f in more if f.ref],
             )

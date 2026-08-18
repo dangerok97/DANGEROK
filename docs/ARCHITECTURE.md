@@ -1,5 +1,21 @@
 # ORA — Architecture
 
+## V2.8.2 — Context Broker V3
+
+Il production brain mantiene due stadi: Stage A è una slice piccola di account,
+Situation correnti e active goal; Stage B parte soltanto da un `ContextNeed`
+AI-owned, validato da governance. Un `ContextSourceRegistry` espone adapter
+uniformi per Profile, Memory, Situations, Life OS, Goals, file metadata e
+calendar metadata. Presence resta esclusa dal retrieval automatico e richiede la
+capability consent-aware dedicata.
+
+Il ranking è bounded e general-purpose: overlap semantico leggero, authority,
+Situation anchor e source diversity. Non esiste un secondo LLM orchestrator né
+un domain router. Il report distingue `no_relevant_evidence`,
+`source_unavailable` e `access_denied`, misura candidate/final count, payload e
+latenza per source senza registrare contenuto personale. I path category/keyword
+V2.1 restano soltanto come compatibilità esplicita per chiamanti legacy.
+
 ## Prompt V2.7.1 — Foreground location + PresenceContext (2026-08-15; STALE refresh + Home handoff 2026-08-16)
 
 ```
