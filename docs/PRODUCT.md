@@ -1,5 +1,15 @@
 # ORA — Product (struttura reale)
 
+## Personal Context Retrieval V3 (V2.8.2)
+
+ORA può chiedere il minimo contesto personale necessario per decidere meglio,
+senza trasformare la conversazione in un router di domini. Il modello formula un
+`ContextNeed` semantico; il broker recupera evidence bounded da fonti user-owned,
+preserva conflitti, authority e provenance, poi il modello ragiona nuovamente.
+Situation è l'anchor di continuità, non una categoria. Profile, Memory, Life OS,
+Goal, file e calendar metadata sono evidence source; nessuna source decide
+l'intento e nessuna retrieval promuove automaticamente nuova Memory.
+
 Ultimo aggiornamento: 2026-08-16 — Home → ORA first-turn handoff + location presence.
 
 ## ORA (production conversation)

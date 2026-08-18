@@ -23,6 +23,17 @@ GroundingKind = Literal[
 ]
 
 
+class ContextNeed(BaseModel):
+    """AI-owned information need; source hints never become mandatory routing."""
+
+    query: str = Field(min_length=1, max_length=400)
+    purpose: Optional[str] = Field(default=None, max_length=240)
+    desired_evidence: List[str] = Field(default_factory=list, max_length=6)
+    temporal_scope: Optional[str] = Field(default=None, max_length=120)
+    source_hints: List[str] = Field(default_factory=list, max_length=5)
+    max_items: int = Field(default=6, ge=1, le=8)
+
+
 class ToolCall(BaseModel):
     """Capability request — prefer capability over provider brands."""
 
@@ -76,6 +87,7 @@ class CognitiveDecision(BaseModel):
     question: Optional[str] = None
     tool_call: Optional[ToolCall] = None
     context_query: Optional[str] = None
+    context_need: Optional[ContextNeed] = None
     state_updates: List[StateUpdate] = Field(default_factory=list)
     memory_candidates: List[MemoryCandidate] = Field(default_factory=list)
     confidence: Optional[float] = None
@@ -96,6 +108,9 @@ class ContextFact(BaseModel):
     ref: str = ""
     grounding: Optional[str] = None
     temporal_scope: Optional[str] = None
+    confidence: Optional[float] = None
+    sensitivity: str = "personal"
+    provenance: List[str] = Field(default_factory=list)
 
 
 class Observation(BaseModel):

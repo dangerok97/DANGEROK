@@ -1,5 +1,21 @@
 # ORA — Development State
 
+## V2.8.2 — Context Broker V3
+
+| Item | Stato |
+|------|--------|
+| `ContextNeed` AI-owned e backward-compatible | **implemented** |
+| Life Context source registry | **implemented** |
+| Profile / Memory / Situation / Life OS / Goals / file / calendar | **bounded adapters** |
+| Presence automatica | **forbidden; capability required** |
+| Authority, provenance, conflicts, diversity, budget | **preserved/enforced** |
+| Stage A minimized + Situation detail signal | **implemented** |
+| Source failure honesty + safe observability | **implemented** |
+| Second LLM/domain router/new dependency | **none** |
+| Deterministic core regression | **246 passed** |
+| Real-provider generality/conflict eval | **4 passed** |
+| Final product QA | **passed in integrated browser** |
+
 Last updated: 2026-08-17 (Google Login V2 multipiattaforma — uncommitted)
 
 ## Google Login V2 — GIS web + native SDK (this batch)

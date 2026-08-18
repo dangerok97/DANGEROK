@@ -3,8 +3,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Set
 
-from conversation_engine.ai_core.context_broker import validate_context_query
-from conversation_engine.ai_core.models import CognitiveDecision, MemoryCandidate, ToolCall
+from conversation_engine.ai_core.context_broker import validate_context_need
+from conversation_engine.ai_core.models import CognitiveDecision, ContextNeed, MemoryCandidate, ToolCall
 from conversation_engine.ai_core.tools.registry import ToolRegistry, tool_signature
 from conversation_engine.ai_core.tools.sanitize import sanitize_external_query
 from situations.models import SituationUpdate
@@ -79,6 +79,13 @@ def validate_decision(
     message = data.get("message_to_user")
     tool_call_raw = data.get("tool_call")
     context_query = data.get("context_query")
+    context_need = None
+    raw_need = data.get("context_need")
+    if raw_need is not None:
+        try:
+            context_need = ContextNeed.model_validate(raw_need)
+        except Exception:
+            errors.append("bad_context_need")
     tool_call: Optional[Dict[str, Any]] = None
 
     if mode == "ask":
@@ -160,9 +167,15 @@ def validate_decision(
                         # so AI can re-enter honestly — keep tool mode
                         pass
     elif mode == "context":
-        if not (context_query and str(context_query).strip()):
-            context_query = data.get("user_intent_summary") or "relevant personal facts"
-        ok_q, reason = validate_context_query(str(context_query))
+        if context_need is None:
+            if not (context_query and str(context_query).strip()):
+                context_query = data.get("user_intent_summary") or "relevant personal facts"
+            context_need = ContextNeed(
+                query=str(context_query),
+                purpose=str(data.get("user_intent_summary") or "current reasoning step")[:240],
+            )
+        context_query = context_need.query
+        ok_q, reason = validate_context_need(context_need)
         if not ok_q:
             errors.append(f"blocked_context_query:{reason}")
             mode = "answer"
@@ -171,6 +184,7 @@ def validate_decision(
                 "Dimmi pure cosa ti serve in particolare."
             )
             context_query = None
+            context_need = None
             tool_call = None
         else:
             tool_call = None
@@ -232,6 +246,7 @@ def validate_decision(
             question=question,
             tool_call=tc_model,
             context_query=str(context_query)[:240] if context_query else None,
+            context_need=context_need,
             state_updates=updates,
             memory_candidates=mem_cands,
             confidence=_clamp_conf(data.get("confidence")),

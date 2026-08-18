@@ -1,5 +1,20 @@
 # ORA Cognitive Architecture
 
+## Context continuity V3
+
+```text
+Perceive → Situation → Stage A → Reason → ContextNeed
+→ Context Broker V3 → Evidence → Reason → Tool/answer/mutation
+→ Observe → Persist justified state
+```
+
+L'AI decide quale informazione è rilevante e perché. Governance valida purpose,
+scope e budget. Il broker seleziona fonti registrate, recupera evidence
+minimizzata, conserva conflitti/authority/provenance e non interpreta l'intento.
+Le source non decidono la conversazione. Situation fornisce continuità semantica
+anche cross-session; non è un router. Retrieval non equivale a Memory write.
+Failure di source e assenza di evidence restano esiti distinti e osservabili.
+
 ## Operating principle
 
 **AI decides. System guarantees. Tools execute.**

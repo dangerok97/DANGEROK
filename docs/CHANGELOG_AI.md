@@ -1,5 +1,19 @@
 # ORA — AI Changelog
 
+## 2026-08-18 — V2.8.2 Context Broker V3
+
+- Added optional, bounded `ContextNeed` to `CognitiveDecision`; legacy
+  `context_query` remains an explicit compatibility alias.
+- Added one general-purpose source registry for Profile, Memory, Situations,
+  Life OS, Goals, file metadata and calendar metadata. Presence remains behind
+  its consent-aware capability.
+- Stage A remains small and signals hidden/unresolved Situation detail; Stage B
+  retrieves only after AI request and always re-enters reasoning.
+- Added authority/provenance-aware evidence, conflict preservation, diversity,
+  context budgets and failure-safe observability without personal payload logs.
+- Added deterministic V2.8.2 coverage and opt-in real-provider evals for travel,
+  non-travel, arbitrary context, cross-session continuity and conflict.
+
 ## 2026-08-17 — Home dedupe e legacy E2E hygiene
 
 - Normalized exact title/hour dedupe keys consistently across legacy Home sources while preserving `goal_id` isolation.
