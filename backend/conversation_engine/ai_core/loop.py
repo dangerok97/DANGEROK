@@ -17,7 +17,7 @@ from conversation_engine.ai_core.fallback import (
     fallback_decision_after_malformed,
     provider_unavailable_result,
 )
-from conversation_engine.ai_core.governance import validate_decision
+from conversation_engine.ai_core.governance import clarification_ref_key, validate_decision
 from conversation_engine.ai_core.grounding.temporal import merge_context_with_current
 from conversation_engine.ai_core.models import (
     ActiveGoal,
@@ -264,6 +264,11 @@ async def run_cognitive_loop(
     memory_write_decisions_this_turn: List[str] = []
     memory_claim_nudge_used = False
     memory_result_nudge_used = False
+    clarification_attempts = {
+        str(item.get("key")): int(item.get("attempts") or 0)
+        for item in (st.get("clarification_history") or [])
+        if isinstance(item, dict) and item.get("key")
+    }
 
     # Hydrate plan/object conversational focus for linked sessions
     from conversation_engine.ai_core.life_os_context import (
@@ -309,6 +314,7 @@ async def run_cognitive_loop(
             recent_tool_signatures=recent_tool_sigs,
             external_query_count=external_queries,
             max_external_queries=MAX_EXTERNAL_QUERIES,
+            clarification_attempts=clarification_attempts,
         )
         validated_raw: Any = raw
         if not gov.ok or not gov.decision:
@@ -326,6 +332,7 @@ async def run_cognitive_loop(
                 recent_tool_signatures=recent_tool_sigs,
                 external_query_count=external_queries,
                 max_external_queries=MAX_EXTERNAL_QUERIES,
+                clarification_attempts=clarification_attempts,
             )
             validated_raw = raw2
             if not gov.ok or not gov.decision:
@@ -350,6 +357,11 @@ async def run_cognitive_loop(
             )
 
         last_decision = decision
+        if "repeated_clarification" in gov.errors:
+            trace["repeated_question_prevented"] = int(
+                trace.get("repeated_question_prevented") or 0
+            ) + 1
+            add_step(trace, event="REPEATED_QUESTION_PREVENTED")
         # Same-turn duplicate: reuse prior observation; never surface internal guard UX
         if "duplicate_tool_call" in (gov.errors or []):
             # Recover signature from raw tool call if governance cleared it
@@ -604,6 +616,17 @@ async def run_cognitive_loop(
                     "collegato. Il piano potrebbe essere ancora attivo: non lo considero annullato."
                 )
             ora = _compose_user_text(decision)
+            if decision.uncertainty:
+                trace["uncertainty_turns"] = int(trace.get("uncertainty_turns") or 0) + 1
+                trace["unresolved_uncertainty"] = bool(
+                    decision.uncertainty.blocking
+                    or decision.uncertainty.missing_information
+                    or decision.uncertainty.ambiguities
+                )
+                if decision.uncertainty.assumptions:
+                    trace["assumptions_used"] = int(
+                        trace.get("assumptions_used") or 0
+                    ) + len(decision.uncertainty.assumptions)
             if (
                 memory_write_confirmed_this_turn
                 and not memory_result_nudge_used
@@ -790,6 +813,36 @@ async def run_cognitive_loop(
                 add_step(trace, event="PERSIST_NUDGE")
                 continue
             state_mod.append_turn(st, role="ora", text=ora, kind=mode)
+            if mode == "ask" and decision.uncertainty:
+                asked_refs = [
+                    item.ref
+                    for item in decision.uncertainty.missing_information
+                    if item.strategy == "ask"
+                ]
+                history = list(st.get("clarification_history") or [])
+                for ref in asked_refs:
+                    key = clarification_ref_key(ref)
+                    clarification_attempts[key] = clarification_attempts.get(key, 0) + 1
+                    history = [
+                        item
+                        for item in history
+                        if not (isinstance(item, dict) and item.get("key") == key)
+                    ]
+                    history.append(
+                        {
+                            "key": key,
+                            "attempts": clarification_attempts[key],
+                            "reasoning_epoch": epoch,
+                        }
+                    )
+                st["clarification_history"] = history[-12:]
+                trace["clarifications_requested"] = int(
+                    trace.get("clarifications_requested") or 0
+                ) + len(asked_refs)
+            elif mode in ("answer", "finish", "act"):
+                # A terminal non-question represents progress, deferral or refusal
+                # handling. Do not turn semantic refs into permanent session bans.
+                st["clarification_history"] = []
             st["observations"] = observations[-12:]
             state_mod.save_ai_state(sess, st)
             add_step(trace, event="FINAL", mode=mode)
@@ -877,6 +930,13 @@ async def run_cognitive_loop(
                 provenance=[f.ref for f in more if f.ref],
             )
             observations.append(obs.model_dump())
+            if decision.uncertainty and any(
+                item.strategy == "retrieve"
+                for item in decision.uncertainty.missing_information
+            ):
+                trace["clarification_context_attempts"] = int(
+                    trace.get("clarification_context_attempts") or 0
+                ) + 1
             add_step(
                 trace,
                 event="CONTEXT_B",

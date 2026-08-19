@@ -2539,3 +2539,12 @@ Configure Cursor as Emergent-like autonomous platform; analysis then automation 
 ### Result
 
 `AGENTS.md`, `.cursor/*`, docs, scripts, env examples on `ora/cursor-platform`.
+# 2026-08-18 — ORA V2.8.4 unified uncertainty and clarification
+
+- Added optional typed `CognitiveDecision.uncertainty` with bounded missing information,
+  ambiguities and reversible assumptions.
+- Added general-purpose repeated-question protection keyed by AI-supplied semantic refs,
+  clarification/context budgets and sanitized aggregate observability.
+- Preserved Context Broker re-entry, Situation assumption supersession, governed Memory,
+  failure honesty and persist-before-claim. No domain question flow or keyword router added.
+- Added deterministic V2.8.4 regression coverage; no DB migration or dependency.

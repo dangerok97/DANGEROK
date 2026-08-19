@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from typing import Any, Dict, List, Optional, Set
 
 from conversation_engine.ai_core.context_broker import validate_context_need
@@ -10,6 +11,7 @@ from conversation_engine.ai_core.models import (
     ContextNeed,
     MemoryCandidate,
     ToolCall,
+    UncertaintyState,
 )
 from conversation_engine.ai_core.tools.registry import ToolRegistry, tool_signature
 from conversation_engine.ai_core.tools.sanitize import sanitize_external_query
@@ -60,6 +62,7 @@ def validate_decision(
     recent_tool_signatures: Optional[Set[str]] = None,
     external_query_count: int = 0,
     max_external_queries: int = 2,
+    clarification_attempts: Optional[Dict[str, int]] = None,
 ) -> GovernanceResult:
     """Validate schema, capability existence, risk, state paths. Soft-normalize."""
     errors: List[str] = []
@@ -92,6 +95,12 @@ def validate_decision(
             context_need = ContextNeed.model_validate(raw_need)
         except Exception:
             errors.append("bad_context_need")
+    uncertainty = None
+    if data.get("uncertainty") is not None:
+        try:
+            uncertainty = UncertaintyState.model_validate(data.get("uncertainty"))
+        except Exception:
+            errors.append("bad_uncertainty")
     tool_call: Optional[Dict[str, Any]] = None
 
     if mode == "ask":
@@ -107,6 +116,28 @@ def validate_decision(
         # Soft-block permission-fishing for read-only tools
         if message and _asks_permission_for_readonly(str(message)):
             errors.append("passive_readonly_ask")
+        ask_refs = _missing_refs(uncertainty, strategy="ask")
+        repeated = [
+            ref
+            for ref in ask_refs
+            if max(
+                int((clarification_attempts or {}).get(ref, 0)),
+                int(
+                    (clarification_attempts or {}).get(
+                        clarification_ref_key(ref), 0
+                    )
+                ),
+            )
+            >= 1
+        ]
+        if repeated:
+            errors.append("repeated_clarification")
+            mode = "answer"
+            question = None
+            message = (
+                "Non ti richiedo di nuovo lo stesso dettaglio. Posso continuare con "
+                "un'ipotesi prudente e reversibile, oppure fermarmi qui."
+            )
     elif mode == "tool":
         tool_call = _normalize_tool_call(tool_call_raw)
         if not tool_call or not tool_call.get("name"):
@@ -174,6 +205,18 @@ def validate_decision(
                         # Still allow execute path to return NOT_CONFIGURED observation
                         # so AI can re-enter honestly — keep tool mode
                         pass
+                if (
+                    tool_call is not None
+                    and spec.side_effect != "READ_ONLY"
+                    and _blocks_side_effect(uncertainty)
+                ):
+                    errors.append("blocking_uncertainty_for_write")
+                    mode = "answer"
+                    message = (
+                        "Mi manca un'informazione necessaria per eseguire questa azione "
+                        "in modo affidabile."
+                    )
+                    tool_call = None
     elif mode == "context":
         if context_need is None:
             if not (context_query and str(context_query).strip()):
@@ -202,6 +245,12 @@ def validate_decision(
             tool_call = None
     else:
         tool_call = None
+        if mode == "act" and _blocks_side_effect(uncertainty):
+            errors.append("blocking_uncertainty_for_action")
+            mode = "answer"
+            message = (
+                "Mi manca un'informazione necessaria per procedere in modo affidabile."
+            )
         if mode in ("answer", "finish", "act") and not (
             message and str(message).strip()
         ):
@@ -269,6 +318,7 @@ def validate_decision(
             confidence=_clamp_conf(data.get("confidence")),
             claim_grounding=data.get("claim_grounding"),
             situation_update=situation_update,
+            uncertainty=uncertainty,
         )
     except Exception:
         return GovernanceResult(False, errors=errors + ["pydantic_fail"])
@@ -279,6 +329,33 @@ def validate_decision(
         and (mode != "tool" or decision.tool_call is not None)
     )
     return GovernanceResult(ok=ok, decision=decision, errors=errors)
+
+
+def _missing_refs(
+    uncertainty: Optional[UncertaintyState], *, strategy: Optional[str] = None
+) -> List[str]:
+    if not uncertainty:
+        return []
+    return [
+        item.ref
+        for item in uncertainty.missing_information
+        if strategy is None or item.strategy == strategy
+    ]
+
+
+def clarification_ref_key(ref: str) -> str:
+    """Stable non-reversible key; session state never stores AI/user wording."""
+    return hashlib.sha256(str(ref).strip().casefold().encode("utf-8")).hexdigest()
+
+
+def _blocks_side_effect(uncertainty: Optional[UncertaintyState]) -> bool:
+    if not uncertainty:
+        return False
+    if uncertainty.blocking:
+        return True
+    if any(item.blocking for item in uncertainty.missing_information):
+        return True
+    return any(a.consequential or not a.reversible for a in uncertainty.assumptions)
 
 
 def memory_candidates_are_proposals_only(decision: CognitiveDecision) -> bool:

@@ -639,3 +639,16 @@ impediscono claim di save/forget senza persistenza e contraddizioni dopo una mut
 ## Local run (summary)
 
 See `README.md` and `scripts/dev`. Details and gaps live in `docs/DEVELOPMENT_STATE.md`.
+# V2.8.4 — Unified uncertainty contract
+
+The canonical path is `AI Core → CognitiveDecision.uncertainty → runtime governance →
+Context Broker / capability → observation → AI re-entry`. `MissingInformation.ref` provides
+a bounded semantic identity for retrieval/ask/defer/assume decisions and repeated-question
+protection; it is not a domain slot or router. Runtime governance validates schema, budgets,
+question presence, repeated refs and unsafe assumptions, while the AI remains the sole owner
+of whether uncertainty matters and which strategy is appropriate.
+
+Only bounded aggregate metadata is observable. Question text, user text, raw evidence and
+private reasoning are not persisted as telemetry. Existing Memory clarification remains a
+governed compatibility surface; Life Setup remains bootstrap UX/policy; Action/Intent flows
+remain legacy compatibility and are not extended as production reasoning owners.
