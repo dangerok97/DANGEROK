@@ -49,6 +49,8 @@ def get_ai_state(sess: ConversationSession) -> Dict[str, Any]:
         state["recent_object_interactions"] = []
     if "active_situation_ref" not in state:
         state["active_situation_ref"] = None
+    if "clarification_history" not in state:
+        state["clarification_history"] = []
     return state
 
 

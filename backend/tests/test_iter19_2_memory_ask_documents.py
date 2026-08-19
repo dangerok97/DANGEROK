@@ -23,8 +23,8 @@ import pytest
 os.environ.setdefault("CALENDAR_PROVIDER_MODE", "fake")
 sys.path.insert(0, "/app/backend")
 
-from fastapi.testclient import TestClient  # noqa: E402
-import server  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402,F401
+import server  # noqa: E402,F401
 
 TS = f"iter192_{int(time.time())}_{uuid.uuid4().hex[:6]}"
 
@@ -66,6 +66,14 @@ def _ask(client, user, question):
     return client.post("/api/memory/ask", headers=h(user), json={"question": question})
 
 
+def _skip_if_provider_unavailable(response):
+    """Accept legacy 502 and canonical V2.8.3a temporary-unavailable 503."""
+    if response.status_code in (502, 503):
+        pytest.skip(
+            f"LLM {response.status_code} - external service temporarily unavailable"
+        )
+
+
 # =====================================================================
 # A) ZERO REGRESSIONE
 # =====================================================================
@@ -90,9 +98,8 @@ class TestA_ZeroRegression:
         assert m.status_code == 200, m.text
 
         r = _ask(client, user, "Dove ho comprato il televisore?")
-        # 200 se LLM disponibile, 502 se LLM down; entrambi accettati ma vogliamo 200 idealmente
-        if r.status_code == 502:
-            pytest.skip("LLM 502 - external service unavailable")
+        # 200 se LLM disponibile; 502 legacy / 503 canonical unavailable sono accettati.
+        _skip_if_provider_unavailable(r)
         assert r.status_code == 200, r.text
         body = r.json()
         # sources deve contenere memorie
@@ -115,10 +122,9 @@ class TestB_DocsInAsk:
         assert up.status_code == 200, up.text
 
         r = _ask(client, user, "Ho caricato qualche documento?")
-        if r.status_code == 502:
-            # Anche se LLM down, la ricerca dei docs deve avvenire.
-            # Non possiamo però controllare sources senza risposta 200.
-            pytest.skip("LLM 502 - external service unavailable")
+        # Anche se LLM down, la ricerca dei docs avviene prima del provider;
+        # non possiamo però controllare sources senza risposta 200.
+        _skip_if_provider_unavailable(r)
         assert r.status_code == 200, r.text
         body = r.json()
         doc_sources = [s for s in body["sources"] if s.get("source") == "document"]
@@ -136,8 +142,7 @@ class TestB_DocsInAsk:
             assert up.status_code == 200
 
         r = _ask(client, user, "Quanti documenti ho caricato?")
-        if r.status_code == 502:
-            pytest.skip("LLM 502 - external service unavailable")
+        _skip_if_provider_unavailable(r)
         assert r.status_code == 200
         body = r.json()
         doc_sources = [s for s in body["sources"] if s.get("source") == "document"]
@@ -152,8 +157,7 @@ class TestB_DocsInAsk:
         assert up.status_code == 200
 
         r = _ask(client, user, f"Ho un file {unique}.pdf?")
-        if r.status_code == 502:
-            pytest.skip("LLM 502 - external service unavailable")
+        _skip_if_provider_unavailable(r)
         assert r.status_code == 200
         body = r.json()
         # answer cita il nome file oppure "sì"
@@ -168,8 +172,7 @@ class TestB_DocsInAsk:
         assert up.status_code == 200
 
         r = _ask(client, user, "Ho documenti con tag fiscale?")
-        if r.status_code == 502:
-            pytest.skip("LLM 502 - external service unavailable")
+        _skip_if_provider_unavailable(r)
         assert r.status_code == 200
         body = r.json()
         doc_sources = [s for s in body["sources"] if s.get("source") == "document"]
@@ -192,9 +195,8 @@ class TestC_Filters:
         assert d.status_code == 200
 
         r = _ask(client, user, "Che documenti ho?")
-        if r.status_code == 502:
-            # We still can inspect DB behaviour but not sources; skip
-            pytest.skip("LLM 502 - external service unavailable")
+        # We still can inspect DB behaviour but not sources; skip.
+        _skip_if_provider_unavailable(r)
         assert r.status_code == 200
         body = r.json()
         # Assicurati che il documento eliminato NON sia tra le sources
@@ -214,8 +216,7 @@ class TestC_Filters:
         assert a.status_code == 200
 
         r = _ask(client, user, "Ho documenti?")
-        if r.status_code == 502:
-            pytest.skip("LLM 502 - external service unavailable")
+        _skip_if_provider_unavailable(r)
         assert r.status_code == 200
         body = r.json()
         matches = [s for s in body["sources"] if s.get("id") == doc_id]
@@ -252,8 +253,7 @@ class TestD_SourcesContract:
         assert up.status_code == 200
 
         r = _ask(client, user, "Che documenti ho?")
-        if r.status_code == 502:
-            pytest.skip("LLM 502 - external service unavailable")
+        _skip_if_provider_unavailable(r)
         assert r.status_code == 200
         body = r.json()
         doc_sources = [s for s in body["sources"] if s.get("source") == "document"]

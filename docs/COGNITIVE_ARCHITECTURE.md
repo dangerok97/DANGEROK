@@ -102,3 +102,14 @@ failures can move to the next configured provider; unknown internal ORA errors
 cannot. When the configured chain is exhausted, AI Core receives a sanitized
 `LLMProviderUnavailable` and follows its existing honest soft-failure path
 without exposing vendor, quota or authentication detail to the user.
+# V2.8.4 — Uncertainty is decision state, not a second brain
+
+`AI DECIDES. SYSTEM GUARANTEES. TOOLS EXECUTE.` The AI expresses a bounded uncertainty state:
+missing information, ambiguities, reversible assumptions and whether unresolved information
+is blocking. It chooses `context`, `ask`, `answer`, `tool` or `act`. The runtime never uses
+domain keywords to choose among them; it enforces budgets, ownership, privacy, no repeated
+semantic question, no unsafe side effect and failure honesty.
+
+Situation may preserve justified contextual assumptions and their supersession history.
+Memory governance remains separate: an assumption is never a fact and never bypasses the
+MemoryCandidate governance path. Context Broker retrieves evidence but does not decide intent.

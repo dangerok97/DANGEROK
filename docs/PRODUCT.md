@@ -326,3 +326,10 @@ Persone che vogliono una priorità unica chiara (non un task manager generico), 
 ## Fuori scope attuale
 
 Chatbot generico, Gmail, push, analytics produzione, multi-tenant admin UI, deploy store.
+# V2.8.4 — Unified uncertainty and clarification
+
+ORA treats uncertainty as AI-owned decision state, not as a form or domain flow. Missing
+information does not imply a question: the production AI Core can retrieve bounded personal
+evidence, ask one necessary question, proceed with an explicit reversible assumption, defer,
+or answer/act when residual uncertainty is immaterial. Assumptions are neither facts nor Life
+Memory; consequential actions remain blocked when essential information is unresolved.

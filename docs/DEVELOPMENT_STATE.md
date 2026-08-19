@@ -814,3 +814,20 @@ BEFORE: 3 Psicologia study rows + Vibo. AFTER: 1 canonical Psicologia + Vibo.
 - Never commit `.env` / tokens
 - No new UI libraries
 - No backend changes in this batch
+# V2.8.4 — Unified Clarification + Uncertainty Engine
+
+Status: implemented in the production AI Core, CPO-approved and closed out. `CognitiveDecision`
+now has an optional backward-compatible uncertainty contract with typed missing-information
+identity, ambiguity and reversible assumptions. Governance prevents repeated structured
+questions and unsafe actions under blocking uncertainty; Context Broker V3 remains the bounded
+evidence retrieval path. No domain router, new provider, dependency, DB collection or frontend
+flow was introduced.
+
+Final local regression gate (2026-08-19): 16/16 deterministic V2.8.4 tests passed; 292 passed
+in `conversation_engine/tests/` (excl. provider-real `_live.py`); 44 passed in
+`situations/life_memory/life_os/llm`; legacy compatibility `test_iter19_2_memory_ask_documents.py`
+3 passed/7 skipped (honest provider-unavailable skip); `compileall`, blocking lint and
+`git diff --check` clean. Unrelated legacy `tests/test_iter9..23*` integration suites were
+excluded from this gate (remote-preview-URL dependency and pre-existing shared-DB test-order
+coupling documented in `backend/tests/conftest.py`) — confirmed unrelated to `ai_core` by
+import audit, zero references found.

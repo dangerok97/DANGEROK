@@ -24,6 +24,49 @@ GroundingKind = Literal[
     "INFERENCE",
 ]
 
+UncertaintyStrategy = Literal["retrieve", "ask", "assume", "defer"]
+
+
+class MissingInformation(BaseModel):
+    """Bounded AI-owned information need; never a domain slot."""
+
+    ref: str = Field(min_length=1, max_length=120)
+    description: str = Field(min_length=1, max_length=240)
+    purpose: Optional[str] = Field(default=None, max_length=240)
+    importance: float = Field(default=0.5, ge=0.0, le=1.0)
+    blocking: bool = False
+    strategy: UncertaintyStrategy = "defer"
+    context_query: Optional[str] = Field(default=None, max_length=400)
+    sensitivity: Literal["normal", "sensitive", "high"] = "normal"
+
+
+class Ambiguity(BaseModel):
+    ref: str = Field(min_length=1, max_length=120)
+    description: str = Field(min_length=1, max_length=240)
+    blocking: bool = False
+
+
+class DecisionAssumption(BaseModel):
+    """A reversible proposition used for this decision, never a fact or Memory."""
+
+    ref: str = Field(min_length=1, max_length=120)
+    statement: str = Field(min_length=1, max_length=300)
+    confidence: float = Field(default=0.5, ge=0.0, le=1.0)
+    reversible: bool = True
+    consequential: bool = False
+    source_refs: List[str] = Field(default_factory=list, max_length=6)
+
+
+class UncertaintyState(BaseModel):
+    """Operational epistemic state; contains no private chain-of-thought."""
+
+    level: float = Field(default=0.0, ge=0.0, le=1.0)
+    missing_information: List[MissingInformation] = Field(default_factory=list, max_length=6)
+    ambiguities: List[Ambiguity] = Field(default_factory=list, max_length=4)
+    assumptions: List[DecisionAssumption] = Field(default_factory=list, max_length=4)
+    blocking: bool = False
+    operational_reason: Optional[str] = Field(default=None, max_length=240)
+
 
 class ContextNeed(BaseModel):
     """AI-owned information need; source hints never become mandatory routing."""
@@ -139,6 +182,7 @@ class CognitiveDecision(BaseModel):
     # Optional epistemic self-report (not shown to user)
     claim_grounding: Optional[GroundingKind] = None
     situation_update: Optional[SituationUpdate] = None
+    uncertainty: Optional[UncertaintyState] = None
 
 
 class ContextFact(BaseModel):

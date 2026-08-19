@@ -66,6 +66,16 @@ def public_trace(trace: Dict[str, Any]) -> Dict[str, Any]:
         "context_final_count": trace.get("context_final_count", 0),
         "context_payload_chars": trace.get("context_payload_chars", 0),
         "context_failure_status": trace.get("context_failure_status"),
+        "uncertainty_turns": trace.get("uncertainty_turns", 0),
+        "clarifications_requested": trace.get("clarifications_requested", 0),
+        "clarification_context_attempts": trace.get(
+            "clarification_context_attempts", 0
+        ),
+        "assumptions_used": trace.get("assumptions_used", 0),
+        "repeated_question_prevented": trace.get(
+            "repeated_question_prevented", 0
+        ),
+        "unresolved_uncertainty": bool(trace.get("unresolved_uncertainty", False)),
         "external_queries": trace.get("external_queries", 0),
         "write_calls": trace.get("write_calls", 0),
         "object_generations": trace.get("object_generations", 0),
