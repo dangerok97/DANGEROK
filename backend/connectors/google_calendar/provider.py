@@ -153,9 +153,46 @@ class RealGoogleCalendarProvider:
             next_sync_token=body.get("nextSyncToken"),
         )
 
+    async def _find_by_ora_event_id(
+        self, *, access_token: str, calendar_id: str, ora_event_id: str,
+    ) -> Optional[Dict[str, Any]]:
+        """Bounded, exact lookup via Google's own privateExtendedProperty
+        filter — never a fuzzy match on title/start/location. Best-effort:
+        a failed lookup falls through to create() rather than blocking it.
+        """
+        try:
+            async with httpx.AsyncClient(timeout=30) as h:
+                r = await h.get(
+                    f"{self.BASE}/calendars/{_cal_path(calendar_id)}/events",
+                    headers={"Authorization": f"Bearer {access_token}"},
+                    params={
+                        "privateExtendedProperty": f"ora_event_id={ora_event_id}",
+                        "maxResults": 1,
+                        "showDeleted": False,
+                        "singleEvents": True,
+                    },
+                )
+                if r.status_code >= 400:
+                    return None
+                items = (r.json() or {}).get("items") or []
+                return items[0] if items else None
+        except httpx.HTTPError:
+            return None
+
     async def create_event(
         self, *, access_token: str, calendar_id: str, body: Dict[str, Any],
     ) -> Dict[str, Any]:
+        ora_event_id = (
+            (body.get("extendedProperties") or {}).get("private") or {}
+        ).get("ora_event_id")
+        if ora_event_id:
+            existing = await self._find_by_ora_event_id(
+                access_token=access_token,
+                calendar_id=calendar_id,
+                ora_event_id=str(ora_event_id),
+            )
+            if existing:
+                return existing
         async with httpx.AsyncClient(timeout=30) as h:
             r = await h.post(
                 f"{self.BASE}/calendars/{_cal_path(calendar_id)}/events",

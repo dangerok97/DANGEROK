@@ -37,7 +37,12 @@ from .provider import (
     build_calendar_provider,
     is_real_provider_configured,
 )
-from .scopes import CAPABILITY_ID, CONNECTOR_ID, GOOGLE_CALENDAR_SCOPES
+from .scopes import (
+    CAPABILITY_ID,
+    CAPABILITY_WRITE_ID,
+    CONNECTOR_ID,
+    GOOGLE_CALENDAR_SCOPES,
+)
 
 logger = logging.getLogger("ora.connectors.google_calendar")
 
@@ -257,7 +262,18 @@ class GoogleCalendarService:
         payload = await self.vault.get(secret_ref, user_id=user_id)
         expires_at = payload.get("expires_at")
         if expires_at and expires_at < _now_iso():
-            new_tokens = await refresh_access_token(refresh_token=payload["refresh_token"])
+            try:
+                new_tokens = await refresh_access_token(refresh_token=payload["refresh_token"])
+            except OAuthConfigError:
+                await self.instances.mark_status(
+                    user_id, instance["id"], "reauthorization_required",
+                )
+                await self.permissions.audit.log(
+                    user_id=user_id, event_type="oauth.refresh", connector_id=CONNECTOR_ID,
+                    connector_instance_id=instance["id"], capability_id=CAPABILITY_ID,
+                    success=False, reason_code="refresh_failed", data_classification="public",
+                )
+                raise
             payload["access_token"] = new_tokens["access_token"]
             payload["expires_at"] = (_now() + timedelta(seconds=int(new_tokens.get("expires_in") or 3600))).isoformat()
             await self.vault.rotate(secret_ref, payload=payload)
@@ -442,7 +458,9 @@ class GoogleCalendarService:
         # 2) revoke vault entry
         if instance.get("secret_reference"):
             await self.vault.revoke(instance["secret_reference"])
-        # 3) revoke ORA consent for this instance
+        # 3) revoke ORA consent for this instance (both read and write —
+        #    both are auto-granted together at connect time, see §5 of the
+        #    OAuth flow, so both must be revoked together too).
         await self.permissions.revoke(
             user_id=user_id,
             capability_id=CAPABILITY_ID,
@@ -450,8 +468,39 @@ class GoogleCalendarService:
             connector_instance_id=instance_id,
             reason="user_revoked",
         )
+        await self.permissions.revoke(
+            user_id=user_id,
+            capability_id=CAPABILITY_WRITE_ID,
+            connector_id=CONNECTOR_ID,
+            connector_instance_id=instance_id,
+            reason="user_revoked",
+        )
         # 4) mark instance as revoked (soft; nothing else is deleted)
         updated = await self.instances.mark_status(user_id, instance_id, "revoked")
+        # 4b) if no other active Google Calendar instance remains for this
+        #    user, flag google-synced drafts as stale (non-destructive —
+        #    only sync_status changes; google_event_id/content untouched,
+        #    never deleted, never touches Google). Skipped when another
+        #    active instance remains, since a draft cannot currently be
+        #    attributed to a specific instance (multi-account limitation —
+        #    documented, not fixed in this batch).
+        try:
+            remaining = await self.instances.list(user_id, connector_id=CONNECTOR_ID)
+            still_active = any(
+                i.get("id") != instance_id and i.get("status") != "revoked"
+                for i in (remaining or [])
+            )
+            if not still_active:
+                await self.db.calendar_event_drafts.update_many(
+                    {
+                        "user_id": user_id,
+                        "sync_provider": "google",
+                        "sync_status": {"$nin": ["local_only", "revoked"]},
+                    },
+                    {"$set": {"sync_status": "revoked", "updated_at": _now_iso()}},
+                )
+        except Exception:
+            logger.exception("draft revocation flagging soft-failed")
         # 5) DataRevocationPlan document (marks ingested data as detached)
         await self.db.data_revocation_plans.insert_one({
             "id": f"drp_{instance_id}",

@@ -684,3 +684,19 @@ evidence → AI reasoning`. Idempotency reuses Memory's `governance_key = f"{rea
 {index}"` pattern (list of ≤2 proposals per turn); revision/history reuses Situation's
 optimistic-concurrency shape. No second LLM call, no embedding call, no new database
 technology — MongoDB only, exactly as instructed.
+
+# V2.8.6a — Calendar foundation hardening (not yet an AI Core capability)
+
+`backend/timezone_service.py` is a general-purpose, authority-tiered timezone resolver
+(`resolve_user_timezone`) usable by any future AI Core capability without a live Google call or
+GPS-derived residence inference — precedence: an explicit `users.settings.timezone` value
+(`user_confirmed`) → the most recently synced calendar event's own IANA timezone, already
+persisted locally on `life_nodes` by ingestion (`connector_calendar`) → a single named
+`system_fallback` constant, always reported as such, never presented as confirmed. This is the
+one new general-purpose primitive this batch introduces; everything else hardens existing
+Calendar write/consent/idempotency machinery in place (real-provider `create_event` now checks
+`extendedProperties.private.ora_event_id` before creating, exactly as the fake provider already
+did; `GoogleCalendarSyncService.reschedule_draft()` is the first canonical update path for
+document-derived drafts; `connectors/google_calendar/consent.py` wraps the existing
+`PermissionService` for a future non-HTTP AI Core tool handler). The AI Core tool registry is
+unchanged — Calendar remains bounded, read-only evidence only until V2.8.6b.

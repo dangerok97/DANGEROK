@@ -16,6 +16,13 @@ from connectors.google_calendar.scopes import CONNECTOR_ID
 
 logger = logging.getLogger("ora.documents.google_sync")
 
+# Schema-supported CalendarEventDraft fields a reschedule/update may touch.
+# id and google_event_id are deliberately excluded — reschedule never
+# creates a second draft/event for the same intent.
+_RESCHEDULE_ALLOWED_FIELDS = frozenset(
+    {"title", "start_datetime", "end_datetime", "timezone", "location", "description"}
+)
+
 _locks: dict[str, asyncio.Lock] = {}
 
 
@@ -377,6 +384,78 @@ class GoogleCalendarSyncService:
         }
         await self._patch_draft(draft["id"], user_id, patch)
         return {**draft, **patch}
+
+    async def reschedule_draft(
+        self,
+        *,
+        user_id: str,
+        draft_id: str,
+        fields: dict[str, Any],
+        macro_category: Optional[str] = None,
+        maps_url: Optional[str] = None,
+    ) -> dict[str, Any]:
+        """Canonical update/reschedule for a CalendarEventDraft.
+
+        Updates only schema-supported fields on ORA's own draft (id and
+        google_event_id are never touched here), then pushes the change to
+        Google via the existing update path if the draft is already linked
+        — never creates a second draft/event for the same intent. A failed
+        push is reported honestly via sync_status/sync_error and never
+        claims success; the same call can be retried once connectivity is
+        restored, and the local intent (new title/time/etc.) is preserved
+        rather than silently discarded.
+        """
+        lock = _lock(f"{user_id}:{draft_id}")
+        async with lock:
+            draft = await self.db.calendar_event_drafts.find_one(
+                {"id": draft_id, "user_id": user_id}, {"_id": 0},
+            )
+            if not draft:
+                raise LookupError("event_not_found")
+            if draft.get("status") == "cancelled":
+                raise ValueError("evento cancellato")
+
+            patch = {
+                k: v
+                for k, v in (fields or {}).items()
+                if k in _RESCHEDULE_ALLOWED_FIELDS and v is not None
+            }
+            if not patch:
+                raise ValueError("nessun campo valido da aggiornare")
+            patch["updated_at"] = _now()
+            if draft.get("google_event_id"):
+                patch["sync_status"] = "pending"
+            await self._patch_draft(draft_id, user_id, patch)
+            draft = {**draft, **patch}
+
+            if not draft.get("google_event_id"):
+                # Not yet linked to Google — local intent updated only;
+                # nothing to push (a later sync_draft call will create it).
+                return draft
+
+            inst = await self._instance_for_user(user_id)
+            if not inst:
+                await self._patch_draft(draft_id, user_id, {
+                    "sync_status": "failed",
+                    "sync_error": "not_connected",
+                    "updated_at": _now(),
+                })
+                raise RuntimeError("Google Calendar non collegato")
+            access = await self.gcal._get_access_token(user_id=user_id, instance=inst)
+            calendar_id = draft.get("google_calendar_id") or (
+                inst.get("metadata") or {}
+            ).get("default_calendar_id")
+            if not calendar_id:
+                raise RuntimeError("Nessun calendario Google disponibile")
+
+            return await self._update_existing(
+                user_id=user_id,
+                draft=draft,
+                access=access,
+                calendar_id=calendar_id,
+                macro_category=macro_category,
+                maps_url=maps_url,
+            )
 
     async def resolve_conflict(
         self,

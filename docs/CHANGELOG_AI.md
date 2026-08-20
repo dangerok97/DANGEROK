@@ -2570,3 +2570,39 @@ Configure Cursor as Emergent-like autonomous platform; analysis then automation 
 - Added deterministic V2.8.5 regression coverage (20 tests, A-T) and a 4-scenario provider-real
   gate (continuity, correction/supersession, arbitrary-life, uncertainty-before-ask) — all green
   against live Gemini. No DB migration, no new dependency, no new infrastructure (MongoDB only).
+# 2026-08-20 — ORA V2.8.6a Calendar Foundation Hardening
+
+- Fixed a real bug in the Context Broker's `_calendar` source: it queried/projected
+  `start`/`end`/`source` fields that do not exist on `CalendarEventDraft` (real fields are
+  `start_datetime`/`end_datetime`, no `source` field) — the AI Core saw "start=unspecified" for
+  every calendar item. Now reads the real schema; still read-only, still local-only, still bounded.
+- Added `backend/timezone_service.py`: a minimal, authority-tiered `resolve_user_timezone()`
+  (user_confirmed → connector_calendar → system_fallback). No new UI/wizard, no auto-write to
+  Profile, no GPS-derived residence/timezone inference. Fallback is always reported with
+  `authority="system_fallback"`, never presented as confirmed.
+- Fixed real Google Calendar `create_event` idempotency: the real provider now checks
+  `extendedProperties.private.ora_event_id` via Google's own `privateExtendedProperty` filter
+  (bounded, exact match, never fuzzy) before creating — closing a duplicate-event-on-retry risk
+  that existed whenever a network failure struck between Google accepting a create and ORA
+  recording `google_event_id` locally. The fake provider already did this; the real one did not.
+- Added `GoogleCalendarSyncService.reschedule_draft()` — the first canonical update/reschedule
+  path for document-derived `calendar_event_drafts` (title/start/end/timezone/location/
+  description only; `id`/`google_event_id` stable; never creates a second draft; a failed Google
+  push never claims local success and can be retried).
+- Added `connectors/google_calendar/consent.py` — a thin, non-HTTP `calendar_consent_granted()`/
+  `require_calendar_consent()` wrapper over the existing generic `PermissionService`, ready for
+  a future AI Core tool handler. No second permission system.
+- Small additive OAuth fixes: refresh failure now sets connector-instance status
+  `reauthorization_required` (previously dead in the state vocabulary); revocation now also
+  revokes `calendar.write` consent (previously only `calendar.read`) and non-destructively flags
+  google-synced drafts `sync_status="revoked"` when no other active Google instance remains for
+  the user — never deletes/touches the Google event itself, never touches `google_event_id`.
+- Added `(user_id, status)` index on `calendar_event_drafts`.
+- Deliberately unchanged: OAuth flow/scopes, the three independent write subsystems
+  (`documents/intelligence`, `action_engine/study`, `action_engine/travel`), all legacy
+  reminder/keyword-routing code, `context_graph`, and the AI Core tool registry — **zero
+  Calendar capabilities are exposed to the AI Core in this batch**; that is V2.8.6b.
+- 22 new deterministic tests (fake provider + mocked `httpx` transport — no real Google/Apple
+  call anywhere), full existing Calendar/AI-Core/Situation/Memory/Life-OS/Provider-Manager
+  regression green, real backend boot verified directly (`server.startup()`), no dependency,
+  no migration.

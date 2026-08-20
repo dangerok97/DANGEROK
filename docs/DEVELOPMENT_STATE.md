@@ -891,3 +891,39 @@ the correct pattern is a read-side adapter/projection, never a shared write path
 4. Whether `life_context_graph` should ever receive an anchor/ranking bonus in the Source
    Registry (mirroring `situations`/`profile`/`memory`) is an open future question, explicitly
    not decided or implemented in this close-out.
+
+## V2.8.6a — Calendar Foundation Hardening (this batch)
+
+**Status: foundation only — hardens the existing Calendar infrastructure. Does NOT expose
+Calendar as an AI Core capability yet (that is V2.8.6b, gated separately). No CalendarFlow, no
+keyword router, no OAuth structural change.**
+
+| Item | Stato |
+|------|--------|
+| Context Broker `_calendar` source field-name bug (`start`/`end`/`source` → real schema `start_datetime`/`end_datetime`/`provider`) | **fixed** — AI no longer sees `start=unspecified` for every event |
+| General-purpose `timezone_service.resolve_user_timezone()` (user_confirmed → connector_calendar → system_fallback, authority always observable) | **implemented** — no wizard, no auto-write to Profile, no GPS-derived residence inference |
+| Real Google Calendar provider `create_event` idempotency (`extendedProperties.private.ora_event_id`, bounded exact lookup via `privateExtendedProperty`, never fuzzy) | **fixed** — previously only the fake provider checked this; a network failure after Google accepted could duplicate an event on retry |
+| Canonical `GoogleCalendarSyncService.reschedule_draft()` (title/start/end/timezone/location/description; never a second draft; failure never claims success) | **implemented** — no update/reschedule path existed for document-derived drafts before this batch |
+| `connectors/google_calendar/consent.py` — reusable, non-HTTP `calendar_consent_granted()`/`require_calendar_consent()` for a future AI Core tool handler | **implemented** — reuses `PermissionService`, no second permission system |
+| `reauthorization_required` instance status now set on refresh failure | **fixed** — small, additive; OAuth flow itself unchanged |
+| Revocation now also revokes `calendar.write` consent (previously only `calendar.read`); google-synced drafts flagged `sync_status="revoked"` when no other active Google instance remains for the user (non-destructive — never deletes/touches Google, never touches `google_event_id`) | **fixed** — multi-account edge case (attributing a draft to a specific surviving instance) explicitly left as a documented limitation, not solved here |
+| `calendar_event_drafts` index `(user_id, status)` | **added** — verified live on boot |
+| Three pre-existing independent write subsystems (`documents/intelligence`, `action_engine/study`, `action_engine/travel`) | **untouched** — consolidation explicitly out of scope for this batch |
+| `intent_engine`/`semantic_engine` keyword routing, Action Engine reminder wizard, `goal_engine.linked_calendar_events`, `ai_life_strategist` | **untouched**, as instructed |
+| AI Core tool registry | **unchanged** — verified 0 Calendar capabilities (V2.8.6a does not add any) |
+| `context_graph` | **untouched** — `calendar:` ref prefix already supported since V2.8.5 |
+| V2.8.6a tests (A–T) | **22/22 passed** |
+| Calendar regression (`test_iter9_ingestion_and_google_calendar`, `test_google_calendar_write_sync`, `test_iter18_apple_calendar_connector`, `test_oauth_loopback_hosts`) | **57 passed** |
+| `conversation_engine/tests` (excl. `_live.py`) | **312 passed** |
+| `situations/life_memory/life_os/llm` | **44 passed** |
+| Provider Manager | **22 passed, 1 skipped** |
+| `compileall` / blocking lint / `git diff --check` | **all clean** |
+| Real backend boot (`server.startup()` invoked directly, real configured DB) | **PASS** — "Life Context Graph indexes ready" + new calendar index confirmed live, no regression |
+| No real Google/Apple call anywhere in this batch | **confirmed** — fake provider + mocked `httpx` transport only |
+| Commit / push | **NO** — STOP for CPO review |
+
+### Follow-up (non-blocking, not decided as requirements)
+
+1. Multi-account attribution of `calendar_event_drafts` to a specific revoked instance is not solvable with the current schema (no `connector_instance_id` on the draft) — documented limitation, not fixed.
+2. The three independent Google write subsystems (`documents/intelligence`, `action_engine/study`, `action_engine/travel`) still duplicate "resolve active instance" logic — consolidation candidate for a future batch, not this one.
+3. V2.8.6b will add the actual AI Core capabilities (`get_calendar_events`, `create_calendar_event`, `update_calendar_event`, `cancel_calendar_event`) on top of this now-hardened foundation, using the `consent.py` helper and `reschedule_draft()` added here.
