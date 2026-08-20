@@ -333,3 +333,17 @@ information does not imply a question: the production AI Core can retrieve bound
 evidence, ask one necessary question, proceed with an explicit reversible assumption, defer,
 or answer/act when residual uncertainty is immaterial. Assumptions are neither facts nor Life
 Memory; consequential actions remain blocked when essential information is unresolved.
+
+# V2.8.5 — Life Context Graph
+
+ORA can now remember that two things in your life are related, not just what each of them is.
+"This goal depends on that plan", "this memory is backed by that document", "this situation
+is scheduled for that calendar item" — ORA proposes the relationship, in its own words, and
+the system keeps it honestly: with a source, a confidence, and a full history if it later
+turns out wrong. It is never a form to fill in and never a fixed list of relationship types —
+the same mechanism works for a house purchase, a small hobby, or anything a developer never
+anticipated. When two relationships would conflict, ORA is asked to resolve the conflict
+explicitly rather than the system silently picking a winner or silently keeping both. This
+never replaces Life Memory or the current-situation tracker — it only connects the things ORA
+already knows to each other, across sessions, without you needing to re-explain "that thing
+we talked about."

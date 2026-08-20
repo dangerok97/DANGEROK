@@ -2548,3 +2548,25 @@ Configure Cursor as Emergent-like autonomous platform; analysis then automation 
 - Preserved Context Broker re-entry, Situation assumption supersession, governed Memory,
   failure honesty and persist-before-claim. No domain question flow or keyword router added.
 - Added deterministic V2.8.4 regression coverage; no DB migration or dependency.
+# 2026-08-20 — ORA V2.8.5 Life Context Graph + Unified Cognitive State
+
+- Added `backend/context_graph/` (models/repository/service): `ContextEdge` — an AI-authored,
+  system-governed relationship between two canonical refs (situation/goal/plan/object/
+  document/calendar/profile/file/presence/governed-memory). No new node collection; edges only.
+- Deliberately NOT built on the pre-existing `life_graph`/`knowledge`/`auto_link` subsystem
+  (node-duplicating, closed `RelationType` enum, ~15 unrelated non-`ai_core` consumers) — see
+  `docs/ARCHITECTURE.md` for the full rationale.
+- `predicate` is open AI-authored text (format-normalized only); no relationship taxonomy.
+- Extended `CognitiveDecision.context_graph_updates` (optional, ≤2/turn, backward-compatible).
+  Governance validates schema/ref-recognition/self-loop/blocking-uncertainty; `loop.py` persists
+  right after Situation mutation, with its own persist-before-claim nudge and honest failure
+  observation. Idempotency reuses Memory's `governance_key` pattern; revision/history reuses
+  Situation's optimistic-concurrency shape.
+- Conflicting active edge (same subject+predicate, different object) never silently overwritten
+  or duplicated — surfaces as `REQUIRES_SUPERSESSION` for the AI to resolve explicitly.
+- New bounded Context Broker source `life_context_graph`, registered in the existing Source
+  Registry; seeds from AI-hinted refs + active Situation/Plan/Goal, depth ≤ 2, ≤10 edges — no
+  second LLM/embedding call, no unbounded traversal.
+- Added deterministic V2.8.5 regression coverage (20 tests, A-T) and a 4-scenario provider-real
+  gate (continuity, correction/supersession, arbitrary-life, uncertainty-before-ask) — all green
+  against live Gemini. No DB migration, no new dependency, no new infrastructure (MongoDB only).

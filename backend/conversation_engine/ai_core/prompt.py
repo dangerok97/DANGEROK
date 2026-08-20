@@ -142,6 +142,38 @@ After a memory_governance observation, reason again. Claim a saved/updated/forgo
 only when its outcome says persisted=true. If it says CLARIFY, ask one natural question.
 If it says REJECT, do not expose policy jargon; simply keep helping from conversation/context.
 
+## Life Context Graph (relationships, V2.8.5)
+context_graph_updates lets YOU propose a durable RELATIONSHIP between two things ORA already
+knows as canonical refs — never a new copy of their content. A ref looks like
+"situation:sit_...", "goal:goal_...", "plan:lop_...", "object:lgo_...", "document:doc_...",
+"calendar:ced_...", "profile:domain:key", "file:lcf_...", or a governed memory id "mem_...".
+Only use refs you actually saw in context_facts/observations this session — never invent one.
+
+predicate is open free text you choose (e.g. depends_on, supports, evidenced_by,
+scheduled_for, related_to, blocks, part_of) — there is no fixed relationship vocabulary and
+no domain router. Keep it short and stable across turns for the same kind of relationship.
+
+Use this only for a relationship that should persist across sessions — e.g. "this goal depends
+on that plan", "this memory is evidenced by that document", "this situation is scheduled for
+that calendar item". Do NOT create a graph relationship for a plain temporary/situational
+statement — that stays in Situation. Do NOT create one for a simple personal attribute
+correction (the user restates or corrects a single fact about themselves) — that is Memory's
+job via correct/supersede. The graph is for links BETWEEN existing records, never for a fact
+about just one of them.
+
+Operations:
+- create: omit edge_id; requires subject_ref, predicate, object_ref (two DIFFERENT refs)
+- update: existing edge_id; patch confidence/evidence/semantic_summary/temporal_scope only
+- supersede: existing edge_id being replaced, plus the new subject/predicate/object
+- deactivate: existing edge_id whose relationship no longer holds; none: no change
+If the runtime reports REQUIRES_SUPERSESSION, an active edge with the same subject+predicate
+already points elsewhere — decide supersede (the new fact replaces it) or coexists_with_refs
+(both remain true), never retry the same create silently.
+Mark reversible=false only for a relationship that would be consequential to undo; a blocking
+uncertainty then prevents that specific update, same as for tools/actions.
+Never claim a link was "made/collegato/associato" unless a context_graph_mutation observation
+shows persisted=true this turn.
+
 ## Personal Context Retrieval (Context Broker V3)
 Stage A is intentionally incomplete: it only answers who you are talking to and what is
 happening now. When additional personal evidence would materially improve this reasoning
@@ -406,6 +438,17 @@ You MUST reply with a single JSON object:
     "supersedes": [], "source_refs": ["user_conversation"],
     "linked_plan_id": null, "linked_object_refs": [], "source": "user_conversation"
   } or null,
+  "context_graph_updates": [{
+    "operation": "none|create|update|supersede|deactivate",
+    "edge_id": "existing id or null; ALWAYS null for create",
+    "subject_ref": "canonical ref, e.g. goal:goal_...", "predicate": "open_short_label",
+    "object_ref": "canonical ref, e.g. plan:lop_...",
+    "semantic_summary": "short human gloss or null",
+    "confidence": 0.0, "authority": "user_confirmed|user_stated|document|structured|inferred|device",
+    "provenance": [], "evidence_refs": [], "temporal_scope": null,
+    "sensitivity": "normal|sensitive|high", "reversible": true, "coexists_with_refs": [],
+    "reason": "short operational rationale or null"
+  }],
   "claim_grounding": "USER_STATED" | "PERSONAL_CONTEXT" | "TOOL_OBSERVATION" | "MODEL_KNOWLEDGE" | "INFERENCE" | null,
   "confidence": 0.0-1.0 or null
 }
@@ -427,6 +470,9 @@ Rules:
   canonical identity_key from the governed evidence, and set existing_memory_ref plus the
   appropriate supersedes_refs. Never emit operation=propose for a correction merely because
   your wording or open kind differs from the stored wording.
+- context_graph_updates is optional for backward compatibility (defaults to an empty list) and
+  bounded to at most 2 entries per turn. Only propose one when a durable cross-record
+  relationship is genuinely useful; most turns should leave it empty.
 
 JSON only. No markdown fences.
 """
@@ -477,7 +523,11 @@ def build_user_payload(
                 "evidence_refs need human display_name; never claim without observations. "
                 "Historical Memory/goals are context, not automatic subject binding. "
                 "No domain mini-features: you compose UI primitives inside create_object/"
-                "update_object."
+                "update_object. "
+                "context_graph_updates is for durable relationships BETWEEN existing refs "
+                "only (never a temporary statement or a simple attribute correction); "
+                "never claim a link was made without a persisted=true context_graph_mutation "
+                "observation this turn."
             ),
         },
         ensure_ascii=False,

@@ -14,6 +14,12 @@ from conversation_engine.ai_core.models import ContextFact, ContextNeed
 
 RetrieveFn = Callable[[str, ContextNeed, Optional[str]], Awaitable[List[ContextFact]]]
 
+# Life Context Graph V1 bounded-retrieval budgets — depth 1-2, small edge cap,
+# no unbounded traversal, no second LLM/embedding call.
+GRAPH_MAX_DEPTH = 2
+GRAPH_MAX_EDGES = 10
+GRAPH_MAX_SEEDS = 6
+
 
 @dataclass(frozen=True)
 class ContextSource:
@@ -161,6 +167,15 @@ class ContextSourceRegistry:
                 "sensitive",
                 "temporal",
                 self._calendar,
+            ),
+            (
+                "life_context_graph",
+                "relationships and links between situations, goals, plans, objects, "
+                "documents and calendar items already known to ORA",
+                "system-derived",
+                "personal",
+                "mixed",
+                self._life_context_graph,
             ),
         )
         for name, desc, authority, sensitivity, temporal, fn in specs:
@@ -432,6 +447,99 @@ class ContextSourceRegistry:
                     f"calendar:{event.get('id')}",
                     provenance=[str(event.get("source") or "calendar")],
                     sensitivity="sensitive",
+                )
+            )
+        return out
+
+    async def _life_context_graph(
+        self, user_id: str, need: ContextNeed, session_id: Optional[str]
+    ) -> List[ContextFact]:
+        from context_graph.models import is_recognized_ref
+        from context_graph.service import ContextGraphService
+
+        seeds: List[str] = []
+        for hint in list(need.desired_evidence or []) + list(need.source_hints or []):
+            ref = str(hint).strip()
+            if ref and is_recognized_ref(ref) and ref not in seeds:
+                seeds.append(ref)
+
+        if len(seeds) < GRAPH_MAX_SEEDS:
+            try:
+                from situations.service import SituationService
+
+                for item in await SituationService(self.db).list_context(
+                    user_id, session_id=session_id, limit=2
+                ):
+                    ref = f"situation:{item.id}"
+                    if ref not in seeds:
+                        seeds.append(ref)
+            except Exception:
+                pass
+        if len(seeds) < GRAPH_MAX_SEEDS:
+            try:
+                from life_os.repository import LifeOsRepository
+
+                for plan in await LifeOsRepository(self.db).list_active_plans(
+                    user_id, limit=2
+                ):
+                    ref = f"plan:{plan.id}"
+                    if ref not in seeds:
+                        seeds.append(ref)
+                    if plan.goal_id:
+                        gref = f"goal:{plan.goal_id}"
+                        if gref not in seeds:
+                            seeds.append(gref)
+            except Exception:
+                pass
+        seeds = seeds[:GRAPH_MAX_SEEDS]
+        if not seeds:
+            return []
+
+        svc = ContextGraphService(self.db)
+        try:
+            edges = await svc.relevant_edges(user_id, seeds, limit=GRAPH_MAX_EDGES)
+        except Exception:
+            return []
+
+        if edges and GRAPH_MAX_DEPTH > 1:
+            neighbor_refs = set()
+            for e in edges:
+                neighbor_refs.add(e.subject_ref)
+                neighbor_refs.add(e.object_ref)
+            neighbor_refs -= set(seeds)
+            if neighbor_refs:
+                try:
+                    more = await svc.relevant_edges(
+                        user_id,
+                        list(neighbor_refs)[:GRAPH_MAX_SEEDS],
+                        limit=GRAPH_MAX_EDGES,
+                    )
+                    seen_ids = {e.id for e in edges}
+                    for e in more:
+                        if e.id not in seen_ids and len(edges) < GRAPH_MAX_EDGES:
+                            edges.append(e)
+                            seen_ids.add(e.id)
+                except Exception:
+                    pass
+
+        out: List[ContextFact] = []
+        for edge in edges[:GRAPH_MAX_EDGES]:
+            statement = f"{edge.subject_ref} --{edge.predicate}--> {edge.object_ref}"
+            if edge.semantic_summary:
+                statement += f" ({edge.semantic_summary})"
+            out.append(
+                _fact(
+                    statement,
+                    "life_context_graph",
+                    str(edge.authority),
+                    str(edge.status),
+                    edge.updated_at,
+                    edge.id,
+                    temporal_scope=(
+                        str(edge.temporal_scope) if edge.temporal_scope else None
+                    ),
+                    provenance=list(edge.provenance[:3] or edge.evidence_refs[:3]),
+                    sensitivity=str(edge.sensitivity),
                 )
             )
         return out

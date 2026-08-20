@@ -15,6 +15,7 @@ from conversation_engine.ai_core.models import (
 )
 from conversation_engine.ai_core.tools.registry import ToolRegistry, tool_signature
 from conversation_engine.ai_core.tools.sanitize import sanitize_external_query
+from context_graph.models import ContextEdgeUpdate, is_recognized_ref
 from situations.models import SituationUpdate
 
 ALLOWED_MODES = frozenset({"answer", "ask", "tool", "act", "context", "finish"})
@@ -297,6 +298,37 @@ def validate_decision(
         except Exception:
             errors.append("bad_situation_update")
 
+    graph_updates: List[ContextEdgeUpdate] = []
+    for raw_u in (data.get("context_graph_updates") or [])[:2]:
+        try:
+            u = ContextEdgeUpdate.model_validate(raw_u)
+        except Exception:
+            errors.append("bad_context_graph_update")
+            continue
+        if u.operation == "none":
+            continue
+        if u.operation == "create":
+            if u.edge_id:
+                errors.append("context_graph_create_with_id")
+                continue
+            if not (u.subject_ref and u.predicate and u.object_ref):
+                errors.append("context_graph_create_missing_fields")
+                continue
+            if not (is_recognized_ref(u.subject_ref) and is_recognized_ref(u.object_ref)):
+                errors.append("context_graph_unrecognized_ref")
+                continue
+            if u.subject_ref == u.object_ref:
+                errors.append("context_graph_self_loop")
+                continue
+        elif u.operation in ("update", "supersede", "deactivate"):
+            if not u.edge_id:
+                errors.append("context_graph_update_without_id")
+                continue
+        if not u.reversible and _blocks_side_effect(uncertainty):
+            errors.append("blocking_uncertainty_for_graph_update")
+            continue
+        graph_updates.append(u)
+
     try:
         tc_model = ToolCall.model_validate(tool_call) if tool_call else None
         decision = CognitiveDecision(
@@ -319,6 +351,7 @@ def validate_decision(
             claim_grounding=data.get("claim_grounding"),
             situation_update=situation_update,
             uncertainty=uncertainty,
+            context_graph_updates=graph_updates,
         )
     except Exception:
         return GovernanceResult(False, errors=errors + ["pydantic_fail"])

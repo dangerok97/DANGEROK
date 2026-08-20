@@ -6,6 +6,7 @@ import json
 from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field, model_validator
+from context_graph.models import ContextEdgeUpdate
 from situations.models import SituationUpdate
 
 ResponseMode = Literal["answer", "ask", "tool", "act", "context", "finish"]
@@ -183,6 +184,9 @@ class CognitiveDecision(BaseModel):
     claim_grounding: Optional[GroundingKind] = None
     situation_update: Optional[SituationUpdate] = None
     uncertainty: Optional[UncertaintyState] = None
+    context_graph_updates: List[ContextEdgeUpdate] = Field(
+        default_factory=list, max_length=2
+    )
 
 
 class ContextFact(BaseModel):

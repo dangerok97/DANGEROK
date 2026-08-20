@@ -113,3 +113,35 @@ semantic question, no unsafe side effect and failure honesty.
 Situation may preserve justified contextual assumptions and their supersession history.
 Memory governance remains separate: an assumption is never a fact and never bypasses the
 MemoryCandidate governance path. Context Broker retrieves evidence but does not decide intent.
+
+# V2.8.5 — Life Context Graph: relationships between canonical refs, not a second brain
+
+`backend/context_graph/` adds one thing the AI Core did not previously have: a durable,
+AI-authored, system-governed RELATIONSHIP between two canonical refs it already sees in its
+own evidence (`situation:`, `goal:`, `plan:`, `object:`, `document:`, `calendar:`, `profile:`,
+`file:`, `presence:`, or a bare governed `mem_` id). It stores no duplicate node data — an
+edge (`ContextEdge`) is only `subject_ref --predicate--> object_ref` plus provenance,
+authority, confidence, temporal_scope and revision/history, mirroring the conventions already
+proven by Situation (revision/history/`applied_epochs` idempotency) and Memory
+(`supersedes_refs`/`coexists_with_refs`/governance-key idempotency) rather than inventing a
+third pattern.
+
+`predicate` is fully open, AI-authored free text (format-normalized only: lowercase,
+underscores, ≤60 chars) — the runtime never chooses among relationship meanings and never
+special-cases a predicate value. The only structural guarantees are: refs must match a known
+canonical prefix (never a domain taxonomy), no self-loops, ownership, idempotency per
+`reasoning_epoch`, and that a conflicting active edge (same subject+predicate, different
+object) surfaces as `REQUIRES_SUPERSESSION` for the AI to resolve explicitly — it is never
+silently overwritten or silently duplicated.
+
+The Context Broker gained one new bounded source, `life_context_graph`, registered in the
+existing Source Registry exactly like every other source (no new orchestrator, no second LLM
+call). Retrieval seeds from the AI's own hinted refs plus the user's currently active
+Situation/Plan/Goal, expands at most one further hop (depth ≤ 2), and caps at 10 edges — the
+same bounded-evidence discipline Context Broker V3 already applies everywhere else.
+
+Existing entity/model boundaries are unchanged: Situation still owns ephemeral contextual
+state, Memory still owns durable propositions with its own governance, Life OS still owns
+plans/goals/objects. The graph never promotes a temporary Situation fact, an unconfirmed
+inference, or a raw presence/GPS signal into a durable edge on its own — every edge carries
+the same honest authority/confidence the AI declared, never upgraded silently.
