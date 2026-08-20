@@ -418,34 +418,49 @@ class ContextSourceRegistry:
     async def _calendar(
         self, user_id: str, need: ContextNeed, session_id: Optional[str]
     ) -> List[ContextFact]:
+        # Field names must match CalendarEventDraft (documents/intelligence/schemas.py):
+        # start_datetime/end_datetime, not start/end; no "source" field — use provider.
         cursor = (
             self.db.calendar_event_drafts.find(
-                {"user_id": user_id, "status": {"$nin": ["deleted", "cancelled"]}},
+                {"user_id": user_id, "status": {"$ne": "cancelled"}},
                 {
                     "_id": 0,
                     "id": 1,
                     "title": 1,
-                    "start": 1,
-                    "end": 1,
+                    "start_datetime": 1,
+                    "end_datetime": 1,
+                    "timezone": 1,
+                    "all_day": 1,
+                    "status": 1,
                     "updated_at": 1,
-                    "source": 1,
+                    "provider": 1,
                 },
             )
-            .sort("start", 1)
+            .sort("start_datetime", 1)
             .limit(12)
         )
         out = []
         for event in await cursor.to_list(12):
+            start = event.get("start_datetime") or "unspecified"
+            end = event.get("end_datetime") or "unspecified"
+            tz = event.get("timezone")
+            all_day = bool(event.get("all_day"))
+            statement = (
+                f"Calendar item: {str(event.get('title') or 'Untitled')[:100]}; "
+                f"start={start}; end={end}"
+                + (f"; timezone={tz}" if tz else "")
+                + ("; all_day=true" if all_day else "")
+            )
             out.append(
                 _fact(
-                    f"Calendar item: {str(event.get('title') or 'Untitled')[:100]}; "
-                    f"start={event.get('start') or 'unspecified'}; end={event.get('end') or 'unspecified'}",
+                    statement,
                     "calendar",
                     "document-backed",
-                    "known",
+                    str(event.get("status") or "known"),
                     event.get("updated_at"),
                     f"calendar:{event.get('id')}",
-                    provenance=[str(event.get("source") or "calendar")],
+                    temporal_scope=start if start != "unspecified" else None,
+                    provenance=[str(event.get("provider") or "calendar")],
                     sensitivity="sensitive",
                 )
             )

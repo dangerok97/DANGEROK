@@ -36,6 +36,9 @@ class IntelligenceService:
             await self.db.calendar_event_drafts.create_index(
                 [("user_id", 1), ("start_datetime", 1)], name="user_cal_start"
             )
+            await self.db.calendar_event_drafts.create_index(
+                [("user_id", 1), ("status", 1)], name="user_cal_status"
+            )
         except Exception:
             logger.debug("intel indexes soft-fail", exc_info=True)
 
