@@ -652,3 +652,35 @@ Only bounded aggregate metadata is observable. Question text, user text, raw evi
 private reasoning are not persisted as telemetry. Existing Memory clarification remains a
 governed compatibility surface; Life Setup remains bootstrap UX/policy; Action/Intent flows
 remain legacy compatibility and are not extended as production reasoning owners.
+
+# V2.8.5 — Life Context Graph
+
+New module `backend/context_graph/` (`models.py`, `repository.py`, `service.py`), collection
+`context_edges`, owned exclusively by `ContextGraphService`. It is deliberately separate from
+the pre-existing, unrelated `backend/life_graph/` + `backend/knowledge/` + `backend/auto_link/`
+subsystem: that subsystem is node-centric (creates its own duplicate node entities, e.g. a
+`home`/`car` node), uses a closed `RelationType` enum that silently collapses any unrecognized
+value to `generic`, and is consumed by ~15 unrelated product surfaces (Home, Documents, Action
+Engine, Goal Engine, Life Setup, Proactive Engine) with no `ai_core` coupling today. Extending
+it for AI-Core-governed epistemic edges would have required either duplicating canonical
+entities as graph nodes (explicitly against the V2.8.5 design constraint) or breaking its
+closed-vocabulary invariant for 15 unrelated consumers. The new module instead stores only
+edges, using each entity's own existing canonical ref as node identity — no new node
+collection, no duplication, minimal/reversible footprint (one new Mongo collection).
+
+**Graph convergence decision: COEXISTENCE WITH A STRONG BOUNDARY** (CPO-approved), not a
+canonical-merge and not an adapter-over-`life_graph`. `context_graph` is the sole source of
+truth for relationships the AI Core itself authors; `life_graph`/`knowledge`/`auto_link` remain
+canonical for their existing non-conversational consumers; `life_objects` remains canonical for
+LifeObject↔LifeObject Digital Twin relationships. No bidirectional sync between the two worlds.
+If a future surface needs to show AI-authored relationships, the correct extension is a
+read-side projection from `context_graph`, never a write into `life_graph`.
+
+Canonical path: `AI Core → CognitiveDecision.context_graph_updates → governance (schema/ref/
+self-loop) → ContextGraphService.apply (ownership/idempotency/supersession) → observation → AI
+re-entry`, and on the read side: `ContextNeed → Source Registry → life_context_graph source →
+bounded 1-2 hop edge lookup seeded from AI-hinted refs + active Situation/Plan/Goal → ContextFact
+evidence → AI reasoning`. Idempotency reuses Memory's `governance_key = f"{reasoning_epoch}:
+{index}"` pattern (list of ≤2 proposals per turn); revision/history reuses Situation's
+optimistic-concurrency shape. No second LLM call, no embedding call, no new database
+technology — MongoDB only, exactly as instructed.

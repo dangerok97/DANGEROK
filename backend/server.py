@@ -349,6 +349,15 @@ async def startup():
     except Exception:
         logger.exception("Situation indexes failed (non-fatal)")
 
+    # Life Context Graph — AI-authored relationships between canonical refs
+    try:
+        from context_graph.service import ContextGraphService
+
+        await ContextGraphService(db).ensure_indexes()
+        logger.info("Life Context Graph indexes ready")
+    except Exception:
+        logger.exception("Life Context Graph indexes failed (non-fatal)")
+
     # AI Core ContextFile — session evidence refs (Documents V2 holds blobs)
     try:
         from conversation_engine.ai_core.files.service import ContextFileService

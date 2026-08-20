@@ -76,6 +76,27 @@ def public_trace(trace: Dict[str, Any]) -> Dict[str, Any]:
             "repeated_question_prevented", 0
         ),
         "unresolved_uncertainty": bool(trace.get("unresolved_uncertainty", False)),
+        "context_graph_calls": trace.get("context_graph_calls", 0),
+        "context_graph_seed_count": trace.get("context_graph_seed_count", 0),
+        "context_graph_candidate_edge_count": trace.get(
+            "context_graph_candidate_edge_count", 0
+        ),
+        "context_graph_returned_edge_count": trace.get(
+            "context_graph_returned_edge_count", 0
+        ),
+        "context_graph_depth": trace.get("context_graph_depth", 0),
+        "context_graph_payload_chars": trace.get("context_graph_payload_chars", 0),
+        "context_graph_failure_status": trace.get("context_graph_failure_status"),
+        "context_graph_updates_proposed": trace.get(
+            "context_graph_updates_proposed", 0
+        ),
+        "context_graph_updates_persisted": trace.get(
+            "context_graph_updates_persisted", 0
+        ),
+        "context_graph_conflicts_detected": trace.get(
+            "context_graph_conflicts_detected", 0
+        ),
+        "context_graph_supersessions": trace.get("context_graph_supersessions", 0),
         "external_queries": trace.get("external_queries", 0),
         "write_calls": trace.get("write_calls", 0),
         "object_generations": trace.get("object_generations", 0),

@@ -831,3 +831,63 @@ in `conversation_engine/tests/` (excl. provider-real `_live.py`); 44 passed in
 excluded from this gate (remote-preview-URL dependency and pre-existing shared-DB test-order
 coupling documented in `backend/tests/conftest.py`) — confirmed unrelated to `ai_core` by
 import audit, zero references found.
+
+# V2.8.5 — Life Context Graph + Unified Cognitive State
+
+Status: implemented, **CPO approved — closed out 2026-08-20**. New `backend/context_graph/`
+module (edges only, no new node collection); `CognitiveDecision.context_graph_updates`
+optional/backward-compatible, ≤2 per turn; new bounded `life_context_graph` Context Broker
+source (depth ≤2, ≤10 edges). Deliberately not built on the pre-existing
+`life_graph`/`knowledge`/`auto_link`/`life_objects` subsystems — see `docs/ARCHITECTURE.md`
+V2.8.5 section for the full architectural rationale.
+
+**Graph convergence decision: COEXISTENCE WITH A STRONG BOUNDARY.** `context_graph` is the
+sole canonical source for relationships the conversational AI Core authors and reasons about
+(Situation/Memory/Goal/Plan/Object/Profile/Document/Calendar/Presence). `life_graph` /
+`knowledge` / `auto_link` keep every existing non-`ai_core` consumer they already have
+(Documents, Goal Engine, Action Engine, Home's auto-link surfacing); `life_objects` keeps its
+own Digital Twin relationship model (LifeObject↔LifeObject only). No bidirectional sync, no
+storage migration/fusion in V2.8.5 — if a future surface needs relationships from both worlds,
+the correct pattern is a read-side adapter/projection, never a shared write path.
+
+| Item | Stato |
+|------|--------|
+| Edge model AI-authored, system-governed, open predicate | **implemented** |
+| No duplicate canonical-entity storage (refs only) | **implemented** |
+| Ownership/idempotency (`governance_key`)/revision+history | **implemented** |
+| Conflicting active edge → `REQUIRES_SUPERSESSION` (never silent) | **implemented** |
+| `life_context_graph` Context Broker source, bounded 1-2 hop | **implemented** |
+| Temporary Situation / inference / presence never auto-promoted | **enforced** |
+| Persist-before-claim honesty for graph-link language | **implemented** |
+| No second LLM/embedding call, no new DB technology | **none added** |
+| V2.8.5 deterministic tests (A-T) | **20/20 passed** |
+| Regression: `conversation_engine/tests` (excl. `_live.py`) | **312 passed** |
+| Regression: `situations/life_memory/life_os/llm` | **44 passed** |
+| Legacy `test_iter19_2_memory_ask_documents.py` | **3 passed/7 skipped** (honest) |
+| `compileall` / blocking lint / `git diff --check` | **all clean** |
+| Hardcoding audit (new production code) | **clean** (one prose example self-corrected) |
+| Provider-real eval (continuity/correction/arbitrary-life/uncertainty) | **4/4 passed** (live Gemini; one test assertion self-corrected, not production code) |
+| Live Chrome gate (real backend, real DB, real auth) — edge creation/persistence | **PASS** — real `context_edges` doc created from a natural arbitrary-life conversation (non travel/study/work/house/medical), verified in Mongo (subject/predicate/object/authority/confidence/revision) |
+| Live gate — cross-turn continuity | **PASS** — later turn used the relationship without the user repeating it |
+| Live gate — cross-session continuity | **PASS** — new session (new `ces_` id) recalled updated state with zero re-explanation |
+| Live gate — negative control | **PASS** — a routine turn with no durable relationship created zero edges |
+| Live gate — persist-before-claim | **PASS** — every "ho annotato/aggiornato" claim verified true against Mongo, in both the graph edge and the Situation correction path |
+| Live gate — `life_context_graph` retrieval observed live | **NOT OBSERVED** (see follow-up 1) — mechanism wired and indexed correctly; not selected by the Broker in this scenario because Situation alone already answered the query |
+| Live gate — graph-level `REQUIRES_SUPERSESSION` observed live | **NOT OBSERVED** (see follow-up 2) — the live correction (a person's role changing) was correctly handled by Situation's own supersession, since no competing graph edge existed to conflict |
+| Commit / push | **yes, this close-out** |
+
+### Follow-up items (non-blocking, not yet decided as requirements)
+
+1. `life_context_graph` Context Broker retrieval was not observed firing in the final live
+   browser gate. Deterministic + provider-real coverage already exists for this path. Worth
+   stressing with a retrieval-only live scenario in a future sprint — **not a defect**, and the
+   Source Registry ranking/anchor logic is explicitly NOT to be changed as part of this close-out.
+2. `context_graph`-level supersession (`REQUIRES_SUPERSESSION` → new edge → old edge
+   `superseded_by`) was not exercised in the final live browser gate — already covered
+   deterministically and via provider-real eval. Do not manufacture an artificial conflict just
+   to force this live; wait for a natural scenario.
+3. `life_object:` is not yet a recognized canonical ref prefix in `context_graph` — a future
+   product decision, not implemented now.
+4. Whether `life_context_graph` should ever receive an anchor/ranking bonus in the Source
+   Registry (mirroring `situations`/`profile`/`memory`) is an open future question, explicitly
+   not decided or implemented in this close-out.

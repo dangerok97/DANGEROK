@@ -62,6 +62,10 @@ class MemCol:
 
 def _matches(doc, query):
     for key, expected in query.items():
+        if key == "$or":
+            if not any(_matches(doc, sub) for sub in expected):
+                return False
+            continue
         actual = doc.get(key)
         if isinstance(expected, dict) and "$in" in expected:
             if actual not in expected["$in"]:

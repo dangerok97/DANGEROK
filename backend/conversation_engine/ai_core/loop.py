@@ -13,6 +13,7 @@ from conversation_engine.ai_core.context_broker import (
     ContextBroker,
     context_payload_stats,
 )
+from conversation_engine.ai_core.context_sources import GRAPH_MAX_DEPTH
 from conversation_engine.ai_core.fallback import (
     fallback_decision_after_malformed,
     provider_unavailable_result,
@@ -92,6 +93,12 @@ _DURABLE_MEMORY_CLAIM_RE = re.compile(
     r"i('|’)?ve\s+memorized|saved\s+(it\s+)?to\s+memory|"
     r"i('|’)?ve\s+forgotten|removed\s+(it\s+)?from\s+memory|"
     r"i('ll|\s+will)\s+remember\s+(it|that)\s+(in\s+the\s+future|going\s+forward))\b"
+)
+_GRAPH_LINK_CLAIM_RE = re.compile(
+    r"(?i)\b(ho\s+collegat[oi]|li\s+ho\s+collegati|ho\s+associat[oi]|"
+    r"ho\s+creato\s+(un\s+)?collegamento|ho\s+messo\s+in\s+relazione|"
+    r"i('|’)?ve\s+linked|i('|’)?ve\s+connected|"
+    r"i('|’)?ve\s+related)\b"
 )
 _MEMORY_NOT_FOUND_CLAIM_RE = re.compile(
     r"(?i)\b(non\s+ho\s+trovato.{0,120}\bmemoria|"
@@ -264,6 +271,8 @@ async def run_cognitive_loop(
     memory_write_decisions_this_turn: List[str] = []
     memory_claim_nudge_used = False
     memory_result_nudge_used = False
+    graph_write_confirmed_this_turn = False
+    graph_claim_nudge_used = False
     clarification_attempts = {
         str(item.get("key")): int(item.get("attempts") or 0)
         for item in (st.get("clarification_history") or [])
@@ -503,6 +512,77 @@ async def run_cognitive_loop(
                 add_step(trace, event="SITUATION_MUTATION_FAIL", code=code)
                 if step + 1 < max_steps:
                     continue
+        if decision.context_graph_updates:
+            try:
+                from context_graph.service import ContextGraphService
+
+                graph_results = await ContextGraphService(db).apply(
+                    user_id=sess.user_id,
+                    session_id=sess.id,
+                    updates=list(decision.context_graph_updates),
+                    reasoning_epoch=epoch,
+                )
+                trace["context_graph_updates_proposed"] = int(
+                    trace.get("context_graph_updates_proposed") or 0
+                ) + len(decision.context_graph_updates)
+                trace["context_graph_updates_persisted"] = int(
+                    trace.get("context_graph_updates_persisted") or 0
+                ) + sum(1 for r in graph_results if r.get("persisted"))
+                trace["context_graph_conflicts_detected"] = int(
+                    trace.get("context_graph_conflicts_detected") or 0
+                ) + sum(
+                    1
+                    for r in graph_results
+                    if r.get("decision") == "REQUIRES_SUPERSESSION"
+                )
+                trace["context_graph_supersessions"] = int(
+                    trace.get("context_graph_supersessions") or 0
+                ) + sum(1 for r in graph_results if r.get("decision") == "SUPERSEDED")
+                graph_write_confirmed_this_turn = any(
+                    r.get("persisted") for r in graph_results
+                )
+                observations.append(
+                    Observation(
+                        kind="tool",
+                        name="context_graph_mutation",
+                        status="ok",
+                        payload={
+                            "results": graph_results,
+                            "reason": (
+                                "Durable graph relationships exist only where persisted=true. "
+                                "REQUIRES_SUPERSESSION means an active edge with the same "
+                                "subject+predicate already exists with a different object — "
+                                "decide supersede or coexists_with_refs, do not silently retry "
+                                "the same create. Never claim a link was made without persisted=true."
+                            ),
+                        },
+                        provenance=[
+                            r.get("edge_id") for r in graph_results if r.get("edge_id")
+                        ],
+                    ).model_dump()
+                )
+                add_step(
+                    trace,
+                    event="CONTEXT_GRAPH_MUTATION",
+                    outcomes=[r.get("decision") for r in graph_results],
+                )
+            except Exception as e:
+                code = str(getattr(e, "code", "PERSISTENCE_ERROR"))[:80]
+                graph_write_confirmed_this_turn = False
+                observations.append(
+                    Observation(
+                        kind="error",
+                        name="context_graph_mutation",
+                        status="error",
+                        payload={
+                            "failure_code": code,
+                            "reason": "Graph relationship was not persisted. Do not claim it was linked/connected. Recover from context or explain honestly.",
+                        },
+                    ).model_dump()
+                )
+                add_step(trace, event="CONTEXT_GRAPH_MUTATION_FAIL", code=code)
+                if step + 1 < max_steps:
+                    continue
         if decision.memory_candidates and memory_governance_rounds < 2:
             memory_governance_rounds += 1
             try:
@@ -693,6 +773,44 @@ async def run_cognitive_loop(
                 mode = "answer"
                 ora = _compose_user_text(decision)
                 add_step(trace, event="MEMORY_CLAIM_BLOCKED_TERMINAL")
+            unconfirmed_graph_claim = (
+                mode in ("answer", "finish", "act")
+                and not graph_write_confirmed_this_turn
+                and _GRAPH_LINK_CLAIM_RE.search(ora or "")
+            )
+            if (
+                unconfirmed_graph_claim
+                and not graph_claim_nudge_used
+                and step + 1 < max_steps
+            ):
+                graph_claim_nudge_used = True
+                observations.append(
+                    Observation(
+                        kind="system",
+                        name="context_graph_persist_before_claim",
+                        status="nudge",
+                        payload={
+                            "failure_code": "CONTEXT_GRAPH_PERSIST_REQUIRED",
+                            "reason": (
+                                "No persisted context_graph_updates outcome exists for this "
+                                "turn. If a durable relationship is warranted, emit a bounded "
+                                "context_graph_updates entry and wait for its result. Otherwise "
+                                "answer without claiming that anything was linked or connected."
+                            ),
+                        },
+                    ).model_dump()
+                )
+                add_step(trace, event="CONTEXT_GRAPH_PERSIST_NUDGE")
+                continue
+            if unconfirmed_graph_claim:
+                decision.message_to_user = (
+                    "Non sono riuscita a salvare questo collegamento in questo momento. "
+                    "Possiamo riprovare."
+                )
+                decision.question = None
+                mode = "answer"
+                ora = _compose_user_text(decision)
+                add_step(trace, event="CONTEXT_GRAPH_CLAIM_BLOCKED_TERMINAL")
             if (
                 decision.situation_update
                 and decision.situation_update.operation != "none"
@@ -908,6 +1026,22 @@ async def run_cognitive_loop(
             trace["context_candidate_count"] = report.get("candidate_count") or 0
             trace["context_final_count"] = report.get("final_count") or 0
             trace["context_failure_status"] = report.get("status")
+            graph_facts = [f for f in more if f.source == "life_context_graph"]
+            if "life_context_graph" in (report.get("queried_sources") or []):
+                trace["context_graph_calls"] = int(
+                    trace.get("context_graph_calls") or 0
+                ) + 1
+                trace["context_graph_depth"] = GRAPH_MAX_DEPTH
+                trace["context_graph_returned_edge_count"] = int(
+                    trace.get("context_graph_returned_edge_count") or 0
+                ) + len(graph_facts)
+                trace["context_graph_payload_chars"] = int(
+                    trace.get("context_graph_payload_chars") or 0
+                ) + sum(len(f.statement) for f in graph_facts)
+                if not graph_facts:
+                    trace["context_graph_failure_status"] = str(
+                        report.get("status") or "no_relevant_evidence"
+                    )
             obs = Observation(
                 kind="context",
                 name="context_broker",
