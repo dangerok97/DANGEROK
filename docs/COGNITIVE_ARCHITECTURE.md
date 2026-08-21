@@ -216,3 +216,48 @@ inherited bonsai, or mounting a photography exhibition — and it does not need 
 arbitrary scenarios appear in the test suite precisely to demonstrate that they traverse the
 identical code path as any other life change, with no domain branch anywhere. The meaning of the
 change remains where it belongs: with the AI, later, when it has the context to judge it.
+
+# V2.9.2 — Impact Reasoning: the first time ORA thinks between turns
+
+Everything before V2.9.2 reasoned *inside* a turn: the user speaks, ORA thinks, ORA answers.
+V2.9.2 is the first layer that reasons about the user's life when the user is not present, and
+the first that asks a question nobody typed: **given that this changed, what might it mean?**
+
+That makes the epistemic discipline more important, not less. Inside a turn, a wrong inference
+gets corrected immediately by the person reading it. Here it would be persisted, unchallenged,
+and later consumed by V2.9.3 as though it were understanding. So the prompt's hardest constraint
+is not "find consequences" but **"never invent"**: state no fact the evidence does not support,
+invent no date, amount, name, document, commitment or person, and express a possibility as a
+possibility. `epistemic_status` (reused verbatim from Memory) is what carries that distinction —
+`confirmed` and `asserted` require evidence refs, while `inferred` and `tentative` are honest
+labels for reasoning that has run ahead of its grounding. An assessment that concludes "I do not
+know enough yet" is a *correct* output; a confident narrative built on nothing is a failure, and
+the provider-real gate tests exactly that.
+
+**Need discovery is the point.** People rarely enumerate what a goal requires. The reasoning is
+asked to notice dependencies nobody mentioned — preparation, information, resources, people,
+permissions, timing, prerequisites — and to surface them as `dependency` or
+`missing_information`, held as *possible* until evidence confirms them. This is how ORA widens
+what it considers without deciding for the user, and it is the mechanism that must eventually
+carry a sentence like "would it help if I looked at financing too?" — without any code anywhere
+knowing what financing is.
+
+**Generality is enforced by refusing category reasoning.** The prompt explicitly forbids
+pattern-matching a change to a familiar life category and reciting what that category "usually"
+involves: two people doing nominally the same thing can need entirely different things, so the
+model must reason from *this* user's evidence. There is no domain taxonomy in the contract — the
+`kind` vocabulary is six general-purpose technical categories, and a static test asserts no
+domain term survives in executable code. A neighbourhood party, an inherited bonsai, a
+photography exhibition and a significant purchase all traverse the same path.
+
+**Capability awareness without capability execution.** The model sees the names of what ORA can
+do, so it can distinguish a need ORA could already serve from one it cannot yet. A
+`capability_hint` is validated against the live registry — an invented capability is dropped
+rather than recorded as if it existed — and nothing is ever called. Noticing that a need exists
+and being able to act on it are different states, and V2.9.2 only records the first.
+
+**And it stops before speaking.** `relevance` means "how much this seems to matter in this user's
+life", never "how much I want to interrupt them". The contract has no field for notification,
+timing or urgency of interruption, because the moment reasoning is allowed to decide its own
+audibility, a Life OS becomes a notification machine. Whether any of this is worth saying is
+V2.9.3's question, and keeping it a separate question is what keeps the answer honest.
