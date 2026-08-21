@@ -1,5 +1,38 @@
 # ORA — AI Changelog
 
+## 2026-08-21 — V2.9.1 Life Change Signal (Continuous Life Reasoning foundation)
+
+- Added `backend/life_signals/` and the `life_change_signals` collection: a neutral, durable,
+  domain-agnostic record that a known part of the user's life state was mutated and persisted.
+- **V2.9.1 creates no proactive suggestions.** It answers "WHAT CHANGED?" only — not "SO WHAT?"
+  (V2.9.2) and not "SHOULD I SPEAK?" (V2.9.3). No notification, no suggestion, no intent, no
+  AI-assigned urgency/importance, no domain label.
+- Added **zero LLM calls**, zero external calls, zero cron/polling/scheduler/background workers.
+  The signal is fully deterministic and event-driven: no change ⇒ no signal ⇒ no future AI cost.
+- Emission wired at `conversation_engine/ai_core/loop.py` — in production code the single call
+  site of Situation/Context Graph/Memory mutation and the executor of Calendar and Life OS write
+  capabilities — so no mutation subsystem's own code or contract changed.
+- Persist-before-signal: only outcomes the owning subsystem reports as persisted emit. Proposals
+  awaiting confirmation, consent denials, CLARIFY/REJECT, revision conflicts, explicit no-ops,
+  reads and failures all emit nothing.
+- Idempotent by construction: dedupe keys derive from stable mutation identity (entity ref +
+  revision, or reasoning epoch + capability), never a timestamp or random UUID, and a unique
+  sparse index on `(user_id, dedupe_key)` enforces it at the storage layer.
+- Calendar V2.8.6b semantics preserved exactly: a local write whose Google sync stayed
+  unconfirmed still emits (ORA's own state really changed) and carries `source_status="partial"`
+  so a future reasoner never assumes Google agrees.
+- Failure isolation: a signal-layer failure never rolls back or corrupts the primary mutation; it
+  loses only the derived event and stays observable via a trace counter and a warning log.
+- Canonical refs reuse the existing namespace (`context_graph.models.is_recognized_ref`); an
+  unrecognized ref is refused rather than stored. `affected_refs` holds only refs already present
+  in the mutation result — no graph expansion, which belongs to V2.9.2.
+- Consumer contract shipped without a consumer: `list_pending` / `count_pending` /
+  `mark_processed` / `mark_failed`, bounded, user-scoped, deterministically ordered, retry-safe.
+- Connected sources: Situation, Life Memory, Context Graph, Life OS, Calendar. Documents deferred
+  (no single canonical AI-native mutation boundary today).
+- Added 32 deterministic tests (`test_life_change_signal_v291.py`, A–Z plus generality and
+  guard-rail cases), including three arbitrary life domains proving no domain routing exists.
+
 ## 2026-08-21 — V2.8.6b Final Pre-Commit Hardening Gate
 
 - Fixed `update_calendar_event` on a cancelled event: previously `reschedule_draft()` could raise

@@ -784,3 +784,86 @@ local timezone offset) found while adding the tests above, fixed as part of the 
 (`status="rejected"`, `failure_kind="event_cancelled"`) before any consent check or Google call —
 never reactivated, never recreated, never silently redirected to a different event. The AI is
 told to ask the user rather than guess what they actually want.
+
+# V2.9.1 — Life Change Signal (Continuous Life Reasoning foundation)
+
+New module `backend/life_signals/` (`models.py`, `repository.py`, `service.py`, `emitters.py`),
+collection `life_change_signals`. It is the event-driven foundation for the pipeline
+
+```
+life mutation → LifeChangeSignal → [V2.9.2] impact reasoning → [V2.9.3] attention → intervention
+```
+
+and it deliberately stops at the first arrow. **V2.9.1 answers "WHAT CHANGED?" and nothing
+else.** It does not decide that a change matters (V2.9.2) and does not decide whether ORA should
+speak (V2.9.3). Keeping those three questions in separate sprints is a binding architectural
+constraint, not a scheduling convenience: collapsing them is exactly how a Life OS degrades into
+"a chatbot with reminders".
+
+**It is not a second brain.** A LifeChangeSignal is a neutral infrastructural fact — "a known
+part of this user's life state was mutated and the mutation persisted". It carries no intent, no
+notification text, no suggestion, no AI-assigned urgency or importance, and no domain label. No
+new reasoning engine, no new orchestrator, no new generator was introduced; the existing AI Core,
+Context Broker, Situation, Memory, Context Graph, Life OS, Calendar and Proactive Engine are all
+unchanged in their own semantics.
+
+**Emission point.** `conversation_engine/ai_core/loop.py` is, in production code, the *single*
+call site of `SituationService.apply`, `ContextGraphService.apply` and
+`MemoryGovernanceService.process`, and the executor for every Calendar and Life OS write
+capability. Emitting there — from the exact places where each subsystem has already reported a
+persisted outcome — gives one reviewable wiring point and required zero change to any mutation
+subsystem's own code or contract. The `life_signals.emitters` adapters hold every rule about
+which outcomes qualify, so `loop.py` gains only five thin `_emit_life_change(...)` calls.
+
+**Three invariants**, enforced per adapter and covered by `test_life_change_signal_v291.py`:
+
+- *Persist-before-signal* — only an outcome the owning subsystem itself reports as persisted
+  produces a signal. A `response_mode="act"` proposal, a `consent_required` denial, a CLARIFY, a
+  REJECT, a REVISION_CONFLICT, an explicit `operation="none"`, a read, or any failure produces
+  nothing at all. No change ⇒ no signal ⇒ no future AI cost.
+- *Idempotent* — the dedupe key derives from the stable identity of the mutation (entity ref +
+  revision for Situation/Graph; `reasoning_epoch` + capability for Calendar/Life OS; the
+  deterministic `mem_` id plus governance key for Memory), never a timestamp or a fresh UUID. A
+  unique sparse index on `(user_id, dedupe_key)` enforces this at the storage layer too, so even
+  a race cannot produce a duplicate. Where no stable discriminator is available the adapter fails
+  closed rather than risk a duplicate storm.
+- *Terminal* — emitting never mutates a life entity, never creates a Context Graph edge, never
+  creates a proactive suggestion, and never emits a second signal. There is no
+  mutation → signal → mutation loop.
+
+**Refs reuse the existing canonical namespace** (`context_graph.models.is_recognized_ref`) rather
+than inventing a second one; a structurally unrecognized ref is refused, not stored. A Context
+Graph edge id (`lce_...`) is *not* a canonical ref, so a graph signal points at the edge's
+**subject** — the entity whose relationships changed — and carries the object in `affected_refs`.
+`affected_refs` only ever holds refs already present in the mutation result: V2.9.1 performs no
+graph expansion and never asks the AI what else might be affected. That is V2.9.2's job.
+
+**Privacy**: the stored document is refs plus technical metadata — never conversation text,
+entity payloads, document content, tokens or secrets. A future consumer re-resolves authorized
+context through the existing Context Broker instead of reading a duplicated copy of the user's
+life. The Context Broker itself is deliberately *not* given a `life_change_signals` source: the
+signal serves future asynchronous reasoning, not the normal per-turn answer.
+
+**Failure isolation**: `LifeSignalService.emit()` never raises, and `loop.py`'s
+`_emit_life_change` wraps it again. The primary mutation has already committed when the emitter
+runs, so a signal-layer failure loses a derived event while leaving the user's real life state
+correct — never a rollback. The failure stays observable through the
+`life_change_signal_failures` trace counter and a warning log, never silently swallowed.
+
+**Event-driven, never polling**: no cron, no scheduler, no background worker, no periodic Mongo
+scan and no periodic LLM call was added. V2.9.1 adds **zero LLM calls** and **zero external
+calls** — the signal is fully deterministic.
+
+**Consumer contract** (no consumer ships yet): `list_pending(user_id, limit)` /
+`count_pending` / `mark_processed` / `mark_failed`. Bounded (≤20), user-scoped, deterministically
+ordered by `(created_at, id)`, and retry-safe because it neither locks nor mutates on read — a
+consumer that crashes mid-batch simply sees the same signals again. Claiming/locking is
+deliberately unimplemented: there is no worker to contend with, and a distributed lock here would
+be premature.
+
+**Connected mutation sources**: Situation, Life Memory, Context Graph, Life OS (plan/object),
+Calendar. **Deferred**: Documents — its persistence points are spread across several
+`documents.update_one` call sites in `documents/` and `documents/intelligence/` with no single
+canonical AI-native mutation boundary, so connecting it would have meant either duplicating
+emission logic across many sites or inventing a boundary this sprint was told not to design.
+Four correct sources beat nine fragile ones.

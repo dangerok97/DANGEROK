@@ -174,3 +174,45 @@ avoided elsewhere, and is statically forbidden by `test_ai_native_calendar_v286b
 the runtime — the AI proposes it through the existing `context_graph_updates` channel (V2.8.5),
 using an open predicate like `scheduled_as` or `supported_by`, exactly like any other relationship
 the AI already knows how to propose.
+
+# V2.9.1 — Life Change Signal: "what changed", not "what it means"
+
+Everything ORA has built so far answers questions *within* a turn: the user says something, the
+AI reasons, tools execute, state is persisted, the turn ends. V2.9.1 adds the first piece of
+infrastructure that outlives a turn — a durable, neutral record that the user's life state moved.
+
+The cognitive contribution is a **separation of three questions that are easy to collapse and
+expensive to un-collapse**:
+
+| Sprint | Question | Owner |
+|--------|----------|-------|
+| V2.9.1 | WHAT CHANGED? | deterministic runtime |
+| V2.9.2 | SO WHAT? | AI reasoning over bounded context |
+| V2.9.3 | SHOULD I SPEAK? | attention/intervention policy |
+
+A LifeChangeSignal answers only the first, and answers it *without judgement*. It has no
+`importance`, no `urgency`, no `intent`, no `recommended_action`, no `notification_text` and no
+domain label — deliberately, because every one of those fields would be a place for a future
+engineer to hardcode a heuristic that belongs to the AI. The signal says a Situation was created,
+a Memory superseded, a relationship linked, a calendar event rescheduled — and stops.
+
+This is why the runtime layer stays fully deterministic here and adds **zero LLM calls**. Asking
+Gemini "is this change important?" at mutation time would mean paying a reasoning call for every
+write in the system, and would bake an interpretation into the event store before any context is
+available. V2.9.2 will instead read a bounded batch of pending signals, resolve authorized
+context through the existing Context Broker, and reason once — at the moment reasoning is
+actually useful.
+
+The boundaries with existing memory-like subsystems stay strict and are asserted by test:
+**Signal ≠ Memory** (a signal is never promoted to a durable proposition), **Signal ≠ Situation**
+(a signal is not contextual state the AI reads each turn), **Signal ≠ Graph edge** (emitting
+never creates a relationship), **Signal ≠ Suggestion** (nothing proactive is generated). The
+Context Broker deliberately does not gain a signal source: this store feeds future asynchronous
+reasoning, not the normal per-turn answer.
+
+Generality is structural rather than semantic here. Because the signal is deterministic, the
+runtime cannot "understand" that a user is organizing a neighbourhood party, caring for an
+inherited bonsai, or mounting a photography exhibition — and it does not need to. Those three
+arbitrary scenarios appear in the test suite precisely to demonstrate that they traverse the
+identical code path as any other life change, with no domain branch anywhere. The meaning of the
+change remains where it belongs: with the AI, later, when it has the context to judge it.
