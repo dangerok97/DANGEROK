@@ -1048,3 +1048,54 @@ external calls and zero background work. "SO WHAT?" is V2.9.2; "SHOULD I SPEAK?"
 5. **More robust retry/recovery for signal persistence failure** — today a failed emit loses the derived event (observable via the `life_change_signal_failures` trace counter and a warning log) with no automatic replay; a durable retry path is worth designing once a consumer exists.
 6. **Claiming/lease semantics** — if V2.9.2 ever runs more than one consumer per user concurrently, `list_pending` will need a claim/lease; deliberately not built while no worker exists.
 7. **`_CALENDAR_CAP_KINDS` duplication** — `life_signals/emitters.py` restates the Calendar capability names by value rather than importing `loop.py`'s `_CALENDAR_WRITE_CAPS` (that module pulls in heavy AI Core wiring). Low risk and indirectly covered by tests H/J/K, but worth collapsing if a shared lightweight constants module ever appears.
+
+## V2.9.2 — AI-native Impact Reasoning ("SO WHAT?") — CPO APPROVED / CLOSED OUT
+
+**Status: reasoning only. `LifeChangeSignal → bounded context → one reasoning call →
+ImpactAssessment`. V2.9.2 DOES NOT DECIDE WHETHER TO SPEAK — no suggestion, no notification, no
+message, no tool execution. "SHOULD I SPEAK?" is V2.9.3.**
+
+| Item | Stato |
+|------|--------|
+| New module `backend/life_reasoning/` (`models.py`, `repository.py`, `prompt.py`, `context.py`, `service.py`) | **created** — follows the `life_signals/` module convention |
+| New collection `life_impact_assessments` | **created** — indexes `(user_id,id)` unique, `(user_id,batch_key)` unique+sparse, `(user_id,created_at desc)`, `(user_id,focal_refs)`; registered in `server.py` startup |
+| Consumer | **explicitly invoked** (`ImpactReasoningService.run_pass(user_id)`) — no worker, cron, scheduler or polling |
+| Batching | ref-overlap + Context Graph connection via deterministic union-find; correlated signals cost **1** AI call, unrelated signals are never merged. Bounds: ≤5 signals/pass, ≤3 batches, ≤5 signals/batch |
+| Cost model | `no change ⇒ no signal ⇒ no AI call` preserved end to end — a user with no pending signals returns before any retrieval (verified by test P) |
+| Context resolution | **existing infrastructure only** — `ContextBroker` Stage B, `ContextGraphService.relevant_edges`, `timezone_service`, `ToolRegistry`. No second context loader |
+| Graph expansion | bounded, seeded from the signal's own refs, depth ≤2, ≤10 edges; never global, never creates a relation |
+| Epistemic model | **reused verbatim** from Memory/Graph (`epistemic_status`, `authority`, evidence refs, confidence) — no third vocabulary |
+| Impact `kind` | six general-purpose technical categories (dependency/risk/opportunity/constraint/conflict/missing_information) — no domain taxonomy |
+| Attention fields | **absent by construction** — no `notify`/`send_now`/`surface_home`/`interrupt`/`batch_notification`/`message_to_user`; a model that emits them has nowhere to put them (test N) |
+| Chain-of-thought | **never requested, never persisted** — `reason_summary` is a bounded conclusion (test U) |
+| Capability awareness | names only; `capability_hint` validated against the live registry so an invented capability is dropped (test O2). Nothing is ever executed (test O) |
+| Failure honesty | provider unavailable/unparseable → no assessment, signals stay pending (I/I2); context unreadable → deferred with **zero** AI calls (J); persistence failure → signals not consumed (K); consume only after persist (L) |
+| Idempotency | deterministic order-independent `batch_key` + unique sparse index; replay consumes without a second assessment (B/B2); a new signal yields a new distinguishable assessment (G) |
+| Provider access | **exclusively Provider Manager** — V2.8.3a failover and circuit breaker preserved; static test forbids any direct vendor import (Z) |
+| Commercial neutrality | prompt-level contract asserted by test (Z3): optimise for the user's interest, never for whoever might be selling; no company/product/vendor/brand/offer, no invented price or rate |
+| Proactive Engine / Context Broker / Context Graph / Memory governance / Calendar semantics | **all untouched** |
+| V2.9.2 tests | **35/35 passed** (`conversation_engine/tests/test_impact_reasoning_v292.py`) |
+| `conversation_engine/tests` (excl. `_live.py`) | **413/413 passed, 0 errori** |
+| V2.9.1 | **32/32 passed** |
+| V2.8.6b Calendar | **34/34 passed** |
+| V2.8.6a foundation | **22/22 passed** |
+| Context Broker V3 | **11/11 passed** |
+| Context Graph + Situation + Memory | **67/67 passed** |
+| `situations`/`life_memory`/`life_os`/`llm` | **44/44 passed** |
+| Calendar connector regression (`-n 0`) | **57/57 passed** |
+| Provider Manager | **23/23 passed** |
+| Proactive Engine (untouched, safety check) | **232/232 passed** |
+| `compileall` / `flake8 --select=E9,F63,F7,F82` / `git diff --check` | **all clean** |
+| Hardcoding audit | **clean** — zero domain terms in executable code (docstrings excluded from the scan, since they state the rule rather than break it) |
+| Security audit | **clean** — every query user-scoped, no secret/token/`.env`, no delete in the module, no external call beyond the LLM provider, no tool write, no notification |
+| **Provider-real eval** | **5/5 passed** against real Gemini via Provider Manager — arbitrary life change without invention, unstated dependency discovery, context-grounded consequence citing only supplied refs, insufficient-evidence honesty, vendor-neutral option comparison. Run serially (`-n 0`) |
+| Chrome QA | **NOT REQUIRED / NOT RUN** — V2.9.2 is internal; no UI, no user-visible behaviour changed, no new surface |
+| Commit / push | **DONE** — CPO approved; committed and pushed to `origin/feature/ora-quiet-premium-design-system` |
+
+### Follow-up recommended for V2.9.3 (non-blocking, deliberately not built)
+
+1. **Attention / intervention policy** — read recent assessments, decide whether, when and how to surface anything; this is where `relevance` finally meets a delivery decision.
+2. **Proactive Engine adapter** — route an assessment that clears the attention gate into the existing scoring/dedupe/notification-policy machinery rather than building a parallel one.
+3. **Assessment retention/supersession** — assessments about the same `focal_refs` accumulate; a supersession or compaction rule should be decided once V2.9.3 defines what "still relevant" means.
+4. **Concurrency** — `run_pass` is safe to replay (the unique `batch_key` index prevents duplicates) but two concurrent passes for the same user can both spend a reasoning call before one loses the race; a claim/lease becomes worthwhile only when a scheduler exists.
+5. **Documents emission boundary** — still deferred from V2.9.1; documents already reachable through the Context Broker can serve as evidence, but no Documents mutation emits a signal yet.

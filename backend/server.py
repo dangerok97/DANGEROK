@@ -368,6 +368,16 @@ async def startup():
     except Exception:
         logger.exception("Life Change Signal indexes failed (non-fatal)")
 
+    # Impact Assessments — "SO WHAT?" reasoning over pending signals (V2.9.2).
+    # Explicitly invoked only: no worker, no cron, no polling.
+    try:
+        from life_reasoning.service import ImpactReasoningService
+
+        await ImpactReasoningService(db).ensure_indexes()
+        logger.info("Impact Assessment indexes ready")
+    except Exception:
+        logger.exception("Impact Assessment indexes failed (non-fatal)")
+
     # AI Core ContextFile — session evidence refs (Documents V2 holds blobs)
     try:
         from conversation_engine.ai_core.files.service import ContextFileService

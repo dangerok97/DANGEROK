@@ -1,5 +1,39 @@
 # ORA — AI Changelog
 
+## 2026-08-21 — V2.9.2 AI-native Impact Reasoning ("SO WHAT?")
+
+- Added `backend/life_reasoning/` and the `life_impact_assessments` collection: structured
+  internal reasoning about what a persisted life change might MEAN.
+- **V2.9.2 does not decide whether to speak.** No proactive suggestion, no notification, no
+  message, no tool execution, no Plan/Calendar/Memory/Graph mutation — verified by test even at
+  maximum relevance. The contract has no `notify`/`send_now`/`surface_home`/`interrupt` field;
+  attention is V2.9.3.
+- Consumer is explicitly invoked (`ImpactReasoningService.run_pass`): still no worker, no cron,
+  no scheduler, no polling. A user with no pending signals costs zero retrievals and zero AI calls.
+- Batching by ref-overlap and Context Graph connection: correlated signals collapse into ONE
+  reasoning call, unrelated signals are deliberately not merged. Bounded at ≤5 signals per pass,
+  ≤3 batches, so a pass costs at most three reasoning calls regardless of backlog.
+- Context resolution reuses existing infrastructure only — `ContextBroker` Stage B,
+  `ContextGraphService.relevant_edges` (depth ≤2), `timezone_service`, `ToolRegistry` — no second
+  context loader. First bounded use of the graph to widen a change's meaning.
+- Epistemic model reused verbatim from Memory/Graph (`epistemic_status`, `authority`,
+  evidence refs, confidence) rather than inventing a third vocabulary. Impact `kind` is six
+  general-purpose technical categories, never a domain taxonomy.
+- Failure honesty: provider unavailable/unparseable → no assessment, signals stay pending;
+  context unreadable → deferred without an AI call (an unreadable life is not an empty life);
+  persistence failure → signals never marked processed. Persist before consume.
+- Idempotency by deterministic order-independent `batch_key` plus a unique sparse index; a
+  replayed batch consumes its signals without writing a second assessment.
+- Provider access exclusively via Provider Manager, preserving V2.8.3a failover and the circuit
+  breaker; a static test forbids any direct vendor import in the module.
+- Commercial neutrality encoded in the prompt and asserted by test: optimise for the user's
+  interest (total cost, quality, reliability, fit, risk, stated preferences), never for whoever
+  might be selling; never name a company/product/vendor/brand/offer and never invent a price.
+- No chain-of-thought is requested or persisted; `reason_summary` is a bounded conclusion.
+- Added 35 deterministic tests plus a 5-scenario provider-real gate against real Gemini
+  (arbitrary life change, unstated dependency discovery, context-grounded consequence,
+  insufficient-evidence honesty, vendor-neutral option comparison).
+
 ## 2026-08-21 — V2.9.1 Life Change Signal (Continuous Life Reasoning foundation)
 
 - Added `backend/life_signals/` and the `life_change_signals` collection: a neutral, durable,

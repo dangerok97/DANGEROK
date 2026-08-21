@@ -867,3 +867,84 @@ Calendar. **Deferred**: Documents — its persistence points are spread across s
 canonical AI-native mutation boundary, so connecting it would have meant either duplicating
 emission logic across many sites or inventing a boundary this sprint was told not to design.
 Four correct sources beat nine fragile ones.
+
+# V2.9.2 — Impact Reasoning ("SO WHAT?")
+
+New module `backend/life_reasoning/` (`models.py`, `repository.py`, `prompt.py`, `context.py`,
+`service.py`), collection `life_impact_assessments`. It consumes the V2.9.1 signal store and
+answers the second of the three questions:
+
+```
+V2.9.1  WHAT CHANGED?      deterministic runtime
+V2.9.2  SO WHAT?           AI reasoning over bounded context   ← this batch
+V2.9.3  SHOULD I SPEAK?    attention / intervention policy
+```
+
+**The pass**: `list_pending → deterministic batching → bounded context → ONE reasoning call per
+batch → ImpactAssessment persisted → signals marked processed`. It is explicitly invoked —
+`ImpactReasoningService(db).run_pass(user_id)` — with no worker, cron, scheduler or polling. A
+user with no pending signals returns before any retrieval or reasoning happens, so the
+`no change ⇒ no signal ⇒ no AI call` chain from V2.9.1 holds end to end.
+
+**Batching is the cost model.** Signals are clustered when their canonical refs overlap directly
+or when a Context Graph edge already connects them, using union-find over the bounded pending
+set: three correlated changes cost one reasoning call, not three. Unrelated signals are
+deliberately *not* merged — a shared prompt would let one part of the user's life contaminate the
+conclusions drawn about another. Bounds: ≤5 signals per pass, ≤3 batches, ≤5 signals per batch,
+so a pass costs at most three reasoning calls regardless of backlog. Clustering is fully
+deterministic: same input, same batches, same order.
+
+**Context resolution reuses existing infrastructure only** — there is no second context loader.
+Relationships come from `ContextGraphService.relevant_edges` (the same bounded API the Context
+Broker's own graph source uses, depth ≤2, ≤10 edges), evidence comes from
+`ContextBroker.retrieve(stage="B", ...)` with its own Stage B budget, time comes from
+`timezone_service.resolve_user_timezone`, and the capability catalogue comes from
+`ToolRegistry.list_public()` — names only, never schemas or vendor brands. This is the first
+place ORA uses the graph to widen the *meaning* of a change rather than merely to answer a turn,
+and it is still bounded: seeded from the signal's own refs, never a global traversal, and it
+never creates a relation.
+
+**The ImpactAssessment contract** carries `impacts` (a single bounded list discriminated by
+`kind` ∈ dependency | risk | opportunity | constraint | conflict | missing_information), plus
+`relevance`, `confidence`, `requires_more_context`, `next_step_kind`, `focal_refs`,
+`evidence_refs`, `evidence_count` and a short `reason_summary`. `epistemic_status` and
+`authority` are **reused verbatim** from `MemoryCandidate`/`ContextEdge` — ORA has one epistemic
+model and must not grow a third. The CPO sketch listed `impacts`, `unresolved_needs`,
+`opportunities` and `contradictions` as four fields; they are modelled as one list plus a `kind`
+discriminator because four near-identical parallel lists would each need their own bounds and
+prompt section while `kind × epistemic_status` is strictly more expressive.
+
+**What it deliberately cannot express**: there is no `notify`, `send_now`, `surface_home`,
+`interrupt`, `batch_notification`, `message_to_user`, `chain_of_thought` or `thinking` field.
+Even if a model emits them, the typed contract has nowhere to put them (asserted by test). No
+chain-of-thought is ever requested or persisted — `reason_summary` is a bounded operational
+conclusion, explicitly "what you concluded, not how you thought".
+
+**Failure honesty**, all three paths asserted by test: an unavailable or unparseable provider
+produces no assessment and leaves the signals pending; an unreadable Context Broker is treated as
+different from an empty life (`ContextUnavailable` → defer, no AI call, no conclusion); and a
+persistence failure never marks signals processed. Signals are consumed *only* after the
+assessment is durably written — persist before consume, mirroring V2.9.1's persist before signal.
+
+**Idempotency**: `batch_key` is a deterministic, order-independent hash of the signal ids in the
+batch, enforced by a unique sparse index on `(user_id, batch_key)`. A replayed batch marks its
+signals processed without writing a second assessment; a genuinely new signal (a correction, a
+later change) yields a new batch key and a new, distinguishable assessment.
+
+**Boundaries preserved**: no proactive suggestion, no notification, no message, no tool
+execution, no Plan/Calendar/Memory/Graph mutation — verified by test even at maximum relevance. A
+`capability_hint` may *point at* a capability ORA already has, and is validated against the live
+registry so an invented capability name is dropped rather than stored as if it existed; nothing
+is ever executed. The Proactive Engine, Context Broker, Context Graph, Memory governance and
+Calendar semantics are all untouched.
+
+**Provider access is exclusively through Provider Manager** (`llm.manager.get_manager().chat`),
+so V2.8.3a failover and the circuit breaker stay in force; a static test forbids any direct
+vendor import in the module.
+
+**Commercial neutrality** is a prompt-level contract, asserted by test: when a change opens a real
+choice the model may raise an `opportunity` noting that comparing options would help and name the
+criteria that matter *for this user* — total cost, quality, reliability, fit, risk, stated
+preferences — while optimising for the user's interest and never for whoever might be selling. It
+must never name a company, product, vendor, brand or offer, and never invent a price or a rate:
+V2.9.2 searches for nothing and must not imply that it has.
