@@ -653,8 +653,18 @@ class TestG_Indexes:
 # T — Tool registry unchanged
 # ---------------------------------------------------------------------------
 class TestH_ToolRegistryUnchanged:
-    def test_t_zero_calendar_tools(self):
+    def test_t_v286a_scope_superseded_by_v286b(self):
+        """V2.8.6a's own report explicitly deferred Calendar capabilities to
+        V2.8.6b ("V2.8.6b li aggiungerà dopo il gate di questa foundation").
+        This test now asserts the V2.8.6b invariant instead: exactly the
+        four documented capabilities exist, nothing extra."""
         registry = ToolRegistry(db=None)
         public = registry.list_public()
-        names = [str(t.get("name") or t.get("capability") or "") for t in public]
-        assert not any("calendar" in n.lower() for n in names)
+        names = {str(t.get("name") or t.get("capability") or "") for t in public}
+        calendar_names = {n for n in names if "calendar" in n.lower()}
+        assert calendar_names == {
+            "get_calendar_events",
+            "create_calendar_event",
+            "update_calendar_event",
+            "cancel_calendar_event",
+        }
