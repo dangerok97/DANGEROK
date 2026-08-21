@@ -996,3 +996,55 @@ change, no FreeBusy, no reminder-architecture change, no UI change, no Google re
 
 1. The pre-existing pytest-xdist worker-sharing flakiness in `backend/tests/` (see regression row above) is unrelated to Calendar but was newly characterized this session — worth a dedicated fix in a future batch (likely: align the remaining `asyncio.get_event_loop()`-style tests in that directory to the `@pytest.mark.asyncio` convention already proven in `conversation_engine/tests/`).
 3. Google FreeBusy-based availability (as opposed to local-event-derived conflict detection) remains a documented, undecided future follow-up, not built in V1.
+
+## V2.9.1 — Life Change Signal / Continuous Life Reasoning foundation — CPO APPROVED / CLOSED OUT
+
+**Status: event-driven foundation only. `life mutation → LifeChangeSignal` and nothing beyond
+it. V2.9.1 CREATES NO PROACTIVE SUGGESTIONS, sends no notification, adds zero LLM calls, zero
+external calls and zero background work. "SO WHAT?" is V2.9.2; "SHOULD I SPEAK?" is V2.9.3.**
+
+| Item | Stato |
+|------|--------|
+| Pre-existing equivalent primitive | **none found** — repo-wide search for change/domain-event/outbox/signal semantics returned nothing user-scoped, persistable, idempotent and notification-neutral, so a minimal new primitive was created rather than bending a semantically different legacy model |
+| New module `backend/life_signals/` (`models.py`, `repository.py`, `service.py`, `emitters.py`) | **created** — follows the `context_graph/` module convention exactly |
+| New collection `life_change_signals` | **created** — indexes `(user_id,id)` unique, `(user_id,dedupe_key)` unique+sparse, `(user_id,status,created_at,id)`; registered in `server.py` startup like every other subsystem |
+| Emission point | `conversation_engine/ai_core/loop.py` — in production the **single** call site of `SituationService.apply` / `ContextGraphService.apply` / `MemoryGovernanceService.process` and the executor of Calendar + Life OS write capabilities. Zero changes to any mutation subsystem's own code or contract |
+| Persist-before-signal | **enforced per adapter** — proposals (`response_mode=act`), consent denials, CLARIFY/REJECT, revision conflicts, explicit no-ops, reads and failures all emit nothing |
+| Idempotency | **enforced twice** — adapter-level dedupe keys derived from stable mutation identity (entity ref + revision, or reasoning epoch + capability), plus a unique sparse storage index. Adapters fail closed when no stable discriminator exists rather than risk a duplicate storm |
+| No recursion | **enforced** — emitting never mutates a life entity, never creates a Graph edge, never creates a suggestion, never emits a second signal |
+| Canonical refs | **reused** (`context_graph.models.is_recognized_ref`) — no second namespace; an unrecognized ref is refused, not stored. Graph signals point at the edge **subject** (the `lce_` edge id is not a canonical ref) with the object as a deterministic `affected_ref` |
+| Graph expansion | **absent by design** — `affected_refs` holds only refs already present in the mutation result; bounded expansion belongs to V2.9.2 |
+| Failure isolation | **implemented** — `emit()` never raises, `_emit_life_change` wraps it again; the already-committed mutation is never rolled back, and the failure stays observable via the `life_change_signal_failures` trace counter and a warning log |
+| Privacy | **refs + technical metadata only** — no conversation text, entity payload, document content, token or secret; verified by a test asserting the exact stored key set |
+| Mutation sources CONNECTED | Situation, Life Memory, Context Graph, Life OS (plan/object), Calendar |
+| Mutation sources DEFERRED | **Documents** — its persistence is spread across many `documents.update_one` call sites in `documents/` and `documents/intelligence/` with no single canonical AI-native mutation boundary; connecting it would have required duplicating emission logic or designing a boundary this sprint was told not to design |
+| Proactive Engine | **untouched** — no generator added, none removed, scoring/gate/notification policy unchanged; coexistence preserved |
+| Context Broker | **untouched** — deliberately NOT given a `life_change_signals` source; the signal feeds future asynchronous reasoning, not the per-turn answer |
+| Context Graph / Memory governance / Calendar semantics | **unchanged** |
+| LLM calls added | **0** |
+| External calls added | **0** |
+| Cron / polling / scheduler / background worker | **0** |
+| V2.9.1 tests | **32/32 passed** (`conversation_engine/tests/test_life_change_signal_v291.py`) |
+| `conversation_engine/tests` (excl. `_live.py`) | **378/378 passed, 0 errors** |
+| V2.8.6b calendar suite | included above — **34/34 passed** |
+| V2.8.6a foundation | **22/22 passed** |
+| Calendar connector regression (`-n 0`, the method already documented as reliable) | **57/57 passed** |
+| `situations` / `life_memory` / `life_os` / `llm` | **44/44 passed** |
+| Proactive Engine | **232/232 passed** (untouched; run as a safety check) |
+| Provider Manager | **23/23 passed** |
+| `compileall` / `flake8 --select=E9,F63,F7,F82` / `git diff --check` | **all clean** |
+| Hardcoding audit | **clean** — zero domain terms and zero keyword branches in the new module or the production diff |
+| Security audit | **clean** — every signal-store query user-scoped, no secret/token/`.env`, no delete of any kind in the module, no cross-user read or write, no raw payload, no new external call |
+| Provider-real Gemini | **NOT REQUIRED / NOT RUN** — V2.9.1 introduces no AI decision and changes no prompt, `CognitiveDecision` field or tool description |
+| Chrome QA | **NOT REQUIRED / NOT RUN** — purely infrastructural; no user-visible behaviour changed, no UI touched, no new surface |
+| Commit / push | **DONE** — CPO approved; committed and pushed to `origin/feature/ora-quiet-premium-design-system` |
+
+### Follow-up recommended for V2.9.2 (non-blocking, deliberately not built)
+
+1. **Impact reasoning consumer** — read a bounded batch via `list_pending`, resolve authorized context through the existing Context Broker, reason once per batch (not once per mutation), `mark_processed`.
+2. **Bounded graph/context expansion** at consume time, using the existing `ContextGraphService.relevant_edges` depth cap — never at emission time.
+3. **Documents emission boundary** — decide a single canonical AI-native mutation boundary for Documents, then connect it the same way (CPO decision, deliberately not taken here).
+4. **Processed signal retention/compaction** — `processed` signals currently accumulate; a retention rule should be decided once a consumer exists and its replay needs are known.
+5. **More robust retry/recovery for signal persistence failure** — today a failed emit loses the derived event (observable via the `life_change_signal_failures` trace counter and a warning log) with no automatic replay; a durable retry path is worth designing once a consumer exists.
+6. **Claiming/lease semantics** — if V2.9.2 ever runs more than one consumer per user concurrently, `list_pending` will need a claim/lease; deliberately not built while no worker exists.
+7. **`_CALENDAR_CAP_KINDS` duplication** — `life_signals/emitters.py` restates the Calendar capability names by value rather than importing `loop.py`'s `_CALENDAR_WRITE_CAPS` (that module pulls in heavy AI Core wiring). Low risk and indirectly covered by tests H/J/K, but worth collapsing if a shared lightweight constants module ever appears.

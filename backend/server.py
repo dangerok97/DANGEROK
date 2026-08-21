@@ -358,6 +358,16 @@ async def startup():
     except Exception:
         logger.exception("Life Context Graph indexes failed (non-fatal)")
 
+    # Life Change Signals — event-driven foundation for Continuous Life
+    # Reasoning (V2.9.1). Nothing consumes this store yet: no worker, no cron.
+    try:
+        from life_signals.service import LifeSignalService
+
+        await LifeSignalService(db).ensure_indexes()
+        logger.info("Life Change Signal indexes ready")
+    except Exception:
+        logger.exception("Life Change Signal indexes failed (non-fatal)")
+
     # AI Core ContextFile — session evidence refs (Documents V2 holds blobs)
     try:
         from conversation_engine.ai_core.files.service import ContextFileService

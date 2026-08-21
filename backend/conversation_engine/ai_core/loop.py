@@ -39,6 +39,7 @@ from conversation_engine.ai_core.tools.registry import (
 )
 from conversation_engine.ai_core.trace import add_step, new_trace, public_trace
 from conversation_engine.models import ConversationSession, now_iso
+from life_signals import emitters as life_signals
 
 logger = logging.getLogger("ora.ai_core.loop")
 
@@ -77,6 +78,38 @@ _LIFE_OS_PERSIST_CAPS = frozenset(
         "mark_plan_progress",
     }
 )
+
+async def _emit_life_change(
+    trace: Dict[str, Any],
+    source_system: str,
+    emit: Callable[[], Awaitable[Any]],
+) -> None:
+    """Record a LifeChangeSignal for a mutation that is ALREADY persisted
+    (V2.9.1).
+
+    Failure isolation: the primary mutation has already committed by the time
+    this runs, so a signal-layer failure must never propagate — the user's real
+    life state is correct and only the derived event is lost. The failure stays
+    observable via the `life_change_signal_failures` trace counter instead of
+    being silently swallowed. This never mutates a life entity and never emits
+    a second signal, so there is no signal → mutation → signal recursion.
+    """
+    try:
+        result = await emit()
+    except Exception as e:
+        trace["life_change_signal_failures"] = int(
+            trace.get("life_change_signal_failures") or 0
+        ) + 1
+        logger.warning(
+            "life_change_signal emit failed source_system=%s error=%s",
+            source_system,
+            type(e).__name__,
+        )
+        return
+    emitted = len(result) if isinstance(result, list) else (1 if result else 0)
+    if emitted:
+        trace["life_change_signals"] = int(trace.get("life_change_signals") or 0) + emitted
+
 
 # Soft re-entry when the model narrates durable Life OS writes without observations.
 _PERSIST_CLAIM_RE = re.compile(
@@ -506,6 +539,18 @@ async def run_cognitive_loop(
                     event="SITUATION_MUTATION",
                     operation=decision.situation_update.operation,
                 )
+                await _emit_life_change(
+                    trace,
+                    "situation",
+                    lambda: life_signals.emit_situation_signal(
+                        db,
+                        user_id=sess.user_id,
+                        session_id=sess.id,
+                        reasoning_epoch=epoch,
+                        operation=decision.situation_update.operation,
+                        result=situation_result,
+                    ),
+                )
                 linked_plan = ((situation_result or {}).get("situation") or {}).get(
                     "linked_plan_id"
                 )
@@ -581,6 +626,17 @@ async def run_cognitive_loop(
                     event="CONTEXT_GRAPH_MUTATION",
                     outcomes=[r.get("decision") for r in graph_results],
                 )
+                await _emit_life_change(
+                    trace,
+                    "context_graph",
+                    lambda: life_signals.emit_context_graph_signals(
+                        db,
+                        user_id=sess.user_id,
+                        session_id=sess.id,
+                        reasoning_epoch=epoch,
+                        results=graph_results,
+                    ),
+                )
             except Exception as e:
                 code = str(getattr(e, "code", "PERSISTENCE_ERROR"))[:80]
                 graph_write_confirmed_this_turn = False
@@ -635,6 +691,17 @@ async def run_cognitive_loop(
                     trace,
                     event="MEMORY_GOVERNANCE",
                     outcomes=[item.decision for item in memory_outcomes],
+                )
+                await _emit_life_change(
+                    trace,
+                    "life_memory",
+                    lambda: life_signals.emit_memory_signals(
+                        db,
+                        user_id=sess.user_id,
+                        session_id=sess.id,
+                        reasoning_epoch=epoch,
+                        outcomes=memory_outcomes,
+                    ),
                 )
             except Exception as e:
                 code = str(getattr(e, "code", "MEMORY_PERSISTENCE_ERROR"))[:80]
@@ -1314,11 +1381,39 @@ async def run_cognitive_loop(
                 obs.status == "ok" and (obs.payload or {}).get("status") == "ok"
             ):
                 calendar_write_confirmed_this_turn = True
+            if cap in _CALENDAR_WRITE_CAPS:
+                # Emitted for "partial" too: local ORA state really changed
+                # even when the Google-side sync stayed unconfirmed.
+                await _emit_life_change(
+                    trace,
+                    "calendar",
+                    lambda: life_signals.emit_calendar_signal(
+                        db,
+                        user_id=sess.user_id,
+                        session_id=sess.id,
+                        reasoning_epoch=epoch,
+                        capability=cap,
+                        observation_status=obs.status,
+                        payload=obs.payload or {},
+                    ),
+                )
             if cap in _LIFE_OS_PERSIST_CAPS and (
                 obs.status in ("ok", "success")
                 or (obs.payload or {}).get("status") == "success"
             ):
                 life_os_writes_this_turn += 1
+                await _emit_life_change(
+                    trace,
+                    "life_os",
+                    lambda: life_signals.emit_life_os_signal(
+                        db,
+                        user_id=sess.user_id,
+                        session_id=sess.id,
+                        reasoning_epoch=epoch,
+                        capability=cap,
+                        payload=obs.payload or {},
+                    ),
+                )
                 if (
                     cap == "update_plan"
                     and linked_plan_pending_id
