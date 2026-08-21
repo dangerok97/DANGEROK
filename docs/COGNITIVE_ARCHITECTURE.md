@@ -145,3 +145,32 @@ state, Memory still owns durable propositions with its own governance, Life OS s
 plans/goals/objects. The graph never promotes a temporary Situation fact, an unconfirmed
 inference, or a raw presence/GPS signal into a durable edge on its own — every edge carries
 the same honest authority/confidence the AI declared, never upgraded silently.
+
+# V2.8.6b — Calendar as a capability, not a second reasoning mode
+
+Calendar joins the AI Core the same way every other capability does: `get_calendar_events` is
+one more bounded evidence source the AI reaches for like any other, and
+`create_calendar_event`/`update_calendar_event`/`cancel_calendar_event` are three more
+`REVERSIBLE_WRITE` tools in the same `ToolRegistry`. No intent classifier, no domain router, no
+separate calendar reasoning loop was introduced — the general-purpose cognitive loop
+(`response_mode` ∈ {answer, ask, tool, act, context, finish}) is unchanged in shape.
+
+Two structural guarantees are the entire runtime contribution here, both reused rather than
+invented: (1) any `REVERSIBLE_WRITE` tool call carrying a blocking `uncertainty` is already
+stripped by `governance.py`'s existing `_blocks_side_effect` gate — a calendar write is not a
+governance special case; (2) a calendar write claim in the AI's own output text
+(`_CALENDAR_CLAIM_RE`) that is not backed by a real confirmed Observation this turn triggers the
+same persist-before-claim nudge already proven for Memory and the Context Graph — one honest
+re-entry, then a forced honest retry message if the AI claims success a second time without
+persisting.
+
+Whether a time-bearing statement becomes a CalendarEvent, stays a Situation fact, becomes a Life
+OS plan/goal deadline, or is nothing at all is explicitly left to the AI's own judgment — the
+same judgment already governing Situation vs Memory vs Graph. This is a deliberate absence of a
+decision tree, not an oversight: a hardcoded `if "domani" in text` or `if "ricordami" in text`
+branch would reintroduce exactly the kind of keyword router this architecture has consistently
+avoided elsewhere, and is statically forbidden by `test_ai_native_calendar_v286b.py`'s
+`test_v`/`test_z`. Calendar's relationship to Situation/Plan/Goal is likewise never inferred by
+the runtime — the AI proposes it through the existing `context_graph_updates` channel (V2.8.5),
+using an open predicate like `scheduled_as` or `supported_by`, exactly like any other relationship
+the AI already knows how to propose.

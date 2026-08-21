@@ -1,5 +1,61 @@
 # ORA — AI Changelog
 
+## 2026-08-21 — V2.8.6b Final Pre-Commit Hardening Gate
+
+- Fixed `update_calendar_event` on a cancelled event: previously `reschedule_draft()` could raise
+  an untyped `ValueError` for this case, caught only by the tool registry's generic fallback
+  (`failure_code: "UNKNOWN"`). Now rejected explicitly before consent/Google
+  (`status="rejected"`, `failure_kind="event_cancelled"`), no DB mutation, no reactivation.
+- Fixed `get_calendar_events` to gate Google-imported (`source: "google_external"`) events on
+  `calendar.read` consent — previously the local `ingestion_events` mirror was exposed to the AI
+  unconditionally, meaning a revoked connector did not actually stop the AI from seeing
+  previously-imported Google events. ORA-managed local events remain visible regardless, per CPO
+  decision, since their `source` already makes the provenance explicit.
+- Fixed a related default-time-window bug found while adding the tests above: `get_calendar_events`
+  defaulted to the server's naive local `datetime.now()`, which could silently exclude real
+  events from a lexicographic string-range comparison against UTC-aware stored timestamps
+  depending on the server's timezone offset. Now defaults to UTC-aware "now".
+- Added 7 deterministic tests (1 cancelled-update rejection + 6 calendar.read revocation policy
+  scenarios A–F) — suite now 34/34.
+
+## 2026-08-20 — V2.8.6b AI-native Calendar Intelligence
+
+- Added four AI Core capabilities wrapping the V2.8.6a-hardened Calendar foundation:
+  `get_calendar_events` (`READ_ONLY`), `create_calendar_event`, `update_calendar_event`,
+  `cancel_calendar_event` (`REVERSIBLE_WRITE`) — no new orchestrator, no domain router.
+- Calendar writes require explicit user confirmation on the user's next message, reusing the
+  existing `response_mode="act"` mechanism — no new confirmation UI/infrastructure.
+- Whether a time-bearing statement is a calendar event, a Situation fact, a Life OS plan/goal
+  deadline or nothing at all is left entirely to AI judgment — no keyword-based routing
+  (`if "calendar"/"ricordami" in text` is explicitly absent and statically enforced by test).
+- Local-draft idempotency reuses `InternalCalendarProvider.create_from_candidate`'s existing
+  keying (`source_document_id="ai_core_conversation"`, `source_event_candidate_id=f"epoch:
+  {reasoning_epoch}"`) — a retried tool call for the same reasoning epoch never duplicates.
+- Added a fourth persist-before-claim guard (`_CALENDAR_CLAIM_RE` in `loop.py`), mirroring the
+  Memory (V2.8.3) and Context Graph (V2.8.5) pattern: an unconfirmed calendar-write claim in the
+  AI's own text forces one honest re-entry, then an honest retry message on repeat.
+- Timezone resolution reuses `timezone_service.resolve_user_timezone` exclusively — no new
+  hardcoded `Europe/Rome` in the AI-native path; every write Observation reports
+  `{tz_name, authority}` back to the AI.
+- `get_calendar_events` adds bounded, deterministic overlap detection (evidence only, capped at
+  20 events / 10 reported pairs) — no new scheduling engine, no Google FreeBusy call in V1.
+- Calendar's relationship to Situation/Plan/Goal is AI-proposed via the existing V2.8.5
+  `context_graph_updates` channel with open predicates — never auto-created by the calendar
+  tool, never a fixed relationship enum.
+- Added 27 deterministic tests (`test_ai_native_calendar_v286b.py`, A–Z + 1) covering read bounds,
+  user isolation, consent-gated writes, idempotent retry, ambiguous-ref refusal, reschedule
+  stability, cancel honesty, governance reuse, full-loop confirmation flow, persist-before-claim,
+  cross-module non-duplication (Situation/Plan/Graph), conflict detection, and static
+  no-keyword-routing checks.
+- Found and fixed a false-negative honesty bug live during Chrome QA: `reschedule_draft()`
+  commits the local field patch unconditionally before any Google-side step, but
+  `update_calendar_event`'s failure paths denied the update had happened at all — both now
+  return `status="partial"` with an accurate "saved locally, not confirmed on Google" message,
+  mirroring `create_calendar_event`'s existing convention.
+- Also fixed a consent instance-scoping bug found during implementation: write handlers checked
+  the wildcard consent tier, but real OAuth grants consent scoped to the specific connected
+  instance — `_active_instance_id()` now resolves the real instance before the consent check.
+
 ## 2026-08-18 — V2.8.3a Provider Reliability & Error Taxonomy
 
 - Split manager-level `LLMNotConfigured` (no enabled/configured provider) from

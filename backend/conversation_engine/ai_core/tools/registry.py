@@ -374,6 +374,7 @@ class ToolRegistry:
         )
         self._register_files()
         self._register_location()
+        self._register_calendar()
 
     def _register_location(self) -> None:
         from location import caps as loc_caps
@@ -423,6 +424,118 @@ class ToolRegistry:
                 risk="read",
                 handler=loc_caps.get_recent_presence_context,
                 tags=["location", "presence"],
+            )
+        )
+
+    def _register_calendar(self) -> None:
+        from conversation_engine.ai_core.tools import calendar_caps as cal_caps
+
+        self.register(
+            CapabilitySpec(
+                capability="get_calendar_events",
+                description=(
+                    "Read the user's own local calendar record — events ORA manages plus "
+                    "already-synced Google events — in a bounded time window (default the "
+                    "next few days if unspecified, capped). Returns canonical refs, times, "
+                    "timezone and a bounded list of overlapping-time pairs as raw evidence. "
+                    "Never a live Google call. Use this before proposing a new event, before "
+                    "an update/cancel, or whenever the user's temporal situation is unclear — "
+                    "not for every turn."
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "time_min": {"type": "string", "description": "ISO 8601, optional"},
+                        "time_max": {"type": "string", "description": "ISO 8601, optional"},
+                    },
+                },
+                classification="personal",
+                side_effect="READ_ONLY",
+                risk="read",
+                handler=cal_caps.get_calendar_events,
+                tags=["calendar", "temporal"],
+            )
+        )
+        self.register(
+            CapabilitySpec(
+                capability="create_calendar_event",
+                description=(
+                    "Create a new calendar commitment ORA manages (local record, synced to "
+                    "Google when connected). Only call this after the user has explicitly "
+                    "confirmed — propose first via response_mode=act, execute only once the "
+                    "user has agreed. Requires a resolved timezone (use context/timezone "
+                    "evidence, never assume). Fails honestly and never claims success if "
+                    "Google sync does not confirm."
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "title": {"type": "string"},
+                        "start_datetime": {"type": "string", "description": "ISO 8601"},
+                        "end_datetime": {"type": "string", "description": "ISO 8601, optional"},
+                        "duration_minutes": {"type": "number"},
+                        "timezone": {"type": "string", "description": "IANA name, optional"},
+                        "all_day": {"type": "boolean"},
+                        "location": {"type": "string"},
+                        "description": {"type": "string"},
+                    },
+                    "required": ["title", "start_datetime"],
+                },
+                classification="personal",
+                side_effect="REVERSIBLE_WRITE",
+                risk="write_soft",
+                handler=cal_caps.create_calendar_event,
+                tags=["calendar", "temporal"],
+            )
+        )
+        self.register(
+            CapabilitySpec(
+                capability="update_calendar_event",
+                description=(
+                    "Update or reschedule an existing calendar event ORA manages. Requires "
+                    "the exact calendar_ref from prior evidence — never guess by title; if "
+                    "the target event is ambiguous, ask instead of choosing. Only the fields "
+                    "provided are changed. Propose via response_mode=act and execute only "
+                    "after confirmation, same as create."
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "calendar_ref": {"type": "string"},
+                        "title": {"type": "string"},
+                        "start_datetime": {"type": "string"},
+                        "end_datetime": {"type": "string"},
+                        "timezone": {"type": "string"},
+                        "location": {"type": "string"},
+                        "description": {"type": "string"},
+                    },
+                    "required": ["calendar_ref"],
+                },
+                classification="personal",
+                side_effect="REVERSIBLE_WRITE",
+                risk="write_soft",
+                handler=cal_caps.update_calendar_event,
+                tags=["calendar", "temporal"],
+            )
+        )
+        self.register(
+            CapabilitySpec(
+                capability="cancel_calendar_event",
+                description=(
+                    "Cancel an existing calendar event ORA manages, by exact calendar_ref. "
+                    "Always propose via response_mode=act and execute only after explicit "
+                    "confirmation — never cancel silently."
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {"calendar_ref": {"type": "string"}},
+                    "required": ["calendar_ref"],
+                },
+                classification="personal",
+                side_effect="REVERSIBLE_WRITE",
+                risk="write_soft",
+                handler=cal_caps.cancel_calendar_event,
+                tags=["calendar", "temporal"],
             )
         )
 

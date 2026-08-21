@@ -927,3 +927,72 @@ keyword router, no OAuth structural change.**
 1. Multi-account attribution of `calendar_event_drafts` to a specific revoked instance is not solvable with the current schema (no `connector_instance_id` on the draft) — documented limitation, not fixed.
 2. The three independent Google write subsystems (`documents/intelligence`, `action_engine/study`, `action_engine/travel`) still duplicate "resolve active instance" logic — consolidation candidate for a future batch, not this one.
 3. V2.8.6b will add the actual AI Core capabilities (`get_calendar_events`, `create_calendar_event`, `update_calendar_event`, `cancel_calendar_event`) on top of this now-hardened foundation, using the `consent.py` helper and `reschedule_draft()` added here.
+
+## V2.8.6b — AI-native Calendar Intelligence (this batch)
+
+**Status: Calendar is now an AI Core capability — read-only evidence plus confirmed,
+consent-gated writes. No CalendarFlow, no intent router, no new confirmation UI, no new
+governance code, no new idempotency mechanism, no Context Graph changes.**
+
+| Item | Stato |
+|------|--------|
+| `get_calendar_events` (READ_ONLY), `create_calendar_event`/`update_calendar_event`/`cancel_calendar_event` (REVERSIBLE_WRITE) registered in `ToolRegistry` | **implemented** — `conversation_engine/ai_core/tools/calendar_caps.py` |
+| Calendar write confirmation | **reuses** the existing `response_mode="act"` mechanism — no new confirmation surface |
+| Governance for calendar writes | **reuses** the existing `_blocks_side_effect(uncertainty)` gate — zero new governance code |
+| Local-draft idempotency | **reuses** `InternalCalendarProvider.create_from_candidate`'s existing keying (`source_document_id="ai_core_conversation"`, `source_event_candidate_id=f"epoch:{reasoning_epoch}"`) |
+| Persist-before-claim guard for calendar | **implemented** — `_CALENDAR_CLAIM_RE` in `loop.py`, fourth instance of the Memory/Graph pattern |
+| Consent instance-scoping bug (write handlers checked the wildcard consent tier, but real OAuth grants consent scoped to the specific connected instance) | **found and fixed** during implementation — `_active_instance_id()` helper added |
+| `update_calendar_event` false-negative honesty bug (`reschedule_draft()` commits the local field patch unconditionally before any Google-side step; the handler's failure paths denied the update had happened at all, when it always had, locally) | **found live during Chrome QA and fixed** — both failure paths now return `status="partial"` with an accurate "saved locally, not confirmed on Google" message, mirroring `create_calendar_event`'s existing convention |
+| Keyword-based routing (`if "calendar"/"ricordami" in text`, `calendar_intent ==`) | **absent**, statically verified — `test_v`/`test_z` grep the production diff |
+| Timezone | **exclusively** via `timezone_service.resolve_user_timezone` — no new hardcoded `Europe/Rome` in the AI-native path |
+| Conflict awareness | **implemented** — bounded O(n²) overlap check inside `get_calendar_events`, capped at 20 events / 10 pairs; evidence only, no new scheduling engine, no Google FreeBusy call |
+| Canonical ref | `calendar:{draft_id}` for AI-managed events; `ingestion_events` remain read-only mirrors with `calendar_ref: None` — no legacy migration |
+| Calendar ↔ Situation/Plan/Goal relationship | **AI-proposed only**, via the existing V2.8.5 `context_graph_updates` channel with open predicates — never auto-created by the calendar tool |
+| Deterministic tests (A–Z + 1 live-QA-derived regression test) | **27/27 passed** — `conversation_engine/tests/test_ai_native_calendar_v286b.py` |
+| `conversation_engine/tests` full suite (excl. `_live.py`) | **339/339 passed, 0 errors** — verified both under the project's default `-n 2 --dist loadscope` and under `-n 0` |
+| `backend/tests/test_calendar_foundation_v286a.py` (V2.8.6a regression) | **22/22 passed** |
+| Calendar/connector regression (`test_iter9_ingestion_and_google_calendar`, `test_google_calendar_write_sync`, `test_iter18_apple_calendar_connector`, `test_oauth_loopback_hosts`) | **57/57 passed under `-n 0`**; the same 4-file combination shows pre-existing, non-deterministic pytest-xdist worker-sharing flakiness under the project's default `-n 2` config (14–16 spurious errors, varying run to run) — reproduced **without** any V2.8.6b file in the run, confirmed pre-existing and out of this sprint's scope |
+| `situations/life_memory/life_os/llm` | **44/44 passed** |
+| Provider Manager | **23/23 passed** (a real `GEMINI_API_KEY` was available this session, so the previously-skipped live-enrichment test ran and passed instead of skipping — not a regression) |
+| `compileall` / blocking lint (`flake8 --select=E9,F63,F7,F82`) / `git diff --check` | **all clean** |
+| Hardcoding audit (manual grep of the full diff for `calendar intent`/`reminder`/`appointment`/`meeting`/`domani`/`tomorrow`/`dentist`/`notaio`/`travel`/`study`/`work`/`medical`/`house`) | **clean** — the one match is prose guidance in `prompt.py` explicitly telling the AI never to route on those words, not a code branch |
+| Security audit (ownership scoping on every query, no raw Google payload/token/secret in any Observation, no broad delete, confirmation required, uncertainty blocks write) | **verified** — all four `calendar_event_drafts`/`ingestion_events` queries in `calendar_caps.py` are scoped by `user_id`; `test_w` asserts no token/secret substrings and a fixed payload-key whitelist |
+| Performance (no live Google call per turn, no new polling/cron, no mandatory second LLM call) | **verified** — `get_calendar_events` is local-only; writes are on-demand and rare |
+| **Provider-real eval** (5 scenarios: simple read, create-with-confirmation, correction, Situation-linked, arbitrary vague reminder) | **5/5 passed**, run serially (`-n 0`) — parallel xdist workers triggered transient `LLMNetworkError` connection contention against the live Gemini endpoint in this environment; isolated/serial runs were reliably clean. No real Google Calendar event was created, modified or cancelled by this eval (pure `_call_ai` reasoning-shape checks, no tool execution) |
+| **Chrome QA** | **executed**, in an isolated environment: a second backend instance on an alternate port (`CALENDAR_PROVIDER_MODE=fake`, process-env override only — the real `.env` file was never modified) and a dedicated throwaway account (`qa.calendar.v286b@ora.app`), fully cleaned up afterward. Covered: empty-calendar honest read, create-with-confirmation, consent-gating (honest `consent_required` message), create-partial honesty (Google not connected), correction/reschedule (found and fixed the false-negative honesty bug above, then re-verified live), cancel-with-confirmation. No real Google Calendar write occurred. One unrelated pre-existing console `409` was observed during account setup, before any Calendar-specific request; every Calendar-specific network call returned `200 OK` |
+| Real backend boot with the QA-mode instance | **PASS** — full index/module startup banner identical to V2.8.6a's, no regression |
+| No real Google/Apple call anywhere in this batch | **confirmed** — fake provider throughout deterministic tests and Chrome QA; provider-real eval never executes a tool handler |
+| Commit / push | **NO** — STOP for CPO review |
+
+## V2.8.6b — Final Pre-Commit Hardening Gate (this batch)
+
+**Status: two CPO-identified gaps closed — update on a cancelled event, and calendar.read
+revocation vs. cached Google events. No design reopened, no new feature, no Context Graph
+change, no FreeBusy, no reminder-architecture change, no UI change, no Google real writes.**
+
+| Item | Stato |
+|------|--------|
+| `update_calendar_event` on a cancelled event | **fixed** — explicit typed rejection (`status="rejected"`, `failure_kind="event_cancelled"`) before consent/Google, no DB mutation, no reactivation, no recreation, no exception reaches the reasoning loop |
+| `get_calendar_events` after `calendar.read` revocation | **fixed** — `source: "google_external"` items are now gated on `calendar.read` consent (previously ungated); `source: "ora_managed"` items remain visible regardless, per CPO decision |
+| Cached Google events survive revocation (not deleted) | **confirmed** — revocation only changes visibility, never touches `ingestion_events` |
+| Cross-user isolation on the read path | **confirmed** — unchanged, still scoped by `user_id` on every query |
+| No live Google call during read | **confirmed** — `_active_instance_id` resolves from local `connector_instances`, no network call |
+| Additional bug found and fixed while adding the CPO's read-policy tests | `get_calendar_events`'s default time window used the server's **naive local** `datetime.now()`; compared via lexicographic string range against event strings that are always UTC-aware, this could silently exclude real events depending on the server's timezone offset. Fixed to default to UTC-aware "now" |
+| `partial` semantics re-confirmed | Local success + Google sync unconfirmed → `status="partial"`, message says the local change was saved and Google is not confirmed — never "not moved", never "Google was updated" |
+| New deterministic tests | 7 added (1 cancelled-update + 6 read-policy A–F) — suite now **34/34 passed** |
+| `conversation_engine/tests` full suite (excl. `_live.py`) | **346/346 passed, 0 errors** |
+| `backend/tests/test_calendar_foundation_v286a.py` | **22/22 passed** |
+| Calendar/connector regression (serial, per the method already proven reliable) | **57/57 passed** |
+| `situations/life_memory/life_os/llm` | **44/44 passed** |
+| Provider Manager | **23/23 passed** |
+| `compileall` / `flake8 --select=E9,F63,F7,F82` / `git diff --check` | **all clean** |
+| Hardcoding audit on the changed file | **clean** — no new matches |
+| Security audit | **clean** — no token/secret in the file, all queries remain `user_id`-scoped, no broad delete, no consent bypass |
+| Provider-real eval repeated | **NO** — prompt, `CognitiveDecision`, tool descriptions and AI-facing semantics did not change in this gate (only runtime-side consent/validation logic) |
+| Chrome QA repeated | **NO** — no UI-visible behavior changed; the two fixes are runtime-internal (an error path and a consent gate), not reachable through a different observable flow than what was already verified live |
+| Commit / push | **NO** — STOP for CPO review |
+
+### Follow-up (non-blocking, not decided as requirements)
+
+1. The pre-existing pytest-xdist worker-sharing flakiness in `backend/tests/` (see regression row above) is unrelated to Calendar but was newly characterized this session — worth a dedicated fix in a future batch (likely: align the remaining `asyncio.get_event_loop()`-style tests in that directory to the `@pytest.mark.asyncio` convention already proven in `conversation_engine/tests/`).
+3. Google FreeBusy-based availability (as opposed to local-event-derived conflict detection) remains a documented, undecided future follow-up, not built in V1.

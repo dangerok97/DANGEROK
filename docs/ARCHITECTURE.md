@@ -700,3 +700,87 @@ did; `GoogleCalendarSyncService.reschedule_draft()` is the first canonical updat
 document-derived drafts; `connectors/google_calendar/consent.py` wraps the existing
 `PermissionService` for a future non-HTTP AI Core tool handler). The AI Core tool registry is
 unchanged — Calendar remains bounded, read-only evidence only until V2.8.6b.
+
+# V2.8.6b — AI-native Calendar Intelligence
+
+Calendar becomes an AI Core capability, not a second reasoning system: one new module
+`backend/conversation_engine/ai_core/tools/calendar_caps.py` wraps the V2.8.6a-hardened services
+(`CalendarGateway`/`InternalCalendarProvider`, `GoogleCalendarSyncService`, `timezone_service`,
+`connectors/google_calendar/consent.py`) behind four capabilities registered in the existing
+`ToolRegistry` — `get_calendar_events` (`READ_ONLY`), `create_calendar_event`,
+`update_calendar_event`, `cancel_calendar_event` (`REVERSIBLE_WRITE`, not
+`CONSEQUENTIAL_WRITE`, which would hard-block them unconditionally). No new orchestrator, no
+"CalendarFlow", no new confirmation UI, no new governance code, no new idempotency mechanism and
+no Context Graph changes were introduced — each of those already existed for a general-purpose
+reason and is reused as-is:
+
+- **Confirmation**: reuses the pre-existing `response_mode="act"` mechanism (propose → wait for
+  the user's next message → `response_mode="tool"`). No calendar-specific confirmation surface
+  exists or was needed.
+- **Governance**: reuses `_blocks_side_effect(uncertainty)`, which already applies to any
+  `REVERSIBLE_WRITE` tool call — a calendar write with blocking uncertainty is stripped and
+  downgraded to `answer` with zero calendar-specific governance code.
+- **Idempotency**: local-draft idempotency reuses `InternalCalendarProvider.create_from_candidate`'s
+  existing `(user_id, source_document_id, source_event_candidate_id)` keying, with
+  `source_document_id="ai_core_conversation"` and `source_event_candidate_id=f"epoch:{reasoning_epoch}"`
+  — a retried tool call for the same reasoning epoch never creates a duplicate local draft or
+  Google event (Google-side idempotency itself is the V2.8.6a `create_event` fix, unchanged here).
+- **Canonical ref**: AI-managed events use `calendar:{draft_id}` (`ced_...`), the same ref shape
+  the Context Broker's `_calendar` source and the Context Graph already recognized since V2.8.5.
+  Raw ingested Google events (`ingestion_events`, events the user already had before ORA touched
+  anything) are surfaced by `get_calendar_events` for conflict-awareness evidence only, with
+  `calendar_ref: None` — never directly actionable via update/cancel. No legacy-data migration.
+- **Persist-before-claim**: `loop.py` gets a fourth instance of the pattern first built for
+  Memory (V2.8.3) and Graph (V2.8.5) — `_CALENDAR_CLAIM_RE` detects the AI's own text claiming a
+  calendar write succeeded; if no matching `create/update/cancel_calendar_event` Observation with
+  `status="ok"` was actually confirmed this turn, a nudge Observation forces one honest re-entry,
+  and a second false claim is hard-replaced with an honest retry message.
+
+**Event vs Situation vs Plan vs Memory** is deliberately left to the AI's own judgment — the same
+judgment it already applies to Situation vs Memory vs Graph — never a hardcoded decision tree. A
+sentence with a time in it does not automatically become a calendar event, and "ricordami di X"
+does not automatically mean Calendar either; both are prompt-level guidance (`prompt.py`'s new
+"Calendar (temporal capability, V2.8.6b)" section), never a keyword-matched code branch
+(`if "calendar" in text` / `if "ricordami" in text` are explicitly absent and statically checked
+by `test_ai_native_calendar_v286b.py`'s `test_v`/`test_z`). Calendar's relationship to Situation,
+Plan and the Context Graph is likewise AI-proposed via the existing `context_graph_updates`
+channel (e.g. `situation → scheduled_as → calendar:ced_...`) using open predicates — the calendar
+tool itself never auto-creates that edge, a Life OS plan item is never auto-promoted to a
+calendar event, and a correction (e.g. "anzi il notaio è alle 10") updates the same event via its
+canonical ref rather than creating a duplicate.
+
+**Timezone**: every create/update resolves timezone exclusively through
+`timezone_service.resolve_user_timezone` (or an explicit AI-stated IANA zone), and every write
+Observation reports `{tz_name, authority}` back to the AI — no new hardcoded `Europe/Rome` was
+added to the AI-native path; the constant remains solely `timezone_service.py`'s own documented
+system-fallback default.
+
+**Conflict awareness**: `get_calendar_events` computes a bounded, deterministic O(n²) overlap
+check (capped at 20 events, ≤10 reported pairs) over the same bounded local window it already
+returns — evidence only, the AI decides whether an overlap matters. No new scheduling engine, no
+Google FreeBusy call (deferred as a documented future follow-up, not built in V1).
+
+**Preparation for Continuous Life Reasoning** (not implemented, path only): `new event → local
+draft (calendar_event_drafts) → canonical ref (calendar:ced_...) → Context Broker's existing
+`_calendar` source → AI-proposed Context Graph relation → future reasoning surfaces`. No
+background/proactive loop was added in this batch.
+
+**calendar.read revocation policy (V2.8.6b final hardening gate)**: `get_calendar_events` checks
+`calendar.read` consent before including any `source: "google_external"` item (the
+`ingestion_events` mirror of previously-imported Google events) — a revoked connector immediately
+stops that evidence from reaching the AI, even though the underlying documents are never deleted
+(revocation is a visibility change, not a destructive cleanup). `source: "ora_managed"` events
+(`calendar_event_drafts`, ORA's own local record) are unaffected by Google consent state — they
+remain visible as ORA's own commitment, with `source` already making that provenance explicit so
+they are never presented as current Google state. The payload carries `google_events_included`
+and, when `false`, a `google_events_note` explaining why to the AI, so it never claims the
+calendar is empty of Google commitments — it says access needs to be reauthorized instead. The
+default time window (when the AI passes neither `time_min` nor `time_max`) resolves to a
+UTC-aware "now", not the server's naive local clock — this was a pre-existing correctness gap
+(naive-vs-aware ISO string comparison can silently exclude real events depending on the server's
+local timezone offset) found while adding the tests above, fixed as part of the same batch.
+
+**update_calendar_event on a cancelled event**: rejected explicitly and typed
+(`status="rejected"`, `failure_kind="event_cancelled"`) before any consent check or Google call —
+never reactivated, never recreated, never silently redirected to a different event. The AI is
+told to ask the user rather than guess what they actually want.

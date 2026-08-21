@@ -50,6 +50,9 @@ MAX_WRITE_CALLS = 4
 MAX_OBJECT_GENERATIONS = 2
 MAX_SOURCES_UI = 5
 
+_CALENDAR_WRITE_CAPS = frozenset(
+    {"create_calendar_event", "update_calendar_event", "cancel_calendar_event"}
+)
 _WRITE_CAPS = frozenset(
     {
         "create_plan",
@@ -60,6 +63,7 @@ _WRITE_CAPS = frozenset(
         "record_object_interaction",
         "mark_plan_progress",
         "note_intention",
+        *_CALENDAR_WRITE_CAPS,
     }
 )
 # Durable Life OS objects — note_intention alone does NOT satisfy persist-before-claim.
@@ -99,6 +103,15 @@ _GRAPH_LINK_CLAIM_RE = re.compile(
     r"ho\s+creato\s+(un\s+)?collegamento|ho\s+messo\s+in\s+relazione|"
     r"i('|’)?ve\s+linked|i('|’)?ve\s+connected|"
     r"i('|’)?ve\s+related)\b"
+)
+_CALENDAR_CLAIM_RE = re.compile(
+    r"(?i)\b("
+    r"ho\s+(creato|aggiunto|inserito|messo|spostato|riprogrammato|cancellato|"
+    r"eliminato|rimosso)\b.{0,60}\bcalendario|"
+    r"(l'|lo\s+)?ho\s+(spostato|riprogrammato|cancellato|eliminato)\b.{0,40}\b(evento|impegno)|"
+    r"aggiunto\s+al\s+(tuo\s+)?calendario|"
+    r"i('|’)?ve\s+(created|added|scheduled|moved|rescheduled|cancel(l)?ed|deleted|removed)\b.{0,60}\b(calendar|event)"
+    r")\b"
 )
 _MEMORY_NOT_FOUND_CLAIM_RE = re.compile(
     r"(?i)\b(non\s+ho\s+trovato.{0,120}\bmemoria|"
@@ -273,6 +286,8 @@ async def run_cognitive_loop(
     memory_result_nudge_used = False
     graph_write_confirmed_this_turn = False
     graph_claim_nudge_used = False
+    calendar_write_confirmed_this_turn = False
+    calendar_claim_nudge_used = False
     clarification_attempts = {
         str(item.get("key")): int(item.get("attempts") or 0)
         for item in (st.get("clarification_history") or [])
@@ -811,6 +826,45 @@ async def run_cognitive_loop(
                 mode = "answer"
                 ora = _compose_user_text(decision)
                 add_step(trace, event="CONTEXT_GRAPH_CLAIM_BLOCKED_TERMINAL")
+            unconfirmed_calendar_claim = (
+                mode in ("answer", "finish", "act")
+                and not calendar_write_confirmed_this_turn
+                and _CALENDAR_CLAIM_RE.search(ora or "")
+            )
+            if (
+                unconfirmed_calendar_claim
+                and not calendar_claim_nudge_used
+                and step + 1 < max_steps
+            ):
+                calendar_claim_nudge_used = True
+                observations.append(
+                    Observation(
+                        kind="system",
+                        name="calendar_persist_before_claim",
+                        status="nudge",
+                        payload={
+                            "failure_code": "CALENDAR_PERSIST_REQUIRED",
+                            "reason": (
+                                "No successful calendar tool observation (status=ok) exists "
+                                "for this turn. If a calendar change is warranted, call the "
+                                "appropriate calendar capability and wait for its result. "
+                                "Otherwise answer without claiming an event was created, "
+                                "moved, or cancelled."
+                            ),
+                        },
+                    ).model_dump()
+                )
+                add_step(trace, event="CALENDAR_PERSIST_NUDGE")
+                continue
+            if unconfirmed_calendar_claim:
+                decision.message_to_user = (
+                    "Non sono riuscita a confermare questa modifica al calendario in questo "
+                    "momento. Possiamo riprovare."
+                )
+                decision.question = None
+                mode = "answer"
+                ora = _compose_user_text(decision)
+                add_step(trace, event="CALENDAR_CLAIM_BLOCKED_TERMINAL")
             if (
                 decision.situation_update
                 and decision.situation_update.operation != "none"
@@ -1256,6 +1310,10 @@ async def run_cognitive_loop(
             if cap in _WRITE_CAPS:
                 write_calls += 1
                 trace["write_calls"] = write_calls
+            if cap in _CALENDAR_WRITE_CAPS and (
+                obs.status == "ok" and (obs.payload or {}).get("status") == "ok"
+            ):
+                calendar_write_confirmed_this_turn = True
             if cap in _LIFE_OS_PERSIST_CAPS and (
                 obs.status in ("ok", "success")
                 or (obs.payload or {}).get("status") == "success"

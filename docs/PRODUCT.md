@@ -347,3 +347,21 @@ explicitly rather than the system silently picking a winner or silently keeping 
 never replaces Life Memory or the current-situation tracker — it only connects the things ORA
 already knows to each other, across sessions, without you needing to re-explain "that thing
 we talked about."
+
+# V2.8.6b — AI-native Calendar Intelligence
+
+ORA can now see your calendar and act on it — but it is a capability ORA reaches for when it
+matters, not a new assistant bolted onto the side. When you say "domani alle 18 devo chiamare
+Luca", ORA decides whether that belongs on your calendar, stays a passing note, or is really
+about the plan you're already tracking — the same judgment it already applies everywhere else,
+never a fixed rule like "any sentence with a time in it is an event." A vague "ricordami di
+chiamare la banca" with no real time attached usually isn't calendar-worthy on its own; ORA
+would rather ask or keep it conversational than invent a time for you.
+
+ORA never puts anything on your calendar, moves anything, or cancels anything without asking
+first and getting your confirmation on your next message — every write is a proposal until you
+say yes. If you correct yourself ("anzi il notaio è alle 10"), ORA updates the same appointment
+rather than creating a second one next to it. If two things on your calendar would overlap, ORA
+can notice and mention it — it never blocks you or forces a choice by itself. And ORA is honest
+about what it actually did: if a calendar connection isn't set up, or a sync to Google fails, it
+tells you plainly instead of claiming something happened that didn't.
