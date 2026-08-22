@@ -378,6 +378,16 @@ async def startup():
     except Exception:
         logger.exception("Impact Assessment indexes failed (non-fatal)")
 
+    # Attention Decisions — "SHOULD I SPEAK?" (V2.9.3). Explicitly invoked
+    # only: no worker, no cron, no polling, and no push is ever dispatched.
+    try:
+        from life_attention.service import AttentionService
+
+        await AttentionService(db).ensure_indexes()
+        logger.info("Attention Decision indexes ready")
+    except Exception:
+        logger.exception("Attention Decision indexes failed (non-fatal)")
+
     # AI Core ContextFile — session evidence refs (Documents V2 holds blobs)
     try:
         from conversation_engine.ai_core.files.service import ContextFileService

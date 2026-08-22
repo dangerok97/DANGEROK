@@ -682,6 +682,8 @@ async def test_s_assessment_carries_no_raw_conversation_text(monkeypatch):
             "relevance", "confidence", "requires_more_context", "next_step_kind",
             "reason_summary", "evidence_refs", "evidence_count", "batch_key",
             "status", "model_provider", "model_name", "created_at",
+            # V2.9.3 downstream lifecycle marker — a flag, not content.
+            "attention_status",
         }
         # Evidence is referenced, never copied into the store.
         assert isinstance(row["evidence_refs"], list)

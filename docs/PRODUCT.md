@@ -365,3 +365,27 @@ rather than creating a second one next to it. If two things on your calendar wou
 can notice and mention it — it never blocks you or forces a choice by itself. And ORA is honest
 about what it actually did: if a calendar connection isn't set up, or a sync to Google fails, it
 tells you plainly instead of claiming something happened that didn't.
+
+# V2.9.3 — ORA sceglie quando tacere
+
+ORA nota molto più di quanto dice. Quando qualcosa cambia nella tua vita, prova a capire cosa
+potrebbe significare — e poi, separatamente, decide se valga davvero la pena dirtelo.
+
+Quasi sempre la risposta giusta è: no. Un assistente che ti riferisce tutto quello che nota
+diventa rumore nel giro di una settimana, e ogni interruzione costa un po' della tua attenzione
+anche quando ha ragione. Per questo il silenzio non è un fallimento: è il comportamento normale.
+
+Quando invece qualcosa merita davvero, ORA sceglie il modo più discreto che funzioni. Nella
+maggior parte dei casi te lo lascia semplicemente nella Home, da vedere quando ci passi. Solo
+raramente ti fa una domanda — e solo se la tua risposta sblocca qualcosa di concreto, mai per
+curiosità. Non ti manda notifiche push: non ancora, e mai senza il tuo permesso esplicito.
+
+E anche quando ORA pensa che qualcosa sia importante, il sistema può decidere di abbassare la
+voce lo stesso: di notte, mentre sei dentro un impegno, se te ne ha già parlato di recente, o se
+è qualcosa che tendi a ignorare. La valutazione di quanto una cosa conti e il permesso di
+disturbarti restano due decisioni separate — e ORA parla solo quando sono d'accordo entrambe.
+
+Se ORA nota un'occasione per confrontare delle opzioni, il criterio è sempre e solo il tuo
+interesse: costo reale, qualità, affidabilità, come si incastra con i tuoi vincoli. Mai chi
+vende. E finché non glielo chiedi tu, non cerca nulla e non ti propone nomi di aziende o prezzi
+che non ha modo di conoscere.

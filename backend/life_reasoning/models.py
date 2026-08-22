@@ -69,6 +69,13 @@ NextStepKind = Literal[
 
 AssessmentStatus = Literal["complete", "insufficient_evidence"]
 
+# Downstream lifecycle marker (V2.9.3). Separate from `status`, which describes
+# the CONTENT of the reasoning: an assessment can be perfectly complete and
+# still be waiting for the attention pass to look at it. Documents written
+# before V2.9.3 simply lack the field, and a `$ne: "evaluated"` query treats
+# them as pending — so no migration is needed.
+AttentionStatus = Literal["pending", "evaluated"]
+
 MAX_IMPACTS = 8
 MAX_REFS = 12
 MAX_EVIDENCE_REFS = 6
@@ -166,6 +173,7 @@ class ImpactAssessment(BaseModel):
     # Stable batch identity; unique sparse index enforces idempotency.
     batch_key: str = Field(max_length=64)
     status: AssessmentStatus = "complete"
+    attention_status: AttentionStatus = "pending"
 
     # Bounded provenance for audit — provider/model name only, no payload.
     model_provider: Optional[str] = Field(default=None, max_length=40)

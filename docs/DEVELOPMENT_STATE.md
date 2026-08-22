@@ -1099,3 +1099,53 @@ message, no tool execution. "SHOULD I SPEAK?" is V2.9.3.**
 3. **Assessment retention/supersession** — assessments about the same `focal_refs` accumulate; a supersession or compaction rule should be decided once V2.9.3 defines what "still relevant" means.
 4. **Concurrency** — `run_pass` is safe to replay (the unique `batch_key` index prevents duplicates) but two concurrent passes for the same user can both spend a reasoning call before one loses the race; a claim/lease becomes worthwhile only when a scheduler exists.
 5. **Documents emission boundary** — still deferred from V2.9.1; documents already reachable through the Context Broker can serve as evidence, but no Documents mutation emits a signal yet.
+
+## V2.9.3 — Attention & Intervention Intelligence ("SHOULD I SPEAK?") (this batch)
+
+**Status: the three-question sequence is complete. V2.9.3 decides whether reasoning is worth the
+user's attention and through which surface. Silence is a first-class outcome; the deterministic
+system gate can only ever make the result quieter; nothing is ever pushed.**
+
+| Item | Stato |
+|------|--------|
+| New module `backend/life_attention/` (`models.py`, `repository.py`, `prompt.py`, `context.py`, `gate.py`, `service.py`) | **created** — follows the `life_signals/`/`life_reasoning/` convention |
+| New collection `life_attention_decisions` | **created** — indexes `(user_id,id)` unique, `(user_id,decision_key)` unique+sparse, `(user_id,created_at desc)`, `(user_id,focal_refs)`, `(user_id,delivery,defer_until)`; registered in `server.py` startup |
+| Consumer | **explicitly invoked** (`AttentionService.run_pass(user_id)`) — no worker, cron, scheduler or polling |
+| Relevance ≠ permission | `ai_delivery` (model) and `delivery` (system) are separate persisted fields; **only `delivery` is acted on** |
+| System gate one-way property | **enforced and asserted for every possible model choice** — a downgrade may only move quieter along silent ← defer ← home ← ask_user ← propose_action ← notify |
+| Silence | **first-class** — `silent` decisions persisted; zero suggestions created (test B/M) |
+| Safety not in the prompt | the model is **not shown** `notifications_allowed`, `quiet_hours`, `likely_sleep`, `interruption_cost`, `user_dismiss_rate` (test X2) |
+| Interruption cost | **deterministic** — resolved clock via `timezone_service`, real calendar time-overlap, measured suggestion volume, recorded dismissal history. Never inferred from calendar titles |
+| Proactive Engine integration | `regenerate` refactored by **extraction** into `submit_candidates`, shared by legacy generators and the AI-native path — identical scoring, gate, dedupe, learning, notification policy. No second pipeline |
+| Legacy generators | **untouched**, coexisting; the 232-test Proactive Engine suite is unchanged |
+| Pre-existing scoring ceiling | **found and fixed** — `generic` candidates need 0.55 but importance/urgency/confidence alone cap at ~0.54 without a deadline or goal link (which every legacy generator happens to have, hiding it). Added one optional domain-neutral `quality_hint`; legacy leaves it `None` and scores identically |
+| Dedupe vs legacy | **ref-based**, never fuzzy title — one user-facing item per entity (test Q) |
+| Push dispatch | **structurally impossible** — the reused notification policy never returns `send_now` (test T) |
+| Tool execution | **none** — `ask_user`/`propose_action` write nothing anywhere (tests R/S) |
+| Learning | bounded — repeated dismissal downgrades to Home, never a permanent blacklist (test H2); a first-time user gets a neutral multiplier (test I) |
+| Home surfacing | reuses the existing suggestion model and card; AI-native items distinguishable by `source="life_reasoning"`, verified through `home_suggestions()` |
+| V2.9.3 tests | **37/37 passed** |
+| `conversation_engine/tests` (excl. `_live.py`) | **450/450 passed, 0 errors** |
+| V2.9.2 / V2.9.1 | **35/35** / **32/32 passed** |
+| Context Broker V3 | **11/11 passed** |
+| Context Graph + Situation + Memory | **67/67 passed** |
+| Calendar V2.8.6b / V2.8.6a | **34/34** / **22/22 passed** |
+| `situations`/`life_memory`/`life_os`/`llm` | **44/44 passed** |
+| Calendar connector legacy (`-n 0`) | **57/57 passed** |
+| Provider Manager | **23/23 passed** |
+| **Proactive Engine (module touched — full regression)** | **232/232 passed** |
+| `compileall` / `flake8 --select=E9,F63,F7,F82` / `git diff --check` | **all clean** |
+| Hardcoding audit | **clean** — zero domain terms in executable code |
+| Security audit | **clean** — every query user-scoped, no secret/token/`.env`, no delete, no push dispatch, no tool execution, no external call beyond the LLM provider |
+| **Provider-real eval** | **6/6 passed** against real Gemini via Provider Manager — high value not silent, low value silent, speculative never pushed, missing-information can justify asking, opportunity surfaced vendor-neutrally, and the system gate demonstrably overruling the model |
+| Chrome QA | see the report — conditional requirement, environment actively in use |
+| Commit / push | **NO** — STOP for CPO review |
+
+### Follow-up recommended for V2.9.4 (non-blocking, deliberately not built)
+
+1. **Deferred decision re-evaluation** — `defer_until` is persisted and indexed but nothing re-reads it yet; a re-evaluation path belongs with whatever eventually schedules passes.
+2. **Actual delivery** — `notify` currently resolves to a Home item with a deferred batch window; a real push channel needs its own consent flow, transport and rate policy.
+3. **Continuous orchestration** — signals → reasoning → attention are three explicitly-invoked passes; nothing chains them automatically yet. This is the natural place for the scheduler all three sprints deliberately avoided.
+4. **Claiming/lease** — replay is safe (unique `decision_key`), but two concurrent passes for one user can both spend a call before one loses the race.
+5. **Assessment/decision retention** — both stores accumulate; a compaction rule should follow once re-evaluation semantics exist.
+6. **Legacy `likely_driving` heuristic** — still governs the legacy path only; worth replacing with a real activity signal rather than calendar-title keywords if that path is ever modernised.

@@ -55,6 +55,43 @@ class ProactiveEngineService:
         existing_keys = await self.repo.active_dedupe_keys(user_id)
         candidates = filter_duplicate_candidates(candidates, existing_keys)
 
+        created, rejected = await self.submit_candidates(user_id, candidates, now=now)
+        return {
+            "ok": True,
+            "enabled": True,
+            "created": len(created),
+            "rejected": len(rejected),
+            "rejected_samples": rejected[:12],
+            "suggestions": [s.public() for s in created],
+        }
+
+    async def submit_candidates(
+        self,
+        user_id: str,
+        candidates: List[Any],
+        *,
+        now: Optional[datetime] = None,
+        quiet_hours_override: Optional[bool] = None,
+        likely_sleep_override: Optional[bool] = None,
+        infer_activity_from_titles: bool = True,
+    ) -> tuple:
+        """Score → gate → persist a list of candidates. Returns (created, rejected).
+
+        Extracted from `regenerate` so BOTH the legacy domain generators and the
+        V2.9.3 AI-native attention path run through the identical scoring, gate,
+        dedupe, learning and notification policy — there is deliberately no second
+        pipeline, and no way for one path to skip a check the other honours.
+
+        The three optional arguments exist only for the AI-native caller:
+        `quiet_hours_override`/`likely_sleep_override` let it supply values
+        resolved through `timezone_service` instead of the gate's fixed
+        Europe/Rome approximation, and `infer_activity_from_titles=False`
+        disables the legacy "is the user driving?" keyword heuristic, which
+        must not govern the AI-native path. Defaults reproduce legacy behaviour
+        exactly.
+        """
+        now = now or datetime.now(timezone.utc)
+
         # Observation context for gate
         study_sessions = await self.db.study_sessions.find(
             {"user_id": user_id, "status": {"$in": ["planned", "in_progress"]}},
@@ -129,6 +166,14 @@ class ProactiveEngineService:
                 study_sessions=study_sessions,
                 learning_dismiss_rate=dismiss_rate,
             )
+            if quiet_hours_override is not None:
+                ctx.quiet_hours = bool(quiet_hours_override)
+            if likely_sleep_override is not None:
+                ctx.likely_sleep = bool(likely_sleep_override)
+            if not infer_activity_from_titles:
+                # Occupancy stays real (time overlap); only the title-keyword
+                # guess about WHAT the user is doing is dropped.
+                ctx.likely_driving = False
             gate = would_assistant_speak(
                 cand, score=score, confidence=cand.confidence, ctx=ctx,
             )
@@ -194,14 +239,7 @@ class ProactiveEngineService:
             created.append(sug)
             active.append(sug)
 
-        return {
-            "ok": True,
-            "enabled": True,
-            "created": len(created),
-            "rejected": len(rejected),
-            "rejected_samples": rejected[:12],
-            "suggestions": [s.public() for s in created],
-        }
+        return created, rejected
 
     async def list_suggestions(
         self,

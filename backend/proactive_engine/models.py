@@ -105,6 +105,12 @@ class SuggestionCandidate(BaseModel):
     importance_hint: float = 0.5
     urgency_hint: float = 0.5
     confidence: float = 0.7
+    # Optional, domain-neutral quality signal from the emitting layer: how
+    # actionable and novel it judged this item to be. Sits beside the other
+    # hints because it is the same kind of thing — a claim the scorer weighs,
+    # not a permission. Legacy generators leave it None and score exactly as
+    # they did before it existed.
+    quality_hint: Optional[float] = None
     evidence: Dict[str, Any] = Field(default_factory=dict)
     meta: Dict[str, Any] = Field(default_factory=dict)
 

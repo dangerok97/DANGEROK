@@ -261,3 +261,53 @@ life", never "how much I want to interrupt them". The contract has no field for 
 timing or urgency of interruption, because the moment reasoning is allowed to decide its own
 audibility, a Life OS becomes a notification machine. Whether any of this is worth saying is
 V2.9.3's question, and keeping it a separate question is what keeps the answer honest.
+
+# V2.9.3 — Attention: the right to stay quiet
+
+The three questions are now complete, and the last one is the one that decides what kind of
+product ORA is:
+
+| Sprint | Question | Owner |
+|--------|----------|-------|
+| V2.9.1 | WHAT CHANGED? | deterministic runtime |
+| V2.9.2 | SO WHAT? | AI reasoning over bounded context |
+| V2.9.3 | SHOULD I SPEAK? | AI judgement **and** deterministic system permission |
+
+An assistant that says everything it notices is worse than one that notices less. V2.9.2 can
+easily produce ten consequences from a single afternoon; mentioning ten would be indistinguishable
+from spam, and each one spends a little of the user's trust whether or not it was accurate.
+So the first-class outcome of this layer is **silence** — the prompt opens by saying so, and the
+model is told not to look for a reason to speak but for a reason the user would be glad it did.
+
+**Relevance is not permission.** This is the distinction the whole sprint exists to enforce.
+Something can be true, well-reasoned, genuinely important — and still not something to say at
+11pm, or for the fourth time, or to someone who has dismissed the last three like it. The model
+judges worth; a deterministic gate judges admissibility; and the gate can only ever make the
+result quieter. Recording both `ai_delivery` and `delivery` makes every downgrade auditable, and
+makes it impossible to later mistake "the model wanted to speak" for "ORA was allowed to".
+
+**Safety is deliberately not in the prompt.** The model is not asked whether the user is asleep,
+busy, or over-messaged — it is not even shown those facts. The moment "is the user asleep?"
+becomes a prompt question it becomes negotiable, and a sufficiently confident model will
+negotiate. Quiet hours resolve through the user's real timezone; occupancy comes from actual
+calendar overlap; volume and dismissal come from what already happened. None of it is inferred
+from what a calendar entry is *called*: knowing someone is busy is honest, guessing they are
+driving from the word "guida" is not, and being wrong about the second is worse than not knowing.
+
+**Learning is bounded on purpose.** Repeated dismissal raises the bar and lowers the surface —
+it never becomes "never mention this again". A user who ignores something today may need it next
+month, and an assistant that permanently silences a topic after three dismissals has quietly
+replaced the user's judgement with its own.
+
+**Asking is expensive too.** A proactive question is an interruption that also demands work from
+the user, so `ask_user` is reserved for a specific missing piece that would genuinely unblock
+something — never curiosity, never something ORA could look up, never a question whose answer
+changes nothing. The provider-real gate tests exactly this: an abstract "something is missing"
+correctly stays silent, and only a concrete near-term blocker the user alone can clear earns a
+question.
+
+**Nothing here speaks by itself.** A permitted decision becomes a candidate for the Proactive
+Engine that already existed, and must still pass its scoring, its dedupe, its rate limits and its
+"would a real assistant speak up?" test. Two independent judgements — the model's about worth and
+the system's about admissibility — must agree before a single user-facing item appears. That
+conjunction, not either half alone, is what keeps a Life OS from becoming a notification machine.

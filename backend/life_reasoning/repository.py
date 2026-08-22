@@ -33,6 +33,10 @@ class ImpactAssessmentRepository:
         await self.col.create_index([("user_id", 1), ("created_at", -1)])
         # Continuity: "what did we already conclude about this ref?"
         await self.col.create_index([("user_id", 1), ("focal_refs", 1)])
+        # The V2.9.3 attention pass read path: assessments not yet evaluated.
+        await self.col.create_index(
+            [("user_id", 1), ("attention_status", 1), ("created_at", 1), ("id", 1)]
+        )
 
     async def insert(self, assessment: ImpactAssessment) -> None:
         try:
@@ -76,6 +80,39 @@ class ImpactAssessmentRepository:
         )
         docs = await cur.to_list(capped)
         return [ImpactAssessment.model_validate(d) for d in docs]
+
+    async def list_awaiting_attention(
+        self, user_id: str, *, limit: int = 5
+    ) -> List[ImpactAssessment]:
+        """Assessments the V2.9.3 attention pass has not evaluated yet.
+
+        `$ne: "evaluated"` deliberately also matches documents written before
+        the field existed, so no backfill is required.
+        """
+        capped = max(1, min(int(limit or 5), 25))
+        cur = (
+            self.col.find(
+                {"user_id": user_id, "attention_status": {"$ne": "evaluated"}},
+                {"_id": 0},
+            )
+            .sort([("created_at", 1), ("id", 1)])
+            .limit(capped)
+        )
+        docs = await cur.to_list(capped)
+        return [ImpactAssessment.model_validate(d) for d in docs]
+
+    async def mark_attention_evaluated(
+        self, user_id: str, assessment_ids: List[str]
+    ) -> int:
+        """Marks assessments consumed by the attention pass. Touches ONLY the
+        lifecycle field — never the reasoning content."""
+        if not assessment_ids:
+            return 0
+        result = await self.col.update_many(
+            {"user_id": user_id, "id": {"$in": list(assessment_ids)[:50]}},
+            {"$set": {"attention_status": "evaluated"}},
+        )
+        return int(getattr(result, "modified_count", 0))
 
     async def count(self, user_id: str) -> int:
         return await self.col.count_documents({"user_id": user_id})
