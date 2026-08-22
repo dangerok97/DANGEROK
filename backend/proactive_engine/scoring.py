@@ -35,6 +35,14 @@ def score_candidate(
     """Return (score, importance, urgency, factors).
 
     Weights are fixed and explainable. Learning multiplier is bounded.
+
+    `cand.quality_hint`, when supplied, contributes one additional bounded and
+    explainable factor. It exists because importance/urgency/confidence alone
+    top out around 0.54 for a candidate carrying neither a deadline nor a goal
+    link — below the 0.55 "assistant test" floor a generic candidate must
+    clear. Every legacy generator happens to carry one or the other, so the
+    ceiling was invisible until a source emitted neither. Leaving it None
+    reproduces the previous behaviour exactly.
     """
     now = now or datetime.now(timezone.utc)
     factors: List[ScoreFactor] = []
@@ -137,6 +145,16 @@ def score_candidate(
         code="type_base", label=f"Tipo {cand.type}", weight=type_w, value=type_w,
     ))
 
+    # Candidate-supplied quality (general-purpose: actionability/novelty as
+    # judged by whichever layer produced this candidate). Never domain-derived.
+    quality: Optional[float] = None
+    if getattr(cand, "quality_hint", None) is not None:
+        quality = _clamp(cand.quality_hint)
+        factors.append(ScoreFactor(
+            code="candidate_quality", label="Qualità del candidato",
+            weight=0.12, value=quality,
+        ))
+
     factors.append(ScoreFactor(
         code="confidence", label="Confidenza evidenza", weight=0.1, value=confidence,
     ))
@@ -155,6 +173,7 @@ def score_candidate(
         + sum(f.weight * f.value for f in factors if f.code.startswith("deadline")) * 0.15
         + (0.08 if goal else 0.0)
         + (0.05 if brain_ctx and brain_ctx.get("node_id") else 0.0)
+        + (0.12 * quality if quality is not None else 0.0)
     )
     # Normalize roughly into 0–1
     score = _clamp(base)

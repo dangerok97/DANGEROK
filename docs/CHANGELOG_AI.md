@@ -1,5 +1,40 @@
 # ORA — AI Changelog
 
+## 2026-08-22 — V2.9.3 Attention & Intervention Intelligence ("SHOULD I SPEAK?")
+
+- Added `backend/life_attention/` and the `life_attention_decisions` collection: an internal
+  delivery decision over V2.9.2's assessments, completing WHAT CHANGED? → SO WHAT? → SHOULD I SPEAK?
+- **Silence is a first-class outcome.** An assessment reaching this layer does not imply a
+  suggestion; `silent` decisions are still persisted so the next pass does not re-evaluate them
+  and so "why did ORA stay quiet?" stays answerable.
+- **Relevance ≠ permission.** `ai_delivery` (what the model judged) and `delivery` (what the
+  system permits) are separate fields; only `delivery` is acted on. The deterministic gate can
+  only ever move the outcome quieter along silent ← defer ← home ← ask_user ← propose_action ←
+  notify, asserted for every possible model choice.
+- Safety is never delegated to the prompt: the model is not shown `notifications_allowed`,
+  `quiet_hours`, `likely_sleep`, `interruption_cost` or `user_dismiss_rate`, so it cannot reason
+  around them. Interruption cost is computed from the resolved clock, real calendar overlap,
+  measured suggestion volume and recorded dismissal history.
+- **No second Proactive Engine.** `ProactiveEngineService.regenerate` was refactored by
+  extraction into `submit_candidates`, now shared by the legacy domain generators and the
+  AI-native path — identical scoring, gate, dedupe, learning and notification policy for both.
+  Legacy generators untouched; the 232-test suite is unchanged.
+- The AI-native path resolves quiet hours through `timezone_service` instead of the gate's fixed
+  Europe/Rome approximation, and disables the legacy calendar-title "is the user driving?"
+  keyword guess. Real time-overlap occupancy still applies.
+- **Fixed a pre-existing scoring ceiling** found while integrating: `would_assistant_speak`
+  requires a `generic` candidate to reach 0.55, but importance/urgency/confidence alone top out
+  at ~0.54 without a deadline or goal link — which every legacy generator happens to have, hiding
+  the ceiling. Added one optional domain-neutral `quality_hint` (actionability/novelty) as a
+  bounded explainable factor; legacy leaves it `None` and scores exactly as before.
+- Dedupe against legacy items is ref-based (canonical refs and legacy entity-id columns), never
+  fuzzy title matching — one user-facing item per entity.
+- Nothing is dispatched: the reused notification policy structurally never returns `send_now`, so
+  `notify` yields a Home item with a deferred batch window. No tool execution, no push, no worker,
+  no cron, no polling.
+- Added 37 deterministic tests plus a 6-scenario provider-real gate against real Gemini
+  (high value, low value, speculative, missing-information, opportunity, and system-overrules-model).
+
 ## 2026-08-21 — V2.9.2 AI-native Impact Reasoning ("SO WHAT?")
 
 - Added `backend/life_reasoning/` and the `life_impact_assessments` collection: structured

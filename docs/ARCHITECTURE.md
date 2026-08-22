@@ -948,3 +948,73 @@ criteria that matter *for this user* — total cost, quality, reliability, fit, 
 preferences — while optimising for the user's interest and never for whoever might be selling. It
 must never name a company, product, vendor, brand or offer, and never invent a price or a rate:
 V2.9.2 searches for nothing and must not imply that it has.
+
+# V2.9.3 — Attention & Intervention Intelligence ("SHOULD I SPEAK?")
+
+New module `backend/life_attention/` (`models.py`, `repository.py`, `prompt.py`, `context.py`,
+`gate.py`, `service.py`), collection `life_attention_decisions`. It consumes V2.9.2's assessments
+and closes the three-question sequence:
+
+```
+V2.9.1  WHAT CHANGED?      deterministic runtime
+V2.9.2  SO WHAT?           AI reasoning over bounded context
+V2.9.3  SHOULD I SPEAK?    AI judgement + deterministic system permission   ← this batch
+```
+
+**The central separation is between relevance and permission.** V2.9.2 can conclude that
+something matters; that is not the same as being allowed to say it. V2.9.3 keeps the two
+authorities in separate fields and never merges them:
+
+- `ai_delivery` — what the model judged would help, kept verbatim even when overruled.
+- `delivery` — what the deterministic gate permits. **This is the only field anything acts on.**
+
+`life_attention/gate.py` can only ever move the outcome QUIETER along
+`silent ← defer ← home ← ask_user ← propose_action ← notify`; a test asserts the one-way property
+across every possible model choice. That is what makes it structurally impossible for a prompt —
+or a model output — to grant ORA permission to interrupt someone.
+
+**Silence is a first-class outcome.** An assessment reaching this layer does not imply a
+suggestion. `silent` decisions are still persisted, deliberately: a decision *not* to speak is
+what stops the next pass re-evaluating the same conclusions, and it is what makes "why did ORA
+stay quiet?" an answerable question.
+
+**Safety is never delegated to the prompt.** The model is told explicitly that it does *not*
+decide whether the user is asleep, busy, has notifications enabled, or has already been told
+this. It is not even shown those facts (`prompt_view` withholds `notifications_allowed`,
+`quiet_hours`, `likely_sleep`, `interruption_cost` and `user_dismiss_rate`), so it cannot reason
+around them. Interruption cost is computed deterministically from the resolved clock, real
+calendar overlap, measured suggestion volume and recorded dismissal history.
+
+**No second Proactive Engine was built.** A permitted decision becomes a `SuggestionCandidate`
+and goes through the *existing* pipeline. `ProactiveEngineService.regenerate` was refactored by
+extraction into `submit_candidates`, which both the legacy domain generators and the AI-native
+path now call — so scoring, the `would_assistant_speak` gate, dedupe, learning and the
+notification policy apply identically to both, and neither path can skip a check the other
+honours. Legacy generators are untouched and coexist.
+
+Three arguments exist on `submit_candidates` solely for the AI-native caller, all defaulting to
+legacy behaviour: `quiet_hours_override`/`likely_sleep_override` supply values resolved through
+`timezone_service` instead of the gate's fixed Europe/Rome approximation, and
+`infer_activity_from_titles=False` disables the legacy "is the user driving?" calendar-title
+keyword guess. Real occupancy still applies — the AI-native path knows the user is *busy*, and
+declines to guess *what at*.
+
+**A scoring ceiling was found and fixed.** `would_assistant_speak` requires a `generic` candidate
+to reach 0.55, but importance/urgency/confidence alone top out at ~0.54 for a candidate carrying
+neither a deadline nor a goal link. Every legacy generator happens to carry one or the other, so
+the ceiling was invisible until a source emitted neither — it made the AI-native path effectively
+unable to surface anything short of a perfect 1.0/1.0/1.0. The fix is one optional, domain-neutral
+`quality_hint` on `SuggestionCandidate` (actionability and novelty, as judged by the emitting
+layer), contributing a bounded explainable factor. Legacy generators leave it `None` and score
+exactly as before, verified by the unchanged 232-test Proactive Engine suite.
+
+**Dedupe is ref-based, not fuzzy.** Before submitting, the pass checks active suggestions —
+legacy included — for overlapping canonical refs, comparing `meta.focal_refs` and the legacy
+entity-id columns. Two items about the same entity are the same interruption to the person
+reading them, however differently they are worded.
+
+**Nothing is dispatched.** The reused notification policy structurally never returns
+`send_now=True`, so a `notify` decision produces a Home item with a deferred batch window, never
+a push. No tool is executed, no Plan/Calendar/Memory/Graph is written, and there is no worker,
+cron, scheduler or polling: `AttentionService.run_pass(user_id)` is explicitly invoked, and a
+user with no pending assessments returns before any context load or reasoning call.
