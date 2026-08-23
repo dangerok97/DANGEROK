@@ -378,8 +378,8 @@ async def startup():
     except Exception:
         logger.exception("Impact Assessment indexes failed (non-fatal)")
 
-    # Attention Decisions — "SHOULD I SPEAK?" (V2.9.3). Explicitly invoked
-    # only: no worker, no cron, no polling, and no push is ever dispatched.
+    # Attention Decisions — "SHOULD I SPEAK?" (V2.9.3). No push is ever
+    # dispatched; delivery stops at a Home suggestion.
     try:
         from life_attention.service import AttentionService
 
@@ -387,6 +387,22 @@ async def startup():
         logger.info("Attention Decision indexes ready")
     except Exception:
         logger.exception("Attention Decision indexes failed (non-fatal)")
+
+    # Continuous Life Reasoning orchestration (V2.9.4). Event-driven: the
+    # worker blocks on an in-process queue and only wakes when a life mutation
+    # actually emits a signal. No cron, no polling, no AI call at startup —
+    # recovery is a single bounded sweep scheduled a few seconds after boot.
+    try:
+        from life_orchestration.scheduler import start_orchestrator
+        from life_orchestration.service import OrchestrationService
+
+        await OrchestrationService(db).ensure_indexes()
+        if start_orchestrator():
+            logger.info("Life orchestration worker started")
+        else:
+            logger.info("Life orchestration disabled or already running")
+    except Exception:
+        logger.exception("Life orchestration startup failed (non-fatal)")
 
     # AI Core ContextFile — session evidence refs (Documents V2 holds blobs)
     try:
@@ -424,6 +440,14 @@ async def startup():
 
 @app.on_event("shutdown")
 async def shutdown():
+    # Cancel the orchestration worker without draining it: anything queued is
+    # still pending in Mongo, so cancelling loses no work — only latency.
+    try:
+        from life_orchestration.scheduler import stop_orchestrator
+
+        await stop_orchestrator()
+    except Exception:
+        logger.exception("Life orchestration shutdown failed (non-fatal)")
     client.close()
 
 

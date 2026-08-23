@@ -92,6 +92,110 @@ class AttentionDecisionRepository:
             }},
         )
 
+    async def list_due_deferred(
+        self, user_id: str, *, now_iso: str, limit: int = 10
+    ) -> List[AttentionDecision]:
+        """Deferrals whose moment has arrived and that are still the CURRENT
+        decision of their chain.
+
+        `superseded_by: None` is the load-bearing filter: an older revision
+        that has already been reconsidered must never be reconsidered again,
+        or a chain would fan out instead of advancing. Uses the
+        `(user_id, delivery, defer_until)` index created in V2.9.3.
+        """
+        capped = max(1, min(int(limit or 10), 25))
+        cur = (
+            self.col.find(
+                {
+                    "user_id": user_id,
+                    "delivery": "defer",
+                    "defer_until": {"$ne": None, "$lte": now_iso},
+                    "superseded_by": None,
+                    "auto_re_evaluation_exhausted": {"$ne": True},
+                },
+                {"_id": 0},
+            )
+            .sort([("defer_until", 1), ("id", 1)])
+            .limit(capped)
+        )
+        docs = await cur.to_list(capped)
+        return [AttentionDecision.model_validate(d) for d in docs]
+
+    async def latest_for_root(
+        self, user_id: str, root_attention_key: str
+    ) -> Optional[AttentionDecision]:
+        """The current decision of a chain: the highest revision that nothing
+        has superseded."""
+        doc = await self.col.find_one(
+            {"user_id": user_id, "root_attention_key": root_attention_key},
+            {"_id": 0},
+            sort=[("attention_revision", -1)],
+        )
+        return AttentionDecision.model_validate(doc) if doc else None
+
+    async def chain_for_root(
+        self, user_id: str, root_attention_key: str, *, limit: int = 10
+    ) -> List[AttentionDecision]:
+        """Full history of one attention question, oldest revision first.
+        Nothing is ever deleted, so this is the audit trail."""
+        capped = max(1, min(int(limit or 10), 25))
+        cur = (
+            self.col.find(
+                {"user_id": user_id, "root_attention_key": root_attention_key},
+                {"_id": 0},
+            )
+            .sort([("attention_revision", 1)])
+            .limit(capped)
+        )
+        docs = await cur.to_list(capped)
+        return [AttentionDecision.model_validate(d) for d in docs]
+
+    async def mark_superseded(
+        self, user_id: str, decision_id: str, *, superseded_by: str
+    ) -> int:
+        """Record that a newer revision replaced this one.
+
+        Non-destructive by design: the decision keeps its delivery, its
+        reasoning and its scores, and only learns what replaced it. Called
+        ONLY after the replacement is durably persisted.
+        """
+        result = await self.col.update_one(
+            {"user_id": user_id, "id": decision_id},
+            {"$set": {"superseded_by": superseded_by, "defer_status": "due"}},
+        )
+        return int(getattr(result, "modified_count", 0))
+
+    async def mark_budget_exhausted(self, user_id: str, decision_id: str) -> int:
+        """Flag that no further AUTOMATIC re-evaluation will be spent on this
+        chain. Deliberately does not touch `delivery`: the decision stays
+        whatever the AI last decided."""
+        result = await self.col.update_one(
+            {"user_id": user_id, "id": decision_id},
+            {"$set": {"auto_re_evaluation_exhausted": True}},
+        )
+        return int(getattr(result, "modified_count", 0))
+
+    async def earliest_pending_defer(self, user_id: str) -> Optional[str]:
+        """`defer_until` of the soonest still-current deferral — lets a single
+        one-shot timer replace any need to wake up and look.
+
+        Restricted to chains that are current and still have automatic budget,
+        so an exhausted or superseded deferral never arms a timer that would
+        do nothing.
+        """
+        doc = await self.col.find_one(
+            {
+                "user_id": user_id,
+                "delivery": "defer",
+                "defer_until": {"$ne": None},
+                "superseded_by": None,
+                "auto_re_evaluation_exhausted": {"$ne": True},
+            },
+            {"_id": 0, "defer_until": 1},
+            sort=[("defer_until", 1)],
+        )
+        return (doc or {}).get("defer_until")
+
     async def count(self, user_id: str) -> int:
         return await self.col.count_documents({"user_id": user_id})
 

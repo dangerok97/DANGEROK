@@ -764,6 +764,13 @@ async def test_x_decision_carries_no_raw_user_text(monkeypatch):
             "reason_summary", "proposed_title", "evidence_refs", "defer_until",
             "suggestion_id", "suggestion_created", "gate_reasons",
             "decision_key", "model_provider", "model_name", "created_at",
+            # V2.9.4 deferral lifecycle marker — a flag, not content.
+            "defer_status",
+            # V2.9.4 hardening: reconsideration chain identity/bookkeeping —
+            # ids, an integer revision and two booleans, never content.
+            "root_attention_key", "attention_revision",
+            "supersedes_decision_id", "superseded_by",
+            "automatic_re_evaluations_used", "auto_re_evaluation_exhausted",
         }
         # Evidence by ref only.
         assert isinstance(row["evidence_refs"], list)

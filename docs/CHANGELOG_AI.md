@@ -1,5 +1,104 @@
 # ORA — AI Changelog
 
+## 2026-08-23 — V2.9.4 Startup recovery completeness (bounded batches, not truncated recovery)
+
+- Fixed a real bug in the timer-durability recovery added the previous day: `recover_pending()`
+  read each recovery category (pending signals, pending assessments, due deferrals, future
+  deferrals) with a SINGLE capped query. A boot with more matching records than the cap (default
+  50) silently dropped the rest — a 51st user with a future deferral got no timer rebuilt for it,
+  and stayed orphaned until unrelated activity or a lucky later boot.
+- Added `OrchestrationService.iter_users_with_pending_signals` /
+  `iter_users_with_pending_assessments` / `iter_users_with_due_deferrals` /
+  `iter_users_with_future_deferrals` — bounded, `_id`-cursor-paginated generators that walk their
+  collection to exhaustion, one indexed batch at a time, never re-reading a document. The existing
+  single-call `users_with_*` methods are unchanged and still used for cheap existence checks.
+- `recover_pending()` now drives these generators to completion, yielding `await asyncio.sleep(0)`
+  between pages — a cooperative event-loop yield, not a wait, so a large backlog costs time rather
+  than blocking anything else, and is not polling by the same structural test the rest of V2.9.4
+  already applies (it never waits for a duration or re-queries "did anything change?").
+- New observability counters: `recovery_batches`, `future_deferrals_rearmed`.
+- Documented explicitly: Mongo is the durable source of truth; process-local timers are ephemeral
+  wake-ups; startup recovery is complete, batch-bounded reconstruction — never a best-effort sample,
+  and never claimed as one atomic operation with the decision's persistence.
+- Added 13 deterministic tests, including the CPO's exact named scenario (51 users with a future
+  deferral, batch size 50 → all 51 recovered, not 50) plus 49/50/75/120-user volume cases,
+  multi-defer-per-user dedup, repeated-recovery idempotency, no-AI-during-recovery, non-blocking
+  startup, no lingering task after completion, and cross-batch user isolation.
+- Updated the two existing "no polling loop" contract-guard tests to allow the one narrow exception
+  `sleep(0)` (cooperative yield) while continuing to reject any other sleep argument inside a loop.
+
+## 2026-08-22 — V2.9.4 Deferred re-evaluation final hardening
+
+- Closes the one open point from the batch below: a `defer` decision whose moment arrives is now
+  genuinely **reconsidered by the AI** — refreshed operational context, one Attention call, the
+  identical V2.9.3 gate — never merely flagged `defer_status="due"`.
+- **"AI DECIDES. SYSTEM GUARANTEES."** now covers reconsideration too: the system may check
+  eligibility, apply the unchanged deterministic gate, prevent duplicate work and cap how many
+  times it will *automatically* ask again — it never itself concludes "deferred three times,
+  therefore silent". That verdict, if it happens, is the AI's.
+- `AttentionDecision` gains a reconsideration chain: `root_attention_key` (stable, order-independent
+  hash of assessment refs), `attention_revision`, `supersedes_decision_id`/`superseded_by`
+  (append-only, non-destructive), `automatic_re_evaluations_used`/`auto_re_evaluation_exhausted`.
+  `decision_key_for(..., revision=1)` reproduces the pre-hardening key exactly, so nothing written
+  before this sprint changes identity.
+- A reconsideration re-fetches the SAME ImpactAssessment(s) by id and only refreshes the
+  operational context — it never re-runs Impact Reasoning (V2.9.2) and never derives new
+  assessments. Cost per due chain: 0 Impact + at most 1 Attention call.
+- `MAX_AUTOMATIC_DEFER_REEVALUATIONS = 3` is a **cost ceiling**, not a semantic verdict: exhausting
+  it stops the automatic timer for that chain and marks it, but the decision stays whatever the AI
+  last chose. A new, unrelated `LifeChangeSignal` opens a fresh root untouched by another chain's
+  exhaustion.
+- Persistence order: build the new decision → persist it → **only then** mark the previous one
+  superseded. No Mongo transaction introduced; the ordering alone makes every step independently
+  safe to retry or lose. Provider failure, invalid model output and persistence failure all leave
+  the old deferral current and its automatic budget unspent.
+- `life_orchestration`'s scheduler and service updated to match: the one-shot timer and startup
+  recovery now only confirm a deferral is still due (zero AI) and queue a normal pass; the actual
+  reconsideration runs inside the existing lease-protected `run_user_pass`, alongside signals and
+  assessments, never outside a lease.
+- A reconsideration that produces a user-facing surface goes through the existing Proactive Engine
+  (`submit_candidates`) exactly like a first-time decision — no bypass, no second engine, no tool
+  execution, no real push.
+- Added 26 deterministic tests (A–Z, `test_deferred_reevaluation_v294.py`) covering cost,
+  supersession, idempotent retries, failure honesty, budget exhaustion, concurrency and the
+  no-new-signal/no-domain-routing guarantees. Provider-real: not required — the Attention
+  call shape is unchanged from V2.9.3.
+
+## 2026-08-22 — V2.9.4 Continuous Life Reasoning orchestration (event-driven autonomy)
+
+- Added `backend/life_orchestration/` and the `life_orchestration_state` collection: the three
+  previously hand-invoked passes now run as one pipeline —
+  `life mutation → signal → impact → attention → (only if permitted) suggestion`.
+- **Event-driven, not polling-driven.** The worker blocks on an in-process queue; deferred
+  decisions get a one-shot alarm; recovery runs once after boot. A static AST test asserts no loop
+  in the module contains a sleep call. `no change ⇒ no signal ⇒ no wake-up ⇒ no AI call`.
+- Trigger lives in `loop.py`'s `_emit_life_change`, fired only when a signal was really persisted.
+  Best-effort by construction: never blocks, never raises, never awaits a provider — mutation
+  latency is unaffected and eventual consistency is explicit.
+- **Durability over convenience**: the queue is an accelerator, never the queue of record. A
+  dropped wake-up, full queue, cancelled task or dead process costs latency, never work, because
+  the signal stays `pending` in Mongo. Shutdown cancels rather than drains.
+- Per-user coalescing: five near-simultaneous mutations produce ONE pass, and a change arriving
+  mid-pass sets a redo flag instead of being lost.
+- Per-user lease (one collection, one granularity: the whole pass) prevents double AI spend across
+  processes. TTL-bounded, crash-reclaimable, released only by its owner, opaque non-PII owner id.
+  Acquisition is explicit rather than upsert-plus-unique-index, so a missing index degrades to
+  "no lease" instead of silently handing out two.
+- Bounded pass: `MAX_CYCLES = 2`, a second cycle only to catch work that appeared while the first
+  ran. An idle user costs zero — checked before the lease is taken, so no document is written.
+- Failure isolation with **per-user** exponential backoff (60s → 1h), distinct from the Provider
+  Manager's global per-vendor circuit breaker. Impact failure never fabricates an assessment;
+  attention failure leaves the assessment recoverable.
+- No recursion: assessments, decisions and suggestions emit no signals; a full pass ends holding
+  exactly the one signal it consumed.
+- Legacy generators untouched and never re-run — the orchestrator reaches the Proactive Engine
+  only through the `submit_candidates` path separated in V2.9.3.
+- Deferred decisions become discoverable (one-shot timer + startup recovery + `defer_status`
+  marker). Re-running attention on the same batch is deliberately NOT done: it would require a
+  second decision for the same assessments, changing V2.9.3's approved idempotency contract.
+- Added 39 deterministic tests (including burst/scale and cost assertions) plus a 2-scenario
+  provider-real end-to-end smoke against real Gemini.
+
 ## 2026-08-22 — V2.9.3 Attention & Intervention Intelligence ("SHOULD I SPEAK?")
 
 - Added `backend/life_attention/` and the `life_attention_decisions` collection: an internal

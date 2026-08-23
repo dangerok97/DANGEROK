@@ -83,6 +83,7 @@ async def _emit_life_change(
     trace: Dict[str, Any],
     source_system: str,
     emit: Callable[[], Awaitable[Any]],
+    user_id: str = "",
 ) -> None:
     """Record a LifeChangeSignal for a mutation that is ALREADY persisted
     (V2.9.1).
@@ -109,6 +110,18 @@ async def _emit_life_change(
     emitted = len(result) if isinstance(result, list) else (1 if result else 0)
     if emitted:
         trace["life_change_signals"] = int(trace.get("life_change_signals") or 0) + emitted
+        # V2.9.4: something really changed, so ask for a bounded reasoning pass
+        # for this user. Best-effort by design — it never blocks or fails this
+        # turn, and if the wake-up is dropped the signal is still pending in
+        # Mongo for a later pass. This is the ONLY place the pipeline is
+        # triggered from the request path: no change means no wake-up, which
+        # means no AI cost.
+        try:
+            from life_orchestration.scheduler import schedule_user_reasoning
+
+            await schedule_user_reasoning(user_id, reason="signal")
+        except Exception as e:
+            logger.info("orchestration schedule soft-fail: %s", type(e).__name__)
 
 
 # Soft re-entry when the model narrates durable Life OS writes without observations.
@@ -550,6 +563,7 @@ async def run_cognitive_loop(
                         operation=decision.situation_update.operation,
                         result=situation_result,
                     ),
+                    user_id=sess.user_id,
                 )
                 linked_plan = ((situation_result or {}).get("situation") or {}).get(
                     "linked_plan_id"
@@ -636,6 +650,7 @@ async def run_cognitive_loop(
                         reasoning_epoch=epoch,
                         results=graph_results,
                     ),
+                    user_id=sess.user_id,
                 )
             except Exception as e:
                 code = str(getattr(e, "code", "PERSISTENCE_ERROR"))[:80]
@@ -702,6 +717,7 @@ async def run_cognitive_loop(
                         reasoning_epoch=epoch,
                         outcomes=memory_outcomes,
                     ),
+                    user_id=sess.user_id,
                 )
             except Exception as e:
                 code = str(getattr(e, "code", "MEMORY_PERSISTENCE_ERROR"))[:80]
@@ -1396,6 +1412,7 @@ async def run_cognitive_loop(
                         observation_status=obs.status,
                         payload=obs.payload or {},
                     ),
+                    user_id=sess.user_id,
                 )
             if cap in _LIFE_OS_PERSIST_CAPS and (
                 obs.status in ("ok", "success")
@@ -1413,6 +1430,7 @@ async def run_cognitive_loop(
                         capability=cap,
                         payload=obs.payload or {},
                     ),
+                    user_id=sess.user_id,
                 )
                 if (
                     cap == "update_plan"
