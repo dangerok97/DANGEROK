@@ -58,13 +58,41 @@ def new_decision_id() -> str:
     return f"lad_{uuid.uuid4().hex[:16]}"
 
 
-def decision_key_for(user_id: str, assessment_ids: List[str]) -> str:
-    """Deterministic identity of an attention evaluation: the same set of
-    assessments always maps to the same key regardless of ordering, so a
-    replayed pass cannot re-decide or re-deliver. Never a timestamp."""
+# A deferral may be automatically reconsidered at most this many times. This
+# is a COST ceiling, not a semantic verdict: exhausting it means "ORA will not
+# spend more automatic re-evaluations on this question", never "this question
+# stopped mattering". See `auto_re_evaluation_exhausted`.
+MAX_AUTOMATIC_DEFER_REEVALUATIONS = 3
+
+
+def root_attention_key_for(user_id: str, assessment_ids: List[str]) -> str:
+    """Stable identity of an attention QUESTION, independent of how many times
+    it has been reconsidered.
+
+    Order-independent over the assessment refs, so the same batch always maps
+    to the same root regardless of read order. Never a timestamp.
+    """
     ordered = ":".join(sorted({str(a) for a in assessment_ids if a}))
     digest = hashlib.sha256(f"{user_id}|{ordered}".encode()).hexdigest()[:32]
     return f"att_{digest}"
+
+
+def decision_key_for(
+    user_id: str, assessment_ids: List[str], *, revision: int = 1
+) -> str:
+    """Deterministic identity of ONE attention evaluation: the root question
+    plus which reconsideration of it this is.
+
+    Revision 1 deliberately yields exactly the pre-V2.9.4 key, so decisions
+    written before revisions existed keep their identity and are never
+    re-decided. A retry of the same revision produces the same key and is
+    refused by the unique index; a legitimate reconsideration increments the
+    revision and is therefore a genuinely new decision rather than an
+    overwrite.
+    """
+    root = root_attention_key_for(user_id, assessment_ids)
+    rev = max(1, int(revision or 1))
+    return root if rev == 1 else f"{root}:r{rev}"
 
 
 def is_quieter(candidate: str, current: str) -> bool:
@@ -133,13 +161,35 @@ class AttentionDecision(BaseModel):
 
     # Set only when delivery == "defer": when it becomes worth re-evaluating.
     defer_until: Optional[str] = Field(default=None, max_length=40)
+    # Lifecycle marker for that deferral (V2.9.4). Separate from `delivery`,
+    # which records the decision itself: a deferral stays a deferral, but it
+    # stops being in the future. Documents written before V2.9.4 lack the
+    # field, and a `$ne: "due"` query treats them as still pending, so no
+    # backfill is needed.
+    defer_status: Literal["pending", "due"] = "pending"
 
     # Populated only if the decision actually produced a user-facing item.
     suggestion_id: Optional[str] = Field(default=None, max_length=64)
     suggestion_created: bool = False
     gate_reasons: List[str] = Field(default_factory=list, max_length=MAX_DOWNGRADE_REASONS)
 
-    decision_key: str = Field(max_length=64)
+    decision_key: str = Field(max_length=80)
+
+    # --- reconsideration chain (V2.9.4 hardening) ----------------------
+    # Stable identity of the underlying question, shared by every revision.
+    root_attention_key: str = Field(default="", max_length=64)
+    # 1 for the original decision, then 2, 3, ... for each reconsideration.
+    attention_revision: int = 1
+    # History is append-only: a superseded decision keeps its content and only
+    # learns which decision replaced it.
+    supersedes_decision_id: Optional[str] = Field(default=None, max_length=64)
+    superseded_by: Optional[str] = Field(default=None, max_length=64)
+    # How many AUTOMATIC re-evaluations this chain has already spent. Counts
+    # reconsiderations after the first decision, so revision N has used N-1.
+    automatic_re_evaluations_used: int = 0
+    # Set when the automatic budget runs out. A cost marker, never a verdict:
+    # the decision itself stays whatever the AI last decided.
+    auto_re_evaluation_exhausted: bool = False
     model_provider: Optional[str] = Field(default=None, max_length=40)
     model_name: Optional[str] = Field(default=None, max_length=80)
     created_at: str = Field(default_factory=now_iso)
@@ -160,6 +210,8 @@ class AttentionDecision(BaseModel):
             "downgrade_reasons": list(self.downgrade_reasons),
             "reason_summary": self.reason_summary,
             "defer_until": self.defer_until,
+            "attention_revision": self.attention_revision,
+            "auto_re_evaluation_exhausted": self.auto_re_evaluation_exhausted,
             "suggestion_created": self.suggestion_created,
             "suggestion_id": self.suggestion_id,
             "created_at": self.created_at,
@@ -183,5 +235,16 @@ class AttentionPassReport(BaseModel):
     suggestions_created: int = 0
     dedupe_hits: int = 0
     assessments_evaluated: int = 0
+    # Deferral reconsideration (V2.9.4 hardening).
+    defer_reevaluations_requested: int = 0
+    defer_reevaluations_completed: int = 0
+    defer_reevaluations_failed: int = 0
+    defer_budget_exhausted: int = 0
+    defer_to_silent: int = 0
+    defer_to_defer: int = 0
+    defer_to_home: int = 0
+    defer_to_ask: int = 0
+    defer_to_propose: int = 0
+    defer_to_notify: int = 0
     failures: List[str] = Field(default_factory=list, max_length=8)
     elapsed_ms: int = 0

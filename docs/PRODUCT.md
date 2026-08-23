@@ -389,3 +389,35 @@ Se ORA nota un'occasione per confrontare delle opzioni, il criterio è sempre e 
 interesse: costo reale, qualità, affidabilità, come si incastra con i tuoi vincoli. Mai chi
 vende. E finché non glielo chiedi tu, non cerca nulla e non ti propone nomi di aziende o prezzi
 che non ha modo di conoscere.
+
+# V2.9.4 — ORA ci pensa da sola, quando serve
+
+Fino a ora ORA sapeva ragionare su quello che cambia nella tua vita, ma qualcuno doveva chiederglielo.
+Adesso lo fa da sé: quando qualcosa cambia davvero — aggiungi un impegno, aggiorni un piano, correggi
+qualcosa che ti riguarda — ORA se ne accorge e, poco dopo e in silenzio, ci ragiona sopra.
+
+Non ti fa aspettare. Quello che stavi facendo si conclude subito; il ragionamento avviene dopo, per
+conto suo. Può capitare che una conseguenza compaia in Home qualche momento più tardi: è normale, ed
+è il comportamento giusto.
+
+E soprattutto: **ORA non è sempre accesa a pensare**. Se nella tua vita non cambia nulla, non fa
+assolutamente niente — nessun controllo periodico, nessun consumo, nessun rumore di fondo. Non ti
+osserva in attesa: si sveglia solo quando c'è un motivo reale.
+
+Autonomia non vuol dire diventare più invadente. La risposta più frequente resta il silenzio: quasi
+sempre ORA ragiona su un cambiamento e conclude che non vale la pena dirti nulla. Ragiona più
+spesso di prima, ma parla esattamente quanto prima — solo quando ne vale la pena e solo se il
+momento è quello giusto.
+
+Se ORA decide che una cosa va bene rivederla più avanti, se ne ricorda: non la perde e non te la
+ripropone subito. E se qualcosa va storto — l'app si riavvia, manca la connessione — nulla va perso:
+quello che è cambiato resta lì, e ORA lo riprende quando può.
+
+Quando arriva il momento di riguardarci, ORA non si limita a controllare l'orologio: ci ripensa
+davvero, con la stessa attenzione della prima volta. Magari nel frattempo la situazione è cambiata
+ed è il caso di dirtelo, magari conviene ancora aspettare — la decisione resta sua, non un
+automatismo del tipo "ne ho già riparlato tre volte, quindi non conta più". Quello che il sistema
+si limita a fare è non esagerare: non ripensarci all'infinito sulla stessa cosa. Se il numero di
+ripensamenti automatici finisce, ORA smette di riproporsi la domanda da sola — ma quello che aveva
+deciso l'ultima volta resta valido esattamente com'era, e se nella tua vita cambia qualcosa di
+davvero nuovo su quello stesso argomento, ORA ricomincia a pensarci senza che nulla glielo impedisca.

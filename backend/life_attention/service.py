@@ -35,10 +35,12 @@ from life_attention.context import (
 )
 from life_attention.gate import apply_system_gate, creates_user_facing_item
 from life_attention.models import (
+    MAX_AUTOMATIC_DEFER_REEVALUATIONS,
     AttentionDecision,
     AttentionPassReport,
     DeliveryMode,
     decision_key_for,
+    root_attention_key_for,
     sanitize_refs,
 )
 from life_attention.prompt import ATTENTION_SYSTEM_PROMPT, build_attention_payload
@@ -175,6 +177,64 @@ class AttentionService:
             report.failures.append("provider_unavailable")
             return
 
+        decision = self._build_decision(
+            user_id=user_id,
+            raw=raw,
+            batch=batch,
+            assessment_ids=assessment_ids,
+            focal=focal,
+            context=context,
+            times_raised=times_raised,
+            decision_key=decision_key,
+            root_attention_key=root_attention_key_for(user_id, assessment_ids),
+            revision=1,
+            provider=provider,
+            model=model,
+            report=report,
+        )
+
+        try:
+            await self.repo.insert(decision)
+        except DuplicateDecision:
+            await self.assessments.mark_attention_evaluated(user_id, assessment_ids)
+            report.assessments_evaluated += len(assessment_ids)
+            return
+        except Exception as exc:
+            # PERSIST BEFORE CONSUME: an unpersisted decision must never let
+            # the assessments that produced it be marked evaluated.
+            logger.warning("attention decision persistence failed: %s", type(exc).__name__)
+            report.failures.append("decision_persistence_failed")
+            return
+
+        _count_delivery(report, decision.ai_delivery, decision.delivery)
+
+        if creates_user_facing_item(decision.delivery):
+            await self._maybe_create_suggestion(user_id, decision, context, report)
+
+        await self.assessments.mark_attention_evaluated(user_id, assessment_ids)
+        report.assessments_evaluated += len(assessment_ids)
+
+    def _build_decision(
+        self,
+        *,
+        user_id: str,
+        raw: Dict[str, Any],
+        batch: List[Any],
+        assessment_ids: List[str],
+        focal: List[str],
+        context: Dict[str, Any],
+        times_raised: int,
+        decision_key: str,
+        root_attention_key: str,
+        revision: int,
+        provider: Optional[str],
+        model: Optional[str],
+        report: AttentionPassReport,
+    ) -> AttentionDecision:
+        """Turn raw model output into a typed decision and apply the
+        deterministic system gate. Shared by the first evaluation and every
+        automatic reconsideration, so both paths apply IDENTICAL AI-vs-system
+        rules."""
         ai_delivery = _delivery(raw.get("delivery"))
         confidence = _clamp(raw.get("confidence"), 0.0)
         utility = _clamp(raw.get("utility"), 0.0)
@@ -189,7 +249,7 @@ class AttentionService:
         if downgrades:
             report.system_downgrades += 1
 
-        decision = AttentionDecision(
+        return AttentionDecision(
             user_id=user_id,
             assessment_refs=assessment_ids[:8],
             focal_refs=focal,
@@ -209,30 +269,185 @@ class AttentionService:
             ),
             defer_until=_defer_until(delivery, raw.get("defer_hours")),
             decision_key=decision_key,
+            root_attention_key=root_attention_key,
+            attention_revision=revision,
             model_provider=(str(provider)[:40] if provider else None),
             model_name=(str(model)[:80] if model else None),
         )
 
+    # --- deferred reconsideration (V2.9.4 hardening) --------------------
+
+    async def reevaluate_due_deferrals(self, user_id: str) -> AttentionPassReport:
+        """Reconsider ATTENTION ONLY for deferrals whose moment has arrived.
+
+        `existing ImpactAssessment(s) → deferred AttentionDecision revision N
+        → defer_until reached → refreshed operational context → new AI
+        judgement → system gate → revision N+1`.
+
+        Impact Reasoning is never re-run here: the assessments a deferred
+        decision was about already exist and are not re-derived. A NEW
+        LifeChangeSignal follows the ordinary pipeline into a NEW assessment
+        and a NEW (unrelated) attention chain — this method only advances
+        chains that already exist.
+
+        AI DECIDES whether a deferral is still appropriate. This method
+        enforces only COST bounds (the automatic budget) and the identical
+        V2.9.3 system gate — never a semantic verdict like "deferred three
+        times, therefore silent".
+        """
+        t0 = time.perf_counter()
+        report = AttentionPassReport()
+        if not user_id or self.db is None:
+            return report
+
+        due = await self.repo.list_due_deferred(user_id, now_iso=_now_iso())
+        report.defer_reevaluations_requested = len(due)
+        if not due:
+            report.elapsed_ms = int((time.perf_counter() - t0) * 1000)
+            return report
+
+        context = await build_operational_context(self.db, user_id)
+        context["notifications_allowed"] = await notifications_allowed(self.db, user_id)
+
+        for previous in due:
+            try:
+                await self._reevaluate_one(user_id, previous, context, report)
+            except Exception as exc:
+                logger.warning(
+                    "defer re-evaluation failed error=%s", type(exc).__name__
+                )
+                report.failures.append(type(exc).__name__)
+                report.defer_reevaluations_failed += 1
+
+        report.elapsed_ms = int((time.perf_counter() - t0) * 1000)
+        return report
+
+    async def _reevaluate_one(
+        self,
+        user_id: str,
+        previous: AttentionDecision,
+        context: Dict[str, Any],
+        report: AttentionPassReport,
+    ) -> None:
+        # Eligibility (re-checked here, not just in the repository query):
+        # only the CURRENT decision of a chain, still delivery=defer, with
+        # budget remaining, may be reconsidered.
+        if previous.delivery != "defer" or not previous.defer_until:
+            return
+        if previous.superseded_by or previous.auto_re_evaluation_exhausted:
+            return
+        if previous.automatic_re_evaluations_used >= MAX_AUTOMATIC_DEFER_REEVALUATIONS:
+            await self.repo.mark_budget_exhausted(user_id, previous.id)
+            report.defer_budget_exhausted += 1
+            return
+
+        next_revision = previous.attention_revision + 1
+        next_key = decision_key_for(
+            user_id, previous.assessment_refs, revision=next_revision
+        )
+
+        # Idempotent replay: this exact reconsideration already happened.
+        existing = await self.repo.get_by_decision_key(user_id, next_key)
+        if existing:
+            report.defer_reevaluations_completed += 1
+            return
+
+        # Fetch the same assessments this chain was about — never re-derive
+        # them, never re-run Impact Reasoning.
+        batch = await self._assessments_by_ids(user_id, previous.assessment_refs)
+        if not batch:
+            # The assessments this chain referred to are gone; nothing left
+            # to reconsider. Leave the old decision exactly as it was.
+            return
+
+        times_raised = await self.repo.count_spoken_for_refs(
+            user_id, previous.focal_refs
+        )
+        payload = build_attention_payload(
+            assessments=[_assessment_view(a) for a in batch],
+            operational_context=prompt_view(context, times_already_raised=times_raised),
+        )
+
+        raw, provider, model = await self._decide(payload)
+        report.ai_calls += 1
+        if raw is None:
+            # Provider failure: old defer stays current, budget not spent.
+            report.defer_reevaluations_failed += 1
+            return
+
+        new_decision = self._build_decision(
+            user_id=user_id,
+            raw=raw,
+            batch=batch,
+            assessment_ids=previous.assessment_refs,
+            focal=previous.focal_refs,
+            context=context,
+            times_raised=times_raised,
+            decision_key=next_key,
+            root_attention_key=previous.root_attention_key or root_attention_key_for(
+                user_id, previous.assessment_refs
+            ),
+            revision=next_revision,
+            provider=provider,
+            model=model,
+            report=report,
+        )
+        new_decision.supersedes_decision_id = previous.id
+        new_decision.automatic_re_evaluations_used = (
+            previous.automatic_re_evaluations_used + 1
+        )
+        if new_decision.automatic_re_evaluations_used >= MAX_AUTOMATIC_DEFER_REEVALUATIONS:
+            # This IS the budget-exhausting revision. If the AI chose defer
+            # again, mark the new (current) decision exhausted directly —
+            # there will be no revision N+2 to supersede it, and the cost
+            # ceiling must live on whichever decision is actually current.
+            new_decision.auto_re_evaluation_exhausted = (
+                new_decision.delivery == "defer"
+            )
+
         try:
-            await self.repo.insert(decision)
+            await self.repo.insert(new_decision)
         except DuplicateDecision:
-            await self.assessments.mark_attention_evaluated(user_id, assessment_ids)
-            report.assessments_evaluated += len(assessment_ids)
+            report.defer_reevaluations_completed += 1
             return
         except Exception as exc:
-            # PERSIST BEFORE CONSUME: an unpersisted decision must never let
-            # the assessments that produced it be marked evaluated.
-            logger.warning("attention decision persistence failed: %s", type(exc).__name__)
-            report.failures.append("decision_persistence_failed")
+            # PERSIST BEFORE SUPERSEDE: if the new decision was not durably
+            # written, the old deferral must remain fully current.
+            logger.warning(
+                "defer re-evaluation persistence failed: %s", type(exc).__name__
+            )
+            report.defer_reevaluations_failed += 1
             return
 
-        _count_delivery(report, ai_delivery, delivery)
+        # ONLY NOW mark the previous decision superseded — after its
+        # replacement is durable. If this step fails, the chain is still
+        # reconstructible: `latest_for_root` finds the highest revision
+        # regardless of whether the old row's `superseded_by` was set.
+        await self.repo.mark_superseded(user_id, previous.id, superseded_by=new_decision.id)
 
-        if creates_user_facing_item(delivery):
-            await self._maybe_create_suggestion(user_id, decision, context, report)
+        report.defer_reevaluations_completed += 1
+        _count_defer_transition(report, new_decision.delivery)
 
-        await self.assessments.mark_attention_evaluated(user_id, assessment_ids)
-        report.assessments_evaluated += len(assessment_ids)
+        if creates_user_facing_item(new_decision.delivery):
+            await self._maybe_create_suggestion(user_id, new_decision, context, report)
+
+    async def _assessments_by_ids(self, user_id: str, assessment_ids: List[str]) -> List[Any]:
+        """Re-fetch the exact assessments a deferred chain was about — by id,
+        never a fresh query for "recent" ones, so a reconsideration is always
+        about the same question it was deferred from."""
+        if not assessment_ids:
+            return []
+        try:
+            docs = await self.db.life_impact_assessments.find(
+                {"user_id": user_id, "id": {"$in": list(assessment_ids)[:8]}},
+                {"_id": 0},
+            ).to_list(8)
+        except Exception as exc:
+            logger.info("assessment re-fetch soft-fail: %s", type(exc).__name__)
+            return []
+        from life_reasoning.models import ImpactAssessment
+
+        return [ImpactAssessment.model_validate(d) for d in docs]
 
     # --- proactive engine handoff ---------------------------------------
 
@@ -427,6 +642,22 @@ def _count_delivery(
         report.ask_user += 1
     elif delivery == "propose_action":
         report.propose_action += 1
+
+
+def _count_defer_transition(report: AttentionPassReport, delivery: DeliveryMode) -> None:
+    """What a reconsideration turned INTO — distinct from `_count_delivery`,
+    which counts a chain's outcome, not the fact that it moved."""
+    field = {
+        "silent": "defer_to_silent", "defer": "defer_to_defer",
+        "home": "defer_to_home", "ask_user": "defer_to_ask",
+        "propose_action": "defer_to_propose", "notify": "defer_to_notify",
+    }.get(delivery)
+    if field:
+        setattr(report, field, getattr(report, field) + 1)
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
 def _delivery(value: Any) -> DeliveryMode:

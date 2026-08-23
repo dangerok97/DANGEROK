@@ -1149,3 +1149,78 @@ system gate can only ever make the result quieter; nothing is ever pushed.**
 4. **Claiming/lease** — replay is safe (unique `decision_key`), but two concurrent passes for one user can both spend a call before one loses the race.
 5. **Assessment/decision retention** — both stores accumulate; a compaction rule should follow once re-evaluation semantics exist.
 6. **Legacy `likely_driving` heuristic** — still governs the legacy path only; worth replacing with a real activity signal rather than calendar-title keywords if that path is ever modernised.
+
+## V2.9.4 — Continuous Life Reasoning orchestration (this batch)
+
+**Status: the pipeline is now autonomous and event-driven. A real mutation produces a signal, a
+reasoning pass and an attention decision without anyone invoking anything — and an idle system
+costs literally nothing. Autonomy did NOT increase how often ORA speaks: silence remains the most
+common outcome.**
+
+| Item | Stato |
+|------|--------|
+| New module `backend/life_orchestration/` (`state.py`, `service.py`, `scheduler.py`) | **created** — thin coordinator; owns no cognition, executes no tool, sends nothing |
+| Why a separate module (not `life_reasoning/orchestration.py` as sketched) | the dependency chain is strictly one-way (`life_attention → life_reasoning → life_signals`); an orchestrator inside `life_reasoning` importing `life_attention` would close an **import cycle** |
+| New collection `life_orchestration_state` | **created** — indexes `(user_id)` unique, `(next_retry_at)`; registered in `server.py` startup |
+| Trigger | `loop.py::_emit_life_change`, only when a signal was really persisted. Best-effort: never blocks, never raises, never awaits a provider |
+| Event-driven guarantee | worker blocks on `asyncio.Queue.get()`; deferrals get a one-shot alarm; recovery runs once after boot. **Static AST test asserts no loop in the module contains a sleep call** |
+| Cost chain | `no change ⇒ no signal ⇒ no wake-up ⇒ no reasoning ⇒ no AI call` — verified end to end, including against the live provider |
+| Idle user cost | **zero** — pending work is checked before the lease is taken, so an idle pass writes no document at all |
+| Coalescing | one pending pass per user; a 20-mutation burst yields **1** pass; a change arriving mid-pass sets a redo flag instead of being lost |
+| Lease | one collection, one granularity (the whole pass). TTL 120s, crash-reclaimable, released only by its owner, opaque non-PII owner id. Prevents double AI spend only — the unique `dedupe_key`/`batch_key`/`decision_key` indexes already make duplicate persistence impossible |
+| Lease acquisition hardening | written explicitly (try-take → check-exists → insert) instead of relying on upsert provoking a unique-index violation, so a missing index degrades to "no lease" rather than silently handing out two |
+| Bounded pass | `MAX_CYCLES = 2`; sub-service budgets unchanged (V2.9.2 ≤5 signals/≤3 batches, V2.9.3 ≤5 assessments/≤3 batches) |
+| Failure isolation | impact failure never fabricates an assessment; attention failure leaves the assessment recoverable; both record **per-user** exponential backoff (60s→1h), distinct from the Provider Manager's global per-vendor circuit breaker |
+| Durability | in-process queue is an accelerator, never the queue of record — dropped wake-up / full queue / cancelled task / dead process cost latency, never work |
+| Shutdown | cancels rather than drains; Mongo pending state is the source of truth |
+| No recursion | assessments, decisions and suggestions emit no signals; a full pass ends holding exactly the one signal it consumed |
+| Legacy coexistence | `regenerate()` is never called by the orchestrator — it reaches the Proactive Engine only through the `submit_candidates` path separated in V2.9.3, so automatic reasoning adds **no** legacy generator cost |
+| Deferred decisions | **partially operational, deliberately** — one-shot timer + startup recovery + `defer_status="due"` marker make them discoverable. Re-running attention on the same batch is NOT done: it needs a second decision for the same assessments, i.e. a change to V2.9.3's approved idempotency contract (CPO decision) |
+| V2.9.4 tests | **39/39 passed** (`conversation_engine/tests/test_orchestration_v294.py`) |
+| `conversation_engine/tests` (excl. `_live.py`) | **489/489 passed, 0 errors** |
+| V2.9.3 / V2.9.2 / V2.9.1 | **104/104 passed** combined |
+| **Proactive Engine (reached automatically now — full regression)** | **232/232 passed** |
+| Calendar V2.8.6b + V2.8.6a | **56/56 passed** |
+| `situations`/`life_memory`/`life_os`/`llm` | **44/44 passed** |
+| Calendar connector legacy (`-n 0`) | **57/57 passed** |
+| Provider Manager | **23/23 passed** |
+| `compileall` / `flake8 --select=E9,F63,F7,F82` / `git diff --check` | **all clean** |
+| Hardcoding audit | **clean** — the only matches are the English noun "work" in two log strings |
+| Security audit | **clean** — all lease/state queries user-scoped; the only cross-user reads are the once-per-boot recovery sweeps, each `.limit()`-capped; queue bounded; opaque owner id; no secret, no `.env`, no delete, no push, no tool execution |
+| **Provider-real smoke** | **2/2 passed** against real Gemini — full pipeline signal→impact→attention end to end, plus the idle-user zero-cost guarantee |
+| Chrome QA | see the report |
+| Commit / push | **NO** — STOP for CPO review |
+
+### Follow-up recommended for V2.9.5 (non-blocking, deliberately not built)
+
+1. ~~**Deferred re-evaluation semantics**~~ — **closed by the hardening batch below.**
+2. **Multi-process coordination** — the lease makes concurrent passes safe and cheap, but wake-ups are process-local: with N uvicorn workers only the process that served the mutation schedules one. Others rely on startup recovery. A shared trigger becomes worthwhile when ORA actually runs multiple processes.
+3. **Actual delivery** — `notify` still resolves to a Home item; a real push channel needs consent flow, transport and rate policy.
+4. **Retention/compaction** — signals, assessments, decisions and orchestration state all accumulate; nothing is deleted, deliberately, since the history is reasoning and audit material.
+5. **Opportunistic wake-up on user activity** — login/Home-open could also trigger a best-effort pass; not added because the signal trigger already covers the cases that matter and this would add cost to every session start.
+
+## V2.9.4 — Deferred re-evaluation final hardening (this batch)
+
+**Status: closes the one open point left by the batch above. A `defer` decision whose moment
+arrives is now genuinely RECONSIDERED by the AI — refreshed operational context, one Attention
+call, the identical V2.9.3 gate — never merely flagged. "AI DECIDES. SYSTEM GUARANTEES." now covers
+reconsideration too: the system bounds automatic cost, it never manufactures a verdict.**
+
+| Item | Stato |
+|------|--------|
+| `life_attention/models.py` | `root_attention_key_for` (order-independent), `decision_key_for(..., revision=1)` (rev 1 ≡ pre-hardening key), `MAX_AUTOMATIC_DEFER_REEVALUATIONS = 3`, `AttentionDecision` gains `root_attention_key`/`attention_revision`/`supersedes_decision_id`/`superseded_by`/`automatic_re_evaluations_used`/`auto_re_evaluation_exhausted`, `AttentionPassReport` gains `defer_reevaluations_*`/`defer_budget_exhausted`/`defer_to_*` counters |
+| `life_attention/repository.py` | `list_due_deferred` now excludes superseded/exhausted chains; new `latest_for_root`, `chain_for_root`, `mark_superseded` (called only after the replacement is durably persisted), `mark_budget_exhausted` |
+| `life_attention/service.py` | `_evaluate_batch` factored into shared `_build_decision` (identical AI-vs-gate rules for a first evaluation and every reconsideration); new `reevaluate_due_deferrals` / `_reevaluate_one` / `_assessments_by_ids` — re-fetches the SAME assessments, never re-runs Impact Reasoning, never re-derives |
+| `life_orchestration/service.py` | `_run_cycles` gains a third bounded step (due deferral → `reevaluate_due_deferrals`, guarded by a zero-AI existence check); `mark_due_deferrals` (flag-only) replaced by `has_due_deferral` (read-only existence check) |
+| `life_orchestration/scheduler.py` | `_deferred_wake` / `recover_pending` no longer reconsider inline — they only confirm a deferral is still due (no AI) and queue `schedule_user_reasoning`; the actual reconsideration happens inside the lease-protected `run_user_pass`, exactly like every other AI call in this pipeline |
+| Persistence order | build → persist new revision → **only then** mark previous superseded → done. No Mongo transaction introduced — this ordering already makes every step independently safe to retry or lose |
+| Failure honesty | provider failure / invalid output / persistence failure all leave the old defer current, unsuperseded, with its automatic budget unspent |
+| Budget semantics | exhausting `MAX_AUTOMATIC_DEFER_REEVALUATIONS` is a **cost** marker (`auto_re_evaluation_exhausted`) — the delivery stays whatever the AI last chose, never forced to `silent`; a brand-new `LifeChangeSignal` opens a fresh, unbounded root |
+| New tests | **26/26 passed** (`conversation_engine/tests/test_deferred_reevaluation_v294.py`, A–Z) |
+| V2.9.4 orchestration (updated) | **39/39 passed** (`conversation_engine/tests/test_orchestration_v294.py`) |
+| V2.9.3 / V2.9.2 / V2.9.1 / conversation_engine / Proactive Engine / Life OS / Calendar / Context Broker / Context Graph / Situation / Memory / Provider Manager | **553/554 passed** — the one failure is `test_real_gemini_enrichment_optional` (`tests/test_ai_provider_manager.py`), an opt-in live-network test of the unrelated document-intelligence analyzer that failed on a real Gemini timeout + real OpenAI 429s; it touches no file this sprint changed |
+| `compileall` / `flake8 --select=E9,F63,F7,F82` / `git diff --check` | **all clean** |
+| Hardcoding audit | **clean** — zero domain terms in the new reconsideration code |
+| Provider-real | **NOT REQUIRED** — the Attention prompt/contract did not change semantically; reconsideration reuses the exact same call shape V2.9.3's provider-real gate already covered |
+| Chrome QA | **NOT REQUIRED** — no UI surface changed |
+| Commit / push | **NO** — STOP for CPO review |

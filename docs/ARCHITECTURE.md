@@ -1018,3 +1018,162 @@ reading them, however differently they are worded.
 a push. No tool is executed, no Plan/Calendar/Memory/Graph is written, and there is no worker,
 cron, scheduler or polling: `AttentionService.run_pass(user_id)` is explicitly invoked, and a
 user with no pending assessments returns before any context load or reasoning call.
+
+# V2.9.4 — Continuous Life Reasoning orchestration
+
+New module `backend/life_orchestration/` (`state.py`, `service.py`, `scheduler.py`), collection
+`life_orchestration_state`. It turns the three previously hand-invoked passes into one operating
+pipeline:
+
+```
+life mutation → LifeChangeSignal → ImpactAssessment → AttentionDecision → (only if permitted) Suggestion
+```
+
+**EVENT-DRIVEN, NOT POLLING-DRIVEN.** This is the load-bearing distinction and it is structural,
+not stylistic:
+
+- The worker blocks on `asyncio.Queue.get()`. While nothing changes it consumes no CPU, opens no
+  cursor and touches Mongo zero times.
+- A deferred decision gets ONE `asyncio.sleep` scheduled for its own moment — a one-shot alarm,
+  not a loop that wakes up to look around.
+- Recovery runs once, a few seconds after boot. There is no periodic re-scan.
+
+A static test enforces this by parsing the module's AST and asserting that **no loop anywhere
+contains a sleep call**, which is precisely the shape of a poll. The chain therefore holds end to
+end: `no change ⇒ no signal ⇒ no wake-up ⇒ no reasoning ⇒ no AI cost`.
+
+**Where the trigger lives.** `loop.py`'s `_emit_life_change` already knew when a signal was really
+persisted; it now also calls `schedule_user_reasoning(user_id)` there, and only there. The call is
+best-effort by construction — it never blocks, never raises and never awaits a provider — so a
+mutation's response time is unaffected and eventual consistency is explicit: the user is answered
+long before the pipeline concludes anything.
+
+**Durability over convenience.** The in-process queue is an accelerator, never the queue of
+record. A signal stays `pending` in Mongo until an assessment consumes it, so a dropped wake-up, a
+full queue, a cancelled task or a dead process costs latency and never work. That is why
+`schedule_user_reasoning` is allowed to fail silently, and why shutdown cancels rather than
+drains.
+
+**Coalescing.** One user gets at most one pending pass. Five near-simultaneous mutations produce
+one pipeline, not five: subsequent wake-ups are counted and dropped, and a change arriving *while*
+a pass runs sets a redo flag so it is picked up immediately afterwards rather than lost.
+
+**Lease.** One collection, one granularity: the whole user pass. Leasing signals, assessments and
+decisions separately would triple the bookkeeping to protect the same thing, because the expensive
+resource is not any single record but the pair of AI calls a pass makes. The lease exists ONLY to
+prevent double AI spend across processes — the unique indexes on `dedupe_key`, `batch_key` and
+`decision_key` already make duplicate persistence impossible — so a lost or expired lease costs
+money, never consistency. It is user-scoped, TTL-bounded (120s), reclaimable after a crash,
+released only by its own owner, and identified by an opaque per-process id that is deliberately
+not a hostname, pid or anything about the user.
+
+Acquisition is written explicitly (try-take → check-exists → insert) rather than relying on an
+upsert provoking a unique-index violation: if that index were ever missing, an upsert would
+silently insert a second row and hand out a second lease, and *a lease that quietly stops working
+is worse than no lease* because it looks like protection.
+
+**Bounded pass.** `MAX_CYCLES = 2` — a second cycle exists only to pick up work that appeared
+while the first ran, never to drain a backlog in a loop. Each sub-service keeps its own budget
+(V2.9.2: ≤5 signals, ≤3 batches; V2.9.3: ≤5 assessments, ≤3 batches), so one pass is bounded above
+by six reasoning calls and normally costs two. An idle user costs zero — checked before the lease
+is even taken, so an idle pass does not write a single document.
+
+**Failure isolation.** Impact failure leaves the signals pending and never fabricates an
+assessment for attention to reason about. Attention failure leaves the assessment pending while
+the signal stays correctly consumed. Both record a **per-user, per-pipeline** exponential backoff
+(60s → 1h) in `life_orchestration_state`, deliberately distinct from the Provider Manager's
+global, per-vendor circuit breaker: one stops hammering a provider, the other stops re-running one
+user's pass in a tight loop.
+
+**No recursion.** Nothing the pipeline produces feeds it again: creating an ImpactAssessment, an
+AttentionDecision or a Suggestion emits no LifeChangeSignal. Emission is confined to the five
+life-mutation points wired in V2.9.1, and a test asserts a full pass ends with exactly one signal
+— the one it consumed.
+
+**Legacy coexistence.** The orchestrator never calls `ProactiveEngineService.regenerate`, which
+would re-run every legacy domain generator for free. It reaches the Proactive Engine only through
+the `submit_candidates` path V2.9.3 already separated, so automatic reasoning adds no legacy cost.
+
+## V2.9.4 — Deferred re-evaluation hardening
+
+V2.9.3 persisted `defer_until` and nothing read it. V2.9.4's first phase made deferrals
+*discoverable* (a one-shot timer, startup recovery) but deliberately stopped short of
+reconsidering them — a genuine reconsideration needs a *second* decision about the same
+assessments, which changes V2.9.3's idempotency contract and was flagged as a CPO decision rather
+than settled inside an orchestration sprint. This hardening closes that point: a `defer` whose
+moment arrives is now genuinely reconsidered by the AI.
+
+**AI DECIDES. SYSTEM GUARANTEES.** — the load-bearing distinction, unchanged from V2.9.2/V2.9.3
+and now extended to reconsideration: **the AI decides whether a deferral is still appropriate; the
+system only bounds *automatic reconsideration***. The system may check eligibility, apply the
+identical V2.9.3 gate, prevent duplicate work and cap *how many times* it will automatically ask
+again — it may never itself conclude "deferred three times, therefore silent". That verdict, if it
+happens, is the AI's, reached the same way as any first-time silent.
+
+**Revision chain.** Every `AttentionDecision` now carries a `root_attention_key` — a stable,
+order-independent hash of its assessment refs, shared by every reconsideration of the same
+question — and an `attention_revision` counter. `decision_key` is `root` for revision 1
+(identical to the pre-hardening key, so nothing written before this sprint changes identity) and
+`root:rN` for revision N>1, so a retry of the same revision collides on the existing unique index
+while a genuine reconsideration is a new key. History is append-only: a superseded decision keeps
+its `delivery`, gains only `superseded_by`, and `latest_for_root` finds the current one by highest
+revision regardless of whether that pointer write landed.
+
+**Refresh, never re-derive.** A reconsideration re-fetches the *same* ImpactAssessment(s) by id and
+a *refreshed operational context* (clock, quiet/sleep, calendar occupancy, notification
+permission, learning, interruption cost) — it never re-runs Impact Reasoning (V2.9.2) and never
+re-derives new assessments. Cost is therefore 0 Impact + at most 1 Attention call per due chain per
+pass.
+
+**The automatic budget is a COST ceiling, not a verdict.** `MAX_AUTOMATIC_DEFER_REEVALUATIONS = 3`
+bounds how many times the system will *automatically* ask the AI to reconsider one root question.
+Exhausting it sets `auto_re_evaluation_exhausted` and stops the automatic timer for that chain —
+the decision itself stays exactly whatever the AI last chose (including `defer`, unforced toward
+`silent`). A brand-new `LifeChangeSignal` about the same corner of someone's life still opens a
+fresh root and reasons normally; only *automatic* reconsideration of the *same* exhausted question
+is capped.
+
+**Persistence order.** Build the new decision → persist it → *only then* mark the previous one
+superseded → done. If the insert fails, the old deferral is untouched and fully retryable — no
+Mongo transaction was introduced because this ordering already makes every step safe to retry or
+lose independently, matching every other idempotency contract in this pipeline.
+
+**Concurrency.** Reuses the same per-user lease V2.9.4's first phase introduced; `decision_key`'s
+unique index is the second, storage-level line of defense against two processes reconsidering the
+same chain at once.
+
+**Suggestion path.** A reconsideration that produces a user-facing surface goes through the
+existing Proactive Engine (`submit_candidates`) exactly like a first-time decision — no bypass, no
+second engine, and the existing ref-based dedupe prevents a duplicate Home card for the same
+question.
+
+## V2.9.4 — Timer durability: two separate guarantees, not one atomic operation
+
+The one-shot deferred-wake timer lives only in process memory (`life_orchestration/scheduler.py`'s
+`_deferred_tasks`). Mongo's `defer_until` is the durable fact. **These are two separate writes to
+two separate places, never one atomic operation** — persisting a `defer` decision and arming its
+timer happen in the same code path (`_run_one`, right after a pass) but are not transactional, so a
+process can die between them, or later, taking only the timer down with it. The correct mental
+model is:
+
+* **Mongo = durable source of truth.** A `defer` decision and its `defer_until` survive any crash.
+* **Process-local timers = ephemeral wake-ups.** An accelerator, exactly like the in-process queue
+  V2.9.4 already relies on for signals — never the record of what needs doing.
+* **Startup recovery = complete, batch-bounded reconstruction.** Not a best-effort sample.
+
+**Bounded query is not truncated recovery.** `OrchestrationService.iter_users_with_future_deferrals`
+(and its siblings for pending signals, pending assessments, and already-due deferrals) page through
+their collection in stable `_id` order, one indexed, capped batch at a time, until the collection is
+exhausted — never a single capped read that silently drops whatever sorts past the cap. A boot with
+51 users holding a future deferral rebuilds all 51 timers, in two pages, not 50. Each individual read
+stays bounded (never a full-collection scan); the total work performed is not.
+
+**Why this is still not polling.** Between pages, `recover_pending` yields to the event loop with
+`await asyncio.sleep(0)` — a cooperative yield, not a wait: it returns control for one tick and
+resumes immediately, so a large backlog costs time rather than blocking anything else the process is
+doing. It never waits for a duration, never re-queries "has anything changed?" — that is the
+structural difference from polling this whole module is built around. The walk is still finite: it
+stops the moment a page comes back shorter than the batch size, runs exactly once per boot (fired as
+a background task that startup never awaits), and is naturally idempotent — the same `_id`-cursor
+walk run twice arms nothing twice, because `arm_deferred_timer` already refuses to duplicate a live
+timer per user.

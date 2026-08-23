@@ -311,3 +311,61 @@ Engine that already existed, and must still pass its scoring, its dedupe, its ra
 "would a real assistant speak up?" test. Two independent judgements — the model's about worth and
 the system's about admissibility — must agree before a single user-facing item appears. That
 conjunction, not either half alone, is what keeps a Life OS from becoming a notification machine.
+
+# V2.9.4 — Thinking after something changes, without thinking all the time
+
+The three questions were answered but nobody was asking them. V2.9.4 closes the loop:
+
+```
+LIFE CHANGE → WHAT CHANGED? → SO WHAT? → SHOULD I SPEAK? → EVENTUAL SURFACE
+```
+
+The interesting constraint is not making this run. It is making it run *only when there is a
+reason to*.
+
+**Event-driven ≠ polling-driven.** A system that wakes up every N seconds to ask "has anything
+changed?" is not attentive, it is anxious — and it costs the same whether the user's life moved or
+not. ORA instead learns that something changed at the only moment it can be known for free: the
+instant a mutation persists a signal. Everything downstream hangs off that one fact. While nothing
+changes, the worker sits blocked on a queue: no CPU, no query, no reasoning, no spend. The cost
+chain is exact — `no change ⇒ no signal ⇒ no wake-up ⇒ no AI call` — and it is the difference
+between an assistant that can afford to think about millions of lives and one that cannot.
+
+**Autonomy is not chattiness.** The most likely outcome of an automatic pass is still silence. A
+trivial change now travels the entire pipeline unattended — signal, reasoning, attention — and
+ends at `silent`, surfacing nothing. That path is tested explicitly, because the risk of
+automation is precisely that it removes the human who used to decide whether any of this was worth
+running. Making the pipeline autonomous while keeping restraint intact is the whole point: ORA
+thinks more often and speaks no more than before.
+
+**Durability is what makes autonomy safe to under-engineer.** The in-process queue is deliberately
+modest — no broker, no distributed queue, no worker fleet. It can afford to be, because it is an
+accelerator rather than the record of what needs doing. Mongo already knows: a signal is `pending`
+until an assessment consumes it. So a dropped wake-up, a full queue or a killed process costs
+latency and never work, and the recovery path is a single bounded query at boot rather than a
+standing loop. Choosing where to be durable — and where it is safe not to be — is what keeps this
+small.
+
+**Correlated changes are one thought, not five.** Somebody who edits the same plan five times in a
+minute has had one change of mind, and coalescing encodes exactly that: one pending pass per user,
+with a redo flag so a change arriving mid-thought is picked up rather than dropped. Below that,
+V2.9.2 batches correlated signals into one reasoning call and V2.9.3 batches the resulting
+assessments into one attention decision — so a burst converges on a single conclusion and a single
+possible interruption instead of a pile of competing ones.
+
+**The pipeline cannot feed itself.** An assessment, a decision and a suggestion are all *outputs*;
+none of them is a life change. If any were, ORA would think about its own thinking forever. The
+boundary is kept where it was drawn in V2.9.1 — emission belongs to the five real mutation points
+and nowhere else — and a test asserts a full automatic pass ends holding exactly one signal: the
+one it consumed.
+
+**A deferral is a question left open, not a countdown.** "Not now" is itself a real judgement — it
+deserves to be asked again in the AI's own voice when its moment arrives, not resolved by a clock.
+The hardening that closes V2.9.4's one open point draws that line precisely: **the AI decides
+whether a deferral is still appropriate; the system only bounds *automatic* reconsideration** —
+how many times it will spend an AI call asking again, never what the answer should be. Exhausting
+that budget is bookkeeping about *cost*, and it is deliberately made to look like nothing at all
+to the person waiting: the deferral stays exactly as the AI last left it, and a genuinely new
+change to their life still reopens the question on its own, unbounded by another question's
+exhausted budget. Reading "we asked three times, so it's probably not important" out of a counter
+is exactly the mistake this system is built not to make.
