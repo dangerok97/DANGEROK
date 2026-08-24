@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router';
 import { tokens } from '@/src/theme/tokens';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { useAmbientInset } from '@/src/shell';
+import { PageContainer } from '@/src/components/ui/PageContainer';
 
 type Row = {
   icon: keyof typeof Ionicons.glyphMap;
@@ -37,20 +38,21 @@ export default function ProfiloScreen() {
       onPress: () => router.push('/settings'),
     },
     {
-      icon: 'document-text-outline',
-      label: 'Documenti',
-      sub: 'File caricati e archivio',
-      testID: 'profile-row-documenti',
-      onPress: () => router.push('/(tabs)/documenti'),
+      icon: 'sparkles-outline',
+      label: 'Memoria di ORA',
+      sub: 'Cosa ORA ha imparato su di te',
+      testID: 'profile-row-memoria',
+      onPress: () => router.push('/(tabs)/memoria'),
     },
   ];
 
-  const futureRows: Row[] = [
-    { icon: 'wallet-outline', label: 'Dashboard spese', sub: 'In arrivo', disabled: true, testID: 'profile-row-spese' },
-    { icon: 'flag-outline', label: 'Obiettivi', sub: 'In arrivo', disabled: true, testID: 'profile-row-obiettivi' },
-    { icon: 'mail-outline', label: 'Email & Messaggi', sub: 'In arrivo', disabled: true, testID: 'profile-row-email' },
-    { icon: 'card-outline', label: 'Banche & Wallet', sub: 'In arrivo', disabled: true, testID: 'profile-row-banche' },
-  ];
+  /**
+   * PX1.1 — the "Prossimamente" group is gone (spese, obiettivi, email,
+   * banche). A product roadmap does not belong inside someone's account
+   * screen: four permanently greyed rows made the app look like a demo of
+   * itself, and every visit re-advertised four things ORA cannot do. A
+   * capability appears here the day it works.
+   */
 
   const renderRow = (r: Row, i: number, total: number) => {
     const body = (
@@ -103,6 +105,7 @@ export default function ProfiloScreen() {
         contentContainerStyle={[styles.scroll, { paddingBottom: ambient.paddingBottom }]}
         showsVerticalScrollIndicator={false}
       >
+       <PageContainer testID="profilo-screen">
         <View style={styles.header}>
           <Text style={styles.brand}>PROFILO</Text>
           <Text style={styles.h1}>{user?.name ? `Ciao,\n${user.name}.` : 'Il tuo\nprofilo.'}</Text>
@@ -112,11 +115,6 @@ export default function ProfiloScreen() {
         <Text style={styles.sectionLabel}>IL TUO SPAZIO</Text>
         <View style={styles.group}>
           {activeRows.map((r, i) => renderRow(r, i, activeRows.length))}
-        </View>
-
-        <Text style={styles.sectionLabel}>PROSSIMAMENTE</Text>
-        <View style={styles.group}>
-          {futureRows.map((r, i) => renderRow(r, i, futureRows.length))}
         </View>
 
         <Text style={styles.sectionLabel}>ACCOUNT</Text>
@@ -134,6 +132,7 @@ export default function ProfiloScreen() {
         <Text style={styles.footNote}>
           ORA v1 · Il sistema operativo{'\n'}della tua vita quotidiana.
         </Text>
+       </PageContainer>
       </ScrollView>
     </SafeAreaView>
   );

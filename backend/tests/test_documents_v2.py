@@ -86,69 +86,56 @@ def test_migration_heals_legacy_string_analysis_version():
     assert next_analysis_revision(view["analysis_version"]) == 2
 
 
-def test_auto_add_disabled_by_default_and_gates():
+def test_calendar_write_always_requires_explicit_confirmation():
+    """PX1.1 — no calendar write may ever happen unattended.
+
+    This replaces an earlier test that asserted auto-add *refused* under
+    certain conditions (low confidence, several candidates, ambiguous date),
+    which implied it *proceeded* otherwise. It did: it called the user's own
+    `confirm_event` on their behalf and synced a real Google event whenever a
+    stored preference was on and a score cleared 0.90. A confidence number is
+    not consent, so the contract is now unconditional.
+    """
     async def body():
         client, db, dsvc, intel = await _svc()
         try:
             user = f"user_{uuid.uuid4().hex[:10]}"
             await db.users.insert_one({"user_id": user, "email": f"{user}@t.ora", "preferences": {}})
+
             prefs = await intel.get_document_prefs(user)
             assert prefs["calendar_auto_add_enabled"] is False
-            assert prefs["calendar_auto_add_threshold"] == 0.90
 
-            await intel.set_document_prefs(user, {"calendar_auto_add_enabled": True, "calendar_auto_add_threshold": 0.95})
+            # Even when the legacy preference is explicitly turned on it is
+            # inert: reading it back must never claim unattended writes are on.
+            await intel.set_document_prefs(
+                user, {"calendar_auto_add_enabled": True, "calendar_auto_add_threshold": 0.95}
+            )
+            after = await intel.get_document_prefs(user)
+            assert after["calendar_auto_add_enabled"] is False, (
+                "a stored preference must never report that automatic calendar "
+                "writes are enabled — they cannot happen"
+            )
+
+            # The exact shape that used to auto-write: preference on, a single
+            # proposed event, unambiguous date, confidence far above threshold.
+            user_doc = await db.users.find_one({"user_id": user})
             out = await intel._maybe_auto_add_calendar(
                 user_id=user,
                 doc_id="doc_x",
                 events=[{
-                    "id": "ev1", "status": "proposed", "confidence": 0.5,
+                    "id": "ev_high", "status": "proposed", "confidence": 0.99,
                     "start_datetime": "2026-11-01T10:00:00+01:00", "timezone": "Europe/Rome",
-                    "ambiguous_date": False,
+                    "ambiguous_date": False, "title": "Appuntamento",
                 }],
                 analysis={},
-                user={"preferences": {"calendar_auto_add_enabled": True, "calendar_auto_add_threshold": 0.95}},
+                user=user_doc,
             )
             assert out["attempted"] is False
-            assert out["reason"] == "low_confidence"
+            assert out["reason"] == "explicit_confirmation_required"
 
-            # 0.89 never auto-adds with default threshold 0.90 (confidence > 0.90 required)
-            out089 = await intel._maybe_auto_add_calendar(
-                user_id=user,
-                doc_id="doc_x",
-                events=[{
-                    "id": "ev089", "status": "proposed", "confidence": 0.89,
-                    "start_datetime": "2026-11-01T10:00:00+01:00", "timezone": "Europe/Rome",
-                    "ambiguous_date": False,
-                }],
-                analysis={},
-                user={"preferences": {"calendar_auto_add_enabled": True, "calendar_auto_add_threshold": 0.90}},
-            )
-            assert out089["reason"] == "low_confidence"
+            # Nothing was written anywhere.
+            assert await db.calendar_event_drafts.count_documents({"user_id": user}) == 0
 
-            out2 = await intel._maybe_auto_add_calendar(
-                user_id=user,
-                doc_id="doc_x",
-                events=[
-                    {"id": "a", "status": "proposed", "confidence": 0.99, "start_datetime": "2026-11-01T10:00:00+01:00", "timezone": "Europe/Rome"},
-                    {"id": "b", "status": "proposed", "confidence": 0.99, "start_datetime": "2026-11-02T10:00:00+01:00", "timezone": "Europe/Rome"},
-                ],
-                analysis={},
-                user={"preferences": {"calendar_auto_add_enabled": True, "calendar_auto_add_threshold": 0.9}},
-            )
-            assert out2["reason"] == "multiple_or_none"
-
-            out_amb = await intel._maybe_auto_add_calendar(
-                user_id=user,
-                doc_id="doc_x",
-                events=[{
-                    "id": "amb", "status": "proposed", "confidence": 0.99,
-                    "start_datetime": "2027-04-03T10:30:00+02:00", "timezone": "Europe/Rome",
-                    "ambiguous_date": True,
-                }],
-                analysis={},
-                user={"preferences": {"calendar_auto_add_enabled": True, "calendar_auto_add_threshold": 0.9}},
-            )
-            assert out_amb["reason"] == "ambiguous_or_missing_datetime"
             await db.users.delete_many({"user_id": user})
         finally:
             client.close()

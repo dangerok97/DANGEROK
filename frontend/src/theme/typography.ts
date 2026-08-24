@@ -10,6 +10,17 @@ export type TypeStyle = {
   letterSpacing: number;
 };
 
+/**
+ * PX1.1 — the floor for anything a person is expected to read.
+ *
+ * The scale below already stops at 12 (`footnote`), but several surfaces had
+ * drifted under it with ad-hoc values — navigation labels at 10, metadata rows
+ * at 11. Quiet Premium describes the product's *manner*, never its legibility:
+ * text small enough to squint at is not calm, it is just quiet about the wrong
+ * thing. Anything below this belongs to decoration, not to reading.
+ */
+export const MIN_READABLE_FONT_SIZE = 12;
+
 export const typography = {
   display: { fontSize: 40, fontWeight: '700', lineHeight: 48, letterSpacing: -1.2 } satisfies TypeStyle,
   hero: { fontSize: 32, fontWeight: '700', lineHeight: 40, letterSpacing: -0.8 } satisfies TypeStyle,

@@ -1224,3 +1224,35 @@ reconsideration too: the system bounds automatic cost, it never manufactures a v
 | Provider-real | **NOT REQUIRED** — the Attention prompt/contract did not change semantically; reconsideration reuses the exact same call shape V2.9.3's provider-real gate already covered |
 | Chrome QA | **NOT REQUIRED** — no UI surface changed |
 | Commit / push | **NO** — STOP for CPO review |
+
+## PX1.1 — Product Experience Foundation (this batch)
+
+**Status: the interface finally belongs to one product. One theme, one navigation model, one
+geometry, one vocabulary — the foundations PX1.2–PX1.9 will build on. No screen was redesigned;
+the house was.**
+
+| Item | Stato |
+|------|--------|
+| **Calendar write consent (P0)** | **real bug found and fixed** — the document pipeline auto-called `confirm_event(sync_to_google=True)` above a 0.90 confidence score, writing real Google Calendar events unattended. Now unconditionally refuses; legacy preference inert and always reported `False` |
+| Theme unification | `tokens.color`/`tokens.shadow` resolved dark while the provider resolved light; ~40 files read that static export at module load. Both now light, behind one reversible `CONSUMER_LIGHT_ONLY` constant |
+| Information Architecture 2.0 | `Home · Vita · ORA · Attività · Documenti` + account set apart; Memoria demoted to a trust surface (reachable from Profilo); Documenti promoted out of the account menu |
+| New route | `app/(tabs)/attivita.tsx` — named, empty, human copy; PX1.6 fills it |
+| Desktop geometry | new `PageContainer` (≤800px centred decision column); applied to Profilo and Documenti, the two screens that set no width at all. Contextual rail (320px) reserved, renders nothing |
+| Dev diagnostics | moved to `src/components/dev/DevDiagnostics.tsx`, `__DEV__`-gated — zero provider/model names in consumer settings |
+| Profilo | "Prossimamente" group removed (spese/obiettivi/email/banche); Memoria link added |
+| Snooze | human-time primitive (`src/components/ui/humanTime.ts`); no "(ore)" input; unchanged ISO wire format |
+| New doc | `docs/PRODUCT_EXPERIENCE.md` — owns the binding rule *NEVER EXPOSE IMPLEMENTATION STATE WHEN A HUMAN STATE EXISTS* |
+| Frontend tests | **PX1.1 guards pass** (`src/shell/px11Foundation.test.ts`, A–N); `actionLabels` and `softExit` still green |
+| Typecheck | `tsc --noEmit` **clean** |
+| Backend touched | **YES — only** `documents/intelligence/service.py`, for the consent fix authorised by §23–24. Cognitive core untouched |
+| **Chrome QA (desktop + mobile)** | **completed on a real signed-in account** — Home, Vita, ORA, Attività, Documenti, Profilo, Impostazioni, snooze dialog; desktop 1440x900 and phone 375x812. Console clean on a fresh session |
+| **QA-found regressions, all fixed** | raw `confidence` badges in Documents (card + detail panel); horizontal stats/filter rows vertically compressed to half height (**pre-existing**); "Documenti" truncating in the phone bar once labels reached the 12px floor; nested `<h1>` in `ContextsHeader` (**pre-existing**, invalid HTML + hydration error); "più tardi oggi" proposing 05:23 at 02:23 |
+| Typography floor | `MIN_READABLE_FONT_SIZE = 12` declared and applied to navigation chrome (was 10) and document metadata (was 11) |
+| Backend documents regression | **17/17 passed**, including the new consent test |
+| Commit / push | **NO** — STOP for CPO review |
+
+### Deferred by design
+
+PX1.2 Home 3.0 · PX1.3 Workspace 2.0 · PX1.4 Conversation Experience · PX1.5 Vita/Memory trust UX ·
+PX1.6 Activity Center · PX1.7 Documents UX 2.0 · PX1.8 Profile/Settings/Permissions ·
+PX1.9 Motion/States/Accessibility.

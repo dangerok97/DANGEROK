@@ -3,7 +3,16 @@
  *
  * New semantic names live alongside legacy aliases so existing screens keep working.
  * Dynamic light/dark resolution goes through ThemeProvider + useTheme().
- * Static `tokens` defaults to the dark Quiet Premium palette (deep surfaces, Deep Indigo accent).
+ *
+ * PX1.1 — static `tokens.color` resolves to the LIGHT Quiet Premium palette.
+ * This is load-bearing, not cosmetic: roughly forty screens and components read
+ * `tokens.color.*` inside `StyleSheet.create`, which runs once at module load and
+ * therefore cannot see the provider. While this default was dark, every one of
+ * those surfaces rendered dark no matter what the user or the provider chose —
+ * which is exactly why Profilo/Impostazioni/Documenti flipped to dark while the
+ * navigation rail beside them stayed light. Consumer V1 is light everywhere, so
+ * the static default and the provider must agree. Dark stays fully expressible
+ * via `colorDark`/`darkColors` for a future themed pass.
  */
 
 import { darkColors, lightColors, type SemanticColors } from './palettes';
@@ -118,7 +127,7 @@ const legacyMotion = {
 
 export const tokens = {
   language: 'ORA Quiet Premium' as const,
-  color: colorsFromPalette(darkColors),
+  color: colorsFromPalette(lightColors),
   colorLight: colorsFromPalette(lightColors),
   colorDark: colorsFromPalette(darkColors),
   spacing: legacySpacing,
@@ -133,8 +142,9 @@ export const tokens = {
     size: iconSize,
     stroke: iconStroke,
   },
-  shadow: getShadows('dark'),
+  shadow: getShadows('light'),
   shadowLight: getShadows('light'),
+  shadowDark: getShadows('dark'),
   responsive: {
     phoneMax: 767,
     tabletMax: 1023,

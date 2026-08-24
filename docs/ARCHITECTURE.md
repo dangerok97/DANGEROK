@@ -1177,3 +1177,48 @@ stops the moment a page comes back shorter than the batch size, runs exactly onc
 a background task that startup never awaits), and is naturally idempotent — the same `_id`-cursor
 walk run twice arms nothing twice, because `arm_deferred_timer` already refuses to duplicate a live
 timer per user.
+
+# PX1.1 — Calendar write consent (P0 fix)
+
+A **real consent bug**, found by the PX1.1 audit of the legacy "Calendario automatico (soglia 90%)"
+setting and fixed here. It is recorded in full because the shape of the mistake matters more than
+the diff.
+
+**What happened.** At the end of the document analysis pipeline,
+`DocumentIntelligenceService._maybe_auto_add_calendar` read a stored user preference. If it was on,
+and exactly one recognised event scored above `calendar_auto_add_threshold` (default 0.90), it
+called:
+
+```python
+await self.confirm_event(user_id=..., doc_id=..., event_id=..., sync_to_google=True)
+```
+
+`confirm_event` is *the user's own confirmation function* — the one the UI calls when a person taps
+confirm. Calling it from the pipeline created a calendar draft and synced a real event into the
+user's real Google Calendar, unattended.
+
+**Why it is a bug and not a feature.** Calendar Intelligence (V2.8.6b) states the contract plainly:
+a WRITE requires explicit confirmation. This path bypassed it, with a confidence score standing in
+for consent. A confidence score is a statement about the *model*, never a statement about what the
+*person* agreed to, and no threshold converts one into the other. Note that connector-level consent
+(`calendar.write`, granted at OAuth) was not the missing piece: that grants ORA the *ability* to
+write, never permission for any *particular* write.
+
+**The fix.** `_maybe_auto_add_calendar` now always refuses, returning
+`{"attempted": False, "reason": "explicit_confirmation_required"}`. Nothing else about the pipeline
+changes: the event is still extracted, still stored, still surfaced as a proposal. The only removed
+capability is the system's ability to accept that proposal on the user's behalf.
+
+The function was kept rather than deleted at its call site so the refusal is explicit and testable,
+rather than an absence that could be reintroduced by accident.
+
+**The preference.** `calendar_auto_add_enabled` is now inert, and `get_document_prefs` always
+reports it as `False` — echoing a stored `true` would tell a client that unattended writes are
+enabled when they cannot happen, which is the one thing a consent surface must never get wrong. The
+field stays in the payload for client compatibility only.
+
+**Tests.** `tests/test_documents_v2.py::test_calendar_write_always_requires_explicit_confirmation`
+replaces an earlier test that asserted auto-add *refused* under certain conditions (low confidence,
+several candidates, ambiguous date) — which implied it *proceeded* otherwise. It did. The contract
+is now unconditional, and the test drives the exact shape that used to write: preference on, single
+proposed event, unambiguous date, confidence 0.99.

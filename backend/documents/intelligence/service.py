@@ -739,14 +739,22 @@ class IntelligenceService:
             return _local_ask()
 
     async def _calendar_auto_prefs(self, user: Optional[dict]) -> dict[str, Any]:
+        """Always reports auto-add as OFF.
+
+        The stored preference is inert: no code path can act on it any more
+        (see `_maybe_auto_add_calendar`). Reporting whatever value happens to
+        be persisted would tell a client that unattended calendar writes are
+        enabled when they cannot happen — the one thing a consent surface must
+        never get wrong. The threshold is still echoed so existing clients
+        parse the response, but nothing reads it.
+        """
         prefs = ((user or {}).get("preferences") or {})
-        enabled = bool(prefs.get("calendar_auto_add_enabled", False))
         try:
             threshold = float(prefs.get("calendar_auto_add_threshold", 0.90))
         except (TypeError, ValueError):
             threshold = 0.90
         threshold = max(0.5, min(1.0, threshold))
-        return {"enabled": enabled, "threshold": threshold}
+        return {"enabled": False, "threshold": threshold}
 
     async def get_document_prefs(self, user_id: str) -> dict[str, Any]:
         user = await self.db.users.find_one({"user_id": user_id}, {"_id": 0, "preferences": 1})
@@ -754,6 +762,7 @@ class IntelligenceService:
         auto = await self._calendar_auto_prefs(user)
         return {
             "document_ai_analysis": prefs.get("document_ai_analysis", True) is not False,
+            # Always False — kept in the payload for client compatibility only.
             "calendar_auto_add_enabled": auto["enabled"],
             "calendar_auto_add_threshold": auto["threshold"],
         }
@@ -783,56 +792,33 @@ class IntelligenceService:
         analysis: dict,
         user: Optional[dict],
     ) -> dict[str, Any]:
-        """Safe default off. Auto-confirm + Google sync only for a single high-confidence event."""
-        auto = await self._calendar_auto_prefs(user)
-        if not auto["enabled"]:
-            return {"attempted": False, "reason": "disabled"}
+        """A calendar write is NEVER performed automatically. Always refuses.
+
+        This used to call `confirm_event(sync_to_google=True)` — the user's own
+        confirmation function — on the user's behalf whenever a preference was
+        on and a recognised event scored above 0.90, creating a real event in
+        their real Google Calendar. That is a consent bug, not a feature: a
+        confidence score is a statement about the model, never a statement
+        about what the person agreed to, and no threshold makes it one. The
+        Calendar Intelligence contract (V2.8.6b) is explicit — a WRITE requires
+        explicit confirmation — and this path bypassed it entirely.
+
+        The recognised event is still extracted, still stored, and still
+        surfaced as a proposal. The only thing removed is the system's ability
+        to accept that proposal for the user. Confirmation now always travels
+        the ordinary route: the user confirms, and `confirm_event` runs because
+        they said so.
+
+        Kept as a function (rather than deleted at the call site) so the
+        pipeline's response shape is unchanged and the refusal is explicit and
+        testable, rather than an absence someone could reintroduce by accident.
+        """
         proposed = [e for e in events if e.get("status") == "proposed"]
-        if len(proposed) != 1:
-            return {"attempted": False, "reason": "multiple_or_none"}
-        if analysis.get("requires_review"):
-            return {"attempted": False, "reason": "requires_review"}
-        ev = proposed[0]
-        conf = float(ev.get("confidence") or 0)
-        # Spec: auto-add only when confidence > threshold (default 0.90 ⇒ 0.89 never auto-adds).
-        if conf <= float(auto["threshold"]):
-            return {"attempted": False, "reason": "low_confidence", "confidence": conf}
-        if ev.get("ambiguous_date") or not ev.get("start_datetime"):
-            return {"attempted": False, "reason": "ambiguous_or_missing_datetime"}
-        critical_missing = [
-            f for f in (ev.get("missing_fields") or [])
-            if f in ("start_datetime", "date", "time", "title")
-        ]
-        if critical_missing:
-            return {"attempted": False, "reason": "critical_missing", "missing": critical_missing}
-        if not (ev.get("timezone") or "Europe/Rome"):
-            return {"attempted": False, "reason": "invalid_timezone"}
-        # Dedupe: already confirmed calendar draft for this candidate
-        existing = await self.db.calendar_event_drafts.find_one({
-            "user_id": user_id,
-            "source_document_id": doc_id,
-            "source_event_candidate_id": ev["id"],
-            "status": {"$ne": "cancelled"},
-        })
-        if existing:
-            return {"attempted": False, "reason": "already_exists", "calendar_event_id": existing.get("id")}
-        try:
-            res = await self.confirm_event(
-                user_id=user_id,
-                doc_id=doc_id,
-                event_id=ev["id"],
-                sync_to_google=True,
-            )
-            return {
-                "attempted": True,
-                "ok": True,
-                "event_id": ev["id"],
-                "calendar_event_id": (res.get("calendar_event") or {}).get("id"),
-                "google_sync": res.get("google_sync"),
-            }
-        except Exception as e:
-            logger.warning("auto_add calendar failed type=%s", type(e).__name__)
-            return {"attempted": True, "ok": False, "error": type(e).__name__}
+        return {
+            "attempted": False,
+            "reason": "explicit_confirmation_required",
+            "proposed_events": len(proposed),
+        }
 
     async def hub(self, *, user_id: str, limit: int = 40) -> dict:
         """Documents home aggregates for V2 UI."""

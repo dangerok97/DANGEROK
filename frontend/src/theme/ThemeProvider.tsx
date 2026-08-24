@@ -29,7 +29,21 @@ export type ThemeContextValue = {
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
+/**
+ * PX1.1 — ORA consumer V1 is light everywhere.
+ *
+ * Dark remains fully implemented (palette, shadows, resolution logic below) and
+ * is one constant away from returning. It is pinned off because a *partially*
+ * themed product is worse than a single-theme one: with roughly forty surfaces
+ * reading the static token export, "system" meant Profilo went dark while the
+ * rail beside it stayed light — the incoherence the user actually saw. Until
+ * every surface is provider-driven, offering the choice is offering a broken
+ * one. Flip this to `false` to restore light/dark switching.
+ */
+const CONSUMER_LIGHT_ONLY = true;
+
 function resolveScheme(preference: ThemePreference, system: ColorSchemeName): ResolvedScheme {
+  if (CONSUMER_LIGHT_ONLY) return 'light';
   if (preference === 'system') {
     return system === 'light' ? 'light' : 'dark';
   }
@@ -102,14 +116,17 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 export function useTheme(): ThemeContextValue {
   const ctx = useContext(ThemeContext);
   if (!ctx) {
-    // Safe fallback for tests / early render outside provider
-    const colors = colorsFromPalette(darkColors);
-    const shadows = getShadows('dark');
+    // Safe fallback for tests / early render outside the provider. It must
+    // match the static token default, or a component rendering before the
+    // provider mounts would flash the opposite theme.
+    const fallbackScheme: ResolvedScheme = CONSUMER_LIGHT_ONLY ? 'light' : 'dark';
+    const colors = colorsFromPalette(fallbackScheme === 'light' ? lightColors : darkColors);
+    const shadows = getShadows(fallbackScheme);
     return {
-      preference: 'dark',
-      scheme: 'dark',
+      preference: fallbackScheme,
+      scheme: fallbackScheme,
       colors,
-      isDark: true,
+      isDark: fallbackScheme === 'dark',
       setPreference: () => undefined,
       tokens,
       typography,

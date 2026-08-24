@@ -115,7 +115,14 @@ export function DocumentUtilityPanel({
       <Card title={analysis?.display_title || a?.suggested_title || doc.filename} icon="document-text-outline">
         <FieldRow k="Categoria" v={a?.macro_category} />
         <FieldRow k="Sottotipo" v={a?.subcategory} />
-        <FieldRow k="Affidabilità" v={a?.confidence != null ? `${Math.round(a.confidence * 100)}%` : null} />
+        {/*
+          PX1.1 — the "Affidabilità NN%" row is gone. It was a raw confidence
+          score presented as a fact about the user's own document: a number
+          they cannot evaluate, quietly asking them to decide how much of ORA's
+          reading to believe. The panel already states the human state above
+          (Stato, Modalità), and anything ORA is unsure about surfaces as
+          something to confirm, not as a percentage.
+        */}
         <FieldRow k="File originale" v={doc.original_filename || doc.filename} />
         <FieldRow k="Riepilogo" v={a?.summary} />
       </Card>
@@ -173,7 +180,6 @@ function EventPanel({
       <FieldRow k="Codice prenotazione" v={ev.booking_reference} />
       <FieldRow k="Priorità" v={ev.priority} />
       <FieldRow k="Urgenza" v={ev.urgency} />
-      <FieldRow k="Affidabilità" v={ev.confidence != null ? `${Math.round(ev.confidence * 100)}%` : null} />
       {ev.ambiguous_date ? <FieldRow k="Attenzione" v="Data ambigua — conferma richiesta" /> : null}
       {ev.missing_fields?.length ? <FieldRow k="Campi incerti" v={ev.missing_fields.join(', ')} /> : null}
       <FieldRow k="Stato" v={ev.status} />

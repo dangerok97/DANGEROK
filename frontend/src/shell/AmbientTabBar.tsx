@@ -13,8 +13,14 @@ import { GlassContainer } from '@/src/components/ui/GlassContainer';
 import { useTheme } from '@/src/theme/ThemeProvider';
 import { useBreakpoint } from '@/src/theme/responsive';
 import { tokens } from '@/src/theme/tokens';
+import { MIN_READABLE_FONT_SIZE } from '@/src/theme/typography';
 import { AMBIENT_BAR_HEIGHT, AMBIENT_RAIL_WIDTH } from './constants';
-import { AMBIENT_NAV_ITEMS, type AmbientNavKey } from './navItems';
+import {
+  AMBIENT_ACCOUNT_ITEM,
+  AMBIENT_NAV_ITEMS,
+  type AmbientNavItem,
+  type AmbientNavKey,
+} from './navItems';
 import { useDeclareShellMode } from './ShellModeContext';
 
 export function AmbientTabBar({ state, navigation }: BottomTabBarProps) {
@@ -26,7 +32,7 @@ export function AmbientTabBar({ state, navigation }: BottomTabBarProps) {
 
   const activeRoute = state.routes[state.index]?.name as string | undefined;
 
-  const onPress = (routeName: AmbientNavKey) => {
+  const onPress = (routeName: AmbientNavKey | 'profilo') => {
     if (Platform.OS !== 'web') {
       void Haptics.selectionAsync();
     }
@@ -45,8 +51,19 @@ export function AmbientTabBar({ state, navigation }: BottomTabBarProps) {
     }
   };
 
-  const items = AMBIENT_NAV_ITEMS.map((item) => {
+  const renderItem = (item: AmbientNavItem) => {
     const focused = activeRoute === item.route;
+    /*
+      Account is not a destination — the desktop rail says so with a divider
+      and its own footer. The phone bar has no "apart" position, so it says the
+      same thing the only way a bar can: the five destinations carry words,
+      account carries just its icon. That also returns the ~11px that made
+      "Documenti" truncate once labels reached the 12px readability floor —
+      six labelled items simply do not fit 375px, and the label that should
+      give way is the one that is not a place you go.
+    */
+    const isAccount = item.key === AMBIENT_ACCOUNT_ITEM.key;
+    const iconOnly = isAccount && !isRail;
     return (
       <Pressable
         key={item.key}
@@ -58,6 +75,7 @@ export function AmbientTabBar({ state, navigation }: BottomTabBarProps) {
         style={({ pressed }) => [
           isRail ? styles.railItem : styles.barItem,
           item.center && (isRail ? styles.railCenter : styles.barCenter),
+          iconOnly && styles.barAccount,
           { opacity: pressed ? 0.7 : 1 },
         ]}
       >
@@ -95,18 +113,28 @@ export function AmbientTabBar({ state, navigation }: BottomTabBarProps) {
               size={isRail ? 20 : 22}
               color={focused ? colors.textPrimary : colors.textTertiary}
             />
-            <Text
-              style={[
-                styles.label,
-                {
-                  color: focused ? colors.textPrimary : colors.textTertiary,
-                  fontWeight: focused ? '600' : '400',
-                },
-              ]}
-              numberOfLines={1}
-            >
-              {item.label}
-            </Text>
+            {iconOnly ? null : (
+              <Text
+                style={[
+                  styles.label,
+                  {
+                    color: focused ? colors.textPrimary : colors.textTertiary,
+                    /*
+                      The rail signals the active tab by weight alone. The bar
+                      already has its own dot, so bolding there is redundant —
+                      and it costs real width: bold "Documenti" overflows the
+                      slot that fits it at regular weight, so the label would
+                      truncate only while selected. A constant weight also
+                      keeps the row from reflowing every time you switch tab.
+                    */
+                    fontWeight: isRail ? (focused ? '600' : '400') : '500',
+                  },
+                ]}
+                numberOfLines={1}
+              >
+                {item.label}
+              </Text>
+            )}
             {/* Mobile only: non-color active cue. Rail uses weight alone. */}
             {!isRail ? (
               focused ? (
@@ -119,7 +147,9 @@ export function AmbientTabBar({ state, navigation }: BottomTabBarProps) {
         )}
       </Pressable>
     );
-  });
+  };
+
+  const primaryItems = AMBIENT_NAV_ITEMS.map(renderItem);
 
   if (isRail) {
     return (
@@ -137,7 +167,15 @@ export function AmbientTabBar({ state, navigation }: BottomTabBarProps) {
         testID="ambient-rail"
         accessibilityLabel="Navigazione Ambient"
       >
-        <View style={styles.railInner}>{items}</View>
+        {/*
+          Destinations, then space, then account. The gap is the point: it is
+          what says Profilo is not a sixth place to go, and it is why the five
+          that matter sit together as one group.
+        */}
+        <View style={styles.railInner}>{primaryItems}</View>
+        <View style={[styles.railAccount, { borderTopColor: colors.divider }]}>
+          {renderItem(AMBIENT_ACCOUNT_ITEM)}
+        </View>
       </View>
     );
   }
@@ -152,7 +190,16 @@ export function AmbientTabBar({ state, navigation }: BottomTabBarProps) {
       accessibilityLabel="Navigazione Ambient"
     >
       <GlassContainer glassRole="tabBar" style={styles.glass} intensity={isDark ? 56 : 42}>
-        <View style={[styles.barRow, { minHeight: AMBIENT_BAR_HEIGHT }]}>{items}</View>
+        {/*
+          Phone keeps account in the bar. A bottom bar has no "set apart"
+          position, and stranding the only route to your own account behind a
+          gesture would cost more than this small divergence from the rail.
+          The final phone IA is PX1.x work, not something to improvise here.
+        */}
+        <View style={[styles.barRow, { minHeight: AMBIENT_BAR_HEIGHT }]}>
+          {primaryItems}
+          {renderItem(AMBIENT_ACCOUNT_ITEM)}
+        </View>
       </GlassContainer>
     </View>
   );
@@ -161,8 +208,15 @@ export function AmbientTabBar({ state, navigation }: BottomTabBarProps) {
 const styles = StyleSheet.create({
   barWrap: {
     position: 'absolute',
-    left: 12,
-    right: 12,
+    /*
+      6, not 12. Five labelled destinations plus an account affordance at the
+      12px readability floor genuinely fill a 375px bar — the longest label was
+      losing by under a pixel. Reclaiming the outer margin (and the centre
+      item's extra flex below) buys real headroom instead of another exact tie
+      that the next locale or font would break.
+    */
+    left: 6,
+    right: 6,
     bottom: 0,
   },
   glass: {
@@ -172,7 +226,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 6,
+    paddingHorizontal: 2,
     paddingVertical: 6,
   },
   barItem: {
@@ -184,11 +238,27 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   barCenter: {
-    flex: 1.1,
+    flex: 1,
+  },
+  /**
+   * Icon-only account slot: takes what it needs, not an equal fifth.
+   * Explicit grow/shrink/basis rather than `flex: 0` — that shorthand resolves
+   * to a zero basis here and collapsed the button to zero width, leaving the
+   * only route to the account untappable.
+   */
+  barAccount: {
+    flexGrow: 0,
+    flexShrink: 0,
+    flexBasis: 44,
+    minWidth: 44,
   },
   label: {
-    fontSize: 10,
-    letterSpacing: 0.1,
+    // PX1.1: was 10 — below the readable floor, on chrome the user reads on
+    // every screen, forever. At 12px the longest label ("Documenti") needs
+    // 59.1px in a 58.4px slot, so the decorative 0.1 tracking goes: legibility
+    // earns the pixels, letter-spacing does not.
+    fontSize: MIN_READABLE_FONT_SIZE,
+    letterSpacing: 0,
   },
   activeDot: {
     width: 3,
@@ -216,7 +286,7 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
   },
   oraLabel: {
-    fontSize: 11,
+    fontSize: MIN_READABLE_FONT_SIZE,
     letterSpacing: 0.8,
   },
   /**
@@ -235,6 +305,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 4,
     paddingVertical: 12,
+  },
+  railAccount: {
+    width: AMBIENT_RAIL_WIDTH,
+    alignItems: 'center',
+    paddingTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
   railItem: {
     width: AMBIENT_RAIL_WIDTH,
