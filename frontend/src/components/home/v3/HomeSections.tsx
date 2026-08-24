@@ -1,0 +1,412 @@
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+
+import { useTheme } from '@/src/theme/ThemeProvider';
+import { tokens } from '@/src/theme/tokens';
+import type { HomeInsight, HomeItem, ProactiveSuggestion } from '@/src/api/client';
+import { ContextualCardVisual } from './ContextualCardVisual';
+import { agoLabel, relativeDayLabel } from './homeItemView';
+
+/* -------------------------------------------------------------------------- */
+/* Shared section chrome                                                       */
+/* -------------------------------------------------------------------------- */
+
+export function SectionShell({
+  title,
+  count,
+  footerLabel,
+  onFooter,
+  children,
+  testID,
+}: {
+  title: string;
+  count?: number;
+  footerLabel?: string;
+  onFooter?: () => void;
+  children: React.ReactNode;
+  testID?: string;
+}) {
+  const { colors } = useTheme();
+  return (
+    <View
+      style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}
+      testID={testID}
+    >
+      <View style={styles.sectionHead}>
+        <Text style={[styles.sectionTitle, { color: colors.accent }]} accessibilityRole="header">
+          {title}
+        </Text>
+        {typeof count === 'number' && count > 0 ? (
+          <View style={[styles.badge, { backgroundColor: colors.accentMuted }]}>
+            <Text style={[styles.badgeText, { color: colors.accent }]}>{count}</Text>
+          </View>
+        ) : null}
+      </View>
+
+      <View style={styles.sectionBody}>{children}</View>
+
+      {footerLabel && onFooter ? (
+        <Pressable
+          onPress={onFooter}
+          style={({ pressed }) => [styles.footer, pressed && styles.pressed]}
+          accessibilityRole="button"
+        >
+          <Text style={[styles.footerLabel, { color: colors.accent }]}>{footerLabel}</Text>
+          <Ionicons name="arrow-forward" size={13} color={colors.accent} />
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* DOMANDE PER TE — ORA is waiting on an answer                                */
+/* -------------------------------------------------------------------------- */
+
+export function QuestionsSection({
+  questions,
+  busyId,
+  onAnswer,
+  onSeeAll,
+}: {
+  questions: ProactiveSuggestion[];
+  busyId?: string | null;
+  onAnswer: (s: ProactiveSuggestion) => void;
+  onSeeAll?: () => void;
+}) {
+  const { colors } = useTheme();
+  if (!questions.length) return null;
+
+  return (
+    <SectionShell
+      title="DOMANDE PER TE"
+      count={questions.length}
+      footerLabel={onSeeAll ? 'Vedi tutte le domande' : undefined}
+      onFooter={onSeeAll}
+      testID="home-questions"
+    >
+      {questions.slice(0, 3).map((q) => (
+        <View key={q.id} style={styles.row}>
+          <ContextualCardVisual
+            item={{ type: 'reply', source_type: q.source }}
+            size="row"
+            style={styles.rowVisual}
+          />
+          <View style={styles.rowText}>
+            <Text style={[styles.rowTitle, { color: colors.textPrimary }]} numberOfLines={2}>
+              {q.title}
+            </Text>
+            {q.reason ? (
+              <Text style={[styles.rowMeta, { color: colors.textTertiary }]} numberOfLines={1}>
+                {q.reason}
+              </Text>
+            ) : null}
+          </View>
+          <Pressable
+            onPress={() => onAnswer(q)}
+            disabled={busyId === q.id}
+            style={({ pressed }) => [
+              styles.rowCta,
+              { borderColor: colors.accent },
+              pressed && styles.pressed,
+              busyId === q.id && styles.disabled,
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel={`Rispondi: ${q.title}`}
+            testID={`home-question-answer-${q.id}`}
+          >
+            <Text style={[styles.rowCtaLabel, { color: colors.accent }]}>Rispondi</Text>
+          </Pressable>
+        </View>
+      ))}
+    </SectionShell>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* OGGI                                                                        */
+/* -------------------------------------------------------------------------- */
+
+export function TodaySection({
+  items,
+  onOpen,
+  onSeeAll,
+}: {
+  items: HomeItem[];
+  onOpen: (item: HomeItem) => void;
+  onSeeAll?: () => void;
+}) {
+  const { colors } = useTheme();
+  if (!items.length) return null;
+
+  return (
+    <SectionShell
+      title="OGGI"
+      footerLabel={onSeeAll ? 'Vedi agenda completa' : undefined}
+      onFooter={onSeeAll}
+      testID="home-today"
+    >
+      {items.slice(0, 4).map((item) => {
+        const at = item.start_at || item.due_at;
+        const time = at
+          ? new Date(at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })
+          : null;
+        return (
+          <Pressable
+            key={item.id}
+            onPress={() => onOpen(item)}
+            style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+            accessibilityRole="button"
+            testID={`home-today-${item.id}`}
+          >
+            {time ? (
+              <Text style={[styles.time, { color: colors.textSecondary }]}>{time}</Text>
+            ) : (
+              <View style={styles.timeSpacer} />
+            )}
+            <ContextualCardVisual item={item} size="row" style={styles.rowVisual} />
+            <View style={styles.rowText}>
+              <Text style={[styles.rowTitle, { color: colors.textPrimary }]} numberOfLines={1}>
+                {item.title}
+              </Text>
+              {item.location || item.subtitle ? (
+                <Text style={[styles.rowMeta, { color: colors.textTertiary }]} numberOfLines={1}>
+                  {item.location || item.subtitle}
+                </Text>
+              ) : null}
+            </View>
+          </Pressable>
+        );
+      })}
+    </SectionShell>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* AGGIORNAMENTI DI ORA                                                        */
+/* -------------------------------------------------------------------------- */
+
+export function UpdatesFeed({
+  suggestions,
+  insights,
+  busyId,
+  onOpen,
+  onDismiss,
+  onInsight,
+  onSeeAll,
+}: {
+  suggestions: ProactiveSuggestion[];
+  insights: HomeInsight[];
+  busyId?: string | null;
+  onOpen: (s: ProactiveSuggestion) => void;
+  onDismiss: (id: string) => void;
+  onInsight: (i: HomeInsight) => void;
+  onSeeAll?: () => void;
+}) {
+  const { colors } = useTheme();
+  const total = suggestions.length + insights.length;
+  if (!total) return null;
+
+  return (
+    <SectionShell
+      title="AGGIORNAMENTI DI ORA"
+      footerLabel={onSeeAll ? 'Vedi tutti gli aggiornamenti' : undefined}
+      onFooter={onSeeAll}
+      testID="home-updates"
+    >
+      {suggestions.slice(0, 3).map((s) => (
+        <Pressable
+          key={s.id}
+          onPress={() => onOpen(s)}
+          disabled={busyId === s.id}
+          style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+          accessibilityRole="button"
+          testID={`home-update-${s.id}`}
+        >
+          <ContextualCardVisual
+            item={{ type: 'insight', source_type: s.source }}
+            size="row"
+            style={styles.rowVisual}
+          />
+          <View style={styles.rowText}>
+            <Text style={[styles.rowTitle, { color: colors.textPrimary }]} numberOfLines={2}>
+              {s.title}
+            </Text>
+            {s.description || s.reason ? (
+              <Text style={[styles.rowMeta, { color: colors.textTertiary }]} numberOfLines={1}>
+                {s.description || s.reason}
+              </Text>
+            ) : null}
+          </View>
+          {agoLabel(s.created_at) ? (
+            <Text style={[styles.ago, { color: colors.textTertiary }]}>{agoLabel(s.created_at)}</Text>
+          ) : null}
+          <Pressable
+            onPress={() => onDismiss(s.id)}
+            hitSlop={10}
+            style={styles.dismiss}
+            accessibilityRole="button"
+            accessibilityLabel={`Ignora: ${s.title}`}
+          >
+            <Ionicons name="close" size={16} color={colors.textTertiary} />
+          </Pressable>
+        </Pressable>
+      ))}
+
+      {insights.slice(0, 3).map((i) => (
+        <Pressable
+          key={i.id}
+          onPress={() => onInsight(i)}
+          style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+          accessibilityRole="button"
+          testID={`home-insight-${i.id}`}
+        >
+          <ContextualCardVisual
+            item={{ type: 'insight', source_type: i.source }}
+            size="row"
+            style={styles.rowVisual}
+          />
+          <View style={styles.rowText}>
+            <Text style={[styles.rowTitle, { color: colors.textPrimary }]} numberOfLines={2}>
+              {i.text}
+            </Text>
+          </View>
+          {agoLabel(i.created_at) ? (
+            <Text style={[styles.ago, { color: colors.textTertiary }]}>{agoLabel(i.created_at)}</Text>
+          ) : null}
+        </Pressable>
+      ))}
+    </SectionShell>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* PIÙ AVANTI                                                                  */
+/* -------------------------------------------------------------------------- */
+
+export function HorizonSection({
+  items,
+  onOpen,
+  onSeeAll,
+}: {
+  items: HomeItem[];
+  onOpen: (item: HomeItem) => void;
+  onSeeAll?: () => void;
+}) {
+  const { colors } = useTheme();
+  if (!items.length) return null;
+
+  return (
+    <SectionShell
+      title="PIÙ AVANTI"
+      footerLabel={onSeeAll ? 'Vedi tutto il calendario' : undefined}
+      onFooter={onSeeAll}
+      testID="home-horizon"
+    >
+      {items.slice(0, 4).map((item) => {
+        const at = item.start_at || item.due_at || item.goal_target_date;
+        const rel = relativeDayLabel(at);
+        const d = at ? new Date(at) : null;
+        return (
+          <Pressable
+            key={item.id}
+            onPress={() => onOpen(item)}
+            style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+            accessibilityRole="button"
+            testID={`home-horizon-${item.id}`}
+          >
+            {d ? (
+              <View style={styles.dateChip}>
+                <Text style={[styles.dateDay, { color: colors.textPrimary }]}>{d.getDate()}</Text>
+                <Text style={[styles.dateMonth, { color: colors.textTertiary }]}>
+                  {d.toLocaleDateString('it-IT', { month: 'short' }).replace('.', '').toUpperCase()}
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.timeSpacer} />
+            )}
+            <View style={styles.rowText}>
+              <Text style={[styles.rowTitle, { color: colors.textPrimary }]} numberOfLines={1}>
+                {item.title}
+              </Text>
+              {item.subtitle || item.description ? (
+                <Text style={[styles.rowMeta, { color: colors.textTertiary }]} numberOfLines={1}>
+                  {item.subtitle || item.description}
+                </Text>
+              ) : null}
+            </View>
+            {rel ? (
+              <View style={[styles.relChip, { backgroundColor: colors.warningBg }]}>
+                <Text style={[styles.relText, { color: colors.warning }]}>{rel}</Text>
+              </View>
+            ) : null}
+          </Pressable>
+        );
+      })}
+    </SectionShell>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+const styles = StyleSheet.create({
+  section: {
+    borderRadius: tokens.radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: tokens.spacing.lg,
+    paddingVertical: tokens.spacing.lg,
+    gap: tokens.spacing.md,
+  },
+  sectionHead: { flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.sm },
+  sectionTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.3,
+    flex: 1,
+  },
+  badge: {
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+  },
+  badgeText: { fontSize: 12, fontWeight: '700' },
+  sectionBody: { gap: tokens.spacing.sm },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: tokens.spacing.md,
+    minHeight: 48,
+  },
+  rowVisual: { width: 34, height: 34 },
+  rowText: { flex: 1, gap: 2 },
+  rowTitle: { fontSize: 14, fontWeight: '500', lineHeight: 20 },
+  rowMeta: { fontSize: 12, lineHeight: 17 },
+  rowCta: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: tokens.radius.md,
+    paddingHorizontal: tokens.spacing.md,
+    minHeight: 34,
+    justifyContent: 'center',
+  },
+  rowCtaLabel: { fontSize: 13, fontWeight: '600' },
+  time: { fontSize: 13, fontWeight: '500', width: 46 },
+  timeSpacer: { width: 46 },
+  dateChip: { width: 46, alignItems: 'flex-start' },
+  dateDay: { fontSize: 17, fontWeight: '700', lineHeight: 20 },
+  dateMonth: { fontSize: 10, fontWeight: '600', letterSpacing: 0.5 },
+  relChip: {
+    borderRadius: tokens.radius.sm,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  relText: { fontSize: 11, fontWeight: '600' },
+  ago: { fontSize: 11, marginLeft: 'auto', paddingLeft: 6 },
+  dismiss: { padding: 4 },
+  footer: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 32 },
+  footerLabel: { fontSize: 13, fontWeight: '600' },
+  pressed: { opacity: 0.65 },
+  disabled: { opacity: 0.5 },
+});

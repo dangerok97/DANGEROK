@@ -4,8 +4,16 @@ export const AMBIENT_BAR_HEIGHT = 64;
 /** Extra scroll padding so content clears floating Ambient bar. */
 export const AMBIENT_BOTTOM_CLEARANCE = 108;
 
-/** Compact Ambient Rail width on desktop breakpoint (72–88 band). */
-export const AMBIENT_RAIL_WIDTH = 80;
+/**
+ * Desktop rail width.
+ *
+ * PX1.2 — widened from the 80px icon strip. The canonical Home puts the brand
+ * at the top of the rail and the person's own name and face at the bottom,
+ * with the destinations labelled in between. None of that fits in 80px, and
+ * an 80px strip of glyphs is navigation furniture rather than the frame of a
+ * product someone lives in. The phone bar is unchanged.
+ */
+export const AMBIENT_RAIL_WIDTH = 216;
 
 /**
  * Action Focus decision column — narrower than shell/Home editorial width.

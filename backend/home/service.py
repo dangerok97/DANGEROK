@@ -350,8 +350,19 @@ class HomeService:
                 row["selected"] = bool(primary and it.id == primary.id)
                 rank_trace.append(row)
 
+        # Contextual visual for the hero. Costs one indexed lookup and never
+        # waits on a provider: `attach_visuals` schedules generation in the
+        # background and returns whatever state exists right now, so Home
+        # renders at the same speed whether or not a picture exists yet.
+        primary_public = primary.to_public() if primary else None
+        if primary_public:
+            try:
+                primary_public = await attach_visual(self.db, user_id, primary_public)
+            except Exception as e:
+                logger.info("hero visual attach soft-fail: %s", type(e).__name__)
+
         return HomeResponse(
-            primary_focus=primary.to_public() if primary else None,
+            primary_focus=primary_public,
             explanation=explanation,
             current_situation=situation,
             priorities=priorities,
@@ -679,3 +690,35 @@ class HomeService:
             "connection_warnings": [w.model_dump() for w in home.connection_warnings],
             "google_calendar": home.google_calendar,
         }
+
+
+async def attach_visual(db, user_id: str, item: Dict[str, Any]) -> Dict[str, Any]:
+    """Give one Home item its contextual visual state.
+
+    The image belongs to the *entity*, not to this position on the page: a
+    situation already carrying a ready visual reuses it here rather than
+    generating a second copy for Home, which is what keeps one meaning to one
+    picture across every surface that shows it.
+    """
+    from visuals.service import VisualService
+
+    ref = None
+    if item.get("source_type") and item.get("source_id"):
+        ref = f"{item['source_type']}:{item['source_id']}"
+    elif item.get("goal_id"):
+        ref = f"goal:{item['goal_id']}"
+    if not ref:
+        return item
+
+    svc = VisualService(db)
+    existing = await svc.for_entity(user_id=user_id, entity_ref=ref)
+    if existing:
+        return {**item, "visual": existing}
+
+    state = await svc.ensure(
+        user_id=user_id,
+        entity_ref=ref,
+        title=item.get("title"),
+        summary=item.get("subtitle") or item.get("description"),
+    )
+    return {**item, "visual": state}

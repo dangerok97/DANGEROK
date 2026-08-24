@@ -10,6 +10,9 @@ import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import * as Haptics from 'expo-haptics';
 
 import { GlassContainer } from '@/src/components/ui/GlassContainer';
+import { useAuth } from '@/src/contexts/AuthContext';
+import { OraBrand } from './OraBrand';
+import { RailAccount } from './RailAccount';
 import { useTheme } from '@/src/theme/ThemeProvider';
 import { useBreakpoint } from '@/src/theme/responsive';
 import { tokens } from '@/src/theme/tokens';
@@ -26,6 +29,7 @@ import { useDeclareShellMode } from './ShellModeContext';
 export function AmbientTabBar({ state, navigation }: BottomTabBarProps) {
   useDeclareShellMode('ambient');
   const { colors, isDark } = useTheme();
+  const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const bp = useBreakpoint();
   const isRail = bp === 'desktop';
@@ -76,10 +80,19 @@ export function AmbientTabBar({ state, navigation }: BottomTabBarProps) {
           isRail ? styles.railItem : styles.barItem,
           item.center && (isRail ? styles.railCenter : styles.barCenter),
           iconOnly && styles.barAccount,
+          // The rail marks the current place with a soft filled pill rather
+          // than colour alone — legible before you read the label.
+          isRail && focused && { backgroundColor: colors.accentMuted },
           { opacity: pressed ? 0.7 : 1 },
         ]}
       >
-        {item.center ? (
+        {/*
+          The circular ORA mark belongs to the phone bar, where it anchors the
+          centre. On the rail it made ORA look like a section label rather than
+          somewhere you go, so there it is an ordinary destination: icon,
+          label, full-width hit target, same selected pill as its neighbours.
+        */}
+        {item.center && !isRail ? (
           <View
             style={[
               styles.oraMark,
@@ -168,13 +181,22 @@ export function AmbientTabBar({ state, navigation }: BottomTabBarProps) {
         accessibilityLabel="Navigazione Ambient"
       >
         {/*
-          Destinations, then space, then account. The gap is the point: it is
-          what says Profilo is not a sixth place to go, and it is why the five
-          that matter sit together as one group.
+          Brand, destinations, then the person. The gap between the last
+          destination and the account is the point: it is what says Profilo is
+          not a sixth place to go.
         */}
+        <View style={styles.railBrand}>
+          <OraBrand />
+        </View>
         <View style={styles.railInner}>{primaryItems}</View>
         <View style={[styles.railAccount, { borderTopColor: colors.divider }]}>
-          {renderItem(AMBIENT_ACCOUNT_ITEM)}
+          <RailAccount
+            name={user?.name}
+            email={user?.email}
+            picture={user?.picture}
+            onPress={() => onPress(AMBIENT_ACCOUNT_ITEM.route)}
+            selected={activeRoute === AMBIENT_ACCOUNT_ITEM.route}
+          />
         </View>
       </View>
     );
@@ -298,13 +320,17 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     borderRightWidth: StyleSheet.hairlineWidth,
   },
+  railBrand: {
+    paddingHorizontal: 16,
+    paddingBottom: 26,
+    paddingTop: 6,
+  },
   railInner: {
     flex: 1,
     width: AMBIENT_RAIL_WIDTH,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    paddingVertical: 12,
+    alignItems: 'stretch',
+    gap: 2,
+    paddingHorizontal: 10,
   },
   railAccount: {
     width: AMBIENT_RAIL_WIDTH,
@@ -312,16 +338,14 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
+  /** A labelled row, not a glyph: icon, then the word, left aligned. */
   railItem: {
-    width: AMBIENT_RAIL_WIDTH,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 3,
-    minHeight: tokens.touch.min + 4,
-    paddingVertical: 6,
-    paddingHorizontal: 4,
+    gap: 12,
+    minHeight: 46,
+    paddingHorizontal: 12,
+    borderRadius: tokens.radius.md,
   },
-  railCenter: {
-    marginVertical: 10,
-  },
+  railCenter: {},
 });

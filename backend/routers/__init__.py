@@ -79,3 +79,11 @@ try:
     ALL_ROUTERS.append(location_router)
 except Exception:
     pass
+
+# Contextual card visuals (PX1.2)
+try:
+    from visuals.router import router as visuals_router
+
+    ALL_ROUTERS.append(visuals_router)
+except Exception:
+    pass

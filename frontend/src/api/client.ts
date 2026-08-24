@@ -42,6 +42,26 @@ export const authToken = {
   },
 };
 
+/**
+ * Resolve a media path returned by the API into something an image loader can
+ * fetch. The backend returns app-relative paths (`/api/visuals/...`,
+ * `/api/auth/avatar/...`); left as-is they would resolve against the *frontend*
+ * origin and 404. External URLs (a Google profile picture) are already
+ * absolute and pass through untouched.
+ */
+export function mediaUrl(path?: string | null): string | null {
+  if (!path) return null;
+  if (/^https?:\/\//i.test(path)) return path;
+  if (!BASE) return path;
+  return `${BASE}${path.startsWith('/') ? '' : '/'}${path}`;
+}
+
+/** Auth header for image loaders that can carry one. */
+export async function mediaHeaders(): Promise<Record<string, string>> {
+  const token = await authToken.get();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 function networkError(message: string, code: string): Error {
   const err: any = new Error(message);
   err.code = code;
@@ -1212,6 +1232,45 @@ export const api = {
   documentRestore: (id: string) => request<DocumentItem>(`/documents/${id}/restore`, { method: 'POST' }),
   documentDelete: (id: string, hard = false) =>
     request<{ ok: boolean; hard: boolean; id: string }>(`/documents/${id}${hard ? '?hard=true' : ''}`, { method: 'DELETE' }),
+  /**
+   * Profile photo. Same cross-platform shape as `documentUpload`: a real Blob
+   * on web, RN's `{uri,name,type}` on device — so the iOS photo library works
+   * through this exact call without a second code path.
+   */
+  uploadAvatar: async (file: { uri: string; name: string; type: string }) => {
+    const form = new FormData();
+    if (Platform.OS === 'web') {
+      let blob: Blob;
+      try {
+        const r = await fetch(file.uri);
+        blob = await r.blob();
+      } catch (e: any) {
+        throw new Error("Impossibile leggere l'immagine: " + (e?.message || "errore"));
+      }
+      form.append('file', blob, file.name);
+    } else {
+      // @ts-ignore RN FormData accepts { uri, name, type }
+      form.append('file', file as any);
+    }
+    const token = await authToken.get();
+    const res = await fetch(`${BASE}/api/auth/avatar`, {
+      method: 'POST',
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: form as any,
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      let msg = text;
+      try { const j = JSON.parse(text); msg = j.detail || j.message || msg; } catch {}
+      const err: any = new Error(msg || `HTTP ${res.status}`);
+      err.status = res.status;
+      throw err;
+    }
+    return res.json() as Promise<ApiUser>;
+  },
+
+  removeAvatar: () => request<ApiUser>('/auth/avatar', { method: 'DELETE' }),
+
   documentUpload: async (file: { uri: string; name: string; type: string }, tags?: string[], notes?: string) => {
     const form = new FormData();
     if (Platform.OS === 'web') {
@@ -1809,6 +1868,12 @@ export type HomeItem = {
   hidden_artifact_count?: number | null;
   presentation_badges?: string[] | null;
   presentation_version?: string | null;
+  /**
+   * Contextual visual generated for this item's entity. `status` is the
+   * lifecycle (`missing`/`queued`/`generating`/`ready`/`failed`); `url` is
+   * present only when ready. The client never learns which provider drew it.
+   */
+  visual?: { visual_key?: string | null; status: string; url?: string | null } | null;
   generated_at?: string | null;
 };
 
@@ -1892,6 +1957,14 @@ export type ProactiveSuggestion = {
   expires_at?: string | null;
   snooze_until?: string | null;
   created_at?: string;
+  /**
+   * Already sent by the backend (`Suggestion.public()` is a full model dump),
+   * just never typed. Home reads `meta.delivery` to tell a question ORA is
+   * waiting on (`ask_user`) from an update it is merely offering — a
+   * distinction the V2.9.3 attention layer already made, so the interface
+   * consumes it rather than re-deriving it.
+   */
+  meta?: Record<string, unknown>;
 };
 
 export type HomeV2Response = {

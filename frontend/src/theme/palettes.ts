@@ -13,6 +13,16 @@ export type SemanticColors = {
   surface: string;
   surfaceElevated: string;
   surfaceGlass: string;
+  /**
+   * PX1.2 — the warm surface the Home hero sits on.
+   *
+   * Not a new palette: it is the same warm off-white family as
+   * `backgroundPrimary`, one step toward the light, and exists so the single
+   * most important card on the product reads as its own surface instead of
+   * another white rectangle among white rectangles. Warmth is what makes the
+   * hero feel editorial rather than administrative.
+   */
+  surfaceWarm: string;
   // Borders
   divider: string;
   border: string;
@@ -54,6 +64,7 @@ export const darkColors: SemanticColors = {
   surface: '#1A1A22',
   surfaceElevated: '#22222C',
   surfaceGlass: 'rgba(26, 26, 34, 0.82)',
+  surfaceWarm: '#211F1D',
   divider: '#2C2C36',
   border: '#2E2E3A',
   borderStrong: '#3C3C4A',
@@ -84,6 +95,7 @@ export const lightColors: SemanticColors = {
   surface: '#FFFFFF',
   surfaceElevated: '#FFFFFF',
   surfaceGlass: 'rgba(255, 255, 255, 0.78)',
+  surfaceWarm: '#FBF6EE',
   divider: '#E5E2DC',
   border: '#DAD6CF',
   borderStrong: '#C4C0B8',

@@ -1256,3 +1256,23 @@ the house was.**
 PX1.2 Home 3.0 · PX1.3 Workspace 2.0 · PX1.4 Conversation Experience · PX1.5 Vita/Memory trust UX ·
 PX1.6 Activity Center · PX1.7 Documents UX 2.0 · PX1.8 Profile/Settings/Permissions ·
 PX1.9 Motion/States/Accessibility.
+
+## PX1.2 — Home 3.0 (this batch)
+
+**Status: Home is now the canonical life dashboard — two columns on desktop, the
+same hierarchy stacked on phone, every section rendering only from real payload
+data.**
+
+| Item | Stato |
+|------|--------|
+| New module `src/components/home/v3/` | `ContextualCardVisual`, `visualKind`, `HeroAdesso`, `HomeSections`, `ContextRail`, `HomeChrome`, `homeItemView` |
+| Contextual imagery | semantic, derived from structural metadata (`type`/`card_type`/`source_type`) — never from titles. `imageSource` contract ready for a future `visual_key` |
+| Action hierarchy | one primary CTA; secondary inline; snooze/ignore/correct in overflow and never primary |
+| Sections | ADESSO · DOMANDE PER TE · OGGI · PIÙ AVANTI · AGGIORNAMENTI, each hidden when it has no real data |
+| Contextual rail | real month grid (marks from the user's own dated items), upcoming, counts — no extra fetch |
+| Desktop geometry (1280 measured) | nav 80 · main 788 (hero visual 260×260 side panel) · rail 340 — matches the reference structure |
+| Mobile (375 / 390 / 430) | no horizontal overflow, zero elements wider than viewport, sections full width, tap targets ≥44 |
+| API contracts | unchanged — `getHome`, `refreshHome`, `homeAction`, `acceptSuggestion`, `dismissSuggestion`, and the V2 dual-step navigation split |
+| Backend touched | **NO** |
+| Tests | PX1.2 guards **pass**; PX1.1, actionLabels, softExit still green; `tsc --noEmit` clean |
+| Commit / push | **NO** — STOP for CPO review |
