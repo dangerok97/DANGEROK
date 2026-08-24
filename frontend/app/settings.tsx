@@ -22,6 +22,7 @@ import { haptic } from '@/src/utils/haptic';
 import { ActionBtn } from '@/src/components/ui/ActionBtn';
 import { DevDiagnostics } from '@/src/components/dev/DevDiagnostics';
 import { PageContainer } from '@/src/components/ui/PageContainer';
+import { ProfilePhotoSection } from '@/src/components/profile/ProfilePhotoSection';
 import { formatRelativeAgo } from '@/src/utils/labels';
 import { useGoogleAuth } from '@/src/auth/googleAuth';
 import { signInWithApple } from '@/src/auth/appleSignIn';
@@ -198,6 +199,8 @@ export default function SettingsScreen() {
         showsVerticalScrollIndicator={false}
       >
        <PageContainer style={{ gap: 16 }} testID="settings-screen">
+        <ProfilePhotoSection />
+
         {/*
           PX1.1 — the old "Calendario automatico (soglia 90%)" control is gone.
           It offered to write real events into a real calendar on the strength

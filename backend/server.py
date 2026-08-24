@@ -388,6 +388,14 @@ async def startup():
     except Exception:
         logger.exception("Attention Decision indexes failed (non-fatal)")
 
+    try:
+        from visuals.service import VisualService
+
+        await VisualService(db).ensure_indexes()
+        logger.info("Contextual visual indexes ready")
+    except Exception:
+        logger.exception("Contextual visual indexes failed (non-fatal)")
+
     # Continuous Life Reasoning orchestration (V2.9.4). Event-driven: the
     # worker blocks on an in-process queue and only wakes when a life mutation
     # actually emits a signal. No cron, no polling, no AI call at startup —

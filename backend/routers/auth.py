@@ -5,7 +5,7 @@ import os
 from typing import Any, Optional
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile
 from pydantic import BaseModel, EmailStr, Field
 
 from deps import (
@@ -17,6 +17,7 @@ from deps import (
     upsert_user,
     verify_password,
 )
+from profile_media import InvalidAvatar, ProfileMediaService
 from social_auth import SocialAuthService, social_auth_status
 from social_auth.store import IdentityStore
 
@@ -231,6 +232,59 @@ async def list_identities(user=Depends(get_current_user)):
 @router.get("/me", response_model=UserOut)
 async def me(user=Depends(get_current_user)):
     return user_to_out(user)
+
+
+# --- profile photo -----------------------------------------------------------
+#
+# The picture is the user's own: uploaded by them, replaceable by them,
+# removable by them. ORA never generates it — a face is not a contextual
+# visual. Stored through the existing document storage provider, so there is
+# one media layer rather than two.
+
+
+@router.post("/avatar", response_model=UserOut)
+async def upload_avatar(file: UploadFile = File(...), user=Depends(get_current_user)):
+    content = await file.read()
+    try:
+        await ProfileMediaService(db).put(
+            user_id=user["user_id"],
+            content=content,
+            declared_type=file.content_type,
+        )
+    except InvalidAvatar as e:
+        # The message is written for the person, not for a log.
+        raise HTTPException(status_code=400, detail=str(e))
+    fresh = await db.users.find_one({"user_id": user["user_id"]}, {"_id": 0})
+    return user_to_out(fresh or user)
+
+
+@router.delete("/avatar", response_model=UserOut)
+async def delete_avatar(user=Depends(get_current_user)):
+    await ProfileMediaService(db).remove(user_id=user["user_id"])
+    fresh = await db.users.find_one({"user_id": user["user_id"]}, {"_id": 0})
+    return user_to_out(fresh or user)
+
+
+@router.get("/avatar/{key}")
+async def get_avatar(key: str, user=Depends(get_current_user)):
+    """Serve the caller's own avatar.
+
+    Scoped twice over: the storage provider resolves the blob inside this
+    user's directory, and the key must additionally match the one recorded on
+    their account — so a key belonging to someone else is a 404 here, not a
+    read of their picture.
+    """
+    try:
+        content, content_type = await ProfileMediaService(db).read(
+            user_id=user["user_id"], key=key,
+        )
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="not_found")
+    return Response(
+        content=content,
+        media_type=content_type,
+        headers={"Cache-Control": "private, max-age=300"},
+    )
 
 
 @router.post("/logout")

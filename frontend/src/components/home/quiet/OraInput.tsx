@@ -58,7 +58,7 @@ export function OraInput({ onError, entryPoint = 'home' }: Props) {
           styles.row,
           {
             backgroundColor: colors.surface,
-            borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(28,28,30,0.06)',
+            borderColor: colors.border,
           },
         ]}
       >
@@ -101,8 +101,8 @@ export function OraInput({ onError, entryPoint = 'home' }: Props) {
           style={({ pressed }) => [
             styles.send,
             {
-              backgroundColor: canSend ? colors.accentMuted : 'transparent',
-              opacity: !canSend ? 0.35 : pressed ? 0.8 : 1,
+              backgroundColor: canSend ? colors.accent : colors.backgroundSecondary,
+              opacity: pressed ? 0.85 : 1,
             },
           ]}
           onPress={() => void submit('home')}
@@ -114,7 +114,7 @@ export function OraInput({ onError, entryPoint = 'home' }: Props) {
             <Ionicons
               name="arrow-up"
               size={18}
-              color={canSend ? colors.accent : colors.textTertiary}
+              color={canSend ? colors.onAccent : colors.textTertiary}
             />
           )}
         </Pressable>
@@ -132,6 +132,12 @@ export const ParlaConOra = OraInput;
 
 const styles = StyleSheet.create({
   wrap: { gap: tokens.spacing.xs },
+  /*
+    PX1.2 — a real, defined surface. The previous 6%-alpha hairline made the
+    composer read as disabled chrome sitting at the bottom of the page rather
+    than the one place you can say something. It stays quiet — it just stops
+    apologising for being there.
+  */
   row: {
     flexDirection: 'row',
     alignItems: 'center',

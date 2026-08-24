@@ -42,6 +42,7 @@ export function colorsFromPalette(c: SemanticColors) {
     surface: c.surface,
     surfaceElevated: c.surfaceElevated,
     surfaceGlass: c.surfaceGlass,
+    surfaceWarm: c.surfaceWarm,
     divider: c.divider,
     border: c.border,
     borderStrong: c.borderStrong,

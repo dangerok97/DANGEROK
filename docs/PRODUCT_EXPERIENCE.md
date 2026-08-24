@@ -252,3 +252,106 @@ but not the small hours. Someone awake at 02:23 does not mean 05:23 — they mea
 the day they are about to have. It now snaps to the morning.
 
 Each of these is guarded in `src/shell/px11Foundation.test.ts`.
+
+---
+
+# Home 3.0 — the canonical life dashboard (PX1.2)
+
+Home is not a list of suggestions, a task manager, a chat or a feed. It is
+**the ambient control surface of the user's life**, and it has to answer five
+questions in the first few seconds:
+
+1. what matters now;
+2. whether ORA is waiting on me;
+3. what happens today;
+4. what ORA has found;
+5. what is coming.
+
+The feeling to aim for is *"ORA has already sorted what matters to me."*
+
+## Composition
+
+```
+NAV RAIL (80)   ·   DECISION COLUMN (flex)   ·   CONTEXT RAIL (340)
+                    ├─ header / greeting
+                    ├─ ADESSO          (hero, one thing)
+                    ├─ DOMANDE PER TE  (only if ORA is waiting)
+                    ├─ OGGI · PIÙ AVANTI   (paired when there is room)
+                    ├─ AGGIORNAMENTI DI ORA
+                    └─ ask affordance
+```
+
+Home is the **one** route allowed past the 800px reading column PX1.1
+established: it is a dashboard, not a document. `PageContainer` is untouched —
+every other route keeps its measure, and Home opts out explicitly rather than
+redefining the shared rule.
+
+Phone is the same hierarchy stacked, not the desktop layout compressed: the
+hero's picture moves from a side panel to full-bleed media above the text, the
+paired sections unstack, and the context rail follows the content instead of
+disappearing.
+
+## Timeline views include the hero
+
+"Adesso" answers *what do I do*. "Oggi", "Più avanti" and the rail answer
+*when is my life happening*. They are different questions, so the most
+important upcoming thing appears in both — dropping it from the user's own
+timeline to avoid repeating it would make the timeline wrong to protect a
+tidiness nobody asked for.
+
+## One primary action
+
+A card leads with exactly one call to action. The previous Home offered
+Continua / Apri / Rimanda / Ignora as four equal buttons, which turns "what
+should I do" back into a menu at the precise moment the product is supposed to
+have already answered it. Everything else stays reachable — secondary inline,
+the rest behind an overflow — but nothing competes.
+
+Ordering encodes intent, not taste: continuing something already underway beats
+starting it, and both beat merely looking at it. Snooze, ignore and correct can
+never be primary; they dismiss, defer or correct.
+
+---
+
+## CONTEXTUAL IMAGERY IS SEMANTIC, NOT DECORATIVE
+
+Every significant card can carry a visual, and that visual exists for one
+reason: **so the situation can be recognised before it is read**.
+
+It follows that the picture is derived from *what the item is*, never chosen to
+fill space. A random photo on every card would be worse than none — it would
+teach the eye that the image means nothing.
+
+### How the visual is chosen
+
+`ContextualCardVisual` takes an optional `imageSource` and, failing that,
+derives a visual from the item's **structural metadata**: `type`, then
+`card_type`, then `source_type` — all fields the backend already emits.
+
+**This is not domain routing.** Nothing reads a title, a description, or any
+words the user wrote. The rule PX1.1 and the V2.9.x audits protect against is a
+*branch on meaning invented in the client* (`if (title.includes('viaggio'))`),
+which would make the frontend a second, worse classifier competing with the
+reasoning core. This is the opposite: the core already decided what kind of
+thing this is, and the interface only chooses how to dress that decision. An
+unknown type degrades to a safe default instead of guessing.
+
+### What V1 actually shows
+
+No field in the Home payload carries an image today, and ORA may not invent
+one: sending the user's content to an image service or generating a picture for
+it are both out of bounds. So the honest V1 fallback is a **generated field** —
+a restrained gradient from the Quiet Premium palette plus the mark of its kind.
+Deliberately abstract: it says *this kind of thing*, quietly, and gets out of
+the way.
+
+The `imageSource` prop is already the contract. The day the presentation layer
+emits a `visual_key`, a document preview or a place photo, cards start showing
+it without a single call site changing.
+
+### Accessibility
+
+A real image gets an `accessibilityLabel`. The generated fallback gets none and
+is explicitly hidden from screen readers: it carries nothing the card's own
+words do not, so announcing "gradient with a calendar icon" would be noise, not
+access.

@@ -1,5 +1,39 @@
 # ORA — AI Changelog
 
+## 2026-08-24 — PX1.2 Home 3.0 (canonical life dashboard)
+
+- Home is rebuilt as a two-column dashboard against the CPO's approved
+  reference: navigation rail · decision column · contextual rail. It answers
+  what matters now, whether ORA is waiting, what is today, what ORA found, and
+  what is coming — in that order.
+- **Contextual imagery is semantic, not decorative.** New `ContextualCardVisual`
+  primitive: takes a real `imageSource` when one exists, otherwise derives a
+  restrained generated visual from the item's *structural* metadata (`type`,
+  `card_type`, `source_type` — fields the backend already emits). It never reads
+  titles or descriptions, so it adds no domain routing; an unknown type degrades
+  to a safe default. No Home field carries an image today and ORA may not invent
+  one, so the fallback is deliberately abstract — the `imageSource` contract is
+  already in place for the day the presentation layer emits one.
+- One primary action per card. The hero previously offered Continua / Apri /
+  Rimanda / Ignora as four equal buttons; the rest now sit behind a secondary
+  and an overflow. Snooze/ignore/correct can never be primary.
+- New sections, all rendering only from real payload data and hiding themselves
+  when empty: DOMANDE PER TE (from `meta.delivery === 'ask_user'`, the decision
+  the V2.9.3 attention layer already made), OGGI, PIÙ AVANTI, AGGIORNAMENTI.
+- Contextual rail: a real month grid marked from the user's own dated items,
+  upcoming appointments, and counts — never scores. No extra fetch: everything
+  is derived from the Home payload the page already loaded.
+- Timeline views deliberately include the hero item: "Adesso" answers *what do
+  I do*, "Oggi"/"Più avanti" answer *when is my life happening*.
+- Designed for phone at the same time, not compressed into it: the hero's
+  picture moves to full-bleed media above the text, paired sections unstack, the
+  rail follows the content. Verified at 375/390/430 with no horizontal overflow.
+- Home is the one route allowed past PX1.1's 800px reading column, because it is
+  a dashboard rather than a document. `PageContainer` is untouched.
+- Designed empty and loading states; snooze still uses the PX1.1 human dialog.
+- 15 contract guards added (`src/components/home/v3/home3.test.ts`), including
+  a check that nothing from the reference image is hardcoded.
+
 ## 2026-08-24 — PX1.1 Product Experience Foundation
 
 - **Calendar write consent (P0).** Fixed a real consent bug: the document pipeline called the
