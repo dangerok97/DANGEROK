@@ -20,6 +20,8 @@ import {
 import { humanizeError } from '@/src/utils/errors';
 import { haptic } from '@/src/utils/haptic';
 import { ActionBtn } from '@/src/components/ui/ActionBtn';
+import { DevDiagnostics } from '@/src/components/dev/DevDiagnostics';
+import { PageContainer } from '@/src/components/ui/PageContainer';
 import { formatRelativeAgo } from '@/src/utils/labels';
 import { useGoogleAuth } from '@/src/auth/googleAuth';
 import { signInWithApple } from '@/src/auth/appleSignIn';
@@ -49,11 +51,6 @@ export default function SettingsScreen() {
     last_sync_at?: string | null;
     scopes?: string[];
   } | null>(null);
-  const [docPrefs, setDocPrefs] = useState<{
-    document_ai_analysis: boolean;
-    calendar_auto_add_enabled: boolean;
-    calendar_auto_add_threshold: number;
-  } | null>(null);
   const [locationMode, setLocationMode] = useState<'off' | 'while_using'>('off');
   const googleAuth = useGoogleAuth();
   const renderGoogleButton = googleAuth.renderButton;
@@ -62,7 +59,7 @@ export default function SettingsScreen() {
   const load = useCallback(async () => {
     setError(null);
     try {
-      const [r, daily, aConfig, aInstances, idents, llm, writeStatus, dPrefs, locPref] = await Promise.all([
+      const [r, daily, aConfig, aInstances, idents, llm, writeStatus, locPref] = await Promise.all([
         api.googleCalendarInstances(),
         api.dailyToday().catch(() => null),
         // Only iOS shows Apple settings — but we still fetch config to
@@ -72,7 +69,6 @@ export default function SettingsScreen() {
         api.authIdentities().catch(() => null),
         api.llmProviders().catch(() => null),
         api.googleCalendarWriteStatus().catch(() => null),
-        api.documentPreferences().catch(() => null),
         api.locationGetPreference().catch(() => null),
       ]);
       setInstance((r.items || [])[0] || null);
@@ -82,7 +78,6 @@ export default function SettingsScreen() {
       setIdentities(idents);
       setLlmStatus(llm);
       setGcalWrite(writeStatus);
-      setDocPrefs(dPrefs);
       if (locPref?.mode === 'while_using') setLocationMode('while_using');
       else setLocationMode('off');
     } catch (e: any) {
@@ -199,105 +194,29 @@ export default function SettingsScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 24, gap: 16 }}
+        contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 24 }}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.sectionLabel}>AI Provider</Text>
-        <View style={styles.card} testID="settings-ai-provider">
-          <Text style={styles.aiActive}>
-            Attivo:{' '}
-            <Text style={styles.aiActiveValue}>
-              {llmStatus?.active ? llmStatus.active : 'nessuno (parsing locale)'}
-            </Text>
-          </Text>
-          <Text style={styles.aiHint}>
-            Priorità: Gemini → OpenAI → Ollama → Emergent. Fallback automatico su errori.
-          </Text>
-          {(['gemini', 'openai', 'ollama', 'emergent'] as LLMProviderId[]).map((id) => {
-            const info = llmStatus?.providers?.find((p) => p.id === id);
-            const selected = (llmStatus?.user_preference || llmStatus?.preferred || 'auto') === id
-              || (!llmStatus?.user_preference && !llmStatus?.preferred && llmStatus?.active === id);
-            const available = !!info?.available;
-            const configured = !!info?.configured;
-            return (
-              <Pressable
-                key={id}
-                testID={`ai-provider-${id}`}
-                onPress={async () => {
-                  haptic('tap');
-                  setBusy(`llm_${id}`);
-                  setError(null);
-                  try {
-                    const res = await api.setLlmProvider(id);
-                    setLlmStatus((prev) => prev ? {
-                      ...prev,
-                      active: res.active,
-                      user_preference: res.user_preference,
-                      providers: res.providers,
-                      fallback_chain: res.fallback_chain,
-                      preferred: res.user_preference === 'auto' ? null : res.user_preference,
-                    } : prev);
-                    haptic('success');
-                  } catch (e: any) {
-                    haptic('error');
-                    setError(humanizeError(e));
-                  } finally {
-                    setBusy(null);
-                  }
-                }}
-                style={({ pressed }) => [styles.aiRow, pressed && styles.pressed]}
-                accessibilityRole="radio"
-                accessibilityState={{ selected }}
-              >
-                <View style={[styles.radio, selected && styles.radioOn]} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.aiLabel}>{info?.label || id}</Text>
-                  <Text style={styles.aiMeta}>
-                    {!configured && !available
-                      ? 'Non configurato'
-                      : available
-                        ? `Disponibile${info?.model ? ` · ${info.model}` : ''}`
-                        : 'Configurato ma non disponibile'}
-                  </Text>
-                </View>
-                {busy === `llm_${id}` ? <ActivityIndicator color={tokens.color.onSurface} /> : null}
-              </Pressable>
-            );
-          })}
-        </View>
-
-        <Text style={styles.sectionLabel}>Documenti intelligenti</Text>
-        <View style={styles.card} testID="settings-doc-prefs">
-          <Text style={styles.cardTitle}>Calendario automatico</Text>
+       <PageContainer style={{ gap: 16 }} testID="settings-screen">
+        {/*
+          PX1.1 — the old "Calendario automatico (soglia 90%)" control is gone.
+          It offered to write real events into a real calendar on the strength
+          of a confidence score, which is not consent: a number the user cannot
+          evaluate was standing in for their permission. Calendar Intelligence
+          requires an explicit confirmation per write, and the backend now
+          enforces that unconditionally. What remains here is the promise, in
+          the only terms that matter to the person reading it.
+        */}
+        <Text style={styles.sectionLabel}>Calendario</Text>
+        <View style={styles.card} testID="settings-calendar-consent">
+          <Text style={styles.cardTitle}>Eventi dai tuoi documenti</Text>
           <Text style={styles.cardMeta}>
-            Aggiungi automaticamente al calendario gli eventi riconosciuti con alta affidabilità
-            (soglia {Math.round((docPrefs?.calendar_auto_add_threshold ?? 0.9) * 100)}%). Default: disattivato.
+            Quando ORA riconosce un appuntamento in un documento, te lo propone.
           </Text>
-          <View style={styles.actionsRow}>
-            <ActionBtn
-              primary={!!docPrefs?.calendar_auto_add_enabled}
-              icon={docPrefs?.calendar_auto_add_enabled ? 'checkmark-circle' : 'close-circle-outline'}
-              label={docPrefs?.calendar_auto_add_enabled ? 'Auto-add attivo' : 'Auto-add disattivato'}
-              loading={busy === 'doc_auto'}
-              onPress={async () => {
-                haptic('tap');
-                setBusy('doc_auto');
-                try {
-                  const next = !(docPrefs?.calendar_auto_add_enabled);
-                  const res = await api.setDocumentPreferences({
-                    calendar_auto_add_enabled: next,
-                    calendar_auto_add_threshold: docPrefs?.calendar_auto_add_threshold ?? 0.9,
-                  });
-                  setDocPrefs(res);
-                  haptic('success');
-                } catch (e: any) {
-                  setError(humanizeError(e));
-                } finally {
-                  setBusy(null);
-                }
-              }}
-            />
-          </View>
+          <Text style={styles.cardMeta}>
+            Prima di aggiungere, modificare o eliminare qualcosa nel tuo calendario, ORA ti
+            chiede sempre conferma.
+          </Text>
         </View>
 
         <Text style={styles.sectionLabel}>Posizione</Text>
@@ -637,6 +556,34 @@ export default function SettingsScreen() {
             busy={busy}
           />
         ) : null}
+
+        <DevDiagnostics
+          llmStatus={llmStatus}
+          busy={busy}
+          onSelectProvider={async (id) => {
+            haptic('tap');
+            setBusy(`llm_${id}`);
+            setError(null);
+            try {
+              const res = await api.setLlmProvider(id);
+              setLlmStatus((prev) => prev ? {
+                ...prev,
+                active: res.active,
+                user_preference: res.user_preference,
+                providers: res.providers,
+                fallback_chain: res.fallback_chain,
+                preferred: res.user_preference === 'auto' ? null : res.user_preference,
+              } : prev);
+              haptic('success');
+            } catch (e: any) {
+              haptic('error');
+              setError(humanizeError(e));
+            } finally {
+              setBusy(null);
+            }
+          }}
+        />
+       </PageContainer>
       </ScrollView>
 
       {/* Confirm revoke */}

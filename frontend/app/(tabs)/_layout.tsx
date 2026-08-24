@@ -8,9 +8,10 @@ import { useBreakpoint } from '@/src/theme/responsive';
 import { useTheme } from '@/src/theme/ThemeProvider';
 
 /**
- * Ambient shell — primary IA: Home · Contesti · ORA · Memoria · Profilo.
- * Documenti / Aggiungi remain as routes (href:null), reachable from Profilo.
- * Life Setup gate unchanged.
+ * Ambient shell — IA 2.0: Home · Vita · ORA · Attività · Documenti, with
+ * account set apart. Memoria and Aggiungi remain routes (href:null) reachable
+ * from Profilo — Memoria is a trust surface you visit to check what ORA knows,
+ * not a daily destination. Life Setup gate unchanged.
  */
 export default function TabsLayout() {
   const { user, loading } = useAuth();
@@ -60,14 +61,15 @@ export default function TabsLayout() {
       }}
     >
       <Tabs.Screen name="index" options={{ title: 'Home' }} />
-      <Tabs.Screen name="contesti" options={{ title: 'Contesti' }} />
+      <Tabs.Screen name="contesti" options={{ title: 'Vita' }} />
       <Tabs.Screen name="ora" options={{ title: 'ORA' }} />
-      <Tabs.Screen name="memoria" options={{ title: 'Memoria' }} />
+      <Tabs.Screen name="attivita" options={{ title: 'Attività' }} />
+      <Tabs.Screen name="documenti" options={{ title: 'Documenti' }} />
       <Tabs.Screen name="profilo" options={{ title: 'Profilo' }} />
       <Tabs.Screen
-        name="documenti"
+        name="memoria"
         options={{
-          title: 'Documenti',
+          title: 'Memoria',
           href: null,
         }}
       />

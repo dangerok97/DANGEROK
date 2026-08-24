@@ -13,6 +13,8 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import * as DocumentPicker from 'expo-document-picker';
 
 import { tokens } from '@/src/theme/tokens';
+import { MIN_READABLE_FONT_SIZE } from '@/src/theme/typography';
+import { PageContainer } from '@/src/components/ui/PageContainer';
 import { api, DocumentHubCard } from '@/src/api/client';
 import { haptic } from '@/src/utils/haptic';
 import { humanizeError } from '@/src/utils/errors';
@@ -88,7 +90,6 @@ export default function DocumentiScreen() {
             short_description: d.analysis?.short_description || d.analysis?.summary,
             pipeline_status: d.pipeline_status,
             pipeline_status_label: d.pipeline_status_label,
-            confidence: d.analysis?.confidence,
             utility: d.pipeline_status_label,
             event_start: d.event_candidates?.[0]?.start_datetime,
             event_location: d.event_candidates?.[0]?.venue_name || d.event_candidates?.[0]?.city,
@@ -173,6 +174,7 @@ export default function DocumentiScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']} testID="documenti-screen">
+     <PageContainer>
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
           <Text style={styles.title}>Documenti</Text>
@@ -194,7 +196,12 @@ export default function DocumentiScreen() {
       </View>
 
       {hub?.counts ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statsRow}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.hScroll}
+          contentContainerStyle={styles.statsRow}
+        >
           <Stat chip="Da verificare" n={hub.counts.needs_review || 0} />
           <Stat chip="Eventi" n={hub.counts.events_found || 0} />
           <Stat chip="Studio" n={hub.counts.study || 0} />
@@ -218,7 +225,12 @@ export default function DocumentiScreen() {
       </View>
 
       {!query.trim() ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.hScroll}
+          contentContainerStyle={styles.filters}
+        >
           {FILTERS.map((f) => (
             <Pressable
               key={f.id}
@@ -271,6 +283,7 @@ export default function DocumentiScreen() {
           )}
         />
       )}
+     </PageContainer>
     </SafeAreaView>
   );
 }
@@ -297,9 +310,14 @@ function DocCard({ item, onPress }: { item: DocumentHubCard; onPress: () => void
         <Text style={styles.cardTitle} numberOfLines={2}>
           {item.display_title || 'Documento'}
         </Text>
-        {typeof item.confidence === 'number' ? (
-          <Text style={styles.conf}>{Math.round(item.confidence * 100)}%</Text>
-        ) : null}
+        {/*
+          PX1.1 — the raw confidence badge ("60%", "75%") is gone. It was an
+          implementation state on every card: a number the reader cannot act
+          on, quietly asking them to decide how much to trust ORA's reading of
+          their own document. The human state is already right below it —
+          "Completato", "In attesa di conferma", "1 azione da confermare" —
+          and that is what tells someone whether anything is needed from them.
+        */}
       </View>
       <Text style={styles.cardFile} numberOfLines={1}>{item.original_filename}</Text>
       <View style={styles.metaRow}>
@@ -336,13 +354,24 @@ const styles = StyleSheet.create({
   },
   uploadTxt: { color: tokens.color.onBrand, fontWeight: '600', fontSize: 14 },
   pressed: { opacity: 0.85 },
+  /**
+   * A horizontal scroller must never be vertically compressible.
+   *
+   * These rows sit in a bounded flex column whose content is taller than the
+   * viewport, so flexbox was shrinking them: the stats row rendered 25px tall
+   * around 51px of content and the filter chips 15px around 25px — numbers
+   * visible, their labels sliced off. `flexShrink: 0` makes them keep their
+   * own height and let the *page* scroll instead. Pre-existing; it only became
+   * visible once the screen stopped being dark and low-contrast.
+   */
+  hScroll: { flexGrow: 0, flexShrink: 0 },
   statsRow: { paddingHorizontal: 16, gap: 8, paddingBottom: 8 },
   stat: {
     backgroundColor: tokens.color.surface, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8,
     minWidth: 72, borderWidth: StyleSheet.hairlineWidth, borderColor: tokens.color.border,
   },
   statN: { color: tokens.color.onSurface, fontWeight: '700', fontSize: 18 },
-  statL: { color: tokens.color.onSurfaceMuted, fontSize: 11, marginTop: 2 },
+  statL: { color: tokens.color.onSurfaceMuted, fontSize: MIN_READABLE_FONT_SIZE, marginTop: 2 },
   searchBox: {
     marginHorizontal: 16, marginBottom: 8, flexDirection: 'row', alignItems: 'center', gap: 8,
     backgroundColor: tokens.color.surface, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10,
@@ -368,11 +397,10 @@ const styles = StyleSheet.create({
   },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', gap: 8, alignItems: 'flex-start' },
   cardTitle: { flex: 1, color: tokens.color.onSurface, fontSize: 16, fontWeight: '600' },
-  conf: { color: tokens.color.onSurfaceMuted, fontSize: 12, fontWeight: '600' },
   cardFile: { color: tokens.color.onSurfaceMuted, fontSize: 12 },
   metaRow: { flexDirection: 'row', gap: 8, alignItems: 'center', marginTop: 4 },
   badge: {
-    color: tokens.color.onSurface, fontSize: 11, fontWeight: '600',
+    color: tokens.color.onSurface, fontSize: MIN_READABLE_FONT_SIZE, fontWeight: '600',
     backgroundColor: tokens.color.surfaceSecondary, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, overflow: 'hidden',
   },
   status: { color: tokens.color.onSurfaceMuted, fontSize: 12 },

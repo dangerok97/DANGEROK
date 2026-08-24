@@ -60,7 +60,7 @@ Linguaggio visivo **calmo, editoriale, premium** (Apple HIG; riferimenti Calenda
 
 ### Signature Language — Application Shell V1
 
-ORA si presenta in tre modalità: **Ambient** (navigazione vita quotidiana), **Focus** (una guida / un compito), **Immersive** (attenzione piena). Barra Ambient primaria: Home · Contesti · ORA · Memoria · Profilo. Su desktop la rail Ambient è una colonna compatta (~80px), non una sidebar SaaS a metà schermo; il contenuto Home si bilancia nella regione rimanente. **ORA** al centro apre la superficie di produzione `/ora` (AI Core — stesso Ask Bar della Home e Continua da Goal Workspace), non una chat e non Aggiungi. Documenti resta raggiungibile da Profilo. Le guide Action Engine usano chrome Focus (←, Continua, progresso “N di M” quando noto) con colonna decisione più stretta della Home; niente chip “capito” che competono con la domanda.
+ORA si presenta in tre modalità: **Ambient** (navigazione vita quotidiana), **Focus** (una guida / un compito), **Immersive** (attenzione piena). Barra Ambient primaria (**IA 2.0, PX1.1**): Home · Vita · ORA · Attività · Documenti, con il profilo separato in fondo alla rail desktop. Su desktop la rail Ambient è una colonna compatta (~80px), non una sidebar SaaS a metà schermo; il contenuto vive in una colonna decisione centrata (≤800px, `PageContainer`) che bilancia lo spazio residuo. **ORA** al centro apre la superficie di produzione `/ora` (AI Core — stesso Ask Bar della Home e Continua da Goal Workspace), non una chat e non Aggiungi. Memoria resta raggiungibile da Profilo (superficie di trust, non destinazione quotidiana). Le guide Action Engine usano chrome Focus (←, Continua, progresso “N di M” quando noto) con colonna decisione più stretta della Home; niente chip “capito” che competono con la domanda.
 
 ### Contesti — Life Map V1
 
@@ -421,3 +421,30 @@ si limita a fare è non esagerare: non ripensarci all'infinito sulla stessa cosa
 ripensamenti automatici finisce, ORA smette di riproporsi la domanda da sola — ma quello che aveva
 deciso l'ultima volta resta valido esattamente com'era, e se nella tua vita cambia qualcosa di
 davvero nuovo su quello stesso argomento, ORA ricomincia a pensarci senza che nulla glielo impedisca.
+
+# PX1.1 — Una sola app
+
+Fino a ora ORA sapeva ragionare molto meglio di quanto sapesse mostrarsi. Alcune schermate erano
+chiare, altre passavano di colpo allo sfondo scuro, e in mezzo comparivano cose che riguardavano
+chi costruisce ORA, non chi la usa.
+
+Adesso ORA è una cosa sola.
+
+**Stessa luce ovunque.** Nessuna schermata cambia più aspetto all'improvviso.
+
+**Cinque posti, non una lista.** Home, Vita, ORA, Attività, Documenti. Il tuo profilo resta dov'è
+giusto che sia: da parte, in fondo, quando ti serve. I documenti non sono più nascosti dentro un
+menu: sono un posto vero. E "Attività" è la stanza — per ora vuota — dove troverai le domande e gli
+aggiornamenti di ORA.
+
+**Niente vetrine di cose che non esistono.** Sono sparite le voci grigie "prossimamente". Una
+funzione compare il giorno in cui funziona davvero, non prima.
+
+**Niente numeri al posto delle parole.** Quando ORA ti chiede di rimandare qualcosa, ora te lo
+chiede come lo diresti tu — "più tardi oggi", "domani mattina", "questo weekend" — invece di
+chiederti quante ore.
+
+**Il calendario è tuo.** C'era una vecchia impostazione che permetteva a ORA di aggiungere eventi al
+tuo calendario da sola, quando era "abbastanza sicura". Non c'è più. ORA può leggere i tuoi impegni
+per capire quando sei occupato, ma prima di aggiungere, modificare o eliminare qualcosa ti chiede
+sempre conferma. Sempre.

@@ -1,5 +1,38 @@
 # ORA — AI Changelog
 
+## 2026-08-24 — PX1.1 Product Experience Foundation
+
+- **Calendar write consent (P0).** Fixed a real consent bug: the document pipeline called the
+  user's own `confirm_event(sync_to_google=True)` on their behalf whenever a stored preference was
+  on and a recognised event scored above 0.90, writing a real event into their real Google
+  Calendar unattended. A confidence score is a statement about the model, never consent. Automatic
+  calendar writes are now impossible; the event is still proposed, and only the user can accept it.
+  The legacy preference is inert and always reports `False`.
+- **One theme.** `tokens.color` resolved to the *dark* palette while the provider resolved light —
+  and ~40 screens read that static export inside `StyleSheet.create`, before any provider exists.
+  That is why Profilo/Impostazioni/Documenti went dark while the rail beside them stayed light.
+  Consumer V1 is now light everywhere, behind a single reversible `CONSUMER_LIGHT_ONLY` constant.
+- **Information Architecture 2.0** — `Home · Vita · ORA · Attività · Documenti`, with account set
+  apart at the foot of the desktop rail. Documenti is promoted out of the account menu; Memoria
+  leaves the primary bar (trust surface, still reachable from Profilo); Contesti becomes Vita.
+- **Attività** ships as a named, empty destination — adding a sixth later would reshuffle every
+  surface built on five. Its copy says what will be there, never "coming soon".
+- **Desktop geometry** — new `PageContainer` primitive: a ≤800px decision column centred in the
+  space the shell leaves it, so extra viewport width becomes margin rather than a longer line.
+  Profilo and Documenti, the two screens that set no width at all, now use it. The contextual rail
+  (320px) is reserved and renders nothing until PX1.3+ has something real for it.
+- **Developer diagnostics moved, not deleted** — provider/model/failover UI now lives in
+  `DevDiagnostics`, gated on `__DEV__` so it is not built into a consumer bundle. Zero provider or
+  model names remain in consumer settings.
+- **"Prossimamente" removed** from Profilo. A product roadmap does not belong in someone's account
+  screen; a capability appears the day it works.
+- **Snooze speaks human time** — "Rimanda (ore)" with a numeric field became *"Quando vuoi che te
+  lo riproponga?"* with Più tardi oggi / Domani mattina / Questo weekend / Scegli data e ora. The
+  wire format (an absolute ISO instant) is unchanged.
+- Established the binding rule **NEVER EXPOSE IMPLEMENTATION STATE WHEN A HUMAN STATE EXISTS**, and
+  enforced it with contract guards in `src/shell/px11Foundation.test.ts`. New doc:
+  `docs/PRODUCT_EXPERIENCE.md`.
+
 ## 2026-08-23 — V2.9.4 Startup recovery completeness (bounded batches, not truncated recovery)
 
 - Fixed a real bug in the timer-durability recovery added the previous day: `recover_pending()`
