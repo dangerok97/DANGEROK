@@ -343,16 +343,24 @@ def test_renderer_uses_theme_not_static_dark():
     assert "tokens.color" not in code
 
 
-def test_workspace_fonti_uses_public_sources():
+
+def _workspace_surface_text() -> str:
+    """The Workspace surface as it is actually composed.
+
+    Workspace 2.0 split the screen into a route plus a small component module,
+    so reading only `[planId].tsx` no longer sees the parts it renders. These
+    guards are about what the product shows, not about which file happens to
+    hold it.
+    """
     from pathlib import Path
 
-    ws = (
-        Path(__file__).resolve().parents[3]
-        / "frontend"
-        / "app"
-        / "goal-workspace"
-        / "[planId].tsx"
-    )
-    text = ws.read_text(encoding="utf-8")
+    root = Path(__file__).resolve().parents[3] / "frontend"
+    paths = [root / "app" / "goal-workspace" / "[planId].tsx"]
+    paths += sorted((root / "src" / "components" / "workspace").glob("*.ts*"))
+    return chr(10).join(p.read_text(encoding="utf-8") for p in paths if p.exists())
+
+
+def test_workspace_fonti_uses_public_sources():
+    text = _workspace_surface_text()
     assert "public_sources" in text
     assert "authority_label" in text or "Fornito da te" in text

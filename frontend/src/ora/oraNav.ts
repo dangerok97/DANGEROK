@@ -20,6 +20,23 @@ export type OraConversationParams = {
   entryPoint?: OraEntryPoint;
 };
 
+const ENTRY_POINTS: OraEntryPoint[] = [
+  'home',
+  'ora',
+  'goal_workspace',
+  'continue',
+  'focus',
+  'object',
+];
+
+/** Read an entry point off a URL, falling back to a plain ORA opening. */
+export function oraEntryPointFrom(raw?: string | string[] | null): OraEntryPoint {
+  const v = Array.isArray(raw) ? raw[0] : raw;
+  return ENTRY_POINTS.includes(String(v || '') as OraEntryPoint)
+    ? (String(v) as OraEntryPoint)
+    : 'ora';
+}
+
 const OPAQUE_ID = /^[A-Za-z0-9_-]{4,80}$/;
 
 function opaque(id?: string | null): string | undefined {
