@@ -41,12 +41,20 @@ export function primaryActionOf(item: HomeItem | null | undefined): HomeActionDe
   return actions.find((a) => !NEVER_PRIMARY.has(a.kind)) || null;
 }
 
+/**
+ * What belongs in the hero's overflow menu.
+ *
+ * Every kind in PRIMARY_PRIORITY is a way *into* the work, and the ranking has
+ * already chosen which one to offer. Leaving the rest in the menu produced the
+ * ambiguity the hero was meant to remove: "Continua" as the primary button and
+ * "Apri" one tap below it, both landing in the same place. Only one entrance is
+ * offered, so the menu is left to the genuinely secondary actions.
+ */
+const ENTERS_WORK = new Set(PRIMARY_PRIORITY);
+
 export function overflowActionsOf(item: HomeItem | null | undefined): HomeActionDef[] {
   const actions = item?.actions || [];
-  const primary = primaryActionOf(item);
-  return actions.filter(
-    (a) => a.kind !== primary?.kind && !NEVER_PRIMARY.has(a.kind),
-  );
+  return actions.filter((a) => !ENTERS_WORK.has(a.kind) && !NEVER_PRIMARY.has(a.kind));
 }
 
 function parseWhen(item: HomeItem): Date | null {

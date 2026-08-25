@@ -411,7 +411,15 @@ export default function HomeScreen() {
       <CorrectPriorityModal
         open={correctOpen}
         onClose={() => setCorrectOpen(false)}
+        current={
+          (home?.primary_focus?.id === pendingItemId ? home?.primary_focus : null)?.priority
+          ?? items.find((i) => i.id === pendingItemId)?.priority
+          ?? null
+        }
         onPick={(p) => {
+          // The same correction contract Home V2 used: the ranking is the
+          // backend's, so the choice is sent and the page reloads from what the
+          // system decides — never patched locally to look correct.
           if (pendingItemId) runHomeAction(pendingItemId, 'correct', { priority: p });
           setCorrectOpen(false);
         }}
