@@ -10,7 +10,8 @@ export type OraEntryPoint =
   | 'goal_workspace'
   | 'continue'
   | 'focus'
-  | 'object';
+  | 'object'
+  | 'vita';
 
 export type OraConversationParams = {
   sessionId?: string | null;
@@ -27,6 +28,7 @@ const ENTRY_POINTS: OraEntryPoint[] = [
   'continue',
   'focus',
   'object',
+  'vita',
 ];
 
 /** Read an entry point off a URL, falling back to a plain ORA opening. */

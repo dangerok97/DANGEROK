@@ -98,6 +98,9 @@ class PresentationArea(BaseModel):
     domain: str
     title: str
     identity: Optional[str] = None
+    # Same contract as the situation visual: the picture belongs to this part
+    # of the life, so it is commissioned once and reused wherever it appears.
+    visual: Optional[Dict[str, Any]] = None
 
 
 class PresentationSituation(BaseModel):
@@ -110,6 +113,11 @@ class PresentationSituation(BaseModel):
     summary: Optional[str] = None
     # Empty = informational only (no fake detail route)
     href: str = ""
+    # Contextual visual state for this situation's entity, when one is known.
+    # The picture belongs to the thing, not to the page: Home and Vita show the
+    # same situation, so they must show the same image rather than commission a
+    # second one. Shape mirrors the Home item field: {status, url}.
+    visual: Optional[Dict[str, Any]] = None
 
 
 class LifeMapResponse(BaseModel):

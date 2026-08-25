@@ -2238,6 +2238,8 @@ export type LifeMapResponse = {
     temporal?: string | null;
     summary?: string | null;
     href: string;
+    /** The picture this situation's entity already owns, when one exists. */
+    visual?: { visual_key?: string | null; status: string; url?: string | null } | null;
   }>;
   evidence?: Array<{ id: string; kind: string; label?: string; summary?: string }>;
   interpretation?: Record<string, unknown> | null;

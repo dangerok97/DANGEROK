@@ -54,6 +54,8 @@ export type LifeAreaRow = {
   domain: string;
   title: string;
   identity?: string | null;
+  /** Contextual visual owned by the area — reused, never re-commissioned. */
+  visual?: { status?: string; url?: string | null } | null;
 };
 
 export type LiveSituationRow = {
@@ -65,6 +67,8 @@ export type LiveSituationRow = {
   summary?: string | null;
   /** Empty / missing → informational row (no fake detail). */
   href?: string | null;
+  /** Contextual visual owned by the entity — reused, never re-commissioned. */
+  visual?: { status?: string; url?: string | null } | null;
 };
 
 export type ContextsMapModel = {

@@ -72,6 +72,99 @@ def _cache_ttl_s() -> int:
         return 900
 
 
+
+async def _attach_area_visuals(db, user_id: str, areas) -> None:
+    """Give each life area its own illustration.
+
+    The subject is the area as the user's own data named it — "Casa", "Auto",
+    whatever ORA actually found — so the picture is chosen semantically rather
+    than picked from a fixed set of domain icons. The style is the locked ORA
+    one, because this is the same service every other surface uses. Best-effort
+    throughout: a missing picture costs a card its illustration, nothing more.
+    """
+    if not areas:
+        return
+    try:
+        from visuals.service import VisualService
+
+        svc = VisualService(db)
+    except Exception:
+        return
+    for area in areas:
+        ref = f"life_area:{area.domain}"
+        try:
+            existing = await svc.for_entity(user_id=user_id, entity_ref=ref)
+            area.visual = existing or await svc.ensure(
+                user_id=user_id,
+                entity_ref=ref,
+                title=area.title,
+                summary=area.identity,
+            )
+        except Exception:
+            logger.info("life_map area visual soft-fail ref=%s", ref)
+
+
+async def _attach_situation_visuals(db, user_id: str, situations, canonicals, candidates) -> None:
+    """Give each situation the picture its entity already has, in place.
+
+    One meaning, one picture. A plan the user sees on Home and again in Vita is
+    the same plan, so it must wear the same image — which means resolving it by
+    the entity it belongs to (`source_type:source_id`, the ref Home already
+    uses) rather than by where it is being drawn. Nothing is generated a second
+    time, and the same style lock applies because this is the same service.
+
+    Best-effort: an unavailable visual costs a card its illustration and
+    nothing else, so it must never fail the Life Map.
+    """
+    if not situations:
+        return
+    # candidate id → entity ref, then canonical key → the ref of any member.
+    # A canonical situation is one or more candidates merged by identity, so
+    # the picture belongs to whichever real source is behind it.
+    by_candidate: Dict[str, str] = {}
+    for c in candidates or []:
+        st = getattr(c, "source_type", "") or ""
+        sid = getattr(c, "source_id", "") or ""
+        if st and sid:
+            by_candidate[getattr(c, "candidate_id", "")] = f"{st}:{sid}"
+    refs: Dict[str, str] = {}
+    for canon in canonicals or []:
+        key = getattr(getattr(canon, "identity", None), "canonical_key", "")
+        if not key:
+            continue
+        for member in list(getattr(canon, "member_ids", None) or []):
+            ref = by_candidate.get(member)
+            if ref:
+                refs[key] = ref
+                break
+    if not refs:
+        return
+
+    try:
+        from visuals.service import VisualService
+
+        svc = VisualService(db)
+    except Exception:
+        return
+
+    for sit in situations:
+        # The canonical id is the winning candidate's id; fall back to a direct
+        # match so a situation that was never merged still resolves.
+        ref = refs.get(sit.id)
+        if not ref:
+            continue
+        try:
+            existing = await svc.for_entity(user_id=user_id, entity_ref=ref)
+            sit.visual = existing or await svc.ensure(
+                user_id=user_id,
+                entity_ref=ref,
+                title=sit.title,
+                summary=sit.summary or sit.temporal,
+            )
+        except Exception:
+            logger.info("life_map visual soft-fail ref=%s", ref)
+
+
 class LifeMapService:
     def __init__(self, db):
         self.db = db
@@ -239,6 +332,9 @@ class LifeMapService:
             interpretation=interpretation,
             valid_evidence_ids=evid_ids,
         )
+
+        await _attach_situation_visuals(self.db, user_id, situations, canonicals, candidates)
+        await _attach_area_visuals(self.db, user_id, areas)
 
         return LifeMapResponse(
             ok=True,

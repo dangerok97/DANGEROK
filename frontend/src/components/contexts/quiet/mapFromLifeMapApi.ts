@@ -10,6 +10,8 @@ export type LifeMapApiLike = {
     domain: string;
     title: string;
     identity?: string | null;
+    /** Contextual visual owned by this area, when one exists. */
+    visual?: { status?: string; url?: string | null } | null;
   }[];
   situations?: {
     id: string;
@@ -18,6 +20,8 @@ export type LifeMapApiLike = {
     temporal?: string | null;
     summary?: string | null;
     href?: string | null;
+    /** Contextual visual state for this situation's entity, when known. */
+    visual?: { status?: string; url?: string | null } | null;
   }[];
 };
 
@@ -28,6 +32,7 @@ export function mapFromLifeMapApi(res: LifeMapApiLike): ContextsMapModel {
       domain: a.domain,
       title: a.title,
       identity: a.identity ?? null,
+      visual: a.visual ?? null,
     })),
     situations: (res.situations || [])
       .filter((s) => !!(s.title || '').trim())
@@ -38,6 +43,7 @@ export function mapFromLifeMapApi(res: LifeMapApiLike): ContextsMapModel {
         temporal: s.temporal ?? null,
         summary: s.summary ?? null,
         href: s.href || null,
+        visual: s.visual ?? null,
       })),
   };
 }
