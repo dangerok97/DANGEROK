@@ -257,10 +257,25 @@ const readCode = (rel: string) =>
     'no rail frame may render when there is nothing real to put in it',
   );
 
-  // The two screens that had no column at all now have one.
-  for (const file of ['app/(tabs)/profilo.tsx', 'app/(tabs)/documenti.tsx']) {
-    assert.ok(read(file).includes('PageContainer'), `${file} must use the shared column`);
-  }
+  // The screens that had no column at all now have one. Profilo still uses the
+  // shared container; Documenti moved to the dashboard composition the later
+  // PX1.x surfaces share — a bounded, centred column beside a real rail. What
+  // PX1.1 was protecting is that neither screen is full-bleed and neither
+  // invents a rail, so the assertion checks the property rather than which
+  // component happens to provide it.
+  assert.ok(
+    read('app/(tabs)/profilo.tsx').includes('PageContainer'),
+    'profilo must use the shared column',
+  );
+  const documenti = read('app/(tabs)/documenti.tsx');
+  const docMax = Number(/const PAGE_MAX_WIDTH = (\d+)/.exec(documenti)?.[1]);
+  const docRail = Number(/const RAIL_WIDTH = (\d+)/.exec(documenti)?.[1]);
+  assert.ok(docMax > 0 && docMax <= 1400, 'documenti must bound its column');
+  assert.ok(documenti.includes("alignSelf: 'center'"), 'documenti must centre its column');
+  assert.ok(
+    docRail >= 280 && docRail <= 360,
+    'documenti must keep the contextual rail inside the agreed band',
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -336,13 +351,24 @@ const readCode = (rel: string) =>
   //    column around them: the stats row rendered 25px tall around 51px of
   //    content, slicing every label off. Pre-existing, and invisible while the
   //    screen was still dark and low-contrast.
-  const documenti = read('app/(tabs)/documenti.tsx');
-  assert.ok(
-    /hScroll:\s*\{\s*flexGrow:\s*0,\s*flexShrink:\s*0\s*\}/.test(documenti),
-    'horizontal scrollers must declare flexShrink: 0 or the flex column crushes them',
-  );
-  const hScrollUses = documenti.match(/style=\{styles\.hScroll\}/g) || [];
-  assert.equal(hScrollUses.length, 2, 'both the stats row and the filter row need the guard');
+  // PX1.7 removed both of Documenti's horizontal scrollers — the stats strip
+  // became the rail's summary panel and the filter chips became selects — so
+  // the rule is now checked where such a scroller actually survives. Every
+  // horizontal ScrollView in the app must still declare the guard; the crush
+  // is invisible until a label is sliced in half.
+  const scrollerFiles = [
+    'src/components/workspace/WorkspaceParts.tsx',
+    'app/(tabs)/documenti.tsx',
+  ];
+  for (const file of scrollerFiles) {
+    const src = read(file);
+    const horizontals = (src.match(/^\s*horizontal/gm) || []).length;
+    if (!horizontals) continue;
+    assert.ok(
+      /flexGrow:\s*0,\s*flexShrink:\s*0/.test(src),
+      `${file} has a horizontal scroller and must declare flexShrink: 0`,
+    );
+  }
 
   // 2. Raw confidence was surfacing in two places in Documents — a percentage
   //    badge on every card, and an "Affidabilità NN%" row in the detail panel.

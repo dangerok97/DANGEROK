@@ -3,10 +3,11 @@
  * Empty sections are omitted.
  */
 import React from 'react';
-import { View, Text, TextInput, Linking } from 'react-native';
+import { View, Text, TextInput, Linking, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { tokens } from '@/src/theme/tokens';
 import { ActionBtn } from '@/src/components/ui/ActionBtn';
+import { categoryLabel } from './libraryView';
 import {
   AdminAnalysis,
   DocumentAnalysisResponse,
@@ -33,8 +34,9 @@ function Card({
 }: { title: string; icon?: keyof typeof Ionicons.glyphMap; children: React.ReactNode }) {
   return (
     <View style={{
-      backgroundColor: tokens.color.surfaceSecondary, borderRadius: 14, padding: 14,
-      borderWidth: 1, borderColor: tokens.color.border, gap: 4,
+      backgroundColor: tokens.color.surface, borderRadius: tokens.radius.lg,
+      paddingHorizontal: tokens.spacing.lg, paddingVertical: tokens.spacing.lg,
+      borderWidth: StyleSheet.hairlineWidth, borderColor: tokens.color.border, gap: 4,
     }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
         {icon ? <Ionicons name={icon} size={16} color={tokens.color.onSurface} /> : null}
@@ -52,6 +54,41 @@ function fmt(iso?: string | null) {
       day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
     });
   } catch { return iso; }
+}
+
+/** "6 settembre 2026 · 19:45" — the way a person would read a date out loud. */
+function whenLine(iso?: string | null): string | null {
+  if (!iso) return null;
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return null;
+  const d = new Date(t);
+  const day = d.toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' });
+  const time = d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+  return `${day} · ${time}`;
+}
+
+/**
+ * What has happened to a proposed event, in words.
+ *
+ * `proposed` and `remind_later` are the extractor's own states and mean
+ * nothing to the person reading them; what matters is whether ORA is still
+ * waiting for an answer, and if not, what the answer was. Anything the map
+ * does not know about says nothing rather than falling back to the raw value.
+ */
+const EVENT_STATE_LABEL: Record<string, string> = {
+  confirmed: 'Salvato in ORA',
+  dismissed: 'Non aggiunto',
+  synced: 'Aggiunto al calendario',
+};
+
+function eventStateLabel(status?: string | null): string | null {
+  return EVENT_STATE_LABEL[String(status || '').trim()] ?? null;
+}
+
+/** True while ORA is still holding this and waiting to be told what to do. */
+function isAwaitingAnswer(status?: string | null): boolean {
+  const s = String(status || '').trim();
+  return s === 'proposed' || s === 'remind_later';
 }
 
 export type UtilityHandlers = {
@@ -103,17 +140,24 @@ export function DocumentUtilityPanel({
 
   return (
     <View style={{ gap: 12 }}>
-      <Card title="Elaborazione" icon="pulse-outline">
-        <FieldRow k="Stato" v={analysis?.pipeline_status_label} />
-        <FieldRow k="Errore" v={analysis?.pipeline_error} />
-        <FieldRow k="Modalità" v={a?.ai_used ? 'Arricchita con AI' : a?.local_only ? 'Analisi locale' : null} />
-        <View style={{ marginTop: 8 }}>
-          <ActionBtn icon="refresh" label="Riesegui analisi" onPress={h.onReanalyze} loading={h.busy === 'reanalyze'} />
-        </View>
-      </Card>
+      {/*
+        The processing card used to open the page, which put a maintenance
+        action — rerun the analysis — in the position that belongs to what ORA
+        understood. It now appears only when there is something wrong worth
+        saying; rerunning lives with the other secondary actions at the end.
+      */}
+      {analysis?.pipeline_error ? (
+        <Card title="Analisi" icon="alert-circle-outline">
+          <FieldRow k="Stato" v={analysis?.pipeline_status_label} />
+          <FieldRow k="Dettaglio" v={analysis?.pipeline_error} />
+          <View style={{ marginTop: 8 }}>
+            <ActionBtn icon="refresh" label="Riprova l'analisi" onPress={h.onReanalyze} loading={h.busy === 'reanalyze'} />
+          </View>
+        </Card>
+      ) : null}
 
       <Card title={analysis?.display_title || a?.suggested_title || doc.filename} icon="document-text-outline">
-        <FieldRow k="Categoria" v={a?.macro_category} />
+        <FieldRow k="Categoria" v={categoryLabel(a?.macro_category) || undefined} />
         <FieldRow k="Sottotipo" v={a?.subcategory} />
         {/*
           PX1.1 — the "Affidabilità NN%" row is gone. It was a raw confidence
@@ -149,7 +193,7 @@ export function DocumentUtilityPanel({
           placeholderTextColor={tokens.color.onSurfaceMuted}
           style={{
             borderWidth: 1, borderColor: tokens.color.border, borderRadius: 10,
-            padding: 10, color: tokens.color.onSurface, marginBottom: 8,
+            padding: 10, minHeight: tokens.touch.min, color: tokens.color.onSurface, marginBottom: 8,
           }}
         />
         <ActionBtn primary icon="send" label="Chiedi" onPress={h.onAsk} loading={h.busy === 'ask'} />
@@ -161,39 +205,75 @@ export function DocumentUtilityPanel({
   );
 }
 
+/**
+ * An event ORA found in the document and has not acted on.
+ *
+ * The heading says what this is — a proposal, not a fact — and the buttons say
+ * what will happen if you agree. Nothing is written anywhere until one of them
+ * is pressed: the consent gate behind these handlers is unchanged, and "add to
+ * Google Calendar" remains a separate, explicit choice from "keep it in ORA".
+ */
 function EventPanel({
   ev, medical, h,
 }: { ev: EventCandidate; medical: boolean; h: UtilityHandlers }) {
+  const awaiting = isAwaitingAnswer(ev.status);
+  const settled = eventStateLabel(ev.status);
+  const when = whenLine(ev.start_datetime);
+  const title = medical ? 'Visita specialistica' : ev.title;
+
   return (
-    <Card title={medical ? 'Appuntamento sanitario' : 'Evento / appuntamento'} icon="calendar-outline">
+    <Card
+      title={
+        awaiting
+          ? medical ? 'Appuntamento proposto' : 'Evento proposto'
+          : medical ? 'Appuntamento sanitario' : 'Evento'
+      }
+      icon="calendar-outline"
+    >
       {medical ? (
         <Text style={{ color: tokens.color.onSurfaceMuted, fontSize: 12, marginBottom: 8 }}>
           Solo dati di appuntamento presenti nel documento. Nessuna diagnosi, terapia o interpretazione clinica generata.
         </Text>
       ) : null}
-      <FieldRow k="Titolo" v={medical ? 'Visita specialistica (titolo discreto su Google)' : ev.title} />
-      <FieldRow k="Inizio" v={fmt(ev.start_datetime) || 'Da confermare'} />
-      <FieldRow k="Fine" v={fmt(ev.end_datetime)} />
-      <FieldRow k="Timezone" v={(ev as any).timezone || 'Europe/Rome'} />
+
+      {/* Title and date lead, as the two things worth reading first. */}
+      <Text style={{ color: tokens.color.onSurface, fontSize: 16, fontWeight: '600', lineHeight: 22 }}>
+        {title}
+      </Text>
+      <Text style={{ color: tokens.color.onSurfaceMuted, fontSize: 14, lineHeight: 20, marginBottom: 6 }}>
+        {when || 'Data da confermare'}
+      </Text>
+
+      {/* An all-day deadline carries the same instant twice; repeating it as
+          "Fine" reads like a duration that does not exist. */}
+      <FieldRow k="Fine" v={ev.end_datetime && ev.end_datetime !== ev.start_datetime ? fmt(ev.end_datetime) : null} />
       <FieldRow k="Luogo" v={ev.venue_name} />
       <FieldRow k="Indirizzo" v={[ev.address, ev.city].filter(Boolean).join(', ') || null} />
       <FieldRow k="Codice prenotazione" v={ev.booking_reference} />
-      <FieldRow k="Priorità" v={ev.priority} />
-      <FieldRow k="Urgenza" v={ev.urgency} />
-      {ev.ambiguous_date ? <FieldRow k="Attenzione" v="Data ambigua — conferma richiesta" /> : null}
-      {ev.missing_fields?.length ? <FieldRow k="Campi incerti" v={ev.missing_fields.join(', ')} /> : null}
-      <FieldRow k="Stato" v={ev.status} />
+      {ev.ambiguous_date ? (
+        <FieldRow k="Attenzione" v="La data non è certa — conviene confermarla" />
+      ) : null}
+      {/*
+        `missing_fields` holds schema keys (`start_datetime`, …). Naming them
+        would put the extractor's own field vocabulary on screen; that some
+        detail is uncertain is the part a person can act on, and the ambiguous
+        date already says so specifically when it is the date.
+      */}
+      {ev.missing_fields?.length && !ev.ambiguous_date ? (
+        <FieldRow k="Attenzione" v="Alcuni dettagli non sono certi" />
+      ) : null}
+
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
-        {(ev.status === 'proposed' || ev.status === 'remind_later') ? (
+        {awaiting ? (
           <>
-            <ActionBtn primary icon="checkmark" label="Salva solo in ORA" onPress={() => h.onConfirmEvent(ev, false)} loading={h.busy === `ev-${ev.id}`} />
-            <ActionBtn primary icon="logo-google" label="ORA + Google Calendar" onPress={() => h.onConfirmEvent(ev, true)} loading={h.busy === `ev-${ev.id}-g`} />
+            <ActionBtn primary icon="checkmark" label="Salva in ORA" onPress={() => h.onConfirmEvent(ev, false)} loading={h.busy === `ev-${ev.id}`} />
+            <ActionBtn icon="logo-google" label="Aggiungi anche a Google Calendar" onPress={() => h.onConfirmEvent(ev, true)} loading={h.busy === `ev-${ev.id}-g`} />
             <ActionBtn icon="close" label="Non aggiungere" onPress={() => h.onDismissEvent(ev)} />
             <ActionBtn icon="time-outline" label="Più tardi" onPress={() => h.onRemindEvent(ev)} />
           </>
-        ) : (
-          <Text style={{ color: tokens.color.onSurfaceMuted, fontSize: 13 }}>Gestito ({ev.status})</Text>
-        )}
+        ) : settled ? (
+          <Text style={{ color: tokens.color.onSurfaceMuted, fontSize: 13 }}>{settled}</Text>
+        ) : null}
         {ev.maps_url ? <ActionBtn icon="map-outline" label="Google Maps" onPress={() => Linking.openURL(ev.maps_url!)} /> : null}
         {ev.directions_url ? <ActionBtn icon="navigate-outline" label="Indicazioni" onPress={() => Linking.openURL(ev.directions_url!)} /> : null}
       </View>
@@ -277,7 +357,7 @@ function StudyPanel({
             placeholderTextColor={tokens.color.onSurfaceMuted}
             style={{
               borderWidth: 1, borderColor: tokens.color.border, borderRadius: 10,
-              padding: 10, color: tokens.color.onSurface, marginVertical: 8,
+              padding: 10, minHeight: tokens.touch.min, color: tokens.color.onSurface, marginVertical: 8,
             }}
           />
           <ActionBtn primary icon="send" label="Invia risposta" onPress={h.onQuizAnswer} loading={h.busy === 'quiz'} />
@@ -327,8 +407,6 @@ function AdminPanel({
           <FieldRow k="Data" v={admin.issue_date} />
           <FieldRow k="Pagamento" v={admin.payment_method} />
           <FieldRow k="Spiegazione" v={admin.simple_explanation} />
-          <FieldRow k="Priorità" v={admin.priority} />
-          <FieldRow k="Urgenza" v={admin.urgency} />
           <FieldRow k="Stato" v={admin.completed ? 'Completato' : 'Da gestire'} />
           <Text style={{ color: tokens.color.onSurfaceMuted, fontSize: 11, marginTop: 8 }}>Correggi campi estratti</Text>
           <TextInput
@@ -338,7 +416,7 @@ function AdminPanel({
             placeholderTextColor={tokens.color.onSurfaceMuted}
             style={{
               borderWidth: 1, borderColor: tokens.color.border, borderRadius: 10,
-              padding: 10, color: tokens.color.onSurface, marginTop: 6,
+              padding: 10, minHeight: tokens.touch.min, color: tokens.color.onSurface, marginTop: 6,
             }}
           />
           <TextInput
@@ -348,7 +426,7 @@ function AdminPanel({
             placeholderTextColor={tokens.color.onSurfaceMuted}
             style={{
               borderWidth: 1, borderColor: tokens.color.border, borderRadius: 10,
-              padding: 10, color: tokens.color.onSurface, marginTop: 6,
+              padding: 10, minHeight: tokens.touch.min, color: tokens.color.onSurface, marginTop: 6,
             }}
           />
           <TextInput
@@ -358,7 +436,7 @@ function AdminPanel({
             placeholderTextColor={tokens.color.onSurfaceMuted}
             style={{
               borderWidth: 1, borderColor: tokens.color.border, borderRadius: 10,
-              padding: 10, color: tokens.color.onSurface, marginTop: 6, marginBottom: 8,
+              padding: 10, minHeight: tokens.touch.min, color: tokens.color.onSurface, marginTop: 6, marginBottom: 8,
             }}
           />
           {h.onPatchFields ? (
@@ -404,7 +482,7 @@ function GenericPanel({
   const resolved = (ins.resolved_fields || []).filter((f) => f.value?.trim());
   return (
     <Card title="Analisi generica" icon="ellipse-outline">
-      <FieldRow k="Classificazione" v={[a?.macro_category, a?.subcategory].filter(Boolean).join(' / ')} />
+      <FieldRow k="Classificazione" v={categoryLabel(a?.macro_category) || undefined} />
       <FieldRow k="Riepilogo" v={a?.summary} />
       {a?.keywords?.length ? <FieldRow k="Parole chiave" v={a.keywords.join(', ')} /> : null}
       {resolved.map((f, i) => <FieldRow key={i} k={f.label} v={f.value} />)}
