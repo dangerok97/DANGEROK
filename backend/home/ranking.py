@@ -321,7 +321,21 @@ def rank_items(items: List[HomeItem], *, now: Optional[datetime] = None) -> List
         item.score = score
         item.reason_factors = factors
         item.reason_summary = summary
-        item.priority = classify_priority(item, now, score)
+        # A band the user corrected by hand survives re-ranking. `_apply_state`
+        # writes the override before this runs, and without this guard the
+        # classifier overwrote it on the same pass: the correction was stored,
+        # the item was flagged as corrected, and the person saw no change.
+        # Scoring and ordering stay the system's — only the band the user
+        # explicitly set is theirs. A snoozed item is the exception: "waiting"
+        # is where it actually is now, and that is more recent than the
+        # correction.
+        classified = classify_priority(item, now, score)
+        corrected = (item.meta or {}).get("priority_corrected") and item.priority
+        item.priority = (
+            item.priority
+            if corrected and classified != "waiting"
+            else classified
+        )
         item.ranking_version = RANKING_VERSION
         item.actions = actions_for(item)
         item.updated_at = item.updated_at or now.isoformat()

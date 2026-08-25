@@ -176,7 +176,7 @@ export function HeroAdesso({
                 style={({ pressed }) => [styles.overflowItem, pressed && styles.pressed]}
                 accessibilityRole="button"
               >
-                <Text style={[styles.overflowLabel, { color: colors.textSecondary }]}>Correggi priorità</Text>
+                <Text style={[styles.overflowLabel, { color: colors.textSecondary }]}>Cambia priorità</Text>
               </Pressable>
               <Pressable
                 onPress={() => { setOverflowOpen(false); onIgnore(); }}
