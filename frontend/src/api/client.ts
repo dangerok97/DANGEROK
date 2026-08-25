@@ -117,6 +117,8 @@ export type ApiUser = {
   name?: string | null;
   picture?: string | null;
   provider: string;
+  /** ISO date the account was opened. Absent on accounts old enough to predate it. */
+  member_since?: string | null;
 };
 
 export type ApiAuth = { token: string; user: ApiUser };
