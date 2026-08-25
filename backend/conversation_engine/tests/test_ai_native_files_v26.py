@@ -393,16 +393,24 @@ def test_no_domain_routing_in_files_package():
             assert b not in low, f"{b} found in {path.name}"
 
 
-def test_workspace_fonti_present():
+
+def _workspace_surface_text() -> str:
+    """The Workspace surface as it is actually composed.
+
+    Workspace 2.0 split the screen into a route plus a small component module,
+    so reading only `[planId].tsx` no longer sees the parts it renders. These
+    guards are about what the product shows, not about which file happens to
+    hold it.
+    """
     from pathlib import Path
 
-    ws = (
-        Path(__file__).resolve().parents[3]
-        / "frontend"
-        / "app"
-        / "goal-workspace"
-        / "[planId].tsx"
-    )
-    text = ws.read_text(encoding="utf-8")
-    assert "Fonti" in text
+    root = Path(__file__).resolve().parents[3] / "frontend"
+    paths = [root / "app" / "goal-workspace" / "[planId].tsx"]
+    paths += sorted((root / "src" / "components" / "workspace").glob("*.ts*"))
+    return chr(10).join(p.read_text(encoding="utf-8") for p in paths if p.exists())
+
+
+def test_workspace_fonti_present():
+    text = _workspace_surface_text()
+    assert "FONTI USATE" in text
     assert "public_sources" in text

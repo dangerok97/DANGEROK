@@ -41,6 +41,12 @@ type Props = {
   onRemoveAttachment?: (localId: string) => void;
   showMicStub?: boolean;
   onMicPress?: () => void;
+  /**
+   * The rule above the composer separates it from content scrolling under it.
+   * In the opening state nothing scrolls, and the line reads as a stray divider
+   * cutting the invitation in half.
+   */
+  divider?: boolean;
 };
 
 export function OraComposer({
@@ -57,6 +63,7 @@ export function OraComposer({
   onRemoveAttachment,
   showMicStub = true,
   onMicPress,
+  divider = true,
 }: Props) {
   const { colors, isDark } = useTheme();
   const hasReadyFile = attachments.some((a) => a.status === 'ready');
@@ -121,7 +128,7 @@ export function OraComposer({
         style={[
           styles.row,
           {
-            borderTopColor: colors.border,
+            borderTopColor: divider ? colors.border : 'transparent',
             backgroundColor: colors.backgroundPrimary,
           },
         ]}

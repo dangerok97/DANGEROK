@@ -3,12 +3,14 @@
  * Supports paragraphs, headings, lists, bold/italic, inline code, simple math.
  */
 import React, { useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Linking, StyleSheet, Text, View } from 'react-native';
 
 type Props = {
   text: string;
   color: string;
   secondaryColor?: string;
+  /** Colour for links; when absent they read as plain text. */
+  linkColor?: string;
 };
 
 type Block =
@@ -99,10 +101,18 @@ function parseBlocks(src: string): Block[] {
   return blocks;
 }
 
-function Inline({ text, color }: { text: string; color: string }) {
-  // Split **bold**, *italic*, `code`
+function Inline({
+  text,
+  color,
+  linkColor,
+}: {
+  text: string;
+  color: string;
+  linkColor?: string;
+}) {
+  // Split **bold**, *italic*, `code`, [label](url)
   const nodes: React.ReactNode[] = [];
-  const re = /(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/g;
+  const re = /(\[[^\]]+\]\((?:https?:\/\/)[^)\s]+\)|\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/g;
   let last = 0;
   let m: RegExpExecArray | null;
   let key = 0;
@@ -111,7 +121,23 @@ function Inline({ text, color }: { text: string; color: string }) {
       nodes.push(<Text key={key++}>{text.slice(last, m.index)}</Text>);
     }
     const tok = m[0];
-    if (tok.startsWith('**')) {
+    const link = /^\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)$/.exec(tok);
+    if (link) {
+      // A written-out URL is unreadable in running prose and, at the length
+      // models produce, actively breaks the paragraph. Show what it is called
+      // and let the tap carry the address.
+      const [, label, href] = link;
+      nodes.push(
+        <Text
+          key={key++}
+          style={[styles.link, linkColor ? { color: linkColor } : null]}
+          accessibilityRole="link"
+          onPress={() => void Linking.openURL(href)}
+        >
+          {label}
+        </Text>,
+      );
+    } else if (tok.startsWith('**')) {
       nodes.push(
         <Text key={key++} style={styles.bold}>
           {tok.slice(2, -2)}
@@ -136,7 +162,7 @@ function Inline({ text, color }: { text: string; color: string }) {
   return <Text style={[styles.body, { color }]}>{nodes}</Text>;
 }
 
-export function RichOraText({ text, color, secondaryColor }: Props) {
+export function RichOraText({ text, color, secondaryColor, linkColor }: Props) {
   const blocks = useMemo(() => parseBlocks(preprocess(text)), [text]);
   if (!text?.trim()) return null;
   return (
@@ -165,7 +191,7 @@ export function RichOraText({ text, color, secondaryColor }: Props) {
                     {b.type === 'ol' ? `${j + 1}.` : '•'}
                   </Text>
                   <View style={styles.liBody}>
-                    <Inline text={it} color={color} />
+                    <Inline text={it} color={color} linkColor={linkColor} />
                   </View>
                 </View>
               ))}
@@ -174,7 +200,7 @@ export function RichOraText({ text, color, secondaryColor }: Props) {
         }
         return (
           <View key={idx} style={styles.p}>
-            <Inline text={b.text} color={color} />
+            <Inline text={b.text} color={color} linkColor={linkColor} />
           </View>
         );
       })}
@@ -194,6 +220,7 @@ const styles = StyleSheet.create({
   code: {
     fontSize: 14,
   },
+  link: { textDecorationLine: 'underline' },
   list: { gap: 4 },
   li: { flexDirection: 'row', alignItems: 'flex-start' },
   liBody: { flex: 1 },

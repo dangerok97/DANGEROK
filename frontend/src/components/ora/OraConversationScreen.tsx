@@ -1,10 +1,19 @@
 /**
- * Production ORA conversation surface — AI Core runtime only.
- * Real attachments via ContextFile upload API.
+ * ORA — where the user reasons, clarifies and decides with ORA.
+ *
+ * Home is what needs attention, the Workspace is where a goal gets advanced,
+ * and this is where the two get talked through. So the surface is built around
+ * one promise: a conversation opened from somewhere already knows where it came
+ * from, and the user never has to re-explain it.
+ *
+ * The runtime is untouched — AI Core start/message/get, client capability
+ * resume, attachment upload and binding, session focus, idempotent message ids.
+ * What changed is the surface: the user speaks in a small aside, ORA answers as
+ * open editorial text rather than a chat balloon, and the context that opened
+ * the thread is stated once at the top instead of being lost in a URL.
  */
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -16,7 +25,6 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { api } from '@/src/api/client';
-import { RichOraText } from '@/src/components/ora-ai/RichOraText';
 import {
   OraComposer,
   PendingAttachment,
@@ -24,11 +32,16 @@ import {
 } from '@/src/components/ora/OraComposer';
 import { LocationPermissionSheet } from '@/src/components/ora/LocationPermissionSheet';
 import { requestForegroundPosition } from '@/src/location/foregroundGeo';
-import { FocusScreen, FOCUS_DECISION_MAX_WIDTH } from '@/src/shell';
+import { FocusScreen } from '@/src/shell';
 import { useTheme } from '@/src/theme/ThemeProvider';
 import { tokens } from '@/src/theme/tokens';
-import { humanizeError } from '@/src/utils/errors';
-import type { OraEntryPoint } from '@/src/ora/oraNav';
+import { buildGoalWorkspaceHref, type OraEntryPoint } from '@/src/ora/oraNav';
+import { oraErrorMessage, useOraContext } from './conversationContext';
+import { OraContextOpening, OraEmpty, OraError, OraHeader, OraWorking } from './OraChrome';
+import { OraTurns, type Turn } from './OraTurns';
+
+/** Conversation reading width — long reasoning stays legible, never full-bleed. */
+const READING_MAX_WIDTH = 720;
 
 type ClientAction = { type?: string; reason?: string; refresh?: boolean };
 
@@ -153,14 +166,6 @@ async function fulfillLocationClientActions(
   return { resume: false, completed, failure: 'client_action_not_executed' };
 }
 
-type Turn = {
-  role: 'user' | 'ora';
-  text: string;
-  messageId?: string;
-  sources?: Array<{ title?: string; url?: string }>;
-  attachments?: Array<{ name?: string }>;
-};
-
 function historyToTurns(
   hist: Array<{
     role?: string;
@@ -185,6 +190,86 @@ function newClientMessageId(): string {
 
 /** Cross-remount idempotency for pending client capability (StrictMode-safe). */
 const fulfilledPendingTurns = new Set<string>();
+
+/**
+ * Evidence for the newest answer, kept across the remount that follows session
+ * creation.
+ *
+ * The runtime reports sources next to the answer it has just produced; it does
+ * not store them per turn, and `aiCoreGet` cannot return them. Creating a
+ * session replaces the URL, which remounts this screen and reloads history —
+ * so without somewhere to keep them, the FONTI block appeared for a few
+ * milliseconds and was then overwritten by a history that has no idea they
+ * existed. Matched back on the answer text, so evidence can never end up
+ * attached to a different reply.
+ */
+const lastSources = new Map<string, { text: string; sources: OraSourceRef[] }>();
+
+type OraSourceRef = { title?: string; url?: string };
+
+function rememberSources(sessionId: string | null, turns: Turn[]): void {
+  if (!sessionId) return;
+  const last = [...turns].reverse().find((t) => t.role === 'ora');
+  if (last?.sources?.length) {
+    lastSources.set(sessionId, { text: last.text, sources: last.sources });
+  }
+}
+
+function withRememberedSources(sessionId: string | null, turns: Turn[]): Turn[] {
+  if (!sessionId) return turns;
+  const held = lastSources.get(sessionId);
+  if (!held) return turns;
+  const idx = turns.map((t) => t.role).lastIndexOf('ora');
+  if (idx < 0 || turns[idx].sources?.length) return turns;
+  if (turns[idx].text.trim() !== held.text.trim()) return turns;
+  const out = [...turns];
+  out[idx] = { ...out[idx], sources: held.sources };
+  return out;
+}
+
+/**
+ * Focus already told to the backend, keyed by the exact tuple.
+ *
+ * Creating a session records focus, and the URL replace that follows remounts
+ * the screen on the new id — which would record the identical focus again, and
+ * twice more under StrictMode. The write is idempotent, but sending it four
+ * times for one hand-off is noise on the wire.
+ */
+const announcedFocus = new Set<string>();
+
+async function announceFocus(args: {
+  sessionId: string;
+  planId?: string | null;
+  objectId?: string | null;
+  planItemId?: string | null;
+}): Promise<void> {
+  const key = [args.sessionId, args.planId || '', args.objectId || '', args.planItemId || ''].join('|');
+  if (announcedFocus.has(key)) return;
+  announcedFocus.add(key);
+  try {
+    await api.lifeOsSessionFocus({
+      session_id: args.sessionId,
+      object_id: args.objectId ? String(args.objectId) : undefined,
+      plan_id: args.planId ? String(args.planId) : undefined,
+      plan_item_id: args.planItemId ? String(args.planItemId) : undefined,
+      event_type: 'object_opened',
+    });
+  } catch {
+    // Soft: the conversation is still usable, focus is an enrichment.
+    announcedFocus.delete(key);
+  }
+}
+
+/** What a failed send needs in order to be retried under the same identity. */
+type Outbox = {
+  text: string;
+  attachments: Array<{
+    file_id: string;
+    document_id?: string;
+    display_name?: string;
+    mime_type?: string;
+  }>;
+};
 
 type Props = {
   sessionId?: string | null;
@@ -222,6 +307,25 @@ export function OraConversationScreen({
   const [locPermVisible, setLocPermVisible] = useState(false);
   const locPermResolver = useRef<((v: boolean) => void) | null>(null);
   const sendingRef = useRef(false);
+  const outbox = useRef<Map<string, Outbox>>(new Map());
+
+  const { context, resolving: contextResolving } = useOraContext({ planId, objectId, planItemId });
+
+  /**
+   * Leaving goes back where the user came from. A conversation opened from a
+   * Workspace that dead-ends on the tab bar would make "Continua con ORA" a
+   * one-way door.
+   */
+  const goBack = useCallback(() => {
+    if (entryPoint === 'goal_workspace' || entryPoint === 'object') {
+      if (planId) {
+        router.replace(buildGoalWorkspaceHref(String(planId)) as any);
+        return;
+      }
+    }
+    if (router.canGoBack?.()) router.back();
+    else router.replace('/' as any);
+  }, [entryPoint, planId, router]);
 
   const askLocationPreference = useCallback(() => {
     setLocPermVisible(true);
@@ -242,7 +346,7 @@ export function OraConversationScreen({
       let guard = 0;
       while ((current.client_actions || []).length && sid && guard < 2) {
         guard += 1;
-        setWorkingHint('Posizione…');
+        setWorkingHint('Sto usando la tua posizione…');
         const { resume, completed } = await fulfillLocationClientActions(
           sid,
           current.client_actions || [],
@@ -265,23 +369,18 @@ export function OraConversationScreen({
       }
       try {
         if (objectId || planId) {
-          try {
-            await api.lifeOsSessionFocus({
-              session_id: String(paramId),
-              object_id: objectId ? String(objectId) : undefined,
-              plan_id: planId ? String(planId) : undefined,
-              plan_item_id: planItemId ? String(planItemId) : undefined,
-              event_type: 'object_opened',
-            });
-          } catch {
-            /* soft */
-          }
+          await announceFocus({
+            sessionId: String(paramId),
+            planId,
+            objectId,
+            planItemId,
+          });
         }
         let res = (await api.aiCoreGet(paramId)) as AiCoreRes;
         if (cancelled) return;
         const sid = res.session_id || paramId;
         setSessionId(sid);
-        setTurns(historyToTurns(res.history || []));
+        setTurns(withRememberedSources(sid, historyToTurns(res.history || [])));
 
         // Home /ora handoff: resume pending client capability without re-sending user text
         const pending = res.pending_turn;
@@ -299,12 +398,12 @@ export function OraConversationScreen({
         ) {
           fulfilledPendingTurns.add(lockKey);
           setBusy(true);
-          setWorkingHint(res.working_hint || 'Posizione…');
+          setWorkingHint(res.working_hint || 'Sto usando la tua posizione…');
           try {
             res = await applyAiCoreResponse({ ...res, client_actions: actions }, sid);
             if (cancelled) return;
             if (Array.isArray(res.history) && res.history.length) {
-              setTurns(historyToTurns(res.history));
+              setTurns(withRememberedSources(sid, historyToTurns(res.history)));
             } else {
               const ora = (res.ora_text || res.question || '').trim();
               const sources = Array.isArray(res.sources) ? res.sources.slice(0, 5) : [];
@@ -318,7 +417,7 @@ export function OraConversationScreen({
             }
           } catch (e: any) {
             fulfilledPendingTurns.delete(lockKey);
-            if (!cancelled) setError(humanizeError(e, 'default'));
+            if (!cancelled) setError(oraErrorMessage(e));
           } finally {
             if (!cancelled) {
               setBusy(false);
@@ -327,7 +426,7 @@ export function OraConversationScreen({
           }
         }
       } catch (e: any) {
-        if (!cancelled) setError(humanizeError(e, 'default'));
+        if (!cancelled) setError(oraErrorMessage(e));
       } finally {
         if (!cancelled) setBoot(false);
       }
@@ -378,16 +477,150 @@ export function OraConversationScreen({
               ? {
                   ...a,
                   status: 'failed',
-                  error: humanizeError(e, 'default'),
+                  error: oraErrorMessage(e),
                 }
               : a,
           ),
         );
       }
     } catch (e: any) {
-      setError(humanizeError(e, 'default'));
+      setError(oraErrorMessage(e));
     }
   }, [sessionId]);
+
+  /** Apply whatever the runtime returned to the visible conversation. */
+  const applyTurns = useCallback((res: AiCoreRes, clientMessageId: string, sid: string | null) => {
+    if (Array.isArray(res.history) && res.history.length) {
+      // History is the authority on what was said, but it carries no sources:
+      // the runtime reports them alongside the answer it has just produced, not
+      // per stored turn. Rebuilding from history alone silently threw them away
+      // every time — so the evidence for the newest answer is put back on it.
+      const rebuilt = historyToTurns(res.history);
+      const sources = Array.isArray(res.sources) ? res.sources.slice(0, 5) : [];
+      const lastOra = rebuilt.map((t) => t.role).lastIndexOf('ora');
+      if (lastOra >= 0) {
+        // The response carries the answer in full; the stored history entry is
+        // bounded. When they are the same answer, show the complete one rather
+        // than the copy that stops at the storage limit.
+        const full = (res.ora_text || '').trim();
+        const stored = rebuilt[lastOra].text;
+        const text = full.length > stored.length && full.startsWith(stored.slice(0, 80))
+          ? full
+          : stored;
+        rebuilt[lastOra] = {
+          ...rebuilt[lastOra],
+          text,
+          ...(sources.length ? { sources } : {}),
+        };
+      }
+      rememberSources(sid, rebuilt);
+      setTurns(rebuilt);
+    } else {
+      const ora = (res.ora_text || res.question || '').trim();
+      const sources = Array.isArray(res.sources) ? res.sources.slice(0, 5) : [];
+      setTurns((prev) => {
+        const cleared = prev.map((t) =>
+          t.messageId === clientMessageId ? { ...t, failed: false } : t,
+        );
+        const next = ora ? [...cleared, { role: 'ora' as const, text: ora, sources }] : cleared;
+        rememberSources(sid, next);
+        return next;
+      });
+    }
+    outbox.current.delete(clientMessageId);
+  }, []);
+
+  /**
+   * Send one turn under a stable client message id.
+   *
+   * The id is what makes a retry a retry rather than a duplicate: the runtime
+   * already treats a repeated `client_message_id` as the same turn, so a failed
+   * send can be re-attempted without the user ending up having said the same
+   * thing twice.
+   */
+  const dispatch = useCallback(
+    async (clientMessageId: string, payload: Outbox) => {
+      const { text: msg, attachments: pendingAttach } = payload;
+      setBusy(true);
+      setError(null);
+      setWorkingHint(
+        pendingAttach.length ? 'Sto leggendo l’allegato…' : 'Sto ragionando…',
+      );
+      try {
+        let res: AiCoreRes;
+        if (!sessionId) {
+          // Need a session before attaching file-only; start with text or placeholder
+          const startText =
+            msg ||
+            `[Allegato: ${pendingAttach.map((a) => a.display_name).filter(Boolean).join(', ')}]`;
+          // Attachments travel with the very first turn. Starting the session
+          // and then sending the files as a second message produced two user
+          // turns for one thing the person said — and the first answer was ORA
+          // explaining it could not read a file that had not been bound yet.
+          res = await api.aiCoreStart({
+            text: startText,
+            origin: entryPoint === 'home' ? 'home' : 'text',
+            entry_point: entryPoint,
+            plan_id: planId || undefined,
+            object_id: objectId || undefined,
+            attachments: pendingAttach,
+          });
+          const id = res.session_id;
+          setSessionId(id || null);
+          // The new session learns which plan item we are on through the focus
+          // API that already exists — start() carries plan and object, and this
+          // completes the picture rather than adding a second context path.
+          if (id && (planId || objectId)) {
+            await announceFocus({ sessionId: String(id), planId, objectId, planItemId });
+          }
+          if (id) {
+            res = await applyAiCoreResponse(res, id);
+          }
+          if (id && !paramId) {
+            const q = new URLSearchParams({
+              ...(planId ? { planId: String(planId) } : {}),
+              ...(objectId ? { objectId: String(objectId) } : {}),
+              ...(planItemId ? { planItemId: String(planItemId) } : {}),
+              entry: entryPoint,
+            });
+            router.replace(`/ora/${id}?${q.toString()}` as any);
+          }
+        } else {
+          if (pendingAttach.length) setWorkingHint('Sto verificando…');
+          res = await api.aiCoreMessage(sessionId, {
+            text: msg || '',
+            attachments: pendingAttach,
+            client_message_id: clientMessageId,
+          });
+          res = await applyAiCoreResponse(res, sessionId);
+        }
+        applyTurns(res, clientMessageId, sessionId || res.session_id || null);
+        requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
+      } catch (e: any) {
+        // The turn is already on screen. Say plainly that it did not arrive
+        // rather than leaving it looking answered.
+        setTurns((prev) =>
+          prev.map((t) => (t.messageId === clientMessageId ? { ...t, failed: true } : t)),
+        );
+        setError(oraErrorMessage(e));
+      } finally {
+        sendingRef.current = false;
+        setBusy(false);
+        setWorkingHint(null);
+      }
+    },
+    [
+      sessionId,
+      entryPoint,
+      planId,
+      objectId,
+      planItemId,
+      paramId,
+      router,
+      applyAiCoreResponse,
+      applyTurns,
+    ],
+  );
 
   const send = useCallback(async () => {
     const msg = text.trim();
@@ -395,9 +628,6 @@ export function OraConversationScreen({
     if ((!msg && !ready.length) || busy || sendingRef.current) return;
     if (attachments.some((a) => a.status === 'uploading')) return;
     sendingRef.current = true;
-    setBusy(true);
-    setError(null);
-    setWorkingHint(ready.length ? 'Sto leggendo l’allegato…' : 'Sto pensando…');
     setText('');
     const pendingAttach = ready.map((a) => ({
       file_id: a.fileId!,
@@ -417,85 +647,69 @@ export function OraConversationScreen({
         attachments: ready.map((a) => ({ name: a.name })),
       },
     ]);
-    try {
-      let res: AiCoreRes;
-      if (!sessionId) {
-        // Need a session before attaching file-only; start with text or placeholder
-        const startText = msg || `[Allegato: ${ready.map((a) => a.name).join(', ')}]`;
-        res = await api.aiCoreStart({
-          text: startText,
-          origin: entryPoint === 'home' ? 'home' : 'text',
-          entry_point: entryPoint,
-          plan_id: planId || undefined,
-          object_id: objectId || undefined,
-        });
-        const id = res.session_id;
-        setSessionId(id || null);
-        if (id && pendingAttach.length) {
-          res = await api.aiCoreMessage(id, {
-            text: msg || '',
-            attachments: pendingAttach,
-            client_message_id: clientMessageId,
-          });
-        }
-        if (id) {
-          res = await applyAiCoreResponse(res, id);
-        }
-        if (id && !paramId) {
-          const q = new URLSearchParams({
-            ...(planId ? { planId: String(planId) } : {}),
-            ...(objectId ? { objectId: String(objectId) } : {}),
-            entry: entryPoint,
-          });
-          router.replace(`/ora/${id}?${q.toString()}` as any);
-        }
-      } else {
-        if (ready.length) setWorkingHint('Sto verificando…');
-        res = await api.aiCoreMessage(sessionId, {
-          text: msg || '',
-          attachments: pendingAttach,
-          client_message_id: clientMessageId,
-        });
-        res = await applyAiCoreResponse(res, sessionId);
-      }
-      if (Array.isArray(res.history) && res.history.length) {
-        setTurns(historyToTurns(res.history));
-      } else {
-        const ora = (res.ora_text || res.question || '').trim();
-        const sources = Array.isArray(res.sources) ? res.sources.slice(0, 5) : [];
-        if (ora) setTurns((prev) => [...prev, { role: 'ora', text: ora, sources }]);
-      }
-      requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
-    } catch (e: any) {
-      setError(humanizeError(e, 'default'));
-    } finally {
-      sendingRef.current = false;
-      setBusy(false);
-      setWorkingHint(null);
-    }
-  }, [
-    text,
-    attachments,
-    busy,
-    sessionId,
-    router,
-    entryPoint,
-    planId,
-    objectId,
-    paramId,
-    applyAiCoreResponse,
-  ]);
+    outbox.current.set(clientMessageId, { text: msg, attachments: pendingAttach });
+    await dispatch(clientMessageId, { text: msg, attachments: pendingAttach });
+  }, [text, attachments, busy, dispatch]);
 
-  if (boot) {
-    return (
-      <FocusScreen>
-        <ActivityIndicator color={colors.textPrimary} />
-      </FocusScreen>
-    );
-  }
+  const retry = useCallback(
+    async (turn: Turn) => {
+      const id = turn.messageId;
+      if (!id || busy || sendingRef.current) return;
+      const payload = outbox.current.get(id);
+      if (!payload) return;
+      sendingRef.current = true;
+      setTurns((prev) => prev.map((t) => (t.messageId === id ? { ...t, failed: false } : t)));
+      await dispatch(id, payload);
+    },
+    [busy, dispatch],
+  );
+
+  const opening = useMemo(() => {
+    if (turns.length) return null;
+    // Say nothing rather than the wrong thing while the context is on its way.
+    if (contextResolving) return null;
+    return context ? <OraContextOpening /> : <OraEmpty />;
+  }, [turns.length, context, contextResolving]);
+
+  /**
+   * Before the first turn there is no conversation to scroll, so anchoring the
+   * composer to the bottom of the screen left the opening line stranded at the
+   * top with a page of nothing between them — a surface that reads as
+   * unfinished rather than as waiting. With nothing said yet, the invitation
+   * and the place to answer it are one block, held together in the middle.
+   */
+  const emptyStart = !boot && turns.length === 0 && !busy;
+
+  const composer = (
+    <OraComposer
+      divider={!emptyStart}
+      value={text}
+      onChangeText={setText}
+      onSend={() => void send()}
+      busy={busy}
+      placeholder="Scrivi a ORA…"
+      showAttach
+      attachments={attachments}
+      onAttachPress={() => void onAttach()}
+      onRemoveAttachment={(id) =>
+        setAttachments((prev) => prev.filter((a) => a.localId !== id))
+      }
+      onMicPress={() => setMicHint('La voce non è ancora disponibile.')}
+      testID={`${testID}-composer`}
+    />
+  );
+
+  const asides = (
+    <>
+      {error ? <OraError message={error} /> : null}
+      {micHint ? (
+        <Text style={[styles.micHint, { color: colors.textTertiary }]}>{micHint}</Text>
+      ) : null}
+    </>
+  );
 
   return (
-    <FocusScreen testID={testID}>
+    <FocusScreen testID={testID} maxWidth={READING_MAX_WIDTH}>
       <LocationPermissionSheet
         visible={locPermVisible}
         onAllow={() => resolveLocationPreference(true)}
@@ -506,93 +720,57 @@ export function OraConversationScreen({
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={insets.top + 48}
       >
-        <View style={[styles.wrap, { maxWidth: FOCUS_DECISION_MAX_WIDTH }]}>
-          {devHarness ? (
-            <Text style={[styles.devBanner, { color: colors.textTertiary }]} testID="ora-dev-banner">
-              DEV / diagnostica — usa /ora in produzione
-            </Text>
-          ) : null}
-          <ScrollView
-            ref={scrollRef}
-            style={styles.scroll}
-            contentContainerStyle={styles.scrollContent}
-            keyboardShouldPersistTaps="handled"
-            testID={`${testID}-scroll`}
-            onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
-          >
-            {turns.length === 0 ? (
-              <Text style={[styles.hint, { color: colors.textSecondary }]}>
-                Parla con ORA. Puoi anche allegare un file come prova o contesto.
+        <View style={styles.wrap}>
+          <View style={styles.headerPad}>
+            {devHarness ? (
+              <Text style={[styles.devBanner, { color: colors.textTertiary }]} testID="ora-dev-banner">
+                DEV / diagnostica — usa /ora in produzione
               </Text>
             ) : null}
-            {turns.map((t, i) => (
-              <View
-                key={t.messageId || `${t.role}-${i}-${t.text.slice(0, 24)}`}
-                style={[styles.bubble, t.role === 'user' ? styles.userAlign : styles.oraAlign]}
-              >
-                {t.attachments?.length ? (
-                  <Text style={[styles.attachLabel, { color: colors.textTertiary }]}>
-                    {t.attachments.map((a) => a.name).filter(Boolean).join(' · ')}
-                  </Text>
-                ) : null}
-                {t.role === 'ora' ? (
-                  <RichOraText
-                    text={t.text}
-                    color={colors.textPrimary}
-                    secondaryColor={colors.textSecondary}
-                  />
-                ) : (
-                  <Text style={[styles.bubbleText, { color: colors.textSecondary }]}>{t.text}</Text>
-                )}
-                {t.role === 'ora' && t.sources && t.sources.length > 0 ? (
-                  <View style={styles.sources} testID={`${testID}-sources`}>
-                    {t.sources.map((s, si) => (
-                      <Text
-                        key={`${s.url || s.title}-${si}`}
-                        style={[styles.sourceLine, { color: colors.textSecondary }]}
-                        numberOfLines={1}
-                      >
-                        {s.title || s.url}
-                      </Text>
-                    ))}
-                  </View>
-                ) : null}
-              </View>
-            ))}
-            {busy ? (
-              <View style={styles.working} testID={`${testID}-working`}>
-                <ActivityIndicator color={colors.textPrimary} />
-                <Text style={[styles.workingText, { color: colors.textSecondary }]}>
-                  {workingHint || 'Sto pensando…'}
-                </Text>
-              </View>
-            ) : null}
-            {error ? (
-              <Text style={{ color: colors.error, marginTop: 8 }}>{error}</Text>
-            ) : null}
-            {micHint ? (
-              <Text style={[styles.hint, { color: colors.textTertiary, marginTop: 8 }]}>{micHint}</Text>
-            ) : null}
-          </ScrollView>
-
-          <View style={{ paddingBottom: Math.max(insets.bottom, 8) }}>
-            <OraComposer
-              value={text}
-              onChangeText={setText}
-              onSend={() => void send()}
-              busy={busy}
-              showAttach
-              attachments={attachments}
-              onAttachPress={() => void onAttach()}
-              onRemoveAttachment={(id) =>
-                setAttachments((prev) => prev.filter((a) => a.localId !== id))
-              }
-              onMicPress={() =>
-                setMicHint('Voce: digita per ora — stesso motore, niente riconoscimento vocale.')
-              }
-              testID={`${testID}-composer`}
-            />
+            <OraHeader context={context} onBack={goBack} />
           </View>
+
+          {emptyStart ? (
+            <View
+              style={[styles.startBlock, { paddingBottom: Math.max(insets.bottom, 8) }]}
+              testID={`${testID}-start`}
+            >
+              {/* Uneven spacers: the block sits above centre so the header
+                  keeps company instead of floating alone at the top. */}
+              <View style={styles.startSpacerTop} />
+              <View style={styles.startIntro}>
+                {opening}
+                {asides}
+              </View>
+              {composer}
+              <View style={styles.startSpacerBottom} />
+            </View>
+          ) : (
+            <>
+              <ScrollView
+                ref={scrollRef}
+                style={styles.scroll}
+                contentContainerStyle={styles.scrollContent}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+                testID={`${testID}-scroll`}
+                onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
+              >
+                {boot ? (
+                  <OraWorking hint="Sto recuperando la conversazione…" />
+                ) : (
+                  <>
+                    {opening}
+                    <OraTurns turns={turns} onRetry={(t) => void retry(t)} />
+                    {busy ? <OraWorking hint={workingHint} /> : null}
+                    {asides}
+                  </>
+                )}
+              </ScrollView>
+
+              <View style={{ paddingBottom: Math.max(insets.bottom, 8) }}>{composer}</View>
+            </>
+          )}
         </View>
       </KeyboardAvoidingView>
     </FocusScreen>
@@ -601,18 +779,31 @@ export function OraConversationScreen({
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  wrap: { flex: 1, width: '100%', alignSelf: 'center' },
+  wrap: { flex: 1, width: '100%' },
+  headerPad: { paddingHorizontal: tokens.spacing.lg, paddingTop: tokens.spacing.sm },
   scroll: { flex: 1 },
-  scrollContent: { paddingHorizontal: tokens.spacing.md, paddingTop: 12, paddingBottom: 24 },
-  hint: { fontSize: 15, lineHeight: 22 },
-  attachLabel: { fontSize: 12, marginBottom: 4 },
-  devBanner: { fontSize: 12, paddingHorizontal: 16, paddingTop: 4 },
-  bubble: { marginBottom: 14, maxWidth: '92%' },
-  userAlign: { alignSelf: 'flex-end' },
-  oraAlign: { alignSelf: 'flex-start' },
-  bubbleText: { fontSize: 16, lineHeight: 24 },
-  sources: { marginTop: 6, gap: 2 },
-  sourceLine: { fontSize: 12, lineHeight: 16, opacity: 0.85 },
-  working: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 },
-  workingText: { fontSize: 14 },
+  scrollContent: {
+    paddingHorizontal: tokens.spacing.lg,
+    paddingTop: tokens.spacing.xs,
+    paddingBottom: tokens.spacing.xxl,
+  },
+  /**
+   * Invitation and composer as one block, held in the space that is there.
+   *
+   * Biased above centre on purpose: dead-centre leaves the header stranded at
+   * the top of the page with nothing beneath it, which is the same "suspended"
+   * feeling in a different place.
+   */
+  startBlock: { flex: 1, gap: tokens.spacing.lg },
+  /**
+   * The gap above is capped. On a tall desktop window a truly centred block
+   * pushes the invitation half a screen below the header, which leaves the
+   * header stranded — the same suspended feeling the centring was meant to
+   * remove. On short windows the cap never binds and the block sits centred.
+   */
+  startSpacerTop: { flex: 2, maxHeight: 140 },
+  startSpacerBottom: { flex: 3 },
+  startIntro: { paddingHorizontal: tokens.spacing.lg },
+  devBanner: { fontSize: 12, paddingBottom: 4 },
+  micHint: { fontSize: 13, lineHeight: 19, marginTop: tokens.spacing.md },
 });

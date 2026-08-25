@@ -18,6 +18,38 @@ def _new_message_id() -> str:
     return f"msg_{uuid.uuid4().hex[:14]}"
 
 
+
+# An ORA answer is stored whole enough to be read again.
+#
+# History used to keep 400 characters of it, which is fine for a summary line
+# and wrong for the surface that replays the conversation: any articulate reply
+# came back cut mid-sentence after a refresh, and "reconstruct the same
+# conversation" was not something the data could support. Still bounded — a
+# session document must not grow without limit — just bounded above the length
+# of a real answer rather than below it.
+ORA_HISTORY_TEXT_LIMIT = 4000
+
+def _public_attachments(meta: Optional[Dict[str, Any]]) -> list:
+    """Attachment names for one past turn — display names only.
+
+    The bind step stores the full ContextFile record on the history entry, and
+    none of it belongs on a screen: file ids, document ids, previews and plan
+    refs are how the system finds the file, not how a person recognises it. But
+    dropping the whole meta, which is what the projections used to do, made the
+    attachment vanish from the turn as soon as any response replaced the
+    optimistic one — the user could no longer see what they had sent.
+    """
+    items = (meta or {}).get("attachments") or []
+    out = []
+    for a in items:
+        if not isinstance(a, dict):
+            continue
+        name = str(a.get("name") or "").strip()[:120]
+        if name:
+            out.append({"name": name, "text_available": bool(a.get("text_available"))})
+    return out[:6]
+
+
 class AICoreOrchestrator:
     def __init__(self, db, *, decision_fn: Optional[DecisionFn] = None):
         self.db = db
@@ -123,7 +155,7 @@ class AICoreOrchestrator:
             sess.append_history(
                 role="ora",
                 kind=result.mode,
-                text=result.ora_text[:400],
+                text=result.ora_text[:ORA_HISTORY_TEXT_LIMIT],
                 step_id=ora_mid,
                 meta={"message_id": ora_mid},
             )
@@ -235,7 +267,7 @@ class AICoreOrchestrator:
             sess.append_history(
                 role="ora",
                 kind=result.mode,
-                text=result.ora_text[:400],
+                text=result.ora_text[:ORA_HISTORY_TEXT_LIMIT],
                 step_id=ora_mid,
                 meta={"message_id": ora_mid},
             )
@@ -290,7 +322,7 @@ class AICoreOrchestrator:
             sess.append_history(
                 role="ora",
                 kind=result.mode,
-                text=result.ora_text[:400],
+                text=result.ora_text[:ORA_HISTORY_TEXT_LIMIT],
                 step_id=ora_mid,
                 meta={"message_id": ora_mid},
             )
@@ -339,6 +371,9 @@ class AICoreOrchestrator:
                     "kind": h.kind,
                     "message_id": h.step_id or (h.meta or {}).get("message_id"),
                     "at": h.at,
+                    "meta": {"attachments": _public_attachments(h.meta)}
+                    if _public_attachments(h.meta)
+                    else None,
                 }
                 for h in (sess.history or [])[-40:]
             ],
@@ -392,6 +427,9 @@ class AICoreOrchestrator:
                     "kind": h.kind,
                     "message_id": h.step_id or (h.meta or {}).get("message_id"),
                     "at": h.at,
+                    "meta": {"attachments": _public_attachments(h.meta)}
+                    if _public_attachments(h.meta)
+                    else None,
                 }
                 for h in (sess.history or [])[-40:]
             ],
