@@ -1,31 +1,64 @@
 /**
- * Goal Workspace — Quiet Premium, domain-neutral Life OS + GenerativeObjects.
- * Presentation only — plan/object semantics unchanged.
+ * ORA Workspace 2.0 — where the user and ORA actually work on a goal.
+ *
+ * Home is what needs attention; the Workspace is where it gets advanced. So
+ * this page answers six questions in order and nothing else: what am I working
+ * on, where have I got to, what must I do now, what has ORA prepared, what
+ * comes next, and how do I keep going with ORA.
+ *
+ * Orchestration only. Plan semantics, object semantics, focus events and the
+ * conversation hand-off are exactly the ones that already existed — the same
+ * API calls, the same context identifiers. What changed is the hierarchy: the
+ * generative object ORA produced is now the centre of the page rather than one
+ * card in a stack, and the plan has moved beside it as context.
  */
-import React, { useCallback, useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { Pressable } from 'react-native';
+
 import { api } from '@/src/api/client';
-import { GenerativeObjectRenderer } from '@/src/components/generative/GenerativeObjectRenderer';
-import { AppCard } from '@/src/components/ui/AppCard';
-import { AppScreen } from '@/src/components/ui/AppScreen';
-import { ScreenHeader } from '@/src/components/ui/ScreenHeader';
-import { SectionHeader } from '@/src/components/ui/SectionHeader';
 import { useTheme } from '@/src/theme/ThemeProvider';
 import { tokens } from '@/src/theme/tokens';
 import { humanizeError } from '@/src/utils/errors';
 import { buildOraConversationHref } from '@/src/ora/oraNav';
+import { useAmbientInset } from '@/src/shell';
+import {
+  ActiveWork,
+  CurrentStep,
+  MaterialSelector,
+  NoWorkYet,
+  PlanComplete,
+  PlanProgress,
+  WorkspaceError,
+  WorkspaceHeader,
+  WorkspaceSkeleton,
+  WorkspaceSources,
+  humanDate,
+  isPlanComplete,
+  materials as materialsOf,
+  planProgression,
+  publicSources,
+} from '@/src/components/workspace';
+
+const WORKSPACE_MAX_WIDTH = 1180;
+/** The rail is context, never a second column of work. */
+const RAIL_WIDTH = 300;
+/** Below this the rail has nowhere to sit and the page becomes one column. */
+const TWO_COLUMN_MIN = 1040;
 
 export default function GoalWorkspaceScreen() {
   const { planId } = useLocalSearchParams<{ planId: string }>();
   const router = useRouter();
   const { colors } = useTheme();
+  const { width } = useWindowDimensions();
+  const ambient = useAmbientInset();
+
+  const twoColumn = width >= TWO_COLUMN_MIN;
+  const padH = width < 380 ? tokens.spacing.lg : tokens.spacing.xl;
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [bundle, setBundle] = useState<any>(null);
@@ -52,56 +85,28 @@ export default function GoalWorkspaceScreen() {
   }, [load]);
 
   const plan = bundle?.plan;
-  const objects = bundle?.objects || [];
+  const objects = (bundle?.objects || []) as any[];
   const sess = plan?.conversation_session_id as string | undefined;
   const activeObjectId = focusedObjectId || (objects[0]?.id as string | undefined);
   const nextItemId = bundle?.next_item?.id as string | undefined;
+  const activeObject = objects.find((o) => o?.id === activeObjectId) || objects[0] || null;
 
-  const continueWithOra = useCallback(async () => {
-    if (!sess) {
-      // No linked session yet — open fresh ORA with plan focus when message starts
-      router.push(
-        buildOraConversationHref({
-          planId: String(planId),
-          objectId: activeObjectId,
-          planItemId: nextItemId,
-          entryPoint: 'goal_workspace',
-        }) as any,
-      );
-      return;
-    }
-    try {
-      await api.lifeOsSessionFocus({
-        session_id: String(sess),
-        object_id: activeObjectId,
-        plan_id: String(planId),
-        plan_item_id: nextItemId,
-        event_type: 'object_opened',
-      });
-    } catch {
-      /* soft */
-    }
-    router.push(
-      buildOraConversationHref({
-        sessionId: sess,
-        planId: String(planId),
-        objectId: activeObjectId,
-        planItemId: nextItemId,
-        entryPoint: 'goal_workspace',
-      }) as any,
-    );
-  }, [sess, activeObjectId, planId, nextItemId, router]);
+  const goBack = useCallback(() => router.back(), [router]);
 
-  const askOraAboutObject = useCallback(
-    async (objectId: string) => {
-      setFocusedObjectId(objectId);
+  /**
+   * The hand-off to ORA. Unchanged: focus is recorded first when a session
+   * exists, and every context identifier the conversation needs to know what
+   * we were doing travels with the route.
+   */
+  const openOra = useCallback(
+    async (objectId: string | undefined, entryPoint: 'goal_workspace' | 'object') => {
       if (!sess) {
         router.push(
           buildOraConversationHref({
             planId: String(planId),
             objectId,
             planItemId: nextItemId,
-            entryPoint: 'object',
+            entryPoint,
           }) as any,
         );
         return;
@@ -123,229 +128,201 @@ export default function GoalWorkspaceScreen() {
           planId: String(planId),
           objectId,
           planItemId: nextItemId,
-          entryPoint: 'object',
+          entryPoint,
         }) as any,
       );
     },
     [sess, planId, nextItemId, router],
   );
 
-  if (loading) {
-    return (
-      <AppScreen testID="goal-workspace-loading">
-        <ActivityIndicator color={colors.textPrimary} />
-      </AppScreen>
-    );
-  }
+  const continueWithOra = useCallback(
+    () => openOra(activeObjectId, 'goal_workspace'),
+    [openOra, activeObjectId],
+  );
+
+  const askOraAboutObject = useCallback(
+    (objectId: string) => {
+      setFocusedObjectId(objectId);
+      return openOra(objectId, 'object');
+    },
+    [openOra],
+  );
+
+  const onInteract = useCallback(
+    async (objectId: string, eventType: string, payload: Record<string, unknown>) => {
+      setFocusedObjectId(objectId);
+      try {
+        await api.lifeOsObjectInteract(objectId, { event_type: eventType, payload });
+        if (sess) {
+          await api.lifeOsSessionFocus({
+            session_id: String(sess),
+            object_id: objectId,
+            plan_id: String(planId),
+            plan_item_id: nextItemId,
+            event_type: eventType || 'object_opened',
+          });
+        }
+      } catch {
+        /* soft */
+      }
+    },
+    [sess, planId, nextItemId],
+  );
+
+  const steps = useMemo(
+    () => planProgression(plan?.items, nextItemId),
+    [plan?.items, nextItemId],
+  );
+  const sources = useMemo(() => publicSources(bundle?.public_sources), [bundle?.public_sources]);
+  const materials = useMemo(() => materialsOf(objects), [objects]);
+  const complete = isPlanComplete(plan, bundle?.next_item);
+
+  const frame = (children: React.ReactNode, testID: string) => (
+    <SafeAreaView
+      edges={['top']}
+      style={[styles.root, { backgroundColor: colors.backgroundPrimary }]}
+      testID={testID}
+    >
+      <ScrollView
+        contentContainerStyle={{
+          paddingHorizontal: padH,
+          paddingTop: tokens.spacing.lg,
+          paddingBottom: ambient.paddingBottom,
+          maxWidth: WORKSPACE_MAX_WIDTH,
+          width: '100%',
+          alignSelf: 'center',
+          gap: tokens.spacing.xl,
+        }}
+        showsVerticalScrollIndicator={false}
+        testID="workspace-scroll"
+      >
+        {children}
+      </ScrollView>
+    </SafeAreaView>
+  );
+
+  if (loading) return frame(<WorkspaceSkeleton wide={twoColumn} />, 'goal-workspace-loading');
 
   if (error || !plan) {
-    return (
-      <AppScreen testID="goal-workspace-error">
-        <ScreenHeader title="Workspace" onBack={() => router.back()} />
-        <Text style={{ color: colors.textSecondary }}>{error || 'Piano non trovato'}</Text>
-        <Pressable onPress={() => router.back()} style={{ marginTop: tokens.spacing.md }}>
-          <Text style={{ color: colors.textPrimary, textDecorationLine: 'underline' }}>
-            Indietro
-          </Text>
-        </Pressable>
-      </AppScreen>
+    return frame(
+      <>
+        <WorkspaceHeader onBack={goBack} />
+        <WorkspaceError message={error} onRetry={load} onBack={goBack} />
+      </>,
+      'goal-workspace-error',
     );
   }
 
-  const progressPct = Math.round((bundle.progress_ratio || 0) * 100);
+  /* ---- the three blocks of the main column ---- */
 
-  return (
-    <AppScreen scroll testID="goal-workspace" contentStyle={styles.content}>
-      <ScreenHeader
-        eyebrow="Workspace"
+  const currentStep = complete ? (
+    <PlanComplete onBack={goBack} />
+  ) : bundle?.next_item ? (
+    <CurrentStep
+      title={bundle.next_item.title}
+      detail={bundle.next_item.description || null}
+      // The only action a Workspace can honestly offer for any goal is to keep
+      // going with ORA. Anything more specific would have to be guessed from
+      // the domain, and this page does not know domains.
+      ctaLabel="Continua con ORA"
+      onPress={() => void continueWithOra()}
+    />
+  ) : (
+    <CurrentStep
+      title="Continua da dove eravate rimasti."
+      detail="ORA riprende il filo di questo obiettivo con te."
+      ctaLabel="Continua con ORA"
+      onPress={() => void continueWithOra()}
+    />
+  );
+
+  // A finished goal with nothing left behind says so once, in the completion
+  // block. Telling the user that material "will appear here" would promise
+  // work on something that is already over.
+  const workSurface = !activeObject && complete ? null : activeObject ? (
+    <ActiveWork
+      title={activeObject.title || 'Il tuo lavoro'}
+      purpose={activeObject.purpose || null}
+      content={activeObject.content}
+      objectId={String(activeObject.id)}
+      onInteract={(eventType, payload) =>
+        void onInteract(String(activeObject.id), eventType, payload)
+      }
+      onAskOra={() => void askOraAboutObject(String(activeObject.id))}
+    />
+  ) : (
+    <NoWorkYet />
+  );
+
+  const context = (
+    <>
+      <PlanProgress steps={steps} />
+      <WorkspaceSources sources={sources} />
+      <Pressable
+        onPress={load}
+        style={({ pressed }) => [styles.refresh, { borderColor: colors.border }, pressed && styles.pressed]}
+        accessibilityRole="button"
+        testID="goal-workspace-refresh"
+      >
+        <Ionicons name="refresh" size={14} color={colors.textTertiary} />
+        <Text style={[styles.refreshLabel, { color: colors.textSecondary }]}>Aggiorna</Text>
+      </Pressable>
+    </>
+  );
+
+  return frame(
+    <>
+      <WorkspaceHeader
         title={plan.summary || 'Il tuo obiettivo'}
-        subtitle={plan.desired_outcome || undefined}
-        onBack={() => router.back()}
+        outcome={plan.desired_outcome || null}
+        horizon={humanDate(plan.target_date)}
+        onBack={goBack}
       />
 
-      <View style={styles.metaRow}>
-        {plan.target_date ? (
-          <Text style={[styles.meta, { color: colors.textTertiary }]}>
-            Orizzonte {plan.target_date}
-          </Text>
-        ) : null}
-        <Text style={[styles.meta, { color: colors.textTertiary }]}>
-          Progresso {progressPct}%
-        </Text>
-      </View>
-
-      {bundle.next_item ? (
-        <AppCard style={styles.block}>
-          <Text style={[styles.cardLabel, { color: colors.textTertiary }]}>Prossimo passo</Text>
-          <Text style={[styles.body, { color: colors.textPrimary }]}>
-            {bundle.next_item.title}
-          </Text>
-        </AppCard>
-      ) : null}
-
-      <SectionHeader title="Piano" subtitle="Progressione" />
-      <View style={styles.planList}>
-        {(plan.items || []).map((it: any) => (
-          <Text key={it.id} style={[styles.body, { color: colors.textPrimary }]}>
-            {it.status === 'completed' ? '✓' : '·'} {it.title}
-            {it.due_date ? `  (${it.due_date})` : ''}
-          </Text>
-        ))}
-        {!plan.items?.length ? (
-          <Text style={{ color: colors.textSecondary }}>Nessun passo ancora.</Text>
-        ) : null}
-      </View>
-
-      <SectionHeader title="Il tuo lavoro" subtitle="Oggetti creati con ORA" />
-      {!objects.length ? (
-        <Text style={{ color: colors.textSecondary, marginBottom: tokens.spacing.lg }}>
-          Nessun oggetto ancora — continua con ORA per crearne.
-        </Text>
-      ) : (
-        objects.map((obj: any) => (
-          <AppCard key={obj.id} style={styles.block} elevated={obj.id === activeObjectId}>
-            <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>{obj.title}</Text>
-            {obj.purpose ? (
-              <Text style={{ color: colors.textSecondary, marginBottom: 8 }}>{obj.purpose}</Text>
-            ) : null}
-            {obj.revision != null ? (
-              <Text style={[styles.meta, { color: colors.textTertiary }]}>rev {obj.revision}</Text>
-            ) : null}
-            <GenerativeObjectRenderer
-              content={obj.content}
-              objectId={obj.id}
-              onInteract={async (eventType, payload) => {
-                setFocusedObjectId(obj.id);
-                try {
-                  await api.lifeOsObjectInteract(obj.id, {
-                    event_type: eventType,
-                    payload,
-                  });
-                  if (sess) {
-                    await api.lifeOsSessionFocus({
-                      session_id: String(sess),
-                      object_id: obj.id,
-                      plan_id: String(planId),
-                      plan_item_id: nextItemId,
-                      event_type: eventType || 'object_opened',
-                    });
-                  }
-                } catch {
-                  /* soft */
-                }
-              }}
+      {twoColumn ? (
+        <View style={styles.row}>
+          <View style={styles.mainCol}>
+            {currentStep}
+            <MaterialSelector
+              materials={materials}
+              activeId={activeObjectId}
+              onSelect={setFocusedObjectId}
             />
-            <Pressable
-              onPress={() => void askOraAboutObject(obj.id)}
-              style={[styles.objectCta, { borderColor: colors.border }]}
-              testID={`ask-ora-object-${obj.id}`}
-            >
-              <Text style={{ color: colors.textPrimary, fontWeight: '600' }}>
-                Continua con ORA
-              </Text>
-            </Pressable>
-          </AppCard>
-        ))
-      )}
-
-      {(() => {
-        const fromApi = (bundle?.public_sources || []) as Array<{
-          display_name?: string;
-          authority_label?: string;
-          uploaded_by_user?: boolean;
-        }>;
-        const sources =
-          fromApi.length > 0
-            ? fromApi
-                .map((s) => ({
-                  name: String(s.display_name || '').trim(),
-                  authority: String(s.authority_label || '').trim(),
-                }))
-                .filter((s) => s.name && !/^(lcf_|doc_|lop_|lgo_)/i.test(s.name))
-            : [];
-        if (!sources.length) return null;
-        return (
-          <View style={{ marginBottom: tokens.spacing.xl }} testID="goal-workspace-fonti">
-            <SectionHeader title="Fonti" subtitle="Prove fornite" />
-            {sources.slice(0, 8).map((s) => (
-              <View
-                key={s.name}
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 8,
-                  marginBottom: 8,
-                }}
-              >
-                <Text style={{ color: colors.textSecondary }}>·</Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: colors.textPrimary }}>{s.name}</Text>
-                  {s.authority ? (
-                    <Text style={{ color: colors.textTertiary || colors.textSecondary, fontSize: 12 }}>
-                      {s.authority}
-                    </Text>
-                  ) : null}
-                </View>
-              </View>
-            ))}
+            {workSurface}
           </View>
-        );
-      })()}
-
-      <View style={styles.actions}>
-        <Pressable
-          onPress={() => void continueWithOra()}
-          style={[styles.btnPrimary, { backgroundColor: colors.textPrimary }]}
-          testID="goal-workspace-continue-ora"
-        >
-          <Text style={[styles.btnPrimaryText, { color: colors.backgroundPrimary }]}>
-            Continua con ORA
-          </Text>
-        </Pressable>
-        <Pressable
-          onPress={load}
-          style={[styles.btnSecondary, { borderColor: colors.border }]}
-          testID="goal-workspace-refresh"
-        >
-          <Text style={{ color: colors.textPrimary }}>Aggiorna</Text>
-        </Pressable>
-      </View>
-    </AppScreen>
+          <View style={[styles.railCol, { width: RAIL_WIDTH }]}>{context}</View>
+        </View>
+      ) : (
+        // Phone: the same hierarchy stacked. Work first, context after it —
+        // the rail's content is what you consult, not what you act on.
+        <View style={styles.stack}>
+          {currentStep}
+          <MaterialSelector
+            materials={materials}
+            activeId={activeObjectId}
+            onSelect={setFocusedObjectId}
+          />
+          {workSurface}
+          {context}
+        </View>
+      )}
+    </>,
+    'goal-workspace',
   );
 }
 
 const styles = StyleSheet.create({
-  content: { paddingBottom: 48 },
-  metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: tokens.spacing.lg },
-  meta: { fontSize: 13 },
-  block: { marginBottom: tokens.spacing.lg, gap: tokens.spacing.sm },
-  cardLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    letterSpacing: 0.6,
-    textTransform: 'uppercase',
+  root: { flex: 1 },
+  row: { flexDirection: 'row', gap: tokens.spacing.xl, alignItems: 'flex-start' },
+  /** Main work area: takes the room the rail does not, ~700–820px in practice. */
+  mainCol: { flex: 1, minWidth: 0, gap: tokens.spacing.lg },
+  railCol: { gap: tokens.spacing.lg },
+  stack: { gap: tokens.spacing.lg },
+  refresh: {
+    flexDirection: 'row', alignItems: 'center', gap: 7, alignSelf: 'flex-start',
+    minHeight: tokens.touch.min, paddingHorizontal: tokens.spacing.lg,
+    borderRadius: tokens.radius.md, borderWidth: StyleSheet.hairlineWidth,
   },
-  cardTitle: { fontSize: 17, fontWeight: '600' },
-  body: { fontSize: 15, lineHeight: 22 },
-  planList: { gap: 8, marginBottom: tokens.spacing.xl },
-  objectCta: {
-    marginTop: tokens.spacing.md,
-    paddingVertical: 12,
-    alignItems: 'center',
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-  actions: { marginTop: tokens.spacing.md, gap: tokens.spacing.sm },
-  btnPrimary: {
-    paddingVertical: 14,
-    alignItems: 'center',
-    borderRadius: 12,
-  },
-  btnPrimaryText: { fontSize: 16, fontWeight: '600' },
-  btnSecondary: {
-    paddingVertical: 14,
-    alignItems: 'center',
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-  },
+  refreshLabel: { fontSize: 13 },
+  pressed: { opacity: 0.7 },
 });
