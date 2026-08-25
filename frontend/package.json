@@ -15,7 +15,8 @@
     "test:e2e:home": "playwright test e2e/home-v2.spec.ts",
     "test:px11": "node --experimental-strip-types src/shell/px11Foundation.test.ts",
     "test:shell": "node --experimental-strip-types src/shell/actionLabels.test.ts",
-    "test:home3": "node --experimental-strip-types src/components/home/v3/home3.test.ts"
+    "test:home3": "node --experimental-strip-types src/components/home/v3/home3.test.ts",
+    "test:px18": "node --experimental-strip-types src/components/account/account18.test.ts"
   },
   "dependencies": {
     "@expo/metro-runtime": "6.1.2",

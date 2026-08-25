@@ -1,183 +1,221 @@
-import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
+/**
+ * Profilo — your own space, and what you have decided ORA may do in it.
+ *
+ * A person arriving here is asking three questions in order: who am I in this
+ * product, what is attached to it, and what is ORA allowed to use. The page is
+ * arranged to answer them in that order — identity first, then the four
+ * surfaces that hold the answers, then a quiet way out.
+ *
+ * Composition only. Every row leads to something that already works; the
+ * capabilities a settings screen usually advertises and ORA does not have —
+ * a plan, a verified badge, backups, two-factor, device sessions, notification
+ * preferences — are absent rather than greyed out. This is the one page in the
+ * product where a promise is indistinguishable from a lie.
+ */
+import { useCallback, useState } from 'react';
+import { ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 
+import { useTheme } from '@/src/theme/ThemeProvider';
 import { tokens } from '@/src/theme/tokens';
-import { useAuth } from '@/src/contexts/AuthContext';
+import { ErrorState } from '@/src/components/ui/ErrorState';
 import { useAmbientInset } from '@/src/shell';
-import { PageContainer } from '@/src/components/ui/PageContainer';
-
-type Row = {
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  sub?: string;
-  disabled?: boolean;
-  testID: string;
-  onPress?: () => void;
-};
+import { useAuth } from '@/src/contexts/AuthContext';
+import { haptic } from '@/src/utils/haptic';
+import {
+  ACCOUNT_MAX_WIDTH,
+  ACCOUNT_RAIL_WIDTH,
+  ACCOUNT_TWO_COLUMN_MIN,
+  AccessPanel,
+  AccountHeader,
+  AccountSkeleton,
+  IdentityCard,
+  InlineError,
+  LogoutRow,
+  PartialNote,
+  PhotoDialog,
+  SectionRow,
+  SummaryPanel,
+  WhyAccountDialog,
+  shownMethods,
+  primaryAccessLabel,
+  sectionsFor,
+  summaryRows,
+  useAccount,
+} from '@/src/components/account';
 
 export default function ProfiloScreen() {
+  const { colors } = useTheme();
   const ambient = useAmbientInset();
-  const { user, signOut } = useAuth();
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const { signOut } = useAuth();
+  const { data, loading, error, reload } = useAccount();
 
-  const doLogout = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  const twoColumn = width >= ACCOUNT_TWO_COLUMN_MIN;
+  const padH = width < 380 ? tokens.spacing.lg : tokens.spacing.xl;
+
+  const [whyOpen, setWhyOpen] = useState(false);
+  const [photoOpen, setPhotoOpen] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      void reload({ silent: true });
+    }, [reload]),
+  );
+
+  const doLogout = useCallback(async () => {
+    haptic('medium');
+    setSigningOut(true);
     await signOut();
     router.replace('/login');
-  };
+  }, [router, signOut]);
 
-  const activeRows: Row[] = [
-    {
-      icon: 'settings-outline',
-      label: 'Impostazioni',
-      sub: 'Account collegati',
-      testID: 'profile-row-settings',
-      onPress: () => router.push('/settings'),
-    },
-    {
-      icon: 'sparkles-outline',
-      label: 'Memoria di ORA',
-      sub: 'Cosa ORA ha imparato su di te',
-      testID: 'profile-row-memoria',
-      onPress: () => router.push('/(tabs)/memoria'),
-    },
-  ];
+  const snapshot = data?.snapshot;
 
-  /**
-   * PX1.1 — the "Prossimamente" group is gone (spese, obiettivi, email,
-   * banche). A product roadmap does not belong inside someone's account
-   * screen: four permanently greyed rows made the app look like a demo of
-   * itself, and every visit re-advertised four things ORA cannot do. A
-   * capability appears here the day it works.
-   */
-
-  const renderRow = (r: Row, i: number, total: number) => {
-    const body = (
-      <>
-        <Ionicons
-          name={r.icon}
-          size={20}
-          color={r.disabled ? tokens.color.onSurfaceMuted : tokens.color.onSurface}
-        />
-        <View style={{ flex: 1 }}>
-          <Text style={[styles.rowLabel, r.disabled && { color: tokens.color.onSurfaceMuted }]}>{r.label}</Text>
-          {r.sub ? <Text style={styles.rowSub}>{r.sub}</Text> : null}
-        </View>
-        <Ionicons name="chevron-forward" size={16} color={tokens.color.onSurfaceDim} />
-      </>
-    );
-
-    const rowStyle = [
-      styles.row,
-      i < total - 1 && styles.rowDivider,
-      r.disabled && styles.rowDisabled,
-    ];
-
-    if (r.disabled || !r.onPress) {
-      return (
-        <View key={r.testID} style={rowStyle} testID={r.testID}>
-          {body}
-        </View>
-      );
-    }
-
+  if (loading && !snapshot) {
     return (
-      <Pressable
-        key={r.testID}
-        testID={r.testID}
-        onPress={() => {
-          Haptics.selectionAsync();
-          r.onPress?.();
-        }}
-        style={({ pressed }) => [...rowStyle, pressed && styles.pressed]}
+      <SafeAreaView
+        edges={['top']}
+        style={[styles.root, { backgroundColor: colors.backgroundPrimary }]}
+        testID="profilo-screen"
       >
-        {body}
-      </Pressable>
+        <ScrollView
+          contentContainerStyle={[
+            styles.scroll,
+            { paddingHorizontal: padH, paddingBottom: ambient.paddingBottom + tokens.spacing.xxl },
+          ]}
+        >
+          <AccountSkeleton wide={twoColumn} />
+        </ScrollView>
+      </SafeAreaView>
     );
-  };
+  }
+
+  if (!snapshot) {
+    return (
+      <SafeAreaView
+        edges={['top']}
+        style={[styles.root, { backgroundColor: colors.backgroundPrimary }]}
+        testID="profilo-screen"
+      >
+        <ScrollView
+          contentContainerStyle={[
+            styles.scroll,
+            { paddingHorizontal: padH, paddingBottom: ambient.paddingBottom + tokens.spacing.xxl },
+          ]}
+        >
+          <ErrorState
+            title="Non riesco a caricare il tuo profilo"
+            message={error || 'Riprova tra un momento.'}
+            onRetry={() => void reload()}
+          />
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  const sections = sectionsFor(snapshot);
+  const access = primaryAccessLabel(snapshot.methods);
+
+  const main = (
+    <>
+      <IdentityCard snapshot={snapshot} onChangePhoto={() => setPhotoOpen(true)} />
+
+      <View
+        style={[styles.rows, { backgroundColor: colors.surface, borderColor: colors.border }]}
+        testID="account-sections"
+      >
+        {sections.map((s, i) => (
+          <SectionRow
+            key={s.id}
+            section={s}
+            first={i === 0}
+            onPress={() => {
+              haptic('tap');
+              router.push(s.href as any);
+            }}
+          />
+        ))}
+      </View>
+    </>
+  );
+
+  const rail = (
+    <>
+      <SummaryPanel rows={summaryRows(snapshot)} />
+      <AccessPanel
+        methods={shownMethods(snapshot.methods)}
+        onOpen={() => {
+          haptic('tap');
+          router.push('/account/permessi' as any);
+        }}
+      />
+    </>
+  );
 
   return (
-    <SafeAreaView edges={['top']} style={styles.root}>
+    <SafeAreaView
+      edges={['top']}
+      style={[styles.root, { backgroundColor: colors.backgroundPrimary }]}
+      testID="profilo-screen"
+    >
       <ScrollView
-        contentContainerStyle={[styles.scroll, { paddingBottom: ambient.paddingBottom }]}
+        contentContainerStyle={[
+          styles.scroll,
+          { paddingHorizontal: padH, paddingBottom: ambient.paddingBottom + tokens.spacing.xxl },
+        ]}
         showsVerticalScrollIndicator={false}
+        testID="account-scroll"
       >
-       <PageContainer testID="profilo-screen">
-        <View style={styles.header}>
-          <Text style={styles.brand}>PROFILO</Text>
-          <Text style={styles.h1}>{user?.name ? `Ciao,\n${user.name}.` : 'Il tuo\nprofilo.'}</Text>
-          <Text style={styles.email} testID="profile-email-text">{user?.email}</Text>
-        </View>
+        <AccountHeader onWhy={() => setWhyOpen(true)} />
 
-        <Text style={styles.sectionLabel}>IL TUO SPAZIO</Text>
-        <View style={styles.group}>
-          {activeRows.map((r, i) => renderRow(r, i, activeRows.length))}
-        </View>
+        {snapshot.partial ? (
+          <PartialNote>Alcune informazioni non sono disponibili al momento.</PartialNote>
+        ) : null}
+        {error ? <InlineError>{error}</InlineError> : null}
 
-        <Text style={styles.sectionLabel}>ACCOUNT</Text>
-        <View style={styles.group}>
-          <Pressable
-            testID="profile-logout-button"
-            onPress={doLogout}
-            style={({ pressed }) => [styles.row, pressed && styles.pressed]}
-          >
-            <Ionicons name="log-out-outline" size={20} color={tokens.color.error} />
-            <Text style={[styles.rowLabel, { color: tokens.color.error }]}>Esci</Text>
-          </Pressable>
-        </View>
+        {twoColumn ? (
+          <View style={styles.row}>
+            <View style={styles.mainCol}>{main}</View>
+            <View style={[styles.railCol, { width: ACCOUNT_RAIL_WIDTH }]}>{rail}</View>
+          </View>
+        ) : (
+          // Phone: the same order, stacked. The rail becomes a closing summary
+          // rather than being dropped.
+          <View style={styles.stackAll}>
+            {main}
+            {rail}
+          </View>
+        )}
 
-        <Text style={styles.footNote}>
-          ORA v1 · Il sistema operativo{'\n'}della tua vita quotidiana.
-        </Text>
-       </PageContainer>
+        <LogoutRow onPress={() => void doLogout()} busy={signingOut} />
       </ScrollView>
+
+      <WhyAccountDialog open={whyOpen} onClose={() => setWhyOpen(false)} />
+      <PhotoDialog open={photoOpen} onClose={() => setPhotoOpen(false)} accessLabel={access} />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: tokens.color.surface },
-  scroll: { paddingHorizontal: tokens.spacing.lg, paddingTop: tokens.spacing.sm },
-  header: { paddingHorizontal: tokens.spacing.xs, marginBottom: tokens.spacing.xl, gap: tokens.spacing.xs },
-  brand: { color: tokens.color.onSurfaceMuted, fontSize: tokens.fs.sm, fontWeight: '700', letterSpacing: 2 },
-  h1: { color: tokens.color.onSurface, fontSize: tokens.fs.xxxl, fontWeight: '700', lineHeight: 38, letterSpacing: -0.8 },
-  email: { color: tokens.color.onSurfaceMuted, fontSize: tokens.fs.base, marginTop: tokens.spacing.sm },
-  sectionLabel: {
-    color: tokens.color.onSurfaceMuted,
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 1.6,
-    paddingHorizontal: tokens.spacing.md,
-    marginTop: tokens.spacing.lg,
-    marginBottom: tokens.spacing.sm,
+  root: { flex: 1 },
+  scroll: {
+    paddingTop: tokens.spacing.lg,
+    maxWidth: ACCOUNT_MAX_WIDTH,
+    width: '100%',
+    alignSelf: 'center',
+    gap: tokens.spacing.xl,
   },
-  group: {
+  row: { flexDirection: 'row', gap: tokens.spacing.xl, alignItems: 'flex-start' },
+  mainCol: { flex: 1, minWidth: 0, gap: tokens.spacing.lg },
+  railCol: { gap: tokens.spacing.lg },
+  stackAll: { gap: tokens.spacing.lg },
+  rows: {
     borderRadius: tokens.radius.lg,
-    backgroundColor: tokens.color.surfaceSecondary,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: tokens.color.border,
     overflow: 'hidden',
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: tokens.spacing.md,
-    paddingHorizontal: tokens.spacing.lg,
-    minHeight: 56,
-  },
-  rowDivider: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: tokens.color.border },
-  rowDisabled: { opacity: 0.5 },
-  rowLabel: { color: tokens.color.onSurface, fontSize: tokens.fs.lg, fontWeight: '500' },
-  rowSub: { color: tokens.color.onSurfaceMuted, fontSize: tokens.fs.sm, marginTop: 2 },
-  pressed: { opacity: 0.6 },
-  footNote: {
-    color: tokens.color.onSurfaceDim,
-    fontSize: tokens.fs.sm,
-    textAlign: 'center',
-    marginTop: tokens.spacing.xxl,
-    lineHeight: 20,
   },
 });

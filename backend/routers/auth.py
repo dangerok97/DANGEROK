@@ -67,6 +67,10 @@ class UserOut(BaseModel):
     name: Optional[str] = None
     picture: Optional[str] = None
     provider: str
+    # When the account was opened. Already written at registration; it was
+    # simply never read back out. Accounts created before the field existed
+    # have nothing here, and the profile says nothing rather than guessing.
+    member_since: Optional[str] = None
 
 
 class AuthOut(BaseModel):
@@ -81,6 +85,7 @@ def user_to_out(u: dict) -> UserOut:
         name=u.get("name"),
         picture=u.get("picture"),
         provider=u.get("provider", "email"),
+        member_since=u.get("created_at"),
     )
 
 

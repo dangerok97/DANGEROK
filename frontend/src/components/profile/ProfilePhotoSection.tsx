@@ -22,8 +22,14 @@ import { haptic } from '@/src/utils/haptic';
  * system picker on device, which is what keeps this iOS-ready: swapping in the
  * photo library later is a change inside this function, not to the flow.
  */
-export function ProfilePhotoSection() {
-  const { colors } = useTheme();
+/**
+ * The photo, and the three things that can happen to it.
+ *
+ * Extracted so the account surface can offer the same upload / change / remove
+ * from its identity card without a second copy of the flow — there is one
+ * avatar store and one path to it, and this is that path.
+ */
+export function useProfilePhoto() {
   const { user, refresh } = useAuth();
   const [busy, setBusy] = useState<'upload' | 'remove' | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -70,6 +76,13 @@ export function ProfilePhotoSection() {
       setBusy(null);
     }
   };
+
+  return { user, busy, error, pick, remove };
+}
+
+export function ProfilePhotoSection() {
+  const { colors } = useTheme();
+  const { user, busy, error, pick, remove } = useProfilePhoto();
 
   return (
     <View testID="profile-photo-section" style={styles.wrap}>

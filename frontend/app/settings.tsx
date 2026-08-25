@@ -1,128 +1,118 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import type { ReactNode } from 'react';
-import {
-  View, Text, StyleSheet, Pressable, ScrollView, ActivityIndicator, Platform,
-} from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+/**
+ * Connessioni e servizi — what is attached to ORA, and what each one does.
+ *
+ * This route used to be the whole of "Impostazioni": a photo, the access
+ * methods, the location preference, the calendar connectors and the model
+ * provider diagnostics, stacked in one scroll. Six unrelated jobs on one page
+ * meant nothing on it had a hierarchy, and the two Google entries sat close
+ * enough together to suggest that signing in with Google was what let ORA read
+ * a Google calendar. Identity moved to Profilo, access methods and location to
+ * Permessi; what is left here is the one question the page is now named after.
+ *
+ * The route name is unchanged on purpose — Home's calendar prompts and the
+ * Apple Calendar flow all land here, and they all mean "the place where you
+ * connect a calendar". None of the connector logic below is new: the handlers,
+ * the OAuth start, the sync, the revoke and the confirmations are the ones
+ * that already worked.
+ */
+import { useCallback, useEffect, useState, type ComponentProps, type ReactNode } from 'react';
+import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 
 import { tokens } from '@/src/theme/tokens';
+import { useTheme } from '@/src/theme/ThemeProvider';
 import {
   api,
-  ConnectorInstance,
   AppleCalendarConfigStatus,
-  AuthIdentitiesResponse,
+  ConnectorInstance,
   LLMProvidersStatus,
-  LLMProviderId,
 } from '@/src/api/client';
 import { humanizeError } from '@/src/utils/errors';
 import { haptic } from '@/src/utils/haptic';
 import { ActionBtn } from '@/src/components/ui/ActionBtn';
 import { DevDiagnostics } from '@/src/components/dev/DevDiagnostics';
-import { PageContainer } from '@/src/components/ui/PageContainer';
-import { ProfilePhotoSection } from '@/src/components/profile/ProfilePhotoSection';
-import { formatRelativeAgo } from '@/src/utils/labels';
-import { useGoogleAuth } from '@/src/auth/googleAuth';
-import { signInWithApple } from '@/src/auth/appleSignIn';
-import { googleConfiguredForPlatform, appleConfiguredForPlatform, notConfiguredMessage } from '@/src/auth/providersConfig';
-import type { GoogleAuthResult } from '@/src/auth/googleAuth.types';
+import {
+  BoundaryNote,
+  CALENDAR_WRITE_BOUNDARY,
+  InlineError,
+  SettingCard,
+  StatusPill,
+  SubpageShell,
+  connectionStateOf,
+  lastSyncLabel,
+  type ConnectionState,
+} from '@/src/components/account';
 
-export default function SettingsScreen() {
+export default function ConnessioniScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
+
   const [instance, setInstance] = useState<ConnectorInstance | null>(null);
   const [appleConfig, setAppleConfig] = useState<AppleCalendarConfigStatus | null>(null);
   const [appleInstance, setAppleInstance] = useState<ConnectorInstance | null>(null);
-  const [identities, setIdentities] = useState<AuthIdentitiesResponse | null>(null);
   const [llmStatus, setLlmStatus] = useState<LLMProvidersStatus | null>(null);
+  const [gcalWrite, setGcalWrite] = useState<{
+    connected: boolean;
+    needs_reconnect?: boolean;
+    account_email?: string | null;
+    write_capable?: boolean;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirmRevoke, setConfirmRevoke] = useState(false);
   const [confirmAppleRevoke, setConfirmAppleRevoke] = useState(false);
-  const [eventsCount, setEventsCount] = useState<number | null>(null);
-  const [gcalWrite, setGcalWrite] = useState<{
-    connected: boolean;
-    needs_reconnect?: boolean;
-    account_email?: string | null;
-    default_calendar_id?: string | null;
-    write_capable?: boolean;
-    last_sync_at?: string | null;
-    scopes?: string[];
-  } | null>(null);
-  const [locationMode, setLocationMode] = useState<'off' | 'while_using'>('off');
-  const googleAuth = useGoogleAuth();
-  const renderGoogleButton = googleAuth.renderButton;
-  const googleLinkButtonHost = useRef<View | null>(null);
 
+  /**
+   * Each read stands on its own.
+   *
+   * A Google status that times out must not take Apple Calendar off the page
+   * with it — the old `Promise.all` made every connector depend on every other
+   * one being reachable.
+   */
   const load = useCallback(async () => {
     setError(null);
-    try {
-      const [r, daily, aConfig, aInstances, idents, llm, writeStatus, locPref] = await Promise.all([
-        api.googleCalendarInstances(),
-        api.dailyToday().catch(() => null),
-        // Only iOS shows Apple settings — but we still fetch config to
-        // learn the feature-flag state (nothing shown if disabled).
-        Platform.OS === 'ios' ? api.appleCalendarConfig().catch(() => null) : Promise.resolve(null),
-        Platform.OS === 'ios' ? api.appleCalendarInstances().catch(() => ({ items: [] as ConnectorInstance[] })) : Promise.resolve({ items: [] as ConnectorInstance[] }),
-        api.authIdentities().catch(() => null),
-        api.llmProviders().catch(() => null),
-        api.googleCalendarWriteStatus().catch(() => null),
-        api.locationGetPreference().catch(() => null),
-      ]);
-      setInstance((r.items || [])[0] || null);
-      setEventsCount(daily?.total_events ?? null);
-      setAppleConfig(aConfig);
-      setAppleInstance((aInstances?.items || [])[0] || null);
-      setIdentities(idents);
-      setLlmStatus(llm);
-      setGcalWrite(writeStatus);
-      if (locPref?.mode === 'while_using') setLocationMode('while_using');
-      else setLocationMode('off');
-    } catch (e: any) {
-      setError(humanizeError(e));
-    } finally {
-      setLoading(false);
-    }
+    const attempt = async <T,>(run: () => Promise<T>): Promise<T | null> => {
+      try {
+        return await run();
+      } catch {
+        return null;
+      }
+    };
+    const isIOS = Platform.OS === 'ios';
+    const [r, aConfig, aInstances, llm, writeStatus] = await Promise.all([
+      attempt(() => api.googleCalendarInstances()),
+      isIOS ? attempt(() => api.appleCalendarConfig()) : Promise.resolve(null),
+      isIOS ? attempt(() => api.appleCalendarInstances()) : Promise.resolve(null),
+      attempt(() => api.llmProviders()),
+      attempt(() => api.googleCalendarWriteStatus()),
+    ]);
+    setInstance((r?.items || [])[0] || null);
+    setAppleConfig(aConfig);
+    setAppleInstance((aInstances?.items || [])[0] || null);
+    setLlmStatus(llm);
+    setGcalWrite(writeStatus);
+    setLoading(false);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
-
-  const handleGoogleLinkResult = useCallback(async (result: GoogleAuthResult) => {
-    if (!result.ok) {
-      if (!result.cancelled) setError(result.safeMessage);
-      return;
-    }
-    setBusy('link_google');
-    try {
-      await api.linkGoogle(result.idToken, result.nonce);
-      await load();
-    } catch (e: any) {
-      setError(humanizeError(e));
-    } finally {
-      setBusy(null);
-    }
+  useEffect(() => {
+    void load();
   }, [load]);
 
-  useEffect(() => {
-    if (
-      Platform.OS !== 'web' ||
-      identities?.methods.google.linked !== false ||
-      googleAuth.availability.status !== 'ready' ||
-      !renderGoogleButton
-    ) return;
-    const host = googleLinkButtonHost.current as unknown as HTMLElement | null;
-    if (!host) return;
-    renderGoogleButton(host, (result) => {
-      void handleGoogleLinkResult(result);
-    }, { width: 210 }).catch(() => {
-      setError('Accesso con Google non disponibile in questo momento.');
-    });
-  }, [googleAuth.availability.status, handleGoogleLinkResult, identities?.methods.google.linked, renderGoogleButton]);
+  const startGoogleOAuth = useCallback(async () => {
+    haptic('tap');
+    try {
+      const r = await api.googleCalendarOAuthStart();
+      const win: any = typeof window !== 'undefined' ? window : null;
+      if (win?.location) win.location.assign(r.authorize_url);
+      else router.push('/(tabs)');
+    } catch (e: any) {
+      setError(humanizeError(e, 'connect'));
+    }
+  }, [router]);
 
-  const onSync = async () => {
+  const onSync = useCallback(async () => {
     if (!instance) return;
     haptic('medium');
     setBusy('sync');
@@ -137,9 +127,9 @@ export default function SettingsScreen() {
     } finally {
       setBusy(null);
     }
-  };
+  }, [instance, load]);
 
-  const onRevoke = async () => {
+  const onRevoke = useCallback(async () => {
     if (!instance) return;
     haptic('warning');
     setBusy('revoke');
@@ -155,9 +145,9 @@ export default function SettingsScreen() {
     } finally {
       setBusy(null);
     }
-  };
+  }, [instance, load]);
 
-  const onAppleDisconnect = async () => {
+  const onAppleDisconnect = useCallback(async () => {
     if (!appleInstance) return;
     haptic('warning');
     setBusy('apple_revoke');
@@ -173,685 +163,343 @@ export default function SettingsScreen() {
     } finally {
       setBusy(null);
     }
-  };
+  }, [appleInstance, load]);
+
+  const googleState = connectionStateOf(instance);
+  const appleVisible = Platform.OS === 'ios' && !!appleConfig?.enabled;
+  const appleState = connectionStateOf(appleInstance);
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']} testID="settings">
+    <>
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={styles.header}>
-        <Pressable
-          onPress={() => {
-            haptic('tap');
-            if (router.canGoBack()) router.back();
-            else router.replace('/(tabs)');
-          }}
-          style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
-          accessibilityRole="button" accessibilityLabel="Torna indietro" hitSlop={12}
-        >
-          <Ionicons name="chevron-back" size={22} color={tokens.color.onSurface} />
-        </Pressable>
-        <Text style={styles.title}>Impostazioni</Text>
-        <View style={{ width: 32 }} />
-      </View>
-
-      <ScrollView
-        contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 24 }}
-        showsVerticalScrollIndicator={false}
+      <SubpageShell
+        title="Connessioni e servizi"
+        subtitle="I servizi che hai collegato a ORA, e cosa può leggere di ciascuno."
+        testID="settings"
       >
-       <PageContainer style={{ gap: 16 }} testID="settings-screen">
-        <ProfilePhotoSection />
-
-        {/*
-          PX1.1 — the old "Calendario automatico (soglia 90%)" control is gone.
-          It offered to write real events into a real calendar on the strength
-          of a confidence score, which is not consent: a number the user cannot
-          evaluate was standing in for their permission. Calendar Intelligence
-          requires an explicit confirmation per write, and the backend now
-          enforces that unconditionally. What remains here is the promise, in
-          the only terms that matter to the person reading it.
-        */}
-        <Text style={styles.sectionLabel}>Calendario</Text>
-        <View style={styles.card} testID="settings-calendar-consent">
-          <Text style={styles.cardTitle}>Eventi dai tuoi documenti</Text>
-          <Text style={styles.cardMeta}>
-            Quando ORA riconosce un appuntamento in un documento, te lo propone.
-          </Text>
-          <Text style={styles.cardMeta}>
-            Prima di aggiungere, modificare o eliminare qualcosa nel tuo calendario, ORA ti
-            chiede sempre conferma.
-          </Text>
-        </View>
-
-        <Text style={styles.sectionLabel}>Posizione</Text>
-        <View style={styles.card} testID="settings-location">
-          <Text style={styles.cardTitle}>Posizione dispositivo</Text>
-          <Text style={styles.cardMeta}>
-            Solo mentre usi ORA (web). Lo sfondo non è disponibile in questa versione.
-          </Text>
-          {([
-            { id: 'off' as const, label: 'Disattivata' },
-            { id: 'while_using' as const, label: "Durante l'uso di ORA" },
-          ]).map((opt) => {
-            const selected = locationMode === opt.id;
-            return (
-              <Pressable
-                key={opt.id}
-                testID={`location-mode-${opt.id}`}
-                onPress={async () => {
-                  haptic('tap');
-                  setBusy(`loc_${opt.id}`);
-                  setError(null);
-                  try {
-                    const res = await api.locationSetPreference(opt.id);
-                    setLocationMode(res.mode === 'while_using' ? 'while_using' : 'off');
-                    haptic('success');
-                  } catch (e: any) {
-                    haptic('error');
-                    setError(humanizeError(e));
-                  } finally {
-                    setBusy(null);
-                  }
-                }}
-                style={({ pressed }) => [styles.aiRow, pressed && styles.pressed]}
-                accessibilityRole="radio"
-                accessibilityState={{ selected }}
-              >
-                <View style={[styles.radio, selected && styles.radioOn]} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.aiLabel}>{opt.label}</Text>
-                </View>
-                {busy === `loc_${opt.id}` ? (
-                  <ActivityIndicator color={tokens.color.onSurface} />
-                ) : null}
-              </Pressable>
-            );
-          })}
-          <Text style={[styles.cardMeta, { marginTop: 8 }]}>
-            In background: non disponibile (futuro).
-          </Text>
-        </View>
-
-        <Text style={styles.sectionLabel}>Metodi di accesso</Text>
-        {identities ? (
-          <View style={styles.card} testID="settings-auth-methods">
-            <AuthMethodRow
-              label="Email"
-              linked={identities.methods.password.linked}
-              detail={identities.methods.password.email || identities.email}
-            />
-            <AuthMethodRow
-              label="Google"
-              linked={identities.methods.google.linked}
-              detail={identities.methods.google.email}
-              actionLabel={
-                identities.methods.google.linked
-                  ? (identities.can_unlink.google ? 'Scollega' : undefined)
-                  : Platform.OS === 'web' ? undefined : 'Collega'
-              }
-              actionSlot={
-                !identities.methods.google.linked && Platform.OS === 'web' ? (
-                  <View ref={googleLinkButtonHost} style={styles.googleOfficialButtonHost} />
-                ) : undefined
-              }
-              busy={busy === 'link_google' || busy === 'unlink_google'}
-              onAction={async () => {
-                if (identities.methods.google.linked) {
-                  if (!identities.can_unlink.google) {
-                    setError('Non puoi scollegare l’unico metodo di accesso.');
-                    return;
-                  }
-                  haptic('warning');
-                  setBusy('unlink_google');
-                  try {
-                    await api.unlinkProvider('google');
-                    await load();
-                  } catch (e: any) {
-                    setError(humanizeError(e));
-                  } finally {
-                    setBusy(null);
-                  }
-                  return;
-                }
-                if (
-                  googleAuth.availability.status !== 'ready' ||
-                  !googleConfiguredForPlatform()
-                ) {
-                  setError(googleAuth.availability.safeMessage || notConfiguredMessage());
-                  return;
-                }
-                haptic('tap');
-                setBusy('link_google');
-                try {
-                  const res = await googleAuth.signIn();
-                  if (!res.ok) {
-                    if (!res.cancelled) setError(res.safeMessage);
-                    return;
-                  }
-                  await api.linkGoogle(res.idToken, res.nonce);
-                  await load();
-                } catch (e: any) {
-                  setError(humanizeError(e));
-                } finally {
-                  setBusy(null);
-                }
-              }}
-            />
-            <AuthMethodRow
-              label="Apple"
-              linked={identities.methods.apple.linked}
-              detail={identities.methods.apple.email}
-              actionLabel={
-                identities.methods.apple.linked
-                  ? (identities.can_unlink.apple ? 'Scollega' : undefined)
-                  : (Platform.OS === 'ios' || appleConfiguredForPlatform() ? 'Collega' : undefined)
-              }
-              busy={busy === 'link_apple' || busy === 'unlink_apple'}
-              onAction={async () => {
-                if (identities.methods.apple.linked) {
-                  if (!identities.can_unlink.apple) {
-                    setError('Non puoi scollegare l’unico metodo di accesso.');
-                    return;
-                  }
-                  haptic('warning');
-                  setBusy('unlink_apple');
-                  try {
-                    await api.unlinkProvider('apple');
-                    await load();
-                  } catch (e: any) {
-                    setError(humanizeError(e));
-                  } finally {
-                    setBusy(null);
-                  }
-                  return;
-                }
-                haptic('tap');
-                setBusy('link_apple');
-                try {
-                  const res = await signInWithApple();
-                  if (!res.ok) {
-                    if (!res.cancelled) setError(res.error);
-                    return;
-                  }
-                  await api.linkApple({ id_token: res.idToken, nonce: res.nonce });
-                  await load();
-                } catch (e: any) {
-                  setError(humanizeError(e));
-                } finally {
-                  setBusy(null);
-                }
-              }}
-            />
-          </View>
-        ) : null}
-
-        <Text style={styles.sectionLabel}>Calendari collegati</Text>
-
         {loading ? (
-          <View style={{ padding: 24, alignItems: 'center' }}>
-            <ActivityIndicator color={tokens.color.onSurfaceMuted} />
+          <View style={styles.loading}>
+            <ActivityIndicator color={colors.textTertiary} />
           </View>
-        ) : instance ? (
-          <Animated.View entering={FadeInDown.duration(220)} style={styles.card} testID="settings-connection">
-            <View style={styles.cardHead}>
-              <View style={styles.iconWrap}>
-                <Ionicons name="calendar-outline" size={18} color={tokens.color.brand} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.cardTitle}>Google Calendar</Text>
-                {instance.display_label ? (
-                  <Text style={styles.cardMeta}>{instance.display_label}</Text>
-                ) : null}
-              </View>
-              <View style={styles.statusPill}>
-                <View style={styles.statusDot} />
-                <Text style={styles.statusText}>
-                  {instance.status === 'connected' ? 'Collegato' :
-                   instance.status === 'revoked' ? 'Scollegato' :
-                   instance.status || 'Sconosciuto'}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.metaGrid}>
-              <MetaItem
-                label="Ultima sincronizzazione"
-                value={instance.last_sync_at ? formatRelativeAgo(new Date(instance.last_sync_at)) : 'Mai'}
-              />
-              <MetaItem
-                label="Calendari"
-                value={String(instance.selected_resource_ids?.length || 0)}
-              />
-              <MetaItem
-                label="Scrittura eventi"
-                value={
-                  gcalWrite?.write_capable
-                    ? 'Attiva'
-                    : gcalWrite?.needs_reconnect
-                      ? 'Ri-autorizza'
-                      : 'Non disponibile'
-                }
-              />
-              <MetaItem
-                label="Calendario predefinito"
-                value={gcalWrite?.default_calendar_id || 'Principale'}
-              />
-              {typeof eventsCount === 'number' ? (
-                <MetaItem label="Eventi oggi" value={String(eventsCount)} />
-              ) : null}
-            </View>
-
-            {gcalWrite?.needs_reconnect ? (
-              <Animated.View entering={FadeIn.duration(180)} style={styles.errorBanner}>
-                <Ionicons name="alert-circle" size={16} color={tokens.color.error} />
-                <Text style={styles.errorText}>
-                  Per salvare eventi da ORA a Google serve ri-autorizzare con lo scope scrittura eventi.
-                </Text>
-              </Animated.View>
-            ) : null}
-
-            {error ? (
-              <Animated.View entering={FadeIn.duration(180)} style={styles.errorBanner}>
-                <Ionicons name="alert-circle" size={16} color={tokens.color.error} />
-                <Text style={styles.errorText}>{error}</Text>
-              </Animated.View>
-            ) : null}
-
-            <View style={styles.actionsRow}>
-              {instance.status !== 'revoked' && (
+        ) : (
+          <>
+            <ServiceCard
+              icon="calendar-outline"
+              name="Google Calendar"
+              state={googleState}
+              account={gcalWrite?.account_email || instance?.display_label || null}
+              lastSyncAt={instance?.last_sync_at || null}
+              purpose="ORA legge i tuoi eventi per capire come è fatta la tua giornata."
+              testID="settings-connection"
+            >
+              {googleState === 'connected' ? (
                 <>
-                  <ActionBtn
-                    primary
-                    icon="sync"
-                    label={busy === 'sync' ? 'Sincronizzo…' : 'Sincronizza (lettura)'}
-                    onPress={onSync}
-                    loading={busy === 'sync'}
-                    testID="btn-settings-sync"
-                  />
-                  <ActionBtn
-                    variant="ghost"
-                    icon="options-outline"
-                    label="Gestisci calendari"
-                    onPress={() => { haptic('tap'); router.push(`/manage-calendars?instance=${instance.id}`); }}
-                    testID="btn-settings-manage"
-                  />
-                  {gcalWrite?.needs_reconnect ? (
+                  <View style={styles.actions}>
                     <ActionBtn
                       primary
-                      icon="logo-google"
-                      label="Collega scrittura Google"
-                      onPress={async () => {
+                      icon="sync"
+                      label={busy === 'sync' ? 'Sincronizzo…' : 'Sincronizza'}
+                      onPress={onSync}
+                      loading={busy === 'sync'}
+                      testID="btn-settings-sync"
+                    />
+                    <ActionBtn
+                      variant="ghost"
+                      icon="options-outline"
+                      label="Scegli i calendari"
+                      onPress={() => {
                         haptic('tap');
-                        try {
-                          const r = await api.googleCalendarOAuthStart();
-                          const win: any = typeof window !== 'undefined' ? window : null;
-                          if (win?.location) win.location.assign(r.authorize_url);
-                        } catch (e: any) {
-                          setError(humanizeError(e, 'connect'));
-                        }
+                        router.push(`/manage-calendars?instance=${instance!.id}`);
                       }}
+                      testID="btn-settings-manage"
+                    />
+                    <ActionBtn
+                      variant="danger"
+                      icon="unlink-outline"
+                      label="Scollega"
+                      onPress={() => {
+                        haptic('warning');
+                        setConfirmRevoke(true);
+                      }}
+                      disabled={busy === 'revoke'}
+                      testID="btn-revoke"
+                    />
+                  </View>
+                  {/*
+                    Writing back to Google needs a scope the first connection
+                    may not have asked for. It is stated as a thing ORA cannot
+                    do yet rather than as an error the person caused.
+                  */}
+                  {gcalWrite?.needs_reconnect ? (
+                    <View style={styles.reconnect}>
+                      <Text style={[styles.reconnectText, { color: colors.textSecondary }]}>
+                        Per ora ORA può leggere questo calendario ma non scriverci. Serve una nuova
+                        autorizzazione da Google.
+                      </Text>
+                      <View style={styles.actions}>
+                        <ActionBtn
+                          primary
+                          icon="logo-google"
+                          label="Autorizza la scrittura"
+                          onPress={() => void startGoogleOAuth()}
+                        />
+                      </View>
+                    </View>
+                  ) : null}
+                  <BoundaryNote>{CALENDAR_WRITE_BOUNDARY}</BoundaryNote>
+                </>
+              ) : (
+                <View style={styles.actions}>
+                  <ActionBtn
+                    primary
+                    icon="logo-google"
+                    label={googleState === 'disconnected' ? 'Ricollega' : 'Collega Google Calendar'}
+                    onPress={() => void startGoogleOAuth()}
+                  />
+                </View>
+              )}
+            </ServiceCard>
+
+            {appleVisible ? (
+              <ServiceCard
+                icon="logo-apple"
+                name="Apple Calendar"
+                state={appleState}
+                account={appleInstance?.display_label || null}
+                lastSyncAt={appleInstance?.last_sync_at || null}
+                purpose="Gli eventi del calendario del tuo iPhone."
+                testID={appleState === 'connected' ? 'apple-cal-connected' : 'apple-cal-empty'}
+              >
+                <View style={styles.actions}>
+                  <ActionBtn
+                    primary={appleState !== 'connected'}
+                    icon={appleState === 'connected' ? 'sync' : 'link-outline'}
+                    label={appleState === 'connected' ? 'Sincronizza' : 'Collega Apple Calendar'}
+                    onPress={() => {
+                      haptic('tap');
+                      router.push('/connect-apple-calendar');
+                    }}
+                    testID="btn-connect-apple"
+                  />
+                  {appleState === 'connected' ? (
+                    <ActionBtn
+                      variant="danger"
+                      icon="unlink-outline"
+                      label="Scollega"
+                      onPress={() => {
+                        haptic('warning');
+                        setConfirmAppleRevoke(true);
+                      }}
+                      disabled={busy === 'apple_revoke'}
+                      testID="btn-apple-revoke"
                     />
                   ) : null}
-                </>
-              )}
-              {instance.status !== 'revoked' && (
-                <ActionBtn
-                  variant="danger"
-                  icon="unlink-outline"
-                  label="Disconnetti"
-                  onPress={() => { haptic('warning'); setConfirmRevoke(true); }}
-                  disabled={busy === 'revoke'}
-                  testID="btn-revoke"
-                />
-              )}
-              {instance.status === 'revoked' && (
-                <ActionBtn
-                  primary
-                  icon="logo-google"
-                  label="Ricollega"
-                  onPress={async () => {
-                    haptic('tap');
-                    try {
-                      const r = await api.googleCalendarOAuthStart();
-                      const win: any = typeof window !== 'undefined' ? window : null;
-                      if (win?.location) win.location.assign(r.authorize_url);
-                    } catch (e: any) {
-                      setError(humanizeError(e, 'connect'));
-                    }
-                  }}
-                />
-              )}
-            </View>
-          </Animated.View>
-        ) : (
-          <Animated.View entering={FadeInDown.duration(220)} style={styles.card}>
-            <Text style={styles.cardTitle}>Google Calendar</Text>
-            <Text style={styles.cardMeta}>
-              Collega Google Calendar per leggere eventi e salvare in Google quelli confermati da documenti.
-              Il login Google all’account ORA è separato e non richiede accesso al calendario.
-            </Text>
-            <View style={styles.actionsRow}>
-              <ActionBtn
-                primary
-                icon="logo-google"
-                label="Collega Google Calendar"
-                onPress={async () => {
-                  haptic('tap');
-                  try {
-                    const r = await api.googleCalendarOAuthStart();
-                    const win: any = typeof window !== 'undefined' ? window : null;
-                    if (win?.location) win.location.assign(r.authorize_url);
-                    else router.push('/(tabs)');
-                  } catch (e: any) {
-                    setError(humanizeError(e, 'connect'));
-                  }
-                }}
-              />
-            </View>
-          </Animated.View>
+                </View>
+              </ServiceCard>
+            ) : null}
+
+            {error ? <InlineError>{error}</InlineError> : null}
+
+            <DevDiagnostics
+              llmStatus={llmStatus}
+              busy={busy}
+              onSelectProvider={async (id) => {
+                haptic('tap');
+                setBusy(`llm_${id}`);
+                setError(null);
+                try {
+                  const res = await api.setLlmProvider(id);
+                  setLlmStatus((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          active: res.active,
+                          user_preference: res.user_preference,
+                          providers: res.providers,
+                          fallback_chain: res.fallback_chain,
+                          preferred: res.user_preference === 'auto' ? null : res.user_preference,
+                        }
+                      : prev,
+                  );
+                  haptic('success');
+                } catch (e: any) {
+                  haptic('error');
+                  setError(humanizeError(e));
+                } finally {
+                  setBusy(null);
+                }
+              }}
+            />
+          </>
         )}
+      </SubpageShell>
 
-        {/* Apple Calendar row — iOS only, feature-flag gated */}
-        {Platform.OS === 'ios' && appleConfig?.enabled ? (
-          <AppleCalendarSection
-            instance={appleInstance}
-            onConnect={() => { haptic('tap'); router.push('/connect-apple-calendar'); }}
-            onDisconnect={() => { haptic('warning'); setConfirmAppleRevoke(true); }}
-            busy={busy}
-          />
-        ) : null}
-
-        <DevDiagnostics
-          llmStatus={llmStatus}
-          busy={busy}
-          onSelectProvider={async (id) => {
-            haptic('tap');
-            setBusy(`llm_${id}`);
-            setError(null);
-            try {
-              const res = await api.setLlmProvider(id);
-              setLlmStatus((prev) => prev ? {
-                ...prev,
-                active: res.active,
-                user_preference: res.user_preference,
-                providers: res.providers,
-                fallback_chain: res.fallback_chain,
-                preferred: res.user_preference === 'auto' ? null : res.user_preference,
-              } : prev);
-              haptic('success');
-            } catch (e: any) {
-              haptic('error');
-              setError(humanizeError(e));
-            } finally {
-              setBusy(null);
-            }
-          }}
-        />
-       </PageContainer>
-      </ScrollView>
-
-      {/* Confirm revoke */}
       {confirmRevoke ? (
-        <View style={styles.overlay}>
-          <Animated.View entering={FadeInDown.duration(220)} style={styles.confirmCard} testID="confirm-revoke">
-            <Text style={styles.confirmTitle}>Vuoi davvero disconnettere Google Calendar?</Text>
-            <Text style={styles.confirmBody}>
-              ORA smetterà di ricevere i tuoi eventi. Potrai ricollegarlo quando vuoi.
-            </Text>
-            <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
-              <ActionBtn label="Annulla" icon="close" onPress={() => setConfirmRevoke(false)} disabled={busy === 'revoke'} />
-              <ActionBtn
-                variant="danger"
-                icon="unlink"
-                label="Disconnetti"
-                onPress={onRevoke}
-                loading={busy === 'revoke'}
-                testID="btn-confirm-revoke"
-              />
-            </View>
-          </Animated.View>
-        </View>
+        <ConfirmSheet
+          testID="confirm-revoke"
+          title="Vuoi scollegare Google Calendar?"
+          body="ORA smetterà di vedere i tuoi eventi. Puoi ricollegarlo quando vuoi."
+          confirmLabel="Scollega"
+          busy={busy === 'revoke'}
+          onCancel={() => setConfirmRevoke(false)}
+          onConfirm={onRevoke}
+          confirmTestID="btn-confirm-revoke"
+        />
       ) : null}
-      {/* Confirm revoke Apple */}
       {confirmAppleRevoke ? (
-        <View style={styles.overlay}>
-          <Animated.View entering={FadeInDown.duration(220)} style={styles.confirmCard} testID="confirm-apple-revoke">
-            <Text style={styles.confirmTitle}>Vuoi davvero disconnettere Apple Calendar?</Text>
-            <Text style={styles.confirmBody}>
-              ORA smetterà di ricevere eventi dall{'\''}iPhone. Potrai ricollegarlo quando vuoi.
-            </Text>
-            <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
-              <ActionBtn label="Annulla" icon="close" onPress={() => setConfirmAppleRevoke(false)} disabled={busy === 'apple_revoke'} />
-              <ActionBtn
-                variant="danger"
-                icon="unlink"
-                label="Disconnetti"
-                onPress={onAppleDisconnect}
-                loading={busy === 'apple_revoke'}
-                testID="btn-confirm-apple-revoke"
-              />
-            </View>
-          </Animated.View>
-        </View>
+        <ConfirmSheet
+          testID="confirm-apple-revoke"
+          title="Vuoi scollegare Apple Calendar?"
+          body="ORA smetterà di ricevere gli eventi dall’iPhone. Puoi ricollegarlo quando vuoi."
+          confirmLabel="Scollega"
+          busy={busy === 'apple_revoke'}
+          onCancel={() => setConfirmAppleRevoke(false)}
+          onConfirm={onAppleDisconnect}
+          confirmTestID="btn-confirm-apple-revoke"
+        />
       ) : null}
-    </SafeAreaView>
+    </>
   );
 }
 
-function AppleCalendarSection({
-  instance, onConnect, onDisconnect, busy,
+/**
+ * One connected service.
+ *
+ * Name, whether it is connected, which account it is, when it last read
+ * anything, and what ORA does with it. No provider id, no scope list, no token
+ * state — those describe the integration, and a person here is asking about
+ * their calendar.
+ */
+function ServiceCard({
+  icon,
+  name,
+  state,
+  account,
+  lastSyncAt,
+  purpose,
+  children,
+  testID,
 }: {
-  instance: ConnectorInstance | null;
-  onConnect: () => void;
-  onDisconnect: () => void;
-  busy: string | null;
+  icon: ComponentProps<typeof Ionicons>['name'];
+  name: string;
+  state: ConnectionState;
+  account?: string | null;
+  lastSyncAt?: string | null;
+  purpose: string;
+  children?: ReactNode;
+  testID?: string;
 }) {
-  if (!instance || instance.status === 'revoked') {
-    return (
-      <Animated.View entering={FadeInDown.duration(220)} style={styles.card} testID="apple-cal-empty">
-        <View style={styles.cardHead}>
-          <View style={styles.iconWrap}>
-            <Ionicons name="logo-apple" size={18} color={tokens.color.onSurface} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.cardTitle}>Apple Calendar</Text>
-            <Text style={styles.cardMeta}>Collega il calendario del tuo iPhone/iPad tramite EventKit.</Text>
-          </View>
-        </View>
-        <View style={styles.actionsRow}>
-          <ActionBtn
-            primary
-            icon="link-outline"
-            label={instance?.status === 'revoked' ? 'Ricollega' : 'Collega Apple Calendar'}
-            onPress={onConnect}
-            testID="btn-connect-apple"
-          />
-        </View>
-      </Animated.View>
-    );
-  }
+  const { colors } = useTheme();
   return (
-    <Animated.View entering={FadeInDown.duration(220)} style={styles.card} testID="apple-cal-connected">
-      <View style={styles.cardHead}>
-        <View style={styles.iconWrap}>
-          <Ionicons name="logo-apple" size={18} color={tokens.color.onSurface} />
+    <SettingCard testID={testID}>
+      <View style={styles.serviceHead}>
+        <View style={[styles.serviceIcon, { backgroundColor: colors.accentMuted }]}>
+          <Ionicons name={icon} size={19} color={colors.accent} />
         </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.cardTitle}>Apple Calendar</Text>
-          {instance.display_label ? (
-            <Text style={styles.cardMeta}>{instance.display_label}</Text>
+        <View style={styles.serviceText}>
+          <Text
+            style={[styles.serviceName, { color: colors.textPrimary }]}
+            accessibilityRole="header"
+            aria-level={2}
+          >
+            {name}
+          </Text>
+          {account ? (
+            <Text style={[styles.serviceMeta, { color: colors.textSecondary }]} numberOfLines={1}>
+              {account}
+            </Text>
           ) : null}
         </View>
-        <View style={styles.statusPill}>
-          <View style={styles.statusDot} />
-          <Text style={styles.statusText}>Collegato</Text>
+        <StatusPill state={state} />
+      </View>
+
+      <Text style={[styles.servicePurpose, { color: colors.textSecondary }]}>{purpose}</Text>
+      {state === 'connected' ? (
+        <Text style={[styles.serviceMeta, { color: colors.textTertiary }]}>
+          {lastSyncLabel(lastSyncAt)}
+        </Text>
+      ) : null}
+
+      {children}
+    </SettingCard>
+  );
+}
+
+function ConfirmSheet({
+  title,
+  body,
+  confirmLabel,
+  onCancel,
+  onConfirm,
+  busy,
+  testID,
+  confirmTestID,
+}: {
+  title: string;
+  body: string;
+  confirmLabel: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+  busy?: boolean;
+  testID?: string;
+  confirmTestID?: string;
+}) {
+  const { colors } = useTheme();
+  return (
+    <View style={[styles.overlay, { backgroundColor: colors.scrim }]}>
+      <View
+        style={[
+          styles.confirmCard,
+          { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
+        ]}
+        testID={testID}
+      >
+        <Text
+          style={[styles.confirmTitle, { color: colors.textPrimary }]}
+          accessibilityRole="header"
+          aria-level={2}
+        >
+          {title}
+        </Text>
+        <Text style={[styles.confirmBody, { color: colors.textSecondary }]}>{body}</Text>
+        <View style={styles.actions}>
+          <ActionBtn label="Annulla" icon="close" onPress={onCancel} disabled={busy} />
+          <ActionBtn
+            variant="danger"
+            icon="unlink"
+            label={confirmLabel}
+            onPress={onConfirm}
+            loading={busy}
+            testID={confirmTestID}
+          />
         </View>
       </View>
-      <View style={styles.metaGrid}>
-        <MetaItem
-          label="Ultima sincronizzazione"
-          value={instance.last_sync_at ? formatRelativeAgo(new Date(instance.last_sync_at)) : 'Mai'}
-        />
-        <MetaItem label="Calendari" value={String(instance.selected_resource_ids?.length || 0)} />
-      </View>
-      <View style={styles.actionsRow}>
-        <ActionBtn
-          icon="sync"
-          label="Sincronizza di nuovo"
-          onPress={onConnect}
-        />
-        <ActionBtn
-          variant="danger"
-          icon="unlink-outline"
-          label="Disconnetti"
-          onPress={onDisconnect}
-          disabled={busy === 'apple_revoke'}
-          testID="btn-apple-revoke"
-        />
-      </View>
-    </Animated.View>
-  );
-}
-
-function AuthMethodRow({
-  label, linked, detail, actionLabel, actionSlot, onAction, busy,
-}: {
-  label: string;
-  linked: boolean;
-  detail?: string | null;
-  actionLabel?: string;
-  actionSlot?: ReactNode;
-  onAction?: () => void;
-  busy?: boolean;
-}) {
-  return (
-    <View style={styles.authRow} testID={`auth-method-${label.toLowerCase()}`}>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.cardTitle}>{label}</Text>
-        <Text style={styles.cardMeta}>
-          {linked ? (detail || 'Collegato') : 'Non collegato'}
-        </Text>
-      </View>
-      <View style={styles.statusPill}>
-        <View style={[styles.statusDot, !linked && { backgroundColor: tokens.color.onSurfaceMuted }]} />
-        <Text style={styles.statusText}>{linked ? 'Collegato' : 'Assente'}</Text>
-      </View>
-      {actionLabel && onAction ? (
-        <Pressable
-          onPress={onAction}
-          disabled={busy}
-          style={({ pressed }) => [{ marginLeft: 8, paddingVertical: 6, paddingHorizontal: 8 }, pressed && styles.pressed]}
-        >
-          {busy ? (
-            <ActivityIndicator color={tokens.color.onSurfaceMuted} />
-          ) : (
-            <Text style={{ color: tokens.color.brand, fontWeight: '600', fontSize: 13 }}>{actionLabel}</Text>
-          )}
-        </Pressable>
-      ) : null}
-      {actionSlot}
-    </View>
-  );
-}
-
-function MetaItem({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.metaBox} accessible accessibilityLabel={`${label}: ${value}`}>
-      <Text style={styles.metaLabel}>{label}</Text>
-      <Text style={styles.metaValue}>{value}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: tokens.color.surface },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 12, paddingVertical: 12,
-  },
-  backBtn: {
-    width: 32, height: 32, borderRadius: 16,
+  loading: { paddingVertical: tokens.spacing.xxl, alignItems: 'center' },
+  serviceHead: { flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.md },
+  serviceIcon: {
+    width: 40, height: 40, borderRadius: tokens.radius.sm,
     alignItems: 'center', justifyContent: 'center',
   },
-  title: { fontSize: 17, fontWeight: '700', color: tokens.color.onSurface },
-  sectionLabel: {
-    fontSize: 11, color: tokens.color.onSurfaceMuted,
-    textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: '600',
-  },
-  card: {
-    backgroundColor: tokens.color.surfaceSecondary,
-    borderRadius: tokens.radius.lg,
-    padding: tokens.spacing.lg,
-    gap: 12,
-    borderWidth: 1, borderColor: tokens.color.border,
-  },
-  authRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    paddingVertical: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: tokens.color.border,
-  },
-  cardHead: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  iconWrap: {
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: tokens.color.surfaceTertiary,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  cardTitle: { fontSize: 16, fontWeight: '700', color: tokens.color.onSurface },
-  cardMeta: { fontSize: 12, color: tokens.color.onSurfaceMuted, marginTop: 2 },
-  statusPill: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 10, paddingVertical: 4,
-    borderRadius: tokens.radius.pill,
-    backgroundColor: tokens.color.successBg,
-  },
-  statusDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: tokens.color.success },
-  statusText: { fontSize: 11, color: tokens.color.success, fontWeight: '600' },
-  metaGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  metaBox: {
-    minWidth: 130, flexGrow: 1, flexBasis: 130,
-    backgroundColor: tokens.color.surfaceTertiary,
-    padding: 10, borderRadius: tokens.radius.md,
-  },
-  metaLabel: { fontSize: 10, color: tokens.color.onSurfaceMuted, textTransform: 'uppercase', letterSpacing: 0.5 },
-  metaValue: { fontSize: 14, color: tokens.color.onSurface, fontWeight: '600', marginTop: 2 },
-  actionsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
-  errorBanner: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: tokens.color.errorBg, borderColor: tokens.color.error, borderWidth: 1,
-    padding: 12, borderRadius: tokens.radius.md,
-  },
-  errorText: { flex: 1, color: tokens.color.onSurface, fontSize: 13 },
+  serviceText: { flex: 1, minWidth: 0, gap: 2 },
+  serviceName: { fontSize: 16, fontWeight: '650' as any, letterSpacing: -0.2 },
+  serviceMeta: { fontSize: 12, lineHeight: 17 },
+  servicePurpose: { fontSize: 13, lineHeight: 19, marginTop: 2 },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: tokens.spacing.sm, marginTop: tokens.spacing.sm },
+  reconnect: { gap: tokens.spacing.sm, marginTop: tokens.spacing.sm },
+  reconnectText: { fontSize: 13, lineHeight: 19 },
   overlay: {
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: tokens.color.scrim,
-    alignItems: 'center', justifyContent: 'center', padding: 24,
+    alignItems: 'center', justifyContent: 'center', padding: tokens.spacing.xl,
   },
   confirmCard: {
-    backgroundColor: tokens.color.surfaceSecondary,
-    borderRadius: tokens.radius.lg,
-    padding: tokens.spacing.lg,
-    borderWidth: 1, borderColor: tokens.color.borderStrong,
-    maxWidth: 380, width: '100%',
+    borderRadius: tokens.radius.xl, borderWidth: StyleSheet.hairlineWidth,
+    padding: tokens.spacing.xl, maxWidth: 420, width: '100%', gap: tokens.spacing.sm,
   },
-  confirmTitle: { fontSize: 17, fontWeight: '700', color: tokens.color.onSurface },
-  confirmBody: { fontSize: 13, color: tokens.color.onSurfaceMuted, lineHeight: 19, marginTop: 8 },
-  aiActive: { fontSize: 13, color: tokens.color.onSurfaceMuted, marginBottom: 4 },
-  aiActiveValue: { color: tokens.color.onSurface, fontWeight: '700' },
-  aiHint: { fontSize: 12, color: tokens.color.onSurfaceMuted, lineHeight: 17, marginBottom: 8 },
-  aiRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingVertical: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: tokens.color.border,
-  },
-  radio: {
-    width: 18, height: 18, borderRadius: 9,
-    borderWidth: 2, borderColor: tokens.color.onSurfaceMuted,
-  },
-  radioOn: {
-    borderColor: tokens.color.brand,
-    backgroundColor: tokens.color.brand,
-  },
-  aiLabel: { fontSize: 15, fontWeight: '600', color: tokens.color.onSurface },
-  aiMeta: { fontSize: 12, color: tokens.color.onSurfaceMuted, marginTop: 2 },
-  pressed: { opacity: 0.7 },
-  googleOfficialButtonHost: { width: 210, minHeight: 40 },
+  confirmTitle: { fontSize: 18, fontWeight: '700', letterSpacing: -0.3 },
+  confirmBody: { fontSize: 14, lineHeight: 20 },
 });

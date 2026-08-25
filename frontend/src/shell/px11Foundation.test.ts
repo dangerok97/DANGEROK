@@ -67,11 +67,19 @@ const readCode = (rel: string) =>
     !AMBIENT_NAV_ITEMS.some((i) => i.route === 'memoria'),
     'Memoria must not be a primary destination — it is a trust surface',
   );
-  // ...but must still be reachable, from Profilo.
-  const profilo = read('app/(tabs)/profilo.tsx');
+  // ...but must still be reachable from the account surface. PX1.5 made Vita
+  // the place a person reads and corrects what ORA knows, so PX1.8 moved this
+  // entry off the Profilo landing and into Privacy e dati, beside Vita and
+  // underneath it. What PX1.1 was protecting is reachability, not which of the
+  // account's pages happens to hold the link.
+  const privacy = read('app/account/privacy.tsx');
   assert.ok(
-    profilo.includes("router.push('/(tabs)/memoria')"),
-    'Memoria must remain reachable from Profilo',
+    privacy.includes("/(tabs)/memoria"),
+    'Memoria must remain reachable from the account surface',
+  );
+  assert.ok(
+    privacy.indexOf("/(tabs)/contesti") < privacy.indexOf("/(tabs)/memoria"),
+    'Vita must be the first answer to "what does ORA know about me"',
   );
 
   // F — account is separate from the five, and reachable.
@@ -227,9 +235,21 @@ const readCode = (rel: string) =>
     !settings.includes('calendar_auto_add_threshold') && !/soglia/i.test(settings),
     'a confidence threshold is an implementation state, never a consent control',
   );
+  // PX1.8 moved the sentence into one shared constant so that every surface
+  // touching the calendar makes the identical promise. The guard follows it:
+  // the words must still exist, and the connections page must still say them.
+  const model = readCode('src/components/account/accountModel.ts');
   assert.ok(
-    /chiede sempre conferma/i.test(settings),
-    'the calendar section must state the confirmation promise in human terms',
+    /chiede sempre conferma/i.test(model),
+    'the confirmation promise must be stated in human terms',
+  );
+  assert.ok(
+    settings.includes('CALENDAR_WRITE_BOUNDARY'),
+    'the calendar section must state the confirmation promise',
+  );
+  assert.ok(
+    !/Consenti sempre|sempre consentito|auto[- ]?conferma/i.test(model + settings),
+    'nothing may offer to pre-authorise a calendar write',
   );
 }
 
@@ -257,15 +277,21 @@ const readCode = (rel: string) =>
     'no rail frame may render when there is nothing real to put in it',
   );
 
-  // The screens that had no column at all now have one. Profilo still uses the
-  // shared container; Documenti moved to the dashboard composition the later
-  // PX1.x surfaces share — a bounded, centred column beside a real rail. What
-  // PX1.1 was protecting is that neither screen is full-bleed and neither
-  // invents a rail, so the assertion checks the property rather than which
-  // component happens to provide it.
+  // The screens that had no column at all now have one. Both Profilo and
+  // Documenti moved to the dashboard composition the later PX1.x surfaces
+  // share — a bounded, centred column beside a real rail. What PX1.1 was
+  // protecting is that neither screen is full-bleed and neither invents a
+  // rail, so the assertion checks the property rather than which component
+  // happens to provide it.
+  const profiloSrc = read('app/(tabs)/profilo.tsx');
+  const accountParts = read('src/components/account/AccountParts.tsx');
+  const accMax = Number(/const ACCOUNT_MAX_WIDTH = (\d+)/.exec(accountParts)?.[1]);
+  const accRail = Number(/const ACCOUNT_RAIL_WIDTH = (\d+)/.exec(accountParts)?.[1]);
+  assert.ok(accMax > 0 && accMax <= 1400, 'profilo must bound its column');
+  assert.ok(profiloSrc.includes("alignSelf: 'center'"), 'profilo must centre its column');
   assert.ok(
-    read('app/(tabs)/profilo.tsx').includes('PageContainer'),
-    'profilo must use the shared column',
+    accRail >= 260 && accRail <= 360,
+    'profilo must keep the contextual rail inside the agreed band',
   );
   const documenti = read('app/(tabs)/documenti.tsx');
   const docMax = Number(/const PAGE_MAX_WIDTH = (\d+)/.exec(documenti)?.[1]);
