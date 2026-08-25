@@ -7,11 +7,12 @@ import { OraConversationScreen } from '@/src/components/ora/OraConversationScree
 import { oraEntryPointFrom } from '@/src/ora/oraNav';
 
 export default function OraProductionSession() {
-  const { sessionId, planId, objectId, planItemId, entry } = useLocalSearchParams<{
+  const { sessionId, planId, objectId, planItemId, documentId, entry } = useLocalSearchParams<{
     sessionId?: string;
     planId?: string;
     objectId?: string;
     planItemId?: string;
+    documentId?: string;
     entry?: string;
   }>();
 
@@ -21,6 +22,7 @@ export default function OraProductionSession() {
       planId={planId}
       objectId={objectId}
       planItemId={planItemId}
+      documentId={documentId}
       entryPoint={oraEntryPointFrom(entry)}
       testID="ora-production"
     />

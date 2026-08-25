@@ -11,13 +11,23 @@ export type OraEntryPoint =
   | 'continue'
   | 'focus'
   | 'object'
-  | 'vita';
+  | 'vita'
+  | 'document';
 
 export type OraConversationParams = {
   sessionId?: string | null;
   planId?: string | null;
   objectId?: string | null;
   planItemId?: string | null;
+  /**
+   * A document the conversation should already have in hand.
+   *
+   * The id is opaque and carries nothing about the file's contents — the same
+   * rule every other identifier on these routes follows. It exists so someone
+   * can open ORA from a document and ask "cosa devo controllare qui?" without
+   * attaching it again or describing what it is.
+   */
+  documentId?: string | null;
   entryPoint?: OraEntryPoint;
 };
 
@@ -29,6 +39,7 @@ const ENTRY_POINTS: OraEntryPoint[] = [
   'focus',
   'object',
   'vita',
+  'document',
 ];
 
 /** Read an entry point off a URL, falling back to a plain ORA opening. */
@@ -55,10 +66,12 @@ export function buildOraConversationHref(p: OraConversationParams): string {
   const planId = opaque(p.planId);
   const objectId = opaque(p.objectId);
   const planItemId = opaque(p.planItemId);
+  const documentId = opaque(p.documentId);
   const entry = p.entryPoint;
   if (planId) q.set('planId', planId);
   if (objectId) q.set('objectId', objectId);
   if (planItemId) q.set('planItemId', planItemId);
+  if (documentId) q.set('documentId', documentId);
   if (entry) q.set('entry', entry);
   const qs = q.toString();
   return qs ? `${base}?${qs}` : base;

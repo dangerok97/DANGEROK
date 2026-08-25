@@ -15,6 +15,22 @@ export type OraContextView = {
 };
 
 /**
+ * The header for a conversation opened on a document.
+ *
+ * The title is read from the document itself rather than carried in the URL:
+ * a filename can say a great deal about a person, and the route is not the
+ * place for it. Nothing is invented — with no readable title there is no
+ * header, and the conversation simply opens without one.
+ */
+export function contextFromDocument(doc: any): OraContextView | null {
+  const title = String(
+    doc?.display_title || doc?.user_title || doc?.original_filename || doc?.filename || '',
+  ).trim();
+  if (!title) return null;
+  return { goal: title, step: null, material: null };
+}
+
+/**
  * What ORA already has in hand, read off the plan bundle that already exists.
  *
  * Returns null rather than a placeholder: a header that says nothing real is

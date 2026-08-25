@@ -1082,6 +1082,12 @@ export const api = {
     }),
 
   // Documents V2 — intelligent actions engine
+  /**
+   * Documenti — one aggregated read of what ORA holds and has understood.
+   * Presentation only; the pipeline and the analysis are unchanged behind it.
+   */
+  getDocumentsLibrary: () => request<DocumentsLibraryResponse>('/documents/library'),
+
   documentsHub: (limit = 40) =>
     request<DocumentsHubResponse>(`/documents/hub?limit=${limit}`),
   documentsSearchIntelligent: (params: {
@@ -1500,6 +1506,29 @@ export type DocumentPreferences = {
   document_ai_analysis: boolean;
   calendar_auto_add_enabled: boolean;
   calendar_auto_add_threshold: number;
+};
+
+export type DocumentsLibraryResponse = {
+  ok: boolean;
+  items: Array<{
+    id: string;
+    title: string;
+    kind: string;
+    uploaded_at: string;
+    /** ready | analyzing | pending | needs_review | failed */
+    status: string;
+    summary?: string;
+    areas?: Array<{ key: string; label: string }>;
+    /** A deadline the extractor actually found, or nothing. */
+    expiry?: { at: string; title: string } | null;
+    open_actions?: number;
+  }>;
+  expiring: Array<{ id: string; title: string; at: string }>;
+  summary: Array<{ label: string; value: number; icon?: string }>;
+  kinds: string[];
+  partial?: boolean;
+  partial_sources?: string[];
+  generated_at?: string;
 };
 
 export type DocumentsHubResponse = {

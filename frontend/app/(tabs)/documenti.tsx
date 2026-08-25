@@ -1,411 +1,375 @@
 /**
- * ORA Documents V2 — intelligent actions hub (not a file archive).
+ * Documenti — the documents of a life, understood and usable.
+ *
+ * Not a file manager. A person opening this page wants to know what they have,
+ * which of it ORA has actually read, what needs their attention, what is about
+ * to run out, and what they can do with any of it — and the composition is
+ * built to answer those in that order rather than to browse a folder.
+ *
+ * Composition only. One aggregated read supplies the list, the deadlines and
+ * the counts, so the sections agree with each other; the upload pipeline,
+ * extraction and analysis behind them are untouched. Every affordance on the
+ * page maps to something the product genuinely does — a scanner tile and an
+ * import-from-connected-apps tile would match the reference exactly and do
+ * nothing, and a dead control on the first row is worse than a shorter row.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, RefreshControl, Pressable, TextInput,
-  ActivityIndicator, ScrollView,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import { useFocusEffect, useRouter } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 
+import { api, type DocumentsLibraryResponse } from '@/src/api/client';
+import { useTheme } from '@/src/theme/ThemeProvider';
 import { tokens } from '@/src/theme/tokens';
-import { MIN_READABLE_FONT_SIZE } from '@/src/theme/typography';
-import { PageContainer } from '@/src/components/ui/PageContainer';
-import { api, DocumentHubCard } from '@/src/api/client';
-import { haptic } from '@/src/utils/haptic';
+import { ErrorState } from '@/src/components/ui/ErrorState';
+import { useAmbientInset } from '@/src/shell';
+import { isNetworkError, useOnlineStatus } from '@/src/hooks/use-online-status';
 import { humanizeError } from '@/src/utils/errors';
+import { haptic } from '@/src/utils/haptic';
+import { buildOraConversationHref } from '@/src/ora/oraNav';
+import {
+  ActionCard,
+  CapabilitiesPanel,
+  DocumentRow,
+  ExpiringPanel,
+  LibraryControls,
+  LibraryEmpty,
+  LibraryHeader,
+  LibrarySkeleton,
+  NoMatches,
+  SummaryPanel,
+  WhyDocumentsDialog,
+  uploadLabel,
+  visibleItems,
+  type SortOrder,
+  type StatusFilter,
+  type UploadPhase,
+} from '@/src/components/documents';
 
-type FilterId =
-  | 'all'
-  | 'events'
-  | 'study'
-  | 'admin'
-  | 'medical'
-  | 'review'
-  | 'actions'
-  | 'done';
+const PAGE_MAX_WIDTH = 1320;
+const RAIL_WIDTH = 300;
+/** Below this the rail has nowhere to sit and the page becomes one column. */
+const TWO_COLUMN_MIN = 1100;
+/** Below this a document row stacks instead of laying out in columns. */
+const ROW_COMPACT_MAX = 720;
 
-const FILTERS: { id: FilterId; label: string }[] = [
-  { id: 'all', label: 'Tutti' },
-  { id: 'events', label: 'Eventi' },
-  { id: 'study', label: 'Studio' },
-  { id: 'admin', label: 'Amministrativi' },
-  { id: 'medical', label: 'Medici' },
-  { id: 'review', label: 'Da verificare' },
-  { id: 'actions', label: 'Con azioni' },
-  { id: 'done', label: 'Completati' },
-];
-
-const MACRO_LABEL: Record<string, string> = {
-  event: 'Evento',
-  education: 'Studio',
-  administrative: 'Amministrativo',
-  financial: 'Finanziario',
-  medical: 'Medico',
-  travel: 'Viaggio',
-  receipt: 'Ricevuta',
-  contract: 'Contratto',
-  generic: 'Generico',
-  unknown: 'Da classificare',
-};
-
-function formatWhen(iso?: string | null) {
-  if (!iso) return null;
-  try {
-    return new Date(iso).toLocaleString('it-IT', {
-      day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
-    });
-  } catch {
-    return null;
-  }
-}
+/** Pipeline states that mean the work is still in flight. */
+const IN_FLIGHT = new Set(['analyzing', 'pending']);
 
 export default function DocumentiScreen() {
+  const { colors } = useTheme();
+  const ambient = useAmbientInset();
   const router = useRouter();
-  const [hub, setHub] = useState<Awaited<ReturnType<typeof api.documentsHub>> | null>(null);
-  const [searchItems, setSearchItems] = useState<DocumentHubCard[] | null>(null);
+  const { width } = useWindowDimensions();
+  const { markOffline, markOnline } = useOnlineStatus();
+
+  const twoColumn = width >= TWO_COLUMN_MIN;
+  const compactRows = width < ROW_COMPACT_MAX;
+  const padH = width < 380 ? tokens.spacing.lg : tokens.spacing.xl;
+
+  const [library, setLibrary] = useState<DocumentsLibraryResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [query, setQuery] = useState('');
-  const [filter, setFilter] = useState<FilterId>('all');
-  const [uploading, setUploading] = useState(false);
+  const [whyOpen, setWhyOpen] = useState(false);
 
-  const load = useCallback(async (opts?: { silent?: boolean }) => {
-    if (!opts?.silent) setLoading(true);
+  const [query, setQuery] = useState('');
+  const [kind, setKind] = useState('all');
+  const [status, setStatus] = useState<StatusFilter>('all');
+  const [order, setOrder] = useState<SortOrder>('recent');
+
+  const [phase, setPhase] = useState<UploadPhase>('idle');
+
+  const load = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      if (!opts?.silent) setLoading(true);
+      try {
+        const res = await api.getDocumentsLibrary();
+        markOnline();
+        setLibrary(res);
+        setError(null);
+      } catch (e: any) {
+        if (isNetworkError(e)) markOffline();
+        setError(humanizeError(e, 'default'));
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [markOffline, markOnline],
+  );
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void load({ silent: true });
+    }, [load]),
+  );
+
+  /**
+   * Keep watching only while something is genuinely being read.
+   *
+   * The pipeline is asynchronous, so a document that has just arrived changes
+   * state on its own; polling stops the moment nothing is in flight rather
+   * than running forever behind an idle page.
+   */
+  useEffect(() => {
+    const busy = (library?.items || []).some((d) => IN_FLIGHT.has(d.status));
+    if (!busy) return;
+    const t = setInterval(() => void load({ silent: true }), 3000);
+    return () => clearInterval(t);
+  }, [library, load]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    void load({ silent: true });
+  }, [load]);
+
+  /**
+   * Upload, through the pipeline that already exists.
+   *
+   * The two outcomes are kept apart on purpose: a file that was stored but
+   * could not be read is still safely in the library, and saying otherwise
+   * would make someone think they had lost it.
+   */
+  const onUpload = useCallback(async () => {
+    haptic('tap');
     setError(null);
     try {
-      if (query.trim()) {
-        const res = await api.documentsSearchIntelligent({ q: query.trim(), limit: 80 });
-        setSearchItems(
-          (res.items || []).map((d) => ({
-            id: d.id,
-            display_title: d.display_title || d.user_title || d.filename,
-            original_filename: d.original_filename || d.filename,
-            macro_category: d.analysis?.macro_category || 'generic',
-            short_description: d.analysis?.short_description || d.analysis?.summary,
-            pipeline_status: d.pipeline_status,
-            pipeline_status_label: d.pipeline_status_label,
-            utility: d.pipeline_status_label,
-            event_start: d.event_candidates?.[0]?.start_datetime,
-            event_location: d.event_candidates?.[0]?.venue_name || d.event_candidates?.[0]?.city,
-            open_actions: (d.event_candidates || []).filter((e) => e.status === 'proposed').length,
-            updated_at: d.updated_at,
-            mime_type: d.mime_type,
-          })),
-        );
-        setHub(null);
-      } else {
-        setSearchItems(null);
-        setHub(await api.documentsHub(50));
-      }
-    } catch (e: any) {
-      setError(humanizeError(e));
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [query]);
-
-  useEffect(() => { load(); }, [load]);
-
-  // Poll while pipelines are active
-  useEffect(() => {
-    const active = (hub?.recent || []).some((d) =>
-      ['queued', 'extracting', 'understanding', 'classifying', 'analyzing', 'generating_actions'].includes(
-        d.pipeline_status || '',
-      ),
-    );
-    if (!active) return;
-    const t = setInterval(() => load({ silent: true }), 2500);
-    return () => clearInterval(t);
-  }, [hub, load]);
-
-  const items = useMemo(() => {
-    if (searchItems) return searchItems;
-    if (!hub) return [];
-    switch (filter) {
-      case 'events': return hub.events_found;
-      case 'study': return hub.study;
-      case 'admin': return hub.administrative;
-      case 'medical': return hub.medical;
-      case 'review': return hub.needs_review;
-      case 'actions': return hub.with_actions;
-      case 'done':
-        return hub.recent.filter((d) => d.pipeline_status === 'completed');
-      default: return hub.recent;
-    }
-  }, [hub, filter, searchItems]);
-
-  const onUpload = async () => {
-    haptic('tap');
-    try {
-      const res = await DocumentPicker.getDocumentAsync({
-        multiple: false, copyToCacheDirectory: true,
+      const picked = await DocumentPicker.getDocumentAsync({
+        multiple: false,
+        copyToCacheDirectory: true,
       });
-      if (res.canceled || !res.assets?.[0]) return;
-      const asset = res.assets[0];
-      setUploading(true);
-      setError(null);
+      if (picked.canceled || !picked.assets?.[0]) return;
+      const asset = picked.assets[0];
+      setPhase('uploading');
       const up = await api.documentUpload({
         uri: asset.uri,
         name: asset.name || 'documento',
         type: asset.mimeType || 'application/octet-stream',
       });
       haptic(up.duplicate ? 'warning' : 'success');
+      setPhase('analyzing');
       await load({ silent: true });
-      if (up.duplicate) {
-        setError('File già presente — apro la copia esistente.');
-      }
-      if (up.document?.id) {
-        router.push(`/document/${up.document.id}` as any);
-      }
+      setPhase('done');
+      setTimeout(() => setPhase('idle'), 2500);
+      if (up.document?.id) router.push(`/document/${up.document.id}` as any);
     } catch (e: any) {
       haptic('error');
-      setError(humanizeError(e));
-    } finally {
-      setUploading(false);
+      setPhase('failed');
+      setError(humanizeError(e, 'default'));
     }
-  };
+  }, [load, router]);
+
+  const openDocument = useCallback(
+    (id: string) => router.push(`/document/${id}` as any),
+    [router],
+  );
+
+  /** What ORA can do here, explained by ORA — not by a marketing panel. */
+  const askOra = useCallback(
+    () => router.push(buildOraConversationHref({ entryPoint: 'document' }) as any),
+    [router],
+  );
+
+  const resetFilters = useCallback(() => {
+    setQuery('');
+    setKind('all');
+    setStatus('all');
+    setOrder('recent');
+  }, []);
+
+  const items = library?.items || [];
+  const shown = useMemo(
+    () => visibleItems(items as any, { query, kind, status, order }),
+    [items, query, kind, status, order],
+  );
+  const empty = !loading && !error && items.length === 0;
+  const filtering = query.trim() !== '' || kind !== 'all' || status !== 'all';
+  const phaseLabel = uploadLabel(phase);
+
+  const main = (
+    <>
+      <View style={styles.actions}>
+        <ActionCard
+          icon="cloud-upload-outline"
+          title="Carica documento"
+          detail="Aggiungi un documento dal tuo dispositivo"
+          cta={phase === 'uploading' ? 'Caricamento…' : 'Carica'}
+          onPress={() => void onUpload()}
+          busy={phase === 'uploading'}
+          testID="documents-upload"
+        />
+        <ActionCard
+          icon="pulse-outline"
+          title="Cosa può fare ORA"
+          detail="Chiedile come usa i tuoi documenti"
+          cta="Scopri"
+          onPress={askOra}
+          testID="documents-ask-ora"
+        />
+      </View>
+
+      {phaseLabel && phase !== 'idle' ? (
+        <Text
+          style={[
+            styles.phase,
+            { color: phase === 'failed' ? colors.error : colors.textSecondary },
+          ]}
+          accessibilityLiveRegion="polite"
+          testID="documents-phase"
+        >
+          {phaseLabel}
+        </Text>
+      ) : null}
+
+      <LibraryControls
+        query={query}
+        onQuery={setQuery}
+        kind={kind}
+        kinds={library?.kinds || []}
+        onKind={setKind}
+        status={status}
+        onStatus={setStatus}
+        order={order}
+        onOrder={setOrder}
+      />
+
+      <View
+        style={[styles.list, { backgroundColor: colors.surface, borderColor: colors.border }]}
+        testID="documents-list"
+      >
+        {shown.length ? (
+          shown.map((it, i) => (
+            <DocumentRow
+              key={it.id}
+              item={it as any}
+              first={i === 0}
+              compact={compactRows}
+              onOpen={() => openDocument(it.id)}
+            />
+          ))
+        ) : (
+          <NoMatches onReset={resetFilters} />
+        )}
+      </View>
+    </>
+  );
+
+  const rail = (
+    <>
+      <SummaryPanel rows={library?.summary || []} />
+      <ExpiringPanel expiring={library?.expiring || []} onOpen={openDocument} />
+      <CapabilitiesPanel />
+    </>
+  );
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']} testID="documenti-screen">
-     <PageContainer>
-      <View style={styles.header}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.title}>Documenti</Text>
-          <Text style={styles.subtitle}>ORA legge, classifica e propone azioni utili</Text>
-        </View>
-        <Pressable
-          onPress={onUpload}
-          disabled={uploading}
-          style={({ pressed }) => [styles.uploadBtn, pressed && styles.pressed]}
-          accessibilityRole="button"
-          accessibilityLabel="Carica documento"
-          testID="btn-upload-document"
-        >
-          {uploading
-            ? <ActivityIndicator color={tokens.color.onBrand} />
-            : <><Ionicons name="add" size={18} color={tokens.color.onBrand} />
-                <Text style={styles.uploadTxt}>Carica</Text></>}
-        </Pressable>
-      </View>
+    <SafeAreaView
+      edges={['top']}
+      style={[styles.root, { backgroundColor: colors.backgroundPrimary }]}
+      testID="documenti-screen"
+    >
+      <ScrollView
+        contentContainerStyle={{
+          paddingHorizontal: padH,
+          paddingTop: tokens.spacing.lg,
+          paddingBottom: ambient.paddingBottom + tokens.spacing.xxl,
+          maxWidth: PAGE_MAX_WIDTH,
+          width: '100%',
+          alignSelf: 'center',
+          gap: tokens.spacing.xl,
+        }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.textTertiary}
+          />
+        }
+        showsVerticalScrollIndicator={false}
+        testID="documents-scroll"
+      >
+        {loading && !library ? (
+          <LibrarySkeleton wide={twoColumn} />
+        ) : (
+          <>
+            <LibraryHeader onWhy={() => setWhyOpen(true)} />
 
-      {hub?.counts ? (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.hScroll}
-          contentContainerStyle={styles.statsRow}
-        >
-          <Stat chip="Da verificare" n={hub.counts.needs_review || 0} />
-          <Stat chip="Eventi" n={hub.counts.events_found || 0} />
-          <Stat chip="Studio" n={hub.counts.study || 0} />
-          <Stat chip="Azioni" n={hub.counts.with_actions || 0} />
-          <Stat chip="Errori" n={hub.counts.failed || 0} />
-        </ScrollView>
-      ) : null}
-
-      <View style={styles.searchBox}>
-        <Ionicons name="search" size={16} color={tokens.color.onSurfaceMuted} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Cerca contenuto, materia, luogo, scadenza…"
-          placeholderTextColor={tokens.color.onSurfaceMuted}
-          value={query}
-          onChangeText={setQuery}
-          onSubmitEditing={() => load()}
-          returnKeyType="search"
-          testID="doc-search-input"
-        />
-      </View>
-
-      {!query.trim() ? (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.hScroll}
-          contentContainerStyle={styles.filters}
-        >
-          {FILTERS.map((f) => (
-            <Pressable
-              key={f.id}
-              onPress={() => { haptic('tap'); setFilter(f.id); }}
-              style={[styles.filterChip, filter === f.id && styles.filterChipOn]}
-            >
-              <Text style={[styles.filterTxt, filter === f.id && styles.filterTxtOn]}>{f.label}</Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-      ) : null}
-
-      {error ? (
-        <Text style={styles.error} testID="doc-error">{error}</Text>
-      ) : null}
-
-      {loading && !refreshing ? (
-        <View style={styles.center}><ActivityIndicator color={tokens.color.onSurfaceMuted} /></View>
-      ) : (
-        <FlatList
-          data={items}
-          keyExtractor={(it) => it.id}
-          contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 10 }}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={() => { setRefreshing(true); load({ silent: true }); }}
-              tintColor={tokens.color.onSurfaceMuted}
-            />
-          }
-          ListEmptyComponent={
-            <View style={styles.empty}>
-              <Ionicons name="sparkles-outline" size={36} color={tokens.color.onSurfaceMuted} />
-              <Text style={styles.emptyTitle}>Nessun documento qui</Text>
-              <Text style={styles.emptyBody}>
-                Carica un file: ORA lo interpreta e propone eventi, riassunti o scadenze.
-              </Text>
-            </View>
-          }
-          renderItem={({ item, index }) => (
-            <Animated.View entering={FadeInDown.delay(Math.min(index, 8) * 40).duration(220)}>
-              <DocCard
-                item={item}
-                onPress={() => {
-                  haptic('tap');
-                  router.push(`/document/${item.id}` as any);
-                }}
+            {error && !library ? (
+              <ErrorState
+                title="Non riesco a caricare i documenti"
+                message={error}
+                onRetry={() => void load()}
               />
-            </Animated.View>
-          )}
-        />
-      )}
-     </PageContainer>
+            ) : empty ? (
+              <LibraryEmpty onUpload={() => void onUpload()} busy={phase === 'uploading'} />
+            ) : (
+              <>
+                {library?.partial ? (
+                  <Text
+                    style={[styles.partial, { color: colors.textTertiary }]}
+                    testID="documents-partial"
+                  >
+                    Alcune informazioni non sono disponibili al momento.
+                  </Text>
+                ) : null}
+                {error ? (
+                  <Text style={[styles.partial, { color: colors.error }]} testID="documents-error">
+                    {error}
+                  </Text>
+                ) : null}
+
+                {twoColumn ? (
+                  <View style={styles.row}>
+                    <View style={styles.mainCol}>{main}</View>
+                    <View style={[styles.railCol, { width: RAIL_WIDTH }]}>{rail}</View>
+                  </View>
+                ) : (
+                  // Phone: the same order, stacked. The rail's panels become
+                  // ordinary sections rather than being dropped.
+                  <View style={styles.stackAll}>
+                    {main}
+                    {rail}
+                  </View>
+                )}
+              </>
+            )}
+          </>
+        )}
+      </ScrollView>
+
+      <WhyDocumentsDialog open={whyOpen} onClose={() => setWhyOpen(false)} />
     </SafeAreaView>
   );
 }
 
-function Stat({ chip, n }: { chip: string; n: number }) {
-  return (
-    <View style={styles.stat}>
-      <Text style={styles.statN}>{n}</Text>
-      <Text style={styles.statL}>{chip}</Text>
-    </View>
-  );
-}
-
-function DocCard({ item, onPress }: { item: DocumentHubCard; onPress: () => void }) {
-  const when = formatWhen(item.event_start);
-  const cat = MACRO_LABEL[item.macro_category || 'generic'] || item.macro_category;
-  return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [styles.card, pressed && styles.pressed]}
-      testID={`doc-card-${item.id}`}
-    >
-      <View style={styles.cardTop}>
-        <Text style={styles.cardTitle} numberOfLines={2}>
-          {item.display_title || 'Documento'}
-        </Text>
-        {/*
-          PX1.1 — the raw confidence badge ("60%", "75%") is gone. It was an
-          implementation state on every card: a number the reader cannot act
-          on, quietly asking them to decide how much to trust ORA's reading of
-          their own document. The human state is already right below it —
-          "Completato", "In attesa di conferma", "1 azione da confermare" —
-          and that is what tells someone whether anything is needed from them.
-        */}
-      </View>
-      <Text style={styles.cardFile} numberOfLines={1}>{item.original_filename}</Text>
-      <View style={styles.metaRow}>
-        <Text style={styles.badge}>{cat}</Text>
-        <Text style={styles.status}>{item.pipeline_status_label || item.pipeline_status || '—'}</Text>
-      </View>
-      {item.short_description ? (
-        <Text style={styles.desc} numberOfLines={2}>{item.short_description}</Text>
-      ) : null}
-      {item.utility ? <Text style={styles.utility}>{item.utility}</Text> : null}
-      {(when || item.event_location) ? (
-        <Text style={styles.extra} numberOfLines={1}>
-          {[when, item.event_location].filter(Boolean).join(' · ')}
-        </Text>
-      ) : null}
-      {(item.open_actions || 0) > 0 ? (
-        <Text style={styles.actionHint}>{item.open_actions} azione/i da confermare</Text>
-      ) : null}
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: tokens.color.surface },
-  header: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingHorizontal: 16, paddingTop: 8, paddingBottom: 8,
+  root: { flex: 1 },
+  row: { flexDirection: 'row', gap: tokens.spacing.xl, alignItems: 'flex-start' },
+  mainCol: { flex: 1, minWidth: 0, gap: tokens.spacing.lg },
+  railCol: { gap: tokens.spacing.lg },
+  stackAll: { gap: tokens.spacing.lg },
+  actions: { flexDirection: 'row', gap: tokens.spacing.md, flexWrap: 'wrap' },
+  phase: { fontSize: 13, lineHeight: 19 },
+  list: {
+    borderRadius: tokens.radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: 'hidden',
   },
-  title: { color: tokens.color.onSurface, fontSize: 28, fontWeight: '700', letterSpacing: -0.5 },
-  subtitle: { color: tokens.color.onSurfaceMuted, fontSize: 13, marginTop: 2 },
-  uploadBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: tokens.color.brand, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12,
+  partial: {
+    fontSize: tokens.typography.caption.fontSize,
+    lineHeight: tokens.typography.caption.lineHeight,
   },
-  uploadTxt: { color: tokens.color.onBrand, fontWeight: '600', fontSize: 14 },
-  pressed: { opacity: 0.85 },
-  /**
-   * A horizontal scroller must never be vertically compressible.
-   *
-   * These rows sit in a bounded flex column whose content is taller than the
-   * viewport, so flexbox was shrinking them: the stats row rendered 25px tall
-   * around 51px of content and the filter chips 15px around 25px — numbers
-   * visible, their labels sliced off. `flexShrink: 0` makes them keep their
-   * own height and let the *page* scroll instead. Pre-existing; it only became
-   * visible once the screen stopped being dark and low-contrast.
-   */
-  hScroll: { flexGrow: 0, flexShrink: 0 },
-  statsRow: { paddingHorizontal: 16, gap: 8, paddingBottom: 8 },
-  stat: {
-    backgroundColor: tokens.color.surface, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8,
-    minWidth: 72, borderWidth: StyleSheet.hairlineWidth, borderColor: tokens.color.border,
-  },
-  statN: { color: tokens.color.onSurface, fontWeight: '700', fontSize: 18 },
-  statL: { color: tokens.color.onSurfaceMuted, fontSize: MIN_READABLE_FONT_SIZE, marginTop: 2 },
-  searchBox: {
-    marginHorizontal: 16, marginBottom: 8, flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: tokens.color.surface, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10,
-    borderWidth: StyleSheet.hairlineWidth, borderColor: tokens.color.border,
-  },
-  searchInput: { flex: 1, color: tokens.color.onSurface, fontSize: 15, padding: 0 },
-  filters: { paddingHorizontal: 16, gap: 8, paddingBottom: 8 },
-  filterChip: {
-    paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999,
-    backgroundColor: tokens.color.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: tokens.color.border,
-  },
-  filterChipOn: { backgroundColor: tokens.color.onSurface },
-  filterTxt: { color: tokens.color.onSurfaceMuted, fontSize: 13, fontWeight: '500' },
-  filterTxtOn: { color: tokens.color.surface },
-  error: { color: tokens.color.error, paddingHorizontal: 16, marginBottom: 6, fontSize: 13 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  empty: { alignItems: 'center', paddingTop: 48, gap: 8, paddingHorizontal: 24 },
-  emptyTitle: { color: tokens.color.onSurface, fontSize: 17, fontWeight: '600' },
-  emptyBody: { color: tokens.color.onSurfaceMuted, fontSize: 14, textAlign: 'center', lineHeight: 20 },
-  card: {
-    backgroundColor: tokens.color.surfaceSecondary, borderRadius: 16, padding: 14, gap: 4,
-    borderWidth: StyleSheet.hairlineWidth, borderColor: tokens.color.border,
-  },
-  cardTop: { flexDirection: 'row', justifyContent: 'space-between', gap: 8, alignItems: 'flex-start' },
-  cardTitle: { flex: 1, color: tokens.color.onSurface, fontSize: 16, fontWeight: '600' },
-  cardFile: { color: tokens.color.onSurfaceMuted, fontSize: 12 },
-  metaRow: { flexDirection: 'row', gap: 8, alignItems: 'center', marginTop: 4 },
-  badge: {
-    color: tokens.color.onSurface, fontSize: MIN_READABLE_FONT_SIZE, fontWeight: '600',
-    backgroundColor: tokens.color.surfaceSecondary, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, overflow: 'hidden',
-  },
-  status: { color: tokens.color.onSurfaceMuted, fontSize: 12 },
-  desc: { color: tokens.color.onSurfaceMuted, fontSize: 13, lineHeight: 18, marginTop: 4 },
-  utility: { color: tokens.color.brand, fontSize: 13, fontWeight: '500', marginTop: 4 },
-  extra: { color: tokens.color.onSurfaceMuted, fontSize: 12, marginTop: 2 },
-  actionHint: { color: tokens.color.warning, fontSize: 12, fontWeight: '600', marginTop: 4 },
 });

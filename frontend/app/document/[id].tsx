@@ -24,9 +24,14 @@ import { humanizeError } from '@/src/utils/errors';
 import { ActionBtn } from '@/src/components/ui/ActionBtn';
 import { DocumentActionsBar } from '@/src/components/DocumentActionsBar';
 import { DocumentUtilityPanel } from '@/src/components/documents/DocumentUtilityPanel';
+import { buildOraConversationHref } from '@/src/ora/oraNav';
+import { categoryLabel } from '@/src/components/documents/libraryView';
 import * as Clipboard from 'expo-clipboard';
 
 type Tab = 'info' | 'insights' | 'content' | 'meta';
+
+/** Editorial width — the same reading column the other PX1.x surfaces use. */
+const DETAIL_MAX_WIDTH = 960;
 
 const ENTITY_LABELS: Record<string, { label: string; icon: keyof typeof Ionicons.glyphMap }> = {
   persons:        { label: 'Persone',              icon: 'people-outline' },
@@ -103,6 +108,14 @@ export default function DocumentDetailScreen() {
     return () => clearInterval(t);
   }, [analysis?.pipeline_status, analysis?.analysis, load]);
 
+  /** Shared by the error card and the secondary actions — one behaviour, two places. */
+  const onReanalyze = async () => {
+    if (!doc) return;
+    haptic('tap'); setBusy('reanalyze');
+    try { await api.documentReanalyze(doc.id); await load({ silent: true }); }
+    catch (e: any) { setError(humanizeError(e)); }
+    setBusy(null);
+  };
   const onArchive = async () => {
     if (!doc) return;
     haptic('tap'); setBusy('archive');
@@ -139,33 +152,79 @@ export default function DocumentDetailScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']} testID="document-detail">
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={styles.header}>
-        <Pressable           onPress={() => {
-            haptic('tap');
-            if (router.canGoBack()) router.back();
-            else router.replace('/(tabs)/documenti' as any);
-          }} hitSlop={12} style={styles.backBtn}>
-          <Ionicons name="chevron-back" size={22} color={tokens.color.onSurface} />
-        </Pressable>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.title} numberOfLines={2}>
-            {analysis?.display_title || analysis?.analysis?.suggested_title || doc.display_title || doc.filename}
-          </Text>
-          <Text style={styles.subtitle}>
-            {analysis?.pipeline_status_label || ins.type_label}
-            {analysis?.analysis?.macro_category ? ` · ${analysis.analysis.macro_category}` : ''}
-          </Text>
+      <View style={styles.column}>
+        <View style={styles.header}>
+          <Pressable
+            onPress={() => {
+              haptic('tap');
+              if (router.canGoBack()) router.back();
+              else router.replace('/(tabs)/documenti' as any);
+            }}
+            hitSlop={12}
+            style={styles.backBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Indietro"
+          >
+            <Ionicons name="chevron-back" size={22} color={tokens.color.onSurfaceMuted} />
+          </Pressable>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.title} numberOfLines={2} accessibilityRole="header" aria-level={1}>
+              {analysis?.display_title || analysis?.analysis?.suggested_title || doc.display_title || doc.filename}
+            </Text>
+            <Text style={styles.subtitle}>
+              {analysis?.pipeline_status_label || ins.type_label}
+              {categoryLabel(analysis?.analysis?.macro_category) ? ` · ${categoryLabel(analysis?.analysis?.macro_category)}` : ''}
+            </Text>
+          </View>
         </View>
       </View>
 
-      <View style={styles.tabs}>
-        {(['info', 'insights', 'content', 'meta'] as Tab[]).map(t => (
-          <Pressable key={t} onPress={() => setTab(t)} style={[styles.tab, tab === t && styles.tabActive]}>
-            <Text style={[styles.tabText, tab === t && styles.tabTextActive]}>
-              {t === 'info' ? 'Utilità' : t === 'insights' ? 'Dettagli' : t === 'content' ? 'Originale' : 'File'}
-            </Text>
-          </Pressable>
-        ))}
+      {/*
+        The way out of reading and into asking.
+
+        The document travels with the route as an opaque id and is bound to the
+        conversation as context on the first turn, so someone can arrive here,
+        tap this and write "cosa devo controllare?" without attaching the file
+        again or explaining what it is. Placed above the tabs because it is the
+        one action that is useful whichever tab you were about to open.
+      */}
+      <View style={styles.column}>
+        <Pressable
+          onPress={() => {
+            haptic('tap');
+            router.push(
+              buildOraConversationHref({ documentId: doc.id, entryPoint: 'document' }) as any,
+            );
+          }}
+          style={({ pressed }) => [styles.askOra, pressed && { opacity: 0.75 }]}
+          accessibilityRole="button"
+          testID="document-ask-ora"
+        >
+          <Ionicons name="chatbubble-ellipses-outline" size={16} color={tokens.color.onBrand} />
+          <Text style={styles.askOraLabel}>Chiedi a ORA su questo documento</Text>
+        </Pressable>
+
+        {/*
+          Tabs as a quiet row of labels with a rule under the active one. The
+          filled pills read as four competing buttons, which put navigation on
+          the same footing as the one action the page is actually for.
+        */}
+        <View style={styles.tabs}>
+          {(['info', 'insights', 'content', 'meta'] as Tab[]).map(t => (
+            <Pressable
+              key={t}
+              onPress={() => setTab(t)}
+              style={[styles.tab, tab === t && styles.tabActive]}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: tab === t }}
+              aria-selected={tab === t}
+            >
+              <Text style={[styles.tabText, tab === t && styles.tabTextActive]}>
+                {t === 'info' ? 'Utilità' : t === 'insights' ? 'Dettagli' : t === 'content' ? 'Originale' : 'File'}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
       </View>
 
       {error ? (
@@ -175,7 +234,20 @@ export default function DocumentDetailScreen() {
         </Animated.View>
       ) : null}
 
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 100, gap: 12 }}>
+      <ScrollView
+        contentContainerStyle={{
+          paddingHorizontal: tokens.spacing.lg,
+          paddingTop: tokens.spacing.lg,
+          // The action bar is gone from the bottom of the screen, so the page
+          // only needs room to breathe past the safe area.
+          paddingBottom: insets.bottom + tokens.spacing.xxxl,
+          gap: tokens.spacing.md,
+          width: '100%',
+          maxWidth: DETAIL_MAX_WIDTH,
+          alignSelf: 'center',
+        }}
+        showsVerticalScrollIndicator={false}
+      >
         {tab === 'info' && (
           <TabInfo
             ins={ins}
@@ -224,15 +296,7 @@ export default function DocumentDetailScreen() {
                 setError(humanizeError(e));
               } finally { setBusy(null); }
             }}
-            onReanalyze={async () => {
-              setBusy('reanalyze');
-              try {
-                await api.documentReanalyze(doc.id);
-                await load({ silent: true });
-              } catch (e: any) {
-                setError(humanizeError(e));
-              } finally { setBusy(null); }
-            }}
+            onReanalyze={onReanalyze}
             onStudy={async (action) => {
               setBusy(`study-${action}`);
               try {
@@ -302,16 +366,33 @@ export default function DocumentDetailScreen() {
         {tab === 'insights' && <TabInsights ins={ins} />}
         {tab === 'content' && <TabContent ins={ins} query={query} setQuery={setQuery} />}
         {tab === 'meta' && <TabMeta ins={ins} />}
+
+        {/*
+          Archiving and deleting close the page rather than sitting in a bar
+          pinned across the bottom of it. They are things you do when you have
+          finished reading, and a permanent strip gave two rarely-wanted
+          actions — one of them destructive — the most persistent position on
+          the screen.
+        */}
+        <View style={styles.secondary}>
+          <View style={styles.secondaryRow}>
+            <ActionBtn
+              icon="refresh"
+              label="Riesegui analisi"
+              onPress={onReanalyze}
+              loading={busy === 'reanalyze'}
+            />
+            {doc.archived ? (
+              <ActionBtn icon="refresh" label="Ripristina" onPress={onRestore} loading={busy === 'restore'} />
+            ) : (
+              <ActionBtn icon="archive-outline" label="Archivia" onPress={onArchive} loading={busy === 'archive'} />
+            )}
+            <ActionBtn variant="danger" icon="trash-outline" label="Elimina" onPress={onDelete} loading={busy === 'del'} />
+          </View>
+        </View>
       </ScrollView>
 
-      <View style={[styles.actionsBar, { paddingBottom: insets.bottom + 8 }]}>
-        {doc.archived ? (
-          <ActionBtn icon="refresh" label="Ripristina" onPress={onRestore} loading={busy === 'restore'} />
-        ) : (
-          <ActionBtn icon="archive-outline" label="Archivia" onPress={onArchive} loading={busy === 'archive'} />
-        )}
-        <ActionBtn variant="danger" icon="trash-outline" label="Elimina" onPress={onDelete} loading={busy === 'del'} />
-      </View>
+
     </SafeAreaView>
   );
 }
@@ -375,12 +456,16 @@ function TabInfo({
         }}
       />
       <DocumentActionsBar insights={ins} />
-      <Card title="Storico">
+      {/*
+        Origin, in the terms someone would describe it: when it arrived and
+        whether it is still in the library. The internal revision number and
+        the upload channel are plumbing — neither tells a person anything they
+        could use or check.
+      */}
+      <Card title="Origine">
         <FieldRow k="Caricato" v={formatDate(ins.history.created_at)} />
         <FieldRow k="Aggiornato" v={formatDate(ins.history.updated_at)} />
         <FieldRow k="Stato" v={ins.history.archived ? 'Archiviato' : 'Attivo'} />
-        <FieldRow k="Versione" v={String(ins.history.version)} />
-        {ins.history.upload_source ? <FieldRow k="Sorgente" v={ins.history.upload_source} /> : null}
       </Card>
     </Animated.View>
   );
@@ -571,18 +656,65 @@ function renderHighlighted(text: string, q: string): React.ReactNode {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: tokens.color.surface },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 12, gap: 8 },
-  backBtn: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  title: { fontSize: 17, fontWeight: '700', color: tokens.color.onSurface },
-  subtitle: { fontSize: 12, color: tokens.color.onSurfaceMuted, marginTop: 2 },
-  tabs: { flexDirection: 'row', gap: 6, paddingHorizontal: 12, paddingBottom: 8, flexWrap: 'wrap' },
-  tab: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 16, backgroundColor: tokens.color.surfaceSecondary, borderWidth: 1, borderColor: tokens.color.border },
-  tabActive: { backgroundColor: tokens.color.brand, borderColor: tokens.color.brand },
-  tabText: { color: tokens.color.onSurface, fontSize: 12, fontWeight: '600' },
-  tabTextActive: { color: tokens.color.onBrand },
+  safe: { flex: 1, backgroundColor: tokens.color.backgroundPrimary },
+  /** A reading column, not a full-bleed page. */
+  column: { width: '100%', maxWidth: DETAIL_MAX_WIDTH, alignSelf: 'center' },
+  header: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 4,
+    paddingHorizontal: tokens.spacing.lg, paddingTop: tokens.spacing.sm,
+    paddingBottom: tokens.spacing.md,
+  },
+  backBtn: {
+    width: tokens.touch.min, height: tokens.touch.min,
+    alignItems: 'center', justifyContent: 'center', marginLeft: -12,
+  },
+  title: { fontSize: 24, fontWeight: '700', letterSpacing: -0.5, lineHeight: 31, color: tokens.color.onSurface },
+  subtitle: { fontSize: 13, color: tokens.color.onSurfaceMuted, marginTop: 2 },
+  askOra: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    alignSelf: 'flex-start',
+    marginHorizontal: tokens.spacing.lg,
+    marginBottom: tokens.spacing.lg,
+    minHeight: tokens.touch.min,
+    paddingHorizontal: tokens.spacing.xl,
+    borderRadius: tokens.radius.md,
+    backgroundColor: tokens.color.brand,
+  },
+  askOraLabel: { color: tokens.color.onBrand, fontSize: 15, fontWeight: '600' },
+  tabs: {
+    flexDirection: 'row', gap: tokens.spacing.lg,
+    paddingHorizontal: tokens.spacing.lg, flexWrap: 'wrap',
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: tokens.color.divider,
+  },
+  /**
+   * The rule under the label is what a person sees; the box around it is what
+   * they hit. "File" is 22px of text, so the tappable area is widened and
+   * heightened to the 44px floor without touching the type or the spacing —
+   * the underline still hugs the word.
+   */
+  tab: {
+    paddingVertical: 11,
+    minHeight: tokens.touch.min,
+    minWidth: tokens.touch.min,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  tabActive: { borderBottomColor: tokens.color.brand },
+  tabText: { color: tokens.color.onSurfaceMuted, fontSize: 14, fontWeight: '500' },
+  tabTextActive: { color: tokens.color.onSurface, fontWeight: '600' },
+  secondary: {
+    marginTop: tokens.spacing.xxl,
+    paddingTop: tokens.spacing.lg,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: tokens.color.divider,
+  },
+  secondaryRow: { flexDirection: 'row', gap: tokens.spacing.md, flexWrap: 'wrap' },
   centerBox: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 24 },
-  card: { backgroundColor: tokens.color.surfaceSecondary, borderRadius: tokens.radius.md, padding: 14, borderWidth: 1, borderColor: tokens.color.border, gap: 8 },
+  card: { backgroundColor: tokens.color.surface, borderRadius: tokens.radius.lg, padding: tokens.spacing.lg, borderWidth: StyleSheet.hairlineWidth, borderColor: tokens.color.border, gap: 8 },
   cardHead: { flexDirection: 'row', gap: 6, alignItems: 'center', marginBottom: 2 },
   cardTitle: { color: tokens.color.onSurface, fontSize: 13, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
   metaLine: { flexDirection: 'row', gap: 12 },
@@ -598,5 +730,4 @@ const styles = StyleSheet.create({
   highlight: { backgroundColor: '#fde68a', color: '#111827', fontWeight: '700' },
   errBanner: { flexDirection: 'row', gap: 6, alignItems: 'center', padding: 10, borderRadius: tokens.radius.md, borderWidth: 1, borderColor: tokens.color.error, backgroundColor: tokens.color.errorBg, marginHorizontal: 16, marginBottom: 4 },
   errorText: { color: tokens.color.onSurface, fontSize: 12, flex: 1 },
-  actionsBar: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 16, paddingTop: 10, gap: 8, backgroundColor: tokens.color.surface, borderTopWidth: 1, borderTopColor: tokens.color.border },
 });

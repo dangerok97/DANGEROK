@@ -276,6 +276,16 @@ type Props = {
   planId?: string | null;
   objectId?: string | null;
   planItemId?: string | null;
+  /**
+   * A document the conversation should open already holding.
+   *
+   * It travels as an attachment on the first turn, through the same binding
+   * path an uploaded file uses — the runtime promotes a stored document into a
+   * context file by id — so ORA reads it before answering rather than being
+   * told about it. Only on the first turn: once the session exists the file is
+   * bound to it and re-sending would attach the same document twice.
+   */
+  documentId?: string | null;
   entryPoint?: OraEntryPoint;
   devHarness?: boolean;
   testID?: string;
@@ -286,6 +296,7 @@ export function OraConversationScreen({
   planId,
   objectId,
   planItemId,
+  documentId,
   entryPoint = 'ora',
   devHarness,
   testID = 'ora-conversation',
@@ -309,7 +320,12 @@ export function OraConversationScreen({
   const sendingRef = useRef(false);
   const outbox = useRef<Map<string, Outbox>>(new Map());
 
-  const { context, resolving: contextResolving } = useOraContext({ planId, objectId, planItemId });
+  const { context, resolving: contextResolving } = useOraContext({
+    planId,
+    objectId,
+    planItemId,
+    documentId,
+  });
 
   /**
    * Leaving goes back where the user came from. A conversation opened from a
@@ -563,7 +579,9 @@ export function OraConversationScreen({
             entry_point: entryPoint,
             plan_id: planId || undefined,
             object_id: objectId || undefined,
-            attachments: pendingAttach,
+            attachments: documentId
+              ? [...pendingAttach, { document_id: String(documentId) }]
+              : pendingAttach,
           });
           const id = res.session_id;
           setSessionId(id || null);
@@ -581,6 +599,7 @@ export function OraConversationScreen({
               ...(planId ? { planId: String(planId) } : {}),
               ...(objectId ? { objectId: String(objectId) } : {}),
               ...(planItemId ? { planItemId: String(planItemId) } : {}),
+              ...(documentId ? { documentId: String(documentId) } : {}),
               entry: entryPoint,
             });
             router.replace(`/ora/${id}?${q.toString()}` as any);
@@ -615,6 +634,7 @@ export function OraConversationScreen({
       planId,
       objectId,
       planItemId,
+      documentId,
       paramId,
       router,
       applyAiCoreResponse,

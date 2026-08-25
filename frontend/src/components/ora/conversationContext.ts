@@ -10,34 +10,40 @@ import { useEffect, useState } from 'react';
 
 import { api } from '@/src/api/client';
 import { humanizeError } from '@/src/utils/errors';
-import { contextFromPlanBundle, oraErrorSentence, type OraContextView } from './contextView';
+import {
+  contextFromDocument,
+  contextFromPlanBundle,
+  oraErrorSentence,
+  type OraContextView,
+} from './contextView';
 
-export { contextFromPlanBundle, oraErrorSentence };
+export { contextFromDocument, contextFromPlanBundle, oraErrorSentence };
 export type { OraContextView };
 
 type Args = {
   planId?: string | null;
   objectId?: string | null;
   planItemId?: string | null;
+  documentId?: string | null;
 };
 
 /**
  * One fetch, only when there is a plan to fetch — no waterfall, and no request
  * at all for a conversation opened from the navigation bar.
  */
-export function useOraContext({ planId, objectId, planItemId }: Args): {
+export function useOraContext({ planId, objectId, planItemId, documentId }: Args): {
   context: OraContextView | null;
-  /** True while a plan was named but has not been read yet. */
+  /** True while a context was named but has not been read yet. */
   resolving: boolean;
 } {
   const [ctx, setCtx] = useState<OraContextView | null>(null);
-  // A conversation opened on a goal must not greet the user as if it had no
-  // idea why they came — even for the half second the plan takes to arrive.
-  const [resolving, setResolving] = useState(Boolean(planId));
+  // A conversation opened on something must not greet the user as if it had
+  // no idea why they came — even for the half second the read takes.
+  const [resolving, setResolving] = useState(Boolean(planId || documentId));
 
   useEffect(() => {
     let cancelled = false;
-    if (!planId) {
+    if (!planId && !documentId) {
       setCtx(null);
       setResolving(false);
       return;
@@ -45,9 +51,17 @@ export function useOraContext({ planId, objectId, planItemId }: Args): {
     setResolving(true);
     (async () => {
       try {
-        const res: any = await api.getLifeOsPlan(String(planId));
-        if (cancelled) return;
-        setCtx(contextFromPlanBundle(res, { objectId, planItemId }));
+        // A plan is the richer context and wins when both are present: the
+        // document is already travelling as an attachment either way.
+        if (planId) {
+          const res: any = await api.getLifeOsPlan(String(planId));
+          if (cancelled) return;
+          setCtx(contextFromPlanBundle(res, { objectId, planItemId }));
+        } else {
+          const doc: any = await api.documentGet(String(documentId));
+          if (cancelled) return;
+          setCtx(contextFromDocument(doc));
+        }
       } catch {
         // Context is an aid, never a precondition: if it cannot be read the
         // conversation still opens, just without the header.
@@ -59,7 +73,7 @@ export function useOraContext({ planId, objectId, planItemId }: Args): {
     return () => {
       cancelled = true;
     };
-  }, [planId, objectId, planItemId]);
+  }, [planId, objectId, planItemId, documentId]);
 
   return { context: ctx, resolving };
 }

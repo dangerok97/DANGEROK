@@ -139,6 +139,19 @@ async def documents_hub(
     return await _intel().hub(user_id=user["user_id"], limit=limit)
 
 
+@router.get("/library")
+async def documents_library(user=Depends(get_current_user)):
+    """Documenti page: one aggregated read, presentation only.
+
+    Area labels come from the Life Map so the two surfaces cannot drift on what
+    a domain is called — this module knows the keys, never the vocabulary.
+    """
+    from documents.library import build_library
+    from ai_life_strategist.models import DOMAIN_LABELS_IT
+
+    return await build_library(_intel().db, user["user_id"], domain_labels=DOMAIN_LABELS_IT)
+
+
 @router.get("/preferences")
 async def get_document_preferences(user=Depends(get_current_user)):
     return await _intel().get_document_prefs(user["user_id"])
