@@ -15,6 +15,7 @@ from life_setup.router import router as life_setup_router
 from life_objects import life_objects_router
 from life_map import life_map_router
 from life_memory import life_memory_router
+from activity import activity_router
 
 from . import (
     admin,
@@ -67,6 +68,7 @@ ALL_ROUTERS = [
     life_setup_router,
     life_objects_router,
     life_map_router,
+    activity_router,
     life_memory_router,
     life_os_router.router,
     llm_router,

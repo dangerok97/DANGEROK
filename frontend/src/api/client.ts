@@ -942,6 +942,13 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
+  /**
+   * Attività — one aggregated read of what ORA is asking, awaiting and has
+   * done. Deliberately a single request: the sections have to agree with each
+   * other, which they only do when they come from one moment.
+   */
+  getActivity: () => request<ActivityResponse>('/activity'),
+
   /** Life Map — Contesti cognition foundation (deterministic + optional AI). */
   getLifeMap: (opts?: { force?: boolean; enrich?: boolean }) => {
     const q = new URLSearchParams();
@@ -2222,6 +2229,54 @@ export type LifeSetupTurn = {
 };
 
 /** Life Map API — presentation rows + optional AI interpretation (Prompt 5.1). */
+export type ActivityAction = { kind: string; label: string; route?: string | null };
+
+export type ActivityResponse = {
+  ok: boolean;
+  attention?: {
+    id: string;
+    item_id: string;
+    title: string;
+    detail?: string;
+    actions: ActivityAction[];
+    visual?: { visual_key?: string | null; status: string; url?: string | null } | null;
+  } | null;
+  questions: Array<{
+    id: string;
+    title: string;
+    detail?: string;
+    /** ORA has prepared this and will not act without a yes. */
+    needs_consent: boolean;
+    kind: string;
+    route?: string | null;
+    suggestion_id?: string | null;
+    memory_id?: string | null;
+    at?: string | null;
+  }>;
+  waiting: Array<{
+    id: string;
+    title: string;
+    waiting_for?: string;
+    when?: string | null;
+    route?: string | null;
+  }>;
+  updates: Array<{
+    id: string;
+    title: string;
+    context?: string;
+    /** ora = ORA did it · observed = ORA noticed it. */
+    actor: string;
+    at: string;
+    route?: string | null;
+  }>;
+  deadlines: Array<{ id: string; title: string; at: string; route?: string | null }>;
+  completed: Array<{ id: string; title: string; at: string }>;
+  summary: Array<{ label: string; value: number; icon?: string }>;
+  partial?: boolean;
+  partial_sources?: string[];
+  generated_at?: string;
+};
+
 export type LifeMapResponse = {
   ok: boolean;
   version?: string;

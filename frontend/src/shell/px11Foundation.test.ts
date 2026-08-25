@@ -306,10 +306,25 @@ const readCode = (rel: string) =>
     }
   }
 
-  // The placeholder says what will be there — it does not announce a roadmap.
+  // Attività says what it holds, in the user's own terms, and never announces
+  // a roadmap. PX1.1 shipped it as a named empty room and asserted the future
+  // tense; PX1.6 built the room, so the same promise is now made in the
+  // present. The rule that mattered — describe it, do not advertise it —
+  // is what the assertion keeps.
   const attivita = readCode('app/(tabs)/attivita.tsx');
   assert.ok(!/coming soon|prossimamente|in arrivo/i.test(attivita));
-  assert.ok(attivita.includes('Qui troverai'), 'the empty state must describe the room, in Italian');
+  assert.ok(
+    /Qui trovi le domande, gli aggiornamenti e le azioni di ORA\./.test(
+      readCode('src/components/activity/ActivityParts.tsx'),
+    ),
+    'Attività must describe what it holds, in Italian',
+  );
+  assert.ok(
+    /Non c'è nulla che richieda la tua attenzione\./.test(
+      readCode('src/components/activity/ActivityParts.tsx'),
+    ),
+    'the empty state must be a calm statement, not a blank page',
+  );
 }
 
 // ---------------------------------------------------------------------------
