@@ -124,18 +124,35 @@ export function ContextRail({
           <Ionicons name="calendar-outline" size={13} color={colors.textSecondary} />
           <Text style={[styles.panelTitle, { color: colors.textSecondary }]}>CALENDARIO</Text>
           <View style={styles.monthNav}>
-            <Pressable onPress={() => shiftMonth(-1)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Mese precedente">
+            {/*
+              A 15px chevron is the right size to look at and the wrong size to
+              hit. Each control keeps its glyph and gains a 44px box around it;
+              the row absorbs the extra height with a negative margin, so the
+              panel header is exactly as tall as it was.
+            */}
+            <Pressable
+              onPress={() => shiftMonth(-1)}
+              style={styles.navBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Mese precedente"
+            >
               <Ionicons name="chevron-back" size={15} color={colors.textTertiary} />
             </Pressable>
             <Pressable
               onPress={() => { const n = new Date(); setCursor(startOfMonth(n)); setSelected(n); }}
-              hitSlop={8}
+              style={styles.navBtn}
               accessibilityRole="button"
+              accessibilityLabel="Vai a oggi"
               testID="rail-today"
             >
               <Text style={[styles.todayBtn, { color: colors.textSecondary }]}>Oggi</Text>
             </Pressable>
-            <Pressable onPress={() => shiftMonth(1)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Mese successivo">
+            <Pressable
+              onPress={() => shiftMonth(1)}
+              style={styles.navBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Mese successivo"
+            >
               <Ionicons name="chevron-forward" size={15} color={colors.textTertiary} />
             </Pressable>
           </View>
@@ -331,7 +348,14 @@ const styles = StyleSheet.create({
   },
   panelHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   panelTitle: { fontSize: 11, fontWeight: '700', letterSpacing: 1 },
-  monthNav: { flexDirection: 'row', alignItems: 'center', gap: 8, marginLeft: 'auto' },
+  monthNav: {
+    flexDirection: 'row', alignItems: 'center', gap: 2, marginLeft: 'auto',
+    marginVertical: -12, marginRight: -10,
+  },
+  navBtn: {
+    minWidth: tokens.touch.min, height: tokens.touch.min,
+    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4,
+  },
   todayBtn: { fontSize: 12, fontWeight: '500' },
   monthLabel: {
     fontSize: 16,
@@ -340,10 +364,30 @@ const styles = StyleSheet.create({
     textTransform: 'capitalize',
     marginTop: 2,
   },
-  week: { flexDirection: 'row', marginTop: 4 },
+  week: { flexDirection: 'row', marginTop: 4, marginHorizontal: -tokens.spacing.sm },
   weekday: { flex: 1, textAlign: 'center', fontSize: 9, fontWeight: '700', letterSpacing: 0.4 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap' },
-  cell: { width: `${100 / 7}%`, alignItems: 'center', paddingVertical: 2 },
+  /*
+    The grid reclaims the panel's own padding so seven columns divide the full
+    panel width instead of the width minus 32px — which is what left each day
+    a pixel short of the 44px floor. The pills stay optically inside the card
+    because each one is 26px centred in its cell.
+  */
+  grid: {
+    flexDirection: 'row', flexWrap: 'wrap',
+    marginHorizontal: -tokens.spacing.sm,
+  },
+  /*
+    The pill a person sees is 26px and stays 26px; the cell around it is what
+    they tap. Seven columns of a 300px rail give ~43px of width, so only the
+    height was short — the padding brings each day to the 44px floor without
+    touching the calendar's density or type.
+  */
+  cell: {
+    width: `${100 / 7}%`,
+    minHeight: tokens.touch.min,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   dayWrap: {
     width: 26,
     height: 26,
@@ -367,7 +411,10 @@ const styles = StyleSheet.create({
   sumRow: { flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.md, minHeight: 40 },
   sumLabel: { flex: 1, fontSize: 13 },
   sumValue: { fontSize: 17, fontWeight: '700' },
-  footer: { flexDirection: 'row', alignItems: 'center', gap: 5, minHeight: 30 },
+  footer: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    minHeight: tokens.touch.min, alignSelf: 'flex-start',
+  },
   footerLabel: { fontSize: 12, fontWeight: '600' },
   pressed: { opacity: 0.65 },
 });

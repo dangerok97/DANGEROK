@@ -20,6 +20,7 @@ import { useRouter } from 'expo-router';
 import { api } from '@/src/api/client';
 import { humanizeError } from '@/src/utils/errors';
 import { haptic } from '@/src/utils/haptic';
+import { useInflight } from '@/src/shell';
 import {
   AuthMethods,
   BoundaryNote,
@@ -60,7 +61,9 @@ export default function PermessiScreen() {
   const snapshot = data?.snapshot;
   const mode: LocationMode = location ?? snapshot?.location ?? 'off';
 
-  const setMode = useCallback(async (next: LocationMode) => {
+  const guard = useInflight();
+
+  const setMode = useCallback((next: LocationMode) => guard(async () => {
     haptic('tap');
     setBusy(`loc_${next}`);
     setWriteError(null);
@@ -74,7 +77,7 @@ export default function PermessiScreen() {
     } finally {
       setBusy(null);
     }
-  }, []);
+  }), [guard]);
 
   const calendars = (snapshot?.services || []).filter((s) => s.id.endsWith('calendar'));
   const calendarConnected = connectedServices(calendars).length > 0;

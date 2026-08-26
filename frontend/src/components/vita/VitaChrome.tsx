@@ -236,7 +236,7 @@ const styles = StyleSheet.create({
   whyBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 7,
     borderWidth: StyleSheet.hairlineWidth, borderRadius: tokens.radius.md,
-    paddingHorizontal: tokens.spacing.lg, minHeight: 40,
+    paddingHorizontal: tokens.spacing.lg, minHeight: tokens.touch.min,
   },
   whyLabel: { fontSize: 13, fontWeight: '500' },
 

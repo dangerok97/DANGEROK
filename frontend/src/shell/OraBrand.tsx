@@ -21,7 +21,16 @@ export function OraBrand({ size = 40 }: { size?: number }) {
   const { colors } = useTheme();
 
   return (
-    <View style={styles.wrap} testID="ora-brand" accessibilityRole="header" accessibilityLabel="ORA">
+    /*
+      The mark, not a heading.
+
+      As `accessibilityRole="header"` this rendered an <h1> in the navigation
+      rail, so every page announced two level-one headings — the product's name
+      and then the page's. A screen-reader user jumping by heading landed on
+      the logo first, on every screen. It is a logo: it says what it is and
+      stops competing with the title of the page you are on.
+    */
+    <View style={styles.wrap} testID="ora-brand" accessibilityLabel="ORA">
       {/*
         The asset carries the ring *and* the wordmark, so the component renders
         it whole rather than pairing the mark with type of our own — that is

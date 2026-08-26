@@ -423,7 +423,13 @@ export function UpdatesPanel({
               <Text style={[styles.rowTitle, { color: colors.textPrimary }]} numberOfLines={2}>
                 {u.title}
               </Text>
-              <Text style={[styles.rowMeta, { color: colors.textTertiary }]} numberOfLines={1}>
+              {/*
+                Two lines. An update whose context is a sentence rather than a
+                label — "Il promemoria riguarda una scadenza imminente…" — had
+                640px of words in a 286px line, and when the update carries no
+                route there is nowhere to go and read the rest.
+              */}
+              <Text style={[styles.rowMeta, { color: colors.textTertiary }]} numberOfLines={3}>
                 {[u.context, when].filter(Boolean).join(' · ')}
               </Text>
             </View>
@@ -622,7 +628,7 @@ const styles = StyleSheet.create({
   whyBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 7,
     borderWidth: StyleSheet.hairlineWidth, borderRadius: tokens.radius.md,
-    paddingHorizontal: tokens.spacing.lg, minHeight: 40,
+    paddingHorizontal: tokens.spacing.lg, minHeight: tokens.touch.min,
   },
   whyLabel: { fontSize: 13, fontWeight: '500' },
 
@@ -652,7 +658,13 @@ const styles = StyleSheet.create({
    * the supporting line ran across the picture — text over an image with no
    * scrim, unreadable at exactly the size a hero needs to be read at.
    */
-  heroBody: { width: '58%', padding: tokens.spacing.xl, gap: 8, zIndex: 1 },
+  /*
+    58% of 390px is 226 pixels of column for a 24px headline — enough to cut
+    "Rimettere in ordine le finanze" in two and lose the end of it. A floor on
+    the text keeps the sentence whole on a phone; on a wide screen the
+    percentage still wins and the composition is unchanged.
+  */
+  heroBody: { width: '58%', minWidth: 260, padding: tokens.spacing.xl, gap: 8, zIndex: 1 },
   heroEyebrow: { fontSize: 11, fontWeight: '700', letterSpacing: 1.4 },
   heroTitle: { fontSize: 24, fontWeight: '700', lineHeight: 31, letterSpacing: -0.5 },
   heroDetail: { fontSize: 14, lineHeight: 21, maxWidth: 420 },
@@ -677,15 +689,22 @@ const styles = StyleSheet.create({
   },
   panelTitle: { fontSize: 15, fontWeight: '700', letterSpacing: -0.1 },
 
+  /*
+    On a phone this row kept its horizontal shape and left the words about
+    165px to live in, so a two-line clamp cut the question itself in half with
+    no pressable row to open and read the rest. Wrapping lets the action drop
+    beneath the text once the text needs the width; on a wide screen nothing
+    moves, because nothing has to.
+  */
   row: {
     flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.md,
-    paddingVertical: tokens.spacing.md, minHeight: 56,
+    paddingVertical: tokens.spacing.md, minHeight: 56, flexWrap: 'wrap',
   },
   rowMark: {
     width: 34, height: 34, borderRadius: tokens.radius.sm,
     alignItems: 'center', justifyContent: 'center',
   },
-  rowBody: { flex: 1, gap: 1 },
+  rowBody: { flex: 1, gap: 1, minWidth: 190 },
   rowEyebrow: { fontSize: 11, fontWeight: '700', letterSpacing: 0.6 },
   rowTitle: { fontSize: 14, lineHeight: 20, fontWeight: '500' },
   rowDetail: { fontSize: 12, lineHeight: 17 },
@@ -701,7 +720,10 @@ const styles = StyleSheet.create({
   },
   pillLabel: { fontSize: 11, fontWeight: '600' },
 
-  panelFooter: { minHeight: 38, justifyContent: 'center', paddingTop: 2 },
+  panelFooter: {
+    minHeight: tokens.touch.min, justifyContent: 'center',
+    paddingTop: 2, alignSelf: 'flex-start',
+  },
   panelFooterLabel: { fontSize: 12, fontWeight: '600' },
   updateRow: { flexDirection: 'row', gap: tokens.spacing.md, paddingVertical: tokens.spacing.md },
   timelineCol: { width: 10, alignItems: 'center', paddingTop: 6 },

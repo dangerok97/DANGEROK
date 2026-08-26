@@ -16,7 +16,7 @@
  * that already worked.
  */
 import { useCallback, useEffect, useState, type ComponentProps, type ReactNode } from 'react';
-import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -30,7 +30,9 @@ import {
 } from '@/src/api/client';
 import { humanizeError } from '@/src/utils/errors';
 import { haptic } from '@/src/utils/haptic';
+import { useInflight } from '@/src/shell';
 import { ActionBtn } from '@/src/components/ui/ActionBtn';
+import { ConfirmDialog } from '@/src/components/ui/ConfirmDialog';
 import { DevDiagnostics } from '@/src/components/dev/DevDiagnostics';
 import {
   BoundaryNote,
@@ -112,7 +114,9 @@ export default function ConnessioniScreen() {
     }
   }, [router]);
 
-  const onSync = useCallback(async () => {
+  const guard = useInflight();
+
+  const onSync = useCallback(() => guard(async () => {
     if (!instance) return;
     haptic('medium');
     setBusy('sync');
@@ -127,7 +131,7 @@ export default function ConnessioniScreen() {
     } finally {
       setBusy(null);
     }
-  }, [instance, load]);
+  }), [guard, instance, load]);
 
   const onRevoke = useCallback(async () => {
     if (!instance) return;
@@ -178,8 +182,14 @@ export default function ConnessioniScreen() {
         testID="settings"
       >
         {loading ? (
-          <View style={styles.loading}>
-            <ActivityIndicator color={colors.textTertiary} />
+          /*
+            The shape of a service card, not a spinner in an empty page. What
+            arrives lands in the same place, so the page does not jump when the
+            connectors answer.
+          */
+          <View testID="connections-skeleton" style={styles.skeleton}>
+            <View style={[styles.skBox, { backgroundColor: colors.surface, borderColor: colors.border }]} />
+            <View style={[styles.skBox, { backgroundColor: colors.surface, borderColor: colors.border, minHeight: 120 }]} />
           </View>
         ) : (
           <>
@@ -334,30 +344,30 @@ export default function ConnessioniScreen() {
         )}
       </SubpageShell>
 
-      {confirmRevoke ? (
-        <ConfirmSheet
-          testID="confirm-revoke"
-          title="Vuoi scollegare Google Calendar?"
-          body="ORA smetterà di vedere i tuoi eventi. Puoi ricollegarlo quando vuoi."
-          confirmLabel="Scollega"
-          busy={busy === 'revoke'}
-          onCancel={() => setConfirmRevoke(false)}
-          onConfirm={onRevoke}
-          confirmTestID="btn-confirm-revoke"
-        />
-      ) : null}
-      {confirmAppleRevoke ? (
-        <ConfirmSheet
-          testID="confirm-apple-revoke"
-          title="Vuoi scollegare Apple Calendar?"
-          body="ORA smetterà di ricevere gli eventi dall’iPhone. Puoi ricollegarlo quando vuoi."
-          confirmLabel="Scollega"
-          busy={busy === 'apple_revoke'}
-          onCancel={() => setConfirmAppleRevoke(false)}
-          onConfirm={onAppleDisconnect}
-          confirmTestID="btn-confirm-apple-revoke"
-        />
-      ) : null}
+      <ConfirmDialog
+        open={confirmRevoke}
+        testID="confirm-revoke"
+        title="Vuoi scollegare Google Calendar?"
+        body="ORA smetterà di vedere i tuoi eventi. Puoi ricollegarlo quando vuoi."
+        confirmLabel="Scollega"
+        destructive
+        busy={busy === 'revoke'}
+        onCancel={() => setConfirmRevoke(false)}
+        onConfirm={onRevoke}
+        confirmTestID="btn-confirm-revoke"
+      />
+      <ConfirmDialog
+        open={confirmAppleRevoke}
+        testID="confirm-apple-revoke"
+        title="Vuoi scollegare Apple Calendar?"
+        body="ORA smetterà di ricevere gli eventi dall’iPhone. Puoi ricollegarlo quando vuoi."
+        confirmLabel="Scollega"
+        destructive
+        busy={busy === 'apple_revoke'}
+        onCancel={() => setConfirmAppleRevoke(false)}
+        onConfirm={onAppleDisconnect}
+        confirmTestID="btn-confirm-apple-revoke"
+      />
     </>
   );
 }
@@ -425,61 +435,12 @@ function ServiceCard({
   );
 }
 
-function ConfirmSheet({
-  title,
-  body,
-  confirmLabel,
-  onCancel,
-  onConfirm,
-  busy,
-  testID,
-  confirmTestID,
-}: {
-  title: string;
-  body: string;
-  confirmLabel: string;
-  onCancel: () => void;
-  onConfirm: () => void;
-  busy?: boolean;
-  testID?: string;
-  confirmTestID?: string;
-}) {
-  const { colors } = useTheme();
-  return (
-    <View style={[styles.overlay, { backgroundColor: colors.scrim }]}>
-      <View
-        style={[
-          styles.confirmCard,
-          { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
-        ]}
-        testID={testID}
-      >
-        <Text
-          style={[styles.confirmTitle, { color: colors.textPrimary }]}
-          accessibilityRole="header"
-          aria-level={2}
-        >
-          {title}
-        </Text>
-        <Text style={[styles.confirmBody, { color: colors.textSecondary }]}>{body}</Text>
-        <View style={styles.actions}>
-          <ActionBtn label="Annulla" icon="close" onPress={onCancel} disabled={busy} />
-          <ActionBtn
-            variant="danger"
-            icon="unlink"
-            label={confirmLabel}
-            onPress={onConfirm}
-            loading={busy}
-            testID={confirmTestID}
-          />
-        </View>
-      </View>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  loading: { paddingVertical: tokens.spacing.xxl, alignItems: 'center' },
+  skeleton: { gap: tokens.spacing.lg },
+  skBox: {
+    minHeight: 200, borderRadius: tokens.radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
   serviceHead: { flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.md },
   serviceIcon: {
     width: 40, height: 40, borderRadius: tokens.radius.sm,
@@ -492,14 +453,4 @@ const styles = StyleSheet.create({
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: tokens.spacing.sm, marginTop: tokens.spacing.sm },
   reconnect: { gap: tokens.spacing.sm, marginTop: tokens.spacing.sm },
   reconnectText: { fontSize: 13, lineHeight: 19 },
-  overlay: {
-    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-    alignItems: 'center', justifyContent: 'center', padding: tokens.spacing.xl,
-  },
-  confirmCard: {
-    borderRadius: tokens.radius.xl, borderWidth: StyleSheet.hairlineWidth,
-    padding: tokens.spacing.xl, maxWidth: 420, width: '100%', gap: tokens.spacing.sm,
-  },
-  confirmTitle: { fontSize: 18, fontWeight: '700', letterSpacing: -0.3 },
-  confirmBody: { fontSize: 14, lineHeight: 20 },
 });

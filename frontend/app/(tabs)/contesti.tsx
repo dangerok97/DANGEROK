@@ -34,7 +34,7 @@ import { api, LifeProfile, StudyPlan, TravelProject } from '@/src/api/client';
 import { useTheme } from '@/src/theme/ThemeProvider';
 import { tokens } from '@/src/theme/tokens';
 import { ErrorState } from '@/src/components/ui/ErrorState';
-import { useAmbientInset } from '@/src/shell';
+import { Appear, useAmbientInset } from '@/src/shell';
 import { isNetworkError, useOnlineStatus } from '@/src/hooks/use-online-status';
 import { humanizeError } from '@/src/utils/errors';
 import { buildOraConversationHref } from '@/src/ora/oraNav';
@@ -332,22 +332,30 @@ export default function VitaScreen() {
                   </Text>
                 ) : null}
 
-                {twoColumn ? (
-                  <View style={styles.row}>
-                    <View style={styles.mainCol}>{main}</View>
-                    <View style={[styles.railCol, { width: RAIL_WIDTH }]}>{rail}</View>
-                  </View>
-                ) : (
-                  // Phone: the same order, stacked. The rail's panels become
-                  // ordinary sections rather than being dropped.
-                  <View style={styles.stackAll}>
-                    {main}
-                    {rail}
-                    {/* The invitation closes the page: it is what to do after
-                        having read everything, not an interruption in it. */}
-                    <GrowStrip onUpdate={updateWithOra} />
-                  </View>
-                )}
+                {/*
+                  Content arriving where the skeleton stood: a 200ms fade, no
+                  movement, skipped entirely under reduce-motion. The skeleton
+                  already holds the real layout, so anything that slid would be
+                  describing a displacement that never happened.
+                */}
+                <Appear>
+                  {twoColumn ? (
+                    <View style={styles.row}>
+                      <View style={styles.mainCol}>{main}</View>
+                      <View style={[styles.railCol, { width: RAIL_WIDTH }]}>{rail}</View>
+                    </View>
+                  ) : (
+                    // Phone: the same order, stacked. The rail's panels become
+                    // ordinary sections rather than being dropped.
+                    <View style={styles.stackAll}>
+                      {main}
+                      {rail}
+                      {/* The invitation closes the page: it is what to do after
+                          having read everything, not an interruption in it. */}
+                      <GrowStrip onUpdate={updateWithOra} />
+                    </View>
+                  )}
+                </Appear>
               </>
             )}
           </>

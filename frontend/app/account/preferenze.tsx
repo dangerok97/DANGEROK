@@ -17,6 +17,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { api } from '@/src/api/client';
 import { humanizeError } from '@/src/utils/errors';
 import { haptic } from '@/src/utils/haptic';
+import { useInflight } from '@/src/shell';
 import {
   BoundaryNote,
   Footnote,
@@ -47,7 +48,11 @@ export default function PreferenzeScreen() {
     };
   }, []);
 
-  const toggle = useCallback(async (next: boolean) => {
+  const guard = useInflight();
+
+  // One press, one write: `busy` only lands on the next render, so without the
+  // ref guard three quick taps sent three PATCHes and the last answer won.
+  const toggle = useCallback((next: boolean) => guard(async () => {
     haptic('tap');
     setBusy(true);
     setError(null);
@@ -65,7 +70,7 @@ export default function PreferenzeScreen() {
     } finally {
       setBusy(false);
     }
-  }, []);
+  }), [guard]);
 
   return (
     <SubpageShell

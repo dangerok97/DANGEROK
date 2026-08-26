@@ -34,7 +34,17 @@ export function HomeHeaderV3({
   return (
     <View style={styles.header} testID="home-header">
       <View style={styles.headerText}>
-        <Text style={[styles.greeting, { color: colors.textPrimary }]} accessibilityRole="header">
+        {/*
+          The one level-one heading on Home. Every `accessibilityRole="header"`
+          without a level renders as <h1> on web, so the greeting, the hero and
+          each section title were all announcing themselves as the page's
+          title — five of them. The greeting is the page; the rest sit under it.
+        */}
+        <Text
+          style={[styles.greeting, { color: colors.textPrimary }]}
+          accessibilityRole="header"
+          aria-level={1}
+        >
           {greetingFor()}{first ? `, ${first}.` : '.'}
         </Text>
         <Text style={[styles.sub, { color: colors.textSecondary }]}>
@@ -138,7 +148,7 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: tokens.radius.md,
     paddingHorizontal: tokens.spacing.lg,
-    minHeight: 40,
+    minHeight: tokens.touch.min,
   },
   whyLabel: { fontSize: 13, fontWeight: '500' },
   empty: {

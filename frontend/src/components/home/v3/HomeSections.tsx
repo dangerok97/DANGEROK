@@ -33,7 +33,11 @@ export function SectionShell({
       testID={testID}
     >
       <View style={styles.sectionHead}>
-        <Text style={[styles.sectionTitle, { color: colors.accent }]} accessibilityRole="header">
+        <Text
+          style={[styles.sectionTitle, { color: colors.accent }]}
+          accessibilityRole="header"
+          aria-level={2}
+        >
           {title}
         </Text>
         {typeof count === 'number' && count > 0 ? (
@@ -96,8 +100,15 @@ export function QuestionsSection({
             <Text style={[styles.rowTitle, { color: colors.textPrimary }]} numberOfLines={2}>
               {q.title}
             </Text>
+            {/*
+              Two lines, because one was not enough at 390px: with the answer
+              button beside it this line had 166px to say "Proposta: mercoledì
+              3 settembre alle 11:00", and a proposed date cut off before the
+              time is worse than no date at all. The row is not pressable, so
+              there is nowhere else to go and read it.
+            */}
             {q.reason ? (
-              <Text style={[styles.rowMeta, { color: colors.textTertiary }]} numberOfLines={1}>
+              <Text style={[styles.rowMeta, { color: colors.textTertiary }]} numberOfLines={2}>
                 {q.reason}
               </Text>
             ) : null}
@@ -374,21 +385,35 @@ const styles = StyleSheet.create({
   },
   badgeText: { fontSize: 12, fontWeight: '700' },
   sectionBody: { gap: tokens.spacing.sm },
+  /*
+    On a phone this row kept its horizontal shape and left the words about
+    165px to live in, so a two-line clamp cut the question itself in half with
+    no pressable row to open and read the rest. Wrapping lets the action drop
+    beneath the text once the text needs the width; on a wide screen nothing
+    moves, because nothing has to.
+  */
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: tokens.spacing.md,
     minHeight: 48,
+    flexWrap: 'wrap',
   },
   rowVisual: { width: 34, height: 34 },
-  rowText: { flex: 1, gap: 2 },
+  rowText: { flex: 1, gap: 2, minWidth: 190 },
   rowTitle: { fontSize: 14, fontWeight: '500', lineHeight: 20 },
   rowMeta: { fontSize: 12, lineHeight: 17 },
+  /*
+    Hit area, not weight. These three sat at 34, 24 and 32 pixels tall — under
+    the floor on a phone, and the dismiss cross was the smallest control in the
+    product. The label, the border and the spacing are untouched; only the box
+    a thumb has to find grew.
+  */
   rowCta: {
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: tokens.radius.md,
     paddingHorizontal: tokens.spacing.md,
-    minHeight: 34,
+    minHeight: tokens.touch.min,
     justifyContent: 'center',
   },
   rowCtaLabel: { fontSize: 13, fontWeight: '600' },
@@ -404,8 +429,14 @@ const styles = StyleSheet.create({
   },
   relText: { fontSize: 11, fontWeight: '600' },
   ago: { fontSize: 11, marginLeft: 'auto', paddingLeft: 6 },
-  dismiss: { padding: 4 },
-  footer: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 32 },
+  dismiss: {
+    width: tokens.touch.min, height: tokens.touch.min,
+    alignItems: 'center', justifyContent: 'center', marginRight: -10,
+  },
+  footer: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    minHeight: tokens.touch.min, alignSelf: 'flex-start',
+  },
   footerLabel: { fontSize: 13, fontWeight: '600' },
   pressed: { opacity: 0.65 },
   disabled: { opacity: 0.5 },

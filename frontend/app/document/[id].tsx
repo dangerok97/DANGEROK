@@ -22,6 +22,7 @@ import {
 import { haptic } from '@/src/utils/haptic';
 import { humanizeError } from '@/src/utils/errors';
 import { ActionBtn } from '@/src/components/ui/ActionBtn';
+import { ConfirmDialog } from '@/src/components/ui/ConfirmDialog';
 import { DocumentActionsBar } from '@/src/components/DocumentActionsBar';
 import { DocumentUtilityPanel } from '@/src/components/documents/DocumentUtilityPanel';
 import { buildOraConversationHref } from '@/src/ora/oraNav';
@@ -32,6 +33,46 @@ type Tab = 'info' | 'insights' | 'content' | 'meta';
 
 /** Editorial width — the same reading column the other PX1.x surfaces use. */
 const DETAIL_MAX_WIDTH = 960;
+
+/**
+ * The shape of the page, while the page is on its way.
+ *
+ * A single spinner in the middle of a full-width document told a person only
+ * that something was happening; this says what is coming and lands the real
+ * content in the same place, so nothing jumps when it arrives. Static on
+ * purpose — a pulsing rectangle is decoration, and reduce-motion would have to
+ * turn it off anyway.
+ */
+function DetailSkeleton() {
+  const bar = (w: any, h = 14) => (
+    <View style={{ width: w, height: h, borderRadius: 6, backgroundColor: tokens.color.skeleton }} />
+  );
+  const box = (h: number) => (
+    <View
+      style={{
+        minHeight: h,
+        borderRadius: tokens.radius.lg,
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: tokens.color.border,
+        backgroundColor: tokens.color.surface,
+      }}
+    />
+  );
+  return (
+    <SafeAreaView style={styles.safe} edges={['top']} testID="document-skeleton">
+      <View style={[styles.column, { paddingHorizontal: tokens.spacing.lg, gap: tokens.spacing.md }]}>
+        <View style={{ height: tokens.spacing.xl }} />
+        {bar(220, 26)}
+        {bar(140, 13)}
+        <View style={{ height: tokens.spacing.sm }} />
+        {bar(260, tokens.touch.min)}
+        <View style={{ height: tokens.spacing.sm }} />
+        {box(150)}
+        {box(220)}
+      </View>
+    </SafeAreaView>
+  );
+}
 
 const ENTITY_LABELS: Record<string, { label: string; icon: keyof typeof Ionicons.glyphMap }> = {
   persons:        { label: 'Persone',              icon: 'people-outline' },
@@ -72,6 +113,7 @@ export default function DocumentDetailScreen() {
   const [tab, setTab] = useState<Tab>('info');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [askQ, setAskQ] = useState('');
@@ -128,18 +170,28 @@ export default function DocumentDetailScreen() {
     try { await api.documentRestore(doc.id); await load(); } catch (e: any) { setError(humanizeError(e)); }
     setBusy(null);
   };
+  /*
+    Deleting asks first.
+
+    This removed the document on the first press — no question, and no way
+    back, on the only control in Documenti that destroys something. Archiving
+    beside it is reversible and stays a single press; this one now says what
+    will happen before it happens.
+  */
   const onDelete = async () => {
     if (!doc) return;
     haptic('warning'); setBusy('del');
-    try { await api.documentDelete(doc.id); router.back(); } catch (e: any) { setError(humanizeError(e)); }
+    try {
+      await api.documentDelete(doc.id);
+      setConfirmDelete(false);
+      router.back();
+    } catch (e: any) {
+      setError(humanizeError(e));
+    }
     setBusy(null);
   };
 
-  if (loading) return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      <View style={styles.centerBox}><ActivityIndicator color={tokens.color.onSurfaceMuted} /></View>
-    </SafeAreaView>
-  );
+  if (loading) return <DetailSkeleton />;
   if (!doc || !ins) return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.centerBox}>
@@ -387,12 +439,29 @@ export default function DocumentDetailScreen() {
             ) : (
               <ActionBtn icon="archive-outline" label="Archivia" onPress={onArchive} loading={busy === 'archive'} />
             )}
-            <ActionBtn variant="danger" icon="trash-outline" label="Elimina" onPress={onDelete} loading={busy === 'del'} />
+            <ActionBtn
+              variant="danger"
+              icon="trash-outline"
+              label="Elimina"
+              onPress={() => { haptic('warning'); setConfirmDelete(true); }}
+              loading={busy === 'del'}
+            />
           </View>
         </View>
       </ScrollView>
 
-
+      <ConfirmDialog
+        open={confirmDelete}
+        testID="confirm-document-delete"
+        title="Vuoi eliminare questo documento?"
+        body="Verrà rimosso da ORA insieme a quello che ne aveva capito. L’operazione non si può annullare."
+        confirmLabel="Elimina"
+        destructive
+        busy={busy === 'del'}
+        onCancel={() => setConfirmDelete(false)}
+        onConfirm={onDelete}
+        confirmTestID="btn-confirm-document-delete"
+      />
     </SafeAreaView>
   );
 }

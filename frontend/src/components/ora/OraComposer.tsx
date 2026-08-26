@@ -135,7 +135,9 @@ export function OraComposer({
       >
         {showAttach ? (
           <Pressable
+            accessibilityRole="button"
             accessibilityLabel="Allega file"
+            accessibilityState={{ disabled: busy || disabled || uploading }}
             onPress={onAttachPress}
             disabled={busy || disabled || uploading}
             style={styles.iconBtn}
@@ -146,7 +148,9 @@ export function OraComposer({
         ) : null}
         {showMicStub ? (
           <Pressable
+            accessibilityRole="button"
             accessibilityLabel="Voce (riconoscimento non ancora attivo)"
+            accessibilityState={{ disabled: busy || disabled }}
             onPress={onMicPress}
             disabled={busy || disabled}
             style={styles.iconBtn}
@@ -262,9 +266,15 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
+  /*
+    The composer's two icon controls were 40px and, lacking a button role,
+    reached neither the keyboard nor a screen reader as controls at all — they
+    were labelled text. The glyph is unchanged; the box around it is now the
+    44px floor, and the role travels with it.
+  */
   iconBtn: {
-    width: 40,
-    height: 40,
+    width: tokens.touch.min,
+    height: tokens.touch.min,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 2,

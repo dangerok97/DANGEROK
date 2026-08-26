@@ -231,7 +231,7 @@ const styles = StyleSheet.create({
   chipLabel: { fontSize: 11, fontWeight: '600' },
   openBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start',
-    minHeight: 36, paddingHorizontal: tokens.spacing.lg,
+    minHeight: tokens.touch.min, paddingHorizontal: tokens.spacing.lg,
     borderRadius: tokens.radius.md, marginTop: 'auto',
   },
   openLabel: { fontSize: 13, fontWeight: '600' },

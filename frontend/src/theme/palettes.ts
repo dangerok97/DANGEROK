@@ -101,10 +101,20 @@ export const lightColors: SemanticColors = {
   borderStrong: '#C4C0B8',
   textPrimary: '#1C1C1E',
   textSecondary: '#5C5C66',
-  textTertiary: '#8E8E96',
-  placeholder: '#A1A1AA',
-  success: '#248A3D',
-  warning: '#C77C00',
+  /*
+    PX1.9 — the quiet greys and the deadline amber were quiet to the point of
+    being unreadable. Measured against the surfaces they actually sit on
+    (#FFFFFF, #F6F4F1, #EFECE7, #FBF6EE), the old values landed between 2.6:1
+    and 3.3:1, so the time under a card, the "Scade tra 11 giorni" on a
+    document and every uppercase section label were below the 4.5:1 floor for
+    body text. These are the same hues, walked down in lightness until they
+    clear it on the darkest of those backgrounds — the palette is unchanged in
+    character, and tertiary still reads a clear step lighter than secondary.
+  */
+  textTertiary: '#6A6A73',
+  placeholder: '#6A6A76',
+  success: '#207B37',
+  warning: '#985E00',
   error: '#D70015',
   info: '#3D4A8C',
   successBg: '#E8F5EC',
