@@ -24,7 +24,13 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useTheme } from '@/src/theme/ThemeProvider';
 import { tokens } from '@/src/theme/tokens';
 import {
-  api, HomeActionDef, HomeItem, HomePriorityBand, HomeV2Response, ProactiveSuggestion,
+  api,
+  HomeActionDef,
+  HomeItem,
+  HomePriorityBand,
+  HomeV2Response,
+  OpenQuestionItem,
+  ProactiveSuggestion,
 } from '@/src/api/client';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { triggerHaptic } from '@/src/theme/haptics';
@@ -54,6 +60,7 @@ import {
   todayItems,
 } from '@/src/components/home/v3';
 import { useAmbientInset } from '@/src/shell';
+import { buildOraConversationHref } from '@/src/ora/oraNav';
 
 /**
  * Home is the one route allowed past PX1.1's 800px reading column: it is a
@@ -243,6 +250,35 @@ export default function HomeScreen() {
     [home?.ora_ti_consiglia],
   );
   /*
+    What ORA is actually blocked on, as opposed to what it thought worth
+    raising. These arrive as their own list rather than mixed into the
+    suggestion stream, because they are not suggestions: each one has a piece
+    of work behind it that stopped, and answering continues that work.
+  */
+  const openQuestions = home?.open_questions || [];
+
+  /**
+   * Answering opens the thread that asked.
+   *
+   * Nothing is sent from here. The conversation is where an answer belongs —
+   * a person may want to say more than the question expected — so this carries
+   * the question's handle into ORA and lets the answer go through the flow
+   * that knows how to continue the work.
+   */
+  const answerOpenQuestion = useCallback(
+    (q: OpenQuestionItem) => {
+      void triggerHaptic('impactLight');
+      router.push(
+        buildOraConversationHref({
+          sessionId: q.session_id || undefined,
+          questionId: q.id,
+          entryPoint: 'question',
+        }) as any,
+      );
+    },
+    [router],
+  );
+  /*
     Timeline views show everything that has a moment — including whatever is
     currently the hero. "Adesso" answers *what do I do*; "Oggi" and "Più
     avanti" answer *when is my life happening*. Dropping the most important
@@ -304,11 +340,13 @@ export default function HomeScreen() {
             something invented.
           */}
           <SectionRow twoColumn={twoColumn}>
-            {questions.length ? (
+            {questions.length || openQuestions.length ? (
               <QuestionsSection
+                open={openQuestions}
                 questions={questions}
                 busyId={suggestionBusy}
                 onAnswer={onSuggestionOpen}
+                onAnswerOpen={answerOpenQuestion}
               />
             ) : null}
             {today.length ? <TodaySection items={today} onOpen={openItem} /> : null}

@@ -1110,6 +1110,34 @@ export const api = {
     const q = qs.toString();
     return request<DocumentsListResponse>(`/documents/search/intelligent${q ? `?${q}` : ''}`);
   },
+  /**
+   * What ORA is waiting for an answer to.
+   *
+   * These are blockers on real work, not suggestions: answering one continues
+   * the thing it was blocking. The client never learns — and never sends —
+   * where that continuation happens; it sends the words the person typed and
+   * the handle of the question they were answering.
+   */
+  openQuestions: () =>
+    request<{ ok: boolean; items: OpenQuestionItem[] }>('/questions/open'),
+  answerQuestion: (
+    questionId: string,
+    answer: string,
+    source?: 'ora' | 'home' | 'activity',
+  ) =>
+    request<{
+      ok: boolean;
+      question_id: string;
+      status?: string;
+      already?: boolean;
+      resumed?: boolean;
+      session_id?: string;
+      reason?: string;
+    }>(`/questions/${encodeURIComponent(questionId)}/answer`, {
+      method: 'POST',
+      body: JSON.stringify({ answer, ...(source ? { source } : {}) }),
+    }),
+
   documentPreferences: () => request<DocumentPreferences>(`/documents/preferences`),
   setDocumentPreferences: (body: Partial<DocumentPreferences>) =>
     request<DocumentPreferences>(`/documents/preferences`, {
@@ -1502,6 +1530,19 @@ export type DocumentHubCard = {
   open_actions?: number;
   updated_at?: string;
   mime_type?: string;
+};
+
+/** One thing ORA is waiting for. Presentation-ready; no cognitive internals. */
+export type OpenQuestionItem = {
+  id: string;
+  question: string;
+  why_needed?: string | null;
+  context_label?: string | null;
+  expected_answer_kind?: string;
+  created_at: string;
+  /** The thread the answer belongs to, when there is one. Opaque. */
+  session_id?: string | null;
+  work_kind?: string;
 };
 
 export type DocumentPreferences = {
@@ -2013,6 +2054,8 @@ export type HomeV2Response = {
   insights: HomeInsight[];
   resume_item: HomeItem | null;
   ora_ti_consiglia?: ProactiveSuggestion[];
+  /** Blockers ORA is genuinely waiting on. Empty when nothing is blocked. */
+  open_questions?: OpenQuestionItem[];
   connection_warnings: HomeConnectionWarning[];
   google_calendar: {
     connected: boolean;
@@ -2282,6 +2325,10 @@ export type ActivityResponse = {
     route?: string | null;
     suggestion_id?: string | null;
     memory_id?: string | null;
+    /** A blocker ORA is genuinely waiting on: answering it continues work. */
+    question_id?: string | null;
+    session_id?: string | null;
+    context_label?: string | null;
     at?: string | null;
   }>;
   waiting: Array<{

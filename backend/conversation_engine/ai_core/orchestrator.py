@@ -167,6 +167,15 @@ class AICoreOrchestrator:
             result.active_goal.summary if result.active_goal else ""
         ) or user_msg[:120]
         sess.status = "waiting_user"
+        durable = await self._persist_blocking_ask(sess, result)
+        # A blocking question the person can see must already exist in the
+        # database. Returning before `replace` is what enforces that: the
+        # assistant turn is still only in memory here, so nothing was shown and
+        # nothing needs undoing. The client retries the same message id, the
+        # same reasoning produces the same dedupe key, and one question is
+        # created — not a second.
+        if durable == "failed":
+            return {"ok": False, "error": "blocking_question_not_durable"}
         # Observability (no PII)
         meta = dict(sess.meta or {})
         meta["entry_point"] = ep
@@ -194,6 +203,92 @@ class AICoreOrchestrator:
         if bound:
             out["attachments"] = bound
         return out
+
+    async def _persist_blocking_ask(self, sess, result) -> str:
+        """
+        Turn a blocking question into something that outlives the conversation.
+
+        The reasoning has already decided it cannot proceed and named the
+        information it is missing. What it has no way to do is remember that
+        across a closed app, a restarted process or a different screen — so the
+        question, the work it belongs to, and the point to continue from are
+        written down here, from the session's own focus rather than from
+        anything a client said.
+
+        Returns `"none"` when this turn was not a blocker, `"ok"` when the
+        question is durable, and `"failed"` when it is not.
+
+        The last case is deliberately not swallowed. A blocking question the
+        person can see but the database never took is the worst state this
+        design can produce: it looks exactly like a question ORA is waiting on,
+        it appears nowhere on Home or Attività, and it is gone the moment the
+        page reloads. The turn fails instead, and the caller retries — which is
+        safe, because the same reasoning produces the same dedupe key.
+        """
+        ask = getattr(result, "blocking_ask", None)
+        if not isinstance(ask, dict) or not (ask.get("question") or "").strip():
+            return "none"
+        try:
+            from waiting.models import ResumePointer, WorkRefs
+            from waiting.service import get_waiting_service
+
+            st = state_mod.get_ai_state(sess)
+            item_ref = st.get("current_plan_item_ref") or {}
+            obj_ref = st.get("active_object_ref") or {}
+            situation = st.get("active_situation_ref") or {}
+            goal = st.get("active_goal") or {}
+
+            plan_id = str(st.get("active_plan_id") or "") or None
+            object_id = str(obj_ref.get("id") or "") or None
+            refs = WorkRefs(
+                session_id=sess.id,
+                plan_id=plan_id,
+                plan_item_id=str(item_ref.get("id") or "") or None,
+                object_id=object_id,
+                situation_id=str(situation.get("id") or "") or None,
+            )
+            # What sort of thread this is, so a resume knows what it is
+            # resuming without having to inspect the refs itself.
+            kind = "plan_work" if plan_id else ("object_work" if object_id else "conversation")
+            resume = ResumePointer(
+                kind=kind,
+                target_id=refs.plan_item_id or plan_id or object_id or sess.id,
+                reasoning_epoch=str(st.get("reasoning_epoch") or "") or None,
+                goal_summary=str(goal.get("summary") or "")[:400],
+                asked_refs=[str(r)[:120] for r in (ask.get("asked_refs") or [])][:8],
+                focus={
+                    "plan_item_title": str(item_ref.get("title") or "")[:120],
+                    "object_kind": str(obj_ref.get("source") or "")[:60],
+                    "sensitive": bool(ask.get("sensitive")),
+                },
+            )
+            saved = await get_waiting_service(self.db).record_blocking_question(
+                sess.user_id,
+                question=ask.get("question") or "",
+                why_needed=ask.get("why_needed") or "",
+                # Human words for the work, never an id: the plan item first,
+                # then the goal it belongs to.
+                context_label=(
+                    str(item_ref.get("title") or "")[:160]
+                    or str(goal.get("summary") or "")[:160]
+                ),
+                expected_answer_kind=(
+                    "bundle" if ask.get("answer_kind") == "bundle" else "free_text"
+                ),
+                refs=refs,
+                resume=resume,
+            )
+        except Exception:
+            logger.exception("question_persist_failed session=%s", sess.id)
+            return "failed"
+        # `None` means the service found nothing durable to point at — an empty
+        # question, or the losing side of an insert race whose winner has since
+        # gone. Either way there is no open question, so there is no blocking
+        # question to show.
+        if not saved:
+            logger.warning("question_persist_empty session=%s", sess.id)
+            return "failed"
+        return "ok"
 
     async def message(
         self,
@@ -276,6 +371,15 @@ class AICoreOrchestrator:
                 state_mod.clear_pending_turn(st, status="completed")
                 state_mod.save_ai_state(sess, st)
         sess.status = "waiting_user"
+        durable = await self._persist_blocking_ask(sess, result)
+        # A blocking question the person can see must already exist in the
+        # database. Returning before `replace` is what enforces that: the
+        # assistant turn is still only in memory here, so nothing was shown and
+        # nothing needs undoing. The client retries the same message id, the
+        # same reasoning produces the same dedupe key, and one question is
+        # created — not a second.
+        if durable == "failed":
+            return {"ok": False, "error": "blocking_question_not_durable"}
         await self.repo.replace(sess)
         out = self._public(sess, result)
         if bound:

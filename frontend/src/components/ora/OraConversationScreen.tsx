@@ -286,6 +286,15 @@ type Props = {
    * bound to it and re-sending would attach the same document twice.
    */
   documentId?: string | null;
+  /**
+   * An open question this conversation was opened to answer.
+   *
+   * When present, the next thing the person sends is that answer: it goes
+   * through the flow that continues the work the question was blocking,
+   * instead of arriving as an unrelated message the reasoning has to
+   * re-interpret. Cleared once it has been used.
+   */
+  questionId?: string | null;
   entryPoint?: OraEntryPoint;
   devHarness?: boolean;
   testID?: string;
@@ -297,6 +306,7 @@ export function OraConversationScreen({
   objectId,
   planItemId,
   documentId,
+  questionId,
   entryPoint = 'ora',
   devHarness,
   testID = 'ora-conversation',
@@ -319,6 +329,16 @@ export function OraConversationScreen({
   const locPermResolver = useRef<((v: boolean) => void) | null>(null);
   const sendingRef = useRef(false);
   const outbox = useRef<Map<string, Outbox>>(new Map());
+  /*
+    The blocker this thread was opened to answer, if any. A ref rather than
+    state because it must be read inside a send that is already in flight, and
+    it is cleared only once the answer has actually been accepted — a failed
+    attempt must still be an answer when it is retried, not a stray remark.
+  */
+  const pendingQuestion = useRef<string | null>(questionId || null);
+  useEffect(() => {
+    if (questionId) pendingQuestion.current = questionId;
+  }, [questionId]);
 
   const { context, resolving: contextResolving } = useOraContext({
     planId,
@@ -563,6 +583,25 @@ export function OraConversationScreen({
         pendingAttach.length ? 'Sto leggendo l’allegato…' : 'Sto ragionando…',
       );
       try {
+        /*
+          Answering a blocker is not the same as saying something.
+
+          The words go to the question they belong to, which is what lets the
+          server put the reasoning back on the exact plan item and object it
+          stopped on. The thread is then re-read from the server rather than
+          patched locally: what a person sees afterwards is the transcript as
+          it actually is, including whatever the continuation produced.
+        */
+        const qid = pendingQuestion.current;
+        if (qid && sessionId && msg) {
+          await api.answerQuestion(qid, msg, 'ora');
+          pendingQuestion.current = null;
+          const fresh = (await api.aiCoreGet(sessionId)) as AiCoreRes;
+          setTurns(withRememberedSources(sessionId, historyToTurns(fresh.history || [])));
+          requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
+          return;
+        }
+
         let res: AiCoreRes;
         if (!sessionId) {
           // Need a session before attaching file-only; start with text or placeholder

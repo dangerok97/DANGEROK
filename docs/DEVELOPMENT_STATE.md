@@ -1,5 +1,28 @@
 # ORA — Development State
 
+## V3.1 — Conversation Resume Intelligence (WAITING_USER)
+
+- New module `backend/waiting/`: `OpenQuestion` (models), `open_questions`
+  collection (repository), lifecycle + continuation (service), HTTP surface
+  (router). Registered in `ALL_ROUTERS`; indexes built at startup.
+- Question lifecycle: `open → answered | cancelled | superseded`. Continuation
+  is a second axis (`pending | running | done | failed`) so an accepted answer
+  is never lost to a failed resume.
+- Created from `conversation_engine/ai_core/orchestrator.py` when a turn ends on
+  a question the reasoning marked blocking (`CognitiveTurnResult.blocking_ask`).
+  Soft-failing: a question that cannot be persisted never costs the user a turn.
+- Endpoints: `GET /questions/open`, `POST /questions/{id}/answer`,
+  `POST /questions/{id}/retry`, `POST /questions/{id}/cancel`.
+- `HomeResponse.open_questions` and Activity's `questions` rows
+  (`kind: "question"`) are projections of the same entity — no second store.
+- Frontend: Home and Activity route "Rispondi" through
+  `buildOraConversationHref({ sessionId, questionId, entryPoint: 'question' })`;
+  the ORA composer sends that first message through `api.answerQuestion` rather
+  than the generic turn, then re-reads the thread from the server.
+- Not built here (V3.2): state reconstruction, dynamic path planning, an
+  information-sufficiency engine, any research capability. V3.1 is the
+  continuity those need.
+
 ## V2.8.3a — Provider Reliability & Error Taxonomy
 
 - Provider order remains Gemini → OpenAI → Ollama → Emergent.

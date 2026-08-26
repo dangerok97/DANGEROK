@@ -12,7 +12,8 @@ export type OraEntryPoint =
   | 'focus'
   | 'object'
   | 'vita'
-  | 'document';
+  | 'document'
+  | 'question';
 
 export type OraConversationParams = {
   sessionId?: string | null;
@@ -28,6 +29,15 @@ export type OraConversationParams = {
    * attaching it again or describing what it is.
    */
   documentId?: string | null;
+  /**
+   * An open question this conversation is being opened to answer.
+   *
+   * Carrying the id — and nothing else — is what lets the thread know which
+   * blocker the next message is answering, so the answer continues the work
+   * instead of arriving as an unrelated remark. Where that work resumes is the
+   * server's business; this is only a handle.
+   */
+  questionId?: string | null;
   entryPoint?: OraEntryPoint;
 };
 
@@ -40,6 +50,7 @@ const ENTRY_POINTS: OraEntryPoint[] = [
   'object',
   'vita',
   'document',
+  'question',
 ];
 
 /** Read an entry point off a URL, falling back to a plain ORA opening. */
@@ -67,11 +78,13 @@ export function buildOraConversationHref(p: OraConversationParams): string {
   const objectId = opaque(p.objectId);
   const planItemId = opaque(p.planItemId);
   const documentId = opaque(p.documentId);
+  const questionId = opaque(p.questionId);
   const entry = p.entryPoint;
   if (planId) q.set('planId', planId);
   if (objectId) q.set('objectId', objectId);
   if (planItemId) q.set('planItemId', planItemId);
   if (documentId) q.set('documentId', documentId);
+  if (questionId) q.set('questionId', questionId);
   if (entry) q.set('entry', entry);
   const qs = q.toString();
   return qs ? `${base}?${qs}` : base;

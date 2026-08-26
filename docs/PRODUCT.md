@@ -12,6 +12,26 @@ l'intento e nessuna retrieval promuove automaticamente nuova Memory.
 
 Ultimo aggiornamento: 2026-08-16 — Home → ORA first-turn handoff + location presence.
 
+## Domande per te (V3.1)
+
+Quando ORA non può andare avanti senza di te, non si limita a chiederlo in
+chat: registra che quel lavoro è fermo e cosa lo sblocca.
+
+La stessa domanda compare in Home e in Attività — sono due viste della stessa
+cosa, non due copie. Rispondere da una la fa sparire dall'altra.
+
+Rispondere apre la conversazione che l'ha posta, con la domanda già in vista:
+non c'è uno stato vuoto che chiede "come posso aiutarti?". Quello che scrivi
+riprende esattamente quel lavoro — stesso obiettivo, stessa voce del piano,
+stesso materiale — invece di far ripartire l'interpretazione da capo.
+
+Puoi rispondere anche fra due giorni, da un altro dispositivo, e ORA sa cosa
+stava aspettando e da dove ricominciare. Se qualcosa va storto mentre riprende,
+la tua risposta resta registrata: non ti verrà richiesta.
+
+Una domanda che ORA nel frattempo ha risolto da sola — perché hai caricato un
+documento che la conteneva, per esempio — smette di essere chiesta.
+
 ## ORA (production conversation)
 
 **ORA** is the production conversational surface (`/ora`, Ambient tab, Home ask bar).  

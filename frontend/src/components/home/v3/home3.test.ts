@@ -108,7 +108,10 @@ const item = (o: Record<string, unknown> = {}) => ({
 {
   const sections = readCode('src/components/home/v3/HomeSections.tsx');
   for (const guard of [
-    'if (!questions.length) return null;',
+    // V3.1 — the questions section now carries two kinds of row: real blockers
+    // and suggestions. What PX1.2 was protecting is that it vanishes when it
+    // has nothing, so the guard follows the section rather than the old shape.
+    'if (!questions.length && !open.length) return null;',
     'if (!items.length) return null;',
     'if (!total) return null;',
   ]) {

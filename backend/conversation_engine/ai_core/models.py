@@ -233,3 +233,9 @@ class CognitiveTurnResult(BaseModel):
     working_hint: Optional[str] = None
     client_actions: List[Dict[str, Any]] = Field(default_factory=list)
     situation: Optional[Dict[str, Any]] = None
+    # V3.1 — when this turn stopped because the reasoning cannot proceed
+    # without the person, this carries what a persistent blocker needs: the
+    # question, why it is needed, and the AI's own opaque handles for the
+    # information it was missing. Absent on every other kind of turn, including
+    # an ordinary clarification the reasoning did not call blocking.
+    blocking_ask: Optional[Dict[str, Any]] = None

@@ -41,6 +41,11 @@ def _raise(res: dict):
         raise HTTPException(status_code=403, detail=err)
     if err == "session_closed":
         raise HTTPException(status_code=400, detail=err)
+    # The reasoning produced a blocking question and the store would not take
+    # it. Nothing is wrong with the request, so this is not a 4xx: the same
+    # message sent again is expected to work, and the client already retries.
+    if err == "blocking_question_not_durable":
+        raise HTTPException(status_code=503, detail=err)
     if err:
         raise HTTPException(status_code=400, detail=res.get("message") or err)
 

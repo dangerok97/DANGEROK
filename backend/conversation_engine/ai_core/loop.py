@@ -299,6 +299,8 @@ async def run_cognitive_loop(
     )
 
     observations: List[Dict[str, Any]] = list(st.get("observations") or [])
+    # Set only when the turn ends on a question the reasoning called blocking.
+    blocking_ask: Optional[Dict[str, Any]] = None
     # V2.6.2 — mutation idempotency is TURN-SCOPED (reasoning epoch).
     # Session-persisted signatures must NOT ban legitimate cross-turn replanning
     # when the user provides new facts/evidence that change persisted state.
@@ -1094,6 +1096,33 @@ async def run_cognitive_loop(
                 trace["clarifications_requested"] = int(
                     trace.get("clarifications_requested") or 0
                 ) + len(asked_refs)
+                # A question that blocks is a different thing from a question
+                # that clarifies. Only the first one is worth surviving the
+                # conversation: the reasoning says which by marking its own
+                # uncertainty blocking, and this hands that decision — with the
+                # refs it was asking about — to whoever wants to persist it.
+                if decision.uncertainty.blocking:
+                    needs = [
+                        item for item in decision.uncertainty.missing_information
+                        if item.strategy == "ask"
+                    ]
+                    blocking_ask = {
+                        "question": (decision.question or "").strip()[:600],
+                        # Why the answer is needed, in the reasoning's own words.
+                        "why_needed": (
+                            (needs[0].purpose if needs and needs[0].purpose else None)
+                            or decision.uncertainty.operational_reason
+                            or ""
+                        )[:400],
+                        "asked_refs": asked_refs[:8],
+                        # Several needs served by one question is a bundle; the
+                        # count is the only honest signal available without
+                        # asking the model to classify its own question.
+                        "answer_kind": "bundle" if len(needs) > 1 else "free_text",
+                        "sensitive": any(
+                            item.sensitivity in ("sensitive", "high") for item in needs
+                        ),
+                    }
             elif mode in ("answer", "finish", "act"):
                 # A terminal non-question represents progress, deferral or refusal
                 # handling. Do not turn semantic refs into permanent session bans.
@@ -1106,6 +1135,7 @@ async def run_cognitive_loop(
                 mode=mode,  # type: ignore[arg-type]
                 ora_text=ora,
                 question=decision.question if mode == "ask" else None,
+                blocking_ask=blocking_ask,
                 session_id=sess.id,
                 active_goal=ActiveGoal.model_validate(st.get("active_goal") or {}),
                 memory_candidates=list(decision.memory_candidates or []),
