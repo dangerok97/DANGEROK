@@ -15,13 +15,13 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { useTheme } from '@/src/theme/ThemeProvider';
 import { tokens } from '@/src/theme/tokens';
 import { AppButton } from '@/src/components/ui/AppButton';
 import { AppInput } from '@/src/components/ui/AppInput';
-import { ImmersiveScreen, useReducedMotion } from '@/src/shell';
+import { ImmersiveScreen, safeNextTarget, useReducedMotion } from '@/src/shell';
 import { api } from '@/src/api/client';
 import { useAuth } from '@/src/contexts/AuthContext';
 import {
@@ -131,13 +131,21 @@ export default function LoginScreen() {
   const googleAuth = useGoogleAuth();
   const renderGoogleButton = googleAuth.renderButton;
 
+  /*
+    `next` is where this person was heading when the gate stopped them. It is
+    validated on the way in and again in the gate, so a hostile link cannot
+    turn signing in into a redirect out of the app.
+  */
+  const { next } = useLocalSearchParams<{ next?: string }>();
+  const intended = safeNextTarget(typeof next === 'string' ? next : null);
+
   useEffect(() => {
     if (!loading && user) {
-      routeAfterAuth(router, user.user_id).catch(() =>
+      routeAfterAuth(router, user.user_id, intended).catch(() =>
         router.replace('/life-setup' as any),
       );
     }
-  }, [loading, user, router]);
+  }, [loading, user, router, intended]);
 
   useEffect(() => {
     isAppleNativeAvailable().then(setAppleNative).catch(() => setAppleNative(false));

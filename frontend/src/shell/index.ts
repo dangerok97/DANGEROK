@@ -24,3 +24,6 @@ export { flowContextLabel, actionProgressLabel } from './actionLabels';
 export { QUIET_MOTION } from './motionTokens';
 export { Appear, useQuietMotion } from './quietMotion';
 export { useInflight } from './useInflight';
+export { AuthGate } from './AuthGate';
+export { loginHrefFor, safeNextTarget } from './nextTarget';
+export { AccountEntry } from './AccountEntry';

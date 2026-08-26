@@ -735,10 +735,21 @@ export function OraConversationScreen({
         onAllow={() => resolveLocationPreference(true)}
         onDeny={() => resolveLocationPreference(false)}
       />
+      {/*
+        No offset, because there is nothing left to offset.
+
+        `keyboardVerticalOffset` is the distance from the top of the window to
+        the top of this view. FocusScreen already wraps everything in a
+        SafeAreaView that consumes the top inset, so passing `insets.top + 48`
+        counted the notch a second time and added 48 points on top of that —
+        on a modern iPhone that is around 107 points of empty space pushed
+        between the last turn and the keyboard. The product's two other
+        conversation surfaces, Life Setup and login, sit in the same kind of
+        container and pass nothing; this now matches them.
+      */}
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={insets.top + 48}
       >
         <View style={styles.wrap}>
           <View style={styles.headerPad}>
