@@ -60,7 +60,11 @@ export function HeroAdesso({
         <View style={styles.text}>
           <Text style={[styles.eyebrow, { color: colors.warning }]}>ADESSO</Text>
 
-          <Text style={[styles.title, { color: colors.textPrimary }]} accessibilityRole="header">
+          <Text
+            style={[styles.title, { color: colors.textPrimary }]}
+            accessibilityRole="header"
+            aria-level={2}
+          >
             {item.title}
           </Text>
 

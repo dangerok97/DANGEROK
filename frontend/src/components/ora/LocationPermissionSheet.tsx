@@ -16,10 +16,31 @@ type Props = {
 export function LocationPermissionSheet({ visible, onAllow, onDeny }: Props) {
   const { colors } = useTheme();
   return (
-    <Modal visible={visible} transparent animationType="fade" testID="location-permission-sheet">
+    /*
+      Escape, and the Android back button, mean "not now".
+      Without `onRequestClose` this was the one dialog in the product a
+      keyboard user could not dismiss — declining is the safe default here, so
+      that is what closing it does.
+    */
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onDeny}
+      testID="location-permission-sheet"
+    >
       <View style={styles.backdrop}>
-        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={[styles.title, { color: colors.textPrimary }]}>Posizione</Text>
+        <View
+          style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          accessibilityViewIsModal
+        >
+          <Text
+            style={[styles.title, { color: colors.textPrimary }]}
+            accessibilityRole="header"
+            aria-level={2}
+          >
+            Posizione
+          </Text>
           <Text style={[styles.body, { color: colors.textSecondary }]}>
             {LOCATION_PERMISSION_COPY}
           </Text>
@@ -30,12 +51,14 @@ export function LocationPermissionSheet({ visible, onAllow, onDeny }: Props) {
             <Pressable
               onPress={onDeny}
               style={({ pressed }) => [styles.btn, pressed && styles.pressed]}
+              accessibilityRole="button"
               testID="location-permission-deny"
             >
               <Text style={[styles.btnText, { color: colors.textSecondary }]}>Non ora</Text>
             </Pressable>
             <Pressable
               onPress={onAllow}
+              accessibilityRole="button"
               style={({ pressed }) => [
                 styles.btn,
                 styles.btnPrimary,
@@ -88,7 +111,8 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   btn: {
-    paddingVertical: 10,
+    minHeight: 44,
+    justifyContent: 'center',
     paddingHorizontal: 14,
     borderRadius: 10,
   },

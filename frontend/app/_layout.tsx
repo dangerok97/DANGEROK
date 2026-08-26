@@ -10,6 +10,7 @@ import { AuthProvider } from '@/src/contexts/AuthContext';
 import { ThemeProvider, useTheme } from '@/src/theme/ThemeProvider';
 import { tokens } from '@/src/theme/tokens';
 import { ShellModeProvider, useShellTransitionMs } from '@/src/shell';
+import { installWebGlobals } from '@/src/theme/webGlobals';
 
 LogBox.ignoreAllLogs(true);
 SplashScreen.preventAutoHideAsync();
@@ -34,6 +35,11 @@ function ThemedStack() {
 
 export default function RootLayout() {
   const [loaded, error] = useIconFonts();
+
+  // Document language and the product's focus ring — see webGlobals.
+  useEffect(() => {
+    installWebGlobals();
+  }, []);
 
   useEffect(() => {
     if (loaded || error) {

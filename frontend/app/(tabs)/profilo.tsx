@@ -20,7 +20,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useTheme } from '@/src/theme/ThemeProvider';
 import { tokens } from '@/src/theme/tokens';
 import { ErrorState } from '@/src/components/ui/ErrorState';
-import { useAmbientInset } from '@/src/shell';
+import { Appear, useAmbientInset } from '@/src/shell';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { haptic } from '@/src/utils/haptic';
 import {
@@ -177,19 +177,25 @@ export default function ProfiloScreen() {
         ) : null}
         {error ? <InlineError>{error}</InlineError> : null}
 
-        {twoColumn ? (
-          <View style={styles.row}>
-            <View style={styles.mainCol}>{main}</View>
-            <View style={[styles.railCol, { width: ACCOUNT_RAIL_WIDTH }]}>{rail}</View>
-          </View>
-        ) : (
-          // Phone: the same order, stacked. The rail becomes a closing summary
-          // rather than being dropped.
-          <View style={styles.stackAll}>
-            {main}
-            {rail}
-          </View>
-        )}
+        {/*
+          Content arriving where the skeleton stood: a 200ms fade, no movement,
+          skipped entirely under reduce-motion.
+        */}
+        <Appear>
+          {twoColumn ? (
+            <View style={styles.row}>
+              <View style={styles.mainCol}>{main}</View>
+              <View style={[styles.railCol, { width: ACCOUNT_RAIL_WIDTH }]}>{rail}</View>
+            </View>
+          ) : (
+            // Phone: the same order, stacked. The rail becomes a closing summary
+            // rather than being dropped.
+            <View style={styles.stackAll}>
+              {main}
+              {rail}
+            </View>
+          )}
+        </Appear>
 
         <LogoutRow onPress={() => void doLogout()} busy={signingOut} />
       </ScrollView>

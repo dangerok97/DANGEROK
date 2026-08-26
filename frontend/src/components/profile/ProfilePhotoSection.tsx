@@ -6,7 +6,7 @@ import { useTheme } from '@/src/theme/ThemeProvider';
 import { tokens } from '@/src/theme/tokens';
 import { api } from '@/src/api/client';
 import { useAuth } from '@/src/contexts/AuthContext';
-import { Avatar } from '@/src/shell';
+import { Avatar, useInflight } from '@/src/shell';
 import { haptic } from '@/src/utils/haptic';
 
 /**
@@ -33,8 +33,11 @@ export function useProfilePhoto() {
   const { user, refresh } = useAuth();
   const [busy, setBusy] = useState<'upload' | 'remove' | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // The picker takes a moment to open; without this, an impatient second press
+  // opens a second picker and starts a second upload.
+  const guard = useInflight();
 
-  const pick = async () => {
+  const pick = () => guard(async () => {
     haptic('tap');
     setError(null);
     try {
@@ -60,9 +63,9 @@ export function useProfilePhoto() {
     } finally {
       setBusy(null);
     }
-  };
+  });
 
-  const remove = async () => {
+  const remove = () => guard(async () => {
     haptic('warning');
     setError(null);
     setBusy('remove');
@@ -75,7 +78,7 @@ export function useProfilePhoto() {
     } finally {
       setBusy(null);
     }
-  };
+  });
 
   return { user, busy, error, pick, remove };
 }

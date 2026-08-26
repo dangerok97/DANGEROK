@@ -305,11 +305,17 @@ function MethodRow({
 
 const styles = StyleSheet.create({
   wrap: { marginTop: 4 },
+  /*
+    Google renders its own 210px sign-in button into this row. At 390px that
+    left "Non collegato" 56 pixels to say itself in, so the row wraps instead:
+    the label and its state keep a readable minimum and the button drops onto
+    the next line when there is no room beside them.
+  */
   row: {
     flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.md,
-    minHeight: 64, paddingVertical: tokens.spacing.sm,
+    minHeight: 64, paddingVertical: tokens.spacing.sm, flexWrap: 'wrap',
   },
-  rowBody: { flex: 1, minWidth: 0, gap: 2 },
+  rowBody: { flex: 1, minWidth: 150, gap: 2 },
   rowLabel: { fontSize: 14, fontWeight: '600' },
   rowDetail: { fontSize: 12, lineHeight: 17 },
   rowNote: { fontSize: 12, lineHeight: 17, marginTop: 2 },
