@@ -311,6 +311,15 @@ async def startup():
     except Exception:
         logger.exception("Life Object Engine bootstrap failed (non-fatal)")
 
+    # Open questions — a blocker outlives the process that created it (V3.1)
+    try:
+        from waiting.service import get_waiting_service
+
+        await get_waiting_service(db).ensure_indexes()
+        logger.info("Open questions indexes ready")
+    except Exception:
+        logger.exception("Open questions bootstrap failed (non-fatal)")
+
     # Life Map — Contesti cognition foundation (deterministic + optional Gemini)
     try:
         from life_map.service import get_life_map_service

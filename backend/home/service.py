@@ -354,6 +354,18 @@ class HomeService:
         # waits on a provider: `attach_visuals` schedules generation in the
         # background and returns whatever state exists right now, so Home
         # renders at the same speed whether or not a picture exists yet.
+        # What ORA is waiting for. Read straight from the questions themselves
+        # rather than inferred from a suggestion's delivery mode: a blocker is
+        # a fact about the work, not a judgement about what to surface. Soft:
+        # Home must still render if this read fails.
+        open_questions: List[Dict[str, Any]] = []
+        try:
+            from waiting.service import get_waiting_service
+
+            open_questions = await get_waiting_service(self.db).list_open(user_id, limit=5)
+        except Exception as e:
+            logger.info("open questions read soft-fail: %s", type(e).__name__)
+
         primary_public = primary.to_public() if primary else None
         if primary_public:
             try:
@@ -369,6 +381,7 @@ class HomeService:
             insights=insights,
             resume_item=resume,
             ora_ti_consiglia=ora_ti_consiglia[:3],
+            open_questions=open_questions,
             connection_warnings=warnings,
             google_calendar=google_block,
             generated_at=now.isoformat(),

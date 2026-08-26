@@ -3,7 +3,12 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { useTheme } from '@/src/theme/ThemeProvider';
 import { tokens } from '@/src/theme/tokens';
-import type { HomeInsight, HomeItem, ProactiveSuggestion } from '@/src/api/client';
+import type {
+  HomeInsight,
+  HomeItem,
+  OpenQuestionItem,
+  ProactiveSuggestion,
+} from '@/src/api/client';
 import { ContextualCardVisual } from './ContextualCardVisual';
 import { agoLabel, relativeDayLabel } from './homeItemView';
 
@@ -68,27 +73,73 @@ export function SectionShell({
 /* -------------------------------------------------------------------------- */
 
 export function QuestionsSection({
+  open = [],
   questions,
   busyId,
   onAnswer,
+  onAnswerOpen,
   onSeeAll,
 }: {
+  /**
+   * Questions ORA is actually blocked on.
+   *
+   * These come first because they are a different kind of thing from the rows
+   * below them: answering one continues a piece of work that stopped, where a
+   * suggestion is something ORA thought worth raising. Both belong under the
+   * same heading — from the reader's side they are all "things ORA is waiting
+   * to hear from me" — but the blockers are the ones with consequences.
+   */
+  open?: OpenQuestionItem[];
   questions: ProactiveSuggestion[];
   busyId?: string | null;
   onAnswer: (s: ProactiveSuggestion) => void;
+  onAnswerOpen?: (q: OpenQuestionItem) => void;
   onSeeAll?: () => void;
 }) {
   const { colors } = useTheme();
-  if (!questions.length) return null;
+  if (!questions.length && !open.length) return null;
 
   return (
     <SectionShell
       title="DOMANDE PER TE"
-      count={questions.length}
+      count={questions.length + open.length}
       footerLabel={onSeeAll ? 'Vedi tutte le domande' : undefined}
       onFooter={onSeeAll}
       testID="home-questions"
     >
+      {open.slice(0, 3).map((q) => (
+        <View key={q.id} style={styles.row}>
+          <ContextualCardVisual
+            item={{ type: 'reply', source_type: 'ora' }}
+            size="row"
+            style={styles.rowVisual}
+          />
+          <View style={styles.rowText}>
+            <Text style={[styles.rowTitle, { color: colors.textPrimary }]} numberOfLines={3}>
+              {q.question}
+            </Text>
+            {q.why_needed || q.context_label ? (
+              <Text style={[styles.rowMeta, { color: colors.textTertiary }]} numberOfLines={2}>
+                {q.why_needed || q.context_label}
+              </Text>
+            ) : null}
+          </View>
+          <Pressable
+            onPress={() => onAnswerOpen?.(q)}
+            style={({ pressed }) => [
+              styles.rowCta,
+              { borderColor: colors.accent },
+              pressed && styles.pressed,
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel={`Rispondi: ${q.question}`}
+            testID={`home-open-question-${q.id}`}
+          >
+            <Text style={[styles.rowCtaLabel, { color: colors.accent }]}>Rispondi</Text>
+          </Pressable>
+        </View>
+      ))}
+
       {questions.slice(0, 3).map((q) => (
         <View key={q.id} style={styles.row}>
           <ContextualCardVisual

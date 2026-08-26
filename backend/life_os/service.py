@@ -277,7 +277,36 @@ class LifeOsService:
         plan.touch()
         await self.repo.save_plan(plan)
         await self._upsert_goal(user_id, plan)
+        await self._close_orphaned_questions(user_id, plan)
         return plan
+
+    async def _close_orphaned_questions(self, user_id: str, plan) -> None:
+        """Work that has ended cannot still be waiting for something.
+
+        A plan that is completed or cancelled — and an item that is finished or
+        skipped — leaves any blocker attached to it with nothing left to
+        unblock. Left alone those questions keep appearing on Home, asking
+        someone to decide something that no longer has a decision in it.
+
+        Soft-failing: a question that could not be closed is a stale row, and a
+        stale row must never cost a plan its save.
+        """
+        try:
+            from waiting.service import get_waiting_service
+
+            svc = get_waiting_service(self.db)
+            if plan.status in ("completed", "cancelled"):
+                await svc.close_for_work(
+                    user_id, plan_id=plan.id, reason=f"plan_{plan.status}"
+                )
+                return
+            for it in plan.items or []:
+                if it.status in ("completed", "skipped"):
+                    await svc.close_for_work(
+                        user_id, plan_item_id=it.id, reason=f"item_{it.status}"
+                    )
+        except Exception:
+            logger.info("close orphaned questions soft-fail", exc_info=True)
 
     async def mark_item(
         self,

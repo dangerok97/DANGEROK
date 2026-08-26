@@ -89,3 +89,11 @@ try:
     ALL_ROUTERS.append(visuals_router)
 except Exception:
     pass
+
+# Open questions — what ORA is waiting for, and where it resumes (V3.1)
+try:
+    from waiting.router import router as waiting_router
+
+    ALL_ROUTERS.append(waiting_router)
+except Exception:
+    pass

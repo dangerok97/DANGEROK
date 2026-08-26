@@ -1,5 +1,49 @@
 # ORA — AI Changelog
 
+## 2026-08-26 — V3.1 Conversation Resume Intelligence (WAITING_USER)
+
+- **A blocker is now a thing, not a message.** When the reasoning cannot go on
+  without the person, ORA records an `OpenQuestion`: what it is waiting for, why
+  it needs it, which plan / item / object it is blocking, and — server-side
+  only — where to continue from. Before this, the question existed solely as a
+  turn in a transcript, and `ConversationSession.status == "waiting_user"` meant
+  nothing more than "the session is idle, your move", because it is set after
+  every turn.
+- **The resume pointer belongs to the server.** `ResumePointer` snapshots the
+  reasoning's own focus at the moment it stopped: the goal, the plan item, the
+  object, the reasoning epoch, and the AI's opaque handles for the information
+  it was missing. Answering re-binds that focus through the existing Life OS
+  session-focus API and then runs the ordinary turn. Reading the transcript back
+  and asking the model to work out what it had been doing is not continuity —
+  it is a second interpretation of the same words, free to reach a different
+  conclusion, and it loses the plan item entirely.
+- **The client never says where to resume.** `POST /questions/{id}/answer`
+  accepts the words a person typed and where they were standing. Nothing else.
+  A client that could name a continuation target could be persuaded to name
+  someone else's.
+- **Accepting an answer and continuing the work are separate transactions.** If
+  the continuation fails — provider timeout, tool error, restart — the answer
+  stays answered and the work stays retryable. Nobody is asked to type "Mutuo"
+  a second time because ORA's own pipeline fell over.
+- **One answer wins.** Both the acceptance and the continuation claim are single
+  conditional updates, so two devices answering at the same instant produce one
+  transition and one continuation; the loser is told there is nothing left to do.
+- **One blocker per branch.** A partial unique index on `(user_id, dedupe_key)`
+  makes a retried reasoning cycle find the question it already asked instead of
+  asking a third time, and a newer blocker on the same item supersedes the older
+  one. Completing or cancelling a plan cancels the questions attached to it, so
+  nobody is asked about a decision that no longer has one.
+- **Home and Activity are two projections of one entity.** Both read the same
+  open questions; answering in either removes it from both. The old heuristic —
+  a suggestion whose attention delivery happened to be `ask_user` — still feeds
+  ordinary suggestions, but is no longer the only thing behind "Domande per te".
+- The ask contract gained one optional, domain-neutral field:
+  `CognitiveTurnResult.blocking_ask`, set only when the reasoning marks its own
+  uncertainty blocking. An ordinary clarification does not become a persistent
+  question.
+- No domain vocabulary anywhere: there is a question, the work it blocks, and
+  why it is needed. The mortgage scenario is a test fixture.
+
 ## 2026-08-24 — PX1.2 Home 3.0 (canonical life dashboard)
 
 - Home is rebuilt as a two-column dashboard against the CPO's approved

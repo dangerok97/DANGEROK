@@ -125,6 +125,22 @@ export default function AttivitaScreen() {
    */
   const answer = useCallback(
     async (q: ActivityResponse['questions'][number]) => {
+      /*
+        A real blocker opens the thread that asked it, carrying the question's
+        handle. Nothing is answered from here: the conversation is where a
+        person can say more than the question expected, and it is the flow that
+        knows how to continue the work the answer was blocking.
+      */
+      if (q.kind === 'question' && q.question_id) {
+        router.push(
+          buildOraConversationHref({
+            sessionId: q.session_id || undefined,
+            questionId: q.question_id,
+            entryPoint: 'question',
+          }) as any,
+        );
+        return;
+      }
       if (q.kind === 'memory_clarification' && q.memory_id) {
         try {
           const res = await api.lifeMemoryClarifyStart(q.memory_id);

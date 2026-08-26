@@ -70,6 +70,36 @@ def _text(value: Any, limit: int = 200) -> str:
 # --- questions ---------------------------------------------------------------
 
 
+def _open_question_rows(questions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """What ORA is genuinely blocked on, from the questions themselves.
+
+    These come before anything the attention layer merely thought worth
+    surfacing, because they are the only rows on this page where an answer
+    moves real work forward rather than acknowledging a notice. The id is
+    namespaced so Home and Activity can dedupe against each other by identity
+    instead of by wording.
+    """
+    rows: List[Dict[str, Any]] = []
+    for q in questions or []:
+        title = _text(q.get("question"), 300)
+        if not title:
+            continue
+        rows.append({
+            "id": f"question:{q.get('id')}",
+            "title": title,
+            "detail": _text(q.get("why_needed") or q.get("context_label")),
+            "needs_consent": False,
+            "kind": "question",
+            # The opaque handle an interface needs to answer it, and the thread
+            # the answer belongs to. Nothing about how the work is modelled.
+            "question_id": _text(q.get("id"), 64),
+            "session_id": _text(q.get("session_id"), 64) or None,
+            "context_label": _text(q.get("context_label"), 160) or None,
+            "route": None,
+        })
+    return rows
+
+
 def _question_rows(home: Dict[str, Any]) -> List[Dict[str, Any]]:
     """What ORA is waiting for the user to answer or allow.
 
@@ -412,7 +442,11 @@ async def build_activity(db, user_id: str) -> Dict[str, Any]:
         logger.warning("activity memory source failed: %s", type(e).__name__)
         partial.append("life_memory")
 
-    questions = _dedupe(_question_rows(home) + _clarification_rows(memory))[:MAX_QUESTIONS]
+    questions = _dedupe(
+        _open_question_rows(home.get("open_questions") or [])
+        + _question_rows(home)
+        + _clarification_rows(memory)
+    )[:MAX_QUESTIONS]
     waiting = _dedupe(_waiting_rows(home, now))
     updates = _dedupe(_update_rows(memory, home, now))
     deadlines = _dedupe(_deadline_rows(home, now))

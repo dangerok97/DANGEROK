@@ -1,5 +1,56 @@
 # ORA — Architecture
 
+## V3.1 — WAITING_USER: persistent blockers and exact resume
+
+A conversation that stops for a question has always been able to say so. What
+it could not do was survive: close the app, restart the process, come back on
+Tuesday, and the only record was a sentence in a transcript. `waiting_user` on
+the session is not that record — it is set after every turn and means "idle".
+
+The addition is one entity and one rule.
+
+**The entity.** `waiting/models.py::OpenQuestion` holds the question, why it is
+needed, human words for the work it belongs to, the work's own identifiers
+(`WorkRefs`: session / plan / plan item / object / situation), a
+`ResumePointer`, and — separately from the question's own lifecycle — a
+`ContinuationState`.
+
+**The rule.** The client never names the continuation target. It sends the
+answer and the question's handle; the pointer comes from the server.
+
+Flow:
+
+    reasoning marks its uncertainty blocking
+        └─ CognitiveTurnResult.blocking_ask
+             └─ AICoreOrchestrator._persist_blocking_ask
+                  reads the session's own ai_core focus:
+                    active_plan_id · current_plan_item_ref ·
+                    active_object_ref · active_situation_ref ·
+                    reasoning_epoch · active_goal
+                  └─ WaitingService.record_blocking_question  (idempotent)
+
+    POST /questions/{id}/answer
+        └─ repository.answer            conditional on status == "open"
+        └─ repository.claim_continuation conditional on pending|failed
+        └─ _restore_focus               LifeOsService.bind_session_object_focus
+        └─ _run_turn                    AICoreOrchestrator.message(
+                                          client_message_id=f"ans_{question_id}")
+        └─ finish_continuation          done | failed (retryable)
+
+Three properties are storage guarantees rather than application logic, because
+application logic is where races live:
+
+- a partial unique index on `(user_id, dedupe_key)` where `status == "open"`
+  makes a retried cycle collide with the question it already asked;
+- `answer` is one conditional update, so two simultaneous answers produce one
+  transition and one continuation;
+- `claim_continuation` is another, so a retry overlapping a running attempt
+  does nothing rather than running the work twice.
+
+The reasoning still reasons. What changed is that it reasons over a state it
+was handed — the same plan, the same item, the same object — instead of one it
+reconstructed from its own previous sentences.
+
 ## V2.8.2 — Context Broker V3
 
 Il production brain mantiene due stadi: Stage A è una slice piccola di account,
