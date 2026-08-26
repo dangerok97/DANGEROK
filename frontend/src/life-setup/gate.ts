@@ -14,6 +14,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Router } from 'expo-router';
 import { api } from '@/src/api/client';
+import { safeNextTarget } from '@/src/shell/nextTarget';
 
 const STORAGE_PREFIX = 'ora.lifeSetupCompleted.';
 
@@ -117,11 +118,24 @@ export async function completeLifeSetupGate(userId: string): Promise<void> {
 }
 
 /** Navigate by gate — single entry used by login, cold start, and Life Setup exits. */
-export async function routeByLifeSetupGate(router: Router, userId: string): Promise<void> {
+/**
+ * Where someone lands once they are in.
+ *
+ * `next` is where they were trying to go before being asked to sign in — a
+ * shared document, a workspace. It is honoured only after Life Setup is
+ * satisfied: the gate's semantics are unchanged, and an incomplete setup still
+ * wins over any destination. A `next` that did not survive validation is
+ * simply absent, and Home is the answer.
+ */
+export async function routeByLifeSetupGate(
+  router: Router,
+  userId: string,
+  next?: string | null,
+): Promise<void> {
   const target = await resolveLifeSetupGate(userId);
   if (target === 'life-setup') {
     router.replace('/life-setup' as any);
     return;
   }
-  router.replace('/(tabs)' as any);
+  router.replace((safeNextTarget(next) || '/(tabs)') as any);
 }

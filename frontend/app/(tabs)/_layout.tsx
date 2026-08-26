@@ -62,10 +62,22 @@ export default function TabsLayout() {
     >
       <Tabs.Screen name="index" options={{ title: 'Home' }} />
       <Tabs.Screen name="contesti" options={{ title: 'Vita' }} />
-      <Tabs.Screen name="ora" options={{ title: 'ORA' }} />
+      {/*
+        ORA is a destination, and its surface is the conversation at `/ora` —
+        not this screen, which was a second, thinner entry page sharing the
+        same address. The bar pushes the real one; this stays out of the
+        navigation so the address means one thing.
+      */}
+      <Tabs.Screen name="ora" options={{ title: 'ORA', href: null }} />
       <Tabs.Screen name="attivita" options={{ title: 'Attività' }} />
       <Tabs.Screen name="documenti" options={{ title: 'Documenti' }} />
-      <Tabs.Screen name="profilo" options={{ title: 'Profilo' }} />
+      {/*
+        Five destinations, and Profilo is not one of them. It keeps living
+        under `(tabs)` because moving the route would buy nothing and risk the
+        deep links that already point at it; `href: null` is what takes it out
+        of the navigation without touching the URL anyone may have saved.
+      */}
+      <Tabs.Screen name="profilo" options={{ title: 'Profilo', href: null }} />
       <Tabs.Screen
         name="memoria"
         options={{

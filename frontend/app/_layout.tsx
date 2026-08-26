@@ -9,7 +9,7 @@ import { useIconFonts } from '@/src/hooks/use-icon-fonts';
 import { AuthProvider } from '@/src/contexts/AuthContext';
 import { ThemeProvider, useTheme } from '@/src/theme/ThemeProvider';
 import { tokens } from '@/src/theme/tokens';
-import { ShellModeProvider, useShellTransitionMs } from '@/src/shell';
+import { AuthGate, ShellModeProvider, useShellTransitionMs } from '@/src/shell';
 import { installWebGlobals } from '@/src/theme/webGlobals';
 
 LogBox.ignoreAllLogs(true);
@@ -20,15 +20,26 @@ function ThemedStack() {
   const transitionMs = useShellTransitionMs();
   return (
     <View style={{ flex: 1, backgroundColor: colors.backgroundPrimary }}>
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: colors.backgroundPrimary },
-          // Ambient ↔ Focus foundation (~220–280ms); 0 when reduce-motion
-          animation: transitionMs === 0 ? 'none' : 'fade',
-          animationDuration: transitionMs || undefined,
-        }}
-      />
+      {/*
+        One place decides whether anyone is signed in. Screens below can then
+        assume there is a session and spend their loading state on their own
+        data instead of on an auth question they were never asked to answer.
+      */}
+      <AuthGate>
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: colors.backgroundPrimary },
+            // Ambient ↔ Focus foundation (~220–280ms); 0 when reduce-motion
+            animation: transitionMs === 0 ? 'none' : 'fade',
+            animationDuration: transitionMs || undefined,
+            // iOS: keep the native edge swipe. Nothing in the product holds
+            // unsaved input that a back gesture could silently discard.
+            gestureEnabled: true,
+            fullScreenGestureEnabled: true,
+          }}
+        />
+      </AuthGate>
     </View>
   );
 }

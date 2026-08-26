@@ -111,9 +111,10 @@ export function OraComposer({
                 <ActivityIndicator size="small" color={colors.textSecondary} />
               ) : (
                 <Pressable
-                  accessibilityLabel="Rimuovi allegato"
+                  accessibilityRole="button"
+                  accessibilityLabel={`Rimuovi allegato ${a.name}`}
                   onPress={() => onRemoveAttachment?.(a.localId)}
-                  hitSlop={8}
+                  style={styles.chipRemove}
                   testID={`${testID}-remove-${a.localId}`}
                 >
                   <Ionicons name="close" size={16} color={colors.textTertiary} />
@@ -182,7 +183,9 @@ export function OraComposer({
         />
         <Pressable
           testID={`${testID}-send`}
+          accessibilityRole="button"
           accessibilityLabel="Invia a ORA"
+          accessibilityState={{ disabled: !canSend, busy }}
           onPress={onSend}
           disabled={!canSend}
           style={({ pressed }) => [
@@ -289,10 +292,29 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlignVertical: 'top',
   },
+  /*
+    The send button only exists once there is something to send, which is how
+    it slipped past the tap-target pass that fixed attach and voice. It is now
+    the same 44px box as its two neighbours — the row reads as three equal
+    controls rather than two and a slightly smaller one.
+  */
+  /*
+    `hitSlop` is honoured on device and ignored by the web renderer, so the
+    cross that removes an attachment was a 16px target in a browser. A real
+    box, negative margin so the chip does not grow around it.
+  */
+  chipRemove: {
+    width: tokens.touch.min,
+    height: tokens.touch.min,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: -10,
+    marginRight: -8,
+  },
   send: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: tokens.touch.min,
+    height: tokens.touch.min,
+    borderRadius: tokens.touch.min / 2,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 2,

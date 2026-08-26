@@ -5,6 +5,7 @@
  */
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import * as Haptics from 'expo-haptics';
@@ -31,6 +32,7 @@ export function AmbientTabBar({ state, navigation }: BottomTabBarProps) {
   const { colors, isDark } = useTheme();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const bp = useBreakpoint();
   const isRail = bp === 'desktop';
 
@@ -39,6 +41,19 @@ export function AmbientTabBar({ state, navigation }: BottomTabBarProps) {
   const onPress = (routeName: AmbientNavKey | 'profilo') => {
     if (Platform.OS !== 'web') {
       void Haptics.selectionAsync();
+    }
+    /*
+      One ORA.
+
+      `/ora` resolved to two different screens depending on how you arrived:
+      the tab press showed a small entry page with an input, while the same URL
+      typed or shared opened the conversation PX1.4 built. Two surfaces at one
+      address is the definition of a ghost route, and the destination people
+      mean when they press ORA is the conversation.
+    */
+    if (routeName === 'ora') {
+      router.push('/ora' as any);
+      return;
     }
     const route = state.routes.find((r) => r.name === routeName);
     if (!route) {
@@ -213,14 +228,14 @@ export function AmbientTabBar({ state, navigation }: BottomTabBarProps) {
     >
       <GlassContainer glassRole="tabBar" style={styles.glass} intensity={isDark ? 56 : 42}>
         {/*
-          Phone keeps account in the bar. A bottom bar has no "set apart"
-          position, and stranding the only route to your own account behind a
-          gesture would cost more than this small divergence from the rail.
-          The final phone IA is PX1.x work, not something to improvise here.
+          Five, and only five. The account used to occupy a sixth slot here,
+          which is exactly what made Profilo read as a sixth destination — and
+          it was the one thing standing between this bar and the product's own
+          information architecture. It now lives where it belongs on a phone:
+          your picture, in the header of whichever surface you are on.
         */}
-        <View style={[styles.barRow, { minHeight: AMBIENT_BAR_HEIGHT }]}>
+        <View style={[styles.barRow, { minHeight: AMBIENT_BAR_HEIGHT }]} accessibilityRole="tablist">
           {primaryItems}
-          {renderItem(AMBIENT_ACCOUNT_ITEM)}
         </View>
       </GlassContainer>
     </View>

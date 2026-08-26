@@ -13,7 +13,7 @@
  * import-from-connected-apps tile would match the reference exactly and do
  * nothing, and a dead control on the first row is worse than a shorter row.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   RefreshControl,
   ScrollView,
@@ -63,6 +63,8 @@ const ROW_COMPACT_MAX = 720;
 
 /** Pipeline states that mean the work is still in flight. */
 const IN_FLIGHT = new Set(['analyzing', 'pending']);
+/** ~2 minutes of watching. Past that the document is stuck, not slow. */
+const MAX_POLLS = 40;
 
 export default function DocumentiScreen() {
   const { colors } = useTheme();
@@ -87,6 +89,7 @@ export default function DocumentiScreen() {
   const [order, setOrder] = useState<SortOrder>('recent');
 
   const [phase, setPhase] = useState<UploadPhase>('idle');
+  const polls = useRef(0);
 
   const load = useCallback(
     async (opts?: { silent?: boolean }) => {
@@ -111,9 +114,17 @@ export default function DocumentiScreen() {
     void load();
   }, [load]);
 
+  /*
+    Focus is what keeps the poll below honest: a tab screen stays mounted when
+    you leave it, so without this the library kept asking every three seconds
+    from behind whichever tab you were actually looking at.
+  */
+  const [focused, setFocused] = useState(false);
   useFocusEffect(
     useCallback(() => {
+      setFocused(true);
       void load({ silent: true });
+      return () => setFocused(false);
     }, [load]),
   );
 
@@ -125,13 +136,26 @@ export default function DocumentiScreen() {
    * than running forever behind an idle page.
    */
   useEffect(() => {
+    if (!focused) return;
     const busy = (library?.items || []).some((d) => IN_FLIGHT.has(d.status));
     if (!busy) return;
-    const t = setInterval(() => void load({ silent: true }), 3000);
+    /*
+      A document that never finishes must not poll for the life of the app.
+      Extraction is asynchronous but bounded; something still in flight after
+      a couple of minutes is stuck, and the page already says so through its
+      own status rather than by asking again forever. Pulling to refresh, or
+      coming back to the tab, starts the watch over.
+    */
+    if (polls.current >= MAX_POLLS) return;
+    const t = setInterval(() => {
+      polls.current += 1;
+      void load({ silent: true });
+    }, 3000);
     return () => clearInterval(t);
-  }, [library, load]);
+  }, [focused, library, load]);
 
   const onRefresh = useCallback(() => {
+    polls.current = 0;
     setRefreshing(true);
     void load({ silent: true });
   }, [load]);

@@ -3,7 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { useTheme } from '@/src/theme/ThemeProvider';
 import { tokens } from '@/src/theme/tokens';
-import { titleCase } from '@/src/shell';
+import { AccountEntry, titleCase } from '@/src/shell';
 
 /** Morning / afternoon / evening — the only thing a greeting needs to know. */
 export function greetingFor(now: Date = new Date()): string {
@@ -66,6 +66,11 @@ export function HomeHeaderV3({
           <Text style={[styles.whyLabel, { color: colors.textSecondary }]}>Perché ora?</Text>
         </Pressable>
       ) : null}
+      {/*
+        Account, where a phone can reach it. Renders nothing on desktop, where
+        the rail already answers this at its foot.
+      */}
+      <AccountEntry testID="home-account" />
     </View>
   );
 }
@@ -137,8 +142,19 @@ export function HomeSkeletonV3({ wide }: { wide: boolean }) {
 }
 
 const styles = StyleSheet.create({
-  header: { flexDirection: 'row', alignItems: 'flex-start', gap: tokens.spacing.lg },
-  headerText: { flex: 1, gap: 4 },
+  /*
+    Three things now share this row on a phone: the title, the "why" pill and
+    the account. At 390px they do not fit on one line, and without a floor the
+    title column shrank until "Buongiorno" broke across two lines mid-word.
+    The floor makes the row wrap instead — the title keeps the full width and
+    the two controls move together to the line below, which is the same
+    hierarchy, one line lower. Nothing changes above the phone breakpoint.
+  */
+  header: {
+    flexDirection: 'row', alignItems: 'flex-start',
+    gap: tokens.spacing.lg, flexWrap: 'wrap',
+  },
+  headerText: { flex: 1, gap: 4, minWidth: 240 },
   greeting: { fontSize: 30, fontWeight: '700', letterSpacing: -0.8, lineHeight: 37 },
   sub: { fontSize: 15, lineHeight: 21 },
   whyBtn: {
