@@ -24,6 +24,7 @@ from waiting.models import (
     AnswerKind,
     AnswerSource,
     OpenQuestion,
+    RequestedVariable,
     ResumePointer,
     WorkRefs,
     now_iso,
@@ -83,6 +84,7 @@ class WaitingService:
         expected_answer_kind: AnswerKind = "free_text",
         refs: WorkRefs,
         resume: ResumePointer,
+        requested_variables: Optional[List[Dict[str, Any]]] = None,
     ) -> Optional[Dict[str, Any]]:
         """
         Persist what ORA is waiting for. Returns the public view, or None when
@@ -112,6 +114,9 @@ class WaitingService:
             refs=refs,
             resume=resume,
             dedupe_key=key,
+            requested_variables=[
+                RequestedVariable.model_validate(v) for v in (requested_variables or [])
+            ][:10],
         )
         try:
             await self.repo.insert(q)
@@ -324,6 +329,42 @@ class WaitingService:
         if doc:
             logger.info("question_superseded id=%s reason=%s", question_id, reason)
         return bool(doc)
+
+    async def resolve_by_knowledge(
+        self,
+        user_id: str,
+        *,
+        known_refs: Iterable[str],
+        reason: str = "resolved_by_new_context",
+    ) -> int:
+        """
+        Stop asking for something ORA has since found out.
+
+        A question is a blocker, and a blocker that is no longer blocking has
+        no business staying on someone's Home. When a document, a memory or an
+        answer supplies what a question was waiting for, the question is
+        superseded rather than left for the person to answer redundantly.
+
+        Matching is by the reasoning's own opaque refs — the same handles the
+        resume pointer recorded — so nothing here has to interpret text.
+        """
+        wanted = {str(r).strip() for r in known_refs if str(r).strip()}
+        if not wanted:
+            return 0
+        closed = 0
+        for row in await self.repo.list_open(user_id, limit=MAX_OPEN):
+            asked = {str(r) for r in ((row.get("resume") or {}).get("asked_refs") or [])}
+            requested = {
+                str(v.get("ref")) for v in (row.get("requested_variables") or []) if v.get("ref")
+            }
+            covers = asked | requested
+            # Every ref the question was waiting on must be known. Retiring a
+            # bundled question because one of five values turned up would lose
+            # the other four.
+            if covers and covers.issubset(wanted):
+                if await self.supersede(user_id, str(row.get("id")), reason=reason):
+                    closed += 1
+        return closed
 
     async def close_for_work(
         self,

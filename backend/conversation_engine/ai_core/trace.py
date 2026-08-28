@@ -76,6 +76,10 @@ def public_trace(trace: Dict[str, Any]) -> Dict[str, Any]:
             "repeated_question_prevented", 0
         ),
         "unresolved_uncertainty": bool(trace.get("unresolved_uncertainty", False)),
+        # What this turn amounted to for the person: ask · act · complete ·
+        # continue · limbo. One word, no content, and the only way to count how
+        # often guidance leaves a goal where it found it.
+        "guidance_outcome": trace.get("guidance_outcome"),
         "context_graph_calls": trace.get("context_graph_calls", 0),
         "context_graph_seed_count": trace.get("context_graph_seed_count", 0),
         "context_graph_candidate_edge_count": trace.get(

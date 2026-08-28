@@ -1,5 +1,104 @@
 # ORA — AI Changelog
 
+## 2026-08-26 — V3.2 Life Guidance Intelligence
+
+- **ORA reconstructs where you are before it plans anything.** A goal is held as
+  a `GoalState`: objective, stage, and milestones each carrying what state they
+  are in and whether that is a fact, an inference, or unknown. The path ORA
+  guides is the residual one — what is already behind the person is dropped, not
+  re-proposed. Told "I've already signed the compromesso", it does not ask
+  whether a property was found or whether the compromesso was signed.
+- **Know before asking.** Every variable the next step needs is looked for in the
+  sentence just spoken, in answers already given, and in ORA's own sources
+  through the existing Context Broker, before any of it can become a question.
+  When the model asks for something ORA already has, the question is not
+  suppressed — the model is handed `INFORMATION_ALREADY_KNOWN` with what is now
+  known and thinks again, which is the difference between hiding a question and
+  answering it.
+- **Only what blocks the next decision may be asked.** `required` and still
+  unknown is the only thing that reaches a person. `useful` and `optional` never
+  do, however interesting they are to the reasoning.
+- **One bundle, not an interrogation.** What is genuinely missing is asked once:
+  at most seven things, least personal first, in a single sentence with a single
+  question mark. A partial answer leaves only the remainder; a refusal is an
+  answer and is never asked again.
+- **A correction beats an inference.** If the person says a step is not done,
+  that wins without argument, and a stated fact is not downgraded by a later
+  guess. A malformed reconstruction leaves the previous state standing — losing
+  an update is better than replacing a plan with rubble.
+- **The gate never costs a turn.** If guidance is unavailable or raises, the
+  question the model wrote is still asked. Guidance improves an ask; it is never
+  a dependency of one.
+- **`goal_state` had to be named at the governance boundary.**
+  `validate_decision` rebuilds a decision field by field from an allowlist, so a
+  new field that is not named there is dropped silently — which is exactly what
+  happened until it was validated and forwarded there explicitly.
+- **Nothing branches on a domain.** No `HousePurchaseFlow`, no
+  `if domain == "house"`. An AST walk over the guidance package fails the build
+  on any domain-named symbol, and the same engine is proven on an unrelated
+  goal. V3.2 also adds no search engine, crawler, comparator or commercial
+  provider: it reasons over what ORA already holds.
+- **"Already known" has to survive being wrong.** Live QA broke it twice.
+  Sharing some of a variable's words is not knowing its value — "fissa
+  l'appuntamento dal notaio" is not a date — and ORA's own record of the work
+  is not evidence either: a situation saying it was *waiting* for the date was
+  read as having it. Resolution now requires the whole label, ungluing Italian
+  elision so "l'importo" is still "importo", and it reads what the person has
+  told ORA rather than what ORA has written down about the request.
+- **A blocked action asks.** Refusing a side effect used to throw away the
+  question the reasoning had already written and say "Mi manca un'informazione
+  necessaria per procedere in modo affidabile" — the internal state read out
+  loud, with nothing recorded about what ORA was waiting for. The turn now
+  becomes the question it already was.
+- **The model writes the question.** When guidance did not change what was
+  asked for, the reasoning's own wording stands; the composed fallback no
+  longer splices its prose into a template.
+- **ORA stopped asking which step to work on.** "Su cosa vuoi concentrarti?"
+  is not a question about someone's life; it is ORA asking to be told how to
+  work, and it left the person managing the plan. Having reconstructed where
+  they are, ORA now picks the next step and either says what it is doing or
+  asks — once — for what that step genuinely requires.
+- **A question in prose is still a question.** The gate sits on
+  `response_mode=ask`; the reasoning found the gap by marking a need "useful"
+  and then asking for it in the sentence it wrote. It is now held to its own
+  declaration.
+- **"Domande per te" shows only what has actually stopped.** Home listed three
+  rows for one blocker — the real question, the same thing again as an English
+  suggestion, and a third notice about the same work — with a badge saying 3
+  above a rail saying 2. A real question now wins its branch on both surfaces,
+  the suggestions become the updates they always were, and every number on the
+  page counts the same list.
+- **The headline speaks the reader's language.** An attention item that arrived
+  in English was written for the wrong person; being accurate did not make it
+  right.
+- **Describing the next step is not taking it.** ORA reconstructed the path,
+  said what would happen next, and stopped — so the person had to work out what
+  it needed and offer it unprompted, which is the arrangement all of this
+  exists to end. A guidance turn now either moves something or asks for what
+  blocks it.
+- **No conclusions about someone before knowing what they rest on.** "Hai
+  ottimi requisiti", said from three facts, is a guess wearing a
+  recommendation's clothes. General information stays available; it is a
+  conclusion about *them* that has to be earned.
+- **Being stopped is not an outcome.** Refused a repeated question, or refused
+  an action for missing information, ORA used to end the turn with an apology
+  or an offer to stop. Both are dead ends: it now proceeds, or asks the thing
+  that would unblock it.
+- **The question in the thread is the question ORA is waiting on.** They were
+  generated in the same turn and then drifted: Home showed the stored sentence
+  and the conversation showed the model's, so a person answering in the thread
+  was answering a different question from the one on the record.
+- **A question is filed under the step it came from.** Not under whichever plan
+  item happened to be in focus — which is how a question about scheduling a
+  meeting ended up labelled "definire la data esatta di fine rapporto".
+- **Turns are named.** `ask`, `act`, `complete`, `continue` — or `limbo`, the
+  plan described with nothing asked and nothing done. Naming it is what makes
+  it countable.
+- **What it carries into V3.1.** A question now travels with the variables it
+  asked for, so a partial answer is readable, and with how many things the
+  person did not have to be asked. A question whose every variable later becomes
+  known is superseded rather than re-asked.
+
 ## 2026-08-26 — V3.1 Conversation Resume Intelligence (WAITING_USER)
 
 - **A blocker is now a thing, not a message.** When the reasoning cannot go on

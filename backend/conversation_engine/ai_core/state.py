@@ -51,6 +51,15 @@ def get_ai_state(sess: ConversationSession) -> Dict[str, Any]:
         state["active_situation_ref"] = None
     if "clarification_history" not in state:
         state["clarification_history"] = []
+    # V3.2 — where this person is on the goal: milestones, what is behind them
+    # and on what basis. A projection over Life OS, not a second copy of it.
+    if "guidance_state" not in state:
+        state["guidance_state"] = None
+    # Information needs guidance has established during this session — from the
+    # turn, from memory, from an answer already given. What is in here can
+    # never become a question again.
+    if "resolved_refs" not in state:
+        state["resolved_refs"] = []
     return state
 
 

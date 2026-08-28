@@ -126,6 +126,21 @@ class ContinuationState(BaseModel):
         return self.attempts >= MAX_ATTEMPTS
 
 
+class RequestedVariable(BaseModel):
+    """One of the things a bundled question is asking for.
+
+    Recorded so a partial answer can be told from a complete one. Someone asked
+    for four things and giving two has answered the question they were asked;
+    without this the only options are to accept an incomplete answer silently
+    or to ask for all four again.
+    """
+
+    ref: str = Field(min_length=1, max_length=120)
+    label: str = Field(default="", max_length=160)
+    purpose: str = Field(default="", max_length=240)
+    required: bool = True
+
+
 class OpenQuestion(BaseModel):
     id: str = Field(default_factory=new_question_id)
     user_id: str
@@ -141,6 +156,9 @@ class OpenQuestion(BaseModel):
 
     refs: WorkRefs = Field(default_factory=WorkRefs)
     resume: ResumePointer = Field(default_factory=ResumePointer)
+    # V3.2 — when the question bundles several things the same next step needs.
+    # Empty for an ordinary single question.
+    requested_variables: List[RequestedVariable] = Field(default_factory=list, max_length=10)
 
     # Storage-level idempotency. A retried reasoning cycle asks the same thing
     # again; this is what makes the second attempt find the first question
@@ -183,4 +201,11 @@ class OpenQuestion(BaseModel):
             # without learning anything about how the work is modelled.
             "session_id": self.refs.session_id,
             "work_kind": self.resume.kind,
+            # What the question is asking for, when it asks for more than one
+            # thing. An interface may show them; it is never required to, and
+            # a sentence answering them all is still a valid answer.
+            "requested": [
+                {"ref": v.ref, "label": v.label, "purpose": v.purpose or None}
+                for v in self.requested_variables
+            ] or None,
         }

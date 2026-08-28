@@ -12,6 +12,44 @@ l'intento e nessuna retrieval promuove automaticamente nuova Memory.
 
 Ultimo aggiornamento: 2026-08-16 — Home → ORA first-turn handoff + location presence.
 
+## Sa già dove sei (V3.2)
+
+Se dici "devo comprare casa a Tarquinia, ho già firmato il compromesso", ORA
+non ti chiede se hai trovato casa e non ti chiede se hai firmato. Ricostruisce
+dov'è arrivata la tua situazione e ti mostra solo quello che manca: verifiche,
+finanziamento, notaio, rogito.
+
+Quello che è già fatto non torna più sotto forma di domanda.
+
+Quando qualcosa le serve davvero per decidere il passo successivo, te lo chiede
+una volta sola e tutto insieme, in una frase — non una domanda per volta, non
+un modulo. Le cose che le farebbero solo comodo non te le chiede.
+
+Prima di chiedere guarda quello che ha: quello che hai appena scritto, quello
+che le hai già risposto, quello che sa di te. Se lo trova, va avanti invece di
+chiedertelo.
+
+Se le dici che si è sbagliata — "il compromesso non l'ho ancora firmato" — la
+tua correzione vince, senza discutere, e il percorso si riallinea.
+
+Se preferisci non rispondere a qualcosa, quella è una risposta: non te la
+richiede, e prosegue per quanto può.
+
+ORA non si limita a dirti quale sarebbe il passo successivo: o lo fa, o ti
+chiede la cosa che glielo impedisce. Non tocca a te indovinare quali
+informazioni le servono.
+
+E non trae conclusioni su di te — cosa ti conviene, a cosa hai diritto — prima
+di sapere ciò su cui quella conclusione si regge. Te lo dice: "posso
+restringere il campo, ma prima mi servono queste due cose".
+
+Non ti chiede su cosa vuoi concentrarti. Il passo successivo lo sceglie lei;
+tu decidi le cose che riguardano la tua vita — mutuo o risparmi, accettare o
+rifiutare, una data, un budget.
+
+In "Domande per te" trovi solo quello che ha davvero fermato un lavoro. Tutto
+il resto è un aggiornamento, e sta altrove.
+
 ## Domande per te (V3.1)
 
 Quando ORA non può andare avanti senza di te, non si limita a chiederlo in

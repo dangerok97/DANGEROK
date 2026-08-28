@@ -1,5 +1,63 @@
 # ORA — Development State
 
+## V3.2 — Life Guidance Intelligence
+
+- New module `backend/guidance/`: `models.py` (GoalState, Milestone, Variable,
+  NextStep, Sufficiency), `resolution.py` (know before asking), `questioning.py`
+  (bundling), `service.py` (reconstruct / assess / evaluate), `bridge.py`
+  (MissingInformation ↔ Variable, and the V3.1 ask payload).
+- Four capabilities: **State Reconstruction** (`GoalState`, residual path only),
+  **Dynamic Path Planning** (milestones bound to existing `plan_item_id`s; no
+  second plan), **Information Sufficiency** (only `required` + unknown blocks),
+  **Next Best Step / Minimum Necessary Questioning** (one bundle, ≤ 7, least
+  sensitive first).
+- Cognitive contract additions: `MissingInformation.necessity | label |
+  blocks_step`, `CognitiveDecision.goal_state`. `necessity` defaults to `None`
+  so "unstated" stays distinguishable from an explicit `useful`.
+- `governance.validate_decision` validates and forwards `goal_state`; it rebuilds
+  the decision from an allowlist, so an unnamed field would be dropped.
+- Loop gate in `ai_core/loop.py` before the ask is appended: resolve, then either
+  feed `INFORMATION_ALREADY_KNOWN` back to the model and re-decide, or emit a
+  bundled ask. Guidance failing never costs a turn — the model's own question
+  is asked.
+- AI-Core state: `guidance_state` (the reconstruction, carried across turns) and
+  `resolved_refs` (what this turn resolved). Not `clarification_history`, which
+  is the loop's attempt counter.
+- V3.1 integration: `OpenQuestion.requested_variables` (so a partial answer is
+  readable), `blocking_ask.avoided` (observability only, never shown), and
+  `WaitingService.resolve_by_knowledge`, which supersedes an open question only
+  when *all* of its refs became known.
+- Domain neutrality is a test, not a convention: an AST walk fails on any
+  domain-named symbol, and the same engine is proven on an unrelated goal.
+- Not built here: web search, crawling, offer engines, comparators, commercial
+  providers. V3.2 reasons over what ORA already holds.
+- Fixed during live QA, each with a regression test: resolution required only
+  partial token overlap (naming a thing resolved its value) and ignored Italian
+  elision; ORA's own situation/plan records counted as evidence; a blocked
+  `act` discarded the reasoning's question for a generic apology; a composed
+  question grafted the reasoning's prose into a template.
+- Product behaviour gate: `guidance/wording.py` (meta-choice + language checks),
+  a loop nudge that hands the step back to ORA when it hands it to the person or
+  asks for something it marked non-required, "Domande per te" reduced to real
+  `OpenQuestion`s on both surfaces (`activity/presentation.py`,
+  `app/(tabs)/index.tsx`) with one count behind every number, and the attention
+  headline written in the user's language.
+- Execution invariant: GUIDANCE MUST EITHER ADVANCE THE WORK OR ASK FOR WHAT
+  BLOCKS ADVANCEMENT. Five dead ends are detected and corrected in-turn
+  (described plan · premature conclusion · non-required ask · blocked from
+  re-asking · action refused without a question), at most two corrections per
+  turn. The composed question also replaces the visible one when guidance
+  rejected or narrowed what the model wrote.
+- Turn/question consistency: the thread text and the stored `OpenQuestion` are
+  one sentence; the ask carries `step_title` / `milestone_ref` /
+  `plan_item_id` from the guidance decision, so `context_label` and
+  `WorkRefs.plan_item_id` cannot drift to the focused plan item; every turn on
+  live work is classified as `guidance_outcome` (ask · act · complete ·
+  continue · limbo) and exposed in the public trace.
+- Tests: `backend/tests/test_guidance_v32.py` — 58, covering scenarios A–J, the
+  V3.1 bridge, sensitive-value redaction, domain neutrality, a no-network guard,
+  5 loop-integration tests and the four live findings above.
+
 ## V3.1 — Conversation Resume Intelligence (WAITING_USER)
 
 - New module `backend/waiting/`: `OpenQuestion` (models), `open_questions`

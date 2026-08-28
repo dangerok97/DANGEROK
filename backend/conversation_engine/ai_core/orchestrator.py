@@ -240,10 +240,17 @@ class AICoreOrchestrator:
 
             plan_id = str(st.get("active_plan_id") or "") or None
             object_id = str(obj_ref.get("id") or "") or None
+            # The step the question actually came from, when guidance said so.
+            # The session's focus is where this used to come from, and it is
+            # only the same step by coincidence: a question about scheduling a
+            # meeting was filed — and shown — under "definire la data esatta di
+            # fine rapporto", because that was the plan item in focus.
+            step_title = str(ask.get("step_title") or "").strip()
+            step_item_id = str(ask.get("plan_item_id") or "").strip() or None
             refs = WorkRefs(
                 session_id=sess.id,
                 plan_id=plan_id,
-                plan_item_id=str(item_ref.get("id") or "") or None,
+                plan_item_id=step_item_id or str(item_ref.get("id") or "") or None,
                 object_id=object_id,
                 situation_id=str(situation.get("id") or "") or None,
             )
@@ -257,7 +264,9 @@ class AICoreOrchestrator:
                 goal_summary=str(goal.get("summary") or "")[:400],
                 asked_refs=[str(r)[:120] for r in (ask.get("asked_refs") or [])][:8],
                 focus={
-                    "plan_item_title": str(item_ref.get("title") or "")[:120],
+                    "plan_item_title": (
+                        step_title[:120] or str(item_ref.get("title") or "")[:120]
+                    ),
                     "object_kind": str(obj_ref.get("source") or "")[:60],
                     "sensitive": bool(ask.get("sensitive")),
                 },
@@ -269,7 +278,8 @@ class AICoreOrchestrator:
                 # Human words for the work, never an id: the plan item first,
                 # then the goal it belongs to.
                 context_label=(
-                    str(item_ref.get("title") or "")[:160]
+                    step_title[:160]
+                    or str(item_ref.get("title") or "")[:160]
                     or str(goal.get("summary") or "")[:160]
                 ),
                 expected_answer_kind=(
@@ -277,6 +287,10 @@ class AICoreOrchestrator:
                 ),
                 refs=refs,
                 resume=resume,
+                # Present only when guidance bundled several things the same
+                # next step needs. A partial answer is then legible: what is
+                # still missing can be asked, and what was given cannot be.
+                requested_variables=list(ask.get("requested_variables") or []),
             )
         except Exception:
             logger.exception("question_persist_failed session=%s", sess.id)
