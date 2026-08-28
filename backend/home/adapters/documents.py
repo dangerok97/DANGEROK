@@ -5,6 +5,7 @@ from typing import List, Tuple
 from home.models import ConnectionWarning, HomeItem
 
 from ._util import looks_like_concert, looks_like_visit, now_iso, parse_amount, stable_id
+from .document_uncertainty import blocking_uncertainty
 
 
 async def load_documents(
@@ -18,28 +19,44 @@ async def load_documents(
     items: List[HomeItem] = []
     for d in docs:
         status = d.get("pipeline_status") or ""
-        if status in ("needs_review", "awaiting_confirmation", "action_required", "failed"):
-            title = (
-                d.get("display_title")
-                or d.get("user_title")
-                or (d.get("analysis") or {}).get("suggested_title")
-                or d.get("filename")
-                or "Documento da verificare"
-            )
-            conf = (d.get("analysis") or {}).get("confidence")
+        # A document ORA could not finish reading is the only pipeline state
+        # that is about the person at all.
+        #
+        # `awaiting_confirmation` is not: it means ORA proposed something to
+        # itself — an event candidate exists — and a proposal of ORA's own is
+        # not work somebody has to do. That state alone was turning a policy
+        # read at 0.95 confidence, with no warnings and `requires_review`
+        # false, into a card titled with the document's own name and a
+        # "Verifica" button. Reading a document well is not a reason to ask
+        # anybody anything.
+        # One decider, and it is the only thing that can produce a question:
+        # did ORA actually fail to resolve something? Filtering on the pipeline
+        # state first was a second gate that could only ever disagree with this
+        # one — a document can carry a real ambiguity and a proposed event at
+        # the same time, and the ambiguity is no less real for it.
+        uncertainty = blocking_uncertainty(d)
+        if uncertainty:
             items.append(HomeItem(
                 id=stable_id("doc_review", user_id, d["id"]),
-                type="needs_review",
+                type="verify",
                 subtype=status,
-                title=title,
+                # The question, not the document's name. "Polizza Assicurativa
+                # Auto - Generali Italia → Verifica" tells somebody nothing
+                # about what ORA needs from them.
+                title=uncertainty["question"],
                 description=(d.get("analysis") or {}).get("short_description"),
                 source_type="document",
                 source_id=d["id"],
-                confidence=conf,
+                confidence=(d.get("analysis") or {}).get("confidence"),
                 status="open",
                 created_at=d.get("created_at") or now_iso(),
                 updated_at=d.get("updated_at") or now_iso(),
-                meta={"dedupe_key": f"doc_review:{d['id']}", "pipeline_status": status},
+                meta={
+                    "dedupe_key": f"doc_review:{d['id']}",
+                    "pipeline_status": status,
+                    "work_reason": "confirmation_required",
+                    "uncertain_field": uncertainty["field"],
+                },
             ))
 
         admin = d.get("admin_analysis") or {}
@@ -75,6 +92,9 @@ async def load_documents(
                     "dedupe_key": f"admin:{d['id']}",
                     "deferred": bool(admin.get("deferred")),
                     "document_number": admin.get("document_number"),
+                    # A deadline read out of a document is a fact from the
+                    # moment it is extracted, and work only once it is close.
+                    "work_reason": "deadline",
                 },
             ))
 
@@ -93,6 +113,9 @@ async def load_documents(
                     status="open",
                     created_at=d.get("created_at") or now_iso(),
                     updated_at=d.get("updated_at") or now_iso(),
-                    meta={"dedupe_key": f"doc_eventish:{d['id']}"},
+                    meta={
+                        "dedupe_key": f"doc_eventish:{d['id']}",
+                        "work_reason": "deadline",
+                    },
                 ))
     return items, []

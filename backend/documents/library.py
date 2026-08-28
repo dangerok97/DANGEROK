@@ -172,6 +172,46 @@ async def _areas_by_document(db, user_id: str) -> Dict[str, List[str]]:
     return out
 
 
+async def _documents_ora_is_proposing(db, user_id: str, *, now: datetime) -> Dict[str, int]:
+    """
+    How many things ORA is actually putting to this person, per document.
+
+    "Azione suggerita" has to mean the same thing on this page as everywhere
+    else: something ORA is proposing that the person do. What ORA proposes is
+    decided in exactly one place — `home.work_admission` — so this asks it
+    rather than keeping a second opinion that can drift from the first.
+
+    What it replaced was a count of proposed event candidates. A candidate is a
+    proposal the pipeline makes to the rest of ORA, not to anybody: it is how
+    the extractor hands a date onward. Counting those told a person that a
+    policy ORA had read perfectly, and deliberately said nothing about, came
+    with an action suggested to them.
+    """
+    try:
+        from home.adapters.document_actions import load_document_actions
+        from home.adapters.documents import load_documents
+        from home.adapters.event_candidates import load_event_candidates
+        from home.work_admission import reason_to_act
+    except Exception as e:  # pragma: no cover - the page renders regardless
+        logger.warning("work admission unavailable: %s", type(e).__name__)
+        return {}
+
+    counts: Dict[str, int] = {}
+    for load in (load_documents, load_document_actions, load_event_candidates):
+        try:
+            items, _ = await load(db, user_id)
+        except Exception as e:
+            logger.warning("%s read failed: %s", load.__name__, type(e).__name__)
+            continue
+        for item in items:
+            if not reason_to_act(item, now=now):
+                continue
+            key = str(getattr(item, "source_id", "") or "")
+            if key:
+                counts[key] = counts.get(key, 0) + 1
+    return counts
+
+
 async def build_library(db, user_id: str, *, domain_labels: Dict[str, str]) -> Dict[str, Any]:
     """Everything the Documenti page shows, in one request.
 
@@ -198,6 +238,7 @@ async def build_library(db, user_id: str, *, domain_labels: Dict[str, str]) -> D
         partial.append("documents")
 
     areas_by_doc = await _areas_by_document(db, user_id)
+    proposing = await _documents_ora_is_proposing(db, user_id, now=now)
 
     items: List[Dict[str, Any]] = []
     for d in docs:
@@ -228,9 +269,7 @@ async def build_library(db, user_id: str, *, domain_labels: Dict[str, str]) -> D
             "summary": _summary_of(d),
             "areas": areas,
             "expiry": expiry,
-            "open_actions": sum(
-                1 for e in (d.get("event_candidates") or []) if e.get("status") == "proposed"
-            ),
+            "open_actions": proposing.get(did, 0),
         })
 
     # --- rail -------------------------------------------------------------

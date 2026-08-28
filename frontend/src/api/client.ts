@@ -190,6 +190,56 @@ export type ApiTask = {
 };
 
 // ---- Auth
+/**
+ * One question of the guided first setup.
+ *
+ * The server decides which one it is, what it looks like and what the options
+ * mean; this is only what has to be drawn.
+ */
+export type GuidedObjective = {
+  id: string;
+  area_id: string;
+  question: string;
+  hint: string;
+  control:
+    | 'single'
+    | 'multi'
+    | 'yes_no'
+    | 'currency'
+    | 'number'
+    | 'date'
+    | 'location'
+    | 'document_upload'
+    | 'text';
+  unit: string;
+  sensitivity: string;
+  allow_other: boolean;
+  allow_skip: boolean;
+  allow_decline: boolean;
+  document_type?: string | null;
+  options: { id: string; label: string; description?: string }[];
+  step: number;
+  of: number;
+};
+
+export type GuidedSetupState = {
+  ok: boolean;
+  percent: number;
+  areas: (LifeAreaCompleteness & { current?: boolean; skipped?: boolean })[];
+  current_area_id?: string | null;
+  objective?: GuidedObjective | null;
+  transition?: {
+    from_area_id: string;
+    from_title: string;
+    from_percent: number;
+    from_state_label: string;
+    to_area_id: string;
+    to_title: string;
+  } | null;
+  finished: boolean;
+};
+
+
 export const api = {
   register: (email: string, password: string, name?: string) =>
     request<ApiAuth>('/auth/register', { method: 'POST', body: JSON.stringify({ email, password, name }) }, false),
@@ -905,6 +955,61 @@ export const api = {
   /** Life Profile — knowledge ORA already holds (not a Contesti engine). */
   lifeSetupProfile: () =>
     request<{ ok: boolean; profile: LifeProfile }>('/life-setup/profile'),
+
+  /**
+   * Life Profile — how much of what would help ORA actually knows.
+   *
+   * Read-only by design. A client reports what a person chose; the percentage
+   * is worked out on the server from the knowledge it holds, so there is
+   * nothing here that could set one.
+   */
+  lifeProfileCompleteness: () =>
+    request<{
+      ok: boolean;
+      percent: number;
+      areas: LifeAreaCompleteness[];
+      suggested_area_id?: string | null;
+      first_run: { finished: boolean; status: string; last_area?: string | null };
+    }>('/life-profile'),
+
+  /** Record that something does not apply to this life — no car, no mortgage. */
+  lifeProfileNotApplicable: (refs: string[]) =>
+    request<{ ok: boolean; percent: number; areas: LifeAreaCompleteness[] }>(
+      '/life-profile/not-applicable',
+      { method: 'POST', body: JSON.stringify({ refs }) },
+    ),
+
+  /** The guided first setup: the current area, the current question, the areas. */
+  guidedSetupState: () => request<GuidedSetupState>('/life-profile/setup'),
+
+  /** What the person chose. The next question comes back with it. */
+  guidedSetupAnswer: (body: {
+    objective_id: string;
+    option_ids?: string[];
+    value?: unknown;
+    other_text?: string;
+    action?: 'answer' | 'skip' | 'decline';
+  }) =>
+    request<GuidedSetupState>('/life-profile/setup/answer', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  guidedSetupSkipArea: (area_id: string) =>
+    request<GuidedSetupState>('/life-profile/setup/skip-area', {
+      method: 'POST',
+      body: JSON.stringify({ area_id }),
+    }),
+
+  /** An explicit move to the next part of a life — never automatic. */
+  guidedSetupGoToArea: (area_id: string) =>
+    request<GuidedSetupState>('/life-profile/setup/go-to-area', {
+      method: 'POST',
+      body: JSON.stringify({ area_id }),
+    }),
+
+  guidedSetupFinish: () =>
+    request<GuidedSetupState>('/life-profile/setup/finish', { method: 'POST' }),
 
   /** Life OS — Goal Workspace (plans + generative objects). */
   getLifeOsPlan: (planId: string) =>
@@ -2480,6 +2585,30 @@ export type LifeDomainProfile = {
   linked_docs?: string[];
   goal_id?: string | null;
   life_node_id?: string | null;
+};
+
+/**
+ * One part of a life, and how much of what would help ORA knows about it.
+ *
+ * `percent` is knowledge, not questions answered: what does not apply and what
+ * someone declined are out of the reckoning entirely, and skipping leaves the
+ * hole exactly where it was.
+ */
+export type LifeAreaCompleteness = {
+  area_id: string;
+  title: string;
+  description: string;
+  icon_key: string;
+  sensitivity: string;
+  order: number;
+  percent: number;
+  state: 'not_started' | 'sparse' | 'started' | 'known_enough' | 'not_applicable';
+  state_label: string;
+  known_count: number;
+  applicable_count: number;
+  declined_count: number;
+  not_applicable_count: number;
+  open_objectives: { ref: string; label: string; weight: number; prefer_document: boolean }[];
 };
 
 export type LifeProfile = {

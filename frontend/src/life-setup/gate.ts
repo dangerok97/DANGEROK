@@ -30,6 +30,18 @@ function sessionStatus(session: unknown): string | undefined {
   return typeof s === 'string' ? s : undefined;
 }
 
+/**
+ * Statuses that mean the first run is behind this person.
+ *
+ * V3.3: skipping is one of them. Someone who chose "salta per ora" on
+ * everything has answered the only question the gate is entitled to ask — do
+ * you want to do this now — and sending them back to the same screen on every
+ * launch is the onboarding loop the sprint exists to remove. What they told
+ * ORA is a separate matter: the Life Profile keeps its own figure, and Vita is
+ * where they come back to it if they ever want to.
+ */
+const FIRST_RUN_OVER = ['completed', 'skipped', 'cancelled', 'interrupted'] as const;
+
 /** True only when the Life Setup is durably finished for gate purposes. */
 export function isLifeSetupFullyCompleted(statusPayload: {
   enabled?: boolean;
@@ -37,6 +49,22 @@ export function isLifeSetupFullyCompleted(statusPayload: {
 }): boolean {
   if (statusPayload.enabled === false) return true;
   return sessionStatus(statusPayload.session) === 'completed';
+}
+
+/**
+ * Whether this person may go straight into the app.
+ *
+ * Deliberately weaker than "completed": completion is about knowledge, and a
+ * gate has no business holding somebody at the door until they have told ORA
+ * enough about themselves.
+ */
+export function isFirstRunOver(statusPayload: {
+  enabled?: boolean;
+  session?: unknown;
+}): boolean {
+  if (statusPayload.enabled === false) return true;
+  const status = sessionStatus(statusPayload.session);
+  return !!status && (FIRST_RUN_OVER as readonly string[]).includes(status);
 }
 
 /** null = never set on this device */
@@ -68,7 +96,7 @@ export async function resolveLifeSetupGate(userId: string): Promise<LifeSetupGat
 
   try {
     const st = await api.lifeSetupStatus();
-    if (isLifeSetupFullyCompleted(st)) {
+    if (isFirstRunOver(st)) {
       await setLocalLifeSetupCompleted(userId, true);
       return 'home';
     }

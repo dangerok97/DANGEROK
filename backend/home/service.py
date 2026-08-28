@@ -32,6 +32,7 @@ from home.presentation import (
     enforce_one_card_per_goal,
 )
 from home.ranking import dedupe_items, persist_payload, rank_items
+from home.work_admission import admit
 
 logger = logging.getLogger("ora.home")
 
@@ -100,6 +101,13 @@ class HomeService:
     async def build_home(self, user_id: str) -> HomeResponse:
         now = datetime.now(timezone.utc)
         raw_items, warnings, gcal = await gather_all(self.db, user_id)
+        # Knowledge acquisition must not create work by itself.
+        #
+        # Everything ORA read is already where reading belongs: the profile,
+        # Vita, Documenti, the dates it will watch. Whether any of it also
+        # belongs in somebody's day is a separate question with eight possible
+        # answers, and “because a document was processed” is not one of them.
+        raw_items = admit(raw_items, now=now)
         # Goal context layer (flag-gated) — no Goal UX / no Goals section
         goals = await load_active_goals(self.db, user_id)
         if goals:
@@ -155,14 +163,28 @@ class HomeService:
             st = (it.meta or {}).get("temporal_state")
             if st in (TEMPORAL_EXPIRED_STALE, TEMPORAL_SUPERSEDED):
                 return False
+            # Knowing something is not a reason to open the day with it.
+            #
+            # An item that only reports what ORA has become able to do answers
+            # “what can I accomplish by tapping this right now?” with nothing.
+            # It can live further down the page; the top of Home is for what
+            # matters now, and a quiet Home is a legitimate answer.
+            if (it.meta or {}).get("knowledge_only"):
+                return False
             # Recovery leftovers must not displace a current canonical plan
             if has_canonical_actionable and st == TEMPORAL_EXPIRED_RECOVERABLE:
                 return False
             return True
 
         eligible = [i for i in focus_pool if _focus_eligible(i)]
+        # The fallback exists so a stale-but-real item can still open the day
+        # rather than leaving it empty. It must not resurrect something that was
+        # excluded for *not being about anything to do*: a quiet Home is a
+        # legitimate answer, and inventing a hero out of "here is what I can now
+        # do" is the thing this rule removes.
+        fallback_pool = [i for i in focus_pool if not (i.meta or {}).get("knowledge_only")]
         primary = (eligible[0] if eligible else None) or (
-            focus_pool[0] if focus_pool else None
+            fallback_pool[0] if fallback_pool else None
         )
         # Prefer canonical actionable when top eligible is still a weak stale leftover
         if primary and (primary.meta or {}).get("temporal_state") in (

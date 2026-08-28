@@ -5,6 +5,10 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from .actions_catalog import actions_for
+
+# The guided entry that has to work out what a card meant. Anything that
+# already declares a destination should never be sent through it.
+GENERIC_ENTRY = "/action/open"
 from .dedupe import canonical_title_time_key
 from .models import RANKING_VERSION, HomeItem, PriorityBand, ReasonFactor, UrgencyLevel
 from .reason_presentation import format_reason_summary
@@ -337,7 +341,26 @@ def rank_items(items: List[HomeItem], *, now: Optional[datetime] = None) -> List
             else classified
         )
         item.ranking_version = RANKING_VERSION
-        item.actions = actions_for(item)
+        # A card that already knows where it leads keeps its own way there.
+        #
+        # Found live: every item's actions were replaced with the generic entry
+        # point, so a card ORA had generated from a known fact arrived at the
+        # intent classifier with nothing but its title — and was asked back
+        # "vuoi preparare un esame oppure creare un evento?". ORA proposing
+        # something and then asking the person what it meant is the one thing a
+        # generated card must never do. Whoever built the card knew; the
+        # classifier is for what a person types, not for what ORA said.
+        declared = [
+            a
+            for a in (item.actions or [])
+            if getattr(a, "route", None) and a.route != GENERIC_ENTRY
+        ]
+        generic = actions_for(item)
+        if declared:
+            keep = {"snooze", "ignore", "correct", "complete"}
+            item.actions = declared + [a for a in generic if a.kind in keep]
+        else:
+            item.actions = generic
         item.updated_at = item.updated_at or now.isoformat()
         enriched.append(item)
 

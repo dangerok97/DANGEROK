@@ -211,6 +211,48 @@ DOMAIN_GAPS: Dict[str, List[Dict[str, Any]]] = {
             "question_template": "Hai un documento importante da caricare adesso (contratto, polizza, bolletta)?",
         },
     ],
+    # What somebody owns beyond the roof over their head. Kept apart from
+    # `finanze`, which is about money moving month to month: these are standing
+    # things — another flat, a loan still running, savings set aside — and they
+    # change what advice is realistic in a way that a monthly outgoing does not.
+    # Every one of them is offered, never required, and the area that carries
+    # them is marked sensitive.
+    "patrimonio": [
+        {
+            "key": "patrimonio.immobili_altri",
+            "label": "altri immobili",
+            "information_gain": 0.72,
+            "prefer_document": False,
+            "benefit_code": "patrimonio_immobili",
+            "question_template": (
+                "Oltre alla casa in cui vivi, possiedi altri immobili? "
+                "Anche solo per sapere se tenerne conto."
+            ),
+        },
+        {
+            "key": "patrimonio.finanziamenti",
+            "label": "finanziamenti in corso",
+            "information_gain": 0.68,
+            "prefer_document": False,
+            "benefit_code": "patrimonio_finanziamenti",
+            "question_template": (
+                "Hai finanziamenti o prestiti ancora in corso, oltre "
+                "all'eventuale mutuo?"
+            ),
+        },
+        {
+            "key": "patrimonio.risparmi",
+            "label": "risparmi e investimenti",
+            "information_gain": 0.6,
+            "prefer_document": False,
+            "benefit_code": "patrimonio_risparmi",
+            "question_template": (
+                "Se ti va, puoi dirmi a grandi linee se hai risparmi o "
+                "investimenti da tenere in conto: serve solo a rendere i "
+                "consigli realistici."
+            ),
+        },
+    ],
     "assicurazioni": [
         {
             "key": "assicurazioni.tipo",
@@ -266,6 +308,7 @@ OPENING_DOMAIN_ORDER: List[str] = [
     "famiglia",
     "assicurazioni",
     "finanze",
+    "patrimonio",
     "viaggi",
     "animali",
     "abbonamenti",
@@ -358,6 +401,36 @@ def infer_domain_from_text(text: str) -> Optional[str]:
     return best if best_score > 0 else None
 
 
+# A mention is not a possession. "Senza mutuo" and "non ho la macchina" name
+# the thing they are denying, so a plain substring test reads them backwards
+# and files a fact about somebody's life that is the opposite of what they
+# said. Found live: "la casa è di mia proprietà, senza mutuo" was recorded as
+# having a mortgage.
+_NEGATORS = ("non ", "senza ", "nessun", "niente ", "né ", "mai ")
+
+
+def _negated(text: str, term: str) -> bool:
+    """
+    Is every mention of `term` inside a denial?
+
+    One plain mention is enough to mean the thing exists — "ho un mutuo, non
+    quello vecchio" is still a mortgage — so this only says yes when nobody
+    said it plainly.
+    """
+    low = text or ""
+    start = 0
+    seen = False
+    while True:
+        at = low.find(term, start)
+        if at < 0:
+            return seen
+        seen = True
+        window = low[max(0, at - 28):at]
+        if not any(neg in window for neg in _NEGATORS):
+            return False
+        start = at + len(term)
+
+
 def infer_known_from_text(text: str) -> Dict[str, Any]:
     """Lightweight signals from natural language (not a form parser).
 
@@ -371,21 +444,37 @@ def infer_known_from_text(text: str) -> Dict[str, Any]:
         known["casa.purchased"] = True
         known["casa.owned"] = True
         known["mlc.responsibilities"] = known.get("mlc.responsibilities") or "casa"
-    if any(x in t for x in ("ho una casa", "casa di proprietà", "mia casa")):
+    # "La casa è di mia proprietà" is the same statement as "casa di proprietà";
+    # only the word order differs, and a phrase list that misses it leaves the
+    # profile blank for someone who answered plainly.
+    if any(x in t for x in ("ho una casa", "casa di proprietà", "mia casa")) or (
+        "casa" in t and "propriet" in t and not _negated(t, "propriet")
+    ):
         known["casa.owned"] = True
         known["mlc.responsibilities"] = known.get("mlc.responsibilities") or "casa"
     if "affitto" in t or "inquilino" in t:
         known["casa.affitto"] = True
         known["mlc.responsibilities"] = known.get("mlc.responsibilities") or "affitto"
     if any(x in t for x in ("ho un'auto", "ho una macchina", "la mia auto", "la macchina")):
-        known["auto.owned"] = True
+        # "Non ho la macchina" mentions a car in order to say there isn't one.
+        denied_car = all(
+            _negated(t, x)
+            for x in ("auto", "macchina", "veicolo")
+            if x in t
+        )
+        known["auto.owned"] = not denied_car
     if any(x in t for x in ("università", "universita", "studio", "esame", "esami")):
         known["studio.active"] = True
     if "mutuo" in t:
-        known["casa.owned"] = True
-        known["casa.mutuo"] = True
-        if "sotto controllo" in t or "ok" in t:
-            known["casa.mutuo"] = "ok"
+        if _negated(t, "mutuo"):
+            # A stated "no" is knowledge: it also settles everything that
+            # depended on there being one.
+            known["casa.mutuo"] = False
+        else:
+            known["casa.owned"] = True
+            known["casa.mutuo"] = True
+            if "sotto controllo" in t or "ok" in t:
+                known["casa.mutuo"] = "ok"
     if any(x in t for x in ("piano di studi", "piano studi")):
         known["studio.active"] = True
         known["doc.piano_di_studi"] = True

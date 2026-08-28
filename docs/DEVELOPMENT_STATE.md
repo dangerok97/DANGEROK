@@ -1,5 +1,121 @@
 # ORA — Development State
 
+## V3.3 — Work admission (ingestion creates no work)
+
+- `backend/home/work_admission.py`: `WORK_REASONS`, `KNOWLEDGE_SOURCES`,
+  `ATTENTION_HORIZON_HOURS`, `reason_to_act()`, `admit()`.
+- `backend/home/service.py`: `admit()` applied in `build_home` right after
+  `gather_all`.
+- `backend/home/adapters/document_uncertainty.py`: `blocking_uncertainty()` —
+  the only producer of a document question, and it names the field.
+- `backend/home/adapters/documents.py`: the review card is gone; a question
+  replaces it when there is one, titled with the question. Admin items declare
+  `work_reason="deadline"`.
+- `backend/home/adapters/event_candidates.py`: candidates declare `consent`
+  (or `confirmation_required` when uncertain); the horizon decides when.
+- `backend/home/adapters/document_actions.py`: `_ORA_BOOKKEEPING`
+  (`create_reminder`, `needs_review`) never becomes a Home item.
+- `backend/documents/intelligence/analyzer.py`: the deadline label no longer
+  appends a currency the amount already carries ("512,40 EUR EUR").
+- Tests: `backend/tests/test_work_admission_v33.py` (17), run against real
+  documents in Mongo through the real `build_home`. Seven mutations proven.
+
+## V3.3 — Post-setup attention continuity
+
+- `backend/ai_life_strategist/models.py`: `BenefitDescriptor.grounded_by`.
+- `backend/ai_life_strategist/benefit_engine.py`: `active_benefits()` skips a
+  benefit whose `grounded_by` keys are all unknown; eleven catalogue entries
+  declare their grounding (every claim whose Home copy promises to follow,
+  watch or remind).
+- `backend/home/adapters/life_setup.py`: benefit items are `priority="later"`
+  with `meta.knowledge_only = True`.
+- `backend/home/service.py`: `_focus_eligible()` rejects `knowledge_only`, and
+  the focus fallback draws from a pool filtered the same way.
+- `backend/home/ranking.py`: `GENERIC_ENTRY`; a declared non-generic route
+  survives ranking as the primary action.
+- `backend/action_engine/service.py`: `_intent_declared_by_card_type` +
+  `_CARD_TYPES_THAT_NAME_AN_ARTIFACT` (`needs_review`, `verify`), consulted in
+  `_intent_from_body` before the text classifier.
+- `backend/life_profile/guided.py`: the non-ownership branches of
+  `casa.situazione` write `casa.owned: False`.
+- Tests: `backend/tests/test_post_setup_attention_v33.py` (9), plus two guards
+  in `test_life_profile_v33.py` for branch recording and for branches that
+  would leave an objective nothing can ask again.
+- Known and accepted: `studio.esame`, `salute.visita` and `animali.pet` are not
+  asked by the guided setup, so those areas cap below 100% until a conversation
+  or a document fills them. Deliberate — a first setup is not the place for a
+  date that changes every term.
+
+## V3.3 — Guided Life Setup (first access rebuild)
+
+- `backend/life_profile/guided.py`: declarative catalogue — objective, question,
+  control type, options, what each option `sets` and what it marks
+  `not_applicable`, dependencies, weight, sensitivity, document alternative.
+  All business logic; the frontend renders.
+- `backend/life_profile/setup.py`: the sequencer. One current area, next
+  objective derived from known facts + declined + not-applicable +
+  dependencies, explicit transitions between areas, `finish` ends the first run
+  (and marks the session terminal so the gate lets the person through).
+- Endpoints: `GET /life-profile/setup`, `POST /life-profile/setup/answer`
+  (`answer` | `skip` | `decline`), `/setup/skip-area`, `/setup/go-to-area`,
+  `/setup/finish`.
+- `frontend/src/life-setup/GuidedSetupScreen.tsx` replaces the conversational
+  screen at `/life-setup`: nav rail, title, Profilo Vita, PERCORSO list,
+  current-area card with step progress, option cards, "Altro", privacy note,
+  "Salta questa area" / "Avanti", right rail with every area's state, "Salta
+  per ora", and the "ORA cresce con te" banner. One column below 1000px.
+- Ten areas in the agreed order: Casa · Lavoro · Studio · Mobilità · Famiglia e
+  relazioni · Patrimonio · Finanze · Assicurazioni · Utenze e servizi · Salute.
+  Studio is now its own area.
+- Identity: asked once before the areas, only when the account has no usable
+  name, written to `db.users.name` — the identity Home, the rail and the
+  profile all read.
+- The conversational `LifeSetupConversationScreen` stays in the tree: it owns
+  the document flow and the resume path, and a rollback should not need a
+  rewrite.
+- Tests: `backend/tests/test_life_profile_v33.py` — 42.
+  `frontend/.../lifeProfile33.test.ts` (`npm run test:v33`).
+
+## V3.3 — Progressive Life Setup & Life Profile
+
+- New module `backend/life_profile/`: `areas.py` (8 areas over existing gap
+  domains), `objectives.py` (five states + latent/conditional resolution),
+  `completeness.py` (weighted arithmetic, no model calls), `service.py` (read
+  model), `router.py` (`GET /life-profile`, `GET /life-profile/areas/{id}`,
+  `POST /life-profile/not-applicable`).
+- Knowledge objectives are read from `ai_life_strategist.knowledge_gap.
+  DOMAIN_GAPS` (weights + `when` dependencies) and `minimum_life_context.
+  NUCLEUS_EVIDENCE_KEYS` (foundations). No second catalogue, no second store.
+- States: known · inferred · declined · not_applicable · unknown. Skipping is
+  not a state — it leaves the objective unknown. **Only `not_applicable` leaves
+  the denominator**; a declined objective stays counted as missing and is never
+  asked again. Latent objectives (gate unanswered) are not counted until they
+  apply — unless ORA already knows them, which evidently makes them apply.
+- Nine areas: Casa · Lavoro · Mobilità · Famiglia e relazioni · Finanze ·
+  Patrimonio · Assicurazioni · Utenze e servizi · Salute. Patrimonio is new
+  (other property, loans, savings) over a new `patrimonio` gap domain.
+- `LifeSetupSurface` wraps the first conversation: welcome, promise, profile,
+  current area with its open objectives as chips, other areas, privacy note,
+  leave. Two columns past 900px, one below. Nothing typable except the composer.
+- Objectives can be satisfied under alternative names (`satisfied_by`): the MLC
+  nuclei for the foundations, and document keys (`doc.bolletta`,
+  `doc.polizza_*`) for what a document answers.
+- `life_setup` already distinguished `refused_keys` (declined) from
+  `postponed_keys` (skipped); V3.3 consumes both rather than adding a third.
+- Frontend: `src/components/life-profile/LifeProfileProgress.tsx` in the first
+  run (refreshed after every turn) and in Vita (tap an area to resume);
+  `api.lifeProfileCompleteness` / `api.lifeProfileNotApplicable`.
+- Gate: `isFirstRunOver` (completed | skipped | cancelled | interrupted) lets a
+  person into the app. Skipping everything no longer loops back to onboarding.
+- Extractor fixes found live: negated mentions ("senza mutuo", "non ho la
+  macchina") are recorded as `False` instead of `True`; "la casa è di mia
+  proprietà" is now recognised.
+- Not built here: Opportunity Engine, Connected Life, new connectors, cron,
+  notifications, research. The profile models the facts those will need.
+- Tests: `backend/tests/test_life_profile_v33.py` — 28.
+  `frontend/src/components/life-profile/lifeProfile33.test.ts` (`npm run
+  test:v33`).
+
 ## V3.2 — Life Guidance Intelligence
 
 - New module `backend/guidance/`: `models.py` (GoalState, Milestone, Variable,

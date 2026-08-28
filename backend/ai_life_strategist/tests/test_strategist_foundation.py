@@ -231,7 +231,11 @@ def test_scenario_casa_mutuo_bollette():
             assert plan.get("prefer_document") is not True
             assert any(
                 w in text
-                for w in ("chiami", "lavoro", "studio", "vivi", "aiut", "impegni", "prior")
+                # Stems, not whole words: the nucleus question asks "lavori,
+                # studi, fai entrambe…", and V3.3 defers the subject-less
+                # nuclei (name, priority) while somebody is settled into an
+                # area — so this is the one that legitimately comes up here.
+                for w in ("chiami", "lavor", "stud", "vivi", "aiut", "impegni", "prior")
             )
 
             # Optional document still works (not required for MLC)
