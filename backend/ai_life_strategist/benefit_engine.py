@@ -12,6 +12,7 @@ from ai_life_strategist.models import BenefitDescriptor, DomainId
 BENEFITS: Dict[str, BenefitDescriptor] = {
     "casa_mutuo_scadenze": BenefitDescriptor(
         code="casa_mutuo_scadenze",
+        grounded_by=['casa.mutuo_scadenza', 'casa.mutuo_rata', 'doc.mutuo'],
         domain="casa",
         title="Mutuo sotto controllo",
         user_benefit="ORA può ricordarti le rate del mutuo e evitare sorprese di pagamento.",
@@ -23,6 +24,7 @@ BENEFITS: Dict[str, BenefitDescriptor] = {
     ),
     "casa_bollette": BenefitDescriptor(
         code="casa_bollette",
+        grounded_by=['doc.bolletta', 'casa.fornitore_energia', 'casa.bolletta_scadenza'],
         domain="casa",
         title="Bollette organizzate",
         user_benefit="ORA può collegare bollette alla casa e segnalarti scadenze utili.",
@@ -34,6 +36,7 @@ BENEFITS: Dict[str, BenefitDescriptor] = {
     ),
     "casa_assicurazione": BenefitDescriptor(
         code="casa_assicurazione",
+        grounded_by=['doc.polizza_casa', 'casa.assicurazione_scadenza'],
         domain="casa",
         title="Casa protetta",
         user_benefit="ORA può tenere d’occhio la polizza casa e la scadenza.",
@@ -48,14 +51,20 @@ BENEFITS: Dict[str, BenefitDescriptor] = {
         domain="casa",
         title="Documenti casa a portata",
         user_benefit="Con il rogito ORA estrae dati utili e crea il profilo Casa senza form.",
-        requires=[],
-        activates_when=["doc.rogito", "casa.purchased", "casa.owned"],
+        # Owning a home makes this worth offering; only an actual document
+        # makes it true. Home used to say "adesso posso usare i documenti della
+        # tua casa" to somebody who had never uploaded one — ORA claiming a
+        # capability it did not have, which is the one thing a page about trust
+        # cannot do.
+        requires=["casa.owned"],
+        activates_when=["doc.rogito"],
         home_signal="Adesso posso usare i documenti della tua casa.",
-        proactive_signal="Con il rogito posso collegare scadenze e obiettivi alla tua casa.",
+        proactive_signal="Se vuoi, puoi aggiungere il rogito: posso collegare scadenze e obiettivi alla tua casa.",
         chain="casa→rogito→profilo→scadenze",
     ),
     "auto_scadenze": BenefitDescriptor(
         code="auto_scadenze",
+        grounded_by=['auto.assicurazione_scadenza', 'auto.revisione_scadenza', 'auto.bollo_scadenza', 'doc.libretto'],
         domain="auto",
         title="Auto in regola",
         user_benefit="ORA può avvisarti su revisione, bollo e assicurazione auto.",
@@ -89,6 +98,7 @@ BENEFITS: Dict[str, BenefitDescriptor] = {
     ),
     "studio_esami": BenefitDescriptor(
         code="studio_esami",
+        grounded_by=['studio.esame', 'doc.piano_di_studi'],
         domain="studio",
         title="Esami sotto controllo",
         user_benefit="ORA può creare un piano di studio e ricordarti le scadenze d’esame.",
@@ -100,6 +110,7 @@ BENEFITS: Dict[str, BenefitDescriptor] = {
     ),
     "studio_universita": BenefitDescriptor(
         code="studio_universita",
+        grounded_by=["studio.universita", "studio.corso", "doc.piano_di_studi"],
         domain="studio",
         title="Percorso universitario",
         user_benefit="ORA collega università, esami e documenti senza un questionario.",
@@ -111,6 +122,7 @@ BENEFITS: Dict[str, BenefitDescriptor] = {
     ),
     "salute_visite": BenefitDescriptor(
         code="salute_visite",
+        grounded_by=['salute.visita_data', 'doc.referti'],
         domain="salute",
         title="Visite e controlli",
         user_benefit="ORA può ricordarti visite mediche e scadenze utili (senza cartelle cliniche complete).",
@@ -122,6 +134,7 @@ BENEFITS: Dict[str, BenefitDescriptor] = {
     ),
     "assicurazioni_rinnovi": BenefitDescriptor(
         code="assicurazioni_rinnovi",
+        grounded_by=['doc.polizza', 'doc.polizza_casa', 'doc.polizza_auto', 'assicurazioni.scadenza'],
         domain="assicurazioni",
         title="Polizze in scadenza",
         user_benefit="ORA segnala rinnovi polizza così non resti scoperto.",
@@ -144,6 +157,7 @@ BENEFITS: Dict[str, BenefitDescriptor] = {
     ),
     "lavoro_scadenze": BenefitDescriptor(
         code="lavoro_scadenze",
+        grounded_by=['lavoro.scadenza', 'doc.contratto_lavoro'],
         domain="lavoro",
         title="Lavoro organizzato",
         user_benefit="ORA tiene traccia di scadenze e documenti lavorativi che condividi.",
@@ -166,6 +180,7 @@ BENEFITS: Dict[str, BenefitDescriptor] = {
     ),
     "animali_cure": BenefitDescriptor(
         code="animali_cure",
+        grounded_by=['animali.vaccino_scadenza', 'doc.libretto_animale'],
         domain="animali",
         title="Animali seguiti",
         user_benefit="ORA può ricordarti vaccinazioni e visite veterinarie.",
@@ -177,6 +192,7 @@ BENEFITS: Dict[str, BenefitDescriptor] = {
     ),
     "abbonamenti_scadenze": BenefitDescriptor(
         code="abbonamenti_scadenze",
+        grounded_by=['abbonamenti.scadenza', 'doc.abbonamento'],
         domain="abbonamenti",
         title="Abbonamenti sotto controllo",
         user_benefit="ORA può segnalarti rinnovi e costi di abbonamenti che indichi tu.",
@@ -220,6 +236,16 @@ def active_benefits(known_keys: Set[str], domain: Optional[str] = None) -> List[
             continue
         hit = act & known_keys
         if not hit:
+            continue
+        # A claim needs the knowledge it rests on.
+        #
+        # Found live: somebody answered “sì” to “hai una polizza sulla casa?” and
+        # Home announced “adesso posso monitorare la polizza casa e la scadenza” —
+        # while ORA held one boolean and no company, no premium, no date. The
+        # existence of a thing is not the same as knowing enough about it to
+        # watch it, and a benefit that says what it rests on is only claimed
+        # once that is there.
+        if b.grounded_by and not (set(b.grounded_by) & known_keys):
             continue
         # Activate if any activate key present and requires satisfied
         if set(b.requires).issubset(known_keys):

@@ -183,6 +183,33 @@ def plan_next(
         postponed_keys=postponed,
     )
 
+    # V3.3 — do not change the subject on somebody mid-thought.
+    #
+    # Found live: a person described their home — the town, who they live with,
+    # that they own it, that there is no mortgage — and the next question was
+    # "come preferisci che ti chiami?". The name is worth knowing and the
+    # nucleus is legitimate; asking it *there* is what reads as a form being
+    # processed rather than as someone listening.
+    #
+    # So the two nuclei that belong to no subject in particular — who ORA is
+    # talking to, and what is most pressing — wait while the person is settled
+    # into one. Everything else is untouched: `life_places` and
+    # `responsibilities` are what Casa is *made of*, and asking them there is
+    # staying on the subject, not leaving it.
+    engaged = focus_domain or inferred
+    told_about_it = (
+        sum(1 for k in known_facts if str(k).startswith(f"{engaged}."))
+        if engaged
+        else 0
+    )
+    if engaged and told_about_it >= 2 and len(mlc_gaps) > 1:
+        DIVERSIONS = ("mlc.identity.", "mlc.immediate_priority")
+        on_subject = [
+            g for g in mlc_gaps if not str(g.key).startswith(DIVERSIONS)
+        ]
+        if on_subject:
+            mlc_gaps = on_subject
+
     if mlc_gaps:
         gap = mlc_gaps[0]
         nucleus = next((nid for nid, key in NUCLEUS_GAP_KEY.items() if key == gap.key), None)

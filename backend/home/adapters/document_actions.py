@@ -6,6 +6,9 @@ from home.models import ConnectionWarning, HomeItem
 
 from ._util import now_iso, stable_id
 
+# Action types the analyzer generates for itself rather than for anybody.
+_ORA_BOOKKEEPING = frozenset({"create_reminder", "needs_review"})
+
 
 async def load_document_actions(
     db, user_id: str,
@@ -23,6 +26,17 @@ async def load_document_actions(
     for d in docs:
         for act in d.get("generic_actions") or []:
             if act.get("completed"):
+                continue
+            # ORA's own bookkeeping is not somebody's to do.
+            #
+            # The analyzer writes two kinds of thing here. One comes out of the
+            # document — "azione richiesta", something the sender is asking
+            # for. The other is ORA noting to itself that a deadline it just
+            # extracted could have a reminder, or that a category of document
+            # is often worth a second look: "Promemoria scadenza", "Revisione
+            # richiesta", produced for a policy nobody had asked anything
+            # about. Those stay in the record and out of the day.
+            if (act.get("action_type") or "") in _ORA_BOOKKEEPING:
                 continue
             label = act.get("label") or act.get("title") or "Azione documento"
             kind = (act.get("kind") or act.get("type") or "").lower()
@@ -50,6 +64,8 @@ async def load_document_actions(
                     "dedupe_key": f"gact:{d['id']}:{act.get('id') or label}",
                     "action_id": act.get("id"),
                     "deferred": bool(act.get("deferred")),
+                    # Something the document itself asks of the person.
+                    "work_reason": "decision",
                 },
             ))
     return items, []

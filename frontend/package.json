@@ -19,7 +19,8 @@
     "test:px18": "node --experimental-strip-types src/components/account/account18.test.ts",
     "test:px19": "node --experimental-strip-types src/shell/px19.test.ts",
     "test:mobile": "node --experimental-strip-types src/shell/mobileHardening.test.ts",
-    "test:v32": "node --experimental-strip-types src/components/home/v3/questions32.test.ts"
+    "test:v32": "node --experimental-strip-types src/components/home/v3/questions32.test.ts",
+    "test:v33": "node --experimental-strip-types src/components/life-profile/lifeProfile33.test.ts"
   },
   "dependencies": {
     "@expo/metro-runtime": "6.1.2",

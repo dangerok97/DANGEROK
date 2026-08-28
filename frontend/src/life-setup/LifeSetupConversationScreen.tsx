@@ -25,10 +25,12 @@ import {
   api,
   API_BASE_URL,
   authToken,
+  LifeAreaCompleteness,
   LifeSetupTurn,
   LifeSetupDocumentResult,
   LifeSetupDocumentField,
 } from '@/src/api/client';
+import { LifeSetupSurface } from '@/src/life-setup/LifeSetupSurface';
 import { humanizeError } from '@/src/utils/errors';
 import { useAuth } from '@/src/contexts/AuthContext';
 import {
@@ -37,33 +39,9 @@ import {
   setLocalLifeSetupCompleted,
 } from '@/src/life-setup/gate';
 import { computeAllowSoftExit, shouldShowSoftExit } from '@/src/life-setup/softExit';
+import { requestDevicePosition } from '@/src/life-setup/devicePosition';
 
 type Bubble = { role: 'ora' | 'user'; text: string };
-
-/** Browser / RN web Geolocation — no expo-location dependency. */
-function requestDevicePosition(): Promise<{ lat: number; lon: number } | null> {
-  const geo = (globalThis as any)?.navigator?.geolocation;
-  if (!geo?.getCurrentPosition) return Promise.resolve(null);
-  return new Promise((resolve) => {
-    try {
-      geo.getCurrentPosition(
-        (pos: { coords?: { latitude?: number; longitude?: number } }) => {
-          const lat = pos?.coords?.latitude;
-          const lon = pos?.coords?.longitude;
-          if (typeof lat === 'number' && typeof lon === 'number') {
-            resolve({ lat, lon });
-          } else {
-            resolve(null);
-          }
-        },
-        () => resolve(null),
-        { enableHighAccuracy: false, timeout: 12000, maximumAge: 120000 },
-      );
-    } catch {
-      resolve(null);
-    }
-  });
-}
 
 function ThinkingDots() {
   const [n, setN] = useState(1);
@@ -111,6 +89,19 @@ export function LifeSetupConversationScreen() {
    * onExit → force start must NOT flip this to true (still first-run until MLC).
    */
   const [allowSoftExit, setAllowSoftExit] = useState(false);
+  /*
+    How much of a life ORA understands, refreshed after every turn.
+
+    It is read, never sent: the figure is derived on the server from the
+    knowledge it holds, so there is nothing here that could set one. And it is
+    an extra — if the read fails the setup carries on without it, because a
+    progress bar is not worth a broken first run.
+  */
+  const [profile, setProfile] = useState<{
+    percent: number;
+    areas: LifeAreaCompleteness[];
+    suggested?: string | null;
+  } | null>(null);
   /** Pending city from reverse-geocode — confirm before save. */
   const [pendingLocationCity, setPendingLocationCity] = useState<string | null>(null);
   const [locating, setLocating] = useState(false);
@@ -130,8 +121,27 @@ export function LifeSetupConversationScreen() {
   // showEsci / showPostpone — never tie visibility to wrap `done` alone
   const showSoftExit = shouldShowSoftExit({ allowSoftExit, done });
 
+  const refreshProfile = useCallback(async () => {
+    try {
+      const res = await api.lifeProfileCompleteness();
+      if (res?.ok) {
+        setProfile({
+          percent: res.percent,
+          areas: res.areas || [],
+          suggested: res.suggested_area_id ?? null,
+        });
+      }
+    } catch {
+      // Silent on purpose. Knowing how much ORA knows is not worth
+      // interrupting the conversation that is teaching it.
+    }
+  }, []);
+
   const applyTurn = useCallback((t: LifeSetupTurn | undefined | null, oraExtra?: string) => {
     if (!t) return;
+    // Every turn can have changed what ORA knows — an answer, a subject left
+    // for later, a document that just finished processing.
+    void refreshProfile();
     setTurn(t);
     const text = oraExtra || t.text || t.question || '';
     if (text) {
@@ -143,7 +153,7 @@ export function LifeSetupConversationScreen() {
       });
     }
     if (t.ui?.done) setDone(true);
-  }, []);
+  }, [refreshProfile]);
 
   useEffect(() => {
     let cancelled = false;
@@ -747,7 +757,24 @@ export function LifeSetupConversationScreen() {
         />
         <View testID="life-experience-root" style={{ height: 0 }} />
 
-        <ScrollView style={styles.thread} contentContainerStyle={{ paddingBottom: 24, gap: 12 }}>
+        <ScrollView
+          style={styles.thread}
+          contentContainerStyle={{ paddingBottom: 24, gap: 16, paddingHorizontal: 16 }}
+        >
+          {/*
+            The conversation is the middle of a surface, not the whole screen.
+            Everything the shell adds is context — who is asking, what part of
+            your life this is, what else exists, that you can leave — and none
+            of it can be typed into.
+          */}
+          <LifeSetupSurface
+            percent={profile?.percent ?? 0}
+            areas={profile?.areas ?? []}
+            currentAreaId={profile?.suggested ?? null}
+            atTheStart={!bubbles.some((b) => b.role === 'user')}
+            onSkipArea={onSkipDomain}
+            onLeave={onPostpone}
+          >
           {bubbles.map((b, i) => (
             <View
               key={`${i}-${b.role}`}
@@ -957,6 +984,7 @@ export function LifeSetupConversationScreen() {
               </Pressable>
             </View>
           ) : null}
+          </LifeSetupSurface>
         </ScrollView>
 
         {!done ? (
@@ -1047,13 +1075,12 @@ export function LifeSetupConversationScreen() {
               <Pressable onPress={onExplain} disabled={sending || locating} testID="life-setup-why">
                 <Text style={styles.link}>Perché me lo chiedi?</Text>
               </Pressable>
-              <Pressable
-                onPress={onSkipDomain}
-                disabled={sending || locating}
-                testID="life-setup-skip-domain"
-              >
-                <Text style={styles.link}>Salta tema</Text>
-              </Pressable>
+              {/*
+                Skipping the subject lives on the area card now, where the
+                subject is named. Two links for one action, in two different
+                vocabularies, made the person work out whether they were the
+                same thing.
+              */}
               {/* Più tardi only on resume/returning; backend postpone can remain */}
               {showSoftExit ? (
                 <Pressable
@@ -1067,6 +1094,18 @@ export function LifeSetupConversationScreen() {
             </View>
           </View>
         ) : (
+          <View style={styles.doneWrap}>
+            {/*
+              Not "setup completato". The profile is at whatever it is at, and
+              a person who told ORA three things has finished their first
+              conversation, not filled in a form. Saying otherwise would either
+              flatter them or scold them, and both are lies about a number.
+            */}
+            <Text style={styles.doneNote} testID="life-setup-done-note">
+              {profile
+                ? `ORA ha un buon punto di partenza: conosce il ${profile.percent}% di ciò che può aiutarti. Puoi aggiungere il resto quando vuoi.`
+                : 'ORA ha un buon punto di partenza. Puoi aggiungere il resto quando vuoi.'}
+            </Text>
           <Pressable
             style={[styles.doneBtn, completing && { opacity: 0.55 }]}
             onPress={onComplete}
@@ -1082,6 +1121,7 @@ export function LifeSetupConversationScreen() {
               </Text>
             )}
           </Pressable>
+          </View>
         )}
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -1089,6 +1129,9 @@ export function LifeSetupConversationScreen() {
 }
 
 const styles = StyleSheet.create({
+  doneWrap: { paddingHorizontal: 16, paddingBottom: 12, gap: 10 },
+  doneNote: { fontSize: 13, lineHeight: 19, color: tokens.color.onSurfaceMuted },
+  progressWrap: { paddingHorizontal: 16, paddingBottom: 12 },
   root: { flex: 1, backgroundColor: tokens.color.surface, paddingHorizontal: 16 },
   muted: { color: tokens.color.onSurfaceMuted, marginTop: 12, textAlign: 'center' },
   header: { paddingVertical: 12, gap: 4 },

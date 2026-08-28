@@ -57,7 +57,11 @@ async def load_life_setup_items(db, user_id: str) -> Tuple[List[HomeItem], List[
                         description=b.user_benefit,
                         source_type="life_experience",
                         source_id=b.code,
-                        priority="today",
+                        # Something ORA is now able to do is not something that
+                        # needs doing today. It waits until there is a reason —
+                        # a date, a change, a request — and `knowledge_only`
+                        # keeps it out of the hero in the meantime.
+                        priority="later",
                         urgency="none",
                         confidence=0.85,
                         actions=[
@@ -85,6 +89,10 @@ async def load_life_setup_items(db, user_id: str) -> Tuple[List[HomeItem], List[
                             "domain": b.domain,
                             "chain": b.chain,
                             "forbidden_copy_codes": ["completa_il_profilo", "life_setup"],
+                            # Something ORA has become able to do is not
+                            # something that needs doing. This keeps it out of
+                            # the top of Home until there is a reason.
+                            "knowledge_only": True,
                         },
                     )
                 )

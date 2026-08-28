@@ -1,5 +1,128 @@
 # ORA — AI Changelog
 
+## 2026-08-28 — V3.3 Knowledge acquisition creates no work
+
+The previous pass stopped a well-read policy from becoming the first thing on
+Home. It did not stop it from becoming five things further down.
+
+One upload produced: a card titled "Polizza Assicurativa Auto - Generali
+Italia" with a "Verifica" button, an admin item for a deadline 53 days away, a
+proposed event to confirm, a "Promemoria scadenza" and a "Revisione richiesta".
+The document had been read at 0.95 confidence, no warnings, `requires_review`
+false. Every item existed because a file had been processed.
+
+- **The invariant, in one place.** `home/work_admission.py`: eight reasons may
+  create work, all of them about the person's situation. Ingestion is not one.
+  The gate runs once, in `build_home`.
+- **A deadline is a fact before it is work.** Anything with a date is admitted
+  only inside the week ranking already treats as "later"; the same date returns
+  on its own as it approaches, with nothing re-read and nothing re-uploaded.
+- **ORA's notes to itself stay its own.** "Promemoria scadenza" and "Revisione
+  richiesta" are what the analyzer writes for a category. They stay on the
+  document.
+- **A question, not a document handed back.** When ORA genuinely could not read
+  something it needs, one item appears and its title is the question — "Non
+  riesco a capire se la data è il 14 o il 17 ottobre" — naming the field.
+- **Copy, from the same document:** "Scadenza pagamento: 512,40 EUR EUR".
+
+Verified on a fresh account in the real UI: setup, a real policy uploaded at the
+step that asks for it, the full pipeline, then Home (quiet), Attività (no task),
+Documenti (the policy, its summary, "Scade tra 53 giorni") and Vita.
+
+## 2026-08-28 — V3.3 Post-setup attention continuity
+
+Found in a real recording of a real first setup, and fixed at the level where
+each one was actually wrong.
+
+- **A claim needs the knowledge it rests on.** Somebody answered "sì" to "hai
+  una polizza sulla casa?" and Home announced that ORA could now monitor the
+  policy and its expiry — holding one boolean and no company, no premium, no
+  date. Benefits now declare `grounded_by`, and a claim is not made until one
+  of those keys is known.
+- **Knowing something is not a reason to open the day with it.** That card was
+  also the hero. Life-setup benefits are `later` and `knowledge_only`, excluded
+  from the focus slot and from the fallback that had been resurrecting them. A
+  quiet Home is a legitimate answer.
+- **A card keeps the destination it declared.** Ranking overwrote every card's
+  actions with the generic entry point, so tapping an ORA-generated card
+  reached the intent classifier with only a title — and the person was asked
+  whether they meant an exam or an event. A declared route now survives
+  ranking; the generic entry stays what it is for, ambiguous typed input.
+- **A card ORA generated is never handed to the classifier.** Keeping the
+  declared route fixed the cards that had one. A real policy, uploaded and read
+  during this QA, had none: tapping "Verifica" opened the guided flow, which
+  read the title "Polizza Assicurativa Auto - Generali Italia" and asked
+  whether the person meant to prepare an exam or create an event — the video's
+  sentence, word for word. A card whose type names what ORA is holding now
+  carries its own meaning to the flow.
+- **A branch records what it establishes.** "Casa in affitto" left the
+  ownership objective unknown forever — no later question asks it — so a
+  renter's Casa could never be complete. Every branch now writes its fact,
+  negatives included.
+
+Verified end to end in the real UI on fresh accounts: ten areas walked, the
+document step, "Altro", desktop and 390 mobile; ~90 screenshots. Three
+mutations proved the new guards catch the regression they describe.
+
+## 2026-08-28 — V3.3 Guided Life Setup
+
+- **The first morning is a path, not a chat.** ORA asks about one part of a
+  life at a time and a person answers by choosing. A composer on day one asks
+  somebody to work out what to say before they know what ORA is for; the open
+  conversation is ORA's, afterwards.
+- **"Altro" is the only place text is typed** — a small box for that question,
+  which keeps the person's own words whole and never opens a general
+  conversation.
+- **One area at a time, and moving on is a decision.** "Casa — conosciuta, ORA
+  ne conosce il 72%. Passa a Lavoro." Nothing jumps subject on somebody
+  mid-thought.
+- **What is learned in one area lands wherever it is true.** Choosing "con il
+  partner" while talking about home moves Famiglia; the next question stays in
+  Casa. Cross-area learning, never cross-area jumping.
+- **"Non lavoro" ends the subject.** It writes the fact and retires every
+  question behind it, so the area reads finished for somebody with nothing to
+  tell it — unlike skipping, which leaves the hole, and unlike declining, which
+  stays counted as missing and is never raised again.
+- **One name.** Somebody said their name during the setup and Home went on
+  greeting them as "Test": the setup kept its own copy while every surface
+  reads the account. It now writes to the account, and it is asked once, before
+  the areas, only when there is nothing usable there already.
+
+## 2026-08-28 — V3.3 Progressive Life Setup & Life Profile
+
+- **ORA gets to know somebody instead of interviewing them.** One sentence —
+  "vivo a Tarquinia con la mia compagna, la casa è di proprietà e non ho un
+  mutuo" — resolves three things, and none of them is asked again.
+- **The percentage means what it says.** Not "how much of the form is filled
+  in": the share of what ORA could usefully know about a part of a life that it
+  actually knows, weighted by how much each piece helps.
+- **A life without a car is not an incomplete life.** "Non ho la macchina"
+  answers the question *and* retires everything that depended on it — Mobilità
+  reads 100% with nothing invented.
+- **Privacy is not progress, and postponing is not answering.** A declined
+  subject is never raised again — but it stays counted as missing, because ORA
+  still does not know it. Only something that genuinely does not exist leaves
+  the reckoning. A percentage that rose because somebody refused would be the
+  one reading of this number that is a lie.
+- **A real document moves it.** A bill uploaded through the ordinary pipeline
+  was read — supplier, period, amount, due date — and Casa went from 0% to 28%
+  without anybody answering a question.
+- **ORA stopped changing the subject.** Somebody described their home and was
+  asked their name. The two nuclei that belong to no subject in particular now
+  wait until the person is done with the one they are in.
+- **Skipping everything leaves a working assistant.** The first run is over
+  when the person says so, not when the profile is full. Home, ORA, documents —
+  all of it works at 0%.
+- **Nothing learned has to be re-entered.** The profile is a projection over
+  the stores that already hold these facts, so a policy uploaded next week or a
+  payment mentioned in passing moves the figure by itself.
+- **Setup questions are not blockers.** "Domande per te" still means work has
+  stopped and is waiting for you. Ten skipped offers leave it untouched.
+- **Two things ORA believed that were false.** "Senza mutuo" was recorded as
+  having one — a mention is not a possession — and "la casa è di mia proprietà"
+  matched nothing at all. A profile that believes the opposite of what somebody
+  said is worse than an empty one.
+
 ## 2026-08-26 — V3.2 Life Guidance Intelligence
 
 - **ORA reconstructs where you are before it plans anything.** A goal is held as

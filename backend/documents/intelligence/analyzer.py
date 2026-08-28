@@ -319,7 +319,14 @@ def _admin_deadline_title(*, admin: Any, title: str, text: str) -> str:
     if sender:
         return f"Pagamento {sender}"[:160]
     if amount:
-        return f"Scadenza pagamento: {amount} {currency}".strip()[:160]
+        # The amount is kept as the document wrote it, which usually already
+        # carries its currency. Appending it again produced "512,40 EUR EUR"
+        # on a real policy, in Documenti, where somebody would read it.
+        shown = str(amount).strip()
+        unit = str(currency or "").strip()
+        if unit and unit.lower() not in shown.lower():
+            shown = f"{shown} {unit}"
+        return f"Scadenza pagamento: {shown}"[:160]
     label = subject or title or "scadenza"
     return f"Scadenza: {label}"[:160]
 

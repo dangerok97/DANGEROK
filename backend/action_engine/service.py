@@ -88,6 +88,38 @@ def _sid() -> str:
     return f"aes_{uuid.uuid4().hex[:14]}"
 
 
+# Card types that name something ORA is holding.
+#
+# The distinction is what the type *is*. "study" or "event" on a card is the
+# output of a classification, so trusting it would only repeat an earlier
+# guess — and a card typed `event` whose title says "devo studiare l'esame di
+# psicologia" has to reach the study flow, which is why the classifier keeps
+# the last word there. `needs_review` is not a guess: the item exists because a
+# document was read and is waiting to be confirmed. There is nothing left to
+# work out, and asking is the failure.
+_CARD_TYPES_THAT_NAME_AN_ARTIFACT = ("needs_review", "verify")
+
+
+def _intent_declared_by_card_type(item_type: Optional[str]) -> Optional[IntentResult]:
+    """What ORA meant by a card whose type names what it is about."""
+    key = (item_type or "").lower().strip()
+    if key not in _CARD_TYPES_THAT_NAME_AN_ARTIFACT:
+        return None
+    # Not a second table: HOME_TYPE_BY_INTENT already declares which intent
+    # produces this kind of card, and only an unambiguous inverse is used.
+    from intent_engine.mapping import HOME_TYPE_BY_INTENT
+
+    origins = [i for i, t in HOME_TYPE_BY_INTENT.items() if t == "needs_review"]
+    if len(origins) != 1:
+        return None
+    return IntentResult(
+        intent=origins[0],  # type: ignore[arg-type]
+        confidence=0.9,
+        reason="declared_by_card_type",
+        needs_clarify=False,
+    )
+
+
 class ActionEngineService:
     def __init__(self, db, *, life_graph=None, knowledge=None, decisions=None):
         self.db = db
@@ -179,6 +211,27 @@ class ActionEngineService:
                     entities=ents,
                     needs_clarify=False,
                 )
+
+        # 2b) A card ORA generated already says what it is.
+        #
+        # Found live, and the second half of the same bug: a document the
+        # pipeline had just read arrived here as "Polizza Assicurativa Auto -
+        # Generali Italia", the classifier weighed the words, found nothing it
+        # recognised, and asked the person whether they meant to prepare an
+        # exam or create an event. The clarifier exists for what somebody
+        # typed. ORA asking somebody to explain ORA's own card is the one
+        # thing it must never do.
+        #
+        # This is not a new table: `HOME_TYPE_BY_INTENT` already declares which
+        # card type each intent produces, and reading it backwards is exactly
+        # "what did ORA mean by this card". It is only read where the answer is
+        # unambiguous — where a single intent produces that type — so the types
+        # several intents share (`generic`, `activity`) still go to the
+        # classifier, as does anything a person typed, which has no item type
+        # at all.
+        declared = _intent_declared_by_card_type(ctx.get("item_type"))
+        if declared:
+            return declared
 
         # 3) Classify via Intent Engine (deterministic; Action Engine does not parse text for flow)
         return classify_text(

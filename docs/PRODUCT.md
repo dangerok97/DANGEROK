@@ -12,6 +12,97 @@ l'intento e nessuna retrieval promuove automaticamente nuova Memory.
 
 Ultimo aggiornamento: 2026-08-16 — Home → ORA first-turn handoff + location presence.
 
+## Conosciamoci (V3.3)
+
+Il primo accesso non è una chat. È un percorso: ORA ti chiede una parte di vita
+alla volta — Casa, Lavoro, Studio, Mobilità, Famiglia, Patrimonio, Finanze,
+Assicurazioni, Utenze, Salute — e tu rispondi scegliendo, non scrivendo.
+
+Vedi sempre dove sei, quanto ORA sa di quell'area, cosa viene dopo. Quando
+un'area è a posto te lo dice e ti propone la successiva: "Casa — conosciuta.
+Passa a Lavoro."
+
+Se nessuna opzione ti rappresenta c'è **Altro**, con uno spazio per scrivere
+la tua situazione in due righe. È l'unico punto in cui si scrive: la
+conversazione libera è ORA, dopo.
+
+Se dici che non lavori, ORA smette di chiederti del lavoro. Se dici che non hai
+l'auto, smette di chiederti dell'auto. Non è saltare: è che quella parte non ti
+riguarda.
+
+Puoi saltare una domanda, saltare un'area, o uscire quando vuoi. Da Vita
+riprendi da dove eri.
+
+## Ti conosce un po' alla volta (V3.3)
+
+Al primo accesso ORA non ti mette davanti a un modulo. Ti chiede quello che
+conta adesso, una cosa alla volta, e da una frase sola impara più cose: "vivo a
+Tarquinia con la mia compagna, la casa è di proprietà e non ho un mutuo" le
+dice tre cose, e non te ne richiede nessuna.
+
+Puoi saltare una domanda, saltare un tema, o saltare tutto. Se salti tutto,
+ORA funziona: Home, conversazione, documenti, tutto. Il profilo resterà basso,
+e va bene così.
+
+La percentuale che vedi non è "quanto hai compilato". È quanto ORA conosce di
+ciò che può aiutarti in quella parte della tua vita. Per questo:
+
+- se dici che non hai l'auto, Mobilità non resta incompleta per sempre: quella
+  parte semplicemente non ti riguarda;
+- se preferisci non dire una cosa, ORA non te la richiede più — ma continua a
+  saperlo di non saperla: la percentuale non sale perché hai detto di no;
+- se rimandi, resta lì: rimandare non è rispondere.
+
+Non devi tornare in un modulo per aggiornarla. Se un giorno racconti a ORA
+quanto paghi di mutuo, o carichi una polizza, il profilo lo impara da lì.
+
+Da Vita vedi quanto ORA sa di ogni area e riprendi da dove eri.
+
+## Leggere non è lavorare (V3.3)
+
+Quando dai un documento a ORA, ORA lo legge. Lo trovi in Documenti, quello che
+ha capito finisce in Vita, e la scadenza se l'è segnata. Non ti ritrovi
+qualcosa da fare.
+
+Una polizza letta bene non diventa "Polizza Assicurativa Auto — Verifica". Non
+diventa un promemoria, non diventa una revisione, non diventa una schermata da
+aprire. ORA ha fatto il suo lavoro: non te lo ripassa.
+
+Qualcosa compare solo se c'è un motivo vero: una decisione tua, una conferma che
+serve davvero, una scadenza vicina, un rischio, qualcosa che blocca un tuo
+obiettivo, una cosa che hai chiesto tu, un'occasione da prendere adesso, o un
+permesso che ORA deve chiederti prima di fare qualcosa. "Ho letto un documento"
+non è un motivo.
+
+Se la scadenza è fra due mesi, oggi non ti dice niente. Te lo ricorda quando si
+avvicina.
+
+E se davvero non riesce a leggere una cosa che le serve, te ne chiede una sola,
+precisa: "Non riesco a capire se la data è il 14 o il 17 ottobre. Qual è quella
+corretta?" — non ti restituisce il documento intero da controllare.
+
+## Dopo il setup, ORA non promette quello che non sa (V3.3)
+
+Dire a ORA che hai una polizza sulla casa non è la stessa cosa che darle la
+polizza. Da quel "sì" ORA sa che esiste: non sa la compagnia, non sa il premio,
+non sa quando scade. Per questo non ti dice "adesso posso monitorare la polizza
+e la scadenza" — non potrebbe farlo. Te lo dice quando ha la scadenza, o quando
+le hai dato il documento.
+
+E non apre la giornata con quello che ha imparato. Le cose che ORA ora sa fare
+restano più in basso: in cima c'è quello che riguarda oggi. Se oggi non c'è
+niente, la Home lo dice — "per ora non c'è nulla che richieda la tua
+attenzione" — invece di riempirsi.
+
+Quando invece una card ORA te la propone lei, portarla avanti significa
+continuare da lì. Non ti viene chiesto di spiegare cosa intendeva ORA.
+
+## Quello che dici viene registrato, qualunque risposta sia (V3.3)
+
+"Casa in affitto" è una risposta quanto "casa di proprietà": ORA sa che la casa
+non è tua e smette di considerarlo un buco. Anche un no è conoscenza — quello
+che resta aperto è solo quello che davvero non ti ha ancora chiesto.
+
 ## Sa già dove sei (V3.2)
 
 Se dici "devo comprare casa a Tarquinia, ho già firmato il compromesso", ORA

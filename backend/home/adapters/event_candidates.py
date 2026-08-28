@@ -57,6 +57,20 @@ async def load_event_candidates(
                     "maps_query": ev.get("maps_query") or loc,
                     "ambiguous_date": bool(ev.get("ambiguous_date")),
                     "missing_fields": ev.get("missing_fields") or [],
+                    # Putting something in somebody's calendar is a side
+                    # effect, so a candidate ORA is sure about still waits to
+                    # be accepted — but only while its date is near enough to
+                    # be worth the interruption. One ORA is *not* sure about is
+                    # a question, and a question keeps regardless of when it
+                    # falls, because there is nothing to reason about until it
+                    # is answered.
+                    "work_reason": (
+                        "confirmation_required"
+                        if (ev.get("ambiguous_date") or ev.get("missing_fields"))
+                        else "consent"
+                        if ev.get("start_datetime")
+                        else "confirmation_required"
+                    ),
                 },
             ))
     return items, []

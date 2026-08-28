@@ -30,7 +30,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 
-import { api, LifeProfile, StudyPlan, TravelProject } from '@/src/api/client';
+import { api, LifeAreaCompleteness, LifeProfile, StudyPlan, TravelProject } from '@/src/api/client';
 import { useTheme } from '@/src/theme/ThemeProvider';
 import { tokens } from '@/src/theme/tokens';
 import { ErrorState } from '@/src/components/ui/ErrorState';
@@ -38,6 +38,7 @@ import { Appear, useAmbientInset } from '@/src/shell';
 import { isNetworkError, useOnlineStatus } from '@/src/hooks/use-online-status';
 import { humanizeError } from '@/src/utils/errors';
 import { buildOraConversationHref } from '@/src/ora/oraNav';
+import { LifeProfileProgress } from '@/src/components/life-profile/LifeProfileProgress';
 import { buildContextsMap, mapFromLifeMapApi } from '@/src/components/contexts/quiet';
 import {
   GrowStrip,
@@ -240,6 +241,51 @@ export default function VitaScreen() {
     [router],
   );
 
+  /*
+    What ORA understands of this life, and where it would help to continue.
+
+    Vita is the page a person comes back to, so this is where the profile lives
+    once the first run is over — the same figure, the same areas, one tap back
+    into the conversation that fills them. Nothing is fetched twice: it is a
+    projection, and reading it costs a request, not a reasoning cycle.
+  */
+  const [profile, setProfile] = useState<{
+    percent: number;
+    areas: LifeAreaCompleteness[];
+    suggested?: string | null;
+  } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await api.lifeProfileCompleteness();
+        if (!cancelled && res?.ok) {
+          setProfile({
+            percent: res.percent,
+            areas: res.areas || [],
+            suggested: res.suggested_area_id ?? null,
+          });
+        }
+      } catch {
+        // Vita renders without it. A page about trust does not show an error
+        // because a progress figure could not be read.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const continueSetup = useCallback(
+    (areaId?: string) => {
+      router.push(
+        areaId ? `/life-setup?resume=1&area=${encodeURIComponent(areaId)}` : '/life-setup?resume=1',
+      );
+    },
+    [router],
+  );
+
   const empty = useMemo(() => isVitaEmpty(vita), [vita]);
   const hasContent = !empty;
 
@@ -256,6 +302,17 @@ export default function VitaScreen() {
           </View>
         ) : null}
       </VitaSection>
+
+      {profile ? (
+        <VitaSection title="QUELLO CHE ORA SA DI TE" testID="vita-profile">
+          <LifeProfileProgress
+            percent={profile.percent}
+            areas={profile.areas}
+            activeAreaId={profile.suggested}
+            onOpenArea={(id) => continueSetup(id)}
+          />
+        </VitaSection>
+      ) : null}
 
       <VitaSection title="LA TUA VITA" testID="vita-areas">
         {vita.areas.length ? (

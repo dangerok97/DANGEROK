@@ -13,6 +13,7 @@ DomainId = Literal[
     "casa",
     "auto",
     "finanze",
+    "patrimonio",
     "studio",
     "lavoro",
     "salute",
@@ -176,6 +177,15 @@ class BenefitDescriptor(BaseModel):
     user_benefit: str  # concrete, never vague
     requires: List[str] = Field(default_factory=list)
     activates_when: List[str] = Field(default_factory=list)
+    # What the Home claim rests on.
+    #
+    # `home_signal` is written as “Adesso posso …” — a statement that ORA can
+    # now do something. Knowing that a thing *exists* rarely makes that true:
+    # “ho una polizza” does not give ORA a company, a premium or an expiry, so
+    # “posso monitorare la polizza e la scadenza” is a promise it cannot keep.
+    # A benefit that names its grounding is only claimed once at least one of
+    # those keys is actually known; until then it is an offer, not a capability.
+    grounded_by: List[str] = Field(default_factory=list)
     home_signal: Optional[str] = None  # Italian Home card copy
     proactive_signal: Optional[str] = None  # Italian Proactive copy
     chain: Optional[str] = None  # e.g. casa→mutuo→scadenze

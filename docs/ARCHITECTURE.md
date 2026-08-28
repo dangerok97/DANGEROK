@@ -1,5 +1,235 @@
 # ORA — Architecture
 
+## V3.3 — Work admission
+
+    Knowledge acquisition must not create work by itself.
+
+`home/work_admission.py` holds the invariant. Eight reasons may bring something
+into somebody's day — `decision`, `confirmation_required`, `deadline`, `risk`,
+`goal_blocker`, `user_request`, `opportunity`, `consent` — and every one of them
+is a statement about the person's situation. "A document was processed" is not
+among them, and confidence in the reading cannot add it.
+
+`admit()` runs once, in `build_home`, immediately after `gather_all`. It applies
+to `KNOWLEDGE_SOURCES` (`document`, `document_action`, `event_candidate`,
+`life_experience`) — what exists only because ORA read something. A calendar
+event or a goal step is the person's own commitment and keeps the standing it
+always had.
+
+    declared reason + date   admitted while the date is inside the horizon
+    declared reason, no date admitted
+    no reason                dropped
+
+`ATTENTION_HORIZON_HOURS = 168` is the week ranking already treats as the edge
+of "later". Nothing is lost past it: the fact stays in the profile and in
+Documenti, and the same date walks back through the gate as it approaches, with
+no new ingestion.
+
+Four producers were turning ingestion into work, and each was corrected where it
+sat:
+
+    documents.py            a `needs_review` card for any of four pipeline
+                            states, titled with the document's own name.
+                            `awaiting_confirmation` — which only means ORA
+                            proposed something to itself — was one of them.
+    documents.py (admin)    an item for every incomplete `admin_analysis`,
+                            whatever its date.
+    event_candidates.py     a card for every proposed candidate.
+    document_actions.py     cards for `create_reminder` / `needs_review`
+                            generic actions, which the analyzer writes for
+                            itself off the back of a taxonomy.
+
+`home/adapters/document_uncertainty.py` decides the one remaining case. A
+question exists only when the analyzer said it could not resolve something —
+`requires_review`, the `needs_review` terminal state, or a failed read — and
+then it names the field: an ambiguous date, a missing one, a document that would
+not open. The item's title is that question. No path produces a card titled
+after a document.
+
+## V3.3 — What a fact learned in the setup may become
+
+Three rules, all enforced in deterministic code, none of which knows a domain.
+
+**A capability claim needs its grounding.** `BenefitDescriptor.grounded_by`
+lists the keys that would make the claim true; `active_benefits()` drops a
+benefit whose grounding is absent, however many activation keys are present.
+Knowing that a policy *exists* is a boolean; "posso monitorare la scadenza"
+needs the expiry or the document. The keys live in the catalogue, so the rule
+reads a declared field and never a subject.
+
+    grounded_by=[]              the claim rests on the activation keys alone
+    grounded_by=[k, ...]        claimed only once one of these is known
+
+**Knowledge availability is never the hero.** The life-setup adapter marks its
+benefit items `priority="later"` and `meta.knowledge_only`; `_focus_eligible()`
+in `home/service.py` rejects them, *and so does the fallback that exists so a
+stale-but-real item can still open the day* — a rule that holds only while
+something else is present is not a rule. An empty focus slot is a legitimate
+outcome: Home says there is nothing rather than inventing something.
+
+**A card keeps the destination it declared.** `rank_items()` used to overwrite
+every item's actions with `actions_for(item)`, whose default route is
+`GENERIC_ENTRY = "/action/open"` — the clarifier for ambiguous *typed* input.
+A card ORA generated therefore arrived at the intent classifier carrying only
+its title. Ranking now keeps a declared non-generic route as the primary
+action and appends only the generic verbs (snooze, ignore, correct, complete);
+an item that declares nothing still gets the guided entry.
+
+**And it keeps its meaning at the destination.** Keeping the route was only
+half of it: a card that declares nothing still opens the guided flow, and there
+the Action Engine classified the *title* — `item_type=None`, deliberately,
+because a card's type used to be an unreliable guess. For one kind of card it
+is not a guess: `needs_review` exists because a document was read and is
+waiting to be confirmed. `_intent_declared_by_card_type` reads
+`HOME_TYPE_BY_INTENT` backwards for exactly those types, so the flow is chosen
+from what ORA knows rather than from the words in the title; everything whose
+type was itself a classification (`study`, `event`, `travel`, …) still goes to
+the classifier, which is what keeps "devo studiare l'esame di psicologia" on a
+card typed `event` routed to study.
+
+**A branch records what it establishes.** An option that resolves a question
+one way must write the fact for every way, negatives included: "casa in
+affitto" writes `casa.owned: False`. Otherwise the objective stays `unknown`,
+nothing ever asks it again, and the area is capped below 100% by an answer the
+person already gave. `_is_negative` makes a stated no a resolved state; the
+strategist's `known_keys` excludes false values, so a recorded negative never
+activates anything.
+
+## V3.3 — Guided Life Setup
+
+The first thing a person meets is no longer a conversation. It is a guided
+path: structured choices, one part of a life at a time, with free text only
+behind "Altro". The open conversation is ORA's, afterwards — a chat box on the
+first morning asks somebody to work out what to say before they know what ORA
+is for.
+
+    guided.py     the catalogue: what is asked, how it is answered, what an
+                  answer means, and what has to be true for it to be asked
+    setup.py      which question is on screen, and what happens to an answer
+    router.py     GET /life-profile/setup · POST answer / skip-area /
+                  go-to-area / finish
+
+`guided.py` is declarative and it is the whole business logic. An entry carries
+its question, its control (`single` · `multi` · `yes_no` · `currency` ·
+`number` · `date` · `location` · `document` · `text`), its options, and for
+each option what it *establishes* (`sets`) and what it *retires*
+(`not_applicable`). The interface receives one objective and draws it; a branch
+implemented in a component is a branch nobody can test.
+
+Three invariants:
+
+- **One area at a time.** The visible current area is the area the current
+  question came from, and moving on is an explicit step the person takes —
+  "Casa — conosciuta, ORA ne conosce il 72%. Passa a Lavoro."
+- **Cross-area learning, never cross-area jumping.** Choosing "con il partner"
+  in Casa records `famiglia.partner`, so Famiglia moves; the next question
+  stays in Casa.
+- **No question index.** What comes next is derived from what is known, what
+  was declined, what was ruled out and which dependencies are settled. Closing
+  the app halfway and returning resumes from the real state.
+
+**An answer can mean "there is none".** "Non lavoro" writes
+`lavoro.active = False` and retires every objective behind it, so Lavoro reads
+100% for somebody with nothing to tell it — distinct from skipping, which
+leaves the hole, and from declining, which is counted as missing and never
+raised again.
+
+**The name is asked once, before the areas, and only when the account has
+nothing usable.** It belongs to no part of a life, which is why it cannot live
+inside one — asked in the middle of Casa it reads as a form changing subject.
+It writes to `db.users.name`, the identity every surface greets with: the
+previous version kept its own copy in the setup session while Home went on
+saying "Test".
+
+## V3.3 — Progressive Life Setup and the Life Profile
+
+The figure on the screen is the whole design problem. "42%" is the one thing a
+person reads literally, so it had to mean something literal: the share of what
+ORA could usefully know about a part of a life that it currently does know,
+weighted by how much each piece helps.
+
+    completeness = Σ weight(known or inferred) / Σ weight(applicable)
+
+`backend/life_profile/` is a projection and writes nothing. The knowledge it
+counts was declared long before this sprint: `ai_life_strategist`'s
+`DOMAIN_GAPS` already carries weights (`information_gain`) and dependencies
+(`when`), and `minimum_life_context` already knows which keys evidence the
+early nuclei. Areas group those domains for a person to recognise; a second
+catalogue would be a second truth.
+
+    areas.py         eight areas over the existing gap domains
+    objectives.py    five states, and which objectives are live right now
+    completeness.py  the arithmetic, and what "enough to help" reads as
+    service.py       the read model over LifeProfile + setup session
+    router.py        GET /life-profile · POST /life-profile/not-applicable
+
+The denominator excludes exactly two things, and the distinction between them
+and a third is the whole honesty of the number:
+
+    skipped         not now              still counted as missing
+    declined        I would rather not   still counted, never asked again
+    not applicable  there is none        gone from the reckoning
+
+Only `not_applicable` leaves. "Non ho la macchina" resolves the question it
+answers *and* retires everything gated on it, so Mobilità reads 100% with no
+invented answers — a life without a car is not an incomplete life. A refusal
+does not leave: ORA still does not know, and a percentage that rose because
+somebody declined would be the one reading of this number that is a lie. It is
+simply never raised again.
+
+- **what is still latent.** ORA does not know whether there is a mortgage to
+  ask about until it knows the place is owned, so the objective appears only
+  when its gate is answered. This is why an area can *widen* — answering
+  "di proprietà" opens the deed, the mortgage and the insurance, and the share
+  known legitimately falls. Inventing monotonicity there would mean inventing
+  a number.
+
+What is deliberately **not** excluded is anything merely skipped. "Più tardi"
+leaves the objective unknown and counted as missing, or the figure would be a
+measure of how many questions somebody dismissed.
+
+**One life model.** There is no `onboarding_answers` collection. Setup answers,
+documents and ordinary conversation all write into the stores that already own
+them — `LifeProfile` for structured facts, governed memory for the rest — and
+the profile is read from those. It follows that learning outside the setup
+moves the figure by itself: a policy uploaded a week later, or a payment
+mentioned in passing, updates the same projection with nobody reopening a form.
+
+**A setup question is not a blocker.** V3.1's `OpenQuestion` means work has
+stopped and is waiting for this person. Nothing in a life is stopped because
+somebody has not said which energy supplier they use, so the setup never
+creates one — a guard fails the build if either module reaches for that API.
+Ten skipped offers leave "Domande per te" exactly as it was.
+
+**The first run is over when the person says so.** `isFirstRunOver` accepts
+completed, skipped, cancelled and interrupted. Completion is about knowledge; a
+gate has no business holding somebody at the door until they have told ORA
+enough about themselves.
+
+**The surface.** `LifeSetupSurface` puts structure around the conversation
+rather than inside it: who is asking, the promise, the profile figure, the part
+of life this is (with what ORA already knows and what would still help, as
+things rather than fields), what else exists, and that you can leave. Nothing
+on it can be typed into except the composer — the questions are still written
+one at a time, in the thread, by the part of ORA that knows what was just said.
+
+**Patrimonio.** What somebody owns beyond the roof over their head — another
+flat, a loan still running, savings — had no representation at all: `finanze`
+carried a single objective about monthly outgoings. It is now its own area over
+its own domain, marked sensitive, because standing possessions change what
+advice is realistic in a different way from monthly spending, and because
+somebody willing to discuss their bills is not necessarily willing to discuss
+their savings.
+
+Live QA fixed four things underneath this, all in code that predates the
+sprint: "senza mutuo" was recorded as *having* a mortgage (a mention is not a
+possession); "la casa è di mia proprietà" matched no phrase at all; Home
+claimed "adesso posso usare i documenti della tua casa" to somebody who had
+never uploaded one, because the benefit fired on owning a home rather than on
+having a document; and the two nuclei that belong to no subject in particular —
+the person's name, what is most pressing — could interrupt somebody mid-thought
+("come preferisci che ti chiami?" straight after they described their house).
+
 ## V3.2 — Life guidance: reconstruct, then ask only what blocks
 
 V3.1 made a blocker survive. V3.2 decides whether there should be one.
