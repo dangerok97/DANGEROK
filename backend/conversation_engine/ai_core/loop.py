@@ -301,6 +301,22 @@ async def run_cognitive_loop(
     observations: List[Dict[str, Any]] = list(st.get("observations") or [])
     # Set only when the turn ends on a question the reasoning called blocking.
     blocking_ask: Optional[Dict[str, Any]] = None
+    # What guidance decided to ask, once it had resolved everything it could.
+    guidance_ask: Optional[Dict[str, Any]] = None
+    # One "you already know this" nudge per turn: a second would be the loop
+    # arguing with itself rather than answering the person.
+    guidance_nudge_used = False
+    # Guidance corrections for this turn. More than one, because the drafts
+    # fail differently: the first hands the choice back, the second narrates
+    # the plan, and spending the whole budget on the first leaves the second to
+    # reach the person. Still bounded well inside MAX_STEPS — the loop must
+    # converge, and a fourth attempt is the model arguing with itself rather
+    # than helping anyone.
+    guidance_nudges_used = 0
+    MAX_GUIDANCE_NUDGES = 3
+    # The reconstruction carried across turns, so a revision replaces a state
+    # rather than inventing one from nothing.
+    guidance_state = _guidance_state_from(st)
     # V2.6.2 — mutation idempotency is TURN-SCOPED (reasoning epoch).
     # Session-persisted signatures must NOT ban legitimate cross-turn replanning
     # when the user provides new facts/evidence that change persisted state.
@@ -524,6 +540,32 @@ async def run_cognitive_loop(
                 if step + 1 < max_steps:
                     continue
         state_mod.apply_state_updates(st, decision.state_updates)
+
+        # V3.2 — where this person is, before deciding what to do about it.
+        # A reconstruction that does not validate leaves the previous one
+        # standing: losing an update is recoverable, rebuilding somebody's plan
+        # out of malformed output is not.
+        if decision.goal_state is not None:
+            try:
+                from guidance.service import GuidanceService
+
+                guidance_state = GuidanceService.reconstruct(
+                    decision.goal_state, previous=guidance_state
+                )
+                st["guidance_state"] = guidance_state.model_dump()
+                # Saved here rather than trusted to whichever branch ends the
+                # turn: a reconstruction that only survives some exits is a
+                # reconstruction that cannot be relied on next turn.
+                state_mod.save_ai_state(sess, st)
+                logger.info(
+                    "guidance_reconstructed session=%s revision=%d milestones=%d residual=%d",
+                    sess.id,
+                    guidance_state.revision,
+                    len(guidance_state.milestones),
+                    len(guidance_state.residual()),
+                )
+            except Exception:
+                logger.info("guidance reconstruction soft-fail", exc_info=True)
         if decision.situation_update and decision.situation_update.operation != "none":
             try:
                 from situations.service import SituationService
@@ -1069,6 +1111,300 @@ async def run_cognitive_loop(
                 )
                 add_step(trace, event="PERSIST_NUDGE")
                 continue
+            # ---------------------------------------------------------------
+            # V3.2 — ORA chooses the step. The person chooses their life.
+            #
+            # A turn that ends "su cosa vuoi concentrarti?" has handed the plan
+            # back: the person is being asked to manage the process, which is
+            # the work guidance exists to take off them. When ORA has actually
+            # reconstructed where they are, it knows what comes next — so the
+            # model is told to pick it and either say what it needs or say what
+            # it is doing, and it reasons once more.
+            #
+            # This never fires without a reconstruction behind it. Offering a
+            # choice is legitimate when ORA genuinely does not know the shape
+            # of the goal yet.
+            # ---------------------------------------------------------------
+            #
+            # The same block catches the other way a question escapes the gate.
+            # Guidance sits on `response_mode=ask`; a question written into an
+            # answer's prose never passes it. Live, the model marked a need
+            # `useful`, `blocking: false` — and then asked for it anyway in the
+            # sentence it wrote. Nothing here judges whether it was worth
+            # asking: the model is simply held to its own declaration, which is
+            # the only judgement available that is not a second opinion.
+            #
+            # And the quietest failure of the three: the plan, described.
+            # ORA reconstructs the path, says what the next step would be, and
+            # stops — nothing done, nothing asked. The person is left to work
+            # out what ORA needs and volunteer it, which is the arrangement all
+            # of this exists to end. Guidance either advances the work or asks
+            # for what blocks advancement; describing what advancement would
+            # look like is neither.
+            #
+            # Narrow on purpose: it takes a reconstruction, a narration of the
+            # plan, no question, and nothing actually done this turn. An
+            # ordinary answer to an ordinary question trips none of that. A
+            # conclusion drawn about the person counts as movement it has not
+            # earned, so it is caught the same way.
+            # A question already asked is not asked twice — governance sees to
+            # that. What it cannot do is decide what happens instead, so the
+            # turn ended on "posso continuare con un'ipotesi prudente, oppure
+            # fermarmi qui": neither movement nor a question, and an offer the
+            # person cannot evaluate. Having been stopped from re-asking is
+            # precisely the moment to proceed with what is known.
+            already_asked_that = "repeated_clarification" in (gov.errors or [])
+            # Refused a write or an action because something required is
+            # missing, and wrote no question to go with it. Governance can only
+            # say "mi manca un'informazione necessaria" — true, useless, and a
+            # dead end: the person is told there is a problem and never told
+            # what would solve it. This one does not wait for a reconstruction;
+            # it is a dead end on any turn.
+            blocked_without_a_question = mode != "ask" and bool(
+                {"blocking_uncertainty_for_write", "blocking_uncertainty_for_action"}
+                & set(gov.errors or [])
+            )
+            hands_back = _is_meta_choice(ora)
+            asks_for_the_optional = _asks_for_the_optional(ora, decision)
+            #
+            # Writing the plan down does not count as movement here. That was
+            # the live failure exactly: ORA created the plan, described it, and
+            # stopped — the plan moved, the person's work did not. What
+            # exempts a turn is asking, not persisting.
+            asked_something = "?" in (ora or "")
+            described_only = not asked_something and _describes_a_plan(ora)
+            concluded_early = not asked_something and _claims_about_the_person(ora)
+            if (
+                mode in ("answer", "finish")
+                and guidance_nudges_used < MAX_GUIDANCE_NUDGES
+                and step + 1 < max_steps
+                and (
+                    blocked_without_a_question
+                    or (
+                        bool(_residual_of(guidance_state))
+                        and (
+                            hands_back
+                            or asks_for_the_optional
+                            or described_only
+                            or concluded_early
+                            or already_asked_that
+                        )
+                    )
+                )
+            ):
+                guidance_nudges_used += 1
+                observations.append(
+                    Observation(
+                        kind="system",
+                        name="next_step_is_yours",
+                        status="nudge",
+                        payload={
+                            "failure_code": (
+                                "BLOCKED_WITHOUT_A_QUESTION"
+                                if blocked_without_a_question
+                                else "META_CHOICE_NOT_ALLOWED"
+                                if hands_back
+                                else "ASKED_FOR_WHAT_IS_NOT_REQUIRED"
+                                if asks_for_the_optional
+                                else "CONCLUSION_WITHOUT_SUFFICIENCY"
+                                if concluded_early
+                                else "ALREADY_ASKED_THAT"
+                                if already_asked_that
+                                else "DESCRIBED_INSTEAD_OF_ADVANCING"
+                            ),
+                            "reason": (
+                                (
+                                    "You could not carry out that action because "
+                                    "something required is missing, and you wrote no "
+                                    "question. The user is now told there is a problem "
+                                    "and not what would solve it. Ask for it: declare "
+                                    "the missing items as required in "
+                                    "missing_information, put the question in "
+                                    "`question`, and use response_mode=ask."
+                                )
+                                if blocked_without_a_question
+                                else (
+                                    "You ended by asking the user which step to work "
+                                    "on, or how you should proceed. That is your "
+                                    "decision, not theirs."
+                                )
+                                if hands_back
+                                else (
+                                    "You asked the user for something you yourself "
+                                    "marked useful or optional rather than required. "
+                                    "Only a required, unknown item may reach them. "
+                                    "Either it is genuinely required — say so in "
+                                    "missing_information and use response_mode=ask — "
+                                    "or it is not, and you proceed without it."
+                                )
+                                if asks_for_the_optional
+                                else (
+                                    "You drew a conclusion about this person — what "
+                                    "suits them, what they qualify for, what is best "
+                                    "for them — without establishing what that "
+                                    "conclusion rests on. A variable is required when "
+                                    "not knowing it could change whether the option is "
+                                    "feasible, which option fits, which is better, or "
+                                    "whether you can proceed at all. Name those, ask "
+                                    "for them together, and say what you can say "
+                                    "generally in the meantime — without presenting it "
+                                    "as a conclusion about them."
+                                )
+                                if concluded_early
+                                else (
+                                    "You asked for something you have already "
+                                    "asked this person for. They have answered it, "
+                                    "or chosen not to. Proceed with what you have: "
+                                    "take the next step, state the assumption you are "
+                                    "making if you must make one, or ask for something "
+                                    "different that is genuinely required. Do not "
+                                    "offer to stop."
+                                )
+                                if already_asked_that
+                                else (
+                                    "You described the plan instead of moving it. "
+                                    "Nothing was done this turn and nothing was asked, "
+                                    "so the user is left to guess what you need and "
+                                    "volunteer it. Take the next step now — call the "
+                                    "capability, make the change, give the answer — or "
+                                    "name the required information that blocks it and "
+                                    "ask for it, once, together. Saying what the next "
+                                    "step would be is neither."
+                                )
+                            )
+                            + (
+                                " You have reconstructed the goal: choose the next "
+                                "step on the residual path yourself, then either state "
+                                "what you are doing or ask — once, together — only for "
+                                "what that step genuinely requires. The user decides "
+                                "real-life choices (money, dates, accepting or "
+                                "declining, preferences); you decide process."
+                            ),
+                            "residual_path": [
+                                {"ref": m.ref, "title": m.title, "state": m.state}
+                                for m in _residual_of(guidance_state)
+                            ][:6],
+                        },
+                    ).model_dump()
+                )
+                st["observations"] = observations[-12:]
+                state_mod.save_ai_state(sess, st)
+                add_step(trace, event="GUIDANCE_STEP_NUDGE")
+                logger.info(
+                    "guidance_step_nudge session=%s code=%s",
+                    sess.id,
+                    (observations[-1].get("payload") or {}).get("failure_code"),
+                )
+                continue
+            # ---------------------------------------------------------------
+            # V3.2 — a question is the last resort.
+            #
+            # The model has decided it cannot proceed. Before that reaches a
+            # person, guidance answers what it can from what ORA already holds:
+            # this turn, what has already been answered or declined, governed
+            # memory, the profile, the work in progress. What survives is what
+            # genuinely blocks the next step, asked once and together.
+            #
+            # When nothing survives, the question is not suppressed — the model
+            # is told what is now known and reasons again, which is the
+            # difference between hiding a question and answering it.
+            # ---------------------------------------------------------------
+            if (
+                mode == "ask"
+                and decision.uncertainty
+                and not guidance_nudge_used
+                and step + 1 < max_steps
+            ):
+                try:
+                    from guidance.bridge import (
+                        blocking_ask_payload,
+                        declined_refs_from,
+                        resolution_observation,
+                        variables_from_missing,
+                    )
+                    from guidance.service import GuidanceService
+
+                    wanted = variables_from_missing(
+                        decision.uncertainty.missing_information,
+                        blocking_default=decision.uncertainty.blocking,
+                    )
+                    if wanted:
+                        outcome = await GuidanceService(db).evaluate(
+                            user_id=sess.user_id,
+                            variables=wanted,
+                            state=guidance_state,
+                            user_message=user_message,
+                            active_goal=st.get("active_goal"),
+                            session_id=sess.id,
+                            # What guidance has already established this
+                            # session. `clarification_history` is the loop's own
+                            # attempt counter and gets rewritten on every ask —
+                            # overloading it would make "already known" depend
+                            # on how many passes the turn happened to take.
+                            answered_refs=list(st.get("resolved_refs") or []),
+                            declined_refs=declined_refs_from(
+                                st.get("clarification_history") or []
+                            ),
+                            fallback_question=decision.question or "",
+                        )
+                        trace["guidance"] = outcome.public_trace()
+                        if outcome.next_step.kind == "proceed":
+                            guidance_nudge_used = True
+                            observations.append(
+                                Observation(
+                                    kind="system",
+                                    name="information_already_known",
+                                    status="nudge",
+                                    payload=resolution_observation(outcome),
+                                ).model_dump()
+                            )
+                            st["resolved_refs"] = list(
+                                dict.fromkeys(
+                                    list(st.get("resolved_refs") or [])
+                                    + [v.ref for v in outcome.sufficiency.resolved()]
+                                )
+                            )[:32]
+                            st["observations"] = observations[-12:]
+                            state_mod.save_ai_state(sess, st)
+                            add_step(trace, event="GUIDANCE_NUDGE")
+                            continue
+                        guidance_ask = blocking_ask_payload(
+                            outcome, fallback_question=decision.question or ""
+                        )
+                        # Remember what ORA turned out to know, so a later pass
+                        # of the same turn — or a later turn — does not have to
+                        # look it up again, and cannot ask for it.
+                        st["resolved_refs"] = list(
+                            dict.fromkeys(
+                                list(st.get("resolved_refs") or [])
+                                + [v.ref for v in outcome.sufficiency.resolved()]
+                            )
+                        )[:32]
+                except Exception:
+                    # Guidance is an improvement on asking, never a dependency
+                    # of it. If it cannot run, the question the model wrote is
+                    # still a legitimate question.
+                    logger.info("guidance gate soft-fail", exc_info=True)
+
+            # When guidance would not let the model's own wording stand — it
+            # handed the process back, or arrived in another language — the
+            # composed question replaces it *where the person reads it* too.
+            # Storing a clean question on the OpenQuestion while the chat still
+            # shows the rejected sentence guarantees nothing: the chat is where
+            # the question is actually asked.
+            # One question, one wording. What is stored on the OpenQuestion and
+            # what the person reads in the thread are the same sentence — not
+            # because they are generated together, but because this makes them
+            # so. Home and Attività project the stored one; the conversation
+            # showed `message_to_user`, and the two drifted whenever guidance
+            # narrowed the set or refused the wording. A person answering in
+            # the thread was then answering a different question from the one
+            # ORA had recorded.
+            if guidance_ask and mode == "ask":
+                composed = str(guidance_ask.get("question") or "").strip()
+                if composed:
+                    ora = composed
+
             state_mod.append_turn(st, role="ora", text=ora, kind=mode)
             if mode == "ask" and decision.uncertainty:
                 asked_refs = [
@@ -1101,7 +1437,11 @@ async def run_cognitive_loop(
                 # conversation: the reasoning says which by marking its own
                 # uncertainty blocking, and this hands that decision — with the
                 # refs it was asking about — to whoever wants to persist it.
-                if decision.uncertainty.blocking:
+                if guidance_ask is not None:
+                    # Guidance already decided what genuinely blocks, in what
+                    # words, and how much it managed not to ask.
+                    blocking_ask = guidance_ask
+                elif decision.uncertainty.blocking:
                     needs = [
                         item for item in decision.uncertainty.missing_information
                         if item.strategy == "ask"
@@ -1129,7 +1469,26 @@ async def run_cognitive_loop(
                 st["clarification_history"] = []
             st["observations"] = observations[-12:]
             state_mod.save_ai_state(sess, st)
-            add_step(trace, event="FINAL", mode=mode)
+            # What this turn actually amounts to for the person, named once and
+            # recorded. A goal under way has to end somewhere real: a question,
+            # something done, or the work finished. "Limbo" is the state this
+            # whole section exists to remove — the plan described, nothing
+            # asked, nothing done — and it is written down rather than assumed
+            # gone, because a guarantee nobody measures is a hope.
+            outcome = _turn_outcome(
+                mode=mode,
+                text=ora,
+                blocking_ask=blocking_ask,
+                did_write=bool(life_os_writes_this_turn or tool_calls),
+                residual=bool(_residual_of(guidance_state)),
+            )
+            trace["guidance_outcome"] = outcome
+            if outcome == "limbo":
+                logger.warning(
+                    "guidance_turn_limbo session=%s nudges=%d",
+                    sess.id, guidance_nudges_used,
+                )
+            add_step(trace, event="FINAL", mode=mode, guidance_outcome=outcome)
             return CognitiveTurnResult(
                 ok=True,
                 mode=mode,  # type: ignore[arg-type]
@@ -1565,7 +1924,22 @@ async def run_cognitive_loop(
     state_mod.append_turn(st, role="ora", text=ora, kind="answer")
     st["observations"] = observations[-12:]
     state_mod.save_ai_state(sess, st)
-    add_step(trace, event="LOOP_BOUND")
+    # The loop ran out of passes. Whatever it ends on is still a turn a person
+    # reads, so it is classified like any other.
+    bound_outcome = _turn_outcome(
+        mode="answer",
+        text=ora,
+        blocking_ask=blocking_ask,
+        did_write=bool(life_os_writes_this_turn or tool_calls),
+        residual=bool(_residual_of(guidance_state)),
+    )
+    trace["guidance_outcome"] = bound_outcome
+    if bound_outcome == "limbo":
+        logger.warning(
+            "guidance_turn_limbo session=%s nudges=%d bound=1",
+            sess.id, guidance_nudges_used,
+        )
+    add_step(trace, event="LOOP_BOUND", guidance_outcome=bound_outcome)
     return CognitiveTurnResult(
         ok=True,
         mode="answer",
@@ -1653,6 +2027,126 @@ def _parse_json(text: str) -> Optional[Dict[str, Any]]:
             except Exception:
                 return None
         return None
+
+
+def _residual_of(state: Any) -> List[Any]:
+    """What of the reconstruction is still ahead of the person.
+
+    Empty when there is no reconstruction — and an empty result is what keeps
+    the meta-choice nudge honest: ORA may legitimately offer a choice of
+    direction when it does not yet know the shape of the goal.
+    """
+    try:
+        return list(state.residual())
+    except Exception:
+        return []
+
+
+def _looks_english(text: str) -> bool:
+    """Soft, same reason as the others."""
+    try:
+        from guidance.wording import looks_english
+
+        return looks_english(text or "")
+    except Exception:
+        return False
+
+
+def _turn_outcome(
+    *,
+    mode: str,
+    text: str,
+    blocking_ask: Optional[Dict[str, Any]],
+    did_write: bool,
+    residual: bool,
+) -> str:
+    """
+    The one thing this turn was, from the person's side.
+
+    `ask` and `complete` are self-evident. `act` needs something durable to
+    have happened, not a description of what would happen — that distinction is
+    the entire point. Everything else on a goal still under way is `limbo`.
+    """
+    if blocking_ask or mode == "ask":
+        return "ask"
+    if mode == "finish":
+        return "complete"
+    if did_write:
+        return "act"
+    if residual and _describes_a_plan(text):
+        return "limbo"
+    return "continue"
+
+
+def _describes_a_plan(text: str) -> bool:
+    """Soft: a wording check must never be able to fail a turn."""
+    try:
+        from guidance.wording import describes_a_plan
+
+        return describes_a_plan(text or "")
+    except Exception:
+        return False
+
+
+def _claims_about_the_person(text: str) -> bool:
+    """Soft, same reason."""
+    try:
+        from guidance.wording import claims_about_the_person
+
+        return claims_about_the_person(text or "")
+    except Exception:
+        return False
+
+
+def _asks_for_the_optional(text: str, decision: Any) -> bool:
+    """
+    Did the turn ask for something the reasoning itself called optional?
+
+    Only when nothing required is outstanding: a turn that legitimately needs
+    something may mention the rest in passing, and this is not an argument
+    about phrasing. It is the model's own `necessity` read back to it.
+    """
+    if "?" not in (text or ""):
+        return False
+    unc = getattr(decision, "uncertainty", None)
+    items = list(getattr(unc, "missing_information", None) or []) if unc else []
+    if not items:
+        return False
+    if any(str(getattr(i, "necessity", "")) == "required" for i in items):
+        return False
+    return any(
+        str(getattr(i, "necessity", "")) in ("useful", "optional")
+        and str(getattr(i, "strategy", "")) == "ask"
+        for i in items
+    )
+
+
+def _is_meta_choice(text: str) -> bool:
+    """Soft: a wording check must never be able to fail a turn."""
+    try:
+        from guidance.wording import is_meta_choice
+
+        return is_meta_choice(text or "")
+    except Exception:
+        return False
+
+
+def _guidance_state_from(state: Dict[str, Any]):
+    """The reconstruction carried across turns, or an empty one.
+
+    Persisted inside the session's own `ai_core` state rather than in a new
+    collection: Life OS already owns the plan and its items, and guidance holds
+    a projection over them. Two stores for one truth is how they drift.
+    """
+    from guidance.models import GoalState
+
+    raw = state.get("guidance_state")
+    if not isinstance(raw, dict):
+        return GoalState()
+    try:
+        return GoalState.model_validate(raw)
+    except Exception:
+        return GoalState()
 
 
 def _compose_user_text(decision: CognitiveDecision) -> str:

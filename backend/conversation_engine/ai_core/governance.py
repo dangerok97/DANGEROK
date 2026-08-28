@@ -212,12 +212,22 @@ def validate_decision(
                     and _blocks_side_effect(uncertainty)
                 ):
                     errors.append("blocking_uncertainty_for_write")
-                    mode = "answer"
-                    message = (
-                        "Mi manca un'informazione necessaria per eseguire questa azione "
-                        "in modo affidabile."
-                    )
                     tool_call = None
+                    if question and str(question).strip():
+                        # Same as the blocked action above: the write cannot
+                        # run, but the reasoning already wrote the question
+                        # that would unblock it. Replacing it with an apology
+                        # tells the person there is a problem and not what
+                        # would solve it, and records nothing about what ORA
+                        # is waiting for.
+                        mode = "ask"
+                        message = str(question).strip()
+                    else:
+                        mode = "answer"
+                        message = (
+                            "Mi manca un'informazione necessaria per eseguire questa "
+                            "azione in modo affidabile."
+                        )
     elif mode == "context":
         if context_need is None:
             if not (context_query and str(context_query).strip()):
@@ -248,10 +258,20 @@ def validate_decision(
         tool_call = None
         if mode == "act" and _blocks_side_effect(uncertainty):
             errors.append("blocking_uncertainty_for_action")
-            mode = "answer"
-            message = (
-                "Mi manca un'informazione necessaria per procedere in modo affidabile."
-            )
+            if question and str(question).strip():
+                # The action cannot run — but the reasoning already knows what
+                # would unblock it, and asking that *is* the next step. Saying
+                # "I am missing something necessary" instead is the internal
+                # state read out loud: the person is told there is a problem
+                # and not told what would solve it. It also skips the ask path
+                # entirely, so nothing records what ORA is waiting for.
+                mode = "ask"
+                message = str(question).strip()
+            else:
+                mode = "answer"
+                message = (
+                    "Mi manca un'informazione necessaria per procedere in modo affidabile."
+                )
         if mode in ("answer", "finish", "act") and not (
             message and str(message).strip()
         ):
@@ -331,6 +351,21 @@ def validate_decision(
 
     try:
         tc_model = ToolCall.model_validate(tool_call) if tool_call else None
+        # V3.2 — where the user is on the goal. Validated here, at the same
+        # boundary as everything else the model sends: governance rebuilds the
+        # decision field by field on purpose, so anything unrecognised never
+        # reaches the loop. A reconstruction that does not validate is dropped
+        # rather than repaired — the previous one is better than a guess.
+        goal_state = None
+        raw_goal_state = data.get("goal_state")
+        if isinstance(raw_goal_state, dict):
+            try:
+                from guidance.models import GoalState
+
+                goal_state = GoalState.model_validate(raw_goal_state).model_dump()
+            except Exception:
+                errors.append("goal_state_invalid")
+
         decision = CognitiveDecision(
             response_mode=mode,  # type: ignore[arg-type]
             user_intent_summary=str(data.get("user_intent_summary") or "")[:400],
@@ -352,6 +387,7 @@ def validate_decision(
             situation_update=situation_update,
             uncertainty=uncertainty,
             context_graph_updates=graph_updates,
+            goal_state=goal_state,
         )
     except Exception:
         return GovernanceResult(False, errors=errors + ["pydantic_fail"])

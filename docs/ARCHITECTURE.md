@@ -1,5 +1,165 @@
 # ORA — Architecture
 
+## V3.2 — Life guidance: reconstruct, then ask only what blocks
+
+V3.1 made a blocker survive. V3.2 decides whether there should be one.
+
+The unit is not a domain flow. It is a `GoalState`: an objective, a stage, and
+milestones each carrying a `state` (done / active / upcoming / conditional /
+not_applicable / unknown) and a `basis` (fact / inference / unknown). The
+residual path is simply the milestones that are not behind us — nothing is
+"generated"; what is already done is dropped, and what remains is what ORA
+guides. `plan_item_id` binds a milestone to the plan item it already has, so
+reconstruction is a read-model over existing work rather than a second plan.
+
+Four steps, in order, in `backend/guidance/`:
+
+    models.py       GoalState · Milestone · Variable · NextStep · Sufficiency
+    resolution.py   know before asking
+    questioning.py  bundle what is left
+    service.py      reconstruct → assess → evaluate
+    bridge.py       the reasoning's vocabulary ↔ guidance's, and V3.1's payload
+
+**Reconstruction.** The model emits `goal_state` on its decision; the service
+merges it into what was already known. A correction beats an inference, a
+stated fact is never downgraded by a later guess, milestone identity and
+`plan_item_id` survive a revision, and a malformed reconstruction leaves the
+previous state standing rather than replacing a plan with rubble.
+
+**Resolution — the step that decides whether ORA is a guide or an intake form.**
+Every variable the next step needs is looked for, in order, in: the sentence
+the person just said, answers already given (a refusal is an answer), and
+ORA's own sources through the existing Context Broker. There is deliberately
+no second retrieval path: the broker already knows every source with authority
+and provenance attached. A resolved sensitive variable is recorded as "già
+noto" — never quoted back into a prompt or a log.
+
+Two rules keep "I already know this" honest, both written after live QA broke
+them:
+
+- **Everything the variable is called has to be present.** Partial token
+  overlap let "fissa l'appuntamento dal notaio" resolve "data e ora
+  dell'appuntamento dal notaio": naming a thing became stating its value. The
+  ref is a machine name and only stands in when there is no label; Italian
+  elision is unglued first, so "l'importo" is recognised as "importo".
+- **ORA's own records of the work are not evidence.** Situations, goals and
+  plan items restate what the person asked for — a situation reading "…in
+  attesa di specificare data e ora" made ORA decide it knew the date it was, in
+  the same sentence, waiting for. Resolution reads profile, memory, documents
+  and the life graph; it does not read the plan.
+
+**Sufficiency.** Only `required` may become a question, and only while it is
+still unknown (`Variable.blocks`). `useful` and `optional` never reach a
+person, however interesting they are.
+
+**Questioning.** What is left is asked once: a bundle of at most 7, least
+personal first, in one sentence with one question mark — not a form, and not
+six turns. When guidance did not change the set the model asked for, the
+model's own wording stands: the system decides *what* may be asked, the model
+writes it. Composition is the fallback, and it no longer grafts the reasoning's
+prose into a template — the purpose travels as `why_needed`, where V3.1 already
+shows it.
+
+**Guidance either advances the work or asks what blocks it.** It may not
+describe what advancement would look like — that was the last failure and the
+quietest: ORA reconstructed the path, said what the next step would be, and
+stopped, leaving the person to work out what it needed and volunteer it. Five
+shapes of that dead end are recognised deterministically in
+`guidance/wording.py` and the loop, and each buys the model one more pass with
+the residual path in front of it (at most two per turn, so it always
+converges): the plan narrated with nothing done and nothing asked; a conclusion
+drawn about the person before what it rests on is known; a question for
+something the model itself marked `useful`; being stopped from re-asking and
+offering to stop instead; and an action refused for missing information with no
+question written to go with it.
+
+**One turn, one question, one meaning.** A question is decided, stored, shown
+in the thread and projected onto two other surfaces, and each of those was a
+chance for it to become a slightly different question. Three bindings close
+that: the sentence the person reads in the thread *is* the sentence stored on
+the `OpenQuestion`; the work it is filed under comes from the guidance step it
+was decided in (`step_title`, `milestone_ref`, `plan_item_id` travel on the
+ask) rather than from whichever plan item the session happened to be focused
+on; and Home and Attività project that one row by identity. Live, a question
+about scheduling a meeting had been filed under "definire la data esatta di
+fine rapporto" — two different steps in one row, with no way for the person to
+tell which they were answering.
+
+**Every turn on live work is named.** `guidance_outcome` records what a turn
+amounted to for the person — `ask`, `act`, `complete`, `continue`, or `limbo`.
+Limbo is the plan described with nothing asked and nothing done: the state this
+whole section exists to remove, written down rather than assumed gone, because
+a guarantee nobody measures is a hope.
+
+**ORA chooses the step; the person chooses their life.** A turn that ends
+"su cosa vuoi concentrarti?" has handed the plan back — the person is being
+asked to manage the process, which is the work guidance exists to take off
+them. `guidance/wording.py` recognises that shape and the loop gives the model
+one more pass with the residual path in front of it. It never fires without a
+reconstruction behind it: offering a direction is honest when ORA does not yet
+know the shape of the goal. The same pass catches the other escape route — a
+question written into an answer's prose, which `response_mode=ask` never sees:
+when the reasoning itself marked a need `useful` and then asked for it anyway,
+it is held to its own declaration.
+
+The same module refuses wording that arrives in English, because the product
+speaks Italian and a question written for another reader cannot be shown. Where
+either check fires, the question is composed from the variables instead — and
+the composed question replaces the model's sentence *in the conversation too*,
+not only on the stored `OpenQuestion`. The same substitution happens when
+guidance narrowed the set: leaving the original sentence on screen asks for
+something ORA had already decided it knows, and the person cannot tell that the
+system decided otherwise.
+
+**"Domande per te" means one thing.** A real `OpenQuestion` and a suggestion the
+attention layer phrased as a question look identical and behave nothing alike —
+only one of them has stopped work. When a real one exists it is the only kind
+shown, on both surfaces, and the displaced suggestions move to the updates feed
+rather than disappearing. Every count on the page — the section badge, the
+rail's "Domande in attesa" — derives from that one list.
+
+A blocked action is an ask, not an apology. `governance.validate_decision`
+refuses a side effect whose uncertainty is blocking; it used to replace the
+message with "Mi manca un'informazione necessaria per procedere in modo
+affidabile" and throw away the question the reasoning had already written. It
+now switches the turn to `ask` and keeps that question, which is also what
+routes it through the guidance gate and into a durable `OpenQuestion`.
+
+The gate lives in `conversation_engine/ai_core/loop.py`, immediately before the
+ask is appended:
+
+    decision says "ask", uncertainty blocking
+        └─ bridge.variables_from_missing        (explicit necessity wins;
+                                                 a legacy blocking ask ⇒ required)
+        └─ GuidanceService.evaluate             resolve → assess → bundle
+             ├─ nothing required is unknown
+             │    └─ bridge.resolution_observation → INFORMATION_ALREADY_KNOWN
+             │       fed back to the model, which now answers
+             └─ something is genuinely missing
+                  └─ bridge.blocking_ask_payload → V3.1 OpenQuestion
+                     carrying `requested_variables` and `avoided`
+
+Two properties are structural, not stylistic:
+
+- **The gate never costs a turn.** If guidance raises, the question the model
+  wrote is still a legitimate question and is asked. Guidance improves an ask;
+  it is never a dependency of one.
+- **`goal_state` crosses governance explicitly.** `governance.validate_decision`
+  rebuilds a `CognitiveDecision` field by field from an allowlist, so a new
+  field that is not named there is silently dropped. It is validated as a
+  `GoalState` at that boundary and passed through; invalid input is recorded as
+  `goal_state_invalid` and the previous reconstruction stands.
+
+`resolved_refs` on the AI-Core state records what one turn resolved. It is
+deliberately not `clarification_history`, which is the loop's own attempt
+counter and is rewritten on every ask.
+
+Domain neutrality is enforced by test, not by convention: an AST walk over the
+guidance package fails on any class, function or constant naming a domain
+(mortgage, house, car, wedding, travel, job…), and the same engine is proven on
+an unrelated goal. There is no `if domain == …` anywhere, and V3.2 introduces
+no search engine, crawler, comparator or commercial provider.
+
 ## V3.1 — WAITING_USER: persistent blockers and exact resume
 
 A conversation that stops for a question has always been able to say so. What

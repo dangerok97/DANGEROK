@@ -152,6 +152,23 @@ def _clarification_rows(memory: Optional[Dict[str, Any]]) -> List[Dict[str, Any]
     return rows
 
 
+def _demoted_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """A suggestion that lost its place under "Domande per te".
+
+    It keeps its words and its handle and becomes what it always was: something
+    ORA noticed, not something it is blocked on. `kind` changes so no interface
+    can render it as a blocker by accident.
+    """
+    out: List[Dict[str, Any]] = []
+    for r in rows or []:
+        row = dict(r)
+        row["kind"] = "update"
+        row["actor"] = "ora"
+        row["needs_consent"] = False
+        out.append(row)
+    return out
+
+
 # --- waiting -----------------------------------------------------------------
 
 
@@ -442,13 +459,24 @@ async def build_activity(db, user_id: str) -> Dict[str, Any]:
         logger.warning("activity memory source failed: %s", type(e).__name__)
         partial.append("life_memory")
 
-    questions = _dedupe(
-        _open_question_rows(home.get("open_questions") or [])
-        + _question_rows(home)
-        + _clarification_rows(memory)
-    )[:MAX_QUESTIONS]
+    # "Domande per te" means one thing: work that has stopped and is waiting
+    # for this person. A real OpenQuestion is that; a suggestion the attention
+    # layer phrased as a question is a notice about the same work, and shown
+    # beside it the two are indistinguishable — the screenshots had three rows
+    # for one blocker. So when a real one exists, it is the only kind here.
+    #
+    # Nothing is dropped: the demoted rows move to `updates`, where a notice
+    # belongs, and when there is no blocker at all they are the section exactly
+    # as before.
+    open_rows = _open_question_rows(home.get("open_questions") or [])
+    asked_rows = _dedupe(_question_rows(home) + _clarification_rows(memory))
+    demoted: List[Dict[str, Any]] = []
+    if open_rows:
+        demoted = asked_rows
+        asked_rows = []
+    questions = _dedupe(open_rows + asked_rows)[:MAX_QUESTIONS]
     waiting = _dedupe(_waiting_rows(home, now))
-    updates = _dedupe(_update_rows(memory, home, now))
+    updates = _dedupe(_update_rows(memory, home, now) + _demoted_rows(demoted))
     deadlines = _dedupe(_deadline_rows(home, now))
     completed = _dedupe(await _completed_rows(db, user_id, now))
 

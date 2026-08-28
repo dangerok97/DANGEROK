@@ -39,6 +39,22 @@ class MissingInformation(BaseModel):
     strategy: UncertaintyStrategy = "defer"
     context_query: Optional[str] = Field(default=None, max_length=400)
     sensitivity: Literal["normal", "sensitive", "high"] = "normal"
+    # V3.2 — why this matters *to the next step*, which is the only thing that
+    # decides whether a person is asked. `required` means the step cannot be
+    # taken without it; `useful` would improve the answer and waits; `optional`
+    # is not needed now. Only `required` may ever become a question, however
+    # interesting the rest would be.
+    # Absent means the model did not say. That is different from saying
+    # "useful": an unstated necessity falls back to how the item was marked
+    # (a blocking ask was, in the only sense that matters, required), while an
+    # explicit "useful" is a decision and is honoured as one.
+    necessity: Optional[Literal["required", "useful", "optional"]] = None
+    # What a person would call it — "reddito netto mensile", not "income_net".
+    # Used to compose a question that reads like a sentence.
+    label: Optional[str] = Field(default=None, max_length=160)
+    # The step this blocks, so "is it blocking?" has an answer that is about
+    # the work rather than about the model's comfort.
+    blocks_step: Optional[str] = Field(default=None, max_length=200)
 
 
 class Ambiguity(BaseModel):
@@ -187,6 +203,11 @@ class CognitiveDecision(BaseModel):
     context_graph_updates: List[ContextEdgeUpdate] = Field(
         default_factory=list, max_length=2
     )
+    # V3.2 — where this person actually is, in structure rather than prose:
+    # the milestones of the goal, which are already behind them, and on what
+    # basis ORA believes so. Validated by `guidance.GoalState`; an unusable
+    # reconstruction leaves the previous one standing rather than replacing it.
+    goal_state: Optional[Dict[str, Any]] = None
 
 
 class ContextFact(BaseModel):

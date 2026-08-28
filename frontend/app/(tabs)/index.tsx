@@ -257,6 +257,29 @@ export default function HomeScreen() {
   */
   const openQuestions = home?.open_questions || [];
 
+  /*
+    "Domande per te" means one thing: work that has stopped and is waiting for
+    this person. A suggestion the attention layer phrased as a question is a
+    notice about the same work, and next to a real blocker the two are
+    indistinguishable — Home showed three rows for one blocker, two of them
+    saying the same thing in two languages.
+
+    So a real question wins its branch outright: when one exists, the section
+    is only real questions. The suggestions are not discarded — they move to
+    "Aggiornamenti di ORA", which is what a notice is — and when nothing is
+    blocked they are the section exactly as before.
+  */
+  const pendingQuestions = openQuestions.length ? [] : questions;
+  const demotedQuestions = openQuestions.length ? questions : [];
+  const updateFeed = useMemo(
+    () => [...demotedQuestions, ...updates],
+    [demotedQuestions, updates],
+  );
+  // One number, one definition. The rail used to count suggestions while the
+  // section counted both kinds, so Home said "3" above "2" about the same
+  // thing.
+  const pendingQuestionCount = openQuestions.length + pendingQuestions.length;
+
   /**
    * Answering opens the thread that asked.
    *
@@ -340,10 +363,10 @@ export default function HomeScreen() {
             something invented.
           */}
           <SectionRow twoColumn={twoColumn}>
-            {questions.length || openQuestions.length ? (
+            {pendingQuestionCount ? (
               <QuestionsSection
                 open={openQuestions}
-                questions={questions}
+                questions={pendingQuestions}
                 busyId={suggestionBusy}
                 onAnswer={onSuggestionOpen}
                 onAnswerOpen={answerOpenQuestion}
@@ -353,9 +376,9 @@ export default function HomeScreen() {
           </SectionRow>
 
           <SectionRow twoColumn={twoColumn}>
-            {updates.length || (home?.insights?.length ?? 0) ? (
+            {updateFeed.length || (home?.insights?.length ?? 0) ? (
               <UpdatesFeed
-                suggestions={updates}
+                suggestions={updateFeed}
                 insights={home?.insights || []}
                 busyId={suggestionBusy}
                 onOpen={onSuggestionOpen}
@@ -423,7 +446,7 @@ export default function HomeScreen() {
                 <ContextRail
                   items={items}
                   situation={home?.current_situation}
-                  questionCount={questions.length}
+                  questionCount={pendingQuestionCount}
                   onOpenItem={openItem}
                   onSeeAll={() => router.push('/situazione')}
                 />
@@ -437,7 +460,7 @@ export default function HomeScreen() {
               <ContextRail
                 items={items}
                 situation={home?.current_situation}
-                questionCount={questions.length}
+                questionCount={pendingQuestionCount}
                 onOpenItem={openItem}
                 onSeeAll={() => router.push('/situazione')}
               />

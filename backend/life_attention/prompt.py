@@ -109,7 +109,13 @@ your reasoning process:
 
 utility means "how much the user would gain from hearing this". urgency means
 "how much worse it gets if it waits". Neither means "how much I want to
-interrupt them"."""
+interrupt them".
+
+`proposed_title` and `reason_summary` are read by the person, in their own
+language — Italian unless they are clearly speaking another one. Everything
+else in this object is for ORA and its language does not matter. A headline
+that arrives in English was written for the wrong reader; it does not become
+right by being accurate."""
 
 
 def build_attention_payload(
