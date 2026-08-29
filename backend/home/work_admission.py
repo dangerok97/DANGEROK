@@ -60,17 +60,25 @@ WORK_REASONS = frozenset({
     "consent",
 })
 
-# Where an item can only have come from ORA reading something.
+# Where existing is not, by itself, a reason to be in somebody's day.
 #
-# This is the boundary the rule applies at. A calendar event or a goal step is
-# not knowledge acquisition — it is the person's own commitment, and it belongs
-# on Home for reasons that predate all of this. What arrives from ingestion has
-# to earn its place.
+# Ingestion is the obvious case: a document was read, so ORA knows more, and
+# that is all that happened. A conversation is the same shape of thing and took
+# longer to see. Somebody asked what a car inspection costs, ORA answered, and
+# Home said "DA FARE ADESSO: conoscere il costo medio della revisione auto".
+# Nobody had taken on anything. The exchange had simply occurred, and occurring
+# was being read as work — the same mistake as the policy card, in a different
+# place.
+#
+# A calendar event or a goal step is not on this list: those are the person's
+# own commitments, and they belong on Home for reasons that predate all of
+# this.
 KNOWLEDGE_SOURCES = frozenset({
     "document",
     "document_action",
     "event_candidate",
     "life_experience",
+    "conversation_session",
 })
 
 # How far ahead a date has to be before it stops being today's business.

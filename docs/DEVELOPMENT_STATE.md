@@ -20,6 +20,69 @@
 - Tests: `backend/tests/test_work_admission_v33.py` (17), run against real
   documents in Mongo through the real `build_home`. Seven mutations proven.
 
+## V3.4 — Accepted debt
+
+1. **Conflict UX never captured in a real screenshot.** The `conflicted` path
+   is covered by tests; live, the assessor reached `insufficient` instead —
+   three rounds, each rejecting a source as the wrong kind for the claim, and
+   no citations because nothing was grounded. Prudent behaviour, and the same
+   family of honesty; the visual proof of a declared conflict is still owed.
+2. **A window with a hard upper limit is not fully distinguished downstream.**
+   "Entro il 20 novembre" keeps its `latest`, but Home and Attention do not yet
+   treat a deadline-shaped window differently from an open one. Not corrected
+   here. No exact date is invented in either case.
+3. **Free-tier Groq/Mistral rate-limit an intensive Research loop.** One turn
+   is many calls in a few seconds. `Retry-After`, cooldowns and a bounded
+   pacing wait handle it; capacity is still the limit under QA load.
+4. **Cross-suite event-loop contamination in very large pytest batches.**
+   Pre-existing, A/B-verified against HEAD; every suite passes alone and in
+   pairs.
+
+## V3.4 — Provider chain
+
+- `backend/llm/providers/groq_provider.py`: wired in; default model
+  `qwen/qwen3.8-27b`; typed failures on both the SDK and httpx paths.
+- `backend/llm/providers/mistral_provider.py`: new, same shape; default model
+  `mistral-small-latest`.
+- `backend/llm/providers/__init__.py`, `backend/llm/manager.py`:
+  `DEFAULT_PRIORITY = (gemini, groq, mistral, openai, ollama, emergent)`;
+  `COOLDOWN_SECONDS["rate_limit"] = 4.0`.
+- Keys read from the environment only — never persisted, never logged, never
+  in the repo.
+- Tests: `backend/tests/test_provider_failover_v34.py` (19).
+
+## V3.4 — Universal Research Intelligence
+
+- `backend/research/models.py`: `ResearchNeed`, `ResearchPlan`,
+  `ResearchQuestion`, `EvidenceSource`, `EvidenceClaim`, `ResearchConflict`,
+  `ResearchAssessment`, `ResearchSynthesis`, `ResearchRun`.
+- `backend/research/reasoning.py`: `plan_research`, `assess_evidence`,
+  `synthesize`, `consider_reuse` — four model calls, structured output,
+  validated and trimmed to the contract, never replaced by a fallback.
+- `backend/research/service.py`: the loop and the guardrails
+  (`MAX_ITERATIONS=3`, `MAX_QUERIES=8`, `MAX_SOURCES=24`, dedupe, one retry).
+- `backend/research/repository.py`: `research_runs`, owner-scoped reads.
+- `conversation_engine/ai_core/models.py`: `ResearchNeed`,
+  `response_mode="research"`, `reasoning_status="needs_research"`.
+- `conversation_engine/ai_core/governance.py`: the mode is legal and requires a
+  need; without one it degrades to `answer`.
+- `conversation_engine/ai_core/loop.py`: the research branch — budget, work
+  refs carried through, citable sources into `public_sources`,
+  `memory_eligible: False`.
+- `conversation_engine/ai_core/tools/registry.py`: `web_search` hidden from
+  cognition, still executable.
+- `backend/life_os/models.py`: `TemporalTarget`, `LifeOsPlan.target`.
+- `backend/life_os/service.py`: `_temporal_target`; `target_date` filled only
+  from `exact_day`.
+- `backend/home/adapters/conversation_adapter.py`: a session is work only when
+  it left a plan, a guided flow or a V3.1 open question.
+- `backend/home/adapters/life_os_plan.py`: `goal_target_said` /
+  `goal_target_precision`; no `due_at` from a window.
+- `backend/research/models.py`: `ClaimScope`, `EvidenceClaim.person_evidence_used`,
+  `ResearchQuestion.source_fitness`.
+- Tests: `test_research_v34.py` (40), `test_conversation_work_v34.py` (10),
+  `test_temporal_precision_v34.py` (13).
+
 ## V3.3 — Post-setup attention continuity
 
 - `backend/ai_life_strategist/models.py`: `BenefitDescriptor.grounded_by`.

@@ -46,6 +46,10 @@ logger = logging.getLogger("ora.ai_core.loop")
 MAX_STEPS = 8
 MAX_TOOL_CALLS = 5
 MAX_EXTERNAL_QUERIES = 2
+# How many times in one turn ORA may go and research something. A ceiling
+# on cost, not a view about how much research a question deserves — the
+# run itself decides when it has enough.
+MAX_RESEARCH_RUNS = 2
 MAX_CONTEXT_CALLS = 2
 MAX_WRITE_CALLS = 4
 MAX_OBJECT_GENERATIONS = 2
@@ -1509,6 +1513,123 @@ async def run_cognitive_loop(
                 situation=(situation_result or {}).get("situation")
                 or st.get("active_situation_ref"),
             )
+
+        if mode == "research":
+            need_raw = decision.research_need
+            runs_done = int(trace.get("research_runs") or 0)
+            if need_raw is None or not (need_raw.question or "").strip():
+                observations.append(
+                    Observation(
+                        kind="research",
+                        name="research",
+                        status="failed",
+                        payload={
+                            "failure_code": "NO_RESEARCH_NEED",
+                            "reason": "response_mode=research without a research_need.",
+                        },
+                    ).model_dump()
+                )
+                add_step(trace, event="RESEARCH_NO_NEED")
+                if step + 1 < max_steps:
+                    continue
+                break
+            if runs_done >= MAX_RESEARCH_RUNS:
+                observations.append(
+                    Observation(
+                        kind="research",
+                        name="research",
+                        status="budget_exhausted",
+                        payload={
+                            "failure_code": "RESEARCH_BUDGET_EXHAUSTED",
+                            "reason": "No more research runs are allowed this turn.",
+                        },
+                    ).model_dump()
+                )
+                add_step(trace, event="RESEARCH_BUDGET")
+                if step + 1 < max_steps:
+                    continue
+                break
+
+            from research.models import ResearchNeed as _ResearchNeed
+            from research.service import get_research_service, research_available
+
+            if not research_available():
+                # Say it plainly rather than answering as though ORA had looked.
+                observations.append(
+                    Observation(
+                        kind="research",
+                        name="research",
+                        status="failed",
+                        payload={
+                            "failure_code": "RESEARCH_UNAVAILABLE",
+                            "reason": (
+                                "Looking things up is not available right now. "
+                                "Answer from what you know and say you could "
+                                "not check current information."
+                            ),
+                            "evidence_is_real": False,
+                        },
+                    ).model_dump()
+                )
+                add_step(trace, event="RESEARCH_UNAVAILABLE")
+                if step + 1 < max_steps:
+                    continue
+                break
+
+            # What the person sees while this happens: a sentence, not a
+            # progress bar over a search engine. Nothing of the loop — the
+            # queries, the rounds, the provider — is theirs to watch.
+            working_hint = "Sto verificando le informazioni più aggiornate…"
+
+            situation_ref = st.get("active_situation_ref")
+            run = await get_research_service(db).run(
+                sess.user_id,
+                _ResearchNeed(
+                    question=need_raw.question,
+                    purpose=need_raw.purpose or "",
+                    already_known=list(need_raw.already_known or []),
+                ),
+                # The work this belongs to, carried straight through: research
+                # happens inside the reasoning that asked for it and never
+                # starts a goal, a plan or a conversation of its own.
+                session_id=sess.id,
+                plan_id=st.get("active_plan_id"),
+                situation_ref=(
+                    situation_ref.get("ref")
+                    if isinstance(situation_ref, dict)
+                    else situation_ref
+                ),
+                reasoning_epoch=None,
+                context_lines=[f.statement for f in context_facts if f.statement][:12],
+                locale_hint="it-IT",
+            )
+            trace["research_runs"] = runs_done + 1
+            trace["research_status"] = run.status
+            trace["research_sources"] = len(run.sources)
+            trace["research_iterations"] = run.iterations
+
+            # Only what a claim actually rests on may be shown as a source.
+            for src in run.citable_sources():
+                public_sources.append(src)
+
+            observations.append(
+                Observation(
+                    kind="research",
+                    name="research",
+                    status="ok" if run.status in ("completed", "partial") else "failed",
+                    payload={
+                        "research": run.to_reasoning_payload(),
+                        "grounding": "TOOL_OBSERVATION",
+                        # External evidence is never a fact about this person.
+                        "memory_eligible": False,
+                    },
+                    provenance=[s.source_id for s in run.sources],
+                ).model_dump()
+            )
+            add_step(trace, event="RESEARCH", detail=run.status)
+            if step + 1 < max_steps:
+                continue
+            break
 
         if mode == "context":
             cq = (decision.context_query or "").strip()

@@ -1,6 +1,6 @@
 """Provider Manager — select, failover, status.
 
-Priority (default): gemini → openai → ollama → emergent
+Priority (default): gemini → groq → mistral → openai → ollama → emergent
 
 Preferred provider may come from:
   1. per-request / user preference (runtime, no restart)
@@ -29,20 +29,30 @@ from llm.errors import (
 from llm.providers import (
     EmergentProvider,
     GeminiProvider,
+    GroqProvider,
+    MistralProvider,
     OllamaProvider,
     OpenAIProvider,
 )
 
 logger = logging.getLogger("ora.llm.manager")
 
-DEFAULT_PRIORITY = ("gemini", "openai", "ollama", "emergent")
+# The order requests are tried in, first to last. Not round-robin, not random,
+# not chosen by subject: one primary and, when it cannot answer for a technical
+# reason, the next one down.
+DEFAULT_PRIORITY = ("gemini", "groq", "mistral", "openai", "ollama", "emergent")
 VALID_PROVIDERS = frozenset(DEFAULT_PRIORITY)
 
 # Conservative, process-local cooldowns. Retry-After may extend these up to
 # MAX_RETRY_AFTER_S; no request sleeps while a circuit is open.
 COOLDOWN_SECONDS = {
     "quota": 60.0,
-    "rate_limit": 30.0,
+    # A rate limit is the most transient failure there is, and one turn of
+    # reasoning is many calls. Benching a provider for half a minute over a
+    # single 429 took it out for the rest of the turn, so a whole conversation
+    # failed over something that had cleared in a second. Retry-After still
+    # extends this when the provider says how long to wait.
+    "rate_limit": 4.0,
     "timeout": 5.0,
     "network": 5.0,
     "authentication": 300.0,
@@ -51,6 +61,15 @@ COOLDOWN_SECONDS = {
     "invalid_response": 5.0,
 }
 MAX_RETRY_AFTER_S = 300.0
+
+# How long a request may pause when every provider is cooling down at once.
+#
+# One turn of reasoning is many calls in a few seconds, so free tiers rate-limit
+# the whole chain together and a conversation dies over a wait that was about to
+# expire. If the soonest provider is back within this, waiting is cheaper for
+# everybody than failing — including for the provider, which is not asked again
+# meanwhile. Beyond it the turn fails honestly rather than hanging.
+MAX_PACING_WAIT_S = 6.0
 
 
 @dataclass
@@ -83,6 +102,8 @@ class ProviderManager:
     def __init__(self) -> None:
         self._providers: dict[str, BaseLLMProvider] = {
             "gemini": GeminiProvider(),
+            "groq": GroqProvider(),
+            "mistral": MistralProvider(),
             "openai": OpenAIProvider(),
             "ollama": OllamaProvider(),
             "emergent": EmergentProvider(),
@@ -90,6 +111,7 @@ class ProviderManager:
         self._runtime = {name: _RuntimeState() for name in DEFAULT_PRIORITY}
         self._state_lock = asyncio.Lock()
         self._clock = time.monotonic
+        self._last_attempts: list[dict[str, Any]] = []
 
     def get(self, name: str) -> BaseLLMProvider:
         if name not in self._providers:
@@ -177,6 +199,8 @@ class ProviderManager:
                 "id": name,
                 "label": {
                     "gemini": "Gemini",
+                    "groq": "Groq",
+                    "mistral": "Mistral",
                     "openai": "OpenAI",
                     "ollama": "Ollama",
                     "emergent": "Emergent",
@@ -206,6 +230,19 @@ class ProviderManager:
             "model": self._providers[active].model_name() if active else None,
         }
 
+    async def _shortest_cooldown(self, names: list[str]) -> Optional[float]:
+        """How soon the first of these is due back, if any of them is cooling."""
+        now = self._clock()
+        waits = []
+        async with self._state_lock:
+            for name in names:
+                if not self._providers[name].is_configured():
+                    continue
+                remaining = self._runtime[name].cooldown_until - now
+                if remaining > 0:
+                    waits.append(remaining)
+        return min(waits) if waits else None
+
     async def chat(
         self,
         *,
@@ -215,11 +252,43 @@ class ProviderManager:
         json_mode: bool = False,
         user_preference: Optional[str] = None,
     ) -> LLMResult:
-        errors: list[str] = []
-        attempts: list[dict[str, Any]] = []
         configured = [name for name in self.ordered_names(user_preference) if self._providers[name].is_configured()]
         if not configured:
             raise LLMNotConfigured("No LLM provider is configured")
+        result = await self._attempt_chain(
+            system=system, user=user, session_id=session_id,
+            json_mode=json_mode, user_preference=user_preference,
+        )
+        if result is not None:
+            return result
+        # Everybody declined. If one of them is due back within a moment, that
+        # is worth waiting for once; hammering the same chain immediately would
+        # only earn another refusal.
+        wait = await self._shortest_cooldown(configured)
+        if wait is None or wait > MAX_PACING_WAIT_S:
+            raise LLMProviderUnavailable(self._last_attempts)
+        logger.info("LLM pacing: waiting %.1fs for the next provider window", wait)
+        await asyncio.sleep(wait + 0.1)
+        result = await self._attempt_chain(
+            system=system, user=user, session_id=session_id,
+            json_mode=json_mode, user_preference=user_preference,
+        )
+        if result is not None:
+            return result
+        raise LLMProviderUnavailable(self._last_attempts)
+
+    async def _attempt_chain(
+        self,
+        *,
+        system: str,
+        user: str,
+        session_id: Optional[str],
+        json_mode: bool,
+        user_preference: Optional[str],
+    ) -> Optional[LLMResult]:
+        """One pass down the chain. `None` when nobody could answer."""
+        errors: list[str] = []
+        attempts: list[dict[str, Any]] = []
         for name in self.ordered_names(user_preference):
             if not await self._available(name):
                 if self._providers[name].is_configured():
@@ -266,7 +335,8 @@ class ProviderManager:
             except Exception:
                 logger.error("LLM provider=%s result=internal_error", name)
                 raise LLMInternalError("Internal ORA/provider adapter error") from None
-        raise LLMProviderUnavailable(attempts)
+        self._last_attempts = attempts
+        return None
 
     async def analyze_document(self, *, text: str, context: dict, user_preference: Optional[str] = None) -> LLMResult:
         return await self._capability("analyze_document", user_preference=user_preference, text=text, context=context)

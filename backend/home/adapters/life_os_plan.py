@@ -38,7 +38,14 @@ async def load_life_os_plans(
     for p in plans:
         plan_id = p.get("id") or ""
         summary = p.get("summary") or "Piano attivo"
+        # Only an exact day reaches `due_at`, because everything downstream —
+        # ranking, urgency, the countdown a person reads — treats it as a
+        # deadline. A period keeps its own words instead: "quest'anno" is
+        # shown as "quest'anno", not as a date six months past the year they
+        # named.
         target = (p.get("target_date") or "")[:10] or None
+        when_said = str(((p.get("target") or {}).get("as_said") or ""))[:120]
+        when_precision = str(((p.get("target") or {}).get("precision") or "none"))
         plan_items = p.get("items") or []
         next_it = None
         today_n = 0
@@ -107,6 +114,8 @@ async def load_life_os_plans(
             "has_open_near_term": has_open,
             "temporal_state": temporal,
             "goal_target_date": target,
+            "goal_target_said": when_said,
+            "goal_target_precision": when_precision,
             "current_item_id": (next_it or {}).get("id"),
             "current_item_title": (next_it or {}).get("title"),
             "next_step": (next_it or {}).get("title"),

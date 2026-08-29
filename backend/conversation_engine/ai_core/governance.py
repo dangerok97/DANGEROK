@@ -10,6 +10,7 @@ from conversation_engine.ai_core.models import (
     CognitiveDecision,
     ContextNeed,
     MemoryCandidate,
+    ResearchNeed,
     ToolCall,
     UncertaintyState,
 )
@@ -18,13 +19,16 @@ from conversation_engine.ai_core.tools.sanitize import sanitize_external_query
 from context_graph.models import ContextEdgeUpdate, is_recognized_ref
 from situations.models import SituationUpdate
 
-ALLOWED_MODES = frozenset({"answer", "ask", "tool", "act", "context", "finish"})
+ALLOWED_MODES = frozenset(
+    {"answer", "ask", "tool", "act", "context", "research", "finish"}
+)
 ALLOWED_STATUS = frozenset(
     {
         "enough_information",
         "needs_user_input",
         "needs_context",
         "needs_tool",
+        "needs_research",
         "ready_to_act",
     }
 )
@@ -88,6 +92,13 @@ def validate_decision(
     question = data.get("question")
     message = data.get("message_to_user")
     tool_call_raw = data.get("tool_call")
+    research_need = None
+    raw_need = data.get("research_need")
+    if isinstance(raw_need, dict) and str(raw_need.get("question") or "").strip():
+        try:
+            research_need = ResearchNeed.model_validate(raw_need)
+        except Exception:
+            errors.append("research_need_invalid")
     context_query = data.get("context_query")
     context_need = None
     raw_need = data.get("context_need")
@@ -228,6 +239,22 @@ def validate_decision(
                             "Mi manca un'informazione necessaria per eseguire questa "
                             "azione in modo affidabile."
                         )
+    elif mode == "research":
+        # Going out to the world needs a question to go out with. Without one
+        # there is nothing to research, and the honest thing is to answer from
+        # what is known rather than to search at random.
+        #
+        # Found the hard way: while this mode was missing from ALLOWED_MODES,
+        # every research decision was rejected as a bad mode and rewritten as
+        # an empty answer. The person got "Ok." where ORA had decided to go and
+        # check something.
+        tool_call = None
+        if research_need is None or not str(
+            getattr(research_need, "question", "") or ""
+        ).strip():
+            errors.append("research_without_need")
+            mode = "answer"
+            research_need = None
     elif mode == "context":
         if context_need is None:
             if not (context_query and str(context_query).strip()):
@@ -380,6 +407,7 @@ def validate_decision(
             tool_call=tc_model,
             context_query=str(context_query)[:240] if context_query else None,
             context_need=context_need,
+            research_need=research_need,
             state_updates=updates,
             memory_candidates=mem_cands,
             confidence=_clamp_conf(data.get("confidence")),
@@ -396,6 +424,7 @@ def validate_decision(
         mode in ALLOWED_MODES
         and (mode != "ask" or bool(decision.question))
         and (mode != "tool" or decision.tool_call is not None)
+        and (mode != "research" or decision.research_need is not None)
     )
     return GovernanceResult(ok=ok, decision=decision, errors=errors)
 

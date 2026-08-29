@@ -29,6 +29,57 @@ Verified on a fresh account in the real UI: setup, a real policy uploaded at the
 step that asks for it, the full pipeline, then Home (quiet), Attività (no task),
 Documenti (the policy, its summary, "Scade tra 53 giorni") and Vita.
 
+## 2026-08-29 — V3.4 Universal Research Intelligence
+
+**The code orchestrates. The AI reasons.**
+
+ORA can now go and find things out. It decides for itself when it has reached
+the edge of what it knows, works out what would answer the question, writes the
+searches, reads what comes back, says whether that settles it, searches again
+when it does not, notices when two sources disagree, and answers with claims
+tied to the sources they came from.
+
+None of those decisions is made by code. The code caps the rounds, refuses to
+repeat a search, keeps identifiers out of what leaves the machine, records what
+was fetched and when, and writes it down so it can be cited and reused. There
+is no map from a subject to a query, no list of preferred sites, no threshold
+that declares evidence sufficient. The same engine ran a mortgage question, an
+energy tariff, a driving licence and a tax registration without knowing what
+any of them were.
+
+**Three providers, one intelligence.** Gemini stays primary; Groq
+(`qwen/qwen3.8-27b`) and Mistral (`mistral-small-latest`) sit behind it, tried
+in order when a quota, a rate limit or a timeout says the one above cannot
+answer. Verified for real: the full Research pipeline — plan, searches,
+assessment, synthesis, sources — ran end to end on Mistral while Gemini was
+out of quota, producing the same structured contracts. What changed is who
+answered. Nothing about how ORA thinks.
+
+**A window must not become a day.** Somebody said "quest'anno" in August 2026
+and got a plan targeting 24 June 2027, with Home counting down 299 days to it.
+The plan had no way to hold a period, so the period became a date. It has one
+now, and a date reaches the fields that mean "deadline" only when somebody gave
+a date.
+
+**An exchange is not a task because it happened.** Asking what a car inspection
+costs put "DA FARE ADESSO — Continua la collaborazione con ORA" on Home. A
+conversation is work only when the reasoning left something open: a plan, a
+guided flow, a question it is blocked on.
+
+**A verdict on a person needs to know the person.** ORA read the mortgage market
+correctly and then told somebody they had a solid credit profile, holding one
+fact about them. Claims now say who they are about, and a personal conclusion
+that names nothing personal is dropped.
+
+**Research is evidence acquisition. Research does not create work.** Finding
+something out is not a reason to put something in front of somebody. What was
+found goes back to the reasoning that asked — same session, same plan — and
+that decides, through the paths that already exist, whether anything changed.
+
+Also: external search left cognition's menu. It is the tool layer underneath
+research now, and having it in both places left the model a blinder path to the
+same place, which it kept taking.
+
 ## 2026-08-28 — V3.3 Post-setup attention continuity
 
 Found in a real recording of a real first setup, and fixed at the level where
