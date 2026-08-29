@@ -33,6 +33,7 @@ class LifeOsService:
         summary: str,
         desired_outcome: str = "",
         target_date: Optional[str] = None,
+        target: Optional[Dict[str, Any]] = None,
         constraints: Optional[List[str]] = None,
         strategy: str = "",
         items: Optional[List[Dict[str, Any]]] = None,
@@ -40,12 +41,11 @@ class LifeOsService:
         conversation_session_id: Optional[str] = None,
         resolve_relative_days: Optional[int] = None,
     ) -> LifeOsPlan:
-        td = _normalize_date(target_date)
-        if td is None and resolve_relative_days is not None:
-            td = (
-                datetime.now(timezone.utc).date()
-                + timedelta(days=int(resolve_relative_days))
-            ).isoformat()
+        target_intent = _temporal_target(target, target_date, resolve_relative_days)
+        # A day survives only when somebody gave a day. This is the whole
+        # guarantee: everything downstream reads `target_date` as a deadline,
+        # so a period never arrives there wearing a date.
+        td = target_intent.exact_day
 
         plan_items = _parse_items(items or [])
         # Cap outline size — staged generation expects outline not full dump
@@ -60,6 +60,7 @@ class LifeOsService:
             summary=(summary or "").strip()[:240] or "Piano",
             desired_outcome=(desired_outcome or "").strip()[:240],
             target_date=td,
+            target=target_intent,
             strategy=(strategy or "").strip()[:400],
             constraints=[str(c)[:120] for c in (constraints or [])][:12],
             items=plan_items,
@@ -126,8 +127,11 @@ class LifeOsService:
         ):
             plan.status = patch["status"]
         # Intentionally do NOT clear target_date / session / goal unless patch sets them
-        if "target_date" in patch:
-            plan.target_date = _normalize_date(patch.get("target_date"))
+        if "target" in patch or "target_date" in patch:
+            plan.target = _temporal_target(
+                patch.get("target"), patch.get("target_date"), None
+            )
+            plan.target_date = plan.target.exact_day
         if "constraints" in patch and isinstance(patch["constraints"], list):
             plan.constraints = [str(c)[:120] for c in patch["constraints"]][:12]
         if "evidence_refs" in patch:
@@ -830,6 +834,54 @@ class LifeOsService:
         except Exception as e:
             logger.info("goal upsert soft-fail: %s", type(e).__name__)
             return plan.goal_id
+
+
+def _temporal_target(
+    target: Any, target_date: Any, resolve_relative_days: Any
+) -> "TemporalTarget":
+    """
+    What was said about when, at the precision it was said.
+
+    Three ways it can arrive, and none of them may end up more precise than it
+    started:
+
+      * `target` — the model saying what it heard. Taken as given, except that
+        a claim of `exact` still has to come with a day.
+      * `target_date` alone — the older shape. A day is a day.
+      * `resolve_relative_days` — a distance. It stays a distance: it fixes the
+        far edge of a horizon and never becomes the day itself, because "in
+        about three months" is not a date and turning it into one is how the
+        original went wrong.
+    """
+    from life_os.models import TemporalTarget
+
+    if isinstance(target, dict):
+        try:
+            out = TemporalTarget.model_validate(target)
+        except Exception:
+            out = TemporalTarget()
+        out.earliest = _normalize_date(out.earliest)
+        out.latest = _normalize_date(out.latest)
+        if out.precision == "exact" and not out.earliest:
+            # Claiming a day without giving one. Whatever it was, it was less
+            # than exact.
+            out.precision = "window" if out.latest else "none"
+        if out.precision != "none":
+            return out
+
+    day = _normalize_date(target_date)
+    if day:
+        return TemporalTarget(precision="exact", as_said=day, earliest=day, latest=day)
+
+    if resolve_relative_days is not None:
+        try:
+            days = int(resolve_relative_days)
+        except Exception:
+            return TemporalTarget()
+        edge = (datetime.now(timezone.utc).date() + timedelta(days=days)).isoformat()
+        return TemporalTarget(precision="horizon", as_said=f"entro {days} giorni", latest=edge)
+
+    return TemporalTarget()
 
 
 def _normalize_date(raw: Any) -> Optional[str]:

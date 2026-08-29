@@ -30,6 +30,7 @@ async def create_plan(arguments: Dict[str, Any], runtime: Dict[str, Any]) -> Obs
             summary=str(arguments.get("goal") or arguments.get("summary") or ""),
             desired_outcome=str(arguments.get("desired_outcome") or ""),
             target_date=arguments.get("target_date"),
+            target=arguments.get("target"),
             constraints=list(arguments.get("constraints") or []),
             strategy=str(arguments.get("strategy") or ""),
             items=list(arguments.get("items") or []),

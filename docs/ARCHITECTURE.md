@@ -46,6 +46,169 @@ then it names the field: an ambiguous date, a missing one, a document that would
 not open. The item's title is that question. No path produces a card titled
 after a document.
 
+## V3.4 — The four statements it rests on
+
+    CODE ORCHESTRATES. AI REASONS.
+    RESEARCH CREATES EVIDENCE, NOT WORK.
+    KNOWLEDGE ACQUISITION != WORK.
+    A TEMPORAL WINDOW MUST NOT BECOME AN EXACT DATE WITHOUT EVIDENCE.
+
+Everything below is one of those four, made structural.
+
+The code owns identity, ownership, persistence, timeouts, retries, caps,
+dedupe, secret handling and the shape of what the model returns. It owns no
+judgement: there is no threshold that declares evidence sufficient, no score
+over sources, no map from a subject to a query, no phrase that decides how
+precise a date is.
+
+The model owns whether to look outside at all, what would answer the question,
+how to word the searches, what kind of source settles which claim
+(`ResearchQuestion.source_fitness`, per question — what a rule requires is
+settled by whoever sets it, what something costs by whoever sells it), how
+recent evidence has to be and how long its own answer keeps
+(`freshness_requirement`, `valid_for_hours`), what of a person may appear in a
+public query and what must not (`disclosable_context` / `withheld_context`,
+minimum necessary disclosure, with the sanitizer as a backstop beneath it),
+whether what came back settles the question (`sufficient` / `insufficient` /
+`conflicted`), whether two sources disagree, whether to look again, when to
+stop, and — for a conclusion about a person rather than about a market
+(`EvidenceClaim.scope`) — whether it knows enough about them to make it.
+
+`ResearchRun` holds the whole of it: `ResearchNeed`, `ResearchPlan`,
+`EvidenceSource`, `EvidenceClaim`, `ResearchAssessment`, `ResearchSynthesis`.
+Persisted in `research_runs`, never in Life Memory: what the world said this
+morning is not a fact about a person.
+
+`TemporalTarget` holds when something is meant to happen at the grade it was
+said: **exact / window / horizon / none**. Only `exact` fills `target_date`,
+which everything downstream reads as a deadline.
+
+None of these contracts belong to a provider. The same `CognitiveDecision`,
+`ResearchPlan`, `ResearchAssessment`, `ResearchSynthesis` and `TemporalTarget`
+come back whether Gemini, Groq or Mistral answered — verified by running the
+whole research pipeline on Mistral while Gemini was out of quota. Provider
+names exist in the adapter layer and the manager, and nowhere that reasons.
+
+## V3.4 — Which model answers is infrastructure
+
+    gemini → groq → mistral → openai → ollama → emergent
+
+Tried in that order, stepped down only for a technical reason: a quota, a rate
+limit, a timeout, an unreachable host, a model the account does not serve.
+Never because an answer was not liked — a reply the schema rejects is the
+reasoning's problem, and failing over on it would make what ORA concludes
+depend on who happened to be up.
+
+`ProviderManager` already had the shape: an ordered tuple, typed failures
+(`LLMQuotaError`, `LLMRateLimitError`, …, each with a `kind`), per-provider
+cooldowns and an attempt log. V3.4 adds two adapters to it — `GroqProvider`
+(`qwen/qwen3.8-27b`) and `MistralProvider` (`mistral-small-latest`), both
+OpenAI-compatible, both verified against the live accounts for JSON mode and
+tool calling — and fixes two things the chain got wrong:
+
+  * the adapters raised bare `RuntimeError` for a network blip or an unmapped
+    status, which reached the manager as an application bug and stopped the
+    chain dead. They raise typed failures now;
+  * a rate limit benched a provider for thirty seconds. One turn of reasoning
+    is many calls, so a single 429 removed it for the rest of the turn and a
+    whole conversation failed over something that had cleared in a second. Four
+    seconds, with `Retry-After` still able to extend it.
+
+A wrong key is a configuration problem, not a busy server: five minutes of
+cooldown, so it is not retried on every request forever.
+
+Nothing above the adapter layer knows any of these names. `research/`,
+`guidance/`, `life_os/`, `home/` and `life_profile/` are checked for it, and
+everything that thinks goes through `get_manager()` without asking who is
+behind it.
+
+## V3.4 — Going and finding out
+
+    The code orchestrates. The AI reasons.
+
+Some things cannot be known from inside ORA. They are not about the person, so
+they are in no store; they change without telling anyone. V3.4 gives ORA a way
+to go and look, and gives the looking a shape.
+
+**The decision is declared, never inferred.** `CognitiveDecision` gains
+`research_need`, a sibling of `context_need`: one is about what ORA already
+holds about this person, the other about the world. `response_mode="research"`
+is the reasoning saying it has reached the edge of what it knows. Nothing
+derives it from a plan type, a document type, an area of life or a word in the
+message, and governance rejects the mode when no need is attached.
+
+**One way out.** `web_search` is no longer offered to cognition
+(`availability="hidden"`; it stays registered and executable). It is the tool
+layer underneath research, called directly by the service. Two cognition-facing
+paths to the same place meant the model kept taking the blinder one: a single
+query, five links, an answer.
+
+**The loop.** `research/service.py` runs plan -> search -> assess -> (search
+again) -> synthesize. Every one of those steps except the searching is a model
+call with a validated structured answer:
+
+    plan_research      what would answer this, which searches to run, how
+                       recent evidence has to be, how long the answer keeps,
+                       what may be disclosed and what must not
+    assess_evidence    sufficient / insufficient / conflicted, what is still
+                       missing, what to search next
+    synthesize         the answer, as claims each naming the sources it rests on
+
+The code contributes caps (3 rounds, 8 queries, 24 sources), query dedupe by
+normalised text, one technical retry, ownership, timestamps and persistence. It
+contributes no judgement: there is no threshold that declares evidence
+sufficient, no score over sources, no map from a subject to a query.
+
+**Evidence, not memory.** A `ResearchRun` is persisted in `research_runs`,
+never in Life Memory. What a rate is today is something the world said this
+morning, not something true about a person.
+
+**Reuse.** The code drops runs whose own stated shelf life has passed —
+arithmetic. Whether what is left answers a new question is meaning, so the
+model is asked.
+
+**Citations.** Only sources a claim actually rests on are citable; anything
+retrieved and ignored is not shown. The existing PX1.4 "FONTI" block renders
+them unchanged.
+
+**An exchange is not a task because it happened.** The same rule again, in the
+place it was still being broken: `conversation_adapter` turned every open
+session into "DA FARE ADESSO — Continua la collaborazione con ORA", so asking
+what a car inspection costs put a job on somebody's plate. A conversation is
+admitted now only when the reasoning left something open — a plan it drew up,
+a guided flow it started, a V3.1 question it is blocked on — each an artefact
+of a decision the model made. `active_goal` is deliberately not consulted: the
+model fills it every turn as a running description of the topic, so reading it
+as a goal is exactly how a question became a task.
+
+**A verdict on a person needs to know the person.** `EvidenceClaim.scope` says
+who a statement is about — `external_fact`, `general_inference`,
+`person_specific` — and a person-specific conclusion must name the facts about
+them it rests on, or it is dropped. What any given conclusion needs is the
+model's judgement; the code only checks that it named something.
+
+**What settles a question depends on the question.** `ResearchQuestion.
+source_fitness` is per question, not per plan: what a rule requires is settled
+by whoever sets the rule, what something costs by whoever sells it. Both
+sentences are the model's, and the code privileges neither.
+
+**A window must not become a day.** The plan could hold two things — a date or
+nothing — so "quest'anno" had nowhere to go and arrived as 24 June 2027, six
+months past the year it named, with Home counting down to it. `TemporalTarget`
+carries the grade instead: `exact` for a day somebody gave, `window` for a
+period with a far edge, `horizon` for a distance, `none` for silence, plus
+their own words in `as_said`. `LifeOsPlan.target_date` — which ranking,
+urgency, countdowns and the calendar all read as a deadline — is filled from
+`target.exact_day` and from nothing else, so no path exists by which a period
+becomes a date. Which grade was said is the model's to report; the guarantee
+that it is not quietly improved is the code's.
+
+**Research is evidence acquisition. Research does not create work.** The V3.3
+rule, extended. Nothing in `research/` writes a task, a card, an attention item
+or a notification. What was found returns to the reasoning that asked, in the
+same session and the same plan, and that reasoning decides through the paths
+that already exist.
+
 ## V3.3 — What a fact learned in the setup may become
 
 Three rules, all enforced in deterministic code, none of which knows a domain.

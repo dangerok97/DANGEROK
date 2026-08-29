@@ -374,7 +374,12 @@ def test_web_search_capability_registered():
     assert spec.side_effect == "READ_ONLY"
     assert spec.classification == "external"
     pub = reg.list_public()
-    assert any(p["capability"] == "web_search" for p in pub)
+    # V3.4 took it off the menu the model chooses from. Going out to the world
+    # is one path now — response_mode=research — and this capability is the
+    # tool layer underneath it, called directly by the research service. It
+    # stays registered, executable and READ_ONLY; it is simply no longer a
+    # second, blinder way to reach the same place.
+    assert not any(p["capability"] == "web_search" for p in pub)
     # provider brands not exposed
     assert not any("tavily" in json.dumps(p).lower() for p in pub)
 

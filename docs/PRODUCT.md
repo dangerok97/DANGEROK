@@ -81,6 +81,40 @@ E se davvero non riesce a leggere una cosa che le serve, te ne chiede una sola,
 precisa: "Non riesco a capire se la data è il 14 o il 17 ottobre. Qual è quella
 corretta?" — non ti restituisce il documento intero da controllare.
 
+## Va a informarsi, quando serve (V3.4)
+
+Certe cose ORA non può saperle: non riguardano te, e cambiano senza avvisare.
+Quanto costa una cosa in questo momento, che requisiti ci sono adesso, cosa è
+disponibile dove vivi.
+
+Quando il passo che state facendo ha bisogno di una di quelle, ORA va a
+guardare. Decide lei cosa le serve sapere, cerca, legge, e se quello che trova
+non basta cerca ancora. Poi ti risponde e ti mostra le fonti che ha davvero
+usato — non quelle che ha trovato e scartato.
+
+Quello che già le hai detto non lo va a cercare. E nella ricerca non finiscono
+il tuo nome, il tuo indirizzo o quanto guadagni: per sapere quanto costa una
+cosa non serve dire chi sei.
+
+Se non riesce a verificare, te lo dice. Non ti dirà mai "ho controllato" se non
+ha controllato.
+
+E se scopre qualcosa, questo non diventa da solo una cosa da fare. Resta quello
+che è: una cosa che adesso ORA sa.
+
+Vale anche per le domande. Se le chiedi quanto costa una cosa e lei ti risponde,
+non ti ritrovi quella domanda fra le cose da fare: te l'ha detta, è finita lì.
+Nella tua giornata finisce quello che avete davvero aperto insieme — un piano,
+una cosa che avete iniziato, una domanda che aspetta te.
+
+Non ti inventa nemmeno una data. Se dici "quest'anno", per ORA è quest'anno —
+non un giovedì di giugno scelto da lei. Se una data precisa le serve davvero per
+il passo dopo, te la chiede.
+
+E non ti dice che sei a posto se non sa abbastanza di te per dirlo. Ti dice cosa
+risulta in generale, e semmai cosa le servirebbe sapere per dirti qualcosa sul
+tuo caso.
+
 ## Dopo il setup, ORA non promette quello che non sa (V3.3)
 
 Dire a ORA che hai una polizza sulla casa non è la stessa cosa che darle la

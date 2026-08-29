@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 PlanStatus = Literal["active", "paused", "completed", "cancelled"]
 ItemStatus = Literal["not_started", "in_progress", "completed", "skipped"]
@@ -82,6 +82,82 @@ class PlanItem(BaseModel):
     meta: Dict[str, Any] = Field(default_factory=dict)
 
 
+# How precisely somebody actually said when.
+#
+#   exact     a day they gave: "entro il 20 novembre"
+#   window    a period with an end: "quest'anno", "prima dell'estate"
+#   horizon   a distance without edges: "nei prossimi mesi"
+#   none      they did not say
+TargetPrecision = Literal["exact", "window", "horizon", "none"]
+
+
+class TemporalTarget(BaseModel):
+    """
+    When something is meant to happen, at the precision it was said.
+
+    The model used to have two grades: a day, or silence. Somebody said "vorrei
+    prendere la patente quest'anno" and, with nowhere to put a period, the
+    reasoning wrote a day — 24 June 2027, six months past the year they had
+    named. Home then counted down to it: "tra 299g". Nobody had said June, and
+    nobody had said 2027.
+
+    So the grades exist now, and the one thing the code guarantees is that they
+    never silently improve: a window keeps its own words and its own end, and
+    `target_date` — which everything downstream reads as a deadline — is filled
+    only when somebody actually gave a day.
+    """
+
+    precision: TargetPrecision = "none"
+    # Their words, kept as said. This is what a person should read back.
+    as_said: str = Field(default="", max_length=120)
+    # The edges, when there are any. For "quest'anno" the far edge is the last
+    # day of this year: derived, not invented, and never presented as the day
+    # the thing will happen.
+    earliest: Optional[str] = None
+    latest: Optional[str] = None
+
+    @model_validator(mode="after")
+    def _coherent(self) -> "TemporalTarget":
+        """
+        The grades have to mean what they say.
+
+        Not stopping the invention of a date was only half the job: the first
+        real run came back `precision: none` for somebody who had said
+        "quest'anno". No date, which was the point — and no constraint either,
+        which was not. They had given real temporal information and ORA had
+        dropped it.
+
+        `none` is the claim that nothing was said. It cannot be made while
+        holding an edge or their words, and a grade that carries edges cannot
+        call itself nothing. Nothing here reads what those words *mean*: it
+        only refuses the two combinations that contradict themselves.
+        """
+        has_edges = bool(self.earliest or self.latest)
+        has_words = bool((self.as_said or "").strip())
+
+        if self.precision == "none" and (has_edges or has_words):
+            # Something was said after all. Which grade it is depends on
+            # whether it has a boundary, and that much is structural.
+            self.precision = "window" if has_edges else "horizon"
+        elif self.precision == "exact" and not self.earliest:
+            # A day, without a day.
+            self.precision = "window" if self.latest else "horizon"
+        elif self.precision == "window" and not has_edges:
+            # A period with no boundary is a distance.
+            self.precision = "horizon"
+        return self
+
+    @property
+    def exact_day(self) -> Optional[str]:
+        """The only case where a single date is a truthful answer."""
+        return self.earliest if self.precision == "exact" else None
+
+    @property
+    def is_stated(self) -> bool:
+        """Whether the person said anything about when at all."""
+        return self.precision != "none"
+
+
 class LifeOsPlan(BaseModel):
     """Generic plan — no domain fields (no exam_subject, dog_breed, …)."""
 
@@ -90,7 +166,11 @@ class LifeOsPlan(BaseModel):
     goal_id: Optional[str] = None
     summary: str
     desired_outcome: str = ""
+    # An exact day, and nothing else. Everything downstream treats this as a
+    # deadline — ranking, countdowns, the calendar — so anything vaguer than a
+    # day belongs in `target` and is kept out of here.
     target_date: Optional[str] = None
+    target: TemporalTarget = Field(default_factory=TemporalTarget)
     status: PlanStatus = "active"
     strategy: str = ""
     constraints: List[str] = Field(default_factory=list)

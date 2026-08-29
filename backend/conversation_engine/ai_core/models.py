@@ -9,12 +9,15 @@ from pydantic import BaseModel, Field, model_validator
 from context_graph.models import ContextEdgeUpdate
 from situations.models import SituationUpdate
 
-ResponseMode = Literal["answer", "ask", "tool", "act", "context", "finish"]
+ResponseMode = Literal[
+    "answer", "ask", "tool", "act", "context", "research", "finish"
+]
 ReasoningStatus = Literal[
     "enough_information",
     "needs_user_input",
     "needs_context",
     "needs_tool",
+    "needs_research",
     "ready_to_act",
 ]
 GroundingKind = Literal[
@@ -94,6 +97,27 @@ class ContextNeed(BaseModel):
     temporal_scope: Optional[str] = Field(default=None, max_length=120)
     source_hints: List[str] = Field(default_factory=list, max_length=5)
     max_items: int = Field(default=6, ge=1, le=8)
+
+
+class ResearchNeed(BaseModel):
+    """
+    The reasoning reaching the edge of what ORA can know from inside.
+
+    `context` is the same shape of statement about ORA's own stores — what it
+    holds about this person and has not looked at yet. This is its sibling for
+    the world: something that is not in any of ORA's stores because it is not
+    about the person at all, and changes without asking.
+
+    Declaring it is the whole of the "should I go and look?" decision, and it
+    belongs here because it belongs to the model. Nothing derives it from a
+    plan type, a document type, an area of life or a word in the message.
+    """
+
+    question: str = Field(min_length=1, max_length=400)
+    purpose: Optional[str] = Field(default=None, max_length=300)
+    # What is already established, so nothing goes looking for what ORA has
+    # been told. Written by the model from what it can see of this person.
+    already_known: List[str] = Field(default_factory=list, max_length=12)
 
 
 class ToolCall(BaseModel):
@@ -193,6 +217,7 @@ class CognitiveDecision(BaseModel):
     tool_call: Optional[ToolCall] = None
     context_query: Optional[str] = None
     context_need: Optional[ContextNeed] = None
+    research_need: Optional[ResearchNeed] = None
     state_updates: List[StateUpdate] = Field(default_factory=list)
     memory_candidates: List[MemoryCandidate] = Field(default_factory=list)
     confidence: Optional[float] = None
@@ -228,7 +253,7 @@ class ContextFact(BaseModel):
 
 
 class Observation(BaseModel):
-    kind: Literal["tool", "context", "error", "system"] = "system"
+    kind: Literal["tool", "context", "research", "error", "system"] = "system"
     name: str = ""
     status: str = "ok"
     payload: Dict[str, Any] = Field(default_factory=dict)

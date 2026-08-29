@@ -60,11 +60,16 @@ class ToolRegistry:
             CapabilitySpec(
                 capability="web_search",
                 description=(
-                    "Search the public web for current, externally verifiable information. "
-                    "Use when the answer depends on facts that may change or are not in "
-                    "personal context (prices, schedules, public rules, news, general "
-                    "route info). NOT a live traffic, Maps routing, booking, weather, or "
-                    "banking API. Returns evidence snippets for you to interpret."
+                    "Look up ONE public fact you could name in advance, in a single "
+                    "search: an address, an opening time, whether something exists. "
+                    "Returns snippets, checks nothing, and follows nothing up. "
+                    "If the answer has to be worked out rather than looked up — what "
+                    "something costs at the moment, what the current requirements are, "
+                    "what is available and how the options differ — that is not this. "
+                    "Use response_mode=research: it plans what to find out, searches "
+                    "more than once if the first round does not settle it, notices when "
+                    "sources disagree, and comes back with evidence you can cite. "
+                    "NOT a live traffic, Maps routing, booking, weather, or banking API."
                 ),
                 input_schema={
                     "type": "object",
@@ -85,7 +90,22 @@ class ToolRegistry:
                 side_effect="READ_ONLY",
                 freshness="hours",
                 risk="read",
-                availability=web_search_availability(),
+                # Not offered to cognition, and still very much alive.
+                #
+                # There is one way out to the world now, and it is
+                # response_mode=research: it works out what would answer the
+                # question, searches again when the first round does not settle
+                # it, sees when two sources disagree, and comes back with
+                # evidence tied to its sources. This capability is the tool
+                # layer *underneath* that — the research service calls it
+                # directly — and leaving it in the catalogue as well left the
+                # model a second, blinder path to the same place, which is the
+                # one it kept taking: a single query, five links, an answer.
+                #
+                # `hidden` keeps it executable for anything that names it
+                # explicitly while taking it off the menu the model chooses
+                # from.
+                availability="hidden",
                 handler=execute_web_search,
                 tags=["external", "research"],
             )
@@ -118,9 +138,18 @@ class ToolRegistry:
             CapabilitySpec(
                 capability="create_plan",
                 description=(
-                    "Persist a domain-neutral Life OS plan (goal + ordered items + optional "
-                    "target_date). Use after you have reasoned the outline. Does NOT invent "
-                    "domain wizards. Prefer staged items (outline + near-term dates)."
+                    "Persist a domain-neutral Life OS plan (goal + ordered items + when). "
+                    "Use after you have reasoned the outline. Does NOT invent domain "
+                    "wizards. Prefer staged items (outline + near-term dates). "
+                    "Always send `target`, at the grade the person actually expressed: "
+                    "`exact` when they gave a determined day; `window` when they gave a "
+                    "bounded period or a limit without choosing a day, with `latest` as "
+                    "the last day that period covers; `horizon` when they gave a distance "
+                    "with no calendar boundary; `none` ONLY when they said nothing about "
+                    "when. Put their own words in `as_said`. Two mistakes to avoid, and "
+                    "they are opposite: naming a day nobody gave turns a period into a "
+                    "countdown to a date nobody chose — and calling a real constraint "
+                    "`none` throws away something they told you."
                 ),
                 input_schema={
                     "type": "object",
@@ -128,6 +157,48 @@ class ToolRegistry:
                         "goal": {"type": "string"},
                         "desired_outcome": {"type": "string"},
                         "target_date": {"type": "string"},
+                        "target": {
+                            "type": "object",
+                            "description": (
+                                "When this is meant to happen, at the grade it "
+                                "was actually expressed. Always send it."
+                            ),
+                            "properties": {
+                                "precision": {
+                                    "type": "string",
+                                    "enum": ["exact", "window", "horizon", "none"],
+                                    "description": (
+                                        "exact: a determined day was given — "
+                                        "put that day in `earliest`. "
+                                        "window: a bounded period, or a limit, "
+                                        "without a chosen day. "
+                                        "horizon: a distance in time with no "
+                                        "calendar boundary — not for anything "
+                                        "that names a calendar day or a period "
+                                        "end, which have boundaries. "
+                                        "none: no temporal information at all — "
+                                        "only when the person said nothing "
+                                        "about when."
+                                    ),
+                                },
+                                "as_said": {
+                                    "type": "string",
+                                    "description": "their own words for when",
+                                },
+                                "earliest": {
+                                    "type": "string",
+                                    "description": "ISO day; the near edge, if there is one",
+                                },
+                                "latest": {
+                                    "type": "string",
+                                    "description": (
+                                        "ISO day; the far edge of a window — the "
+                                        "last day the period covers"
+                                    ),
+                                },
+                            },
+                            "required": ["precision"],
+                        },
                         "resolve_relative_days": {"type": "integer"},
                         "constraints": {"type": "array"},
                         "strategy": {"type": "string"},
