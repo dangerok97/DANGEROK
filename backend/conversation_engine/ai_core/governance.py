@@ -528,6 +528,40 @@ _LEAK = (
 )
 
 
+# A ceiling, not a target. It exists so a runaway generation cannot be handed
+# to a person or a database unbounded; it is far above anything ORA writes on
+# purpose, and reaching it is a sign something went wrong upstream rather than
+# a length to design for.
+MAX_USER_TEXT_CHARS = 4000
+
+
+def whole_sentences(text: str, limit: int = MAX_USER_TEXT_CHARS) -> str:
+    """
+    Cut, if it must be cut at all, where a sentence ends.
+
+    An answer that stops mid-word is worse than a shorter one: it reads as a
+    bug to the person, and in a recommendation it can cut away the half that
+    carries the condition — "…quasi identico. Se invece sei sicuro di restare"
+    was a real answer, truncated at exactly 800 characters by an old cap and
+    losing the "if instead" it had just promised.
+
+    So the ceiling only ever falls on a boundary the writer put there. If
+    there is no sentence end to fall back to, the text is left whole: a bound
+    that would have to butcher a sentence is not worth enforcing.
+    """
+    if not text or len(text) <= limit:
+        return text
+
+    window = text[:limit]
+    end = max(window.rfind(". "), window.rfind(".\n"), window.rfind("! "),
+              window.rfind("? "), window.rfind("?\n"), window.rfind("!\n"))
+    if end == -1 and window.rstrip().endswith((".", "!", "?")):
+        end = len(window.rstrip()) - 1
+    if end == -1:
+        return text
+    return window[: end + 1].rstrip()
+
+
 def _sanitize_copy(text: Optional[str]) -> Optional[str]:
     if text is None:
         return None
@@ -537,7 +571,7 @@ def _sanitize_copy(text: Optional[str]) -> Optional[str]:
         return None if "?" not in t else t.split("?")[0].strip() + "?"
     while "Per Per:" in t:
         t = t.replace("Per Per:", "Per:")
-    return t[:800] if t else None
+    return whole_sentences(t) if t else None
 
 
 def _clamp_conf(v: Any) -> Optional[float]:

@@ -18,7 +18,11 @@ from conversation_engine.ai_core.fallback import (
     fallback_decision_after_malformed,
     provider_unavailable_result,
 )
-from conversation_engine.ai_core.governance import clarification_ref_key, validate_decision
+from conversation_engine.ai_core.governance import (
+    clarification_ref_key,
+    validate_decision,
+    whole_sentences,
+)
 from conversation_engine.ai_core.grounding.temporal import merge_context_with_current
 from conversation_engine.ai_core.models import (
     ActiveGoal,
@@ -2416,5 +2420,5 @@ def _compose_user_text(decision: CognitiveDecision) -> str:
             parts.append(decision.message_to_user.strip())
         if decision.question:
             parts.append(decision.question.strip())
-        return "\n\n".join(p for p in parts if p)[:800]
-    return (decision.message_to_user or "").strip()[:800] or "Ok."
+        return whole_sentences("\n\n".join(p for p in parts if p))
+    return whole_sentences((decision.message_to_user or "").strip()) or "Ok."
