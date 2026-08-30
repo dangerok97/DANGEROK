@@ -27,9 +27,9 @@ logger = logging.getLogger("ora.llm.gemini")
 _DEFAULT_ALTERNATE = "gemini-2.0-flash"
 
 
-def _api_key() -> str:
-    """GEMINI_API_KEY only (no ADC / Vertex implicit auth)."""
-    return (os.environ.get("GEMINI_API_KEY") or "").strip()
+def _api_key(env_var: str = "GEMINI_API_KEY") -> str:
+    """A named key from the environment only (no ADC / Vertex implicit auth)."""
+    return (os.environ.get(env_var) or "").strip()
 
 
 def _model_candidates(primary: str) -> list[str]:
@@ -104,9 +104,14 @@ def _map_api_error(exc: BaseException) -> BaseException:
 
 class GeminiProvider(BaseLLMProvider):
     name = "gemini"
+    # Which environment variable holds this one's credential. A second account
+    # on the same provider is a second set of limits, not a second adapter:
+    # everything about how to talk to it is identical, so it is the same class
+    # pointed at a different key.
+    key_env = "GEMINI_API_KEY"
 
     def is_configured(self) -> bool:
-        return bool(_api_key())
+        return bool(_api_key(self.key_env))
 
     def model_name(self) -> Optional[str]:
         return (
@@ -123,9 +128,9 @@ class GeminiProvider(BaseLLMProvider):
         session_id: Optional[str] = None,
         json_mode: bool = False,
     ) -> LLMResult:
-        api_key = _api_key()
+        api_key = _api_key(self.key_env)
         if not api_key:
-            raise LLMNotConfigured("GEMINI_API_KEY mancante")
+            raise LLMNotConfigured(f"{self.key_env} mancante")
 
         primary = self.model_name() or "gemini-flash-lite-latest"
         candidates = _model_candidates(primary)
@@ -247,3 +252,25 @@ class GeminiProvider(BaseLLMProvider):
         if last_error is not None:
             raise last_error
         raise LLMInvalidResponseError("empty")
+
+
+class GeminiSecondaryProvider(GeminiProvider):
+    """
+    The same Gemini, on a second account.
+
+    Not a different way of reasoning — an identical adapter with its own quota.
+    It sits directly below the first, so when one account is exhausted the next
+    request is still answered by the model the primary chain was built around,
+    before dropping to a different family altogether.
+    """
+
+    name = "gemini2"
+    key_env = "GEMINI2_API_KEY"
+
+    def model_name(self):
+        return (
+            os.environ.get("GEMINI2_MODEL")
+            or os.environ.get("GEMINI_MODEL")
+            or os.environ.get("LLM_MODEL")
+            or "gemini-flash-lite-latest"
+        ).strip()

@@ -21,8 +21,13 @@ ROME = ZoneInfo("Europe/Rome")
 FIXED_NOW = datetime(2026, 8, 6, 10, 0, 0, tzinfo=ROME)
 
 
+import _loop_harness  # tests/_loop_harness.py: the one place a loop is chosen
+
+
 def _run(coro):
-    return asyncio.get_event_loop().run_until_complete(coro)
+    # The session's own loop, not whatever the policy currently points at:
+    # a suite that used asyncio.run() before this one has cleared that slot.
+    return _loop_harness.run(coro)
 
 
 @pytest.fixture(autouse=True)

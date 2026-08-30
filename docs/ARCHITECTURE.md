@@ -46,6 +46,65 @@ then it names the field: an ambiguous date, a missing one, a document that would
 not open. The item's title is that question. No path produces a card titled
 after a document.
 
+## V3.5 — Evidence becoming a decision
+
+    RESEARCH FINDS EVIDENCE.
+    COMPARISON TURNS EVIDENCE INTO A DECISION.
+    RECOMMENDATION DOES NOT AUTOMATICALLY CREATE WORK.
+    RECOMMENDATION DOES NOT EXECUTE ACTIONS.
+    CODE ORCHESTRATES. AI REASONS.
+
+`response_mode="compare"` with a `comparison_need` — the third sibling of
+`context_need` and `research_need`. One is about what ORA holds about this
+person, one about the world, this one about choosing between things. Nothing
+infers it: two results are not a comparison, and governance refuses the mode
+without at least two alternatives.
+
+The order of operations is the argument:
+
+    the model frames it     what matters here for this person, which of those
+                            things are absolute and which are preferences,
+                            what would have to be worked out, what is missing
+                            and whether only they can supply it
+    the code answers        the arithmetic (`comparison/arithmetic.py`, six
+                            generic operations), and whether each stated
+                            condition holds for each option
+                            (`comparison/constraints.py`)
+    the model reads back    strengths, weaknesses, trade-offs, and what it
+                            would say — or that it cannot say it yet
+
+There is no score anywhere in `comparison/`. No weight, no ordering function,
+no sort: a guard asserts the words cannot appear as identifiers. An option is
+better because a sentence says why, and the only thing the code contributes to
+that sentence is the numbers in it. `Importance` is a word, not a coefficient,
+because the moment code multiplies it, code is deciding what matters.
+
+Two asymmetries the code enforces against the model:
+
+  * a constraint that could not be checked is **not** a breach. An option whose
+    figure is missing has not failed anything, and ruling it out would invent a
+    fact about it;
+  * an exclusion the checks do not support does not stand, and an option that
+    was ruled out cannot then be recommended. The model may read the results;
+    it may not overrule them.
+
+Evidence is V3.4's, referenced by `research_run_ids` and never copied. When
+framing finds the world has not been asked, the research service is called with
+the same session, plan and situation, and framing runs again once — inside the
+same decision, with no second plan appearing anywhere.
+
+A run is persisted in `comparison_runs` with `supersedes_run_id`, `revision`
+and `changed_because`, so "I said A, now I would say B, because" is expressible
+later. Nothing in this phase goes looking for the opportunity to say it.
+
+And a comparison produces a decision, not a task: nothing in `comparison/`
+writes a card, an item, a reminder or a plan, and nothing in it executes — no
+buying, booking or sending. What was concluded goes back to the reasoning that
+asked, which decides through the paths that already exist.
+
+Commercial neutrality is structural: there is no sponsorship, affiliate or
+partner concept anywhere, and no ordering function through which one could act.
+
 ## V3.4 — The four statements it rests on
 
     CODE ORCHESTRATES. AI REASONS.

@@ -75,7 +75,9 @@ def _manager(**stubs):
 def test_the_chain_is_an_order_not_a_choice():
     from llm.manager import DEFAULT_PRIORITY
 
-    assert DEFAULT_PRIORITY[:3] == ("gemini", "groq", "mistral")
+    # Two Gemini accounts before changing family: an exhausted quota is not a
+    # reason to start reasoning differently, only a reason to bill elsewhere.
+    assert DEFAULT_PRIORITY[:4] == ("gemini", "gemini2", "groq", "mistral")
     # No shuffling, no picking, nothing weighted: an ordered tuple read in
     # order is the whole strategy.
     # Prose may say "not random"; code may not do it.

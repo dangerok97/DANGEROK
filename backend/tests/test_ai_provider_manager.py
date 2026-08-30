@@ -19,7 +19,12 @@ def test_priority_order_default():
     from llm.manager import DEFAULT_PRIORITY, get_manager
 
     assert DEFAULT_PRIORITY[0] == "gemini"
-    assert list(DEFAULT_PRIORITY) == ["gemini", "openai", "ollama", "emergent"]
+    # The order is the contract: two Gemini accounts first, because a second
+    # account is a second set of quotas rather than a second way of reasoning,
+    # then the other families, then whatever is local.
+    assert list(DEFAULT_PRIORITY) == [
+        "gemini", "gemini2", "groq", "mistral", "openai", "ollama", "emergent",
+    ]
     mgr = get_manager()
     assert mgr.ordered_names(None)[0] == "gemini"
 
@@ -63,13 +68,13 @@ def test_no_provider_raises_not_configured():
     from contextlib import ExitStack
 
     from llm.errors import LLMNotConfigured
-    from llm.manager import ProviderManager
+    from llm.manager import DEFAULT_PRIORITY, ProviderManager
 
     mgr = ProviderManager()
 
     async def body():
         with ExitStack() as stack:
-            for name in ("gemini", "openai", "ollama", "emergent"):
+            for name in DEFAULT_PRIORITY:
                 stack.enter_context(
                     patch.object(mgr.get(name), "is_configured", return_value=False)
                 )
@@ -81,10 +86,18 @@ def test_no_provider_raises_not_configured():
 
 
 def _configured_chain(mgr, enabled=("gemini", "openai")):
-    """Patch configuration only; callers still own chat mocks."""
+    """
+    Patch configuration only; callers still own chat mocks.
+
+    Every provider in the chain, not a list written down once: a test about
+    what happens when two providers fail should not quietly start being a test
+    about three the day a third is added.
+    """
+    from llm.manager import DEFAULT_PRIORITY
+
     return [
         patch.object(mgr.get(name), "is_configured", return_value=name in enabled)
-        for name in ("gemini", "openai", "ollama", "emergent")
+        for name in DEFAULT_PRIORITY
     ]
 
 

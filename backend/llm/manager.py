@@ -1,6 +1,6 @@
 """Provider Manager — select, failover, status.
 
-Priority (default): gemini → groq → mistral → openai → ollama → emergent
+Priority (default): gemini → gemini2 → groq → mistral → openai → ollama → emergent
 
 Preferred provider may come from:
   1. per-request / user preference (runtime, no restart)
@@ -29,6 +29,7 @@ from llm.errors import (
 from llm.providers import (
     EmergentProvider,
     GeminiProvider,
+    GeminiSecondaryProvider,
     GroqProvider,
     MistralProvider,
     OllamaProvider,
@@ -40,7 +41,9 @@ logger = logging.getLogger("ora.llm.manager")
 # The order requests are tried in, first to last. Not round-robin, not random,
 # not chosen by subject: one primary and, when it cannot answer for a technical
 # reason, the next one down.
-DEFAULT_PRIORITY = ("gemini", "groq", "mistral", "openai", "ollama", "emergent")
+DEFAULT_PRIORITY = (
+    "gemini", "gemini2", "groq", "mistral", "openai", "ollama", "emergent",
+)
 VALID_PROVIDERS = frozenset(DEFAULT_PRIORITY)
 
 # Conservative, process-local cooldowns. Retry-After may extend these up to
@@ -102,6 +105,7 @@ class ProviderManager:
     def __init__(self) -> None:
         self._providers: dict[str, BaseLLMProvider] = {
             "gemini": GeminiProvider(),
+            "gemini2": GeminiSecondaryProvider(),
             "groq": GroqProvider(),
             "mistral": MistralProvider(),
             "openai": OpenAIProvider(),
@@ -199,6 +203,7 @@ class ProviderManager:
                 "id": name,
                 "label": {
                     "gemini": "Gemini",
+                    "gemini2": "Gemini (secondo account)",
                     "groq": "Groq",
                     "mistral": "Mistral",
                     "openai": "OpenAI",

@@ -9,6 +9,7 @@ from conversation_engine.ai_core.context_broker import validate_context_need
 from conversation_engine.ai_core.models import (
     CognitiveDecision,
     ContextNeed,
+    ComparisonNeed,
     MemoryCandidate,
     ResearchNeed,
     ToolCall,
@@ -20,7 +21,7 @@ from context_graph.models import ContextEdgeUpdate, is_recognized_ref
 from situations.models import SituationUpdate
 
 ALLOWED_MODES = frozenset(
-    {"answer", "ask", "tool", "act", "context", "research", "finish"}
+    {"answer", "ask", "tool", "act", "context", "research", "compare", "finish"}
 )
 ALLOWED_STATUS = frozenset(
     {
@@ -29,6 +30,7 @@ ALLOWED_STATUS = frozenset(
         "needs_context",
         "needs_tool",
         "needs_research",
+        "needs_comparison",
         "ready_to_act",
     }
 )
@@ -92,6 +94,14 @@ def validate_decision(
     question = data.get("question")
     message = data.get("message_to_user")
     tool_call_raw = data.get("tool_call")
+    comparison_need = None
+    raw_comparison = data.get("comparison_need")
+    if isinstance(raw_comparison, dict) and str(raw_comparison.get("decision") or "").strip():
+        try:
+            comparison_need = ComparisonNeed.model_validate(raw_comparison)
+        except Exception:
+            errors.append("comparison_need_invalid")
+
     research_need = None
     raw_need = data.get("research_need")
     if isinstance(raw_need, dict) and str(raw_need.get("question") or "").strip():
@@ -239,6 +249,15 @@ def validate_decision(
                             "Mi manca un'informazione necessaria per eseguire questa "
                             "azione in modo affidabile."
                         )
+    elif mode == "compare":
+        # A comparison needs something to compare. Without at least two things
+        # on the table there is no decision — there is a question, and the
+        # honest thing is to answer it.
+        tool_call = None
+        if comparison_need is None or len(comparison_need.alternatives) < 2:
+            errors.append("comparison_without_alternatives")
+            mode = "answer"
+            comparison_need = None
     elif mode == "research":
         # Going out to the world needs a question to go out with. Without one
         # there is nothing to research, and the honest thing is to answer from
@@ -408,6 +427,7 @@ def validate_decision(
             context_query=str(context_query)[:240] if context_query else None,
             context_need=context_need,
             research_need=research_need,
+            comparison_need=comparison_need,
             state_updates=updates,
             memory_candidates=mem_cands,
             confidence=_clamp_conf(data.get("confidence")),
@@ -425,6 +445,7 @@ def validate_decision(
         and (mode != "ask" or bool(decision.question))
         and (mode != "tool" or decision.tool_call is not None)
         and (mode != "research" or decision.research_need is not None)
+        and (mode != "compare" or decision.comparison_need is not None)
     )
     return GovernanceResult(ok=ok, decision=decision, errors=errors)
 

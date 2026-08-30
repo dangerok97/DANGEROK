@@ -50,6 +50,9 @@ MAX_EXTERNAL_QUERIES = 2
 # on cost, not a view about how much research a question deserves — the
 # run itself decides when it has enough.
 MAX_RESEARCH_RUNS = 2
+# How many decisions may be worked through in one turn. A ceiling on cost, not
+# a view about how much a choice deserves.
+MAX_COMPARISON_RUNS = 1
 MAX_CONTEXT_CALLS = 2
 MAX_WRITE_CALLS = 4
 MAX_OBJECT_GENERATIONS = 2
@@ -1513,6 +1516,142 @@ async def run_cognitive_loop(
                 situation=(situation_result or {}).get("situation")
                 or st.get("active_situation_ref"),
             )
+
+        if mode == "compare":
+            need_raw = decision.comparison_need
+            runs_done = int(trace.get("comparison_runs") or 0)
+            if need_raw is None or len(need_raw.alternatives) < 2:
+                observations.append(
+                    Observation(
+                        kind="comparison",
+                        name="comparison",
+                        status="failed",
+                        payload={
+                            "failure_code": "NOTHING_TO_COMPARE",
+                            "reason": "response_mode=compare without alternatives.",
+                        },
+                    ).model_dump()
+                )
+                add_step(trace, event="COMPARE_NO_NEED")
+                if step + 1 < max_steps:
+                    continue
+                break
+            if runs_done >= MAX_COMPARISON_RUNS:
+                observations.append(
+                    Observation(
+                        kind="comparison",
+                        name="comparison",
+                        status="budget_exhausted",
+                        payload={
+                            "failure_code": "COMPARISON_BUDGET_EXHAUSTED",
+                            "reason": "No more comparisons are allowed this turn.",
+                        },
+                    ).model_dump()
+                )
+                add_step(trace, event="COMPARE_BUDGET")
+                if step + 1 < max_steps:
+                    continue
+                break
+
+            working_hint = "Sto mettendo a confronto le opzioni\u2026"
+
+            from comparison.models import (
+                Alternative as _Alternative,
+                Attribute as _Attribute,
+                ComparisonNeed as _ComparisonNeed,
+            )
+            from comparison.service import get_comparison_service
+
+            built: list = []
+            for raw in need_raw.alternatives:
+                attributes = []
+                for item in (raw.attributes or [])[:20]:
+                    if not isinstance(item, dict) or not item.get("name"):
+                        continue
+                    number = item.get("number")
+                    try:
+                        number = float(number) if number is not None else None
+                    except (TypeError, ValueError):
+                        number = None
+                    attributes.append(
+                        _Attribute(
+                            name=str(item.get("name"))[:120],
+                            value=str(item.get("value") or "")[:300],
+                            number=number,
+                            unit=str(item.get("unit") or "")[:40],
+                            source_ids=[str(x)[:64] for x in (item.get("source_ids") or [])][:6],
+                            stated_by_user=bool(item.get("stated_by_user")),
+                        )
+                    )
+                built.append(
+                    _Alternative(
+                        name=raw.name,
+                        summary=(raw.summary or "")[:400],
+                        attributes=attributes,
+                        research_run_id=raw.research_run_id,
+                    )
+                )
+
+            situation_ref = st.get("active_situation_ref")
+            comparison = await get_comparison_service(db).run(
+                sess.user_id,
+                _ComparisonNeed(
+                    decision=need_raw.decision,
+                    purpose=need_raw.purpose or "",
+                    already_known=list(need_raw.already_known or []),
+                ),
+                built,
+                # The work this belongs to, carried straight through: a
+                # comparison happens inside the reasoning that asked for it.
+                session_id=sess.id,
+                plan_id=st.get("active_plan_id"),
+                situation_ref=(
+                    situation_ref.get("ref")
+                    if isinstance(situation_ref, dict)
+                    else situation_ref
+                ),
+                personal_context=[f.statement for f in context_facts if f.statement][:12],
+                research_run_ids=list(need_raw.research_run_ids or []),
+            )
+            trace["comparison_runs"] = runs_done + 1
+            trace["comparison_status"] = comparison.status
+            trace["comparison_verdict"] = (
+                comparison.recommendation.verdict if comparison.recommendation else None
+            )
+
+            # Whatever the evidence rested on may be shown as a source.
+            for run_id in comparison.research_run_ids:
+                try:
+                    from research.repository import ResearchRepository
+
+                    found = await ResearchRepository(db).get(sess.user_id, run_id)
+                except Exception:
+                    found = None
+                if found is None:
+                    continue
+                for src in found.citable_sources():
+                    if src not in public_sources:
+                        public_sources.append(src)
+
+            observations.append(
+                Observation(
+                    kind="comparison",
+                    name="comparison",
+                    status="ok" if comparison.status == "completed" else "failed",
+                    payload={
+                        "comparison": comparison.to_reasoning_payload(),
+                        "grounding": "TOOL_OBSERVATION",
+                        # A reading of a choice on a given day is not a fact
+                        # about a person.
+                        "memory_eligible": False,
+                    },
+                    provenance=list(comparison.research_run_ids),
+                ).model_dump()
+            )
+            add_step(trace, event="COMPARE", detail=comparison.status)
+            if step + 1 < max_steps:
+                continue
+            break
 
         if mode == "research":
             need_raw = decision.research_need

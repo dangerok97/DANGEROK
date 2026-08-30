@@ -10,7 +10,7 @@ from context_graph.models import ContextEdgeUpdate
 from situations.models import SituationUpdate
 
 ResponseMode = Literal[
-    "answer", "ask", "tool", "act", "context", "research", "finish"
+    "answer", "ask", "tool", "act", "context", "research", "compare", "finish"
 ]
 ReasoningStatus = Literal[
     "enough_information",
@@ -18,6 +18,7 @@ ReasoningStatus = Literal[
     "needs_context",
     "needs_tool",
     "needs_research",
+    "needs_comparison",
     "ready_to_act",
 ]
 GroundingKind = Literal[
@@ -120,6 +121,39 @@ class ResearchNeed(BaseModel):
     already_known: List[str] = Field(default_factory=list, max_length=12)
 
 
+class ComparisonAlternative(BaseModel):
+    """One of the things being chosen between, as the reasoning has it."""
+
+    name: str = Field(min_length=1, max_length=200)
+    summary: Optional[str] = Field(default=None, max_length=400)
+    # What is known about it and where each piece came from. A research source
+    # id, or nothing when the person said it themselves.
+    attributes: List[Dict[str, Any]] = Field(default_factory=list, max_length=20)
+    research_run_id: Optional[str] = None
+
+
+class ComparisonNeed(BaseModel):
+    """
+    The reasoning saying this is a choice rather than a question.
+
+    Its siblings: `context_need` for what ORA holds about this person,
+    `research_need` for what the world knows. This is for the step after both
+    — when the evidence is in and something has to be decided between.
+
+    Nothing infers it. Two results are not a comparison, and a question with
+    one answer is not a decision: only the reasoning can tell that somebody is
+    choosing.
+    """
+
+    decision: str = Field(min_length=1, max_length=400)
+    purpose: Optional[str] = Field(default=None, max_length=300)
+    alternatives: List[ComparisonAlternative] = Field(default_factory=list, max_length=8)
+    # What is established, so nothing is asked twice.
+    already_known: List[str] = Field(default_factory=list, max_length=16)
+    # Evidence already gathered that this decision rests on.
+    research_run_ids: List[str] = Field(default_factory=list, max_length=8)
+
+
 class ToolCall(BaseModel):
     """Capability request — prefer capability over provider brands."""
 
@@ -218,6 +252,7 @@ class CognitiveDecision(BaseModel):
     context_query: Optional[str] = None
     context_need: Optional[ContextNeed] = None
     research_need: Optional[ResearchNeed] = None
+    comparison_need: Optional[ComparisonNeed] = None
     state_updates: List[StateUpdate] = Field(default_factory=list)
     memory_candidates: List[MemoryCandidate] = Field(default_factory=list)
     confidence: Optional[float] = None
@@ -253,7 +288,7 @@ class ContextFact(BaseModel):
 
 
 class Observation(BaseModel):
-    kind: Literal["tool", "context", "research", "error", "system"] = "system"
+    kind: Literal["tool", "context", "research", "comparison", "error", "system"] = "system"
     name: str = ""
     status: str = "ok"
     payload: Dict[str, Any] = Field(default_factory=dict)

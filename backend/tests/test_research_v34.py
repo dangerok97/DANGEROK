@@ -835,7 +835,7 @@ def test_research_names_no_website_it_would_rather_read():
     for path in (HERE / "research").glob("*.py"):
         code = _production_code(path)
         hosts = re.findall(
-            r"[a-z0-9][a-z0-9-]*\.(?:com|it|org|net|eu|gov|io)", code, re.I
+            r"\b[a-z0-9][a-z0-9-]*\.(?:com|it|org|net|eu|gov|io)\b", code, re.I
         )
         assert not hosts, f"{path.name} names {hosts}"
         assert "http://" not in code and "https://" not in code, path.name

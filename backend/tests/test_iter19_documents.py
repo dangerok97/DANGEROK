@@ -12,6 +12,8 @@ import pytest
 os.environ.setdefault("CALENDAR_PROVIDER_MODE", "fake")
 sys.path.insert(0, "/app/backend")
 
+import _loop_harness  # tests/_loop_harness.py: the one place a loop is chosen
+
 from fastapi.testclient import TestClient  # noqa: E402
 import server  # noqa: E402
 
@@ -274,6 +276,6 @@ class TestF_ContextProvider:
             res = await documents_provider(BoomDB(), "user_xxx")
             return res
 
-        result = asyncio.get_event_loop().run_until_complete(_run())
+        result = _loop_harness.run(_run())
         assert result.error is None
         assert result.signals == []

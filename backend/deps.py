@@ -18,7 +18,7 @@ from typing import Optional
 
 from dotenv import load_dotenv
 from fastapi import Depends, Header, HTTPException
-from motor.motor_asyncio import AsyncIOMotorClient
+import mongo
 
 from decision_engine import DecisionService
 from life_graph import LifeGraphService
@@ -51,8 +51,54 @@ JWT_EXPIRY_DAYS = 30
 DEMO_EMAILS = frozenset({"demo@ora.app"})
 
 # --- Mongo -----------------------------------------------------------
-client = AsyncIOMotorClient(MONGO_URL)
-db = client[DB_NAME]
+# `client` and `db` stay exactly what every caller already imports: one
+# module-level name each, imported once, held by services built at import
+# time. What changed is what they point at.
+#
+# A Motor client binds itself to an event loop on its first await and keeps
+# that binding for good, so a client built here — at import, outside any loop
+# — belonged to whichever loop touched it first. Anything else running later
+# on a different loop got "Future attached to a different loop", and closing
+# it in shutdown left the process without a usable client at all.
+#
+# These handles resolve to the client owned by the loop that is running right
+# now (see mongo.py). No caller changes, no client per request: within one
+# loop it is built once and reused, pool included.
+mongo.configure(MONGO_URL, DB_NAME)
+
+
+class _Database:
+    """`deps.db`, forwarding to the database of the running loop."""
+
+    def __getattr__(self, name: str):
+        return getattr(mongo.database(), name)
+
+    def __getitem__(self, name: str):
+        return mongo.database()[name]
+
+    def __repr__(self) -> str:
+        return f"<deps.db {DB_NAME!r}>"
+
+
+class _Client:
+    """`deps.client`, forwarding to the client of the running loop."""
+
+    def __getattr__(self, name: str):
+        return getattr(mongo.client(), name)
+
+    def __getitem__(self, name: str):
+        return mongo.client()[name]
+
+    def close(self) -> None:
+        """Close this loop's client. A later startup builds a fresh one."""
+        mongo.close()
+
+    def __repr__(self) -> str:
+        return "<deps.client>"
+
+
+client = _Client()
+db = _Database()
 
 # --- Services --------------------------------------------------------
 decisions = DecisionService(db)
