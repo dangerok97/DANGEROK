@@ -46,6 +46,198 @@ then it names the field: an ambiguous date, a missing one, a document that would
 not open. The item's title is that question. No path produces a card titled
 after a document.
 
+## V3.6 Sprint 3 — Routines, Time at Places & Commute Intelligence
+
+    PRESENCE HISTORY IS EVIDENCE ABOUT LIFE, NOT A JUDGMENT ABOUT LIFE.
+    OBSERVED COMMUTE != LIVE ETA.
+    ROUTINE OBSERVATION != ROUTINE FACT.
+
+**Arithmetic, in `places/analytics.py`.** Time at a place clips each stay to
+the window rather than including or excluding whole sessions — a night that
+began yesterday counts towards today for the hours that belong to today. An
+open stay is measured up to now and reports `still_there`, so "finora oggi" is
+sayable. Journeys are the gap between leaving one place and arriving at the
+next: observed, including the walk to the car, which is what makes it a fact
+about the person rather than about the road. A gap over four hours is not a
+journey between those two places.
+
+**The median, not the mean.** Commutes of 31, 32, 29 and 95 minutes average 47
+— a duration none of the four took, and the one that would be quoted back as
+"normalmente". The middle value is 31.5. The 95 is still reported as the
+slowest, because a bad day is a real day and hiding it would be its own lie.
+`typical_means` says in words that this is the median.
+
+**Routines are read, never counted.** `get_day_patterns` hands over the shape
+of the days — places, order, times, durations, journeys — with no verdict in
+it. `review_routines` asks the model whether any of it is worth naming; an
+`ObservedRoutine` is a projection over sessions (pointers, never copies) and
+starts as `candidate`. There is no `if occurrences >= 3`, and a test asserts
+there is none. A routine through a place that does not exist is dropped.
+
+**Context, only when the subject is presence.** `_place_presence_facts` is
+reached from the existing `presence` category gate, so a question about a
+mortgage does not get somebody's movements and a question about leaving for
+work does. One sentence, never a history, never a coordinate.
+
+**Routing.** One provider-agnostic abstraction, `places/routing.py`, activated
+by `ROUTING_PROVIDER` + `ROUTING_API_KEY`, with a Google Routes v2 adapter
+behind it (traffic-aware for driving, `staticDuration` alongside so the gap
+*is* the traffic). Unconfigured it returns `available: false` with a reason and
+never falls back to history: somebody who leaves at a time chosen by an
+invented number misses the thing they were going to. `get_journeys_between_
+places` carries `is_live_traffic: false` in its own payload so the distinction
+cannot be lost on the way to a sentence.
+
+Provider comparison for the record — Google Routes v2: live traffic, transit,
+alternatives, ~$5/1000 requests with a monthly free allowance, key-only auth,
+coordinates leave the server. Mapbox Directions: 100k free/month, traffic
+profile, no transit in most regions. HERE: 1k free/day, traffic, good in
+Europe. One adapter was implemented rather than three, because three
+integrations for a capability nobody has configured is three things to keep
+working for no one.
+
+**Travel mode** is drive | walk | bicycle | transit and is never assumed from
+the destination: work does not imply a car.
+
+## V3.6 Sprint 2 — Presence Zones & Enter/Exit
+
+    A PLACE IS A ZONE, NOT A POINT.
+    ENTER/EXIT USE HYSTERESIS + DWELL.
+    LOCATION OBSERVATION != PRESENCE FACT.
+    PLACE CANDIDATE != LIFE PLACE.
+
+A GPS fix is not a position; it is a claim about a position with a radius of
+doubt attached. Treating one as arrival produces a life history in which
+somebody entered and left their own home eleven times while asleep, because
+the phone's idea of where it was drifted across a line.
+
+**Hysteresis.** `PresenceZone` carries two radii and the model refuses to be
+built with `exit <= entry`: arriving is judged against the tighter circle,
+leaving against the wider one, and the gap between them is what a stationary
+phone's drift has to exceed before ORA believes anybody went out. Sizes are per
+place, never per kind — a rule making homes 90 metres *because they are homes*
+would be a domain detector holding a tape measure.
+
+**Dwell.** Crossing a line is not staying. `outside → pending_enter → present`
+and `present → pending_exit → outside`, with a crossing only becoming real
+after 180 s and two samples (300 s to leave — inventing a visit is worse than
+noticing a departure late). A car passing the end of the street reaches
+`pending_enter` and falls straight back to `outside`, leaving nothing behind:
+that is the whole purpose of a pending state that can evaporate.
+
+**Accuracy.** A fix accurate to 50 m says plenty about a 100 m circle and
+nothing about a 25 m one, so doubt is compared with the zone it is used
+against rather than against one global number. A reading whose error exceeds
+the entry radius is counted (`ignored_fixes`) and decides nothing — it neither
+confirms a pending crossing nor cancels one, because it is not evidence either
+way.
+
+**Sessions.** `PresenceSession` is a stay: `entered_at`, optional `exited_at`,
+duration derivable, at most one open per place. Ten fixes in a kitchen extend
+one evening rather than stacking ten sessions, and a repeated exit closes
+nothing twice.
+
+**Overlap.** Two zones can genuinely contain the same point — a bar next door
+to an office is a street, not a modelling error. `unambiguous()` returns
+nothing in that case, the observation is stored marked `ambiguous`, and no stay
+opens for either. An ambiguous presence is a true statement about an uncertain
+situation; a confident wrong one is not.
+
+**The line.** Distance, entry/exit geometry, dwell, sessions and clustering are
+code: they have right answers. Whether a pattern deserves attention, whether it
+is worth asking, and what to ask are the model's. What the place *is* remains
+the person's, and `suppressed` — "never ask me about this again" — survives a
+request to forget observations, because erasing an instruction would mean
+asking again next week.
+
+**Battery.** Presence Intelligence does not require second-by-second GPS
+tracking. Observations arrive when the app has a fix, never on a timer; dwell
+is measured against `observed_at`, so a batch uploaded when the app comes back
+online describes the past rather than the last five seconds. The shape is
+already the one significant-change and geofence callbacks produce.
+
+**Native reality, precisely.** The project is Expo 54, managed workflow with
+Continuous Native Generation (no `ios/` or `android/` directories) and a
+`plugins` array already carrying configured plugins. To get real foreground
+native location, background location, geofencing and significant-change
+updates it needs: `expo-location` and `expo-task-manager` added; the
+`expo-location` config plugin with `NSLocationWhenInUseUsageDescription`,
+`NSLocationAlwaysAndWhenInUseUsageDescription` and
+`UIBackgroundModes: ["location"]` for iOS, plus `ACCESS_FINE_LOCATION`,
+`ACCESS_BACKGROUND_LOCATION` and `FOREGROUND_SERVICE_LOCATION` for Android; and
+a new native build, because CNG regenerates the projects. That is compatible
+with this architecture and is not a migration — but it cannot be verified from
+a web session, so the packages are **not installed** and nothing here pretends
+they are. On web, foreground fixes only.
+
+## V3.6 — Life Presence & Location Intelligence (Sprint 1)
+
+    LOCATION OBSERVATION != LIFE FACT.
+
+    GPS OBSERVES.
+    AI UNDERSTANDS.
+    USER CONFIRMS.
+
+    LIFE PLACE IS PART OF LIFE CONTEXT,
+    NOT A PRIMARY NAVIGATION TAB.
+
+Three objects, and the distance between them is the whole design.
+
+`PresenceObservation` is what the device noticed: coordinates, a moment, how
+long. Evidence, with a thirty-day expiry, and never a trail long enough to
+reconstruct somebody's week. `PlaceCandidate` is what arithmetic can say about
+a pile of those — the same spot, this many times, across this many separate
+days. Still not a fact about anybody's life: eleven visits to a gym and eleven
+visits to a hospital are the same number and very different truths.
+`LifePlace` is what the person confirmed, under the name they chose.
+
+Nothing promotes itself. There is no threshold in `places/` that turns a count
+into a place, and a test asserts there is none — `observation_count >` does not
+appear in the service, and the domain words a detector would need (`palestra`,
+`gym`, `ufficio`, `ospedale`…) appear nowhere in the logic. The measurements go
+to the model, which decides only whether a pattern is worth **asking** about
+and how to word the question; staying quiet is a valid answer and is the common
+one. The answer, when it comes, is the person's, and it is the only path from
+candidate to place.
+
+Questions raised about places are ordinary V3.1 open questions with
+`context_label: "Luoghi"` and a `dedupe_key` of `place_candidate:<id>`. No
+second question engine: waiting, deduplication and resuming already work.
+
+**Where it lives.** `Vita → Luoghi` shows what ORA *knows*. `Profilo → Privacy
+e permessi` governs what ORA *may observe*. There is no sixth tab: the primary
+tabs name the surfaces of the Life OS, and places are a part of a life ORA
+knows about, not a surface of their own.
+
+**Roles.** `home` / `work` / `other`, and `role_confirmed_by_user` is true only
+because somebody said so. Home and work are singular — a second one means they
+moved or changed jobs, so the previous place stops being the answer instead of
+competing with it, and is kept rather than deleted. A confirmed home links to
+the existing Life Graph node instead of starting a second idea of where
+somebody lives.
+
+**Getting somewhere.** ORA works out *where* — the part that needs to know the
+person — and hands off. `open_navigation` resolves a spoken name to exactly one
+confirmed place (exact match, then a confirmed role; never fuzzy, because a
+destination picked by string distance is how somebody is taken to the wrong
+address) and returns official deep links for Google Maps, Apple Maps and Waze.
+No default: until the person chooses, every option is offered and none wins.
+Turn-by-turn stays with the apps that do it well.
+
+Asking how long something takes, asking which way it runs, and asking to be
+taken there are three different requests. The distinction is reasoned, not
+pattern-matched: the prompt describes what each one *is*, and forbids treating
+"portami" as a trigger.
+
+**Real limits of the current stack.** `expo-location` is not installed; device
+position comes from browser Geolocation on web, and native is unsupported
+(`native_unsupported`). So there is no background location, no geofencing and
+no enter/exit or dwell detection from the OS — `/location/preference` reports
+`background_available: false, native_available: false` and the code does not
+pretend otherwise. Observations arrive when the app has a fix and permission,
+never on a timer. Real background presence needs a native build; nothing here
+fakes it in a browser.
+
 ## V3.5 — Evidence becoming a decision
 
     RESEARCH FINDS EVIDENCE.

@@ -1,5 +1,54 @@
 # ORA — Product (struttura reale)
 
+## V3.6 Sprint 3 — Le tue giornate, non le tue statistiche
+
+«Quanto tempo sono stato a casa questa settimana?» «Quante volte sono andato in
+palestra?» «Quanto ci metto normalmente per andare al lavoro?»
+
+ORA risponde con i tuoi dati veri, non con una stima. E quando dice "di solito
+ci metti mezz'ora" intende il tragitto di mezzo, non la media: se una volta hai
+impiegato un'ora e mezza per il traffico, quella giornata non deve spostare
+l'idea di cosa sia normale — ma te la dice lo stesso.
+
+Una cosa che ORA non farà mai: spacciare la tua storia per il traffico di
+adesso. Se non può controllare la strada in tempo reale, te lo dice.
+
+Non troverai grafici. La Presence Intelligence serve a ORA per capirti, non a
+te per guardare dashboard.
+
+## V3.6 Sprint 2 — Esserci davvero
+
+Il GPS sbaglia di qualche decina di metri, sempre. Se ORA prendesse ogni
+lettura per buona, ti direbbe che stanotte sei uscito di casa undici volte.
+
+Quindi un luogo non è un punto: è una zona. Si entra passando un cerchio
+stretto e si esce passandone uno più largo, e in mezzo c'è lo spazio in cui il
+telefono può sbagliare senza che diventi un fatto della tua vita. E passare
+davanti a casa in macchina non conta come esserci stato: perché ORA registri
+una presenza devi restarci un po'.
+
+Così Vita può dirti "Sei qui", oppure quando sei arrivato e quando sei uscito —
+e per quanto tempo ci sei stato. Se preferisci che non lo ricordi, "Dimentica
+la cronologia" cancella le presenze e ti lascia il luogo.
+
+## V3.6 — I luoghi della tua vita (Sprint 1)
+
+ORA sa dove vivi e dove lavori perché gliel'hai detto, non perché l'ha dedotto.
+
+Se il telefono nota che torni spesso nello stesso posto, ORA non decide che
+sia la palestra: te lo chiede. «Che posto è?» — e il nome che dai è quello che
+resta. Finché non rispondi, quel posto non entra fra le cose che ORA sa di te.
+
+I luoghi vivono in **Vita → Luoghi**, non in una scheda a parte: sono una parte
+della tua vita che ORA conosce, non una funzione del telefono. Cosa ORA *può
+osservare* si decide altrove, in Profilo → Privacy e permessi, e puoi
+disattivarlo quando vuoi — i luoghi che hai scritto tu restano, quello che il
+dispositivo ha osservato no.
+
+«Portami a lavoro» funziona perché ORA sa cosa intendi per «lavoro». Il
+percorso lo fa l'app di mappe che usi già: la prima volta ORA chiede quale, e
+poi se la ricorda.
+
 ## Personal Context Retrieval V3 (V2.8.2)
 
 ORA può chiedere il minimo contesto personale necessario per decidere meglio,
