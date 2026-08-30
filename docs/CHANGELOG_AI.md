@@ -1,5 +1,39 @@
 # ORA — AI Changelog
 
+## 2026-08-31 — V3.6 closed: Life Presence & Location Intelligence
+
+ORA knows where the places of a life are, because the person said so; notices
+when they are in one, without believing a single GPS reading; can say how long
+they were home this week and how long the commute usually takes; and can be
+asked to take them to work, answering with the traffic right now and handing
+off to the map app they already use.
+
+Adding a place is finished work now: type an address and pick from real
+suggestions, or open a map and move it until the pin is where you actually
+mean. Google proposes; the map shows; you decide — and if you move the point,
+your point is the one that is saved.
+
+Native background presence is implemented and structurally tested. It has not
+been run on a phone, and this changelog does not pretend it has: real-device
+validation belongs to the final Production Device QA.
+
+## 2026-08-30 — V3.6 Final: native presence runtime
+
+The phone can now be woken by the places somebody named. `expo-location` and
+`expo-task-manager` are installed and configured; a background task writes down
+where the device was and hands it over, and that is all it does — which place
+it is, whether arriving matters, and whether to say anything stay on the server
+and with the person.
+
+The native region is a doorbell. iOS offers one radius and no dwell, so the
+registered circle is the wider exit one and the real decision still runs
+through entry, exit and dwell. A repeated callback is recognised as the same
+sighting rather than counted twice.
+
+Not verified on a device: there is no build and no phone in this environment,
+and a background capability nobody has run is not a capability anybody should
+call done.
+
 ## 2026-08-30 — V3.6 Sprint 3: Routines, Time at Places & Commute
 
 Presence history became something ORA can answer with. How long you were home

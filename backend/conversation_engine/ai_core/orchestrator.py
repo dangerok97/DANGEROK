@@ -533,6 +533,12 @@ class AICoreOrchestrator:
             "external_queries": getattr(result, "external_queries", 0) or 0,
             "elapsed_ms": result.elapsed_ms,
             "sources": list(getattr(result, "sources", None) or [])[:5],
+            # The map apps ORA offered, if it offered any. Same channel as
+            # sources and for the same reason: something the answer refers to
+            # that the person has to be able to actually reach. A sentence
+            # ending "con quale app vuoi navigare?" beside no buttons is a
+            # question nobody can answer.
+            "navigation": list(getattr(result, "navigation", None) or [])[:3],
             "working_hint": getattr(result, "working_hint", None),
             "client_actions": actions,
             "pending_turn": pending,

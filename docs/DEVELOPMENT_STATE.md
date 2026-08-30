@@ -1,5 +1,36 @@
 # ORA — Development State
 
+## V3.6 — CLOSED
+
+Verified live: Google Routes (live ETA, traffic-aware), Places API New
+(autocomplete + resolution), Maps JavaScript API (picker with manual
+override). Verified structurally: presence zones, hysteresis, dwell, sessions,
+time-at-place, transitions, observed commute, routines, state sync,
+user-confirmed presence, native runtime, event dedupe, geofence sync, privacy
+controls.
+
+**Native background implementation complete. Real-device validation deferred
+to final ORA Production Device QA.** No production-native claim is made until
+that QA runs; the checklist is in ARCHITECTURE.md.
+
+Next: V3.7 — Proactive Opportunity Intelligence. Not started.
+
+## V3.6 Final — Native Presence & Live Routing
+
+Shipped: `expo-location@~19` + `expo-task-manager@~14` installed and configured
+through the config plugin, `presenceTask.ts` (module-scope tasks, decides
+nothing), `presenceBuffer.ts` (offline queue, ordered flush), `presenceRuntime.
+ts` (two-step permissions, region sync, reconciliation, shutdown), `event_id`
+idempotency end to end, Presence Intelligence toggle in Profilo → Permessi,
+`eas.json` with a development profile.
+
+BLOCKED, and deliberately not worked around:
+- Native device QA. No EAS project (`extra.eas.projectId` absent), no eas-cli
+  login, no device, no emulator, no Android SDK. `eas init` + `eas build
+  --profile development` on a real phone is the remaining step.
+- Live routing. `ROUTING_PROVIDER` / `ROUTING_API_KEY` are not set, so the live
+  ETA path is unexercised. The honest-refusal path is tested.
+
 ## V3.6 Sprint 3 — Routines, Time at Places & Commute
 
 Shipped: `places/analytics.py` (window clipping, open sessions, visits,

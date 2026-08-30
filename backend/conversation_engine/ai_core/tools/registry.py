@@ -609,7 +609,11 @@ class ToolRegistry:
                     "Prepare turn-by-turn in the map app the person uses. Call "
                     "it when they want to GO somewhere — not when they asked "
                     "how long it takes or which way it runs. Returns a link, or "
-                    "the choice of app when they have not picked one."
+                    "the choice of app when they have not picked one. When a "
+                    "routing service is configured the payload also carries a "
+                    "live `route` (duration, distance): say it in the same "
+                    "breath as the button — somebody about to leave wants the "
+                    "number now, not after another question."
                 ),
                 input_schema={
                     "type": "object",

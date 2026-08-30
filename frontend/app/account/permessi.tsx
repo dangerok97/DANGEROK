@@ -13,7 +13,7 @@
  * pre-authorised, so it is a sentence, not a switch — the absence of a toggle
  * there is the honest part.
  */
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { useRouter } from 'expo-router';
 
@@ -51,12 +51,73 @@ const LOCATION_CHOICES: Array<{ id: LocationMode; label: string; detail: string 
   },
 ];
 
+type PresenceState = {
+  supported: boolean;
+  reason?: string;
+  enabled: boolean;
+  background: 'granted' | 'denied' | 'undetermined';
+};
+
 export default function PermessiScreen() {
   const router = useRouter();
   const { data, loading, error, reload } = useAccount();
   const [location, setLocation] = useState<LocationMode | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [writeError, setWriteError] = useState<string | null>(null);
+  const [presence, setPresence] = useState<PresenceState | null>(null);
+
+  // Continuous presence is a second, larger permission. It is read here rather
+  // than assumed, because the OS can revoke it from its own settings and an
+  // app that keeps claiming to be watching would be lying.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const runtime = await import('@/src/location/presenceRuntime');
+      const can = runtime.support();
+      const perms = await runtime.permissions();
+      const on = await runtime.isEnabled();
+      if (!cancelled) {
+        setPresence({
+          supported: can.supported,
+          reason: can.reason,
+          enabled: on && perms.background === 'granted',
+          background: perms.background,
+        });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const togglePresence = useCallback(
+    (next: boolean) =>
+      guard(async () => {
+        setBusy('presence');
+        setWriteError(null);
+        try {
+          const runtime = await import('@/src/location/presenceRuntime');
+          if (next) {
+            const result = await runtime.enable();
+            if (!result.ok) {
+              setWriteError(result.reason ?? null);
+            }
+            const perms = await runtime.permissions();
+            setPresence((p) =>
+              p ? { ...p, enabled: result.ok, background: perms.background } : p,
+            );
+          } else {
+            // Off means the phone stops watching. Nothing is deleted: what ORA
+            // already knows is the person's to keep or erase, separately.
+            await runtime.disable();
+            setPresence((p) => (p ? { ...p, enabled: false } : p));
+          }
+        } finally {
+          setBusy(null);
+        }
+      }),
+    [],
+  );
 
   const snapshot = data?.snapshot;
   const mode: LocationMode = location ?? snapshot?.location ?? 'off';
@@ -105,6 +166,42 @@ export default function PermessiScreen() {
             testID={`location-mode-${c.id}`}
           />
         ))}
+      </SettingCard>
+
+      {/*
+        Presence Intelligence is asked for separately and second. "Always" is a
+        large thing to request, and requesting it alongside the ordinary
+        location choice is how an app gets refused both.
+      */}
+      <SettingCard
+        title="Riconoscimento dei luoghi"
+        detail={
+          presence && !presence.supported
+            ? presence.reason
+            : 'Serve perché ORA si accorga di quando arrivi o lasci i tuoi luoghi anche quando l’app è chiusa. Se lo disattivi, ORA continua a funzionare: semplicemente non se ne accorge da sola.'
+        }
+        testID="perm-presence"
+      >
+        {presence?.supported ? (
+          <>
+            <ChoiceRow
+              label="Disattivato"
+              detail="ORA non osserva nulla quando è chiusa."
+              selected={!presence.enabled}
+              onPress={() => void togglePresence(false)}
+              busy={busy === 'presence'}
+              testID="presence-off"
+            />
+            <ChoiceRow
+              label="Attivo anche in background"
+              detail="ORA riconosce ingressi e uscite dai tuoi luoghi. Nessun tracciamento continuo: usa le zone che conosce già."
+              selected={presence.enabled}
+              onPress={() => void togglePresence(true)}
+              busy={busy === 'presence'}
+              testID="presence-on"
+            />
+          </>
+        ) : null}
       </SettingCard>
 
       <SettingCard

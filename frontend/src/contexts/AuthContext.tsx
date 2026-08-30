@@ -56,6 +56,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await api.logout();
     } catch {}
+    // A phone left watching for somebody who signed out is a geofence zombie:
+    // it wakes up, records where the next person went, and has nowhere to send
+    // it. Stopping the monitoring is part of leaving.
+    try {
+      const runtime = await import('@/src/location/presenceRuntime');
+      await runtime.shutdown();
+    } catch {}
     await authToken.clear();
     setUser(null);
   }, []);

@@ -215,12 +215,48 @@ async def open_navigation(arguments: Dict[str, Any], runtime: Dict[str, Any]) ->
         preferred_app=await _preferred_app(runtime["db"], uid),
         platform=str(runtime.get("platform") or "web"),
     )
+
+    # How long it will take, when there is a service that knows and a position
+    # to start from. Somebody about to leave wants the number in the same
+    # breath as the button, not after a second question — and it is a live
+    # number here, so it may be spoken as one.
+    journey = None
+    if origin is not None:
+        from places import routing
+
+        route = await routing.get_route(
+            origin=origin,
+            destination=place.coordinates.precise(),
+            travel_mode=_travel_mode(arguments.get("mode")),
+        )
+        if route.get("available"):
+            journey = {
+                "duration_seconds": route.get("duration_seconds"),
+                "distance_meters": route.get("distance_meters"),
+                "reflects_current_traffic": route.get("reflects_current_traffic"),
+                "is_live": True,
+            }
+
     return _ok(
         "open_navigation",
-        {"ready": True, "place": place.for_ai(), "has_origin": origin is not None, **plan},
+        {
+            "ready": True,
+            "place": place.for_ai(),
+            "has_origin": origin is not None,
+            "route": journey,
+            **plan,
+        },
         uid,
         status="needs_client",
     )
+
+
+def _travel_mode(mode) -> str:
+    """The navigation vocabulary and the routing vocabulary, reconciled."""
+    return {
+        "driving": "drive", "walking": "walk",
+        "transit": "transit", "cycling": "bicycle",
+    }.get(str(mode or "driving"), "drive")
 
 
 async def _preferred_app(db, user_id: str):

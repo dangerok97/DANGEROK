@@ -36,6 +36,15 @@ class PlaceIn(BaseModel):
     address: str = Field(default="", max_length=240)
     locality: str = Field(default="", max_length=160)
     source: Literal["user_stated", "current_position"] = "user_stated"
+    google_place_id: str = Field(default="", max_length=200)
+    # Where the final point came from. `map_selection` means the person moved
+    # the map, and their point wins over whatever Google proposed.
+    location_source: Literal[
+        "current_position", "google_place", "map_selection", "name_only"
+    ] = "name_only"
+    # "Sono qui adesso": a statement, not a sensor reading. It opens a stay
+    # immediately rather than waiting for dwell to corroborate a guess.
+    currently_here: bool = False
 
 
 class RenameIn(BaseModel):
@@ -49,10 +58,24 @@ class ObservationIn(BaseModel):
     dwell_seconds: Optional[int] = Field(None, ge=0, le=86400)
     # When the fix was taken. Absent means now; a queued batch says when.
     observed_at: Optional[str] = Field(None, max_length=40)
+    # The device's own id for this sighting, so a repeated delivery is
+    # recognised as the same one rather than counted again.
+    event_id: Optional[str] = Field(None, max_length=64)
 
 
 class CandidateAnswerIn(BaseModel):
     answer: str = Field(..., min_length=1, max_length=400)
+
+
+class RelocateIn(BaseModel):
+    latitude: float = Field(..., ge=-90, le=90)
+    longitude: float = Field(..., ge=-180, le=180)
+    address: str = Field(default="", max_length=240)
+    locality: str = Field(default="", max_length=160)
+    google_place_id: str = Field(default="", max_length=200)
+    location_source: Literal[
+        "current_position", "google_place", "map_selection", "name_only"
+    ] = "map_selection"
 
 
 class ZoneIn(BaseModel):
@@ -145,8 +168,44 @@ async def create_place(body: PlaceIn, user=Depends(get_current_user)):
         address=body.address,
         locality=body.locality,
         source=body.source,
+        currently_here=body.currently_here,
+        google_place_id=body.google_place_id,
+        location_source=body.location_source,
     )
     return {"place": place.public()}
+
+
+@router.get("/lookup/suggest")
+async def lookup_suggest(
+    q: str = "",
+    session: str = "",
+    region: str = "IT",
+    user=Depends(get_current_user),
+):
+    """
+    Address suggestions for what somebody is typing.
+
+    The key stays here. `session` groups the keystrokes of one search with the
+    detail call that ends it, so Google bills a lookup rather than eight.
+    """
+    from places import lookup
+
+    return await lookup.suggest(q, region=region or None, session_token=session or None)
+
+
+@router.get("/lookup/resolve")
+async def lookup_resolve(
+    place_id: str, session: str = "", user=Depends(get_current_user)
+):
+    """The address and point behind one suggestion. Four fields, no more."""
+    from places import lookup
+
+    result = await lookup.resolve(place_id, session_token=session or None)
+    if not result.get("available"):
+        raise HTTPException(
+            status_code=502, detail=result.get("why_unavailable") or "non disponibile"
+        )
+    return result
 
 
 @router.delete("/history")
@@ -168,6 +227,17 @@ async def remove_place(place_id: str, user=Depends(get_current_user)):
     if not await _svc().remove_place(user["user_id"], place_id):
         raise HTTPException(status_code=404, detail="luogo non trovato")
     return {"removed": True}
+
+
+@router.post("/{place_id}/here")
+async def confirm_here(place_id: str, user=Depends(get_current_user)):
+    """The person says they are here now. Not an inference, so not dwelled on."""
+    session = await _svc().confirm_current_presence(user["user_id"], place_id)
+    if session is None:
+        raise HTTPException(
+            status_code=404, detail="luogo non trovato o senza coordinate"
+        )
+    return {"session": session.public()}
 
 
 @router.get("/{place_id}")
@@ -203,6 +273,29 @@ async def place_detail(place_id: str, user=Depends(get_current_user)):
         # numbers are what somebody actually wants to know about a place.
         "this_week": await svc.time_at(uid, place_id, period="this_week"),
     }
+
+
+@router.put("/{place_id}/location")
+async def relocate_place(
+    place_id: str, body: RelocateIn, user=Depends(get_current_user)
+):
+    """Move a place to where the person says it is."""
+    from places.models import Coordinates
+
+    place = await _svc().relocate_place(
+        user["user_id"],
+        place_id,
+        coordinates=Coordinates(
+            latitude=body.latitude, longitude=body.longitude, precision="exact"
+        ),
+        address=body.address,
+        locality=body.locality,
+        google_place_id=body.google_place_id,
+        location_source=body.location_source,
+    )
+    if place is None:
+        raise HTTPException(status_code=404, detail="luogo non trovato")
+    return {"place": place.public()}
 
 
 @router.put("/{place_id}/zone")
@@ -246,6 +339,7 @@ async def record_observation(body: ObservationIn, user=Depends(get_current_user)
         accuracy_meters=body.accuracy_meters,
         dwell_seconds=body.dwell_seconds,
         observed_at=body.observed_at,
+        event_id=body.event_id,
     )
     return result
 

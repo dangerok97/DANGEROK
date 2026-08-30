@@ -43,6 +43,21 @@ PlaceSource = Literal[
 
 PlaceState = Literal["confirmed", "candidate", "dismissed", "deleted"]
 
+# Where the final coordinates came from.
+#
+#     ADDRESS != LOCATION
+#
+# An address is a readable description; the point is where the person actually
+# means. `map_selection` exists because those two disagree often enough to
+# matter: Google puts the pin on the street, and the entrance is round the
+# back. When somebody moves the map, that is the answer.
+LocationSource = Literal[
+    "current_position",   # "sono qui adesso"
+    "google_place",       # an address they picked, pin where Google put it
+    "map_selection",      # they moved the map: their point wins
+    "name_only",          # a name with nowhere attached yet
+]
+
 # A candidate's fate, decided by a person and not by a counter.
 # `dismissed` is "not this time". `suppressed` is "never ask me about this
 # place again" — a different answer, and one that has to survive.
@@ -215,6 +230,10 @@ class PresenceSession(BaseModel):
     place_id: str
     entered_at: str
     exited_at: Optional[str] = None
+    # How this stay began. `user_confirmation` is a person saying "sono qui
+    # adesso"; everything else is a sensor being believed after dwell. The
+    # distinction matters afterwards: a stay somebody stated is not something
+    # to second-guess when a fix drifts.
     source: str = "foreground_device"
     # How many readings supported it, and how many were too vague to count.
     observation_count: int = 1
@@ -275,6 +294,10 @@ class PresenceObservation(BaseModel):
     # Filled once a cluster has formed around it.
     candidate_id: Optional[str] = None
     source: str = "foreground_device"
+    # The id the device gave this sighting. An OS can deliver the same callback
+    # twice, and a queued batch can be sent twice after a failed flush; this is
+    # what makes the second delivery the same sighting instead of a new one.
+    event_id: Optional[str] = Field(default=None, max_length=64)
     # True when more than one zone contained this fix: kept as evidence,
     # attached to nothing, because guessing which would be the fragile rule.
     ambiguous: bool = False
@@ -374,6 +397,13 @@ class LifePlace(BaseModel):
     zone: Optional[PresenceZone] = None
     address: str = Field(default="", max_length=240)
     locality: str = Field(default="", max_length=160)
+    # What Google calls this address, when an address was chosen. Kept so the
+    # same place can be recognised again; never used as the position, which is
+    # `coordinates` and only ever `coordinates`.
+    google_place_id: str = Field(default="", max_length=200)
+    # How the coordinates were arrived at. Not a duplicate of `source`: that
+    # says how the place entered ORA, this says where the point came from.
+    location_source: LocationSource = "name_only"
 
     source: PlaceSource = "user_stated"
     state: PlaceState = "confirmed"
@@ -406,8 +436,31 @@ class LifePlace(BaseModel):
             "address": self.address or None,
             "locality": self.locality or None,
             "source": self.source,
+            "location_source": self.location_source,
+            # Whether this place is tied to an address Google knows. The id
+            # itself stays on the server: a screen has no use for it.
+            "from_address": bool(self.google_place_id),
             "state": self.state,
             "has_coordinates": self.coordinates is not None,
+            # Coarse centre and the exit radius, so the device can ask the OS
+            # to wake it near here. Deliberately the wider circle: being woken
+            # slightly early costs a callback, being woken late costs an
+            # arrival. The decision still happens on the server.
+            "zone_center": (
+                {
+                    **self.coordinates.coarse(),
+                    # The pair above has been rounded, so it is no longer the
+                    # exact fix whatever the source said it was. Carrying the
+                    # original label here would describe eleven metres of
+                    # uncertainty as certainty.
+                    "precision": "approximate",
+                    "exit_radius_m": (
+                        self.zone.exit_radius_m if self.zone else DEFAULT_EXIT_RADIUS_M
+                    ),
+                }
+                if self.coordinates is not None
+                else None
+            ),
             "from_candidate": bool(self.from_candidate_id),
             "created_at": self.created_at,
             "updated_at": self.updated_at,
