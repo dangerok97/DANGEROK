@@ -20,12 +20,15 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { api, PlaceDetail } from '@/src/api/client';
+import { PlaceEditor } from '@/src/components/vita/PlaceEditor';
+import { invalidatePlace, useRevalidate } from '@/src/lib/revalidate';
 import { useTheme } from '@/src/theme/ThemeProvider';
+import { formatDuration } from '@/src/utils/duration';
 import { tokens } from '@/src/theme/tokens';
 
 function whenLabel(iso?: string | null): string {
@@ -38,15 +41,6 @@ function whenLabel(iso?: string | null): string {
   return `${d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })}, ${time}`;
 }
 
-function durationLabel(seconds?: number | null): string | null {
-  if (!seconds || seconds < 60) return null;
-  const h = Math.floor(seconds / 3600);
-  const m = Math.round((seconds % 3600) / 60);
-  if (h && m) return `${h}h ${m}m`;
-  if (h) return `${h}h`;
-  return `${m}m`;
-}
-
 export default function PlaceDetailScreen() {
   const { placeId } = useLocalSearchParams<{ placeId: string }>();
   const router = useRouter();
@@ -54,6 +48,7 @@ export default function PlaceDetailScreen() {
   const [detail, setDetail] = useState<PlaceDetail | null>(null);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [renaming, setRenaming] = useState(false);
+  const [relocating, setRelocating] = useState(false);
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -73,6 +68,15 @@ export default function PlaceDetailScreen() {
     void load();
   }, [load]);
 
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load]),
+  );
+  useRevalidate(['presence:current'], () => {
+    void load();
+  });
+
   const rename = useCallback(async () => {
     const label = draft.trim();
     if (!label || busy || !placeId) return;
@@ -80,6 +84,7 @@ export default function PlaceDetailScreen() {
     try {
       await api.placesRename(String(placeId), label);
       setRenaming(false);
+      invalidatePlace(String(placeId));
       await load();
     } finally {
       setBusy(false);
@@ -91,17 +96,47 @@ export default function PlaceDetailScreen() {
     setBusy(true);
     try {
       await api.placesForgetHistory(String(placeId));
+      invalidatePlace(String(placeId));
       await load();
     } finally {
       setBusy(false);
     }
   }, [busy, placeId, load]);
 
+  const relocate = useCallback(
+    async (result: {
+      latitude?: number;
+      longitude?: number;
+      address?: string;
+      locality?: string;
+      google_place_id?: string;
+      location_source: 'current_position' | 'google_place' | 'map_selection' | 'name_only';
+    }) => {
+      if (!placeId || result.latitude === undefined || result.longitude === undefined) return;
+      await api.placesRelocate(String(placeId), {
+        latitude: result.latitude,
+        longitude: result.longitude,
+        address: result.address,
+        locality: result.locality,
+        google_place_id: result.google_place_id,
+        location_source: result.location_source,
+      });
+      setRelocating(false);
+      invalidatePlace(String(placeId));
+      await load();
+    },
+    [placeId, load],
+  );
+
   const remove = useCallback(async () => {
     if (busy || !placeId) return;
     setBusy(true);
     try {
       await api.placesRemove(String(placeId));
+      // Invalidate first, navigate second. The other way round shows Vita its
+      // old list for a frame and then corrects it, which reads as a place that
+      // briefly came back.
+      invalidatePlace(String(placeId));
       router.back();
     } finally {
       setBusy(false);
@@ -126,7 +161,7 @@ export default function PlaceDetailScreen() {
 
     const { place, presence, zone, recent_sessions: sessions, this_week: week } = detail;
     const here = presence?.present;
-    const current = durationLabel(presence?.current_session_seconds);
+    const current = formatDuration(presence?.current_session_seconds);
 
     return (
       <>
@@ -179,7 +214,7 @@ export default function PlaceDetailScreen() {
                 at them. */}
             <Text style={[styles.value, { color: colors.textSecondary }]}>
               {week.visits === 1 ? '1 visita' : `${week.visits} visite`}
-              {durationLabel(week.total_seconds) ? ` · ${durationLabel(week.total_seconds)}` : ''}
+              {formatDuration(week.total_seconds) ? ` · ${formatDuration(week.total_seconds)}` : ''}
               {week.still_there ? ' · finora' : ''}
             </Text>
           </View>
@@ -195,9 +230,9 @@ export default function PlaceDetailScreen() {
                 <Text style={[styles.value, { color: colors.textSecondary }]}>
                   {whenLabel(s.entered_at)} → {s.open ? 'in corso' : whenLabel(s.exited_at)}
                 </Text>
-                {durationLabel(s.duration_seconds) ? (
+                {formatDuration(s.duration_seconds) ? (
                   <Text style={[styles.meta, { color: colors.textTertiary }]}>
-                    {durationLabel(s.duration_seconds)}
+                    {formatDuration(s.duration_seconds)}
                   </Text>
                 ) : null}
               </View>
@@ -227,6 +262,25 @@ export default function PlaceDetailScreen() {
             </View>
           ) : (
             <Action label="Rinomina" icon="create-outline" colors={colors} onPress={() => setRenaming(true)} testID="place-action-rename" />
+          )}
+          {relocating ? (
+            // The same editor that created it. A place corrected six months
+            // later goes through exactly the path that made it.
+            <PlaceEditor
+              mode="relocate"
+              initialLabel={place.label}
+              initialPoint={null}
+              onCancel={() => setRelocating(false)}
+              onSave={relocate}
+            />
+          ) : (
+            <Action
+              label="Modifica posizione"
+              icon="location-outline"
+              colors={colors}
+              onPress={() => setRelocating(true)}
+              testID="place-action-relocate"
+            />
           )}
           <Action
             label="Dimentica la cronologia"

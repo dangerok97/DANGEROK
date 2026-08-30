@@ -311,6 +311,10 @@ class CognitiveTurnResult(BaseModel):
     external_queries: int = 0
     elapsed_ms: int = 0
     sources: List[Dict[str, str]] = Field(default_factory=list)
+    # The map apps ORA offered this turn, if it offered any. Same channel as
+    # sources, for the same reason: something the answer points at that the
+    # person has to be able to actually reach.
+    navigation: List[Dict[str, str]] = Field(default_factory=list)
     working_hint: Optional[str] = None
     client_actions: List[Dict[str, Any]] = Field(default_factory=list)
     situation: Optional[Dict[str, Any]] = None

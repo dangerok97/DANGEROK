@@ -46,6 +46,98 @@ then it names the field: an ambiguous date, a missing one, a document that would
 not open. The item's title is that question. No path produces a card titled
 after a document.
 
+## V3.6 — CLOSED
+
+Everything verifiable without a phone in a hand is verified and green.
+
+**Verified against the real services**, not against mocks:
+
+- **Live routing** — Google Routes v2. A journey of 4062 m came back as 554 s
+  with traffic against 618 s without, and the answer said "con il traffico
+  attuale" only because it had actually asked. Walking mode is correctly not
+  traffic-aware.
+- **Address autocomplete** — Places API (New). Five real suggestions with
+  place ids for a typed address, one billed lookup per search thanks to the
+  session token, four fields in the detail mask and nothing else.
+- **Map picker** — Maps JavaScript API. The map loads and authorises from the
+  app's own origin, the pin holds the centre while the world moves under it,
+  and a point moved by hand is the point that gets saved.
+
+**Native background implementation complete. Real-device validation deferred
+to final ORA Production Device QA.**
+
+The runtime is written and structurally tested: tasks defined at module scope
+so a woken phone can find them, an offline buffer with per-event
+deduplication, geofence registration kept in step with the places that exist,
+reconciliation on every foreground, and a shutdown that leaves nothing
+watching after logout. What has not happened is the one thing a laptop cannot
+do: a real operating system waking a real device. No production-native claim
+is made on the strength of code alone.
+
+### Production Device QA — what still has to be proven on a phone
+
+- foreground permission, and background permission asked second
+- OS background wake, geofence delivery, background location delivery
+- offline buffer flush, and duplicate delivery staying one sighting
+- exit and re-entry, and the PresenceSession lifecycle across them
+- logout shutdown leaving no monitoring behind
+- battery behaviour over a normal day
+- Android foreground-service notification
+- iOS "Always" permission behaviour
+- navigation deep links opening the real Google Maps, Apple Maps and Waze
+
+## V3.6 Final — Native Presence & Live Routing
+
+    OS EVENT != PRESENCE FACT.
+
+`expo-location@~19` and `expo-task-manager@~14` are installed (the SDK 54
+versions), configured through the `expo-location` config plugin in `app.json`.
+The resolved prebuild carries `NSLocationWhenInUseUsageDescription`,
+`NSLocationAlwaysAndWhenInUseUsageDescription`, `UIBackgroundModes: [location]`
+and the five Android permissions. Android permissions are left to the plugin
+rather than listed by hand: two places to keep aligned is one too many. No
+`ios/` or `android/` directory was touched — the project is CNG.
+
+**The task decides nothing.** `src/location/presenceTask.ts` defines both tasks
+at module scope, imported for its side effect from the app root and only on
+native. Woken by a location update or a region crossing, it writes coordinates
+and a timestamp to a local buffer and stops. It does not know which place it is
+near, whether that place is home, or whether anybody should be told. A test
+asserts the words `home`, `work`, `dwell`, `entry_radius` and `Notification`
+appear nowhere in its code.
+
+**The native region is a doorbell, not a verdict.** iOS gives one radius per
+region and no dwell; the registered radius is the *exit* circle, so the phone
+is woken slightly early rather than slightly late, and the Sprint 2 state
+machine still decides with entry, exit and dwell.
+
+**Idempotency.** Every buffered sighting carries an `event_id`. The server
+checks it before anything moves — a duplicate that reached `advance()` would
+count as a second sample towards dwell, which is how a repeated callback
+becomes an early "sei qui". Verified through the real API: three deliveries of
+one event, one observation.
+
+**Battery.** No `watchPositionAsync`, no `Accuracy.Highest`. Regions do the
+waking; updates are `Balanced` with a 100 m distance interval, a 5 minute time
+interval and `pausesUpdatesAutomatically`. A hundred-metre zone does not need a
+three-metre fix, and asking for one is what empties a battery.
+
+**Reconciliation.** Every time ORA comes to the front it takes one fix, flushes
+the queue and re-syncs regions. Stored presence is a belief, and beliefs go
+stale: phones get switched off, tasks get killed, callbacks never arrive.
+
+**Privacy.** Background is asked second and never at first run — the OS refuses
+"always" before "while using" anyway, and that is also the only order that
+makes sense to a person. Off stops the watching and deletes nothing; what ORA
+knows is erased separately and on purpose. Logging out shuts the monitoring
+down, because a phone left watching for somebody who signed out is a geofence
+zombie. On web the card says plainly that a browser cannot do this.
+
+**Routing** is configuration, not code: `ROUTING_PROVIDER=google_routes` plus
+`ROUTING_API_KEY` (a Google Cloud key with the Routes API enabled). Without
+them `get_route` returns `available: false` and ORA offers observed history,
+labelled as history.
+
 ## V3.6 Sprint 3 — Routines, Time at Places & Commute Intelligence
 
     PRESENCE HISTORY IS EVIDENCE ABOUT LIFE, NOT A JUDGMENT ABOUT LIFE.

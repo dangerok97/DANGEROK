@@ -13,6 +13,7 @@ export type Turn = {
   text: string;
   messageId?: string;
   sources?: OraSource[];
+  navigation?: OraNavigationOption[];
   attachments?: Array<{ name?: string }>;
   /** The send failed after the turn was already on screen. */
   failed?: boolean;
@@ -113,7 +114,50 @@ function OraTurnView({
         secondaryColor={colors.textSecondary}
         linkColor={colors.accent}
       />
+      <OraNavigation options={turn.navigation} />
       <OraSources sources={turn.sources} />
+    </View>
+  );
+}
+
+export type OraNavigationOption = { id?: string; label?: string; url?: string };
+
+/**
+ * The map apps ORA just offered, as buttons that open them.
+ *
+ * ORA works out *where*; the app the person already trusts does the driving.
+ * Which apps appear is decided on the server by what the platform can actually
+ * open — Apple Maps is not offered on Android — so this renders exactly what
+ * it was given and never invents an option.
+ */
+export function OraNavigation({ options }: { options?: OraNavigationOption[] }) {
+  const { colors } = useTheme();
+  const rows = (options || [])
+    .map((o) => {
+      const url = String(o?.url || '').trim();
+      const label = String(o?.label || '').trim();
+      // A button with no link is a button that does nothing.
+      return url && label && /^https?:\/\//i.test(url) ? { label, url } : null;
+    })
+    .filter(Boolean) as Array<{ label: string; url: string }>;
+
+  if (!rows.length) return null;
+
+  return (
+    <View style={styles.navigation} testID="ora-navigation">
+      {rows.map((r) => (
+        <Pressable
+          key={r.url}
+          onPress={() => void Linking.openURL(r.url)}
+          style={[styles.navButton, { borderColor: colors.border, backgroundColor: colors.surface }]}
+          testID={`ora-navigate-${r.label.toLowerCase().replace(/\s+/g, '-')}`}
+          accessibilityRole="link"
+          accessibilityLabel={`Avvia navigazione con ${r.label}`}
+        >
+          <Ionicons name="navigate-outline" size={14} color={colors.accent} />
+          <Text style={[styles.navButtonText, { color: colors.textPrimary }]}>{r.label}</Text>
+        </Pressable>
+      ))}
     </View>
   );
 }
@@ -249,6 +293,23 @@ const styles = StyleSheet.create({
   oraTurn: { marginTop: tokens.spacing.xl, gap: tokens.spacing.sm },
   oraMark: { fontSize: 11, fontWeight: '700', letterSpacing: 1.3 },
 
+  navigation: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: tokens.spacing.sm,
+    marginTop: tokens.spacing.md,
+  },
+  navButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: tokens.radius.md,
+    paddingHorizontal: tokens.spacing.md,
+    paddingVertical: 9,
+    minHeight: 40,
+  },
+  navButtonText: { fontSize: 13, fontWeight: '500' },
   sources: {
     marginTop: tokens.spacing.md,
     borderRadius: tokens.radius.md,

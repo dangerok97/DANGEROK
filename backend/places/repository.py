@@ -48,6 +48,7 @@ class PlacesRepository:
             await self.db[CANDIDATES].create_index("id", unique=True)
             await self.db[OBSERVATIONS].create_index([("user_id", 1), ("observed_at", -1)])
             await self.db[OBSERVATIONS].create_index("expires_at", expireAfterSeconds=0)
+            await self.db[OBSERVATIONS].create_index([("user_id", 1), ("event_id", 1)])
             await self.db[SESSIONS].create_index([("user_id", 1), ("place_id", 1), ("exited_at", 1)])
             await self.db[SESSIONS].create_index([("user_id", 1), ("entered_at", -1)])
             await self.db[SESSIONS].create_index("id", unique=True)
@@ -127,6 +128,21 @@ class PlacesRepository:
         )
         await self.db[OBSERVATIONS].insert_one(observation.model_dump())
         return observation
+
+    async def already_seen(self, user_id: str, event_id: Optional[str]) -> bool:
+        """
+        Whether this exact sighting has already been filed.
+
+        A phone may deliver the same background callback twice, and a batch
+        that failed halfway may be retried whole. Ten deliveries of one arrival
+        must remain one evening at home.
+        """
+        if not event_id:
+            return False
+        found = await self.db[OBSERVATIONS].find_one(
+            {"user_id": user_id, "event_id": event_id}, {"_id": 1}
+        )
+        return found is not None
 
     async def recent_observations(
         self, user_id: str, *, limit: int = 400

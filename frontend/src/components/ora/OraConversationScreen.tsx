@@ -33,6 +33,7 @@ import {
 import { LocationPermissionSheet } from '@/src/components/ora/LocationPermissionSheet';
 import { requestForegroundPosition } from '@/src/location/foregroundGeo';
 import { FocusScreen } from '@/src/shell';
+import type { OraNavigationOption } from '@/src/components/ora/OraTurns';
 import { useTheme } from '@/src/theme/ThemeProvider';
 import { tokens } from '@/src/theme/tokens';
 import { buildGoalWorkspaceHref, type OraEntryPoint } from '@/src/ora/oraNav';
@@ -204,6 +205,15 @@ const fulfilledPendingTurns = new Set<string>();
  * attached to a different reply.
  */
 const lastSources = new Map<string, { text: string; sources: OraSourceRef[] }>();
+/**
+ * The same for the map apps, and for the same reason.
+ *
+ * History is the authority on what was said and carries neither sources nor
+ * navigation options, so a turn rebuilt from it loses both. Losing buttons is
+ * worse than losing citations: the sentence still ends "con quale app vuoi
+ * navigare?" and there is now nothing to answer it with.
+ */
+const lastNavigation = new Map<string, { text: string; navigation: OraNavigationOption[] }>();
 
 type OraSourceRef = { title?: string; url?: string };
 
@@ -213,17 +223,50 @@ function rememberSources(sessionId: string | null, turns: Turn[]): void {
   if (last?.sources?.length) {
     lastSources.set(sessionId, { text: last.text, sources: last.sources });
   }
+  if (last?.navigation?.length) {
+    lastNavigation.set(sessionId, { text: last.text, navigation: last.navigation });
+  }
+}
+
+/** Hold what the last live answer carried, keyed on its own text. */
+function rememberExtras(
+  sessionId: string | null,
+  text: string,
+  sources: OraSourceRef[],
+  navigation: OraNavigationOption[],
+): void {
+  if (!sessionId || !text.trim()) return;
+  if (sources.length) lastSources.set(sessionId, { text, sources });
+  if (navigation.length) lastNavigation.set(sessionId, { text, navigation });
 }
 
 function withRememberedSources(sessionId: string | null, turns: Turn[]): Turn[] {
   if (!sessionId) return turns;
-  const held = lastSources.get(sessionId);
-  if (!held) return turns;
   const idx = turns.map((t) => t.role).lastIndexOf('ora');
-  if (idx < 0 || turns[idx].sources?.length) return turns;
-  if (turns[idx].text.trim() !== held.text.trim()) return turns;
-  const out = [...turns];
-  out[idx] = { ...out[idx], sources: held.sources };
+  if (idx < 0) return turns;
+  let out = turns;
+
+  const heldSources = lastSources.get(sessionId);
+  // Matched on the answer text, so evidence can never end up attached to a
+  // different reply.
+  if (
+    heldSources &&
+    !turns[idx].sources?.length &&
+    turns[idx].text.trim() === heldSources.text.trim()
+  ) {
+    out = [...out];
+    out[idx] = { ...out[idx], sources: heldSources.sources };
+  }
+
+  const heldNav = lastNavigation.get(sessionId);
+  if (
+    heldNav &&
+    !out[idx].navigation?.length &&
+    out[idx].text.trim() === heldNav.text.trim()
+  ) {
+    out = out === turns ? [...turns] : out;
+    out[idx] = { ...out[idx], navigation: heldNav.navigation };
+  }
   return out;
 }
 
@@ -438,16 +481,32 @@ export function OraConversationScreen({
           try {
             res = await applyAiCoreResponse({ ...res, client_actions: actions }, sid);
             if (cancelled) return;
+            {
+              // Whatever the live answer carried is held before history —
+              // which knows the words and nothing else — is allowed to win.
+              const liveText = (res.ora_text || res.question || '').trim();
+              rememberExtras(
+                sid,
+                liveText,
+                Array.isArray(res.sources) ? res.sources.slice(0, 5) : [],
+                Array.isArray((res as any).navigation)
+                  ? ((res as any).navigation as OraNavigationOption[]).slice(0, 3)
+                  : [],
+              );
+            }
             if (Array.isArray(res.history) && res.history.length) {
               setTurns(withRememberedSources(sid, historyToTurns(res.history)));
             } else {
               const ora = (res.ora_text || res.question || '').trim();
               const sources = Array.isArray(res.sources) ? res.sources.slice(0, 5) : [];
+              const navigation = Array.isArray((res as any).navigation)
+                ? ((res as any).navigation as OraNavigationOption[]).slice(0, 3)
+                : [];
               if (ora) {
                 setTurns((prev) => {
                   const last = prev[prev.length - 1];
                   if (last?.role === 'ora' && last.text === ora) return prev;
-                  return [...prev, { role: 'ora', text: ora, sources }];
+                  return [...prev, { role: 'ora', text: ora, sources, navigation }];
                 });
               }
             }
@@ -533,6 +592,9 @@ export function OraConversationScreen({
       // every time — so the evidence for the newest answer is put back on it.
       const rebuilt = historyToTurns(res.history);
       const sources = Array.isArray(res.sources) ? res.sources.slice(0, 5) : [];
+      const navigation = Array.isArray((res as any).navigation)
+        ? ((res as any).navigation as OraNavigationOption[]).slice(0, 3)
+        : [];
       const lastOra = rebuilt.map((t) => t.role).lastIndexOf('ora');
       if (lastOra >= 0) {
         // The response carries the answer in full; the stored history entry is
@@ -547,6 +609,7 @@ export function OraConversationScreen({
           ...rebuilt[lastOra],
           text,
           ...(sources.length ? { sources } : {}),
+          ...(navigation.length ? { navigation } : {}),
         };
       }
       rememberSources(sid, rebuilt);
@@ -554,11 +617,16 @@ export function OraConversationScreen({
     } else {
       const ora = (res.ora_text || res.question || '').trim();
       const sources = Array.isArray(res.sources) ? res.sources.slice(0, 5) : [];
+      const navigation = Array.isArray((res as any).navigation)
+        ? ((res as any).navigation as OraNavigationOption[]).slice(0, 3)
+        : [];
       setTurns((prev) => {
         const cleared = prev.map((t) =>
           t.messageId === clientMessageId ? { ...t, failed: false } : t,
         );
-        const next = ora ? [...cleared, { role: 'ora' as const, text: ora, sources }] : cleared;
+        const next = ora
+          ? [...cleared, { role: 'ora' as const, text: ora, sources, navigation }]
+          : cleared;
         rememberSources(sid, next);
         return next;
       });

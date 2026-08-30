@@ -15,6 +15,7 @@ being honest.
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from places import analytics, geometry, presence
@@ -33,6 +34,10 @@ from places.models import (
 from places.repository import PlacesRepository
 
 logger = logging.getLogger(__name__)
+
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 class PlacesService:
@@ -61,6 +66,9 @@ class PlacesService:
         source: str = "user_stated",
         from_candidate_id: Optional[str] = None,
         role_confirmed_by_user: bool = True,
+        currently_here: bool = False,
+        google_place_id: str = "",
+        location_source: str = "",
     ) -> LifePlace:
         """
         Write down a place the person named.
@@ -82,6 +90,16 @@ class PlacesService:
             address=address.strip()[:240],
             locality=locality.strip()[:160],
             source=source,  # type: ignore[arg-type]
+            google_place_id=google_place_id.strip()[:200],
+            # Where the point came from. Inferred only when the caller did not
+            # say: a place with coordinates and no story is at least honest
+            # about having been picked rather than looked up.
+            location_source=(  # type: ignore[arg-type]
+                location_source
+                if location_source
+                in {"current_position", "google_place", "map_selection", "name_only"}
+                else ("map_selection" if coordinates is not None else "name_only")
+            ),
             from_candidate_id=from_candidate_id,
         )
         # Home and work are singular. A second one means the person moved or
@@ -95,6 +113,109 @@ class PlacesService:
                 await self.repo.save_place(previous)
 
         await self._link_to_life_graph(place)
+        saved = await self.repo.save_place(place)
+
+        if currently_here and saved.coordinates is not None:
+            await self.confirm_current_presence(user_id, saved.id)
+        return saved
+
+    async def confirm_current_presence(
+        self, user_id: str, place_id: str
+    ) -> Optional[PresenceSession]:
+        """
+        Somebody said they are here. Believe them, now.
+
+            LOCATION OBSERVATION != PRESENCE FACT
+            EXPLICIT USER STATEMENT IS A LIFE FACT
+
+        Dwell exists because a sensor reading is a guess that needs
+        corroborating; a person telling you where they are is not a guess. Ten
+        minutes of "non sei qui" after somebody has just said "sono qui" is ORA
+        arguing with them about their own life.
+
+        This does not weaken the GPS path. Nothing about `advance()` changes:
+        inferred presence still needs hysteresis and dwell. This is a second,
+        narrower door into the same state, and it is opened only by a
+        statement.
+        """
+        place = await self.repo.get_place(user_id, place_id)
+        if place is None or place.coordinates is None:
+            return None
+
+        # One stay per place, whichever door it came through. A confirmation
+        # while already present is a no-op, not a second session.
+        session = await self.repo.open_session(user_id, place_id)
+        if session is None:
+            session = await self.repo.save_session(
+                PresenceSession(
+                    user_id=user_id,
+                    place_id=place_id,
+                    entered_at=_now().isoformat(),
+                    source="user_confirmation",
+                )
+            )
+
+        state = await self.repo.get_state(user_id, place_id)
+        state.status = "present"
+        state.since = session.entered_at
+        state.pending_since = None
+        state.pending_samples = 0
+        state.last_seen_at = _now().isoformat()
+        await self.repo.save_state(state)
+
+        # Being here means not being somewhere else: an old stay left open at
+        # another place would make two places both say "sei qui".
+        for other in await self.repo.list_places(user_id):
+            if other.id == place_id:
+                continue
+            open_elsewhere = await self.repo.open_session(user_id, other.id)
+            if open_elsewhere is not None:
+                await self._close_stay(user_id, other.id, _now().isoformat())
+                stale = await self.repo.get_state(user_id, other.id)
+                stale.status = "outside"
+                stale.since = None
+                await self.repo.save_state(stale)
+        return session
+
+    async def relocate_place(
+        self,
+        user_id: str,
+        place_id: str,
+        *,
+        coordinates: Coordinates,
+        address: str = "",
+        locality: str = "",
+        google_place_id: str = "",
+        location_source: str = "map_selection",
+    ) -> Optional[LifePlace]:
+        """
+        Move a place to where the person says it is.
+
+        The same operation the editor performs when creating one, so a place
+        corrected later is indistinguishable from a place got right the first
+        time. Presence history stays: they did go there, whatever the pin said.
+        """
+        place = await self.repo.get_place(user_id, place_id)
+        if place is None:
+            return None
+        place.coordinates = coordinates
+        if address:
+            place.address = address.strip()[:240]
+        if locality:
+            place.locality = locality.strip()[:160]
+        place.google_place_id = google_place_id.strip()[:200]
+        if location_source in {
+            "current_position", "google_place", "map_selection", "name_only"
+        }:
+            place.location_source = location_source  # type: ignore[assignment]
+        # The zone was drawn around the old point; it has to follow.
+        if place.zone is not None:
+            place.zone = PresenceZone(
+                center=coordinates,
+                entry_radius_m=place.zone.entry_radius_m,
+                exit_radius_m=place.zone.exit_radius_m,
+                source=place.zone.source,
+            )
         return await self.repo.save_place(place)
 
     async def rename_place(
@@ -150,6 +271,7 @@ class PlacesService:
         dwell_seconds: Optional[int] = None,
         source: str = "foreground_device",
         observed_at: Optional[str] = None,
+        event_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         File one sighting: against a known place, or into a cluster.
@@ -161,6 +283,11 @@ class PlacesService:
         if accuracy_meters is not None and accuracy_meters > UNUSABLE_ACCURACY_METERS:
             return {"recorded": False, "reason": "accuracy_too_low"}
 
+        # Before anything moves: a sighting delivered twice must not advance a
+        # state machine twice, or a duplicated callback becomes a second stay.
+        if await self.repo.already_seen(user_id, event_id):
+            return {"recorded": False, "reason": "already_recorded", "duplicate": True}
+
         point = Coordinates(
             latitude=latitude, longitude=longitude, accuracy_meters=accuracy_meters
         )
@@ -169,6 +296,7 @@ class PlacesService:
             coordinates=point,
             dwell_seconds=dwell_seconds,
             source=source,
+            event_id=event_id,
             # Dwell is measured against the moment the fix was taken, not the
             # moment it arrived: a batch of readings uploaded when the app comes
             # back online describes the past, not the last five seconds.

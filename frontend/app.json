@@ -13,7 +13,12 @@
       "bundleIdentifier": "com.emergent.oradecisionengine.b7escs",
       "usesAppleSignIn": true,
       "infoPlist": {
-        "NSCalendarsFullAccessUsageDescription": "Legge i tuoi eventi per aiutarti a organizzare la giornata."
+        "NSCalendarsFullAccessUsageDescription": "Legge i tuoi eventi per aiutarti a organizzare la giornata.",
+        "NSLocationWhenInUseUsageDescription": "ORA può usare la posizione mentre la usi per riconoscere i tuoi luoghi e aiutarti negli spostamenti.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Consenti a ORA di riconoscere quando arrivi o lasci i tuoi luoghi anche quando l'app non è aperta.",
+        "UIBackgroundModes": [
+          "location"
+        ]
       }
     },
     "android": {
@@ -47,6 +52,16 @@
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#F6F4F1"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Consenti a ORA di riconoscere quando arrivi o lasci i tuoi luoghi anche quando l'app non è aperta.",
+          "locationWhenInUsePermission": "ORA può usare la posizione mentre la usi per riconoscere i tuoi luoghi e aiutarti negli spostamenti.",
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
         }
       ]
     ],

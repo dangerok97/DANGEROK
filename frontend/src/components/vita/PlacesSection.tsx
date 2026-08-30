@@ -13,10 +13,13 @@
 import * as React from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 
 import { api, LifePlace, PlaceCandidate, PlacePresence, PlacesResponse } from '@/src/api/client';
+import { PlaceEditor } from '@/src/components/vita/PlaceEditor';
+import { invalidatePlace, useRevalidate } from '@/src/lib/revalidate';
 import { useTheme } from '@/src/theme/ThemeProvider';
+import { formatDuration } from '@/src/utils/duration';
 import { tokens } from '@/src/theme/tokens';
 
 type Props = {
@@ -40,15 +43,6 @@ const ROLE_ICON: Record<string, keyof typeof Ionicons.glyphMap> = {
  * is not having arrived, and "sei qui" said too early is the single-sample
  * mistake wearing better clothes.
  */
-function hours(seconds?: number | null): string | null {
-  if (!seconds || seconds < 60) return null;
-  const h = Math.floor(seconds / 3600);
-  const m = Math.round((seconds % 3600) / 60);
-  if (h && m) return `${h}h ${m}m`;
-  if (h) return `${h}h`;
-  return `${m}m`;
-}
-
 /**
  * One line under a place, and only one.
  *
@@ -57,7 +51,7 @@ function hours(seconds?: number | null): string | null {
  */
 function secondaryLabel(place: LifePlace): string | null {
   if (place.presence?.present) {
-    const since = hours(place.presence.current_session_seconds);
+    const since = formatDuration(place.presence.current_session_seconds);
     return since ? `Sei qui da ${since}` : 'Sei qui';
   }
   // Somewhere they went several times this week is better described by how
@@ -104,7 +98,6 @@ export function PlacesSection({ compact, onOpenOra }: Props) {
   const [status, setStatus] = React.useState<Status>('loading');
   const [data, setData] = React.useState<PlacesResponse | null>(null);
   const [adding, setAdding] = React.useState(false);
-  const [draft, setDraft] = React.useState('');
   const [answering, setAnswering] = React.useState<string | null>(null);
   const [answer, setAnswer] = React.useState('');
   const [busy, setBusy] = React.useState(false);
@@ -113,6 +106,12 @@ export function PlacesSection({ compact, onOpenOra }: Props) {
     try {
       setData(await api.placesList());
       setStatus('ready');
+      // The set of places is also the set of regions the OS watches. A
+      // geofence around a flat somebody moved out of is a phone waking up for
+      // nothing, forever, so the two are kept in step here.
+      void import('@/src/location/presenceRuntime')
+        .then((runtime) => runtime.syncRegions())
+        .catch(() => undefined);
     } catch {
       setStatus('error');
     }
@@ -122,41 +121,46 @@ export function PlacesSection({ compact, onOpenOra }: Props) {
     void load();
   }, [load]);
 
-  const addPlace = React.useCallback(
-    async (useCurrentPosition: boolean) => {
-      const label = draft.trim();
-      if (!label || busy) return;
-      setBusy(true);
-      try {
-        let coords: { latitude: number; longitude: number; accuracy_meters?: number } | null = null;
-        if (useCurrentPosition) {
-          const { requestForegroundPosition } = await import('@/src/location/foregroundGeo');
-          const fix = await requestForegroundPosition({ maximumAgeMs: 0 });
-          // A place saved without the position the person asked for would be a
-          // different place than the one they meant, so this stops instead.
-          if (!fix.ok) {
-            setBusy(false);
-            return;
-          }
-          coords = {
-            latitude: fix.latitude,
-            longitude: fix.longitude,
-            accuracy_meters: fix.accuracyMeters,
-          };
-        }
-        await api.placesCreate({
-          label,
-          ...(coords ?? {}),
-          source: useCurrentPosition ? 'current_position' : 'user_stated',
-        });
-        setDraft('');
-        setAdding(false);
-        await load();
-      } finally {
-        setBusy(false);
-      }
+  // Vita resta montata mentre il dettaglio le sta sopra, quindi tornare
+  // indietro non rimonta niente: senza questi due, la lista continua a
+  // mostrare quello che aveva l'ultima volta che è nata.
+  useFocusEffect(
+    React.useCallback(() => {
+      void load();
+    }, [load]),
+  );
+  useRevalidate(['places:list', 'presence:current'], () => {
+    void load();
+  });
+
+  const savePlace = React.useCallback(
+    async (result: {
+      label: string;
+      latitude?: number;
+      longitude?: number;
+      address?: string;
+      locality?: string;
+      google_place_id?: string;
+      location_source: 'current_position' | 'google_place' | 'map_selection' | 'name_only';
+      currently_here: boolean;
+    }) => {
+      await api.placesCreate({
+        label: result.label,
+        latitude: result.latitude,
+        longitude: result.longitude,
+        address: result.address,
+        locality: result.locality,
+        google_place_id: result.google_place_id,
+        location_source: result.location_source,
+        source: result.currently_here ? 'current_position' : 'user_stated',
+        currently_here: result.currently_here,
+      });
+      setAdding(false);
+      // Only after the server said yes. Invalidating on the way out would
+      // announce a place that might not exist.
+      invalidatePlace();
     },
-    [draft, busy, load],
+    [],
   );
 
   const submitAnswer = React.useCallback(
@@ -168,7 +172,7 @@ export function PlacesSection({ compact, onOpenOra }: Props) {
         await api.placesAnswerCandidate(candidateId, said);
         setAnswer('');
         setAnswering(null);
-        await load();
+        invalidatePlace();
       } finally {
         setBusy(false);
       }
@@ -228,48 +232,11 @@ export function PlacesSection({ compact, onOpenOra }: Props) {
       ) : null}
 
       {adding ? (
-        <View style={[styles.adder, { borderColor: colors.border }]} testID="places-add-form">
-          <TextInput
-            value={draft}
-            onChangeText={setDraft}
-            placeholder="Come si chiama questo posto?"
-            placeholderTextColor={colors.textTertiary}
-            style={[styles.input, { color: colors.textPrimary, borderColor: colors.border }]}
-            testID="places-add-input"
-            editable={!busy}
-          />
-          <View style={styles.adderActions}>
-            <Pressable
-              onPress={() => void addPlace(true)}
-              disabled={!draft.trim() || busy || locationOff}
-              style={[
-                styles.primaryButton,
-                {
-                  backgroundColor: colors.accent,
-                  opacity: !draft.trim() || busy || locationOff ? 0.4 : 1,
-                },
-              ]}
-              testID="places-add-here"
-            >
-              <Text style={[styles.primaryButtonText, { color: colors.onAccent }]}>
-                Sono qui adesso
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={() => void addPlace(false)}
-              disabled={!draft.trim() || busy}
-              style={[
-                styles.secondaryButton,
-                { borderColor: colors.border, opacity: !draft.trim() || busy ? 0.4 : 1 },
-              ]}
-              testID="places-add-manual"
-            >
-              <Text style={[styles.secondaryButtonText, { color: colors.textPrimary }]}>
-                Salva solo il nome
-              </Text>
-            </Pressable>
-          </View>
-        </View>
+        <PlaceEditor
+          compact={compact}
+          onCancel={() => setAdding(false)}
+          onSave={savePlace}
+        />
       ) : null}
 
       {/* --- B. nessun luogo -------------------------------------------- */}
@@ -411,9 +378,11 @@ function PlaceRow({
             <View style={[styles.hereDot, { backgroundColor: colors.success }]} />
           ) : null}
         </View>
-        {place.locality || place.address ? (
+        {place.address || place.locality ? (
           <Text style={[styles.rowMeta, { color: colors.textTertiary }]} numberOfLines={1}>
-            {place.locality || place.address}
+            {/* The address if there is one: it is what somebody recognises.
+                Never coordinates. */}
+            {place.address || place.locality}
           </Text>
         ) : null}
         {presenceText ? (
@@ -589,13 +558,6 @@ const styles = StyleSheet.create({
     padding: tokens.spacing.md,
   },
   noticeText: { flex: 1, fontSize: 13, lineHeight: 18 },
-  adder: {
-    gap: tokens.spacing.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: tokens.radius.md,
-    padding: tokens.spacing.md,
-  },
-  adderActions: { flexDirection: 'row', flexWrap: 'wrap', gap: tokens.spacing.md },
   input: {
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: tokens.radius.sm,

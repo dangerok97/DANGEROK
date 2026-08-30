@@ -1516,6 +1516,7 @@ async def run_cognitive_loop(
                 external_queries=external_queries,
                 elapsed_ms=int((time.perf_counter() - t0) * 1000),
                 sources=public_sources[:MAX_SOURCES_UI],
+                navigation=_navigation_options(observations),
                 working_hint=None,
                 situation=(situation_result or {}).get("situation")
                 or st.get("active_situation_ref"),
@@ -2422,3 +2423,40 @@ def _compose_user_text(decision: CognitiveDecision) -> str:
             parts.append(decision.question.strip())
         return whole_sentences("\n\n".join(p for p in parts if p))
     return whole_sentences((decision.message_to_user or "").strip()) or "Ok."
+
+
+def _navigation_options(observations) -> list:
+    """
+    The map apps from the most recent handoff in this turn.
+
+    Only what `open_navigation` actually produced, and only when it produced
+    something openable: an option with no link is a button that does nothing,
+    and a sentence ending "con quale app vuoi navigare?" beside no buttons is
+    a question nobody can answer.
+    """
+    for obs in reversed(list(observations or [])):
+        payload = getattr(obs, "payload", None) or (
+            obs.get("payload") if isinstance(obs, dict) else None
+        ) or {}
+        if payload.get("capability") != "open_navigation" or not payload.get("ready"):
+            continue
+        if payload.get("url") and payload.get("app"):
+            return [
+                {
+                    "id": str(payload["app"])[:32],
+                    "label": str(payload["app"])[:40],
+                    "url": str(payload["url"])[:600],
+                }
+            ]
+        out = []
+        for option in payload.get("options") or []:
+            if option.get("url") and option.get("label"):
+                out.append(
+                    {
+                        "id": str(option.get("id") or "")[:32],
+                        "label": str(option["label"])[:40],
+                        "url": str(option["url"])[:600],
+                    }
+                )
+        return out[:3]
+    return []

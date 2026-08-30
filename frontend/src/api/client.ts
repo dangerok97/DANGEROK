@@ -287,11 +287,37 @@ export type LifePlace = {
   source: string;
   state: 'confirmed' | 'candidate' | 'dismissed' | 'deleted';
   has_coordinates: boolean;
+  location_source: 'current_position' | 'google_place' | 'map_selection' | 'name_only';
+  /** Whether an address Google knows is behind it. The id stays server-side. */
+  from_address: boolean;
+  /** Coarse centre + exit radius, only so the device can register a region. */
+  zone_center?: {
+    latitude: number;
+    longitude: number;
+    exit_radius_m: number;
+  } | null;
   from_candidate: boolean;
   created_at: string;
   updated_at: string;
   presence?: PlacePresence | null;
   this_week?: { visits: number; total_seconds: number } | null;
+};
+
+/** One address Google proposes while somebody types. */
+export type PlaceSuggestion = {
+  place_id: string | null;
+  text?: string | null;
+  primary?: string | null;
+  secondary?: string | null;
+};
+
+export type ResolvedPlace = {
+  available: boolean;
+  place_id: string;
+  address?: string | null;
+  locality?: string | null;
+  latitude: number;
+  longitude: number;
 };
 
 /** Somewhere seen repeatedly, with no claim about what it is. */
@@ -685,9 +711,47 @@ export const api = {
     address?: string;
     locality?: string;
     source?: 'user_stated' | 'current_position';
+    currently_here?: boolean;
+    google_place_id?: string;
+    location_source?: 'current_position' | 'google_place' | 'map_selection' | 'name_only';
   }) =>
     request<{ place: LifePlace }>('/places', {
       method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  placesRecordObservation: (body: {
+    latitude: number;
+    longitude: number;
+    accuracy_meters?: number;
+    observed_at?: string;
+    event_id?: string;
+  }) =>
+    request<{ recorded: boolean; duplicate?: boolean }>('/places/observations', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  // The Places key stays on the server: the browser asks ORA, not Google.
+  placesSuggest: (q: string, session: string) =>
+    request<{ available: boolean; suggestions?: PlaceSuggestion[]; too_short?: boolean }>(
+      `/places/lookup/suggest?q=${encodeURIComponent(q)}&session=${encodeURIComponent(session)}`,
+    ),
+  placesResolve: (placeId: string, session: string) =>
+    request<ResolvedPlace>(
+      `/places/lookup/resolve?place_id=${encodeURIComponent(placeId)}&session=${encodeURIComponent(session)}`,
+    ),
+  placesRelocate: (
+    placeId: string,
+    body: {
+      latitude: number;
+      longitude: number;
+      address?: string;
+      locality?: string;
+      google_place_id?: string;
+      location_source?: 'current_position' | 'google_place' | 'map_selection' | 'name_only';
+    },
+  ) =>
+    request<{ place: LifePlace }>(`/places/${encodeURIComponent(placeId)}/location`, {
+      method: 'PUT',
       body: JSON.stringify(body),
     }),
   placesDetail: (placeId: string) =>
