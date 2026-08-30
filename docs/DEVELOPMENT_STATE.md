@@ -1,5 +1,57 @@
 # ORA — Development State
 
+## V3.6 Sprint 3 — Routines, Time at Places & Commute
+
+Shipped: `places/analytics.py` (window clipping, open sessions, visits,
+transitions, median/percentile journey stats, day shape), `places/routing.py`
+(provider abstraction + Google Routes v2 adapter, off unless configured),
+`ObservedRoutine` read by the model and stored as candidate, five capabilities
+(`get_current_place`, `get_time_at_place`, `get_journeys_between_places`,
+`get_day_patterns`, `get_route`), presence in the Context Broker under its own
+category, weekly summary in Vita and in the place detail.
+
+Debt, named: no routing provider is configured in this environment, so live ETA
+is unexercised in QA — the abstraction and the honest-refusal path are tested,
+the live path is not. `expo-location` / `expo-task-manager` still not installed
+(Sprint 2 recipe stands). Routine acceptance (candidate → accepted) has no UI
+yet.
+
+## V3.6 Sprint 2 — Presence Zones & Enter/Exit
+
+Shipped: `PresenceZone` (two radii, exit > entry enforced at construction),
+`places/presence.py` (pure, synchronous state machine: outside / pending_enter
+/ present / pending_exit), `PresenceSession` with one-open-per-place
+idempotency, ambiguity for overlapping zones, accuracy judged against the zone
+it is used against, presence primitives (current, last entered, last exited,
+current duration, total in a bounded window), place detail screen, per-place
+and global history erasure, `suppressed` candidates that survive forgetting.
+
+Not built: routine prediction, weekly analytics, commute prediction, proactive
+notifications, in-app turn-by-turn, automatic home/work inference.
+
+Native: `expo-location` / `expo-task-manager` are NOT installed. The exact
+recipe is in ARCHITECTURE.md; it is compatible with this managed/CNG setup but
+needs a native build to verify, so it was left as a decision rather than an
+unverifiable dependency.
+
+## V3.6 Sprint 1 — Places Foundation
+
+Shipped: `places/` (models, geometry, repository, service, reasoning,
+navigation, caps, router), five capabilities, `Vita → Luoghi`, place questions
+on the V3.1 open-question engine, deep-link handoff to Google / Apple / Waze.
+
+Deliberately not built yet: routine analytics, time-at-home, commute
+prediction, proactive location notifications, background location, in-app
+turn-by-turn, a full map. Sprint 1 is the foundation those need.
+
+Known gap, named rather than hidden: there is no travel-time or route
+capability, so "quanto ci metto ad arrivare a lavoro?" resolves the place and
+then says plainly that it cannot compute the journey. That is the honest answer
+until a routing capability exists; it is not a silent failure.
+
+Stack limit: no `expo-location`. Background presence, geofencing and OS dwell
+events need a native build and are not simulated on web.
+
 ## V3.3 — Work admission (ingestion creates no work)
 
 - `backend/home/work_admission.py`: `WORK_REASONS`, `KNOWLEDGE_SOURCES`,

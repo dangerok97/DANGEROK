@@ -84,6 +84,15 @@ try:
 except Exception:
     pass
 
+# Life Places — Vita → Luoghi (V3.6). Location stays where it was: this is
+# what ORA knows, not what it may observe.
+try:
+    from places.router import router as places_router
+
+    ALL_ROUTERS.append(places_router)
+except Exception:
+    pass
+
 # Contextual card visuals (PX1.2)
 try:
     from visuals.router import router as visuals_router

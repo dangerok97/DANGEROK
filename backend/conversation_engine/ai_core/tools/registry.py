@@ -445,6 +445,8 @@ class ToolRegistry:
         )
         self._register_files()
         self._register_location()
+        self._register_places()
+        self._register_presence_history()
         self._register_calendar()
 
     def _register_location(self) -> None:
@@ -495,6 +497,264 @@ class ToolRegistry:
                 risk="read",
                 handler=loc_caps.get_recent_presence_context,
                 tags=["location", "presence"],
+            )
+        )
+
+    def _register_places(self) -> None:
+        """
+        Places, and getting to them. Every one of these is semantically blind.
+
+        They can list what the person named, resolve a name to one place, write
+        down a place somebody described, file a sighting, and build a
+        navigation link. None of them decides which place matters, what an
+        unnamed place is, or whether now is the moment to leave.
+        """
+        from places import caps as place_caps
+
+        self.register(
+            CapabilitySpec(
+                capability="list_life_places",
+                description=(
+                    "The places the person has confirmed and named — home, work "
+                    "and anything else they keep. Names are theirs. A role is "
+                    "present only when they said so. Use this before assuming "
+                    "you know where somebody lives or works."
+                ),
+                input_schema={"type": "object", "properties": {}},
+                classification="personal",
+                side_effect="READ_ONLY",
+                risk="read",
+                handler=place_caps.list_life_places,
+                tags=["places", "life"],
+            )
+        )
+        self.register(
+            CapabilitySpec(
+                capability="get_life_place",
+                description=(
+                    "Resolve what somebody called a place — \"lavoro\", \"casa di "
+                    "mia madre\" — to one place they confirmed. Returns resolved "
+                    "false with options when the name fits more than one or "
+                    "none: ask them which, never pick."
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {"name": {"type": "string"}},
+                    "required": ["name"],
+                },
+                classification="personal",
+                side_effect="READ_ONLY",
+                risk="read",
+                handler=place_caps.get_life_place,
+                tags=["places", "life"],
+            )
+        )
+        self.register(
+            CapabilitySpec(
+                capability="save_life_place",
+                description=(
+                    "Remember a place the person described, under the name they "
+                    "gave it. Set role only when their own words carried one "
+                    "(where they live → home, where they work → work, otherwise "
+                    "other). Never label a place for them."
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "label": {"type": "string"},
+                        "role": {"type": "string", "enum": ["home", "work", "other"]},
+                        "latitude": {"type": "number"},
+                        "longitude": {"type": "number"},
+                        "address": {"type": "string"},
+                        "locality": {"type": "string"},
+                    },
+                    "required": ["label"],
+                },
+                classification="personal",
+                side_effect="REVERSIBLE_WRITE",
+                risk="write_soft",
+                handler=place_caps.save_life_place,
+                tags=["places", "life"],
+            )
+        )
+        self.register(
+            CapabilitySpec(
+                capability="record_location_observation",
+                description=(
+                    "File one sighting of where the device is. Evidence, not a "
+                    "fact: it never states that anywhere is home, work or "
+                    "anything else."
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "latitude": {"type": "number"},
+                        "longitude": {"type": "number"},
+                        "accuracy_meters": {"type": "number"},
+                        "dwell_seconds": {"type": "integer"},
+                    },
+                    "required": ["latitude", "longitude"],
+                },
+                classification="personal",
+                side_effect="REVERSIBLE_WRITE",
+                risk="write_soft",
+                handler=place_caps.record_location_observation,
+                tags=["places", "location"],
+            )
+        )
+        self.register(
+            CapabilitySpec(
+                capability="open_navigation",
+                description=(
+                    "Prepare turn-by-turn in the map app the person uses. Call "
+                    "it when they want to GO somewhere — not when they asked "
+                    "how long it takes or which way it runs. Returns a link, or "
+                    "the choice of app when they have not picked one."
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "destination": {"type": "string"},
+                        "mode": {
+                            "type": "string",
+                            "enum": ["driving", "walking", "transit", "cycling"],
+                        },
+                    },
+                    "required": ["destination"],
+                },
+                classification="personal",
+                # Nothing is written and nothing is sent: this returns a link
+                # and the person taps it. The handoff is theirs to make.
+                side_effect="READ_ONLY",
+                risk="read",
+                handler=place_caps.open_navigation,
+                tags=["places", "navigation"],
+            )
+        )
+
+    def _register_presence_history(self) -> None:
+        """
+        What their own past says about where they spend time.
+
+        Sums, counts and medians are computed here; what any of it means is
+        not. The one distinction these descriptions must never lose is between
+        a journey they made and the traffic right now.
+        """
+        from places import caps as place_caps
+
+        self.register(
+            CapabilitySpec(
+                capability="get_current_place",
+                description=(
+                    "Which of their own places they are in right now, and for "
+                    "how long. Use before asking somebody where they are."
+                ),
+                input_schema={"type": "object", "properties": {}},
+                classification="personal",
+                side_effect="READ_ONLY",
+                risk="read",
+                handler=place_caps.get_current_place,
+                tags=["places", "presence"],
+            )
+        )
+        self.register(
+            CapabilitySpec(
+                capability="get_time_at_place",
+                description=(
+                    "Time spent at one of their places over a period, with the "
+                    "visit count, the average visit and whether they are still "
+                    "there. period: today | yesterday | this_week | this_month "
+                    "| last_N_days. Answers \"quanto tempo sono stato a...\" and "
+                    "\"quante volte sono andato a...\"."
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "place": {"type": "string"},
+                        "period": {"type": "string"},
+                    },
+                    "required": ["place"],
+                },
+                classification="personal",
+                side_effect="READ_ONLY",
+                risk="read",
+                handler=place_caps.get_time_at_place,
+                tags=["places", "presence"],
+            )
+        )
+        self.register(
+            CapabilitySpec(
+                capability="get_journeys_between_places",
+                description=(
+                    "How long their OWN past trips between two places took: "
+                    "typical, fastest, slowest, usual range, sample count. This "
+                    "is observed history, NOT current traffic — say \"di solito "
+                    "ci metti\", never \"con il traffico attuale\". For live "
+                    "traffic use get_route."
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "from": {"type": "string"},
+                        "to": {"type": "string"},
+                        "period": {"type": "string"},
+                    },
+                },
+                classification="personal",
+                side_effect="READ_ONLY",
+                risk="read",
+                handler=place_caps.get_journeys_between_places,
+                tags=["places", "presence"],
+            )
+        )
+        self.register(
+            CapabilitySpec(
+                capability="get_day_patterns",
+                description=(
+                    "The shape of their recent days: which places, in what "
+                    "order, when, for how long, and the journeys between. "
+                    "Evidence for reading a habit — it contains no claim that "
+                    "one exists."
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {"period": {"type": "string"}},
+                },
+                classification="personal",
+                side_effect="READ_ONLY",
+                risk="read",
+                handler=place_caps.get_day_patterns,
+                tags=["places", "presence"],
+            )
+        )
+        self.register(
+            CapabilitySpec(
+                capability="get_route",
+                description=(
+                    "Live journey time from their current position to one of "
+                    "their places, from a routing service. Returns "
+                    "available=false when no service is configured or their "
+                    "position is unknown — in that case say so and offer their "
+                    "observed history instead, clearly labelled as history. "
+                    "travel_mode: drive | walk | bicycle | transit; do not "
+                    "assume driving."
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "destination": {"type": "string"},
+                        "travel_mode": {
+                            "type": "string",
+                            "enum": ["drive", "walk", "bicycle", "transit"],
+                        },
+                    },
+                    "required": ["destination"],
+                },
+                classification="personal",
+                side_effect="READ_ONLY",
+                risk="read",
+                handler=place_caps.get_route,
+                tags=["places", "navigation"],
             )
         )
 

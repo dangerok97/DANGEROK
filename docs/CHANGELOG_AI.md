@@ -1,5 +1,64 @@
 # ORA — AI Changelog
 
+## 2026-08-30 — V3.6 Sprint 3: Routines, Time at Places & Commute
+
+Presence history became something ORA can answer with. How long you were home
+this week, how many times you went to the gym, when you got to the office, how
+long your commute usually takes — computed from your own stays, not estimated.
+
+Usually means the middle journey, not the average of them. Four commutes of 31,
+32, 29 and 95 minutes average 47 minutes, which is a duration none of them
+took; ORA says about 32, and still tells you about the 95.
+
+And it will not tell you about traffic it cannot see. Asked how long it takes
+right now with no routing service configured, ORA says so and offers your own
+history instead, labelled as history.
+
+Habits are read, not counted. ORA can describe the shape of your days when you
+ask, and nothing turns three similar mornings into a declared routine.
+
+## 2026-08-30 — V3.6 Sprint 2: Presence Zones & Enter/Exit
+
+A place stopped being a point. Every LifePlace is now a zone with two radii —
+one to enter, a wider one to leave — and the gap between them is what stops a
+phone sitting still on a table from producing a night of arrivals and
+departures.
+
+Crossing a boundary is a suspicion, not an event. It becomes presence only if
+it is still true minutes later, and evaporates without trace if it is not, so
+driving past the end of your own street leaves nothing behind. Leaving works
+the same way in reverse, more patiently: inventing a visit is worse than
+noticing a departure late.
+
+Stays are persisted. One open session per place, however many fixes arrive, and
+a duration you can read: entered 18:05, left 19:08, one hour and three minutes.
+
+When two places contain the same point, ORA says so instead of choosing.
+
+## 2026-08-30 — V3.6 Life Presence & Location Intelligence (Sprint 1)
+
+Where a person's life happens, and who is allowed to say what it means.
+
+A device can notice that somebody keeps returning to the same coordinates.
+That is arithmetic. What the place *is* is not in the coordinates, so ORA does
+not decide it: the measurements go to the model, which decides only whether the
+pattern is worth a question, and the question goes to the person, whose answer
+is the only thing that creates a place. Observation is not fact, and nothing in
+`places/` can promote one into the other.
+
+Vita gained a Luoghi section — confirmed places with the names their owner gave
+them, a row for anywhere ORA has noticed but nobody has named, and the state of
+the permission behind it all. It is a section of Vita, not a sixth tab: the
+primary tabs name surfaces of the Life OS, and places are part of a life.
+
+"Portami a lavoro" now resolves to the place the person confirmed and hands off
+to their own map app — all three offered, none preferred until they say. Asking
+how long it takes is a different request and does not open anything.
+
+Honest about the stack: no `expo-location`, so no background location, no
+geofencing, no OS dwell events. Web foreground fixes only, and the API says so
+rather than implying more.
+
 ## 2026-08-28 — V3.3 Knowledge acquisition creates no work
 
 The previous pass stopped a well-read policy from becoming the first thing on

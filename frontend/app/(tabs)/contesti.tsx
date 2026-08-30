@@ -31,6 +31,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 
 import { api, LifeAreaCompleteness, LifeProfile, StudyPlan, TravelProject } from '@/src/api/client';
+import { PlacesSection } from '@/src/components/vita/PlacesSection';
 import { useTheme } from '@/src/theme/ThemeProvider';
 import { tokens } from '@/src/theme/tokens';
 import { ErrorState } from '@/src/components/ui/ErrorState';
@@ -314,6 +315,10 @@ export default function VitaScreen() {
         </VitaSection>
       ) : null}
 
+      <VitaSection title="LUOGHI" testID="vita-places">
+        <PlacesSection compact={!grid} onOpenOra={updateWithOra} />
+      </VitaSection>
+
       <VitaSection title="LA TUA VITA" testID="vita-areas">
         {vita.areas.length ? (
           <View style={grid ? styles.grid3 : styles.stack}>
@@ -377,7 +382,18 @@ export default function VitaScreen() {
                 onRetry={() => void load()}
               />
             ) : empty ? (
-              <VitaEmpty onTalk={updateWithOra} />
+              /*
+                Places are knowledge of their own. Somebody who has told ORA
+                nothing else may still have said where they live, and hiding
+                that behind "ORA sta ancora conoscendo la tua vita" would mean
+                the one thing they did tell it has nowhere to appear.
+              */
+              <>
+                <VitaEmpty onTalk={updateWithOra} />
+                <VitaSection title="LUOGHI" testID="vita-places-empty">
+                  <PlacesSection compact={!grid} onOpenOra={updateWithOra} />
+                </VitaSection>
+              </>
             ) : (
               <>
                 {partial ? (

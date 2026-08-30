@@ -240,6 +240,80 @@ export type GuidedSetupState = {
 };
 
 
+export type LifePlaceRole = 'home' | 'work' | 'other';
+
+/** Where somebody stands with respect to one place. Never a coordinate. */
+export type PlacePresence = {
+  present: boolean;
+  status: 'outside' | 'pending_enter' | 'present' | 'pending_exit';
+  since?: string | null;
+  last_seen_at?: string | null;
+  current_session_seconds?: number | null;
+  last_entered_at?: string | null;
+  last_exited_at?: string | null;
+};
+
+export type PresenceSessionRow = {
+  id: string;
+  place_id: string;
+  entered_at: string;
+  exited_at?: string | null;
+  open: boolean;
+  duration_seconds?: number | null;
+  ambiguous: boolean;
+};
+
+export type PlaceDetail = {
+  place: LifePlace;
+  presence: PlacePresence;
+  zone: { managed: boolean; entry_radius_m?: number | null; exit_radius_m?: number | null };
+  recent_sessions: PresenceSessionRow[];
+  this_week?: {
+    visits: number;
+    total_seconds: number;
+    average_visit_seconds: number;
+    still_there: boolean;
+  } | null;
+};
+
+/** A place the person confirmed. Precise coordinates never leave the server. */
+export type LifePlace = {
+  id: string;
+  label: string;
+  role: LifePlaceRole;
+  role_confirmed_by_user: boolean;
+  address?: string | null;
+  locality?: string | null;
+  source: string;
+  state: 'confirmed' | 'candidate' | 'dismissed' | 'deleted';
+  has_coordinates: boolean;
+  from_candidate: boolean;
+  created_at: string;
+  updated_at: string;
+  presence?: PlacePresence | null;
+  this_week?: { visits: number; total_seconds: number } | null;
+};
+
+/** Somewhere seen repeatedly, with no claim about what it is. */
+export type PlaceCandidate = {
+  id: string;
+  locality?: string | null;
+  address_hint?: string | null;
+  times_seen: number;
+  last_seen: string;
+  question_id?: string | null;
+};
+
+export type PlacesResponse = {
+  places: LifePlace[];
+  candidates: PlaceCandidate[];
+  permission: {
+    preference: 'off' | 'while_using';
+    state: string;
+    freshness?: string;
+  };
+};
+
 export const api = {
   register: (email: string, password: string, name?: string) =>
     request<ApiAuth>('/auth/register', { method: 'POST', body: JSON.stringify({ email, password, name }) }, false),
@@ -598,6 +672,48 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body || {}),
     }),
+  // --- Vita → Luoghi (V3.6) -------------------------------------------
+  // What ORA knows. What it may observe lives under /location.
+  placesList: () =>
+    request<PlacesResponse>('/places'),
+  placesCreate: (body: {
+    label: string;
+    role?: LifePlaceRole;
+    latitude?: number;
+    longitude?: number;
+    accuracy_meters?: number;
+    address?: string;
+    locality?: string;
+    source?: 'user_stated' | 'current_position';
+  }) =>
+    request<{ place: LifePlace }>('/places', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  placesDetail: (placeId: string) =>
+    request<PlaceDetail>(`/places/${encodeURIComponent(placeId)}`),
+  placesForgetHistory: (placeId: string) =>
+    request<{ sessions_deleted: number }>(
+      `/places/${encodeURIComponent(placeId)}/history`,
+      { method: 'DELETE' },
+    ),
+  placesForgetAllHistory: () =>
+    request<{ sessions_deleted: number }>('/places/history', { method: 'DELETE' }),
+  placesRename: (placeId: string, label: string) =>
+    request<{ place: LifePlace }>(`/places/${encodeURIComponent(placeId)}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ label }),
+    }),
+  placesRemove: (placeId: string) =>
+    request<{ removed: boolean }>(`/places/${encodeURIComponent(placeId)}`, {
+      method: 'DELETE',
+    }),
+  placesAnswerCandidate: (candidateId: string, answer: string) =>
+    request<{ ok: boolean; outcome: string; place?: LifePlace }>(
+      `/places/candidates/${encodeURIComponent(candidateId)}/answer`,
+      { method: 'POST', body: JSON.stringify({ answer }) },
+    ),
+
   locationGetPreference: () =>
     request<{
       ok: boolean;

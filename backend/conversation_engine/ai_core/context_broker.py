@@ -386,9 +386,53 @@ class ContextBroker:
             )
         return out
 
+    async def _place_presence_facts(self, user_id: str) -> List[ContextFact]:
+        """
+        Which of their own places they are in, when that is the subject.
+
+        Gated by the same `presence` category as the device fix, which is the
+        minimum-necessary rule doing its job: a question about a mortgage does
+        not get somebody's movements, and a question about leaving for work
+        does. One sentence, never a history and never a coordinate.
+        """
+        out: List[ContextFact] = []
+        try:
+            from places.service import PlacesService
+
+            here = await PlacesService(self.db).where_now(user_id)
+        except Exception as e:
+            logger.info("context broker place presence soft-fail: %s", type(e).__name__)
+            return out
+
+        if not here.get("at_a_known_place"):
+            return out
+
+        seconds = here.get("seconds_here") or 0
+        for_how_long = (
+            f" (da circa {seconds // 3600}h{(seconds % 3600) // 60:02d}m)"
+            if seconds >= 3600
+            else (f" (da circa {seconds // 60} minuti)" if seconds >= 60 else "")
+        )
+        out.append(
+            ContextFact(
+                statement=(
+                    f"Right now they are at one of their own places: "
+                    f"{here.get('place')}{for_how_long}. This is presence, not "
+                    f"residence."
+                ),
+                fact=(
+                    f"Presence: at their place «{here.get('place')}»"
+                    f"{for_how_long}."
+                ),
+                source="places",
+            )
+        )
+        return out
+
     async def _presence_facts(self, user_id: str) -> List[ContextFact]:
         """Minimized presence — never a GPS trail; never overwrites residence."""
         out: List[ContextFact] = []
+        out.extend(await self._place_presence_facts(user_id))
         try:
             from location.service import LocationService
 
