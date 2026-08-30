@@ -81,6 +81,24 @@ E se davvero non riesce a leggere una cosa che le serve, te ne chiede una sola,
 precisa: "Non riesco a capire se la data è il 14 o il 17 ottobre. Qual è quella
 corretta?" — non ti restituisce il documento intero da controllare.
 
+## Ti aiuta a scegliere, non ti fa una classifica (V3.5)
+
+Quando stai scegliendo fra due cose, ORA non ti mette in fila dei punteggi.
+Guarda cosa conta davvero — per te, non in generale — e te lo dice: questa
+costa meno, quella copre un rischio che nel tuo caso pesa, e se per te conta
+soprattutto una delle due cose allora la risposta è quella.
+
+Se una possibilità sfora un limite che hai posto tu, la esclude e ti dice quale
+limite e di quanto. Se le manca qualcosa che solo tu puoi dirle, e senza quella
+la risposta cambierebbe, te lo chiede — una cosa, non un questionario. E se non
+basta comunque, te lo dice invece di sceglierti qualcosa a caso.
+
+I conti li fa lei, non li stima. E nessuna opzione le sta più simpatica di
+un'altra: non c'è niente da venderti.
+
+Consigliarti qualcosa non significa che ORA lo faccia. E non ti ritrovi una cosa
+da fare solo perché avete parlato di una scelta.
+
 ## Va a informarsi, quando serve (V3.4)
 
 Certe cose ORA non può saperle: non riguardano te, e cambiano senza avvisare.

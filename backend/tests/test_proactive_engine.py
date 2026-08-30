@@ -18,21 +18,18 @@ _BACKEND = str(Path(__file__).resolve().parents[1])
 if _BACKEND not in sys.path:
     sys.path.insert(0, _BACKEND)
 
+import _loop_harness  # tests/_loop_harness.py: the one place a loop is chosen
+
 MONGO = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
 DBNAME = os.environ.get("DB_NAME", "ora_test")
 FIXTURES = Path(__file__).parent / "fixtures" / "proactive_scenarios.json"
 
 
 def _run(coro):
-    try:
-        loop = asyncio.get_event_loop()
-        if loop.is_closed():
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-    return loop.run_until_complete(coro)
+    # Was a local try/except that built a fresh loop whenever the global slot
+    # had been cleared — which silently swapped the loop underneath anything
+    # bound to the old one. One shared loop, decided in one place, instead.
+    return _loop_harness.run(coro)
 
 
 def _close_client(client):

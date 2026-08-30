@@ -29,6 +29,32 @@ Verified on a fresh account in the real UI: setup, a real policy uploaded at the
 step that asks for it, the full pipeline, then Home (quiet), Attività (no task),
 Documenti (the policy, its summary, "Scade tra 53 giorni") and Vita.
 
+## 2026-08-29 — V3.5 Comparison & Recommendation Intelligence
+
+Evidence became a decision. ORA works out what a choice turns on for the person
+in front of it — not what usually matters for things of that kind — says which
+of those things are absolute and which are preferences, has the arithmetic done
+for it, reads the results back, and says what it would choose, or that it
+depends on what they care about most, or that it does not know enough yet.
+
+Verified across decisions with nothing in common. A mortgage produced
+"certainty of the instalment" as a deal-breaker and a ceiling the code then
+checked; a language course produced "compatible with working hours" and
+"travel without a car", and ruled out the cheaper option because it did not
+award the certification that was the point — then declined to recommend the
+survivor, because being last one standing is not the same as being right. Same
+code, no subject anywhere in it.
+
+There is no score. No weight, no sort, no ranking function — a guard asserts
+the words cannot appear as identifiers in the module. An option is better
+because a sentence says why.
+
+Two things the code refuses the model: an exclusion no breach supports, and
+recommending something it just ruled out. And one thing it refuses itself: a
+constraint that could not be checked is never treated as failed.
+
+Comparison creates a decision, not a task. It executes nothing.
+
 ## 2026-08-29 — V3.4 Universal Research Intelligence
 
 **The code orchestrates. The AI reasons.**

@@ -416,7 +416,7 @@ def start_orchestrator() -> bool:
 async def stop_orchestrator() -> None:
     """Graceful shutdown. Nothing is drained on purpose: whatever is queued is
     still pending in Mongo, so cancelling loses no work."""
-    global _started, _stopping
+    global _started, _stopping, _queue, _worker_task, _recovery_task
     _stopping = True
     for task in [_worker_task, _recovery_task, *_deferred_tasks.values()]:
         if task and not task.done():
@@ -425,6 +425,14 @@ async def stop_orchestrator() -> None:
     _scheduled.clear()
     _active.clear()
     _redo.clear()
+    _worker_task = None
+    _recovery_task = None
+    # The queue is bound to the loop it was created on, like every asyncio
+    # primitive. Keeping it past shutdown would hand the next worker — running
+    # on a new loop — a queue that belongs to a loop nobody runs any more.
+    # Dropping it loses nothing: as the docstring says, queued work is still
+    # pending in Mongo, and the next start builds a queue on its own loop.
+    _queue = None
     _started = False
 
 

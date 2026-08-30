@@ -14,13 +14,17 @@ _BACKEND = str(Path(__file__).resolve().parents[1])
 if _BACKEND not in sys.path:
     sys.path.insert(0, _BACKEND)
 
+import _loop_harness  # tests/_loop_harness.py: the one place a loop is chosen
+
 CORPUS_PATH = Path(__file__).resolve().parent / "fixtures" / "intent_corpus_it.json"
 MONGO = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
 DBNAME = os.environ.get("DB_NAME", "ora_test")
 
 
 def _run(coro):
-    return asyncio.get_event_loop().run_until_complete(coro)
+    # The session's own loop, not whatever the policy currently points at:
+    # a suite that used asyncio.run() before this one has cleared that slot.
+    return _loop_harness.run(coro)
 
 
 def _load_corpus():

@@ -20,6 +20,25 @@
 - Tests: `backend/tests/test_work_admission_v33.py` (17), run against real
   documents in Mongo through the real `build_home`. Seven mutations proven.
 
+## V3.5 — Comparison & Recommendation
+
+- `backend/comparison/models.py`: `ComparisonNeed`, `Alternative`, `Attribute`,
+  `ComparisonCriterion`, `Constraint`, `Computation`, `ConstraintCheck`,
+  `AlternativeAssessment`, `TradeOff`, `ConditionalChoice`, `Recommendation`,
+  `ComparisonRun`.
+- `backend/comparison/reasoning.py`: `frame_decision`, `assess_alternatives`,
+  `recommend`, `explain_change` — model calls, structured output, validated.
+- `backend/comparison/arithmetic.py`: six generic operations; a missing input
+  is never zero.
+- `backend/comparison/constraints.py`: stated relation against stated value;
+  unknown is not breached; a unit mismatch is not a comparison.
+- `backend/comparison/service.py`: the order of operations, guardrails,
+  research integration, persistence, revision.
+- `backend/comparison/repository.py`: `comparison_runs`, owner-scoped reads.
+- `conversation_engine/ai_core/`: `ComparisonNeed`, `response_mode="compare"`,
+  `reasoning_status="needs_comparison"`, governance, the loop branch.
+- Tests: `backend/tests/test_comparison_v35.py` (31).
+
 ## V3.4 — Accepted debt
 
 1. **Conflict UX never captured in a real screenshot.** The `conflicted` path

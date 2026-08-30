@@ -14,6 +14,8 @@ os.environ.setdefault("DOCUMENT_EXTRACTION_ENABLED", "true")
 os.environ.setdefault("DOCUMENT_OCR_ENABLED", "true")
 sys.path.insert(0, "/app/backend")
 
+import _loop_harness  # tests/_loop_harness.py: the one place a loop is chosen
+
 from fastapi.testclient import TestClient  # noqa: E402
 import server  # noqa: E402
 
@@ -199,5 +201,5 @@ class TestH_ContextProviderGated:
         async def _run():
             return await documents_provider(BoomDB(), "user_xxx")
 
-        res = asyncio.get_event_loop().run_until_complete(_run())
+        res = _loop_harness.run(_run())
         assert res.error is None and res.signals == []
