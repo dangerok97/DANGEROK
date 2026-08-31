@@ -217,6 +217,11 @@ class StartBody(BaseModel):
     entry_point: Optional[str] = None
     plan_id: Optional[str] = None
     object_id: Optional[str] = None
+    # V3.7 — the concern this thread was opened about, when it was opened from
+    # something ORA raised. A handle, nothing more: the conversation reads the
+    # opportunity through the context broker like any other evidence, and
+    # opening a thread about something is not agreeing to do anything about it.
+    opportunity_id: Optional[str] = None
     # V2.6 attachments
     attachments: Optional[List[Dict[str, Any]]] = None
 

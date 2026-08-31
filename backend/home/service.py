@@ -388,6 +388,18 @@ class HomeService:
         except Exception as e:
             logger.info("open questions read soft-fail: %s", type(e).__name__)
 
+        # V3.7 — whatever the surfacing decision already settled. Read only:
+        # Home never decides what to show and never asks a model to decide,
+        # so a slow provider can no more delay this page than an empty result
+        # can break it.
+        opportunities: List[Dict[str, Any]] = []
+        try:
+            from opportunities.surfacing import SurfacingService
+
+            opportunities = await SurfacingService(self.db).for_home(user_id)
+        except Exception as e:
+            logger.info("opportunity surfacing read soft-fail: %s", type(e).__name__)
+
         primary_public = primary.to_public() if primary else None
         if primary_public:
             try:
@@ -401,6 +413,7 @@ class HomeService:
             current_situation=situation,
             priorities=priorities,
             insights=insights,
+            opportunities=opportunities,
             resume_item=resume,
             ora_ti_consiglia=ora_ti_consiglia[:3],
             open_questions=open_questions,

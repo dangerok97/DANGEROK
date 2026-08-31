@@ -549,6 +549,36 @@ export const api = {
   getHome: () => request<HomeV2Response>('/home'),
   refreshHome: () => request<HomeV2Response>('/home/refresh', { method: 'POST' }),
   getHomeSituation: () => request<HomeSituationResponse>('/home/situation'),
+
+  /*
+    What a person does about an opportunity. Three answers, and each one is a
+    different thing: "non mi interessa" closes the concern, "più tardi" only
+    takes the card off the screen, and "vediamo" opens the conversation
+    without deciding anything at all. None of them creates work.
+  */
+  dismissOpportunity: (id: string, suppress = false) =>
+    request<{ ok: boolean; status: string }>(`/opportunities/${id}/dismiss`, {
+      method: 'POST',
+      body: JSON.stringify({ suppress }),
+    }),
+
+  /*
+    How long "later" lasts is not the screen's call: it depends on what the
+    thing is waiting on, which is a judgement the backend asks for. Nothing
+    is sent but the intention.
+  */
+  deferOpportunity: (id: string) =>
+    request<{ ok: boolean; deferred_until: string; decided_by: string }>(
+      `/opportunities/${id}/defer`,
+      { method: 'POST', body: JSON.stringify({}) },
+    ),
+
+  getOpportunity: (id: string) => request<HomeOpportunity>(`/opportunities/${id}`),
+
+  markOpportunitySeen: (id: string) =>
+    request<{ ok: boolean; seen_at: string }>(`/opportunities/${id}/seen`, {
+      method: 'POST',
+    }),
   homeAction: (body: HomeActionRequest) =>
     request<{ ok: boolean; action: string; item_id?: string }>('/home/actions', {
       method: 'POST',
@@ -606,6 +636,8 @@ export const api = {
     entry_point?: string;
     plan_id?: string;
     object_id?: string;
+    /** The concern this thread was opened about, when it came from a card. */
+    opportunity_id?: string;
     attachments?: Array<{
       file_id?: string;
       document_id?: string;
@@ -2286,6 +2318,22 @@ export type HomeInsight = {
   dedupe_key: string;
 };
 
+/**
+ * An opportunity as a person reads it.
+ *
+ * Everything the system thinks in — relevance, urgency, confidence, the
+ * identity key it recognises the concern by — is absent on purpose. It is not
+ * hidden by this interface; the backend never sends it to a screen. A card
+ * that could render `urgency: soon` would eventually render it.
+ */
+export type HomeOpportunity = {
+  id: string;
+  title: string;
+  why_now: string;
+  question?: string | null;
+  seen?: boolean;
+};
+
 export type HomeConnectionWarning = {
   code: string;
   message: string;
@@ -2337,6 +2385,8 @@ export type HomeV2Response = {
   current_situation: HomeCurrentSituation;
   priorities: HomePriorityGroup[];
   insights: HomeInsight[];
+  /** What ORA judged worth a quiet line, and worth it now. Usually empty. */
+  opportunities?: HomeOpportunity[];
   resume_item: HomeItem | null;
   ora_ti_consiglia?: ProactiveSuggestion[];
   /** Blockers ORA is genuinely waiting on. Empty when nothing is blocked. */

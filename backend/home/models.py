@@ -186,6 +186,11 @@ class HomeResponse(BaseModel):
     # blocker on a real piece of work, and answering it continues that work.
     # Empty when nothing is blocked, which is the common case.
     open_questions: List[Dict[str, Any]] = Field(default_factory=list)
+    # V3.7 — what ORA thought was worth a quiet line, and then thought was
+    # worth it *now*. Two judgements, both the model's, both already made by
+    # the time Home reads this: nothing is decided at render time. Human words
+    # only — no relevance, no urgency, no confidence. Usually empty.
+    opportunities: List[Dict[str, Any]] = Field(default_factory=list)
     connection_warnings: List[ConnectionWarning] = Field(default_factory=list)
     google_calendar: Dict[str, Any] = Field(default_factory=dict)
     generated_at: str

@@ -119,6 +119,50 @@ export function OraContextOpening() {
   );
 }
 
+/**
+ * ORA opened on something it raised itself.
+ *
+ * The difference from every other opening on this screen is who spoke first.
+ * Here ORA did — on Home, in a card the person tapped — so the thread starts
+ * by saying what it said and why, rather than asking an opening question that
+ * would make somebody re-explain the thing they just tapped on.
+ *
+ * It states and stops. No suggested replies, no "vuoi che me ne occupi?": the
+ * card was a conversation opener, not an offer, and turning it into one here
+ * would be the surface promising something the reasoning has not agreed to.
+ */
+export function OraRaisedOpening({
+  opportunity,
+}: {
+  opportunity: { title: string; why_now?: string; question?: string | null };
+}) {
+  const { colors } = useTheme();
+  return (
+    <View style={styles.empty} testID="ora-raised-opening">
+      <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
+        {opportunity.title}
+      </Text>
+      {opportunity.why_now ? (
+        <Text style={[styles.emptyBody, { color: colors.textSecondary }]}>
+          Te l'ho segnalato perché {lowerFirst(opportunity.why_now)}
+        </Text>
+      ) : null}
+      {opportunity.question ? (
+        <Text style={[styles.emptyBody, { color: colors.textSecondary }]}>
+          {opportunity.question}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
+/* Una frase incollata a "perché" non deve iniziare con la maiuscola. */
+function lowerFirst(text: string): string {
+  const t = (text || '').trim();
+  if (!t) return t;
+  return t.charAt(0).toLocaleLowerCase('it-IT') + t.slice(1);
+}
+
 /* -------------------------------------------------------------------------- */
 /* Working                                                                    */
 /* -------------------------------------------------------------------------- */

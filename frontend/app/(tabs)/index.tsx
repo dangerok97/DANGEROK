@@ -27,6 +27,7 @@ import {
   api,
   HomeActionDef,
   HomeItem,
+  HomeOpportunity,
   HomePriorityBand,
   HomeV2Response,
   OpenQuestionItem,
@@ -302,6 +303,63 @@ export default function HomeScreen() {
     [router],
   );
   /*
+    Three answers to something ORA raised, and they are genuinely different.
+
+    "Vediamo" decides nothing: it opens the conversation carrying the
+    opportunity's handle, so the thread already knows what it is about and can
+    open with why it was raised instead of asking the person to explain their
+    own week back to it. No work is created, nothing is executed.
+
+    "Non mi interessa" closes the concern — it stops being raised at all, not
+    just stops being shown. "Più tardi" only takes the card off the screen and
+    leaves the concern exactly as true as it was; nothing is scheduled and
+    nobody will be reminded.
+
+    All three reload from the server rather than hiding the card locally: what
+    is on Home is the backend's decision, and a screen that patches itself to
+    look right is a screen that can disagree with the truth.
+  */
+  const openOpportunity = useCallback(
+    (o: HomeOpportunity) => {
+      void triggerHaptic('impactLight');
+      void api.markOpportunitySeen(o.id).catch(() => {});
+      router.push(
+        buildOraConversationHref({
+          opportunityId: o.id,
+          entryPoint: 'opportunity',
+        }) as any,
+      );
+    },
+    [router],
+  );
+
+  const dismissOpportunity = useCallback(
+    async (o: HomeOpportunity) => {
+      void triggerHaptic('selection');
+      try {
+        await api.dismissOpportunity(o.id);
+      } catch {
+        /* Home reloads either way; a failed refusal must not strand the card. */
+      }
+      await load({ silent: true });
+    },
+    [load],
+  );
+
+  const deferOpportunity = useCallback(
+    async (o: HomeOpportunity) => {
+      void triggerHaptic('selection');
+      try {
+        await api.deferOpportunity(o.id);
+      } catch {
+        /* Same: the server decides what Home shows next. */
+      }
+      await load({ silent: true });
+    },
+    [load],
+  );
+
+  /*
     Timeline views show everything that has a moment — including whatever is
     currently the hero. "Adesso" answers *what do I do*; "Oggi" and "Più
     avanti" answer *when is my life happening*. Dropping the most important
@@ -325,8 +383,15 @@ export default function HomeScreen() {
       });
   }, [items]);
 
+  /*
+    Whether the page has anything on it at all — which now includes something
+    ORA raised. Without that last clause Home said "non c'è nulla che richieda
+    la tua attenzione" directly above a card doing exactly that, and a screen
+    that contradicts itself in two lines is worse than either line alone.
+  */
   const hasAnything = !!focus || questions.length > 0 || today.length > 0
-    || updates.length > 0 || (home?.insights?.length ?? 0) > 0 || horizon.length > 0;
+    || updates.length > 0 || (home?.insights?.length ?? 0) > 0 || horizon.length > 0
+    || (home?.opportunities?.length ?? 0) > 0;
 
   const mainColumn = (
     <View style={styles.main}>
@@ -376,10 +441,13 @@ export default function HomeScreen() {
           </SectionRow>
 
           <SectionRow twoColumn={twoColumn}>
-            {updateFeed.length || (home?.insights?.length ?? 0) ? (
+            {updateFeed.length
+            || (home?.insights?.length ?? 0)
+            || (home?.opportunities?.length ?? 0) ? (
               <UpdatesFeed
                 suggestions={updateFeed}
                 insights={home?.insights || []}
+                opportunities={home?.opportunities || []}
                 busyId={suggestionBusy}
                 onOpen={onSuggestionOpen}
                 onDismiss={onSuggestionDismiss}
@@ -387,6 +455,9 @@ export default function HomeScreen() {
                   if (ins.action?.route) router.push(ins.action.route as any);
                   runHomeAction(ins.id, 'mark_insight_read');
                 }}
+                onOpportunityOpen={openOpportunity}
+                onOpportunityDismiss={dismissOpportunity}
+                onOpportunityDefer={deferOpportunity}
               />
             ) : null}
             {horizon.length ? <HorizonSection items={horizon} onOpen={openItem} /> : null}

@@ -65,6 +65,7 @@ class AICoreOrchestrator:
         entry_point: Optional[str] = None,
         plan_id: Optional[str] = None,
         object_id: Optional[str] = None,
+        opportunity_id: Optional[str] = None,
         attachments: Optional[list] = None,
     ) -> Dict[str, Any]:
         text = (text or "").strip()
@@ -100,6 +101,15 @@ class AICoreOrchestrator:
                 "entry_point": ep,
             },
         )
+        if opportunity_id:
+            # What the thread is about, so the reasoning does not have to guess
+            # from a first message that assumes ORA already knows. Bound, never
+            # acted on: "vediamo" opens a conversation, it does not accept
+            # anything.
+            state_mod.get_ai_state(sess)["active_opportunity_id"] = str(
+                opportunity_id
+            )[:64]
+
         # Soft-bind opaque Life OS refs on in-memory session (ownership enforced on later bind/get)
         if plan_id or object_id:
             st = state_mod.get_ai_state(sess)

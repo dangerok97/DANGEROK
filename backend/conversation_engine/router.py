@@ -152,6 +152,7 @@ async def ai_core_start(body: StartBody, user=Depends(get_current_user)):
         entry_point=body.entry_point,
         plan_id=body.plan_id,
         object_id=body.object_id,
+        opportunity_id=body.opportunity_id,
         attachments=list(body.attachments or []),
     )
     if not res.get("ok") and res.get("error"):

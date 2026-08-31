@@ -430,6 +430,18 @@ async def startup():
     except Exception:
         logger.exception("ContextFile indexes failed (non-fatal)")
 
+    # Opportunity Intelligence (V3.7) — identity uniqueness, and the retention
+    # that keeps the change log a working note rather than a diary.
+    try:
+        from opportunities.discovery import OpportunityDiscovery
+        from opportunities.repository import OpportunityRepository
+
+        await OpportunityRepository(db).ensure_indexes()
+        await OpportunityDiscovery(db).ensure_indexes()
+        logger.info("Opportunity indexes ready")
+    except Exception:
+        logger.exception("Opportunity indexes failed (non-fatal)")
+
     # Location signals + presence (V2.7.1 — short TTL raw GPS)
     try:
         from location.service import LocationService
