@@ -1,5 +1,66 @@
 # ORA — Architecture
 
+## V3.8 — Ambient Presence & Intelligent Delivery — CLOSED
+
+Two judgements and an alarm clock. V3.7 decided whether something in a life is
+worth saying; this decides whether it is worth saying *now*, *how*, and whether
+that is worth interrupting somebody for — and gives ORA a way to be there when
+the moment arrives.
+
+    WAKE != NOTIFY.
+    THE RUNTIME DECIDES WHEN ORA WAKES. THE AI DECIDES WHAT THAT WAKE MEANS.
+
+**The shape.** `backend/ambient/` owns time and devices: `AmbientWake` (an
+arranged moment, claimed atomically, leased so a dead worker recovers),
+`runtime.py` (a loop that dispatches by reason and knows nothing else),
+`eligibility.py` (a deterministic safety net that counts and cannot reach a
+model), `preferences.py` (what somebody asked for, and the one veto),
+`push.py` (devices, tokens, the Expo adapter). `backend/delivery/` owns the
+judgement: `context.py` assembles the moment as flat facts, `reasoning.py`
+asks whether an interruption is earned, `service.py` persists plans and
+enforces the bounds code is allowed to hold, `provider.py` is the boundary the
+reasoner cannot cross.
+
+**The rule that shapes everything.** A wake is an alarm with no opinion.
+Reaching one sends nothing: the plan is reloaded, the concern is checked, the
+moment is rebuilt and the judgement is made again. A pending delivery is a
+hypothesis, not a promise — which is what stops a notification decided last
+night from arriving about a document that turned up at midnight.
+
+**What code holds.** Scheduling, atomic claim, leases, dedupe, coalescing,
+retries with a capped backoff, startup recovery, temporal facts in coarse
+bands, plan lifecycle, cancellation, technical rate limits, deep links built
+from a whitelist, token lifecycle and the privacy boundary. None of it has an
+opinion about relevance.
+
+**What the model holds.** Whether a fact deserves attention, the delivery
+mode, the timing and what a revisit means, the words, what a lock screen may
+carry, and — recorded in `what_decided_the_mode` — why one channel beat the
+alternatives.
+
+**Accepted debt.** Notification preference semantic influence is structurally implemented but not yet empirically demonstrated. The user's interruption preference is available to the Delivery Judgment and is explicitly instructed to materially influence genuinely borderline delivery choices. Current live QA did not demonstrate a mode change or explicit preference contribution. No deterministic mapping was introduced. Revalidate during broader Production Behavioral QA.
+
+**STRUCTURALLY READY != DEVICE VERIFIED.** `expo-notifications@~0.32.17` is
+configured through the config plugin with no native folders committed, and the
+server-side path to Expo is implemented and tested. Nothing has been proven to
+reach a phone: no device, no EAS build, no real token, `extra.eas.projectId`
+absent. Production Device QA remains deferred.
+
+## V3.7 — Proactive Opportunity Intelligence — CLOSED
+
+The judgement V3.8 delivers. Domains record a `MeaningfulChange` — facts, with
+no field for claiming importance — and that earns a review, never a card.
+Admission is mechanical (duplicates, coalescing, staleness, cooldown, a
+snapshot fingerprint that includes coarse temporal facts) and only ever
+answers whether the model would be asked the same question twice. What
+survives faces a second, separate judgement — surface, hold or retire — and
+what a person sees is at most two quiet lines inside Home → Aggiornamenti.
+
+    PROACTIVITY IS AN AI JUDGMENT, NOT A RULE TRIGGER.
+    A CHANGE EARNS A REVIEW, NOT ATTENTION.
+    OPPORTUNITY != WORK != NOTIFICATION != ACTION.
+    SILENCE IS A VALID DECISION.
+
 ## V3.3 — Work admission
 
     Knowledge acquisition must not create work by itself.

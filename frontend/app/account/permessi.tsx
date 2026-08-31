@@ -51,6 +51,35 @@ const LOCATION_CHOICES: Array<{ id: LocationMode; label: string; detail: string 
   },
 ];
 
+/*
+  Quanto ORA può interrompere.
+
+  Tre parole, non tre soglie: quello che l'utente sceglie viaggia fino al
+  giudizio come una frase su di sé, e il modello la pesa insieme a tutto il
+  resto. Nessun ramo di codice legge questo valore per decidere se notificare.
+*/
+const NOTIFICATION_CHOICES: Array<{
+  id: 'minimal' | 'balanced' | 'proactive';
+  label: string;
+  detail: string;
+}> = [
+  {
+    id: 'minimal',
+    label: 'Solo quando conta davvero',
+    detail: 'ORA ti raggiunge fuori dall’app soltanto se lasciarlo perdere avrebbe conseguenze.',
+  },
+  {
+    id: 'balanced',
+    label: 'Equilibrato',
+    detail: 'ORA ti avvisa quando è utile, senza esagerare. È così di default.',
+  },
+  {
+    id: 'proactive',
+    label: 'Più proattivo',
+    detail: 'Preferisci saperlo prima, anche a costo di qualche interruzione in più.',
+  },
+];
+
 type PresenceState = {
   supported: boolean;
   reason?: string;
@@ -140,6 +169,68 @@ export default function PermessiScreen() {
     }
   }), [guard]);
 
+  /*
+    Le notifiche. Caricate a parte perché non fanno parte dello snapshot dei
+    permessi: sono una preferenza, non un accesso concesso a una fonte.
+  */
+  const [notifications, setNotifications] = useState<{
+    level: 'minimal' | 'balanced' | 'proactive';
+    quiet: { enabled: boolean; start_hour: number; end_hour: number };
+    muted: number;
+  } | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    void api
+      .getNotificationPreferences()
+      .then((r) => {
+        if (!alive) return;
+        setNotifications({
+          level: r.preferences.level,
+          quiet: r.preferences.quiet_hours,
+          muted: r.muted,
+        });
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const chooseLevel = useCallback(
+    async (level: 'minimal' | 'balanced' | 'proactive') => {
+      void haptic('select');
+      const previous = notifications;
+      setNotifications((n) => (n ? { ...n, level } : n));
+      try {
+        await api.setNotificationLevel(level);
+      } catch (e) {
+        // La verità è del server: se rifiuta, si torna a quello che c'era.
+        setNotifications(previous);
+        setWriteError(humanizeError(e));
+      }
+    },
+    [notifications],
+  );
+
+  const toggleQuietHours = useCallback(
+    async (enabled: boolean) => {
+      void haptic('select');
+      const previous = notifications;
+      setNotifications((n) => (n ? { ...n, quiet: { ...n.quiet, enabled } } : n));
+      try {
+        const r = await api.setQuietHours({ enabled });
+        setNotifications((n) =>
+          n ? { ...n, quiet: r.preferences.quiet_hours } : n,
+        );
+      } catch (e) {
+        setNotifications(previous);
+        setWriteError(humanizeError(e));
+      }
+    },
+    [notifications],
+  );
+
   const calendars = (snapshot?.services || []).filter((s) => s.id.endsWith('calendar'));
   const calendarConnected = connectedServices(calendars).length > 0;
 
@@ -200,6 +291,50 @@ export default function PermessiScreen() {
               busy={busy === 'presence'}
               testID="presence-on"
             />
+          </>
+        ) : null}
+      </SettingCard>
+
+      {/*
+        Le notifiche vivono qui e non in una schermata loro: sono una cosa che
+        ORA può fare, come leggere il calendario o riconoscere i luoghi, e una
+        pagina dedicata la farebbe sembrare più importante di quanto sia.
+      */}
+      <SettingCard
+        title="Notifiche"
+        detail="Quanto vuoi che ORA ti interrompa quando non sei nell’app. Qualunque cosa scegli, continui a trovare tutto qui dentro."
+        testID="perm-notifications"
+      >
+        {notifications ? (
+          <>
+            {NOTIFICATION_CHOICES.map((c) => (
+              <ChoiceRow
+                key={c.id}
+                label={c.label}
+                detail={c.detail}
+                selected={notifications.level === c.id}
+                onPress={() => void chooseLevel(c.id)}
+                testID={`notification-level-${c.id}`}
+              />
+            ))}
+            <ChoiceRow
+              label="Ore di silenzio"
+              detail={
+                notifications.quiet.enabled
+                  ? `ORA non ti interrompe dalle ${notifications.quiet.start_hour}:00 alle ${notifications.quiet.end_hour}:00.`
+                  : 'Non c’è una fascia di silenzio: ORA decide da sola se è un buon momento.'
+              }
+              selected={notifications.quiet.enabled}
+              onPress={() => void toggleQuietHours(!notifications.quiet.enabled)}
+              testID="notification-quiet-hours"
+            />
+            {notifications.muted ? (
+              <BoundaryNote>
+                {notifications.muted === 1
+                  ? 'C’è una cosa su cui hai chiesto di non essere avvisato. Resta comunque visibile in ORA.'
+                  : `Ci sono ${notifications.muted} cose su cui hai chiesto di non essere avvisato. Restano comunque visibili in ORA.`}
+              </BoundaryNote>
+            ) : null}
           </>
         ) : null}
       </SettingCard>

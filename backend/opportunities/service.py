@@ -74,6 +74,11 @@ class OpportunityService:
         from opportunities.reasoning import scan as ask
 
         state = await life_snapshot.build(self.db, user_id, changes=changes)
+        # What this scan could not see, carried on every outcome. A silence
+        # reached without the calendar is a different statement from a silence
+        # reached with it, and anything that later tells a person their life
+        # looks quiet has to be able to tell those apart.
+        blind_to = list(state.get("unavailable_sources") or [])
         known = await self.repo.list(user_id, limit=25)
 
         answer = await ask(
@@ -86,6 +91,7 @@ class OpportunityService:
             return ScanResult(
                 silence=True,
                 unavailable=True,
+                unavailable_sources=blind_to,
                 reason_for_silence="il ragionamento non era disponibile",
             )
 
@@ -93,12 +99,13 @@ class OpportunityService:
         if not isinstance(raw, list) or not raw:
             return ScanResult(
                 silence=True,
+                unavailable_sources=blind_to,
                 reason_for_silence=str(answer.get("reason_for_silence") or "")[:400],
             )
 
         allowed_refs = life_snapshot.evidence_refs(state)
         by_identity = {o.identity_key: o for o in known}
-        result = ScanResult(silence=False)
+        result = ScanResult(silence=False, unavailable_sources=blind_to)
 
         for item in raw[:MAX_PER_SCAN]:
             candidate, why_not = self._read_candidate(item, allowed_refs)
@@ -296,9 +303,32 @@ class OpportunityService:
                 rationale=rationale,
             )
         )
+        if opportunity.status in CLOSED:
+            # The review closed it, so whatever was still intending to arrive
+            # about it is now wrong. Same guarantee as a person dismissing it:
+            # code, not judgement.
+            await self._close_deliveries(user_id, opportunity.id, rationale or "rivalutata")
         return {"ok": True, "outcome": outcome, "opportunity": opportunity.public()}
 
     # --- what the person says --------------------------------------------
+
+    async def _close_deliveries(self, user_id: str, opportunity_id: str, why: str) -> None:
+        """
+        A concern that closed takes its intentions with it.
+
+        Guaranteed here rather than judged anywhere: a notification about
+        something already dealt with is never right, so there is nothing to
+        decide. Best-effort — refusing to resolve an opportunity because the
+        delivery layer is unreachable would be the tail wagging the dog.
+        """
+        try:
+            from delivery.service import DeliveryService
+
+            await DeliveryService(self.db).cancel_for_opportunity(
+                user_id, opportunity_id, reason=why
+            )
+        except Exception as e:
+            logger.info("delivery cancel soft-fail: %s", type(e).__name__)
 
     async def dismiss(
         self, user_id: str, opportunity_id: str, *, suppress: bool = False
@@ -328,6 +358,7 @@ class OpportunityService:
                 rationale="respinta dalla persona",
             )
         )
+        await self._close_deliveries(user_id, opportunity.id, "respinta dalla persona")
         return {"ok": True, "status": opportunity.status}
 
     async def resolve(self, user_id: str, opportunity_id: str) -> Dict[str, Any]:
@@ -348,6 +379,7 @@ class OpportunityService:
                 rationale="chiusa dalla persona",
             )
         )
+        await self._close_deliveries(user_id, opportunity.id, "la questione è stata risolta")
         return {"ok": True, "status": opportunity.status}
 
     async def expire_past(self, user_id: str) -> int:
@@ -374,6 +406,9 @@ class OpportunityService:
                         source="code_expiry",
                         rationale="il termine indicato è passato",
                     )
+                )
+                await self._close_deliveries(
+                    user_id, opportunity.id, "il termine indicato è passato"
                 )
                 closed += 1
         return closed

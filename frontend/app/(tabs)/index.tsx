@@ -50,6 +50,7 @@ import {
   ContextRail,
   HeroAdesso,
   HomeEmptyV3,
+  NotificationMoment,
   HomeHeaderV3,
   HomeSkeletonV3,
   HorizonSection,
@@ -303,6 +304,34 @@ export default function HomeScreen() {
     [router],
   );
   /*
+    The notification question, asked once and only when something is waiting
+    on it. "Non ora" hides it for this session and changes nothing else — the
+    backend keeps the held plan, and the question comes back only if it is
+    still true next time Home loads.
+  */
+  const [askedLater, setAskedLater] = useState(false);
+  const [permissionBusy, setPermissionBusy] = useState(false);
+
+  const enableNotifications = useCallback(async () => {
+    setPermissionBusy(true);
+    try {
+      const { enablePush } = await import('@/src/ambient/pushRegistration');
+      const outcome = await enablePush();
+      if (!outcome.ok && outcome.state === 'unsupported') {
+        setErrorBanner('Le notifiche di ORA funzionano sull\'app del telefono.');
+      } else if (!outcome.ok && outcome.state === 'no_project') {
+        setErrorBanner('Questa build non è ancora collegata alle notifiche.');
+      }
+      setAskedLater(true);
+    } catch {
+      setErrorBanner('Non sono riuscito ad attivare le notifiche.');
+    } finally {
+      setPermissionBusy(false);
+      await load({ silent: true });
+    }
+  }, [load]);
+
+  /*
     Three answers to something ORA raised, and they are genuinely different.
 
     "Vediamo" decides nothing: it opens the conversation carrying the
@@ -506,6 +535,13 @@ export default function HomeScreen() {
       >
         <HomeHeaderV3
           name={user?.name}
+          ambient={home?.ambient || null}
+          permission={
+            askedLater ? null : home?.notification_prompt || null
+          }
+          permissionBusy={permissionBusy}
+          onEnableNotifications={() => void enableNotifications()}
+          onDismissNotifications={() => setAskedLater(true)}
           onWhyNow={home?.explanation?.summary ? () => router.push('/situazione') : undefined}
         />
 

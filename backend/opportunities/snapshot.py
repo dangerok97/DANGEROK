@@ -59,6 +59,11 @@ async def build(
         "unavailable_sources": [],
     }
 
+    # Time is a fact, and it is the code's job to state it. Nothing here
+    # interprets anything: how many minutes until the next thing, whether a
+    # window has opened or closed. What any of that means is the model's.
+    snapshot["temporal"] = {}
+
     for name, gather in (
         ("open_questions", _open_questions),
         ("recently_settled", _recently_settled),
@@ -76,7 +81,81 @@ async def build(
             snapshot[name] = []
             snapshot["unavailable_sources"].append(name)
 
+    snapshot["temporal"] = _temporal_facts(snapshot, now)
     return snapshot
+
+
+def _temporal_facts(snapshot: Dict[str, Any], now: datetime) -> Dict[str, Any]:
+    """
+    What the passing of time has done, stated and not interpreted.
+
+        TIME IS A FACT.
+
+    Nothing in a life has to change for its meaning to change. An event two
+    days away yesterday is tomorrow today, and a window that had not opened
+    at midnight is open at eight. None of that moves a single stored value,
+    so a snapshot built only from stored values looks identical on both days
+    — and anything comparing snapshots would conclude, wrongly, that there is
+    nothing new to think about.
+
+    So the counting is done here, in buckets rather than in seconds: an event
+    forty-one minutes away and one forty-three minutes away are the same
+    situation, and a fingerprint that changed between them would defeat its
+    own purpose.
+    """
+    soonest: Optional[int] = None
+    for row in snapshot.get("calendar") or []:
+        minutes = _minutes_until(row.get("starts_at"), now)
+        if minutes is not None and (soonest is None or minutes < soonest):
+            soonest = minutes
+
+    return {
+        # Coarse on purpose: the hour, not the minute.
+        "hour_bucket": now.strftime("%Y-%m-%dT%H"),
+        "weekday": now.strftime("%A").lower(),
+        "minutes_to_next_commitment": _bucket(soonest),
+        "something_within_the_hour": bool(soonest is not None and soonest <= 60),
+        "something_today": any(
+            (row.get("in_days") == 0) for row in (snapshot.get("calendar") or [])
+        ),
+        "something_tomorrow": any(
+            (row.get("in_days") == 1) for row in (snapshot.get("calendar") or [])
+        ),
+    }
+
+
+def _minutes_until(when: Optional[str], now: datetime) -> Optional[int]:
+    if not when:
+        return None
+    try:
+        moment = datetime.fromisoformat(str(when))
+    except (TypeError, ValueError):
+        return None
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=timezone.utc)
+    delta = int((moment - now).total_seconds() // 60)
+    return delta if delta >= 0 else None
+
+
+def _bucket(minutes: Optional[int]) -> Optional[str]:
+    """
+    Human-sized bands.
+
+    A judgement about whether to interrupt somebody does not turn on the
+    difference between 41 and 43 minutes, and a value that precise would make
+    every snapshot different from every other one.
+    """
+    if minutes is None:
+        return None
+    if minutes <= 15:
+        return "within_15_minutes"
+    if minutes <= 60:
+        return "within_the_hour"
+    if minutes <= 240:
+        return "within_four_hours"
+    if minutes <= 1440:
+        return "today"
+    return "later"
 
 
 async def _open_questions(db, user_id: str, now: datetime) -> List[Dict[str, Any]]:

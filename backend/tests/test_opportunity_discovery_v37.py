@@ -933,7 +933,12 @@ def test_no_domain_can_turn_an_event_into_an_opportunity():
             continue
         text = path.read_text(encoding="utf-8", errors="ignore")
         for call in re.findall(r"OpportunityRepository\([^)]*\)\.(\w+)", text):
-            assert call == "ensure_indexes", f"{path.name} chiama repo.{call}"
+            # Reading is fine and necessary — the delivery layer has to know
+            # whether a concern is still open before saying anything about it.
+            # Writing is what belongs to the package that owns the judgement.
+            assert call in (
+                "ensure_indexes", "get", "list", "by_identity", "decisions_for",
+            ), f"{path.name} scrive opportunity: repo.{call}"
         for call in re.findall(r"OpportunityService\([^)]*\)\.(\w+)", text):
             assert call in ("list_active",), f"{path.name} chiama service.{call}"
 

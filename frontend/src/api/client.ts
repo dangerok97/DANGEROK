@@ -573,6 +573,71 @@ export const api = {
       { method: 'POST', body: JSON.stringify({}) },
     ),
 
+  /*
+    A push token is a capability: whoever holds it can put text on this
+    person's lock screen. It travels once, to the server, and is never read
+    back — no endpoint returns it and nothing stores it on the device.
+  */
+  getNotificationPreferences: () =>
+    request<{ preferences: NotificationPreferences; muted: number }>(
+      '/ambient/preferences',
+    ),
+
+  setNotificationLevel: (level: 'minimal' | 'balanced' | 'proactive') =>
+    request<{ ok: boolean; preferences: NotificationPreferences }>(
+      '/ambient/preferences/level',
+      { method: 'POST', body: JSON.stringify({ level }) },
+    ),
+
+  setQuietHours: (body: { enabled: boolean; start_hour?: number; end_hour?: number }) =>
+    request<{ ok: boolean; preferences: NotificationPreferences }>(
+      '/ambient/preferences/quiet-hours',
+      { method: 'POST', body: JSON.stringify(body) },
+    ),
+
+  /*
+    "Non notificarmi per questa cosa." Not a dismissal: the concern goes on
+    living wherever it was living, and only the pocket goes quiet.
+  */
+  muteOpportunity: (opportunity_id: string) =>
+    request<{ ok: boolean; target: string }>('/ambient/preferences/mute', {
+      method: 'POST',
+      body: JSON.stringify({ opportunity_id }),
+    }),
+
+  unmuteOpportunity: (opportunity_id: string) =>
+    request<{ ok: boolean; removed: number }>('/ambient/preferences/unmute', {
+      method: 'POST',
+      body: JSON.stringify({ opportunity_id }),
+    }),
+
+  registerPushDevice: (body: {
+    token: string;
+    platform?: string;
+    device?: string;
+    permission_state?: string;
+  }) =>
+    request<{ ok: boolean; endpoint: Record<string, unknown> }>('/ambient/push/register', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  releasePushDevice: (device: string) =>
+    request<{ ok: boolean; released: number }>('/ambient/push/release', {
+      method: 'POST',
+      body: JSON.stringify({ device }),
+    }),
+
+  /*
+    Whether somebody is looking at ORA right now — app presence, not life
+    presence. A fact with a timestamp, never a rule about what may be sent.
+  */
+  reportAppState: (state: 'foreground' | 'background') =>
+    request<{ ok: boolean; state: string }>('/ambient/app-state', {
+      method: 'POST',
+      body: JSON.stringify({ state }),
+    }),
+
   getOpportunity: (id: string) => request<HomeOpportunity>(`/opportunities/${id}`),
 
   markOpportunitySeen: (id: string) =>
@@ -2334,6 +2399,44 @@ export type HomeOpportunity = {
   seen?: boolean;
 };
 
+/**
+ * One line about work ORA actually did.
+ *
+ * Absent whenever there is nothing true to say, which is most of the time.
+ * The interface has no way to construct one: it either arrives from the
+ * backend, backed by a record of something that ran, or the row is not there.
+ */
+export type HomeAmbient = {
+  id: string;
+  text: string;
+  at: string;
+};
+
+/**
+ * The moment it is worth asking about notifications, and why.
+ *
+ * Present only while ORA has actually judged something worth reaching this
+ * person for and could not. Absent at first launch, absent when nothing is
+ * waiting — so the question is never asked about a feature.
+ */
+export type HomeNotificationPrompt = {
+  reason: string;
+  example?: string | null;
+  waiting: number;
+};
+
+/**
+ * What somebody has said about being interrupted.
+ *
+ * Two settings and a count of things they have muted. Deliberately small: it
+ * is a fact the reasoning weighs, not a switch that decides for it.
+ */
+export type NotificationPreferences = {
+  level: 'minimal' | 'balanced' | 'proactive';
+  chosen_by_user: boolean;
+  quiet_hours: { enabled: boolean; start_hour: number; end_hour: number };
+};
+
 export type HomeConnectionWarning = {
   code: string;
   message: string;
@@ -2387,6 +2490,10 @@ export type HomeV2Response = {
   insights: HomeInsight[];
   /** What ORA judged worth a quiet line, and worth it now. Usually empty. */
   opportunities?: HomeOpportunity[];
+  /** What ORA has been doing, when it has honestly been doing something. */
+  ambient?: HomeAmbient | null;
+  /** Shown only when a real decision is waiting on the permission. */
+  notification_prompt?: HomeNotificationPrompt | null;
   resume_item: HomeItem | null;
   ora_ti_consiglia?: ProactiveSuggestion[];
   /** Blockers ORA is genuinely waiting on. Empty when nothing is blocked. */

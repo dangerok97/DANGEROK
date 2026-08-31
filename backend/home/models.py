@@ -191,6 +191,14 @@ class HomeResponse(BaseModel):
     # the time Home reads this: nothing is decided at render time. Human words
     # only — no relevance, no urgency, no confidence. Usually empty.
     opportunities: List[Dict[str, Any]] = Field(default_factory=list)
+    # V3.8 — one line about what ORA has actually been doing, or nothing.
+    # Read from a record written by work that ran; there is no path from
+    # "this screen would like something to say" to a line appearing here.
+    ambient: Optional[Dict[str, Any]] = None
+    # V3.8 — present only when ORA has actually judged something worth an
+    # interruption and could not deliver it. Absent at first launch, absent
+    # when nothing is waiting: the question is never asked about a feature.
+    notification_prompt: Optional[Dict[str, Any]] = None
     connection_warnings: List[ConnectionWarning] = Field(default_factory=list)
     google_calendar: Dict[str, Any] = Field(default_factory=dict)
     generated_at: str

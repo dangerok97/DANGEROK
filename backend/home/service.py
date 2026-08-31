@@ -400,6 +400,19 @@ class HomeService:
         except Exception as e:
             logger.info("opportunity surfacing read soft-fail: %s", type(e).__name__)
 
+        # V3.8 — what ORA can honestly say it has been doing. Read only, and
+        # absent far more often than present: no work on file, no line.
+        ambient = None
+        notification_prompt = None
+        try:
+            from delivery.service import DeliveryService
+
+            service = DeliveryService(self.db)
+            ambient = await service.ambient_line(user_id)
+            notification_prompt = await service.permission_moment(user_id)
+        except Exception as e:
+            logger.info("ambient line read soft-fail: %s", type(e).__name__)
+
         primary_public = primary.to_public() if primary else None
         if primary_public:
             try:
@@ -414,6 +427,8 @@ class HomeService:
             priorities=priorities,
             insights=insights,
             opportunities=opportunities,
+            ambient=ambient,
+            notification_prompt=notification_prompt,
             resume_item=resume,
             ora_ti_consiglia=ora_ti_consiglia[:3],
             open_questions=open_questions,

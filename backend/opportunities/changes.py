@@ -329,9 +329,14 @@ def fingerprint(snapshot: Dict[str, Any]) -> str:
     — a fingerprint cannot rank a life — and the moment anything real moves,
     it changes and the question gets asked again.
 
-    Everything that moves on its own is left out: the clock, the weekday, how
-    long a horizon is. Otherwise every snapshot differs from every other one
-    and this saves nothing.
+    The clock is not left out, but it is included in bands rather than in
+    seconds. Excluding time entirely was wrong: nothing in a life has to
+    change for its meaning to change, and a fingerprint blind to that would
+    keep answering "nothing new" on the morning an event moved from two days
+    away to tomorrow. Including the raw clock would be equally wrong in the
+    other direction — every snapshot would differ from every other one and
+    this would save nothing. Bands are the compromise: identical situations
+    hash identically, and a window opening does not.
     """
     import json
 
@@ -346,6 +351,8 @@ def fingerprint(snapshot: Dict[str, Any]) -> str:
             "open_comparisons",
             "calendar",
             "existing_work",
+            # Coarse temporal facts: what the passing of time has done.
+            "temporal",
         )
     }
     raw = json.dumps(material, ensure_ascii=False, sort_keys=True, default=str)
