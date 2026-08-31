@@ -1,5 +1,34 @@
 # ORA — AI Changelog
 
+## 2026-08-31 — V3.8 closed: Ambient Presence & Intelligent Delivery
+
+ORA now works while nobody is watching, and can say so honestly. It wakes
+itself when something it arranged comes due or something in a life moves,
+looks again, and most of the time concludes there is nothing to say — which is
+the point. When there is, it decides separately whether that belongs on a
+quiet line, on a card, or in somebody's pocket, and re-examines that decision
+at the moment it would arrive rather than firing what it thought last night.
+
+The line on Home — "Ho ricontrollato quello che stai seguendo · 18 min fa" —
+appears only when a review actually ran, and cannot be produced any other way.
+A tick with nothing to do leaves no trace at all. That constraint is the whole
+feature: a product that fills the gap with "sto monitorando" is lying quietly
+and constantly, and nobody would ever file a bug about it.
+
+People can say how much they want to be interrupted, set quiet hours, and tell
+ORA to stop reaching them about one particular thing — which is deliberately
+not the same as dismissing it: the concern goes on living wherever it was, and
+only the pocket goes quiet. None of those settings is a switch the code reads.
+They travel to the judgement as facts about a person, in their own words.
+
+What ORA will not claim: that a notification was seen, that somebody refused
+one when all we know is that they did not open it, or that any of this has
+been proven on a real phone. `expo-notifications` is configured and the
+server-side path is implemented and tested; no device has been reached.
+
+Accepted debt: Notification preference semantic influence is structurally implemented but not yet empirically demonstrated. The user's interruption preference is available to the Delivery Judgment and is explicitly instructed to materially influence genuinely borderline delivery choices. Current live QA did not demonstrate a mode change or explicit preference contribution. No deterministic mapping was introduced. Revalidate during broader Production Behavioral QA.
+
+
 ## 2026-08-31 — V3.6 closed: Life Presence & Location Intelligence
 
 ORA knows where the places of a life are, because the person said so; notices

@@ -14,7 +14,8 @@ export type OraEntryPoint =
   | 'vita'
   | 'document'
   | 'question'
-  | 'opportunity';
+  | 'opportunity'
+  | 'notification';
 
 export type OraConversationParams = {
   sessionId?: string | null;
@@ -62,6 +63,7 @@ const ENTRY_POINTS: OraEntryPoint[] = [
   'document',
   'question',
   'opportunity',
+  'notification',
 ];
 
 /** Read an entry point off a URL, falling back to a plain ORA opening. */

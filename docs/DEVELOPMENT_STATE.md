@@ -1,5 +1,67 @@
 # ORA — Development State
 
+## V3.8 — AMBIENT PRESENCE & INTELLIGENT DELIVERY — CLOSED
+
+ORA works when nobody is looking, and can say so without pretending. It wakes
+itself, re-examines what it decided, and reaches somebody outside the app only
+when a judgement — made again at that moment — says the interruption is worth
+what it costs them.
+
+    ORA SHOULD FEEL ALIVE BECAUSE IT IS WORKING, NOT BECAUSE IT PRETENDS TO BE.
+    INTERRUPTION MUST BE EARNED.
+    A PUSH MUST HAVE A REAL REASON TO OPEN ORA.
+    WAKE != NOTIFY.
+    PRESENCE IS CONTEXT, NOT A TRIGGER.
+    TIMING IS AN AI JUDGMENT.
+
+**Sprint 1 — Alive Presence Foundation.** `AmbientActivity` records work that
+really ran, and is the only thing that entitles a surface to say anything: no
+record, no line, checked by a test. The Delivery Judgment is AI-first and
+four-way — `silence | quiet_presence | in_app | push` — four decisions rather
+than four rungs, so nothing derives a push from a card. `DeliveryPlan` is an
+intention, never a promise: it is re-examined before anything leaves, and a
+concern that closes cancels it. The notification channel sits behind a
+`NotificationProvider` boundary the reasoner cannot reach.
+
+**Sprint 2 — Ambient Runtime.** `AmbientWake` is an alarm with no opinion:
+reasons are technical (`state_changed`, `delivery_recheck`,
+`opportunity_revisit`, `ambient_review`, `retry`) and none names a domain. A
+small loop claims exactly one wake at a time through an atomic
+`find_one_and_update`, so two backend processes racing produce one winner and
+a dead worker's lease expires rather than stranding the work. Wakes are both
+event-driven and time-driven, and reaching one sends nothing — the plan is
+re-judged first. `expo-notifications@~0.32.17` is configured through the config
+plugin with no native folders in the repo; push endpoints, token lifecycle and
+per-device failure handling are implemented behind the same boundary. Retries,
+backoff and startup recovery are code's, never asked of a model.
+
+**Sprint 3 — Reliability & Notification Policy.** A fallback catches what the
+event path drops without becoming a cron AI: eligibility is answered with
+indexed counts, has no way to reach a model, and produces a wake rather than a
+conclusion. An empty life costs nothing. The sweep is protected by a database
+lease and is rare per person, with the sweep cadence and the per-person
+interval as two separate settings. After downtime, leases are released and
+stale plans expired — every survivor is re-examined under the ordinary rate
+limits, so a restart is not a burst. People can say how much they want to be
+interrupted and set quiet hours; both travel to the judgement as facts, and no
+branch anywhere maps a level to an outcome. Delivery history is qualitative
+counts — never a rate, never an engagement score — and the history of one
+concern is kept apart from notifications at large. "Non notificarmi per questa
+cosa" is a veto enforced by code and deliberately distinct from dismissing the
+concern, which goes on living wherever it was. `opened` is a moment we know;
+"not opened" is never called "dismissed". `what_decided_the_mode` records why
+one channel beat the alternatives, so a delivered notification can be
+explained afterwards.
+
+**Accepted debt.** Notification preference semantic influence is structurally implemented but not yet empirically demonstrated. The user's interruption preference is available to the Delivery Judgment and is explicitly instructed to materially influence genuinely borderline delivery choices. Current live QA did not demonstrate a mode change or explicit preference contribution. No deterministic mapping was introduced. Revalidate during broader Production Behavioral QA.
+
+**STRUCTURALLY READY != DEVICE VERIFIED.** No phone, no EAS build, no real
+push token, nothing proven to reach a device. `extra.eas.projectId` is still
+absent. Production Device QA remains deferred to the final phase.
+
+Next: V3.9 — Personal Agent / Action Engine. Not started.
+
+
 ## V3.7 — PROACTIVE OPPORTUNITY INTELLIGENCE — CLOSED
 
 ORA decides for itself whether anything in a life is worth saying, and
@@ -49,7 +111,7 @@ two, provider failure fail-closed on both judgements. Verified live: silence
 on a change with no consequence, a grounded opportunity, its surfacing
 decision, dismissal not re-raised, and resolution removing the card.
 
-Next: V3.8 — Intelligent Notifications / Presence. Not started.
+Next: V3.8 — Ambient Presence & Intelligent Delivery. Closed; see above.
 
 
 ## V3.6 — CLOSED

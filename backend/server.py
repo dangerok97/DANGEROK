@@ -349,6 +349,30 @@ async def startup():
     except Exception:
         logger.exception("Life OS bootstrap failed (non-fatal)")
 
+    # Ambient runtime (V3.8 Sprint 2). The application lifecycle owns the
+    # client, so the loop starts here and stops on shutdown — it never opens a
+    # connection of its own. Off unless AMBIENT_RUNTIME is set: a background
+    # loop that starts itself in every test run is one that will eventually do
+    # something surprising in one of them.
+    try:
+        from ambient.push import install_provider
+        from ambient.repository import AmbientRepository
+        from ambient.runtime import start_runtime
+
+        from ambient.eligibility import EligibilityService
+        from ambient.preferences import PreferenceService
+
+        await AmbientRepository(db).ensure_indexes()
+        await EligibilityService(db).ensure_indexes()
+        await PreferenceService(db).ensure_indexes()
+        logger.info("Ambient indexes ready; push channel=%s", install_provider(db))
+        if start_runtime():
+            logger.info("Ambient runtime started")
+        else:
+            logger.info("Ambient runtime disabled or already running")
+    except Exception:
+        logger.exception("Ambient runtime startup failed (non-fatal)")
+
     # AI Core ContextFile — session evidence refs (Documents V2 holds blobs)
     try:
         from situations.service import SituationService
@@ -442,6 +466,16 @@ async def startup():
     except Exception:
         logger.exception("Opportunity indexes failed (non-fatal)")
 
+    # Ambient presence and delivery (V3.8) — plan lifecycle, and the TTL that
+    # keeps the record of ORA's own work a working note rather than a diary.
+    try:
+        from delivery.repository import DeliveryRepository
+
+        await DeliveryRepository(db).ensure_indexes()
+        logger.info("Delivery indexes ready")
+    except Exception:
+        logger.exception("Delivery indexes failed (non-fatal)")
+
     # Location signals + presence (V2.7.1 — short TTL raw GPS)
     try:
         from location.service import LocationService
@@ -477,6 +511,16 @@ async def shutdown():
         await stop_orchestrator()
     except Exception:
         logger.exception("Life orchestration shutdown failed (non-fatal)")
+
+    # Same contract: cancel without draining. Every wake is durable in Mongo,
+    # and one claimed when the process died becomes eligible again when its
+    # lease expires — only latency is at stake.
+    try:
+        from ambient.runtime import stop_runtime
+
+        await stop_runtime()
+    except Exception:
+        logger.exception("Ambient runtime shutdown failed (non-fatal)")
     client.close()
 
 

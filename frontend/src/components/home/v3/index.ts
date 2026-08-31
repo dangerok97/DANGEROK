@@ -10,7 +10,13 @@ export {
   HorizonSection,
 } from './HomeSections';
 export { ContextRail } from './ContextRail';
-export { HomeHeaderV3, HomeEmptyV3, HomeSkeletonV3, greetingFor } from './HomeChrome';
+export {
+  HomeHeaderV3,
+  HomeEmptyV3,
+  HomeSkeletonV3,
+  NotificationMoment,
+  greetingFor,
+} from './HomeChrome';
 export {
   primaryActionOf,
   overflowActionsOf,

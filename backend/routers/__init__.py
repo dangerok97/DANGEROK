@@ -102,6 +102,26 @@ try:
 except Exception:
     pass
 
+# Ambient presence and delivery judgement (V3.8). No endpoint sends anything:
+# sending is what happens to a plan whose moment arrives and whose facts still
+# hold.
+try:
+    from delivery.router import router as delivery_router
+
+    ALL_ROUTERS.append(delivery_router)
+except Exception:
+    pass
+
+# Ambient runtime, devices and app presence (V3.8 Sprint 2). Nothing here
+# sends: a notification is what happens to a plan whose moment arrives and
+# whose facts still hold.
+try:
+    from ambient.router import router as ambient_router
+
+    ALL_ROUTERS.append(ambient_router)
+except Exception:
+    pass
+
 # Contextual card visuals (PX1.2)
 try:
     from visuals.router import router as visuals_router

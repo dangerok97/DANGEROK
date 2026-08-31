@@ -23,9 +23,35 @@ export function greetingFor(now: Date = new Date()): string {
  */
 export function HomeHeaderV3({
   name,
+  ambient,
+  permission,
+  permissionBusy,
+  onEnableNotifications,
+  onDismissNotifications,
   onWhyNow,
 }: {
   name?: string | null;
+  /**
+   * One line about work ORA actually did, when there is one.
+   *
+   * It sits under the greeting rather than in a section of its own because
+   * that is what it is: a note about the state of things, read on the way
+   * past. Given a card and a heading it would start to look like an activity
+   * feed, and an activity feed is a thing people scroll rather than a thing
+   * that makes a product feel present.
+   */
+  ambient?: { text: string; at: string } | null;
+  /**
+   * The notification question, when something real is waiting on it.
+   *
+   * It lives here rather than in a section of its own because it is the same
+   * kind of thing as the ambient line: a quiet note under the greeting that
+   * can be read on the way past and ignored without consequence.
+   */
+  permission?: { reason: string; example?: string | null } | null;
+  permissionBusy?: boolean;
+  onEnableNotifications?: () => void;
+  onDismissNotifications?: () => void;
   onWhyNow?: () => void;
 }) {
   const { colors } = useTheme();
@@ -50,6 +76,22 @@ export function HomeHeaderV3({
         <Text style={[styles.sub, { color: colors.textSecondary }]}>
           Ecco cosa conta davvero ora.
         </Text>
+        <NotificationMoment
+          prompt={permission}
+          busy={permissionBusy}
+          onEnable={() => onEnableNotifications?.()}
+          onLater={() => onDismissNotifications?.()}
+        />
+        {ambient?.text ? (
+          <Text
+            style={[styles.ambient, { color: colors.textTertiary }]}
+            testID="home-ambient"
+            numberOfLines={2}
+          >
+            {ambient.text}
+            {agoLabel(ambient.at) ? ` · ${agoLabel(ambient.at)}` : ''}
+          </Text>
+        ) : null}
       </View>
       {onWhyNow ? (
         <Pressable
@@ -141,6 +183,96 @@ export function HomeSkeletonV3({ wide }: { wide: boolean }) {
   );
 }
 
+/**
+ * The moment it is worth asking about notifications.
+ *
+ * It appears because something real is waiting on it — ORA judged a
+ * particular thing worth reaching this person for and could not — and it
+ * disappears the moment that stops being true. Nothing schedules it, nothing
+ * repeats it, and saying no costs nothing: quiet presence and the cards on
+ * this page carry on exactly as before.
+ *
+ * Deliberately a line and two words, not a card with an illustration. A
+ * permission prompt dressed up as an announcement is asking for something
+ * while pretending to offer it.
+ */
+export function NotificationMoment({
+  prompt,
+  busy,
+  onEnable,
+  onLater,
+}: {
+  prompt?: { reason: string; example?: string | null } | null;
+  busy?: boolean;
+  onEnable: () => void;
+  onLater: () => void;
+}) {
+  const { colors } = useTheme();
+  if (!prompt?.reason) return null;
+
+  return (
+    <View style={styles.permission} testID="notification-moment">
+      <Text style={[styles.permissionText, { color: colors.textSecondary }]}>
+        {prompt.reason}
+      </Text>
+      {prompt.example ? (
+        <Text style={[styles.permissionExample, { color: colors.textTertiary }]} numberOfLines={2}>
+          Adesso, per esempio: {lowerFirst(prompt.example)}
+        </Text>
+      ) : null}
+      <View style={styles.permissionActions}>
+        <Pressable
+          onPress={onEnable}
+          disabled={busy}
+          style={({ pressed }) => [styles.permissionCta, pressed && styles.pressed]}
+          accessibilityRole="button"
+          testID="notification-enable"
+        >
+          <Text style={[styles.permissionCtaText, { color: colors.accent }]}>
+            Attiva notifiche
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={onLater}
+          style={({ pressed }) => [styles.permissionCta, pressed && styles.pressed]}
+          accessibilityRole="button"
+          testID="notification-later"
+        >
+          <Text style={[styles.permissionCtaText, { color: colors.textSecondary }]}>
+            Non ora
+          </Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+/* Una frase incollata a "per esempio" non inizia con la maiuscola. */
+function lowerFirst(text: string): string {
+  const t = (text || '').trim();
+  if (!t) return t;
+  return t.charAt(0).toLocaleLowerCase('it-IT') + t.slice(1);
+}
+
+/**
+ * How long ago, roughly.
+ *
+ * Deliberately vague. "poco fa" is what a person would say, and a precise
+ * timestamp on a line about background work invites the reader to audit it
+ * rather than to glance at it.
+ */
+function agoLabel(iso?: string | null): string {
+  if (!iso) return '';
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return '';
+  const minutes = Math.max(0, Math.round((Date.now() - then) / 60000));
+  if (minutes < 10) return 'poco fa';
+  if (minutes < 60) return `${minutes} min fa`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return hours === 1 ? "un'ora fa" : `${hours} ore fa`;
+  return 'ieri';
+}
+
 const styles = StyleSheet.create({
   /*
     Three things now share this row on a phone: the title, the "why" pill and
@@ -156,6 +288,34 @@ const styles = StyleSheet.create({
   },
   headerText: { flex: 1, gap: 4, minWidth: 240 },
   greeting: { fontSize: 30, fontWeight: '700', letterSpacing: -0.8, lineHeight: 37 },
+  permission: {
+    gap: 2,
+    marginTop: 4,
+  },
+  permissionText: {
+    fontSize: tokens.typography.bodySmall.fontSize,
+    lineHeight: tokens.typography.bodySmall.lineHeight,
+  },
+  permissionExample: {
+    fontSize: tokens.typography.footnote.fontSize,
+    lineHeight: 17,
+  },
+  permissionActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    marginTop: 2,
+  },
+  permissionCta: {
+    minHeight: tokens.touch.min,
+    justifyContent: 'center',
+  },
+  permissionCtaText: { fontSize: 13, fontWeight: '600' },
+  ambient: {
+    fontSize: tokens.typography.footnote.fontSize,
+    lineHeight: 18,
+    marginTop: 6,
+  },
   sub: { fontSize: 15, lineHeight: 21 },
   whyBtn: {
     flexDirection: 'row',

@@ -233,12 +233,81 @@ async def _review_opportunities(user_id: str) -> None:
     outcome = await OpportunityDiscovery(db).review(user_id, reason="state_changed")
     if not outcome.ran or outcome.unavailable:
         return
+
     scan = outcome.scan
+    # A review ran. That is a real thing to have done, and it is the only
+    # thing that entitles anybody to say so later — the record is written by
+    # the work, never by a surface that wants a line.
+    await _note_review(user_id, outcome, scan)
+
     if scan is None or (not scan.created and not scan.updated):
         # Nothing new to consider showing. What is already on their home was
         # decided before and is not re-litigated because a document arrived.
         return
     await SurfacingService(db).decide(user_id)
+
+    # Something was raised or changed. Whether it is worth reaching them
+    # where they are is a separate judgement again, and usually the answer is
+    # that it is not.
+    await _consider_delivery(user_id, scan)
+
+
+async def _note_review(user_id: str, outcome: Any, scan: Any) -> None:
+    """
+    Write down what the review actually did, with what it could see.
+
+    `sources_unavailable` is the field that keeps "tutto tranquillo" honest: a
+    review that could not reach half of somebody's life has not established
+    that nothing is happening, and the copy written from this record has to be
+    able to tell the difference.
+    """
+    from deps import db
+    from delivery.service import DeliveryService
+
+    try:
+        created = len(getattr(scan, "created", []) or [])
+        updated = len(getattr(scan, "updated", []) or [])
+        kind = "opportunity_created" if created else "review_completed"
+        await DeliveryService(db).note_activity(
+            user_id,
+            kind=kind,
+            source_refs=[o.id for o in (getattr(scan, "created", None) or [])][:4],
+            provenance={
+                "changes_reviewed": getattr(outcome, "changes_reviewed", 0),
+                "raised": created,
+                "updated": updated,
+                "reason": getattr(outcome, "reason", ""),
+                "sources_unavailable": list(
+                    getattr(scan, "unavailable_sources", None) or []
+                ),
+            },
+        )
+        # And, at most every few hours, put it into words. The line is written
+        # from the record of what ran, never from a wish to have something to
+        # show.
+        await DeliveryService(db).summarise_recent(user_id)
+    except Exception as exc:
+        logger.info("ambient note soft-fail: %s", type(exc).__name__)
+
+
+async def _consider_delivery(user_id: str, scan: Any) -> None:
+    """
+    Ask, for each thing just raised, whether it is worth reaching them.
+
+    Deliberately not derived from surfacing: something can belong on Home and
+    have no business buzzing in a pocket, and reading the second decision off
+    the first would throw away the only judgement that protects a person's
+    attention.
+    """
+    from deps import db
+    from delivery.service import DeliveryService
+
+    service = DeliveryService(db)
+    for opportunity in list(getattr(scan, "created", []) or [])[:2]:
+        try:
+            await service.evaluate(user_id, opportunity.id)
+        except Exception as exc:
+            logger.info("delivery evaluate soft-fail: %s", type(exc).__name__)
 
 
 async def _worker_loop() -> None:

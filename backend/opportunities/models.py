@@ -330,6 +330,11 @@ class ScanResult(BaseModel):
     # Set when no judgement could be made at all — a provider outage is not
     # silence, and must never be recorded as one.
     unavailable: bool = False
+    # Which parts of the life this scan could not see. A silence reached
+    # without the calendar is not the same statement as a silence reached with
+    # it, and anything that later says "tutto tranquillo" has to know which
+    # one it is talking about.
+    unavailable_sources: List[str] = Field(default_factory=list)
 
     def public(self) -> Dict[str, Any]:
         return {
