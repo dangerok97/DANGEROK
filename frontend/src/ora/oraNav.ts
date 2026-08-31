@@ -13,7 +13,8 @@ export type OraEntryPoint =
   | 'object'
   | 'vita'
   | 'document'
-  | 'question';
+  | 'question'
+  | 'opportunity';
 
 export type OraConversationParams = {
   sessionId?: string | null;
@@ -38,6 +39,15 @@ export type OraConversationParams = {
    * server's business; this is only a handle.
    */
   questionId?: string | null;
+  /**
+   * Something ORA raised, carried into the conversation as its subject.
+   *
+   * "Vediamo" is not an action and must not become one: it opens a thread
+   * about a concern ORA already reasoned about, so the first thing said is
+   * "ti segnalo questo perché…" rather than a question that makes the person
+   * re-explain their own week. The id is opaque, like every other one here.
+   */
+  opportunityId?: string | null;
   entryPoint?: OraEntryPoint;
 };
 
@@ -51,6 +61,7 @@ const ENTRY_POINTS: OraEntryPoint[] = [
   'vita',
   'document',
   'question',
+  'opportunity',
 ];
 
 /** Read an entry point off a URL, falling back to a plain ORA opening. */
@@ -79,12 +90,14 @@ export function buildOraConversationHref(p: OraConversationParams): string {
   const planItemId = opaque(p.planItemId);
   const documentId = opaque(p.documentId);
   const questionId = opaque(p.questionId);
+  const opportunityId = opaque(p.opportunityId);
   const entry = p.entryPoint;
   if (planId) q.set('planId', planId);
   if (objectId) q.set('objectId', objectId);
   if (planItemId) q.set('planItemId', planItemId);
   if (documentId) q.set('documentId', documentId);
   if (questionId) q.set('questionId', questionId);
+  if (opportunityId) q.set('opportunityId', opportunityId);
   if (entry) q.set('entry', entry);
   const qs = q.toString();
   return qs ? `${base}?${qs}` : base;

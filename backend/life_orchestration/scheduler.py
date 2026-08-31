@@ -199,11 +199,46 @@ async def _run_one(user_id: str) -> None:
     _stats["defer_budget_exhausted"] += report.defer_budget_exhausted
     _stats["total_latency_ms"] += report.elapsed_ms
 
+    # A pass ran because this life moved, which is exactly when it is worth
+    # asking whether any of it is worth saying. Reusing this wake-up rather
+    # than running a second worker is the whole integration: one queue, one
+    # coalescing rule, one place that knows a user is busy.
+    try:
+        await _review_opportunities(user_id)
+    except Exception as exc:
+        logger.info("opportunity review soft-fail: %s", type(exc).__name__)
+
     # Arm a one-shot alarm for the soonest deferral, if any.
     try:
         await arm_deferred_timer(user_id, svc)
     except Exception as exc:
         logger.info("deferred arm soft-fail: %s", type(exc).__name__)
+
+
+async def _review_opportunities(user_id: str) -> None:
+    """
+    Ask whether anything that moved was worth saying. Usually: no.
+
+    Deliberately not a trigger. This does not know what changed, cannot see a
+    calendar or a front door, and has no way to turn either into a card — it
+    starts a review, and the review is free to decide there is nothing here,
+    which is what it decides most of the time. Its own guards (nothing
+    pending, a cooldown, an unchanged fingerprint) mean the common case costs
+    no model call at all.
+    """
+    from deps import db
+    from opportunities.discovery import OpportunityDiscovery
+    from opportunities.surfacing import SurfacingService
+
+    outcome = await OpportunityDiscovery(db).review(user_id, reason="state_changed")
+    if not outcome.ran or outcome.unavailable:
+        return
+    scan = outcome.scan
+    if scan is None or (not scan.created and not scan.updated):
+        # Nothing new to consider showing. What is already on their home was
+        # decided before and is not re-litigated because a document arrived.
+        return
+    await SurfacingService(db).decide(user_id)
 
 
 async def _worker_loop() -> None:

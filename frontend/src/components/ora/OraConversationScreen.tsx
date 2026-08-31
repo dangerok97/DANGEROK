@@ -24,7 +24,7 @@ import {
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { api } from '@/src/api/client';
+import { api, type HomeOpportunity } from '@/src/api/client';
 import {
   OraComposer,
   PendingAttachment,
@@ -38,7 +38,14 @@ import { useTheme } from '@/src/theme/ThemeProvider';
 import { tokens } from '@/src/theme/tokens';
 import { buildGoalWorkspaceHref, type OraEntryPoint } from '@/src/ora/oraNav';
 import { oraErrorMessage, useOraContext } from './conversationContext';
-import { OraContextOpening, OraEmpty, OraError, OraHeader, OraWorking } from './OraChrome';
+import {
+  OraContextOpening,
+  OraEmpty,
+  OraError,
+  OraHeader,
+  OraRaisedOpening,
+  OraWorking,
+} from './OraChrome';
 import { OraTurns, type Turn } from './OraTurns';
 
 /** Conversation reading width — long reasoning stays legible, never full-bleed. */
@@ -338,6 +345,16 @@ type Props = {
    * re-interpret. Cleared once it has been used.
    */
   questionId?: string | null;
+  /**
+   * Something ORA raised, that this thread was opened to talk about.
+   *
+   * "Vediamo" is a conversation, not an acceptance. The concern arrives as the
+   * thread's subject so ORA can open with why it said something instead of
+   * making the person explain their own week back to it, and the handle goes
+   * with the first message so the reasoning reads the same concern the card
+   * came from. Nothing is created and nothing is executed by opening this.
+   */
+  opportunityId?: string | null;
   entryPoint?: OraEntryPoint;
   devHarness?: boolean;
   testID?: string;
@@ -350,6 +367,7 @@ export function OraConversationScreen({
   planItemId,
   documentId,
   questionId,
+  opportunityId,
   entryPoint = 'ora',
   devHarness,
   testID = 'ora-conversation',
@@ -382,6 +400,30 @@ export function OraConversationScreen({
   useEffect(() => {
     if (questionId) pendingQuestion.current = questionId;
   }, [questionId]);
+
+  /*
+    The concern this thread is about, fetched rather than carried through the
+    URL: the card's words are the backend's and a query string is not a place
+    to put a sentence about somebody's life. Failing is silent — a thread that
+    cannot show its subject is still a thread.
+  */
+  const [raised, setRaised] = useState<HomeOpportunity | null>(null);
+  useEffect(() => {
+    let alive = true;
+    if (!opportunityId) {
+      setRaised(null);
+      return;
+    }
+    void api
+      .getOpportunity(String(opportunityId))
+      .then((o) => {
+        if (alive) setRaised(o);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [opportunityId]);
 
   const { context, resolving: contextResolving } = useOraContext({
     planId,
@@ -686,6 +728,7 @@ export function OraConversationScreen({
             entry_point: entryPoint,
             plan_id: planId || undefined,
             object_id: objectId || undefined,
+            opportunity_id: opportunityId || undefined,
             attachments: documentId
               ? [...pendingAttach, { document_id: String(documentId) }]
               : pendingAttach,
@@ -707,6 +750,7 @@ export function OraConversationScreen({
               ...(objectId ? { objectId: String(objectId) } : {}),
               ...(planItemId ? { planItemId: String(planItemId) } : {}),
               ...(documentId ? { documentId: String(documentId) } : {}),
+              ...(opportunityId ? { opportunityId: String(opportunityId) } : {}),
               entry: entryPoint,
             });
             router.replace(`/ora/${id}?${q.toString()}` as any);
@@ -795,8 +839,15 @@ export function OraConversationScreen({
     if (turns.length) return null;
     // Say nothing rather than the wrong thing while the context is on its way.
     if (contextResolving) return null;
+    /*
+      Opened from something ORA raised, the thread already has a subject, and
+      a generic "di cosa parliamo?" would throw away the one thing this
+      conversation is certain about. So it says what it said and why, and
+      leaves the next move to the person.
+    */
+    if (raised) return <OraRaisedOpening opportunity={raised} />;
     return context ? <OraContextOpening /> : <OraEmpty />;
-  }, [turns.length, context, contextResolving]);
+  }, [turns.length, context, contextResolving, raised]);
 
   /**
    * Before the first turn there is no conversation to scroll, so anchoring the

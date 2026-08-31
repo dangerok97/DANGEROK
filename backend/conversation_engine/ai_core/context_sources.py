@@ -169,6 +169,15 @@ class ContextSourceRegistry:
                 self._calendar,
             ),
             (
+                "opportunities",
+                "things ORA has raised as worth this person's attention, with "
+                "the reason each one was raised and what it is waiting on",
+                "system-derived",
+                "personal",
+                "temporal",
+                self._opportunities,
+            ),
+            (
                 "life_context_graph",
                 "relationships and links between situations, goals, plans, objects, "
                 "documents and calendar items already known to ORA",
@@ -462,6 +471,47 @@ class ContextSourceRegistry:
                     temporal_scope=start if start != "unspecified" else None,
                     provenance=[str(event.get("provider") or "calendar")],
                     sensitivity="sensitive",
+                )
+            )
+        return out
+
+    async def _opportunities(
+        self, user_id: str, need: ContextNeed, session_id: Optional[str]
+    ) -> List[ContextFact]:
+        """
+        What ORA raised, when the conversation is already about it.
+
+        Nothing is pushed here. Everything a source returns is a candidate and
+        the ranking decides: asked what to prepare for tomorrow, an
+        opportunity about tomorrow's appointment is evidence; asked what
+        Netflix costs, it loses to everything else and never reaches the
+        model. That is the same test every other source passes, which is why
+        this is a source and not a special case bolted onto the prompt.
+
+        Only what is live. A concern somebody refused is not context — it is a
+        thing they have already answered, and re-raising it inside a
+        conversation would be the refusal not sticking.
+        """
+        from opportunities.service import OpportunityService
+
+        out: List[ContextFact] = []
+        for o in await OpportunityService(self.db).list_active(user_id):
+            statement = f"ORA ha segnalato: {o.semantic_summary} — {o.why_it_matters}"
+            if o.why_now:
+                statement += f" ({o.why_now})"
+            if o.requires_clarification and o.clarifying_question:
+                statement += f" In attesa di sapere: {o.clarifying_question}"
+            out.append(
+                _fact(
+                    statement[:600],
+                    "opportunities",
+                    "system-derived",
+                    o.status,
+                    o.updated_at,
+                    f"opportunity:{o.id}",
+                    temporal_scope=o.valid_until,
+                    provenance=[e.kind for e in o.evidence][:4],
+                    sensitivity="personal",
                 )
             )
         return out

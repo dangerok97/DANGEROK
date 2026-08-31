@@ -93,6 +93,15 @@ try:
 except Exception:
     pass
 
+# Opportunity Intelligence (V3.7) — a debug surface only. There is no tab and
+# no delivery: where a person meets an opportunity belongs to a later phase.
+try:
+    from opportunities.router import router as opportunities_router
+
+    ALL_ROUTERS.append(opportunities_router)
+except Exception:
+    pass
+
 # Contextual card visuals (PX1.2)
 try:
     from visuals.router import router as visuals_router

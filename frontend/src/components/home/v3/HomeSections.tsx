@@ -6,6 +6,7 @@ import { tokens } from '@/src/theme/tokens';
 import type {
   HomeInsight,
   HomeItem,
+  HomeOpportunity,
   OpenQuestionItem,
   ProactiveSuggestion,
 } from '@/src/api/client';
@@ -251,22 +252,38 @@ export function TodaySection({
 export function UpdatesFeed({
   suggestions,
   insights,
+  opportunities,
   busyId,
   onOpen,
   onDismiss,
   onInsight,
+  onOpportunityOpen,
+  onOpportunityDismiss,
+  onOpportunityDefer,
   onSeeAll,
 }: {
   suggestions: ProactiveSuggestion[];
   insights: HomeInsight[];
+  /** What ORA judged worth saying, and worth saying now. Usually none. */
+  opportunities?: HomeOpportunity[];
   busyId?: string | null;
   onOpen: (s: ProactiveSuggestion) => void;
   onDismiss: (id: string) => void;
   onInsight: (i: HomeInsight) => void;
+  onOpportunityOpen?: (o: HomeOpportunity) => void;
+  onOpportunityDismiss?: (o: HomeOpportunity) => void;
+  onOpportunityDefer?: (o: HomeOpportunity) => void;
   onSeeAll?: () => void;
 }) {
   const { colors } = useTheme();
-  const total = suggestions.length + insights.length;
+  /*
+    The backend already decided which of these belong here and how many —
+    two judgements, both the model's. Slicing again is not a second opinion,
+    it is the last line of defence: whatever arrives, this section stays a
+    section and never becomes a list.
+  */
+  const raised = (opportunities || []).slice(0, 2);
+  const total = suggestions.length + insights.length + raised.length;
   if (!total) return null;
 
   return (
@@ -276,6 +293,43 @@ export function UpdatesFeed({
       onFooter={onSeeAll}
       testID="home-updates"
     >
+      {raised.map((o) => (
+        <View key={o.id} style={styles.oppItem} testID={`home-opportunity-${o.id}`}>
+          <Text style={[styles.oppTitle, { color: colors.textPrimary }]}>{o.title}</Text>
+          <Text style={[styles.oppWhy, { color: colors.textTertiary }]} numberOfLines={3}>
+            {o.why_now}
+          </Text>
+          <View style={styles.oppActions}>
+            <Pressable
+              onPress={() => onOpportunityOpen?.(o)}
+              style={({ pressed }) => [styles.oppCta, pressed && styles.pressed]}
+              accessibilityRole="button"
+              testID={`opportunity-open-${o.id}`}
+            >
+              <Text style={[styles.oppCtaText, { color: colors.accent }]}>Vediamo</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => onOpportunityDefer?.(o)}
+              style={({ pressed }) => [styles.oppCta, pressed && styles.pressed]}
+              accessibilityRole="button"
+              testID={`opportunity-later-${o.id}`}
+            >
+              <Text style={[styles.oppCtaText, { color: colors.textSecondary }]}>Più tardi</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => onOpportunityDismiss?.(o)}
+              style={({ pressed }) => [styles.oppCta, pressed && styles.pressed]}
+              accessibilityRole="button"
+              testID={`opportunity-dismiss-${o.id}`}
+            >
+              <Text style={[styles.oppCtaText, { color: colors.textSecondary }]}>
+                Non mi interessa
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      ))}
+
       {suggestions.slice(0, 3).map((s) => (
         <Pressable
           key={s.id}
@@ -491,4 +545,38 @@ const styles = StyleSheet.create({
   footerLabel: { fontSize: 13, fontWeight: '600' },
   pressed: { opacity: 0.65 },
   disabled: { opacity: 0.5 },
+
+  /*
+    An opportunity is a sentence, not a row. The other entries here are things
+    that already happened and read fine at a glance; this one is ORA saying
+    something and offering to talk about it, so it gets room to be read and
+    three plain answers underneath. No badge, no colour coding, no icon
+    competing for the eye — quiet is the point.
+  */
+  oppItem: {
+    paddingVertical: tokens.spacing.md,
+    gap: 4,
+  },
+  oppTitle: {
+    fontSize: tokens.typography.body.fontSize,
+    lineHeight: 21,
+    fontWeight: '500',
+    letterSpacing: -0.15,
+  },
+  oppWhy: {
+    fontSize: tokens.typography.bodySmall.fontSize,
+    lineHeight: tokens.typography.bodySmall.lineHeight,
+  },
+  oppActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 14,
+    marginTop: 6,
+  },
+  oppCta: {
+    minHeight: tokens.touch.min,
+    justifyContent: 'center',
+  },
+  oppCtaText: { fontSize: 13, fontWeight: '600' },
 });

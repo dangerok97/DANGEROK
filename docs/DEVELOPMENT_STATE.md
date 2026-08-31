@@ -1,5 +1,57 @@
 # ORA — Development State
 
+## V3.7 — PROACTIVE OPPORTUNITY INTELLIGENCE — CLOSED
+
+ORA decides for itself whether anything in a life is worth saying, and
+separately whether this is the moment to say it. Both are model judgements.
+Code holds identity, arithmetic, bounds and persistence, and nothing else.
+
+Principles this phase is built on, to be preserved:
+
+    PROACTIVITY IS AN AI JUDGMENT, NOT A RULE TRIGGER.
+    A CHANGE EARNS A REVIEW, NOT ATTENTION.
+    OPPORTUNITY != WORK != NOTIFICATION != ACTION.
+    SILENCE IS A VALID DECISION.
+
+**Sprint 1 — AI-First Opportunity Foundation.** `OpportunityCandidate` →
+`Opportunity` → `OpportunityDecision`. Judgements are words a person could
+argue with (`low|medium|high`, `none|soon|urgent`, `weak|reasonable|strong`),
+never numbers. Every claim must cite a fact that was actually supplied;
+anything else is dropped. Identity is a unique index, so the same concern
+noticed twice updates instead of arriving twice. Silence writes nothing, and
+an unreachable model is reported as an outage rather than recorded as a
+judgement that there was nothing to say.
+
+**Sprint 2 — Continuous Discovery & Quiet Surfacing.** Domains record a
+`MeaningfulChange` — facts only, with no field for saying that something
+matters — and that earns a review, never a card. Admission is mechanical:
+duplicates, coalescing, staleness, a cooldown and a snapshot fingerprint, all
+of which answer "would the model be asked the same question twice?" and none
+of which has an opinion about importance. The review runs on the existing
+Continuous Life Reasoning wake-up; there is no second orchestrator. What
+survives is then put to a second, separate judgement — surface, hold or
+retire — and what a person sees is a quiet line inside Home →
+Aggiornamenti, at most two, in human words. No tab, no push, no toast.
+
+**Final micro-fix — contextual defer.** "Più tardi" no longer means six
+hours. How long later lasts depends on what the thing is waiting on, so the
+model decides and its reason is kept. When the model cannot be reached the
+card is held briefly and that hold is recorded as `technical_retry_hold` —
+explicitly not a judgement — so a later pass can tell an unanswered tap from
+a considered one. A revisit time is eligibility for quiet in-app surfacing;
+nothing is scheduled and nobody is notified.
+
+Verified structurally: no domain trigger rules (guarded by walking the AST of
+the discovery path for any branch on a domain name), no numeric scoring, no
+work created, no notifications, no actions, evidence fail-closed, dedupe and
+suppression, code-made expiry as the only automatic transition, Home capped at
+two, provider failure fail-closed on both judgements. Verified live: silence
+on a change with no consequence, a grounded opportunity, its surfacing
+decision, dismissal not re-raised, and resolution removing the card.
+
+Next: V3.8 — Intelligent Notifications / Presence. Not started.
+
+
 ## V3.6 — CLOSED
 
 Verified live: Google Routes (live ETA, traffic-aware), Places API New
@@ -13,7 +65,7 @@ controls.
 to final ORA Production Device QA.** No production-native claim is made until
 that QA runs; the checklist is in ARCHITECTURE.md.
 
-Next: V3.7 — Proactive Opportunity Intelligence. Not started.
+Next: V3.7 — Proactive Opportunity Intelligence. Closed; see above.
 
 ## V3.6 Final — Native Presence & Live Routing
 
