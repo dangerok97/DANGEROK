@@ -24,7 +24,7 @@ import {
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { api, type HomeOpportunity } from '@/src/api/client';
+import { api, type AgentNeed, type HomeOpportunity } from '@/src/api/client';
 import {
   OraComposer,
   PendingAttachment,
@@ -43,6 +43,7 @@ import {
   OraEmpty,
   OraError,
   OraHeader,
+  OraNeedOpening,
   OraRaisedOpening,
   OraWorking,
 } from './OraChrome';
@@ -355,6 +356,9 @@ type Props = {
    * came from. Nothing is created and nothing is executed by opening this.
    */
   opportunityId?: string | null;
+  /** A need ORA raised, and the goal it belongs to. Both, or neither. */
+  needId?: string | null;
+  goalId?: string | null;
   entryPoint?: OraEntryPoint;
   devHarness?: boolean;
   testID?: string;
@@ -368,6 +372,8 @@ export function OraConversationScreen({
   documentId,
   questionId,
   opportunityId,
+  needId,
+  goalId,
   entryPoint = 'ora',
   devHarness,
   testID = 'ora-conversation',
@@ -424,6 +430,97 @@ export function OraConversationScreen({
       alive = false;
     };
   }, [opportunityId]);
+
+  /*
+    The need this thread was opened for, fetched the same way and for the same
+    reason: the words belong to the backend, and a query string is not a place
+    to put a sentence about somebody's life. What travels in the URL is two
+    opaque handles.
+  */
+  const [need, setNeed] = useState<AgentNeed | null>(null);
+  const [answeringNeed, setAnsweringNeed] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    if (!needId) {
+      setNeed(null);
+      return;
+    }
+    void api
+      .getAgentNeed(String(needId))
+      .then((n) => {
+        if (alive) setNeed(n);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [needId]);
+
+  /*
+    Approving happens through the same endpoint everything else uses. A second,
+    quieter path to authority — one that only exists because somebody arrived
+    from a notification — is exactly the kind of shortcut this phase spent two
+    sprints refusing to build.
+
+    Opening a notification is not consent, and neither is landing here: only
+    pressing one of these two is.
+  */
+  const answerNeed = useCallback(
+    async (approve: boolean, forever = false) => {
+      const target = need?.goal_id || (goalId ? String(goalId) : '');
+      if (!target || answeringNeed) return;
+      setAnsweringNeed(true);
+      try {
+        // `forever` travels only from the control that says so. Nothing here
+        // infers it, and the plain approve path passes the default — which is
+        // the whole difference between a yes and a standing permission.
+        if (approve) await api.authoriseAgentGoal(target, '', forever);
+        else await api.denyAgentGoal(target);
+        setNeed((current) => (current ? { ...current, still_open: false } : current));
+      } catch {
+        /* Failing is silent here: the thread is still a thread. */
+      } finally {
+        setAnsweringNeed(false);
+      }
+    },
+    [need?.goal_id, goalId, answeringNeed],
+  );
+
+  /*
+    Answering, in the thread ORA asked in.
+
+    The debt this pays is small to describe and large to experience: ORA asks
+    «qual è il tuo comune?», the person writes «Padova», and the words go into
+    an ordinary conversation turn while the agent stays blocked on a question
+    that was — from its side — never answered. Two things were true at once
+    and only one of them was visible.
+
+    Only for a need that actually asks for information. An authority need is
+    answered by the two buttons above, and «Vai pure» typed as a sentence is
+    not consent: opening is not answering, and answering is not consenting.
+  */
+  const needsInformation = Boolean(
+    need && need.still_open && need.asks_for === 'information',
+  );
+  const answerInThread = useCallback(
+    async (text: string) => {
+      const target = need?.goal_id || (goalId ? String(goalId) : '');
+      if (!target) return false;
+      const res = await api.answerAgentGoal(target, text);
+      setNeed((current) => (current ? { ...current, still_open: false } : current));
+      // What ORA says back is the server's sentence, not one composed here:
+      // the thread must not be able to claim progress the goal has not made.
+      const says = String((res as any)?.says || '').trim();
+      if (says) {
+        setTurns((prev) => [
+          ...prev,
+          { role: 'ora', text: says, messageId: `agent_${Date.now()}` },
+        ]);
+      }
+      return true;
+    },
+    [need?.goal_id, goalId],
+  );
 
   const { context, resolving: contextResolving } = useOraContext({
     planId,
@@ -702,6 +799,17 @@ export function OraConversationScreen({
           patched locally: what a person sees afterwards is the transcript as
           it actually is, including whatever the continuation produced.
         */
+        // A blocked goal that asked for something gets the answer, before the
+        // conversation gets a turn. The order matters: the same words cannot
+        // be both an answer to ORA's question and a new thing to talk about.
+        if (needsInformation && msg) {
+          const handled = await answerInThread(msg);
+          if (handled) {
+            requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
+            return;
+          }
+        }
+
         const qid = pendingQuestion.current;
         if (qid && sessionId && msg) {
           await api.answerQuestion(qid, msg, 'ora');
@@ -788,6 +896,8 @@ export function OraConversationScreen({
       documentId,
       paramId,
       router,
+      needsInformation,
+      answerInThread,
       applyAiCoreResponse,
       applyTurns,
     ],
@@ -845,9 +955,19 @@ export function OraConversationScreen({
       conversation is certain about. So it says what it said and why, and
       leaves the next move to the person.
     */
+    if (need && need.still_open)
+      return (
+        <OraNeedOpening
+          need={need}
+          busy={answeringNeed}
+          onApprove={() => void answerNeed(true)}
+          onDeny={() => void answerNeed(false)}
+          onAllowAlways={() => void answerNeed(true, true)}
+        />
+      );
     if (raised) return <OraRaisedOpening opportunity={raised} />;
     return context ? <OraContextOpening /> : <OraEmpty />;
-  }, [turns.length, context, contextResolving, raised]);
+  }, [turns.length, context, contextResolving, raised, need, answeringNeed, answerNeed]);
 
   /**
    * Before the first turn there is no conversation to scroll, so anchoring the

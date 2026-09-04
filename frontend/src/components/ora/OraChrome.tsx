@@ -156,6 +156,141 @@ export function OraRaisedOpening({
   );
 }
 
+/**
+ * ORA opened on something it needs the person for.
+ *
+ * The shape is the argument. What comes first is what ORA already did, and
+ * only then the one thing missing — because «mi serve il tuo via libera» on
+ * its own is a demand, and the same sentence after four lines of work is a
+ * report with a question at the end. The person should be able to see that
+ * they are the last step, not the first.
+ *
+ * For an approval the two answers are here, on the thread, because making
+ * somebody navigate to say yes to something already prepared is the
+ * workflow this whole phase exists to remove. There is no third button:
+ * "later" is what closing the screen already means.
+ */
+export function OraNeedOpening({
+  need,
+  onApprove,
+  onDeny,
+  onAllowAlways,
+  busy,
+}: {
+  need: {
+    says: string;
+    already_done: string[];
+    missing?: string | null;
+    asks_for?: string | null;
+    can_allow_always?: string | null;
+  };
+  onApprove?: () => void;
+  onDeny?: () => void;
+  onAllowAlways?: () => void;
+  busy?: boolean;
+}) {
+  const { colors } = useTheme();
+  const wantsAuthority = need.asks_for === 'authority';
+  /*
+    The third choice, and deliberately not a third button beside the other
+    two.
+
+      ONE-TIME APPROVAL IS NOT A STANDING PERMISSION.
+
+    Two answers to "shall I do this" sit together as equals. Allowing it for
+    ever is a different question, so it sits apart and quieter, under the
+    sentence saying exactly what it would allow — a permission somebody grants
+    without having read it is one they did not grant.
+
+    Absent unless the backend offers it. Most things are never offerable, and
+    the client does not get to decide which.
+  */
+  const canAllowAlways = Boolean(
+    wantsAuthority && need.can_allow_always && onAllowAlways,
+  );
+
+  return (
+    <View style={styles.empty} testID="ora-need-opening">
+      <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
+        {need.says}
+      </Text>
+
+      {need.already_done.length ? (
+        <View style={styles.needDone} testID="ora-need-done">
+          {need.already_done.slice(0, 4).map((line, n) => (
+            <Text
+              key={`${n}-${line.slice(0, 12)}`}
+              style={[styles.emptyBody, { color: colors.textTertiary }]}
+            >
+              {line}
+            </Text>
+          ))}
+        </View>
+      ) : null}
+
+      {need.missing ? (
+        <Text style={[styles.emptyBody, { color: colors.textSecondary }]}>
+          {need.missing}
+        </Text>
+      ) : null}
+
+      {wantsAuthority && onApprove && onDeny ? (
+        <View style={styles.needAnswers}>
+          <Pressable
+            onPress={onApprove}
+            disabled={busy}
+            accessibilityRole="button"
+            testID="ora-need-approve"
+            style={({ pressed }) => [
+              styles.needAnswer,
+              { borderColor: colors.border, opacity: busy || pressed ? 0.6 : 1 },
+            ]}
+          >
+            <Text style={[styles.needAnswerText, { color: colors.textPrimary }]}>
+              Vai pure
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={onDeny}
+            disabled={busy}
+            accessibilityRole="button"
+            testID="ora-need-deny"
+            style={({ pressed }) => [
+              styles.needAnswer,
+              { borderColor: colors.border, opacity: busy || pressed ? 0.6 : 1 },
+            ]}
+          >
+            <Text style={[styles.needAnswerText, { color: colors.textTertiary }]}>
+              Lascia stare
+            </Text>
+          </Pressable>
+        </View>
+      ) : null}
+
+      {canAllowAlways ? (
+        <View style={styles.needAlways} testID="ora-need-always">
+          <Pressable
+            onPress={onAllowAlways}
+            disabled={busy}
+            accessibilityRole="button"
+            accessibilityHint={need.can_allow_always || undefined}
+            testID="ora-need-allow-always"
+            style={({ pressed }) => [{ opacity: busy || pressed ? 0.5 : 1 }]}
+          >
+            <Text style={[styles.needAlwaysAction, { color: colors.textSecondary }]}>
+              Puoi farlo da sola anche in futuro
+            </Text>
+          </Pressable>
+          <Text style={[styles.needAlwaysNote, { color: colors.textTertiary }]}>
+            {need.can_allow_always}
+          </Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+
 /* Una frase incollata a "perché" non deve iniziare con la maiuscola. */
 function lowerFirst(text: string): string {
   const t = (text || '').trim();
@@ -251,6 +386,39 @@ const styles = StyleSheet.create({
   emptyTitle: { fontSize: 24, fontWeight: '700', letterSpacing: -0.5, lineHeight: 31 },
   emptyBody: { fontSize: 15, lineHeight: 22 },
 
+  needDone: {
+    gap: 2,
+    marginTop: 6,
+  },
+  needAnswers: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 14,
+  },
+  needAnswer: {
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  needAnswerText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  /* Sotto, e più piano: è una domanda diversa, non un'opzione più forte. */
+  needAlways: {
+    marginTop: 18,
+    gap: 4,
+  },
+  needAlwaysAction: {
+    fontSize: 14,
+    fontWeight: '500',
+    textDecorationLine: 'underline',
+  },
+  needAlwaysNote: {
+    fontSize: 13,
+    lineHeight: 19,
+  },
   working: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: tokens.spacing.md },
   workingText: { fontSize: 14 },
 

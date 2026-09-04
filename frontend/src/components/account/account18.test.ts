@@ -188,9 +188,15 @@ const SNAP: AccountSnapshot = {
 // D — the calendar consent boundary is never weakened
 // ---------------------------------------------------------------------------
 {
-  assert.ok(/chiede sempre conferma/i.test(CALENDAR_WRITE_BOUNDARY));
+  // Non più «chiede sempre»: ORA agisce da sola quando gliel'hanno chiesto o
+  // permesso. Quello che resta garantito, e che il test continua a sorvegliare,
+  // è che le due strade siano entrambe una decisione della persona e che
+  // cancellare non sia mai fra le cose che fa da sé.
+  assert.ok(/se glielo chiedi tu/i.test(CALENDAR_WRITE_BOUNDARY));
+  assert.ok(/permesso di farlo da sola/i.test(CALENDAR_WRITE_BOUNDARY));
+  assert.ok(/non elimina mai/i.test(CALENDAR_WRITE_BOUNDARY));
   assert.ok(
-    /aggiungere, modificare o eliminare/i.test(CALENDAR_WRITE_BOUNDARY),
+    /calendario/i.test(CALENDAR_WRITE_BOUNDARY),
     'the promise must name every write it covers, not just creation',
   );
 

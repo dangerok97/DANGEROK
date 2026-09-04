@@ -1,5 +1,63 @@
 # ORA — AI Changelog
 
+## 2026-09-04 — V3.9 closed: Personal Agent & Action Engine
+
+ORA now does things. It decides for itself that an outcome in somebody's life
+is worth bringing about, works out how, carries out the part it is allowed to
+carry out, and afterwards goes and looks at whether the world actually
+changed. The sentence a person sees — "Fatto: il ritiro è in calendario
+giovedì alle 8:30" — is produced only after a real write, a real read-back and
+a verdict that could have said no.
+
+**Sprint 1** built the vocabulary: goals that are outcomes rather than tasks,
+with criteria anybody could check and `NO_GOAL` as the comfortable ordinary
+answer; plans as state rather than scripts; an `ActionIntent` written down
+before anything happens; and an authority model that keeps what the model
+recommended apart from what code decided, because they disagree and the
+disagreement is the interesting part.
+
+**Sprint 2** made the work real. Capabilities read real collections and report
+finding nothing as a result. Provenance makes a simulated result structurally
+unusable as evidence, so a goal cannot close on one. The loop chooses what is
+worth doing next from what it has learned. And it learned to be visible
+without being loud: whether work is worth *showing* is a different question
+from whether it is worth *interrupting*, and collapsing them is how a
+well-behaved quiet assistant ends up looking like one that does nothing.
+
+**Sprint 3** crossed into the world. A personal calendar entry — reversible,
+free, nobody else on it, and readable back afterwards, which is what actually
+decided the choice. Authority is scoped to the effect and bound to it by hash;
+a yes for Thursday at half past eight stops applying when the time moves. The
+permission is rechecked in the last moment before the provider, the effect is
+claimed atomically so a double tap and five workers produce one entry, and
+what goes into evidence is what the calendar said.
+
+**Then the part people will actually feel.** Somebody who writes «segnami un
+evento domani alle 10» is no longer asked whether they want an event tomorrow
+at ten. Their instruction is the authority for that one act — spent once,
+bound to the act, and only ever for effects that reach nobody, cost nothing
+and destroy nothing. And somebody who is tired of being asked can say «puoi
+farlo da sola anche in futuro»: one permission, scoped to what was on the
+screen, described in a sentence with its limits in it, listed and revocable in
+Permessi e accessi.
+
+Three defects in already-shipped code turned up while proving this, all
+invisible from the outside and all now fixed. The agent asked the permission
+registry about a connector that has never existed, so every real person
+resolved as not permitted to write to a calendar they had connected. Every
+calendar event created without an explicit end was sent with `end = start` —
+accepted by Google, confirmed by the read-back, and unreadable in the person's
+calendar. And a one-time consent was never spent when a standing permission
+was what acted, so revoking the permission left a forgotten yes that would
+have authorised the same act again.
+
+What ORA will not do: send, pay, publish, book or delete. Cancelling an event
+still proposes first. No screen widens a permission, and that is deliberate.
+
+Accepted debt: one wired write capability; no grant-expansion UI; live
+provider dependence mitigated by a second Gemini key rather than removed;
+Device QA still deferred with V3.8.
+
 ## 2026-08-31 — V3.8 closed: Ambient Presence & Intelligent Delivery
 
 ORA now works while nobody is watching, and can say so honestly. It wakes

@@ -24,7 +24,13 @@ import pytest
 
 HERE = Path(__file__).resolve().parents[1]
 
-PROVIDER_NAMES = ("gemini", "groq", "mistral", "openai", "ollama", "emergent")
+# Every provider the manager knows. A name missing from here keeps its
+# real adapter inside these tests, so the suite reaches the network the
+# day somebody configures a key for it — which is exactly how `gemini2`
+# slipped through, unnoticed, until its key existed.
+PROVIDER_NAMES = (
+    "gemini", "gemini2", "groq", "mistral", "openai", "ollama", "emergent",
+)
 
 
 def _run(coro):

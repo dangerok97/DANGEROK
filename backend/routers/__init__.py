@@ -122,6 +122,16 @@ try:
 except Exception:
     pass
 
+# Personal agent (V3.9). Goals, plans and the authority ceiling. No endpoint
+# executes a step: execution is what happens inside the loop when the ceiling
+# allows it, and Sprint 1 does not cross into the world at all.
+try:
+    from agent.router import router as agent_router
+
+    ALL_ROUTERS.append(agent_router)
+except Exception:
+    pass
+
 # Contextual card visuals (PX1.2)
 try:
     from visuals.router import router as visuals_router

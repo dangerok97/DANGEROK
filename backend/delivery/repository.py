@@ -34,6 +34,24 @@ HISTORY_RETENTION_DAYS = 30
 ACTIVITY_RETENTION_DAYS = 7
 
 
+def _subject_filter(owner_id: str, source_type: str, source_id: str) -> Dict[str, Any]:
+    """
+    Which plans belong to one subject.
+
+    `opportunity_id` is the field V3.8 shipped with, and every plan written
+    before the agent bridge existed carries only that one. Rather than migrate
+    them to prove a point, the opportunity path accepts either name — in one
+    function, which is the difference between a compatibility seam and a
+    special case scattered through the service.
+    """
+    if source_type == "opportunity":
+        return {
+            "owner_id": owner_id,
+            "$or": [{"source_id": source_id}, {"opportunity_id": source_id}],
+        }
+    return {"owner_id": owner_id, "source_type": source_type, "source_id": source_id}
+
+
 class DeliveryRepository:
     def __init__(self, db):
         self.db = db
@@ -43,6 +61,9 @@ class DeliveryRepository:
             await self.db[PLANS].create_index("id", unique=True)
             await self.db[PLANS].create_index([("owner_id", 1), ("status", 1)])
             await self.db[PLANS].create_index([("owner_id", 1), ("opportunity_id", 1)])
+            await self.db[PLANS].create_index(
+                [("owner_id", 1), ("source_type", 1), ("source_id", 1)]
+            )
             # Enough history for recent fatigue and for an audit; not a
             # permanent record of everything ORA ever said to somebody. Only
             # closed plans carry the stamp, so nothing still open expires.
@@ -78,7 +99,7 @@ class DeliveryRepository:
         return DeliveryPlan.model_validate(doc) if doc else None
 
     async def open_plan_for(
-        self, owner_id: str, opportunity_id: str
+        self, owner_id: str, source_id: str, *, source_type: str = "opportunity"
     ) -> Optional[DeliveryPlan]:
         """
         The plan already standing for this concern, if any.
@@ -89,8 +110,7 @@ class DeliveryRepository:
         """
         doc = await self.db[PLANS].find_one(
             {
-                "owner_id": owner_id,
-                "opportunity_id": opportunity_id,
+                **_subject_filter(owner_id, source_type, source_id),
                 "status": {"$in": ["pending", "held"]},
             },
             {"_id": 0},
@@ -104,10 +124,11 @@ class DeliveryRepository:
         return [DeliveryPlan.model_validate(d) for d in docs]
 
     async def plans_for(
-        self, owner_id: str, opportunity_id: str, *, limit: int = 20
+        self, owner_id: str, source_id: str, *, source_type: str = "opportunity",
+        limit: int = 20,
     ) -> List[DeliveryPlan]:
         docs = await self.db[PLANS].find(
-            {"owner_id": owner_id, "opportunity_id": opportunity_id}, {"_id": 0}
+            _subject_filter(owner_id, source_type, source_id), {"_id": 0}
         ).sort("created_at", 1).to_list(limit)
         return [DeliveryPlan.model_validate(d) for d in docs]
 

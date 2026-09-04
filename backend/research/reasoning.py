@@ -42,18 +42,78 @@ _ATTEMPTS = 2
 
 
 async def _ask_model(system: str, user: str) -> Optional[Dict[str, Any]]:
-    """One JSON answer from the model, or nothing."""
+    """
+    One JSON answer from the model, or nothing — and a line saying which.
+
+    The logging here is not decoration. A reasoning layer that swallows every
+    failure into `None` is a layer where "the model said nothing" and "the
+    provider refused" and "the JSON was truncated" all look identical, and
+    an afternoon gets spent guessing between them. Each attempt now says
+    where it stopped.
+
+    What is recorded is deliberately thin: which provider answered, whether
+    anything came back, how long it was, whether it parsed, and a safe error
+    type. Never the prompt, never the payload, never a key — a log line that
+    carries what somebody was asked about is a privacy leak that survives in
+    a file nobody is watching.
+    """
     for attempt in range(_ATTEMPTS):
+        stage = "call"
         try:
             from llm.manager import get_manager
 
             result = await get_manager().chat(system=system, user=user, json_mode=True)
-            data = _parse_json(getattr(result, "text", None) or "")
-            if data is not None:
-                return data
-            logger.info("research model returned nothing (attempt %s)", attempt + 1)
+            stage = "response"
+            text = getattr(result, "text", None) or ""
+            provider = getattr(result, "provider", "?")
+            model = getattr(result, "model", None) or "?"
+            if not text.strip():
+                logger.warning(
+                    "model boundary attempt=%s provider=%s model=%s response=yes "
+                    "payload=empty parse=n/a outcome=empty_response",
+                    attempt + 1, provider, model,
+                )
+                continue
+
+            stage = "parse"
+            data = _parse_json(text)
+            if data is None:
+                # Truncation looks exactly like malformed JSON from here, so
+                # say which is more likely rather than guessing: a payload
+                # that ends without a closing brace was cut off.
+                cut = not text.rstrip().endswith(("}", "]", "`"))
+                logger.warning(
+                    "model boundary attempt=%s provider=%s model=%s response=yes "
+                    "payload=%s parse=fail outcome=%s",
+                    attempt + 1, provider, model, len(text),
+                    "truncated" if cut else "malformed_json",
+                )
+                continue
+
+            logger.info(
+                "model boundary attempt=%s provider=%s model=%s response=yes "
+                "payload=%s parse=ok outcome=ok",
+                attempt + 1, provider, model, len(text),
+            )
+            return data
         except Exception as e:
-            logger.info("research model soft-fail: %s", type(e).__name__)
+            # `attempts` is the manager's own record of who was tried and why
+            # each one declined. Kinds only — no messages, which is where
+            # providers put URLs and echoed content.
+            kinds = ""
+            try:
+                from llm.manager import get_manager
+
+                kinds = ",".join(
+                    f"{a.get('provider')}:{a.get('failure_kind')}"
+                    for a in (get_manager()._last_attempts or [])
+                )
+            except Exception:
+                pass
+            logger.warning(
+                "model boundary attempt=%s stage=%s outcome=%s tried=[%s]",
+                attempt + 1, stage, type(e).__name__, kinds,
+            )
     return None
 
 

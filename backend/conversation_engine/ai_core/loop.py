@@ -195,6 +195,12 @@ _LOCATION_CAPS = frozenset(
 )
 
 
+def _now_iso() -> str:
+    from datetime import datetime, timezone
+
+    return datetime.now(timezone.utc).isoformat()
+
+
 def _has_terminal_location_obs(observations: List[Dict[str, Any]]) -> bool:
     """True when a location tool already returned a terminal (non-bridge) result."""
     for o in observations:
@@ -1478,6 +1484,18 @@ async def run_cognitive_loop(
                 # A terminal non-question represents progress, deferral or refusal
                 # handling. Do not turn semantic refs into permanent session bans.
                 st["clarification_history"] = []
+            # ORA proposing an external effect and waiting is a fact about the
+            # conversation, and until now it lived only in the model's memory
+            # of its own last turn. Written down, it becomes something code
+            # can check: the next message is an answer to a question that was
+            # actually asked, rather than a claim that one was.
+            #
+            # One turn deep on purpose. A proposal three messages ago is not
+            # what the person is replying to now.
+            st["pending_act"] = (
+                {"at": _now_iso(), "asked": str(ora or "")[:300]}
+                if mode == "act" else None
+            )
             st["observations"] = observations[-12:]
             state_mod.save_ai_state(sess, st)
             # What this turn actually amounts to for the person, named once and
@@ -1959,6 +1977,16 @@ async def run_cognitive_loop(
                     "db": db,
                     "reasoning_epoch": epoch,
                     "platform": "web",
+                    # What the person actually wrote this turn, and whether
+                    # ORA had asked them something before they wrote it.
+                    #
+                    # Both travel as facts the runtime owns, never as
+                    # something the model reports about itself. A capability
+                    # that has to decide whether somebody authorised an
+                    # external effect cannot take the model's word for what
+                    # they said — it has to be able to look.
+                    "user_message": user_message,
+                    "pending_act": (st.get("pending_act") or None),
                 },
             )
             tool_calls += 1

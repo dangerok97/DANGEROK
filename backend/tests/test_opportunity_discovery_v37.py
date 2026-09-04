@@ -940,7 +940,13 @@ def test_no_domain_can_turn_an_event_into_an_opportunity():
                 "ensure_indexes", "get", "list", "by_identity", "decisions_for",
             ), f"{path.name} scrive opportunity: repo.{call}"
         for call in re.findall(r"OpportunityService\([^)]*\)\.(\w+)", text):
-            assert call in ("list_active",), f"{path.name} chiama service.{call}"
+            # `resolve` is the one sanctioned write from outside: a goal that
+            # reaches its outcome settles the concern it grew out of (V3.9
+            # §32). Everything else — raising, dismissing, reviewing — stays
+            # inside the package that owns the judgement.
+            assert call in ("list_active", "resolve"), (
+                f"{path.name} chiama service.{call}"
+            )
 
 
 def test_a_change_can_never_reach_a_screen_without_a_judgement():

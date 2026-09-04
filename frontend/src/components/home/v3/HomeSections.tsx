@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/src/theme/ThemeProvider';
 import { tokens } from '@/src/theme/tokens';
 import type {
+  HomeAgentWork,
   HomeInsight,
   HomeItem,
   HomeOpportunity,
@@ -253,6 +254,7 @@ export function UpdatesFeed({
   suggestions,
   insights,
   opportunities,
+  agentWork,
   busyId,
   onOpen,
   onDismiss,
@@ -266,6 +268,8 @@ export function UpdatesFeed({
   insights: HomeInsight[];
   /** What ORA judged worth saying, and worth saying now. Usually none. */
   opportunities?: HomeOpportunity[];
+  /** Outcomes ORA is pursuing on their behalf. Usually none. */
+  agentWork?: HomeAgentWork[];
   busyId?: string | null;
   onOpen: (s: ProactiveSuggestion) => void;
   onDismiss: (id: string) => void;
@@ -283,7 +287,13 @@ export function UpdatesFeed({
     section and never becomes a list.
   */
   const raised = (opportunities || []).slice(0, 2);
-  const total = suggestions.length + insights.length + raised.length;
+  /*
+    Outcomes, not workflow. Two at most, like everything else here: a person
+    wanting to know whether something is handled does not want a project
+    board, and ORA doing five things at once is a different problem.
+  */
+  const working = (agentWork || []).slice(0, 2);
+  const total = suggestions.length + insights.length + raised.length + working.length;
   if (!total) return null;
 
   return (
@@ -293,6 +303,15 @@ export function UpdatesFeed({
       onFooter={onSeeAll}
       testID="home-updates"
     >
+      {working.map((w) => (
+        <View key={w.id} style={styles.oppItem} testID={`home-agent-${w.id}`}>
+          <Text style={[styles.oppTitle, { color: colors.textPrimary }]}>{w.what}</Text>
+          <Text style={[styles.oppWhy, { color: colors.textTertiary }]} numberOfLines={2}>
+            {w.state}
+          </Text>
+        </View>
+      ))}
+
       {raised.map((o) => (
         <View key={o.id} style={styles.oppItem} testID={`home-opportunity-${o.id}`}>
           <Text style={[styles.oppTitle, { color: colors.textPrimary }]}>{o.title}</Text>

@@ -932,12 +932,22 @@ def test_a_push_can_only_exist_because_of_an_opportunity_the_model_judged():
     body = code.split("async def _send")[1].split("async def")[0]
     assert "plan." in body
 
-    # And a plan is only ever written after the model said `push`.
-    evaluate = code.split("async def evaluate")[1].split("async def")[0]
-    assert "decide_delivery" in evaluate
+    # And a plan is only ever written after the model said `push`. Since the
+    # agent bridge there are two doors — one for an opportunity, one for any
+    # subject — but only one of them judges, and the other has to go through
+    # it. That is the property worth holding: two entrances, one decision.
+    judging = code.split("async def evaluate_subject")[1].split("async def")[0]
+    assert "decide_delivery" in judging
     # `ast.unparse` normalises quotes, so the comparison is matched by shape.
-    assert re.search(r"decision\.mode\s*!=\s*['\"]push['\"]", evaluate), (
-        "evaluate() non distingue push da tutto il resto"
+    assert re.search(r"decision\.mode\s*!=\s*['\"]push['\"]", judging), (
+        "evaluate_subject() non distingue push da tutto il resto"
+    )
+
+    door = code.split("async def evaluate(")[1].split("async def")[0]
+    assert "evaluate_subject" in door, "la porta dell'opportunity non passa dal giudizio"
+    assert "decide_delivery" not in door, "esistono due percorsi che decidono"
+    assert code.count("decide_delivery(") == 1, (
+        "il giudizio di consegna è invocato da più di un posto"
     )
 
 

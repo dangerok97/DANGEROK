@@ -205,8 +205,17 @@ export function locationSummaryLabel(mode: LocationMode): string {
  * would describe a product that does not exist, and would quietly suggest the
  * confirmation could be turned off.
  */
+/*
+  Questa frase diceva «chiede sempre conferma», e ha smesso di essere vera.
+
+  Adesso ORA agisce senza una seconda domanda in due casi soltanto, e sono
+  entrambi una decisione della persona: quando gliel'ha appena chiesto, e
+  quando le ha dato un permesso per il futuro. Lasciare la vecchia frase
+  sarebbe stato peggio che non averla — un'app che rassicura su una garanzia
+  che non offre più.
+*/
 export const CALENDAR_WRITE_BOUNDARY =
-  'Prima di aggiungere, modificare o eliminare un evento nel tuo calendario, ORA ti chiede sempre conferma.';
+  'ORA scrive nel tuo calendario solo se glielo chiedi tu, o se le hai dato il permesso di farlo da sola. Non elimina mai un evento senza chiedertelo.';
 
 export const DOCUMENT_SCOPE_BOUNDARY =
   'ORA legge solo i documenti che carichi tu. Non accede a cartelle o archivi sul tuo dispositivo.';

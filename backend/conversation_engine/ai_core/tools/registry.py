@@ -796,11 +796,13 @@ class ToolRegistry:
                 capability="create_calendar_event",
                 description=(
                     "Create a new calendar commitment ORA manages (local record, synced to "
-                    "Google when connected). Only call this after the user has explicitly "
-                    "confirmed — propose first via response_mode=act, execute only once the "
-                    "user has agreed. Requires a resolved timezone (use context/timezone "
-                    "evidence, never assume). Fails honestly and never claims success if "
-                    "Google sync does not confirm."
+                    "Google when connected). Call it directly when the user has just asked "
+                    "for it — their own request is the authority, and asking them to "
+                    "confirm a decision they have already made is a wasted turn. Propose "
+                    "first via response_mode=act only when the idea is ORA's, not theirs. "
+                    "Requires a resolved timezone (use context/timezone evidence, never "
+                    "assume). Fails honestly and never claims success if Google sync does "
+                    "not confirm."
                 ),
                 input_schema={
                     "type": "object",
@@ -813,6 +815,24 @@ class ToolRegistry:
                         "all_day": {"type": "boolean"},
                         "location": {"type": "string"},
                         "description": {"type": "string"},
+                        "user_authority": {
+                            "type": "object",
+                            "description": (
+                                "Fill this in when the user asked for this action "
+                                "in THEIR CURRENT message. user_words must be "
+                                "copied verbatim from that message — the runtime "
+                                "looks it up in what actually arrived and ignores "
+                                "anything it cannot find there. Their own request "
+                                "is the authority for that one action; it is not a "
+                                "standing permission and it does not cover an "
+                                "action bigger than what they described."
+                            ),
+                            "properties": {
+                                "requested_by_user": {"type": "boolean"},
+                                "user_words": {"type": "string"},
+                                "what_they_asked_for": {"type": "string"},
+                            },
+                        },
                     },
                     "required": ["title", "start_datetime"],
                 },
@@ -830,8 +850,8 @@ class ToolRegistry:
                     "Update or reschedule an existing calendar event ORA manages. Requires "
                     "the exact calendar_ref from prior evidence — never guess by title; if "
                     "the target event is ambiguous, ask instead of choosing. Only the fields "
-                    "provided are changed. Propose via response_mode=act and execute only "
-                    "after confirmation, same as create."
+                    "provided are changed. Authority works exactly as it does for create: "
+                    "their request is enough for what they asked for, ORA's own idea is not."
                 ),
                 input_schema={
                     "type": "object",
@@ -843,6 +863,24 @@ class ToolRegistry:
                         "timezone": {"type": "string"},
                         "location": {"type": "string"},
                         "description": {"type": "string"},
+                        "user_authority": {
+                            "type": "object",
+                            "description": (
+                                "Fill this in when the user asked for this action "
+                                "in THEIR CURRENT message. user_words must be "
+                                "copied verbatim from that message — the runtime "
+                                "looks it up in what actually arrived and ignores "
+                                "anything it cannot find there. Their own request "
+                                "is the authority for that one action; it is not a "
+                                "standing permission and it does not cover an "
+                                "action bigger than what they described."
+                            ),
+                            "properties": {
+                                "requested_by_user": {"type": "boolean"},
+                                "user_words": {"type": "string"},
+                                "what_they_asked_for": {"type": "string"},
+                            },
+                        },
                     },
                     "required": ["calendar_ref"],
                 },

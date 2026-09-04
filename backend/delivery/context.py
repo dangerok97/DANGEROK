@@ -47,6 +47,7 @@ async def build(
     user_id: str,
     *,
     opportunity: Optional[Any] = None,
+    subject: Optional[Any] = None,
     app_state: str = "unknown",
 ) -> Dict[str, Any]:
     """
@@ -84,14 +85,19 @@ async def build(
             logger.info("delivery context %s unavailable: %s", name, type(e).__name__)
             context["unavailable_sources"].append(name)
 
-    if opportunity is not None:
-        context["about"] = _about(opportunity, now)
+    # One subject, whatever raised it. `opportunity` is the name V3.8 calls
+    # this by and it still works; `subject` is the same slot for anything that
+    # is not one. Read by attribute either way, so nothing below branches.
+    thing = subject if subject is not None else opportunity
+    if thing is not None:
+        context["about"] = _about(thing, now)
         # "Ti ho già interrotto ieri per QUESTA cosa" is a different fact from
         # "ieri hai ricevuto una notifica su tutt'altro", and only one of them
         # is a reason to say this one differently. The general history cannot
         # answer it, so the same concern gets its own two lines.
         context["about"]["how_this_one_went_before"] = await _same_concern(
-            db, user_id, getattr(opportunity, "id", ""), now
+            db, user_id, getattr(thing, "id", ""), now,
+            source_type=str(getattr(thing, "source_type", "") or "opportunity"),
         )
 
     return context
@@ -120,10 +126,19 @@ def _about(opportunity: Any, now: datetime) -> Dict[str, Any]:
         "times_already_shown": int(getattr(opportunity, "surfaced_count", 0) or 0),
         "already_seen": bool(getattr(opportunity, "seen_at", None)),
         "they_said_later_until": getattr(opportunity, "deferred_until", None),
+        # Only an agent need carries these, and they are the difference
+        # between "something came up" and "everything is ready and one thing
+        # is missing". Absent for an opportunity, which has no work behind it.
+        "waiting_for_a_reply": bool(getattr(opportunity, "requires_response", False)) or None,
+        "what_ora_already_did": list(getattr(opportunity, "work_already_done", []) or []) or None,
+        "what_is_missing": getattr(opportunity, "what_is_missing", "") or None,
     }
 
 
-async def _same_concern(db, user_id: str, opportunity_id: str, now: datetime) -> Dict[str, Any]:
+async def _same_concern(
+    db, user_id: str, subject_id: str, now: datetime, *,
+    source_type: str = "opportunity",
+) -> Dict[str, Any]:
     """
     How this particular thing has gone, as opposed to notifications at large.
 
@@ -132,14 +147,19 @@ async def _same_concern(db, user_id: str, opportunity_id: str, now: datetime) ->
     attempt was. No ratio, because a ratio is a metric and a metric invites
     optimising.
     """
-    if not opportunity_id:
+    if not subject_id:
         return {"times_already_sent": 0, "ever_opened": False}
 
     since = (now - timedelta(days=HISTORY_DAYS)).isoformat()
     rows = await db.delivery_plans.find(
         {
             "owner_id": user_id,
-            "opportunity_id": opportunity_id,
+            **(
+                {"$or": [{"source_id": subject_id},
+                         {"opportunity_id": subject_id}]}
+                if source_type == "opportunity"
+                else {"source_type": source_type, "source_id": subject_id}
+            ),
             "delivered_at": {"$gte": since},
         },
         {"_id": 0, "delivered_at": 1, "outcome": 1},

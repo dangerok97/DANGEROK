@@ -17,13 +17,15 @@ import { OraConversationScreen } from '@/src/components/ora/OraConversationScree
 import { oraEntryPointFrom } from '@/src/ora/oraNav';
 
 export default function OraProductionStart() {
-  const { planId, objectId, planItemId, documentId, questionId, opportunityId, entry } = useLocalSearchParams<{
+  const { planId, objectId, planItemId, documentId, questionId, opportunityId, needId, goalId, entry } = useLocalSearchParams<{
     planId?: string;
     objectId?: string;
     planItemId?: string;
     documentId?: string;
     questionId?: string;
     opportunityId?: string;
+    needId?: string;
+    goalId?: string;
     entry?: string;
   }>();
 
@@ -35,6 +37,8 @@ export default function OraProductionStart() {
       documentId={documentId}
       questionId={questionId}
       opportunityId={opportunityId}
+      needId={needId}
+      goalId={goalId}
       entryPoint={oraEntryPointFrom(entry)}
       testID="ora-production-start"
     />

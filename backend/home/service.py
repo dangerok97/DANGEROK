@@ -413,6 +413,16 @@ class HomeService:
         except Exception as e:
             logger.info("ambient line read soft-fail: %s", type(e).__name__)
 
+        # V3.9 — outcomes ORA is pursuing. Read only, and absent whenever
+        # there is nothing: an agent with nothing to do says nothing.
+        agent_work: List[Dict[str, Any]] = []
+        try:
+            from agent.service import AgentService
+
+            agent_work = await AgentService(self.db).for_home(user_id)
+        except Exception as e:
+            logger.info("agent work read soft-fail: %s", type(e).__name__)
+
         primary_public = primary.to_public() if primary else None
         if primary_public:
             try:
@@ -428,6 +438,7 @@ class HomeService:
             insights=insights,
             opportunities=opportunities,
             ambient=ambient,
+            agent_work=agent_work,
             notification_prompt=notification_prompt,
             resume_item=resume,
             ora_ti_consiglia=ora_ti_consiglia[:3],

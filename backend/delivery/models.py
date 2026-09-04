@@ -23,7 +23,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 # How ORA may exist in somebody's day. Four decisions, not four rungs.
 DeliveryMode = Literal["silence", "quiet_presence", "in_app", "push"]
@@ -44,6 +44,15 @@ PlanStatus = Literal["pending", "held", "cancelled", "delivered", "expired"]
 
 # Who decided. `model` is a judgement; the others are the code admitting it
 # had no judgement available and saying so rather than pretending.
+# What raised the thing being weighed. V3.8 shipped assuming there was only
+# ever one answer, which was true until an agent could need somebody.
+#
+# The alternative — inventing an Opportunity so the agent had one — would have
+# been three lines and a lie: an opportunity is something ORA noticed about a
+# life, and "I am stuck and need you" is not that. Two source types cost less
+# than one dishonest one.
+DeliverySource = Literal["opportunity", "agent_need"]
+
 DeliveryProvenance = Literal["model", "code_cancel", "code_expiry", "code_safety"]
 
 # What became of something that was actually sent.
@@ -124,6 +133,65 @@ class AmbientActivity(BaseModel):
     def for_home(self) -> Dict[str, Any]:
         """One human line, and nothing that reveals the machine."""
         return {"id": self.id, "text": self.summary, "at": self.occurred_at}
+
+
+class DeliverySubject(BaseModel):
+    """
+    The thing being weighed, whatever raised it.
+
+    Deliberately shaped like an Opportunity rather than like a new idea: the
+    context builder reads its subject by attribute name, so a subject that
+    answers to the same names needs no branch anywhere downstream. That is the
+    whole generalisation — one adapter at the edge instead of a source check
+    at every call site.
+
+    The last few fields are the ones an opportunity has no use for and an
+    agent need cannot do without: whether somebody has to reply, and what ORA
+    had already done before it got stuck.
+    """
+
+    source_type: DeliverySource = "agent_need"
+    id: str
+    owner_id: str
+
+    # Read by `delivery.context._about`, under exactly these names.
+    semantic_summary: str = Field(default="", max_length=400)
+    why_it_matters: str = Field(default="", max_length=400)
+    why_now: str = Field(default="", max_length=400)
+    created_at: str = Field(default_factory=now_iso)
+    valid_until: Optional[str] = None
+    relevance: Optional[str] = None
+    urgency: Optional[str] = None
+    time_sensitivity: Optional[str] = None
+    requires_clarification: bool = False
+    surfaced_count: int = 0
+    seen_at: Optional[str] = None
+    deferred_until: Optional[str] = None
+    status: str = "active"
+
+    # What only a need has.
+    #
+    # `goal_id` is the second handle a tap needs: a need belongs to a goal,
+    # and landing somebody on the goal instead of on the thing that is
+    # blocked throws away the only useful thing the notification knew. Empty
+    # for an opportunity, which has nothing above it.
+    goal_id: str = Field(default="", max_length=64)
+    requires_response: bool = False
+    # In human words: what ORA already did, so the judgement can weigh
+    # "everything is ready and one thing is missing" differently from
+    # "something came up".
+    work_already_done: List[str] = Field(default_factory=list, max_length=6)
+    what_is_missing: str = Field(default="", max_length=300)
+    sensitivity_hint: Sensitivity = "ordinary"
+    source_refs: List[str] = Field(default_factory=list, max_length=8)
+
+
+def source_of(subject: Any) -> str:
+    """
+    Which kind of thing this is. An Opportunity does not carry the field, and
+    should not have to — it was here first.
+    """
+    return str(getattr(subject, "source_type", "") or "opportunity")
 
 
 class PushCopy(BaseModel):
@@ -220,7 +288,16 @@ class DeliveryPlan(BaseModel):
 
     id: str = Field(default_factory=new_plan_id)
     owner_id: str
-    opportunity_id: str
+
+    # What this plan is about, and what kind of thing that is.
+    source_type: DeliverySource = "opportunity"
+    source_id: str = ""
+    # The field V3.8 shipped with. Kept, and kept populated for the
+    # opportunity path, because rows written before the bridge existed have
+    # only this one and there is no reason to migrate them to prove a point.
+    # For an agent need it is empty — an id that is not an opportunity's must
+    # not be filed under a name that says it is.
+    opportunity_id: str = ""
 
     mode: DeliveryMode
     status: PlanStatus = "pending"
@@ -261,6 +338,24 @@ class DeliveryPlan(BaseModel):
     # Set by Mongo's TTL index, and only once a plan is settled.
     expires_at: Optional[datetime] = None
 
+    @model_validator(mode="after")
+    def _one_identity(self) -> "DeliveryPlan":
+        """
+        Keep the two names for one thing in step.
+
+        A row written before this bridge has `opportunity_id` and no
+        `source_id`; a plan built by the agent has `source_id` and must not
+        have an `opportunity_id`. Reconciled here rather than at every call
+        site, which is where the "decine di if" would otherwise live.
+        """
+        if not self.source_id and self.opportunity_id:
+            self.source_id = self.opportunity_id
+        if self.source_type == "opportunity" and not self.opportunity_id:
+            self.opportunity_id = self.source_id
+        if self.source_type != "opportunity":
+            self.opportunity_id = ""
+        return self
+
     def touch(self) -> None:
         self.updated_at = now_iso()
 
@@ -271,7 +366,9 @@ class DeliveryPlan(BaseModel):
     def public(self) -> Dict[str, Any]:
         return {
             "id": self.id,
-            "opportunity_id": self.opportunity_id,
+            "source_type": self.source_type,
+            "source_id": self.source_id,
+            "opportunity_id": self.opportunity_id or None,
             "mode": self.mode,
             "status": self.status,
             "not_before": self.not_before,

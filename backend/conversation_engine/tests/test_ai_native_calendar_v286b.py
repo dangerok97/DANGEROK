@@ -134,11 +134,37 @@ def _disconnect_fake_google(original) -> None:
 
 
 def _runtime(db, user_id: str, epoch: str = "") -> dict:
-    return {"user_id": user_id, "db": db, "reasoning_epoch": epoch, "session_id": "s1"}
+    """
+    The runtime a calendar capability now receives.
+
+    `user_message` and `pending_act` are new, and they are what this suite has
+    always assumed without being able to say: every write here is one the
+    person agreed to — the module's own contract used to be "the AI has
+    already proposed this and received explicit confirmation; the runtime does
+    not re-litigate that". It does re-litigate it now, so the confirmation has
+    to be present rather than implied, and these two fields are it: ORA asked,
+    and they said yes.
+    """
+    return {
+        "user_id": user_id, "db": db, "reasoning_epoch": epoch, "session_id": "s1",
+        "user_message": "sì, va bene",
+        "pending_act": {"at": "test", "asked": "Lo segno in calendario?"},
+    }
 
 
-def _sess(user_id: str) -> ConversationSession:
-    return ConversationSession(user_id=user_id, meta={"ui_mode": "ai_core", "ai_core": {}})
+def _sess(user_id: str, *, proposed: bool = False) -> ConversationSession:
+    """
+    A session, optionally one in which ORA has just proposed something.
+
+    `proposed` is the state a confirmation needs in order to be a
+    confirmation of anything. It used to be implicit — the model remembered
+    its own last turn and the runtime believed it — and it is now written
+    into the session so code can check that a question was actually asked.
+    """
+    state = {"pending_act": {"at": "test", "asked": "Lo segno in calendario?"}} if proposed else {}
+    return ConversationSession(
+        user_id=user_id, meta={"ui_mode": "ai_core", "ai_core": state}
+    )
 
 
 def _decision(mode="answer", **extra):
@@ -622,10 +648,18 @@ async def test_w_observation_no_token_no_raw_payload():
         blob = str(obs.payload).lower()
         for forbidden in ("access_token", "refresh_token", "secret", "\"token\""):
             assert forbidden not in blob
+        # An allowlist, not a snapshot: the point is that nothing unbounded
+        # or secret reaches a payload the model will read. The four new names
+        # are the read-back — whether anybody looked, what the calendar said,
+        # and on what basis the write was allowed — and each is a short,
+        # named value rather than a provider response passed through.
         assert set(obs.payload.keys()) <= {
             "status", "operation", "calendar_ref", "google_event_id",
             "sync_status", "timezone",
+            "verified", "what_the_calendar_says", "authority", "reason",
         }
+        seen = obs.payload.get("what_the_calendar_says") or {}
+        assert set(seen) <= {"title", "start"}, "il payload del provider passa intero"
     finally:
         _disconnect_fake_google(original)
         await _cleanup(db, user)
@@ -697,7 +731,8 @@ async def test_g_create_after_confirmation_succeeds():
     try:
         await _grant_write(db, user)
         start = _iso(datetime.now(timezone.utc) + timedelta(days=1, hours=2))
-        sess = _sess(user)
+        # ORA proposed it on the previous turn; this is the person answering.
+        sess = _sess(user, proposed=True)
         decide = _scripted([
             _decision(
                 mode="tool",

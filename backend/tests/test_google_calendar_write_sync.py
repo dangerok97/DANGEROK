@@ -9,7 +9,7 @@ import asyncio
 import os
 import sys
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -34,6 +34,7 @@ from connectors.google_calendar.provider import (  # noqa: E402
 )
 from documents.intelligence.google_sync import (  # noqa: E402
     GoogleCalendarSyncService,
+    DEFAULT_EVENT_MINUTES,
     build_google_event_body,
     sanitize_google_description,
 )
@@ -105,6 +106,79 @@ class TestSanitizeAndBody:
         body = build_google_event_body(draft)
         assert "dateTime" in body["start"]
         assert "Europe/Rome" in body["start"]["timeZone"]
+
+    # --- an event that has a beginning and no end --------------------------
+    #
+    # `end or start` produced an event that ended when it began. The provider
+    # accepted it, the read-back confirmed it, and what landed in somebody's
+    # calendar was a sliver they could not read — every check green, the
+    # outcome wrong. These six pin down the whole rule: derive only when
+    # nothing was said, and never over something that was.
+
+    def test_start_only_gets_a_default_length(self):
+        body = build_google_event_body({
+            "id": "ced_len", "title": "Ritiro", "source_document_id": "d",
+            "start_datetime": "2026-09-05T08:30:00", "timezone": "Europe/Rome",
+        })
+        start = datetime.fromisoformat(body["start"]["dateTime"])
+        end = datetime.fromisoformat(body["end"]["dateTime"])
+        assert end > start, "un evento che finisce quando comincia"
+        assert end - start == timedelta(minutes=DEFAULT_EVENT_MINUTES)
+
+    def test_an_explicit_end_is_never_recomputed(self):
+        body = build_google_event_body({
+            "id": "ced_end", "title": "Visita", "source_document_id": "d",
+            "start_datetime": "2026-09-05T08:30:00",
+            "end_datetime": "2026-09-05T08:45:00",
+            "timezone": "Europe/Rome",
+        })
+        assert body["end"]["dateTime"].startswith("2026-09-05T08:45:00")
+
+    def test_a_stated_duration_wins_over_the_default(self):
+        body = build_google_event_body({
+            "id": "ced_dur", "title": "Corso", "source_document_id": "d",
+            "start_datetime": "2026-09-05T08:30:00", "duration_minutes": 150,
+            "timezone": "Europe/Rome",
+        })
+        start = datetime.fromisoformat(body["start"]["dateTime"])
+        end = datetime.fromisoformat(body["end"]["dateTime"])
+        assert end - start == timedelta(minutes=150)
+
+    def test_an_end_outranks_a_duration(self):
+        body = build_google_event_body({
+            "id": "ced_both", "title": "Corso", "source_document_id": "d",
+            "start_datetime": "2026-09-05T08:30:00",
+            "end_datetime": "2026-09-05T09:00:00",
+            "duration_minutes": 150, "timezone": "Europe/Rome",
+        })
+        assert body["end"]["dateTime"].startswith("2026-09-05T09:00:00")
+
+    def test_all_day_keeps_its_own_unit(self):
+        """
+        All-day is days, not hours, and Google reads its end as exclusive.
+
+        So a single day ends on the next one — sending the same date twice is
+        not a short event, it is a malformed one. Deliberately not routed
+        through the hourly path: adding sixty minutes to a date is nonsense.
+        """
+        body = build_google_event_body({
+            "id": "ced_day", "title": "Ferie", "source_document_id": "d",
+            "start_datetime": "2026-08-10T00:00:00+02:00",
+            "timezone": "Europe/Rome", "all_day": True,
+        })
+        assert body["start"]["date"] == "2026-08-10"
+        assert body["end"]["date"] == "2026-08-11"
+        assert "dateTime" not in body["start"] and "dateTime" not in body["end"]
+
+    def test_the_timezone_survives_the_derivation(self):
+        body = build_google_event_body({
+            "id": "ced_tz", "title": "Riunione", "source_document_id": "d",
+            "start_datetime": "2026-12-05T08:30:00", "timezone": "America/New_York",
+        })
+        assert body["start"]["timeZone"] == "America/New_York"
+        assert body["end"]["timeZone"] == "America/New_York"
+        # Derived in the person's own zone, not in UTC and not naively.
+        assert body["end"]["dateTime"].startswith("2026-12-05T09:30:00-05:00")
 
     def test_missing_start_raises(self):
         with pytest.raises(ValueError):

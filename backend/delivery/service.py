@@ -29,6 +29,8 @@ from typing import Any, Dict, List, Optional
 
 from delivery import context as delivery_context
 from delivery.models import (
+    DeliverySubject,
+    source_of,
     AmbientActivity,
     DeliveryDecision,
     DeliveryPlan,
@@ -83,7 +85,6 @@ class DeliveryService:
         Most of the time the answer is `silence` or `in_app`, and neither
         writes a plan. A plan is only for something that intends to arrive.
         """
-        from delivery.reasoning import decide_delivery
         from opportunities.repository import OpportunityRepository
 
         opportunity = await OpportunityRepository(self.db).get(user_id, opportunity_id)
@@ -97,14 +98,47 @@ class DeliveryService:
             )
             return DeliveryResult(blocked_by="opportunity_not_active")
 
-        if await self._muted(user_id, opportunity_id):
+        return await self.evaluate_subject(
+            user_id, opportunity, app_state=app_state, language=language
+        )
+
+    async def evaluate_subject(
+        self,
+        user_id: str,
+        subject: Any,
+        *,
+        app_state: str = "unknown",
+        language: str = "it",
+    ) -> DeliveryResult:
+        """
+        The same judgement, for anything that might need saying.
+
+            DELIVERY DECIDES WHETHER, WHEN AND HOW. NOBODY ELSE.
+
+        This is the whole bridge. V3.8 was written when only an opportunity
+        could reach somebody, and an agent that gets stuck is not an
+        opportunity — inventing one so it could get through would have been
+        three lines and a lie. So the subject became a shape rather than a
+        type, and everything below is the code that was already here.
+
+        Nothing about the source reaches the judgement as a shortcut: an
+        agent need does not get a different prompt, a different mode set, or
+        a lower bar for interrupting. It gets the same question asked about
+        different facts.
+        """
+        from delivery.reasoning import decide_delivery
+
+        kind = source_of(subject)
+        subject_id = getattr(subject, "id", "")
+
+        if await self._muted(user_id, subject_id):
             # "Non notificarmi per questa cosa." Checked before anything is
             # spent: a person saying stop should not depend on a model
             # agreeing, and asking one anyway would be paying to be told
             # something already decided. Not a dismissal — the concern goes on
             # living wherever it was living, so this lands on the screen.
-            await self.cancel_for_opportunity(
-                user_id, opportunity_id,
+            await self.cancel_for_source(
+                user_id, subject_id, source_type=kind,
                 reason="l'utente ha chiesto di non essere avvisato",
             )
             return DeliveryResult(
@@ -114,7 +148,7 @@ class DeliveryService:
             )
 
         moment = await delivery_context.build(
-            self.db, user_id, opportunity=opportunity, app_state=app_state
+            self.db, user_id, subject=subject, app_state=app_state
         )
         answer = await decide_delivery(moment, language=language)
 
@@ -129,8 +163,9 @@ class DeliveryService:
         if decision.mode != "push":
             # Quiet, in-app or nothing: no intention to arrive anywhere, so no
             # plan — and any plan that was standing is no longer what we think.
-            await self.cancel_for_opportunity(
-                user_id, opportunity_id, reason="non è più il caso di interrompere"
+            await self.cancel_for_source(
+                user_id, subject_id, source_type=kind,
+                reason="non è più il caso di interrompere",
             )
             return DeliveryResult(
                 mode=decision.mode,
@@ -142,14 +177,16 @@ class DeliveryService:
         if not allowed:
             # A technical refusal, named as one. The judgement stands; the
             # channel is unavailable, so it lands on the screen instead.
-            plan = await self._hold(user_id, opportunity_id, decision, why_not)
+            plan = await self._hold(
+                user_id, subject_id, decision, why_not, source_type=kind
+            )
             return DeliveryResult(
                 mode="in_app", blocked_by=why_not, plan=plan,
                 reason="l'interruzione non era possibile adesso",
                 what_decided_the_mode=decision.what_decided_the_mode,
             )
 
-        plan = await self._plan(user_id, opportunity, decision)
+        plan = await self._plan(user_id, subject, decision)
         result = DeliveryResult(
             mode="push", plan=plan, reason=decision.reason_to_interrupt,
             what_decided_the_mode=decision.what_decided_the_mode,
@@ -208,7 +245,7 @@ class DeliveryService:
     # --- intentions -------------------------------------------------------
 
     async def _plan(
-        self, user_id: str, opportunity, decision: DeliveryDecision
+        self, user_id: str, subject, decision: DeliveryDecision
     ) -> DeliveryPlan:
         """
         Write down the intention — updating the one that exists, never adding.
@@ -217,15 +254,18 @@ class DeliveryService:
         one thing, and a person should hear about it once. So an open plan is
         found and rewritten with what we now think.
         """
-        existing = await self.repo.open_plan_for(user_id, opportunity.id)
+        kind = source_of(subject)
+        existing = await self.repo.open_plan_for(
+            user_id, subject.id, source_type=kind
+        )
         plan = existing or DeliveryPlan(
-            owner_id=user_id, opportunity_id=opportunity.id, mode="push"
+            owner_id=user_id, source_type=kind, source_id=subject.id, mode="push"
         )
 
         plan.mode = "push"
         plan.status = "pending"
         plan.not_before = decision.not_before
-        plan.not_after = decision.not_after or _default_not_after(opportunity)
+        plan.not_after = decision.not_after or _default_not_after(subject)
         plan.words = decision.words or PushCopy()
         plan.reason_to_interrupt = decision.reason_to_interrupt
         plan.reason_to_open = decision.reason_to_open
@@ -233,17 +273,21 @@ class DeliveryService:
         # is not necessarily the one that holds this morning.
         plan.what_decided_the_mode = decision.what_decided_the_mode
         plan.sensitivity = decision.sensitivity
-        plan.deep_link = _deep_link(opportunity.id)
+        plan.deep_link = _deep_link_for(subject)
         plan.decision_provenance = "model"
         plan.rationale = decision.reason_to_interrupt[:300]
         return await self.repo.save_plan(plan)
 
     async def _hold(
-        self, user_id: str, opportunity_id: str, decision: DeliveryDecision, why: str
+        self, user_id: str, subject_id: str, decision: DeliveryDecision, why: str,
+        *, source_type: str = "opportunity",
     ) -> DeliveryPlan:
-        existing = await self.repo.open_plan_for(user_id, opportunity_id)
+        existing = await self.repo.open_plan_for(
+            user_id, subject_id, source_type=source_type
+        )
         plan = existing or DeliveryPlan(
-            owner_id=user_id, opportunity_id=opportunity_id, mode="push"
+            owner_id=user_id, source_type=source_type, source_id=subject_id,
+            mode="push",
         )
         plan.status = "held"
         plan.decision_provenance = "code_safety"
@@ -251,7 +295,9 @@ class DeliveryService:
         plan.reason_to_open = decision.reason_to_open
         plan.what_decided_the_mode = decision.what_decided_the_mode
         plan.words = decision.words or plan.words
-        plan.deep_link = _deep_link(opportunity_id)
+        plan.deep_link = plan.deep_link or _deep_link(
+            subject_id, target="opportunity" if source_type == "opportunity" else "home"
+        )
         return await self.repo.save_plan(plan)
 
     # --- sending, much later ----------------------------------------------
@@ -369,15 +415,31 @@ class DeliveryService:
     async def cancel_for_opportunity(
         self, user_id: str, opportunity_id: str, *, reason: str
     ) -> int:
+        """A concern that closed takes its intentions with it."""
+        return await self.cancel_for_source(
+            user_id, opportunity_id, source_type="opportunity", reason=reason
+        )
+
+    async def cancel_for_source(
+        self, user_id: str, source_id: str, *, source_type: str = "opportunity",
+        reason: str,
+    ) -> int:
         """
-        A concern that closed takes its intentions with it.
+        A subject that closed takes its intentions with it.
 
         Guaranteed by code rather than left to a judgement: a notification
         about something already dealt with is never right, so there is nothing
         to decide.
+
+        Cancels the *intention to say*, and nothing else. Whatever raised it
+        goes on existing — an agent still stuck is still stuck when the push
+        is called off, and forgetting that is the failure this whole bridge
+        exists to avoid.
         """
         cancelled = 0
-        for plan in await self.repo.plans_for(user_id, opportunity_id):
+        for plan in await self.repo.plans_for(
+            user_id, source_id, source_type=source_type
+        ):
             if plan.is_open:
                 await self._cancel(plan, reason, "code_cancel")
                 cancelled += 1
@@ -393,7 +455,7 @@ class DeliveryService:
         await self.repo.save_plan(plan)
         # An alarm set for a notification that is no longer going to happen is
         # a process that will wake up, find nothing, and have cost something.
-        await self._cancel_wakes(plan.owner_id, plan.opportunity_id)
+        await self._cancel_wakes(plan.owner_id, plan.source_id)
         try:
             await get_provider().cancel(owner_id=plan.owner_id, plan_id=plan.id)
         except Exception as e:
@@ -641,6 +703,10 @@ def _older_than(when: str, hours: int) -> bool:
 ALLOWED_TARGETS = {
     "opportunity": "/ora?opportunityId={id}&entry=notification",
     "conversation": "/ora?sessionId={id}&entry=notification",
+    # An agent need carries two handles, because a tap has to land on the
+    # blocker inside the goal that raised it — not on the goal, and certainly
+    # not on Home. Both are validated as opaque ids before they go anywhere.
+    "agent_need": "/ora?needId={id}&goalId={goal}&entry=agent_need",
     "home": "/",
 }
 
@@ -666,9 +732,30 @@ def _deep_link(opportunity_id: str, *, target: str = "opportunity") -> str:
     return template.format(id=opportunity_id)
 
 
-def _default_not_after(opportunity) -> Optional[str]:
-    """When the model did not say, the opportunity's own horizon does."""
-    return getattr(opportunity, "valid_until", None)
+def _default_not_after(subject) -> Optional[str]:
+    """When the model did not say, the subject's own horizon does."""
+    return getattr(subject, "valid_until", None)
+
+
+def _deep_link_for(subject) -> str:
+    """
+    Where a tap on this subject lands.
+
+    An opportunity opens the concern; a need opens the blocker inside the goal
+    that raised it. Anything unrecognised opens Home, which is the honest
+    answer when we do not know where to send somebody.
+    """
+    kind = source_of(subject)
+    subject_id = str(getattr(subject, "id", "") or "")
+    if kind == "opportunity":
+        return _deep_link(subject_id, target="opportunity")
+
+    goal_id = str(getattr(subject, "goal_id", "") or "")
+    if not (_OPAQUE_ID.match(subject_id) and _OPAQUE_ID.match(goal_id)):
+        return ALLOWED_TARGETS["home"]
+    return (
+        ALLOWED_TARGETS["agent_need"].replace("{id}", subject_id).replace("{goal}", goal_id)
+    )
 
 
 def _bounded(raw: Any) -> Optional[str]:

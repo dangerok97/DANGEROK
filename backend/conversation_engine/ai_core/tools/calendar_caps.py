@@ -23,6 +23,8 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
+from agent import commanded
+from agent.authority import UserCommand
 from conversation_engine.ai_core.models import Observation
 from connectors.google_calendar.consent import (
     CapabilityDisabled,
@@ -43,6 +45,11 @@ logger = logging.getLogger("ora.ai_core.calendar_caps")
 _MAX_TITLE = 200
 _MAX_LOCATION = 300
 _MAX_DESCRIPTION = 800
+# The project's one answer to "how long is an appointment nobody measured".
+# Imported rather than re-declared: the shared builder is where every calendar
+# write ends up, and two constants that agree today are two constants that
+# disagree later.
+from documents.intelligence.google_sync import DEFAULT_EVENT_MINUTES as _DEFAULT_MINUTES
 _MAX_WINDOW_DAYS = 60
 _DEFAULT_WINDOW_DAYS = 7
 _MAX_EVENTS_RETURNED = 20
@@ -73,6 +80,125 @@ def _parse_dt(value: Optional[str]) -> Optional[datetime]:
         return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
     except ValueError:
         return None
+
+
+# ---------------------------------------------------------------------------
+# Authority, in front of the write.
+#
+#     DO NOT ASK FOR CONFIRMATION OF A DECISION THE USER HAS JUST MADE.
+#     A COMMAND IS AN AUTHORITY FACT, NOT A REASON TO SKIP A SAFEGUARD.
+#
+# What used to be here was a sentence in a docstring: "the AI is expected to
+# have already proposed this and received explicit user confirmation — the
+# runtime does not re-litigate that". Which is to say the authority for every
+# external write ORA made lived in a prompt instruction, and whether it had
+# been honoured was not a thing anybody could check afterwards.
+#
+# Now two facts reach this gate, and code owns both of them: what the person
+# wrote this turn, and whether ORA had asked them something before they wrote
+# it. Either can carry the authority, each produces an ordinary consent row
+# bound to the act's hash, and neither is the model's word for itself.
+#
+# The consequence people will actually notice is the one this micro-fix is
+# named for: somebody who writes «segnami un evento domani alle 10» is not
+# asked whether they want an event tomorrow at ten.
+# ---------------------------------------------------------------------------
+
+
+def _user_command(arguments: Dict[str, Any], runtime: Dict[str, Any]) -> UserCommand:
+    """
+    What the person said, and what the model claims to have read in it.
+
+    The message comes from the runtime; only the quote comes from the model,
+    and the quote is checked against the message rather than believed. A model
+    that cannot point at the words gets no authority from them — and the
+    failure is the ordinary propose-then-confirm flow, which is the thing that
+    was already working.
+    """
+    declared = arguments.get("user_authority")
+    declared = declared if isinstance(declared, dict) else {}
+    if not declared.get("requested_by_user"):
+        return UserCommand(spoken=str(runtime.get("user_message") or ""))
+    return UserCommand(
+        spoken=str(runtime.get("user_message") or ""),
+        words=str(declared.get("user_words") or "")[:200],
+        asked_for=str(declared.get("what_they_asked_for") or "")[:300],
+    )
+
+
+def _answered_a_proposal(runtime: Dict[str, Any]) -> bool:
+    """Whether ORA had proposed something and this message is the reply."""
+    return bool(runtime.get("pending_act"))
+
+
+def _needs(name: str, missing: str, ask: str) -> Observation:
+    """
+    Something needed is not there. Ask for that, and only that.
+
+        ASK FOR WHAT IS MISSING, NOT FOR PERMISSION TO DO WHAT WAS ASKED.
+
+    «Segnami il dentista» with no time is a request with a hole in it, not a
+    request in doubt. The hole is one question long; the doubt would be a
+    second one nobody needs.
+    """
+    return Observation(
+        kind="tool", name=name, status="partial",
+        payload={
+            "status": "needs_information",
+            "missing": missing,
+            "reason": (
+                "Manca un dato necessario per creare l'evento. Chiedi soltanto "
+                f"quello — {ask} — e non chiedere conferma di un'azione che la "
+                "persona ha già chiesto."
+            ),
+        },
+    )
+
+
+def _authority_required(name: str, act) -> Observation:
+    """Nothing checkable authorises this. Propose it, the way it always was."""
+    return Observation(
+        kind="tool", name=name, status="partial",
+        payload={
+            "status": "authority_required",
+            "basis": act.basis,
+            "reason": (
+                "Questa azione tocca il mondo e non c'è un'autorizzazione "
+                "verificabile per farla adesso. Proponila con response_mode=act, "
+                "in una frase, e aspetta la risposta della persona. Non dire che "
+                "è stata fatta."
+            ),
+        },
+    )
+
+
+async def _read_back(sync: GoogleCalendarSyncService, user_id: str, synced: dict):
+    """
+    Go and look at what was just written.
+
+        READ AFTER WRITE.
+        PROVIDER ACCEPTED IS NOT OUTCOME ACHIEVED.
+
+    The whole difference between «l'ho segnato» and «l'ho chiesto». Without
+    this the only evidence the event exists is that we asked for it, which is
+    evidence of having asked.
+    """
+    event_id = str(synced.get("google_event_id") or "")
+    calendar_id = str(synced.get("google_calendar_id") or "")
+    if not event_id or not calendar_id:
+        return {}, False
+    try:
+        inst = await sync._instance_for_user(user_id)
+        if not inst:
+            return {}, False
+        access = await sync.gcal._get_access_token(user_id=user_id, instance=inst)
+        found = await sync.gcal.provider.get_event(
+            access_token=access, calendar_id=calendar_id, event_id=event_id,
+        )
+        return (found or {}), bool(found)
+    except Exception as e:
+        logger.info("calendar read-back soft-fail: %s", type(e).__name__)
+        return {}, False
 
 
 async def _sync_service(db) -> GoogleCalendarSyncService:
@@ -245,10 +371,16 @@ async def get_calendar_events(arguments: Dict[str, Any], runtime: Dict[str, Any]
 
 
 async def create_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, Any]) -> Observation:
-    """REVERSIBLE_WRITE. The AI is expected to have already proposed this via
-    response_mode=act and received explicit user confirmation before calling
-    this — the runtime does not re-litigate that; it only guarantees consent,
-    idempotency and failure honesty."""
+    """
+    REVERSIBLE_WRITE, behind a real authority gate.
+
+    What used to be written here was that the runtime does not re-litigate
+    whether the user agreed. It does now, and it does it without adding a
+    question: either the person asked for this in words code can find in
+    their message, or ORA proposed it and they answered. Either way a consent
+    row exists afterwards, bound to the act by hash, and the write is claimed
+    atomically, receipted, and read back before anybody says it happened.
+    """
     uid = runtime.get("user_id") or ""
     db = runtime.get("db")
     epoch = runtime.get("reasoning_epoch") or ""
@@ -257,18 +389,26 @@ async def create_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
 
     title = str(arguments.get("title") or "").strip()[:_MAX_TITLE]
     start = arguments.get("start_datetime")
-    if not title or not start or not _parse_dt(start):
-        return _fail("create_calendar_event", "INVALID_INPUT", "title/start_datetime required")
+    if not title:
+        return _needs("create_calendar_event", "title", "che cos'è")
+    if not start or not _parse_dt(start):
+        return _needs("create_calendar_event", "start_datetime", "quando")
     end = arguments.get("end_datetime")
     duration_minutes = arguments.get("duration_minutes")
-    if not end and duration_minutes:
+    if not end:
+        # An event with no end is an event of no length. Google accepts one
+        # and shows a sliver nobody can read — which is what «segnami un
+        # evento domani alle 10» produced before this line existed: the write
+        # succeeded, the read-back confirmed it, and the outcome was still
+        # wrong. Nobody asking for an appointment means a zero-minute one.
         from datetime import timedelta
 
         start_dt = _parse_dt(start)
         try:
-            end = (start_dt + timedelta(minutes=float(duration_minutes))).isoformat()
+            minutes = float(duration_minutes) if duration_minutes else _DEFAULT_MINUTES
         except (TypeError, ValueError):
-            end = None
+            minutes = _DEFAULT_MINUTES
+        end = (start_dt + timedelta(minutes=minutes)).isoformat() if start_dt else None
     if end and _parse_dt(end) and _parse_dt(start) and _parse_dt(end) <= _parse_dt(start):
         return _fail("create_calendar_event", "INVALID_INPUT", "end_datetime must be after start")
 
@@ -300,6 +440,59 @@ async def create_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
     except (CapabilityDisabled, CapabilityUnknown):
         return _fail("create_calendar_event", "CAPABILITY_UNAVAILABLE")
 
+    # --- is anybody allowed to do this, and on what basis -----------------
+    effect = commanded.calendar_effect(arguments)
+    act = await commanded.assess(
+        db, uid,
+        capability="calendar.write",
+        effect=effect,
+        parameters={
+            "title": title,
+            "starts_at": str(start),
+            "ends_at": str(end or ""),
+            "timezone": str(tz or ""),
+        },
+        summary=f"Segnare in calendario: {title}",
+        expected=f"«{title}» risulta in calendario.",
+        command=_user_command(arguments, runtime),
+        answered_proposal=_answered_a_proposal(runtime),
+    )
+    if not act.may_execute:
+        return _authority_required("create_calendar_event", act)
+
+    taken = await commanded.begin(db, act)
+    if taken == "already_done":
+        # The same act, asked for twice: a re-sent message, a double tap, a
+        # client retry. One event, and the honest answer is that it is
+        # already there — not a second one, and not a failure either.
+        ref = await commanded.already_done_ref(db, uid, act.intent) or ""
+        prior = await db.calendar_event_drafts.find_one(
+            {"user_id": uid, "google_event_id": ref}, {"_id": 0, "id": 1},
+        ) if ref else None
+        return Observation(
+            kind="tool", name="create_calendar_event", status="ok",
+            payload={
+                "status": "ok",
+                "operation": "already_created",
+                "calendar_ref": _ref(prior["id"]) if prior else None,
+                "google_event_id": ref or None,
+                "verified": True,
+                "reason": (
+                    "Questo stesso evento era già stato creato. Dillo così, "
+                    "senza crearne un altro e senza scusarti."
+                ),
+            },
+            provenance=[_ref(prior["id"])] if prior else [],
+        )
+    if taken != "go":
+        return Observation(
+            kind="tool", name="create_calendar_event", status="partial",
+            payload={
+                "status": "already_running",
+                "reason": "Questa stessa cosa la sta già facendo un'altra richiesta.",
+            },
+        )
+
     candidate = {
         "id": f"epoch:{epoch}" if epoch else f"noepoch:{title[:40]}:{start}",
         "source_document_id": "ai_core_conversation",
@@ -323,6 +516,10 @@ async def create_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
     try:
         synced = await sync.sync_draft(user_id=uid, draft_id=draft_id)
     except GoogleCalendarAPIError as e:
+        await commanded.settle(
+            db, act, provider="calendar", external_ref="", accepted=False,
+            observed=False, error_type=f"google_http_{e.status_code}",
+        )
         return Observation(
             kind="tool", name="create_calendar_event", status="partial",
             payload={
@@ -339,6 +536,10 @@ async def create_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
             provenance=[_ref(draft_id)],
         )
     except RuntimeError as e:
+        await commanded.settle(
+            db, act, provider="calendar", external_ref="", accepted=False,
+            observed=False, error_type=type(e).__name__,
+        )
         return Observation(
             kind="tool", name="create_calendar_event", status="partial",
             payload={
@@ -354,14 +555,34 @@ async def create_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
             provenance=[_ref(draft_id)],
         )
 
+    # Accepted. Now go and look, because those are two different facts and
+    # the whole point of this sprint is not to confuse them.
+    seen, observed = await _read_back(sync, uid, synced)
+    await commanded.settle(
+        db, act, provider="calendar",
+        external_ref=str(synced.get("google_event_id") or ""),
+        accepted=True, observed=observed,
+    )
     return Observation(
-        kind="tool", name="create_calendar_event", status="ok",
+        kind="tool", name="create_calendar_event",
+        status="ok" if observed else "partial",
         payload={
-            "status": "ok",
+            "status": "ok" if observed else "partial",
             "operation": "created",
             "calendar_ref": _ref(draft_id),
             "google_event_id": synced.get("google_event_id"),
             "sync_status": synced.get("sync_status"),
+            "verified": observed,
+            "what_the_calendar_says": (
+                {"title": seen.get("summary"), "start": (seen.get("start") or {})}
+                if observed else None
+            ),
+            "reason": None if observed else (
+                "Google ha preso la richiesta ma l'evento non risulta ancora "
+                "quando lo si rilegge. Dillo così: è stato chiesto, non è "
+                "confermato."
+            ),
+            "authority": act.basis,
             "timezone": {"tz_name": tz, "authority": tz_authority},
         },
         provenance=[_ref(draft_id)],
@@ -434,7 +655,47 @@ async def update_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
     if tz and is_valid_iana_timezone(str(tz)):
         fields["timezone"] = tz
     if not fields:
-        return _fail("update_calendar_event", "INVALID_INPUT", "no supported field to update")
+        return _needs("update_calendar_event", "fields", "che cosa cambia")
+
+    # Same gate as create, for the same reason. «Sposta la visita alle 11» is
+    # a decision the person has already made; the only thing worth checking is
+    # that it is still their own event and still nothing that reaches anybody.
+    effect = commanded.calendar_effect(arguments)
+    act = await commanded.assess(
+        db, uid,
+        capability="calendar.write",
+        effect=effect,
+        parameters={
+            "calendar_ref": draft_id,
+            **{k: str(v)[:200] for k, v in fields.items()},
+        },
+        summary="Cambiare un evento già in calendario",
+        expected="L'evento risulta cambiato in calendario.",
+        command=_user_command(arguments, runtime),
+        answered_proposal=_answered_a_proposal(runtime),
+    )
+    if not act.may_execute:
+        return _authority_required("update_calendar_event", act)
+
+    taken = await commanded.begin(db, act)
+    if taken == "already_done":
+        return Observation(
+            kind="tool", name="update_calendar_event", status="ok",
+            payload={
+                "status": "ok", "operation": "already_updated",
+                "calendar_ref": _ref(draft_id), "verified": True,
+                "reason": "Questo stesso cambio era già stato fatto.",
+            },
+            provenance=[_ref(draft_id)],
+        )
+    if taken != "go":
+        return Observation(
+            kind="tool", name="update_calendar_event", status="partial",
+            payload={
+                "status": "already_running",
+                "reason": "Questa stessa cosa la sta già facendo un'altra richiesta.",
+            },
+        )
 
     try:
         updated = await sync.reschedule_draft(
@@ -447,6 +708,10 @@ async def update_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
         # that honestly (partial, like create_calendar_event) rather than
         # implying nothing happened, which would be just as false a claim
         # in the other direction.
+        await commanded.settle(
+            db, act, provider="calendar", external_ref="", accepted=False,
+            observed=False, error_type=type(e).__name__,
+        )
         return Observation(
             kind="tool", name="update_calendar_event", status="partial",
             payload={
@@ -462,6 +727,11 @@ async def update_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
         )
 
     if updated.get("sync_status") not in ("synced", None):
+        await commanded.settle(
+            db, act, provider="calendar",
+            external_ref=str(updated.get("google_event_id") or ""),
+            accepted=True, observed=False, error_type="sync_unconfirmed",
+        )
         return Observation(
             kind="tool", name="update_calendar_event", status="partial",
             payload={
@@ -475,14 +745,27 @@ async def update_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
             },
         )
 
+    seen, observed = await _read_back(sync, uid, updated)
+    await commanded.settle(
+        db, act, provider="calendar",
+        external_ref=str(updated.get("google_event_id") or ""),
+        accepted=True, observed=observed,
+    )
     return Observation(
-        kind="tool", name="update_calendar_event", status="ok",
+        kind="tool", name="update_calendar_event",
+        status="ok" if observed else "partial",
         payload={
-            "status": "ok",
+            "status": "ok" if observed else "partial",
             "operation": "updated",
             "calendar_ref": _ref(draft_id),
             "google_event_id": updated.get("google_event_id"),
             "sync_status": updated.get("sync_status"),
+            "verified": observed,
+            "what_the_calendar_says": (
+                {"title": seen.get("summary"), "start": (seen.get("start") or {})}
+                if observed else None
+            ),
+            "authority": act.basis,
         },
         provenance=[_ref(draft_id)],
     )

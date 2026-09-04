@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 from zoneinfo import ZoneInfo
 
@@ -22,6 +22,22 @@ logger = logging.getLogger("ora.documents.google_sync")
 _RESCHEDULE_ALLOWED_FIELDS = frozenset(
     {"title", "start_datetime", "end_datetime", "timezone", "location", "description"}
 )
+
+# How long an appointment lasts when nobody said how long.
+#
+# An hour, and the number is not arbitrary: it is what the rest of the
+# project already means by an appointment (`StudySession.duration_minutes`
+# defaults to 60, the study planner falls back to 60, the calendar
+# capability defaults to 60). One number, defined here because this is the
+# last place every calendar write passes through, and imported by the others
+# rather than re-typed.
+#
+# What it replaces is worse than a wrong number. `end or start` produced an
+# event that ended at the moment it began — accepted by the provider, echoed
+# back by the read-back, and unreadable in the person's calendar. Everything
+# upstream said the write had succeeded, and it had: the failure was that
+# succeeding was never the same as being right.
+DEFAULT_EVENT_MINUTES = 60
 
 _locks: dict[str, asyncio.Lock] = {}
 
@@ -80,6 +96,12 @@ def build_google_event_body(
     end = draft.get("end_datetime")
     if not start:
         raise ValueError("start_datetime richiesto per sync Google")
+    if not end:
+        # In this order, and only this order: an end somebody gave is never
+        # recomputed, a duration somebody gave is honoured, and the default
+        # applies only when neither exists. Guessing over a stated end would
+        # be a different bug in the same family.
+        end = _end_from(start, draft.get("duration_minutes"), all_day, tz)
 
     body: dict[str, Any] = {
         "summary": str(title)[:200],
@@ -98,16 +120,50 @@ def build_google_event_body(
     if all_day:
         # Google all-day uses date (exclusive end)
         start_d = _as_local_date(start, tz)
-        end_d = _as_local_date(end or start, tz)
+        end_d = _as_local_date(end, tz)
         body["start"] = {"date": start_d, "timeZone": tz}
         body["end"] = {"date": end_d, "timeZone": tz}
     else:
         body["start"] = {"dateTime": _ensure_rfc3339(start, tz), "timeZone": tz}
-        body["end"] = {"dateTime": _ensure_rfc3339(end or start, tz), "timeZone": tz}
+        body["end"] = {"dateTime": _ensure_rfc3339(end, tz), "timeZone": tz}
     # drop None location
     if not body.get("location"):
         body.pop("location", None)
     return body
+
+
+def _end_from(start: str, duration_minutes: Any, all_day: bool, tz: str) -> str:
+    """
+    When a draft has a beginning and no end, work one out.
+
+    All-day is a different unit and is deliberately not routed through the
+    hourly path: Google reads an all-day end as exclusive, so a single day
+    ends on the next one. Sending the same date for both is not a short event,
+    it is a malformed one.
+
+    Unparseable input falls back to handing the start back unchanged. That
+    keeps the previous behaviour for a case that was already broken rather
+    than turning a bad date into an exception at the provider boundary.
+    """
+    try:
+        moment = datetime.fromisoformat(str(start).replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return start
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=ZoneInfo(tz))
+
+    if all_day:
+        return (moment + timedelta(days=1)).isoformat()
+
+    minutes = DEFAULT_EVENT_MINUTES
+    if duration_minutes is not None:
+        try:
+            given = float(duration_minutes)
+            if given > 0:
+                minutes = given
+        except (TypeError, ValueError):
+            pass
+    return (moment + timedelta(minutes=minutes)).isoformat()
 
 
 def _as_local_date(iso: str, tz: str) -> str:
