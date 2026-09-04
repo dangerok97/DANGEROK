@@ -476,6 +476,16 @@ async def startup():
     except Exception:
         logger.exception("Delivery indexes failed (non-fatal)")
 
+    # Personal agent (V3.9) — goals, plans, grants and the idempotency index
+    # that keeps a retried intent from becoming a second effect.
+    try:
+        from agent.service import AgentService
+
+        await AgentService(db).ensure_indexes()
+        logger.info("Agent indexes ready")
+    except Exception:
+        logger.exception("Agent indexes failed (non-fatal)")
+
     # Location signals + presence (V2.7.1 — short TTL raw GPS)
     try:
         from location.service import LocationService

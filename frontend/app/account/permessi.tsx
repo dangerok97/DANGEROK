@@ -87,6 +87,13 @@ type PresenceState = {
   background: 'granted' | 'denied' | 'undetermined';
 };
 
+type StandingGrant = {
+  id: string;
+  capability: string;
+  scope?: string | null;
+};
+
+
 export default function PermessiScreen() {
   const router = useRouter();
   const { data, loading, error, reload } = useAccount();
@@ -94,6 +101,49 @@ export default function PermessiScreen() {
   const [busy, setBusy] = useState<string | null>(null);
   const [writeError, setWriteError] = useState<string | null>(null);
   const [presence, setPresence] = useState<PresenceState | null>(null);
+
+  /*
+    I permessi permanenti che ORA ha già.
+
+    Letti dal backend con la frase che la persona ha accettato: qui non si
+    ricostruisce niente, perché un permesso raccontato dal client è un
+    permesso che nessuno ha verificato.
+  */
+  const [grants, setGrants] = useState<StandingGrant[]>([]);
+  const [revoking, setRevoking] = useState<string | null>(null);
+
+  const loadGrants = useCallback(async () => {
+    try {
+      const out = await api.getAgentAutonomy();
+      setGrants((out.grants || []).filter((g) => g.active !== false));
+    } catch {
+      /* Silenzioso: la pagina resta utile anche senza questa sezione. */
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadGrants();
+  }, [loadGrants]);
+
+  const revokeGrant = useCallback(
+    async (capability: string) => {
+      if (revoking) return;
+      haptic('tap');
+      setRevoking(capability);
+      setWriteError(null);
+      try {
+        await api.revokeAgentAutonomy(capability);
+        // Ricaricato invece che tolto a mano: quello che si vede dopo è quello
+        // che il backend dice, non quello che il client spera.
+        await loadGrants();
+      } catch (e) {
+        setWriteError(humanizeError(e));
+      } finally {
+        setRevoking(null);
+      }
+    },
+    [revoking, loadGrants],
+  );
 
   // Continuous presence is a second, larger permission. It is read here rather
   // than assumed, because the OS can revoke it from its own settings and an
@@ -368,6 +418,40 @@ export default function PermessiScreen() {
         </View>
         <BoundaryNote>{CALENDAR_WRITE_BOUNDARY}</BoundaryNote>
       </SettingCard>
+
+      {/*
+        Cosa ORA può fare da sola.
+
+        Compare solo se c'è qualcosa da mostrare. Una sezione vuota che
+        annuncia «nessun permesso» insegna che esiste un posto dove darne, e
+        questo posto non è quello: un permesso permanente si concede nel
+        momento in cui ORA sta chiedendo, dove la frase ha un contesto. Qui si
+        legge e si toglie.
+
+        Ogni riga è la frase che la persona ha accettato, non lo scope con cui
+        è stata salvata. Chi ha letto la lista ha letto i permessi.
+      */}
+      {grants.length ? (
+        <SettingCard
+          title="Cose che ORA può fare da sola"
+          detail="Gliel'hai permesso tu. Puoi toglierlo quando vuoi: da quel momento torna a chiedertelo."
+          testID="perm-autonomy"
+        >
+          <View>
+            {grants.map((g, i) => (
+              <ChoiceRow
+                key={g.id}
+                label={g.scope || 'Un permesso che hai dato a ORA'}
+                detail="Tocca per revocare"
+                selected={false}
+                busy={revoking === g.capability}
+                onPress={() => void revokeGrant(g.capability)}
+                testID={`perm-autonomy-${i}`}
+              />
+            ))}
+          </View>
+        </SettingCard>
+      ) : null}
 
       <SettingCard title="Documenti" testID="perm-documents">
         <BoundaryNote icon="lock-closed-outline">{DOCUMENT_SCOPE_BOUNDARY}</BoundaryNote>

@@ -64,11 +64,37 @@ def _iso(dt: datetime) -> str:
 
 
 def _runtime(db, user_id: str, epoch: str = "") -> dict:
-    return {"user_id": user_id, "db": db, "reasoning_epoch": epoch, "session_id": "s1"}
+    """
+    The runtime a calendar capability now receives.
+
+    `user_message` and `pending_act` say what this suite always assumed and
+    could not previously state: ORA proposed the write and the person agreed.
+    The runtime used to take that on the model's word; it checks now, so the
+    confirmation has to be present rather than implied.
+    """
+    return {
+        "user_id": user_id, "db": db, "reasoning_epoch": epoch, "session_id": "s1",
+        "user_message": "sì, va bene",
+        "pending_act": {"at": "test", "asked": "Lo segno in calendario?"},
+    }
 
 
-def _sess(user_id: str) -> ConversationSession:
-    return ConversationSession(user_id=user_id, meta={"ui_mode": "ai_core", "ai_core": {}})
+def _sess(user_id: str, *, proposed: bool = False) -> ConversationSession:
+    """
+    A session, optionally one in which ORA has just proposed something.
+
+    `proposed` is what makes a confirmation a confirmation of anything: it
+    records that ORA asked. It used to be implicit — the model remembered its
+    own last turn and the runtime believed it — and is now written into the
+    session so code can check that the question was actually put.
+    """
+    state = (
+        {"pending_act": {"at": "test", "asked": "Lo segno in calendario?"}}
+        if proposed else {}
+    )
+    return ConversationSession(
+        user_id=user_id, meta={"ui_mode": "ai_core", "ai_core": state}
+    )
 
 
 def _decision(mode="answer", **extra):
@@ -372,7 +398,7 @@ async def test_h_calendar_create_confirmed_emits_signal():
     try:
         await _grant_calendar_write(db, user)
         start = _iso(datetime.now(timezone.utc) + timedelta(hours=2))
-        sess = _sess(user)
+        sess = _sess(user, proposed=True)
         decide = _Scripted([
             _decision(mode="tool", tool_call={
                 "capability": "create_calendar_event",
@@ -650,7 +676,7 @@ async def test_r_signal_failure_does_not_corrupt_primary_mutation(monkeypatch):
 
         await _grant_calendar_write(db, user)
         start = _iso(datetime.now(timezone.utc) + timedelta(hours=2))
-        sess = _sess(user)
+        sess = _sess(user, proposed=True)
         decide = _Scripted([
             _decision(mode="tool", tool_call={
                 "capability": "create_calendar_event",
@@ -677,7 +703,7 @@ async def test_s_no_new_llm_calls():
     try:
         await _grant_calendar_write(db, user)
         start = _iso(datetime.now(timezone.utc) + timedelta(hours=2))
-        sess = _sess(user)
+        sess = _sess(user, proposed=True)
         decide = _Scripted([
             _decision(mode="tool", tool_call={
                 "capability": "create_calendar_event",

@@ -1,5 +1,70 @@
 # ORA — Architecture
 
+## V3.9 — Personal Agent & Action Engine — CLOSED
+
+ORA stops being something that knows and becomes something that does. V3.7
+decided whether a fact deserves attention and V3.8 decided whether it deserves
+an interruption; this decides what to *do* about it, does it inside an
+authority somebody actually gave, and then goes and checks whether the world
+agrees.
+
+    AI DECIDES WHAT SHOULD BE DONE. CODE ENFORCES THE AUTHORITY CEILING.
+    EXECUTED != VERIFIED. PROVIDER ACCEPTED != OUTCOME ACHIEVED.
+    AUTONOMY MEANS FEWER QUESTIONS, NOT FEWER SAFEGUARDS.
+
+**The shape.** `backend/agent/` is the whole engine. `models.py` holds the
+vocabulary — `AutonomousGoal` (an outcome with checkable criteria, never a
+task), `ActionPlan`/`ActionStep` (a step names a capability, never a function),
+`ActionIntent` (written before anything happens), `ActionEffect` (what would
+change, in named dimensions rather than a score), `AutonomyGrant`,
+`AuthorityConsent`, `ExecutionReceipt`, `AgentEvidence`, `CommunicationNeed`.
+`capabilities.py` resolves "I need to read a calendar" to something that
+exists and that this person allowed. `authority.py` decides what may happen.
+`execution.py` is the only place an effect is claimed and carried out.
+`effects.py` is the only place the world is touched. `evidence.py`,
+`visibility.py`, `needs.py`, `commanded.py`, `repository.py`, `service.py`
+hold the rest of the loop.
+
+**The rule that shapes everything.** An intent is declared before it happens,
+authority is decided by code above whatever the model recommended, the effect
+is claimed atomically, the provider is called once, and the world is **read
+back**. A receipt is not a result: `accepted` and `succeeded` are two states
+because they are two facts, and a goal that closed on the first would be
+telling somebody their appointment exists because a request was sent.
+
+**Authority, in four sources and one direction.** A recorded refusal wins,
+then a standing `AutonomyGrant`, then a one-time `AuthorityConsent`, then the
+person's own explicit instruction. Each is narrower than the last and none of
+them widens anything: `apply_ceiling` may only move an answer towards caution,
+and a grant removes a reason to ask rather than adding a reason to proceed.
+Grants are scoped by effect and matched by arithmetic — never asked of a
+model, because a model asked "does this permission cover this action" is
+helpful, which is the one thing it must not be. Consent is bound by
+`effect_hash`, so moving the time after a yes produces something nobody agreed
+to, and it is spent by the act it was a yes to.
+
+**What code holds.** Identity, the idempotency key derived from what the
+effect is, the atomic claim, provider-native idempotency, the read-back,
+provenance, the authority ceiling, grant scope, consent binding and spending,
+the TOCTOU recheck at the moment of acting, budgets, the completion gate, and
+the boundary that keeps the agent out of the Life Model.
+
+**What the model holds.** Whether there is an outcome worth pursuing (usually
+not), how to reach it, what to do next given what has been learned, what kind
+of act this is, whether the outcome is actually true, whether any of it is
+worth showing, and the words.
+
+**Real-world action.** One capability is wired: `calendar.write`, through the
+existing Google connector. It was chosen because it is reversible in two taps,
+costs nothing, commits nobody, reaches nobody else, and can be read back —
+that last property is what decided it. Nothing sends, pays, publishes or
+deletes.
+
+**Accepted debt.** One wired write capability. Cancelling always proposes
+first. No UI widens a grant, by design, and there is no screen for granting
+one outside the moment ORA asks. Live provider dependence is mitigated by the
+second Gemini key rather than removed. Device QA remains deferred with V3.8.
+
 ## V3.8 — Ambient Presence & Intelligent Delivery — CLOSED
 
 Two judgements and an alarm clock. V3.7 decided whether something in a life is

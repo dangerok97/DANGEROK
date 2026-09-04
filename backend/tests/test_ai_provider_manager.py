@@ -47,8 +47,14 @@ def test_failover_on_quota():
     async def body():
         gemini = mgr.get("gemini")
         openai = mgr.get("openai")
+        # Everything between the two under test is switched off explicitly.
+        # Leaving one on means the test asserts about whichever providers
+        # the developer happens to hold keys for, which is not a test.
         with patch.object(gemini, "is_configured", return_value=True), \
              patch.object(openai, "is_configured", return_value=True), \
+             patch.object(mgr.get("gemini2"), "is_configured", return_value=False), \
+             patch.object(mgr.get("groq"), "is_configured", return_value=False), \
+             patch.object(mgr.get("mistral"), "is_configured", return_value=False), \
              patch.object(mgr.get("ollama"), "is_configured", return_value=False), \
              patch.object(mgr.get("emergent"), "is_configured", return_value=False), \
              patch.object(gemini, "chat", new=AsyncMock(side_effect=LLMQuotaError("quota"))), \

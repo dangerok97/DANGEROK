@@ -1,5 +1,78 @@
 # ORA — Development State
 
+## V3.9 — PERSONAL AGENT / ACTION ENGINE — CLOSED
+
+ORA does not only work out what should happen. It makes it happen, inside an
+authority somebody actually gave, and it checks afterwards whether the world
+agrees.
+
+    ORA DOES NOT JUST KNOW WHAT TO DO. ORA CAN DO IT.
+    THE USER DOES NOT MANAGE THE AGENT. THE AGENT MANAGES THE WORK.
+    AUTONOMY MEANS FEWER QUESTIONS, NOT FEWER SAFEGUARDS.
+    AI DECIDES WHAT SHOULD BE DONE. CODE ENFORCES THE AUTHORITY CEILING.
+    EXECUTED != VERIFIED. PROVIDER ACCEPTED != OUTCOME ACHIEVED.
+
+**Sprint 1 — Autonomous Goal Foundation.** `AutonomousGoal` is an outcome with
+criteria anybody could check, never a task; `NO_GOAL` is the ordinary answer
+and stays comfortable. A plan is state rather than a script: steps name a
+capability, never a function, and code resolves that to something that exists
+and that this person allowed. `ActionIntent` is written before anything
+happens, carrying an idempotency key derived from what the effect *is*.
+`AuthorityAssessment` keeps the model's reading and code's decision apart,
+because they disagree and the disagreement is what an audit needs.
+
+**Sprint 2 — Real Capability Execution.** Capabilities read real collections
+and report finding nothing as a result. `ResultProvenance` makes `simulated`
+structurally unusable as evidence, and a goal cannot complete on it. The loop
+chooses what is worth doing next from what it has learned rather than walking
+a list. `OutcomeVisibility` separates "is this worth showing" from V3.8's "is
+this worth interrupting", so useful work stops disappearing into silence, and
+`CommunicationNeed` lets a blocked agent be reached without inventing an
+Opportunity to carry it.
+
+**Sprint 3 — Autonomous Authority & Real-World Action.** The first real write:
+`calendar.write`, chosen because it is reversible, costs nothing, commits
+nobody, reaches nobody else and — the property that decided it — can be read
+back. Authority is scoped by `ActionEffect` and bound to it by `effect_hash`,
+so a yes stops applying when the act changes. Grants are scoped, revocable and
+never wider than what was approved; matching them is arithmetic and is never
+asked of a model. Authority is rechecked in the last moment before the
+provider, claimed atomically, receipted, and read back — and a goal closes on
+what the calendar said, not on what the request hoped.
+
+**Micro-fix — explicit command authority.** Somebody who writes «segnami un
+evento domani alle 10» is not asked whether they want an event tomorrow at
+ten. Their own instruction is the authority for that one act: bound by hash,
+spent once, and only ever for effects that reach nobody, cost nothing and
+destroy nothing. The model must quote their words; code looks the quote up in
+the message that actually arrived.
+
+**Final gate — a permission somebody can give and take back.** «Puoi farlo da
+sola anche in futuro» sits quieter and apart from the two answers to "shall
+I", because it is a different question. It produces one grant, scoped to the
+effect that was on screen, described in a sentence with its limits in it, and
+it is offered only for acts small enough to decide in two seconds. Permissions
+are listed and revoked in Permessi e accessi, in the words that were agreed
+to. Revocation is forwards only and is rechecked where the effect happens.
+
+**Defects this phase found in code that was already shipped.** The agent asked
+the permission registry about a connector called `calendar`, which has never
+existed — so every real person resolved as not permitted to write to a
+calendar they had connected, invisibly, because the only fixture exercising it
+granted the same wrong name. `build_google_event_body` sent `end = start` for
+any event without an explicit end, producing zero-length entries that the
+provider accepted and the read-back confirmed. A one-time consent was never
+spent when a standing permission was what the executor acted on, so revoking
+the permission left a forgotten yes that authorised the same act again.
+
+**Accepted debt.** The one wired write is `calendar.write`; nothing sends,
+pays, publishes or deletes. Cancelling an event always proposes first. There
+is no way to widen a grant from the UI, by design, and no screen for granting
+one outside the moment ORA asks. Device QA remains deferred with V3.8.
+
+Next: V3.10 — Connected Life. Not started.
+
+
 ## V3.8 — AMBIENT PRESENCE & INTELLIGENT DELIVERY — CLOSED
 
 ORA works when nobody is looking, and can say so without pretending. It wakes
@@ -59,7 +132,7 @@ explained afterwards.
 push token, nothing proven to reach a device. `extra.eas.projectId` is still
 absent. Production Device QA remains deferred to the final phase.
 
-Next: V3.9 — Personal Agent / Action Engine. Not started.
+Next: V3.9 — Personal Agent / Action Engine. Closed (above).
 
 
 ## V3.7 — PROACTIVE OPPORTUNITY INTELLIGENCE — CLOSED

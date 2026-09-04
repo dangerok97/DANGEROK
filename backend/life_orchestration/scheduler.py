@@ -309,6 +309,42 @@ async def _consider_delivery(user_id: str, scan: Any) -> None:
         except Exception as exc:
             logger.info("delivery evaluate soft-fail: %s", type(exc).__name__)
 
+    await _consider_goals(user_id, scan)
+
+
+async def _consider_goals(user_id: str, scan: Any) -> None:
+    """
+    Ask whether any of this is worth doing something about.
+
+        OPPORTUNITY != GOAL.
+
+    Deliberately a question and not a conversion. Something can be true, and
+    worth knowing, and still not be worth pursuing — most of the time the
+    answer is no, and there is no branch here that could make it yes.
+    """
+    from deps import db
+    from agent.service import AgentService
+
+    service = AgentService(db)
+    for opportunity in list(getattr(scan, "created", []) or [])[:2]:
+        try:
+            await service.consider(
+                user_id,
+                situation={
+                    "what": opportunity.semantic_summary,
+                    "why_it_matters": opportunity.why_it_matters,
+                    "why_now": opportunity.why_now or None,
+                    "waiting_on_an_answer": opportunity.requires_clarification,
+                    "the_question": opportunity.clarifying_question or None,
+                },
+                origin="agent_initiated",
+                opportunity_id=opportunity.id,
+                source_kind="opportunity",
+                source_refs=[e.ref for e in opportunity.evidence][:4],
+            )
+        except Exception as exc:
+            logger.info("agent consider soft-fail: %s", type(exc).__name__)
+
 
 async def _worker_loop() -> None:
     """Consume wake-ups. Blocks on the queue — no timer, no scan, no Mongo

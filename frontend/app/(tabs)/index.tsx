@@ -420,7 +420,8 @@ export default function HomeScreen() {
   */
   const hasAnything = !!focus || questions.length > 0 || today.length > 0
     || updates.length > 0 || (home?.insights?.length ?? 0) > 0 || horizon.length > 0
-    || (home?.opportunities?.length ?? 0) > 0;
+    || (home?.opportunities?.length ?? 0) > 0
+    || (home?.agent_work?.length ?? 0) > 0;
 
   const mainColumn = (
     <View style={styles.main}>
@@ -472,11 +473,13 @@ export default function HomeScreen() {
           <SectionRow twoColumn={twoColumn}>
             {updateFeed.length
             || (home?.insights?.length ?? 0)
-            || (home?.opportunities?.length ?? 0) ? (
+            || (home?.opportunities?.length ?? 0)
+            || (home?.agent_work?.length ?? 0) ? (
               <UpdatesFeed
                 suggestions={updateFeed}
                 insights={home?.insights || []}
                 opportunities={home?.opportunities || []}
+                agentWork={home?.agent_work || []}
                 busyId={suggestionBusy}
                 onOpen={onSuggestionOpen}
                 onDismiss={onSuggestionDismiss}

@@ -640,6 +640,76 @@ export const api = {
 
   getOpportunity: (id: string) => request<HomeOpportunity>(`/opportunities/${id}`),
 
+  /** What a tap from an agent need lands on. */
+  getAgentNeed: (needId: string) => request<AgentNeed>(`/agent/needs/${needId}`),
+
+  /**
+   * They said yes to what was prepared.
+   *
+   * The same endpoint the rest of the app uses: approving from a notification
+   * must not become a second, quieter path to authority.
+   */
+  /**
+   * They said yes to what was prepared.
+   *
+   * `persistent` is a different answer, not a stronger one, and it only ever
+   * arrives because somebody pressed the control that says so. Approving five
+   * times must never add up to this: the fifth act is not a different act
+   * from the first.
+   */
+  authoriseAgentGoal: (goalId: string, capability = '', persistent = false) =>
+    request<{ ok: boolean; state?: string }>(`/agent/${goalId}/authorise`, {
+      method: 'POST',
+      body: JSON.stringify({ capability, persistent }),
+    }),
+
+  /** What ORA may already do on its own, in the words that were agreed to. */
+  getAgentAutonomy: () =>
+    request<{
+      mode: string;
+      chosen_by_user: boolean;
+      grants: Array<{
+        id: string;
+        capability: string;
+        scope?: string | null;
+        active: boolean;
+        granted_by: string;
+      }>;
+    }>('/agent/autonomy'),
+
+  /**
+   * Take a standing permission back.
+   *
+   * Forwards, never backwards: what already happened stands, and what ORA
+   * was about to do is rechecked at the moment it would act.
+   */
+  revokeAgentAutonomy: (capability: string) =>
+    request<{ ok: boolean; revoked: number }>('/agent/autonomy/revoke', {
+      method: 'POST',
+      body: JSON.stringify({ capability }),
+    }),
+
+  /**
+   * They supplied what only they knew, in the thread ORA asked in.
+   *
+   * The reply goes back to the goal it belongs to rather than becoming a
+   * fresh conversation turn. Without this a person who answers «Padova» to
+   * «qual è il tuo comune?» is talking to nobody: the agent stays blocked on
+   * a question that was, from its side, never answered.
+   */
+  answerAgentGoal: (goalId: string, reply: string, stepId = '') =>
+    request<{ ok: boolean; state?: string; goal?: { what?: string; outcome?: string } }>(
+      `/agent/${goalId}/answer`,
+      { method: 'POST', body: JSON.stringify({ reply, step_id: stepId }) },
+    ),
+
+  /** They said no. Nothing runs, and ORA does not ask again this month. */
+  denyAgentGoal: (goalId: string, reason = '') =>
+    request<{ ok: boolean; state?: string }>(`/agent/${goalId}/deny`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    }),
+
   markOpportunitySeen: (id: string) =>
     request<{ ok: boolean; seen_at: string }>(`/opportunities/${id}/seen`, {
       method: 'POST',
@@ -2437,6 +2507,46 @@ export type NotificationPreferences = {
   quiet_hours: { enabled: boolean; start_hour: number; end_hour: number };
 };
 
+/**
+ * Something ORA is working on, as an outcome.
+ *
+ * `state` is a sentence a person would say — «me ne sto occupando», «è tutto
+ * pronto, mi serve il tuo via libera». There is deliberately no step count,
+ * no plan status and no capability name: the interface cannot show what it
+ * was never given.
+ */
+export type HomeAgentWork = {
+  id: string;
+  what: string;
+  outcome: string;
+  why_now?: string | null;
+  state: string;
+};
+
+/**
+ * Something ORA needs a person for, opened from a notification or a card.
+ *
+ * `says` is the whole message. There is deliberately no kind, no status and
+ * no step: the screen shows what was already done and the one thing that is
+ * missing, and how ORA got there is none of its business.
+ */
+export type AgentNeed = {
+  says: string;
+  needs_you: boolean;
+  goal_id: string;
+  /**
+   * What allowing this for the future would mean, in one sentence — or null,
+   * which is the ordinary case. The words come from the backend because a
+   * permission the client phrases for itself is a permission nobody checked.
+   */
+  can_allow_always?: string | null;
+  /** "information" | "authority" | null — what a reply would have to be. */
+  asks_for?: string | null;
+  already_done: string[];
+  missing?: string | null;
+  still_open: boolean;
+};
+
 export type HomeConnectionWarning = {
   code: string;
   message: string;
@@ -2492,6 +2602,8 @@ export type HomeV2Response = {
   opportunities?: HomeOpportunity[];
   /** What ORA has been doing, when it has honestly been doing something. */
   ambient?: HomeAmbient | null;
+  /** Outcomes ORA is pursuing. Usually empty. */
+  agent_work?: HomeAgentWork[];
   /** Shown only when a real decision is waiting on the permission. */
   notification_prompt?: HomeNotificationPrompt | null;
   resume_item: HomeItem | null;

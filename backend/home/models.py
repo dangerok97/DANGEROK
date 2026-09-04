@@ -195,6 +195,10 @@ class HomeResponse(BaseModel):
     # Read from a record written by work that ran; there is no path from
     # "this screen would like something to say" to a line appearing here.
     ambient: Optional[Dict[str, Any]] = None
+    # V3.9 — what ORA is working on, as outcomes. Never steps, never plan
+    # status: somebody wants to know whether the thing is handled, not how
+    # many stages it has.
+    agent_work: List[Dict[str, Any]] = Field(default_factory=list)
     # V3.8 — present only when ORA has actually judged something worth an
     # interruption and could not deliver it. Absent at first launch, absent
     # when nothing is waiting: the question is never asked about a feature.
