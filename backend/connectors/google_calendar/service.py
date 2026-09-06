@@ -33,6 +33,7 @@ from .oauth import (
 )
 from .provider import (
     CalendarProviderProtocol,
+    GoogleCalendarAPIError,
     ProviderNotConfigured,
     build_calendar_provider,
     is_real_provider_configured,
@@ -378,14 +379,43 @@ class GoogleCalendarService:
             new_sync_token = None
             try:
                 while True:
-                    page = await self.provider.list_events(
-                        access_token=access_token,
-                        calendar_id=calendar_id,
-                        time_min=time_min if not sync_token else None,
-                        time_max=time_max if not sync_token else None,
-                        page_token=page_token,
-                        sync_token=sync_token,
-                    )
+                    try:
+                        page = await self.provider.list_events(
+                            access_token=access_token,
+                            calendar_id=calendar_id,
+                            time_min=time_min if not sync_token else None,
+                            time_max=time_max if not sync_token else None,
+                            page_token=page_token,
+                            sync_token=sync_token,
+                        )
+                    except GoogleCalendarAPIError as e:
+                        # Il token non vale piu'.
+                        #
+                        #     UN SEGNAPOSTO SCADUTO NON E' UN CALENDARIO ROTTO.
+                        #
+                        # Google risponde 410 quando il token e' scaduto e 400
+                        # quando non lo riconosce affatto — e succede: un
+                        # token scritto da un provider finto durante una prova
+                        # e rimasto li' fa fallire *ogni* sincronizzazione
+                        # successiva, per sempre, senza che niente lo dica.
+                        # E' esattamente quello che era successo qui.
+                        #
+                        # La risposta giusta e' quella che Gmail da' gia' alla
+                        # history scaduta: si butta il segnaposto e si rilegge
+                        # la finestra. Il dedupe rende l'operazione gratuita.
+                        if not sync_token or e.status_code not in (400, 410):
+                            raise
+                        logger.info(
+                            "sync token rifiutato (%s) per %s: rileggo la finestra",
+                            e.status_code, calendar_id,
+                        )
+                        await self.instances.set_cursor(
+                            user_id, instance_id, calendar_id=calendar_id,
+                            sync_token=None,
+                        )
+                        sync_token = None
+                        page_token = None
+                        continue
                     if page.events:
                         outcomes = await self.ingestion.ingest_calendar_events(
                             user_id=user_id,

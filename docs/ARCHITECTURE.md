@@ -1,5 +1,180 @@
 # ORA — Architecture
 
+## V3.10 — Connected Life — SPRINT 3 CLOSED (phase open)
+
+### Sprint 3 closing — auto-sync
+
+    connected/polling.py
+      interval_for(kind, failures)  cadence per instrument, doubling on
+                                    failure to a one-hour ceiling
+      due(db, owner, now)           which of a person's instruments are worth
+                                    reading now; never one that is not readable
+      poll_once(db, now, limit)     read them, then write down when to look
+                                    again — one owner's failure never stops
+                                    the pass
+      schedule_next(...)            the schedule, in connected_source_attempts,
+                                    for every source including the document
+                                    shelf (which has no connector instance and
+                                    therefore cannot be scheduled by a field
+                                    on one)
+
+    ambient/runtime.py
+      read_sources(db)              one deterministic pass per tick, before
+                                    wakes are drained. No model, no opinion.
+
+There is no new scheduler and no new background task: the ambient loop from
+V3.8 already ticks, already survives a restart, already tolerates one pass
+failing. Everything auto-sync needs to resume after a restart is a row —
+the cursor on the connector instance, the schedule on the attempt — so a
+fresh process picks up exactly where the old one stopped.
+
+The calendar's first listing no longer asks for `orderBy`: Google refuses a
+`nextSyncToken` for an ordered request, which meant the connector never held
+a token and re-read its whole window every time.
+
+### Sprint 3 — the mailbox, and one life seen from several angles
+
+    connectors/gmail/
+      scopes.py      identifiers, gmail.readonly, and why not gmail.metadata
+      provider.py    profile / history / list / metadata / body_of, and a fake.
+                     Read verbs only; no HTTP write method exists.
+      service.py     sync(): consent → token → history-or-resync → minimised
+                     ingestion rows → cursor. body_for(): one message, for a
+                     judgement that asked, audited.
+
+    connected/
+      email_sensor.py   ingestion rows → email.message.added |
+                        email.thread.updated. Threads fold; the body is
+                        marked present and withheld; nothing here decides
+                        what a message is.
+      situations.py     candidates_for() — appointments near in time,
+                        documents recently filed, Life Objects already held —
+                        as facts with no scores. disagreements_between() —
+                        what each reading says, when each was observed, how
+                        directly each knows, and no winner. record_link() —
+                        one row in connected_situation_links, never a merge.
+      reasoning.py      decide_link(): same_situation | related |
+                        new_situation | irrelevant | uncertain, with the
+                        target checked against what was actually offered.
+      content.py        _from_email(): the body from the mailbox, once,
+                        bounded, never stored.
+      service.py        sync() gains a mail branch; interpret() gains one
+                        bounded link judgement per meaningful signal.
+
+The path is unchanged and no new door was added:
+
+    provider → ingestion (V2.8) → signal (V3.10) → judgement → link judgement
+      → MeaningfulChange (V3.7, `communications`) → AmbientWake (V3.8)
+      → agent (V3.9) → authority ceiling (V3.9)
+
+Two corrections to earlier phases live here too. The calendar sensor now
+reads by `source_record_type` and unwraps `NormalizedField`, because
+`source_type` holds the connector id and every value is enveloped — the
+previous filter matched nothing a real sync wrote. And a Connected Life wake
+no longer names the signal that caused it: the wake is a knock, so its
+identity is owner + reason + minute, which is what makes three messages in a
+minute one think rather than three.
+
+
+## V3.10 — Connected Life — SPRINT 2 CLOSED
+
+### Sprint 2 — what was added to the foundation
+
+    backend/connected/
+      seen.py        SeenState — the last observed shape of each object, so a
+                     source that rewrites in place has a past. One row per
+                     (owner, source, object), private fields as digests,
+                     30-day TTL. Used by the documents sensor.
+      content.py     read_transiently() — the withheld content of one signal,
+                     for one judgement. Bounded, never stored, and written
+                     down as a read in connected_content_reads (whose, which
+                     fields, when, why — never what).
+      ownership.py   relationship_for_event() / reaches_other_people() — whose
+                     a calendar event is, answered from what the sensors
+                     observed, for the authority ceiling to read.
+
+    calendar_sensor._fold_series()   occurrences whose delta is a subset of
+                                     their master's fold into it; covers
+                                     counts them and is part of the
+                                     fingerprint. Cross-kind never folds.
+    documents_sensor                 document.added | updated | removed,
+                                     via SeenState.
+    reasoning.interpret_signal(..., content=)  the one place content enters a
+                                     prompt. needs_content / why_content is
+                                     the model's way of asking, and is forced
+                                     false once the content has been shown.
+    service.interpret()              one re-ask, counted as
+                                     asked_for_content.
+
+The path is unchanged: sensor → ConnectedSignal → judgement → MeaningfulChange
+(V3.7) → AmbientWake (V3.8) → agent loop (V3.9). Sprint 2 adds no new door
+and no actuator; `calendar.write` from V3.9 remains the only wired write.
+
+Ownership reaches the actuator side through `agent/commanded.py`:
+`calendar_effect(arguments, reaches_others=...)` sets `external_party`, which
+`effect_is_commandable` refuses with `reaches_somebody_else`. The tool asks
+`connected.ownership` for that answer; code derives it, the model never
+declares it.
+
+
+## V3.10 — Connected Life — SPRINT 1 CLOSED
+
+The outside world, as instruments. V3.9 gave ORA the ability to act; this
+gives it more to sense, and the discipline that keeps sensing from becoming
+noise.
+
+    CODE KNOWS WHAT CHANGED. THE AI DECIDES WHETHER IT MATTERS.
+    A SIGNAL IS SOMETHING OBSERVED. A LIFE OBSERVATION IS SOMETHING THAT MEANS SOMETHING.
+
+**The shape.** `backend/connected/` — `models.py` (`ConnectedSource`,
+`ConnectedSignal`, `FieldChange`, the observable-field set and the freshness
+policy), `sources.py` (a derived view over the connector layer plus the one
+thing nobody kept: how the last attempt went), `signals.py` (record, dedupe,
+supersede, bounded history), `calendar_sensor.py` and `documents_sensor.py`
+(the two wired instruments), `reasoning.py` (the single judgement),
+`service.py` (the one door), `router.py` (three endpoints, none of which
+returns meaning).
+
+**The pipeline, and how little of it is new.**
+
+    provider → ingestion (V2.8) → ConnectedSignal (new) → judgement (new)
+      → MeaningfulChange (V3.7) → AmbientWake (V3.8) → agent (V3.9)
+
+The change log, the wake, the opportunity review, the goal decision, the
+delivery judgement and the authority ceiling were all already built and
+tested. Connected Life speaks to them. It replaces none of them, and there is
+no path in the package by which a goal can be created.
+
+**The boundary, and where it sits.** Code compares every field a person could
+observe and reports each difference; the model weighs them. There is no
+branch keyed on *which* field changed, no priority table, and no early return
+that drops the rest once something "more important" was found — a guard walks
+the comparison for all three. The one filter code applies is provider
+bookkeeping, because an etag moving is a fact about a record rather than
+about a life.
+
+**Composite delta.** An appointment that moved and changed room is one signal
+carrying two facts. Emitting two signals would double every downstream cost;
+emitting one *fact* would decide for the person which of the two mattered.
+The serialisation order is alphabetical and means nothing — it exists so two
+readings of the same change fingerprint identically.
+
+**What code holds.** Source identity and health, freshness as a fact rather
+than a threshold anybody sees, the cursor, the watermark (efficiency only —
+correctness comes from the fingerprint), owner isolation, the composite
+fingerprint, supersede, provenance, replay safety, per-field content
+minimisation, and the recognition of ORA's own writes from its own execution
+receipts.
+
+**What the model holds.** Whether an observation means anything at all
+(`noise` is the ordinary answer), what it means in this life, what it relates
+to, and whether it makes something ORA already believes out of date.
+
+**Accepted debt.** Withheld content is not retrievable transiently yet. The
+documents sensor observes arrival only. Series-level recurrence changes are
+not represented. Ownership is recorded and unread. Polling, not webhooks. No
+actuators were added: `calendar.write` from V3.9 remains the only real write.
+
 ## V3.9 — Personal Agent & Action Engine — CLOSED
 
 ORA stops being something that knows and becomes something that does. V3.7
@@ -2295,3 +2470,52 @@ replaces an earlier test that asserted auto-add *refused* under certain conditio
 several candidates, ambiguous date) — which implied it *proceeded* otherwise. It did. The contract
 is now unconditional, and the test drives the exact shape that used to write: preference on, single
 proposed event, unambiguous date, confidence 0.99.
+
+## Connected Life (V3.10) — chiusa
+
+    LE SORGENTI SONO STRUMENTI. IL MODELLO DECIDE COSA SIGNIFICANO.
+
+**Il giro.** `ambient/runtime.py` chiama `connected/polling.py` una volta per
+tick (10 s). Il polling decide *quando* guardare con pura aritmetica —
+calendario 20 s, posta 60 s, documenti 30 min, backoff raddoppiato con tetto
+a un'ora — e il giro è limitato dal tempo, non da un numero fisso di
+sorgenti: un tetto fisso su una coda che cresce è una fame, non un limite.
+La latenza tipica *è* la cadenza: un cambiamento fatto sul provider un
+istante prima non è ancora nella delta che il provider restituisce, quindi si
+vede alla lettura successiva. Nessuna chiamata a modello in questo percorso.
+
+**La coda.** `_what_to_read` guarda le righe scadute in ordine di attesa e,
+per ciascuna, o la serve o — se punta a una sorgente non leggibile — la
+sposta avanti seduta stante, fuori dal budget del giro: se lo spostamento
+costasse tempo, qualche centinaio di righe morte in testa consumerebbe il
+budget prima di arrivare a chi si poteva leggere. Un errore nel sapere quali
+sorgenti abbia una persona non è «niente da leggere»: la riga resta dov'è.
+
+**Da un cambiamento a un significato.** I sensori (`connected/calendar_sensor.py`,
+`email_sensor.py`, `documents_sensor.py`) producono `ConnectedSignal`: cosa è
+cambiato, con la provenienza e i campi il cui contenuto non viaggia.
+`connected/reasoning.py` chiede al modello se significa qualcosa; il codice
+non decide mai fra `noise` e il resto.
+
+**Più fonti, una cosa sola.** `connected/situations.py` raccoglie i candidati
+— gli appuntamenti in agenda letti dal calendario, non dal registro dei
+cambiamenti — e li mostra con i disaccordi, ciascuno detto nell'ora della
+persona. Il modello sceglie la relazione. Il codice non sceglie mai quale
+fonte sia vera, e in caso di disaccordo entrambe le versioni restano scritte.
+
+**Contenuto transitorio.** Quando il giudizio non basta con i soli metadata,
+`connected/content.py` legge il corpo una volta, davanti a una sola chiamata,
+e ne registra l'avvenuta lettura senza registrarne il contenuto.
+
+**Scrivere.** `calendar.write` è l'unico attuatore. Ogni effetto passa da
+`agent/commanded.py`: autorità legata a *quell'* evento, effetto descritto
+per quello che è (togliere non è creare), e una rilettura dopo — accettato
+dal provider non è successo. La cancellazione ha un solo percorso,
+`home/calendar_event.py`, usato sia dalla scheda che dalla conversazione.
+
+**Leggere in Home.** `home/adapters/google_calendar.py` chiede l'agenda —
+finestra su `starts_at`, ordinata per `starts_at` — e non le righe toccate di
+recente. Le riletture invariate non producono righe (`ingestion/pipeline.py`
+decide prima di scrivere) e `ingestion/tidy.py` raccoglie quelle lasciate
+dalle versioni precedenti.
+

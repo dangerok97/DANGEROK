@@ -59,6 +59,9 @@ KNOWN_SOURCES: Dict[str, tuple] = {
     "calendar": ("event.added", "event.updated", "event.removed"),
     "places": ("presence.changed", "place.added", "place.updated"),
     "documents": ("document.added", "document.facts_changed"),
+    # A mailbox says two things and neither of them is a meaning: something
+    # arrived, and a conversation moved on.
+    "communications": ("message.received", "thread.updated"),
     "conversation": (
         "open_question.settled",
         "intent.changed",

@@ -83,17 +83,39 @@ async def _revoke_read(db, user_id: str) -> None:
 
 
 async def _seed_ingestion_event(db, user_id: str, *, title: str, starts_at: str, ends_at: str) -> None:
-    """A minimal Google-imported event mirror, matching the shape
-    `get_calendar_events` actually queries — status active (not detached)."""
+    """
+    A Google-imported event mirror, in the shape ingestion actually writes.
+
+    It used to be written flat — `{"starts_at": "2026-…"}` — with a comment
+    saying it matched what the tool queries. It did match, because the tool
+    queried the same wrong shape: ingestion wraps every field in a
+    `NormalizedField` (value + provenance), so no real row has ever looked
+    like that. The pair agreed with each other and disagreed with production,
+    which is how a mirror that returned nothing stayed green.
+
+    So the normalizer builds it now. If the stored shape changes, this fails
+    here instead of on somebody's Home screen.
+    """
+    from ingestion.normalizer import GoogleCalendarNormalizer
+
+    normalized = GoogleCalendarNormalizer(
+        connector_id="calendar_google", connector_instance_id="inst_test",
+    ).normalize(
+        raw={
+            "id": f"ext_{uuid.uuid4().hex[:10]}", "status": "confirmed",
+            "summary": title,
+            "start": {"dateTime": starts_at}, "end": {"dateTime": ends_at},
+            "etag": uuid.uuid4().hex[:8], "updated": starts_at,
+        },
+        calendar_id="primary", calendar_name="primary",
+    )
     await db.ingestion_events.insert_one({
         "id": f"ing_{uuid.uuid4().hex[:12]}",
         "user_id": user_id,
         "connector_id": "calendar_google",
         "source_status": "active",
-        "normalized_payload": {
-            "title": title, "starts_at": starts_at, "ends_at": ends_at,
-            "timezone": "Europe/Rome", "all_day": False, "location": None,
-        },
+        "source_record_type": "calendar_event",
+        "normalized_payload": normalized.to_dict(),
     })
 
 
@@ -657,6 +679,10 @@ async def test_w_observation_no_token_no_raw_payload():
             "status", "operation", "calendar_ref", "google_event_id",
             "sync_status", "timezone",
             "verified", "what_the_calendar_says", "authority", "reason",
+            # Che cosa e' successo davvero, in una parola che il modello non
+            # puo' fraintendere: aggiunto non e' spostato. Due booleani e una
+            # parola, nessun contenuto del provider.
+            "moved_anything", "say_it_as", "provider_identity_preserved",
         }
         seen = obs.payload.get("what_the_calendar_says") or {}
         assert set(seen) <= {"title", "start"}, "il payload del provider passa intero"

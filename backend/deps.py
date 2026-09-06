@@ -170,6 +170,23 @@ def get_google_calendar_service():
     return _google_calendar_service
 
 
+_gmail_service = None
+
+
+def get_gmail_service():
+    """The mailbox reader. One instance, built the way every other one is."""
+    global _gmail_service
+    if _gmail_service is None:
+        from connectors.gmail.service import GmailReadService
+
+        _gmail_service = GmailReadService(
+            db=db,
+            permissions=get_permissions_service(),
+            vault=get_token_vault(),
+        )
+    return _gmail_service
+
+
 def get_apple_calendar_service():
     global _apple_calendar_service
     if _apple_calendar_service is None:

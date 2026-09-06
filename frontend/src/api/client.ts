@@ -340,6 +340,30 @@ export type PlacesResponse = {
   };
 };
 
+export type CalendarEventDetail = {
+  id: string;
+  title: string;
+  starts_at?: string | null;
+  ends_at?: string | null;
+  all_day?: boolean;
+  location?: string | null;
+  description?: string | null;
+  where_it_comes_from?: string;
+  provider?: string;
+  state?: string;
+  cancelled?: boolean;
+  can_be_changed?: boolean;
+};
+
+export type CalendarEventDeleted = {
+  ok: boolean;
+  operation?: string;
+  verified?: boolean;
+  deleted_on_google?: boolean;
+  title?: string;
+  say_it_as?: string;
+};
+
 export const api = {
   register: (email: string, password: string, name?: string) =>
     request<ApiAuth>('/auth/register', { method: 'POST', body: JSON.stringify({ email, password, name }) }, false),
@@ -500,6 +524,43 @@ export const api = {
       { method: 'POST', body: JSON.stringify(body) },
     );
   },
+  // Gmail connector. Le stesse tre cose del calendario — collegare, leggere
+  // adesso, scollegare — e nient'altro: non esiste un endpoint che restituisca
+  // un messaggio, e non deve esistere un metodo che lo chieda.
+  gmailInstances: () =>
+    request<{ items: ConnectorInstance[] }>('/connectors/gmail/instances'),
+  gmailOAuthStart: (opts?: { redirect_after?: string }) => {
+    // Come per il calendario: si torna sull'origine da cui si e' partiti,
+    // altrimenti localhost e 127.0.0.1 non fanno lo stesso giro.
+    let redirect_after = opts?.redirect_after;
+    if (!redirect_after && typeof window !== 'undefined' && window.location?.origin) {
+      redirect_after = `${window.location.origin}/account/permessi`;
+    }
+    const body: Record<string, string> = {};
+    if (redirect_after) body.redirect_after = redirect_after;
+    return request<{ authorize_url: string; state: string; expires_at: string }>(
+      '/connectors/gmail/oauth/start',
+      { method: 'POST', body: JSON.stringify(body) },
+    );
+  },
+  gmailSync: (instanceId: string) =>
+    request<{ ok: boolean; written: number; skipped: number; resynced: boolean }>(
+      `/connectors/gmail/instances/${instanceId}/sync`, { method: 'POST' },
+    ),
+  gmailRevoke: (instanceId: string) =>
+    request<{ ok: boolean; instance: ConnectorInstance }>(
+      `/connectors/gmail/instances/${instanceId}/revoke`, { method: 'POST' },
+    ),
+  // L'appuntamento visto da vicino, e il pulsante per toglierlo. La conferma
+  // porta con se' il titolo che la persona aveva davanti: e' cosi' che un
+  // «sì» resta legato a quell'evento e non vale per un altro.
+  calendarEvent: (itemId: string) =>
+    request<CalendarEventDetail>(`/calendar/events/${encodeURIComponent(itemId)}`),
+  calendarEventDelete: (itemId: string, confirmed_title: string) =>
+    request<CalendarEventDeleted>(
+      `/calendar/events/${encodeURIComponent(itemId)}/delete`,
+      { method: 'POST', body: JSON.stringify({ confirmed_title }) },
+    ),
   googleCalendarCalendars: (instanceId: string) =>
     request<{ items: GoogleCalendarResource[] }>(`/connectors/google-calendar/instances/${instanceId}/calendars`),
   googleCalendarSelectCalendars: (instanceId: string, calendar_ids: string[]) =>
@@ -662,6 +723,23 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ capability, persistent }),
     }),
+
+  /**
+   * The things ORA can see this life through, and whether they are working.
+   *
+   * Three fields, and that is the whole contract: what the connection is,
+   * how it is doing, and when it was last read. Cursors, scopes and error
+   * codes are our plumbing and never leave the backend.
+   */
+  getConnectedSources: () =>
+    request<{
+      sources: Array<{
+        id: string;
+        what: string;
+        state: string;
+        last_read_at?: string | null;
+      }>;
+    }>('/connected-sources'),
 
   /** What ORA may already do on its own, in the words that were agreed to. */
   getAgentAutonomy: () =>

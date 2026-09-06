@@ -136,7 +136,13 @@ class RealGoogleCalendarProvider:
                 params["timeMin"] = time_min
             if time_max:
                 params["timeMax"] = time_max
-            params["orderBy"] = "startTime"
+            # No `orderBy` on the first listing, deliberately. Google refuses
+            # to return a `nextSyncToken` for a request that asks for an
+            # order, so asking for one here meant never obtaining a token —
+            # and therefore reading the whole window on every single sync,
+            # forever. Nothing downstream needs the order: the pipeline
+            # ingests each event on its own and the sensor sorts by when the
+            # row arrived. It cost nothing and it cost everything.
         if page_token:
             params["pageToken"] = page_token
         async with httpx.AsyncClient(timeout=30) as h:
@@ -145,7 +151,13 @@ class RealGoogleCalendarProvider:
                 headers={"Authorization": f"Bearer {access_token}"},
                 params=params,
             )
-            r.raise_for_status()
+            if r.status_code >= 400:
+                # Un tipo nostro invece dell'eccezione di httpx: chi chiama
+                # deve poter distinguere «il token non vale piu'» da «Google
+                # e' giu'», e per farlo gli serve il codice, non un
+                # messaggio. Il corpo della risposta non viaggia: puo'
+                # contenere quello che si era chiesto.
+                raise GoogleCalendarAPIError(r.status_code)
             body = r.json()
         return EventsPage(
             events=body.get("items") or [],

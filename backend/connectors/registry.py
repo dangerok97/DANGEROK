@@ -100,11 +100,18 @@ _CONNECTORS: Tuple[Dict[str, Any], ...] = (
         category="mail",
         provider="google",
         display_name="Gmail",
-        description="Estrae bollette, ricevute e conferme dalla casella Gmail.",
+        # Cosa fa davvero, non cosa estrae: la posta e' un sensore della vita,
+        # e la riga che la descrive deve dire quello — anche perche' e' la
+        # frase che una persona legge prima di collegare la propria casella.
+        description=(
+            "Legge le comunicazioni collegate per capire quando qualcosa "
+            "cambia o richiede attenzione. Non invia e non risponde."
+        ),
         required_capabilities=("mail.metadata",),
         optional_capabilities=("mail.read",),
         auth_flow="oauth2",
         icon_key="mail_gmail",
+        status="available",
     ),
     _conn(
         id="mail_outlook",

@@ -29,12 +29,14 @@ import {
   DOCUMENT_SCOPE_BOUNDARY,
   InlineError,
   LinkRow,
+  MAIL_BOUNDARY,
   PartialNote,
   SettingCard,
   SubpageShell,
   connectedServices,
   connectionLabel,
   useAccount,
+  type ConnectionState,
   type LocationMode,
 } from '@/src/components/account';
 
@@ -87,11 +89,63 @@ type PresenceState = {
   background: 'granted' | 'denied' | 'undetermined';
 };
 
+type ConnectedSourceRow = {
+  id: string;
+  what: string;
+  state: string;
+  last_read_at?: string | null;
+};
+
+
 type StandingGrant = {
   id: string;
   capability: string;
   scope?: string | null;
 };
+
+
+/**
+ * What to say under a calendar's name.
+ *
+ * The connector's own word when there is nothing to add, and the connected
+ * source's sentence when there is — which is exactly when it matters: a
+ * calendar that is connected but has not been read since yesterday looks
+ * identical from the connector's side, and is not the same thing at all.
+ *
+ * «Connesso» plus a recent read is not worth two lines, so it stays one.
+ */
+function mailboxDetail(source: ConnectedSourceRow): string {
+  if (source.state !== 'Connesso') return source.state;
+  const read = humanAge(source.last_read_at);
+  return read ? `Connesso · letto ${read}` : 'Connesso';
+}
+
+function sourceDetail(
+  service: { state: ConnectionState },
+  connected: ConnectedSourceRow[],
+): string {
+  const base = connectionLabel(service.state);
+  const source = connected.find((c) => /calendar/i.test(c.what));
+  if (!source) return base;
+  if (source.state !== 'Connesso') return source.state;
+  const read = humanAge(source.last_read_at);
+  return read ? `${base} · letto ${read}` : base;
+}
+
+
+/** How long ago, in the words somebody would use. Never a timestamp. */
+function humanAge(iso?: string | null): string {
+  if (!iso) return '';
+  const then = Date.parse(iso);
+  if (Number.isNaN(then)) return '';
+  const minutes = Math.floor((Date.now() - then) / 60000);
+  if (minutes < 2) return 'ora';
+  if (minutes < 60) return `${minutes} min fa`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return hours === 1 ? "un'ora fa" : `${hours} ore fa`;
+  const days = Math.floor(hours / 24);
+  return days === 1 ? 'ieri' : `${days} giorni fa`;
+}
 
 
 export default function PermessiScreen() {
@@ -109,6 +163,32 @@ export default function PermessiScreen() {
     ricostruisce niente, perché un permesso raccontato dal client è un
     permesso che nessuno ha verificato.
   */
+  /*
+    Quanto è aggiornato quello che ORA sa da ogni sorgente.
+
+    Una riga sola, e solo quando aggiunge qualcosa: «Connesso» lo dice già il
+    connettore, mentre «l'ultima lettura non è riuscita» o «quello che so è
+    vecchio» sono cose che nessuno poteva sapere prima e che cambiano quanto
+    ci si può fidare di una risposta di ORA.
+  */
+  const [connected, setConnected] = useState<ConnectedSourceRow[]>([]);
+  const [connectingMail, setConnectingMail] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    void api
+      .getConnectedSources()
+      .then((out) => {
+        if (alive) setConnected(out.sources || []);
+      })
+      .catch(() => {
+        /* Silenzioso: la pagina resta utile anche senza questa riga. */
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   const [grants, setGrants] = useState<StandingGrant[]>([]);
   const [revoking, setRevoking] = useState<string | null>(null);
 
@@ -283,6 +363,30 @@ export default function PermessiScreen() {
 
   const calendars = (snapshot?.services || []).filter((s) => s.id.endsWith('calendar'));
   const calendarConnected = connectedServices(calendars).length > 0;
+  // Una casella si riconosce da come si presenta al lettore, non da un id
+  // interno: `what` è la stessa parola che la persona vede sulla riga.
+  const mailboxes = connected.filter((c) => /gmail|mail|email|posta/i.test(c.what));
+
+  /*
+    Collegare la posta.
+
+    Porta su Google e basta: e' Google a fare la domanda, ed e' giusto cosi'
+    — nessuna schermata di ORA puo' spiegare meglio di quella cosa si sta
+    concedendo. Al ritorno la riga si aggiorna da sola, perche' e' la
+    sorgente a dire se e' collegata, non questa schermata a ricordarselo.
+  */
+  const connectMailbox = useCallback(async () => {
+    haptic('tap');
+    setConnectingMail(true);
+    try {
+      const r = await api.gmailOAuthStart();
+      const win: any = typeof window !== 'undefined' ? window : null;
+      if (win?.location) win.location.assign(r.authorize_url);
+    } catch (e: any) {
+      setConnectingMail(false);
+      setWriteError(humanizeError(e, 'connect'));
+    }
+  }, []);
 
   return (
     <SubpageShell
@@ -405,7 +509,7 @@ export default function PermessiScreen() {
             <LinkRow
               key={s.id}
               label={s.name}
-              detail={connectionLabel(s.state)}
+              detail={sourceDetail(s, connected)}
               icon="calendar-outline"
               first={i === 0}
               onPress={() => {
@@ -452,6 +556,57 @@ export default function PermessiScreen() {
           </View>
         </SettingCard>
       ) : null}
+
+      {/*
+        La posta, e soltanto come sorgente.
+
+        Nessun conteggio di non letti, nessun elenco di messaggi, nessuna
+        casella dentro ORA. Una riga dice che c'è una casella collegata e da
+        quanto è stata letta, perché quelle due cose rispondono alla domanda
+        che una persona si fa davvero — «ORA sta leggendo la mia posta?» — e
+        un elenco di messaggi risponderebbe a una domanda che nessuno ha
+        fatto.
+
+        Qui si collega e si vede se è collegata; il resto — sincronizzare
+        adesso, scollegare — sta in Connessioni e servizi insieme al
+        calendario, che è dove una persona va a cercarlo. La freccia porta lì,
+        e lì la casella c'è: due schermate che dicono cose diverse sulla
+        stessa connessione sono peggio di una sola che ne dice poche.
+      */}
+      <SettingCard
+        title="Email"
+        detail="ORA legge le comunicazioni collegate per capire quando qualcosa cambia o richiede attenzione."
+        testID="perm-email"
+      >
+        <View>
+          {mailboxes.length ? (
+            mailboxes.map((m, i) => (
+              <LinkRow
+                key={m.id}
+                label={m.what}
+                detail={mailboxDetail(m)}
+                icon="mail-outline"
+                first={i === 0}
+                onPress={() => {
+                  haptic('tap');
+                  router.push('/settings' as any);
+                }}
+                testID={`perm-email-${m.id}`}
+              />
+            ))
+          ) : (
+            <LinkRow
+              label="Google Gmail"
+              detail={connectingMail ? 'Ti porto su Google…' : 'Non collegato'}
+              icon="mail-outline"
+              first
+              onPress={connectMailbox}
+              testID="perm-email-connect"
+            />
+          )}
+        </View>
+        <BoundaryNote icon="lock-closed-outline">{MAIL_BOUNDARY}</BoundaryNote>
+      </SettingCard>
 
       <SettingCard title="Documenti" testID="perm-documents">
         <BoundaryNote icon="lock-closed-outline">{DOCUMENT_SCOPE_BOUNDARY}</BoundaryNote>

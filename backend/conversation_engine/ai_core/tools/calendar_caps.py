@@ -19,6 +19,8 @@ docs/ARCHITECTURE.md).
 """
 from __future__ import annotations
 
+from ingestion.reading import plain, where
+
 import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -172,6 +174,26 @@ def _authority_required(name: str, act) -> Observation:
     )
 
 
+def _is_at(seen: Dict[str, Any], wanted: Any) -> bool:
+    """
+    Whether the event the calendar just handed back starts when we asked.
+
+    Compared as instants, never as strings: Google answers in whatever
+    offset it likes, and «2026-09-11T10:00:00+02:00» and
+    «2026-09-11T08:00:00Z» are the same moment. A string comparison here
+    would report a successful move as a failed one, which is the kind of
+    false alarm that teaches people to ignore alarms.
+    """
+    if not wanted:
+        return False
+    said = (seen.get("start") or {}) if isinstance(seen.get("start"), dict) else {}
+    when = said.get("dateTime") or said.get("date")
+    left, right = _parse_dt(str(when or "")), _parse_dt(str(wanted))
+    if not left or not right:
+        return False
+    return left == right
+
+
 async def _read_back(sync: GoogleCalendarSyncService, user_id: str, synced: dict):
     """
     Go and look at what was just written.
@@ -199,6 +221,49 @@ async def _read_back(sync: GoogleCalendarSyncService, user_id: str, synced: dict
     except Exception as e:
         logger.info("calendar read-back soft-fail: %s", type(e).__name__)
         return {}, False
+
+
+async def _file_it_now(
+    db, sync: GoogleCalendarSyncService, user_id: str, calendar_id: str,
+    raw: Dict[str, Any],
+) -> bool:
+    """
+    Metti subito in archivio quello che si e' appena riletto da Google.
+
+        QUELLO CHE ORA HA APPENA SCRITTO NON DEVE ASPETTARE IL PROSSIMO GIRO.
+
+    Il polling passa ogni minuto, ed e' la cadenza giusta per il mondo: le
+    cose che cambiano da sole si possono aspettare. Ma un appuntamento che la
+    persona ha appena chiesto non e' il mondo che cambia — e' lei che ha
+    appena fatto una cosa, e la schermata subito dopo deve mostrarla. Un
+    minuto di «non c'e' niente» dopo aver detto «segnamelo» e' la schermata
+    che dice che non l'hai fatto.
+
+    Quello che si archivia e' la copia riletta dal provider, non quello che si
+    era chiesto: e' la stessa riga che scriverebbe il sync fra un minuto, e
+    infatti fra un minuto il dedupe la riconoscera' e non ne fara' una
+    seconda.
+    """
+    if not raw or not raw.get("id"):
+        return False
+    try:
+        instance = await sync._instance_for_user(user_id)
+        if not instance:
+            return False
+        await sync.gcal.ingestion.ingest_calendar_events(
+            user_id=user_id,
+            connector_id="calendar_google",
+            connector_instance_id=instance.get("id"),
+            calendar_id=calendar_id,
+            calendar_name=calendar_id,
+            raw_events=[raw],
+        )
+        return True
+    except Exception as e:
+        # Non e' un fallimento della scrittura: l'evento e' su Google e la
+        # rilettura lo ha visto. Al massimo la Home lo mostra fra un minuto.
+        logger.info("archiviazione immediata soft-fail: %s", type(e).__name__)
+        return False
 
 
 async def _sync_service(db) -> GoogleCalendarSyncService:
@@ -264,6 +329,9 @@ async def get_calendar_events(arguments: Dict[str, Any], runtime: Dict[str, Any]
             "_id": 0, "id": 1, "title": 1, "start_datetime": 1, "end_datetime": 1,
             "timezone": 1, "all_day": 1, "location": 1, "status": 1,
             "sync_status": 1, "provider": 1,
+            # Il manico del provider: serve per chiedere al calendario se
+            # l'evento c'e' davvero. Non esce mai da questa funzione.
+            "google_event_id": 1,
         },
     ).sort("start_datetime", 1).limit(_MAX_EVENTS_RETURNED)
     drafts = await drafts_cur.to_list(_MAX_EVENTS_RETURNED)
@@ -303,20 +371,53 @@ async def get_calendar_events(arguments: Dict[str, Any], runtime: Dict[str, Any]
                 "user_id": uid,
                 "connector_id": "calendar_google",
                 "source_status": {"$ne": "detached"},
-                "normalized_payload.starts_at": {"$gte": tmin_iso, "$lt": tmax_iso},
+                # Il campo vero e' `starts_at.value`: ogni campo viaggia
+                # dentro la sua busta, e un filtro sulla busta non trova
+                # niente — silenziosamente, come se il calendario fosse
+                # vuoto. E' lo stesso errore che teneva la Home a zero.
+                where("starts_at"): {"$gte": tmin_iso, "$lt": tmax_iso},
             },
-            {
-                "_id": 0,
-                "normalized_payload.title": 1,
-                "normalized_payload.starts_at": 1,
-                "normalized_payload.ends_at": 1,
-                "normalized_payload.timezone": 1,
-                "normalized_payload.all_day": 1,
-                "normalized_payload.location": 1,
-            },
-        ).sort("normalized_payload.starts_at", 1).limit(remaining)
-        for e in await ingested_cur.to_list(remaining):
-            p = e.get("normalized_payload") or {}
+            {"_id": 0, "normalized_payload": 1, "external_id": 1},
+        ).sort(where("starts_at"), 1).limit(remaining)
+        mirrored = await ingested_cur.to_list(remaining)
+
+        # Quello che il calendario conferma davvero.
+        #
+        #     UN RECORD LOCALE CHE DICE «SINCRONIZZATO» NON E' IL CALENDARIO.
+        #
+        # Un draft porta `sync_status: synced` da quando ORA lo ha scritto, e
+        # da allora non ha piu' guardato: se qualcuno cancella l'evento da
+        # Google, quel campo continua a dire «synced» per sempre e la chat
+        # continua a rispondere «e' gia' in calendario». Qui si incrociano le
+        # due liste sul manico del provider, e il draft che il mirror
+        # conferma viene marcato come confermato.
+        #
+        # Quello che NON si fa e' concludere il contrario: non trovare una
+        # riga non prova che l'evento non ci sia — la finestra e' limitata, la
+        # lettura puo' essere in ritardo — quindi il caso non confermato si
+        # chiama `unconfirmed`, che e' quello che sappiamo davvero.
+        confirmed = {str(e.get("external_id") or "") for e in mirrored} - {""}
+        already_ours = {
+            str(d.get("google_event_id") or "") for d in drafts
+        } - {""}
+        for item, draft in zip(items, drafts):
+            handle = str(draft.get("google_event_id") or "")
+            if not handle:
+                continue
+            if handle in confirmed:
+                item["sync_status"] = "synced"
+                item["confirmed_by_calendar"] = True
+            elif item.get("sync_status") == "synced":
+                item["sync_status"] = "unconfirmed"
+                item["confirmed_by_calendar"] = False
+
+        for e in mirrored:
+            p = plain(e.get("normalized_payload"))
+            if str(e.get("external_id") or "") in already_ours:
+                # Lo stesso appuntamento, gia' in lista come cosa di ORA e
+                # adesso confermato dal calendario. Elencarlo due volte
+                # farebbe dire al modello che sono due impegni.
+                continue
             items.append({
                 "calendar_ref": None,  # read-only external mirror, not actionable
                 "source": "google_external",
@@ -370,6 +471,75 @@ async def get_calendar_events(arguments: Dict[str, Any], runtime: Dict[str, Any]
     )
 
 
+def _same_thing(title: str) -> str:
+    """
+    Il titolo ridotto a cio' che si puo' confrontare senza interpretare.
+
+    Minuscole, accenti via, punteggiatura via, spazi collassati. Non e' una
+    somiglianza: due titoli che finiscono uguali qui sono la stessa stringa
+    scritta in modo diverso, e questo e' un fatto. Tutto il resto — «visita
+    dentistica» contro «dentista» — e' un giudizio su cosa intendeva la
+    persona, e non si fa qui.
+    """
+    import re
+    import unicodedata
+
+    flat = unicodedata.normalize("NFKD", str(title or ""))
+    flat = "".join(c for c in flat if not unicodedata.combining(c))
+    flat = re.sub(r"[^a-z0-9 ]+", " ", flat.lower())
+    return " ".join(flat.split())
+
+
+async def _already_have_one(db, uid: str, *, title: str, start: str) -> Optional[Dict[str, Any]]:
+    """
+    Un impegno che ORA gia' gestisce e che porta esattamente questo nome.
+
+        SPOSTARE NON E' CREARE.
+
+    Cercato in una finestra di due settimane intorno alla data nuova, perche'
+    una persona che dice «spostala all'11» sta parlando di qualcosa che ha
+    gia', non di una seconda visita. Se c'e', questa funzione lo restituisce
+    e chi ha chiamato si ferma: un secondo evento con lo stesso nome e un
+    orario diverso e' quasi sempre lo stesso impegno scritto due volte, e la
+    persona se lo ritrova in calendario per sempre.
+
+    Il confronto e' sul titolo esatto, normalizzato. Non e' una rete a maglie
+    fini: «Visita dentistica QA» e «Visita dentista» sono due stringhe
+    diverse e passerebbero. Quello che questa funzione prende e' il caso
+    frequente e verificabile; il caso generale non e' un problema di
+    stringhe, ed e' affrontato dove va affrontato — nel dire la verita' su
+    cosa e' stato fatto.
+    """
+    from datetime import timedelta
+
+    when = _parse_dt(start)
+    if not when:
+        return None
+    wanted = _same_thing(title)
+    if not wanted:
+        return None
+    lo = (when - timedelta(days=14)).isoformat()
+    hi = (when + timedelta(days=14)).isoformat()
+    try:
+        rows = await db.calendar_event_drafts.find(
+            {"user_id": uid, "status": {"$ne": "cancelled"},
+             "start_datetime": {"$gte": lo, "$lte": hi}},
+            {"_id": 0, "id": 1, "title": 1, "start_datetime": 1,
+             "google_event_id": 1},
+        ).to_list(40)
+    except Exception:
+        return None
+    for row in rows:
+        if _same_thing(row.get("title")) != wanted:
+            continue
+        if str(row.get("start_datetime") or "")[:16] == str(start)[:16]:
+            # Stesso nome e stessa ora: e' lo stesso evento, non uno spostato.
+            # Se ne occupa l'idempotenza piu' avanti.
+            continue
+        return row
+    return None
+
+
 async def create_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, Any]) -> Observation:
     """
     REVERSIBLE_WRITE, behind a real authority gate.
@@ -421,6 +591,86 @@ async def create_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
         tz = resolved.tz_name
         tz_authority = resolved.authority
 
+    # Spostare non si fa creando. Due modi di saperlo, e nessuno dei due si
+    # fida del fatto che il modello scelga lo strumento giusto.
+    #
+    #     UN INTENTO DI SPOSTARE NON PUO' ESSERE SODDISFATTO CREANDO.
+    #
+    # Il primo e' la dichiarazione del modello: `operation_intent` e' un
+    # campo che deve compilare, e se dice «modify» questa e' la chiamata
+    # sbagliata — detto da lui, quindi non discutibile.
+    #
+    # Il secondo e' la frase della persona, presa da dove e' arrivata e non
+    # dal riassunto che ne fa il modello. Serve perche' il primo copre solo
+    # il caso in cui il modello sa cosa sta facendo, e il bug vero e' stato
+    # esattamente il contrario: ha chiamato create senza dichiarare niente,
+    # con un titolo diverso, e la persona si e' ritrovata due visite.
+    #
+    # `create_anyway` non apre nessuna di queste due porte. Apre solo quella
+    # dei titoli uguali piu' sotto, che riguarda i doppioni per distrazione:
+    # qui ci vuole una volonta' nuova della persona, cioe' un messaggio suo
+    # che non chieda piu' di spostare.
+    declared = str(arguments.get("operation_intent") or "").strip().lower()
+    spoken = str(runtime.get("user_message") or "")
+    asked_to_move = commanded.reads_as_a_move(spoken)
+    if declared in ("modify", "reschedule", "update") or asked_to_move:
+        target = _strip_ref(arguments.get("calendar_ref"))
+        return Observation(
+            kind="tool", name="create_calendar_event", status="rejected",
+            payload={
+                "status": "rejected",
+                "failure_kind": "modify_requires_update",
+                "operation_intent": declared or "modify",
+                "why_we_think_so": (
+                    "il modello lo ha dichiarato" if declared
+                    else "la persona ha chiesto di spostare qualcosa"
+                ),
+                "calendar_ref": _ref(target) if target else None,
+                "reason": (
+                    "Spostare un impegno non si fa creandone un altro: quello "
+                    "di prima resterebbe dov'è. Trova l'evento con "
+                    "get_calendar_events e chiama update_calendar_event con "
+                    "il suo calendar_ref. Se davvero serve un secondo "
+                    "appuntamento distinto, deve dirlo la persona."
+                ),
+            },
+        )
+
+    # Un impegno con questo nome esiste gia', a un'altra ora.
+    #
+    #     UN SECONDO EVENTO NON E' UNO SPOSTAMENTO.
+    #
+    # Rifiutare invece di segnalare: una segnalazione dentro una risposta
+    # riuscita e' una nota che il modello puo' non leggere, e il costo di non
+    # leggerla e' un doppione nel calendario di una persona, per sempre.
+    # Qui non si sceglie al posto del modello — gli si dice quale evento c'e'
+    # gia' e con quale riferimento aggiornarlo, e se davvero ne servono due
+    # basta ripetere la chiamata con `create_anyway`.
+    if not arguments.get("create_anyway"):
+        twin = await _already_have_one(db, uid, title=title, start=str(start))
+        if twin:
+            return Observation(
+                kind="tool", name="create_calendar_event", status="rejected",
+                payload={
+                    "status": "rejected",
+                    "failure_kind": "looks_like_a_move",
+                    "existing": {
+                        "calendar_ref": _ref(twin["id"]),
+                        "title": twin.get("title"),
+                        "start_datetime": twin.get("start_datetime"),
+                    },
+                    "reason": (
+                        "C'è già un impegno con questo nome, a un altro orario. "
+                        "Se la persona lo sta spostando, chiama "
+                        "update_calendar_event con quel calendar_ref: creare un "
+                        "secondo evento lascerebbe entrambi in calendario. Se "
+                        "invece ne servono davvero due, richiama create con "
+                        "create_anyway: true."
+                    ),
+                },
+                provenance=[_ref(twin["id"])],
+            )
+
     sync = await _sync_service(db)
     instance_id = await _active_instance_id(sync, uid)
     try:
@@ -467,23 +717,42 @@ async def create_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
         # already there — not a second one, and not a failure either.
         ref = await commanded.already_done_ref(db, uid, act.intent) or ""
         prior = await db.calendar_event_drafts.find_one(
-            {"user_id": uid, "google_event_id": ref}, {"_id": 0, "id": 1},
+            {"user_id": uid, "google_event_id": ref},
+            {"_id": 0, "id": 1, "status": 1},
         ) if ref else None
-        return Observation(
-            kind="tool", name="create_calendar_event", status="ok",
-            payload={
-                "status": "ok",
-                "operation": "already_created",
-                "calendar_ref": _ref(prior["id"]) if prior else None,
-                "google_event_id": ref or None,
-                "verified": True,
-                "reason": (
-                    "Questo stesso evento era già stato creato. Dillo così, "
-                    "senza crearne un altro e senza scusarti."
-                ),
-            },
-            provenance=[_ref(prior["id"])] if prior else [],
-        )
+        still_there = bool(prior) and str(prior.get("status") or "") != "cancelled"
+        if not still_there:
+            # L'atto era stato eseguito, ma quello che aveva prodotto non c'e'
+            # piu': l'evento e' stato cancellato dopo.
+            #
+            #     «GIA' FATTO» E' UN'AFFERMAZIONE SUL MONDO, NON SU UNA RIGA.
+            #
+            # Rispondere «c'e' gia'» qui e' un successo finto della specie
+            # peggiore: la persona chiede di rimettere una cosa che aveva
+            # cancellato, ORA dice che c'e', il calendario e' vuoto, e nessuno
+            # dei due se ne accorge finche' non e' il giorno. Succedeva:
+            # bastava creare, cancellare e ricreare lo stesso impegno.
+            #
+            # Quindi si riprende l'atto e lo si fa davvero. L'idempotenza
+            # resta intatta per quello che serve — due tap ravvicinati sullo
+            # stesso invio trovano ancora l'evento al suo posto.
+            taken = await commanded.reopen(db, act)
+        else:
+            return Observation(
+                kind="tool", name="create_calendar_event", status="ok",
+                payload={
+                    "status": "ok",
+                    "operation": "already_created",
+                    "calendar_ref": _ref(prior["id"]),
+                    "google_event_id": ref or None,
+                    "verified": True,
+                    "reason": (
+                        "Questo stesso evento era già stato creato. Dillo "
+                        "così, senza crearne un altro e senza scusarti."
+                    ),
+                },
+                provenance=[_ref(prior["id"])],
+            )
     if taken != "go":
         return Observation(
             kind="tool", name="create_calendar_event", status="partial",
@@ -558,6 +827,10 @@ async def create_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
     # Accepted. Now go and look, because those are two different facts and
     # the whole point of this sprint is not to confuse them.
     seen, observed = await _read_back(sync, uid, synced)
+    if observed:
+        await _file_it_now(
+            db, sync, uid, str(synced.get("google_calendar_id") or "primary"), seen,
+        )
     await commanded.settle(
         db, act, provider="calendar",
         external_ref=str(synced.get("google_event_id") or ""),
@@ -569,6 +842,12 @@ async def create_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
         payload={
             "status": "ok" if observed else "partial",
             "operation": "created",
+            # Detto qui perche' e' qui che si e' deciso. Un turno che ha
+            # aggiunto un impegno non puo' essere raccontato come uno
+            # spostamento: l'evento di prima e' ancora dov'era, e la persona
+            # che legge «ho aggiornato» non andra' a controllare.
+            "moved_anything": False,
+            "say_it_as": "aggiunto",
             "calendar_ref": _ref(draft_id),
             "google_event_id": synced.get("google_event_id"),
             "sync_status": synced.get("sync_status"),
@@ -647,6 +926,13 @@ async def update_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
     except (CapabilityDisabled, CapabilityUnknown):
         return _fail("update_calendar_event", "CAPABILITY_UNAVAILABLE")
 
+    # Il manico dell'evento com'e' adesso, per poter dire dopo se e' lo
+    # stesso evento o un altro.
+    before = await db.calendar_event_drafts.find_one(
+        {"id": draft_id, "user_id": uid}, {"_id": 0, "google_event_id": 1},
+    )
+    before_handle = str((before or {}).get("google_event_id") or "")
+
     fields: Dict[str, Any] = {}
     for key in ("title", "start_datetime", "end_datetime", "location", "description"):
         if arguments.get(key) is not None:
@@ -660,7 +946,18 @@ async def update_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
     # Same gate as create, for the same reason. «Sposta la visita alle 11» is
     # a decision the person has already made; the only thing worth checking is
     # that it is still their own event and still nothing that reaches anybody.
-    effect = commanded.calendar_effect(arguments)
+    #
+    # "Their own" is a real question here in a way it is not for a new event.
+    # An appointment somebody was invited to belongs to whoever called it, and
+    # an instruction to move it is an instruction to reach into another
+    # person's day — so it stops being a low-risk personal act and goes back
+    # to asking, exactly as adding a guest does.
+    from connected.ownership import reaches_other_people
+
+    effect = commanded.calendar_effect(
+        arguments,
+        reaches_others=await reaches_other_people(db, uid, draft_id),
+    )
     act = await commanded.assess(
         db, uid,
         capability="calendar.write",
@@ -746,6 +1043,13 @@ async def update_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
         )
 
     seen, observed = await _read_back(sync, uid, updated)
+    if observed:
+        await _file_it_now(
+            db, sync, uid, str(updated.get("google_calendar_id") or "primary"), seen,
+        )
+    moved_as_asked = observed and _is_at(
+        seen, fields.get("start_datetime"),
+    ) and bool(before_handle and updated.get("google_event_id") == before_handle)
     await commanded.settle(
         db, act, provider="calendar",
         external_ref=str(updated.get("google_event_id") or ""),
@@ -757,6 +1061,23 @@ async def update_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
         payload={
             "status": "ok" if observed else "partial",
             "operation": "updated",
+            "moved_anything": True,
+            "say_it_as": "spostato",
+            # Lo slot vecchio e' libero e quello nuovo e' pieno — che e'
+            # l'unica cosa che la persona puo' controllare. Si legge da un
+            # solo colpo d'occhio: e' lo *stesso* evento del provider, e
+            # adesso e' all'ora richiesta; quindi dov'era prima non c'e'
+            # piu'. Se l'identita' non fosse conservata questa deduzione
+            # non varrebbe, ed e' per questo che sta qui accanto.
+            "old_slot_empty": bool(moved_as_asked),
+            "new_slot_has_it": bool(moved_as_asked),
+            # L'identita' del provider e' la prova che si e' spostato un
+            # evento invece di crearne un altro. Se il manico e' cambiato,
+            # qualunque cosa sia successa non e' uno spostamento, e non va
+            # raccontata come tale.
+            "provider_identity_preserved": bool(
+                before_handle and updated.get("google_event_id") == before_handle
+            ),
             "calendar_ref": _ref(draft_id),
             "google_event_id": updated.get("google_event_id"),
             "sync_status": updated.get("sync_status"),
@@ -772,60 +1093,110 @@ async def update_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
 
 
 async def cancel_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, Any]) -> Observation:
-    """REVERSIBLE_WRITE (local cancel is a status flip; Google-side deletion
-    is best-effort). Always requires an explicit ref and consent."""
+    """
+    Togli un impegno dal calendario, dalla conversazione.
+
+        UN SOLO MODO DI TOGLIERE UN IMPEGNO.
+
+    Questa funzione aveva un percorso suo: cancellava sul provider e si
+    fidava della risposta, senza rileggere. Due percorsi di cancellazione
+    vuol dire due idee di cosa significhi «eliminato», e quella con la
+    verifica piu' debole vince sempre — perche' e' quella che risponde di
+    si' anche quando non e' vero.
+
+    Quindi qui non c'e' piu' niente che cancelli: si trova di quale evento si
+    sta parlando e si chiede a chi lo sa fare. Autorita' legata a quel manico,
+    cancellazione sul provider, rilettura, e «eliminato» solo dopo.
+
+    Funziona anche sugli eventi che ORA non ha creato: prima serviva per forza
+    una bozza nostra, e un appuntamento messo dalla persona su Google non si
+    poteva togliere parlando.
+    """
     uid = runtime.get("user_id") or ""
     db = runtime.get("db")
     if not uid or db is None:
         return _fail("cancel_calendar_event", "NOT_CONFIGURED")
 
-    draft_id = _strip_ref(arguments.get("calendar_ref"))
-    if not draft_id:
-        return _fail("cancel_calendar_event", "INVALID_INPUT", "calendar_ref required")
+    from home.calendar_event import delete_event, event_detail
 
-    existing = await db.calendar_event_drafts.find_one(
-        {"id": draft_id, "user_id": uid}, {"_id": 0, "id": 1, "status": 1},
+    # Di cosa si sta parlando: la bozza nostra, oppure direttamente il manico
+    # che l'evento ha su Google. Entrambi sono nomi della stessa cosa.
+    ref = _strip_ref(arguments.get("calendar_ref")) or str(
+        arguments.get("google_event_id") or ""
+    ).strip()
+    if not ref:
+        return _fail(
+            "cancel_calendar_event", "INVALID_INPUT", "calendar_ref required",
+        )
+
+    handle = ref
+    draft = await db.calendar_event_drafts.find_one(
+        {"id": ref, "user_id": uid},
+        {"_id": 0, "id": 1, "status": 1, "google_event_id": 1, "title": 1},
     )
-    if not existing:
+    if draft:
+        if draft.get("status") == "cancelled":
+            return Observation(
+                kind="tool", name="cancel_calendar_event", status="ok",
+                payload={
+                    "status": "ok", "operation": "already_cancelled",
+                    "calendar_ref": _ref(ref), "verified": True,
+                    "say_it_as": "eliminato",
+                },
+                provenance=[_ref(ref)],
+            )
+        handle = str(draft.get("google_event_id") or "") or ref
+
+    detail = await event_detail(db, uid, handle)
+    if detail is None:
         return Observation(
             kind="tool", name="cancel_calendar_event", status="not_found",
-            payload={"status": "not_found", "reason": "No owned calendar event matches this ref."},
-        )
-    if existing.get("status") == "cancelled":
-        return Observation(
-            kind="tool", name="cancel_calendar_event", status="ok",
-            payload={"status": "ok", "operation": "already_cancelled", "calendar_ref": _ref(draft_id)},
-            provenance=[_ref(draft_id)],
+            payload={
+                "status": "not_found",
+                "reason": "Non c'è nessun impegno che corrisponda a questo.",
+            },
         )
 
-    sync = await _sync_service(db)
-    instance_id = await _active_instance_id(sync, uid)
-    try:
-        await require_calendar_consent(db, user_id=uid, write=True, connector_instance_id=instance_id)
-    except ConsentDenied:
-        return Observation(
-            kind="tool", name="cancel_calendar_event", status="consent_required",
-            payload={"status": "consent_required", "calendar_ref": _ref(draft_id)},
-        )
-    except (CapabilityDisabled, CapabilityUnknown):
-        return _fail("cancel_calendar_event", "CAPABILITY_UNAVAILABLE")
+    out = await delete_event(db, uid, handle, confirmed_title=detail["title"])
 
-    result = await sync.delete_remote(
-        user_id=uid, draft_id=draft_id, also_delete_google=True,
-    )
-    if not result.get("ok"):
+    if not out.get("ok"):
+        why = str(out.get("reason") or "delete_failed")
         return Observation(
             kind="tool", name="cancel_calendar_event", status="failed",
             payload={
-                "status": "failed", "calendar_ref": _ref(draft_id),
-                "reason": "Cancellation was not confirmed. Do not claim it was cancelled.",
+                "status": "failed",
+                "failure_kind": why,
+                "calendar_ref": _ref(ref),
+                # La frase che segue e' l'unica difesa contro il fallimento
+                # peggiore di tutti: dire che e' stato tolto quando c'e'
+                # ancora, e lasciare che la persona non si presenti.
+                "reason": (
+                    "La cancellazione non è stata confermata. Non dire che è "
+                    "stato eliminato: è ancora in calendario."
+                ),
+                "say_it_as": "",
             },
+            provenance=[_ref(ref)],
         )
+
     return Observation(
         kind="tool", name="cancel_calendar_event", status="ok",
         payload={
-            "status": "ok", "operation": "cancelled", "calendar_ref": _ref(draft_id),
-            "deleted_on_google": bool(result.get("deleted_google")),
+            "status": "ok",
+            # La parola resta quella del tool: chi legge questa osservazione
+            # e' addestrato su «cancelled», e cambiargliela sotto per un
+            # dettaglio di implementazione sarebbe un cambio di contratto
+            # travestito da rinomina.
+            "operation": (
+                "already_cancelled"
+                if out.get("operation") == "already_gone" else "cancelled"
+            ),
+            "calendar_ref": _ref(ref),
+            "google_event_id": out.get("google_event_id"),
+            "deleted_on_google": bool(out.get("deleted_on_google")),
+            "verified": bool(out.get("verified")),
+            "say_it_as": out.get("say_it_as") or "eliminato",
+            "what_was_removed": detail["title"],
         },
-        provenance=[_ref(draft_id)],
+        provenance=[_ref(ref)],
     )

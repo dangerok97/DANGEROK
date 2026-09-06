@@ -38,7 +38,11 @@ logger = logging.getLogger("ora.ambient.runtime")
 
 # How often the loop looks. Infrastructure, not product: it bounds how late a
 # wake can be, and has nothing to say about how often anybody is disturbed.
-TICK_SECONDS = float(os.environ.get("AMBIENT_TICK_SECONDS", "20"))
+#
+# Deve essere piu' fitto della cadenza piu' stretta fra le sorgenti — il
+# calendario, ogni sessanta secondi — altrimenti «ogni minuto» diventa «ogni
+# volta che il loop passa», che e' un'altra cosa.
+TICK_SECONDS = float(os.environ.get("AMBIENT_TICK_SECONDS", "10"))
 
 # How many wakes one tick will process before yielding. A backlog is drained
 # over several ticks rather than in one long blocking sweep.
@@ -71,6 +75,9 @@ _stats: Dict[str, int] = {
     "empty_ticks": 0,
     "fallback_sweeps": 0,
     "fallback_scheduled": 0,
+    "sources_looked_at": 0,
+    "sources_read": 0,
+    "sources_failed": 0,
 }
 
 
@@ -154,6 +161,35 @@ async def tick(db, *, now: Optional[datetime] = None, limit: int = MAX_PER_TICK)
     return handled
 
 
+async def read_sources(db, *, now: Optional[datetime] = None) -> Dict[str, int]:
+    """
+    Read the connected instruments that are due. Deterministic, no model.
+
+        THE USER DOES NOT SYNCHRONISE THEIR LIFE. ORA DOES.
+
+    Here rather than in a scheduler of its own for the same reason `sweep` is
+    here: this loop already ticks, already survives a restart, already
+    tolerates one pass failing. A second loop would be a second thing to
+    start, stop, and get wrong on shutdown.
+
+    The runtime still knows nothing about what it is reading. It calls this,
+    counts what came back and goes to sleep; which sources are due, how often,
+    and what to do when one fails all belong to the package that owns them.
+    """
+    from connected.polling import poll_once
+
+    try:
+        handled = await poll_once(db, now=now)
+    except Exception as exc:
+        logger.info("auto-sync soft-fail: %s", type(exc).__name__)
+        return {"looked_at": 0}
+    for key in ("looked_at", "read", "failed"):
+        _stats[f"sources_{key}"] += int(handled.get(key, 0))
+    if handled.get("looked_at"):
+        logger.info("auto_sync %s", handled)
+    return handled
+
+
 async def sweep(db) -> Dict[str, Any]:
     """
     Cast the safety net: is anybody owed a look that never happened?
@@ -223,6 +259,11 @@ async def _loop() -> None:
     ticks = 0
     while not _stopping:
         try:
+            # Two passes, in this order and for this reason: reading the
+            # world can produce a wake, and doing it before the wakes are
+            # drained means what just arrived is handled in the same tick
+            # rather than a tick later.
+            await read_sources(db)
             await tick(db)
             ticks += 1
             if ticks % _fallback_every_ticks() == 0:

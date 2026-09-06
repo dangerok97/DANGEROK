@@ -99,22 +99,61 @@ def _expand_loopback(uris: List[str]) -> List[str]:
     return _dedupe(expanded)
 
 
-def allowed_oauth_redirect_uris() -> List[str]:
-    """Backend callback URIs accepted for Google Calendar OAuth."""
-    primary = os.environ.get("GOOGLE_OAUTH_REDIRECT_URI", "").strip()
-    extras_raw = os.environ.get("GOOGLE_OAUTH_REDIRECT_URIS", "").strip()
+def redirect_uris_from(
+    primary_env: str,
+    extras_env: str,
+    *,
+    fallback_path: str = "",
+) -> List[str]:
+    """
+    The callback URIs registered for one OAuth flow, loopback twins included.
+
+    One implementation for every Google flow this app has, because two would
+    drift and the way that failure shows up is `redirect_uri_mismatch` in
+    somebody's browser after they have already said yes to Google.
+
+    `fallback_path` exists for a flow whose own variables have not been set
+    yet: the URI is derived from the origin the calendar flow already uses,
+    so a developer gets a working callback before editing any environment —
+    and, more importantly, so the URI that must be registered with Google is
+    a deterministic function of what is already registered rather than
+    whatever happened to be typed.
+    """
+    primary = os.environ.get(primary_env, "").strip()
+    extras_raw = os.environ.get(extras_env, "").strip()
     uris: List[str] = []
     if primary:
         uris.append(primary)
     if extras_raw:
         uris.extend(u.strip() for u in extras_raw.split(",") if u.strip())
+
+    if not uris and fallback_path:
+        base = os.environ.get("GOOGLE_OAUTH_REDIRECT_URI", "").strip()
+        if base:
+            parsed = urlparse(base)
+            if parsed.scheme and parsed.netloc:
+                uris.append(f"{parsed.scheme}://{parsed.netloc}{fallback_path}")
     return _expand_loopback(uris)
 
 
-def get_oauth_config() -> Dict[str, str]:
+def allowed_oauth_redirect_uris() -> List[str]:
+    """Backend callback URIs accepted for Google Calendar OAuth."""
+    return redirect_uris_from(
+        "GOOGLE_OAUTH_REDIRECT_URI", "GOOGLE_OAUTH_REDIRECT_URIS",
+    )
+
+
+def get_oauth_config(*, allowed: Optional[List[str]] = None) -> Dict[str, str]:
+    """
+    The client credentials, and one registered callback to default to.
+
+    Same client for every Google flow in this app — that is the point, and it
+    is why `allowed` is a parameter: the credentials are shared, the callback
+    list is not.
+    """
     cid = os.environ.get("GOOGLE_OAUTH_CLIENT_ID", "").strip()
     secret = os.environ.get("GOOGLE_OAUTH_CLIENT_SECRET", "").strip()
-    allowed = allowed_oauth_redirect_uris()
+    allowed = allowed if allowed is not None else allowed_oauth_redirect_uris()
     if not cid or not secret or not allowed:
         raise OAuthConfigError(
             "GOOGLE_OAUTH_CLIENT_ID / GOOGLE_OAUTH_CLIENT_SECRET / GOOGLE_OAUTH_REDIRECT_URI missing"
@@ -131,12 +170,18 @@ def resolve_redirect_uri(
     *,
     preferred: Optional[str] = None,
     request_base: Optional[str] = None,
+    allowed: Optional[List[str]] = None,
 ) -> str:
     """Pick a registered callback URI for this OAuth start.
 
     Preference order: explicit preferred → same host as request_base → primary.
+
+    `allowed` lets another flow pass its own list through the same choosing
+    rule. Matching the host of the request matters more than it looks: a
+    person who reached the app on 127.0.0.1 must come back to 127.0.0.1, or
+    Google refuses the exchange after they have already consented.
     """
-    allowed = allowed_oauth_redirect_uris()
+    allowed = allowed if allowed is not None else allowed_oauth_redirect_uris()
     if not allowed:
         raise OAuthConfigError(
             "GOOGLE_OAUTH_CLIENT_ID / GOOGLE_OAUTH_CLIENT_SECRET / GOOGLE_OAUTH_REDIRECT_URI missing"
@@ -214,6 +259,7 @@ class OAuthStateStore:
         user_id: str,
         redirect_after: Optional[str] = None,
         redirect_uri: Optional[str] = None,
+        flow: str = "calendar_google",
     ) -> Dict[str, str]:
         state = secrets.token_urlsafe(32)
         verifier = new_pkce_verifier()
@@ -233,6 +279,12 @@ class OAuthStateStore:
             "created_at": _now().isoformat(),
             "redirect_after": safe_after,
             "redirect_uri": redirect_uri,
+            # Which flow this state belongs to. Two connectors now share this
+            # store, and a state minted for one must not be spendable at the
+            # other's callback: the two ask Google for different scopes and
+            # build different instances, so honouring the wrong one would
+            # create a connection nobody agreed to.
+            "flow": flow,
         }
         await self.col.insert_one(doc)
         return {
@@ -244,12 +296,20 @@ class OAuthStateStore:
             "redirect_after": safe_after or "",
         }
 
-    async def consume(self, *, state: str) -> Dict[str, Any]:
+    async def consume(
+        self, *, state: str, expect_flow: Optional[str] = None,
+    ) -> Dict[str, Any]:
         doc = await self.col.find_one({"state": state, "consumed": False}, {"_id": 0})
         if not doc:
             raise OAuthStateInvalid("state unknown or already consumed")
         if doc["expires_at"] < _now().isoformat():
             raise OAuthStateInvalid("state expired")
+        if expect_flow is not None:
+            # Rows written before this field existed belong to the flow that
+            # was the only one at the time. Defaulting is safe here and
+            # nowhere else: an unknown flow must never pass as a match.
+            if str(doc.get("flow") or "calendar_google") != expect_flow:
+                raise OAuthStateInvalid("state belongs to another flow")
         await self.col.update_one(
             {"state": state, "consumed": False},
             {"$set": {"consumed": True, "consumed_at": _now().isoformat()}},
@@ -262,13 +322,25 @@ def build_authorize_url(
     state: str,
     code_challenge: str,
     redirect_uri: Optional[str] = None,
+    scopes: Optional[List[str]] = None,
 ) -> str:
+    """
+    Where to send somebody so Google can ask them.
+
+    `scopes` is a parameter because a mailbox and a calendar are different
+    questions to ask a person, and asking for both at once — which is what a
+    hardcoded list would eventually do — is how an app ends up holding
+    permissions nobody knowingly gave it. `include_granted_scopes` still
+    means Google returns the union of what they have already granted, which
+    is incremental authorisation working as intended; what changes is that
+    ORA only ever *asks* for the one it is connecting.
+    """
     cfg = get_oauth_config()
     params = {
         "response_type": "code",
         "client_id": cfg["client_id"],
         "redirect_uri": redirect_uri or cfg["redirect_uri"],
-        "scope": " ".join(GOOGLE_CALENDAR_SCOPES),
+        "scope": " ".join(scopes if scopes is not None else GOOGLE_CALENDAR_SCOPES),
         "state": state,
         "code_challenge": code_challenge,
         "code_challenge_method": "S256",

@@ -124,6 +124,57 @@ export function connectionStateOf(
 
 const DAY_MS = 86_400_000;
 
+/**
+ * Da quanto ORA ha guardato, e se ci sta riuscendo.
+ *
+ *   CONNESSO NON VUOL DIRE AGGIORNATO.
+ *
+ * Sono due fatti diversi e il prodotto li ha sempre tenuti separati altrove:
+ * una connessione perfettamente sana puo' reggere una fotografia di due
+ * giorni fa, e una schermata che dice solo «Connesso» lascia credere il
+ * contrario. Qui diventano una riga sola, con tre casi:
+ *
+ *   - sta andando       «Aggiornato automaticamente · 6 minuti fa»
+ *   - vecchio           «Connesso · ultimo aggiornamento 2 giorni fa»
+ *   - non ci riesce     «Connesso · non riesco ad aggiornarlo in questo momento»
+ *
+ * Non c'e' un quarto caso che dice «premi Sincronizza», perche' non c'e' piu'
+ * niente da premere: se ORA non riesce ad aggiornare una sorgente, riprovare
+ * e' compito suo.
+ */
+export function autoSyncLabel(
+  source: { state?: string | null; last_read_at?: string | null } | null | undefined,
+  now: Date = new Date(),
+): string {
+  const state = String(source?.state || '').trim();
+  const age = humanAgo(source?.last_read_at, now);
+
+  if (/non riesco/i.test(state)) {
+    return 'Connesso · non riesco ad aggiornarlo in questo momento';
+  }
+  if (/vecchio/i.test(state)) {
+    return age
+      ? `Connesso · ultimo aggiornamento ${age}`
+      : 'Connesso · ultimo aggiornamento molto tempo fa';
+  }
+  if (!age) return 'Aggiornato automaticamente';
+  return `Aggiornato automaticamente · ${age}`;
+}
+
+/** «6 minuti fa». Mai un orario, mai una data. */
+export function humanAgo(iso?: string | null, now: Date = new Date()): string {
+  if (!iso) return '';
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return '';
+  const minutes = Math.floor((now.getTime() - t) / 60000);
+  if (minutes < 1) return 'poco fa';
+  if (minutes < 60) return minutes === 1 ? 'un minuto fa' : `${minutes} minuti fa`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return hours === 1 ? "un'ora fa" : `${hours} ore fa`;
+  const days = Math.floor(hours / 24);
+  return days === 1 ? 'ieri' : `${days} giorni fa`;
+}
+
 /** "Sincronizzato oggi alle 09:41" — never a raw timestamp. */
 export function lastSyncLabel(iso?: string | null, now: Date = new Date()): string {
   if (!iso) return 'Mai sincronizzato';
@@ -216,6 +267,19 @@ export function locationSummaryLabel(mode: LocationMode): string {
 */
 export const CALENDAR_WRITE_BOUNDARY =
   'ORA scrive nel tuo calendario solo se glielo chiedi tu, o se le hai dato il permesso di farlo da sola. Non elimina mai un evento senza chiedertelo.';
+
+/*
+  La posta, e la meta' che toglie la paura vera.
+
+  Cosa ORA legge lo dice gia' la scheda, in tutte e due le schermate dove
+  compare. Ripeterlo qui voleva dire leggere la stessa frase due volte nello
+  stesso riquadro — l'avevo scritta cosi', e negli screenshot si vedeva. Qui
+  resta solo quello che nessun'altra riga dice: cosa ORA non fa. «Non
+  risponde» e' la parola che una persona cerca davvero quando le si dice che
+  un'intelligenza artificiale legge le sue email.
+*/
+export const MAIL_BOUNDARY =
+  'ORA non scrive, non risponde e non archivia niente al posto tuo.';
 
 export const DOCUMENT_SCOPE_BOUNDARY =
   'ORA legge solo i documenti che carichi tu. Non accede a cartelle o archivi sul tuo dispositivo.';

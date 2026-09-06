@@ -486,6 +486,16 @@ async def startup():
     except Exception:
         logger.exception("Agent indexes failed (non-fatal)")
 
+    # Connected Life (V3.10) — the unique index on a signal's fingerprint,
+    # which is what makes a re-sync of an unchanged world cost one lookup.
+    try:
+        from connected.service import ConnectedLifeService
+
+        await ConnectedLifeService(db).ensure_indexes()
+        logger.info("Connected Life indexes ready")
+    except Exception:
+        logger.exception("Connected Life indexes failed (non-fatal)")
+
     # Location signals + presence (V2.7.1 — short TTL raw GPS)
     try:
         from location.service import LocationService

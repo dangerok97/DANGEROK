@@ -41,7 +41,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional, Tuple
 
-from agent.authority import AuthorityService, UserCommand
+from agent.authority import AuthorityService, UserCommand, _flatten
 from agent.models import (
     ActionEffect,
     ActionIntent,
@@ -69,6 +69,45 @@ _REFUSALS = {
 }
 
 
+# Come si dice «spostalo» quando lo si scrive a qualcuno. Corto di
+# proposito, come l'elenco dei rifiuti sopra: non e' comprensione del
+# linguaggio, e' l'insieme di parole che una persona usa quando intende
+# muovere qualcosa che ha gia'.
+_MOVE_WORDS = (
+    "sposta", "spostare", "spostala", "spostalo", "spostiamo", "spostata",
+    "spostato", "riprogramma", "rimanda", "rimandare", "anticipa",
+    "anticipare", "posticipa", "posticipare", "cambia data", "cambia l ora",
+    "cambia ora", "cambia orario", "cambio orario", "invece del", "invece di",
+    "anziche", "al posto del", "muovi", "sposto",
+)
+
+
+def reads_as_a_move(message: str) -> bool:
+    """
+    Whether the person's own words are asking to move something they have.
+
+        AN INTENT TO MOVE CANNOT BE SATISFIED BY CREATING.
+
+    Read from the message as it arrived — code's own copy, never the model's
+    summary of it — and used for exactly one thing: refusing to create.
+
+    The same discipline as `reads_as_a_refusal`, and for the same reason. It
+    never grants anything and never chooses a target: a sentence this does
+    not recognise leaves the decision where it was, and a sentence it does
+    recognise only closes the door that leads to a second appointment. The
+    cost of a false positive is one refusal the model answers by looking the
+    event up; the cost of a false negative is somebody's calendar holding two
+    of the same commitment, which is what actually happened.
+
+    Written as a list because the alternative — asking a model whether this
+    is a move — puts the decision back where it already failed.
+    """
+    said = _flatten(message)
+    if not said:
+        return False
+    return any(word in said for word in _MOVE_WORDS)
+
+
 def reads_as_a_refusal(reply: str) -> bool:
     """
     Whether a reply to a proposal is plainly a no.
@@ -77,8 +116,6 @@ def reads_as_a_refusal(reply: str) -> bool:
     does not recognise is not thereby a yes — it just leaves the decision
     where it was, which for an unanswered proposal is "still ask".
     """
-    from agent.authority import _flatten
-
     said = _flatten(reply)
     if not said:
         return True
@@ -108,7 +145,9 @@ class CommandedAct:
         return self.authority.reason_code
 
 
-def calendar_effect(arguments: Dict[str, Any]) -> ActionEffect:
+def calendar_effect(
+    arguments: Dict[str, Any], *, reaches_others: bool = False,
+) -> ActionEffect:
     """
     What a calendar request would actually do, derived from the request.
 
@@ -116,11 +155,25 @@ def calendar_effect(arguments: Dict[str, Any]) -> ActionEffect:
     person asked for; whether that act lands on somebody else is a fact about
     the arguments, and a model allowed to answer it could be talked into
     answering no.
+
+    `reaches_others` is the second way an act can land on somebody: not a
+    guest being added here and now, but the event already being somebody
+    else's. The arguments cannot show that — it is a fact about the world,
+    observed by the connected sensors — so it arrives as an answer rather
+    than being inferred, and it moves the effect into the same category a
+    guest would.
     """
-    guests = any(arguments.get(key) for key in _GUEST_KEYS)
+    guests = any(arguments.get(key) for key in _GUEST_KEYS) or reaches_others
     modifying = bool(arguments.get("calendar_ref"))
+    # Togliere un impegno non e' crearne uno. Va detto qui, dove l'effetto
+    # viene descritto, perche' e' su questa descrizione che l'autorita'
+    # decide quanto in alto sta l'asticella — e una cancellazione raccontata
+    # come una creazione la abbassa in silenzio.
+    removing = bool(arguments.get("delete") or arguments.get("cancel"))
     return ActionEffect(
-        effect_type="modify" if modifying else "create",
+        effect_type=(
+            "remove" if removing else ("modify" if modifying else "create")
+        ),
         target="il calendario personale",
         effect_summary=str(arguments.get("title") or "")[:300],
         # An event with a guest on it is a different act from the same event
@@ -130,8 +183,12 @@ def calendar_effect(arguments: Dict[str, Any]) -> ActionEffect:
         legal_effect=False,
         privacy_effect=False,
         public_visibility=False,
-        destructive=False,
-        reversibility="easily",
+        # Un evento tolto si puo' rimettere, ma non e' la stessa cosa: chi
+        # doveva vederlo non lo vede piu', e la sveglia non suona. E' un
+        # effetto distruttivo con un recupero possibile, ed e' cosi' che va
+        # descritto.
+        destructive=removing,
+        reversibility="with_effort" if removing else "easily",
         expected_outcome=str(arguments.get("title") or "")[:300],
     )
 
@@ -237,6 +294,19 @@ async def begin(db, act: CommandedAct) -> str:
     from agent.execution import StepExecutor
 
     return await StepExecutor(db).begin_declared(act.intent)
+
+
+async def reopen(db, act: CommandedAct) -> str:
+    """
+    Take the act again, when the caller has seen that its effect is gone.
+
+    The counterpart of `begin` returning `already_done`. Only a caller that
+    has looked at the world and found nothing may use it — see
+    `StepExecutor.retake`.
+    """
+    from agent.execution import StepExecutor
+
+    return await StepExecutor(db).retake(act.intent)
 
 
 async def settle(
