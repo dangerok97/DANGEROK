@@ -536,6 +536,30 @@ class StepExecutor:
             intent.id = str(existing.get("id") or intent.id)
         return "go" if await self._claim(intent) else "busy"
 
+    async def retake(self, intent: ActionIntent) -> str:
+        """
+        Take an effect again, because what it produced is no longer there.
+
+            ALREADY DONE IS A CLAIM ABOUT THE WORLD, NOT ABOUT A ROW.
+
+        `begin_declared` answers "already done" from the attempt row alone,
+        and that is right for a double tap arriving a second apart. It stops
+        being right the moment somebody deletes the thing afterwards: the row
+        still says executed, and the next identical request is answered with
+        "it is already there" about something that is gone.
+
+        So this exists, and its contract is narrow on purpose: only a caller
+        that has *looked* — read the record, or read the provider — and found
+        the effect missing may call it. It does not check anything itself,
+        because from here there is nothing to check: what the effect was is
+        the caller's knowledge, not this class's.
+        """
+        await self.db[ATTEMPTS].update_one(
+            {"idempotency_key": intent.idempotency_key},
+            {"$set": {"status": "prepared", "retaken_at": _now().isoformat()}},
+        )
+        return "go" if await self._claim(intent) else "busy"
+
     async def settle_declared(
         self, intent: ActionIntent, receipt: ExecutionReceipt, *, executed: bool
     ) -> None:

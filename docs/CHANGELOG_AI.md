@@ -1,5 +1,187 @@
 # ORA — AI Changelog
 
+## 2026-09-07 — V3.10 CONNECTED LIFE — CLOSED
+
+Il ciclo completo, su un account Google vero, con l'auto-sync acceso:
+calendario e posta → ingestion → segnali → comprensione cross-source →
+Life Model → Home.
+
+**Cosa una persona vede adesso.** Un appuntamento del suo calendario compare
+in Home entro un minuto, si apre toccandolo — nome, giorno, ora, posto, da
+dove arriva — e si può spostare o togliere da lì. Toglierlo lo toglie
+davvero anche da Google, e ORA dice «eliminato» solo dopo essere andata a
+guardare. Non c'è niente da premere per sincronizzare: la vita non la
+sincronizza la persona.
+
+**Cross-source, sull'account vero.** L'email dello studio dentistico e
+l'appuntamento in calendario sono la stessa cosa — `same_situation`, deciso
+dal modello, con la provenienza di entrambe le fonti e zero scritture. La
+newsletter è rumore e non lascia niente. La conferma di un orario diverso
+resta un disaccordo con tutte e due le versioni conservate: il codice non
+sceglie quale sia vera. Un'email il cui fatto utile sta nel corpo fa
+chiedere il corpo, una volta sola, dopo aver detto perché — e il corpo non
+viene conservato da nessuna parte.
+
+**Difetti trovati dai gate reali, non dai test.** La Home leggeva le ottanta
+righe toccate più di recente invece dell'agenda, e vedeva 2 impegni su 16.
+Un 404 su un messaggio cancellato fermava l'intera lettura della casella. La
+coda dell'auto-sync non teneva il passo e chi stava in fondo non veniva letto
+mai. «Già creato» veniva detto di un evento cancellato. Il disaccordo fra due
+fonti arrivava al giudizio con l'ora del calendario in UTC, e una conferma
+delle 11:00 sembrava riferirsi a un altro appuntamento. Ogni rilettura
+invariata scriveva una riga nuova: 260 in più del necessario per 50 eventi.
+
+**Freschezza, misurata e chiusa.** Tracciando la catena intera su un account
+vero — cambiato sul provider, esigibile, preso dalla coda, riga scritta,
+visibile in Home — i secondi non si perdevano nella coda (vuota) ne' nel sync
+(due secondi): si perdevano aspettando la lettura successiva, perche' una
+modifica fatta un istante prima non e' ancora nella delta che Google
+restituisce. La latenza tipica *e'* la cadenza. Quindi calendario ogni 20 s,
+posta ogni 60 s, giro del loop ogni 10 s. Misurato due volte su tre
+operazioni reali: creazione 9 s e 21 s, spostamento 25 s e 20 s,
+cancellazione 22 s e 21 s. Tutte dentro i 30 s di bersaglio, tutte dentro i
+60 s di cancello.
+
+**Cosa resta fuori, per scelta.** Nessun nuovo motore agente, nessuna
+Opportunity finta, nessun interruttore globale di autonomia, nessun
+`mail.send`: `calendar.write` resta l'unico attuatore di Connected Life.
+
+Prossimo: **V3.11 — Financial Intelligence**.
+
+Più avanti nella roadmap: agente vocale/telefonico nazionale con chiamate
+reali previa autorizzazione esplicita della persona. Prodotto target: iOS.
+
+
+## 2026-09-06 — V3.10 Sprint 3: real Gmail, and nothing to press
+
+- **Real provider gate passed.** A connected mailbox, a real Gmail history
+  call, Google's own cursor advancing, `last_sync_at` written, 23 signals,
+  and no body, address or token stored anywhere.
+- **Auto-sync.** `connected/polling.py` decides when to look; the ambient
+  runtime calls it once a tick. Cadence per instrument, backoff on failure,
+  no polling of anything disconnected, resume from the cursor after a
+  restart. No second scheduler; no model call in the path.
+- **Two connector defects, found by removing the button.** The calendar
+  asked for `orderBy` and therefore never received a sync token — every sync
+  re-read the whole window. Gmail never wrote `last_sync_at`.
+- **«Sincronizza» is gone** from Calendar and Gmail, guarded across every
+  screen. Cards now separate *connected* from *up to date*.
+- Not switched on: `AMBIENT_RUNTIME` is unset, so the loop does not start.
+
+17 auto-sync tests, 11/11 mutations, 314 targeted regressions.
+
+
+## 2026-09-06 — V3.10 Sprint 3 closed: communications as a sensor
+
+Email becomes the third instrument, and several sources become one life.
+
+- **Gmail, read-only.** New `connectors/gmail/`: history-based incremental
+  sync, bounded resync when the cursor expires, minimised ingestion rows with
+  no body and no addresses. No send, reply, label or delete anywhere in the
+  package — asserted structurally.
+- **Email signals.** `email.message.added` / `email.thread.updated`. A thread
+  is one conversation however many messages it has; a message read twice is
+  not a conversation moving.
+- **Cross-source linking.** Code gathers candidates as facts; the model
+  decides `same_situation | related | new_situation | irrelevant | uncertain`.
+  No fallback picks a candidate, an invented target is refused, and where two
+  readings disagree both statements are kept with no winner.
+- **Transient body.** The Sprint 2 boundary applied to the most sensitive
+  source: fetched from the mailbox only when a judgement says it cannot
+  decide, seen by one prompt, audited without its content.
+- **Two defects fixed from earlier phases.** The calendar sensor was reading
+  a row shape no sync has ever written (wrong filter field, and values are
+  wrapped in `NormalizedField`) — it would have seen an empty world in
+  production. And a Connected Life wake booked one think per signal instead
+  of coalescing.
+- **No new agent, no new delivery, no actuator.** `calendar.write` is still
+  the only wired write; `mail.send` is still unwired and never autonomous.
+
+56 tests, 23/23 mutations, 297 targeted regressions, 7 traces, 5 live calls.
+Debt: the Gmail connector has never spoken to Google (no authorised QA
+mailbox, no mail OAuth flow); attachments are observed, not downloaded; links
+are recorded but shown nowhere; no screenshots this sprint.
+
+
+## 2026-09-05 — V3.10 Sprint 2 closed: from sensing to knowing
+
+Sprint 1's four declared debts, and nothing else.
+
+- **Transient content.** A judgement may ask for a withheld note
+  (`needs_content` + `why_content`) and is re-asked once with it. Read from
+  ORA's own ingestion row, bounded to 400 characters, never stored; the read
+  itself is audited without its content (`connected_content_reads`, 90-day
+  TTL). Attendees stay "2 persone", the organiser "qualcun altro".
+- **SeenState.** One row per observed object so a source that rewrites in
+  place can be compared with itself. Private fields kept as digests.
+- **Documents sensor.** `document.added | updated | removed`. A replaced file
+  is an update, not a second arrival; a document filed before first sight is
+  silence.
+- **Series folding.** One signal per rule change, with `covers`. An
+  occurrence that moved on its own, or a new one added to the series, is not
+  swallowed.
+- **Ownership read.** `relationship` reaches the judgement, and moving an
+  event somebody else called is `external_party` — back behind an explicit
+  confirmation, `reaches_somebody_else`.
+- **No actuators added.** Asserted by test, not by comment.
+
+17 tests, 16/16 mutations, 194 targeted regressions. Live gate re-run on a
+new scenario: 5 calls across 3 runs, the last of which is the passing one
+(the first FAILED verdict came from a faulty leak detector of mine, since
+fixed). Debts that remain: the documents sensor reports the record and not
+the extraction; no webhooks; `unknown` ownership for events never observed.
+
+
+## 2026-09-05 — V3.10 Sprint 1 closed: Life Signals & Connected Context
+
+ORA can now notice that the world moved. A calendar that reschedules itself,
+a document that arrives — these reach the same reasoning that already decides
+whether anything in a life is worth saying, and most of the time it decides
+nothing is. That is the feature: a connected assistant that stays quiet is
+much harder to build than one that narrates.
+
+The audit was the useful part. Half the pipeline already existed and was
+wired to nothing — incremental sync, normalisation, hash dedupe, and a V3.7
+intake that had declared `calendar` and `documents` as sources it would
+accept and had never received one. Sprint 1 is mostly a translator and a
+join; the new nouns are two.
+
+`ConnectedSource` is the honest answer to "is what I believe about this
+person's calendar still true?" — connected and current turn out to be
+different claims, and a system that reports only the first will state a
+two-day-old day as today. `ConnectedSignal` is one observation, with no field
+in which importance could be written down.
+
+**A boundary we got wrong first, and then fixed.** The calendar sensor
+originally returned one difference, chosen by a hard-coded order: a
+cancellation beat a time change, a time change beat a room change, and an
+added guest or an edited note were discarded as things "nobody would notice".
+Every one of those is a judgement about somebody's life, made where no life is
+visible. An update now carries every observable difference, and the model
+weighs them. The evidence that this matters is concrete: shown an appointment
+that moved to the afternoon *and* to a studio across town, the judgement used
+both — "a quell'ora sei al lavoro e non puoi allontanarti dall'ufficio" — and
+under the previous code the location would never have reached it. One
+scenario, one live call, and not a claim that interpretation is generally
+correct.
+
+Notes, attendees and organiser changes travel as "this changed" without their
+content: a private note and other people's addresses have no business in a
+stored signal, and dropping the fact to protect the content would be
+protecting it by lying.
+
+ORA recognises its own writes, from its own execution receipts, before paying
+for a judgement about them — otherwise the agent reads its own work as news
+and does it again. A failed sync leaves a source saying it could not be read,
+never a world that looks empty. And nothing here can create a goal: a signal
+knocks on the door V3.7 and V3.8 already built, and what comes of it is
+decided by the loop that wakes up.
+
+Accepted debt: withheld content is not retrievable transiently; the documents
+sensor sees arrival only; series-level recurrence changes are unrepresented;
+ownership is recorded and unread; polling rather than webhooks; no new
+actuators — `calendar.write` remains the only real write.
+
 ## 2026-09-04 — V3.9 closed: Personal Agent & Action Engine
 
 ORA now does things. It decides for itself that an outcome in somebody's life

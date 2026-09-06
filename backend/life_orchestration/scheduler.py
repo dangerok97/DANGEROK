@@ -199,6 +199,16 @@ async def _run_one(user_id: str) -> None:
     _stats["defer_budget_exhausted"] += report.defer_budget_exhausted
     _stats["total_latency_ms"] += report.elapsed_ms
 
+    # What the outside world did while we were not looking, read and
+    # understood *before* the review below — because the review is what
+    # consumes changes, and a signal interpreted after it would wait a whole
+    # pass to be noticed. No second worker and no second scheduler: Connected
+    # Life rides this queue, with its own bounds.
+    try:
+        await _read_connected_life(user_id)
+    except Exception as exc:
+        logger.info("connected life soft-fail: %s", type(exc).__name__)
+
     # A pass ran because this life moved, which is exactly when it is worth
     # asking whether any of it is worth saying. Reusing this wake-up rather
     # than running a second worker is the whole integration: one queue, one
@@ -213,6 +223,52 @@ async def _run_one(user_id: str) -> None:
         await arm_deferred_timer(user_id, svc)
     except Exception as exc:
         logger.info("deferred arm soft-fail: %s", type(exc).__name__)
+
+
+async def _read_connected_life(user_id: str) -> None:
+    """
+    Look at the sources that are due, and understand what came back.
+
+        A SOURCE IS READ WHEN IT HAS GONE OFF, NOT ON A TIMER.
+
+    Cadence is source-aware and derived rather than configured: a calendar
+    whose reading is still fresh is not read again, and a document archive
+    stays fresh far longer because documents do not move on their own. That
+    is one rule (`freshness_state`) doing the work a per-source cron would
+    have done badly.
+
+    Everything here is bounded and every failure is soft. A connected source
+    having a bad day must never stop a life pass — the rest of ORA has plenty
+    to be getting on with, and a sync that throws leaves the source honest
+    about itself rather than leaving the world looking empty.
+    """
+    from deps import db
+    from connected.service import ConnectedLifeService
+
+    service = ConnectedLifeService(db)
+    try:
+        sources = await service.sources.list(user_id)
+    except Exception as exc:
+        logger.info("connected sources soft-fail: %s", type(exc).__name__)
+        return
+
+    for source in sources:
+        if not source.is_readable:
+            continue
+        if source.freshness_state == "fresh":
+            continue
+        try:
+            await service.sync(user_id, source.id)
+        except Exception as exc:
+            logger.info(
+                "connected sync soft-fail source=%s error=%s",
+                source.source_type, type(exc).__name__,
+            )
+
+    try:
+        await service.interpret(user_id)
+    except Exception as exc:
+        logger.info("connected interpret soft-fail: %s", type(exc).__name__)
 
 
 async def _review_opportunities(user_id: str) -> None:

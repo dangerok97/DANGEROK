@@ -84,6 +84,32 @@ def actions_for(item: HomeItem) -> List[HomeAction]:
         return acts
 
     if t == "event":
+        # UN APPUNTAMENTO NON E' UNA COSA DA ORGANIZZARE: E' UNA COSA CHE HAI.
+        #
+        # L'azione primaria era «Organizza» e portava a `/action/open`, cioe'
+        # all'action engine senza dirgli di cosa si parlasse. Toccare la
+        # visita dal dentista apriva quindi la domanda «vuoi preparare un
+        # esame oppure creare un evento?» — su un evento che era gia' li',
+        # con nome, ora e luogo. Non era un errore di rendering: era la
+        # scheda che diceva davvero di non sapere cosa fosse.
+        #
+        # Un appuntamento che viene da un calendario ha una schermata sua, e
+        # ci si arriva con il suo identificativo addosso.
+        if item.source_type in ("google_calendar", "internal_calendar", "life_node"):
+            acts = [
+                HomeAction(
+                    id="open_event", label="Apri", kind="navigate",
+                    route=f"/calendar-event/{sid}", primary=True,
+                ),
+            ]
+            if item.location:
+                acts.append(HomeAction(
+                    id="open_maps", label="Apri Maps", kind="maps",
+                    params={"query": item.location},
+                ))
+            acts.append(snooze)
+            return acts
+
         acts = [
             HomeAction(id="open_event", label="Organizza", kind="guide", route="/action/open", primary=True),
             HomeAction(id="open_maps", label="Apri Maps", kind="maps", params={"query": item.location or item.title}),
@@ -94,6 +120,23 @@ def actions_for(item: HomeItem) -> List[HomeAction]:
         return [a for a in acts if a.id != "open_maps"]
 
     if t == "visit":
+        # Una visita che viene da un calendario e' un appuntamento come gli
+        # altri: stessa scheda, stesso motivo.
+        if item.source_type in ("google_calendar", "internal_calendar", "life_node"):
+            acts = [
+                HomeAction(
+                    id="open_event", label="Apri", kind="navigate",
+                    route=f"/calendar-event/{sid}", primary=True,
+                ),
+            ]
+            if item.location:
+                acts.append(HomeAction(
+                    id="open_maps", label="Indicazioni", kind="maps",
+                    params={"query": item.location},
+                ))
+            acts.extend([snooze, ignore])
+            return acts
+
         acts = [
             HomeAction(id="open_visit", label="Organizza visita", kind="guide", route="/action/open", primary=True),
             snooze,
@@ -219,7 +262,7 @@ def _route_for(item: HomeItem) -> str:
     if st in ("decision",):
         return "/(tabs)"
     if st in ("life_node", "google_calendar", "internal_calendar"):
-        return "/situazione"
+        return f"/calendar-event/{sid}"
     if st == "quiz_session":
         return f"/document/{item.meta.get('document_id', sid)}"
     return "/action/open"

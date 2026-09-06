@@ -160,6 +160,23 @@ class IngestionEventRepository:
         docs = await cursor.to_list(length=1)
         return docs[0] if docs else None
 
+    async def note_seen_again(self, event_id: str) -> None:
+        """
+        Segna che questa riga e' stata rivista e non e' cambiata.
+
+        E' l'alternativa a scriverne una nuova. Quello che serve sapere di una
+        rilettura invariata e' *quando* e' avvenuta e *quante volte* — due
+        campi su una riga sola — non una riga per volta con dentro una copia
+        identica di tutto il resto.
+        """
+        await self.col.update_one(
+            {"id": event_id},
+            {
+                "$set": {"last_seen_at": _now_iso(), "updated_at": _now_iso()},
+                "$inc": {"times_seen_unchanged": 1},
+            },
+        )
+
     async def mark_superseded(self, event_id: str) -> None:
         await self.col.update_one(
             {"id": event_id},

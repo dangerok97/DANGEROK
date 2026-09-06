@@ -74,7 +74,36 @@ class IngestionPipeline:
             payload_hash=payload_hash,
         )
 
-        # 2) Insert IngestionEvent (received)
+        # 2) Quando non e' cambiato niente, non si scrive niente.
+        #
+        #     UNA RILETTURA CHE NON HA VISTO NIENTE NON E' UN'OSSERVAZIONE.
+        #
+        # Questo blocco stava piu' in basso, dopo l'inserimento: si scriveva
+        # sempre una riga intera e poi la si marcava «skipped». Il calendario
+        # viene riletto ogni minuto, quindi ogni evento fermo lasciava una
+        # riga al minuto — su questo account un solo compleanno ricorrente ne
+        # aveva undici, e in tutto c'erano 229 righe in piu' del necessario
+        # per 43 eventi. Non era solo spazio: quelle righe contavano come
+        # impegni per chi leggeva, e riempivano la finestra della Home al
+        # punto che gli appuntamenti veri restavano fuori.
+        #
+        # La riga che c'e' gia' e' la stessa cosa. Si annota che e' stata
+        # rivista — quando, e quante volte — e si torna indietro con lo
+        # stesso esito di prima, cosi' i contatori del connettore e la
+        # semantica del cursore non cambiano di una virgola.
+        if (
+            decision.action == DEDUP_ACTION_SKIP_UNCHANGED
+            and decision.previous_event_id
+        ):
+            await self.repo.note_seen_again(decision.previous_event_id)
+            return IngestionOutcome(
+                event_id=decision.previous_event_id,
+                status=INGESTION_STATUS_SKIPPED,
+                external_id=normalized.external_event_id,
+                external_version=normalized.source_hash,
+            )
+
+        # 3) Insert IngestionEvent (received)
         event_doc = await self.repo.insert(
             user_id=user_id,
             connector_id=connector_id,
@@ -99,20 +128,11 @@ class IngestionPipeline:
         )
         event_id = event_doc["id"]
 
-        # 3) Mark normalized
+        # 4) Mark normalized
         await self.repo.update_status(event_id, status=INGESTION_STATUS_NORMALIZED)
 
-        # 4) Handle dedup outcomes
-        if decision.action == DEDUP_ACTION_SKIP_UNCHANGED:
-            await self.repo.update_status(
-                event_id, status=INGESTION_STATUS_SKIPPED, processed_at=_now_iso(),
-            )
-            return IngestionOutcome(
-                event_id=event_id, status=INGESTION_STATUS_SKIPPED,
-                external_id=normalized.external_event_id,
-                external_version=normalized.source_hash,
-            )
-
+        # 5) Una riga nuova senza niente prima: e' un evento nuovo, e basta.
+        #    Il caso «uguale a prima» e' gia' uscito sopra, senza scrivere.
         superseded_id: Optional[str] = None
         if decision.action == DEDUP_ACTION_UPDATE_SUPERSEDED and decision.previous_event_id:
             await self.repo.mark_superseded(decision.previous_event_id)

@@ -246,7 +246,10 @@ export default function HomeScreen() {
   }, [load, markOffline]);
 
   const focus = home?.primary_focus || null;
-  const items = useMemo(() => allItems(home?.priorities), [home?.priorities]);
+  const items = useMemo(
+    () => allItems(home?.priorities, home?.primary_focus),
+    [home?.priorities, home?.primary_focus],
+  );
   const { questions, updates } = useMemo(
     () => splitSuggestions(home?.ora_ti_consiglia),
     [home?.ora_ti_consiglia],

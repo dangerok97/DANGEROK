@@ -795,8 +795,11 @@ class ToolRegistry:
             CapabilitySpec(
                 capability="create_calendar_event",
                 description=(
-                    "Create a new calendar commitment ORA manages (local record, synced to "
-                    "Google when connected). Call it directly when the user has just asked "
+                    "ADD a new calendar commitment ORA manages (local record, synced to "
+                    "Google when connected). Never use it to move or reschedule something "
+                    "that already exists — that is update_calendar_event, and creating "
+                    "instead leaves the old event in place and the person with two. "
+                    "Call it directly when the user has just asked "
                     "for it — their own request is the authority, and asking them to "
                     "confirm a decision they have already made is a wasted turn. Propose "
                     "first via response_mode=act only when the idea is ORA's, not theirs. "
@@ -815,6 +818,31 @@ class ToolRegistry:
                         "all_day": {"type": "boolean"},
                         "location": {"type": "string"},
                         "description": {"type": "string"},
+                        "operation_intent": {
+                            "type": "string",
+                            "enum": ["new", "modify"],
+                            "description": (
+                                "What the person is doing. 'new' is a "
+                                "commitment they do not have yet; 'modify' is "
+                                "an existing one at a different time — and "
+                                "for 'modify' this is the wrong tool, so the "
+                                "call will be refused and you must use "
+                                "update_calendar_event with the event's "
+                                "calendar_ref instead."
+                            ),
+                        },
+                        "create_anyway": {
+                            "type": "boolean",
+                            "description": (
+                                "Only after the tool refused with "
+                                "looks_like_a_move, and only if the person "
+                                "really does want a second, separate "
+                                "commitment with the same name. It does NOT "
+                                "override a refusal for modify_requires_"
+                                "update: moving something is never done by "
+                                "creating, whatever this flag says."
+                            ),
+                        },
                         "user_authority": {
                             "type": "object",
                             "description": (
@@ -834,7 +862,7 @@ class ToolRegistry:
                             },
                         },
                     },
-                    "required": ["title", "start_datetime"],
+                    "required": ["title", "start_datetime", "operation_intent"],
                 },
                 classification="personal",
                 side_effect="REVERSIBLE_WRITE",

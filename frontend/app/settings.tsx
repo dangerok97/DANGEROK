@@ -38,13 +38,30 @@ import {
   BoundaryNote,
   CALENDAR_WRITE_BOUNDARY,
   InlineError,
+  MAIL_BOUNDARY,
   SettingCard,
   StatusPill,
   SubpageShell,
+  autoSyncLabel,
   connectionStateOf,
-  lastSyncLabel,
   type ConnectionState,
 } from '@/src/components/account';
+
+/** Come una sorgente si presenta a chi la guarda: cos'e', se va, da quando. */
+type SourceRow = { id: string; what: string; state: string; last_read_at?: string | null };
+
+/**
+ * La sorgente che corrisponde a questa scheda.
+ *
+ * Si riconosce da come si presenta — «Gmail», «Google Calendar» — perche' e'
+ * la stessa parola che la persona vede scritta sulla riga. Un id interno
+ * sarebbe piu' preciso e meno vero: quello che la scheda mostra e quello che
+ * la scheda cerca devono essere la stessa cosa.
+ */
+function sourceOf(sources: SourceRow[], kind: 'calendar' | 'email'): SourceRow | null {
+  const pattern = kind === 'email' ? /gmail|mail|posta/i : /calendar|calendario/i;
+  return sources.find((s) => pattern.test(s.what)) || null;
+}
 
 export default function ConnessioniScreen() {
   const router = useRouter();
@@ -53,6 +70,8 @@ export default function ConnessioniScreen() {
   const [instance, setInstance] = useState<ConnectorInstance | null>(null);
   const [appleConfig, setAppleConfig] = useState<AppleCalendarConfigStatus | null>(null);
   const [appleInstance, setAppleInstance] = useState<ConnectorInstance | null>(null);
+  const [mailbox, setMailbox] = useState<ConnectorInstance | null>(null);
+  const [sources, setSources] = useState<SourceRow[]>([]);
   const [llmStatus, setLlmStatus] = useState<LLMProvidersStatus | null>(null);
   const [gcalWrite, setGcalWrite] = useState<{
     connected: boolean;
@@ -65,6 +84,7 @@ export default function ConnessioniScreen() {
   const [error, setError] = useState<string | null>(null);
   const [confirmRevoke, setConfirmRevoke] = useState(false);
   const [confirmAppleRevoke, setConfirmAppleRevoke] = useState(false);
+  const [confirmMailRevoke, setConfirmMailRevoke] = useState(false);
 
   /**
    * Each read stands on its own.
@@ -83,16 +103,28 @@ export default function ConnessioniScreen() {
       }
     };
     const isIOS = Platform.OS === 'ios';
-    const [r, aConfig, aInstances, llm, writeStatus] = await Promise.all([
+    const [r, aConfig, aInstances, llm, writeStatus, mail, srcs] = await Promise.all([
       attempt(() => api.googleCalendarInstances()),
       isIOS ? attempt(() => api.appleCalendarConfig()) : Promise.resolve(null),
       isIOS ? attempt(() => api.appleCalendarInstances()) : Promise.resolve(null),
       attempt(() => api.llmProviders()),
       attempt(() => api.googleCalendarWriteStatus()),
+      attempt(() => api.gmailInstances()),
+      attempt(() => api.getConnectedSources()),
     ]);
     setInstance((r?.items || [])[0] || null);
     setAppleConfig(aConfig);
     setAppleInstance((aInstances?.items || [])[0] || null);
+    // Una casella scollegata resta un'istanza, con stato `revoked`. Tenerla
+    // e' quello che permette alla scheda di dire «Non collegato» invece di
+    // sparire: una connessione che scompare quando la togli non conferma
+    // mai a nessuno di essere stata tolta.
+    setMailbox((mail?.items || [])[0] || null);
+    // Quanto e' fresco quello che ORA sa, e se in questo momento ci riesce.
+    // Lo sa la sorgente, non l'istanza del connettore: una connessione sana
+    // puo' reggere una lettura di due giorni fa, ed e' esattamente la cosa
+    // che «Connesso» da solo nasconderebbe.
+    setSources(srcs?.sources || []);
     setLlmStatus(llm);
     setGcalWrite(writeStatus);
     setLoading(false);
@@ -116,23 +148,6 @@ export default function ConnessioniScreen() {
 
   const guard = useInflight();
 
-  const onSync = useCallback(() => guard(async () => {
-    if (!instance) return;
-    haptic('medium');
-    setBusy('sync');
-    setError(null);
-    try {
-      await api.googleCalendarSync(instance.id);
-      haptic('success');
-      await load();
-    } catch (e: any) {
-      haptic('error');
-      setError(humanizeError(e, 'sync'));
-    } finally {
-      setBusy(null);
-    }
-  }), [guard, instance, load]);
-
   const onRevoke = useCallback(async () => {
     if (!instance) return;
     haptic('warning');
@@ -150,6 +165,27 @@ export default function ConnessioniScreen() {
       setBusy(null);
     }
   }, [instance, load]);
+
+  const onMailRevoke = useCallback(async () => {
+    if (!mailbox) return;
+    haptic('warning');
+    setBusy('mail_revoke');
+    setError(null);
+    try {
+      await api.gmailRevoke(mailbox.id);
+      haptic('success');
+      setConfirmMailRevoke(false);
+      // Si ricarica dal server invece di spegnere la scheda a mano: quello
+      // che la pagina mostra deve essere quello che il server dice, anche
+      // quando la revoca e' andata a meta'.
+      await load();
+    } catch (e: any) {
+      haptic('error');
+      setError(humanizeError(e, 'revoke'));
+    } finally {
+      setBusy(null);
+    }
+  }, [mailbox, load]);
 
   const onAppleDisconnect = useCallback(async () => {
     if (!appleInstance) return;
@@ -170,6 +206,7 @@ export default function ConnessioniScreen() {
   }, [appleInstance, load]);
 
   const googleState = connectionStateOf(instance);
+  const mailState = connectionStateOf(mailbox);
   const appleVisible = Platform.OS === 'ios' && !!appleConfig?.enabled;
   const appleState = connectionStateOf(appleInstance);
 
@@ -198,21 +235,13 @@ export default function ConnessioniScreen() {
               name="Google Calendar"
               state={googleState}
               account={gcalWrite?.account_email || instance?.display_label || null}
-              lastSyncAt={instance?.last_sync_at || null}
+              source={sourceOf(sources, 'calendar')}
               purpose="ORA legge i tuoi eventi per capire come è fatta la tua giornata."
               testID="settings-connection"
             >
               {googleState === 'connected' ? (
                 <>
                   <View style={styles.actions}>
-                    <ActionBtn
-                      primary
-                      icon="sync"
-                      label={busy === 'sync' ? 'Sincronizzo…' : 'Sincronizza'}
-                      onPress={onSync}
-                      loading={busy === 'sync'}
-                      testID="btn-settings-sync"
-                    />
                     <ActionBtn
                       variant="ghost"
                       icon="options-outline"
@@ -270,21 +299,85 @@ export default function ConnessioniScreen() {
               )}
             </ServiceCard>
 
+            {/*
+              La posta, se ne e' collegata una.
+
+              La stessa scheda di un calendario, perche' e' la stessa domanda:
+              che cos'e', di chi e', funziona, da quando, e cosa posso farci.
+              Quello che non c'e' e' tutto il resto di un client di posta —
+              nessun messaggio, nessun conteggio, nessun oggetto, nessun
+              mittente. ORA legge la posta per capire quando qualcosa cambia,
+              non per fartela leggere qui.
+
+              La scheda compare solo se una casella e' stata collegata almeno
+              una volta: la si collega da Permessi e accessi, e annunciare qui
+              uno spazio vuoto insegnerebbe che si collega da due posti.
+            */}
+            {mailbox ? (
+              <ServiceCard
+                icon="mail-outline"
+                name="Google Gmail"
+                state={mailState}
+                // L'etichetta e' gia' l'indirizzo dell'account: e' quello che il
+                // callback ci scrive. Andare a pescarlo dai metadati sarebbe
+                // leggere la stessa cosa da un posto piu' tecnico.
+                account={mailbox.display_label || null}
+                source={sourceOf(sources, 'email')}
+                purpose="ORA legge le comunicazioni collegate per capire quando qualcosa cambia o richiede attenzione."
+                testID={mailState === 'connected' ? 'gmail-connected' : 'gmail-disconnected'}
+              >
+                {mailState === 'connected' ? (
+                  <>
+                    <View style={styles.actions}>
+                      <ActionBtn
+                        variant="danger"
+                        icon="unlink-outline"
+                        label="Scollega"
+                        onPress={() => {
+                          haptic('warning');
+                          setConfirmMailRevoke(true);
+                        }}
+                        disabled={busy === 'mail_revoke'}
+                        testID="btn-gmail-revoke"
+                      />
+                    </View>
+                    <BoundaryNote icon="lock-closed-outline">{MAIL_BOUNDARY}</BoundaryNote>
+                  </>
+                ) : (
+                  <Text style={[styles.reconnectText, { color: colors.textSecondary }]}>
+                    ORA non sta leggendo nessuna casella. Puoi ricollegarla da
+                    Profilo → Permessi e accessi.
+                  </Text>
+                )}
+              </ServiceCard>
+            ) : null}
+
             {appleVisible ? (
               <ServiceCard
                 icon="logo-apple"
                 name="Apple Calendar"
                 state={appleState}
                 account={appleInstance?.display_label || null}
-                lastSyncAt={appleInstance?.last_sync_at || null}
+                source={sourceOf(sources, 'calendar')}
                 purpose="Gli eventi del calendario del tuo iPhone."
                 testID={appleState === 'connected' ? 'apple-cal-connected' : 'apple-cal-empty'}
               >
+                {/*
+                  L'unica sorgente che ORA non puo' leggere da sola.
+
+                  Google e Gmail stanno su un server e ORA li interroga da
+                  sola; il calendario dell'iPhone sta sull'iPhone, e nessun
+                  backend puo' andarselo a prendere — e' il telefono a
+                  consegnarlo, e per farlo deve essere qui. Quindi l'azione
+                  resta, ma smette di chiamarsi «Sincronizza»: in una pagina
+                  dove tutto il resto si aggiorna da solo, quella parola
+                  suggerirebbe che anche il resto vada premuto.
+                */}
                 <View style={styles.actions}>
                   <ActionBtn
                     primary={appleState !== 'connected'}
-                    icon={appleState === 'connected' ? 'sync' : 'link-outline'}
-                    label={appleState === 'connected' ? 'Sincronizza' : 'Collega Apple Calendar'}
+                    icon={appleState === 'connected' ? 'phone-portrait-outline' : 'link-outline'}
+                    label={appleState === 'connected' ? 'Aggiorna dall\u2019iPhone' : 'Collega Apple Calendar'}
                     onPress={() => {
                       haptic('tap');
                       router.push('/connect-apple-calendar');
@@ -357,6 +450,18 @@ export default function ConnessioniScreen() {
         confirmTestID="btn-confirm-revoke"
       />
       <ConfirmDialog
+        open={confirmMailRevoke}
+        testID="confirm-gmail-revoke"
+        title="Vuoi scollegare Gmail?"
+        body="ORA smetterà di leggere le comunicazioni collegate. Quello che ha già capito resta: non dimentica la tua vita perché stacchi una casella."
+        confirmLabel="Scollega"
+        destructive
+        busy={busy === 'mail_revoke'}
+        onCancel={() => setConfirmMailRevoke(false)}
+        onConfirm={onMailRevoke}
+        confirmTestID="btn-confirm-gmail-revoke"
+      />
+      <ConfirmDialog
         open={confirmAppleRevoke}
         testID="confirm-apple-revoke"
         title="Vuoi scollegare Apple Calendar?"
@@ -385,7 +490,7 @@ function ServiceCard({
   name,
   state,
   account,
-  lastSyncAt,
+  source,
   purpose,
   children,
   testID,
@@ -394,7 +499,8 @@ function ServiceCard({
   name: string;
   state: ConnectionState;
   account?: string | null;
-  lastSyncAt?: string | null;
+  /** La sorgente, che e' l'unica cosa che sa se ORA sta riuscendo a leggerla. */
+  source?: SourceRow | null;
   purpose: string;
   children?: ReactNode;
   testID?: string;
@@ -425,8 +531,11 @@ function ServiceCard({
 
       <Text style={[styles.servicePurpose, { color: colors.textSecondary }]}>{purpose}</Text>
       {state === 'connected' ? (
-        <Text style={[styles.serviceMeta, { color: colors.textTertiary }]}>
-          {lastSyncLabel(lastSyncAt)}
+        <Text
+          style={[styles.serviceMeta, { color: colors.textTertiary }]}
+          testID={testID ? `${testID}-freshness` : undefined}
+        >
+          {autoSyncLabel(source)}
         </Text>
       ) : null}
 

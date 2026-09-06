@@ -1,6 +1,7 @@
 """ORA modular routers. Each domain owns its own router file."""
 from action_engine import action_engine_router, study_plans_router, travel_projects_router
 from connectors.apple_calendar import apple_calendar_router
+from connectors.gmail.router import router as gmail_router
 from connectors.google_calendar import google_calendar_router
 from documents import documents_router
 from goal_engine import goal_engine_router
@@ -24,6 +25,7 @@ from . import (
     auto_link as auto_link_router,
     behavior as behavior_router,
     behavior_shadow as behavior_shadow_router,
+    calendar_events as calendar_events_router,
     connectors as connectors_router,
     context as context_router,
     daily as daily_router,
@@ -51,10 +53,12 @@ ALL_ROUTERS = [
     connectors_router.router,
     ingestion_router.router,
     google_calendar_router,
+    gmail_router,
     apple_calendar_router,
     daily_router.router,
     behavior_router.router,
     behavior_shadow_router.router,
+    calendar_events_router.router,
     documents_router,
     home_router,
     intent_engine_router,
@@ -129,6 +133,17 @@ try:
     from agent.router import router as agent_router
 
     ALL_ROUTERS.append(agent_router)
+except Exception:
+    pass
+
+# Connected Life (V3.10). The outside world as sensors of the Personal Life
+# Model: three endpoints, and none of them returns meaning. Reading is a fact
+# somebody may ask for; what a change means is a judgement made on its own
+# schedule, and an endpoint that returned it could be polled into making one.
+try:
+    from connected.router import router as connected_router
+
+    ALL_ROUTERS.append(connected_router)
 except Exception:
     pass
 

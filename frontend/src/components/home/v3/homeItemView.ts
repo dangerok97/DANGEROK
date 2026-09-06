@@ -145,9 +145,25 @@ export function todayItems(items: HomeItem[]): HomeItem[] {
 }
 
 /** Every item the payload carries, de-duplicated by id. */
-export function allItems(groups: { items: HomeItem[] }[] | undefined | null): HomeItem[] {
+export function allItems(
+  groups: { items: HomeItem[] }[] | undefined | null,
+  primary?: HomeItem | null,
+): HomeItem[] {
   const seen = new Set<string>();
   const out: HomeItem[] = [];
+  /*
+    Anche quello che sta in cima.
+
+    Le priorita' non contengono mai il focus principale — e' gia' la card
+    grande, e ripeterlo sarebbe dirlo due volte. Ma il calendario laterale si
+    costruisce da questa lista, e con un solo impegno in agenda quell'impegno
+    *e'* il focus: la card lo mostrava e il giorno, sotto, diceva «nessun
+    impegno per questa giornata». La stessa giornata, due risposte.
+  */
+  if (primary) {
+    seen.add(primary.id);
+    out.push(primary);
+  }
   for (const g of groups || []) {
     for (const i of g.items || []) {
       if (seen.has(i.id)) continue;
