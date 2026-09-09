@@ -132,7 +132,7 @@ async def gather(
     await _situations(db, owner_id, anchors, words, found)
     await _what_ora_knows(db, owner_id, anchors, words, found, wanted)
     await _calendar_and_mail(db, owner_id, anchors, words, found, wanted)
-    await _documents(db, owner_id, anchors, words, found)
+    await _documents(db, owner_id, anchors, words, found, wanted)
     await _money(db, owner_id, words, found, wanted)
     await _changes(db, owner_id, words, found, wanted)
 
@@ -321,7 +321,10 @@ async def _calendar_and_mail(db, owner_id, anchors, words, found, wanted) -> Non
 
     belongs: Dict[str, Dict[str, Any]] = {}
     if anchors:
-        for relation in await relations_of(db, owner_id, target_refs=list(anchors)):
+        for relation in await relations_of(
+            db, owner_id, target_refs=list(anchors),
+            belonging_only=bool(wanted.get("only_what_belongs")),
+        ):
             if relation.get("source_type") == "email":
                 belongs[str(relation.get("source_object_ref"))] = relation
 
@@ -341,17 +344,25 @@ async def _calendar_and_mail(db, owner_id, anchors, words, found, wanted) -> Non
     seen: List[Dict[str, Any]] = []
     for row in rows:
         payload = plain(row.get("normalized_payload"))
+        is_event = row.get("source_record_type") == "calendar_event"
         when = _moment(payload.get("starts_at") or payload.get("received_at"))
         # Il tempo non decide la pertinenza, ma la restringe quando la
         # domanda parla di tempo.
+        #
+        #     «COSA HO DAVANTI» RIGUARDA GLI APPUNTAMENTI, NON LA POSTA.
+        #
+        # Guardare avanti aveva senso per gli impegni e nessuno per i
+        # messaggi: una mail e' sempre arrivata prima di adesso, quindi il
+        # filtro le toglieva tutte — ed e' il motivo per cui dentro «Casa»
+        # non compariva nessuna comunicazione, nemmeno quelle collegate.
         if when is not None:
-            if forward and when < now:
+            if forward and is_event and when < now:
                 continue
             if since and str(when.isoformat()) < str(since) and not forward:
                 continue
         seen.append({
             "ref": str(row.get("external_id") or ""),
-            "is_event": row.get("source_record_type") == "calendar_event",
+            "is_event": is_event,
             "title": str(payload.get("title") or payload.get("subject") or ""),
             "where": str(payload.get("location") or ""),
             "when": when,
@@ -397,6 +408,8 @@ async def _calendar_and_mail(db, owner_id, anchors, words, found, wanted) -> Non
         }
         if relation and relation.get("reason_summary"):
             row["perche_e_qui"] = str(relation["reason_summary"])[:200]
+        if relation and not relation.get("belongs", True):
+            row["vicino_non_dentro"] = True
         found.add("appuntamenti" if item["is_event"] else "comunicazioni", row)
 
 
@@ -425,7 +438,7 @@ async def _joined_pairs(db, owner_id: str) -> Dict[str, Set[str]]:
     return pairs
 
 
-async def _documents(db, owner_id, anchors, words, found) -> None:
+async def _documents(db, owner_id, anchors, words, found, wanted) -> None:
     """
     Le carte: prima per relazione scritta, poi — e solo poi — per nome.
 
@@ -441,7 +454,10 @@ async def _documents(db, owner_id, anchors, words, found) -> None:
 
     by_ref: Dict[str, Dict[str, Any]] = {}
     if anchors:
-        for relation in await relations_of(db, owner_id, target_refs=list(anchors)):
+        for relation in await relations_of(
+            db, owner_id, target_refs=list(anchors),
+            belonging_only=bool(wanted.get("only_what_belongs")),
+        ):
             if relation.get("source_type") != "document":
                 continue
             by_ref[str(relation.get("source_object_ref"))] = relation
@@ -476,6 +492,9 @@ async def _documents(db, owner_id, anchors, words, found) -> None:
         if relation and relation.get("reason_summary"):
             # Perche' questa carta e' qui. Una frase, non un punteggio.
             item["perche_e_qui"] = str(relation["reason_summary"])[:200]
+        if relation and not relation.get("belongs", True):
+            # Vicino per argomento, non dentro la situazione. Detto.
+            item["vicino_non_dentro"] = True
         found.add("documenti", item)
 
 

@@ -57,6 +57,18 @@ RELATION_TYPES = (
     "supersedes",    # questo prende il posto di quello
 )
 
+# Quali di queste fanno entrare una cosa *dentro* una situazione, e quali la
+# lasciano soltanto vicina.
+#
+#     STESSO DOMINIO NON VUOL DIRE STESSA SITUAZIONE.
+#
+# Un contratto di locazione parla di una casa. Non parla della casa che questa
+# persona sta comprando, e finche' nessuno lo dimostra le due cose non sono la
+# stessa cosa. `related_to` esiste per questo: e' il posto dove sta cio' che e'
+# vicino per argomento e non appartiene a niente.
+BELONGING = ("about", "part_of", "supports", "contradicts", "supersedes")
+NEARBY = ("related_to",)
+
 # Come si chiama una relazione scritta da qui dentro, per distinguerla dai
 # collegamenti effimeri fra segnali che vivono nella stessa collezione.
 KIND = "life_relation"
@@ -74,6 +86,7 @@ async def remember_relation(
     why: str,
     decided_by: str,
     confidence: float = 0.0,
+    ties: str = "",
 ) -> Optional[Dict[str, Any]]:
     """
     Scrivi che due cose di questa vita c'entrano fra loro, e perche'.
@@ -94,6 +107,20 @@ async def remember_relation(
     if not (source_ref and target_ref and why.strip()):
         return None
 
+    # Per far entrare qualcosa *dentro* una situazione serve dire cosa lo
+    # lega a quella e non a un'altra: lo stesso immobile, la stessa
+    # controparte, un riferimento esplicito. Senza, la cosa resta vicina —
+    # `related_to` — con lo stesso motivo scritto sopra.
+    #
+    #     LA SOMIGLIANZA E' UN INDIZIO, NON UNA PROVA DI IDENTITA'.
+    #
+    # Trovato sugli screenshot veri: un contratto di locazione era finito
+    # dentro l'acquisto di una casa perche' «un contratto di locazione e'
+    # collegato alla gestione di un'abitazione». E' vero, e non dice niente
+    # su *quella* casa.
+    if relation_type in BELONGING and not ties.strip():
+        relation_type = "related_to"
+
     row = {
         "id": f"rel_{uuid.uuid4().hex[:12]}",
         "owner_id": owner_id,
@@ -109,6 +136,10 @@ async def remember_relation(
         "relation_type": relation_type,
         "confidence": float(confidence or 0.0),
         "reason_summary": why.strip()[:300],
+        # Cosa lega questa cosa a questa situazione e non a un'altra. Vuoto
+        # quando non c'e' — e allora la relazione e' di vicinanza.
+        "ties_it_here": ties.strip()[:200],
+        "belongs": relation_type in BELONGING,
         "decided_by": decided_by,
         "decided_at": _now_iso(),
         "status": "active",
@@ -134,12 +165,22 @@ async def relations_of(
     db, owner_id: str, *,
     target_refs: Optional[Sequence[str]] = None,
     source_refs: Optional[Sequence[str]] = None,
+    belonging_only: bool = False,
     limit: int = 60,
 ) -> List[Dict[str, Any]]:
-    """Le relazioni scritte che toccano queste cose."""
+    """
+    Le relazioni scritte che toccano queste cose.
+
+    `belonging_only` tiene soltanto quelle che fanno entrare una cosa dentro
+    una situazione. E' quello che guarda la Vita, che deve essere piu' severa
+    della ricerca: dentro «Acquisto di una nuova casa» ci va quello che
+    appartiene a quell'acquisto, non quello che parla di case.
+    """
     query: Dict[str, Any] = {
         "owner_id": owner_id, "kind": KIND, "status": "active",
     }
+    if belonging_only:
+        query["relationship"] = {"$in": list(BELONGING)}
     if target_refs is not None:
         query["target_ref"] = {"$in": [str(r) for r in target_refs]}
     if source_refs is not None:
