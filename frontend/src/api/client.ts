@@ -394,6 +394,51 @@ export type BankConnection = {
   letto_l_ultima_volta?: string;
 };
 
+/**
+ * Un risultato di ricerca, già raggruppato per significato.
+ *
+ * Niente id, niente punteggi, niente «matched_by»: il modo in cui una cosa è
+ * stata trovata serve a chi verifica il backend, e non dice niente a chi
+ * cerca. Il campo `_qa` esiste nella risposta e nessuna schermata lo legge.
+ */
+export type LifeSearchRow = {
+  cosa: string;
+  quanto?: string;
+  ogni_quanto?: string;
+  quando?: string;
+  dove?: string;
+  verso?: string;
+  stato?: string;
+  come_lo_so?: string;
+  in_una_riga?: string;
+  da_chiarire?: string;
+  prima?: string;
+  dopo?: string;
+  invece_di?: string;
+  quante_volte?: number;
+  // Perché questa cosa è qui, quando c'è una relazione che lo spiega, e
+  // quante volte la stessa cosa è stata vista altrove.
+  perche_e_qui?: string;
+  anche_altrove?: string;
+  apri?: string;
+};
+
+export type LifeSearch = {
+  hai_cercato: string;
+  che_cosa_cerchi: string;
+  // Il paragrafo, quando la domanda chiedeva di sapere e non di navigare.
+  in_sintesi?: string | null;
+  risultati: { gruppo: string; cosa_c_e: LifeSearchRow[] }[];
+  in_conflitto: {
+    su_cosa: string;
+    so: { quanto?: string; come_lo_so?: string };
+    ho_letto: { quanto?: string; come_lo_so?: string };
+    in_parole: string;
+  }[];
+  niente_trovato: boolean;
+  in_parole: string;
+};
+
 export type MoneyOverview = {
   collegamento?: BankConnection;
   conti: {
@@ -638,6 +683,14 @@ export const api = {
   // «Conti e denaro»: cosa ORA vede della banca e cosa ne ha capito, già
   // diviso per gradi di certezza.
   moneyOverview: () => request<MoneyOverview>('/financial/overview'),
+  searchLife: (q: string) =>
+    request<LifeSearch>('/search', { method: 'POST', body: JSON.stringify({ q }) }),
+  searchSuggestions: () =>
+    request<{ prova_con: string[] }>('/search/suggestions'),
+  lifeAreaConnections: (area: string) =>
+    request<{ risultati: { gruppo: string; cosa_c_e: LifeSearchRow[] }[] }>(
+      `/search/life-area/${encodeURIComponent(area)}`,
+    ),
   connectBank: () =>
     request<{ ok: boolean; instance_id: string }>('/financial/bank/connect', {
       method: 'POST',

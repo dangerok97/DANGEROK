@@ -1,5 +1,51 @@
 # ORA — Development State
 
+## V3.12 — LIFE MAP & UNIVERSAL SEARCH — CLOSED
+
+**Il modello della vita, reso visibile, navigabile e interrogabile.**
+
+    LA RELAZIONE CONTA PIU' DELLA PAROLA.
+
+Nessun secondo modello: la ricerca legge quello che c'è — situazioni, memorie
+governate, fatti finanziari, segnali, documenti, messaggi — e l'unica cosa che
+scrive sono le *relazioni*, nella collezione di collegamenti che il Connected
+Life usava già.
+
+**Come si trova una cosa**, in ordine di quanto vale:
+
+| Modo | Che cos'è |
+|------|--------|
+| explicit | la persona ha nominato proprio quella cosa — o la sua cifra |
+| governed | una relazione passata dalla governance (`about_refs`) |
+| situation | una relazione registrata: documento→casa, mail→situazione, fonte↔fonte |
+| provenance | la catena da dove viene: fatto → movimento → conto |
+| semantic | il giudizio dice che la domanda parla di quella parte della vita |
+| lexical | l'ultima risorsa, e si sa che è l'ultima |
+
+**Chi fa cosa.** L'AI capisce, collega, giudica la pertinenza e sintetizza; il
+codice recupera, delimita, valida, persiste le relazioni permesse, deduplica e
+tiene ferme provenienza e storia. Due guardie leggono i file e falliscono se
+uno dei due invade il campo dell'altro.
+
+| Punto | Stato |
+|------|--------|
+| Sprint 1 — ricerca, relazioni, gruppi, conflitti | chiuso |
+| Sprint 2 — documenti collegati, cache, dedupe, sintesi | chiuso |
+| Sprint 3 — comunicazioni collegate, rumore, manutenzione automatica | chiuso |
+| Schede | sempre cinque: la ricerca entra dalla Vita |
+| Costo | 1 chiamata per domanda semplice, 2 per una sintesi, 0 se ripetuta |
+| Manutenzione | dentro il giro che c'era già, solo sul nuovo, idempotente |
+| Corpo delle email | letto solo su richiesta del giudizio, mai conservato |
+| In schermata | nessun id, nessun punteggio, nessun «trovato per parola» |
+| Prodotto target | **iOS**. Nessun lavoro specifico Android |
+
+**Prossimo: V3.13.**
+
+**Roadmap futura (registrata, non pianificata):** agente vocale/telefonico
+nazionale capace di fare telefonate reali previa autorizzazione esplicita
+della persona.
+
+
 ## V3.11 — FINANCIAL INTELLIGENCE — CLOSED
 
 **Un conto vero, letto come sensore, che diventa contesto di vita.**
@@ -42,7 +88,7 @@ una lettura vera.
 | Costo | una chiamata per pattern, zero per una spesa isolata senza contesto |
 | Prodotto target | **iOS**. Nessun lavoro specifico Android |
 
-**Prossimo: V3.12.**
+**Prossimo: V3.12.** *(chiusa il 10 settembre 2026)*
 
 **Roadmap futura (registrata, non pianificata):** agente vocale/telefonico
 nazionale capace di fare telefonate reali previa autorizzazione esplicita
