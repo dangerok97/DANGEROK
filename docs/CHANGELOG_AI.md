@@ -1,5 +1,69 @@
 # ORA — AI Changelog
 
+## 2026-09-09 — V3.11 FINANCIAL INTELLIGENCE — CLOSED
+
+Un conto bancario vero, letto attraverso Enable Banking, che diventa contesto
+di vita invece di un estratto conto in più.
+
+    I DATI FINANZIARI SONO CONTESTO DI VITA, NON UN PRODOTTO A PARTE.
+
+Non c'è una scheda «Finanze»: «Conti e denaro» vive dentro Vita, e quello che
+ORA capisce dei soldi entra nello stesso modello della vita di tutto il resto,
+passando dalla stessa governance.
+
+**Cosa una persona vede.** Collega il conto dal percorso ufficiale della sua
+banca — le credenziali le inserisce lì, mai dentro ORA — e da quel momento
+ORA legge saldi e movimenti, e nient'altro: non esiste un verbo che sposti
+denaro, e tre guardie strutturali verificano che continui a non esistere.
+Quello che ha capito lo dice diviso per come lo sa:
+
+    SO           passato dalla governance, affermabile
+    PENSO        letto, non ancora confermato
+    HO VISTO     successo sul conto, non ancora capito
+    DA CAPIRE    serve una parola della persona
+
+**Il nome non lo sceglie il codice.** Non c'è un elenco di esercenti, non c'è
+una soglia che trasforma tre ripetizioni in «abbonamento», non c'è una
+categoria del provider che diventa un fatto. Un addebito di €14,99 che torna
+ogni mese resta «un addebito ricorrente che non ho ancora identificato»
+finché non arriva una prova — un'email, un documento, una conferma. Un nome
+sbagliato detto con sicurezza è peggio di nessun nome.
+
+**Costo tenuto giù dal raggruppamento.** Sei bonifici uguali sono una
+domanda, non sei: si raggruppa con l'aritmetica e si interpreta una volta per
+gruppo. Una spesa isolata senza niente intorno non arriva nemmeno al giudizio.
+
+**Scollegare non cancella, e non congela una bugia.** Una fonte scollegata
+esce da «Conti collegati» e finisce sotto «Fonti non più collegate», con
+«Ultimo saldo osservato» al posto di «Disponibile»: la cifra resta, il
+presente no. Quello che la persona aveva confermato resta vero; quello che
+era solo osservato dice «quando il conto era collegato». Ricollegando, il
+saldo torna corrente solo dopo una lettura vera.
+
+**Difetti trovati dai gate reali, non dai test.** La schermata diceva «Nessun
+conto collegato» e dieci righe sotto mostrava «Mock ASPSP · Disponibile
+€3.250». Un fatto governato nasceva dal movimento più recente e lasciava gli
+altri cinque orfani, che ricomparivano come «ho visto un pagamento di €760»
+sotto la riga «SO — Affitto €760»: due gradi di certezza sulla stessa cosa.
+Enable Banking assegna un identificativo nuovo a ogni sessione autorizzata,
+quindi dopo un ricollegamento lo stesso conto compariva due volte, una volta
+per sezione. Le risposte parlavano di un saldo al presente con la fonte
+scollegata, chiamavano «ricorrente» un pagamento al notaio fatto una volta, e
+non sapevano dire com'era andato il mese se non tacendo.
+
+**Le tre domande, sul conto vero.** «Quanto ho sul conto?» → l'ultimo saldo
+letto con l'ora in cui è stato letto, e a conto scollegato la dichiarazione
+di non saperlo. «Che spese ricorrenti hai riconosciuto?» → entrate ricorrenti,
+uscite ricorrenti non identificate, spese singole, tenute distinte; il notaio
+non è ricorrente. «Come sono messo questo mese?» → entrate €2.050, uscite
+€4.823,19, differenza parziale −€2.773,19, con il suo nome addosso: la somma
+dei movimenti letti, non quello che resta.
+
+Prossimo: **V3.12**. Più avanti nella roadmap: agente vocale/telefonico
+nazionale con chiamate reali previa autorizzazione esplicita della persona.
+Prodotto target: iOS.
+
+
 ## 2026-09-07 — V3.10 CONNECTED LIFE — CLOSED
 
 Il ciclo completo, su un account Google vero, con l'auto-sync acceso:
@@ -46,7 +110,7 @@ cancellazione 22 s e 21 s. Tutte dentro i 30 s di bersaglio, tutte dentro i
 Opportunity finta, nessun interruttore globale di autonomia, nessun
 `mail.send`: `calendar.write` resta l'unico attuatore di Connected Life.
 
-Prossimo: **V3.11 — Financial Intelligence**.
+Prossimo: **V3.11 — Financial Intelligence**. *(chiusa il 9 settembre 2026)*
 
 Più avanti nella roadmap: agente vocale/telefonico nazionale con chiamate
 reali previa autorizzazione esplicita della persona. Prodotto target: iOS.

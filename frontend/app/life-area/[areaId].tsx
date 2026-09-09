@@ -25,6 +25,8 @@ import { humanizeError } from '@/src/utils/errors';
 import { buildOraConversationHref } from '@/src/ora/oraNav';
 import { mapFromLifeMapApi } from '@/src/components/contexts/quiet';
 import { buildVita, VitaSkeleton, type VitaArea } from '@/src/components/vita';
+import { useAmbientInset } from '@/src/shell';
+import type { MoneyKnowledge } from '@/src/api/client';
 
 const READING_MAX_WIDTH = 720;
 
@@ -32,8 +34,26 @@ export default function LifeAreaScreen() {
   const { areaId } = useLocalSearchParams<{ areaId: string }>();
   const router = useRouter();
   const { colors } = useTheme();
+  /*
+    Lo spazio che la barra in basso occupa davvero.
+
+        L'ULTIMA RIGA DI UNA SCHERMATA DEVE ESSERE RAGGIUNGIBILE.
+
+    La barra galleggia sopra il contenuto, quindi un `paddingBottom` fisso
+    la ignora: l'ultimo elemento finisce sotto, e su un iPhone con la barra
+    di sistema finisce sotto due volte.
+  */
+  const ambient = useAmbientInset();
 
   const [area, setArea] = useState<VitaArea | null>(null);
+  /*
+    Il lato economico di questa parte della vita.
+
+    Si chiede al server con il nome dell'area — «casa», «lavoro» — e quasi
+    sempre non c'e' niente, che e' la risposta giusta: una sezione «Lato
+    economico» che dice «non so niente» e' peggio della sua assenza.
+  */
+  const [money, setMoney] = useState<MoneyKnowledge | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -49,6 +69,7 @@ export default function LifeAreaScreen() {
       ]);
       const model = buildVita(mapFromLifeMapApi(map as any), memory as any);
       setArea(model.areas.find((a) => a.domain.toLowerCase() === domain) || null);
+      setMoney(await api.moneyKnowledge(domain).catch(() => null));
     } catch (e: any) {
       setError(humanizeError(e, 'default'));
     } finally {
@@ -77,7 +98,7 @@ export default function LifeAreaScreen() {
       testID="life-area-screen"
     >
       <ScrollView
-        contentContainerStyle={styles.scroll}
+        contentContainerStyle={[styles.scroll, { paddingBottom: ambient.paddingBottom }]}
         showsVerticalScrollIndicator={false}
         testID="life-area-scroll"
       >
@@ -135,6 +156,64 @@ export default function LifeAreaScreen() {
                   </Text>
                 ) : null}
               </View>
+
+              {money
+                && (money.so.length || money.ho_letto.length
+                    || money.devo_chiederti.length) ? (
+                <View style={styles.block} testID="life-area-money">
+                  <Text style={[styles.sectionLabel, { color: colors.textTertiary }]}>
+                    LATO ECONOMICO
+                  </Text>
+                  <View
+                    style={[
+                      styles.panel,
+                      { backgroundColor: colors.surface, borderColor: colors.border },
+                    ]}
+                  >
+                    {/*
+                      Tre modi diversi di sapere una cosa, e la differenza si
+                      vede. Quello che ORA sa lo dice; quello che ha solo
+                      letto lo attribuisce a dove l'ha letto; quello su cui
+                      manca una parola della persona resta una domanda.
+                      Appiattirli in un elenco solo sarebbe presentare come
+                      certo qualcosa che non lo e'.
+                    */}
+                    {/*
+                      Quello che ORA sa, detto come lo direbbe una persona:
+                      il nome, poi quanto, poi ogni quanto. I punti mediani
+                      sono il modo in cui un database mostra dei campi.
+                    */}
+                    {money.so.map((row) => (
+                      <Text
+                        key={`so-${row.cosa}`}
+                        style={[styles.body, { color: colors.textPrimary }]}
+                      >
+                        {row.cosa.charAt(0).toUpperCase() + row.cosa.slice(1)}
+                        {' — '}{row.quanto}{row.quando ? ` ${row.quando}` : ''}
+                      </Text>
+                    ))}
+                    {money.ho_letto.map((row) => (
+                      <Text
+                        key={`letto-${row.cosa}`}
+                        style={[styles.body, { color: colors.textSecondary }]}
+                      >
+                        {row.cosa} · {row.quanto}
+                        {row.come_lo_so ? ` — l'ho letto: ${row.come_lo_so}` : ''}
+                      </Text>
+                    ))}
+                    {money.devo_chiederti.map((row) => (
+                      <Text
+                        key={`chiedo-${row.cosa}`}
+                        style={[styles.body, { color: colors.textSecondary }]}
+                      >
+                        {row.invece_di
+                          ? `Ho trovato ${row.quanto} per «${row.cosa}», ma finora sapevo ${row.invece_di}. Non so ancora quale sia quello attuale.`
+                          : `${row.cosa}: ho trovato ${row.quanto}, ma devo ancora confermarlo.`}
+                      </Text>
+                    ))}
+                  </View>
+                </View>
+              ) : null}
 
               {area.facts.length || area.moreCount ? (
                 <View style={styles.block}>

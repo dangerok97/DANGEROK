@@ -16,6 +16,7 @@ from .life_os_plan import load_life_os_plans
 from .decisions_adapter import load_decisions
 from .document_actions import load_document_actions
 from .documents import load_documents
+from .financial import load_financial_context
 from .event_candidates import load_event_candidates
 from .google_calendar import load_google_calendar_events, google_connection_state
 from .internal_calendar import load_internal_calendar
@@ -67,6 +68,7 @@ async def gather_all(db, user_id: str) -> Tuple[List[HomeItem], List[ConnectionW
         _safe("conversation", load_conversation_items(db, user_id)),
         _safe("life_setup", load_life_setup_items(db, user_id)),
         _safe("life_os_plan", load_life_os_plans(db, user_id)),
+        _safe("financial", load_financial_context(db, user_id)),
     )
 
     items: List[HomeItem] = []

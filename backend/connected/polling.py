@@ -89,6 +89,11 @@ POLL_SECONDS: Dict[str, int] = {
     "calendar": 20,
     "email": 60,
     "documents": 1800,
+    # Una banca non e' una casella: le righe arrivano quando la banca le
+    # contabilizza, e guardarla piu' spesso non le fa arrivare prima. Sei
+    # ore. Con alcuni aggregatori ogni chiamata si paga, e con tutti c'e' un
+    # tetto giornaliero imposto per legge.
+    "bank": 21600,
 }
 DEFAULT_POLL_SECONDS = 1800
 
@@ -169,7 +174,8 @@ async def due(db, owner_id: str, *, now: Optional[datetime] = None) -> List[Conn
     schedule = {
         row["source_id"]: row
         for row in await db[ATTEMPTS].find(
-            {"owner_id": owner_id}, {"_id": 0, "source_id": 1, "next_attempt_at": 1}
+            {"owner_id": owner_id},
+            {"_id": 0, "source_id": 1, "next_attempt_at": 1, "not_before": 1},
         ).to_list(50)
     }
 
@@ -179,10 +185,45 @@ async def due(db, owner_id: str, *, now: Optional[datetime] = None) -> List[Conn
             # Disconnected, revoked, never authorised. Not an error and not a
             # thing to retry: there is nothing to read through.
             continue
-        when = _moment((schedule.get(source.id) or {}).get("next_attempt_at"))
+        row = schedule.get(source.id) or {}
+        # Un tetto imposto dal provider vince sulla nostra cadenza.
+        #
+        #     LA NOSTRA IDEA DI «OGNI SEI ORE» NON E' UN DIRITTO.
+        #
+        # Alcune banche concedono quattro letture al giorno per conto, per
+        # obbligo di legge, e lo dicono nella risposta. Chiedere lo stesso
+        # non fa arrivare i dati: fa arrivare 429, che consuma comunque.
+        held = _moment(row.get("not_before"))
+        if held is not None and held > moment:
+            continue
+        when = _moment(row.get("next_attempt_at"))
         if when is None or when <= moment:
             out.append(source)
     return out
+
+
+async def hold_source(
+    db, owner_id: str, source_id: str, *, until: str,
+) -> str:
+    """
+    Non ripassare da questa sorgente prima di quest'ora — l'ha detta il provider.
+
+    Diverso dal backoff, che e' una nostra prudenza dopo un errore: questo e'
+    un limite di chi possiede i dati, e non si contratta. Resta scritto sulla
+    riga di coda perche' e' li' che `due` lo guarda, e sopravvive a un
+    riavvio come tutto il resto della coda.
+    """
+    await db[ATTEMPTS].update_one(
+        {"owner_id": owner_id, "source_id": source_id},
+        {"$set": {
+            "owner_id": owner_id, "source_id": source_id,
+            "not_before": until,
+            "next_attempt_at": until,
+            "health": "la banca non concede altre letture per adesso",
+        }},
+        upsert=True,
+    )
+    return until
 
 
 async def schedule_next(
@@ -197,10 +238,15 @@ async def schedule_next(
     """
     moment = now or _now()
     row = await db[ATTEMPTS].find_one(
-        {"owner_id": owner_id, "source_id": source_id}, {"_id": 0, "failures": 1},
+        {"owner_id": owner_id, "source_id": source_id},
+        {"_id": 0, "failures": 1, "not_before": 1},
     )
     failures = int((row or {}).get("failures") or 0) + 1 if failed else 0
     when = (moment + interval_for(source_type, failures)).isoformat()
+    # Se il provider ha imposto un'ora, la nostra cadenza non puo' anticiparla.
+    held = (row or {}).get("not_before")
+    if held and str(held) > when:
+        when = str(held)
     await db[ATTEMPTS].update_one(
         {"owner_id": owner_id, "source_id": source_id},
         {"$set": {"owner_id": owner_id, "source_id": source_id,

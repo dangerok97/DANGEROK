@@ -52,6 +52,11 @@ SourceType = Literal[
     "location",
     "tasks",
     "finance",
+    # Un conto bancario. Distinto da «finance», che e' la categoria larga:
+    # qui serve il nome dello strumento, perche' e' su quello che il ciclo
+    # automatico decide la cadenza — e una banca si legge ogni sei ore,
+    # mentre una casella ogni minuto.
+    "bank",
     "health",
     "travel",
     "commerce",

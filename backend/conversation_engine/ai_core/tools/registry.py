@@ -448,6 +448,7 @@ class ToolRegistry:
         self._register_places()
         self._register_presence_history()
         self._register_calendar()
+        self._register_financial()
 
     def _register_location(self) -> None:
         from location import caps as loc_caps
@@ -759,6 +760,81 @@ class ToolRegistry:
                 risk="read",
                 handler=place_caps.get_route,
                 tags=["places", "navigation"],
+            )
+        )
+
+    def _register_financial(self) -> None:
+        """
+        Un tool solo per i soldi, e di sola lettura tranne la conferma.
+
+        Un secondo tool per l'orizzonte e un terzo per le domande aperte
+        avrebbero fatto scegliere al modello quale verita' guardare. La
+        verita' e' una, e la divisione che conta — cosa ORA sa, cosa ha letto,
+        cosa deve chiedere — sta dentro la risposta.
+        """
+        from conversation_engine.ai_core.tools import financial_caps as fin_caps
+
+        self.register(
+            CapabilitySpec(
+                capability="what_do_i_know_about_money",
+                description=(
+                    "What ORA knows about this person's money, split by HOW it "
+                    "knows it: what is in their life model and can be stated, "
+                    "what was only read somewhere and must be reported as read, "
+                    "and what is waiting for their word. Also what is due in "
+                    "the coming weeks, with what is not known about it. Use for "
+                    "any question about costs, bills, rent, income or whether "
+                    "they can afford something. Never state a total as a "
+                    "balance: the balance is not known."
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "about": {
+                            "type": "string",
+                            "description": (
+                                "Narrow to one thing — «casa», «affitto» — when "
+                                "the question is about one thing. Optional."
+                            ),
+                        },
+                        "days": {"type": "integer", "description": "default 30"},
+                    },
+                },
+                classification="personal",
+                side_effect="READ_ONLY",
+                freshness="fresh",
+                risk="read",
+                handler=fin_caps.what_do_i_know_about_money,
+                tags=["financial"],
+            )
+        )
+        self.register(
+            CapabilitySpec(
+                capability="confirm_money_question",
+                description=(
+                    "Record the person's answer to an open money question ORA "
+                    "asked — «is the rent now €760?». A yes lets what was only "
+                    "read become what ORA knows; a no leaves it as an "
+                    "observation and keeps the earlier knowledge. Either way "
+                    "the question closes. Only call this when they actually "
+                    "answered: never confirm on their behalf."
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "about": {
+                            "type": "string",
+                            "description": "what the question was about, e.g. «affitto»",
+                        },
+                        "confirmed": {"type": "boolean"},
+                    },
+                    "required": ["about", "confirmed"],
+                },
+                classification="personal",
+                side_effect="REVERSIBLE_WRITE",
+                risk="write_soft",
+                handler=fin_caps.confirm_money_question,
+                tags=["financial"],
             )
         )
 

@@ -26,6 +26,7 @@ import {
   Text,
   View,
   useWindowDimensions,
+  Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -292,6 +293,26 @@ export default function VitaScreen() {
 
   const main = (
     <>
+      {/*
+        Conti e denaro non e' una scheda: e' una parte della Vita, come la
+        casa o il lavoro. Sta in cima perche' e' quella su cui una persona
+        vuole sapere per prima cosa che ORA non fa niente di nascosto.
+      */}
+      <VitaSection title="CONTI E DENARO" testID="vita-money">
+        <Pressable
+          onPress={() => router.push('/conti-e-denaro' as any)}
+          accessibilityRole="button"
+          accessibilityLabel="Apri conti e denaro"
+          testID="vita-money-open"
+          style={({ pressed }: { pressed: boolean }) => [styles.moneyRow, pressed && { opacity: 0.7 }]}
+        >
+          <Text style={styles.moneyTitle}>Cosa vedo dei tuoi conti</Text>
+          <Text style={styles.moneyMeta}>
+            Quello che leggo, quello che ho capito, e cosa non posso fare.
+          </Text>
+        </Pressable>
+      </VitaSection>
+
       <VitaSection title="IN QUESTO PERIODO" testID="vita-current">
         {vita.situations.length ? (
           <View style={grid ? styles.grid3 : styles.stack}>
@@ -441,6 +462,9 @@ export default function VitaScreen() {
 }
 
 const styles = StyleSheet.create({
+  moneyRow: { gap: 2, paddingVertical: 2 },
+  moneyTitle: { fontSize: 16, fontWeight: '600', color: tokens.color.textPrimary },
+  moneyMeta: { fontSize: 13, color: tokens.color.textSecondary },
   root: { flex: 1 },
   row: { flexDirection: 'row', gap: tokens.spacing.xl, alignItems: 'flex-start' },
   mainCol: { flex: 1, minWidth: 0, gap: tokens.spacing.xxl },

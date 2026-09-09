@@ -1,5 +1,54 @@
 # ORA — Development State
 
+## V3.11 — FINANCIAL INTELLIGENCE — CLOSED
+
+**Un conto vero, letto come sensore, che diventa contesto di vita.**
+
+    UNA TRANSAZIONE È UN'OSSERVAZIONE. IL SIGNIFICATO VIENE DOPO.
+
+Enable Banking Sandbox collegato per intero, con consenso vero: ASPSP →
+consenso → callback → sessione → conti → saldo → movimenti → osservazioni →
+interpretazione → governance → modello della vita → «Conti e denaro». Poi
+scollegato davvero, e ricollegato davvero.
+
+**Il percorso, e cosa lo tiene onesto.**
+
+| Passaggio | Chi decide |
+|------|--------|
+| Trasporto e normalizzazione | il codice: importo, segno, data, descrizione, controparte |
+| Categoria del provider | prova, mai significato — viaggia dentro `provenance` |
+| Raggruppamento in pattern | aritmetica: quante volte, ogni quanti giorni, quanto è cambiato |
+| Cosa significa | il giudizio, una volta per gruppo, guardando questa vita |
+| Cosa merita di durare | la governance: PROMOTE · SUPERSEDE · CLARIFY · REJECT |
+| Come si dice | SO · PENSO · HO VISTO · DA CAPIRE, distinti fino in schermata |
+
+**Stato della fonte, in un posto solo.** `financial/observed.py` risponde a
+«posso leggere adesso?», e da lì dipendono il tempo verbale della schermata,
+quello della conversazione, e il diritto di parlare di un saldo. Collegato:
+l'ultimo saldo letto con la sua ora. Scollegato: non lo si conosce, e si può
+dire soltanto quale risultava. Ricollegato: corrente di nuovo, ma solo dopo
+una lettura vera.
+
+| Punto | Stato |
+|------|--------|
+| Sprint 1-4 — modello, governance, orizzonte, comprensione | chiusi |
+| Sprint 5 — banca come sensore, «Conti e denaro» | chiuso |
+| Sprint 6 — provider reale (Enable Banking), consenso, tetti di chiamata | chiuso |
+| Gate finale — disconnect, riconnessione, risposte | chiuso su conto reale |
+| Attuatori | nessuno: la banca si legge e basta, guardie strutturali incluse |
+| Chiave privata e credenziali | fuori dal repository, lette da env, mai persistite né loggate |
+| IBAN | mai conservato per intero: solo le ultime quattro cifre |
+| Cadenza | sei ore, e un tetto imposto dalla banca vince sulla nostra cadenza |
+| Costo | una chiamata per pattern, zero per una spesa isolata senza contesto |
+| Prodotto target | **iOS**. Nessun lavoro specifico Android |
+
+**Prossimo: V3.12.**
+
+**Roadmap futura (registrata, non pianificata):** agente vocale/telefonico
+nazionale capace di fare telefonate reali previa autorizzazione esplicita
+della persona.
+
+
 ## V3.10 — CONNECTED LIFE — SPRINT 3 CLOSED (phase open)
 
 **Sprint 3 closing — the provider is real, and nobody presses anything.**
@@ -2143,7 +2192,7 @@ sei operazioni reali fra 9 s e 25 s, tutte dentro il bersaglio di 30 s.
 | Corpo delle email | mai conservato: né ingestion, né segnale, né audit, né log, né frontend |
 | Prodotto target | **iOS**. Nessun lavoro specifico Android |
 
-**Prossimo: V3.11 — Financial Intelligence.**
+**Prossimo: V3.11 — Financial Intelligence.** *(chiusa il 9 settembre 2026)*
 
 **Roadmap futura (registrata, non pianificata):** agente vocale/telefonico
 nazionale capace di fare telefonate reali previa autorizzazione esplicita

@@ -79,6 +79,7 @@ class SourceRegistry:
         out: List[ConnectedSource] = []
         out.extend(await self._calendars(owner_id))
         out.extend(await self._mailboxes(owner_id))
+        out.extend(await self._banks(owner_id))
         out.append(await self._documents(owner_id))
         return out
 
@@ -191,6 +192,51 @@ class SourceRegistry:
                 provenance={"connector_id": CONNECTOR_ID, "instance_id": doc["id"]},
                 created_at=str(doc.get("created_at") or now_iso()),
                 updated_at=str(doc.get("updated_at") or now_iso()),
+            ))
+        return sources
+
+    async def _banks(self, owner_id: str) -> List[ConnectedSource]:
+        """
+        I conti collegati, come strumenti da leggere.
+
+        Uno strumento come gli altri, con una differenza che vale la pena
+        scrivere: il consenso di una banca scade per legge ogni tre mesi.
+        Quando succede lo stato non e' «rotto» ma «serve che tu lo rifaccia»,
+        ed e' una cosa che accadra' per sempre, non una volta.
+        """
+        from connectors.bank.service import CONNECTOR_ID
+
+        try:
+            docs = await self.db.connector_instances.find(
+                {"user_id": owner_id, "connector_id": CONNECTOR_ID}, {"_id": 0},
+            ).sort("updated_at", -1).to_list(10)
+        except Exception as e:
+            logger.info("bank instances soft-fail: %s", type(e).__name__)
+            return []
+
+        sources: List[ConnectedSource] = []
+        for doc in docs:
+            attempt = await self._attempt(owner_id, doc["id"])
+            meta = doc.get("metadata") or {}
+            status = _INSTANCE_STATUS.get(str(doc.get("status") or ""), "degraded")
+            last_success = (
+                attempt.get("last_successful_sync_at") or doc.get("last_sync_at")
+            )
+            if status == "connected" and attempt.get("last_error"):
+                status = "degraded"
+
+            sources.append(ConnectedSource(
+                id=doc["id"],
+                owner_id=owner_id,
+                source_type="bank",
+                provider=str(meta.get("institution") or "Banca"),
+                account_ref=str(meta.get("institution") or ""),
+                status=status,
+                scopes=list(doc.get("authorized_scopes") or []),
+                last_read_at=last_success,
+                freshness=freshness_of("bank", last_success),
+                last_error=attempt.get("last_error", ""),
+                provenance={"connector_id": CONNECTOR_ID, "instance_id": doc["id"]},
             ))
         return sources
 

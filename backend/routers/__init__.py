@@ -1,6 +1,7 @@
 """ORA modular routers. Each domain owns its own router file."""
 from action_engine import action_engine_router, study_plans_router, travel_projects_router
 from connectors.apple_calendar import apple_calendar_router
+from connectors.bank.router import router as bank_router
 from connectors.gmail.router import router as gmail_router
 from connectors.google_calendar import google_calendar_router
 from documents import documents_router
@@ -29,6 +30,7 @@ from . import (
     connectors as connectors_router,
     context as context_router,
     daily as daily_router,
+    financial as financial_router,
     decisions as decisions_router,
     ingestion as ingestion_router,
     knowledge as knowledge_router,
@@ -55,7 +57,9 @@ ALL_ROUTERS = [
     google_calendar_router,
     gmail_router,
     apple_calendar_router,
+    bank_router,
     daily_router.router,
+    financial_router.router,
     behavior_router.router,
     behavior_shadow_router.router,
     calendar_events_router.router,
