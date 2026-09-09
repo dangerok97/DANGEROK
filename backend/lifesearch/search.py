@@ -176,6 +176,10 @@ async def what_ora_knows_about(
         "since": None,
         "looking_forward": True,
         "what_they_want": "",
+        # La Vita e' piu' severa della ricerca: dentro «Acquisto di una nuova
+        # casa» ci va quello che appartiene a quell'acquisto, non quello che
+        # parla di case.
+        "only_what_belongs": True,
     }
     found = await gather(db, owner_id, wanted=wanted)
     return {

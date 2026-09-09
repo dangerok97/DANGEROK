@@ -1349,3 +1349,220 @@ def test_no_keyword_decides_what_a_message_is_about():
                 for word in words & set(watched):
                     offenders.append(f"{name}:{node.lineno} «{word}»")
     assert not offenders, f"una parola decide di cosa parla un messaggio: {offenders}"
+
+
+# ---------------------------------------------------------------------------
+# Hotfix: appartenere non e' assomigliare
+# ---------------------------------------------------------------------------
+
+def test_belonging_needs_a_tie_to_that_situation_and_not_another():
+    """
+    §1 + §3: STESSO DOMINIO NON VUOL DIRE STESSA SITUAZIONE.
+
+    Trovato nella review degli screenshot: «Contratto di Locazione» era
+    finito dentro l'acquisto di una casa perche' «un contratto di locazione e'
+    collegato alla gestione di un'abitazione». La frase e' vera e non dice
+    niente su *quella* casa.
+
+    Adesso, per far entrare qualcosa dentro una situazione, il giudizio deve
+    nominare cosa lo lega a quella e non a un'altra. Se non lo nomina, il
+    codice declassa da solo: vicino, non dentro.
+    """
+    async def body():
+        client, db = await _db()
+        uid = f"ls_{uuid.uuid4().hex[:8]}"
+        try:
+            from lifesearch.relations import relations_of, remember_relation
+
+            await _a_life(db, uid)
+
+            # Senza prova: resta vicino.
+            vague = await remember_relation(
+                db, uid, source_type="document", source_ref="doc_locazione",
+                target_kind="life_object", target_ref="lo_casa",
+                relation_type="about",
+                why="Un contratto di locazione è collegato alla gestione di un'abitazione.",
+                decided_by="judgement", confidence=1.0,
+            )
+            assert vague["relation_type"] == "related_to", (
+                "una somiglianza di dominio e' entrata come appartenenza"
+            )
+            assert vague["belongs"] is False
+
+            # Con la prova: entra.
+            precise = await remember_relation(
+                db, uid, source_type="document", source_ref="doc_rogito",
+                target_kind="life_object", target_ref="lo_casa",
+                relation_type="about",
+                why="È l'atto di acquisto della casa.",
+                ties="Stesso immobile e stessa controparte della compravendita.",
+                decided_by="judgement", confidence=1.0,
+            )
+            assert precise["relation_type"] == "about"
+            assert precise["belongs"] is True
+
+            inside = await relations_of(db, uid, target_refs=["lo_casa"],
+                                        belonging_only=True)
+            assert [r["source_object_ref"] for r in inside] == ["doc_rogito"]
+        finally:
+            await _clean(db, uid)
+            client.close()
+
+    _run(body())
+
+
+def test_the_life_map_shows_only_what_belongs():
+    """
+    §5: la Vita e' piu' severa della ricerca.
+
+    Dentro «Acquisto di una nuova casa» ci va quello che appartiene a
+    quell'acquisto. Quello che parla di case in generale puo' comparire in una
+    ricerca larga, non dentro la situazione.
+    """
+    async def body():
+        client, db = await _db()
+        uid = f"ls_{uuid.uuid4().hex[:8]}"
+        try:
+            from lifesearch.relations import remember_relation
+            from lifesearch.search import what_ora_knows_about
+
+            await _a_life(db, uid)
+            await db.documents.insert_many([
+                {"id": "doc_locazione", "user_id": uid,
+                 "display_title": "Contratto di Locazione",
+                 "created_at": "2026-09-01T10:00:00+00:00"},
+                {"id": "doc_rogito", "user_id": uid,
+                 "display_title": "Rogito_2026_definitivo",
+                 "created_at": "2026-09-02T10:00:00+00:00"},
+            ])
+            await remember_relation(
+                db, uid, source_type="document", source_ref="doc_locazione",
+                target_kind="life_object", target_ref="lo_casa",
+                relation_type="about", why="Parla di un'abitazione.",
+                decided_by="judgement",
+            )
+            await remember_relation(
+                db, uid, source_type="document", source_ref="doc_rogito",
+                target_kind="life_object", target_ref="lo_casa",
+                relation_type="about", why="È l'atto di acquisto.",
+                ties="Stesso immobile della compravendita in corso.",
+                decided_by="judgement",
+            )
+
+            out = await what_ora_knows_about(db, uid, "lo_casa")
+            blob = jsonlib.dumps(out["risultati"], ensure_ascii=False)
+            assert "Rogito" in blob
+            assert "Locazione" not in blob, (
+                "dentro la situazione e' entrato qualcosa che le assomiglia"
+            )
+        finally:
+            await _clean(db, uid)
+            client.close()
+
+    _run(body())
+
+
+def test_a_communication_that_belongs_reaches_the_life_map():
+    """
+    §6: dentro una situazione le comunicazioni collegate devono comparire.
+
+    Non comparivano, e non per una questione di relazioni: la Vita guardava
+    «in avanti», e una mail e' sempre arrivata prima di adesso. Il filtro le
+    toglieva tutte.
+    """
+    async def body():
+        client, db = await _db()
+        uid = f"ls_{uuid.uuid4().hex[:8]}"
+        try:
+            from lifesearch.relations import remember_relation
+            from lifesearch.search import what_ora_knows_about
+
+            await _a_life(db, uid)
+            await _a_mailbox(db, uid)
+            await remember_relation(
+                db, uid, source_type="email", source_ref="mail_preventivo",
+                target_kind="life_object", target_ref="lo_casa",
+                relation_type="about",
+                why="È la risposta al preventivo per la casa che stai comprando.",
+                ties="Stessa conversazione sul preventivo di quell'acquisto.",
+                decided_by="judgement",
+            )
+
+            out = await what_ora_knows_about(db, uid, "lo_casa")
+            groups = [s["gruppo"] for s in out["risultati"]]
+            assert "COMUNICAZIONI" in groups, (
+                "una mail collegata non arriva nella Vita"
+            )
+            said = jsonlib.dumps(out["risultati"], ensure_ascii=False)
+            assert "preventivo" in said.lower()
+            # E niente sezioni vuote.
+            for section in out["risultati"]:
+                assert section["cosa_c_e"], f"sezione vuota: {section['gruppo']}"
+        finally:
+            await _clean(db, uid)
+            client.close()
+
+    _run(body())
+
+
+def test_things_that_are_merely_similar_never_become_members():
+    """
+    §8: LA SOMIGLIANZA E' UN INDIZIO, NON UNA PROVA DI IDENTITA'.
+
+    Cinque modi di sbagliare, tutti plausibili, tutti nello stesso dominio
+    della situazione — e nessuno di essi e' quella situazione. Il giudizio
+    puo' proporli; il codice, senza una prova specifica, li tiene fuori.
+    """
+    async def body():
+        client, db = await _db()
+        uid = f"ls_{uuid.uuid4().hex[:8]}"
+        try:
+            from lifesearch.relations import relations_of, remember_relation
+
+            await _a_life(db, uid)
+            plausible = [
+                ("doc_bolletta_genitori", "È una bolletta di una casa."),
+                ("doc_hotel", "Riguarda un alloggio per una vacanza."),
+                ("doc_assicurazione_vecchia", "È l'assicurazione di un'abitazione."),
+                ("mail_annunci", "Sono annunci di case in vendita."),
+                ("doc_locazione", "È un contratto di locazione di un immobile."),
+            ]
+            for ref, why in plausible:
+                await remember_relation(
+                    db, uid, source_type="document", source_ref=ref,
+                    target_kind="life_object", target_ref="lo_casa",
+                    relation_type="part_of", why=why, decided_by="judgement",
+                )
+
+            inside = await relations_of(
+                db, uid, target_refs=["lo_casa"], belonging_only=True,
+            )
+            assert inside == [], (
+                f"qualcosa di solo somigliante e' entrato: "
+                f"{[r['source_object_ref'] for r in inside]}"
+            )
+            # Restano tutte, come vicinanze, con il loro motivo leggibile.
+            near = await relations_of(db, uid, target_refs=["lo_casa"])
+            assert len(near) == len(plausible)
+            for row in near:
+                assert row["relation_type"] == "related_to"
+                assert row["reason_summary"]
+        finally:
+            await _clean(db, uid)
+            client.close()
+
+    _run(body())
+
+
+def test_the_judgement_is_asked_to_name_the_tie():
+    """
+    §3: l'AI deve giudicare l'identita', non la categoria.
+
+    La domanda che le si fa non e' «parla di casa?» ma «cosa lega questa cosa
+    a *questa* situazione e non a un'altra?».
+    """
+    for name in ("papers.py", "messages.py"):
+        source = (HERE / "lifesearch" / name).read_text(encoding="utf-8")
+        assert "Belonging is not resemblance" in source
+        assert "what_ties_it" in source
+        assert "A lease is about a home" in source

@@ -66,6 +66,16 @@ _DISCIPLINE = (
     "needs_content, and say why in a sentence the person could read. Do not "
     "ask for content to be thorough: ask when the subject genuinely does not "
     "say enough and the message plausibly matters.\n\n"
+    "Belonging is not resemblance. Before you say a thing belongs to a "
+    "situation, name what ties it to *that* one and not to another: the "
+    "same property, the same address, the same counterparty, an explicit "
+    "reference to it, a conversation this person is actually in. Put it "
+    "in what_ties_it.\n\n"
+    "A lease is about a home; it is not about the home somebody is "
+    "buying unless something says so. A digest of property listings is "
+    "about housing; it is not part of a purchase already under way. When "
+    "you cannot name the tie, leave what_ties_it empty and use "
+    "related_to — near, not inside.\n\n"
     "Answer with JSON only. No markdown fences."
 )
 
@@ -169,6 +179,7 @@ async def file_the_messages(
             source_type="email", source_ref=ref,
             target_kind="life_object", target_ref=target,
             relation_type=relation, why=why or "Riguarda questa parte della tua vita.",
+            ties=str(row.get("what_ties_it") or ""),
             decided_by="judgement",
             confidence=1.0 if certainty == "high" else 0.6,
         )
@@ -197,7 +208,7 @@ async def _ask(
         "\"belongs_to\": \"the situation id, or empty if none\", "
         f"\"relation\": one of {list(RELATION_TYPES)}, "
         "\"why\": \"one sentence, in their language, that a person could "
-        "read\", \"certainty\": \"high\" | \"medium\" | \"low\", "
+        "read\", \"what_ties_it\": \"what makes it *this* situation and not another, or empty\", \"certainty\": \"high\" | \"medium\" | \"low\", "
         "\"needs_content\": false}]}"
     )
     if having_read_them:

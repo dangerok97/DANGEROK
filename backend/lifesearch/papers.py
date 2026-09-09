@@ -60,6 +60,16 @@ _DISCIPLINE = (
     "them, say so with certainty «low» and let it be: a relation nobody was "
     "sure of is worse than no relation, because everything downstream will "
     "reason about a connection that was never established.\n\n"
+    "Belonging is not resemblance. Before you say a thing belongs to a "
+    "situation, name what ties it to *that* one and not to another: the "
+    "same property, the same address, the same counterparty, an explicit "
+    "reference to it, a conversation this person is actually in. Put it "
+    "in what_ties_it.\n\n"
+    "A lease is about a home; it is not about the home somebody is "
+    "buying unless something says so. A digest of property listings is "
+    "about housing; it is not part of a purchase already under way. When "
+    "you cannot name the tie, leave what_ties_it empty and use "
+    "related_to — near, not inside.\n\n"
     "Answer with JSON only. No markdown fences."
 )
 
@@ -95,7 +105,7 @@ async def file_the_papers(
         "\"belongs_to\": \"the situation id, or empty if none\", "
         f"\"relation\": one of {list(RELATION_TYPES)}, "
         "\"why\": \"one sentence, in their language, that a person could "
-        "read\", \"certainty\": \"high\" | \"medium\" | \"low\"}}]}"
+        "read\", \"what_ties_it\": \"what makes it *this* situation and not another, or empty\", \"certainty\": \"high\" | \"medium\" | \"low\"}}]}"
     )
 
     answer = await _ask_model(
@@ -139,6 +149,9 @@ async def file_the_papers(
             target_kind="life_object", target_ref=target,
             relation_type=str(row.get("relation") or "about"),
             why=why or "Riguarda questa parte della tua vita.",
+            # Senza questo, «appartiene» diventa «assomiglia»: il codice
+            # declassa da solo a vicinanza.
+            ties=str(row.get("what_ties_it") or ""),
             decided_by="judgement",
             confidence=1.0 if certainty == "high" else 0.6,
         )
