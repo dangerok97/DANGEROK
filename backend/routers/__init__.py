@@ -2,6 +2,7 @@
 from action_engine import action_engine_router, study_plans_router, travel_projects_router
 from connectors.apple_calendar import apple_calendar_router
 from connectors.bank.router import router as bank_router
+from lifesearch.router import router as lifesearch_router
 from connectors.gmail.router import router as gmail_router
 from connectors.google_calendar import google_calendar_router
 from documents import documents_router
@@ -60,6 +61,7 @@ ALL_ROUTERS = [
     bank_router,
     daily_router.router,
     financial_router.router,
+    lifesearch_router,
     behavior_router.router,
     behavior_shadow_router.router,
     calendar_events_router.router,

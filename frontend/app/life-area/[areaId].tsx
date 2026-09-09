@@ -54,6 +54,14 @@ export default function LifeAreaScreen() {
     economico» che dice «non so niente» e' peggio della sua assenza.
   */
   const [money, setMoney] = useState<MoneyKnowledge | null>(null);
+  /*
+    Cosa sta dentro questa parte della vita: documenti, comunicazioni,
+    appuntamenti, denaro. Non un grafo — una vista coerente di una cosa che
+    sta succedendo. Zero chiamate al giudizio: la domanda è già «questa».
+  */
+  const [linked, setLinked] = useState<
+    { gruppo: string; cosa_c_e: any[] }[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -70,6 +78,9 @@ export default function LifeAreaScreen() {
       const model = buildVita(mapFromLifeMapApi(map as any), memory as any);
       setArea(model.areas.find((a) => a.domain.toLowerCase() === domain) || null);
       setMoney(await api.moneyKnowledge(domain).catch(() => null));
+      setLinked(
+        (await api.lifeAreaConnections(domain).catch(() => null))?.risultati || [],
+      );
     } catch (e: any) {
       setError(humanizeError(e, 'default'));
     } finally {
@@ -156,6 +167,42 @@ export default function LifeAreaScreen() {
                   </Text>
                 ) : null}
               </View>
+
+              {linked
+                .filter((s) => s.gruppo !== 'SITUAZIONI')
+                .map((section) => (
+                  <View key={section.gruppo} style={styles.block} testID="area-linked">
+                    <Text style={[styles.sectionLabel, { color: colors.textTertiary }]}>
+                      {section.gruppo}
+                    </Text>
+                    <View
+                      style={[
+                        styles.panel,
+                        { backgroundColor: colors.surface, borderColor: colors.border },
+                      ]}
+                    >
+                      {section.cosa_c_e.map((row: any, n: number) => (
+                        <View key={`${row.cosa}-${n}`} style={{ gap: 2 }}>
+                          <Text style={[styles.body, { color: colors.textPrimary }]}>
+                            {row.cosa}
+                          </Text>
+                          {row.quanto || row.quando || row.stato ? (
+                            <Text style={[styles.body, { color: colors.textSecondary }]}>
+                              {[row.quanto, row.quando, row.stato]
+                                .filter(Boolean)
+                                .join(' · ')}
+                            </Text>
+                          ) : null}
+                          {row.perche_e_qui ? (
+                            <Text style={[styles.body, { color: colors.textTertiary }]}>
+                              {row.perche_e_qui}
+                            </Text>
+                          ) : null}
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                ))}
 
               {money
                 && (money.so.length || money.ho_letto.length

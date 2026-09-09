@@ -1,5 +1,59 @@
 # ORA — AI Changelog
 
+## 2026-09-10 — V3.12 LIFE MAP & UNIVERSAL SEARCH — CLOSED
+
+Cercare dentro la propria vita, non dentro un archivio.
+
+    LA RICERCA E' UN'INTERFACCIA AL MODELLO DELLA VITA, NON UN TROVA-FILE.
+
+Chi scrive «casa» non sta cercando un file che contiene la parola «casa». Sta
+chiedendo cosa c'entra con la sua casa: l'acquisto in corso, i soldi che ci
+girano intorno, il documento, la mail del preventivo. Sono cose diverse, in
+posti diversi, e quello che le tiene insieme non è una parola — è una
+relazione che qualcuno ha stabilito.
+
+**Cosa una persona vede.** Un campo di ricerca dentro Vita — nessuna scheda
+nuova — che prima ancora di scrivere propone i nomi delle sue cose. I
+risultati arrivano raggruppati per quello che sono: situazioni, cose che ORA
+sa, documenti, comunicazioni, appuntamenti, denaro, cosa è cambiato, domande
+aperte. Alle domande larghe — «cosa sai sulla casa?» — risponde prima un
+paragrafo; a quelle di navigazione — «documenti della casa» — no, perché
+volevano i documenti.
+
+**Le relazioni sono scritte, non indovinate ogni volta.** Il giudizio guarda
+una volta a quale parte della vita appartengono le carte e i messaggi, e la
+risposta resta con il suo motivo in italiano: «È la risposta al preventivo per
+la casa che stai comprando». Da quel momento «documenti della casa» è una
+lettura di relazioni e costa zero — e trova un rogito il cui titolo non
+somiglia a niente di quello che è stato scritto.
+
+**Il rumore resta fuori.** «Lascia un feedback sul tuo acquisto recente» non
+entra nell'acquisto di una casa perché entrambi dicono «acquisto». Con una
+domanda ancorata a una situazione, una comunicazione compare solo se qualcuno
+ha stabilito che c'entra — e per scriverlo serve una prova specifica di quella
+persona, non un argomento in comune.
+
+**Gira da solo.** La collocazione di carte e messaggi vive dentro il giro
+dell'ambient runtime che c'era già: nessuno scheduler nuovo, poche persone per
+passaggio, e solo quello che non ha ancora una risposta. Su una vita ferma il
+passaggio costa zero chiamate e scrive zero righe.
+
+**Difetti trovati dai gate reali, non dai test.** Un collegamento fra fonti
+faceva comparire le mail del dentista in ogni ricerca, anche «affitto» e
+«stipendio». Aprire «Casa» mostrava lo stipendio, che appartiene al lavoro. Il
+dentista usciva in sei righe per un appuntamento solo, letto da calendari
+diversi. Due offerte commerciali di mutui erano state legate all'acquisto di
+una casa perché parlavano di mutui.
+
+**Quanto costa.** Una domanda semplice: una chiamata. Una che chiede una
+sintesi: due. Mai tre. La stessa domanda ripetuta con la vita ferma: zero, e
+l'impronta della vita invalida la scorciatoia appena arriva un documento.
+
+Prossimo: **V3.13**. Più avanti nella roadmap: agente vocale/telefonico
+nazionale con chiamate reali previa autorizzazione esplicita della persona.
+Prodotto target: iOS.
+
+
 ## 2026-09-09 — V3.11 FINANCIAL INTELLIGENCE — CLOSED
 
 Un conto bancario vero, letto attraverso Enable Banking, che diventa contesto
@@ -59,7 +113,7 @@ non è ricorrente. «Come sono messo questo mese?» → entrate €2.050, uscite
 €4.823,19, differenza parziale −€2.773,19, con il suo nome addosso: la somma
 dei movimenti letti, non quello che resta.
 
-Prossimo: **V3.12**. Più avanti nella roadmap: agente vocale/telefonico
+Prossimo: **V3.12**. *(chiusa il 10 settembre 2026)* Più avanti nella roadmap: agente vocale/telefonico
 nazionale con chiamate reali previa autorizzazione esplicita della persona.
 Prodotto target: iOS.
 

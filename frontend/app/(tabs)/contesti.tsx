@@ -298,6 +298,27 @@ export default function VitaScreen() {
         casa o il lavoro. Sta in cima perche' e' quella su cui una persona
         vuole sapere per prima cosa che ORA non fa niente di nascosto.
       */}
+      {/*
+        L'ingresso alla ricerca sta in cima alla Vita, e non è una scheda.
+        Cercare è un modo di guardare quello che c'è già: appartiene alla
+        stessa superficie, non a una sua sorella.
+      */}
+      <Pressable
+        onPress={() => router.push('/cerca' as any)}
+        accessibilityRole="button"
+        accessibilityLabel="Cerca nella tua vita"
+        testID="vita-search-open"
+        style={({ pressed }: { pressed: boolean }) => [
+          styles.searchRow,
+          { backgroundColor: colors.surface, borderColor: colors.border },
+          pressed && { opacity: 0.7 },
+        ]}
+      >
+        <Text style={[styles.searchLabel, { color: colors.textTertiary }]}>
+          Cerca nella tua vita
+        </Text>
+      </Pressable>
+
       <VitaSection title="CONTI E DENARO" testID="vita-money">
         <Pressable
           onPress={() => router.push('/conti-e-denaro' as any)}
@@ -462,6 +483,12 @@ export default function VitaScreen() {
 }
 
 const styles = StyleSheet.create({
+  searchRow: {
+    marginHorizontal: 20, marginBottom: 4, paddingHorizontal: 14, height: 40,
+    justifyContent: 'center',
+    borderRadius: 14, borderWidth: StyleSheet.hairlineWidth,
+  },
+  searchLabel: { fontSize: 15 },
   moneyRow: { gap: 2, paddingVertical: 2 },
   moneyTitle: { fontSize: 16, fontWeight: '600', color: tokens.color.textPrimary },
   moneyMeta: { fontSize: 13, color: tokens.color.textSecondary },

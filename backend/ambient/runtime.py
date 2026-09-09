@@ -62,6 +62,14 @@ def _fallback_every_ticks() -> int:
 
     return max(1, int((SWEEP_INTERVAL_HOURS * 3600) / max(1.0, TICK_SECONDS)))
 
+# Ogni quanti giri si guarda se e' arrivato qualcosa da collocare — una
+# carta, un messaggio. Lento di proposito: e' manutenzione, e su una vita
+# ferma non costa niente perche' non trova niente da fare.
+def _relations_every_ticks() -> int:
+    minutes = float(os.environ.get("ORA_RELATIONS_EVERY_MINUTES", "10"))
+    return max(1, int((minutes * 60) / max(1.0, TICK_SECONDS)))
+
+
 _task: Optional[asyncio.Task] = None
 _stopping = False
 _worker_id = ""
@@ -75,6 +83,9 @@ _stats: Dict[str, int] = {
     "empty_ticks": 0,
     "fallback_sweeps": 0,
     "fallback_scheduled": 0,
+    "relations_carte": 0,
+    "relations_messaggi": 0,
+    "relations_chiamate": 0,
     "sources_looked_at": 0,
     "sources_read": 0,
     "sources_failed": 0,
@@ -190,6 +201,31 @@ async def read_sources(db, *, now: Optional[datetime] = None) -> Dict[str, int]:
     return handled
 
 
+async def keep_relations_current(db) -> Dict[str, Any]:
+    """
+    Colloca quello che e' arrivato: quale carta appartiene a quale casa, quale
+    messaggio riguarda quale situazione.
+
+        UN SISTEMA CHE COLLEGA SOLO QUANDO LO INTERROGHI NON HA CAPITO
+        NIENTE FINCHE' NON GLI PARLI.
+
+    Qui e non in un ciclo suo, per la stessa ragione di `sweep` e di
+    `read_sources`: questo giro c'e' gia', sopravvive gia' a un riavvio, e
+    tollera gia' che un passaggio fallisca. Il runtime non sa cosa stia
+    collocando — chiama, conta, e va a dormire.
+    """
+    try:
+        from lifesearch.maintenance import keep_relations_current as run
+
+        done = await run(db)
+    except Exception as exc:
+        logger.info("relation maintenance soft-fail: %s", type(exc).__name__)
+        return {"persone": 0}
+    for key in ("carte", "messaggi", "chiamate"):
+        _stats[f"relations_{key}"] += int(done.get(key, 0))
+    return done
+
+
 async def sweep(db) -> Dict[str, Any]:
     """
     Cast the safety net: is anybody owed a look that never happened?
@@ -266,6 +302,11 @@ async def _loop() -> None:
             await read_sources(db)
             await tick(db)
             ticks += 1
+            # Le relazioni: piu' lente delle letture, piu' rapide della rete
+            # di sicurezza. Su una vita ferma questo passaggio non trova
+            # niente e non chiama nessuno.
+            if ticks % _relations_every_ticks() == 0:
+                await keep_relations_current(db)
             if ticks % _fallback_every_ticks() == 0:
                 await sweep(db)
         except Exception as exc:
