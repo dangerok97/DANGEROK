@@ -80,6 +80,7 @@ export function QuestionsSection({
   busyId,
   onAnswer,
   onAnswerOpen,
+  onAnswerInline,
   onSeeAll,
 }: {
   /**
@@ -96,6 +97,7 @@ export function QuestionsSection({
   busyId?: string | null;
   onAnswer: (s: ProactiveSuggestion) => void;
   onAnswerOpen?: (q: OpenQuestionItem) => void;
+  onAnswerInline?: (q: OpenQuestionItem, action: string) => void;
   onSeeAll?: () => void;
 }) {
   const { colors } = useTheme();
@@ -126,6 +128,38 @@ export function QuestionsSection({
               </Text>
             ) : null}
           </View>
+          {/*
+            Alcune domande hanno gia' la loro risposta addosso.
+
+                UNA DOMANDA DA SI' O NO SI RISPONDE DOVE LA SI LEGGE.
+
+            «L'affitto e' 760?» non ha bisogno di una conversazione: ha
+            bisogno di un dito. Mandare la persona in chat per una parola
+            sarebbe farle fare un viaggio per dire di si'. Le altre domande —
+            quelle a cui serve davvero raccontare qualcosa — restano com'erano.
+          */}
+          {q.answers?.length ? (
+            <View style={styles.rowAnswers}>
+              {q.answers.map((a) => (
+                <Pressable
+                  key={a.action}
+                  onPress={() => onAnswerInline?.(q, a.action)}
+                  style={({ pressed }) => [
+                    styles.rowCta,
+                    { borderColor: colors.accent },
+                    pressed && styles.pressed,
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${a.label}: ${q.question}`}
+                  testID={`home-question-${a.action}`}
+                >
+                  <Text style={[styles.rowCtaLabel, { color: colors.accent }]}>
+                    {a.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          ) : (
           <Pressable
             onPress={() => onAnswerOpen?.(q)}
             style={({ pressed }) => [
@@ -139,6 +173,7 @@ export function QuestionsSection({
           >
             <Text style={[styles.rowCtaLabel, { color: colors.accent }]}>Rispondi</Text>
           </Pressable>
+          )}
         </View>
       ))}
 
@@ -533,6 +568,7 @@ const styles = StyleSheet.create({
     product. The label, the border and the spacing are untouched; only the box
     a thumb has to find grew.
   */
+  rowAnswers: { flexDirection: 'row', gap: 8 },
   rowCta: {
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: tokens.radius.md,

@@ -364,6 +364,72 @@ export type CalendarEventDeleted = {
   say_it_as?: string;
 };
 
+export type MoneyLine = {
+  cosa: string;
+  quanto: string;
+  quando?: string;
+  verso?: string;
+  cosa_non_so?: string[];
+  come_lo_so?: string;
+};
+
+export type MoneyKnowledge = {
+  so: MoneyLine[];
+  ho_letto: MoneyLine[];
+  devo_chiederti: { cosa: string; quanto: string; invece_di?: string; come_lo_so?: string }[];
+  in_arrivo?: Record<string, unknown>;
+};
+
+/**
+ * Lo stato del collegamento bancario, in parole. Cinque, e nessuna e' un
+ * codice: «requisition EX» non e' una cosa che si mostra a una persona.
+ */
+export type BankConnection = {
+  stato: 'non_collegato' | 'collegamento_in_corso' | 'collegato'
+       | 'serve_autorizzare_di_nuovo' | 'temporaneamente_non_disponibile';
+  in_parole: string;
+  cosa_posso_fare?: string;
+  instance_id?: string;
+  banca?: string;
+  letto_l_ultima_volta?: string;
+};
+
+export type MoneyOverview = {
+  collegamento?: BankConnection;
+  conti: {
+    banca: string; conto: string; saldo: string; saldo_noto: boolean;
+    // Le ultime quattro cifre, quando servono a dire due conti l'uno
+    // dall'altro. Il numero intero non arriva mai fin qui.
+    numero?: string;
+    saldo_tipo?: string;
+    non_piu_aggiornato?: boolean;
+    aggiornato: string; cosa_posso_fare: string; cosa_non_posso_fare: string;
+  }[];
+  cosa_ho_capito: {
+    cosa: string; quanto: string; ogni_quanto?: string;
+    // SO · PENSO · HO VISTO. Tre cose diverse, non tre toni della stessa.
+    stato?: 'SO' | 'PENSO' | 'HO VISTO';
+    perche?: string;
+    non_so?: string;
+    quanto_ci_conto: string; come_lo_so?: string;
+  }[];
+  // Quello che c'era: un conto che ORA non può più leggere non è un conto
+  // collegato, e non sta nella stessa sezione.
+  fonti_non_piu_collegate?: {
+    banca: string; conto: string; numero?: string; ultimo_saldo: string;
+    letto_l_ultima_volta: string; scollegato: string; in_parole: string;
+  }[];
+  collegato_alla_tua_vita: { situazione: string; cosa_ci_metto: string[] }[];
+  da_capire: {
+    cosa: string; perche: string; stato?: string; posso_rispondere: boolean;
+  }[];
+  movimenti_recenti: {
+    quando: string; descrizione: string; quanto: string;
+    verso: string; in_sospeso: boolean;
+  }[];
+  vale_la_pena_mostrarlo: boolean;
+};
+
 export const api = {
   register: (email: string, password: string, name?: string) =>
     request<ApiAuth>('/auth/register', { method: 'POST', body: JSON.stringify({ email, password, name }) }, false),
@@ -561,6 +627,47 @@ export const api = {
       `/calendar/events/${encodeURIComponent(itemId)}/delete`,
       { method: 'POST', body: JSON.stringify({ confirmed_title }) },
     ),
+  // Quello che ORA sa dei soldi, diviso per come lo sa. Le tre categorie
+  // restano separate fin dentro la schermata: unirle qui vorrebbe dire che
+  // ogni superficie deve rifare da sola la differenza fra affermare e
+  // riferire, e prima o poi una la sbaglia.
+  moneyKnowledge: (about?: string) =>
+    request<MoneyKnowledge>(
+      `/financial/knowledge${about ? `?about=${encodeURIComponent(about)}` : ''}`,
+    ),
+  // «Conti e denaro»: cosa ORA vede della banca e cosa ne ha capito, già
+  // diviso per gradi di certezza.
+  moneyOverview: () => request<MoneyOverview>('/financial/overview'),
+  connectBank: () =>
+    request<{ ok: boolean; instance_id: string }>('/financial/bank/connect', {
+      method: 'POST',
+    }),
+  bankState: () => request<BankConnection>('/financial/bank/state'),
+  bankInstitutions: (country = 'IT') =>
+    request<{
+      banche: { id: string; nome: string; logo: string }[];
+      // In quale ambiente siamo. Una persona che sta guardando un conto di
+      // prova ha il diritto di saperlo prima, non dopo.
+      ambiente?: string;
+      di_prova?: boolean;
+    }>(`/financial/bank/institutions?country=${encodeURIComponent(country)}`),
+  // Torna l'indirizzo dove la persona autentica: e' il percorso ufficiale
+  // della sua banca, e ORA non vede cosa ci digita.
+  bankLink: (institution_id: string, redirect_after?: string) =>
+    request<{ ok: boolean; instance_id: string; vai_qui: string; stato: string;
+              in_parole: string }>('/financial/bank/link', {
+      method: 'POST',
+      body: JSON.stringify({ institution_id, redirect_after }),
+    }),
+  bankLinkStatus: (instanceId: string) =>
+    request<BankConnection & { conti?: number }>(
+      `/financial/bank/link/${encodeURIComponent(instanceId)}`,
+    ),
+  bankDisconnect: (instance_id: string) =>
+    request<{ ok: boolean; in_parole: string }>('/financial/bank/disconnect', {
+      method: 'POST',
+      body: JSON.stringify({ instance_id, confirm: true }),
+    }),
   googleCalendarCalendars: (instanceId: string) =>
     request<{ items: GoogleCalendarResource[] }>(`/connectors/google-calendar/instances/${instanceId}/calendars`),
   googleCalendarSelectCalendars: (instanceId: string, calendar_ids: string[]) =>
@@ -2065,6 +2172,8 @@ export type DocumentHubCard = {
 /** One thing ORA is waiting for. Presentation-ready; no cognitive internals. */
 export type OpenQuestionItem = {
   id: string;
+  /** Le risposte che la domanda porta con sé, quando bastano due parole. */
+  answers?: { label: string; action: string }[];
   question: string;
   why_needed?: string | null;
   context_label?: string | null;

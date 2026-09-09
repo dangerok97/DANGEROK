@@ -468,6 +468,7 @@ export default function HomeScreen() {
                 busyId={suggestionBusy}
                 onAnswer={onSuggestionOpen}
                 onAnswerOpen={answerOpenQuestion}
+                onAnswerInline={(q, action) => runHomeAction(q.id, action)}
               />
             ) : null}
             {today.length ? <TodaySection items={today} onOpen={openItem} /> : null}

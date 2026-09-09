@@ -388,6 +388,38 @@ class HomeService:
         except Exception as e:
             logger.info("open questions read soft-fail: %s", type(e).__name__)
 
+        # E le domande sui soldi, che sono domande come le altre.
+        #
+        #     UNA DOMANDA VA DOVE STANNO LE DOMANDE.
+        #
+        # Stavano fra gli aggiornamenti, che e' il posto dove ORA racconta
+        # cosa ha fatto: li' una domanda si legge come una notizia, e una
+        # notizia non si risponde. Le due risposte viaggiano con la domanda —
+        # sono la stessa cosa che il tool della conversazione fa con un si' o
+        # un no, e finiscono nello stesso posto.
+        try:
+            from financial.durable import needs_your_word
+
+            for ask in (await needs_your_word(self.db, user_id))[:2]:
+                was = (
+                    f" Finora sapevo {ask['instead_of']}."
+                    if ask["instead_of"] else ""
+                )
+                open_questions.append({
+                    "id": f"ask:{ask['what']}",
+                    "question": f"«{ask['what']}» è {ask['how_much']}?",
+                    "why_needed": (
+                        f"L'ho letto: {ask['how_directly']}.{was}"
+                    ).strip(),
+                    "context_label": "",
+                    "answers": [
+                        {"label": "Sì", "action": "money_yes"},
+                        {"label": "No", "action": "money_no"},
+                    ],
+                })
+        except Exception as e:
+            logger.info("financial questions soft-fail: %s", type(e).__name__)
+
         # V3.7 — whatever the surfacing decision already settled. Read only:
         # Home never decides what to show and never asks a model to decide,
         # so a slow provider can no more delay this page than an empty result
@@ -566,6 +598,31 @@ class HomeService:
     ) -> List[InsightItem]:
         candidates: List[InsightItem] = []
 
+        # Quello che ORA sa dei soldi di questa persona, detto come una frase.
+        #
+        #     NON UNA DASHBOARD. UNA FRASE.
+        #
+        # Sta fra gli aggiornamenti e non fra le priorita' perche' non e' una
+        # cosa da fare: e' una cosa da sapere. E sta qui invece che in una
+        # scheda «Finanze» perche' i soldi sono contesto di una vita, non un
+        # prodotto a parte.
+        # Solo il riepilogo di cosa sta arrivando. Le domande sono domande e
+        # stanno fra le domande: tenerle anche qui vorrebbe dire chiedere la
+        # stessa cosa due volte in due posti diversi.
+        for said in [
+            i for i in items
+            if i.source_type == "financial" and i.type != "verify"
+        ][:1]:
+            candidates.append(InsightItem(
+                id=f"ins_fin_{said.source_id}",
+                text=f"{said.title}. {said.description or ''}".strip(),
+                source="financial",
+                status="active",
+                created_at=now.isoformat(),
+                valid_until=(now + timedelta(days=1)).isoformat(),
+                dedupe_key=f"financial:{said.source_id}",
+            ))
+
         overdue_bills = [i for i in items if i.type in ("bill", "payment") and i.urgency == "overdue"]
         if overdue_bills:
             b = overdue_bills[0]
@@ -653,6 +710,25 @@ class HomeService:
         note: Optional[str] = None,
     ) -> Dict[str, Any]:
         now = datetime.now(timezone.utc)
+
+        # La risposta a una domanda sui soldi, data dove la domanda si legge.
+        #
+        #     LA STESSA DOMANDA, RISOLTA UNA VOLTA SOLA.
+        #
+        # Non apre niente e non comincia niente: passa dallo stesso percorso
+        # che userebbe la conversazione, quindi un sì qui e un sì detto a ORA
+        # chiudono la stessa cosa e non due.
+        if action in ("money_yes", "money_no"):
+            about = str(item_id or "")
+            if about.startswith("ask:"):
+                about = about[4:]
+            from financial.knowledge import resolve_open_question
+
+            out = await resolve_open_question(
+                self.db, user_id, about=about, confirmed=action == "money_yes",
+            )
+            return {"ok": bool(out.get("resolved")), "action": action, **out}
+
         if action == "dismiss_banner":
             await self.state_col.update_one(
                 {"user_id": user_id, "item_id": "__google_banner__"},

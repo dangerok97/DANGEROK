@@ -113,6 +113,12 @@ class ConnectedLifeService:
                     # invitation looks like their own arrangement.
                     account=source.account_ref,
                 )
+            elif source.source_type == "bank":
+                await self._sync_bank(owner_id, source)
+                # I movimenti diventano osservazioni bancarie, non segnali:
+                # sono di un'altra natura e vivono nel loro registro. Quello
+                # che ne esce lo decide il giudizio finanziario, altrove.
+                observed = []
             else:
                 from connected import documents_sensor
 
@@ -156,6 +162,43 @@ class ConnectedLifeService:
         from deps import get_gmail_service
 
         await get_gmail_service().sync(user_id=owner_id, instance_id=source.id)
+
+    async def _sync_bank(self, owner_id: str, source: ConnectedSource) -> None:
+        """
+        Chiedi alla banca cosa e' successo. Il connettore sa come.
+
+        Stessa forma del calendario e della casella: questo livello sa solo
+        se la lettura e' riuscita, e il connettore possiede il proprio
+        segnaposto — un secondo cursore qui sarebbe un secondo posto da
+        tenere in fila con il primo.
+        """
+        import deps
+        from connectors.bank.service import BankReadService
+
+        service = BankReadService(
+            db=self.db,
+            permissions=deps.get_permissions_service(),
+            vault=deps.get_token_vault(),
+        )
+        read = await service.sync(user_id=owner_id, instance_id=source.id)
+
+        # E poi, se sono arrivate righe nuove, si prova a capirle — a gruppi.
+        #
+        #     SEI BONIFICI UGUALI SONO UNA DOMANDA, NON SEI.
+        #
+        # Il raggruppamento e' aritmetico e sta altrove; qui si sa solo che
+        # dopo una lettura c'e' qualcosa di nuovo da guardare, e che
+        # guardarlo e' parte del mestiere di ORA e non un compito della
+        # persona. Se il giudizio non e' disponibile la lettura resta
+        # comunque valida: le osservazioni sono gia' scritte.
+        if not read.get("ok") or not (read.get("written") or read.get("updated")):
+            return
+        try:
+            from financial.batching import read_what_is_new
+
+            await read_what_is_new(self.db, owner_id)
+        except Exception as e:
+            logger.info("bank interpretation soft-fail: %s", type(e).__name__)
 
     async def _sync_calendar(self, owner_id: str, source: ConnectedSource) -> None:
         """
@@ -350,6 +393,36 @@ class ConnectedLifeService:
         V3.8 arranges for somebody to look again — and it is a knock, not an
         instruction: what comes of it is decided by the loop that wakes up.
         """
+        # 0. Se parla di soldi, i soldi sanno cosa farne.
+        #
+        #     NON OGNI EMAIL PASSA DAL RAGIONAMENTO FINANZIARIO.
+        #
+        # Chi decide non e' una parola chiave — «fattura» quindi finanza —
+        # ma il giudizio che si e' gia' fatto su questo segnale: gli si e'
+        # chiesto, nella stessa chiamata, se dice qualcosa dei soldi di
+        # questa persona. Una pubblicita' di prestiti nomina somme e non dice
+        # niente delle sue, e muore prima di arrivare qui perche' e' `noise`.
+        #
+        # Nessun secondo giro, nessuno scheduler in piu', nessun parser
+        # parallelo: e' lo stesso passaggio, con una porta in piu' in fondo.
+        if answer.get("touches_money"):
+            try:
+                from financial.bridge import read_money_in
+                from financial.models import Provenance
+
+                await read_money_in(
+                    self.db, owner_id,
+                    observation=signal.for_ai(),
+                    provenance=Provenance(
+                        source=signal.source_type,
+                        source_ref=signal.source_object_ref,
+                        how_directly=signal.payload_summary[:200],
+                    ),
+                    source_refs=[signal.raw_ref] if signal.raw_ref else [],
+                )
+            except Exception as e:
+                logger.info("financial soft-fail: %s", type(e).__name__)
+
         # 1. Something moved.
         try:
             from opportunities.changes import ChangeLog

@@ -106,6 +106,13 @@ async def interpret_signal(
         "Judge it against the life you are shown, not in the abstract. The "
         "same appointment moving is nothing to one person and a problem for "
         "another, and the difference is in what else is true about them.\n\n"
+        "One more thing to say about it, separately from what it means: "
+        "whether it tells you something about this person's money — a "
+        "cost they have or will have, money coming to them, something "
+        "they paid. It is a different question from whether it matters, "
+        "and the answer is often no even when the message mentions a "
+        "price: an advertisement for loans names sums and says nothing "
+        "about theirs.\n\n"
         "Return JSON: {\"outcome\": \"noise|worth_knowing|"
         "changes_something_known|may_need_action\", "
         "\"what_it_means\": \"one sentence about their life, empty when "
@@ -114,7 +121,8 @@ async def interpret_signal(
         "about, or empty\", "
         "\"reasoning\": \"one short sentence, never shown to them\", "
         "\"needs_content\": false, "
-        "\"why_content\": \"what you would decide with it, when asking\"}\n\n"
+        "\"why_content\": \"what you would decide with it, when asking\", "
+        "\"touches_money\": false}\n\n"
         "Write anything a person reads in their language."
     )
 
@@ -142,6 +150,15 @@ async def interpret_signal(
         return None
     data["outcome"] = outcome
     data["needs_content"] = bool(data.get("needs_content")) and content is None
+    # Se questa cosa parla dei soldi di questa persona. E' una domanda a parte
+    # da «conta qualcosa», e la risposta e' spesso no anche quando il
+    # messaggio nomina delle cifre.
+    #
+    # Sta qui, dentro il giudizio che gia' si fa, e non in un secondo
+    # passaggio: un instradamento a parole chiave — «fattura» quindi soldi —
+    # manderebbe al ragionamento finanziario ogni newsletter che nomina un
+    # prezzo, e lascerebbe fuori «da settembre pago sessanta euro in piu'».
+    data["touches_money"] = bool(data.get("touches_money"))
     return data
 
 
