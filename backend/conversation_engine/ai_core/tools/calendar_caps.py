@@ -22,7 +22,7 @@ from __future__ import annotations
 from ingestion.reading import plain, where
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 from agent import commanded
@@ -155,6 +155,58 @@ def _needs(name: str, missing: str, ask: str) -> Observation:
             ),
         },
     )
+
+
+# ---------------------------------------------------------------------------
+# Fin dove guardare
+#
+#     È L'INTENZIONE DI CHI CHIEDE A DIRE QUANTO LONTANO GUARDARE.
+#
+# «Quando parto per Vibo?» ha avuto per risposta che non risultava nessuna
+# partenza, mentre la partenza era in calendario a dieci giorni. Nessun
+# errore: lo strumento, senza un intervallo, guardava una settimana — e una
+# settimana e' la finestra giusta per «cosa ho domani» e quella sbagliata per
+# «quando parto». Alzare il numero avrebbe spostato il problema di qualche
+# giorno, perche' il problema non e' il numero: e' che il numero non aveva
+# niente a che vedere con quello che era stato chiesto.
+#
+# Quindi chi ragiona dice che genere di momento sta cercando, e il codice
+# traduce quella parola in due date. Nessuna delle parole qui sotto nomina un
+# dominio, e nessuna decide se qualcosa conta.
+# ---------------------------------------------------------------------------
+
+# Quanto lontano si spinge una ricerca che chiede «la prossima volta che».
+# Non e' una soglia di rilevanza: e' fin dove si e' disposti a leggere.
+_HOW_FAR: Dict[str, int] = {
+    "today": 1,
+    # Domani e' un giorno, e comincia domani: la finestra si sposta, non si
+    # allunga. Con due, «cosa ho domani» rispondeva anche di dopodomani.
+    "tomorrow": 1,
+    "next_days": 7,
+    "next_occurrence": _MAX_WINDOW_DAYS,
+    "broad_future": _MAX_WINDOW_DAYS,
+}
+
+
+def _window_for(when: str, now: datetime) -> Optional[tuple]:
+    """
+    Da una parola sul tempo, due date. Niente parole, niente finestra.
+
+    `today` e `tomorrow` cominciano dove comincia quel giorno, perche' chi
+    chiede cosa ha oggi vuole anche quello che aveva stamattina; gli altri
+    partono da adesso, perche' «quando parto» non riguarda quello che e' gia'
+    passato.
+    """
+    kind = str(when or "").strip().lower()
+    days = _HOW_FAR.get(kind)
+    if not days:
+        return None
+    start = now
+    if kind in ("today", "tomorrow"):
+        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        if kind == "tomorrow":
+            start = start + timedelta(days=1)
+    return start, start + timedelta(days=days)
 
 
 def _authority_required(name: str, act) -> Observation:
@@ -299,6 +351,13 @@ async def get_calendar_events(arguments: Dict[str, Any], runtime: Dict[str, Any]
 
     time_min = _parse_dt(arguments.get("time_min"))
     time_max = _parse_dt(arguments.get("time_max"))
+    # Una parola su che genere di momento si sta cercando vale come due date,
+    # e chi ragiona sa quale parola usare molto meglio di quanto il codice
+    # sappia indovinare una finestra. Le date esplicite, quando ci sono,
+    # restano quelle: sono piu' precise di qualunque parola.
+    asked = _window_for(arguments.get("when"), datetime.now(timezone.utc))
+    if asked and not time_min and not time_max:
+        time_min, time_max = asked
     if not time_min:
         # Default to a UTC-aware "now" — a naive local "now" would silently
         # break the lexicographic string-range comparison below against
@@ -533,9 +592,23 @@ async def _already_have_one(db, uid: str, *, title: str, start: str) -> Optional
         if _same_thing(row.get("title")) != wanted:
             continue
         if str(row.get("start_datetime") or "")[:16] == str(start)[:16]:
-            # Stesso nome e stessa ora: e' lo stesso evento, non uno spostato.
-            # Se ne occupa l'idempotenza piu' avanti.
-            continue
+            #     LA DURATA NON FA DI UN IMPEGNO UN ALTRO IMPEGNO.
+            #
+            # Qui c'era scritto che dello stesso nome alla stessa ora si
+            # occupava l'idempotenza piu' avanti, ed era vero a meta'. Quella
+            # riconosce lo stesso atto dall'impronta dei suoi parametri —
+            # titolo, inizio, *fine*, fuso — e su una vita vera la stessa
+            # frase detta due volte a nove minuti di distanza ha prodotto due
+            # impegni identici che finivano uno alle 19:15 e uno alle 19:30.
+            # Nessuno aveva chiesto una durata: l'aveva scelta chi rispondeva,
+            # diversa le due volte, e due minuti di differenza sono bastati a
+            # far sembrare nuovo un impegno che c'era gia'.
+            #
+            # Un impegno con lo stesso nome che comincia alla stessa ora e'
+            # quello di prima. Non e' una somiglianza e non e' un giudizio:
+            # sono due stringhe uguali e una data uguale.
+            row = dict(row)
+            row["_starts_at_the_same_time"] = True
         return row
     return None
 
@@ -648,6 +721,38 @@ async def create_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
     # basta ripetere la chiamata con `create_anyway`.
     if not arguments.get("create_anyway"):
         twin = await _already_have_one(db, uid, title=title, start=str(start))
+        if twin and twin.get("_starts_at_the_same_time"):
+            # Non e' uno spostamento e non e' un rifiuto: e' gia' fatto, e
+            # dirlo cosi' e' la risposta giusta. Nessuna seconda scrittura,
+            # nessuna scusa, e il riferimento e' quello di quando fu creato.
+            return Observation(
+                kind="tool", name="create_calendar_event", status="ok",
+                payload={
+                    "status": "ok",
+                    "operation": "already_created",
+                    # Esplicito, perche' «ok» da solo si legge come «fatto»:
+                    # alla prova, con questa riga assente, la risposta e'
+                    # stata «ti ho aggiunto il promemoria» per un promemoria
+                    # che c'era gia' e che nessuno aveva appena scritto.
+                    "created_now": False,
+                    "calendar_ref": _ref(twin["id"]),
+                    "verified": True,
+                    "existing": {
+                        "title": twin.get("title"),
+                        "start_datetime": twin.get("start_datetime"),
+                    },
+                    "reason": (
+                        "NON hai creato niente adesso: questo impegno era già "
+                        "in agenda, con questo nome e a quest'ora. Dillo così "
+                        "— «ce l'hai già in agenda» — e non dire «ho "
+                        "aggiunto», perché non è vero. Non crearne un secondo "
+                        "e non scusarti; se la persona voleva cambiargli la "
+                        "durata usa update_calendar_event con quel "
+                        "calendar_ref."
+                    ),
+                },
+                provenance=[_ref(twin["id"])],
+            )
         if twin:
             return Observation(
                 kind="tool", name="create_calendar_event", status="rejected",

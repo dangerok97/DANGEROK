@@ -475,6 +475,30 @@ export type MoneyOverview = {
   vale_la_pena_mostrarlo: boolean;
 };
 
+/**
+ * La stessa chiamata, ma con la risposta grezza in mano.
+ *
+ * `request` legge il JSON e alza un errore se qualcosa non va, ed e' quello
+ * che serve dappertutto. La voce no: le serve un blob di audio, e un 204 le
+ * serve come risposta valida e non come guaio — vuol dire «parla tu».
+ * Stesso indirizzo, stesso token, stessa configurazione: solo senza lo strato
+ * che presuppone che la risposta sia testo.
+ */
+export async function rawRequest(path: string, init: RequestInit = {}): Promise<Response> {
+  if (!BASE) throw networkError('Backend URL non configurata.', 'backend_url_missing');
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(init.headers as Record<string, string> | undefined),
+  };
+  const t = await authToken.get();
+  if (t) headers.Authorization = `Bearer ${t}`;
+  try {
+    return await fetch(`${BASE}/api${path}`, { ...init, headers });
+  } catch (e: any) {
+    throw networkError(String(e?.message || e || 'Failed to fetch'), 'network_unreachable');
+  }
+}
+
 export const api = {
   register: (email: string, password: string, name?: string) =>
     request<ApiAuth>('/auth/register', { method: 'POST', body: JSON.stringify({ email, password, name }) }, false),

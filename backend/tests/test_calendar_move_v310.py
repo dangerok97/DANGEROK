@@ -155,13 +155,20 @@ def test_two_genuinely_different_commitments_are_not_refused():
     _run(body())
 
 
-def test_the_same_appointment_at_the_same_time_is_not_a_move():
+def test_the_same_appointment_at_the_same_time_is_the_one_already_there():
     """
-    Re-sending the same request is idempotency's business, not this guard's.
+    Non e' uno spostamento, ed e' quello di prima: sono due cose diverse.
 
-    Same name *and* same time is the same event asked for twice — the write
-    path already collapses that by effect hash. Calling it a move would send
-    the model to update something that does not need updating.
+    Qui c'era scritto che dello stesso nome alla stessa ora si occupava
+    l'idempotenza del percorso di scrittura, e non era vero fino in fondo.
+    Quella riconosce lo stesso atto dall'impronta dei suoi parametri — e fra
+    i parametri c'e' la fine. Su una vita vera la stessa frase detta due
+    volte a nove minuti di distanza ha prodotto due impegni identici, uno che
+    finiva alle 19:15 e uno alle 19:30: nessuno aveva chiesto una durata,
+    l'aveva scelta chi rispondeva, diversa le due volte.
+
+    Quindi lo stesso nome che comincia alla stessa ora torna, marcato per
+    quello che e': non un impegno da spostare, ma quello che c'e' gia'.
     """
     async def body():
         client, db = await _db()
@@ -175,7 +182,13 @@ def test_the_same_appointment_at_the_same_time_is_not_a_move():
             twin = await calendar_caps._already_have_one(
                 db, uid, title="Visita dentistica", start=when.isoformat(),
             )
-            assert twin is None
+            assert twin is not None, (
+                "lo stesso impegno chiesto due volte torna a essere due"
+            )
+            assert twin["id"] == "ced_uno"
+            assert twin.get("_starts_at_the_same_time") is True, (
+                "il chiamante lo tratterebbe come uno spostamento"
+            )
         finally:
             await _clean(db, uid)
             client.close()

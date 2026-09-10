@@ -168,3 +168,13 @@ try:
     ALL_ROUTERS.append(waiting_router)
 except Exception:
     pass
+
+# La voce di ORA (V3.13). Un endpoint che trasforma una risposta gia' decisa
+# in suono, dietro un contratto: chi chiama non sa da quale fornitore arrivi
+# la voce, e quando non arriva da nessuno parla il browser.
+try:
+    from voice.router import router as voice_router
+
+    ALL_ROUTERS.append(voice_router)
+except Exception:
+    pass

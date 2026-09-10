@@ -29,10 +29,16 @@ ricerca — e' un archivio con una casella di testo davanti.
 from __future__ import annotations
 
 import logging
+import os
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set
+from zoneinfo import ZoneInfo
 
 logger = logging.getLogger("ora.lifesearch.resolve")
+
+# Il fuso in cui vive chi fa la domanda. Non e' una scelta di prodotto: e'
+# l'unico in cui «alle dieci» vuol dire le dieci.
+_HOME_TZ = os.environ.get("ORA_DEFAULT_TZ", "Europe/Rome")
 
 # Quante righe si guardano al massimo per tipo, e quante se ne tengono.
 # Il primo numero e' il costo della ricerca, il secondo e' quello del
@@ -331,6 +337,7 @@ async def _calendar_and_mail(db, owner_id, anchors, words, found, wanted) -> Non
     try:
         rows = await db.ingestion_events.find(
             {"user_id": owner_id,
+             "ingestion_status": {"$ne": "superseded"},
              "source_record_type": {"$in": ["calendar_event", "email_message"]}},
             {"_id": 0, "normalized_payload": 1, "source_record_type": 1,
              "external_id": 1, "ingested_at": 1},
@@ -345,6 +352,14 @@ async def _calendar_and_mail(db, owner_id, anchors, words, found, wanted) -> Non
     for row in rows:
         payload = plain(row.get("normalized_payload"))
         is_event = row.get("source_record_type") == "calendar_event"
+        #     UN IMPEGNO ANNULLATO NON E' UN IMPEGNO.
+        #
+        # Alla domanda «che cosa avevi trovato sul dentista?» la risposta
+        # elencava tre visite: quella vera e due copie di prova che erano
+        # state annullate giorni prima. Chi legge non ha modo di saperlo, e
+        # da quando c'e' la voce se le sente anche leggere ad alta voce.
+        if is_event and str(payload.get("status") or "").lower() == "cancelled":
+            continue
         when = _moment(payload.get("starts_at") or payload.get("received_at"))
         # Il tempo non decide la pertinenza, ma la restringe quando la
         # domanda parla di tempo.
@@ -592,18 +607,34 @@ async def _changes(db, owner_id, words, found, wanted) -> None:
 
 
 def _as_people_say_it(when: Optional[datetime]) -> str:
-    """Una data come la direbbe qualcuno. Mai un ISO in faccia a nessuno."""
+    """
+    Una data come la direbbe qualcuno. Mai un ISO in faccia a nessuno.
+
+        NESSUNO VIVE IN UTC.
+
+    Le ore qui dentro sono conservate in UTC, ed e' giusto cosi'. Ma questa
+    riga finisce in una risposta — letta, e da quando c'e' la voce anche
+    detta ad alta voce — e «la visita e' oggi alle 08:00» per un appuntamento
+    delle dieci non e' un dettaglio di formato: e' un'ora sbagliata detta a
+    qualcuno che deve uscire di casa. E' successo, su una domanda vera.
+    """
     if when is None:
         return ""
-    days = (when.date() - datetime.now(timezone.utc).date()).days
+    try:
+        local = when.astimezone(ZoneInfo(_HOME_TZ))
+    except Exception:
+        local = when
+    days = (local.date() - datetime.now(timezone.utc).astimezone(
+        local.tzinfo or timezone.utc
+    ).date()).days
     if days == 0:
-        return f"oggi alle {when.strftime('%H:%M')}"
+        return f"oggi alle {local.strftime('%H:%M')}"
     if days == 1:
-        return f"domani alle {when.strftime('%H:%M')}"
+        return f"domani alle {local.strftime('%H:%M')}"
     if days == -1:
         return "ieri"
     if 1 < days <= 7:
         return f"fra {days} giorni"
     if -7 <= days < -1:
         return f"{abs(days)} giorni fa"
-    return when.strftime("%d/%m/%Y")
+    return local.strftime("%d/%m/%Y")
