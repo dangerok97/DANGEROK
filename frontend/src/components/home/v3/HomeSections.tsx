@@ -353,6 +353,22 @@ export function UpdatesFeed({
           <Text style={[styles.oppWhy, { color: colors.textTertiary }]} numberOfLines={3}>
             {o.why_now}
           </Text>
+          {/*
+            La meta' della frase per cui vale la pena leggere la riga: non
+            cosa e' successo, ma cosa ORA puo' farci. Compare solo quando c'e'
+            davvero qualcosa che ORA si e' offerta di fare — un'offerta
+            scritta per riempire lo spazio si riconosce, e costa la fiducia
+            di tutte le righe che verranno dopo.
+          */}
+          {o.what_ora_can_do ? (
+            <Text
+              style={[styles.oppOffer, { color: colors.textSecondary }]}
+              numberOfLines={2}
+              testID={`opportunity-offer-${o.id}`}
+            >
+              {o.what_ora_can_do}
+            </Text>
+          ) : null}
           <View style={styles.oppActions}>
             <Pressable
               onPress={() => onOpportunityOpen?.(o)}
@@ -621,6 +637,11 @@ const styles = StyleSheet.create({
   oppWhy: {
     fontSize: tokens.typography.bodySmall.fontSize,
     lineHeight: tokens.typography.bodySmall.lineHeight,
+  },
+  oppOffer: {
+    fontSize: tokens.typography.bodySmall.fontSize,
+    lineHeight: tokens.typography.bodySmall.lineHeight,
+    marginTop: 2,
   },
   oppActions: {
     flexDirection: 'row',

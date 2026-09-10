@@ -88,10 +88,24 @@ def _now() -> datetime:
 
 
 def _moment(value: Any) -> Optional[datetime]:
+    """
+    Un istante, sempre con il suo fuso.
+
+        DUE ORE SENZA FUSO NON SI POSSONO SOTTRARRE.
+
+    Un calendario scrive «2026-09-10T08:00:00+00:00»; una riga piu' vecchia
+    puo' averlo scritto senza fuso, e Python rifiuta di sottrarre le due —
+    con un TypeError che qui dentro non era una stranezza di formato ma il
+    motivo per cui l'intera comprensione si fermava: `interpret` sollevava, e
+    su un account vero duecentoventi segnali sono rimasti fermi per giorni,
+    letti e mai guardati. Chi non dichiara il proprio fuso lo si legge in
+    UTC: e' l'ipotesi che il resto del sistema fa gia' quando scrive.
+    """
     try:
-        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        found = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
     except Exception:
         return None
+    return found if found.tzinfo else found.replace(tzinfo=timezone.utc)
 
 
 async def candidates_for(

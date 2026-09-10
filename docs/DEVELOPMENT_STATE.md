@@ -1,5 +1,48 @@
 # ORA — Development State
 
+## AUTONOMY REALITY GATE — V3.2 / V3.7 / V3.8 / V3.9 — REALITY-TESTED & HARDENED
+
+**Non una versione nuova: quattro versioni già chiuse, provate su una vita
+vera e riparate dove si sono rotte.**
+
+    CODE RETRIEVES AND ENFORCES. AI UNDERSTANDS AND DECIDES.
+    NOT URGENT != NOT USEFUL.
+    NEVER ASK SOMEBODY TO DO INFORMATION WORK ORA CAN DO ITSELF.
+
+| Anello | Cosa si è rotto sull'account vero | Stato |
+|------|------|------|
+| segnale → comprensione | `interpret` moriva su un `datetime` senza fuso | riparato |
+| comprensione | il giro leggeva e non capiva mai | riparato |
+| fatti → giudizio | agenda di appuntamenti annullati, niente situazioni, niente denaro, niente disaccordi | riparato |
+| disaccordi | query che prendeva le righe nulle; riferimenti non citabili | riparato |
+| giudizio | «non è urgente» usato come ragione per tacere | riscritto |
+| iniziativa | nessuna scala: o silenzio o niente | `inform…blocked` |
+| domanda | chiedeva prima di guardare | prova, poi chiede |
+| riga ambient | «tutto tranquillo» sopra un'iniziativa aperta | stesso stato della card |
+
+**Cosa il codice possiede** — raccogliere i fatti veri (vivi, deduplicati, con
+la loro storia), tenere l'identità di una preoccupazione, imporre che ogni
+affermazione punti a un fatto esistente, portare il gradino scelto a valle,
+non far mai diventare `unavailable` un `silence`. **Cosa decide l'AI** — se
+qualcosa merita attenzione, quanto, fin dove spingersi, se una domanda serve
+ancora dopo aver guardato, e cosa scrivere.
+
+**Nessuna soglia di dominio.** Due guardie strutturali leggono l'albero dei
+file che decidono e falliscono se compare un numero che stabilisce se
+qualcosa conta, o una parola della vita di qualcuno.
+
+| Punto | Stato |
+|------|------|
+| Ciclo zero-prompt | gira dentro l'ambient runtime che c'era già |
+| Iniziative su vita reale | 2 nate, 1 ritirata da sola, 3 domini in silenzio |
+| Goal spam | nessuno: `recommend` resta una frase |
+| Autorità | leggere e preparare no; toccare il mondo sì |
+| Verifica interna | prima della domanda, sempre |
+| Prodotto target | **iOS**. Nessun lavoro specifico Android |
+
+**Prossimo: V3.13.**
+
+
 ## V3.12 — LIFE MAP & UNIVERSAL SEARCH — CLOSED
 
 **Il modello della vita, reso visibile, navigabile e interrogabile.**

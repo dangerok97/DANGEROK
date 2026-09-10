@@ -883,6 +883,16 @@ def test_the_contract_forbids_commercial_motives(monkeypatch):
 
 
 def test_the_contract_says_out_loud_that_facts_are_not_conclusions(monkeypatch):
+    """
+    Le due meta' della stessa disciplina, e servono tutte e due.
+
+    L'elenco originale — «un evento domani non e' un'opportunita', una
+    scadenza non e' un'opportunita'» — diceva bene la prima meta' e taceva la
+    seconda, e su una vita vera la seconda e' quella che mancava: che un fatto
+    non basti non vuol dire che non ci sia niente da dire. Adesso il contratto
+    dice tutte e due, e questo test guarda che nessuna delle due sparisca la
+    prossima volta che si riscrive.
+    """
     async def body():
         client, db = await _db()
         uid = f"u_op_{uuid.uuid4().hex[:8]}"
@@ -892,10 +902,13 @@ def test_the_contract_says_out_loud_that_facts_are_not_conclusions(monkeypatch):
             await (await _service(db)).scan(uid)
             system = model.seen[0]["system"]
             for line in (
-                "an event tomorrow is not an opportunity",
-                "a deadline is not an opportunity",
-                "being somewhere is not an opportunity",
+                # Un fatto non e' una conclusione.
+                "facts are not conclusions",
+                "none of those is worth saying on its own",
                 "Never invent a deadline",
+                # E non esserlo non vuol dire tacere.
+                "NOT URGENT IS NOT THE SAME AS NOT USEFUL",
+                "what happens to this person if nobody says it",
             ):
                 assert line in system, f"il contratto non dice: {line}"
         finally:

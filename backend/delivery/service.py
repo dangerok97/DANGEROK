@@ -593,10 +593,31 @@ class DeliveryService:
         """
         from delivery.reasoning import describe_ambient
 
+        # Cosa ORA ha deciso che merita attenzione, adesso. Non e' un secondo
+        # giudizio: e' esattamente lo stato che la consegna sta gia' usando
+        # per decidere cosa mettere in Home.
+        #
+        #     LA RIGA E LA CARD DEVONO VENIRE DALLA STESSA DECISIONE.
+        #
+        # Su uno schermo vero si sono contraddette: «due variazioni
+        # controllate oggi, tutto tranquillo» sopra, e sotto un'iniziativa che
+        # diceva che c'era un conflitto in calendario da chiarire. La riga era
+        # stata scritta qualche minuto prima dell'iniziativa ed era vera
+        # quando e' stata scritta — il che e' il modo peggiore di essere
+        # falsa, perche' nessuno l'aveva mai detta a voce alta.
+        standing = await self._what_is_standing(user_id)
+        fingerprint = [row["ref"] for row in standing]
+
         latest = await self.repo.latest_ambient(user_id)
-        if latest is not None and not _older_than(
-            latest.occurred_at, AMBIENT_REFRESH_HOURS
+        if (
+            latest is not None
+            and not _older_than(latest.occurred_at, AMBIENT_REFRESH_HOURS)
+            and list(
+                (latest.cognitive_provenance or {}).get("standing") or []
+            ) == fingerprint
         ):
+            # Stessa ora e stesso stato: la riga di prima e' ancora quella
+            # giusta. Se lo stato e' cambiato, l'ora non basta piu'.
             return latest
 
         recent = await self.repo.recent_activity(user_id, visibility="internal", limit=6)
@@ -622,6 +643,7 @@ class DeliveryService:
                     }
                     for a in recent
                 ],
+                "what_is_standing_right_now": standing,
                 "sources_it_could_not_check": blind,
                 "language": language,
             },
@@ -640,9 +662,32 @@ class DeliveryService:
             provenance={
                 "written_from": [a.id for a in recent][:6],
                 "sources_unavailable": blind,
+                # Con quale stato e' stata scritta, cosi' che quando lo stato
+                # cambia si sappia che questa riga non lo racconta piu'.
+                "standing": fingerprint,
             },
             visible=True,
         )
+
+    async def _what_is_standing(self, user_id: str) -> List[Dict[str, Any]]:
+        """
+        Quello che ORA ha gia' deciso di tenere davanti a questa persona.
+
+        Letto, non deciso: la stessa lista che Home rende. Serve perche' chi
+        scrive la riga sappia se in fondo alla schermata c'e' qualcosa che la
+        smentisce — non perche' debba giudicare di nuovo se c'e'.
+        """
+        try:
+            from opportunities.surfacing import SurfacingService
+
+            return [
+                {"ref": o.id, "what": o.semantic_summary[:140],
+                 "waiting_on_an_answer": o.requires_clarification}
+                for o in await SurfacingService(self.db).visible(user_id)
+            ][:4]
+        except Exception as e:
+            logger.info("standing read soft-fail: %s", type(e).__name__)
+            return []
 
     async def permission_moment(self, user_id: str) -> Optional[Dict[str, Any]]:
         """
