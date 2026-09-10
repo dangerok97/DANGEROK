@@ -35,6 +35,9 @@ import { requestForegroundPosition } from '@/src/location/foregroundGeo';
 import { FocusScreen } from '@/src/shell';
 import type { OraNavigationOption } from '@/src/components/ora/OraTurns';
 import { useTheme } from '@/src/theme/ThemeProvider';
+import { useVoice } from '@/src/voice/useVoice';
+import { useLiveVoice } from '@/src/voice/useLiveVoice';
+import { LiveVoiceScreen } from '@/src/voice/LiveVoiceScreen';
 import { tokens } from '@/src/theme/tokens';
 import { buildGoalWorkspaceHref, type OraEntryPoint } from '@/src/ora/oraNav';
 import { oraErrorMessage, useOraContext } from './conversationContext';
@@ -390,7 +393,12 @@ export function OraConversationScreen({
   const [error, setError] = useState<string | null>(null);
   const [boot, setBoot] = useState(Boolean(paramId));
   const [workingHint, setWorkingHint] = useState<string | null>(null);
-  const [micHint, setMicHint] = useState<string | null>(null);
+  /*
+    Se la conversazione comincia parlando, la sessione nasce con origine
+    «voice» — che il modello delle sessioni prevede da sempre. Non cambia
+    niente di quello che succede dopo: è provenienza, non comportamento.
+  */
+  const startedByVoice = useRef(false);
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const [locPermVisible, setLocPermVisible] = useState(false);
   const locPermResolver = useRef<((v: boolean) => void) | null>(null);
@@ -672,7 +680,6 @@ export function OraConversationScreen({
 
   const onAttach = useCallback(async () => {
     setError(null);
-    setMicHint(null);
     try {
       const picked = await pickOraAttachment();
       if (!picked) return;
@@ -832,7 +839,11 @@ export function OraConversationScreen({
           // explaining it could not read a file that had not been bound yet.
           res = await api.aiCoreStart({
             text: startText,
-            origin: entryPoint === 'home' ? 'home' : 'text',
+            origin: startedByVoice.current
+              ? 'voice'
+              : entryPoint === 'home'
+                ? 'home'
+                : 'text',
             entry_point: entryPoint,
             plan_id: planId || undefined,
             object_id: objectId || undefined,
@@ -852,7 +863,17 @@ export function OraConversationScreen({
           if (id) {
             res = await applyAiCoreResponse(res, id);
           }
-          if (id && !paramId) {
+          if (id && !paramId && !liveRef.current?.on) {
+            /*
+              La prima frase di una conversazione crea la sessione, e finora
+              subito dopo la schermata si spostava su `/ora/{id}` — che in
+              una conversazione scritta non si vede nemmeno, e in una parlata
+              rimonta tutto: la modalità vocale spariva a metà della prima
+              risposta, e la persona si ritrovava davanti alla chat senza aver
+              toccato niente. Finché si sta parlando, l'indirizzo aspetta: la
+              sessione è già in mano a questa schermata, e l'unica cosa che
+              cambierebbe è la barra dell'indirizzo.
+            */
             const q = new URLSearchParams({
               ...(planId ? { planId: String(planId) } : {}),
               ...(objectId ? { objectId: String(objectId) } : {}),
@@ -873,6 +894,10 @@ export function OraConversationScreen({
           res = await applyAiCoreResponse(res, sessionId);
         }
         applyTurns(res, clientMessageId, sessionId || res.session_id || null);
+        // Se la domanda è stata fatta a voce, la risposta si ascolta — ed è
+        // parola per parola quella che si legge sopra. Se è stata scritta,
+        // questo non fa niente.
+        liveRef.current?.answered(String(res.ora_text || res.question || ''));
         requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
       } catch (e: any) {
         // The turn is already on screen. Say plainly that it did not arrive
@@ -881,6 +906,9 @@ export function OraConversationScreen({
           prev.map((t) => (t.messageId === clientMessageId ? { ...t, failed: true } : t)),
         );
         setError(oraErrorMessage(e));
+        // Chi sta parlando a voce non vede l'errore scritto: senza questo
+        // resterebbe davanti a «Sto pensando» finché non tocca lo schermo.
+        liveRef.current?.stumbled();
       } finally {
         sendingRef.current = false;
         setBusy(false);
@@ -902,6 +930,50 @@ export function OraConversationScreen({
       applyTurns,
     ],
   );
+
+  /**
+   * Mandare delle parole a ORA, da qualunque parte arrivino.
+   *
+   *     STESSA CONVERSAZIONE, STESSA SESSIONE, STESSA AUTORITÀ.
+   *
+   * Quello che si dice e quello che si scrive passano di qui uguali. Una
+   * seconda strada per la voce sarebbe stata più facile da scrivere e sarebbe
+   * stata un secondo assistente: la stessa persona, con due memorie diverse a
+   * seconda di come ha aperto bocca.
+   */
+  const sendWords = useCallback(
+    async (words: string) => {
+      const msg = words.trim();
+      if (!msg || sendingRef.current) return;
+      sendingRef.current = true;
+      const clientMessageId = newClientMessageId();
+      setTurns((prev) => [...prev, { role: 'user', text: msg, messageId: clientMessageId }]);
+      outbox.current.set(clientMessageId, { text: msg, attachments: [] });
+      await dispatch(clientMessageId, { text: msg, attachments: [] });
+    },
+    [dispatch],
+  );
+
+  const voice = useVoice({
+    speak: (words) => {
+      startedByVoice.current = true;
+      return sendWords(words);
+    },
+    busy,
+  });
+  /*
+    La conversazione parlata passa per la stessa funzione del testo e della
+    dettatura. Non è un secondo assistente e non è una seconda sessione: è la
+    stessa, con la risposta detta ad alta voce invece che solo scritta.
+  */
+  const live = useLiveVoice({
+    speak: (words) => {
+      startedByVoice.current = true;
+      return sendWords(words);
+    },
+  });
+  const liveRef = useRef(live);
+  liveRef.current = live;
 
   const send = useCallback(async () => {
     const msg = text.trim();
@@ -992,7 +1064,12 @@ export function OraConversationScreen({
       onRemoveAttachment={(id) =>
         setAttachments((prev) => prev.filter((a) => a.localId !== id))
       }
-      onMicPress={() => setMicHint('La voce non è ancora disponibile.')}
+      onMicPress={voice.toggle}
+      onVoiceModePress={live.open}
+      listening={voice.state.phase === 'listening' || voice.state.phase === 'asking'}
+      speaking={live.state.phase === 'speaking'}
+      interim={voice.state.interim}
+      voiceHint={voice.hint}
       testID={`${testID}-composer`}
     />
   );
@@ -1000,9 +1077,6 @@ export function OraConversationScreen({
   const asides = (
     <>
       {error ? <OraError message={error} /> : null}
-      {micHint ? (
-        <Text style={[styles.micHint, { color: colors.textTertiary }]}>{micHint}</Text>
-      ) : null}
     </>
   );
 
@@ -1013,6 +1087,12 @@ export function OraConversationScreen({
         onAllow={() => resolveLocationPreference(true)}
         onDeny={() => resolveLocationPreference(false)}
       />
+      {/*
+        La modalità vocale sta sopra questa schermata, non al posto suo: la
+        conversazione continua a vivere qui sotto, e chiudendola i turni sono
+        già tutti al loro posto perché non sono mai stati altrove.
+      */}
+      <LiveVoiceScreen live={live} />
       {/*
         No offset, because there is nothing left to offset.
 
@@ -1114,5 +1194,4 @@ const styles = StyleSheet.create({
   startSpacerBottom: { flex: 3 },
   startIntro: { paddingHorizontal: tokens.spacing.lg },
   devBanner: { fontSize: 12, paddingBottom: 4 },
-  micHint: { fontSize: 13, lineHeight: 19, marginTop: tokens.spacing.md },
 });

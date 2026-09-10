@@ -219,13 +219,23 @@ const SESSION_ROUTE = 'app/ora/[sessionId].tsx';
 
 // ---------------------------------------------------------------------------
 // G — Composer and voice honesty
+//
+// La guardia qui sotto diceva che il microfono deve ammettere di non
+// funzionare, ed era la cosa giusta finché era un disegno. Adesso funziona, e
+// l'onestà che serve è l'altra: che non dica di ascoltare quando non può, e
+// che quello che si legge sotto venga dallo stato della voce e non da una
+// frase scritta a mano che nessuno aggiornerà mai.
 // ---------------------------------------------------------------------------
 {
   const screen = readCode(SCREEN);
   assert.ok(/placeholder="Scrivi a ORA…"/.test(screen), 'composer placeholder must be short and human');
   assert.ok(
-    /La voce non è ancora disponibile\./.test(screen),
-    'the mic must admit voice is not available, in plain words',
+    !/La voce non è ancora disponibile/.test(screen),
+    'the mic is real now: the old apology must not survive it',
+  );
+  assert.ok(
+    /voiceHint=\{voice\.hint\}/.test(screen),
+    'what a person reads under the mic must come from the voice state',
   );
   assert.ok(
     !/stesso motore|riconoscimento vocale/.test(screen),

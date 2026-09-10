@@ -1,5 +1,57 @@
 # ORA — Development State
 
+## V3.13 — SPRINT 1 — VOICE INTERFACE — CLOSED
+
+**La voce come modo di entrare, non come posto dove andare.**
+
+    VOICE IS NOT A SEPARATE ASSISTANT.
+    STESSO SIGNIFICATO, ALTRA FORMA.
+
+| Controllo | Cosa fa |
+|------|------|
+| microfono | detta un messaggio; ORA risponde per iscritto |
+| quattro barre | conversazione parlata: voce ↔ voce, ritorno automatico all'ascolto |
+
+**Cosa condividono** — sessione, Personal Life Model, agente, capacità,
+autorità, Life Search. Le parole dette passano da `sendWords`, la stessa
+funzione del testo; da lì in poi il percorso è uno solo.
+
+**Chi parla**
+
+| Livello | Chi | Quando |
+|------|------|------|
+| 1 | Gemini TTS, voce **Kore** | sempre che si possa |
+| 2 | `speechSynthesis` del browser | quando la prima non c'è o non ce la fa |
+| 3 | solo testo | quando non parla nessuno |
+
+Il contratto è `SpeechOutputProvider` (`speak`, `stop`, `is_available`).
+Nessuna schermata conosce il nome del fornitore, e un test lo verifica.
+
+**Correzioni entrate con questo sprint**
+
+| Difetto | Stato |
+|------|------|
+| la conversazione non raggiungeva la ricerca della Vita | `search_my_life` |
+| orizzonte temporale fisso a 7 giorni | lo decide la domanda |
+| impegni annullati e letture superate nella ricerca | filtrati |
+| ore rese in UTC | fuso della persona |
+| stesso impegno chiesto due volte → due eventi | uno, e lo dice |
+| «ho aggiunto» per una cosa già in agenda | `created_now: false` |
+| voce che guardava un solo account | catena di chiavi |
+| risposte in ritardo che riaprivano l'ascolto | ogni giro ha il suo numero |
+
+| Punto | Stato |
+|------|------|
+| Percorso vocale su PC | **verificato** (microfono e altoparlante reali) |
+| Voce Kore | **ascoltata e confermata** |
+| QA fisico su iPhone | **da fare** — non blocca lo Sprint 1 |
+| Barge-in a voce (interrompere parlandole sopra) | debito dichiarato |
+| Streaming TTS | non verificato |
+| Prodotto target | **iOS**. Nessun lavoro specifico Android |
+
+**Prossimo: V3.13 Sprint 2.**
+
+
 ## AUTONOMY REALITY GATE — V3.2 / V3.7 / V3.8 / V3.9 — REALITY-TESTED & HARDENED
 
 **Non una versione nuova: quattro versioni già chiuse, provate su una vita

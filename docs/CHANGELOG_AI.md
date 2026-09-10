@@ -1,5 +1,69 @@
 # ORA — AI Changelog
 
+## 2026-09-11 — V3.13 SPRINT 1 — VOICE INTERFACE — CLOSED
+
+Parlare con ORA, e sentirsi rispondere.
+
+    LA VOCE NON È UN SECONDO ASSISTENTE.
+
+Due modi di aprire bocca, e sono due cose diverse. Il **microfono** detta: si
+parla invece di scrivere, le parole finiscono nel campo di sempre e ORA
+risponde per iscritto — chi detta un messaggio in un posto pubblico non si
+aspetta che la risposta gli parli. Le **quattro barre** accanto aprono una
+conversazione parlata: lei ascolta, pensa, risponde a voce e torna ad
+ascoltare da sola, finché non la si chiude.
+
+Sotto è la stessa ORA. Stessa sessione, stesso modello della vita, stesso
+agente, stesse capacità, stessa autorità. Una frase detta passa dalla stessa
+funzione di una frase scritta, e da lì in poi esiste un percorso solo: se un
+giorno comparisse un ramo che guarda da dove arrivano le parole, un test se ne
+accorge.
+
+**La voce è Kore**, scelta ascoltando sei campioni della stessa frase
+italiana. Il codice ne aveva proposta un'altra leggendo la descrizione che il
+fornitore pubblica — un modo educato di tirare a indovinare — e la differenza
+fra le due cose è tutta qui.
+
+**Perché per settimane si è sentita solo la voce di sistema.** Il ragionamento
+del prodotto prova due account Google e passa al secondo quando il primo
+finisce il credito; la voce ne guardava uno solo, quello esaurito, e concludeva
+ogni volta che nessuno poteva parlare. Il secondo aveva credito e i modelli
+giusti, e non gli è mai stato chiesto niente. Due righe di catena.
+
+**Chi parla sta dietro un contratto.** `SpeechOutputProvider` dice solo: sai
+dire questa frase, sai smettere, adesso puoi. Sopra non c'è niente che sappia
+il nome di chi sta parlando, e quando non ce la fa nessuno la risposta resta
+scritta — che è sempre la stessa risposta.
+
+**Detto non è letto.** «Il 20/09 alle 06:00» diventa «il venti settembre alle
+sei»; «4.000 €» diventa «quattromila euro». Un codice come `PNR VPKY35` resta
+com'è, perché a parole non lo riconoscerebbe nessuno. Non si aggiunge e non si
+toglie niente: è la stessa frase, scritta per essere detta.
+
+**Difetti trovati parlando, e nessuno era della voce.** «Che cosa avevi
+trovato sul dentista?» rispondeva che non risultava niente, mentre ORA aveva
+l'appuntamento, due mail dello studio e il disaccordo sull'orario: la
+conversazione poteva raggiungere solo memorie e note, e la ricerca della Vita
+non era fra i suoi strumenti. «Quando parto per Vibo?» rispondeva che non
+risultava nessuna partenza, mentre era in calendario a dieci giorni: lo
+strumento, senza un intervallo, guardava una settimana — adesso è la domanda a
+dire quanto lontano guardare. La stessa frase detta due volte a nove minuti di
+distanza metteva in calendario due impegni identici con durate diverse. E le
+ore uscivano in UTC: «la visita è oggi alle 08:00» per un appuntamento delle
+dieci, detto ad alta voce a qualcuno che deve uscire di casa.
+
+**Verificato sul PC, con microfono e altoparlante veri:** dettatura,
+conversazione parlata, voce Kore ascoltata, ritorno automatico all'ascolto,
+interruzione col tocco, uscita con la conversazione intatta.
+
+**Resta da fare sull'iPhone fisico:** microfono in Safari, riproduzione,
+autoplay, AirPods e instradamento audio, tastiera, safe area, blocco schermo.
+
+Prossimo: **V3.13 Sprint 2**. Più avanti nella roadmap: agente
+vocale/telefonico nazionale con chiamate reali previa autorizzazione esplicita
+della persona. Prodotto target: iOS.
+
+
 ## 2026-09-10 — AUTONOMY REALITY GATE — V3.2 / V3.7 / V3.8 / V3.9 REALITY-TESTED
 
 Niente di nuovo da vedere: quello che c'era già, messo davanti a una vita vera

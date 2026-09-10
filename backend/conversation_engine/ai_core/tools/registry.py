@@ -43,6 +43,49 @@ class ToolRegistry:
         )
         self.register(
             CapabilitySpec(
+                capability="search_my_life",
+                description=(
+                    "Look through everything ORA knows about this person's own "
+                    "life and report what it finds: the situations they have "
+                    "open, what ORA has established as true, their documents "
+                    "and messages, appointments, money, what changed lately, "
+                    "questions ORA asked and things two sources disagree "
+                    "about — with how ORA came to know each one. "
+                    "Use it whenever the question is about what ORA knows, "
+                    "remembers or has already worked out about something in "
+                    "their life: «cosa sai di…», «che cosa avevi trovato "
+                    "su…», «come sono messo con…», «che fine ha fatto…», or "
+                    "any reference back to something ORA raised before. "
+                    "`search_life_memory` reaches only stored memories and "
+                    "notes, which is a small corner of this — a question "
+                    "answered from there alone will honestly report that "
+                    "nothing is known while the appointment, the message and "
+                    "the document all sit somewhere else. Pass the subject in "
+                    "the person's own words."
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": (
+                                "What to look for, in their words — «il "
+                                "dentista», «la casa», «il viaggio a settembre»"
+                            ),
+                        },
+                    },
+                    "required": ["query"],
+                },
+                classification="personal",
+                side_effect="READ_ONLY",
+                freshness="fresh",
+                risk="read",
+                handler=self._search_my_life,
+                tags=["life", "memory", "retrieval"],
+            )
+        )
+        self.register(
+            CapabilitySpec(
                 capability="get_profile_snapshot",
                 description=(
                     "Fetch a small high-confidence snapshot of the user's "
@@ -846,16 +889,38 @@ class ToolRegistry:
                 capability="get_calendar_events",
                 description=(
                     "Read the user's own local calendar record — events ORA manages plus "
-                    "already-synced Google events — in a bounded time window (default the "
-                    "next few days if unspecified, capped). Returns canonical refs, times, "
-                    "timezone and a bounded list of overlapping-time pairs as raw evidence. "
+                    "already-synced Google events — in a bounded time window. Returns "
+                    "canonical refs, times, timezone and a bounded list of "
+                    "overlapping-time pairs as raw evidence. "
                     "Never a live Google call. Use this before proposing a new event, before "
                     "an update/cancel, or whenever the user's temporal situation is unclear — "
-                    "not for every turn."
+                    "not for every turn. "
+                    "Say how far to look with `when`, because the question decides it: "
+                    "«cosa ho oggi» is not the same reach as «quando parto» or «quando ho "
+                    "il prossimo appuntamento con…», and a window that does not match the "
+                    "question returns nothing and reads as «it is not in your calendar». "
+                    "Left unsaid, it looks at the next few days only."
                 ),
                 input_schema={
                     "type": "object",
                     "properties": {
+                        "when": {
+                            "type": "string",
+                            "enum": [
+                                "today",
+                                "tomorrow",
+                                "next_days",
+                                "next_occurrence",
+                                "broad_future",
+                            ],
+                            "description": (
+                                "How far this question reaches. `next_occurrence` for "
+                                "«quando…» — the next time this thing happens, however "
+                                "far off; `broad_future` for «cosa ho in programma»; "
+                                "`next_days` for the coming week. Ignored when time_min "
+                                "or time_max are given."
+                            ),
+                        },
                         "time_min": {"type": "string", "description": "ISO 8601, optional"},
                         "time_max": {"type": "string", "description": "ISO 8601, optional"},
                     },
@@ -1181,6 +1246,69 @@ class ToolRegistry:
                 "memory_eligible": False,
             },
             provenance=[f.ref for f in facts if f.ref],
+        )
+
+    async def _search_my_life(
+        self, arguments: Dict[str, Any], runtime: Dict[str, Any]
+    ) -> Observation:
+        """
+        La stessa ricerca della Vita, chiamata da una conversazione.
+
+            SAME ORA = SAME LIFE KNOWLEDGE.
+
+        Trovato chiedendo a voce «che cosa avevi trovato sul dentista?»: ORA
+        ha risposto che non aveva nessuna informazione su un dentista, mentre
+        di quel dentista aveva l'appuntamento, due mail dello studio, il
+        disaccordo sull'orario e un'iniziativa che aveva prodotto lei stessa
+        il giorno prima. Nessuno stava mentendo: la conversazione poteva
+        raggiungere soltanto memorie e note, e li' dentro davvero non c'era
+        niente.
+
+        Qui non nasce nessun motore di ricerca: si chiama quello di V3.12,
+        con le stesse relazioni, la stessa cache e la stessa provenienza. Il
+        risultato arriva com'e' — gruppi, come ORA lo sa, e i conflitti tenuti
+        separati — perche' che farsene e' una domanda per chi ragiona.
+        """
+        uid = runtime.get("user_id") or ""
+        query = str(arguments.get("query") or "").strip()
+        if not query:
+            return Observation(
+                kind="tool", name="search_my_life", status="partial",
+                payload={"status": "needs_information",
+                         "reason": "Serve sapere di cosa cercare."},
+            )
+        try:
+            from lifesearch.search import search_a_life
+
+            found = await search_a_life(self.db, uid, query)
+        except Exception as e:
+            logger.info("life search soft-fail: %s", type(e).__name__)
+            return Observation(
+                kind="tool", name="search_my_life", status="failed",
+                payload={"status": "unavailable"},
+            )
+
+        # `_qa` e' per chi misura, non per chi ragiona: resta fuori.
+        refs: list = []
+        for section in found.get("risultati") or []:
+            for row in section.get("cosa_c_e") or []:
+                ref = row.get("ref") or row.get("id")
+                if ref:
+                    refs.append(str(ref))
+        return Observation(
+            kind="tool",
+            name="search_my_life",
+            status="ok",
+            payload={
+                "what_i_looked_for": found.get("che_cosa_cerchi") or query,
+                "in_a_few_lines": found.get("in_sintesi"),
+                "found": found.get("risultati") or [],
+                "two_sources_disagree": found.get("in_conflitto") or [],
+                "found_nothing": bool(found.get("niente_trovato")),
+                "grounding": "PERSONAL_CONTEXT",
+                "memory_eligible": False,
+            },
+            provenance=refs[:12],
         )
 
     async def _get_profile_snapshot(
