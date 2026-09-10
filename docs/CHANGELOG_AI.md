@@ -1,5 +1,101 @@
 # ORA — AI Changelog
 
+## 2026-09-10 — AUTONOMY REALITY GATE — V3.2 / V3.7 / V3.8 / V3.9 REALITY-TESTED
+
+Niente di nuovo da vedere: quello che c'era già, messo davanti a una vita vera
+per la prima volta, e riparato dove si è rotto.
+
+    LA CATENA VALE QUANTO IL SUO ANELLO PIÙ SILENZIOSO.
+
+L'agente autonomo (V3.9), l'ambient runtime (V3.8), le opportunità (V3.7) e
+l'orchestrazione (V3.2) passavano tutti i loro test. Su un account vero, con
+duecentoventi segnali letti e un dentista in agenda, ORA non diceva niente —
+e ogni singolo pezzo, interrogato da solo, rispondeva che stava funzionando.
+
+**Dove si spezzava, in ordine di scoperta.**
+
+*Due ore senza fuso non si possono sottrarre.* Un `datetime` naive confrontato
+con uno consapevole faceva morire l'intera comprensione al primo segnale. Non
+era prudenza: era un crash silenzioso, e duecentoventi segnali sono rimasti
+letti e mai guardati per giorni.
+
+*Il giro leggeva e non capiva.* Sincronizzava le sorgenti e finiva lì: la
+comprensione partiva solo da una conversazione. Adesso lo stesso giro, dopo
+una lettura che porta righe nuove — e anche per chi ha arretrato — prova a
+capire. Nessuno scheduler nuovo.
+
+*Il giudizio guardava una vita che non poteva vedere.* Lo snapshot su cui si
+decide se c'è qualcosa da dire leggeva `calendar_events`, vuota da V3.10; non
+conteneva le situazioni aperte, né i soldi, né i disaccordi fra fonti. E
+l'agenda che ci arrivava era fatta di appuntamenti annullati: quattro copie
+morte della stessa visita e un evento di prova. Chi guarda quell'agenda non
+può che concludere che non c'è niente di serio.
+
+*I disaccordi non arrivavano mai.* La query li chiedeva con `$ne: []`, che
+prende anche le righe col campo nullo — e sono quasi tutte. Il conflitto vero
+— una mail che diceva un'ora e il calendario che ne diceva un'altra per quel
+giorno stesso, registrato da quattro giorni — restava fuori. E i riferimenti
+di un disaccordo non erano prove citabili, quindi anche arrivandoci sarebbe
+stato scartato per «nessun fatto reale a sostegno».
+
+**E poi il criterio, che era la vera causa.** L'istruzione diceva sei volte
+che il silenzio è la risposta normale e una sola volta cosa lo renderebbe
+sbagliato. Da lì: «gli impegni futuri sono già noti nel calendario e non
+richiedono azioni immediate». Ogni parola vera, la conclusione sbagliata.
+
+    NOT URGENT != NOT USEFUL.
+    «È GIÀ NEL CALENDARIO» != «LO SA».
+
+Il silenzio resta una risposta valida e non costa niente, ma ha una sola
+ragione ammessa: che niente qui aiuterebbe. Non che niente sia urgente, non
+che sia già scritto da qualche parte, non che se la cavi da sola. Prima di
+tacere si passa per quattro domande: se sto zitto rischia di dimenticare, di
+arrivare impreparata, di regolarsi su due fatti che si contraddicono? So
+nominare un passo concreto? È probabile che non l'abbia già risolto da sé? Ne
+vale l'interruzione?
+
+**Fin dove ORA si spinge, lo dice lei.** `inform · recommend · prepare ·
+do_it · ask_authority · blocked`, scelto dal giudizio e portato dal codice
+fino a chi decide se ne nasce un lavoro — così una frase utile non diventa una
+commissione. Il silenzio è il gradino zero e non lascia righe dietro di sé.
+
+**Prova prima di chiedere.** Una card che dice «posso verificare l'orario» e
+nella riga dopo chiede alla persona a che ora parte è una promessa e il suo
+contrario nello stesso respiro. Adesso, prima che una domanda arrivi a
+qualcuno, ORA rilegge quello che ha già in casa su quel punto — le letture
+successive di un impegno, le copie omonime con il loro stato, le note che
+qualcuno ha già scritto e di quale riga parlavano — e prova a rispondersi da
+sola. Se ci riesce la domanda sparisce; se non ci riesce resta, ma diventa la
+cosa minima che manca davvero, e accanto le va cosa ORA ha guardato. Leggere
+non è un effetto e non chiede il permesso di nessuno.
+
+**La riga e la card vengono dalla stessa decisione.** Su uno schermo vero si
+sono contraddette: «due variazioni controllate oggi, tutto tranquillo» sopra,
+e sotto un'iniziativa che diceva che c'era un conflitto da chiarire. La riga
+era stata scritta pochi minuti prima ed era vera quando fu scritta — il modo
+peggiore di essere falsa. Adesso chi la scrive riceve la stessa lista che Home
+rende, e una riga tranquilla non sopravvive alla nascita di un'iniziativa.
+
+**Cosa fa adesso, senza che le si scriva niente.** Ha trovato che una mail
+dello studio dentistico diceva un'ora diversa da quella in agenda per quella
+mattina, e l'ha detto con il passo successivo e cosa poteva farci lei. Ha
+trovato che per la partenza del 20 c'erano due voci in calendario, ha
+verificato da sola cosa c'era scritto, e ha chiesto l'unica cosa che restava
+davvero a lei. Del dentista si è ritirata da sola qualche ora dopo: «è già
+passato, non è più utile intervenire». Su casa, denaro e studio ha taciuto.
+
+**Un difetto trovato dalla verifica stessa.** Al primo tentativo ORA ha
+concluso che il viaggio di andata era stato annullato — falso: di quel viaggio
+il calendario teneva quattro copie, tre annullate e una viva, e le note di
+annullamento erano appese alla riga viva. «È stato annullato» è una frase su
+una riga, non su un viaggio. Adesso accanto a una riga arrivano le sue
+omonime, con il loro stato, e ogni nota dice di quale riga stava parlando.
+
+Prossimo: **V3.13**. Più avanti nella roadmap: agente vocale/telefonico
+nazionale con chiamate reali previa autorizzazione esplicita della persona.
+Prodotto target: iOS.
+
+
 ## 2026-09-10 — V3.12 LIFE MAP & UNIVERSAL SEARCH — CLOSED
 
 Cercare dentro la propria vita, non dentro un archivio.

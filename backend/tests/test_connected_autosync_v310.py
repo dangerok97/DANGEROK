@@ -272,7 +272,14 @@ def test_a_new_message_becomes_a_signal_with_nobody_pressing_anything(monkeypatc
             ).to_list(5)
             assert len(signals) == 1
             assert signals[0]["source_type"] == "email"
-            assert signals[0]["status"] == "pending"
+            # Lo stato non e' piu' fisso su «in attesa»: lo stesso giro che
+            # legge prova anche a capire, e a seconda di cosa risponde il
+            # giudizio il segnale resta in attesa, viene messo da parte come
+            # rumore, o passa avanti. Quello che questo test difende e' che
+            # il segnale esista senza che nessuno abbia premuto niente.
+            assert signals[0]["status"] in (
+                "pending", "skipped", "interpreted", "passed_on",
+            )
 
             # And the mailbox now says when it was read, and from where to
             # resume.

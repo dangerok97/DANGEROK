@@ -72,6 +72,9 @@ async def build(
         ("routines", _routines),
         ("open_comparisons", _comparisons),
         ("calendar", _calendar),
+        ("situations", _situations),
+        ("disagreements", _disagreements),
+        ("money", _money),
         ("existing_work", _existing_work),
     ):
         try:
@@ -309,6 +312,8 @@ async def _calendar(db, user_id: str, now: datetime) -> List[Dict[str, Any]]:
     is coming.
     """
     horizon = now + timedelta(days=HORIZON_DAYS)
+    out: List[Dict[str, Any]] = []
+
     rows = await db.calendar_events.find(
         {
             "user_id": user_id,
@@ -316,16 +321,240 @@ async def _calendar(db, user_id: str, now: datetime) -> List[Dict[str, Any]]:
         },
         {"_id": 0, "id": 1, "title": 1, "start_at": 1, "end_at": 1, "all_day": 1},
     ).sort("start_at", 1).to_list(MAX_PER_SOURCE)
-    return [
-        {
+    for r in rows:
+        out.append({
             "ref": r.get("id"),
             "title": (r.get("title") or "")[:120],
             "starts_at": r.get("start_at"),
             "in_days": _days_from_now(r.get("start_at"), now),
             "all_day": bool(r.get("all_day")),
+        })
+
+    # E quelli che arrivano dal calendario collegato.
+    #
+    #     UNA VITA LETTA E POI NON GUARDATA E' UNA VITA CHE ORA NON HA.
+    #
+    # Gli appuntamenti di questa persona vivono in `ingestion_events` da
+    # V3.10; qui si leggeva soltanto `calendar_events`, che su un account
+    # vero e' vuota. Il risultato: ORA decideva se ci fosse qualcosa da dire
+    # guardando un'agenda vuota, e taceva — con ragione, e senza sapere che
+    # domani mattina c'e' il dentista.
+    seen = {str(r.get("ref") or "") for r in out}
+    for row in await _appointments_that_still_stand(db, user_id, now, horizon):
+        if row["ref"] in seen:
+            continue
+        seen.add(row["ref"])
+        out.append({
+            "ref": row["ref"],
+            "title": row["title"],
+            "starts_at": row["starts_at"],
+            "in_days": _days_from_now(row["starts_at"], now),
+            "all_day": row["all_day"],
+        })
+
+    out.sort(key=lambda r: str(r.get("starts_at") or ""))
+    return out[:MAX_PER_SOURCE]
+
+
+async def _appointments_that_still_stand(
+    db, user_id: str, now: datetime, horizon: datetime,
+) -> List[Dict[str, Any]]:
+    """
+    Gli impegni che esistono davvero, dal calendario collegato.
+
+        UN IMPEGNO ANNULLATO NON E' UN IMPEGNO.
+        LO STESSO IMPEGNO SCRITTO QUATTRO VOLTE E' UNO.
+
+    Questo leggeva tutto: annullati, sostituiti, copie. Su un account vero il
+    risultato era che le sei righe di agenda che il giudizio riceveva erano
+    quattro fantasmi della stessa visita e un evento di prova — e l'unica
+    visita che esiste davvero ci stava dentro per caso, indistinguibile dalle
+    altre. Chi guarda quell'agenda non puo' che concludere che non c'e'
+    niente di serio.
+
+    Cosa resta fuori e' un fatto sulla riga, mai un'opinione sul significato:
+    annullato, superato da una lettura piu' recente, o gia' presente identico.
+    Cosa NON viene tolto: due impegni vivi che dicono ore diverse per la
+    stessa cosa. Quelli restano tutti e due, uno accanto all'altro, perche'
+    accorparli sarebbe il codice a scegliere quale delle due ore e' quella
+    giusta — che e' esattamente la domanda che va lasciata a chi ragiona.
+    """
+    try:
+        from ingestion.reading import plain
+
+        rows = await db.ingestion_events.find(
+            {
+                "user_id": user_id,
+                "source_record_type": "calendar_event",
+                "ingestion_status": {"$ne": "superseded"},
+            },
+            {"_id": 0, "external_id": 1, "normalized_payload": 1, "ingested_at": 1},
+        ).sort("ingested_at", -1).to_list(400)
+    except Exception as e:
+        logger.info("calendar read soft-fail: %s", type(e).__name__)
+        return []
+
+    out: List[Dict[str, Any]] = []
+    by_ref: set = set()
+    same_thing: set = set()
+    for row in rows:
+        payload = plain(row.get("normalized_payload"))
+        starts = str(payload.get("starts_at") or "")
+        if not starts or not (now.isoformat()[:19] <= starts <= horizon.isoformat()):
+            continue
+        if str(payload.get("status") or "").lower() == "cancelled":
+            continue
+        ref = str(row.get("external_id") or "")
+        title = str(payload.get("title") or "").strip()[:120]
+        if not ref or not title or ref in by_ref:
+            continue
+        # La stessa cosa alla stessa ora, arrivata due volte, e' una cosa.
+        twice = (title.lower(), starts)
+        if twice in same_thing:
+            continue
+        by_ref.add(ref)
+        same_thing.add(twice)
+        out.append({
+            "ref": ref,
+            "title": title,
+            "starts_at": starts,
+            "all_day": len(starts) == 10
+            or str(payload.get("all_day") or "").lower() == "true",
+        })
+    out.sort(key=lambda r: r["starts_at"])
+    return out
+
+
+async def _situations(db, user_id: str, now: datetime) -> List[Dict[str, Any]]:
+    """
+    Le parti di vita aperte di questa persona, e cosa non si sa ancora di esse.
+
+        NON SI PUO' DECIDERE SE QUALCOSA CONTA SENZA SAPERE COSA STA
+        SUCCEDENDO.
+
+    Erano assenti: il giudizio riceveva ora, luogo e agenda, e nessuna delle
+    situazioni su cui questa persona sta effettivamente vivendo. Un acquisto
+    di casa senza indirizzo non poteva essere notato da nessuno, perche'
+    nessuno lo stava guardando.
+    """
+    try:
+        rows = await db.life_objects.find(
+            {"user_id": user_id, "status": {"$ne": "archived"}},
+            {"_id": 0, "id": 1, "title": 1, "type": 1, "ai_summary": 1,
+             "next_reasoning": 1},
+        ).to_list(MAX_PER_SOURCE)
+    except Exception as e:
+        logger.info("situation read soft-fail: %s", type(e).__name__)
+        return []
+
+    out: List[Dict[str, Any]] = []
+    for row in rows:
+        if not row.get("title"):
+            continue
+        out.append({
+            "ref": row["id"],
+            "what_it_is": str(row["title"])[:100],
+            "kind": row.get("type") or "",
+            "in_a_line": str(row.get("ai_summary") or "")[:200],
+            # Quello che ORA stessa ha gia' scritto di non sapere. E' la cosa
+            # piu' utile della riga: e' una domanda aperta, non una lacuna.
+            "still_unclear": str(row.get("next_reasoning") or "")[:160],
+        })
+    return out
+
+
+async def _disagreements(db, user_id: str, now: datetime) -> List[Dict[str, Any]]:
+    """
+    Dove due fonti dicono cose diverse della stessa cosa, e nessuno ha scelto.
+
+        IL CODICE NON SCEGLIE QUALE FONTE DICE IL VERO — E QUALCUNO DEVE
+        SAPERLO.
+
+    Un appuntamento che il calendario mette alle 08:00 e una mail che parla
+    delle 11:00 sono la cosa piu' utile che ORA possa dire a qualcuno la sera
+    prima. Il Connected Life li registra gia' come disaccordo; qui dentro non
+    arrivavano, e il giudizio decideva se ci fosse qualcosa da dire senza
+    sapere che c'era un orario in dubbio per domattina.
+    """
+    try:
+        rows = await db.connected_situation_links.find(
+            # `$ne: []` prende anche le righe dove il campo e' nullo, ed erano
+            # quasi tutte: sei righe lette, quattro vuote, e il disaccordo
+            # vero — la mail che dice un'ora e il calendario che ne dice
+            # un'altra per oggi — restava fuori perche' deciso qualche giorno
+            # prima. Qui si chiedono le righe che un disaccordo ce l'hanno.
+            {"owner_id": user_id, "disagreements.0": {"$exists": True}},
+            {"_id": 0, "id": 1, "target_ref": 1, "reason_summary": 1,
+             "disagreements": 1, "decided_at": 1},
+        ).sort("decided_at", -1).to_list(60)
+    except Exception as e:
+        logger.info("disagreement read soft-fail: %s", type(e).__name__)
+        return []
+
+    # Un disaccordo su qualcosa che deve ancora succedere e' una cosa che si
+    # puo' ancora chiarire; uno su qualcosa che e' passato e' un archivio.
+    # Quale sia quale e' una data, non un giudizio: prima quelli sugli
+    # impegni che stanno ancora in piedi.
+    horizon = now + timedelta(days=HORIZON_DAYS)
+    try:
+        ahead = {
+            r["ref"]
+            for r in await _appointments_that_still_stand(db, user_id, now, horizon)
         }
-        for r in rows
-    ]
+    except Exception:
+        ahead = set()
+    rows.sort(key=lambda r: str(r.get("target_ref") or "") not in ahead)
+
+    out: List[Dict[str, Any]] = []
+    for row in rows:
+        for said in (row.get("disagreements") or [])[:2]:
+            out.append({
+                "ref": str(row.get("id") or ""),
+                "about": str(row.get("reason_summary") or "")[:200],
+                "one_source_says": str(said.get("what_this_source_says") or "")[:120],
+                "the_other_says": str(said.get("what_the_other_says") or "")[:120],
+                "how_the_first_knows": str(said.get("how_this_source_knows") or "")[:80],
+                "how_the_other_knows": str(said.get("how_the_other_knows") or "")[:80],
+                "nobody_has_chosen": True,
+            })
+    return out[:MAX_PER_SOURCE]
+
+
+async def _money(db, user_id: str, now: datetime) -> Dict[str, Any]:
+    """
+    Cosa ORA sa dei soldi di questa persona, con i gradi intatti.
+
+    Non un saldo e non una previsione: quello che e' governato, quello che e'
+    stato solo letto, quello su cui serve una parola. Un pagamento che pesa
+    sul mese e' un fatto che puo' meritare attenzione, e finora il giudizio
+    non lo vedeva affatto.
+    """
+    try:
+        from financial.knowledge import what_ora_knows
+
+        said = await what_ora_knows(db, user_id)
+    except Exception as e:
+        logger.info("money read soft-fail: %s", type(e).__name__)
+        return {}
+
+    def names(rows):
+        # Limitata come ogni altra fonte: uno snapshot che cresce con la vita
+        # di chi lo usa smette di essere uno snapshot.
+        return [
+            {"what": str(r.get("cosa") or "")[:80],
+             "how_much": str(r.get("quanto") or "")[:40],
+             "how_i_know": str(r.get("come_lo_so") or "")[:80]}
+            for r in rows[:MAX_PER_SOURCE]
+        ]
+
+    bank = said.get("la_banca") or {}
+    return {
+        "what_ora_knows": names(said.get("so") or []),
+        "what_ora_only_read": names(said.get("ho_letto") or []),
+        "waiting_on_them": names(said.get("devo_chiederti") or []),
+        "can_read_the_account_now": bool(bank.get("posso_leggere_adesso")),
+        "this_month_so_far": said.get("questo_mese") or {},
+    }
 
 
 def _days_from_now(when: Optional[str], now: datetime) -> Optional[int]:
@@ -398,6 +627,8 @@ def evidence_refs(snapshot: Dict[str, Any]) -> Dict[str, str]:
     take("routine", snapshot.get("routines"))
     take("comparison", snapshot.get("open_comparisons"))
     take("calendar_event", snapshot.get("calendar"))
+    take("life_object", snapshot.get("situations"))
+    take("disagreement", snapshot.get("disagreements"))
     take("existing_work", snapshot.get("existing_work"))
 
     presence = snapshot.get("presence") or {}

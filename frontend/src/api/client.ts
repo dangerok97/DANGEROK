@@ -2705,6 +2705,8 @@ export type HomeOpportunity = {
   id: string;
   title: string;
   why_now: string;
+  /** Cosa ORA si e' offerta di fare. Assente quando la risposta onesta e' niente. */
+  what_ora_can_do?: string | null;
   question?: string | null;
   seen?: boolean;
 };

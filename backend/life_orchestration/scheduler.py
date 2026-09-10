@@ -392,6 +392,12 @@ async def _consider_goals(user_id: str, scan: Any) -> None:
                     "why_now": opportunity.why_now or None,
                     "waiting_on_an_answer": opportunity.requires_clarification,
                     "the_question": opportunity.clarifying_question or None,
+                    # Fin dove si era spinto chi ha deciso di parlarne, e cosa
+                    # si era offerto di fare. Non vincola questa decisione:
+                    # e' l'informazione che le mancava per non trasformare
+                    # una frase utile in un lavoro che nessuno voleva.
+                    "how_far_ora_meant_to_go": opportunity.initiative,
+                    "what_ora_offered_to_do": opportunity.what_ora_can_do or None,
                 },
                 origin="agent_initiated",
                 opportunity_id=opportunity.id,

@@ -129,6 +129,15 @@ BACKOFF_CAP_MINUTES = 60
 TICK_BUDGET_SECONDS = float(os.environ.get("CONNECTED_TICK_BUDGET_SECONDS", "12"))
 MAX_PER_TICK = int(os.environ.get("CONNECTED_MAX_PER_TICK", "40"))
 
+# Quante persone e quanti segnali si prova a *capire* per giro.
+#
+#     LEGGERE NON E' CAPIRE.
+#
+# Piccolo di proposito: capire costa un giudizio, e un arretrato si smaltisce
+# in piu' passaggi invece che in una fattura sola.
+UNDERSTAND_PER_TICK = int(os.environ.get("CONNECTED_UNDERSTAND_PER_TICK", "2"))
+UNDERSTAND_PER_OWNER = int(os.environ.get("CONNECTED_UNDERSTAND_PER_OWNER", "4"))
+
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
@@ -539,7 +548,8 @@ async def poll_once(
     from connected.service import ConnectedLifeService
 
     moment = now or _now()
-    handled = {"looked_at": 0, "read": 0, "failed": 0, "skipped": 0, "parked": 0}
+    handled = {"looked_at": 0, "read": 0, "failed": 0, "skipped": 0, "parked": 0,
+               "understood": 0, "noise": 0}
     started = time.monotonic()
 
     def out_of_time() -> bool:
@@ -558,6 +568,10 @@ async def poll_once(
     else:
         queue, handled["parked"] = await _what_to_read(db, now=moment, limit=limit)
 
+    # Chi ha portato a casa qualcosa di nuovo in questo giro. Leggere non e'
+    # capire, e finora il giro finiva alla lettura.
+    brought_something: List[str] = []
+
     for owner_id, source in queue:
         if handled["looked_at"] >= limit or out_of_time():
             break
@@ -567,6 +581,8 @@ async def poll_once(
             result = await ConnectedLifeService(db).sync(owner_id, source.id)
             if result.get("ok"):
                 handled["read"] += 1
+                if result.get("recorded") and owner_id not in brought_something:
+                    brought_something.append(owner_id)
             else:
                 # `not_connected` is not a failure to back off from — the
                 # source simply is not readable, and `due` will stop offering
@@ -592,7 +608,69 @@ async def poll_once(
             db, owner_id, source.id, source.source_type,
             failed=failed, now=moment if now is not None else _now(),
         )
+
+    # E poi si guarda cosa e' arrivato.
+    #
+    #     LEGGERE NON E' CAPIRE.
+    #
+    # Il giro leggeva le sorgenti e finiva li'. I segnali restavano in attesa
+    # di un'interpretazione che partiva solo da una conversazione o da un
+    # trigger manuale — e su un account vero se ne sono accumulati 180, mai
+    # guardati, con la catena a valle (cambiamenti, opportunita', obiettivi,
+    # consegna) ferma per mancanza di materiale invece che per prudenza.
+    #
+    # Nessuna pipeline nuova: e' il passo che il pacchetto possiede gia',
+    # chiamato dal giro che c'era gia', e solo per chi ha portato a casa
+    # qualcosa in questo giro.
+    # E anche chi ha segnali fermi da prima.
+    #
+    #     UN ARRETRATO NON SI SMALTISCE DA SOLO SE NESSUNO LO GUARDA.
+    #
+    # Il primo tentativo capiva solo quello che era appena arrivato: su un
+    # account vero restavano 220 segnali letti mesi prima e mai interpretati,
+    # e siccome le sorgenti erano tutte fresche il giro non ne toccava
+    # nessuno. Capire l'arretrato e' lo stesso lavoro, ed e' quello che
+    # separa «ORA legge la tua vita» da «ORA ha letto la tua vita una volta».
+    if len(brought_something) < UNDERSTAND_PER_TICK:
+        for owner_id in await _owners_with_something_to_understand(
+            db, limit=UNDERSTAND_PER_TICK, only=owners,
+        ):
+            if owner_id not in brought_something:
+                brought_something.append(owner_id)
+
+    for owner_id in brought_something[:UNDERSTAND_PER_TICK]:
+        if out_of_time():
+            break
+        try:
+            understood = await ConnectedLifeService(db).interpret(
+                owner_id, limit=UNDERSTAND_PER_OWNER,
+            )
+            handled["understood"] += int(understood.get("passed_on") or 0)
+            handled["noise"] += int(understood.get("noise") or 0)
+        except Exception as e:
+            logger.info("interpret soft-fail: %s", type(e).__name__)
+
     return handled
+
+
+async def _owners_with_something_to_understand(
+    db, *, limit: int, only: Optional[List[str]] = None,
+) -> List[str]:
+    """
+    Chi ha segnali gia' letti e mai guardati.
+
+    Una distinct su una collezione indicizzata: chi non ha niente in attesa
+    non compare, e la domanda costa lo stesso su un database vuoto o pieno.
+    """
+    query: Dict[str, Any] = {"status": "pending"}
+    if only:
+        query["owner_id"] = {"$in": list(only)}
+    try:
+        found = await db.connected_signals.distinct("owner_id", query)
+    except Exception as e:
+        logger.info("pending scan soft-fail: %s", type(e).__name__)
+        return []
+    return [str(o) for o in found if o][:limit]
 
 
 async def _owners_with_sources(db) -> List[str]:

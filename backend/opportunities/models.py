@@ -43,6 +43,29 @@ TimeSensitivity = Literal["stable", "changing", "perishable"]
 
 Confidence = Literal["weak", "reasonable", "strong"]
 
+# Quanto lontano ORA si spinge su questa cosa, deciso da chi giudica e non
+# dedotto da nessuna soglia.
+#
+#     TACERE E' IL GRADINO ZERO, E NON LASCIA NIENTE DIETRO DI SE'.
+#
+# Il silenzio non compare qui perche' un'opportunita' che esiste non e' un
+# silenzio: chi tace non propone niente, e non c'e' riga da scrivere. Sopra ci
+# sono i gradini che questo prodotto sa gia' salire — dirlo, consigliarlo,
+# preparare qualcosa, farlo se e' piccolo e reversibile, chiedere il permesso
+# quando tocca il mondo o un'altra persona, o dire che non si puo' e perche'.
+#
+# Il codice non ci ramifica sopra. Lo scrive, lo mostra a chi decide se ne
+# nasce un lavoro, e lo tiene leggibile: «cosa ORA voleva fare» e' una
+# domanda che deve avere una risposta a distanza di settimane.
+Initiative = Literal[
+    "inform",
+    "recommend",
+    "prepare",
+    "do_it",
+    "ask_authority",
+    "blocked",
+]
+
 # `candidate` is what the model proposed. `active` is what a person may see.
 # Nothing becomes active by ageing: a decision moves it.
 OpportunityStatus = Literal[
@@ -59,8 +82,12 @@ ReviewOutcome = Literal["keep", "update", "resolve", "expire", "suppress"]
 # What can end up written in the history. A person saying "not this" is not
 # a review outcome — the model must never be able to conclude it — but it is
 # a decision, and a history that files a refusal under "keep" cannot be read.
+# `reopen` sta qui e non fra i ReviewOutcome per la stessa ragione di
+# `dismiss`: e' una cosa che succede a un'opportunita', non una conclusione
+# che chi giudica possa scrivere da solo. Il codice la applica quando la
+# stessa preoccupazione torna con un fatto che la volta scorsa non c'era.
 DecisionOutcome = Literal[
-    "keep", "update", "resolve", "expire", "suppress", "dismiss"
+    "keep", "update", "resolve", "expire", "suppress", "dismiss", "reopen"
 ]
 
 # Whether a person is currently being shown this, which is a different question
@@ -137,6 +164,12 @@ class OpportunityCandidate(BaseModel):
     time_sensitivity: TimeSensitivity = "stable"
     confidence: Confidence = "reasonable"
 
+    initiative: Initiative = "inform"
+    # Cosa ORA si offre di fare, in prima persona. Vuoto quando la risposta
+    # onesta e' niente: un'offerta scritta per riempire il campo e' peggio
+    # del campo vuoto.
+    what_ora_can_do: str = Field(default="", max_length=300)
+
     evidence: List[EvidenceRef] = Field(default_factory=list, max_length=8)
 
     # What the model could not establish, and what it would ask.
@@ -178,6 +211,9 @@ class Opportunity(BaseModel):
     urgency: Urgency = "none"
     time_sensitivity: TimeSensitivity = "stable"
     confidence: Confidence = "reasonable"
+
+    initiative: Initiative = "inform"
+    what_ora_can_do: str = Field(default="", max_length=300)
 
     evidence: List[EvidenceRef] = Field(default_factory=list, max_length=8)
     # Which scan produced it, for tracing a judgement back to its inputs.
@@ -253,6 +289,8 @@ class Opportunity(BaseModel):
             "urgency": self.urgency,
             "time_sensitivity": self.time_sensitivity,
             "confidence": self.confidence,
+            "initiative": self.initiative,
+            "what_ora_can_do": self.what_ora_can_do or None,
             "based_on": [
                 {"kind": e.kind, "summary": e.summary or None} for e in self.evidence
             ],
@@ -278,6 +316,10 @@ class Opportunity(BaseModel):
             "id": self.id,
             "title": self.semantic_summary,
             "why_now": self.why_now or self.why_it_matters,
+            # Il passo successivo, quando ORA se ne prende una parte. Non e'
+            # una parola di sistema: e' la meta' della frase per cui questa
+            # riga vale la pena di essere letta.
+            "what_ora_can_do": self.what_ora_can_do or None,
             "question": self.clarifying_question or None,
             "seen": bool(self.seen_at),
         }
@@ -290,6 +332,7 @@ class Opportunity(BaseModel):
             "what": self.semantic_summary,
             "relevance": self.relevance,
             "urgency": self.urgency,
+            "initiative": self.initiative,
             "raised_at": self.created_at,
         }
 

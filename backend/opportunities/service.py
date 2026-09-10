@@ -117,11 +117,42 @@ class OpportunityService:
                 user_id, candidate.identity_key
             )
             if existing is not None and existing.status in CLOSED:
-                # Already settled. Raising it again would be ORA forgetting an
-                # answer it was given.
-                result.skipped.append(
-                    {"reason": f"già chiusa come «{existing.status}»"}
+                fresh = self._what_is_new(existing, candidate)
+                if existing.status == "suppressed" or not fresh:
+                    # Already settled. Raising it again would be ORA
+                    # forgetting an answer it was given.
+                    result.skipped.append(
+                        {"reason": f"già chiusa come «{existing.status}»"}
+                    )
+                    continue
+                #     UNA COSA CHIUSA RESTA CHIUSA. UN FATTO NUOVO NO.
+                #
+                # Chi ha detto «non questo» ha risposto a quello che sapeva
+                # allora. Se oggi la stessa preoccupazione poggia su un fatto
+                # che quel giorno non esisteva, tacere non e' rispettare la
+                # risposta: e' nasconderle la parte che avrebbe potuto
+                # cambiarla. Il fatto nuovo deve essere un ref che quella
+                # volta non c'era — non una frase riscritta meglio — e
+                # `suppressed` resta chiuso comunque, perche' quello vuol
+                # dire «mai piu'», non «non ora».
+                self._apply_candidate(existing, candidate)
+                existing.status = "active"
+                existing.surface_state = "hidden"
+                existing.deferred_until = None
+                existing.decision_provenance = "model"
+                existing.last_reviewed_at = _now().isoformat()
+                existing.touch()
+                await self.repo.save(existing)
+                await self.repo.record_decision(
+                    OpportunityDecision(
+                        opportunity_id=existing.id,
+                        owner_id=user_id,
+                        outcome="reopen",
+                        source="model",
+                        rationale=f"è tornata con qualcosa che prima non c'era: {fresh}",
+                    )
                 )
+                result.updated.append(existing)
                 continue
 
             if existing is not None:
@@ -142,6 +173,8 @@ class OpportunityService:
                 urgency=candidate.urgency,
                 time_sensitivity=candidate.time_sensitivity,
                 confidence=candidate.confidence,
+                initiative=candidate.initiative,
+                what_ora_can_do=candidate.what_ora_can_do,
                 evidence=candidate.evidence,
                 source_context=source_context[:120],
                 requires_clarification=candidate.requires_clarification,
@@ -154,6 +187,7 @@ class OpportunityService:
                 decision_provenance="model",
             )
             await self.repo.save(opportunity)
+            await self._look_before_asking(user_id, opportunity, language)
             result.created.append(opportunity)
 
         if not result.created and not result.updated:
@@ -162,6 +196,54 @@ class OpportunityService:
                 result.reason_for_silence or "nulla è sopravvissuto ai controlli"
             )
         return result
+
+    async def _look_before_asking(
+        self, user_id: str, opportunity: Opportunity, language: str,
+    ) -> None:
+        """
+        Guardare da sola prima di far guardare qualcun altro.
+
+            NON CHIEDERE A UNA PERSONA QUELLO CHE PUOI LEGGERE DA SOLO.
+
+        Una domanda arriva a qualcuno solo dopo che ORA ha provato con le
+        carte che ha gia' in casa. Non e' un permesso e non e' un effetto:
+        e' rileggere righe che esistono, e chiederne il permesso sarebbe
+        trasformare l'aiuto in un quiz. Ogni fallimento e' morbido — se il
+        tentativo non si puo' fare, la domanda resta esattamente com'era.
+        """
+        if not opportunity.requires_clarification:
+            return
+        try:
+            from opportunities.settle import decision_for, try_to_settle_it
+
+            outcome = await try_to_settle_it(
+                self.db, user_id, opportunity, language=language,
+            )
+            if outcome.get("outcome") not in ("settled", "asked"):
+                return
+            await self.repo.save(opportunity)
+            decision = decision_for(opportunity, outcome)
+            if decision is not None:
+                await self.repo.record_decision(decision)
+        except Exception as e:
+            logger.info("settle soft-fail: %s", type(e).__name__)
+
+    @staticmethod
+    def _what_is_new(
+        existing: Opportunity, candidate: OpportunityCandidate
+    ) -> str:
+        """
+        Il fatto su cui questa cosa poggia oggi e su cui non poggiava prima.
+
+        Un ref, non una frase: le parole cambiano ogni volta che si rilegge
+        la stessa vita, e se bastassero quelle qualunque cosa rifiutata
+        tornerebbe il giorno dopo con un sinonimo.
+        """
+        seen = {e.ref for e in existing.evidence}
+        for ref in (e.ref for e in candidate.evidence):
+            if ref not in seen:
+                return ref
+        return ""
 
     def _read_candidate(
         self, raw: Any, allowed_refs: Dict[str, str]
@@ -212,6 +294,13 @@ class OpportunityService:
                 confidence=word(
                     "confidence", {"weak", "reasonable", "strong"}, "reasonable"
                 ),
+                initiative=word(
+                    "initiative",
+                    {"inform", "recommend", "prepare", "do_it",
+                     "ask_authority", "blocked"},
+                    "inform",
+                ),
+                what_ora_can_do=str(raw.get("what_i_can_do") or "").strip()[:300],
                 evidence=[
                     EvidenceRef(kind=allowed_refs[r], ref=r) for r in grounded[:8]
                 ],
@@ -235,6 +324,8 @@ class OpportunityService:
         existing.urgency = candidate.urgency
         existing.time_sensitivity = candidate.time_sensitivity
         existing.confidence = candidate.confidence
+        existing.initiative = candidate.initiative
+        existing.what_ora_can_do = candidate.what_ora_can_do
         existing.evidence = candidate.evidence
         existing.needs_research = candidate.needs_research
         existing.research_question = candidate.research_question
