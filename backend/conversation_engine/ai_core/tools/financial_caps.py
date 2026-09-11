@@ -62,8 +62,28 @@ async def what_do_i_know_about_money(
             payload={"status": "failed", "reason": "READ_FAILED"},
         )
 
+    #     UN FILTRO CHE NON TROVA NIENTE NON E' NON SAPERE NIENTE.
+    #
+    # Il filtro `about` confronta sottostringhe: chiedere «cosa sapevi di
+    # questi movimenti» cerca la parola «movimenti» dentro «Stipendio ACME
+    # SRL» e «Notaio per acquisto casa», e non la trova. Fin qui il risultato
+    # tornava vuoto con `nothing_known: true`, e ORA lo diceva alla persona —
+    # «non risultavano registrati» — a proposito di due cose che sapeva
+    # benissimo: una gliel'aveva confermata lei stessa, l'altra l'aveva letta
+    # sul suo conto.
+    #
+    # Quindi quando il filtro svuota una risposta che non era vuota, torna
+    # quella intera e si dice che il filtro non ha agganciato niente. Restringere
+    # e' un aiuto; far sparire non lo e'.
+    narrowed_to_nothing = ""
     if about:
-        everything = _only_about(everything, about)
+        narrower = _only_about(everything, about)
+        if (
+            narrower["so"] or narrower["ho_letto"] or narrower["devo_chiederti"]
+        ):
+            everything = narrower
+        else:
+            narrowed_to_nothing = about
 
     empty = not (
         everything["so"] or everything["ho_letto"] or everything["devo_chiederti"]
@@ -74,6 +94,10 @@ async def what_do_i_know_about_money(
         payload={
             "status": "ok",
             "nothing_known": empty,
+            # Quando c'e', dice che la parola chiesta non ha agganciato niente
+            # e che quello che segue e' tutto quello che ORA sa: senza, una
+            # risposta piu' larga del previsto sembrerebbe una svista.
+            "nothing_matched_that_word": narrowed_to_nothing,
             # Le tre categorie, con i nomi che dicono cosa sono. Il modello le
             # legge cosi' e deve parlarne cosi'.
             "what_ora_knows": everything["so"],
@@ -91,6 +115,9 @@ async def what_do_i_know_about_money(
             # guarda. Una regola che sta solo nel prompt di sistema si perde
             # in fondo a una conversazione lunga.
             "how_to_say_it": (
+                "Se `nothing_matched_that_word` non è vuoto, quella parola non "
+                "ha agganciato niente e quello che segue è tutto quello che sai "
+                "dei suoi soldi: non dire che non risultava niente. "
                 "Di' come lo sai. Quello che sta in `what_ora_knows` lo puoi "
                 "affermare; quello che sta in `what_ora_only_read` va detto "
                 "come l'hai letto — «ho letto in un messaggio che…» — e non "

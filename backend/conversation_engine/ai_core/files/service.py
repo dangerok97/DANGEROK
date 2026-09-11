@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import os
 from typing import Any, Dict, List, Optional
 
@@ -17,6 +18,45 @@ from conversation_engine.ai_core import state as state_mod
 from conversation_engine.models import ConversationSession
 
 logger = logging.getLogger("ora.ai_core.files")
+
+
+_A_WORD = re.compile(r"[^\W\d_]{3,}", re.UNICODE)
+_A_NUMBER = re.compile(r"\d{2,}")
+
+
+def worth_reading(text: str) -> bool:
+    """
+    Se in quello che l'OCR ha tirato fuori c'e' davvero qualcosa da leggere.
+
+        DEI CARATTERI NON SONO UN TESTO.
+
+    Da una fattura fotografata male l'estrazione e' tornata con dodici
+    caratteri: «-- ae / -_- / oe». Nessuna parola, nessuna cifra, nessun senso.
+    Ma erano caratteri, e la domanda che si faceva qui era `bool(text.strip())`
+    — cosi' il file risultava letto, e siccome risultava letto nessuno lo
+    guardava piu'. Chiesto «quanto devo pagare qui?», ORA non ha trovato un
+    importo in quei dodici caratteri ed e' andata a prenderne uno dall'altra
+    immagine della stessa conversazione: quattromila euro, di un'altra cosa,
+    detti come se fossero la risposta.
+
+    Questo non decide se il documento e' importante, di che cosa parla o se
+    vale la pena guardarlo: distingue soltanto un testo dal rumore, e chiede
+    l'unica cosa che rende un testo tale — che ci sia dentro almeno una parola
+    o almeno un numero. Tutto il resto — che cosa c'e' scritto, se basta, se
+    serve guardare — resta di chi ragiona.
+    """
+    t = str(text or "")
+    return bool(_A_WORD.search(t) or _A_NUMBER.search(t))
+
+
+def _can_look() -> bool:
+    """Se c'e' qualcuno che sa guardare un'immagine, adesso."""
+    try:
+        from visual.seeing import can_see
+
+        return can_see()
+    except Exception:
+        return False
 
 
 def runtime_file_capabilities() -> Dict[str, str]:
@@ -38,7 +78,14 @@ def runtime_file_capabilities() -> Dict[str, str]:
         "pdf_text_extraction": "available" if extract else "disabled",
         "office_text_extraction": "available" if extract else "disabled",
         "image_ocr": "available" if ocr else "disabled",
-        "image_vision_multimodal": "unavailable",  # Gemini chat is text-only today
+        # Adesso si puo' guardare: `look_at_image` manda l'immagine a un
+        # modello che la vede e torna un'osservazione. La riga diceva
+        # «unavailable» ed era vera finche' la conversazione sapeva solo
+        # leggere: una foto senza testo estraibile arrivava qui come un file
+        # rotto, e nessuno poteva dire nemmeno cosa fosse.
+        "image_vision_multimodal": (
+            "available" if _can_look() else "unavailable"
+        ),
         "web_search": "available",  # actual tool may still be not_configured
         "durable_object_update": "available",
         "durable_plan_update": "available",
@@ -120,16 +167,34 @@ class ContextFileService:
         self, *, user_id: str, doc: Dict[str, Any], session_id: Optional[str]
     ) -> ContextFile:
         text = str(doc.get("extracted_text") or "")
-        text_ok = bool(doc.get("text_extracted")) and bool(text.strip())
+        text_ok = bool(doc.get("text_extracted")) and worth_reading(text)
         notes = ""
         status: str = "ready" if text_ok else "failed"
         if not text_ok:
-            if doc.get("mime_type", "").startswith("image/") and runtime_file_capabilities().get(
-                "image_vision_multimodal"
-            ) == "unavailable":
-                # OCR may still have run
-                if not text.strip():
-                    notes = "Immagine ricevuta; testo non estratto (OCR assente o vuoto)."
+            # Una pagina scansionata e' una fotografia in una busta: chi guarda
+            # sa aprirla. Marcarla «failed» diceva alla persona che il suo file
+            # era rotto mentre ORA lo stava leggendo.
+            kind = str(doc.get("mime_type") or "")
+            if kind.startswith("image/") or kind == "application/pdf":
+                if runtime_file_capabilities().get("image_vision_multimodal") == "available":
+                    #     UN'IMMAGINE SENZA TESTO NON E' UN FILE ROTTO.
+                    #
+                    # Un OCR vuoto su una fotografia e' la cosa piu' normale
+                    # del mondo, e finora finiva qui come «failed»: la
+                    # conversazione riceveva un file guasto e rispondeva che
+                    # non poteva farci niente, mentre bastava guardarlo.
+                    notes = (
+                        "Immagine senza testo leggibile: si può guardare con "
+                        "look_at_image."
+                        if not text.strip()
+                        else "L'estrazione ha restituito solo caratteri senza "
+                        "parole né cifre: il testo non è leggibile così. "
+                        "Guardala con look_at_image e di' quello che riesci a "
+                        "leggere davvero."
+                    )
+                    status = "ready"
+                elif not text.strip():
+                    notes = "File ricevuto; testo non estratto (OCR assente o vuoto)."
                     status = "failed"
             elif not bool(doc.get("text_extracted")):
                 notes = "File ricevuto ma contenuto testuale non disponibile."

@@ -104,8 +104,11 @@ def test_when_nobody_can_speak_the_answer_is_silence_not_an_error(monkeypatch):
     risposta che si legge, ed è la stessa. Quello che non deve succedere è
     che la conversazione si fermi.
     """
-    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    # Tutte e tre: da quando la voce prova anche il secondo account Google,
+    # toglierne una sola lascia qualcuno che puo' ancora parlare — e il test
+    # misurava il silenzio mentre ORA cantava.
+    for name in ("GEMINI_API_KEY", "GEMINI2_API_KEY", "OPENAI_API_KEY"):
+        monkeypatch.delenv(name, raising=False)
     from voice.providers import say_it
 
     async def body():

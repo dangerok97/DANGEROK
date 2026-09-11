@@ -80,6 +80,58 @@ class ContextFile(BaseModel):
             "plan_refs": list(self.plan_refs or [])[:4],
             "object_refs": list(self.object_refs or [])[:4],
             "processing_notes": (self.processing_notes or "")[:200],
+            # Accanto al file, non in fondo a un elenco di regole.
+            #
+            #     UNA REGOLA LONTANA DALLA PROVA NON GOVERNA LA FRASE.
+            #
+            # La stessa cosa era gia' scritta nel prompt di sistema e nel
+            # promemoria del payload, e non ha retto: alla domanda «che cosa
+            # vedi qui?» su una schermata del conto, ORA ha risposto che il
+            # bonifico dell'11 «corrisponde esattamente» all'appuntamento del
+            # 17. Undici non e' diciassette. Qui la regola sta attaccata al
+            # documento a cui si applica, che e' dove chi risponde guarda
+            # mentre scrive quella frase.
+            "how_to_say_it": (
+                "Questo documento può riguardare una PARTE della sua vita: "
+                "una pratica, una situazione aperta. Quello puoi dirlo, se "
+                "quello che già sai lo regge. "
+                #     UN DIVIETO SENZA UN'ALTERNATIVA NON È UN AIUTO.
+                #
+                # Chi risponde vede il documento e vede un impegno in
+                # calendario con la stessa controparte, e vuole dire che le
+                # due cose stanno insieme — perché in effetti stanno insieme,
+                # nella stessa pratica. Dicendogli soltanto che non può
+                # scrivere «si collega all'appuntamento», gli si toglie la
+                # frase e non gliene si dà un'altra: e quella sbagliata resta
+                # l'unica che ha.
+                "Se in calendario c'è un impegno della stessa pratica e vuoi "
+                "nominarlo, il modo è questo: «riguarda la pratica della "
+                "casa, dentro la quale hai anche un appuntamento il 17». "
+                "Entrambi stanno nella stessa pratica — questo lo sai. Quale "
+                "prestazione copra questo pagamento, e se sia proprio quella "
+                "di quell'appuntamento, non lo sai."
+            ),
+            #     UN DOCUMENTO NON È UN APPUNTAMENTO.
+            #
+            # Qui non c'è un livello da tradurre: c'è una cosa che questo tipo
+            # di dato non può contenere. Un file è un file, e un impegno in
+            # calendario è un altro oggetto; niente in un allegato identifica
+            # quale evento sia. Detto come regola — «non superare il livello
+            # delle prove» — si è perso; detto come divieto attaccato al
+            # documento, no: alla domanda «questo riguarda la casa?» la
+            # risposta diceva che il bonifico dell'11 «si collega strettamente
+            # all'appuntamento del 17».
+            "you_may_never_say": (
+                "Che questo documento è, o si collega a, un APPUNTAMENTO "
+                "preciso che la persona ha in calendario. Un allegato non "
+                "contiene nessuna prova di identità con un evento: stessa "
+                "controparte e stessa pratica non bastano, e un pagamento e "
+                "un appuntamento restano due cose diverse. Puoi dire che "
+                "entrambi appartengono alla stessa pratica; non che l'uno è "
+                "l'altro, né che l'uno «si collega» all'altro. Se il "
+                "collegamento con un evento ti sembra probabile, dillo come "
+                "probabile e di' che cosa servirebbe per esserne certi."
+            ),
         }
 
     def evidence_dict(self) -> Dict[str, Any]:
