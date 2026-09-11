@@ -6,11 +6,14 @@ write state. Ranking is technical retrieval infrastructure, not cognition.
 
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 
 from conversation_engine.ai_core.models import ContextFact, ContextNeed
+
+logger = logging.getLogger("ora.ai_core.context_sources")
 
 RetrieveFn = Callable[[str, ContextNeed, Optional[str]], Awaitable[List[ContextFact]]]
 
@@ -167,6 +170,16 @@ class ContextSourceRegistry:
                 "sensitive",
                 "temporal",
                 self._calendar,
+            ),
+            (
+                "money",
+                "what ORA already knows about this person's money, with how it "
+                "knows each thing — confirmed by them, read once on their "
+                "account, or inferred",
+                "mixed",
+                "sensitive",
+                "temporal",
+                self._money,
             ),
             (
                 "opportunities",
@@ -423,6 +436,67 @@ class ContextSourceRegistry:
                 )
             )
         return out[:16]
+
+    async def _money(
+        self, user_id: str, need: ContextNeed, session_id: Optional[str]
+    ) -> List[ContextFact]:
+        """
+        Quello che ORA sa gia' dei soldi di questa persona, con i gradi intatti.
+
+            «TI HO GIA' DETTO QUESTA COSA» NON E' UNA SCOPERTA.
+
+        Mancava, e la mancanza si vedeva solo da fuori. Una schermata del conto
+        con i quattromila euro del notaio arrivava in conversazione, e ORA li
+        annunciava: «il documento conferma un movimento specifico e recente».
+        Ma quei quattromila euro li aveva gia' letti una volta sul conto, e i
+        duemilacinquanta dello stipendio glieli aveva confermati la persona
+        stessa. Alla domanda «quindi cosa cambia rispetto a quello che gia'
+        sapevi?» non poteva rispondere, perche' quello che gia' sapeva non era
+        nella stanza: nessuno strumento era stato chiamato, e nessuna fonte di
+        contesto portava il denaro.
+
+        Non si legge niente di nuovo qui. Si chiede a chi lo sa gia', e si
+        tiene il grado con cui lo sa: «me lo hai confermato tu» e «l'ho visto
+        una volta sul conto» sono due cose diverse, e la differenza e' tutta
+        quella che serve per rispondere onestamente.
+        """
+        try:
+            from financial.knowledge import what_ora_knows
+
+            said = await what_ora_knows(self.db, user_id)
+        except Exception as e:
+            logger.info("lettura denaro soft-fail: %s", type(e).__name__)
+            return []
+
+        out: List[ContextFact] = []
+        for grade, authority, certainty in (
+            ("so", "user-confirmed", "known"),
+            ("ho_letto", "document-backed", "known"),
+            ("penso", "system-derived", "inferred"),
+        ):
+            for row in (said.get(grade) or [])[:6]:
+                what = str(row.get("cosa") or "").strip()
+                if not what:
+                    continue
+                how_much = str(row.get("quanto") or "").strip()
+                which_way = str(row.get("verso") or "").strip()
+                how = str(row.get("come_lo_so") or "").strip()
+                out.append(
+                    _fact(
+                        f"ORA already knows about their money: {what}"
+                        + (f"; {how_much}" if how_much else "")
+                        + (f"; {which_way}" if which_way else "")
+                        + (f"; how ORA knows: {how}" if how else ""),
+                        "money",
+                        authority,
+                        certainty,
+                        row.get("quando") or None,
+                        f"money:{grade}:{what[:40]}",
+                        provenance=["financial_knowledge"],
+                        sensitivity="sensitive",
+                    )
+                )
+        return out[:14]
 
     async def _calendar(
         self, user_id: str, need: ContextNeed, session_id: Optional[str]

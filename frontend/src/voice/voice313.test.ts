@@ -433,7 +433,10 @@ test('§1 il campo cresce con quello che ci si scrive, entro un limite', () => {
 test('§1 le etichette dicono cosa fanno, e i bersagli si toccano', () => {
   const composer = readCode(COMPOSER);
   for (const label of [
-    'Allega un documento',
+    // Il «+» non allega piu' un documento: chiede cosa aggiungere, e
+    // apre il selettore giusto dopo. L'etichetta deve dire quello che
+    // succede quando lo si tocca, non quello che succedeva prima.
+    'Aggiungi foto, file o documenti',
     'Detta un messaggio',
     'Parla con ORA a voce',
     'Invia messaggio',

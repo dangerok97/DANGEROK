@@ -75,6 +75,24 @@ def _strip_ref(value: Optional[str]) -> str:
     return v[len("calendar:") :] if v.startswith("calendar:") else v
 
 
+def _at_the_same_clock(*moments):
+    """
+    Gli stessi istanti, tutti con un fuso, cosi' si possono mettere in fila.
+
+    Una data senza ora — un giorno intero, una ricorrenza — arriva senza fuso,
+    e confrontarla con un appuntamento che ce l'ha solleva. Qui le si attacca
+    UTC: per decidere se due cose si toccano e' un'approssimazione di poche
+    ore sui bordi, e serve solo a proporre una sovrapposizione a chi ragiona,
+    che poi la guarda. Non diventa mai da sola un conflitto.
+    """
+    out = []
+    for m in moments:
+        if m is not None and m.tzinfo is None:
+            m = m.replace(tzinfo=timezone.utc)
+        out.append(m)
+    return tuple(out)
+
+
 def _parse_dt(value: Optional[str]) -> Optional[datetime]:
     if not value:
         return None
@@ -494,17 +512,39 @@ async def get_calendar_events(arguments: Dict[str, Any], runtime: Dict[str, Any]
 
     # Bounded, deterministic overlap detection — evidence only; the AI
     # decides whether a conflict matters, this never blocks/asks by itself.
+    #
+    #     UN ORNAMENTO CHE ESPLODE NON DEVE PORTARSI VIA LA PROVA.
+    #
+    # Questo pezzo decora gli impegni con le sovrapposizioni, e per farlo
+    # confronta due istanti. Un giorno intero — «San Francesco d'Assisi»,
+    # `2026-10-04`, senza ora e senza fuso — e un appuntamento alle undici con
+    # il suo `+00:00` non sono confrontabili, e Python solleva. Il risultato,
+    # visto da fuori, era che l'intera lettura del calendario falliva: chi
+    # chiedeva «e' lo stesso appuntamento che ho in calendario?» non riceveva
+    # meno prove, ne riceveva zero, e rispondeva lo stesso.
+    #
+    # Quindi due cose. Gli istanti si portano tutti nello stesso mondo prima
+    # di confrontarli, e il calcolo delle sovrapposizioni sta dentro una rete:
+    # se un giorno sbaglia di nuovo, gli impegni tornano comunque.
     conflicts: List[List[int]] = []
-    for i in range(len(items)):
-        a_start, a_end = _parse_dt(items[i]["start_datetime"]), _parse_dt(items[i]["end_datetime"])
-        if not a_start or not a_end:
-            continue
-        for j in range(i + 1, len(items)):
-            b_start, b_end = _parse_dt(items[j]["start_datetime"]), _parse_dt(items[j]["end_datetime"])
-            if not b_start or not b_end:
+    try:
+        for i in range(len(items)):
+            a_start, a_end = _at_the_same_clock(
+                _parse_dt(items[i]["start_datetime"]), _parse_dt(items[i]["end_datetime"]),
+            )
+            if not a_start or not a_end:
                 continue
-            if a_start < b_end and b_start < a_end:
-                conflicts.append([i, j])
+            for j in range(i + 1, len(items)):
+                b_start, b_end = _at_the_same_clock(
+                    _parse_dt(items[j]["start_datetime"]), _parse_dt(items[j]["end_datetime"]),
+                )
+                if not b_start or not b_end:
+                    continue
+                if a_start < b_end and b_start < a_end:
+                    conflicts.append([i, j])
+    except Exception:
+        logger.info("sovrapposizioni non calcolate: gli impegni tornano comunque")
+        conflicts = []
 
     return Observation(
         kind="tool",

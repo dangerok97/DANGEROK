@@ -5,6 +5,7 @@
 import React from 'react';
 import {
   ActivityIndicator,
+  Image,
   Platform,
   Pressable,
   StyleSheet,
@@ -15,6 +16,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/src/theme/ThemeProvider';
 import { tokens } from '@/src/theme/tokens';
+import { OraAttachMenu, type AttachKind } from './OraAttachMenu';
+
+export type { AttachKind };
 
 export type PendingAttachment = {
   localId: string;
@@ -25,6 +29,14 @@ export type PendingAttachment = {
   status: 'uploading' | 'ready' | 'failed';
   error?: string;
   textAvailable?: boolean;
+  /**
+   * Dove sta l'immagine sul dispositivo, per mostrarla mentre parte.
+   *
+   * Di una fotografia si mostra la fotografia: «IMG_20260911_204413.png» non
+   * dice a nessuno quale delle quattro schermate ha appena mandato, e chi
+   * l'ha scattata la riconosce a colpo d'occhio.
+   */
+  previewUri?: string;
 };
 
 type Props = {
@@ -37,7 +49,14 @@ type Props = {
   testID?: string;
   showAttach?: boolean;
   attachments?: PendingAttachment[];
-  onAttachPress?: () => void;
+  /**
+   * Cosa si è scelto di aggiungere, non «ha toccato il piu'».
+   *
+   * Il composer non sa aprire niente: sa solo chiedere. Quale selettore
+   * si apra è una decisione di chi possiede la conversazione, ed è lì che
+   * vive anche il caricamento.
+   */
+  onAttachPress?: (kind: AttachKind) => void;
   onRemoveAttachment?: (localId: string) => void;
   showMicStub?: boolean;
   onMicPress?: () => void;
@@ -90,6 +109,29 @@ export function OraComposer({
   const [grown, setGrown] = React.useState(24);
   const [focused, setFocused] = React.useState(false);
   /*
+    Il menu del «+» sta aperto qui e non nella schermata: è ancorato al
+    pulsante, e chi lo apre deve poter sapere che è aperto per disegnarlo
+    premuto. Chiudendolo prima di eseguire la scelta, il selettore di
+    sistema non si apre sopra un menu rimasto acceso.
+  */
+  const [menuOpen, setMenuOpen] = React.useState(false);
+  /*
+    Dove torna il focus quando il menu si chiude.
+
+    Chiudendo con Esc da una voce del menu, quella voce sparisce e il focus
+    finisce sul corpo della pagina: chi stava navigando con la tastiera
+    ricomincia da capo. Torna dove era prima di aprire, cioè sul «+».
+  */
+  const plusRef = React.useRef<any>(null);
+  const closeMenu = React.useCallback(() => {
+    setMenuOpen(false);
+    try {
+      plusRef.current?.focus?.();
+    } catch {
+      // Su nativo non c'è un focus da restituire, e non è un errore.
+    }
+  }, []);
+  /*
     Mentre ascolta, il campo mostra quello che sta sentendo invece di quello
     che era stato scritto. Non è una modalità diversa: è la stessa riga, che
     per qualche secondo la riempie la voce. Quando ha finito, le parole
@@ -121,6 +163,14 @@ export function OraComposer({
                 size={16}
                 color={a.status === 'failed' ? colors.error : colors.textSecondary}
               />
+              {a.previewUri && a.mimeType?.startsWith('image/') ? (
+                <Image
+                  source={{ uri: a.previewUri }}
+                  style={styles.thumb}
+                  accessibilityIgnoresInvertColors
+                  testID={`${testID}-thumb-${a.localId}`}
+                />
+              ) : null}
               <Text
                 style={[
                   styles.chipText,
@@ -217,17 +267,45 @@ export function OraComposer({
 
           <View style={styles.controls}>
             {showAttach ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Allega un documento"
-                accessibilityState={{ disabled: busy || disabled || uploading }}
-                onPress={onAttachPress}
-                disabled={busy || disabled || uploading}
-                style={styles.iconBtn}
-                testID={`${testID}-attach`}
-              >
-                <Ionicons name="add" size={22} color={colors.textTertiary} />
-              </Pressable>
+              <View style={styles.anchor}>
+                <Pressable
+                  ref={plusRef}
+                  accessibilityRole="button"
+                  accessibilityLabel="Aggiungi foto, file o documenti"
+                  accessibilityState={{
+                    disabled: busy || disabled || uploading,
+                    expanded: menuOpen,
+                  }}
+                  onPress={() => setMenuOpen((was) => !was)}
+                  disabled={busy || disabled || uploading}
+                  style={[
+                    styles.iconBtn,
+                    menuOpen && {
+                      backgroundColor: colors.backgroundSecondary,
+                      borderRadius: tokens.touch.min / 2,
+                    },
+                  ]}
+                  testID={`${testID}-attach`}
+                >
+                  <Ionicons
+                    name="add"
+                    size={22}
+                    color={menuOpen ? colors.textPrimary : colors.textTertiary}
+                  />
+                </Pressable>
+                <OraAttachMenu
+                  open={menuOpen}
+                  onClose={closeMenu}
+                  onChoose={(kind) => onAttachPress?.(kind)}
+                  testID={`${testID}-attach-menu`}
+                  /*
+                    Sopra tutto il contenitore, non solo sopra il pulsante:
+                    44 del pulsante + 4 della riga + il campo + 16 di margine,
+                    e otto punti d'aria. Il campo cresce, e il menu con lui.
+                  */
+                  lift={72 + Math.min(Math.max(grown, 24), 132)}
+                />
+              </View>
             ) : null}
 
             <View style={styles.gap} />
@@ -328,23 +406,80 @@ function VoiceWave({ tint }: { tint: string }) {
   );
 }
 
-/** Pick a document (web + native) — returns RN-style file descriptor. */
-export async function pickOraAttachment(): Promise<{
-  uri: string;
-  name: string;
-  type: string;
-} | null> {
+const DOCUMENT_KINDS = [
+  'application/pdf',
+  'text/plain',
+  'text/markdown',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/msword',
+];
+const IMAGE_KINDS = ['image/*'];
+
+/**
+ * Quello che si apre, per ognuna delle voci del menu.
+ *
+ * «Foto» e «Fotocamera» chiedono la stessa cosa — un'immagine — ma non nello
+ * stesso posto: la prima nella libreria, la seconda dall'obiettivo. Su web la
+ * differenza è una parola, `capture`, e il browser di un telefono ci apre
+ * sopra la fotocamera.
+ */
+function whatToAsk(kind: AttachKind) {
+  if (kind === 'photo' || kind === 'camera') {
+    return { accept: IMAGE_KINDS, capture: kind === 'camera' };
+  }
+  if (kind === 'document') return { accept: DOCUMENT_KINDS, capture: false };
+  return { accept: [...DOCUMENT_KINDS, ...IMAGE_KINDS], capture: false };
+}
+
+/**
+ * Un file dal dispositivo, del tipo che è stato chiesto.
+ *
+ * Su web si costruisce l'input a mano invece di passare per il selettore di
+ * Expo: quello non sa dire `capture`, e senza `capture` «Fotocamera» sarebbe
+ * la stessa identica finestra di «Foto» con un nome diverso — cioè una bugia
+ * piccola, ripetuta ogni volta.
+ */
+export async function pickOraAttachment(
+  kind: AttachKind = 'any',
+): Promise<{ uri: string; name: string; type: string } | null> {
+  const asked = whatToAsk(kind);
+
+  if (Platform.OS === 'web' && typeof document !== 'undefined') {
+    return await new Promise((resolve) => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = asked.accept.join(',');
+      if (asked.capture) input.setAttribute('capture', 'environment');
+      input.style.display = 'none';
+      let settled = false;
+      const done = (value: { uri: string; name: string; type: string } | null) => {
+        if (settled) return;
+        settled = true;
+        input.remove();
+        resolve(value);
+      };
+      input.onchange = () => {
+        const file = input.files?.[0];
+        if (!file) return done(null);
+        done({
+          uri: URL.createObjectURL(file),
+          name: file.name || 'file.bin',
+          type: file.type || 'application/octet-stream',
+        });
+      };
+      // Chiudere la finestra del sistema senza scegliere niente non produce
+      // nessun evento in alcuni browser: senza questo, la promessa resterebbe
+      // appesa e il «+» non si riaprirebbe più.
+      input.oncancel = () => done(null);
+      document.body.appendChild(input);
+      input.click();
+    });
+  }
+
   // Dynamic import keeps web bundle resilient if native module missing
   const DocumentPicker = await import('expo-document-picker');
   const res = await DocumentPicker.getDocumentAsync({
-    type: [
-      'application/pdf',
-      'text/plain',
-      'text/markdown',
-      'image/*',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'application/msword',
-    ],
+    type: asked.accept,
     multiple: false,
     copyToCacheDirectory: true,
   });
@@ -357,7 +492,6 @@ export async function pickOraAttachment(): Promise<{
   };
 }
 
-void Platform;
 
 const styles = StyleSheet.create({
   chips: {
@@ -378,6 +512,7 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
   },
   chipText: { fontSize: 13, flexShrink: 1, maxWidth: 220 },
+  thumb: { width: 28, height: 28, borderRadius: 6, marginLeft: -2 },
   voiceHint: {
     fontSize: 13,
     lineHeight: 18,
@@ -401,6 +536,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 4,
   },
+  /*
+    Il pulsante e il suo menu stanno nella stessa scatola, così il menu si
+    posiziona rispetto al «+» invece che rispetto al composer: se un giorno
+    i comandi cambiano ordine, il menu si sposta con il suo pulsante.
+  */
+  anchor: { position: 'relative' },
   gap: { flex: 1 },
   wave: {
     flexDirection: 'row',

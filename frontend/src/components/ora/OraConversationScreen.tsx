@@ -28,6 +28,7 @@ import { api, type AgentNeed, type HomeOpportunity } from '@/src/api/client';
 import {
   OraComposer,
   PendingAttachment,
+  AttachKind,
   pickOraAttachment,
 } from '@/src/components/ora/OraComposer';
 import { LocationPermissionSheet } from '@/src/components/ora/LocationPermissionSheet';
@@ -678,10 +679,10 @@ export function OraConversationScreen({
     };
   }, [paramId, objectId, planId, planItemId, applyAiCoreResponse]);
 
-  const onAttach = useCallback(async () => {
+  const onAttach = useCallback(async (kind: AttachKind = 'any') => {
     setError(null);
     try {
-      const picked = await pickOraAttachment();
+      const picked = await pickOraAttachment(kind);
       if (!picked) return;
       const localId = `loc_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
       setAttachments((prev) => [
@@ -691,6 +692,9 @@ export function OraConversationScreen({
           name: picked.name,
           mimeType: picked.type,
           status: 'uploading',
+          // L'immagine si vede subito, mentre sale: chi l'ha appena scelta
+          // vuole sapere di aver scelto quella giusta, non aspettare.
+          previewUri: picked.type?.startsWith('image/') ? picked.uri : undefined,
         },
       ]);
       try {
@@ -1060,7 +1064,7 @@ export function OraConversationScreen({
       placeholder="Scrivi a ORA…"
       showAttach
       attachments={attachments}
-      onAttachPress={() => void onAttach()}
+      onAttachPress={(kind) => void onAttach(kind)}
       onRemoveAttachment={(id) =>
         setAttachments((prev) => prev.filter((a) => a.localId !== id))
       }

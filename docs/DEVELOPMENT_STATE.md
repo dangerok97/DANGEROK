@@ -1,5 +1,72 @@
 # ORA — Development State
 
+## V3.13 — SPRINT 2 — MULTIMODAL LIFE UNDERSTANDING — CLOSED
+
+**Quello che si mostra è una fonte della vita, non un allegato da archiviare.**
+
+    HO VISTO != SO.
+    PLAUSIBILE != VERIFICATO.
+    STESSA CONTROPARTE != STESSO EVENTO.
+
+| Cosa arriva | Che strada fa |
+|------|------|
+| immagine con testo | si legge — nessuno paga per guardarla |
+| immagine senza testo leggibile | si guarda: `look_at_image` |
+| PDF con testo dentro | si legge |
+| PDF scansionato | si disegna la prima pagina e si guarda |
+
+**Il «+»** apre un menu — foto e file · foto · fotocamera · documenti — e la
+fotocamera c'è solo dove `capture` apre davvero l'obiettivo. Esc chiude, il
+tocco fuori chiude, il focus torna sul pulsante, il popover sta sopra il campo
+e non lo copre.
+
+**Il contratto** è `VisualObservation`: cosa vedo, quanto riesco a leggere
+(`readable · partially_readable · unreadable · ambiguous`), cosa non ho letto,
+cosa non so, e zero o più `LifeTie` — ognuno con la ragione che lo lega a
+*quella* parte di vita, la forza delle prove e la frase che quella forza
+consente.
+
+| Forza | Cosa si può dire |
+|------|------|
+| `observed` | si afferma |
+| `supported` | si dice, dicendo su cosa si regge |
+| `plausible` | si propone, e si dice cosa servirebbe per esserne certi |
+| `unknown` | si dice che non si sa |
+
+A **ogni** livello, `observed` incluso: non si può dire che questo è lo stesso
+evento di un impegno in calendario. Un legame porta a una pratica, non a un
+appuntamento.
+
+**Correzioni entrate con questo sprint**
+
+| Difetto | Stato |
+|------|------|
+| una foto senza testo era un file «failed» | si guarda |
+| dodici caratteri di rumore contavano come lettura | serve una parola o una cifra |
+| importo preso dall'immagine sbagliata | ogni domanda alla sua immagine |
+| `get_calendar_events` esplodeva su un giorno intero | gli istanti si confrontano, e la prova sopravvive all'ornamento |
+| lettura fallita detta come certezza | una lettura fallita è la risposta |
+| l'immagine si guardava nel vuoto | arrivano denaro e impegni che stanno in piedi |
+| un solo modello per guardare | catena di modelli |
+| la più vecchia invece della più recente | la più recente |
+| nessuna fonte di contesto per il denaro | c'è, con i gradi intatti |
+| domanda in italiano che non agganciava il denaro | l'area la nomina chi ragiona |
+| filtro che non trova → «non so niente» | torna quello che sa, e dice che la parola ha mancato |
+| scansione senza testo irraggiungibile | prima pagina disegnata |
+| `plausible` detto come certezza | esce la frase, non l'etichetta |
+
+| Punto | Stato |
+|------|------|
+| Comprensione visiva reale | **verificata** su immagini vere |
+| Confronto con vita e calendario | **verificato** |
+| Guardia epistemica | **0/5 overclaim** su cinque esecuzioni reali |
+| `PENSO` → `SO` | **mai** senza governance |
+| `FinancialFact` duplicati | **nessuno** (0 righe, prima e dopo) |
+| QA fisico su iPhone | **da fare** — vale anche per lo Sprint 1 |
+| Autonomia a partire da un visivo | giudizio sì, scrittura no: passa dall'Action Engine |
+| Barge-in a voce, streaming TTS | debito dichiarato dallo Sprint 1 |
+| Prodotto target | **iOS**. Nessun lavoro specifico Android |
+
 ## V3.13 — SPRINT 1 — VOICE INTERFACE — CLOSED
 
 **La voce come modo di entrare, non come posto dove andare.**

@@ -1,5 +1,74 @@
 # ORA — AI Changelog
 
+## 2026-09-11 — V3.13 SPRINT 2 — MULTIMODAL LIFE UNDERSTANDING — CLOSED
+
+Quello che una persona mostra entra nella sua vita, e resta quello che è.
+
+    HO VISTO NON È SO.
+    STESSA CONTROPARTE NON È LO STESSO EVENTO.
+
+Fin qui il percorso finiva contro una riga — `image_vision_multimodal:
+"unavailable"` — e una foto senza testo estraibile diventava un file «failed»
+di cui nessuno poteva dire niente. Adesso ORA guarda: dice cosa vede, cosa
+legge bene, cosa non riesce a leggere, e a quale parte della vita *potrebbe*
+appartenere. Niente di tutto questo diventa conoscenza per il fatto di essere
+stato visto.
+
+**Il «+» adesso chiede.** Prima apriva dritto il selettore di sistema: chi
+voleva scattare una foto si ritrovava a navigare cartelle. Quattro voci —
+foto e file, foto, fotocamera, documenti — e non una di più: niente ricerca
+web, niente Gmail, niente voci che non portano da nessuna parte. La
+fotocamera compare solo dove si apre davvero.
+
+**Prima il testo, gli occhi quando serve.** Un PDF che il testo ce l'ha dentro
+si legge; una scansione — la fotografia di un foglio in una busta — si disegna
+e si guarda. Era l'unico documento che avrebbe avuto davvero bisogno degli
+occhi, ed era l'unico a cui non arrivavano.
+
+**Il difetto peggiore, e il meccanismo è più interessante del bug.** Da una
+fattura fotografata male l'estrazione tornava con dodici caratteri: «-- ae /
+-_- / oe». Nessuna parola, nessuna cifra. Ma erano caratteri veri, quindi il
+file risultava letto, e siccome risultava letto nessuno lo guardava. Alla
+domanda «quanto devo pagare qui?» ORA andava a prendere un importo
+dall'*altra* immagine della conversazione: quattromila euro, di tutt'altra
+cosa, detti come risposta. Un numero falso sui soldi di una persona, prodotto
+senza che nessun modello avesse allucinato niente. Adesso la domanda è se ci
+sia almeno una parola o una cifra.
+
+**Un ornamento che esplode non deve portarsi via la prova.** `get_calendar_
+events` sollevava confrontando un giorno intero con un appuntamento, dentro il
+pezzo che *decora* gli impegni con le sovrapposizioni. Fuori si vedeva così:
+ORA riceveva zero prove e rispondeva «le chiamate al calendario hanno dato
+errore, quindi posso dirti con certezza…».
+
+**«Te l'ho già detto» non è una scoperta.** Mancava una fonte di contesto per
+il denaro: una schermata con i quattromila euro del notaio veniva annunciata
+come novità anche se quei quattromila euro erano già noti. E le fonti si
+scelgono per sovrapposizione di parole con descrizioni inglesi: una domanda in
+italiano non agganciava mai il denaro. Adesso l'area la nomina chi ragiona, e
+il recupero resta del codice.
+
+**Plausibile non è verificato.** Un bonifico allo studio del notaio l'11 e un
+appuntamento presso lo stesso studio il 17 condividono un nome. Possono essere
+la stessa pratica, e possono essere un acconto e una firma. Ogni legame porta
+adesso la frase che il suo livello di prove consente — non un'etichetta da
+tradurre, perché fra l'etichetta e la frase c'era un margine ed è lì che
+finiva la prudenza — e il divieto di dire che un pagamento *è* un
+appuntamento, che vale a ogni livello: un legame porta a una pratica, non a un
+evento, e nessuna forza gli dà un'identità che non contiene.
+
+**Forza dell'evidenza e stato epistemico restano due cose.** Rivedere una cosa
+già letta è una seconda provenienza, non una promozione: `PENSO` resta
+`PENSO`, nessun `FinancialFact` nasce da un'immagine, il saldo non diventa
+disponibilità per la casa, lo stipendio non diventa un contributo all'acquisto.
+
+**Verificato sul prodotto vero:** schermata bancaria letta e confrontata con
+quello che ORA già sapeva; appuntamento visivo contro calendario, con il «no»
+onesto e la domanda invece della scrittura; fattura illeggibile letta con gli
+occhi e con i limiti dichiarati; scansione senza testo; immagine non collegata
+che resta non collegata; stessa immagine due volte, una sola osservazione;
+«come lo sai?» in italiano, senza hash né percorsi.
+
 ## 2026-09-11 — V3.13 SPRINT 1 — VOICE INTERFACE — CLOSED
 
 Parlare con ORA, e sentirsi rispondere.

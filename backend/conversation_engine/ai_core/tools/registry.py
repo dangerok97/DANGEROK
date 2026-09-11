@@ -1086,6 +1086,51 @@ class ToolRegistry:
 
         self.register(
             CapabilitySpec(
+                capability="look_at_image",
+                description=(
+                    "Look at an image the person shared in this conversation — "
+                    "a photo, a screenshot, a scanned page — and report what "
+                    "is actually in it: what it appears to be, the text that "
+                    "can be read, the numbers, dates and amounts that are "
+                    "written there, what could not be read, and which part of "
+                    "their life it belongs to, when something ties it to one. "
+                    "Use it when the question is about something they showed "
+                    "you: «che cos'è questo», «quanto devo pagare», «riguarda "
+                    "la casa», «è lo stesso appuntamento». "
+                    "Without `file_id` it looks at the last image they sent, "
+                    "which is almost always the one they mean. "
+                    "What comes back is an observation and not a fact: it is "
+                    "what ORA saw, and speaking about it as established truth "
+                    "about their life would be inventing. A file that carries "
+                    "readable text is read with get_file_content instead — "
+                    "looking at it would cost more and understand less."
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "file_id": {
+                            "type": "string",
+                            "description": "Optional. Defaults to the last image sent.",
+                        },
+                        "what_i_want_to_know": {
+                            "type": "string",
+                            "description": (
+                                "What to pay attention to, in their words — "
+                                "helps to look at the right corner of it"
+                            ),
+                        },
+                    },
+                },
+                classification="personal",
+                side_effect="READ_ONLY",
+                freshness="fresh",
+                risk="read",
+                handler=self._look_at_image,
+                tags=["visual", "files", "evidence"],
+            )
+        )
+        self.register(
+            CapabilitySpec(
                 capability="list_session_files",
                 description=(
                     "List user-supplied files attached to this conversation "
@@ -1247,6 +1292,13 @@ class ToolRegistry:
             },
             provenance=[f.ref for f in facts if f.ref],
         )
+
+    @staticmethod
+    async def _look_at_image(arguments, runtime):
+        """Guardare e' un mestiere suo: sta in `visual`, non qui."""
+        from visual.caps import look_at_image
+
+        return await look_at_image(arguments, runtime)
 
     async def _search_my_life(
         self, arguments: Dict[str, Any], runtime: Dict[str, Any]
