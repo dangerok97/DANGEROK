@@ -1,16 +1,25 @@
 # ORA — AI Changelog
 
-## 2026-09-12 — V3.13 SPRINT 3.1 — REAL TELEPHONE TRANSPORT FOUNDATION — IN CORSO
+## 2026-09-12 — V3.13 SPRINT 3.1 — REAL TELEPHONE TRANSPORT FOUNDATION — CLOSED
 
 Il filo che porta la voce di ORA fino al telefono di un'altra persona.
 
     IL TRASPORTO TELEFONICO NON È UNA VOCE. È UN ATTUATORE.
     VOICE IS NOT A SEPARATE ASSISTANT.
 
-**Non è chiuso.** Manca la prova che conta: una telefonata vera, con Vonage che
-apre il websocket e audio di una voce umana che arriva dentro ORA. Quello che
-c'è è il filo, provato fino all'ultimo metro che si poteva provare senza
-comporre un numero.
+**Il telefono ha squillato.** Alle 19:43 del 12 settembre ORA ha composto un
+numero italiano, una persona ha risposto, e per undici secondi la sua voce è
+arrivata dentro il backend: 556 pacchetti di PCM lineare a 16 kHz, il primo a
+354 millisecondi dall'apertura del filo. Quando ha riagganciato, di quegli
+undici secondi non è rimasto niente — il documento della telefonata pesa 767
+caratteri e non contiene un campione.
+
+**Sei rifiuti prima di quello.** `rejected/restricted`, sempre, su ogni
+variante: payload completo, payload minimo, endpoint europeo, caller ID
+registrato, numero scritto in quattro modi. Il payload non era mai stato la
+causa — era il caller ID, e nessuna variazione del corpo della richiesta
+avrebbe potuto dirlo. Esaurire le varianti è stato l'unico modo di separare
+«il nostro codice sbaglia» da «l'account non lo permette».
 
 **Vonage non sta accanto a Gemini TTS.** Quella è la voce di ORA dentro l'app,
 e implementa `SpeechOutputProvider`. Questo è un attuatore — allo stesso
@@ -56,8 +65,16 @@ in attesa riceve il copione che apre l'audio; `answered` la porta a `talking`;
 il websocket accetta venticinque frame binari di PCM lineare a 16 kHz e ne
 registra il conteggio e nient'altro; nessuna traccia della chiave nei log.
 
-**Resta da provare:** che sia Vonage ad aprire quel websocket, e che dentro ci
-sia la voce di una persona.
+**Tre difetti trovati dalla telefonata vera, e nessuno dai test.** Il router
+leggeva `user["id"]` mentre in tutto il prodotto la chiave è `user["user_id"]`:
+ogni richiesta autenticata moriva con un 500, e nessuna prova se n'era accorta
+perché parlavano tutte al servizio e mai alla porta. `rejected` era tradotto in
+«non ha risposto nessuno», cioè in una frase che dà la colpa alla persona
+chiamata per qualcosa successo prima che il suo telefono squillasse. E un
+numero scritto `393774714389` — la forma in cui lo scrivono gli operatori —
+veniva respinto da ORA come «non italiano» prima di raggiungere la rete.
+
+**Resta per lo Sprint 3.2:** dare a quei frame qualcuno che li ascolti.
 
 ## 2026-09-11 — V3.13 SPRINT 2 — MULTIMODAL LIFE UNDERSTANDING — CLOSED
 

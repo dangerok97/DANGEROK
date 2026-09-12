@@ -1,6 +1,6 @@
 # ORA — Development State
 
-## V3.13 — SPRINT 3.1 — REAL TELEPHONE TRANSPORT FOUNDATION — **IN CORSO**
+## V3.13 — SPRINT 3.1 — REAL TELEPHONE TRANSPORT FOUNDATION — CLOSED
 
 **Il filo, non ancora la voce.**
 
@@ -49,10 +49,27 @@ riferimento di sessione, stato, mandato. Più tre numeri sull'audio:
 | Tunnel che punta al backend | **verificato** |
 | La chiamata parte davvero dal backend | **verificato** — Vonage accetta e assegna un UUID |
 | Vonage raggiunge il nostro webhook | **verificato** — POST da un suo IP, 200 OK |
-| **Vonage apre davvero il websocket** | **no** — la rete rifiuta prima di far squillare |
-| **Audio di una voce umana dentro ORA** | **no** |
+| **Vonage apre davvero il websocket** | **verificato** |
+| **Audio di una voce umana dentro ORA** | **verificato** — 556 frame, 11,1 secondi |
 
-**Il reality gate del 12 settembre.** `prepare` → 200. `place` senza conferma
+**Il reality gate, passato.** 12 settembre, 19:43. `prepare` → 200. `place`
+senza conferma → **428**, l'autorità tiene. `place` con conferma → 200, e il
+telefono squilla davvero:
+
+    started → ringing → answered → completed
+
+`GET /vonage/answer` raggiunto da un IP Vonage con l'uuid della chiamata; il
+copione ha aperto il websocket; **556 frame di PCM lineare a 16 kHz**, 355.840
+byte, **11,1 secondi di voce umana vera**, primo frame a **354 ms**. La persona
+ha riagganciato e il documento rimasto pesa **767 caratteri**: nessun campo
+contiene audio, e la chiave non compare in nessun log.
+
+Il caller ID è la cosa che ha sbloccato tutto: con `123456789` la rete
+rispondeva `rejected/restricted` su ogni variante — payload completo, payload
+minimo, endpoint europeo, `from` registrato. Sei chiamate, sei rifiuti
+identici: il payload non era mai stato la causa.
+
+**I tentativi precedenti.** `prepare` → 200. `place` senza conferma
 → **428**, l'autorità ha tenuto. `place` con conferma → **200 in 650 ms**, e
 Vonage ha assegnato l'UUID `61bc0968-…`. Poi un evento solo, dal suo IP:
 

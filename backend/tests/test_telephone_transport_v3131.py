@@ -399,3 +399,21 @@ def test_the_authenticated_doors_actually_answer(shared_client):
         assert answer["needs_explicit_yes"] is True
     finally:
         _run(clean())
+
+
+def test_a_call_that_went_well_records_no_refusal():
+    """
+    §G: il motivo del rifiuto si scrive solo se c'è stato un rifiuto.
+
+    Su una telefonata riuscita l'operatore manda comunque `reason: "ok"`, e
+    finiva scritto sotto «perché la rete ha rifiutato» — una riga che racconta
+    una cosa che non è successa. Trovato sulla prima telefonata riuscita
+    davvero, guardando il documento che ne era rimasto.
+    """
+    code = _code_only(
+        (HERE / "telephone" / "vonage_router.py").read_text(encoding="utf-8")
+    )
+    assert "went_well" in code
+    assert 'why_the_network_refused=\'\' if went_well' in code.replace('"', "'"), (
+        "una chiamata riuscita registra ancora un motivo di rifiuto"
+    )
