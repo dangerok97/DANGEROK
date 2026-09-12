@@ -112,6 +112,18 @@ async def event(request: Request, call_id: str = "") -> Dict[str, Any]:
         body = {}
 
     said = carrier.read_event(body if isinstance(body, dict) else {})
+    #     UNO STATO CHE NON SI VEDE È UNO STATO CHE NON SI PUÒ SISTEMARE.
+    #
+    # La parola dell'operatore e il riferimento della chiamata, e nient'altro:
+    # nessun numero, nessun nome, niente della vita di nessuno. Senza questa
+    # riga, una telefonata che finisce in tre secondi è un mistero — e la
+    # prima volta lo è stata davvero.
+    logger.info(
+        "evento: stato=%s motivo=%s chiamata=%s",
+        said["raw"] or "(vuoto)",
+        (body or {}).get("reason") or (body or {}).get("detail") or "-",
+        said["call_ref"][:12] or "-",
+    )
     call = await _the_call_we_are_waiting_for(call_id, said["call_ref"])
     if call is None:
         # Inerte di proposito: né errore né effetto.
@@ -132,6 +144,7 @@ async def event(request: Request, call_id: str = "") -> Dict[str, Any]:
             "ended" if said["ended_how"] in ("they_hung_up", "we_hung_up") else "failed",
             ended_at=_now(),
             how_it_ended=said["ended_how"],
+            why_the_network_refused=said.get("why", "")[:120],
         )
 
     return {"ok": True}

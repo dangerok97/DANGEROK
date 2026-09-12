@@ -188,6 +188,10 @@ class PhoneCall(BaseModel):
     # ha funzionato davvero — quanti pacchetti sono arrivati, quanti byte,
     # quanto ci ha messo il primo. Senza, l'unica prova che l'audio sia
     # arrivato sarebbe una riga di log, che nessuno rilegge.
+    # Perché la rete ha rifiutato, quando lo dice. Una parola dell'operatore,
+    # non una diagnosi: «restricted» si sistema nel pannello, non nel codice.
+    why_the_network_refused: str = Field(default="", max_length=120)
+
     audio_frames: int = 0
     audio_bytes: int = 0
     first_audio_ms: Optional[int] = None
