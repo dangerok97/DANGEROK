@@ -278,6 +278,17 @@ def _national(number: str) -> str:
         return clean
     if clean.startswith("0039"):
         return "+" + clean[2:]
+    #     UN NUMERO SCRITTO COME LO SCRIVE UN OPERATORE È UN NUMERO.
+    #
+    # `393774714389` — prefisso internazionale, solo cifre, senza il più — è
+    # la forma in cui i fornitori di telefonia lo chiedono e lo restituiscono,
+    # ed era l'unica che qui tornava vuota: dodici cifre che cominciano per
+    # tre non entravano in nessun caso, e la chiamata si fermava con «numero
+    # non italiano» prima di arrivare alla rete. Un numero rifiutato per come
+    # è scritto è il difetto più frustrante che esista, perché sembra un
+    # rifiuto di merito.
+    if clean.startswith("39") and 12 <= len(clean) <= 13:
+        return "+" + clean
     if clean.startswith("3") and len(clean) in (9, 10):
         return "+39" + clean
     if clean.startswith("0") and len(clean) >= 9:
