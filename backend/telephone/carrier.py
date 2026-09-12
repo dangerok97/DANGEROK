@@ -256,8 +256,22 @@ async def place(
                 },
             )
         if answer.status_code not in (200, 201):
-            logger.info("%s non ha aperto la linea: http %s", NAME, answer.status_code)
-            return None
+            #     UN CODICE DI ERRORE NON DICE COSA FARE. IL TESTO SÌ.
+            #
+            # «422» non aiuta nessuno; «il numero from non appartiene a questo
+            # account» si risolve in un minuto. Il corpo dell'errore non
+            # contiene segreti — è la spiegazione dell'operatore — e senza di
+            # esso ogni telefonata fallita diventa un'indagine.
+            detail = ""
+            try:
+                detail = answer.text[:400]
+            except Exception:
+                detail = ""
+            logger.info(
+                "%s non ha aperto la linea: http %s — %s",
+                NAME, answer.status_code, detail,
+            )
+            return {"call_ref": "", "error": f"http {answer.status_code}: {detail}"}
         data = answer.json() or {}
         return {
             "call_ref": str(data.get("uuid") or ""),
@@ -326,13 +340,20 @@ def read_event(body: Dict[str, Any]) -> Dict[str, Any]:
         "machine": "machine",
     }.get(said, "something_else")
 
+    #     «RIFIUTATA DALLA RETE» NON È «NON HA RISPOSTO NESSUNO».
+    #
+    # Il primo tentativo vero è tornato `rejected/restricted` — l'operatore non
+    # ha lasciato passare la chiamata — e finiva tradotto in «no_answer», cioè
+    # in una frase che dà la colpa alla persona chiamata per qualcosa che è
+    # successo prima che il suo telefono squillasse. Una traduzione comoda che
+    # accusa qualcuno è peggio di una traduzione mancante.
     ended_how = {
         "completed": "they_hung_up",
         "cancelled": "we_hung_up",
         "busy": "busy",
         "timeout": "no_answer",
         "unanswered": "no_answer",
-        "rejected": "no_answer",
+        "rejected": "failed",
         "failed": "failed",
     }.get(said, "unknown")
 
@@ -342,5 +363,10 @@ def read_event(body: Dict[str, Any]) -> Dict[str, Any]:
         "call_ref": str((body or {}).get("uuid") or ""),
         "conversation_ref": str((body or {}).get("conversation_uuid") or ""),
         "ended_how": ended_how,
+        # Perché, quando l'operatore lo dice. «restricted» vuol dire che la
+        # rete non ha lasciato passare la chiamata, ed è una cosa che si
+        # sistema nel pannello e non nel codice: senza questa parola, un
+        # rifiuto e un telefono spento sono indistinguibili.
+        "why": str((body or {}).get("reason") or (body or {}).get("detail") or ""),
         "direction": str((body or {}).get("direction") or ""),
     }

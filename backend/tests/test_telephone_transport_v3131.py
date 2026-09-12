@@ -354,3 +354,48 @@ def test_a_phone_turn_is_the_same_turn_as_any_other():
     assert "if origin ==" not in same and "if origin in" not in same, (
         "il percorso cognitivo si biforca in base a come sono arrivate le parole"
     )
+
+
+def test_the_authenticated_doors_actually_answer(shared_client):
+    """
+    §G: le porte verso la persona rispondono davvero, con un'autenticazione vera.
+
+        UN TEST CHE PARLA AL SERVIZIO NON PROVA LA PORTA.
+
+    Questa prova esiste per un difetto che tutte le altre hanno mancato. Il
+    router leggeva `user["id"]`, mentre in tutto il prodotto la chiave è
+    `user["user_id"]`: ogni richiesta autenticata moriva con un KeyError e un
+    500. Nessuna delle prove se n'era accorta perché parlavano tutte a
+    `TelephoneService`, che quella chiave non la vede mai — e il difetto è
+    saltato fuori al primo tentativo di telefonare sul serio.
+    """
+    import uuid as _uuid
+
+    import deps
+
+    uid = f"user_{_uuid.uuid4().hex[:12]}"
+
+    async def make():
+        await deps.db.users.insert_one(
+            {"user_id": uid, "email": f"{uid}@prova.local", "name": "Prova"}
+        )
+
+    async def clean():
+        await deps.db.users.delete_many({"user_id": uid})
+
+    _run(make())
+    try:
+        token = deps.make_jwt(uid)
+        got = shared_client.get(
+            "/api/telephone/available",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert got.status_code == 200, (
+            f"la porta autenticata non risponde: {got.status_code} {got.text[:200]}"
+        )
+        answer = got.json()
+        # Dice se si può telefonare, e quando non si può dice perché.
+        assert "provider_ready" in answer and "needs_explicit_yes" in answer
+        assert answer["needs_explicit_yes"] is True
+    finally:
+        _run(clean())

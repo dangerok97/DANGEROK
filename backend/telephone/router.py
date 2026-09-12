@@ -38,7 +38,7 @@ router = APIRouter(prefix="/telephone", tags=["telephone"])
 @router.get("/available")
 async def available(user: dict = Depends(get_current_user)) -> Dict[str, Any]:
     """Se ORA può telefonare, e cosa manca quando non può."""
-    return await TelephoneService(db).may_i_call(user["id"])
+    return await TelephoneService(db).may_i_call(user["user_id"])
 
 
 @router.post("/prepare")
@@ -59,7 +59,7 @@ async def prepare(
 
     service = TelephoneService(db)
     call = await service.prepare(
-        user["id"],
+        user["user_id"],
         to_number=str(payload.get("to_number") or ""),
         calling_whom=str(payload.get("calling_whom") or ""),
         mandate=mandate,
@@ -78,7 +78,7 @@ async def prepare(
         "chiamerei": call.calling_whom or call.to_number,
         "numero": call.to_number,
         "direi_per_prima_cosa": disclosure(
-            user.get("name") or user.get("first_name") or ""
+            user.get("name") or ""
         ),
         "perche": mandate.why_calling,
         "posso_accettare": mandate.may_agree_to,
@@ -103,7 +103,7 @@ async def place(
     verso questo numero.
     """
     service = TelephoneService(db)
-    call = await service.get(user["id"], call_id)
+    call = await service.get(user["user_id"], call_id)
     if call is None:
         raise HTTPException(404, "chiamata sconosciuta")
     if call.state != "authorised":
@@ -112,7 +112,7 @@ async def place(
     if not bool(payload.get("confirmed")):
         raise HTTPException(428, "serve un sì esplicito su questa chiamata")
 
-    permission = await service.may_i_call(user["id"])
+    permission = await service.may_i_call(user["user_id"])
     if permission["denied"]:
         raise HTTPException(403, "aveva già detto di no alle telefonate")
     if not permission["provider_ready"]:
@@ -125,7 +125,10 @@ async def place(
     )
     if opened is None or not opened.get("call_ref"):
         await service.mark(call, "failed", how_it_ended="failed")
-        raise HTTPException(502, "la chiamata non è partita")
+        # Quello che ha detto l'operatore, per intero: chi legge deve poter
+        # capire cosa sistemare, non solo che è andata male.
+        why = (opened or {}).get("error") or "l'operatore non ha risposto"
+        raise HTTPException(502, f"la chiamata non è partita — {why}")
 
     call = await service.mark(
         call, "dialling",
@@ -146,7 +149,7 @@ async def hangup(
     fermare mentre succede, senza dover spegnere il server.
     """
     service = TelephoneService(db)
-    call = await service.get(user["id"], call_id)
+    call = await service.get(user["user_id"], call_id)
     if call is None:
         raise HTTPException(404, "chiamata sconosciuta")
     closed = await carrier.hang_up(call.provider_ref)
@@ -159,7 +162,7 @@ async def hangup(
 async def read(call_id: str, user: dict = Depends(get_current_user)) -> Dict[str, Any]:
     """Com'è andata, in italiano, più il controllo del mandato."""
     service = TelephoneService(db)
-    call = await service.get(user["id"], call_id)
+    call = await service.get(user["user_id"], call_id)
     if call is None:
         raise HTTPException(404, "chiamata sconosciuta")
     return {

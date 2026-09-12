@@ -46,10 +46,33 @@ riferimento di sessione, stato, mandato. Più tre numeri sull'audio:
 | Nessun audio persistito | **verificato** (documento: 584 caratteri) |
 | Chiave privata fuori da repo, log e Mongo | **verificato** |
 | Nessuna chiamata senza sì esplicito | **verificato** |
-| **Vonage apre davvero il websocket** | **da fare** — serve una telefonata vera |
-| **Audio di una voce umana dentro ORA** | **da fare** |
-| Numero Vonage da cui chiamare | **manca** (`VONAGE_FROM_NUMBER`) |
-| Tunnel che punta al backend | **manca** — punta a 8081 (frontend), serve 8000 |
+| Tunnel che punta al backend | **verificato** |
+| La chiamata parte davvero dal backend | **verificato** — Vonage accetta e assegna un UUID |
+| Vonage raggiunge il nostro webhook | **verificato** — POST da un suo IP, 200 OK |
+| **Vonage apre davvero il websocket** | **no** — la rete rifiuta prima di far squillare |
+| **Audio di una voce umana dentro ORA** | **no** |
+
+**Il reality gate del 12 settembre.** `prepare` → 200. `place` senza conferma
+→ **428**, l'autorità ha tenuto. `place` con conferma → **200 in 650 ms**, e
+Vonage ha assegnato l'UUID `61bc0968-…`. Poi un evento solo, dal suo IP:
+
+    stato=rejected  motivo=restricted
+
+La rete non ha lasciato passare la chiamata — prima che il telefono
+squillasse. È una cosa del pannello Vonage, non del codice: su un account di
+prova la destinazione dev'essere fra i numeri di test, e l'API accetta la
+richiesta (200 + UUID) prima che il rifiuto arrivi come evento.
+
+**Un difetto trovato dalla telefonata vera, e non dai test:** il router
+leggeva `user["id"]` mentre in tutto il prodotto la chiave è `user["user_id"]`.
+Ogni richiesta autenticata moriva con un 500. Nessuna prova se n'era accorta
+perché parlavano tutte al servizio, non alla porta — adesso ce n'è una che
+bussa con un JWT vero.
+
+**E un secondo:** `rejected` era tradotto in «non ha risposto nessuno», cioè
+in una frase che dà la colpa alla persona chiamata per qualcosa successo prima
+che il suo telefono squillasse. Adesso è `failed`, e il motivo dell'operatore
+viaggia con l'evento.
 
 **Sprint 3.2** — STT e voce in linea. `telephone/bridge.py` esiste e non è
 collegato: porta il modello che ascolta e risponde, ma il suo audio viaggia in

@@ -464,12 +464,23 @@ def test_the_carrier_events_are_translated_into_our_words():
         ("busy", "busy"),
         ("timeout", "no_answer"),
         ("unanswered", "no_answer"),
-        ("rejected", "no_answer"),
+        # «rifiutata dalla rete» non è «non ha risposto nessuno»: il primo
+        # tentativo vero è tornato `rejected/restricted`, e tradurlo in
+        # «no_answer» dava la colpa alla persona chiamata per una cosa
+        # successa prima che il suo telefono squillasse.
+        ("rejected", "failed"),
         ("failed", "failed"),
     ):
         ended = read_event({"status": status, "uuid": "abc-123"})
         assert ended["what"] == "ended", f"«{status}» non risulta una fine"
         assert ended["ended_how"] == ours, f"«{status}» tradotto male"
+
+    # E il perché viaggia con lo stato, quando l'operatore lo dice: senza
+    # quella parola, un rifiuto della rete e un telefono spento sono
+    # indistinguibili, e si sistemano in posti diversi.
+    refused = read_event({"status": "rejected", "reason": "restricted", "uuid": "x"})
+    assert refused["why"] == "restricted"
+    assert refused["ended_how"] == "failed"
 
     # E qualcosa che non conosciamo non diventa niente di pericoloso.
     assert read_event({"status": "bridged"})["what"] == "something_else"
