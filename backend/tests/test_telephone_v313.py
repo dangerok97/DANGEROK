@@ -143,13 +143,26 @@ def test_only_italian_numbers():
     """
     from telephone.service import _national
 
+    #     UN NUMERO SCRITTO COME LO SCRIVE UN OPERATORE È UN NUMERO.
+    #
+    # Le quattro forme in cui una persona o un fornitore scrivono lo stesso
+    # numero devono arrivare allo stesso posto. La terza — prefisso
+    # internazionale, solo cifre, senza il più — è quella che i fornitori di
+    # telefonia usano davvero, ed era l'unica che tornava vuota: la chiamata
+    # si fermava con «numero non italiano» prima di raggiungere la rete, il
+    # che sembra un rifiuto di merito e non lo è.
     assert _national("+39 333 1234567") == "+393331234567"
     assert _national("3331234567") == "+393331234567"
+    assert _national("393331234567") == "+393331234567"
     assert _national("0039 333 1234567") == "+393331234567"
     assert _national("06 12345678") == "+390612345678"
     # E tutto il resto non è un numero da chiamare.
     assert _national("+1 415 555 0100") == ""
     assert _national("+44 20 7946 0000") == ""
+    # E la forma senza più non deve aprire una porta all'estero: un tedesco
+    # scritto come lo scrive un operatore resta fuori.
+    assert _national("4915112345678") == ""
+    assert _national("+4915112345678") == ""
     assert _national("") == ""
     assert _national("pronto") == ""
 
