@@ -139,12 +139,17 @@ async def event(request: Request, call_id: str = "") -> Dict[str, Any]:
     if said["what"] == "answered":
         await service.mark(call, "talking", started_at=_now())
     elif said["what"] == "ended":
+        went_well = said["ended_how"] in ("they_hung_up", "we_hung_up")
+        # Il motivo si registra solo quando c'è stato un rifiuto. Su una
+        # telefonata riuscita l'operatore manda `reason: "ok"`, e scriverlo
+        # sotto «perché la rete ha rifiutato» è una riga che racconta una
+        # cosa che non è successa.
         await service.mark(
             call,
-            "ended" if said["ended_how"] in ("they_hung_up", "we_hung_up") else "failed",
+            "ended" if went_well else "failed",
             ended_at=_now(),
             how_it_ended=said["ended_how"],
-            why_the_network_refused=said.get("why", "")[:120],
+            why_the_network_refused="" if went_well else said.get("why", "")[:120],
         )
 
     return {"ok": True}
