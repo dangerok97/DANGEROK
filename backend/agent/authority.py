@@ -68,7 +68,13 @@ _LADDER: List[str] = [
 
 # Effects that never proceed on a model's say-so, whatever it concluded and
 # whatever grant exists. Sprint 1 does not cross these at all.
-_NEVER_AUTONOMOUS = {"payment.execute", "external.booking", "mail.send"}
+# Cose che non partono mai da sole, per quanto sia chiaro che servirebbero.
+# `phone.call` sta qui per la stessa ragione di `mail.send`, più una: una
+# telefonata non si può rileggere prima che parta, e chi risponde non ha
+# scelto di partecipare.
+_NEVER_AUTONOMOUS = {
+    "payment.execute", "external.booking", "mail.send", "phone.call",
+}
 
 # ---------------------------------------------------------------------------
 # An explicit command is an authority.

@@ -1,5 +1,64 @@
 # ORA — AI Changelog
 
+## 2026-09-12 — V3.13 SPRINT 3.1 — REAL TELEPHONE TRANSPORT FOUNDATION — IN CORSO
+
+Il filo che porta la voce di ORA fino al telefono di un'altra persona.
+
+    IL TRASPORTO TELEFONICO NON È UNA VOCE. È UN ATTUATORE.
+    VOICE IS NOT A SEPARATE ASSISTANT.
+
+**Non è chiuso.** Manca la prova che conta: una telefonata vera, con Vonage che
+apre il websocket e audio di una voce umana che arriva dentro ORA. Quello che
+c'è è il filo, provato fino all'ultimo metro che si poteva provare senza
+comporre un numero.
+
+**Vonage non sta accanto a Gemini TTS.** Quella è la voce di ORA dentro l'app,
+e implementa `SpeechOutputProvider`. Questo è un attuatore — allo stesso
+livello del calendario o della posta — e vive sotto la stessa autorità:
+`phone.call`, già fra le capacità che non partono mai da sole.
+
+**Le rotte dell'operatore stanno fuori da `/api`, ed è deliberato.** Le chiama
+Vonage, non un browser: non hanno una sessione, non hanno un JWT di ORA, e i
+loro indirizzi sono già scritti nel pannello del fornitore. Montarle sotto
+`/api` per simmetria avrebbe significato rompere una configurazione che
+funziona, e una configurazione che funziona non si rompe per ordine.
+
+**La protezione non è una password, è una struttura.** Non c'è dove metterla:
+chi bussa è un operatore telefonico. Quindi quelle porte non sanno fare niente
+da sole — agiscono soltanto su una telefonata che ORA ha davvero composto e
+sta aspettando. Un riferimento sconosciuto non produce un errore e non produce
+un effetto: produce un copione che saluta e chiude. Il websocket non viene
+nemmeno accettato.
+
+**Niente di quello che passa di lì resta di lì.** Il filo porta cinquanta
+pacchetti al secondo. Tenerne uno solo, «per il debug», significa avere sul
+disco la voce di una persona che non ha mai acconsentito a essere registrata.
+Si contano i byte e si lasciano andare: dopo mezzo secondo di audio vero il
+documento della telefonata pesa 584 caratteri, e non contiene un campione.
+
+**La chiave privata non passa da nessuna parte dove possa restare.** Si legge
+dal disco al momento di firmare, e quello che gira è un lasciapassare che
+scade in un minuto. Non entra in Mongo — il modello della telefonata non ha un
+campo dove metterla, ed è la garanzia più solida che esista. Nemmeno il
+percorso finisce in un log: un log che dice dove sta una chiave privata è metà
+del lavoro fatto per chi la cerca.
+
+**Quando il parlato diventerà parole, entreranno dove entrano le altre.**
+`same_ora.py` esiste già, vuoto di logica apposta: chiama
+`AICoreOrchestrator`, la stessa porta di una frase scritta nell'app. La
+tentazione da evitare era ovvia — costruire «la conversazione telefonica» a
+parte, perché al telefono i turni sono corti e il tempo stringe. Sarebbe stato
+un secondo ORA, con una seconda memoria e una seconda idea di cosa può fare.
+E due ORA sono zero ORA.
+
+**Provato davvero:** le tre porte rispondono sul backend vivo; una telefonata
+in attesa riceve il copione che apre l'audio; `answered` la porta a `talking`;
+il websocket accetta venticinque frame binari di PCM lineare a 16 kHz e ne
+registra il conteggio e nient'altro; nessuna traccia della chiave nei log.
+
+**Resta da provare:** che sia Vonage ad aprire quel websocket, e che dentro ci
+sia la voce di una persona.
+
 ## 2026-09-11 — V3.13 SPRINT 2 — MULTIMODAL LIFE UNDERSTANDING — CLOSED
 
 Quello che una persona mostra entra nella sua vita, e resta quello che è.

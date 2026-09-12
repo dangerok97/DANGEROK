@@ -1131,6 +1131,70 @@ class ToolRegistry:
         )
         self.register(
             CapabilitySpec(
+                capability="prepare_a_phone_call",
+                description=(
+                    "Write down the phone call ORA would make on this "
+                    "person's behalf — who to call, why, and what ORA would "
+                    "be allowed to agree to while on the line. It does NOT "
+                    "make the call: nothing rings. What comes back is meant "
+                    "to be read out to the person so they can say yes or no, "
+                    "and the call only happens after that yes. "
+                    "Use it when they ask ORA to phone somebody — «chiami tu "
+                    "il dentista?», «puoi telefonare allo studio?» — or when "
+                    "a phone call is plainly the way to find something out "
+                    "that nobody has written down anywhere. "
+                    "`may_agree_to` is the closed list of what ORA may accept "
+                    "in their name: keep it small and concrete («un "
+                    "appuntamento fra giovedì e sabato, la mattina»). "
+                    "Everything else is brought back to them. An empty list "
+                    "is fine and means the call is only to ask. "
+                    "Italian numbers only."
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "to_number": {
+                            "type": "string",
+                            "description": "Italian phone number to call",
+                        },
+                        "calling_whom": {
+                            "type": "string",
+                            "description": "Who this number belongs to, in their words",
+                        },
+                        "why_calling": {
+                            "type": "string",
+                            "description": "Why, in one line, in their language",
+                        },
+                        "may_agree_to": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "The closed list of what ORA may accept",
+                        },
+                        "must_bring_back": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Things to report back rather than accept",
+                        },
+                        "minutes": {
+                            "type": "integer",
+                            "description": "How long the call may last (1-15)",
+                        },
+                    },
+                    "required": ["to_number", "why_calling"],
+                },
+                classification="personal",
+                # Non tocca il mondo: scrive una proposta e si ferma. Quello
+                # che tocca il mondo e' comporre il numero, e non passa da
+                # qui.
+                side_effect="READ_ONLY",
+                freshness="fresh",
+                risk="read",
+                handler=self._prepare_a_phone_call,
+                tags=["phone", "authority", "third_party"],
+            )
+        )
+        self.register(
+            CapabilitySpec(
                 capability="list_session_files",
                 description=(
                     "List user-supplied files attached to this conversation "
@@ -1299,6 +1363,13 @@ class ToolRegistry:
         from visual.caps import look_at_image
 
         return await look_at_image(arguments, runtime)
+
+    @staticmethod
+    async def _prepare_a_phone_call(arguments, runtime):
+        """Telefonare e' un mestiere suo: sta in `telephone`, non qui."""
+        from telephone.caps import prepare_a_phone_call
+
+        return await prepare_a_phone_call(arguments, runtime)
 
     async def _search_my_life(
         self, arguments: Dict[str, Any], runtime: Dict[str, Any]

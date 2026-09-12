@@ -74,6 +74,16 @@ _FACTS: Dict[str, CapabilityFacts] = {
     "payment.execute": CapabilityFacts(
         "payment.execute", True, "hardly", reaches_third_party=True, financial=True
     ),
+    # V3.13 Sprint 3 — telefonare a una persona.
+    #
+    #     QUELLO CHE SI DICE A UN ESTRANEO NON SI PUÒ RITIRARE.
+    #
+    # `hardly` non per il costo: una chiamata costa un centesimo. È che
+    # dall'altra parte c'è qualcuno che adesso sa una cosa, e forse ha già
+    # segnato un appuntamento sul suo registro. Non esiste un annulla.
+    "phone.call": CapabilityFacts(
+        "phone.call", True, "hardly", reaches_third_party=True, financial=False
+    ),
 }
 
 # Which capabilities have something behind them that could actually run. In
@@ -100,6 +110,19 @@ _EXECUTABLE = {
     # than only described — the rest of the write side stays unwired.
     "navigation.open",
 }
+
+# Telefonare c'è davvero solo se c'è un operatore configurato. Senza, la
+# capacità resta conosciuta e non eseguibile, e chi ragiona lo sente dire —
+# invece di scoprire che non succede niente dopo aver chiesto il permesso.
+try:
+    from telephone.carrier import can_call as _can_call
+
+    if _can_call():
+        _EXECUTABLE.add("phone.call")
+except Exception:
+    # Senza il modulo del telefono la capacita' resta conosciuta e non
+    # eseguibile, che e' esattamente la verita'.
+    pass
 
 # Which capabilities reach something that actually exists in ORA. This is the
 # set Sprint 2 is really about: everything here runs against a real engine or

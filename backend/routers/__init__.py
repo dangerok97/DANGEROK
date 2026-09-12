@@ -178,3 +178,13 @@ try:
     ALL_ROUTERS.append(voice_router)
 except Exception:
     pass
+
+# ORA al telefono (V3.13 Sprint 3). Due porte verso la persona, dietro
+# l'autenticazione di sempre, e due verso l'operatore, pubbliche e verificate
+# con la firma: un endpoint che fa squillare un telefono sta su internet.
+try:
+    from telephone.router import router as telephone_router
+
+    ALL_ROUTERS.append(telephone_router)
+except Exception:
+    pass
