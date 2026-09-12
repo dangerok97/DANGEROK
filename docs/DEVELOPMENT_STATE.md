@@ -1,5 +1,63 @@
 # ORA — Development State
 
+## V3.13 — SPRINT 3.1 — REAL TELEPHONE TRANSPORT FOUNDATION — **IN CORSO**
+
+**Il filo, non ancora la voce.**
+
+    IL TRASPORTO TELEFONICO NON È UNA VOCE. È UN ATTUATORE.
+    NIENTE DI QUELLO CHE PASSA DI LÌ RESTA LÌ.
+
+Operatore: **Vonage Voice API**. Nessuna libreria del fornitore — bastano
+`httpx` e `PyJWT`, che il prodotto ha già.
+
+| Porta | Dove | Chi la chiama |
+|------|------|------|
+| `GET /vonage/answer` | **fuori da `/api`** | l'operatore, per il copione |
+| `POST /vonage/event` | **fuori da `/api`** | l'operatore, per gli stati |
+| `GET /vonage/fallback` | **fuori da `/api`** | l'operatore, quando il resto tace |
+| `WS /vonage/socket` | **fuori da `/api`** | l'operatore, per l'audio |
+| `/api/telephone/prepare · place · hangup · {id}` | sotto `/api` | la persona, autenticata |
+
+**Perché fuori da `/api`** — gli indirizzi sono già nel pannello di Vonage, e
+quelle rotte non hanno una sessione: le chiama un operatore telefonico, non un
+browser. **La protezione è strutturale**: agiscono solo su una telefonata che
+ORA ha composto e sta aspettando.
+
+**Riuso, non duplicazione**
+
+| Cosa | Da dove |
+|------|------|
+| autorità | `agent/authority.py` — `phone.call`, `_NEVER_AUTONOMOUS` |
+| capacità | `agent/capabilities.py` — `writes`, `reaches_third_party`, `hardly` |
+| conversazione | `conversation_engine/ai_core/orchestrator.py` via `same_ora.py` |
+| mandato, esito, fascicolo | `telephone/` dallo Sprint 3, invariati |
+| voce nell'app | **non toccata** — microfono e Live Voice restano come sono |
+
+**Sessione effimera** — `PhoneCall` collega uuid dell'operatore, `owner_id`,
+riferimento di sessione, stato, mandato. Più tre numeri sull'audio:
+`audio_frames`, `audio_bytes`, `first_audio_ms`. Nessun campo per il suono.
+
+| Punto | Stato |
+|------|------|
+| Le tre porte rispondono sul backend vivo | **verificato** |
+| Copione che apre il websocket | **verificato** |
+| `answered` → `talking` | **verificato** |
+| Websocket accetta frame binari PCM L16 16 kHz | **verificato** (25 frame, 16.000 byte) |
+| Nessun audio persistito | **verificato** (documento: 584 caratteri) |
+| Chiave privata fuori da repo, log e Mongo | **verificato** |
+| Nessuna chiamata senza sì esplicito | **verificato** |
+| **Vonage apre davvero il websocket** | **da fare** — serve una telefonata vera |
+| **Audio di una voce umana dentro ORA** | **da fare** |
+| Numero Vonage da cui chiamare | **manca** (`VONAGE_FROM_NUMBER`) |
+| Tunnel che punta al backend | **manca** — punta a 8081 (frontend), serve 8000 |
+
+**Sprint 3.2** — STT e voce in linea. `telephone/bridge.py` esiste e non è
+collegato: porta il modello che ascolta e risponde, ma il suo audio viaggia in
+base64 dentro JSON — la forma di un altro operatore. Vonage porta PCM binario
+a 16 kHz e il modello ne vuole 24: servono la lettura dei frame binari e un
+ricampionamento. Il resto di quel file — turni, interruzione, fascicolo,
+latenza — resta valido.
+
 ## V3.13 — SPRINT 2 — MULTIMODAL LIFE UNDERSTANDING — CLOSED
 
 **Quello che si mostra è una fonte della vita, non un allegato da archiviare.**

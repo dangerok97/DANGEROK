@@ -546,6 +546,23 @@ async def shutdown():
 
 app.include_router(api)
 
+# --- Il telefono, verso l'operatore ----------------------------------------
+#
+#     QUESTE ROTTE NON STANNO SOTTO /api, ED È DELIBERATO.
+#
+# Le chiama Vonage, non un browser: non hanno una sessione, non hanno un JWT
+# di ORA, e i loro indirizzi sono gia' scritti nel pannello del fornitore.
+# Montarle sotto `/api` insieme a tutto il resto significherebbe cambiare
+# quegli indirizzi, e una configurazione che funziona non si rompe per
+# simmetria. La protezione non e' l'autenticazione: e' che quelle porte
+# agiscono soltanto su una telefonata che ORA ha davvero composto.
+try:
+    from telephone.vonage_router import router as vonage_router
+
+    app.include_router(vonage_router)
+except Exception:
+    logger.exception("Vonage transport not mounted (non-fatal)")
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
