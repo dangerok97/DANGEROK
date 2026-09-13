@@ -1,5 +1,45 @@
 # ORA — AI Changelog
 
+## 2026-09-13 — V3.13 — IL MANAGER LLM RICORDA, E NON ASPETTA ALL'INFINITO
+
+    UN PROVIDER ESAURITO PER OGGI NON TORNA FRA SESSANTA SECONDI.
+
+**Il cooldown aveva perso la memoria a ogni fallimento.** `_record_failure`
+sostituiva lo stato con un oggetto nuovo, quindi non esisteva un conto dei no
+consecutivi: un account Gemini in quota veniva richiamato una volta al minuto
+per tutta la giornata, e ogni richiamo era tempo che una persona passava in
+silenzio ad aspettare — fra 698 e 2.900 millisecondi, misurati. Adesso
+l'attesa cresce finché la causa resta la stessa, si ferma a un tetto per causa,
+e riparte da capo se il provider comincia a lamentarsi di un'altra cosa.
+
+**E un tentativo adesso ha una scadenza.** Prima nessuno interveniva su un
+provider *lento*, perché non c'era nessun errore da registrare: l'adattatore
+Gemini si arrende a sessanta secondi, e un turno vero è arrivato a trentaquattro
+mentre una persona aspettava al telefono. Venticinque secondi, quattro volte il
+peggiore turno sano mai misurato, e il tempo scaduto diventa un timeout come un
+altro — così il resto della catena non deve imparare niente di nuovo.
+
+**Una prova ha impedito un errore, e vale la pena raccontarlo.** Il primo
+tentativo faceva crescere anche il cooldown del `rate_limit`, e
+`test_a_short_wait_is_taken_rather_than_failing_the_turn` è caduto subito:
+quella prova custodisce una lezione dello Sprint V3.4 — un turno di
+ragionamento è molte chiamate, i piani gratuiti limitano la catena intera tutta
+insieme, e per questo esiste un'attesa di grazia di sei secondi. La seconda
+panchina finiva oltre quella finestra, e la conversazione sarebbe morta per
+un'attesa che stava per scadere: esattamente il difetto per cui la finestra era
+stata scritta. Il rate limit resta fisso, e adesso c'è un commento che dice
+perché.
+
+**Quanto vale.** Con il primario in quota, dal terzo turno in poi si
+risparmiano 1.606 millisecondi ciascuno. Con il primario impantanato, il
+secondo turno passa da 34 secondi a 2,4. Con tutto sano non cambia niente —
+verificato, 2.406 ms contro 2.405.
+
+Nessun provider aggiunto, nessun ordine cambiato, nessun percorso per canale.
+Cerebras e NVIDIA restano fuori dalla catena attiva: misurati, non integrati.
+
+---
+
 ## 2026-09-13 — V3.13 SPRINT 3.2 — LATENZA, CATALOGO, AGENDA, RISERVA
 
 Quattro cose, tutte globali, nessuna specifica del telefono.

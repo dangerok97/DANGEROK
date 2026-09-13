@@ -195,6 +195,86 @@ processo. Con quel campo, **ministral-8b risponde «domenica»**.
 | «impegni domani» | 2 passi | **1 passo** |
 | turno semplice, gemini2 | ~2.500 ms | **2.381 ms** (p50, 7 casi) |
 
+### Chi ha appena detto di no non si richiama
+
+    UN PROVIDER ESAURITO PER OGGI NON TORNA FRA SESSANTA SECONDI.
+    UN PROVIDER LENTISSIMO È PEGGIO DI UN PROVIDER MORTO.
+
+Due modifiche al `ProviderManager`, e nessuna delle due tocca il cervello di
+ORA: cambia **quando** si chiede a chi, non che cosa si chiede né cosa si
+decide. Stesso prompt, stesso payload, stesso schema, stessa autorità, stessi
+strumenti, stesso ordine della catena — e una prova che verifica che a chiunque
+risponda arrivi la stessa identica domanda.
+
+**Il cooldown ha memoria.** `_RuntimeState` porta `consecutive_failures`, e
+l'attesa cresce finché la causa resta la stessa. Prima ogni fallimento
+sostituiva lo stato con uno nuovo, quindi un account in quota veniva richiamato
+**una volta al minuto per tutta la giornata**, e ogni richiamo costava fra 698
+e 2.900 millisecondi a una persona che stava aspettando.
+
+| Causa | Attesa | Perché |
+|------|------|------|
+| `quota` | 60 s → 4 min → 16 min → 1 h → **2 h** | esaurita per la giornata: non torna fra un minuto |
+| `authentication` · `configuration` | 300 s → 10 min → **1 h** | una chiave sbagliata non si aggiusta da sola |
+| `model_unavailable` | 60 s → 2 min → **15 min** | idem, ma un modello può tornare |
+| `timeout` · `network` | 5 s → 10 → 20 → 40 → **60 s** | chi è lento adesso lo è anche fra cinque secondi |
+| `rate_limit` | **4 s, fisso** | vedi sotto |
+| `invalid_response` | **5 s, fisso** | può essere colpa nostra |
+
+Un rifiuto **diverso** fa ripartire il conto da uno: un provider che era in
+quota e adesso va in timeout sta descrivendo un altro guasto, e merita di
+essere creduto da capo. E un successo azzera tutto.
+
+    IL RATE LIMIT NON SALE, ED È UNA LEZIONE GIÀ PAGATA DUE VOLTE.
+
+Il primo tentativo lo faceva crescere come gli altri, e ha rotto
+`test_a_short_wait_is_taken_rather_than_failing_the_turn` — la prova che
+custodisce una lezione dello Sprint V3.4: un turno di ragionamento è molte
+chiamate, quindi i piani gratuiti limitano la catena intera tutta insieme, e
+per questo esiste un'attesa di grazia di sei secondi. Facendo crescere il rate
+limit, la seconda panchina finiva oltre quella finestra e **la conversazione
+moriva per un'attesa che stava per scadere** — esattamente il difetto per cui
+la finestra era stata scritta. `invalid_response` resta fisso per una ragione
+diversa: una risposta vuota o bloccata dipende spesso dal payload che abbiamo
+mandato noi, e panchinare un provider sano per un nostro errore è punire
+l'innocente.
+
+**Un tentativo ha una scadenza.** `_within_deadline` avvolge ogni chiamata a un
+provider — nel giro della conversazione e in `analyze_document` /
+`ask_document`, che prima erano scoperti. Il tempo scaduto diventa un
+`timeout` come un altro, così cooldown e passaggio al successivo funzionano
+senza sapere niente di nuovo.
+
+**Venticinque secondi, e il numero viene dalle misure.** Un turno sano costa
+2,4 s sul primario e 5 sulla riserva; il peggiore mai misurato fra i provider
+in catena è 6,2 s. Venticinque è quattro volte il peggiore: largo abbastanza da
+non tagliare mai un caso complesso, stretto abbastanza da non regalare un
+minuto a chi non risponderà comunque — l'adattatore Gemini si arrende a 60.
+Si configura con `LLM_ATTEMPT_DEADLINE_S`, e **sotto i cinque secondi il valore
+viene rifiutato**: non sarebbe una protezione, sarebbe un guasto che ci diamo
+da soli. `asyncio.wait_for` aspetta che l'annullamento sia completato, quindi i
+gestori di contesto dell'adattatore si chiudono e non resta niente appeso —
+verificato su venti turni consecutivi.
+
+**Misurato, prima e dopo**, sul manager vero con provider finti che costano
+quanto costano quelli veri (quota 1,6 s · sano 2,4 s · riserva 5 s ·
+impantanato 34 s):
+
+| Scenario | Prima | Dopo |
+|------|------|------|
+| primario sano | 2.406 ms · 0 tentativi buttati | **2.405 ms** · 0 — nessuna regressione |
+| primario in quota, 5 turni | 4.021 ms mediana · **5 tentativi buttati** · 20.104 ms | **2.415 ms** mediana · **2** · **15.290 ms** |
+| primario impantanato, 2 turni | 34.007 ms · 68.013 ms in tutto | **2.410 ms** al secondo turno · **29.815 ms** in tutto |
+
+Nello scenario in quota i primi due turni pagano ancora il tentativo
+condannato — è il prezzo per sapere che il no è davvero persistente — e dal
+terzo in poi si risparmiano **1.606 ms per turno**. Nello scenario
+impantanato cambia anche *chi* risponde: si preferisce una risposta giusta e
+veloce dalla riserva a una lentissima dal primario. È la stessa ORA, con lo
+stesso prompt: cambia solo chi lo legge.
+
+---
+
 ### La riserva
 
     UNA RISERVA CHE NON RISPONDE MAI NON È UNA RISERVA.

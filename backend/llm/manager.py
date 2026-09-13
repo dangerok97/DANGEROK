@@ -24,6 +24,7 @@ from llm.errors import (
     LLMInternalError,
     LLMNotConfigured,
     LLMProviderUnavailable,
+    LLMTimeoutError,
     is_failoverable,
 )
 from llm.providers import (
@@ -65,6 +66,75 @@ COOLDOWN_SECONDS = {
 }
 MAX_RETRY_AFTER_S = 300.0
 
+#     UN PROVIDER ESAURITO PER OGGI NON TORNA FRA SESSANTA SECONDI.
+#
+# Il cooldown non aveva memoria: ogni fallimento sostituiva lo stato con uno
+# nuovo, quindi un account in quota veniva richiamato **una volta al minuto per
+# tutto il giorno**, e ogni richiamo costava 698-2.900 millisecondi a una
+# persona che stava aspettando di sentire una risposta.
+#
+# Adesso il secondo rifiuto vale più del primo. Per ogni causa: di quanto si
+# moltiplica l'attesa a ogni no consecutivo, e oltre quanto non si sale.
+#
+#     MA UN RIFIUTO DIVERSO RICOMINCIA DA CAPO.
+#
+# Il conto sale solo finché la causa resta la stessa: un provider che prima era
+# in quota e adesso va in timeout sta dicendo un'altra cosa, e merita di essere
+# creduto da capo.
+ESCALATION = {
+    # Esaurita per la giornata: 60 s → 4 min → 16 min → 1 h → 2 h.
+    "quota": (4.0, 7200.0),
+    # Una chiave sbagliata non si aggiusta da sola.
+    "authentication": (2.0, 3600.0),
+    "configuration": (2.0, 3600.0),
+    "model_unavailable": (2.0, 900.0),
+    # Chi e' lento adesso probabilmente lo e' anche fra cinque secondi, e ogni
+    # tentativo costa una scadenza intera: 5 s -> 10 -> 20 -> 40 -> 60.
+    "timeout": (2.0, 60.0),
+    "network": (2.0, 60.0),
+    #     IL RATE LIMIT NON SALE, ED E' UNA LEZIONE GIA' PAGATA.
+    #
+    # Un turno di ragionamento e' molte chiamate, quindi i piani gratuiti
+    # limitano la catena intera tutta insieme; per questo esiste l'attesa di
+    # grazia qui sotto, e per questo il cooldown del rate limit e' corto. Farlo
+    # crescere manda la seconda panchina oltre quella finestra, e la
+    # conversazione muore per un'attesa che stava per scadere — che e'
+    # esattamente il difetto per cui la finestra era stata scritta. Misurato:
+    # con l'escalation attiva, `test_a_short_wait_is_taken_rather_than_failing
+    # _the_turn` e' caduto.
+    #
+    #     E UNA RISPOSTA VUOTA PUO' ESSERE COLPA NOSTRA.
+    #
+    # `invalid_response` per la stessa ragione dell'altra meta': dipende spesso
+    # da quello che abbiamo mandato noi, e mettere in panchina un provider sano
+    # per un nostro payload sarebbe punire l'innocente.
+}
+
+#     UN PROVIDER LENTISSIMO È PEGGIO DI UN PROVIDER MORTO.
+#
+# Un provider guasto dice di no e si passa oltre. Uno lento si tiene il turno
+# e nessuno se ne accorge: misurato, un turno vero è arrivato a 34 secondi e
+# una richiesta da trenta caratteri a 4,4 — con il tetto dell'adattatore a 60,
+# nessuno sarebbe intervenuto prima di un minuto.
+#
+# Venticinque secondi sono scelti sui numeri veri: un turno sano costa 2,4
+# secondi sul primario e 5 sulla riserva, il peggiore mai misurato fra i
+# provider in catena è 6,2. Venticinque è quattro volte il peggiore — largo
+# abbastanza da non tagliare mai un caso complesso, stretto abbastanza da non
+# regalare un minuto a chi non risponderà comunque.
+DEFAULT_ATTEMPT_DEADLINE_S = 25.0
+
+
+def _attempt_deadline() -> float:
+    """Quanto si aspetta un singolo provider, prima di provare il prossimo."""
+    try:
+        wanted = float(os.environ.get("LLM_ATTEMPT_DEADLINE_S") or "")
+    except ValueError:
+        return DEFAULT_ATTEMPT_DEADLINE_S
+    # Sotto i cinque secondi si taglierebbero turni sani: non è una scadenza,
+    # è un guasto che ci diamo da soli.
+    return wanted if wanted >= 5.0 else DEFAULT_ATTEMPT_DEADLINE_S
+
 # How long a request may pause when every provider is cooling down at once.
 #
 # One turn of reasoning is many calls in a few seconds, so free tiers rate-limit
@@ -80,6 +150,8 @@ class _RuntimeState:
     state: str = "unknown"
     failure_kind: Optional[str] = None
     cooldown_until: float = 0.0
+    # Quanti no di fila per la stessa causa. Un successo lo azzera.
+    consecutive_failures: int = 0
 
 
 # Process-level preferred override (also updated via API without restart)
@@ -150,10 +222,29 @@ class ProviderManager:
             return self._runtime[name].cooldown_until <= self._clock()
 
     async def _record_failure(self, name: str, error: LLMError) -> None:
-        duration = COOLDOWN_SECONDS.get(error.kind, 0.0)
-        if error.retry_after is not None:
-            duration = max(duration, min(MAX_RETRY_AFTER_S, max(0.0, error.retry_after)))
+        """
+        Un no, e quanto a lungo lo si crede.
+
+            CHI DICE DI NO DUE VOLTE DI FILA LO DIRÀ ANCHE LA TERZA.
+
+        L'attesa cresce finché la causa resta la stessa, e si ferma a un tetto
+        per causa. Quando chi rifiuta dice da sé quanto aspettare, quella
+        risposta vince: sa più di noi.
+        """
         async with self._state_lock:
+            prima = self._runtime.get(name) or _RuntimeState()
+            di_fila = (
+                prima.consecutive_failures + 1
+                if prima.failure_kind == error.kind
+                else 1
+            )
+            base = COOLDOWN_SECONDS.get(error.kind, 0.0)
+            fattore, tetto = ESCALATION.get(error.kind, (1.0, base))
+            duration = min(base * (fattore ** (di_fila - 1)), tetto) if base else 0.0
+            if error.retry_after is not None:
+                duration = max(
+                    duration, min(MAX_RETRY_AFTER_S, max(0.0, error.retry_after)),
+                )
             self._runtime[name] = _RuntimeState(
                 state=(
                     "config_error"
@@ -162,6 +253,12 @@ class ProviderManager:
                 ),
                 failure_kind=error.kind,
                 cooldown_until=self._clock() + duration,
+                consecutive_failures=di_fila,
+            )
+        if duration:
+            logger.info(
+                "LLM provider=%s cooldown=%.0fs failure_kind=%s consecutive=%d",
+                name, duration, error.kind, di_fila,
             )
 
     async def _record_success(self, name: str) -> None:
@@ -235,6 +332,24 @@ class ProviderManager:
             "model": self._providers[active].model_name() if active else None,
         }
 
+    async def _within_deadline(self, coro):
+        """
+        Aspetta un provider, ma non oltre quanto vale aspettarlo.
+
+            NON SI INTERROMPE CHI STA FINENDO: SI INTERROMPE CHI NON FINISCE.
+
+        `wait_for` annulla il lavoro e **aspetta che l'annullamento sia
+        completato** prima di tornare: i gestori di contesto dentro
+        l'adattatore si chiudono, la connessione si chiude con loro, e non
+        resta nessun compito appeso. Il tempo scaduto diventa un timeout come
+        un altro, così il cooldown e il passaggio al prossimo provider
+        funzionano senza sapere niente di nuovo.
+        """
+        try:
+            return await asyncio.wait_for(coro, _attempt_deadline())
+        except asyncio.TimeoutError:
+            raise LLMTimeoutError("deadline") from None
+
     async def _shortest_cooldown(self, names: list[str]) -> Optional[float]:
         """How soon the first of these is due back, if any of them is cooling."""
         now = self._clock()
@@ -305,12 +420,12 @@ class ProviderManager:
             p = self._providers[name]
             t0 = time.perf_counter()
             try:
-                result = await p.chat(
+                result = await self._within_deadline(p.chat(
                     system=system,
                     user=user,
                     session_id=session_id,
                     json_mode=json_mode,
-                )
+                ))
                 result.usage = {
                     **(result.usage or {}),
                     "latency_ms": round((time.perf_counter() - t0) * 1000, 1),
@@ -335,7 +450,13 @@ class ProviderManager:
                 await self._record_failure(name, e)
                 attempts.append(self._attempt(name, e.kind, True))
                 errors.append(f"{name}:{e.kind}")
-                logger.warning("LLM provider=%s result=fail failure_kind=%s", name, e.kind)
+                # La riga del successo porta la latenza, quella del fallimento
+                # no: così il costo dei tentativi condannati era invisibile, e
+                # non si riduce quello che non si misura.
+                logger.warning(
+                    "LLM provider=%s result=fail failure_kind=%s after_ms=%.0f",
+                    name, e.kind, (time.perf_counter() - t0) * 1000,
+                )
                 continue
             except Exception:
                 logger.error("LLM provider=%s result=internal_error", name)
@@ -364,7 +485,7 @@ class ProviderManager:
             t0 = time.perf_counter()
             try:
                 fn = getattr(p, method)
-                result: LLMResult = await fn(**kwargs)
+                result: LLMResult = await self._within_deadline(fn(**kwargs))
                 result.usage = {
                     **(result.usage or {}),
                     "latency_ms": round((time.perf_counter() - t0) * 1000, 1),
