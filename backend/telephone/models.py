@@ -195,6 +195,11 @@ class PhoneCall(BaseModel):
     audio_frames: int = 0
     audio_bytes: int = 0
     first_audio_ms: Optional[int] = None
+    # I tempi della conversazione, turno per turno: quanto ha aspettato la
+    # persona, quanto ci ha messo ORA a stare zitta quando l'hanno interrotta.
+    # Solo numeri e nomi di stati — mai una parola di quello che si è detto,
+    # mai un campione di audio.
+    metrics: Dict[str, Any] = Field(default_factory=dict)
 
     # --- dopo -------------------------------------------------------------
     outcome: Optional[CallOutcome] = None

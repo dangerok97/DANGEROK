@@ -1,5 +1,289 @@
 # ORA — Development State
 
+## V3.13 — SPRINT 3.2 — REAL-TIME TELEPHONE SPEECH RUNTIME — APERTO
+
+**La voce che va e quella che torna, dentro la stessa telefonata.**
+
+    VOICE IS NOT A SEPARATE ASSISTANT.
+    L'AUDIO È UN FIUME, NON UN ARCHIVIO.
+    PRIMA DEL COMMIT È UN'IPOTESI.
+
+Lo Sprint 3.1 aveva portato il filo: pacchetti di voce umana dentro il
+backend, e niente che ne restasse. Qui quei pacchetti diventano parole,
+attraversano **la stessa ORA** dell'app, e tornano indietro come voce.
+
+**Il giro, per intero**
+
+    telefono → Vonage → WS binario → AudioIngress → StreamingSpeechInput
+             → TurnManager (commit semantico) → SameORAAdapter
+             → SpeechChunker → StreamingSpeechOutput → PlaybackController
+             → WS binario → Vonage → telefono
+
+| Pezzo | File | Sa una cosa sola |
+|------|------|------|
+| `RealtimeVoiceSession` | `telephone/bridge.py` | tenere insieme il giro |
+| `AudioIngress` | `bridge.hear()` | far passare il PCM e dimenticarlo |
+| `StreamingSpeechInputProvider` | `telephone/providers.py` | il contratto di chi ascolta |
+| `StreamingSpeechOutputProvider` | `telephone/providers.py` | il contratto di chi parla |
+| `Listening` · `Speaking` | `telephone/deepgram.py` | l'unico file che nomina un fornitore |
+| `TurnManager` | `telephone/turn.py` | di chi è il turno |
+| `SameORAAdapter` | `telephone/same_ora.py` | la porta verso `AICoreOrchestrator` |
+| `SpeechChunker` | `telephone/chunker.py` | dove si può tagliare una frase |
+| `PlaybackController` | `telephone/playback.py` | versare l'audio al ritmo di chi ascolta |
+| `BargeInController` | `bridge._barge_in()` | tre gesti, in ordine |
+| `VoiceLatencyMetrics` | `turn.Timing` | i numeri, mai le parole |
+| `TelephoneCallDossier` | `telephone/dossier.py` | cosa preparare mentre squilla |
+
+**Fornitori e frequenze.** Deepgram per tutti e due i versi, endpoint europeo
+`api.eu.deepgram.com`. Ascolto: **Nova-3**, italiano, `linear16` a **16 kHz**,
+`interim_results`, `vad_events`, `utterance_end_ms=1000`. Voce: **Aura-2**
+italiano, `linear16` a **16 kHz**. È la stessa frequenza del filo Vonage:
+**nessun ricampionamento in nessuno dei due versi** — il piano dello Sprint
+3.1 ne prevedeva uno perché il vecchio modello voleva 24 kHz, e sceglierne
+uno che parla già a 16 lo ha fatto sparire invece di ottimizzarlo.
+
+**I fornitori si aprono all'apertura della linea, non al primo turno.**
+Misurato: la stretta di mano costa 336 e 289 ms. Pagarli mentre una persona
+aspetta sarebbe stato un decimo del tempo di risposta buttato in un saluto fra
+macchine.
+
+### Il commit semantico
+
+    `speech_final` NON È LA FINE DEL TURNO.
+
+Misurato su voce vera: su «Ciao ORA, dimmi che giorno è oggi» il trascrittore
+dichiara la frase finita dopo 2,4 secondi su 4,7 — cioè sulla pausa dopo
+«Ciao, ORA», mentre la persona sta ancora parlando. Un runtime che risponde lì
+interrompe la gente a metà frase, e sembra sordo.
+
+Il commit combina quello che si sa: chi ha cominciato a parlare (VAD), cosa ha
+detto finora (definitivi accumulati), dove ha fatto pause (**indizio**), quanto
+silenzio è passato (`UtteranceEnd`), quanto ha parlato in tutto, se la frase
+sta in piedi da sola, dove eravamo un attimo fa.
+
+    UN TIMER CHE BATTE QUELLO DI CHI ASCOLTA È UN TIMER INUTILE.
+
+Due strade sono state costruite e **tolte**, tutte e due dopo una prova con
+voce vera:
+
+1. «1,6 secondi senza eventi → commetti». I definitivi arrivano a gruppi, e
+   fra un gruppo e l'altro passano secondi in cui *noi* non sentiamo niente e
+   la persona sta parlando benissimo. Ha chiuso il turno su «Ciao, ora».
+2. «pausa dichiarata + 800 ms di silenzio + frase che sta in piedi». Il
+   trascrittore dichiara il silenzio a 1.000 ms: aspettarne 800 e decidere da
+   soli vuol dire arrivare sempre primi, e quindi non chiedergli mai niente.
+   Ha chiuso il turno su «Ciao, ORA.» — che *sembra* finita perché il
+   trascrittore mette il punto a ogni pezzo.
+
+Resta `UtteranceEnd` — chi guarda i tempi delle parole invece dell'orologio — e
+sotto una rete a **4 secondi** che chiede comunque se la frase sta in piedi
+(`_stands_on_its_own`: punteggiatura finale, nessuna parola sospesa, almeno
+tre parole). La rete è per il guasto, non per il ritmo.
+
+### Nessun audio prima che ORA abbia deciso
+
+Il core non produce testo: produce una **decisione**, e `ora_text` è un campo
+dentro quella decisione. Finché non è completa non si sa nemmeno se questo
+turno è una risposta — potrebbe essere uno strumento, una richiesta di
+autorità, un blocco. Quindi si aspetta la decisione intera e si guarda `mode`:
+solo `answer`, `compare`, `finish` e `ask` diventano voce. `tool`, `act`,
+`context`, `research` sono passi interni, e un passo interno detto ad alta voce
+è ORA che pensa nell'orecchio di qualcuno.
+
+**Niente riempitivi.** Se non c'è niente da dire non si dice niente: inventare
+un «un attimo…» sarebbe mettere in bocca a ORA una frase che ORA non ha deciso.
+
+### L'interruzione
+
+    CHI RICOMINCIA A PARLARE NON CHIEDE IL PERMESSO.
+
+Tre gesti, in quest'ordine: `Clear` al fornitore perché smetta di generare, la
+coda nostra buttata, e il trasporto avvisato. Il segnale è `SpeechStarted`, non
+la prima trascrizione: aspettare le parole vuol dire parlare sopra a qualcuno
+per un secondo intero.
+
+**Un limite vero, detto e non nascosto:** sul filo Vonage non esiste un comando
+per richiamare indietro l'audio già consegnato. Si smette di mandarne, e quello
+che ha già lasciato il server — al massimo un pacchetto, venti millisecondi — la
+persona lo sente comunque.
+
+### Mentre squilla
+
+    FRA «SQUILLA» E «PRONTO» NON STA ASPETTANDO NESSUNO.
+
+Sono gli unici secondi gratis della telefonata. Si prepara il fascicolo e si
+sveglia la catena dei modelli. **È infrastruttura, non cognizione**: non entra
+nella Conversation Engine, non crea messaggi, non crea memoria, non tocca il
+Personal Life Model, non attiva strumenti, non consuma autorità, non produce
+niente che qualcuno leggerà. Se fallisce, il primo turno costa quello che
+sarebbe costato comunque.
+
+### I numeri, misurati sulla pipeline intera
+
+Prova a secco del 13 settembre: Deepgram vero, ORA vera, trasporto vero, finto
+solo il filo telefonico.
+
+| Tratto | Turno 1 | Turno 2 | Turno 3 |
+|------|------|------|------|
+| fine parlato → commit | 1.595 ms | 1.637 ms | 1.600 ms |
+| commit → decisione di ORA | 5.886 ms | 6.858 ms | 7.200 ms |
+| decisione → primo audio | 203 ms | 230 ms | 206 ms |
+| **fine parlato → voce** | **7.684 ms** | **8.725 ms** | **9.006 ms** |
+
+Interruzione: rilevata a 16.583 ms, voce ferma a 16.599 ms — **16 ms** — e
+**zero byte** di coda dopo «Aspetta».
+
+    IL COLLO DI BOTTIGLIA NON È IL TELEFONO.
+
+Trasporto e voce costano 1,8 secondi su 8; il resto è il core che decide. Due
+strade sono state **misurate e scartate**: streammare il core guadagnerebbe
+~150 ms su 3.000, e Groq ha un tetto di 7.000 token al minuto contro i 13.310
+del prompt di ORA. **Il target di 1,2 secondi resta un obiettivo futuro
+dipendente dal TTFT del core, non un numero raggiunto.**
+
+### La latenza, misurata e ridotta
+
+    IL COLLO DI BOTTIGLIA NON ERA IL TELEFONO, ED È STATO MISURATO.
+
+Sulla telefonata vera l'attesa fra la fine del parlato e la voce di ORA era di
+**9.397 millisecondi**. Trasporto e voce ne costavano 1.800; tutto il resto
+era il core che decideva. Smontato voce per voce:
+
+| Voce | Costo | Che cos'era |
+|------|------|------|
+| lavoro prima del modello | 36 ms | contesto, life os, strumenti: niente |
+| provider esaurito tentato per primo | ~1.600 ms | `gemini` in quota, `gemini2` dietro |
+| un passo del modello | 2.300-2.600 ms | 25.000 token in ingresso |
+| secondo passo, solo calendario | +2.500 ms | «chiama get_calendar_events», poi rispondi |
+
+E il pavimento, misurato togliendo tutto: **~1.900 ms** di sola generazione.
+Spostare l'elenco degli strumenti dentro il prompt di sistema per farlo
+prendere da una cache di prefisso è stato **provato e scartato**: 2.616 ms
+contro 2.821 ms, cioè rumore.
+
+**Il catalogo degli strumenti, scritto in un modo che costa meno.** Trentanove
+strumenti pesavano 30.818 caratteri — il settantanove per cento del payload —
+e viaggiavano così a ogni chiamata, su ogni canale, a ogni passo. Il
+trentasette per cento erano le descrizioni, cioè l'unica parte che serve; il
+resto era struttura JSON e sette nomi di chiave ripetuti trentanove volte.
+Scritti a una riga per strumento pesano **18.061 caratteri**, e non manca né
+un nome, né un argomento, né un valore ammesso, né una descrizione: una prova
+li confronta uno per uno. Payload da **38.950 a 21.843 caratteri**.
+
+**Le prossime quarantotto ore, già in mano.** «Che impegni ho domani?» costava
+due passi: il primo per dire «chiamate `get_calendar_events`», il secondo per
+rispondere. Adesso quelle ore arrivano insieme al contesto, lette **dallo
+stesso handler dello strumento** — nessun secondo calendario, nessun secondo
+controllo di consenso. Il blocco dichiara la propria finestra, e fuori di lì
+ORA chiede ancora: verificato, «la settimana prossima» continua a produrre
+una chiamata allo strumento. Sul calendario vero nove eventi erano due:
+i duplicati si uniscono, se no ORA direbbe che domani hai cinque impegni.
+
+**Che giorno è oggi.** Il payload portava `today: "2026-09-13"` e lasciava al
+modello il compito di dedurre «domenica». Chiedendolo sei volte con la stessa
+data: ministral-14b ha risposto martedì, martedì, lunedì; ministral-8b
+mercoledì, mercoledì, martedì; gemini2 domenica. Sei risposte sicure, un
+giorno diverso quasi ogni volta, sulla domanda più frequente che esista al
+telefono. Adesso `today_weekday` lo calcola il codice — in `day_names.py`, con
+i nomi scritti a mano e non da `strftime`, che seguirebbe il locale del
+processo. Con quel campo, **ministral-8b risponde «domenica»**.
+
+| | prima | dopo |
+|---|---|---|
+| payload | 38.950 car | **21.843 car** |
+| ingresso totale | ~97.400 car | **~80.300 car** (18.650 token) |
+| «impegni domani» | 2 passi | **1 passo** |
+| turno semplice, gemini2 | ~2.500 ms | **2.381 ms** (p50, 7 casi) |
+
+### La riserva
+
+    UNA RISERVA CHE NON RISPONDE MAI NON È UNA RISERVA.
+
+`mistral` era già quarto nella catena, e configurato su `mistral-small-latest`
+— che oggi risolve a `mistral-small-2603`: **ventimila token al minuto**. Il
+prompt di ORA ne porta 18.654, quindi una chiamata sola satura il minuto e la
+seconda prende 429. Misurato: 429 su ogni tentativo, anche su una richiesta da
+quattro token.
+
+Provati tre modelli sullo stesso identico carico, rispettando i tetti di
+richieste al secondo dichiarati dall'account:
+
+| | ministral-14b-2512 | ministral-8b-2512 | mistral-large-2512 |
+|---|---|---|---|
+| prompt accettato | sì | sì | **no — 403, fuori abbonamento** |
+| TTFT p50 | 2.392 ms | **1.480 ms** | — |
+| totale p50 / p95 | 8.790 / **23.310** ms | **5.018 / 6.169 ms** | — |
+| JSON · modo · strumento | 7/7 · 7/7 · 7/7 | 7/7 · 7/7 · 7/7 | — |
+| 429 | 0 | 0 | — |
+
+**`ministral-8b-2512`**, quindi: stesse identiche scelte di `ministral-14b` in
+metà tempo, sei volte le richieste al secondo, e nessun caso oltre i sette
+secondi contro un p95 a ventitré. Resta **dietro**, dove deve stare: la catena
+è `gemini → gemini2 → groq → mistral`, e il manager ci arriva da solo quando i
+primi sono in quota o in cooldown. Verificato con i primi tre messi in
+cooldown: risponde `mistral/ministral-8b-2512`, JSON valido, modo giusto,
+`get_calendar_events` e `prepare_a_phone_call` scelti giusti.
+
+Sulla riserva un turno costa **5.733 ms** (p50 su cinque), che al telefono
+diventano circa 7,4 secondi. È una rete, non un posto dove stare.
+
+---
+
+### Privacy
+
+| Cosa | Dove finisce |
+|------|------|
+| PCM dal telefono | passa a chi ascolta, **non esiste più** |
+| PCM verso il telefono | versato sul filo, **non esiste più** |
+| testo di quello che si è detto | `PhoneCall.turns`, come una conversazione |
+| tempi e conteggi | `PhoneCall.metrics` — solo numeri e nomi di stati |
+| chiavi | solo `.env` e un file fuori dal repo |
+
+Nessun buffer che cresce, nessun file, nessun base64, nessun campo binario.
+Verificato sul documento rimasto: **3.346 caratteri, zero campi con byte
+grezzi**. Ci sono prove che guardano il codice e falliscono se compaiono
+`open(`, `write(`, `b"".join`, `wave`, `BytesIO`, `base64`.
+
+### Come rompe
+
+| Guasto | Cosa succede |
+|------|------|
+| fornitori non disponibili | la linea non si apre, la telefonata non comincia a mentire |
+| chi ascolta cade a metà | il giro non chiude la linea; si torna ad ascoltare |
+| il core tarda oltre 45 s | si lascia perdere il turno, senza riempitivi |
+| la voce non finisce | l'inciampo resta nei numeri, la linea regge |
+| la persona riaggancia | tutto lasciato andare in ordine, nessun task appeso |
+
+### Difetti trovati dalle prove vere, non dai test
+
+- **Il turno si chiudeva su «Ciao, ORA»** — due volte, per due ragioni
+  diverse: vedi sopra. Nessun test avrebbe potuto trovarle, perché richiedono
+  di sapere *quando* un trascrittore vero consegna i pezzi.
+- **L'ultimo turno spariva dai numeri.** Il trasporto leggeva i tempi *prima*
+  di chiudere, e il turno ancora in corso non era ancora stato archiviato: il
+  conteggio diceva uno quando i turni erano due. Un difetto di misura è
+  peggio di un difetto visibile, perché fa sembrare sano quello che non lo è.
+  Adesso c'è una prova che lo tiene fermo, e una seconda che controlla
+  l'ordine nel trasporto.
+
+### Debito residuo
+
+- Il core non streamma: primo token e decisione completa coincidono. I due
+  campi restano distinti perché il giorno che cambierà si vedrà la differenza
+  senza toccare niente.
+- I pezzi da dire arrivano tutti insieme (`_pieces_as_stream`): il giorno che
+  arriveranno a goccia, quella funzione sparisce e il resto non se ne accorge.
+- L'audio già consegnato al trasporto non è richiamabile: 20 ms di coda.
+- `1,2 s` di attesa percepita: non raggiunto, e dipende dal core.
+
+### Il reality gate
+
+**In corso.** Richiede una telefonata vera: due turni risposti nella stessa
+chiamata, un'interruzione con «Aspetta», e zero byte di audio persistito.
+**Lo sprint resta aperto finché non passa.**
+
+---
+
 ## V3.13 — SPRINT 3.1 — REAL TELEPHONE TRANSPORT FOUNDATION — CLOSED
 
 **Il filo, non ancora la voce.**

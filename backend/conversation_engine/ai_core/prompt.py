@@ -937,17 +937,34 @@ def build_user_payload(
     observations: list,
     current_facts: dict | None = None,
     life_os: dict | None = None,
+    spoken_out_loud: bool = False,
+    calendar_next_48h: dict | None = None,
 ) -> str:
     import json
 
     from datetime import datetime, timezone
+
+    from conversation_engine.ai_core.tools.compact import compact_catalogue
+    from day_names import weekday_name
+
+    _today = datetime.now(timezone.utc).date()
 
     return json.dumps(
         {
             # What day it is. A fact, not a hint: without it the model cannot
             # work out the last day of "this year" — which is why a real
             # constraint came back as a period with no edge.
-            "today": datetime.now(timezone.utc).date().isoformat(),
+            "today": _today.isoformat(),
+            #     E CHE GIORNO DELLA SETTIMANA È, PERCHÉ NON SI INDOVINA.
+            #
+            # Finché c'era solo la data, dedurre «domenica» era compito del
+            # modello. Misurato, chiedendo sei volte la stessa cosa con la
+            # stessa data: ministral-14b ha risposto martedì, martedì, lunedì;
+            # ministral-8b mercoledì, mercoledì, martedì; gemini2 domenica, che
+            # era l'unica giusta. Sei risposte sicure, un giorno diverso quasi
+            # ogni volta — su «che giorno è oggi», che al telefono è la domanda
+            # più frequente che esista.
+            "today_weekday": weekday_name(_today),
             "user_message": user_message,
             # Sta qui, in alto e da sola, e non in fondo a `epistemic_reminder`.
             #
@@ -971,12 +988,62 @@ def build_user_payload(
                 "already know says so; do not say it belongs to a particular "
                 "APPOINTMENT unless the evidence names that appointment."
             ),
+            #     QUESTA RISPOSTA VERRÀ ASCOLTATA, NON LETTA.
+            #
+            # Sta qui in alto e da sola, per la stessa ragione della regola
+            # sopra: una regola in mezzo a trenta non è una regola. E dice una
+            # cosa sola — cambia la FORMA, non quello che hai deciso. Il modo,
+            # gli strumenti, l'autorità, quello che sai e quello che non sai
+            # restano esattamente quelli che sarebbero stati sullo schermo.
+            **(
+                {
+                    "you_are_being_heard_not_read": (
+                        "This answer will be HEARD on a telephone, not read. "
+                        "Same meaning, different form — nothing about what you "
+                        "decided changes: not the mode, not the tools, not the "
+                        "authority, not what you know or refuse to claim. "
+                        "Speak the way a person speaks: short sentences, one "
+                        "idea at a time, the essential first. "
+                        "No lists, no bullet points, no markdown, no headings, "
+                        "no quotation marks around titles, no parentheses, no "
+                        "URLs, no IDs, no file paths, no emoji. "
+                        "Say clock times and dates the way they are spoken "
+                        "aloud, not the way they are written. "
+                        "Keep it to two or three sentences unless you were "
+                        "asked for detail — the person can always ask for "
+                        "more, and on a telephone they cannot skim. "
+                        "It is a conversation: a short question back is "
+                        "natural, a recited report is not."
+                    )
+                }
+                if spoken_out_loud
+                else {}
+            ),
             "recent_turns": recent_turns[-12:],
             "active_goal": active_goal,
             "current_facts": current_facts or {},
             "life_os": life_os or {},
             "context_facts": context_facts[:12],
-            "available_tools": tools,
+            #     LA DOMANDA PIÙ FREQUENTE NON DEVE COSTARE UN GIRO IN PIÙ.
+            #
+            # «Che impegni ho domani?» costava due passi di ragionamento:
+            # il primo per dire «chiamate get_calendar_events», il secondo
+            # per rispondere. Duemilacinquecento millisecondi per andare a
+            # prendere una cosa che si sapeva già di dover prendere. Adesso
+            # le prossime quarantotto ore arrivano insieme al resto, lette
+            # dallo stesso codice dello strumento. Il blocco dice da sé dove
+            # finisce la sua finestra: fuori di lì si chiede ancora.
+            **({"calendar_next_48h": calendar_next_48h} if calendar_next_48h else {}),
+            #     LO STESSO CATALOGO, SCRITTO IN UN MODO CHE COSTA MENO.
+            #
+            # Misurato: trentanove strumenti pesavano 30.818 caratteri su
+            # 38.950 di payload — il settantanove per cento — e viaggiavano
+            # così a ogni chiamata, su ogni canale, a ogni passo. Scritti a
+            # una riga per strumento ne pesano 18.061, e non manca né un nome,
+            # né un argomento, né un valore ammesso, né una descrizione. Se un
+            # giorno mancasse, c'è una prova che confronta le due forme
+            # strumento per strumento e cade.
+            "available_tools": compact_catalogue(tools),
             "observations": observations[-6:],
             "epistemic_reminder": (
                 "Operational external claims require TOOL_OBSERVATION. "

@@ -31,6 +31,19 @@ logger = logging.getLogger("ora.llm.mistral")
 
 _MISTRAL_BASE = "https://api.mistral.ai/v1"
 
+#     IL RIPIEGO DEVE POTER REGGERE IL PROMPT CHE RICEVE.
+#
+# Qui c'era `mistral-small-latest`, che oggi risolve a `mistral-small-2603`:
+# venti­mila token al minuto. Il prompt di ORA ne porta 18.654, quindi una
+# sola chiamata satura il minuto e la seconda prende 429 — misurato, su ogni
+# tentativo, anche su una richiesta da quattro token. Una riserva che non
+# risponde mai non è una riserva.
+#
+# `ministral-8b-2512` accetta lo stesso identico carico: 625.000 token al
+# minuto, 3,13 richieste al secondo, zero 429 in dodici chiamate, sette casi
+# su sette con JSON valido, modo corretto e strumento corretto.
+_DEFAULT_MODEL = "ministral-8b-2512"
+
 
 class MistralProvider(BaseLLMProvider):
     name = "mistral"
@@ -39,7 +52,7 @@ class MistralProvider(BaseLLMProvider):
         return bool((os.environ.get("MISTRAL_API_KEY") or "").strip())
 
     def model_name(self) -> Optional[str]:
-        return (os.environ.get("MISTRAL_MODEL") or "mistral-small-latest").strip()
+        return (os.environ.get("MISTRAL_MODEL") or _DEFAULT_MODEL).strip()
 
     async def chat(
         self,

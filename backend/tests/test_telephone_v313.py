@@ -188,10 +188,11 @@ def test_ora_says_what_it_is_before_anything_else():
     # Anche senza un nome, la dichiarazione resta.
     assert "assistente AI" in disclosure("")
 
-    # E il ponte la fa dire per prima, non la lascia decidere al modello.
-    bridge = _code_only((HERE / "telephone" / "bridge.py").read_text(encoding="utf-8"))
-    assert "say_this_first" in bridge
-    assert "greet" in bridge
+    # E la frase è pronta prima che il telefono squilli: sta nel fascicolo
+    # che si prepara mentre suona, non in una generazione da aspettare.
+    dossier = _code_only((HERE / "telephone" / "dossier.py").read_text(encoding="utf-8"))
+    assert "opening_line" in dossier
+    assert "disclosure(" in dossier
 
     # La disciplina vieta di fingersi umana, per iscritto.
     briefing = (HERE / "telephone" / "briefing.py").read_text(encoding="utf-8")
@@ -426,31 +427,29 @@ def test_the_public_doors_do_nothing_on_their_own():
     )
 
 
-def test_the_live_voice_bridge_is_not_wired_yet_and_says_so():
+def test_the_voice_runtime_is_wired_to_the_real_transport():
     """
-    §E: in 3.1 si prova il filo, non la voce.
+    §3.2: il ponte adesso è collegato, e non duplica il trasporto.
 
-    `bridge.py` esiste — contiene il collegamento al modello che ascolta e
-    risponde in linea, e la disciplina sui turni e sulle interruzioni — ma non
-    è collegato a niente: il trasporto di Vonage porta PCM binario a 16 kHz,
-    e quel ponte era scritto per pacchetti base64 dentro JSON. Farlo combaciare
-    è lo Sprint 3.2.
-
-    Questa prova esiste perché quel file non venga scambiato per qualcosa che
-    funziona. Se un giorno qualcuno lo collega, questa prova fallisce, e
-    fallire qui è il modo giusto di accorgersene.
+    Nello Sprint 3.1 questo file esisteva senza che lo chiamasse nessuno: il
+    suo audio viaggiava in base64 dentro JSON, la forma di un altro operatore.
+    Adesso il runtime riceve PCM binario dal trasporto vero e ne restituisce
+    altrettanto — e continua a non sapere da quale operatore arrivi.
     """
+    bridge = _code_only((HERE / "telephone" / "bridge.py").read_text(encoding="utf-8"))
     vonage = _code_only(
         (HERE / "telephone" / "vonage_router.py").read_text(encoding="utf-8")
     )
-    assert "LiveVoice" not in vonage, (
-        "il ponte è stato collegato: aggiorna questa prova e la documentazione"
-    )
-    # E il file dice per iscritto che non è collegato, così chi lo apre lo sa.
-    bridge = (HERE / "telephone" / "bridge.py").read_text(encoding="utf-8")
-    assert "Sprint 3.2" in bridge, (
-        "il ponte non dichiara di non essere collegato"
-    )
+
+    assert "RealtimeVoiceSession" in bridge
+    assert "RealtimeVoiceSession" in vonage, "il trasporto non chiama il runtime"
+    assert "session.hear(chunk)" in vonage, "i frame binari non arrivano al runtime"
+
+    # E il runtime non nomina nessun operatore telefonico.
+    for named in ("vonage", "nexmo", "twilio", "telnyx", "ncco"):
+        assert named not in bridge.lower(), (
+            f"il runtime conosce l'operatore telefonico: {named}"
+        )
 
 
 def test_the_carrier_events_are_translated_into_our_words():
