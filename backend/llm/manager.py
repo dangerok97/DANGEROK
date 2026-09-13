@@ -125,6 +125,26 @@ ESCALATION = {
 DEFAULT_ATTEMPT_DEADLINE_S = 25.0
 
 
+#     AL TELEFONO SI ASPETTA MENO, PERCHÉ SI ASPETTA AD ALTA VOCE.
+#
+# Venticinque secondi sono la protezione giusta contro un provider morto, e
+# sono un'eternità per qualcuno che ha appena finito di parlare e sente
+# silenzio. Dieci secondi sono **3,3 volte** il peggior turno sano mai
+# misurato sul primario (2.989 ms): larghi abbastanza da non tagliare mai una
+# risposta vera, e da reggere un degrado di tre volte senza mandare ogni turno
+# alla riserva.
+#
+#     MA IL BUDGET STRETTO VALE PER IL PRIMO CAVALLO, NON PER L'ULTIMO.
+#
+# Serve a decidere in fretta di **cambiare provider**, non a decidere quanto
+# vale una risposta. Quindi si applica soltanto al primo tentativo, e soltanto
+# se dietro c'è davvero qualcun altro disponibile: abbandonare l'unico
+# provider rimasto non è una protezione, è silenzio al telefono — che è il
+# difetto peggiore che questo sprint abbia trovato. I tentativi successivi, e
+# l'ultimo, tengono la deadline globale.
+VOICE_FIRST_ATTEMPT_S = 10.0
+
+
 def _attempt_deadline() -> float:
     """Quanto si aspetta un singolo provider, prima di provare il prossimo."""
     try:
@@ -332,7 +352,14 @@ class ProviderManager:
             "model": self._providers[active].model_name() if active else None,
         }
 
-    async def _within_deadline(self, coro):
+    async def _anyone_available_after(self, names: list[str], i: int) -> bool:
+        """Se dopo questo provider ce n'è un altro a cui passare, adesso."""
+        for later in names[i + 1:]:
+            if await self._available(later):
+                return True
+        return False
+
+    async def _within_deadline(self, coro, seconds: Optional[float] = None):
         """
         Aspetta un provider, ma non oltre quanto vale aspettarlo.
 
@@ -346,7 +373,7 @@ class ProviderManager:
         funzionano senza sapere niente di nuovo.
         """
         try:
-            return await asyncio.wait_for(coro, _attempt_deadline())
+            return await asyncio.wait_for(coro, seconds or _attempt_deadline())
         except asyncio.TimeoutError:
             raise LLMTimeoutError("deadline") from None
 
@@ -371,13 +398,21 @@ class ProviderManager:
         session_id: Optional[str] = None,
         json_mode: bool = False,
         user_preference: Optional[str] = None,
+        latency_budget_s: Optional[float] = None,
     ) -> LLMResult:
+        """
+        `latency_budget_s` dice quanto si è disposti ad aspettare il **primo**
+        provider prima di passare al successivo. Non cambia niente di quello
+        che gli si chiede né di quello che decide: cambia solo quando si
+        smette di aspettarlo. `None` è il comportamento di sempre.
+        """
         configured = [name for name in self.ordered_names(user_preference) if self._providers[name].is_configured()]
         if not configured:
             raise LLMNotConfigured("No LLM provider is configured")
         result = await self._attempt_chain(
             system=system, user=user, session_id=session_id,
             json_mode=json_mode, user_preference=user_preference,
+            latency_budget_s=latency_budget_s,
         )
         if result is not None:
             return result
@@ -392,6 +427,7 @@ class ProviderManager:
         result = await self._attempt_chain(
             system=system, user=user, session_id=session_id,
             json_mode=json_mode, user_preference=user_preference,
+            latency_budget_s=latency_budget_s,
         )
         if result is not None:
             return result
@@ -405,11 +441,14 @@ class ProviderManager:
         session_id: Optional[str],
         json_mode: bool,
         user_preference: Optional[str],
+        latency_budget_s: Optional[float] = None,
     ) -> Optional[LLMResult]:
         """One pass down the chain. `None` when nobody could answer."""
         errors: list[str] = []
         attempts: list[dict[str, Any]] = []
-        for name in self.ordered_names(user_preference):
+        names = self.ordered_names(user_preference)
+        primo_tentativo = True
+        for i, name in enumerate(names):
             if not await self._available(name):
                 if self._providers[name].is_configured():
                     attempts.append(self._attempt(name, "cooldown", True))
@@ -418,6 +457,22 @@ class ProviderManager:
                     logger.debug("LLM provider=%s result=skip", name)
                 continue
             p = self._providers[name]
+
+            #     SI ABBANDONA UN PROVIDER SOLO SE C'È DOVE ANDARE.
+            # Il budget stretto vale per il primo tentativo, e solo se dietro
+            # c'è qualcuno di disponibile adesso. Può soltanto stringere: un
+            # chiamante non può chiedere di aspettare più della protezione
+            # globale.
+            quanto = None
+            if (
+                latency_budget_s
+                and latency_budget_s > 0
+                and primo_tentativo
+                and await self._anyone_available_after(names, i)
+            ):
+                quanto = min(latency_budget_s, _attempt_deadline())
+            primo_tentativo = False
+
             t0 = time.perf_counter()
             try:
                 result = await self._within_deadline(p.chat(
@@ -425,7 +480,7 @@ class ProviderManager:
                     user=user,
                     session_id=session_id,
                     json_mode=json_mode,
-                ))
+                ), quanto)
                 result.usage = {
                     **(result.usage or {}),
                     "latency_ms": round((time.perf_counter() - t0) * 1000, 1),

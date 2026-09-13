@@ -195,6 +195,51 @@ processo. Con quel campo, **ministral-8b risponde «domenica»**.
 | «impegni domani» | 2 passi | **1 passo** |
 | turno semplice, gemini2 | ~2.500 ms | **2.381 ms** (p50, 7 casi) |
 
+### Al telefono si aspetta meno, perché si aspetta ad alta voce
+
+    IL BUDGET STRETTO VALE PER IL PRIMO CAVALLO, NON PER L'ULTIMO.
+
+Venticinque secondi sono la protezione giusta contro un provider morto, e
+un'eternità per chi ha appena finito di parlare e sente silenzio. Quando la
+frase entra da `phone` o da `voice`, il **primo** provider ha dieci secondi;
+poi si passa al successivo.
+
+Dieci è 3,3 volte il peggior turno sano mai misurato sul primario (2.989 ms):
+largo abbastanza da non tagliare mai una risposta vera, e da reggere un degrado
+di tre volte senza mandare ogni turno alla riserva — che costa 5-7 s comunque,
+e a quel punto non si guadagnerebbe niente.
+
+**Tre regole, e la seconda è la più importante:**
+
+1. vale solo per il **primo** tentativo; i successivi tengono i 25 s globali,
+   perché la riserva è più lenta del primario (peggiore sano misurato: 7.514 ms)
+2. **non si applica mai all'ultimo provider disponibile** — abbandonare l'unico
+   rimasto non è protezione, è silenzio al telefono
+3. può soltanto **stringere**: un chiamante non può chiedere più della
+   protezione globale
+
+**Dove vive.** Un parametro facoltativo su `mgr.chat(..., latency_budget_s=None)`
+e una tabella pura in `loop.py` che legge `sess.meta["entry_point"]` — la stessa
+forma di `spoken_out_loud`: la provenienza governa la forma e l'attesa, mai il
+contenuto. **Dieci siti di chiamata su undici non sono stati toccati.** Dentro
+`telephone/` non compare una sola durata, e una prova strutturale lo verifica:
+se comparisse, sarebbe nato un percorso cognitivo del telefono.
+
+**Vale per tentativo, non per turno.** Un turno a due passi paga due budget, e
+va bene così: un tetto sul turno intero vorrebbe dire interrompere un
+ragionamento a metà, cioè decidere di non rispondere — e quella è una decisione
+di ORA, non dell'infrastruttura.
+
+| Primario impantanato a 34 s | Prima (25 s) | Dopo (10 s) |
+|---|---|---|
+| tempo al fallback | 30,0 s | **15,0 s** |
+| primo turno | 30.020 ms | **15.019 ms** |
+| secondo turno | 30.019 ms | **15.013 ms** |
+| due turni | 60.039 ms | **30.032 ms** |
+| task pendenti | 1 → 1 | 1 → 1 |
+
+---
+
 ### Chi ha appena detto di no non si richiama
 
     UN PROVIDER ESAURITO PER OGGI NON TORNA FRA SESSANTA SECONDI.
