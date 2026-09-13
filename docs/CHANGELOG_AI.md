@@ -1,5 +1,35 @@
 # ORA — AI Changelog
 
+## 2026-09-13 — V3.13 — UN BUDGET DI ATTESA PER CHI ASPETTA AD ALTA VOCE
+
+    IL BUDGET STRETTO VALE PER IL PRIMO CAVALLO, NON PER L'ULTIMO.
+
+Quando la frase entra dal telefono o dalla voce, il primo provider ha dieci
+secondi invece di venticinque. Non cambia niente di quello che gli si chiede:
+stesso prompt, stesso payload, stesso schema, stessi strumenti, stessa
+autorità. Cambia quando si decide di **cambiare cavallo**.
+
+**Dieci, e il numero viene dalle misure**: 3,3 volte il peggior turno sano mai
+registrato sul primario. Regge un degrado di tre volte senza mandare ogni turno
+alla riserva — che costa 5-7 secondi comunque, e a quel punto non si
+guadagnerebbe niente.
+
+**Non tocca mai l'ultimo provider disponibile.** Abbandonare l'unico rimasto
+non è una protezione: è silenzio al telefono, che è il difetto peggiore che
+questo sprint abbia trovato. E non si applica ai tentativi successivi, perché
+la riserva è più lenta del primario: il budget serve a scegliere in fretta chi
+risponde, non a decidere quanto vale una risposta.
+
+**Dove vive**: un parametro facoltativo sul manager e una tabella nel giro
+della conversazione, che legge la provenienza già esistente. Dieci siti di
+chiamata su undici intatti, e dentro `telephone/` non compare una sola durata —
+c'è una prova che fallisce se un giorno ci comparisse.
+
+**Con un primario impantanato a 34 secondi**: fallback a 15 s invece di 30, due
+turni in 30 s invece di 60, nessun task appeso.
+
+---
+
 ## 2026-09-13 — V3.13 — IL MANAGER LLM RICORDA, E NON ASPETTA ALL'INFINITO
 
     UN PROVIDER ESAURITO PER OGGI NON TORNA FRA SESSANTA SECONDI.

@@ -409,6 +409,13 @@ async def run_cognitive_loop(
             decision_fn=decision_fn,
             system=COGNITIVE_SYSTEM_PROMPT,
             user=payload,
+            # Vale a ogni passo del ragionamento, e non c'è nessun tetto per
+            # il turno intero: interrompere un turno a metà vorrebbe dire
+            # decidere di non rispondere, e quella è una decisione di ORA, non
+            # dell'infrastruttura.
+            latency_budget_s=_how_long_we_wait(
+                str((sess.meta or {}).get("entry_point") or "")
+            ),
         )
         ai_calls += 1
         trace["ai_calls"] = ai_calls
@@ -2289,11 +2296,31 @@ def _claims_unverified_object_adapt(text: str, *, has_active_object: bool) -> bo
     return bool(_ADAPT_CLAIM_RE.search(text))
 
 
+def _how_long_we_wait(entry_point: str) -> Optional[float]:
+    """
+    Quanto si aspetta il primo provider, da dove è entrata la frase.
+
+        CHI ASPETTA AD ALTA VOCE ASPETTA DIVERSAMENTE.
+
+    Una tabella, non un ramo: non c'è nessuna logica del telefono qui dentro,
+    e non ce n'è nessuna dentro `telephone/`. Cambia soltanto quando si decide
+    di cambiare provider — non il prompt, non gli strumenti, non l'autorità,
+    non quello che ORA decide. È la stessa forma di `spoken_out_loud`: la
+    provenienza governa la forma e l'attesa, mai il contenuto.
+
+    `None` vuol dire «come sempre», ed è la risposta per tutto il resto.
+    """
+    from llm.manager import VOICE_FIRST_ATTEMPT_S
+
+    return VOICE_FIRST_ATTEMPT_S if entry_point in ("phone", "voice") else None
+
+
 async def _call_ai(
     *,
     decision_fn: Optional[DecisionFn],
     system: str,
     user: str,
+    latency_budget_s: Optional[float] = None,
 ) -> Optional[Dict[str, Any]]:
     if decision_fn is not None:
         try:
@@ -2304,7 +2331,10 @@ async def _call_ai(
         from llm.manager import get_manager
 
         mgr = get_manager()
-        res = await mgr.chat(system=system, user=user, json_mode=True)
+        res = await mgr.chat(
+            system=system, user=user, json_mode=True,
+            latency_budget_s=latency_budget_s,
+        )
         text = getattr(res, "text", None) or ""
         return _parse_json(text)
     except Exception as e:
