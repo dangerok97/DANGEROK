@@ -44,6 +44,9 @@ def disclosure(on_behalf_of: str) -> str:
     è cominciata.
     """
     name = (on_behalf_of or "").strip() or "questa persona"
+    # Detto ad alta voce non si sente, ma chi legge la trascrizione sì: il
+    # nome di una persona comincia con la maiuscola.
+    name = " ".join(w[:1].upper() + w[1:] for w in name.split())
     return f"Buongiorno, sono ORA, l'assistente AI di {name}."
 
 

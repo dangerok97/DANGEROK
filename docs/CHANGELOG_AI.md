@@ -1,5 +1,117 @@
 # ORA — AI Changelog
 
+## 2026-09-13 — V3.13 SPRINT 3.2 — LATENZA, CATALOGO, AGENDA, RISERVA
+
+Quattro cose, tutte globali, nessuna specifica del telefono.
+
+    IL COLLO DI BOTTIGLIA NON ERA IL TELEFONO.
+    UNA COSA CHE IL CODICE SA NON SI FA DEDURRE A UN MODELLO.
+
+**Nove secondi, smontati.** Fra la fine del parlato e la voce di ORA
+passavano 9.397 millisecondi. Trasporto e voce ne costavano 1.800; il lavoro
+prima del modello 36. Tutto il resto era il modello che leggeva, e un secondo
+passo per andare a prendere il calendario.
+
+**Il catalogo degli strumenti pesava il settantanove per cento del payload.**
+Trentanove strumenti, 30.818 caratteri, spediti a ogni chiamata su ogni
+canale: il trentasette per cento erano descrizioni, il resto struttura JSON e
+sette nomi di chiave ripetuti trentanove volte. A una riga per strumento sono
+18.061, e una prova verifica nome per nome, argomento per argomento, enum per
+enum che non si sia perso niente. Verificato anche sul vivo: `search_my_life`,
+`get_calendar_events` e `prepare_a_phone_call` continuano a essere scelti
+giusti.
+
+**«Che impegni ho domani?» non costa più un giro a vuoto.** Le prossime
+quarantotto ore arrivano col contesto, lette dallo stesso handler dello
+strumento — nessun secondo calendario. Il blocco dichiara la propria finestra:
+«la settimana prossima» continua a produrre una chiamata allo strumento, come
+deve. E i duplicati del calendario si uniscono: nove eventi erano due.
+
+**Che giorno è oggi.** Il payload dava la data e lasciava dedurre il resto.
+Chiesto sei volte con la stessa data, due modelli su tre hanno risposto un
+giorno diverso quasi ogni volta — martedì, lunedì, mercoledì — sempre con
+sicurezza. Adesso `today_weekday` lo calcola il codice, senza passare da
+`strftime`, che seguirebbe la lingua del sistema. Il modello che sbagliava tre
+volte su tre adesso risponde «domenica».
+
+**E una riserva che risponde davvero.** `mistral` era configurato su un
+modello da ventimila token al minuto, contro i 18.654 del prompt di ORA: 429
+su ogni chiamata, anche su una da quattro token. Provati tre modelli sullo
+stesso carico, `ministral-8b-2512` fa le stesse scelte di `ministral-14b` in
+metà tempo e con sei volte le richieste al secondo. Resta quarto nella catena,
+dietro gemini e gemini2, e ci si arriva solo quando i primi non possono.
+
+**Una prova è stata riscritta, e vale la pena dire perché.** Guardava la
+*posizione* di una regola nel payload, e il campo nuovo l'ha spostata di uno
+facendola cadere senza che niente fosse peggiorato. Adesso guarda quanti
+caratteri il modello attraversa prima di incontrarla — che è la cosa che
+contava fin dall'inizio.
+
+---
+
+## 2026-09-13 — V3.13 SPRINT 3.2 — REAL-TIME TELEPHONE SPEECH RUNTIME — APERTO
+
+La voce che va e quella che torna, dentro la stessa telefonata.
+
+    L'AUDIO È UN FIUME, NON UN ARCHIVIO.
+    PRIMA DEL COMMIT È UN'IPOTESI.
+
+**Il giro si chiude.** I pacchetti che lo Sprint 3.1 aveva portato dentro il
+backend adesso diventano parole, attraversano la **stessa** ORA dell'app —
+stesso orchestratore, stessa memoria, stessa autorità, nessun prompt del
+telefono — e tornano indietro come voce, nella stessa telefonata.
+
+**Deepgram in tutti e due i versi, a 16 kHz.** Nova-3 per ascoltare, Aura-2
+per parlare, endpoint europeo. È la stessa frequenza del filo Vonage: il
+ricampionamento che il piano prevedeva **non esiste**, perché scegliere un
+modello che parla già a 16 kHz lo ha fatto sparire invece di ottimizzarlo.
+Un file solo nomina il fornitore; il runtime non sa come si chiama nessuno.
+
+**Il turno non finisce quando il trascrittore dice che finisce.** Due volte,
+con voce vera, ORA ha risposto a «Ciao, ORA» mentre la persona stava dicendo
+«dimmi che giorno è oggi». La prima volta per un timer nostro da 1,6 secondi:
+i pezzi definitivi arrivano a gruppi, e fra un gruppo e l'altro *noi* non
+sentiamo niente mentre la persona parla benissimo. La seconda per un timer da
+800 ms messo apposta per essere prudente — ma chi ascolta dichiara il silenzio
+a 1.000, e un timer che batte quello di chi ascolta non lo interroga mai.
+
+Sono state tolte tutte e due. Resta il segnale di chi guarda i tempi delle
+parole, e sotto una rete a 4 secondi che chiede comunque se la frase sta in
+piedi. **Nessuna delle due lezioni era raggiungibile con un test**: servivano
+una voce vera e un fornitore vero.
+
+**Nessun audio prima che ORA abbia deciso.** Il core non produce testo,
+produce una decisione: finché non è completa non si sa se questo turno è una
+risposta o un passo interno. Solo `answer`, `compare`, `finish` e `ask`
+diventano voce. E se non c'è niente da dire non si dice niente — un «un
+attimo…» inventato sarebbe una frase che ORA non ha deciso.
+
+**L'interruzione costa 16 millisecondi**, e dopo «Aspetta» la coda è di zero
+byte. Il segnale è l'inizio del parlato, non la prima parola trascritta:
+aspettare le parole vuol dire parlare sopra a qualcuno per un secondo.
+
+**Il collo di bottiglia non è il telefono.** Su otto secondi di attesa,
+trasporto e voce ne costano 1,8; il resto è il core che decide. Streammarlo
+guadagnerebbe ~150 ms su 3.000 — misurato — e Groq ha un tetto di 7.000 token
+al minuto contro i 13.310 del prompt di ORA. Il target di 1,2 secondi resta un
+obiettivo futuro dipendente dal TTFT del core: **non è stato raggiunto, e non
+viene scritto come se lo fosse.**
+
+**Un difetto di misura, trovato dalla prova a secco.** Il conteggio diceva «un
+turno» quando i turni erano due: il trasporto leggeva i tempi prima di
+chiudere, e il turno ancora in corso non era archiviato. Un difetto di misura è
+peggio di uno visibile, perché fa sembrare sano quello che non lo è.
+
+**Dell'audio non resta niente**, e non per promessa: il documento della prova
+pesa 3.346 caratteri, nessun campo contiene byte grezzi, e ci sono prove che
+leggono il codice e falliscono se compaiono `open(`, `wave`, `BytesIO` o
+`base64`.
+
+**Il reality gate è in corso** — due turni veri, un'interruzione, zero audio
+persistito. Lo sprint resta aperto finché non passa.
+
+---
+
 ## 2026-09-12 — V3.13 SPRINT 3.1 — REAL TELEPHONE TRANSPORT FOUNDATION — CLOSED
 
 Il filo che porta la voce di ORA fino al telefono di un'altra persona.

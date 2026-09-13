@@ -85,6 +85,14 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+
+def _what_day_it_is() -> dict:
+    """La data e il giorno della settimana, come li vede il codice."""
+    from day_names import weekday_name
+
+    oggi = _now().date()
+    return {"today": oggi.isoformat(), "today_weekday": weekday_name(oggi)}
+
 class AgentService:
     def __init__(self, db):
         self.db = db
@@ -676,7 +684,11 @@ class AgentService:
         answer = await make_plan(
             goal.for_ai(),
             capabilities=await self.capabilities.available(owner_id),
-            context={"today": _now().date().isoformat()},
+            # Stesso fatto, stesso motivo: il giorno della settimana lo
+            # calcola il codice, non lo indovina il modello. Vale qui come
+            # nella conversazione — un piano fatto per «giovedì» quando è
+            # domenica è sbagliato allo stesso modo in tutti e due i posti.
+            context=_what_day_it_is(),
             language=language,
         )
         if answer is None:

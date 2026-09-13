@@ -381,6 +381,13 @@ async def run_cognitive_loop(
         set_active_object_ref,
     )
 
+    # Le prossime quarantotto ore, una volta sola per turno e non a ogni
+    # passo: non cambiano mentre ORA ragiona, e rileggerle costerebbe senza
+    # dire niente di nuovo.
+    from conversation_engine.ai_core.calendar_ahead import the_next_two_days
+
+    calendar_ahead = await the_next_two_days(db, sess.user_id)
+
     for step in range(max(1, max_steps)):
         life_os_payload = await build_life_os_ai_payload(db, sess, st)
         payload = build_user_payload(
@@ -392,6 +399,11 @@ async def run_cognitive_loop(
             observations=observations[-6:],
             current_facts=st.get("current_facts") or {},
             life_os=life_os_payload,
+            # Da dove è entrata la frase decide come esce la risposta — e
+            # nient'altro. Al telefono viene ascoltata, e si dice diversamente
+            # da come si scrive.
+            spoken_out_loud=(sess.meta or {}).get("entry_point") == "phone",
+            calendar_next_48h=calendar_ahead,
         )
         raw = await _call_ai(
             decision_fn=decision_fn,

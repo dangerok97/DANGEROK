@@ -56,7 +56,21 @@ class TelephoneService:
         granted = await authority.has_grant(owner_id, capability)
         denied = await authority.is_denied(owner_id, capability)
 
-        from telephone.bridge import can_call, can_speak_live, why_not
+        # Due cose diverse: se c'è una linea telefonica, e se c'è qualcuno
+        # capace di ascoltare e rispondere in italiano. Mancarne una sola
+        # basta a non poter telefonare, e dirlo per nome è la differenza fra
+        # «non si può» e «non si può, perché».
+        from telephone import deepgram
+        from telephone.carrier import can_call, why_not as no_line
+
+        can_speak_live = deepgram.is_configured
+        why = "; ".join(
+            p for p in (
+                no_line(),
+                "" if deepgram.is_configured() else "nessuna voce che possa "
+                "ascoltare e rispondere in linea",
+            ) if p
+        )
 
         return {
             "capability": capability,
@@ -66,7 +80,7 @@ class TelephoneService:
             "granted": granted,
             "denied": denied,
             "provider_ready": can_call() and can_speak_live(),
-            "why_not": why_not(),
+            "why_not": why,
             # Una chiamata non parte mai da sola: anche con il permesso, la
             # persona deve dire di sì a *questa* chiamata.
             "needs_explicit_yes": True,

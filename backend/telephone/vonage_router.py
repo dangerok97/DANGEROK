@@ -23,6 +23,7 @@ Si contano i byte per poter dire che è arrivato, e si lasciano andare.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any, Dict, List, Optional
 
@@ -43,6 +44,12 @@ router = APIRouter(prefix="/vonage", tags=["vonage"])
 # Gli stati in cui una telefonata sta legittimamente aspettando l'operatore.
 # Fuori da questi, un evento che la riguarda è rumore.
 EXPECTING = ("dialling", "talking")
+
+# Quello che si è preparato mentre il telefono squillava, in attesa che
+# qualcuno risponda. Vive quanto la telefonata e sparisce con lei: non è un
+# archivio, è un tavolo apparecchiato.
+_DOSSIERS: Dict[str, Any] = {}
+_READY: Dict[str, Any] = {}
 
 
 async def _the_call_we_are_waiting_for(
@@ -136,7 +143,16 @@ async def event(request: Request, call_id: str = "") -> Dict[str, Any]:
         call.provider_ref = said["call_ref"]
         await service.mark(call, call.state)
 
-    if said["what"] == "answered":
+    if said["what"] == "ringing":
+        #     FRA «SQUILLA» E «PRONTO» NON STA ASPETTANDO NESSUNO.
+        # Sono gli unici secondi gratis della telefonata: si prepara il
+        # fascicolo e si sveglia la catena dei modelli, così il primo turno
+        # non paga quello che ha pagato ogni primo turno finora. Non entra
+        # nella conversazione, non scrive niente, non è una domanda.
+        if call.id not in _READY:
+            _READY[call.id] = asyncio.create_task(_get_ready(call))
+
+    elif said["what"] == "answered":
         await service.mark(call, "talking", started_at=_now())
     elif said["what"] == "ended":
         went_well = said["ended_how"] in ("they_hung_up", "we_hung_up")
@@ -158,20 +174,18 @@ async def event(request: Request, call_id: str = "") -> Dict[str, Any]:
 @router.websocket("/socket")
 async def socket(websocket: WebSocket) -> None:
     """
-    L'audio della telefonata, mentre passa.
+    La telefonata, mentre succede: la voce entra e quella di ORA esce.
 
         NIENTE DI QUELLO CHE PASSA DI QUI RESTA DI QUI.
 
     Vonage apre questa connessione quando il copione glielo chiede, manda un
     primo messaggio di testo con i suoi riferimenti, e poi soltanto frame
-    binari: PCM lineare a 16 bit, venti millisecondi alla volta. Si può
-    rispondere con la stessa forma, ed è così che ORA parlerà.
+    binari: PCM lineare a 16 bit, venti millisecondi alla volta. Si risponde
+    con la stessa forma, ed è così che ORA parla.
 
-    In questo sprint qui non c'è ancora nessuno che ascolti o che risponda:
-    si verifica che il filo esista, che l'audio arrivi davvero, e che non ne
-    resti niente. Il punto in cui il parlato diventerà parole, e le parole
-    diventeranno il solito percorso cognitivo di ORA, è `same_ora.py`, che
-    esiste già e aspetta lo Sprint 3.2.
+    Qui dentro non si decide niente. I pacchetti vanno a chi ascolta e vengono
+    dimenticati nello stesso gesto; quello che torna indietro lo decide il
+    runtime, che di Vonage non sa niente.
     """
     call_id = websocket.query_params.get("call_id") or ""
     call = await _the_call_we_are_waiting_for(call_id)
@@ -184,16 +198,52 @@ async def socket(websocket: WebSocket) -> None:
 
     await websocket.accept()
     service = TelephoneService(db)
+    from telephone.bridge import RealtimeVoiceSession
 
-    # Quanto audio è passato. Solo conteggi: non i byte, non un campione, non
-    # un secondo di conversazione.
-    frames = 0
-    audio_bytes = 0
-    first_frame_ms: Optional[int] = None
+    frames_in = 0
+    bytes_in = 0
 
-    import time as _time
+    async def to_the_line(pcm: bytes) -> None:
+        await websocket.send_bytes(pcm)
 
-    opened_at = _time.perf_counter()
+    async def clear_the_line() -> None:
+        """
+        Quello che il trasporto aveva già preso in carico.
+
+            QUI C'È UN LIMITE VERO, E VA DETTO.
+
+        Su questo filo non esiste un comando per richiamare indietro l'audio
+        già consegnato: si può smettere di mandarne, e lo si fa altrove. Quello
+        che ha già lasciato il server — al massimo un pacchetto, venti
+        millisecondi — la persona lo sente comunque.
+        """
+        return None
+
+    async def note(who: str, words: str) -> None:
+        fresh = await service.get(call.owner_id, call.id)
+        if fresh is not None:
+            await service.heard(fresh, who, words)
+
+    session = RealtimeVoiceSession(
+        db,
+        owner_id=call.owner_id,
+        session_ref=call.session_ref,
+        send=to_the_line,
+        clear_transport=clear_the_line,
+        on_said=note,
+        dossier=_DOSSIERS.get(call.id),
+    )
+
+    opened = await session.open()
+    if not opened:
+        logger.info("runtime non aperto: si chiude la linea")
+        try:
+            await websocket.close(code=1011)
+        except Exception:
+            pass
+        await session.close()
+        return
+
     try:
         while True:
             message = await websocket.receive()
@@ -202,17 +252,13 @@ async def socket(websocket: WebSocket) -> None:
 
             chunk = message.get("bytes")
             if chunk:
-                frames += 1
-                audio_bytes += len(chunk)
-                if first_frame_ms is None:
-                    first_frame_ms = int((_time.perf_counter() - opened_at) * 1000)
-                # Qui, nello Sprint 3.2, il suono andrà a chi ascolta. Adesso
-                # si lascia andare: nessuna coda, nessun buffer che cresce,
-                # nessun file.
+                frames_in += 1
+                bytes_in += len(chunk)
+                # Passa e non resta: nessuna coda, nessun file, nessun campo.
+                await session.hear(chunk)
                 continue
 
-            text = message.get("text")
-            if text:
+            if message.get("text"):
                 # Il primo messaggio porta i riferimenti dell'operatore. Non
                 # contiene audio e non contiene niente della vita di nessuno.
                 logger.info("audio aperto per la chiamata (metadati ricevuti)")
@@ -220,23 +266,63 @@ async def socket(websocket: WebSocket) -> None:
     except Exception as e:
         logger.info("filo audio chiuso: %s", type(e).__name__)
     finally:
+        #     PRIMA SI CHIUDE, POI SI CONTA.
+        # Al contrario si perdeva l'ultimo turno: quello ancora in corso
+        # quando la linea cade non e' ancora nei tempi, e il conteggio diceva
+        # uno quando i turni erano due. Chiudere lo mette a posto per primo.
+        await session.close()
+        numbers = session.how_it_went()
         logger.info(
-            "audio: %d frame, %d byte, primo frame a %s ms — niente salvato",
-            frames, audio_bytes, first_frame_ms,
+            "audio: %d frame in, %d byte in — niente salvato", frames_in, bytes_in,
         )
         fresh = await service.get(call.owner_id, call.id)
         if fresh is not None:
-            #     QUANTO AUDIO È PASSATO È UN FATTO; L'AUDIO NON LO È.
-            # Si tiene il conteggio perché è l'unico modo di dire «il filo ha
-            # funzionato» dopo che la telefonata è finita.
-            fresh.audio_frames = frames
-            fresh.audio_bytes = audio_bytes
-            fresh.first_audio_ms = first_frame_ms
+            fresh.audio_frames = frames_in
+            fresh.audio_bytes = bytes_in
+            fresh.first_audio_ms = numbers.get("first_audio_in_ms")
+            fresh.metrics = numbers
             await service.mark(fresh, fresh.state)
+        _DOSSIERS.pop(call.id, None)
+        _READY.pop(call.id, None)
         try:
             await websocket.close()
         except Exception:
             pass
+
+
+async def _get_ready(call) -> None:
+    """
+    Il fascicolo e il risveglio dei modelli, mentre squilla.
+
+        È INFRASTRUTTURA, NON COGNIZIONE.
+
+    Non passa dal Conversation Engine, non crea una sessione, non scrive un
+    messaggio, non tocca memoria o autorità, non attiva strumenti e non
+    produce niente che qualcuno leggerà.
+    """
+    try:
+        from telephone.dossier import prepare_while_it_rings, wake_the_providers
+
+        dossier, woken = await asyncio.gather(
+            prepare_while_it_rings(db, call),
+            wake_the_providers(),
+            return_exceptions=True,
+        )
+        if not isinstance(dossier, Exception):
+            _DOSSIERS[call.id] = dossier
+            logger.info(
+                "fascicolo pronto in %s ms",
+                (dossier.prepared_ms or {}).get("total"),
+            )
+        if not isinstance(woken, Exception):
+            logger.info(
+                "catena dei modelli: svegliata=%s in %s ms",
+                woken.get("woken"), woken.get("took_ms"),
+            )
+    except Exception as e:
+        # Prepararsi male non deve impedire di telefonare: vuol dire che il
+        # primo turno costerà quello che sarebbe costato comunque.
+        logger.info("preparativi non riusciti: %s", type(e).__name__)
 
 
 def _now() -> str:

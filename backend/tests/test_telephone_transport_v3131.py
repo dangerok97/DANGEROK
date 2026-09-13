@@ -259,17 +259,30 @@ def test_no_audio_is_ever_persisted():
         (HERE / "telephone" / "vonage_router.py").read_text(encoding="utf-8")
     )
 
-    # Si contano: quanti pacchetti, quanti byte, quanto ha tardato il primo.
-    assert "frames += 1" in code
-    assert "audio_bytes += len(chunk)" in code
+    # Si contano: quanti pacchetti e quanti byte sono passati.
+    assert "frames_in += 1" in code
+    assert "bytes_in += len(chunk)" in code
 
     # E non si tiene: nessuna lista che cresce, nessun file, nessuna scrittura
-    # del contenuto.
-    for keeping in (
-        "open(", "write(", "b''.join", 'b"".join', "append(chunk)",
-        "buffer", "wave", "BytesIO", "base64",
-    ):
-        assert keeping not in code, f"l'audio viene conservato: {keeping}"
+    # del contenuto. Vale per il trasporto e per il runtime.
+    runtime = _code_only((HERE / "telephone" / "bridge.py").read_text(encoding="utf-8"))
+    for where, source in (("trasporto", code), ("runtime", runtime)):
+        # I modi veri di conservare dei byte. `open(` da solo non basta come
+        # indizio: `session.open()` apre una linea, non un file, e una guardia
+        # che confonde le due cose la si disattiva dopo il terzo falso allarme.
+        for keeping in (
+            'open("', "open('", "write_bytes", "write_text", "Path(",
+            "b''.join", 'b"".join', "append(chunk)", "append(pcm)",
+            "wave", "BytesIO", "base64", "insert_one", "gridfs",
+        ):
+            assert keeping not in source, (
+                f"l'audio viene conservato nel {where}: {keeping}"
+            )
+
+    # Il pacchetto passa a chi ascolta e finisce lì: non c'è nessuna variabile
+    # che lo tenga fra un frame e l'altro.
+    assert "await session.hear(chunk)" in code
+    assert "await self.ears.hear(pcm)" in runtime
 
     # Nemmeno un log può portarselo via.
     for line in code.splitlines():
