@@ -5,7 +5,7 @@
     {
       "key": "contratto_telefono",
       "ai_used": true,
-      "provider": "gemini",
+      "provider": "gemini2",
       "model": "gemini-flash-lite-latest",
       "document_type": "contratto",
       "confidence": 1.0,
@@ -14,7 +14,7 @@
     {
       "key": "busta_paga",
       "ai_used": true,
-      "provider": "gemini",
+      "provider": "gemini2",
       "model": "gemini-flash-lite-latest",
       "document_type": "busta_paga",
       "confidence": 1.0,
@@ -23,8 +23,8 @@
     {
       "key": "verbale",
       "ai_used": true,
-      "provider": "gemini",
-      "model": "gemini-flash-lite-latest",
+      "provider": "groq",
+      "model": "qwen/qwen3.8-27b",
       "document_type": "verbale",
       "confidence": 1.0,
       "fallback_reason": null

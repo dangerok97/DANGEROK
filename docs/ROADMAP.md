@@ -354,12 +354,22 @@ sul vero.
 Cose vere, aperte, che non appartengono a nessuno sprint finché qualcuno non
 decide.
 
-**L'architettura cognitiva Prompt 7.x** — 29 voci non tracciate
-(`backend/conversation_engine/cognitive/` + 14 test, `frontend/app/cognitive/`,
-`backend/llm/{capabilities,health}.py`, otto script QA). Lavoro vero che non è
-in nessun commit; backup solo in `stash@{1}`. Porta con sé un
-`test_provider_resilience_v741.py` che non importa. **Decisione richiesta: o
-entra, o si dichiara abbandonato.** Non è una feature, è una scelta.
+**L'architettura cognitiva Prompt 7.x — DECISA: non entra** (2026-09-14).
+Ottantasei file e circa 9.900 righe che nessuna riga del prodotto importava: né
+il backend, né una rotta del frontend, né `llm/__init__.py`. Un secondo stack
+cognitivo accanto a quello che regge il prodotto, e due modi di fare la stessa
+cosa sono peggio di uno solo.
+
+Rimosso dal working tree insieme ai suoi quattordici test, ai due moduli
+`llm/{capabilities,health}.py` che solo lui usava, alla rotta
+`frontend/app/cognitive/` mai raggiungibile e a
+`test_provider_resilience_v741.py`, che non importava nemmeno.
+
+**L'idea non è persa.** Il backup vive in `stash@{1}` — verificato, 57 file
+cognitivi — e il problema che provava a risolvere è esattamente quello di
+**V7 — Unified ORA Intelligence**: un'intelligenza sola invece di motori
+affiancati. Quando V7 comincerà, quel codice è materiale da leggere, non da
+riapplicare.
 
 **Rossi preesistenti** nella suite completa (`knowledge_*`, `life_graph`,
 `iter*`, `travel_action_flow`) — confermati estranei al lavoro telefonico, mai
