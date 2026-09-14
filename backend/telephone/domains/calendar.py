@@ -41,6 +41,18 @@ DOMAIN = "calendar"
 # il permesso di cambiare, e non la si scrive «visto che c'era».
 RESCHEDULE_KEYS = frozenset({"appointment_date", "old_time", "new_time"})
 
+# Che cosa può aver confermato una disdetta: quale appuntamento, e nient'altro.
+# Non c'è un valore nuovo da scrivere — c'è un evento da riconoscere.
+CANCEL_KEYS = frozenset({"appointment_date", "appointment_time"})
+
+# E una prenotazione: quando, e quanto dura se l'hanno detto.
+BOOK_KEYS = frozenset({"appointment_date", "appointment_time", "duration_minutes"})
+
+# Da dove viene un evento nato da una telefonata. Insieme al nome della
+# missione è la coppia che rende impossibile crearne due per la stessa
+# commissione.
+PHONE_CALL_SOURCE = "ora_phone_call"
+
 # Quanto lontano può finire un appuntamento spostato.
 #
 #     DUE SETTIMANE NON SONO UNA REGOLA DI BUON SENSO: SONO UN PARAFULMINE.
@@ -82,17 +94,31 @@ class Verdict:
 
 def translate(binding, outcome) -> Tuple[Dict[str, str], str]:
     """
-    Da «alle 18:00» a due campi veri, o al motivo per cui non si può.
+    Da quello che la controparte ha confermato a campi veri, o al motivo
+    per cui non si può.
 
         È PURA APPOSTA.
 
     Nessun database, nessuna rete: solo il legame e l'esito. È la parte in cui
     si può sbagliare di calcolo, ed è la parte che si può provare senza far
     finta di avere un calendario.
-    """
-    if binding.target.operation != "reschedule":
-        return {}, f"operazione non applicabile: {binding.target.operation}"
 
+    Tre operazioni, tre traduzioni diverse: spostare ricalcola un orario
+    conservando la durata, disdire non calcola niente e verifica soltanto che
+    si stia parlando dello stesso appuntamento, prenotare costruisce da zero
+    ciò che non c'era.
+    """
+    fare = binding.target.operation
+    if fare == "reschedule":
+        return _translate_reschedule(binding, outcome)
+    if fare == "cancel":
+        return _translate_cancel(binding, outcome)
+    if fare == "book":
+        return _translate_book(binding, outcome)
+    return {}, f"operazione non applicabile: {fare}"
+
+
+def _translate_reschedule(binding, outcome) -> Tuple[Dict[str, str], str]:
     cambiamenti = dict(outcome.confirmed_changes or {})
     fuori = set(cambiamenti) - RESCHEDULE_KEYS
     if fuori:
@@ -141,8 +167,25 @@ def translate(binding, outcome) -> Tuple[Dict[str, str], str]:
 
 async def apply(db, *, call, binding, outcome) -> Verdict:
     """
-    Sposta l'appuntamento, se è ancora quello di cui si stava parlando.
+    Scrive nel calendario quello che la controparte ha confermato.
+
+    Una porta sola per tre operazioni, e dentro tre percorsi che non si
+    somigliano: il primo ricalcola, il secondo toglie, il terzo crea. Quello
+    che hanno in comune sono i controlli — autorità, consenso, identità — e
+    quelli non si saltano per nessuna delle tre.
     """
+    fare = binding.target.operation
+    if fare == "cancel":
+        return await _apply_cancel(db, call=call, binding=binding, outcome=outcome)
+    if fare == "book":
+        return await _apply_book(db, call=call, binding=binding, outcome=outcome)
+    if fare != "reschedule":
+        return Verdict("skipped", error=f"operazione non applicabile: {fare}")
+    return await _apply_reschedule(db, call=call, binding=binding, outcome=outcome)
+
+
+async def _apply_reschedule(db, *, call, binding, outcome) -> Verdict:
+    """Sposta l'appuntamento, se è ancora quello di cui si stava parlando."""
     ref = binding.target.entity_id
     draft = await db.calendar_event_drafts.find_one(
         {"id": ref, "user_id": binding.owner_id},
@@ -287,6 +330,14 @@ async def reconcile(db, *, call, binding, outcome) -> Verdict:
 
     Non esiste un quarto caso, e non esiste un ramo che indovina.
     """
+    fare = binding.target.operation
+    if fare == "cancel":
+        return await _reconcile_cancel(db, call=call, binding=binding, outcome=outcome)
+    if fare == "book":
+        return await _reconcile_book(db, call=call, binding=binding, outcome=outcome)
+    if fare != "reschedule":
+        return Verdict("skipped", error=f"operazione non applicabile: {fare}")
+
     campi, perche = translate(binding, outcome)
     if perche:
         return Verdict("skipped", error=perche)
@@ -417,5 +468,371 @@ def _same_wall_clock_in(quando: datetime, fuso: str):
         from zoneinfo import ZoneInfo
 
         return quando.replace(tzinfo=ZoneInfo(nome))
+    except Exception:
+        return quando
+
+
+# ===========================================================================
+# DISDIRE
+# ===========================================================================
+#
+#     DISDIRE NON CALCOLA NIENTE. DEVE SOLO ESSERE SICURO DI CHI.
+#
+# Uno spostamento sbagliato si vede: l'appuntamento è nel giorno sbagliato e
+# qualcuno se ne accorge. Una disdetta sbagliata non si vede — l'appuntamento
+# semplicemente non c'è più, e ci si accorge il giorno in cui non ci si
+# presenta a quello giusto. Quindi qui non c'è nessuna aritmetica da
+# verificare: c'è solo l'identità, e si controlla due volte.
+
+
+def _translate_cancel(binding, outcome) -> Tuple[Dict[str, str], str]:
+    """Non ci sono campi nuovi da scrivere: c'è un evento da riconoscere."""
+    cambiamenti = dict(outcome.confirmed_changes or {})
+    fuori = set(cambiamenti) - CANCEL_KEYS
+    if fuori:
+        return {}, "confermate cose fuori dalla missione: " + ", ".join(sorted(fuori))
+    if not binding.target.entity_id:
+        return {}, "non c'è un appuntamento da disdire"
+    return {"status": "cancelled"}, ""
+
+
+async def _apply_cancel(db, *, call, binding, outcome) -> Verdict:
+    """Toglie l'appuntamento, se è ancora quello di cui si stava parlando."""
+    ref = binding.target.entity_id
+    draft = await db.calendar_event_drafts.find_one(
+        {"id": ref, "user_id": binding.owner_id},
+        {"_id": 0, "id": 1, "status": 1, "start_datetime": 1, "title": 1,
+         "google_event_id": 1, "google_calendar_id": 1},
+    )
+    if not draft:
+        return Verdict("failed", error="l'appuntamento non è più nel calendario")
+    if draft.get("status") == "cancelled":
+        #     ERA GIÀ VIA, E NON L'ABBIAMO TOLTO NOI.
+        # Non è un fallimento e non è un successo da rivendicare: è una cosa
+        # che non c'era più da fare. Dirlo è più onesto che segnarsi il merito.
+        return Verdict("skipped", error="l'appuntamento era già disdetto")
+
+    campi, perche = translate(binding, outcome)
+    if perche:
+        return Verdict("skipped", error=perche)
+
+    verdetto = _still_the_same_appointment(binding, outcome, draft)
+    if verdetto is not None:
+        return verdetto
+
+    calendario = _the_calendar(db)
+    negato = await _consent_missing(db, calendario, binding.owner_id)
+    if negato:
+        return Verdict("failed", error=negato, fields=campi)
+
+    try:
+        await _remove_it(db, calendario, binding.owner_id, draft)
+    except Exception as e:
+        logger.info("disdetta non riuscita: %s", type(e).__name__)
+        return Verdict(
+            "failed",
+            error=f"il calendario non ha accettato la disdetta ({type(e).__name__})",
+            fields=campi,
+        )
+    return Verdict("applied", writes=[f"calendar:{ref}"], fields=campi)
+
+
+async def _remove_it(db, calendario, owner_id: str, draft: Dict[str, Any]) -> None:
+    """
+    Via da Google, e poi via da qui.
+
+        PRIMA FUORI, POI DENTRO.
+
+    L'ordine non è indifferente. Segnare prima la bozza come disdetta e poi
+    fallire su Google lascerebbe ORA convinta che sia sparito mentre alla
+    persona squilla ancora il promemoria. Al contrario, se Google accetta e la
+    bozza non si aggiorna, il prossimo recupero se ne accorge e chiude — che è
+    esattamente il caso per cui il recupero esiste.
+    """
+    handle = str(draft.get("google_event_id") or "")
+    if handle:
+        inst = await calendario._instance_for_user(owner_id)
+        if not inst:
+            raise RuntimeError("Google Calendar non collegato")
+        access = await calendario.gcal._get_access_token(user_id=owner_id, instance=inst)
+        cal_id = str(
+            draft.get("google_calendar_id")
+            or (inst.get("metadata") or {}).get("default_calendar_id") or ""
+        )
+        if not cal_id:
+            raise RuntimeError("Nessun calendario Google disponibile")
+        await calendario.gcal.provider.delete_event(
+            access_token=access, calendar_id=cal_id, event_id=handle,
+        )
+
+    from datetime import timezone as _tz
+
+    await db.calendar_event_drafts.update_one(
+        {"id": draft["id"], "user_id": owner_id},
+        {"$set": {
+            "status": "cancelled",
+            "sync_status": "synced" if handle else "local_only",
+            "updated_at": datetime.now(_tz.utc).isoformat(),
+        }},
+    )
+
+
+async def _reconcile_cancel(db, *, call, binding, outcome) -> Verdict:
+    """
+    Una disdetta rimasta a metà: dov'è finito l'appuntamento?
+
+    Due sole posizioni che contano, come per lo spostamento. Non c'è più — o
+    risulta disdetto — e allora la scrittura era andata. È ancora lì dov'era,
+    e allora non è mai partita: si riprova una volta.
+    """
+    draft = await db.calendar_event_drafts.find_one(
+        {"id": binding.target.entity_id, "user_id": binding.owner_id},
+        {"_id": 0, "id": 1, "status": 1, "start_datetime": 1},
+    )
+    if not draft or draft.get("status") == "cancelled":
+        #     QUI «NON C'È PIÙ» VUOL DIRE RIUSCITA, NON GUASTO.
+        # È l'opposto dello spostamento, e si vede bene perché le due
+        # riconciliazioni sono due funzioni invece di una con un flag dentro.
+        return Verdict(
+            "applied",
+            writes=[f"calendar:{binding.target.entity_id}"],
+            fields={"status": "cancelled"},
+        )
+
+    atteso = (binding.expected.get("start_datetime") or "").strip()
+    adesso = str(draft.get("start_datetime") or "").strip()
+    if atteso and adesso and not _same_moment(atteso, adesso):
+        return Verdict("conflict", error="l'appuntamento è cambiato dopo la telefonata")
+
+    return await _apply_cancel(db, call=call, binding=binding, outcome=outcome)
+
+
+def _still_the_same_appointment(binding, outcome, draft) -> Optional[Verdict]:
+    """
+    Due domande sull'identità, e bastano tutte e due.
+
+        UNA DISDETTA SBAGLIATA NON SI VEDE FINCHÉ NON TE NE ACCORGI.
+
+    La prima la fa il legame: l'appuntamento parte ancora da dove partiva
+    quando abbiamo composto il numero. La seconda la fa la controparte: ha
+    detto di aver disdetto quello delle sedici, e se in calendario ci sono le
+    nove non stavano parlando di questo.
+    """
+    atteso = (binding.expected.get("start_datetime") or "").strip()
+    adesso = str(draft.get("start_datetime") or "").strip()
+    if atteso and adesso and not _same_moment(atteso, adesso):
+        return Verdict("conflict", error="l'appuntamento è cambiato dopo la telefonata")
+
+    detta = _hhmm((outcome.confirmed_changes or {}).get("appointment_time"))
+    if detta is not None:
+        vero = _read(adesso or atteso)
+        if vero is not None and (vero.hour, vero.minute) != detta:
+            return Verdict(
+                "conflict",
+                error=(
+                    f"la controparte ha disdetto le {detta[0]:02d}:{detta[1]:02d}, "
+                    f"in calendario c'erano le {vero.hour:02d}:{vero.minute:02d}"
+                ),
+            )
+    return None
+
+
+# ===========================================================================
+# PRENOTARE
+# ===========================================================================
+#
+#     PRENOTARE È L'UNICA DELLE TRE CHE PUÒ CREARE UN DOPPIONE.
+#
+# Spostare e disdire agiscono su una cosa che esiste: al massimo la toccano
+# due volte, e la seconda non cambia niente. Creare invece, ripetuto, produce
+# due appuntamenti — e due appuntamenti dallo stesso dentista alle 18:00 sono
+# una telefonata in più che qualcuno dovrà fare per disdirne uno.
+#
+# La difesa non è un controllo nostro: è il nome. L'evento nasce portando
+# addosso il nome della missione che lo ha creato, e il livello che crea
+# eventi riconosce quel nome e restituisce quello di prima invece di farne un
+# secondo. Un controllo si può dimenticare di chiamarlo; un nome no.
+
+
+def _translate_book(binding, outcome) -> Tuple[Dict[str, str], str]:
+    """Da «venerdì alle 10» a un appuntamento intero, pronto da creare."""
+    cambiamenti = dict(outcome.confirmed_changes or {})
+    fuori = set(cambiamenti) - BOOK_KEYS
+    if fuori:
+        return {}, "confermate cose fuori dalla missione: " + ", ".join(sorted(fuori))
+
+    voluto = binding.desired or {}
+    fuso = str(voluto.get("timezone") or "Europe/Rome")
+
+    giorno = _day(cambiamenti.get("appointment_date"))
+    ora = _hhmm(cambiamenti.get("appointment_time"))
+    if giorno is None or ora is None:
+        #     UNA PRENOTAZIONE SENZA UN QUANDO NON È UNA PRENOTAZIONE.
+        # Qui non si ripiega su quello che si era chiesto: se la controparte
+        # non ha detto data e ora, quello che ha confermato non si sa.
+        return {}, "non c'è una data e un'ora confermate"
+
+    inizio = datetime(
+        giorno.year, giorno.month, giorno.day, ora[0], ora[1],
+    )
+    inizio = _same_wall_clock_in(_with_zone(inizio, fuso), fuso)
+
+    quanto = _minutes(cambiamenti.get("duration_minutes")) or _minutes(
+        voluto.get("duration_minutes")) or DEFAULT_MINUTES
+    return {
+        "start_datetime": inizio.isoformat(),
+        "end_datetime": (inizio + timedelta(minutes=quanto)).isoformat(),
+        "timezone": fuso,
+        "title": str(voluto.get("title") or "Appuntamento")[:120],
+    }, ""
+
+
+async def _apply_book(db, *, call, binding, outcome) -> Verdict:
+    """Crea l'appuntamento, una volta sola per missione."""
+    campi, perche = translate(binding, outcome)
+    if perche:
+        return Verdict("skipped", error=perche)
+
+    calendario = _the_calendar(db)
+    negato = await _consent_missing(db, calendario, binding.owner_id)
+    if negato:
+        return Verdict("failed", error=negato, fields=campi)
+
+    gia = await _the_one_this_mission_made(db, binding)
+    if gia is not None:
+        #     SE QUESTA MISSIONE NE HA GIÀ FATTO UNO, NON NE FA UN SECONDO.
+        return Verdict(
+            "applied", writes=[f"calendar:{gia['id']}"], fields=campi,
+        )
+
+    try:
+        bozza = await _create_it(db, binding, campi)
+    except Exception as e:
+        logger.info("prenotazione non riuscita: %s", type(e).__name__)
+        return Verdict(
+            "failed",
+            error=f"il calendario non ha accettato la prenotazione ({type(e).__name__})",
+            fields=campi,
+        )
+
+    await _remember_which_one(db, binding, bozza["id"])
+    return Verdict("applied", writes=[f"calendar:{bozza['id']}"], fields=campi)
+
+
+async def _create_it(db, binding, campi: Dict[str, str]) -> Dict[str, Any]:
+    """
+    L'appuntamento nuovo, dalla porta da cui passano tutti gli altri.
+
+    `create_from_candidate` non crea un secondo evento per la stessa
+    intenzione: riconosce la coppia documento-candidato e restituisce quello
+    che c'era. Qui il candidato è la missione — un nome che non cambia fra un
+    tentativo e l'altro — ed è così che il doppione diventa impossibile invece
+    che improbabile.
+    """
+    from documents.intelligence.calendar_adapter import CalendarGateway
+
+    candidato = {
+        "id": binding.mission_id,
+        "source_document_id": PHONE_CALL_SOURCE,
+        "title": campi["title"],
+        "description": "",
+        "start_datetime": campi["start_datetime"],
+        "end_datetime": campi["end_datetime"],
+        "timezone": campi["timezone"],
+        "all_day": False,
+    }
+    bozza = await CalendarGateway(db).get("internal").create_from_candidate(
+        user_id=binding.owner_id, candidate=candidato,
+    )
+    await _the_calendar(db).sync_draft(
+        user_id=binding.owner_id, draft_id=bozza["id"],
+    )
+    return bozza
+
+
+async def _the_one_this_mission_made(db, binding) -> Optional[Dict[str, Any]]:
+    """
+    L'appuntamento che questa missione ha già creato, se esiste.
+
+        IL NOME DELLA MISSIONE È SULL'EVENTO.
+
+    È così che un recupero dopo un processo morto sa distinguere «non l'ho
+    mai creato» da «l'ho creato e non me ne sono accorto» senza cercare per
+    somiglianza di titolo e orario — che è esattamente la ricerca che questo
+    progetto ha vietato a sé stesso.
+    """
+    return await db.calendar_event_drafts.find_one(
+        {
+            "user_id": binding.owner_id,
+            "source_document_id": PHONE_CALL_SOURCE,
+            "source_event_candidate_id": binding.mission_id,
+            "status": {"$ne": "cancelled"},
+        },
+        {"_id": 0, "id": 1, "start_datetime": 1, "status": 1},
+    )
+
+
+async def _remember_which_one(db, binding, entity_id: str) -> None:
+    """
+    Scrive sul legame quale evento è nato.
+
+    Non serve all'idempotenza — quella la garantisce il nome sull'evento — ma
+    serve a chi legge dopo: senza, il legame di una prenotazione riuscita
+    resterebbe senza oggetto, e «che cosa ha creato questa telefonata?» non
+    avrebbe una risposta diretta.
+
+        E NON SI SCRIVE DENTRO `target`.
+
+    Quello è l'identità della missione ed entra nella chiave di idempotenza.
+    Cambiarlo a cose fatte significava che la seconda applicazione della stessa
+    prenotazione usava una chiave diversa e scriveva un secondo record. È
+    successo, e questa riga è il motivo per cui non succede più.
+    """
+    from telephone.binding import BINDINGS
+
+    try:
+        await db[BINDINGS].update_one(
+            {"mission_id": binding.mission_id},
+            {"$set": {"created_entity_id": entity_id}},
+        )
+        binding.created_entity_id = entity_id
+    except Exception as e:  # pragma: no cover
+        logger.info("legame non aggiornato: %s", type(e).__name__)
+
+
+async def _reconcile_book(db, *, call, binding, outcome) -> Verdict:
+    """
+    Una prenotazione rimasta a metà: l'appuntamento è nato o no?
+
+    A dirlo è il nome sull'evento, non una supposizione. Se c'è, la scrittura
+    era andata e il record era rimasto indietro. Se non c'è, non è mai partita
+    e si riprova — una volta, dalla porta normale.
+    """
+    gia = await _the_one_this_mission_made(db, binding)
+    if gia is not None:
+        await _remember_which_one(db, binding, gia["id"])
+        return Verdict(
+            "applied",
+            writes=[f"calendar:{gia['id']}"],
+            fields={"start_datetime": str(gia.get("start_datetime") or "")},
+        )
+    return await _apply_book(db, call=call, binding=binding, outcome=outcome)
+
+
+def _minutes(valore: Any) -> int:
+    """Quanto dura, in minuti, o zero se non lo si sa."""
+    try:
+        quanti = int(str(valore or "").strip() or 0)
+    except ValueError:
+        return 0
+    return quanti if 0 < quanti <= 8 * 60 else 0
+
+
+def _with_zone(quando: datetime, fuso: str) -> datetime:
+    """Un orario senza fuso diventa un orario in quel fuso."""
+    try:
+        from zoneinfo import ZoneInfo
+
+        return quando.replace(tzinfo=ZoneInfo((fuso or "Europe/Rome").strip()))
     except Exception:
         return quando

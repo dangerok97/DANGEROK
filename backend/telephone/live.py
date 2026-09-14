@@ -252,6 +252,72 @@ THE_SIX: List[Dict[str, Any]] = [{
     ]
 }]
 
+def tools_for(mission_type: str) -> List[Dict[str, Any]]:
+    """
+    Gli stessi sei strumenti, con la domanda giusta dentro `complete_mission`.
+
+        CHE COSA SIA UNA CONFERMA CAMBIA CON LA MISSIONE.
+
+    Per uno spostamento e' «a che ora l'ha messo»; per una disdetta e' «quale
+    ha tolto»; per una prenotazione e' «quando me l'ha fissato». Chiedere le
+    tre cose con lo stesso schema vorrebbe dire chiedere un `new_time` a chi
+    ha appena disdetto — e un campo obbligatorio che non ha senso si riempie
+    comunque, con qualcosa.
+
+    Gli strumenti restano sei e i loro nomi non cambiano: cambia solo la forma
+    di cio' che si riporta indietro.
+    """
+    campi = _WHAT_A_CONFIRMATION_LOOKS_LIKE.get(mission_type)
+    if not campi:
+        return THE_SIX
+    attrezzi = []
+    for f in THE_SIX[0]["function_declarations"]:
+        if f["name"] != "complete_mission":
+            attrezzi.append(f)
+            continue
+        su_misura = json.loads(json.dumps(f))
+        su_misura["parameters"]["properties"]["confirmed_changes"] = campi
+        attrezzi.append(su_misura)
+    return [{"function_declarations": attrezzi}]
+
+
+#     TRE MISSIONI, TRE COSE DA FARSI CONFERMARE.
+# Lo spostamento sta scritto in `THE_SIX` ed e' il caso di riposo; questi due
+# lo sostituiscono quando la missione e' un'altra.
+_WHAT_A_CONFIRMATION_LOOKS_LIKE: Dict[str, Dict[str, Any]] = {
+    "cancel": {
+        "type": "object",
+        "description": (
+            "Quale appuntamento la controparte ha detto di aver DISDETTO. "
+            "Non un orario nuovo: non ce n'e' uno."
+        ),
+        "properties": {
+            "appointment_date": {"type": "string", "description": "AAAA-MM-GG"},
+            "appointment_time": {
+                "type": "string",
+                "description": "HH:MM, l'ora dell'appuntamento tolto",
+            },
+        },
+        "required": ["appointment_date", "appointment_time"],
+    },
+    "book": {
+        "type": "object",
+        "description": (
+            "Il giorno e l'ora che la controparte ha detto di aver FISSATO, "
+            "con le sue parole tradotte in date e orari."
+        ),
+        "properties": {
+            "appointment_date": {"type": "string", "description": "AAAA-MM-GG"},
+            "appointment_time": {"type": "string", "description": "HH:MM"},
+            "duration_minutes": {
+                "type": "string",
+                "description": "Quanto dura, in minuti, solo se l'hanno detto",
+            },
+        },
+        "required": ["appointment_date", "appointment_time"],
+    },
+}
+
 ALLOWED_TOOLS = frozenset(
     f["name"] for f in THE_SIX[0]["function_declarations"]
 )
@@ -513,7 +579,10 @@ class MissionVoiceSession:
                         + "\n\nPACCHETTO MISSIONE:\n"
                         + self.packet.for_the_model(),
                     }]},
-                    "tools": THE_SIX,
+                    "tools": tools_for(
+                        self.packet.mission_type if self.packet is not None
+                        else "reschedule"
+                    ),
                     "inputAudioTranscription": {},
                     "outputAudioTranscription": {},
                 }

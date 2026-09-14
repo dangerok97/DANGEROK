@@ -1214,6 +1214,26 @@ class ToolRegistry:
                                 "your own initiative."
                             ),
                         },
+                        "desired_datetime": {
+                            "type": "string",
+                            "description": (
+                                "When the call is to BOOK a new appointment: "
+                                "the date and time they want, ISO 8601 "
+                                "(«2026-09-20T10:00:00»). Without it the call "
+                                "still happens but books nothing — so if they "
+                                "have not said when, ask before preparing. "
+                                "Alternatives ORA may accept instead go in "
+                                "`may_agree_to`, as always."
+                            ),
+                        },
+                        "desired_minutes": {
+                            "type": "integer",
+                            "description": (
+                                "How long the new appointment lasts, in "
+                                "minutes, only if they said so. Leave it out "
+                                "rather than guessing."
+                            ),
+                        },
                     },
                     "required": ["to_number", "why_calling"],
                 },
