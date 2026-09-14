@@ -139,7 +139,7 @@ def _chiamata(**cambia):
     campi = dict(
         id="tel_uno",
         owner_id="u1",
-        to_number="+393774714389",
+        to_number="+393000000000",
         calling_whom="Studio Dentistico Bianchi",
         mandate=Mandate(
             why_calling="spostare il mio appuntamento dal dentista di oggi "
@@ -284,7 +284,7 @@ def test_the_model_never_learns_which_event_it_is():
     assert "cal_abc123" not in testo
     assert "cal_abc123" not in packet.model_dump_json()
     # E nemmeno il numero, che è la regola da cui questa discende.
-    assert "393774714389" not in testo
+    assert "393000000000" not in testo
 
 
 def test_but_the_model_does_learn_when_the_appointment_is():

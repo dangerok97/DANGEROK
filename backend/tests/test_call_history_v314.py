@@ -28,7 +28,7 @@ def _una_chiamata(**cambia):
 
     campi = dict(
         owner_id="u1",
-        to_number="+393774714389",
+        to_number="+393000000000",
         calling_whom="Studio Dentistico Bianchi",
         session_ref="s1",
         mandate=Mandate(
@@ -319,7 +319,7 @@ def test_the_number_is_in_the_record_but_never_in_the_packet():
 
     chiamata = _una_chiamata(metrics=_riuscita())
     scheda = as_a_card(chiamata)
-    assert scheda["counterparty_number"] == "+393774714389"
+    assert scheda["counterparty_number"] == "+393000000000"
 
     dossier = TelephoneCallDossier(
         owner_id="u1", call_id=chiamata.id, on_behalf_of="Francesco Cefalà",
