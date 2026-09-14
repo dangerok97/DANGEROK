@@ -64,6 +64,16 @@ ApplicationStatus = Literal["pending", "applied", "skipped", "conflict", "failed
 # record appeso per un pomeriggio.
 STALE_AFTER_S = 120
 
+# Per quanto vale la presa in carico di chi sta recuperando.
+#
+#     UN LOCK CHE NON SCADE È UN RECORD PERSO PER SEMPRE.
+#
+# Chi rivendica un record appeso ci mette sopra il proprio nome. Se muore
+# mentre lo tiene, quel nome resta — e senza una scadenza nessuno potrebbe mai
+# più toccarlo. Cinque minuti sono molto più di un recupero (2,1 secondi sul
+# vero) e molto meno di un pomeriggio.
+LEASE_S = 300
+
 
 class CallMissionApplication(BaseModel):
     """Che cosa è stato fatto nel mondo per via di questa telefonata."""
@@ -90,6 +100,9 @@ class CallMissionApplication(BaseModel):
     # trenta millisecondi fa» e «è morta un'ora fa»: la prima non si tocca,
     # la seconda va recuperata, e a dirlo è solo il tempo.
     created_at: str = Field(default_factory=now_iso, max_length=40)
+    # Quando qualcuno ha detto «di questo me ne occupo io». Vuoto vuol dire
+    # che è libero. Non è uno stato: è un nome sopra una cosa da fare.
+    claimed_at: str = Field(default="", max_length=40)
     applied_at: str = Field(default="", max_length=40)
     # I riferimenti canonici di quello che è stato toccato. Vuoto è il caso
     # normale: quasi nessuna telefonata scrive qualcosa.
@@ -197,10 +210,56 @@ async def recover_stale(db, *, now: Optional[str] = None) -> List[CallMissionApp
         if not is_stale(record, now=now):
             #     UN'APPLICAZIONE CHE STA ANCORA LAVORANDO NON SI TOCCA.
             continue
+        if not await _claim(db, record):
+            #     SE NON È MIA, NON LA TOCCO.
+            # Due processi che recuperano insieme lo stesso record appeso
+            # farebbero esattamente la doppia scrittura contro cui esiste
+            # tutto il resto di questo file.
+            continue
         chiuso = await recover_one(db, record)
         if chiuso is not None and chiuso.application_status != "pending":
             chiusi.append(chiuso)
     return chiusi
+
+
+async def _claim(db, record: CallMissionApplication) -> bool:
+    """
+    Mette il proprio nome sopra un record appeso, o dice che ce n'è già uno.
+
+        LA RIVENDICAZIONE LA FA IL DATABASE, NON UN `if`.
+
+    Un `find_one` seguito da un `update_one` ha in mezzo una finestra, e in
+    quella finestra ci stanno due processi. Qui la condizione viaggia dentro
+    la stessa operazione che scrive: chi arriva secondo trova il filtro che
+    non combacia più e torna a mani vuote, senza aver toccato niente.
+
+        E LA RIVENDICAZIONE SCADE.
+
+    Chi muore mentre la tiene lascia il proprio nome sopra il record. Senza
+    scadenza quel record non sarebbe più recuperabile da nessuno — il guasto
+    che stiamo sistemando, ricreato un piano più sotto.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    adesso = datetime.now(timezone.utc)
+    scaduta = (adesso - timedelta(seconds=LEASE_S)).isoformat()
+    try:
+        preso = await db[APPLICATIONS].find_one_and_update(
+            {
+                "_id": record.idempotency_key,
+                "application_status": "pending",
+                "$or": [
+                    {"claimed_at": {"$exists": False}},
+                    {"claimed_at": ""},
+                    {"claimed_at": {"$lt": scaduta}},
+                ],
+            },
+            {"$set": {"claimed_at": adesso.isoformat()}},
+        )
+    except Exception as e:  # pragma: no cover
+        logger.info("rivendicazione non riuscita: %s", type(e).__name__)
+        return False
+    return preso is not None
 
 
 async def recover_one(
@@ -432,6 +491,8 @@ async def _settle(db, record: CallMissionApplication, verdetto):
             "writes": record.writes,
             "error": record.error,
             "applied_at": record.applied_at,
+            # Chiuso: la presa in carico non serve più a nessuno.
+            "claimed_at": "",
         }},
     )
     return record
