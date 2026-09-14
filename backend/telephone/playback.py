@@ -86,6 +86,41 @@ MIN_GAP_S = 0.008
 # il controllo e richiedendo che ora e', non affidandosi a un'attesa.
 TOO_SHORT_TO_SLEEP_S = 0.003
 
+#     CEDERE IL CONTROLLO NON E' ASPETTARE.
+#
+# `sleep(0)` promette di lasciar lavorare gli altri, e mantiene: torna appena
+# non c'e' nessun altro pronto. Quando non c'e' nessun altro pronto torna
+# **subito**, e un ciclo che lo richiama fino alla scadenza diventa un giro a
+# vuoto travestito da buona educazione.
+#
+# Misurato su una telefonata vera: 459 attese su 513 sono tornate presto, e
+# ognuna ha prodotto migliaia di cessioni — 1.549.103 in settantanove secondi,
+# quasi ventimila al secondo. Il costo non e' il processore: e' che fra una
+# cessione e l'altra il loop deve passare da chi legge il filo audio, e con
+# ventimila passaggi al secondo quella lettura arriva tardi. Il buco peggiore
+# fra due pacchetti e' stato di quindici secondi.
+#
+# Quindi si cede un paio di volte — che e' il caso in cui davvero c'e'
+# qualcun altro pronto e basta lasciarlo passare — e poi si dorme per davvero.
+# Un pisolino breve puo' tornare presto, e va benissimo: la scadenza e' un
+# orario e si riguarda comunque. Quello che cambia e' il prezzo di riguardare,
+# che da un giro a vuoto diventa un risveglio.
+YIELDS_BEFORE_A_REAL_NAP = 2
+SHORT_NAP_S = 0.002
+
+#     E UN'ULTIMA USCITA, PER UN OROLOGIO CHE NON SI MUOVE AFFATTO.
+#
+# Il pisolino fisso termina con qualunque timer che avanzi un po'. Con uno che
+# non avanza per niente — non esiste su una macchina vera, esiste in una prova
+# che lo riproduce apposta — dormire all'infinito sarebbe restare appesi, e
+# restare appesi e' peggio di qualunque imprecisione. Oltre questo numero di
+# giri si torna a cedere il controllo, che e' l'unica cosa che fa progredire
+# un loop comunque sia fatto l'orologio.
+#
+# Duecento e' irraggiungibile in esercizio: con la barriera a otto
+# millisecondi i giri misurati sono fra quattro e quaranta.
+TOO_MANY_TURNS = 200
+
 
 class BeatCredits:
     """
@@ -330,6 +365,7 @@ class PlaybackController:
         self.coarse_sleeps = 0        # quante attese a tempo
         self.cooperative_yields = 0   # quante cessioni di controllo
         self.timer_lies = 0           # quante volte il timer non ha aspettato
+        self.short_naps = 0           # quante attese brevi invece di girare a vuoto
         self._barrier_asked_ms = []   # quanto ha chiesto di aspettare
         self._last_send_took = None   # quanto e durata la send precedente
         self._in_fallback = False     # se il passo lo sta dando il ripiego
@@ -668,7 +704,10 @@ class PlaybackController:
         """
         fidarsi = True
         trattenuto = False
+        ceduti = 0
+        giri = 0
         while True:
+            giri += 1
             adesso = self._now()
             resta = non_prima_di - adesso
             if resta <= 0:
@@ -691,11 +730,36 @@ class PlaybackController:
                 if (self._now() - adesso) < chiesto * 0.1:
                     self.timer_lies += 1
                     fidarsi = False
-            else:
-                # Niente attesa a tempo, e niente giro a vuoto sul processore:
-                # si lascia il posto a chi deve lavorare e si riguarda.
+            elif ceduti < YIELDS_BEFORE_A_REAL_NAP or giri > TOO_MANY_TURNS:
+                #     PRIMA SI LASCIA PASSARE CHI C'E'.
+                # Due volte: se c'era qualcuno pronto e' gia' passato, e la
+                # scadenza nel frattempo si e' avvicinata da sola.
+                ceduti += 1
                 self.cooperative_yields += 1
                 await self._sleep(0)
+            else:
+                #     POI SI DORME PER DAVVERO, E SEMPRE DELLA STESSA MISURA.
+                #
+                # Non si cede piu': cedere quando non c'e' nessun altro pronto
+                # torna subito, e ricominciare da capo e' il giro a vuoto che
+                # ha affamato il filo audio.
+                #
+                #     E NON SI CHIEDE MAI «QUELLO CHE RESTA».
+                #
+                # Scritta la prima volta come `min(resta, SHORT_NAP_S)`, questa
+                # riga ha ricreato in due minuti il difetto del V3.13: sotto i
+                # due millisecondi chiedeva `resta`, il timer ne onorava un
+                # decimo, e l'attesa si restringeva del novanta per cento a
+                # ogni giro senza mai raggiungere lo zero. Un punto fisso, e
+                # un ciclo che non torna.
+                #
+                # Una misura fissa non puo' convergere: o la scadenza arriva,
+                # o si passa oltre di due millisecondi — e passare oltre non e'
+                # un difetto. La barriera promette «non prima», non «non
+                # dopo», e due millisecondi su un frame da venti non li sente
+                # nessuno.
+                self.short_naps += 1
+                await self._sleep(SHORT_NAP_S)
 
     async def _let_the_cushion_fill(self, handle) -> None:
         """
@@ -777,6 +841,7 @@ class PlaybackController:
             "coarse_sleep_count": self.coarse_sleeps,
             "cooperative_yield_count": self.cooperative_yields,
             "timer_lie_detected_count": self.timer_lies,
+            "short_nap_count": self.short_naps,
             "min_requested_barrier_ms": (
                 min(self._barrier_asked_ms) if self._barrier_asked_ms else None
             ),

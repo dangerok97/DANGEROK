@@ -332,12 +332,29 @@ def live_is_configured() -> str:
     return ""
 
 
+#     DUE CHIAVI, UNA PREFERENZA FISSA, E NESSUNA RELAZIONE COL RESTO.
+#
+# Questa scelta non guarda lo stato dei fornitori: `gemini2` viene prima
+# sempre, anche quando il manager LLM ha appena messo `gemini` in castigo per
+# quota. Sono due sottosistemi diversi che condividono solo un prefisso nel
+# nome delle variabili, e confonderli porta a cercare la causa dove non e'.
+_SLOTS = (("gemini2", "GEMINI2_API_KEY"), ("gemini", "GEMINI_API_KEY"))
+
+
+def _key_slot() -> str:
+    """Quale credenziale apre il filo. Il nome, mai il valore."""
+    for nome, dove in _SLOTS:
+        if (os.environ.get(dove) or "").strip():
+            return nome
+    return ""
+
+
 def _key() -> str:
-    return (
-        os.environ.get("GEMINI2_API_KEY")
-        or os.environ.get("GEMINI_API_KEY")
-        or ""
-    ).strip()
+    for _nome, dove in _SLOTS:
+        chiave = (os.environ.get(dove) or "").strip()
+        if chiave:
+            return chiave
+    return ""
 
 
 def _model() -> str:
@@ -347,6 +364,32 @@ def _model() -> str:
 def _voice() -> str:
     """Quale voce. Vuoto vuol dire: quella che il modello darebbe comunque."""
     return (os.environ.get("GEMINI_LIVE_VOICE") or "").strip()
+
+
+# I messaggi del server che sappiamo leggere. Tutto il resto viene contato per
+# nome, cosi' un messaggio nuovo non passa piu' inosservato.
+_WHAT_WE_KNOW = frozenset({
+    "setupComplete", "serverContent", "toolCall", "toolCallCancellation",
+    "usageMetadata", "goAway", "sessionResumptionUpdate",
+})
+
+
+def _just_the_shape(qualcosa) -> Any:
+    """
+    La forma di un messaggio, mai il contenuto.
+
+    Le chiavi e i tipi bastano a capire che cosa e' arrivato; il testo dentro
+    puo' portare parole di una telefonata, e quelle non si registrano.
+    """
+    if isinstance(qualcosa, dict):
+        return {k: type(v).__name__ for k, v in qualcosa.items()}
+    return type(qualcosa).__name__
+
+
+def _when_it_is_now() -> str:
+    from datetime import datetime, timezone
+
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 def _how_she_sounds() -> Dict[str, Any]:
@@ -471,6 +514,12 @@ class MissionVoiceSession:
         self._tool_calls = 0
         self._refused_tools = 0
         self._tokens: Dict[str, int] = {}
+        # Quello che il server ha annunciato durante la telefonata, e i nomi
+        # dei messaggi che non sappiamo ancora leggere. Nessun contenuto:
+        # solo la forma, per poter dire dopo che cosa e' passato di qui.
+        self._server_said: List[Dict[str, Any]] = []
+        self._server_unknown: set = set()
+        self._trace: Dict[str, Any] = {}
         self._speaking = None
         self._said_this_turn: List[str] = []
         self._heard_this_turn: List[str] = []
@@ -568,12 +617,33 @@ class MissionVoiceSession:
             return False
 
         self._opened_at = time.perf_counter()
+        suona = _how_she_sounds()
+        #     CHE COSA E' STATO DAVVERO APERTO, E CON CHE COSA DENTRO.
+        #
+        # `opening_voice` registrava la voce *desiderata*, e su una telefonata
+        # in cui la voce e' cambiata a meta' non ha potuto smentire nessuno.
+        # Questi campi registrano invece quello che e' uscito da qui: quale
+        # credenziale, quale modello, e se la configurazione della voce e'
+        # stata messa nel messaggio o e' rimasta fuori. Nessun segreto: il
+        # nome dello slot, non la chiave.
+        self._trace = {
+            "live_credential_slot": _key_slot(),
+            "live_model_opened": _model(),
+            "live_requested_voice": _voice() or "(nessuna preferenza)",
+            "live_speech_config_sent": "speechConfig" in suona,
+            "live_voice_in_setup": (
+                (suona.get("speechConfig") or {}).get("voiceConfig", {})
+                .get("prebuiltVoiceConfig", {}).get("voiceName", "")
+            ),
+            "live_session_opened_at": _when_it_is_now(),
+            "live_fallback_reason": "",
+        }
         try:
             self.ws = await (self._connect or _dial)()
             await self._send({
                 "setup": {
                     "model": f"models/{_model()}",
-                    "generationConfig": _how_she_sounds(),
+                    "generationConfig": suona,
                     "systemInstruction": {"parts": [{
                         "text": SESSION_PROMPT
                         + "\n\nPACCHETTO MISSIONE:\n"
@@ -589,13 +659,27 @@ class MissionVoiceSession:
             })
             primo = await asyncio.wait_for(self._recv(), timeout=SETUP_TIMEOUT_S)
             if "setupComplete" not in primo:
+                self._trace["live_fallback_reason"] = "setup non accettato"
                 logger.info("la sessione non è stata accettata")
                 await self.close()
                 return False
+            #     QUELLO CHE IL SERVER RISPONDE, NON QUELLO CHE GLI ABBIAMO
+            #     CHIESTO.
+            # Se un giorno conferma il modello o la voce, qui si vede senza
+            # doverlo indovinare da come suona.
+            self._trace["live_setup_echo"] = _just_the_shape(primo.get("setupComplete"))
         except Exception as e:
+            self._trace["live_fallback_reason"] = type(e).__name__
             logger.info("il filo verso chi parla non si è aperto: %s", type(e).__name__)
             await self.close()
             return False
+
+        logger.info(
+            "sessione Live aperta: slot=%s modello=%s voce=%s (speechConfig=%s)",
+            self._trace["live_credential_slot"], self._trace["live_model_opened"],
+            self._trace["live_voice_in_setup"] or "(del modello)",
+            self._trace["live_speech_config_sent"],
+        )
 
         self._ready_ms = int((time.perf_counter() - self._opened_at) * 1000)
         self._answered_at = self._opened_at
@@ -699,6 +783,26 @@ class MissionVoiceSession:
                 "input": int(u.get("promptTokenCount") or 0),
                 "output": int(u.get("responseTokenCount") or 0),
             }
+
+        #     QUELLO CHE IL SERVER DICE E CHE NON STAVAMO ASCOLTANDO.
+        #
+        # `goAway` annuncia che questa sessione sta per finire;
+        # `sessionResumptionUpdate` che ne e' cominciata un'altra al suo
+        # posto. Su una telefonata in cui la voce e' cambiata a meta' erano
+        # esattamente i due messaggi che avrebbero spiegato perche', e li
+        # stavamo lasciando cadere senza contarli. Non si reagisce: si annota.
+        for avviso in ("goAway", "sessionResumptionUpdate"):
+            if m.get(avviso):
+                self._server_said.append({
+                    "what": avviso,
+                    "at_ms": self._since_open(time.perf_counter()),
+                    "shape": _just_the_shape(m.get(avviso)),
+                })
+                logger.info("il server ha detto %s a %s ms", avviso,
+                            self._server_said[-1]["at_ms"])
+        ignoti = set(m) - _WHAT_WE_KNOW
+        if ignoti:
+            self._server_unknown.update(ignoti)
 
         if m.get("toolCall"):
             await self._tools_were_asked(m["toolCall"])
@@ -1354,6 +1458,9 @@ class MissionVoiceSession:
             # --- l'apertura: un caso a se, e si misura a parte ---------------
             "opening_state": self._opening,
             "opening_voice": _voice() or "(quella del modello)",
+            **self._trace,
+            "server_announcements": self._server_said,
+            "server_messages_not_understood": sorted(self._server_unknown),
             "opening_deferred_for_human": self._opening_deferred,
             "answered_at_ms": 0 if self._answered_at else None,
             "live_ready_at_ms": self._since_open(self._live_ready_at),

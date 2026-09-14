@@ -2051,6 +2051,10 @@ class OrologioBugiardo:
         self.bugia = bugia
         self.dormite = 0
         self.cessioni = 0
+        # Quanto e' stato chiesto, ogni volta. Serve a dimostrare che le
+        # attese non si restringono verso lo zero — la forma che nel V3.13
+        # produsse un ciclo che non tornava.
+        self.chieste = []
 
     def now(self):
         return self.t
@@ -2062,6 +2066,7 @@ class OrologioBugiardo:
             self.t += 0.0002
             return
         self.dormite += 1
+        self.chieste.append(round(quanto, 6))
         self.t += quanto * self.bugia
 
 
@@ -2076,7 +2081,9 @@ async def test_the_barrier_holds_even_when_the_timer_lies():
     fidava. La barriera non si fida di niente: conosce un istante assoluto, e
     a ogni risveglio chiede soltanto se è ora.
     """
-    from telephone.playback import MIN_GAP_S, PlaybackController
+    from telephone.playback import (
+        MIN_GAP_S, SHORT_NAP_S, YIELDS_BEFORE_A_REAL_NAP, PlaybackController,
+    )
 
     orologio = OrologioBugiardo()
 
@@ -2154,10 +2161,23 @@ async def test_the_far_part_is_slept_and_the_last_part_is_yielded():
     await play._hold_until(orologio.now() + 0.100)
     assert orologio.dormite >= 1, "non ha dormito la parte lontana"
 
-    dormite_prima = orologio.dormite
+    #     SOTTO LA SOGLIA NON SI CHIEDE PIU' «QUELLO CHE RESTA».
+    #
+    # La prova diceva «non si dorme affatto», e per un po' e' stata la cosa
+    # giusta: cedere il controllo sembrava gratis. Al telefono non lo era —
+    # un milione e mezzo di cessioni in settantanove secondi, e il filo audio
+    # che arrivava tardi. Adesso sotto la soglia si dorme, ma di una misura
+    # **fissa**: quello che non si fa piu' e' chiedere al timer una frazione
+    # di cio' che manca, che e' la forma che non converge.
+    from telephone.playback import SHORT_NAP_S
+
+    prima = len(orologio.chieste)
     await play._hold_until(orologio.now() + TOO_SHORT_TO_SLEEP_S / 2)
-    assert orologio.dormite == dormite_prima, "ha dormito sotto la soglia"
+    sotto_soglia = orologio.chieste[prima:]
     assert orologio.cessioni >= 1, "non ha ceduto il controllo"
+    assert set(sotto_soglia) <= {SHORT_NAP_S}, (
+        f"ha chiesto un'attesa calcolata sotto la soglia: {sotto_soglia}"
+    )
     await play.close()
 
 
@@ -2290,6 +2310,10 @@ class OrologioBugiardo:
         self.bugia = bugia
         self.dormite = 0
         self.cessioni = 0
+        # Quanto e' stato chiesto, ogni volta. Serve a dimostrare che le
+        # attese non si restringono verso lo zero — la forma che nel V3.13
+        # produsse un ciclo che non tornava.
+        self.chieste = []
 
     def now(self):
         return self.t
@@ -2301,6 +2325,7 @@ class OrologioBugiardo:
             self.t += 0.0002
             return
         self.dormite += 1
+        self.chieste.append(round(quanto, 6))
         self.t += quanto * self.bugia
 
 
@@ -2315,7 +2340,9 @@ async def test_the_barrier_holds_even_when_the_timer_lies():
     fidava. La barriera non si fida di niente: conosce un istante assoluto, e
     a ogni risveglio chiede soltanto se è ora.
     """
-    from telephone.playback import MIN_GAP_S, PlaybackController
+    from telephone.playback import (
+        MIN_GAP_S, SHORT_NAP_S, YIELDS_BEFORE_A_REAL_NAP, PlaybackController,
+    )
 
     orologio = OrologioBugiardo()
 
@@ -2338,13 +2365,38 @@ async def test_the_barrier_holds_even_when_the_timer_lies():
     assert orologio.dormite + orologio.cessioni < 200, (
         orologio.dormite, orologio.cessioni
     )
-    #     E SMETTE DI CHIEDERE A CHI NON RISPONDE.
-    # Questa prova, la prima volta, non finiva: chiedendo sempre `resta meno
-    # la soglia` a un timer che ne onora un decimo, l'attesa si avvicinava
+    #     E SMETTE DI CHIEDERE *QUELLO CHE RESTA* A CHI NON RISPONDE.
+    #
+    # Questa prova, la prima volta, non finiva: chiedendo sempre «resta meno
+    # la soglia» a un timer che ne onora un decimo, l'attesa si avvicinava
     # alla soglia senza mai attraversarla. Un punto fisso, e un ciclo che non
-    # torna. Adesso alla prima bugia si passa a cedere il controllo.
-    assert orologio.dormite <= 3, (
-        f"ha insistito {orologio.dormite} volte con un timer che non aspetta"
+    # torna. La correzione di allora fu passare a cedere il controllo.
+    #
+    #     CEDERE PERO' NON E' ASPETTARE, E SI E' SENTITO AL TELEFONO.
+    #
+    # `sleep(0)` torna subito quando non c'e' nessun altro pronto, e cederlo
+    # fino alla scadenza e' un giro a vuoto travestito da buona educazione:
+    # 1.549.103 cessioni in settantanove secondi di telefonata vera, con il
+    # filo audio che arrivava tardi e il buco peggiore di quindici secondi.
+    #
+    # Adesso si cede un paio di volte — il caso in cui davvero c'e' qualcun
+    # altro pronto — e poi si dorme di una quantita' **fissa**. Fissa e' la
+    # parola: un pisolino che non si accorcia insieme a quello che resta non
+    # puo' ricreare il punto fisso di allora, e costa un risveglio invece di
+    # mille giri.
+    assert orologio.cessioni <= YIELDS_BEFORE_A_REAL_NAP, (
+        f"ha ceduto {orologio.cessioni} volte: e' tornato il giro a vuoto"
+    )
+    assert orologio.dormite >= 1, "non ha mai dormito davvero"
+    #     E DOPO LA PRIMA BUGIA SI CHIEDE SEMPRE LA STESSA MISURA.
+    #
+    # E' la proprieta' che rende impossibile il ciclo che non torna, e vale la
+    # pena guardarla direttamente invece di dedurla dal fatto che la prova
+    # finisce. Scritta come `min(resta, SHORT_NAP_S)`, questa riga chiedeva
+    # `resta` sotto i due millisecondi e lo vedeva restringersi del novanta
+    # per cento a ogni giro — la prova non tornava piu', in due minuti.
+    assert set(orologio.chieste[1:]) == {SHORT_NAP_S}, (
+        f"le attese non sono fisse: {sorted(set(orologio.chieste))}"
     )
     await play.close()
 
@@ -2401,10 +2453,23 @@ async def test_the_far_part_is_slept_and_the_last_part_is_yielded():
     await play._hold_until(orologio.now() + 0.100)
     assert orologio.dormite >= 1, "non ha dormito la parte lontana"
 
-    dormite_prima = orologio.dormite
+    #     SOTTO LA SOGLIA NON SI CHIEDE PIU' «QUELLO CHE RESTA».
+    #
+    # La prova diceva «non si dorme affatto», e per un po' e' stata la cosa
+    # giusta: cedere il controllo sembrava gratis. Al telefono non lo era —
+    # un milione e mezzo di cessioni in settantanove secondi, e il filo audio
+    # che arrivava tardi. Adesso sotto la soglia si dorme, ma di una misura
+    # **fissa**: quello che non si fa piu' e' chiedere al timer una frazione
+    # di cio' che manca, che e' la forma che non converge.
+    from telephone.playback import SHORT_NAP_S
+
+    prima = len(orologio.chieste)
     await play._hold_until(orologio.now() + TOO_SHORT_TO_SLEEP_S / 2)
-    assert orologio.dormite == dormite_prima, "ha dormito sotto la soglia"
+    sotto_soglia = orologio.chieste[prima:]
     assert orologio.cessioni >= 1, "non ha ceduto il controllo"
+    assert set(sotto_soglia) <= {SHORT_NAP_S}, (
+        f"ha chiesto un'attesa calcolata sotto la soglia: {sotto_soglia}"
+    )
     await play.close()
 
 
