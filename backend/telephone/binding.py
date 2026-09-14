@@ -45,10 +45,15 @@ BINDINGS = "call_mission_bindings"
 # non ha un adattatore, e senza adattatore non si scrive niente.
 Domain = Literal["calendar"]
 
-# Le operazioni che una telefonata può applicare. Anche questa lista è corta
-# di proposito: `cancel` e `book` cambiano il mondo quanto `reschedule` e
-# meritano ciascuna il proprio giro di prove, non un ramo aggiunto di fretta.
-Operation = Literal["reschedule"]
+# Le operazioni che una telefonata può applicare. Ognuna ha avuto il proprio
+# giro di prove, e nessuna è arrivata per somiglianza con le altre: spostare,
+# disdire e prenotare cambiano il mondo in tre modi diversi, e sbagliano in
+# tre modi diversi.
+Operation = Literal["reschedule", "cancel", "book"]
+
+# Le operazioni che agiscono su un evento che esiste già. `book` no: il suo
+# oggetto non c'è ancora, ed è proprio quello che la telefonata va a creare.
+ON_SOMETHING_THAT_EXISTS = ("reschedule", "cancel")
 
 
 class MissionTarget(BaseModel):
@@ -61,7 +66,11 @@ class MissionTarget(BaseModel):
     """
 
     domain: Domain
-    entity_id: str = Field(min_length=1, max_length=64)
+    #     VUOTO È LEGITTIMO, ED È IL CASO DI `book`.
+    # Un appuntamento da prenotare non ha ancora un identificativo: nasce
+    # dall'applicazione, dopo che la controparte ha confermato. Prima di
+    # allora l'unico nome che ha è quello della missione.
+    entity_id: str = Field(default="", max_length=64)
     operation: Operation
 
 
@@ -85,11 +94,28 @@ class CallMissionBinding(BaseModel):
     # Com'era l'oggetto quando la missione è stata scritta. Solo i campi che
     # servono a riconoscerlo e a ricostruire il nuovo valore.
     expected: Dict[str, str] = Field(default_factory=dict)
+    #     E DOVE SI VUOLE ARRIVARE, QUANDO NON C'È UN PUNTO DI PARTENZA.
+    # Per una prenotazione è l'unico stato che esiste: data, ora, quanto dura
+    # se si sa, con chi. Serve a chi parla per chiedere la cosa giusta, e a
+    # chi applica per creare esattamente quella e non un'altra.
+    desired: Dict[str, str] = Field(default_factory=dict)
+    #     QUELLO CHE LA TELEFONATA HA CREATO, SE HA CREATO QUALCOSA.
+    #
+    # Sta qui e **non** dentro `target`, e la distinzione non è estetica.
+    # `target` è l'identità della missione, ed entra nella chiave di
+    # idempotenza: se cambiasse a cose fatte, la seconda applicazione della
+    # stessa prenotazione userebbe una chiave diversa e si scriverebbe un
+    # secondo record. Misurato — succedeva.
+    #
+    # Quindi l'identità resta quella di quando la missione è nata, e il
+    # risultato si annota accanto.
+    created_entity_id: str = Field(default="", max_length=64)
     created_at: str = Field(default_factory=now_iso)
 
 
 async def bind_a_calendar_event(
-    db, *, call, calendar_ref: str, even_if_it_is_past: bool = False,
+    db, *, call, calendar_ref: str = "", even_if_it_is_past: bool = False,
+    desired_datetime: str = "", desired_minutes: int = 0,
 ) -> Tuple[Optional[CallMissionBinding], str, bool]:
     """
     Lega questa telefonata all'evento che dovrà spostare.
@@ -105,12 +131,20 @@ async def bind_a_calendar_event(
     Non solleva: una telefonata che non si può legare resta una telefonata
     valida, e verrà soltanto raccontata invece che applicata.
     """
-    #     SOLO UNO SPOSTAMENTO SPOSTA QUALCOSA.
-    # Le altre missioni non sanno ancora applicare niente, e chiedere «quale
-    # appuntamento?» a chi sta solo telefonando per informarsi sarebbe una
-    # domanda senza risposta possibile. Si tace, e non si lega niente.
-    if _what_kind_of_mission(call.mandate.why_calling or "") != "reschedule":
+    #     TRE MISSIONI CAMBIANO IL CALENDARIO. LE ALTRE NO.
+    # Chiedere «quale appuntamento?» a chi sta solo telefonando per informarsi
+    # sarebbe una domanda senza risposta possibile. Si tace, e non si lega
+    # niente: quella telefonata riporterà una risposta, ed è quello che deve
+    # fare.
+    tipo = _what_kind_of_mission(call.mandate.why_calling or "")
+    if tipo not in ("reschedule", "cancel", "book"):
         return None, "", False
+
+    if tipo == "book":
+        return await _bind_a_new_appointment(
+            db, call=call, quando=desired_datetime, minuti=desired_minutes,
+            anche_se_passato=even_if_it_is_past,
+        )
 
     ref = _just_the_id(calendar_ref)
     if not ref:
@@ -155,7 +189,7 @@ async def bind_a_calendar_event(
         call_id=call.id,
         owner_id=call.owner_id,
         target=MissionTarget(
-            domain="calendar", entity_id=ref, operation="reschedule",
+            domain="calendar", entity_id=ref, operation=tipo,
         ),
         expected={
             "start_datetime": str(draft.get("start_datetime") or ""),
@@ -184,6 +218,78 @@ async def binding_for(db, call_id: str) -> Optional[CallMissionBinding]:
     except Exception as e:  # pragma: no cover
         logger.info("legame illeggibile: %s", type(e).__name__)
         return None
+
+
+async def _bind_a_new_appointment(
+    db, *, call, quando: str, minuti: int, anche_se_passato: bool,
+) -> Tuple[Optional[CallMissionBinding], str, bool]:
+    """
+    Lega una prenotazione a quello che si vuole ottenere, non a un oggetto.
+
+        UNA PRENOTAZIONE NON HA UN PRIMA.
+
+    Le altre due missioni partono da un evento che esiste e lo spostano o lo
+    tolgono; questa parte dal niente. Quindi il legame non porta un
+    `entity_id` — quello nascerà dopo, se la controparte conferma — ma porta
+    **che cosa si è chiesto**: data, ora, quanto dura, con chi.
+
+    Serve a due lettori diversi. A chi parla, per chiedere quella cosa lì e
+    non una che le somiglia. E a chi applica, per creare esattamente ciò che è
+    stato confermato invece di fidarsi di un orario che torna da solo.
+
+        E SENZA UN QUANDO NON SI PRENOTA NIENTE.
+
+    «Prenotami dal dentista» senza una data non è una missione: è una cosa da
+    concordare prima, e finché non c'è la telefonata riporta e basta.
+    """
+    if not (quando or "").strip():
+        return None, "non mi hai detto per quando prenotare", False
+
+    fuso = _where_the_person_is()
+    if not anche_se_passato and _already_gone(quando, fuso):
+        return (
+            None,
+            "quella data è già passata: vuoi che chiami lo stesso?",
+            True,
+        )
+
+    binding = CallMissionBinding(
+        mission_id=mission_id_for(call.id),
+        call_id=call.id,
+        owner_id=call.owner_id,
+        target=MissionTarget(domain="calendar", entity_id="", operation="book"),
+        expected={},
+        desired={
+            "start_datetime": quando.strip()[:40],
+            "timezone": fuso,
+            "duration_minutes": str(int(minuti)) if minuti else "",
+            "counterparty": (call.calling_whom or "")[:120],
+            "title": _what_to_call_it(call),
+        },
+    )
+    await db[BINDINGS].update_one(
+        {"mission_id": binding.mission_id},
+        {"$set": binding.model_dump()},
+        upsert=True,
+    )
+    return binding, "", False
+
+
+def _what_to_call_it(call) -> str:
+    """
+    Come si chiamerà in calendario l'appuntamento che ancora non esiste.
+
+    Il nome di chi si chiama, che è l'unica cosa che una persona riconosce
+    guardando l'agenda la settimana dopo. Non la ragione della telefonata:
+    «spostare la visita» è un compito, non un appuntamento.
+    """
+    return (call.calling_whom or "Appuntamento").strip()[:120]
+
+
+def _where_the_person_is() -> str:
+    from telephone.mission import _where_they_are
+
+    return _where_they_are()
 
 
 def _already_gone(inizio: str, fuso: str) -> bool:

@@ -56,6 +56,25 @@ def _combacia(riga, query) -> bool:
     return True
 
 
+def _scrivi(riga, campi):
+    """
+    `$set`, compresi i percorsi puntati.
+
+    `{"target.entity_id": "x"}` scende dentro `target` invece di creare una
+    chiave che si chiama così — che è quello che fa Mongo, e senza il quale
+    una prova passerebbe leggendo un campo che in produzione non esiste.
+    """
+    for chiave, valore in (campi or {}).items():
+        if "." not in chiave:
+            riga[chiave] = valore
+            continue
+        *dentro, ultimo = chiave.split(".")
+        nodo = riga
+        for pezzo in dentro:
+            nodo = nodo.setdefault(pezzo, {})
+        nodo[ultimo] = valore
+
+
 def _senza_id(riga, proiezione):
     fuori = dict(riga)
     if proiezione and proiezione.get("_id") == 0:
@@ -116,7 +135,7 @@ class Tabella:
     async def update_one(self, query, cambio, upsert=False):
         for r in self.righe:
             if _combacia(r, query):
-                r.update(cambio.get("$set") or {})
+                _scrivi(r, cambio.get("$set") or {})
                 for campo, quali in (cambio.get("$addToSet") or {}).items():
                     dentro = r.setdefault(campo, [])
                     for x in (quali or {}).get("$each", []):

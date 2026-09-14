@@ -119,6 +119,8 @@ async def prepare_a_phone_call(
     legame, perche_no, serve_chiarimento = await _tie_it_to_something(
         db, call, str(arguments.get("calendar_ref") or ""),
         anche_se_passato=bool(arguments.get("proceed_even_if_past")),
+        quando=str(arguments.get("desired_datetime") or ""),
+        minuti=int(arguments.get("desired_minutes") or 0),
     )
 
     return Observation(
@@ -149,6 +151,7 @@ async def prepare_a_phone_call(
 
 async def _tie_it_to_something(
     db, call, calendar_ref: str, *, anche_se_passato: bool = False,
+    quando: str = "", minuti: int = 0,
 ):
     """
     Lega la telefonata all'appuntamento che dovrà spostare, se ce n'è uno.
@@ -167,6 +170,7 @@ async def _tie_it_to_something(
         return await bind_a_calendar_event(
             db, call=call, calendar_ref=calendar_ref,
             even_if_it_is_past=anche_se_passato,
+            desired_datetime=quando, desired_minutes=minuti,
         )
     except Exception as e:
         logger.info("legame non riuscito: %s", type(e).__name__)

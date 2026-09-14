@@ -558,6 +558,13 @@ def packet_for(
 
     if binding is not None and not current_when:
         current_when = (binding.expected or {}).get("start_datetime", "")
+    if binding is not None and not desired_when:
+        #     UNA PRENOTAZIONE NON HA UN PRIMA, SOLO UN DOPO.
+        # Per le altre due missioni il legame porta da dove si parte; qui
+        # porta dove si vuole arrivare, ed e' l'unica cosa che chi parla deve
+        # chiedere. L'identificativo dell'evento non c'e' nemmeno adesso:
+        # quello nascera' dopo, e non si pronuncia comunque.
+        desired_when = (binding.desired or {}).get("start_datetime", "")
 
     packet = CallMissionPacket(
         mission_id=mission_id_for(call.id),

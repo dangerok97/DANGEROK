@@ -145,8 +145,22 @@ def how_it_reads(call) -> PresentationStatus:
 
 
 def _when_it_moved_to(cambiamenti: Dict[str, Any]) -> str:
-    """«alle 18:00», da quello che la controparte ha confermato."""
-    ora = cambiamenti.get("new_time") or cambiamenti.get("when") or ""
+    """
+    «alle 18:00», da quello che la controparte ha confermato.
+
+        TRE MISSIONI SCRIVONO L'ORARIO IN TRE CAMPI DIVERSI.
+
+    Uno spostamento dice dove è arrivato (`new_time`); una disdetta e una
+    prenotazione dicono di quale appuntamento si parla (`appointment_time`).
+    Sono la stessa frase per chi legge — «alle 18:00» — e tre chiavi diverse
+    per chi la costruisce.
+    """
+    ora = (
+        cambiamenti.get("new_time")
+        or cambiamenti.get("appointment_time")
+        or cambiamenti.get("when")
+        or ""
+    )
     return f" alle {ora}" if ora else ""
 
 
@@ -252,6 +266,11 @@ def _confirmed_but_not_written(tipo: str, cambiamenti: Dict[str, Any], coda: str
         "cancel": "Hanno confermato la disdetta",
         "confirm": "Hanno confermato",
     }.get(tipo, "Hanno confermato")
+    if tipo == "cancel":
+        # «Hanno confermato la disdetta alle 18:00» si legge come se avessero
+        # disdetto alle diciotto. Per una disdetta l'ora non è un risultato:
+        # è il nome dell'appuntamento tolto, e va detta così.
+        quando = f" dell'appuntamento{quando}" if quando else ""
     return f"{chi}{quando}, {coda}"
 
 
