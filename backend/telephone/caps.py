@@ -116,8 +116,9 @@ async def prepare_a_phone_call(
 
     from telephone.briefing import disclosure
 
-    legame, perche_no = await _tie_it_to_something(
+    legame, perche_no, serve_chiarimento = await _tie_it_to_something(
         db, call, str(arguments.get("calendar_ref") or ""),
+        anche_se_passato=bool(arguments.get("proceed_even_if_past")),
     )
 
     return Observation(
@@ -128,7 +129,7 @@ async def prepare_a_phone_call(
             "call_id": call.id,
             "to_number": call.to_number,
             "calling_whom": call.calling_whom,
-            **_what_it_will_change(legame, perche_no),
+            **_what_it_will_change(legame, perche_no, serve_chiarimento),
             "first_words": disclosure(str(runtime.get("user_name") or "")),
             "why_calling": mandate.why_calling,
             "may_agree_to": mandate.may_agree_to,
@@ -146,7 +147,9 @@ async def prepare_a_phone_call(
     )
 
 
-async def _tie_it_to_something(db, call, calendar_ref: str):
+async def _tie_it_to_something(
+    db, call, calendar_ref: str, *, anche_se_passato: bool = False,
+):
     """
     Lega la telefonata all'appuntamento che dovrà spostare, se ce n'è uno.
 
@@ -161,13 +164,18 @@ async def _tie_it_to_something(db, call, calendar_ref: str):
     from telephone.binding import bind_a_calendar_event
 
     try:
-        return await bind_a_calendar_event(db, call=call, calendar_ref=calendar_ref)
+        return await bind_a_calendar_event(
+            db, call=call, calendar_ref=calendar_ref,
+            even_if_it_is_past=anche_se_passato,
+        )
     except Exception as e:
         logger.info("legame non riuscito: %s", type(e).__name__)
-        return None, "non sono riuscita a ritrovare quell'appuntamento"
+        return None, "non sono riuscita a ritrovare quell'appuntamento", False
 
 
-def _what_it_will_change(legame, perche_no: str) -> Dict[str, Any]:
+def _what_it_will_change(
+    legame, perche_no: str, serve_chiarimento: bool = False,
+) -> Dict[str, Any]:
     """
     Che cosa cambierà davvero, detto a chi deve raccontarlo alla persona.
 
@@ -189,6 +197,22 @@ def _what_it_will_change(legame, perche_no: str) -> Dict[str, Any]:
         }
     if not perche_no:
         return {"will_update_calendar": False}
+    if serve_chiarimento:
+        #     UNA DOMANDA NON È UN RIFIUTO, E NON SI RACCONTA COME TALE.
+        # Qui non c'è niente di rotto: c'è una cosa che solo la persona può
+        # decidere, e che dopo lo squillo non potrà più decidere.
+        return {
+            "will_update_calendar": False,
+            "needs_clarification": True,
+            "ask_this_first": perche_no,
+            "how_to_say_that_too": (
+                "Non chiedere ancora se vuole che chiami. Fai prima questa "
+                "domanda e aspetta: se ti dice di sì, richiama questo stesso "
+                "strumento con `proceed_even_if_past` a vero e lo stesso "
+                "`calendar_ref`. Se ti dice di no, chiedi quale appuntamento "
+                "intendeva."
+            ),
+        }
     return {
         "will_update_calendar": False,
         "why_nothing_will_change": perche_no,

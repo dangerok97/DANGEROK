@@ -263,6 +263,70 @@ async def _consent_missing(db, calendario, owner_id: str) -> str:
     return ""
 
 
+async def reconcile(db, *, call, binding, outcome) -> Verdict:
+    """
+    Che cosa è successo davvero, per un'applicazione rimasta a metà.
+
+        UN RECORD `pending` NON DICE SE LA SCRITTURA È ANDATA.
+
+    Dice solo che qualcuno l'aveva presa in carico e non è tornato. Fra il
+    momento in cui il record nasce e quello in cui si chiude ci sono due
+    scritture — la bozza locale e Google — e un processo che muore in mezzo
+    lascia esattamente questa domanda aperta.
+
+    A rispondere non è una supposizione: è il calendario. Si guarda dov'è
+    l'appuntamento adesso e si confronta con le due sole posizioni che hanno
+    un significato.
+
+      - **è già dove doveva arrivare** → la scrittura era andata, e il record
+        era solo rimasto indietro. Si chiude, e non si tocca niente;
+      - **è ancora dove stava** → la scrittura non è mai partita. Si riprova,
+        **una volta**, passando dalla stessa porta di sempre;
+      - **è altrove** → qualcuno l'ha spostato nel frattempo. Conflitto, e
+        sopra non si scrive.
+
+    Non esiste un quarto caso, e non esiste un ramo che indovina.
+    """
+    campi, perche = translate(binding, outcome)
+    if perche:
+        return Verdict("skipped", error=perche)
+
+    draft = await db.calendar_event_drafts.find_one(
+        {"id": binding.target.entity_id, "user_id": binding.owner_id},
+        {"_id": 0, "id": 1, "status": 1, "start_datetime": 1},
+    )
+    if not draft:
+        return Verdict("failed", error="l'appuntamento non è più nel calendario")
+    if draft.get("status") == "cancelled":
+        return Verdict("skipped", error="l'appuntamento è stato disdetto nel frattempo")
+
+    adesso = str(draft.get("start_datetime") or "").strip()
+
+    #     GIÀ ARRIVATO: SI CHIUDE IL RECORD, NON SI RISCRIVE L'EVENTO.
+    # È il caso del processo morto **dopo** la scrittura, ed è quello in cui
+    # riprovare farebbe il danno: una seconda scrittura identica è inutile, e
+    # una seconda scrittura su un calendario che nel frattempo è cambiato di
+    # nuovo sarebbe un sopruso.
+    if _same_moment(adesso, campi["start_datetime"]):
+        return Verdict(
+            "applied",
+            writes=[f"calendar:{binding.target.entity_id}"],
+            fields=campi,
+        )
+
+    #     ANCORA FERMO: LA SCRITTURA NON È MAI PARTITA.
+    # Un tentativo solo, e dalla porta normale — con dentro i suoi controlli
+    # di autorità, consenso e identità, che non si saltano perché è un
+    # secondo giro.
+    if _same_moment(adesso, binding.expected.get("start_datetime", "")):
+        return await apply(db, call=call, binding=binding, outcome=outcome)
+
+    return Verdict(
+        "conflict",
+        error="l'appuntamento è cambiato dopo la telefonata",
+    )
+
+
 def _the_calendar(db):
     """
     Il servizio che sa scrivere in calendario.

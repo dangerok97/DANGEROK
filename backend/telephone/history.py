@@ -211,7 +211,7 @@ _NON_SCRITTO = {
     ),
     "failed": "ma non sono riuscita ad aggiornare il calendario.",
     "skipped": "ma il calendario non l'ho aggiornato.",
-    "pending": "l'aggiornamento del calendario è ancora in corso.",
+    "pending": "sto verificando l'aggiornamento del calendario.",
 }
 
 

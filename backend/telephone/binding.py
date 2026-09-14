@@ -89,26 +89,32 @@ class CallMissionBinding(BaseModel):
 
 
 async def bind_a_calendar_event(
-    db, *, call, calendar_ref: str,
-) -> Tuple[Optional[CallMissionBinding], str]:
+    db, *, call, calendar_ref: str, even_if_it_is_past: bool = False,
+) -> Tuple[Optional[CallMissionBinding], str, bool]:
     """
     Lega questa telefonata all'evento che dovrà spostare.
 
-    Torna il legame, oppure il motivo in italiano per cui non si può fare —
-    che è una frase da dire a una persona, non un codice da registrare. Non
-    solleva: una telefonata che non si può legare resta una telefonata valida,
-    e verrà soltanto raccontata invece che applicata.
+    Torna tre cose: il legame, il motivo in italiano per cui non si può fare —
+    che è una frase da dire a una persona, non un codice da registrare — e se
+    quel motivo è una **domanda** invece che un rifiuto.
+
+    La differenza fra le due conta. «Questo appuntamento non è nel tuo
+    calendario» chiude il discorso; «quell'appuntamento è di ieri, telefono lo
+    stesso?» lo apre, e chi riceve la risposta deve poterle distinguere.
+
+    Non solleva: una telefonata che non si può legare resta una telefonata
+    valida, e verrà soltanto raccontata invece che applicata.
     """
     #     SOLO UNO SPOSTAMENTO SPOSTA QUALCOSA.
     # Le altre missioni non sanno ancora applicare niente, e chiedere «quale
     # appuntamento?» a chi sta solo telefonando per informarsi sarebbe una
     # domanda senza risposta possibile. Si tace, e non si lega niente.
     if _what_kind_of_mission(call.mandate.why_calling or "") != "reschedule":
-        return None, ""
+        return None, "", False
 
     ref = _just_the_id(calendar_ref)
     if not ref:
-        return None, "non mi hai detto quale appuntamento"
+        return None, "non mi hai detto quale appuntamento", False
 
     draft = await db.calendar_event_drafts.find_one(
         {"id": ref, "user_id": call.owner_id},
@@ -119,11 +125,30 @@ async def bind_a_calendar_event(
         #     NON SI CERCA UN RIPIEGO.
         # Un evento che non c'è, o che è di qualcun altro, non si sostituisce
         # con quello che gli somiglia di più. Si dice che non c'è.
-        return None, "questo appuntamento non è nel tuo calendario"
+        return None, "questo appuntamento non è nel tuo calendario", False
     if draft.get("status") == "cancelled":
-        return None, "questo appuntamento risulta disdetto"
+        return None, "questo appuntamento risulta disdetto", False
     if not draft.get("start_datetime"):
-        return None, "questo appuntamento non ha un orario da spostare"
+        return None, "questo appuntamento non ha un orario da spostare", False
+
+    #     UN APPUNTAMENTO GIÀ PASSATO NON SI SPOSTA: SI CHIEDE.
+    #
+    # Telefonare a uno studio per spostare la visita di ieri è una figura che
+    # fa ORA e che paga la persona, e nasce quasi sempre da un malinteso —
+    # l'evento sbagliato, o una data letta storta. Non è però impossibile che
+    # sia voluto: capita di richiamare per rimettere in piedi un appuntamento
+    # saltato. Quindi non si rifiuta e non si procede: si domanda, finché c'è
+    # qualcuno a cui domandare. Dopo lo squillo non c'è più.
+    if not even_if_it_is_past and _already_gone(
+        str(draft.get("start_datetime") or ""),
+        str(draft.get("timezone") or "Europe/Rome"),
+    ):
+        return (
+            None,
+            f"«{str(draft.get('title') or 'quell appuntamento')[:60]}» è già "
+            "passato: vuoi che telefoni lo stesso?",
+            True,
+        )
 
     binding = CallMissionBinding(
         mission_id=mission_id_for(call.id),
@@ -144,7 +169,7 @@ async def bind_a_calendar_event(
         {"$set": binding.model_dump()},
         upsert=True,
     )
-    return binding, ""
+    return binding, "", False
 
 
 async def binding_for(db, call_id: str) -> Optional[CallMissionBinding]:
@@ -159,6 +184,36 @@ async def binding_for(db, call_id: str) -> Optional[CallMissionBinding]:
     except Exception as e:  # pragma: no cover
         logger.info("legame illeggibile: %s", type(e).__name__)
         return None
+
+
+def _already_gone(inizio: str, fuso: str) -> bool:
+    """
+    Se quell'appuntamento è già cominciato.
+
+        NON È LA DATA, È L'ISTANTE.
+
+    Un evento delle 16:00 di oggi alle 16:54 è passato quanto quello di ieri,
+    e confrontare solo i giorni lo lascerebbe scivolare. Se l'orario non si
+    riesce a leggere si risponde **no**: una guardia che non sa dire non deve
+    fermare una telefonata.
+    """
+    from datetime import datetime, timezone as _tz
+
+    testo = (inizio or "").strip()
+    if not testo:
+        return False
+    try:
+        quando = datetime.fromisoformat(testo.replace("Z", "+00:00"))
+    except Exception:
+        return False
+    if quando.tzinfo is None:
+        try:
+            from zoneinfo import ZoneInfo
+
+            quando = quando.replace(tzinfo=ZoneInfo((fuso or "Europe/Rome").strip()))
+        except Exception:
+            quando = quando.replace(tzinfo=_tz.utc)
+    return quando < datetime.now(_tz.utc)
 
 
 def _just_the_id(ref: str) -> str:
