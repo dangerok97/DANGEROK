@@ -45,7 +45,7 @@ import uuid
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 
 from telephone.playback import PlaybackController
-from telephone.providers import Spoke
+from telephone.providers import Heard, Spoke
 from telephone.turn import TurnManager
 
 logger = logging.getLogger("ora.telephone.bridge")
@@ -130,16 +130,28 @@ class RealtimeVoiceSession:
 
         self.turns = TurnManager()
         self.playback = PlaybackController(send=send, clear_transport=clear_transport)
+        # Quante volte chi ascolta ha sospettato una fine che poi non era.
+        # Serve a sapere quanto varrebbe speculare, che è lo sprint dopo.
+        self._eager_guesses = 0
+        self._turns_resumed = 0
 
         # I fornitori arrivano da fuori: il runtime non sa come si chiamano.
         # Qui si sceglie il valore di partenza, e un test può metterne altri.
         if listening is None or speaking is None:
-            from telephone.deepgram import Listening, Speaking
+            from telephone.deepgram import Speaking, the_ear
 
-            listening = listening or Listening()
+            listening = listening or the_ear()
             speaking = speaking or Speaking()
         self.ears = listening
         self.mouth = speaking
+
+        #     SE C'È QUALCUNO CHE CAPISCE QUANDO HAI FINITO, SI DÀ RETTA A LUI.
+        # Chi ascolta dichiara se sa decidere i turni. Il gestore dei turni lo
+        # sa da subito: i suoi timer diventano una rete di sicurezza invece di
+        # essere il metodo.
+        self.turns.someone_else_decides_turns = bool(
+            getattr(listening, "decides_turns", False)
+        )
 
         self._pump: Optional[asyncio.Task] = None
         self._ticker: Optional[asyncio.Task] = None
@@ -230,6 +242,32 @@ class RealtimeVoiceSession:
             self.turns.speech_started()
             return
 
+        #     IL TURNO È FINITO PERCHÉ LO DICE CHI ASCOLTA.
+        # Arriva la frase intera, ed è autorevole: nessun timer nostro ha
+        # voce in capitolo. Il gestore dei turni la prende e il ciclo che
+        # guarda i commit se ne accorge al prossimo battito.
+        if kind == "end_of_turn":
+            self.turns.the_turn_is_over(
+                heard.text,
+                confidence=heard.confidence,
+                trigger=heard.trigger,
+                turn_index=heard.turn_index,
+            )
+            return
+
+        if kind == "eager_end":
+            #     SI REGISTRA, NON SI PENSA.
+            # Far partire un ragionamento da un «forse ha finito» è lo Sprint
+            # 3.3b. Qui si misura soltanto quanto varrebbe.
+            self._eager_guesses += 1
+            self.turns.maybe_the_turn_is_over(heard.confidence)
+            return
+
+        if kind == "turn_resumed":
+            self._turns_resumed += 1
+            self.turns.the_turn_resumed()
+            return
+
         if kind in ("partial", "final"):
             # Anche adesso che ORA tace, quello che arriva può essere la coda
             # della sua ultima frase che rientra dalla linea.
@@ -277,10 +315,21 @@ class RealtimeVoiceSession:
         millisecondi più tardi. È il prezzo di non interrompersi da sola, e su
         una linea telefonica non è un prezzo, è l'unica strada.
         """
-        if heard.kind in ("speech_started", "pause", "utterance_end"):
-            # Segnali di suono, non di significato: mentre parliamo non
-            # dicono niente che si possa distinguere dalla nostra voce.
+        if heard.kind in (
+            "speech_started", "pause", "utterance_end",
+            # E la fine di un turno, mentre parliamo noi, è quasi sempre la
+            # fine del **nostro**: la linea ci riporta indietro, chi ascolta
+            # trascrive, e dichiara finito un turno che non è di nessuno. Le
+            # parole che arrivano con quell'evento passano dal filtro sotto,
+            # come tutte le altre.
+            "eager_end", "turn_resumed",
+        ):
             return
+
+        if heard.kind == "end_of_turn":
+            # Si guarda solo se erano parole di qualcun altro; se lo erano,
+            # il turno nuovo comincia da capo dopo l'interruzione.
+            heard = Heard("final", heard.text, heard.at_ms)
 
         if heard.kind not in ("partial", "final"):
             return
@@ -608,6 +657,11 @@ class RealtimeVoiceSession:
         # numero è alto e le interruzioni sono zero, il filtro sta lavorando.
         out["own_voice_ignored"] = self._voice_came_back
         out["too_fast_to_be_a_person"] = self._too_fast_to_be_a_person
+        out["who_decides_turns"] = (
+            "provider" if self.turns.someone_else_decides_turns else "timers"
+        )
+        out["eager_guesses"] = self._eager_guesses
+        out["turns_resumed"] = self._turns_resumed
         if self.failures:
             out["failures"] = self.failures[:10]
         return out

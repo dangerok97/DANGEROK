@@ -120,6 +120,58 @@ class TelephoneService:
         )
         return PhoneCall.model_validate(row) if row else None
 
+    async def recent(
+        self,
+        owner_id: str,
+        *,
+        limit: int = 20,
+        offset: int = 0,
+        status: str = "",
+        days: int = 0,
+    ) -> "tuple":
+        """
+        Le telefonate di questa persona, le piu' recenti per prime.
+
+            LA PIU' RECENTE E' QUELLA CHE SI STA CERCANDO.
+
+        Torna la pagina chiesta e quante ce ne sono in tutto, perche' «mostrati
+        dieci di quarantadue» ha bisogno del quarantadue — e quel numero non
+        si puo' chiedere al database quando il filtro e' uno stato che il
+        database non conosce.
+
+        `days` restringe la finestra: zero vuol dire tutte.
+        """
+        quante = max(1, min(int(limit), 100))
+        query: Dict[str, Any] = {"owner_id": owner_id}
+        if days and days > 0:
+            from datetime import datetime, timedelta, timezone
+
+            da = datetime.now(timezone.utc) - timedelta(days=int(days))
+            query["authorised_at"] = {"$gte": da.isoformat()}
+
+        #     UN TETTO C'E' COMUNQUE.
+        # Contare per davvero vuol dire leggere per davvero, e una persona che
+        # ha fatto duemila telefonate non deve farle attraversare tutte a ogni
+        # apertura della pagina. Trecento e' piu' di quante ne guardera' mai
+        # qualcuno di seguito, ed e' un limite dichiarato invece che un carico
+        # che cresce da solo.
+        righe = (
+            self.db[CALLS]
+            .find(query, {"_id": 0})
+            .sort("authorised_at", -1)
+            .limit(300)
+        )
+        chiamate = [PhoneCall.model_validate(r) async for r in righe]
+
+        if status:
+            from telephone.history import how_it_reads
+
+            chiamate = [c for c in chiamate if how_it_reads(c) == status]
+
+        quante_in_tutto = len(chiamate)
+        inizio = max(0, int(offset))
+        return chiamate[inizio:inizio + quante], quante_in_tutto
+
     async def by_provider_ref(self, ref: str) -> Optional[PhoneCall]:
         row = await self.db[CALLS].find_one({"provider_ref": ref}, {"_id": 0})
         return PhoneCall.model_validate(row) if row else None

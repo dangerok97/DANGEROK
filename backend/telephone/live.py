@@ -1,0 +1,1414 @@
+"""
+La telefonata in cui a parlare è un esecutore, e a decidere è ORA.
+
+    ORA SA TUTTO. CHI TELEFONA SA UNA COSA.
+
+Il runtime classico porta ORA intera al telefono: diciottomila token a ogni
+battuta, e sei-nove secondi di silenzio in faccia a chi ha appena finito di
+parlare. Funziona, ed è lei — ma non è una conversazione.
+
+Qui parla un modello che vive fuori e che sa soltanto questa missione: mille
+token, un secondo e due. Non è ORA, e non finge di esserlo. È una bocca con un
+mandato preciso, e ogni volta che deve **sapere** o **decidere** qualcosa
+torna a chiedere qui dentro.
+
+    L'AUTORITÀ NON STA NELLA BOCCA.
+
+Sei strumenti, non trentanove. Un dato si dà solo se era previsto. Una
+missione si chiude solo se la controparte ha confermato, e «alle 18 abbiamo
+posto» non è una conferma. Quello che è successo torna come resoconto, non
+come comando: ORA lo valida, e solo allora il mondo si muove.
+
+    L'AUDIO È UN FIUME, NON UN ARCHIVIO.
+
+Il PCM entra da Vonage, attraversa questo file e viene dimenticato nello
+stesso gesto. Non c'è un buffer che cresce, non c'è un file, non c'è un campo
+nel database. Restano il testo, i tempi e i conteggi.
+
+    E IL CLASSICO NON SI ACCORGE DI NIENTE.
+
+Questo file non è importato da nessun altro del runtime telefonico. Ci si
+arriva solo dal flag, che parte spento.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import base64
+import json
+import logging
+import os
+import time
+import uuid
+from typing import Any, Awaitable, Callable, Dict, List, Optional
+
+from telephone.audio import LINE_RATE, Ears, Resampler
+from telephone.introduction import IntroductionLedger
+from telephone.mission import (
+    REFUSALS,
+    CallMissionOutcome,
+    CallMissionPacket,
+    MissionLedger,
+    packet_for,
+)
+from telephone.playback import PlaybackController
+
+logger = logging.getLogger("ora.telephone.live")
+
+LIVE_URL = (
+    "wss://generativelanguage.googleapis.com/ws/"
+    "google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent"
+)
+
+# Quello che Gemini Live manda indietro. La linea ne vuole sedici: in mezzo
+# c'è il ricampionatore, che lavora mentre il fiume scorre.
+MODEL_RATE = 24000
+
+# Quanto si aspetta che il modello apra bocca prima di considerarlo perso.
+SETUP_TIMEOUT_S = 12
+
+#     QUANTO SI LASCIA ALL'ALTRO PER DIRE «PRONTO».
+# Chi risponde al telefono spesso parla subito, e non gli si parla sopra.
+#
+#     MA UNA GUARDIA CHE NON PUO' VEDERE NON E' UNA GUARDIA.
+#
+# Alla sesta telefonata questa finestra durava un quarto di secondo, e le
+# orecchie ne chiedono mezzo per imparare quanto e alto il silenzio della
+# linea: la protezione non poteva funzionare, e infatti il primo «pronto?» e
+# passato inosservato. Adesso non si conta piu un tempo — si aspetta che le
+# orecchie siano sveglie, e questo succede quasi subito perche mentre la
+# sessione si apriva i pacchetti si accumulavano nel buffer del socket e
+# arrivano tutti insieme.
+LISTEN_BEFORE_OPENING_S = 0.12
+
+# Oltre questo non si aspetta piu: meglio una guardia imperfetta che una
+# telefonata muta.
+WAIT_FOR_EARS_S = 0.8
+
+# Quanta voce si mette da parte prima di cominciare a parlare. Con Gemini
+# Live l'audio nasce mentre lo si versa: senza margine, la linea va a tratti.
+SPEECH_CUSHION_MS = 200
+
+#     NON SI RIAGGANCIA SU UNA LINEA CHE PARLA.
+# Dopo l'ultima parola di ORA serve un tratto **continuo** di linea libera, non
+# una pausa a orologio. Ottocento millisecondi: `Ears` dichiara che qualcuno
+# parla dopo tre pacchetti, cioe sessanta millisecondi, quindi questa finestra
+# raccoglie chiunque apra bocca entro settecentoquaranta millisecondi
+# dall'ultima parola — e un turno umano normale comincia fra i duecento e i
+# cinquecento. Sta anche sotto i novecento che `Ears` usa per dire che un turno
+# e finito: non aspettiamo piu di quanto aspetti il resto del runtime.
+QUIET_LINE_BEFORE_CLOSING_S = 0.8
+
+# Oltre questo non si aspetta piu: se la linea non e mai libera per ottocento
+# millisecondi di fila, si chiude alla prima pausa utile. Una telefonata che
+# non finisce mai e un altro modo di essere scortesi — e costa.
+DONT_WAIT_FOREVER_S = 8.0
+
+# Quanto si lascia al trasporto per consegnare la coda dell'audio, prima
+# ancora di cominciare a guardare se la linea e libera.
+GOODBYE_GRACE_S = 0.3
+
+#     COME SUONA UN CONGEDO, NELLE NOSTRE STESSE PAROLE.
+# Qui non si interpreta la controparte: si rilegge quello che abbiamo detto
+# noi, per sapere se l'abbiamo detto. E' la stessa verifica di consegna che
+# fa il contratto dell'apertura, dall'altro capo della telefonata.
+FAREWELLS = (
+    "arrivederci", "buona giornata", "buona serata", "buonasera",
+    "a presto", "la saluto", "ci sentiamo", "le auguro", "buon proseguimento",
+)
+
+# Quante volte si chiede a chi parla di congedarsi prima di lasciar perdere.
+# Oltre, non e' piu' educazione: e' un telefono che non si chiude.
+MAX_GOODBYE_NUDGES = 2
+
+# Quante volte al massimo si ricorda a chi parla che l'apertura è incompleta.
+# Oltre, non è più un promemoria: è una persona che si ripete.
+MAX_INTRODUCTION_NUDGES = 2
+
+
+#     IL PROMPT DI SESSIONE È CORTO PERCHÉ NON È ORA.
+# Duecentoquaranta token. Non descrive una personalità, non elenca strumenti,
+# non racconta una vita: dice che cosa si può fare in questa telefonata e dove
+# finisce il mandato. Tutto il resto arriva col pacchetto.
+SESSION_PROMPT = """Sei la voce di ORA per questa singola telefonata, e per nessun'altra.
+
+Non hai una missione generale: hai quella descritta qui sotto. Tutto quello che sai è nel pacchetto; se ti serve altro, chiedilo con gli strumenti — non inventarlo e non dedurlo.
+
+Regole, in ordine di importanza:
+- La prima frase è say_this_first, detta per intera. Sei l'assistente della persona per cui chiami: non sei quella persona, e non dire mai di esserlo. Se ti interrompono mentre ti presenti, non ricominciare da capo: completa solo quello che manca al primo momento naturale.
+- Non allargare la missione. Se emerge una decisione che non è in allowed_negotiation, non accettarla: chiedi conferma a chi ti ha mandato e aspetta.
+- Non dire di aver concluso finché la controparte non l'ha confermato con parole sue. Che ci sia posto non vuol dire che sia stato spostato.
+- Non rivelare niente che non sia in known_facts. Se ti chiedono un dato che non hai, chiedilo con lo strumento apposito: potrebbe esserti negato, e va bene così.
+- Non nominare mai strumenti, sistemi, autorizzazioni o il fatto che stai consultando qualcosa.
+- Parla come una persona al telefono: frasi brevi, tono professionale, niente elenchi."""
+
+
+#     SEI STRUMENTI, E L'ELENCO È CHIUSO.
+# ORA ne ha trentanove. Nessuno di quelli arriva qui: quello che passa di qui
+# è soltanto quello che serve a condurre una trattativa e a tornare indietro
+# con un resoconto che qualcun altro validerà.
+THE_SIX: List[Dict[str, Any]] = [{
+    "function_declarations": [
+        {
+            "name": "get_call_context",
+            "description": "Chiedi un dato della missione che non hai nel pacchetto.",
+            "parameters": {
+                "type": "object",
+                "properties": {"field": {"type": "string"}},
+                "required": ["field"],
+            },
+        },
+        {
+            "name": "get_allowed_alternatives",
+            "description": "Chiedi quali alternative puoi accettare in linea.",
+            "parameters": {"type": "object", "properties": {}},
+        },
+        {
+            "name": "request_user_confirmation",
+            "description": (
+                "Fermati e chiedi una decisione a chi ti ha mandato, quando "
+                "quello che ti propongono esce dalla missione."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {"reason": {"type": "string"}},
+                "required": ["reason"],
+            },
+        },
+        {
+            "name": "record_call_fact",
+            "description": (
+                "Annota una frase della controparte che sposta la trattativa: "
+                "quando ti dicono che c'è posto, quando propongono loro "
+                "un'alternativa, quando rifiutano. La conferma finale non "
+                "annotarla qui: portala dentro complete_mission."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "kind": {
+                        "type": "string",
+                        "enum": ["availability", "proposal", "confirmation",
+                                 "refusal", "detail"],
+                        "description": (
+                            "availability: c'è posto, si potrebbe fare. "
+                            "proposal: propongono loro un'alternativa precisa. "
+                            "confirmation: hanno registrato la modifica, è "
+                            "fatta. refusal: no. detail: altro. "
+                            "Nel dubbio fra availability e confirmation "
+                            "scegli availability."
+                        ),
+                    },
+                    "field": {"type": "string"},
+                    "value": {"type": "string"},
+                },
+                "required": ["kind", "value"],
+            },
+        },
+        {
+            "name": "complete_mission",
+            "description": "La controparte ha confermato: la missione è compiuta.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "confirmed_changes": {
+                        "type": "object",
+                        "description": (
+                            "Cosa ha confermato la controparte, con le sue "
+                            "parole tradotte in date e orari."
+                        ),
+                        "properties": {
+                            "appointment_date": {
+                                "type": "string", "description": "AAAA-MM-GG",
+                            },
+                            "old_time": {"type": "string", "description": "HH:MM"},
+                            "new_time": {"type": "string", "description": "HH:MM"},
+                        },
+                        "required": ["appointment_date", "new_time"],
+                    },
+                    "confirmation": {
+                        "type": "string",
+                        "description": (
+                            "Le parole con cui la controparte ha detto che la "
+                            "modifica è REGISTRATA, non che ci sarebbe posto. "
+                            "Se non te l'hanno ancora detto, chiediglielo "
+                            "prima di chiudere."
+                        ),
+                    },
+                    "notes": {"type": "string"},
+                },
+                "required": ["confirmed_changes", "confirmation"],
+            },
+        },
+        {
+            "name": "fail_mission",
+            "description": "La missione non si può compiere. Spiega perché.",
+            "parameters": {
+                "type": "object",
+                "properties": {"reason": {"type": "string"}},
+                "required": ["reason"],
+            },
+        },
+    ]
+}]
+
+ALLOWED_TOOLS = frozenset(
+    f["name"] for f in THE_SIX[0]["function_declarations"]
+)
+
+
+def live_is_configured() -> str:
+    """Perché non si può usare questo runtime, o stringa vuota."""
+    if not _key():
+        return "manca la chiave Gemini"
+    if not _model():
+        return "manca GEMINI_LIVE_MODEL"
+    return ""
+
+
+def _key() -> str:
+    return (
+        os.environ.get("GEMINI2_API_KEY")
+        or os.environ.get("GEMINI_API_KEY")
+        or ""
+    ).strip()
+
+
+def _model() -> str:
+    return (os.environ.get("GEMINI_LIVE_MODEL") or "").strip()
+
+
+def _voice() -> str:
+    """Quale voce. Vuoto vuol dire: quella che il modello darebbe comunque."""
+    return (os.environ.get("GEMINI_LIVE_VOICE") or "").strip()
+
+
+def _how_she_sounds() -> Dict[str, Any]:
+    """
+    Come suona, se qualcuno l'ha deciso.
+
+        UNA VOCE NON SI SCEGLIE DA SOLI.
+
+    Senza `GEMINI_LIVE_VOICE` non si manda nessuna preferenza e il modello usa
+    la sua — che e' esattamente il comportamento di prima, quindi cambiare
+    questo file non cambia come parla finche' qualcuno non lo chiede.
+    """
+    config: Dict[str, Any] = {"responseModalities": ["AUDIO"]}
+    scelta = _voice()
+    if scelta:
+        config["speechConfig"] = {
+            "voiceConfig": {"prebuiltVoiceConfig": {"voiceName": scelta}},
+        }
+    return config
+
+
+class MissionVoiceSession:
+    """
+    Una telefonata, una sessione, un mandato.
+
+        UNA CHIAMATA È UNA SESSIONE, NON UNA SEQUENZA DI SESSIONI.
+
+    Aprire un socket per ogni battuta costerebbe ottocento millisecondi a
+    turno e butterebbe via il contesto ogni volta: la controparte si
+    ritroverebbe a parlare con qualcuno che ha dimenticato la frase di prima.
+    Si apre una volta, si tiene aperta, e si chiude quando la linea cade.
+
+    Espone lo stesso contratto del runtime classico — `open`, `hear`, `close`,
+    `how_it_went` — perché chi sta sopra non deve sapere quale dei due sta
+    parlando.
+    """
+
+    def __init__(
+        self,
+        db,
+        *,
+        owner_id: str,
+        session_ref: str,
+        send: Callable[[bytes], Awaitable[None]],
+        clear_transport: Optional[Callable[[], Awaitable[None]]] = None,
+        on_said: Optional[Callable[[str, str], Awaitable[None]]] = None,
+        dossier=None,
+        call=None,
+        packet: Optional[CallMissionPacket] = None,
+        binding=None,
+        connect=None,
+    ) -> None:
+        self.db = db
+        self.owner_id = owner_id
+        self.session_ref = session_ref
+        self.on_said = on_said
+        self.dossier = dossier
+        self.call = call
+
+        #     IL LEGAME NON PARLA, MA FA PARLARE MEGLIO.
+        # Serve dopo, per applicare l'esito — ma porta anche una cosa che
+        # serve adesso: a che ora e' l'appuntamento. Senza, la missione diceva
+        # «sposta la visita» senza sapere da quando, e chi telefonava doveva
+        # farselo dire dallo studio. L'identificativo dell'evento resta qui e
+        # non entra nel packet: quello non si pronuncia.
+        self.binding = binding
+        self.packet = packet or (
+            packet_for(call, dossier, binding=binding)
+            if (call is not None and dossier is not None) else None
+        )
+        self.mission = MissionLedger(
+            self.packet.mission_type if self.packet is not None else "reschedule"
+        )
+        self.intro = (
+            IntroductionLedger(self.packet.introduction)
+            if self.packet is not None and self.packet.introduction is not None
+            else None
+        )
+
+        #     QUI LA VOCE NASCE MENTRE SI VERSA.
+        # Duecento millisecondi di margine prima di aprire bocca. Costano
+        # duecento millisecondi; senza, la coda resta a secco all'inizio di
+        # ogni risposta e dall'altra parte si sente una voce che va a tratti,
+        # «come se non ci fosse linea». E' un cambio che vale solo qui: al
+        # runtime classico la frase arriva gia fatta.
+        self.playback = PlaybackController(
+            send=send, clear_transport=clear_transport,
+            jitter_ms=SPEECH_CUSHION_MS,
+            #     IL METRONOMO NON E' NOSTRO: E' DELLA LINEA.
+            # `asyncio.sleep(20 ms)` su questo host ne dorme trentuno. La
+            # cadenza dei pacchetti in arrivo da Vonage invece e' quella della
+            # rete telefonica — misurata su tre chiamate vere: 49,1 · 49,4 ·
+            # 49,1 al secondo contro 50 teorici, silenzi compresi.
+            external_clock=True,
+        )
+        self._down = Resampler(src=MODEL_RATE, dst=LINE_RATE)
+        #     CHI DECIDE I TURNI E GEMINI. CHI TIENE IL TEMPO SIAMO NOI.
+        # Queste orecchie non comandano niente: non aprono bocca, non chiudono
+        # turni, non interrompono. Servono a sapere **quando** la controparte
+        # ha smesso di parlare, che e l'unico punto da cui ha senso far partire
+        # il cronometro. Attaccato alla fine del turno di ORA misurava anche i
+        # tre secondi in cui parlava lo studio, e dava 4.780 ms per una
+        # risposta che ne aveva messi mille.
+        self._ears = Ears()
+
+        # Chi apre il filo. Iniettabile: una prova non deve chiamare Google.
+        self._connect = connect
+        self.ws = None
+        self._pump: Optional[asyncio.Task] = None
+        self._closed = False
+
+        # --- quello che raccontiamo dopo ----------------------------------
+        self._opened_at = 0.0
+        self._ready_ms: Optional[int] = None
+        self._turn = 0
+        self._speech_ended_at: Optional[float] = None
+        self._first_audio: List[int] = []
+        self._intro_ms: Optional[int] = None
+        self._tool_ms: List[int] = []
+        self._resample_ms: List[float] = []
+        self._barge_ins: List[int] = []
+        self._tool_calls = 0
+        self._refused_tools = 0
+        self._tokens: Dict[str, int] = {}
+        self._speaking = None
+        self._said_this_turn: List[str] = []
+        self._heard_this_turn: List[str] = []
+        #     SE IL BUCO ARRIVA DA MONTE, NESSUN CUSCINETTO LO CHIUDE.
+        # Quanto passa fra un pezzo d'audio e il successivo **in arrivo** da
+        # chi parla. Se qui ci sono gli stessi buchi che si sentono sulla
+        # linea, il problema non e la nostra coda: e' che l'audio non arriva.
+        self._gemini_gaps_ms: List[float] = []
+        self._gemini_gap_at_ms: List[int] = []
+        self._last_chunk_at = 0.0
+        self._chunks_in = 0
+        self._responses: List[Dict[str, Any]] = []
+        self._this_response: Optional[Dict[str, Any]] = None
+        # L'interruzione, pezzo per pezzo: quando l'abbiamo sentita noi,
+        # quando l'ha detto Gemini, quando la bocca si e chiusa davvero.
+        self._heard_them_start_at = 0.0
+        #     IL PRIMO NON E' L'ULTIMO, E LA TELEMETRIA NON DEVE DIRLO.
+        # `first_human_onset_at_ms` riportava l'ultimo inizio di parlato, non
+        # il primo: un numero che significa una cosa diversa da come si chiama
+        # e peggio di un numero assente, perche qualcuno ci crede.
+        self._first_human_onset: Optional[float] = None
+        self._barge: List[Dict[str, Any]] = []
+        #     IL BATTITO NASCE QUI, E QUI PUO' ARRIVARE TARDI.
+        # `hear` fa base64, JSON e una send verso Gemini per ogni pacchetto
+        # che arriva dalla linea. Se quella send rallenta, il router smette di
+        # leggere e i battiti non arrivano — e nessun credito puo inventarli.
+        # Questi tre numeri dicono se sta succedendo, e dove.
+        self._hear_total_ms: List[float] = []
+        self._to_credit_ms: List[float] = []
+        self._gemini_send_ms: List[float] = []
+        self._inbound_gap_ms: List[float] = []
+        self._last_inbound = 0.0
+        #     SE SULLA LINEA NON C'E' MAI STATA UNA VOCE, IL COLPEVOLE E' IL FILO.
+        # La quinta chiamata e arrivata muta: 1289 trame entrate, zero risposte
+        # da Gemini. Con l'audio che non si conserva non si puo tornare
+        # indietro a sentire se dentro quelle trame ci fosse qualcuno. Questi
+        # due numeri lo dicono senza conservare niente: quante volte le
+        # orecchie hanno sentito partire una voce, e quanto era alto il fondo.
+        self._speech_onsets = 0
+        self._loudest = 0.0
+        #     PENDING · STARTING · INTERRUPTED · COMPLETED.
+        # «Compiuta» non vuol dire «chiesta»: lo diventa solo quando il
+        # registro dell'apertura ha sentito uscire tutt'e due le cose che
+        # devono uscire — di chi siamo l'assistente, e perche chiamiamo.
+        self._opening = "pending"
+        self._opening_task: Optional[asyncio.Task] = None
+        self._opening_deferred = 0
+        self._answered_at: Optional[float] = None
+        self._live_ready_at: Optional[float] = None
+        self._opening_requested_at: Optional[float] = None
+        self._opening_first_gemini_at: Optional[float] = None
+        self._opening_first_line_at: Optional[float] = None
+        self._opening_completed_at: Optional[float] = None
+        self._ears_ready_at: Optional[float] = None
+        #     NOT_STARTED · PENDING · SPEAKING · COMPLETED · INTERRUPTED
+        # La missione e' un fatto, la chiusura e' un'intenzione, e il congedo
+        # e' un atto: deve succedere, e finche non e' successo non si chiude.
+        self._goodbye = "not_started"
+        self._goodbye_story: List[str] = ["not_started"]
+        self._goodbye_interrupted = 0
+        self._hangup_attempts = 0
+        self._blocked_by_goodbye = 0
+        self._blocked_by_human = 0
+        self._goodbye_nudges = 0
+        self._goodbye_at: Optional[float] = None
+        self._last_words = ""
+        self.outcome: Optional[CallMissionOutcome] = None
+        #     LA MISSIONE E' UN FATTO. LA CHIUSURA E' UN'INTENZIONE.
+        # Il primo non si revoca: quello che la controparte ha confermato
+        # resta confermato. La seconda sì, e la revoca chiunque apra bocca
+        # mentre stiamo per chiudere.
+        self._mission_terminal_at: Optional[float] = None
+        self._call_closing = "open"        # open · pending · closed
+        self._hung_up = False
+        self._closing_watch: Optional[asyncio.Task] = None
+        # Quello che si raccontera dopo su come e finita.
+        self._playback_finished_at: Optional[float] = None
+        self._close_candidate_at: Optional[float] = None
+        self._hangup_at: Optional[float] = None
+        self._human_after_terminal = 0
+        self._close_window_resets = 0
+        self._final_quiet_ms: Optional[int] = None
+        self._hangup_while_human_speaking = 0
+
+    # --- aprire -----------------------------------------------------------
+
+    async def open(self) -> bool:
+        """Apre il filo verso chi parlerà, e lo prepara con la missione."""
+        if self.packet is None:
+            logger.info("nessuna missione: il runtime a missione non si apre")
+            return False
+        perche_no = live_is_configured()
+        if perche_no:
+            logger.info("runtime a missione non configurato: %s", perche_no)
+            return False
+
+        self._opened_at = time.perf_counter()
+        try:
+            self.ws = await (self._connect or _dial)()
+            await self._send({
+                "setup": {
+                    "model": f"models/{_model()}",
+                    "generationConfig": _how_she_sounds(),
+                    "systemInstruction": {"parts": [{
+                        "text": SESSION_PROMPT
+                        + "\n\nPACCHETTO MISSIONE:\n"
+                        + self.packet.for_the_model(),
+                    }]},
+                    "tools": THE_SIX,
+                    "inputAudioTranscription": {},
+                    "outputAudioTranscription": {},
+                }
+            })
+            primo = await asyncio.wait_for(self._recv(), timeout=SETUP_TIMEOUT_S)
+            if "setupComplete" not in primo:
+                logger.info("la sessione non è stata accettata")
+                await self.close()
+                return False
+        except Exception as e:
+            logger.info("il filo verso chi parla non si è aperto: %s", type(e).__name__)
+            await self.close()
+            return False
+
+        self._ready_ms = int((time.perf_counter() - self._opened_at) * 1000)
+        self._answered_at = self._opened_at
+        self._live_ready_at = time.perf_counter()
+        self._pump = asyncio.create_task(self._listen_to_the_model())
+        #     ADESSO CI SONO TUTTE E QUATTRO: SI PUO' PARLARE.
+        # La linea ha risposto, il filo media e' aperto, la sessione e' pronta
+        # e la coda verso il trasporto anche. Prima di questo punto parlare
+        # vorrebbe dire parlare sopra uno squillo.
+        self._opening_task = asyncio.create_task(self._say_the_first_line())
+        logger.info("runtime a missione pronto in %d ms", self._ready_ms)
+        return True
+
+    # --- il fiume che entra -----------------------------------------------
+
+    async def hear(self, pcm: bytes) -> None:
+        """
+        Venti millisecondi di linea, passati e dimenticati.
+
+        Vonage parla già a sedicimila, che è il passo che si aspetta chi
+        ascolta: in questa direzione non c'è niente da ricampionare, e non
+        aggiungere un passaggio è il modo più sicuro di non aggiungere ritardo.
+        """
+        if self._closed or self.ws is None or not pcm:
+            return
+        entrato = time.perf_counter()
+        if self._last_inbound:
+            # Ogni quanto la linea riesce davvero a parlarci. Se qui compaiono
+            # trenta millisecondi invece di venti, il collo di bottiglia sta
+            # prima di noi: nel giro di lettura del trasporto.
+            self._inbound_gap_ms.append(
+                round((entrato - self._last_inbound) * 1000, 1)
+            )
+        self._last_inbound = entrato
+
+        #     PRIMA IL CREDITO, POI TUTTO IL RESTO.
+        # Il battito e' la prima cosa che succede qui dentro, apposta: non
+        # deve aspettare ne le orecchie ne la send verso Gemini.
+        self.playback.tick()
+        self._to_credit_ms.append(
+            round((time.perf_counter() - entrato) * 1000, 3)
+        )
+        try:
+            from telephone.audio import loudness
+
+            quanto = loudness(pcm)
+            if quanto > self._loudest:
+                self._loudest = quanto
+            ha_cominciato, ha_finito = self._ears.hear(pcm)
+            if ha_cominciato:
+                self._speech_onsets += 1
+                self._heard_them_start_at = time.perf_counter()
+                if self._first_human_onset is None:
+                    # Si scrive una volta sola, per tutta la telefonata.
+                    self._first_human_onset = self._heard_them_start_at
+                if self._call_closing == "pending":
+                    self._human_after_terminal += 1
+                    self._somebody_is_talking_again()
+            if ha_finito:
+                # La fine del parlato e' dove il silenzio e' cominciato, non
+                # dove ce ne siamo accorti: la finestra e' nota e si toglie.
+                self._speech_ended_at = (
+                    time.perf_counter() - Ears.SILENCE_MS / 1000.0
+                )
+        except Exception:
+            pass
+        try:
+            verso_gemini = time.perf_counter()
+            await self._send({"realtimeInput": {"audio": {
+                "data": base64.b64encode(pcm).decode(),
+                "mimeType": f"audio/pcm;rate={LINE_RATE}",
+            }}})
+            adesso = time.perf_counter()
+            self._gemini_send_ms.append(round((adesso - verso_gemini) * 1000, 2))
+            self._hear_total_ms.append(round((adesso - entrato) * 1000, 2))
+        except Exception:
+            # Una linea che si chiude non deve diventare un'eccezione che
+            # risale fino al trasporto.
+            self._closed = True
+
+    # --- il fiume che esce ------------------------------------------------
+
+    async def _listen_to_the_model(self) -> None:
+        """Tutto quello che arriva da chi parla, finché arriva."""
+        try:
+            while not self._closed:
+                messaggio = await self._recv()
+                if messaggio is None:
+                    break
+                await self._one_message(messaggio)
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            logger.info("il filo di chi parla si è chiuso: %s", type(e).__name__)
+
+    async def _one_message(self, m: Dict[str, Any]) -> None:
+        if m.get("usageMetadata"):
+            u = m["usageMetadata"]
+            self._tokens = {
+                "total": int(u.get("totalTokenCount") or 0),
+                "input": int(u.get("promptTokenCount") or 0),
+                "output": int(u.get("responseTokenCount") or 0),
+            }
+
+        if m.get("toolCall"):
+            await self._tools_were_asked(m["toolCall"])
+            return
+
+        content = m.get("serverContent") or {}
+
+        if content.get("interrupted"):
+            await self._someone_cut_in()
+            return
+
+        for part in ((content.get("modelTurn") or {}).get("parts") or []):
+            dati = (part.get("inlineData") or {}).get("data")
+            if dati:
+                await self._pour(dati)
+
+        if content.get("outputTranscription"):
+            parole = content["outputTranscription"].get("text") or ""
+            self._said_this_turn.append(parole)
+            if self.intro is not None:
+                self.intro.we_said(parole)
+                if self.intro.is_settled() and self._opening != "completed":
+                    self._opening = "completed"
+                    self._opening_completed_at = time.perf_counter()
+
+        if content.get("inputTranscription"):
+            self._heard_this_turn.append(
+                content["inputTranscription"].get("text") or ""
+            )
+
+        if content.get("turnComplete"):
+            await self._the_turn_is_over()
+
+    async def _pour(self, base64_pcm: str) -> None:
+        """
+        L'audio di chi parla, portato al passo della linea e versato.
+
+        Fra i due passi c'è il ricampionatore in streaming: porta avanti la
+        coda del filtro fra un pacchetto e l'altro, perché filtrare ogni
+        pacchetto come se fosse solo al mondo lascia una giunta udibile
+        cinquanta volte al secondo.
+        """
+        adesso = time.perf_counter()
+        if self._call_closing == "pending":
+            # Sta ricominciando a parlare: la telefonata non era finita.
+            self._somebody_is_talking_again()
+        if self._speaking is None:
+            self._speaking = self.playback.begin(
+                generation_id=uuid.uuid4().hex[:12], turn_id=self._turn,
+            )
+            self._this_response = {
+                "turn": self._turn,
+                "gemini_first_audio_ms": None,
+                "first_line_frame_ms": None,
+                "audio_ms": 0,
+                "chunks": 0,
+            }
+            self._last_chunk_at = 0.0
+            if self._opening == "starting" and self._opening_first_gemini_at is None:
+                self._opening_first_gemini_at = adesso
+            if self._speech_ended_at is not None:
+                quanto = int((adesso - self._speech_ended_at) * 1000)
+                self._first_audio.append(quanto)
+                self._this_response["gemini_first_audio_ms"] = quanto
+                if self._intro_ms is None:
+                    self._intro_ms = quanto
+                self._speech_ended_at = None
+
+        # Il buco in arrivo: quanto e passato dall'ultimo pezzo di voce.
+        if self._last_chunk_at:
+            vuoto = (adesso - self._last_chunk_at) * 1000
+            if vuoto > 30:
+                self._gemini_gaps_ms.append(round(vuoto, 1))
+                self._gemini_gap_at_ms.append(
+                    int((adesso - self._opened_at) * 1000)
+                )
+        self._last_chunk_at = adesso
+        self._chunks_in += 1
+        if self._this_response is not None:
+            self._this_response["chunks"] += 1
+
+        inizio = time.perf_counter()
+        try:
+            grezzo = base64.b64decode(base64_pcm)
+        except Exception:
+            return
+        alla_linea = self._down.feed(grezzo)
+        self._resample_ms.append((time.perf_counter() - inizio) * 1000)
+        if alla_linea:
+            await self.playback.feed(alla_linea, self._speaking)
+            if (self._this_response is not None
+                    and self._this_response["first_line_frame_ms"] is None
+                    and self.playback.first_send_at is not None):
+                self._this_response["first_line_frame_ms"] = int(
+                    (self.playback.first_send_at - self._opened_at) * 1000
+                )
+                if (self._opening == "starting"
+                        and self._opening_first_line_at is None):
+                    self._opening_first_line_at = self.playback.first_send_at
+
+    async def _someone_cut_in(self) -> None:
+        """
+        Qualcuno ha parlato sopra: si smette, e si smette subito.
+
+            CHI VIENE INTERROTTO TACE. NON FINISCE LA FRASE.
+        """
+        inizio = time.perf_counter()
+        prima = self.playback.frames_sent
+        buttati = await self.playback.cancel()
+        coda = self._down.drain()   # la coda del filtro non deve finire dopo
+        del coda
+        self._speaking = None
+        if self._opening == "starting":
+            # §5: l'hanno interrotta a meta. Non si ricomincia: si completa.
+            self._opening = "interrupted"
+        if self._goodbye == "speaking":
+            self._goodbye_interrupted += 1
+            # L'hanno interrotta mentre salutava: il saluto non e avvenuto.
+            self._goodbye = "interrupted"
+            self._goodbye_story.append("interrupted")
+        fermata_in = int((time.perf_counter() - inizio) * 1000)
+        self._barge_ins.append(fermata_in)
+        self._barge.append({
+            "turn": self._turn,
+            # Quando le nostre orecchie hanno sentito che qualcuno parlava,
+            # rispetto a quando Gemini ce l'ha detto. La differenza dice chi
+            # se ne accorge prima.
+            "we_heard_them_ms_before": (
+                int((inizio - self._heard_them_start_at) * 1000)
+                if self._heard_them_start_at else None
+            ),
+            "playback_stop_ms": fermata_in,
+            "frames_after_detection": self.playback.frames_sent - prima,
+            "stale_frames_dropped": buttati,
+        })
+
+    async def _the_turn_is_over(self) -> None:
+        if self._speaking is not None:
+            residuo = self._down.drain()
+            if residuo:
+                await self.playback.feed(residuo, self._speaking)
+            await self.playback.finish(self._speaking)
+            if self._this_response is not None:
+                self._this_response["audio_ms"] = self._speaking.generated_audio_ms
+                self._responses.append(self._this_response)
+                self._this_response = None
+            self._speaking = None
+
+        #     PRIMA CHI HA PARLATO, POI CHI HA RISPOSTO.
+        # Al contrario il registro mette la risposta sopra la domanda, e
+        # rileggendolo sembra che ORA abbia chiuso prima della conferma.
+        self._last_words = "".join(self._said_this_turn).strip()
+        await self._write_down("them", "".join(self._heard_this_turn))
+        await self._write_down("ora", "".join(self._said_this_turn))
+        self._said_this_turn.clear()
+        self._heard_this_turn.clear()
+
+        self._turn += 1
+        self.mission.a_new_turn_begins()
+        self._playback_finished_at = time.perf_counter()
+        if self._mission_terminal_at is not None and not self._hung_up:
+            await self._make_sure_she_said_goodbye()
+            return
+        await self._finish_the_introduction_if_it_is_short()
+
+    async def _say_the_first_line(self) -> None:
+        """
+        Apre lei, perche' e' lei che ha chiamato.
+
+            CHI COMPONE UN NUMERO NON ASPETTA DI ESSERE INTERROGATO.
+
+        Si lascia un quarto di secondo a chi risponde: se dice «pronto» in
+        quell'istante, non gli si parla sopra — si rimanda, lo si ascolta, e
+        ci si presenta dopo. Il registro dell'apertura chiedera' comunque il
+        pezzo che manca, quindi rimandare non vuol dire rinunciare.
+        """
+        try:
+            #     PRIMA CHE LE ORECCHIE SIANO SVEGLIE, NON SI DECIDE NIENTE.
+            scade = time.perf_counter() + WAIT_FOR_EARS_S
+            while not self._ears.ready and time.perf_counter() < scade:
+                if self._closed:
+                    return
+                await asyncio.sleep(0.01)
+            self._ears_ready_at = time.perf_counter()
+            # E adesso che sanno riconoscere una voce, si sta a sentire.
+            await asyncio.sleep(LISTEN_BEFORE_OPENING_S)
+            if self._closed or self.packet is None:
+                return
+            if self._ears.speaking or self._speech_onsets:
+                #     HANNO PARLATO PER PRIMI. TOCCA A LORO.
+                self._opening_deferred += 1
+                logger.info("hanno risposto parlando: l'apertura aspetta")
+                return
+            self._opening = "starting"
+            self._opening_requested_at = time.perf_counter()
+            await self._send({"clientContent": {
+                "turns": [{"role": "user", "parts": [{
+                    "text": (
+                        "[la linea si e' aperta, tocca a te] Parla tu adesso, "
+                        "per primo, e di' esattamente questo: "
+                        f"«{self.packet.say_this_first}»"
+                    ),
+                }]}],
+                "turnComplete": True,
+            }})
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            logger.info("l'apertura non e' partita: %s", type(e).__name__)
+
+    @staticmethod
+    def _is_a_question(parole: str) -> bool:
+        """
+        Se l'ultima cosa detta era una domanda.
+
+            CHI FA UNA DOMANDA ASPETTA LA RISPOSTA.
+
+        Non serve capire cosa sia una domanda: basta guardare come finisce.
+        E' punteggiatura, non semantica, e non sbaglia.
+        """
+        return parole.rstrip().endswith("?")
+
+    @staticmethod
+    def _sounds_like_a_goodbye(parole: str) -> bool:
+        """Se in quello che abbiamo detto c'e' un congedo."""
+        basso = parole.lower()
+        return any(f in basso for f in FAREWELLS)
+
+    async def _make_sure_she_said_goodbye(self) -> None:
+        """
+        La missione e' chiusa. La telefonata no, finche' non ci si saluta.
+
+            NON SI RIAGGANCIA SENZA SALUTARE.
+        """
+        if self._is_a_question(self._last_words):
+            #     HA APPENA CHIESTO QUALCOSA: TOCCA A LORO.
+            # E' esattamente il caso della sesta telefonata: «ci sono
+            # problemi?», e un istante dopo il telefono muto.
+            self._goodbye = "pending"
+            self._goodbye_story.append("pending")
+            return
+
+        if self._sounds_like_a_goodbye(self._last_words):
+            self._goodbye = "completed"
+            self._goodbye_story.append("completed")
+            if self._goodbye_at is None:
+                self._goodbye_at = time.perf_counter()
+            self._start_watching_for_a_quiet_line()
+            return
+
+        if self._goodbye_nudges >= MAX_GOODBYE_NUDGES:
+            # Non si insiste all'infinito: a un certo punto si chiude lo stesso,
+            # ma solo sulla linea libera, come sempre.
+            self._goodbye = "completed"
+            self._goodbye_story.append("completed")
+            self._start_watching_for_a_quiet_line()
+            return
+
+        self._goodbye = "speaking"
+        self._goodbye_story.append("speaking")
+        self._goodbye_nudges += 1
+        await self._send({"clientContent": {
+            "turns": [{"role": "user", "parts": [{
+                "text": (
+                    "[la missione e' conclusa] Chiudi la telefonata con un "
+                    "saluto breve e cortese, senza fare altre domande."
+                ),
+            }]}],
+            "turnComplete": True,
+        }})
+
+    def _the_mission_is_over(self) -> None:
+        """
+        L'esito e arrivato. Non vuol dire che la telefonata sia finita.
+
+            UN FATTO NON SI REVOCA. UN'INTENZIONE SI'.
+        """
+        if self._mission_terminal_at is None:
+            self._mission_terminal_at = time.perf_counter()
+
+    def _start_watching_for_a_quiet_line(self) -> None:
+        """Comincia a guardare se si puo chiudere. Senza fretta."""
+        if self._hung_up or (
+            self._closing_watch is not None and not self._closing_watch.done()
+        ):
+            return
+        self._call_closing = "pending"
+        self._close_candidate_at = time.perf_counter()
+        self._closing_watch = asyncio.create_task(self._close_when_nobody_talks())
+
+    def _somebody_is_talking_again(self) -> None:
+        """
+        Qualcuno ha ripreso la parola mentre stavamo per chiudere.
+
+            CHI PARLA HA SEMPRE RAGIONE SULLA CHIUSURA.
+
+        Alla terza telefonata vera la persona ha detto «aspetti un secondo» e
+        si e ritrovata il telefono muto. Da qui in poi la chiusura torna
+        indietro: l'esito resta quello che era, la conversazione riprende.
+        """
+        if self._call_closing != "pending":
+            return
+        self._call_closing = "open"
+        self._close_window_resets += 1
+        if self._closing_watch is not None:
+            self._closing_watch.cancel()
+            self._closing_watch = None
+
+    async def _close_when_nobody_talks(self) -> None:
+        """
+        Si chiude solo dopo un tratto continuo di linea libera.
+
+            NON UNA PAUSA A OROLOGIO: UN SILENZIO CHE DURA.
+
+        Ogni volta che `Ears` sente una voce, la finestra riparte da zero. Chi
+        vuole aggiungere una parola dopo il saluto la puo aggiungere, e
+        qualcuno gliela ascolta.
+        """
+        try:
+            # Prima che il trasporto consegni la coda dell'ultima frase.
+            await asyncio.sleep(GOODBYE_GRACE_S)
+
+            zitti_da = time.perf_counter()
+            scade = zitti_da + DONT_WAIT_FOREVER_S
+            while True:
+                adesso = time.perf_counter()
+                if self._ears.speaking:
+                    if self._call_closing == "pending":
+                        self._human_after_terminal += 1
+                    self._somebody_is_talking_again()
+                    return
+                if adesso - zitti_da >= QUIET_LINE_BEFORE_CLOSING_S:
+                    break
+                if adesso > scade:
+                    # La linea non e mai stata libera abbastanza a lungo, ma
+                    # adesso nessuno sta parlando: e la pausa buona.
+                    break
+                await asyncio.sleep(0.02)
+
+            self._final_quiet_ms = int((time.perf_counter() - zitti_da) * 1000)
+            await self._hang_up_now()
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            logger.info("la chiusura non e riuscita: %s", type(e).__name__)
+
+    async def _hang_up_now(self) -> None:
+        """Riaggancia, e lascia detto se lo ha fatto su qualcuno che parlava."""
+        self._hangup_attempts += 1
+        if self._hung_up:
+            return
+        if self._ears.speaking:
+            #     NON DOVREBBE MAI SUCCEDERE, E SE SUCCEDE SI VEDE.
+            # Questa spia va guardata per prima: e' l'unica che registra un
+            # tentativo di riagganciare su una persona che sta parlando, e se
+            # un altro controllo scattasse prima non lo saprebbe nessuno.
+            self._hangup_while_human_speaking += 1
+            self._blocked_by_human += 1
+            self._somebody_is_talking_again()
+            return
+        if self._goodbye != "completed":
+            #     NON SI CHIUDE SENZA SALUTARE. MAI.
+            self._blocked_by_goodbye += 1
+            self._somebody_is_talking_again()
+            return
+        self._hung_up = True
+        self._call_closing = "closed"
+        self._hangup_at = time.perf_counter()
+        riferimento = getattr(self.call, "provider_ref", "") if self.call else ""
+        if not riferimento:
+            return
+        try:
+            from telephone import carrier
+
+            await carrier.hang_up(riferimento)
+            logger.info("linea libera: la telefonata si chiude")
+        except Exception as e:
+            logger.info("non si e' potuto riagganciare: %s", type(e).__name__)
+
+    async def _finish_the_introduction_if_it_is_short(self) -> None:
+        """
+        Se manca un pezzo dell'apertura, lo si ricorda. Una volta, non sempre.
+
+            SI COMPLETA QUELLO CHE MANCA. NON SI RIFÀ LA PRESENTAZIONE.
+
+        La nota entra nel contesto senza chiedere una risposta
+        (`turnComplete: false`): chi parla la troverà quando toccherà a lui,
+        e non aprirà bocca adesso per dire «va bene».
+        """
+        if self.intro is None or self.intro.is_settled():
+            return
+        if self.intro.nudges >= MAX_INTRODUCTION_NUDGES:
+            return
+        manca = self.intro.what_still_has_to_be_said()
+        if not manca:
+            return
+        await self._send({"clientContent": {
+            "turns": [{"role": "user", "parts": [{"text": f"[nota] {manca}"}]}],
+            "turnComplete": False,
+        }})
+
+    # --- gli strumenti ----------------------------------------------------
+
+    async def _tools_were_asked(self, tool_call: Dict[str, Any]) -> None:
+        """
+        Quello che chi parla ha chiesto, e quello che gli si concede.
+
+            L'ELENCO È CHIUSO, E CHI NON C'È NON ENTRA.
+        """
+        risposte = []
+        for f in tool_call.get("functionCalls") or []:
+            nome = f.get("name") or ""
+            argomenti = f.get("args") or {}
+            inizio = time.perf_counter()
+            self._tool_calls += 1
+            if nome not in ALLOWED_TOOLS:
+                self._refused_tools += 1
+                logger.info("strumento fuori elenco richiesto e negato")
+                esito: Dict[str, Any] = {"error": "strumento sconosciuto"}
+            else:
+                esito = await self._answer_one(nome, argomenti)
+            self._tool_ms.append(int((time.perf_counter() - inizio) * 1000))
+            risposte.append({"id": f.get("id"), "name": nome, "response": esito})
+        if risposte:
+            await self._send({"toolResponse": {"functionResponses": risposte}})
+
+    async def _answer_one(self, nome: str, argomenti: Dict[str, Any]) -> Dict[str, Any]:
+        packet = self.packet
+        assert packet is not None
+
+        if nome == "get_call_context":
+            campo = str(argomenti.get("field") or "")
+            gia = packet.already_knows(campo)
+            if gia:
+                return {"value": gia}
+            if packet.may_release(campo):
+                valore = await self._go_and_get(campo)
+                if valore:
+                    return {"value": valore}
+            #     UN DATO NON PREVISTO NON SI DÀ, E NON SI SPIEGA PERCHÉ.
+            return {
+                "refused": True,
+                "say": "Non ho questo dato con me, posso farglielo sapere dopo.",
+            }
+
+        if nome == "get_allowed_alternatives":
+            return {"alternatives": list(packet.allowed_negotiation)}
+
+        if nome == "request_user_confirmation":
+            # Anche qui la missione e finita: quello che restava da
+            # decidere non lo decide chi sta parlando. Ma la telefonata puo
+            # ancora avere un saluto dentro.
+            self._the_mission_is_over()
+            self.outcome = CallMissionOutcome(
+                mission_id=packet.mission_id,
+                status="needs_user",
+                user_confirmation_needed=str(argomenti.get("reason") or "")[:300],
+                counterparty_statements=self.mission.statements[:8],
+                followup_required=True,
+            )
+            return {
+                "answer": "pending",
+                "say": ("Devo chiedere conferma e la richiamo, non posso "
+                        "confermare adesso."),
+            }
+
+        if nome == "record_call_fact":
+            try:
+                self.mission.heard(
+                    str(argomenti.get("kind") or "detail"),
+                    str(argomenti.get("value") or ""),
+                )
+            except Exception:
+                return {"ok": False, "why": "tipo di frase sconosciuto"}
+            return {"ok": True}
+
+        if nome == "complete_mission":
+            cambiamenti = argomenti.get("confirmed_changes") or {}
+            motivo = self.mission.why_not_complete(
+                cambiamenti, str(argomenti.get("confirmation") or ""),
+            )
+            if motivo:
+                self._refused_tools += 1
+                return {"accepted": False, "reason": motivo, **REFUSALS[motivo]}
+            self.mission.completed()
+            self._the_mission_is_over()
+            self.outcome = CallMissionOutcome(
+                mission_id=packet.mission_id,
+                status="success",
+                confirmed_changes={
+                    str(k): str(v) for k, v in dict(cambiamenti).items()
+                },
+                counterparty_statements=self.mission.statements[:8],
+                notes=str(argomenti.get("notes") or "")[:400],
+            )
+            return {"accepted": True, "say": "La ringrazio, buona giornata."}
+
+        if nome == "fail_mission":
+            self._the_mission_is_over()
+            #     CHI HA LASCIATO UNA PORTA APERTA NON HA FALLITO: HA CHIESTO.
+            # Se durante la telefonata e emersa un'alternativa che nessuno
+            # aveva autorizzato, l'esito non e un fallimento — e una domanda
+            # rimasta in sospeso, e va a chi puo rispondere.
+            sul_tavolo = self.mission.something_is_on_the_table()
+            self.outcome = CallMissionOutcome(
+                mission_id=packet.mission_id,
+                status="needs_user" if sul_tavolo else "failed",
+                user_confirmation_needed=str(argomenti.get("reason") or "")[:300],
+                counterparty_statements=self.mission.statements[:8],
+                followup_required=True,
+            )
+            return {"ok": True, "say": "La ringrazio comunque, buona giornata."}
+
+        return {"error": "strumento sconosciuto"}
+
+    async def _go_and_get(self, campo: str) -> str:
+        """
+        Il valore di un campo consentito, preso dalla fonte canonica.
+
+            IL PACCHETTO PORTA IL NOME DEL CAMPO, MAI IL VALORE.
+
+        Per questo primo runtime la fonte è il profilo della persona, e solo
+        per i campi che la missione aveva già dichiarato richiedibili: un
+        elenco chiuso deciso prima che il telefono squillasse.
+        """
+        try:
+            profilo = await self.db.users.find_one({"id": self.owner_id}) or {}
+        except Exception:
+            return ""
+        dove = {"data_di_nascita": ("birth_date", "date_of_birth", "birthdate")}
+        for chiave in dove.get(campo.strip().lower(), ()):
+            valore = profilo.get(chiave)
+            if valore:
+                return str(valore)[:120]
+        return ""
+
+    # --- chiudere ----------------------------------------------------------
+
+    async def close(self) -> None:
+        """
+        Si chiude tutto: il filo, la pompa, la coda dell'audio.
+
+            UN SOCKET LASCIATO APERTO È UNA PORTA CHE QUALCUNO PUÒ TENERE.
+        """
+        if self._closed and self.ws is None and self._pump is None:
+            return
+        self._closed = True
+
+        if self._opening_task is not None:
+            self._opening_task.cancel()
+            try:
+                await self._opening_task
+            except (asyncio.CancelledError, Exception):
+                pass
+            self._opening_task = None
+
+        if self._opening_task is not None:
+            self._opening_task.cancel()
+            try:
+                await self._opening_task
+            except (asyncio.CancelledError, Exception):
+                pass
+            self._opening_task = None
+
+        if self._closing_watch is not None:
+            self._closing_watch.cancel()
+            try:
+                await self._closing_watch
+            except (asyncio.CancelledError, Exception):
+                pass
+            self._closing_watch = None
+
+        if self._pump is not None:
+            self._pump.cancel()
+            try:
+                await self._pump
+            except (asyncio.CancelledError, Exception):
+                pass
+            self._pump = None
+
+        try:
+            await self.playback.close()
+        except Exception:
+            pass
+
+        if self.ws is not None:
+            try:
+                await self.ws.close()
+            except Exception:
+                pass
+            self.ws = None
+
+        if self.outcome is None and self.packet is not None:
+            #     UNA TELEFONATA SENZA ESITO NON È UNA TELEFONATA RIUSCITA.
+            self.outcome = CallMissionOutcome(
+                mission_id=self.packet.mission_id,
+                status="partial",
+                counterparty_statements=self.mission.statements[:8],
+                notes="la linea è caduta prima di un esito",
+                followup_required=True,
+            )
+
+    def _since_open(self, quando: Optional[float]) -> Optional[int]:
+        """Quanti millisecondi dall'apertura della linea. Niente orologi veri."""
+        if quando is None or not self._opened_at:
+            return None
+        return int((quando - self._opened_at) * 1000)
+
+    def how_it_went(self) -> Dict[str, Any]:
+        tempi = sorted(self._first_audio)
+        meta: Dict[str, Any] = {
+            "runtime": "gemini_live",
+            "live_ready_ms": self._ready_ms,
+            "turns": self._turn,
+            "first_audio_ms": tempi,
+            "first_audio_p50_ms": tempi[len(tempi) // 2] if tempi else None,
+            "first_audio_p90_ms": (
+                tempi[min(len(tempi) - 1, int(round(0.9 * len(tempi))) - 1)]
+                if tempi else None
+            ),
+            "introduction_first_audio_ms": self._intro_ms,
+            "tool_calls": self._tool_calls,
+            "tool_refused": self._refused_tools,
+            "tool_ms": self._tool_ms,
+            "resample_ms_avg": (
+                round(sum(self._resample_ms) / len(self._resample_ms), 3)
+                if self._resample_ms else None
+            ),
+            "barge_in_ms": self._barge_ins,
+            "speech_cushion_ms": SPEECH_CUSHION_MS,
+            # --- il percorso critico di hear() ------------------------------
+            "hear_total_p50_ms": _q(self._hear_total_ms, 50),
+            "hear_total_p95_ms": _q(self._hear_total_ms, 95),
+            "hear_total_max_ms": (
+                max(self._hear_total_ms) if self._hear_total_ms else None
+            ),
+            "time_to_credit_p50_ms": _q(self._to_credit_ms, 50),
+            "time_to_credit_p95_ms": _q(self._to_credit_ms, 95),
+            "time_to_credit_max_ms": (
+                max(self._to_credit_ms) if self._to_credit_ms else None
+            ),
+            "gemini_send_p50_ms": _q(self._gemini_send_ms, 50),
+            "gemini_send_p95_ms": _q(self._gemini_send_ms, 95),
+            "gemini_send_max_ms": (
+                max(self._gemini_send_ms) if self._gemini_send_ms else None
+            ),
+            "inbound_gap_p50_ms": _q(self._inbound_gap_ms, 50),
+            "inbound_gap_p90_ms": _q(self._inbound_gap_ms, 90),
+            "inbound_gap_p95_ms": _q(self._inbound_gap_ms, 95),
+            "inbound_gap_max_ms": (
+                max(self._inbound_gap_ms) if self._inbound_gap_ms else None
+            ),
+            # --- l'apertura: un caso a se, e si misura a parte ---------------
+            "opening_state": self._opening,
+            "opening_voice": _voice() or "(quella del modello)",
+            "opening_deferred_for_human": self._opening_deferred,
+            "answered_at_ms": 0 if self._answered_at else None,
+            "live_ready_at_ms": self._since_open(self._live_ready_at),
+            "ears_ready_at_ms": self._since_open(self._ears_ready_at),
+            "live_ready_to_ears_ready_ms": (
+                int((self._ears_ready_at - self._live_ready_at) * 1000)
+                if self._ears_ready_at and self._live_ready_at else None
+            ),
+            "opening_requested_at_ms": self._since_open(self._opening_requested_at),
+            "opening_first_gemini_audio_at_ms": self._since_open(
+                self._opening_first_gemini_at),
+            "opening_first_vonage_audio_at_ms": self._since_open(
+                self._opening_first_line_at),
+            "opening_completed_at_ms": self._since_open(self._opening_completed_at),
+            "answered_to_live_ready_ms": self._ready_ms,
+            "answered_to_first_ora_audio_ms": self._since_open(
+                self._opening_first_line_at),
+            "live_ready_to_first_ora_audio_ms": (
+                int((self._opening_first_line_at - self._live_ready_at) * 1000)
+                if self._opening_first_line_at and self._live_ready_at else None
+            ),
+            "speech_onsets_heard": self._speech_onsets,
+            "line_floor": round(self._ears.floor, 5),
+            "line_loudest": round(self._loudest, 5),
+            "inbound_gaps_over_30ms": sum(
+                1 for g in self._inbound_gap_ms if g > 30
+            ),
+            "inbound_gaps_over_60ms": sum(
+                1 for g in self._inbound_gap_ms if g > 60
+            ),
+            # --- come e finita ---------------------------------------------
+            "call_closing": self._call_closing,
+            "goodbye_state": self._goodbye,
+            "goodbye_story": self._goodbye_story[:20],
+            "goodbye_interrupted_count": self._goodbye_interrupted,
+            "last_ora_utterance": self._last_words[:200],
+            "hangup_attempt_count": self._hangup_attempts,
+            "hangup_blocked_by_goodbye": self._blocked_by_goodbye,
+            "hangup_blocked_by_human_speech": self._blocked_by_human,
+            "first_human_onset_at_ms": self._since_open(self._first_human_onset),
+            "last_human_onset_at_ms": self._since_open(
+                self._heard_them_start_at or None),
+            "goodbye_nudges": self._goodbye_nudges,
+            "goodbye_at_ms": self._since_open(self._goodbye_at),
+            "last_words_were_a_question": self._is_a_question(self._last_words),
+            "mission_terminal_at_ms": self._since_open(self._mission_terminal_at),
+            "playback_finished_at_ms": self._since_open(self._playback_finished_at),
+            "close_candidate_at_ms": self._since_open(self._close_candidate_at),
+            "hangup_at_ms": self._since_open(self._hangup_at),
+            "human_speech_after_terminal_count": self._human_after_terminal,
+            "close_window_resets": self._close_window_resets,
+            "final_quiet_window_ms": self._final_quiet_ms,
+            "hangup_while_human_speaking": self._hangup_while_human_speaking,
+            "gemini_chunks_in": self._chunks_in,
+            "gemini_gaps_over_30ms": len(self._gemini_gaps_ms),
+            "gemini_gaps_over_50ms": sum(1 for g in self._gemini_gaps_ms if g > 50),
+            "gemini_gaps_over_100ms": sum(1 for g in self._gemini_gaps_ms if g > 100),
+            "worst_gemini_gaps_ms": sorted(self._gemini_gaps_ms, reverse=True)[:10],
+            "gemini_gap_at_ms": self._gemini_gap_at_ms[:40],
+            "resample_ms_worst": (
+                round(max(self._resample_ms), 3) if self._resample_ms else None
+            ),
+            "responses": self._responses[:12],
+            "barge_ins": self._barge[:8],
+            "hung_up_by_ora": self._hung_up,
+            "mission_progress": self.mission.progress,
+            "tokens": dict(self._tokens),
+            "outcome_status": self.outcome.status if self.outcome else None,
+            "outcome_actionable": (
+                self.outcome.is_actionable() if self.outcome else False
+            ),
+            #     IL RESOCONTO SI RIPORTA. NON SI ESEGUE.
+            # Qui finisce quello che la controparte ha confermato, in una
+            # forma che ORA puo' rileggere e validare. Nessuno tocca il
+            # calendario da questo file: chi ha parlato non scrive nel mondo.
+            "outcome": (
+                self.outcome.model_dump(exclude_none=True) if self.outcome else None
+            ),
+        }
+        if self.intro is not None:
+            meta.update(self.intro.how_it_went())
+        meta.update(self.playback.how_it_went())
+        return meta
+
+    # --- il filo ------------------------------------------------------------
+
+    async def _send(self, payload: Dict[str, Any]) -> None:
+        if self.ws is None:
+            return
+        await self.ws.send(json.dumps(payload))
+
+    async def _recv(self) -> Optional[Dict[str, Any]]:
+        if self.ws is None:
+            return None
+        grezzo = await self.ws.recv()
+        if isinstance(grezzo, (bytes, bytearray)):
+            grezzo = grezzo.decode("utf-8", "ignore")
+        try:
+            return json.loads(grezzo)
+        except Exception:
+            return {}
+
+    async def _write_down(self, chi: str, parole: str) -> None:
+        """Il testo sì, l'audio mai."""
+        detto = (parole or "").strip()
+        if detto and self.on_said is not None:
+            try:
+                await self.on_said(chi, detto[:2000])
+            except Exception:
+                pass
+
+
+def _q(valori, quanto: int):
+    """Il valore sotto cui sta il `quanto` per cento delle misure."""
+    if not valori:
+        return None
+    ordinati = sorted(valori)
+    return round(ordinati[min(len(ordinati) - 1, int(quanto / 100 * len(ordinati)))], 2)
+
+
+async def _dial():
+    """Il filo vero verso chi parla. La chiave non viene mai scritta da nessuna parte."""
+    import websockets
+
+    return await websockets.connect(
+        f"{LIVE_URL}?key={_key()}", max_size=None, open_timeout=SETUP_TIMEOUT_S,
+    )

@@ -442,7 +442,22 @@ def test_the_voice_runtime_is_wired_to_the_real_transport():
     )
 
     assert "RealtimeVoiceSession" in bridge
-    assert "RealtimeVoiceSession" in vonage, "il trasporto non chiama il runtime"
+
+    #     E ADESSO IL TRASPORTO NON NOMINA NEMMENO IL RUNTIME.
+    #
+    # Questa riga chiedeva `RealtimeVoiceSession` dentro `vonage_router.py`, ed
+    # era giusta finché di runtime ce n'era uno. Da quando ce ne sono due, il
+    # filo audio chiede una voce e ne riceve una — chi sia lo decide
+    # `runtime.py`, in un punto solo. Pretendere il nome qui vorrebbe dire
+    # ricucire al trasporto la scelta che gli è stata tolta apposta.
+    runtime = _code_only(
+        (HERE / "telephone" / "runtime.py").read_text(encoding="utf-8")
+    )
+    assert "the_voice_for" in vonage, "il trasporto non chiama il runtime"
+    assert "RealtimeVoiceSession" in runtime
+    assert "MissionVoiceSession" in runtime
+    for nome in ("RealtimeVoiceSession", "MissionVoiceSession"):
+        assert nome not in vonage, f"il trasporto sceglie il runtime: {nome}"
     assert "session.hear(chunk)" in vonage, "i frame binari non arrivano al runtime"
 
     # E il runtime non nomina nessun operatore telefonico.

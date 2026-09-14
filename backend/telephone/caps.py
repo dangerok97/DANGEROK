@@ -116,6 +116,10 @@ async def prepare_a_phone_call(
 
     from telephone.briefing import disclosure
 
+    legame, perche_no = await _tie_it_to_something(
+        db, call, str(arguments.get("calendar_ref") or ""),
+    )
+
     return Observation(
         kind="tool", name="prepare_a_phone_call", status="ok",
         payload={
@@ -124,6 +128,7 @@ async def prepare_a_phone_call(
             "call_id": call.id,
             "to_number": call.to_number,
             "calling_whom": call.calling_whom,
+            **_what_it_will_change(legame, perche_no),
             "first_words": disclosure(str(runtime.get("user_name") or "")),
             "why_calling": mandate.why_calling,
             "may_agree_to": mandate.may_agree_to,
@@ -139,3 +144,57 @@ async def prepare_a_phone_call(
             ),
         },
     )
+
+
+async def _tie_it_to_something(db, call, calendar_ref: str):
+    """
+    Lega la telefonata all'appuntamento che dovrà spostare, se ce n'è uno.
+
+        L'EVENTO SI DECIDE ADESSO, CHE C'È ANCORA QUALCUNO A CUI CHIEDERE.
+
+    Questo è l'unico momento in cui la domanda «quale appuntamento?» ha una
+    risposta possibile: c'è una conversazione aperta, la persona è lì, e non è
+    ancora squillato niente. Dopo la telefonata resterebbe solo un orario, e
+    un orario da solo non dice quale evento — cercarlo per somiglianza vuol
+    dire, prima o poi, spostare quello sbagliato.
+    """
+    from telephone.binding import bind_a_calendar_event
+
+    try:
+        return await bind_a_calendar_event(db, call=call, calendar_ref=calendar_ref)
+    except Exception as e:
+        logger.info("legame non riuscito: %s", type(e).__name__)
+        return None, "non sono riuscita a ritrovare quell'appuntamento"
+
+
+def _what_it_will_change(legame, perche_no: str) -> Dict[str, Any]:
+    """
+    Che cosa cambierà davvero, detto a chi deve raccontarlo alla persona.
+
+        «TI CHIAMO E POI TE LO DICO» E «TI CHIAMO E LO SPOSTO» SONO DUE COSE.
+
+    La differenza sta tutta in questo campo, e va detta prima del sì — perché
+    è esattamente quello su cui la persona sta dicendo di sì. Una telefonata
+    senza legame non è un guasto: è una telefonata che riporterà una risposta
+    invece di cambiare un calendario, ed è un esito legittimo purché sia
+    quello che la persona si aspetta.
+    """
+    if legame is not None:
+        return {
+            "will_update_calendar": True,
+            "how_to_say_that_too": (
+                "Di' anche che, se lo studio conferma, l'appuntamento in "
+                "calendario lo sposti tu — così non deve farlo lui."
+            ),
+        }
+    if not perche_no:
+        return {"will_update_calendar": False}
+    return {
+        "will_update_calendar": False,
+        "why_nothing_will_change": perche_no,
+        "how_to_say_that_too": (
+            "Prima di chiedere il sì, chiedi quale appuntamento è: senza "
+            "quello puoi telefonare e riportargli la risposta, ma il "
+            "calendario resterà com'è. Dillo, non lasciarlo intendere."
+        ),
+    }

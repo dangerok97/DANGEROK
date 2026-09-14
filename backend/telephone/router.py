@@ -158,6 +158,115 @@ async def hangup(
     return {"ok": True, "closed": closed, "state": call.state}
 
 
+#     QUESTE TRE STANNO SOPRA `/{call_id}`, E NON E' UNA QUESTIONE DI ORDINE
+#     ESTETICO: `/{call_id}` COMBACIA ANCHE CON LA PAROLA «calls».
+
+@router.get("/calls")
+async def call_history(
+    limit: int = 20,
+    offset: int = 0,
+    status: str = "",
+    days: int = 0,
+    user: dict = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """
+    Le telefonate fatte da ORA, le piu' recenti per prime.
+
+        QUESTA NON E' UNA CONSOLE. E' IL RESOCONTO DI UNA COMMISSIONE.
+
+    Esce solo quello che serve a capire com'e andata: chi, quando, quanto, e
+    l'esito in una riga. Niente identificativi dell'operatore, niente nomi di
+    modelli, niente token.
+    """
+    from telephone.application import applications_for
+    from telephone.history import as_a_card
+
+    service = TelephoneService(db)
+    chiamate, in_tutto = await service.recent(
+        user["user_id"], limit=limit, offset=offset, status=status, days=days,
+    )
+    #     LA RIGA DEVE POTER DIRE SE IL CALENDARIO E' CAMBIATO DAVVERO.
+    # Senza questo, «Appuntamento spostato alle 18:00» sarebbe la stessa frase
+    # sia quando lo e' sia quando ORA non ce l'ha fatta — e la persona si
+    # fiderebbe di un calendario rimasto alle sedici.
+    applicazioni = await applications_for(db, [c.id for c in chiamate])
+    return {
+        "ok": True,
+        "calls": [as_a_card(c, applicazioni.get(c.id)) for c in chiamate],
+        # Quante sono in tutto, per poter dire «mostrati dieci di quarantadue»
+        # invece di lasciare qualcuno a indovinare se ce ne sono altre.
+        "total": in_tutto,
+        "offset": max(0, int(offset)),
+        "limit": max(1, min(int(limit), 100)),
+    }
+
+
+@router.get("/calls/{call_id}")
+async def call_detail(
+    call_id: str, user: dict = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """Una telefonata aperta, col numero che e' stato davvero composto."""
+    from telephone.application import application_for
+    from telephone.history import in_full
+
+    service = TelephoneService(db)
+    call = await service.get(user["user_id"], call_id)
+    if call is None:
+        raise HTTPException(404, "chiamata sconosciuta")
+    return {
+        "ok": True,
+        "call": in_full(
+            call,
+            kept_the_mandate=service.kept_the_mandate(call),
+            application=await application_for(db, call.id),
+        ),
+    }
+
+
+@router.get("/calls/{call_id}/transcript")
+async def call_transcript(
+    call_id: str, user: dict = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """
+    Quello che si sono detti.
+
+        IL TESTO C'ERA GIA'. L'AUDIO NON C'E' MAI STATO.
+
+    Non si trascrive niente adesso: si apre una cosa raccolta mentre si
+    parlava. Una telefonata senza battute — nessuna risposta, occupato — torna
+    un elenco vuoto, non un errore: non aver parlato con nessuno e' un esito,
+    non un guasto.
+    """
+    from telephone.history import the_transcript
+
+    service = TelephoneService(db)
+    call = await service.get(user["user_id"], call_id)
+    if call is None:
+        raise HTTPException(404, "chiamata sconosciuta")
+    battute = the_transcript(call)
+    return {
+        "ok": True,
+        "entries": battute,
+        "available": bool(battute),
+        # Perche' non c'e', quando non c'e'. Serve a scrivere la frase giusta.
+        "why_empty": "" if battute else _why_nobody_spoke(call),
+    }
+
+
+def _why_nobody_spoke(call) -> str:
+    """Perche' non c'e' niente da leggere."""
+    from telephone.history import how_it_reads
+
+    stato = how_it_reads(call)
+    if stato == "nessuna_risposta":
+        return "Non ha risposto nessuno."
+    if stato == "occupato":
+        return "La linea era occupata."
+    if stato == "in_corso":
+        return "La chiamata è ancora in corso."
+    return "Di questa chiamata non è rimasto nulla da leggere."
+
+
 @router.get("/{call_id}")
 async def read(call_id: str, user: dict = Depends(get_current_user)) -> Dict[str, Any]:
     """Com'è andata, in italiano, più il controllo del mandato."""

@@ -939,6 +939,7 @@ def build_user_payload(
     life_os: dict | None = None,
     spoken_out_loud: bool = False,
     calendar_next_48h: dict | None = None,
+    today_where_they_are=None,
 ) -> str:
     import json
 
@@ -947,7 +948,18 @@ def build_user_payload(
     from conversation_engine.ai_core.tools.compact import compact_catalogue
     from day_names import weekday_name
 
-    _today = datetime.now(timezone.utc).date()
+    #     «OGGI» È OGGI DOVE STA LA PERSONA.
+    #
+    # Qui c'era la data UTC, e per due ore al giorno era la data sbagliata.
+    # Misurato alle 00:16 di lunedì 14, con ORA che rispondeva «oggi è
+    # domenica 13»: in Italia fra le ventidue e mezzanotte il server è ancora
+    # al giorno prima, e con lui «domani», «stasera» e la finestra del
+    # calendario. Nessun modello può accorgersene: gli abbiamo dato la data
+    # sbagliata e lui l'ha letta bene.
+    #
+    # Chi chiama passa la data del fuso della persona; senza, resta UTC —
+    # che è quello che facevano tutti fino a ieri.
+    _today = today_where_they_are or datetime.now(timezone.utc).date()
 
     return json.dumps(
         {

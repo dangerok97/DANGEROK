@@ -54,6 +54,26 @@ HeardKind = Literal[
     "pause",
     # Un silenzio abbastanza lungo da far pensare che abbia finito.
     "utterance_end",
+
+    #     E TRE FATTI DA CHI IL TURNO LO DECIDE DAVVERO.
+    #
+    # I cinque qui sopra descrivono il **suono**: qualcuno parla, ecco delle
+    # parole, c'è stato un silenzio. Chi li riceve deve poi indovinare se la
+    # frase è finita, e misurato indovina male: su «Ciao ORA, dimmi che giorno
+    # è oggi» un trascrittore a tempo ha chiuso il turno dopo il vocativo.
+    #
+    # Questi tre arrivano invece da un modello che guarda il **significato** e
+    # dice lui quando un turno finisce. Chi ascolta smette di essere un
+    # cronometro e diventa qualcuno che capisce quando hai finito di parlare.
+
+    # Il turno è finito, e questo è tutto quello che è stato detto. Non è un
+    # pezzo da accumulare: è la frase intera, ed è autorevole.
+    "end_of_turn",
+    # Sembra finito, con meno confidenza. Si registra e basta: far partire un
+    # pensiero qui dentro è lo Sprint dopo, e per adesso non lo si fa.
+    "eager_end",
+    # Non era finito: la persona ha ripreso. Annulla l'indizio di prima.
+    "turn_resumed",
 ]
 
 
@@ -64,6 +84,13 @@ class Heard:
     kind: HeardKind
     text: str = ""
     at_ms: int = 0
+    # Quanto è sicuro chi ascolta che il turno sia finito, quando lo sa dire.
+    # Un numero, non una parola di quello che è stato detto.
+    confidence: Optional[float] = None
+    # Che cosa ha chiuso il turno: il modello, il silenzio, o noi.
+    trigger: str = ""
+    # Quale turno della telefonata. Serve a legare i tempi al turno giusto.
+    turn_index: Optional[int] = None
     # Quello che il fornitore ha detto, per poterlo leggere in un log tecnico
     # senza che il resto del codice lo interpreti.
     raw: str = ""

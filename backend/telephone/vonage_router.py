@@ -198,7 +198,18 @@ async def socket(websocket: WebSocket) -> None:
 
     await websocket.accept()
     service = TelephoneService(db)
-    from telephone.bridge import RealtimeVoiceSession
+    #     QUI NON SI SCEGLIE: SI CHIEDE CHI RISPONDE.
+    # Il trasporto non sa e non deve sapere quale runtime condurra' la
+    # telefonata. Chiede una voce e ne riceve una, con lo stesso contratto di
+    # sempre — `open`, `hear`, `close`, `how_it_went`.
+    from telephone.binding import binding_for
+    from telephone.runtime import the_voice_for
+
+    #     A CHE COSA E' ATTACCATA QUESTA TELEFONATA, SE A QUALCOSA.
+    # Deciso prima, quando c'era ancora una persona a cui chiedere «quale
+    # appuntamento?». Qui si legge e basta: e' un dato del server, non entra
+    # nel packet e non lo sente nessuno.
+    legame = await binding_for(db, call.id)
 
     frames_in = 0
     bytes_in = 0
@@ -224,7 +235,7 @@ async def socket(websocket: WebSocket) -> None:
         if fresh is not None:
             await service.heard(fresh, who, words)
 
-    session = RealtimeVoiceSession(
+    session = the_voice_for(
         db,
         owner_id=call.owner_id,
         session_ref=call.session_ref,
@@ -232,6 +243,8 @@ async def socket(websocket: WebSocket) -> None:
         clear_transport=clear_the_line,
         on_said=note,
         dossier=_DOSSIERS.get(call.id),
+        call=call,
+        binding=legame,
     )
 
     opened = await session.open()
@@ -282,12 +295,50 @@ async def socket(websocket: WebSocket) -> None:
             fresh.first_audio_ms = numbers.get("first_audio_in_ms")
             fresh.metrics = numbers
             await service.mark(fresh, fresh.state)
+            await _apply_what_was_agreed(fresh, session)
         _DOSSIERS.pop(call.id, None)
         _READY.pop(call.id, None)
         try:
             await websocket.close()
         except Exception:
             pass
+
+
+async def _apply_what_was_agreed(call, session) -> None:
+    """
+    L'esito confermato diventa un cambiamento vero, adesso.
+
+        NON QUANDO L'OPERATORE DICE «COMPLETED».
+
+    Il momento giusto non e' quello in cui la rete dichiara chiusa la
+    telefonata: e' quello in cui l'esito esiste, e' stato validato dal gate ed
+    e' definitivo — cioe' qui, appena la sessione si e' chiusa. Legarlo
+    all'evento del carrier avrebbe voluto dire dipendere da un messaggio che
+    puo' arrivare due volte, arrivare tardi, o non arrivare affatto: ne
+    abbiamo visti di tutti e tre i tipi.
+
+        E SE L'APPLICAZIONE FALLISCE, LA TELEFONATA RESTA ANDATA BENE.
+
+    Nessuno riscrive `metrics.outcome` da qui. La controparte ha confermato:
+    e' un fatto, ed e' vero anche se il calendario non ha voluto saperne.
+    Quello che cambia e' la frase che si legge sulla scheda.
+    """
+    try:
+        from telephone.application import apply_the_outcome
+
+        #     IL TRASPORTO NON SA CHE FORMA ABBIA UN ESITO.
+        # Passa quello che la sessione ha in mano e non lo guarda: se non e'
+        # un esito di missione — il runtime classico non ne ha — a dirlo e'
+        # chi lo applica. Un `isinstance` qui avrebbe voluto dire un filo
+        # audio che conosce la missione, ed e' la cosa che questo file non fa.
+        fatto = await apply_the_outcome(db, call, getattr(session, "outcome", None))
+        if fatto is not None:
+            logger.info(
+                "esito applicato: %s (%s)",
+                fatto.application_status, fatto.error or "-",
+            )
+    except Exception as e:  # pragma: no cover
+        logger.info("applicazione non tentata: %s", type(e).__name__)
 
 
 async def _get_ready(call) -> None:

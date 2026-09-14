@@ -100,6 +100,125 @@ def resample(pcm: bytes, *, src: int, dst: int) -> bytes:
         return b""
 
 
+class Resampler:
+    """
+    Lo stesso suono a un altro passo, ma senza mai fermare il suono.
+
+        UN FIUME NON SI RICAMPIONA UN SECCHIO ALLA VOLTA.
+
+    `resample()` qui sopra prende un suono intero e lo riscrive: va benissimo
+    per una frase gia pronta. Ma un fiume arriva venti millisecondi per volta,
+    e filtrare ogni pacchetto come se fosse solo al mondo lascia una
+    discontinuita a ogni giunta — cinquanta volte al secondo. Non e un
+    dettaglio teorico: si sente come un ronzio sotto la voce.
+
+    La differenza sta tutta in due cose che qui si portano avanti fra una
+    chiamata e l'altra: la coda del filtro, e il punto frazionario in cui si
+    era arrivati a leggere. Con quelle due, l'uscita e identica byte per byte
+    a quella che darebbe un ricampionamento dell'intero flusso.
+
+        CIO' CHE NON HA ANCORA CONTESTO A DESTRA, ASPETTA.
+
+    Un filtro centrato ha bisogno di sapere anche cosa viene dopo. Quello che
+    non si puo ancora filtrare resta nel buffer fino al pacchetto successivo:
+    sono meta dei coefficienti, trentadue campioni, un millisecondo e mezzo a
+    ventiquattromila. E' il prezzo minimo, ed e deterministico.
+
+    Non tiene niente: quello che esce viene dimenticato, e quello che resta e
+    solo il minimo per non tagliare male la giunta successiva.
+    """
+
+    def __init__(self, *, src: int, dst: int, taps: int = 64) -> None:
+        self.src = int(src)
+        self.dst = int(dst)
+        self._step = (self.src / self.dst) if self.dst else 1.0
+        self._taps = int(taps) if self.dst < self.src else 0
+        self._h: Optional[np.ndarray] = None
+        if self._taps:
+            cutoff = 0.45 * self.dst / self.src
+            n = np.arange(self._taps) - (self._taps - 1) / 2.0
+            h = np.sinc(2 * cutoff * n) * np.hanning(self._taps)
+            self._h = (h / h.sum()).astype(np.float32)
+        # Cio' che e entrato e non e ancora uscito: coda del filtro piu' i
+        # campioni che non hanno ancora contesto a destra.
+        self._buf = np.zeros(0, dtype=np.float32)
+        # Dove leggere il prossimo campione d'uscita, in indici di `_buf`.
+        self._at = 0.0
+
+    @property
+    def passthrough(self) -> bool:
+        """Se non c'e niente da fare, non si fa niente."""
+        return self.src == self.dst
+
+    def feed(self, pcm: bytes) -> bytes:
+        """Il pezzo di fiume che e arrivato, al passo nuovo."""
+        if self.passthrough or not pcm:
+            return pcm if self.passthrough else b""
+        try:
+            arrivati = np.frombuffer(pcm, dtype="<i2").astype(np.float32)
+            if arrivati.size:
+                self._buf = np.concatenate([self._buf, arrivati])
+            return self._take(hold_back=self._taps // 2)
+        except Exception as e:
+            logger.info("ricampionamento in corsa fallito: %s", type(e).__name__)
+            return b""
+
+    def drain(self) -> bytes:
+        """
+        La coda, quando il fiume finisce.
+
+        Si completa con silenzio quel tanto che serve a dare contesto a destra
+        all'ultimo pezzo di voce, e si svuota.
+        """
+        if self.passthrough or self._buf.size == 0:
+            return b""
+        coda = np.zeros(self._taps or 2, dtype=np.float32)
+        self._buf = np.concatenate([self._buf, coda])
+        out = self._take(hold_back=0)
+        self._buf = np.zeros(0, dtype=np.float32)
+        self._at = 0.0
+        return out
+
+    def _take(self, *, hold_back: int) -> bytes:
+        """Quanto si puo' leggere adesso senza inventare il futuro."""
+        if self._buf.size == 0:
+            return b""
+
+        filtrato = (
+            np.convolve(self._buf, self._h, mode="same")
+            if self._h is not None else self._buf
+        )
+        # Oltre questo indice non c'e abbastanza contesto: si aspetta. Il due
+        # non e un margine di sicurezza: l'interpolazione legge anche il
+        # campione dopo quello su cui cade.
+        limite = filtrato.size - hold_back - 2
+        if limite < 1:
+            return b""
+
+        quanti = int(np.floor((limite - self._at) / self._step)) + 1
+        if quanti <= 0:
+            return b""
+        dove = self._at + self._step * np.arange(quanti)
+        dove = dove[dove <= limite]
+        if dove.size == 0:
+            return b""
+
+        giu = np.floor(dove).astype(np.int64)
+        frazione = (dove - giu).astype(np.float32)
+        y = filtrato[giu] * (1.0 - frazione) + filtrato[giu + 1] * frazione
+
+        # Si butta via solo cio' che non serve piu' ne al filtro ne alla
+        # prossima lettura, e si sposta il punto di lettura di conseguenza.
+        prossimo = self._at + self._step * dove.size
+        tenere = max(self._taps, 2)
+        butta = int(min(np.floor(prossimo), max(0, self._buf.size - tenere)))
+        if butta > 0:
+            self._buf = self._buf[butta:]
+            prossimo -= butta
+        self._at = float(prossimo)
+        return np.clip(y, -32768, 32767).astype("<i2").tobytes()
+
+
 def in_frames(pcm: bytes, size: int) -> List[bytes]:
     """
     Il suono tagliato a pacchetti della misura giusta.
@@ -172,6 +291,19 @@ class Ears:
         self._loud_run = 0
         self._quiet_ms = 0
         self.speaking = False
+
+    @property
+    def ready(self) -> bool:
+        """
+        Se hanno gia imparato quanto e alto il silenzio di questa linea.
+
+            PRIMA DI AVER IMPARATO IL SILENZIO NON SANNO RICONOSCERE UNA VOCE.
+
+        Serve a chi deve decidere se fidarsi di `speaking`: nei primi
+        venticinque pacchetti la risposta e sempre «nessuno parla», e non
+        perche non parli nessuno.
+        """
+        return self._floor is not None
 
     @property
     def floor(self) -> float:
