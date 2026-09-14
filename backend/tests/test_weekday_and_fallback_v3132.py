@@ -123,6 +123,87 @@ def test_the_agent_knows_it_too():
     )
 
 
+def test_today_is_today_where_the_person_is():
+    """
+    §28: «oggi» è oggi dove sta la persona, non dove sta il server.
+
+        UN GIORNO SBAGLIATO NON SI VEDE FINCHÉ NON LO SENTI DIRE.
+
+    Misurato alle 00:16 di lunedì 14 settembre: ORA rispondeva «oggi è
+    domenica 13». Il payload portava la data UTC, e in Italia fra le ventidue
+    e mezzanotte quella è la data di ieri. Nessun modello poteva accorgersene:
+    gli avevamo dato la data sbagliata e lui l'aveva letta bene.
+    """
+    from conversation_engine.ai_core.prompt import build_user_payload
+    from day_names import weekday_name
+
+    # Un momento in cui il server e la persona non sono d'accordo: le 00:16
+    # di lunedì a Roma sono le 22:16 di domenica a Greenwich.
+    a_roma = date(2026, 9, 14)
+    a_greenwich = date(2026, 9, 13)
+    assert weekday_name(a_roma) == "Monday"
+    assert weekday_name(a_greenwich) == "Sunday"
+
+    payload = json.loads(
+        build_user_payload(
+            user_message="che giorno è oggi?",
+            recent_turns=[], active_goal=None, context_facts=[],
+            tools=[], observations=[], today_where_they_are=a_roma,
+        )
+    )
+    assert payload["today"] == "2026-09-14"
+    assert payload["today_weekday"] == "Monday"
+
+
+def test_without_a_timezone_nothing_changed():
+    """
+    §28: e senza fuso si resta su UTC, com'era.
+
+    Il parametro è facoltativo: i canali che non lo passano si comportano
+    esattamente come ieri.
+    """
+    from conversation_engine.ai_core.prompt import build_user_payload
+    from day_names import weekday_name
+
+    payload = json.loads(
+        build_user_payload(
+            user_message="x", recent_turns=[], active_goal=None,
+            context_facts=[], tools=[], observations=[],
+        )
+    )
+    oggi_utc = datetime.now(timezone.utc).date()
+    assert payload["today"] == oggi_utc.isoformat()
+    assert payload["today_weekday"] == weekday_name(oggi_utc)
+
+
+def test_an_unresolvable_timezone_does_not_break_the_turn():
+    """
+    §28: se il fuso non si risolve, il turno va avanti lo stesso.
+
+    Sapere dove sta una persona è un vantaggio, non un requisito: senza, si
+    torna a UTC invece di fallire.
+    """
+    async def body():
+        from conversation_engine.ai_core.loop import _what_day_it_is_for_them
+
+        class _RotturaSicura:
+            users = None
+
+            def __getattr__(self, _):
+                raise RuntimeError("database non disponibile")
+
+        # Database irraggiungibile: si torna a UTC invece di far fallire il turno.
+        assert await _what_day_it_is_for_them(_RotturaSicura(), "u") is None
+
+        # Nessun utente: il servizio ha un fuso di sistema dichiarato, e una
+        # data ragionevole è meglio di nessuna data.
+        senza_nessuno = await _what_day_it_is_for_them(None, "")
+        assert senza_nessuno is not None
+        assert abs((senza_nessuno - datetime.now(timezone.utc).date()).days) <= 1
+
+    _run(body())
+
+
 # ---------------------------------------------------------------------------
 # Chi risponde quando il primario non può
 # ---------------------------------------------------------------------------

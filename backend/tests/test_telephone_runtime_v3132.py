@@ -535,6 +535,92 @@ def test_the_whole_loop_from_speech_to_voice():
     _run(body())
 
 
+def test_a_long_answer_comes_out_whole():
+    """
+    §10bis: una risposta lunga esce intera, non bucata.
+
+        ESSERE AVANTI NON È ESSERE IN RITARDO.
+
+    Il difetto che questa prova esiste per non far tornare, sentito da una
+    persona al telefono: «oggi è lunedì 14 settembre duemilave», e poi
+    «domani non hai impegn». Misurato sulla stessa telefonata: **128 frame
+    buttati su 610 — il ventuno per cento della voce di ORA**, buchi dentro le
+    frasi.
+
+    La causa era un tetto sulla coda che confrontava quanto era stato generato
+    con quanto era stato mandato. Chi genera la voce produce cinque secondi di
+    audio in uno: stare avanti è lo stato normale, ed è quello che rende il
+    parlato continuo invece che a scatti. Il tetto scattava sempre.
+
+    Qui si versa dentro una risposta lunga tutta insieme — come fa il
+    fornitore vero — e si pretende che esca tutta.
+    """
+    async def body():
+        from telephone.playback import PlaybackController
+
+        uscito = []
+
+        async def send(frame):
+            uscito.append(frame)
+
+        playback = PlaybackController(send=send)
+        handle = playback.begin(generation_id="g1", turn_id=1)
+
+        # Dodici secondi di parlato, consegnati in un colpo solo: è
+        # esattamente quello che fa Aura-2 su una risposta di due frasi.
+        dodici_secondi = b"\x11\x11" * (16000 * 12)
+        await playback.feed(dodici_secondi, handle)
+        await playback.finish(handle)
+
+        atteso = len(dodici_secondi) // playback.frame_bytes
+        assert playback.frames_dropped == 0, (
+            f"buttati {playback.frames_dropped} frame di una risposta normale"
+        )
+        assert playback.frames_sent == atteso, (
+            f"usciti {playback.frames_sent} frame su {atteso}: la voce è bucata"
+        )
+        assert len(uscito) == atteso
+        # E quello che è uscito è davvero la voce, non silenzio di riempimento.
+        assert b"".join(uscito).count(b"\x11") == len(dodici_secondi)
+
+        await playback.close()
+
+    _run(body())
+
+
+def test_an_interrupted_answer_is_stopped_not_perforated():
+    """
+    §10bis: e quando la conversazione va avanti, si smette — non si buca.
+
+    Il caso che il vecchio tetto voleva coprire è questo, ed era già coperto
+    meglio: `cancel()` svuota tutto in sedici millisecondi misurati. La
+    differenza fra i due rimedi è quella fra «ORA ha smesso di parlare» e «ORA
+    parla a singhiozzo», e al telefono si sente.
+    """
+    async def body():
+        from telephone.playback import PlaybackController
+
+        uscito = []
+
+        async def send(frame):
+            uscito.append(frame)
+            await asyncio.sleep(0)
+
+        playback = PlaybackController(send=send)
+        handle = playback.begin(generation_id="g1", turn_id=1)
+        await playback.feed(b"\x22\x22" * (16000 * 10), handle)
+
+        await playback.cancel()
+
+        assert handle.cancelled
+        prima = len(uscito)
+        await asyncio.sleep(0.1)
+        assert len(uscito) == prima, "ha continuato a parlare dopo lo stop"
+        await playback.close()
+
+    _run(body())
+
+
 def test_speaking_over_ora_stops_her():
     """
     §11: barge-in. Chi ricomincia a parlare non chiede il permesso.

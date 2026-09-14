@@ -63,6 +63,53 @@ SILENCE_NET_MS = 4000
 # appoggiato il telefono, o la linea sta sibilando.
 MAX_SPEECH_MS = 30000
 
+#     UNA RETE CHE SI TENDE PRIMA DEL TRAPEZISTA NON È UNA RETE.
+#
+# Quando chi ascolta decide i turni da sé, questa rete deve stare
+# abbondantemente **dietro** di lui, non davanti. Flux chiude comunque un
+# turno dopo cinque secondi di silenzio, per conto suo: se la nostra rete
+# scattasse a quattro, non lo coprirebbe — gli ruberebbe il lavoro, e
+# torneremmo a decidere i turni col cronometro.
+#
+# Nove secondi sono quei cinque più il margine perché l'evento arrivi. Se
+# scatta, vuol dire che non è arrivato niente: è un guasto, non un ritmo.
+SILENCE_NET_WHEN_SOMEONE_ELSE_DECIDES_MS = 9000
+
+#     «CIAO ORA» È UN TURNO COMPLETO, E CHI ASCOLTA HA RAGIONE A CHIUDERLO.
+#
+# È un saluto: qualcuno potrebbe rispondere «ciao». Il problema non è la
+# chiusura — è che la persona quasi sempre continua, e nel frattempo ORA ha
+# già cominciato a preparare una risposta a mezza frase. Al telefono si è
+# sentito così: ORA saluta con sei secondi di ritardo mentre chi ha chiamato
+# sta già facendo la domanda, e poi risponde anche a quella.
+#
+#     L'ASSESTAMENTO COMINCIA DALL'EAGER, NON DALLA FINE.
+#
+# Flux manda `EagerEndOfTurn` quando comincia a pensare che il turno sia
+# finito, e `EndOfTurn` quando ne è sicuro. Fra i due c'è del silenzio che
+# **è già passato**: aspettare la nostra finestra a partire da `EndOfTurn`
+# significherebbe pagare due volte lo stesso silenzio.
+#
+# Misurato sul reality gate, quattro turni veri: fra eager e finale sono
+# passati 564, 7, 715 e 652 millisecondi — mediana 608. Più di mezzo secondo
+# di assestamento che Flux ci regala senza che costi niente a nessuno.
+SETTLE_TARGET_FROM_EAGER_MS = 900
+
+#     MA IL TURNO NETTO NON DEVE PAGARE PER QUELLO ESITANTE.
+#
+# Il turno 2 di quel gate è andato da eager a finale in **sette** millisecondi:
+# una domanda completa, detta senza incertezze. Con la sola formula avrebbe
+# aspettato 893 ms — cioè quasi un secondo aggiunto proprio al caso in cui non
+# serviva niente. Il tetto esiste per quello: qualunque cosa dica la formula,
+# dopo `EndOfTurn` non si aspetta più di questo.
+#
+# Con i numeri veri: residui 300, 300, 185, 248 — mediana 274 ms.
+MAX_RESIDUAL_AFTER_END_MS = 300
+
+# Quando l'eager non arriva affatto — un turno chiuso a scadenza, o Nova-3 —
+# non c'è nessun silenzio già passato da scontare, e si aspetta il tetto.
+SETTLE_WITHOUT_EAGER_MS = 300
+
 # Parole con cui una frase italiana non finisce mai. Non è grammatica: è il
 # modo più economico di riconoscere che manca ancora qualcosa.
 _HANGING = re.compile(
@@ -95,6 +142,22 @@ class Timing:
     tts_first_audio_ms: Optional[int] = None
     playback_first_chunk_ms: Optional[int] = None
     playback_complete_ms: Optional[int] = None
+    #     QUELLO CHE DICE CHI DECIDE I TURNI.
+    # Nessuno di questi contiene una parola di quello che è stato detto: dicono
+    # quando è finito un turno e con quanta sicurezza, non che cosa conteneva.
+    provider_eager_eot_ms: Optional[int] = None
+    provider_end_of_turn_ms: Optional[int] = None
+    provider_turn_resumed_ms: Optional[int] = None
+    eot_confidence: Optional[float] = None
+    eot_trigger: Optional[str] = None
+    provider_turn_index: Optional[int] = None
+    #     QUANTO ABBIAMO AGGIUNTO NOI, SEPARATO DA QUANTO CI HA MESSO FLUX.
+    # Senza questa distinzione, «i turni sono più belli» e «le risposte sono
+    # più lente» sarebbero la stessa riga di log.
+    settling_target_ms: Optional[int] = None
+    settling_already_elapsed_ms: Optional[int] = None
+    settling_residual_ms: Optional[int] = None
+    settling_finished_ms: Optional[int] = None
     # Quando qualcuno ha interrotto, e quanto ci è voluto a stare zitti.
     barge_in_detected_ms: Optional[int] = None
     tts_cancelled_ms: Optional[int] = None
@@ -120,8 +183,26 @@ class Timing:
         return self._gap(self.barge_in_detected_ms, self.playback_cleared_ms)
 
     def derived(self) -> Dict[str, Optional[int]]:
-        """I quattro salti che dicono dove si perde tempo."""
+        """I salti che dicono dove si perde tempo."""
         return {
+            # Quanto ci mette chi ascolta a capire che hai finito, e quanto ci
+            # mettiamo noi a dargli retta. Il secondo dovrebbe essere quasi
+            # zero: se non lo è, stiamo aspettando qualcosa che è già arrivato.
+            "end_of_speech_to_provider_eot_ms": self._gap(
+                self.user_last_voice_ms, self.provider_end_of_turn_ms,
+            ),
+            "provider_eot_to_commit_ms": self._gap(
+                self.provider_end_of_turn_ms, self.turn_committed_ms,
+            ),
+            # Quanto prima lo aveva sospettato. È la misura di quanto si
+            # potrebbe guadagnare speculando — che è lo sprint dopo.
+            "eager_to_final_eot_ms": self._gap(
+                self.provider_eager_eot_ms, self.provider_end_of_turn_ms,
+            ),
+            #     LA METRICA CHE DECIDE SE QUESTO LAVORO VALE.
+            # È il tempo che abbiamo aggiunto noi aspettando, e nient'altro:
+            # non il tempo di Flux, non quello del modello.
+            "extra_latency_added_by_floor_ms": self.settling_residual_ms,
             "end_of_speech_to_commit_ms": self._gap(
                 self.user_last_voice_ms, self.turn_committed_ms,
             ),
@@ -151,7 +232,12 @@ class TurnManager:
     un'ipotesi diventa un turno.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, *, someone_else_decides_turns: bool = False) -> None:
+        #     CHI DECIDE CHE UN TURNO È FINITO.
+        # Falso: lo deduciamo noi dai silenzi, come si è sempre fatto. Vero:
+        # c'è un modello che guarda il significato e ce lo dice, e allora i
+        # nostri timer diventano una rete, non un metodo.
+        self.someone_else_decides_turns = someone_else_decides_turns
         self.where: Where = "connecting"
         self.timings: List[Timing] = []
         self.interruptions = 0
@@ -167,6 +253,55 @@ class TurnManager:
         self._saw_pause = False
         self._saw_utterance_end = False
         self._last_voice: Optional[float] = None
+        # Il turno è finito e lo sappiamo da chi ascolta: questo è tutto
+        # quello che è stato detto, e non è un pezzo da accumulare.
+        self._settled: Optional[str] = None
+        # Quando il turno è stato chiuso, e quanto residuo aspettare ancora.
+        self._settled_at: Optional[float] = None
+        self._residual_s: float = 0.0
+        # Quello che aveva detto prima di riprendere fiato. Vive in memoria per
+        # la durata di una frase: non è un turno, non viene registrato da
+        # nessuna parte, e sparisce appena la frase è una sola.
+        self._unfinished_after_all = ""
+        # Il primo frame è uscito davvero sul filo: da qui ORA ha la parola.
+        self._audio_has_left = False
+        self.resumed_before_anything_started = 0
+        self.coalesced_turns = 0
+
+    # --- chi ha la parola -------------------------------------------------
+
+    @property
+    def floor(self) -> str:
+        """
+        Di chi è la conversazione in questo momento.
+
+            IL FLOOR NON È IL TURNO.
+
+        `where` dice a che punto è la macchina; questo dice chi sta parlando e
+        chi può parlare. La differenza conta in un punto solo, ed è quello che
+        rende naturale una conversazione: fra «il turno è finito» e «ORA ha
+        aperto bocca» c'è un tempo in cui **la parola non è di nessuno**, e
+        chiunque può riprenderla senza interrompere niente.
+        """
+        if self.where == "ending":
+            return "ENDING"
+        if self.where == "interrupting":
+            return "INTERRUPTING"
+        if self.where == "ora_speaking":
+            #     SI HA LA PAROLA QUANDO SI È DETTO QUALCOSA.
+            # Non quando la decisione è pronta, non quando il fornitore ha
+            # generato l'audio, non quando è in coda: quando un frame è uscito
+            # davvero sul filo. Prima di quello nessuno ha sentito niente.
+            return "ORA_HAS_FLOOR" if self._audio_has_left else "ORA_PENDING"
+        if self.where == "thinking":
+            return "ORA_PENDING"
+        if self.where == "turn_candidate" and self._settled is not None:
+            return "SETTLING"
+        return "USER_HAS_FLOOR"
+
+    def ora_took_the_floor(self) -> None:
+        """Il primo frame è uscito sul filo. Adesso qualcuno l'ha sentita."""
+        self._audio_has_left = True
 
     # --- il tempo ---------------------------------------------------------
 
@@ -198,7 +333,16 @@ class TurnManager:
             self.where = "interrupting"
             return True
         if self.where in ("listening", "turn_candidate"):
-            if self.where == "listening":
+            #     NON STAVA COMINCIANDO UN'ALTRA FRASE: STAVA FINENDO QUESTA.
+            # Il turno era chiuso ma non era partito niente — nessun pensiero,
+            # nessuno strumento, nessun audio. Quello che aveva detto diventa
+            # l'inizio di quello che sta dicendo adesso, e il giro sarà uno.
+            if self.where == "turn_candidate" and self._settled:
+                self._unfinished_after_all = self._settled
+                self._settled = None
+                self._settled_at = None
+                self.resumed_before_anything_started += 1
+            elif self.where == "listening":
                 self._begin_turn()
             self.where = "user_speaking"
             self._saw_pause = False
@@ -251,10 +395,122 @@ class TurnManager:
             if self._now is not None:
                 self._now.turn_candidate_ms = self._ms()
 
+    def _how_much_longer_to_wait(self) -> float:
+        """
+        Quanto resta da aspettare, tolto il silenzio che è già passato.
+
+            NON SI PAGA DUE VOLTE LO STESSO SILENZIO.
+
+        Fra `EagerEndOfTurn` e `EndOfTurn` Flux ha già aspettato: misurato,
+        una mediana di 608 millisecondi. Quel tempo si sconta. Quello che
+        resta è la differenza, e non supera mai il tetto — se no un turno
+        detto senza esitazioni pagherebbe per uno esitante.
+        """
+        if self._now is None:
+            return SETTLE_WITHOUT_EAGER_MS
+        eager = self._now.provider_eager_eot_ms
+        chiuso = self._now.provider_end_of_turn_ms
+        if eager is None or chiuso is None or chiuso < eager:
+            self._now.settling_target_ms = int(SETTLE_WITHOUT_EAGER_MS)
+            self._now.settling_already_elapsed_ms = 0
+            self._now.settling_residual_ms = int(SETTLE_WITHOUT_EAGER_MS)
+            return SETTLE_WITHOUT_EAGER_MS
+        gia_passato = chiuso - eager
+        resta = max(0.0, SETTLE_TARGET_FROM_EAGER_MS - gia_passato)
+        resta = min(resta, MAX_RESIDUAL_AFTER_END_MS)
+        self._now.settling_target_ms = int(SETTLE_TARGET_FROM_EAGER_MS)
+        self._now.settling_already_elapsed_ms = int(gia_passato)
+        self._now.settling_residual_ms = int(resta)
+        return resta
+
+    def maybe_the_turn_is_over(self, confidence: Optional[float]) -> None:
+        """
+        Chi ascolta sospetta che abbia finito. **Si registra e basta.**
+
+        Far partire un pensiero da qui è lo Sprint dopo, e questo sprint
+        esiste per misurare quanto varrebbe: `eager_to_final_eot_ms` è
+        esattamente quel numero.
+        """
+        if self._now is not None and self._now.provider_eager_eot_ms is None:
+            self._now.provider_eager_eot_ms = self._ms()
+            self._now.eot_confidence = confidence
+
+    def the_turn_resumed(self) -> None:
+        """Non aveva finito. Il sospetto di prima non vale più."""
+        if self._now is not None:
+            self._now.provider_turn_resumed_ms = self._ms()
+        self._settled = None
+        if self.where == "turn_candidate":
+            self.where = "user_speaking"
+
+    def the_turn_is_over(
+        self,
+        text: str,
+        *,
+        confidence: Optional[float] = None,
+        trigger: str = "",
+        turn_index: Optional[int] = None,
+    ) -> None:
+        """
+        Chi ascolta dice che il turno è finito, e porta la frase intera.
+
+            QUESTO È AUTOREVOLE, E NON SI DISCUTE CON UN CRONOMETRO.
+
+        Il testo non si accumula: arriva tutto insieme ed è quello. I pezzi
+        raccolti strada facendo erano ipotesi, e ipotesi restano.
+        """
+        detto = (text or "").strip()
+        #     LA FRASE DI PRIMA È L'INIZIO DI QUESTA.
+        # Si rimette insieme qui, una volta sola: da qui in poi è una frase e
+        # basta, e il Conversation Engine ne vedrà una.
+        if self._unfinished_after_all:
+            unito = (self._unfinished_after_all + " " + detto).strip()
+            detto = unito if detto else self._unfinished_after_all
+            self._unfinished_after_all = ""
+            self.coalesced_turns += 1
+        self._settled = detto
+
+        #     UN TURNO CHE ARRIVA MENTRE ORA LAVORA È IL TURNO DOPO.
+        #
+        # Trovato dalla prova a secco: gli eventi che arrivavano dopo il
+        # commit finivano nei tempi del turno già committato, e producevano
+        # numeri impossibili — «fine del parlato a 6.735 ms, commit a 2.368».
+        # Non è una stranezza dei numeri: è una persona che ha ripreso a
+        # parlare mentre ORA pensava, e quella è un'altra battuta.
+        #
+        # Si tiene da parte la frase e non si tocca niente: quando ORA avrà
+        # finito, `ora_finished_speaking` o `give_up_this_turn` la
+        # raccoglieranno e comincerà un turno pulito, con i suoi tempi.
+        if self.where in ("thinking", "ora_speaking", "interrupting"):
+            return
+
+        if self.where == "listening":
+            self._begin_turn()
+            self._settled = detto
+        if self._now is not None and self._now.turn_committed_ms is None:
+            self._now.provider_end_of_turn_ms = self._ms()
+            if confidence is not None:
+                self._now.eot_confidence = confidence
+            if trigger:
+                self._now.eot_trigger = trigger
+            if turn_index is not None:
+                self._now.provider_turn_index = turn_index
+        if self.where in ("user_speaking", "listening"):
+            self.where = "turn_candidate"
+        self._settled_at = time.perf_counter()
+        self._residual_s = self._how_much_longer_to_wait() / 1000.0
+
     # --- la decisione -----------------------------------------------------
 
     def what_was_said(self) -> str:
-        """L'ipotesi corrente, per intero."""
+        """
+        Quello che è stato detto in questo turno.
+
+        Se chi ascolta ha già chiuso il turno, è la sua frase — intera, e non
+        una somma di pezzi. Se no, è l'ipotesi costruita finora.
+        """
+        if self._settled is not None:
+            return self._settled
         return " ".join(p for p in self._final_pieces if p).strip()
 
     def should_commit(self) -> bool:
@@ -285,6 +541,19 @@ class TurnManager:
         if len(said) < MIN_SPOKEN_CHARS:
             return False
 
+        #     CHI DECIDE I TURNI HA GIÀ DECISO.
+        # Non c'è niente da aggiungere e niente da aspettare: la frase è
+        # arrivata intera e il modello ha detto che è finita.
+        if self._settled is not None:
+            if not self.someone_else_decides_turns or self._settled_at is None:
+                return True
+            aspettato = time.perf_counter() - self._settled_at
+            if aspettato < self._residual_s:
+                return False
+            if self._now is not None and self._now.settling_finished_ms is None:
+                self._now.settling_finished_ms = self._ms()
+            return True
+
         spoken_ms = self._now.user_last_voice_ms if self._now else None
         if spoken_ms is not None and spoken_ms > MAX_SPEECH_MS:
             # Troppo lungo: qualcuno ha appoggiato il telefono.
@@ -310,7 +579,10 @@ class TurnManager:
         # Quindi resta un segnale solo, ed è quello di chi guarda i tempi
         # delle parole invece dell'orologio. La pausa resta quello che è: un
         # indizio che mette il turno in dubbio e niente più.
-        if self._saw_utterance_end:
+        #     `UtteranceEnd` APPARTIENE A CHI LO MANDA.
+        # È un segnale di Nova-3. Quando i turni li decide un altro, quel
+        # segnale non arriva e non si finge che sia arrivato.
+        if self._saw_utterance_end and not self.someone_else_decides_turns:
             return True
 
         #     UN SILENZIO FRA GLI EVENTI NON È UN SILENZIO IN LINEA.
@@ -328,7 +600,12 @@ class TurnManager:
         # Quello che resta qui è solo una rete per il caso in cui quel segnale
         # non arrivi mai — molto più lunga, e comunque non su una frase che
         # visibilmente continua.
-        if quiet_ms >= SILENCE_NET_MS:
+        rete = (
+            SILENCE_NET_WHEN_SOMEONE_ELSE_DECIDES_MS
+            if self.someone_else_decides_turns
+            else SILENCE_NET_MS
+        )
+        if quiet_ms >= rete:
             return self._stands_on_its_own(said)
 
         return False
@@ -367,6 +644,11 @@ class TurnManager:
             self._now.turn_committed_ms = self._ms()
         self._final_pieces = []
         self._partial = ""
+        self._settled = None
+        self._settled_at = None
+        self._residual_s = 0.0
+        self._unfinished_after_all = ""
+        self._audio_has_left = False
         self._saw_pause = False
         self._saw_utterance_end = False
         return said
@@ -412,6 +694,7 @@ class TurnManager:
             self._now.playback_complete_ms = self._ms()
         self._close_the_turn()
         self.where = "listening"
+        self._pick_up_what_was_said_meanwhile()
 
     # --- l'interruzione ---------------------------------------------------
 
@@ -429,6 +712,22 @@ class TurnManager:
         """Qualcosa non ha funzionato. Si torna ad ascoltare, senza fingere."""
         self._close_the_turn()
         self.where = "listening"
+        self._pick_up_what_was_said_meanwhile()
+
+    def _pick_up_what_was_said_meanwhile(self) -> None:
+        """
+        Quello che è stato detto mentre ORA era occupata.
+
+        Se una battuta è arrivata intera mentre ORA pensava o parlava, adesso
+        tocca a lei: comincia un turno nuovo, con i suoi tempi, e il ciclo che
+        guarda i commit se ne accorge al prossimo battito.
+        """
+        messo_da_parte = self._settled
+        if not messo_da_parte:
+            return
+        self._begin_turn()
+        self._settled = messo_da_parte
+        self.where = "turn_candidate"
 
     def hung_up(self) -> None:
         self._close_the_turn()
@@ -442,6 +741,7 @@ class TurnManager:
         self._last_voice = time.perf_counter()
         self._final_pieces = []
         self._partial = ""
+        self._settled = None
 
     def _close_the_turn(self) -> None:
         if self._now is not None and self._now.as_dict():
@@ -469,6 +769,15 @@ class TurnManager:
             "connect_ms": dict(self.connect_ms),
             "turns": len(self.timings),
             "interruptions": self.interruptions,
+            "floor": self.floor,
+            "settle_target_from_eager_ms": SETTLE_TARGET_FROM_EAGER_MS,
+            "max_residual_after_end_ms": MAX_RESIDUAL_AFTER_END_MS,
+            "pre_response_resume_count": self.resumed_before_anything_started,
+            "coalesced_turn_count": self.coalesced_turns,
+            # Ogni frase rimessa insieme è una risposta obsoleta che non è mai
+            # stata prodotta: nessun giro di pensiero, nessuno strumento,
+            # nessun audio, niente da annullare.
+            "duplicate_response_prevented_count": self.coalesced_turns,
             "each_turn": [t.as_dict() for t in self.timings][:12],
         }
         if waits:

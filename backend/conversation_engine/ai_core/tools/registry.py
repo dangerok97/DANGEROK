@@ -1148,6 +1148,10 @@ class ToolRegistry:
                     "appuntamento fra giovedì e sabato, la mattina»). "
                     "Everything else is brought back to them. An empty list "
                     "is fine and means the call is only to ask. "
+                    "If the call is to move an appointment that already "
+                    "exists in their calendar, pass `calendar_ref` — that is "
+                    "what lets ORA actually update the calendar afterwards "
+                    "instead of only reporting what the other side said. "
                     "Italian numbers only."
                 ),
                 input_schema={
@@ -1178,6 +1182,21 @@ class ToolRegistry:
                         "minutes": {
                             "type": "integer",
                             "description": "How long the call may last (1-15)",
+                        },
+                        "calendar_ref": {
+                            "type": "string",
+                            "description": (
+                                "When the call is to MOVE an appointment that "
+                                "is already in their calendar: the canonical "
+                                "ref of that event, exactly as read "
+                                "(«calendar:...»). Pass it and ORA will update "
+                                "the calendar herself once the other side "
+                                "confirms. Leave it out and the call still "
+                                "happens, but it only brings back an answer — "
+                                "the calendar stays as it is. Never guess it "
+                                "from a title or a time: if you do not know "
+                                "which event they mean, ask them first."
+                            ),
                         },
                     },
                     "required": ["to_number", "why_calling"],

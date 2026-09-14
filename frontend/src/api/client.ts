@@ -500,6 +500,22 @@ export async function rawRequest(path: string, init: RequestInit = {}): Promise<
 }
 
 export const api = {
+  // --- Chiamate ------------------------------------------------------------
+  callHistory: (opts?: { limit?: number; before?: string; status?: string }) => {
+    const q = new URLSearchParams();
+    if (opts?.limit) q.set('limit', String(opts.limit));
+    if (opts?.before) q.set('before', opts.before);
+    if (opts?.status) q.set('status', opts.status);
+    const qs = q.toString();
+    return request<CallHistoryResponse>(`/telephone/calls${qs ? `?${qs}` : ''}`);
+  },
+
+  callDetail: (callId: string) =>
+    request<{ ok: boolean; call: CallDetail }>(`/telephone/calls/${callId}`),
+
+  callTranscript: (callId: string) =>
+    request<CallTranscriptResponse>(`/telephone/calls/${callId}/transcript`),
+
   register: (email: string, password: string, name?: string) =>
     request<ApiAuth>('/auth/register', { method: 'POST', body: JSON.stringify({ email, password, name }) }, false),
 
@@ -3382,4 +3398,91 @@ export type LifeSetupDocumentResult = {
   ai_used?: boolean;
   provider?: string;
   model?: string;
+};
+
+/**
+ * A call ORA made, as the person who asked for it reads it.
+ *
+ * Deliberately free of anything technical. No provider id, no model name, no
+ * token count: whoever opens this wanted to know whether the appointment was
+ * moved, and everything else is in the way of that answer.
+ */
+export type CallCard = {
+  id: string;
+  counterparty_name: string;
+  counterparty_number: string;
+  reason_summary: string;
+  created_at: string;
+  started_at?: string | null;
+  ended_at?: string | null;
+  duration_seconds?: number | null;
+  /** Backend presentation state — never the internal mission state. */
+  presentation_status:
+    | 'in_corso'
+    | 'completata'
+    | 'serve_una_decisione'
+    | 'nessuna_risposta'
+    | 'occupato'
+    | 'segreteria'
+    | 'non_riuscita'
+    | 'interrotta';
+  status_label: string;
+  outcome_summary: string;
+  needs_decision: boolean;
+  transcript_available: boolean;
+  /**
+   * Whether the call actually changed something in ORA.
+   *
+   * A third state, not a second name for the outcome: `true` it was written,
+   * `false` it was meant to be and was not, `null` there was nothing to
+   * change — which is most calls, and is not a failure.
+   */
+  changed_something: boolean | null;
+};
+
+/** The same call, opened. Carries the number actually dialled. */
+export type CallDetail = CallCard & {
+  mission_type: string;
+  /** How the line went. Kept apart from how the errand went, on purpose. */
+  call_status: string;
+  how_it_ended: string;
+  mission_status?: string | null;
+  confirmed_changes: Record<string, string>;
+  needs_user_reason: string;
+  failure_reason: string;
+  may_agree_to: string[];
+  transcript_entries: number;
+  /** What ORA tried to write, and what stopped it. Empty when nothing was. */
+  application_status: '' | 'pending' | 'applied' | 'skipped' | 'conflict' | 'failed';
+  application_error: string;
+  application_target: string;
+};
+
+/**
+ * One line of what was said.
+ *
+ * Collected while the call was happening, because both sides produce text
+ * anyway. No recording was ever kept, which is why the button says "show"
+ * and not "generate".
+ */
+export type CallTranscriptEntry = {
+  sequence_number: number;
+  speaker: 'ora' | 'counterparty';
+  text: string;
+  at: string;
+};
+
+export type CallHistoryResponse = {
+  ok: boolean;
+  calls: CallCard[];
+  /** Cursor for the next page. Empty means there is nothing older. */
+  next_before: string;
+};
+
+export type CallTranscriptResponse = {
+  ok: boolean;
+  entries: CallTranscriptEntry[];
+  available: boolean;
+  /** Why there is nothing to read, when there is nothing to read. */
+  why_empty: string;
 };

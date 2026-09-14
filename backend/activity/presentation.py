@@ -296,6 +296,59 @@ def _update_rows(
 # --- deadlines ---------------------------------------------------------------
 
 
+async def _call_rows(db, user_id: str, now: datetime) -> List[Dict[str, Any]]:
+    """
+    Telephone calls worth telling someone about.
+
+        NOT EVERY CALL IS AN UPDATE.
+
+    A call that went the way it was asked to go, and one that stopped because
+    nobody but this person can decide what happens next — those are the two
+    that change what someone knows. The rest belong in Chiamate, where they
+    can be looked up, not pushed at anybody.
+
+    This reuses Updates rather than inventing a second place where ORA tells
+    you things. Two notification systems mean two places to check, and a
+    person who has to check two places checks neither.
+    """
+    try:
+        from telephone.application import applications_for
+        from telephone.history import as_a_card
+        from telephone.service import TelephoneService
+
+        chiamate, _ = await TelephoneService(db).recent(user_id, limit=12)
+        #     UN AGGIORNAMENTO CHE DICE «FATTO» DEVE ESSERE STATO FATTO.
+        # Qui la riga è ancora più esposta che in Chiamate: è una cosa che ORA
+        # spinge davanti a qualcuno senza che l'abbia chiesta. Se il calendario
+        # non si è lasciato aggiornare, questo è il primo posto in cui non
+        # dirlo diventa una bugia.
+        applicazioni = await applications_for(db, [c.id for c in chiamate])
+    except Exception as e:
+        logger.warning("activity calls source failed: %s", type(e).__name__)
+        return []
+
+    rows: List[Dict[str, Any]] = []
+    for call in chiamate:
+        scheda = as_a_card(call, applicazioni.get(call.id))
+        stato = scheda["presentation_status"]
+        if stato not in ("completata", "serve_una_decisione"):
+            continue
+        quando = _text(call.ended_at or call.started_at or call.authorised_at, 40)
+        age = _age_days(quando, now)
+        if age is None or age > UPDATE_WINDOW_DAYS:
+            continue
+        rows.append({
+            "id": f"call:{call.id}",
+            "title": scheda["outcome_summary"],
+            "context": scheda["counterparty_name"],
+            # ORA ha telefonato: l'ha fatto lei, non l'ha saputo da qualcuno.
+            "actor": "authored",
+            "at": quando,
+            "route": f"/chiamate/{call.id}",
+        })
+    return rows
+
+
 def _deadline_rows(home: Dict[str, Any], now: datetime) -> List[Dict[str, Any]]:
     """Dates that are coming, chronologically, from what Home already holds."""
     rows: List[Dict[str, Any]] = []
@@ -476,7 +529,11 @@ async def build_activity(db, user_id: str) -> Dict[str, Any]:
         asked_rows = []
     questions = _dedupe(open_rows + asked_rows)[:MAX_QUESTIONS]
     waiting = _dedupe(_waiting_rows(home, now))
-    updates = _dedupe(_update_rows(memory, home, now) + _demoted_rows(demoted))
+    updates = _dedupe(
+        await _call_rows(db, user_id, now)
+        + _update_rows(memory, home, now)
+        + _demoted_rows(demoted)
+    )
     deadlines = _dedupe(_deadline_rows(home, now))
     completed = _dedupe(await _completed_rows(db, user_id, now))
 

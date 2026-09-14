@@ -5,7 +5,7 @@
  */
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { usePathname, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import * as Haptics from 'expo-haptics';
@@ -37,6 +37,12 @@ export function AmbientTabBar({ state, navigation }: BottomTabBarProps) {
   const isRail = bp === 'desktop';
 
   const activeRoute = state.routes[state.index]?.name as string | undefined;
+  /*
+    Destinations outside `(tabs)` are not in the navigator's state, so the tab
+    index cannot say whether they are the current place. The address can, and
+    it also answers for nested routes: `/chiamate/tel_abc` is still Chiamate.
+  */
+  const pathname = usePathname();
 
   const onPress = (routeName: AmbientNavKey | 'profilo') => {
     if (Platform.OS !== 'web') {
@@ -55,6 +61,12 @@ export function AmbientTabBar({ state, navigation }: BottomTabBarProps) {
       router.push('/ora' as any);
       return;
     }
+    // Destinations with their own address are pushed, not switched to.
+    const fuori = AMBIENT_NAV_ITEMS.find((i) => i.route === routeName)?.href;
+    if (fuori) {
+      router.push(fuori as any);
+      return;
+    }
     const route = state.routes.find((r) => r.name === routeName);
     if (!route) {
       navigation.navigate(routeName as never);
@@ -71,7 +83,17 @@ export function AmbientTabBar({ state, navigation }: BottomTabBarProps) {
   };
 
   const renderItem = (item: AmbientNavItem) => {
-    const focused = activeRoute === item.route;
+    /*
+      Current place, for both kinds of destination.
+
+      A tab knows from the navigator; a section with its own address knows
+      from the address — and `startsWith` is what makes the detail page keep
+      the parent lit, instead of the rail going blank the moment you open a
+      call.
+    */
+    const focused = item.href
+      ? pathname === item.href || pathname.startsWith(`${item.href}/`)
+      : activeRoute === item.route;
     /*
       Account is not a destination — the desktop rail says so with a divider
       and its own footer. The phone bar has no "apart" position, so it says the
@@ -177,7 +199,13 @@ export function AmbientTabBar({ state, navigation }: BottomTabBarProps) {
     );
   };
 
-  const primaryItems = AMBIENT_NAV_ITEMS.map(renderItem);
+  //     LA BARRA DEL TELEFONO E' GIA' PIENA, E QUESTO FILE LO SAPEVA.
+  // Sei voci etichettate non entrano in 375px: la prima a troncare sarebbe
+  // «Documenti». Sul rail lo spazio verticale non e' contato, e li' Chiamate
+  // ci sta senza togliere niente a nessuno.
+  const primaryItems = AMBIENT_NAV_ITEMS
+    .filter((item) => isRail || !item.railOnly)
+    .map(renderItem);
 
   if (isRail) {
     return (

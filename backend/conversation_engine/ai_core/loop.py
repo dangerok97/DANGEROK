@@ -388,6 +388,12 @@ async def run_cognitive_loop(
 
     calendar_ahead = await the_next_two_days(db, sess.user_id)
 
+    #     E che giorno è, dove sta la persona.
+    # Il fuso lo risolve il servizio che già lo risolve per il calendario:
+    # locale, senza chiamate esterne, sicuro da chiamare a ogni turno. Se non
+    # si riesce, si resta su UTC — come si è sempre fatto.
+    oggi_da_lei = await _what_day_it_is_for_them(db, sess.user_id)
+
     for step in range(max(1, max_steps)):
         life_os_payload = await build_life_os_ai_payload(db, sess, st)
         payload = build_user_payload(
@@ -404,6 +410,7 @@ async def run_cognitive_loop(
             # da come si scrive.
             spoken_out_loud=(sess.meta or {}).get("entry_point") == "phone",
             calendar_next_48h=calendar_ahead,
+            today_where_they_are=oggi_da_lei,
         )
         raw = await _call_ai(
             decision_fn=decision_fn,
@@ -2294,6 +2301,32 @@ def _claims_unverified_object_adapt(text: str, *, has_active_object: bool) -> bo
     if not has_active_object or not (text or "").strip():
         return False
     return bool(_ADAPT_CLAIM_RE.search(text))
+
+
+async def _what_day_it_is_for_them(db, user_id: str):
+    """
+    Che giorno è per la persona, non per il server.
+
+        UN GIORNO SBAGLIATO NON SI VEDE FINCHÉ NON LO SENTI DIRE.
+
+    Alle 00:16 di lunedì ORA diceva «oggi è domenica»: il payload portava la
+    data UTC, e in Italia fra le ventidue e mezzanotte quella è la data di
+    ieri. Con lei sbagliavano «domani», «stasera» e la finestra del calendario.
+
+    `None` quando non si riesce a risolvere: chi costruisce il payload torna a
+    UTC, che è il comportamento di sempre.
+    """
+    try:
+        from datetime import datetime as _dt
+        from zoneinfo import ZoneInfo
+
+        from timezone_service import resolve_user_timezone
+
+        risolto = await resolve_user_timezone(db, user_id)
+        return _dt.now(ZoneInfo(risolto.tz_name)).date()
+    except Exception as e:
+        logger.info("fuso non risolto: %s", type(e).__name__)
+        return None
 
 
 def _how_long_we_wait(entry_point: str) -> Optional[float]:

@@ -69,6 +69,14 @@ export default function TabsLayout() {
         navigation so the address means one thing.
       */}
       <Tabs.Screen name="ora" options={{ title: 'ORA', href: null }} />
+      {/*
+        Chiamate vive qui dentro perché è qui che vive la shell: una schermata
+        fuori da `(tabs)` non riceve il rail, e chi ci arrivava si trovava una
+        pagina senza navigazione e senza modo di tornare. `href: null` la tiene
+        fuori dai bottoni generati — la barra li disegna da `navItems`, che sa
+        anche che questa voce è solo per il rail.
+      */}
+      <Tabs.Screen name="chiamate" options={{ title: 'Chiamate', href: null }} />
       <Tabs.Screen name="attivita" options={{ title: 'Attività' }} />
       <Tabs.Screen name="documenti" options={{ title: 'Documenti' }} />
       {/*

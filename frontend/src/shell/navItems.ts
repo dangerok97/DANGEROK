@@ -9,6 +9,9 @@ import type { Ionicons } from '@expo/vector-icons';
  *
  *   HOME · VITA · ORA · ATTIVITÀ · DOCUMENTI      (+ account, set apart)
  *
+ * V3.14.2 adds CHIAMATE between ORA and Attività, on the desktop rail
+ * only — the phone bar has no room for a sixth label.
+ *
  * What changed and why:
  *
  * - `contesti` is now labelled **Vita**. The route and its screen are
@@ -27,7 +30,13 @@ import type { Ionicons } from '@expo/vector-icons';
  *   desktop it sits apart at the foot of the rail, as an account affordance.
  */
 
-export type AmbientNavKey = 'index' | 'contesti' | 'ora' | 'attivita' | 'documenti';
+export type AmbientNavKey =
+  | 'index'
+  | 'contesti'
+  | 'ora'
+  | 'chiamate'
+  | 'attivita'
+  | 'documenti';
 export type AmbientAccountKey = 'profilo';
 
 export type AmbientNavItem = {
@@ -40,6 +49,24 @@ export type AmbientNavItem = {
   iconActive: ComponentProps<typeof Ionicons>['name'];
   /** Center ORA entry — distinct, not FAB */
   center?: boolean;
+  /**
+   * Shown on the desktop rail only.
+   *
+   * The phone bar is full, and this file's neighbour says why: six labelled
+   * items do not fit 375px, and the first label to truncate is Documenti. The
+   * rail has vertical room and no such limit, so a destination that earns a
+   * place there does not automatically earn one down here.
+   */
+  railOnly?: boolean;
+  /**
+   * An address, for destinations that are not tab screens.
+   *
+   * Nobody uses it today: Chiamate started outside `(tabs)` and had to move
+   * in, because a screen outside the navigator gets no rail — and a section
+   * with no navigation and no way back is not a section. The field stays for
+   * the next destination that genuinely lives elsewhere.
+   */
+  href?: string;
 };
 
 /** The five cognitive destinations. Order is the order people move through them. */
@@ -69,6 +96,22 @@ export const AMBIENT_NAV_ITEMS: AmbientNavItem[] = [
     icon: 'ellipse-outline',
     iconActive: 'ellipse',
     center: true,
+  },
+  {
+    /*
+      Between ORA and Attività, and on the rail only.
+
+      A call is something ORA did for you, so it sits with the doing — after
+      the place you ask, before the place you watch. It is not in the phone
+      bar: see `railOnly`.
+    */
+    key: 'chiamate',
+    route: 'chiamate',
+    label: 'Chiamate',
+    accessibilityLabel: 'Chiamate di ORA',
+    icon: 'call-outline',
+    iconActive: 'call',
+    railOnly: true,
   },
   {
     key: 'attivita',
