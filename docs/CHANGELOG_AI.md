@@ -1,5 +1,261 @@
 # ORA — AI Changelog
 
+## 2026-09-14 — ROADMAP CANONICA VERSO 1.0
+
+    UNA ROADMAP CHE NON SI AGGIORNA SMETTE DI ESSERE UNA ROADMAP.
+
+`docs/ROADMAP.md` era fermo all'audit funzionale del 4 agosto: le Fasi A–F, e
+una «sequenza consigliata per le prossime quattro settimane» scaduta da cinque.
+Nel frattempo il progetto ha attraversato undici ere e ha imparato a telefonare.
+Chi cercava l'ordine delle cose lo ricostruiva dal changelog.
+
+Adesso è la **source of truth**: versione corrente, prossimo sprint,
+dipendenze, criteri di uscita e percorso fino al lancio stanno lì. Le Fasi A–F
+non sono state cancellate — sono confluite nelle Ere 0–2, e dove una riga è
+stata superata da un lavoro successivo è detto per nome.
+
+**Tre parti.** Le undici ere già percorse, con obiettivo, deliverable ed exit
+criteria. L'arco aperto dell'azione nel mondo reale, V3.13 → V3.22, con
+`V3.15.2` dichiarato prossimo e `V3.16` (book/cancel) esplicitamente dopo — un
+meccanismo si irrobustisce prima di allargarlo. E il percorso V4 → ORA 1.0, con
+i tredici gate di lancio e lo stato di ciascuno.
+
+**Che cos'è la 1.0**, scritto una volta: capire il contesto → capire cosa conta
+→ ricevere o proporre un obiettivo → ottenere l'autorità corretta → agire nel
+mondo reale → gestire le eccezioni → riconciliare il risultato → informare la
+persona → imparare in modo governato. Il verbo che conta è **stabilmente**:
+ognuno di questi passaggi oggi esiste almeno una volta, nessuno esiste ancora
+per ogni dominio e in ogni condizione.
+
+**Due contraddizioni corrette.** `DEVELOPMENT_STATE.md` dichiarava ancora
+«V3.13 SPRINT 3.2 — APERTO» uno sprint che era chiuso e poi affiancato dal
+runtime a missione; adesso dice CLOSED e spiega che il runtime descritto lì è
+il *classico*, non l'unico. E questo changelog si fermava al 13 settembre,
+saltando cinque sprint.
+
+**Debito dichiarato, non nascosto** — l'architettura cognitiva Prompt 7.x è
+lavoro vero che non sta in nessun commit e vive solo in `stash@{1}`: la roadmap
+chiede una decisione, non uno sprint.
+
+Solo documentazione. Nessuna riga di codice.
+
+---
+
+## 2026-09-14 — V3.15.1a — VIA GLI ARTEFATTI LOCALI
+
+    UNA PROVA CHE GIRA SU UNA MACCHINA SOLA NON È UNA PROVA.
+
+Una prova del confirmation gate leggeva le dichiarazioni degli strumenti dal
+banco del PoC, che vive fuori dal repo in una cartella temporanea con dentro un
+nome utente e un UUID di sessione. Ovunque tranne che lì saltava con
+`pytest.skip`: non ha mai verificato niente per nessun altro, e quello che
+teneva fermo era una copia che nessuna telefonata usa più.
+
+Adesso legge `telephone.live.THE_SIX`, l'elenco che il runtime manda davvero a
+Gemini a ogni chiamata. Niente percorso, niente skip, **nessun file nuovo nel
+repo**, sei righe in meno e più copertura: la regola «nel dubbio fra
+availability e confirmation scegli availability» è tenuta ferma dove è scritta
+per il modello.
+
+    E UN NUMERO VERO IN UNA FIXTURE È UN NUMERO VERO SU GITHUB.
+
+Il numero personale usato per le prove reali compariva sette volte — un
+commento in `service.py`, quattro fixture, un'asserzione, una riga di
+changelog. Nessuna era un default di produzione: `_national()` è pura logica di
+formato e non contiene numeri. Tutte sostituite con `393000000000`: prefisso
+300 non assegnato a nessun operatore, ma forma valida, così attraversa le
+stesse tre scritture che il commento descrive e la prova prova ancora la cosa
+per cui era stata scritta.
+
+240 prove verdi, zero skip, typecheck del frontend pulito.
+
+---
+
+## 2026-09-14 — V3.15.1 — 16:00 → 18:00, PER DAVVERO
+
+    UNA TELEFONATA RIUSCITA NON ERA ANCORA UN CALENDARIO AGGIORNATO.
+
+Evento vero, creato dalla porta canonica e spinto su Google: «Dentista test»,
+16:00–16:45, `Europe/Rome`. Legame creato prima di comporre il numero.
+Telefonata reale di cinquanta secondi, voce Kore.
+
+**Il gate ha retto in linea.** Alla disponibilità — «sì, sì, è possibile alle
+18:00» — ORA non ha chiuso: ha chiesto «mi conferma che l'appuntamento è stato
+spostato alle 18:00?». Solo dopo «sì, confermo» ha completato. Il calendario
+risulta toccato quattordici secondi dopo la disponibilità e nove dopo la
+conferma: sulla sola disponibilità non è stato scritto niente.
+
+**L'applicazione è partita alla chiusura della sessione, non all'evento del
+carrier** — che è arrivato prima e non l'ha innescata. Due virgola un secondi
+dalla chiusura al record `applied`, di cui un virgola sei di andata e ritorno
+con Google.
+
+**Dopo:** stesso `google_event_id`, 18:00–18:45, durata conservata, un solo
+evento `confirmed` nella giornata. Secondo apply senza telefonata: zero
+scritture, `sync_version` fermo a 2, un solo record. `needs_user` su un secondo
+legame: `skipped`, calendario intatto.
+
+**Quattro fonti che raccontano la stessa cosa** — l'esito della missione, il
+record dell'applicazione, `PhoneCall.wrote`, e il calendario di Google.
+
+**POST-CALL CALENDAR APPLICATION V1 = PASS.**
+
+---
+
+## 2026-09-14 — V3.15 — L'ESITO DI UNA TELEFONATA DIVENTA UN FATTO
+
+    CHI HA PARLATO NON SCRIVE NIENTE NEL MONDO.
+
+Un audit aveva trovato il punto: un esito validato conteneva `new_time:
+"18:00"` e **non conteneva quale evento**. Lo studio confermava, il backend
+validava, la scheda diceva «Appuntamento spostato alle 18:00» — e il calendario
+restava alle 16:00. Due verità, e quella che una persona apre la mattina era
+quella vecchia.
+
+**L'oggetto si decide prima della telefonata.** `CallMissionBinding` nasce al
+preparativo, quando c'è ancora qualcuno a cui chiedere «quale appuntamento?».
+Porta *quando* è l'appuntamento — che serve a parlare — e *quale* è, che non
+serve e resta sul server: `for_the_model()` non contiene l'identificativo, come
+non contiene il numero di telefono. Cercarlo dopo per somiglianza vorrebbe dire,
+prima o poi, spostare quello di qualcun altro.
+
+**Un esito si applica una volta sola, e si può dimostrare.** La chiave
+`missione|operazione|oggetto` è l'`_id` del documento: a decidere se una cosa è
+già stata fatta non è un `if`, è il database. Il record nasce `pending` prima
+della scrittura, così un secondo tentativo non arriva nemmeno all'adattatore.
+
+**Tre controlli prima di toccare qualcosa** — l'autorità (le chiavi confermate
+stanno in un insieme chiuso: una telefonata per spostare non ha il permesso di
+cambiare l'indirizzo), l'identità (l'evento parte ancora da dove partiva, e
+l'ora che la controparte dice di aver spostato è quella che c'è), la traduzione
+(«alle 18:00» diventa una data vera, col fuso dell'evento e la durata che
+aveva — un cambio d'ora attraversato non sposta l'appuntamento di un'ora).
+
+**`conflict` non è `failed`, ed è per questo che esiste.** Fallito vuol dire
+che si può riprovare; in conflitto vuol dire che nessuno ha sbagliato e
+riprovare scriverebbe sopra la decisione più recente di qualcuno.
+
+**Se l'applicazione fallisce, la telefonata resta riuscita.** Nessuno riscrive
+l'esito: la controparte ha confermato, è successo, ed è vero anche se Google
+non ha risposto. Quello che cambia è la frase sulla scheda — «Hanno confermato
+lo spostamento alle 18:00, ma non sono riuscita ad aggiornare il calendario» —
+perché la frase rassicurante manderebbe qualcuno a fidarsi di un calendario
+rimasto alle sedici.
+
+**Un cancello che la specifica non chiedeva:** il consenso al calendario. Il sì
+alla telefonata e il permesso con cui il calendario è collegato sono due
+autorità da due momenti diversi, e il secondo può essere stato revocato
+stamattina. Ogni altra scrittura in calendario ci passa; questa arrivava per
+una strada nuova, e una strada nuova non è un motivo per saltare un cancello.
+
+`PhoneCall.wrote` — dichiarato dal primo giorno e mai scritto da nessuno —
+finalmente si riempie, come annotazione e non come meccanismo.
+
+Solo `reschedule`. `cancel` e `book` cambiano il mondo quanto uno spostamento e
+meritano ciascuna il proprio giro di prove.
+
+---
+
+## 2026-09-14 — V3.14 — IL RESOCONTO DI UNA COMMISSIONE
+
+    QUESTA NON È UNA CONSOLE. È IL RESOCONTO DI UNA COMMISSIONE.
+
+Dall'altra parte di questa schermata non c'è chi ha scritto il runtime: c'è
+qualcuno che ha chiesto a ORA di spostare un appuntamento e vuole sapere com'è
+andata. La differenza è tutta nel linguaggio — «Appuntamento spostato alle 18»,
+non `mission_status=success`.
+
+**E sono tre cose diverse, non una.** Com'è finita la linea, com'è finita la
+missione, e come si dice a una persona. Una telefonata può riuscire benissimo e
+riportare che non si è potuto fare niente. Si legge **prima la linea, poi la
+missione**: se non ha risposto nessuno non c'è nessuna missione da raccontare, e
+dire «non riuscita» a una chiamata mai cominciata sposterebbe la colpa sul posto
+sbagliato.
+
+**Il riassunto non lo scrive chi ha parlato.** Nasce dall'esito già validato dal
+backend, e il livello di presentazione non tocca il database: nessuna
+ricostruzione a posteriori di che cosa sia successo.
+
+**Due impaginazioni, una pagina.** Tabella sopra gli 860 px, perché le colonne
+sono il modo in cui si scorrono venti telefonate; righe impilate sotto, perché
+cinque colonne su 375 px sono cinque troncamenti. La struttura viene dal
+mockup, il disegno no: filetti invece di riquadri, un peso solo di testo, e
+colore solo dove uno stato se l'è guadagnato.
+
+**La trascrizione si «mostra», non si «genera»:** il testo c'era già, raccolto
+mentre si parlava. L'audio non c'è mai stato.
+
+Chiamate vive nella barra laterale del desktop, fra ORA e Attività. Non sul
+telefono: sei voci etichettate non entrano in 375 px, e la prima a troncarsi
+sarebbe Documenti.
+
+---
+
+## 2026-09-14 — V3.13 — SEI DIFETTI TROVATI DALL'ORECCHIO, NESSUNO DAI TEST
+
+Otto telefonate vere, e ogni difetto trovato parlando.
+
+La voce andava a tratti — duecento millisecondi di cuscino prima di aprire
+bocca. Non riagganciava — un contratto di commiato. Riagganciava dopo aver
+fatto una domanda — **chi fa una domanda aspetta la risposta**. Silenzio sul
+primo «pronto» — le orecchie si scaldano mentre squilla, e l'apertura diventa
+proattiva: da 7,7 secondi a 1,5. Il gate aggirato sulla disponibilità — una
+seconda regola, anch'essa temporale. Audio a raffica — una barriera a scadenza.
+
+    UN SEGNALE SI PERDE. UN CREDITO SI ACCUMULA.
+
+Un `asyncio.Event` perdeva 207 battiti su 1.280 in una telefonata vera.
+Sostituito con crediti che si accumulano: un frame in ingresso è un credito. Il
+metronomo non è nostro, è della linea — misurato 49,1, 49,4 e 49,1 frame al
+secondo su tre chiamate, silenzi compresi, contro cinquanta teorici.
+
+    IL CALCOLO ERA GIUSTO. IL TIMER NO.
+
+`asyncio.sleep(0.020)` su questo host ne dorme trentuno virgola due;
+`asyncio.sleep(0.008)` ne dorme zero virgola tre. Sbaglia in entrambe le
+direzioni. La barriera chiede una volta sola e, se il timer mente, smette di
+chiederglielo — senza mai girare a vuoto sulla CPU.
+
+**Alla fine:** zero riagganci su chi sta parlando, zero raffiche, p50 del primo
+audio fra 1,4 e 1,6 secondi. Restano dichiarati i p90/p95 regrediti sull'ultima
+chiamata e i buchi a monte del fornitore, fino a 837 millisecondi.
+
+---
+
+## 2026-09-13 — V3.13 — UN ESECUTORE CON UNA MISSIONE SOLA
+
+    ORA SA TUTTO. CHI TELEFONA SA UNA COSA.
+    NON SONO FRANCESCO. SONO L'ASSISTENTE DI FRANCESCO.
+
+Accanto al runtime classico — ORA intera, Deepgram in entrambi i versi — ne
+nasce un secondo, su Gemini Live, per le telefonate che sono una trattativa
+scritta prima. La scelta fra i due sta in un punto solo, e il trasporto non sa
+quale dei due stia conducendo.
+
+**Il pacchetto della missione pesa ~280 token** contro i 18.650 del prompt di
+ORA. Un elenco delle cose aperte nella vita di qualcuno non serve a spostare un
+appuntamento dal dentista, e quello che non serve non si manda. Non contiene il
+numero di telefono: lo compone il trasporto, e un dato che non serve a chi lo
+riceve non gli si dà.
+
+**Sei strumenti, non trentanove**, e nessuno dei sei tocca un dominio.
+
+**Il confirmation gate sta nel backend.** Due regole, entrambe temporali,
+nessuna lettura di frasi: una conferma non può stare nello stesso respiro della
+disponibilità, e una missione che cambia il mondo non si chiude al primo turno.
+Nessun classificatore, nessun secondo di latenza in più.
+
+**Chi chiama si presenta, e non si presenta come qualcun altro.** L'apertura
+non è un suggerimento di stile: è un contratto con due contenuti obbligatori
+che il runtime verifica di aver consegnato, e che riconosce se qualcuno prova a
+spacciarsi per la persona che l'ha mandato.
+
+Manca la chiave, manca il modello, manca la missione: si torna al classico, e
+chi è dall'altra parte non se ne accorge. Un flag non è un motivo per far cadere
+una telefonata.
+
+---
+
 ## 2026-09-13 — V3.13 — UN BUDGET DI ATTESA PER CHI ASPETTA AD ALTA VOCE
 
     IL BUDGET STRETTO VALE PER IL PRIMO CAVALLO, NON PER L'ULTIMO.
