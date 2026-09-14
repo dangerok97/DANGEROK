@@ -346,7 +346,7 @@ def _national(number: str) -> str:
         return "+" + clean[2:]
     #     UN NUMERO SCRITTO COME LO SCRIVE UN OPERATORE È UN NUMERO.
     #
-    # `393774714389` — prefisso internazionale, solo cifre, senza il più — è
+    # `393000000000` — prefisso internazionale, solo cifre, senza il più — è
     # la forma in cui i fornitori di telefonia lo chiedono e lo restituiscono,
     # ed era l'unica che qui tornava vuota: dodici cifre che cominciano per
     # tre non entravano in nessun caso, e la chiamata si fermava con «numero

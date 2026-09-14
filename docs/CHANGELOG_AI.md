@@ -253,7 +253,7 @@ ogni richiesta autenticata moriva con un 500, e nessuna prova se n'era accorta
 perché parlavano tutte al servizio e mai alla porta. `rejected` era tradotto in
 «non ha risposto nessuno», cioè in una frase che dà la colpa alla persona
 chiamata per qualcosa successo prima che il suo telefono squillasse. E un
-numero scritto `393774714389` — la forma in cui lo scrivono gli operatori —
+numero scritto `393000000000` — la forma in cui lo scrivono gli operatori —
 veniva respinto da ORA come «non italiano» prima di raggiungere la rete.
 
 **Resta per lo Sprint 3.2:** dare a quei frame qualcuno che li ascolti.

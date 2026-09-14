@@ -214,24 +214,21 @@ def test_the_enum_says_out_loud_which_reading_is_the_cheap_one():
     Se il tipo giusto nel dubbio non è dichiarato nello schema dello
     strumento, questa prova sta verificando una convenzione che nessuno ha
     mai comunicato a chi deve rispettarla.
+
+        E SI GUARDA LO SCHEMA CHE PARTE DAVVERO.
+
+    Prima questa prova leggeva il banco del PoC, che viveva fuori dal repo su
+    una macchina sola: si saltava ovunque tranne che lì, e teneva ferma una
+    copia che nessuna telefonata usa più. `THE_SIX` è l'elenco che il runtime
+    manda a Gemini a ogni chiamata vera — se la regola non è scritta lì, non è
+    scritta da nessuna parte.
     """
     import json
-    import sys as _s
 
-    scratch = os.path.join(
-        os.environ.get("TEMP", ""), "claude", "C--Users-asiac",
-        "02448b47-2a4f-4cfd-992e-1e2252db7296", "scratchpad",
-    )
-    if not os.path.isdir(scratch):
-        import pytest
-
-        pytest.skip("il banco del PoC non è su questa macchina")
-    if scratch not in _s.path:
-        _s.path.insert(0, scratch)
-    from mission_dentista import STRUMENTI
+    from telephone.live import THE_SIX
 
     schemi = {
-        f["name"]: f for f in STRUMENTI[0]["function_declarations"]
+        f["name"]: f for f in THE_SIX[0]["function_declarations"]
     }
     kind = schemi["record_call_fact"]["parameters"]["properties"]["kind"]
     assert set(kind["enum"]) == {

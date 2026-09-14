@@ -280,7 +280,7 @@ def _from_a_mandate(why: str):
     from telephone.models import Mandate, PhoneCall
 
     call = PhoneCall(
-        owner_id="u1", to_number="+393774714389", session_ref="s1",
+        owner_id="u1", to_number="+393000000000", session_ref="s1",
         calling_whom="Studio Dentistico Bianchi",
         mandate=Mandate(
             why_calling=why, may_agree_to=["confermare"],
