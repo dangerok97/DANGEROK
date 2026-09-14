@@ -1,6 +1,241 @@
 # ORA — Development State
 
-## V3.13 — SPRINT 3.2 — REAL-TIME TELEPHONE SPEECH RUNTIME — APERTO
+> **La roadmap canonica sta in `docs/ROADMAP.md`.** Versione corrente,
+> prossimo sprint, dipendenze e criteri di uscita si leggono lì. Questo
+> documento è il registro tecnico sprint per sprint, il più recente in alto,
+> e non ripete la roadmap.
+>
+> **Versione corrente: V3.15.1a — COMPLETATA · Prossimo: V3.15.2.**
+
+---
+
+## V3.15.1a — REPO HYGIENE — CLOSED
+
+**Due artefatti che non dovevano restare nel repo.**
+
+    UNA PROVA CHE GIRA SU UNA MACCHINA SOLA NON È UNA PROVA.
+
+`test_the_enum_says_out_loud_which_reading_is_the_cheap_one` leggeva le
+dichiarazioni degli strumenti dal banco del PoC, che vive fuori dal repo in
+una cartella temporanea con dentro un nome utente e un UUID di sessione.
+Ovunque tranne che lì saltava con `pytest.skip`. Adesso legge
+`telephone.live.THE_SIX` — l'elenco che il runtime manda davvero a Gemini a
+ogni chiamata. Niente percorso, niente skip, **nessun file nuovo**, e più
+copertura di prima: teneva ferma una copia, adesso tiene ferma l'originale.
+
+    E UN NUMERO VERO IN UNA FIXTURE È UN NUMERO VERO SU GITHUB.
+
+Sette occorrenze del numero personale usato per le prove reali — un commento
+in `service.py`, quattro fixture, un'asserzione, una riga di changelog —
+sostituite con `393000000000`. Nessuna era un default di produzione:
+`_national()` è pura logica di formato e non contiene numeri. Il prefisso 300
+non è assegnato a nessun operatore, ma la forma resta valida e attraversa le
+stesse tre scritture che il commento descrive.
+
+**Verificato:** zero path utente, zero numeri reali, zero skip dovuti alla
+macchina, 240 prove verdi, typecheck frontend pulito.
+
+---
+
+## V3.15.1 — REAL POST-CALL APPLICATION GATE — PASS
+
+**La prova sul vero: 16:00 → 18:00, su Google, per davvero.**
+
+    UNA TELEFONATA RIUSCITA NON ERA ANCORA UN CALENDARIO AGGIORNATO.
+
+Evento vero creato dalla porta canonica e spinto su Google
+(`masv27f7ade0067ab9j73v1oa4`, «Dentista test», 16:00–16:45, `Europe/Rome`).
+Legame creato prima di comporre il numero. Telefonata reale di 50 secondi,
+voce Kore, runtime a missione.
+
+**Il gate ha retto in linea.** Alla disponibilità — «sì, sì, è possibile alle
+18:00» — ORA **non ha chiuso**: ha chiesto «mi conferma che l'appuntamento è
+stato spostato alle 18:00?». Solo dopo «sì, confermo» ha completato.
+
+**Timeline** (t₀ = risposta umana)
+
+| | Δ t₀ |
+|---|---|
+| runtime a missione pronto | +3,3 s |
+| disponibilità — **nessuna scrittura** | +38,3 s |
+| conferma della controparte | +43,3 s |
+| `session.close()` → applicazione avviata | +50,4 s |
+| Google ha scritto | +51,9 s |
+| record `applied` · `PhoneCall.wrote` | +52,5 s |
+
+Applicazione completa in **~2,1 s**, di cui ~1,6 s di andata e ritorno con
+Google. Il `completed` del carrier è arrivato **prima** dell'applicazione e non
+l'ha innescata: il trigger è il `finally` del socket.
+
+**I nove criteri, tutti verificati** — evento reale alle 16 · conferma alle 18 ·
+stesso `google_event_id` alle 18:00–18:45 con durata conservata · nessun
+doppione (un solo `confirmed` sul 14/09) · `application_status = applied` ·
+`wrote` valorizzato · history coerente · secondo apply senza scritture
+(`sync_version` 2 → 2) · `needs_user` che non tocca niente.
+
+**Quattro fonti che concordano:** `CallMissionOutcome`,
+`CallMissionApplication`, `PhoneCall.wrote`, Google Calendar.
+
+---
+
+## V3.15 — POST-CALL APPLICATION LAYER V1 — CLOSED
+
+**Da «hanno confermato» a «è spostato», una volta sola.**
+
+    CHI HA PARLATO NON SCRIVE NIENTE NEL MONDO.
+    «ALLE 18 ABBIAMO POSTO» NON È «L'HO SPOSTATO ALLE 18».
+
+L'audit aveva trovato il punto: `confirmed_changes` conteneva `new_time:
+"18:00"` e **non conteneva quale evento**. La risposta non è cercarlo dopo.
+
+| Pezzo | File | Sa una cosa sola |
+|------|------|------|
+| `MissionTarget` · `CallMissionBinding` | `telephone/binding.py` | a che cosa è attaccata questa telefonata |
+| `CallMissionApplication` | `telephone/application.py` | che cosa è stato fatto nel mondo |
+| `adapter_for` | `telephone/domains/__init__.py` | chi sa ricevere un esito |
+| adattatore calendario | `telephone/domains/calendar.py` | tradurre e scrivere, o dire perché no |
+
+**L'oggetto si decide prima.** `prepare_a_phone_call` accetta `calendar_ref`:
+al momento del preparativo, quando c'è ancora qualcuno a cui chiedere «quale
+appuntamento?». Il legame porta *quando* è l'appuntamento — che serve a
+parlare — e *quale* è, che non serve e resta sul server. Provato:
+`for_the_model()` non contiene l'`entity_id`, come non contiene il numero.
+
+**L'idempotenza non è un `if`.** La chiave `missione|operazione|oggetto` è
+l'`_id` del documento. Il record nasce `pending` *prima* della scrittura: un
+secondo tentativo non arriva nemmeno all'adattatore.
+
+**Tre controlli prima di toccare qualsiasi cosa** — autorità (chiavi dentro un
+insieme chiuso; una telefonata per spostare non cambia l'indirizzo) · identità
+(stessa partenza del legame, stessa ora detta dalla controparte) · traduzione
+(fuso dell'evento, durata conservata, cambio d'ora attraversato).
+
+**Un quinto stato, `conflict`.** Fallito vuol dire riprova; in conflitto vuol
+dire vai a guardare. Due frasi diverse da dire a una persona.
+
+**Se l'applicazione fallisce, la telefonata resta riuscita.** Nessuno riscrive
+`metrics.outcome`: la controparte *ha* confermato, ed è vero anche se Google
+non ha risposto. Quello che cambia è la frase sulla scheda — «Hanno confermato
+lo spostamento alle 18:00, ma non sono riuscita ad aggiornare il calendario».
+
+**Il cancello del consenso**, che la specifica non chiedeva: il sì alla
+telefonata e il permesso con cui il calendario è collegato sono due autorità da
+due momenti diversi. Ogni altra scrittura in calendario ci passa.
+
+**34 prove**, A–L più la matematica pura della traduzione.
+
+---
+
+## V3.14 — CALL HISTORY V1 — CLOSED
+
+**Il resoconto di una commissione, non una console.**
+
+    QUESTA NON È UNA CONSOLE. È IL RESOCONTO DI UNA COMMISSIONE.
+
+Dall'altra parte non c'è chi ha scritto il runtime: c'è qualcuno che ha chiesto
+di spostare un appuntamento e vuole sapere com'è andata.
+
+**Tre insiemi di stati, non uno** — `call_status` (com'è finita la linea),
+`mission_status` (com'è finita la missione), `presentation_status` (come si
+dice a una persona: `in_corso`, `completata`, `serve_una_decisione`,
+`nessuna_risposta`, `occupato`, `segreteria`, `non_riuscita`, `interrotta`).
+Si legge **prima la linea, poi la missione**: se non ha risposto nessuno non
+c'è nessuna missione da raccontare.
+
+**`history.py` non tocca il database.** Il riassunto nasce dall'esito già
+validato dal backend, mai da una lettura a posteriori del calendario.
+
+**Superfici** — elenco (tabella ≥860px, righe impilate sotto), dettaglio,
+trascrizione a richiesta («mostra», non «genera»: il testo c'era già, l'audio
+non c'è mai stato). Chiamate vive nella sidebar desktop fra ORA e Attività,
+`railOnly`: la barra del telefono era piena, e una sesta voce su 375px
+tronca la prima etichetta.
+
+**Debito dichiarato** — paginazione sospesa; `segreteria` mai emesso (nessun
+segnale affidabile, `machine_detection` non cablato).
+
+---
+
+## V3.13 — REAL CALL HARDENING — CLOSED
+
+**Sei difetti trovati dall'orecchio di una persona, nessuno dai test.**
+
+Otto telefonate reali. Ogni difetto trovato parlando, non provando.
+
+| Difetto | Risposta |
+|---|---|
+| la voce andava a tratti | cuscino di 200 ms prima di aprire bocca |
+| non riagganciava | contratto di commiato con nudge limitati |
+| riagganciava dopo una domanda | `CHI FA UNA DOMANDA ASPETTA LA RISPOSTA` |
+| silenzio sul primo «pronto» | prewarm delle orecchie, apertura proattiva |
+| gate aggirato sulla disponibilità | seconda regola, temporale, nel ledger |
+| audio a raffica | barriera a scadenza monotona |
+
+    UN SEGNALE SI PERDE. UN CREDITO SI ACCUMULA.
+
+`asyncio.Event` perdeva 207 battiti su 1.280 in una chiamata vera. Sostituito
+con `BeatCredits`: un frame in ingresso è un credito, i crediti si accumulano.
+Il metronomo non è nostro, è della linea — misurato 49,1–49,4 frame/s su
+chiamate di 47–71 s, `inbound_gap_p50 = 19,8 ms`.
+
+    IL CALCOLO ERA GIUSTO. IL TIMER NO.
+
+`asyncio.sleep(0.020)` su questo host ne dorme 31,2; `asyncio.sleep(0.008)`
+ne dorme 0,3. Il timer sbaglia in **entrambe** le direzioni. La barriera
+chiede una volta e, se il timer mente, smette di chiederglielo.
+
+**Esiti sul vero** — `hangup_while_human_speaking = 0` su chiamate 5–8 ·
+`longest_burst_run = 0` · apertura da 7,7 s a 1,5 s · p50 primo audio 1,4–1,6 s.
+
+**Debito dichiarato** — p90/p95 regrediti sulla chiamata 8 (23,4→29,9 e
+26,8→34,1 ms con 112.394 cessioni cooperative); buchi a monte di Gemini fino a
+837 ms contro un cuscino di 200; deriva di lingua nella trascrizione d'ingresso.
+
+---
+
+## V3.13 — GEMINI LIVE + VONAGE CALL MISSION RUNTIME — CLOSED
+
+**Un esecutore con una missione sola, accanto a ORA intera.**
+
+    ORA SA TUTTO. CHI TELEFONA SA UNA COSA.
+    MINIMA DIVULGAZIONE: SI PORTA LA MISSIONE, NON LA PERSONA.
+    NON SONO FRANCESCO. SONO L'ASSISTENTE DI FRANCESCO.
+
+`wss://generativelanguage.googleapis.com/…BidiGenerateContent`, modello
+`gemini-3.1-flash-live-preview`, voce **Kore**, uscita a 24 kHz ricampionata a
+16 per il filo Vonage.
+
+| Pezzo | File | Sa una cosa sola |
+|------|------|------|
+| `MissionVoiceSession` | `telephone/live.py` | condurre **questa** missione |
+| `CallMissionPacket` | `telephone/mission.py` | che cosa serve per parlare |
+| `MissionLedger` | `telephone/mission.py` | a che punto è la trattativa |
+| `Introduction` | `telephone/introduction.py` | il contratto dell'apertura |
+| `the_voice_for` | `telephone/runtime.py` | **l'unico punto** in cui si sceglie |
+
+**Il packet pesa ~280 token** contro i 18.650 del prompt di ORA. Non contiene
+il numero di telefono, e da V3.15 non contiene l'identificativo dell'evento.
+
+**Sei strumenti, non trentanove** — `get_call_context`,
+`get_allowed_alternatives`, `request_user_confirmation`, `record_call_fact`,
+`complete_mission`, `fail_mission`. **Nessuno tocca un dominio.**
+
+**Il confirmation gate è backend-side.** Due regole, entrambe temporali,
+nessuna lettura di frasi: una conferma non può stare nello stesso respiro della
+disponibilità, e una missione che cambia il mondo non si chiude al primo turno.
+Nessun classificatore LLM, nessun secondo di latenza aggiunto.
+
+**Il contratto di presentazione** verifica di aver consegnato due contenuti
+obbligatori — di chi siamo l'assistente, e perché chiamiamo — e riconosce
+l'impersonificazione.
+
+**Il classico resta il valore di riposo.** Manca la chiave, manca il modello,
+manca la missione: si torna al classico e chi è dall'altra parte non se ne
+accorge.
+
+---
+
+## V3.13 — SPRINT 3.2 — REAL-TIME TELEPHONE SPEECH RUNTIME — CLOSED
 
 **La voce che va e quella che torna, dentro la stessa telefonata.**
 
@@ -403,9 +638,19 @@ grezzi**. Ci sono prove che guardano il codice e falliscono se compaiono
 
 ### Il reality gate
 
-**In corso.** Richiede una telefonata vera: due turni risposti nella stessa
-chiamata, un'interruzione con «Aspetta», e zero byte di audio persistito.
-**Lo sprint resta aperto finché non passa.**
+**Chiuso sul vero.** Le tre condizioni sono state verificate su telefonate
+reali: due turni risposti nella stessa chiamata, interruzione con «Aspetta»
+onorata, zero byte di audio persistito.
+
+    QUESTO RUNTIME NON È PIÙ L'UNICO, ED È UNA COSA VOLUTA.
+
+Il runtime descritto qui sopra — Deepgram in entrambi i versi, ORA intera a
+condurre — è il **runtime classico**, e resta il valore di riposo di
+`ORA_VOICE_RUNTIME`. Accanto gli è nato il **runtime a missione** su Gemini
+Live, per le telefonate che sono una trattativa scritta prima. La scelta fra i
+due sta in un punto solo, `telephone/runtime.py`, e il trasporto non sa quale
+dei due sta conducendo. Vedi le sezioni V3.13 — GEMINI LIVE e successive, in
+testa a questo documento.
 
 ---
 
