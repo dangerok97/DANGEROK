@@ -18,6 +18,7 @@ rendono il secondo fatto un fatto:
 
 from __future__ import annotations
 
+import asyncio
 import os
 import sys
 
@@ -38,9 +39,17 @@ class GiaPreso(Exception):
 
 def _combacia(riga, query) -> bool:
     for chiave, atteso in (query or {}).items():
+        if chiave == "$or":
+            if not any(_combacia(riga, ramo) for ramo in atteso):
+                return False
+            continue
         vero = riga.get(chiave)
-        if isinstance(atteso, dict) and "$in" in atteso:
-            if vero not in atteso["$in"]:
+        if isinstance(atteso, dict):
+            if "$in" in atteso and vero not in atteso["$in"]:
+                return False
+            if "$exists" in atteso and (chiave in riga) != atteso["$exists"]:
+                return False
+            if "$lt" in atteso and not (vero is not None and vero < atteso["$lt"]):
                 return False
         elif vero != atteso:
             return False
@@ -86,6 +95,23 @@ class Tabella:
             raise GiaPreso(ident)
         self.righe.append(dict(documento))
         self.scritture += 1
+
+    async def find_one_and_update(self, query, cambio):
+        """
+        Trova e scrive nello stesso gesto, o non fa niente.
+
+            È L'ATOMICITÀ, ED È TUTTO IL PUNTO DELLA RIVENDICAZIONE.
+
+        Fra il trovare e lo scrivere non ci deve stare un secondo processo.
+        Qui dentro non c'è un `await` in mezzo, che su un loop solo è
+        esattamente la stessa garanzia.
+        """
+        for r in self.righe:
+            if _combacia(r, query):
+                r.update(cambio.get("$set") or {})
+                self.scritture += 1
+                return dict(r)
+        return None
 
     async def update_one(self, query, cambio, upsert=False):
         for r in self.righe:
@@ -1284,3 +1310,225 @@ def test_a_pending_application_does_not_read_as_all_done():
     assert riga.startswith("Hanno confermato lo spostamento alle 18:00,")
     assert "sto verificando l'aggiornamento del calendario" in riga
     assert scheda["changed_something"] is False
+
+
+# ---------------------------------------------------------------------------
+# 4 · Chi chiama il recupero, e chi impedisce che lo chiamino in due
+# ---------------------------------------------------------------------------
+#
+#     UN RECUPERO CHE NESSUNO CHIAMA NON RECUPERA NIENTE.
+
+@pytest.mark.asyncio
+async def test_two_workers_recovering_together_write_once(mondo):
+    """
+    Due recuperi in parallelo sullo stesso record appeso → una scrittura sola.
+
+        LA RIVENDICAZIONE LA FA IL DATABASE, NON UN `if`.
+
+    Un `find_one` seguito da un `update_one` ha in mezzo una finestra, e in
+    quella finestra ci stanno due processi. Chi arriva secondo deve trovare il
+    filtro che non combacia più e tornare a mani vuote.
+    """
+    from telephone.application import APPLICATIONS, recover_stale
+
+    await _appesa(mondo, quando=_vecchia())
+
+    primo, secondo = await asyncio.gather(
+        recover_stale(mondo), recover_stale(mondo),
+    )
+
+    # Uno solo dei due ha chiuso qualcosa, e non importa quale.
+    assert sorted([len(primo), len(secondo)]) == [0, 1]
+    assert len(FintoGoogle.scritture) == 1
+    assert len(mondo[APPLICATIONS].righe) == 1
+    assert _quando(mondo).startswith("2026-09-14T18:00")
+
+
+@pytest.mark.asyncio
+async def test_a_claim_is_released_when_the_record_closes(mondo):
+    """La presa in carico serve finché è aperta. Chiusa, si libera."""
+    from telephone.application import APPLICATIONS, recover_stale
+
+    await _appesa(mondo, quando=_vecchia())
+    await recover_stale(mondo)
+
+    assert mondo[APPLICATIONS].righe[0]["claimed_at"] == ""
+    assert mondo[APPLICATIONS].righe[0]["application_status"] == "applied"
+
+
+@pytest.mark.asyncio
+async def test_a_claim_left_by_a_dead_worker_expires(mondo):
+    """
+        UN LOCK CHE NON SCADE È UN RECORD PERSO PER SEMPRE.
+
+    Chi muore mentre tiene la rivendicazione lascia il proprio nome sopra il
+    record. Senza scadenza nessuno potrebbe più toccarlo: sarebbe il guasto
+    che stiamo sistemando, ricreato un piano più sotto.
+    """
+    from telephone.application import APPLICATIONS, LEASE_S, recover_stale
+
+    await _appesa(mondo, quando=_vecchia(minuti=30))
+    # Un nome lasciato lì da un processo morto mezz'ora fa.
+    mondo[APPLICATIONS].righe[0]["claimed_at"] = _vecchia(
+        minuti=int(LEASE_S / 60) + 10)
+
+    chiusi = await recover_stale(mondo)
+
+    assert len(chiusi) == 1
+    assert chiusi[0].application_status == "applied"
+
+
+@pytest.mark.asyncio
+async def test_a_fresh_claim_is_respected(mondo):
+    """E una presa in carico viva non si scavalca."""
+    from telephone.application import APPLICATIONS, recover_stale
+    from datetime import datetime, timezone
+
+    await _appesa(mondo, quando=_vecchia())
+    mondo[APPLICATIONS].righe[0]["claimed_at"] = datetime.now(
+        timezone.utc).isoformat()
+
+    assert await recover_stale(mondo) == []
+    assert FintoGoogle.scritture == []
+    assert mondo[APPLICATIONS].righe[0]["application_status"] == "pending"
+
+
+@pytest.mark.asyncio
+async def test_the_loop_scans_at_startup_and_then_keeps_going(mondo, monkeypatch):
+    """
+    Una passata all'avvio, e poi una ogni intervallo.
+
+    All'avvio perché è il momento in cui è **certo** che ci sia qualcosa da
+    recuperare: se il processo precedente è morto in mezzo a due scritture, il
+    suo `pending` è lì che aspetta proprio adesso.
+    """
+    import telephone.recovery as giro
+
+    passate = []
+
+    async def conta(db, quale):
+        passate.append(quale)
+        return 0
+
+    monkeypatch.setattr(giro, "_one_pass", conta)
+    monkeypatch.setattr(giro, "EVERY_S", 0.01)
+
+    giro.start_recovery(mondo)
+    await asyncio.sleep(0.05)
+    await giro.stop_recovery()
+
+    assert passate[0] == "avvio"
+    assert "periodica" in passate[1:], "il giro non ha continuato"
+
+
+@pytest.mark.asyncio
+async def test_starting_it_twice_does_not_make_two_loops(mondo, monkeypatch):
+    """Due cicli sullo stesso database sarebbero lavoro doppio per niente."""
+    import telephone.recovery as giro
+
+    async def niente(db, quale):
+        return 0
+
+    monkeypatch.setattr(giro, "_one_pass", niente)
+    giro.start_recovery(mondo)
+    primo = giro._task
+    giro.start_recovery(mondo)
+    try:
+        assert giro._task is primo
+    finally:
+        await giro.stop_recovery()
+
+
+@pytest.mark.asyncio
+async def test_one_broken_pass_does_not_kill_the_loop(mondo, monkeypatch):
+    """
+        UN CICLO CHE MUORE AL PRIMO INTOPPO È PEGGIO DI NESSUN CICLO.
+
+    Perché sembra che ci sia. Qualunque cosa succeda dentro una passata si
+    annota e si aspetta il giro dopo.
+    """
+    import telephone.recovery as giro
+
+    tentativi = []
+
+    async def a_volte_esplode(db):
+        tentativi.append(1)
+        if len(tentativi) == 1:
+            raise RuntimeError("il database non risponde")
+        return []
+
+    monkeypatch.setattr(
+        "telephone.application.recover_stale", a_volte_esplode, raising=True)
+    monkeypatch.setattr(giro, "EVERY_S", 0.01)
+
+    giro.start_recovery(mondo)
+    await asyncio.sleep(0.06)
+    task = giro._task
+    vivo = task is not None and not task.done()
+    await giro.stop_recovery()
+
+    assert len(tentativi) >= 2, "il giro si è fermato al primo errore"
+    assert vivo, "il giro è morto invece di aspettare il minuto dopo"
+
+
+@pytest.mark.asyncio
+async def test_a_single_broken_pass_returns_zero_instead_of_raising(mondo, monkeypatch):
+    """La passata non solleva mai verso chi la chiama."""
+    import telephone.recovery as giro
+
+    async def esplode(db):
+        raise RuntimeError("niente rete")
+
+    monkeypatch.setattr(
+        "telephone.application.recover_stale", esplode, raising=True)
+    assert await giro._one_pass(mondo, "prova") == 0
+
+
+@pytest.mark.asyncio
+async def test_shutdown_cancels_the_loop_cleanly(mondo, monkeypatch):
+    """
+    Spegnere non aspetta e non lascia niente acceso.
+
+        CANCELLARE NON PERDE NIENTE.
+
+    Ogni cosa da fare è durevole in Mongo, e una rivendicazione presa quando
+    il processo muore torna libera appena scade.
+    """
+    import telephone.recovery as giro
+
+    async def lenta(db, quale):
+        await asyncio.sleep(3600)
+        return 0
+
+    monkeypatch.setattr(giro, "_one_pass", lenta)
+
+    giro.start_recovery(mondo)
+    task = giro._task
+    await asyncio.sleep(0)
+    assert task is not None and not task.done()
+
+    await giro.stop_recovery()
+
+    assert task.cancelled() or task.done()
+    assert giro._task is None
+    # E spegnere due volte non è un errore.
+    await giro.stop_recovery()
+
+
+def test_the_server_turns_it_on_and_off():
+    """
+    §: il giro è agganciato al runtime, non a un cron esterno.
+
+    Una prova strutturale, perché è esattamente la riga che qualcuno toglie
+    per sbaglio durante un refactor dell'avvio — e senza quella riga tutto il
+    resto di questo file continua a passare mentre nessuno recupera niente.
+    """
+    from pathlib import Path
+
+    server = Path(__file__).resolve().parents[1] / "server.py"
+    codice = server.read_text(encoding="utf-8")
+
+    assert "from telephone.recovery import start_recovery" in codice
+    assert "start_recovery(db)" in codice
+    assert "from telephone.recovery import stop_recovery" in codice
+    assert "await stop_recovery()" in codice

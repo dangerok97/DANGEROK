@@ -514,6 +514,20 @@ async def startup():
     except Exception:
         logger.exception("Permissions registry sync failed")
 
+    # Chi ripassa a chiudere le applicazioni post-chiamata rimaste a metà.
+    #
+    #     NON SI ASPETTA, E NON PUÒ IMPEDIRE L'AVVIO.
+    #
+    # Parte come attività a sé: il backend finisce di alzarsi mentre lei
+    # lavora. Un recupero lento non deve ritardare la prima richiesta di
+    # nessuno, e un recupero rotto non deve tenere giù il server.
+    try:
+        from telephone.recovery import start_recovery
+
+        start_recovery(db)
+    except Exception:
+        logger.exception("Post-call recovery loop failed to start (non-fatal)")
+
     logger.info(
         "ORA backend ready. Modules online: decision_engine, life_graph, "
         "knowledge, auto_link, context_assembler, permissions, connectors, "
@@ -523,6 +537,16 @@ async def startup():
 
 @app.on_event("shutdown")
 async def shutdown():
+    # Il giro dei recuperi si cancella e basta: ogni cosa da fare è durevole
+    # in Mongo, e una rivendicazione presa quando il processo muore torna
+    # libera appena scade. Si perde latenza, non lavoro.
+    try:
+        from telephone.recovery import stop_recovery
+
+        await stop_recovery()
+    except Exception:
+        logger.exception("Post-call recovery shutdown failed (non-fatal)")
+
     # Cancel the orchestration worker without draining it: anything queued is
     # still pending in Mongo, so cancelling loses no work — only latency.
     try:
