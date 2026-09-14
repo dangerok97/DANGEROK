@@ -1198,6 +1198,22 @@ class ToolRegistry:
                                 "which event they mean, ask them first."
                             ),
                         },
+                        "proceed_even_if_past": {
+                            "type": "boolean",
+                            "description": (
+                                "Only after the person has said yes to the "
+                                "question in `ask_this_first`. When the event "
+                                "they named has already started, this tool "
+                                "refuses to prepare the call and hands you a "
+                                "question to ask instead — because phoning a "
+                                "practice to move yesterday's appointment is "
+                                "usually the wrong event, and after the phone "
+                                "rings nobody can ask any more. Set this true "
+                                "and repeat the same `calendar_ref` once they "
+                                "have confirmed they mean it. Never set it on "
+                                "your own initiative."
+                            ),
+                        },
                     },
                     "required": ["to_number", "why_calling"],
                 },

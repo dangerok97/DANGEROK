@@ -242,7 +242,9 @@ def mondo(monkeypatch):
 
     db = FintoDb()
     db.calendar_event_drafts.righe.append(dict(APPUNTAMENTO))
-    db["phone_calls"].righe.append({"id": "tel_uno", "owner_id": "u1", "wrote": []})
+    chiamata = _chiamata()
+    chiamata.metrics = {"outcome": _esito().model_dump()}
+    db["phone_calls"].righe.append(chiamata.model_dump())
     return db
 
 
@@ -843,8 +845,12 @@ async def test_the_binding_is_made_before_anybody_dials(mondo):
     """
     from telephone.binding import bind_a_calendar_event, binding_for
 
-    legame, perche = await bind_a_calendar_event(
+    legame, perche, _ = await bind_a_calendar_event(
         mondo, call=_chiamata(), calendar_ref="calendar:cal_abc123",
+        # L'appuntamento del banco e' nel passato, e dal V3.15.2 la guardia lo
+        # ferma: qui si sta provando il legame, non la guardia, e il permesso
+        # esplicito e' il modo di dirlo.
+        even_if_it_is_past=True,
     )
     assert perche == ""
     assert legame.target.entity_id == "cal_abc123"
@@ -868,7 +874,7 @@ async def test_an_event_that_cannot_be_named_is_not_guessed(mondo, ref, pezzo):
     """
     from telephone.binding import bind_a_calendar_event
 
-    legame, perche = await bind_a_calendar_event(
+    legame, perche, _ = await bind_a_calendar_event(
         mondo, call=_chiamata(), calendar_ref=ref,
     )
     assert legame is None
@@ -889,7 +895,7 @@ async def test_a_call_that_only_asks_is_not_tied_to_anything(mondo):
     solo_chiedere = _chiamata(mandate=Mandate(
         why_calling="chiedere se lo studio è aperto sabato mattina",
     ))
-    legame, perche = await bind_a_calendar_event(
+    legame, perche, _ = await bind_a_calendar_event(
         mondo, call=solo_chiedere, calendar_ref="",
     )
     assert legame is None
@@ -947,3 +953,334 @@ async def test_a_revoked_calendar_permission_stops_the_write(mondo, monkeypatch)
     assert "permesso" in record.error
     assert FintoGoogle.scritture == []
     assert _quando(mondo).startswith("2026-09-14T16:00")
+
+
+# ===========================================================================
+# V3.15.2 — POST-CALL HARDENING
+# ===========================================================================
+#
+#     LA V3.15 SAPEVA SCRIVERE. QUESTA SA COSA FARE QUANDO NON RIESCE.
+#
+# Due difetti diversi, tutti e due invisibili finché non capitano davvero: una
+# telefonata partita per spostare un appuntamento di ieri, e un'applicazione
+# rimasta a metà perché il processo è morto fra due scritture.
+
+FUTURO = {
+    **APPUNTAMENTO,
+    "id": "cal_futuro",
+    "title": "Dentista, la settimana prossima",
+    "start_datetime": "2099-09-14T16:00:00+02:00",
+    "end_datetime": "2099-09-14T16:45:00+02:00",
+}
+
+
+# ---------------------------------------------------------------------------
+# 1 · La guardia sull'appuntamento già passato
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_a_future_appointment_binds_without_a_question(mondo):
+    """
+    Futuro → si lega e basta.
+
+    La guardia non deve farsi notare nel caso normale: se l'appuntamento deve
+    ancora succedere non c'è niente da chiedere, e una domanda in più prima di
+    ogni telefonata sarebbe un attrito senza motivo.
+    """
+    from telephone.binding import bind_a_calendar_event
+
+    mondo.calendar_event_drafts.righe.append(dict(FUTURO))
+    legame, perche, chiarimento = await bind_a_calendar_event(
+        mondo, call=_chiamata(), calendar_ref="cal_futuro",
+    )
+
+    assert legame is not None
+    assert legame.target.entity_id == "cal_futuro"
+    assert perche == ""
+    assert chiarimento is False
+
+
+@pytest.mark.asyncio
+async def test_a_past_appointment_asks_instead_of_dialling(mondo):
+    """
+    Passato senza permesso → si domanda, e non si lega niente.
+
+        TELEFONARE PER SPOSTARE LA VISITA DI IERI È UNA FIGURA CHE PAGA LA
+        PERSONA, NON ORA.
+
+    E nasce quasi sempre da un malinteso: l'evento sbagliato, o una data letta
+    storta. L'unico momento in cui si può chiedere è adesso — dopo lo squillo
+    non c'è più nessuno a cui chiedere.
+    """
+    from telephone.binding import bind_a_calendar_event, binding_for
+
+    legame, domanda, chiarimento = await bind_a_calendar_event(
+        mondo, call=_chiamata(), calendar_ref="cal_abc123",
+    )
+
+    assert legame is None
+    assert chiarimento is True
+    assert "già" in domanda and "passato" in domanda
+    # È una domanda, non un referto: finisce col punto interrogativo.
+    assert domanda.rstrip().endswith("?")
+    # E porta il titolo, perché «quale?» deve avere una risposta leggibile.
+    assert "Dentista" in domanda
+    # Niente è stato scritto: non esiste un legame a metà.
+    assert await binding_for(mondo, "tel_uno") is None
+
+
+@pytest.mark.asyncio
+async def test_a_past_appointment_binds_when_somebody_said_so(mondo):
+    """
+    Passato con permesso esplicito → si procede.
+
+    Capita di richiamare per rimettere in piedi un appuntamento saltato. La
+    guardia non vieta: chiede. E una risposta è una risposta.
+    """
+    from telephone.binding import bind_a_calendar_event
+
+    legame, perche, chiarimento = await bind_a_calendar_event(
+        mondo, call=_chiamata(), calendar_ref="cal_abc123",
+        even_if_it_is_past=True,
+    )
+
+    assert legame is not None
+    assert perche == "" and chiarimento is False
+    assert legame.expected["start_datetime"] == "2026-09-14T16:00:00+02:00"
+
+
+def test_the_question_is_not_told_as_a_refusal():
+    """
+    §1: chi riceve l'esito deve distinguere una domanda da un rifiuto.
+
+    «Non è nel tuo calendario» chiude il discorso; «è di ieri, telefono lo
+    stesso?» lo apre. Raccontarle uguale vorrebbe dire non chiedere mai.
+    """
+    from telephone.caps import _what_it_will_change
+
+    domanda = _what_it_will_change(
+        None, "«Dentista» è già passato: vuoi che telefoni lo stesso?", True,
+    )
+    assert domanda["needs_clarification"] is True
+    assert domanda["will_update_calendar"] is False
+    assert "telefoni lo stesso" in domanda["ask_this_first"]
+    assert "proceed_even_if_past" in domanda["how_to_say_that_too"]
+
+    rifiuto = _what_it_will_change(
+        None, "questo appuntamento non è nel tuo calendario", False,
+    )
+    assert "needs_clarification" not in rifiuto
+    assert "ask_this_first" not in rifiuto
+
+
+def test_an_hour_ago_counts_as_past_just_like_yesterday():
+    """
+        NON È LA DATA, È L'ISTANTE.
+
+    Un appuntamento delle 16:00 alle 16:54 è passato quanto quello di ieri.
+    Confrontare solo i giorni lo lascerebbe scivolare — ed è proprio il caso
+    che ha fatto nascere questa guardia.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    from telephone.binding import _already_gone
+
+    adesso = datetime.now(timezone.utc)
+    assert _already_gone((adesso - timedelta(hours=1)).isoformat(), "Europe/Rome") is True
+    assert _already_gone((adesso + timedelta(hours=1)).isoformat(), "Europe/Rome") is False
+
+    # Una data illeggibile non ferma una telefonata: una guardia che non sa
+    # dire non deve decidere.
+    assert _already_gone("", "Europe/Rome") is False
+    assert _already_gone("non è una data", "Europe/Rome") is False
+
+
+# ---------------------------------------------------------------------------
+# 2 · Il recupero di un'applicazione rimasta a metà
+# ---------------------------------------------------------------------------
+
+async def _appesa(db, *, quando: str, legame=None):
+    """Un record `pending` nato a un'ora che decidiamo noi."""
+    from telephone.application import APPLICATIONS, CallMissionApplication, key_for
+
+    legame = await _lega(db, legame)
+    chiave = key_for(legame.mission_id, "reschedule", legame.target.entity_id)
+    record = CallMissionApplication(
+        mission_id=legame.mission_id, call_id="tel_uno", owner_id="u1",
+        target_domain="calendar", target_entity_id=legame.target.entity_id,
+        operation="reschedule", outcome_status="success",
+        application_status="pending", created_at=quando,
+        idempotency_key=chiave,
+    )
+    await db[APPLICATIONS].insert_one({**record.model_dump(), "_id": chiave})
+    return record
+
+
+def _vecchia(minuti=10):
+    from datetime import datetime, timedelta, timezone
+
+    return (datetime.now(timezone.utc) - timedelta(minutes=minuti)).isoformat()
+
+
+@pytest.mark.asyncio
+async def test_a_crash_before_the_write_is_retried_exactly_once(mondo):
+    """
+    Morto **prima** della scrittura → si riprova, una volta.
+
+    L'appuntamento è ancora dove stava: la scrittura non è mai partita. Si
+    riprova dalla porta normale, con dentro i suoi controlli — non si scrive a
+    mano perché è un secondo giro.
+    """
+    from telephone.application import APPLICATIONS, recover_stale
+
+    await _appesa(mondo, quando=_vecchia())
+    assert _quando(mondo).startswith("2026-09-14T16:00")
+
+    chiusi = await recover_stale(mondo)
+
+    assert len(chiusi) == 1
+    assert chiusi[0].application_status == "applied"
+    assert chiusi[0].writes == ["calendar:cal_abc123"]
+    assert _quando(mondo).startswith("2026-09-14T18:00")
+    # Una scrittura sola, e un record solo.
+    assert len(FintoGoogle.scritture) == 1
+    assert len(mondo[APPLICATIONS].righe) == 1
+
+
+@pytest.mark.asyncio
+async def test_a_crash_after_the_write_only_closes_the_record(mondo):
+    """
+    Morto **dopo** la scrittura → si chiude il record, non si riscrive.
+
+        UN RECORD `pending` NON DICE SE LA SCRITTURA È ANDATA.
+
+    È il caso in cui riprovare farebbe il danno: una seconda scrittura identica
+    è inutile, e su un calendario cambiato di nuovo sarebbe un sopruso. Il
+    calendario è già alle 18: il record era solo rimasto indietro.
+    """
+    from telephone.application import recover_stale
+
+    await mondo.calendar_event_drafts.update_one(
+        {"id": "cal_abc123"},
+        {"$set": {"start_datetime": "2026-09-14T18:00:00+02:00",
+                  "end_datetime": "2026-09-14T18:45:00+02:00"}},
+    )
+    await _appesa(mondo, quando=_vecchia())
+
+    chiusi = await recover_stale(mondo)
+
+    assert chiusi[0].application_status == "applied"
+    assert chiusi[0].writes == ["calendar:cal_abc123"]
+    # E nessuno ha toccato il calendario una seconda volta.
+    assert FintoGoogle.scritture == []
+    assert _quando(mondo).startswith("2026-09-14T18:00")
+
+
+@pytest.mark.asyncio
+async def test_an_appointment_moved_elsewhere_meanwhile_is_a_conflict(mondo):
+    """
+    Né dov'era né dove doveva arrivare → qualcuno l'ha spostato. Conflitto.
+
+    Non è un fallimento e non si riprova: riprovare scriverebbe sopra la
+    decisione più recente di una persona.
+    """
+    from telephone.application import recover_stale
+
+    await mondo.calendar_event_drafts.update_one(
+        {"id": "cal_abc123"},
+        {"$set": {"start_datetime": "2026-09-16T09:00:00+02:00"}},
+    )
+    await _appesa(mondo, quando=_vecchia())
+
+    chiusi = await recover_stale(mondo)
+
+    assert chiusi[0].application_status == "conflict"
+    assert FintoGoogle.scritture == []
+    assert _quando(mondo).startswith("2026-09-16T09:00")
+
+
+@pytest.mark.asyncio
+async def test_an_application_still_working_is_not_touched(mondo):
+    """
+    Un `pending` fresco sta succedendo, non è rimasto lì.
+
+    Sul vero l'applicazione completa ha impiegato 2,1 secondi. Recuperare a
+    quaranta millisecondi vorrebbe dire correre contro chi sta ancora
+    scrivendo — cioè costruire la doppia scrittura che tutto il resto evita.
+    """
+    from datetime import datetime, timezone
+
+    from telephone.application import APPLICATIONS, recover_stale
+
+    await _appesa(mondo, quando=datetime.now(timezone.utc).isoformat())
+
+    chiusi = await recover_stale(mondo)
+
+    assert chiusi == []
+    assert FintoGoogle.scritture == []
+    assert mondo[APPLICATIONS].righe[0]["application_status"] == "pending"
+    assert _quando(mondo).startswith("2026-09-14T16:00")
+
+
+@pytest.mark.asyncio
+async def test_recovering_twice_changes_nothing_the_second_time(mondo):
+    """
+    Due recuperi, una scrittura.
+
+        STESSA CHIAVE, NESSUN RECORD NUOVO.
+
+    Il recupero non è un secondo tentativo che si annota a parte: è lo stesso
+    fatto che arriva finalmente a una conclusione.
+    """
+    from telephone.application import APPLICATIONS, recover_stale
+
+    record = await _appesa(mondo, quando=_vecchia())
+    primo = await recover_stale(mondo)
+    secondo = await recover_stale(mondo)
+
+    assert primo[0].application_status == "applied"
+    # Il secondo giro non trova più niente di appeso: non c'è nulla da chiudere.
+    assert secondo == []
+    assert len(FintoGoogle.scritture) == 1
+    assert len(mondo[APPLICATIONS].righe) == 1
+    assert mondo[APPLICATIONS].righe[0]["idempotency_key"] == record.idempotency_key
+    assert _quando(mondo).startswith("2026-09-14T18:00")
+
+
+@pytest.mark.asyncio
+async def test_the_recovered_record_keeps_its_own_key(mondo):
+    """§2: nessun record nuovo, e la chiave è quella di sempre."""
+    from telephone.application import APPLICATIONS, application_for, recover_stale
+
+    prima = await _appesa(mondo, quando=_vecchia())
+    await recover_stale(mondo)
+    dopo = await application_for(mondo, "tel_uno")
+
+    assert dopo.idempotency_key == prima.idempotency_key
+    assert dopo.mission_id == prima.mission_id
+    assert dopo.created_at == prima.created_at
+    assert dopo.applied_at != ""
+    assert len(mondo[APPLICATIONS].righe) == 1
+
+
+# ---------------------------------------------------------------------------
+# 3 · Come si legge, mentre si sta ancora verificando
+# ---------------------------------------------------------------------------
+
+def test_a_pending_application_does_not_read_as_all_done():
+    """
+    §3: «sto verificando» non è «tutto fatto».
+
+    Finché non si sa se il calendario è stato toccato, la riga non può dire che
+    lo è: manderebbe qualcuno a fidarsi di un aggiornamento che potrebbe non
+    esserci.
+    """
+    from telephone.history import as_a_card
+
+    scheda = as_a_card(_riuscita(_chiamata()), _applicazione("pending"))
+    riga = scheda["outcome_summary"]
+
+    assert "Appuntamento spostato" not in riga
+    assert riga.startswith("Hanno confermato lo spostamento alle 18:00,")
+    assert "sto verificando l'aggiornamento del calendario" in riga
+    assert scheda["changed_something"] is False

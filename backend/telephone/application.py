@@ -53,6 +53,17 @@ APPLICATIONS = "call_mission_applications"
 # stati.
 ApplicationStatus = Literal["pending", "applied", "skipped", "conflict", "failed"]
 
+# Dopo quanto un `pending` smette di essere «sta succedendo» e diventa
+# «è rimasto lì».
+#
+#     DUE MINUTI SONO SESSANTA VOLTE L'APPLICAZIONE PIÙ LENTA MISURATA.
+#
+# Sul vero l'applicazione completa ha impiegato 2,1 secondi, di cui 1,6 di
+# andata e ritorno con Google. Due minuti non toccano niente che stia ancora
+# lavorando — nemmeno con un fornitore in grave ritardo — e non lasciano un
+# record appeso per un pomeriggio.
+STALE_AFTER_S = 120
+
 
 class CallMissionApplication(BaseModel):
     """Che cosa è stato fatto nel mondo per via di questa telefonata."""
@@ -74,6 +85,11 @@ class CallMissionApplication(BaseModel):
     outcome_status: str = Field(default="", max_length=16)
     application_status: ApplicationStatus = "pending"
 
+    #     QUANDO QUALCUNO L'HA PRESA IN CARICO.
+    # Senza questa data un record `pending` è indistinguibile fra «è partita
+    # trenta millisecondi fa» e «è morta un'ora fa»: la prima non si tocca,
+    # la seconda va recuperata, e a dirlo è solo il tempo.
+    created_at: str = Field(default_factory=now_iso, max_length=40)
     applied_at: str = Field(default="", max_length=40)
     # I riferimenti canonici di quello che è stato toccato. Vuoto è il caso
     # normale: quasi nessuna telefonata scrive qualcosa.
@@ -131,6 +147,148 @@ async def applications_for(db, call_ids: List[str]) -> Dict[str, CallMissionAppl
             continue
         fuori[record.call_id] = record
     return fuori
+
+
+def is_stale(record: CallMissionApplication, *, now: Optional[str] = None) -> bool:
+    """Se questa presa in carico è rimasta lì invece di star succedendo."""
+    from datetime import datetime, timezone
+
+    if record.application_status != "pending":
+        return False
+    try:
+        nato = datetime.fromisoformat(
+            (record.created_at or "").replace("Z", "+00:00"))
+        adesso = (
+            datetime.fromisoformat(now.replace("Z", "+00:00")) if now
+            else datetime.now(timezone.utc)
+        )
+        if nato.tzinfo is None:
+            nato = nato.replace(tzinfo=timezone.utc)
+        if adesso.tzinfo is None:
+            adesso = adesso.replace(tzinfo=timezone.utc)
+        return (adesso - nato).total_seconds() >= STALE_AFTER_S
+    except Exception:
+        #     UNA DATA ILLEGGIBILE NON AUTORIZZA A RISCRIVERE UN CALENDARIO.
+        return False
+
+
+async def recover_stale(db, *, now: Optional[str] = None) -> List[CallMissionApplication]:
+    """
+    Le applicazioni rimaste a metà, riportate a una conclusione.
+
+        CHI MUORE IN MEZZO A DUE SCRITTURE NON LASCIA UN ERRORE. LASCIA UN
+        FORSE.
+
+    Un processo che si spegne fra la presa in carico e la chiusura del record
+    lascia un `pending` che non dice se il calendario è stato toccato. Questa
+    funzione non lo indovina e non riprova alla cieca: chiede al dominio di
+    guardare lo stato canonico e di dire dove sta l'appuntamento adesso.
+
+    Torna i record che ha chiuso — vuoto è il caso normale, ed è quello che si
+    spera di leggere.
+    """
+    chiusi: List[CallMissionApplication] = []
+    righe = db[APPLICATIONS].find({"application_status": "pending"}, {"_id": 0})
+    async for row in righe:
+        try:
+            record = CallMissionApplication.model_validate(row)
+        except Exception:  # pragma: no cover
+            continue
+        if not is_stale(record, now=now):
+            #     UN'APPLICAZIONE CHE STA ANCORA LAVORANDO NON SI TOCCA.
+            continue
+        chiuso = await recover_one(db, record)
+        if chiuso is not None and chiuso.application_status != "pending":
+            chiusi.append(chiuso)
+    return chiusi
+
+
+async def recover_one(
+    db, record: CallMissionApplication,
+) -> Optional[CallMissionApplication]:
+    """
+    Una sola applicazione appesa, riconciliata con il mondo.
+
+        STESSA CHIAVE, NESSUN RECORD NUOVO.
+
+    Il recupero non è un secondo tentativo che si annota a parte: è lo stesso
+    fatto che arriva finalmente a una conclusione. Scrivere un secondo record
+    vorrebbe dire che la stessa cosa risulta fatta due volte — che è
+    esattamente ciò contro cui la chiave esiste.
+    """
+    try:
+        call = await _the_call(db, record.call_id)
+        if call is None:
+            return await _settle(db, record, _nothing(
+                "failed", "la telefonata di questa applicazione non esiste più"))
+
+        outcome = _the_outcome_of(call)
+        if outcome is None:
+            return await _settle(db, record, _nothing(
+                "skipped", "questa telefonata non ha un esito da applicare"))
+
+        legame = await binding_for(db, record.call_id)
+        if legame is None:
+            return await _settle(db, record, _nothing(
+                "skipped", "il legame con l'appuntamento non c'è più"))
+
+        adattatore = adapter_for(legame.target.domain)
+        if adattatore is None or not hasattr(adattatore, "reconcile"):
+            return await _settle(db, record, _nothing(
+                "skipped",
+                f"non so riconciliare esiti su «{legame.target.domain}»"))
+
+        verdetto = await adattatore.reconcile(
+            db, call=call, binding=legame, outcome=outcome,
+        )
+        chiuso = await _settle(db, record, verdetto)
+        if chiuso.went_through():
+            await _note_on_the_call(db, call, chiuso.writes)
+        return chiuso
+
+    except Exception as e:
+        logger.info("recupero non riuscito: %s", type(e).__name__)
+        try:
+            return await _settle(db, record, _nothing(
+                "failed", f"il recupero si è interrotto ({type(e).__name__})"))
+        except Exception:  # pragma: no cover
+            return None
+
+
+class _nothing:
+    """Un verdetto senza adattatore, per i casi che si chiudono prima."""
+
+    def __init__(self, status: str, error: str) -> None:
+        self.status = status
+        self.writes: List[str] = []
+        self.error = error
+        self.fields: Dict[str, str] = {}
+
+
+async def _the_call(db, call_id: str):
+    """La telefonata di questo record, come oggetto."""
+    from telephone.models import PhoneCall
+
+    row = await db["phone_calls"].find_one({"id": call_id}, {"_id": 0})
+    return PhoneCall.model_validate(row) if row else None
+
+
+def _the_outcome_of(call):
+    """
+    L'esito validato di questa telefonata, riletto da dov'è rimasto.
+
+    Non si ricostruisce e non si reinventa: o è quello che il gate aveva
+    validato allora, o non c'è.
+    """
+    from telephone.mission import CallMissionOutcome
+
+    grezzo = (call.metrics or {}).get("outcome")
+    if not isinstance(grezzo, dict):
+        return None
+    try:
+        return CallMissionOutcome.model_validate(grezzo)
+    except Exception:
+        return None
 
 
 async def apply_the_outcome(db, call, outcome) -> Optional[CallMissionApplication]:
