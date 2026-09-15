@@ -6,8 +6,8 @@ percorso fino al lancio si leggono qui e solo qui.
 
 | | |
 |---|---|
-| **Versione corrente** | **V3.17 — PASS** |
-| **Prossimo sprint** | **V3.18 — Structured Authority** |
+| **Versione corrente** | **V3.18 — PASS** |
+| **Prossimo sprint** | **V3.19 — Multi-Domain Application Layer** |
 | Branch | `feature/ora-quiet-premium-design-system` |
 | Ultimo checkpoint | `37af8a5` (lavoro) · `3baeaa1` (igiene) |
 | Aggiornato | 2026-09-15 |
@@ -257,17 +257,26 @@ una risposta dell'utente. ✅ (seconda passata, 2026-09-15)
 **Debito lasciato** → **V3.21**: latenza di risposta (p50 1,6÷3,1 s, quasi
 tutta a monte di Gemini — il nostro percorso critico è sotto il millisecondo).
 
-### V3.18 — Structured Authority
+### V3.18 — Structured Authority · **PASS**
 **Obiettivo** — il mandato smette di essere prosa.
-**Deliverable previsti** — `may_agree_to` diventa una struttura verificabile
-(finestre temporali, limiti, alternative) invece di testo libero che nessuno
-interpreta.
+**Deliverable** — `CallMissionAuthority` accanto al mandato in parole:
+operazione · oggetto · `TimeSlot` desiderato · alternative come date vere ·
+`earliest` / `latest` / `same_day_only` · cambiamenti vietati per nome ·
+`human_summary` separato dalla policy · `evaluate_authority()` come **unico
+giudice**, deterministico, con quattro verdetti distinti (`allowed` ·
+`needs_user` · `forbidden` · `invalid`) e un motivo in due forme · consultato
+prima di ogni scrittura in tutti e quattro i punti (applica e riconcilia, per
+le tre operazioni) · la decisione di V3.17 aggiunge un orario alla policy
+invece di concatenare testo · la capability espone i vincoli strutturati.
 **Exit criteria** — l'autorità si controlla per davvero al momento
-dell'applicazione, e il limite dei 14 giorni — oggi un parafulmine, non un
-controllo — può essere ritirato.
-**Dipendenze** — V3.17.
-**Perché serve** — finché ORA tratta solo orari dello stesso giorno regge; il
-giorno che negozia una data, non c'è nessun cancello.
+dell'applicazione. ✅ 24 prove nuove, 371 su tutto l'arco.
+**Compatibilità** — `may_agree_to` resta per presentazione e ripiego, **fuori
+dal percorso decisionale**. Una missione senza policy non è una missione senza
+regole: è più vecchia, `evaluate_authority` risponde `invalid` — che non è un
+no — e a decidere restano i controlli di prima.
+**Debito lasciato** → **V3.21**: il parafulmine dei 14 giorni è ancora lì,
+perché serve alle missioni senza policy. Si potrà ritirare quando ogni
+telefonata ne avrà una.
 
 ### V3.19 — Multi-Domain Application Layer
 **Obiettivo** — l'application layer esce dal calendario.

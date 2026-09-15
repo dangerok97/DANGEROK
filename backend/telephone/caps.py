@@ -17,7 +17,7 @@ ridurre: è il punto.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
 
 from conversation_engine.ai_core.models import Observation
 
@@ -121,6 +121,10 @@ async def prepare_a_phone_call(
         anche_se_passato=bool(arguments.get("proceed_even_if_past")),
         quando=str(arguments.get("desired_datetime") or ""),
         minuti=int(arguments.get("desired_minutes") or 0),
+        alternative=[str(x) for x in (arguments.get("allowed_alternatives") or [])][:12],
+        primo=str(arguments.get("earliest") or ""),
+        ultimo=str(arguments.get("latest") or ""),
+        stesso_giorno=bool(arguments.get("same_day_only")),
     )
 
     return Observation(
@@ -152,6 +156,8 @@ async def prepare_a_phone_call(
 async def _tie_it_to_something(
     db, call, calendar_ref: str, *, anche_se_passato: bool = False,
     quando: str = "", minuti: int = 0,
+    alternative: Optional[List[str]] = None, primo: str = "",
+    ultimo: str = "", stesso_giorno: bool = False,
 ):
     """
     Lega la telefonata all'appuntamento che dovrà spostare, se ce n'è uno.
@@ -171,6 +177,8 @@ async def _tie_it_to_something(
             db, call=call, calendar_ref=calendar_ref,
             even_if_it_is_past=anche_se_passato,
             desired_datetime=quando, desired_minutes=minuti,
+            allowed_alternatives=alternative, earliest=primo,
+            latest=ultimo, same_day_only=stesso_giorno,
         )
     except Exception as e:
         logger.info("legame non riuscito: %s", type(e).__name__)

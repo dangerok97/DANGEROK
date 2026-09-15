@@ -34,6 +34,7 @@ from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
+from telephone.authority import TimeSlot, a_slot_from
 from telephone.models import now_iso
 
 logger = logging.getLogger("ora.telephone.continuation")
@@ -92,6 +93,12 @@ class CallMissionContinuation(BaseModel):
     reason: str = Field(default="", max_length=300)
     # Quello che la controparte ha messo sul tavolo, se ha messo qualcosa.
     proposal: str = Field(default="", max_length=300)
+    #     E LA STESSA COSA IN DATE VERE, QUANDO SI RIESCE.
+    # «Giovedi' 8 alle 11» e' una frase; accettarla deve aggiungere un orario
+    # all'autorita', non una riga di testo a un elenco che nessuno legge per
+    # decidere. Vuoto quando chi ha telefonato non l'ha tradotta: allora resta
+    # solo il testo, e si torna al comportamento di prima.
+    proposed_slot: Optional["TimeSlot"] = None
     # I fatti nuovi emersi in linea, per nome e valore.
     facts: Dict[str, str] = Field(default_factory=dict)
     # Che cosa mancava all'autorità per poter dire di sì da solo.
@@ -171,6 +178,7 @@ async def pause_for_user(db, *, call, outcome, binding=None):
         owner_id=call.owner_id,
         reason=(getattr(outcome, "user_confirmation_needed", "") or "").strip(),
         proposal=_what_they_put_on_the_table(outcome),
+        proposed_slot=_the_same_thing_in_dates(outcome),
         facts={
             f.field: f.value for f in (getattr(outcome, "new_facts", None) or [])
         },
@@ -196,6 +204,26 @@ def _what_they_put_on_the_table(outcome) -> str:
         if detta.kind == "availability" and detta.fact.strip():
             return detta.fact.strip()[:300]
     return ""
+
+
+def _the_same_thing_in_dates(outcome) -> Optional[TimeSlot]:
+    """
+    La proposta come orario, se chi ha telefonato l'ha tradotta.
+
+        UNA FRASE NON SI PUO' CONFRONTARE. UN ORARIO SI'.
+
+    Chi ha sentito parlare e' l'unico che puo' convertire «giovedi' 8 alle 11»
+    in una data — e' gia' quello che fa per dire a che ora hanno spostato un
+    appuntamento. Qui si prende quella conversione e basta: non si prova a
+    ricavarla dal testo.
+    """
+    grezzo = getattr(outcome, "proposed_slot", None) or {}
+    if not isinstance(grezzo, dict):
+        grezzo = {}
+    fessura = a_slot_from(
+        grezzo.get("date", ""), grezzo.get("time", ""), grezzo.get("minutes", 0) or 0,
+    )
+    return fessura if fessura.is_real() else None
 
 
 def _what_the_mandate_did_not_cover(call) -> str:
@@ -399,6 +427,17 @@ async def _resume(db, continuation) -> Decided:
     if legame is not None:
         ereditato = legame.model_copy(deep=True)
         ereditato.call_id = seconda.id
+        #     LA DECISIONE ENTRA NELLA POLICY, NON IN UN ELENCO DI FRASI.
+        #
+        # Concatenare il testo a `may_agree_to` diceva a chi telefona che cosa
+        # puo' accettare, in una forma che nessuno puo' verificare. Aggiungere
+        # l'orario alle alternative lo dice anche al giudice — che e' l'unico
+        # che decidera' davvero se quella scrittura si puo' fare.
+        #
+        # Se la proposta non era stata tradotta in una data, qui non succede
+        # niente e resta il comportamento di prima: il testo.
+        ereditato.authority = _the_policy_now_allows(
+            ereditato.authority, continuation)
         #     E DOVE SI VUOLE ARRIVARE ADESSO E' QUELLO CHE E' STATO DECISO.
         # `expected` non si tocca — l'appuntamento e' ancora dov'era — ma il
         # punto d'arrivo e' cambiato, e chi telefona lo legge da qui.
@@ -417,6 +456,28 @@ async def _resume(db, continuation) -> Decided:
         "missione ripresa: %s -> %s", continuation.call_id, seconda.id,
     )
     return Decided(continuation, ok=True, call=seconda)
+
+
+def _the_policy_now_allows(regole, continuation):
+    """
+    L'autorita' con dentro quello che e' stato deciso.
+
+        UNA DECISIONE AGGIUNGE, NON RISCRIVE.
+
+    Chi ha risposto «va bene cosi'» non ha tolto niente: ha detto che anche
+    quello va bene. E chiamarla due volte non aggiunge due volte — e' quello
+    che rende una decisione presa due volte una decisione sola, anche qui
+    dentro e non solo nel record.
+    """
+    if regole is None or continuation.proposed_slot is None:
+        return regole
+    if continuation.decision != "accept":
+        #     UN'ALTRA DATA NON E' QUELLA CHE HANNO PROPOSTO.
+        # Chi propone un'alternativa sua sta chiedendo di trattare ancora, non
+        # autorizzando un orario preciso: quello resta da concordare in linea,
+        # e il giudice lo fermera' come fermerebbe qualunque altra cosa.
+        return regole
+    return regole.now_also_allows(continuation.proposed_slot)
 
 
 def _the_errand_now(originale: str, accordato: str) -> str:

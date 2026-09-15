@@ -33,6 +33,7 @@ from typing import Any, Dict, Literal, Optional, Tuple
 
 from pydantic import BaseModel, Field
 
+from telephone.authority import CallMissionAuthority, TimeSlot, a_slot_from
 from telephone.mission import _what_kind_of_mission, mission_id_for
 from telephone.models import now_iso
 
@@ -109,6 +110,18 @@ class CallMissionBinding(BaseModel):
     #
     # Quindi l'identità resta quella di quando la missione è nata, e il
     # risultato si annota accanto.
+    #     E L'AUTORITA', IN UNA FORMA CHE SI PUO' VERIFICARE.
+    #
+    # Il mandato in testo resta dov'era e continua a essere quello che una
+    # persona rilegge. Questa e' la stessa cosa scritta in date e orari veri,
+    # ed e' l'unica su cui si decide — perche' «un appuntamento fra giovedi' e
+    # sabato» non si puo' confrontare con «venerdi' alle 10» senza capirla, e
+    # capirla male una volta su dieci basta a spostare l'appuntamento
+    # sbagliato.
+    #
+    # Assente per le missioni piu' vecchie, e va bene: chi giudica sa
+    # distinguere «non permesso» da «non c'e' abbastanza per giudicare».
+    authority: Optional["CallMissionAuthority"] = None
     created_entity_id: str = Field(default="", max_length=64)
     created_at: str = Field(default_factory=now_iso)
 
@@ -116,6 +129,8 @@ class CallMissionBinding(BaseModel):
 async def bind_a_calendar_event(
     db, *, call, calendar_ref: str = "", even_if_it_is_past: bool = False,
     desired_datetime: str = "", desired_minutes: int = 0,
+    allowed_alternatives: Optional[List[str]] = None,
+    earliest: str = "", latest: str = "", same_day_only: bool = False,
 ) -> Tuple[Optional[CallMissionBinding], str, bool]:
     """
     Lega questa telefonata all'evento che dovrà spostare.
@@ -140,10 +155,14 @@ async def bind_a_calendar_event(
     if tipo not in ("reschedule", "cancel", "book"):
         return None, "", False
 
+    regole = dict(
+        alternatives=allowed_alternatives or [],
+        earliest=earliest, latest=latest, same_day_only=same_day_only,
+    )
     if tipo == "book":
         return await _bind_a_new_appointment(
             db, call=call, quando=desired_datetime, minuti=desired_minutes,
-            anche_se_passato=even_if_it_is_past,
+            anche_se_passato=even_if_it_is_past, regole=regole,
         )
 
     ref = _just_the_id(calendar_ref)
@@ -197,6 +216,10 @@ async def bind_a_calendar_event(
             "timezone": str(draft.get("timezone") or "Europe/Rome"),
             "title": str(draft.get("title") or "")[:120],
         },
+        authority=_the_policy(
+            call, tipo, entity_id=ref,
+            voluto=desired_datetime, minuti=desired_minutes, **regole,
+        ),
     )
     await db[BINDINGS].update_one(
         {"mission_id": binding.mission_id},
@@ -229,6 +252,7 @@ async def binding_for(db, call_id: str) -> Optional[CallMissionBinding]:
 
 async def _bind_a_new_appointment(
     db, *, call, quando: str, minuti: int, anche_se_passato: bool,
+    regole: Optional[Dict[str, Any]] = None,
 ) -> Tuple[Optional[CallMissionBinding], str, bool]:
     """
     Lega una prenotazione a quello che si vuole ottenere, non a un oggetto.
@@ -273,6 +297,10 @@ async def _bind_a_new_appointment(
             "counterparty": (call.calling_whom or "")[:120],
             "title": _what_to_call_it(call),
         },
+        authority=_the_policy(
+            call, "book", entity_id="", voluto=quando, minuti=minuti,
+            **(regole or {}),
+        ),
     )
     await db[BINDINGS].update_one(
         {"mission_id": binding.mission_id},
@@ -280,6 +308,62 @@ async def _bind_a_new_appointment(
         upsert=True,
     )
     return binding, "", False
+
+
+def _the_policy(
+    call, operazione: str, *, entity_id: str, voluto: str, minuti: int,
+    alternatives: Optional[List[str]] = None, earliest: str = "",
+    latest: str = "", same_day_only: bool = False,
+) -> Optional[CallMissionAuthority]:
+    """
+    Il mandato in date e orari, accanto a quello in parole.
+
+        IL TESTO E LA POLICY SONO DUE COSE, E STANNO IN DUE POSTI.
+
+    Quello che una persona ha scritto finisce in `human_summary` e resta
+    leggibile; il resto sono vincoli che si possono verificare senza
+    interpretare niente.
+
+    Torna `None` quando non c'e' abbastanza per costruirne una — e va bene: chi
+    giudica sa distinguere «non permesso» da «non c'e' abbastanza per
+    giudicare», ed e' esattamente la differenza che tiene in piedi le missioni
+    piu' vecchie.
+    """
+    fessure = [f for f in (_a_slot(x) for x in (alternatives or [])) if f.is_real()]
+    desiderata = _a_slot(voluto, minuti)
+    if not desiderata.is_real() and not fessure and not (
+        earliest or latest or same_day_only
+    ):
+        return None
+    return CallMissionAuthority(
+        operation=operazione,       # type: ignore[arg-type]
+        domain="calendar",
+        entity_id=entity_id,
+        desired=desiderata if desiderata.is_real() else None,
+        alternatives=fessure[:12],
+        earliest=(earliest or "").strip()[:20],
+        latest=(latest or "").strip()[:20],
+        same_day_only=bool(same_day_only),
+        # Vietato per nome: quello che nessuna telefonata puo' cambiare, mai.
+        forbidden_changes=[],
+        requires_user_confirmation=True,
+        human_summary="; ".join(list(call.mandate.may_agree_to)[:4])[:400],
+    )
+
+
+def _a_slot(quando: str, minuti: int = 0) -> TimeSlot:
+    """Un ISO qualsiasi ridotto a giorno e ora, senza interpretare parole."""
+    testo = (quando or "").strip()
+    if not testo:
+        return TimeSlot()
+    from datetime import datetime as _dt
+
+    try:
+        momento = _dt.fromisoformat(testo.replace("Z", "+00:00"))
+    except ValueError:
+        return TimeSlot()
+    return a_slot_from(
+        momento.strftime("%Y-%m-%d"), momento.strftime("%H:%M"), minuti)
 
 
 def _what_to_call_it(call) -> str:
