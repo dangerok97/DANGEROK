@@ -230,6 +230,10 @@ async def _apply_reschedule(db, *, call, binding, outcome) -> Verdict:
     if perche:
         return Verdict("skipped", error=perche)
 
+    negato = _what_the_authority_says(binding, outcome)
+    if negato is not None:
+        return negato
+
     calendario = _the_calendar(db)
 
     #     IL SÌ ALLA TELEFONATA NON È IL SÌ AL CALENDARIO.
@@ -342,6 +346,10 @@ async def reconcile(db, *, call, binding, outcome) -> Verdict:
     if perche:
         return Verdict("skipped", error=perche)
 
+    negato = _what_the_authority_says(binding, outcome)
+    if negato is not None:
+        return negato
+
     draft = await db.calendar_event_drafts.find_one(
         {"id": binding.target.entity_id, "user_id": binding.owner_id},
         {"_id": 0, "id": 1, "status": 1, "start_datetime": 1},
@@ -376,6 +384,54 @@ async def reconcile(db, *, call, binding, outcome) -> Verdict:
         "conflict",
         error="l'appuntamento è cambiato dopo la telefonata",
     )
+
+
+def _what_the_authority_says(binding, outcome) -> Optional[Verdict]:
+    """
+    Il giudice, chiamato prima di toccare qualsiasi cosa.
+
+        CHI HA PARLATO RIPORTA. CHI STA QUI GIUDICA.
+
+    Quello che la controparte ha confermato viene tradotto in una data e
+    un'ora vere e confrontato con l'autorita' strutturata. Non si legge una
+    frase e non si interpreta niente: due oggetti, una risposta, sempre la
+    stessa.
+
+    Torna `None` quando si puo' procedere — compreso il caso in cui non c'e'
+    un'autorita' strutturata da consultare. Quello non e' un permesso: e' una
+    missione piu' vecchia, dove a decidere restano i controlli che c'erano
+    prima. Trattarlo come un no vorrebbe dire rompere tutto quello che
+    funziona.
+    """
+    from telephone.authority import Proposal, a_slot_from, evaluate_authority
+
+    regole = getattr(binding, "authority", None)
+    if regole is None:
+        return None
+
+    cambiamenti = dict(getattr(outcome, "confirmed_changes", None) or {})
+    quando = a_slot_from(
+        cambiamenti.get("appointment_date", ""),
+        cambiamenti.get("new_time") or cambiamenti.get("appointment_time", ""),
+        cambiamenti.get("duration_minutes", 0) or 0,
+    )
+    responso = evaluate_authority(
+        Proposal(
+            operation=binding.target.operation,
+            slot=quando if quando.is_real() else None,
+            entity_id=binding.target.entity_id,
+        ),
+        regole,
+    )
+    if responso.verdict in ("allowed", "invalid"):
+        #     `invalid` NON E' UN NO.
+        # Vuol dire che il giudice non aveva abbastanza per pronunciarsi: i
+        # controlli di sempre — identita', concorrenza, traduzione — sono gia'
+        # passati, e sono loro a rispondere.
+        return None
+
+    logger.info("l'autorita' non consente questa scrittura: %s", responso.code)
+    return Verdict("skipped", error=responso.says or responso.code)
 
 
 def _the_calendar(db):
@@ -515,6 +571,10 @@ async def _apply_cancel(db, *, call, binding, outcome) -> Verdict:
     campi, perche = translate(binding, outcome)
     if perche:
         return Verdict("skipped", error=perche)
+
+    negato = _what_the_authority_says(binding, outcome)
+    if negato is not None:
+        return negato
 
     verdetto = _still_the_same_appointment(binding, outcome, draft)
     if verdetto is not None:
@@ -692,6 +752,10 @@ async def _apply_book(db, *, call, binding, outcome) -> Verdict:
     campi, perche = translate(binding, outcome)
     if perche:
         return Verdict("skipped", error=perche)
+
+    negato = _what_the_authority_says(binding, outcome)
+    if negato is not None:
+        return negato
 
     calendario = _the_calendar(db)
     negato = await _consent_missing(db, calendario, binding.owner_id)

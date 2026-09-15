@@ -214,6 +214,18 @@ THE_SIX: List[Dict[str, Any]] = [{
                             "niente."
                         ),
                     },
+                    "proposed_date": {
+                        "type": "string",
+                        "description": (
+                            "La stessa proposta come data: AAAA-MM-GG. "
+                            "Serve a chi dovra' decidere: una frase non si "
+                            "puo' confrontare con un calendario."
+                        ),
+                    },
+                    "proposed_time": {
+                        "type": "string",
+                        "description": "La stessa proposta come ora: HH:MM.",
+                    },
                 },
                 "required": ["reason"],
             },
@@ -1632,6 +1644,10 @@ class MissionVoiceSession:
                 status="needs_user",
                 user_confirmation_needed=str(argomenti.get("reason") or "")[:300],
                 counterparty_statements=self.mission.statements[:8],
+                proposed_slot={
+                    "date": str(argomenti.get("proposed_date") or "")[:10],
+                    "time": str(argomenti.get("proposed_time") or "")[:5],
+                },
                 followup_required=True,
             )
             return {

@@ -1234,6 +1234,43 @@ class ToolRegistry:
                                 "rather than guessing."
                             ),
                         },
+                        "allowed_alternatives": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": (
+                                "Other exact slots ORA may accept on the line "
+                                "without calling back, ISO 8601 «2026-09-20"
+                                "T15:00:00». This is the machine-checkable "
+                                "half of `may_agree_to`: the backend compares "
+                                "what the other side offers against these, so "
+                                "write real times, never descriptions like "
+                                "«any afternoon». What cannot be written as a "
+                                "time stays in `may_agree_to` and comes back "
+                                "to the person instead."
+                            ),
+                        },
+                        "earliest": {
+                            "type": "string",
+                            "description": (
+                                "The first day ORA may accept, AAAA-MM-GG. "
+                                "Only if they set a floor."
+                            ),
+                        },
+                        "latest": {
+                            "type": "string",
+                            "description": (
+                                "The last day ORA may accept, AAAA-MM-GG. "
+                                "Only if they set a ceiling."
+                            ),
+                        },
+                        "same_day_only": {
+                            "type": "boolean",
+                            "description": (
+                                "True when they want it moved but on the same "
+                                "day — «più tardi, ma oggi». A very common "
+                                "constraint that two dates express badly."
+                            ),
+                        },
                     },
                     "required": ["to_number", "why_calling"],
                 },

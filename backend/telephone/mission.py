@@ -254,6 +254,13 @@ class CallMissionOutcome(BaseModel):
     new_facts: List[MissionFact] = Field(default_factory=list, max_length=6)
     # Che cosa serve chiedere a chi ha ordinato la chiamata.
     user_confirmation_needed: str = Field(default="", max_length=300)
+    #     E LA PROPOSTA ANCHE IN DATE, QUANDO SI RIESCE A TRADURLA.
+    # «Giovedi' 8 alle 11» e' una frase, e una frase non si puo' confrontare
+    # con un mandato. Chi ha sentito parlare e' l'unico che puo' convertirla —
+    # lo fa gia' per dire a che ora hanno spostato un appuntamento — e qui
+    # quella conversione serve a far entrare la decisione nella policy invece
+    # che in un elenco di testo.
+    proposed_slot: Dict[str, Any] = Field(default_factory=dict)
     followup_required: bool = False
     notes: str = Field(default="", max_length=400)
 
