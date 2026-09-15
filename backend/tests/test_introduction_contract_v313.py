@@ -167,8 +167,17 @@ def test_an_interrupted_opening_is_finished_not_restarted():
     assert reg.state == "partial"
 
     nota = reg.what_still_has_to_be_said()
-    assert "Non ricominciare la presentazione da capo" in nota
+    assert "ricominciare la presentazione da capo" in nota
     assert "chiami per" in nota
+
+    #     E SI RIFÀ LA FRASE TRONCATA, NON SI RIPRENDE DA DOVE È STATA TAGLIATA.
+    #
+    # La regola diceva solo che cosa non fare. Sul vero il modello ha ripreso
+    # dall'audio: interrotto su «sono l'assistente di Fran…», ha detto
+    # «…cesco». Chi ascolta non capisce niente, ed è peggio di una ripetizione.
+    # Una persona interrotta sul nome ripete la frase intera.
+    assert "Ripeti per intera la frase" in nota
+    assert "non riprendere da dove ti hanno tagliato" in nota
 
     reg.we_said("Chiamo per spostare il suo appuntamento dal dentista di oggi "
                 "dalle 16 alle 18.")
@@ -323,11 +332,20 @@ def test_a_mandate_becomes_a_sentence_a_person_would_say():
          "ask",
          "Chiamo per sapere se il pacco è arrivato."),
     ]
+    #     IL SALUTO SEGUE L'ORA DI CHI TELEFONA.
+    # Questa prova costruisce il pacchetto adesso, e «adesso» cambia durante
+    # la giornata: fissare «Buongiorno» la faceva passare solo di mattina.
+    # Quello che tiene ferma è il resto della frase — di chi si è l'assistente
+    # e perché si chiama — che è il contratto vero.
+    from telephone.introduction import greeting_at
+
     for mandato, tipo, coda in casi:
         packet = _from_a_mandate(mandato)
         assert packet.mission_type == tipo, mandato
+        saluto = greeting_at(packet.local_datetime)
+        assert saluto in ("Buongiorno", "Buonasera")
         assert packet.say_this_first == (
-            f"Buongiorno, sono l'assistente di Francesco Cefalà. {coda}"
+            f"{saluto}, sono l'assistente di Francesco Cefalà. {coda}"
         ), packet.say_this_first
 
 

@@ -115,7 +115,7 @@ class Introduction(BaseModel):
     # scritto — così verificare non vuol dire indovinare.
     reason_keywords: List[str] = Field(default_factory=list, max_length=8)
 
-    def opening_line(self) -> str:
+    def opening_line(self, adesso: Optional[str] = None) -> str:
         """
         L'apertura, composta dal backend.
 
@@ -123,9 +123,45 @@ class Introduction(BaseModel):
         detta davvero lo stabilisce il registro qui sotto, non la speranza.
         """
         return (
-            f"Buongiorno, sono l'assistente di {self.assistant_for}. "
+            f"{greeting_at(adesso)}, sono l'assistente di {self.assistant_for}. "
             f"Chiamo per {self.reason_summary}."
         )
+
+
+#     DOPO LE CINQUE NON SI DICE PIU' BUONGIORNO.
+#
+# Sembra un dettaglio e non lo e': e' la prima parola della telefonata, e
+# sbagliarla dice a chi risponde che dall'altra parte non c'e' nessuno che
+# sappia che ore sono. Alle 18:46 ORA ha detto «buongiorno» — misurato.
+#
+# Le diciassette sono il confine con cui si passa a «buonasera» in italiano.
+# Non e' una regola scritta da nessuna parte: e' quello che fa una persona.
+AFTERNOON_STARTS_AT = 17
+
+
+def greeting_at(adesso: Optional[str] = None) -> str:
+    """
+    «Buongiorno» o «Buonasera», secondo che ora e' per chi telefona.
+
+    Si legge dal `local_datetime` del pacchetto, che porta gia' il fuso della
+    persona: quello del server non c'entra niente, e in due ore al giorno
+    darebbe la risposta sbagliata.
+    """
+    from datetime import datetime
+
+    testo = (adesso or "").strip()
+    if testo:
+        try:
+            return (
+                "Buonasera"
+                if datetime.fromisoformat(
+                    testo.replace("Z", "+00:00")).hour >= AFTERNOON_STARTS_AT
+                else "Buongiorno"
+            )
+        except Exception:
+            pass
+    #     SE NON SI SA CHE ORA E', SI SALUTA COME SI E' SEMPRE FATTO.
+    return "Buongiorno"
 
 
 def introduction_for(packet: "CallMissionPacket") -> Introduction:
@@ -351,10 +387,21 @@ class IntroductionLedger:
             manca.append(f"che sei l'assistente di {self.intro.assistant_for}")
         if not self._why:
             manca.append(f"che chiami per {self.intro.reason_summary}")
+        #     SI RIFA' LA FRASE TRONCATA, NON L'INTERA APERTURA.
+        #
+        # «Non ricominciare da capo» diceva che cosa non fare e taceva su che
+        # cosa fare, e il modello riprendeva dall'audio tagliato: interrotto su
+        # «sono l'assistente di Fran…», ha ripreso da «…cesco». Chi ascolta non
+        # capisce niente, ed e' peggio di una ripetizione.
+        #
+        # Una persona interrotta sul nome ripete la frase intera, non la
+        # sillaba mancante.
         return (
             "Al primo momento naturale, di' soltanto "
             + " e ".join(manca)
-            + ". Non ricominciare la presentazione da capo."
+            + ". Ripeti per intera la frase che era stata interrotta — non "
+            "riprendere da dove ti hanno tagliato, e non ricominciare la "
+            "presentazione da capo."
         )
 
     def how_it_went(self) -> Dict[str, object]:

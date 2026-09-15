@@ -1655,7 +1655,7 @@ async def test_an_interrupted_opening_is_completed_not_restarted(monkeypatch):
         await wire.says({"serverContent": {"turnComplete": True}})
         await asyncio.sleep(0.05)
         nota = _cosa_ha_chiesto(wire)
-        assert "Non ricominciare la presentazione da capo" in nota
+        assert "ricominciare la presentazione da capo" in nota
         assert "chiami per" in nota
     finally:
         await sess.close()

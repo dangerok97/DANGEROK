@@ -607,7 +607,11 @@ def packet_for(
     from telephone.introduction import introduction_for
 
     packet.introduction = introduction_for(packet)
-    packet.say_this_first = packet.introduction.opening_line()[:200]
+    #     IL SALUTO SEGUE L'ORA DI CHI TELEFONA, NON QUELLA DEL SERVER.
+    # `local_datetime` porta gia' il fuso della persona: e' l'unico orologio
+    # che conti per decidere fra «buongiorno» e «buonasera».
+    packet.say_this_first = packet.introduction.opening_line(
+        packet.local_datetime)[:200]
     return packet
 
 
