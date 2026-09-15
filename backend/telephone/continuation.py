@@ -123,7 +123,19 @@ class CallMissionContinuation(BaseModel):
         Chi legge questa frase non ha seguito la telefonata: è la prima e
         spesso l'unica cosa che saprà, e deve bastargli per rispondere.
         """
-        pezzi = [p for p in (self.reason.strip(), self.proposal.strip()) if p]
+        #     DUE FRASI SONO DUE FRASI, ANCHE SE ARRIVANO SEPARATE.
+        # Il motivo e la proposta li scrive chi ha telefonato, in due campi
+        # diversi e senza sapere che finiranno accanto. Attaccarli com'erano
+        # dava «lo studio non può alle 18:00 del 30 settembre domani alle
+        # 11:00»: due cose vere, lette come una sola sbagliata.
+        pezzi = []
+        for grezzo in (self.reason, self.proposal):
+            testo = (grezzo or "").strip()
+            if not testo:
+                continue
+            if testo[-1] not in ".!?":
+                testo += "."
+            pezzi.append(testo[0].upper() + testo[1:])
         return " ".join(pezzi) or "Serve una tua decisione per andare avanti."
 
 
@@ -355,8 +367,16 @@ async def _resume(db, continuation) -> Decided:
         return Decided(continuation, ok=False, why="la telefonata di prima non c'è più")
 
     accordato = continuation.decided_text.strip()
+    #     ACCETTARE UN'ALTERNATIVA CAMBIA L'OBIETTIVO, NON SOLO I PERMESSI.
+    #
+    # Metterla in `may_agree_to` dice a chi telefona che cosa **puo'
+    # accettare**; non gli dice che cosa **chiedere**. Sul vero e' successo
+    # esattamente questo: la persona aveva accettato «domani alle 11», ORA ha
+    # richiamato e ha chiesto di nuovo le 18:00 — perche' l'obiettivo era
+    # rimasto quello di prima, e l'obiettivo e' cio' che legge.
+    perche = _the_errand_now(prima.mandate.why_calling or "", accordato)
     mandato = Mandate(
-        why_calling=(prima.mandate.why_calling or "")[:300],
+        why_calling=perche[:300],
         #     L'AUTORITÀ NUOVA SI AGGIUNGE, NON SOSTITUISCE.
         # Quello che si poteva accettare prima si può ancora: la persona ha
         # aggiunto una possibilità, non ne ha tolte.
@@ -379,6 +399,10 @@ async def _resume(db, continuation) -> Decided:
     if legame is not None:
         ereditato = legame.model_copy(deep=True)
         ereditato.call_id = seconda.id
+        #     E DOVE SI VUOLE ARRIVARE ADESSO E' QUELLO CHE E' STATO DECISO.
+        # `expected` non si tocca — l'appuntamento e' ancora dov'era — ma il
+        # punto d'arrivo e' cambiato, e chi telefona lo legge da qui.
+        ereditato.desired = {**(ereditato.desired or {}), "start_datetime": accordato}
         await db[BINDINGS].update_one(
             {"call_id": seconda.id},
             {"$set": ereditato.model_dump()},
@@ -393,6 +417,26 @@ async def _resume(db, continuation) -> Decided:
         "missione ripresa: %s -> %s", continuation.call_id, seconda.id,
     )
     return Decided(continuation, ok=True, call=seconda)
+
+
+def _the_errand_now(originale: str, accordato: str) -> str:
+    """
+    La commissione, riscritta con quello che è stato deciso.
+
+        CHI TELEFONA LEGGE L'OBIETTIVO, NON L'ELENCO DEI PERMESSI.
+
+    Non si prova a correggere la frase di prima: si dice che cosa vale adesso,
+    dopo di essa. Riscrivere «dalle 16:00 alle 18:00» in «dalle 16:00 alle
+    11:00 di domani» vorrebbe dire capire una frase scritta da una persona, e
+    capirla male una volta su dieci basta a far chiedere l'orario sbagliato.
+    """
+    base = (originale or "").strip().rstrip(".")
+    scelto = (accordato or "").strip().rstrip(".")
+    if not scelto:
+        return base
+    if not base:
+        return f"concordare {scelto}"
+    return f"{base}. Aggiornamento: è stato concordato {scelto}, chiedi questo."
 
 
 async def settle(db, *, mission_id: str, succeeded: bool) -> None:

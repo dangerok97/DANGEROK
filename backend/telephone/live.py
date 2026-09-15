@@ -156,6 +156,8 @@ Non hai una missione generale: hai quella descritta qui sotto. Tutto quello che 
 Regole, in ordine di importanza:
 - La prima frase è say_this_first, detta per intera. Sei l'assistente della persona per cui chiami: non sei quella persona, e non dire mai di esserlo. Se ti interrompono mentre ti presenti, non ricominciare da capo: completa solo quello che manca al primo momento naturale.
 - Non allargare la missione. Se emerge una decisione che non è in allowed_negotiation, non accettarla: chiedi conferma a chi ti ha mandato e aspetta.
+- Una porta chiusa con un'altra porta aperta accanto non è un fallimento. Se ti dicono di no ma ti propongono un'altra data o un altro orario, quella proposta è la cosa più utile della telefonata: riportala con request_user_confirmation, scritta per intero. Non accettarla tu e non buttarla via. fail_mission è solo per quando non c'è niente e non ci sarà.
+- Prima di salutare, dì che cosa farai: che riporterai la proposta e che vi risentirete. Non chiudere su «devo chiedere conferma» senza spiegare.
 - Non dire di aver concluso finché la controparte non l'ha confermato con parole sue. Che ci sia posto non vuol dire che sia stato spostato.
 - Non rivelare niente che non sia in known_facts. Se ti chiedono un dato che non hai, chiedilo con lo strumento apposito: potrebbe esserti negato, e va bene così.
 - Non nominare mai strumenti, sistemi, autorizzazioni o il fatto che stai consultando qualcosa.
@@ -185,12 +187,34 @@ THE_SIX: List[Dict[str, Any]] = [{
         {
             "name": "request_user_confirmation",
             "description": (
-                "Fermati e chiedi una decisione a chi ti ha mandato, quando "
-                "quello che ti propongono esce dalla missione."
+                "USA QUESTO quando la controparte ti mette sul tavolo "
+                "un'alternativa che non sta nelle tue possibilita'. "
+                "«Alle 18 no, ma posso domani alle 11» e' questo caso, non un "
+                "fallimento: la commissione si ferma e aspetta una decisione, "
+                "e quella proposta vale — qualcuno la accettera' o ne "
+                "proporra' un'altra. Non accettarla tu, e non buttarla via."
             ),
             "parameters": {
                 "type": "object",
-                "properties": {"reason": {"type": "string"}},
+                "properties": {
+                    "reason": {
+                        "type": "string",
+                        "description": (
+                            "Perche' ti sei dovuto fermare, in una riga, come "
+                            "lo diresti a una persona. Es. «Lo studio non "
+                            "puo' alle 18:00.»"
+                        ),
+                    },
+                    "proposal": {
+                        "type": "string",
+                        "description": (
+                            "Che cosa hanno proposto, con le loro parole "
+                            "tradotte in date e orari. Es. «Propone domani "
+                            "alle 11:00.» Vuoto solo se non hanno proposto "
+                            "niente."
+                        ),
+                    },
+                },
                 "required": ["reason"],
             },
         },
@@ -261,7 +285,13 @@ THE_SIX: List[Dict[str, Any]] = [{
         },
         {
             "name": "fail_mission",
-            "description": "La missione non si può compiere. Spiega perché.",
+            "description": (
+                "SOLO quando non c'e' niente sul tavolo e non ci sara'. "
+                "Hanno detto di no e basta, non rispondono, non e' il posto "
+                "giusto. Se invece ti hanno proposto un'altra data o un altro "
+                "orario, quella non e' una missione fallita: e' una decisione "
+                "che non spetta a te — usa request_user_confirmation."
+            ),
             "parameters": {
                 "type": "object",
                 "properties": {"reason": {"type": "string"}},
@@ -1570,6 +1600,14 @@ class MissionVoiceSession:
             # decidere non lo decide chi sta parlando. Ma la telefonata puo
             # ancora avere un saluto dentro.
             self._the_mission_is_over()
+            #     LA PROPOSTA E' LA META' UTILE DI QUESTA FERMATA.
+            # Senza, a chi deve decidere resta solo «non si e' potuto»: la
+            # cosa che gli serve per rispondere e' quello che hanno offerto.
+            # Si annota come `proposal` nel ledger, che e' il posto da cui la
+            # continuazione la legge.
+            proposta = str(argomenti.get("proposal") or "").strip()[:300]
+            if proposta:
+                self.mission.heard("proposal", proposta)
             self.outcome = CallMissionOutcome(
                 mission_id=packet.mission_id,
                 status="needs_user",

@@ -566,8 +566,23 @@ def packet_for(
         # quello nascera' dopo, e non si pronuncia comunque.
         desired_when = (binding.desired or {}).get("start_datetime", "")
 
+    #     IL NOME DELLA MISSIONE VIENE DAL LEGAME, QUANDO C'E'.
+    #
+    # Di solito e' quello della telefonata. Non lo e' quando una commissione
+    # si e' fermata e ha ripreso: la seconda chiamata porta il nome della
+    # prima, ed e' cosi' che l'esito che ne esce ha la chiave della missione
+    # logica invece che una tutta sua.
+    #
+    # Ricalcolarlo da `call.id` sembrava innocuo. Sul vero ha prodotto due
+    # chiavi di idempotenza per la stessa commissione — e due chiavi vogliono
+    # dire che la stessa cosa si puo' applicare due volte.
+    nome = (
+        binding.mission_id if binding is not None and binding.mission_id
+        else mission_id_for(call.id)
+    )
+
     packet = CallMissionPacket(
-        mission_id=mission_id_for(call.id),
+        mission_id=nome,
         mission_type=tipo,
         goal=perche[:200] or "parlare con la controparte",
         counterparty=(call.calling_whom or "la controparte")[:120],
