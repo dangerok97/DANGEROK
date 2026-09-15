@@ -112,14 +112,29 @@ def test_both_slots_open_exactly_the_same_live_session(monkeypatch):
         "voiceName"] == "Kore"
 
 
-def test_no_voice_asked_means_no_voice_sent(monkeypatch):
-    """Senza preferenza non si manda `speechConfig`, e il modello usa la sua."""
-    from telephone.live import _how_she_sounds
+def test_no_session_ever_starts_without_saying_how_to_sound(monkeypatch):
+    """
+        NESSUNA SESSIONE PARTE MUTA SU QUESTO PUNTO.
 
-    monkeypatch.setenv("GEMINI_LIVE_VOICE", "")
-    suona = _how_she_sounds()
-    assert "speechConfig" not in suona
-    assert suona["responseModalities"] == ["AUDIO"]
+    Prima, senza preferenza, non si mandava `speechConfig` e il modello usava
+    la sua voce. Sembrava la cosa discreta da fare — finche' su una telefonata
+    vera la voce e' cambiata a meta' e non c'era un solo campo capace di
+    smentirlo. Adesso ORA chiede sempre la propria voce, anche quando nessuno
+    l'ha configurata, e su qualunque filo: primo, secondo, o riaperto per
+    riprendere una chiamata caduta.
+    """
+    from telephone.live import THE_VOICE, _how_she_sounds
+
+    for valore in ("", "   ", None):
+        if valore is None:
+            monkeypatch.delenv("GEMINI_LIVE_VOICE", raising=False)
+        else:
+            monkeypatch.setenv("GEMINI_LIVE_VOICE", valore)
+        suona = _how_she_sounds()
+        assert "speechConfig" in suona, f"sessione muta con {valore!r}"
+        assert suona["speechConfig"]["voiceConfig"]["prebuiltVoiceConfig"][
+            "voiceName"] == THE_VOICE
+        assert suona["responseModalities"] == ["AUDIO"]
 
 
 def test_what_the_server_says_is_written_down_by_shape_only():
@@ -441,3 +456,415 @@ def test_the_short_nap_is_a_fixed_measure():
     assert "min(resta" not in codice, (
         "l'attesa è tornata a dipendere da quanto manca"
     )
+
+
+# ---------------------------------------------------------------------------
+# 3 · Riprendere una telefonata a cui è caduto il filo
+# ---------------------------------------------------------------------------
+#
+#     UN FILO CHE CADE NON È UNA MISSIONE FINITA.
+#
+# Su una prenotazione vera il filo è caduto quattordici secondi dopo
+# l'apertura, mentre lo studio stava fissando l'appuntamento. ORA non aveva
+# riagganciato: le avevano tolto la sessione da sotto, e non sapeva
+# riprenderla. Il server le porgeva un appiglio circa una volta al secondo —
+# ventotto in trentotto secondi — e li stavamo contando e buttando.
+
+class FiloFinto:
+    """
+    Un filo verso chi parla, che si può far cadere quando serve.
+
+    Accetta il setup, risponde `setupComplete`, e poi dice quello che gli si
+    mette in bocca. Cadere è un comportamento come un altro.
+    """
+
+    aperti = []
+
+    def __init__(self, *, accetta=True, da_dire=None):
+        self.accetta = accetta
+        self.mandati = []
+        self.chiuso = False
+        self._coda = list(da_dire or [])
+        FiloFinto.aperti.append(self)
+
+    async def send(self, testo):
+        import json as _json
+
+        self.mandati.append(_json.loads(testo))
+
+    async def recv(self):
+        import json as _json
+
+        if self._coda:
+            prossimo = self._coda.pop(0)
+            if isinstance(prossimo, Exception):
+                raise prossimo
+            return _json.dumps(prossimo)
+        # Finita la coda, il filo cade: e' il caso che interessa.
+        raise ConnectionError("il filo si è chiuso")
+
+    async def close(self):
+        self.chiuso = True
+
+    @property
+    def setup(self):
+        for m in self.mandati:
+            if "setup" in m:
+                return m["setup"]
+        return {}
+
+
+def _setup_ok():
+    return {"setupComplete": {}}
+
+
+def _handle(nome, resumable=True):
+    return {"sessionResumptionUpdate": {"newHandle": nome, "resumable": resumable}}
+
+
+async def _una_sessione(monkeypatch, fili, *, tipo="reschedule"):
+    """Una sessione a missione aperta su una sequenza di fili finti."""
+    from telephone.introduction import introduction_for
+    from telephone.live import MissionVoiceSession
+    from telephone.mission import CallMissionPacket
+
+    monkeypatch.setenv("GEMINI2_API_KEY", "non-una-chiave-vera")
+    monkeypatch.setenv("GEMINI_LIVE_MODEL", "un-modello-di-prova")
+    monkeypatch.delenv("GEMINI_LIVE_VOICE", raising=False)
+
+    packet = CallMissionPacket(
+        mission_id="mis_prova", mission_type=tipo,
+        goal="Spostare l'appuntamento", counterparty="Studio Bianchi",
+        on_behalf_of="Francesco", local_datetime="2026-09-15T10:00:00+02:00",
+        timezone="Europe/Rome", subject="l'appuntamento",
+    )
+    packet.introduction = introduction_for(packet)
+    packet.say_this_first = packet.introduction.opening_line()
+
+    da_dare = list(fili)
+
+    async def connect():
+        if not da_dare:
+            raise ConnectionError("non ci sono altri fili")
+        return da_dare.pop(0)
+
+    async def send(_pcm):
+        return None
+
+    return MissionVoiceSession(
+        None, owner_id="u1", session_ref="s", send=send,
+        packet=packet, connect=connect,
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_dropped_wire_is_resumed_with_the_last_handle(monkeypatch):
+    """
+    Il filo cade con un appiglio buono in mano → si riprende.
+
+    E la ripresa porta l'appiglio dentro il setup: e' cosi' che il server
+    capisce che non e' una telefonata nuova.
+    """
+    primo = FiloFinto(da_dire=[
+        _setup_ok(), _handle("abc"), _handle("def"),
+        ConnectionError("caduto"),
+    ])
+    secondo = FiloFinto(da_dire=[_setup_ok()])
+    sess = await _una_sessione(monkeypatch, [primo, secondo])
+
+    assert await sess.open()
+    await asyncio.sleep(0.2)
+
+    assert sess._resumes_done == 1, "non ha ripreso"
+    assert secondo.setup["sessionResumption"] == {"handle": "def"}, (
+        "ha ripreso senza l'ultimo appiglio valido"
+    )
+    assert primo.chiuso, "il filo vecchio è rimasto aperto"
+    await sess.close()
+
+
+@pytest.mark.asyncio
+async def test_the_latest_valid_handle_wins(monkeypatch):
+    """Più appigli: vale l'ultimo, non il primo."""
+    primo = FiloFinto(da_dire=[
+        _setup_ok(), _handle("uno"), _handle("due"), _handle("tre"),
+        ConnectionError("caduto"),
+    ])
+    secondo = FiloFinto(da_dire=[_setup_ok()])
+    sess = await _una_sessione(monkeypatch, [primo, secondo])
+
+    assert await sess.open()
+    await asyncio.sleep(0.2)
+
+    assert secondo.setup["sessionResumption"]["handle"] == "tre"
+    assert sess.how_it_went()["session_resumption_updates"] == 3
+    await sess.close()
+
+
+@pytest.mark.asyncio
+async def test_a_handle_that_is_not_resumable_does_not_overwrite(monkeypatch):
+    """
+        UN APPIGLIO NON RIPRENDIBILE NON SOSTITUISCE QUELLO BUONO.
+
+    Sovrascriverlo vorrebbe dire perdere l'unica cosa che serve proprio quando
+    il filo cade — e il server ne manda di entrambi i tipi.
+    """
+    primo = FiloFinto(da_dire=[
+        _setup_ok(), _handle("buono"),
+        _handle("inutile", resumable=False),
+        {"sessionResumptionUpdate": {"newHandle": "", "resumable": True}},
+        ConnectionError("caduto"),
+    ])
+    secondo = FiloFinto(da_dire=[_setup_ok()])
+    sess = await _una_sessione(monkeypatch, [primo, secondo])
+
+    assert await sess.open()
+    await asyncio.sleep(0.2)
+
+    assert secondo.setup["sessionResumption"]["handle"] == "buono"
+    await sess.close()
+
+
+@pytest.mark.asyncio
+async def test_go_away_reconnects_before_the_wire_falls(monkeypatch):
+    """
+    §4: `goAway` è un preavviso, non un errore della missione.
+
+    Dice quanto tempo resta: si riapre prima che cada, così chi sta parlando
+    non sente niente.
+    """
+    primo = FiloFinto(da_dire=[
+        _setup_ok(), _handle("h1"),
+        {"goAway": {"timeLeft": "5s"}},
+        {"serverContent": {}},
+    ])
+    secondo = FiloFinto(da_dire=[_setup_ok()])
+    sess = await _una_sessione(monkeypatch, [primo, secondo])
+
+    assert await sess.open()
+    await asyncio.sleep(0.2)
+
+    numeri = sess.how_it_went()
+    assert numeri["go_away_count"] == 1
+    assert numeri["go_away_time_left"] == "5s"
+    assert numeri["resumes_succeeded"] >= 1, "non ha riaperto dopo il preavviso"
+    assert "goAway" in numeri["reconnect_reasons"]
+    assert secondo.setup["sessionResumption"]["handle"] == "h1"
+    await sess.close()
+
+
+@pytest.mark.asyncio
+async def test_a_drop_without_a_handle_fails_safely(monkeypatch):
+    """
+        SE NON C'È UN APPIGLIO, NON SI FINGE.
+
+    Aprire una sessione vuota e proseguire vorrebbe dire una ORA nuova che non
+    sa niente di quello che si è detto, con la stessa voce. Meglio dichiarare
+    che il trasporto è caduto.
+    """
+    solo = FiloFinto(da_dire=[_setup_ok(), ConnectionError("caduto subito")])
+    sess = await _una_sessione(monkeypatch, [solo])
+
+    assert await sess.open()
+    await asyncio.sleep(0.2)
+    await sess.close()
+
+    numeri = sess.how_it_went()
+    assert numeri["transport_failure"], "non ha dichiarato il guasto"
+    assert "nessun appiglio" in numeri["transport_failure"]
+    assert numeri["resumes_succeeded"] == 0
+    #     E UNA TELEFONATA COSÌ NON SCRIVE NIENTE NEL MONDO.
+    assert sess.outcome is not None
+    assert sess.outcome.status == "partial"
+    assert not sess.outcome.is_actionable()
+
+
+@pytest.mark.asyncio
+async def test_a_resume_that_keeps_failing_gives_up_honestly(monkeypatch):
+    """
+    §8: niente cicli infiniti, niente tempesta di riconnessioni.
+
+    Un filo che cade tre volte di fila non è un inciampo, e continuare a
+    riaprirlo mentre una persona aspetta al telefono vuol dire farle ascoltare
+    il silenzio più a lungo invece di chiudere con onestà.
+    """
+    from telephone.live import MAX_RESUME_ATTEMPTS
+
+    primo = FiloFinto(da_dire=[_setup_ok(), _handle("h"), ConnectionError("giù")])
+    # Tutti i successivi rifiutano il setup.
+    rotti = [FiloFinto(da_dire=[{"niente": {}}]) for _ in range(MAX_RESUME_ATTEMPTS)]
+    sess = await _una_sessione(monkeypatch, [primo] + rotti)
+
+    assert await sess.open()
+    await asyncio.sleep(1.5)
+    await sess.close()
+
+    numeri = sess.how_it_went()
+    assert numeri["resume_attempts"] == MAX_RESUME_ATTEMPTS
+    assert numeri["resumes_succeeded"] == 0
+    assert "non riuscita" in numeri["transport_failure"]
+    assert not sess.outcome.is_actionable()
+
+
+@pytest.mark.asyncio
+async def test_resuming_does_not_start_the_call_over(monkeypatch):
+    """
+    §5: chi ascolta non deve accorgersi di niente.
+
+        LA CONTINUITÀ LA PORTA L'APPIGLIO, NON NOI.
+
+    Niente seconda presentazione, niente saluto ripetuto, niente conversazione
+    che ricomincia. E la missione resta la stessa: stesso ledger, stessa
+    autorità, stessa identità.
+    """
+    primo = FiloFinto(da_dire=[_setup_ok(), _handle("h"), ConnectionError("giù")])
+    secondo = FiloFinto(da_dire=[_setup_ok()])
+    sess = await _una_sessione(monkeypatch, [primo, secondo])
+
+    assert await sess.open()
+    sess.mission.heard("availability", "alle 18 ci sarebbe posto")
+    ledger_prima = list(sess.mission.statements)
+    missione_prima = sess.packet.mission_id
+    await asyncio.sleep(0.2)
+
+    # Sul filo nuovo c'è il setup, e nient'altro che somigli a un'apertura.
+    dopo_il_setup = [m for m in secondo.mandati if "setup" not in m]
+    assert dopo_il_setup == [], f"ha rimandato qualcosa: {dopo_il_setup}"
+
+    assert sess.packet.mission_id == missione_prima
+    assert list(sess.mission.statements) == ledger_prima
+    assert sess._opening in ("completed", "speaking", "deferred", "pending")
+    await sess.close()
+
+
+@pytest.mark.asyncio
+async def test_every_connection_asks_for_charon(monkeypatch):
+    """
+    §6: anche i fili aperti per riprendere chiedono la voce di ORA.
+
+    È il punto in cui si perdeva: una sessione ripresa senza `speechConfig`
+    prende la voce predefinita del modello — e chi ascolta sente cambiare
+    interlocutore a metà telefonata.
+    """
+    from telephone.live import THE_VOICE
+
+    primo = FiloFinto(da_dire=[_setup_ok(), _handle("h"), ConnectionError("giù")])
+    secondo = FiloFinto(da_dire=[_setup_ok(), _handle("h2"), ConnectionError("giù")])
+    terzo = FiloFinto(da_dire=[_setup_ok()])
+    sess = await _una_sessione(monkeypatch, [primo, secondo, terzo])
+
+    assert await sess.open()
+    await asyncio.sleep(0.4)
+
+    for filo in (primo, secondo, terzo):
+        voce = filo.setup["generationConfig"]["speechConfig"]["voiceConfig"][
+            "prebuiltVoiceConfig"]["voiceName"]
+        assert voce == THE_VOICE, f"un filo ha chiesto {voce}"
+
+    numeri = sess.how_it_went()
+    #     OGNI FILO, ANCHE QUELLO CHE NON SI È APERTO.
+    # La voce si chiede al momento di comporre il setup, non dopo che ha
+    # funzionato: un tentativo fallito che avesse chiesto la voce sbagliata
+    # sarebbe comunque il sintomo del difetto.
+    assert numeri["live_connections"], "nessuna connessione registrata"
+    assert all(c["live_voice_in_setup"] == THE_VOICE
+               for c in numeri["live_connections"])
+    assert all(c["speech_config_sent"] for c in numeri["live_connections"])
+
+    riusciti = [c for c in numeri["live_connections"] if not c["failed_because"]]
+    assert len(riusciti) == 3
+    # Il primo apre, gli altri riprendono.
+    assert [c["resumed_from_handle"] for c in riusciti] == [False, True, True]
+    assert [c["connection_index"] for c in riusciti] == [1, 2, 3]
+    await sess.close()
+
+
+@pytest.mark.asyncio
+async def test_the_trace_says_what_happened_to_the_wire(monkeypatch):
+    """§10: ogni connessione lascia detto chi era, e nessun segreto."""
+    primo = FiloFinto(da_dire=[_setup_ok(), _handle("h-segreto"),
+                               ConnectionError("giù")])
+    secondo = FiloFinto(da_dire=[_setup_ok()])
+    sess = await _una_sessione(monkeypatch, [primo, secondo])
+
+    assert await sess.open()
+    await asyncio.sleep(0.2)
+    numeri = sess.how_it_went()
+
+    for campo in ("live_connection_count", "session_resumption_updates",
+                  "has_valid_resume_handle", "go_away_count",
+                  "resume_attempts", "resumes_succeeded", "reconnect_ms",
+                  "reconnect_reasons", "connection_closed_reasons",
+                  "transport_failure"):
+        assert campo in numeri, campo
+
+    assert numeri["has_valid_resume_handle"] is True
+    assert numeri["reconnect_ms"] and numeri["reconnect_ms"][0] >= 0
+    #     L'APPIGLIO NON SI SCRIVE: SI DICE CHE C'È.
+    # È un manico di sessione, e un rapporto che si incolla in una
+    # conversazione non deve portarselo dietro.
+    assert "h-segreto" not in str(numeri)
+    assert "non-una-chiave-vera" not in str(numeri)
+    await sess.close()
+
+
+@pytest.mark.asyncio
+async def test_closing_after_a_resume_leaves_nothing_running(monkeypatch):
+    """Nessun task orfano, nessun filo aperto: si chiude tutto."""
+    primo = FiloFinto(da_dire=[_setup_ok(), _handle("h"), ConnectionError("giù")])
+    secondo = FiloFinto(da_dire=[_setup_ok()])
+    sess = await _una_sessione(monkeypatch, [primo, secondo])
+
+    assert await sess.open()
+    await asyncio.sleep(0.2)
+    await sess.close()
+
+    assert primo.chiuso and secondo.chiuso
+    assert sess._pump is None or sess._pump.done()
+    rimasti = [t for t in asyncio.all_tasks()
+               if t is not asyncio.current_task() and not t.done()]
+    assert not rimasti, f"task orfani: {rimasti}"
+
+
+@pytest.mark.asyncio
+async def test_no_two_wires_are_ever_live_together(monkeypatch):
+    """
+    §4: mai due sessioni vive insieme, e mai un istante senza nessuna.
+
+    È la differenza fra una ripresa che non si sente e un buco nella
+    telefonata.
+    """
+    primo = FiloFinto(da_dire=[_setup_ok(), _handle("h"), ConnectionError("giù")])
+    secondo = FiloFinto(da_dire=[_setup_ok()])
+    sess = await _una_sessione(monkeypatch, [primo, secondo])
+
+    assert await sess.open()
+    await asyncio.sleep(0.2)
+
+    # Il vecchio è chiuso, il nuovo no, e quello in uso è il nuovo.
+    assert primo.chiuso is True
+    assert secondo.chiuso is False
+    assert sess.ws is secondo
+    await sess.close()
+
+
+@pytest.mark.asyncio
+async def test_a_refused_resume_does_not_strand_the_old_wire(monkeypatch):
+    """
+    Se il setup di ripresa viene rifiutato, il filo appena aperto si chiude.
+
+    Altrimenti resterebbe lì, mezzo aperto, a tenere una connessione che
+    nessuno legge.
+    """
+    primo = FiloFinto(da_dire=[_setup_ok(), _handle("h"), ConnectionError("giù")])
+    rifiuta = FiloFinto(da_dire=[{"qualcosaltro": {}}])
+    buono = FiloFinto(da_dire=[_setup_ok()])
+    sess = await _una_sessione(monkeypatch, [primo, rifiuta, buono])
+
+    assert await sess.open()
+    await asyncio.sleep(1.0)
+
+    assert rifiuta.chiuso, "il filo rifiutato è rimasto aperto"
+    assert sess._resumes_done == 1
+    assert sess.ws is buono
+    await sess.close()

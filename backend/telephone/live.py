@@ -67,6 +67,16 @@ MODEL_RATE = 24000
 # Quanto si aspetta che il modello apra bocca prima di considerarlo perso.
 SETUP_TIMEOUT_S = 12
 
+#     QUANTE VOLTE SI PROVA A RIPRENDERE, E QUANTO SI ASPETTA FRA UNA E L'ALTRA.
+#
+# Tre tentativi e una pausa che cresce piano. Il limite non e' prudenza
+# generica: un filo che cade tre volte di fila in pochi secondi non e' un
+# inciampo, e continuare a riaprirlo mentre una persona aspetta al telefono
+# vuol dire farle ascoltare il silenzio piu' a lungo invece di chiudere con
+# onesta'.
+MAX_RESUME_ATTEMPTS = 3
+RESUME_BACKOFF_S = (0.2, 0.5, 1.0)
+
 #     QUANTO SI LASCIA ALL'ALTRO PER DIRE «PRONTO».
 # Chi risponde al telefono spesso parla subito, e non gli si parla sopra.
 #
@@ -361,9 +371,22 @@ def _model() -> str:
     return (os.environ.get("GEMINI_LIVE_MODEL") or "").strip()
 
 
+#     ORA HA UNA VOCE, E NON DIPENDE DA CHI PAGA IL FILO.
+#
+# Charon. Scelta ascoltandola, non leggendo una tabella. Sta qui come valore
+# di riposo perche' una sessione aperta senza `speechConfig` prende la voce
+# predefinita del modello — che e' un'altra — e su una telefonata vera si e'
+# sentito: la voce e' cambiata a meta' e nessun campo poteva smentirlo.
+#
+# Dipende dalla configurazione di ORA e da nient'altro: stessa voce sul
+# primario, sul secondario, e su ogni sessione riaperta per riprendere una
+# telefonata caduta.
+THE_VOICE = "Charon"
+
+
 def _voice() -> str:
-    """Quale voce. Vuoto vuol dire: quella che il modello darebbe comunque."""
-    return (os.environ.get("GEMINI_LIVE_VOICE") or "").strip()
+    """Quale voce. Senza configurazione, la sua."""
+    return (os.environ.get("GEMINI_LIVE_VOICE") or "").strip() or THE_VOICE
 
 
 # I messaggi del server che sappiamo leggere. Tutto il resto viene contato per
@@ -402,13 +425,16 @@ def _how_she_sounds() -> Dict[str, Any]:
     la sua — che e' esattamente il comportamento di prima, quindi cambiare
     questo file non cambia come parla finche' qualcuno non lo chiede.
     """
-    config: Dict[str, Any] = {"responseModalities": ["AUDIO"]}
-    scelta = _voice()
-    if scelta:
-        config["speechConfig"] = {
-            "voiceConfig": {"prebuiltVoiceConfig": {"voiceName": scelta}},
-        }
-    return config
+    #     NESSUNA SESSIONE PARTE SENZA DIRE COME DEVE SUONARE.
+    # `_voice()` non torna mai vuoto, quindi questo ramo non ha un altro lato:
+    # e' deliberato. Una sessione senza `speechConfig` e' una sessione con una
+    # voce che non abbiamo scelto noi.
+    return {
+        "responseModalities": ["AUDIO"],
+        "speechConfig": {
+            "voiceConfig": {"prebuiltVoiceConfig": {"voiceName": _voice()}},
+        },
+    }
 
 
 class MissionVoiceSession:
@@ -520,6 +546,30 @@ class MissionVoiceSession:
         self._server_said: List[Dict[str, Any]] = []
         self._server_unknown: set = set()
         self._trace: Dict[str, Any] = {}
+
+        # --- riprendere una telefonata a cui e' caduto il filo -------------
+        #
+        #     L'APPIGLIO VALE PER QUESTA TELEFONATA E BASTA.
+        #
+        # Non e' una cache e non si condivide: nasce con la sessione, muore
+        # con lei, e serve a dire al server «sono sempre quella di prima».
+        self._resume_handle = ""
+        self._connection_index = 0
+        self._connections: List[Dict[str, Any]] = []
+        self._resumption_updates = 0
+        self._go_away_count = 0
+        self._go_away_time_left = ""
+        self._must_resume = ""
+        self._resuming = False
+        self._resume_attempts = 0
+        self._resumes_done = 0
+        self._reconnect_ms: List[int] = []
+        self._reconnect_reasons: List[str] = []
+        self._closed_reasons: List[str] = []
+        # Perche' la telefonata si e' fermata per colpa del trasporto, se e'
+        # successo. Vuoto e' il caso normale, ed e' quello che permette a un
+        # esito di esistere.
+        self._transport_failure = ""
         self._speaking = None
         self._said_this_turn: List[str] = []
         self._heard_this_turn: List[str] = []
@@ -617,69 +667,9 @@ class MissionVoiceSession:
             return False
 
         self._opened_at = time.perf_counter()
-        suona = _how_she_sounds()
-        #     CHE COSA E' STATO DAVVERO APERTO, E CON CHE COSA DENTRO.
-        #
-        # `opening_voice` registrava la voce *desiderata*, e su una telefonata
-        # in cui la voce e' cambiata a meta' non ha potuto smentire nessuno.
-        # Questi campi registrano invece quello che e' uscito da qui: quale
-        # credenziale, quale modello, e se la configurazione della voce e'
-        # stata messa nel messaggio o e' rimasta fuori. Nessun segreto: il
-        # nome dello slot, non la chiave.
-        self._trace = {
-            "live_credential_slot": _key_slot(),
-            "live_model_opened": _model(),
-            "live_requested_voice": _voice() or "(nessuna preferenza)",
-            "live_speech_config_sent": "speechConfig" in suona,
-            "live_voice_in_setup": (
-                (suona.get("speechConfig") or {}).get("voiceConfig", {})
-                .get("prebuiltVoiceConfig", {}).get("voiceName", "")
-            ),
-            "live_session_opened_at": _when_it_is_now(),
-            "live_fallback_reason": "",
-        }
-        try:
-            self.ws = await (self._connect or _dial)()
-            await self._send({
-                "setup": {
-                    "model": f"models/{_model()}",
-                    "generationConfig": suona,
-                    "systemInstruction": {"parts": [{
-                        "text": SESSION_PROMPT
-                        + "\n\nPACCHETTO MISSIONE:\n"
-                        + self.packet.for_the_model(),
-                    }]},
-                    "tools": tools_for(
-                        self.packet.mission_type if self.packet is not None
-                        else "reschedule"
-                    ),
-                    "inputAudioTranscription": {},
-                    "outputAudioTranscription": {},
-                }
-            })
-            primo = await asyncio.wait_for(self._recv(), timeout=SETUP_TIMEOUT_S)
-            if "setupComplete" not in primo:
-                self._trace["live_fallback_reason"] = "setup non accettato"
-                logger.info("la sessione non è stata accettata")
-                await self.close()
-                return False
-            #     QUELLO CHE IL SERVER RISPONDE, NON QUELLO CHE GLI ABBIAMO
-            #     CHIESTO.
-            # Se un giorno conferma il modello o la voce, qui si vede senza
-            # doverlo indovinare da come suona.
-            self._trace["live_setup_echo"] = _just_the_shape(primo.get("setupComplete"))
-        except Exception as e:
-            self._trace["live_fallback_reason"] = type(e).__name__
-            logger.info("il filo verso chi parla non si è aperto: %s", type(e).__name__)
+        if not await self._connect_once(resume_handle=""):
             await self.close()
             return False
-
-        logger.info(
-            "sessione Live aperta: slot=%s modello=%s voce=%s (speechConfig=%s)",
-            self._trace["live_credential_slot"], self._trace["live_model_opened"],
-            self._trace["live_voice_in_setup"] or "(del modello)",
-            self._trace["live_speech_config_sent"],
-        )
 
         self._ready_ms = int((time.perf_counter() - self._opened_at) * 1000)
         self._answered_at = self._opened_at
@@ -706,6 +696,14 @@ class MissionVoiceSession:
         if self._closed or self.ws is None or not pcm:
             return
         entrato = time.perf_counter()
+        #     MENTRE SI RIAPRE IL FILO, QUESTI VENTI MILLISECONDI SI PERDONO.
+        #
+        # E vanno persi. Accodarli vorrebbe dire, un secondo dopo, mandare a
+        # chi parla un pezzo di conversazione vecchio di un secondo — e far
+        # rispondere a una frase che l'altra persona ha gia' finito di dire.
+        # Il credito invece si prende comunque, qualche riga piu' sotto: il
+        # metronomo della linea non si ferma perche' si e' fermato il nostro.
+        _ripresa_in_corso = self._resuming
         if self._last_inbound:
             # Ogni quanto la linea riesce davvero a parlarci. Se qui compaiono
             # trenta millisecondi invece di venti, il collo di bottiglia sta
@@ -746,6 +744,10 @@ class MissionVoiceSession:
                 )
         except Exception:
             pass
+        if _ripresa_in_corso:
+            # Il credito e' gia' stato preso: la linea continua a battere anche
+            # mentre il filo si riapre. Questi campioni invece finiscono qui.
+            return
         try:
             verso_gemini = time.perf_counter()
             await self._send({"realtimeInput": {"audio": {
@@ -756,24 +758,256 @@ class MissionVoiceSession:
             self._gemini_send_ms.append(round((adesso - verso_gemini) * 1000, 2))
             self._hear_total_ms.append(round((adesso - entrato) * 1000, 2))
         except Exception:
-            # Una linea che si chiude non deve diventare un'eccezione che
-            # risale fino al trasporto.
-            self._closed = True
+            #     UNA LINEA CHE SI CHIUDE NON RISALE FINO AL TRASPORTO.
+            # E adesso non chiude nemmeno la telefonata: se il filo verso chi
+            # parla e' caduto, se ne accorge chi legge — ed e' lui che sa
+            # riaprirlo. Qui si smette soltanto di mandare.
+            self._closed_reasons.append("send:" + "ConnectionClosed")
 
     # --- il fiume che esce ------------------------------------------------
 
-    async def _listen_to_the_model(self) -> None:
-        """Tutto quello che arriva da chi parla, finché arriva."""
+    # --- riprendere, invece di morire --------------------------------------
+
+    def _setup_message(self, resume_handle: str = "") -> Dict[str, Any]:
+        """
+        Il messaggio che apre una sessione. Uno solo, per tutte le aperture.
+
+            LA PRIMA E LA QUINTA SESSIONE DEVONO ESSERE LA STESSA COSA.
+
+        Se la connessione di ripresa si costruisse altrove, prima o poi una
+        delle due si dimenticherebbe la voce — ed e' esattamente il difetto che
+        si e' sentito: una telefonata che cambia timbro a meta' senza che nulla
+        nel rapporto lo spieghi. Una funzione sola, e la domanda «con quale
+        voce?» ha una risposta sola.
+
+        `sessionResumption` si chiede sempre: e' come si ottengono gli appigli
+        che servono se il filo cade. Con un appiglio dentro, il server capisce
+        che non e' una telefonata nuova — e' la stessa che riprende.
+        """
+        ripresa: Dict[str, Any] = {}
+        if resume_handle:
+            ripresa["handle"] = resume_handle
+
+        return {
+            "setup": {
+                "model": f"models/{_model()}",
+                "generationConfig": _how_she_sounds(),
+                "systemInstruction": {"parts": [{
+                    "text": SESSION_PROMPT
+                    + "\n\nPACCHETTO MISSIONE:\n"
+                    + self.packet.for_the_model(),
+                }]},
+                "tools": tools_for(
+                    self.packet.mission_type if self.packet is not None
+                    else "reschedule"
+                ),
+                "inputAudioTranscription": {},
+                "outputAudioTranscription": {},
+                "sessionResumption": ripresa,
+            }
+        }
+
+    async def _connect_once(self, *, resume_handle: str = "") -> bool:
+        """
+        Apre un filo e lo prepara. Torna se ha funzionato.
+
+        Non chiude niente e non decide niente: apre, chiede, aspetta la
+        conferma. Chi la chiama sa se e' la prima volta o la terza, e sa che
+        cosa fare se torna `False`.
+        """
+        suona = _how_she_sounds()
+        chiesta = (
+            suona["speechConfig"]["voiceConfig"]["prebuiltVoiceConfig"]["voiceName"]
+        )
+        self._connection_index += 1
+        scheda: Dict[str, Any] = {
+            "connection_index": self._connection_index,
+            "credential_slot": _key_slot(),
+            "model": _model(),
+            "requested_voice": _voice(),
+            "live_voice_in_setup": chiesta,
+            "speech_config_sent": True,
+            "session_started_at": _when_it_is_now(),
+            "resumed_from_handle": bool(resume_handle),
+            "setup_echo": {},
+            "failed_because": "",
+        }
+        vecchio = self.ws
         try:
-            while not self._closed:
-                messaggio = await self._recv()
-                if messaggio is None:
-                    break
-                await self._one_message(messaggio)
-        except asyncio.CancelledError:
-            raise
+            nuovo = await (self._connect or _dial)()
+            self.ws = nuovo
+            await self._send(self._setup_message(resume_handle))
+            primo = await asyncio.wait_for(self._recv(), timeout=SETUP_TIMEOUT_S)
+            if not primo or "setupComplete" not in primo:
+                scheda["failed_because"] = "setup non accettato"
+                self._connections.append(scheda)
+                self.ws = vecchio
+                await _shut(nuovo)
+                return False
+            scheda["setup_echo"] = _just_the_shape(primo.get("setupComplete"))
         except Exception as e:
-            logger.info("il filo di chi parla si è chiuso: %s", type(e).__name__)
+            scheda["failed_because"] = type(e).__name__
+            self._connections.append(scheda)
+            self.ws = vecchio
+            logger.info("il filo verso chi parla non si è aperto: %s", type(e).__name__)
+            return False
+
+        #     IL VECCHIO SI CHIUDE SOLO QUANDO IL NUOVO È PRONTO.
+        # Mai due sessioni vive insieme, e mai un istante senza nessuna: e' la
+        # differenza fra una ripresa che non si sente e un buco nella
+        # telefonata.
+        if vecchio is not None and vecchio is not self.ws:
+            await _shut(vecchio)
+
+        self._connections.append(scheda)
+        self._trace = {
+            "live_credential_slot": scheda["credential_slot"],
+            "live_model_opened": scheda["model"],
+            "live_requested_voice": scheda["requested_voice"],
+            "live_speech_config_sent": True,
+            "live_voice_in_setup": scheda["live_voice_in_setup"],
+            "live_session_opened_at": scheda["session_started_at"],
+            "live_fallback_reason": "",
+            "live_setup_echo": scheda["setup_echo"],
+        }
+        logger.info(
+            "sessione Live %s: slot=%s modello=%s voce=%s%s",
+            self._connection_index, scheda["credential_slot"], scheda["model"],
+            chiesta, " (ripresa)" if resume_handle else "",
+        )
+        return True
+
+    def _remember_the_handle(self, aggiornamento: Dict[str, Any]) -> None:
+        """
+        L'appiglio per riprendere, se e' buono.
+
+            UN APPIGLIO NON RIPRENDIBILE NON SOSTITUISCE QUELLO BUONO.
+
+        Il server ne manda uno circa al secondo. Alcuni arrivano con
+        `resumable` falso o senza manico: quelli si contano e si buttano, non
+        si scrivono sopra all'ultimo valido — sovrascriverlo vorrebbe dire
+        perdere l'unica cosa che serve proprio quando il filo cade.
+        """
+        self._resumption_updates += 1
+        manico = str(aggiornamento.get("newHandle") or "").strip()
+        if not manico or aggiornamento.get("resumable") is False:
+            return
+        self._resume_handle = manico
+
+    def _handle_go_away(self, avviso: Dict[str, Any]) -> None:
+        """
+        Il server annuncia che questa sessione sta per finire.
+
+            NON È UN ERRORE DELLA MISSIONE.
+
+        E' un preavviso, ed e' un regalo: dice quanto tempo resta. Si riapre
+        prima che cada, cosi' chi sta parlando non sente niente.
+        """
+        self._go_away_count += 1
+        resta = avviso.get("timeLeft")
+        self._go_away_time_left = str(resta) if resta is not None else ""
+        self._must_resume = "goAway"
+        logger.info("il server ha annunciato goAway (resta %s)", self._go_away_time_left)
+
+    async def _resume(self, perche: str) -> bool:
+        """
+        Riprende la stessa telefonata su un filo nuovo.
+
+            NON È UNA SECONDA CHIAMATA, E NON DEVE SEMBRARLO.
+
+        Niente presentazione, niente saluto, niente conversazione che
+        ricomincia: la continuita' la porta l'appiglio di ripresa, non noi. Il
+        ledger della missione, l'autorita', lo stato del commiato e l'identita'
+        della chiamata restano quelli di prima — non si toccano nemmeno.
+
+            E SE NON C'È UN APPIGLIO, NON SI FINGE.
+
+        Aprire una sessione vuota e proseguire vorrebbe dire una ORA nuova che
+        non sa niente di quello che si e' detto, con la stessa voce. Meglio
+        dichiarare che il trasporto e' caduto: nessun esito, nessuna scrittura,
+        e una telefonata che si racconta per quello che e' stata.
+        """
+        if self._closed:
+            return False
+        self._resuming = True
+        try:
+            if not self._resume_handle:
+                self._transport_failure = f"{perche}: nessun appiglio di ripresa"
+                logger.info("filo caduto senza appiglio: la missione si ferma")
+                return False
+
+            #     MENTRE SI RIAPRE, ORA NON PARLA.
+            # Quello che era in coda apparteneva a una generazione che non
+            # esiste piu': versarlo adesso vorrebbe dire far dire a ORA la fine
+            # di una frase cominciata su un altro filo.
+            try:
+                await self.playback.cancel()
+            except Exception:
+                pass
+
+            for tentativo in range(MAX_RESUME_ATTEMPTS):
+                self._resume_attempts += 1
+                if tentativo:
+                    await asyncio.sleep(
+                        RESUME_BACKOFF_S[min(tentativo, len(RESUME_BACKOFF_S) - 1)]
+                    )
+                comincio = time.perf_counter()
+                if await self._connect_once(resume_handle=self._resume_handle):
+                    self._resumes_done += 1
+                    self._reconnect_ms.append(
+                        int((time.perf_counter() - comincio) * 1000))
+                    self._reconnect_reasons.append(perche)
+                    logger.info(
+                        "sessione ripresa dopo %s (tentativo %d)",
+                        perche, tentativo + 1,
+                    )
+                    return True
+                if self._closed:
+                    return False
+
+            self._transport_failure = (
+                f"{perche}: ripresa non riuscita in "
+                f"{MAX_RESUME_ATTEMPTS} tentativi"
+            )
+            logger.info("ripresa non riuscita: la missione si ferma")
+            return False
+        finally:
+            self._resuming = False
+
+    async def _listen_to_the_model(self) -> None:
+        """
+        Tutto quello che arriva da chi parla — e se smette di arrivare, si
+        riapre invece di lasciar morire la telefonata.
+
+            UN FILO CHE CADE NON È UNA MISSIONE FINITA.
+
+        Su una prenotazione vera il filo e' caduto quattordici secondi dopo
+        l'apertura, mentre lo studio stava fissando l'appuntamento. ORA non ha
+        riagganciato: le hanno tolto la sessione da sotto, e non sapeva
+        riprenderla. Adesso sa.
+        """
+        while not self._closed:
+            try:
+                while not self._closed:
+                    messaggio = await self._recv()
+                    if messaggio is None:
+                        raise ConnectionError("il filo si è chiuso")
+                    await self._one_message(messaggio)
+                    if self._must_resume and not self._closed:
+                        #     IL PREAVVISO SI ONORA PRIMA DELLA CADUTA.
+                        perche, self._must_resume = self._must_resume, ""
+                        if not await self._resume(perche):
+                            return
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                if self._closed:
+                    return
+                motivo = type(e).__name__
+                logger.info("il filo di chi parla si è chiuso: %s", motivo)
+                self._closed_reasons.append(motivo)
+                if not await self._resume(motivo):
+                    return
 
     async def _one_message(self, m: Dict[str, Any]) -> None:
         if m.get("usageMetadata"):
@@ -800,6 +1034,10 @@ class MissionVoiceSession:
                 })
                 logger.info("il server ha detto %s a %s ms", avviso,
                             self._server_said[-1]["at_ms"])
+        if m.get("sessionResumptionUpdate"):
+            self._remember_the_handle(m["sessionResumptionUpdate"])
+        if m.get("goAway"):
+            self._handle_go_away(m["goAway"])
         ignoti = set(m) - _WHAT_WE_KNOW
         if ignoti:
             self._server_unknown.update(ignoti)
@@ -1401,9 +1639,18 @@ class MissionVoiceSession:
                 mission_id=self.packet.mission_id,
                 status="partial",
                 counterparty_statements=self.mission.statements[:8],
-                notes="la linea è caduta prima di un esito",
+                notes=(
+                    f"il filo verso chi parla è caduto: {self._transport_failure}"
+                    if self._transport_failure
+                    else "la linea è caduta prima di un esito"
+                ),
                 followup_required=True,
             )
+            #     `partial` NON È AZIONABILE, ED È IL PUNTO.
+            # Una telefonata a cui e' caduto il trasporto non scrive niente nel
+            # mondo: il livello di applicazione salta, il calendario non si
+            # tocca, e la scheda racconta che non si e' arrivati a un esito.
+            # Non serve un ramo nuovo — serve non inventare un successo.
 
     def _since_open(self, quando: Optional[float]) -> Optional[int]:
         """Quanti millisecondi dall'apertura della linea. Niente orologi veri."""
@@ -1461,6 +1708,19 @@ class MissionVoiceSession:
             **self._trace,
             "server_announcements": self._server_said,
             "server_messages_not_understood": sorted(self._server_unknown),
+            # --- il filo, e quante volte e' stato riaperto ------------------
+            "live_connections": self._connections,
+            "live_connection_count": self._connection_index,
+            "session_resumption_updates": self._resumption_updates,
+            "has_valid_resume_handle": bool(self._resume_handle),
+            "go_away_count": self._go_away_count,
+            "go_away_time_left": self._go_away_time_left,
+            "resume_attempts": self._resume_attempts,
+            "resumes_succeeded": self._resumes_done,
+            "reconnect_ms": self._reconnect_ms,
+            "reconnect_reasons": self._reconnect_reasons,
+            "connection_closed_reasons": self._closed_reasons,
+            "transport_failure": self._transport_failure,
             "opening_deferred_for_human": self._opening_deferred,
             "answered_at_ms": 0 if self._answered_at else None,
             "live_ready_at_ms": self._since_open(self._live_ready_at),
@@ -1579,6 +1839,16 @@ def _q(valori, quanto: int):
         return None
     ordinati = sorted(valori)
     return round(ordinati[min(len(ordinati) - 1, int(quanto / 100 * len(ordinati)))], 2)
+
+
+async def _shut(ws) -> None:
+    """Chiude un filo e non si lamenta. Chiuderne uno gia' chiuso non e' un evento."""
+    if ws is None:
+        return
+    try:
+        await ws.close()
+    except Exception:
+        pass
 
 
 async def _dial():
