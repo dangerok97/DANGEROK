@@ -30,6 +30,7 @@ import {
   type CallDetail,
   type CallTranscriptEntry,
 } from '@/src/api/client';
+import { DecideContinuation } from '@/src/components/calls/DecideContinuation';
 import { ErrorState } from '@/src/components/ui/ErrorState';
 import { Appear, useAmbientInset } from '@/src/shell';
 import { useTheme } from '@/src/theme/ThemeProvider';
@@ -62,22 +63,28 @@ export default function CallDetailScreen() {
   const [loadingTranscript, setLoadingTranscript] = useState(false);
   const [transcriptAsked, setTranscriptAsked] = useState(false);
 
-  useEffect(() => {
-    let vivo = true;
-    (async () => {
-      try {
-        const res = await api.callDetail(String(id));
-        if (vivo) setCall(res.call);
-      } catch (e) {
-        if (vivo) setError(humanizeError(e));
-      } finally {
-        if (vivo) setLoading(false);
-      }
-    })();
-    return () => {
-      vivo = false;
-    };
+  /**
+   * La telefonata, riletta.
+   *
+   * Serve due volte: all'apertura, e dopo una decisione — perché rispondere
+   * cambia la scheda, e la scheda deve mostrarlo senza che nessuno ricarichi
+   * la pagina a mano.
+   */
+  const load = useCallback(async () => {
+    try {
+      const res = await api.callDetail(String(id));
+      setCall(res.call);
+      setError(null);
+    } catch (e) {
+      setError(humanizeError(e));
+    } finally {
+      setLoading(false);
+    }
   }, [id]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   /**
    * The transcript, when asked for.
@@ -187,7 +194,22 @@ export default function CallDetailScreen() {
                     </Text>
                   ) : null}
 
-                  {call.needs_decision ? (
+                  {/*
+                    La decisione si prende qui.
+
+                        «SERVE UNA TUA DECISIONE» DEVE AVERE QUALCOSA DIETRO.
+
+                    Prima questo pulsante mandava in un'altra schermata a
+                    ricominciare la conversazione da capo. Ma la domanda è già
+                    stata fatta e la risposta della controparte è già arrivata:
+                    quello che manca è una riga sola.
+                  */}
+                  {call.continuation?.open ? (
+                    <DecideContinuation
+                      continuation={call.continuation}
+                      onDecided={() => void load()}
+                    />
+                  ) : call.needs_decision ? (
                     <Text
                       accessibilityRole="button"
                       onPress={() => router.push('/(tabs)/ora' as any)}

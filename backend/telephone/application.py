@@ -128,10 +128,14 @@ def key_for(mission_id: str, operation: str, entity_id: str) -> str:
 
 
 async def application_for(db, call_id: str) -> Optional[CallMissionApplication]:
-    """L'applicazione di questa telefonata, se qualcuno ci ha provato."""
-    row = await db[APPLICATIONS].find_one(
-        {"mission_id": mission_id_for(call_id)}, {"_id": 0},
-    )
+    """
+    L'applicazione di questa telefonata, se qualcuno ci ha provato.
+
+    Per telefonata, non per nome della missione: una commissione ripresa ha due
+    telefonate e una missione sola, e l'applicazione appartiene a quella che
+    l'ha davvero scritta.
+    """
+    row = await db[APPLICATIONS].find_one({"call_id": call_id}, {"_id": 0})
     if not row:
         return None
     try:
@@ -150,9 +154,8 @@ async def applications_for(db, call_ids: List[str]) -> Dict[str, CallMissionAppl
     """
     if not call_ids:
         return {}
-    nomi = [mission_id_for(x) for x in call_ids]
     fuori: Dict[str, CallMissionApplication] = {}
-    righe = db[APPLICATIONS].find({"mission_id": {"$in": nomi}}, {"_id": 0})
+    righe = db[APPLICATIONS].find({"call_id": {"$in": list(call_ids)}}, {"_id": 0})
     async for row in righe:
         try:
             record = CallMissionApplication.model_validate(row)
@@ -379,6 +382,17 @@ async def apply_the_outcome(db, call, outcome) -> Optional[CallMissionApplicatio
 
     try:
         if not outcome.is_actionable():
+            if stato_esito == "needs_user":
+                #     UN ESITO CHE ASPETTA UNA PERSONA NON E' UN ESITO MORTO.
+                # Qui la commissione si ferma invece di finire: quello che ha
+                # imparato resta scritto, e aspetta una risposta. Nel mondo
+                # non si tocca niente — e' esattamente il punto.
+                from telephone.continuation import pause_for_user
+
+                try:
+                    await pause_for_user(db, call=call, outcome=outcome)
+                except Exception as e:  # pragma: no cover
+                    logger.info("pausa non registrata: %s", type(e).__name__)
             return await _write_down(
                 db, call, mission_id, stato_esito, None,
                 status="skipped",
@@ -423,6 +437,16 @@ async def apply_the_outcome(db, call, outcome) -> Optional[CallMissionApplicatio
         record = await _settle(db, record, verdetto)
         if record.went_through():
             await _note_on_the_call(db, call, record.writes)
+            #     SE QUESTA ERA UNA RIPRESA, ADESSO E' CHIUSA.
+            # Non tocca niente quando non lo era: si scrive soltanto su una
+            # commissione che risultava ripresa e aspettava di sapere com'e'
+            # finita.
+            try:
+                from telephone.continuation import settle as chiudi
+
+                await chiudi(db, mission_id=mission_id, succeeded=True)
+            except Exception as e:  # pragma: no cover
+                logger.info("continuazione non chiusa: %s", type(e).__name__)
         return record
 
     except Exception as e:

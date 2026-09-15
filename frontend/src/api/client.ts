@@ -513,6 +513,22 @@ export const api = {
   callDetail: (callId: string) =>
     request<{ ok: boolean; call: CallDetail }>(`/telephone/calls/${callId}`),
 
+  /** La decisione che una commissione ferma sta aspettando. */
+  decideContinuation: (
+    continuationId: string,
+    decision: 'accept' | 'alternative' | 'cancel',
+    alternative?: string,
+  ) =>
+    request<{
+      ok: boolean;
+      continuation: CallContinuation;
+      next_call_id: string;
+      already_decided: string;
+    }>(`/telephone/continuations/${continuationId}/decide`, {
+      method: 'POST',
+      body: JSON.stringify({ decision, alternative }),
+    }),
+
   callTranscript: (callId: string) =>
     request<CallTranscriptResponse>(`/telephone/calls/${callId}/transcript`),
 
@@ -3456,6 +3472,39 @@ export type CallDetail = CallCard & {
   application_status: '' | 'pending' | 'applied' | 'skipped' | 'conflict' | 'failed';
   application_error: string;
   application_target: string;
+  /**
+   * La domanda che questa commissione sta aspettando, se si è fermata.
+   *
+   * Assente è il caso normale: quasi nessuna telefonata si ferma a metà.
+   */
+  continuation?: CallContinuation;
+};
+
+/**
+ * Una commissione ferma, come la legge chi deve rispondere.
+ *
+ * Nessuno stato interno: cos'è successo, cosa si può fare, e nient'altro.
+ * Chi apre questa scheda non ha seguito la telefonata.
+ */
+export type CallContinuation = {
+  id: string;
+  call_id: string;
+  state:
+    | 'paused_for_user'
+    | 'pending_user_decision'
+    | 'resumed'
+    | 'cancelled'
+    | 'succeeded'
+    | 'failed';
+  open: boolean;
+  /** «Lo studio non può alle 18:00. Propone domani alle 11:00.» */
+  says: string;
+  proposal: string;
+  why_i_could_not_decide: string;
+  can: ('accept' | 'alternative' | 'cancel')[];
+  decision: string;
+  resumed_call_id: string;
+  created_at: string;
 };
 
 /**

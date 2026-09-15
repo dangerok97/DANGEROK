@@ -213,13 +213,76 @@ async def call_detail(
     call = await service.get(user["user_id"], call_id)
     if call is None:
         raise HTTPException(404, "chiamata sconosciuta")
+    from telephone.continuation import as_a_question, continuation_for
+
+    scheda = in_full(
+        call,
+        kept_the_mandate=service.kept_the_mandate(call),
+        application=await application_for(db, call.id),
+    )
+    #     SE LA COMMISSIONE E' FERMA, LA DOMANDA STA QUI.
+    # E' la pagina che qualcuno apre dopo aver letto «serve una tua decisione»:
+    # la decisione deve poterla prendere da qui, non da un altro posto.
+    ferma = await continuation_for(db, call.id)
+    if ferma is not None:
+        scheda["continuation"] = as_a_question(ferma)
+    return {"ok": True, "call": scheda}
+
+
+@router.get("/continuations")
+async def waiting_decisions(user: dict = Depends(get_current_user)) -> Dict[str, Any]:
+    """
+    Le commissioni ferme che aspettano una risposta.
+
+        UNA DOMANDA CHE NESSUNO VEDE NON E' UNA DOMANDA.
+
+    Leggerle le segna come mostrate: da quel momento, se restano senza
+    risposta, e' perche' nessuno ha risposto — non perche' nessuno ha chiesto.
+    """
+    from telephone.continuation import as_a_question, mark_shown, waiting_for
+
+    ferme = await waiting_for(db, user["user_id"])
+    fuori = []
+    for c in ferme:
+        fuori.append(as_a_question(await mark_shown(db, c)))
+    return {"ok": True, "waiting": fuori, "how_many": len(fuori)}
+
+
+@router.post("/continuations/{continuation_id}/decide")
+async def decide_continuation(
+    continuation_id: str,
+    payload: Dict[str, Any] = Body(default={}),
+    user: dict = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """
+    La risposta di chi aveva chiesto la telefonata.
+
+        LA DECISIONE E' L'AUTORITA'. LA TELEFONATA NON PARTE DA SOLA.
+
+    Accettare una proposta crea la seconda chiamata e la lascia **autorizzata**:
+    perche' squilli serve ancora il si' esplicito su quella chiamata, come per
+    ogni altra. Questa porta allarga il mandato, non compone un numero.
+    """
+    from telephone.continuation import as_a_question, by_id, decide
+
+    continuazione = await by_id(db, continuation_id, user["user_id"])
+    if continuazione is None:
+        raise HTTPException(404, "questa decisione non esiste")
+
+    esito = await decide(
+        db,
+        continuation=continuazione,
+        decision=str(payload.get("decision") or ""),
+        alternative=str(payload.get("alternative") or ""),
+    )
+    if not esito.ok:
+        raise HTTPException(400, esito.why)
     return {
         "ok": True,
-        "call": in_full(
-            call,
-            kept_the_mandate=service.kept_the_mandate(call),
-            application=await application_for(db, call.id),
-        ),
+        "continuation": as_a_question(esito.continuation),
+        # La telefonata che ne nasce, se ne nasce una. Autorizzata, non partita.
+        "next_call_id": esito.call.id if esito.call else "",
+        "already_decided": esito.why,
     }
 
 
