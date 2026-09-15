@@ -207,10 +207,17 @@ async def bind_a_calendar_event(
 
 
 async def binding_for(db, call_id: str) -> Optional[CallMissionBinding]:
-    """Il legame di questa telefonata, se ne ha uno."""
-    row = await db[BINDINGS].find_one(
-        {"mission_id": mission_id_for(call_id)}, {"_id": 0},
-    )
+    """
+    Il legame di questa telefonata, se ne ha uno.
+
+        SI CERCA PER TELEFONATA, NON PER NOME DELLA MISSIONE.
+
+    Di solito sono la stessa cosa. Non lo sono quando una commissione si e'
+    fermata e ha ripreso: la seconda telefonata porta il nome della missione
+    originale — e' cosi' che l'applicazione resta una sola — ma ha un `call_id`
+    tutto suo, ed e' da li' che la si ritrova.
+    """
+    row = await db[BINDINGS].find_one({"call_id": call_id}, {"_id": 0})
     if not row:
         return None
     try:
