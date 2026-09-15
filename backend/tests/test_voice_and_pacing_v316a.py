@@ -868,3 +868,147 @@ async def test_a_refused_resume_does_not_strand_the_old_wire(monkeypatch):
     assert sess._resumes_done == 1
     assert sess.ws is buono
     await sess.close()
+
+
+# ---------------------------------------------------------------------------
+# 5 · Tre cose che si sono sentite al telefono
+# ---------------------------------------------------------------------------
+
+def test_after_five_it_is_not_buongiorno_anymore():
+    """
+        DOPO LE CINQUE NON SI DICE PIÙ BUONGIORNO.
+
+    Sembra un dettaglio e non lo è: è la prima parola della telefonata, e
+    sbagliarla dice a chi risponde che dall'altra parte non c'è nessuno che
+    sappia che ore sono. Alle 18:46 ORA ha detto «buongiorno».
+    """
+    from telephone.introduction import greeting_at
+
+    assert greeting_at("2026-09-15T09:00:00+02:00") == "Buongiorno"
+    assert greeting_at("2026-09-15T16:59:00+02:00") == "Buongiorno"
+    assert greeting_at("2026-09-15T17:00:00+02:00") == "Buonasera"
+    assert greeting_at("2026-09-15T18:46:00+02:00") == "Buonasera"
+
+    #     E SE NON SI SA CHE ORA È, SI SALUTA COME SI È SEMPRE FATTO.
+    # Un orologio illeggibile non deve cambiare come si apre una telefonata.
+    assert greeting_at("") == "Buongiorno"
+    assert greeting_at("non è una data") == "Buongiorno"
+    assert greeting_at(None) == "Buongiorno"
+
+
+def test_the_greeting_follows_the_persons_clock_not_the_servers():
+    """
+    L'ora che conta è quella di chi telefona, e sta già nel pacchetto.
+
+    Quella del server non c'entra niente: in due ore al giorno darebbe la
+    risposta sbagliata, ed è esattamente il difetto che questo chiude.
+    """
+    from telephone.introduction import introduction_for
+    from telephone.mission import CallMissionPacket
+
+    def apertura(quando):
+        p = CallMissionPacket(
+            mission_id="m", mission_type="reschedule", goal="spostare",
+            counterparty="Studio", on_behalf_of="Francesco",
+            local_datetime=quando, timezone="Europe/Rome",
+            subject="l'appuntamento",
+        )
+        return introduction_for(p).opening_line(p.local_datetime)
+
+    assert apertura("2026-09-15T10:00:00+02:00").startswith("Buongiorno,")
+    assert apertura("2026-09-15T18:46:00+02:00").startswith("Buonasera,")
+
+
+def test_an_interrupted_opening_is_repeated_not_continued():
+    """
+        SI RIFÀ LA FRASE TRONCATA, NON L'INTERA APERTURA.
+
+    «Non ricominciare da capo» diceva che cosa non fare e taceva su che cosa
+    fare. Il modello riprendeva dall'audio tagliato: interrotto su «sono
+    l'assistente di Fran…», ha ripreso da «…cesco». Chi ascolta non capisce
+    niente, ed è peggio di una ripetizione.
+    """
+    from telephone.introduction import Introduction, IntroductionLedger
+
+    intro = Introduction(
+        assistant_for="Francesco", reason_summary="spostare l'appuntamento",
+        reason_keywords=["spostare"],
+    )
+    registro = IntroductionLedger(intro)
+    # L'hanno tagliata sul nome: né chi è né perché sono arrivati.
+    nota = registro.what_still_has_to_be_said()
+
+    assert "assistente di Francesco" in nota
+    assert "Ripeti per intera la frase" in nota
+    assert "non riprendere da dove ti hanno tagliato" in nota
+    # E la vecchia regola resta: non si rifà tutta l'apertura.
+    assert "ricominciare la presentazione da capo" in nota.lower()
+
+
+@pytest.mark.asyncio
+async def test_she_says_nothing_after_the_goodbye(monkeypatch):
+    """
+        DOPO «ARRIVEDERCI» NON SI DICE PIÙ NIENTE.
+
+    Il commiato è fatto e la controparte ha risposto. Gemini però sente quel
+    «arrivederci» e genera un altro turno — e ORA lo dice, e ne nasce un terzo.
+    Sul vero si sono contati tre saluti di fila dove ne bastava uno, e la
+    persona ha dovuto riagganciare lei.
+
+    Impedire al modello di generare non si può. Versare quello che genera sì:
+    la coda verso la linea è nostra.
+    """
+    import base64
+
+    from telephone.live import MissionVoiceSession
+
+    async def send(_pcm):
+        return None
+
+    sess = MissionVoiceSession(None, owner_id="u1", session_ref="s", send=send)
+    versati = []
+
+    class CodaSpia:
+        def begin(self, **_k):
+            versati.append("nuova generazione")
+            return "un-manico"
+
+        async def feed(self, _pcm, _handle):
+            versati.append("audio")
+            return None
+
+        # Quel poco che il resto del giro le chiede: dire quando ha cominciato
+        # a versare, e sapersi chiudere.
+        first_send_at = None
+        frames_sent = 0
+
+        def still_pouring(self):
+            return False
+
+        async def cancel(self):
+            return 0
+
+        def how_it_went(self):
+            return {}
+
+        async def close(self):
+            return None
+
+    sess.playback = CodaSpia()
+    pezzo = base64.b64encode(bytes(960)).decode()
+
+    # Prima del saluto si parla, come sempre.
+    sess._goodbye = "speaking"
+    await sess._pour(pezzo)
+    assert versati[0] == "nuova generazione"
+    quanti_prima = len(versati)
+
+    # Dopo il saluto, no.
+    sess._speaking = None
+    sess._goodbye = "completed"
+    await sess._pour(pezzo)
+    await sess._pour(pezzo)
+
+    assert len(versati) == quanti_prima, "ha parlato dopo essersi congedata"
+    assert "nuova generazione" not in versati[1:]
+    assert sess.how_it_went()["words_after_goodbye_dropped"] == 2

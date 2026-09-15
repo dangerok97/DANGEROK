@@ -696,6 +696,10 @@ class MissionVoiceSession:
         # dopo che qualcosa l'aveva annullata, e quante volte si e' chiuso per
         # scadenza invece che su una linea libera. Due spie, non due modi.
         self._closing_rearms = 0
+        # Quante volte chi parla ha provato a dire qualcosa dopo il saluto.
+        # Zero e' il caso normale; un numero alto vuol dire che il commiato
+        # non sta chiudendo niente.
+        self._words_after_goodbye = 0
         self._closed_by_safety_net = 0
         self._hangup_task: Optional[asyncio.Task] = None
 
@@ -1148,6 +1152,21 @@ class MissionVoiceSession:
             # Chi parla ha sempre ragione sulla chiusura — ma «chi parla» qui
             # vuol dire la controparte, e di quella si occupano le orecchie.
             self._somebody_is_talking_again()
+        if self._speaking is None and self._goodbye == "completed":
+            #     DOPO «ARRIVEDERCI» NON SI DICE PIU' NIENTE.
+            #
+            # Il commiato e' fatto e la controparte ha risposto. Gemini pero'
+            # sente quel «arrivederci» e genera un altro turno — e ORA lo dice,
+            # e ne nasce un terzo. Sul vero si sono contati tre saluti di fila
+            # dove ne bastava uno, e la persona ha dovuto riagganciare lei.
+            #
+            # Impedire al modello di generare non si puo'. Versare quello che
+            # genera si': la coda verso la linea e' nostra. Una generazione
+            # gia' cominciata finisce — tagliarla a meta' sarebbe il difetto
+            # opposto — ma una nuova, dopo il saluto, non parte.
+            self._words_after_goodbye += 1
+            return
+
         if self._speaking is None:
             self._speaking = self.playback.begin(
                 generation_id=uuid.uuid4().hex[:12], turn_id=self._turn,
@@ -1877,6 +1896,7 @@ class MissionVoiceSession:
             "call_closing": self._call_closing,
             "goodbye_state": self._goodbye,
             "closing_rearms": self._closing_rearms,
+            "words_after_goodbye_dropped": self._words_after_goodbye,
             "closed_by_safety_net": self._closed_by_safety_net,
             "goodbye_story": self._goodbye_story[:20],
             "goodbye_interrupted_count": self._goodbye_interrupted,

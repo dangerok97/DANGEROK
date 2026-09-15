@@ -6,8 +6,8 @@ percorso fino al lancio si leggono qui e solo qui.
 
 | | |
 |---|---|
-| **Versione corrente** | **V3.16 — PASS** |
-| **Prossimo sprint** | **V3.17 — Needs User Continuation** |
+| **Versione corrente** | **V3.17 — PASS** |
+| **Prossimo sprint** | **V3.18 — Structured Authority** |
 | Branch | `feature/ora-quiet-premium-design-system` |
 | Ultimo checkpoint | `37af8a5` (lavoro) · `3baeaa1` (igiene) |
 | Aggiornato | 2026-09-15 |
@@ -237,14 +237,25 @@ destinazione senza che nessuno la ripeta a mano; un `pending` non resta
 `pending`; il conflitto è dimostrato su una telefonata vera.
 **Dipendenze** — V3.15.1a. **Nessun `book`/`cancel` qui.**
 
-### V3.17 — Needs User Continuation
+### V3.17 — Needs User Continuation · **PASS**
 **Obiettivo** — `needs_user` smette di essere un vicolo cieco.
-**Deliverable previsti** — la decisione che ORA non poteva prendere torna alla
-persona, viene presa, e **la commissione riprende da dove si era fermata** —
-senza rifare la telefonata da capo.
+**Deliverable** — `CallMissionContinuation` (pausa · domanda mostrata · ripresa
+· esito) · tre decisioni possibili, accetta / proponi altro / lascia perdere ·
+la ripresa porta **il nome della missione originale**, eredita il legame e
+riscrive l'obiettivo con quello che è stato deciso · due rotte e la decisione
+dentro la scheda della telefonata · `request_user_confirmation` distinto da
+`fail_mission`, con la proposta che arriva fino a chi deve rispondere.
 **Exit criteria** — un esito `needs_user` si chiude con un'azione reale dopo
-una risposta dell'utente.
-**Dipendenze** — V3.16.
+una risposta dell'utente. ✅ (seconda passata, 2026-09-15)
+- autorità stretta → lo studio propone un'altra data → `needs_user`, una sola
+  continuation, **zero mutation** prima della decisione;
+- «Va bene così» → stessa `mission_id` logica, stesso evento, autorità estesa
+  solo dalla decisione, doppio click senza seconda chiamata;
+- la richiamata ha chiesto **l'alternativa accettata**, non l'orario di
+  partenza — è il difetto che la prima passata aveva scoperto;
+- una sola scrittura, Google coerente, secondo apply senza scritture.
+**Debito lasciato** → **V3.21**: latenza di risposta (p50 1,6÷3,1 s, quasi
+tutta a monte di Gemini — il nostro percorso critico è sotto il millisecondo).
 
 ### V3.18 — Structured Authority
 **Obiettivo** — il mandato smette di essere prosa.
@@ -281,7 +292,10 @@ segnale affidabile · paginazione Call History · deriva di lingua · **buchi
 dell'audio a monte di Gemini** (17 sopra i 100 ms su una chiamata vera,
 `inbound_gap_max` 934 ms, cuscino di 200 ms insufficiente) · **reality gate
 della ripresa di sessione**, mai scattato perché il filo non è più caduto ·
-ulteriore irrobustimento di voce e trasporto.
+ulteriore irrobustimento di voce e trasporto · **latenza di risposta**,
+p50 fra 1,6 e 3,1 secondi su telefonate vere: il percorso critico nostro
+è sotto il millisecondo, il resto è il modello che pensa e consegna
+a strappi.
 **Exit criteria** — nessun debito telefonico dichiarato resta aperto.
 **Dipendenze** — V3.20.
 
@@ -349,7 +363,7 @@ sul vero.
 | **Actions reali** | **prima prova superata** | V3.15.1 · si allarga fino a V3.20 |
 | **Calendar completo** | **sì** — spostare, disdire, prenotare | ✅ V3.16 |
 | **Phone production-ready** | funziona, non è di prodotto | V3.21 · V3.22 |
-| **Needs-user continuation** | vicolo cieco | V3.17 |
+| **Needs-user continuation** | **sì** — si ferma, si decide, riprende | ✅ V3.17 |
 | **Reconciliation robusta** | riesce, non ritenta | V3.15.2 |
 | **Proactivity utile** | esiste, non misurata | V4 |
 | **Recovery / idempotenza** | idempotenza ✅, recovery ✗ | V3.15.2 · V10 |
