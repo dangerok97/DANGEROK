@@ -308,7 +308,13 @@ async def test_accepting_the_proposal_resumes_the_same_mission(mondo):
     #     L'AUTORITÀ NUOVA SI AGGIUNGE, NON SOSTITUISCE.
     assert "confermare le 18:00 di oggi" in seconda.mandate.may_agree_to
     assert "Propone domani alle 11:00." in seconda.mandate.may_agree_to
-    assert seconda.mandate.why_calling == _chiamata().mandate.why_calling
+    #     L'OBIETTIVO INVECE CAMBIA, ED È UNA CORREZIONE.
+    # La commissione di partenza resta scritta — è da lì che si capisce di che
+    # appuntamento si parla — ma davanti a chi telefona adesso c'è quello che
+    # è stato deciso. Vedi la prova dedicata più sotto.
+    assert seconda.mandate.why_calling.startswith(
+        _chiamata().mandate.why_calling)
+    assert "chiedi questo" in seconda.mandate.why_calling
 
     #     E IL LEGAME SI EREDITA, CON IL NOME DI PRIMA.
     # L'oggetto da cambiare è lo stesso: ritrovarlo adesso vorrebbe dire
@@ -580,3 +586,182 @@ async def test_the_card_still_asks_for_a_decision(mondo):
     domanda = as_a_question(await continuation_for(mondo, "tel_uno"))
     assert domanda["proposal"] == "Propone domani alle 11:00."
     assert domanda["why_i_could_not_decide"]
+
+
+# ---------------------------------------------------------------------------
+# 6 · La differenza che il modello deve poter vedere
+# ---------------------------------------------------------------------------
+
+def test_the_two_endings_do_not_look_alike_to_whoever_is_talking():
+    """
+    Sul vero, ORA ha scelto `fail_mission` per un'alternativa proposta.
+
+        UNA PORTA CHIUSA CON UN'ALTRA PORTA APERTA ACCANTO NON È UN FALLIMENTO.
+
+    Aveva capito benissimo — «propone un'alternativa non consentita» — ma i due
+    strumenti erano indistinguibili: stessa forma, stesso unico campo, e una
+    descrizione («la missione non si può compiere») che di quel caso è la
+    lettura più naturale. Il difetto non era nel ragionamento: era
+    nell'elenco.
+    """
+    from telephone.live import tools_for
+
+    d = {f["name"]: f for f in tools_for("reschedule")[0]["function_declarations"]}
+    chiedi = d["request_user_confirmation"]
+    fallisci = d["fail_mission"]
+
+    # Chi si ferma porta indietro la proposta: è la metà utile della fermata.
+    assert "proposal" in chiedi["parameters"]["properties"]
+    assert "alternativa" in chiedi["description"]
+
+    # E chi fallisce è stato ristretto al caso in cui non c'è niente.
+    assert fallisci["description"].startswith("SOLO")
+    assert "request_user_confirmation" in fallisci["description"]
+
+
+def test_the_prompt_says_which_one_to_reach_for():
+    """La regola sta anche dove il modello la legge, non solo nello schema."""
+    from telephone.live import SESSION_PROMPT
+
+    assert "non è un fallimento" in SESSION_PROMPT
+    assert "request_user_confirmation" in SESSION_PROMPT
+    assert "fail_mission" in SESSION_PROMPT
+
+
+@pytest.mark.asyncio
+async def test_the_proposal_reaches_the_person_who_must_decide(mondo):
+    """
+    §: quello che hanno offerto arriva fino alla domanda.
+
+    Senza, a chi deve decidere resta solo «non si è potuto» — e con quello non
+    si risponde niente.
+    """
+    from telephone.continuation import _what_they_put_on_the_table
+
+    esito = _serve_una_decisione()
+    assert _what_they_put_on_the_table(esito) == "Propone domani alle 11:00."
+
+    # E se hanno solo detto che c'era posto, vale anche quella: è meno di una
+    # proposta, ma è più di niente.
+    from telephone.mission import CallMissionOutcome, CounterpartyStatement
+
+    solo_posto = CallMissionOutcome(
+        mission_id="mis_tel_uno", status="needs_user",
+        counterparty_statements=[CounterpartyStatement(
+            kind="availability", fact="giovedì ci sarebbe posto", turn=2)],
+    )
+    assert _what_they_put_on_the_table(solo_posto) == "giovedì ci sarebbe posto"
+
+
+def test_the_two_halves_read_as_two_sentences():
+    """
+    Il motivo e la proposta arrivano da due campi diversi, scritti da chi ha
+    telefonato senza sapere che finiranno accanto.
+
+        DUE FRASI SONO DUE FRASI, ANCHE SE ARRIVANO SEPARATE.
+
+    Sul vero sono uscite attaccate: «lo studio non può alle 18:00 del 30
+    settembre domani alle 11:00» — due cose vere, lette come una sola
+    sbagliata.
+    """
+    from telephone.continuation import CallMissionContinuation
+
+    grezza = CallMissionContinuation(
+        mission_id="m", call_id="c", owner_id="u",
+        reason="lo studio non può alle 18:00 del 30 settembre",
+        proposal="domani alle 11:00",
+    )
+    assert grezza.in_a_line() == (
+        "Lo studio non può alle 18:00 del 30 settembre. Domani alle 11:00.")
+
+    # E chi l'ha già scritta bene non si ritrova due punti.
+    pulita = CallMissionContinuation(
+        mission_id="m", call_id="c", owner_id="u",
+        reason="Lo studio non può alle 18:00.",
+        proposal="Propone domani alle 11:00.",
+    )
+    assert pulita.in_a_line() == (
+        "Lo studio non può alle 18:00. Propone domani alle 11:00.")
+
+    # Senza niente da dire, resta una domanda comunque.
+    vuota = CallMissionContinuation(mission_id="m", call_id="c", owner_id="u")
+    assert vuota.in_a_line() == "Serve una tua decisione per andare avanti."
+
+
+# ---------------------------------------------------------------------------
+# 7 · Due difetti che solo il telefono ha trovato
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_accepting_changes_the_errand_not_just_the_permissions(mondo):
+    """
+        CHI TELEFONA LEGGE L'OBIETTIVO, NON L'ELENCO DEI PERMESSI.
+
+    Sul vero: la persona aveva accettato «domani alle 11», ORA ha richiamato e
+    ha chiesto di nuovo le 18:00. La proposta era finita in `may_agree_to` —
+    che dice che cosa **può accettare** — e l'obiettivo era rimasto quello di
+    prima, che è quello che il modello legge.
+    """
+    from telephone.binding import binding_for
+    from telephone.continuation import decide
+    from telephone.service import TelephoneService
+
+    ferma = await _in_pausa(mondo)
+    esito = await decide(mondo, continuation=ferma, decision="accept")
+    seconda = await TelephoneService(mondo).get("u1", esito.call.id)
+
+    assert "Propone domani alle 11:00" in seconda.mandate.why_calling
+    assert "chiedi questo" in seconda.mandate.why_calling
+    # E il punto d'arrivo arriva anche a chi costruisce il pacchetto.
+    ereditato = await binding_for(mondo, esito.call.id)
+    assert ereditato.desired["start_datetime"] == "Propone domani alle 11:00."
+    #     MA L'APPUNTAMENTO E' ANCORA DOV'ERA.
+    # `expected` non si tocca: serve a riconoscere l'evento, non a dire dove
+    # deve finire.
+    assert ereditato.expected["start_datetime"] == "2026-09-14T16:00:00+02:00"
+
+
+@pytest.mark.asyncio
+async def test_the_resumed_packet_carries_the_logical_mission_name(mondo):
+    """
+        DUE CHIAVI VOGLIONO DIRE CHE LA STESSA COSA SI PUÒ APPLICARE DUE VOLTE.
+
+    `packet_for` ricalcolava il nome della missione da `call.id`. Sembrava
+    innocuo: di solito sono la stessa cosa. Non lo sono dopo una ripresa — e
+    sul vero l'applicazione della seconda telefonata ha preso una chiave tutta
+    sua, fuori dalla missione a cui apparteneva.
+    """
+    from telephone.continuation import decide
+    from telephone.dossier import TelephoneCallDossier
+    from telephone.binding import binding_for
+    from telephone.mission import packet_for
+    from telephone.service import TelephoneService
+
+    ferma = await _in_pausa(mondo)
+    esito = await decide(mondo, continuation=ferma, decision="accept")
+    seconda = await TelephoneService(mondo).get("u1", esito.call.id)
+    ereditato = await binding_for(mondo, seconda.id)
+
+    fascicolo = TelephoneCallDossier(
+        owner_id="u1", call_id=seconda.id, on_behalf_of="Francesco")
+    packet = packet_for(seconda, fascicolo, binding=ereditato)
+
+    assert packet.mission_id == "mis_tel_uno", (
+        "il pacchetto della ripresa ha un nome di missione tutto suo"
+    )
+    assert packet.mission_id != f"mis_{seconda.id}"
+    # E il punto d'arrivo concordato è quello che chi parla deve chiedere.
+    assert packet.desired_state.get("when") == "Propone domani alle 11:00."
+    # L'identificativo dell'evento resta fuori, come sempre.
+    assert "cal_abc123" not in packet.for_the_model()
+
+
+def test_a_first_call_still_gets_its_own_mission_name():
+    """Senza legame, o con un legame che non ne porta uno, niente cambia."""
+    from telephone.dossier import TelephoneCallDossier
+    from telephone.mission import mission_id_for, packet_for
+
+    fascicolo = TelephoneCallDossier(
+        owner_id="u1", call_id="tel_uno", on_behalf_of="Francesco")
+    packet = packet_for(_chiamata(), fascicolo)
+    assert packet.mission_id == mission_id_for("tel_uno") == "mis_tel_uno"
