@@ -1701,22 +1701,37 @@ def test_a_chosen_voice_reaches_the_session(monkeypatch):
         "prebuiltVoiceConfig"]["voiceName"] == "Aoede"
 
 
-def test_without_a_choice_nothing_is_imposed(monkeypatch):
+def test_without_a_choice_ora_still_has_her_own(monkeypatch):
     """
-    §14.I: senza scelta, non si manda nessuna preferenza.
+    §14.I diceva: senza scelta, nessuna preferenza. Adesso dice il contrario.
 
-        UNA VOCE NON SI SCEGLIE DA SOLI.
+        UNA VOCE NON SI SCEGLIE DA SOLI — MA UNA VOLTA SCELTA, SI TIENE.
 
-    Il modello usa la sua, che è esattamente come parlava prima: aggiungere
-    questa possibilità non cambia come suona finché non lo chiede qualcuno.
+    La regola nacque giusta: non imporre una voce che nessuno aveva chiesto.
+    Poi qualcuno l'ha chiesta. Francesco ha ascoltato e ha scelto Charon, e da
+    quel momento «nessuna preferenza» ha smesso di voler dire «lascia decidere
+    al modello»: vuol dire «usa la voce di ORA».
+
+    La differenza si e' sentita al telefono. Una sessione aperta senza
+    `speechConfig` prende la voce predefinita del modello — un'altra — e su una
+    telefonata vera la voce e' cambiata a meta' senza che nessun campo potesse
+    smentirlo. Adesso nessuna sessione parte muta su questo punto.
     """
-    from telephone.live import _how_she_sounds
+    from telephone.live import THE_VOICE, _how_she_sounds
+
+    def quale(config):
+        return config["speechConfig"]["voiceConfig"]["prebuiltVoiceConfig"][
+            "voiceName"]
 
     monkeypatch.delenv("GEMINI_LIVE_VOICE", raising=False)
-    assert _how_she_sounds() == {"responseModalities": ["AUDIO"]}
+    assert quale(_how_she_sounds()) == THE_VOICE
 
     monkeypatch.setenv("GEMINI_LIVE_VOICE", "   ")
-    assert "speechConfig" not in _how_she_sounds()
+    assert quale(_how_she_sounds()) == THE_VOICE
+
+    # E quando qualcuno ne chiede un'altra, resta l'ultima parola sua.
+    monkeypatch.setenv("GEMINI_LIVE_VOICE", "Aoede")
+    assert quale(_how_she_sounds()) == "Aoede"
 
 
 @pytest.mark.asyncio
