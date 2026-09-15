@@ -29,7 +29,7 @@ non si sovrascrive niente.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, Literal, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional, Tuple
 
 from pydantic import BaseModel, Field
 
@@ -41,16 +41,27 @@ logger = logging.getLogger("ora.telephone.binding")
 
 BINDINGS = "call_mission_bindings"
 
-# I domini che sanno ricevere l'esito di una telefonata. Uno, per ora, e
-# dichiararlo qui è il modo di tenere onesto il resto: un dominio non elencato
-# non ha un adattatore, e senza adattatore non si scrive niente.
-Domain = Literal["calendar"]
+# I domini che sanno ricevere l'esito di una telefonata.
+#
+#     UN DOMINIO NON ELENCATO NON HA UN ADATTATORE, E NON SI SCRIVE.
+#
+# L'elenco vero sta nel registro di `telephone.domains`, che è anche l'unico
+# posto in cui si dice chi sa fare che cosa. Qui si ripete come tipo perché un
+# legame è un documento persistito e un documento si convalida: un dominio
+# arrivato per sbaglio deve fermarsi al confine, non tre chiamate più in là.
+Domain = Literal["calendar", "commitments", "study"]
 
 # Le operazioni che una telefonata può applicare. Ognuna ha avuto il proprio
 # giro di prove, e nessuna è arrivata per somiglianza con le altre: spostare,
 # disdire e prenotare cambiano il mondo in tre modi diversi, e sbagliano in
 # tre modi diversi.
-Operation = Literal["reschedule", "cancel", "book"]
+#
+# Le ultime tre sono arrivate coi domini nuovi. `complete` e `postpone` non
+# somigliano a `reschedule`: chiudono o rinviano una cosa da fare, e non hanno
+# un posto in agenda da liberare.
+Operation = Literal[
+    "reschedule", "cancel", "book", "complete", "postpone",
+]
 
 # Le operazioni che agiscono su un evento che esiste già. `book` no: il suo
 # oggetto non c'è ancora, ed è proprio quello che la telefonata va a creare.
@@ -229,6 +240,87 @@ async def bind_a_calendar_event(
     return binding, "", False
 
 
+async def bind_a_domain_target(
+    db, *, call, domain: str, operation: str, entity_id: str,
+    desired_datetime: str = "", desired_minutes: int = 0,
+    allowed_alternatives: Optional[List[str]] = None,
+    earliest: str = "", latest: str = "", same_day_only: bool = False,
+) -> Tuple[Optional[CallMissionBinding], str, bool]:
+    """
+    Lega questa telefonata a un oggetto qualsiasi, in un dominio qualsiasi.
+
+        IL LEGAME È LO STESSO. CAMBIA SOLO CHE COSA SI FOTOGRAFA.
+
+    Il calendario ha la sua porta — `bind_a_calendar_event` — perché ha
+    controlli che nessun altro dominio ha: un appuntamento già passato si
+    chiede, uno disdetto si rifiuta, uno senza orario non si sposta. Quelli
+    restano lì, e questa funzione non prova a generalizzarli: un controllo
+    reso generico è un controllo che smette di sapere che cosa sta guardando.
+
+    Quello che è davvero comune è il resto, ed è tutto qui dentro: che
+    l'operazione sia una che quel dominio sa fare, che l'oggetto esista e sia
+    di questa persona, che com'era adesso venga fotografato, e che il mandato
+    diventi una policy verificabile.
+
+        E SI CHIEDE AL DOMINIO CHE COSA RICORDARE.
+
+    Un appuntamento è il suo orario, un impegno è il suo stato, una sessione è
+    l'inizio e lo stato insieme. Chi lega non lo sa e non deve saperlo — lo
+    chiede a `remembers`, che è il primo dovere del contratto.
+
+    Torna le stesse tre cose delle altre porte: il legame, il motivo in
+    italiano, e se quel motivo è una domanda invece che un rifiuto. Non
+    solleva: una telefonata che non si può legare resta una telefonata, e
+    verrà raccontata invece che applicata.
+    """
+    from telephone.domains import adapter_for
+
+    dominio = (domain or "").strip()
+    fare = (operation or "").strip()
+
+    adattatore = adapter_for(dominio, fare)
+    if adattatore is None:
+        #     PRIMA DI COMPORRE IL NUMERO, NON DOPO.
+        # Scoprire che nessuno sa applicare questa cosa mentre si applica
+        # vuol dire averla già chiesta a una persona al telefono.
+        return None, f"non so ancora {fare} su «{dominio}»", False
+
+    ref = _just_the_id(entity_id)
+    if not ref:
+        return None, "non mi hai detto su che cosa devo agire", False
+
+    provvisorio = CallMissionBinding(
+        mission_id=mission_id_for(call.id),
+        call_id=call.id,
+        owner_id=call.owner_id,
+        target=MissionTarget(
+            domain=dominio,       # type: ignore[arg-type]
+            entity_id=ref,
+            operation=fare,       # type: ignore[arg-type]
+        ),
+    )
+    row = await adattatore.look(db, binding=provvisorio)
+    if row is None:
+        #     NON SI CERCA UN RIPIEGO, IN NESSUN DOMINIO.
+        return None, "questa cosa non è più fra le tue", False
+
+    binding = provvisorio.model_copy(update={
+        "expected": adattatore.remembers(row),
+        "authority": _the_policy(
+            call, fare, entity_id=ref, voluto=desired_datetime,
+            minuti=desired_minutes, domain=dominio,
+            alternatives=allowed_alternatives or [], earliest=earliest,
+            latest=latest, same_day_only=same_day_only,
+        ),
+    })
+    await db[BINDINGS].update_one(
+        {"mission_id": binding.mission_id},
+        {"$set": binding.model_dump()},
+        upsert=True,
+    )
+    return binding, "", False
+
+
 async def binding_for(db, call_id: str) -> Optional[CallMissionBinding]:
     """
     Il legame di questa telefonata, se ne ha uno.
@@ -312,6 +404,7 @@ async def _bind_a_new_appointment(
 
 def _the_policy(
     call, operazione: str, *, entity_id: str, voluto: str, minuti: int,
+    domain: str = "calendar",
     alternatives: Optional[List[str]] = None, earliest: str = "",
     latest: str = "", same_day_only: bool = False,
 ) -> Optional[CallMissionAuthority]:
@@ -337,7 +430,7 @@ def _the_policy(
         return None
     return CallMissionAuthority(
         operation=operazione,       # type: ignore[arg-type]
-        domain="calendar",
+        domain=(domain or "calendar").strip(),
         entity_id=entity_id,
         desired=desiderata if desiderata.is_real() else None,
         alternatives=fessure[:12],

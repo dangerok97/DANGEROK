@@ -92,6 +92,19 @@ class Righe:
                 yield r
         return gen()
 
+    def sort(self, chiave, verso=1):
+        self._righe = sorted(
+            self._righe, key=lambda r: r.get(chiave), reverse=verso < 0,
+        )
+        return self
+
+    def limit(self, quanti):
+        self._righe = self._righe[:max(0, int(quanti))]
+        return self
+
+    async def to_list(self, length=None):
+        return list(self._righe if length is None else self._righe[:length])
+
 
 class Tabella:
     def __init__(self):
@@ -141,6 +154,16 @@ class Tabella:
                     for x in (quali or {}).get("$each", []):
                         if x not in dentro:
                             dentro.append(x)
+                #     `$push` NON E' `$addToSet`: ACCETTA I DOPPIONI.
+                # Una cronologia e' fatta di righe uguali in momenti diversi,
+                # e un finto che le deduplicasse nasconderebbe proprio la
+                # scrittura doppia che queste prove cercano.
+                for campo, valore in (cambio.get("$push") or {}).items():
+                    dentro = r.setdefault(campo, [])
+                    if isinstance(valore, dict) and "$each" in valore:
+                        dentro.extend(valore["$each"])
+                    else:
+                        dentro.append(valore)
                 self.scritture += 1
                 return
         if upsert:

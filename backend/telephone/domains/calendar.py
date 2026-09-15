@@ -34,7 +34,12 @@ from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger("ora.telephone.apply.calendar")
 
+#     IL CALENDARIO E' UN ADATTATORE COME GLI ALTRI, E LO DICHIARA.
+# Questi due nomi sono il contratto: chi applica legge il registro, chiede
+# `(dominio, operazione)` e riceve un modulo che risponde. Nessun `if` con
+# scritto «calendar» da nessuna parte fuori di qui.
 DOMAIN = "calendar"
+OPERATIONS = ("reschedule", "book", "cancel")
 
 # Che cosa una telefonata di spostamento può aver confermato. Chiusa di
 # proposito: una chiave che non è qui dentro è una cosa che non si è chiesto
@@ -432,6 +437,68 @@ def _what_the_authority_says(binding, outcome) -> Optional[Verdict]:
 
     logger.info("l'autorita' non consente questa scrittura: %s", responso.code)
     return Verdict("skipped", error=responso.says or responso.code)
+
+
+async def look(db, *, binding) -> Optional[Dict[str, Any]]:
+    """
+    Dov'e' l'appuntamento adesso, secondo lo stato canonico.
+
+        CHI DECIDE GUARDA. NON SUPPONE.
+
+    E' il terzo dovere del contratto, e finora viveva dentro `apply` e
+    `reconcile` come due letture separate. Qui e' una sola, e un dominio nuovo
+    la trova gia' scritta.
+    """
+    ref = binding.target.entity_id or binding.created_entity_id
+    if not ref:
+        return None
+    return await db.calendar_event_drafts.find_one(
+        {"id": ref, "user_id": binding.owner_id}, {"_id": 0},
+    )
+
+
+def remembers(row: Dict[str, Any]) -> Dict[str, str]:
+    """
+    Com'era l'appuntamento quando si è deciso di telefonare.
+
+        `expected` NON È UN DOPPIONE: È LA DATA DI SCADENZA DELLA MISSIONE.
+
+    Sono i campi che `bind_a_calendar_event` fotografava a mano da sempre.
+    Averli qui vuol dire che chi lega non deve sapere che cosa sia un
+    appuntamento — glielo dice il dominio, come lo dirà ogni altro.
+    """
+    return {
+        "start_datetime": str((row or {}).get("start_datetime") or ""),
+        "end_datetime": str((row or {}).get("end_datetime") or ""),
+        "timezone": str((row or {}).get("timezone") or "Europe/Rome"),
+        "title": str((row or {}).get("title") or "")[:120],
+    }
+
+
+def detect_conflict(binding, row: Dict[str, Any]) -> Optional[Verdict]:
+    """
+    L'appuntamento è ancora quello su cui la missione era stata scritta?
+
+    Il settimo dovere, col nome che ha nel contratto. La domanda che dipende
+    anche da quello che la controparte ha detto resta dov'era — la fa
+    `_still_the_same_appointment`, che ha in mano pure l'esito.
+    """
+    atteso = (binding.expected.get("start_datetime") or "").strip()
+    adesso = str((row or {}).get("start_datetime") or "").strip()
+    if atteso and adesso and not _same_moment(atteso, adesso):
+        return Verdict("conflict", error="l'appuntamento è cambiato dopo la telefonata")
+    return None
+
+
+def says(operation: str, fields: Dict[str, str]) -> str:
+    """Come si racconta a chi non c'era. Il calendario parla di orari."""
+    quando = _read(fields.get("start_datetime", ""))
+    ora = quando.strftime("%H:%M") if quando else ""
+    return {
+        "reschedule": f"Appuntamento spostato{' alle ' + ora if ora else ''}.",
+        "book": f"Prenotazione effettuata{' alle ' + ora if ora else ''}.",
+        "cancel": "Appuntamento disdetto.",
+    }.get(operation, "Fatto.")
 
 
 def _the_calendar(db):

@@ -294,11 +294,11 @@ async def recover_one(
             return await _settle(db, record, _nothing(
                 "skipped", "il legame con l'appuntamento non c'è più"))
 
-        adattatore = adapter_for(legame.target.domain)
+        adattatore = adapter_for(legame.target.domain, legame.target.operation)
         if adattatore is None or not hasattr(adattatore, "reconcile"):
             return await _settle(db, record, _nothing(
                 "skipped",
-                f"non so riconciliare esiti su «{legame.target.domain}»"))
+                f"non so riconciliare {legame.target.operation} su «{legame.target.domain}»"))
 
         verdetto = await adattatore.reconcile(
             db, call=call, binding=legame, outcome=outcome,
@@ -412,12 +412,12 @@ async def apply_the_outcome(db, call, outcome) -> Optional[CallMissionApplicatio
                 error="la telefonata non era legata a un appuntamento del calendario",
             )
 
-        adattatore = adapter_for(legame.target.domain)
+        adattatore = adapter_for(legame.target.domain, legame.target.operation)
         if adattatore is None:
             return await _write_down(
                 db, call, mission_id, stato_esito, legame,
                 status="skipped",
-                error=f"non so ancora applicare esiti su «{legame.target.domain}»",
+                error=f"non so ancora {legame.target.operation} su «{legame.target.domain}»",
             )
 
         #     LA PRENOTAZIONE VIENE PRIMA DELLA SCRITTURA.
