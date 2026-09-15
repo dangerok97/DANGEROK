@@ -6,11 +6,11 @@ percorso fino al lancio si leggono qui e solo qui.
 
 | | |
 |---|---|
-| **Versione corrente** | **V3.15.1a — COMPLETATA** |
-| **Prossimo sprint** | **V3.15.2 — Post-Call Hardening** |
+| **Versione corrente** | **V3.16 — PASS** |
+| **Prossimo sprint** | **V3.17 — Needs User Continuation** |
 | Branch | `feature/ora-quiet-premium-design-system` |
 | Ultimo checkpoint | `37af8a5` (lavoro) · `3baeaa1` (igiene) |
-| Aggiornato | 2026-09-14 |
+| Aggiornato | 2026-09-15 |
 
 Gli altri due registri restano quello che sono e non ripetono questo:
 `CHANGELOG_AI.md` è il diario datato di che cosa è cambiato,
@@ -190,6 +190,26 @@ tocca niente. ✅
 **Misure** — applicazione completa in ~2,1 s dalla chiusura sessione, di cui
 ~1,6 s di andata e ritorno con Google.
 
+### V3.16 — Calendar Actions Complete · **PASS**
+**Obiettivo** — il dominio calendario completo, non un terzo di esso.
+**Deliverable** — adattatori `cancel` e `book` con la stessa disciplina di
+`reschedule` · schema di conferma per tipo di missione · `created_entity_id`
+separato dall'identità · guardia sul doppione col nome della missione
+sull'evento · **ripresa di sessione Gemini Live** e voce **Charon** fissata su
+ogni filo · il socket audio aspetta il fascicolo invece di ripiegare in
+silenzio sul runtime classico · riaggancio garantito dopo il commiato.
+**Exit criteria** — due telefonate reali, una CANCEL e una BOOK. ✅
+- **CANCEL**: `ced_6266be8073c2` → `cancelled` qui e su Google, nessun altro
+  evento toccato, secondo apply senza scritture.
+- **BOOK**: `ced_53b89319a11d` → un solo evento canonico e uno solo su Google,
+  25/09 15:00–15:30, `created_entity_id` valorizzato, `target.entity_id`
+  vuoto, secondo apply senza duplicati.
+**Debito lasciato** → **V3.21**: buchi dell'audio a monte di Gemini (17 sopra
+i 100 ms sull'ultima chiamata, `inbound_gap_max` 934 ms, cuscino di 200 ms
+insufficiente) · **reality gate della ripresa di sessione mai scattato** — il
+filo non è più caduto, quindi il codice di ripresa è provato solo sui finti ·
+ulteriore irrobustimento di voce e trasporto.
+
 ### V3.15.1a — Repo Hygiene · **PASS**
 **Obiettivo** — togliere dal repo due artefatti non portabili.
 **Deliverable** — eliminato il percorso macchina-specifico in
@@ -216,18 +236,6 @@ riesce».
 destinazione senza che nessuno la ripeta a mano; un `pending` non resta
 `pending`; il conflitto è dimostrato su una telefonata vera.
 **Dipendenze** — V3.15.1a. **Nessun `book`/`cancel` qui.**
-
-### V3.16 — Calendar Actions Complete
-**Obiettivo** — il dominio calendario completo, non un terzo di esso.
-**Deliverable previsti** — adattatori `cancel` e `book` con la stessa
-disciplina di `reschedule`: autorità, precondizioni, idempotenza, conflitto.
-**Exit criteria** — disdire e prenotare al telefono mutano il calendario
-canonico con le stesse nove prove di V3.15.1.
-**Dipendenze** — **V3.15.2 chiusa.** Non prima.
-**Perché aspetta** — oggi una disdetta riuscita lascia il calendario pieno: la
-persona non si presenta a un appuntamento che risulta ancora suo. È lo stesso
-buco di V3.15, in due domini gemelli — e va chiuso con un meccanismo già
-irrobustito, non insieme all'irrobustimento.
 
 ### V3.17 — Needs User Continuation
 **Obiettivo** — `needs_user` smette di essere un vicolo cieco.
@@ -269,8 +277,11 @@ richiesta, con autorità esplicita.
 ### V3.21 — Telephone Product Hardening
 **Obiettivo** — saldare tutto il debito dichiarato di V3.13 e V3.14.
 **Deliverable previsti** — p90/p95 del playback · stato `segreteria` con un
-segnale affidabile · paginazione Call History · deriva di lingua · buchi a
-monte del fornitore.
+segnale affidabile · paginazione Call History · deriva di lingua · **buchi
+dell'audio a monte di Gemini** (17 sopra i 100 ms su una chiamata vera,
+`inbound_gap_max` 934 ms, cuscino di 200 ms insufficiente) · **reality gate
+della ripresa di sessione**, mai scattato perché il filo non è più caduto ·
+ulteriore irrobustimento di voce e trasporto.
 **Exit criteria** — nessun debito telefonico dichiarato resta aperto.
 **Dipendenze** — V3.20.
 
@@ -336,7 +347,7 @@ sul vero.
 | **Context affidabile** | in piedi | Ere 6–8, 10 |
 | **Reasoning stabile** | in piedi | Ere 7–8 |
 | **Actions reali** | **prima prova superata** | V3.15.1 · si allarga fino a V3.20 |
-| **Calendar completo** | **un terzo** (solo `reschedule`) | V3.16 |
+| **Calendar completo** | **sì** — spostare, disdire, prenotare | ✅ V3.16 |
 | **Phone production-ready** | funziona, non è di prodotto | V3.21 · V3.22 |
 | **Needs-user continuation** | vicolo cieco | V3.17 |
 | **Reconciliation robusta** | riesce, non ritenta | V3.15.2 |
