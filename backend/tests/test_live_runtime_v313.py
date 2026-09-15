@@ -807,6 +807,19 @@ async def test_a_new_answer_from_ora_also_revokes_the_closing(monkeypatch):
 
     Se Gemini risponde a chi ha ripreso la parola, la telefonata è viva: non
     serve che qualcuno se ne accorga a mano.
+
+        MA «CHI HA RIPRESO LA PAROLA» DEVE ESSERE LA CONTROPARTE.
+
+    Questa prova mandava audio di ORA senza che nessuno avesse parlato, e
+    pretendeva che la chiusura si annullasse. Su una telefonata vera quella
+    regola si è rivoltata: il commiato è uscito a pezzi — «La ringrazio,» ·
+    «Buona giornata.» · «Arrivederci.» — e a ogni frammento ORA annullava la
+    propria chiusura. `goodbye_state=completed`, e la linea aperta per altri
+    nove secondi finché non ha riagganciato la persona.
+
+    Adesso la revoca la fa chi parla dall'altra parte. Quando è così, ORA che
+    risponde conferma che la telefonata è viva; quando ORA parla da sola dopo
+    essersi congedata, sta solo finendo di salutare.
     """
     import base64
 
@@ -820,6 +833,11 @@ async def test_a_new_answer_from_ora_also_revokes_the_closing(monkeypatch):
         await asyncio.sleep(0.05)
         assert sess.how_it_went()["call_closing"] == "pending"
 
+        #     PRIMA HA PARLATO QUALCUNO. È QUESTO CHE RIAPRE.
+        sess._somebody_is_talking_again()
+        assert sess.how_it_went()["call_closing"] == "open"
+
+        # E ORA che risponde non la richiude: la conversazione è ricominciata.
         await wire.says({"serverContent": {"modelTurn": {"parts": [
             {"inlineData": {"data": base64.b64encode(bytes(960)).decode()}},
         ]}}})
@@ -2621,3 +2639,304 @@ async def test_the_barrier_survives_a_timer_that_does_not_sleep_at_all():
     assert orologio.now() >= partenza + MIN_GAP_S
     assert orologio.cessioni > 0, "non ha mai ceduto il controllo"
     await play.close()
+
+
+# ---------------------------------------------------------------------------
+# 4 · Dopo il saluto si riaggancia. Sempre.
+# ---------------------------------------------------------------------------
+#
+#     UN COMMIATO COMPLETATO CHE NON RIAGGANCIA È UN COMMIATO INUTILE.
+#
+# Sulla prenotazione vera `goodbye_state` era `completed` e la telefonata è
+# rimasta aperta altri nove secondi, finché non ha riagganciato la persona. Il
+# commiato era uscito a pezzi — «La ringrazio,» · «Buona giornata.» ·
+# «Arrivederci.» — e a ogni frammento ORA annullava la propria chiusura,
+# perché il codice non distingueva chi stava parlando.
+
+class OrecchieFinte:
+    """Le orecchie, con un interruttore invece di un modello."""
+
+    def __init__(self, parla=False):
+        self.speaking = parla
+        # Il rapporto lo legge per dire quanto era rumorosa la linea.
+        self.floor = 0.0
+
+
+class CodaFinta:
+    """Quel tanto di playback che serve: sa dire se sta ancora versando."""
+
+    def __init__(self, piena=False):
+        self.piena = piena
+        self.annullata = 0
+
+    def still_pouring(self):
+        return self.piena
+
+    async def cancel(self):
+        self.annullata += 1
+        return 0
+
+    def how_it_went(self):
+        return {}
+
+    async def close(self):
+        return None
+
+
+def _pronta_a_chiudere(monkeypatch, *, parla=False, coda_piena=False,
+                       salutata=True, quando=None):
+    """
+    Una sessione con la missione chiusa e il saluto dato, senza filo né audio.
+
+    Tutto quello che serve per interrogare la rete di sicurezza è lo stato:
+    la missione è terminale, il commiato è a un certo punto, la linea è in un
+    certo modo. Aprire un filo vero non aggiungerebbe niente.
+    """
+    import time as _t
+
+    from telephone.live import MissionVoiceSession
+
+    async def send(_pcm):
+        return None
+
+    sess = MissionVoiceSession(None, owner_id="u1", session_ref="s", send=send)
+    sess._ears = OrecchieFinte(parla)
+    sess.playback = CodaFinta(coda_piena)
+    sess._mission_terminal_at = _t.perf_counter()
+    sess._goodbye = "completed" if salutata else "speaking"
+    sess._goodbye_at = quando if quando is not None else _t.perf_counter()
+    sess.call = type("C", (), {"provider_ref": "uuid-di-prova"})()
+    return sess
+
+
+def _chi_riaggancia(monkeypatch):
+    riagganciate = []
+
+    async def finta(riferimento):
+        riagganciate.append(riferimento)
+
+    monkeypatch.setattr("telephone.carrier.hang_up", finta, raising=True)
+    return riagganciate
+
+
+@pytest.mark.asyncio
+async def test_goodbye_done_and_silence_hangs_up(monkeypatch):
+    """Saluto dato, linea libera, coda vuota → si chiude."""
+    from telephone.live import QUIET_LINE_BEFORE_CLOSING_S
+
+    riagganciate = _chi_riaggancia(monkeypatch)
+    sess = _pronta_a_chiudere(monkeypatch)
+    monkeypatch.setattr("telephone.live.GOODBYE_GRACE_S", 0.01)
+    monkeypatch.setattr("telephone.live.QUIET_LINE_BEFORE_CLOSING_S", 0.05)
+
+    sess._make_sure_we_actually_hang_up()
+    await asyncio.sleep(0.25)
+
+    assert riagganciate == ["uuid-di-prova"]
+    assert sess._hung_up is True
+    await sess.close()
+
+
+@pytest.mark.asyncio
+async def test_never_while_the_human_is_speaking(monkeypatch):
+    """
+        MAI SU QUALCUNO CHE PARLA. NEMMENO DALLA RETE DI SICUREZZA.
+
+    È l'unica regola che non ha eccezioni in tutto questo file, e la scorciatoia
+    per chiudere una telefonata bloccata sarebbe stata il primo posto in cui
+    perderla.
+    """
+    import time as _t
+
+    riagganciate = _chi_riaggancia(monkeypatch)
+    # Anche molto oltre la scadenza di sicurezza: non cambia niente.
+    sess = _pronta_a_chiudere(
+        monkeypatch, parla=True, quando=_t.perf_counter() - 600)
+
+    sess._make_sure_we_actually_hang_up()
+    await asyncio.sleep(0.15)
+
+    assert riagganciate == []
+    assert sess._hung_up is False
+    await sess.close()
+
+
+@pytest.mark.asyncio
+async def test_never_with_her_own_words_still_in_the_queue(monkeypatch):
+    """
+        E MAI CON LA PROPRIA FRASE ANCORA IN CODA.
+
+    Quello che è nella coda verso il trasporto non è ancora arrivato a nessuno:
+    riagganciare adesso taglierebbe la fine del saluto.
+    """
+    import time as _t
+
+    riagganciate = _chi_riaggancia(monkeypatch)
+    sess = _pronta_a_chiudere(
+        monkeypatch, coda_piena=True, quando=_t.perf_counter() - 600)
+
+    sess._make_sure_we_actually_hang_up()
+    await asyncio.sleep(0.15)
+
+    assert riagganciate == []
+
+    # Svuotata la coda, si chiude.
+    sess.playback.piena = False
+    sess._make_sure_we_actually_hang_up()
+    await asyncio.sleep(0.15)
+    assert riagganciate == ["uuid-di-prova"]
+    await sess.close()
+
+
+@pytest.mark.asyncio
+async def test_a_goodbye_still_being_said_does_not_hang_up(monkeypatch):
+    """Il contratto resta: non si chiude senza aver salutato."""
+    riagganciate = _chi_riaggancia(monkeypatch)
+    sess = _pronta_a_chiudere(monkeypatch, salutata=False)
+
+    sess._make_sure_we_actually_hang_up()
+    await asyncio.sleep(0.15)
+
+    assert riagganciate == []
+    assert sess._closing_rearms == 0
+    await sess.close()
+
+
+@pytest.mark.asyncio
+async def test_a_fragmented_goodbye_still_closes(monkeypatch):
+    """
+    Il caso vero: il saluto esce a pezzi e ORA continua a parlare da sola.
+
+        DOPO IL SALUTO, QUELLA CHE PARLA È ORA.
+
+    Prima ogni frammento annullava la chiusura e la sorveglianza non tornava
+    mai in piedi, perché a rimetterla c'era solo un turno nuovo — e ORA non
+    aveva più niente da dire. Adesso i suoi frammenti non toccano la chiusura,
+    e la rete la rimette comunque.
+    """
+    riagganciate = _chi_riaggancia(monkeypatch)
+    sess = _pronta_a_chiudere(monkeypatch)
+    monkeypatch.setattr("telephone.live.GOODBYE_GRACE_S", 0.01)
+    monkeypatch.setattr("telephone.live.QUIET_LINE_BEFORE_CLOSING_S", 0.05)
+
+    sess._start_watching_for_a_quiet_line()
+    assert sess.how_it_went()["call_closing"] == "pending"
+
+    # Qualcosa annulla la sorveglianza — è quello che facevano i frammenti.
+    sess._somebody_is_talking_again()
+    assert sess.how_it_went()["call_closing"] == "open"
+
+    # E la rete la rimette in piedi al primo battito della linea.
+    sess._make_sure_we_actually_hang_up()
+    await asyncio.sleep(0.25)
+
+    assert sess._closing_rearms >= 1
+    assert riagganciate == ["uuid-di-prova"]
+    await sess.close()
+
+
+@pytest.mark.asyncio
+async def test_two_nudges_still_end_in_a_hangup(monkeypatch):
+    """
+    Due solleciti sono il massimo, e dopo si chiude lo stesso.
+
+    `goodbye_nudges=2` con `completed` era esattamente lo stato della
+    prenotazione vera rimasta aperta.
+    """
+    from telephone.live import MAX_GOODBYE_NUDGES
+
+    riagganciate = _chi_riaggancia(monkeypatch)
+    sess = _pronta_a_chiudere(monkeypatch)
+    sess._goodbye_nudges = MAX_GOODBYE_NUDGES
+    monkeypatch.setattr("telephone.live.GOODBYE_GRACE_S", 0.01)
+    monkeypatch.setattr("telephone.live.QUIET_LINE_BEFORE_CLOSING_S", 0.05)
+
+    sess._make_sure_we_actually_hang_up()
+    await asyncio.sleep(0.25)
+
+    assert riagganciate == ["uuid-di-prova"]
+    await sess.close()
+
+
+@pytest.mark.asyncio
+async def test_the_safety_net_closes_a_goodbye_that_got_stuck(monkeypatch):
+    """
+        OLTRE UN CERTO PUNTO NON SI GUARDA PIÙ: SI CHIUDE.
+
+    Non è una scorciatoia sul contratto — il saluto c'è stato e nessuno sta
+    parlando — è il fondo sotto al quale non si può cadere. Una telefonata che
+    resta aperta dopo «arrivederci» la deve chiudere la persona, e non è il suo
+    mestiere.
+    """
+    import time as _t
+
+    riagganciate = _chi_riaggancia(monkeypatch)
+    sess = _pronta_a_chiudere(monkeypatch, quando=_t.perf_counter() - 600)
+
+    sess._make_sure_we_actually_hang_up()
+    await asyncio.sleep(0.2)
+
+    assert riagganciate == ["uuid-di-prova"]
+    assert sess.how_it_went()["closed_by_safety_net"] == 1
+    #     E NON PASSA DALLA FINESTRA: NON C'ERA PIÙ NIENTE DA ASPETTARE.
+    assert sess._hung_up is True
+    await sess.close()
+
+
+@pytest.mark.asyncio
+async def test_it_hangs_up_exactly_once(monkeypatch):
+    """
+    Mille battiti della linea, un riaggancio.
+
+    La rete si guarda a ogni frame in arrivo — cinquanta volte al secondo — e
+    se non fosse idempotente sarebbe la prima cosa a rompersi.
+    """
+    import time as _t
+
+    riagganciate = _chi_riaggancia(monkeypatch)
+    sess = _pronta_a_chiudere(monkeypatch, quando=_t.perf_counter() - 600)
+
+    for _ in range(200):
+        sess._make_sure_we_actually_hang_up()
+    await asyncio.sleep(0.25)
+
+    assert riagganciate == ["uuid-di-prova"], riagganciate
+    # Duecento richieste, un solo riaggancio: il contatore dei tentativi le
+    # ha viste tutte, la linea una volta sola.
+    assert sess._hangup_attempts >= 1
+    assert sess._hung_up is True
+    await sess.close()
+
+
+@pytest.mark.asyncio
+async def test_her_own_farewell_fragments_do_not_reopen_the_call(monkeypatch):
+    """
+    §: i frammenti del commiato non riaprono il contratto dopo `completed`.
+
+    È la riga che ha causato il difetto, guardata direttamente: dopo il saluto,
+    audio di ORA in arrivo non deve toccare la chiusura.
+    """
+    import base64
+
+    _quiet(monkeypatch, window=1.0, cap=3.0)
+    riagganciate = _they_hang_up_here(monkeypatch)
+    sess, wire, _, _ = await _aperta(monkeypatch)
+    sess.call = type("C", (), {"provider_ref": "uuid"})()
+    try:
+        await _mission_done(sess, wire)
+        await wire.says({"serverContent": {"turnComplete": True}})
+        await asyncio.sleep(0.05)
+        assert sess.how_it_went()["call_closing"] == "pending"
+        assert sess._goodbye == "completed"
+
+        # «Arrivederci.» che arriva dopo «Buona giornata.»: un altro frammento.
+        await wire.says({"serverContent": {"modelTurn": {"parts": [
+            {"inlineData": {"data": base64.b64encode(bytes(960)).decode()}},
+        ]}}})
+        await asyncio.sleep(0.05)
+
+        assert sess.how_it_went()["call_closing"] == "pending", (
+            "un frammento del saluto ha annullato la chiusura"
+        )
+    finally:
+        await sess.close()

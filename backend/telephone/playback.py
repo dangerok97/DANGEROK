@@ -781,6 +781,18 @@ class PlaybackController:
             await asyncio.sleep(0.005)
         self.cushions_timed_out += 1
 
+    def still_pouring(self) -> bool:
+        """
+        Se c'e' ancora audio di ORA che deve uscire.
+
+            RIAGGANCIARE CON LA CODA PIENA TAGLIA LA PROPRIA FRASE.
+
+        Non e' una domanda sul modello: e' una domanda sulla coda verso il
+        trasporto. Finche' c'e' un frame dentro, una parte di quello che ORA
+        ha gia' detto non e' ancora arrivata a chi ascolta.
+        """
+        return not self._queue.empty()
+
     async def close(self) -> None:
         """La linea si chiude: si lascia andare tutto."""
         await self.cancel()

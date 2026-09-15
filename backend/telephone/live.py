@@ -109,6 +109,15 @@ SPEECH_CUSHION_MS = 200
 # e finito: non aspettiamo piu di quanto aspetti il resto del runtime.
 QUIET_LINE_BEFORE_CLOSING_S = 0.8
 
+#     QUANTO SI ASPETTA DOPO UN SALUTO, PRIMA DI CHIUDERE COMUNQUE.
+#
+# Dodici secondi. Non e' una scorciatoia sul contratto del commiato: il saluto
+# c'e' stato — `goodbye_state` e' `completed` — e nessuno sta parlando. E' il
+# fondo sotto al quale non si puo' cadere, perche' una telefonata che resta
+# aperta dopo «arrivederci» la deve chiudere la persona, e non e' il suo
+# mestiere.
+HANGUP_SAFETY_S = 12.0
+
 # Oltre questo non si aspetta piu: se la linea non e mai libera per ottocento
 # millisecondi di fila, si chiude alla prima pausa utile. Una telefonata che
 # non finisce mai e un altro modo di essere scortesi — e costa.
@@ -653,6 +662,12 @@ class MissionVoiceSession:
         self._close_window_resets = 0
         self._final_quiet_ms: Optional[int] = None
         self._hangup_while_human_speaking = 0
+        # Quante volte la sorveglianza della chiusura e' stata rimessa in piedi
+        # dopo che qualcosa l'aveva annullata, e quante volte si e' chiuso per
+        # scadenza invece che su una linea libera. Due spie, non due modi.
+        self._closing_rearms = 0
+        self._closed_by_safety_net = 0
+        self._hangup_task: Optional[asyncio.Task] = None
 
     # --- aprire -----------------------------------------------------------
 
@@ -736,6 +751,12 @@ class MissionVoiceSession:
                 if self._call_closing == "pending":
                     self._human_after_terminal += 1
                     self._somebody_is_talking_again()
+            #     LA RETE SI GUARDA QUI, CHE E' L'UNICO POSTO CHE BATTE SEMPRE.
+            # Venti millisecondi, un confronto: non c'e' un altro momento in
+            # cui si possa essere sicuri di passare anche quando ORA non ha
+            # piu' niente da dire e la controparte nemmeno.
+            if self._mission_terminal_at is not None:
+                self._make_sure_we_actually_hang_up()
             if ha_finito:
                 # La fine del parlato e' dove il silenzio e' cominciato, non
                 # dove ce ne siamo accorti: la finestra e' nota e si toglie.
@@ -1084,8 +1105,18 @@ class MissionVoiceSession:
         cinquanta volte al secondo.
         """
         adesso = time.perf_counter()
-        if self._call_closing == "pending":
-            # Sta ricominciando a parlare: la telefonata non era finita.
+        if self._call_closing == "pending" and self._goodbye != "completed":
+            #     STA RICOMINCIANDO A PARLARE: LA TELEFONATA NON ERA FINITA.
+            #
+            # Ma solo se il saluto non e' gia' stato detto. Dopo il saluto,
+            # quella che continua a parlare e' ORA — e un commiato che esce a
+            # pezzi («La ringrazio,» · «Buona giornata.» · «Arrivederci.») la
+            # portava ad annullare la propria chiusura a ogni frammento.
+            # Misurato: `goodbye_state=completed` e la telefonata aperta per
+            # altri nove secondi, finche' non ha riagganciato la persona.
+            #
+            # Chi parla ha sempre ragione sulla chiusura — ma «chi parla» qui
+            # vuol dire la controparte, e di quella si occupano le orecchie.
             self._somebody_is_talking_again()
         if self._speaking is None:
             self._speaking = self.playback.begin(
@@ -1320,6 +1351,51 @@ class MissionVoiceSession:
         """
         if self._mission_terminal_at is None:
             self._mission_terminal_at = time.perf_counter()
+
+    def _make_sure_we_actually_hang_up(self) -> None:
+        """
+        Se il saluto e' stato detto, prima o poi si chiude. Sempre.
+
+            UN COMMIATO COMPLETATO CHE NON RIAGGANCIA E' UN COMMIATO INUTILE.
+
+        La sorveglianza della linea libera si annulla ogni volta che qualcuno
+        riprende la parola, ed e' giusto: chi parla ha ragione sulla chiusura.
+        Ma una volta annullata la rimetteva in piedi soltanto un turno nuovo di
+        ORA — e se ORA non ha piu' niente da dire, quel turno non arriva mai.
+
+        Questa funzione e' il pezzo che mancava: costa un confronto ogni venti
+        millisecondi e garantisce che, a saluto dato e linea libera, la
+        sorveglianza esista.
+
+            E OLTRE UN CERTO PUNTO NON SI GUARDA PIU': SI CHIUDE.
+
+        Se il saluto e' completato da abbastanza tempo e nessuno sta parlando,
+        non c'e' nient'altro da aspettare. Non e' una scorciatoia sul contratto
+        — il saluto c'e' stato, e la persona non sta dicendo niente — e' il
+        fondo sotto al quale non si puo' cadere.
+        """
+        if self._hung_up or self._goodbye != "completed":
+            return
+        if self._ears.speaking:
+            #     MAI SU QUALCUNO CHE PARLA. NEMMENO QUI.
+            return
+        if self.playback.still_pouring():
+            #     E MAI CON LA PROPRIA FRASE ANCORA IN CODA.
+            # Quello che sta nella coda verso il trasporto non e' ancora
+            # arrivato a nessuno: riagganciare adesso taglierebbe la fine del
+            # saluto, che e' il modo piu' brutto di rispettare un contratto
+            # che esiste per salutare.
+            return
+        if self._goodbye_at is not None and (
+            time.perf_counter() - self._goodbye_at >= HANGUP_SAFETY_S
+        ):
+            self._closed_by_safety_net += 1
+            self._hangup_task = asyncio.create_task(self._hang_up_now())
+            return
+        if self._closing_watch is not None and not self._closing_watch.done():
+            return
+        self._closing_rearms += 1
+        self._start_watching_for_a_quiet_line()
 
     def _start_watching_for_a_quiet_line(self) -> None:
         """Comincia a guardare se si puo chiudere. Senza fretta."""
@@ -1589,6 +1665,14 @@ class MissionVoiceSession:
             return
         self._closed = True
 
+        if self._hangup_task is not None:
+            self._hangup_task.cancel()
+            try:
+                await self._hangup_task
+            except (asyncio.CancelledError, Exception):
+                pass
+            self._hangup_task = None
+
         if self._opening_task is not None:
             self._opening_task.cancel()
             try:
@@ -1754,6 +1838,8 @@ class MissionVoiceSession:
             # --- come e finita ---------------------------------------------
             "call_closing": self._call_closing,
             "goodbye_state": self._goodbye,
+            "closing_rearms": self._closing_rearms,
+            "closed_by_safety_net": self._closed_by_safety_net,
             "goodbye_story": self._goodbye_story[:20],
             "goodbye_interrupted_count": self._goodbye_interrupted,
             "last_ora_utterance": self._last_words[:200],
