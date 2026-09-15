@@ -246,7 +246,13 @@ def _what_did_not_get_written(application: Any) -> str:
     stato = str(getattr(application, "application_status", "") or "")
     if stato == "applied":
         return ""
-    if not str(getattr(application, "target_entity_id", "") or ""):
+    if (
+        not str(getattr(application, "target_entity_id", "") or "")
+        and str(getattr(application, "operation", "") or "") != "book"
+    ):
+        # Stessa ragione di `_did_it_change_anything`: una prenotazione non ha
+        # un oggetto prima di crearlo, e quel vuoto non vuol dire «non c'era
+        # niente da fare».
         return ""
     return _NON_SCRITTO.get(stato, "ma il calendario non risulta aggiornato.")
 
@@ -339,12 +345,26 @@ def as_a_card(call, application: Any = None) -> Dict[str, Any]:
 
 
 def _did_it_change_anything(application: Any) -> Any:
-    """Sì, no, o «non c'era niente da cambiare»."""
+    """
+    Sì, no, o «non c'era niente da cambiare».
+
+        UNA PRENOTAZIONE NON HA UN OGGETTO FINCHÉ NON L'HA CREATO.
+
+    Questa funzione chiedeva «c'è un `target_entity_id`?» e per spostare e
+    disdire andava bene: l'evento esiste da prima. Per una prenotazione no —
+    l'oggetto nasce dall'applicazione — e sulla prima prenotazione vera la
+    scheda ha detto «non c'era niente da cambiare» di un appuntamento appena
+    creato su Google. Adesso si guarda anche l'operazione: se c'era qualcosa
+    da fare, la risposta è sì o no, mai «niente».
+    """
     if application is None:
         return None
+    fatto = str(getattr(application, "application_status", ""))
+    if str(getattr(application, "operation", "") or "") == "book":
+        return fatto == "applied"
     if not str(getattr(application, "target_entity_id", "") or ""):
         return None
-    return str(getattr(application, "application_status", "")) == "applied"
+    return fatto == "applied"
 
 
 def in_full(
