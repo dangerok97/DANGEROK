@@ -6,8 +6,8 @@ percorso fino al lancio si leggono qui e solo qui.
 
 | | |
 |---|---|
-| **Versione corrente** | **V3.18 — PASS** |
-| **Prossimo sprint** | **V3.19 — Multi-Domain Application Layer** |
+| **Versione corrente** | **V3.19 — PASS** |
+| **Prossimo sprint** | **V3.20 — Autonomous Action Loop V1** |
 | Branch | `feature/ora-quiet-premium-design-system` |
 | Ultimo checkpoint | `37af8a5` (lavoro) · `3baeaa1` (igiene) |
 | Aggiornato | 2026-09-15 |
@@ -278,12 +278,36 @@ no — e a decidere restano i controlli di prima.
 perché serve alle missioni senza policy. Si potrà ritirare quando ogni
 telefonata ne avrà una.
 
-### V3.19 — Multi-Domain Application Layer
+### V3.19 — Multi-Domain Application Layer · **PASS**
 **Obiettivo** — l'application layer esce dal calendario.
-**Deliverable previsti** — secondo e terzo dominio dietro il registro già
-esistente; il confine adattatore/registro nato in V3.15 messo alla prova da
-domini che non si somigliano.
-**Exit criteria** — aggiungere un dominio non tocca `application.py`.
+**Deliverable** — contratto comune in otto doveri (`remembers` · `authority` ·
+`look` · `translate` · `apply` · `reconcile` · `detect_conflict` · `says`),
+scritto una volta in `telephone/domains/__init__.py` come `Protocol` e
+verificabile da `follows_the_contract()` · registro per coppia
+`(dominio, operazione)`, consultato dal runtime in due punti soli e senza un
+solo `if` sul nome di un dominio · **due domini nuovi**, scelti dopo un censimento
+dei percorsi di scrittura veri: `commitments` (le decisioni, dietro
+`ActionCenterService` — macchina a stati, audit scritto prima della mutazione,
+campo legacy allineato) e `study` (le sessioni di piano, dietro
+`StudyPlanService.session_action` — avanzamento ricalcolato ed evento Google
+risincronizzato) · legame generico `bind_a_domain_target()` che chiede al
+dominio che cosa fotografare · `evaluate_authority()` resta **l'unico giudice**
+per tutti e tre.
+**Exit criteria** — aggiungere un dominio non tocca `application.py`. ✅ 31
+prove nuove, 336 su tutto l'arco telefonico. Le nove domande — successo ·
+`needs_user` · autorità che vieta · doppia applicazione · morte prima della
+scrittura · morte dopo · conflitto · recupero · nessun mandato — poste a
+entrambi i domini nuovi, e il calendario ancora verde.
+**Onestà** — `application.py` **è** stato toccato: due righe, per chiedere al
+registro la coppia invece del solo dominio. È una generalizzazione fatta una
+volta; il quarto dominio non ne tocca nessuna.
+**Debito lasciato** → **V3.21**: una sessione di studio si può rimandare e non
+anticipare, perché `session_action` sposta per differenza e non esiste una
+seconda porta che accetti un istante. Un accordo che la anticipasse viene
+fermato e raccontato, non forzato — aprire quella porta vorrebbe dire un
+secondo scrittore per `starts_at`, che è la cosa che questo sprint esiste per
+non fare. Nessuno dei due domini nuovi è ancora passato da un reality gate su
+telefono vero: il contratto è provato, la chiamata no.
 **Dipendenze** — V3.18.
 
 ### V3.20 — Autonomous Action Loop V1
@@ -371,6 +395,7 @@ sul vero.
 | **Reasoning stabile** | in piedi | Ere 7–8 |
 | **Actions reali** | **prima prova superata** | V3.15.1 · si allarga fino a V3.20 |
 | **Calendar completo** | **sì** — spostare, disdire, prenotare | ✅ V3.16 |
+| **Application multi-dominio** | **sì** — calendario · impegni · studio, un contratto solo | ✅ V3.19 |
 | **Phone production-ready** | funziona, non è di prodotto | V3.21 · V3.22 |
 | **Needs-user continuation** | **sì** — si ferma, si decide, riprende | ✅ V3.17 |
 | **Reconciliation robusta** | riesce, non ritenta | V3.15.2 |

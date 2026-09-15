@@ -41,14 +41,29 @@ from pydantic import BaseModel, Field
 
 logger = logging.getLogger("ora.telephone.authority")
 
-Operation = Literal["reschedule", "book", "cancel"]
+#     IL GIUDICE NON SA CHE COSA STA GIUDICANDO, E NON DEVE.
+#
+# L'elenco cresce coi domini — `complete` e `postpone` sono arrivate con gli
+# impegni — ma qui dentro restano nomi: `evaluate_authority` confronta
+# operazioni, oggetti e orari, e non ha un ramo per nessuno dei tre domini.
+# Il giorno in cui ne avesse uno, sarebbe il momento in cui due domini
+# possono ricevere due risposte diverse alla stessa domanda.
+Operation = Literal[
+    "reschedule", "book", "cancel", "complete", "postpone",
+]
 
 # Le quattro risposte del giudice.
 Verdict = Literal["allowed", "needs_user", "forbidden", "invalid"]
 
 # Le operazioni che hanno bisogno di un quando. Disdire non ne ha bisogno: è
-# lo stesso appuntamento, tolto.
-NEEDS_A_TIME = ("reschedule", "book")
+# lo stesso appuntamento, tolto. E nemmeno chiudere: un impegno concluso non
+# va da nessuna parte.
+#
+#     RIMANDARE INVECE È TUTTO UN QUANDO.
+#
+# «Slitta» non è un esito: senza una data è un'intenzione, e un mandato che la
+# lasciasse passare autorizzerebbe una scrittura che non si può verificare.
+NEEDS_A_TIME = ("reschedule", "book", "postpone")
 
 
 class TimeSlot(BaseModel):
@@ -352,6 +367,7 @@ def _read_day(testo: str) -> Optional[_date]:
 def _in_italiano(operazione: str) -> str:
     return {
         "reschedule": "spostare", "book": "prenotare", "cancel": "disdire",
+        "complete": "chiudere", "postpone": "rimandare",
     }.get((operazione or "").strip(), operazione or "fare questo")
 
 
