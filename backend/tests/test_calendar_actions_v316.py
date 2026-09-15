@@ -593,6 +593,7 @@ async def test_booking_in_the_past_asks_first(mondo):
 
 
 def test_book_reads_like_a_person_wrote_it():
+    from telephone.application import CallMissionApplication
     from telephone.history import as_a_card
 
     call = _prenotazione()
@@ -602,6 +603,29 @@ def test_book_reads_like_a_person_wrote_it():
     }}
     assert as_a_card(call, None)["outcome_summary"] == (
         "Prenotazione effettuata alle 10:00.")
+
+    def _fatta(stato):
+        return CallMissionApplication(
+            mission_id="mis_tel_uno", call_id="tel_uno", owner_id="u1",
+            target_domain="calendar", target_entity_id="", operation="book",
+            outcome_status="success", application_status=stato,
+            idempotency_key="k",
+        )
+
+    #     UNA PRENOTAZIONE NON HA UN OGGETTO FINCHÉ NON L'HA CREATO.
+    #
+    # `target_entity_id` resta vuoto — è l'identità della missione, e non
+    # cambia a cose fatte. Ma sulla prima prenotazione vera la scheda ha letto
+    # quel vuoto come «non c'era niente da cambiare», di un appuntamento
+    # appena creato su Google. È il difetto che questa riga tiene chiuso.
+    riuscita = as_a_card(call, _fatta("applied"))
+    assert riuscita["changed_something"] is True
+    assert riuscita["outcome_summary"] == "Prenotazione effettuata alle 10:00."
+
+    rotta = as_a_card(call, _fatta("failed"))
+    assert rotta["changed_something"] is False
+    assert "non sono riuscita ad aggiornare il calendario" in rotta["outcome_summary"]
+    assert "Prenotazione effettuata" not in rotta["outcome_summary"]
 
 
 # ===========================================================================

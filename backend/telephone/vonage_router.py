@@ -242,7 +242,7 @@ async def socket(websocket: WebSocket) -> None:
         send=to_the_line,
         clear_transport=clear_the_line,
         on_said=note,
-        dossier=_DOSSIERS.get(call.id),
+        dossier=await _the_dossier_for(call),
         call=call,
         binding=legame,
     )
@@ -339,6 +339,56 @@ async def _apply_what_was_agreed(call, session) -> None:
             )
     except Exception as e:  # pragma: no cover
         logger.info("applicazione non tentata: %s", type(e).__name__)
+
+
+#     FRA «SQUILLA» E «PRONTO» NON CI SONO SEMPRE DEI SECONDI.
+#
+# Il fascicolo si prepara quando arriva `ringing`, e di solito ci sono cinque
+# o sei secondi di squilli per farlo. Su una telefonata vera l'operatore ha
+# mandato `ringing` e `answered` nello stesso millisecondo — e `started`
+# addirittura prima: il filo audio si e' aperto con il fascicolo ancora a
+# meta', `the_voice_for` ha trovato `dossier=None` ed e' caduto sul runtime
+# classico senza che nessuno lo avesse chiesto.
+#
+# Dall'altra parte si e' sentito silenzio, e nel rapporto non c'era traccia
+# di una missione perche' missione non ce n'era stata.
+QUANTO_ASPETTARE_IL_FASCICOLO_S = 3.0
+
+
+async def _the_dossier_for(call):
+    """
+    Il fascicolo di questa telefonata, aspettandolo se sta ancora arrivando.
+
+        UN PREPARATIVO IN RITARDO NON E' UN PREPARATIVO ASSENTE.
+
+    Tre casi, e nessuno dei tre e' «arrenditi». Se e' pronto si prende; se e'
+    in corso lo si aspetta un momento — qualche centinaio di millisecondi
+    costa molto meno di una telefonata condotta dal runtime sbagliato; se non
+    e' mai partito, perche' `ringing` non e' arrivato affatto, lo si fa
+    partire adesso.
+
+    Dopo l'attesa si torna quello che c'e', anche niente: a quel punto il
+    ripiego sul classico e' una scelta, non un incidente di tempistica.
+    """
+    pronto = _DOSSIERS.get(call.id)
+    if pronto is not None:
+        return pronto
+
+    preparativi = _READY.get(call.id)
+    if preparativi is None:
+        logger.info("il fascicolo non era partito: si prepara adesso")
+        preparativi = asyncio.create_task(_get_ready(call))
+        _READY[call.id] = preparativi
+
+    try:
+        await asyncio.wait_for(
+            asyncio.shield(preparativi), timeout=QUANTO_ASPETTARE_IL_FASCICOLO_S,
+        )
+    except asyncio.TimeoutError:
+        logger.info("il fascicolo non e' arrivato in tempo: si va con quello che c'e'")
+    except Exception as e:
+        logger.info("preparativi non riusciti: %s", type(e).__name__)
+    return _DOSSIERS.get(call.id)
 
 
 async def _get_ready(call) -> None:
