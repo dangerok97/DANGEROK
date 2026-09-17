@@ -328,12 +328,30 @@ autorità → telefonata → esito → applicazione → stato canonico → resoc
 senza bypass e senza doppie scritture; `completed` solo dopo che il dominio ha
 guardato lo stato canonico e ha detto che ci è arrivato. 22 prove nuove, 432
 verdi su tutto l'arco V3.13÷V3.20.
-**Debito lasciato** → **V3.21**: nessun reality gate su telefono vero per il
-giro completo — il ciclo è provato, la chiamata dentro il ciclo no; il percorso
-da segnale usa la `dedupe_key` dei Life Change Signal ma non è ancora agganciato
-all'attention pass, quindi una proposta di ORA nasce solo se qualcuno la apre;
-`needs_an_external_mission()` risponde sempre sì, perché oggi l'unica azione
-esterna è il telefono.
+**Reality gate — superato su telefono vero** (17/09/2026, `plan_046df24ad4294171`).
+Un giro solo, dalla capacità vera alla porta vera: `waiting_authority` ·
+`authorised` · `executing` · `completed`, con `authority_state` che resta un
+campo suo. Una missione logica, un record di applicazione, una scrittura su
+Google — «TEST ORA — continuazione» spostato dalle 18:00 alle 19:00 del 30
+settembre, `sync_status: synced`. `verified` è diventato vero soltanto dopo che
+`landed()` ha riletto lo stato canonico, e un secondo `advance` non ha prodotto
+niente. Frase finale a chi aveva chiesto: «Fatto — Appuntamento spostato alle
+19:00.»
+Alla prima chiamata non ha risposto nessuno: `ring_timeout`, nessuna
+applicazione, e il recupero periodico ha chiuso il piano appeso a `failed` da
+solo — il caso che il ciclo deve saper raccontare, capitato per davvero.
+**Caller ID italiano — PASS.** `+3907611810322` sia nel registro Vonage sia
+nell'NCCO servito dal backend. Il numero UK non è più né in configurazione né
+sull'account.
+**Debito lasciato** → **V3.21**: il percorso da segnale usa la `dedupe_key` dei
+Life Change Signal ma non è agganciato all'attention pass, quindi una proposta
+di ORA nasce solo se qualcuno la apre; `needs_an_external_mission()` risponde
+sempre sì, perché oggi l'unica azione esterna è il telefono. E quello che si
+sente: 2,0 s dal «pronto» alla voce (2770 · 1721 · 1977 ms di primo audio
+Gemini, contro 0,68 ms di percorso nostro), undici buchi sopra i 100 ms e due
+interruzioni dentro un turno sopra il secondo (1235 e 1153 ms) — misurato sulla
+chiamata del gate, ed è la stessa cosa dichiarata da V3.16. Più la deriva di
+lingua: la controparte è stata trascritta in portoghese a metà telefonata.
 **Dipendenze** — V3.19.
 
 ### V3.21 — Telephone Product Hardening
