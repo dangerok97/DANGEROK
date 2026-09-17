@@ -1,7 +1,7 @@
 """
 Chi sa ricevere l'esito di una telefonata, dominio per dominio.
 
-    OTTO DOVERI, E CHI NE SALTA UNO NON E' UN ADATTATORE.
+    NOVE DOVERI, E CHI NE SALTA UNO NON E' UN ADATTATORE.
 
 Il calendario li ha imparati uno alla volta, ognuno dopo un difetto vero: il
 legame prima della chiamata perché cercare l'evento dopo sposta quello
@@ -19,6 +19,7 @@ Un secondo dominio non deve riscoprirli. Questo file li scrive una volta:
     6. `reconcile`   che cosa è successo, per un'applicazione rimasta a metà
     7. `conflict`    l'oggetto è ancora quello di allora?
     8. `says`        come si racconta a una persona che non c'era
+    9. `landed`      l'oggetto è davvero dove l'obiettivo voleva portarlo?
 
 Il legame in sé — quale telefonata, quale oggetto, prima di comporre il numero
 — non è un dovere del dominio: sta in `binding.py`, uguale per tutti. Quello
@@ -26,6 +27,18 @@ che il dominio ci mette è `remembers`: quali campi dell'oggetto vanno
 fotografati adesso, perché è su quelli che dopo si dirà se stiamo ancora
 parlando della stessa cosa. Sono diversi per ognuno — un appuntamento è il suo
 orario, un impegno è il suo stato — e nessun altro li sa.
+
+Il nono è arrivato per ultimo e per un motivo preciso.
+
+    «APPLICATO» È UN RECORD. «FATTO» È IL MONDO.
+
+Un record `applied` dice che la scrittura è tornata senza sollevare. Non dice
+che l'appuntamento è alle diciotto. Finché l'unico lettore era la scheda della
+telefonata la differenza si poteva vivere; quando sopra ci si costruisce un
+ciclo che dichiara «completato», un verdetto che si autocertifica diventa il
+modo in cui ORA dice a una persona che una cosa è fatta perché il proprio
+record dice così. `landed` chiede al dominio di guardare, e la risposta la dà
+lo stato canonico.
 
 Idempotenza e presentazione non sono doveri del dominio: la prima sta nella
 chiave del record, la seconda nel livello che racconta. Un adattatore che se
@@ -76,8 +89,19 @@ class DomainAdapter(Protocol):
         """Che cosa è successo davvero, per un'applicazione appesa."""
         ...
 
+    def detect_conflict(self, binding, row: Dict[str, Any]):
+        """L'oggetto è ancora quello su cui la missione era stata scritta."""
+        ...
+
     def says(self, operation: str, fields: Dict[str, str]) -> str:
         """Come si racconta, in italiano, a chi non c'era."""
+        ...
+
+    def landed(
+        self, row: Optional[Dict[str, Any]], operation: str,
+        fields: Dict[str, str],
+    ) -> bool:
+        """Lo stato canonico è davvero dove l'obiettivo voleva portarlo."""
         ...
 
 
@@ -148,7 +172,7 @@ def follows_the_contract(adapter) -> List[str]:
     uno prima che se ne accorga una persona al telefono.
     """
     doveri = ("DOMAIN", "OPERATIONS", "remembers", "translate", "look",
-              "apply", "reconcile", "detect_conflict", "says")
+              "apply", "reconcile", "detect_conflict", "says", "landed")
     return [d for d in doveri if not hasattr(adapter, d)]
 
 

@@ -490,6 +490,33 @@ def detect_conflict(binding, row: Dict[str, Any]) -> Optional[Verdict]:
     return None
 
 
+def landed(
+    row: Optional[Dict[str, Any]], operation: str, fields: Dict[str, str],
+) -> bool:
+    """
+    L'appuntamento è davvero dove l'obiettivo voleva portarlo.
+
+        «APPLICATO» È UN RECORD. «FATTO» È IL MONDO.
+
+    Non guarda nessun verdetto e nessuno stato interno: guarda il calendario.
+    È la differenza fra dire a una persona che l'appuntamento è alle diciotto
+    perché ce l'ha portato qualcuno, e dirglielo perché alle diciotto c'è.
+    """
+    if operation == "book":
+        #     UNA PRENOTAZIONE È ARRIVATA QUANDO ESISTE.
+        return bool(row) and str((row or {}).get("status") or "") != "cancelled"
+    if row is None:
+        return False
+    if operation == "cancel":
+        return str(row.get("status") or "") == "cancelled"
+    if operation == "reschedule":
+        voluto = (fields or {}).get("start_datetime", "")
+        if not voluto:
+            return False
+        return _same_moment(str(row.get("start_datetime") or ""), voluto)
+    return False
+
+
 def says(operation: str, fields: Dict[str, str]) -> str:
     """Come si racconta a chi non c'era. Il calendario parla di orari."""
     quando = _read(fields.get("start_datetime", ""))

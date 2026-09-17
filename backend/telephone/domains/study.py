@@ -380,6 +380,18 @@ def _what_the_authority_says(binding, outcome):
 # ---------------------------------------------------------------------------
 
 
+def landed(
+    row: Optional[Dict[str, Any]], operation: str, fields: Dict[str, str],
+) -> bool:
+    """La sessione è davvero dove l'obiettivo voleva portarla."""
+    if row is None:
+        return False
+    campi = {"action": operation}
+    if fields and fields.get("starts_at"):
+        campi["starts_at"] = fields["starts_at"]
+    return _already_there(campi, row)
+
+
 def says(operation: str, fields: Dict[str, str]) -> str:
     """Come si racconta a chi non c'era. Lo studio parla di sessioni."""
     if operation == "complete":

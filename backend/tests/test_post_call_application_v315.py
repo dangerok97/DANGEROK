@@ -47,6 +47,12 @@ def _combacia(riga, query) -> bool:
         if isinstance(atteso, dict):
             if "$in" in atteso and vero not in atteso["$in"]:
                 return False
+            #     `$nin` NON E' «NON $in»: E' «NON C'E' O NON E' FRA QUESTI».
+            # Un documento a cui manca il campo passa, ed e' il comportamento
+            # vero — un finto che lo escludesse nasconderebbe le righe nate
+            # prima che quel campo esistesse.
+            if "$nin" in atteso and vero in atteso["$nin"]:
+                return False
             if "$exists" in atteso and (chiave in riga) != atteso["$exists"]:
                 return False
             if "$lt" in atteso and not (vero is not None and vero < atteso["$lt"]):

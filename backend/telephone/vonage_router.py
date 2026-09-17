@@ -337,6 +337,14 @@ async def _apply_what_was_agreed(call, session) -> None:
                 "esito applicato: %s (%s)",
                 fatto.application_status, fatto.error or "-",
             )
+        #     E SE QUESTA TELEFONATA ERA UN PEZZO DI UN PROPOSITO, IL PROPOSITO
+        #     ADESSO PUO' SAPERE COM'E' FINITA.
+        # Il gancio e' sottile apposta: chi chiude il filo audio non deve
+        # sapere che esiste un ciclo. Se il piano non c'e' — la maggior parte
+        # delle telefonate — non succede niente, e non e' un caso da gestire.
+        from autonomy.orchestrator import on_call_finished
+
+        await on_call_finished(db, call)
     except Exception as e:  # pragma: no cover
         logger.info("applicazione non tentata: %s", type(e).__name__)
 
