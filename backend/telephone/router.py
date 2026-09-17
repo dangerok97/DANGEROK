@@ -135,7 +135,29 @@ async def place(
         provider_ref=opened["call_ref"],
         authority_ref=str(payload.get("authority_ref") or "explicit_yes")[:64],
     )
+
+    #     IL SÌ È UNO SOLO, E VALE PER TUTTE E DUE LE COSE.
+    # Non si chiede due volte: la persona ha detto di sì a questa telefonata
+    # con questo mandato, ed è esattamente l'autorità che il piano aspettava.
+    # Un secondo consenso separato sarebbe attrito senza una domanda nuova.
+    await _the_plan_can_go(call)
+
     return {"ok": True, "call_id": call.id, "state": call.state}
+
+
+async def _the_plan_can_go(call) -> None:
+    """Registra sul piano il sì che è appena stato dato sulla telefonata."""
+    try:
+        from autonomy.orchestrator import advance, grant
+        from autonomy.plan import for_call
+
+        plan = await for_call(db, call.id)
+        if plan is None:
+            return
+        plan = await grant(db, plan, authority_ref=call.authority_ref)
+        await advance(db, plan)
+    except Exception as e:  # pragma: no cover
+        logger.info("piano non autorizzato: %s", type(e).__name__)
 
 
 @router.post("/{call_id}/hangup")
@@ -277,6 +299,10 @@ async def decide_continuation(
     )
     if not esito.ok:
         raise HTTPException(400, esito.why)
+
+    #     LO STESSO PIANO RIPARTE. NON NE NASCE UN SECONDO.
+    await _the_plan_heard_the_answer(esito.continuation)
+
     return {
         "ok": True,
         "continuation": as_a_question(esito.continuation),
@@ -358,3 +384,19 @@ async def read(call_id: str, user: dict = Depends(get_current_user)) -> Dict[str
 # già scritti nel pannello del fornitore. Tenerle qui dentro avrebbe
 # significato o spostarle sotto `/api` e rompere quella configurazione, o
 # montare due volte lo stesso router.
+
+
+async def _the_plan_heard_the_answer(continuazione) -> None:
+    """
+    Riporta la decisione dentro il piano che l'aveva chiesta.
+
+    Il piano segue la telefonata nuova — è quella che porterà l'esito — ma
+    resta quello di prima, con la sua chiave e la sua storia. È così che
+    «fatto» si può dire una volta sola.
+    """
+    try:
+        from autonomy.orchestrator import on_user_decision
+
+        await on_user_decision(db, continuazione)
+    except Exception as e:  # pragma: no cover
+        logger.info("piano non ripreso: %s", type(e).__name__)

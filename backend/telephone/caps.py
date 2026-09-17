@@ -127,6 +127,13 @@ async def prepare_a_phone_call(
         stesso_giorno=bool(arguments.get("same_day_only")),
     )
 
+    #     E UN PROPOSITO CHE SI PUÒ SEGUIRE FINO IN FONDO.
+    # Il piano nasce qui perché è qui che si sa che cosa si vuole ottenere e
+    # su che cosa: dopo lo squillo resterebbe un orario, e un orario non è un
+    # proposito. Nasce senza autorità e non fa succedere niente — il sì è un
+    # secondo gesto, e senza quello non c'è nessuna strada che porti fuori.
+    await _open_a_plan(db, call, legame)
+
     return Observation(
         kind="tool", name="prepare_a_phone_call", status="ok",
         payload={
@@ -234,3 +241,27 @@ def _what_it_will_change(
             "calendario resterà com'è. Dillo, non lasciarlo intendere."
         ),
     }
+
+
+async def _open_a_plan(db, call, legame) -> None:
+    """
+    Apre il piano di questa commissione, se c'è qualcosa da portare a termine.
+
+        UNA TELEFONATA CHE RIPORTA UNA RISPOSTA NON HA BISOGNO DI UN PIANO.
+
+    Il piano serve a rispondere a «e com'è finita?» quando la risposta non è
+    una frase ma un calendario cambiato. Senza legame non c'è niente da
+    cambiare, e un piano vuoto sarebbe un proposito che non può che finire
+    male.
+
+    Non solleva mai: preparare una telefonata è una cosa che deve riuscire
+    anche quando il ciclo che la seguirà non riesce a nascere.
+    """
+    if legame is None:
+        return
+    try:
+        from autonomy.orchestrator import plan_a_user_request
+
+        await plan_a_user_request(db, call=call, binding=legame)
+    except Exception as e:  # pragma: no cover
+        logger.info("piano non aperto: %s", type(e).__name__)

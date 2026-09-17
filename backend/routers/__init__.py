@@ -188,3 +188,14 @@ try:
     ALL_ROUTERS.append(telephone_router)
 except Exception:
     pass
+
+# Il ciclo autonomo (V3.20). Porte di sola lettura piu' una per fermarsi: il
+# si' che fa partire un proposito passa da dove e' sempre passato, perche' un
+# secondo percorso per dire di si' sarebbe un secondo posto in cui
+# dimenticarsi di chiederlo.
+try:
+    from autonomy.router import router as autonomy_router
+
+    ALL_ROUTERS.append(autonomy_router)
+except Exception:
+    pass

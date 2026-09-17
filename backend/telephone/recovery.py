@@ -111,6 +111,18 @@ async def _one_pass(db, quale: str) -> int:
         #     IL GIRO SOPRAVVIVE A QUELLO CHE GLI SUCCEDE DENTRO.
         logger.info("scansione %s non riuscita: %s", quale, type(e).__name__)
         return 0
+
+    #     E POI I PROPOSITI RIMASTI A META'.
+    #
+    # Prima le applicazioni, poi i piani, e l'ordine non e' indifferente: un
+    # piano guarda il mondo per dire dov'e' arrivato, e il mondo lo sistema il
+    # recupero delle applicazioni. Guardarlo prima vorrebbe dire leggerlo un
+    # minuto troppo presto e scrivere «non riuscito» su una cosa che sta per
+    # riuscire.
+    #
+    # E i piani non scrivono niente: rileggono. Due recuperi che scrivono
+    # sarebbero due motori.
+    await _and_the_plans(db, quale)
     if chiusi:
         logger.info(
             "scansione %s: %d applicazioni chiuse (%s)",
@@ -118,3 +130,27 @@ async def _one_pass(db, quale: str) -> int:
             ", ".join(sorted({c.application_status for c in chiusi})),
         )
     return len(chiusi)
+
+
+async def _and_the_plans(db, quale: str) -> None:
+    """
+    Riporta a guardare il mondo i propositi rimasti a metà. Non solleva mai.
+
+    Sta dentro la stessa passata perché è lo stesso momento: se un processo è
+    morto fra la telefonata e la scrittura, ha lasciato appesi tutti e due —
+    il record dell'applicazione e il piano che lo aspettava.
+    """
+    try:
+        from autonomy.orchestrator import recover_plans
+
+        ripresi = await recover_plans(db)
+    except asyncio.CancelledError:
+        raise
+    except Exception as e:
+        logger.info("piani non ripresi (%s): %s", quale, type(e).__name__)
+        return
+    if ripresi:
+        logger.info(
+            "scansione %s: %d propositi aggiornati (%s)",
+            quale, len(ripresi), ", ".join(sorted({p.state for p in ripresi})),
+        )

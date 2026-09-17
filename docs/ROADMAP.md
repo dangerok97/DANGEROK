@@ -6,8 +6,8 @@ percorso fino al lancio si leggono qui e solo qui.
 
 | | |
 |---|---|
-| **Versione corrente** | **V3.19 — PASS** |
-| **Prossimo sprint** | **V3.20 — Autonomous Action Loop V1** |
+| **Versione corrente** | **V3.20 — PASS** |
+| **Prossimo sprint** | **V3.21 — Telephone Product Hardening** |
 | Branch | `feature/ora-quiet-premium-design-system` |
 | Ultimo checkpoint | `37af8a5` (lavoro) · `3baeaa1` (igiene) |
 | Aggiornato | 2026-09-15 |
@@ -310,12 +310,30 @@ non fare. Nessuno dei due domini nuovi è ancora passato da un reality gate su
 telefono vero: il contratto è provato, la chiamata no.
 **Dipendenze** — V3.18.
 
-### V3.20 — Autonomous Action Loop V1
-**Obiettivo** — ORA non aspetta che le si chieda di agire.
-**Deliverable previsti** — dal segnale (Era 8) alla proposta d'azione
-all'autorità all'esecuzione, in un giro solo e governato.
-**Exit criteria** — un'azione reale nasce da un pensiero di ORA e non da una
-richiesta, con autorità esplicita.
+### V3.20 — Autonomous Action Loop V1 · **PASS**
+**Obiettivo** — un giro solo, dall'innesco al mondo cambiato, senza scorciatoie.
+**Fatto** — `autonomy/` è un filo sottile che non apre nessun motore:
+`AutonomousActionPlan` tiene il proposito (nove stati, `authority_state` e
+`verified` separati apposta da `state`), `advance()` è un passo che rilegge il
+mondo invece di ricordarselo — chiamato due volte dà due volte la stessa
+risposta, che è l'unico modo in cui un giro si riprende dopo un processo morto.
+Due percorsi d'ingresso: una richiesta di una persona arriva fino al calendario
+cambiato; un segnale arriva fino alla proposta e **si ferma lì**. La chiave del
+piano è il suo `_id`, e l'innesco è la missione — non la telefonata — perché una
+commissione fermata e ripresa è un proposito solo. Ganci sottili su
+`prepare` · `place` · fine chiamata · decisione · recupero. Porte di sola
+lettura più una per fermarsi; il sì passa da dove è sempre passato.
+**Exit criteria — superati** — un ciclo reale completo (richiesta → piano →
+autorità → telefonata → esito → applicazione → stato canonico → resoconto)
+senza bypass e senza doppie scritture; `completed` solo dopo che il dominio ha
+guardato lo stato canonico e ha detto che ci è arrivato. 22 prove nuove, 432
+verdi su tutto l'arco V3.13÷V3.20.
+**Debito lasciato** → **V3.21**: nessun reality gate su telefono vero per il
+giro completo — il ciclo è provato, la chiamata dentro il ciclo no; il percorso
+da segnale usa la `dedupe_key` dei Life Change Signal ma non è ancora agganciato
+all'attention pass, quindi una proposta di ORA nasce solo se qualcuno la apre;
+`needs_an_external_mission()` risponde sempre sì, perché oggi l'unica azione
+esterna è il telefono.
 **Dipendenze** — V3.19.
 
 ### V3.21 — Telephone Product Hardening
@@ -393,7 +411,8 @@ sul vero.
 |---|---|---|
 | **Context affidabile** | in piedi | Ere 6–8, 10 |
 | **Reasoning stabile** | in piedi | Ere 7–8 |
-| **Actions reali** | **prima prova superata** | V3.15.1 · si allarga fino a V3.20 |
+| **Actions reali** | **sì** — un giro intero, dall'innesco allo stato canonico | ✅ V3.20 |
+| **Ciclo autonomo** | **V1** — richiesta fino in fondo, segnale fino alla proposta | ✅ V3.20 |
 | **Calendar completo** | **sì** — spostare, disdire, prenotare | ✅ V3.16 |
 | **Application multi-dominio** | **sì** — calendario · impegni · studio, un contratto solo | ✅ V3.19 |
 | **Phone production-ready** | funziona, non è di prodotto | V3.21 · V3.22 |

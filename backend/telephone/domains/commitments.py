@@ -12,7 +12,7 @@ Il percorso di scrittura esiste da prima di questo file e non si tocca.
 transizione contro la macchina a stati, scrive la riga di audit **prima** della
 mutazione, e tiene allineato il campo legacy. Quello che mancava — e che questo
 file aggiunge — è che ci si possa arrivare da una telefonata con gli stessi
-otto doveri del calendario.
+nove doveri del calendario.
 
     E NON SI INVENTA NIENTE DI NUOVO PER ARRIVARCI.
 
@@ -342,6 +342,24 @@ def _what_the_authority_says(binding, outcome):
 # ---------------------------------------------------------------------------
 # 8 · Come si racconta
 # ---------------------------------------------------------------------------
+
+
+def landed(
+    row: Optional[Dict[str, Any]], operation: str, fields: Dict[str, str],
+) -> bool:
+    """
+    L'impegno è davvero dove l'obiettivo voleva portarlo.
+
+    È la stessa domanda che `reconcile` si fa da sempre, con un nome pubblico:
+    serviva già a distinguere una scrittura passata da una mai partita, e
+    serve adesso a non chiamare «fatto» un record.
+    """
+    if row is None:
+        return False
+    campi = {"action": operation}
+    if fields and fields.get("until"):
+        campi["until"] = fields["until"]
+    return _already_there(campi, row)
 
 
 def says(operation: str, fields: Dict[str, str]) -> str:
