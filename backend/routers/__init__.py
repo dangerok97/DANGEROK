@@ -199,3 +199,12 @@ try:
     ALL_ROUTERS.append(autonomy_router)
 except Exception:
     pass
+
+# La preparazione di una missione (V3.20.1). Chi chiamare, che cosa manca, e
+# il si' su un numero — che e' l'unico posto in cui quel si' si puo' dare.
+try:
+    from preparation.router import router as preparation_router
+
+    ALL_ROUTERS.append(preparation_router)
+except Exception:
+    pass

@@ -499,7 +499,112 @@ export async function rawRequest(path: string, init: RequestInit = {}): Promise<
   }
 }
 
+
+/**
+ * Una preparazione di missione, come la legge una persona.
+ *
+ *     NIENTE DI TECNICO QUI DENTRO.
+ *
+ * Il backend traduce prima di rispondere: qui non arrivano chiavi, stati in
+ * inglese, riferimenti canonici o autorità in forma grezza. Quello che arriva
+ * si può mostrare così com'è — ed è il motivo per cui questa schermata non ha
+ * una funzione che «formatta» niente.
+ */
+export type PreparationContact = {
+  name: string;
+  number: string;
+  /** «Rubrica», «Sito ufficiale», «Me l'hai detto tu». Mai un codice. */
+  source_label: string;
+  source_detail: string;
+  why: string;
+};
+
+export type MissionPreparation = {
+  preparation_id: string;
+  you_asked: string;
+  goal: string;
+  counterparty: string;
+  status_label: string;
+  /** La frase che ORA sta dicendo adesso: una domanda, o «ho tutto». */
+  says: string;
+  contact: PreparationContact | null;
+  /** Pieno solo quando ce n'è più di uno e nessuno è stato scelto. */
+  candidates: PreparationContact[];
+  number_confirmed: boolean;
+  number_rejected: boolean;
+  /** Quello che ORA sapeva già, e che quindi non ha chiesto. */
+  what_ora_knows: string[];
+  question: { field: string; asks: string; already_known: string } | null;
+  ready: boolean;
+  can_call: boolean;
+  /** «Chiamerò Lorenzo per…». Vuoto finché non è pronta. */
+  summary: string;
+  you_can_answer: string[];
+  created_at: string;
+  updated_at: string;
+};
+
 export const api = {
+  // --- Preparazione di una missione (V3.20.1) ------------------------------
+  //
+  //     NESSUNA DI QUESTE PORTE FA SQUILLARE NIENTE.
+  //
+  // Si dice cosa si vuole, si sceglie fra più contatti, si conferma un numero,
+  // si risponde a una domanda. Perché il telefono suoni serve ancora il sì
+  // esplicito su quella chiamata, dalla porta di sempre.
+  startPreparation: (request_: string, opts?: { counterparty?: string; operation?: string }) =>
+    request<{ ok: boolean; plan_id: string; preparation: MissionPreparation }>(
+      '/preparation/start',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          request: request_,
+          counterparty: opts?.counterparty,
+          operation: opts?.operation,
+        }),
+      },
+    ),
+
+  readPreparation: (id: string) =>
+    request<{ ok: boolean; preparation: MissionPreparation }>(`/preparation/${id}`),
+
+  /** Quale dei contatti trovati è quello giusto. Scegliere non è confermare. */
+  choosePreparationContact: (id: string, number: string, operation?: string) =>
+    request<{ ok: boolean; preparation: MissionPreparation }>(
+      `/preparation/${id}/choose`,
+      { method: 'POST', body: JSON.stringify({ number, operation }) },
+    ),
+
+  /** Il sì — o il no — su un numero. È il cancello, e questa è l'unica porta. */
+  confirmPreparationNumber: (
+    id: string,
+    yes: boolean,
+    opts?: { number?: string; operation?: string },
+  ) =>
+    request<{ ok: boolean; preparation: MissionPreparation }>(
+      `/preparation/${id}/confirm-number`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ yes, number: opts?.number, operation: opts?.operation }),
+      },
+    ),
+
+  answerPreparation: (id: string, text: string, opts?: { field?: string; operation?: string }) =>
+    request<{ ok: boolean; preparation: MissionPreparation }>(
+      `/preparation/${id}/answer`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ text, field: opts?.field, operation: opts?.operation }),
+      },
+    ),
+
+  /** Da preparazione a telefonata **preparata**. Non composta. */
+  preparationToCall: (id: string, operation?: string) =>
+    request<{ ok: boolean; call_id: string; preparation: MissionPreparation }>(
+      `/preparation/${id}/prepare-call`,
+      { method: 'POST', body: JSON.stringify({ operation }) },
+    ),
+
   // --- Chiamate ------------------------------------------------------------
   callHistory: (opts?: { limit?: number; before?: string; status?: string }) => {
     const q = new URLSearchParams();

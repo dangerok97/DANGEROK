@@ -158,6 +158,14 @@ class AutonomousActionPlan(BaseModel):
     needs_user_decision: bool = False
 
     # --- i pezzi del giro, quando esistono --------------------------------
+    #     LA PREPARAZIONE VIENE PRIMA DELLA TELEFONATA, E IL PIANO PURE.
+    #
+    # Da V3.20.1 un proposito puo' nascere da una frase, quando il numero non
+    # si sa ancora e la missione non esiste. Quello che c'e' in quel momento e'
+    # la preparazione: e' li' che si cerca chi chiamare e si scopre che cosa
+    # manca. Il piano la segue e resta lo stesso quando la telefonata arriva —
+    # impara il suo nome, non ne prende uno nuovo.
+    preparation_id: str = Field(default="", max_length=40)
     mission_id: str = Field(default="", max_length=64)
     call_id: str = Field(default="", max_length=64)
     continuation_id: str = Field(default="", max_length=64)
@@ -275,6 +283,12 @@ async def for_call(db, call_id: str) -> Optional[AutonomousActionPlan]:
 
 async def for_mission(db, mission_id: str) -> Optional[AutonomousActionPlan]:
     return _read(await db[PLANS].find_one({"mission_id": mission_id}, {"_id": 0}))
+
+
+async def for_preparation(db, preparation_id: str) -> Optional[AutonomousActionPlan]:
+    """Il piano di questa preparazione, se ne ha uno."""
+    return _read(await db[PLANS].find_one(
+        {"preparation_id": preparation_id}, {"_id": 0}))
 
 
 async def open_plans(db, owner_id: str, limit: int = 50) -> List[AutonomousActionPlan]:
