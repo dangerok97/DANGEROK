@@ -37,6 +37,7 @@ from autonomy.plan import (
     by_key,
     for_call,
     for_mission,
+    for_preparation,
     plan_key_for,
     remember,
     save,
@@ -115,6 +116,136 @@ def _opening_line(plan: AutonomousActionPlan, call) -> str:
     chi = (call.calling_whom or "").strip()
     return (f"Ti propongo di chiamare {chi} per {plan.goal}." if chi
             else f"Ti propongo di {plan.goal}.")
+
+
+async def plan_a_request(
+    db, *, owner_id: str, user_request: str, counterparty: str = "",
+    operation: str = "", goal: str = "",
+) -> Tuple[Optional[AutonomousActionPlan], Optional[Any], str]:
+    """
+    Apre un proposito da una frase, quando il numero non si sa ancora.
+
+        IL PROPOSITO NASCE CON LA RICHIESTA, NON CON LA TELEFONATA.
+
+    Fino a V3.20 un piano poteva nascere solo davanti a una chiamata già
+    preparata e già legata — cioè solo dopo che una persona aveva messo in
+    fila a mano numero, appuntamento e orario. Quella fila adesso la compone
+    ORA, e mentre la compone il proposito deve esistere: è l'unico posto in
+    cui si può rispondere a «che fine ha fatto quella cosa che ti ho chiesto».
+
+    Torna il piano, la preparazione, e il motivo in italiano quando non si è
+    potuto fare niente. Non solleva su un secondo tentativo: la stessa frase
+    ritrova lo stesso piano e la stessa preparazione, con dentro le risposte
+    già date.
+    """
+    from preparation.service import start
+
+    prep, perche = await start(
+        db, owner_id=owner_id, user_request=user_request,
+        counterparty=counterparty, operation=operation, goal=goal,
+    )
+    if prep is None:
+        return None, None, perche
+
+    gia = await for_preparation(db, prep.preparation_id)
+    if gia is not None:
+        #     LA STESSA RICHIESTA NON APRE UN SECONDO PROPOSITO.
+        return gia, prep, ""
+
+    plan = AutonomousActionPlan(
+        owner_id=owner_id,
+        source="user_request",
+        #     L'INNESCO È LA FRASE, ED È STABILE.
+        # Non il numero — non c'è ancora. Non la missione — nemmeno. Quello
+        # che c'è, e che non cambierà più, è quello che una persona ha chiesto.
+        source_ref=prep.idempotency_key,
+        goal=prep.goal or user_request.strip()[:300],
+        operation=(operation or "").strip(),
+        preparation_id=prep.preparation_id,
+        authority_state="absent",
+        #     SI STA PREPARANDO, E ASPETTA UNA PERSONA.
+        # `proposed` e non `waiting_authority`: il sì non si può nemmeno
+        # chiedere finché non si sa che cosa si sta per fare e a chi.
+        state="proposed",
+        needs_user_decision=True,
+    )
+    plan.note("proposed", "preparing", _preparing_line(prep))
+    try:
+        plan = await remember(db, plan)
+    except AlreadyPlanned as gia_aperto:
+        esistente = await by_key(db, gia_aperto.key)
+        return esistente, prep, "" if esistente else "questo proposito era già aperto"
+
+    prep.plan_id = plan.plan_id
+    from preparation.preparation import save as salva_preparazione
+
+    await salva_preparazione(db, prep)
+    return plan, prep, ""
+
+
+def _preparing_line(prep) -> str:
+    chi = (prep.counterparty or "").strip()
+    return (f"Sto preparando la telefonata a {chi}." if chi
+            else "Sto preparando questa telefonata.")
+
+
+async def on_preparation_progress(db, prep) -> Optional[AutonomousActionPlan]:
+    """
+    La preparazione è cambiata: il piano lo racconta, e non si sposta.
+
+        UNA DOMANDA IN PIÙ NON È UN PASSO AVANTI.
+
+    Finché si sta chiedendo, il piano resta `proposed`. Muoverlo a ogni
+    risposta vorrebbe dire far sembrare in corso una cosa che non è ancora
+    cominciata — e chi legge la riga si aspetterebbe un esito.
+    """
+    plan = await for_preparation(db, prep.preparation_id)
+    if plan is None or not plan.is_open():
+        return plan
+    detto = (prep.readiness_says or "").strip()
+    ultimo = plan.history[-1].says if plan.history else ""
+    if detto and detto != ultimo:
+        plan.note("proposed", f"prep_{prep.readiness.lower()}", detto)
+        plan.needs_user_decision = not prep.conversation_ready
+        return await save(db, plan)
+    return plan
+
+
+async def on_call_prepared(db, prep, call, binding) -> Optional[AutonomousActionPlan]:
+    """
+    La preparazione è diventata una telefonata: il piano impara il suo nome.
+
+        LO STESSO `plan_id`. SEMPRE.
+
+    Il piano non nasce adesso e non cambia identità adesso: quella è la
+    richiesta, e la richiesta è la stessa di prima. Qui impara soltanto a che
+    cosa si è attaccata la commissione — quale missione, quale oggetto, quale
+    operazione — e passa ad aspettare il sì.
+
+    Se il legame non c'è, la telefonata riporterà una risposta invece di
+    cambiare qualcosa: è un esito legittimo, e il piano lo dice così.
+    """
+    plan = await for_preparation(db, prep.preparation_id)
+    if plan is None or not plan.is_open():
+        return plan
+
+    plan.call_id = call.id
+    if binding is not None:
+        plan.mission_id = binding.mission_id
+        plan.domain = binding.target.domain
+        plan.operation = binding.target.operation
+        plan.target_ref = binding.target.entity_id
+        plan.authority_state = "proposed" if binding.authority is not None else "absent"
+    plan.state = "waiting_authority"
+    plan.needs_user_decision = True
+    plan.note("waiting_authority", "prepared", _ready_line(prep))
+    return await save(db, plan)
+
+
+def _ready_line(prep) -> str:
+    from preparation.brief import reads_like
+
+    return reads_like(prep)[:300] or "Pronta a partire, se mi dai il via."
 
 
 # ===========================================================================

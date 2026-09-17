@@ -6,7 +6,7 @@ percorso fino al lancio si leggono qui e solo qui.
 
 | | |
 |---|---|
-| **Versione corrente** | **V3.20 — PASS** |
+| **Versione corrente** | **V3.20.1 — PASS** |
 | **Prossimo sprint** | **V3.21 — Telephone Product Hardening** |
 | Branch | `feature/ora-quiet-premium-design-system` |
 | Ultimo checkpoint | `37af8a5` (lavoro) · `3baeaa1` (igiene) |
@@ -353,6 +353,40 @@ interruzioni dentro un turno sopra il secondo (1235 e 1153 ms) — misurato sull
 chiamata del gate, ed è la stessa cosa dichiarata da V3.16. Più la deriva di
 lingua: la controparte è stata trascritta in portoghese a metà telefonata.
 **Dipendenze** — V3.19.
+
+### V3.20.1 — Contact Resolution & Mission Preparation · **PASS**
+**Obiettivo** — ORA arriva da una frase a una telefonata che si può fare, senza
+che una persona debba preparare a mano numero, contesto e copione.
+**Fatto** — `preparation/` in cinque pezzi. Il **risolutore** cerca chi
+chiamare in ordine di certezza — rubrica, contesto ORA (telefonate già fatte,
+calendario, nodi e ricordi), web pubblico, e infine la domanda — e la
+provenienza viaggia sempre col numero, perché «Rubrica» e «Trovato sul web»
+sono due cose diverse davanti alla stessa cifra. Il contratto delle fonti è
+scritto per la rubrica di iOS che arriverà: dovrà rispondere a `look_for` e si
+infila davanti a tutte le altre. **Sul web si cercano attività, non persone**:
+non per prudenza, perché sono due operazioni diverse, e nel dubbio si risponde
+«persona» — che è la risposta che porta a chiedere. Il **recupero del
+contesto** guarda prima di chiedere: la partita di venerdì, l'impegno aperto,
+la sessione di studio, la telefonata già fatta. Il **valutatore** è AI per
+capire che cosa manca e deterministico per decidere: un modello può abbassare
+il verdetto, mai alzarlo sopra quello che i fatti permettono. Il **riassunto**
+porta sette cose e nessun identificativo. E il **cancello** vuole due sì —
+`number_confirmed` e `conversation_ready` — scritto in un posto solo.
+**Exit criteria — superati** — «Chiama Lorenzo e digli di spostare la partita a
+calcetto» diventa una missione pronta chiedendo una cosa sola, l'orario nuovo;
+un numero non confermato produce zero telefonate. 23 prove nuove, **455 verdi**
+su V3.13÷V3.20.1.
+**Verificato davvero dalla UI** (`frontend/e2e-evidence/v3201/`, due percorsi
+Playwright su app in esecuzione): risoluzione del contatto con provenienza ·
+domanda dinamica su quello che manca · numero accettato · missione pronta
+raccontata al futuro · cancello negativo, in cui il pulsante per chiamare non
+è disabilitato ma **non esiste**.
+**Debito lasciato** → **V3.21**: la rubrica vera non c'è ancora — la fonte è
+scritta e risponde «niente» finché `contacts.read` non arriva da un telefono;
+la ricerca web è agganciata a `execute_web_search` ma non ha mai trovato un
+numero vero in questo sprint (provata con una fonte finta); il legame generico
+`bind_a_domain_target` esiste ma la preparazione lega solo il calendario.
+**Dipendenze** — V3.20.
 
 ### V3.21 — Telephone Product Hardening
 **Obiettivo** — saldare tutto il debito dichiarato di V3.13 e V3.14.
