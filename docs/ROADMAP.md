@@ -6,7 +6,7 @@ percorso fino al lancio si leggono qui e solo qui.
 
 | | |
 |---|---|
-| **Versione corrente** | **V3.20.1 — PASS** |
+| **Versione corrente** | **V3.21.1 — PASS** |
 | **Prossimo sprint** | **V3.21 — Telephone Product Hardening** |
 | Branch | `feature/ora-quiet-premium-design-system` |
 | Ultimo checkpoint | `37af8a5` (lavoro) · `3baeaa1` (igiene) |
@@ -427,6 +427,36 @@ p50 fra 1,6 e 3,1 secondi su telefonate vere: il percorso critico nostro
 a strappi.
 **Exit criteria** — nessun debito telefonico dichiarato resta aperto.
 **Dipendenze** — V3.20.
+
+#### V3.21.1 — Live Conversation Quality + Language Stability · **PASS**
+**Latenza.** Il percorso locale era già quasi nullo (57–113 ms dal primo audio
+Gemini alla linea). Il grosso era l'attesa di silenzio del VAD di Gemini,
+configurabile: misurata su Gemini vero senza telefono — default 1781 ms,
+700 ms → 1495, **500 ms → 1182** (mediane). `silenceDurationMs: 500` con
+`END_SENSITIVITY_HIGH`, regolabile da `GEMINI_LIVE_SILENCE_MS` (300–2000).
+Sulle chiamate vere: apertura **1596 · 1498 ms** (era 2770), turni p50
+**1498 ms** (erano 1,7–2,8 s). Resta a monte ~0,7 s di generazione Gemini.
+**Scatti — causa trovata, era locale.** Ogni `httpx.AsyncClient()` nuovo
+ferma l'event loop ~450 ms (max 761) per caricare i certificati: due, aperti
+dalla sincronizzazione di sfondo durante l'apertura, sono i due buchi da
+1235/1152 ms del gate V3.20. Preso sul fatto da un testimone degli stalli al
+riaggancio (548 ms, `carrier.hang_up → ssl.create_default_context`).
+Rimedio: contesto TLS condiviso nel carrier (0,1 ms) e letture di sfondo
+rimandate mentre una telefonata parla. I gap di Gemini non si sentivano:
+21/21 assorbiti dalla coda. Ogni buco ora lascia una fotografia classificata
+A/B/C/D.
+**Lingua.** La deriva era nella trascrizione della controparte. La lingua
+viaggia nel pacchetto (`language="it"`) e arriva a `speechConfig.languageCode`
+e a entrambe le trascrizioni (`languageCodes`) — campi verificati come
+esistenti sul server, che rifiuta quelli inventati. Rilevatore di deriva
+deterministico: zero derive in due chiamate vere. Charon su ogni setup.
+**Debito lasciato** → blocchi V3.21 successivi: barge-in e nomi propri non
+esercitati dal vivo (solo prove automatiche); con due domande in una frase,
+un «no» parziale chiude la missione senza richiedere il pezzo mancante; 33
+altri punti del progetto creano ancora client HTTP senza contesto condiviso;
+le suite ambient v38 sono instabili anche su HEAD (DB condiviso, verificato
+A/B). Due tentativi di chiamata sono finiti per errore a un numero di terzi
+(lo script sceglieva «l'ultimo numero»): corretto, destinatario verificato.
 
 ### V3.22 — Call UX Final
 **Obiettivo** — la telefonata come funzione di prodotto finita, non come

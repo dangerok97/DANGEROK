@@ -66,6 +66,10 @@ FRAME_BYTES = int(RATE * FRAME_MS / 1000) * 2
 # sarebbe un guasto da vedere nei numeri, non un ritmo da assecondare.
 MAX_QUEUED_MS = 120_000
 
+# Sopra quanto un buco dentro una risposta merita una fotografia. Cento
+# millisecondi si sentono; sotto, è il respiro normale di un trasporto.
+GAP_WORTH_A_PHOTO_MS = 100
+
 #     QUANTO SI ASPETTA UN BATTITO PRIMA DI CONTARE DA SOLI.
 # La linea ne manda uno ogni venti millisecondi — misurato su tre telefonate
 # vere: 49,1 · 49,4 · 49,1 al secondo, silenzi compresi. Sessanta millisecondi
@@ -147,6 +151,9 @@ class BeatCredits:
         self.consumed = 0
         self.peak = 0
         self.reconciled = 0
+        # Quando è arrivato l'ultimo battito. Serve a una domanda sola, dopo:
+        # un buco nella voce è venuto da una linea che aveva smesso di battere?
+        self.last_at = 0.0
 
     # --- chi li produce ----------------------------------------------------
 
@@ -159,6 +166,7 @@ class BeatCredits:
         # quinta telefonata — e un conto che non torna e un conto che non si
         # puo usare per dire «nessun credito e sparito».
         self.produced += 1
+        self.last_at = time.perf_counter()
         if self._owed:
             # Prima si pareggiano i conti, poi si autorizza.
             self._owed -= 1
@@ -351,6 +359,12 @@ class PlaybackController:
         #     I SILENZI FRA I TURNI NON SONO BUCHI NELLA VOCE.
         # Si tengono separati: solo questi si sentono come uno scatto.
         self._within_ms = []
+        #     OGNI BUCO SENTITO, CON ADDOSSO LO STATO DI QUEL MOMENTO.
+        # Il numero da solo — «1235 ms» — non dice da dove viene. Accanto si
+        # scrive quanto audio c'era in coda, se l'orologio era quello della
+        # linea o il ripiego, e da quanto non batteva la linea: sono le tre
+        # cose che separano «Gemini era in ritardo» da «il processo era fermo».
+        self.gap_events: list = []
         self._last_handle = None
         self._depth_ms = []               # quanta voce c'era in coda, pacchetto per pacchetto
         self._last_send = 0.0
@@ -412,6 +426,28 @@ class PlaybackController:
         if self._pump is None or self._pump.done():
             self._pump = asyncio.create_task(self._keep_pouring())
         return self.current
+
+    def _photo_of_the_gap(self, quanto: float, adesso: float, handle) -> dict:
+        """
+        Com'era il mondo quando la voce si è fermata.
+
+        `queued_ms` è l'audio che restava da mandare dopo il pacchetto appena
+        uscito — ma prima del buco ce n'era altrettanto più quello mandato
+        ora: se è sopra zero, di voce da dire ce n'era, e il buco non viene da
+        chi la genera.
+        """
+        ultimo_battito = self.credits.last_at
+        return {
+            "at_ms": int((adesso - self._opened_at) * 1000),
+            "gap_ms": quanto,
+            "queued_ms": int(handle.queued_audio_ms - handle.sent_audio_ms),
+            "generation_finished": bool(handle.finished),
+            "in_fallback": bool(self._in_fallback),
+            "credits_owed": self.credits.owed,
+            "beat_silent_for_ms": (
+                int((adesso - ultimo_battito) * 1000) if ultimo_battito else None
+            ),
+        }
 
     async def feed(self, pcm: bytes, handle: SpeechGenerationHandle) -> None:
         """
@@ -572,6 +608,10 @@ class PlaybackController:
                     # mezzo: e' li' che un buco si sente come uno scatto.
                     if self._last_handle is handle:
                         self._within_ms.append(quanto)
+                        if quanto > GAP_WORTH_A_PHOTO_MS and len(self.gap_events) < 40:
+                            self.gap_events.append(self._photo_of_the_gap(
+                                quanto, adesso, handle,
+                            ))
                         #     PERCHE' IL FRENO NON HA FRENATO.
                         # Sulla linea vera restano intervalli sotto il minimo
                         # che a banco non si riescono a riprodurre. Invece di
@@ -842,6 +882,7 @@ class PlaybackController:
             "intra_gaps_over_50ms": sum(1 for i in self._within_ms if i > 50),
             "intra_gaps_over_100ms": sum(1 for i in self._within_ms if i > 100),
             "intra_worst_ms": sorted(self._within_ms, reverse=True)[:10],
+            "gap_events": list(self.gap_events),
             # --- e le raffiche: due pacchetti troppo vicini ------------------
             "intra_min_ms": min(self._within_ms) if self._within_ms else None,
             "intra_gaps_under_8ms": sum(1 for i in self._within_ms if i < 8),

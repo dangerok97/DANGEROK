@@ -488,6 +488,70 @@ def _how_she_sounds() -> Dict[str, Any]:
     }
 
 
+#     QUANTO SILENZIO ASPETTA GEMINI PRIMA DI DIRE «HA FINITO».
+#
+# Misurato su Gemini vero, senza telefono, con la stessa battuta rimandata a
+# una sessione Live: col default del server la risposta arriva in 1781 ms
+# (mediana), con 700 ms di silenzio in 1495, con 500 in 1182. Sotto non
+# migliora e diventa instabile — e rischia di parlare sopra a chi fa una
+# pausa. Cinquecento, e regolabile senza toccare il codice.
+DEFAULT_SILENCE_MS = 500
+SILENCE_MS_BOUNDS = (300, 2000)
+
+
+def _silence_ms() -> int:
+    """La soglia di fine turno, entro limiti sensati."""
+    import os
+
+    try:
+        valore = int(os.environ.get("GEMINI_LIVE_SILENCE_MS") or DEFAULT_SILENCE_MS)
+    except ValueError:
+        valore = DEFAULT_SILENCE_MS
+    basso, alto = SILENCE_MS_BOUNDS
+    return max(basso, min(alto, valore))
+
+
+def _when_a_turn_ends() -> Dict[str, Any]:
+    """
+    Il rilevatore di fine turno di Gemini, detto esplicitamente.
+
+    Campi verificati sul server vero: un campo inventato viene rifiutato con
+    «Cannot find field», questi no. `END_SENSITIVITY_HIGH` è già il default
+    per Gemini Live — lo si scrive per non dipendere da un default che cambia.
+    """
+    return {
+        "endOfSpeechSensitivity": "END_SENSITIVITY_HIGH",
+        "silenceDurationMs": _silence_ms(),
+    }
+
+
+# Sotto quanto rumore dieci millisecondi di voce generata sono silenzio. In
+# unità del campione a 16 bit: la voce di Charon sta sopra il migliaio.
+SILENT_BELOW = 120
+# Quanto silenzio dentro una generazione merita di essere segnato. Una pausa
+# fra due frasi dura poco; mezzo secondo di niente in mezzo a una frase no.
+SILENCE_WORTH_NOTING_MS = 400
+# Quanto deve fermarsi il processo per chiamarlo fermo. Sotto, è normale.
+LOOP_STALL_MS = 50
+# Da quanto deve essere fermo perché valga la pena guardare chi lo tiene.
+STALL_WORTH_A_NAME_S = 0.15
+# Quanto silenzio dopo una frase basta a dire che la frase è finita, quando
+# Gemini risponde prima delle nostre orecchie. Sotto, è una pausa.
+QUIET_MEANS_DONE_MS = 150
+
+
+#     QUANTE TELEFONATE STANNO PARLANDO ADESSO.
+# Serve a chi fa lavoro di sfondo nello stesso processo per sapere quando
+# aspettare: una lettura di rete che ferma l'event loop per mezzo secondo è
+# innocua a telefono spento e uno strappo nella voce a telefono acceso.
+_IN_CORSO: set = set()
+
+
+def calls_in_progress() -> int:
+    """Quante sessioni vocali sono aperte in questo momento."""
+    return len(_IN_CORSO)
+
+
 class MissionVoiceSession:
     """
     Una telefonata, una sessione, un mandato.
@@ -630,6 +694,25 @@ class MissionVoiceSession:
         # linea, il problema non e la nostra coda: e' che l'audio non arriva.
         self._gemini_gaps_ms: List[float] = []
         self._gemini_gap_at_ms: List[int] = []
+        # Ogni buco in arrivo sopra i cento millisecondi, con quanta voce
+        # c'era ancora in coda quando è finito: se ce n'era più del buco, la
+        # linea non l'ha sentito.
+        self._gemini_gap_events: List[Dict[str, Any]] = []
+        # Silenzi lunghi *dentro* la voce generata: lì il buco è nell'audio,
+        # non nel trasporto.
+        self._generated_silences: List[Dict[str, Any]] = []
+        self._silent_run_ms = 0
+        self._voiced_in_generation = False
+        # Quando il processo si è fermato, e per quanto.
+        self._loop_stalls: List[Dict[str, Any]] = []
+        self._clock_watch: Optional[asyncio.Task] = None
+        # Chi teneva fermo il processo, fotografato mentre lo teneva fermo.
+        self._stall_culprits: List[Dict[str, Any]] = []
+        self._loop_heartbeat = time.perf_counter()
+        self._loop_thread_id: Optional[int] = None
+        self._answered_before_our_ears = False
+        # La lingua che è scivolata, turno per turno.
+        self._drift: List[Dict[str, Any]] = []
         self._last_chunk_at = 0.0
         self._chunks_in = 0
         self._responses: List[Dict[str, Any]] = []
@@ -736,6 +819,8 @@ class MissionVoiceSession:
         self._answered_at = self._opened_at
         self._live_ready_at = time.perf_counter()
         self._pump = asyncio.create_task(self._listen_to_the_model())
+        self._clock_watch = asyncio.create_task(self._watch_the_clock())
+        _IN_CORSO.add(id(self))
         #     ADESSO CI SONO TUTTE E QUATTRO: SI PUO' PARLARE.
         # La linea ha risposto, il filo media e' aperto, la sessione e' pronta
         # e la coda verso il trasporto anche. Prima di questo punto parlare
@@ -743,6 +828,78 @@ class MissionVoiceSession:
         self._opening_task = asyncio.create_task(self._say_the_first_line())
         logger.info("runtime a missione pronto in %d ms", self._ready_ms)
         return True
+
+    async def _watch_the_clock(self) -> None:
+        """
+        Se il processo si ferma, lo si scrive.
+
+            UN BUCO NELLA VOCE CON LA CODA PIENA HA UN SOLO SOSPETTO.
+
+        Sul gate V3.20 la voce si è fermata due volte per più di un secondo
+        con otto secondi di audio pronti. Se in quel momento l'event loop era
+        fermo, lo si vede qui. Un sonno di venti millisecondi che ne dura
+        trecento è un processo che per duecentottanta non ha fatto altro.
+        """
+        passo = 0.02
+        import threading
+
+        self._loop_thread_id = threading.get_ident()
+        testimone = threading.Thread(
+            target=self._witness_the_stalls, name="ora-stall-witness", daemon=True,
+        )
+        testimone.start()
+        try:
+            while not self._closed:
+                prima = time.perf_counter()
+                self._loop_heartbeat = prima
+                await asyncio.sleep(passo)
+                fermo = (time.perf_counter() - prima - passo) * 1000
+                if fermo > LOOP_STALL_MS and len(self._loop_stalls) < 60:
+                    self._loop_stalls.append({
+                        "at_ms": int((prima - self._opened_at) * 1000),
+                        "stall_ms": round(fermo, 1),
+                    })
+        except asyncio.CancelledError:
+            raise
+        except Exception:  # pragma: no cover
+            pass
+
+    def _witness_the_stalls(self) -> None:
+        """
+        Un thread che guarda l'event loop da fuori, e quando è fermo lo fotografa.
+
+            SAPERE CHE SI È FERMATO NON BASTA: SERVE SAPERE CHI LO TENEVA.
+
+        Il cane da guardia dentro il loop vede lo stallo solo quando è finito,
+        e a quel punto il colpevole se n'è andato. Da fuori invece lo si vede
+        mentre succede: si legge lo stack del thread del loop e si scrive dove
+        era — una volta per stallo, e solo sopra i centocinquanta millisecondi.
+        """
+        import sys as _sys
+        import traceback
+
+        gia_visto = 0.0
+        while not self._closed and len(self._stall_culprits) < 10:
+            time.sleep(0.05)
+            battito = self._loop_heartbeat
+            fermo = time.perf_counter() - battito
+            if fermo < STALL_WORTH_A_NAME_S or battito == gia_visto:
+                continue
+            gia_visto = battito
+            quadro = _sys._current_frames().get(self._loop_thread_id or 0)
+            if quadro is None:
+                continue
+            pila = traceback.extract_stack(quadro)
+            nostri = [f for f in pila if "DANGEROK" in f.filename
+                      and "site-packages" not in f.filename]
+            self._stall_culprits.append({
+                "at_ms": int((battito - self._opened_at) * 1000),
+                "idle_ms_when_seen": int(fermo * 1000),
+                "our_code": [f"{f.filename.rsplit(chr(92), 1)[-1].rsplit('/', 1)[-1]}:"
+                             f"{f.lineno} {f.name}" for f in nostri[-3:]],
+                "deepest": f"{pila[-1].filename.rsplit(chr(92), 1)[-1].rsplit('/', 1)[-1]}:"
+                           f"{pila[-1].lineno} {pila[-1].name}" if pila else "",
+            })
 
     # --- il fiume che entra -----------------------------------------------
 
@@ -789,6 +946,7 @@ class MissionVoiceSession:
                 self._loudest = quanto
             ha_cominciato, ha_finito = self._ears.hear(pcm)
             if ha_cominciato:
+                self._answered_before_our_ears = False
                 self._speech_onsets += 1
                 self._heard_them_start_at = time.perf_counter()
                 if self._first_human_onset is None:
@@ -803,7 +961,13 @@ class MissionVoiceSession:
             # piu' niente da dire e la controparte nemmeno.
             if self._mission_terminal_at is not None:
                 self._make_sure_we_actually_hang_up()
-            if ha_finito:
+            if ha_finito and self._answered_before_our_ears:
+                #     QUESTA FRASE HA GIA' AVUTO LA SUA RISPOSTA.
+                # Gemini ha risposto prima che queste orecchie dichiarassero
+                # la fine: la dichiarazione arriva adesso, in ritardo, e non
+                # deve finire attribuita alla risposta successiva.
+                self._answered_before_our_ears = False
+            elif ha_finito:
                 # La fine del parlato e' dove il silenzio e' cominciato, non
                 # dove ce ne siamo accorti: la finestra e' nota e si toglie.
                 self._speech_ended_at = (
@@ -855,10 +1019,17 @@ class MissionVoiceSession:
         if resume_handle:
             ripresa["handle"] = resume_handle
 
+        #     LA LINGUA DELLA MISSIONE, IN TUTTI E TRE I POSTI.
+        # La voce la pronuncia, e le due trascrizioni la ascoltano. Misurato
+        # sul vero: senza, la controparte è stata trascritta in portoghese a
+        # metà telefonata. Viene dal pacchetto, non da una costante.
+        lingua = self._language_tag()
+        voce = _how_she_sounds()
+        voce["speechConfig"] = {**voce["speechConfig"], "languageCode": lingua}
         return {
             "setup": {
                 "model": f"models/{_model()}",
-                "generationConfig": _how_she_sounds(),
+                "generationConfig": voce,
                 "systemInstruction": {"parts": [{
                     "text": SESSION_PROMPT
                     + "\n\nPACCHETTO MISSIONE:\n"
@@ -868,11 +1039,23 @@ class MissionVoiceSession:
                     self.packet.mission_type if self.packet is not None
                     else "reschedule"
                 ),
-                "inputAudioTranscription": {},
-                "outputAudioTranscription": {},
+                "inputAudioTranscription": {"languageCodes": [lingua]},
+                "outputAudioTranscription": {"languageCodes": [lingua]},
+                "realtimeInputConfig": {
+                    "automaticActivityDetection": _when_a_turn_ends(),
+                },
                 "sessionResumption": ripresa,
             }
         }
+
+    def _language_tag(self) -> str:
+        """La lingua della missione, con l'italiano quando non c'è pacchetto."""
+        if self.packet is not None:
+            try:
+                return self.packet.language_tag()
+            except Exception:  # pragma: no cover
+                pass
+        return "it-IT"
 
     async def _connect_once(self, *, resume_handle: str = "") -> bool:
         """
@@ -894,6 +1077,8 @@ class MissionVoiceSession:
             "requested_voice": _voice(),
             "live_voice_in_setup": chiesta,
             "speech_config_sent": True,
+            "language_in_setup": self._language_tag(),
+            "silence_ms_in_setup": _silence_ms(),
             "session_started_at": _when_it_is_now(),
             "resumed_from_handle": bool(resume_handle),
             "setup_echo": {},
@@ -1180,6 +1365,15 @@ class MissionVoiceSession:
             return
 
         if self._speaking is None:
+            #     GEMINI E' PIU' SVELTO DELLE NOSTRE ORECCHIE.
+            # Decide dopo mezzo secondo di silenzio, noi dopo novecento
+            # millisecondi. Se risponde nel mezzo, la fine del parlato è
+            # «adesso meno il silenzio già passato» — e senza questo il turno
+            # più veloce della telefonata sparirebbe dalle misure.
+            zitto = self._ears.quiet_for_ms() if self._ears is not None else 0
+            if self._speech_ended_at is None and zitto >= QUIET_MEANS_DONE_MS:
+                self._speech_ended_at = adesso - zitto / 1000.0
+                self._answered_before_our_ears = True
             self._speaking = self.playback.begin(
                 generation_id=uuid.uuid4().hex[:12], turn_id=self._turn,
             )
@@ -1189,8 +1383,19 @@ class MissionVoiceSession:
                 "first_line_frame_ms": None,
                 "audio_ms": 0,
                 "chunks": 0,
+                #     I DUE PEZZI DELLA LATENZA, SEPARATI.
+                # Da quando la controparte ha smesso a quando Gemini ha dato il
+                # primo audio: a monte. Da lì al primo pacchetto sulla linea: noi.
+                "speech_end_at_ms": (
+                    int((self._speech_ended_at - self._opened_at) * 1000)
+                    if self._speech_ended_at is not None else None
+                ),
+                "gemini_first_audio_at_ms": int((adesso - self._opened_at) * 1000),
+                "local_first_audio_ms": None,
             }
             self._last_chunk_at = 0.0
+            self._silent_run_ms = 0
+            self._voiced_in_generation = False
             if self._opening == "starting" and self._opening_first_gemini_at is None:
                 self._opening_first_gemini_at = adesso
             if self._speech_ended_at is not None:
@@ -1209,6 +1414,19 @@ class MissionVoiceSession:
                 self._gemini_gap_at_ms.append(
                     int((adesso - self._opened_at) * 1000)
                 )
+            if vuoto > 100 and len(self._gemini_gap_events) < 40:
+                in_coda = (
+                    int(self._speaking.queued_audio_ms - self._speaking.sent_audio_ms)
+                    if self._speaking is not None else 0
+                )
+                self._gemini_gap_events.append({
+                    "at_ms": int((adesso - self._opened_at) * 1000),
+                    "gap_ms": round(vuoto, 1),
+                    # Quanta voce restava da dire quando il pezzo è arrivato:
+                    # sopra zero, il buco a monte non è arrivato alla linea.
+                    "queued_ms_on_arrival": in_coda,
+                    "absorbed": in_coda > 0,
+                })
         self._last_chunk_at = adesso
         self._chunks_in += 1
         if self._this_response is not None:
@@ -1219,6 +1437,7 @@ class MissionVoiceSession:
             grezzo = base64.b64decode(base64_pcm)
         except Exception:
             return
+        self._listen_for_silence(grezzo, adesso)
         alla_linea = self._down.feed(grezzo)
         self._resample_ms.append((time.perf_counter() - inizio) * 1000)
         if alla_linea:
@@ -1229,9 +1448,66 @@ class MissionVoiceSession:
                 self._this_response["first_line_frame_ms"] = int(
                     (self.playback.first_send_at - self._opened_at) * 1000
                 )
+                self._this_response["local_first_audio_ms"] = (
+                    self._this_response["first_line_frame_ms"]
+                    - self._this_response["gemini_first_audio_at_ms"]
+                )
                 if (self._opening == "starting"
                         and self._opening_first_line_at is None):
                     self._opening_first_line_at = self.playback.first_send_at
+
+    def _check_the_language(self, chi: str, testo: str) -> None:
+        """
+        Se una frase è uscita in un'altra lingua, lo si scrive. E basta.
+
+            UNA PAROLA STRANIERA NON CHIUDE UNA TELEFONATA.
+
+        Non si interrompe e non si corregge: si segna nel resoconto, così la
+        prossima volta si sa se la deriva è di chi parla (ORA) o di chi
+        trascrive la controparte — che sono due problemi diversi.
+        """
+        from telephone.language import drifted
+
+        altra = drifted(testo, self._language_tag())
+        if altra is None or len(self._drift) >= 12:
+            return
+        self._drift.append({
+            "turn": self._turn, "who": chi, "language": altra,
+            "text": testo[:80],
+        })
+
+    def _listen_for_silence(self, pcm: bytes, adesso: float) -> None:
+        """
+        Silenzio lungo dentro la voce generata — cioè il buco è nell'audio.
+
+        Si guarda a finestre di dieci millisecondi. Un silenzio iniziale non
+        conta (è il confine fra una risposta e l'altra); uno in mezzo, dopo
+        che si è già sentita voce e prima che ne torni, sì.
+        """
+        import array
+
+        passo = MODEL_RATE // 100  # dieci millisecondi di campioni
+        campioni = array.array("h")
+        try:
+            campioni.frombytes(pcm[: len(pcm) - (len(pcm) % 2)])
+        except Exception:  # pragma: no cover
+            return
+        for i in range(0, len(campioni) - passo + 1, passo):
+            finestra = campioni[i:i + passo]
+            forte = max(abs(min(finestra)), abs(max(finestra)))
+            if forte < SILENT_BELOW:
+                self._silent_run_ms += 10
+                continue
+            if (self._voiced_in_generation
+                    and self._silent_run_ms >= SILENCE_WORTH_NOTING_MS
+                    and len(self._generated_silences) < 30):
+                self._generated_silences.append({
+                    "at_ms": int((adesso - self._opened_at) * 1000),
+                    "silence_ms": self._silent_run_ms,
+                    "turn": self._turn,
+                })
+            self._voiced_in_generation = True
+            self._silent_run_ms = 0
 
     async def _someone_cut_in(self) -> None:
         """
@@ -1285,6 +1561,8 @@ class MissionVoiceSession:
         # Al contrario il registro mette la risposta sopra la domanda, e
         # rileggendolo sembra che ORA abbia chiuso prima della conferma.
         self._last_words = "".join(self._said_this_turn).strip()
+        self._check_the_language("ora", self._last_words)
+        self._check_the_language("them", "".join(self._heard_this_turn).strip())
         await self._write_down("them", "".join(self._heard_this_turn))
         await self._write_down("ora", "".join(self._said_this_turn))
         self._said_this_turn.clear()
@@ -1754,6 +2032,15 @@ class MissionVoiceSession:
                 pass
             self._opening_task = None
 
+        _IN_CORSO.discard(id(self))
+        if self._clock_watch is not None:
+            self._clock_watch.cancel()
+            try:
+                await self._clock_watch
+            except (asyncio.CancelledError, Exception):
+                pass
+            self._clock_watch = None
+
         if self._opening_task is not None:
             self._opening_task.cancel()
             try:
@@ -1814,6 +2101,96 @@ class MissionVoiceSession:
         if quando is None or not self._opened_at:
             return None
         return int((quando - self._opened_at) * 1000)
+
+    def _quality_report(self) -> Dict[str, Any]:
+        """
+        La qualità della conversazione, con la latenza divisa fra noi e loro.
+
+            «LENTA» NON È UNA DIAGNOSI.
+
+        Per ogni turno: quanto ha messo Gemini dalla fine del parlato al primo
+        audio (a monte), e quanto abbiamo messo noi da lì al primo pacchetto
+        sulla linea (in casa). E per ogni buco nella voce, da dove viene.
+        """
+        risposte = [r for r in self._responses if r.get("gemini_first_audio_ms") is not None]
+        monte = sorted(r["gemini_first_audio_ms"] for r in risposte)
+        casa = sorted(
+            r["local_first_audio_ms"] for r in self._responses
+            if r.get("local_first_audio_ms") is not None
+        )
+        mediana = lambda v: v[len(v) // 2] if v else None  # noqa: E731
+
+        ora_deriva = [d for d in self._drift if d["who"] == "ora"]
+        loro_deriva = [d for d in self._drift if d["who"] == "them"]
+        return {
+            "mission_language": self._language_tag(),
+            "silence_ms_in_setup": _silence_ms(),
+            "upstream_first_audio_ms": monte,
+            "upstream_first_audio_p50_ms": mediana(monte),
+            "local_first_audio_ms": casa,
+            "local_first_audio_p50_ms": mediana(casa),
+            "local_first_audio_max_ms": max(casa) if casa else None,
+            "language_drift_count": len(ora_deriva),
+            "their_language_drift_count": len(loro_deriva),
+            "language_drift": list(self._drift),
+            "gemini_gap_events": list(self._gemini_gap_events),
+            "gemini_gaps_absorbed": sum(1 for g in self._gemini_gap_events if g["absorbed"]),
+            "generated_silences": list(self._generated_silences),
+            "loop_stalls": list(self._loop_stalls),
+            "stall_culprits": list(self._stall_culprits),
+            "loop_stall_max_ms": max((x["stall_ms"] for x in self._loop_stalls), default=0),
+            "audio_gap_causes": self._why_the_voice_stopped(),
+        }
+
+    def _why_the_voice_stopped(self) -> Dict[str, Any]:
+        """
+        Per ogni buco sentito sulla linea, la causa più probabile. Con i dati.
+
+            A · il pezzo di voce è arrivato tardi e la coda era vuota
+            B · il silenzio era dentro la voce generata
+            C · confine fra due generazioni
+            D · locale: il processo era fermo, o la linea non batteva
+
+        Non è un giudizio a occhio: per ogni buco si guarda che cosa c'era nello
+        stesso momento. Se non c'è niente che lo spieghi, lo si dice.
+        """
+        #     DUE OROLOGI, UNO SCARTO.
+        # La coda verso la linea nasce prima della sessione: i suoi istanti si
+        # riportano sul nostro prima di confrontarli.
+        partenza_coda = getattr(self.playback, "_opened_at", None) or self._opened_at
+        scarto = int((self._opened_at - partenza_coda) * 1000)
+        cause = {"A_late_chunk": 0, "B_silence_in_audio": 0,
+                 "C_generation_boundary": 0, "D_local_stall": 0,
+                 "D_line_clock": 0, "unexplained": 0}
+        dettagli: List[Dict[str, Any]] = []
+
+        def vicino(eventi, chiave, quando, durata, margine=150):
+            for e in eventi:
+                inizio = e["at_ms"]
+                fine = inizio + e.get(chiave, 0)
+                if inizio - margine <= quando and quando - durata <= fine + margine:
+                    return e
+            return None
+
+        for g in getattr(self.playback, "gap_events", []):
+            quando = g["at_ms"] - scarto   # sul nostro orologio
+            durata = g["gap_ms"]
+            if vicino(self._loop_stalls, "stall_ms", quando, durata):
+                causa = "D_local_stall"
+            elif g.get("in_fallback") or (g.get("beat_silent_for_ms") or 0) >= durata * 0.8:
+                causa = "D_line_clock"
+            elif g.get("queued_ms", 0) <= 0 and vicino(
+                    self._gemini_gap_events, "gap_ms", quando, durata):
+                causa = "A_late_chunk"
+            elif vicino(self._generated_silences, "silence_ms", quando, durata):
+                causa = "B_silence_in_audio"
+            elif g.get("queued_ms", 0) <= 0:
+                causa = "C_generation_boundary"
+            else:
+                causa = "unexplained"
+            cause[causa] += 1
+            dettagli.append({"at_ms": quando, "gap_ms": durata, "cause": causa})
+        return {**cause, "gaps": dettagli[:20]}
 
     def how_it_went(self) -> Dict[str, Any]:
         tempi = sorted(self._first_audio)
@@ -1940,6 +2317,7 @@ class MissionVoiceSession:
             "gemini_gaps_over_100ms": sum(1 for g in self._gemini_gaps_ms if g > 100),
             "worst_gemini_gaps_ms": sorted(self._gemini_gaps_ms, reverse=True)[:10],
             "gemini_gap_at_ms": self._gemini_gap_at_ms[:40],
+            **self._quality_report(),
             "resample_ms_worst": (
                 round(max(self._resample_ms), 3) if self._resample_ms else None
             ),

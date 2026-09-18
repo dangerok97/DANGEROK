@@ -356,6 +356,16 @@ class Ears:
             return False, True
         return False, False
 
+    def quiet_for_ms(self) -> int:
+        """
+        Da quanto chi parlava sta zitto, se stava parlando. Altrimenti zero.
+
+        Serve quando chi risponde è più svelto di noi: Gemini decide dopo mezzo
+        secondo di silenzio, queste orecchie dopo novecento millisecondi. Nel
+        mezzo, la fine del parlato si ricava da qui.
+        """
+        return self._quiet_ms if self.speaking else 0
+
     def forget_the_turn(self) -> None:
         """Ricomincia ad ascoltare da capo, tenendo quello che sa della linea."""
         self.speaking = False

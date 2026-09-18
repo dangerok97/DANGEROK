@@ -89,6 +89,8 @@ _stats: Dict[str, int] = {
     "sources_looked_at": 0,
     "sources_read": 0,
     "sources_failed": 0,
+    # Letture rimandate perché c'era una telefonata che parlava.
+    "sources_deferred_for_call": 0,
 }
 
 
@@ -170,6 +172,25 @@ async def tick(db, *, now: Optional[datetime] = None, limit: int = MAX_PER_TICK)
         _stats["empty_ticks"] += 1
     _stats["ticks"] += 1
     return handled
+
+
+def _a_call_is_live() -> bool:
+    """
+    Se in questo processo c'è una telefonata che sta parlando.
+
+    Senza importare niente: se il modulo delle telefonate non è mai stato
+    caricato, nessuna telefonata può essere in corso — e questo giro di sfondo
+    non deve pagare l'import del runtime vocale per scoprirlo.
+    """
+    import sys
+
+    vocale = sys.modules.get("telephone.live")
+    if vocale is None:
+        return False
+    try:
+        return vocale.calls_in_progress() > 0
+    except Exception:  # pragma: no cover
+        return False
 
 
 async def read_sources(db, *, now: Optional[datetime] = None) -> Dict[str, int]:
@@ -299,7 +320,18 @@ async def _loop() -> None:
             # world can produce a wake, and doing it before the wakes are
             # drained means what just arrived is handled in the same tick
             # rather than a tick later.
-            await read_sources(db)
+            #     UNA TELEFONATA IN CORSO HA LA PRECEDENZA.
+            # Le letture delle fonti aprono connessioni nuove, e una
+            # connessione nuova ferma questo processo per mezzo secondo
+            # mentre carica i certificati. Sul gate V3.20 è successo due
+            # volte durante l'apertura di una telefonata: due strappi da più
+            # di un secondo nella voce, con otto secondi di audio pronti. Le
+            # fonti si leggono a telefonata finita — qualche decina di secondi
+            # dopo — e nient'altro cambia.
+            if _a_call_is_live():
+                _stats["sources_deferred_for_call"] += 1
+            else:
+                await read_sources(db)
             await tick(db)
             ticks += 1
             # Le relazioni: piu' lente delle letture, piu' rapide della rete
