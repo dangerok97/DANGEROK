@@ -130,6 +130,21 @@ class MissionPreparation(BaseModel):
     # dice di sì.
     number_confirmed: bool = False
     number_rejected: bool = False
+    #     PERCHÉ QUEL NUMERO SI PUÒ USARE, IN UNA PAROLA.
+    #
+    # `trusted`: una persona l'aveva già confermato per questa identità, e la
+    # coppia è ancora attiva — si riusa senza chiedere di nuovo.
+    # `confirmed_now`: confermato in questa preparazione, adesso.
+    # Vuoto: non si può usare. Il cancello guarda questo campo, e lo rilegge
+    # dal registro al momento di preparare la chiamata.
+    number_trust: str = Field(default="", max_length=16)
+    # L'identità a cui appartiene il numero scelto. È la metà della coppia su
+    # cui sta la fiducia, e senza questa un numero confermato per Lorenzo
+    # varrebbe anche per lo studio che per caso ha lo stesso centralino.
+    contact_identity: str = Field(default="", max_length=120)
+    #     DUE NUMERI PER LA STESSA PERSONA, E UNO ERA GIÀ CONFERMATO.
+    # Non si sceglie da soli e non si sovrascrive: si mostrano tutti e due.
+    number_conflict: bool = False
 
     # --- che cosa ORA sa già ----------------------------------------------
     # Fatti già in mano, in italiano: «la partita è venerdì alle 20:30». Ogni
@@ -172,7 +187,14 @@ class MissionPreparation(BaseModel):
         Una `and` invece di due controlli in due posti: un cancello scritto
         una volta sola non si può dimenticare a metà.
         """
-        return bool(self.number_confirmed) and bool(self.conversation_ready)
+        return (
+            bool(self.number_confirmed)
+            and not self.number_rejected
+            and self.number_trust in ("trusted", "confirmed_now")
+            and bool(self.contact_identity)
+            and self.selected_contact is not None
+            and bool(self.conversation_ready)
+        )
 
     def what_is_still_missing(self) -> List[MissingInformation]:
         return [m for m in self.missing_information if not m.answered]

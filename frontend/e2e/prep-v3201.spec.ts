@@ -94,7 +94,14 @@ test('il numero non è giusto: non si telefona a nessuno', async ({ page }) => {
   // ritroverebbe la preparazione già confermata, non ne aprirebbe una nuova.
   await entra(page, 'Chiama Lorenzo per la partita a calcetto di venerdì');
 
-  await page.locator('[data-testid="prep-confirm-no"]').click();
+  //     DA V3.20.1 FINAL IL NUMERO PUÒ ESSERE GIÀ AFFIDABILE.
+  // Il percorso di sopra ha confermato Lorenzo, quindi qui non si richiede:
+  // il rifiuto passa da «Questo numero è sbagliato». Se invece è nuovo, da
+  // «No, non è quello». Tutti e due devono chiudere il cancello.
+  await page
+    .locator('[data-testid="prep-confirm-no"], [data-testid="prep-wrong-number"]')
+    .first()
+    .click();
   await page.waitForSelector('[data-testid="prep-blocked"]', { timeout: 60_000 });
 
   await expect(page.locator('[data-testid="prep-status"]')).toContainText(

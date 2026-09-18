@@ -381,11 +381,37 @@ Playwright su app in esecuzione): risoluzione del contatto con provenienza ·
 domanda dinamica su quello che manca · numero accettato · missione pronta
 raccontata al futuro · cancello negativo, in cui il pulsante per chiamare non
 è disabilitato ma **non esiste**.
-**Debito lasciato** → **V3.21**: la rubrica vera non c'è ancora — la fonte è
-scritta e risponde «niente» finché `contacts.read` non arriva da un telefono;
-la ricerca web è agganciata a `execute_web_search` ma non ha mai trovato un
-numero vero in questo sprint (provata con una fonte finta); il legame generico
-`bind_a_domain_target` esiste ma la preparazione lega solo il calendario.
+**Final hardening — fiducia nei numeri e web reale · PASS.**
+La fiducia sta sulla **coppia identità + numero**, in `trusted_numbers`
+(`preparation/trust.py`): nuovo, perché nel progetto non c'era un posto per «che
+cosa ha confermato la persona» — la rubrica dice che cosa c'è sul telefono, ed è
+un'altra cosa. Tre stati, nessuno cancella: `active` · `stale` (sostituito) ·
+`rejected`. Un numero **nuovo**, da qualunque fonte, aspetta un sì; uno **già
+confermato** per la stessa identità si riusa senza richiederlo, dicendo quale
+sarà e perché, con «Cambia numero» sempre disponibile. Un cambio mette il vecchio
+a `stale` e fa aspettare il nuovo; un rifiuto non si ripropone più; un numero
+diverso per la stessa persona **non sovrascrive** quello confermato — si mostrano
+tutti e due. Lo stesso numero per un'altra identità non eredita niente. «Chiama
+il 333…» vale per quella richiesta; «il numero di Lorenzo è 333…» vale per
+Lorenzo. Il cancello rilegge la fiducia al momento di preparare la chiamata.
+**Ricerca web reale** su una vera attività (Hotel Excelsior, Lido di Venezia):
+sito ufficiale proposto per primo, corroborato da un'altra fonte, gli altri numeri
+visibili come alternativa, e la conferma comunque richiesta. Il gate ha trovato
+e fatto correggere tre difetti che la fonte finta nascondeva: `_host()` non
+esisteva e ogni risultato vero cadeva in silenzio; una pagina su **un'altra**
+farmacia passava per buona; un portale col nome della località passava per sito
+ufficiale. Nessuna telefonata fatta. 23 prove nuove, **478 verdi** su
+V3.13÷V3.20.1; cinque schermate in `frontend/e2e-evidence/v3201-final/`.
+**Rubrica iOS (Contacts / `CNContactStore`) — CONTRACT READY · PRODUCTION
+INTEGRATION PENDING.** La fonte `AddressBook` e il contratto `ContactSource`
+sono pronti a riceverla; oggi risponde «niente», perché `contacts.read` si può
+dare solo da un telefono e non è ancora stata data.
+**Debito lasciato** → **V3.21**: rubrica iOS vera; la ricerca web dipende da
+quello che il motore restituisce, che cambia da un giro all'altro — la seconda
+ricerca mirata al sito ufficiale lo attenua, non lo elimina; Google Places
+(la scheda a destra nei risultati) scartata perché a pagamento; il legame
+generico `bind_a_domain_target` esiste ma la preparazione lega solo il
+calendario.
 **Dipendenze** — V3.20.
 
 ### V3.21 — Telephone Product Hardening

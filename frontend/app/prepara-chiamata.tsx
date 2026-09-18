@@ -8,12 +8,12 @@
  * chiamare, mostra da dove ha preso il numero, e chiede — una cosa per volta —
  * quello che non ha potuto ricavare da sola.
  *
- *     E IL NUMERO NON SI DÀ PER BUONO MAI.
+ *     UN NUMERO NUOVO SI CONFERMA. UNO GIÀ CONFERMATO SI MOSTRA.
  *
- * Nemmeno quando viene dalla rubrica, nemmeno quando è l'unico trovato. La
- * conferma è un gesto separato con un pulsante suo, perché è l'unica cosa in
- * tutto questo giro che non si può correggere dopo: una telefonata parte una
- * volta sola.
+ * Un numero mai visto — dalla rubrica, dal web, scritto a mano — aspetta un
+ * sì, con un pulsante suo: una telefonata parte una volta sola. Uno che la
+ * persona aveva già confermato per la stessa persona non si richiede: si dice
+ * quale sarà e perché, e resta sempre un pulsante per cambiarlo.
  *
  * Il disegno è quello del resto dell'app — filetti invece di riquadri, un peso
  * solo di testo, colore solo dove qualcosa se l'è guadagnato. L'unica cosa
@@ -42,6 +42,7 @@ export default function PreparaChiamata() {
   const [prep, setPrep] = useState<MissionPreparation | null>(null);
   const [risposta, setRisposta] = useState('');
   const [altroNumero, setAltroNumero] = useState('');
+  const [cambio, setCambio] = useState(false);
   const [inCorso, setInCorso] = useState('');
   const [errore, setErrore] = useState<string | null>(null);
   const [chiamata, setChiamata] = useState('');
@@ -56,6 +57,7 @@ export default function PreparaChiamata() {
         setPrep(res.preparation);
         setRisposta('');
         setAltroNumero('');
+        setCambio(false);
       } catch (e) {
         setErrore(humanizeError(e));
       } finally {
@@ -170,9 +172,62 @@ export default function PreparaChiamata() {
               </Text>
               {prep.number_confirmed ? (
                 <Text style={[styles.ok, { color: colors.success }]} testID="prep-confirmed">
-                  ✓ Numero confermato
+                  ✓ {prep.number_note || 'Numero confermato'}
                 </Text>
               ) : null}
+              {/*
+                Un numero che si usa si può sempre cambiare.
+
+                È la contropartita di non chiederlo ogni volta: la conferma
+                non si ripete, ma il pulsante per cambiarlo c'è sempre.
+              */}
+              {puo('change_number') && !cambio ? (
+                <View style={[styles.riga, { marginTop: 8 }]}>
+                  <Bottone
+                    label="Cambia numero"
+                    testID="prep-change-number"
+                    onPress={() => setCambio(true)}
+                  />
+                  <Bottone
+                    label="Questo numero è sbagliato"
+                    testID="prep-wrong-number"
+                    busy={inCorso === 'wrong'}
+                    onPress={() =>
+                      void fai('wrong', async () =>
+                        api.confirmPreparationNumber(prep.preparation_id, false, {
+                          operation: 'reschedule',
+                        }),
+                      )
+                    }
+                  />
+                </View>
+              ) : null}
+            </View>
+          ) : null}
+
+          {/* ---- gli altri numeri trovati, come via d'uscita ---- */}
+          {prep.other_candidates?.length ? (
+            <View style={styles.blocco} testID="prep-others">
+              <Text style={[styles.etichetta, { color: colors.textTertiary }]}>
+                Altri numeri trovati
+              </Text>
+              {prep.other_candidates.map((c: PreparationContact) => (
+                <Pressable
+                  key={c.number}
+                  testID={`prep-other-${c.number}`}
+                  onPress={() =>
+                    void fai('choose', async () =>
+                      api.choosePreparationContact(prep.preparation_id, c.number, 'reschedule'),
+                    )
+                  }
+                  style={({ pressed }: any) => [styles.altro, { opacity: pressed ? 0.6 : 1 }]}
+                >
+                  <Text style={[styles.sa, { color: colors.textSecondary }]}>
+                    {c.number} · {c.source_label}
+                    {c.source_detail ? ` — ${c.source_detail}` : ''}
+                  </Text>
+                </Pressable>
+              ))}
             </View>
           ) : null}
 
@@ -196,7 +251,8 @@ export default function PreparaChiamata() {
                 >
                   <Text style={[styles.nome, { color: colors.textPrimary }]}>{c.name}</Text>
                   <Text style={[styles.numero, { color: colors.textPrimary }]}>{c.number}</Text>
-                  <Text style={[styles.fonte, { color: colors.textSecondary }]}>
+                  <Text style={[styles.fonte, { color: c.trusted ? colors.success : colors.textSecondary }]}>
+                    {c.trusted ? '✓ ' : ''}
                     {c.source_label}
                     {c.source_detail ? ` — ${c.source_detail}` : ''}
                   </Text>
@@ -258,7 +314,7 @@ export default function PreparaChiamata() {
           ) : null}
 
           {/* ---- il numero me lo dai tu ---- */}
-          {puo('give_number') ? (
+          {puo('give_number') || cambio ? (
             <View style={styles.blocco}>
               <TextInput
                 value={altroNumero}
@@ -278,10 +334,11 @@ export default function PreparaChiamata() {
                 busy={inCorso === 'altro'}
                 onPress={() =>
                   void fai('altro', async () =>
-                    api.confirmPreparationNumber(prep.preparation_id, false, {
-                      number: altroNumero.trim(),
-                      operation: 'reschedule',
-                    }),
+                    api.changePreparationNumber(
+                      prep.preparation_id,
+                      altroNumero.trim(),
+                      'reschedule',
+                    ),
                   )
                 }
               />
@@ -460,6 +517,7 @@ const styles = StyleSheet.create({
   sa: { fontSize: 14, lineHeight: 21 },
   dice: { fontSize: 17, lineHeight: 25, fontWeight: '500' },
   riga: { flexDirection: 'row', gap: 10, flexWrap: 'wrap' },
+  altro: { paddingVertical: 4 },
   pronta: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, padding: 14 },
   riassunto: { fontSize: 16, lineHeight: 24 },
   nota: { fontSize: 12, lineHeight: 18 },

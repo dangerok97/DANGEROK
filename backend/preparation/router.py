@@ -115,11 +115,12 @@ async def confirm(
     """
     Il sì o il no su un numero.
 
-        È IL CANCELLO, ED È L'UNICA PORTA CHE LO APRE.
+        È IL CANCELLO, E LO APRE SOLO UN GESTO ESPLICITO.
 
-    Nessun altro endpoint scrive `number_confirmed`, e non deve: un permesso
-    che si può concedere da due posti è un permesso che prima o poi qualcuno
-    concede senza accorgersene.
+    Due porte scrivono la fiducia: questa, con un sì su un numero mostrato, e
+    `set-contact-number`, con una frase che nomina insieme persona e numero.
+    Nessun'altra — un permesso che si può concedere da un posto in più è un
+    permesso che prima o poi qualcuno concede senza accorgersene.
     """
     from preparation.service import as_a_card, confirm_number
 
@@ -128,6 +129,58 @@ async def confirm(
         db, prep,
         yes=bool(payload.get("yes")),
         instead=str(payload.get("number") or ""),
+        operation=str(payload.get("operation") or ""),
+    )
+    if perche:
+        raise HTTPException(400, perche)
+    await _tell_the_plan(prep)
+    return {"ok": True, "preparation": as_a_card(prep)}
+
+
+@router.post("/{preparation_id}/change-number")
+async def change_it(
+    preparation_id: str,
+    payload: Dict[str, Any] = Body(default={}),
+    user: dict = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """
+    «Usa questo numero invece.» Il vecchio diventa vecchio, il nuovo aspetta.
+
+    Non si ricomincia la missione: si cambia il numero e basta. Quello di
+    prima non si cancella e non si ripropone; quello nuovo si usa solo dopo
+    il suo sì — a meno che non fosse già confermato per la stessa persona.
+    """
+    from preparation.service import as_a_card, change_number
+
+    prep = await _mine(user, preparation_id)
+    prep, perche = await change_number(
+        db, prep, number=str(payload.get("number") or ""),
+        operation=str(payload.get("operation") or ""),
+    )
+    if perche:
+        raise HTTPException(400, perche)
+    await _tell_the_plan(prep)
+    return {"ok": True, "preparation": as_a_card(prep)}
+
+
+@router.post("/{preparation_id}/set-contact-number")
+async def set_it(
+    preparation_id: str,
+    payload: Dict[str, Any] = Body(default={}),
+    user: dict = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """
+    «Il numero di Lorenzo è questo.» Detto per quella persona, vale già.
+
+    È l'unica porta in cui un numero scritto da chi risponde diventa
+    affidabile senza una seconda domanda, perché nomina insieme la persona e
+    il numero. Il vecchio, se c'era, diventa vecchio.
+    """
+    from preparation.service import as_a_card, set_contact_number
+
+    prep = await _mine(user, preparation_id)
+    prep, perche = await set_contact_number(
+        db, prep, number=str(payload.get("number") or ""),
         operation=str(payload.get("operation") or ""),
     )
     if perche:

@@ -158,6 +158,17 @@ def _anything_that_blocks(prep: MissionPreparation) -> Optional[Tuple[str, str]]
         return ("BLOCKED",
                 f"Non ho trovato un numero per {prep.counterparty}. "
                 "Me lo dici tu?")
+    if prep.selected_contact is None and prep.number_conflict:
+        #     UNO ERA GIÀ CONFERMATO, E NE È SPUNTATO UN ALTRO.
+        # Non si sostituisce e non si ignora: si dicono tutti e due, e si
+        # chiede. Il confermato è in cima, perché è quello che valeva ieri.
+        vecchio = next((c for c in prep.contact_candidates if c.trusted), None)
+        nuovi = [c for c in prep.contact_candidates if not c.trusted]
+        if vecchio is not None and nuovi:
+            return ("AMBIGUOUS",
+                    f"Per {vecchio.name} avevi già confermato il {vecchio.number}. "
+                    f"Adesso ho trovato anche il {nuovi[0].number}. "
+                    "Quale devo usare?")
     if prep.selected_contact is None:
         #     PIÙ DI UNO E NESSUNO SCELTO NON È «MANCA QUALCOSA».
         # È «non so di chi stai parlando», ed è una domanda diversa: «quale dei
