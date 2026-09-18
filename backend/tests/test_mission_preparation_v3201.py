@@ -318,11 +318,15 @@ async def test_an_unconfirmed_number_means_zero_calls(mondo, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_a_number_the_person_gives_is_already_confirmed(mondo, monkeypatch):
+async def test_a_replacement_number_waits_for_its_own_yes(mondo, monkeypatch):
     """
-    Un numero detto da una persona non ha bisogno di essere confermato.
+    Un numero scritto come sostituto non è ancora confermato.
 
-    Non c'è nessuno di più affidabile a cui chiederlo.
+        CAMBIATO IN V3.20.1 FINAL, E DI PROPOSITO.
+
+    Prima un numero scritto da chi risponde valeva come confermato. La
+    politica di fiducia dice il contrario: «usa questo invece» è un candidato
+    nuovo, e si usa solo dopo il suo sì. Il nome trovato prima resta.
     """
     _niente_web(monkeypatch)
     from preparation.service import confirm_number
@@ -333,9 +337,14 @@ async def test_a_number_the_person_gives_is_already_confirmed(mondo, monkeypatch
     )
 
     assert prep.selected_contact.number == "+393331112222"
-    assert prep.number_source == "user"
-    assert prep.number_confirmed is True
+    assert prep.selected_contact.name == "Lorenzo Bianchi"
+    assert prep.number_confirmed is False
     assert prep.number_rejected is False
+    assert prep.can_become_a_call() is False
+
+    prep, _ = await confirm_number(mondo, prep, yes=True)
+    assert prep.number_confirmed is True
+    assert prep.number_trust == "confirmed_now"
 
 
 # ---------------------------------------------------------------------------

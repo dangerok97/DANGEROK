@@ -517,6 +517,8 @@ export type PreparationContact = {
   source_label: string;
   source_detail: string;
   why: string;
+  /** Già confermato da te per questa persona: si usa senza chiedere di nuovo. */
+  trusted?: boolean;
 };
 
 export type MissionPreparation = {
@@ -530,8 +532,14 @@ export type MissionPreparation = {
   contact: PreparationContact | null;
   /** Pieno solo quando ce n'è più di uno e nessuno è stato scelto. */
   candidates: PreparationContact[];
+  /** Con un numero proposto: gli altri trovati, come alternativa. */
+  other_candidates: PreparationContact[];
   number_confirmed: boolean;
   number_rejected: boolean;
+  /** «Userò questo numero: l'avevi già confermato tu.» Vuoto se non è deciso. */
+  number_note: string;
+  /** Due numeri per la stessa persona, e uno era già confermato. */
+  number_conflict: boolean;
   /** Quello che ORA sapeva già, e che quindi non ha chiesto. */
   what_ora_knows: string[];
   question: { field: string; asks: string; already_known: string } | null;
@@ -587,6 +595,13 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ yes, number: opts?.number, operation: opts?.operation }),
       },
+    ),
+
+  /** «Usa questo numero invece.» Il vecchio non si usa più, il nuovo aspetta un sì. */
+  changePreparationNumber: (id: string, number: string, operation?: string) =>
+    request<{ ok: boolean; preparation: MissionPreparation }>(
+      `/preparation/${id}/change-number`,
+      { method: 'POST', body: JSON.stringify({ number, operation }) },
     ),
 
   answerPreparation: (id: string, text: string, opts?: { field?: string; operation?: string }) =>
