@@ -58,6 +58,32 @@ AUDIO_RATE = 16000
 AUDIO_CONTENT_TYPE = f"audio/l16;rate={AUDIO_RATE}"
 
 
+#     UN CONTESTO TLS SOLO, PER TUTTA LA VITA DEL PROCESSO.
+#
+# Misurato su questa macchina: un `httpx.AsyncClient()` nuovo costa 473 ms di
+# mediana (761 il peggiore) per caricare i certificati — ed è lavoro sincrono,
+# che ferma l'event loop con dentro la voce di ORA. Con un contesto già pronto
+# costa zero. Sul gate V3.21.1 il riaggancio ha tenuto fermo il processo 548
+# ms esattamente lì. Il primo lo si paga quando si compone il numero, prima
+# che parli qualcuno; poi non si paga più.
+_TLS = None
+
+
+def _tls():
+    """Il contesto TLS condiviso, costruito una volta sola."""
+    global _TLS
+    if _TLS is None:
+        import ssl
+
+        try:
+            import certifi
+
+            _TLS = ssl.create_default_context(cafile=certifi.where())
+        except Exception:  # pragma: no cover
+            _TLS = ssl.create_default_context()
+    return _TLS
+
+
 def _application_id() -> str:
     return (os.environ.get("VONAGE_APPLICATION_ID") or "").strip()
 
@@ -234,7 +260,7 @@ async def place(
     try:
         import httpx
 
-        async with httpx.AsyncClient(timeout=30) as client:
+        async with httpx.AsyncClient(timeout=30, verify=_tls()) as client:
             answer = await client.post(
                 API,
                 headers={
@@ -297,7 +323,7 @@ async def hang_up(call_ref: str) -> bool:
     try:
         import httpx
 
-        async with httpx.AsyncClient(timeout=20) as client:
+        async with httpx.AsyncClient(timeout=20, verify=_tls()) as client:
             answer = await client.put(
                 f"{API}/{call_ref}",
                 headers={

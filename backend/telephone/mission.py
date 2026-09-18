@@ -151,6 +151,14 @@ class CallMissionPacket(BaseModel):
     # --- quando siamo, dove sta la persona --------------------------------
     local_datetime: str = Field(min_length=1, max_length=40)
     timezone: str = Field(min_length=1, max_length=60)
+    #     IN CHE LINGUA SI TELEFONA.
+    #
+    # Una missione italiana resta italiana dall'inizio alla fine: un «sim»
+    # trascritto male o un nome straniero non cambiano la lingua della
+    # telefonata. Sta qui e non scritta a mano nel prompt perché il giorno in
+    # cui ORA chiamerà in un'altra lingua sarà questo campo a dirlo — e il
+    # setup della sessione lo legge da qui, non da una costante.
+    language: str = Field(default="it", min_length=2, max_length=8)
 
     # --- da cosa a cosa ----------------------------------------------------
     subject: str = Field(min_length=1, max_length=160)
@@ -210,6 +218,19 @@ class CallMissionPacket(BaseModel):
                 f["field"]: f["value"] for f in pulito["known_facts"]
             }
         return json.dumps(pulito, ensure_ascii=False, separators=(",", ":"))
+
+    def language_tag(self) -> str:
+        """
+        La lingua come la vuole il servizio vocale: `it` diventa `it-IT`.
+
+        Una tabella piccola e chiusa: per una lingua che non conosce torna il
+        codice così com'è, invece di inventarsi una regione.
+        """
+        codice = (self.language or "it").strip().lower()
+        return {
+            "it": "it-IT", "en": "en-US", "fr": "fr-FR", "de": "de-DE",
+            "es": "es-ES", "pt": "pt-PT",
+        }.get(codice, codice)
 
     def may_release(self, field: str) -> bool:
         """Se questo campo può essere chiesto durante la chiamata."""
