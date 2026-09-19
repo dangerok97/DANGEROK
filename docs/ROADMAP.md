@@ -517,6 +517,32 @@ non corretta a posteriori. Tunnel quick di Cloudflare instabile: serve un
 indirizzo fisso prima del lancio. Due telefonate «autorizzate» e mai composte
 del 18/09 (vecchio percorso) restano nello storico.
 
+
+#### Debito registrato durante V3.21 — ORA Product Experience Rebuild · **NOT STARTED**
+**Priorità** — alta. Emerso dall'audit completo dell'app reale (video 2026-09-19).
+Non è semplice polish: l'esperienza principale non rappresenta ancora ORA come
+assistente di vita unico, coerente e operativo.
+
+**Scope registrato** — redesign completo di Chat ORA · redesign Home / «Cosa
+conta davvero ora» · sincronizzazione canonica di «Domande per te» fra chat e
+Home · aggiornamenti ORA con provenance, contesto, stato e next step · riduzione
+della latenza del motore conversazionale (distinta dalla telefonia) · place
+presence affidabile per entrata/uscita/rientro · navigazione intelligente con
+traffico, tempi, consiglio e ora di partenza prima dei link alle mappe ·
+riallineamento UI di Call Preparation · Vita/Conosciamoci · Documenti · shell e
+design system Quiet Premium unificati.
+
+**Reference visuali approvate** — `ora_il_tuo_assistente_quotidiano.png` ·
+`dashboard_ora_più_tempo_per_te.png` ·
+`preparazione_sicura_della_telefonata.png` ·
+`conosciamoci_il_percorso_ora.png` ·
+`dashboard_ora_per_i_documenti_sanitari.png`.
+
+**Regola** — debito solo registrato in roadmap: non si implementa durante il
+lavoro telefonico corrente. Quando verrà aperto, le reference sono target
+visivi autorevoli e il pass richiederà app reale, screenshot comparativi e
+reality gate funzionali sui difetti osservati.
+
 ### V3.22 — Call UX Final
 **Obiettivo** — la telefonata come funzione di prodotto finita, non come
 capacità tecnica.
