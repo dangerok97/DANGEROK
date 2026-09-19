@@ -6,7 +6,7 @@ percorso fino al lancio si leggono qui e solo qui.
 
 | | |
 |---|---|
-| **Versione corrente** | **V3.21.1a — CODE/UI PASS · REAL CALL GATE PENDING USER APPROVAL** |
+| **Versione corrente** | **V3.21.1a — FINAL PASS** |
 | **Prossimo sprint** | **V3.21 — Telephone Product Hardening** |
 | Branch | `feature/ora-quiet-premium-design-system` |
 | Ultimo checkpoint | `37af8a5` (lavoro) · `3baeaa1` (igiene) |
@@ -461,7 +461,7 @@ le suite ambient v38 sono instabili anche su HEAD (DB condiviso, verificato
 A/B). Due tentativi di chiamata sono finiti per errore a un numero di terzi
 (lo script sceglieva «l'ultimo numero»): corretto, destinatario verificato.
 
-#### V3.21.1a — General Phone Capability + Message Delivery · **CODE/UI PASS** · **REAL CALL GATE PENDING USER APPROVAL**
+#### V3.21.1a — General Phone Capability + Message Delivery · **FINAL PASS**
 **Il problema.** In chat ORA rispondeva «non posso telefonare»: lo strumento
 era descritto solo per studi e attività, e chiedeva un numero obbligatorio.
 **Capacità dichiarata dal vero.** Il prompt riceve `what_ora_can_do`, derivato
@@ -491,9 +491,31 @@ libera ora vale solo per un riassunto mostrato in un turno precedente.
 di prova Giulia Test con provenienza → «sì» → riassunto con «la amo» →
 fermo a READY, nessuna telefonata creata. Contatto e record di prova rimossi.
 Regressione telefono + chat: 1126 test verdi.
-**Debito.** Nell'app non c'è ancora un tasto per comporre: la chat arriva a
-«telefonata pronta», la chiamata parte solo da API (→ V3.22). La consegna non
-è ancora stata provata su una telefonata vera: serve il via libera del CPO.
+**Final gate (2026-09-19, telefonata vera autorizzata dal CPO).** Dalla chat:
+«Chiama la mia ragazza e dille che la amo» → «Ho trovato Asia, +39 327 •••
+••11 (Rubrica — ragazza). È questo il numero corretto?» → «sì» → riassunto
+con «la amo» e «Vuoi che la chiami?» → «Sì» → «Sto chiamando Asia…». Il
+secondo sì compone dalla stessa porta della route (`telephone/placing.py`,
+unico `carrier.place`), senza API manuali. In linea: caller ID italiano,
+Charon, it-IT, zero derive, una connessione Live, zero riconnessioni;
+«Ciao, sono l'assistente di Francesco. Parlo con Asia?» → «Sì» →
+«Francesco mi ha chiesto di dirti che ti ama» → risposta acquisita → saluto →
+riaggancio. Esito `delivered`, nessuna application, piano `completed`, una
+sola telefonata. In chat, senza id né stati: «Messaggio consegnato… Ti ha
+risposto: «…»».
+**Bug emersi dal vero e corretti.** (1) La chat rileggeva la conversazione un
+istante prima che la riga dell'esito arrivasse: ora aspetta `chat_told_at`,
+scritto dopo la riga, e un salvataggio vecchio non lo cancella. (2) «Ciao!»
+non era riconosciuto come congedo: tre saluti in più («Arrivederci», «Buona
+giornata»…). (3) Nome del profilo in minuscolo («francesco»). (4) «a Asia»
+→ «ad Asia». Più: apertura «Ciao» per una consegna, attribuzione esplicita
+del messaggio al mittente, «Questo non posso deciderlo per lui».
+**Debito.** L'apertura è stata interrotta dal «Pronto?» sovrapposto e ripetuta
+(`opening_state` resta `pending`); «Parlo con Asia?» detto due volte; la
+risposta è la trascrizione letterale del modello («Dirgli anche io tanto»),
+non corretta a posteriori. Tunnel quick di Cloudflare instabile: serve un
+indirizzo fisso prima del lancio. Due telefonate «autorizzate» e mai composte
+del 18/09 (vecchio percorso) restano nello storico.
 
 ### V3.22 — Call UX Final
 **Obiettivo** — la telefonata come funzione di prodotto finita, non come

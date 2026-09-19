@@ -179,7 +179,10 @@ class TelephoneService:
     async def _save(self, call: PhoneCall) -> None:
         await self.db[CALLS].update_one(
             {"owner_id": call.owner_id, "id": call.id},
-            {"$set": call.model_dump()},
+            #     L'ESITO RIPORTATO IN CHAT LO SCRIVE SOLO CHI LO RIPORTA.
+            # Una copia vecchia della telefonata, salvata dopo, non deve
+            # poter dire «non l'hai ancora raccontato».
+            {"$set": call.model_dump(exclude={"told_the_chat", "chat_told_at"})},
             upsert=True,
         )
 

@@ -134,6 +134,11 @@ GOODBYE_GRACE_S = 0.3
 FAREWELLS = (
     "arrivederci", "buona giornata", "buona serata", "buonasera",
     "a presto", "la saluto", "ci sentiamo", "le auguro", "buon proseguimento",
+    #     A UNA PERSONA CARA SI DICE «CIAO».
+    # Misurato sul vero (V3.21.1a): ORA ha salutato Asia con «Ciao!», il
+    # congedo non è stato riconosciuto, e le sono stati chiesti altri tre
+    # saluti — «Arrivederci», «Buona giornata», «Arrivederci!».
+    "ciao",
 )
 
 # Quante volte si chiede a chi parla di congedarsi prima di lasciar perdere.
@@ -1172,11 +1177,15 @@ class MissionVoiceSession:
             "recipient_not_available.\n"
             "- Consegna il messaggio fedelmente, con calore, in terza persona. "
             "Non cambiarne il significato e non aggiungere niente.\n"
-            f"- Poi ascolta. Se ti dà una risposta per {chi}, di' che gliela "
-            f"riferirai. Se ti chiede qualcosa che solo {chi} può decidere, non "
-            "rispondere tu: di' che glielo riferirai.\n"
-            "- Chiudi con message_delivered, riportando la sua risposta con le "
-            "sue parole.\n"
+            f"- Il messaggio si attribuisce sempre a {chi} («{chi} mi ha "
+            "chiesto di dirti che…»): non dirlo mai in prima persona.\n"
+            f"- Poi ascolta. Se ti dà una risposta per {chi}, di' «Certo, "
+            f"glielo riferisco». Se ti chiede qualcosa che solo {chi} può "
+            "decidere, non rispondere tu: «Questo non posso deciderlo per "
+            "lui, ma glielo riferisco».\n"
+            "- Usa message_delivered solo dopo che ha risposto o ha chiaramente "
+            "finito di parlare, riportando la sua risposta con le sue parole "
+            "(e le sue domande per lui). Poi saluta con calore.\n"
             "- Qui il tono è caldo e personale, non da ufficio."
         )
 
@@ -2152,11 +2161,16 @@ class MissionVoiceSession:
                 "message_to_deliver": messaggio,
                 "from": packet.on_behalf_of,
                 "say_it_like_this": (
-                    f"Di' a {nome_persona or 'questa persona'} che "
-                    f"{packet.on_behalf_of} ti ha chiesto di riferirle questo "
-                    "messaggio. Puoi volgerlo in terza persona e dirlo con "
-                    "calore, ma non cambiarne il significato, non aggiungere "
-                    "promesse o dettagli, non togliere niente. Poi ascolta."
+                    f"Il messaggio è di {packet.on_behalf_of}, scritto con le "
+                    "sue parole: quando parla di «lei» o «lui», parla di "
+                    f"{nome_persona or 'questa persona'}. Rivolgilo a lei e "
+                    f"attribuiscilo sempre a lui: «{packet.on_behalf_of} mi ha "
+                    "chiesto di dirti che …» — per esempio «la amo» diventa "
+                    f"«{packet.on_behalf_of} mi ha chiesto di dirti che ti "
+                    "ama». Mai in prima persona, come se il sentimento fosse "
+                    "tuo. Dillo con calore, senza cambiarne il significato, "
+                    "senza aggiungere promesse o dettagli, senza togliere "
+                    "niente. Poi taci e ascolta la sua risposta."
                 ),
             }
 
@@ -2195,7 +2209,7 @@ class MissionVoiceSession:
             notes=str(argomenti.get("notes") or "")[:400],
         )
         return {"accepted": True,
-                "say": "Glielo riferisco. Grazie, buona giornata."}
+                "say": "Certo, glielo riferisco. Ciao!"}
 
     def _the_mandate(self):
         """Il mandato della telefonata: è lì, e solo lì, che sta il messaggio."""

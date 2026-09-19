@@ -649,6 +649,10 @@ export const api = {
       body: JSON.stringify({ decision, alternative }),
     }),
 
+  /** Se da questa chat è partita una telefonata di cui non si sa ancora l'esito. */
+  chatCallLive: (sessionId: string) =>
+    request<{ calling: boolean }>(`/telephone/chat/${sessionId}/live`),
+
   callTranscript: (callId: string) =>
     request<CallTranscriptResponse>(`/telephone/calls/${callId}/transcript`),
 

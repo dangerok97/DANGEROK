@@ -24,6 +24,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException
 from deps import db, get_current_user
 from telephone import carrier
 from telephone.models import Mandate
+from telephone.placing import dial
 from telephone.service import TelephoneService
 
 logger = logging.getLogger("ora.telephone.router")
@@ -112,52 +113,32 @@ async def place(
     if not bool(payload.get("confirmed")):
         raise HTTPException(428, "serve un sì esplicito su questa chiamata")
 
-    permission = await service.may_i_call(user["user_id"])
-    if permission["denied"]:
-        raise HTTPException(403, "aveva già detto di no alle telefonate")
-    if not permission["provider_ready"]:
-        raise HTTPException(503, permission["why_not"] or "non c'è modo di telefonare")
-
-    opened = await carrier.place(
-        to_number=call.to_number,
-        call_id=call.id,
-        minutes=call.mandate.minutes,
+    #     LA STESSA PORTA DELLA CHAT.
+    fatta, perche = await dial(
+        db, user["user_id"], call,
+        authority_ref=str(payload.get("authority_ref") or "explicit_yes"),
     )
-    if opened is None or not opened.get("call_ref"):
-        await service.mark(call, "failed", how_it_ended="failed")
-        # Quello che ha detto l'operatore, per intero: chi legge deve poter
-        # capire cosa sistemare, non solo che è andata male.
-        why = (opened or {}).get("error") or "l'operatore non ha risposto"
-        raise HTTPException(502, f"la chiamata non è partita — {why}")
-
-    call = await service.mark(
-        call, "dialling",
-        provider_ref=opened["call_ref"],
-        authority_ref=str(payload.get("authority_ref") or "explicit_yes")[:64],
-    )
-
-    #     IL SÌ È UNO SOLO, E VALE PER TUTTE E DUE LE COSE.
-    # Non si chiede due volte: la persona ha detto di sì a questa telefonata
-    # con questo mandato, ed è esattamente l'autorità che il piano aspettava.
-    # Un secondo consenso separato sarebbe attrito senza una domanda nuova.
-    await _the_plan_can_go(call)
-
-    return {"ok": True, "call_id": call.id, "state": call.state}
+    if perche:
+        codice = (403 if "di no" in perche else
+                  503 if fatta is None and "operatore" not in perche
+                  and "non è partita" not in perche else 502)
+        raise HTTPException(codice, perche)
+    return {"ok": True, "call_id": fatta.id, "state": fatta.state}
 
 
-async def _the_plan_can_go(call) -> None:
-    """Registra sul piano il sì che è appena stato dato sulla telefonata."""
-    try:
-        from autonomy.orchestrator import advance, grant
-        from autonomy.plan import for_call
+@router.get("/chat/{session_id}/live")
+async def calling_from_this_chat(
+    session_id: str, user: dict = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """
+    Se da questa chat è partita una telefonata di cui non si sa ancora l'esito.
 
-        plan = await for_call(db, call.id)
-        if plan is None:
-            return
-        plan = await grant(db, plan, authority_ref=call.authority_ref)
-        await advance(db, plan)
-    except Exception as e:  # pragma: no cover
-        logger.info("piano non autorizzato: %s", type(e).__name__)
+    La chat lo chiede per sapere se aspettare: quando torna `false`, l'esito
+    è già scritto nella conversazione. Nessun id, nessuno stato tecnico.
+    """
+    from telephone.chat_report import calling_from
+
+    return {"calling": await calling_from(db, user["user_id"], session_id)}
 
 
 @router.post("/{call_id}/hangup")

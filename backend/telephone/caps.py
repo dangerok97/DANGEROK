@@ -221,6 +221,17 @@ def _this_turn(runtime: Dict[str, Any]) -> str:
     return f"{runtime.get('session_id') or ''}:{epoca}"[:120]
 
 
+async def _dial_from_the_chat(db, uid: str, call, runtime: Dict[str, Any]):
+    """Compone dalla chat, ricordando in quale chat far tornare l'esito."""
+    from telephone.placing import dial
+    from telephone.service import TelephoneService
+
+    chat = str(runtime.get("session_id") or "")
+    if chat and call.chat_session_id != chat:
+        call = await TelephoneService(db).mark(call, call.state, chat_session_id=chat)
+    return await dial(db, uid, call, authority_ref="chat_final_yes")
+
+
 async def _through_the_preparation(
     arguments: Dict[str, Any], runtime: Dict[str, Any], db, uid: str,
 ) -> Observation:
@@ -293,6 +304,7 @@ async def _through_the_preparation(
 
     carta = as_a_card(prep)
     chiamata = ""
+    gia_partita = False
     turno = _this_turn(runtime)
     if arguments.get("go_ahead"):
         if not prep.summary_shown_in or prep.summary_shown_in == turno:
@@ -305,11 +317,28 @@ async def _through_the_preparation(
         elif not _the_person_said_yes(detto, via_libera=True,
                                       richiesta=prep.user_request):
             rifiutato = "la persona non ha ancora dato il via libera"
+        elif prep.call_id:
+            #     UN SECONDO SÌ NON FA UNA SECONDA TELEFONATA.
+            # La telefonata di questa preparazione esiste già: se non è ancora
+            # partita la si compone, altrimenti si dice che è già in corso.
+            from telephone.service import TelephoneService
+
+            gia = await TelephoneService(db).get(uid, prep.call_id)
+            if gia is not None and gia.state == "authorised":
+                fatta, rifiutato = await _dial_from_the_chat(db, uid, gia, runtime)
+                chiamata = fatta.id if fatta is not None and not rifiutato else ""
+            else:
+                chiamata, gia_partita = prep.call_id, True
         elif not prep.can_become_a_call():
             rifiutato = prep.readiness_says or "la telefonata non è ancora pronta"
         else:
             fatta, perche = await turn_into_a_call(db, prep, operation=prep.operation)
-            chiamata = fatta.id if fatta is not None else ""
+            if fatta is not None and not perche:
+                #     IL SECONDO SÌ E' IL VIA LIBERA: SI COMPONE ADESSO.
+                # Il primo sì era sul numero; questo è sul riassunto, detto in
+                # un turno successivo. Si passa dalla stessa porta della route.
+                fatta, perche = await _dial_from_the_chat(db, uid, fatta, runtime)
+            chiamata = fatta.id if fatta is not None and not perche else ""
             rifiutato = perche
             carta = as_a_card(prep)
 
@@ -322,7 +351,7 @@ async def _through_the_preparation(
         kind="tool", name="prepare_a_phone_call", status="ok",
         payload={
             "capability": "prepare_a_phone_call",
-            "status": ("call_prepared" if chiamata
+            "status": ("calling" if chiamata
                        else "ready" if carta["ready"] else "preparing"),
             "preparation_id": carta["preparation_id"],
             "what_kind_of_call": prep.operation,
@@ -333,7 +362,10 @@ async def _through_the_preparation(
             # «È questo il numero corretto?», senza dire quale numero né da
             # dove veniva. Una conferma su un numero che non si vede non è
             # una conferma.
-            "say_this": _the_sentence(carta, bool(chiamata)),
+            "say_this": (
+                f"Non sono riuscita a far partire la telefonata: {rifiutato}."
+                if arguments.get("go_ahead") and rifiutato and prep.call_id
+                else _the_sentence(carta, bool(chiamata), gia_partita)),
             "contact": carta["contact"],
             "candidates": carta["candidates"],
             "number_confirmed": carta["number_confirmed"],
@@ -342,13 +374,14 @@ async def _through_the_preparation(
             "summary": carta["summary"] or None,
             "not_accepted": rifiutato or None,
             "call_id": chiamata or None,
-            "nothing_has_happened_yet": True,
+            "nothing_has_happened_yet": not chiamata,
             "how_to_say_it": _what_to_say_now(carta, bool(chiamata)),
         },
     )
 
 
-def _the_sentence(carta: Dict[str, Any], preparata: bool) -> str:
+def _the_sentence(carta: Dict[str, Any], preparata: bool,
+                  gia_partita: bool = False) -> str:
     """
     Quello che ORA deve dire adesso, in una frase intera e senza pezzi mancanti.
 
@@ -360,7 +393,11 @@ def _the_sentence(carta: Dict[str, Any], preparata: bool) -> str:
         return f"{c['name']}, {c['number']} ({dove})"
 
     if preparata:
-        return "La telefonata è pronta: parte quando confermi di comporla."
+        nome = ((carta.get("contact") or {}).get("name") or "").split()
+        a_chi = f" {nome[0]}" if nome else ""
+        if gia_partita:
+            return f"Sto già chiamando{a_chi}: ti dico com'è andata appena finisce."
+        return f"Sto chiamando{a_chi}… Ti dico com'è andata appena finisce."
     if carta["ready"]:
         return f"{carta['summary']} Vuoi che la chiami?"
     if carta["candidates"]:
@@ -377,7 +414,8 @@ def _what_to_say_now(carta: Dict[str, Any], preparata: bool) -> str:
     """La frase che chi ragiona deve dire adesso, e che cosa aspettare."""
     intera = "Di' `say_this` così com'è, per intero — non accorciarla. "
     if preparata:
-        return intera + "Non dire che hai chiamato."
+        return intera + ("La telefonata è partita adesso: non dire com'è "
+                         "andata, lo saprai quando finisce.")
     if carta["ready"]:
         return (intera + "Poi fermati e aspetta la sua risposta: in questo turno "
                 "non richiamare lo strumento. Solo quando, nel messaggio "

@@ -587,6 +587,7 @@ async def turn_into_a_call(
             await _settle(db, prep, operation)
             return None, "quel numero non è più confermato: dimmi tu quale usare"
 
+    from telephone.history import a_chi
     from telephone.models import Mandate
     from telephone.service import TelephoneService
 
@@ -602,7 +603,7 @@ async def turn_into_a_call(
             message=prep.message_to_deliver if consegna else "",
             recipient=contatto.name if consegna else "",
             why_calling=(
-                f"consegnare un messaggio a {contatto.name}" if consegna
+                f"consegnare un messaggio {a_chi(contatto.name)}" if consegna
                 else str(riassunto.get("perche_chiamo") or prep.goal)
             )[:300],
             may_agree_to=[str(x)[:160] for x in
