@@ -167,6 +167,12 @@ async def event(request: Request, call_id: str = "") -> Dict[str, Any]:
             how_it_ended=said["ended_how"],
             why_the_network_refused="" if went_well else said.get("why", "")[:120],
         )
+        if not went_well:
+            #     NESSUNO HA RISPOSTO: NON C'E' UNA CONVERSAZIONE CHE LO DICA.
+            # Quando si è parlato, l'esito lo scrive chi chiude il filo audio.
+            from telephone.chat_report import tell_the_chat
+
+            await tell_the_chat(db, call)
 
     return {"ok": True}
 
@@ -347,6 +353,10 @@ async def _apply_what_was_agreed(call, session) -> None:
         await on_call_finished(db, call)
     except Exception as e:  # pragma: no cover
         logger.info("applicazione non tentata: %s", type(e).__name__)
+    #     E LA CHAT DA CUI E' PARTITA VIENE A SAPERE COM'E' ANDATA.
+    from telephone.chat_report import tell_the_chat
+
+    await tell_the_chat(db, call)
 
 
 #     FRA «SQUILLA» E «PRONTO» NON CI SONO SEMPRE DEI SECONDI.

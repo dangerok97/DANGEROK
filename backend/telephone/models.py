@@ -186,6 +186,11 @@ class PhoneCall(BaseModel):
     state: CallState = "authorised"
     provider_ref: str = Field(default="", max_length=64)   # l'id della chiamata dal carrier
     session_ref: str = Field(default="", max_length=64)    # la conversazione da cui nasce
+    # La chat in cui la persona ha detto «sì, chiamala», se è nata lì: è lì
+    # che l'esito torna, una volta sola.
+    chat_session_id: str = Field(default="", max_length=64)
+    told_the_chat: bool = False
+    chat_told_at: str = Field(default="", max_length=40)
     started_at: Optional[str] = None
     ended_at: Optional[str] = None
     how_it_ended: HowItEnded = "unknown"

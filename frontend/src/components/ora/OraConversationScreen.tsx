@@ -1052,6 +1052,44 @@ export function OraConversationScreen({
    * unfinished rather than as waiting. With nothing said yet, the invitation
    * and the place to answer it are one block, held together in the middle.
    */
+  /*
+    Una telefonata partita da questa chat: si aspetta che finisca e poi si
+    rilegge la conversazione, dove il backend ha scritto com'è andata.
+    Nessuno stato tecnico sullo schermo — solo la riga di ORA quando arriva.
+  */
+  const lastOraText = [...turns].reverse().find((t) => t.role === 'ora')?.text || '';
+  useEffect(() => {
+    if (!sessionId || busy) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const started = Date.now();
+    let sawCall = false;
+    const check = async () => {
+      try {
+        const live = await api.chatCallLive(sessionId);
+        if (cancelled) return;
+        if (live?.calling) {
+          sawCall = true;
+          if (Date.now() - started < 30 * 60 * 1000) timer = setTimeout(check, 4000);
+          return;
+        }
+        if (sawCall) {
+          const fresh = (await api.aiCoreGet(sessionId)) as AiCoreRes;
+          if (!cancelled && fresh?.history) {
+            setTurns(withRememberedSources(sessionId, historyToTurns(fresh.history)));
+          }
+        }
+      } catch {
+        // Aspettare l'esito è una cortesia: se la domanda fallisce, la chat resta com'è.
+      }
+    };
+    void check();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [sessionId, busy, lastOraText]);
+
   const emptyStart = !boot && turns.length === 0 && !busy;
 
   const composer = (

@@ -292,6 +292,11 @@ def _mission_type_of(call) -> str:
     return _what_kind_of_mission((call.mandate.why_calling or "") if call.mandate else "")
 
 
+def a_chi(nome: str) -> str:
+    """«a Giulia», «ad Asia»: davanti a una vocale uguale si dice «ad»."""
+    return f"ad {nome}" if nome[:1].lower() == "a" else f"a {nome}"
+
+
 def _the_delivery_in_one_line(call, stato: str) -> str:
     """
     Una consegna, raccontata a chi l'aveva chiesta.
@@ -310,7 +315,7 @@ def _the_delivery_in_one_line(call, stato: str) -> str:
     if consegna == "delivered":
         if risposta:
             return f"{chi} ti ha risposto: «{risposta}»"
-        return f"Messaggio consegnato a {chi}."
+        return f"Messaggio consegnato {a_chi(chi)}."
     if consegna == "recipient_unavailable":
         quando = str(esito.get("user_confirmation_needed") or "").strip()
         riga = f"Non sono riuscita a parlare con {chi}: ha risposto un'altra persona."

@@ -108,9 +108,13 @@ async def prepare_while_it_rings(db, call) -> TelephoneCallDossier:
         row = await db.users.find_one(
             {"user_id": call.owner_id}, {"_id": 0, "name": 1, "first_name": 1},
         )
-        dossier.on_behalf_of = str(
+        nome = str(
             (row or {}).get("first_name") or (row or {}).get("name") or ""
         ).strip()
+        #     «FRANCESCO», NON «FRANCESCO» SCRITTO COME L'HA SCRITTO LUI.
+        # Il nome del profilo era tutto minuscolo e la voce lo diceva nelle
+        # trascrizioni così: un nome proprio ha la maiuscola.
+        dossier.on_behalf_of = nome.title() if nome.islower() else nome
     except Exception as e:
         logger.info("nome non letto: %s", type(e).__name__)
     dossier.prepared_ms["who"] = int((time.perf_counter() - step) * 1000)

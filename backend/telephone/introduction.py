@@ -127,8 +127,11 @@ class Introduction(BaseModel):
         detta davvero lo stabilisce il registro qui sotto, non la speranza.
         """
         if self.asks_for:
+            #     A UNA PERSONA CARA NON SI DICE «BUONGIORNO».
+            # Chi chiama la ragazza di qualcuno per dirle che lui la ama non
+            # apre come un ufficio: apre come apre lui.
             return (
-                f"{greeting_at(adesso)}, sono l'assistente di {self.assistant_for}. "
+                f"Ciao, sono l'assistente di {self.assistant_for}. "
                 f"Parlo con {self.asks_for}?"
             )
         return (

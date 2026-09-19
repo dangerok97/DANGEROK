@@ -55,7 +55,19 @@ def mondo(monkeypatch):
     monkeypatch.setattr(risolutore.PublicWeb, "look_for", niente)
     monkeypatch.setattr(TelephoneService, "may_i_call", pronto)
 
+    #     NESSUNA PROVA COMPONE DAVVERO.
+    import telephone.carrier as operatore
+
+    composti = []
+
+    async def componi(*, to_number, call_id, minutes):
+        composti.append({"to": to_number, "call_id": call_id})
+        return {"call_ref": f"ref_{len(composti)}"}
+
+    monkeypatch.setattr(operatore, "place", componi)
+
     db = FintoDb()
+    db.composti = composti
     db.contacts.righe.append(dict(GIULIA))
     return db
 
@@ -208,16 +220,34 @@ async def test_no_go_ahead_no_call(mondo):
     assert mondo["phone_calls"].righe == []
 
 
-@pytest.mark.asyncio
-async def test_go_ahead_prepares_the_call_and_does_not_dial(mondo):
-    """Sì al riassunto → telefonata preparata. Squillare è ancora un altro gesto."""
-    p = await _pronta(mondo)
-    p2 = await _chiedi(mondo, "sì, chiamala", preparation_id=p["preparation_id"],
-                       go_ahead=True)
+async def _chiedi_in(db, detto, chat, **argomenti):
+    """Come `_chiedi`, dentro una chat vera: sessione e turno."""
+    from telephone.caps import prepare_a_phone_call
 
-    assert p2["status"] == "call_prepared"
+    oss = await prepare_a_phone_call(argomenti, {
+        "user_id": UID, "db": db, "user_message": detto,
+        "session_id": chat, "reasoning_epoch": f"ep_{detto}",
+    })
+    return oss.payload
+
+
+@pytest.mark.asyncio
+async def test_final_yes_after_ready_places_the_call(mondo):
+    """Sì al riassunto, in un turno successivo → la telefonata parte davvero."""
+    p = await _pronta(mondo)
+    p2 = await _chiedi_in(mondo, "sì, chiamala", "ces_chat1",
+                          preparation_id=p["preparation_id"], go_ahead=True)
+
+    assert p2["status"] == "calling"
+    assert p2["say_this"].startswith("Sto chiamando Giulia")
+    for tecnico in ("tel_", "call_id", "{", "dialling"):
+        assert tecnico not in p2["say_this"]
+    assert len(mondo.composti) == 1
+    assert mondo.composti[0]["to"] == "+393330000042"
     riga = mondo["phone_calls"].righe[0]
-    assert riga["state"] == "authorised"
+    assert riga["state"] == "dialling"
+    assert riga["chat_session_id"] == "ces_chat1"
+    assert riga["authority_ref"] == "chat_final_yes"
     assert riga["mandate"]["message"] == "la amo"
     assert riga["mandate"]["recipient"] == "Giulia Test"
     #     IL MOTIVO SI LEGGE A CHIUNQUE. IL MESSAGGIO NO.
@@ -254,6 +284,28 @@ async def test_one_yes_confirms_the_number_not_the_call(mondo):
 
 
 @pytest.mark.asyncio
+async def test_a_duplicate_final_yes_does_not_call_twice(mondo):
+    p = await _pronta(mondo)
+    await _chiedi_in(mondo, "sì, chiamala", "ces_chat1",
+                     preparation_id=p["preparation_id"], go_ahead=True)
+    p3 = await _chiedi_in(mondo, "sì vai", "ces_chat1",
+                          preparation_id=p["preparation_id"], go_ahead=True)
+
+    assert len(mondo.composti) == 1
+    assert len(mondo["phone_calls"].righe) == 1
+    assert p3["say_this"].startswith("Sto già chiamando")
+
+
+@pytest.mark.asyncio
+async def test_the_number_yes_never_dials(mondo):
+    """Il sì sul numero, anche con go_ahead nello stesso gesto, non compone."""
+    p = await _chiedi(mondo, RICHIESTA, counterparty="la mia ragazza")
+    await _chiedi_in(mondo, "sì", "ces_chat1", preparation_id=p["preparation_id"],
+                     number_is_right=True, go_ahead=True)
+    assert mondo.composti == []
+
+
+@pytest.mark.asyncio
 async def test_the_go_ahead_must_come_in_a_later_turn(mondo):
     """Due chiamate allo strumento nello stesso turno non fanno un sì al riassunto."""
     from telephone.caps import prepare_a_phone_call
@@ -271,7 +323,7 @@ async def test_the_go_ahead_must_come_in_a_later_turn(mondo):
     dopo = dict(stesso, reasoning_epoch="e2", user_message="sì, chiamala")
     o = await prepare_a_phone_call({"preparation_id": p["preparation_id"],
                                     "go_ahead": True}, dopo)
-    assert o.payload["status"] == "call_prepared"
+    assert o.payload["status"] == "calling"
 
 
 @pytest.mark.asyncio
@@ -375,7 +427,10 @@ async def test_identity_first_then_the_message_then_the_reply():
     s = _sessione()
     r = await s._answer_one("recipient_confirmed", {"how_they_confirmed": "sì, sono io"})
     assert r["message_to_deliver"] == "la amo"
-    assert "non cambiarne il significato" in r["say_it_like_this"]
+    assert "senza cambiarne il significato" in r["say_it_like_this"]
+    #     IL SENTIMENTO E' DI CHI MANDA, NON DI ORA.
+    assert "mi ha chiesto di dirti che ti ama" in r["say_it_like_this"]
+    assert "Mai in prima persona" in r["say_it_like_this"]
 
     r2 = await s._answer_one("message_delivered",
                              {"recipient_reply": "Digli che lo amo anch'io."})
@@ -587,3 +642,110 @@ def test_the_chat_shows_the_whole_sentence_of_the_phone_tool():
     #     E NESSUN ALTRO STRUMENTO CAMBIA COMPORTAMENTO.
     assert _compose_user_text(d, [{"name": "web_search", "payload": {"say_this": "x"}}]) \
         == "È questo il numero corretto?"
+
+
+# ---------------------------------------------------------------------------
+# V3.21.1a FINAL — attribuzione, apertura, esito in chat
+# ---------------------------------------------------------------------------
+
+
+def test_the_opening_to_a_loved_one_says_ciao():
+    from telephone.introduction import Introduction
+
+    riga = Introduction(assistant_for="Francesco", reason_summary="parlare con Asia",
+                        asks_for="Asia").opening_line("2026-09-19T10:00:00+02:00")
+    assert riga == "Ciao, sono l'assistente di Francesco. Parlo con Asia?"
+
+
+def test_the_message_is_attributed_to_the_sender():
+    """«la amo» è di Francesco: si dice «Francesco mi ha chiesto di dirti che ti ama»."""
+    import inspect
+    import telephone.live as live
+
+    testo = inspect.getsource(live)
+    assert "mi ha chiesto di dirti che ti " in testo
+    assert "Mai in prima persona" in testo
+    assert "Questo non posso deciderlo per" in testo
+
+
+def _finita(**cambia):
+    from telephone.models import Mandate, PhoneCall
+
+    campi = dict(
+        id="tel_x", owner_id=UID, to_number="+393330000042",
+        calling_whom="Giulia Test", state="ended", how_it_ended="we_hung_up",
+        provider_ref="ref_1", chat_session_id="ces_chat1",
+        mandate=Mandate(why_calling="consegnare un messaggio a Giulia Test",
+                        message="la amo", recipient="Giulia Test"),
+        metrics={"outcome": {"status": "success", "delivery": "delivered",
+                                     "recipient_reply": "digli che lo amo anch'io"}},
+    )
+    campi.update(cambia)
+    return PhoneCall(**campi)
+
+
+def test_the_chat_reads_a_delivery_like_a_person():
+    from telephone.chat_report import what_to_tell_the_chat
+
+    riga = what_to_tell_the_chat(_finita())
+    assert riga == "Messaggio consegnato a Giulia. Ti ha risposto: «digli che lo amo anch'io»"
+    assert what_to_tell_the_chat(_finita(state="dialling")) is None
+    nessuno = what_to_tell_the_chat(_finita(state="failed", how_it_ended="no_answer",
+                                            metrics={}))
+    assert nessuno.startswith("Non sono riuscita a parlarle")
+    #     «CHIAMATA FINITA» NON E' «CONSEGNATO».
+    muta = what_to_tell_the_chat(_finita(metrics={}))
+    assert "consegnato" not in muta.lower() or "non" in muta.lower()
+
+
+@pytest.mark.asyncio
+async def test_the_result_is_written_in_the_chat_once():
+    from telephone.chat_report import calling_from, tell_the_chat
+
+    db = FintoDb()
+    chiamata = _finita()
+    db.phone_calls.righe.append(chiamata.model_dump())
+    db.conversation_sessions.righe.append({"id": "ces_chat1", "user_id": UID, "history": []})
+
+    assert await calling_from(db, UID, "ces_chat1") is True
+    assert await tell_the_chat(db, chiamata) is True
+    assert await tell_the_chat(db, _finita()) is False
+    storia = db.conversation_sessions.righe[0]["history"]
+    assert len(storia) == 1
+    assert storia[0]["role"] == "ora"
+    assert storia[0]["text"].startswith("Messaggio consegnato a Giulia.")
+    assert "tel_" not in storia[0]["text"]
+    assert await calling_from(db, UID, "ces_chat1") is False
+
+
+@pytest.mark.asyncio
+async def test_the_chat_keeps_waiting_until_the_line_is_written():
+    """Misurato sul vero: la chat ha smesso di aspettare prima che la riga arrivasse."""
+    from telephone.chat_report import calling_from
+    from telephone.service import TelephoneService
+
+    db = FintoDb()
+    db.phone_calls.righe.append(dict(_finita().model_dump(), told_the_chat=True,
+                                     chat_told_at=""))
+    #     IL POSTO PRESO NON E' ANCORA UNA RIGA SCRITTA.
+    assert await calling_from(db, UID, "ces_chat1") is True
+
+    db.phone_calls.righe[0]["chat_told_at"] = "2026-09-19T10:34:53+00:00"
+    assert await calling_from(db, UID, "ces_chat1") is False
+    #     UNA COPIA VECCHIA SALVATA DOPO NON RIAPRE L'ATTESA.
+    await TelephoneService(db).mark(_finita(), "ended")
+    assert db.phone_calls.righe[0]["chat_told_at"]
+    assert await calling_from(db, UID, "ces_chat1") is False
+
+
+def test_a_warm_goodbye_counts_as_a_goodbye():
+    from telephone.live import FAREWELLS
+
+    assert any(f in "certo, glielo riferisco. ciao!" for f in FAREWELLS)
+
+
+def test_ad_asia_not_a_asia():
+    from telephone.history import a_chi
+
+    assert a_chi("Asia") == "ad Asia"
+    assert a_chi("Giulia") == "a Giulia"

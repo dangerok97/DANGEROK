@@ -163,7 +163,7 @@ def test_no_call_starts_without_an_explicit_yes(shared_client):
     router = _code_only((HERE / "telephone" / "router.py").read_text(encoding="utf-8"))
     body = router.split("async def place")[1]
     yes_at = body.index("confirmed")
-    dial_at = body.index("carrier.place(")
+    dial_at = body.index("dial(")  # V3.21.1a: si compone da `placing.dial`
     assert yes_at < dial_at, (
         "si compone il numero prima di aver controllato il sì"
     )

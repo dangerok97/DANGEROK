@@ -116,10 +116,20 @@ def test_nothing_in_the_conversation_can_dial_a_number():
     for dialling in ("carrier", "nexmo", "httpx", "place("):
         assert dialling not in caps, f"la capacità compone il numero: {dialling}"
 
+    #     V3.21.1a: LA CHAT PUO' COMPORRE — SOLO DOPO IL SECONDO SÌ.
+    # Il CPO l'ha chiesto esplicitamente: «sì» al riassunto, detto in un turno
+    # successivo e letto dalle parole vere della persona, fa partire la
+    # telefonata. Passa dalla stessa porta della route, e da nessun'altra.
+    assert "from telephone.placing import dial" in caps
+    assert "summary_shown_in" in caps
+    assert "via_libera=True" in caps
+
     # E chi compone il numero pretende un sì su *questa* chiamata.
     router = _code_only((HERE / "telephone" / "router.py").read_text(encoding="utf-8"))
     assert "payload.get('confirmed')" in router.replace('"', "'")
-    assert "carrier.place(" in router, "nessuno compone il numero: allora non si chiama"
+    assert "dial(" in router, "nessuno compone il numero: allora non si chiama"
+    placing = _code_only((HERE / "telephone" / "placing.py").read_text(encoding="utf-8"))
+    assert placing.count("carrier.place(") == 1
 
     # E il numero si compone in un posto solo: si è già cambiato operatore due
     # volte, e ogni volta è costato questo file e nient'altro.
