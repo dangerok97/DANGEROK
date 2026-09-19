@@ -84,6 +84,15 @@ class Mandate(BaseModel):
     # Quanto può durare, in minuti. Una chiamata che non finisce è una
     # chiamata che costa e che nessuno sta guardando.
     minutes: int = Field(default=5, ge=1, le=15)
+    #     UN MESSAGGIO DA CONSEGNARE, CON LE PAROLE DI CHI LO MANDA.
+    #
+    # Quando c'è, la telefonata non negozia e non cambia niente nel mondo: porta
+    # una frase a una persona. Si tiene com'è stata detta — «la amo», «arrivo
+    # venti minuti in ritardo» — perché è la versione che fa fede: chi parla può
+    # renderla naturale, non cambiarne il significato.
+    message: str = Field(default="", max_length=400)
+    # A chi va detta, e solo a lei. Se risponde qualcun altro, non la sente.
+    recipient: str = Field(default="", max_length=120)
 
     def allows(self, thing: str) -> bool:
         """Se questa cosa sta nel mandato. Confronto esatto, non somiglianza."""

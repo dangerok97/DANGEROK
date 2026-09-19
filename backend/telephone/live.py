@@ -328,6 +328,17 @@ def tools_for(mission_type: str) -> List[Dict[str, Any]]:
     Gli strumenti restano sei e i loro nomi non cambiano: cambia solo la forma
     di cio' che si riporta indietro.
     """
+    if mission_type == "deliver_message":
+        #     LO STESSO FALLIMENTO, LA STESSA DOMANDA: IL RESTO E' DIVERSO.
+        # Si tengono `get_call_context`, `request_user_confirmation` e
+        # `fail_mission`; `complete_mission` no — non c'è niente da farsi
+        # confermare — e al suo posto vengono i tre della consegna.
+        tenuti = [
+            f for f in THE_SIX[0]["function_declarations"]
+            if f["name"] in ("get_call_context", "request_user_confirmation",
+                             "fail_mission")
+        ]
+        return [{"function_declarations": [*DELIVERY_TOOLS, *tenuti]}]
     campi = _WHAT_A_CONFIRMATION_LOOKS_LIKE.get(mission_type)
     if not campi:
         return THE_SIX
@@ -379,9 +390,96 @@ _WHAT_A_CONFIRMATION_LOOKS_LIKE: Dict[str, Dict[str, Any]] = {
     },
 }
 
+#     QUATTRO STRUMENTI PER PORTARE UN MESSAGGIO.
+#
+# Una consegna non ha niente da farsi confermare: ha una persona da trovare,
+# una frase da dire, e una risposta da ascoltare. Gli strumenti di chi sposta
+# appuntamenti qui chiederebbero date a chi sta dicendo «ti amo».
+DELIVERY_TOOLS: List[Dict[str, Any]] = [
+    {
+        "name": "recipient_confirmed",
+        "description": (
+            "Chiamalo SOLO quando dall'altra parte c'e' davvero la persona a "
+            "cui devi il messaggio: l'ha detto lei («sì, sono io», «sono "
+            "Giulia»). Ti restituisce il messaggio da consegnare — prima non "
+            "lo conosci, ed e' voluto. Se risponde qualcun altro, NON "
+            "chiamarlo: usa recipient_not_available."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "how_they_confirmed": {
+                    "type": "string",
+                    "description": "Le parole con cui ha detto di essere lei.",
+                },
+            },
+            "required": ["how_they_confirmed"],
+        },
+    },
+    {
+        "name": "recipient_not_available",
+        "description": (
+            "Ha risposto qualcun altro, o non sei riuscita a parlare con la "
+            "persona giusta. Non dire niente del messaggio: puoi chiedere se "
+            "c'e' o quando richiamare."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "who_answered": {
+                    "type": "string",
+                    "enum": ["someone_else", "not_sure", "voicemail"],
+                },
+                "callback_hint": {
+                    "type": "string",
+                    "description": "Se hanno detto quando richiamare, con le loro parole.",
+                },
+            },
+            "required": ["who_answered"],
+        },
+    },
+    {
+        "name": "message_delivered",
+        "description": (
+            "Hai detto il messaggio alla persona giusta. Riporta con le sue "
+            "parole quello che ha risposto, anche se e' solo un «grazie». Se "
+            "ti ha chiesto qualcosa che non puoi decidere tu, non rispondere "
+            "per lui: di' che glielo riferirai, e mettilo qui."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "recipient_reply": {
+                    "type": "string",
+                    "description": (
+                        "Quello che ha voluto far sapere indietro, con le sue "
+                        "parole. Es. «Digli che lo amo anch'io.»"
+                    ),
+                },
+                "notes": {"type": "string"},
+            },
+            "required": ["recipient_reply"],
+        },
+    },
+]
+
 ALLOWED_TOOLS = frozenset(
     f["name"] for f in THE_SIX[0]["function_declarations"]
 )
+
+
+def tools_allowed_for(mission_type: str) -> frozenset:
+    """
+    Gli strumenti che questa telefonata può chiamare: quelli che le si offrono.
+
+        L'ELENCO E' CHIUSO, E DIPENDE DA CHE COSA SI STA FACENDO.
+
+    Una consegna non può chiudere con `complete_mission`, e uno spostamento
+    non può chiedere il messaggio di un altro.
+    """
+    return frozenset(
+        f["name"] for f in tools_for(mission_type)[0]["function_declarations"]
+    )
 
 
 def live_is_configured() -> str:
@@ -711,6 +809,9 @@ class MissionVoiceSession:
         self._loop_heartbeat = time.perf_counter()
         self._loop_thread_id: Optional[int] = None
         self._answered_before_our_ears = False
+        # Se la persona giusta ha detto di essere lei. Fino ad allora il
+        # messaggio non esce dal server.
+        self._recipient_ok = False
         # La lingua che è scivolata, turno per turno.
         self._drift: List[Dict[str, Any]] = []
         self._last_chunk_at = 0.0
@@ -1032,6 +1133,7 @@ class MissionVoiceSession:
                 "generationConfig": voce,
                 "systemInstruction": {"parts": [{
                     "text": SESSION_PROMPT
+                    + self._rules_for_this_kind_of_call()
                     + "\n\nPACCHETTO MISSIONE:\n"
                     + self.packet.for_the_model(),
                 }]},
@@ -1047,6 +1149,36 @@ class MissionVoiceSession:
                 "sessionResumption": ripresa,
             }
         }
+
+    def _rules_for_this_kind_of_call(self) -> str:
+        """
+        Le regole che valgono solo per un tipo di telefonata.
+
+        Oggi una: la consegna di un messaggio, che non è una trattativa e ha
+        un ordine che non si salta — prima chi, poi che cosa, poi ascoltare.
+        """
+        p = self.packet
+        if p is None or p.mission_type != "deliver_message":
+            return ""
+        nome = (p.recipient_name or "").split()[0] if p.recipient_name else "la persona"
+        chi = p.on_behalf_of
+        return (
+            "\n\nPER QUESTA TELEFONATA — un messaggio da consegnare:\n"
+            f"- Dopo la prima frase aspetta che ti dicano chi sono. Solo quando "
+            f"la persona dice di essere {nome}, usa recipient_confirmed: ti darà "
+            "il messaggio. Prima non lo conosci.\n"
+            f"- Se risponde qualcun altro, non dire niente del messaggio né del "
+            f"perché chiami: chiedi se {nome} c'è o quando richiamare, e usa "
+            "recipient_not_available.\n"
+            "- Consegna il messaggio fedelmente, con calore, in terza persona. "
+            "Non cambiarne il significato e non aggiungere niente.\n"
+            f"- Poi ascolta. Se ti dà una risposta per {chi}, di' che gliela "
+            f"riferirai. Se ti chiede qualcosa che solo {chi} può decidere, non "
+            "rispondere tu: di' che glielo riferirai.\n"
+            "- Chiudi con message_delivered, riportando la sua risposta con le "
+            "sue parole.\n"
+            "- Qui il tono è caldo e personale, non da ufficio."
+        )
 
     def _language_tag(self) -> str:
         """La lingua della missione, con l'italiano quando non c'è pacchetto."""
@@ -1871,7 +2003,8 @@ class MissionVoiceSession:
             argomenti = f.get("args") or {}
             inizio = time.perf_counter()
             self._tool_calls += 1
-            if nome not in ALLOWED_TOOLS:
+            tipo = self.packet.mission_type if self.packet is not None else ""
+            if nome not in tools_allowed_for(tipo):
                 self._refused_tools += 1
                 logger.info("strumento fuori elenco richiesto e negato")
                 esito: Dict[str, Any] = {"error": "strumento sconosciuto"}
@@ -1903,6 +2036,17 @@ class MissionVoiceSession:
 
         if nome == "get_allowed_alternatives":
             return {"alternatives": list(packet.allowed_negotiation)}
+
+        if nome in ("recipient_confirmed", "recipient_not_available",
+                    "message_delivered"):
+            return self._the_delivery(nome, argomenti)
+
+        if nome == "complete_mission" and packet.mission_type == "deliver_message":
+            #     UNA CONSEGNA NON SI CHIUDE CON UNA CONFERMA DI MODIFICHE.
+            self._refused_tools += 1
+            return {"accepted": False,
+                    "reason": "questa telefonata consegna un messaggio",
+                    "do_this": "usa recipient_confirmed, poi message_delivered"}
 
         if nome == "request_user_confirmation":
             # Anche qui la missione e finita: quello che restava da
@@ -1982,6 +2126,80 @@ class MissionVoiceSession:
             return {"ok": True, "say": "La ringrazio comunque, buona giornata."}
 
         return {"error": "strumento sconosciuto"}
+
+    def _the_delivery(self, nome: str, argomenti: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Le tre mosse di una consegna, e l'ordine in cui sono ammesse.
+
+            IL MESSAGGIO ESCE SOLO DOPO CHE SI SA CON CHI SI PARLA.
+
+        `recipient_confirmed` è l'unica porta da cui il testo arriva a chi
+        parla. `message_delivered` senza quella porta è rifiutato: non si può
+        dire di aver consegnato una cosa che non si conosceva.
+        """
+        packet = self.packet
+        assert packet is not None
+        mandato = self._the_mandate()
+        messaggio = (mandato.message if mandato is not None else "").strip()
+        nome_persona = (packet.recipient_name or "").split()[0] if packet.recipient_name else ""
+
+        if nome == "recipient_confirmed":
+            if not messaggio:
+                return {"error": "questa telefonata non ha un messaggio da consegnare"}
+            self._recipient_ok = True
+            self.mission.heard("detail", str(argomenti.get("how_they_confirmed") or "")[:200])
+            return {
+                "message_to_deliver": messaggio,
+                "from": packet.on_behalf_of,
+                "say_it_like_this": (
+                    f"Di' a {nome_persona or 'questa persona'} che "
+                    f"{packet.on_behalf_of} ti ha chiesto di riferirle questo "
+                    "messaggio. Puoi volgerlo in terza persona e dirlo con "
+                    "calore, ma non cambiarne il significato, non aggiungere "
+                    "promesse o dettagli, non togliere niente. Poi ascolta."
+                ),
+            }
+
+        if nome == "recipient_not_available":
+            self._the_mission_is_over()
+            chi = str(argomenti.get("who_answered") or "not_sure")
+            self.outcome = CallMissionOutcome(
+                mission_id=packet.mission_id,
+                status="failed",
+                delivery="recipient_unavailable" if chi == "someone_else"
+                else "wrong_person" if chi == "not_sure" else "no_answer",
+                user_confirmation_needed=(
+                    str(argomenti.get("callback_hint") or "")[:300]
+                ),
+                counterparty_statements=self.mission.statements[:8],
+            )
+            return {"ok": True, "say": "Va bene, grazie. Riproverò più tardi, buona giornata."}
+
+        # message_delivered
+        if not self._recipient_ok:
+            self._refused_tools += 1
+            return {
+                "accepted": False,
+                "reason": "non hai ancora confermato di parlare con la persona giusta",
+                "do_this": "chiedi se stai parlando con lei; poi recipient_confirmed",
+            }
+        risposta = str(argomenti.get("recipient_reply") or "").strip()[:400]
+        self.mission.completed()
+        self._the_mission_is_over()
+        self.outcome = CallMissionOutcome(
+            mission_id=packet.mission_id,
+            status="success",
+            delivery="delivered",
+            recipient_reply=risposta,
+            counterparty_statements=self.mission.statements[:8],
+            notes=str(argomenti.get("notes") or "")[:400],
+        )
+        return {"accepted": True,
+                "say": "Glielo riferisco. Grazie, buona giornata."}
+
+    def _the_mandate(self):
+        """Il mandato della telefonata: è lì, e solo lì, che sta il messaggio."""
+        return getattr(self.call, "mandate", None)
 
     async def _go_and_get(self, campo: str) -> str:
         """

@@ -188,6 +188,9 @@ def in_one_line(call, application: Any = None) -> str:
     esito = _the_mission_outcome(call)
     tipo = _mission_type_of(call)
 
+    if tipo == "deliver_message":
+        return _the_delivery_in_one_line(call, stato)
+
     if stato == "serve_una_decisione":
         perche = (esito or {}).get("user_confirmation_needed") or ""
         return perche.strip() or "Serve una tua decisione per andare avanti."
@@ -284,7 +287,40 @@ def _mission_type_of(call) -> str:
     """Che cosa si andava a fare. Dal mandato, che è dove è sempre stato."""
     from telephone.mission import _what_kind_of_mission
 
+    if call.mandate is not None and (call.mandate.message or "").strip():
+        return "deliver_message"
     return _what_kind_of_mission((call.mandate.why_calling or "") if call.mandate else "")
+
+
+def _the_delivery_in_one_line(call, stato: str) -> str:
+    """
+    Una consegna, raccontata a chi l'aveva chiesta.
+
+        «MESSAGGIO CONSEGNATO» SOLO SE L'HA SENTITO LA PERSONA GIUSTA.
+
+    E se ha risposto qualcosa, la sua risposta viene prima di tutto il resto:
+    è la cosa che chi ha mandato il messaggio vuole leggere.
+    """
+    esito = _the_mission_outcome(call) or {}
+    chi = ((call.mandate.recipient if call.mandate else "") or call.calling_whom
+           or "questa persona").split()[0]
+    consegna = str(esito.get("delivery") or "")
+    risposta = str(esito.get("recipient_reply") or "").strip()
+
+    if consegna == "delivered":
+        if risposta:
+            return f"{chi} ti ha risposto: «{risposta}»"
+        return f"Messaggio consegnato a {chi}."
+    if consegna == "recipient_unavailable":
+        quando = str(esito.get("user_confirmation_needed") or "").strip()
+        riga = f"Non sono riuscita a parlare con {chi}: ha risposto un'altra persona."
+        return f"{riga} {quando}".strip() if quando else riga
+    if consegna in ("wrong_person", "no_answer"):
+        return f"Non sono riuscita a parlare con {chi}."
+    if stato == "serve_una_decisione":
+        return (str(esito.get("user_confirmation_needed") or "").strip()
+                or "Serve una tua decisione.")
+    return f"Non sono riuscita a consegnare il messaggio a {chi}."
 
 
 def how_long(call) -> Optional[int]:

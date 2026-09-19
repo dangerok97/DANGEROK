@@ -87,6 +87,18 @@ async def prepare_a_phone_call(
             },
         )
 
+    #     A CHIUNQUE, ANCHE SENZA NUMERO: PASSA DALLA PREPARAZIONE.
+    #
+    # «Chiama la mia ragazza e dille che la amo» non ha un numero, e non deve
+    # averlo: trovarlo è il lavoro di V3.20.1, con la rubrica, i numeri già
+    # confermati e la domanda quando non si sa. Un messaggio passa sempre di
+    # lì, anche con il numero scritto nella frase: è lì che vivono la conferma
+    # del numero e il riassunto da leggere prima del sì. Resta diretto solo il
+    # percorso di sempre — un numero e una ragione, senza messaggio.
+    if (arguments.get("preparation_id") or arguments.get("message")
+            or arguments.get("counterparty") or not arguments.get("to_number")):
+        return await _through_the_preparation(arguments, runtime, db, uid)
+
     try:
         mandate = Mandate(
             why_calling=str(arguments.get("why_calling") or "").strip(),
@@ -158,6 +170,228 @@ async def prepare_a_phone_call(
             ),
         },
     )
+
+
+# Le parole con cui comincia un sì. Si guardano le parole che la persona ha
+# scritto davvero, non il riassunto che ne fa il modello.
+_SI_NUMERO = frozenset({
+    "sì", "si", "esatto", "esattamente", "confermo", "ok", "okay", "certo",
+    "corretto", "perfetto", "giusto",
+})
+# Per il via libera valgono anche i verbi rivolti a ORA — «chiamala», «vai».
+# «Chiama» da solo no: è come comincia una richiesta, non una risposta.
+_SI_VIA = _SI_NUMERO | {"vai", "procedi", "chiamala", "chiamalo", "fallo"}
+_ANCHE = ("va bene", "è quello", "e quello", "è giusto", "e giusto")
+
+
+def _the_person_said_yes(detto: str, *, via_libera: bool = False,
+                         richiesta: str = "") -> bool:
+    """
+    Se quello che la persona ha scritto è un sì. Deterministico.
+
+        CHI DECIDE SE UNO HA DETTO SÌ NON PUO' FIDARSI DI CHI RIASSUME.
+
+    Misurato sul vero: con «chiama» fra le parole del sì, la richiesta
+    stessa — «Chiama la mia ragazza e dille che la amo» — è passata per la
+    conferma del numero, nello stesso turno. Adesso un sì deve cominciare con
+    una parola di assenso, e la frase che ha aperto la preparazione non vale
+    mai come risposta: la conferma arriva dopo, o non arriva.
+    """
+    import re
+
+    testo = " ".join((detto or "").lower().split())
+    if not testo:
+        return False
+    if richiesta and testo == " ".join((richiesta or "").lower().split()):
+        return False
+    parole = [p for p in re.split(r"[^\wàèéìòù']+", testo) if p]
+    if not parole or "no" in parole or "non" in parole[:2]:
+        return False
+    ammesse = _SI_VIA if via_libera else _SI_NUMERO
+    return parole[0] in ammesse or any(testo.startswith(f) for f in _ANCHE)
+
+
+def _this_turn(runtime: Dict[str, Any]) -> str:
+    """Il turno di conversazione in corso: sessione più epoca di ragionamento."""
+    epoca = str(runtime.get("reasoning_epoch") or "")
+    if not epoca:
+        import hashlib
+        epoca = "m:" + hashlib.sha1(
+            str(runtime.get("user_message") or "").encode("utf-8")).hexdigest()[:16]
+    return f"{runtime.get('session_id') or ''}:{epoca}"[:120]
+
+
+async def _through_the_preparation(
+    arguments: Dict[str, Any], runtime: Dict[str, Any], db, uid: str,
+) -> Observation:
+    """
+    La telefonata passa dalla preparazione: chi, quale numero, che cosa dire.
+
+        OGNI PASSO TORNA A CHI RAGIONA CON LA FRASE GIUSTA DA DIRE.
+
+    Non compone mai. Arriva al massimo a «la telefonata è pronta» — e ci
+    arriva solo dopo un sì vero sul numero, se il numero è nuovo.
+    """
+    from preparation.preparation import by_id, save
+    from preparation.service import (
+        answer_question,
+        as_a_card,
+        change_number,
+        choose_contact,
+        confirm_number,
+        turn_into_a_call,
+    )
+
+    detto = str(runtime.get("user_message") or "")
+    rif = str(arguments.get("preparation_id") or "").strip()
+
+    if rif:
+        prep = await by_id(db, uid, rif)
+        if prep is None:
+            return _fail("NOT_FOUND", "questa preparazione non esiste più")
+    else:
+        from autonomy.orchestrator import plan_a_request
+        from telephone.requests import the_message_in
+
+        #     LA RICHIESTA E' QUELLA SCRITTA, NON QUELLA RIASSUNTA.
+        richiesta = detto.strip() or " ".join(filter(None, (
+            f"chiama {arguments.get('counterparty') or ''}".strip(),
+            str(arguments.get("why_calling") or ""),
+        )))
+        numero = str(arguments.get("to_number") or "").strip()
+        if numero and numero not in richiesta:
+            richiesta = f"{richiesta} (numero {numero})"
+        messaggio = the_message_in(detto) or str(arguments.get("message") or "")
+        _plan, prep, perche = await plan_a_request(
+            db, owner_id=uid, user_request=richiesta,
+            counterparty=str(arguments.get("counterparty") or ""),
+            operation=str(arguments.get("operation") or ""),
+            goal=str(arguments.get("why_calling") or ""),
+            message=messaggio,
+        )
+        if prep is None:
+            return _fail("INVALID_INPUT", perche or "non ho capito chi chiamare")
+
+    #     LE RISPOSTE DELLA PERSONA, UNA PER VOLTA.
+    rifiutato = ""
+    if arguments.get("choose_number"):
+        prep, rifiutato = await choose_contact(
+            db, prep, number=str(arguments.get("choose_number")))
+    elif arguments.get("give_number"):
+        prep, rifiutato = await change_number(
+            db, prep, number=str(arguments.get("give_number")))
+    elif arguments.get("number_is_right") is not None:
+        voluto = bool(arguments.get("number_is_right"))
+        if voluto and not _the_person_said_yes(detto, richiesta=prep.user_request):
+            #     IL MODELLO HA DETTO «SÌ». LA PERSONA NO.
+            rifiutato = "la persona non ha ancora confermato il numero"
+        else:
+            prep, rifiutato = await confirm_number(db, prep, yes=voluto)
+    elif arguments.get("answer"):
+        prep, rifiutato = await answer_question(
+            db, prep, text=str(arguments.get("answer")))
+
+    carta = as_a_card(prep)
+    chiamata = ""
+    turno = _this_turn(runtime)
+    if arguments.get("go_ahead"):
+        if not prep.summary_shown_in or prep.summary_shown_in == turno:
+            #     PRIMA SI LEGGE IL RIASSUNTO, POI SI DICE SÌ.
+            # Un sì dato prima di aver visto il riassunto — o nello stesso
+            # turno in cui è apparso — non è un sì al riassunto.
+            # Non è un errore da ritentare: è il turno in cui il riassunto
+            # viene letto. Il modello lo dice, e aspetta.
+            pass
+        elif not _the_person_said_yes(detto, via_libera=True,
+                                      richiesta=prep.user_request):
+            rifiutato = "la persona non ha ancora dato il via libera"
+        elif not prep.can_become_a_call():
+            rifiutato = prep.readiness_says or "la telefonata non è ancora pronta"
+        else:
+            fatta, perche = await turn_into_a_call(db, prep, operation=prep.operation)
+            chiamata = fatta.id if fatta is not None else ""
+            rifiutato = perche
+            carta = as_a_card(prep)
+
+    if carta["ready"] and not chiamata and not prep.summary_shown_in:
+        #     DA QUI IN POI IL RIASSUNTO E' STATO DETTO.
+        prep.summary_shown_in = turno
+        await save(db, prep)
+
+    return Observation(
+        kind="tool", name="prepare_a_phone_call", status="ok",
+        payload={
+            "capability": "prepare_a_phone_call",
+            "status": ("call_prepared" if chiamata
+                       else "ready" if carta["ready"] else "preparing"),
+            "preparation_id": carta["preparation_id"],
+            "what_kind_of_call": prep.operation,
+            "message_to_deliver": prep.message_to_deliver or None,
+            "ora_says": carta["says"],
+            #     LA FRASE COMPLETA, GIA' PRONTA.
+            # Misurato sul vero: con i pezzi separati il modello ha detto solo
+            # «È questo il numero corretto?», senza dire quale numero né da
+            # dove veniva. Una conferma su un numero che non si vede non è
+            # una conferma.
+            "say_this": _the_sentence(carta, bool(chiamata)),
+            "contact": carta["contact"],
+            "candidates": carta["candidates"],
+            "number_confirmed": carta["number_confirmed"],
+            "number_note": carta["number_note"],
+            "question": carta["question"],
+            "summary": carta["summary"] or None,
+            "not_accepted": rifiutato or None,
+            "call_id": chiamata or None,
+            "nothing_has_happened_yet": True,
+            "how_to_say_it": _what_to_say_now(carta, bool(chiamata)),
+        },
+    )
+
+
+def _the_sentence(carta: Dict[str, Any], preparata: bool) -> str:
+    """
+    Quello che ORA deve dire adesso, in una frase intera e senza pezzi mancanti.
+
+    Nome, numero e provenienza stanno sempre insieme: sono le tre cose che
+    servono a chi deve dire «sì, è quello».
+    """
+    def chi(c):
+        dove = c["source_label"] + (f" — {c['source_detail']}" if c.get("source_detail") else "")
+        return f"{c['name']}, {c['number']} ({dove})"
+
+    if preparata:
+        return "La telefonata è pronta: parte quando confermi di comporla."
+    if carta["ready"]:
+        return f"{carta['summary']} Vuoi che la chiami?"
+    if carta["candidates"]:
+        elenco = "; ".join(chi(c) for c in carta["candidates"])
+        return f"Ho trovato più numeri: {elenco}. Quale è quello giusto?"
+    if carta["contact"] and not carta["number_confirmed"]:
+        return f"Ho trovato {chi(carta['contact'])}. È questo il numero corretto?"
+    if carta["question"]:
+        return carta["question"]["asks"]
+    return carta["says"]
+
+
+def _what_to_say_now(carta: Dict[str, Any], preparata: bool) -> str:
+    """La frase che chi ragiona deve dire adesso, e che cosa aspettare."""
+    intera = "Di' `say_this` così com'è, per intero — non accorciarla. "
+    if preparata:
+        return intera + "Non dire che hai chiamato."
+    if carta["ready"]:
+        return (intera + "Poi fermati e aspetta la sua risposta: in questo turno "
+                "non richiamare lo strumento. Solo quando, nel messaggio "
+                "successivo, risponde sì, richiama con lo stesso preparation_id "
+                "e go_ahead=true. Non dire che hai già chiamato.")
+    if carta["candidates"]:
+        return intera + "Poi richiama con choose_number."
+    if carta["contact"] and not carta["number_confirmed"]:
+        return (intera + "Poi richiama con preparation_id e number_is_right=true o "
+                "false, oppure give_number se te ne dà un altro.")
+    if carta["question"]:
+        return (intera + "Poi richiama con preparation_id e answer con la "
+                "sua risposta.")
+    return intera + "Se ti dà un numero, richiama con give_number."
 
 
 async def _tie_it_to_something(

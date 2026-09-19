@@ -927,6 +927,32 @@ JSON only. No markdown fences.
 """
 
 
+PHONE_CAPABILITY = "prepare_a_phone_call"
+
+
+def what_ora_can_do(tools: list) -> dict:
+    """
+    Le capacità che valgono una frase esplicita, dedotte dal catalogo vero.
+
+    Oggi una sola: telefonare. Se lo strumento c'è, lo si dice senza
+    ambiguità; se non c'è, si dice il contrario — così nessuno promette una
+    telefonata che non può partire.
+    """
+    nomi = {str((t or {}).get("capability") or (t or {}).get("name") or "") for t in tools or []}
+    if PHONE_CAPABILITY in nomi:
+        return {"phone": (
+            "ORA CAN phone anyone on the user's behalf — private people "
+            "(partner, family, friends, colleagues) as well as businesses. "
+            "When asked to call someone, use prepare_a_phone_call: it finds "
+            "the number, asks what is missing, and gets the user's go-ahead "
+            "before anything rings. Never say you cannot make phone calls."
+        )}
+    return {"phone": (
+        "ORA cannot place phone calls in this runtime. Do not offer to call "
+        "anyone and do not pretend a call will happen."
+    )}
+
+
 def build_user_payload(
     *,
     user_message: str,
@@ -1056,6 +1082,15 @@ def build_user_payload(
             # giorno mancasse, c'è una prova che confronta le due forme
             # strumento per strumento e cade.
             "available_tools": compact_catalogue(tools),
+            #     CHE COSA PUO' FARE ORA, DETTO DA CHI LO SA: IL CATALOGO.
+            #
+            # Misurato: con lo strumento del telefono nel catalogo, alla
+            # richiesta «chiama la mia ragazza e dille che la amo» il modello
+            # ha risposto «non ho la capacità tecnica di comporre numeri». Non
+            # era vero. Qui si dice in chiaro — ma solo se lo strumento c'è:
+            # una capacità dichiarata senza lo strumento dietro sarebbe una
+            # promessa falsa nell'altra direzione.
+            "what_ora_can_do": what_ora_can_do(tools),
             "observations": observations[-6:],
             "epistemic_reminder": (
                 "Operational external claims require TOOL_OBSERVATION. "

@@ -68,6 +68,18 @@ def build(prep: MissionPreparation, *, operation: str = "") -> Dict[str, Any]:
         "non_posso_decidere": list(NON_PUO_DECIDERE),
         "cose_utili_da_sapere": _useful_facts(prep),
     }
+    if (prep.operation or operation) == "deliver_message":
+        #     IL MESSAGGIO, ALLA LETTERA, E COSA NON SI PUO' FARE CON LUI.
+        brief["messaggio_da_consegnare"] = prep.message_to_deliver
+        brief["come_dirlo"] = ("fedelmente, in terza persona, solo dopo aver "
+                               "confermato di parlare con la persona giusta")
+        brief["non_posso_decidere"] = [
+            "dire il messaggio a qualcun altro",
+            "cambiarne il significato o aggiungere promesse",
+            "prendere impegni o rispondere al posto di chi lo manda",
+        ]
+        brief.pop("cosa_voglio_ottenere", None)
+        brief.pop("posso_accettare", None)
     return {k: v for k, v in brief.items() if v not in ("", [], {}, None)}
 
 
@@ -146,6 +158,17 @@ def reads_like(prep: MissionPreparation) -> str:
     """
     contatto = prep.selected_contact
     chi = (contatto.name if contatto else prep.counterparty) or "questa persona"
+    if prep.operation == "deliver_message" and prep.message_to_deliver:
+        #     «CHIAMERO' GIULIA E LE DIRO' CHE…» — CON LE TUE PAROLE.
+        # Le parole restano quelle di chi le ha dette, fra virgolette: è la
+        # versione che fa fede, e rileggerle è l'ultima occasione per
+        # accorgersi che ORA ha capito storto.
+        dove = (" al numero che hai già confermato"
+                if prep.number_trust == "trusted" else "")
+        return (f"Chiamerò {chi}{dove}. Prima mi assicuro di parlare con "
+                f"{chi.split()[0]}, poi le dirò che mi hai chiesto di dirle: "
+                f"«{prep.message_to_deliver}». Se risponde qualcun altro, "
+                "non dico niente del messaggio.")
     adesso = _how_it_is_now(prep)
     voluto = _when_we_want_it(prep)
 

@@ -752,8 +752,37 @@ async def find_who_to_call(
         esito.left_out = sorted(via)
         trovati = [c for c in trovati if c.trusted or c.number not in via]
 
-    esito.candidates = _the_best_of(trovati)
+    esito.candidates = await _already_trusted(db, owner_id, _the_best_of(trovati))
     return esito
+
+
+async def _already_trusted(
+    db, owner_id: str, candidati: List[ContactCandidate],
+) -> List[ContactCandidate]:
+    """
+    La fiducia si controlla sulla coppia trovata, non sulle parole cercate.
+
+        «LA MIA RAGAZZA» NON HA PAROLE IN COMUNE CON «GIULIA TEST».
+
+    Misurato: la rubrica risolveva la relazione e trovava Giulia, ma la
+    ricerca dei numeri confermati partiva dalle parole della domanda e non la
+    trovava — così un numero già confermato veniva richiesto di nuovo. Qui,
+    per ogni candidato, si chiede al registro se *quella* identità con *quel*
+    numero è già affidabile.
+    """
+    from preparation.trust import still_trusted
+
+    fuori: List[ContactCandidate] = []
+    for c in candidati:
+        if not c.trusted and c.contact_identity and await still_trusted(
+                db, owner_id, c.contact_identity, c.number):
+            c = c.model_copy(update={
+                "trusted": True, "source": "confirmed",
+                "confidence": QUANTO_CI_SI_FIDA["confirmed"],
+                "why": "L'avevi già confermato tu.",
+            })
+        fuori.append(c)
+    return fuori
 
 
 def _the_best_of(trovati: List[ContactCandidate]) -> List[ContactCandidate]:

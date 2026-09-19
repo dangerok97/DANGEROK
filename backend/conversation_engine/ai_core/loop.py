@@ -316,6 +316,9 @@ async def run_cognitive_loop(
     )
 
     observations: List[Dict[str, Any]] = list(st.get("observations") or [])
+    # Where this turn's observations begin: what came before belongs to turns
+    # the person has already read.
+    turn_start = len(observations)
     # Set only when the turn ends on a question the reasoning called blocking.
     blocking_ask: Optional[Dict[str, Any]] = None
     # What guidance decided to ask, once it had resolved everything it could.
@@ -880,7 +883,7 @@ async def run_cognitive_loop(
                     "Ho aggiornato la situazione, ma non sono riuscita a riconciliare il piano "
                     "collegato. Il piano potrebbe essere ancora attivo: non lo considero annullato."
                 )
-            ora = _compose_user_text(decision)
+            ora = _compose_user_text(decision, observations[turn_start:])
             if decision.uncertainty:
                 trace["uncertainty_turns"] = int(trace.get("uncertainty_turns") or 0) + 1
                 trace["unresolved_uncertainty"] = bool(
@@ -956,7 +959,7 @@ async def run_cognitive_loop(
                 )
                 decision.question = None
                 mode = "answer"
-                ora = _compose_user_text(decision)
+                ora = _compose_user_text(decision, observations[turn_start:])
                 add_step(trace, event="MEMORY_CLAIM_BLOCKED_TERMINAL")
             unconfirmed_graph_claim = (
                 mode in ("answer", "finish", "act")
@@ -994,7 +997,7 @@ async def run_cognitive_loop(
                 )
                 decision.question = None
                 mode = "answer"
-                ora = _compose_user_text(decision)
+                ora = _compose_user_text(decision, observations[turn_start:])
                 add_step(trace, event="CONTEXT_GRAPH_CLAIM_BLOCKED_TERMINAL")
             unconfirmed_calendar_claim = (
                 mode in ("answer", "finish", "act")
@@ -1033,7 +1036,7 @@ async def run_cognitive_loop(
                 )
                 decision.question = None
                 mode = "answer"
-                ora = _compose_user_text(decision)
+                ora = _compose_user_text(decision, observations[turn_start:])
                 add_step(trace, event="CALENDAR_CLAIM_BLOCKED_TERMINAL")
             if (
                 decision.situation_update
@@ -2517,15 +2520,50 @@ def _guidance_state_from(state: Dict[str, Any]):
         return GoalState()
 
 
-def _compose_user_text(decision: CognitiveDecision) -> str:
+def _compose_user_text(decision: CognitiveDecision, observations=None) -> str:
+    detto = _the_tool_s_own_sentence(observations)
     if decision.response_mode == "ask":
         parts = []
         if decision.message_to_user and decision.message_to_user != decision.question:
             parts.append(decision.message_to_user.strip())
         if decision.question:
             parts.append(decision.question.strip())
-        return whole_sentences("\n\n".join(p for p in parts if p))
-    return whole_sentences((decision.message_to_user or "").strip()) or "Ok."
+        testo = whole_sentences("\n\n".join(p for p in parts if p))
+    else:
+        testo = whole_sentences((decision.message_to_user or "").strip())
+    if detto and detto not in (testo or ""):
+        #     LA FRASE DELLO STRUMENTO FA FEDE, QUANDO C'E'.
+        # Misurato in app: la preparazione restituiva «Ho trovato Giulia
+        # Test, +39…, dalla rubrica. È questo il numero corretto?» e il
+        # modello diceva solo «È questo il numero corretto?» — una conferma
+        # chiesta su un numero che non si vedeva. Nome, numero e provenienza
+        # non sono stile: sono la cosa da confermare.
+        return detto
+    return testo or "Ok."
+
+
+# Gli strumenti la cui frase per la persona è parte del risultato, non un
+# suggerimento: quello che chiedono di confermare non si riassume.
+_TOOLS_THAT_SPEAK = ("prepare_a_phone_call",)
+
+
+def _the_tool_s_own_sentence(observations) -> str:
+    """La frase pronta dell'ultima osservazione, se viene da uno strumento che parla."""
+    if not observations:
+        return ""
+    #     L'ULTIMA FRASE DELLO STRUMENTO IN QUESTO TURNO, ANCHE SE NON E'
+    #     L'ULTIMA COSA SUCCESSA.
+    # Misurato in app: il modello ha ritentato lo stesso strumento, la
+    # guardia dei duplicati ha messo in coda la sua nota, poi è passato a un
+    # altro strumento — e la frase da confermare è sparita: la persona ha
+    # letto «Ok.». Chi chiama passa solo le osservazioni di questo turno.
+    for o in reversed(observations):
+        if not isinstance(o, dict) or str(o.get("name") or "") not in _TOOLS_THAT_SPEAK:
+            continue
+        detto = str(((o.get("payload") or {}).get("say_this")) or "").strip()
+        if detto:
+            return detto
+    return ""
 
 
 def _navigation_options(observations) -> list:

@@ -1133,16 +1133,24 @@ class ToolRegistry:
             CapabilitySpec(
                 capability="prepare_a_phone_call",
                 description=(
-                    "Write down the phone call ORA would make on this "
-                    "person's behalf — who to call, why, and what ORA would "
-                    "be allowed to agree to while on the line. It does NOT "
-                    "make the call: nothing rings. What comes back is meant "
-                    "to be read out to the person so they can say yes or no, "
-                    "and the call only happens after that yes. "
-                    "Use it when they ask ORA to phone somebody — «chiami tu "
-                    "il dentista?», «puoi telefonare allo studio?» — or when "
-                    "a phone call is plainly the way to find something out "
-                    "that nobody has written down anywhere. "
+                    "ORA CAN PHONE PEOPLE ON THIS PERSON'S BEHALF. Use this "
+                    "whenever they ask ORA to call anyone — private people, "
+                    "family, friends, colleagues, businesses, professionals: "
+                    "«chiama la mia ragazza e dille che la amo», «chiama "
+                    "Lorenzo e digli che arrivo tardi», «chiama mia madre e "
+                    "dille che passo domani», «chiama Marco e chiedigli se "
+                    "viene a cena», «chiama il ristorante e prenota». "
+                    "You do not need the number: pass `counterparty` as they "
+                    "said it («la mia ragazza», «Lorenzo») and ORA finds it — "
+                    "address book, numbers they already confirmed, public "
+                    "listings for businesses — and asks when unsure. For a "
+                    "message to deliver, pass `message` with their words. "
+                    "It prepares the call step by step and NEVER dials: every "
+                    "result says what to tell the person next; call it again "
+                    "with the same `preparation_id` and their answer. Never "
+                    "tell them you cannot make phone calls. "
+                    "Also use it when a phone call is plainly the way to find "
+                    "something out that nobody has written down anywhere. "
                     "`may_agree_to` is the closed list of what ORA may accept "
                     "in their name: keep it small and concrete («un "
                     "appuntamento fra giovedì e sabato, la mattina»). "
@@ -1157,6 +1165,51 @@ class ToolRegistry:
                 input_schema={
                     "type": "object",
                     "properties": {
+                        "counterparty": {
+                            "type": "string",
+                            "description": (
+                                "Who to call, as they said it: «la mia "
+                                "ragazza», «Lorenzo», «il ristorante Da Mario». "
+                                "ORA finds the number."
+                            ),
+                        },
+                        "message": {
+                            "type": "string",
+                            "description": (
+                                "For a call whose point is to tell someone "
+                                "something: the message in their own words "
+                                "(«la amo», «arrivo venti minuti in ritardo»)."
+                            ),
+                        },
+                        "preparation_id": {
+                            "type": "string",
+                            "description": "To continue a preparation already started.",
+                        },
+                        "number_is_right": {
+                            "type": "boolean",
+                            "description": (
+                                "Their answer to «È questo il numero corretto?»."
+                            ),
+                        },
+                        "choose_number": {
+                            "type": "string",
+                            "description": "Which of several numbers they picked.",
+                        },
+                        "give_number": {
+                            "type": "string",
+                            "description": "A number they gave you.",
+                        },
+                        "answer": {
+                            "type": "string",
+                            "description": "Their answer to the question ORA asked.",
+                        },
+                        "go_ahead": {
+                            "type": "boolean",
+                            "description": (
+                                "They said yes to the summary: prepare the "
+                                "call. It still does not ring by itself."
+                            ),
+                        },
                         "to_number": {
                             "type": "string",
                             "description": "Italian phone number to call",
@@ -1272,7 +1325,7 @@ class ToolRegistry:
                             ),
                         },
                     },
-                    "required": ["to_number", "why_calling"],
+                    "required": [],
                 },
                 classification="personal",
                 # Non tocca il mondo: scrive una proposta e si ferma. Quello

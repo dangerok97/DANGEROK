@@ -114,6 +114,10 @@ class Introduction(BaseModel):
     # Le parole del motivo che contano, estratte quando il motivo è stato
     # scritto — così verificare non vuol dire indovinare.
     reason_keywords: List[str] = Field(default_factory=list, max_length=8)
+    #     PER UNA CONSEGNA, PRIMA SI CHIEDE CON CHI SI PARLA.
+    # Quando c'è, l'apertura non dice perché si chiama: chiede se dall'altra
+    # parte c'è la persona giusta. Il perché — il messaggio — viene dopo.
+    asks_for: str = Field(default="", max_length=80)
 
     def opening_line(self, adesso: Optional[str] = None) -> str:
         """
@@ -122,6 +126,11 @@ class Introduction(BaseModel):
         Va in `say_this_first`, e chi parla la dice per intera. Che poi l'abbia
         detta davvero lo stabilisce il registro qui sotto, non la speranza.
         """
+        if self.asks_for:
+            return (
+                f"{greeting_at(adesso)}, sono l'assistente di {self.assistant_for}. "
+                f"Parlo con {self.asks_for}?"
+            )
         return (
             f"{greeting_at(adesso)}, sono l'assistente di {self.assistant_for}. "
             f"Chiamo per {self.reason_summary}."
@@ -175,6 +184,16 @@ def introduction_for(packet: "CallMissionPacket") -> Introduction:
     conoscenze aggiuntive, quindi niente occasioni di far uscire qualcosa che
     non doveva uscire.
     """
+    if packet.mission_type == "deliver_message":
+        #     IL MOTIVO DETTO A CHIUNQUE RISPONDA E' «CERCO GIULIA».
+        nome = (packet.recipient_name or "").split()[0] if packet.recipient_name else ""
+        if nome:
+            return Introduction(
+                assistant_for=packet.on_behalf_of,
+                reason_summary=f"parlare con {nome}",
+                reason_keywords=[nome.lower()],
+                asks_for=nome,
+            )
     verbo = _WHAT_WE_WANT.get(packet.mission_type, "parlare di")
     #     «CHIAMO PER SAPERE SE IL PACCO E' ARRIVATO», NON «SU IL SUO SE».
     # Quando si chiede e basta, l'oggetto della missione e gia una frase: ci

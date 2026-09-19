@@ -57,12 +57,16 @@ Il tuo compito è UNO SOLO: dire che cosa manca, e come lo chiederesti.
 Regole:
 - Non chiedere mai quello che è già scritto in «quello che ORA sa già».
 - Non chiedere il numero di telefono: se ne occupa un'altra parte.
+- Se contatto_trovato non è vuoto, chi chiamare è già deciso: non è ambiguo.
 - Una domanda per informazione mancante, breve, in italiano, dando per
   acquisito quello che già si sa.
 - Se la richiesta è chiara e il contesto basta per parlare, non inventare
   informazioni mancanti per prudenza: rispondi con un elenco vuoto.
 - Se non si capisce a chi o a che cosa la persona si riferisce, dillo con
   ambiguous invece di inventare una domanda generica.
+- Se tipo_di_telefonata è deliver_message e il messaggio c'è, non manca
+  niente: non chiedere orari, date o dettagli. Chiedi solo se il messaggio,
+  preso alla lettera, potrebbe voler dire cose molto diverse.
 
 Rispondi SOLO con JSON:
 {
@@ -178,9 +182,12 @@ def _anything_that_blocks(prep: MissionPreparation) -> Optional[Tuple[str, str]]
                 f"Ho trovato {len(prep.contact_candidates)} possibilità per "
                 f"{prep.counterparty}: dimmi tu qual è quella giusta.")
     if not prep.number_confirmed:
-        return ("NEEDS_INFO",
-                f"Ho trovato questo numero per {prep.counterparty}. "
-                "È quello giusto?")
+        #     IL NOME TROVATO, NON LE PAROLE DELLA DOMANDA.
+        # «Ho trovato questo numero per la mia ragazza» suonava strano; il nome
+        # che la rubrica ha trovato è quello da confermare.
+        chi = (prep.selected_contact.name if prep.selected_contact is not None
+               else "") or prep.counterparty
+        return ("NEEDS_INFO", f"Ho trovato questo numero per {chi}. È quello giusto?")
     return None
 
 
@@ -200,6 +207,9 @@ def _what_the_rules_still_require(
         "start_datetime"
     ):
         return "A quando vuoi che provi a spostarlo?"
+    #     UN MESSAGGIO SENZA MESSAGGIO NON E' UNA TELEFONATA.
+    if (operation or "") == "deliver_message" and not prep.message_to_deliver.strip():
+        return f"Che cosa vuoi che dica a {prep.counterparty or 'questa persona'}?"
     return ""
 
 
@@ -248,12 +258,23 @@ async def _what_the_model_sees(prep: MissionPreparation) -> Optional[Dict[str, A
     payload = {
         "cosa_ha_chiesto": prep.user_request,
         "chi_si_chiama": prep.counterparty,
+        #     CHI E' GIA' STATO TROVATO. SENZA, IL MODELLO LO CERCAVA ANCORA.
+        # Misurato: con la rubrica che aveva già risolto «la mia ragazza» in
+        # Giulia, il valutatore ha scritto «non è specificato il nome della
+        # fidanzata». Il nome sì; il numero no, che non gli serve.
+        "contatto_trovato": (prep.selected_contact.name
+                             if prep.selected_contact is not None else ""),
         "quello_che_ORA_sa_gia": prep.known_context,
         "risposte_gia_date": [
             {"domanda": m.question, "risposta": m.answer}
             for m in prep.missing_information if m.answered
         ],
         "dove_si_vuole_arrivare": prep.desired_state or {},
+        #     PER UN MESSAGGIO, IL MESSAGGIO E' TUTTO.
+        # Senza questa riga il modello chiedeva «a che ora?» a chi voleva solo
+        # far sapere a qualcuno che gli vuole bene.
+        "tipo_di_telefonata": prep.operation or "",
+        "messaggio_da_consegnare": prep.message_to_deliver or "",
     }
     try:
         from llm.manager import get_manager

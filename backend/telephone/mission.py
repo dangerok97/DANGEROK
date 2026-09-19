@@ -41,6 +41,17 @@ MissionType = Literal[
     "cancel",       # disdire
     "ask",          # chiedere e basta, senza impegnarsi
     "confirm",      # verificare che una cosa sia com'è scritta
+    "deliver_message",  # portare una frase a una persona, e sentire cosa risponde
+]
+
+#     COME PUO' FINIRE UNA CONSEGNA, OLTRE A «LA TELEFONATA E' FINITA».
+# La linea che si chiude non dice se il messaggio è arrivato. Questi sì.
+Delivery = Literal[
+    "delivered",              # la persona giusta l'ha sentito
+    "recipient_unavailable",  # ha risposto qualcuno, lei non c'era
+    "wrong_person",           # non era lei, o non si è capito chi fosse
+    "no_answer",              # non ha risposto nessuno
+    "failed",                 # non si è potuto, per altro
 ]
 
 MissionStatus = Literal[
@@ -147,6 +158,12 @@ class CallMissionPacket(BaseModel):
     #     IL NUMERO NON STA QUI, ED È DELIBERATO.
     # Lo compone il trasporto. Chi parla non ne ha bisogno, e un dato che non
     # serve a chi lo riceve non gli si dà.
+
+    #     A CHI SI DEVE PARLARE, PER UNA CONSEGNA.
+    # Il nome sì, perché serve a chiedere «parlo con Giulia?». Il messaggio
+    # no: non sta nel pacchetto. Chi parla lo riceve solo dopo aver detto al
+    # backend che dall'altra parte c'è la persona giusta.
+    recipient_name: str = Field(default="", max_length=120)
 
     # --- quando siamo, dove sta la persona --------------------------------
     local_datetime: str = Field(min_length=1, max_length=40)
@@ -284,6 +301,13 @@ class CallMissionOutcome(BaseModel):
     proposed_slot: Dict[str, Any] = Field(default_factory=dict)
     followup_required: bool = False
     notes: str = Field(default="", max_length=400)
+    #     E PER UNA CONSEGNA, SE E' ARRIVATA E COSA HA RISPOSTO.
+    # `status` dice com'è andata la missione; `delivery` dice se il messaggio
+    # l'ha sentito la persona giusta. Sono due cose, e una telefonata finita
+    # bene non vuol dire un messaggio consegnato.
+    delivery: str = Field(default="", max_length=32)
+    # Quello che la persona ha voluto far sapere indietro, con le sue parole.
+    recipient_reply: str = Field(default="", max_length=400)
 
     def is_actionable(self) -> bool:
         """
@@ -582,7 +606,11 @@ def packet_for(
     dato che sarebbe ancora piu' inutile pronunciare.
     """
     perche = (call.mandate.why_calling or "").strip()
-    tipo = _what_kind_of_mission(perche)
+    #     UN MESSAGGIO NEL MANDATO DECIDE IL TIPO, NON UNA SILLABA NEL TESTO.
+    tipo = (
+        "deliver_message" if (call.mandate.message or "").strip()
+        else _what_kind_of_mission(perche)
+    )
 
     if binding is not None and not current_when:
         current_when = (binding.expected or {}).get("start_datetime", "")
@@ -632,6 +660,9 @@ def packet_for(
         style="Breve, cortese, concreta. Una cosa per volta.",
     )
 
+    if tipo == "deliver_message":
+        _shape_a_delivery(packet, call)
+
     from telephone.introduction import introduction_for
 
     packet.introduction = introduction_for(packet)
@@ -641,6 +672,47 @@ def packet_for(
     packet.say_this_first = packet.introduction.opening_line(
         packet.local_datetime)[:200]
     return packet
+
+
+def _shape_a_delivery(packet: "CallMissionPacket", call) -> None:
+    """
+    Una consegna: a chi, e che cosa non si può fare. Il cosa resta fuori.
+
+        IL MESSAGGIO NON SI DA' A CHI PARLA FINCHE' NON SA CON CHI PARLA.
+
+    Non è una regola nel prompt che il modello potrebbe dimenticare: è che il
+    testo non c'è. Lo riceve dallo strumento `recipient_confirmed`, dopo aver
+    detto che dall'altra parte c'è la persona giusta — e chi non ha una cosa
+    non la può dire alla persona sbagliata.
+    """
+    chi = (call.mandate.recipient or call.calling_whom or "").strip()[:120]
+    nome = chi.split()[0] if chi else "la persona"
+    packet.recipient_name = chi
+    packet.goal = f"Consegnare a {nome} un messaggio da parte di {packet.on_behalf_of}"[:200]
+    packet.subject = f"un messaggio per {nome}"[:160]
+    packet.allowed_negotiation = []
+    packet.forbidden_actions = [
+        f"dire il messaggio a chiunque non sia {nome}",
+        "cambiare il significato del messaggio, aggiungere promesse o dettagli",
+        f"prendere impegni o rispondere a domande al posto di {packet.on_behalf_of}",
+        "inventare informazioni che non hai",
+    ][:8]
+    packet.success_criteria = [
+        f"{nome} ha sentito il messaggio",
+        "riportare con le sue parole quello che ha risposto",
+    ]
+    packet.style = ("Caldo e breve. Prima ci si assicura di parlare con "
+                    f"{nome}, poi si consegna il messaggio, poi si ascolta.")
+
+
+from telephone.requests import is_a_message, the_message_in  # noqa: E402,F401
+
+
+def kind_of_request(testo: str) -> str:
+    """Il tipo di telefonata che una richiesta scritta chiede."""
+    if is_a_message(testo):
+        return "deliver_message"
+    return _what_kind_of_mission(testo)
 
 
 # Che cosa si va a fare, letto dal mandato che la persona ha scritto. Nel

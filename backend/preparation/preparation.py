@@ -119,6 +119,16 @@ class MissionPreparation(BaseModel):
     goal: str = Field(default="", max_length=300)
     # Chi, come l'ha detto la persona: «Lorenzo», «il meccanico». Non risolto.
     counterparty: str = Field(default="", max_length=160)
+    #     CHE TIPO DI TELEFONATA, DECISO UNA VOLTA.
+    # Si stabilisce all'inizio, dalla richiesta, e da lì non cambia: chi
+    # risponde alle domande non deve ridirlo a ogni passo, e un'interfaccia che
+    # lo passasse sbagliato non deve poter trasformare un messaggio in uno
+    # spostamento.
+    operation: str = Field(default="", max_length=32)
+    #     IL MESSAGGIO, CON LE PAROLE DI CHI LO MANDA.
+    # È la versione che fa fede. Chi telefonerà potrà dirlo con calore e in
+    # terza persona; questa riga resta com'è stata detta.
+    message_to_deliver: str = Field(default="", max_length=400)
 
     # --- chi chiamare -----------------------------------------------------
     contact_candidates: List[ContactCandidate] = Field(default_factory=list)
@@ -170,6 +180,12 @@ class MissionPreparation(BaseModel):
     readiness_says: str = Field(default="", max_length=300)
     mission_brief: Dict[str, Any] = Field(default_factory=dict)
     conversation_ready: bool = False
+    #     IL RIASSUNTO E' STATO LETTO — IN QUALE TURNO.
+    # Il via libera vale solo per un riassunto che la persona ha già visto,
+    # in un turno precedente. Misurato sul vero: lo stesso «sì» che confermava
+    # il numero è stato preso anche come via libera, e il messaggio non è mai
+    # stato riletto.
+    summary_shown_in: str = Field(default="", max_length=120)
 
     # Quello che è nato da qui, quando è nato.
     call_id: str = Field(default="", max_length=64)
