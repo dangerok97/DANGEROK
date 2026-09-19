@@ -399,7 +399,10 @@ def _the_sentence(carta: Dict[str, Any], preparata: bool,
             return f"Sto già chiamando{a_chi}: ti dico com'è andata appena finisce."
         return f"Sto chiamando{a_chi}… Ti dico com'è andata appena finisce."
     if carta["ready"]:
-        return f"{carta['summary']} Vuoi che la chiami?"
+        #     «VUOI CHE CHIAMI FRANCESCO?», NON «VUOI CHE LA CHIAMI?».
+        # Il genere di chi si chiama non lo sappiamo: il nome sì.
+        nome = ((carta.get("contact") or {}).get("name") or "").split()
+        return f"{carta['summary']} Vuoi che chiami {nome[0] if nome else 'adesso'}?"
     if carta["candidates"]:
         elenco = "; ".join(chi(c) for c in carta["candidates"])
         return f"Ho trovato più numeri: {elenco}. Quale è quello giusto?"

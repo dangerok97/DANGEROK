@@ -102,6 +102,31 @@ async def _one_pass(db, quale: str) -> int:
     che si spera di leggere.
     """
     try:
+        #     PRIMA LE TELEFONATE DIMENTICATE, POI IL RESTO.
+        # Una telefonata mai composta o senza più notizie tiene fermo il suo
+        # piano: chiuderla qui è quello che permette al piano di finire.
+        from telephone.service import settle_the_forgotten, write_how_they_read
+
+        if quale == "avvio":
+            #     LA PAGINA LA ORDINA IL DATABASE: GLI SERVE UN INDICE.
+            try:
+                await db["phone_calls"].create_index(
+                    [("owner_id", 1), ("authorised_at", -1), ("id", -1)])
+                await db["phone_calls"].create_index(
+                    [("owner_id", 1), ("status_reads", 1), ("authorised_at", -1)])
+            except Exception as e:  # pragma: no cover
+                logger.info("indici delle telefonate non creati: %s", type(e).__name__)
+            await write_how_they_read(db)
+        dimenticate = await settle_the_forgotten(db)
+        if dimenticate:
+            logger.info("scansione %s: %d telefonate chiuse (mai partite o senza notizie)",
+                        quale, dimenticate)
+    except asyncio.CancelledError:
+        raise
+    except Exception as e:
+        logger.info("telefonate dimenticate non controllate: %s", type(e).__name__)
+
+    try:
         from telephone.application import recover_stale
 
         chiusi = await recover_stale(db)

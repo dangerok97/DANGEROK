@@ -1450,6 +1450,14 @@ async def run_cognitive_loop(
                 composed = str(guidance_ask.get("question") or "").strip()
                 if composed:
                     ora = composed
+            #     E LA FRASE DELLO STRUMENTO VINCE ANCHE SULLA GUIDA.
+            # Misurato in app (V3.21.2): il turno era una domanda, la guida
+            # l'ha riscritta in «È questo il numero corretto?» — senza nome,
+            # senza numero, senza provenienza. Quello che si deve confermare
+            # non si riassume, nemmeno da qui.
+            detto_dallo_strumento = _the_tool_s_own_sentence(observations[turn_start:])
+            if detto_dallo_strumento and detto_dallo_strumento not in (ora or ""):
+                ora = detto_dallo_strumento
 
             state_mod.append_turn(st, role="ora", text=ora, kind=mode)
             if mode == "ask" and decision.uncertainty:

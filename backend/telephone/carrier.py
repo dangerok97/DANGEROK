@@ -240,6 +240,51 @@ def ncco_when_something_broke() -> List[Dict[str, Any]]:
 # Aprire e chiudere la linea
 # ---------------------------------------------------------------------------
 
+def _machine_detection() -> Dict[str, str]:
+    """
+    Chiede all'operatore di dire se ha risposto una persona o una macchina.
+
+        E' IL SEGNALE UFFICIALE, NON L'UNICO.
+
+    `continue` vuol dire: non riagganciare da solo, manda l'evento e lascia
+    decidere a noi. Da solo non basta a dire «segreteria» — lo decide
+    `VoicemailWatch`, con un secondo segnale. `ORA_MACHINE_DETECTION=off` lo
+    spegne.
+    """
+    import os
+
+    modo = (os.environ.get("ORA_MACHINE_DETECTION") or "continue").strip().lower()
+    if modo in ("off", "0", "false", "no", ""):
+        return {}
+    return {"machine_detection": "continue"}
+
+
+#     UN TUNNEL CADUTO NON E' UN GUASTO DI GEMINI.
+#
+# Se l'indirizzo pubblico non risponde, l'operatore non potrà chiederci il
+# copione né raccontarci com'è andata: la telefonata squillerebbe e poi
+# resterebbe muta, e nel resoconto sembrerebbe un guasto della voce. Si prova
+# prima, in pochi secondi, e se non risponde non si compone — dicendo perché.
+PUBLIC_BASE_TIMEOUT_S = 5.0
+TUNNEL_DOWN = "l'indirizzo pubblico del server non risponde (tunnel)"
+
+
+async def public_base_answers() -> bool:
+    """Se `VONAGE_PUBLIC_BASE_URL` risponde adesso. Un indirizzo locale non si prova."""
+    base = public_base()
+    if not base.startswith("https://") or "localhost" in base or "127.0.0.1" in base:
+        return True
+    try:
+        import httpx
+
+        async with httpx.AsyncClient(timeout=PUBLIC_BASE_TIMEOUT_S, verify=_tls()) as c:
+            r = await c.get(f"{base}/api/health")
+        return r.status_code < 500
+    except Exception as e:
+        logger.info("indirizzo pubblico non raggiungibile: %s", type(e).__name__)
+        return False
+
+
 async def place(
     *, to_number: str, call_id: str, minutes: int,
 ) -> Optional[Dict[str, str]]:
@@ -255,6 +300,8 @@ async def place(
     token = _token()
     if not token or not can_call():
         return None
+    if not await public_base_answers():
+        return {"call_ref": "", "error": TUNNEL_DOWN}
 
     base = public_base()
     try:
@@ -279,6 +326,7 @@ async def place(
                     # va storto: una chiamata che non finisce è una chiamata
                     # che costa e che nessuno sta guardando.
                     "length_timer": max(60, minutes * 60),
+                    **_machine_detection(),
                 },
             )
         if answer.status_code not in (200, 201):
@@ -364,6 +412,7 @@ def read_event(body: Dict[str, Any]) -> Dict[str, Any]:
         "timeout": "ended",
         "unanswered": "ended",
         "machine": "machine",
+        "human": "human",
     }.get(said, "something_else")
 
     #     «RIFIUTATA DALLA RETE» NON È «NON HA RISPOSTO NESSUNO».
@@ -382,6 +431,14 @@ def read_event(body: Dict[str, Any]) -> Dict[str, Any]:
         "rejected": "failed",
         "failed": "failed",
     }.get(said, "unknown")
+    #     «COMPLETED» CON MOTIVO «RING_TIMEOUT» NON E' UNA CONVERSAZIONE FINITA.
+    # Misurato sul vero (V3.21.2, gate B): alla fine degli squilli Vonage manda
+    # `completed` e `timeout` nello stesso millisecondo, in ordine qualunque.
+    # Il primo, letto da solo, diceva «hanno riagganciato» a una telefonata a
+    # cui non aveva risposto nessuno.
+    motivo = str((body or {}).get("reason") or (body or {}).get("detail") or "").lower()
+    if said == "completed" and motivo in ("ring_timeout", "timeout", "unanswered"):
+        ended_how = "no_answer"
 
     return {
         "what": what,

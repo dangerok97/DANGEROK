@@ -161,7 +161,7 @@ def test_a_call_nobody_answered_is_still_in_the_history():
         started_at=None, ended_at=None,
     ))
     assert scheda["presentation_status"] == "nessuna_risposta"
-    assert scheda["outcome_summary"] == "Nessuna risposta."
+    assert scheda["outcome_summary"] == "Non ha risposto."
     assert scheda["duration_seconds"] is None
     assert scheda["transcript_available"] is False
 
@@ -172,7 +172,7 @@ def test_a_busy_line_says_the_line_was_busy():
 
     scheda = as_a_card(_una_chiamata(state="failed", how_it_ended="busy"))
     assert scheda["presentation_status"] == "occupato"
-    assert scheda["outcome_summary"] == "La linea era occupata."
+    assert scheda["outcome_summary"] == "Il numero era occupato."
 
 
 def test_the_line_result_is_read_before_the_mission_result():
@@ -231,7 +231,8 @@ def test_a_call_that_answered_but_left_no_outcome_is_not_called_a_success():
 
     scheda = as_a_card(_una_chiamata(metrics={"runtime": "gemini_live"}))
     assert scheda["presentation_status"] == "interrotta"
-    assert scheda["outcome_summary"] == "La chiamata si è chiusa prima di un esito."
+    assert scheda["outcome_summary"] == (
+        "La chiamata si è interrotta prima che riuscissi a concludere.")
 
 
 # ---------------------------------------------------------------------------
@@ -398,7 +399,16 @@ def test_a_call_still_going_says_so():
     """§3: «in corso» è uno stato, e si vede."""
     from telephone.history import as_a_card
 
+    from telephone.models import now_iso
+
     for stato in ("authorised", "dialling", "talking"):
-        scheda = as_a_card(_una_chiamata(state=stato, ended_at=None))
+        scheda = as_a_card(_una_chiamata(state=stato, ended_at=None,
+                                          authorised_at=now_iso()))
         assert scheda["presentation_status"] == "in_corso", stato
         assert scheda["outcome_summary"] == "Chiamata in corso."
+
+    #     V3.21.2 §13: UN SÌ DI GIORNI FA NON E' UNA TELEFONATA IN CORSO.
+    vecchia = as_a_card(_una_chiamata(state="authorised", ended_at=None,
+                                      started_at=None))
+    assert vecchia["presentation_status"] == "non_avviata"
+    assert vecchia["status_label"] == "Non avviata"

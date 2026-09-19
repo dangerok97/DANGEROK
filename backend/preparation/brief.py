@@ -166,7 +166,7 @@ def reads_like(prep: MissionPreparation) -> str:
         dove = (" al numero che hai già confermato"
                 if prep.number_trust == "trusted" else "")
         return (f"Chiamerò {chi}{dove}. Prima mi assicuro di parlare con "
-                f"{chi.split()[0]}, poi le dirò che mi hai chiesto di dirle: "
+                f"{chi.split()[0]}, poi consegno il tuo messaggio: "
                 f"«{prep.message_to_deliver}». Se risponde qualcun altro, "
                 "non dico niente del messaggio.")
     adesso = _how_it_is_now(prep)

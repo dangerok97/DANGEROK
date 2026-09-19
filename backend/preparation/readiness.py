@@ -105,7 +105,17 @@ async def evaluate(
         prep.conversation_ready = False
         return prep
 
-    letto = await _what_the_model_sees(prep)
+    #     PER UN MESSAGGIO, IL MESSAGGIO E' TUTTO: NON SI CHIEDE AL MODELLO.
+    # Misurato in app (V3.21.2): con il messaggio già scritto, il valutatore
+    # ha inventato «Francesco, ricordi perché ti ho chiamato l'ultima volta?»
+    # e la preparazione non è mai arrivata al riassunto. Per una consegna non
+    # c'è niente da negoziare: se il messaggio c'è, non manca niente; se non
+    # c'è, lo chiede la regola scritta a mano qui sotto.
+    if ((operation or prep.operation) == "deliver_message"
+            and (prep.message_to_deliver or "").strip()):
+        letto = {"missing": []}
+    else:
+        letto = await _what_the_model_sees(prep)
     if letto is None:
         letto = _what_we_can_tell_without_it(prep, operation)
 

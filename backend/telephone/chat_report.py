@@ -19,9 +19,10 @@ logger = logging.getLogger("ora.telephone.chat_report")
 # Quando la linea non si è mai aperta non c'è una missione da raccontare:
 # si dice che non ci si è riuscite a parlare.
 _LINEA = {
-    "nessuna_risposta": "Non sono riuscita a parlarle: non ha risposto nessuno.",
-    "occupato": "Non sono riuscita a parlarle: la linea era occupata.",
-    "segreteria": "Non sono riuscita a parlarle: ha risposto la segreteria.",
+    "nessuna_risposta": "Non sono riuscita a parlare con {chi}: non ha risposto.",
+    "occupato": "Non sono riuscita a parlare con {chi}: il numero era occupato.",
+    "segreteria": "Non sono riuscita a parlare con {chi}: ha risposto la segreteria.",
+    "non_avviata": "La telefonata a {chi} non è mai partita.",
     "interrotta": "La telefonata non è andata a buon fine.",
 }
 
@@ -34,7 +35,9 @@ def what_to_tell_the_chat(call) -> Optional[str]:
     if stato == "in_corso":
         return None
     if stato in _LINEA:
-        return _LINEA[stato]
+        chi = ((getattr(call.mandate, "recipient", "") or call.calling_whom
+                or "").split() or ["questa persona"])[0]
+        return _LINEA[stato].format(chi=chi)
     if not (call.mandate and call.mandate.message):
         return in_one_line(call)
 

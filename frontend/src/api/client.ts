@@ -3565,7 +3565,8 @@ export type CallCard = {
     | 'occupato'
     | 'segreteria'
     | 'non_riuscita'
-    | 'interrotta';
+    | 'interrotta'
+    | 'non_avviata';
   status_label: string;
   outcome_summary: string;
   needs_decision: boolean;

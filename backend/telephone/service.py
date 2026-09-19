@@ -128,6 +128,7 @@ class TelephoneService:
         offset: int = 0,
         status: str = "",
         days: int = 0,
+        before: str = "",
     ) -> "tuple":
         """
         Le telefonate di questa persona, le piu' recenti per prime.
@@ -140,6 +141,17 @@ class TelephoneService:
         database non conosce.
 
         `days` restringe la finestra: zero vuol dire tutte.
+
+            UNA PAGINA SI CHIEDE AL DATABASE, NON SI RITAGLIA IN MEMORIA.
+
+        Prima si leggevano fino a trecento telefonate e si tagliava la pagina
+        qui. Adesso il database ordina (`authorised_at`, poi `id`, così due
+        telefonate nello stesso istante hanno comunque un ordine), filtra per
+        stato sul campo `status_reads` scritto a ogni salvataggio, e torna solo
+        la pagina — più una, per sapere se ce n'è un'altra. `before` è il
+        cursore: «authorised_at|id» dell'ultima riga vista.
+
+        Torna (pagina, quante in tutto, cursore della prossima pagina).
         """
         quante = max(1, min(int(limit), 100))
         query: Dict[str, Any] = {"owner_id": owner_id}
@@ -148,41 +160,52 @@ class TelephoneService:
 
             da = datetime.now(timezone.utc) - timedelta(days=int(days))
             query["authorised_at"] = {"$gte": da.isoformat()}
-
-        #     UN TETTO C'E' COMUNQUE.
-        # Contare per davvero vuol dire leggere per davvero, e una persona che
-        # ha fatto duemila telefonate non deve farle attraversare tutte a ogni
-        # apertura della pagina. Trecento e' piu' di quante ne guardera' mai
-        # qualcuno di seguito, ed e' un limite dichiarato invece che un carico
-        # che cresce da solo.
-        righe = (
-            self.db[CALLS]
-            .find(query, {"_id": 0})
-            .sort("authorised_at", -1)
-            .limit(300)
-        )
-        chiamate = [PhoneCall.model_validate(r) async for r in righe]
-
         if status:
-            from telephone.history import how_it_reads
+            query["status_reads"] = status
 
-            chiamate = [c for c in chiamate if how_it_reads(c) == status]
+        in_tutto = await self.db[CALLS].count_documents(query)
 
-        quante_in_tutto = len(chiamate)
-        inizio = max(0, int(offset))
-        return chiamate[inizio:inizio + quante], quante_in_tutto
+        pagina_query = dict(query)
+        quando, _, ident = (before or "").partition("|")
+        if quando:
+            pagina_query["$or"] = [
+                {"authorised_at": {"$lt": quando}},
+                {"authorised_at": quando, "id": {"$lt": ident}},
+            ]
+        cursore = (
+            self.db[CALLS]
+            .find(pagina_query, {"_id": 0})
+            .sort([("authorised_at", -1), ("id", -1)])
+        )
+        if not quando and offset:
+            cursore = cursore.skip(max(0, int(offset)))
+        righe = await cursore.limit(quante + 1).to_list(quante + 1)
+        chiamate = [PhoneCall.model_validate(r) for r in righe]
+
+        altre = len(chiamate) > quante
+        chiamate = chiamate[:quante]
+        prossima = (
+            f"{chiamate[-1].authorised_at}|{chiamate[-1].id}"
+            if altre and chiamate else ""
+        )
+        return chiamate, in_tutto, prossima
 
     async def by_provider_ref(self, ref: str) -> Optional[PhoneCall]:
         row = await self.db[CALLS].find_one({"provider_ref": ref}, {"_id": 0})
         return PhoneCall.model_validate(row) if row else None
 
     async def _save(self, call: PhoneCall) -> None:
+        from telephone.history import how_it_reads
+
+        campi = call.model_dump(exclude={"told_the_chat", "chat_told_at"})
+        #     COME SI LEGGE, SCRITTO ACCANTO: E' QUELLO SU CUI SI FILTRA.
+        campi["status_reads"] = how_it_reads(call)
         await self.db[CALLS].update_one(
             {"owner_id": call.owner_id, "id": call.id},
             #     L'ESITO RIPORTATO IN CHAT LO SCRIVE SOLO CHI LO RIPORTA.
             # Una copia vecchia della telefonata, salvata dopo, non deve
             # poter dire «non l'hai ancora raccontato».
-            {"$set": call.model_dump(exclude={"told_the_chat", "chat_told_at"})},
+            {"$set": campi},
             upsert=True,
         )
 
@@ -330,6 +353,117 @@ class TelephoneService:
             "agreed_to": list(outcome.agreed_to),
             "outside_the_mandate": overstepped,
         }
+
+
+#     UN SÌ HA UNA DATA DI SCADENZA.
+#
+# Due telefonate del 18/09 sono rimaste «autorizzate» per sempre: preparate da
+# un percorso della chat che non aveva un tasto per comporle, e da allora
+# nessuno le aveva più guardate. Un sì dato ieri su un mandato di ieri non è un
+# sì per oggi: dopo due ore una telefonata mai partita si dichiara «non
+# avviata», e comporla richiede un sì nuovo.
+GHOST_AFTER_S = 2 * 3600
+
+#     E UNA TELEFONATA «IN CORSO» DA ORE NON E' IN CORSO.
+# Se l'operatore smette di mandare notizie — un tunnel caduto, un processo
+# riavviato a metà — la telefonata resterebbe «in corso» e il suo piano
+# «executing» per sempre. Oltre la durata massima del mandato più un margine,
+# non è più in corso: è finita e non sappiamo come.
+STALE_MARGIN_S = 15 * 60
+
+
+def _age_s(quando: str) -> float:
+    from datetime import datetime, timezone
+
+    try:
+        t = datetime.fromisoformat(str(quando).replace("Z", "+00:00"))
+    except Exception:
+        return 0.0
+    if t.tzinfo is None:
+        t = t.replace(tzinfo=timezone.utc)
+    return (datetime.now(timezone.utc) - t).total_seconds()
+
+
+def is_a_ghost(call) -> bool:
+    """Preparata, mai composta, e troppo vecchia per essere composta adesso."""
+    return (call.state in ("authorised", "expired")
+            and _age_s(call.authorised_at) > GHOST_AFTER_S) or call.state == "expired"
+
+
+def is_stale(call) -> bool:
+    """«In corso» da più di quanto una telefonata possa durare."""
+    if call.state not in ("dialling", "talking"):
+        return False
+    massimo = max(60, int(getattr(call.mandate, "minutes", 5) or 5) * 60)
+    return _age_s(call.started_at or call.authorised_at) > massimo + STALE_MARGIN_S
+
+
+async def write_how_they_read(db, limit: int = 500) -> int:
+    """
+    Scrive `status_reads` sulle telefonate che non ce l'hanno ancora.
+
+    Le righe nate prima della paginazione vera non hanno il campo su cui si
+    filtra: senza, un filtro «nessuna risposta» non le troverebbe. Una volta
+    all'avvio, a lotti; torna quante ne ha sistemate.
+    """
+    from telephone.history import how_it_reads
+
+    righe = await db[CALLS].find(
+        {"status_reads": {"$exists": False}}, {"_id": 0},
+    ).to_list(max(1, limit))
+    fatte = 0
+    for riga in righe:
+        try:
+            call = PhoneCall.model_validate(riga)
+        except Exception:  # pragma: no cover
+            continue
+        await db[CALLS].update_one(
+            {"id": call.id}, {"$set": {"status_reads": how_it_reads(call)}})
+        fatte += 1
+    return fatte
+
+
+async def settle_the_forgotten(db, limit: int = 50) -> int:
+    """
+    Chiude le telefonate rimaste a metà: mai composte, o senza più notizie.
+
+    Non inventa esiti: le mai composte diventano `expired` («non avviata»), le
+    senza notizie `failed` con `how_it_ended="unknown"` («si è interrotta»).
+    Torna quante ne ha chiuse.
+    """
+    chiuse = 0
+    #     E QUELLE CHE LA RETE HA RACCONTATO STORTE.
+    # Mai risposte (niente `started_at`), nessun esito, eppure «hanno
+    # riagganciato»: è la race di `completed` + `ring_timeout` vista sul vero.
+    # La stessa regola della rotta degli eventi, applicata a chi c'era prima.
+    for riga in await db[CALLS].find(
+        {"state": "ended", "how_it_ended": {"$in": ["they_hung_up", "we_hung_up"]},
+         "started_at": None, "metrics.outcome": None}, {"_id": 0},
+    ).to_list(max(1, min(limit, 200))):
+        try:
+            call = PhoneCall.model_validate(riga)
+        except Exception:  # pragma: no cover
+            continue
+        await TelephoneService(db).mark(call, "failed", how_it_ended="no_answer")
+        chiuse += 1
+
+    righe = await db[CALLS].find(
+        {"state": {"$in": ["authorised", "dialling", "talking"]}}, {"_id": 0},
+    ).to_list(max(1, min(limit, 200)))
+    service = TelephoneService(db)
+    for riga in righe:
+        try:
+            call = PhoneCall.model_validate(riga)
+        except Exception:  # pragma: no cover
+            continue
+        if call.state == "authorised" and is_a_ghost(call):
+            await service.mark(call, "expired")
+            chiuse += 1
+        elif is_stale(call):
+            await service.mark(call, "failed", how_it_ended="unknown",
+                               why_the_network_refused="nessuna notizia dall'operatore")
+            chiuse += 1
+    return chiuse
 
 
 def _national(number: str) -> str:

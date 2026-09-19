@@ -30,9 +30,15 @@ async def dial(
     solleva: chi chiama decide come dirlo — la route con un codice HTTP, la
     chat con una frase.
     """
+    from telephone.service import is_a_ghost
+
     service = TelephoneService(db)
     if call.state != "authorised":
         return call, f"questa chiamata è già {call.state}"
+    if is_a_ghost(call):
+        #     UN SÌ DI IERI NON FA PARTIRE UNA TELEFONATA OGGI.
+        await service.mark(call, "expired")
+        return None, "questa telefonata era stata preparata troppo tempo fa: preparala di nuovo"
 
     permission = await service.may_i_call(owner_id)
     if permission["denied"]:
@@ -46,8 +52,12 @@ async def dial(
         minutes=call.mandate.minutes,
     )
     if opened is None or not opened.get("call_ref"):
-        await service.mark(call, "failed", how_it_ended="failed")
         why = (opened or {}).get("error") or "l'operatore non ha risposto"
+        #     IL PERCHE' RESTA SCRITTO SULLA TELEFONATA, COME CATEGORIA.
+        # «tunnel» e «operatore» sono guasti diversi da «la voce»: chi legge il
+        # resoconto deve poter capire dove guardare.
+        await service.mark(call, "failed", how_it_ended="failed",
+                           why_the_network_refused=why[:120])
         return None, f"la chiamata non è partita — {why}"
 
     call = await service.mark(

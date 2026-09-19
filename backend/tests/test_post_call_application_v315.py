@@ -99,9 +99,16 @@ class Righe:
         return gen()
 
     def sort(self, chiave, verso=1):
-        self._righe = sorted(
-            self._righe, key=lambda r: r.get(chiave), reverse=verso < 0,
-        )
+        chiavi = chiave if isinstance(chiave, list) else [(chiave, verso)]
+        for nome, direzione in reversed(chiavi):
+            self._righe = sorted(
+                self._righe, key=lambda r, n=nome: (r.get(n) is None, r.get(n) or ""),
+                reverse=direzione < 0,
+            )
+        return self
+
+    def skip(self, quante):
+        self._righe = self._righe[max(0, int(quante)):]
         return self
 
     def limit(self, quanti):
@@ -133,6 +140,9 @@ class Tabella:
             raise GiaPreso(ident)
         self.righe.append(dict(documento))
         self.scritture += 1
+
+    async def count_documents(self, query):
+        return sum(1 for r in self.righe if _combacia(r, query))
 
     async def find_one_and_update(self, query, cambio):
         """
@@ -902,7 +912,7 @@ def test_l_a_call_nobody_answered_says_nothing_about_calendars():
                      started_at=None, ended_at=None)
     scheda = as_a_card(muta, _applicazione("skipped"))
     assert scheda["presentation_status"] == "nessuna_risposta"
-    assert scheda["outcome_summary"] == "Nessuna risposta."
+    assert scheda["outcome_summary"] == "Non ha risposto."
 
 
 # ---------------------------------------------------------------------------

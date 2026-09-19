@@ -170,6 +170,7 @@ async def call_history(
     offset: int = 0,
     status: str = "",
     days: int = 0,
+    before: str = "",
     user: dict = Depends(get_current_user),
 ) -> Dict[str, Any]:
     """
@@ -185,8 +186,9 @@ async def call_history(
     from telephone.history import as_a_card
 
     service = TelephoneService(db)
-    chiamate, in_tutto = await service.recent(
+    chiamate, in_tutto, prossima = await service.recent(
         user["user_id"], limit=limit, offset=offset, status=status, days=days,
+        before=before,
     )
     #     LA RIGA DEVE POTER DIRE SE IL CALENDARIO E' CAMBIATO DAVVERO.
     # Senza questo, «Appuntamento spostato alle 18:00» sarebbe la stessa frase
@@ -201,6 +203,8 @@ async def call_history(
         "total": in_tutto,
         "offset": max(0, int(offset)),
         "limit": max(1, min(int(limit), 100)),
+        # Il cursore della pagina dopo. Vuoto: non ce ne sono altre.
+        "next_before": prossima,
     }
 
 

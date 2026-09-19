@@ -51,6 +51,8 @@ Delivery = Literal[
     "recipient_unavailable",  # ha risposto qualcuno, lei non c'era
     "wrong_person",           # non era lei, o non si è capito chi fosse
     "no_answer",              # non ha risposto nessuno
+    "voicemail",              # ha risposto una segreteria (due segnali concordi)
+    "not_reached",            # non l'abbiamo raggiunta, e non sappiamo dire di più
     "failed",                 # non si è potuto, per altro
 ]
 
@@ -308,6 +310,12 @@ class CallMissionOutcome(BaseModel):
     delivery: str = Field(default="", max_length=32)
     # Quello che la persona ha voluto far sapere indietro, con le sue parole.
     recipient_reply: str = Field(default="", max_length=400)
+    #     E SE NON E' FINITA PER SCELTA DI QUALCUNO, PERCHE'.
+    # Vuoto quando la missione si e' chiusa da sé. Altrimenti una di queste:
+    # `voicemail` (ha risposto una segreteria), `line_dropped` (la linea
+    # telefonica si e' chiusa prima di un esito), `live_runtime_failure` (la
+    # voce e' caduta e non si e' ripresa). Mai un successo.
+    ended_because: str = Field(default="", max_length=32)
 
     def is_actionable(self) -> bool:
         """
@@ -318,6 +326,35 @@ class CallMissionOutcome(BaseModel):
         permessi.
         """
         return self.status == "success" and bool(self.confirmed_changes)
+
+
+#     «NO» A DUE DOMANDE NON E' UNA RISPOSTA.
+#
+# Debito V3.21.1, misurato sul vero: «Non potete alle 18? Avete posto alle
+# 19?» — «No.» — e la missione si è chiusa come fallita, senza sapere a quale
+# delle due valesse quel no. Una risposta corta a una domanda doppia non chiude
+# niente: si chiede di nuovo, una cosa alla volta.
+_RISPOSTE_SECCHE = {
+    "no", "si", "sì", "ok", "okay", "certo", "esatto", "esattamente",
+    "purtroppo", "nessuna", "niente", "nulla", "va", "mah", "boh", "forse",
+}
+
+
+def an_ambiguous_reply(our_words: str, their_words: str) -> bool:
+    """
+    Se `their_words` è troppo corta per dire a quale di due domande risponde.
+
+    Deterministico: conta i punti di domanda di quello che abbiamo detto noi, e
+    guarda se la risposta è un sì/no di al massimo tre parole.
+    """
+    if (our_words or "").count("?") < 2:
+        return False
+    import re as _re
+
+    parole = _re.sub(r"[^\wàèéìòù ]+", " ", (their_words or "").lower()).split()
+    if not parole or len(parole) > 3:
+        return False
+    return parole[0] in _RISPOSTE_SECCHE
 
 
 class MissionLedger:

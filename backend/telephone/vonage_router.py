@@ -50,6 +50,9 @@ EXPECTING = ("dialling", "talking")
 # archivio, è un tavolo apparecchiato.
 _DOSSIERS: Dict[str, Any] = {}
 _READY: Dict[str, Any] = {}
+# Le voci in linea adesso, per telefonata: serve a far arrivare alla voce
+# quello che l'operatore dice mentre si parla («ha risposto una macchina»).
+_LIVE: Dict[str, Any] = {}
 
 
 async def _the_call_we_are_waiting_for(
@@ -154,7 +157,27 @@ async def event(request: Request, call_id: str = "") -> Dict[str, Any]:
 
     elif said["what"] == "answered":
         await service.mark(call, "talking", started_at=_now())
+    elif said["what"] in ("machine", "human"):
+        #     L'OPERATORE HA RICONOSCIUTO CHI HA RISPOSTO. E' UN SEGNALE.
+        await service.mark(call, call.state, answered_by=said["what"])
+        voce = _LIVE.get(call.id)
+        if voce is not None and hasattr(voce, "the_carrier_says"):
+            try:
+                await voce.the_carrier_says(said["what"])
+            except Exception as e:  # pragma: no cover
+                logger.info("segnale dell'operatore non consegnato: %s", type(e).__name__)
     elif said["what"] == "ended":
+        if call.state in ("ended", "failed", "expired"):
+            #     LA FINE SI SCRIVE UNA VOLTA SOLA.
+            # Un secondo evento di fine (lo stesso squillo raccontato due
+            # volte) non riscrive come è finita.
+            return {"ok": True}
+        #     NESSUNO HA MAI RISPOSTO: NON PUO' AVER RIAGGANCIATO NESSUNO.
+        # Misurato sul vero: Vonage manda `completed` insieme a `timeout`, con
+        # il motivo in un campo o nell'altro. Senza `answered` non c'è stata
+        # una conversazione, qualunque parola usi l'operatore.
+        if said["ended_how"] in ("they_hung_up", "we_hung_up") and not call.started_at:
+            said["ended_how"] = "no_answer"
         went_well = said["ended_how"] in ("they_hung_up", "we_hung_up")
         # Il motivo si registra solo quando c'è stato un rifiuto. Su una
         # telefonata riuscita l'operatore manda `reason: "ok"`, e scriverlo
@@ -170,9 +193,9 @@ async def event(request: Request, call_id: str = "") -> Dict[str, Any]:
         if not went_well:
             #     NESSUNO HA RISPOSTO: NON C'E' UNA CONVERSAZIONE CHE LO DICA.
             # Quando si è parlato, l'esito lo scrive chi chiude il filo audio.
-            from telephone.chat_report import tell_the_chat
-
-            await tell_the_chat(db, call)
+            # Qui non si è parlato: il piano deve saperlo lo stesso, o resta
+            # «in corso» per sempre — misurato su un ring_timeout vero.
+            await _apply_what_was_agreed(call, None)
 
     return {"ok": True}
 
@@ -253,6 +276,7 @@ async def socket(websocket: WebSocket) -> None:
         binding=legame,
     )
 
+    _LIVE[call.id] = session
     opened = await session.open()
     if not opened:
         logger.info("runtime non aperto: si chiude la linea")
@@ -260,7 +284,23 @@ async def socket(websocket: WebSocket) -> None:
             await websocket.close(code=1011)
         except Exception:
             pass
+        #     LA VOCE NON E' PARTITA: E' UN GUASTO DEL RUNTIME, E VA DETTO.
+        # Prima la linea restava aperta in silenzio e il piano «in corso»:
+        # adesso si riaggancia, si scrive perché, e il piano lo viene a sapere.
+        if hasattr(session, "_transport_failure") and not session._transport_failure:
+            session._transport_failure = "la voce non si è aperta"
         await session.close()
+        _LIVE.pop(call.id, None)
+        try:
+            if call.provider_ref:
+                await carrier.hang_up(call.provider_ref)
+        except Exception:
+            pass
+        fresh = await service.get(call.owner_id, call.id)
+        if fresh is not None:
+            fresh.metrics = session.how_it_went()
+            await service.mark(fresh, fresh.state)
+            await _apply_what_was_agreed(fresh, session)
         return
 
     try:
@@ -304,6 +344,7 @@ async def socket(websocket: WebSocket) -> None:
             await _apply_what_was_agreed(fresh, session)
         _DOSSIERS.pop(call.id, None)
         _READY.pop(call.id, None)
+        _LIVE.pop(call.id, None)
         try:
             await websocket.close()
         except Exception:

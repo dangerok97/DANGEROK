@@ -399,7 +399,11 @@ async def _one_step(db, plan: AutonomousActionPlan) -> AutonomousActionPlan:
     if aspetta is not None:
         return await _wait_for_the_user(db, plan, aspetta)
 
-    if call.state != "ended":
+    #     FINITA VUOL DIRE FINITA, COMUNQUE SIA FINITA.
+    # Una telefonata senza risposta finisce `failed`, una mai composta
+    # `expired`: prima si leggeva solo `ended`, e il piano di una chiamata non
+    # risposta tornava «authorised» per sempre.
+    if call.state not in ("ended", "failed", "expired"):
         return await _still_going(db, plan, call)
 
     return await _read_the_outcome(db, plan, call)
@@ -569,11 +573,9 @@ async def _did_the_world_change(db, plan, record) -> Tuple[bool, str]:
 
 def _why_nothing(call) -> str:
     """Perché non c'è niente da applicare, detto a una persona."""
-    return {
-        "no_answer": "Non ha risposto nessuno.",
-        "busy": "Era occupato.",
-        "failed": "La telefonata non è partita.",
-    }.get(str(call.how_it_ended or ""), "La telefonata non ha prodotto niente da fare.")
+    from telephone.history import in_one_line
+
+    return in_one_line(call)
 
 
 async def _stop(db, plan, code: str, says: str) -> AutonomousActionPlan:
