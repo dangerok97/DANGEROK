@@ -205,7 +205,7 @@ async def test_confirmed_number_makes_it_ready_with_a_human_summary(mondo):
     assert "Prima mi assicuro di parlare con Giulia" in s
     for tecnico in ("prep_", "deliver_message", "{", "READY"):
         assert tecnico not in s
-    assert p["say_this"].endswith("Vuoi che la chiami?")
+    assert p["say_this"].endswith("Vuoi che chiami Giulia?")
 
 
 @pytest.mark.asyncio
@@ -279,7 +279,7 @@ async def test_one_yes_confirms_the_number_not_the_call(mondo):
     assert p2["not_accepted"] is None  # non è un errore da ritentare
     assert p2["status"] == "ready"
     assert "«la amo»" in p2["say_this"]
-    assert p2["say_this"].endswith("Vuoi che la chiami?")
+    assert p2["say_this"].endswith("Vuoi che chiami Giulia?")
     assert mondo["phone_calls"].righe == []
 
 
@@ -692,7 +692,7 @@ def test_the_chat_reads_a_delivery_like_a_person():
     assert what_to_tell_the_chat(_finita(state="dialling")) is None
     nessuno = what_to_tell_the_chat(_finita(state="failed", how_it_ended="no_answer",
                                             metrics={}))
-    assert nessuno.startswith("Non sono riuscita a parlarle")
+    assert nessuno == "Non sono riuscita a parlare con Giulia: non ha risposto."
     #     «CHIAMATA FINITA» NON E' «CONSEGNATO».
     muta = what_to_tell_the_chat(_finita(metrics={}))
     assert "consegnato" not in muta.lower() or "non" in muta.lower()

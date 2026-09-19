@@ -675,7 +675,9 @@ async def test_a_drop_without_a_handle_fails_safely(monkeypatch):
     assert numeri["resumes_succeeded"] == 0
     #     E UNA TELEFONATA COSÌ NON SCRIVE NIENTE NEL MONDO.
     assert sess.outcome is not None
-    assert sess.outcome.status == "partial"
+    #     V3.21.2 §5/§6: NON ERA COMINCIATA, ED E' CADUTA LA VOCE.
+    assert sess.outcome.status == "failed"
+    assert sess.outcome.ended_because == "live_runtime_failure"
     assert not sess.outcome.is_actionable()
 
 
@@ -733,7 +735,7 @@ async def test_resuming_does_not_start_the_call_over(monkeypatch):
 
     assert sess.packet.mission_id == missione_prima
     assert list(sess.mission.statements) == ledger_prima
-    assert sess._opening in ("completed", "speaking", "deferred", "pending")
+    assert sess._opening in ("completed", "speaking", "not_started", "identity_pending")
     await sess.close()
 
 

@@ -49,9 +49,11 @@ from telephone.mission import (
     CallMissionOutcome,
     CallMissionPacket,
     MissionLedger,
+    an_ambiguous_reply,
     packet_for,
 )
 from telephone.playback import PlaybackController
+from telephone.voicemail import VoicemailWatch
 
 logger = logging.getLogger("ora.telephone.live")
 
@@ -75,6 +77,28 @@ SETUP_TIMEOUT_S = 12
 # vuol dire farle ascoltare il silenzio piu' a lungo invece di chiudere con
 # onesta'.
 MAX_RESUME_ATTEMPTS = 3
+
+
+def _dev_drop_after_turns() -> int:
+    """
+    DEV-ONLY: dopo quanti turni chiudere di proposito il filo verso Gemini.
+
+        SPENTO DI DEFAULT, E IMPOSSIBILE IN PRODUZIONE.
+
+    Serve a provare davvero la ripresa di sessione su una telefonata vera,
+    senza aspettare che Google chiuda la sessione da solo. Vale solo se
+    `ORA_DEV_DROP_LIVE_AFTER_TURNS` è un numero positivo **e** `ENVIRONMENT`
+    non è `production`. Chiude soltanto il filo verso Gemini: la telefonata
+    con l'operatore resta aperta, ed è esattamente il caso da provare.
+    """
+    if (os.environ.get("ENVIRONMENT") or "development").strip().lower() in (
+            "production", "prod"):
+        return 0
+    try:
+        return max(0, int(os.environ.get("ORA_DEV_DROP_LIVE_AFTER_TURNS") or 0))
+    except ValueError:
+        return 0
+
 RESUME_BACKOFF_S = (0.2, 0.5, 1.0)
 
 #     QUANTO SI LASCIA ALL'ALTRO PER DIRE «PRONTO».
@@ -166,7 +190,9 @@ Regole, in ordine di importanza:
 - Non dire di aver concluso finché la controparte non l'ha confermato con parole sue. Che ci sia posto non vuol dire che sia stato spostato.
 - Non rivelare niente che non sia in known_facts. Se ti chiedono un dato che non hai, chiedilo con lo strumento apposito: potrebbe esserti negato, e va bene così.
 - Non nominare mai strumenti, sistemi, autorizzazioni o il fatto che stai consultando qualcosa.
-- Parla come una persona al telefono: frasi brevi, tono professionale, niente elenchi."""
+- Parla come una persona al telefono: frasi brevi, tono professionale, niente elenchi.
+- Fai una domanda alla volta. Con due domande nella stessa frase un «no» non si sa a quale risponde.
+- Se risponde una segreteria o un messaggio registrato, non lasciare messaggi e non dire perché chiami: chiudi la missione come non raggiunta."""
 
 
 #     SEI STRUMENTI, E L'ELENCO È CHIUSO.
@@ -781,6 +807,10 @@ class MissionVoiceSession:
         self._resuming = False
         self._resume_attempts = 0
         self._resumes_done = 0
+        # Perché si apre la prossima connessione: vuoto la prima volta.
+        self._next_connection_reason = ""
+        self._dev_drop_after = _dev_drop_after_turns()
+        self._dev_dropped = False
         self._reconnect_ms: List[int] = []
         self._reconnect_reasons: List[str] = []
         self._closed_reasons: List[str] = []
@@ -817,6 +847,17 @@ class MissionVoiceSession:
         # Se la persona giusta ha detto di essere lei. Fino ad allora il
         # messaggio non esce dal server.
         self._recipient_ok = False
+        # Se chi risponde ha gia' detto chi e' — lei, qualcun altro, una
+        # segreteria. Da li' in poi la domanda d'identita' non si rifa'.
+        self._identity_settled = False
+        # Quello che la controparte ha detto nell'ultimo turno chiuso, e quante
+        # chiusure sono state respinte perché rispondevano a due domande
+        # insieme. Si respinge al massimo due volte: poi decide chi parla.
+        self._their_last_words = ""
+        self._ambiguity_refusals = 0
+        #     PERSONA O SEGRETERIA: SI DICE SOLO CON DUE SEGNALI.
+        self._voicemail = VoicemailWatch()
+        self._voicemail_handled = False
         # La lingua che è scivolata, turno per turno.
         self._drift: List[Dict[str, Any]] = []
         self._last_chunk_at = 0.0
@@ -850,11 +891,13 @@ class MissionVoiceSession:
         # orecchie hanno sentito partire una voce, e quanto era alto il fondo.
         self._speech_onsets = 0
         self._loudest = 0.0
-        #     PENDING · STARTING · INTERRUPTED · COMPLETED.
+        #     NOT_STARTED · SPEAKING · INTERRUPTED · IDENTITY_PENDING · COMPLETED.
         # «Compiuta» non vuol dire «chiesta»: lo diventa solo quando il
         # registro dell'apertura ha sentito uscire tutt'e due le cose che
         # devono uscire — di chi siamo l'assistente, e perche chiamiamo.
-        self._opening = "pending"
+        # Per una consegna c'e' un passo in piu': «Parlo con Asia?» e' detto,
+        # ma finche' non ha risposto chi e', l'apertura aspetta l'identita'.
+        self._opening = "not_started"
         self._opening_task: Optional[asyncio.Task] = None
         self._opening_deferred = 0
         self._answered_at: Optional[float] = None
@@ -1172,6 +1215,9 @@ class MissionVoiceSession:
             f"- Dopo la prima frase aspetta che ti dicano chi sono. Solo quando "
             f"la persona dice di essere {nome}, usa recipient_confirmed: ti darà "
             "il messaggio. Prima non lo conosci.\n"
+            f"- Quando dice di essere {nome}, non restare in silenzio mentre "
+            f"aspetti il messaggio: di' subito una parola breve («Ciao {nome}!») "
+            "e intanto usa recipient_confirmed.\n"
             f"- Se risponde qualcun altro, non dire niente del messaggio né del "
             f"perché chiami: chiedi se {nome} c'è o quando richiamare, e usa "
             "recipient_not_available.\n"
@@ -1186,6 +1232,11 @@ class MissionVoiceSession:
             "- Usa message_delivered solo dopo che ha risposto o ha chiaramente "
             "finito di parlare, riportando la sua risposta con le sue parole "
             "(e le sue domande per lui). Poi saluta con calore.\n"
+            f"- «Parlo con {nome}?» si chiede una volta. Se ha già detto chi è, "
+            "non chiederlo più; se la risposta non era chiara («Pronto?», "
+            "«Ciao»), puoi chiederlo ancora una volta sola.\n"
+            f"- Se risponde una segreteria, non lasciare il messaggio: usa "
+            "recipient_not_available con who_answered=voicemail.\n"
             "- Qui il tono è caldo e personale, non da ufficio."
         )
 
@@ -1222,6 +1273,11 @@ class MissionVoiceSession:
             "silence_ms_in_setup": _silence_ms(),
             "session_started_at": _when_it_is_now(),
             "resumed_from_handle": bool(resume_handle),
+            "resume_handle_present": bool(resume_handle),
+            "reason": self._next_connection_reason or "first",
+            #     LA STESSA MISSIONE, SU OGNI FILO.
+            "mission_id": self.packet.mission_id if self.packet is not None else "",
+            "closed_because": "",
             "setup_echo": {},
             "failed_because": "",
         }
@@ -1287,6 +1343,16 @@ class MissionVoiceSession:
             return
         self._resume_handle = manico
 
+    async def _drop_the_live_wire_on_purpose(self) -> None:
+        """DEV-ONLY: chiude il filo Gemini, come se Google l'avesse chiuso."""
+        try:
+            if self._connections:
+                self._connections[-1]["closed_because"] = "dev_fault_injection"
+            if self.ws is not None:
+                await self.ws.close()
+        except Exception as e:  # pragma: no cover
+            logger.info("DEV: chiusura del filo non riuscita: %s", type(e).__name__)
+
     def _handle_go_away(self, avviso: Dict[str, Any]) -> None:
         """
         Il server annuncia che questa sessione sta per finire.
@@ -1297,6 +1363,8 @@ class MissionVoiceSession:
         prima che cada, cosi' chi sta parlando non sente niente.
         """
         self._go_away_count += 1
+        if self._connections:
+            self._connections[-1]["go_away"] = True
         resta = avviso.get("timeLeft")
         self._go_away_time_left = str(resta) if resta is not None else ""
         self._must_resume = "goAway"
@@ -1333,13 +1401,23 @@ class MissionVoiceSession:
             # Quello che era in coda apparteneva a una generazione che non
             # esiste piu': versarlo adesso vorrebbe dire far dire a ORA la fine
             # di una frase cominciata su un altro filo.
-            try:
-                await self.playback.cancel()
-            except Exception:
-                pass
+            #
+            #     MA UNA FRASE GIA' FINITA DI GENERARE SI LASCIA FINIRE DI DIRE.
+            # Misurato sul vero (V3.21.2, gate A): il filo è caduto subito dopo
+            # la fine di un turno e la ripresa ha buttato l'audio in coda —
+            # completo — tagliando il messaggio a metà: «…che questo è un
+            # test», «Pronto?», e ORA ha dovuto ripeterlo. Si butta solo quello
+            # che apparteneva a una generazione rimasta a metà.
+            if self._speaking is not None:
+                try:
+                    await self.playback.cancel()
+                except Exception:
+                    pass
+                self._speaking = None
 
             for tentativo in range(MAX_RESUME_ATTEMPTS):
                 self._resume_attempts += 1
+                self._next_connection_reason = perche
                 if tentativo:
                     await asyncio.sleep(
                         RESUME_BACKOFF_S[min(tentativo, len(RESUME_BACKOFF_S) - 1)]
@@ -1399,6 +1477,8 @@ class MissionVoiceSession:
                 motivo = type(e).__name__
                 logger.info("il filo di chi parla si è chiuso: %s", motivo)
                 self._closed_reasons.append(motivo)
+                if self._connections and not self._connections[-1].get("closed_because"):
+                    self._connections[-1]["closed_because"] = motivo
                 if not await self._resume(motivo):
                     return
 
@@ -1455,9 +1535,13 @@ class MissionVoiceSession:
             self._said_this_turn.append(parole)
             if self.intro is not None:
                 self.intro.we_said(parole)
-                if self.intro.is_settled() and self._opening != "completed":
-                    self._opening = "completed"
-                    self._opening_completed_at = time.perf_counter()
+                if (self.intro.is_settled()
+                        and self._opening not in ("completed", "identity_pending")):
+                    if self._asks_who_they_are() and not self._identity_settled:
+                        self._opening = "identity_pending"
+                    else:
+                        self._opening = "completed"
+                        self._opening_completed_at = time.perf_counter()
 
         if content.get("inputTranscription"):
             self._heard_this_turn.append(
@@ -1593,7 +1677,7 @@ class MissionVoiceSession:
                     self._this_response["first_line_frame_ms"]
                     - self._this_response["gemini_first_audio_at_ms"]
                 )
-                if (self._opening == "starting"
+                if (self._opening == "speaking"
                         and self._opening_first_line_at is None):
                     self._opening_first_line_at = self.playback.first_send_at
 
@@ -1662,9 +1746,16 @@ class MissionVoiceSession:
         coda = self._down.drain()   # la coda del filtro non deve finire dopo
         del coda
         self._speaking = None
-        if self._opening == "starting":
+        if self._opening == "speaking":
             # §5: l'hanno interrotta a meta. Non si ricomincia: si completa.
             self._opening = "interrupted"
+            #     E LO SI DICE SUBITO, NON ALLA FINE DEL TURNO.
+            # Misurato sul vero (V3.21.1a): «Ciao, sono—» / «Pronto?» — e la
+            # risposta a quel «pronto» e' partita prima della nota di fine
+            # turno, rifacendo tutta la presentazione. La nota adesso arriva
+            # con l'interruzione, cosi' la prossima frase sa gia' che cosa e'
+            # stato detto e che cosa manca.
+            await self._finish_the_introduction_if_it_is_short()
         if self._goodbye == "speaking":
             self._goodbye_interrupted += 1
             # L'hanno interrotta mentre salutava: il saluto non e avvenuto.
@@ -1702,6 +1793,8 @@ class MissionVoiceSession:
         # Al contrario il registro mette la risposta sopra la domanda, e
         # rileggendolo sembra che ORA abbia chiuso prima della conferma.
         self._last_words = "".join(self._said_this_turn).strip()
+        self._their_last_words = "".join(self._heard_this_turn).strip()
+        self._voicemail.heard(self._their_last_words)
         self._check_the_language("ora", self._last_words)
         self._check_the_language("them", "".join(self._heard_this_turn).strip())
         await self._write_down("them", "".join(self._heard_this_turn))
@@ -1712,6 +1805,15 @@ class MissionVoiceSession:
         self._turn += 1
         self.mission.a_new_turn_begins()
         self._playback_finished_at = time.perf_counter()
+        if (self._dev_drop_after and not self._dev_dropped
+                and self._turn >= self._dev_drop_after
+                and self._mission_terminal_at is None and not self._closed):
+            #     DEV-ONLY: IL FILO CADE ADESSO, DI PROPOSITO.
+            self._dev_dropped = True
+            logger.info("DEV: filo Live chiuso di proposito dopo %d turni", self._turn)
+            asyncio.create_task(self._drop_the_live_wire_on_purpose())
+        if await self._is_it_a_voicemail():
+            return
         if self._mission_terminal_at is not None and not self._hung_up:
             await self._make_sure_she_said_goodbye()
             return
@@ -1745,7 +1847,7 @@ class MissionVoiceSession:
                 self._opening_deferred += 1
                 logger.info("hanno risposto parlando: l'apertura aspetta")
                 return
-            self._opening = "starting"
+            self._opening = "speaking"
             self._opening_requested_at = time.perf_counter()
             await self._send({"clientContent": {
                 "turns": [{"role": "user", "parts": [{
@@ -2050,6 +2152,22 @@ class MissionVoiceSession:
                     "message_delivered"):
             return self._the_delivery(nome, argomenti)
 
+        if (nome in ("complete_mission", "fail_mission")
+                and self._ambiguity_refusals < 2
+                and an_ambiguous_reply(
+                    self._last_words,
+                    "".join(self._heard_this_turn).strip() or self._their_last_words)):
+            #     A QUALE DELLE DUE DOMANDE HA DETTO NO?
+            self._ambiguity_refusals += 1
+            self._refused_tools += 1
+            return {
+                "accepted": False,
+                "reason": "risposta ambigua a due domande",
+                "do_this": ("Hai fatto due domande insieme e la risposta è "
+                            "troppo breve per sapere a quale vale. Chiedi di "
+                            "nuovo, una cosa alla volta."),
+            }
+
         if nome == "complete_mission" and packet.mission_type == "deliver_message":
             #     UNA CONSEGNA NON SI CHIUDE CON UNA CONFERMA DI MODIFICHE.
             self._refused_tools += 1
@@ -2155,7 +2273,18 @@ class MissionVoiceSession:
         if nome == "recipient_confirmed":
             if not messaggio:
                 return {"error": "questa telefonata non ha un messaggio da consegnare"}
+            #     A UNA SEGRETERIA IL MESSAGGIO NON ESCE, NEMMENO SE DICE «SONO ASIA».
+            self._voicemail.heard("".join(self._heard_this_turn))
+            if self._voicemail.verdict == "voicemail" or self._voicemail.carrier == "machine":
+                self._refused_tools += 1
+                return {
+                    "accepted": False,
+                    "reason": "sembra una segreteria",
+                    "do_this": ("Non dire il messaggio. Usa recipient_not_available "
+                                "con who_answered=voicemail."),
+                }
             self._recipient_ok = True
+            self._identity_is_settled()
             self.mission.heard("detail", str(argomenti.get("how_they_confirmed") or "")[:200])
             return {
                 "message_to_deliver": messaggio,
@@ -2175,13 +2304,24 @@ class MissionVoiceSession:
             }
 
         if nome == "recipient_not_available":
+            self._identity_is_settled()
             self._the_mission_is_over()
             chi = str(argomenti.get("who_answered") or "not_sure")
+            if chi == "voicemail":
+                #     LA PAROLA DI CHI PARLA E' UN SEGNALE, NON UN FATTO.
+                # Se nessun altro segnale la conferma, non si scrive
+                # «segreteria»: si scrive che non l'abbiamo raggiunta.
+                self._voicemail.heard("".join(self._heard_this_turn))
+                consegna = ("voicemail" if self._voicemail.verdict == "voicemail"
+                            or self._voicemail.carrier == "machine" else "not_reached")
+            else:
+                consegna = ("recipient_unavailable" if chi == "someone_else"
+                            else "wrong_person")
             self.outcome = CallMissionOutcome(
                 mission_id=packet.mission_id,
                 status="failed",
-                delivery="recipient_unavailable" if chi == "someone_else"
-                else "wrong_person" if chi == "not_sure" else "no_answer",
+                delivery=consegna,
+                ended_because="voicemail" if consegna == "voicemail" else "",
                 user_confirmation_needed=(
                     str(argomenti.get("callback_hint") or "")[:300]
                 ),
@@ -2210,6 +2350,89 @@ class MissionVoiceSession:
         )
         return {"accepted": True,
                 "say": "Certo, glielo riferisco. Ciao!"}
+
+    async def the_carrier_says(self, answered_by: str) -> None:
+        """L'operatore ha riconosciuto chi ha risposto: «machine» o «human»."""
+        self._voicemail.carrier_says(answered_by)
+        await self._is_it_a_voicemail()
+
+    async def _is_it_a_voicemail(self) -> bool:
+        """
+        Se i segnali dicono segreteria, la missione finisce qui. Torna se e' finita.
+
+            A UNA SEGRETERIA NON SI LASCIA NIENTE.
+
+        Nessun mandato di V1 autorizza a lasciare messaggi: per una consegna
+        vorrebbe dire dire il messaggio a una macchina che chiunque in casa
+        puo' ascoltare. Si chiude senza dire niente di piu'.
+        """
+        if (self._voicemail_handled or self.packet is None
+                or self._voicemail.verdict != "voicemail"):
+            return False
+        if self._mission_terminal_at is not None and self.outcome is not None:
+            # Un esito vero c'era gia': una segreteria dopo non lo cancella.
+            return False
+        self._voicemail_handled = True
+        self._identity_is_settled()
+        self._the_mission_is_over()
+        self.outcome = CallMissionOutcome(
+            mission_id=self.packet.mission_id,
+            status="failed",
+            delivery=("voicemail" if self.packet.mission_type == "deliver_message"
+                      else ""),
+            ended_because="voicemail",
+            counterparty_statements=self.mission.statements[:8],
+            notes="ha risposto la segreteria: nessun messaggio lasciato",
+        )
+        logger.info("segreteria riconosciuta (%s): si chiude senza lasciare niente",
+                    ", ".join(self._voicemail.signals))
+        await self._hang_up_on_a_machine()
+        return True
+
+    async def _hang_up_on_a_machine(self) -> None:
+        """
+        Riaggancia su una segreteria.
+
+        E' l'unica eccezione alla regola del saluto: a una registrazione non
+        si dice arrivederci, e aspettare che taccia vorrebbe dire aspettare il
+        bip — cioe' registrare.
+        """
+        try:
+            await self.playback.cancel()
+        except Exception:
+            pass
+        self._goodbye = "completed"
+        self._goodbye_story.append("skipped_voicemail")
+        if self._hung_up:
+            return
+        self._hangup_attempts += 1
+        self._hung_up = True
+        self._call_closing = "closed"
+        self._hangup_at = time.perf_counter()
+        riferimento = getattr(self.call, "provider_ref", "") if self.call else ""
+        if not riferimento:
+            return
+        try:
+            from telephone import carrier
+
+            await carrier.hang_up(riferimento)
+        except Exception as e:
+            logger.info("non si e' potuto riagganciare: %s", type(e).__name__)
+
+    def _asks_who_they_are(self) -> bool:
+        """Se l'apertura finisce con una domanda d'identita' («Parlo con Asia?»)."""
+        return bool(
+            self.intro is not None and getattr(self.intro.intro, "asks_for", "")
+        )
+
+    def _identity_is_settled(self) -> None:
+        """Chi ha risposto l'ha detto: l'apertura e' finita, e non si richiede."""
+        self._identity_settled = True
+        if self._opening in ("identity_pending", "speaking", "interrupted",
+                             "not_started"):
+            self._opening = "completed"
+            if self._opening_completed_at is None:
+                self._opening_completed_at = time.perf_counter()
 
     def _the_mandate(self):
         """Il mandato della telefonata: è lì, e solo lì, che sta il messaggio."""
@@ -2311,14 +2534,31 @@ class MissionVoiceSession:
 
         if self.outcome is None and self.packet is not None:
             #     UNA TELEFONATA SENZA ESITO NON È UNA TELEFONATA RIUSCITA.
+            #
+            # E si dice fin dove si era arrivati, senza supporre niente:
+            # prima che la conversazione cominciasse, a trattativa aperta con
+            # una proposta sul tavolo (decide una persona), o a meta'.
+            cominciata = bool(
+                self._turn > 0 and (self._their_last_words or self.mission.statements
+                                    or self._opening in ("completed", "identity_pending"))
+            )
+            if not cominciata:
+                stato = "failed"
+            elif self.mission.something_is_on_the_table():
+                stato = "needs_user"
+            else:
+                stato = "partial"
             self.outcome = CallMissionOutcome(
                 mission_id=self.packet.mission_id,
-                status="partial",
+                status=stato,
                 counterparty_statements=self.mission.statements[:8],
+                ended_because=("live_runtime_failure" if self._transport_failure
+                               else "line_dropped"),
                 notes=(
                     f"il filo verso chi parla è caduto: {self._transport_failure}"
                     if self._transport_failure
-                    else "la linea è caduta prima di un esito"
+                    else ("la linea è caduta prima di un esito" if cominciata
+                          else "la linea è caduta prima che la conversazione cominciasse")
                 ),
                 followup_required=True,
             )
@@ -2487,6 +2727,11 @@ class MissionVoiceSession:
             "reconnect_reasons": self._reconnect_reasons,
             "connection_closed_reasons": self._closed_reasons,
             "transport_failure": self._transport_failure,
+            "mission_id": self.packet.mission_id if self.packet is not None else "",
+            "dev_fault_injected": self._dev_dropped,
+            "voicemail": self._voicemail.report(),
+            "ambiguity_refusals": self._ambiguity_refusals,
+            "identity_settled": self._identity_settled,
             "opening_deferred_for_human": self._opening_deferred,
             "answered_at_ms": 0 if self._answered_at else None,
             "live_ready_at_ms": self._since_open(self._live_ready_at),
@@ -2625,6 +2870,13 @@ async def _dial():
     """Il filo vero verso chi parla. La chiave non viene mai scritta da nessuna parte."""
     import websockets
 
+    from telephone.carrier import _tls
+
+    #     IL CONTESTO TLS E' QUELLO CONDIVISO, NON UNO NUOVO.
+    # Senza `ssl=`, ogni apertura ne crea uno e ricarica i certificati: ~450 ms
+    # di processo fermo (V3.21.1). Alla prima apertura si nota poco; a una
+    # ripresa di sessione a meta' telefonata e' un buco che si sente.
     return await websockets.connect(
         f"{LIVE_URL}?key={_key()}", max_size=None, open_timeout=SETUP_TIMEOUT_S,
+        ssl=_tls(),
     )

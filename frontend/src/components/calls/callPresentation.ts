@@ -33,6 +33,7 @@ const TONE: Record<CallCard['presentation_status'], CallTone> = {
   segreteria: 'quiet',
   non_riuscita: 'neutral',
   interrotta: 'neutral',
+  non_avviata: 'quiet',
 };
 
 export function toneOf(status: CallCard['presentation_status']): CallTone {

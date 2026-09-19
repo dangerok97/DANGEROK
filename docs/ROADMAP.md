@@ -6,8 +6,8 @@ percorso fino al lancio si leggono qui e solo qui.
 
 | | |
 |---|---|
-| **Versione corrente** | **V3.21.1a — FINAL PASS** |
-| **Prossimo sprint** | **V3.21 — Telephone Product Hardening** |
+| **Versione corrente** | **V3.21.2 — Call Failure & Recovery Hardening · PASS** |
+| **Prossimo sprint** | **ORA Product Experience Rebuild — NOT STARTED** |
 | Branch | `feature/ora-quiet-premium-design-system` |
 | Ultimo checkpoint | `37af8a5` (lavoro) · `3baeaa1` (igiene) |
 | Aggiornato | 2026-09-19 |
@@ -517,6 +517,65 @@ non corretta a posteriori. Tunnel quick di Cloudflare instabile: serve un
 indirizzo fisso prima del lancio. Due telefonate «autorizzate» e mai composte
 del 18/09 (vecchio percorso) restano nello storico.
 
+#### V3.21.2 — Call Failure & Recovery Hardening · **PASS**
+**Apertura.** Stati `not_started · speaking · interrupted · identity_pending ·
+completed`. Causa del doppio «Parlo con Asia?» trovata: con una sola parola
+chiave il registro dell'apertura ne esigeva due, e la nota faceva ripetere la
+domanda. Interrotta a metà, la nota arriva subito e dice solo il pezzo
+mancante («Hai già detto di chi sei l'assistente: di' soltanto «Parlo con
+Asia?»»).
+**Esiti.** `result_of(call)` legge insieme linea ed esito validato:
+success · no_answer · busy · voicemail · recipient_unavailable · wrong_person
+· not_connected · transport_failure · live_runtime_failure · partial ·
+needs_user · not_started. Per chi legge: «Non ha risposto.», «Il numero era
+occupato.», «Ha risposto la segreteria.», «La chiamata si è interrotta prima
+che riuscissi a concludere.», «Non avviata». Nessun codice tecnico in UI.
+**Segreteria.** `machine_detection: continue` di Vonage (evento `human`
+visto sul vero) + frasi da messaggio registrato: si dichiara solo con due
+segnali; uno solo resta `suspected`. Nessun messaggio lasciato; il messaggio
+di una consegna non esce nemmeno se la segreteria dice «sono Asia».
+**Linea che cade.** Senza esito: `failed` se non era cominciata, `needs_user`
+con una proposta sul tavolo, altrimenti `partial` — con `ended_because`
+(`line_dropped` / `live_runtime_failure`). Un esito già validato resta.
+**Risposte parziali.** «No» di ≤3 parole dopo due domande: `complete_mission`
+e `fail_mission` respinti («una cosa alla volta»), al massimo due volte.
+**Piano.** Una chiamata `failed`/`expired` è finita: prima il piano di una
+chiamata non risposta tornava «authorised» per sempre. Nessuna risposta e
+occupato ora avvisano il piano anche senza conversazione. Recupero: chiamate
+«in corso» senza notizie oltre durata+15 min → chiuse; zero piani bloccati.
+**Fantasmi.** Un sì vale due ore: le due chiamate del 18/09 (vecchio percorso
+chat senza tasto per comporre) sono ora `expired` → «Non avviata»; `dial`
+rifiuta una chiamata scaduta.
+**Storico.** Paginazione vera: cursore `authorised_at|id`, filtro su
+`status_reads` scritto a ogni salvataggio, conteggio reale, indici; verificata
+sull'API: 61 chiamate in 13 pagine, zero duplicati.
+**HTTP sul percorso Live.** `websockets.connect` verso Gemini creava un
+contesto TLS nuovo a ogni apertura (~450 ms di loop fermo), anche alla ripresa
+a metà telefonata: ora usa quello condiviso. Il resto dei 33 punti resta debito.
+**Tunnel.** Prima di comporre si prova l'indirizzo pubblico: se non risponde
+la chiamata non parte e il motivo scritto è «tunnel», non Gemini. Il quick
+tunnel è caduto due volte durante lo sprint: debito V10 / pre-production.
+**REAL GATE A — ripresa di sessione: PASS** (numero verificato dell'utente).
+Fault injection DEV-ONLY (`ORA_DEV_DROP_LIVE_AFTER_TURNS`, spenta di default,
+impossibile con `ENVIRONMENT=production`): connessione 1 chiusa dopo 2 turni,
+connessione 2 ripresa con handle in 926 ms, stessa `mission_id` su entrambe,
+una sola chiamata carrier, nessuna seconda apertura, Charon + it-IT su
+entrambe, messaggio consegnato, risposta acquisita, saluto e riaggancio.
+Trovato dal vivo e corretto: la ripresa buttava l'audio già generato e
+completo (messaggio tagliato e ripetuto); ~5,5 s di silenzio dopo il «sì»
+per sbloccare il messaggio → regola «saluta subito mentre aspetti».
+**REAL GATE B — nessuna risposta: PASS** (al quarto giro). Trovati dal vivo e
+corretti: Vonage manda `completed` e `timeout` nello stesso millisecondo con il
+motivo in `detail`, e il primo diceva «hanno riagganciato»; il valutatore della
+preparazione inventava una domanda su un messaggio già completo; la guida
+della chat accorciava la conferma del numero; riepilogo al femminile fisso.
+Ultimo giro: `failed / no_answer`, piano `failed` («Non ha risposto.»), zero
+application, una chiamata, esito in chat.
+**REALITY GATE PENDING:** occupato e segreteria — non producibili in modo
+controllato senza chiamare terzi; coperti da prove con i payload dell'operatore.
+**Debito.** Ritardo di due giri Gemini per sbloccare il messaggio di una
+consegna; quick tunnel; 33 client HTTP fuori dal percorso Live; frasi
+dell'apertura e dei saluti ancora affidate al modello.
 
 #### Debito registrato durante V3.21 — ORA Product Experience Rebuild · **NOT STARTED**
 **Priorità** — alta. Emerso dall'audit completo dell'app reale (video 2026-09-19).
@@ -542,6 +601,8 @@ design system Quiet Premium unificati.
 lavoro telefonico corrente. Quando verrà aperto, le reference sono target
 visivi autorevoli e il pass richiederà app reale, screenshot comparativi e
 reality gate funzionali sui difetti osservati.
+
+L'ordine resta: V3.21.1a ✅ → V3.21.2 ✅ → ORA Product Experience Rebuild → V3.22 → V4.
 
 ### V3.22 — Call UX Final
 **Obiettivo** — la telefonata come funzione di prodotto finita, non come

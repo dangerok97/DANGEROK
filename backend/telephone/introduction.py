@@ -360,7 +360,11 @@ class IntroductionLedger:
         chiavi = self.intro.reason_keywords
         if chiavi:
             prese = sum(1 for k in chiavi if k in detto)
-            if prese >= max(2, (len(chiavi) + 1) // 2):
+            #     CON UNA PAROLA SOLA, BASTA QUELLA.
+            # Una consegna ha una chiave sola — il nome di chi si cerca — e
+            # chiederne due voleva dire non considerare mai detto «Parlo con
+            # Asia?». Sul vero: la nota ha fatto ripetere la domanda.
+            if prese >= min(len(chiavi), max(2, (len(chiavi) + 1) // 2)):
                 self._why = True
 
     # --- dove siamo --------------------------------------------------------
@@ -403,6 +407,19 @@ class IntroductionLedger:
                 f"Non sei {self.intro.assistant_for}. Correggi subito, con "
                 f"naturalezza: sei l'assistente di {self.intro.assistant_for}. "
                 f"Non ripetere il resto dell'apertura."
+            )
+        if self.intro.asks_for:
+            #     PER UNA CONSEGNA LA FRASE E' UNA SOLA, E SI DICE COSI'.
+            domanda = f"Parlo con {self.intro.asks_for}?"
+            if self._who:
+                return (
+                    "Hai già detto di chi sei l'assistente: non ripeterlo. "
+                    f"Di' soltanto: «{domanda}»"
+                )
+            return (
+                "Ripeti una volta sola, per intera: «Ciao, sono l'assistente "
+                f"di {self.intro.assistant_for}. {domanda}» — non riprendere "
+                "da dove ti hanno tagliato."
             )
         manca = []
         if not self._who:

@@ -467,7 +467,10 @@ async def test_a_call_that_drops_does_not_look_like_a_success(monkeypatch):
     sess, wire, _, _ = await _aperta(monkeypatch)
     await sess.close()
     assert sess.outcome is not None
-    assert sess.outcome.status == "partial"
+    #     V3.21.2 §5: CADUTA PRIMA CHE LA CONVERSAZIONE COMINCIASSE.
+    # Non «riuscita», non «parziale»: non era cominciata niente.
+    assert sess.outcome.status == "failed"
+    assert sess.outcome.ended_because == "line_dropped"
     assert not sess.outcome.is_actionable()
 
 
@@ -1561,7 +1564,7 @@ async def test_she_opens_the_call_without_waiting_to_be_spoken_to(monkeypatch):
         assert "Buongiorno, sono l'assistente di Francesco Cefalà" in chiesto
         assert wire.what_it_sent("clientContent")[-1]["clientContent"][
             "turnComplete"] is True, "ha parlato senza chiudere il turno"
-        assert sess.how_it_went()["opening_state"] == "starting"
+        assert sess.how_it_went()["opening_state"] == "speaking"
     finally:
         await sess.close()
 
@@ -1611,7 +1614,7 @@ async def test_if_they_speak_first_she_does_not_talk_over_them(monkeypatch):
 
         assert _cosa_ha_chiesto(wire) == "", "ha parlato sopra la persona"
         n = sess.how_it_went()
-        assert n["opening_state"] == "pending"
+        assert n["opening_state"] == "not_started"
         assert n["opening_deferred_for_human"] == 1
         assert n["speech_onsets_heard"] >= 1
     finally:
@@ -1633,7 +1636,7 @@ async def test_an_interrupted_opening_is_completed_not_restarted(monkeypatch):
     try:
         await _scalda_le_orecchie(sess)
         await asyncio.sleep(0.25)
-        assert sess.how_it_went()["opening_state"] == "starting"
+        assert sess.how_it_went()["opening_state"] == "speaking"
 
         await wire.says({"serverContent": {
             # Tagliata dopo il nome ma prima del motivo: è il pezzo che

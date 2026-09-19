@@ -507,7 +507,7 @@ async def test_nobody_answered_is_said_as_nobody_answered(mondo):
     plan = await on_call_finished(mondo, call)
 
     assert plan.state == "failed"
-    assert as_a_card(plan)["summary"] == "Non ha risposto nessuno."
+    assert as_a_card(plan)["summary"] == "Non ha risposto."
     assert as_a_card(plan)["status_label"] == "Non sono riuscita a completarlo"
 
 

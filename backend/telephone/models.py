@@ -39,6 +39,7 @@ CallState = Literal[
     "talking",      # qualcuno ha risposto e si sta parlando
     "ended",        # la linea è chiusa, comunque sia andata
     "failed",       # non è mai arrivata a parlare con nessuno
+    "expired",      # preparata e mai composta: il sì non vale più
 ]
 
 # Come è finita, secondo la rete e non secondo noi.
@@ -189,6 +190,9 @@ class PhoneCall(BaseModel):
     # La chat in cui la persona ha detto «sì, chiamala», se è nata lì: è lì
     # che l'esito torna, una volta sola.
     chat_session_id: str = Field(default="", max_length=64)
+    # Chi ha risposto secondo l'operatore: «human», «machine» o niente. È un
+    # segnale, non un verdetto — la segreteria la dichiara `VoicemailWatch`.
+    answered_by: str = Field(default="", max_length=16)
     told_the_chat: bool = False
     chat_told_at: str = Field(default="", max_length=40)
     started_at: Optional[str] = None

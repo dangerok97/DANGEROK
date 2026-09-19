@@ -52,7 +52,50 @@ PresentationStatus = Literal[
     "segreteria",
     "non_riuscita",
     "interrotta",
+    "non_avviata",
 ]
+
+#     COM'E' FINITA, IN UNA PAROLA SOLA E STRUTTURATA.
+#
+# Non è un secondo insieme di stati da mantenere: è la lettura combinata di
+# quello che c'è già — lo stato della linea (`state`, `how_it_ended`) e
+# l'esito validato della missione (`status`, `delivery`, `ended_because`).
+# Serve a chi ragiona (il piano, i test); a chi legge va `presentation_status`.
+CallResult = Literal[
+    "in_progress",
+    "not_started",           # preparata e mai composta
+    "success",
+    "no_answer",
+    "busy",
+    "voicemail",
+    "recipient_unavailable",
+    "wrong_person",
+    "not_connected",         # l'operatore non l'ha fatta partire
+    "transport_failure",     # la linea è caduta a conversazione iniziata
+    "live_runtime_failure",  # la voce è caduta e non si è ripresa
+    "partial",
+    "needs_user",
+    "failed",
+]
+
+# Da com'è finita a come si dice. Più risultati possono leggersi allo stesso
+# modo: «interrotta» è la stessa frase per chi legge, qualunque filo sia caduto.
+_COME_SI_RACCONTA: Dict[str, str] = {
+    "in_progress": "in_corso",
+    "not_started": "non_avviata",
+    "success": "completata",
+    "no_answer": "nessuna_risposta",
+    "busy": "occupato",
+    "voicemail": "segreteria",
+    "recipient_unavailable": "non_riuscita",
+    "wrong_person": "non_riuscita",
+    "not_connected": "non_riuscita",
+    "transport_failure": "interrotta",
+    "live_runtime_failure": "interrotta",
+    "partial": "interrotta",
+    "needs_user": "serve_una_decisione",
+    "failed": "non_riuscita",
+}
 
 # L'etichetta che si legge sulla card, per ogni stato.
 COME_SI_LEGGE: Dict[str, str] = {
@@ -64,6 +107,7 @@ COME_SI_LEGGE: Dict[str, str] = {
     "segreteria": "Segreteria",
     "non_riuscita": "Non riuscita",
     "interrotta": "Interrotta",
+    "non_avviata": "Non avviata",
 }
 
 # Che cosa si andava a fare, detto come lo direbbe una persona. Serve a
@@ -109,39 +153,72 @@ def _what_the_mission_says(call) -> Optional[str]:
     return None
 
 
-def how_it_reads(call) -> PresentationStatus:
+def result_of(call) -> str:
     """
-    Come si racconta questa telefonata.
+    Com'è finita, in una parola strutturata (`CallResult`).
 
         PRIMA COM'È ANDATA LA LINEA, POI COM'È ANDATA LA MISSIONE.
 
     L'ordine non è arbitrario. Se nessuno ha risposto non c'è nessuna missione
     da raccontare, e dire «non riuscita» a una telefonata che non è mai
     cominciata sposterebbe la colpa sul posto sbagliato.
+
+        «LA LINEA E' CADUTA» NON E' MAI «RIUSCITA».
+
+    Un successo esce solo da un esito di missione validato. Una caduta prima
+    di quell'esito è una caduta, qualunque cosa si fosse detto.
     """
-    if call.state in ("authorised", "dialling", "talking"):
-        return "in_corso"
+    if call.state == "expired":
+        return "not_started"
+    if call.state == "authorised":
+        from telephone.service import is_a_ghost
+
+        return "not_started" if is_a_ghost(call) else "in_progress"
+    if call.state in ("dialling", "talking"):
+        return "in_progress"
 
     come_e_finita = call.how_it_ended or "unknown"
     if come_e_finita == "no_answer":
-        return "nessuna_risposta"
+        return "no_answer"
     if come_e_finita == "busy":
-        return "occupato"
-    if come_e_finita == "failed" or call.state == "failed":
-        return "interrotta"
+        return "busy"
+
+    esito = _the_mission_outcome(call) or {}
+    perche = str(esito.get("ended_because") or "")
+    consegna = str(esito.get("delivery") or "")
+    if perche == "voicemail" or consegna == "voicemail":
+        return "voicemail"
+
+    if (come_e_finita == "failed" or call.state == "failed") and not esito:
+        #     NON E' MAI PARTITA, O E' CADUTA SENZA LASCIARE NIENTE.
+        return "transport_failure" if call.started_at else "not_connected"
+
+    if consegna in ("recipient_unavailable", "wrong_person"):
+        return consegna
 
     missione = _what_the_mission_says(call)
     if missione == "success":
-        return "completata"
+        return "success"
     if missione == "needs_user":
-        return "serve_una_decisione"
-    if missione in ("failed", "partial"):
-        return "non_riuscita"
+        return "needs_user"
+    if perche == "live_runtime_failure":
+        return "live_runtime_failure"
+    if perche == "line_dropped":
+        return "transport_failure"
+    if missione == "partial":
+        return "partial"
+    if missione == "failed":
+        return "failed"
 
     #     HA RISPOSTO QUALCUNO, E NON SAPPIAMO DIRE COS'È SUCCESSO.
     # Non è un successo e non è un fallimento: è una telefonata che si è
     # chiusa senza lasciare un esito. Dirlo è più onesto che sceglierne uno.
-    return "interrotta"
+    return "transport_failure"
+
+
+def how_it_reads(call) -> PresentationStatus:
+    """Come si racconta questa telefonata: la parola per chi legge."""
+    return _COME_SI_RACCONTA.get(result_of(call), "interrotta")  # type: ignore[return-value]
 
 
 def _when_it_moved_to(cambiamenti: Dict[str, Any]) -> str:
@@ -175,15 +252,22 @@ def in_one_line(call, application: Any = None) -> str:
     che è stato confermato non è arrivato fino al calendario, lo dice.
     """
     stato = how_it_reads(call)
+    risultato = result_of(call)
 
     if stato == "in_corso":
         return "Chiamata in corso."
+    if stato == "non_avviata":
+        return "Non avviata: la telefonata non è mai partita."
     if stato == "nessuna_risposta":
-        return "Nessuna risposta."
+        return "Non ha risposto."
     if stato == "occupato":
-        return "La linea era occupata."
+        return "Il numero era occupato."
     if stato == "segreteria":
-        return "Ha risposto una segreteria telefonica."
+        return "Ha risposto la segreteria."
+    if risultato == "not_connected":
+        return "La telefonata non è partita."
+    if risultato in ("transport_failure", "live_runtime_failure", "partial"):
+        return "La chiamata si è interrotta prima che riuscissi a concludere."
 
     esito = _the_mission_outcome(call)
     tipo = _mission_type_of(call)
@@ -212,7 +296,7 @@ def in_one_line(call, application: Any = None) -> str:
             return perche.strip()
         return _NON_ANDATA.get(tipo, "Non è stato possibile portarla a termine.")
 
-    return "La chiamata si è chiusa prima di un esito."
+    return "La chiamata si è interrotta prima che riuscissi a concludere."
 
 
 #     COSA STA IN MEZZO FRA UNA CONFERMA E UN CALENDARIO AGGIORNATO.
