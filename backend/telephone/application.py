@@ -376,6 +376,13 @@ async def apply_the_outcome(db, call, outcome) -> Optional[CallMissionApplicatio
     # dire da solo se e' azionabile.
     if outcome is None or not hasattr(outcome, "is_actionable"):
         return None
+    #     UN MESSAGGIO CONSEGNATO NON CAMBIA NIENTE NEL MONDO CANONICO.
+    # Non c'è un calendario da spostare né un impegno da chiudere: forzarlo
+    # dentro un adattatore vorrebbe dire scrivere un record «saltato» che poi
+    # la cronologia racconterebbe come un tentativo non riuscito. Com'è
+    # andata la consegna sta nell'esito, e basta.
+    if (getattr(getattr(call, "mandate", None), "message", "") or "").strip():
+        return None
 
     mission_id = getattr(outcome, "mission_id", "") or mission_id_for(call.id)
     stato_esito = str(getattr(outcome, "status", "") or "")

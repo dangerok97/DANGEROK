@@ -120,7 +120,7 @@ def _opening_line(plan: AutonomousActionPlan, call) -> str:
 
 async def plan_a_request(
     db, *, owner_id: str, user_request: str, counterparty: str = "",
-    operation: str = "", goal: str = "",
+    operation: str = "", goal: str = "", message: str = "",
 ) -> Tuple[Optional[AutonomousActionPlan], Optional[Any], str]:
     """
     Apre un proposito da una frase, quando il numero non si sa ancora.
@@ -143,6 +143,7 @@ async def plan_a_request(
     prep, perche = await start(
         db, owner_id=owner_id, user_request=user_request,
         counterparty=counterparty, operation=operation, goal=goal,
+        message=message,
     )
     if prep is None:
         return None, None, perche
@@ -160,7 +161,7 @@ async def plan_a_request(
         # che c'è, e che non cambierà più, è quello che una persona ha chiesto.
         source_ref=prep.idempotency_key,
         goal=prep.goal or user_request.strip()[:300],
-        operation=(operation or "").strip(),
+        operation=prep.operation or (operation or "").strip(),
         preparation_id=prep.preparation_id,
         authority_state="absent",
         #     SI STA PREPARANDO, E ASPETTA UNA PERSONA.
@@ -462,6 +463,13 @@ async def _read_the_outcome(db, plan, call) -> AutonomousActionPlan:
     """
     from telephone.application import application_for
 
+    #     UN MESSAGGIO NON HA UNO STATO CANONICO DA RILEGGERE.
+    # Il fatto da verificare è un altro: che la persona giusta l'abbia sentito.
+    # Lo dice l'esito della consegna — e il backend lo accetta solo se prima
+    # è passata la conferma di identità, quindi non è una parola di chi parla.
+    if (getattr(call.mandate, "message", "") or "").strip():
+        return await _the_delivery_is_the_outcome(db, plan, call)
+
     record = await application_for(db, call.id)
     if record is None:
         #     LA LINEA È CHIUSA E NON C'È NIENTE DA APPLICARE.
@@ -494,6 +502,21 @@ async def _read_the_outcome(db, plan, call) -> AutonomousActionPlan:
         return await save(db, plan)
 
     return await _stop(db, plan, "not_verified", come)
+
+
+async def _the_delivery_is_the_outcome(db, plan, call) -> AutonomousActionPlan:
+    """Come finisce il piano di una consegna, detto con le parole della cronologia."""
+    from telephone.history import in_one_line
+
+    esito = (call.metrics or {}).get("outcome") or {}
+    riga = in_one_line(call)
+    if str(esito.get("delivery") or "") == "delivered":
+        plan.verified = True
+        plan.state = "completed"
+        plan.needs_user_decision = False
+        plan.note("completed", "delivered", riga)
+        return await save(db, plan)
+    return await _stop(db, plan, str(esito.get("delivery") or "not_delivered"), riga)
 
 
 async def _did_the_world_change(db, plan, record) -> Tuple[bool, str]:

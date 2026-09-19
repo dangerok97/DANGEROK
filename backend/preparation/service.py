@@ -44,9 +44,14 @@ from preparation.readiness import evaluate
 logger = logging.getLogger("ora.preparation.service")
 
 
+def _op(prep: MissionPreparation, operation: str) -> str:
+    """Il tipo stabilito all'inizio vince su quello passato dopo."""
+    return (prep.operation or operation or "").strip()
+
+
 async def start(
     db, *, owner_id: str, user_request: str, counterparty: str = "",
-    operation: str = "", goal: str = "",
+    operation: str = "", goal: str = "", message: str = "",
 ) -> Tuple[Optional[MissionPreparation], str]:
     """
     Apre la preparazione di una richiesta, o ritrova quella che c'era già.
@@ -67,11 +72,19 @@ async def start(
     if esistente is not None:
         return esistente, ""
 
+    from telephone.mission import kind_of_request, the_message_in
+
+    #     IL TIPO SI LEGGE DALLA RICHIESTA, E UN MESSAGGIO DICHIARATO VINCE.
+    messaggio = " ".join((message or "").split())[:400] or the_message_in(frase)
+    tipo = "deliver_message" if messaggio else (
+        (operation or "").strip() or kind_of_request(frase))
     prep = MissionPreparation(
         owner_id=owner_id,
         user_request=frase,
         goal=goal.strip()[:300],
         counterparty=" ".join((counterparty or "").split())[:160],
+        operation=tipo,
+        message_to_deliver=messaggio,
         idempotency_key=chiave,
     )
     try:
@@ -105,8 +118,8 @@ async def look_around(
     prep.known_context = frasi
     prep.context_refs = refs
 
-    prep = await evaluate(db, prep, operation=operation)
-    prep = _rebuild_the_brief(prep, operation)
+    prep = await evaluate(db, prep, operation=_op(prep, operation))
+    prep = _rebuild_the_brief(prep, _op(prep, operation))
     await save(db, prep)
     return prep, ""
 
@@ -418,8 +431,8 @@ async def set_contact_number(
 async def _settle(
     db, prep: MissionPreparation, operation: str,
 ) -> Tuple[MissionPreparation, str]:
-    prep = await evaluate(db, prep, operation=operation)
-    prep = _rebuild_the_brief(prep, operation)
+    prep = await evaluate(db, prep, operation=_op(prep, operation))
+    prep = _rebuild_the_brief(prep, _op(prep, operation))
     await save(db, prep)
     return prep, ""
 
@@ -475,8 +488,8 @@ async def answer_question(
         prep.answer(quale, testo)
 
     _read_the_times_in(prep, testo)
-    prep = await evaluate(db, prep, operation=operation)
-    prep = _rebuild_the_brief(prep, operation)
+    prep = await evaluate(db, prep, operation=_op(prep, operation))
+    prep = _rebuild_the_brief(prep, _op(prep, operation))
     await save(db, prep)
     return prep, ""
 
@@ -547,6 +560,7 @@ async def turn_into_a_call(
     Torna la telefonata **preparata** — non composta. Comporre resta un gesto
     a parte, e passa dalla porta di sempre.
     """
+    operation = _op(prep, operation)
     if not prep.can_become_a_call():
         manca = []
         if not prep.number_confirmed or not prep.number_trust:
@@ -577,12 +591,20 @@ async def turn_into_a_call(
     from telephone.service import TelephoneService
 
     riassunto = prep.mission_brief or il_riassunto.build(prep, operation=operation)
+    consegna = operation == "deliver_message" and bool(prep.message_to_deliver)
     call = await TelephoneService(db).prepare(
         prep.owner_id,
         to_number=contatto.number,
         calling_whom=contatto.name,
         mandate=Mandate(
-            why_calling=str(riassunto.get("perche_chiamo") or prep.goal)[:400],
+            #     IL MESSAGGIO VIAGGIA NEL MANDATO, NON NEL MOTIVO.
+            # Il motivo si legge a chiunque risponda; il messaggio no.
+            message=prep.message_to_deliver if consegna else "",
+            recipient=contatto.name if consegna else "",
+            why_calling=(
+                f"consegnare un messaggio a {contatto.name}" if consegna
+                else str(riassunto.get("perche_chiamo") or prep.goal)
+            )[:300],
             may_agree_to=[str(x)[:160] for x in
                           (riassunto.get("posso_accettare") or [])][:8],
             must_bring_back=[
@@ -601,7 +623,8 @@ async def turn_into_a_call(
     # È la regola di V3.15 e non cambia: l'oggetto si decide prima dello
     # squillo. La differenza è che adesso non lo passa una persona a mano —
     # lo porta la preparazione, che l'ha riconosciuto dal contesto.
-    legame = await _tie_it(db, prep, call, operation)
+    #     UN MESSAGGIO NON SI LEGA A NIENTE: NON C'E' NIENTE DA CAMBIARE.
+    legame = None if consegna else await _tie_it(db, prep, call, operation)
     prep.call_id = call.id
     await save(db, prep)
 

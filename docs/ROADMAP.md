@@ -6,11 +6,11 @@ percorso fino al lancio si leggono qui e solo qui.
 
 | | |
 |---|---|
-| **Versione corrente** | **V3.21.1 — PASS** |
+| **Versione corrente** | **V3.21.1a — CODE/UI PASS · REAL CALL GATE PENDING USER APPROVAL** |
 | **Prossimo sprint** | **V3.21 — Telephone Product Hardening** |
 | Branch | `feature/ora-quiet-premium-design-system` |
 | Ultimo checkpoint | `37af8a5` (lavoro) · `3baeaa1` (igiene) |
-| Aggiornato | 2026-09-15 |
+| Aggiornato | 2026-09-19 |
 
 Gli altri due registri restano quello che sono e non ripetono questo:
 `CHANGELOG_AI.md` è il diario datato di che cosa è cambiato,
@@ -148,8 +148,8 @@ conduce una commissione dentro un mandato scritto prima.
 **Exit criteria** — otto telefonate reali; zero riagganci su chi sta parlando;
 zero burst; nessuna interruzione udibile. ✅
 **Debito lasciato** — p90/p95 del playback regrediti sulla chiamata 8;
-buchi a monte di Gemini fino a 837 ms; deriva di lingua nella trascrizione
-d'ingresso. → **V3.21**
+buchi a monte di Gemini fino a 837 ms *(diagnosi superata in V3.21.1: i buchi udibili erano locali — vedi V3.21.1)*; deriva di lingua nella
+trascrizione d'ingresso. → **V3.21**
 
 ### V3.14 — Call History · **PASS**
 **Obiettivo** — chi ha chiesto la telefonata deve poter sapere com'è andata,
@@ -206,7 +206,7 @@ silenzio sul runtime classico · riaggancio garantito dopo il commiato.
   vuoto, secondo apply senza duplicati.
 **Debito lasciato** → **V3.21**: buchi dell'audio a monte di Gemini (17 sopra
 i 100 ms sull'ultima chiamata, `inbound_gap_max` 934 ms, cuscino di 200 ms
-insufficiente) · **reality gate della ripresa di sessione mai scattato** — il
+insufficiente) *(diagnosi superata in V3.21.1: i buchi udibili erano locali — vedi V3.21.1)* · **reality gate della ripresa di sessione mai scattato** — il
 filo non è più caduto, quindi il codice di ripresa è provato solo sui finti ·
 ulteriore irrobustimento di voce e trasporto.
 
@@ -350,7 +350,7 @@ sempre sì, perché oggi l'unica azione esterna è il telefono. E quello che si
 sente: 2,0 s dal «pronto» alla voce (2770 · 1721 · 1977 ms di primo audio
 Gemini, contro 0,68 ms di percorso nostro), undici buchi sopra i 100 ms e due
 interruzioni dentro un turno sopra il secondo (1235 e 1153 ms) — misurato sulla
-chiamata del gate, ed è la stessa cosa dichiarata da V3.16. Più la deriva di
+chiamata del gate, ed è la stessa cosa dichiarata da V3.16 *(diagnosi superata in V3.21.1: i buchi udibili erano locali — vedi V3.21.1)*. Più la deriva di
 lingua: la controparte è stata trascritta in portoghese a metà telefonata.
 **Dipendenze** — V3.19.
 
@@ -418,13 +418,15 @@ calendario.
 **Obiettivo** — saldare tutto il debito dichiarato di V3.13 e V3.14.
 **Deliverable previsti** — p90/p95 del playback · stato `segreteria` con un
 segnale affidabile · paginazione Call History · deriva di lingua · **buchi
-dell'audio a monte di Gemini** (17 sopra i 100 ms su una chiamata vera,
-`inbound_gap_max` 934 ms, cuscino di 200 ms insufficiente) · **reality gate
+nell'audio** — *causa aggiornata in V3.21.1*: i buchi udibili sopra il secondo
+non venivano da Gemini ma dal processo stesso, fermato ~450 ms da ogni client
+HTTP creato durante la chiamata (caricamento dei certificati); i buchi di
+Gemini, fino a ~200 ms, vengono assorbiti dalla coda · **reality gate
 della ripresa di sessione**, mai scattato perché il filo non è più caduto ·
 ulteriore irrobustimento di voce e trasporto · **latenza di risposta**,
-p50 fra 1,6 e 3,1 secondi su telefonate vere: il percorso critico nostro
-è sotto il millisecondo, il resto è il modello che pensa e consegna
-a strappi.
+p50 fra 1,6 e 3,1 secondi su telefonate vere — *aggiornato in V3.21.1*:
+~1,1 s era l'attesa di silenzio del VAD di Gemini, configurabile e ridotta;
+resta a monte ~0,7 s di generazione.
 **Exit criteria** — nessun debito telefonico dichiarato resta aperto.
 **Dipendenze** — V3.20.
 
@@ -436,7 +438,8 @@ configurabile: misurata su Gemini vero senza telefono — default 1781 ms,
 `END_SENSITIVITY_HIGH`, regolabile da `GEMINI_LIVE_SILENCE_MS` (300–2000).
 Sulle chiamate vere: apertura **1596 · 1498 ms** (era 2770), turni p50
 **1498 ms** (erano 1,7–2,8 s). Resta a monte ~0,7 s di generazione Gemini.
-**Scatti — causa trovata, era locale.** Ogni `httpx.AsyncClient()` nuovo
+**Scatti — causa trovata, era locale.** La diagnosi precedente, che li
+attribuiva a Gemini, era incompleta: la nuova strumentazione l'ha corretta. Ogni `httpx.AsyncClient()` nuovo
 ferma l'event loop ~450 ms (max 761) per caricare i certificati: due, aperti
 dalla sincronizzazione di sfondo durante l'apertura, sono i due buchi da
 1235/1152 ms del gate V3.20. Preso sul fatto da un testimone degli stalli al
@@ -457,6 +460,40 @@ altri punti del progetto creano ancora client HTTP senza contesto condiviso;
 le suite ambient v38 sono instabili anche su HEAD (DB condiviso, verificato
 A/B). Due tentativi di chiamata sono finiti per errore a un numero di terzi
 (lo script sceglieva «l'ultimo numero»): corretto, destinatario verificato.
+
+#### V3.21.1a — General Phone Capability + Message Delivery · **CODE/UI PASS** · **REAL CALL GATE PENDING USER APPROVAL**
+**Il problema.** In chat ORA rispondeva «non posso telefonare»: lo strumento
+era descritto solo per studi e attività, e chiedeva un numero obbligatorio.
+**Capacità dichiarata dal vero.** Il prompt riceve `what_ora_can_do`, derivato
+dagli strumenti realmente disponibili: con lo strumento presente «puoi
+telefonare», senza nessuna promessa. `prepare_a_phone_call` vale per chiunque
+(persone private comprese), `counterparty` al posto del numero obbligatorio.
+**Nuova missione `deliver_message`.** Il messaggio viaggia nel mandato con le
+parole di chi lo manda, mai nel motivo; il modello Live non lo vede finché
+`recipient_confirmed` non ha verificato la persona. Persona sbagliata →
+nessuna rivelazione; risposta del destinatario catturata; esiti
+delivered / recipient_unavailable / wrong_person / no_answer / failed /
+needs_user; nessuna scrittura applicativa; storico in parole umane
+(«Messaggio consegnato a Giulia.», «Giulia ti ha risposto: "…"»).
+**Contatto e conferme (V3.20.1 invariato).** Rubrica, numeri già confermati
+riusati anche per richieste relazionali («la mia ragazza»), numero nuovo →
+«Ho trovato X, numero (provenienza). È questo il numero corretto?», poi il
+riassunto con il messaggio fra virgolette e «Vuoi che la chiami?».
+**Trovati e corretti durante la prova in app.** (1) La richiesta stessa
+(«chiama…») contava come «sì» e rendeva affidabile un numero mai confermato:
+ora il sì si legge solo dalle parole della persona, prima parola, e mai dal
+testo della richiesta. (2) Il modello riassumeva la conferma in «Ok.» o in
+«È questo il numero corretto?» senza numero: la frase dello strumento
+(`say_this`) fa fede, cercata nelle osservazioni del turno. (3) Un solo «sì»
+confermava il numero **e** dava il via libera, saltando il riassunto: il via
+libera ora vale solo per un riassunto mostrato in un turno precedente.
+**Prova.** Chat reale: «Chiama la mia ragazza e dille che la amo» → contatto
+di prova Giulia Test con provenienza → «sì» → riassunto con «la amo» →
+fermo a READY, nessuna telefonata creata. Contatto e record di prova rimossi.
+Regressione telefono + chat: 1126 test verdi.
+**Debito.** Nell'app non c'è ancora un tasto per comporre: la chat arriva a
+«telefonata pronta», la chiamata parte solo da API (→ V3.22). La consegna non
+è ancora stata provata su una telefonata vera: serve il via libera del CPO.
 
 ### V3.22 — Call UX Final
 **Obiettivo** — la telefonata come funzione di prodotto finita, non come
