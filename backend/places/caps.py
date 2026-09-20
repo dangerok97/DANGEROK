@@ -10,9 +10,13 @@ reasoning — and reasoning is not a tool call.
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any, Dict, List
+
+import logging
 
 from conversation_engine.ai_core.models import Observation
+
+logger = logging.getLogger("ora.places.caps")
 
 
 def _fail(name: str, code: str, detail: str = "") -> Observation:
@@ -221,6 +225,8 @@ async def open_navigation(arguments: Dict[str, Any], runtime: Dict[str, Any]) ->
     # breath as the button, not after a second question — and it is a live
     # number here, so it may be spoken as one.
     journey = None
+    scelte: List[Dict[str, Any]] = []
+    consiglio = ""
     if origin is not None:
         from places import routing
 
@@ -236,6 +242,15 @@ async def open_navigation(arguments: Dict[str, Any], runtime: Dict[str, Any]) ->
                 "reflects_current_traffic": route.get("reflects_current_traffic"),
                 "is_live": True,
             }
+        #     TRE MODI DI ANDARCI, CONFRONTATI.
+        # Non è un elenco di link: è la domanda che si fa una persona che deve
+        # uscire. Ogni riga esiste solo se il servizio ha risposto per quel
+        # modo — niente tempi inventati, e se non risponde nessuno non c'è
+        # nessun confronto da mostrare.
+        scelte = await _how_to_get_there(origin, place.coordinates.precise())
+        consiglio, parti_entro = await _when_to_leave(
+            runtime["db"], uid, scelte,
+        )
 
     return _ok(
         "open_navigation",
@@ -244,11 +259,109 @@ async def open_navigation(arguments: Dict[str, Any], runtime: Dict[str, Any]) ->
             "place": place.for_ai(),
             "has_origin": origin is not None,
             "route": journey,
+            #     PRIMA IL CONSIGLIO, POI I LINK.
+            "journey_options": scelte,
+            "advice": consiglio,
+            "routing": None if scelte else _routing_note(),
             **plan,
         },
         uid,
         status="needs_client",
     )
+
+
+#     I MODI CHE SI CONFRONTANO, E COME SI CHIAMANO PER CHI LEGGE.
+_MODI = (
+    ("drive", "In auto", "car-outline"),
+    ("transit", "Con i mezzi", "train-outline"),
+    ("bicycle", "In bici", "bicycle-outline"),
+)
+
+
+def _routing_note() -> Dict[str, Any]:
+    """Perché non c'è un confronto: si dice, non si inventa."""
+    from places import routing
+
+    c = routing.capabilities()
+    return {
+        "available": bool(c.get("available")),
+        "why_unavailable": c.get("why_unavailable") or "",
+    }
+
+
+async def _how_to_get_there(origin, destination) -> List[Dict[str, Any]]:
+    """
+    Quanto ci vuole per ognuno dei modi, da chi lo sa davvero.
+
+    Ogni voce porta anche se il tempo tiene conto del traffico: «22 minuti» con
+    il traffico dentro e «22 minuti» senza sono due frasi diverse, e chi legge
+    ha diritto di sapere quale sta guardando.
+    """
+    from places import routing
+
+    fuori: List[Dict[str, Any]] = []
+    for modo, etichetta, icona in _MODI:
+        r = await routing.get_route(origin=origin, destination=destination, travel_mode=modo)
+        if not r.get("available") or not r.get("duration_seconds"):
+            continue
+        fuori.append({
+            "mode": modo,
+            "label": etichetta,
+            "icon": icona,
+            "duration_seconds": int(r["duration_seconds"]),
+            "duration_label": _minuti(int(r["duration_seconds"])),
+            "distance_meters": r.get("distance_meters"),
+            "reflects_current_traffic": bool(r.get("reflects_current_traffic")),
+        })
+    if fuori:
+        #     IL CONSIGLIO È IL PIÙ VELOCE, E SI DICE PERCHÉ.
+        piu_veloce = min(fuori, key=lambda x: x["duration_seconds"])
+        for v in fuori:
+            v["recommended"] = v is piu_veloce
+    return fuori
+
+
+async def _when_to_leave(db, uid: str, scelte: List[Dict[str, Any]]):
+    """
+    A che ora conviene partire, dal primo impegno di oggi.
+
+    Torna (frase, ora_di_partenza). Senza un impegno o senza un tempo di
+    percorrenza non c'è niente da consigliare, e la frase resta vuota: meglio
+    nessun consiglio di un consiglio inventato.
+    """
+    if not scelte:
+        return "", ""
+    consigliato = next((s for s in scelte if s.get("recommended")), scelte[0])
+    try:
+        from datetime import datetime, timedelta
+
+        from deps import get_daily_summary_service
+
+        giornata = await get_daily_summary_service().today(uid, tz_name="Europe/Rome")
+        d = giornata.to_dict() if hasattr(giornata, "to_dict") else giornata
+        eventi = [e for e in (d.get("events") or []) if e.get("start")]
+        if not eventi:
+            return "", ""
+        primo = eventi[0]
+        quando = datetime.fromisoformat(str(primo["start"]).replace("Z", "+00:00"))
+        margine = timedelta(minutes=10)
+        partenza = quando - timedelta(seconds=consigliato["duration_seconds"]) - margine
+        titolo = str(primo.get("title") or primo.get("label") or "il tuo impegno")
+        return (
+            f"Ti consiglio di partire entro le {partenza.strftime('%H:%M')} per arrivare "
+            f"con un po' di margine a {titolo} delle {quando.strftime('%H:%M')}."
+        ), partenza.strftime("%H:%M")
+    except Exception as e:  # pragma: no cover
+        logger.info("consiglio di partenza non calcolato: %s", type(e).__name__)
+        return "", ""
+
+
+def _minuti(secondi: int) -> str:
+    minuti = max(1, round(secondi / 60))
+    if minuti < 60:
+        return f"{minuti} min"
+    ore, resto = divmod(minuti, 60)
+    return f"{ore} h" if not resto else f"{ore} h {resto} min"
 
 
 def _travel_mode(mode) -> str:

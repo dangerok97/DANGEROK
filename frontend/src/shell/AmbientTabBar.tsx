@@ -26,6 +26,8 @@ import {
   type AmbientNavKey,
 } from './navItems';
 import { useDeclareShellMode } from './ShellModeContext';
+import { SideRail, type RailKey } from './SideRail';
+import { railKeyFor } from './DesktopShell';
 
 export function AmbientTabBar({ state, navigation }: BottomTabBarProps) {
   useDeclareShellMode('ambient');
@@ -208,40 +210,17 @@ export function AmbientTabBar({ state, navigation }: BottomTabBarProps) {
     .map(renderItem);
 
   if (isRail) {
+    /*
+      V3.21.3: la barra laterale è una sola, `SideRail`, la stessa che
+      `DesktopShell` disegna per le schermate fuori dalle tab.
+    */
     return (
-      <View
-        style={[
-          styles.railWrap,
-          {
-            width: AMBIENT_RAIL_WIDTH,
-            paddingTop: Math.max(insets.top, 16),
-            paddingBottom: Math.max(insets.bottom, 16),
-            backgroundColor: colors.backgroundSecondary,
-            borderRightColor: colors.divider,
-          },
-        ]}
-        testID="ambient-rail"
-        accessibilityLabel="Navigazione Ambient"
-      >
-        {/*
-          Brand, destinations, then the person. The gap between the last
-          destination and the account is the point: it is what says Profilo is
-          not a sixth place to go.
-        */}
-        <View style={styles.railBrand}>
-          <OraBrand />
-        </View>
-        <View style={styles.railInner}>{primaryItems}</View>
-        <View style={[styles.railAccount, { borderTopColor: colors.divider }]}>
-          <RailAccount
-            name={user?.name}
-            email={user?.email}
-            picture={user?.picture}
-            onPress={() => onPress(AMBIENT_ACCOUNT_ITEM.route)}
-            selected={activeRoute === AMBIENT_ACCOUNT_ITEM.route}
-          />
-        </View>
-      </View>
+      <SideRail
+        active={(railKeyFor(pathname) ?? (activeRoute as RailKey)) || null}
+        onNavigate={(key) => onPress(key)}
+        topInset={insets.top}
+        bottomInset={insets.bottom}
+      />
     );
   }
 

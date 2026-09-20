@@ -16,12 +16,16 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { triggerHaptic } from '@/src/theme/haptics';
+import { useAuth } from '@/src/contexts/AuthContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { api, type AgentNeed, type HomeOpportunity } from '@/src/api/client';
@@ -52,6 +56,13 @@ import {
   OraWorking,
 } from './OraChrome';
 import { OraTurns, type Turn } from './OraTurns';
+import { OraContextRail } from './OraContextRail';
+import type { OraJourneyView } from './OraJourney';
+import { DesktopShell } from '@/src/shell';
+import { useBreakpoint } from '@/src/theme/responsive';
+import { titleCase } from '@/src/shell/RailAccount';
+import { ora, oraType } from '@/src/theme/oraSurface';
+import { greetingFor } from '@/src/components/home/v3/HomeChrome';
 
 /** Conversation reading width — long reasoning stays legible, never full-bleed. */
 const READING_MAX_WIDTH = 720;
@@ -745,6 +756,8 @@ export function OraConversationScreen({
       const navigation = Array.isArray((res as any).navigation)
         ? ((res as any).navigation as OraNavigationOption[]).slice(0, 3)
         : [];
+      // Come arrivarci, confrontato: viaggia con la risposta, non con lo storico.
+      const journey = ((res as any).journey || null) as OraJourneyView | null;
       const lastOra = rebuilt.map((t) => t.role).lastIndexOf('ora');
       if (lastOra >= 0) {
         // The response carries the answer in full; the stored history entry is
@@ -760,6 +773,7 @@ export function OraConversationScreen({
           text,
           ...(sources.length ? { sources } : {}),
           ...(navigation.length ? { navigation } : {}),
+          ...(journey?.options?.length || journey?.unavailable ? { journey } : {}),
         };
       }
       rememberSources(sid, rebuilt);
@@ -1090,7 +1104,53 @@ export function OraConversationScreen({
     };
   }, [sessionId, busy, lastOraText]);
 
+  /*
+    Mentre ORA lavora, si dice quello che sta facendo davvero.
+
+    Il ciclo scrive sulla sessione lo strumento in corso — «Controllo il tuo
+    calendario…», «Cerco il contatto…» — e qui lo si legge. Se non c'è niente
+    di concreto da dire, resta il messaggio di attesa di sempre: nessuna
+    attività inventata per riempire il silenzio.
+  */
+  useEffect(() => {
+    if (!busy || !sessionId) return;
+    let alive = true;
+    const tick = async () => {
+      try {
+        const p = await api.aiCoreProgress(sessionId);
+        if (alive && p?.working_on) setWorkingHint(p.working_on);
+      } catch {
+        // niente
+      }
+    };
+    const t = setInterval(() => void tick(), 1200);
+    void tick();
+    return () => { alive = false; clearInterval(t); };
+  }, [busy, sessionId]);
+
   const emptyStart = !boot && turns.length === 0 && !busy;
+  const auth = useAuth();
+  const bp = useBreakpoint();
+  const wide = bp === 'desktop';
+  const primoNome = titleCase(auth.user?.name || '').split(/\s+/)[0] || null;
+
+  /*
+    Le scorciatoie sotto il composer. Non sono decorazione: due mandano
+    davvero un messaggio a ORA, una apre i documenti, una apre le chiamate.
+    Niente bottoni che non fanno niente.
+  */
+  const quickActions: { label: string; run: () => void }[] = [
+    {
+      label: 'Pianifica la giornata',
+      run: () => { setText('Pianifica la mia giornata di oggi.'); void triggerHaptic('selection'); },
+    },
+    {
+      label: 'Riepiloga le mie attività',
+      run: () => { setText('Riepiloga le mie attività aperte.'); void triggerHaptic('selection'); },
+    },
+    { label: 'Cerca un documento', run: () => router.push('/documenti' as any) },
+    { label: 'Chiama qualcuno', run: () => router.push('/prepara-chiamata' as any) },
+  ];
 
   const composer = (
     <OraComposer
@@ -1122,8 +1182,33 @@ export function OraConversationScreen({
     </>
   );
 
-  return (
-    <FocusScreen testID={testID} maxWidth={READING_MAX_WIDTH}>
+  const composerBlock = wide ? (
+    <View style={styles.composerWrap}>
+      {composer}
+      <View style={styles.quickRow} testID="ora-quick-actions">
+        {quickActions.map((q) => (
+          <Pressable
+            key={q.label}
+            onPress={q.run}
+            accessibilityRole="button"
+            style={({ pressed, hovered }: any) => [
+              styles.quickChip,
+              hovered && { backgroundColor: ora.hover },
+              pressed && { opacity: 0.7 },
+            ]}
+          >
+            <Ionicons name="add" size={15} color={ora.ink3} />
+            <Text style={[oraType.small, { color: ora.ink2 }]}>{q.label}</Text>
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  ) : (
+    composer
+  );
+
+  const schermo = (
+    <FocusScreen testID={testID} maxWidth={wide ? 860 : READING_MAX_WIDTH}>
       <LocationPermissionSheet
         visible={locPermVisible}
         onAllow={() => resolveLocationPreference(true)}
@@ -1158,7 +1243,23 @@ export function OraConversationScreen({
                 DEV / diagnostica — usa /ora in produzione
               </Text>
             ) : null}
-            <OraHeader context={context} onBack={goBack} />
+            {/*
+              Sul desktop la conversazione è una stanza del prodotto, non una
+              schermata a sé: al posto del «‹ ORA» c'è chi sei e che cosa si
+              può chiedere. Su telefono resta l'intestazione di sempre.
+            */}
+            {wide ? (
+              <View style={styles.deskHead} testID="ora-desktop-header">
+                <Text style={[oraType.display, { color: ora.ink }]} accessibilityRole="header">
+                  {greetingFor()}, {primoNome || 'ciao'}.
+                </Text>
+                <Text style={[oraType.body, { color: ora.ink2 }]}>
+                  Dimmi cosa posso fare per te oggi.
+                </Text>
+              </View>
+            ) : (
+              <OraHeader context={context} onBack={goBack} />
+            )}
           </View>
 
           {emptyStart ? (
@@ -1173,7 +1274,7 @@ export function OraConversationScreen({
                 {opening}
                 {asides}
               </View>
-              {composer}
+              {composerBlock}
               <View style={styles.startSpacerBottom} />
             </View>
           ) : (
@@ -1199,12 +1300,25 @@ export function OraConversationScreen({
                 )}
               </ScrollView>
 
-              <View style={{ paddingBottom: Math.max(insets.bottom, 8) }}>{composer}</View>
+              <View style={{ paddingBottom: Math.max(insets.bottom, 8) }}>{composerBlock}</View>
             </>
           )}
         </View>
       </KeyboardAvoidingView>
     </FocusScreen>
+  );
+
+  if (!wide) return schermo;
+
+  return (
+    <DesktopShell active="ora">
+      <View style={styles.deskRow}>
+        <View style={styles.deskMain}>{schermo}</View>
+        <View style={styles.deskRailWrap}>
+          <OraContextRail activeContext={context?.goal || null} />
+        </View>
+      </View>
+    </DesktopShell>
   );
 }
 
@@ -1235,5 +1349,16 @@ const styles = StyleSheet.create({
   startSpacerTop: { flex: 2, maxHeight: 140 },
   startSpacerBottom: { flex: 3 },
   startIntro: { paddingHorizontal: tokens.spacing.lg },
+  deskHead: { paddingTop: 18, paddingBottom: 10, gap: 6 },
+  deskRow: { flex: 1, flexDirection: 'row' },
+  deskMain: { flex: 1, minWidth: 0 },
+  deskRailWrap: { paddingRight: 28, paddingTop: 26, paddingBottom: 20 },
+  composerWrap: { gap: 12 },
+  quickRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingHorizontal: 4 },
+  quickChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 14, paddingVertical: 8,
+    borderRadius: 999, borderWidth: StyleSheet.hairlineWidth, borderColor: ora.hairline,
+  },
   devBanner: { fontSize: 12, paddingBottom: 4 },
 });

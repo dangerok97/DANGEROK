@@ -6,11 +6,11 @@ percorso fino al lancio si leggono qui e solo qui.
 
 | | |
 |---|---|
-| **Versione corrente** | **V3.21.2 — Call Failure & Recovery Hardening · PASS** |
-| **Prossimo sprint** | **ORA Product Experience Rebuild — NOT STARTED** |
+| **Versione corrente** | **V3.21.3 — ORA Product Experience Rebuild · PASS** |
+| **Prossimo sprint** | **V3.22 — Call UX Final** |
 | Branch | `feature/ora-quiet-premium-design-system` |
 | Ultimo checkpoint | `37af8a5` (lavoro) · `3baeaa1` (igiene) |
-| Aggiornato | 2026-09-19 |
+| Aggiornato | 2026-09-20 |
 
 Gli altri due registri restano quello che sono e non ripetono questo:
 `CHANGELOG_AI.md` è il diario datato di che cosa è cambiato,
@@ -577,7 +577,7 @@ controllato senza chiamare terzi; coperti da prove con i payload dell'operatore.
 consegna; quick tunnel; 33 client HTTP fuori dal percorso Live; frasi
 dell'apertura e dei saluti ancora affidate al modello.
 
-#### Debito registrato durante V3.21 — ORA Product Experience Rebuild · **NOT STARTED**
+#### Debito registrato durante V3.21 — ORA Product Experience Rebuild · **CHIUSO da V3.21.3**
 **Priorità** — alta. Emerso dall'audit completo dell'app reale (video 2026-09-19).
 Non è semplice polish: l'esperienza principale non rappresenta ancora ORA come
 assistente di vita unico, coerente e operativo.
@@ -603,6 +603,66 @@ visivi autorevoli e il pass richiederà app reale, screenshot comparativi e
 reality gate funzionali sui difetti osservati.
 
 L'ordine resta: V3.21.1a ✅ → V3.21.2 ✅ → ORA Product Experience Rebuild → V3.22 → V4.
+
+#### V3.21.3 — ORA Product Experience Rebuild · **PASS**
+**Design system.** Un'unica grammatica (`src/theme/oraSurface.ts` + `ora-ui`):
+bianco caldo, blu ORA profondo per la gerarchia, un solo blu luminoso per CTA
+e stato attivo, bordi da un capello, ombre appena percettibili, raggio 22.
+La barra laterale è un componente solo (`SideRail`), usato dalla barra delle
+tab e da `DesktopShell`: le schermate fuori da `(tabs)` — conversazione,
+Conosciamoci, preparazione telefonata — avevano navigazioni diverse o nessuna.
+**Home.** Composizione della reference: focus di oggi con CTA e «Perché ora?»,
+Domande per te, Aggiornamenti di ORA, composer; a destra data, calendario,
+prossimi appuntamenti e ORA in sintesi. «Oggi» e «Più avanti» non sono più
+duplicati al centro sul desktop.
+**Domande per te — bug chiuso.** Si rispondeva in chat e la domanda restava
+aperta in Home: ora un messaggio nella conversazione che aveva chiesto chiude
+la domanda (`answered_in_thread`), una riconciliazione chiude quelle già
+risposte in passato, e una telefonata finita chiude le domande della sua chat.
+**Aggiornamenti — provenienza.** Ogni riga porta COSA, DA DOVE («Appuntamento
+in calendario il 18 settembre», «Me l'hai chiesto tu il …»), PERCHÉ CONTA,
+STATO, COSA SERVE A TE («Non serve nulla per ora.») e un'azione. Niente è
+inventato: senza fonte la riga dice che nasce dal lavoro di ORA.
+**Chat.** Sul desktop ha la barra laterale, l'intestazione personale, le
+scorciatoie sotto il composer e una colonna di contesto alimentata dalla
+stessa risposta canonica della Home.
+**Navigazione.** `open_navigation` confronta auto, mezzi e bici con i tempi
+del provider, consiglia il più veloce e dice entro quando partire per il primo
+impegno; la chat lo disegna come «Le migliori opzioni per te». Senza provider
+di routing **non si inventa niente**: si dice perché il confronto non c'è e
+restano i link alle mappe.
+**Presenza.** Tre eventi canonici invece di due: `entered`, `exited`,
+`returned` (finestra di otto ore), con l'isteresi di sempre. Provato dal vivo
+con posizioni simulate: entrato → uscito → tornato.
+**Preparazione telefonata.** Tre passi (contatto trovato · privacy e intenti ·
+pronto per chiamare) con la colonna «La tua richiesta» e «Riepilogo chiamata».
+Chi chiamare si legge anche dalla frase («Chiama Asia e dille che…»), che prima
+lasciava la schermata senza contatto. E c'è il tasto che mancava dal V3.21.1a:
+**«Chiama ora» compone davvero**, passando dalla route del prodotto.
+**Conosciamoci e Documenti.** Percorso con «Quello che ORA sa già», «Cosa manca
+per aiutarti meglio» e un solo prossimo passo; Documenti con tre capacità, il
+riepilogo vero di ogni documento, stato come badge, Apri/Riepilogo/Azioni e
+«Azioni suggerite» costruite sui documenti reali.
+**Latenza della chat — misurata, non ipotizzata.** Fasi per turno nel trace:
+contesto **4–18 ms**, strumenti 0–40 ms, modello **3,9–19,7 s**. Il tempo è
+tutto del provider e varia di quattro volte fra due turni uguali; il prompt di
+sistema pesa 58.432 caratteri (~15k token) e un confronto con un prompt ridotto
+non ha dato una differenza leggibile sopra la varianza. Mitigazione fatta: al
+posto di «Sto ragionando…» la chat mostra lo strumento che sta davvero girando
+(«Controllo il tuo calendario…»), letto dal ciclo, mai inventato.
+**Reality gate.** A: Home → Rispondi → risposta in chat → Home aggiornata
+(5 → 4, la domanda sparisce). B: aggiornamento con fonte e azione. C: «Portami
+a lavoro» risolve prima il luogo (nessun luogo salvato: chiede quale) —
+**confronto dei tempi non dimostrabile senza provider di routing**. D: entrato
+/uscito/tornato canonici. E: latenza prima/dopo sopra. F: la preparazione usa
+MissionPreparation e i numeri già confermati. G: i documenti mostrano stato e
+riepilogo dal backend.
+**Test.** 22 prove nuove sul backend (`test_product_experience_v3213.py`) più
+la regressione; nel frontend corrette tre guardie ferme a prima di Chiamate.
+**Debito.** Provider di routing e luoghi salvati assenti in questo ambiente:
+il modulo dei tempi non ha dati veri. Latenza della conversazione = latenza del
+modello. Restano rosse due guardie del frontend precedenti a questo sprint
+(px19 su `settings.tsx`, px11 sulla frase di conferma).
 
 ### V3.22 — Call UX Final
 **Obiettivo** — la telefonata come funzione di prodotto finita, non come

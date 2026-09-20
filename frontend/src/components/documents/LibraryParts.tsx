@@ -3,6 +3,8 @@ import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-nativ
 import { Ionicons } from '@expo/vector-icons';
 
 import { useTheme } from '@/src/theme/ThemeProvider';
+import { OraBadge, OraButton } from '@/src/components/ora-ui';
+import { ora, oraType } from '@/src/theme/oraSurface';
 import { tokens } from '@/src/theme/tokens';
 import { AccountEntry } from '@/src/shell';
 import {
@@ -432,8 +434,13 @@ export function DocumentRow({
             .filter(Boolean)
             .join(' · ')}
         </Text>
-        <Text style={[styles.rowSummary, { color: colors.textTertiary }]} numberOfLines={1}>
-          {item.summary ? 'Riepilogo disponibile' : 'Nessun riepilogo'}
+        {/*
+          Quello che ORA ha capito, con le sue parole. Prima la riga diceva
+          soltanto che un riepilogo esisteva: leggerlo è il motivo per cui
+          questa schermata non è un elenco di file.
+        */}
+        <Text style={[styles.rowSummary, { color: ora.ink2 }]} numberOfLines={2}>
+          {item.summary || 'ORA non ha ancora letto questo documento.'}
         </Text>
         {countdown && countdown !== 'Scaduta' ? (
           <Text style={[styles.rowCountdown, { color: colors.warning }]}>{countdown}</Text>
@@ -454,9 +461,46 @@ export function DocumentRow({
       </View>
 
       {!compact ? areaChips : null}
-      {!compact ? <View style={styles.rowStatus}>{status}</View> : null}
+      {!compact ? (
+        <View style={styles.rowStatus}>
+          {expiring ? (
+            <OraBadge label={expiring} tone="attention" icon="alert-circle-outline" />
+          ) : (
+            <OraBadge
+              label={label}
+              tone={
+                item.status === 'ready'
+                  ? 'success'
+                  : item.status === 'needs_review' || item.status === 'failed'
+                    ? 'attention'
+                    : 'neutral'
+              }
+              icon={tone.icon}
+            />
+          )}
+        </View>
+      ) : null}
 
-      <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
+      {/*
+        Le tre azioni della reference. Nessuna è decorativa: «Apri» e «Azioni»
+        portano al documento, «Riepilogo» esiste solo se un riepilogo c'è.
+      */}
+      {!compact ? (
+        <View style={styles.rowActions}>
+          <OraButton label="Apri" kind="secondary" compact iconRight="open-outline" onPress={onOpen} />
+          <OraButton
+            label="Riepilogo"
+            kind="quiet"
+            compact
+            icon="document-text-outline"
+            disabled={!item.summary}
+            onPress={onOpen}
+          />
+          <OraButton label="Azioni" kind="quiet" compact iconRight="ellipsis-horizontal" onPress={onOpen} />
+        </View>
+      ) : (
+        <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
+      )}
     </Pressable>
   );
 }
@@ -786,6 +830,7 @@ const styles = StyleSheet.create({
     borderRadius: tokens.radius.sm, paddingHorizontal: 9, paddingVertical: 4, maxWidth: 110,
   },
   areaLabel: { fontSize: 12 },
+  rowActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   rowStatus: { minWidth: 130, flexShrink: 0 },
   statusInline: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   compactMeta: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 4 },

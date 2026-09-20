@@ -35,6 +35,7 @@ import { isNetworkError, useOnlineStatus } from '@/src/hooks/use-online-status';
 import { humanizeError } from '@/src/utils/errors';
 import { haptic } from '@/src/utils/haptic';
 import { buildOraConversationHref } from '@/src/ora/oraNav';
+import { SuggestedPanel } from '@/src/components/documents/SuggestedPanel';
 import {
   ActionCard,
   CapabilitiesPanel,
@@ -235,11 +236,23 @@ export default function DocumentiScreen() {
           busy={phase === 'uploading'}
           testID="documents-upload"
         />
+        {/*
+          Tre capacità, come nella reference: aggiungere, chiedere, capire che
+          cosa ORA sa farci. Portano tutte a qualcosa che esiste davvero.
+        */}
         <ActionCard
-          icon="pulse-outline"
+          icon="chatbubble-ellipses-outline"
+          title="Chiedi a ORA"
+          detail="Fai una domanda sui tuoi documenti e ottieni subito una risposta"
+          cta="Fai una domanda"
+          onPress={askOra}
+          testID="documents-ask-question"
+        />
+        <ActionCard
+          icon="sparkles-outline"
           title="Cosa può fare ORA"
-          detail="Chiedile come usa i tuoi documenti"
-          cta="Scopri"
+          detail="Scopri come ORA ti aiuta a leggere, riassumere e gestire i tuoi documenti"
+          cta="Scopri di più"
           onPress={askOra}
           testID="documents-ask-ora"
         />
@@ -294,8 +307,9 @@ export default function DocumentiScreen() {
   const rail = (
     <>
       <SummaryPanel rows={library?.summary || []} />
-      <ExpiringPanel expiring={library?.expiring || []} onOpen={openDocument} />
       <CapabilitiesPanel />
+      <ExpiringPanel expiring={library?.expiring || []} onOpen={openDocument} />
+      <SuggestedPanel items={items as any} onOpen={openDocument} />
     </>
   );
 

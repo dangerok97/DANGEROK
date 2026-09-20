@@ -11,6 +11,8 @@ import type {
   OpenQuestionItem,
   ProactiveSuggestion,
 } from '@/src/api/client';
+import { IconBubble, OraBadge, OraButton, OraCard, OraLink, SectionTitle } from '@/src/components/ora-ui';
+import { ora, oraType } from '@/src/theme/oraSurface';
 import { ContextualCardVisual } from './ContextualCardVisual';
 import { agoLabel, relativeDayLabel } from './homeItemView';
 
@@ -20,6 +22,10 @@ import { agoLabel, relativeDayLabel } from './homeItemView';
 
 export function SectionShell({
   title,
+  icon,
+  subtitle,
+  linkLabel,
+  onLink,
   count,
   footerLabel,
   onFooter,
@@ -27,46 +33,40 @@ export function SectionShell({
   testID,
 }: {
   title: string;
+  /** L'icona accanto al titolo, come nella reference approvata. */
+  icon?: any;
+  subtitle?: string;
+  /** «3 da rispondere ›» — porta dove stanno tutte. */
+  linkLabel?: string;
+  onLink?: () => void;
   count?: number;
   footerLabel?: string;
   onFooter?: () => void;
   children: React.ReactNode;
   testID?: string;
 }) {
-  const { colors } = useTheme();
   return (
-    <View
-      style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}
-      testID={testID}
-    >
-      <View style={styles.sectionHead}>
-        <Text
-          style={[styles.sectionTitle, { color: colors.accent }]}
-          accessibilityRole="header"
-          aria-level={2}
-        >
-          {title}
-        </Text>
-        {typeof count === 'number' && count > 0 ? (
-          <View style={[styles.badge, { backgroundColor: colors.accentMuted }]}>
-            <Text style={[styles.badgeText, { color: colors.accent }]}>{count}</Text>
-          </View>
-        ) : null}
-      </View>
+    <OraCard style={styles.section} testID={testID}>
+      <SectionTitle
+        icon={icon}
+        title={title}
+        subtitle={subtitle}
+        right={linkLabel ? <OraLink label={linkLabel} onPress={onLink || onFooter} /> : undefined}
+      />
 
       <View style={styles.sectionBody}>{children}</View>
 
-      {footerLabel && onFooter ? (
+      {footerLabel && onFooter && !linkLabel ? (
         <Pressable
           onPress={onFooter}
           style={({ pressed }) => [styles.footer, pressed && styles.pressed]}
           accessibilityRole="button"
         >
-          <Text style={[styles.footerLabel, { color: colors.accent }]}>{footerLabel}</Text>
-          <Ionicons name="arrow-forward" size={13} color={colors.accent} />
+          <Text style={[styles.footerLabel, { color: ora.cta }]}>{footerLabel}</Text>
+          <Ionicons name="arrow-forward" size={13} color={ora.cta} />
         </Pressable>
       ) : null}
-    </View>
+    </OraCard>
   );
 }
 
@@ -105,19 +105,18 @@ export function QuestionsSection({
 
   return (
     <SectionShell
-      title="DOMANDE PER TE"
-      count={questions.length + open.length}
+      title="Domande per te"
+      icon="chatbubble-ellipses-outline"
+      subtitle="Ci sono alcune cose su cui ho bisogno della tua opinione."
+      linkLabel={`${questions.length + open.length} da rispondere`}
+      onLink={onSeeAll}
       footerLabel={onSeeAll ? 'Vedi tutte le domande' : undefined}
       onFooter={onSeeAll}
       testID="home-questions"
     >
       {open.slice(0, 3).map((q) => (
         <View key={q.id} style={styles.row}>
-          <ContextualCardVisual
-            item={{ type: 'reply', source_type: 'ora' }}
-            size="row"
-            style={styles.rowVisual}
-          />
+          <IconBubble name={iconForQuestion(q.context_label)} />
           <View style={styles.rowText}>
             <Text style={[styles.rowTitle, { color: colors.textPrimary }]} numberOfLines={3}>
               {q.question}
@@ -160,30 +159,21 @@ export function QuestionsSection({
               ))}
             </View>
           ) : (
-          <Pressable
+          <OraButton
+            label="Rispondi"
+            kind="secondary"
+            compact
             onPress={() => onAnswerOpen?.(q)}
-            style={({ pressed }) => [
-              styles.rowCta,
-              { borderColor: colors.accent },
-              pressed && styles.pressed,
-            ]}
-            accessibilityRole="button"
             accessibilityLabel={`Rispondi: ${q.question}`}
             testID={`home-open-question-${q.id}`}
-          >
-            <Text style={[styles.rowCtaLabel, { color: colors.accent }]}>Rispondi</Text>
-          </Pressable>
+          />
           )}
         </View>
       ))}
 
       {questions.slice(0, 3).map((q) => (
         <View key={q.id} style={styles.row}>
-          <ContextualCardVisual
-            item={{ type: 'reply', source_type: q.source }}
-            size="row"
-            style={styles.rowVisual}
-          />
+          <IconBubble name={iconForQuestion(q.title)} />
           <View style={styles.rowText}>
             <Text style={[styles.rowTitle, { color: colors.textPrimary }]} numberOfLines={2}>
               {q.title}
@@ -201,21 +191,15 @@ export function QuestionsSection({
               </Text>
             ) : null}
           </View>
-          <Pressable
+          <OraButton
+            label="Rispondi"
+            kind="secondary"
+            compact
+            busy={busyId === q.id}
             onPress={() => onAnswer(q)}
-            disabled={busyId === q.id}
-            style={({ pressed }) => [
-              styles.rowCta,
-              { borderColor: colors.accent },
-              pressed && styles.pressed,
-              busyId === q.id && styles.disabled,
-            ]}
-            accessibilityRole="button"
             accessibilityLabel={`Rispondi: ${q.title}`}
             testID={`home-question-answer-${q.id}`}
-          >
-            <Text style={[styles.rowCtaLabel, { color: colors.accent }]}>Rispondi</Text>
-          </Pressable>
+          />
         </View>
       ))}
     </SectionShell>
@@ -333,18 +317,17 @@ export function UpdatesFeed({
 
   return (
     <SectionShell
-      title="AGGIORNAMENTI DI ORA"
+      title="Aggiornamenti di ORA"
+      icon="sparkles-outline"
+      subtitle="Ecco cosa sta succedendo, in modo chiaro."
+      linkLabel={total === 1 ? '1 aggiornamento' : `${total} aggiornamenti`}
+      onLink={onSeeAll}
       footerLabel={onSeeAll ? 'Vedi tutti gli aggiornamenti' : undefined}
       onFooter={onSeeAll}
       testID="home-updates"
     >
       {working.map((w) => (
-        <View key={w.id} style={styles.oppItem} testID={`home-agent-${w.id}`}>
-          <Text style={[styles.oppTitle, { color: colors.textPrimary }]}>{w.what}</Text>
-          <Text style={[styles.oppWhy, { color: colors.textTertiary }]} numberOfLines={2}>
-            {w.state}
-          </Text>
-        </View>
+        <AgentWorkRow key={w.id} work={w} onOpen={onSeeAll} />
       ))}
 
       {raised.map((o) => (
@@ -536,13 +519,11 @@ export function HorizonSection({
 /* -------------------------------------------------------------------------- */
 
 const styles = StyleSheet.create({
-  section: {
-    borderRadius: tokens.radius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: tokens.spacing.lg,
-    paddingVertical: tokens.spacing.lg,
-    gap: tokens.spacing.md,
-  },
+  section: { gap: 18 },
+  updateRow: { flexDirection: 'row', gap: 14, alignItems: 'flex-start' },
+  updateBody: { flex: 1, gap: 4 },
+  updateHead: { flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
+  updateActions: { flexDirection: 'row', gap: 10, marginTop: 10, flexWrap: 'wrap' },
   sectionHead: { flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.sm },
   sectionTitle: {
     fontSize: 11,
@@ -559,7 +540,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
   },
   badgeText: { fontSize: 12, fontWeight: '700' },
-  sectionBody: { gap: tokens.spacing.sm },
+  sectionBody: { gap: 18 },
   /*
     On a phone this row kept its horizontal shape and left the words about
     165px to live in, so a two-line clamp cut the question itself in half with
@@ -656,3 +637,67 @@ const styles = StyleSheet.create({
   },
   oppCtaText: { fontSize: 13, fontWeight: '600' },
 });
+
+
+/* -------------------------------------------------------------------------- */
+/* Un aggiornamento, con la sua provenienza                                    */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Che cosa, da dove, perché conta, a che punto è, e cosa serve a te.
+ *
+ * V3.21.3: prima diceva soltanto «Avere il ritiro del certificato in agenda per
+ * giovedì. Sto controllando come stanno le cose.» — una frase che non dice da
+ * dove nasce né se serva fare qualcosa. Niente di quello che c'è qui è
+ * inventato: se una parte non arriva dal backend, non compare.
+ */
+export function AgentWorkRow({
+  work,
+  onOpen,
+}: {
+  work: HomeAgentWork;
+  onOpen?: () => void;
+}) {
+  return (
+    <View style={styles.updateRow} testID={`home-agent-${work.id}`}>
+      <IconBubble name="document-text-outline" />
+      <View style={styles.updateBody}>
+        <View style={styles.updateHead}>
+          <Text style={[oraType.body, { color: ora.ink, fontWeight: '600', flexShrink: 1 }]}>
+            {work.what}
+          </Text>
+          <OraBadge label={work.needs_you ? 'Serve una risposta' : 'In corso'} tone={work.needs_you ? 'attention' : 'info'} />
+        </View>
+        {work.source ? (
+          <Text style={[oraType.small, { color: ora.ink3 }]} numberOfLines={1}>
+            Fonte: {work.source}
+          </Text>
+        ) : null}
+        {work.why_now ? (
+          <Text style={[oraType.small, { color: ora.ink2 }]} numberOfLines={2}>
+            {work.why_now}
+          </Text>
+        ) : null}
+        <Text style={[oraType.small, { color: ora.ink2 }]} numberOfLines={2}>
+          {work.state}
+        </Text>
+        <Text style={[oraType.small, { color: work.needs_you ? ora.attention : ora.ink3 }]}>
+          {work.needs_you || 'Non serve nulla per ora.'}
+        </Text>
+        <View style={styles.updateActions}>
+          <OraButton label="Apri dettagli" kind="secondary" compact onPress={onOpen} />
+        </View>
+      </View>
+    </View>
+  );
+}
+
+/** L'icona di una domanda, dal contesto che la accompagna. */
+export function iconForQuestion(label?: string | null): any {
+  const t = (label || '').toLowerCase();
+  if (t.includes('chiamat') || t.includes('numero') || t.includes('telefon')) return 'call-outline';
+  if (t.includes('viagg') || t.includes('volo') || t.includes('treno')) return 'airplane-outline';
+  if (t.includes('fattur') || t.includes('document') || t.includes('intestaz')) return 'document-text-outline';
+  if (t.includes('calendar') || t.includes('appuntament')) return 'calendar-outline';
+  return 'chatbubble-ellipses-outline';
+}

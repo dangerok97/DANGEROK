@@ -902,6 +902,9 @@ def test_no_domain_can_turn_an_event_into_an_opportunity():
     """
     domains = {
         "calendar", "places", "presence", "documents", "document",
+        # «communications» è entrato col Connected Life e non era in elenco:
+        # la guardia vuole che ogni dominio dichiarato sia qui, e questo lo è.
+        "communications",
         "conversation", "comparison", "research", "work",
     }
 

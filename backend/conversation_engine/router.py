@@ -198,6 +198,24 @@ async def ai_core_client_resume(
     return res
 
 
+@router.get("/ai-core/{session_id}/progress")
+async def ai_core_progress(
+    session_id: str, user: dict = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """
+    Che cosa sta facendo ORA in questo turno, se sta facendo qualcosa.
+
+    Una riga sola, scritta dal ciclo quando uno strumento parte davvero: la
+    chat la mostra al posto di «Sto ragionando…». Vuota vuol dire che non c'è
+    niente di concreto da dire, e allora non si dice niente di concreto.
+    """
+    row = await db["conversation_sessions"].find_one(
+        {"id": session_id, "user_id": user["user_id"]},
+        {"_id": 0, "meta.working_on": 1},
+    )
+    return {"ok": True, "working_on": str(((row or {}).get("meta") or {}).get("working_on") or "")}
+
+
 @router.get("/ai-core/{session_id}")
 async def ai_core_get(session_id: str, user=Depends(get_current_user)):
     from conversation_engine.ai_core.orchestrator import AICoreOrchestrator

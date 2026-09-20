@@ -471,7 +471,13 @@ export default function HomeScreen() {
                 onAnswerInline={(q, action) => runHomeAction(q.id, action)}
               />
             ) : null}
-            {today.length ? <TodaySection items={today} onOpen={openItem} /> : null}
+            {/*
+              V3.21.3: sul desktop «Oggi» e «Più avanti» vivono nella colonna
+              di destra, accanto al calendario — è lì che la reference li
+              mette, ed è dove li cerca chi guarda l'agenda. Al centro resta
+              la sequenza della reference: focus, domande, aggiornamenti.
+            */}
+            {!twoColumn && today.length ? <TodaySection items={today} onOpen={openItem} /> : null}
           </SectionRow>
 
           <SectionRow twoColumn={twoColumn}>
@@ -496,7 +502,9 @@ export default function HomeScreen() {
                 onOpportunityDefer={deferOpportunity}
               />
             ) : null}
-            {horizon.length ? <HorizonSection items={horizon} onOpen={openItem} /> : null}
+            {!twoColumn && horizon.length ? (
+              <HorizonSection items={horizon} onOpen={openItem} />
+            ) : null}
           </SectionRow>
 
           <QuietGoogleNotice

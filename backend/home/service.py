@@ -384,7 +384,10 @@ class HomeService:
         try:
             from waiting.service import get_waiting_service
 
-            open_questions = await get_waiting_service(self.db).list_open(user_id, limit=5)
+            attesa = get_waiting_service(self.db)
+            #     PRIMA SI CHIUDE QUELLO A CUI SI E' GIA' RISPOSTO.
+            await attesa.reconcile_with_threads(user_id)
+            open_questions = await attesa.list_open(user_id, limit=5)
         except Exception as e:
             logger.info("open questions read soft-fail: %s", type(e).__name__)
 

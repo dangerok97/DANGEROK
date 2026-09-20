@@ -31,10 +31,17 @@ const readCode = (rel: string) =>
 /* A — five destinations, and account is not one of them                      */
 /* -------------------------------------------------------------------------- */
 {
-  assert.equal(AMBIENT_NAV_ITEMS.length, 5, 'the product has five destinations');
+  // Sei dal V3.14.2: Chiamate è una destinazione del rail (railOnly), non una
+  // voce della barra del telefono — quella resta a cinque etichette.
+  assert.equal(AMBIENT_NAV_ITEMS.length, 6, 'the product has six destinations');
+  assert.equal(
+    AMBIENT_NAV_ITEMS.filter((i) => !i.railOnly).length,
+    5,
+    'the phone bar still carries five',
+  );
   assert.deepEqual(
     AMBIENT_NAV_ITEMS.map((i) => i.route),
-    ['index', 'contesti', 'ora', 'attivita', 'documenti'],
+    ['index', 'contesti', 'ora', 'chiamate', 'attivita', 'documenti'],
     'order is the order people move through them',
   );
   assert.equal(AMBIENT_NAV_ITEMS.filter((i) => i.center).length, 1, 'ORA anchors the centre');

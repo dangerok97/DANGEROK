@@ -90,8 +90,9 @@ export const darkColors: SemanticColors = {
 };
 
 export const lightColors: SemanticColors = {
-  backgroundPrimary: '#F6F4F1',
-  backgroundSecondary: '#EFECE7',
+  // V3.21.3: il fondo e la barra sono lo stesso bianco caldo della reference.
+  backgroundPrimary: '#F7F6F3',
+  backgroundSecondary: '#F7F6F3',
   surface: '#FFFFFF',
   surfaceElevated: '#FFFFFF',
   surfaceGlass: 'rgba(255, 255, 255, 0.78)',
@@ -99,8 +100,8 @@ export const lightColors: SemanticColors = {
   divider: '#E5E2DC',
   border: '#DAD6CF',
   borderStrong: '#C4C0B8',
-  textPrimary: '#1C1C1E',
-  textSecondary: '#5C5C66',
+  textPrimary: '#141B2D',
+  textSecondary: '#4A5468',
   /*
     PX1.9 — the quiet greys and the deadline amber were quiet to the point of
     being unreadable. Measured against the surfaces they actually sit on
@@ -116,15 +117,16 @@ export const lightColors: SemanticColors = {
   success: '#207B37',
   warning: '#985E00',
   error: '#D70015',
-  info: '#3D4A8C',
+  info: '#1F5FD9',
   successBg: '#E8F5EC',
   warningBg: '#FFF4E0',
   errorBg: '#FDECEC',
-  infoBg: '#ECEEF8',
-  accent: ACCENT_DEEP_INDIGO,
+  infoBg: '#E9F0FC',
+  // V3.21.3: il blu luminoso delle reference è l'unico colore d'azione.
+  accent: '#1F5FD9',
   onAccent: ACCENT_ON,
-  accentMuted: ACCENT_MUTED_LIGHT,
-  focusGlow: 'rgba(61, 74, 140, 0.28)',
+  accentMuted: '#E9F0FC',
+  focusGlow: 'rgba(31, 95, 217, 0.26)',
   scrim: 'rgba(28, 28, 30, 0.40)',
   skeleton: '#E8E5DF',
   skeletonShine: '#F2F0EB',

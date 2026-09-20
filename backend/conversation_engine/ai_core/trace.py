@@ -59,6 +59,8 @@ def public_trace(trace: Dict[str, Any]) -> Dict[str, Any]:
     # Always expose aggregate budgets (no secrets). Full steps only when TRACE on.
     base = {
         "ai_calls": trace.get("ai_calls", 0),
+        # Dove è andato il tempo di questo turno, in millisecondi.
+        "phases_ms": dict(trace.get("phases_ms") or {}),
         "tool_calls": trace.get("tool_calls", 0),
         "context_calls": trace.get("context_calls", 0),
         "context_sources": list(trace.get("context_sources") or [])[:8],

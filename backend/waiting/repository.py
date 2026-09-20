@@ -189,6 +189,36 @@ class OpenQuestionRepository:
         )
         return int(getattr(res, "modified_count", 0) or 0)
 
+    async def answer_in_thread(
+        self, user_id: str, session_id: str, *, answer_raw: str, before: str = "",
+    ) -> int:
+        """
+        Le domande aperte di una conversazione, risposte dentro la conversazione.
+
+        Il lavoro prosegue nel turno stesso — è la conversazione che risponde —
+        quindi la continuazione nasce già `done`: niente seconda esecuzione.
+        `before` limita alle domande nate prima di quel momento.
+        """
+        now = now_iso()
+        query: Dict[str, Any] = {
+            "user_id": user_id, "status": "open", "refs.session_id": session_id,
+        }
+        if before:
+            query["created_at"] = {"$lt": before}
+        res = await self.col.update_many(
+            query,
+            {"$set": {
+                "status": "answered",
+                "answer_raw": (answer_raw or "")[:4000],
+                "answer_source": "ora",
+                "answered_at": now,
+                "updated_at": now,
+                "continuation.status": "done",
+                "resolved_reason": "answered_in_thread",
+            }},
+        )
+        return int(getattr(res, "modified_count", 0) or 0)
+
     # --- reads -------------------------------------------------------------
 
     async def get(self, user_id: str, question_id: str) -> Optional[Dict[str, Any]]:

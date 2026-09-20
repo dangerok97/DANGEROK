@@ -542,6 +542,8 @@ export type MissionPreparation = {
   number_conflict: boolean;
   /** Quello che ORA sapeva già, e che quindi non ha chiesto. */
   what_ora_knows: string[];
+  /** Il messaggio da consegnare, con le parole di chi lo manda. */
+  message_to_deliver?: string;
   question: { field: string; asks: string; already_known: string } | null;
   ready: boolean;
   can_call: boolean;
@@ -652,6 +654,25 @@ export const api = {
   /** Se da questa chat è partita una telefonata di cui non si sa ancora l'esito. */
   chatCallLive: (sessionId: string) =>
     request<{ calling: boolean }>(`/telephone/chat/${sessionId}/live`),
+
+  /**
+   * Compone una telefonata già preparata, dopo il sì esplicito della persona.
+   *
+   * V3.21.3: era l'unico pezzo del percorso telefonico che l'app non aveva —
+   * la chiamata si poteva preparare e non far partire. Il sì è la pressione
+   * del tasto, sul riassunto che si sta leggendo.
+   */
+  /** Che cosa sta facendo ORA adesso in questa conversazione, se lo sta facendo. */
+  aiCoreProgress: (sessionId: string) =>
+    request<{ ok: boolean; working_on: string }>(
+      `/conversation/ai-core/${sessionId}/progress`,
+    ),
+
+  placeCall: (callId: string) =>
+    request<{ ok: boolean; call_id: string; state: string }>(
+      `/telephone/${callId}/place`,
+      { method: 'POST', body: JSON.stringify({ confirmed: true }) },
+    ),
 
   callTranscript: (callId: string) =>
     request<CallTranscriptResponse>(`/telephone/calls/${callId}/transcript`),
@@ -2943,6 +2964,10 @@ export type HomeAgentWork = {
   outcome: string;
   why_now?: string | null;
   state: string;
+  /** Da dove nasce, in italiano: «Appuntamento in calendario il 18 settembre». */
+  source?: string | null;
+  /** Che cosa serve alla persona adesso. Vuoto quando non serve niente. */
+  needs_you?: string | null;
 };
 
 /**

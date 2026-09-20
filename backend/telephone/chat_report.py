@@ -96,6 +96,17 @@ async def tell_the_chat(db, call) -> bool:
 
         await db.phone_calls.update_one(
             {"id": call.id}, {"$set": {"chat_told_at": now_iso()}})
+        #     IL LAVORO E' FINITO: NON SI CHIEDE PIU' NIENTE PER LUI.
+        # «Vuoi che la chiami?» non ha senso su una telefonata già fatta.
+        try:
+            from waiting.service import get_waiting_service
+
+            await get_waiting_service(db).close_for_work(
+                call.owner_id, session_id=chat, reason="call_finished",
+            )
+        except Exception as e:  # pragma: no cover
+            logger.info("domande della chat non chiuse: %s", type(e).__name__)
+
         call.told_the_chat = True
         return True
     except Exception as e:  # pragma: no cover

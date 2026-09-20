@@ -177,6 +177,8 @@ class AICoreOrchestrator:
             result.active_goal.summary if result.active_goal else ""
         ) or user_msg[:120]
         sess.status = "waiting_user"
+        #     FINITO IL TURNO, NON STA PIÙ FACENDO NIENTE.
+        sess.meta = {k: v for k, v in (sess.meta or {}).items() if k != "working_on"}
         durable = await self._persist_blocking_ask(sess, result)
         # A blocking question the person can see must already exist in the
         # database. Returning before `replace` is what enforces that: the
@@ -371,6 +373,18 @@ class AICoreOrchestrator:
                 step_id=mid,
                 meta=hist_meta,
             )
+            #     LA RISPOSTA NELLA CONVERSAZIONE CHIUDE LA DOMANDA IN HOME.
+            # V3.21.3: prima restava aperta finché qualcuno non premeva
+            # «Rispondi» dalla Home. Soft: la conversazione non si ferma se
+            # questa scrittura non riesce.
+            try:
+                from waiting.service import get_waiting_service
+
+                await get_waiting_service(self.db).answered_in_the_thread(
+                    sess.user_id, sess.id, answer=(text or user_msg),
+                )
+            except Exception as e:  # pragma: no cover
+                logger.info("open questions not closed: %s", type(e).__name__)
 
         result = await run_cognitive_loop(
             sess=sess,
@@ -395,6 +409,8 @@ class AICoreOrchestrator:
                 state_mod.clear_pending_turn(st, status="completed")
                 state_mod.save_ai_state(sess, st)
         sess.status = "waiting_user"
+        #     FINITO IL TURNO, NON STA PIÙ FACENDO NIENTE.
+        sess.meta = {k: v for k, v in (sess.meta or {}).items() if k != "working_on"}
         durable = await self._persist_blocking_ask(sess, result)
         # A blocking question the person can see must already exist in the
         # database. Returning before `replace` is what enforces that: the
@@ -469,6 +485,8 @@ class AICoreOrchestrator:
             state_mod.clear_pending_turn(st, status="completed")
             state_mod.save_ai_state(sess, st)
         sess.status = "waiting_user"
+        #     FINITO IL TURNO, NON STA PIÙ FACENDO NIENTE.
+        sess.meta = {k: v for k, v in (sess.meta or {}).items() if k != "working_on"}
         await self.repo.replace(sess)
         return self._public(sess, result)
 
@@ -549,6 +567,8 @@ class AICoreOrchestrator:
             # ending "con quale app vuoi navigare?" beside no buttons is a
             # question nobody can answer.
             "navigation": list(getattr(result, "navigation", None) or [])[:3],
+            # Come arrivarci, confrontato: la chat lo disegna come modulo.
+            "journey": dict(getattr(result, "journey", None) or {}),
             "working_hint": getattr(result, "working_hint", None),
             "client_actions": actions,
             "pending_turn": pending,

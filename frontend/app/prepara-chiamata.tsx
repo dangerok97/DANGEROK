@@ -1,42 +1,31 @@
 /**
- * Preparare una telefonata: chi chiamare, e cosa manca.
+ * Prepariamo la tua telefonata — la superficie, V3.21.3.
  *
  *     «CHIAMA LORENZO E SPOSTA IL CALCETTO» NON È UN NUMERO.
  *
- * Fra quella frase e lo squillo c'è un passaggio che finora faceva una persona
- * a mano. Questa schermata è quel passaggio: si scrive la frase, ORA cerca chi
- * chiamare, mostra da dove ha preso il numero, e chiede — una cosa per volta —
- * quello che non ha potuto ricavare da sola.
+ * Fra quella frase e lo squillo c'è un passaggio: ORA cerca chi chiamare,
+ * dice da dove ha preso il numero, e chiede — una cosa per volta — quello che
+ * non riesce a ricavare da sola. La logica è quella di V3.20/V3.21 e non è
+ * cambiata: qui cambia come si legge.
  *
- *     UN NUMERO NUOVO SI CONFERMA. UNO GIÀ CONFERMATO SI MOSTRA.
- *
- * Un numero mai visto — dalla rubrica, dal web, scritto a mano — aspetta un
- * sì, con un pulsante suo: una telefonata parte una volta sola. Uno che la
- * persona aveva già confermato per la stessa persona non si richiede: si dice
- * quale sarà e perché, e resta sempre un pulsante per cambiarlo.
- *
- * Il disegno è quello del resto dell'app — filetti invece di riquadri, un peso
- * solo di testo, colore solo dove qualcosa se l'è guadagnato. L'unica cosa
- * accesa è quello che sta aspettando una risposta.
+ * Tre passi, nell'ordine in cui contano: chi ho trovato, che cosa dirò e cosa
+ * non dirò, e solo alla fine il via libera. A destra, la richiesta così com'è
+ * stata scritta e il riepilogo di quello che partirà — mai un mission_id, mai
+ * uno stato interno.
  */
 import { useCallback, useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 import { api, type MissionPreparation, type PreparationContact } from '@/src/api/client';
-import { useTheme } from '@/src/theme/ThemeProvider';
-import { tokens } from '@/src/theme/tokens';
+import { IconBubble, OraBadge, OraButton, OraCard } from '@/src/components/ora-ui';
+import { DesktopShell } from '@/src/shell';
+import { Avatar } from '@/src/shell/RailAccount';
+import { useBreakpoint } from '@/src/theme/responsive';
+import { ora, oraType } from '@/src/theme/oraSurface';
 import { humanizeError } from '@/src/utils/errors';
 
 export default function PreparaChiamata() {
-  const { colors } = useTheme();
   const [frase, setFrase] = useState('');
   const [chi, setChi] = useState('');
   const [prep, setPrep] = useState<MissionPreparation | null>(null);
@@ -46,6 +35,8 @@ export default function PreparaChiamata() {
   const [inCorso, setInCorso] = useState('');
   const [errore, setErrore] = useState<string | null>(null);
   const [chiamata, setChiamata] = useState('');
+  const [inLinea, setInLinea] = useState(false);
+  const wide = useBreakpoint() === 'desktop';
 
   const fai = useCallback(
     async (quale: string, azione: () => Promise<{ preparation: MissionPreparation }>) => {
@@ -78,371 +69,395 @@ export default function PreparaChiamata() {
   }, [frase, chi, fai]);
 
   const puo = (quale: string) => !!prep?.you_can_answer.includes(quale);
+  const nome = prep?.contact?.name || '';
+  const primo = nome.split(/\s+/)[0] || 'questa persona';
 
-  return (
+  /**
+   * Il via libera, che è anche il gesto che compone.
+   *
+   * Prima prepara (è la porta di sempre: mandato, numero confermato, riassunto),
+   * poi compone passando dalla route del prodotto. Il sì è questa pressione,
+   * data sul riepilogo che si sta leggendo.
+   */
+  const chiamaOra = useCallback(() => {
+    if (!prep || inCorso) return;
+    setInCorso('call');
+    setErrore(null);
+    api
+      .preparationToCall(prep.preparation_id, 'reschedule')
+      .then(async (r: { call_id: string; preparation: MissionPreparation }) => {
+        setChiamata(r.call_id);
+        setPrep(r.preparation);
+        await api.placeCall(r.call_id);
+        setInLinea(true);
+      })
+      .catch((e: unknown) => setErrore(humanizeError(e)))
+      .finally(() => setInCorso(''));
+  }, [prep, inCorso]);
+
+  const corpo = (
     <ScrollView
-      style={{ backgroundColor: colors.backgroundPrimary }}
-      contentContainerStyle={styles.page}
+      style={{ backgroundColor: ora.canvas }}
+      contentContainerStyle={[styles.page, wide && styles.pageWide]}
       testID="prepara-chiamata"
     >
-      <Text style={[styles.h1, { color: colors.textPrimary }]}>
-        Prepara una telefonata
-      </Text>
-      <Text style={[styles.sub, { color: colors.textSecondary }]}>
-        Dimmi cosa vuoi che faccia. Cerco io chi chiamare, e ti chiedo solo
-        quello che non riesco a capire da sola.
-      </Text>
-
-      {/* ---- la frase ---- */}
-      {!prep ? (
-        <View style={styles.blocco}>
-          <TextInput
-            value={frase}
-            onChangeText={setFrase}
-            placeholder="Es. «Chiama Lorenzo e digli di spostare la partita a calcetto»"
-            placeholderTextColor={colors.textTertiary}
-            multiline
-            testID="prep-request"
-            style={[
-              styles.input,
-              styles.inputAlto,
-              { color: colors.textPrimary, borderColor: colors.border },
-            ]}
-          />
-          <TextInput
-            value={chi}
-            onChangeText={setChi}
-            placeholder="Chi devo chiamare? Es. «Lorenzo»"
-            placeholderTextColor={colors.textTertiary}
-            testID="prep-who"
-            style={[
-              styles.input,
-              { color: colors.textPrimary, borderColor: colors.border },
-            ]}
-          />
-          <Bottone
-            label="Preparala"
-            testID="prep-start"
-            primary
-            busy={inCorso === 'start'}
-            disabled={!frase.trim()}
-            onPress={comincia}
-          />
-        </View>
-      ) : null}
-
-      {prep ? (
-        <View style={[styles.scheda, { borderColor: colors.border }]}>
-          {/* Quello che è stato chiesto, così com'è stato detto. */}
-          <Text style={[styles.chiesto, { color: colors.textTertiary }]}>
-            Mi hai chiesto: «{prep.you_asked}»
+      <View style={styles.colonne}>
+        <View style={styles.principale}>
+          <Text style={[oraType.display, { color: ora.ink }]} accessibilityRole="header">
+            Prepariamo la tua telefonata
+          </Text>
+          <Text style={[oraType.body, { color: ora.ink2, marginTop: 6 }]}>
+            ORA si occupa della chiamata per te, in modo sicuro e naturale.
           </Text>
 
-          <Text style={[styles.stato, { color: colors.textSecondary }]} testID="prep-status">
-            {prep.status_label}
-          </Text>
+          {!prep ? (
+            <OraCard style={styles.blocco}>
+              <Text style={[oraType.section, { color: ora.ink }]}>Che cosa devo fare?</Text>
+              <TextInput
+                value={frase}
+                onChangeText={setFrase}
+                placeholder="Es. «Chiama Lorenzo e digli di spostare la partita a calcetto»"
+                placeholderTextColor={ora.ink3}
+                multiline
+                testID="prep-request"
+                style={[styles.input, styles.inputAlto]}
+              />
+              <TextInput
+                value={chi}
+                onChangeText={setChi}
+                placeholder="Chi devo chiamare? Es. «Lorenzo»"
+                placeholderTextColor={ora.ink3}
+                testID="prep-who"
+                style={styles.input}
+              />
+              <OraButton
+                label="Preparala"
+                testID="prep-start"
+                busy={inCorso === 'start'}
+                disabled={!frase.trim()}
+                onPress={comincia}
+              />
+            </OraCard>
+          ) : null}
 
-          {/* ---- 1 · chi ho trovato, e da dove ---- */}
-          {prep.contact ? (
-            <View
-              style={[
-                styles.contatto,
-                {
-                  borderColor: prep.number_confirmed ? colors.success : colors.warning,
-                },
-              ]}
-              testID="prep-contact"
-            >
-              <Text style={[styles.nome, { color: colors.textPrimary }]}>
-                {prep.contact.name}
-              </Text>
-              <Text style={[styles.numero, { color: colors.textPrimary }]} testID="prep-number">
-                {prep.contact.number}
-              </Text>
-              {/*
-                Da dove viene il numero, sempre.
+          {prep ? (
+            <>
+              {/* ---- 1 · chi ho trovato, e da dove ---- */}
+              <Passo numero={1} titolo="Contatto trovato" sottotitolo={prep.contact ? `Ho trovato ${nome} nella tua rubrica.` : prep.status_label}>
+                {prep.contact ? (
+                  <View style={styles.contattoRiga} testID="prep-contact">
+                    <Avatar name={nome} size={56} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[oraType.title, { color: ora.ink }]}>{nome}</Text>
+                      <Text style={[oraType.body, { color: ora.ink }]} testID="prep-number">
+                        {prep.contact.number}
+                      </Text>
+                      <Text style={[oraType.small, { color: ora.ink3 }]} testID="prep-source">
+                        {prep.contact.source_label}
+                        {prep.contact.source_detail ? ` — ${prep.contact.source_detail}` : ''}
+                      </Text>
+                    </View>
+                    {prep.number_confirmed ? (
+                      <OraBadge
+                        label={prep.number_note || 'Numero verificato'}
+                        tone="success"
+                        icon="checkmark-circle"
+                      />
+                    ) : (
+                      <OraBadge label="Da confermare" tone="attention" icon="alert-circle-outline" />
+                    )}
+                  </View>
+                ) : null}
 
-                «Rubrica» e «Trovato sul web» sono due cose molto diverse
-                davanti alla stessa cifra, e chi conferma ha il diritto di
-                sapere quale sta guardando.
-              */}
-              <Text style={[styles.fonte, { color: colors.textSecondary }]} testID="prep-source">
-                {prep.contact.source_label}
-                {prep.contact.source_detail ? ` — ${prep.contact.source_detail}` : ''}
-              </Text>
-              {prep.number_confirmed ? (
-                <Text style={[styles.ok, { color: colors.success }]} testID="prep-confirmed">
-                  ✓ {prep.number_note || 'Numero confermato'}
+                {prep.candidates.length > 1 ? (
+                  <View style={styles.blocco} testID="prep-candidates">
+                    <Text style={[oraType.body, { color: ora.ink }]}>{prep.says}</Text>
+                    {prep.candidates.map((c: PreparationContact) => (
+                      <Pressable
+                        key={c.number}
+                        testID={`prep-candidate-${c.number}`}
+                        onPress={() =>
+                          void fai('choose', async () =>
+                            api.choosePreparationContact(prep.preparation_id, c.number, 'reschedule'),
+                          )
+                        }
+                        style={({ pressed }: any) => [styles.candidato, { opacity: pressed ? 0.7 : 1 }]}
+                      >
+                        <Text style={[oraType.body, { color: ora.ink, fontWeight: '600' }]}>{c.name}</Text>
+                        <Text style={[oraType.body, { color: ora.ink }]}>{c.number}</Text>
+                        <Text style={[oraType.small, { color: c.trusted ? ora.success : ora.ink3 }]}>
+                          {c.trusted ? '✓ ' : ''}
+                          {c.source_label}
+                          {c.source_detail ? ` — ${c.source_detail}` : ''}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                ) : null}
+
+                {prep.other_candidates?.length ? (
+                  <View style={styles.blocco} testID="prep-others">
+                    <Text style={[oraType.small, { color: ora.ink3 }]}>Altri numeri trovati</Text>
+                    {prep.other_candidates.map((c: PreparationContact) => (
+                      <Pressable
+                        key={c.number}
+                        testID={`prep-other-${c.number}`}
+                        onPress={() =>
+                          void fai('choose', async () =>
+                            api.choosePreparationContact(prep.preparation_id, c.number, 'reschedule'),
+                          )
+                        }
+                        style={({ pressed }: any) => [styles.altro, { opacity: pressed ? 0.6 : 1 }]}
+                      >
+                        <Text style={[oraType.small, { color: ora.ink2 }]}>
+                          {c.number} · {c.source_label}
+                          {c.source_detail ? ` — ${c.source_detail}` : ''}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                ) : null}
+
+                {puo('confirm_number') ? (
+                  <View style={styles.riga}>
+                    <OraButton
+                      label="Sì, è questo"
+                      testID="prep-confirm-yes"
+                      busy={inCorso === 'yes'}
+                      onPress={() =>
+                        void fai('yes', async () =>
+                          api.confirmPreparationNumber(prep.preparation_id, true, {
+                            operation: 'reschedule',
+                          }),
+                        )
+                      }
+                    />
+                    <OraButton
+                      label="No, non è quello"
+                      kind="quiet"
+                      testID="prep-confirm-no"
+                      busy={inCorso === 'no'}
+                      onPress={() =>
+                        void fai('no', async () =>
+                          api.confirmPreparationNumber(prep.preparation_id, false, {
+                            operation: 'reschedule',
+                          }),
+                        )
+                      }
+                    />
+                  </View>
+                ) : null}
+
+                {puo('change_number') && !cambio ? (
+                  <View style={styles.riga}>
+                    <OraButton
+                      label="Cambia numero"
+                      kind="quiet"
+                      compact
+                      testID="prep-change-number"
+                      onPress={() => setCambio(true)}
+                    />
+                    <OraButton
+                      label="Questo numero è sbagliato"
+                      kind="quiet"
+                      compact
+                      testID="prep-wrong-number"
+                      busy={inCorso === 'wrong'}
+                      onPress={() =>
+                        void fai('wrong', async () =>
+                          api.confirmPreparationNumber(prep.preparation_id, false, {
+                            operation: 'reschedule',
+                          }),
+                        )
+                      }
+                    />
+                  </View>
+                ) : null}
+
+                {puo('give_number') || cambio ? (
+                  <View style={styles.blocco}>
+                    <TextInput
+                      value={altroNumero}
+                      onChangeText={setAltroNumero}
+                      placeholder="Scrivi tu il numero da chiamare"
+                      placeholderTextColor={ora.ink3}
+                      testID="prep-give-number"
+                      style={styles.input}
+                    />
+                    <OraButton
+                      label="Usa questo numero"
+                      testID="prep-use-number"
+                      disabled={!altroNumero.trim()}
+                      busy={inCorso === 'altro'}
+                      onPress={() =>
+                        void fai('altro', async () =>
+                          api.changePreparationNumber(
+                            prep.preparation_id,
+                            altroNumero.trim(),
+                            'reschedule',
+                          ),
+                        )
+                      }
+                    />
+                  </View>
+                ) : null}
+              </Passo>
+
+              {/* ---- 2 · che cosa dirò, e che cosa non dirò ---- */}
+              <Passo
+                numero={2}
+                titolo="Privacy e intenti"
+                sottotitolo="Per la tua sicurezza, seguirò queste regole:"
+              >
+                <Regola
+                  icona="shield-checkmark-outline"
+                  titolo={`Prima mi assicuro di parlare con ${primo}.`}
+                  corpo="Verifico che sia davvero lei, senza rivelare il motivo."
+                />
+                <Regola
+                  icona="lock-closed-outline"
+                  titolo="Solo dopo dico quello che mi hai chiesto."
+                  corpo={
+                    prep.message_to_deliver
+                      ? `Le dirò: «${prep.message_to_deliver}». Non lo dico a nessun altro.`
+                      : 'Resto dentro quello che mi hai chiesto: niente impegni presi al posto tuo.'
+                  }
+                />
+                <Regola
+                  icona="people-outline"
+                  titolo={`Se non è ${primo}, non dico niente.`}
+                  corpo="In caso di dubbio chiudo la chiamata e ti avviso."
+                />
+              </Passo>
+
+              {/* ---- 3 · quello che manca, o il via libera ---- */}
+              {puo('answer') && prep.question ? (
+                <Passo numero={3} titolo="Mi manca una cosa" sottotitolo={prep.says}>
+                  <TextInput
+                    value={risposta}
+                    onChangeText={setRisposta}
+                    placeholder="Es. «sabato alle 19, al massimo alle 20»"
+                    placeholderTextColor={ora.ink3}
+                    testID="prep-answer"
+                    style={styles.input}
+                    onSubmitEditing={() => risposta.trim() && void rispondiOra()}
+                  />
+                  <OraButton
+                    label="Rispondi"
+                    testID="prep-send-answer"
+                    disabled={!risposta.trim()}
+                    busy={inCorso === 'answer'}
+                    onPress={() => void rispondiOra()}
+                  />
+                </Passo>
+              ) : (
+                <Passo
+                  numero={3}
+                  titolo="Pronto per chiamare"
+                  sottotitolo={prep.ready ? 'Tutto è pronto. Vuoi procedere?' : prep.status_label}
+                  badge={prep.ready ? 'Telefonata pronta' : undefined}
+                >
+                  {prep.summary ? (
+                    <View style={styles.riassunto} testID="prep-ready">
+                      <IconBubble name="call-outline" size={40} />
+                      <Text style={[oraType.body, { color: ora.ink, flex: 1 }]}>{prep.summary}</Text>
+                    </View>
+                  ) : null}
+
+                  {inLinea ? (
+                    <Text style={[oraType.body, { color: ora.success }]} testID="prep-calling">
+                      Sto chiamando {primo}… Ti dico com'è andata appena finisce.
+                    </Text>
+                  ) : puo('call') ? (
+                    <View style={styles.riga}>
+                      <OraButton
+                        label="Chiama ora"
+                        icon="call"
+                        testID="prep-make-call"
+                        busy={inCorso === 'call'}
+                        onPress={chiamaOra}
+                      />
+                      <OraButton
+                        label="Ricomincia"
+                        kind="secondary"
+                        icon="create-outline"
+                        testID="prep-reset"
+                        onPress={() => {
+                          setPrep(null);
+                          setChiamata('');
+                          setInLinea(false);
+                          setFrase('');
+                          setChi('');
+                        }}
+                      />
+                    </View>
+                  ) : null}
+
+                  {chiamata && !inLinea ? (
+                    <Text style={[oraType.small, { color: ora.ink2 }]} testID="prep-call-ready">
+                      Chiamata preparata.
+                    </Text>
+                  ) : null}
+                </Passo>
+              )}
+
+              {prep.number_rejected ? (
+                <Text style={[oraType.small, { color: ora.attention }]} testID="prep-blocked">
+                  Non telefono a nessuno finché non mi dici qual è il numero giusto.
                 </Text>
               ) : null}
-              {/*
-                Un numero che si usa si può sempre cambiare.
 
-                È la contropartita di non chiederlo ogni volta: la conferma
-                non si ripete, ma il pulsante per cambiarlo c'è sempre.
-              */}
-              {puo('change_number') && !cambio ? (
-                <View style={[styles.riga, { marginTop: 8 }]}>
-                  <Bottone
-                    label="Cambia numero"
-                    testID="prep-change-number"
-                    onPress={() => setCambio(true)}
-                  />
-                  <Bottone
-                    label="Questo numero è sbagliato"
-                    testID="prep-wrong-number"
-                    busy={inCorso === 'wrong'}
-                    onPress={() =>
-                      void fai('wrong', async () =>
-                        api.confirmPreparationNumber(prep.preparation_id, false, {
-                          operation: 'reschedule',
-                        }),
-                      )
-                    }
-                  />
-                </View>
-              ) : null}
-            </View>
-          ) : null}
-
-          {/* ---- gli altri numeri trovati, come via d'uscita ---- */}
-          {prep.other_candidates?.length ? (
-            <View style={styles.blocco} testID="prep-others">
-              <Text style={[styles.etichetta, { color: colors.textTertiary }]}>
-                Altri numeri trovati
-              </Text>
-              {prep.other_candidates.map((c: PreparationContact) => (
-                <Pressable
-                  key={c.number}
-                  testID={`prep-other-${c.number}`}
-                  onPress={() =>
-                    void fai('choose', async () =>
-                      api.choosePreparationContact(prep.preparation_id, c.number, 'reschedule'),
-                    )
-                  }
-                  style={({ pressed }: any) => [styles.altro, { opacity: pressed ? 0.6 : 1 }]}
-                >
-                  <Text style={[styles.sa, { color: colors.textSecondary }]}>
-                    {c.number} · {c.source_label}
-                    {c.source_detail ? ` — ${c.source_detail}` : ''}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-          ) : null}
-
-          {/* ---- più di uno: si sceglie, non si indovina ---- */}
-          {prep.candidates.length > 1 ? (
-            <View style={styles.blocco} testID="prep-candidates">
-              <Text style={[styles.dice, { color: colors.textPrimary }]}>{prep.says}</Text>
-              {prep.candidates.map((c: PreparationContact) => (
-                <Pressable
-                  key={c.number}
-                  testID={`prep-candidate-${c.number}`}
-                  onPress={() =>
-                    void fai('choose', async () =>
-                      api.choosePreparationContact(prep.preparation_id, c.number, 'reschedule'),
-                    )
-                  }
-                  style={({ pressed }: any) => [
-                    styles.candidato,
-                    { borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
-                  ]}
-                >
-                  <Text style={[styles.nome, { color: colors.textPrimary }]}>{c.name}</Text>
-                  <Text style={[styles.numero, { color: colors.textPrimary }]}>{c.number}</Text>
-                  <Text style={[styles.fonte, { color: c.trusted ? colors.success : colors.textSecondary }]}>
-                    {c.trusted ? '✓ ' : ''}
-                    {c.source_label}
-                    {c.source_detail ? ` — ${c.source_detail}` : ''}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-          ) : null}
-
-          {/* ---- quello che ORA sapeva già, e che quindi non ha chiesto ---- */}
-          {prep.what_ora_knows.length ? (
-            <View style={styles.blocco} testID="prep-known">
-              <Text style={[styles.etichetta, { color: colors.textTertiary }]}>
-                Quello che sapevo già
-              </Text>
-              {prep.what_ora_knows.map((f: string) => (
-                <Text key={f} style={[styles.sa, { color: colors.textSecondary }]}>
-                  · {f}
+              {errore ? (
+                <Text style={[oraType.small, { color: ora.attention }]} testID="prep-error">
+                  {errore}
                 </Text>
-              ))}
-            </View>
+              ) : null}
+            </>
           ) : null}
-
-          {/* ---- 2 · la domanda, una per volta ---- */}
-          {prep.candidates.length <= 1 && !prep.ready ? (
-            <Text style={[styles.dice, { color: colors.textPrimary }]} testID="prep-says">
-              {prep.says}
-            </Text>
-          ) : null}
-
-          {/* ---- 3 · il sì o il no sul numero ---- */}
-          {puo('confirm_number') ? (
-            <View style={styles.riga}>
-              <Bottone
-                label="Sì, è questo"
-                testID="prep-confirm-yes"
-                primary
-                busy={inCorso === 'yes'}
-                onPress={() =>
-                  void fai('yes', async () =>
-                    api.confirmPreparationNumber(prep.preparation_id, true, {
-                      operation: 'reschedule',
-                    }),
-                  )
-                }
-              />
-              <Bottone
-                label="No, non è quello"
-                testID="prep-confirm-no"
-                busy={inCorso === 'no'}
-                onPress={() =>
-                  void fai('no', async () =>
-                    api.confirmPreparationNumber(prep.preparation_id, false, {
-                      operation: 'reschedule',
-                    }),
-                  )
-                }
-              />
-            </View>
-          ) : null}
-
-          {/* ---- il numero me lo dai tu ---- */}
-          {puo('give_number') || cambio ? (
-            <View style={styles.blocco}>
-              <TextInput
-                value={altroNumero}
-                onChangeText={setAltroNumero}
-                placeholder="Scrivi tu il numero da chiamare"
-                placeholderTextColor={colors.textTertiary}
-                testID="prep-give-number"
-                style={[
-                  styles.input,
-                  { color: colors.textPrimary, borderColor: colors.border },
-                ]}
-              />
-              <Bottone
-                label="Usa questo numero"
-                testID="prep-use-number"
-                disabled={!altroNumero.trim()}
-                busy={inCorso === 'altro'}
-                onPress={() =>
-                  void fai('altro', async () =>
-                    api.changePreparationNumber(
-                      prep.preparation_id,
-                      altroNumero.trim(),
-                      'reschedule',
-                    ),
-                  )
-                }
-              />
-            </View>
-          ) : null}
-
-          {/* ---- la risposta a quello che manca ---- */}
-          {puo('answer') && prep.question ? (
-            <View style={styles.blocco}>
-              <TextInput
-                value={risposta}
-                onChangeText={setRisposta}
-                placeholder="Es. «sabato alle 19, al massimo alle 20»"
-                placeholderTextColor={colors.textTertiary}
-                testID="prep-answer"
-                style={[
-                  styles.input,
-                  { color: colors.textPrimary, borderColor: colors.border },
-                ]}
-                onSubmitEditing={() => risposta.trim() && void rispondiOra()}
-              />
-              <Bottone
-                label="Rispondi"
-                testID="prep-send-answer"
-                primary
-                disabled={!risposta.trim()}
-                busy={inCorso === 'answer'}
-                onPress={() => void rispondiOra()}
-              />
-            </View>
-          ) : null}
-
-          {/* ---- 4 · pronta: il riassunto, al futuro ---- */}
-          {prep.ready ? (
-            <View
-              style={[styles.pronta, { borderColor: colors.success }]}
-              testID="prep-ready"
-            >
-              <Text style={[styles.riassunto, { color: colors.textPrimary }]}>
-                {prep.summary}
-              </Text>
-            </View>
-          ) : null}
-
-          {/* ---- e comunque la telefonata non parte da qui ---- */}
-          {puo('call') ? (
-            <View style={styles.blocco}>
-              <Bottone
-                label="Preparala e chiedimi conferma"
-                testID="prep-make-call"
-                primary
-                busy={inCorso === 'call'}
-                onPress={() => {
-                  if (inCorso) return;
-                  setInCorso('call');
-                  setErrore(null);
-                  api
-                    .preparationToCall(prep.preparation_id, 'reschedule')
-                    .then((r: { call_id: string; preparation: MissionPreparation }) => {
-                      setChiamata(r.call_id);
-                      setPrep(r.preparation);
-                    })
-                    .catch((e: unknown) => setErrore(humanizeError(e)))
-                    .finally(() => setInCorso(''));
-                }}
-              />
-              <Text style={[styles.nota, { color: colors.textTertiary }]}>
-                Non compongo niente adesso: preparo la chiamata e ti chiedo il
-                via libera prima di farla squillare.
-              </Text>
-            </View>
-          ) : null}
-
-          {chiamata ? (
-            <Text style={[styles.ok, { color: colors.success }]} testID="prep-call-ready">
-              Chiamata preparata. Manca solo il tuo via libera.
-            </Text>
-          ) : null}
-
-          {/* ---- il cancello, quando è chiuso ---- */}
-          {prep.number_rejected ? (
-            <Text style={[styles.bloccata, { color: colors.warning }]} testID="prep-blocked">
-              Non telefono a nessuno finché non mi dici qual è il numero giusto.
-            </Text>
-          ) : null}
-
-          {errore ? (
-            <Text style={[styles.bloccata, { color: colors.warning }]} testID="prep-error">
-              {errore}
-            </Text>
-          ) : null}
-
-          <Bottone
-            label="Ricomincia"
-            testID="prep-reset"
-            onPress={() => {
-              setPrep(null);
-              setChiamata('');
-              setFrase('');
-              setChi('');
-            }}
-          />
         </View>
-      ) : null}
+
+        {/* ---- la colonna di destra: la richiesta e il riepilogo ---- */}
+        {wide && prep ? (
+          <View style={styles.lato}>
+            <OraCard style={styles.latoCard}>
+              <View style={styles.latoHead}>
+                <Ionicons name="chatbubble-ellipses-outline" size={20} color={ora.deep} />
+                <Text style={[oraType.section, { color: ora.ink }]}>La tua richiesta</Text>
+              </View>
+              <View style={styles.bolla}>
+                <Text style={[oraType.body, { color: ora.ink }]}>{prep.you_asked}</Text>
+              </View>
+            </OraCard>
+
+            <OraCard style={styles.latoCard}>
+              <View style={styles.latoHead}>
+                <Ionicons name="call-outline" size={20} color={ora.deep} />
+                <Text style={[oraType.section, { color: ora.ink }]}>Riepilogo chiamata</Text>
+              </View>
+              {prep.contact ? (
+                <VoceLato icona="person-outline" titolo="Destinatario">
+                  <Text style={[oraType.body, { color: ora.ink }]}>{nome}</Text>
+                  <Text style={[oraType.body, { color: ora.ink }]}>{prep.contact.number}</Text>
+                  <Text style={[oraType.small, { color: ora.ink3 }]}>
+                    {prep.contact.source_label}
+                    {prep.contact.source_detail ? ` — ${prep.contact.source_detail}` : ''}
+                  </Text>
+                </VoceLato>
+              ) : null}
+              {prep.message_to_deliver ? (
+                <VoceLato icona="chatbox-ellipses-outline" titolo="Messaggio">
+                  <Text style={[oraType.body, { color: ora.ink }]}>«{prep.message_to_deliver}»</Text>
+                </VoceLato>
+              ) : null}
+              <VoceLato icona="shield-checkmark-outline" titolo="Sicurezza">
+                <Spunta testo={`Verifico che sia ${primo}`} />
+                <Spunta testo="Non rivelo il messaggio ad altri" />
+                <Spunta testo="Interrompo in caso di dubbio" />
+              </VoceLato>
+            </OraCard>
+          </View>
+        ) : null}
+      </View>
     </ScrollView>
   );
 
@@ -455,90 +470,126 @@ export default function PreparaChiamata() {
       }),
     );
   }
+
+  return <DesktopShell active="chiamate">{corpo}</DesktopShell>;
 }
 
-function Bottone({
-  label,
-  onPress,
-  primary,
-  busy,
-  disabled,
-  testID,
+/** Un passo della preparazione: numero, titolo, e quello che c'è dentro. */
+function Passo({
+  numero,
+  titolo,
+  sottotitolo,
+  badge,
+  children,
 }: {
-  label: string;
-  onPress: () => void;
-  primary?: boolean;
-  busy?: boolean;
-  disabled?: boolean;
-  testID?: string;
+  numero: number;
+  titolo: string;
+  sottotitolo?: string;
+  badge?: string;
+  children: React.ReactNode;
 }) {
-  const { colors } = useTheme();
-  const spento = disabled || busy;
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ disabled: spento }}
-      disabled={spento}
-      onPress={onPress}
-      testID={testID}
-      style={({ pressed }: any) => [
-        styles.btn,
-        {
-          backgroundColor: primary ? colors.accentMuted : 'transparent',
-          borderColor: primary ? 'transparent' : colors.border,
-          opacity: spento ? 0.5 : pressed ? 0.7 : 1,
-        },
-      ]}
-    >
-      {busy ? (
-        <ActivityIndicator size="small" color={colors.textSecondary} />
-      ) : (
-        <Text style={[styles.btnLabel, { color: colors.textPrimary }]}>{label}</Text>
-      )}
-    </Pressable>
+    <View style={styles.passo}>
+      <View style={styles.passoNum}>
+        <Text style={styles.passoNumText}>{numero}</Text>
+      </View>
+      <OraCard style={styles.passoCard}>
+        <View style={styles.passoHead}>
+          <View style={{ flex: 1 }}>
+            <Text style={[oraType.section, { color: ora.ink }]}>{titolo}</Text>
+            {sottotitolo ? (
+              <Text style={[oraType.small, { color: ora.ink2, marginTop: 3 }]}>{sottotitolo}</Text>
+            ) : null}
+          </View>
+          {badge ? <OraBadge label={badge} tone="success" icon="checkmark-circle" /> : null}
+        </View>
+        {children}
+      </OraCard>
+    </View>
+  );
+}
+
+function Regola({ icona, titolo, corpo }: { icona: any; titolo: string; corpo: string }) {
+  return (
+    <View style={styles.regola}>
+      <IconBubble name={icona} size={40} />
+      <View style={{ flex: 1 }}>
+        <Text style={[oraType.body, { color: ora.ink, fontWeight: '600' }]}>{titolo}</Text>
+        <Text style={[oraType.small, { color: ora.ink2, marginTop: 2 }]}>{corpo}</Text>
+      </View>
+    </View>
+  );
+}
+
+function VoceLato({ icona, titolo, children }: { icona: any; titolo: string; children: React.ReactNode }) {
+  return (
+    <View style={styles.voceLato}>
+      <IconBubble name={icona} size={36} />
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text style={[oraType.small, { color: ora.ink3 }]}>{titolo}</Text>
+        {children}
+      </View>
+    </View>
+  );
+}
+
+function Spunta({ testo }: { testo: string }) {
+  return (
+    <View style={styles.spunta}>
+      <Ionicons name="checkmark-circle" size={16} color={ora.success} />
+      <Text style={[oraType.small, { color: ora.ink2 }]}>{testo}</Text>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  page: { padding: 20, paddingBottom: 60, gap: 14, maxWidth: 680 },
-  h1: { fontSize: 24, fontWeight: '600', letterSpacing: -0.4 },
-  sub: { fontSize: 14, lineHeight: 20 },
-  blocco: { gap: 10, marginTop: 4 },
-  scheda: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 14, padding: 16, gap: 12 },
-  chiesto: { fontSize: 12, fontStyle: 'italic' },
-  stato: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.6 },
-  contatto: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, padding: 14, gap: 3 },
-  candidato: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, padding: 14, gap: 3 },
-  nome: { fontSize: 16, fontWeight: '600' },
-  numero: { fontSize: 20, fontWeight: '500', letterSpacing: 0.4 },
-  fonte: { fontSize: 13 },
-  ok: { fontSize: 13, fontWeight: '600', marginTop: 4 },
-  etichetta: { fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.6 },
-  sa: { fontSize: 14, lineHeight: 21 },
-  dice: { fontSize: 17, lineHeight: 25, fontWeight: '500' },
-  riga: { flexDirection: 'row', gap: 10, flexWrap: 'wrap' },
-  altro: { paddingVertical: 4 },
-  pronta: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, padding: 14 },
-  riassunto: { fontSize: 16, lineHeight: 24 },
-  nota: { fontSize: 12, lineHeight: 18 },
-  bloccata: { fontSize: 14, lineHeight: 21 },
+  page: { padding: 24, paddingBottom: 64 },
+  pageWide: { padding: 32 },
+  colonne: { flexDirection: 'row', gap: 24, alignItems: 'flex-start' },
+  principale: { flex: 1, minWidth: 0, gap: 18 },
+  lato: { width: 360, gap: 16, paddingTop: 4 },
+  latoCard: { gap: 14, padding: 20 },
+  latoHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  bolla: {
+    backgroundColor: ora.surfaceWarm,
+    borderRadius: ora.radius.inner,
+    padding: 14,
+  },
+  voceLato: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
+  spunta: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  passo: { flexDirection: 'row', gap: 16, alignItems: 'flex-start' },
+  passoNum: {
+    width: 30, height: 30, borderRadius: 15, backgroundColor: ora.cta,
+    alignItems: 'center', justifyContent: 'center', marginTop: 16,
+  },
+  passoNumText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
+  passoCard: { flex: 1, gap: 16 },
+  passoHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  contattoRiga: {
+    flexDirection: 'row', alignItems: 'center', gap: 16,
+    backgroundColor: ora.surfaceTint, borderRadius: ora.radius.inner, padding: 16,
+  },
+  regola: { flexDirection: 'row', gap: 14, alignItems: 'flex-start' },
+  riassunto: {
+    flexDirection: 'row', gap: 14, alignItems: 'center',
+    backgroundColor: ora.surfaceTint, borderRadius: ora.radius.inner, padding: 16,
+  },
+  blocco: { gap: 12 },
+  riga: { flexDirection: 'row', gap: 12, flexWrap: 'wrap' },
+  candidato: {
+    borderWidth: StyleSheet.hairlineWidth, borderColor: ora.hairline,
+    borderRadius: ora.radius.inner, padding: 14, gap: 2,
+  },
+  altro: { paddingVertical: 6 },
   input: {
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderColor: ora.hairline,
+    borderRadius: ora.radius.control,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     fontSize: 15,
+    color: ora.ink,
+    backgroundColor: ora.surface,
   },
-  inputAlto: { minHeight: 72, textAlignVertical: 'top' },
-  btn: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 999,
-    paddingHorizontal: 18,
-    paddingVertical: 11,
-    alignItems: 'center',
-    minWidth: 130,
-  },
-  btnLabel: { fontSize: 14, fontWeight: '600' },
+  inputAlto: { minHeight: 88, textAlignVertical: 'top' },
 });
-
-void tokens;

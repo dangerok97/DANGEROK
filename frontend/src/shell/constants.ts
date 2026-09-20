@@ -13,7 +13,7 @@ export const AMBIENT_BOTTOM_CLEARANCE = 108;
  * an 80px strip of glyphs is navigation furniture rather than the frame of a
  * product someone lives in. The phone bar is unchanged.
  */
-export const AMBIENT_RAIL_WIDTH = 216;
+export const AMBIENT_RAIL_WIDTH = 260;
 
 /**
  * Action Focus decision column — narrower than shell/Home editorial width.

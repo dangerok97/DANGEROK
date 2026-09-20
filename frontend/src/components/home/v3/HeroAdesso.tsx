@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useTheme } from '@/src/theme/ThemeProvider';
+import { ora, oraShadow } from '@/src/theme/oraSurface';
 import { tokens } from '@/src/theme/tokens';
 import type { HomeActionDef, HomeExplanation, HomeItem } from '@/src/api/client';
 import { ContextualCardVisual } from './ContextualCardVisual';
@@ -58,7 +59,11 @@ export function HeroAdesso({
     >
       <View style={[styles.body, wide && styles.bodyWide]}>
         <View style={styles.text}>
-          <Text style={[styles.eyebrow, { color: colors.warning }]}>ADESSO</Text>
+          {/* V3.21.3 — la reference chiama questa riga per quello che è. */}
+          <View style={styles.eyebrowRow}>
+            <View style={[styles.eyebrowRing, { borderColor: ora.deep }]} />
+            <Text style={[styles.eyebrow, { color: ora.deep }]}>IL TUO FOCUS DI OGGI</Text>
+          </View>
 
           <Text
             style={[styles.title, { color: colors.textPrimary }]}
@@ -213,28 +218,31 @@ export function HeroAdesso({
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: tokens.radius.xl,
+    borderRadius: ora.radius.card,
     borderWidth: StyleSheet.hairlineWidth,
     overflow: 'hidden',
+    ...(oraShadow as any),
   },
   body: { flexDirection: 'column-reverse' },
   /** Desktop: text leads, picture anchors the right — as in the reference. */
   bodyWide: { flexDirection: 'row', alignItems: 'stretch' },
   text: {
     flex: 1,
-    padding: tokens.spacing.xl,
-    gap: tokens.spacing.sm,
+    padding: 32,
+    gap: 10,
   },
   /** Phone: full-bleed media on top of the card. */
   visualStacked: { width: '100%', height: 168, borderRadius: 0 },
   visualWide: { width: 300, alignSelf: 'stretch', borderRadius: 0 },
+  eyebrowRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  eyebrowRing: { width: 14, height: 14, borderRadius: 7, borderWidth: 2 },
   eyebrow: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1.4,
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 1.2,
   },
   title: {
-    fontSize: 29,
+    fontSize: 31,
     fontWeight: '700',
     lineHeight: 36,
     letterSpacing: -0.7,
@@ -272,12 +280,12 @@ const styles = StyleSheet.create({
   cta: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    minHeight: tokens.touch.min,
-    paddingHorizontal: tokens.spacing.xl,
-    borderRadius: tokens.radius.md,
+    gap: 10,
+    minHeight: 48,
+    paddingHorizontal: 26,
+    borderRadius: ora.radius.control,
   },
-  ctaLabel: { fontSize: 15, fontWeight: '600' },
+  ctaLabel: { fontSize: 16, fontWeight: '600' },
   ghost: {
     minHeight: tokens.touch.min,
     justifyContent: 'center',

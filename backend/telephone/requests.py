@@ -20,6 +20,26 @@ _A_MESSAGE = re.compile(
 )
 
 
+#     «CHIAMA ASIA E DILLE CHE ARRIVO TARDI» — CHI E' «ASIA».
+# La chat lo ricava dal modello; chi scrive nella schermata della preparazione
+# non ha un modello davanti, e prima restava senza contatto. Le parole sono
+# quelle: quello che sta fra «chiama» e la prima congiunzione.
+_CHI = re.compile(
+    r"\bchiam(?:a|are|ami)\s+(?:a\s+)?(.+?)"
+    r"(?=\s+e\s+|\s+per\b|\s+dille\b|\s+digli\b|\s+di\b|[,.;!?]|$)",
+    re.I,
+)
+
+
+def who_in(testo: str) -> str:
+    """Chi va chiamato, dalle parole della richiesta. Vuoto se non si capisce."""
+    trovato = _CHI.search(" ".join((testo or "").split()))
+    if not trovato:
+        return ""
+    chi = trovato.group(1).strip(" ,.;:!?\"«»")
+    return chi[:120] if len(chi) >= 2 else ""
+
+
 def is_a_message(testo: str) -> bool:
     """Se la richiesta è portare una frase a qualcuno."""
     return bool(_A_MESSAGE.search(testo or ""))

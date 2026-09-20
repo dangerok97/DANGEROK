@@ -258,6 +258,14 @@ async def run_cognitive_loop(
 ) -> CognitiveTurnResult:
     t0 = time.perf_counter()
     trace = new_trace()
+    #     DOVE VA IL TEMPO, MISURATO — NON IPOTIZZATO.
+    # V3.21.3: «la chat è lenta» non è una diagnosi. Queste sono le fasi che un
+    # turno attraversa, in millisecondi: contesto, modello, strumenti, guida.
+    # Costano un `perf_counter` ciascuna e dicono da dove cominciare.
+    fasi: Dict[str, float] = {}
+
+    def _fase(nome: str, da: float) -> None:
+        fasi[nome] = round(fasi.get(nome, 0.0) + (time.perf_counter() - da) * 1000, 1)
     tools = ToolRegistry(db)
     broker = ContextBroker(db)
     st = state_mod.get_ai_state(sess)
@@ -281,6 +289,7 @@ async def run_cognitive_loop(
         user_message=user_message[:200],
     )
 
+    _t = time.perf_counter()
     context_facts = await broker.retrieve(
         user_id=sess.user_id,
         user_message=user_message,
@@ -288,6 +297,7 @@ async def run_cognitive_loop(
         stage="A",
         session_id=sess.id,
     )
+    _fase("context", _t)
     # Merge temporary current_facts (do not overwrite durable Profile)
     context_facts = merge_context_with_current(context_facts, st)
     # Normalize any dict extras from temporal merge
@@ -415,6 +425,7 @@ async def run_cognitive_loop(
             calendar_next_48h=calendar_ahead,
             today_where_they_are=oggi_da_lei,
         )
+        _t = time.perf_counter()
         raw = await _call_ai(
             decision_fn=decision_fn,
             system=COGNITIVE_SYSTEM_PROMPT,
@@ -427,6 +438,7 @@ async def run_cognitive_loop(
                 str((sess.meta or {}).get("entry_point") or "")
             ),
         )
+        _fase("model", _t)
         ai_calls += 1
         trace["ai_calls"] = ai_calls
 
@@ -439,6 +451,7 @@ async def run_cognitive_loop(
             out.context_calls = int(trace.get("context_calls") or 0)
             out.external_queries = external_queries
             out.elapsed_ms = int((time.perf_counter() - t0) * 1000)
+            trace["phases_ms"] = dict(fasi)
             out.trace = public_trace(trace)
             return out
 
@@ -1564,7 +1577,7 @@ async def run_cognitive_loop(
                 session_id=sess.id,
                 active_goal=ActiveGoal.model_validate(st.get("active_goal") or {}),
                 memory_candidates=list(decision.memory_candidates or []),
-                trace=public_trace(trace),
+                trace=public_trace({**trace, "phases_ms": dict(fasi)}),
                 ai_calls=ai_calls,
                 tool_calls=tool_calls,
                 context_calls=int(trace.get("context_calls") or 0),
@@ -1572,6 +1585,7 @@ async def run_cognitive_loop(
                 elapsed_ms=int((time.perf_counter() - t0) * 1000),
                 sources=public_sources[:MAX_SOURCES_UI],
                 navigation=_navigation_options(observations),
+                journey=_journey_from(observations),
                 working_hint=None,
                 situation=(situation_result or {}).get("situation")
                 or st.get("active_situation_ref"),
@@ -2005,6 +2019,12 @@ async def run_cognitive_loop(
                         args["object_id"] = oid
             sig = tool_signature(cap, args)
             working_hint = "Controllo…" if cap == "web_search" else "Organizzo…"
+            _t = time.perf_counter()
+            #     QUELLO CHE STA FACENDO, MENTRE LO FA.
+            # «Sto ragionando…» è la frase di chi non ha niente da dire. Qui
+            # c'è lo strumento che sta davvero girando, scritto dove la chat
+            # può leggerlo — e sparisce appena il turno finisce.
+            await _say_what_is_happening(db, sess, what_is_happening(cap))
             obs = await tools.execute(
                 cap,
                 args,
@@ -2026,6 +2046,7 @@ async def run_cognitive_loop(
                     "pending_act": (st.get("pending_act") or None),
                 },
             )
+            _fase("tools", _t)
             tool_calls += 1
             trace["tool_calls"] = tool_calls
             # Client-side capability bridge (foreground location) — pause for FE
@@ -2079,7 +2100,7 @@ async def run_cognitive_loop(
                             st.get("active_goal") or {}
                         ),
                         memory_candidates=[],
-                        trace=public_trace(trace),
+                        trace=public_trace({**trace, "phases_ms": dict(fasi)}),
                         ai_calls=ai_calls,
                         tool_calls=tool_calls,
                         context_calls=int(trace.get("context_calls") or 0),
@@ -2279,7 +2300,7 @@ async def run_cognitive_loop(
         memory_candidates=list(
             (last_decision.memory_candidates if last_decision else []) or []
         ),
-        trace=public_trace(trace),
+        trace=public_trace({**trace, "phases_ms": dict(fasi)}),
         ai_calls=ai_calls,
         tool_calls=tool_calls,
         context_calls=int(trace.get("context_calls") or 0),
@@ -2357,6 +2378,43 @@ def _how_long_we_wait(entry_point: str) -> Optional[float]:
     from llm.manager import VOICE_FIRST_ATTEMPT_S
 
     return VOICE_FIRST_ATTEMPT_S if entry_point in ("phone", "voice") else None
+
+
+#     COSA SI STA FACENDO, IN ITALIANO E SENZA INVENTARE.
+# Solo capacità che esistono: se una non è in elenco, si dice la cosa vera più
+# generica invece di descrivere un lavoro che non sta avvenendo.
+_SI_STA_FACENDO = {
+    "get_calendar": "Controllo il tuo calendario…",
+    "calendar_search": "Controllo il tuo calendario…",
+    "create_calendar_event": "Scrivo in calendario…",
+    "update_calendar_event": "Aggiorno il calendario…",
+    "open_navigation": "Verifico il percorso e il traffico…",
+    "resolve_place": "Cerco l'indirizzo…",
+    "prepare_a_phone_call": "Cerco il contatto…",
+    "search_documents": "Cerco fra i tuoi documenti…",
+    "read_document": "Leggo il documento…",
+    "web_search": "Cerco sul web…",
+    "situation_mutation": "Aggiorno la tua situazione…",
+    "remember": "Scrivo quello che ho capito…",
+}
+
+
+def what_is_happening(capability: str) -> str:
+    """La frase da mostrare mentre gira `capability`."""
+    return _SI_STA_FACENDO.get(capability or "", "Sto cercando quello che serve…")
+
+
+async def _say_what_is_happening(db, sess, phrase: str) -> None:
+    """Scrive sulla sessione che cosa sta succedendo adesso. Non solleva mai."""
+    if db is None or not phrase:
+        return
+    try:
+        await db["conversation_sessions"].update_one(
+            {"id": sess.id, "user_id": sess.user_id},
+            {"$set": {"meta.working_on": phrase[:120]}},
+        )
+    except Exception:  # pragma: no cover
+        pass
 
 
 async def _call_ai(
@@ -2572,6 +2630,33 @@ def _the_tool_s_own_sentence(observations) -> str:
         if detto:
             return detto
     return ""
+
+
+def _journey_from(observations) -> dict:
+    """
+    Il confronto fra i modi di arrivarci, se `open_navigation` l'ha prodotto.
+
+    Niente di calcolato qui: si prende quello che la capacità ha ottenuto da
+    chi conosce i percorsi, e se non c'è si torna vuoto.
+    """
+    for obs in reversed(list(observations or [])):
+        payload = getattr(obs, "payload", None) or (
+            obs.get("payload") if isinstance(obs, dict) else None
+        ) or {}
+        if payload.get("capability") != "open_navigation":
+            continue
+        scelte = payload.get("journey_options") or []
+        if not scelte:
+            #     NIENTE TEMPI: SI DICE PERCHE', NON SI INVENTANO.
+            nota = payload.get("routing") or {}
+            perche = str(nota.get("why_unavailable") or "")
+            return {"unavailable": perche} if perche else {}
+        return {
+            "destination": ((payload.get("place") or {}).get("label") or "")[:120],
+            "options": scelte[:3],
+            "advice": str(payload.get("advice") or "")[:300],
+        }
+    return {}
 
 
 def _navigation_options(observations) -> list:

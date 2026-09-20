@@ -208,6 +208,11 @@ class PresenceState(BaseModel):
     pending_since: Optional[str] = None
     pending_samples: int = 0
     last_seen_at: Optional[str] = None
+    #     QUANDO NE E' USCITO L'ULTIMA VOLTA.
+    # Serve a distinguere un arrivo da un rientro: tornare a casa dopo due ore
+    # fuori non è la stessa cosa che arrivarci la prima volta della giornata,
+    # e chi legge la differenza la sente.
+    left_at: Optional[str] = None
     # Readings too vague to say anything about this zone. Counted, not used.
     ignored_fixes: int = 0
     updated_at: str = Field(default_factory=now_iso)

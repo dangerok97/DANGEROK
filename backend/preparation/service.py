@@ -73,6 +73,7 @@ async def start(
         return esistente, ""
 
     from telephone.mission import kind_of_request, the_message_in
+    from telephone.requests import who_in
 
     #     IL TIPO SI LEGGE DALLA RICHIESTA, E UN MESSAGGIO DICHIARATO VINCE.
     messaggio = " ".join((message or "").split())[:400] or the_message_in(frase)
@@ -82,7 +83,8 @@ async def start(
         owner_id=owner_id,
         user_request=frase,
         goal=goal.strip()[:300],
-        counterparty=" ".join((counterparty or "").split())[:160],
+        #     SE NON MI DICI CHI, LO LEGGO NELLA FRASE.
+        counterparty=(" ".join((counterparty or "").split()) or who_in(frase))[:160],
         operation=tipo,
         message_to_deliver=messaggio,
         idempotency_key=chiave,
@@ -710,6 +712,10 @@ def as_a_card(prep: MissionPreparation) -> Dict[str, Any]:
         "number_note": _why_this_number(prep),
         "number_conflict": bool(prep.number_conflict),
         "what_ora_knows": list(prep.known_context),
+        #     IL MESSAGGIO DA CONSEGNARE, CON LE PAROLE DI CHI LO MANDA.
+        # La schermata lo rilegge prima del via libera: è l'ultima occasione
+        # per accorgersi che ORA ha capito storto.
+        "message_to_deliver": prep.message_to_deliver or "",
         "question": {
             "field": domanda.field,
             "asks": domanda.question,

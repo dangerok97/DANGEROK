@@ -3,6 +3,8 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useTheme } from '@/src/theme/ThemeProvider';
+import { ora, oraShadow, oraType } from '@/src/theme/oraSurface';
+import { OraLink } from '@/src/components/ora-ui';
 import { tokens } from '@/src/theme/tokens';
 import type { HomeCurrentSituation, HomeItem } from '@/src/api/client';
 
@@ -111,18 +113,52 @@ export function ContextRail({
     setCursor((c) => new Date(c.getFullYear(), c.getMonth() + delta, 1));
 
   const summary = [
-    { icon: 'radio-button-on-outline' as const, label: 'Situazioni attive', value: situation?.indicators?.length ?? 0 },
-    { icon: 'help-circle-outline' as const, label: 'Domande in attesa', value: questionCount },
-    { icon: 'notifications-outline' as const, label: 'Azioni in sospeso', value: situation?.open_actions_count ?? 0 },
+    {
+      icon: 'radio-button-on-outline' as const,
+      label: 'Situazioni attive',
+      value: situation?.indicators?.length ?? 0,
+      detail: `${situation?.indicators?.length ?? 0} da seguire`,
+    },
+    {
+      icon: 'help-circle-outline' as const,
+      label: 'Domande in attesa',
+      value: questionCount,
+      detail: questionCount === 1 ? '1 da rispondere' : `${questionCount} da rispondere`,
+    },
+    {
+      icon: 'notifications-outline' as const,
+      label: 'Azioni in sospeso',
+      value: situation?.open_actions_count ?? 0,
+      detail: `${situation?.open_actions_count ?? 0} aperte`,
+    },
+    {
+      icon: 'document-text-outline' as const,
+      label: 'Da verificare',
+      value: situation?.needs_review_count ?? 0,
+      detail: `${situation?.needs_review_count ?? 0} documenti`,
+    },
   ].filter((s) => s.value > 0);
 
   return (
     <View style={styles.rail} testID="home-context-rail">
+      {/*
+        Il giorno, prima di tutto. Non è una card: è la riga che dice dove sei
+        nel tempo, e da lì in giù si legge l'agenda.
+      */}
+      <View style={styles.dayHead} testID="rail-today">
+        <Text style={[oraType.body, { color: ora.ink, fontWeight: '600' }]}>
+          {capitalize(today.toLocaleDateString('it-IT', {
+            weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+          }))}
+        </Text>
+        <Text style={[oraType.small, { color: ora.ink3 }]}>{partOfDayGreeting(today)}</Text>
+      </View>
+
       {/* Calendar */}
       <View style={[styles.panel, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <View style={styles.panelHead}>
-          <Ionicons name="calendar-outline" size={13} color={colors.textSecondary} />
-          <Text style={[styles.panelTitle, { color: colors.textSecondary }]}>CALENDARIO</Text>
+          <Ionicons name="calendar-outline" size={20} color={ora.deep} />
+          <Text style={[styles.panelTitle, { color: ora.ink }]}>Calendario</Text>
           <View style={styles.monthNav}>
             {/*
               A 15px chevron is the right size to look at and the wrong size to
@@ -285,7 +321,11 @@ export function ContextRail({
         </View>
       ) : upcoming.length ? (
         <View style={[styles.panel, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={[styles.panelTitle, { color: colors.textSecondary }]}>PROSSIMI APPUNTAMENTI</Text>
+          <View style={styles.panelHead}>
+            <Ionicons name="calendar-number-outline" size={20} color={ora.deep} />
+            <Text style={[styles.panelTitle, { color: ora.ink, flex: 1 }]}>Prossimi appuntamenti</Text>
+            {onSeeAll ? <OraLink label="Vedi agenda" chevron={false} onPress={onSeeAll} /> : null}
+          </View>
           {upcoming.map(({ item, at }) => (
             <Pressable
               key={item.id}
@@ -312,26 +352,37 @@ export function ContextRail({
               </View>
             </Pressable>
           ))}
-          {onSeeAll ? (
-            <Pressable onPress={onSeeAll} style={({ pressed }) => [styles.footer, pressed && styles.pressed]} accessibilityRole="button">
-              <Text style={[styles.footerLabel, { color: colors.accent }]}>Vedi tutti</Text>
-              <Ionicons name="arrow-forward" size={12} color={colors.accent} />
-            </Pressable>
-          ) : null}
+
         </View>
       ) : null}
 
       {/* Summary — counts only, never scores */}
       {summary.length ? (
         <View style={[styles.panel, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={[styles.panelTitle, { color: colors.textSecondary }]}>ORA IN SINTESI</Text>
-          {summary.map((s) => (
-            <View key={s.label} style={styles.sumRow}>
-              <Ionicons name={s.icon} size={17} color={colors.accent} />
-              <Text style={[styles.sumLabel, { color: colors.textSecondary }]}>{s.label}</Text>
-              <Text style={[styles.sumValue, { color: colors.textPrimary }]}>{s.value}</Text>
-            </View>
-          ))}
+          <View style={styles.panelHead}>
+            <Ionicons name="stats-chart-outline" size={20} color={ora.deep} />
+            <Text style={[styles.panelTitle, { color: ora.ink, flex: 1 }]}>ORA in sintesi</Text>
+            {onSeeAll ? <OraLink label="Vedi tutto" chevron={false} onPress={onSeeAll} /> : null}
+          </View>
+          {/*
+            Due per riga, come nella reference: sono stati della giornata, non
+            una classifica. Ogni riga dice una cosa che ORA sa davvero.
+          */}
+          <View style={styles.sumGrid}>
+            {summary.map((s) => (
+              <View key={s.label} style={styles.sumCell}>
+                <Ionicons name={s.icon} size={18} color={ora.deep} style={{ marginTop: 2 }} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[oraType.small, { color: ora.ink, fontWeight: '600' }]} numberOfLines={1}>
+                    {s.label}
+                  </Text>
+                  <Text style={[oraType.small, { color: ora.ink2 }]} numberOfLines={2}>
+                    {s.detail}
+                  </Text>
+                </View>
+              </View>
+            ))}
+          </View>
         </View>
       ) : null}
     </View>
@@ -341,13 +392,17 @@ export function ContextRail({
 const styles = StyleSheet.create({
   rail: { gap: tokens.spacing.lg },
   panel: {
-    borderRadius: tokens.radius.lg,
+    borderRadius: ora.radius.card,
     borderWidth: StyleSheet.hairlineWidth,
-    padding: tokens.spacing.lg,
-    gap: tokens.spacing.sm,
+    padding: 20,
+    gap: 12,
+    ...(oraShadow as any),
   },
-  panelHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  panelTitle: { fontSize: 11, fontWeight: '700', letterSpacing: 1 },
+  dayHead: { paddingHorizontal: 4, gap: 2 },
+  panelHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  panelTitle: { fontSize: 17, fontWeight: '600', letterSpacing: 0 },
+  sumGrid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 16, columnGap: 12 },
+  sumCell: { flexDirection: 'row', gap: 10, width: '46%', minWidth: 120 },
   monthNav: {
     flexDirection: 'row', alignItems: 'center', gap: 2, marginLeft: 'auto',
     marginVertical: -12, marginRight: -10,
@@ -418,3 +473,17 @@ const styles = StyleSheet.create({
   footerLabel: { fontSize: 12, fontWeight: '600' },
   pressed: { opacity: 0.65 },
 });
+
+
+/** «Venerdì 19 settembre 2026» vuole la maiuscola, l'italiano no. */
+function capitalize(v: string): string {
+  return v ? v.charAt(0).toLocaleUpperCase('it-IT') + v.slice(1) : v;
+}
+
+/** Il saluto che chiude la riga della data, dall'ora del giorno. */
+function partOfDayGreeting(now: Date): string {
+  const h = now.getHours();
+  if (h < 12) return 'Buona giornata!';
+  if (h < 18) return 'Buon pomeriggio!';
+  return 'Buona serata!';
+}

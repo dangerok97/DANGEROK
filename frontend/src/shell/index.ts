@@ -27,3 +27,6 @@ export { useInflight } from './useInflight';
 export { AuthGate } from './AuthGate';
 export { loginHrefFor, safeNextTarget } from './nextTarget';
 export { AccountEntry } from './AccountEntry';
+export { SideRail } from './SideRail';
+export type { RailKey } from './SideRail';
+export { DesktopShell, railKeyFor } from './DesktopShell';

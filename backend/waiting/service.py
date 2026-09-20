@@ -366,6 +366,65 @@ class WaitingService:
                     closed += 1
         return closed
 
+    async def answered_in_the_thread(
+        self, user_id: str, session_id: str, *, answer: str,
+    ) -> int:
+        """
+        La persona ha risposto nella conversazione che aveva chiesto.
+
+            UNA DOMANDA RISPOSTA NON RESTA IN HOME.
+
+        Misurato sul vero (V3.21.3): si rispondeva nella chat e la stessa
+        domanda restava aperta in Home, con il contatore sbagliato. Una domanda
+        vive in una conversazione; un messaggio della persona in quella
+        conversazione è la risposta. Se il lavoro ha ancora bisogno di qualcosa,
+        il turno stesso farà nascere una domanda nuova.
+        """
+        if not session_id or not (answer or "").strip():
+            return 0
+        n = await self.repo.answer_in_thread(user_id, session_id, answer_raw=answer)
+        if n:
+            logger.info("question_answered_in_thread count=%d session=%s", n, session_id)
+        return n
+
+    async def reconcile_with_threads(self, user_id: str) -> int:
+        """
+        Chiude le domande a cui si è già risposto nella conversazione, prima che
+        questa regola esistesse: se dopo la domanda la persona ha scritto nella
+        stessa conversazione, la domanda è risposta.
+        """
+        chiuse = 0
+        for row in await self.repo.list_open(user_id, limit=50):
+            sessione = str(((row.get("refs") or {}).get("session_id")) or "")
+            if not sessione:
+                continue
+            sess = await self.db.conversation_sessions.find_one(
+                {"id": sessione, "user_id": user_id}, {"_id": 0, "history": 1},
+            )
+            dopo = [
+                h for h in ((sess or {}).get("history") or [])
+                if h.get("role") == "user" and str(h.get("at") or "") > str(row.get("created_at") or "")
+            ]
+            if dopo:
+                chiuse += await self.repo.answer_in_thread(
+                    user_id, sessione, answer_raw=str(dopo[0].get("text") or ""),
+                    before=str(dopo[0].get("at") or ""),
+                )
+                continue
+            #     E IL LAVORO FINITO NON ASPETTA PIÙ NIENTE.
+            # «Vuoi che la chiami?» su una telefonata già fatta e già
+            # raccontata non è una domanda: è una riga rimasta indietro.
+            finita = await self.db.phone_calls.find_one({
+                "owner_id": user_id,
+                "chat_session_id": sessione,
+                "state": {"$in": ["ended", "failed", "expired"]},
+            })
+            if finita:
+                chiuse += await self.close_for_work(
+                    user_id, session_id=sessione, reason="call_finished",
+                )
+        return chiuse
+
     async def close_for_work(
         self,
         user_id: str,

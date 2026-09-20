@@ -38,6 +38,9 @@ import { areaIconName } from '@/src/components/life-profile/areaIcon';
 import { requestDevicePosition } from '@/src/life-setup/devicePosition';
 import * as DocumentPicker from 'expo-document-picker';
 import { useTheme } from '@/src/theme/ThemeProvider';
+import { DesktopShell } from '@/src/shell';
+import { OraBadge, OraCard } from '@/src/components/ora-ui';
+import { ora, oraType } from '@/src/theme/oraSurface';
 import { tokens } from '@/src/theme/tokens';
 import { humanizeError } from '@/src/utils/errors';
 
@@ -334,21 +337,31 @@ export function GuidedSetupScreen() {
       testID="guided-profile"
     >
       <View style={styles.profileHead}>
-        <Text style={[styles.profileTitle, { color: colors.textSecondary }]}>PROFILO VITA</Text>
-        <Text style={[styles.profilePercent, { color: colors.textPrimary }]} testID="guided-percent">
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.profileTitle, { color: ora.ink3 }]}>PROFILO VITA</Text>
+          <Text style={[oraType.hero, { color: ora.ink, marginTop: 4 }]}>
+            {percent >= 70
+              ? 'ORA ha già una buona base per aiutarti.'
+              : 'Stiamo costruendo il quadro della tua vita.'}
+          </Text>
+          <Text style={[oraType.body, { color: ora.ink2, marginTop: 6 }]}>
+            Conosce il {percent}% di ciò che può aiutarti. Aggiungi il resto quando vuoi, da Vita.
+          </Text>
+        </View>
+        <Text style={[styles.profilePercent, { color: ora.ink }]} testID="guided-percent">
           {percent}%
         </Text>
       </View>
-      <Bar percent={percent} color={colors.accent} track={colors.divider} />
-      <Text style={[styles.profileNote, { color: colors.textTertiary }]}>
-        Quello che ORA sa di te. Puoi completarlo nel tempo.
+      <Bar percent={percent} color={ora.cta} track={colors.divider} />
+      <Text style={[styles.profileNote, { color: ora.ink3 }]}>
+        Più informazioni condividi, più i suggerimenti saranno utili e personalizzati.
       </Text>
     </View>
   );
 
   const path = (
     <View style={styles.path} testID="guided-path">
-      <Text style={[styles.pathTitle, { color: colors.textTertiary }]}>PERCORSO</Text>
+      <Text style={[styles.pathTitle, { color: ora.ink3 }]}>PERCORSO</Text>
       {areas.map((a, i) => {
         const isCurrent = a.area_id === state?.current_area_id;
         return (
@@ -663,6 +676,13 @@ export function GuidedSetupScreen() {
     </View>
   ) : null;
 
+  /*
+    L'area che vale la pena completare adesso: la prima non ancora piena.
+    È quello che la reference mette sotto «Prossimo passo consigliato», e non
+    è un suggerimento inventato — è la prima area che il backend dice incompleta.
+  */
+  const prossima = areas.find((a) => a.percent < 100 && a.state !== 'not_applicable') || null;
+
   const done = !objective && !state?.transition ? (
     <View style={styles.question} testID="guided-done">
       <Text style={[styles.questionText, { color: colors.textPrimary }]}>
@@ -672,6 +692,31 @@ export function GuidedSetupScreen() {
         Conosce il {percent}% di ciò che può aiutarti. Puoi aggiungere il resto quando vuoi, da
         Vita.
       </Text>
+      {prossima ? (
+        <View style={styles.sapere} testID="guided-next-area">
+          <View style={styles.sapereHead}>
+            <Ionicons name="bulb-outline" size={18} color={ora.attention} />
+            <Text style={[oraType.body, { color: ora.ink, fontWeight: '600' }]}>
+              Prossimo passo consigliato
+            </Text>
+          </View>
+          <Text style={[oraType.small, { color: ora.ink2 }]}>
+            {prossima.open_objectives?.length
+              ? `Completa «${prossima.title}»: ${prossima.open_objectives[0].label.toLowerCase()}.`
+              : `Completa «${prossima.title}» per ricevere consigli più utili.`}
+          </Text>
+          <Pressable
+            onPress={() => void goNextArea(prossima.area_id)}
+            accessibilityRole="button"
+            style={[styles.primary, { backgroundColor: ora.cta, alignSelf: 'flex-start' }]}
+            testID="guided-continue-area"
+          >
+            <Text style={[styles.primaryText, { color: '#FFFFFF' }]}>
+              Continua con {prossima.title}
+            </Text>
+          </Pressable>
+        </View>
+      ) : null}
       <Pressable
         onPress={() => void leave()}
         accessibilityRole="button"
@@ -708,9 +753,52 @@ export function GuidedSetupScreen() {
           </View>
         ) : null}
         {current ? (
-          <Text style={[styles.cardSub, { color: colors.textSecondary }]}>
-            {current.description}
-          </Text>
+          <Text style={[styles.cardSub, { color: ora.ink2 }]}>{current.description}</Text>
+        ) : null}
+        {current ? (
+          <View style={styles.sapere}>
+            {/*
+              Quello che ORA sa e quello che le manca, dai conteggi canonici:
+              nessun elenco inventato, e se non c'è niente la riga non c'è.
+            */}
+            {current.known_count > 0 ? (
+              <View style={styles.sapereBlocco}>
+                <View style={styles.sapereHead}>
+                  <Ionicons name="checkmark-circle" size={18} color={ora.success} />
+                  <Text style={[oraType.body, { color: ora.ink, fontWeight: '600' }]}>
+                    Quello che ORA sa già
+                  </Text>
+                </View>
+                <View style={styles.pillole}>
+                  <View style={styles.pillola}>
+                    <Text style={[oraType.small, { color: ora.ink2 }]}>
+                      {current.known_count} informazioni su {current.applicable_count}
+                    </Text>
+                  </View>
+                  <View style={styles.pillola}>
+                    <Text style={[oraType.small, { color: ora.ink2 }]}>{current.state_label}</Text>
+                  </View>
+                </View>
+              </View>
+            ) : null}
+            {current.open_objectives?.length ? (
+              <View style={styles.sapereBlocco}>
+                <View style={styles.sapereHead}>
+                  <Ionicons name="time-outline" size={18} color={ora.attention} />
+                  <Text style={[oraType.body, { color: ora.ink, fontWeight: '600' }]}>
+                    Cosa manca per aiutarti meglio
+                  </Text>
+                </View>
+                <View style={styles.pillole}>
+                  {current.open_objectives.slice(0, 3).map((o) => (
+                    <View key={o.ref} style={styles.pillola}>
+                      <Text style={[oraType.small, { color: ora.ink2 }]}>{o.label}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            ) : null}
+          </View>
         ) : null}
         {objective ? (
           <View style={styles.stepRow}>
@@ -736,7 +824,9 @@ export function GuidedSetupScreen() {
   const rail = (
     <View style={styles.rail} testID="guided-rail">
       <View style={[styles.railCard, { borderColor: colors.border, backgroundColor: colors.surface }]}>
-        <Text style={[styles.railTitle, { color: colors.textTertiary }]}>LE TUE AREE</Text>
+        <Text style={[oraType.section, { color: ora.ink, marginBottom: 4 }]}>
+          Le tue aree di vita
+        </Text>
         {areas.map((a) => (
           <View
             key={a.area_id}
@@ -840,12 +930,17 @@ export function GuidedSetupScreen() {
   );
 
   return (
+    <DesktopShell active="contesti">
     <SafeAreaView
-      style={[styles.root, { backgroundColor: colors.backgroundPrimary }]}
+      style={[styles.root, { backgroundColor: ora.canvas }]}
       testID="guided-setup"
     >
       <View style={styles.shell}>
-        {twoColumn ? nav : null}
+        {/*
+          V3.21.3: la navigazione qui era una lista di parole tutta sua. Adesso
+          è la barra laterale del prodotto, la stessa della Home — e questa
+          schermata smette di sembrare un'altra applicazione.
+        */}
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scroll}>
         <View style={[styles.page, twoColumn && styles.pageWide]}>
           <View style={styles.main}>
@@ -866,6 +961,7 @@ export function GuidedSetupScreen() {
       </ScrollView>
       </View>
     </SafeAreaView>
+    </DesktopShell>
   );
 }
 
@@ -877,6 +973,18 @@ const styles = StyleSheet.create({
   main: { flex: 1, gap: tokens.spacing.lg },
 
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  sapere: { gap: 16, marginTop: 8 },
+  sapereBlocco: { gap: 8 },
+  sapereHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  pillole: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  pillola: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: ora.hairline,
+    backgroundColor: ora.surface,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
   back: { minHeight: 44, justifyContent: 'center' },
   backText: { fontSize: 14 },
   why: {

@@ -103,7 +103,10 @@ const readCode = (rel: string) =>
 
   // The composer's icon controls are controls, not labelled decoration.
   const composer = readCode('src/components/ora/OraComposer.tsx');
-  const attach = composer.slice(composer.indexOf('Allega file') - 200, composer.indexOf('Allega file') + 60);
+  // L'etichetta è «Aggiungi foto, file o documenti» dal V3.13: l'ancora
+  // vecchia non esisteva più e la guardia passava su una stringa vuota.
+  const ancora = composer.indexOf('Aggiungi foto, file o documenti');
+  const attach = composer.slice(Math.max(0, ancora - 260), ancora + 60);
   assert.ok(/accessibilityRole="button"/.test(attach), 'the attach control needs a button role');
 }
 

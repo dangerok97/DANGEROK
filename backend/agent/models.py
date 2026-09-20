@@ -556,6 +556,24 @@ class ExecutionReceipt(BaseModel):
         }
 
 
+#     UN MESE SI DICE PER NOME, NON IN CIFRE.
+_MESI = (
+    "gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio",
+    "agosto", "settembre", "ottobre", "novembre", "dicembre",
+)
+
+
+def _the_day_in_italian(when: str) -> str:
+    """«18 settembre», da un istante scritto per le macchine. Vuoto se non si legge."""
+    from datetime import datetime
+
+    try:
+        t = datetime.fromisoformat(str(when or "").replace("Z", "+00:00"))
+    except Exception:
+        return ""
+    return f"{t.day} {_MESI[t.month - 1]}"
+
+
 class AutonomousGoal(BaseModel):
     """
     An outcome ORA is trying to bring about.
@@ -620,13 +638,49 @@ class AutonomousGoal(BaseModel):
 
         No step counts, no plan status, no authority level. Somebody wants to
         know whether the thing is handled, not how many stages it has.
+
+            E DA DOVE VIENE, SEMPRE.
+
+        V3.21.3: un aggiornamento senza provenienza è una voce che dice una
+        cosa sulla vita di qualcuno senza dire come fa a saperlo. Da qui escono
+        anche `source` (da dove nasce, in italiano) e `needs_you` (che cosa
+        serve alla persona adesso, o niente).
         """
         return {
             "id": self.id,
             "what": self.objective,
             "outcome": self.desired_outcome,
             "why_now": self.why_now or None,
+            "source": self.where_it_came_from(),
+            "needs_you": self.what_it_needs_from_you(),
         }
+
+    def where_it_came_from(self) -> str:
+        """«Appuntamento inserito il 18 settembre», «Me l'hai chiesto tu il …»."""
+        quando = _the_day_in_italian(self.created_at)
+        di_quando = f" il {quando}" if quando else ""
+        if self.origin == "user_requested":
+            return f"Me l'hai chiesto tu{di_quando}".strip()
+        da = {
+            "calendar_event": "Appuntamento in calendario",
+            "calendar": "Appuntamento in calendario",
+            "document": "Documento che mi hai dato",
+            "conversation": "Una cosa che mi hai detto",
+            "message": "Un messaggio che ho letto",
+            "opportunity": "Una cosa che ho notato",
+            "life_reasoning": "Quello che so della tua vita",
+        }.get(self.source_kind or "", "")
+        if not da:
+            return f"Nata dal lavoro di ORA{di_quando}".strip()
+        return f"{da}{di_quando}"
+
+    def what_it_needs_from_you(self) -> str:
+        """Che cosa serve alla persona adesso. Vuoto quando non serve niente."""
+        if self.requires_user_authority:
+            return "Serve il tuo via libera per procedere."
+        if self.requires_user_input:
+            return "Mi manca un'informazione che sai solo tu."
+        return ""
 
     def for_ai(self) -> Dict[str, Any]:
         return {

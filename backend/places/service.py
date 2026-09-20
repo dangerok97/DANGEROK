@@ -358,6 +358,8 @@ class PlacesService:
         by_place = {h.place_id: h for h in found}
         entered: List[str] = []
         exited: List[str] = []
+        #     TRE EVENTI, NON DUE: ENTRATO, USCITO, TORNATO.
+        returned: List[str] = []
 
         for place in places:
             if presence.zone_of(place) is None:
@@ -373,9 +375,11 @@ class PlacesService:
             new_state, change = presence.advance(state, observation, hit)
             await self.repo.save_state(new_state)
 
-            if change == "entered":
+            if change in ("entered", "returned"):
                 await self._open_stay(user_id, place.id, new_state.since or observation.observed_at)
                 entered.append(place.id)
+                if change == "returned":
+                    returned.append(place.id)
             elif change == "exited":
                 await self._close_stay(user_id, place.id, observation.observed_at)
                 exited.append(place.id)
@@ -387,6 +391,8 @@ class PlacesService:
             out["entered"] = entered
         if exited:
             out["exited"] = exited
+        if returned:
+            out["returned"] = returned
         return out
 
     async def _open_stay(self, user_id: str, place_id: str, entered_at: str) -> PresenceSession:

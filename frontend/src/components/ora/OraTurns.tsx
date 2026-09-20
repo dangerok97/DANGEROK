@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { RichOraText } from '@/src/components/ora-ai/RichOraText';
 import { useTheme } from '@/src/theme/ThemeProvider';
+import { OraJourney, type OraJourneyView } from './OraJourney';
 import { tokens } from '@/src/theme/tokens';
 
 export type OraSource = { title?: string; url?: string };
@@ -14,6 +15,8 @@ export type Turn = {
   messageId?: string;
   sources?: OraSource[];
   navigation?: OraNavigationOption[];
+  /** Come arrivarci, confrontato: il modulo della reference. */
+  journey?: OraJourneyView;
   attachments?: Array<{ name?: string }>;
   /** The send failed after the turn was already on screen. */
   failed?: boolean;
@@ -114,7 +117,14 @@ function OraTurnView({
         secondaryColor={colors.textSecondary}
         linkColor={colors.accent}
       />
-      <OraNavigation options={turn.navigation} />
+      {turn.journey?.options?.length ? (
+        <OraJourney journey={turn.journey} navigation={turn.navigation as any} />
+      ) : (
+        <>
+          <OraNavigation options={turn.navigation} />
+          {turn.journey?.unavailable ? <OraJourney journey={turn.journey} /> : null}
+        </>
+      )}
       <OraSources sources={turn.sources} />
     </View>
   );

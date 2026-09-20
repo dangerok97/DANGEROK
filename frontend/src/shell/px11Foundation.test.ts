@@ -52,7 +52,7 @@ const readCode = (rel: string) =>
   const labels = AMBIENT_NAV_ITEMS.map((i) => i.label);
   assert.deepEqual(
     labels,
-    ['Home', 'Vita', 'ORA', 'Attività', 'Documenti'],
+    ['Home', 'Vita', 'ORA', 'Chiamate', 'Attività', 'Documenti'],
     'primary navigation must be exactly the five cognitive destinations, in order',
   );
 

@@ -37,13 +37,23 @@ class GiaPreso(Exception):
     """Quello che Mongo solleva quando una chiave c'è già."""
 
 
+def _leggi(riga, chiave):
+    """Anche i percorsi puntati: `refs.session_id` scende dentro `refs`."""
+    nodo = riga
+    for pezzo in str(chiave).split("."):
+        if not isinstance(nodo, dict):
+            return None
+        nodo = nodo.get(pezzo)
+    return nodo
+
+
 def _combacia(riga, query) -> bool:
     for chiave, atteso in (query or {}).items():
         if chiave == "$or":
             if not any(_combacia(riga, ramo) for ramo in atteso):
                 return False
             continue
-        vero = riga.get(chiave)
+        vero = _leggi(riga, chiave)
         if isinstance(atteso, dict):
             if "$in" in atteso and vero not in atteso["$in"]:
                 return False
@@ -143,6 +153,19 @@ class Tabella:
 
     async def count_documents(self, query):
         return sum(1 for r in self.righe if _combacia(r, query))
+
+    async def update_many(self, query, cambio):
+        class Esito:
+            def __init__(self, n):
+                self.modified_count = n
+
+        quante = 0
+        for r in self.righe:
+            if _combacia(r, query):
+                _scrivi(r, cambio.get("$set") or {})
+                quante += 1
+                self.scritture += 1
+        return Esito(quante)
 
     async def find_one_and_update(self, query, cambio):
         """

@@ -56,6 +56,12 @@ MIN_ENTER_SAMPLES = 2
 MIN_EXIT_SAMPLES = 2
 
 
+#     QUANTO SI RESTA «QUALCUNO CHE TORNA».
+# Otto ore: uscire la mattina e rientrare la sera è un rientro; ripresentarsi
+# dopo tre giorni è di nuovo un arrivo.
+RETURN_WINDOW_SECONDS = 8 * 3600
+
+
 def _now() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -183,7 +189,16 @@ def advance(
             state.since = state.pending_since
             state.pending_since = None
             state.pending_samples = 0
-            return state, "entered"
+            #     ARRIVATO O TORNATO: LO DICE QUANTO TEMPO E' STATO FUORI.
+            tornato = False
+            if state.left_at:
+                try:
+                    fuori_da = (at - _parse(state.left_at)).total_seconds()
+                    tornato = 0 <= fuori_da <= RETURN_WINDOW_SECONDS
+                except Exception:  # pragma: no cover
+                    tornato = False
+            state.left_at = None
+            return state, ("returned" if tornato else "entered")
         return state, None
 
     if state.status == "present":
@@ -209,6 +224,7 @@ def advance(
             state.since = None
             state.pending_since = None
             state.pending_samples = 0
+            state.left_at = observation.observed_at
             return state, "exited"
         return state, None
 
