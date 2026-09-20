@@ -237,6 +237,14 @@ const lastSources = new Map<string, { text: string; sources: OraSourceRef[] }>()
  * navigare?" and there is now nothing to answer it with.
  */
 const lastNavigation = new Map<string, { text: string; navigation: OraNavigationOption[] }>();
+/*
+  Come arrivarci, tenuto come le fonti e i link.
+
+  Lo storico non lo porta — nasce con la risposta — e senza questa memoria
+  spariva alla prima ricostruzione della conversazione, cioè un istante dopo
+  essere apparso.
+*/
+const lastJourney = new Map<string, { text: string; journey: OraJourneyView }>();
 
 type OraSourceRef = { title?: string; url?: string };
 
@@ -249,6 +257,9 @@ function rememberSources(sessionId: string | null, turns: Turn[]): void {
   if (last?.navigation?.length) {
     lastNavigation.set(sessionId, { text: last.text, navigation: last.navigation });
   }
+  if (last?.journey) {
+    lastJourney.set(sessionId, { text: last.text, journey: last.journey });
+  }
 }
 
 /** Hold what the last live answer carried, keyed on its own text. */
@@ -257,10 +268,14 @@ function rememberExtras(
   text: string,
   sources: OraSourceRef[],
   navigation: OraNavigationOption[],
+  journey?: OraJourneyView | null,
 ): void {
   if (!sessionId || !text.trim()) return;
   if (sources.length) lastSources.set(sessionId, { text, sources });
   if (navigation.length) lastNavigation.set(sessionId, { text, navigation });
+  if (journey?.options?.length || journey?.unavailable) {
+    lastJourney.set(sessionId, { text, journey });
+  }
 }
 
 function withRememberedSources(sessionId: string | null, turns: Turn[]): Turn[] {
@@ -289,6 +304,12 @@ function withRememberedSources(sessionId: string | null, turns: Turn[]): Turn[] 
   ) {
     out = out === turns ? [...turns] : out;
     out[idx] = { ...out[idx], navigation: heldNav.navigation };
+  }
+
+  const heldJourney = lastJourney.get(sessionId);
+  if (heldJourney && !out[idx].journey && out[idx].text.trim() === heldJourney.text.trim()) {
+    out = out === turns ? [...turns] : out;
+    out[idx] = { ...out[idx], journey: heldJourney.journey };
   }
   return out;
 }
@@ -651,6 +672,7 @@ export function OraConversationScreen({
                 Array.isArray((res as any).navigation)
                   ? ((res as any).navigation as OraNavigationOption[]).slice(0, 3)
                   : [],
+                ((res as any).journey || null) as OraJourneyView | null,
               );
             }
             if (Array.isArray(res.history) && res.history.length) {
@@ -776,8 +798,11 @@ export function OraConversationScreen({
           ...(journey?.options?.length || journey?.unavailable ? { journey } : {}),
         };
       }
+      if (journey?.options?.length || journey?.unavailable) {
+        rememberExtras(sid, rebuilt[lastOra]?.text || '', sources, navigation, journey);
+      }
       rememberSources(sid, rebuilt);
-      setTurns(rebuilt);
+      setTurns(withRememberedSources(sid, rebuilt));
     } else {
       const ora = (res.ora_text || res.question || '').trim();
       const sources = Array.isArray(res.sources) ? res.sources.slice(0, 5) : [];
@@ -788,8 +813,13 @@ export function OraConversationScreen({
         const cleared = prev.map((t) =>
           t.messageId === clientMessageId ? { ...t, failed: false } : t,
         );
+        // Come arrivarci viaggia con la risposta anche quando non c'è storico.
+        const journey = ((res as any).journey || null) as OraJourneyView | null;
         const next = ora
-          ? [...cleared, { role: 'ora' as const, text: ora, sources, navigation }]
+          ? [...cleared, {
+              role: 'ora' as const, text: ora, sources, navigation,
+              ...(journey?.options?.length || journey?.unavailable ? { journey } : {}),
+            }]
           : cleared;
         rememberSources(sid, next);
         return next;
