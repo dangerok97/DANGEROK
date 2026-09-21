@@ -57,6 +57,8 @@ class AnswerBody(BaseModel):
 
 class AreaBody(BaseModel):
     area_id: str = Field(max_length=60)
+    #     E, SE SERVE, QUALE COSA DI QUELL'AREA.
+    ref: str = Field(default="", max_length=120)
 
 
 @router.get("/setup")
@@ -84,8 +86,15 @@ async def setup_skip_area(body: AreaBody, user=Depends(get_current_user)):
 
 @router.post("/setup/go-to-area")
 async def setup_go_to_area(body: AreaBody, user=Depends(get_current_user)):
-    """An explicit move to the next part of a life — never automatic."""
-    return await get_guided_setup_service(db).go_to_area(user["user_id"], body.area_id)
+    """
+    Un passaggio deciso dalla persona — mai automatico.
+
+    Con `ref` si apre una cosa precisa fra quelle che mancano: è il click su
+    una voce di «cosa manca», e l'area la decide il riferimento.
+    """
+    return await get_guided_setup_service(db).go_to_area(
+        user["user_id"], body.area_id, ref=(body.ref or ""),
+    )
 
 
 @router.post("/setup/finish")

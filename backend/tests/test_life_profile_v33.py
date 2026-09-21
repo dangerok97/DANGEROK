@@ -610,6 +610,11 @@ def test_no_endpoint_accepts_a_completeness_value():
     allowed = {
         "refs", "objective_id", "option_ids", "value", "other_text", "action",
         "area_id",
+        # V3.21.3c: quale cosa mancante aprire. È una scelta — «questa, non
+        # quella» — esattamente come `area_id`, e non c'è modo di trasformarla
+        # in una percentuale: la percentuale continua a nascere qui dentro,
+        # dai fatti.
+        "ref",
     }
     assert set(fields) <= allowed, f"unexpected client-supplied field: {fields}"
 

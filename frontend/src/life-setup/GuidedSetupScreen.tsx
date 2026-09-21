@@ -30,10 +30,10 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
-import { api, GuidedObjective, GuidedSetupState } from '@/src/api/client';
+import { api, GuidedObjective, GuidedSetupState, type LifeMapResponse } from '@/src/api/client';
 import { areaIconName } from '@/src/components/life-profile/areaIcon';
 import { requestDevicePosition } from '@/src/life-setup/devicePosition';
 import * as DocumentPicker from 'expo-document-picker';
@@ -89,15 +89,44 @@ export function GuidedSetupScreen() {
     message?: string;
   }>({ phase: 'idle' });
 
+  /*
+    Guardare un'area e rispondere a un'area sono due cose diverse.
+
+        LA REFERENCE MOSTRA PRIMA IL RIEPILOGO, POI LA DOMANDA.
+
+    Chi clicca «Studio» dalla colonna vuole vedere che cosa ORA sa e che cosa
+    le manca; è quando preme «Continua con Studio» che vuole rispondere. Al
+    primo giro invece si va dritti alla domanda: non c'è ancora niente da
+    riepilogare.
+  */
+  const [apertaPerArea, setApertaPerArea] = useState<string | null>(null);
+  const [percheAperto, setPercheAperto] = useState(false);
+
   const objective = state?.objective ?? null;
   const areas = state?.areas ?? [];
   const current = areas.find((a) => a.area_id === state?.current_area_id) || null;
+  const primoGiro = !!state && !state.finished;
+  const mostraDomanda = !!objective && (primoGiro || apertaPerArea === current?.area_id);
+
+  /*
+    Le situazioni in corso arrivano dalla mappa della vita — la stessa che
+    alimentava la vecchia pagina dei contesti. Nessun dato è stato buttato: ha
+    cambiato posto, ed è diventato una sezione invece di una schermata.
+  */
+  const [situations, setSituations] = useState<LifeMapResponse['situations']>([]);
 
   const load = useCallback(async () => {
     try {
       const res = await api.guidedSetupState();
       setState(res);
       setError(null);
+      try {
+        const mappa = await api.getLifeMap();
+        setSituations(mappa.situations || []);
+      } catch {
+        // Le situazioni sono un di più: se non arrivano, la pagina resta
+        // quella che serve — il profilo e quello che manca.
+      }
     } catch (e) {
       setError(humanizeError(e, 'default'));
     } finally {
@@ -254,11 +283,25 @@ export function GuidedSetupScreen() {
     router.replace('/');
   }, [router]);
 
+  /*
+    «Lo faccio più tardi».
+
+    Non è un abbandono e non è una risposta: è la persona che smette adesso.
+    Non si scrive niente — quello che c'è resta dov'è — e si torna alla Home;
+    il prossimo ingresso riparte dallo stesso punto, perché il punto è salvato
+    nella sessione, non in questa schermata.
+  */
+  const later = useCallback(() => {
+    router.replace('/');
+  }, [router]);
+
   const goNextArea = useCallback(
-    async (areaId: string) => {
+    async (areaId: string, ref?: string) => {
+      // Un buco scelto a mano è già una richiesta di rispondere.
+      if (ref) setApertaPerArea(areaId);
       setBusy(true);
       try {
-        setState(await api.guidedSetupGoToArea(areaId));
+        setState(await api.guidedSetupGoToArea(areaId, ref));
         reset();
       } catch (e) {
         setError(humanizeError(e, 'default'));
@@ -268,6 +311,24 @@ export function GuidedSetupScreen() {
     },
     [reset],
   );
+
+  /*
+    «Riprendi da Casa» vuol dire aprire la prima cosa che manca a Casa.
+
+    L'indirizzo portava già `?area=casa`, ma era un parametro decorativo: la
+    schermata si apriva dove le pareva. Adesso è il punto in cui si torna, e ci
+    si torna una volta sola — dopo, la persona è libera di muoversi.
+  */
+  const params = useLocalSearchParams<{ area?: string; resume?: string }>();
+  const [ripreso, setRipreso] = useState(false);
+  useEffect(() => {
+    const voluta = String(params.area || '').trim();
+    if (!voluta || ripreso || loading || !state) return;
+    setRipreso(true);
+    if (state.current_area_id !== voluta || !state.objective) {
+      void goNextArea(voluta);
+    }
+  }, [params.area, ripreso, loading, state, goNextArea]);
 
   const skipArea = useCallback(async () => {
     if (!state?.current_area_id) return;
@@ -305,29 +366,78 @@ export function GuidedSetupScreen() {
       >
         <Text style={[styles.backText, { color: colors.textSecondary }]}>← Indietro</Text>
       </Pressable>
-      <View
-        style={[styles.why, { borderColor: colors.border, backgroundColor: colors.surface }]}
+      {/*
+        Sembrava un bottone e non lo era: una domanda scritta dentro un bordo,
+        che non si poteva premere. Adesso si apre, e quello che dice è vero —
+        a che cosa servono le risposte, e che restano tue.
+      */}
+      <Pressable
+        onPress={() => setPercheAperto((v) => !v)}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: percheAperto }}
+        style={({ pressed }: any) => [
+          styles.why,
+          { borderColor: colors.border, backgroundColor: colors.surface },
+          pressed && { opacity: 0.7 },
+        ]}
         testID="guided-why"
       >
         <Text style={[styles.whyText, { color: colors.textSecondary }]}>
           Perché queste domande?
         </Text>
-      </View>
+      </Pressable>
     </View>
   );
 
+  const perche = percheAperto ? (
+    <View
+      style={[styles.perche, { backgroundColor: ora.surfaceTint, marginTop: 12 }]}
+      testID="guided-why-text"
+    >
+      <Ionicons name="information-circle-outline" size={18} color={ora.deep} />
+      <View style={{ flex: 1, gap: 6 }}>
+        <Text style={[oraType.small, { color: ora.ink2 }]}>
+          ORA usa quello che le dici per ricordarti le cose al momento giusto e per
+          non chiedertele due volte. Niente di tutto questo esce da qui, e da Vita
+          puoi correggere o togliere quello che vuoi, quando vuoi.
+        </Text>
+        {current?.purpose ? (
+          <Text style={[oraType.small, { color: ora.ink2 }]}>
+            Di {current.title.toLowerCase()}: {current.purpose.charAt(0).toLowerCase()}
+            {current.purpose.slice(1)}
+          </Text>
+        ) : null}
+      </View>
+    </View>
+  ) : null;
+
   const intro = (
-    <View style={styles.intro}>
-      <Text style={[styles.title, { color: colors.textPrimary }]} testID="guided-title">
-        Conosciamoci
-      </Text>
-      <Text style={[styles.introText, { color: colors.textSecondary }]}>
-        ORA vuole conoscere le diverse parti della tua vita{'\n'}
-        per aiutarti davvero ogni giorno.
-      </Text>
-      <Text style={[styles.introText, { color: colors.textSecondary }]}>
-        Compiliamo un'area alla volta. Puoi saltare o tornare quando vuoi.
-      </Text>
+    <View style={styles.introRiga}>
+      <View style={styles.intro}>
+        <Text style={[styles.title, { color: colors.textPrimary }]} testID="guided-title">
+          Conosciamoci
+        </Text>
+        <Text style={[styles.introText, { color: colors.textSecondary }]}>
+          ORA vuole conoscere le diverse parti della tua vita{'\n'}
+          per aiutarti davvero ogni giorno.
+        </Text>
+        <Text style={[styles.introText, { color: colors.textSecondary }]}>
+          Compiliamo un'area alla volta. Puoi saltare o tornare quando vuoi.
+        </Text>
+      </View>
+      {/*
+        La frase della reference, come una nota scritta a mano.
+
+        Accanto, nella reference, c'è una fotografia editoriale: quell'asset
+        non è nel repository e non lo si inventa — una macchia beige al posto
+        di una foto è il placeholder di prima con un altro nome. Resta
+        segnata fra il debito, dove qualcuno può deciderla davvero.
+      */}
+      {twoColumn ? (
+        <Text style={[styles.nota, { color: ora.ink2 }]} testID="guided-nota">
+          Un quadro più completo,{'\n'}una vita più semplice.
+        </Text>
+      ) : null}
     </View>
   );
 
@@ -365,11 +475,21 @@ export function GuidedSetupScreen() {
       {areas.map((a, i) => {
         const isCurrent = a.area_id === state?.current_area_id;
         return (
-          <View
+          /*
+            Scegliere un'area dal percorso è il modo più ovvio di muoversi in
+            questa pagina, e finora era l'unico che non si poteva fare: le
+            righe erano disegni. Adesso aprono l'area, nel pannello centrale.
+          */
+          <Pressable
             key={a.area_id}
-            style={[
+            onPress={() => void goNextArea(a.area_id)}
+            accessibilityRole="button"
+            accessibilityLabel={`Apri ${a.title}`}
+            accessibilityState={{ selected: isCurrent }}
+            style={({ pressed }: any) => [
               styles.pathRow,
               isCurrent && { backgroundColor: colors.accentMuted },
+              pressed && { opacity: 0.7 },
             ]}
             testID={`guided-path-${a.area_id}`}
           >
@@ -397,7 +517,7 @@ export function GuidedSetupScreen() {
             >
               {a.title}
             </Text>
-          </View>
+          </Pressable>
         );
       })}
     </View>
@@ -717,13 +837,19 @@ export function GuidedSetupScreen() {
           </Pressable>
         </View>
       ) : null}
+      {/*
+        «Entra in ORA» non voleva dire niente: la persona è già dentro ORA. Al
+        suo posto c'è quello che la reference mette accanto alla CTA primaria —
+        il permesso di smettere adesso senza perdere niente.
+      */}
       <Pressable
-        onPress={() => void leave()}
+        onPress={() => void later()}
         accessibilityRole="button"
-        style={[styles.primary, { backgroundColor: colors.accent, alignSelf: 'flex-start' }]}
-        testID="guided-enter"
+        style={({ pressed }: any) => [styles.secondary, pressed && { opacity: 0.7 }]}
+        testID="guided-later"
       >
-        <Text style={[styles.primaryText, { color: colors.onAccent }]}>Entra in ORA</Text>
+        <Ionicons name="time-outline" size={16} color={ora.ink2} />
+        <Text style={[styles.secondaryText, { color: ora.ink2 }]}>Lo faccio più tardi</Text>
       </Pressable>
     </View>
   ) : null;
@@ -755,6 +881,16 @@ export function GuidedSetupScreen() {
         {current ? (
           <Text style={[styles.cardSub, { color: ora.ink2 }]}>{current.description}</Text>
         ) : null}
+        {/*
+          A che cosa serve saperlo, come nella reference. Non è una rassicurazione
+          generica: ogni area dice la sua, e chi legge può decidere se gli va.
+        */}
+        {current?.purpose ? (
+          <View style={[styles.perche, { backgroundColor: ora.surfaceTint }]} testID="guided-purpose">
+            <Ionicons name="information-circle-outline" size={18} color={ora.deep} />
+            <Text style={[oraType.small, { color: ora.ink2, flex: 1 }]}>{current.purpose}</Text>
+          </View>
+        ) : null}
         {current ? (
           <View style={styles.sapere}>
             {/*
@@ -769,14 +905,23 @@ export function GuidedSetupScreen() {
                     Quello che ORA sa già
                   </Text>
                 </View>
+                {/*
+                  I fatti, non il conteggio: «Corso di laurea: Ingegneria
+                  Informatica» si può verificare e correggere, «7 informazioni
+                  su 8» no. Il conteggio resta, ma in coda, dov'è un dettaglio.
+                */}
                 <View style={styles.pillole}>
+                  {(current.known || []).slice(0, 6).map((k) => (
+                    <View key={k.ref} style={styles.pillola} testID={`guided-known-${k.ref}`}>
+                      <Text style={[oraType.small, { color: ora.ink2 }]} numberOfLines={2}>
+                        {k.label ? `${k.label}: ${k.value}` : k.value}
+                      </Text>
+                    </View>
+                  ))}
                   <View style={styles.pillola}>
-                    <Text style={[oraType.small, { color: ora.ink2 }]}>
-                      {current.known_count} informazioni su {current.applicable_count}
+                    <Text style={[oraType.small, { color: ora.ink3 }]}>
+                      {current.known_count} su {current.applicable_count} · {current.state_label}
                     </Text>
-                  </View>
-                  <View style={styles.pillola}>
-                    <Text style={[oraType.small, { color: ora.ink2 }]}>{current.state_label}</Text>
                   </View>
                 </View>
               </View>
@@ -789,18 +934,108 @@ export function GuidedSetupScreen() {
                     Cosa manca per aiutarti meglio
                   </Text>
                 </View>
+                {/*
+                  Queste non sono etichette: sono le cose che ORA non sa
+                  ancora, e cliccarne una apre quella domanda lì. Prima erano
+                  disegni, e chi le leggeva non aveva nessun modo di colmarle.
+                */}
                 <View style={styles.pillole}>
                   {current.open_objectives.slice(0, 3).map((o) => (
-                    <View key={o.ref} style={styles.pillola}>
-                      <Text style={[oraType.small, { color: ora.ink2 }]}>{o.label}</Text>
-                    </View>
+                    <Pressable
+                      key={o.ref}
+                      onPress={() => void goNextArea(current.area_id, o.ref)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Aggiungi: ${o.label}`}
+                      style={({ pressed }: any) => [
+                        styles.pillola,
+                        { borderColor: ora.cta },
+                        pressed && { opacity: 0.7 },
+                      ]}
+                      testID={`guided-gap-${o.ref}`}
+                    >
+                      <Text style={[oraType.small, { color: ora.cta, fontWeight: '600' }]}>
+                        {o.label}
+                      </Text>
+                    </Pressable>
                   ))}
                 </View>
               </View>
             ) : null}
           </View>
         ) : null}
-        {objective ? (
+        {/*
+          Il prossimo passo dell'area selezionata, con le due CTA della
+          reference. Compare quando la persona sta guardando un'area senza
+          averci ancora messo mano: è il momento in cui decide se continuare
+          adesso o più tardi — e «Continua con Casa» apre davvero la prima
+          cosa che manca, invece di lasciarla dov'era.
+        */}
+        {current && !mostraDomanda ? (
+          <View style={styles.sapere} testID="guided-next-step">
+            <View style={styles.sapereHead}>
+              <Ionicons name="bulb-outline" size={18} color={ora.attention} />
+              <Text style={[oraType.body, { color: ora.ink, fontWeight: '600' }]}>
+                Prossimo passo consigliato
+              </Text>
+            </View>
+            <Text style={[oraType.small, { color: ora.ink2 }]}>
+              {current.open_objectives?.length
+                ? `Aggiungi ${current.open_objectives[0].label.toLowerCase()} per ricevere promemoria e aiuto nell'organizzazione.`
+                : `Di ${current.title} so già tutto quello che mi serve.`}
+            </Text>
+            <View style={styles.ctaCoppia}>
+              {current.open_objectives?.length ? (
+                <Pressable
+                  onPress={() => {
+                    setApertaPerArea(current.area_id);
+                    void goNextArea(current.area_id);
+                  }}
+                  accessibilityRole="button"
+                  style={({ pressed }: any) => [
+                    styles.primary,
+                    { backgroundColor: ora.cta },
+                    pressed && { opacity: 0.85 },
+                  ]}
+                  testID="guided-continue-area"
+                >
+                  <Text style={[styles.primaryText, { color: '#FFFFFF' }]}>
+                    Continua con {current.title}
+                  </Text>
+                  <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
+                </Pressable>
+              ) : prossima ? (
+                <Pressable
+                  onPress={() => {
+                    setApertaPerArea(prossima.area_id);
+                    void goNextArea(prossima.area_id);
+                  }}
+                  accessibilityRole="button"
+                  style={({ pressed }: any) => [
+                    styles.primary,
+                    { backgroundColor: ora.cta },
+                    pressed && { opacity: 0.85 },
+                  ]}
+                  testID="guided-next-incomplete-area"
+                >
+                  <Text style={[styles.primaryText, { color: '#FFFFFF' }]}>
+                    Passa a {prossima.title}
+                  </Text>
+                  <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
+                </Pressable>
+              ) : null}
+              <Pressable
+                onPress={() => void later()}
+                accessibilityRole="button"
+                style={({ pressed }: any) => [styles.secondary, pressed && { opacity: 0.7 }]}
+                testID="guided-later"
+              >
+                <Ionicons name="time-outline" size={16} color={ora.ink2} />
+                <Text style={[styles.secondaryText, { color: ora.ink2 }]}>Lo faccio più tardi</Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : null}
+        {objective && mostraDomanda ? (
           <View style={styles.stepRow}>
             <Text style={[styles.stepText, { color: colors.textTertiary }]}>
               Passaggio {objective.step} di {objective.of}
@@ -815,7 +1050,7 @@ export function GuidedSetupScreen() {
           </View>
         ) : null}
         {transition}
-        {question}
+        {mostraDomanda ? question : null}
         {done}
       </View>
     </View>
@@ -828,12 +1063,19 @@ export function GuidedSetupScreen() {
           Le tue aree di vita
         </Text>
         {areas.map((a) => (
-          <View
+          // Stessa cosa qui: la colonna di destra è un indice, e un indice si
+          // clicca. Porta allo stesso pannello centrale, non altrove.
+          <Pressable
             key={a.area_id}
-            style={[
+            onPress={() => void goNextArea(a.area_id)}
+            accessibilityRole="button"
+            accessibilityLabel={`Apri ${a.title}`}
+            accessibilityState={{ selected: !!a.current }}
+            style={({ pressed }: any) => [
               styles.railRow,
               { borderColor: a.current ? colors.accent : colors.divider },
               a.current && { backgroundColor: colors.accentMuted },
+              pressed && { opacity: 0.7 },
             ]}
             testID={`guided-rail-${a.area_id}`}
           >
@@ -857,7 +1099,7 @@ export function GuidedSetupScreen() {
                 {a.percent}%
               </Text>
             </View>
-          </View>
+          </Pressable>
         ))}
       </View>
       <View style={[styles.railNote, { backgroundColor: colors.surfaceElevated }]}>
@@ -871,63 +1113,56 @@ export function GuidedSetupScreen() {
     </View>
   );
 
-  const nav = (
-    <View style={[styles.nav, { borderRightColor: colors.divider }]} testID="guided-nav">
-      <Text style={[styles.navBrand, { color: colors.accent }]}>ORA</Text>
-      {[
-        { label: 'Home', href: '/' },
-        { label: 'Vita', href: '/contesti' },
-        { label: 'ORA', href: '/ora' },
-        { label: 'Attività', href: '/attivita' },
-        { label: 'Documenti', href: '/documenti' },
-      ].map((item) => (
-        <Pressable
-          key={item.href}
-          onPress={() => router.push(item.href as never)}
-          accessibilityRole="link"
-          accessibilityLabel={item.label}
-          style={styles.navRow}
-          testID={`guided-nav-${item.label.toLowerCase()}`}
-        >
-          <Text style={[styles.navLabel, { color: colors.textSecondary }]}>{item.label}</Text>
-        </Pressable>
-      ))}
-      <View style={styles.navSpacer} />
-      <Pressable
-        onPress={() => router.push('/settings' as never)}
-        accessibilityRole="link"
-        accessibilityLabel="Impostazioni"
-        style={styles.navRow}
-        testID="guided-nav-impostazioni"
-      >
-        <Text style={[styles.navLabel, { color: colors.textTertiary }]}>Impostazioni</Text>
-      </Pressable>
-    </View>
-  );
+  /*
+    «In questo periodo».
 
-  const growBanner = (
+        LE SITUAZIONI IN CORSO NON SPARISCONO, MA NON COMANDANO.
+
+    La vecchia pagina Vita si apriva su queste — acquisto casa, mostra
+    fotografica, piano di studio — ed era di fatto una seconda Home. Qui
+    restano, in fondo, come quello che sono: le cose che stanno succedendo
+    adesso, con il loro posto dove aprirle. Se non ce ne sono, la sezione non
+    compare: una fascia vuota che dice «niente in corso» è una fascia che
+    occupa spazio per non dire niente.
+  */
+  const periodo = situations.length ? (
     <View
-      style={[styles.grow, { borderColor: colors.border, backgroundColor: colors.surfaceElevated }]}
-      testID="guided-grow"
+      style={[styles.grow, { borderColor: colors.border, backgroundColor: colors.surface }]}
+      testID="guided-periodo"
     >
       <View style={styles.growText}>
-        <Text style={[styles.growTitle, { color: colors.textPrimary }]}>ORA cresce con te</Text>
+        <Text style={[styles.growTitle, { color: colors.textPrimary }]}>In questo periodo</Text>
         <Text style={[styles.growNote, { color: colors.textSecondary }]}>
-          Più condividi, più consigli e promemoria saranno utili e personalizzati.
+          Le cose che stanno succedendo adesso nella tua vita.
         </Text>
+        <View style={styles.periodoRighe}>
+          {situations.slice(0, 4).map((sit) => (
+            <Pressable
+              key={sit.id}
+              onPress={() => sit.href && router.push(sit.href as never)}
+              accessibilityRole="button"
+              accessibilityLabel={`Apri ${sit.title}`}
+              style={({ pressed }: any) => [styles.periodoRiga, pressed && { opacity: 0.7 }]}
+              testID={`guided-situazione-${sit.id}`}
+            >
+              <Ionicons name="ellipse" size={8} color={ora.cta} />
+              <View style={{ flex: 1 }}>
+                <Text style={[oraType.body, { color: ora.ink }]} numberOfLines={1}>
+                  {sit.title}
+                </Text>
+                {sit.temporal || sit.summary ? (
+                  <Text style={[oraType.small, { color: ora.ink3 }]} numberOfLines={1}>
+                    {sit.temporal || sit.summary}
+                  </Text>
+                ) : null}
+              </View>
+              <Ionicons name="chevron-forward" size={15} color={ora.ink3} />
+            </Pressable>
+          ))}
+        </View>
       </View>
-      <Pressable
-        onPress={() => router.push('/contesti')}
-        accessibilityRole="button"
-        style={[styles.primary, { backgroundColor: colors.accent }]}
-        testID="guided-see-known"
-      >
-        <Text style={[styles.primaryText, { color: colors.onAccent }]}>
-          Vedi cosa ho già capito di te
-        </Text>
-      </Pressable>
     </View>
-  );
+  ) : null;
 
   return (
     <DesktopShell active="contesti">
@@ -945,6 +1180,7 @@ export function GuidedSetupScreen() {
         <View style={[styles.page, twoColumn && styles.pageWide]}>
           <View style={styles.main}>
             {header}
+            {perche}
             {intro}
             {profileCard}
             {error ? (
@@ -957,7 +1193,7 @@ export function GuidedSetupScreen() {
           </View>
           {twoColumn ? <View style={{ width: RAIL }}>{rail}</View> : rail}
         </View>
-        <View style={[styles.page, { maxWidth: 1240 }]}>{growBanner}</View>
+        <View style={[styles.page, { maxWidth: 1240 }]}>{periodo}</View>
       </ScrollView>
       </View>
     </SafeAreaView>
@@ -997,6 +1233,27 @@ const styles = StyleSheet.create({
   whyText: { fontSize: 13 },
 
   intro: { gap: 8, maxWidth: 620 },
+  perche: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    padding: 14,
+    borderRadius: 14,
+  },
+  introRiga: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 24,
+  },
+  nota: {
+    fontSize: 17,
+    lineHeight: 25,
+    fontStyle: 'italic',
+    textAlign: 'right',
+    maxWidth: 300,
+    paddingTop: 6,
+  },
   title: { fontSize: 34, fontWeight: '700', letterSpacing: -0.6 },
   introText: { fontSize: 15, lineHeight: 22 },
 
@@ -1143,6 +1400,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   secondaryText: { fontSize: 14 },
+  ctaCoppia: { flexDirection: 'row', alignItems: 'center', gap: 14, flexWrap: 'wrap', marginTop: 4 },
+  periodoRighe: { marginTop: 12, gap: 2 },
+  periodoRiga: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: ora.divider,
+  },
   linkRow: { minHeight: 44, justifyContent: 'center' },
   link: { fontSize: 13, fontWeight: '500' },
 

@@ -24,6 +24,17 @@ if _BACKEND not in sys.path:
 
 from test_post_call_application_v315 import FintoDb  # noqa: E402
 
+#     UNA PROVA NON DEVE SCADERE COL CALENDARIO.
+# Le date qui dentro erano scritte a mano — «19 settembre» — e la regola
+# dell'abbandono chiude quello che nessuno riprende da due giorni: passata
+# quella soglia, le prove hanno iniziato a fallire per il tempo che passava,
+# non per il codice. Adesso i momenti si contano da adesso.
+def _ore_fa(quante: float) -> str:
+    from datetime import datetime, timedelta, timezone
+
+    return (datetime.now(timezone.utc) - timedelta(hours=quante)).isoformat()
+
+
 
 # ===========================================================================
 # 3 · Le domande per te si chiudono da sole
@@ -37,7 +48,7 @@ def _domanda(**cambia):
         question="È questo il numero corretto?",
         refs=WorkRefs(session_id="ces_1"),
         resume=ResumePointer(kind="conversation"),
-        created_at="2026-09-19T10:00:00+00:00",
+        created_at=_ore_fa(2),
     )
     campi.update(cambia)
     return OpenQuestion(**campi)
@@ -82,8 +93,8 @@ async def test_questions_already_answered_in_the_past_are_reconciled():
     db.conversation_sessions.righe.append({
         "id": "ces_1", "user_id": "u1",
         "history": [
-            {"role": "ora", "text": "È questo il numero corretto?", "at": "2026-09-19T10:00:00+00:00"},
-            {"role": "user", "text": "sì", "at": "2026-09-19T10:01:00+00:00"},
+            {"role": "ora", "text": "È questo il numero corretto?", "at": _ore_fa(2)},
+            {"role": "user", "text": "sì", "at": _ore_fa(1)},
         ],
     })
     assert await WaitingService(db).reconcile_with_threads("u1") == 1
@@ -96,10 +107,10 @@ async def test_a_question_asked_after_the_last_message_stays_open():
     from waiting.service import WaitingService
 
     db = FintoDb()
-    db.open_questions.righe.append(_domanda(created_at="2026-09-19T12:00:00+00:00").model_dump())
+    db.open_questions.righe.append(_domanda(created_at=_ore_fa(0.5)).model_dump())
     db.conversation_sessions.righe.append({
         "id": "ces_1", "user_id": "u1",
-        "history": [{"role": "user", "text": "sì", "at": "2026-09-19T10:01:00+00:00"}],
+        "history": [{"role": "user", "text": "sì", "at": _ore_fa(1)}],
     })
     assert await WaitingService(db).reconcile_with_threads("u1") == 0
     assert db.open_questions.righe[0]["status"] == "open"

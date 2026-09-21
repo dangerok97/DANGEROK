@@ -28,6 +28,7 @@ import logging
 from typing import Any, Dict, List, Optional, Tuple
 
 from life_profile.areas import LifeArea, all_areas, area as find_area
+from life_profile.gaps import any_objective, first_answerable_gap
 from life_profile.guided import (
     IDENTITY_OBJECTIVE,
     GuidedObjective,
@@ -42,6 +43,8 @@ logger = logging.getLogger("ora.life_profile.setup")
 # Where the setup's own state lives. Not the facts — those go where facts go —
 # only what the person chose to do with the setup itself.
 _META_CURRENT = "guided_current_area"
+#     LA COSA CHE LA PERSONA HA CHIESTO DI APRIRE, FINCHÉ NON RISPONDE.
+_META_OPEN_REF = "guided_open_ref"
 _META_SKIPPED = "guided_skipped_areas"
 _META_ANSWERED = "guided_answered"
 _META_NA = "not_applicable_keys"
@@ -135,6 +138,44 @@ class GuidedSetupService:
             return obj
         return None
 
+    def _next_step(
+        self,
+        area_id: str,
+        *,
+        facts: Dict[str, Any],
+        answered: List[str],
+        declined: List[str],
+        not_applicable: List[str],
+        areas: Optional[List[Dict[str, Any]]] = None,
+    ) -> Optional[GuidedObjective]:
+        """
+        Che cosa chiedere adesso in quest'area: la domanda scritta, o il buco.
+
+            UN'AREA AL 92% HA ANCORA QUALCOSA DA CHIEDERE.
+
+        Misurato in app (V3.21.3c): Casa era al 92% e «Continua con Casa» non
+        apriva niente, perché le domande scritte a mano erano tutte risposte e
+        l'unica cosa mancante stava solo nel catalogo della completezza. Adesso
+        quella cosa diventa una domanda — con la sua stessa etichetta — e la
+        risposta si scrive sotto lo stesso riferimento che la percentuale conta.
+        """
+        scritta = self._next_objective(
+            area_id,
+            facts=facts,
+            answered=answered,
+            declined=declined,
+            not_applicable=not_applicable,
+        )
+        if scritta is not None:
+            return scritta
+        if not areas:
+            return None
+        quest_area = next((a for a in areas if a.get("area_id") == area_id), None)
+        if not quest_area:
+            return None
+        visti = set(answered) | set(declined) | set(not_applicable)
+        return first_answerable_gap(quest_area, seen=visti)
+
     def _area_order(self) -> List[LifeArea]:
         return all_areas()
 
@@ -147,26 +188,29 @@ class GuidedSetupService:
         declined: List[str],
         not_applicable: List[str],
         skipped: List[str],
+        areas: Optional[List[Dict[str, Any]]] = None,
     ) -> Optional[str]:
         """Where the person is, or the first area that still has something to ask."""
         if current and current not in skipped:
-            if self._next_objective(
+            if self._next_step(
                 current,
                 facts=facts,
                 answered=answered,
                 declined=declined,
                 not_applicable=not_applicable,
+                areas=areas,
             ):
                 return current
         for a in self._area_order():
             if a.id in skipped:
                 continue
-            if self._next_objective(
+            if self._next_step(
                 a.id,
                 facts=facts,
                 answered=answered,
                 declined=declined,
                 not_applicable=not_applicable,
+                areas=areas,
             ):
                 return a.id
         return None
@@ -181,6 +225,12 @@ class GuidedSetupService:
         skipped = list(meta.get(_META_SKIPPED) or [])
         current = meta.get(_META_CURRENT)
 
+        #     PRIMA SI GUARDA COSA MANCA, POI SI DECIDE DOVE ANDARE.
+        # La completezza sa anche i buchi che non hanno una domanda scritta a
+        # mano; senza, un'area al 92% sembrava finita.
+        comp = await self.profile.completeness(user_id)
+        areas = [a.model_dump() for a in comp.areas]
+
         area_id = self._pick_area(
             current=current,
             facts=facts,
@@ -188,13 +238,17 @@ class GuidedSetupService:
             declined=declined,
             not_applicable=not_applicable,
             skipped=skipped,
+            areas=areas,
         )
+        from life_profile.gaps import known_items
 
-        comp = await self.profile.completeness(user_id)
-        areas = [a.model_dump() for a in comp.areas]
         for a in areas:
             a["current"] = a["area_id"] == area_id
             a["skipped"] = a["area_id"] in skipped
+            #     E QUELLO CHE ORA SA, DETTO CON I FATTI.
+            # La schermata mostrava «7 informazioni su 8»: un conteggio non è
+            # una cosa che si può verificare né correggere.
+            a["known"] = known_items(a["area_id"], facts)
 
         # An explicit transition: the area the person was in has nothing left,
         # so they are told where ORA is going next and choose to go.
@@ -238,13 +292,30 @@ class GuidedSetupService:
             }
 
         step = None
+        #     SE LA PERSONA HA CHIESTO *QUELLA* COSA, SI APRE QUELLA.
+        richiesto = str(meta.get(_META_OPEN_REF) or "")
+        if richiesto and area_id:
+            voluto = any_objective(richiesto)
+            if voluto is not None and voluto.area_id == area_id:
+                return {
+                    "ok": True,
+                    "percent": comp.percent,
+                    "areas": areas,
+                    "current_area_id": area_id,
+                    "objective": self._public_objective(
+                        voluto, area_id, answered, declined, not_applicable, facts,
+                    ),
+                    "transition": None,
+                    "finished": False,
+                }
         if area_id:
-            obj = self._next_objective(
+            obj = self._next_step(
                 area_id,
                 facts=facts,
                 answered=answered,
                 declined=declined,
                 not_applicable=not_applicable,
+                areas=areas,
             )
             if obj:
                 step = self._public_objective(obj, area_id, answered, declined, not_applicable, facts)
@@ -318,7 +389,12 @@ class GuidedSetupService:
         ("preferisco non indicarlo"). Three different things, and only the
         first one teaches ORA anything.
         """
-        obj = objective(objective_id)
+        #     ANCHE UN BUCO SENZA DOMANDA SCRITTA SI PUÒ RISPONDERE.
+        # `any_objective` torna la domanda scritta a mano quando c'è, e
+        # altrimenti quella costruita dall'obiettivo di conoscenza: in tutti e
+        # due i casi la risposta finisce sotto lo stesso riferimento che la
+        # percentuale conta.
+        obj = any_objective(objective_id)
         if not obj:
             return {"ok": False, "error": "unknown_objective"}
 
@@ -375,6 +451,9 @@ class GuidedSetupService:
 
         meta[_META_ANSWERED] = answered[:200]
         meta[_META_DECLINED] = declined[:80]
+        # Risposta data: la cosa aperta smette di essere quella di adesso.
+        if str(meta.get(_META_OPEN_REF) or "") == obj.id:
+            meta.pop(_META_OPEN_REF, None)
         meta[_META_NA] = not_applicable[:120]
         meta[_META_CURRENT] = obj.area_id
         sess.meta = meta
@@ -449,14 +528,38 @@ class GuidedSetupService:
         logger.info("life_setup_area_skipped user=%s area=%s", user_id, area_id)
         return await self.state(user_id)
 
-    async def go_to_area(self, user_id: str, area_id: str) -> Dict[str, Any]:
-        """An explicit move — the person chose to go on."""
+    async def go_to_area(
+        self, user_id: str, area_id: str, *, ref: str = "",
+    ) -> Dict[str, Any]:
+        """
+        Un passaggio deciso dalla persona: «continua con Casa», o un buco preciso.
+
+            APRIRE UN'AREA VUOL DIRE APRIRE LA SUA PRIMA DOMANDA.
+
+        Con `ref` si apre quella cosa lì — è il click su una delle voci di
+        «cosa manca» — e in quel caso l'area si ricava dal riferimento, così
+        un link non può mandare la persona in una stanza sbagliata.
+        """
         repo, sess, meta = await self._load(user_id, create=True)
         if not sess:
             return {"ok": False, "error": "no_session"}
+        if ref:
+            from life_profile.gaps import area_of
+
+            area_id = area_of(ref) or area_id
         if not find_area(area_id):
             return {"ok": False, "error": "unknown_area"}
         meta[_META_CURRENT] = area_id
+        #     E RIPRENDERE NON È RICOMINCIARE.
+        # Una cosa chiesta e rimandata resta fuori dal giro finché la persona
+        # non la riapre da sé: quando lo fa, torna a essere la domanda di adesso.
+        if ref:
+            meta[_META_ANSWERED] = [
+                x for x in (meta.get(_META_ANSWERED) or []) if x != ref
+            ]
+            meta[_META_OPEN_REF] = ref
+        else:
+            meta.pop(_META_OPEN_REF, None)
         skipped = [s for s in (meta.get(_META_SKIPPED) or []) if s != area_id]
         meta[_META_SKIPPED] = skipped
         sess.meta = meta

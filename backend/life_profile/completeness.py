@@ -62,6 +62,8 @@ class AreaCompleteness(BaseModel):
     area_id: str
     title: str
     description: str
+    # A che cosa serve a ORA sapere queste cose. Si mostra dove si chiedono.
+    purpose: str = ""
     icon_key: str
     sensitivity: str
     order: int
@@ -148,6 +150,7 @@ def area_completeness(
         area_id=life_area.id,
         title=life_area.title,
         description=life_area.description,
+        purpose=life_area.purpose,
         icon_key=life_area.icon_key,
         sensitivity=life_area.sensitivity,
         order=life_area.order,

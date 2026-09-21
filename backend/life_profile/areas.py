@@ -41,6 +41,11 @@ class LifeArea(BaseModel):
     # Which gap domains this area draws its knowledge objectives from.
     domains: Tuple[str, ...]
     sensitivity: Sensitivity = "normal"
+    #     A COSA SERVE SAPERLO: DETTO, NON SOTTINTESO.
+    # Chiedere a qualcuno com'è fatta la sua vita senza dire che cosa te ne
+    # farai è chiedere fiducia senza darne motivo. Una riga per area, e la
+    # schermata la mostra dove si fanno le domande.
+    purpose: str = ""
     # Relative contribution to the overall figure. A life is not evenly
     # weighted: where someone lives explains more than which streaming
     # services they pay for.
@@ -55,6 +60,7 @@ LIFE_AREAS: Tuple[LifeArea, ...] = (
         description="Dove vivi, con chi, e come la gestisci.",
         icon_key="home",
         domains=("casa",),
+        purpose="Mi servono per ricordarti scadenze di casa — affitto, utenze, manutenzioni — e per capire quanto tempo ti costa spostarti da lì.",
         weight=1.3,
         order=1,
     ),
@@ -64,6 +70,7 @@ LIFE_AREAS: Tuple[LifeArea, ...] = (
         description="Cosa fai e come lavori.",
         icon_key="work",
         domains=("lavoro",),
+        purpose="Mi servono per proteggere le tue ore di lavoro quando organizzo la giornata, e per capire quali impegni possono aspettare.",
         weight=1.2,
         order=2,
     ),
@@ -76,6 +83,7 @@ LIFE_AREAS: Tuple[LifeArea, ...] = (
         description="Il percorso che stai seguendo.",
         icon_key="study",
         domains=("studio",),
+        purpose="Mi servono per darti promemoria su esami e scadenze, e per tenerne conto quando la settimana si riempie.",
         weight=0.9,
         order=3,
     ),
@@ -85,6 +93,7 @@ LIFE_AREAS: Tuple[LifeArea, ...] = (
         description="Come ti sposti e cosa serve per farlo.",
         icon_key="car",
         domains=("auto",),
+        purpose="Mi servono per dirti quando conviene partire e quanto ti costa muoverti, invece di indovinarlo.",
         weight=1.0,
         order=4,
     ),
@@ -94,6 +103,7 @@ LIFE_AREAS: Tuple[LifeArea, ...] = (
         description="Le persone che contano nella tua vita.",
         icon_key="people",
         domains=("famiglia", "animali"),
+        purpose="Mi servono per ricordarti le ricorrenze che contano e per sapere con chi stai organizzando le cose.",
         weight=1.1,
         order=5,
     ),
@@ -108,6 +118,7 @@ LIFE_AREAS: Tuple[LifeArea, ...] = (
         icon_key="finance",
         domains=("finanze",),
         sensitivity="sensitive",
+        purpose="Mi servono per accorgermi in tempo di scadenze e rinnovi, non per giudicare come spendi.",
         weight=1.0,
         order=7,
     ),
@@ -118,6 +129,7 @@ LIFE_AREAS: Tuple[LifeArea, ...] = (
         icon_key="assets",
         domains=("patrimonio",),
         sensitivity="sensitive",
+        purpose="Mi servono per ragionare con te sulle scelte grandi senza chiederti ogni volta gli stessi numeri.",
         weight=0.9,
         order=6,
     ),
@@ -127,6 +139,7 @@ LIFE_AREAS: Tuple[LifeArea, ...] = (
         description="Cosa è coperto, e fino a quando.",
         icon_key="shield",
         domains=("assicurazioni",),
+        purpose="Mi servono per avvisarti prima che una polizza scada e per sapere che cosa è già coperto.",
         weight=0.9,
         order=8,
     ),
@@ -136,6 +149,7 @@ LIFE_AREAS: Tuple[LifeArea, ...] = (
         description="Luce, gas, internet e gli abbonamenti che paghi ogni mese.",
         icon_key="services",
         domains=("abbonamenti",),
+        purpose="Mi servono per tenere d'occhio rinnovi e aumenti degli abbonamenti che paghi ogni mese.",
         weight=0.8,
         order=9,
     ),
@@ -146,6 +160,7 @@ LIFE_AREAS: Tuple[LifeArea, ...] = (
         icon_key="health",
         domains=("salute",),
         sensitivity="sensitive",
+        purpose="Mi servono per ricordarti visite e controlli, e per rispettarli quando organizzo il resto.",
         weight=0.9,
         order=10,
     ),

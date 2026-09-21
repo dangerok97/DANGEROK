@@ -6,11 +6,11 @@ percorso fino al lancio si leggono qui e solo qui.
 
 | | |
 |---|---|
-| **Versione corrente** | **V3.21.3b — Home Navigation & Action Integrity · PASS** |
+| **Versione corrente** | **V3.21.3c — Vita / Conosciamoci Flow Integrity · PASS** |
 | **Prossimo sprint** | **V3.22 — Call UX Final** |
 | Branch | `feature/ora-quiet-premium-design-system` |
 | Ultimo checkpoint | `37af8a5` (lavoro) · `3baeaa1` (igiene) |
-| Aggiornato | 2026-09-21 (V3.21.3b) |
+| Aggiornato | 2026-09-22 (V3.21.3c) |
 
 Gli altri due registri restano quello che sono e non ripetono questo:
 `CHANGELOG_AI.md` è il diario datato di che cosa è cambiato,
@@ -809,6 +809,69 @@ refresh e rotta diretta.
 **Debito.** `/situazione` resta dov'è per i suoi usi; non è più la
 destinazione di nessuno dei link della Home. La pagina del meteo non ha ancora
 le allerte, e l'agenda si ferma a sette giorni (quattordici dalla porta).
+
+#### V3.21.3c — Vita / Conosciamoci Flow Integrity · **PASS**
+
+**Una sola superficie.** La voce «Vita» apriva `/contesti` — un'altra
+grammatica per la stessa domanda — mentre il percorso approvato viveva a
+`/life-setup` e ci si arrivava solo al primo accesso: due esperienze
+concorrenti per la stessa persona. Adesso Vita apre `/vita`, che è
+«Conosciamoci». `/contesti` resta raggiungibile da un link ma non è la
+destinazione di nessuna voce di menu, e i suoi dati non sono stati buttati: le
+situazioni in corso vivono in fondo alla pagina, sotto **«In questo periodo»**,
+dalla stessa mappa della vita di prima.
+
+**Il difetto vero: «Continua con Casa» non continuava.** Casa era al 92% e il
+bottone non apriva niente; Studio al 67% aveva tre cose mancanti e nessuna
+raggiungibile. Sotto c'erano due vocabolari: le **domande guidate** (che sanno
+come si chiede una cosa) e gli **obiettivi di conoscenza** (da cui nasce la
+percentuale). Quello che stava solo nel secondo non aveva alcun modo di essere
+risposto. `life_profile/gaps.py` costruisce adesso la domanda dall'obiettivo
+stesso — l'etichetta che la persona legge fra i «cosa manca» diventa la
+richiesta, e la risposta si scrive **sotto lo stesso riferimento che la
+percentuale conta**. Quando l'obiettivo dice che un documento è la strada
+migliore, la domanda nasce già come richiesta di documento.
+
+**Le cose che mancano sono porte.** Ogni voce di «cosa manca» apre quella
+domanda lì (`go-to-area` con `ref`, e l'area la decide il riferimento, così un
+link non manda nessuno nella stanza sbagliata). Le aree si scelgono dal
+percorso a sinistra e dalla colonna a destra: prima erano disegni.
+
+**Prima il riepilogo, poi la domanda**, come nella reference. Chi apre un'area
+vede quello che ORA sa già — **con i fatti, non con i conteggi**: «Tipo:
+Università», «Fase: Verso la fine», con le parole dell'opzione che la persona
+aveva scelto, non l'identificativo di magazzino — poi cosa manca, poi
+«Prossimo passo consigliato» con **«Continua con X»** e **«Lo faccio più
+tardi»**. Al primo giro si va dritti alla domanda: non c'è ancora niente da
+riepilogare.
+
+**«Entra in ORA» è sparito**: non voleva dire niente, la persona è già dentro.
+**«Perché queste domande?»** era un bordo che sembrava un bottone: adesso si
+apre e dice a che cosa servono le risposte — e ogni area dice la sua
+(`LifeArea.purpose`), come nella reference.
+
+**Riprendere è riprendere.** `?area=casa` era un parametro decorativo: adesso
+apre quell'area e la sua prima cosa mancante, una volta sola, poi la persona è
+libera di muoversi.
+
+**Reality gate, dall'app vera.** A: barra → `/vita`, con «Conosciamoci» e
+«PROFILO VITA». B: «Continua con Famiglia e relazioni» → prima cosa mancante
+(«Nucleo familiare»). C: risposta → **52% → 70%** per l'area e **84% → 86%**
+in totale, dalla stessa sorgente che alimenta la colonna di destra. D: «Lo
+faccio più tardi» → torna alla Home, percentuale invariata. E: rientro con
+`?resume=1&area=studio` → Studio aperto sulla sua prima cosa mancante. F:
+click sulla colonna di destra → stesso pannello centrale.
+
+**Prove.** 12 nuove sul backend (`test_vita_flow_v3213c.py`) più la guardia
+`test:v3213c`. Due prove esistenti scadevano col calendario — date scritte a
+mano di tre giorni prima, che la regola dell'abbandono chiudeva — e adesso
+contano i momenti da adesso. La guardia che vieta a un client di dichiarare
+una percentuale è stata estesa a `ref`, che è una scelta e non un numero.
+
+**Debito.** La reference ha in alto a destra una fotografia editoriale: quel
+file non è nel repository e non lo si inventa — resta la frase scritta a mano,
+e la foto è una decisione di contenuto da prendere. `/contesti` esiste ancora
+come rotta: non è più concorrente, ma prima o poi va assorbita o archiviata.
 
 ### V3.22 — Call UX Final
 **Obiettivo** — la telefonata come funzione di prodotto finita, non come

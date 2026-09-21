@@ -29,6 +29,17 @@ if _BACKEND not in sys.path:
 
 from test_post_call_application_v315 import FintoDb  # noqa: E402
 
+#     UNA PROVA NON DEVE SCADERE COL CALENDARIO.
+# Le date qui dentro erano scritte a mano — «19 settembre» — e la regola
+# dell'abbandono chiude quello che nessuno riprende da due giorni: passata
+# quella soglia, le prove hanno iniziato a fallire per il tempo che passava,
+# non per il codice. Adesso i momenti si contano da adesso.
+def _ore_fa(quante: float) -> str:
+    from datetime import datetime, timedelta, timezone
+
+    return (datetime.now(timezone.utc) - timedelta(hours=quante)).isoformat()
+
+
 
 def _domanda(**cambia):
     from waiting.models import OpenQuestion, ResumePointer, WorkRefs
@@ -38,7 +49,7 @@ def _domanda(**cambia):
         question="È questo il numero corretto?",
         refs=WorkRefs(session_id="ces_1"),
         resume=ResumePointer(kind="conversation"),
-        created_at="2026-09-19T10:00:00+00:00",
+        created_at=_ore_fa(2),
     )
     campi.update(cambia)
     return OpenQuestion(**campi)
@@ -89,14 +100,14 @@ async def test_two_phases_of_one_preparation_leave_only_the_current_one():
     db.open_questions.righe.append(
         _domanda(
             refs=WorkRefs(session_id="ces_1", preparation_id="prep_1"),
-            created_at="2026-09-19T10:00:00+00:00",
+            created_at=_ore_fa(2),
         ).model_dump()
     )
     db.open_questions.righe.append(
         _domanda(
             question="Vuoi che chiami adesso?",
             refs=WorkRefs(session_id="ces_2", preparation_id="prep_1"),
-            created_at="2026-09-19T11:00:00+00:00",
+            created_at=_ore_fa(1),
         ).model_dump()
     )
     db.mission_preparations.righe.append(

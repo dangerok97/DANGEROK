@@ -82,6 +82,12 @@ export const AMBIENT_NAV_ITEMS: AmbientNavItem[] = [
   {
     key: 'contesti',
     route: 'contesti',
+    //     «VITA» APRE L'ESPERIENZA APPROVATA, NON LA VECCHIA PAGINA.
+    // Portava a `/contesti`, che è un'altra grammatica per la stessa domanda:
+    // che cosa sai di me e che cosa ti manca. Adesso porta a Conosciamoci, che
+    // è quella approvata; `/contesti` resta raggiungibile, ma non è più la
+    // destinazione di nessuna voce di menu.
+    href: '/vita',
     label: 'Vita',
     accessibilityLabel: 'La tua vita',
     icon: 'layers-outline',

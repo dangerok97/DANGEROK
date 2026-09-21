@@ -1787,11 +1787,16 @@ export const api = {
       body: JSON.stringify({ area_id }),
     }),
 
-  /** An explicit move to the next part of a life — never automatic. */
-  guidedSetupGoToArea: (area_id: string) =>
+  /**
+   * Un passaggio deciso dalla persona — mai automatico.
+   *
+   * Con `ref` si apre una cosa precisa fra quelle che mancano: è il click su
+   * una voce di «cosa manca», e l'area la decide il riferimento.
+   */
+  guidedSetupGoToArea: (area_id: string, ref?: string) =>
     request<GuidedSetupState>('/life-profile/setup/go-to-area', {
       method: 'POST',
-      body: JSON.stringify({ area_id }),
+      body: JSON.stringify(ref ? { area_id, ref } : { area_id }),
     }),
 
   guidedSetupFinish: () =>
@@ -3571,6 +3576,8 @@ export type LifeAreaCompleteness = {
   area_id: string;
   title: string;
   description: string;
+  /** A che cosa serve a ORA saperlo. Si legge dove si fanno le domande. */
+  purpose?: string;
   icon_key: string;
   sensitivity: string;
   order: number;
@@ -3582,6 +3589,13 @@ export type LifeAreaCompleteness = {
   declined_count: number;
   not_applicable_count: number;
   open_objectives: { ref: string; label: string; weight: number; prefer_document: boolean }[];
+  /**
+   * Quello che ORA sa davvero di quest'area, fatto per fatto.
+   *
+   * «7 informazioni su 8» è quanto sa, non che cosa: questi sono i fatti che
+   * una persona può leggere, verificare e correggere.
+   */
+  known?: { ref: string; label: string; value: string }[];
 };
 
 export type LifeProfile = {

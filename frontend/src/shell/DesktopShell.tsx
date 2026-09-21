@@ -30,7 +30,13 @@ const ROTTE: Record<string, string> = {
 export function railKeyFor(pathname: string): RailKey {
   if (pathname === '/' || pathname === '') return 'index';
   if (pathname.startsWith('/ora')) return 'ora';
-  if (pathname.startsWith('/life-setup') || pathname.startsWith('/contesti')) return 'contesti';
+  // Vita, Conosciamoci e la vecchia pagina dei contesti sono la stessa voce
+  // di menu: tre indirizzi, una sola cosa nella testa di chi guarda.
+  if (
+    pathname.startsWith('/vita')
+    || pathname.startsWith('/life-setup')
+    || pathname.startsWith('/contesti')
+  ) return 'contesti';
   if (pathname.startsWith('/prepara-chiamata') || pathname.startsWith('/chiamate')) return 'chiamate';
   if (pathname.startsWith('/document')) return 'documenti';
   if (pathname.startsWith('/attivita')) return 'attivita';
