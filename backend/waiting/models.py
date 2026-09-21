@@ -71,6 +71,11 @@ class WorkRefs(BaseModel):
 
     session_id: Optional[str] = Field(default=None, max_length=64)
     plan_id: Optional[str] = Field(default=None, max_length=64)
+    #     LA PREPARAZIONE DI UNA TELEFONATA E' UN LAVORO, E NE ASPETTA UNA COSA SOLA.
+    # V3.21.3a: senza questo riferimento, «qual è il numero?» di lunedì e
+    # «vuoi che la chiami?» di martedì erano due domande scollegate, ognuna
+    # nella sua conversazione, e la Home diventava uno storico.
+    preparation_id: Optional[str] = Field(default=None, max_length=64)
     plan_item_id: Optional[str] = Field(default=None, max_length=64)
     object_id: Optional[str] = Field(default=None, max_length=64)
     situation_id: Optional[str] = Field(default=None, max_length=64)

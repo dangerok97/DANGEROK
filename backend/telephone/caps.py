@@ -407,10 +407,49 @@ def _the_sentence(carta: Dict[str, Any], preparata: bool,
         elenco = "; ".join(chi(c) for c in carta["candidates"])
         return f"Ho trovato più numeri: {elenco}. Quale è quello giusto?"
     if carta["contact"] and not carta["number_confirmed"]:
+        #     SE NON E' LA PERSONA CHE MI HAI CHIESTO, LO DEVO DIRE.
+        # Misurato in app (V3.21.3a): richiesta «chiama Giulia Test», nessuna
+        # Giulia da nessuna parte, e ORA ha proposto «Francesco Test» — stesso
+        # cognome, altra persona — come se l'avesse trovata. Un cognome in
+        # comune non è un ritrovamento: è una somiglianza, e va detta per
+        # quello che è, altrimenti la conferma che si chiede è su una
+        # premessa falsa.
+        chiesto = str(carta.get("counterparty") or "").strip()
+        trovato = str((carta["contact"] or {}).get("name") or "").strip()
+        if _a_different_person_with_a_similar_name(chiesto, trovato):
+            return (
+                f"Non ho un numero per {chiesto}. "
+                f"Quello che ci somiglia di più è {chi(carta['contact'])}. "
+                f"È {trovato.split()[0]} che devo chiamare?"
+            )
         return f"Ho trovato {chi(carta['contact'])}. È questo il numero corretto?"
     if carta["question"]:
         return carta["question"]["asks"]
     return carta["says"]
+
+
+def _a_different_person_with_a_similar_name(chiesto: str, trovato: str) -> bool:
+    """
+    Se il nome trovato somiglia a quello chiesto ma non è lo stesso.
+
+        UN COGNOME IN COMUNE NON FA UNA PERSONA.
+
+    «Giulia Test» e «Francesco Test» condividono una parola su due, e quella
+    che manca è proprio quella che distingue le persone: è una somiglianza, e
+    va detta per quello che è.
+
+    Zero parole in comune non è una somiglianza: è un ritrovamento arrivato da
+    un'altra strada — «la mia ragazza» trovata in rubrica per la relazione, un
+    numero scritto in un appuntamento — e lì ORA non ha niente da correggere.
+    """
+    import re as _re
+
+    volute = {p for p in _re.split(r"\W+", (chiesto or "").lower()) if len(p) > 1}
+    presenti = {p for p in _re.split(r"\W+", (trovato or "").lower()) if len(p) > 1}
+    if not volute or not presenti:
+        return False
+    in_comune = volute & presenti
+    return bool(in_comune) and not volute.issubset(presenti)
 
 
 def _what_to_say_now(carta: Dict[str, Any], preparata: bool) -> str:

@@ -37,6 +37,9 @@ logger = logging.getLogger("ora.waiting")
 # signal that the reasoning is asking badly, not that the list needs paging.
 MAX_OPEN = 20
 
+#     OLTRE QUESTO, UNA DOMANDA NON E' PIU' QUALCOSA CHE SI ASPETTA ADESSO.
+ABANDONED_AFTER_DAYS = 2
+
 
 def _text(v: Any, limit: int = 400) -> str:
     return str(v or "").strip()[:limit]
@@ -137,7 +140,13 @@ class WaitingService:
 
     async def _supersede_siblings(self, user_id: str, q: OpenQuestion) -> None:
         match: Dict[str, Any] = {}
-        if q.refs.plan_item_id:
+        if q.refs.preparation_id:
+            #     UNA PREPARAZIONE ASPETTA UNA COSA PER VOLTA.
+            # Confermare il numero e chiedere il via libera sono due fasi dello
+            # stesso lavoro: la seconda sostituisce la prima, anche se sono
+            # nate in due conversazioni diverse.
+            match = {"refs.preparation_id": q.refs.preparation_id}
+        elif q.refs.plan_item_id:
             match = {"refs.plan_item_id": q.refs.plan_item_id}
         elif q.refs.plan_id:
             match = {"refs.plan_id": q.refs.plan_id}
@@ -423,6 +432,125 @@ class WaitingService:
                 chiuse += await self.close_for_work(
                     user_id, session_id=sessione, reason="call_finished",
                 )
+        chiuse += await self._forget_finished_preparations(user_id)
+        chiuse += await self._only_the_current_one(user_id)
+        chiuse += await self._let_go_of_abandoned_threads(user_id)
+        return chiuse
+
+    # ------------------------------------------------------------------
+    #     «DOMANDE PER TE» NON E' UNO STORICO.
+    # Le tre regole qui sotto sono la differenza fra una lista di cose che ORA
+    # aspetta adesso e l'archivio di tutto quello che ha chiesto una volta.
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _work_key(row: Dict[str, Any]) -> str:
+        """
+        Il lavoro a cui una domanda appartiene, con l'identificativo più forte.
+
+        La preparazione di una telefonata viene prima della conversazione: la
+        stessa preparazione può attraversare due chat, e resta un lavoro solo.
+        """
+        refs = row.get("refs") or {}
+        for chiave in ("preparation_id", "plan_item_id", "plan_id", "object_id", "session_id"):
+            valore = str(refs.get(chiave) or "").strip()
+            if valore:
+                return f"{chiave}:{valore}"
+        return f"question:{row.get('id')}"
+
+    async def _only_the_current_one(self, user_id: str) -> int:
+        """Di ogni lavoro resta la domanda più recente. Le fasi prima si chiudono."""
+        per_lavoro: Dict[str, list] = {}
+        for row in await self.repo.list_open(user_id, limit=MAX_OPEN * 4):
+            per_lavoro.setdefault(self._work_key(row), []).append(row)
+        chiuse = 0
+        for righe in per_lavoro.values():
+            if len(righe) < 2:
+                continue
+            righe.sort(key=lambda r: str(r.get("created_at") or ""), reverse=True)
+            for vecchia in righe[1:]:
+                if await self.supersede(
+                    user_id, str(vecchia.get("id")), reason="replaced_by_newer_phase",
+                ):
+                    chiuse += 1
+        return chiuse
+
+    async def _forget_finished_preparations(self, user_id: str) -> int:
+        """
+        Una preparazione finita, o che non esiste più, non aspetta niente.
+
+        Non si guarda il testo: si guarda la preparazione a cui la domanda è
+        legata, e la telefonata che ne è nata.
+        """
+        chiuse = 0
+        for row in await self.repo.list_open(user_id, limit=MAX_OPEN * 4):
+            prep_id = str(((row.get("refs") or {}).get("preparation_id")) or "")
+            if not prep_id:
+                continue
+            prep = await self.db.mission_preparations.find_one(
+                {"preparation_id": prep_id, "owner_id": user_id}, {"_id": 0, "call_id": 1},
+            )
+            if prep is None:
+                if await self.supersede(user_id, str(row.get("id")), reason="preparation_gone"):
+                    chiuse += 1
+                continue
+            call_id = str(prep.get("call_id") or "")
+            if not call_id:
+                continue
+            call = await self.db.phone_calls.find_one(
+                {"id": call_id}, {"_id": 0, "state": 1},
+            )
+            if call and str(call.get("state")) in ("ended", "failed", "expired"):
+                if await self.supersede(user_id, str(row.get("id")), reason="call_finished"):
+                    chiuse += 1
+        return chiuse
+
+    async def _let_go_of_abandoned_threads(self, user_id: str) -> int:
+        """
+        Una domanda vecchia in una conversazione che nessuno ha più toccato non
+        è qualcosa che ORA sta aspettando: è una riga rimasta indietro.
+
+        Due giorni, e nessun messaggio nella conversazione da allora. Si
+        chiude dicendo perché — `abandoned_thread` — non si cancella.
+        """
+        from datetime import datetime, timedelta, timezone
+
+        limite = (datetime.now(timezone.utc) - timedelta(days=ABANDONED_AFTER_DAYS)).isoformat()
+        chiuse = 0
+        for row in await self.repo.list_open(user_id, limit=MAX_OPEN * 4):
+            nata = str(row.get("created_at") or "")
+            if not nata or nata >= limite:
+                continue
+            sessione = str(((row.get("refs") or {}).get("session_id")) or "")
+            #     SI LASCIA ANDARE UN THREAD, NON UN LAVORO.
+            # Una domanda che non nasce da una conversazione — da un piano, da
+            # un oggetto — non ha un thread da abbandonare: la chiude chi la
+            # riguarda, non il tempo.
+            if not sessione:
+                continue
+            sess = await self.db.conversation_sessions.find_one(
+                {"id": sessione, "user_id": user_id}, {"_id": 0, "history": 1},
+            )
+            #     «ANDATA AVANTI» VUOL DIRE CHE HA PARLATO LA PERSONA.
+            # Guardare `updated_at` non funzionava: si muove anche quando a
+            # scrivere è ORA — e ORA scrive proprio la domanda, un istante
+            # prima che la domanda venga registrata. Ogni riga sembrava quindi
+            # appartenere a una conversazione viva, e non si chiudeva mai
+            # niente. Misurato sui dati veri: sette domande aperte, due di
+            # conversazioni che nessuno aveva più ripreso.
+            ultima_della_persona = max(
+                [
+                    str(h.get("at") or "")
+                    for h in ((sess or {}).get("history") or [])
+                    if h.get("role") == "user"
+                ] or [""]
+            )
+            if ultima_della_persona > nata:
+                # Ha risposto: se ne occupa la regola della risposta nel
+                # thread, non questa.
+                continue
+            if await self.supersede(user_id, str(row.get("id")), reason="abandoned_thread"):
+                chiuse += 1
         return chiuse
 
     async def close_for_work(

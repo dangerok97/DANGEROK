@@ -63,6 +63,12 @@ COOLDOWN_SECONDS = {
     "configuration": 300.0,
     "model_unavailable": 60.0,
     "invalid_response": 5.0,
+    #     E «internal» NON STA QUI, APPOSTA.
+    # Un errore interno è un errore nostro — dell'adattatore, non del
+    # provider. Metterlo in panchina punirebbe qualcuno che sta bene, e
+    # nasconderebbe il difetto dietro a un'attesa. Si fallisce in fretta, si
+    # legge nei log, si aggiusta.
+    "unknown": 10.0,
 }
 MAX_RETRY_AFTER_S = 300.0
 
@@ -92,6 +98,7 @@ ESCALATION = {
     # tentativo costa una scadenza intera: 5 s -> 10 -> 20 -> 40 -> 60.
     "timeout": (2.0, 60.0),
     "network": (2.0, 60.0),
+    "unknown": (2.0, 300.0),
     #     IL RATE LIMIT NON SALE, ED E' UNA LEZIONE GIA' PAGATA.
     #
     # Un turno di ragionamento e' molte chiamate, quindi i piani gratuiti
@@ -514,6 +521,10 @@ class ProviderManager:
                 )
                 continue
             except Exception:
+                #     UN ERRORE NOSTRO NON SI MASCHERA E NON SI PUNISCE NESSUNO.
+                # Né si passa al provider dopo (nasconderebbe il difetto), né
+                # si mette in panchina questo (non è colpa sua). Si fallisce in
+                # fretta e lo si legge nei log.
                 logger.error("LLM provider=%s result=internal_error", name)
                 raise LLMInternalError("Internal ORA/provider adapter error") from None
         self._last_attempts = attempts

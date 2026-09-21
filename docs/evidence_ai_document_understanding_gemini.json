@@ -5,26 +5,26 @@
     {
       "key": "contratto_telefono",
       "ai_used": true,
-      "provider": "gemini2",
-      "model": "gemini-flash-lite-latest",
-      "document_type": "contratto",
-      "confidence": 1.0,
+      "provider": "mistral",
+      "model": "ministral-8b-2512",
+      "document_type": "contratto_telefono",
+      "confidence": 0.7,
       "fallback_reason": null
     },
     {
       "key": "busta_paga",
       "ai_used": true,
-      "provider": "gemini2",
-      "model": "gemini-flash-lite-latest",
+      "provider": "groq",
+      "model": "qwen/qwen3.8-27b",
       "document_type": "busta_paga",
-      "confidence": 1.0,
+      "confidence": 0.95,
       "fallback_reason": null
     },
     {
       "key": "verbale",
       "ai_used": true,
-      "provider": "groq",
-      "model": "qwen/qwen3.8-27b",
+      "provider": "mistral",
+      "model": "ministral-8b-2512",
       "document_type": "verbale",
       "confidence": 1.0,
       "fallback_reason": null

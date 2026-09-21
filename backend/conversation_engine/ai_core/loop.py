@@ -29,7 +29,9 @@ from conversation_engine.ai_core.models import (
     CognitiveDecision,
     CognitiveTurnResult,
     ContextFact,
+    MissingInformation,
     Observation,
+    UncertaintyState,
 )
 from conversation_engine.ai_core.prompt import (
     COGNITIVE_SYSTEM_PROMPT,
@@ -408,100 +410,159 @@ async def run_cognitive_loop(
     oggi_da_lei = await _what_day_it_is_for_them(db, sess.user_id)
 
     for step in range(max(1, max_steps)):
-        life_os_payload = await build_life_os_ai_payload(db, sess, st)
-        payload = build_user_payload(
-            user_message=user_message,
-            recent_turns=st.get("recent_turns") or [],
-            active_goal=st.get("active_goal"),
-            context_facts=[f.model_dump() for f in context_facts],
-            tools=tools.list_public(),
-            observations=observations[-6:],
-            current_facts=st.get("current_facts") or {},
-            life_os=life_os_payload,
-            # Da dove è entrata la frase decide come esce la risposta — e
-            # nient'altro. Al telefono viene ascoltata, e si dice diversamente
-            # da come si scrive.
-            spoken_out_loud=(sess.meta or {}).get("entry_point") == "phone",
-            calendar_next_48h=calendar_ahead,
-            today_where_they_are=oggi_da_lei,
-        )
-        _t = time.perf_counter()
-        raw = await _call_ai(
-            decision_fn=decision_fn,
-            system=COGNITIVE_SYSTEM_PROMPT,
-            user=payload,
-            # Vale a ogni passo del ragionamento, e non c'è nessun tetto per
-            # il turno intero: interrompere un turno a metà vorrebbe dire
-            # decidere di non rispondere, e quella è una decisione di ORA, non
-            # dell'infrastruttura.
-            latency_budget_s=_how_long_we_wait(
-                str((sess.meta or {}).get("entry_point") or "")
-            ),
-        )
-        _fase("model", _t)
-        ai_calls += 1
-        trace["ai_calls"] = ai_calls
-
-        if raw is None:
-            add_step(trace, event="PROVIDER_FAIL")
-            state_mod.save_ai_state(sess, st)
-            out = provider_unavailable_result(session_id=sess.id)
-            out.ai_calls = ai_calls
-            out.tool_calls = tool_calls
-            out.context_calls = int(trace.get("context_calls") or 0)
-            out.external_queries = external_queries
-            out.elapsed_ms = int((time.perf_counter() - t0) * 1000)
-            trace["phases_ms"] = dict(fasi)
-            out.trace = public_trace(trace)
-            return out
-
-        gov = validate_decision(
-            raw,
-            tools=tools,
-            recent_tool_signatures=recent_tool_sigs,
-            external_query_count=external_queries,
-            max_external_queries=MAX_EXTERNAL_QUERIES,
-            clarification_attempts=clarification_attempts,
-        )
-        validated_raw: Any = raw
-        if not gov.ok or not gov.decision:
-            raw2 = await _call_ai(
-                decision_fn=decision_fn,
-                system=COGNITIVE_SYSTEM_PROMPT
-                + "\nPrevious output was invalid. Return valid JSON only.",
-                user=payload,
+        #     SE LO STRUMENTO HA GIA' DETTO LA FRASE, NON SI RIGENERA.
+        #
+        # Certi strumenti non restituiscono dati da riassumere: restituiscono
+        # la frase esatta che la persona deve leggere — nome, numero,
+        # provenienza, e la domanda su quelli. Quella frase vince già su
+        # qualunque cosa il modello scriva dopo (`_the_tool_s_own_sentence`):
+        # la generazione successiva veniva prodotta, pagata e poi buttata.
+        #
+        # Misurato (V3.21.3a): una generazione costa 3-6 s, ed era la metà del
+        # tempo di attesa di una preparazione di telefonata.
+        #
+        # Non è una scorciatoia sul percorso della domanda: la decisione si
+        # costruisce qui e poi passa dalla validazione e dal resto del turno
+        # come tutte le altre, così la domanda aperta nasce con i suoi
+        # riferimenti e la Home resta d'accordo con la chat.
+        frase_pronta = _the_tool_s_own_sentence(observations[-1:]) if step else ""
+        if frase_pronta:
+            #     UNA DOMANDA CHE FERMA IL LAVORO SI DICHIARA TALE.
+            # Misurato in app: senza questo, la frase arrivava in chat e in
+            # Home non compariva niente — la domanda esisteva solo finché la
+            # pagina restava aperta. È `uncertainty.blocking` a farla durare,
+            # e una conferma chiesta prima di telefonare a qualcuno è per
+            # definizione bloccante.
+            proposta = CognitiveDecision(
+                response_mode="ask",
+                user_intent_summary="conferma chiesta dallo strumento",
+                reasoning_status="needs_user_input",
+                message_to_user=frase_pronta,
+                question=frase_pronta,
+                confidence=0.9,
+                uncertainty=UncertaintyState(
+                    level=0.5,
+                    blocking=True,
+                    operational_reason="Serve la conferma prima di procedere.",
+                    missing_information=[
+                        MissingInformation(
+                            ref="call_confirmation",
+                            description="La conferma di chi chiamare e di che cosa dire.",
+                            purpose="Non si telefona a qualcuno senza che sia confermato.",
+                            importance=0.9,
+                            blocking=True,
+                            strategy="ask",
+                        )
+                    ],
+                ),
             )
-            ai_calls += 1
-            trace["ai_calls"] = ai_calls
             gov = validate_decision(
-                raw2,
+                proposta.model_dump(),
                 tools=tools,
                 recent_tool_signatures=recent_tool_sigs,
                 external_query_count=external_queries,
                 max_external_queries=MAX_EXTERNAL_QUERIES,
                 clarification_attempts=clarification_attempts,
             )
-            validated_raw = raw2
+            decision = gov.decision or proposta
+            validated_raw = proposta.model_dump()
+            trace["generations_saved"] = int(trace.get("generations_saved") or 0) + 1
+            add_step(trace, event="TOOL_SENTENCE_STANDS", name="ask")
+        else:
+            life_os_payload = await build_life_os_ai_payload(db, sess, st)
+            payload = build_user_payload(
+                user_message=user_message,
+                recent_turns=st.get("recent_turns") or [],
+                active_goal=st.get("active_goal"),
+                context_facts=[f.model_dump() for f in context_facts],
+                tools=tools.list_public(),
+                observations=observations[-6:],
+                current_facts=st.get("current_facts") or {},
+                life_os=life_os_payload,
+                # Da dove è entrata la frase decide come esce la risposta — e
+                # nient'altro. Al telefono viene ascoltata, e si dice diversamente
+                # da come si scrive.
+                spoken_out_loud=(sess.meta or {}).get("entry_point") == "phone",
+                calendar_next_48h=calendar_ahead,
+                today_where_they_are=oggi_da_lei,
+            )
+            _t = time.perf_counter()
+            raw = await _call_ai(
+                decision_fn=decision_fn,
+                system=COGNITIVE_SYSTEM_PROMPT,
+                user=payload,
+                # Vale a ogni passo del ragionamento, e non c'è nessun tetto per
+                # il turno intero: interrompere un turno a metà vorrebbe dire
+                # decidere di non rispondere, e quella è una decisione di ORA, non
+                # dell'infrastruttura.
+                latency_budget_s=_how_long_we_wait(
+                    str((sess.meta or {}).get("entry_point") or "")
+                ),
+            )
+            _fase("model", _t)
+            ai_calls += 1
+            trace["ai_calls"] = ai_calls
+
+            if raw is None:
+                add_step(trace, event="PROVIDER_FAIL")
+                state_mod.save_ai_state(sess, st)
+                out = provider_unavailable_result(session_id=sess.id)
+                out.ai_calls = ai_calls
+                out.tool_calls = tool_calls
+                out.context_calls = int(trace.get("context_calls") or 0)
+                out.external_queries = external_queries
+                out.elapsed_ms = int((time.perf_counter() - t0) * 1000)
+                trace["phases_ms"] = dict(fasi)
+                out.trace = public_trace(trace)
+                return out
+
+            gov = validate_decision(
+                raw,
+                tools=tools,
+                recent_tool_signatures=recent_tool_sigs,
+                external_query_count=external_queries,
+                max_external_queries=MAX_EXTERNAL_QUERIES,
+                clarification_attempts=clarification_attempts,
+            )
+            validated_raw: Any = raw
             if not gov.ok or not gov.decision:
-                decision = fallback_decision_after_malformed()
-                add_step(trace, event="MALFORMED_FALLBACK", errors=gov.errors)
+                raw2 = await _call_ai(
+                    decision_fn=decision_fn,
+                    system=COGNITIVE_SYSTEM_PROMPT
+                    + "\nPrevious output was invalid. Return valid JSON only.",
+                    user=payload,
+                )
+                ai_calls += 1
+                trace["ai_calls"] = ai_calls
+                gov = validate_decision(
+                    raw2,
+                    tools=tools,
+                    recent_tool_signatures=recent_tool_sigs,
+                    external_query_count=external_queries,
+                    max_external_queries=MAX_EXTERNAL_QUERIES,
+                    clarification_attempts=clarification_attempts,
+                )
+                validated_raw = raw2
+                if not gov.ok or not gov.decision:
+                    decision = fallback_decision_after_malformed()
+                    add_step(trace, event="MALFORMED_FALLBACK", errors=gov.errors)
+                else:
+                    decision = gov.decision
+                    add_step(trace, event="AI_DECISION_RETRY", mode=decision.response_mode)
             else:
                 decision = gov.decision
-                add_step(trace, event="AI_DECISION_RETRY", mode=decision.response_mode)
-        else:
-            decision = gov.decision
-            add_step(
-                trace,
-                event="AI_DECISION",
-                mode=decision.response_mode,
-                status=decision.reasoning_status,
-                tool=(
-                    decision.tool_call.resolved_capability
-                    if decision.tool_call
-                    else None
-                ),
-                has_question=bool(decision.question),
-            )
+                add_step(
+                    trace,
+                    event="AI_DECISION",
+                    mode=decision.response_mode,
+                    status=decision.reasoning_status,
+                    tool=(
+                        decision.tool_call.resolved_capability
+                        if decision.tool_call
+                        else None
+                    ),
+                    has_question=bool(decision.question),
+                )
 
         last_decision = decision
         if "repeated_clarification" in gov.errors:
@@ -2214,6 +2275,9 @@ async def run_cognitive_loop(
                 obs.status in ("ok", "success") or payload.get("status") == "success"
             ):
                 st["active_goal_id"] = payload["goal_id"]
+            #     LA PREPARAZIONE IN CORSO, PER LEGARCI LE DOMANDE.
+            if payload.get("preparation_id"):
+                st["active_preparation_id"] = str(payload["preparation_id"])[:64]
             if payload.get("object_id") and payload.get("status") == "success":
                 objs = list(st.get("object_ids") or [])
                 oid = str(payload["object_id"])

@@ -6,11 +6,11 @@ percorso fino al lancio si leggono qui e solo qui.
 
 | | |
 |---|---|
-| **Versione corrente** | **V3.21.3 — ORA Product Experience Rebuild · PASS** |
+| **Versione corrente** | **V3.21.3a — Product Experience Final Reality Gate · PASS parziale** |
 | **Prossimo sprint** | **V3.22 — Call UX Final** |
 | Branch | `feature/ora-quiet-premium-design-system` |
 | Ultimo checkpoint | `37af8a5` (lavoro) · `3baeaa1` (igiene) |
-| Aggiornato | 2026-09-20 |
+| Aggiornato | 2026-09-21 |
 
 Gli altri due registri restano quello che sono e non ripetono questo:
 `CHANGELOG_AI.md` è il diario datato di che cosa è cambiato,
@@ -663,6 +663,91 @@ la regressione; nel frontend corrette tre guardie ferme a prima di Chiamate.
 il modulo dei tempi non ha dati veri. Latenza della conversazione = latenza del
 modello. Restano rosse due guardie del frontend precedenti a questo sprint
 (px19 su `settings.tsx`, px11 sulla frase di conferma).
+
+#### V3.21.3a — Product Experience Final Reality Gate · **PASS (3 su 4) · navigazione BLOCKED**
+
+Quattro cose che il V3.21.3 aveva dichiarato fatte senza esserlo.
+
+**1 · «Domande per te» non è più uno storico. · PASS**
+Il legame fra le fasi di uno stesso lavoro adesso è un identificativo, non una
+somiglianza di testo: `WorkRefs.preparation_id` nasce nel ciclo cognitivo
+(`active_preparation_id`), viaggia con la domanda, e una fase nuova ne chiude
+la precedente anche se sono nate in due conversazioni diverse. In più, a ogni
+apertura della Home: una preparazione finita o sparita non aspetta più niente,
+di ogni lavoro resta solo la domanda corrente, e un thread mai ripreso dopo due
+giorni si lascia andare.
+**Due difetti veri trovati dalle prove sul campo.** (a) `reconcile_with_threads`
+guardava `updated_at` della conversazione per capire se «era andata avanti» —
+ma quel campo si muove anche quando a parlare è ORA, un istante prima che la
+domanda venga scritta: ogni riga sembrava viva e non si chiudeva mai niente.
+Adesso si guarda l'ultimo messaggio **della persona**. Sui dati veri: sette
+domande aperte, due chiuse subito perché nessuno aveva più ripreso quelle chat.
+(b) La scorciatoia del punto 4 costruiva una decisione senza
+`uncertainty.blocking`: la domanda si leggeva in chat e in Home non compariva.
+**Reality gate** (account nuovo, conversazione unica, screenshot):
+fase 0 → 0 domande · fase 1 «chiama Giulia Test» → **1** · fase 2 numero dato →
+**0** · fase 3 conferma → **1** (solo quella corrente) · fase 4 conclusione →
+**0**. Mai più di una, zero alla fine.
+
+**2 · Gli aggiornamenti dicono da dove vengono. · PASS**
+Un vocabolario solo (`agent/models.py::DA_DOVE`, `how_we_say_the_source`) per
+tutte e quattro le sorgenti che finiscono in «Aggiornamenti di ORA»: prima solo
+il lavoro dell'agente portava la provenienza, i suggerimenti no.
+«Nata dal lavoro di ORA» era una perifrasi per «non lo so»: adesso una fonte
+che non si ricostruisce si dichiara — **«originale non disponibile»**.
+E l'articolo non promette più quello che ORA non sa: senza un riferimento a cui
+agganciarsi, «Ritiro **del** certificato» diventa «Ritiro **di un**
+certificato» più «Non riesco ancora a capire di quale certificato si tratti».
+Si tocca solo la preposizione, mai il sostantivo.
+**In app**: «A che ora e dove vedrai Giulia giovedì?» · «Fonte: una deduzione
+mia da quello che so della tua vita del 20 settembre».
+
+**3 · Navigazione intelligente · `INTELLIGENT NAVIGATION REAL DATA — BLOCKED BY ROUTING PROVIDER`**
+Censimento, disegno iOS-first e cosa serve esattamente: `docs/NAVIGAZIONE_INTELLIGENTE.md`.
+Il confronto fra i modi, il consiglio del più veloce e l'orario di partenza dal
+primo impegno **esistono e sono collegati**; manca la fonte dei tempi
+(`ROUTING_PROVIDER`/`ROUTING_API_KEY` non configurate). La strada consigliata è
+MapKit sul telefono — nessun costo dentro un'app iOS firmata. Non si dichiara
+PASS e non si accende niente a pagamento senza approvazione.
+
+**4 · Latenza della conversazione · misurata e ridotta di una generazione**
+Benchmark controllato, stessa richiesta, ordine di produzione: **mediana 3,31 s
+· p90 6,06 s · 8 su 8**. Per provider (serie separate): gemini2 5,94/7,49 ·
+mistral 5,88/8,14 · groq 10,06/11,84 · openai 16,31/16,60. Gemini è a credito
+esaurito (402) e costa 2,5 s solo al primo turno, poi va in panchina.
+**Il prompt non è la leva**: ridurlo da 58.432 a 6.000 caratteri non ha dato
+nessun miglioramento leggibile sopra la varianza.
+**La leva era strutturale**: certi strumenti restituiscono già la frase esatta
+che la persona leggerà, e quella frase vince comunque su quello che il modello
+scrive dopo — la generazione successiva veniva prodotta, pagata e buttata.
+Adesso la decisione si costruisce da quella frase e passa dalla validazione
+come tutte le altre: **una generazione in meno per turno**, cioè 3-6 secondi su
+ogni preparazione di telefonata. Turni del gate: 5,1 · 8,8 · 23,3 · 7,6 · 6,4 s.
+Un errore interno resta quello che era: si fallisce in fretta, non si maschera
+con un altro provider **e non si mette in panchina nessuno** — è un errore
+nostro, e punire un provider sano lo nasconderebbe soltanto. Ci avevo provato,
+partendo da una misura che si è poi rivelata un artefatto del banco di prova
+(un file `google.py` nello scratchpad che oscurava il pacchetto vero); la
+prova `test_a_our_own_mistake_does_not_bench_a_healthy_provider` ha fermato la
+modifica, ed è stata revocata.
+
+**5 · Un difetto trovato per strada, e chiuso.**
+«Chiama Giulia Test», nessuna Giulia in rubrica, e ORA proponeva **«Francesco
+Test»** — stesso cognome, altra persona — come se l'avesse trovata: la conferma
+veniva chiesta su una premessa falsa. Adesso, quando il nome trovato somiglia
+ma non coincide, ORA lo dice: «Non ho un numero per Giulia Test. Quello che ci
+somiglia di più è …». Zero parole in comune resta un ritrovamento legittimo
+(«la mia ragazza» → Giulia), e lì non c'è niente da correggere.
+
+**Prove.** 14 nuove (`test_final_reality_gate_v3213a.py`) più la regressione.
+Il finto database ha imparato `$ne` e la proiezione: senza, una scrittura
+«tutte quelle del lavoro tranne questa» chiudeva anche la domanda appena nata —
+un difetto del doppio, non del codice vero.
+
+**Debito.** Le domande aperte prima di questo sprint non hanno un
+identificativo di lavoro: si chiudono per abbandono dopo due giorni, non per
+supersessione. Fra conversazioni diverse, due domande sulla stessa missione si
+legano solo se esiste un oggetto canonico (preparazione, piano, situazione).
 
 ### V3.22 — Call UX Final
 **Obiettivo** — la telefonata come funzione di prodotto finita, non come

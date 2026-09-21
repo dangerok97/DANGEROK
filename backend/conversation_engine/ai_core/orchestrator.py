@@ -265,6 +265,7 @@ class AICoreOrchestrator:
                 plan_item_id=step_item_id or str(item_ref.get("id") or "") or None,
                 object_id=object_id,
                 situation_id=str(situation.get("id") or "") or None,
+                preparation_id=str(st.get("active_preparation_id") or "") or None,
             )
             # What sort of thread this is, so a resume knows what it is
             # resuming without having to inspect the refs itself.

@@ -574,6 +574,40 @@ def _the_day_in_italian(when: str) -> str:
     return f"{t.day} {_MESI[t.month - 1]}"
 
 
+#     UNA SOLA LINGUA PER DIRE DA DOVE VIENE UNA COSA.
+# La Home mostra fianco a fianco quello che l'agente sta seguendo e quello che
+# ORA suggerisce: se le due righe chiamassero la stessa sorgente con due nomi
+# diversi, la provenienza sembrerebbe un'etichetta invece che un fatto.
+DA_DOVE: Dict[str, str] = {
+    "calendar_event": "appuntamento nel calendario",
+    "calendar": "appuntamento nel calendario",
+    "document": "un documento che mi hai dato",
+    "documents": "un documento che mi hai dato",
+    "message": "un messaggio che ho letto",
+    "communications": "un messaggio che ho letto",
+    "email": "un'email che ho letto",
+    "conversation": "una cosa che mi hai detto in chat",
+    "memory": "quello che avevo già capito di te",
+    "opportunity": "una cosa che ho notato",
+    "connected_signal": "un aggiornamento arrivato dai tuoi account",
+    "life_reasoning": "una deduzione mia da quello che so della tua vita",
+    "inference": "una deduzione mia",
+}
+
+
+def how_we_say_the_source(kind: str, created_at: str = "") -> str:
+    """
+    La sorgente in italiano, con il giorno — o la dichiarazione che manca.
+
+        UNA FONTE CHE NON SI RIESCE A RICOSTRUIRE SI DICHIARA.
+    """
+    da = DA_DOVE.get((kind or "").strip(), "")
+    if not da:
+        return "originale non disponibile"
+    quando = _the_day_in_italian(created_at)
+    return f"{da} del {quando}" if quando else da
+
+
 class AutonomousGoal(BaseModel):
     """
     An outcome ORA is trying to bring about.
@@ -646,32 +680,67 @@ class AutonomousGoal(BaseModel):
         anche `source` (da dove nasce, in italiano) e `needs_you` (che cosa
         serve alla persona adesso, o niente).
         """
+        cosa, quale = self._as_definite_as_i_really_am(self.objective)
         return {
             "id": self.id,
-            "what": self.objective,
+            "what": cosa,
             "outcome": self.desired_outcome,
             "why_now": self.why_now or None,
             "source": self.where_it_came_from(),
             "needs_you": self.what_it_needs_from_you(),
+            #     E SE NON SO QUALE, LO DICO.
+            "unclear": (
+                f"Non riesco ancora a capire di quale {quale} si tratti."
+                if quale else ""
+            ),
         }
 
+    #     «IL CERTIFICATO» E' UNA COSA PRECISA. «UN CERTIFICATO» NO.
+    # V3.21.3a: la card diceva «Ritiro del certificato — giovedì» mentre ORA
+    # non aveva idea di quale certificato fosse. L'articolo determinativo è una
+    # promessa: dice che quella cosa è identificata. Senza una sorgente a cui
+    # agganciarla, la promessa non si può fare.
+    #
+    # Si tocca solo la preposizione, mai il sostantivo: una riscrittura più
+    # ambiziosa finirebbe per dire cose che nessuno ha scritto.
+    _INDETERMINATO = {
+        "del": "di un", "dello": "di uno", "della": "di una",
+        "dei": "di alcuni", "degli": "di alcuni", "delle": "di alcune",
+    }
+
+    def _as_definite_as_i_really_am(self, testo: str) -> tuple:
+        """La frase con la certezza che ORA ha davvero, e di che cosa non sa quale."""
+        if self.source_refs or self.opportunity_id or self.source_kind:
+            return testo, ""
+        parole = (testo or "").split()
+        for i, parola in enumerate(parole):
+            secca = parola.strip(",.;:").lower()
+            if secca not in self._INDETERMINATO or i + 1 >= len(parole):
+                continue
+            cosa = parole[i + 1].strip(",.;:").lower()
+            parole[i] = self._INDETERMINATO[secca]
+            return " ".join(parole), cosa
+        return testo, ""
+
     def where_it_came_from(self) -> str:
-        """«Appuntamento inserito il 18 settembre», «Me l'hai chiesto tu il …»."""
+        """
+        Da dove viene, con la sorgente vera — o dicendo che non si sa.
+
+            UNA FONTE CHE NON SI RIESCE A RICOSTRUIRE SI DICHIARA.
+
+        V3.21.3a: «Nata dal lavoro di ORA» non è una fonte, è una perifrasi per
+        «non lo so». Quando `source_kind` e `source_refs` sono vuoti — e nei
+        dati veri capita — la card lo dice con parole sue.
+        """
         quando = _the_day_in_italian(self.created_at)
-        di_quando = f" il {quando}" if quando else ""
+        di_quando = f" del {quando}" if quando else ""
         if self.origin == "user_requested":
-            return f"Me l'hai chiesto tu{di_quando}".strip()
-        da = {
-            "calendar_event": "Appuntamento in calendario",
-            "calendar": "Appuntamento in calendario",
-            "document": "Documento che mi hai dato",
-            "conversation": "Una cosa che mi hai detto",
-            "message": "Un messaggio che ho letto",
-            "opportunity": "Una cosa che ho notato",
-            "life_reasoning": "Quello che so della tua vita",
-        }.get(self.source_kind or "", "")
+            #     «ME L'HAI CHIESTO TU IL 18», NON «DEL 18».
+            return f"me l'hai chiesto tu{(' il ' + quando) if quando else ''}".strip()
+        da = DA_DOVE.get(self.source_kind or "", "")
         if not da:
-            return f"Nata dal lavoro di ORA{di_quando}".strip()
+            #     NON RICOSTRUIBILE: SI DICE, NON SI INVENTA.
+            return "originale non disponibile"
         return f"{da}{di_quando}"
 
     def what_it_needs_from_you(self) -> str:

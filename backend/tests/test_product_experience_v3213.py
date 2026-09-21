@@ -136,7 +136,9 @@ def _obiettivo(**cambia):
 def test_an_update_says_what_where_from_and_what_it_needs():
     scheda = _obiettivo().for_human()
     assert scheda["what"].startswith("Avere il ritiro")
-    assert scheda["source"] == "Appuntamento in calendario il 18 settembre"
+    # V3.21.3a: la fonte si legge dentro «Fonte: …», quindi minuscola, e
+    # dice *nel* calendario *del* giorno — non un titolo staccato.
+    assert scheda["source"] == "appuntamento nel calendario del 18 settembre"
     assert scheda["why_now"]
     #     NIENTE DA FARE E' UNA RISPOSTA, E SI DICE.
     assert scheda["needs_you"] == ""
@@ -151,12 +153,14 @@ def test_an_update_that_needs_the_person_says_so():
 
 def test_a_goal_the_person_asked_for_says_so():
     mia = _obiettivo(origin="user_requested").for_human()
-    assert mia["source"] == "Me l'hai chiesto tu il 18 settembre"
+    assert mia["source"] == "me l'hai chiesto tu il 18 settembre"
 
 
 def test_an_unknown_origin_is_not_invented():
     ignota = _obiettivo(source_kind="", origin="agent_initiated").for_human()
-    assert ignota["source"].startswith("Nata dal lavoro di ORA")
+    # V3.21.3a: «Nata dal lavoro di ORA» era una perifrasi per «non lo so».
+    # Una fonte che non si ricostruisce si dichiara.
+    assert ignota["source"] == "originale non disponibile"
 
 
 # ===========================================================================

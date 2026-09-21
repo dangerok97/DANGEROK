@@ -402,10 +402,22 @@ export function UpdatesFeed({
               {s.title}
             </Text>
             {s.description || s.reason ? (
-              <Text style={[styles.rowMeta, { color: colors.textTertiary }]} numberOfLines={1}>
+              <Text style={[styles.rowMeta, { color: colors.textTertiary }]} numberOfLines={2}>
                 {s.description || s.reason}
               </Text>
             ) : null}
+            {/*
+              Da dove viene. Una riga che dice una cosa sulla vita di qualcuno
+              senza dire come fa a saperlo chiede fiducia senza darne motivo —
+              e quando la sorgente non si ricostruisce, lo dice.
+            */}
+            <Text
+              style={[styles.rowMeta, { color: colors.textTertiary }]}
+              numberOfLines={1}
+              testID={`update-source-${s.id}`}
+            >
+              Fonte: {s.source_label || 'originale non disponibile'}
+            </Text>
           </View>
           {agoLabel(s.created_at) ? (
             <Text style={[styles.ago, { color: colors.textTertiary }]}>{agoLabel(s.created_at)}</Text>
@@ -668,9 +680,16 @@ export function AgentWorkRow({
           </Text>
           <OraBadge label={work.needs_you ? 'Serve una risposta' : 'In corso'} tone={work.needs_you ? 'attention' : 'info'} />
         </View>
-        {work.source ? (
-          <Text style={[oraType.small, { color: ora.ink3 }]} numberOfLines={1}>
-            Fonte: {work.source}
+        {/*
+          La fonte, detta per intero. Quando l'originale non è ricostruibile la
+          card lo dichiara invece di riempire la riga con una perifrasi.
+        */}
+        <Text style={[oraType.small, { color: ora.ink3 }]} numberOfLines={2}>
+          Fonte: {work.source || 'originale non disponibile'}
+        </Text>
+        {work.unknown ? (
+          <Text style={[oraType.small, { color: ora.attention }]} numberOfLines={2}>
+            {work.unknown}
           </Text>
         ) : null}
         {work.why_now ? (

@@ -67,6 +67,15 @@ def _combacia(riga, query) -> bool:
                 return False
             if "$lt" in atteso and not (vero is not None and vero < atteso["$lt"]):
                 return False
+            #     `$ne` SERVE A NON CHIUDERE SE STESSI.
+            # Senza, una scrittura «tutte quelle del lavoro tranne questa»
+            # chiudeva anche la domanda appena nata: un difetto del finto, non
+            # del codice vero, che e' esattamente il tipo di bugia che un
+            # doppio incompleto racconta.
+            if "$ne" in atteso and vero == atteso["$ne"]:
+                return False
+            if "$gt" in atteso and not (vero is not None and vero > atteso["$gt"]):
+                return False
         elif vero != atteso:
             return False
     return True
@@ -167,7 +176,7 @@ class Tabella:
                 self.scritture += 1
         return Esito(quante)
 
-    async def find_one_and_update(self, query, cambio):
+    async def find_one_and_update(self, query, cambio, projection=None, **kw):
         """
         Trova e scrive nello stesso gesto, o non fa niente.
 
@@ -181,7 +190,12 @@ class Tabella:
             if _combacia(r, query):
                 r.update(cambio.get("$set") or {})
                 self.scritture += 1
-                return dict(r)
+                fuori = dict(r)
+                if projection:
+                    tieni = [k for k, v in projection.items() if v and k != "_id"]
+                    if tieni:
+                        fuori = {k: fuori.get(k) for k in tieni if k in fuori}
+                return fuori
         return None
 
     async def update_one(self, query, cambio, upsert=False):

@@ -62,6 +62,11 @@ def public_trace(trace: Dict[str, Any]) -> Dict[str, Any]:
         # Dove è andato il tempo di questo turno, in millisecondi.
         "phases_ms": dict(trace.get("phases_ms") or {}),
         "tool_calls": trace.get("tool_calls", 0),
+        #     QUANTE GENERAZIONI NON SONO SERVITE.
+        # Una generazione costa secondi interi: se una scorciatoia ne toglie
+        # una, deve vedersi qui — altrimenti fra un mese nessuno sa più se
+        # quel guadagno c'è ancora.
+        "generations_saved": trace.get("generations_saved", 0),
         "context_calls": trace.get("context_calls", 0),
         "context_sources": list(trace.get("context_sources") or [])[:8],
         "context_candidate_count": trace.get("context_candidate_count", 0),

@@ -318,6 +318,18 @@ class HomeService:
                 )
             ]
 
+        #     ANCHE UN SUGGERIMENTO DEVE DIRE DA DOVE VIENE.
+        # In «Aggiornamenti di ORA» finiscono quattro cose diverse — quello che
+        # l'agente sta seguendo, i suggerimenti, gli spunti, le occasioni — e
+        # fino a qui solo la prima portava la sua provenienza. Le altre tre
+        # dicevano che cosa e perché, mai come facesse ORA a saperlo.
+        from agent.models import how_we_say_the_source
+
+        for s_ in ora_ti_consiglia:
+            s_["source_label"] = how_we_say_the_source(
+                str(s_.get("source") or ""), str(s_.get("created_at") or ""),
+            )
+
         resume = None
         if resume_candidates:
             # Prefer Life OS plan resumes (durable goal) over bare conversation_session.

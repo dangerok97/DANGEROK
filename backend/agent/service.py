@@ -1522,11 +1522,93 @@ class AgentService:
         """
         out: List[Dict[str, Any]] = []
         for goal in await self.repo.open_goals(owner_id, limit=3):
-            out.append({
+            scheda = {
                 **goal.for_human(),
                 "state": await self._progress_of(owner_id, goal),
-            })
+            }
+            scheda["source"] = await self._where_it_really_came_from(owner_id, goal)
+            #     UNA SOLA RIGA PER QUELLO CHE ORA NON SA.
+            # Il modello sa dire *di quale cosa* non è sicuro; il servizio sa
+            # dire che non c'è niente a cui agganciarla. La prima è più
+            # precisa, e quando c'è vince.
+            scheda["unknown"] = (
+                scheda.pop("unclear", "") or self._what_is_still_vague(goal)
+            )
+            out.append(scheda)
         return out
+
+    async def _where_it_really_came_from(self, owner_id: str, goal) -> str:
+        """
+        La fonte, con il riferimento umano quando esiste.
+
+            «FONTE: APPUNTAMENTO NEL CALENDARIO DEL 4 SETTEMBRE» — O NIENTE.
+
+        Il riferimento che il goal ha conservato è un identificativo: qui si
+        prova a tradurlo nel nome che una persona riconosce — il titolo di un
+        appuntamento, di un documento, di un segnale. Se non si trova, resta
+        la sorgente senza nome; se non c'è nemmeno quella, si dice che
+        l'originale non è più ricostruibile.
+        """
+        base = goal.where_it_came_from()
+        riferimento = ""
+        for ref in list(goal.source_refs or [])[:3]:
+            riferimento = await self._human_name_of(owner_id, str(ref))
+            if riferimento:
+                break
+        if base == "originale non disponibile":
+            return "originale non disponibile" if not riferimento else riferimento
+        return f"{base} — «{riferimento}»" if riferimento else base
+
+    async def _human_name_of(self, owner_id: str, ref: str) -> str:
+        """Il nome leggibile di un riferimento opaco, se si riesce a trovarlo."""
+        if not ref:
+            return ""
+        #     OGNI LETTURA PORTA IL NOME DEL PROPRIETARIO, SCRITTO.
+        # Un `$or` fra `user_id` e `owner_id` restringe lo stesso, ma non si
+        # legge: la guardia dell'agente cerca la chiave nella query, e ha
+        # ragione a pretenderla — una lettura che non dice di chi è, a
+        # guardarla, non si distingue da una che legge tutti.
+        prove = (
+            ("calendar_event_drafts", "user_id", ("title",)),
+            ("documents", "user_id", ("title", "filename")),
+            ("documents", "owner_id", ("title", "filename")),
+            ("connected_signals", "user_id", ("title", "subject")),
+            ("goals", "owner_id", ("title", "objective")),
+        )
+        for collezione, chiave, campi in prove:
+            try:
+                if chiave == "owner_id":
+                    riga = await self.db[collezione].find_one(
+                        {"id": ref, "owner_id": owner_id}, {"_id": 0},
+                    )
+                else:
+                    riga = await self.db[collezione].find_one(
+                        {"id": ref, "user_id": owner_id}, {"_id": 0},
+                    )
+            except Exception:  # pragma: no cover
+                riga = None
+            if riga:
+                for campo in campi:
+                    valore = str(riga.get(campo) or "").strip()
+                    if valore:
+                        return valore[:120]
+        return ""
+
+    @staticmethod
+    def _what_is_still_vague(goal) -> str:
+        """
+        Che cosa ORA non sa ancora di questo lavoro. Vuoto quando sa tutto.
+
+        Non è una supposizione sul testo: è il fatto che il goal non abbia
+        nessun riferimento a cui agganciarsi — nessun appuntamento, nessun
+        documento, nessun segnale — pur parlando di una cosa precisa.
+        """
+        if goal.source_refs or goal.opportunity_id:
+            return ""
+        return (
+            "Non ho un documento o un appuntamento a cui collegarlo: "
+            "se mi dici a che cosa si riferisce, lo aggancio."
+        )
 
     async def _progress_of(self, owner_id: str, goal) -> str:
         """

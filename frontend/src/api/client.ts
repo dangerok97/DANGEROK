@@ -2968,6 +2968,8 @@ export type HomeAgentWork = {
   source?: string | null;
   /** Che cosa serve alla persona adesso. Vuoto quando non serve niente. */
   needs_you?: string | null;
+  /** Che cosa ORA non sa ancora di questo lavoro. Vuoto quando sa tutto. */
+  unknown?: string | null;
 };
 
 /**
@@ -3013,6 +3015,8 @@ export type ProactiveSuggestion = {
   title: string;
   description?: string | null;
   reason?: string;
+  /** Da dove viene, in italiano. Il backend la scrive; qui non si inventa. */
+  source_label?: string | null;
   type?: string;
   priority?: string;
   importance?: number;
