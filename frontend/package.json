@@ -21,7 +21,8 @@
     "test:mobile": "node --experimental-strip-types src/shell/mobileHardening.test.ts",
     "test:v32": "node --experimental-strip-types src/components/home/v3/questions32.test.ts",
     "test:v33": "node --experimental-strip-types src/components/life-profile/lifeProfile33.test.ts",
-    "test:v314": "node --experimental-strip-types src/components/calls/calls314.test.ts"
+    "test:v314": "node --experimental-strip-types src/components/calls/calls314.test.ts",
+    "test:v3213b": "node --experimental-strip-types src/shell/navigazione3213b.test.ts"
   },
   "dependencies": {
     "@expo/metro-runtime": "6.1.2",

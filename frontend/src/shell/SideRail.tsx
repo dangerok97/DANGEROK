@@ -11,8 +11,7 @@
  * destinazioni con la pillola azzurra per quella corrente, una card quieta
  * che dice che cos'è ORA, e in fondo la persona.
  */
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
@@ -104,21 +103,43 @@ export function SideRail({
 
       {/*
         Non è un bottone e non promette niente: dice che cos'è ORA, con la
-        stessa frase della reference. Il paesaggio è disegnato, non una foto.
+        stessa frase della reference.
+
+            SOTTO CI VA UN'IMMAGINE, NON DUE RETTANGOLI ARROTONDATI.
+
+        Qui c'erano due `View` con un raggio grande a fare da colline: da
+        vicino si vedevano per quello che erano — forme che dicono «qui prima o
+        poi ci va qualcosa». L'asset vero è `assets/images/rail-calm.png`,
+        disegnato da `scripts/make-rail-image.py` e versionato con il resto:
+        nessun URL remoto, nessuna dipendenza che un giorno smette di
+        rispondere. Essendo questa la barra condivisa, la card è identica in
+        tutte le schermate che la usano.
       */}
-      <LinearGradient
-        colors={['#DCE6F2', '#EEF1F4', '#F7F1E8']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
-        style={styles.card}
-      >
+      <View style={styles.card}>
+        {/*
+          L'immagine riempie la card e il testo le sta sopra, appoggiato al
+          cielo — come nella reference. Con la foto relegata a una striscia in
+          fondo restava uno stacco netto fra il fondo della card e il cielo:
+          due superfici invece di una.
+        */}
+        <Image
+          source={require('@/assets/images/rail-calm.png')}
+          //     LA MISURA VA DETTA, NON DEDOTTA.
+          // Con il solo `absoluteFill` l'immagine restava larga quanto il file
+          // (760x700) e la card, che taglia, ne mostrava l'angolo in alto a
+          // sinistra: tutto cielo, nessuna montagna.
+          // `objectFit` esplicito perché sul web `resizeMode` da solo lasciava
+          // «fill», cioè l'immagine schiacciata dentro il riquadro.
+          style={[StyleSheet.absoluteFill, { width: '100%', height: '100%', objectFit: 'cover' }]}
+          resizeMode="cover"
+          accessibilityIgnoresInvertColors
+          accessible
+          accessibilityLabel="Creste di montagna nella foschia"
+          testID="rail-card-image"
+        />
         <Text style={[styles.cardTitle, { color: ora.ink }]}>Una vita più semplice, insieme.</Text>
         <Text style={[styles.cardBody, { color: ora.ink2 }]}>ORA ti accompagna ogni giorno.</Text>
-        <View style={styles.hills} pointerEvents="none">
-          <View style={[styles.hill, styles.hillBack]} />
-          <View style={[styles.hill, styles.hillFront]} />
-        </View>
-      </LinearGradient>
+      </View>
 
       <Pressable
         onPress={() => go(AMBIENT_ACCOUNT_ITEM.route as 'profilo')}
@@ -150,10 +171,17 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     borderRightWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: 20,
+    //     LA BARRA CI STA TUTTA, SEMPRE. NIENTE SCORRIMENTO.
+    // Una barra di navigazione che scorre è una barra che nasconde qualcosa:
+    // ci sta tutto perché le voci tengono la loro altezza e la card prende
+    // quello che resta, non un pixel di più.
+    overflow: 'hidden',
   },
   brand: { paddingHorizontal: 12, paddingBottom: 36, gap: 6 },
   motto: { fontSize: 14, letterSpacing: 0.1 },
-  items: { flex: 1, gap: 6 },
+  // La lista tiene la sua altezza: sono voci di navigazione, non spazio da
+  // comprimere. È la card sotto a prendersi lo spazio che avanza.
+  items: { gap: 6, flexShrink: 0 },
   item: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -164,24 +192,20 @@ const styles = StyleSheet.create({
   },
   label: { fontSize: 16 },
   card: {
+    // Sta in fondo quando c'è spazio, e scorre con il resto quando non ce n'è.
+    marginTop: 'auto',
     borderRadius: 16,
     padding: 20,
-    paddingBottom: 88,
+    // Quanto basta perché sotto il testo si veda il paesaggio, e non di più:
+    // è lei a cedere spazio quando la finestra è bassa, non le voci del menu.
+    minHeight: 168,
+    flexShrink: 1,
     overflow: 'hidden',
     marginBottom: 22,
+    backgroundColor: ora.surfaceWarm,
   },
   cardTitle: { fontSize: 17, fontWeight: '600', lineHeight: 23 },
   cardBody: { fontSize: 14, lineHeight: 20, marginTop: 8 },
-  hills: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 78 },
-  hill: { position: 'absolute', borderTopLeftRadius: 400, borderTopRightRadius: 400 },
-  hillBack: {
-    left: -40, right: 40, bottom: -10, height: 70,
-    backgroundColor: '#C9D3DE',
-  },
-  hillFront: {
-    left: 60, right: -60, bottom: -24, height: 64,
-    backgroundColor: '#B7C3D1',
-  },
   account: {
     flexDirection: 'row',
     alignItems: 'center',

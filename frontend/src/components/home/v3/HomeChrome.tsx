@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
+import type { HomeWeather } from '@/src/api/client';
 import { useTheme } from '@/src/theme/ThemeProvider';
 import { tokens } from '@/src/theme/tokens';
 import { AccountEntry, titleCase } from '@/src/shell';
@@ -28,7 +29,8 @@ export function HomeHeaderV3({
   permissionBusy,
   onEnableNotifications,
   onDismissNotifications,
-  onWhyNow,
+  weather,
+  onOpenWeather,
 }: {
   name?: string | null;
   /**
@@ -52,7 +54,16 @@ export function HomeHeaderV3({
   permissionBusy?: boolean;
   onEnableNotifications?: () => void;
   onDismissNotifications?: () => void;
-  onWhyNow?: () => void;
+  /**
+   * Che tempo fa, come lo sa il backend — o che non lo sa.
+   *
+   * Non c'è nessuno stato intermedio: o arriva da un provider vero, o la
+   * riga dice «Meteo non disponibile». Un grado inventato è una persona
+   * vestita male.
+   */
+  weather?: HomeWeather | null;
+  /** Dove si apre il meteo per esteso. */
+  onOpenWeather?: () => void;
 }) {
   const { colors } = useTheme();
   const first = titleCase(name).split(/\s+/)[0] || null;
@@ -93,27 +104,92 @@ export function HomeHeaderV3({
           </Text>
         ) : null}
       </View>
-      {onWhyNow ? (
-        <Pressable
-          onPress={onWhyNow}
-          style={({ pressed }) => [
-            styles.whyBtn,
-            { backgroundColor: colors.surface, borderColor: colors.border },
-            pressed && styles.pressed,
-          ]}
-          accessibilityRole="button"
-          testID="home-why-now"
-        >
-          <Ionicons name="sparkles-outline" size={14} color={colors.accent} />
-          <Text style={[styles.whyLabel, { color: colors.textSecondary }]}>Perché ora?</Text>
-        </Pressable>
-      ) : null}
+      {/*
+        In alto a destra sta il tempo che fa, come nella reference. «Perché
+        ora?» resta dov'è la cosa che spiega: dentro la card del focus. Due
+        bottoni uguali in due posti diversi sono due domande diverse con la
+        stessa faccia.
+      */}
+      <WeatherNow weather={weather} onOpen={onOpenWeather} />
       {/*
         Account, where a phone can reach it. Renders nothing on desktop, where
         the rail already answers this at its foot.
       */}
       <AccountEntry testID="home-account" />
     </View>
+  );
+}
+
+/**
+ * Il tempo che fa, in alto a destra. Tre righe o una sola, mai un'invenzione.
+ */
+export function WeatherNow({
+  weather,
+  onOpen,
+}: {
+  weather?: HomeWeather | null;
+  onOpen?: () => void;
+}) {
+  const { colors } = useTheme();
+  const c = weather?.available ? weather : null;
+  const gradi = c && typeof c.temperature_c === 'number' ? `${c.temperature_c}°C` : '';
+  const riga = c ? [gradi, c.place].filter(Boolean).join(' · ') : '';
+
+  const dentro = (
+    <>
+      <Ionicons
+        name={((c?.icon as never) || 'cloud-offline-outline') as never}
+        size={22}
+        color={c ? colors.accent : colors.textTertiary}
+      />
+      <View style={styles.weatherText}>
+        <Text
+          style={[styles.weatherLabel, { color: c ? colors.textPrimary : colors.textTertiary }]}
+          numberOfLines={1}
+        >
+          {c ? c.label : 'Meteo non disponibile'}
+        </Text>
+        {riga ? (
+          <Text style={[styles.weatherMeta, { color: colors.textTertiary }]} numberOfLines={1}>
+            {riga}
+          </Text>
+        ) : null}
+      </View>
+      {/*
+        La freccia c'è solo quando si può davvero aprire qualcosa: un chevron
+        su una riga che non porta da nessuna parte è una promessa non mantenuta.
+      */}
+      {onOpen ? <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} /> : null}
+    </>
+  );
+
+  if (!onOpen) {
+    return (
+      <View
+        style={[styles.weather, { backgroundColor: colors.surface, borderColor: colors.border }]}
+        testID={c ? 'home-weather' : 'home-weather-unavailable'}
+      >
+        {dentro}
+      </View>
+    );
+  }
+
+  return (
+    <Pressable
+      onPress={onOpen}
+      accessibilityRole="button"
+      accessibilityLabel={
+        c ? `Meteo: ${c.label}${riga ? `, ${riga}` : ''}. Apri il dettaglio.` : 'Apri il meteo'
+      }
+      style={({ pressed }) => [
+        styles.weather,
+        { backgroundColor: colors.surface, borderColor: colors.border },
+        pressed && styles.pressed,
+      ]}
+      testID={c ? 'home-weather' : 'home-weather-unavailable'}
+    >
+      {dentro}
+    </Pressable>
   );
 }
 
@@ -327,6 +403,20 @@ const styles = StyleSheet.create({
     minHeight: tokens.touch.min,
   },
   whyLabel: { fontSize: 13, fontWeight: '500' },
+  weather: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: tokens.radius.pill,
+    paddingLeft: 16,
+    paddingRight: 12,
+    paddingVertical: 10,
+    minHeight: tokens.touch.min,
+  },
+  weatherText: { gap: 1 },
+  weatherLabel: { fontSize: 14, fontWeight: '600' },
+  weatherMeta: { fontSize: 12 },
   empty: {
     borderRadius: tokens.radius.lg,
     borderWidth: StyleSheet.hairlineWidth,

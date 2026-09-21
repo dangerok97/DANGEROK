@@ -489,6 +489,7 @@ class HomeService:
             notification_prompt=notification_prompt,
             resume_item=resume,
             ora_ti_consiglia=ora_ti_consiglia[:3],
+            weather=await self._weather_now(user_id),
             open_questions=open_questions,
             connection_warnings=warnings,
             google_calendar=google_block,
@@ -843,6 +844,63 @@ class HomeService:
                         )
         except Exception as e:
             logger.warning("mirror complete failed: %s", type(e).__name__)
+
+    async def _weather_now(self, user_id: str) -> Dict[str, Any]:
+        """
+        Il tempo dove si trova davvero, con il nome del posto.
+
+            NESSUN METEO INVENTATO, NEMMENO PER RIEMPIRE L'ANGOLO.
+
+        Il punto lo dà la posizione che il telefono ha già condiviso — la
+        stessa che serve alla presenza — e il nome della città viene da lì,
+        non da un indirizzo scritto a mano. Se non c'è ancora una posizione, si
+        ripiega sui luoghi salvati; se non c'è nemmeno quello, lo si dice.
+        """
+        import weather as meteo
+
+        if not meteo.capabilities()["available"]:
+            return meteo.unavailable()
+
+        punto = await self._where_they_are(user_id)
+        if punto is None:
+            return meteo.unavailable("non so ancora dove sei")
+        lat, lon, dove = punto
+        return await meteo.now_at(lat=lat, lon=lon, place=dove)
+
+    async def _where_they_are(self, user_id: str):
+        """(lat, lon, nome del posto) — dalla presenza, o dai luoghi salvati."""
+        #     PRIMA DOVE SEI ADESSO.
+        try:
+            from location.service import LocationService
+
+            presenza = await LocationService(self.db).build_presence(user_id)
+            if presenza and presenza.latitude is not None and presenza.longitude is not None:
+                dove = (
+                    presenza.place_locality
+                    or presenza.place_municipality
+                    or presenza.place_label
+                    or ""
+                )
+                return float(presenza.latitude), float(presenza.longitude), dove
+        except Exception as e:  # pragma: no cover - la presenza è facoltativa
+            logger.info("meteo senza presenza: %s", type(e).__name__)
+
+        #     POI DOVE VIVI.
+        try:
+            from places.service import PlacesService
+
+            posti = [p for p in await PlacesService(self.db).list_places(user_id) if p.coordinates]
+        except Exception as e:  # pragma: no cover
+            logger.info("meteo senza luoghi: %s", type(e).__name__)
+            posti = []
+        if not posti:
+            return None
+        scelto = next((p for p in posti if p.role == "home"), posti[0])
+        return (
+            scelto.coordinates.latitude,
+            scelto.coordinates.longitude,
+            scelto.locality or scelto.label,
+        )
 
     async def full_situation(self, user_id: str) -> Dict[str, Any]:
         home = await self.build_home(user_id)

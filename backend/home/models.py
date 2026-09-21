@@ -181,6 +181,11 @@ class HomeResponse(BaseModel):
     resume_item: Optional[Dict[str, Any]] = None
     # Proactive Engine — max 3; omit/empty → FE hides section (no spam)
     ora_ti_consiglia: List[Dict[str, Any]] = Field(default_factory=list)
+    #     CHE TEMPO FA, O CHE NON SI SA.
+    # Sta in alto a destra nella Home, dove prima c'era un bottone. Quando non
+    # c'è un provider configurato questo blocco dice «Meteo non disponibile» —
+    # e non c'è nessun altro stato possibile, perché non si inventa.
+    weather: Dict[str, Any] = Field(default_factory=dict)
     # V3.1 — what ORA is actually waiting for an answer to. These are not
     # suggestions the attention layer thought worth surfacing: each one is a
     # blocker on a real piece of work, and answering it continues that work.

@@ -6,11 +6,11 @@ percorso fino al lancio si leggono qui e solo qui.
 
 | | |
 |---|---|
-| **Versione corrente** | **V3.21.3a — Product Experience Final Reality Gate · PASS parziale** |
+| **Versione corrente** | **V3.21.3b — Home Navigation & Action Integrity · PASS** |
 | **Prossimo sprint** | **V3.22 — Call UX Final** |
 | Branch | `feature/ora-quiet-premium-design-system` |
 | Ultimo checkpoint | `37af8a5` (lavoro) · `3baeaa1` (igiene) |
-| Aggiornato | 2026-09-21 |
+| Aggiornato | 2026-09-21 (V3.21.3b) |
 
 Gli altri due registri restano quello che sono e non ripetono questo:
 `CHANGELOG_AI.md` è il diario datato di che cosa è cambiato,
@@ -748,6 +748,67 @@ un difetto del doppio, non del codice vero.
 identificativo di lavoro: si chiudono per abbandono dopo due giorni, non per
 supersessione. Fra conversazioni diverse, due domande sulla stessa missione si
 legano solo se esiste un oggetto canonico (preparazione, piano, situazione).
+
+#### V3.21.3b — Home Navigation & Action Integrity · **PASS**
+
+**Cinque link, una sola pagina.** «Vedi agenda», «Vedi tutto», «N da
+rispondere», «N aggiornamenti» e «Apri dettagli» finivano tutti su «Situazione
+completa» — o non facevano niente. Sono cinque domande diverse e adesso hanno
+cinque superfici: `/agenda` (quando succedono le cose), `/ora-sintesi` (come
+stanno le cose, le stesse quattro voci del widget con dentro gli elementi
+veri), `/domande` (solo quelle aperte adesso, con risposta che parte da lì),
+`/aggiornamenti` (l'elenco) e `/aggiornamento/{id}` (il contratto del
+V3.21.3a per esteso: cosa, da dove viene, perché conta, cosa sto facendo, cosa
+serve a te, prossimo passo).
+Le pagine leggono gli stessi dati canonici dei widget — `elencoAggiornamenti`
+è una funzione sola usata da Home, elenco e dettaglio — così i numeri non
+possono scollarsi: Home dice «4 da rispondere», la pagina ne mostra 4.
+
+**Agenda.** Nuova porta `/api/agenda`, che legge gli stessi nodi `event` del
+riepilogo giornaliero: niente seconda verità sul calendario. Tiene i giorni
+vuoti («Niente in programma») perché «giovedì sei libero» è un'informazione, e
+dice da dove viene ogni appuntamento (Google Calendar, Calendario di Apple,
+aggiunto qui) e che cosa c'entra ORA, quando c'entra davvero.
+
+**Meteo, vero.** Al posto del bottone «Perché ora?» nell'intestazione c'è il
+tempo che fa — nella colonna centrale accanto al saluto, come nella reference,
+non appoggiato alla colonna del calendario. I dati arrivano da Open-Meteo
+(nessuna chiave, nessun costo, spegnibile con `WEATHER_PROVIDER=none`) e il
+punto da cui si guarda è la **posizione vera del telefono**, la stessa che
+alimenta la presenza; senza posizione si dice «non so ancora dove sei», senza
+provider «Meteo non disponibile». Nessun grado inventato, mai.
+La riga parla italiano: «Mattina serena», «Pomeriggio nuvoloso», «Sera di
+pioggia» — gli aggettivi si accordano con il momento della giornata.
+Il modulo si apre: `/meteo` mostra percepiti, umidità, vento, pioggia, alba e
+tramonto, le prossime dodici ore e i prossimi cinque giorni.
+**«Perché ora?» resta dentro la card del focus**, dov'è la cosa che spiega.
+
+**La barra laterale.** Sotto «Una vita più semplice, insieme.» c'erano due
+rettangoli arrotondati a fare da colline. Adesso c'è un'immagine vera —
+`assets/images/rail-calm.png`, creste in foschia, generata da
+`frontend/scripts/make-rail-image.py` e versionata con il resto: nessun URL
+remoto. L'immagine riempie la card e il testo le sta sopra, appoggiato al
+cielo, come nella reference. La barra ci sta tutta senza scorrimento e la card
+non si sovrappone più a «Documenti» nemmeno a 700 px di altezza. Essendo il
+componente condiviso, vale per Home, Vita, ORA, Chiamate, Attività, Documenti.
+
+**Nessuna CTA morta.** Audit dell'intera Home, cliccando davvero: Continua →
+workspace dell'obiettivo, «Perché ora?» → spiegazione inline, «…» → menu,
+Rispondi → conversazione, calendario ‹ › e Oggi → il mese cambia, composer →
+scrive. Nove CTA su nove vive, più le sei di navigazione. «Apri dettagli»
+compare solo quando c'è un dettaglio da aprire, e la freccia del meteo solo
+quando il meteo si può aprire.
+
+**Prove.** 18 nuove sul backend (`test_home_navigation_v3213b.py`: meteo
+acceso/spento, accordo grammaticale, posizione dal GPS, agenda con giorni
+vuoti, ore e fonte) più la guardia del frontend `test:v3213b`, che tiene ferme
+le cinque destinazioni distinte, il meteo cliccabile e l'immagine della barra.
+Reality gate dall'app vera: sei percorsi, sei pagine diverse, più indietro,
+refresh e rotta diretta.
+
+**Debito.** `/situazione` resta dov'è per i suoi usi; non è più la
+destinazione di nessuno dei link della Home. La pagina del meteo non ha ancora
+le allerte, e l'agenda si ferma a sette giorni (quattordici dalla porta).
 
 ### V3.22 — Call UX Final
 **Obiettivo** — la telefonata come funzione di prodotto finita, non come

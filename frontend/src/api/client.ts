@@ -2011,6 +2011,10 @@ export const api = {
    */
   openQuestions: () =>
     request<{ ok: boolean; items: OpenQuestionItem[] }>('/questions/open'),
+  /** L'agenda vera: i prossimi giorni con i loro impegni, dai dati canonici. */
+  agenda: (days = 7) => request<AgendaResponse>(`/agenda?days=${days}`),
+  /** Il meteo per esteso, dove si trova la persona. Stessa fonte della Home. */
+  weather: () => request<WeatherDetail>('/weather'),
   answerQuestion: (
     questionId: string,
     answer: string,
@@ -2436,6 +2440,73 @@ export type OpenQuestionItem = {
   /** The thread the answer belongs to, when there is one. Opaque. */
   session_id?: string | null;
   work_kind?: string;
+};
+
+/**
+ * Il tempo che fa, come lo racconta il backend.
+ *
+ * `available: false` è una risposta, non un errore: vuol dire che questa
+ * installazione non ha un provider meteo, o che ORA non sa ancora dove vivi.
+ * In quel caso l'interfaccia scrive «Meteo non disponibile» e basta.
+ */
+export type HomeWeather = {
+  available: boolean;
+  /** «Sereno», «Pioggia», o «Meteo non disponibile». Già in italiano. */
+  label: string;
+  condition?: string;
+  icon?: string;
+  temperature_c?: number;
+  place?: string;
+  why_unavailable?: string | null;
+};
+
+/** Il meteo per esteso: adesso, le prossime ore, i prossimi giorni. */
+export type WeatherDetail = HomeWeather & {
+  feels_like_c?: number | null;
+  humidity_pct?: number | null;
+  wind_kmh?: number | null;
+  precipitation_mm?: number | null;
+  condition_label?: string;
+  sunrise?: string;
+  sunset?: string;
+  hours?: { time: string; temperature_c?: number | null; rain_chance_pct?: number | null; icon?: string }[];
+  days?: {
+    date: string;
+    label: string;
+    min_c?: number | null;
+    max_c?: number | null;
+    rain_chance_pct?: number | null;
+    condition_label?: string;
+    icon?: string;
+  }[];
+};
+
+/** Un giorno dell'agenda, con dentro quello che c'è davvero. */
+export type AgendaDay = {
+  date: string;
+  label: string;
+  is_today: boolean;
+  events: AgendaEvent[];
+};
+
+export type AgendaEvent = {
+  id: string;
+  title: string;
+  starts_at?: string | null;
+  ends_at?: string | null;
+  all_day?: boolean;
+  location?: string;
+  time_label?: string;
+  source_label?: string;
+  /** Che cosa c'entra ORA con questo appuntamento. Vuoto quando non c'entra. */
+  ora_note?: string;
+};
+
+export type AgendaResponse = {
+  days: AgendaDay[];
+  total_events: number;
+  calendar_connected: boolean;
+  generated_at?: string;
 };
 
 export type DocumentPreferences = {
@@ -3061,6 +3132,8 @@ export type HomeV2Response = {
   ora_ti_consiglia?: ProactiveSuggestion[];
   /** Blockers ORA is genuinely waiting on. Empty when nothing is blocked. */
   open_questions?: OpenQuestionItem[];
+  /** Che tempo fa, o perché ORA non lo sa. Mai un grado inventato. */
+  weather?: HomeWeather;
   connection_warnings: HomeConnectionWarning[];
   google_calendar: {
     connected: boolean;

@@ -428,6 +428,22 @@ export default function HomeScreen() {
 
   const mainColumn = (
     <View style={styles.main}>
+      {/*
+        L'intestazione sta dentro la colonna centrale, non sopra tutta la
+        pagina: è lì che la reference mette il saluto e, alla sua destra, il
+        meteo — non all'estremità dello schermo, dove finiva per appoggiarsi
+        alla colonna del calendario.
+      */}
+      <HomeHeaderV3
+        name={user?.name}
+        ambient={home?.ambient || null}
+        permission={askedLater ? null : home?.notification_prompt || null}
+        permissionBusy={permissionBusy}
+        onEnableNotifications={() => void enableNotifications()}
+        onDismissNotifications={() => setAskedLater(true)}
+        weather={home?.weather || null}
+        onOpenWeather={() => router.push('/meteo')}
+      />
       {!online ? <OfflineBanner /> : null}
       {errorBanner ? (
         <ErrorBanner message={errorBanner} onDismiss={() => setErrorBanner(null)} />
@@ -469,6 +485,7 @@ export default function HomeScreen() {
                 onAnswer={onSuggestionOpen}
                 onAnswerOpen={answerOpenQuestion}
                 onAnswerInline={(q, action) => runHomeAction(q.id, action)}
+                onSeeAll={() => router.push('/domande')}
               />
             ) : null}
             {/*
@@ -477,7 +494,9 @@ export default function HomeScreen() {
               mette, ed è dove li cerca chi guarda l'agenda. Al centro resta
               la sequenza della reference: focus, domande, aggiornamenti.
             */}
-            {!twoColumn && today.length ? <TodaySection items={today} onOpen={openItem} /> : null}
+            {!twoColumn && today.length ? (
+              <TodaySection items={today} onOpen={openItem} onSeeAll={() => router.push('/agenda')} />
+            ) : null}
           </SectionRow>
 
           <SectionRow twoColumn={twoColumn}>
@@ -500,10 +519,12 @@ export default function HomeScreen() {
                 onOpportunityOpen={openOpportunity}
                 onOpportunityDismiss={dismissOpportunity}
                 onOpportunityDefer={deferOpportunity}
+                onSeeAll={() => router.push('/aggiornamenti')}
+                onOpenWork={(id) => router.push(`/aggiornamento/${encodeURIComponent(id)}` as never)}
               />
             ) : null}
             {!twoColumn && horizon.length ? (
-              <HorizonSection items={horizon} onOpen={openItem} />
+              <HorizonSection items={horizon} onOpen={openItem} onSeeAll={() => router.push('/agenda')} />
             ) : null}
           </SectionRow>
 
@@ -548,18 +569,6 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
         testID="home-scroll"
       >
-        <HomeHeaderV3
-          name={user?.name}
-          ambient={home?.ambient || null}
-          permission={
-            askedLater ? null : home?.notification_prompt || null
-          }
-          permissionBusy={permissionBusy}
-          onEnableNotifications={() => void enableNotifications()}
-          onDismissNotifications={() => setAskedLater(true)}
-          onWhyNow={home?.explanation?.summary ? () => router.push('/situazione') : undefined}
-        />
-
         {twoColumn ? (
           <View style={styles.columns}>
             <View style={styles.mainCol}>{mainColumn}</View>
@@ -570,7 +579,11 @@ export default function HomeScreen() {
                   situation={home?.current_situation}
                   questionCount={pendingQuestionCount}
                   onOpenItem={openItem}
-                  onSeeAll={() => router.push('/situazione')}
+                  //     DUE DOMANDE DIVERSE, DUE PAGINE DIVERSE.
+                  // «Vedi agenda» chiede quando; «Vedi tutto» chiede come sta
+                  // andando. Finivano tutti e due su «Situazione completa».
+                  onSeeAgenda={() => router.push('/agenda')}
+                  onSeeSummary={() => router.push('/ora-sintesi')}
                 />
               ) : null}
             </View>
@@ -584,7 +597,8 @@ export default function HomeScreen() {
                 situation={home?.current_situation}
                 questionCount={pendingQuestionCount}
                 onOpenItem={openItem}
-                onSeeAll={() => router.push('/situazione')}
+                onSeeAgenda={() => router.push('/agenda')}
+                onSeeSummary={() => router.push('/ora-sintesi')}
               />
             ) : null}
           </>

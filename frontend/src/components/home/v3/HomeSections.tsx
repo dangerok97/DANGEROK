@@ -282,6 +282,7 @@ export function UpdatesFeed({
   onOpportunityDismiss,
   onOpportunityDefer,
   onSeeAll,
+  onOpenWork,
 }: {
   suggestions: ProactiveSuggestion[];
   insights: HomeInsight[];
@@ -297,6 +298,8 @@ export function UpdatesFeed({
   onOpportunityDismiss?: (o: HomeOpportunity) => void;
   onOpportunityDefer?: (o: HomeOpportunity) => void;
   onSeeAll?: () => void;
+  /** Dove si apre il dettaglio di un lavoro dell'agente. */
+  onOpenWork?: (id: string) => void;
 }) {
   const { colors } = useTheme();
   /*
@@ -327,7 +330,15 @@ export function UpdatesFeed({
       testID="home-updates"
     >
       {working.map((w) => (
-        <AgentWorkRow key={w.id} work={w} onOpen={onSeeAll} />
+        <AgentWorkRow
+          key={w.id}
+          work={w}
+          //     «APRI DETTAGLI» APRE *QUESTO*, NON LA LISTA.
+          // Prima chiamava `onSeeAll`: due bottoni diversi che finivano nello
+          // stesso posto, e il dettaglio del singolo aggiornamento non
+          // esisteva da nessuna parte.
+          onOpen={onOpenWork ? () => onOpenWork(w.id) : undefined}
+        />
       ))}
 
       {raised.map((o) => (
@@ -703,9 +714,20 @@ export function AgentWorkRow({
         <Text style={[oraType.small, { color: work.needs_you ? ora.attention : ora.ink3 }]}>
           {work.needs_you || 'Non serve nulla per ora.'}
         </Text>
-        <View style={styles.updateActions}>
-          <OraButton label="Apri dettagli" kind="secondary" compact onPress={onOpen} />
-        </View>
+        {/*
+          Nessun bottone morto: se non c'è dove aprire, il bottone non c'è.
+        */}
+        {onOpen ? (
+          <View style={styles.updateActions}>
+            <OraButton
+              label="Apri dettagli"
+              kind="secondary"
+              compact
+              onPress={onOpen}
+              testID={`home-agent-${work.id}-apri`}
+            />
+          </View>
+        ) : null}
       </View>
     </View>
   );

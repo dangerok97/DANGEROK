@@ -34,13 +34,22 @@ export function ContextRail({
   situation,
   questionCount,
   onOpenItem,
-  onSeeAll,
+  onSeeAgenda,
+  onSeeSummary,
 }: {
   items: HomeItem[];
   situation?: HomeCurrentSituation | null;
   questionCount: number;
   onOpenItem: (item: HomeItem) => void;
-  onSeeAll?: () => void;
+  /**
+   * Dove porta «Vedi agenda»: i giorni che arrivano.
+   *
+   * Era la stessa funzione di «Vedi tutto», e due link con la stessa
+   * destinazione sono un link che mente a metà delle persone che lo premono.
+   */
+  onSeeAgenda?: () => void;
+  /** Dove porta «Vedi tutto»: lo stato delle cose, non il calendario. */
+  onSeeSummary?: () => void;
 }) {
   const { colors } = useTheme();
   const today = useMemo(() => new Date(), []);
@@ -324,7 +333,9 @@ export function ContextRail({
           <View style={styles.panelHead}>
             <Ionicons name="calendar-number-outline" size={20} color={ora.deep} />
             <Text style={[styles.panelTitle, { color: ora.ink, flex: 1 }]}>Prossimi appuntamenti</Text>
-            {onSeeAll ? <OraLink label="Vedi agenda" chevron={false} onPress={onSeeAll} /> : null}
+            {onSeeAgenda ? (
+              <OraLink label="Vedi agenda" chevron={false} onPress={onSeeAgenda} />
+            ) : null}
           </View>
           {upcoming.map(({ item, at }) => (
             <Pressable
@@ -362,7 +373,9 @@ export function ContextRail({
           <View style={styles.panelHead}>
             <Ionicons name="stats-chart-outline" size={20} color={ora.deep} />
             <Text style={[styles.panelTitle, { color: ora.ink, flex: 1 }]}>ORA in sintesi</Text>
-            {onSeeAll ? <OraLink label="Vedi tutto" chevron={false} onPress={onSeeAll} /> : null}
+            {onSeeSummary ? (
+              <OraLink label="Vedi tutto" chevron={false} onPress={onSeeSummary} />
+            ) : null}
           </View>
           {/*
             Due per riga, come nella reference: sono stati della giornata, non

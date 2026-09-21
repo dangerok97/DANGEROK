@@ -20,6 +20,8 @@ from life_objects import life_objects_router
 from life_map import life_map_router
 from life_memory import life_memory_router
 from activity import activity_router
+from agenda.router import router as agenda_router
+from weather_router import router as weather_router
 
 from . import (
     admin,
@@ -44,6 +46,9 @@ from . import (
 
 ALL_ROUTERS = [
     auth.router,
+    #     L'AGENDA HA UNA PAGINA SUA, QUINDI HA UNA PORTA SUA. IL METEO PURE.
+    agenda_router,
+    weather_router,
     decisions_router.router,
     legacy_tasks.router,
     life_graph_router.router,
