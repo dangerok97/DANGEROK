@@ -188,7 +188,7 @@ def test_the_capability_is_unavailable_until_the_carrier_is_configured():
         k: os.environ.get(k)
         for k in (
             "VONAGE_APPLICATION_ID", "VONAGE_PRIVATE_KEY_PATH",
-            "VONAGE_FROM_NUMBER", "VONAGE_PUBLIC_BASE_URL",
+            "VONAGE_PRIVATE_KEY", "VONAGE_FROM_NUMBER", "VONAGE_PUBLIC_BASE_URL",
         )
     }
     try:
@@ -209,6 +209,35 @@ def test_the_capability_is_unavailable_until_the_carrier_is_configured():
 # ---------------------------------------------------------------------------
 # La chiave, e l'audio
 # ---------------------------------------------------------------------------
+
+
+def test_cloud_secret_can_replace_the_local_private_key_file():
+    """Cloud deploys may receive the Vonage key from a secret store, not disk."""
+    from telephone.carrier import can_call
+
+    names = (
+        "VONAGE_APPLICATION_ID", "VONAGE_PRIVATE_KEY_PATH",
+        "VONAGE_PRIVATE_KEY", "VONAGE_FROM_NUMBER", "VONAGE_PUBLIC_BASE_URL",
+    )
+    saved = {name: os.environ.get(name) for name in names}
+    try:
+        os.environ["VONAGE_APPLICATION_ID"] = "app-test"
+        os.environ.pop("VONAGE_PRIVATE_KEY_PATH", None)
+        os.environ["VONAGE_PRIVATE_KEY"] = (
+            "-----BEGIN PRIVATE KEY-----\\n"
+            "not-a-real-key\\n"
+            "-----END PRIVATE KEY-----"
+        )
+        os.environ["VONAGE_FROM_NUMBER"] = "390000000000"
+        os.environ["VONAGE_PUBLIC_BASE_URL"] = "https://ora.example"
+        assert can_call() is True
+    finally:
+        for name, value in saved.items():
+            if value is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = value
+
 
 def test_the_private_key_never_leaves_the_disk():
     """
