@@ -101,25 +101,36 @@ def public_base() -> str:
 
 def _private_key() -> Optional[bytes]:
     """
-    La chiave privata, letta dal disco al momento dell'uso.
+    La chiave privata, letta dalla sorgente esplicitamente configurata.
 
-        LA CHIAVE NON PASSA DA NESSUNA PARTE DOVE POSSA RESTARE.
+        IL SEGRETO NON APPARTIENE AL REPOSITORY.
 
-    Non in una variabile globale, non in un database, non in un log, non in
-    una risposta HTTP. Si legge, si firma, e quello che resta in giro è un
-    JWT che scade in un minuto. Se il file non c'è, non si telefona: meglio
-    una chiamata che non parte di una chiave cercata altrove.
+    In locale resta valido `VONAGE_PRIVATE_KEY_PATH`: la chiave vive in un
+    file fuori dal repository. In cloud, dove un filesystem locale non e'
+    una sorgente durevole di segreti, Railway (o un altro secret store)
+    fornisce `VONAGE_PRIVATE_KEY`.
+
+    Il valore non viene mai scritto in Mongo, loggato o restituito. Si legge,
+    si firma un JWT da un minuto, e basta.
     """
     path = (os.environ.get("VONAGE_PRIVATE_KEY_PATH") or "").strip()
-    if not path:
-        return None
-    try:
-        with open(path, "rb") as handle:
-            return handle.read()
-    except Exception as e:
-        # Il tipo di errore, mai il percorso e mai il contenuto.
-        logger.info("chiave dell'applicazione non leggibile: %s", type(e).__name__)
-        return None
+    if path:
+        try:
+            with open(path, "rb") as handle:
+                return handle.read()
+        except Exception as e:
+            # Il tipo di errore, mai il percorso e mai il contenuto.
+            logger.info("chiave dell'applicazione non leggibile: %s", type(e).__name__)
+            return None
+
+    inline = os.environ.get("VONAGE_PRIVATE_KEY") or ""
+    if inline.strip():
+        # Alcuni secret store conservano le nuove righe come "\\n".
+        # Accettiamo entrambe le forme senza mai stampare il valore.
+        normalized = inline.replace("\\n", "\n").strip()
+        return (normalized + "\n").encode("utf-8")
+
+    return None
 
 
 def _token() -> Optional[str]:
@@ -152,7 +163,7 @@ def can_call() -> bool:
     """Se in questo momento esiste un operatore a cui chiedere una linea."""
     return bool(
         _application_id()
-        and (os.environ.get("VONAGE_PRIVATE_KEY_PATH") or "").strip()
+        and _private_key()
         and _from_number()
         and public_base().startswith("https://")
     )
@@ -163,7 +174,11 @@ def why_not() -> str:
     missing: List[str] = []
     if not _application_id():
         missing.append("nessuna applicazione voce configurata")
-    if not (os.environ.get("VONAGE_PRIVATE_KEY_PATH") or "").strip():
+    has_key_source = bool(
+        (os.environ.get("VONAGE_PRIVATE_KEY_PATH") or "").strip()
+        or (os.environ.get("VONAGE_PRIVATE_KEY") or "").strip()
+    )
+    if not has_key_source:
         missing.append("nessuna chiave dell'applicazione")
     elif _private_key() is None:
         missing.append("la chiave dell'applicazione non si legge")
