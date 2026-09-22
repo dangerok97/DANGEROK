@@ -223,11 +223,7 @@ def test_cloud_secret_can_replace_the_local_private_key_file():
     try:
         os.environ["VONAGE_APPLICATION_ID"] = "app-test"
         os.environ.pop("VONAGE_PRIVATE_KEY_PATH", None)
-        os.environ["VONAGE_PRIVATE_KEY"] = (
-            "-----BEGIN PRIVATE KEY-----\\n"
-            "not-a-real-key\\n"
-            "-----END PRIVATE KEY-----"
-        )
+        os.environ["VONAGE_PRIVATE_KEY"] = "cloud-secret-placeholder\\nline-two"
         os.environ["VONAGE_FROM_NUMBER"] = "390000000000"
         os.environ["VONAGE_PUBLIC_BASE_URL"] = "https://ora.example"
         assert can_call() is True
