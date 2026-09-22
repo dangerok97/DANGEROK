@@ -80,6 +80,7 @@ async def health():
 @api.get("/health/telephone")
 async def telephone_health():
     """Non-sensitive telephone readiness for staging/operations."""
+    from fastapi.responses import JSONResponse
     from telephone import carrier
     from telephone.live import live_is_configured
     from telephone.runtime import which_runtime
@@ -90,15 +91,27 @@ async def telephone_health():
     if not carrier_reason:
         public_ok = await carrier.public_base_answers()
 
-    return {
-        "status": "ok" if (not carrier_reason and not live_reason and public_ok) else "degraded",
+    runtime = which_runtime()
+    ready = (
+        not carrier_reason
+        and not live_reason
+        and public_ok
+        and runtime == "gemini_live"
+    )
+    payload = {
+        "status": "ok" if ready else "degraded",
         "carrier_ready": not bool(carrier_reason),
         "carrier_reason": carrier_reason,
         "gemini_live_ready": not bool(live_reason),
         "gemini_live_reason": live_reason,
         "public_base_reachable": bool(public_ok),
-        "voice_runtime": which_runtime(),
+        "voice_runtime": runtime,
     }
+    logger.info(
+        "telephone readiness: ready=%s carrier=%s live=%s public=%s runtime=%s",
+        ready, not bool(carrier_reason), not bool(live_reason), public_ok, runtime,
+    )
+    return JSONResponse(payload, status_code=200 if ready else 503)
 
 
 # Mount every domain router under /api.
