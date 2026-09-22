@@ -108,8 +108,14 @@ async def telephone_health():
         "voice_runtime": runtime,
     }
     logger.info(
-        "telephone readiness: ready=%s carrier=%s live=%s public=%s runtime=%s",
-        ready, not bool(carrier_reason), not bool(live_reason), public_ok, runtime,
+        "telephone readiness: ready=%s carrier=%s live=%s public=%s runtime=%s carrier_reason=%s live_reason=%s",
+        ready,
+        not bool(carrier_reason),
+        not bool(live_reason),
+        public_ok,
+        runtime,
+        carrier_reason or "-",
+        live_reason or "-",
     )
     return JSONResponse(payload, status_code=200 if ready else 503)
 
