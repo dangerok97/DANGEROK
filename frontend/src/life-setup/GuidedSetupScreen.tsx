@@ -20,6 +20,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Platform,
   Pressable,
   ScrollView,
@@ -426,17 +427,30 @@ export function GuidedSetupScreen() {
         </Text>
       </View>
       {/*
-        La frase della reference, come una nota scritta a mano.
+        La testata editoriale della reference: la frase come nota scritta a
+        mano e, accanto, la scena — pianta, libri, portapenne, lampada.
 
-        Accanto, nella reference, c'è una fotografia editoriale: quell'asset
-        non è nel repository e non lo si inventa — una macchia beige al posto
-        di una foto è il placeholder di prima con un altro nome. Resta
-        segnata fra il debito, dove qualcuno può deciderla davvero.
+        L'immagine è un asset locale e versionato: `vita-header.png`, che
+        `scripts/make-vita-header.py` ritaglia dalla reference approvata —
+        disegnarla non funzionava, perché quella è una fotografia. Niente URL
+        remoti. La frase resta interfaccia e non entra nel file, così si
+        corregge senza rifare un'immagine.
       */}
       {twoColumn ? (
-        <Text style={[styles.nota, { color: ora.ink2 }]} testID="guided-nota">
-          Un quadro più completo,{'\n'}una vita più semplice.
-        </Text>
+        <View style={styles.testata}>
+          <Text style={[styles.nota, { color: ora.deep }]} testID="guided-nota">
+            Un quadro più completo,{'\n'}una vita più semplice.
+          </Text>
+          <Image
+            source={require('@/assets/images/vita-header.png')}
+            style={styles.testataFoto}
+            resizeMode="cover"
+            accessibilityIgnoresInvertColors
+            accessible
+            accessibilityLabel="Una pianta, un portapenne, dei libri e una lampada su una mensola"
+            testID="guided-header-image"
+          />
+        </View>
       ) : null}
     </View>
   );
@@ -901,9 +915,31 @@ export function GuidedSetupScreen() {
               <View style={styles.sapereBlocco}>
                 <View style={styles.sapereHead}>
                   <Ionicons name="checkmark-circle" size={18} color={ora.success} />
-                  <Text style={[oraType.body, { color: ora.ink, fontWeight: '600' }]}>
+                  <Text style={[oraType.body, { color: ora.ink, fontWeight: '600', flex: 1 }]}>
                     Quello che ORA sa già
                   </Text>
+                  {/*
+                    «Modifica», come nella reference: riapre la prima cosa che
+                    ORA sa di quest'area e la richiede. La risposta riscrive lo
+                    stesso riferimento — nessuna seconda copia del fatto, e
+                    niente da riconciliare dopo.
+                  */}
+                  {(current.known || []).length ? (
+                    <Pressable
+                      onPress={() =>
+                        void goNextArea(current.area_id, (current.known || [])[0].source_ref
+                          || (current.known || [])[0].ref)
+                      }
+                      accessibilityRole="button"
+                      accessibilityLabel={`Modifica quello che ORA sa di ${current.title}`}
+                      style={({ pressed }: any) => [pressed && { opacity: 0.6 }]}
+                      testID="guided-edit-known"
+                    >
+                      <Text style={[oraType.small, { color: ora.cta, fontWeight: '600' }]}>
+                        Modifica
+                      </Text>
+                    </Pressable>
+                  ) : null}
                 </View>
                 {/*
                   I fatti, non il conteggio: «Corso di laurea: Ingegneria
@@ -1232,7 +1268,7 @@ const styles = StyleSheet.create({
   },
   whyText: { fontSize: 13 },
 
-  intro: { gap: 8, maxWidth: 620 },
+  intro: { gap: 8, maxWidth: 470, flexShrink: 1 },
   perche: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -1242,17 +1278,39 @@ const styles = StyleSheet.create({
   },
   introRiga: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 24,
+    gap: 28,
   },
+  //     UNA FASCIA SOLA, ALTA QUANTO LA TESTATA.
+  // La reference non mette un riquadro accanto al titolo: mette una fascia
+  // calda che prende tutta l'altezza dell'intestazione, con la frase scritta
+  // sopra la parete vuota e gli oggetti a destra. Il fondo della fascia è il
+  // bianco caldo della fotografia, così il passaggio fra interfaccia e
+  // scatto non si vede. E la frase tiene la sua misura: con tutto flessibile
+  // andava a capo a ogni parola.
+  testata: {
+    flex: 1,
+    minWidth: 560,
+    height: 156,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 18,
+    overflow: 'hidden',
+    // Il tono è la media del bordo sinistro della fotografia: se il fondo
+    // della fascia è di un beige suo, fra interfaccia e scatto si vede la
+    // giunta.
+    backgroundColor: '#F6ECE3',
+  },
+  testataFoto: { flex: 1, height: '100%' },
   nota: {
-    fontSize: 17,
-    lineHeight: 25,
+    fontSize: 16,
+    lineHeight: 24,
     fontStyle: 'italic',
-    textAlign: 'right',
-    maxWidth: 300,
-    paddingTop: 6,
+    textAlign: 'center',
+    width: 186,
+    paddingHorizontal: 10,
+    flexShrink: 0,
   },
   title: { fontSize: 34, fontWeight: '700', letterSpacing: -0.6 },
   introText: { fontSize: 15, lineHeight: 22 },

@@ -102,23 +102,31 @@ def test_known_facts_are_said_with_the_words_the_person_chose():
     assert detti["studio.fase"] == "Verso la fine"
 
 
-def test_a_yes_keeps_the_question_that_makes_it_mean_something():
-    """«Active: sì» non è un fatto che qualcuno possa verificare."""
+def test_a_yes_becomes_a_sentence_somebody_can_read():
+    """
+    «Active: sì» non è un fatto che qualcuno possa verificare, e nemmeno
+    «Attualmente studi: Sì»: un sì che vuol dire una cosa sola si dice per
+    intero (V3.21.3d).
+    """
     from life_profile.gaps import known_items
 
     fatti = {f["ref"]: f for f in known_items("studio", {"studio.active": "si"})}
     riga = fatti["studio.active"]
-    assert riga["label"] == "Attualmente studi"
-    assert riga["value"] == "Sì"
+    assert riga["value"] == "Stai studiando"
+    assert riga["label"] == "", "una frase intera non ha bisogno di un'etichetta"
 
 
-def test_a_long_question_becomes_a_short_label():
+def test_where_somebody_lives_is_said_once_and_in_words():
+    """
+    «Dove si trova la casa?: Tarquinia» era il campo; «Vivi a Tarquinia» è la
+    cosa. E si dice una volta sola, anche se il profilo la conosce con due
+    nomi diversi.
+    """
     from life_profile.gaps import known_items
 
-    fatti = {f["ref"]: f for f in known_items("casa", {"casa.citta": "Tarquinia"})}
-    # «Dove si trova la casa?» davanti al valore si legge male.
-    assert fatti["casa.citta"]["label"] == "Citta"
-    assert fatti["casa.citta"]["value"] == "Tarquinia"
+    righe = known_items("casa", {"casa.citta": "Tarquinia"})
+    detti = [r["value"] for r in righe]
+    assert detti == ["Vivi a Tarquinia"], detti
 
 
 def test_nothing_known_says_nothing():

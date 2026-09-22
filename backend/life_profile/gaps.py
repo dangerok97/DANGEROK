@@ -28,6 +28,14 @@ from typing import Dict, List, Optional
 
 from life_profile.areas import all_areas, area
 from life_profile.guided import GuidedObjective, objective, option_of
+from life_profile.human import (
+    DOMINI_DI_AREA,
+    _pare_un_codice,
+    appartiene_all_area,
+    come_si_chiama,
+    come_si_dice_il_fatto,
+    come_si_dice_il_valore,
+)
 from life_profile.objectives import KnowledgeObjective, objectives_for_area
 
 #     ALCUNE COSE SI LEGGONO, NON SI CHIEDONO.
@@ -149,20 +157,36 @@ def first_answerable_gap(
     return None
 
 
-#     QUELLO CHE ORA SA GIÀ, DETTO CON I FATTI E NON CON I NUMERI.
-# «7 informazioni su 8» non è quello che ORA sa: è quanto sa. La reference
-# mostra le cose — il corso di laurea, l'anno, la città — perché è così che una
-# persona verifica se ORA ha capito bene, e può correggere.
-_TROPPO_LUNGA = 34
-
-
+#     QUELLO CHE ORA SA GIÀ, DETTO COME SE LO RICORDASSE UNA PERSONA.
+# «7 informazioni su 8» non è quello che ORA sa: è quanto sa. E «Situazione: Un
+# partner» non è un ricordo, è una riga di database. Le parole le decide
+# `human.py`, una volta sola per tutto il prodotto.
 def known_items(area_id: str, facts: Dict) -> List[Dict]:
-    """I fatti che ORA ha davvero su quest'area, con la loro etichetta."""
+    """
+    I fatti che ORA ha davvero su quest'area, detti in italiano.
+
+        UN FATTO SI MOSTRA SOLO DOVE APPARTIENE.
+
+    Misurato in app (V3.21.3d): sotto «Famiglia e relazioni» compariva «Di chi
+    ti prendi cura: nella Guardia di Finanza» — un fatto di lavoro presentato
+    come un fatto di famiglia. Il valore era quello che l'estrattore aveva
+    scritto; la riga, letta lì, diceva una falsità sulla vita di qualcuno.
+    """
     fuori: List[Dict] = []
     trovata = area(area_id)
     if trovata is None:
         return fuori
+
+    #     E NON SI DICE DUE VOLTE LA STESSA COSA IN DUE POSTI DIVERSI.
+    # Un riferimento trasversale che ripete, parola per parola, un fatto di
+    # un'altra area non è una seconda informazione: è un'eco, e l'eco va dove
+    # sta la voce.
+    altrove = _values_owned_elsewhere(area_id, facts)
+
+    visti = set()
     for o in objectives_for_area(trovata):
+        if not appartiene_all_area(o.ref, area_id):
+            continue
         chiavi = (o.ref,) + tuple(o.satisfied_by or ())
         valore = next(
             (facts.get(k) for k in chiavi if facts.get(k) not in (None, "", [], {})),
@@ -171,14 +195,45 @@ def known_items(area_id: str, facts: Dict) -> List[Dict]:
         if valore is None:
             continue
         detto = _come_si_dice_il_valore(o.ref, valore)
-        if not detto:
+        if not detto or detto in visti:
             continue
+        frase_possibile = come_si_dice_il_fatto(o.ref, detto)
+        #     UN CODICE INTERNO NON DIVENTA UN FATTO.
+        # Se il valore è un identificativo e nessuno sa dirlo a parole, la riga
+        # non si mostra: «Polizza: doc_bd558d…» non è una cosa che qualcuno
+        # possa leggere, verificare o correggere.
+        if frase_possibile is None and _pare_un_codice(detto):
+            continue
+        if detto.lower() in altrove:
+            continue
+        visti.add(detto)
+        frase = frase_possibile
         fuori.append({
             "ref": o.ref,
-            "label": _etichetta_del_fatto(o, detto),
-            "value": detto,
+            "label": "" if frase else come_si_chiama(o.ref, _etichetta_breve(o)),
+            "value": frase or detto,
+            # Da dove arriva, perché una cosa mostrata si deve poter correggere
+            # là dov'è scritta e non in una seconda copia.
+            "source_ref": o.ref,
         })
     return fuori[:8]
+
+
+def _values_owned_elsewhere(area_id: str, facts: Dict) -> set:
+    """I valori che appartengono, per riferimento, a un'altra area."""
+    fuori = set()
+    for chiave, valore in (facts or {}).items():
+        if appartiene_all_area(chiave, area_id):
+            continue
+        dominio = str(chiave).split(".", 1)[0]
+        #     SOLO I DOMINI DI QUALCUN ALTRO, NON I TRASVERSALI.
+        # `mlc.*` non possiede niente: se ripete un valore, è lui l'eco.
+        if not any(dominio in domini for domini in DOMINI_DI_AREA.values()):
+            continue
+        detto = come_si_dice_il_valore(valore)
+        if detto:
+            fuori.add(detto.lower())
+    return fuori
 
 
 def _come_si_dice_il_valore(ref: str, valore) -> str:
@@ -189,7 +244,7 @@ def _come_si_dice_il_valore(ref: str, valore) -> str:
     `fine` — e mostrarlo così è mostrare il magazzino: l'etichetta che la
     persona aveva letto e scelto è lì accanto, e va usata quella.
     """
-    grezzo = _come_si_legge(valore)
+    grezzo = come_si_dice_il_valore(valore)
     if not grezzo:
         return ""
     scritta = objective(ref)
@@ -202,53 +257,19 @@ def _come_si_dice_il_valore(ref: str, valore) -> str:
     return ", ".join(p for p in pezzi if p)[:120]
 
 
-#     UN SÌ SENZA LA SUA DOMANDA NON VUOL DIRE NIENTE.
-# «Active: sì» non è un fatto che qualcuno possa verificare. Quando la risposta
-# è un sì o un no, l'etichetta torna a essere la domanda — senza punto
-# interrogativo, perché qui è un'affermazione.
-_SI_O_NO = ("sì", "no", "si")
-
-
-def _etichetta_del_fatto(o: KnowledgeObjective, valore: str) -> str:
-    if valore.strip().lower() in _SI_O_NO:
-        domanda = (o.label or "").strip().rstrip("?")
-        if domanda:
-            return domanda[0].upper() + domanda[1:]
-    return _etichetta_breve(o)
-
-
 def _etichetta_breve(o: KnowledgeObjective) -> str:
     """
-    Il nome corto di un fatto: «Città», «Convivenza», «Corso di laurea».
+    Il ripiego, quando il registro non ha un nome per questo riferimento.
 
-    L'etichetta di un obiettivo è spesso la domanda intera («Dove si trova la
-    casa?»), e davanti al valore si legge male. Quando è corta si usa com'è;
-    quando è una domanda si ripiega sull'ultimo pezzo del riferimento, che è
-    il nome del campo — non una parola inventata qui.
+    Meglio l'ultimo pezzo del riferimento — che è il nome del campo — che la
+    domanda intera davanti al valore. Ma è un ripiego: il posto giusto dove
+    aggiungere un nome è `human.ETICHETTE`.
     """
     etichetta = (o.label or "").strip()
-    if etichetta and len(etichetta) <= _TROPPO_LUNGA and not etichetta.endswith("?"):
+    if etichetta and len(etichetta) <= 34 and not etichetta.endswith("?"):
         return etichetta[0].upper() + etichetta[1:]
     pezzo = (o.ref or "").rsplit(".", 1)[-1].replace("_", " ").strip()
     return (pezzo[0].upper() + pezzo[1:]) if pezzo else ""
-
-
-def _come_si_legge(valore) -> str:
-    """Un fatto come lo legge una persona. Mai una struttura in faccia."""
-    if isinstance(valore, bool):
-        return "sì" if valore else "no"
-    if isinstance(valore, (int, float)):
-        return str(valore)
-    if isinstance(valore, str):
-        return valore.strip()[:120]
-    if isinstance(valore, (list, tuple)):
-        pezzi = [_come_si_legge(v) for v in valore if v not in (None, "")]
-        return ", ".join(p for p in pezzi if p)[:120]
-    if isinstance(valore, dict):
-        for chiave in ("label", "name", "title", "value", "city"):
-            if valore.get(chiave):
-                return _come_si_legge(valore[chiave])
-    return ""
 
 
 def area_of(ref: str) -> Optional[str]:

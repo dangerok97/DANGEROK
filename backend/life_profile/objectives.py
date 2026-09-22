@@ -130,6 +130,25 @@ def _foundation(life_area: LifeArea) -> Optional[KnowledgeObjective]:
     ref = NUCLEUS_GAP_KEY.get(nucleus) or (keys[0] if keys else "")
     if not ref:
         return None
+
+    #     LE PROVE DI UN'AREA DEVONO ESSERE DI QUELL'AREA.
+    #
+    # I nuclei del Minimum Life Context raccolgono indizi da tutta la vita: per
+    # sapere *se* una persona ha responsabilità va benissimo guardare il lavoro,
+    # lo studio, la casa. Ma qui quel nucleo diventa l'obiettivo di un'area —
+    # «di chi ti prendi cura», sotto Famiglia — e allora una prova presa dal
+    # lavoro risponde alla domanda sbagliata.
+    #
+    # Misurato in app (V3.21.3d): sotto «Famiglia e relazioni» compariva «Di chi
+    # ti prendi cura: nella Guardia di Finanza», e quella riga faceva anche
+    # salire la percentuale dell'area. Il valore era vero; la cosa che diceva,
+    # no.
+    from life_profile.human import appartiene_all_area
+
+    keys = tuple(
+        k for k in keys
+        if k == ref or appartiene_all_area(k, life_area.id)
+    )
     return KnowledgeObjective(
         ref=ref,
         area_id=life_area.id,

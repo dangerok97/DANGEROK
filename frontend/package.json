@@ -23,7 +23,8 @@
     "test:v33": "node --experimental-strip-types src/components/life-profile/lifeProfile33.test.ts",
     "test:v314": "node --experimental-strip-types src/components/calls/calls314.test.ts",
     "test:v3213b": "node --experimental-strip-types src/shell/navigazione3213b.test.ts",
-    "test:v3213c": "node --experimental-strip-types src/shell/vita3213c.test.ts"
+    "test:v3213c": "node --experimental-strip-types src/shell/vita3213c.test.ts",
+    "test:v3213d": "node --experimental-strip-types src/shell/vita3213d.test.ts"
   },
   "dependencies": {
     "@expo/metro-runtime": "6.1.2",

@@ -6,11 +6,11 @@ percorso fino al lancio si leggono qui e solo qui.
 
 | | |
 |---|---|
-| **Versione corrente** | **V3.21.3c — Vita / Conosciamoci Flow Integrity · PASS** |
+| **Versione corrente** | **V3.21.3d — Vita Visual & Semantic Finalization · PASS** |
 | **Prossimo sprint** | **V3.22 — Call UX Final** |
 | Branch | `feature/ora-quiet-premium-design-system` |
 | Ultimo checkpoint | `37af8a5` (lavoro) · `3baeaa1` (igiene) |
-| Aggiornato | 2026-09-22 (V3.21.3c) |
+| Aggiornato | 2026-09-22 (V3.21.3d) |
 
 Gli altri due registri restano quello che sono e non ripetono questo:
 `CHANGELOG_AI.md` è il diario datato di che cosa è cambiato,
@@ -810,7 +810,7 @@ refresh e rotta diretta.
 destinazione di nessuno dei link della Home. La pagina del meteo non ha ancora
 le allerte, e l'agenda si ferma a sette giorni (quattordici dalla porta).
 
-#### V3.21.3c — Vita / Conosciamoci Flow Integrity · **PASS**
+#### V3.21.3c — Vita / Conosciamoci Flow Integrity · **FINAL PASS**
 
 **Una sola superficie.** La voce «Vita» apriva `/contesti` — un'altra
 grammatica per la stessa domanda — mentre il percorso approvato viveva a
@@ -872,6 +872,75 @@ una percentuale è stata estesa a `ref`, che è una scelta e non un numero.
 file non è nel repository e non lo si inventa — resta la frase scritta a mano,
 e la foto è una decisione di contenuto da prendere. `/contesti` esiste ancora
 come rotta: non è più concorrente, ma prima o poi va assorbita o archiviata.
+
+#### V3.21.3d — Vita Visual & Semantic Finalization · **PASS**
+
+**Un fatto di lavoro presentato come fatto di famiglia.** Sotto «Famiglia e
+relazioni» si leggeva «Di chi ti prendi cura: **nella Guardia di Finanza**», e
+quella riga faceva anche salire la percentuale dell'area. Il valore era vero;
+la cosa che diceva, no — e non è un difetto di stringhe, quindi non si è
+corretto con una stringa.
+
+Le cause erano due, entrambe generali. **Prima**: il nucleo «responsabilità»
+del Minimum Life Context si lascia soddisfare da prove prese da tutta la vita
+— `lavoro.ruolo`, `studio.active`, `casa.owned` — perché per il suo scopo va
+bene così; ma usato come obiettivo di un'area rispondeva alla domanda
+sbagliata. Adesso le prove di un fondamento vengono filtrate sull'area a cui è
+attaccato. **Seconda**: la presentazione non chiedeva mai se un fatto
+appartenesse all'area in cui stava per finire. Adesso lo chiede
+(`human.appartiene_all_area`): un riferimento appartiene all'area che possiede
+il suo dominio, o a quella con cui ha una relazione canonica scritta; nel
+dubbio **non si mostra**. E un riferimento trasversale che ripete parola per
+parola un fatto di un'altra area è un'eco: non si mostra e non conta.
+
+**Le parole, in un posto solo.** `life_profile/human.py` tiene etichette,
+frasi e valori: nessun campo interno arriva sotto gli occhi di qualcuno, e
+`true`, `null`, `unknown`, `doc_bd558d…` non compaiono mai. «Quello che ORA sa
+già» adesso si legge come memoria — *Lavori nella Guardia di Finanza*, *Hai
+un'auto*, *Vivi in affitto*, *Non hai figli*, *Hai caricato una polizza* —
+invece che come un modulo compilato. Le opzioni si dicono con l'etichetta che
+la persona aveva scelto, non con il loro identificativo.
+
+**Audit di tutte e dieci le aree**, sul profilo vero: ogni riga mostrata
+appartiene alla sua area, nessun codice interno, nessun valore grezzo.
+
+**Percentuali.** Il conto non è cambiato ed è spiegabile: i pesi di Famiglia
+sono 0,9 + 1,0 + 0,65 + 0,6 + 0,5 = 3,65, e rispondere a «nucleo familiare»
+(0,65) porta 1,9/3,65 = 52% a 2,55/3,65 = 70% — esattamente il salto
+osservato. Quello che è cambiato è **cosa conta**: l'eco dal lavoro non fa più
+salire la famiglia. La percentuale nasce solo nel backend; la schermata la
+mostra e basta, e una guardia lo tiene fermo.
+
+**Un difetto trovato per strada.** Cliccando un'area già completa — Lavoro al
+100% — il pannello mostrava Studio: la scelta veniva scartata in silenzio.
+Adesso, finito il primo giro, un'area scelta resta aperta anche se non ha più
+niente da chiedere.
+
+**La testata editoriale.** Due tentativi di *disegnarla* sono finiti male —
+una sfumatura beige, poi oggetti con sfumature e ombre — e sono raccontati
+dentro `scripts/make-vita-header.py` perché nessuno li rifaccia: la
+differenza fra una fotografia e un disegno non è la cura dei contorni, ed è
+inutile inseguirla con Pillow. L'asset adesso **si ritaglia dalla reference
+approvata** (`Vita - conosciamoci target.png`), che è l'immagine che il
+prodotto ha già scelto: pianta, portapenne, libri, lampada, luce calda. Il
+ritaglio è in frazioni, così regge una riesportazione; l'uscita
+(`assets/images/vita-header.png`) è versionata, la reference no — è un file di
+lavoro, e lo script dice dove cercarlo. La fascia occupa tutta l'intestazione,
+con la frase manoscritta scritta dall'interfaccia sulla sua parete vuota:
+dentro l'immagine non si potrebbe più correggere.
+
+**Modifica.** Accanto a «Quello che ORA sa già» c'è «Modifica», come nella
+reference: riapre quel fatto e lo richiede. La risposta riscrive lo stesso
+riferimento — nessuna seconda copia, niente da riconciliare dopo.
+
+**Prove.** 15 nuove (`test_vita_semantics_v3213d.py`) più la guardia
+`test:v3213d`; aggiornate due prove del V3.3 e del V3.21.3c che fissavano la
+forma vecchia.
+
+**Debito.** La testata è un'illustrazione, non una fotografia: la scena della
+reference (still life fotografico) resta una decisione di contenuto. Le
+etichette senza una frase dedicata restano nella forma «Nome: valore».
+`/contesti` esiste ancora come rotta.
 
 ### V3.22 — Call UX Final
 **Obiettivo** — la telefonata come funzione di prodotto finita, non come

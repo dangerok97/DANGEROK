@@ -132,7 +132,10 @@ const ICONS = 'src/components/life-profile/areaIcon.ts';
     'guided-skip-area',
     'guided-next',
     'guided-leave',
-    'guided-grow',
+    // V3.21.3c: al posto della fascia «ORA cresce con te» — che rimandava alla
+    // vecchia pagina dei contesti — c'è «In questo periodo», con le situazioni
+    // in corso. Stessa posizione, contenuto vero.
+    'guided-periodo',
   ]) {
     assert.ok(guided.includes(part), `the guided setup is missing ${part}`);
   }

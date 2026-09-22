@@ -189,8 +189,20 @@ class GuidedSetupService:
         not_applicable: List[str],
         skipped: List[str],
         areas: Optional[List[Dict[str, Any]]] = None,
+        scelta_esplicita: bool = False,
     ) -> Optional[str]:
-        """Where the person is, or the first area that still has something to ask."""
+        """
+        Dove sta la persona, o la prima area che ha ancora qualcosa da chiedere.
+
+            UN'AREA SCELTA RESTA APERTA ANCHE SE È COMPLETA.
+
+        Misurato in app (V3.21.3d): cliccando «Lavoro», che non aveva più
+        niente da chiedere, il pannello mostrava Studio — la scelta veniva
+        scartata in silenzio. Durante il primo giro l'avanzamento automatico
+        serve ancora: è lì che una domanda tira l'altra.
+        """
+        if scelta_esplicita and current and current not in skipped:
+            return current
         if current and current not in skipped:
             if self._next_step(
                 current,
@@ -239,6 +251,9 @@ class GuidedSetupService:
             not_applicable=not_applicable,
             skipped=skipped,
             areas=areas,
+            # Finito il primo giro, questa schermata è Vita: ci si muove a mano,
+            # e una scelta è una scelta.
+            scelta_esplicita=bool(meta.get(_META_FINISHED)),
         )
         from life_profile.gaps import known_items
 

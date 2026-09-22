@@ -109,6 +109,47 @@ def _state_of(percent: int, applicable_count: int, known_count: int) -> tuple[st
     return "sparse", "Da completare"
 
 
+def _facts_that_belong_here(area_id: str, facts: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    I fatti che quest'area può davvero contare come suoi.
+
+        UN FATTO DI LAVORO NON RENDE PIÙ COMPLETA LA FAMIGLIA.
+
+    Misurato in app (V3.21.3d): `mlc.responsibilities` — «di chi ti prendi
+    cura» — conteneva il ruolo di lavoro, scritto lì da un estrattore. Quel
+    valore non solo compariva sotto Famiglia: la faceva anche salire di
+    percentuale, come se ORA sapesse una cosa che non sa.
+
+    La regola non guarda le parole: un riferimento trasversale (il Minimum Life
+    Context, un documento) che ripete parola per parola un fatto posseduto da
+    un'altra area è un'eco, non una seconda informazione. L'eco non conta, e la
+    cosa torna a essere una domanda da fare.
+    """
+    from life_profile.human import appartiene_all_area, come_si_dice_il_valore
+
+    altrui = set()
+    for chiave, valore in (facts or {}).items():
+        if appartiene_all_area(chiave, area_id):
+            continue
+        detto = come_si_dice_il_valore(valore)
+        if detto and len(detto) > 3:
+            altrui.add(detto.lower())
+
+    puliti: Dict[str, Any] = {}
+    for chiave, valore in (facts or {}).items():
+        if appartiene_all_area(chiave, area_id):
+            puliti[chiave] = valore
+            continue
+        detto = come_si_dice_il_valore(valore)
+        if detto and detto.lower() in altrui and not appartiene_all_area(chiave, area_id):
+            #     UN'ECO DA UN'ALTRA AREA NON DICE NIENTE DI QUESTA.
+            # Si tiene solo se il riferimento è di questa area, e non lo è:
+            # per questo si arriva qui.
+            continue
+        puliti[chiave] = valore
+    return puliti
+
+
 def area_completeness(
     life_area: LifeArea,
     *,
@@ -120,7 +161,7 @@ def area_completeness(
 ) -> AreaCompleteness:
     resolved = resolve(
         objectives_for_area(life_area),
-        facts=facts,
+        facts=_facts_that_belong_here(life_area.id, facts),
         provenance=provenance,
         declined_refs=declined_refs,
         not_applicable_refs=not_applicable_refs,

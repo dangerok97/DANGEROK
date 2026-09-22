@@ -3595,7 +3595,13 @@ export type LifeAreaCompleteness = {
    * «7 informazioni su 8» è quanto sa, non che cosa: questi sono i fatti che
    * una persona può leggere, verificare e correggere.
    */
-  known?: { ref: string; label: string; value: string }[];
+  known?: {
+    ref: string;
+    label: string;
+    value: string;
+    /** Dove il fatto è scritto: modificarlo riscrive lì, non altrove. */
+    source_ref?: string;
+  }[];
 };
 
 export type LifeProfile = {
