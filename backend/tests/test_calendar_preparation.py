@@ -86,3 +86,10 @@ async def test_successful_background_poll_prepares_calendar_without_home(world, 
     result = await polling.poll_once(db, now=NOW, owners=['alice'])
     assert result['read'] == 1
     prepare.assert_awaited_once_with('alice')
+
+
+def test_alternatives_never_extend_past_observed_horizon():
+    start = NOW + timedelta(days=7)
+    event = {'id': 'late', 'title': 'Late'}
+    triple = (event, start, start + timedelta(hours=1))
+    assert calendar.alternative_slots([triple], triple, triple, now=NOW, tz=ZoneInfo('Europe/Rome')) == []

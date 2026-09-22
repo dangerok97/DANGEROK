@@ -327,7 +327,8 @@ class HomeService:
 
         for s_ in ora_ti_consiglia:
             s_["source_label"] = how_we_say_the_source(
-                str(s_.get("source") or ""), str(s_.get("created_at") or ""),
+                str(s_.get("source") or ""),
+                str((((s_.get("meta") or {}).get("evidence") or {}).get("event_a") or {}).get("starts_at") or s_.get("created_at") or ""),
             )
 
         resume = None

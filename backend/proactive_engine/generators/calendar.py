@@ -178,7 +178,7 @@ def alternative_slots(parsed, a, b, *, now, tz):
             continue
         cursor = max(start, now).astimezone(tz).replace(second=0, microsecond=0)
         cursor += timedelta(minutes=15 - cursor.minute % 15)
-        stop = start.astimezone(tz) + timedelta(days=3)
+        stop = min(start.astimezone(tz) + timedelta(days=3), (now + timedelta(days=7)).astimezone(tz))
         while cursor + duration <= stop:
             finish = cursor + duration
             if (cursor.hour >= 8 and finish.date() == cursor.date() and
