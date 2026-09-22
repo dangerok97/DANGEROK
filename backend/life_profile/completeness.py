@@ -91,8 +91,9 @@ class ProfileCompleteness(BaseModel):
     percent: int = 0
     areas: List[AreaCompleteness] = Field(default_factory=list)
     # Where it would help most to continue. Never random, never always "Casa":
-    # the area with the most weight still to learn, preferring one already
-    # begun so a person is not bounced between subjects.
+    # the ranking lives in `recommend.next_recommended_area` and nowhere else,
+    # preferring an area already begun so a person is not bounced between
+    # subjects.
     suggested_area_id: Optional[str] = None
     computed_at: Optional[str] = None
 
@@ -257,16 +258,17 @@ def _suggest(areas: List[AreaCompleteness], touched: Iterable[str]) -> Optional[
     """
     Where to go next — derived from the profile, never a default and never random.
 
-    An area already begun and not yet useful wins: finishing a thought beats
-    starting a new one. Otherwise the one with the most weight still to learn.
+    La graduatoria vera sta in `recommend.next_recommended_area`, in un posto
+    solo: due classifiche scritte in due file finiscono per consigliare due
+    aree diverse nella stessa schermata. Qui sopra resta una preferenza sola,
+    ed è di questa conversazione e non della graduatoria: un'area già
+    cominciata e non ancora utile viene prima, perché finire un pensiero vale
+    più che aprirne un altro.
     """
+    from life_profile.recommend import next_recommended_area
+
     started = {str(t) for t in touched}
-    by_id = {a.id: a for a in all_areas()}
-
-    def room(a: AreaCompleteness) -> float:
-        return by_id[a.area_id].weight * (100 - a.percent) / 100.0
-
-    candidates = [a for a in areas if a.has_room]
+    candidates = [a for a in areas if a.has_room and a.open_objectives]
     if not candidates:
         return None
     resumable = [
@@ -274,4 +276,5 @@ def _suggest(areas: List[AreaCompleteness], touched: Iterable[str]) -> Optional[
         if a.area_id in started and a.state in ("sparse", "started")
     ]
     pool = resumable or candidates
-    return max(pool, key=lambda a: (room(a), -a.order)).area_id
+    scelta = next_recommended_area([a.model_dump() for a in pool])
+    return scelta["area_id"] if scelta else None

@@ -48,9 +48,26 @@ import { humanizeError } from '@/src/utils/errors';
 const TWO_COLUMN_AT = 1000;
 const RAIL = 360;
 
-/** Every state an area can be in, said the way a person would say it. */
-function stateLabel(area: { state: string; state_label: string; current?: boolean; skipped?: boolean }) {
-  if (area.current) return 'In corso';
+/**
+ * Lo stato di un'area, detto come lo direbbe una persona.
+ *
+ *     SELEZIONATA NON VUOL DIRE «IN CORSO».
+ *
+ * Misurato in app (V3.21.3d): Famiglia al 100%, cliccata, diceva «In corso» —
+ * perché la prima riga qui era `if (area.current) return 'In corso'`. Un
+ * clic non cambia quello che ORA sa: cambia solo dove stai guardando. Da qui
+ * passa soltanto lo stato reale, e «In corso» lo dice il backend quando c'è
+ * davvero una domanda aperta.
+ */
+function stateLabel(area: {
+  state: string;
+  state_label: string;
+  percent: number;
+  in_progress?: boolean;
+  skipped?: boolean;
+}) {
+  if (area.percent >= 100) return 'Conosciuta';
+  if (area.in_progress) return 'In corso';
   if (area.skipped) return 'Saltata';
   return area.state_label;
 }
@@ -100,14 +117,13 @@ export function GuidedSetupScreen() {
     primo giro invece si va dritti alla domanda: non c'è ancora niente da
     riepilogare.
   */
-  const [apertaPerArea, setApertaPerArea] = useState<string | null>(null);
   const [percheAperto, setPercheAperto] = useState(false);
 
   const objective = state?.objective ?? null;
   const areas = state?.areas ?? [];
   const current = areas.find((a) => a.area_id === state?.current_area_id) || null;
   const primoGiro = !!state && !state.finished;
-  const mostraDomanda = !!objective && (primoGiro || apertaPerArea === current?.area_id);
+  const mostraDomanda = !!objective && (primoGiro || !!current?.in_progress);
 
   /*
     Le situazioni in corso arrivano dalla mappa della vita — la stessa che
@@ -297,12 +313,10 @@ export function GuidedSetupScreen() {
   }, [router]);
 
   const goNextArea = useCallback(
-    async (areaId: string, ref?: string) => {
-      // Un buco scelto a mano è già una richiesta di rispondere.
-      if (ref) setApertaPerArea(areaId);
+    async (areaId: string, ref?: string, startQuestion = false) => {
       setBusy(true);
       try {
-        setState(await api.guidedSetupGoToArea(areaId, ref));
+        setState(await api.guidedSetupGoToArea(areaId, ref, startQuestion));
         reset();
       } catch (e) {
         setError(humanizeError(e, 'default'));
@@ -811,62 +825,31 @@ export function GuidedSetupScreen() {
   ) : null;
 
   /*
-    L'area che vale la pena completare adesso: la prima non ancora piena.
-    È quello che la reference mette sotto «Prossimo passo consigliato», e non
-    è un suggerimento inventato — è la prima area che il backend dice incompleta.
-  */
-  const prossima = areas.find((a) => a.percent < 100 && a.state !== 'not_applicable') || null;
+    Dove conviene andare dopo.
 
-  const done = !objective && !state?.transition ? (
-    <View style={styles.question} testID="guided-done">
-      <Text style={[styles.questionText, { color: colors.textPrimary }]}>
-        ORA ha un buon punto di partenza.
-      </Text>
-      <Text style={[styles.questionHint, { color: colors.textSecondary }]}>
-        Conosce il {percent}% di ciò che può aiutarti. Puoi aggiungere il resto quando vuoi, da
-        Vita.
-      </Text>
-      {prossima ? (
-        <View style={styles.sapere} testID="guided-next-area">
-          <View style={styles.sapereHead}>
-            <Ionicons name="bulb-outline" size={18} color={ora.attention} />
-            <Text style={[oraType.body, { color: ora.ink, fontWeight: '600' }]}>
-              Prossimo passo consigliato
-            </Text>
-          </View>
-          <Text style={[oraType.small, { color: ora.ink2 }]}>
-            {prossima.open_objectives?.length
-              ? `Completa «${prossima.title}»: ${prossima.open_objectives[0].label.toLowerCase()}.`
-              : `Completa «${prossima.title}» per ricevere consigli più utili.`}
-          </Text>
-          <Pressable
-            onPress={() => void goNextArea(prossima.area_id)}
-            accessibilityRole="button"
-            style={[styles.primary, { backgroundColor: ora.cta, alignSelf: 'flex-start' }]}
-            testID="guided-continue-area"
-          >
-            <Text style={[styles.primaryText, { color: '#FFFFFF' }]}>
-              Continua con {prossima.title}
-            </Text>
-          </Pressable>
-        </View>
-      ) : null}
-      {/*
-        «Entra in ORA» non voleva dire niente: la persona è già dentro ORA. Al
-        suo posto c'è quello che la reference mette accanto alla CTA primaria —
-        il permesso di smettere adesso senza perdere niente.
-      */}
-      <Pressable
-        onPress={() => void later()}
-        accessibilityRole="button"
-        style={({ pressed }: any) => [styles.secondary, pressed && { opacity: 0.7 }]}
-        testID="guided-later"
-      >
-        <Ionicons name="time-outline" size={16} color={ora.ink2} />
-        <Text style={[styles.secondaryText, { color: ora.ink2 }]}>Lo faccio più tardi</Text>
-      </Pressable>
-    </View>
-  ) : null;
+        «CASA È QUASI COMPLETA» DEVE ESSERE VERO.
+
+    Prima questa riga diceva: la prima area della lista che non sia piena. Cioè
+    l'ordine del menu travestito da consiglio — e la frase che lo accompagnava
+    poteva essere semplicemente falsa. La graduatoria adesso la fa il backend
+    (`recommend.next_recommended_area`), che manda anche il motivo: qui si
+    mostra la frase, nei test si controlla il codice.
+  */
+  const consiglio = state?.recommended || null;
+
+  /*
+        LA STESSA COSA, DETTA DUE VOLTE, NON È IL DOPPIO DI INFORMAZIONE.
+
+    Qui stava un riepilogo globale — «ORA ha un buon punto di partenza»,
+    la percentuale, «Prossimo passo consigliato», «Completa Casa» — dentro il
+    pannello di un'area. Ma quella percentuale è già scritta in grande in
+    «Profilo Vita», due centimetri più su, e un secondo posto dove leggerla è
+    solo un secondo posto dove può diventare diversa.
+
+    Il pannello adesso risponde a una domanda per volta, in quest'ordine:
+    cosa ORA sa di quest'area · cosa le manca · come sta quest'area · e solo
+    alla fine, staccata, dove conviene andare dopo.
+  */
 
   const areaCard = (
     <View
@@ -887,8 +870,17 @@ export function GuidedSetupScreen() {
             <Text style={[styles.cardTitle, { color: colors.textPrimary }]} testID="guided-current-area">
               {areas.findIndex((a) => a.area_id === current.area_id) + 1}. {current.title}
             </Text>
+            {/*
+              Lo stato vero dell'area, non «In corso» scritto a mano: questo
+              chip stava sotto il titolo di un'area completa e la smentiva.
+            */}
             <View style={[styles.chip, { backgroundColor: colors.accentMuted }]}>
-              <Text style={[styles.chipText, { color: colors.accent }]}>In corso</Text>
+              <Text
+                style={[styles.chipText, { color: colors.accent }]}
+                testID="guided-current-state"
+              >
+                {stateLabel(current)}
+              </Text>
             </View>
           </View>
         ) : null}
@@ -1006,25 +998,41 @@ export function GuidedSetupScreen() {
           adesso o più tardi — e «Continua con Casa» apre davvero la prima
           cosa che manca, invece di lasciarla dov'era.
         */}
+        {/*
+          Come sta quest'area, e cosa si può fare adesso.
+
+              A UN'AREA COMPLETA NON SI CHIEDE DI CONTINUARE.
+
+          Misurato in app (V3.21.3d): Lavoro al 100% mostrava «Continua con
+          Lavoro» e «Lo faccio più tardi». Più tardi *che cosa*? Non c'era più
+          niente da rimandare, e la CTA primaria portava a una domanda che non
+          esisteva. Un'area finita si dichiara finita e tace.
+        */}
         {current && !mostraDomanda ? (
-          <View style={styles.sapere} testID="guided-next-step">
-            <View style={styles.sapereHead}>
-              <Ionicons name="bulb-outline" size={18} color={ora.attention} />
-              <Text style={[oraType.body, { color: ora.ink, fontWeight: '600' }]}>
-                Prossimo passo consigliato
+          current.open_objectives?.length ? (
+            <View style={styles.sapere} testID="guided-next-step">
+              <View style={styles.sapereHead}>
+                <Ionicons name="bulb-outline" size={18} color={ora.attention} />
+                <Text style={[oraType.body, { color: ora.ink, fontWeight: '600' }]}>
+                  Prossimo passo consigliato
+                </Text>
+              </View>
+              {/*
+                Le etichette del catalogo sono quasi tutte domande già scritte
+                («Vuoi aggiungere il libretto?»), e infilarle in una frase
+                faceva «Aggiungi vuoi aggiungere il libretto? per ricevere
+                promemoria». Una domanda si legge com'è; il perché sta già nel
+                riquadro qui sopra, che dice a cosa serve quest'area.
+              */}
+              <Text style={[oraType.small, { color: ora.ink2 }]}>
+                {current.open_objectives[0].label.trim().endsWith('?')
+                  ? current.open_objectives[0].label
+                  : `Aggiungi ${current.open_objectives[0].label.toLowerCase()}.`}
               </Text>
-            </View>
-            <Text style={[oraType.small, { color: ora.ink2 }]}>
-              {current.open_objectives?.length
-                ? `Aggiungi ${current.open_objectives[0].label.toLowerCase()} per ricevere promemoria e aiuto nell'organizzazione.`
-                : `Di ${current.title} so già tutto quello che mi serve.`}
-            </Text>
-            <View style={styles.ctaCoppia}>
-              {current.open_objectives?.length ? (
+              <View style={styles.ctaCoppia}>
                 <Pressable
                   onPress={() => {
-                    setApertaPerArea(current.area_id);
-                    void goNextArea(current.area_id);
+                    void goNextArea(current.area_id, undefined, true);
                   }}
                   accessibilityRole="button"
                   style={({ pressed }: any) => [
@@ -1039,36 +1047,82 @@ export function GuidedSetupScreen() {
                   </Text>
                   <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
                 </Pressable>
-              ) : prossima ? (
                 <Pressable
-                  onPress={() => {
-                    setApertaPerArea(prossima.area_id);
-                    void goNextArea(prossima.area_id);
-                  }}
+                  onPress={() => void later()}
                   accessibilityRole="button"
-                  style={({ pressed }: any) => [
-                    styles.primary,
-                    { backgroundColor: ora.cta },
-                    pressed && { opacity: 0.85 },
-                  ]}
-                  testID="guided-next-incomplete-area"
+                  style={({ pressed }: any) => [styles.secondary, pressed && { opacity: 0.7 }]}
+                  testID="guided-later"
                 >
-                  <Text style={[styles.primaryText, { color: '#FFFFFF' }]}>
-                    Passa a {prossima.title}
-                  </Text>
-                  <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
+                  <Ionicons name="time-outline" size={16} color={ora.ink2} />
+                  <Text style={[styles.secondaryText, { color: ora.ink2 }]}>Lo faccio più tardi</Text>
                 </Pressable>
-              ) : null}
-              <Pressable
-                onPress={() => void later()}
-                accessibilityRole="button"
-                style={({ pressed }: any) => [styles.secondary, pressed && { opacity: 0.7 }]}
-                testID="guided-later"
-              >
-                <Ionicons name="time-outline" size={16} color={ora.ink2} />
-                <Text style={[styles.secondaryText, { color: ora.ink2 }]}>Lo faccio più tardi</Text>
-              </Pressable>
+              </View>
             </View>
+          ) : current.percent >= 100 ? (
+            <View style={styles.sapere} testID="guided-area-complete">
+              <View style={styles.sapereHead}>
+                <Ionicons name="checkmark-circle" size={18} color={ora.success} />
+                <Text style={[oraType.body, { color: ora.ink, fontWeight: '600' }]}>
+                  Di {current.title} so già tutto quello che mi serve.
+                </Text>
+              </View>
+            </View>
+          ) : (
+            /*
+              Non è piena, ma non c'è più niente che ORA possa chiedere: quello
+              che manca è stato rifiutato, e un rifiuto è una risposta. Dire
+              «so già tutto» qui sarebbe falso, e riproporre la domanda sarebbe
+              non aver ascoltato.
+            */
+            <View style={styles.sapere} testID="guided-area-nothing-to-ask">
+              <View style={styles.sapereHead}>
+                <Ionicons name="checkmark-circle-outline" size={18} color={ora.ink3} />
+                <Text style={[oraType.body, { color: ora.ink, fontWeight: '600' }]}>
+                  Di {current.title} non ho altro da chiederti.
+                </Text>
+              </View>
+              <Text style={[oraType.small, { color: ora.ink2 }]}>
+                Quello che manca me l&apos;hai lasciato da parte, e va bene così.
+              </Text>
+            </View>
+          )
+        ) : null}
+        {/*
+          Dove andare dopo — staccata, perché parla di un'altra area.
+
+          Compare solo quando qui non c'è più niente da chiedere: altrimenti
+          sarebbe un invito ad andarsene a metà di un discorso. La frase è
+          quella che manda il backend con il suo motivo, così quello che si
+          legge («Casa è quasi completa: manca solo una cosa») è verificabile.
+        */}
+        {current && !mostraDomanda && !current.open_objectives?.length && consiglio ? (
+          <View
+            style={[styles.prossimaArea, { borderTopColor: ora.divider }]}
+            testID="guided-next-area"
+          >
+            <Text style={[oraType.small, { color: ora.ink3, fontWeight: '600' }]}>
+              Prossima area consigliata
+            </Text>
+            <Text style={[oraType.body, { color: ora.ink }]} testID="guided-next-area-reason">
+              {consiglio.reason}
+            </Text>
+            <Pressable
+              onPress={() => {
+                void goNextArea(consiglio.area_id, undefined, true);
+              }}
+              accessibilityRole="button"
+              style={({ pressed }: any) => [
+                styles.primary,
+                { backgroundColor: ora.cta, alignSelf: 'flex-start' },
+                pressed && { opacity: 0.85 },
+              ]}
+              testID="guided-next-incomplete-area"
+            >
+              <Text style={[styles.primaryText, { color: '#FFFFFF' }]}>
+                Completa {consiglio.title}
+              </Text>
+              <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
+            </Pressable>
           </View>
         ) : null}
         {objective && mostraDomanda ? (
@@ -1087,7 +1141,6 @@ export function GuidedSetupScreen() {
         ) : null}
         {transition}
         {mostraDomanda ? question : null}
-        {done}
       </View>
     </View>
   );
@@ -1106,20 +1159,24 @@ export function GuidedSetupScreen() {
             onPress={() => void goNextArea(a.area_id)}
             accessibilityRole="button"
             accessibilityLabel={`Apri ${a.title}`}
-            accessibilityState={{ selected: !!a.current }}
+            //     LA SELEZIONE È SOLO EVIDENZA VISIVA.
+            // Bordo, sfondo e icona blu dicono dove sei. Non toccano né la
+            // percentuale né l'etichetta di stato, che stanno a destra e
+            // vengono da quello che ORA sa.
+            accessibilityState={{ selected: !!a.selected }}
             style={({ pressed }: any) => [
               styles.railRow,
-              { borderColor: a.current ? colors.accent : colors.divider },
-              a.current && { backgroundColor: colors.accentMuted },
+              { borderColor: a.selected ? colors.accent : colors.divider },
+              a.selected && { backgroundColor: colors.accentMuted },
               pressed && { opacity: 0.7 },
             ]}
             testID={`guided-rail-${a.area_id}`}
           >
-            <View style={[styles.railTile, { backgroundColor: a.current ? colors.accent : colors.surfaceElevated }]}>
+            <View style={[styles.railTile, { backgroundColor: a.selected ? colors.accent : colors.surfaceElevated }]}>
               <Ionicons
                 name={areaIconName(a.icon_key)}
                 size={15}
-                color={a.current ? colors.onAccent : colors.textTertiary}
+                color={a.selected ? colors.onAccent : colors.textTertiary}
               />
             </View>
             <Text style={[styles.railLabel, { color: colors.textPrimary }]} numberOfLines={1}>
@@ -1458,6 +1515,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   secondaryText: { fontSize: 14 },
+  //     «DOPO» È UN'ALTRA COSA: SI VEDE CHE È UN'ALTRA COSA.
+  // Una riga sopra e un po' d'aria bastano perché il consiglio non si
+  // legga come la continuazione dell'area che si sta guardando.
+  prossimaArea: {
+    gap: 10,
+    marginTop: 24,
+    paddingTop: 20,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
   ctaCoppia: { flexDirection: 'row', alignItems: 'center', gap: 14, flexWrap: 'wrap', marginTop: 4 },
   periodoRighe: { marginTop: 12, gap: 2 },
   periodoRiga: {

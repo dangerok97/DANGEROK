@@ -41,6 +41,29 @@ _PROVENANCE_LABEL = {
 _INFERRED_SOURCES = {"inferred"}
 
 
+def rifiuti_di(sess: Any, meta: Dict[str, Any]) -> List[str]:
+    """
+    Tutto quello che questa persona ha preferito non dire.
+
+        UN RIFIUTO VALE ANCHE SE È STATO DETTO ALL'ALTRO SPORTELLO.
+
+    Misurato in app (V3.21.3e): «salute.visita» era stato rifiutato nel flusso
+    guidato, che tiene la sua lista nel meta della sessione; questa proiezione
+    leggeva i rifiuti solo da `refused_keys`. I due non si parlavano, e quella
+    cosa restava per sempre fra i «cosa manca» di Salute — con una pastiglia da
+    cliccare che non apriva niente, perché il flusso il rifiuto se lo ricordava
+    benissimo.
+
+    Da adesso il flusso scrive in tutti e due; questa unione serve per quello
+    che era già stato detto prima.
+    """
+    fuori = list(getattr(sess, "refused_keys", None) or [])
+    for ref in (meta or {}).get("guided_declined") or []:
+        if ref not in fuori:
+            fuori.append(ref)
+    return fuori
+
+
 class LifeProfileService:
     """Read model over the profile, the setup state, and nothing new."""
 
@@ -107,7 +130,7 @@ class LifeProfileService:
             if (a := area_for_domain(d)) is not None
         ]
         return {
-            "declined": list(sess.refused_keys or []),
+            "declined": rifiuti_di(sess, meta),
             "postponed": list(sess.postponed_keys or []),
             "not_applicable": list(meta.get("not_applicable_keys") or []),
             "touched": touched,

@@ -222,10 +222,40 @@ export type GuidedObjective = {
   of: number;
 };
 
+/**
+ * Un'area nel percorso di Vita.
+ *
+ *     SELEZIONATA, IN CORSO E COMPLETA SONO TRE COSE DIVERSE.
+ *
+ * `selected` è dove sei — è evidenza visiva, e basta. `in_progress` è dove
+ * c'è davvero una domanda aperta adesso. `percent` e `state` sono quello che
+ * ORA sa, e non cambiano perché hai cliccato. Tenerle separate anche nel tipo
+ * è l'unico modo perché non si riscrivano a vicenda nella schermata.
+ */
+export type GuidedSetupArea = LifeAreaCompleteness & {
+  selected?: boolean;
+  in_progress?: boolean;
+  /** Nome storico di `selected`. */
+  current?: boolean;
+  skipped?: boolean;
+};
+
+/** Dove conviene andare dopo, e perché. Deciso dal backend, mai qui. */
+export type NextAreaAdvice = {
+  area_id: string;
+  title: string;
+  percent: number;
+  /** Verificabile nei test: `quasi_completa`, `un_solo_passo`, … */
+  reason_code: string;
+  /** La frase che legge una persona. */
+  reason: string;
+};
+
 export type GuidedSetupState = {
   ok: boolean;
   percent: number;
-  areas: (LifeAreaCompleteness & { current?: boolean; skipped?: boolean })[];
+  areas: GuidedSetupArea[];
+  recommended?: NextAreaAdvice | null;
   current_area_id?: string | null;
   objective?: GuidedObjective | null;
   transition?: {
@@ -1793,10 +1823,10 @@ export const api = {
    * Con `ref` si apre una cosa precisa fra quelle che mancano: è il click su
    * una voce di «cosa manca», e l'area la decide il riferimento.
    */
-  guidedSetupGoToArea: (area_id: string, ref?: string) =>
+  guidedSetupGoToArea: (area_id: string, ref?: string, start_question = false) =>
     request<GuidedSetupState>('/life-profile/setup/go-to-area', {
       method: 'POST',
-      body: JSON.stringify(ref ? { area_id, ref } : { area_id }),
+      body: JSON.stringify({ area_id, ...(ref ? { ref } : {}), start_question }),
     }),
 
   guidedSetupFinish: () =>

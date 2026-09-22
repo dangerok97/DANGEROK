@@ -36,7 +36,7 @@ from life_profile.guided import (
     objective,
     option_of,
 )
-from life_profile.service import LifeProfileService
+from life_profile.service import LifeProfileService, rifiuti_di
 
 logger = logging.getLogger("ora.life_profile.setup")
 
@@ -45,6 +45,7 @@ logger = logging.getLogger("ora.life_profile.setup")
 _META_CURRENT = "guided_current_area"
 #     LA COSA CHE LA PERSONA HA CHIESTO DI APRIRE, FINCHÉ NON RISPONDE.
 _META_OPEN_REF = "guided_open_ref"
+_META_QUESTION_ACTIVE = "guided_question_active"
 _META_SKIPPED = "guided_skipped_areas"
 _META_ANSWERED = "guided_answered"
 _META_NA = "not_applicable_keys"
@@ -232,7 +233,7 @@ class GuidedSetupService:
         _repo, sess, meta = await self._load(user_id)
         facts = await self._facts(user_id)
         answered = list(meta.get(_META_ANSWERED) or [])
-        declined = list(meta.get(_META_DECLINED) or [])
+        declined = rifiuti_di(sess, meta)
         not_applicable = list(meta.get(_META_NA) or [])
         skipped = list(meta.get(_META_SKIPPED) or [])
         current = meta.get(_META_CURRENT)
@@ -256,14 +257,35 @@ class GuidedSetupService:
             scelta_esplicita=bool(meta.get(_META_FINISHED)),
         )
         from life_profile.gaps import known_items
+        from life_profile.recommend import next_recommended_area
 
+        #     SELEZIONATA NON VUOL DIRE «IN CORSO».
+        # Misurato in app (V3.21.3d): Famiglia al 100%, cliccata, diceva «In
+        # corso». Erano due cose diverse con un nome solo — l'evidenza visiva
+        # della scelta aveva finito per riscrivere lo stato reale dell'area.
+        # Qui restano separate e lo restano anche nel payload: `selected` è
+        # dove sei, `in_progress` è dove c'è davvero una domanda aperta adesso,
+        # `state`/`percent` sono quello che ORA sa e non dipendono da nessuna
+        # delle due.
         for a in areas:
-            a["current"] = a["area_id"] == area_id
+            a["selected"] = a["area_id"] == area_id
+            a["current"] = a["selected"]  # nome storico, stesso significato
+            a["in_progress"] = False
             a["skipped"] = a["area_id"] in skipped
             #     E QUELLO CHE ORA SA, DETTO CON I FATTI.
             # La schermata mostrava «7 informazioni su 8»: un conteggio non è
             # una cosa che si può verificare né correggere.
             a["known"] = known_items(a["area_id"], facts)
+
+        def in_corso(dove: Optional[str]) -> None:
+            """Un'area è «in corso» solo se adesso le si sta chiedendo qualcosa."""
+            for a in areas:
+                a["in_progress"] = bool(dove) and a["area_id"] == dove
+
+        #     DOVE ANDARE DOPO, E PERCHÉ.
+        # La regola sta in `recommend.py` e torna anche un motivo verificabile:
+        # la schermata mostra la frase, la prova controlla il codice.
+        consiglio = next_recommended_area(areas, exclude=area_id)
 
         # An explicit transition: the area the person was in has nothing left,
         # so they are told where ORA is going next and choose to go.
@@ -290,10 +312,12 @@ class GuidedSetupService:
             and IDENTITY_OBJECTIVE.id not in declined
             and not await self._has_name(user_id)
         ):
+            in_corso(None)
             return {
                 "ok": True,
                 "percent": comp.percent,
                 "areas": areas,
+                "recommended": consiglio,
                 "current_area_id": None,
                 "objective": {
                     **self._public_objective(
@@ -312,10 +336,12 @@ class GuidedSetupService:
         if richiesto and area_id:
             voluto = any_objective(richiesto)
             if voluto is not None and voluto.area_id == area_id:
+                in_corso(area_id)
                 return {
                     "ok": True,
                     "percent": comp.percent,
                     "areas": areas,
+                    "recommended": consiglio,
                     "current_area_id": area_id,
                     "objective": self._public_objective(
                         voluto, area_id, answered, declined, not_applicable, facts,
@@ -335,10 +361,13 @@ class GuidedSetupService:
             if obj:
                 step = self._public_objective(obj, area_id, answered, declined, not_applicable, facts)
 
+        question_active = not meta.get(_META_FINISHED) or meta.get(_META_QUESTION_ACTIVE)
+        in_corso(area_id if step and question_active and not transition else None)
         return {
             "ok": True,
             "percent": comp.percent,
             "areas": areas,
+            "recommended": consiglio,
             "current_area_id": area_id,
             "objective": step,
             "transition": transition,
@@ -418,7 +447,7 @@ class GuidedSetupService:
             return {"ok": False, "error": "no_session"}
 
         answered = list(meta.get(_META_ANSWERED) or [])
-        declined = list(meta.get(_META_DECLINED) or [])
+        declined = rifiuti_di(sess, meta)
         not_applicable = list(meta.get(_META_NA) or [])
 
         if action == "decline":
@@ -466,6 +495,18 @@ class GuidedSetupService:
 
         meta[_META_ANSWERED] = answered[:200]
         meta[_META_DECLINED] = declined[:80]
+        #     UN RIFIUTO SCRITTO IN UN POSTO SOLO.
+        # Misurato in app (V3.21.3e): «salute.visita» era stato rifiutato qui,
+        # ma la proiezione della completezza legge i rifiuti da `refused_keys`,
+        # e quel rifiuto non ci era mai arrivato. Risultato: la cosa restava
+        # per sempre fra i «cosa manca» di Salute, con la sua pastiglia da
+        # cliccare e un «Continua con Salute» che non apriva niente — perché
+        # il flusso, lui, il rifiuto se lo ricordava.
+        rifiutate = list(getattr(sess, "refused_keys", None) or [])
+        for ref in declined:
+            if ref not in rifiutate:
+                rifiutate.append(ref)
+        sess.refused_keys = rifiutate[:80]
         # Risposta data: la cosa aperta smette di essere quella di adesso.
         if str(meta.get(_META_OPEN_REF) or "") == obj.id:
             meta.pop(_META_OPEN_REF, None)
@@ -537,6 +578,7 @@ class GuidedSetupService:
             skipped.append(area_id)
         meta[_META_SKIPPED] = skipped[:20]
         meta[_META_CURRENT] = None
+        meta[_META_QUESTION_ACTIVE] = False
         sess.meta = meta
         sess.touch()
         await repo.save_session(sess)
@@ -544,12 +586,12 @@ class GuidedSetupService:
         return await self.state(user_id)
 
     async def go_to_area(
-        self, user_id: str, area_id: str, *, ref: str = "",
+        self, user_id: str, area_id: str, *, ref: str = "", start_question: bool = False,
     ) -> Dict[str, Any]:
         """
         Un passaggio deciso dalla persona: «continua con Casa», o un buco preciso.
 
-            APRIRE UN'AREA VUOL DIRE APRIRE LA SUA PRIMA DOMANDA.
+            LA SELEZIONE MOSTRA IL RIEPILOGO; START_QUESTION AVVIA LE DOMANDE.
 
         Con `ref` si apre quella cosa lì — è il click su una delle voci di
         «cosa manca» — e in quel caso l'area si ricava dal riferimento, così
@@ -565,6 +607,7 @@ class GuidedSetupService:
         if not find_area(area_id):
             return {"ok": False, "error": "unknown_area"}
         meta[_META_CURRENT] = area_id
+        meta[_META_QUESTION_ACTIVE] = bool(start_question or ref)
         #     E RIPRENDERE NON È RICOMINCIARE.
         # Una cosa chiesta e rimandata resta fuori dal giro finché la persona
         # non la riapre da sé: quando lo fa, torna a essere la domanda di adesso.
@@ -597,6 +640,8 @@ class GuidedSetupService:
         repo, sess, meta = await self._load(user_id, create=True)
         if sess:
             meta[_META_FINISHED] = True
+            meta[_META_QUESTION_ACTIVE] = False
+            meta.pop(_META_OPEN_REF, None)
             sess.meta = meta
             # The gate reads the session's own status, so ending the first run
             # has to say so there too — otherwise the person is handed back to

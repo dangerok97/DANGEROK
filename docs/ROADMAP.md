@@ -6,11 +6,11 @@ percorso fino al lancio si leggono qui e solo qui.
 
 | | |
 |---|---|
-| **Versione corrente** | **V3.21.3d — Vita Visual & Semantic Finalization · PASS** |
+| **Versione corrente** | **V3.21.3e — Vita State Semantics Final Fix · verifica cloud finale pendente** |
 | **Prossimo sprint** | **V3.22 — Call UX Final** |
-| Branch | `feature/ora-quiet-premium-design-system` |
+| Branch operativo | `staging/cloud` |
 | Ultimo checkpoint | `37af8a5` (lavoro) · `3baeaa1` (igiene) |
-| Aggiornato | 2026-09-22 (V3.21.3d) |
+| Aggiornato | 2026-09-22 (V3.21.3e) |
 
 Gli altri due registri restano quello che sono e non ripetono questo:
 `CHANGELOG_AI.md` è il diario datato di che cosa è cambiato,
@@ -941,6 +941,101 @@ forma vecchia.
 reference (still life fotografico) resta una decisione di contenuto. Le
 etichette senza una frase dedicata restano nella forma «Nome: valore».
 `/contesti` esiste ancora come rotta.
+
+#### V3.21.3e — Vita State Semantics Final Fix · **verifica cloud finale pendente**
+
+**Famiglia al 100%, cliccata, diceva «In corso».** E Lavoro al 100% pure, con
+sotto «Continua con Lavoro» e «Lo faccio più tardi»: un invito a continuare
+una cosa finita e il permesso di rimandare il niente. Il V3.21.3d **resta
+valido** — quello che ha sistemato è sistemato; qui si chiude la semantica
+degli stati, che era l'ultima cosa rimasta a smentirsi da sola.
+
+**Prima causa: la selezione riscriveva lo stato.** In `GuidedSetupScreen.tsx`
+la funzione che dice come sta un'area cominciava con
+`if (area.current) return 'In corso'`, e un chip scritto a mano ripeteva «In
+corso» sotto il titolo. Così un clic — che è evidenza visiva e nient'altro —
+diventava un'informazione sulla vita di qualcuno. Adesso le tre cose sono
+separate e lo restano anche nel payload: `selected` è dove stai guardando,
+`in_progress` è dove c'è davvero una domanda aperta adesso, `percent`/`state`
+sono quello che ORA sa e non dipendono da nessuna delle due. Al 100% un'area
+dice «Conosciuta», selezionata o no. Aprire una qualsiasi delle dieci aree non
+cambia una virgola dello stato delle altre nove, e una prova lo verifica area
+per area.
+
+**Seconda causa: «la prossima area» era l'ordine del menu.** Il client faceva
+`areas.find(a => a.percent < 100)` e ci scriveva accanto «Casa è quasi
+completa» — una frase che nessuno aveva verificato. La graduatoria adesso sta
+in un posto solo, `life_profile/recommend.py`, ed è deterministica: un'area
+quasi completa a cui manca una cosa sola (il passo più corto) · poi un'area a
+cui manca una cosa sola ovunque sia · poi un'area di cui ORA non sa ancora
+niente · infine quella dove resta più peso da imparare; a parità vince
+l'ordine del percorso. Torna anche un `reason_code` che le prove controllano,
+mentre l'interfaccia mostra solo la frase. Sul profilo vero le due
+regole vecchie **non erano nemmeno d'accordo fra loro**: il client diceva Casa
+(prima della lista), il backend diceva Studio (più peso da imparare) — due
+consigli diversi nella stessa schermata, ed era esattamente il problema. La
+regola nuova dice **Casa**, come il client, ma adesso è vera: 92%, un solo
+buco. E `_suggest` della completezza delega alla stessa funzione, così una
+seconda classifica non può più nascere.
+
+**Un'area completa si dichiara finita e tace.** Niente «Continua con», niente
+«Lo faccio più tardi», niente «Cosa manca»: solo *«Di Lavoro so già tutto
+quello che mi serve.»* Sotto, staccato da una riga e un po' d'aria perché
+parla di un'altra area, «Prossima area consigliata» con il motivo e la sua
+CTA.
+
+**Via il doppione.** Dentro il pannello di un'area c'era un riepilogo globale
+— «ORA ha un buon punto di partenza», la percentuale, «Prossimo passo
+consigliato» — che ripeteva «Profilo Vita» due centimetri più su. Un secondo
+posto dove leggere lo stesso numero è un secondo posto dove può diventare
+diverso. Il pannello adesso risponde a una domanda per volta: cosa ORA sa ·
+cosa manca · come sta quest'area · dove andare dopo.
+
+**Un difetto trovato dal gate.** Salute era al 52% con una cosa mancante che
+non si poteva chiedere: `salute.visita` era stato **rifiutato**, ma il flusso
+guidato scriveva i rifiuti nel proprio meta e la proiezione della completezza
+li legge da `refused_keys`. I due non si parlavano, e quella cosa restava per
+sempre fra i «cosa manca» con una pastiglia che non apriva niente. Adesso il
+flusso scrive in tutti e due e la proiezione li unisce, anche all'indietro. Ne
+esce un terzo stato, che è diverso sia da «completa» sia da «da fare»: *«Di
+Salute e benessere non ho altro da chiederti. Quello che manca me l'hai
+lasciato da parte, e va bene così.»* La percentuale **non** sale: un rifiuto
+dice qualcosa sulla conversazione, non sulla vita.
+
+**Gate sull'app vera** (1672×941, profilo reale): Famiglia 100% selezionata ·
+Lavoro 100% selezionato · Mobilità 86% · Salute 52% · la colonna delle dieci
+aree · «Continua con Mobilità» che apre davvero la domanda del libretto. Le
+dieci righe della colonna coincidono con il backend su percentuale, stato e
+«in corso».
+
+**Prove.** 20 nuove (`test_vita_state_semantics_v3213e.py`) più la guardia
+`test:v3213e`, che fissano tutte e sei le proibizioni: selezione che diventa
+stato · CTA di rinvio su un'area completa · «continua con sé stessa» su
+un'area completa · riepilogo globale duplicato nel pannello · consiglio senza
+`reason_code` · percentuale o stato divergenti fra pannello e colonna.
+
+**Debito.** Un obiettivo di Finanze ha il riferimento di Patrimonio
+(`patrimonio.risparmi`): è una scelta del catalogo, non un difetto di stato,
+ma è un punto dove due aree parlano della stessa cosa e Patrimonio è al 100%
+senza di essa. `/contesti` esiste ancora come rotta. Le etichette senza una
+frase dedicata restano nella forma «Nome: valore».
+
+**Recupero cloud, 22 settembre 2026.** Patch locale di Claude recuperata senza
+conflitti sopra `staging/cloud` (`3e3ffe1`). La revisione ha corretto un caso
+non coperto dal gate originale: anche una domanda preparata ma nascosta
+faceva risultare «In corso» un'area incompleta soltanto selezionata.
+`start_question` avvia ora esplicitamente il flusso, salvato nella sessione;
+la selezione ordinaria torna al riepilogo. Rifiuti uniti anche nella scelta
+delle domande, e aree senza domande aperte escluse prima della preferenza
+per un'area già iniziata. 97 test backend mirati passati localmente
+(`--noconftest`: servizi isolati, nessun Mongo reale), TypeScript e guardie
+Vita 3c/3d/3e verdi, export Expo web riuscito. CI estesa alle suite Vita.
+Passa anche un test Playwright con profilo sintetico e API intercettate:
+selezione, continua, reload e aree complete/rifiutate.
+Gli screenshot A–F e `esiti.json` forniti descrivono la patch originale;
+`errore.txt` conserva anche un timeout Playwright, senza una cronologia che
+permetta di attribuirlo allo stesso tentativo. Non sono una verifica del
+nuovo deploy: la conferma sul profilo cloud resta pendente.
 
 ### V3.22 — Call UX Final
 **Obiettivo** — la telefonata come funzione di prodotto finita, non come

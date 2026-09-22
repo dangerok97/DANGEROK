@@ -69,6 +69,14 @@ jobs:
       - name: compileall
         working-directory: backend
         run: python -m compileall -q .
+      - name: Vita profile, flow and state semantics
+        working-directory: backend
+        run: |
+          python -m pytest -q \
+            tests/test_life_profile_v33.py \
+            tests/test_vita_flow_v3213c.py \
+            tests/test_vita_semantics_v3213d.py \
+            tests/test_vita_state_semantics_v3213e.py
       - name: Focused pytest (AI docs + analysis versions + LE docs + V2)
         working-directory: backend
         run: |
@@ -157,6 +165,7 @@ jobs:
           npm run test:v3213b
           npm run test:v3213c
           npm run test:v3213d
+          npm run test:v3213e
 
       # The former life-experience-documents Playwright spec is intentionally
       # not a blocking CI gate here. It navigates the pre-V3.21 greedy

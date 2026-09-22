@@ -1,5 +1,24 @@
 # ORA — Architecture
 
+## 2026-09-22 — V3.21.3e, recupero nel branch cloud
+
+La patch locale di Claude viene integrata in `staging/cloud`. Selezione e
+avanzamento sono distinti: `selected` evidenzia l'area; `in_progress` richiede
+un questionario attivo. `POST /life-profile/setup/go-to-area` accetta
+`start_question` (default false); un `ref` esplicito avvia una domanda precisa.
+La sessione conserva `guided_question_active`; il frontend segue questo stato
+anche dopo un reload. Un'area completa non propone continua/rimanda.
+Il backend calcola la prossima area con motivo esplicito, escludendo quelle
+senza domande aperte. I rifiuti storici e guidati sono letti insieme.
+
+Verifica locale: 97 test backend isolati, TypeScript, guardie Vita 3c/3d/3e
+ed export Expo web passati. Anche il test Playwright del contratto UI passa
+con profilo sintetico e API intercettate (selezione, continua, reload e
+aree complete/rifiutate). Suite Vita aggiunte alla CI. Gli screenshot
+forniti sono del lavoro locale precedente; verifica finale sul profilo
+Railway ancora da confermare. Nessuna nuova dipendenza o migrazione DB.
+
+
 ## V3.10 — Connected Life — SPRINT 3 CLOSED (phase open)
 
 ### Sprint 3 closing — auto-sync

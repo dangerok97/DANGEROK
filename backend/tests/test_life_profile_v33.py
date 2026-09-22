@@ -615,6 +615,8 @@ def test_no_endpoint_accepts_a_completeness_value():
         # in una percentuale: la percentuale continua a nascere qui dentro,
         # dai fatti.
         "ref",
+        # Starts a question flow; never supplies knowledge or a percentage.
+        "start_question",
     }
     assert set(fields) <= allowed, f"unexpected client-supplied field: {fields}"
 

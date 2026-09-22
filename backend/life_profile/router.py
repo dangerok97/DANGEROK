@@ -59,6 +59,7 @@ class AreaBody(BaseModel):
     area_id: str = Field(max_length=60)
     #     E, SE SERVE, QUALE COSA DI QUELL'AREA.
     ref: str = Field(default="", max_length=120)
+    start_question: bool = False
 
 
 @router.get("/setup")
@@ -94,6 +95,7 @@ async def setup_go_to_area(body: AreaBody, user=Depends(get_current_user)):
     """
     return await get_guided_setup_service(db).go_to_area(
         user["user_id"], body.area_id, ref=(body.ref or ""),
+        start_question=body.start_question,
     )
 
 
