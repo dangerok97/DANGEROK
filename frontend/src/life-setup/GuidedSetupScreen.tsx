@@ -1,3 +1,4 @@
+import { BankSummaryCard } from './BankSummaryCard';
 /**
  * The guided first setup.
  *
@@ -1276,20 +1277,7 @@ export function GuidedSetupScreen() {
             {perche}
             {intro}
             {profileCard}
-            <View style={{ backgroundColor: ora.surface, borderRadius: tokens.radius.xl, borderWidth: 1, borderColor: colors.border, padding: 20, gap: 10 }} testID="vita-bank-space">
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <Ionicons name="wallet-outline" size={24} color={ora.cta} />
-                <Text style={[styles.cardTitle, { color: ora.ink }]}>La tua banca</Text>
-              </View>
-              <Text style={[oraType.body, { color: ora.ink2 }]}>Uno spazio per conti, saldi e movimenti.</Text>
-              <Text style={[oraType.small, { color: ora.ink2 }]}>Ambiente di prova · ORA LOCAL. Il collegamento usa conti simulati, non il tuo conto reale.</Text>
-              <Pressable accessibilityRole="button" accessibilityLabel="Prova il collegamento bancario" onPress={() => router.push('/collega-conto')} style={{ backgroundColor: ora.cta, borderRadius: 12, padding: 14, alignSelf: 'flex-start' }}>
-                <Text style={{ color: '#fff', fontWeight: '600' }}>Prova il collegamento</Text>
-              </Pressable>
-              <Pressable accessibilityRole="link" onPress={() => router.push('/conti-e-denaro')}>
-                <Text style={{ color: ora.cta }}>Vedi conti e movimenti →</Text>
-              </Pressable>
-            </View>
+            <BankSummaryCard />
             {error ? (
               <Text style={[styles.error, { color: colors.error }]} testID="guided-error">
                 {error}

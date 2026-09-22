@@ -1,3 +1,7 @@
+## 2026-09-22 — Riepilogo banca in Vita
+
+La casella legge lo stato e i conti da financial/overview: banca, saldo qualificato, ultimo aggiornamento e indicazione sandbox. Nasconde il collegamento quando già collegata; aggiorna al ritorno sulla pagina o sulla scheda. Errori e caricamento distinti dal conto scollegato. Approfondimenti in Conti e denaro.
+
 ## 2026-09-22 — Conti e denaro: ritorno alla Home
 
 La freccia apre esplicitamente la Home con `router.replace`, anche dopo callback bancario in una nuova scheda senza cronologia interna. Etichetta accessibile: Torna alla Home.
