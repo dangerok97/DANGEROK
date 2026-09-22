@@ -1,3 +1,7 @@
+## 2026-09-22 — Roadmap riallineata
+
+Decisione: Cloud Foundation V3.21.4, iPhone reale V3.23, alpha 3–5 persone V4.1; beta privata V11 e pubblica/RC V12. Recovery, privacy e affidabilità essenziali precedono l’alpha; maturità completa in V5/V9/V10. Nessun nuovo engine nel percorso immediato. Google Login confermato, Vita e integrazioni sul profilo reale ancora da verificare. Questa revisione è documentale, non una nuova prova funzionale. Criteri completi in `ROADMAP.md`; priorità derivate in `BACKLOG.md`.
+
 ## 2026-09-22 — Cloud sync and device location
 
 Google Calendar and Gmail perform a bounded first read after OAuth and enqueue a durable retry. Continuous polling discovers new sources even for existing owners; partial calendar failures remain retryable. Home refreshes while active. Settings and Weather request actual browser geolocation and save a successful fix; already consented location refreshes while Home is active. Railway requires AMBIENT_RUNTIME=1. Browser denial is explained with recovery instructions. Provider availability and browser permission still govern freshness.

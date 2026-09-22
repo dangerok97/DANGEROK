@@ -7,10 +7,10 @@ percorso fino al lancio si leggono qui e solo qui.
 | | |
 |---|---|
 | **Versione corrente** | **V3.21.3e — Vita State Semantics Final Fix · verifica cloud finale pendente** |
-| **Prossimo sprint** | **V3.22 — Call UX Final** |
+| **Prossimo sprint** | **V3.21.4 — Cloud Foundation Final** |
 | Branch operativo | `staging/cloud` |
-| Ultimo checkpoint | `37af8a5` (lavoro) · `3baeaa1` (igiene) |
-| Aggiornato | 2026-09-22 (V3.21.3e) |
+| Ultimo checkpoint | `8855b6d` (sync cloud e consenso posizione) |
+| Aggiornato | 2026-09-22 (roadmap rivista: iPhone e alpha anticipati) |
 
 Gli altri due registri restano quello che sono e non ripetono questo:
 `CHANGELOG_AI.md` è il diario datato di che cosa è cambiato,
@@ -221,7 +221,7 @@ macchina, 240 prove verdi. ✅
 
 ---
 
-### V3.15.2 — Post-Call Hardening · **PROSSIMO**
+### V3.15.2 — Post-Call Hardening · **APERTO: essenziale prima dell’alpha, completamento V5**
 **Obiettivo** — rendere robusto quello che V3.15 ha reso possibile. L'anello
 debole non è più «sa scrivere», è «sa cosa fare quando la scrittura non
 riesce».
@@ -1037,33 +1037,58 @@ Gli screenshot A–F e `esiti.json` forniti descrivono la patch originale;
 permetta di attribuirlo allo stesso tentativo. Non sono una verifica del
 nuovo deploy: la conferma sul profilo cloud resta pendente.
 
-### V3.22 — Call UX Final
-**Obiettivo** — la telefonata come funzione di prodotto finita, non come
-capacità tecnica.
-**Deliverable previsti** — la superficie completa intorno alla chiamata:
-avviarla, seguirla, capirla, riprenderla.
-**Exit criteria** — una persona che non ha mai letto questa roadmap sa usarla.
-**Dipendenze** — V3.21. **Chiude l'arco V3.**
+### V3.21.4 — Cloud Foundation Final · IN CORSO
+**Obiettivo** — il cloud sostituisce il localhost: spegnendo il PC le funzioni core continuano a funzionare.
+
+**Evidenze già disponibili (22 settembre)** — Google Login Railway confermato funzionante dall'utente; patch Vita recuperata; correzioni Calendar/Gmail first sync, polling e consenso browser pubblicate (`8855b6d`). Runtime automatico avviato, letture ripetute senza errori nei log; meteo verificato con posizione sintetica. Questo non dimostra ancora appuntamento/email/posizione sul profilo reale.
+
+**Gate da chiudere**
+- Verifica finale V3.21.3e sul profilo Railway: selezione, domande, rifiuti, reload, CTA e percentuali coerenti.
+- Login e OAuth Calendar/Gmail con callback cloud; prima lettura e modifica successiva visibili in ORA, stato ultimo sync ed errori comprensibili.
+- Consenso posizione da Impostazioni e Meteo, revoca/negazione, aggiornamento del meteo sul dispositivo reale.
+- Frontend/backend/Mongo stabili, documenti su storage persistente (mai affidarsi a `/tmp`); upload e lettura dopo redeploy.
+- Telefonia Railway senza PC o Cloudflare. Il precedente PASS di capability (`carrier/live/public`, `gemini_live`) va distinto dal gate finale di telefonata reale V3.22.
+- Segreti runtime su Railway, controllo esposizione repository e vecchi `backend/data`; nessuna cancellazione o riscrittura di storia implicita.
+- Sessioni/JWT, health e capability status verificati; nessun servizio dichiarato funzionante solo perché configurato.
+
+**Exit** — funzioni core dimostrate con PC spento; prove e limiti registrati. Nessuna nuova architettura telefonica.
+
+### V3.22 — Call UX Final · PIANIFICATO
+**Obiettivo** — preparo chiamata → autorizzo → ORA chiama → seguo stato → leggo esito → eventuale decisione → applicazione → storico.
+**Perimetro** — prodotto e gestione errori; preservare Gemini Live/Vonage salvo difetti dimostrati.
+**Exit** — una persona senza conoscenze tecniche completa il percorso; telefonate reali dal cloud e recupero essenziale dimostrati, senza azioni perse o duplicate.
+**Dipendenze** — V3.21.4; parte essenziale del debito V3.15.2. Chiude l'arco telefonico.
+
+### V3.23 — iPhone Reality Gate · PIANIFICATO
+**Obiettivo** — ORA su un iPhone vero tramite Expo/EAS/TestFlight, usando Railway; non una riscrittura nativa completa.
+**Gate** — login, Home, Vita, conversazione, push, posizione, contatti, telefonia, permessi iOS, SecureStore, background/resume e kill/relaunch.
+**Exit** — build installata e flussi verificati sul dispositivo; limiti iOS espliciti e nessuna dipendenza dal PC. Account e firma Apple necessari vanno verificati, non presunti disponibili.
 
 ---
 
 ## Parte III — Da V4 a ORA 1.0
 
-Nessuna di queste è cominciata. Sono **PIANIFICATE**, e l'ordine è quello.
+Fasi **PIANIFICATE**. L'alpha è anticipata a V4.1; V11 e V12 sostituiscono le precedenti tappe alpha/beta, e la vecchia V13 confluisce in V12.
 
 | Versione | Obiettivo | Exit criteria |
 |---|---|---|
-| **V4 — Proactive ORA** | ORA parla per prima quando serve, e tace quando non serve | La proattività è utile misurata, non solo possibile |
-| **V5 — Long-Running ORA** | commissioni che durano giorni, non un turno | Un obiettivo sopravvive a riavvii, attese e interruzioni |
-| **V6 — Learning & Personal Adaptation** | ORA impara come sei, in modo governato | L'adattamento è spiegabile e reversibile |
-| **V7 — Unified ORA Intelligence** | un'intelligenza sola, non motori affiancati | Nessuna superficie ragiona per conto suo |
-| **V8 — Mobile & Daily Product** | ORA vive nella giornata, sul telefono | Uso quotidiano reale su device |
-| **V9 — Privacy, Safety & Trust** | il patto con chi si fida | Audit, cancellazione, minima divulgazione dimostrate |
-| **V10 — Reliability / Production Infrastructure** | regge senza qualcuno che guarda | Deploy, backup con restore provato, CI, osservabilità |
-| **V11 — Closed Alpha** | primi utenti veri, pochi e seguiti | Sopravvive a persone che non sono l'autore |
-| **V12 — Private Beta** | più utenti, meno mani | Difetti trovati da altri, non da noi |
-| **V13 — Public Beta / RC** | candidato al rilascio | Nessun difetto bloccante aperto |
-| **ORA 1.0** | **Lancio** | Vedi sotto |
+| **V4 — Proactive ORA V1** | Un solo caso reale: variazione calendario oppure rischio ritardo da calendario/posizione/traffico | Segnale → impatto → piano → autorità → azione o domanda → verifica → informazione; utilità dimostrata |
+| **V4.1 — Closed Alpha** | 3–5 persone provano «cosa conta oggi», «arrivare al momento giusto», «occupatene tu» | Beneficio osservabile rispetto agli strumenti manuali; problemi e risultati registrati, gate minimi superati |
+| **V5 — Long-Running ORA** | Commissioni di ore/giorni; completare V3.15.2 | Obiettivo sopravvive a riavvio, attesa, needs-user, provider down, retry e conflitto |
+| **V6 — Learning & Personal Adaptation** | Abitudini, preferenze, routine, comunicazione e soglie | Ogni apprendimento è spiegabile, correggibile e reversibile |
+| **V7 — Unified ORA Intelligence** | Ridurre i motori: Context/Sensors → Reasoning → Plan → Authority → Capability → Verification → Presentation | Contesto e decisioni coerenti; meno motori, non uno stack parallelo |
+| **V8 — Mobile & System Presence** | Raffinare iPhone già operativo: push, MapKit, geofencing, Contacts/EventKit, share sheet, deep link; Siri/widget dove utili | Valore quotidiano su device e comportamento background verificato |
+| **V9 — Privacy / Safety / Trust** | Audit completo, provenance, minimizzazione, retention, export/cancellazione, revoca e azioni | Garanzie dimostrate prima di ampliare gli utenti |
+| **V10 — Production Reliability** | Monitoring, alert, rate limit, CI, rollback, capability health e incident recovery | Backup con restore provato e failure/recovery reali; servizio senza supervisione continua |
+| **V11 — Private Beta** | Più utenti senza assistenza continua | Affidabilità e utilità confermate oltre l'alpha |
+| **V12 — Public Beta / Release Candidate** | Onboarding, pricing se previsto, compliance store/privacy, crash/latency/error budget | Nessun difetto bloccante e criteri di rilascio verificati |
+| **ORA 1.0** | Lancio | Ciclo completo stabile nell'uso quotidiano |
+
+**Gate obbligatori prima di V4.1** — isolamento dati tra utenti, permessi e revoca accessi, gestione segreti, storage persistente, backup/ripristino provato, errori osservabili e recovery essenziale/idempotenza delle azioni. V9–V10 completano la maturità, non autorizzano a rinviare queste basi.
+
+**Ordine immediato** — V3.21.3e reality gate → V3.21.4 → V3.22 → V3.23 → V4 → V4.1. Google Login già confermato: regressione da controllare, non blocker noto.
+
+**Fuori dal percorso immediato** — GPT-Live, WhatsApp, banking e nuovi engine. Consolidare le capacità esistenti prima di ampliare il perimetro.
 
 ---
 
@@ -1104,13 +1129,13 @@ sul vero.
 | **Application multi-dominio** | **sì** — calendario · impegni · studio, un contratto solo | ✅ V3.19 |
 | **Phone production-ready** | funziona, non è di prodotto | V3.21 · V3.22 |
 | **Needs-user continuation** | **sì** — si ferma, si decide, riprende | ✅ V3.17 |
-| **Reconciliation robusta** | riesce, non ritenta | V3.15.2 |
+| **Reconciliation robusta** | riesce, non ritenta | Recovery essenziale prima V4.1; completamento V5 |
 | **Proactivity utile** | esiste, non misurata | V4 |
-| **Recovery / idempotenza** | idempotenza ✅, recovery ✗ | V3.15.2 · V10 |
-| **Mobile completo** | no | V8 |
-| **Privacy / audit** | principi in vigore, audit no | V9 |
-| **Production infra** | no | V10 |
-| **Alpha / Beta superate** | no | V11 · V12 · V13 |
+| **Recovery / idempotenza** | idempotenza ✅, recovery ✗ | Prima V4.1; V5 · V10 |
+| **Mobile completo** | gate device aperto | V3.23 prima prova; V8 integrazione profonda |
+| **Privacy / audit** | gate minimi aperti | Minimi prima V4.1; audit completo V9 |
+| **Production infra** | cloud attivo, consolidamento aperto | V3.21.4; minimi prima V4.1; maturità V10 |
+| **Alpha / Beta superate** | no | V4.1 · V11 · V12 |
 
 ---
 
