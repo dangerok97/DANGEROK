@@ -38,6 +38,7 @@ export type Aggiornamento = {
   /** Il prossimo passo, quando esiste davvero. */
   prossimo_passo: string;
   quando: string;
+  lavoro?: 'verify' | 'prepare';
   preparazione?: { checked_at?: string; summary?: string; question?: string; limits?: string; options?: { event_id: string; title: string; starts_at: string; ends_at: string }[] };
   azione?: { kind: 'verify' | 'prepare' | 'suggestion' | 'route'; label: string; route?: string; params?: Record<string, unknown> };
 };
@@ -67,6 +68,7 @@ export function elencoAggiornamenti(home: HomeV2Response | null | undefined): Ag
   const occasioni: Aggiornamento[] = (home.opportunities || []).slice(0, 2).map((o) => ({
     id: o.id,
     genere: 'occasione',
+    lavoro: 'verify',
     cosa: o.title,
     perche: o.why_now || '',
     fonte: o.sources?.join(' · ') || SENZA_FONTE,
@@ -82,10 +84,11 @@ export function elencoAggiornamenti(home: HomeV2Response | null | undefined): Ag
   const suggerimenti: Aggiornamento[] = (home.ora_ti_consiglia || []).slice(0, 3).map((s) => ({
     id: s.id,
     genere: 'suggerimento',
+    lavoro: s.action?.kind === 'prepare_change' ? 'prepare' : undefined,
     cosa: s.title,
     perche: s.description || s.reason || '',
     fonte: s.source_label || SENZA_FONTE,
-    stato: s.status === 'expired' ? 'Segnalazione superata' : s.meta?.preparation ? 'Alternative esaminate' : '',
+    stato: s.work_status ? ({ running: 'Preparazione in corso', ready: 'Proposta disponibile', needs_user: 'Serve la tua scelta', failed: 'Verifica interrotta' } as Record<string, string>)[s.work_status] || s.work_status : s.status === 'expired' ? 'Segnalazione superata' : s.meta?.preparation ? 'Alternative esaminate' : '',
     cosa_sta_facendo: (s.meta?.preparation as Aggiornamento['preparazione'])?.summary || '',
     cosa_serve: (s.meta?.preparation as Aggiornamento['preparazione'])?.question || '',
     non_so: '',

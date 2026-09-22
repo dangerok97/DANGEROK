@@ -227,10 +227,11 @@ const item = (o: Record<string, unknown> = {}) => ({
   const home = readCode('app/(tabs)/index.tsx');
   for (const call of [
     'api.getHome()', 'api.refreshHome()', 'api.homeAction(',
-    'api.acceptSuggestion(', 'api.dismissSuggestion(',
+    'api.dismissSuggestion(',
   ]) {
     assert.ok(home.includes(call), `Home 3.0 must keep calling ${call}`);
   }
+  assert.ok(!home.includes('api.acceptSuggestion('), 'Opening a suggestion must not consume it');
   // The V2 dual-step navigation contract survives verbatim.
   assert.ok(
     home.includes("['maps', 'navigate', 'open', 'guide', 'study', 'resume', 'confirm']"),

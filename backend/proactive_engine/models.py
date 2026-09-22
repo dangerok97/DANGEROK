@@ -74,6 +74,7 @@ class Suggestion(BaseModel):
     accepted: bool = False
     completed: bool = False
     accept_result: Optional[Dict[str, Any]] = None
+    work_status: Optional[str] = None
     meta: Dict[str, Any] = Field(default_factory=dict)
     created_at: str = Field(default_factory=now_iso)
     updated_at: str = Field(default_factory=now_iso)

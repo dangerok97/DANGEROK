@@ -311,8 +311,25 @@ class ProactiveEngineService:
     async def home_suggestions(self, user_id: str, *, limit: int = 3) -> List[Dict[str, Any]]:
         if not proactive_engine_enabled():
             return []
+        # Repair only the old no-op accept: no work was done, and no external
+        # effect happened. Idempotent and owner-scoped; dismissed cards stay so.
+        await self.db.proactive_suggestions.update_many({
+            "user_id": user_id, "status": "accepted", "action.kind": "prepare_change",
+            "accept_result.effect": "open_modify_path",
+        }, {"$set": {"status": "active", "accepted": False}})
         await apply_lifecycle(self.repo, user_id)
         items = await self.repo.list_for_user(user_id, statuses=["active"], limit=40)
+        # A running/answered check remains reachable when its signal expires.
+        work = await self.db.update_work.find({"owner_id": user_id}, {"_id": 1}).sort("started_at", -1).to_list(50)
+        work_ids = [r["_id"].removeprefix(f"{user_id}:") for r in work]
+        if work_ids:
+            rows = await self.db.proactive_suggestions.find({
+                "user_id": user_id, "id": {"$in": work_ids},
+                "status": {"$nin": ["dismissed", "completed"]},
+            }, {"_id": 0}).to_list(100)
+            known = {s.id for s in items}
+            items = [Suggestion(**r) for r in rows if r["id"] not in known] + items
+
         if not items:
             # Soft regenerate once when Home asks and store empty
             try:
@@ -321,7 +338,9 @@ class ProactiveEngineService:
             except Exception as e:
                 logger.warning("home regenerate failed: %s", type(e).__name__)
                 items = []
-        top = collapse_home_list(items, limit=limit)
+        pinned = [s for s in items if s.id in work_ids and s.status not in ("dismissed", "completed")]
+        rest = [s for s in items if s.id not in work_ids]
+        top = pinned[:limit] + collapse_home_list(rest, limit=max(0, limit-len(pinned))) if len(pinned) < limit else pinned[:limit]
         return [s.public() for s in top]
 
     async def dismiss(self, user_id: str, suggestion_id: str) -> Dict[str, Any]:
@@ -339,6 +358,12 @@ class ProactiveEngineService:
         s = await self.repo.get(user_id, suggestion_id)
         if not s:
             return {"ok": False, "error": "not_found"}
+        # Older clients call accept when merely opening a preparation. Opening
+        # is navigation, never acceptance/completion of the proposed change.
+        if s.action and s.action.kind == "prepare_change":
+            return {"ok": True, "id": s.id, "status": s.status,
+                    "result": {"ok": True, "effect": "open_preparation",
+                               "route": f"/aggiornamento/{s.id}"}}
         result = await handle_accept(self.db, user_id, s)
         await self.repo.update_fields(user_id, suggestion_id, {
             "status": "accepted",

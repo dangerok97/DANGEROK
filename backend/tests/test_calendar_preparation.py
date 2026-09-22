@@ -93,3 +93,32 @@ def test_alternatives_never_extend_past_observed_horizon():
     event = {'id': 'late', 'title': 'Late'}
     triple = (event, start, start + timedelta(hours=1))
     assert calendar.alternative_slots([triple], triple, triple, now=NOW, tz=ZoneInfo('Europe/Rome')) == []
+
+@pytest.mark.asyncio
+async def test_open_preparation_never_consumes_card_and_repairs_legacy_accept(world, monkeypatch):
+    from proactive_engine.models import Suggestion, SuggestionAction
+    db, _ = world
+    svc = ProactiveEngineService(db)
+    item = Suggestion(user_id='alice', title='Conflict', status='active', action=SuggestionAction(kind='prepare_change', label='Prepare'))
+    await svc.repo.insert(item)
+    first = await svc.accept('alice', item.id)
+    again = await svc.accept('alice', item.id)
+    assert first == again and first['result']['route'] == f'/aggiornamento/{item.id}'
+    assert (await svc.repo.get('alice', item.id)).status == 'active'
+    await svc.repo.update_fields('alice', item.id, {'status': 'accepted', 'accepted': True, 'accept_result': {'effect': 'open_modify_path'}})
+    assert (await svc.home_suggestions('alice'))[0]['id'] == item.id
+    assert not (await svc.repo.get('alice', item.id)).accepted
+    assert not (await svc.accept('bob', item.id))['ok']
+
+@pytest.mark.asyncio
+async def test_expiring_signal_keeps_started_work_reachable(world):
+    from proactive_engine.models import Suggestion, SuggestionAction
+    db, _ = world
+    svc = ProactiveEngineService(db)
+    item = Suggestion(user_id='alice', title='Conflict', status='expired', action=SuggestionAction(kind='prepare_change', label='Prepare'))
+    await svc.repo.insert(item)
+    await db.update_work.insert_one({'_id': f'alice:{item.id}', 'owner_id': 'alice', 'status': 'needs_user', 'session_id': 'same'})
+    assert (await svc.home_suggestions('alice'))[0]['id'] == item.id
+    await svc.dismiss('alice', item.id)
+    # Explicit dismissal wins; it is never repaired as a navigation mistake.
+    assert (await svc.repo.get('alice', item.id)).status == 'dismissed'

@@ -231,25 +231,9 @@ export default function HomeScreen() {
     if (route) router.push(route as any);
   }, [router]);
 
-  const onSuggestionOpen = useCallback(async (s: ProactiveSuggestion) => {
-    setSuggestionBusy(s.id);
-    try {
-      const res = await api.acceptSuggestion(s.id);
-      void triggerHaptic('success');
-      const r = (res.result || {}) as Record<string, unknown>;
-      const route = (r.route as string | undefined)
-        || ((r.result as any)?.route as string | undefined)
-        || s.action?.route || undefined;
-      await load({ silent: true });
-      if (route) router.push(route as any);
-    } catch (e: any) {
-      if (isNetworkError(e)) markOffline();
-      setErrorBanner(humanizeError(e, 'default'));
-      void triggerHaptic('error');
-    } finally {
-      setSuggestionBusy(null);
-    }
-  }, [load, markOffline, router]);
+  const onSuggestionOpen = useCallback((s: ProactiveSuggestion) => {
+    router.push(`/aggiornamento/${encodeURIComponent(s.id)}` as never);
+  }, [router]);
 
   const onSuggestionDismiss = useCallback(async (id: string) => {
     setSuggestionBusy(id);

@@ -3128,6 +3128,7 @@ export type ProactiveSuggestionAction = {
 };
 
 export type ProactiveSuggestion = {
+  work_status?: string;
   id: string;
   title: string;
   description?: string | null;

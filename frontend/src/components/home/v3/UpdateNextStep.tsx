@@ -13,8 +13,8 @@ export function UpdateNextStep({ a }: { a: Aggiornamento }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [reply, setReply] = useState('');
-  const isPreparation = a.azione?.kind === 'prepare';
-  const usesWork = a.azione?.kind === 'verify' || isPreparation;
+  const isPreparation = a.lavoro === 'prepare';
+  const usesWork = !!a.lavoro;
   const [loaded, setLoaded] = useState(!usesWork);
   useEffect(() => {
     setWork(null); setReply(''); setLoaded(!usesWork);
@@ -27,20 +27,20 @@ export function UpdateNextStep({ a }: { a: Aggiornamento }) {
     void read();
     const timer = setInterval(() => { void read(); }, 10000);
     return () => { active = false; clearInterval(timer); };
-  }, [a.id, a.azione?.kind]);
+  }, [a.id, a.lavoro]);
   const go = async () => {
-    if (busy || !a.azione) return;
+    if (busy || (!a.azione && !usesWork)) return;
     setBusy(true); setError('');
     try {
       if (usesWork) {
         setWork(await (isPreparation ? api.runSuggestionWork(a.id, reply) : api.runUpdateWork(a.id, reply))); setReply('');
-      } else if (a.azione.kind === 'suggestion') {
+      } else if (a.azione?.kind === 'suggestion') {
         const accepted = await api.acceptSuggestion(a.id);
         const result = accepted.result as any;
         const route = result?.route || result?.result?.route || a.azione.route;
         if (route?.startsWith('/') && !route.startsWith('//')) router.push({ pathname: route, params: a.azione.params } as any);
         else setWork({ status: 'ready', message: 'Risposta registrata. Riapri gli aggiornamenti per vedere lo stato aggiornato.' });
-      } else if (a.azione.route?.startsWith('/') && !a.azione.route.startsWith('//')) {
+      } else if (a.azione?.route?.startsWith('/') && !a.azione.route.startsWith('//')) {
         router.push({ pathname: a.azione.route, params: a.azione.params } as any);
       }
     } catch (e) { setError(humanizeError(e)); }
@@ -60,6 +60,7 @@ export function UpdateNextStep({ a }: { a: Aggiornamento }) {
         <Text style={[oraType.small, { color: ora.ink2 }]}>{a.preparazione.limits}</Text>
         {!!a.preparazione.checked_at && <Text style={[oraType.small, { color: ora.ink2 }]}>Controllo eseguito: {new Date(a.preparazione.checked_at).toLocaleString('it-IT')}. Nessun appuntamento modificato.</Text>}
       </View>}
+      {usesWork && !loaded && !error && <Text>Caricamento dell’attività…</Text>}
       {running && <Text accessibilityLiveRegion="polite">Verifica in corso…</Text>}
       {work?.message && <Text>{work.message}</Text>}
       {work?.result?.ora_text && <Text style={[oraType.body, { color: ora.ink }]}>{work.result.ora_text}</Text>}
@@ -73,12 +74,19 @@ export function UpdateNextStep({ a }: { a: Aggiornamento }) {
         <TextInput accessibilityLabel="Risposta sul prossimo passo" placeholder="Rispondi o chiedi un chiarimento…" value={reply} onChangeText={setReply} maxLength={2000} multiline style={{ borderWidth: 1, borderColor: ora.ink3, borderRadius: 12, padding: 12, color: ora.ink }} />
       )}
       {!!error && <Text accessibilityRole="alert" style={{ color: ora.attention }}>{error}</Text>}
-      {a.azione && !running && loaded && (!hasRun || (!!reply.trim() && !['failed', 'interrupted'].includes(work?.status || ''))) && (
+      {usesWork && (!!error || ['failed', 'interrupted'].includes(work?.status || '')) && !busy && <Pressable accessibilityRole="button" onPress={async () => {
+        setBusy(true);
+        try { setWork(await (isPreparation ? api.getSuggestionWork(a.id) : api.getUpdateWork(a.id))); setLoaded(true); setError(''); }
+        catch (e) { setError(humanizeError(e)); }
+        finally { setBusy(false); }
+      }}><Text style={{ color: ora.cta }}>Ricontrolla lo stato</Text></Pressable>}
+
+      {(a.azione || (usesWork && hasRun)) && !running && loaded && (!hasRun || (!!reply.trim() && !['failed', 'interrupted'].includes(work?.status || ''))) && (
         <Pressable accessibilityRole="button" onPress={() => void go()} style={{ backgroundColor: ora.cta, borderRadius: 12, padding: 14, alignSelf: 'flex-start' }}>
-          <Text style={{ color: '#fff', fontWeight: '600' }}>{hasRun ? 'Invia risposta' : a.azione.label}</Text>
+          <Text style={{ color: '#fff', fontWeight: '600' }}>{hasRun ? 'Invia risposta' : a.azione?.label}</Text>
         </Pressable>
       )}
-      {!a.azione && <Text style={[oraType.small, { color: ora.ink2 }]}>Questa scheda è informativa: ORA non ha ancora un’azione disponibile.</Text>}
+      {!a.azione && !hasRun && <Text style={[oraType.small, { color: ora.ink2 }]}>Questa scheda è informativa: ORA non ha ancora un’azione disponibile.</Text>}
     </OraCard>
   );
 }

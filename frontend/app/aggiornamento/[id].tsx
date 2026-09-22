@@ -39,6 +39,13 @@ export default function DettaglioAggiornamento() {
   const leggi = useCallback(async () => {
     setCarico(true);
     try {
+      // Detail is durable and independent of Home ranking/expiration.
+      if (String(id).startsWith('psug_')) {
+        const result = await api.getSuggestion(String(id));
+        setFallback(elencoAggiornamenti({ ora_ti_consiglia: [result.suggestion] } as HomeV2Response)[0] || null);
+        setErrore(null);
+        return;
+      }
       const result = await api.getHome();
       setHome(result);
       if (!elencoAggiornamenti(result).some(x => x.id === id)) {

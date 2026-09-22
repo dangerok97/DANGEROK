@@ -124,12 +124,15 @@ async def _preparation_work(user_id, suggestion_id, *, start=False, reply=""):
         raise HTTPException(404, "not_found")
     if not suggestion.action or suggestion.action.kind != "prepare_change":
         raise HTTPException(409, "Nessuna preparazione disponibile per questo aggiornamento.")
-    if start and suggestion.status not in ("active", "snoozed"):
+    existing_work = await db.update_work.find_one({"_id": f"{user_id}:{suggestion_id}", "owner_id": user_id})
+    if start and not existing_work and suggestion.status not in ("active", "snoozed", "accepted"):
         raise HTTPException(409, "La segnalazione è superata. Riapri gli aggiornamenti.")
-    if start and suggestion.type == "calendar":
+    if start and not existing_work and suggestion.status == "accepted" and (suggestion.accept_result or {}).get("effect") == "open_modify_path":
+        suggestion = await svc.repo.update_fields(user_id, suggestion_id, {"status": "active", "accepted": False})
+    if start and not existing_work and suggestion.type == "calendar":
         await svc.refresh_calendar(user_id)
         suggestion = await svc.repo.get(user_id, suggestion_id)
-        if suggestion.status not in ("active", "snoozed"):
+        if suggestion.status not in ("active", "snoozed", "accepted"):
             raise HTTPException(409, "La segnalazione è superata. Riapri gli aggiornamenti.")
     prep = suggestion.meta.get("preparation") or {}
     context = SimpleNamespace(id=suggestion.id, semantic_summary=suggestion.description or suggestion.title,
