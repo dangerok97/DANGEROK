@@ -80,6 +80,45 @@ jobs:
             --ignore=tests/test_intelligent_documents_real_verification.py \
             -x
 
+
+  telephone-cloud:
+    name: Telephone cloud safety
+    runs-on: ubuntu-latest
+    services:
+      mongo:
+        image: mongo:6
+        ports:
+          - 27017:27017
+    env:
+      MONGO_URL: mongodb://127.0.0.1:27017
+      DB_NAME: ora_ci_telephone
+      JWT_SECRET: ci-telephone-secret
+      DOCUMENT_STORAGE_BACKEND: local
+      DOCUMENT_STORAGE_DIR: /tmp/ora-ci-telephone-documents
+      ENVIRONMENT: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements-cloud.txt
+      - name: Install backend deps
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-cloud.txt
+      - name: Prepare writable storage
+        run: mkdir -p /tmp/ora-ci-telephone-documents
+      - name: Telephone transport + live runtime + recovery
+        working-directory: backend
+        run: |
+          python -m pytest -q \
+            tests/test_telephone_transport_v3131.py \
+            tests/test_live_runtime_v313.py \
+            tests/test_call_failure_recovery_v3212.py \
+            -x
+
   frontend-tsc:
     name: Frontend TypeScript
     runs-on: ubuntu-latest
