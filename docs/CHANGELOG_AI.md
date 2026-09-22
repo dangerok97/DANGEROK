@@ -1,3 +1,11 @@
+## 2026-09-22 — Esito verifiche cloud V3.21.4
+
+Codice `85ca21c`: sei test mirati passati; sul cloud upload/download sintetico riuscito, accesso da secondo utente 404, token dopo logout 401, nuovo login riuscito. Dopo redeploy il token resta revocato. Health DB 200 e capability telefonia pronte (non prova di chiamata reale).
+
+**Storage NON chiuso:** prova dopo redeploy fallita con 410. Volume `7178fc0e-083e-4690-a8c6-889e37995808` creato ma risulta scollegato; due applicazioni del mount tramite connettore non hanno prodotto un mount effettivo (`hasVolume=false`). Non dichiarare i documenti persistenti. Percorso runtime mantenuto temporaneamente `/tmp/ora-documents`; passare a `/data/documents` solo con mount verificato, poi ripetere upload/redeploy/download. Richiesto intervento tramite pannello Railway; nessun documento personale usato nelle prove.
+
+Repository pubblico confermato; tree corrente senza `backend/data` tracciato. Audit completo di cronologia/esposizione, revoca di tutte le sessioni, backup/restore e gate PC spento restano aperti. V3.21.3e chiusa su conferma dell’utente; V3.21.4 resta in corso.
+
 ## 2026-09-22 — Cloud Foundation: sessioni e persistenza
 
 Vita V3.21.3e confermata funzionante dall’utente. Audit Railway: documenti su filesystem temporaneo, directory vuota al controllo; volume dedicato `/data/documents` predisposto. Logout ora revoca il singolo bearer tramite digest SHA-256 in Mongo, indice TTL e JWT nuovi con jti univoco; nessuna rotazione o logout globale. Health risponde 503 se Mongo non risponde entro tre secondi. Quattro test mirati passati; verifica live e persistenza dopo redeploy ancora da completare. Nessun file `backend/data` tracciato nel tree corrente; audit storia/pubblicazione repository ancora aperto.

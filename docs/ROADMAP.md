@@ -7,9 +7,9 @@ percorso fino al lancio si leggono qui e solo qui.
 | | |
 |---|---|
 | **Versione corrente** | **V3.21.4 — Cloud Foundation Final · IN CORSO** |
-| **Prossimo sprint** | **V3.21.4 — Cloud Foundation Final** |
+| **Prossimo sprint** | **V3.22 — Call UX Final, dopo chiusura V3.21.4** |
 | Branch operativo | `staging/cloud` |
-| Ultimo checkpoint | `8855b6d` (sync cloud e consenso posizione) |
+| Ultimo checkpoint | `85ca21c` (revoca sessioni e health; storage ancora bloccato) |
 | Aggiornato | 2026-09-22 (roadmap rivista: iPhone e alpha anticipati) |
 
 Gli altri due registri restano quello che sono e non ripetono questo:
@@ -1043,6 +1043,8 @@ nuovo deploy: la conferma sul profilo cloud resta pendente.
 **Obiettivo** — il cloud sostituisce il localhost: spegnendo il PC le funzioni core continuano a funzionare.
 
 **Evidenze già disponibili (22 settembre)** — Google Login Railway confermato funzionante dall'utente; patch Vita recuperata; correzioni Calendar/Gmail first sync, polling e consenso browser pubblicate (`8855b6d`). Runtime automatico avviato, letture ripetute senza errori nei log; meteo verificato con posizione sintetica. Questo non dimostra ancora appuntamento/email/posizione sul profilo reale.
+
+**Checkpoint verificato:** logout e isolamento download tra due account sintetici passano; revoca persistente dopo redeploy. **Blocker storage:** download dopo redeploy restituisce 410; volume creato ma mount non applicato dal connettore, intervento pannello necessario. Non dichiarare Cloud Foundation chiusa.
 
 **Gate da chiudere**
 - [x] V3.21.3e: verifica sul profilo Railway confermata dall’utente.

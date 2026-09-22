@@ -4,8 +4,8 @@ Attività piccole e verificabili derivate da `docs/ROADMAP.md` e dall’audit.
 
 ## Priorità corrente — 22 settembre 2026
 
-1. V3.21.3e: reality gate sul profilo cloud; correggere soltanto difetti dimostrati.
-2. V3.21.4: sync Calendar/Gmail sul reale, consenso posizione, storage persistente, sessioni, health e indipendenza dal PC. Google Login già confermato.
+1. V3.21.3e: PASS confermato dall’utente.
+2. V3.21.4: priorità al mount persistente (prova redeploy fallita 410); logout revocabile verificato. Poi sync Calendar/Gmail sul reale, consenso posizione, storage persistente, sessioni, health e indipendenza dal PC. Google Login già confermato.
 3. V3.22: UX chiamate e recovery essenziale V3.15.2.
 4. V3.23: iPhone reale con Railway, permessi e lifecycle.
 5. V4: un caso proattivo completo; V4.1: alpha 3–5 persone dopo i gate minimi.
