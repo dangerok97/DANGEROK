@@ -2596,3 +2596,7 @@ recente. Le riletture invariate non producono righe (`ingestion/pipeline.py`
 decide prima di scrivere) e `ingestion/tidy.py` raccoglie quelle lasciate
 dalle versioni precedenti.
 
+
+
+### 2026-09-22 — Close ambient → agent execution gaps
+AmbientService.review_life and life_orchestration share agent.background.consider_opportunities. New AutonomousGoal records persist next_run_at; ambient.runtime reconciles at most two due goals per tick into existing durable wakes. goal:* opportunity_revisit wakes dispatch to AgentService.advance, not opportunity discovery. Execution retains the existing atomic goal lease, writes a recovery deadline before work, persists wait/budget continuations, and excludes goals awaiting knowledge or authority. background_runs caps automatic execution at three passes. Legacy goals without a schedule are not replayed. New non-destructive index: agent_goals(next_run_at,status). Reviews deferred by cooldown retain a wake while changes remain pending. No additional scheduler, queue collection or provider.

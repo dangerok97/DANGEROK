@@ -3249,3 +3249,7 @@ sei operazioni reali fra 9 s e 25 s, tutte dentro il bersaglio di 30 s.
 nazionale capace di fare telefonate reali previa autorizzazione esplicita
 della persona.
 
+
+
+### 2026-09-22 — Proactive usefulness gate (in progress)
+Found: ambient review omitted goal consideration; goal revisit wakes were dispatched to discovery; no runtime advanced new goals. Fixed wiring, durable scheduling/recovery, bounded retries, read/prepare-only automatic runs, real completion visibility, and agent calendar reads of superseded/cancelled entries. Eight isolated regression tests pass with a mocked Mongo adapter and model/work boundaries; they cover runtime execution without a request, recovery, owner isolation, consent waits, effect blocking even with grants, current calendar selection, completion evidence and cooldown. These do not constitute a live user calendar end-to-end gate. Real push remains stub. Next reality check: change a disposable connected-calendar appointment while ORA is closed, then verify a useful sourced result or explicit information/consent request. No roadmap milestone is declared complete.

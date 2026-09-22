@@ -775,3 +775,7 @@ chiederti quante ore.
 tuo calendario da sola, quando era "abbastanza sicura". Non c'è più. ORA può leggere i tuoi impegni
 per capire quando sei occupato, ma prima di aggiungere, modificare o eliminare qualcosa ti chiede
 sempre conferma. Sempre.
+
+
+### 2026-09-22 — Background work, first activation
+New goals arising from an opportunity are scheduled automatically on Railway. The existing agent can read and prepare without a Home request; external effects stop for a user turn even if a standing grant exists. Up to three automatic passes per goal, preserving existing per-pass budgets. A verified completion with real evidence remains in Aggiornamenti for 24 hours, showing the actual verification rationale. Calendar inspection uses the same selected/current-event reader as Home and identifies the last synchronization; it does not equate a removed calendar entry with a cancelled booking. Device notifications remain unavailable while PUSH_PROVIDER is stub.

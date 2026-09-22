@@ -228,6 +228,10 @@ class AmbientService:
 
         outcome = await discovery.review(wake.owner_id, reason="opportunity_recheck")
         if not outcome.ran:
+            if await discovery.changes.pending(wake.owner_id):
+                out.retry_after_seconds = 120
+                out.error = "review_deferred"
+                return out
             out.handled = True
             out.result = "nothing_to_review"
             return out
@@ -250,6 +254,10 @@ class AmbientService:
                 verdict = await delivery.evaluate(wake.owner_id, opportunity.id)
                 if verdict.plan is not None:
                     await self.schedule_for_plan(verdict.plan)
+
+        if scan is not None:
+            from agent.background import consider_opportunities
+            await consider_opportunities(self.db, wake.owner_id, scan)
 
         out.handled = True
         out.result = "reviewed"

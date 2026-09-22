@@ -280,6 +280,9 @@ async def _handle(db, wake) -> Any:
     from ambient.service import AmbientService
 
     service = AmbientService(db)
+    if wake.reason == "opportunity_revisit" and wake.source_ref.startswith("goal:"):
+        from agent.background import advance_wake
+        return await advance_wake(db, wake)
     if wake.reason == "delivery_recheck":
         return await service.recheck_delivery(wake)
     if wake.reason in ("opportunity_revisit", "state_changed", "ambient_review"):
@@ -332,6 +335,8 @@ async def _loop() -> None:
                 _stats["sources_deferred_for_call"] += 1
             else:
                 await read_sources(db)
+            from agent.background import recover_due
+            await recover_due(db)
             await tick(db)
             ticks += 1
             # Le relazioni: piu' lente delle letture, piu' rapide della rete

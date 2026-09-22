@@ -656,6 +656,9 @@ class AutonomousGoal(BaseModel):
     created_at: str = Field(default_factory=now_iso)
     updated_at: str = Field(default_factory=now_iso)
     completed_at: Optional[str] = None
+    # Durable continuation; absent on legacy goals (no unsolicited replay).
+    next_run_at: Optional[str] = None
+    background_runs: int = 0
 
     def touch(self) -> None:
         self.updated_at = now_iso()
@@ -1206,6 +1209,7 @@ class AgentRun(BaseModel):
     owner_id: str
     goal_id: str = ""
 
+    background: bool = False
     iterations: int = 0
     model_calls: int = 0
     steps_executed: int = 0

@@ -4573,3 +4573,12 @@ Configure Cursor as Emergent-like autonomous platform; analysis then automation 
   call anywhere), full existing Calendar/AI-Core/Situation/Memory/Life-OS/Provider-Manager
   regression green, real backend boot verified directly (`server.startup()`), no dependency,
   no migration.
+
+
+### 2026-09-22 — Connect background observations to bounded work
+- Share opportunity-to-goal consideration between both background entry points.
+- Dispatch goal wakes to the existing executor and recover due new goals after restart.
+- Respect user waits; cap autonomous passes and prepare external effects without executing.
+- Keep recent verified completion results in Home updates; use actual rationale rather than desired outcome.
+- Reuse Home's calendar reader, exclude obsolete/cancelled/unselected records, label synchronization provenance.
+- Add eight isolated regression tests in tests/test_background_agent_loop.py. Test-only dependency: mongomock-motor (`pip install mongomock-motor`). Its _id projection discrepancy is isolated in the test fixture; no production behavior is changed for the mock.

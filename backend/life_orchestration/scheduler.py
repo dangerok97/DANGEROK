@@ -379,33 +379,9 @@ async def _consider_goals(user_id: str, scan: Any) -> None:
     answer is no, and there is no branch here that could make it yes.
     """
     from deps import db
-    from agent.service import AgentService
+    from agent.background import consider_opportunities
 
-    service = AgentService(db)
-    for opportunity in list(getattr(scan, "created", []) or [])[:2]:
-        try:
-            await service.consider(
-                user_id,
-                situation={
-                    "what": opportunity.semantic_summary,
-                    "why_it_matters": opportunity.why_it_matters,
-                    "why_now": opportunity.why_now or None,
-                    "waiting_on_an_answer": opportunity.requires_clarification,
-                    "the_question": opportunity.clarifying_question or None,
-                    # Fin dove si era spinto chi ha deciso di parlarne, e cosa
-                    # si era offerto di fare. Non vincola questa decisione:
-                    # e' l'informazione che le mancava per non trasformare
-                    # una frase utile in un lavoro che nessuno voleva.
-                    "how_far_ora_meant_to_go": opportunity.initiative,
-                    "what_ora_offered_to_do": opportunity.what_ora_can_do or None,
-                },
-                origin="agent_initiated",
-                opportunity_id=opportunity.id,
-                source_kind="opportunity",
-                source_refs=[e.ref for e in opportunity.evidence][:4],
-            )
-        except Exception as exc:
-            logger.info("agent consider soft-fail: %s", type(exc).__name__)
+    await consider_opportunities(db, user_id, scan)
 
 
 async def _worker_loop() -> None:

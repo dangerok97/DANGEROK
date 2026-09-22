@@ -47,6 +47,7 @@ class AgentRepository:
         try:
             await self.db[GOALS].create_index("id", unique=True)
             await self.db[GOALS].create_index([("owner_id", 1), ("status", 1)])
+            await self.db[GOALS].create_index([("next_run_at", 1), ("status", 1)])
             # One open goal per concern. Two would be the same work twice.
             await self.db[GOALS].create_index(
                 [("owner_id", 1), ("opportunity_id", 1)],

@@ -158,6 +158,7 @@ class AgentService:
         goal = AutonomousGoal(
             owner_id=owner_id,
             status="active",
+            next_run_at=_now().isoformat(),
             origin=origin,  # type: ignore[arg-type]
             objective=str(answer.get("objective") or "")[:280],
             desired_outcome=str(answer.get("desired_outcome") or "")[:400],
@@ -215,10 +216,24 @@ class AgentService:
                 "goal": goal.for_human(),
             }
 
-        run = AgentRun(owner_id=owner_id, goal_id=goal.id)
+        if worker_id.startswith("ambient:"):
+            if goal.background_runs >= 3:
+                goal.next_run_at = None
+                await self.repo.save_goal(goal)
+                await self.repo.release(goal_id, stopped_because="background_budget")
+                return {"ok": True, "state": "background_paused"}
+            goal.background_runs += 1
+        # Persist recovery before execution: a killed worker leaves a due goal.
+        goal.next_run_at = (_now() + timedelta(minutes=5)).isoformat()
+        await self.repo.save_goal(goal)
+        run = AgentRun(owner_id=owner_id, goal_id=goal.id, background=worker_id.startswith("ambient:"))
         allowance = budget or AgentBudget()
         try:
             result = await self._work(owner_id, goal, run, allowance, language=language)
+            if (not goal.is_open or goal.requires_user_input or goal.requires_user_authority
+                    or (run.background and goal.background_runs >= 3)):
+                goal.next_run_at = None
+            await self.repo.save_goal(goal)
         finally:
             await self.repo.release(goal_id, stopped_because=run.stopped_because)
 
@@ -432,6 +447,8 @@ class AgentService:
         is being handled and nothing that will ever handle it.
         """
         plan.status = "active"
+        goal.next_run_at = (_now() + timedelta(hours=CONTINUE_IN_HOURS)).isoformat()
+        await self.repo.save_goal(goal)
         await self.repo.save_plan(plan)
         await self.repo.journal(
             owner_id, goal.id, kind="continues_later", note=f"tetto raggiunto: {why}",
@@ -504,7 +521,8 @@ class AgentService:
             effective = await self.authority.effective_authority(
                 owner_id, self.executor._intent_for(owner_id, goal, step), assessment
             )
-            may_touch = effective.may_execute
+            # The initial autonomous rollout reads/prepares; effects need a user turn.
+            may_touch = effective.may_execute and not run.background
             await self.repo.journal(
                 owner_id, goal.id, kind="authority_effective",
                 note=effective.reason_code, detail=effective.public(),
@@ -1008,6 +1026,7 @@ class AgentService:
             step.status = "waiting"
         plan.status = "waiting"
         goal.status = "waiting"
+        goal.next_run_at = (_now() + timedelta(hours=hours)).isoformat()
         await self.repo.save_plan(plan)
         await self.repo.save_goal(goal)
 
@@ -1521,6 +1540,20 @@ class AgentService:
             THE USER SHOULD EXPERIENCE OUTCOMES, NOT WORKFLOWS.
         """
         out: List[Dict[str, Any]] = []
+        completed = await self.db.agent_goals.find({
+            "owner_id": owner_id, "status": "completed",
+            "completed_at": {"$gte": (_now() - timedelta(hours=24)).isoformat()},
+        }, {"_id": 0}).sort("completed_at", -1).to_list(1)
+        for row in completed:
+            goal = AutonomousGoal.model_validate(row)
+            # Only verified work with real evidence becomes a completed card.
+            evidence = await self.evidence.for_goal(owner_id, goal.id)
+            if not real_support(evidence):
+                continue
+            out.append({**goal.for_human(), "state": "Verifica completata",
+                "outcome": goal.rationale, "why_now": goal.rationale,
+                "source": await self._where_it_really_came_from(owner_id, goal),
+                "needs_you": "", "unknown": ""})
         for goal in await self.repo.open_goals(owner_id, limit=3):
             scheda = {
                 **goal.for_human(),
@@ -1627,6 +1660,10 @@ class AgentService:
         provenance it was written with. A goal that has done nothing yet says
         so.
         """
+        if goal.background_runs >= 3 and not goal.next_run_at and goal.is_open and not (
+            goal.requires_user_input or goal.requires_user_authority
+        ):
+            return "Verifica sospesa: non ho raggiunto un esito entro i tentativi disponibili."
         if goal.status == "waiting" and not (
             goal.requires_user_input or goal.requires_user_authority
         ):
@@ -1749,7 +1786,7 @@ class AgentService:
             await DeliveryService(self.db).note_activity(
                 owner_id,
                 kind="review_completed",
-                summary=goal.desired_outcome[:200] if finished else "",
+                summary=goal.rationale[:200] if finished else "",
                 source_refs=[goal.id],
                 provenance={"agent": kind, "objective": goal.objective[:120]},
                 visible=finished,

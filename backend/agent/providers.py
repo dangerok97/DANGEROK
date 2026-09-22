@@ -255,58 +255,30 @@ async def read_calendar(db, owner_id: str, goal) -> CapabilityOutcome:
             retryable=False,
         )
 
-    now = _now()
-    horizon = (now + timedelta(days=14)).isoformat()
     try:
-        events = await db.ingestion_events.find(
-            {
-                "user_id": owner_id,
-                "connector_id": "calendar_google",
-                "source_record_type": "calendar_event",
-                "normalized_payload.starts_at.value": {
-                    "$gte": now.isoformat(), "$lte": horizon
-                },
-            },
-            {"_id": 0, "normalized_payload": 1},
-        ).sort("normalized_payload.starts_at.value", 1).to_list(MAX_EVENTS)
-    except Exception as e:
-        logger.info("calendar read soft-fail: %s", type(e).__name__)
-        return CapabilityOutcome(
-            status="failed",
-            observation="Il calendario non ha risposto.",
-            provenance=ResultProvenance(
-                source_class="connected_provider", capability="calendar.read"
-            ),
-            error_type="provider_unavailable",
-            retryable=True,
-        )
-
-    claims: List[Claim] = []
-    for event in events:
-        payload = event.get("normalized_payload") or {}
-        title = ((payload.get("title") or {}).get("value") or "").strip()
-        starts = ((payload.get("starts_at") or {}).get("value") or "")[:16]
-        if title:
-            claims.append(Claim(
-                text=f"In calendario: {title} - {starts}"[:400],
-                supports="cosa c'e gia in agenda",
-            ))
-
+        from home.adapters.google_calendar import load_google_calendar_events, google_connection_state
+        from agent.evidence import freshness_of
+        state = await google_connection_state(db, owner_id)
+        events, warnings = await load_google_calendar_events(db, owner_id)
+        synced_at = str(state.get("last_sync_at") or "")
+        freshness = freshness_of(synced_at) if synced_at else "unknown"
+    except Exception:
+        return _unavailable("calendar.read", "read_failed", "Non sono riuscita a leggere il calendario sincronizzato.")
+    claims = [Claim(
+        text=f"In calendario: {event.title} — {event.start_at}"[:400],
+        supports="appuntamento presente nell'ultima sincronizzazione",
+    ) for event in events[:MAX_EVENTS]]
     return CapabilityOutcome(
         status="succeeded" if claims else "partial",
-        observation=(
-            f"Ho guardato il calendario: {len(claims)} cose nelle prossime due settimane."
-            if claims
-            else "Ho guardato il calendario: nelle prossime due settimane e libero."
-        ),
+        observation=(f"Ho letto {len(claims)} appuntamenti dal calendario sincronizzato. "
+                     if claims else "Non ho trovato appuntamenti nella finestra letta. ")
+                    + (f"Ultima sincronizzazione: {synced_at}. " if synced_at else "Data dell'ultima sincronizzazione non disponibile. ")
+                    + "La lettura è limitata ai calendari selezionati e ai prossimi 14 giorni; non conferma cancellazioni di viaggi o prenotazioni.",
         provenance=ResultProvenance(
-            source_class="connected_provider",
-            capability="calendar.read",
-            provider="calendar",
-            freshness="fresh",
+            source_class="internal_observation", capability="calendar.read",
+            provider="google_calendar_sync", freshness=freshness,
         ),
-        claims=claims[:MAX_CLAIMS],
-        data_ref="calendar",
+        claims=claims[:MAX_CLAIMS], data_ref="calendar",
     )
 
 
