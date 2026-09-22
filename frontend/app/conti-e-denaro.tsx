@@ -111,10 +111,10 @@ export default function ContiEDenaroScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.header}>
         <Pressable
-          onPress={() => router.back()}
+          onPress={() => router.replace('/(tabs)')}
           style={styles.back}
           accessibilityRole="button"
-          accessibilityLabel="Torna indietro"
+          accessibilityLabel="Torna alla Home"
         >
           <Ionicons name="chevron-back" size={22} color={tokens.color.textPrimary} />
         </Pressable>

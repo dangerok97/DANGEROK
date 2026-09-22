@@ -1,3 +1,7 @@
+## 2026-09-22 — Conti e denaro: ritorno alla Home
+
+La freccia apre esplicitamente la Home con `router.replace`, anche dopo callback bancario in una nuova scheda senza cronologia interna. Etichetta accessibile: Torna alla Home.
+
 ## 2026-09-22 — Esito verifiche cloud V3.21.4
 
 ## Banca sandbox in Vita — 22 settembre 2026
