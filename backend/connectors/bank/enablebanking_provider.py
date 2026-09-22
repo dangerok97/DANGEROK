@@ -145,24 +145,24 @@ class EnableBankingProvider:
         *,
         application_id: str,
         private_key_path: str,
+        private_key_pem: str = "",
         redirect_uri: str = "",
         environment: str = "sandbox",
         api_origin: str = API_ORIGIN,
         http: Any = None,
     ):
-        if not application_id or not private_key_path:
+        if not application_id or not (private_key_path or private_key_pem):
             raise EnableBankingNotConfigured(
                 "servono l'id dell'applicazione e il percorso della chiave"
             )
-        if not os.path.isfile(private_key_path):
+        if not private_key_pem and not os.path.isfile(private_key_path):
             raise EnableBankingNotConfigured(
                 "la chiave privata non si trova dove dice la configurazione"
             )
         self.application_id = application_id
-        # Il *percorso*, non la chiave. Il contenuto si legge quando serve e
-        # non resta in memoria piu' del necessario: un oggetto che porta in
-        # giro una chiave privata finisce prima o poi dentro un repr.
+        # Local development accepts a file; cloud accepts a server-only PEM secret.
         self._key_path = private_key_path
+        self._key_pem = private_key_pem
         self.redirect_uri = redirect_uri
         self.environment = (environment or "sandbox").lower()
         self.api_origin = api_origin.rstrip("/")
@@ -185,6 +185,7 @@ class EnableBankingProvider:
         """
         return cls(
             application_id=os.environ.get("ENABLE_BANKING_APPLICATION_ID", "").strip(),
+            private_key_pem=os.environ.get("ENABLE_BANKING_PRIVATE_KEY", "").strip().replace("\\n", "\n"),
             private_key_path=os.environ.get(
                 "ENABLE_BANKING_PRIVATE_KEY_PATH", "").strip().strip('"'),
             redirect_uri=os.environ.get("ENABLE_BANKING_REDIRECT_URI", "").strip(),
@@ -220,8 +221,11 @@ class EnableBankingProvider:
 
         now = int(time.time())
         try:
-            with open(self._key_path, "rb") as handle:
-                key = handle.read()
+            if self._key_pem:
+                key = self._key_pem.encode("utf-8")
+            else:
+                with open(self._key_path, "rb") as handle:
+                    key = handle.read()
         except OSError as e:
             # Il messaggio dice cosa manca, non dove: un percorso in un log
             # e' meta' del lavoro di chi cerca la chiave.

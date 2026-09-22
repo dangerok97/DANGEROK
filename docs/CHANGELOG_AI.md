@@ -1,5 +1,9 @@
 ## 2026-09-22 — Esito verifiche cloud V3.21.4
 
+## Banca sandbox in Vita — 22 settembre 2026
+
+Spazio dedicato nella Vita guidata con accesso alle pagine bancarie esistenti, etichettato ORA LOCAL / conti simulati. Supporto backend a ENABLE_BANKING_PRIVATE_KEY (PEM server-side) oltre al percorso locale. Solo sandbox autorizzata: nessun conto ING reale. Collegamento end-to-end ancora bloccato dalla chiave privata ORA LOCAL e dalla registrazione della callback Railway sulla app sandbox.
+
 ## Pagine pubbliche per prova bancaria personale — 22 settembre 2026
 
 Aggiunte `/privacy` e `/terms` sul backend, HTML pubblico senza login, senza nome/cognome su richiesta. Ambito ristretto alla prova bancaria personale; contatto email, sola lettura, revoca distinta dalla cancellazione, conservazione non ancora uniformata e regione USA espliciti. Non dichiarate conformi per lancio pubblico. Nessuna dipendenza o modifica DB.
