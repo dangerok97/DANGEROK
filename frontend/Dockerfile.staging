@@ -1,0 +1,20 @@
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm ci
+
+COPY . .
+
+ENV NODE_ENV=production
+ENV EXPO_PUBLIC_BACKEND_URL=https://ora-backend-production-aa56.up.railway.app
+
+RUN npx expo export --platform web --output-dir dist
+
+FROM nginx:1.27-alpine
+
+COPY nginx.staging.conf /etc/nginx/conf.d/default.conf
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+EXPOSE 8080
