@@ -75,3 +75,16 @@ async def test_external_session_continuation_is_visible(setup):
     result = await update_work(db, 'alice', opp)
     assert result['result']['ora_text'] == 'Nuovo esito'
     assert result['status'] == 'ready'
+
+
+@pytest.mark.asyncio
+async def test_suggestion_reuses_durable_session_without_fake_opportunity(setup):
+    db, suggestion, orch = setup
+    db.proactive_suggestions = SimpleNamespace(update_one=AsyncMock())
+    suggestion.id = 'psug_test'
+    first = await update_work(db, 'alice', suggestion, start=True, source_kind='suggestion')
+    again = await update_work(db, 'alice', suggestion, start=True, source_kind='suggestion')
+    assert first == again and orch.start.await_count == 1
+    assert orch.start.call_args.kwargs['opportunity_id'] is None
+    db.opportunities.update_one.assert_not_awaited()
+    assert await update_work(db, 'bob', suggestion, source_kind='suggestion') == {'status': 'not_started'}

@@ -65,6 +65,38 @@ class ProactiveEngineService:
             "suggestions": [s.public() for s in created],
         }
 
+    async def refresh_calendar(self, user_id: str) -> None:
+        """Prepare from a successful sync, even with no open app or AI provider."""
+        if not proactive_engine_enabled():
+            return
+        from proactive_engine.generators.calendar import generate_calendar_candidates, _load_events, _parse, _overlap
+        now = datetime.now(timezone.utc)
+        candidates = await generate_calendar_candidates(self.db, user_id, now=now)
+        current = {e["id"]: e for e in await _load_events(self.db, user_id, now)}
+        existing = await self.repo.list_for_user(user_id, suggestion_type="calendar", limit=200)
+        for item in existing:
+            if item.source != "calendar" or item.status not in ("active", "snoozed"):
+                continue
+            evidence = item.meta.get("evidence") or {}
+            pair = [current.get((evidence.get(k) or {}).get("id")) for k in ("event_a", "event_b")]
+            dates = [_parse(e.get(k)) if e else None for e in pair for k in ("starts_at", "ends_at")]
+            if not all(dates) or not _overlap(*dates) or min(dates[1], dates[3]) <= now:
+                await self.repo.update_fields(user_id, item.id, {"status": "expired", "meta.preparation.summary": "Questa segnalazione è superata dai dati attuali."})
+        fresh = []
+        for candidate in candidates:
+            match = next((x for x in existing if x.dedupe_key == candidate.dedupe_key and x.status != "expired"), None)
+            if match:
+                if match.status in ("active", "snoozed"):
+                    await self.repo.update_fields(user_id, match.id, {
+                        "title": candidate.title, "description": candidate.description,
+                        "action": candidate.action.model_dump(), "expires_at": candidate.expires_at,
+                        "meta.preparation": candidate.meta["preparation"], "meta.evidence": candidate.evidence,
+                    })
+            else:
+                fresh.append(candidate)
+        await self.submit_candidates(user_id, fresh, now=now)
+        logger.info("calendar_preparation checked=%s candidates=%s", len(existing), len(candidates))
+
     async def submit_candidates(
         self,
         user_id: str,

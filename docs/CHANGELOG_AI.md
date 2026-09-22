@@ -4582,3 +4582,10 @@ Configure Cursor as Emergent-like autonomous platform; analysis then automation 
 - Keep recent verified completion results in Home updates; use actual rationale rather than desired outcome.
 - Reuse Home's calendar reader, exclude obsolete/cancelled/unselected records, label synchronization provenance.
 - Add eight isolated regression tests in tests/test_background_agent_loop.py. Test-only dependency: mongomock-motor (`pip install mongomock-motor`). Its _id projection discrepancy is isolated in the test fixture; no production behavior is changed for the mock.
+
+
+### Calendar conflict preparation — 2026-09-23
+
+The deterministic calendar suggestion path now prepares up to two alternative times after successful background calendar sync, independently of Home and LLM availability. It reuses Home’s current selected Google calendar reader, excludes stale Google graph mirrors, keeps duration, checks other observed commitments and retires outdated conflict cards. Alternatives are indicative (08–20 in resolved timezone, next three days, bounded observed calendars); stale sync or missing durations prevents proposals. No calendar writes occur in preparation.
+
+The generic `meta.preparation` / `prepare_change` contract exposes actual work, timestamps, limits and the question to the user. Suggestion detail continues through the existing owner-scoped durable update-work session, not a generic situation route. The chosen event and external participants still need confirmation; no automatic rescheduling or push delivery is claimed. Regression tests cover alternative conflicts/duration, stale data, refresh/retirement, background poll wiring, owner isolation and single-session continuation. TypeScript and web export are validation gates; the real-user end-to-end resolution gate remains open. No new dependencies, secrets, collections or indexes.

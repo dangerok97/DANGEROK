@@ -586,6 +586,14 @@ async def poll_once(
             result = await ConnectedLifeService(db).sync(owner_id, source.id)
             if result.get("ok"):
                 handled["read"] += 1
+                if source.source_type == "calendar":
+                    try:
+                        from proactive_engine.service import ProactiveEngineService
+                        await ProactiveEngineService(db).refresh_calendar(owner_id)
+                    except Exception as exc:
+                        # The source read succeeded; preparation retries on the next poll.
+                        logger.warning("calendar_preparation failed: %s", type(exc).__name__)
+
                 if result.get("recorded") and owner_id not in brought_something:
                     brought_something.append(owner_id)
             else:

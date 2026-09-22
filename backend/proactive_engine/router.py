@@ -2,6 +2,9 @@
 from __future__ import annotations
 
 from typing import Optional
+from pydantic import BaseModel, Field
+from types import SimpleNamespace
+import json
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
@@ -107,3 +110,40 @@ async def notification_policy(suggestion_id: str, user=Depends(get_current_user)
     if not res.get("ok"):
         raise HTTPException(status_code=404, detail=res.get("error") or "not_found")
     return res
+
+
+class PreparationReply(BaseModel):
+    reply: str = Field(default="", max_length=2000)
+
+
+async def _preparation_work(user_id, suggestion_id, *, start=False, reply=""):
+    from opportunities.work import update_work
+    svc = _svc()
+    suggestion = await svc.repo.get(user_id, suggestion_id)
+    if suggestion is None:
+        raise HTTPException(404, "not_found")
+    if not suggestion.action or suggestion.action.kind != "prepare_change":
+        raise HTTPException(409, "Nessuna preparazione disponibile per questo aggiornamento.")
+    if start and suggestion.status not in ("active", "snoozed"):
+        raise HTTPException(409, "La segnalazione è superata. Riapri gli aggiornamenti.")
+    if start and suggestion.type == "calendar":
+        await svc.refresh_calendar(user_id)
+        suggestion = await svc.repo.get(user_id, suggestion_id)
+        if suggestion.status not in ("active", "snoozed"):
+            raise HTTPException(409, "La segnalazione è superata. Riapri gli aggiornamenti.")
+    prep = suggestion.meta.get("preparation") or {}
+    context = SimpleNamespace(id=suggestion.id, semantic_summary=suggestion.description or suggestion.title,
+        what_ora_can_do="Prepara una proposta di spostamento, senza eseguirla. Chiedi quale impegno si può spostare. "
+            "Ricontrolla gli eventi attuali prima di proporre una modifica. Queste alternative sono indicative: "
+            + json.dumps(prep, ensure_ascii=False), evidence=[])
+    return await update_work(db, user_id, context, start=start, reply=reply, source_kind="suggestion")
+
+
+@router.get("/{suggestion_id}/work")
+async def get_preparation_work(suggestion_id: str, user=Depends(get_current_user)):
+    return await _preparation_work(user["user_id"], suggestion_id)
+
+
+@router.post("/{suggestion_id}/work")
+async def start_preparation_work(suggestion_id: str, body: PreparationReply, user=Depends(get_current_user)):
+    return await _preparation_work(user["user_id"], suggestion_id, start=True, reply=body.reply)

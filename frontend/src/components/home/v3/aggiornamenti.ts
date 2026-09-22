@@ -38,7 +38,8 @@ export type Aggiornamento = {
   /** Il prossimo passo, quando esiste davvero. */
   prossimo_passo: string;
   quando: string;
-  azione?: { kind: 'verify' | 'suggestion' | 'route'; label: string; route?: string; params?: Record<string, unknown> };
+  preparazione?: { checked_at?: string; summary?: string; question?: string; limits?: string; options?: { event_id: string; title: string; starts_at: string; ends_at: string }[] };
+  azione?: { kind: 'verify' | 'prepare' | 'suggestion' | 'route'; label: string; route?: string; params?: Record<string, unknown> };
 };
 
 const SENZA_FONTE = 'originale non disponibile';
@@ -84,12 +85,13 @@ export function elencoAggiornamenti(home: HomeV2Response | null | undefined): Ag
     cosa: s.title,
     perche: s.description || s.reason || '',
     fonte: s.source_label || SENZA_FONTE,
-    stato: '',
-    cosa_sta_facendo: '',
-    cosa_serve: '',
+    stato: s.status === 'expired' ? 'Segnalazione superata' : s.meta?.preparation ? 'Alternative esaminate' : '',
+    cosa_sta_facendo: (s.meta?.preparation as Aggiornamento['preparazione'])?.summary || '',
+    cosa_serve: (s.meta?.preparation as Aggiornamento['preparazione'])?.question || '',
     non_so: '',
-    prossimo_passo: s.action?.label || '',
-    azione: s.action ? { kind: 'suggestion', label: s.action.label, route: s.action.route || undefined, params: s.action.params } : undefined,
+    preparazione: s.meta?.preparation as Aggiornamento['preparazione'],
+    prossimo_passo: (s.meta?.preparation as Aggiornamento['preparazione'])?.question || s.action?.label || '',
+    azione: s.action && !['expired', 'dismissed', 'completed'].includes(s.status || '') ? { kind: s.action.kind === 'prepare_change' ? 'prepare' : 'suggestion', label: s.action.label, route: s.action.route || undefined, params: s.action.params } : undefined,
     quando: s.created_at || '',
   }));
 

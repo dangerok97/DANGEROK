@@ -10,8 +10,10 @@ def evidence_labels(evidence):
     return list(dict.fromkeys(e.summary or e.kind for e in unique.values()))
 
 
-async def update_work(db, owner, opportunity, *, start=False, reply=''):
+async def update_work(db, owner, opportunity, *, start=False, reply='', source_kind='opportunity'):
     key = {'_id': f'{owner}:{opportunity.id}', 'owner_id': owner}
+    source_col = db.opportunities if source_kind == 'opportunity' else db.proactive_suggestions
+    source_key = {'owner_id' if source_kind == 'opportunity' else 'user_id': owner, 'id': opportunity.id}
     col = db.update_work
     row = await col.find_one(key)
     if not start:
@@ -21,33 +23,33 @@ async def update_work(db, owner, opportunity, *, start=False, reply=''):
             if latest.get('ok') and latest.get('ora_text') != (row.get('result') or {}).get('ora_text'):
                 row = {**row, 'result': latest, 'status': 'ready'}
                 await col.update_one(key, {'$set': {'result': latest, 'status': 'ready'}})
-                await db.opportunities.update_one({'owner_id': owner, 'id': opportunity.id}, {'$set': {'work_status': 'ready'}})
+                await source_col.update_one(source_key, {'$set': {'work_status': 'ready'}})
         if row and row.get('status') == 'running':
             age = (datetime.now(timezone.utc) - datetime.fromisoformat(row['started_at'])).total_seconds()
             if age > 180:
                 row = {**row, 'status': 'interrupted', 'message': 'La verifica non ha restituito un esito. Non la avvio di nuovo automaticamente.'}
         return {k: v for k, v in (row or {'status': 'not_started'}).items() if k not in ('_id', 'owner_id')}
     if row and not reply:
-        return await update_work(db, owner, opportunity)
+        return await update_work(db, owner, opportunity, source_kind=source_kind)
     if reply:
         if not row or not row.get('session_id'):
             raise HTTPException(409, 'Nessuna verifica da continuare.')
         claimed = await col.update_one({**key, 'status': {'$in': ['ready', 'needs_user']}}, {'$set': {'status': 'running', 'started_at': datetime.now(timezone.utc).isoformat()}})
         if not claimed.modified_count:
-            return await update_work(db, owner, opportunity)
+            return await update_work(db, owner, opportunity, source_kind=source_kind)
     else:
         try:
             await col.insert_one({**key, 'status': 'running', 'started_at': datetime.now(timezone.utc).isoformat()})
         except DuplicateKeyError:
-            return await update_work(db, owner, opportunity)
-    await db.opportunities.update_one({'owner_id': owner, 'id': opportunity.id}, {'$set': {'work_status': 'running'}})
+            return await update_work(db, owner, opportunity, source_kind=source_kind)
+    await source_col.update_one(source_key, {'$set': {'work_status': 'running'}})
     from conversation_engine.ai_core.orchestrator import AICoreOrchestrator
     orch = AICoreOrchestrator(db)
     try:
         if reply:
             result = await orch.message(owner, row['session_id'], text=reply)
         else:
-            result = await orch.start(owner, origin='home', entry_point='update', opportunity_id=opportunity.id,
+            result = await orch.start(owner, origin='home', entry_point='update', opportunity_id=opportunity.id if source_kind == 'opportunity' else None,
                 text='Verifica questo aggiornamento e il prossimo passo proposto usando le fonti accessibili. '
                      'Tratta la segnalazione come ipotesi da verificare, non come fatto confermato. '
                      'Riferimenti ripetuti non provano eventi ripetuti. Distingui fonti consultate, risultati e limiti. '
@@ -58,12 +60,12 @@ async def update_work(db, owner, opportunity, *, start=False, reply=''):
         status = 'needs_user' if result.get('question') else 'ready'
         if not result.get('ok'):
             status = 'failed'
-        await db.opportunities.update_one({'owner_id': owner, 'id': opportunity.id}, {'$set': {'work_status': status}})
+        await source_col.update_one(source_key, {'$set': {'work_status': status}})
         await col.update_one(key, {'$set': {'status': status, 'session_id': result.get('session_id'), 'result': result,
             'updated_at': datetime.now(timezone.utc).isoformat()}})
     except Exception:
-        await db.opportunities.update_one({'owner_id': owner, 'id': opportunity.id}, {'$set': {'work_status': 'failed'}})
+        await source_col.update_one(source_key, {'$set': {'work_status': 'failed'}})
         # Never silently launch a second execution after an uncertain failure.
         await col.update_one(key, {'$set': {'status': 'failed', 'message': 'Verifica interrotta. Non considero risolto questo aggiornamento.'}})
         raise HTTPException(503, 'Verifica interrotta. Riapri la scheda per controllare lo stato.') from None
-    return await update_work(db, owner, opportunity)
+    return await update_work(db, owner, opportunity, source_kind=source_kind)

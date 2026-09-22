@@ -779,3 +779,10 @@ sempre conferma. Sempre.
 
 ### 2026-09-22 — Background work, first activation
 New goals arising from an opportunity are scheduled automatically on Railway. The existing agent can read and prepare without a Home request; external effects stop for a user turn even if a standing grant exists. Up to three automatic passes per goal, preserving existing per-pass budgets. A verified completion with real evidence remains in Aggiornamenti for 24 hours, showing the actual verification rationale. Calendar inspection uses the same selected/current-event reader as Home and identifies the last synchronization; it does not equate a removed calendar entry with a cancelled booking. Device notifications remain unavailable while PUSH_PROVIDER is stub.
+
+
+### Calendar conflict preparation — 2026-09-23
+
+The deterministic calendar suggestion path now prepares up to two alternative times after successful background calendar sync, independently of Home and LLM availability. It reuses Home’s current selected Google calendar reader, excludes stale Google graph mirrors, keeps duration, checks other observed commitments and retires outdated conflict cards. Alternatives are indicative (08–20 in resolved timezone, next three days, bounded observed calendars); stale sync or missing durations prevents proposals. No calendar writes occur in preparation.
+
+The generic `meta.preparation` / `prepare_change` contract exposes actual work, timestamps, limits and the question to the user. Suggestion detail continues through the existing owner-scoped durable update-work session, not a generic situation route. The chosen event and external participants still need confirmation; no automatic rescheduling or push delivery is claimed. Regression tests cover alternative conflicts/duration, stale data, refresh/retirement, background poll wiring, owner isolation and single-session continuation. TypeScript and web export are validation gates; the real-user end-to-end resolution gate remains open. No new dependencies, secrets, collections or indexes.

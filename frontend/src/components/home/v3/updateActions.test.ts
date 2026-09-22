@@ -17,3 +17,10 @@ assert.equal(rows.find(x => x.id === 's')?.azione?.params?.day, '25');
 assert.equal(rows.find(x => x.id === 'i')?.azione, undefined);
 assert.equal(rows.find(x => x.id === 'g')?.azione, undefined);
 console.log('Update action contracts: PASS');
+
+const prepared: any = { ora_ti_consiglia: [{ id: 'psug_test', title: 'Conflitto', status: 'active', action: { kind: 'prepare_change', label: 'Prepara' }, meta: { preparation: { summary: 'Orari confrontati', question: 'Quale puoi spostare?', options: [] } } }] };
+assert.equal(elencoAggiornamenti(prepared)[0].azione?.kind, 'prepare');
+assert.equal(elencoAggiornamenti(prepared)[0].cosa_sta_facendo, 'Orari confrontati');
+assert.equal(elencoAggiornamenti(prepared)[0].cosa_serve, 'Quale puoi spostare?');
+prepared.ora_ti_consiglia[0].status = 'expired';
+assert.equal(elencoAggiornamenti(prepared)[0].azione, undefined);

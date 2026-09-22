@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
-from proactive_engine.dedupe import make_dedupe_key, window_label
+from proactive_engine.dedupe import make_dedupe_key
 from proactive_engine.models import SuggestionAction, SuggestionCandidate
 
 
@@ -34,6 +34,7 @@ async def _load_events(db, user_id: str, now: datetime) -> List[Dict[str, Any]]:
             "user_id": user_id,
             "type": "event",
             "status": "active",
+            "attributes.connector_id": {"$ne": "calendar_google"},
             "attributes.starts_at": {
                 "$gte": (now - timedelta(hours=1)).isoformat(),
                 "$lte": end.isoformat(),
@@ -55,28 +56,17 @@ async def _load_events(db, user_id: str, now: datetime) -> List[Dict[str, Any]]:
             "source": "life_node",
         })
 
-    # Google-ingested mirrors (if present as ingestion / calendar events collection)
-    try:
-        gcur = db.calendar_events.find(
-            {
-                "user_id": user_id,
-                "starts_at": {
-                    "$gte": (now - timedelta(hours=1)).isoformat(),
-                    "$lte": end.isoformat(),
-                },
-            },
-            {"_id": 0},
-        ).limit(100)
-        for d in await gcur.to_list(100):
-            events.append({
-                "id": d.get("id") or d.get("external_id"),
-                "title": d.get("title") or d.get("summary") or "Evento",
-                "starts_at": d.get("starts_at") or d.get("start"),
-                "ends_at": d.get("ends_at") or d.get("end"),
-                "source": "calendar_events",
-            })
-    except Exception:
-        pass
+    # Use the same current, selected-calendar view as Home. Life graph Google
+    # mirrors can lag ingestion (and still contain cancelled appointments).
+    from home.adapters.google_calendar import load_google_calendar_events, google_connection_state
+    state = await google_connection_state(db, user_id)
+    items, _ = await load_google_calendar_events(db, user_id)
+    for item in items:
+        events.append({
+            "id": "google:" + str(item.meta.get("external_id") or item.source_id),
+            "title": item.title, "starts_at": item.start_at, "ends_at": item.end_at,
+            "source": "google_calendar", "synced_at": state.get("last_sync_at"),
+        })
 
     return events
 
@@ -91,14 +81,18 @@ async def generate_calendar_candidates(
         s = _parse(ev.get("starts_at"))
         if not s:
             continue
-        e = _parse(ev.get("ends_at")) or (s + timedelta(hours=1))
-        if e <= s:
-            e = s + timedelta(minutes=30)
-        parsed.append((ev, s, e))
+        e = _parse(ev.get("ends_at"))
+        if not e or e <= s:
+            continue
+        if e > now:
+            parsed.append((ev, s, e))
 
     parsed.sort(key=lambda x: x[1])
     out: List[SuggestionCandidate] = []
-    win = window_label(now, 12)
+    win = "conflict-v2"
+    from timezone_service import resolve_user_timezone
+    from zoneinfo import ZoneInfo
+    tz = ZoneInfo((await resolve_user_timezone(db, user_id)).tz_name)
     seen_pairs = set()
 
     for i in range(len(parsed)):
@@ -114,12 +108,29 @@ async def generate_calendar_candidates(
                 continue
             seen_pairs.add(pair_key)
 
-            title = "Due impegni si sovrappongono — modifica uno"
+            options = alternative_slots(parsed, (a, a0, a1), (b, b0, b1), now=now, tz=tz)
+            fresh = all(_parse(ev.get("ends_at")) for ev in events) and all(ev.get("source") != "google_calendar" or (
+                _parse(ev.get("synced_at")) and now - _parse(ev["synced_at"]) < timedelta(minutes=5)
+            ) for ev, _, _ in parsed)
+            if not fresh:
+                options = []
+            preparation = {
+                "checked_at": now.isoformat(),
+                "summary": "Ho confrontato gli orari degli impegni e cercato alternative della stessa durata.",
+                "question": "Quale impegno puoi spostare? Le disponibilità degli altri partecipanti vanno confermate.",
+                "options": options,
+                "limits": f"Orari indicativi tra le 08 e le 20 ({tz.key}), entro tre giorni, sui calendari letti. Non includono tempi di viaggio o impegni non collegati.",
+            }
+            if not options:
+                preparation["summary"] = ("I dati non sono abbastanza recenti o completi per proporre orari." if not fresh
+                    else "Non ho trovato un’alternativa della stessa durata nella finestra esaminata.")
+            title = "Due impegni si sovrappongono"
             desc = (
                 f"«{a.get('title')}» e «{b.get('title')}» si sovrappongono. "
-                "Sposta o accorcia uno dei due per evitare conflitti."
+                f"{len(options)} alternative da valutare pronte." if options else
+                f"«{a.get('title')}» e «{b.get('title')}» si sovrappongono. Serve scegliere quale riprogrammare."
             )
-            entity = f"{a.get('id')}|{b.get('id')}"
+            entity = "|".join(pair_key)
             out.append(SuggestionCandidate(
                 title=title,
                 description=desc,
@@ -128,9 +139,8 @@ async def generate_calendar_candidates(
                 source="calendar",
                 calendar_event=str(a.get("id")),
                 action=SuggestionAction(
-                    kind="modify_event",
-                    label="Rivedi impegni",
-                    route="/situazione",
+                    kind="prepare_change",
+                    label="Prepara lo spostamento",
                     params={
                         "event_ids": [a.get("id"), b.get("id")],
                         "titles": [a.get("title"), b.get("title")],
@@ -147,6 +157,7 @@ async def generate_calendar_candidates(
                 importance_hint=0.8,
                 urgency_hint=0.85 if a0 <= now + timedelta(hours=24) else 0.65,
                 confidence=0.9,
+                meta={"preparation": preparation},
                 evidence={
                     "event_a": a,
                     "event_b": b,
@@ -156,3 +167,26 @@ async def generate_calendar_candidates(
             if len(out) >= 3:
                 return out
     return out
+
+
+def alternative_slots(parsed, a, b, *, now, tz):
+    """Bounded deterministic preparation; never changes events or claims availability."""
+    options = []
+    for event, start, end in (a, b):
+        duration = end - start
+        if duration <= timedelta(0) or duration > timedelta(hours=12):
+            continue
+        cursor = max(start, now).astimezone(tz).replace(second=0, microsecond=0)
+        cursor += timedelta(minutes=15 - cursor.minute % 15)
+        stop = start.astimezone(tz) + timedelta(days=3)
+        while cursor + duration <= stop:
+            finish = cursor + duration
+            if (cursor.hour >= 8 and finish.date() == cursor.date() and
+                (finish.hour < 20 or (finish.hour == 20 and finish.minute == 0)) and
+                not any(other["id"] != event["id"] and _overlap(cursor, finish, s, e)
+                        for other, s, e in parsed)):
+                options.append({"event_id": event["id"], "title": event["title"],
+                                "starts_at": cursor.isoformat(), "ends_at": finish.isoformat()})
+                break
+            cursor += timedelta(minutes=15)
+    return options

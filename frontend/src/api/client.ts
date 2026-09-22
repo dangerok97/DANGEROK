@@ -1090,6 +1090,9 @@ export const api = {
       body: JSON.stringify({ state }),
     }),
 
+  getSuggestion: (id: string) => request<{ suggestion: ProactiveSuggestion }>(`/suggestions/${encodeURIComponent(id)}`),
+  getSuggestionWork: (id: string) => request<UpdateWork>(`/suggestions/${encodeURIComponent(id)}/work`),
+  runSuggestionWork: (id: string, reply = '') => request<UpdateWork>(`/suggestions/${encodeURIComponent(id)}/work`, { method: 'POST', body: JSON.stringify({ reply }) }),
   getUpdateWork: (id: string) => request<UpdateWork>(`/opportunities/${encodeURIComponent(id)}/work`),
   runUpdateWork: (id: string, reply = '') => request<UpdateWork>(`/opportunities/${encodeURIComponent(id)}/work`, { method: 'POST', body: JSON.stringify({ reply }) }),
   getOpportunity: (id: string) => request<HomeOpportunity>(`/opportunities/${id}`),

@@ -13,12 +13,15 @@ export function UpdateNextStep({ a }: { a: Aggiornamento }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [reply, setReply] = useState('');
-  const [loaded, setLoaded] = useState(a.azione?.kind !== 'verify');
+  const isPreparation = a.azione?.kind === 'prepare';
+  const usesWork = a.azione?.kind === 'verify' || isPreparation;
+  const [loaded, setLoaded] = useState(!usesWork);
   useEffect(() => {
-    if (a.azione?.kind !== 'verify') return;
+    setWork(null); setReply(''); setLoaded(!usesWork);
+    if (!usesWork) return;
     let active = true;
     const read = async () => {
-      try { const result = await api.getUpdateWork(a.id); if (active) { setWork(result); setLoaded(true); setError(''); } }
+      try { const result = await (isPreparation ? api.getSuggestionWork(a.id) : api.getUpdateWork(a.id)); if (active) { setWork(result); setLoaded(true); setError(''); } }
       catch (e) { if (active) setError(humanizeError(e)); }
     };
     void read();
@@ -29,8 +32,8 @@ export function UpdateNextStep({ a }: { a: Aggiornamento }) {
     if (busy || !a.azione) return;
     setBusy(true); setError('');
     try {
-      if (a.azione.kind === 'verify') {
-        setWork(await api.runUpdateWork(a.id, reply)); setReply('');
+      if (usesWork) {
+        setWork(await (isPreparation ? api.runSuggestionWork(a.id, reply) : api.runUpdateWork(a.id, reply))); setReply('');
       } else if (a.azione.kind === 'suggestion') {
         const accepted = await api.acceptSuggestion(a.id);
         const result = accepted.result as any;
@@ -49,6 +52,14 @@ export function UpdateNextStep({ a }: { a: Aggiornamento }) {
     <OraCard style={{ padding: 20, gap: 12 }} testID="dettaglio-passo">
       <Text style={[oraType.section, { color: ora.ink }]}>Prossimo passo</Text>
       <Text style={[oraType.body, { color: ora.ink2 }]}>{a.prossimo_passo || 'Non è disponibile un’azione eseguibile per questo aggiornamento.'}</Text>
+      {a.preparazione && <View style={{ gap: 10 }}>
+        {a.preparazione.options?.map((option, index) => <View key={`${option.event_id}:${index}`} style={{ gap: 4 }}>
+          <Text style={[oraType.body, { color: ora.ink }]}>{option.title}</Text>
+          <Text style={[oraType.body, { color: ora.ink2 }]}>{new Date(option.starts_at).toLocaleString('it-IT')} – {new Date(option.ends_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}</Text>
+        </View>)}
+        <Text style={[oraType.small, { color: ora.ink2 }]}>{a.preparazione.limits}</Text>
+        {!!a.preparazione.checked_at && <Text style={[oraType.small, { color: ora.ink2 }]}>Controllo eseguito: {new Date(a.preparazione.checked_at).toLocaleString('it-IT')}. Nessun appuntamento modificato.</Text>}
+      </View>}
       {running && <Text accessibilityLiveRegion="polite">Verifica in corso…</Text>}
       {work?.message && <Text>{work.message}</Text>}
       {work?.result?.ora_text && <Text style={[oraType.body, { color: ora.ink }]}>{work.result.ora_text}</Text>}

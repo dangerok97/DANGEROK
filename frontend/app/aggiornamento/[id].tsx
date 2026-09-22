@@ -42,7 +42,15 @@ export default function DettaglioAggiornamento() {
       const result = await api.getHome();
       setHome(result);
       if (!elencoAggiornamenti(result).some(x => x.id === id)) {
-        try { const opportunity = await api.getOpportunity(String(id)); setFallback(elencoAggiornamenti({ opportunities: [opportunity] } as HomeV2Response)[0] || null); } catch { setFallback(null); }
+        try {
+          if (String(id).startsWith('psug_')) {
+            const result = await api.getSuggestion(String(id));
+            setFallback(elencoAggiornamenti({ ora_ti_consiglia: [result.suggestion] } as HomeV2Response)[0] || null);
+          } else {
+            const opportunity = await api.getOpportunity(String(id));
+            setFallback(elencoAggiornamenti({ opportunities: [opportunity] } as HomeV2Response)[0] || null);
+          }
+        } catch { setFallback(null); }
       }
       setErrore(null);
     } catch (e) {
