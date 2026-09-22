@@ -11,6 +11,7 @@ logic sits in dedicated packages: `decision_engine/`, `life_graph/`,
 from __future__ import annotations
 
 import logging
+import os
 
 from fastapi import APIRouter, FastAPI
 from starlette.middleware.cors import CORSMiddleware
@@ -587,10 +588,19 @@ try:
 except Exception:
     logger.exception("Vonage transport not mounted (non-fatal)")
 
+_cors_origins = [
+    origin.strip()
+    for origin in os.environ.get(
+        "CORS_ALLOWED_ORIGINS",
+        "http://localhost:8081,http://127.0.0.1:8081",
+    ).split(",")
+    if origin.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=["*"],
+    allow_origins=_cors_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
