@@ -1,5 +1,10 @@
 ## 2026-09-22 — Esito verifiche cloud V3.21.4
 
+## Verifica storage cloud — 22 settembre 2026, 18:18 UTC
+
+PASS: volume Railway `ora-backend-volume` applicato al backend su `/data/documents` (volume `c34ff6f8-ba25-46b6-8195-9d01852c78b0`). Documento sintetico caricato e scaricato prima del redeploy; dopo il deployment `2a54e3c0-b914-4c8b-8821-acc06bc2b4ad` SUCCESS, download riuscito con SHA-256 identico. Questa verifica supera il precedente blocker di storage effimero. Nessuna modifica al database o dipendenza aggiunta. Non equivale a backup/restore verificato e non chiude da sola V3.21.4.
+
+
 Codice `85ca21c`: sei test mirati passati; sul cloud upload/download sintetico riuscito, accesso da secondo utente 404, token dopo logout 401, nuovo login riuscito. Dopo redeploy il token resta revocato. Health DB 200 e capability telefonia pronte (non prova di chiamata reale).
 
 **Storage NON chiuso:** prova dopo redeploy fallita con 410. Volume `7178fc0e-083e-4690-a8c6-889e37995808` creato ma risulta scollegato; due applicazioni del mount tramite connettore non hanno prodotto un mount effettivo (`hasVolume=false`). Non dichiarare i documenti persistenti. Percorso runtime mantenuto temporaneamente `/tmp/ora-documents`; passare a `/data/documents` solo con mount verificato, poi ripetere upload/redeploy/download. Richiesto intervento tramite pannello Railway; nessun documento personale usato nelle prove.
