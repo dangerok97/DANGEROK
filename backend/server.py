@@ -26,7 +26,10 @@ logging.basicConfig(
 logger = logging.getLogger("ora")
 
 
+from public_information import router as public_information_router
+
 app = FastAPI(title="ORA API")
+app.include_router(public_information_router)
 api = APIRouter(prefix="/api")
 
 

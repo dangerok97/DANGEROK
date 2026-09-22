@@ -1,5 +1,9 @@
 ## 2026-09-22 — Esito verifiche cloud V3.21.4
 
+## Pagine pubbliche per prova bancaria personale — 22 settembre 2026
+
+Aggiunte `/privacy` e `/terms` sul backend, HTML pubblico senza login, senza nome/cognome su richiesta. Ambito ristretto alla prova bancaria personale; contatto email, sola lettura, revoca distinta dalla cancellazione, conservazione non ancora uniformata e regione USA espliciti. Non dichiarate conformi per lancio pubblico. Nessuna dipendenza o modifica DB.
+
 ## Verifica storage cloud — 22 settembre 2026, 18:18 UTC
 
 PASS: volume Railway `ora-backend-volume` applicato al backend su `/data/documents` (volume `c34ff6f8-ba25-46b6-8195-9d01852c78b0`). Documento sintetico caricato e scaricato prima del redeploy; dopo il deployment `2a54e3c0-b914-4c8b-8821-acc06bc2b4ad` SUCCESS, download riuscito con SHA-256 identico. Questa verifica supera il precedente blocker di storage effimero. Nessuna modifica al database o dipendenza aggiunta. Non equivale a backup/restore verificato e non chiude da sola V3.21.4.
