@@ -1,3 +1,7 @@
+## 2026-09-22 — Cloud Foundation: sessioni e persistenza
+
+Vita V3.21.3e confermata funzionante dall’utente. Audit Railway: documenti su filesystem temporaneo, directory vuota al controllo; volume dedicato `/data/documents` predisposto. Logout ora revoca il singolo bearer tramite digest SHA-256 in Mongo, indice TTL e JWT nuovi con jti univoco; nessuna rotazione o logout globale. Health risponde 503 se Mongo non risponde entro tre secondi. Quattro test mirati passati; verifica live e persistenza dopo redeploy ancora da completare. Nessun file `backend/data` tracciato nel tree corrente; audit storia/pubblicazione repository ancora aperto.
+
 ## 2026-09-22 — Roadmap riallineata
 
 Decisione: Cloud Foundation V3.21.4, iPhone reale V3.23, alpha 3–5 persone V4.1; beta privata V11 e pubblica/RC V12. Recovery, privacy e affidabilità essenziali precedono l’alpha; maturità completa in V5/V9/V10. Nessun nuovo engine nel percorso immediato. Google Login confermato, Vita e integrazioni sul profilo reale ancora da verificare. Questa revisione è documentale, non una nuova prova funzionale. Criteri completi in `ROADMAP.md`; priorità derivate in `BACKLOG.md`.

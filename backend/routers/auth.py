@@ -5,7 +5,7 @@ import os
 from typing import Any, Optional
 
 import httpx
-from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile
+from fastapi import APIRouter, Depends, File, Header, HTTPException, Response, UploadFile
 from pydantic import BaseModel, EmailStr, Field
 
 from deps import (
@@ -293,5 +293,10 @@ async def get_avatar(key: str, user=Depends(get_current_user)):
 
 
 @router.post("/logout")
-async def logout(user=Depends(get_current_user)):
+async def logout(user=Depends(get_current_user), authorization: str = Header(...)):
+    from deps import pyjwt, JWT_SECRET, JWT_ALGO
+    from session_revocation import revoke
+    token = authorization.split(" ", 1)[1].strip()
+    payload = pyjwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGO])
+    await revoke(db, token, payload["exp"])
     return {"ok": True}

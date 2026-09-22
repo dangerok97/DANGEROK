@@ -271,6 +271,7 @@ def verify_password(pw: str, hashed: str) -> bool:
 def make_jwt(user_id: str) -> str:
     payload = {
         "sub": user_id,
+        "jti": uuid.uuid4().hex,
         "iat": datetime.now(timezone.utc),
         "exp": datetime.now(timezone.utc) + timedelta(days=JWT_EXPIRY_DAYS),
     }
@@ -286,6 +287,9 @@ async def get_current_user(authorization: Optional[str] = Header(None)) -> dict:
         user_id = payload.get("sub")
     except pyjwt.PyJWTError:
         raise HTTPException(status_code=401, detail="Invalid token")
+    from session_revocation import is_revoked
+    if not user_id or await is_revoked(db, token):
+        raise HTTPException(status_code=401, detail="Session revoked")
     user = await db.users.find_one({"user_id": user_id}, {"_id": 0})
     if not user:
         raise HTTPException(status_code=401, detail="User not found")

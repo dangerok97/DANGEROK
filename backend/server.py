@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 import os
 
-from fastapi import APIRouter, FastAPI
+from fastapi import APIRouter, FastAPI, Response
 from starlette.middleware.cors import CORSMiddleware
 
 from deps import client, db, get_permissions_service
@@ -36,18 +36,21 @@ async def root():
 
 
 @api.get("/health")
-async def health():
+async def health(response: Response):
     """Minimal non-sensitive health check for local / CI verification."""
     import os
+    import asyncio
     from llm import llm_status
 
     db_ok = False
     try:
-        await client.admin.command("ping")
+        await asyncio.wait_for(client.admin.command("ping"), timeout=3)
         db_ok = True
     except Exception:
         db_ok = False
 
+    if not db_ok:
+        response.status_code = 503
     llm = llm_status()
     google_oauth = all(
         (os.environ.get(k) or "").strip()
@@ -127,6 +130,8 @@ for r in ALL_ROUTERS:
 
 @app.on_event("startup")
 async def startup():
+    from session_revocation import ensure_indexes as ensure_session_indexes
+    await ensure_session_indexes(db)
     # Users
     await db.users.create_index("email", unique=True)
     await db.users.create_index("user_id", unique=True)

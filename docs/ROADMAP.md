@@ -6,7 +6,7 @@ percorso fino al lancio si leggono qui e solo qui.
 
 | | |
 |---|---|
-| **Versione corrente** | **V3.21.3e — Vita State Semantics Final Fix · verifica cloud finale pendente** |
+| **Versione corrente** | **V3.21.4 — Cloud Foundation Final · IN CORSO** |
 | **Prossimo sprint** | **V3.21.4 — Cloud Foundation Final** |
 | Branch operativo | `staging/cloud` |
 | Ultimo checkpoint | `8855b6d` (sync cloud e consenso posizione) |
@@ -942,7 +942,7 @@ reference (still life fotografico) resta una decisione di contenuto. Le
 etichette senza una frase dedicata restano nella forma «Nome: valore».
 `/contesti` esiste ancora come rotta.
 
-#### V3.21.3e — Vita State Semantics Final Fix · **verifica cloud finale pendente**
+#### V3.21.3e — Vita State Semantics Final Fix · **PASS — confermato dall’utente sul cloud**
 
 **Famiglia al 100%, cliccata, diceva «In corso».** E Lavoro al 100% pure, con
 sotto «Continua con Lavoro» e «Lo faccio più tardi»: un invito a continuare
@@ -1037,13 +1037,15 @@ Gli screenshot A–F e `esiti.json` forniti descrivono la patch originale;
 permetta di attribuirlo allo stesso tentativo. Non sono una verifica del
 nuovo deploy: la conferma sul profilo cloud resta pendente.
 
+**Conferma successiva dell’utente:** «verificato e funzionante». Reality gate Vita chiuso; non equivale a verifica di storage, sessioni o restore.
+
 ### V3.21.4 — Cloud Foundation Final · IN CORSO
 **Obiettivo** — il cloud sostituisce il localhost: spegnendo il PC le funzioni core continuano a funzionare.
 
 **Evidenze già disponibili (22 settembre)** — Google Login Railway confermato funzionante dall'utente; patch Vita recuperata; correzioni Calendar/Gmail first sync, polling e consenso browser pubblicate (`8855b6d`). Runtime automatico avviato, letture ripetute senza errori nei log; meteo verificato con posizione sintetica. Questo non dimostra ancora appuntamento/email/posizione sul profilo reale.
 
 **Gate da chiudere**
-- Verifica finale V3.21.3e sul profilo Railway: selezione, domande, rifiuti, reload, CTA e percentuali coerenti.
+- [x] V3.21.3e: verifica sul profilo Railway confermata dall’utente.
 - Login e OAuth Calendar/Gmail con callback cloud; prima lettura e modifica successiva visibili in ORA, stato ultimo sync ed errori comprensibili.
 - Consenso posizione da Impostazioni e Meteo, revoca/negazione, aggiornamento del meteo sul dispositivo reale.
 - Frontend/backend/Mongo stabili, documenti su storage persistente (mai affidarsi a `/tmp`); upload e lettura dopo redeploy.
