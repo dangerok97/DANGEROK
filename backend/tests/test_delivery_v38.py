@@ -410,7 +410,7 @@ def test_a_push_carries_its_own_reason_and_lands_where_it_is_about(monkeypatch):
             plan = result.plan
             assert plan.reason_to_open, "una push senza motivo per aprirla"
             assert plan.deep_link
-            assert f"opportunityId={opportunity.id}" in plan.deep_link
+            assert f"/aggiornamento/{opportunity.id}" == plan.deep_link
             # The origin is preserved: a thread opened by an interruption is
             # not the same as one somebody chose to open.
             assert "entry=notification" in plan.deep_link
@@ -1030,8 +1030,7 @@ def test_a_deep_link_is_built_by_code_from_a_whitelist():
 
     link = _deep_link("opp_abc123")
     assert "opp_abc123" in link
-    assert "entry=notification" in link, "l'origine non è preservata"
-    assert link.startswith("/ora")
+    assert link == "/aggiornamento/opp_abc123"
 
     # A target nobody offered.
     assert _deep_link("opp_abc123", target="https://altrove.example") == "/"

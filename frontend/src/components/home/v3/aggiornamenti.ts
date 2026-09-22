@@ -38,6 +38,7 @@ export type Aggiornamento = {
   /** Il prossimo passo, quando esiste davvero. */
   prossimo_passo: string;
   quando: string;
+  azione?: { kind: 'verify' | 'suggestion' | 'route'; label: string; route?: string; params?: Record<string, unknown> };
 };
 
 const SENZA_FONTE = 'originale non disponibile';
@@ -57,7 +58,8 @@ export function elencoAggiornamenti(home: HomeV2Response | null | undefined): Ag
     cosa_sta_facendo: w.state || '',
     cosa_serve: w.needs_you || '',
     non_so: w.unknown || '',
-    prossimo_passo: w.outcome || '',
+    prossimo_passo: w.needs_you || w.outcome || '',
+    azione: w.action?.route ? { kind: 'route', label: w.action.label, route: w.action.route, params: w.action.params } : undefined,
     quando: '',
   }));
 
@@ -66,12 +68,13 @@ export function elencoAggiornamenti(home: HomeV2Response | null | undefined): Ag
     genere: 'occasione',
     cosa: o.title,
     perche: o.why_now || '',
-    fonte: SENZA_FONTE,
-    stato: '',
-    cosa_sta_facendo: o.what_ora_can_do || '',
+    fonte: o.sources?.join(' · ') || SENZA_FONTE,
+    stato: ({ running: 'Verifica avviata', ready: 'Risposta disponibile', needs_user: 'Serve una risposta', failed: 'Verifica interrotta' } as Record<string, string>)[o.work_status || ''] || '',
+    cosa_sta_facendo: '',
     cosa_serve: o.question || '',
     non_so: '',
     prossimo_passo: o.what_ora_can_do || '',
+    azione: { kind: 'verify', label: 'Verifica con ORA' },
     quando: '',
   }));
 
@@ -86,6 +89,7 @@ export function elencoAggiornamenti(home: HomeV2Response | null | undefined): Ag
     cosa_serve: '',
     non_so: '',
     prossimo_passo: s.action?.label || '',
+    azione: s.action ? { kind: 'suggestion', label: s.action.label, route: s.action.route || undefined, params: s.action.params } : undefined,
     quando: s.created_at || '',
   }));
 
@@ -100,6 +104,7 @@ export function elencoAggiornamenti(home: HomeV2Response | null | undefined): Ag
     cosa_serve: '',
     non_so: '',
     prossimo_passo: i.action?.label || '',
+    azione: i.action?.route ? { kind: 'route', label: i.action.label, route: i.action.route, params: i.action.params } : undefined,
     quando: i.created_at || '',
   }));
 

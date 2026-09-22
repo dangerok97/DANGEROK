@@ -1065,12 +1065,12 @@ def test_the_conversation_reaches_an_opportunity_the_way_it_reaches_anything_els
     assert "dismissed" not in code.split("_opportunities")[-1][:1200]
 
 
-def test_vediamo_opens_a_conversation_and_creates_nothing():
+def test_update_opens_its_detail_and_creates_nothing():
     """§12/§41: the handoff carries a handle, never an instruction."""
     frontend = HERE.parent / "frontend"
     home = (frontend / "app" / "(tabs)" / "index.tsx").read_text(encoding="utf-8")
     assert "buildOraConversationHref" in home
-    assert "opportunityId: o.id" in home
+    assert "`/aggiornamento/${encodeURIComponent(o.id)}`" in home
     for forbidden in ("createTask", "runAction", "executeAction", "homeAction(o.id"):
         assert forbidden not in home, f"«Vediamo» fa {forbidden}"
 
@@ -1085,7 +1085,7 @@ def test_the_card_offers_three_answers_and_none_of_them_executes():
     feed = (frontend / "src" / "components" / "home" / "v3" / "HomeSections.tsx").read_text(
         encoding="utf-8"
     )
-    for label in ("Vediamo", "Più tardi", "Non mi interessa"):
+    for label in ("Apri aggiornamento", "Più tardi", "Non mi interessa"):
         assert f">{label}<" in feed.replace("\n", "").replace("  ", "") or label in feed, (
             f"manca «{label}»"
         )

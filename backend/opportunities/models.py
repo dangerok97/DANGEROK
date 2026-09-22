@@ -302,6 +302,8 @@ class Opportunity(BaseModel):
             "last_reviewed_at": self.last_reviewed_at,
         }
 
+    work_status: str = ""
+
     def for_home(self) -> Dict[str, Any]:
         """
         What a person reads, and nothing else.
@@ -312,6 +314,7 @@ class Opportunity(BaseModel):
         their own week — a card that shows them is showing its own wiring.
         What survives here is a sentence and a reason.
         """
+        from opportunities.work import evidence_labels
         return {
             "id": self.id,
             "title": self.semantic_summary,
@@ -322,6 +325,9 @@ class Opportunity(BaseModel):
             "what_ora_can_do": self.what_ora_can_do or None,
             "question": self.clarifying_question or None,
             "seen": bool(self.seen_at),
+            "work_status": self.work_status,
+            "sources": evidence_labels(self.evidence),
+            "status": self.status,
         }
 
     def for_ai(self) -> Dict[str, Any]:

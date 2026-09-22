@@ -1,3 +1,11 @@
+## 2026-09-22 — Aggiornamenti: scheda e prossimo passo condivisi
+
+Home, elenco e notifiche opportunità aprono la stessa scheda. Contratto azione discriminato: verifica opportunità con motore AI Core esistente, accettazione suggerimento, percorso già supportato; fallback informativo senza CTA inventate. Proposte separate dalle attività avviate. Fonti opportunità esposte e deduplicate per riferimento; disciplina ragionamento vieta di contare sync ripetute come eventi distinti.
+
+Verifica persistita in update_work, chiave univoca proprietario+aggiornamento, claim prima di eseguire, risposte nella stessa sessione, stato in Home. Errori non implicano risoluzione né retry automatico. La scheda consente continuazione contestuale; passaggi sul dispositivo usano la stessa sessione ORA. Nessuna promessa che ogni futura card abbia una capacità eseguibile: i nuovi tipi devono fornire un’azione supportata.
+
+Validazione: TypeScript, export web, test isolati idempotenza/isolamento utente/risposte/errori/fonti; il caso reale richiede verifica in app dopo deploy.
+
 ## 2026-09-22 — Riepilogo banca in Vita
 
 La casella legge lo stato e i conti da financial/overview: banca, saldo qualificato, ultimo aggiornamento e indicazione sandbox. Nasconde il collegamento quando già collegata; aggiorna al ritorno sulla pagina o sulla scheda. Errori e caricamento distinti dal conto scollegato. Approfondimenti in Conti e denaro.

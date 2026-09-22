@@ -1090,6 +1090,8 @@ export const api = {
       body: JSON.stringify({ state }),
     }),
 
+  getUpdateWork: (id: string) => request<UpdateWork>(`/opportunities/${encodeURIComponent(id)}/work`),
+  runUpdateWork: (id: string, reply = '') => request<UpdateWork>(`/opportunities/${encodeURIComponent(id)}/work`, { method: 'POST', body: JSON.stringify({ reply }) }),
   getOpportunity: (id: string) => request<HomeOpportunity>(`/opportunities/${id}`),
 
   /** What a tap from an agent need lands on. */
@@ -3008,7 +3010,12 @@ export type HomeInsight = {
  * hidden by this interface; the backend never sends it to a screen. A card
  * that could render `urgency: soon` would eventually render it.
  */
+export type UpdateWork = { status: string; message?: string; session_id?: string; result?: { ok: boolean; ora_text?: string; question?: string | null; route?: string; sources?: { title?: string; url?: string }[]; pending_turn?: { status?: string }; }; };
+
 export type HomeOpportunity = {
+  sources?: string[];
+  work_status?: string;
+  status?: string;
   id: string;
   title: string;
   why_now: string;
@@ -3065,6 +3072,7 @@ export type NotificationPreferences = {
  * was never given.
  */
 export type HomeAgentWork = {
+  action?: HomeActionDef;
   id: string;
   what: string;
   outcome: string;

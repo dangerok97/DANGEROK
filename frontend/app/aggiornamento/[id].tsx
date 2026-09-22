@@ -1,3 +1,4 @@
+import { UpdateNextStep } from '@/src/components/home/v3/UpdateNextStep';
 /**
  * Il dettaglio di un aggiornamento — quello, non un altro.
  *
@@ -32,29 +33,34 @@ export default function DettaglioAggiornamento() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [home, setHome] = useState<HomeV2Response | null>(null);
   const [errore, setErrore] = useState<string | null>(null);
+  const [fallback, setFallback] = useState<Aggiornamento | null>(null);
   const [carico, setCarico] = useState(true);
 
   const leggi = useCallback(async () => {
     setCarico(true);
     try {
-      setHome(await api.getHome());
+      const result = await api.getHome();
+      setHome(result);
+      if (!elencoAggiornamenti(result).some(x => x.id === id)) {
+        try { const opportunity = await api.getOpportunity(String(id)); setFallback(elencoAggiornamenti({ opportunities: [opportunity] } as HomeV2Response)[0] || null); } catch { setFallback(null); }
+      }
       setErrore(null);
     } catch (e) {
       setErrore(humanizeError(e));
     } finally {
       setCarico(false);
     }
-  }, []);
+  }, [id]);
 
   useEffect(() => {
     void leggi();
   }, [leggi]);
 
-  const a = elencoAggiornamenti(home).find((x) => x.id === String(id || ''));
+  const a = elencoAggiornamenti(home).find((x) => x.id === String(id || '')) || fallback;
 
   return (
     <PaginaOra
-      titolo={a?.cosa || 'Aggiornamento'}
+      titolo="Aggiornamento di ORA"
       sottotitolo={a ? comeSiChiama(a.genere) : undefined}
       attiva="index"
       testID="pagina-aggiornamento"
@@ -86,10 +92,12 @@ function Dettaglio({ a }: { a: Aggiornamento }) {
 
       <Voce
         icona="information-circle-outline"
-        titolo="Cosa è successo"
+        titolo={a.genere === 'occasione' ? 'Segnalazione da verificare' : 'Cosa è successo'}
         testo={a.cosa}
         testID="dettaglio-cosa"
       />
+
+      <UpdateNextStep a={a} />
 
       {/*
         La provenienza è la riga che regge tutte le altre: senza, questa pagina
@@ -99,6 +107,7 @@ function Dettaglio({ a }: { a: Aggiornamento }) {
         icona="git-branch-outline"
         titolo="Da dove viene"
         testo={a.fonte}
+        mancante="Fonte non disponibile"
         nota={a.non_so}
         testID="dettaglio-fonte"
       />
@@ -111,29 +120,23 @@ function Dettaglio({ a }: { a: Aggiornamento }) {
         testID="dettaglio-perche"
       />
 
-      <Voce
+      {a.genere !== 'occasione' && <Voce
         icona="sync-outline"
-        titolo="Cosa sto facendo"
+        titolo="Attività in corso"
         testo={a.cosa_sta_facendo}
-        mancante="Per ora niente: aspetto che sia il momento."
+        mancante="Nessuna attività avviata da questa segnalazione."
         testID="dettaglio-facendo"
-      />
+      />}
 
       <Voce
         icona="hand-left-outline"
         titolo="Cosa serve a te"
         testo={a.cosa_serve}
-        mancante="Niente. Se mi servirà qualcosa, te la chiedo."
+        mancante="Nessuna richiesta specifica al momento."
         testID="dettaglio-serve"
       />
 
-      <Voce
-        icona="arrow-forward-circle-outline"
-        titolo="Prossimo passo"
-        testo={a.prossimo_passo}
-        mancante="Non c'è ancora un passo deciso."
-        testID="dettaglio-passo"
-      />
+
     </>
   );
 }

@@ -11,7 +11,7 @@
  * There is only one conversation surface now. It already knows how to start a
  * session, carry the context into it and take over the URL afterwards.
  */
-import { useLocalSearchParams } from 'expo-router';
+import { Redirect, useLocalSearchParams } from 'expo-router';
 
 import { OraConversationScreen } from '@/src/components/ora/OraConversationScreen';
 import { oraEntryPointFrom } from '@/src/ora/oraNav';
@@ -28,6 +28,8 @@ export default function OraProductionStart() {
     goalId?: string;
     entry?: string;
   }>();
+
+  if (opportunityId) return <Redirect href={`/aggiornamento/${encodeURIComponent(opportunityId)}` as never} />;
 
   return (
     <OraConversationScreen

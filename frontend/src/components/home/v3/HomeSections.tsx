@@ -370,7 +370,7 @@ export function UpdatesFeed({
               accessibilityRole="button"
               testID={`opportunity-open-${o.id}`}
             >
-              <Text style={[styles.oppCtaText, { color: colors.accent }]}>Vediamo</Text>
+              <Text style={[styles.oppCtaText, { color: colors.accent }]}>Apri aggiornamento</Text>
             </Pressable>
             <Pressable
               onPress={() => onOpportunityDefer?.(o)}

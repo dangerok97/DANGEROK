@@ -1534,6 +1534,10 @@ class AgentService:
             scheda["unknown"] = (
                 scheda.pop("unclear", "") or self._what_is_still_vague(goal)
             )
+            needs = await self.needs.open_for_goal(owner_id, goal.id)
+            if needs:
+                scheda["action"] = {"id": needs[0].id, "kind": "route", "label": "Rispondi alla richiesta",
+                    "route": "/ora", "params": {"needId": needs[0].id, "goalId": goal.id, "entry": "agent_need"}}
             out.append(scheda)
         return out
 

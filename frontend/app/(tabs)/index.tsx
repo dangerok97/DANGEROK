@@ -1,3 +1,4 @@
+import { elencoAggiornamenti } from '@/src/components/home/v3/aggiornamenti';
 /**
  * ORA Home 3.0 — the ambient control surface of the user's life.
  *
@@ -356,10 +357,8 @@ export default function HomeScreen() {
   /*
     Three answers to something ORA raised, and they are genuinely different.
 
-    "Vediamo" decides nothing: it opens the conversation carrying the
-    opportunity's handle, so the thread already knows what it is about and can
-    open with why it was raised instead of asking the person to explain their
-    own week back to it. No work is created, nothing is executed.
+    Opening an update goes to its canonical detail. Execution is a separate
+    explicit press inside that detail. Opening alone never starts work.
 
     "Non mi interessa" closes the concern — it stops being raised at all, not
     just stops being shown. "Più tardi" only takes the card off the screen and
@@ -374,12 +373,7 @@ export default function HomeScreen() {
     (o: HomeOpportunity) => {
       void triggerHaptic('impactLight');
       void api.markOpportunitySeen(o.id).catch(() => {});
-      router.push(
-        buildOraConversationHref({
-          opportunityId: o.id,
-          entryPoint: 'opportunity',
-        }) as any,
-      );
+      router.push(`/aggiornamento/${encodeURIComponent(o.id)}` as never);
     },
     [router],
   );
@@ -529,16 +523,13 @@ export default function HomeScreen() {
                 opportunities={home?.opportunities || []}
                 agentWork={home?.agent_work || []}
                 busyId={suggestionBusy}
-                onOpen={onSuggestionOpen}
+                onOpen={(s) => router.push(`/aggiornamento/${encodeURIComponent(s.id)}` as never)}
                 onDismiss={onSuggestionDismiss}
-                onInsight={(ins) => {
-                  if (ins.action?.route) router.push(ins.action.route as any);
-                  runHomeAction(ins.id, 'mark_insight_read');
-                }}
+                onInsight={(ins) => router.push(`/aggiornamento/${encodeURIComponent(ins.id)}` as never)}
                 onOpportunityOpen={openOpportunity}
                 onOpportunityDismiss={dismissOpportunity}
                 onOpportunityDefer={deferOpportunity}
-                onSeeAll={() => router.push('/aggiornamenti')}
+                onSeeAll={() => { const rows = elencoAggiornamenti(home); router.push((rows.length === 1 ? `/aggiornamento/${encodeURIComponent(rows[0].id)}` : '/aggiornamenti') as never); }}
                 onOpenWork={(id) => router.push(`/aggiornamento/${encodeURIComponent(id)}` as never)}
               />
             ) : null}

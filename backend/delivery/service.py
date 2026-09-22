@@ -746,7 +746,7 @@ def _older_than(when: str, hours: int) -> bool:
 # tap should land; it may never hand over a URL, because a URL from a model is
 # a string somebody else's text could have influenced.
 ALLOWED_TARGETS = {
-    "opportunity": "/ora?opportunityId={id}&entry=notification",
+    "opportunity": "/aggiornamento/{id}",
     "conversation": "/ora?sessionId={id}&entry=notification",
     # An agent need carries two handles, because a tap has to land on the
     # blocker inside the goal that raised it — not on the goal, and certainly
