@@ -1,5 +1,14 @@
 # ORA — AI Changelog
 
+## 2026-09-22 — Cloud Google configuration
+
+- Configurati Calendar/Gmail, vault e provider supportati su Railway.
+- Passaggio build-time della chiave Maps browser nel Dockerfile frontend.
+- Corretto testo della posizione dispositivo nell'editor Luoghi.
+- Aggiunti nomi delle variabili Maps/Places/Routes/Gmail agli esempi, senza valori.
+- Verificati TypeScript e 10 test configurazione; i consensi reali Google e le
+  chiavi Maps mancanti restano esplicitamente da completare.
+
 ## 2026-09-22 — V3.21.3e, recupero nel branch cloud
 
 La patch locale di Claude viene integrata in `staging/cloud`. Selezione e

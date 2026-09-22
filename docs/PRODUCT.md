@@ -1,5 +1,14 @@
 # ORA — Product (struttura reale)
 
+## 2026-09-22 — Integrazioni e posizione nel cloud
+
+L'accesso con Google e il collegamento Calendar/Gmail sono consensi distinti.
+Il cloud è configurato per avviare i connettori reali; il collegamento di un account
+va confermato dall'utente dopo la configurazione dei callback Google.
+La posizione rilevata dal dispositivo viene descritta come posizione attuale,
+non come punto selezionato manualmente sulla mappa. Maps richiede la propria
+chiave browser e non utilizza una chiave Gemini come sostituto.
+
 ## 2026-09-22 — V3.21.3e, recupero nel branch cloud
 
 La patch locale di Claude viene integrata in `staging/cloud`. Selezione e

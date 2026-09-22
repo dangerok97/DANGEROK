@@ -1,5 +1,28 @@
 # ORA — Development State
 
+## 2026-09-22 — Ripristino configurazione integrazioni cloud
+
+Railway ora-backend: configurati OAuth Calendar/Gmail con callback HTTPS cloud,
+TOKEN_VAULT_BACKEND=fernet (chiave cloud esistente preservata), modalità real,
+Tavily/ricerca e fallback supportati Gemini2, Groq, Mistral e OpenAI.
+Ripristinati i flag locali di contesto, riepilogo giornaliero e profilo comportamentale.
+Non importati percorsi Windows, Mongo/JWT locali, NVIDIA/Cerebras senza adattatore,
+o Deepgram nel runtime telefonico gemini_live.
+
+Verifica HTTP autenticata con account sintetico: Calendar provider_ready=true,
+nessun requisito mancante; Gmail client e callback configurati. Reverse geocode
+cloud di un punto pubblico a Roma restituisce Roma. La posizione del dispositivo
+richiede comunque consenso del browser dell'utente sul dominio Railway.
+
+Docker frontend ora accetta EXPO_PUBLIC_MAPS_WEB_KEY prima dell'export Expo.
+Il riepilogo di un luogo ottenuto dal dispositivo non lo attribuisce più alla
+selezione manuale sulla mappa. TypeScript, export Expo e 10 test configurazione Google passati.
+Restano esterni: registrazione dei due callback nella console Google, consenso
+utente Calendar/Gmail e chiavi Maps JavaScript/Places/Routes non fornite.
+Console Google non accessibile dal browser di questa sessione. Non dichiarare
+sync Google o mappe interattive verificate finché questi passi non sono completati.
+Nessuna nuova dipendenza o migrazione DB; creato solo account di verifica sintetico.
+
 ## 2026-09-22 — V3.21.3e, recupero nel branch cloud
 
 La patch locale di Claude viene integrata in `staging/cloud`. Selezione e

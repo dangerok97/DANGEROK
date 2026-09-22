@@ -369,7 +369,7 @@ export function PlaceEditor({
                 ? `${address} — punto spostato a mano`
                 : address
               : point
-                ? movedByHand || step === 'map'
+                ? movedByHand || !fromCurrentPosition
                   ? 'Il punto che hai scelto sulla mappa'
                   : 'La tua posizione attuale'
                 : 'Muovi la mappa per scegliere il punto'}

@@ -1,5 +1,14 @@
 # ORA — Architecture
 
+## 2026-09-22 — Google nel deployment Railway
+
+Calendar e Gmail condividono GOOGLE_OAUTH_CLIENT_ID/SECRET e il vault cifrato,
+ma usano callback e consensi distinti. In cloud i callback devono avere l'origine
+HTTPS del backend; il solo Google Sign-In non configura questi connettori.
+Maps JavaScript usa EXPO_PUBLIC_MAPS_WEB_KEY a build time, inclusa la build Docker.
+PLACES_API_KEY e ROUTING_API_KEY restano solo backend. Il GPS foreground proviene
+dal browser, mentre il reverse geocoder attuale usa Nominatim senza chiave Google.
+
 ## 2026-09-22 — V3.21.3e, recupero nel branch cloud
 
 La patch locale di Claude viene integrata in `staging/cloud`. Selezione e
