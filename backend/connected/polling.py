@@ -489,26 +489,31 @@ async def _what_to_read(
                 queue.append((owner_id, source))
         try:
             known = {
-                str(r.get("owner_id") or "")
+                (str(r.get("owner_id") or ""), str(r.get("source_id") or ""))
                 for r in await db[ATTEMPTS].find(
-                    {}, {"_id": 0, "owner_id": 1},
+                    {}, {"_id": 0, "owner_id": 1, "source_id": 1},
                 ).to_list(4000)
             }
             fresh = await db.connector_instances.find(
                 {"status": {"$in": ["connected", "syncing", "active"]}},
-                {"_id": 0, "user_id": 1},
+                {"_id": 0, "user_id": 1, "id": 1},
             ).sort("created_at", -1).to_list(200)
         except Exception as e:
             logger.info("new source scan soft-fail: %s", type(e).__name__)
             fresh = []
             known = set()
         newcomers = []
+        inspected = set()
+        queued = {(owner, source.id) for owner, source in queue}
         for row in fresh:
             owner_id = str(row.get("user_id") or "")
-            if owner_id and owner_id not in known and owner_id not in ready_by_owner:
-                ready_by_owner[owner_id] = {}
+            source_id = str(row.get("id") or "")
+            if owner_id and (owner_id, source_id) not in known and owner_id not in inspected:
+                inspected.add(owner_id)
                 for source in await due(db, owner_id, now=now):
-                    newcomers.append((owner_id, source))
+                    if (owner_id, source.id) not in queued:
+                        newcomers.append((owner_id, source))
+                        queued.add((owner_id, source.id))
         queue = newcomers + queue
 
     parked = 0

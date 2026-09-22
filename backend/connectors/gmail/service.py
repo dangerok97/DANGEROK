@@ -345,7 +345,13 @@ class GmailReadService:
             connector_instance_id=instance["id"], capability_id=CAPABILITY_ID,
             success=True, reason_code="connected", data_classification="personal",
         )
-        return {"instance": instance, "redirect_after": redirect_after}
+        from connected.initial_sync import after_connect
+
+        initial_sync = await after_connect(
+            self.db, user_id=user_id, instance_id=instance["id"], sync=self.sync,
+        )
+        return {"instance": instance, "redirect_after": redirect_after,
+                "initial_sync": initial_sync}
 
     async def revoke(self, *, user_id: str, instance_id: str) -> Dict[str, Any]:
         """

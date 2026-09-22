@@ -1,3 +1,7 @@
+## 2026-09-22 — Cloud sync and device location
+
+Google Calendar and Gmail perform a bounded first read after OAuth and enqueue a durable retry. Continuous polling discovers new sources even for existing owners; partial calendar failures remain retryable. Home refreshes while active. Settings and Weather request actual browser geolocation and save a successful fix; already consented location refreshes while Home is active. Railway requires AMBIENT_RUNTIME=1. Browser denial is explained with recovery instructions. Provider availability and browser permission still govern freshness.
+
 # ORA — Product (struttura reale)
 
 ## 2026-09-22 — Integrazioni e posizione nel cloud

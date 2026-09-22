@@ -87,6 +87,11 @@ jobs:
             ai_life_strategist/tests/test_life_experience_documents.py \
             --ignore=tests/test_intelligent_documents_real_verification.py \
             -x
+      - name: Google first sync and continuous polling
+        working-directory: backend
+        run: |
+          python -m pytest -q tests/test_cloud_connection_sync.py \
+            tests/test_connected_autosync_v310.py tests/test_autosync_starvation_v310.py
 
 
   telephone-cloud:
@@ -143,6 +148,9 @@ jobs:
       - name: tsc
         working-directory: frontend
         run: npx tsc --noEmit
+      - name: Device location consent
+        working-directory: frontend
+        run: node --test src/location/shareForeground.test.cjs
 
   frontend-product-guards:
     name: Frontend product guards (current Vita)

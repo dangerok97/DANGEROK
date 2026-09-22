@@ -12,7 +12,7 @@
  * diversi di scegliere il punto darebbero due meteo diversi nella stessa app.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { api, type WeatherDetail } from '@/src/api/client';
@@ -25,6 +25,21 @@ export default function Meteo() {
   const [dati, setDati] = useState<WeatherDetail | null>(null);
   const [errore, setErrore] = useState<string | null>(null);
   const [carico, setCarico] = useState(true);
+  const [localizzando, setLocalizzando] = useState(false);
+  const [errorePosizione, setErrorePosizione] = useState<string | null>(null);
+
+  const localizza = async () => {
+    if (localizzando) return;
+    setLocalizzando(true);
+    setErrorePosizione(null);
+    try {
+      const { shareForegroundPosition } = await import('@/src/location/shareForeground');
+      await shareForegroundPosition();
+      await leggi();
+    } catch (e) {
+      setErrorePosizione(e instanceof Error ? e.message : 'Non riesco a rilevare la posizione.');
+    } finally { setLocalizzando(false); }
+  };
 
   const leggi = useCallback(async () => {
     setCarico(true);
@@ -51,6 +66,12 @@ export default function Meteo() {
       attiva="index"
       testID="pagina-meteo"
     >
+      <Pressable accessibilityRole="button" testID="meteo-consenti-posizione"
+        onPress={() => void localizza()} disabled={localizzando}
+        style={{ padding: 16 }}>
+        <Text style={{ color: ora.cta }}>{localizzando ? 'Rilevo la posizione…' : 'Usa la mia posizione'}</Text>
+      </Pressable>
+      {errorePosizione ? <Text accessibilityRole="alert">{errorePosizione}</Text> : null}
       {carico ? (
         <ActivityIndicator color={ora.cta} testID="meteo-carico" />
       ) : errore ? (

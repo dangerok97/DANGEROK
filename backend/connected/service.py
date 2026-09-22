@@ -212,7 +212,9 @@ class ConnectedLifeService:
         from deps import get_google_calendar_service
 
         gcal = get_google_calendar_service()
-        await gcal.sync(user_id=owner_id, instance_id=source.id)
+        result = await gcal.sync(user_id=owner_id, instance_id=source.id)
+        if (result.get("totals") or {}).get("failed"):
+            raise RuntimeError("calendar_sync_incomplete")
 
     # --- understanding ----------------------------------------------------
 

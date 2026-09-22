@@ -49,7 +49,7 @@ const LOCATION_CHOICES: Array<{ id: LocationMode; label: string; detail: string 
   {
     id: 'while_using',
     label: 'Durante l’uso di ORA',
-    detail: 'Serve solo a capire se sei a casa o fuori. Nessun tracciamento continuo.',
+    detail: 'Consenti la posizione sul dispositivo per meteo e luoghi. Viene aggiornata mentre usi ORA.',
   },
 ];
 
@@ -288,12 +288,18 @@ export default function PermessiScreen() {
     setBusy(`loc_${next}`);
     setWriteError(null);
     try {
-      const res = await api.locationSetPreference(next);
-      setLocation(res.mode === 'while_using' ? 'while_using' : 'off');
+      if (next === 'while_using') {
+        const { shareForegroundPosition } = await import('@/src/location/shareForeground');
+        await shareForegroundPosition();
+        setLocation('while_using');
+      } else {
+        await api.locationSetPreference('off');
+        setLocation('off');
+      }
       haptic('success');
     } catch (e: any) {
       haptic('error');
-      setWriteError(humanizeError(e));
+      setWriteError(e instanceof Error ? e.message : humanizeError(e));
     } finally {
       setBusy(null);
     }

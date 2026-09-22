@@ -251,7 +251,13 @@ class GoogleCalendarService:
             success=True, reason_code="connected",
             data_classification="personal",
         )
-        return {"instance": instance, "redirect_after": redirect_after}
+        from connected.initial_sync import after_connect
+
+        initial_sync = await after_connect(
+            self.db, user_id=user_id, instance_id=instance["id"], sync=self.sync,
+        )
+        return {"instance": instance, "redirect_after": redirect_after,
+                "initial_sync": initial_sync}
 
     # ------------------------------------------------------------------
     # Helpers
@@ -464,7 +470,9 @@ class GoogleCalendarService:
             for k in ("received", "processed", "skipped", "quarantined"):
                 totals[k] += cal_totals[k]
 
-        await self.instances.mark_status(user_id, instance_id, "connected", extra={"last_sync_at": _now_iso()})
+        # A partial failure is not a successful refresh of the whole calendar.
+        extra = {"last_sync_at": _now_iso()} if not totals["failed"] else {}
+        await self.instances.mark_status(user_id, instance_id, "connected", extra=extra)
         return {"instance_id": instance_id, "totals": totals, "per_calendar": per_calendar}
 
     async def refresh(self, *, user_id: str, instance_id: str) -> Dict[str, Any]:

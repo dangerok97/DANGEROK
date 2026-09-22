@@ -147,7 +147,8 @@ export function WeatherNow({
           style={[styles.weatherLabel, { color: c ? colors.textPrimary : colors.textTertiary }]}
           numberOfLines={1}
         >
-          {c ? c.label : 'Meteo non disponibile'}
+          {c ? c.label : weather?.why_unavailable === 'non so ancora dove sei'
+            ? 'Consenti la posizione' : 'Meteo non disponibile'}
         </Text>
         {riga ? (
           <Text style={[styles.weatherMeta, { color: colors.textTertiary }]} numberOfLines={1}>

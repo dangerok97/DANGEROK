@@ -13,6 +13,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   RefreshControl,
+  AppState,
   ScrollView,
   StyleSheet,
   View,
@@ -126,8 +127,11 @@ export default function HomeScreen() {
   const [pendingItemId, setPendingItemId] = useState<string | null>(null);
   const { online, markOffline, markOnline } = useOnlineStatus();
   const inflight = useRef(false);
+  const loadingHome = useRef(false);
 
   const load = useCallback(async (opts?: { silent?: boolean }) => {
+    if (loadingHome.current) return;
+    loadingHome.current = true;
     if (!opts?.silent) setLoading(true);
     try {
       const data = await api.getHome();
@@ -138,6 +142,7 @@ export default function HomeScreen() {
       if (isNetworkError(e)) markOffline();
       else setErrorBanner(humanizeError(e, 'default'));
     } finally {
+      loadingHome.current = false;
       setLoading(false);
     }
   }, [markOffline, markOnline]);
@@ -145,7 +150,21 @@ export default function HomeScreen() {
   useEffect(() => { load(); }, [load]);
   // V2.9.4 can change Home in the background; re-reading on focus keeps a
   // suggestion appearing or disappearing from needing a full reload.
-  useFocusEffect(useCallback(() => { load({ silent: true }); }, [load]));
+  useFocusEffect(useCallback(() => {
+    const refresh = () => {
+      if (AppState.currentState !== 'active') return;
+      void load({ silent: true });
+      void import('@/src/location/shareForeground').then(async ({ refreshConsentedPosition }) => {
+        if (await refreshConsentedPosition()) void load({ silent: true });
+      }).catch(() => undefined);
+    };
+    refresh();
+    const timer = setInterval(refresh, 20_000);
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') refresh();
+    });
+    return () => { clearInterval(timer); subscription.remove(); };
+  }, [load]));
 
   const runHomeAction = useCallback(async (
     itemId: string,
