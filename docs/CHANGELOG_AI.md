@@ -59,6 +59,17 @@ Google Calendar and Gmail perform a bounded first read after OAuth and enqueue a
 
 # ORA — AI Changelog
 
+## 2026-09-23 — Vita editoriale e immagini AI recuperabili
+
+- Rifatta la testata Vita come fascia unica con testo accessibile sovrapposto
+  a un nuovo asset AI quiet-premium coerente con la reference approvata.
+- Conservata la generazione contestuale per singola entità: nessuna immagine
+  fissa per titolo o categoria e nessun riuso casuale fra card diverse.
+- Corretto il lifecycle backend: lavori `queued`/`generating` persi al riavvio
+  e fallimenti transitori `missing` vengono ripresi, con dedupe in-process e
+  limite `MAX_ATTEMPTS`.
+- Aggiunte guardie per composizione header e recovery visuale.
+
 ## 2026-09-22 — Cloud Google configuration
 
 - Configurati Calendar/Gmail, vault e provider supportati su Railway.

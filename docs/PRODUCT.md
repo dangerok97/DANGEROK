@@ -815,3 +815,13 @@ capability outcome; accepting information alone is not presented as progress.
 Ogni aggiornamento può essere dichiarato non interessante e ogni domanda può
 essere rifiutata. L'elemento scompare in modo permanente; se rappresentava un
 lavoro ancora in corso, ORA lo interrompe invece di nasconderlo soltanto.
+
+### Immagini contestuali e testata Vita — 23 settembre 2026
+
+La testata di Vita è una sola composizione editoriale: titolo e spiegazione
+sono testo reale sopra una scena quiet-premium, con la nota «Un quadro più
+completo, una vita più semplice» e gli oggetti sulla destra. Le immagini delle
+focus card non sono fotografie stock assegnate per categoria: ORA genera una
+scena diversa dal significato sanitizzato della singola entità, la conserva e
+la riusa finché quel significato non cambia. Nessun dato identificativo viene
+inviato al generatore.

@@ -86,7 +86,17 @@ class VisualService:
             {"user_id": user_id, "visual_key": key}, {"_id": 0},
         )
         if existing:
-            # Same meaning, same picture — no provider call, no cost.
+            # A queued job lives only in the process that created it. Railway
+            # may restart that process between the response and the background
+            # task; likewise a transient provider failure is recorded as
+            # ``missing`` so it can be retried. Re-scheduling is idempotent in
+            # this process (`_inflight`) and bounded by MAX_ATTEMPTS, therefore
+            # revisiting Home repairs interrupted images instead of leaving a
+            # permanent grey placeholder.
+            status = existing.get("status")
+            attempts = int(existing.get("attempts") or 0)
+            if schedule and status in {"queued", "generating", "missing"} and attempts < MAX_ATTEMPTS:
+                self._schedule(user_id=user_id, key=key, prompt=descriptor.prompt())
             return self._public(existing)
 
         record = {

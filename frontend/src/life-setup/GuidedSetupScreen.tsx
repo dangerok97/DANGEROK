@@ -21,7 +21,7 @@ import { BankSummaryCard } from './BankSummaryCard';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
+  ImageBackground,
   Platform,
   Pressable,
   ScrollView,
@@ -428,16 +428,20 @@ export function GuidedSetupScreen() {
   ) : null;
 
   const intro = (
-    <View style={styles.introRiga}>
-      <View style={styles.intro}>
+    <ImageBackground
+      source={require('@/assets/images/vita-header.png')}
+      style={styles.introRiga}
+      imageStyle={styles.introSfondo}
+      resizeMode="cover"
+      accessibilityIgnoresInvertColors
+      testID="guided-header-image"
+    >
+      <View style={styles.introCopy}>
         <Text style={[styles.title, { color: colors.textPrimary }]} testID="guided-title">
           Conosciamoci
         </Text>
         <Text style={[styles.introText, { color: colors.textSecondary }]}>
-          ORA vuole conoscere le diverse parti della tua vita{'\n'}
-          per aiutarti davvero ogni giorno.
-        </Text>
-        <Text style={[styles.introText, { color: colors.textSecondary }]}>
+          ORA vuole conoscere le diverse parti della tua vita per aiutarti davvero ogni giorno.{' '}
           Compiliamo un'area alla volta. Puoi saltare o tornare quando vuoi.
         </Text>
       </View>
@@ -452,22 +456,13 @@ export function GuidedSetupScreen() {
         corregge senza rifare un'immagine.
       */}
       {twoColumn ? (
-        <View style={styles.testata}>
+        <View style={styles.testataNota}>
           <Text style={[styles.nota, { color: ora.deep }]} testID="guided-nota">
             Un quadro più completo,{'\n'}una vita più semplice.
           </Text>
-          <Image
-            source={require('@/assets/images/vita-header.png')}
-            style={styles.testataFoto}
-            resizeMode="cover"
-            accessibilityIgnoresInvertColors
-            accessible
-            accessibilityLabel="Una pianta, un portapenne, dei libri e una lampada su una mensola"
-            testID="guided-header-image"
-          />
         </View>
       ) : null}
-    </View>
+    </ImageBackground>
   );
 
   const profileCard = (
@@ -1328,6 +1323,7 @@ const styles = StyleSheet.create({
   whyText: { fontSize: 13 },
 
   intro: { gap: 8, maxWidth: 470, flexShrink: 1 },
+  introCopy: { gap: 8, width: '48%', paddingLeft: 24, zIndex: 1 },
   perche: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -1336,11 +1332,16 @@ const styles = StyleSheet.create({
     borderRadius: 14,
   },
   introRiga: {
+    minHeight: 156,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 28,
+    borderRadius: 18,
+    overflow: 'hidden',
+    backgroundColor: '#F8F4EF',
   },
+  introSfondo: { borderRadius: 18 },
   //     UNA FASCIA SOLA, ALTA QUANTO LA TESTATA.
   // La reference non mette un riquadro accanto al titolo: mette una fascia
   // calda che prende tutta l'altezza dell'intestazione, con la frase scritta
@@ -1348,20 +1349,7 @@ const styles = StyleSheet.create({
   // bianco caldo della fotografia, così il passaggio fra interfaccia e
   // scatto non si vede. E la frase tiene la sua misura: con tutto flessibile
   // andava a capo a ogni parola.
-  testata: {
-    flex: 1,
-    minWidth: 560,
-    height: 156,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 18,
-    overflow: 'hidden',
-    // Il tono è la media del bordo sinistro della fotografia: se il fondo
-    // della fascia è di un beige suo, fra interfaccia e scatto si vede la
-    // giunta.
-    backgroundColor: '#F6ECE3',
-  },
-  testataFoto: { flex: 1, height: '100%' },
+  testataNota: { width: '25%', marginLeft: 'auto', marginRight: '28%' },
   nota: {
     fontSize: 16,
     lineHeight: 24,

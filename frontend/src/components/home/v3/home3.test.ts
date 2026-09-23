@@ -100,6 +100,13 @@ const item = (o: Record<string, unknown> = {}) => ({
     'the generated fallback is decorative and must be hidden from screen readers',
   );
   assert.ok(visual.includes('cachePolicy'), 'real images must be cached, not refetched');
+
+  const visualService = read('../backend/visuals/service.py');
+  assert.ok(
+    visualService.includes('status in {"queued", "generating", "missing"}') &&
+      visualService.includes('attempts < MAX_ATTEMPTS'),
+    'interrupted or transiently failed image jobs must be resumed instead of remaining placeholders',
+  );
 }
 
 // ---------------------------------------------------------------------------

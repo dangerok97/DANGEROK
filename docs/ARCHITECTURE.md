@@ -2643,3 +2643,13 @@ La UI instrada la rimozione in base alla sorgente: agent goal → cancel,
 opportunity/suggestion → dismiss, home insight → ignore, open question → cancel.
 Lo stato locale viene riletto dal backend dopo l'operazione, evitando elementi
 che ricompaiono al refresh o lavoro invisibile che continua in background.
+
+### Recovery delle immagini contestuali
+
+`visuals.service.VisualService.ensure` è il punto unico del ciclo immagine.
+La chiave combina entità, descrittore sanitizzato e versione stilistica; i byte
+restano nello storage documentale owner-scoped. Un record `queued`,
+`generating` o `missing` viene rimesso in coda quando Home lo incontra, fino a
+`MAX_ATTEMPTS`: i task in memoria non sopravvivono necessariamente a un
+redeploy Railway. `_inflight` impedisce duplicati nello stesso processo. Il
+render non attende mai il provider e riceve l'URL solo dopo persistenza.

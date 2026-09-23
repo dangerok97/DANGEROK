@@ -14,10 +14,11 @@ ombre: meglio, ma si leggeva comunque come un'illustrazione — perché lo era.
 La differenza fra una fotografia e un disegno non è la cura dei contorni, ed
 è inutile inseguirla con Pillow.
 
-Quindi l'asset **si ritaglia dalla reference stessa**: è l'immagine che il
-prodotto ha approvato, e usarla è l'unico modo di essere «esattamente così».
-La frase manoscritta non entra nel ritaglio: resta interfaccia, dove si può
-correggere senza rifare un file.
+L'asset versionato è oggi un'immagine generata a partire dalla reference
+approvata: parete avorio libera e natura morta sulla destra. La frase
+manoscritta non entra nel file: resta interfaccia, dove si può correggere senza
+rifare un'immagine. Questo script rimane come strumento di recupero fedele se
+si deve ricavare nuovamente la scena dalla reference originale.
 
     python scripts/make-vita-header.py [percorso-della-reference]
 

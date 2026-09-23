@@ -3292,3 +3292,12 @@ as complete merely because information was accepted.
 
 Aggiornamenti e Domande per te possono essere chiusi dall'utente. La chiusura
 è owner-bound e persistente, aggiorna la sorgente reale e sopravvive al refresh.
+
+### Vita header + card visual recovery (2026-09-23)
+
+Implementata la fascia unica della testata Vita usando un asset AI locale,
+senza testo incorporato nell'immagine. La pipeline immagini per la focus card
+resta generativa e per-entità; ora recupera automaticamente task persi durante
+riavvii Railway ed errori provider transitori, con massimo tre tentativi.
+Guard Vita/Home e test backend visuals sono il gate locale; la verifica del
+provider sul profilo Railway resta un reality gate di deploy.
