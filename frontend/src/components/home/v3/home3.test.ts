@@ -100,6 +100,16 @@ const item = (o: Record<string, unknown> = {}) => ({
     'the generated fallback is decorative and must be hidden from screen readers',
   );
   assert.ok(visual.includes('cachePolicy'), 'real images must be cached, not refetched');
+  assert.ok(
+    visual.includes('generating ? <View style={styles.generating}'),
+    'queued/generating visuals need a visible non-blocking state',
+  );
+
+  const sectionsCode = readCode('src/components/home/v3/HomeSections.tsx');
+  assert.ok(
+    (sectionsCode.match(/imageSource=\{item\.visual\?\.status === 'ready'/g) || []).length >= 2,
+    'Oggi and Più avanti must reuse ready contextual images, not fall back to abstract placeholders',
+  );
 
   const visualService = read('../backend/visuals/service.py');
   assert.ok(

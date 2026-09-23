@@ -164,6 +164,7 @@ export const ContextualCardVisual = memo(function ContextualCardVisual({
         color="rgba(61, 74, 140, 0.42)"
         style={size === 'row' ? undefined : styles.markOffset}
       />
+      {generating ? <View style={styles.generating} pointerEvents="none" /> : null}
     </View>
   );
 });

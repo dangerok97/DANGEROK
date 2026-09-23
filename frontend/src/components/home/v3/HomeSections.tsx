@@ -247,7 +247,13 @@ export function TodaySection({
             ) : (
               <View style={styles.timeSpacer} />
             )}
-            <ContextualCardVisual item={item} size="row" style={styles.rowVisual} />
+            <ContextualCardVisual
+              item={item}
+              imageSource={item.visual?.status === 'ready' ? item.visual.url : null}
+              generating={item.visual?.status === 'queued' || item.visual?.status === 'generating'}
+              size="row"
+              style={styles.rowVisual}
+            />
             <View style={styles.rowText}>
               <Text style={[styles.rowTitle, { color: colors.textPrimary }]} numberOfLines={1}>
                 {item.title}
@@ -517,6 +523,13 @@ export function HorizonSection({
             ) : (
               <View style={styles.timeSpacer} />
             )}
+            <ContextualCardVisual
+              item={item}
+              imageSource={item.visual?.status === 'ready' ? item.visual.url : null}
+              generating={item.visual?.status === 'queued' || item.visual?.status === 'generating'}
+              size="row"
+              style={styles.rowVisual}
+            />
             <View style={styles.rowText}>
               <Text style={[styles.rowTitle, { color: colors.textPrimary }]} numberOfLines={1}>
                 {item.title}
