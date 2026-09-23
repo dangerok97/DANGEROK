@@ -1,3 +1,20 @@
+## 2026-09-23 — Full-history audit: legacy document blobs nel repo pubblico
+
+Il nuovo scanner CI con checkout completo della storia ha trovato file
+storici sotto `backend/data/documents`. Il commit che li aveva introdotti è
+`d6b11fa3` (31/07, auto-commit composto da storage documentale); il tree
+corrente li ha rimossi con `3d8e460f` (22/09, “remove local data and test
+evidence”), ma la rimozione dal tree non li rimuove dalla storia Git. Il
+repository risulta pubblico.
+
+Un match separato di chiave privata è stato verificato come falso positivo:
+era la fixture di test `not-a-real-key`, sostituita dal commit `c0cd44bd`.
+Lo scanner viene mantenuto privacy-safe: non stampa valori sensibili né
+percorsi user-scoped dei documenti.
+
+V3.21.4 resta aperta. La bonifica della cronologia è distruttiva e non viene
+eseguita implicitamente: richiede approvazione esplicita.
+
 ## 2026-09-23 — Revoca posizione effettiva anche sul meteo
 
 L'audit V3.21.4 ha trovato che impostare Posizione su «Disattivata» fermava
