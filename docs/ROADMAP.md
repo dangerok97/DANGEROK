@@ -9,8 +9,8 @@ percorso fino al lancio si leggono qui e solo qui.
 | **Versione corrente** | **V3.21.4 — Cloud Foundation Final · IN CORSO** |
 | **Prossimo sprint** | **V3.22 — Call UX Final, dopo chiusura V3.21.4** |
 | Branch operativo | `staging/cloud` |
-| Ultimo checkpoint | `85ca21c` (revoca sessioni e health; storage ancora bloccato) |
-| Aggiornato | 2026-09-22 (roadmap rivista: iPhone e alpha anticipati) |
+| Ultimo checkpoint | `85fcf1eb` (deploy Railway attivo; audit Cloud Foundation riallineato sotto) |
+| Aggiornato | 2026-09-23 (audit V3.21.4 su deploy reale) |
 
 Gli altri due registri restano quello che sono e non ripetono questo:
 `CHANGELOG_AI.md` è il diario datato di che cosa è cambiato,
@@ -1042,20 +1042,35 @@ nuovo deploy: la conferma sul profilo cloud resta pendente.
 ### V3.21.4 — Cloud Foundation Final · IN CORSO
 **Obiettivo** — il cloud sostituisce il localhost: spegnendo il PC le funzioni core continuano a funzionare.
 
-**Evidenze già disponibili (22 settembre)** — Google Login Railway confermato funzionante dall'utente; patch Vita recuperata; correzioni Calendar/Gmail first sync, polling e consenso browser pubblicate (`8855b6d`). Runtime automatico avviato, letture ripetute senza errori nei log; meteo verificato con posizione sintetica. Questo non dimostra ancora appuntamento/email/posizione sul profilo reale.
+**Audit riallineato al deploy reale — 23 settembre 2026.** La vecchia nota
+«storage bloccato» è superata: `ora-backend-volume` è montato su
+`/data/documents` e Mongo ha il proprio volume su `/data/db`. La prova
+sintetica upload → redeploy → download ha restituito lo stesso SHA-256.
+Frontend, backend e Mongo hanno attraversato ulteriori redeploy con stato
+`SUCCESS`.
 
-**Checkpoint verificato:** logout e isolamento download tra due account sintetici passano; revoca persistente dopo redeploy. **Blocker storage:** download dopo redeploy restituisce 410; volume creato ma mount non applicato dal connettore, intervento pannello necessario. Non dichiarare Cloud Foundation chiusa.
+Calendar e Gmail stanno sincronizzando dal cloud contro Google reale: i log
+Railway mostrano letture ripetute HTTP 200, incluso un nuovo messaggio Gmail
+rilevato dal runtime. Da iPhone reale il frontend cloud ha inviato
+`location/preference` e `location/signal` con HTTP 200 più volte. La
+telefonia ha già prodotto su Railway un readiness completo
+(`carrier=True · live=True · public=True · runtime=gemini_live`) usando il
+dominio Railway del backend; questo è un gate di infrastruttura, non la
+telefonata reale V3.22.
 
-**Gate da chiudere**
+**Gate**
 - [x] V3.21.3e: verifica sul profilo Railway confermata dall’utente.
-- Login e OAuth Calendar/Gmail con callback cloud; prima lettura e modifica successiva visibili in ORA, stato ultimo sync ed errori comprensibili.
-- Consenso posizione da Impostazioni e Meteo, revoca/negazione, aggiornamento del meteo sul dispositivo reale.
-- Frontend/backend/Mongo stabili, documenti su storage persistente (mai affidarsi a `/tmp`); upload e lettura dopo redeploy.
-- Telefonia Railway senza PC o Cloudflare. Il precedente PASS di capability (`carrier/live/public`, `gemini_live`) va distinto dal gate finale di telefonata reale V3.22.
-- Segreti runtime su Railway, controllo esposizione repository e vecchi `backend/data`; nessuna cancellazione o riscrittura di storia implicita.
-- Sessioni/JWT, health e capability status verificati; nessun servizio dichiarato funzionante solo perché configurato.
+- [~] Login/OAuth Calendar+Gmail: connessione e sync reali dal cloud provati; resta il reality gate di **modifica di un evento Google esistente da ORA** dopo il fix del 23/09, con rilettura e UX d’errore.
+- [~] Posizione: segnali reali da iPhone arrivano al cloud; restano da provare esplicitamente **negazione/revoca → stato comprensibile → riattivazione → meteo aggiornato** sul dispositivo.
+- [x] Storage: volume `/data/documents` montato; upload/download sintetico sopravvive a redeploy con hash identico. Mongo persistente su `/data/db`. Backup/restore resta un gate successivo pre-alpha, non è dimostrato qui.
+- [x] Telefonia cloud a livello capability: Railway raggiungibile senza localhost/quick tunnel; carrier + Gemini Live + public base pronti. La **telefonata reale dal cloud** appartiene a V3.22.
+- [~] Segreti/repository: segreti runtime vivono nelle variabili Railway; nel tree corrente non risultano `backend/data`, `.env` reali, PEM/P8 o chiavi private. **Audit completo della cronologia/esposizione pubblica** resta aperto; nessuna history rewrite automatica.
+- [x] Sessioni/JWT/health: logout revoca il bearer, la revoca sopravvive a redeploy, isolamento download fra utenti provato; health DB e capability status sono stati verificati.
 
-**Exit** — funzioni core dimostrate con PC spento; prove e limiti registrati. Nessuna nuova architettura telefonica.
+**Per chiudere V3.21.4 restano tre prove, non tre feature:** (1) modifica
+Calendar reale attraverso ORA; (2) ciclo posizione negata/revocata e
+riattivata con meteo; (3) audit della storia GitHub per esposizione di segreti
+o dati locali. Nessuna nuova architettura telefonica.
 
 ### V3.22 — Call UX Final · PIANIFICATO
 **Obiettivo** — preparo chiamata → autorizzo → ORA chiama → seguo stato → leggo esito → eventuale decisione → applicazione → storico.

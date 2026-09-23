@@ -1,3 +1,22 @@
+## 2026-09-23 — V3.21.4 Cloud Foundation: audit riallineato
+
+La roadmap non considera più lo storage un blocker: il volume backend è
+montato su `/data/documents`, Mongo su `/data/db`, e la precedente prova
+sintetica upload → redeploy → download ha conservato lo stesso SHA-256.
+Session revocation, isolamento download e health restano verificati.
+
+I log Railway reali mostrano Calendar/Gmail che continuano a leggere Google
+dal cloud con HTTP 200 e segnali di posizione provenienti da iPhone che
+raggiungono il backend. La readiness telefonica cloud era già
+`carrier/live/public = true` con runtime Gemini Live e public base Railway.
+Il tree corrente non contiene `backend/data`, .env reali, PEM/P8 o chiavi
+private.
+
+V3.21.4 resta **IN CORSO**: mancano una modifica Calendar reale fatta da ORA
+dopo il fix più recente, il ciclo posizione negata/revocata → riattivata con
+meteo sul device e l'audit completo della cronologia GitHub. Nessuna di queste
+tre prove viene dichiarata fatta per inferenza.
+
 ## 2026-09-23 — Home non finge una foto quando i provider sono esauriti
 
 Verifica sul deploy reale: Gemini primario rifiuta le immagini con 402,
