@@ -89,11 +89,16 @@ def main() -> int:
         proc.stdin.flush()
         header = proc.stdout.readline().decode("ascii", "replace").strip()
         parts = header.split()
-        if len(parts) < 3 or parts[1] != "blob":
+        if len(parts) < 3:
             continue
         size = int(parts[2])
+        # --batch emits a body for every object type. Always consume it before
+        # deciding whether to scan it, otherwise the next header read starts
+        # in the middle of a tree/commit body and the stream loses alignment.
         data = proc.stdout.read(size)
         proc.stdout.read(1)  # batch record terminator
+        if parts[1] != "blob":
+            continue
         if size > MAX_BLOB_BYTES or b"\x00" in data[:8192]:
             continue
 
