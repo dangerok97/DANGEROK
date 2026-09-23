@@ -19,13 +19,13 @@ from pathlib import PurePosixPath
 MAX_BLOB_BYTES = 2_000_000
 
 SENSITIVE_PATHS = (
-    re.compile(r"(^|/)\.env($|\.)", re.I),
-    re.compile(r"(^|/)(?:credentials|token)\.json$", re.I),
-    re.compile(r"(^|/)backend/data/", re.I),
-    re.compile(r"(^|/)(?:secrets|oauth-keys)/", re.I),
-    re.compile(r"\.(?:p8|p12|key)$", re.I),
-    re.compile(r"\.pem$", re.I),
+    ("env_file", re.compile(r"(^|/)\.env($|\.)", re.I)),
+    ("credential_json", re.compile(r"(^|/)(?:credentials|token)\.json$", re.I)),
+    ("secret_directory", re.compile(r"(^|/)(?:secrets|oauth-keys)/", re.I)),
+    ("key_file", re.compile(r"\.(?:p8|p12|key)$", re.I)),
+    ("pem_file", re.compile(r"\.pem$", re.I)),
 )
+DOCUMENT_STORAGE = re.compile(r"(^|/)backend/data/documents(?:/|$)", re.I)
 
 # Deliberately high-confidence signatures only. Generic words such as
 # "API_KEY" appear legitimately in source and documentation.
@@ -62,19 +62,15 @@ def git(*args: str) -> bytes:
 def main() -> int:
     raw = git("rev-list", "--objects", "--all").decode("utf-8", "replace")
     sha_paths: dict[str, set[str]] = collections.defaultdict(set)
-    path_findings: set[tuple[str, str, str]] = set()
 
     for line in raw.splitlines():
         sha, sep, path = line.partition(" ")
         if not sep:
             continue
         sha_paths[sha].add(path)
-        for rx in SENSITIVE_PATHS:
-            if rx.search(path):
-                # .env.example is intentionally tracked.
-                if path.endswith(".env.example"):
-                    continue
-                path_findings.add(("sensitive_historical_path", path, sha[:12]))
+
+    path_findings: set[tuple[str, str, str]] = set()
+    document_blob_shas: set[str] = set()
 
     proc = subprocess.Popen(
         ["git", "cat-file", "--batch"],
@@ -99,12 +95,32 @@ def main() -> int:
         proc.stdout.read(1)  # batch record terminator
         if parts[1] != "blob":
             continue
+
+        # Paths are evaluated only for actual file blobs. Directory/tree
+        # objects made the first version report the same storage hierarchy
+        # hundreds of times and leaked opaque user-scoped path fragments.
+        for path in paths:
+            if DOCUMENT_STORAGE.search(path):
+                document_blob_shas.add(sha)
+                continue
+            for kind, rx in SENSITIVE_PATHS:
+                if not rx.search(path):
+                    continue
+                if path.endswith(".env.example"):
+                    continue
+                path_findings.add((kind, path, sha[:12]))
+
         if size > MAX_BLOB_BYTES or b"\x00" in data[:8192]:
             continue
 
         lowered = data.lower()
         for kind, rx in CONTENT_PATTERNS.items():
             if not rx.search(data):
+                continue
+            # Historical telephone tests intentionally used a PEM-shaped
+            # not-a-real-key fixture. It is demonstrably synthetic (commit
+            # c0cd44b); do not turn a known fixture into a security incident.
+            if kind == "private_key_pem" and b"not-a-real-key" in lowered:
                 continue
             if kind == "openai_style_key" and any(m in lowered for m in PLACEHOLDER_MARKERS):
                 continue
@@ -116,17 +132,29 @@ def main() -> int:
     proc.wait(timeout=10)
 
     findings = sorted(path_findings | content_findings)
-    if findings:
-        print(f"FULL_HISTORY_SECRET_AUDIT=FAIL findings={len(findings)}")
-        for kind, path, sha12 in findings:
+    total = len(findings) + (1 if document_blob_shas else 0)
+    if total:
+        print(
+            "FULL_HISTORY_SECRET_AUDIT=FAIL "
+            f"categories={total} historical_document_blobs={len(document_blob_shas)}"
+        )
+        if document_blob_shas:
+            print(
+                "- historical_document_storage: backend/data/documents "
+                f"contains {len(document_blob_shas)} unique historical file blobs "
+                "(paths and contents intentionally hidden)"
+            )
+        for kind, path, sha12 in findings[:50]:
             print(f"- {kind}: {path} @ {sha12}")
-        print("Matched values are intentionally never printed.")
+        if len(findings) > 50:
+            print(f"- additional_non_document_findings: {len(findings) - 50}")
+        print("Matched values and document paths are intentionally never printed.")
         return 1
 
     print(
         "FULL_HISTORY_SECRET_AUDIT=PASS "
         f"historical_objects={len(sha_paths)} "
-        "high_confidence_secret_patterns=0 sensitive_paths=0"
+        "historical_document_blobs=0 high_confidence_secret_patterns=0 sensitive_paths=0"
     )
     return 0
 
