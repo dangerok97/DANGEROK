@@ -1016,7 +1016,7 @@ class ToolRegistry:
             CapabilitySpec(
                 capability="update_calendar_event",
                 description=(
-                    "Update or reschedule an existing calendar event ORA manages. Requires "
+                    "Update or reschedule an existing OR imported Google Calendar event. Requires "
                     "the exact calendar_ref from prior evidence — never guess by title; if "
                     "the target event is ambiguous, ask instead of choosing. Only the fields "
                     "provided are changed. Authority works exactly as it does for create: "

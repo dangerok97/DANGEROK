@@ -1,3 +1,13 @@
+## 2026-09-23 — Le richieste di chiamata entrano sempre nella telefonia
+
+Corretto un errore osservato nella scheda Aggiornamenti: ORA poteva dichiarare
+di non poter telefonare senza aver interrogato la capacità telefonica. Una
+richiesta esplicita di chiamata ora obbliga AI Core a usare
+`prepare_a_phone_call`; numero, mandato, doppia conferma e composizione restano
+nel flusso telefonico esistente. Le domande informative sulle chiamate non lo
+attivano. Verifica locale: 68 test mirati passati; deploy e chiamata reale
+restano da eseguire.
+
 ## 2026-09-22 — Aggiornamenti: scheda e prossimo passo condivisi
 
 Home, elenco e notifiche opportunità aprono la stessa scheda. Contratto azione discriminato: verifica opportunità con motore AI Core esistente, accettazione suggerimento, percorso già supportato; fallback informativo senza CTA inventate. Proposte separate dalle attività avviate. Fonti opportunità esposte e deduplicate per riferimento; disciplina ragionamento vieta di contare sync ripetute come eventi distinti.
@@ -4593,3 +4603,13 @@ The generic `meta.preparation` / `prepare_change` contract exposes actual work, 
 
 ### Update preparation continuity — 2026-09-23
 The remaining Home question handler called `/accept` and hid preparation cards without executing work (confirmed by cloud HTTP logs). All Home suggestion entry points now open canonical detail. The backend makes legacy `prepare_change` accept calls navigation-only, and restores only accepted preparations carrying the old no-op `open_modify_path` result. Detail loads by ID independently of Home. Durable work stays accessible after source expiry, with its session, answer and visible read-retry on errors; explicit dismissals are preserved. Existing work can continue after expiry without starting another session. Browser regression uses fixture API responses to exercise both Home entry points, preparation, reply, reload, expiration and failure. Provider/Google rescheduling is not claimed by that browser test. No new runtime dependencies or indexes.
+### 2026-09-23 — Modifica diretta degli eventi Google Calendar
+
+- Gli eventi Google importati ora hanno un riferimento opaco owner-scoped e
+  possono passare dallo stesso `update_calendar_event` degli eventi ORA.
+- La prima modifica collega un draft locale all'evento Google esistente con
+  upsert deterministico; non crea duplicati e non accetta ID arbitrari.
+- “Spostalo alle 15” conserva la durata se l'utente non ripete l'orario finale.
+- Le card conflitto e la chat usano la stessa identità; PATCH e rilettura Google
+  restano il criterio per dichiarare la modifica riuscita.
+- Nessuna nuova configurazione, collezione o migrazione distruttiva.

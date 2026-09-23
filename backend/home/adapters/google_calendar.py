@@ -143,7 +143,9 @@ async def load_google_calendar_events(
             updated_at=d.get("source_updated_at") or now_iso(),
             meta={
                 "dedupe_key": f"gcal:{eid}",
+                "ingestion_event_id": d.get("id"),
                 "external_id": d.get("external_id"),
+                "calendar_id": payload.get("calendar_id") or "primary",
                 "ora_event_id": priv.get("ora_event_id") or payload.get("ora_event_id"),
                 "ora_goal_id": priv.get("ora_goal_id") or payload.get("ora_goal_id"),
                 "goal_id": priv.get("ora_goal_id") or priv.get("goal_id") or payload.get("goal_id"),

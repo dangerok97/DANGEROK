@@ -47,6 +47,17 @@ Decisione: Cloud Foundation V3.21.4, iPhone reale V3.23, alpha 3–5 persone V4.
 
 Google Calendar and Gmail perform a bounded first read after OAuth and enqueue a durable retry. Continuous polling discovers new sources even for existing owners; partial calendar failures remain retryable. Home refreshes while active. Settings and Weather request actual browser geolocation and save a successful fix; already consented location refreshes while Home is active. Railway requires AMBIENT_RUNTIME=1. Browser denial is explained with recovery instructions. Provider availability and browser permission still govern freshness.
 
+## 2026-09-23 — Routing obbligatorio delle richieste telefoniche
+
+La telefonia era disponibile nel catalogo ma il modello poteva terminare il
+turno senza invocarla, soprattutto dentro una sessione nata da Aggiornamenti.
+AI Core ora rileva soltanto richieste operative esplicite (`chiama`,
+`telefonagli`, `fai una chiamata`, ecc.) e richiede un'osservazione reale da
+`prepare_a_phone_call` prima di accettare una risposta finale. La capacità
+continua a gestire disponibilità provider, risoluzione contatto e conferme:
+nessuna chiamata parte direttamente dal rilevatore. 68 test mirati passati;
+reality gate cloud ancora aperto.
+
 # ORA — Development State
 
 ## 2026-09-22 — Ripristino configurazione integrazioni cloud
@@ -3264,3 +3275,11 @@ The generic `meta.preparation` / `prepare_change` contract exposes actual work, 
 
 ### Update preparation continuity — 2026-09-23
 The remaining Home question handler called `/accept` and hid preparation cards without executing work (confirmed by cloud HTTP logs). All Home suggestion entry points now open canonical detail. The backend makes legacy `prepare_change` accept calls navigation-only, and restores only accepted preparations carrying the old no-op `open_modify_path` result. Detail loads by ID independently of Home. Durable work stays accessible after source expiry, with its session, answer and visible read-retry on errors; explicit dismissals are preserved. Existing work can continue after expiry without starting another session. Browser regression uses fixture API responses to exercise both Home entry points, preparation, reply, reload, expiration and failure. Provider/Google rescheduling is not claimed by that browser test. No new runtime dependencies or indexes.
+### Google Calendar: eventi importati modificabili — 23 settembre 2026
+
+Implementato il collegamento tra mirror Google e write path canonico. Chat e
+card proattive trasportano lo stesso riferimento opaco; la prima scrittura
+crea solo il record locale di collegamento e aggiorna via PATCH l'evento Google
+esistente. Uno spostamento con il solo nuovo inizio conserva la durata. Restano
+obbligatori consenso OAuth di scrittura, autorità esplicita e rilettura del
+provider prima di dichiarare l'esito.

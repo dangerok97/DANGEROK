@@ -47,6 +47,15 @@ Decisione: Cloud Foundation V3.21.4, iPhone reale V3.23, alpha 3–5 persone V4.
 
 Google Calendar and Gmail perform a bounded first read after OAuth and enqueue a durable retry. Continuous polling discovers new sources even for existing owners; partial calendar failures remain retryable. Home refreshes while active. Settings and Weather request actual browser geolocation and save a successful fix; already consented location refreshes while Home is active. Railway requires AMBIENT_RUNTIME=1. Browser denial is explained with recovery instructions. Provider availability and browser permission still govern freshness.
 
+## 2026-09-23 — Una richiesta di chiamata non può diventare un rifiuto inventato
+
+Quando la persona chiede esplicitamente a ORA di telefonare, la conversazione
+deve aprire o continuare la preparazione telefonica. ORA trova il numero,
+mostra cosa dirà e cosa potrà accettare, chiede il via libera e solo allora
+compone. Se il provider è realmente indisponibile, lo può dire soltanto dopo
+averlo verificato attraverso la capacità. Parlare genericamente di una
+chiamata non avvia nulla.
+
 # ORA — Product (struttura reale)
 
 ## 2026-09-22 — Integrazioni e posizione nel cloud
@@ -790,3 +799,9 @@ The generic `meta.preparation` / `prepare_change` contract exposes actual work, 
 
 ### Update preparation continuity — 2026-09-23
 The remaining Home question handler called `/accept` and hid preparation cards without executing work (confirmed by cloud HTTP logs). All Home suggestion entry points now open canonical detail. The backend makes legacy `prepare_change` accept calls navigation-only, and restores only accepted preparations carrying the old no-op `open_modify_path` result. Detail loads by ID independently of Home. Durable work stays accessible after source expiry, with its session, answer and visible read-retry on errors; explicit dismissals are preserved. Existing work can continue after expiry without starting another session. Browser regression uses fixture API responses to exercise both Home entry points, preparation, reply, reload, expiration and failure. Provider/Google rescheduling is not claimed by that browser test. No new runtime dependencies or indexes.
+## Modifica degli eventi Google importati (23 settembre 2026)
+
+Gli appuntamenti letti da Google Calendar non sono più solo informativi. Dopo
+una richiesta esplicita dell'utente, ORA può modificare l'evento originale,
+conservandone identità e durata e verificando il risultato tramite rilettura
+da Google. Non crea un secondo appuntamento per simulare uno spostamento.

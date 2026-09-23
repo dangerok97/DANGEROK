@@ -196,6 +196,36 @@ _LOCATION_CAPS = frozenset(
     }
 )
 
+# A direct request to telephone somebody must enter the governed phone
+# preparation. Prompt text alone is not an invariant: in production the model
+# once answered "I cannot place voice calls" even though the phone capability
+# was present and healthy. Keep this deliberately narrow to imperative/request
+# forms so questions *about* calling do not start a call.
+_PHONE_ACTION_ASK_RE = re.compile(
+    r"(?i)\b("
+    r"chiama(?:lo|la|li|le|mi|ci)?|"
+    r"telefon(?:a|agli|ale|ami|aci)|"
+    r"(?:voglio|vorrei|puoi|potresti|devi)\s+che\s+(?:tu\s+)?chiami|"
+    r"(?:fai|effettua|prepara)\s+(?:una\s+)?chiamata|"
+    r"contatta(?:lo|la|li|le)?\s+(?:per\s+telefono|telefonicamente)|"
+    r"call\s+(?:him|her|them|the|my|this)"
+    r")\b"
+)
+_PHONE_CAPABILITY = "prepare_a_phone_call"
+
+
+def _phone_action_requested(text: str) -> bool:
+    """Whether this turn explicitly asks ORA to make a phone call."""
+    return bool(_PHONE_ACTION_ASK_RE.search(text or ""))
+
+
+def _has_phone_observation(observations: List[Dict[str, Any]]) -> bool:
+    """A phone observation proves the request entered the governed flow."""
+    return any(
+        isinstance(item, dict) and item.get("name") == _PHONE_CAPABILITY
+        for item in observations
+    )
+
 
 def _now_iso() -> str:
     from datetime import datetime, timezone
@@ -369,6 +399,7 @@ async def run_cognitive_loop(
     working_hint: Optional[str] = None
     persist_nudge_used = False
     location_nudge_used = False
+    phone_nudge_used = False
     life_os_writes_this_turn = 0
     update_object_ok_this_turn = False
     situation_result: Optional[Dict[str, Any]] = None
@@ -1112,6 +1143,43 @@ async def run_cognitive_loop(
                 mode = "answer"
                 ora = _compose_user_text(decision, observations[turn_start:])
                 add_step(trace, event="CALENDAR_CLAIM_BLOCKED_TERMINAL")
+            # Capability-before-answer: an explicit request to call must pass
+            # through the phone preparation. This is about routing, not
+            # permission: the capability itself resolves the number, exposes
+            # provider failures honestly, and obtains the required staged
+            # confirmations before anything rings.
+            phone_requested = _phone_action_requested(user_message)
+            phone_observed = _has_phone_observation(observations[turn_start:])
+            if (
+                mode in ("answer", "ask", "finish", "act")
+                and phone_requested
+                and not phone_observed
+                and not phone_nudge_used
+                and step + 1 < max_steps
+            ):
+                phone_nudge_used = True
+                observations.append(
+                    Observation(
+                        kind="system",
+                        name="phone_capability_required",
+                        status="nudge",
+                        payload={
+                            "failure_code": "PHONE_CAPABILITY_REQUIRED",
+                            "reason": (
+                                "The user explicitly asked ORA to make a phone call. "
+                                "Do not answer, refuse, or redirect them to call manually. "
+                                "Call prepare_a_phone_call now. Resolve the counterparty "
+                                "from the visible conversation/update context, pass the "
+                                "calendar_ref when the call concerns a calendar event, and "
+                                "continue an existing preparation_id when one is visible. "
+                                "The capability owns number resolution, staged confirmation, "
+                                "provider readiness, and dialing."
+                            ),
+                        },
+                    ).model_dump()
+                )
+                add_step(trace, event="PHONE_CAPABILITY_NUDGE")
+                continue
             if (
                 decision.situation_update
                 and decision.situation_update.operation != "none"

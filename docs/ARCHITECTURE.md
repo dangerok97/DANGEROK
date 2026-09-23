@@ -2611,3 +2611,23 @@ The generic `meta.preparation` / `prepare_change` contract exposes actual work, 
 
 ### Update preparation continuity — 2026-09-23
 The remaining Home question handler called `/accept` and hid preparation cards without executing work (confirmed by cloud HTTP logs). All Home suggestion entry points now open canonical detail. The backend makes legacy `prepare_change` accept calls navigation-only, and restores only accepted preparations carrying the old no-op `open_modify_path` result. Detail loads by ID independently of Home. Durable work stays accessible after source expiry, with its session, answer and visible read-retry on errors; explicit dismissals are preserved. Existing work can continue after expiry without starting another session. Browser regression uses fixture API responses to exercise both Home entry points, preparation, reply, reload, expiration and failure. Provider/Google rescheduling is not claimed by that browser test. No new runtime dependencies or indexes.
+## Write-through degli eventi Google importati
+
+`get_calendar_events` espone per ogni mirror Google un riferimento opaco e
+owner-scoped basato sulla riga di ingestion. Alla prima modifica il Calendar
+capability crea mediante upsert un `calendar_event_draft` collegato allo stesso
+`google_event_id` e `calendar_id`; non effettua alcuna create sul provider.
+Da quel momento usa il percorso canonico `reschedule_draft -> PATCH Google ->
+read-after-write -> ingestion`, con consenso `calendar.write`, authority gate,
+idempotenza e verifica già adottati dagli eventi creati da ORA. I riferimenti
+di altri utenti e gli eventi cancellati non vengono risolti.
+## 2026-09-23 — Phone capability-before-answer
+
+`ai_core.loop` applica un routing invariant alle richieste telefoniche
+operative. Se il turno contiene una richiesta esplicita e non esiste ancora
+un'osservazione `prepare_a_phone_call` nel turno, una risposta finale viene
+rifiutata e il ragionamento rientra con `PHONE_CAPABILITY_REQUIRED`. Il gate
+non compone numeri e non duplica l'autorità: `telephone.caps` resta proprietario
+di provider readiness, preparazione, conferma numero, riepilogo, via libera e
+dial. La regola vale in ogni entry point AI Core, incluse le sessioni create da
+Aggiornamenti.

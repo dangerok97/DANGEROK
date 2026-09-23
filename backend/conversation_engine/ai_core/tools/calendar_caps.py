@@ -8,19 +8,18 @@ whether a user statement "means" a calendar event. That decision stays with
 the AI; this module only guarantees ownership, consent, idempotency, bounded
 output and failure honesty once the AI has decided to read or write.
 
-Canonical ref: an AI-managed calendar item is always `calendar:{draft_id}`
-(draft_id prefixed `ced_`) — the same ref shape already emitted by the
-Context Broker's `_calendar` source and already a recognized Context Graph
-prefix. Read-only ingested Google events (`ingestion_events`, items the user
-already had in Google before ORA touched anything) are surfaced for
-conflict-awareness only, with no canonical ref — they are not directly
-actionable via these capabilities (V2.8.6b canonical-ref policy, see
-docs/ARCHITECTURE.md).
+Canonical ref: every owned calendar item has an opaque `calendar:{ref}`.
+ORA-created items use their draft id; Google-imported items use the id of the
+owner-scoped ingestion row until the first write. At that point a linked draft
+is created for the *same* provider event and all later writes keep using it.
+This makes imported events actionable without ever accepting an arbitrary
+Google event id from the model or creating a duplicate event.
 """
 from __future__ import annotations
 
 from ingestion.reading import plain, where
 
+import hashlib
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
@@ -73,6 +72,73 @@ def _ref(draft_id: str) -> str:
 def _strip_ref(value: Optional[str]) -> str:
     v = str(value or "").strip()
     return v[len("calendar:") :] if v.startswith("calendar:") else v
+
+
+async def _linked_google_draft(db, user_id: str, ref: str) -> Optional[Dict[str, Any]]:
+    """Resolve an owned imported event and link it to the existing write path."""
+    token = str(ref or "")
+    if token.startswith("google:"):
+        token = token[len("google:") :]
+    row = await db.ingestion_events.find_one(
+        {
+            "user_id": user_id,
+            "connector_id": "calendar_google",
+            "source_status": {"$ne": "detached"},
+            "$or": [{"id": token}, {"external_id": token}],
+        },
+        {"_id": 0},
+        sort=[("ingested_at", -1)],
+    )
+    if not row:
+        return None
+    payload = plain(row.get("normalized_payload"))
+    if str(payload.get("status") or "").lower() == "cancelled":
+        return None
+    external_id = str(row.get("external_id") or "")
+    calendar_id = str(payload.get("calendar_id") or "primary")
+    if not external_id:
+        return None
+
+    existing = await db.calendar_event_drafts.find_one(
+        {"user_id": user_id, "google_event_id": external_id}, {"_id": 0},
+    )
+    if existing:
+        return existing
+
+    digest = hashlib.sha256(
+        f"{user_id}|{calendar_id}|{external_id}".encode("utf-8")
+    ).hexdigest()[:16]
+    draft_id = f"ced_google_{digest}"
+    now = datetime.now(timezone.utc).isoformat()
+    doc = {
+        "id": draft_id,
+        "user_id": user_id,
+        "provider": "google",
+        "title": str(payload.get("title") or "Evento")[:_MAX_TITLE],
+        "description": str(payload.get("description") or "")[:_MAX_DESCRIPTION],
+        "start_datetime": payload.get("starts_at"),
+        "end_datetime": payload.get("ends_at"),
+        "timezone": str(payload.get("timezone") or "Europe/Rome"),
+        "all_day": bool(payload.get("all_day")),
+        "location": payload.get("location"),
+        "source_document_id": str(row.get("id") or "google_calendar"),
+        "source_event_candidate_id": external_id,
+        "status": "confirmed",
+        "created_at": now,
+        "updated_at": now,
+        "sync_provider": "google",
+        "sync_status": "synced",
+        "google_calendar_id": calendar_id,
+        "google_event_id": external_id,
+        "last_synced_at": row.get("ingested_at") or now,
+        "sync_version": 0,
+    }
+    await db.calendar_event_drafts.update_one(
+        {"id": draft_id, "user_id": user_id}, {"$setOnInsert": doc}, upsert=True,
+    )
+    return await db.calendar_event_drafts.find_one(
+        {"id": draft_id, "user_id": user_id}, {"_id": 0},
+    )
 
 
 def _at_the_same_clock(*moments):
@@ -454,7 +520,7 @@ async def get_calendar_events(arguments: Dict[str, Any], runtime: Dict[str, Any]
                 # vuoto. E' lo stesso errore che teneva la Home a zero.
                 where("starts_at"): {"$gte": tmin_iso, "$lt": tmax_iso},
             },
-            {"_id": 0, "normalized_payload": 1, "external_id": 1},
+            {"_id": 0, "id": 1, "normalized_payload": 1, "external_id": 1},
         ).sort(where("starts_at"), 1).limit(remaining)
         mirrored = await ingested_cur.to_list(remaining)
 
@@ -496,7 +562,9 @@ async def get_calendar_events(arguments: Dict[str, Any], runtime: Dict[str, Any]
                 # farebbe dire al modello che sono due impegni.
                 continue
             items.append({
-                "calendar_ref": None,  # read-only external mirror, not actionable
+                # Opaque owner-scoped handle: the raw Google id is never
+                # accepted from the model as authorization to write.
+                "calendar_ref": _ref("google:" + str(e.get("id") or "")),
                 "source": "google_external",
                 "title": p.get("title"),
                 "start_datetime": p.get("starts_at"),
@@ -1030,6 +1098,11 @@ async def update_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
         {"id": draft_id, "user_id": uid}, {"_id": 0, "id": 1, "status": 1},
     )
     if not existing:
+        linked = await _linked_google_draft(db, uid, draft_id)
+        if linked:
+            draft_id = str(linked["id"])
+            existing = {"id": draft_id, "status": linked.get("status")}
+    if not existing:
         return Observation(
             kind="tool", name="update_calendar_event", status="not_found",
             payload={
@@ -1087,6 +1160,19 @@ async def update_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
         fields["timezone"] = tz
     if not fields:
         return _needs("update_calendar_event", "fields", "che cosa cambia")
+
+    # “Spostalo alle 15” changes the beginning, not the duration. Preserve
+    # the observed duration when the caller does not repeat the end time.
+    if fields.get("start_datetime") and "end_datetime" not in fields:
+        current = await db.calendar_event_drafts.find_one(
+            {"id": draft_id, "user_id": uid},
+            {"_id": 0, "start_datetime": 1, "end_datetime": 1},
+        )
+        old_start = _parse_dt((current or {}).get("start_datetime"))
+        old_end = _parse_dt((current or {}).get("end_datetime"))
+        new_start = _parse_dt(fields.get("start_datetime"))
+        if old_start and old_end and new_start and old_end > old_start:
+            fields["end_datetime"] = (new_start + (old_end - old_start)).isoformat()
 
     # Same gate as create, for the same reason. «Sposta la visita alle 11» is
     # a decision the person has already made; the only thing worth checking is

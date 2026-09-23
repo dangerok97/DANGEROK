@@ -625,6 +625,42 @@ def test_the_phone_sentence_survives_a_later_tool_in_the_same_turn():
     assert _the_tool_s_own_sentence([]) == ""
 
 
+@pytest.mark.parametrize("text", [
+    "Chiama il dentista e sposta l'appuntamento",
+    "Chiamalo",
+    "Voglio che chiami lo studio",
+    "Telefona al ristorante",
+    "Contattalo per telefono",
+    "Fai una chiamata a Marco",
+])
+def test_an_explicit_phone_request_requires_the_phone_capability(text):
+    from conversation_engine.ai_core.loop import _phone_action_requested
+
+    assert _phone_action_requested(text) is True
+
+
+@pytest.mark.parametrize("text", [
+    "Perché non puoi chiamare?",
+    "Qual è il numero del dentista?",
+    "Ho ricevuto una chiamata ieri",
+])
+def test_talking_about_calls_does_not_start_one(text):
+    from conversation_engine.ai_core.loop import _phone_action_requested
+
+    assert _phone_action_requested(text) is False
+
+
+def test_only_a_real_phone_tool_observation_satisfies_the_route():
+    from conversation_engine.ai_core.loop import _has_phone_observation
+
+    assert _has_phone_observation([
+        {"kind": "system", "name": "phone_capability_required"},
+    ]) is False
+    assert _has_phone_observation([
+        {"kind": "tool", "name": "prepare_a_phone_call", "status": "partial"},
+    ]) is True
+
+
 def test_the_chat_shows_the_whole_sentence_of_the_phone_tool():
     """
     Misurato in app: il modello diceva solo «È questo il numero corretto?».

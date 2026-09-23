@@ -63,9 +63,16 @@ async def _load_events(db, user_id: str, now: datetime) -> List[Dict[str, Any]]:
     items, _ = await load_google_calendar_events(db, user_id)
     for item in items:
         events.append({
-            "id": "google:" + str(item.meta.get("external_id") or item.source_id),
+            # This is the same opaque owner-scoped ref emitted by the
+            # conversational calendar reader. A prepared suggestion can now
+            # continue into the canonical update tool instead of dead-ending
+            # with a provider id it is not allowed to use.
+            "id": "calendar:google:" + str(
+                item.meta.get("ingestion_event_id") or item.source_id
+            ),
             "title": item.title, "starts_at": item.start_at, "ends_at": item.end_at,
             "source": "google_calendar", "synced_at": state.get("last_sync_at"),
+            "calendar_id": item.meta.get("calendar_id"),
         })
 
     return events
