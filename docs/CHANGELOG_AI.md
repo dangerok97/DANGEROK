@@ -1,3 +1,12 @@
+## 2026-09-23 — Revoca posizione effettiva anche sul meteo
+
+L'audit V3.21.4 ha trovato che impostare Posizione su «Disattivata» fermava
+nuovi segnali ma `HomeService._where_they_are` poteva ancora usare l'ultima
+coordinata già conservata. Ora il meteo «dove sei» usa un punto solo quando il
+consenso ORA è `while_using` e la presenza dispositivo è CURRENT o RECENT.
+Posizione off o STALE → meteo non disponibile finché non arriva un nuovo fix
+consentito. I luoghi salvati non vengono più spacciati per posizione attuale.
+
 ## 2026-09-23 — V3.21.4 Cloud Foundation: audit riallineato
 
 La roadmap non considera più lo storage un blocker: il volume backend è

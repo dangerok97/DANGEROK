@@ -869,13 +869,28 @@ class HomeService:
         return await meteo.now_at(lat=lat, lon=lon, place=dove)
 
     async def _where_they_are(self, user_id: str):
-        """(lat, lon, nome del posto) — dalla presenza, o dai luoghi salvati."""
-        #     PRIMA DOVE SEI ADESSO.
+        """Current device point only, and only while ORA has location consent.
+
+        A stored coordinate is evidence from an earlier moment, not permission
+        to keep using it forever. Turning Location off therefore makes weather
+        unavailable immediately; a stale observation does the same. Saved
+        places describe where somebody lives or cares about, not where they
+        are now, so they are deliberately not a fallback for "Meteo dove sei".
+        """
         try:
             from location.service import LocationService
 
-            presenza = await LocationService(self.db).build_presence(user_id)
-            if presenza and presenza.latitude is not None and presenza.longitude is not None:
+            location = LocationService(self.db)
+            if await location.get_preference(user_id) != "while_using":
+                return None
+
+            presenza = await location.build_presence(user_id)
+            if (
+                presenza
+                and presenza.freshness in ("CURRENT", "RECENT")
+                and presenza.latitude is not None
+                and presenza.longitude is not None
+            ):
                 dove = (
                     presenza.place_locality
                     or presenza.place_municipality
@@ -884,24 +899,8 @@ class HomeService:
                 )
                 return float(presenza.latitude), float(presenza.longitude), dove
         except Exception as e:  # pragma: no cover - la presenza è facoltativa
-            logger.info("meteo senza presenza: %s", type(e).__name__)
-
-        #     POI DOVE VIVI.
-        try:
-            from places.service import PlacesService
-
-            posti = [p for p in await PlacesService(self.db).list_places(user_id) if p.coordinates]
-        except Exception as e:  # pragma: no cover
-            logger.info("meteo senza luoghi: %s", type(e).__name__)
-            posti = []
-        if not posti:
-            return None
-        scelto = next((p for p in posti if p.role == "home"), posti[0])
-        return (
-            scelto.coordinates.latitude,
-            scelto.coordinates.longitude,
-            scelto.locality or scelto.label,
-        )
+            logger.info("meteo senza presenza corrente: %s", type(e).__name__)
+        return None
 
     async def full_situation(self, user_id: str) -> Dict[str, Any]:
         home = await self.build_home(user_id)
