@@ -1064,13 +1064,14 @@ telefonata reale V3.22.
 - [~] Posizione: segnali reali da iPhone arrivano al cloud; restano da provare esplicitamente **negazione/revoca → stato comprensibile → riattivazione → meteo aggiornato** sul dispositivo.
 - [x] Storage: volume `/data/documents` montato; upload/download sintetico sopravvive a redeploy con hash identico. Mongo persistente su `/data/db`. Backup/restore resta un gate successivo pre-alpha, non è dimostrato qui.
 - [x] Telefonia cloud a livello capability: Railway raggiungibile senza localhost/quick tunnel; carrier + Gemini Live + public base pronti. La **telefonata reale dal cloud** appartiene a V3.22.
-- [~] Segreti/repository: segreti runtime vivono nelle variabili Railway; nel tree corrente non risultano `backend/data`, `.env` reali, PEM/P8 o chiavi private. **Audit completo della cronologia/esposizione pubblica** resta aperto; nessuna history rewrite automatica.
+- [!] Segreti/repository: il tree corrente è pulito, ma il full-history scan del 23/09 ha trovato file storici sotto `backend/data/documents` in un commit del 31/07; il repo è pubblico. Il match PEM separato è una fixture `not-a-real-key` confermata finta. **Blocker:** bonifica della cronologia (e valutazione immediata della visibilità del repo) con approvazione esplicita; nessuna history rewrite automatica.
 - [x] Sessioni/JWT/health: logout revoca il bearer, la revoca sopravvive a redeploy, isolamento download fra utenti provato; health DB e capability status sono stati verificati.
 
-**Per chiudere V3.21.4 restano tre prove, non tre feature:** (1) modifica
-Calendar reale attraverso ORA; (2) ciclo posizione negata/revocata e
-riattivata con meteo; (3) audit della storia GitHub per esposizione di segreti
-o dati locali. Nessuna nuova architettura telefonica.
+**Per chiudere V3.21.4 restano due reality gate e un blocker di sicurezza:**
+(1) modifica Calendar reale attraverso ORA; (2) ciclo posizione
+negata/revocata e riattivata con meteo sul device; (3) rimuovere dalla
+cronologia pubblica i vecchi blob di `backend/data/documents` dopo approvazione
+esplicita della bonifica. Nessuna nuova architettura telefonica.
 
 ### V3.22 — Call UX Final · PIANIFICATO
 **Obiettivo** — preparo chiamata → autorizzo → ORA chiama → seguo stato → leggo esito → eventuale decisione → applicazione → storico.
