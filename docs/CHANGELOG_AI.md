@@ -4613,3 +4613,10 @@ The remaining Home question handler called `/accept` and hid preparation cards w
 - Le card conflitto e la chat usano la stessa identità; PATCH e rilettura Google
   restano il criterio per dichiarare la modifica riuscita.
 - Nessuna nuova configurazione, collezione o migrazione distruttiva.
+## 2026-09-23 — Agent need continuity
+
+- Kept the original ORA question in the conversation after the user answers.
+- A reply that unblocks an agent goal now continues through AI Core so phone,
+  calendar, mail and future capabilities return a real outcome instead of a
+  generic progress sentence.
+- Preserved `needId` and `goalId` when the new session URL is created.

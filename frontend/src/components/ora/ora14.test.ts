@@ -292,3 +292,16 @@ const SESSION_ROUTE = 'app/ora/[sessionId].tsx';
 }
 
 console.log('ora14: all assertions passed');
+
+// A reply to an agent need is one continuous interaction: the question stays
+// visible and the same turn reaches AI Core, where real capabilities run.
+{
+  const screen = readCode(SCREEN);
+  assert.ok(/messageId: `need_\$\{String\(needId\)\}`/.test(screen), 'agent need question must persist as a turn');
+  assert.ok(
+    /if \(handled\) \{\s*\}/.test(screen),
+    'answering a need must continue into AI Core instead of returning early',
+  );
+  assert.ok(!/const says = String\(\(res as any\)\?\.says/.test(screen), 'generic agent progress must not replace capability outcome');
+  assert.ok(/\.\.\.\(needId \? \{ needId: String\(needId\) \}/.test(screen), 'need handle must survive the session URL');
+}

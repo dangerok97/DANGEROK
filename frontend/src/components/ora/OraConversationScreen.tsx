@@ -489,7 +489,22 @@ export function OraConversationScreen({
     void api
       .getAgentNeed(String(needId))
       .then((n) => {
-        if (alive) setNeed(n);
+        if (!alive) return;
+        setNeed(n);
+        /*
+          A need is the first ORA turn of this conversation, not temporary
+          chrome.  Keeping it in the transcript matters most after the person
+          answers: otherwise the answer remains on screen while the question
+          it answered appears to have been deleted.
+        */
+        const question = String(n?.says || '').trim();
+        if (question) {
+          setTurns((current) =>
+            current.length
+              ? current
+              : [{ role: 'ora', text: question, messageId: `need_${String(needId)}` }],
+          );
+        }
       })
       .catch(() => {});
     return () => {
@@ -549,15 +564,14 @@ export function OraConversationScreen({
       if (!target) return false;
       const res = await api.answerAgentGoal(target, text);
       setNeed((current) => (current ? { ...current, still_open: false } : current));
-      // What ORA says back is the server's sentence, not one composed here:
-      // the thread must not be able to claim progress the goal has not made.
-      const says = String((res as any)?.says || '').trim();
-      if (says) {
-        setTurns((prev) => [
-          ...prev,
-          { role: 'ora', text: says, messageId: `agent_${Date.now()}` },
-        ]);
-      }
+      /*
+        Accepting the missing fact only unblocks the goal.  It is not the
+        result of the user's instruction and must never manufacture a generic
+        "ho cercato" reply.  The same user turn continues below through AI
+        Core, where capabilities (phone, calendar, mail, ...) are actually
+        selected and their real outcome is returned.
+      */
+      void res;
       return true;
     },
     [need?.goal_id, goalId],
@@ -774,6 +788,18 @@ export function OraConversationScreen({
       // per stored turn. Rebuilding from history alone silently threw them away
       // every time — so the evidence for the newest answer is put back on it.
       const rebuilt = historyToTurns(res.history);
+      const needQuestion = String(need?.says || '').trim();
+      if (
+        needId &&
+        needQuestion &&
+        !rebuilt.some((turn) => turn.messageId === `need_${String(needId)}`)
+      ) {
+        rebuilt.unshift({
+          role: 'ora',
+          text: needQuestion,
+          messageId: `need_${String(needId)}`,
+        });
+      }
       const sources = Array.isArray(res.sources) ? res.sources.slice(0, 5) : [];
       const navigation = Array.isArray((res as any).navigation)
         ? ((res as any).navigation as OraNavigationOption[]).slice(0, 3)
@@ -826,7 +852,7 @@ export function OraConversationScreen({
       });
     }
     outbox.current.delete(clientMessageId);
-  }, []);
+  }, [need?.says, needId]);
 
   /**
    * Send one turn under a stable client message id.
@@ -860,8 +886,9 @@ export function OraConversationScreen({
         if (needsInformation && msg) {
           const handled = await answerInThread(msg);
           if (handled) {
-            requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
-            return;
+            // Do not return: this very turn must continue into the operational
+            // runtime.  Answering a blocker and carrying out the instruction
+            // are two stages of one interaction, not two conversations.
           }
         }
 
@@ -928,6 +955,8 @@ export function OraConversationScreen({
               ...(planItemId ? { planItemId: String(planItemId) } : {}),
               ...(documentId ? { documentId: String(documentId) } : {}),
               ...(opportunityId ? { opportunityId: String(opportunityId) } : {}),
+              ...(needId ? { needId: String(needId) } : {}),
+              ...(goalId ? { goalId: String(goalId) } : {}),
               entry: entryPoint,
             });
             router.replace(`/ora/${id}?${q.toString()}` as any);

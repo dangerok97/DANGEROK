@@ -2631,3 +2631,9 @@ non compone numeri e non duplica l'autorità: `telephone.caps` resta proprietari
 di provider readiness, preparazione, conferma numero, riepilogo, via libera e
 dial. La regola vale in ogni entry point AI Core, incluse le sessioni create da
 Aggiornamenti.
+### Agent need to AI Core handoff
+
+An informational agent need is first resolved against its owning goal, then the
+same user turn continues through AI Core. This keeps goal state consistent while
+ensuring capability routing and execution are not bypassed. The original need
+is retained as the first transcript turn and its handles survive session routing.

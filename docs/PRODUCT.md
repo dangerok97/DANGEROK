@@ -805,3 +805,8 @@ Gli appuntamenti letti da Google Calendar non sono più solo informativi. Dopo
 una richiesta esplicita dell'utente, ORA può modificare l'evento originale,
 conservandone identità e durata e verificando il risultato tramite rilettura
 da Google. Non crea un secondo appuntamento per simulare uno spostamento.
+### Continuity when ORA asks for information
+
+When ORA asks for a missing fact, the question remains visible after the user
+answers. The answer resumes the same work and the interface reports the actual
+capability outcome; accepting information alone is not presented as progress.

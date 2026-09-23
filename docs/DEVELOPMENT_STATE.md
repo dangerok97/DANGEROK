@@ -3283,3 +3283,8 @@ crea solo il record locale di collegamento e aggiorna via PATCH l'evento Google
 esistente. Uno spostamento con il solo nuovo inizio conserva la durata. Restano
 obbligatori consenso OAuth di scrittura, autorità esplicita e rilettura del
 provider prima di dichiarare l'esito.
+### Agent need handoff (2026-09-23)
+
+Replies opened from an agent need now preserve the question and pass through
+the operational AI Core after unblocking the goal. A need is no longer treated
+as complete merely because information was accepted.
