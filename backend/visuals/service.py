@@ -26,9 +26,11 @@ logger = logging.getLogger("ora.visuals")
 
 COLLECTION = "life_visuals"
 
-# One image is worth generating a few times at most. Past this the card keeps
+# One image is worth generating a few times at most. The fourth attempt is
+# reserved for provider-chain recovery (for example when a secondary account
+# becomes available after the first three attempts); past this the card keeps
 # its fallback rather than burning budget on a provider that keeps refusing.
-MAX_ATTEMPTS = 3
+MAX_ATTEMPTS = 4
 # Bounded concurrency: a burst of new cards must not open twenty provider calls.
 _semaphore = asyncio.Semaphore(2)
 # Best-effort in-process tasks, mirroring the V2.9.4 accelerator pattern:
@@ -95,7 +97,7 @@ class VisualService:
             # permanent grey placeholder.
             status = existing.get("status")
             attempts = int(existing.get("attempts") or 0)
-            if schedule and status in {"queued", "generating", "missing"} and attempts < MAX_ATTEMPTS:
+            if schedule and status in {"queued", "generating", "missing", "failed"} and attempts < MAX_ATTEMPTS:
                 self._schedule(user_id=user_id, key=key, prompt=descriptor.prompt())
             return self._public(existing)
 

@@ -58,6 +58,8 @@ class GeminiImageProvider:
     """Google image models via the `google-genai` client."""
 
     name = "gemini"
+    key_env = "GEMINI_API_KEY"
+    models_env = "GEMINI_IMAGE_MODELS"
 
     # Cheapest capable model first, then up. Overridable end-to-end with
     # GEMINI_IMAGE_MODELS so the order is an operations decision, not a code one.
@@ -68,20 +70,24 @@ class GeminiImageProvider:
     )
 
     def __init__(self) -> None:
-        configured = (os.environ.get("GEMINI_IMAGE_MODELS") or "").strip()
+        configured = (
+            os.environ.get(self.models_env)
+            or os.environ.get("GEMINI_IMAGE_MODELS")
+            or ""
+        ).strip()
         self._models = tuple(
             m.strip() for m in configured.split(",") if m.strip()
         ) or self.DEFAULT_MODELS
 
     def configured(self) -> bool:
-        return bool((os.environ.get("GEMINI_API_KEY") or "").strip())
+        return bool((os.environ.get(self.key_env) or "").strip())
 
     async def generate(self, *, prompt: str, aspect: str) -> ImageResult:
         import asyncio
 
         from google import genai
 
-        client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+        client = genai.Client(api_key=os.environ[self.key_env])
         last: Exception | None = None
 
         # A model can be rate-limited while the next one is not; that is a
@@ -94,7 +100,7 @@ class GeminiImageProvider:
                 resp = await asyncio.wait_for(asyncio.to_thread(_call), timeout=IMAGE_TIMEOUT_S)
             except Exception as exc:
                 last = exc
-                logger.info("gemini image model %s unavailable: %s", model, type(exc).__name__)
+                logger.info("%s image model %s unavailable: %s", self.name, model, type(exc).__name__)
                 continue
 
             for cand in (resp.candidates or []):
@@ -113,6 +119,14 @@ class GeminiImageProvider:
             last = RuntimeError(f"{model} returned no image part")
 
         raise last or RuntimeError("gemini produced no image")
+
+
+class GeminiSecondaryImageProvider(GeminiImageProvider):
+    """Same image capability, second Gemini account / quota."""
+
+    name = "gemini2"
+    key_env = "GEMINI2_API_KEY"
+    models_env = "GEMINI2_IMAGE_MODELS"
 
 
 # --- OpenAI -------------------------------------------------------------------
@@ -167,9 +181,10 @@ class OpenAIImageProvider:
 # --- manager ------------------------------------------------------------------
 
 def _default_chain() -> list[ImageProvider]:
-    order = [p.strip() for p in (os.environ.get("IMAGE_PROVIDER_PRIORITY") or "gemini,openai").split(",") if p.strip()]
+    order = [p.strip() for p in (os.environ.get("IMAGE_PROVIDER_PRIORITY") or "gemini,gemini2,openai").split(",") if p.strip()]
     known: dict[str, ImageProvider] = {
         "gemini": GeminiImageProvider(),
+        "gemini2": GeminiSecondaryImageProvider(),
         "openai": OpenAIImageProvider(),
     }
     return [known[n] for n in order if n in known]

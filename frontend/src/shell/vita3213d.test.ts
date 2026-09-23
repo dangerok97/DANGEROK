@@ -47,8 +47,10 @@ const SCHERMO = 'src/life-setup/GuidedSetupScreen.tsx';
     'la testata usa l\'asset versionato',
   );
   assert.ok(
-    schermo.includes('<ImageBackground') && schermo.includes('styles.introCopy'),
-    'titolo, testo e fotografia devono formare una sola testata editoriale',
+    schermo.includes("from 'expo-image'") &&
+      schermo.includes('styles.introArtwork') &&
+      schermo.includes('styles.introCopyMobile'),
+    'la testata deve preservare la scena su desktop e dare piena larghezza al testo su mobile',
   );
   assert.ok(!/source=\{\{\s*uri:/.test(schermo), 'nessun URL remoto nella schermata');
   // La frase resta interfaccia: si corregge senza rifare un'immagine.

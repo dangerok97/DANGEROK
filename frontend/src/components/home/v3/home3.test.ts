@@ -103,9 +103,16 @@ const item = (o: Record<string, unknown> = {}) => ({
 
   const visualService = read('../backend/visuals/service.py');
   assert.ok(
-    visualService.includes('status in {"queued", "generating", "missing"}') &&
+    visualService.includes('status in {"queued", "generating", "missing", "failed"}') &&
       visualService.includes('attempts < MAX_ATTEMPTS'),
     'interrupted or transiently failed image jobs must be resumed instead of remaining placeholders',
+  );
+
+  const visualProviders = read('../backend/visuals/providers.py');
+  assert.ok(
+    visualProviders.includes('GeminiSecondaryImageProvider') &&
+      visualProviders.includes('"gemini2": GeminiSecondaryImageProvider()'),
+    'Home image generation must fall through to the configured second Gemini account',
   );
 }
 

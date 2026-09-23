@@ -21,7 +21,6 @@ import { BankSummaryCard } from './BankSummaryCard';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  ImageBackground,
   Platform,
   Pressable,
   ScrollView,
@@ -34,6 +33,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 
 import { api, GuidedObjective, GuidedSetupState, type LifeMapResponse } from '@/src/api/client';
 import { areaIconName } from '@/src/components/life-profile/areaIcon';
@@ -427,42 +427,52 @@ export function GuidedSetupScreen() {
     </View>
   ) : null;
 
-  const intro = (
-    <ImageBackground
-      source={require('@/assets/images/vita-header.png')}
-      style={styles.introRiga}
-      imageStyle={styles.introSfondo}
-      resizeMode="cover"
-      accessibilityIgnoresInvertColors
-      testID="guided-header-image"
-    >
-      <View style={styles.introCopy}>
-        <Text style={[styles.title, { color: colors.textPrimary }]} testID="guided-title">
-          Conosciamoci
-        </Text>
-        <Text style={[styles.introText, { color: colors.textSecondary }]}>
-          ORA vuole conoscere le diverse parti della tua vita per aiutarti davvero ogni giorno.{' '}
-          Compiliamo un'area alla volta. Puoi saltare o tornare quando vuoi.
+  const introCopy = (
+    <View style={twoColumn ? styles.introCopy : styles.introCopyMobile}>
+      <Text style={[styles.title, { color: colors.textPrimary }]} testID="guided-title">
+        Conosciamoci
+      </Text>
+      <Text style={[styles.introText, { color: colors.textSecondary }]}>
+        ORA vuole conoscere le diverse parti della tua vita per aiutarti davvero ogni giorno.{' '}
+        Compiliamo un'area alla volta. Puoi saltare o tornare quando vuoi.
+      </Text>
+    </View>
+  );
+
+  const intro = twoColumn ? (
+    <View style={styles.introRiga}>
+      {introCopy}
+      <Image
+        source={require('@/assets/images/vita-header.png')}
+        style={styles.introArtwork}
+        contentFit="cover"
+        contentPosition="right center"
+        accessibilityIgnoresInvertColors
+        testID="guided-header-image"
+      />
+      <View style={styles.testataNota}>
+        <Text style={[styles.nota, { color: ora.deep }]} testID="guided-nota">
+          Un quadro più completo,{'\n'}una vita più semplice.
         </Text>
       </View>
-      {/*
-        La testata editoriale della reference: la frase come nota scritta a
-        mano e, accanto, la scena — pianta, libri, portapenne, lampada.
-
-        L'immagine è un asset locale e versionato: `vita-header.png`, che
-        `scripts/make-vita-header.py` ritaglia dalla reference approvata —
-        disegnarla non funzionava, perché quella è una fotografia. Niente URL
-        remoti. La frase resta interfaccia e non entra nel file, così si
-        corregge senza rifare un'immagine.
-      */}
-      {twoColumn ? (
-        <View style={styles.testataNota}>
-          <Text style={[styles.nota, { color: ora.deep }]} testID="guided-nota">
-            Un quadro più completo,{'\n'}una vita più semplice.
-          </Text>
-        </View>
-      ) : null}
-    </ImageBackground>
+    </View>
+  ) : (
+    <View style={styles.introMobile}>
+      {introCopy}
+      <View style={styles.introMobileArtwork}>
+        <Image
+          source={require('@/assets/images/vita-header.png')}
+          style={StyleSheet.absoluteFill}
+          contentFit="cover"
+          contentPosition="right center"
+          accessibilityIgnoresInvertColors
+          testID="guided-header-image"
+        />
+        <Text style={[styles.notaMobile, { color: ora.deep }]} testID="guided-nota">
+          Un quadro più completo,{'\n'}una vita più semplice.
+        </Text>
+      </View>
+    </View>
   );
 
   const profileCard = (
@@ -1323,7 +1333,21 @@ const styles = StyleSheet.create({
   whyText: { fontSize: 13 },
 
   intro: { gap: 8, maxWidth: 470, flexShrink: 1 },
-  introCopy: { gap: 8, width: '48%', paddingLeft: 24, zIndex: 1 },
+  introCopy: {
+    gap: 8,
+    width: '42%',
+    paddingLeft: 28,
+    paddingVertical: 24,
+    zIndex: 3,
+  },
+  introCopyMobile: {
+    gap: 8,
+    width: '100%',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 18,
+    zIndex: 3,
+  },
   perche: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -1332,32 +1356,65 @@ const styles = StyleSheet.create({
     borderRadius: 14,
   },
   introRiga: {
-    minHeight: 156,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 28,
+    minHeight: 176,
+    position: 'relative',
+    justifyContent: 'center',
     borderRadius: 18,
     overflow: 'hidden',
     backgroundColor: '#F8F4EF',
   },
-  introSfondo: { borderRadius: 18 },
-  //     UNA FASCIA SOLA, ALTA QUANTO LA TESTATA.
-  // La reference non mette un riquadro accanto al titolo: mette una fascia
-  // calda che prende tutta l'altezza dell'intestazione, con la frase scritta
-  // sopra la parete vuota e gli oggetti a destra. Il fondo della fascia è il
-  // bianco caldo della fotografia, così il passaggio fra interfaccia e
-  // scatto non si vede. E la frase tiene la sua misura: con tutto flessibile
-  // andava a capo a ogni parola.
-  testataNota: { width: '25%', marginLeft: 'auto', marginRight: '28%' },
+  introArtwork: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: '56%',
+  },
+  // Desktop: copy on the warm wall, handwritten note in the empty part of
+  // the artwork, objects kept intact on the far right. The source image is
+  // 1400x467; giving it its own 56% panel avoids the severe vertical crop
+  // caused by stretching it behind the entire ~850x156 header.
+  testataNota: {
+    position: 'absolute',
+    left: '43%',
+    top: 0,
+    bottom: 0,
+    width: '32%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 4,
+  },
   nota: {
     fontSize: 16,
     lineHeight: 24,
     fontStyle: 'italic',
     textAlign: 'center',
-    width: 186,
+    width: 205,
     paddingHorizontal: 10,
-    flexShrink: 0,
+  },
+  // Phone: full-width copy first, then the complete panoramic scene. Keeping
+  // the copy at 48% on a 390px viewport squeezed whole sentences into ~160px.
+  introMobile: {
+    borderRadius: 18,
+    overflow: 'hidden',
+    backgroundColor: '#F8F4EF',
+  },
+  introMobileArtwork: {
+    height: 116,
+    position: 'relative',
+    overflow: 'hidden',
+    backgroundColor: '#F8F4EF',
+  },
+  notaMobile: {
+    position: 'absolute',
+    left: 18,
+    top: 28,
+    width: 155,
+    zIndex: 2,
+    fontSize: 14,
+    lineHeight: 20,
+    fontStyle: 'italic',
+    textAlign: 'center',
   },
   title: { fontSize: 34, fontWeight: '700', letterSpacing: -0.6 },
   introText: { fontSize: 15, lineHeight: 22 },
