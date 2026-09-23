@@ -12,25 +12,17 @@ concurrency:
 
 jobs:
   secret-scan:
-    name: Secret scan
+    name: Secret scan (full history)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Scan for obvious secrets
+        with:
+          fetch-depth: 0
+      - name: Scan current tree and full Git history
         shell: bash
         run: |
           set -euo pipefail
-          # Match real PEM headers, not harmless test assertions mentioning the phrase.
-          if git grep -nE -- '-----BEGIN (RSA |OPENSSH |EC )?PRIVATE KEY-----' -- . \
-            ':(exclude)*.md' ':(exclude)*/e2e-evidence/*' ':(exclude)*/node_modules/*'; then
-            echo "Private key material found in repo" >&2
-            exit 1
-          fi
-          if git ls-files | grep -E '(^|/)\.env($|\.)' | grep -v '\.env\.example'; then
-            echo "Tracked .env file(s) detected" >&2
-            exit 1
-          fi
-          echo "Secret scan OK"
+          python3 scripts/audit_git_history.py
 
   backend:
     name: Backend (compileall + pytest)
