@@ -1,3 +1,12 @@
+## 2026-09-23 — Home non finge una foto quando i provider sono esauriti
+
+Verifica sul deploy reale: Gemini primario rifiuta le immagini con 402,
+Gemini secondario con 429 quota esaurita e OpenAI con 429 credito esaurito.
+La focus card ora mostra il grande pannello visuale solo quando esiste una
+foto pronta o quando una generazione è davvero in corso. Se la generazione è
+fallita, il contenuto usa tutta la card: nessun placeholder grande spacciato
+per risultato. Le piccole composizioni nelle righe restano segnali semantici.
+
 ## 2026-09-23 — Le richieste di chiamata entrano sempre nella telefonia
 
 Corretto un errore osservato nella scheda Aggiornamenti: ORA poteva dichiarare

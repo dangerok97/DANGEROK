@@ -51,6 +51,10 @@ export function HeroAdesso({
   const when = whenLabel(item);
   const why = explanation?.summary || item.reason_summary || null;
   const supporting = (item.supporting_details || []).slice(0, 2);
+  const visualReady = item.visual?.status === 'ready' && !!item.visual.url;
+  const visualGenerating =
+    item.visual?.status === 'queued' || item.visual?.status === 'generating';
+  const showVisual = visualReady || visualGenerating;
 
   return (
     <View
@@ -199,18 +203,21 @@ export function HeroAdesso({
         </View>
 
         {/*
-          The real generated image the moment it exists. The abstract
-          composition is the state before it — missing, queued, generating,
-          failed — never the intended final result.
+          A large media slot is earned by a real image or by an image that is
+          genuinely being generated. If every provider has failed, the text
+          expands and the card remains complete: a 300px abstract panel would
+          look like a broken photo slot and communicate nothing.
         */}
-        <ContextualCardVisual
-          item={item}
-          imageSource={item.visual?.status === 'ready' ? item.visual.url : null}
-          generating={item.visual?.status === 'queued' || item.visual?.status === 'generating'}
-          size="hero"
-          style={wide ? styles.visualWide : styles.visualStacked}
-          testID="home-hero-visual"
-        />
+        {showVisual ? (
+          <ContextualCardVisual
+            item={item}
+            imageSource={visualReady ? item.visual?.url : null}
+            generating={visualGenerating}
+            size="hero"
+            style={wide ? styles.visualWide : styles.visualStacked}
+            testID="home-hero-visual"
+          />
+        ) : null}
       </View>
     </View>
   );

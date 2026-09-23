@@ -311,6 +311,11 @@ const item = (o: Record<string, unknown> = {}) => ({
   // The hero must not read as a placeholder: warm surface, modest mark.
   const hero = readCode('src/components/home/v3/HeroAdesso.tsx');
   assert.ok(hero.includes('colors.surfaceWarm'), 'the hero has its own warm surface');
+  assert.ok(
+    hero.includes('const showVisual = visualReady || visualGenerating') &&
+      hero.includes('{showVisual ? ('),
+    'the hero must not reserve a fake photo panel after image providers have failed',
+  );
   const visual = readCode('src/components/home/v3/ContextualCardVisual.tsx');
   assert.ok(
     /hero: \{ radius: [^,]+, icon: 2\d \}/.test(visual),
