@@ -39,7 +39,6 @@ const HOME = 'app/(tabs)/index.tsx';
     ["onSeeAgenda={() => router.push('/agenda')}", '/agenda'],
     ["onSeeSummary={() => router.push('/ora-sintesi')}", '/ora-sintesi'],
     ["onSeeAll={() => router.push('/domande')}", '/domande'],
-    ["onSeeAll={() => router.push('/aggiornamenti')}", '/aggiornamenti'],
     ['onOpenWork={(id) => router.push(`/aggiornamento/', '/aggiornamento/:id'],
     ["onOpenWeather={() => router.push('/meteo')}", '/meteo'],
   ] as const;
@@ -48,16 +47,21 @@ const HOME = 'app/(tabs)/index.tsx';
     assert.ok(home.includes(frammento), `la Home deve portare a ${dove}`);
   }
 
+  // Gli aggiornamenti hanno una sola regola canonica: se ce n'è uno solo si
+  // apre direttamente il dettaglio; se sono più di uno si apre l'elenco.
+  assert.ok(
+    home.includes("rows.length === 1") &&
+      home.includes("'/aggiornamenti'") &&
+      home.includes('`/aggiornamento/'),
+    '1 aggiornamento deve aprire il dettaglio, più aggiornamenti l’elenco',
+  );
+
   const distinte = new Set(destinazioni.map(([, dove]) => dove));
   assert.equal(distinte.size, destinazioni.length, 'due link non possono avere la stessa pagina');
 
-  // E nessuno dei cinque può tornare a finire nel cestino generico.
-  for (const [frammento] of destinazioni) {
-    assert.ok(
-      !frammento.includes('/situazione'),
-      '«Situazione completa» non è la destinazione di nessuno di questi link',
-    );
-  }
+  // E nessuna destinazione può tornare a finire nel cestino generico.
+  assert.ok(!home.includes("router.push('/situazione')"),
+    '«Situazione completa» non è la destinazione dei link della Home');
 }
 
 // ---------------------------------------------------------------------------
