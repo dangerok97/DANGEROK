@@ -4620,3 +4620,10 @@ The remaining Home question handler called `/accept` and hid preparation cards w
   calendar, mail and future capabilities return a real outcome instead of a
   generic progress sentence.
 - Preserved `needId` and `goalId` when the new session URL is created.
+## 2026-09-23 — Chiusura persistente di aggiornamenti e domande
+
+- Aggiunto “Non mi interessa” a ogni tipo di aggiornamento, anche nel dettaglio.
+- La rimozione chiude la sorgente canonica: interrompe il lavoro dell'agente o
+  archivia opportunità, suggerimento o spunto; non è un filtro locale.
+- Aggiunto “Non voglio rispondere” alle Domande per te tramite la cancellazione
+  persistente della domanda aperta.

@@ -24,6 +24,7 @@ import {
   elencoAggiornamenti,
   type Aggiornamento,
 } from '@/src/components/home/v3/aggiornamenti';
+import { rimuoviAggiornamento } from '@/src/components/home/v3/rimuoviAggiornamento';
 import { ora, oraType } from '@/src/theme/oraSurface';
 import { humanizeError } from '@/src/utils/errors';
 
@@ -75,14 +76,30 @@ export default function Aggiornamenti() {
           testID="aggiornamenti-vuoto"
         />
       ) : (
-        righe.map((a) => <Riga key={a.id} a={a} />)
+        righe.map((a) => <Riga key={a.id} a={a} onRemoved={() => void leggi()} />)
       )}
     </PaginaOra>
   );
 }
 
-function Riga({ a }: { a: Aggiornamento }) {
+function Riga({ a, onRemoved }: { a: Aggiornamento; onRemoved: () => void }) {
   const router = useRouter();
+  const [removing, setRemoving] = useState(false);
+  const [removeError, setRemoveError] = useState('');
+
+  const remove = async () => {
+    if (removing) return;
+    setRemoving(true);
+    setRemoveError('');
+    try {
+      await rimuoviAggiornamento(a);
+      onRemoved();
+    } catch (e) {
+      setRemoveError(humanizeError(e));
+    } finally {
+      setRemoving(false);
+    }
+  };
 
   return (
     <OraCard style={styles.card} testID={`aggiornamento-${a.id}`}>
@@ -114,6 +131,7 @@ function Riga({ a }: { a: Aggiornamento }) {
         <Text style={[oraType.small, { color: ora.deep }]}>{a.cosa_serve}</Text>
       ) : null}
 
+      <View style={styles.cardActions}>
       <Pressable
         onPress={() => router.push(`/aggiornamento/${encodeURIComponent(a.id)}` as never)}
         accessibilityRole="button"
@@ -124,6 +142,24 @@ function Riga({ a }: { a: Aggiornamento }) {
         <Text style={[oraType.small, { color: ora.cta, fontWeight: '600' }]}>Apri dettagli</Text>
         <Ionicons name="chevron-forward" size={14} color={ora.cta} />
       </Pressable>
+      <Pressable
+        onPress={() => void remove()}
+        disabled={removing}
+        accessibilityRole="button"
+        accessibilityLabel={`Rimuovi ${a.cosa}`}
+        style={({ pressed }) => [styles.apri, pressed && { opacity: 0.7 }]}
+        testID={`aggiornamento-${a.id}-rimuovi`}
+      >
+        <Text style={[oraType.small, { color: ora.ink3 }]}>
+          {removing ? 'Rimozione…' : 'Non mi interessa'}
+        </Text>
+      </Pressable>
+      </View>
+      {removeError ? (
+        <Text accessibilityRole="alert" style={[oraType.small, { color: ora.attention }]}>
+          {removeError}
+        </Text>
+      ) : null}
     </OraCard>
   );
 }
@@ -132,4 +168,5 @@ const styles = StyleSheet.create({
   card: { gap: 10, padding: 20, alignItems: 'flex-start' },
   testa: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   apri: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingTop: 4 },
+  cardActions: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 18 },
 });

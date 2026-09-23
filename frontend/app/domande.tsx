@@ -103,6 +103,20 @@ function Domanda({ q, onRisposta }: { q: OpenQuestionItem; onRisposta: () => voi
     [inCorso, onRisposta, q.id],
   );
 
+  const dismiss = useCallback(async () => {
+    if (inCorso) return;
+    setInCorso(true);
+    setErrore(null);
+    try {
+      await api.cancelQuestion(q.id);
+      onRisposta();
+    } catch (e) {
+      setErrore(humanizeError(e));
+    } finally {
+      setInCorso(false);
+    }
+  }, [inCorso, onRisposta, q.id]);
+
   return (
     <OraCard style={styles.card} testID={`domanda-${q.id}`}>
       <Text style={[oraType.section, { color: ora.ink }]} accessibilityRole="header" aria-level={2}>
@@ -187,6 +201,17 @@ function Domanda({ q, onRisposta }: { q: OpenQuestionItem; onRisposta: () => voi
         />
       )}
 
+      <Pressable
+        onPress={() => void dismiss()}
+        disabled={inCorso}
+        accessibilityRole="button"
+        accessibilityLabel={`Non voglio rispondere: ${q.question}`}
+        style={({ pressed }) => [styles.dismiss, pressed && { opacity: 0.7 }]}
+        testID={`domanda-${q.id}-rimuovi`}
+      >
+        <Text style={[oraType.small, { color: ora.ink3 }]}>Non voglio rispondere</Text>
+      </Pressable>
+
       {errore ? (
         <Text style={[oraType.small, { color: ora.attention }]} testID={`domanda-${q.id}-errore`}>
           {errore}
@@ -220,4 +245,5 @@ const styles = StyleSheet.create({
   },
   azioni: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   inChat: { paddingVertical: 6 },
+  dismiss: { paddingVertical: 6 },
 });

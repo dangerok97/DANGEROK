@@ -1183,6 +1183,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ reason }),
     }),
+  cancelAgentGoal: (goalId: string, reason = 'user_dismissed') =>
+    request<{ ok: boolean; state?: string }>(`/agent/${goalId}/cancel`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    }),
 
   markOpportunitySeen: (id: string) =>
     request<{ ok: boolean; seen_at: string }>(`/opportunities/${id}/seen`, {
@@ -2071,6 +2076,11 @@ export const api = {
     }>(`/questions/${encodeURIComponent(questionId)}/answer`, {
       method: 'POST',
       body: JSON.stringify({ answer, ...(source ? { source } : {}) }),
+    }),
+  cancelQuestion: (questionId: string, reason = 'user_dismissed') =>
+    request<{ ok: boolean }>(`/questions/${encodeURIComponent(questionId)}/cancel`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
     }),
 
   documentPreferences: () => request<DocumentPreferences>(`/documents/preferences`),

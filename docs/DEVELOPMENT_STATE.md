@@ -3288,3 +3288,7 @@ provider prima di dichiarare l'esito.
 Replies opened from an agent need now preserve the question and pass through
 the operational AI Core after unblocking the goal. A need is no longer treated
 as complete merely because information was accepted.
+### Chiusura esplicita delle superfici (2026-09-23)
+
+Aggiornamenti e Domande per te possono essere chiusi dall'utente. La chiusura
+è owner-bound e persistente, aggiorna la sorgente reale e sopravvive al refresh.

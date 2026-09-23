@@ -14,9 +14,9 @@ import { UpdateNextStep } from '@/src/components/home/v3/UpdateNextStep';
  * domanda non fosse stata fatta.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { api, type HomeV2Response } from '@/src/api/client';
 import { OraBadge, OraCard } from '@/src/components/ora-ui';
@@ -26,11 +26,13 @@ import {
   elencoAggiornamenti,
   type Aggiornamento,
 } from '@/src/components/home/v3/aggiornamenti';
+import { rimuoviAggiornamento } from '@/src/components/home/v3/rimuoviAggiornamento';
 import { ora, oraType } from '@/src/theme/oraSurface';
 import { humanizeError } from '@/src/utils/errors';
 
 export default function DettaglioAggiornamento() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
   const [home, setHome] = useState<HomeV2Response | null>(null);
   const [errore, setErrore] = useState<string | null>(null);
   const [fallback, setFallback] = useState<Aggiornamento | null>(null);
@@ -90,13 +92,23 @@ export default function DettaglioAggiornamento() {
           testID="dettaglio-mancante"
         />
       ) : (
-        <Dettaglio a={a} />
+        <Dettaglio a={a} onRemoved={() => router.replace('/aggiornamenti' as never)} />
       )}
     </PaginaOra>
   );
 }
 
-function Dettaglio({ a }: { a: Aggiornamento }) {
+function Dettaglio({ a, onRemoved }: { a: Aggiornamento; onRemoved: () => void }) {
+  const [removing, setRemoving] = useState(false);
+  const [removeError, setRemoveError] = useState('');
+  const remove = async () => {
+    if (removing) return;
+    setRemoving(true);
+    setRemoveError('');
+    try { await rimuoviAggiornamento(a); onRemoved(); }
+    catch (e) { setRemoveError(humanizeError(e)); }
+    finally { setRemoving(false); }
+  };
   return (
     <>
       {a.stato ? (
@@ -111,6 +123,19 @@ function Dettaglio({ a }: { a: Aggiornamento }) {
         testo={a.cosa}
         testID="dettaglio-cosa"
       />
+
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => void remove()}
+        disabled={removing}
+        style={({ pressed }) => [styles.remove, pressed && { opacity: 0.7 }]}
+        testID="dettaglio-rimuovi"
+      >
+        <Text style={[oraType.body, { color: ora.ink3 }]}>
+          {removing ? 'Rimozione…' : 'Non mi interessa'}
+        </Text>
+      </Pressable>
+      {removeError ? <Text accessibilityRole="alert" style={{ color: ora.attention }}>{removeError}</Text> : null}
 
       <UpdateNextStep a={a} />
 
@@ -200,4 +225,5 @@ const styles = StyleSheet.create({
   statoRiga: { flexDirection: 'row' },
   voce: { gap: 8, padding: 20, alignItems: 'flex-start' },
   testa: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  remove: { alignSelf: 'flex-start', paddingVertical: 10 },
 });

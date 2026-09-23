@@ -810,3 +810,8 @@ da Google. Non crea un secondo appuntamento per simulare uno spostamento.
 When ORA asks for a missing fact, the question remains visible after the user
 answers. The answer resumes the same work and the interface reports the actual
 capability outcome; accepting information alone is not presented as progress.
+### Controllo dell'utente sulle cose aperte
+
+Ogni aggiornamento può essere dichiarato non interessante e ogni domanda può
+essere rifiutata. L'elemento scompare in modo permanente; se rappresentava un
+lavoro ancora in corso, ORA lo interrompe invece di nasconderlo soltanto.

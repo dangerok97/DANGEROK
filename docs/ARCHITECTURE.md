@@ -2637,3 +2637,9 @@ An informational agent need is first resolved against its owning goal, then the
 same user turn continues through AI Core. This keeps goal state consistent while
 ensuring capability routing and execution are not bypassed. The original need
 is retained as the first transcript turn and its handles survive session routing.
+### Dismissal canonico
+
+La UI instrada la rimozione in base alla sorgente: agent goal → cancel,
+opportunity/suggestion → dismiss, home insight → ignore, open question → cancel.
+Lo stato locale viene riletto dal backend dopo l'operazione, evitando elementi
+che ricompaiono al refresh o lavoro invisibile che continua in background.

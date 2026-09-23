@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 // @ts-ignore Node runs TypeScript directly.
 import { elencoAggiornamenti } from './aggiornamenti.ts';
 const data: any = {
@@ -24,3 +25,11 @@ assert.equal(elencoAggiornamenti(prepared)[0].cosa_sta_facendo, 'Orari confronta
 assert.equal(elencoAggiornamenti(prepared)[0].cosa_serve, 'Quale puoi spostare?');
 prepared.ora_ti_consiglia[0].status = 'expired';
 assert.equal(elencoAggiornamenti(prepared)[0].azione, undefined);
+
+const removal = readFileSync(new URL('./rimuoviAggiornamento.ts', import.meta.url), 'utf8');
+for (const canonicalCall of ['cancelAgentGoal', 'dismissOpportunity', 'dismissSuggestion', "action: 'ignore'"]) {
+  assert.ok(removal.includes(canonicalCall), `missing canonical removal: ${canonicalCall}`);
+}
+const questions = readFileSync(new URL('../../../../app/domande.tsx', import.meta.url), 'utf8');
+assert.ok(questions.includes('api.cancelQuestion(q.id)'), 'question dismissal must persist on the server');
+assert.ok(questions.includes('Non voglio rispondere'), 'question dismissal control must be visible');
