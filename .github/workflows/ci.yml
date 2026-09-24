@@ -174,6 +174,7 @@ jobs:
           npm run test:v3213c
           npm run test:v3213d
           npm run test:v3213e
+          npm run test:v322
 
       # The former life-experience-documents Playwright spec is intentionally
       # not a blocking CI gate here. It navigates the pre-V3.21 greedy
