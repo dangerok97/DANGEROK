@@ -130,6 +130,7 @@ jobs:
             tests/test_telephone_transport_v3131.py \
             tests/test_live_runtime_v313.py \
             tests/test_call_failure_recovery_v3212.py \
+            tests/test_mission_preparation_v3201.py \
             -x
 
   frontend-tsc:
