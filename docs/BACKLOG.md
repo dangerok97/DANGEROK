@@ -6,7 +6,7 @@ Attività piccole e verificabili derivate da `docs/ROADMAP.md` e dall’audit.
 
 1. V3.21.3e: PASS confermato dall’utente.
 2. V3.21.4: reality gate **Calendar PASS** sul provider reale e posizione/meteo **PASS** sul dispositivo reale. Mount persistente, sessioni/health, sync cloud e readiness telefonia non sono più blocker. History Git riscritta e tutti i ref pubblicizzati sono puliti; resta solo la purga GitHub Support perché un vecchio commit non raggiungibile è ancora risolvibile per SHA.
-3. V3.22 **IN CORSO**: lifecycle dalla preparazione + continuation callback — una sola call attiva per preparazione, retry senza duplicati, polling stato, hangup, apertura automatica dell’esito e richiamata esplicitamente confermata dopo `needs_user`. Prossimo gate: telefonata reale dal cloud + recovery essenziale V3.15.2.
+3. V3.22 **IN CORSO**: lifecycle dalla preparazione + continuation callback già implementati; recovery essenziale V3.15.2 ora copre pending stantii e failed transitori con stessa chiave, reconcile-first, massimo 3 tentativi, backoff e metriche aggregate. CI e Railway backend verdi. Restano due reality gate: telefonata reale dal cloud attraverso la UX completa e conflitto reale dell'application layer.
 4. V3.23: iPhone reale con Railway, permessi e lifecycle.
 5. V4: un caso proattivo completo; V4.1: alpha 3–5 persone dopo i gate minimi.
 

@@ -1083,6 +1083,22 @@ sul dispositivo/provider reale. Nessuna nuova architettura telefonica.
 
 **Checkpoint V3.22.2** — quando una chiamata torna con `needs_user`, la decisione può preparare una richiamata ma non comporla. Il dettaglio espone la richiamata pronta e richiede un nuovo gesto esplicito «Chiama ora»; la seconda call viene poi seguita fino all’esito.
 
+**Checkpoint V3.22.3 — Recovery essenziale · IMPLEMENTATO / CI PASS / CLOUD DEPLOYED.**
+Il loop di recovery esistente riconcilia già i record `pending` rimasti a metà
+con lease atomico, senza duplicare la scrittura. I `failed` dichiarati
+transitori dal dominio non sono più terminali: restano sulla **stessa chiave
+idempotente**, massimo 3 tentativi, backoff 1m → 5m → 15m. Ogni retry chiama
+prima `reconcile()`: se la prima scrittura era già arrivata si chiude
+`applied` senza riscrivere; se il mondo è cambiato diventa `conflict`.
+Il loop registra metriche aggregate per stato, failed retryable ed error kind.
+CI `Post-call application recovery` verde; Railway backend sulla HEAD
+`274c4b2b` SUCCESS.
+
+**Reality gate ancora aperti V3.22:** (1) telefonata reale completa dal cloud
+attraverso la UX V3.22.1/2; (2) conflitto reale dell'application layer, senza
+sovrascrivere uno stato cambiato durante la telefonata. Il completamento
+estensivo del debito V3.15.2 resta V5.
+
 ### V3.23 — iPhone Reality Gate · PIANIFICATO
 **Obiettivo** — ORA su un iPhone vero tramite Expo/EAS/TestFlight, usando Railway; non una riscrittura nativa completa.
 **Gate** — login, Home, Vita, conversazione, push, posizione, contatti, telefonia, permessi iOS, SecureStore, background/resume e kill/relaunch.

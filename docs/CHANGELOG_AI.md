@@ -1,3 +1,14 @@
+## 2026-09-25 — V3.22.3 recovery essenziale online
+
+Il backend cloud ora recupera sia applicazioni post-call `pending` rimaste
+a metà sia `failed` dichiarate transitorie dal dominio. I retry riusano la
+stessa chiave idempotente, sono limitati a tre con backoff 1m/5m/15m e passano
+sempre prima da `reconcile()`: una risposta provider persa dopo una scrittura
+riuscita non produce una seconda scrittura, mentre uno stato cambiato nel
+frattempo diventa conflitto. Il recovery logga metriche aggregate per stato,
+failed retryable ed error kind. CI completo verde e Railway backend
+`274c4b2b` SUCCESS.
+
 ## 2026-09-24 — V3.22 continuation callback UX
 
 Una decisione dopo `needs_user` preparava già una seconda PhoneCall, ma il
