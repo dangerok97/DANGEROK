@@ -939,7 +939,7 @@ async def create_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
         },
         summary=f"Segnare in calendario: {title}",
         expected=f"«{title}» risulta in calendario.",
-        command=command,
+        command=_user_command(arguments, runtime),
         answered_proposal=_answered_a_proposal(runtime),
     )
     if not act.may_execute:
@@ -1274,7 +1274,7 @@ async def update_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
         },
         summary="Cambiare un evento già in calendario",
         expected="L'evento risulta cambiato in calendario.",
-        command=_user_command(arguments, runtime),
+        command=command,
         answered_proposal=_answered_a_proposal(runtime),
     )
     if not act.may_execute:
