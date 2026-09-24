@@ -660,26 +660,55 @@ async def get_calendar_events(arguments: Dict[str, Any], runtime: Dict[str, Any]
     )
 
 
-async def _exact_named_calendar_ref(
+def _title_similarity(wanted: str, candidate: str) -> float:
+    """Deterministic typo/word-overlap score used only to *suggest* a target.
+
+    A fuzzy score can never authorize a calendar write. It exists only so ORA
+    can ask a useful clarification instead of saying «non trovo niente» when
+    a person wrote one word wrong.
+    """
+    from difflib import SequenceMatcher
+
+    left, right = _same_thing(wanted), _same_thing(candidate)
+    if not left or not right:
+        return 0.0
+    if left == right:
+        return 1.0
+
+    ratio = SequenceMatcher(None, left, right).ratio()
+    lt, rt = set(left.split()), set(right.split())
+    union = lt | rt
+    jaccard = (len(lt & rt) / len(union)) if union else 0.0
+
+    # Missing/extra descriptive words are common in spoken requests:
+    # «riunione lavoro» vs «TEST ORA riunione di lavoro». Containment is
+    # useful evidence, but never enough to execute by itself.
+    containment = 0.0
+    short, long = (left, right) if len(left) <= len(right) else (right, left)
+    if len(short) >= 6 and short in long:
+        containment = 0.88
+
+    return max(ratio, jaccard, containment)
+
+
+async def _named_calendar_ref_resolution(
     db, uid: str, title: str, *, now: Optional[datetime] = None,
 ) -> Dict[str, Any]:
-    """Resolve an exact title locally, owner-scoped, without fuzzy guessing.
+    """Resolve exact titles and surface near matches without ever guessing.
 
-    This exists for the simple sentence «sposta TEST ORA — continuazione».
-    The user already supplied a complete title; asking the model to infer
-    which candidate it maps to adds uncertainty for no benefit. We compare
-    only the normalized exact title, look at the bounded future horizon, and
-    return a ref only when exactly one logical event matches. Zero or several
-    matches remain a clarification, never a guess.
+    Exact + unique -> executable ref.
+    Near + unique -> suggestion that must be confirmed.
+    Several plausible -> candidates to distinguish.
+    None plausible -> not found.
     """
     wanted = _same_thing(title)
     if not wanted:
-        return {"status": "not_found", "matches": []}
+        return {"status": "not_found", "matches": [], "suggestions": []}
 
     start = now or datetime.now(timezone.utc)
     end = start + timedelta(days=_MAX_WINDOW_DAYS)
     tmin, tmax = start.isoformat(), end.isoformat()
-    found: List[Dict[str, Any]] = []
+    all_events: List[Dict[str, Any]] = []
     provider_handles = set()
 
     drafts = await db.calendar_event_drafts.find(
@@ -694,9 +723,7 @@ async def _exact_named_calendar_ref(
         },
     ).to_list(100)
     for d in drafts:
-        if _same_thing(d.get("title") or "") != wanted:
-            continue
-        found.append({
+        all_events.append({
             "calendar_ref": _ref(str(d["id"])),
             "title": d.get("title"),
             "start_datetime": d.get("start_datetime"),
@@ -717,12 +744,10 @@ async def _exact_named_calendar_ref(
         {"_id": 0, "id": 1, "external_id": 1, "normalized_payload": 1},
     ).to_list(200)
     for row in mirrored:
-        payload = plain(row.get("normalized_payload"))
-        if _same_thing(payload.get("title") or "") != wanted:
-            continue
         if str(row.get("external_id") or "") in provider_handles:
             continue
-        found.append({
+        payload = plain(row.get("normalized_payload"))
+        all_events.append({
             "calendar_ref": _ref("google:" + str(row.get("id") or "")),
             "title": payload.get("title"),
             "start_datetime": payload.get("starts_at"),
@@ -730,12 +755,57 @@ async def _exact_named_calendar_ref(
             "source": "google_external",
         })
 
-    if len(found) == 1:
-        return {"status": "ok", "match": found[0], "matches": found}
+    exact = [
+        item for item in all_events
+        if _same_thing(item.get("title") or "") == wanted
+    ]
+    if len(exact) == 1:
+        return {
+            "status": "ok", "match": exact[0],
+            "matches": exact, "suggestions": [],
+        }
+    if len(exact) > 1:
+        return {
+            "status": "ambiguous", "matches": exact[:8], "suggestions": [],
+        }
+
+    scored = []
+    for item in all_events:
+        score = _title_similarity(wanted, str(item.get("title") or ""))
+        if score >= 0.58:
+            scored.append({**item, "similarity": round(score, 3)})
+    scored.sort(
+        key=lambda x: (-float(x.get("similarity") or 0), x.get("start_datetime") or "")
+    )
+
+    if not scored:
+        return {"status": "not_found", "matches": [], "suggestions": []}
+
+    best = float(scored[0]["similarity"])
+    second = float(scored[1]["similarity"]) if len(scored) > 1 else 0.0
+
+    # A single strong leader is worth a yes/no question, never an automatic
+    # write. If two candidates are close, show both and let the person choose.
+    if best >= 0.72 and (len(scored) == 1 or best - second >= 0.10):
+        return {
+            "status": "suggestion",
+            "suggestion": scored[0],
+            "suggestions": scored[:3],
+            "matches": [],
+        }
     return {
-        "status": "ambiguous" if len(found) > 1 else "not_found",
-        "matches": found[:8],
+        "status": "ambiguous_similar",
+        "suggestions": scored[:3],
+        "matches": [],
     }
+
+
+# Backwards-compatible test/helper name: exact matches still behave exactly
+# as before; the richer statuses only add safe clarification information.
+async def _exact_named_calendar_ref(
+    db, uid: str, title: str, *, now: Optional[datetime] = None,
+) -> Dict[str, Any]:
+    return await _named_calendar_ref_resolution(db, uid, title, now=now)
 
 
 def _same_thing(title: str) -> str:
@@ -1193,28 +1263,76 @@ async def update_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
     draft_id = _strip_ref(arguments.get("calendar_ref"))
     target_title = str(arguments.get("target_title") or "").strip()[:_MAX_TITLE]
     if not draft_id and target_title:
-        resolved_target = await _exact_named_calendar_ref(db, uid, target_title)
-        if resolved_target.get("status") == "ok":
+        resolved_target = await _named_calendar_ref_resolution(db, uid, target_title)
+        status = str(resolved_target.get("status") or "")
+        if status == "ok":
             draft_id = _strip_ref(
                 ((resolved_target.get("match") or {}).get("calendar_ref"))
             )
-        else:
-            matches = resolved_target.get("matches") or []
+        elif status == "suggestion":
+            suggested = resolved_target.get("suggestion") or {}
             return Observation(
-                kind="tool", name="update_calendar_event",
-                status="not_found" if not matches else "partial",
+                kind="tool", name="update_calendar_event", status="partial",
                 payload={
-                    "status": resolved_target.get("status"),
+                    "status": "needs_confirmation",
+                    "failure_kind": "close_title_candidate",
+                    "target_title": target_title,
+                    "suggested_event": suggested,
+                    "alternatives": (resolved_target.get("suggestions") or [])[1:3],
+                    "reason": (
+                        "Hai trovato un solo candidato chiaramente vicino, ma la "
+                        "somiglianza NON autorizza una scrittura. Chiedi alla persona "
+                        "«Ti riferisci a ‹{title}›{when}? Se sì, procedo con lo "
+                        "spostamento richiesto.» usando response_mode=act. Solo un "
+                        "sì esplicito nel turno successivo permette di usare il "
+                        "calendar_ref suggerito."
+                    ).format(
+                        title=suggested.get("title") or "questo evento",
+                        when=(
+                            " del " + str(suggested.get("start_datetime") or "")
+                            if suggested.get("start_datetime") else ""
+                        ),
+                    ),
+                },
+                provenance=[str(suggested.get("calendar_ref") or "")],
+            )
+        elif status in ("ambiguous", "ambiguous_similar"):
+            candidates = (
+                resolved_target.get("matches")
+                or resolved_target.get("suggestions")
+                or []
+            )
+            return Observation(
+                kind="tool", name="update_calendar_event", status="partial",
+                payload={
+                    "status": "needs_information",
                     "failure_kind": (
-                        "exact_title_not_found" if not matches
-                        else "exact_title_ambiguous"
+                        "exact_title_ambiguous"
+                        if status == "ambiguous" else "similar_title_ambiguous"
                     ),
                     "target_title": target_title,
-                    "matches": matches,
+                    "candidates": candidates[:3],
                     "reason": (
-                        "Non c'è un solo evento futuro con questo titolo esatto. "
-                        "Se non ce n'è nessuno, rileggi il calendario; se ce ne "
-                        "sono più di uno, chiedi quale data/orario. Non scegliere."
+                        "Ci sono più eventi plausibili. Mostra titolo e data/orario "
+                        "dei candidati e chiedi quale intende; non scegliere e non "
+                        "scrivere ancora."
+                    ),
+                },
+                provenance=[
+                    str(x.get("calendar_ref") or "") for x in candidates[:3]
+                ],
+            )
+        else:
+            return Observation(
+                kind="tool", name="update_calendar_event", status="not_found",
+                payload={
+                    "status": "not_found",
+                    "failure_kind": "title_not_found",
+                    "target_title": target_title,
+                    "reason": (
+                        "Non c'è un evento futuro abbastanza vicino a questo titolo. "
+                        "Chiedi un dettaglio utile (data/orario o parole del titolo) "
+                        "senza inventare un candidato."
                     ),
                 },
             )

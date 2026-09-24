@@ -732,3 +732,77 @@ def test_exact_title_resolution_never_guesses_between_duplicates():
             client.close()
 
     _run(body())
+
+
+
+def test_near_title_suggests_but_never_resolves_for_write():
+    async def body():
+        client, db = await _db()
+        uid = f"mv_{uuid.uuid4().hex[:8]}"
+        try:
+            from conversation_engine.ai_core.tools import calendar_caps
+
+            await _draft(
+                db, uid, draft_id="ced_typo",
+                title="TEST ORA — continuazione", when=_when(6, 19),
+            )
+            got = await calendar_caps._named_calendar_ref_resolution(
+                db, uid, "TEST ORA continuazone",
+                now=datetime.now(ROME),
+            )
+            assert got["status"] == "suggestion", got
+            assert got["suggestion"]["title"] == "TEST ORA — continuazione"
+            assert got.get("match") is None, (
+                "un fuzzy match non deve diventare un ref eseguibile"
+            )
+        finally:
+            await _clean(db, uid)
+            client.close()
+
+    _run(body())
+
+
+def test_two_similar_titles_are_shown_not_chosen():
+    async def body():
+        client, db = await _db()
+        uid = f"mv_{uuid.uuid4().hex[:8]}"
+        try:
+            from conversation_engine.ai_core.tools import calendar_caps
+
+            await _draft(
+                db, uid, draft_id="ced_1",
+                title="Riunione progetto Alfa", when=_when(3, 10),
+            )
+            await _draft(
+                db, uid, draft_id="ced_2",
+                title="Riunione progetto Beta", when=_when(4, 10),
+                handle="ev_google_2",
+            )
+            got = await calendar_caps._named_calendar_ref_resolution(
+                db, uid, "Riunione progetto",
+                now=datetime.now(ROME),
+            )
+            assert got["status"] in ("ambiguous_similar", "suggestion"), got
+            if got["status"] == "suggestion":
+                # Even a strong leader is still only a suggestion, never auto-write.
+                assert got.get("match") is None
+            else:
+                assert len(got["suggestions"]) >= 2
+        finally:
+            await _clean(db, uid)
+            client.close()
+
+    _run(body())
+
+
+def test_title_similarity_handles_a_typo_without_equating_different_events():
+    from conversation_engine.ai_core.tools.calendar_caps import _title_similarity
+
+    typo = _title_similarity(
+        "TEST ORA continuazone", "TEST ORA — continuazione"
+    )
+    other = _title_similarity(
+        "TEST ORA continuazone", "TEST ORA — riunione di lavoro"
+    )
+    assert typo >= 0.72
+    assert typo > other

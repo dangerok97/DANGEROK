@@ -1017,10 +1017,11 @@ class ToolRegistry:
                 capability="update_calendar_event",
                 description=(
                     "Update or reschedule an existing OR imported Google Calendar event. Prefer "
-                    "the exact calendar_ref from prior evidence. If the user supplied a complete "
-                    "event title but no ref was resolved, pass that exact text as target_title: "
-                    "the tool will resolve it owner-scoped and only when exactly one future event "
-                    "has that exact normalized title. Never fuzzy-match. A direct "
+                    "the exact calendar_ref from prior evidence. If the user supplied an event "
+                    "title but no ref was resolved, pass their wording as target_title. The tool "
+                    "first resolves one exact future match; if the wording is only close to a "
+                    "real title, it returns a safe candidate for confirmation rather than writing. "
+                    "Fuzzy similarity may suggest, never execute. A direct "
                     "move can execute only when the selected event's current title is textually "
                     "grounded in the current user message; otherwise clarify/propose. A correction "
                     "to a pending proposal is NOT approval: only a plain explicit yes confirms it. "
@@ -1035,9 +1036,10 @@ class ToolRegistry:
                         "target_title": {
                             "type": "string",
                             "description": (
-                                "Exact event title copied from the user's current message. "
-                                "Use when calendar_ref is not already resolved. Resolution is "
-                                "deterministic and succeeds only for one exact future match."
+                                "Event title wording from the user's current message. Use when "
+                                "calendar_ref is not already resolved. One exact match may resolve "
+                                "directly; a near match only returns candidate(s) that must be "
+                                "confirmed before any write."
                             ),
                         },
                         "title": {"type": "string"},

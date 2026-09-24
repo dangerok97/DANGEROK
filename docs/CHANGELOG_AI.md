@@ -1,3 +1,13 @@
+## 2026-09-24 — Calendar title matching: vicino significa “chiedi”, non “scrivi”
+
+La risoluzione titolo del reality gate viene resa meno rigida senza perdere
+sicurezza. Un titolo esatto e univoco continua a risolversi direttamente. Un
+titolo scritto male ma chiaramente vicino a un solo evento produce invece un
+candidato strutturato e ORA deve chiedere «Ti riferisci a X, vero?» prima di
+qualsiasi modifica. Se più eventi sono plausibili, vengono mostrati i pochi
+candidati distinti per data/orario. Nessuna similarità fuzzy può mai generare
+da sola un `calendar_ref` eseguibile o autorizzare una scrittura.
+
 ## 2026-09-24 — Calendar exact-title resolution after safe refusal
 
 Seconda passata del reality gate: dopo i fix di sicurezza ORA non ha più
