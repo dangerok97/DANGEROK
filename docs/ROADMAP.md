@@ -1061,18 +1061,18 @@ telefonata reale V3.22.
 **Gate**
 - [x] V3.21.3e: verifica sul profilo Railway confermata dall’utente.
 - [~] Login/OAuth Calendar+Gmail: connessione e sync reali dal cloud provati; resta il reality gate di **modifica di un evento Google esistente da ORA** dopo il fix del 23/09, con rilettura e UX d’errore.
-- [~] Posizione: segnali reali da iPhone arrivano al cloud; restano da provare esplicitamente **negazione/revoca → stato comprensibile → riattivazione → meteo aggiornato** sul dispositivo.
+- [x] Posizione/meteo: reality gate confermato dall’utente sul dispositivo reale il 24/09. Posizione portata su **OFF**, meteo coerentemente senza posizione corrente; riattivazione **ON** riuscita e meteo nuovamente aggiornato. Il backend impedisce inoltre a consenso `off` o presenza `STALE` di alimentare il meteo con una vecchia coordinata.
 - [x] Storage: volume `/data/documents` montato; upload/download sintetico sopravvive a redeploy con hash identico. Mongo persistente su `/data/db`. Backup/restore resta un gate successivo pre-alpha, non è dimostrato qui.
 - [x] Telefonia cloud a livello capability: Railway raggiungibile senza localhost/quick tunnel; carrier + Gemini Live + public base pronti. La **telefonata reale dal cloud** appartiene a V3.22.
 - [~] Segreti/repository: bonifica autorizzata ed eseguita il 24/09 con `git-filter-repo --invert-paths --path backend/data/documents` su tutti i branch/tag. Tutti i ref riscritti e force-pushati; clone mirror fresco: **PASS**, il percorso non è più raggiungibile da alcun ref pubblicizzato. Repository senza PR storiche (`0`). Il vecchio commit è però ancora servibile se si conosce direttamente il suo SHA: per GitHub questa è una cached/unreachable object retention e la rimozione fisica richiede Support (dereference/cache purge/server GC). Il match PEM resta una fixture `not-a-real-key` confermata finta. I vecchi clone non devono fare pull+push sulla nuova history: vanno riclonati o riallineati senza merge della storia contaminata.
 - [x] Sessioni/JWT/health: logout revoca il bearer, la revoca sopravvive a redeploy, isolamento download fra utenti provato; health DB e capability status sono stati verificati.
 
-**Per chiudere V3.21.4 restano due reality gate e un ultimo passo di bonifica
-GitHub:** (1) modifica Calendar reale attraverso ORA; (2) ciclo posizione
-negata/revocata e riattivata con meteo sul device; (3) richiesta a GitHub
-Support di purga cache/oggetti non raggiungibili, perché la history pubblicizzata
-è già pulita ma il vecchio SHA è ancora risolvibile direttamente. Nessuna nuova
-architettura telefonica.
+**Per chiudere V3.21.4 resta un solo reality gate di prodotto e un ultimo passo
+esterno di bonifica GitHub:** (1) modifica Calendar reale attraverso ORA, con
+rilettura del risultato; (2) richiesta a GitHub Support di purga cache/oggetti
+non raggiungibili, perché la history pubblicizzata è già pulita ma il vecchio
+SHA è ancora risolvibile direttamente. Il gate posizione/meteo è PASS sul
+dispositivo reale. Nessuna nuova architettura telefonica.
 
 ### V3.22 — Call UX Final · PIANIFICATO
 **Obiettivo** — preparo chiamata → autorizzo → ORA chiama → seguo stato → leggo esito → eventuale decisione → applicazione → storico.

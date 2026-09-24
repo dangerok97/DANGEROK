@@ -1,3 +1,14 @@
+## 2026-09-24 — Reality gate posizione/meteo: PASS sul dispositivo reale
+
+Conferma dell’utente sul prodotto reale: la posizione è stata portata su OFF e
+poi riattivata ON; il meteo ha seguito correttamente il cambio ed è tornato ad
+aggiornarsi dopo la riattivazione. Questo chiude il reality gate V3.21.4 per
+negazione/revoca → riattivazione → meteo sul dispositivo.
+
+Il risultato è coerente con il fix backend già in CI: una preferenza `off` o
+una presenza `STALE` non può più alimentare il meteo con una coordinata
+precedentemente salvata.
+
 ## 2026-09-24 — Bonifica history Git eseguita; purge GitHub ancora pendente
 
 Con autorizzazione esplicita del proprietario è stata riscritta la history con
