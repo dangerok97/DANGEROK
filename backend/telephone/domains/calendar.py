@@ -85,11 +85,15 @@ class Verdict:
         writes: Optional[List[str]] = None,
         error: str = "",
         fields: Optional[Dict[str, str]] = None,
+        retryable: bool = False,
+        error_kind: str = "",
     ) -> None:
         self.status = status          # applied | skipped | conflict | failed
         self.writes = writes or []
         self.error = error
         self.fields = fields or {}
+        self.retryable = retryable
+        self.error_kind = error_kind
 
 
 # ---------------------------------------------------------------------------
@@ -270,6 +274,8 @@ async def _apply_reschedule(db, *, call, binding, outcome) -> Verdict:
             "failed",
             error=f"il calendario non ha accettato lo spostamento ({type(e).__name__})",
             fields=campi,
+            retryable=True,
+            error_kind=type(e).__name__,
         )
 
     stato = str((aggiornato or {}).get("sync_status") or "")
@@ -278,6 +284,8 @@ async def _apply_reschedule(db, *, call, binding, outcome) -> Verdict:
             "failed",
             error="lo spostamento non risulta confermato su Google Calendar",
             fields=campi,
+            retryable=True,
+            error_kind="sync_unconfirmed",
         )
     return Verdict("applied", writes=[f"calendar:{ref}"], fields=campi)
 
