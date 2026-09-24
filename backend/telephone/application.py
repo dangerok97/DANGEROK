@@ -30,6 +30,7 @@ che cambia è la frase che si legge sulla scheda, e la cambia chi la scrive.
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field
@@ -74,9 +75,14 @@ STALE_AFTER_S = 120
 # vero) e molto meno di un pomeriggio.
 LEASE_S = 300
 
+# A transient application failure is retried on the SAME idempotency row.
+# This bridges short provider outages without turning permanent defects into
+# an infinite background loop.
+MAX_ATTEMPTS = 3
+RETRY_DELAYS_S = (60, 5 * 60, 15 * 60)
 
-class CallMissionApplication(BaseModel):
-    """Che cosa è stato fatto nel mondo per via di questa telefonata."""
+
+class CallMissionApplication(BaseModel):    """Che cosa è stato fatto nel mondo per via di questa telefonata."""
 
     mission_id: str = Field(min_length=1, max_length=64)
     call_id: str = Field(min_length=1, max_length=64)
@@ -109,6 +115,14 @@ class CallMissionApplication(BaseModel):
     writes: List[str] = Field(default_factory=list, max_length=4)
     # Perché non si è potuto, in italiano, come lo direbbe una persona.
     error: str = Field(default="", max_length=300)
+
+    # Recovery metadata. A domain explicitly decides whether its failure is
+    # transient; this generic layer never guesses retryability from prose.
+    attempt_count: int = Field(default=0, ge=0, le=MAX_ATTEMPTS)
+    retryable: bool = False
+    retry_after: str = Field(default="", max_length=40)
+    last_attempt_at: str = Field(default="", max_length=40)
+    error_kind: str = Field(default="", max_length=80)
 
     idempotency_key: str = Field(min_length=1, max_length=200)
 
@@ -188,6 +202,22 @@ def is_stale(record: CallMissionApplication, *, now: Optional[str] = None) -> bo
         return False
 
 
+def _moment(value: Optional[str] = None) -> datetime:
+    if value:
+        try:
+            out = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+            return out if out.tzinfo else out.replace(tzinfo=timezone.utc)
+        except Exception:
+            pass
+    return datetime.now(timezone.utc)
+
+
+def _retry_at(attempt_count: int, *, now: Optional[str] = None) -> str:
+    # attempt_count is the attempt that just failed: 1 -> 60s, 2 -> 5m.
+    index = max(0, min(attempt_count - 1, len(RETRY_DELAYS_S) - 1))
+    return (_moment(now) + timedelta(seconds=RETRY_DELAYS_S[index])).isoformat()
+
+
 async def recover_stale(db, *, now: Optional[str] = None) -> List[CallMissionApplication]:
     """
     Le applicazioni rimaste a metà, riportate a una conclusione.
@@ -223,6 +253,140 @@ async def recover_stale(db, *, now: Optional[str] = None) -> List[CallMissionApp
         if chiuso is not None and chiuso.application_status != "pending":
             chiusi.append(chiuso)
     return chiusi
+
+
+async def recover_failed(db, *, now: Optional[str] = None) -> List[CallMissionApplication]:
+    """Retry due transient failures on the original idempotency row.
+
+    Every retry reconciles first. If a provider accepted the first write but
+    its response was lost, reconciliation observes the canonical state and
+    closes it as applied without issuing a duplicate write.
+    """
+    closed: List[CallMissionApplication] = []
+    current = _moment(now)
+    rows = db[APPLICATIONS].find(
+        {
+            "application_status": "failed",
+            "retryable": True,
+            "attempt_count": {"$lt": MAX_ATTEMPTS},
+        },
+        {"_id": 0},
+    )
+    async for row in rows:
+        try:
+            record = CallMissionApplication.model_validate(row)
+        except Exception:
+            continue
+        if record.retry_after and _moment(record.retry_after) > current:
+            continue
+        if not await _claim_failed(db, record, now=current):
+            continue
+        done = await _retry_one(db, record, now=current)
+        if done is not None:
+            closed.append(done)
+    return closed
+
+
+async def _claim_failed(
+    db, record: CallMissionApplication, *, now: Optional[datetime] = None,
+) -> bool:
+    current = now or datetime.now(timezone.utc)
+    expired = (current - timedelta(seconds=LEASE_S)).isoformat()
+    claimed = await db[APPLICATIONS].find_one_and_update(
+        {
+            "_id": record.idempotency_key,
+            "application_status": "failed",
+            "retryable": True,
+            "attempt_count": {"$lt": MAX_ATTEMPTS},
+            "$or": [
+                {"claimed_at": {"$exists": False}},
+                {"claimed_at": ""},
+                {"claimed_at": {"$lt": expired}},
+            ],
+        },
+        {"$set": {"claimed_at": current.isoformat()}},
+    )
+    return claimed is not None
+
+
+async def _retry_one(
+    db, record: CallMissionApplication, *, now: Optional[datetime] = None,
+) -> Optional[CallMissionApplication]:
+    try:
+        call = await _the_call(db, record.call_id)
+        outcome = _the_outcome_of(call) if call is not None else None
+        binding = await binding_for(db, record.call_id) if call is not None else None
+        if call is None or outcome is None or binding is None:
+            return await _settle(
+                db, record,
+                _nothing("failed", "non ci sono più dati sufficienti per ritentare"),
+                increment_attempt=True, force_retryable=False, now=now,
+            )
+
+        adapter = adapter_for(binding.target.domain, binding.target.operation)
+        if adapter is None or not hasattr(adapter, "reconcile"):
+            return await _settle(
+                db, record,
+                _nothing("failed", "il dominio non sa riconciliare questo esito"),
+                increment_attempt=True, force_retryable=False, now=now,
+            )
+
+        verdict = await adapter.reconcile(
+            db, call=call, binding=binding, outcome=outcome,
+        )
+        done = await _settle(
+            db, record, verdict, increment_attempt=True, now=now,
+        )
+        if done.went_through():
+            await _note_on_the_call(db, call, done.writes)
+        return done
+    except Exception as e:
+        logger.info("retry applicazione non riuscito: %s", type(e).__name__)
+        return await _settle(
+            db, record,
+            _nothing(
+                "failed",
+                f"il ritentativo si è interrotto ({type(e).__name__})",
+                retryable=True, error_kind=type(e).__name__,
+            ),
+            increment_attempt=True, now=now,
+        )
+
+
+async def application_metrics(db) -> Dict[str, Any]:
+    """Non-sensitive operational snapshot for logs/health."""
+    pipeline = [{
+        "$group": {
+            "_id": {
+                "status": "$application_status",
+                "retryable": "$retryable",
+                "error_kind": "$error_kind",
+            },
+            "n": {"$sum": 1},
+        }
+    }]
+    rows = await db[APPLICATIONS].aggregate(pipeline).to_list(length=200)
+    by_status: Dict[str, int] = {}
+    retryable_failed = 0
+    by_error_kind: Dict[str, int] = {}
+    total = 0
+    for row in rows:
+        key = row.get("_id") or {}
+        n = int(row.get("n") or 0)
+        status = str(key.get("status") or "unknown")
+        by_status[status] = by_status.get(status, 0) + n
+        total += n
+        if status == "failed" and bool(key.get("retryable")):
+            retryable_failed += n
+        kind = str(key.get("error_kind") or "")
+        if kind:
+            by_error_kind[kind] = by_error_kind.get(kind, 0) + n
+    return {
+        "total": total,
+        "by_status": by_status,
+        "retryable_failed": retryable_failed,
+        "by_error_kind": by_error_kind,
+    }
 
 
 async def _claim(db, record: CallMissionApplication) -> bool:
@@ -320,11 +484,16 @@ async def recover_one(
 class _nothing:
     """Un verdetto senza adattatore, per i casi che si chiudono prima."""
 
-    def __init__(self, status: str, error: str) -> None:
+    def __init__(
+        self, status: str, error: str, *,
+        retryable: bool = False, error_kind: str = "",
+    ) -> None:
         self.status = status
         self.writes: List[str] = []
         self.error = error
         self.fields: Dict[str, str] = {}
+        self.retryable = retryable
+        self.error_kind = error_kind
 
 
 async def _the_call(db, call_id: str):
@@ -441,7 +610,9 @@ async def apply_the_outcome(db, call, outcome) -> Optional[CallMissionApplicatio
         verdetto = await adattatore.apply(
             db, call=call, binding=legame, outcome=outcome,
         )
-        record = await _settle(db, record, verdetto)
+        record = await _settle(
+            db, record, verdetto, increment_attempt=True,
+        )
         if record.went_through():
             await _note_on_the_call(db, call, record.writes)
             #     SE QUESTA ERA UNA RIPRESA, ADESSO E' CHIUSA.
@@ -509,11 +680,33 @@ async def _reserve(db, call, mission_id: str, stato_esito: str, legame):
         raise
 
 
-async def _settle(db, record: CallMissionApplication, verdetto):
-    """Chiude il record con quello che l'adattatore ha davvero fatto."""
+async def _settle(
+    db, record: CallMissionApplication, verdetto, *,
+    increment_attempt: bool = False,
+    force_retryable: Optional[bool] = None,
+    now: Optional[datetime] = None,
+):
+    """Chiude un tentativo e pianifica solo retry dichiarati transitori."""
     record.application_status = verdetto.status
     record.writes = list(verdetto.writes)[:4]
     record.error = (verdetto.error or "")[:300]
+    current = now or datetime.now(timezone.utc)
+    if increment_attempt:
+        record.attempt_count = min(MAX_ATTEMPTS, int(record.attempt_count or 0) + 1)
+        record.last_attempt_at = current.isoformat()
+
+    declared = bool(getattr(verdetto, "retryable", False))
+    record.retryable = (
+        bool(force_retryable) if force_retryable is not None
+        else bool(record.application_status == "failed" and declared)
+    )
+    record.error_kind = str(getattr(verdetto, "error_kind", "") or "")[:80]
+    if record.retryable and record.attempt_count < MAX_ATTEMPTS:
+        record.retry_after = _retry_at(record.attempt_count, now=current.isoformat())
+    else:
+        record.retryable = False
+        record.retry_after = ""
+
     record.applied_at = now_iso()
     await db[APPLICATIONS].update_one(
         {"_id": record.idempotency_key},
@@ -522,7 +715,11 @@ async def _settle(db, record: CallMissionApplication, verdetto):
             "writes": record.writes,
             "error": record.error,
             "applied_at": record.applied_at,
-            # Chiuso: la presa in carico non serve più a nessuno.
+            "attempt_count": record.attempt_count,
+            "retryable": record.retryable,
+            "retry_after": record.retry_after,
+            "last_attempt_at": record.last_attempt_at,
+            "error_kind": record.error_kind,
             "claimed_at": "",
         }},
     )
