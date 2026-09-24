@@ -848,6 +848,19 @@ def test_a_proposal_correction_is_not_a_yes(monkeypatch):
     _run(body())
 
 
+def test_a_proposal_correction_cannot_ride_a_standing_grant():
+    """A standing grant cannot execute the stale act while the user corrects it."""
+    import inspect
+    import agent.commanded as commanded_module
+
+    source = inspect.getsource(commanded_module.assess)
+    hold = source.index("proposal_reply_not_approval")
+    grant_lookup = source.index("effective_authority")
+    assert hold < grant_lookup, (
+        "a correction reaches standing-grant evaluation before the stale proposal is held"
+    )
+
+
 def test_a_proposal_refused_writes_nothing(monkeypatch):
     """
     §19: «lascia stare» is not a confirmation, whatever the model does next.
