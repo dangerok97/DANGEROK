@@ -704,6 +704,12 @@ export const api = {
       { method: 'POST', body: JSON.stringify({ confirmed: true }) },
     ),
 
+  hangupCall: (callId: string) =>
+    request<{ ok: boolean; closed: boolean; state: string }>(
+      `/telephone/${callId}/hangup`,
+      { method: 'POST' },
+    ),
+
   callTranscript: (callId: string) =>
     request<CallTranscriptResponse>(`/telephone/calls/${callId}/transcript`),
 
