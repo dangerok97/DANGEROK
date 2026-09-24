@@ -9,8 +9,8 @@ percorso fino al lancio si leggono qui e solo qui.
 | **Versione corrente** | **V3.21.4 — Cloud Foundation Final · IN CORSO** |
 | **Prossimo sprint** | **V3.22 — Call UX Final, dopo chiusura V3.21.4** |
 | Branch operativo | `staging/cloud` |
-| Ultimo checkpoint | `85fcf1eb` (deploy Railway attivo; audit Cloud Foundation riallineato sotto) |
-| Aggiornato | 2026-09-23 (audit V3.21.4 su deploy reale) |
+| Ultimo checkpoint | `8857074` (history refs sanitizzati; purge server/cache GitHub pendente) |
+| Aggiornato | 2026-09-24 (bonifica history V3.21.4 eseguita) |
 
 Gli altri due registri restano quello che sono e non ripetono questo:
 `CHANGELOG_AI.md` è il diario datato di che cosa è cambiato,
@@ -1064,14 +1064,15 @@ telefonata reale V3.22.
 - [~] Posizione: segnali reali da iPhone arrivano al cloud; restano da provare esplicitamente **negazione/revoca → stato comprensibile → riattivazione → meteo aggiornato** sul dispositivo.
 - [x] Storage: volume `/data/documents` montato; upload/download sintetico sopravvive a redeploy con hash identico. Mongo persistente su `/data/db`. Backup/restore resta un gate successivo pre-alpha, non è dimostrato qui.
 - [x] Telefonia cloud a livello capability: Railway raggiungibile senza localhost/quick tunnel; carrier + Gemini Live + public base pronti. La **telefonata reale dal cloud** appartiene a V3.22.
-- [!] Segreti/repository: il tree corrente è pulito, ma il full-history scan del 23/09 ha trovato file storici sotto `backend/data/documents` in un commit del 31/07; il repo è pubblico. Il match PEM separato è una fixture `not-a-real-key` confermata finta. **Blocker:** bonifica della cronologia (e valutazione immediata della visibilità del repo) con approvazione esplicita; nessuna history rewrite automatica.
+- [~] Segreti/repository: bonifica autorizzata ed eseguita il 24/09 con `git-filter-repo --invert-paths --path backend/data/documents` su tutti i branch/tag. Tutti i ref riscritti e force-pushati; clone mirror fresco: **PASS**, il percorso non è più raggiungibile da alcun ref pubblicizzato. Repository senza PR storiche (`0`). Il vecchio commit è però ancora servibile se si conosce direttamente il suo SHA: per GitHub questa è una cached/unreachable object retention e la rimozione fisica richiede Support (dereference/cache purge/server GC). Il match PEM resta una fixture `not-a-real-key` confermata finta. I vecchi clone non devono fare pull+push sulla nuova history: vanno riclonati o riallineati senza merge della storia contaminata.
 - [x] Sessioni/JWT/health: logout revoca il bearer, la revoca sopravvive a redeploy, isolamento download fra utenti provato; health DB e capability status sono stati verificati.
 
-**Per chiudere V3.21.4 restano due reality gate e un blocker di sicurezza:**
-(1) modifica Calendar reale attraverso ORA; (2) ciclo posizione
-negata/revocata e riattivata con meteo sul device; (3) rimuovere dalla
-cronologia pubblica i vecchi blob di `backend/data/documents` dopo approvazione
-esplicita della bonifica. Nessuna nuova architettura telefonica.
+**Per chiudere V3.21.4 restano due reality gate e un ultimo passo di bonifica
+GitHub:** (1) modifica Calendar reale attraverso ORA; (2) ciclo posizione
+negata/revocata e riattivata con meteo sul device; (3) richiesta a GitHub
+Support di purga cache/oggetti non raggiungibili, perché la history pubblicizzata
+è già pulita ma il vecchio SHA è ancora risolvibile direttamente. Nessuna nuova
+architettura telefonica.
 
 ### V3.22 — Call UX Final · PIANIFICATO
 **Obiettivo** — preparo chiamata → autorizzo → ORA chiama → seguo stato → leggo esito → eventuale decisione → applicazione → storico.

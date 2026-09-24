@@ -1,3 +1,23 @@
+## 2026-09-24 — Bonifica history Git eseguita; purge GitHub ancora pendente
+
+Con autorizzazione esplicita del proprietario è stata riscritta la history con
+`git-filter-repo --invert-paths --path backend/data/documents`. Sono stati
+force-pushati tutti i branch e i tag raggiungibili. Un clone mirror fresco del
+repository ha verificato `HISTORY_SANITIZATION=PASS`: il percorso legacy non
+compare più in nessun ref pubblicizzato. Il repository non ha pull request
+storiche da dereferenziare.
+
+Controllo più severo: il commit vecchio che introdusse lo storage documentale
+è ancora risolvibile direttamente conoscendone lo SHA, pur non essendo più
+raggiungibile da branch/tag. Questo comportamento è coerente con la retention
+di cached views / oggetti non raggiungibili descritta da GitHub. La rimozione
+fisica lato server richiede GitHub Support (cache purge + garbage collection);
+non è disponibile come operazione repository ordinaria.
+
+Nota operativa: qualunque clone creato prima della riscrittura non deve fare un
+normale pull+push o merge della vecchia history. Va riclonato oppure riallineato
+alla nuova history senza reintrodurre i commit contaminati.
+
 ## 2026-09-23 — Full-history audit: legacy document blobs nel repo pubblico
 
 Il nuovo scanner CI con checkout completo della storia ha trovato file
