@@ -1039,7 +1039,7 @@ nuovo deploy: la conferma sul profilo cloud resta pendente.
 
 **Conferma successiva dell’utente:** «verificato e funzionante». Reality gate Vita chiuso; non equivale a verifica di storage, sessioni o restore.
 
-### V3.21.4 — Cloud Foundation Final · IN CORSO
+### V3.21.4 — Cloud Foundation Final · PRODOTTO COMPLETO · SUPPORT PENDING
 **Obiettivo** — il cloud sostituisce il localhost: spegnendo il PC le funzioni core continuano a funzionare.
 
 **Audit riallineato al deploy reale — 23 settembre 2026.** La vecchia nota
@@ -1073,11 +1073,13 @@ history pubblicizzata è già pulita ma il vecchio SHA è ancora risolvibile
 direttamente. I reality gate di prodotto Calendar e posizione/meteo sono PASS
 sul dispositivo/provider reale. Nessuna nuova architettura telefonica.
 
-### V3.22 — Call UX Final · PIANIFICATO
+### V3.22 — Call UX Final · IN CORSO
 **Obiettivo** — preparo chiamata → autorizzo → ORA chiama → seguo stato → leggo esito → eventuale decisione → applicazione → storico.
 **Perimetro** — prodotto e gestione errori; preservare Gemini Live/Vonage salvo difetti dimostrati.
 **Exit** — una persona senza conoscenze tecniche completa il percorso; telefonate reali dal cloud e recupero essenziale dimostrati, senza azioni perse o duplicate.
-**Dipendenze** — V3.21.4; parte essenziale del debito V3.15.2. Chiude l'arco telefonico.
+**Dipendenze** — gate tecnici/prodotto V3.21.4 chiusi; purga GitHub Support resta esterna e tracciata. Parte essenziale del debito V3.15.2. Chiude l'arco telefonico.
+
+**Checkpoint V3.22.1** — una preparazione produce una sola call attiva; retry/doppio tap riusano la stessa call. La schermata di preparazione segue lo stato della chiamata, permette di interromperla e apre automaticamente il resoconto quando termina.
 
 ### V3.23 — iPhone Reality Gate · PIANIFICATO
 **Obiettivo** — ORA su un iPhone vero tramite Expo/EAS/TestFlight, usando Railway; non una riscrittura nativa completa.
