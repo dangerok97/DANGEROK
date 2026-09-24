@@ -82,7 +82,8 @@ MAX_ATTEMPTS = 3
 RETRY_DELAYS_S = (60, 5 * 60, 15 * 60)
 
 
-class CallMissionApplication(BaseModel):    """Che cosa è stato fatto nel mondo per via di questa telefonata."""
+class CallMissionApplication(BaseModel):
+    """Che cosa è stato fatto nel mondo per via di questa telefonata."""
 
     mission_id: str = Field(min_length=1, max_length=64)
     call_id: str = Field(min_length=1, max_length=64)
