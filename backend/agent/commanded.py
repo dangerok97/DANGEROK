@@ -278,6 +278,39 @@ async def assess(
             owner_id, intent, decision="approved",
             shown=(command.asked_for or summary)[:300],
         )
+    elif answered_proposal:
+        # A correction, alternative, question or refusal is not approval of
+        # the act ORA proposed one turn ago. Stop *before* standing grants are
+        # consulted: a broad permission may authorise the corrected act later,
+        # but it must never let the stale proposal execute while the person is
+        # changing its target/time.
+        assessment = AuthorityAssessment(
+            capability=capability,
+            model_outcome="prepare_then_confirm",
+            reasoning=(command.spoken or command.asked_for or summary)[:400],
+            reversibility=effect.reversibility,
+            third_party_impact=effect.external_party,
+        )
+        narrowed = await authority.apply_ceiling(owner_id, assessment)
+        decision = (
+            "cannot_proceed"
+            if narrowed.effective_outcome == "cannot_proceed"
+            else "prepare_then_confirm"
+        )
+        return CommandedAct(
+            intent=intent,
+            authority=EffectiveAuthority(
+                recommended_by_ai="prepare_then_confirm",
+                code_ceiling=narrowed.effective_outcome,
+                effective_decision=decision,
+                reason_code="proposal_reply_not_approval",
+                note=(
+                    "La risposta modifica o rifiuta la proposta precedente; "
+                    "ricalcola l'atto prima di eseguire."
+                ),
+            ),
+            command=command,
+        )
 
     # The model is not asked to recommend autonomy here, and is given none:
     # the conversation already contains its judgement — it chose to act, and
