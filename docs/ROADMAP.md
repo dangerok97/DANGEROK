@@ -1081,6 +1081,8 @@ sul dispositivo/provider reale. Nessuna nuova architettura telefonica.
 
 **Checkpoint V3.22.1** — una preparazione produce una sola call attiva; retry/doppio tap riusano la stessa call. La schermata di preparazione segue lo stato della chiamata, permette di interromperla e apre automaticamente il resoconto quando termina.
 
+**Checkpoint V3.22.2** — quando una chiamata torna con `needs_user`, la decisione può preparare una richiamata ma non comporla. Il dettaglio espone la richiamata pronta e richiede un nuovo gesto esplicito «Chiama ora»; la seconda call viene poi seguita fino all’esito.
+
 ### V3.23 — iPhone Reality Gate · PIANIFICATO
 **Obiettivo** — ORA su un iPhone vero tramite Expo/EAS/TestFlight, usando Railway; non una riscrittura nativa completa.
 **Gate** — login, Home, Vita, conversazione, push, posizione, contatti, telefonia, permessi iOS, SecureStore, background/resume e kill/relaunch.
