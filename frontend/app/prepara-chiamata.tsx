@@ -13,9 +13,10 @@
  * stata scritta e il riepilogo di quello che partirà — mai un mission_id, mai
  * uno stato interno.
  */
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 
 import { api, type MissionPreparation, type PreparationContact } from '@/src/api/client';
 import { IconBubble, OraBadge, OraButton, OraCard } from '@/src/components/ora-ui';
@@ -36,7 +37,9 @@ export default function PreparaChiamata() {
   const [errore, setErrore] = useState<string | null>(null);
   const [chiamata, setChiamata] = useState('');
   const [inLinea, setInLinea] = useState(false);
+  const [statoChiamata, setStatoChiamata] = useState('');
   const wide = useBreakpoint() === 'desktop';
+  const router = useRouter();
 
   const fai = useCallback(
     async (quale: string, azione: () => Promise<{ preparation: MissionPreparation }>) => {
@@ -83,17 +86,87 @@ export default function PreparaChiamata() {
     if (!prep || inCorso) return;
     setInCorso('call');
     setErrore(null);
-    api
-      .preparationToCall(prep.preparation_id, 'reschedule')
-      .then(async (r: { call_id: string; preparation: MissionPreparation }) => {
-        setChiamata(r.call_id);
+
+    const avvia = async () => {
+      let callId = chiamata;
+      if (!callId) {
+        const r = await api.preparationToCall(prep.preparation_id, 'reschedule');
+        callId = r.call_id;
+        setChiamata(callId);
         setPrep(r.preparation);
-        await api.placeCall(r.call_id);
+      }
+
+      try {
+        await api.placeCall(callId);
+        setStatoChiamata('Chiamata in corso');
         setInLinea(true);
+      } catch (e) {
+        try {
+          const detail = await api.callDetail(callId);
+          if (detail.call.presentation_status === 'in_corso') {
+            setStatoChiamata(detail.call.status_label || 'Chiamata in corso');
+            setInLinea(true);
+            return;
+          }
+          if (detail.call.presentation_status !== 'non_avviata') {
+            router.replace(`/chiamate/${callId}` as any);
+            return;
+          }
+        } catch {
+          // Keep the same call id: a retry must not create a second call.
+        }
+        throw e;
+      }
+    };
+
+    void avvia()
+      .catch((e: unknown) => setErrore(humanizeError(e)))
+      .finally(() => setInCorso(''));
+  }, [prep, inCorso, chiamata, router]);
+
+  useEffect(() => {
+    if (!inLinea || !chiamata) return;
+
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const poll = async () => {
+      try {
+        const detail = await api.callDetail(chiamata);
+        if (cancelled) return;
+        setStatoChiamata(detail.call.status_label || 'Chiamata in corso');
+        if (detail.call.presentation_status !== 'in_corso') {
+          setInLinea(false);
+          router.replace(`/chiamate/${chiamata}` as any);
+          return;
+        }
+      } catch {
+        // The call continues even if one status read fails.
+      }
+      if (!cancelled) timer = setTimeout(poll, 1500);
+    };
+
+    timer = setTimeout(poll, 750);
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [inLinea, chiamata, router]);
+
+  const interrompi = useCallback(() => {
+    if (!chiamata || inCorso) return;
+    setInCorso('hangup');
+    setErrore(null);
+    api
+      .hangupCall(chiamata)
+      .then(() => {
+        setStatoChiamata('Chiamata interrotta');
+        setInLinea(false);
+        router.replace(`/chiamate/${chiamata}` as any);
       })
       .catch((e: unknown) => setErrore(humanizeError(e)))
       .finally(() => setInCorso(''));
-  }, [prep, inCorso]);
+  }, [chiamata, inCorso, router]);
 
   const corpo = (
     <ScrollView
@@ -365,13 +438,26 @@ export default function PreparaChiamata() {
                   ) : null}
 
                   {inLinea ? (
-                    <Text style={[oraType.body, { color: ora.success }]} testID="prep-calling">
-                      Sto chiamando {primo}… Ti dico com'è andata appena finisce.
-                    </Text>
+                    <View style={styles.blocco}>
+                      <Text style={[oraType.body, { color: ora.success }]} testID="prep-calling">
+                        {statoChiamata || `Sto chiamando ${primo}…`}
+                      </Text>
+                      <Text style={[oraType.small, { color: ora.ink2 }]}>
+                        Resto qui a seguire la chiamata. Quando finisce apro
+                        automaticamente il resoconto.
+                      </Text>
+                      <OraButton
+                        label="Interrompi"
+                        kind="quiet"
+                        testID="prep-hangup"
+                        busy={inCorso === 'hangup'}
+                        onPress={interrompi}
+                      />
+                    </View>
                   ) : puo('call') ? (
                     <View style={styles.riga}>
                       <OraButton
-                        label="Chiama ora"
+                        label={chiamata ? "Riprova chiamata" : "Chiama ora"}
                         icon="call"
                         testID="prep-make-call"
                         busy={inCorso === 'call'}
