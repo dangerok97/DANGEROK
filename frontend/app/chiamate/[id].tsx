@@ -62,6 +62,9 @@ export default function CallDetailScreen() {
   const [whyEmpty, setWhyEmpty] = useState('');
   const [loadingTranscript, setLoadingTranscript] = useState(false);
   const [transcriptAsked, setTranscriptAsked] = useState(false);
+  const [nextCallId, setNextCallId] = useState('');
+  const [placingNext, setPlacingNext] = useState(false);
+  const [nextCallError, setNextCallError] = useState<string | null>(null);
 
   /**
    * La telefonata, riletta.
@@ -85,6 +88,40 @@ export default function CallDetailScreen() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // A detail page can be opened while the call is still ringing/talking.
+  // Keep reading the same call until the backend says it reached a terminal
+  // presentation state; never make the user refresh to discover the result.
+  useEffect(() => {
+    if (call?.presentation_status !== 'in_corso') return;
+    const timer = setTimeout(() => void load(), 1500);
+    return () => clearTimeout(timer);
+  }, [call?.presentation_status, load]);
+
+  const placeContinuationCall = useCallback(async () => {
+    if (!nextCallId || placingNext) return;
+    setPlacingNext(true);
+    setNextCallError(null);
+    try {
+      await api.placeCall(nextCallId);
+      router.replace(`/chiamate/${nextCallId}` as any);
+    } catch (e) {
+      // If the response was lost after the provider accepted the dial, the
+      // same call tells us so. Never prepare/dial a second callback here.
+      try {
+        const detail = await api.callDetail(nextCallId);
+        if (detail.call.presentation_status !== 'non_avviata') {
+          router.replace(`/chiamate/${nextCallId}` as any);
+          return;
+        }
+      } catch {
+        // Keep the original error below.
+      }
+      setNextCallError(humanizeError(e));
+    } finally {
+      setPlacingNext(false);
+    }
+  }, [nextCallId, placingNext, router]);
 
   /**
    * The transcript, when asked for.
@@ -207,7 +244,11 @@ export default function CallDetailScreen() {
                   {call.continuation?.open ? (
                     <DecideContinuation
                       continuation={call.continuation}
-                      onDecided={() => void load()}
+                      onDecided={(preparedCallId) => {
+                        setNextCallId(preparedCallId);
+                        setNextCallError(null);
+                        void load();
+                      }}
                     />
                   ) : call.needs_decision ? (
                     <Text
@@ -217,6 +258,42 @@ export default function CallDetailScreen() {
                     >
                       Decidi come procedere
                     </Text>
+                  ) : null}
+
+                  {nextCallId ? (
+                    <View style={[styles.callbackBox, { borderColor: colors.border }]}>
+                      <Text style={[styles.aside, { color: colors.textSecondary }]}>
+                        Richiamata pronta. La tua decisione ha aggiornato il mandato,
+                        ma il numero non viene composto finché non confermi qui.
+                      </Text>
+                      <Pressable
+                        accessibilityRole="button"
+                        testID="continuation-place-call"
+                        disabled={placingNext}
+                        onPress={() => void placeContinuationCall()}
+                        style={({ pressed }) => [
+                          styles.button,
+                          {
+                            borderColor: colors.border,
+                            backgroundColor: colors.surface,
+                            opacity: placingNext ? 0.5 : pressed ? 0.7 : 1,
+                          },
+                        ]}
+                      >
+                        {placingNext ? (
+                          <ActivityIndicator color={colors.textTertiary} />
+                        ) : (
+                          <Text style={[styles.buttonText, { color: colors.textPrimary }]}>
+                            Chiama ora
+                          </Text>
+                        )}
+                      </Pressable>
+                      {nextCallError ? (
+                        <Text style={[styles.note, { color: colors.warning }]}>
+                          {nextCallError}
+                        </Text>
+                      ) : null}
+                    </View>
                   ) : null}
                 </View>
               </Appear>
@@ -374,6 +451,12 @@ const styles = StyleSheet.create({
   },
   buttonText: { fontSize: 15, fontWeight: '600' },
   note: { fontSize: 13, lineHeight: 19, marginTop: tokens.spacing['8'] },
+  callbackBox: {
+    marginTop: tokens.spacing['12'],
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingTop: tokens.spacing['12'],
+    gap: tokens.spacing['8'],
+  },
   middle: { paddingVertical: tokens.spacing['48'], alignItems: 'center' },
   transcript: { gap: tokens.spacing['16'], marginTop: tokens.spacing['16'] },
   line: { gap: 3 },
