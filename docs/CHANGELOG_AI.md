@@ -1,3 +1,15 @@
+## 2026-09-24 — V3.22 avviata: lifecycle della chiamata dalla preparazione
+
+Primo gap UX della fase: dopo «Chiama ora» la schermata mostrava soltanto
+«Sto chiamando…» e non seguiva più la call. Inoltre un errore dopo
+`prepare-call` poteva portare un nuovo click a creare un'altra PhoneCall.
+
+Correzione: `turn_into_a_call` riusa la call già attiva della preparazione;
+il frontend riusa il call id nei retry, verifica lo stato dopo errori di rete,
+polla il dettaglio mentre la chiamata è in corso, permette «Interrompi» e apre
+automaticamente il resoconto quando la call termina. V3.22 passa a IN CORSO;
+V3.21.4 è prodotto-completa con sola purga GitHub Support pendente.
+
 ## 2026-09-24 — Calendar reality gate PASS sul provider reale
 
 Test reale conclusivo: richiesta con typo «Sposta TEST ORA continuazone alle
