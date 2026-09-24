@@ -593,9 +593,20 @@ async def turn_into_a_call(
     from telephone.models import Mandate
     from telephone.service import TelephoneService
 
+    telephone = TelephoneService(db)
+
+    # One preparation owns one active call. Retries after a lost HTTP
+    # response or a double tap must return the same call, not mint another.
+    if prep.call_id:
+        existing = await telephone.get(prep.owner_id, prep.call_id)
+        if existing is not None and existing.state in (
+            "authorised", "dialling", "talking"
+        ):
+            return existing, ""
+
     riassunto = prep.mission_brief or il_riassunto.build(prep, operation=operation)
     consegna = operation == "deliver_message" and bool(prep.message_to_deliver)
-    call = await TelephoneService(db).prepare(
+    call = await telephone.prepare(
         prep.owner_id,
         to_number=contatto.number,
         calling_whom=contatto.name,
