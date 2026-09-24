@@ -683,8 +683,6 @@ def test_exact_title_resolution_finds_one_google_imported_event():
         uid = f"mv_{uuid.uuid4().hex[:8]}"
         try:
             from conversation_engine.ai_core.tools import calendar_caps
-            from ingestion.fields import wrapped
-
             when = _when(6, 19)
             await db.ingestion_events.insert_one({
                 "id": "ing_exact_1",
@@ -693,11 +691,11 @@ def test_exact_title_resolution_finds_one_google_imported_event():
                 "source_status": "active",
                 "external_id": "g_exact_1",
                 "normalized_payload": {
-                    "title": wrapped("TEST ORA — continuazione"),
-                    "starts_at": wrapped(when.isoformat()),
-                    "ends_at": wrapped((when + timedelta(minutes=45)).isoformat()),
-                    "timezone": wrapped("Europe/Rome"),
-                    "status": wrapped("confirmed"),
+                    "title": {"value": "TEST ORA — continuazione"},
+                    "starts_at": {"value": when.isoformat()},
+                    "ends_at": {"value": (when + timedelta(minutes=45)).isoformat()},
+                    "timezone": {"value": "Europe/Rome"},
+                    "status": {"value": "confirmed"},
                 },
             })
 
