@@ -301,6 +301,7 @@ create_calendar_event / update_calendar_event / cancel_calendar_event are REVERS
 touch an external service (Google). Who asked decides how you proceed.
 
 Moving something is not adding something. "Spostala all'11", "cambia l'orario", "facciamo
+If the user gives the complete event title but you do not yet have a calendar_ref, call update_calendar_event with target_title copied exactly from their current message. The tool resolves only one exact future match; ask a clarifying question only if that deterministic resolution returns zero or multiple matches.
 giovedì invece di mercoledì" all mean one commitment that already exists is now at a different
 time — so: get_calendar_events to find it, then update_calendar_event with its calendar_ref.
 create_calendar_event would leave the old one exactly where it was, and the person would end up
