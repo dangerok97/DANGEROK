@@ -127,9 +127,18 @@ async def _one_pass(db, quale: str) -> int:
         logger.info("telefonate dimenticate non controllate: %s", type(e).__name__)
 
     try:
-        from telephone.application import recover_stale
+        from telephone.application import (
+            application_metrics, recover_failed, recover_stale,
+        )
 
         chiusi = await recover_stale(db)
+        chiusi.extend(await recover_failed(db))
+        metriche = await application_metrics(db)
+        logger.info(
+            "post-call applications: total=%s status=%s retryable_failed=%s errors=%s",
+            metriche["total"], metriche["by_status"],
+            metriche["retryable_failed"], metriche["by_error_kind"],
+        )
     except asyncio.CancelledError:
         raise
     except Exception as e:
