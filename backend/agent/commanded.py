@@ -303,7 +303,7 @@ async def assess(
                 recommended_by_ai="prepare_then_confirm",
                 code_ceiling=narrowed.effective_outcome,
                 effective_decision=decision,
-                reason_code="proposal_reply_not_approval",
+                reason_code="no_grant",
                 note=(
                     "La risposta modifica o rifiuta la proposta precedente; "
                     "ricalcola l'atto prima di eseguire."

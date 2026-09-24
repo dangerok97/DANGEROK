@@ -854,7 +854,7 @@ def test_a_proposal_correction_cannot_ride_a_standing_grant():
     import agent.commanded as commanded_module
 
     source = inspect.getsource(commanded_module.assess)
-    hold = source.index("proposal_reply_not_approval")
+    hold = source.index("ricalcola l'atto prima di eseguire")
     grant_lookup = source.index("effective_authority")
     assert hold < grant_lookup, (
         "a correction reaches standing-grant evaluation before the stale proposal is held"
