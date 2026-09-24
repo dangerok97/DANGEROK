@@ -323,10 +323,13 @@ def test_a_creation_can_never_be_described_as_a_move():
     assert "'say_it_as': 'aggiunto'" in created
 
     updated = payload_of("update_calendar_event")
-    assert "'moved_anything': True" in updated
-    assert "'say_it_as': 'spostato'" in updated
-    # And an update only counts as a move if it stayed the same event.
+    # An update is described as a move only after the requested new slot is
+    # verified on the same provider event. Merely getting a 200/read-back is
+    # not enough.
+    assert "moved_anything" in updated and "moved_as_asked" in updated
+    assert "'spostato'" in updated
     assert "provider_identity_preserved" in updated
+    assert "readback_mismatch" in updated
 
 
 def test_the_prompt_tells_the_model_which_tool_moves_something():
