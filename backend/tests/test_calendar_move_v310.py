@@ -634,3 +634,40 @@ def test_a_move_is_only_confirmed_when_the_old_slot_is_empty():
     # Nothing came back: nothing is confirmed.
     assert not _is_at({}, wanted.isoformat())
     assert not _is_at({"start": {"dateTime": wanted.isoformat()}}, None)
+
+
+
+def test_direct_move_cannot_use_a_ref_for_a_different_named_event():
+    from conversation_engine.ai_core.tools.calendar_caps import (
+        _direct_move_targets_selected_title,
+    )
+    spoken = "Sposta TEST ORA — continuazione alle 20:00"
+    assert _direct_move_targets_selected_title("TEST ORA — continuazione", spoken)
+    assert not _direct_move_targets_selected_title("TEST ORA — riunione di lavoro", spoken)
+
+
+def test_update_timezone_cannot_silently_turn_20_into_22():
+    from conversation_engine.ai_core.tools.calendar_caps import (
+        _canonical_update_datetime,
+    )
+    assert _canonical_update_datetime(
+        "2026-09-30T20:00:00Z", "Europe/Rome"
+    ) is None
+    assert _canonical_update_datetime(
+        "2026-09-30T20:00:00", "Europe/Rome"
+    ).endswith("+02:00")
+    assert _canonical_update_datetime(
+        "2026-09-30T20:00:00+02:00", "Europe/Rome"
+    ).endswith("+02:00")
+
+
+def test_update_only_claims_success_when_readback_matches_requested_effect():
+    source = (HERE / "conversation_engine/ai_core/tools/calendar_caps.py").read_text(
+        encoding="utf-8",
+    )
+    fn = source.split("async def update_calendar_event", 1)[1].split(
+        "async def cancel_calendar_event", 1
+    )[0]
+    assert 'status="ok" if moved_as_asked else "partial"' in fn
+    assert 'observed=moved_as_asked' in fn
+    assert '"readback_mismatch"' in fn

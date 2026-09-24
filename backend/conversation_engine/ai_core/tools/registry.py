@@ -1017,19 +1017,31 @@ class ToolRegistry:
                 capability="update_calendar_event",
                 description=(
                     "Update or reschedule an existing OR imported Google Calendar event. Requires "
-                    "the exact calendar_ref from prior evidence — never guess by title; if "
-                    "the target event is ambiguous, ask instead of choosing. Only the fields "
-                    "provided are changed. Authority works exactly as it does for create: "
-                    "their request is enough for what they asked for, ORA's own idea is not."
+                    "the exact calendar_ref from prior evidence — never guess by title. A direct "
+                    "move can execute only when the selected event's current title is textually "
+                    "grounded in the current user message; otherwise clarify/propose. A correction "
+                    "to a pending proposal is NOT approval: only a plain explicit yes confirms it. "
+                    "For start/end use the event's local wall-clock with an offset matching the "
+                    "IANA timezone (for example 20:00+02:00 for Europe/Rome in September, never "
+                    "20:00Z while claiming Europe/Rome). Only provided fields change."
                 ),
                 input_schema={
                     "type": "object",
                     "properties": {
                         "calendar_ref": {"type": "string"},
                         "title": {"type": "string"},
-                        "start_datetime": {"type": "string"},
-                        "end_datetime": {"type": "string"},
-                        "timezone": {"type": "string"},
+                        "start_datetime": {
+                            "type": "string",
+                            "description": (
+                                "ISO 8601 wall-clock for the event timezone. If an "
+                                "offset is present it must match that IANA timezone."
+                            ),
+                        },
+                        "end_datetime": {
+                            "type": "string",
+                            "description": "ISO 8601; same timezone/offset rule as start.",
+                        },
+                        "timezone": {"type": "string", "description": "IANA timezone name"},
                         "location": {"type": "string"},
                         "description": {"type": "string"},
                         "user_authority": {

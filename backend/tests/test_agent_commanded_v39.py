@@ -821,6 +821,33 @@ def test_a_proposal_answered_is_a_consent_anybody_can_check(monkeypatch):
     _run(body())
 
 
+def test_a_proposal_correction_is_not_a_yes(monkeypatch):
+    async def body():
+        client, db = await _db()
+        uid = f"cmd_{uuid.uuid4().hex[:8]}"
+        try:
+            import conversation_engine.ai_core.tools.calendar_caps as caps
+
+            instance = await _connect(db, uid)
+            channel = _wire(monkeypatch, db, instance)
+            obs = await caps.create_calendar_event(
+                _create_args(user_authority=None),
+                _runtime(
+                    db, uid,
+                    spoken="Quello del 30 settembre",
+                    pending={"at": "now", "asked": "Lo sposto oggi alle 20?"},
+                ),
+            )
+            assert obs.payload["status"] == "authority_required"
+            assert channel.writes == 0
+            assert await db.autonomy_consents.count_documents({"owner_id": uid}) == 0
+        finally:
+            await _clean(db, uid)
+            client.close()
+
+    _run(body())
+
+
 def test_a_proposal_refused_writes_nothing(monkeypatch):
     """
     §19: «lascia stare» is not a confirmation, whatever the model does next.

@@ -68,6 +68,12 @@ _REFUSALS = {
     "stop", "niente", "nah",
 }
 
+_APPROVALS = {
+    "si", "si vai", "si procedi", "si fallo", "si confermo",
+    "ok", "okay", "va bene", "va bene vai", "vai", "vai pure",
+    "procedi", "procedi pure", "confermo", "fallo", "d accordo", "approvo",
+}
+
 
 # Come si dice «spostalo» quando lo si scrive a qualcuno. Corto di
 # proposito, come l'elenco dei rifiuti sopra: non e' comprensione del
@@ -106,6 +112,14 @@ def reads_as_a_move(message: str) -> bool:
     if not said:
         return False
     return any(word in said for word in _MOVE_WORDS)
+
+
+def reads_as_an_approval(reply: str) -> bool:
+    """A pending proposal is approved only by a plain, explicit yes."""
+    said = _flatten(reply)
+    if not said or reads_as_a_refusal(reply):
+        return False
+    return said in _APPROVALS
 
 
 def reads_as_a_refusal(reply: str) -> bool:
@@ -259,7 +273,7 @@ async def assess(
     # sentence is interpreted: not recognising a no is not the same as
     # hearing a yes, and an unrecognised reply simply leaves the act where a
     # proposal leaves it.
-    if answered_proposal and not reads_as_a_refusal(command.spoken):
+    if answered_proposal and reads_as_an_approval(command.spoken):
         await authority.consent(
             owner_id, intent, decision="approved",
             shown=(command.asked_for or summary)[:300],

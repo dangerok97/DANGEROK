@@ -1,3 +1,20 @@
+## 2026-09-24 — Calendar reality gate FAIL: target, confirmation, timezone
+
+Il test reale «Sposta TEST ORA — continuazione alle 20:00» ha scoperto tre
+difetti concatenati. ORA ha proposto un evento diverso («TEST ORA — riunione
+di lavoro»); la risposta correttiva «Quello del 30 settembre» è stata
+interpretata come consenso al vecchio pending act; infine un orario ISO con
+offset incoerente rispetto a Europe/Rome ha prodotto una PATCH che Google ha
+mostrato due ore più tardi. Il read-back esisteva, ma il tool dichiarava
+comunque status=ok anche senza verificare l'effetto richiesto.
+
+Correzione: solo approvazioni esplicite confermano un pending act; una
+correzione non conia autorità. Un move diretto può agire solo se il titolo
+selezionato è testualmente ancorato nel messaggio corrente. Gli update
+rifiutano datetime il cui offset contraddice il fuso IANA e canonicalizzano i
+wall-clock naive. Infine l'update è OK solo se rilettura, identità provider e
+nuovo orario richiesto coincidono; altrimenti è partial/readback_mismatch.
+
 ## 2026-09-24 — Reality gate posizione/meteo: PASS sul dispositivo reale
 
 Conferma dell’utente sul prodotto reale: la posizione è stata portata su OFF e

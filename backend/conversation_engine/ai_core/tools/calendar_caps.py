@@ -23,6 +23,7 @@ import hashlib
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
+from zoneinfo import ZoneInfo
 
 from agent import commanded
 from agent.authority import UserCommand
@@ -166,6 +167,27 @@ def _parse_dt(value: Optional[str]) -> Optional[datetime]:
         return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
     except ValueError:
         return None
+
+
+def _canonical_update_datetime(value: Any, tz_name: str) -> Optional[str]:
+    """Canonicalise an update wall-clock without silently shifting it."""
+    dt = _parse_dt(str(value or ""))
+    if dt is None or not is_valid_iana_timezone(tz_name):
+        return None
+    zone = ZoneInfo(tz_name)
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=zone).isoformat()
+    wall = dt.replace(tzinfo=None).replace(tzinfo=zone)
+    if dt.utcoffset() != wall.utcoffset():
+        return None
+    return dt.astimezone(zone).isoformat()
+
+
+def _direct_move_targets_selected_title(selected_title: str, spoken: str) -> bool:
+    """A direct move may act only on the title actually named this turn."""
+    title = _same_thing(selected_title)
+    said = _same_thing(spoken)
+    return bool(title and said and title in said)
 
 
 # ---------------------------------------------------------------------------
@@ -917,7 +939,7 @@ async def create_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
         },
         summary=f"Segnare in calendario: {title}",
         expected=f"«{title}» risulta in calendario.",
-        command=_user_command(arguments, runtime),
+        command=command,
         answered_proposal=_answered_a_proposal(runtime),
     )
     if not act.may_execute:
@@ -1064,7 +1086,7 @@ async def create_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
             "calendar_ref": _ref(draft_id),
             "google_event_id": synced.get("google_event_id"),
             "sync_status": synced.get("sync_status"),
-            "verified": observed,
+            "verified": moved_as_asked,
             "what_the_calendar_says": (
                 {"title": seen.get("summary"), "start": (seen.get("start") or {})}
                 if observed else None
@@ -1095,13 +1117,18 @@ async def update_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
         return _fail("update_calendar_event", "INVALID_INPUT", "calendar_ref required")
 
     existing = await db.calendar_event_drafts.find_one(
-        {"id": draft_id, "user_id": uid}, {"_id": 0, "id": 1, "status": 1},
+        {"id": draft_id, "user_id": uid},
+        {
+            "_id": 0, "id": 1, "status": 1, "title": 1,
+            "start_datetime": 1, "end_datetime": 1, "timezone": 1,
+            "google_event_id": 1,
+        },
     )
     if not existing:
         linked = await _linked_google_draft(db, uid, draft_id)
         if linked:
             draft_id = str(linked["id"])
-            existing = {"id": draft_id, "status": linked.get("status")}
+            existing = linked
     if not existing:
         return Observation(
             kind="tool", name="update_calendar_event", status="not_found",
@@ -1146,10 +1173,7 @@ async def update_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
 
     # Il manico dell'evento com'e' adesso, per poter dire dopo se e' lo
     # stesso evento o un altro.
-    before = await db.calendar_event_drafts.find_one(
-        {"id": draft_id, "user_id": uid}, {"_id": 0, "google_event_id": 1},
-    )
-    before_handle = str((before or {}).get("google_event_id") or "")
+    before_handle = str((existing or {}).get("google_event_id") or "")
 
     fields: Dict[str, Any] = {}
     for key in ("title", "start_datetime", "end_datetime", "location", "description"):
@@ -1160,6 +1184,53 @@ async def update_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
         fields["timezone"] = tz
     if not fields:
         return _needs("update_calendar_event", "fields", "che cosa cambia")
+
+    spoken = str(runtime.get("user_message") or "")
+    if commanded.reads_as_a_move(spoken) and not _direct_move_targets_selected_title(
+        str((existing or {}).get("title") or ""), spoken,
+    ):
+        return Observation(
+            kind="tool", name="update_calendar_event", status="rejected",
+            payload={
+                "status": "rejected",
+                "failure_kind": "target_not_grounded",
+                "calendar_ref": _ref(draft_id),
+                "selected_title": (existing or {}).get("title"),
+                "reason": (
+                    "Il riferimento scelto non corrisponde al titolo nominato "
+                    "dalla persona in questo messaggio. Rileggi gli eventi e usa "
+                    "il calendar_ref dell'evento nominato; se non c'è un match "
+                    "testuale univoco, chiedi invece di indovinare."
+                ),
+            },
+            provenance=[_ref(draft_id)],
+        )
+
+    target_tz = str(fields.get("timezone") or (existing or {}).get("timezone") or "")
+    if not is_valid_iana_timezone(target_tz):
+        resolved = await resolve_user_timezone(db, uid)
+        target_tz = resolved.tz_name
+    for key in ("start_datetime", "end_datetime"):
+        if key not in fields:
+            continue
+        canonical = _canonical_update_datetime(fields[key], target_tz)
+        if canonical is None:
+            return Observation(
+                kind="tool", name="update_calendar_event", status="rejected",
+                payload={
+                    "status": "rejected",
+                    "failure_kind": "timezone_mismatch",
+                    "calendar_ref": _ref(draft_id),
+                    "timezone": target_tz,
+                    "reason": (
+                        "L'orario ISO e il fuso IANA non descrivono la stessa "
+                        "ora locale. Non scrivere niente; ricostruisci start/end "
+                        "con l'offset corretto del fuso."
+                    ),
+                },
+                provenance=[_ref(draft_id)],
+            )
+        fields[key] = canonical
 
     # “Spostalo alle 15” changes the beginning, not the duration. Preserve
     # the observed duration when the caller does not repeat the end time.
@@ -1189,6 +1260,10 @@ async def update_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
         arguments,
         reaches_others=await reaches_other_people(db, uid, draft_id),
     )
+    command = _user_command(arguments, runtime)
+    if _answered_a_proposal(runtime) and not commanded.reads_as_an_approval(spoken):
+        command = UserCommand(spoken=spoken)
+
     act = await commanded.assess(
         db, uid,
         capability="calendar.write",
@@ -1278,22 +1353,32 @@ async def update_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
         await _file_it_now(
             db, sync, uid, str(updated.get("google_calendar_id") or "primary"), seen,
         )
-    moved_as_asked = observed and _is_at(
-        seen, fields.get("start_datetime"),
-    ) and bool(before_handle and updated.get("google_event_id") == before_handle)
+    identity_preserved = bool(
+        before_handle and updated.get("google_event_id") == before_handle
+    )
+    time_requested = bool(fields.get("start_datetime"))
+    moved_as_asked = bool(
+        observed
+        and identity_preserved
+        and (not time_requested or _is_at(seen, fields.get("start_datetime")))
+    )
     await commanded.settle(
         db, act, provider="calendar",
         external_ref=str(updated.get("google_event_id") or ""),
-        accepted=True, observed=observed,
+        accepted=True, observed=moved_as_asked,
+        error_type="" if moved_as_asked else "readback_mismatch",
     )
     return Observation(
         kind="tool", name="update_calendar_event",
-        status="ok" if observed else "partial",
+        status="ok" if moved_as_asked else "partial",
         payload={
-            "status": "ok" if observed else "partial",
+            "status": "ok" if moved_as_asked else "partial",
             "operation": "updated",
-            "moved_anything": True,
-            "say_it_as": "spostato",
+            "moved_anything": bool(time_requested and moved_as_asked),
+            "say_it_as": (
+                "spostato" if time_requested and moved_as_asked
+                else "aggiornato" if moved_as_asked else ""
+            ),
             # Lo slot vecchio e' libero e quello nuovo e' pieno — che e'
             # l'unica cosa che la persona puo' controllare. Si legge da un
             # solo colpo d'occhio: e' lo *stesso* evento del provider, e
@@ -1306,9 +1391,7 @@ async def update_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
             # evento invece di crearne un altro. Se il manico e' cambiato,
             # qualunque cosa sia successa non e' uno spostamento, e non va
             # raccontata come tale.
-            "provider_identity_preserved": bool(
-                before_handle and updated.get("google_event_id") == before_handle
-            ),
+            "provider_identity_preserved": identity_preserved,
             "calendar_ref": _ref(draft_id),
             "google_event_id": updated.get("google_event_id"),
             "sync_status": updated.get("sync_status"),
@@ -1318,6 +1401,11 @@ async def update_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
                 if observed else None
             ),
             "authority": act.basis,
+            "reason": None if moved_as_asked else (
+                "Il provider ha risposto, ma la rilettura non conferma lo "
+                "stesso evento esattamente nel nuovo stato richiesto. Non dire "
+                "che è stato spostato o aggiornato."
+            ),
         },
         provenance=[_ref(draft_id)],
     )
