@@ -1086,7 +1086,7 @@ async def create_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
             "calendar_ref": _ref(draft_id),
             "google_event_id": synced.get("google_event_id"),
             "sync_status": synced.get("sync_status"),
-            "verified": moved_as_asked,
+            "verified": observed,
             "what_the_calendar_says": (
                 {"title": seen.get("summary"), "start": (seen.get("start") or {})}
                 if observed else None
@@ -1395,7 +1395,7 @@ async def update_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
             "calendar_ref": _ref(draft_id),
             "google_event_id": updated.get("google_event_id"),
             "sync_status": updated.get("sync_status"),
-            "verified": observed,
+            "verified": moved_as_asked,
             "what_the_calendar_says": (
                 {"title": seen.get("summary"), "start": (seen.get("start") or {})}
                 if observed else None
