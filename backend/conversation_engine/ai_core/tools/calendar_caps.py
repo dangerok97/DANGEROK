@@ -660,6 +660,27 @@ async def get_calendar_events(arguments: Dict[str, Any], runtime: Dict[str, Any]
     )
 
 
+def _local_candidate_datetime(value: Any, tz_name: Optional[str]) -> Optional[str]:
+    """Render stored calendar time in the event's local timezone for dialogue.
+
+    Ingestion normalizes Google dateTimes to UTC. That is correct for storage
+    and range queries, but showing that raw UTC clock in a clarification makes
+    a 19:00 Rome event look like 17:00. Candidate payloads are user-facing
+    evidence, so convert aware values back to the event timezone when known.
+    """
+    dt = _parse_dt(str(value or ""))
+    if dt is None:
+        return str(value) if value else None
+    if not tz_name or not is_valid_iana_timezone(str(tz_name)):
+        return dt.isoformat()
+    zone = ZoneInfo(str(tz_name))
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=zone)
+    else:
+        dt = dt.astimezone(zone)
+    return dt.isoformat()
+
+
 def _title_similarity(wanted: str, candidate: str) -> float:
     """Deterministic typo/word-overlap score used only to *suggest* a target.
 
@@ -723,11 +744,17 @@ async def _named_calendar_ref_resolution(
         },
     ).to_list(100)
     for d in drafts:
+        event_tz = str(d.get("timezone") or "Europe/Rome")
         all_events.append({
             "calendar_ref": _ref(str(d["id"])),
             "title": d.get("title"),
-            "start_datetime": d.get("start_datetime"),
-            "end_datetime": d.get("end_datetime"),
+            "start_datetime": _local_candidate_datetime(
+                d.get("start_datetime"), event_tz
+            ),
+            "end_datetime": _local_candidate_datetime(
+                d.get("end_datetime"), event_tz
+            ),
+            "timezone": event_tz,
             "source": "ora_managed",
         })
         handle = str(d.get("google_event_id") or "")
@@ -747,11 +774,17 @@ async def _named_calendar_ref_resolution(
         if str(row.get("external_id") or "") in provider_handles:
             continue
         payload = plain(row.get("normalized_payload"))
+        event_tz = str(payload.get("timezone") or "Europe/Rome")
         all_events.append({
             "calendar_ref": _ref("google:" + str(row.get("id") or "")),
             "title": payload.get("title"),
-            "start_datetime": payload.get("starts_at"),
-            "end_datetime": payload.get("ends_at"),
+            "start_datetime": _local_candidate_datetime(
+                payload.get("starts_at"), event_tz
+            ),
+            "end_datetime": _local_candidate_datetime(
+                payload.get("ends_at"), event_tz
+            ),
+            "timezone": event_tz,
             "source": "google_external",
         })
 

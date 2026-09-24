@@ -806,3 +806,17 @@ def test_title_similarity_handles_a_typo_without_equating_different_events():
     )
     assert typo >= 0.72
     assert typo > other
+
+
+
+def test_candidate_times_are_rendered_in_event_timezone():
+    from conversation_engine.ai_core.tools.calendar_caps import (
+        _local_candidate_datetime,
+    )
+
+    assert _local_candidate_datetime(
+        "2026-09-30T17:00:00+00:00", "Europe/Rome"
+    ) == "2026-09-30T19:00:00+02:00"
+    assert _local_candidate_datetime(
+        "2026-09-30T20:00:00+02:00", "Europe/Rome"
+    ) == "2026-09-30T20:00:00+02:00"

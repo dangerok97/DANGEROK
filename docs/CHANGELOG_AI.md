@@ -1,3 +1,11 @@
+## 2026-09-24 — Calendar candidate time shown in local timezone
+
+Il reality gate fuzzy ha confermato la scrittura corretta, ma la domanda di
+chiarimento mostrava 17:00 per un evento realmente alle 19:00 Europe/Rome:
+l'ingestion conserva correttamente l'istante in UTC, ma quel valore era stato
+riusato come copy. I candidati Calendar ora convertono start/end nel timezone
+dell'evento prima di arrivare al modello. Storage e confronti restano invariati.
+
 ## 2026-09-24 — Calendar title matching: vicino significa “chiedi”, non “scrivi”
 
 La risoluzione titolo del reality gate viene resa meno rigida senza perdere
