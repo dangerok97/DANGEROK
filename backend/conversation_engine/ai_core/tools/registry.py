@@ -1074,10 +1074,6 @@ class ToolRegistry:
                             },
                         },
                     },
-                    "anyOf": [
-                        {"required": ["calendar_ref"]},
-                        {"required": ["target_title"]},
-                    ],
                 },
                 classification="personal",
                 side_effect="REVERSIBLE_WRITE",
