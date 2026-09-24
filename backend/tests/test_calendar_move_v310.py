@@ -674,3 +674,63 @@ def test_update_only_claims_success_when_readback_matches_requested_effect():
     assert 'status="ok" if moved_as_asked else "partial"' in fn
     assert 'observed=moved_as_asked' in fn
     assert '"readback_mismatch"' in fn
+
+
+
+def test_exact_title_resolution_finds_one_google_imported_event():
+    async def body():
+        client, db = await _db()
+        uid = f"mv_{uuid.uuid4().hex[:8]}"
+        try:
+            from conversation_engine.ai_core.tools import calendar_caps
+            from ingestion.fields import wrapped
+
+            when = _when(6, 19)
+            await db.ingestion_events.insert_one({
+                "id": "ing_exact_1",
+                "user_id": uid,
+                "connector_id": "calendar_google",
+                "source_status": "active",
+                "external_id": "g_exact_1",
+                "normalized_payload": {
+                    "title": wrapped("TEST ORA — continuazione"),
+                    "starts_at": wrapped(when.isoformat()),
+                    "ends_at": wrapped((when + timedelta(minutes=45)).isoformat()),
+                    "timezone": wrapped("Europe/Rome"),
+                    "status": wrapped("confirmed"),
+                },
+            })
+
+            got = await calendar_caps._exact_named_calendar_ref(
+                db, uid, "TEST ORA — continuazione",
+                now=datetime.now(ROME),
+            )
+            assert got["status"] == "ok", got
+            assert got["match"]["calendar_ref"] == "calendar:google:ing_exact_1"
+        finally:
+            await _clean(db, uid)
+            client.close()
+
+    _run(body())
+
+
+def test_exact_title_resolution_never_guesses_between_duplicates():
+    async def body():
+        client, db = await _db()
+        uid = f"mv_{uuid.uuid4().hex[:8]}"
+        try:
+            from conversation_engine.ai_core.tools import calendar_caps
+
+            await _draft(db, uid, draft_id="ced_a", title="Prova", when=_when(3, 10))
+            await _draft(db, uid, draft_id="ced_b", title="Prova", when=_when(4, 10),
+                         handle="ev_google_2")
+            got = await calendar_caps._exact_named_calendar_ref(
+                db, uid, "Prova", now=datetime.now(ROME),
+            )
+            assert got["status"] == "ambiguous"
+            assert len(got["matches"]) == 2
+        finally:
+            await _clean(db, uid)
+            client.close()
+
+    _run(body())

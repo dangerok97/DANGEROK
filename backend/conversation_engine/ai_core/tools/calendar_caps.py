@@ -660,6 +660,84 @@ async def get_calendar_events(arguments: Dict[str, Any], runtime: Dict[str, Any]
     )
 
 
+async def _exact_named_calendar_ref(
+    db, uid: str, title: str, *, now: Optional[datetime] = None,
+) -> Dict[str, Any]:
+    """Resolve an exact title locally, owner-scoped, without fuzzy guessing.
+
+    This exists for the simple sentence «sposta TEST ORA — continuazione».
+    The user already supplied a complete title; asking the model to infer
+    which candidate it maps to adds uncertainty for no benefit. We compare
+    only the normalized exact title, look at the bounded future horizon, and
+    return a ref only when exactly one logical event matches. Zero or several
+    matches remain a clarification, never a guess.
+    """
+    wanted = _same_thing(title)
+    if not wanted:
+        return {"status": "not_found", "matches": []}
+
+    start = now or datetime.now(timezone.utc)
+    end = start + timedelta(days=_MAX_WINDOW_DAYS)
+    tmin, tmax = start.isoformat(), end.isoformat()
+    found: List[Dict[str, Any]] = []
+    provider_handles = set()
+
+    drafts = await db.calendar_event_drafts.find(
+        {
+            "user_id": uid,
+            "status": {"$ne": "cancelled"},
+            "start_datetime": {"$gte": tmin, "$lt": tmax},
+        },
+        {
+            "_id": 0, "id": 1, "title": 1, "start_datetime": 1,
+            "end_datetime": 1, "google_event_id": 1,
+        },
+    ).to_list(100)
+    for d in drafts:
+        if _same_thing(d.get("title") or "") != wanted:
+            continue
+        found.append({
+            "calendar_ref": _ref(str(d["id"])),
+            "title": d.get("title"),
+            "start_datetime": d.get("start_datetime"),
+            "end_datetime": d.get("end_datetime"),
+            "source": "ora_managed",
+        })
+        handle = str(d.get("google_event_id") or "")
+        if handle:
+            provider_handles.add(handle)
+
+    mirrored = await db.ingestion_events.find(
+        {
+            "user_id": uid,
+            "connector_id": "calendar_google",
+            "source_status": {"$ne": "detached"},
+            where("starts_at"): {"$gte": tmin, "$lt": tmax},
+        },
+        {"_id": 0, "id": 1, "external_id": 1, "normalized_payload": 1},
+    ).to_list(200)
+    for row in mirrored:
+        payload = plain(row.get("normalized_payload"))
+        if _same_thing(payload.get("title") or "") != wanted:
+            continue
+        if str(row.get("external_id") or "") in provider_handles:
+            continue
+        found.append({
+            "calendar_ref": _ref("google:" + str(row.get("id") or "")),
+            "title": payload.get("title"),
+            "start_datetime": payload.get("starts_at"),
+            "end_datetime": payload.get("ends_at"),
+            "source": "google_external",
+        })
+
+    if len(found) == 1:
+        return {"status": "ok", "match": found[0], "matches": found}
+    return {
+        "status": "ambiguous" if len(found) > 1 else "not_found",
+        "matches": found[:8],
+    }
+
+
 def _same_thing(title: str) -> str:
     """
     Il titolo ridotto a cio' che si puo' confrontare senza interpretare.
@@ -1113,8 +1191,38 @@ async def update_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
         return _fail("update_calendar_event", "NOT_CONFIGURED")
 
     draft_id = _strip_ref(arguments.get("calendar_ref"))
+    target_title = str(arguments.get("target_title") or "").strip()[:_MAX_TITLE]
+    if not draft_id and target_title:
+        resolved_target = await _exact_named_calendar_ref(db, uid, target_title)
+        if resolved_target.get("status") == "ok":
+            draft_id = _strip_ref(
+                ((resolved_target.get("match") or {}).get("calendar_ref"))
+            )
+        else:
+            matches = resolved_target.get("matches") or []
+            return Observation(
+                kind="tool", name="update_calendar_event",
+                status="not_found" if not matches else "partial",
+                payload={
+                    "status": resolved_target.get("status"),
+                    "failure_kind": (
+                        "exact_title_not_found" if not matches
+                        else "exact_title_ambiguous"
+                    ),
+                    "target_title": target_title,
+                    "matches": matches,
+                    "reason": (
+                        "Non c'è un solo evento futuro con questo titolo esatto. "
+                        "Se non ce n'è nessuno, rileggi il calendario; se ce ne "
+                        "sono più di uno, chiedi quale data/orario. Non scegliere."
+                    ),
+                },
+            )
     if not draft_id:
-        return _fail("update_calendar_event", "INVALID_INPUT", "calendar_ref required")
+        return _fail(
+            "update_calendar_event", "INVALID_INPUT",
+            "calendar_ref or exact target_title required",
+        )
 
     existing = await db.calendar_event_drafts.find_one(
         {"id": draft_id, "user_id": uid},

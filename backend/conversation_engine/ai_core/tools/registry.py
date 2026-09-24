@@ -1016,8 +1016,11 @@ class ToolRegistry:
             CapabilitySpec(
                 capability="update_calendar_event",
                 description=(
-                    "Update or reschedule an existing OR imported Google Calendar event. Requires "
-                    "the exact calendar_ref from prior evidence — never guess by title. A direct "
+                    "Update or reschedule an existing OR imported Google Calendar event. Prefer "
+                    "the exact calendar_ref from prior evidence. If the user supplied a complete "
+                    "event title but no ref was resolved, pass that exact text as target_title: "
+                    "the tool will resolve it owner-scoped and only when exactly one future event "
+                    "has that exact normalized title. Never fuzzy-match. A direct "
                     "move can execute only when the selected event's current title is textually "
                     "grounded in the current user message; otherwise clarify/propose. A correction "
                     "to a pending proposal is NOT approval: only a plain explicit yes confirms it. "
@@ -1029,6 +1032,14 @@ class ToolRegistry:
                     "type": "object",
                     "properties": {
                         "calendar_ref": {"type": "string"},
+                        "target_title": {
+                            "type": "string",
+                            "description": (
+                                "Exact event title copied from the user's current message. "
+                                "Use when calendar_ref is not already resolved. Resolution is "
+                                "deterministic and succeeds only for one exact future match."
+                            ),
+                        },
                         "title": {"type": "string"},
                         "start_datetime": {
                             "type": "string",
@@ -1063,7 +1074,10 @@ class ToolRegistry:
                             },
                         },
                     },
-                    "required": ["calendar_ref"],
+                    "anyOf": [
+                        {"required": ["calendar_ref"]},
+                        {"required": ["target_title"]},
+                    ],
                 },
                 classification="personal",
                 side_effect="REVERSIBLE_WRITE",

@@ -1,3 +1,14 @@
+## 2026-09-24 — Calendar exact-title resolution after safe refusal
+
+Seconda passata del reality gate: dopo i fix di sicurezza ORA non ha più
+toccato l'evento sbagliato, ma ha chiesto chiarimento nonostante
+«TEST ORA — continuazione» esista davvero su Google. Per una richiesta che
+contiene già il titolo completo, il mapping non viene più lasciato al modello:
+`update_calendar_event` accetta `target_title` e risolve localmente il titolo
+normalizzato esatto, owner-scoped, nel futuro limitato. Un solo match → ref
+canonico; zero match → not found; più match → ambiguity. Nessun fuzzy match e
+nessuna scelta automatica fra duplicati.
+
 ## 2026-09-24 — Calendar reality gate FAIL: target, confirmation, timezone
 
 Il test reale «Sposta TEST ORA — continuazione alle 20:00» ha scoperto tre
