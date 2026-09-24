@@ -855,7 +855,7 @@ def test_a_proposal_correction_cannot_ride_a_standing_grant():
 
     source = inspect.getsource(commanded_module.assess)
     hold = source.index("ricalcola l'atto prima di eseguire")
-    grant_lookup = source.index("effective_authority")
+    grant_lookup = source.index("effective = await authority.effective_authority")
     assert hold < grant_lookup, (
         "a correction reaches standing-grant evaluation before the stale proposal is held"
     )
