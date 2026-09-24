@@ -649,3 +649,20 @@ def test_every_provenance_has_words_a_person_can_read():
 
     for fonte in QUANTO_CI_SI_FIDA:
         assert COME_SI_DICE.get(fonte), fonte
+
+
+@pytest.mark.asyncio
+async def test_prepare_call_is_idempotent_while_call_is_active(mondo, monkeypatch):
+    """A retry after prepare-call returns the same active PhoneCall."""
+    prep = await _pronta(mondo, monkeypatch)
+
+    from preparation.service import turn_into_a_call
+
+    first, why = await turn_into_a_call(mondo, prep, operation="reschedule")
+    assert first is not None, why
+    assert first.state == "authorised"
+
+    second, why = await turn_into_a_call(mondo, prep, operation="reschedule")
+    assert second is not None, why
+    assert second.id == first.id
+    assert len(mondo["phone_calls"].righe) == 1
