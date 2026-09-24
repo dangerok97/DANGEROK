@@ -1,3 +1,15 @@
+## 2026-09-24 — V3.22 continuation callback UX
+
+Una decisione dopo `needs_user` preparava già una seconda PhoneCall, ma il
+frontend ignorava `next_call_id`: la richiamata restava autorizzata nel
+backend senza un gesto visibile per comporla.
+
+Ora il dettaglio della chiamata conserva il nuovo call id, mostra
+«Richiamata pronta» e richiede un nuovo «Chiama ora». Nessuna decisione su una
+proposta della controparte compone automaticamente il numero. La pagina di
+dettaglio inoltre si aggiorna mentre la call è in corso e passa al risultato
+senza refresh manuale.
+
 ## 2026-09-24 — V3.22 avviata: lifecycle della chiamata dalla preparazione
 
 Primo gap UX della fase: dopo «Chiama ora» la schermata mostrava soltanto
