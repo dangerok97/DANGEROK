@@ -1,3 +1,18 @@
+## 2026-09-24 — Calendar reality gate PASS sul provider reale
+
+Test reale conclusivo: richiesta con typo «Sposta TEST ORA continuazone alle
+20:00». ORA ha riconosciuto come candidato «TEST ORA — continuazione» e ha
+chiesto conferma prima di scrivere. Dopo «Sì», Google Calendar mostra lo stesso
+evento, non un duplicato, il 30/09 dalle **20:00 alle 20:45**; durata preservata
+e l'altro evento test non è stato modificato. La verifica provider conferma
+quindi target corretto, identità preservata, timezone finale corretto e
+read-back riuscito.
+
+Durante il test è emerso un difetto solo di presentazione: la domanda mostrava
+17:00 perché il mirror conserva correttamente 19:00 Europe/Rome come 17:00 UTC.
+Il commit successivo converte i candidati nell'IANA timezone dell'evento prima
+di presentarli. Il gate Calendar V3.21.4 è PASS.
+
 ## 2026-09-24 — Calendar candidate time shown in local timezone
 
 Il reality gate fuzzy ha confermato la scrittura corretta, ma la domanda di

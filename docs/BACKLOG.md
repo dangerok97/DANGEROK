@@ -5,7 +5,7 @@ Attività piccole e verificabili derivate da `docs/ROADMAP.md` e dall’audit.
 ## Priorità corrente — 24 settembre 2026
 
 1. V3.21.3e: PASS confermato dall’utente.
-2. V3.21.4: posizione/meteo **PASS sul dispositivo reale** (OFF → ON → meteo nuovamente aggiornato). Mount persistente, sessioni/health, sync cloud e readiness telefonia non sono più blocker. History Git riscritta e tutti i ref pubblicizzati sono puliti; resta la purga GitHub Support perché un vecchio commit non raggiungibile è ancora risolvibile per SHA. Un solo reality gate di prodotto resta: modifica di un evento Google esistente **da ORA** con rilettura del risultato.
+2. V3.21.4: reality gate **Calendar PASS** sul provider reale e posizione/meteo **PASS** sul dispositivo reale. Mount persistente, sessioni/health, sync cloud e readiness telefonia non sono più blocker. History Git riscritta e tutti i ref pubblicizzati sono puliti; resta solo la purga GitHub Support perché un vecchio commit non raggiungibile è ancora risolvibile per SHA.
 3. V3.22: UX chiamate + telefonata reale dal cloud e recovery essenziale V3.15.2.
 4. V3.23: iPhone reale con Railway, permessi e lifecycle.
 5. V4: un caso proattivo completo; V4.1: alpha 3–5 persone dopo i gate minimi.

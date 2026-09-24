@@ -1060,19 +1060,18 @@ telefonata reale V3.22.
 
 **Gate**
 - [x] V3.21.3e: verifica sul profilo Railway confermata dall’utente.
-- [~] Login/OAuth Calendar+Gmail: connessione e sync reali dal cloud provati; resta il reality gate di **modifica di un evento Google esistente da ORA** dopo il fix del 23/09, con rilettura e UX d’errore.
+- [x] Login/OAuth Calendar+Gmail: connessione e sync reali dal cloud provati. Reality gate Calendar chiuso il 24/09 sul provider reale: richiesta con titolo volutamente errato («TEST ORA continuazone»), ORA ha proposto il candidato corretto, ha atteso un «Sì» esplicito e ha modificato **lo stesso evento Google** da 19:00–19:45 a **20:00–20:45**, senza duplicati e senza toccare l’altro evento. La rilettura Google ha confermato titolo, identità e nuovo orario. Il difetto di copy che mostrava 17:00 UTC nella domanda è stato corretto convertendo i candidati nel timezone dell’evento prima della presentazione.
 - [x] Posizione/meteo: reality gate confermato dall’utente sul dispositivo reale il 24/09. Posizione portata su **OFF**, meteo coerentemente senza posizione corrente; riattivazione **ON** riuscita e meteo nuovamente aggiornato. Il backend impedisce inoltre a consenso `off` o presenza `STALE` di alimentare il meteo con una vecchia coordinata.
 - [x] Storage: volume `/data/documents` montato; upload/download sintetico sopravvive a redeploy con hash identico. Mongo persistente su `/data/db`. Backup/restore resta un gate successivo pre-alpha, non è dimostrato qui.
 - [x] Telefonia cloud a livello capability: Railway raggiungibile senza localhost/quick tunnel; carrier + Gemini Live + public base pronti. La **telefonata reale dal cloud** appartiene a V3.22.
 - [~] Segreti/repository: bonifica autorizzata ed eseguita il 24/09 con `git-filter-repo --invert-paths --path backend/data/documents` su tutti i branch/tag. Tutti i ref riscritti e force-pushati; clone mirror fresco: **PASS**, il percorso non è più raggiungibile da alcun ref pubblicizzato. Repository senza PR storiche (`0`). Il vecchio commit è però ancora servibile se si conosce direttamente il suo SHA: per GitHub questa è una cached/unreachable object retention e la rimozione fisica richiede Support (dereference/cache purge/server GC). Il match PEM resta una fixture `not-a-real-key` confermata finta. I vecchi clone non devono fare pull+push sulla nuova history: vanno riclonati o riallineati senza merge della storia contaminata.
 - [x] Sessioni/JWT/health: logout revoca il bearer, la revoca sopravvive a redeploy, isolamento download fra utenti provato; health DB e capability status sono stati verificati.
 
-**Per chiudere V3.21.4 resta un solo reality gate di prodotto e un ultimo passo
-esterno di bonifica GitHub:** (1) modifica Calendar reale attraverso ORA, con
-rilettura del risultato; (2) richiesta a GitHub Support di purga cache/oggetti
-non raggiungibili, perché la history pubblicizzata è già pulita ma il vecchio
-SHA è ancora risolvibile direttamente. Il gate posizione/meteo è PASS sul
-dispositivo reale. Nessuna nuova architettura telefonica.
+**Per chiudere V3.21.4 resta solo l’ultimo passo esterno di bonifica GitHub:**
+richiesta a GitHub Support di purga cache/oggetti non raggiungibili, perché la
+history pubblicizzata è già pulita ma il vecchio SHA è ancora risolvibile
+direttamente. I reality gate di prodotto Calendar e posizione/meteo sono PASS
+sul dispositivo/provider reale. Nessuna nuova architettura telefonica.
 
 ### V3.22 — Call UX Final · PIANIFICATO
 **Obiettivo** — preparo chiamata → autorizzo → ORA chiama → seguo stato → leggo esito → eventuale decisione → applicazione → storico.
