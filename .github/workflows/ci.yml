@@ -85,6 +85,13 @@ jobs:
           python -m pytest -q tests/test_cloud_connection_sync.py tests/test_session_revocation_cloud.py \
             tests/test_weather_location_revocation.py \
             tests/test_connected_autosync_v310.py tests/test_autosync_starvation_v310.py
+      - name: Calendar command target, confirmation and timezone safety
+        working-directory: backend
+        run: |
+          python -m pytest -q \
+            tests/test_agent_commanded_v39.py \
+            tests/test_calendar_move_v310.py \
+            -x
 
 
   telephone-cloud:
