@@ -19,7 +19,9 @@ assert.ok(
   'a finished call must open its human-readable result',
 );
 assert.ok(
-  prep.includes('api.hangupCall(chiamata)') && prep.includes('prep-hangup'),
+  prep.includes('.hangupCall(chiamata)') &&
+    prep.includes('prep-hangup') &&
+    prep.includes('onPress={interrompi}'),
   'the launching surface must be able to stop the call',
 );
 assert.ok(
