@@ -101,3 +101,15 @@ async def test_executor_permission_boundary_and_evidence(monkeypatch):
     assert result.status == "succeeded"
     evidence = await db.agent_evidence.find_one({"owner_id":"alice"})
     assert evidence["provenance"]["source_refs"][0] == "document:d1"
+
+
+@pytest.mark.asyncio
+async def test_unversioned_cursor_restarts_explicitly_without_skipping_source():
+    db = await database("Inizio verificabile " + "A" * 5000)
+    result = await read_documents(db, "alice", None, step=step(document_offset=100))
+    assert result.status == "partial"
+    assert "ripartita da zero" in result.observation
+    assert "chars:0-4000" in result.provenance.source_refs
+    assert "Inizio verificabile" in result.claims[0].text
+    denied = await read_documents(db, "bob", None, step=step(document_offset=100))
+    assert denied.error_type == "document_unavailable"
