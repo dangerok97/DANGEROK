@@ -6,11 +6,11 @@ percorso fino al lancio si leggono qui e solo qui.
 
 | | |
 |---|---|
-| **Versione corrente** | **V3.21.4 — Cloud Foundation Final · IN CORSO** |
-| **Prossimo sprint** | **V3.22 — Call UX Final, dopo chiusura V3.21.4** |
+| **Versione corrente** | **V3.22 — Call UX Final · IN CORSO** |
+| **Prossimo sprint** | **V3.23 — iPhone Reality Gate** |
 | Branch operativo | `staging/cloud` |
-| Ultimo checkpoint | `8857074` (history refs sanitizzati; purge server/cache GitHub pendente) |
-| Aggiornato | 2026-09-24 (bonifica history V3.21.4 eseguita) |
+| Ultimo checkpoint | `01fc1f03` (V3.22.3 recovery essenziale: CI PASS, cloud deployed) |
+| Aggiornato | 2026-09-25 (V3.22 reality gates aperti) |
 
 Gli altri due registri restano quello che sono e non ripetono questo:
 `CHANGELOG_AI.md` è il diario datato di che cosa è cambiato,
