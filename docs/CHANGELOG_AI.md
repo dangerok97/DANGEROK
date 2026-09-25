@@ -5103,3 +5103,48 @@ il successo. Solo il testo corretto viene persistito. Non è verifica indipenden
 della verità delle fonti. Budget: due chiamate per preparazione, più verifica
 finale del goal. Nessuna nuova dipendenza runtime o migrazione. 84 test locali
 superati; riesecuzione con modello reale ancora da verificare.
+
+
+### Ripresa della prova e lettura del documento
+
+Il deploy 000e5720 (2e937d7) ha lasciato il goal attivo: la fixture anticipava
+next_run_at ma non scheduled_for del wake già persistito. Corretto solo il clock
+della fixture (14e1990), senza aggirare limiti o attese umane in produzione.
+La prova 38ff7473 è fallita nella lettura, senza evidenze e senza bozza; non viene
+conteggiata come successo. Nel planner si distingue ora esplicitamente il preview
+dallo stato di lettura: la prima lettura parte da zero, i cursori successivi devono
+provenire dal reader. Aggiunta diagnostica di piani/journal esclusivamente per
+l'account sintetico in memoria. Gli 84 test locali continuano a passare.
+
+
+### Esiti delle prove reali e recupero del cursore (2026-09-25)
+
+La prova c2cff4e7 (784e83e) ha documentato un offset inventato (100), privo
+di versione; il replanner ha proposto modify senza passi utilizzabili. La modifica
+al solo prompt non era sufficiente. Ora il reader, dopo i controlli di accesso,
+riavvia esplicitamente da zero un cursore senza versione. Riporta il vero intervallo
+letto e lo SHA; una versione presente ma diversa continua a essere rifiutata.
+Nuovo test per riavvio e isolamento proprietario; suite completa 85 PASS.
+Le prove af27a559 e 2474d694 non hanno prodotto un goal/risultato: restano FAIL,
+non sostituite da successi di altri tentativi. Rimosso il bias no_goal usuale e
+chiarita l'autorità per analisi interna rispetto alle modifiche esterne.
+La diagnostica distingue ora il ciclo completo dalla sola preparazione con
+fonti sintetiche inizializzate esplicitamente: quest'ultima NON prova autonomia.
+Nessuna azione esterna, nessun dato personale, nessuna nuova dipendenza runtime.
+L'affidabilità del ciclo reale rimane un gate aperto fino a verifica ripetibile.
+
+
+### Ultima prova: ciclo completo riuscito, affidabilità non ancora generalizzata
+
+Deploy 007aef9a-0711-450d-8061-106a4c53c54a, SHA db0a839: il modello reale
+ha generato 1 opportunità, avviato il goal senza domande, letto il documento e
+persistito un confronto. Goal completed, 13 evidenze, nessun effetto esterno.
+Gate automatico PASS e controllo manuale della bozza positivo: 300 euro mensile
+su 12 mesi contro 150 annuale primo anno, rinnovo 240, anticipo/nonrimborso,
+stesso servizio; nessun obbligo contrattuale inventato. La differenza di rinnovo
+non è esplicitamente calcolata. Una lettura duplicata mostra ancora inefficienza.
+Il test separato della preparazione è riuscito ma ha solo riassunto le condizioni:
+non viene conteggiato come prova di confronto completo né di autonomia.
+Questa singola esecuzione non annulla i FAIL precedenti e non dimostra copertura
+di tutti i domini, ricerca di mercato o consegna nel vero account. Nessun dato
+personale utilizzato. Comando diagnostico predeploy ripristinato a [].
