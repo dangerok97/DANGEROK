@@ -225,7 +225,7 @@ class StepExecutor:
 
         if how == "prepare":
             if budget is not None:
-                budget.cognitive_calls += 1
+                budget.cognitive_calls += 2  # draft plus source-consistency review
             return await providers.prepare_locally(self.db, owner_id, goal, step)
 
         # A read. Which one is settled by the capability the model named, and

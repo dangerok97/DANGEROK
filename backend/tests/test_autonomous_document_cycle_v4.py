@@ -66,7 +66,7 @@ async def test_background_document_goal_reads_and_verifies_without_home(monkeypa
         import json
         rows = json.loads(payload)["evidence"]
         assert "120 euro" in str(rows)
-        return {"content": "Il documento dichiara un costo annuo di 120 euro, non verificato sul mercato.",
+        return {"verified": True, "content": "Il documento dichiara un costo annuo di 120 euro, non verificato sul mercato.",
                 "evidence_ids": [row["id"] for row in rows]}
     monkeypatch.setattr(reasoning, "_ask_model", draft)
     await recover_due(db)

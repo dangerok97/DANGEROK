@@ -2923,3 +2923,18 @@ Comando predeploy funzionante: un solo python -c che installa la dipendenza
 di test e poi usa runpy; il comando con && aveva eseguito solo pip. Tentativi
 precedenti senza output diagnostico non conteggiati. Predeploy ripristinato
 a [] dopo ogni prova conclusa. Prossimo gate: riesecuzione del ciclo corretto.
+
+
+### Verifica delle conclusioni contro le fonti (2026-09-25)
+
+Il ciclo reale su fixture del deploy 5c30e72c (SHA 5d15995) ha prodotto
+un confronto autonomo con costi corretti (300/150 primo anno, 300/240 rinnovo),
+ma la revisione manuale ha rilevato un obbligo contrattuale inventato da
+un'intenzione personale e una descrizione errata dell'aumento. Il gate automatico
+per sottostringhe era passato: non costituisce prova di correttezza semantica.
+Ora ogni preparazione passa una seconda verifica contro le stesse fonti prima
+di essere salvata. Revisione assente, negativa o con citazioni non fornite blocca
+il successo. Solo il testo corretto viene persistito. Non è verifica indipendente
+della verità delle fonti. Budget: due chiamate per preparazione, più verifica
+finale del goal. Nessuna nuova dipendenza runtime o migrazione. 84 test locali
+superati; riesecuzione con modello reale ancora da verificare.

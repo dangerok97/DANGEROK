@@ -50,6 +50,23 @@ async def prepare(db, owner_id, goal, step):
         return unavailable("preparation_ungrounded")
     content = content.strip()
     refs = list(dict.fromkeys(refs))
+    checked = await _ask_model(_DISCIPLINE + "\nAudit this draft against the supplied evidence only. "
+        "Check every factual claim, calculation, comparison and obligation. A person's intention "
+        "or preference is NOT a contractual requirement. Verify ratios and percentage descriptions from the supplied numbers. "
+        "Correct unsupported wording and arithmetic, retaining material costs and limitations. "
+        "Return JSON {\"verified\": true, \"content\": \"corrected complete draft, max 4000 characters\", "
+        "\"evidence_ids\": [\"supplied IDs supporting it\"]}. "
+        "If you cannot support a useful corrected draft, return verified=false. "
+        "This checks consistency with sources, not whether sources are independently true.",
+        json.dumps({"draft": content, "evidence": rows}, ensure_ascii=False, default=str))
+    if not isinstance(checked, dict) or checked.get("verified") is not True:
+        return unavailable("preparation_not_supported", True)
+    content, refs = checked.get("content"), checked.get("evidence_ids")
+    if (not isinstance(content, str) or not content.strip() or len(content) > 4000
+            or not isinstance(refs, list) or not refs or len(refs) > 12
+            or any(not isinstance(ref, str) or ref not in allowed for ref in refs)):
+        return unavailable("preparation_review_invalid")
+    content, refs = content.strip(), list(dict.fromkeys(refs))
     saved = await db.agent_goals.update_one(
         {"id": goal.id, "owner_id": owner_id, "status": {"$in": ["active", "waiting"]}},
         {"$set": {"prepared_text": content, "prepared_sources": refs}},

@@ -908,7 +908,7 @@ class AgentService:
         # This is a completion contract, not a new decision about relevance.
         if (goal.origin == "agent_initiated" and goal.opportunity_id and not intents
                 and not receipts and real_support(evidence) and not goal.prepared_text):
-            if budget.exhausted() or budget.cognitive_calls + 1 >= budget.max_cognitive_calls:
+            if budget.exhausted() or budget.cognitive_calls + 2 >= budget.max_cognitive_calls:
                 return await self._continue_later(owner_id, goal, plan, run, "result_budget")
             result_step = ActionStep(ordinal=len(plan.steps), step_type="prepare", capability_needed="document.create",
                 intent="Consegna le conclusioni utili, con confronto, limiti e conseguenze sostenuti dalle fonti; non il resoconto della lettura.",
