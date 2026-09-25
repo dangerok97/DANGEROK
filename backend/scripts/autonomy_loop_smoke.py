@@ -86,7 +86,9 @@ async def run():
         discovery = OpportunityDiscovery(db)
         await discovery.note(owner, source="documents", kind="document.added", entity_ref="price-options", wake=False)
         reviewed = await discovery.review(owner)
-        report("discovery", ran=reviewed.ran, created=len(reviewed.scan.created) if reviewed.scan else 0)
+        report("discovery", ran=reviewed.ran, created=len(reviewed.scan.created) if reviewed.scan else 0,
+               reason=reviewed.scan.reason_for_silence if reviewed.scan else None,
+               skipped=reviewed.scan.skipped if reviewed.scan else [])
         for _ in range(3):
             await recover_due(db)
             await recover_due(db)
@@ -117,6 +119,21 @@ async def run():
                   and "rimbor" in draft.lower() and bool(goal.get("prepared_sources"))
                   and await db.agent_receipts.count_documents({}) == 0)
         report("gate", passed=passed, scope="real_model_in_memory_loop_no_delivery_no_external_actions")
+        # Separate, explicitly seeded stage test. Never counts as loop success.
+        from agent.models import AutonomousGoal, ActionStep, AgentEvidence, ResultProvenance
+        from agent.preparation import prepare
+        check_goal = AutonomousGoal(owner_id=owner, objective="Confronto dei costi e dei limiti",
+            desired_outcome="Totali primo anno e rinnovo, differenze e limiti dalle fonti", status="active")
+        await db.agent_goals.insert_one(check_goal.model_dump())
+        for claim in ["Il mensile passa da 10 a 25 euro al mese. La persona intende usarlo per dodici mesi; il piano è cancellabile ogni mese.",
+                      "L'annuale comprende gli stessi 100 GB e assistenza: 120 euro nel primo anno più 30 euro di attivazione una tantum; rinnovo 240 euro annui.",
+                      "L'annuale si paga anticipatamente, senza rimborso dei mesi inutilizzati. Imposte incluse, nessun altro costo."]:
+            ev = AgentEvidence(owner_id=owner, goal_id=check_goal.id, claim=claim,
+                provenance=ResultProvenance(source_class="internal_observation", provider="documents", source_refs=["document:price-options"]))
+            await db.agent_evidence.insert_one(ev.model_dump())
+        prepared = await prepare(db, owner, check_goal, ActionStep(step_type="prepare", intent="Prepara il confronto utile con costi e limiti"))
+        report("preparation_stage_only", status=prepared.status, draft=check_goal.prepared_text,
+               error=prepared.error_type, scope="seeded_evidence_real_model_not_end_to_end")
 
 
 if __name__ == "__main__":
