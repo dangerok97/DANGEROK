@@ -106,7 +106,7 @@ async def run():
                     {"owner_id": owner, "source_ref": f"goal:{goal['id']}", "status": "pending"},
                     {"$set": {"scheduled_for": datetime.now(timezone.utc).isoformat()}})
         goal = await db.agent_goals.find_one({"owner_id": owner}) or {}
-        report("diagnostics", plans=await db.agent_plans.find({}, {"_id": 0}).to_list(10),
+        report("diagnostics", opportunities=await db.opportunities.find({}, {"_id": 0}).to_list(4), plans=await db.agent_plans.find({}, {"_id": 0}).to_list(10),
                journal=await db.agent_journal.find({}, {"_id": 0, "kind": 1, "note": 1, "detail": 1}).to_list(40))
         draft = str(goal.get("prepared_text") or "")
         report("result", status=goal.get("status"), needs_user=bool(goal.get("requires_user_input")),
