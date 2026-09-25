@@ -1006,3 +1006,17 @@ importa deps/server, non legge Mongo e non esegue capability. Deadline 150 s,
 esito esplicito anche su errore; non blocca l'avvio dell'app. Non prova il
 ciclo completo in produzione. Esecuzione manuale nel predeploy temporaneo,
 poi ripristino della configurazione precedente.
+
+### Esito prima diagnostica live e correzione ammissione
+
+Deployment backend b91e973b-959d-4994-bdae-451ef1ae582c e frontend
+5024b1aa-9780-4d1d-a947-a51bec418507, SHA 6f3f4b5055f01dc4266afe38d0679d798f650bf5,
+SUCCESS. Health 200. La diagnostica live ha trovato un'opportunità fondata,
+ma admission ha deciso no_goal perché informativa: gate di pianificazione
+NON passato. Non è prova che ogni risposta informativa richieda un goal.
+Il prompt conteneva però una scorciatoia esplicita: inform/recommend di norma
+no_goal e solo obiettivi con più passi. Rimossa: anche un singolo approfondimento
+utile può essere avviato, mentre una risposta già completa non va trasformata
+in lavoro superfluo. Aggiunto secondo caso diagnostico con condizioni mancanti
+nelle pagine successive. Primo esito preservato; nessun successo live inventato.
+Predeploy diagnostico temporaneo ripristinato a [] dopo la prima esecuzione.
