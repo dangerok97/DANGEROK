@@ -65,3 +65,19 @@ Il checkpoint precedente 42a3f1f90547012a4356f797c2165ac0b48056db è su Railway,
 deploy c4af7aca-5fef-46fe-94fd-9d0101b4dfaf SUCCESS. Rianalisi UI del documento
 sintetico conferma categoria Documento/generic, senza appuntamento proposto.
 Nessun messaggio, acquisto o evento calendario esterno eseguito.
+
+## Quarto checkpoint pubblicato — 25/09, 13:15 Europe/Rome
+
+Commit 1f612bb1f3ccd700809c4deacc096c5e2a5a135c, Railway backend deployment
+a941cd60-7a68-41b1-b5d6-022dea82dc75 SUCCESS. Log: Ambient runtime started,
+Application startup complete, GET /api/health 200. 65 test locali PASS.
+Nessuna altra variabile o servizio modificato.
+
+Verifica UI precedente: documento di prova ora generic, senza evento proposto.
+Difetto UI ulteriore osservato, ancora aperto: SuggestedPanel.tsx associa
+needs_review sempre a testo illeggibile/copia più chiara, anche quando la
+classificazione generica a bassa confidenza è l'unico motivo di revisione.
+Il documento sintetico non rappresenta un contratto reale: non si pretende
+un'offerta commerciale o un risparmio reale come esito del test. Nessun
+confronto spontaneo live validato; la prova locale con modello controllato
+non chiude il gate di qualità dell'iniziativa.
