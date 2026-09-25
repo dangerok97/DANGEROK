@@ -40,6 +40,15 @@ def which_runtime() -> str:
     return scelto if scelto in (CLASSIC, GEMINI_LIVE) else CLASSIC
 
 
+def voice_readiness_reason() -> str:
+    """Readiness follows the same runtime selection as voice construction."""
+    if which_runtime() == GEMINI_LIVE:
+        from telephone.live import live_is_configured
+        return live_is_configured()
+    from telephone import deepgram
+    return "" if deepgram.is_configured() else "nessuna voce che possa ascoltare e rispondere in linea"
+
+
 def the_voice_for(
     db,
     *,

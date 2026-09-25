@@ -2,7 +2,63 @@
 
 ## 2026-09-25 — Voice latency and concise closing
 
-Follow-up (release candidate, deployment authorized): remember an already spoken farewell before
+### Nuova priorità 25/09 — autonomia trasversale prima di iPhone
+
+Checkpoint locale A0/A2: due difetti riprodotti prima della correzione
+(opportunità oltre le prime due perse all'ammissione; aggiornamenti ignorati).
+Ora OpportunityRepository salva fatti e richiesta di valutazione nello stesso
+record; agent/admission.py usa il runtime esistente, batch limitato, lease,
+revision fence, tre tentativi e risultati distinti. L'arretrato sopravvive
+alla scomparsa della scansione; errori e domande restano tracciati. Nessun
+backfill automatico, nuova integrazione o autorizzazione ad agire.
+Fallimento del salvataggio goal ora significa unavailable salvo goal
+concorrente effettivamente letto. Readiness voce centralizzata in runtime.py
+per correggere una regressione architetturale già presente nel ramo.
+
+Verifica: 183 test PASS in sette suite mirate, compileall e diff-check PASS.
+Nuove prove usano Mongo simulato e giudizi AI controllati: non sono prove
+provider/cloud. La suite discovery che richiede Mongo reale è stata interrotta
+per assenza del servizio locale e non è conteggiata come PASS. Nessun deploy.
+Indice aggiuntivo status/agent_review_due previsto tramite bootstrap esistente.
+Mongomock-motor installato solo nell'ambiente di test.
+
+A0/A2 non chiusi: resta la verifica reale, la risposta UX alle domande di
+ammissione, il riesame dei piani già aperti e la fairness multiutente.
+A1: document.read dell'agente legge attualmente metadati, non contenuti;
+il recupero mirato del contenuto è il successivo collegamento da completare.
+Dettagli e limiti: AUTONOMY_PROGRAM.md.
+
+Il proprietario richiede iniziativa autonoma in più ambiti della vita, non
+una feature dedicata alle bollette. V4 è anticipata; V3.23 sospesa conservando
+le modifiche locali. [AUTONOMY_PROGRAM.md](AUTONOMY_PROGRAM.md) definisce A0–A6,
+evidenze statiche, lacune da verificare, flusso comune, autorità, metriche e
+prove negative. Riusare connected/opportunities/ambient/agent/research/
+comparison/delivery; nessun nuovo orchestratore. Primo task: tracciamento
+senza Home con burst e opportunità aggiornate. Questo checkpoint è solo
+documentale: nessuna nuova capacità runtime, prova cloud o distribuzione.
+
+### V3.23 started — owner deferred remaining telephone reality tests
+
+The owner explicitly chose to proceed without additional calls. Remaining
+V3.22 cloud gates are deferred, not passed. iOS preparation aligns Apple auth,
+AuthSession and Crypto to the installed Expo 54 compatibility manifest
+(8.0.8, 7.0.11, 15.0.9), sets the display name to ORA, and accepts the public
+EXPO_PUBLIC_EAS_PROJECT_ID while preserving existing extra configuration.
+The actual project UUID and Apple signing/account access remain unverified.
+Bundle identifier and URL scheme are preserved.
+
+Validation: Expo dependency check, TypeScript, 11 auth regression checks and
+mobile guards pass; iOS Metro/Hermes export succeeds (1,895 modules).
+Auth guards now inspect AuthMethods, where account login controls moved.
+This is local preparation, not a signed native build or a TestFlight release.
+No new deployment, database change or device verification in this checkpoint.
+
+Roadmap checkpoint: 87 application/continuation/recovery tests PASS.
+The remaining cloud decision/callback and calendar conflict gates are prepared
+in [V322_REALITY_GATE.md](V322_REALITY_GATE.md); they are not yet executed.
+No runtime or schema changes in this roadmap checkpoint.
+
+Follow-up (deployed as 1a0eb024, Railway SUCCESS; real farewell test pending): remember an already spoken farewell before
 the terminal delivery tool arrives. Classify post-farewell input before model
 audio: courtesy-only replies keep the silence/closing guard; new content reopens
 the conversation. Suppress duplicate farewell audio and its transcript; never

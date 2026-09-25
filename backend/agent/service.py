@@ -176,7 +176,10 @@ class AgentService:
 
         created = await self.repo.create_goal(goal)
         if created is None:
-            return {"outcome": "already_pursuing"}
+            # A persistence failure is not evidence of another worker's goal.
+            # Admission must retry unless the competing goal can be read back.
+            existing = await self.repo.goal_for_opportunity(owner_id, opportunity_id) if opportunity_id else None
+            return {"outcome": "already_pursuing" if existing is not None else "unavailable"}
 
         await self.repo.journal(
             owner_id, goal.id, kind="goal_created", note=goal.objective,

@@ -2,7 +2,22 @@
 
 Attività piccole e verificabili derivate da `docs/ROADMAP.md` e dall’audit.
 
-## Priorità corrente — 24 settembre 2026
+## Priorità corrente — 25 settembre 2026
+
+V4 autonomia trasversale anticipata prima di V3.23 su richiesta del
+proprietario. Piano: [AUTONOMY_PROGRAM.md](AUTONOMY_PROGRAM.md).
+
+1. A0: baseline fonti/capacità/configurazione e tracciamento completo.
+2. A1–A2: recupero dettagli, relazioni e iniziativa senza perdita di lavoro.
+3. A3–A4: risultato verificabile, autorità e recovery.
+4. A5–A6: esperienza del risultato e prove trasversali/cloud.
+5. Ripresa V3.23; alpha solo dopo i gate obbligatori della roadmap.
+
+Primo task: riprodurre documento→opportunità→obiettivo→risultato senza Home,
+inclusi burst oltre due opportunità e aggiornamenti; verificare il medesimo
+passaggio con calendario. Modificare solo difetti confermati.
+
+## Priorità precedente — 24 settembre 2026 (superata nell'ordine)
 
 1. V3.21.3e: PASS confermato dall’utente.
 2. V3.21.4: reality gate **Calendar PASS** sul provider reale e posizione/meteo **PASS** sul dispositivo reale. Mount persistente, sessioni/health, sync cloud e readiness telefonia non sono più blocker. History Git riscritta e tutti i ref pubblicizzati sono puliti; resta solo la purga GitHub Support perché un vecchio commit non raggiungibile è ancora risolvibile per SHA.

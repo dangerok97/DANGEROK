@@ -8,27 +8,12 @@ logger = logging.getLogger(__name__)
 
 
 async def consider_opportunities(db, owner_id, scan):
-    from agent.service import AgentService
-
-    service = AgentService(db)
-    for opportunity in list(scan.created or [])[:2]:
-        await service.consider(
-            owner_id,
-            situation={
-                "what": opportunity.semantic_summary,
-                "why_it_matters": opportunity.why_it_matters,
-                "why_now": opportunity.why_now or None,
-                "waiting_on_an_answer": opportunity.requires_clarification,
-                "the_question": opportunity.clarifying_question or None,
-                "how_far_ora_meant_to_go": opportunity.initiative,
-                "what_ora_offered_to_do": opportunity.what_ora_can_do or None,
-            },
-            origin="agent_initiated", opportunity_id=opportunity.id,
-            source_kind="opportunity", source_refs=[e.ref for e in opportunity.evidence][:4],
-        )
+    from agent.admission import drain
+    # scan is only an accelerator; durable opportunity records own the work.
+    await drain(db, owner_id=owner_id)
 
 
-async def recover_due(db, *, now=None, limit=2):
+async def recover_due(db, *, now=None, limit=2, admit=True):
     """Recover the write-to-wake gap, bounded and ordered by oldest due work.
 
     Only explicitly scheduled goals qualify. Never auto-run legacy goals or
@@ -36,7 +21,10 @@ async def recover_due(db, *, now=None, limit=2):
     remains the execution lock; this function only arranges wakes.
     """
     from ambient.service import AmbientService
+    from agent.admission import drain
     moment = now or datetime.now(timezone.utc)
+    if admit:
+        await drain(db, now=moment, limit=limit)
     rows = await db.agent_goals.find({
         "status": {"$in": ["active", "waiting"]},
         "next_run_at": {"$type": "string", "$lte": moment.isoformat()},

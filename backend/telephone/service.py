@@ -60,19 +60,10 @@ class TelephoneService:
         # capace di ascoltare e rispondere in italiano. Mancarne una sola
         # basta a non poter telefonare, e dirlo per nome è la differenza fra
         # «non si può» e «non si può, perché».
-        from telephone import deepgram
         from telephone.carrier import can_call, why_not as no_line
-        from telephone.runtime import GEMINI_LIVE, which_runtime
+        from telephone.runtime import voice_readiness_reason
 
-        if which_runtime() == GEMINI_LIVE:
-            from telephone.live import live_is_configured
-
-            voice_reason = live_is_configured()
-        else:
-            voice_reason = (
-                "nessuna voce che possa ascoltare e rispondere in linea"
-                if not deepgram.is_configured() else ""
-            )
+        voice_reason = voice_readiness_reason()
         why = "; ".join(
             p for p in (
                 no_line(),

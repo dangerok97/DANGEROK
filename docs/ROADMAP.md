@@ -6,11 +6,18 @@ percorso fino al lancio si leggono qui e solo qui.
 
 | | |
 |---|---|
-| **Versione corrente** | **V3.22 — Call UX Final · IN CORSO** |
-| **Prossimo sprint** | **V3.23 — iPhone Reality Gate** |
+| **Versione corrente** | **V4 — Autonomia trasversale · A0/A2 IN CORSO** |
+| **Prossimo sprint** | **Validazione cloud ammissione persistente; A1 approfondimento documentale** |
 | Branch operativo | `staging/cloud` |
-| Ultimo checkpoint | `01fc1f03` (V3.22.3 recovery essenziale: CI PASS, cloud deployed) |
-| Aggiornato | 2026-09-25 (V3.22 reality gates aperti) |
+| Ultimo checkpoint | `1a0eb024` (voce deployed); preparazione iOS locale conservata |
+| Aggiornato | 2026-09-25 (priorità autonomia trasversale; iPhone sospeso) |
+
+**Decisione di prodotto 25/09:** prima di iPhone dimostrare che ORA sa
+iniziare e completare lavoro utile senza una richiesta esplicita, attraverso
+diversi ambiti della vita. V4 è anticipata e amplia il precedente singolo caso
+proattivo. Piano operativo, evidenze del codice e criteri di accettazione:
+[AUTONOMY_PROGRAM.md](AUTONOMY_PROGRAM.md). Non è una dichiarazione di
+funzionalità completata. V3.22 conserva le prove rinviate dal proprietario.
 
 Gli altri due registri restano quello che sono e non ripetono questo:
 `CHANGELOG_AI.md` è il diario datato di che cosa è cambiato,
@@ -1109,9 +1116,30 @@ ha ricevuto HTTP 503. La route richiedeva ancora Deepgram pur usando
 `ORA_VOICE_RUNTIME=gemini_live`, mentre l'health controllava Gemini Live.
 Patch: readiness coerente col runtime selezionato; `authorised` si presenta
 come «Non avviata» dopo un rifiuto, non come «In corso». 17 test mirati PASS.
-La prova reale resta aperta fino a un esito telefonico osservato.
+Il blocco è stato risolto; vedi le prove successive qui sotto.
 
-### V3.23 — iPhone Reality Gate · PIANIFICATO
+**Prove cloud 25/09 — aggiornamento:** due chiamate `deliver_message`
+completate dal cloud, con risposta del destinatario e resoconto. La seconda
+ha aperto l'audio circa 0,85 s dopo la risposta del carrier, rispetto ai circa
+4 s precedenti dopo aver disabilitato la machine detection sincrona. Questo
+misura l'apertura della connessione, non il tempo alla prima parola udibile.
+La correzione che chiude dopo la risposta conclusiva del destinatario senza
+ripetere il saluto è online (`1a0eb024`, deployment SUCCESS), con 134 test
+mirati superati; la verifica telefonica di questa ultima correzione resta aperta.
+
+**Prossimo passo V3.22:** verificare `needs_user` → decisione → richiamata
+esplicita e il conflitto calendario sul cloud. Le chiamate `deliver_message`
+non dimostrano questi due percorsi. Ulteriore verifica locale: 87 test di
+application, continuation e recovery PASS. Procedura ed evidenze richieste
+in [V3.22 reality gate](V322_REALITY_GATE.md). Il precedente vincolo di
+chiusura prima di V3.23 è superato dalla decisione del proprietario sotto.
+
+**Decisione del proprietario — 25/09:** proseguire a V3.23 senza le ulteriori
+telefonate di prova. Saluto finale, decisione/richiamata e conflitto cloud
+restano verifiche rinviate, non PASS. La procedura V322_REALITY_GATE.md resta
+disponibile; questa scelta supera il precedente vincolo sequenziale.
+
+### V3.23 — iPhone Reality Gate · SOSPESO PER PRIORITÀ V4
 **Obiettivo** — ORA su un iPhone vero tramite Expo/EAS/TestFlight, usando Railway; non una riscrittura nativa completa.
 **Gate** — login, Home, Vita, conversazione, push, posizione, contatti, telefonia, permessi iOS, SecureStore, background/resume e kill/relaunch.
 **Exit** — build installata e flussi verificati sul dispositivo; limiti iOS espliciti e nessuna dipendenza dal PC. Account e firma Apple necessari vanno verificati, non presunti disponibili.
@@ -1124,7 +1152,7 @@ Fasi **PIANIFICATE**. L'alpha è anticipata a V4.1; V11 e V12 sostituiscono le p
 
 | Versione | Obiettivo | Exit criteria |
 |---|---|---|
-| **V4 — Proactive ORA V1** | Un solo caso reale: variazione calendario oppure rischio ritardo da calendario/posizione/traffico | Segnale → impatto → piano → autorità → azione o domanda → verifica → informazione; utilità dimostrata |
+| **V4 — Autonomia trasversale** | Ciclo comune: informazioni → iniziativa → lavoro → risultato, attraverso più ambiti; anticipato prima di V3.23 | Pacchetti A0–A6 e matrice di AUTONOMY_PROGRAM.md superati; prove senza comando né apertura Home, evidenze e autorità verificabili |
 | **V4.1 — Closed Alpha** | 3–5 persone provano «cosa conta oggi», «arrivare al momento giusto», «occupatene tu» | Beneficio osservabile rispetto agli strumenti manuali; problemi e risultati registrati, gate minimi superati |
 | **V5 — Long-Running ORA** | Commissioni di ore/giorni; completare V3.15.2 | Obiettivo sopravvive a riavvio, attesa, needs-user, provider down, retry e conflitto |
 | **V6 — Learning & Personal Adaptation** | Abitudini, preferenze, routine, comunicazione e soglie | Ogni apprendimento è spiegabile, correggibile e reversibile |
@@ -1138,7 +1166,10 @@ Fasi **PIANIFICATE**. L'alpha è anticipata a V4.1; V11 e V12 sostituiscono le p
 
 **Gate obbligatori prima di V4.1** — isolamento dati tra utenti, permessi e revoca accessi, gestione segreti, storage persistente, backup/ripristino provato, errori osservabili e recovery essenziale/idempotenza delle azioni. V9–V10 completano la maturità, non autorizzano a rinviare queste basi.
 
-**Ordine immediato** — V3.21.3e reality gate → V3.21.4 → V3.22 → V3.23 → V4 → V4.1. Google Login già confermato: regressione da controllare, non blocker noto.
+**Ordine immediato rivisto 25/09** — V4 A0–A6 → V3.23 → V4.1.
+V3.21.4 mantiene il pending esterno GitHub Support; V3.22 mantiene le prove
+rinviate senza dichiararle superate. Google Login già confermato: regressione
+da controllare, non blocker noto.
 
 **Fuori dal percorso immediato** — GPT-Live, WhatsApp, banking e nuovi engine. Consolidare le capacità esistenti prima di ampliare il perimetro.
 

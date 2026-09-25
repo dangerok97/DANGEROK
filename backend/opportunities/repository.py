@@ -38,15 +38,37 @@ class OpportunityRepository:
                 [("owner_id", 1), ("identity_key", 1)], unique=True
             )
             await self.db[OPPORTUNITIES].create_index([("owner_id", 1), ("status", 1)])
+            await self.db[OPPORTUNITIES].create_index([("status", 1), ("agent_review_due", 1)])
             await self.db[DECISIONS].create_index([("owner_id", 1), ("opportunity_id", 1)])
         except Exception:
             logger.exception("indici opportunities non creati (non fatale)")
 
     async def save(self, opportunity: Opportunity) -> Opportunity:
+        from agent.admission import fingerprint
+        from datetime import datetime, timezone
+        import uuid
+
         opportunity.touch()
+        identity = {"owner_id": opportunity.owner_id, "identity_key": opportunity.identity_key}
+        previous = await self.db[OPPORTUNITIES].find_one(identity, {"agent_review_fingerprint": 1})
+        digest = fingerprint(opportunity)
+        values = opportunity.model_dump()
+        if not previous or previous.get("agent_review_fingerprint") != digest:
+            # Same write as the facts: a crash cannot leave a saved opportunity
+            # with no durable request for admission. Preserve any current lease.
+            values.update({"agent_review_fingerprint": digest,
+                           "agent_review_revision": uuid.uuid4().hex,
+                           "agent_review_due": datetime.now(timezone.utc).isoformat() if opportunity.status == "active" else None,
+                           "agent_review_state": "pending" if opportunity.status == "active" else "inactive",
+                           "agent_review_attempts": 0,
+                           "agent_review_outcome": None,
+                           "agent_review_goal_id": "",
+                           "agent_review_error_kind": "",
+                           "agent_review_question": "",
+                           "agent_review_reason": ""})
         await self.db[OPPORTUNITIES].update_one(
-            {"owner_id": opportunity.owner_id, "identity_key": opportunity.identity_key},
-            {"$set": opportunity.model_dump()},
+            identity,
+            {"$set": values},
             upsert=True,
         )
         return opportunity

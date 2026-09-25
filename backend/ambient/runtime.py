@@ -336,7 +336,7 @@ async def _loop() -> None:
             else:
                 await read_sources(db)
             from agent.background import recover_due
-            await recover_due(db)
+            await recover_due(db, admit=not _a_call_is_live())
             await tick(db)
             ticks += 1
             # Le relazioni: piu' lente delle letture, piu' rapide della rete

@@ -87,9 +87,12 @@ async def test_background_review_reaches_existing_goal_decision(db, monkeypatch)
     from opportunities.discovery import OpportunityDiscovery
     from opportunities.surfacing import SurfacingService
     from delivery.service import DeliveryService
-    opp = SimpleNamespace(id='opp1', semantic_summary='Orario cambiato', why_it_matters='Verifica',
+    from opportunities.models import Opportunity
+    from opportunities.repository import OpportunityRepository
+    opp = Opportunity(id='opp1', owner_id='alice', identity_key='calendar:changed', status='active', semantic_summary='Orario cambiato', why_it_matters='Verifica',
         why_now='', requires_clarification=False, clarifying_question='', initiative='prepare',
         what_ora_can_do='Controllare', evidence=[])
+    await OpportunityRepository(db).save(opp)
     scan = SimpleNamespace(created=[opp], updated=[])
     monkeypatch.setattr(OpportunityDiscovery, 'review', AsyncMock(return_value=SimpleNamespace(ran=True, unavailable=False, scan=scan)))
     monkeypatch.setattr(AmbientService, '_note', AsyncMock())
