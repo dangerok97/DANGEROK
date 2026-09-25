@@ -90,7 +90,8 @@ async def run():
         for _ in range(3):
             await recover_due(db)
             await recover_due(db)
-            await tick(db, now=datetime.now(timezone.utc)+timedelta(minutes=1))
+            ticked = await tick(db, now=datetime.now(timezone.utc)+timedelta(minutes=1))
+            report("tick", result=str(ticked))
             goal = await db.agent_goals.find_one({"owner_id": owner})
             if goal and (goal["status"] not in ("active", "waiting") or goal.get("requires_user_input")):
                 break
@@ -99,6 +100,11 @@ async def run():
                 # in-memory fixture; do not bypass a human/model waiting state.
                 await db.agent_goals.update_one({"id": goal["id"]},
                     {"$set": {"next_run_at": datetime.now(timezone.utc).isoformat()}})
+                # Continuations already have a durable wake: advance its clock
+                # too. recover_due correctly refuses to enqueue a duplicate.
+                await db.ambient_wakes.update_many(
+                    {"owner_id": owner, "source_ref": f"goal:{goal['id']}", "status": "pending"},
+                    {"$set": {"scheduled_for": datetime.now(timezone.utc).isoformat()}})
         goal = await db.agent_goals.find_one({"owner_id": owner}) or {}
         draft = str(goal.get("prepared_text") or "")
         report("result", status=goal.get("status"), needs_user=bool(goal.get("requires_user_input")),
