@@ -825,9 +825,14 @@ focus card non sono fotografie stock assegnate per categoria: ORA genera una
 scena diversa dal significato sanitizzato della singola entità, la conserva e
 la riusa finché quel significato non cambia. Nessun dato identificativo viene
 inviato al generatore.
-## 2026-09-25 — Richiamata dopo reload (locale)
+## 2026-09-25 — Richiamata dopo reload
 
 Dopo aver deciso su un esito che richiede risposta, la richiamata preparata
 resta accessibile dal dettaglio anche riaprendo la pagina. Serve sempre il
-gesto esplicito «Chiama ora». Correzione locale, in attesa di pubblicazione e
-prova reale.
+gesto esplicito «Chiama ora». Pubblicata; prova reale ancora aperta.
+
+## 2026-09-25 — Stato di una telefonata non partita
+
+Se il provider rifiuta la composizione, ORA mostra l'errore e permette di
+riprovare la stessa chiamata preparata. Non indica più «In corso» per una
+telefonata che non ha mai lasciato il server.

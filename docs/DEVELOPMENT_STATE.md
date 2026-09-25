@@ -3301,9 +3301,18 @@ resta generativa e per-entità; ora recupera automaticamente task persi durante
 riavvii Railway ed errori provider transitori, con massimo tre tentativi.
 Guard Vita/Home e test backend visuals sono il gate locale; la verifica del
 provider sul profilo Railway resta un reality gate di deploy.
-## 2026-09-25 — Richiamata recuperabile dopo reload (locale)
+## 2026-09-25 — Richiamata recuperabile dopo reload
 
 Il dettaglio di una telefonata recupera la richiamata già preparata dal campo
 persistente `continuation.resumed_call_id`. Un reload non nasconde più «Chiama
 ora» dopo la decisione. Nessuna chiamata automatica. TypeScript, test V3.22
-ed export web passati. Non ancora pubblicato né verificato con chiamata reale.
+ed export web passati. Pubblicato su Railway; chiamata reale ancora da verificare.
+
+## 2026-09-25 — Readiness telefonia Gemini Live
+
+La chiamata preparata di prova ha ricevuto 503: `may_i_call` chiedeva
+Deepgram anche con runtime Gemini Live configurato. Il gate ora consulta
+`live_is_configured()` per Gemini Live e mantiene Deepgram per il classico.
+Una chiamata ancora `authorised` risulta «Non avviata» nel dettaglio, così la
+UI non resta in polling dopo un rifiuto. 17 test mirati e compilazione Python
+passati. Verifica cloud della telefonata ancora aperta.

@@ -62,13 +62,21 @@ class TelephoneService:
         # «non si può» e «non si può, perché».
         from telephone import deepgram
         from telephone.carrier import can_call, why_not as no_line
+        from telephone.runtime import GEMINI_LIVE, which_runtime
 
-        can_speak_live = deepgram.is_configured
+        if which_runtime() == GEMINI_LIVE:
+            from telephone.live import live_is_configured
+
+            voice_reason = live_is_configured()
+        else:
+            voice_reason = (
+                "nessuna voce che possa ascoltare e rispondere in linea"
+                if not deepgram.is_configured() else ""
+            )
         why = "; ".join(
             p for p in (
                 no_line(),
-                "" if deepgram.is_configured() else "nessuna voce che possa "
-                "ascoltare e rispondere in linea",
+                voice_reason,
             ) if p
         )
 
@@ -79,7 +87,7 @@ class TelephoneService:
             "executable": resolution.executable,
             "granted": granted,
             "denied": denied,
-            "provider_ready": can_call() and can_speak_live(),
+            "provider_ready": can_call() and not voice_reason,
             "why_not": why,
             # Una chiamata non parte mai da sola: anche con il permesso, la
             # persona deve dire di sì a *questa* chiamata.

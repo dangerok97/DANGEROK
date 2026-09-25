@@ -171,9 +171,9 @@ def result_of(call) -> str:
     if call.state == "expired":
         return "not_started"
     if call.state == "authorised":
-        from telephone.service import is_a_ghost
-
-        return "not_started" if is_a_ghost(call) else "in_progress"
+        # Preparation is not a connected line. A dial failure can leave the
+        # call authorised for a safe retry; the UI must not poll it forever.
+        return "not_started"
     if call.state in ("dialling", "talking"):
         return "in_progress"
 

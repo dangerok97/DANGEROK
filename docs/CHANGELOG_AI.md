@@ -4819,9 +4819,16 @@ The remaining Home question handler called `/accept` and hid preparation cards w
   archivia opportunità, suggerimento o spunto; non è un filtro locale.
 - Aggiunto “Non voglio rispondere” alle Domande per te tramite la cancellazione
   persistente della domanda aperta.
-## 2026-09-25 — Richiamata persistente nel dettaglio (locale)
+## 2026-09-25 — Richiamata persistente nel dettaglio
 
 Ripristinato il pulsante «Chiama ora» dopo reload della pagina di una
 telefonata che ha già preparato una richiamata. Riusati l'ID persistito e la
 route di composizione esistente. TypeScript, test V3.22 ed export web passati;
-nessun push o deploy, nessuna nuova dipendenza o modifica database.
+pubblicato su Railway, nessuna nuova dipendenza o modifica database.
+
+## 2026-09-25 — Correzione gate telefonia cloud
+
+Allineata la readiness della route al runtime Gemini Live già usato
+dall'health Railway. Deepgram resta richiesto soltanto dal runtime classico.
+Le chiamate preparate non si presentano come in corso dopo un 503. 17 test
+mirati passati; la chiamata reale resta da completare.

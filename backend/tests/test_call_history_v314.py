@@ -401,11 +401,16 @@ def test_a_call_still_going_says_so():
 
     from telephone.models import now_iso
 
-    for stato in ("authorised", "dialling", "talking"):
+    for stato in ("dialling", "talking"):
         scheda = as_a_card(_una_chiamata(state=stato, ended_at=None,
                                           authorised_at=now_iso()))
         assert scheda["presentation_status"] == "in_corso", stato
         assert scheda["outcome_summary"] == "Chiamata in corso."
+
+    # A prepared call has not started, whether it was prepared now or days ago.
+    appena = as_a_card(_una_chiamata(state="authorised", ended_at=None,
+                                     started_at=None, authorised_at=now_iso()))
+    assert appena["presentation_status"] == "non_avviata"
 
     #     V3.21.2 §13: UN SÌ DI GIORNI FA NON E' UNA TELEFONATA IN CORSO.
     vecchia = as_a_card(_una_chiamata(state="authorised", ended_at=None,

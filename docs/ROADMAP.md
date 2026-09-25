@@ -1099,11 +1099,17 @@ attraverso la UX V3.22.1/2; (2) conflitto reale dell'application layer, senza
 sovrascrivere uno stato cambiato durante la telefonata. Il completamento
 estensivo del debito V3.15.2 resta V5.
 
-**Correzione locale in attesa di pubblicazione — 25/09:** la richiamata pronta
+**Correzione pubblicata — 25/09:** la richiamata pronta
 viene riletta da `continuation.resumed_call_id` dopo un reload del dettaglio.
 Il gesto «Chiama ora» resta esplicito. TypeScript, guardia V3.22 e export web
-passati; il reality gate resta aperto finché il codice non è pubblicato e la
-chiamata non è provata sul cloud.
+passati; il reality gate resta aperto finché la chiamata non è provata sul cloud.
+
+**Reality gate 25/09:** la prima composizione di prova al numero autorizzato
+ha ricevuto HTTP 503. La route richiedeva ancora Deepgram pur usando
+`ORA_VOICE_RUNTIME=gemini_live`, mentre l'health controllava Gemini Live.
+Patch: readiness coerente col runtime selezionato; `authorised` si presenta
+come «Non avviata» dopo un rifiuto, non come «In corso». 17 test mirati PASS.
+La prova reale resta aperta fino a un esito telefonico osservato.
 
 ### V3.23 — iPhone Reality Gate · PIANIFICATO
 **Obiettivo** — ORA su un iPhone vero tramite Expo/EAS/TestFlight, usando Railway; non una riscrittura nativa completa.

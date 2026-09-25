@@ -2659,3 +2659,11 @@ Il dettaglio telefonico ricava l'ID della chiamata preparata da
 `continuation.resumed_call_id` quando lo stato è `resumed`; lo stato React
 serve solo per il riscontro immediato dopo la decisione. La route di dial
 resta l'unico punto che compone una chiamata dopo il gesto dell'utente.
+
+## 2026-09-25 — Readiness del runtime telefonico
+
+`TelephoneService.may_i_call` consulta il runtime selezionato: Gemini Live
+usa `live_is_configured()`, il classico usa Deepgram. La stessa decisione
+regola la capacità in chat e la route di composizione. Una chiamata
+`authorised` è preparata, non connessa: il suo stato di presentazione è
+`non_avviata` finché il carrier non restituisce una linea.
