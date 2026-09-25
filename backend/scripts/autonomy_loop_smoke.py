@@ -17,7 +17,7 @@ def report(stage, **fields):
     print("AUTONOMY_LOOP_SMOKE " + json.dumps({"stage": stage, **fields}, ensure_ascii=False, default=str), flush=True)
 
 
-async def run():
+async def run(scenario=None):
     import mongomock.collection
     from mongomock_motor import AsyncMongoMockClient
     from agent.capabilities import CapabilityResolver
@@ -43,8 +43,10 @@ async def run():
         "L'annuale si paga anticipatamente e i mesi inutilizzati non sono rimborsati. "
         "Il mensile è cancellabile ogni mese. Non ci sono altri costi."
     )
+    if scenario is not None:
+        text = scenario["text"]
     await db.documents.insert_one({"id": "price-options", "user_id": owner,
-        "original_filename": "Condizioni archivio digitale.txt", "extracted_text": text})
+        "original_filename": scenario["title"] if scenario else "Condizioni archivio digitale.txt", "extracted_text": text})
     await db.agent_runs.create_index("goal_id", unique=True)
     original_update = mongomock.collection.Collection.find_one_and_update
     original_call = StepExecutor._call
@@ -118,7 +120,17 @@ async def run():
         passed = (goal.get("status") == "completed" and "150" in draft
                   and "rimbor" in draft.lower() and bool(goal.get("prepared_sources"))
                   and await db.agent_receipts.count_documents({}) == 0)
+        if scenario is not None:
+            if scenario.get("expect_silence"):
+                passed = not goal and bool(reviewed.scan and reviewed.scan.silence)
+            else:
+                passed = (goal.get("status") == "completed" and bool(goal.get("prepared_sources"))
+                          and not goal.get("requires_user_input")
+                          and all(term.casefold() in draft.casefold() for term in scenario["terms"]))
+            passed = passed and await db.agent_receipts.count_documents({}) == 0
         report("gate", passed=passed, scope="real_model_in_memory_loop_no_delivery_no_external_actions")
+        if scenario is not None:
+            return passed
         # Separate, explicitly seeded stage test. Never counts as loop success.
         from agent.models import AutonomousGoal, ActionStep, AgentEvidence, ResultProvenance
         from agent.preparation import prepare

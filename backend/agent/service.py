@@ -414,7 +414,7 @@ class AgentService:
             return ("stalled", None)
 
         decision = answer["decision"]
-        chosen = plan.step(str(answer.get("step_id") or "")) if answer.get("step_id") else None
+        chosen = next((s for s in pending if s.id == str(answer.get("step_id") or "")), None)
         await self.repo.journal(
             owner_id, goal.id, kind="chose_next",
             note=str(answer.get("reasoning") or "")[:300],

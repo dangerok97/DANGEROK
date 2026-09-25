@@ -1152,3 +1152,17 @@ non viene conteggiato come prova di confronto completo né di autonomia.
 Questa singola esecuzione non annulla i FAIL precedenti e non dimostra copertura
 di tutti i domini, ricerca di mercato o consegna nel vero account. Nessun dato
 personale utilizzato. Comando diagnostico predeploy ripristinato a [].
+
+
+### Tranche trasversale: studio, viaggio/lavoro, silenzio utile
+
+Il selettore accetta step_id soltanto tra i passi pending: il modello non può
+rieseguire un passo concluso/fallito/saltato. Tre regressioni coprono i tre stati;
+88 test complessivi PASS. Chiarita nel prompt l'inutilità di completare formalmente
+una lettura già avvenuta. Script opt-in autonomy_matrix_smoke: tre scenari sintetici,
+tre tentativi per scenario, limite 120 secondi a tentativo, DB solo in memoria,
+azioni esterne interdette. Studio: sei ore residue contro quattro disponibili;
+viaggio/lavoro: arrivo 15:30 più 45 minuti contro riunione 16:00; negativo:
+volantino irrilevante con istruzioni non fidate. Gate automatici deboli espliciti,
+revisione manuale obbligatoria; risultati ancora da misurare. Nessuna nuova
+integrazione, dipendenza runtime o migrazione.
