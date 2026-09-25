@@ -1036,3 +1036,39 @@ e permesso, con troncamento e indisponibilità espliciti. Lo stesso contesto
 entra nella diagnostica isolata. 79 test locali PASS, compileall/diff-check PASS.
 Il gate live dell'approfondimento resta da rieseguire; l'esecuzione completa
 con modello reale non è ancora verificata. Predeploy di nuovo ripristinato a [].
+
+### Riferimenti disponibili al planner
+
+AutonomousGoal.for_ai ometteva source_refs/source_kind: il planner reale non
+aveva gli ID che la prova controllata conosceva. Ora li riceve dal modello
+persistito. La diagnostica usa AutonomousGoal.for_ai invece di costruire
+un payload più ricco a mano; test di regressione sul contratto. Undici test
+mirati di contesto/lettura/ciclo PASS. Questo difetto impedisce di trattare
+le precedenti prove di pianificazione isolata come equivalenti all'app.
+
+### Discovery distinta dalla notifica
+
+La terza prova reale ha mostrato variabilità: risposta informativa nel caso
+semplice, silenzio nel caso con condizioni da leggere perché non urgente.
+Questi esiti restano FAIL/non verificati, non vengono cancellati da rerun.
+La discovery chiedeva se interrompere l'utente, benché surfacing sia già
+una fase separata. Il prompt ora valuta il risultato utile e l'approfondimento
+interno a basso costo, senza richiedere urgenza o comando. Non forza notifiche
+o azioni esterne. Il gate del caso informativo senza goal è inconclusivo,
+non una prova di esecuzione: una risposta completa può legittimamente bastare.
+80 test locali PASS. Serve la nuova misura con modello reale e planner
+che usa esattamente AutonomousGoal.for_ai.
+
+### Gate isolato dell'intero ciclo con modello reale
+
+Aggiunto scripts/autonomy_loop_smoke.py opt-in. Database mongomock solo in
+memoria, persona e documento sintetici. Nessun deps/server o Mongo reale.
+Decisioni AI non sostituite; fonti estranee e hook di notifica disabilitati.
+Execution e resolver consentono soltanto document.read/document.create;
+ogni effetto esterno bloccato. Include discovery, admission, background,
+lettura, bozza persistita e verifica. Oracolo fixture: 300-(120+30)=150 euro
+nel primo anno, rinnovo 240 e assenza rimborso da mantenere. Non è una prova
+di invio, mercato reale o dell'intero account. Deadline 240 s; eventuali
+continuazioni tecniche accelerate solo nel DB in memoria. Mongomock-motor
+0.0.36 è dipendenza di test già in requirements-local, installata solo nel
+contenitore diagnostico di predeploy, senza aggiungerla al runtime dell'app.

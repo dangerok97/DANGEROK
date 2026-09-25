@@ -762,6 +762,8 @@ class AutonomousGoal(BaseModel):
     def for_ai(self) -> Dict[str, Any]:
         return {
             "objective": self.objective,
+            "source_kind": self.source_kind,
+            "source_refs": self.source_refs,
             "desired_outcome": self.desired_outcome,
             "why_now": self.why_now or None,
             "success_criteria": self.success_criteria,

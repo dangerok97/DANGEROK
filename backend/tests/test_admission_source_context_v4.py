@@ -5,6 +5,14 @@ from mongomock_motor import AsyncMongoMockClient
 
 from agent import reasoning
 from agent.service import AgentService
+from agent.models import AutonomousGoal
+
+
+def test_plan_receives_the_actual_persisted_source_references():
+    goal = AutonomousGoal(owner_id="alice", objective="Confronta i costi", desired_outcome="Conoscere condizioni",
+        source_kind="document", source_refs=["document:d1"])
+    assert goal.for_ai()["source_refs"] == ["document:d1"]
+    assert goal.for_ai()["source_kind"] == "document"
 
 
 @pytest.mark.asyncio

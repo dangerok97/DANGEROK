@@ -18,6 +18,7 @@ def report(stage, **result):
 async def run_case(*, incomplete=False):
     from opportunities.reasoning import scan
     from agent.reasoning import decide_goal, make_plan
+    from agent.models import AutonomousGoal
 
     # An isolated fictional persona. These facts are never written to an account.
     snapshot = {
@@ -60,12 +61,17 @@ async def run_case(*, incomplete=False):
         "source_context": snapshot["documents"], "source_context_unavailable": False})
     report("admission", case=case, outcome=(admission or {}).get("outcome"), reason=str((admission or {}).get("reasoning") or "")[:500])
     if not admission or admission.get("outcome") != "create_goal":
-        report("gate", case=case, passed=False, reason="no_autonomous_goal")
+        report("gate", case=case, passed=False if incomplete else None,
+               reason="no_autonomous_goal" if incomplete else "informational_result_only_not_execution")
         return
     capabilities = [{"capability": name, "status": "available_real", "can_be_used_now": True,
                      "changes_something_in_the_world": False}
                     for name in ("document.read", "information.read", "comparison.run")]
-    plan = await make_plan({**admission, "source_refs": ["document:synthetic-price-options"]},
+    goal = AutonomousGoal(owner_id="isolated-synthetic-persona", status="active",
+        objective=admission["objective"], desired_outcome=admission["desired_outcome"],
+        source_kind="document", source_refs=["document:synthetic-price-options"],
+        success_criteria=admission.get("success_criteria") or [])
+    plan = await make_plan(goal.for_ai(),
         capabilities=capabilities, context={"now": snapshot["now"]})
     steps = (plan or {}).get("steps") or []
     reads = any(s.get("capability_needed") == "document.read" and

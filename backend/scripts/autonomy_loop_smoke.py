@@ -1,0 +1,119 @@
+"""Opt-in real-model loop on an in-memory synthetic account.
+
+Requires test-only mongomock-motor. NEVER connects to Mongo. All discovery and
+agent judgments are real; notification hooks are disabled and execution is
+restricted to document.read/document.create. No real-world effect can run.
+This validates an isolated loop, not real-account delivery or market research.
+"""
+import asyncio
+import json
+import logging
+from datetime import datetime, timedelta, timezone
+from unittest.mock import AsyncMock, patch
+from contextlib import ExitStack
+
+
+def report(stage, **fields):
+    print("AUTONOMY_LOOP_SMOKE " + json.dumps({"stage": stage, **fields}, ensure_ascii=False), flush=True)
+
+
+async def run():
+    import mongomock.collection
+    from mongomock_motor import AsyncMongoMockClient
+    from agent.capabilities import CapabilityResolver
+    from agent.service import AgentService
+    from agent.execution import StepExecutor
+    from agent.models import ExecutionResult
+    from agent.background import recover_due
+    from ambient.runtime import tick
+    from opportunities import snapshot
+    from opportunities.discovery import OpportunityDiscovery
+
+    db = AsyncMongoMockClient().isolated_synthetic_account
+    owner = "synthetic-persona-no-real-account"
+    text = (
+        "Il piano attivo di archivio digitale passerà da 10 a 25 euro al mese al prossimo rinnovo. "
+        "Il titolare mantiene il servizio per almeno dodici mesi. L'alternativa annuale è pubblicizzata "
+        "a 120 euro, ma le condizioni economiche complete sono nella seconda parte del documento. "
+        "Non è stata autorizzata alcuna modifica al piano.\n"
+        + "Dettagli tecnici: archivio digitale con spazio e assistenza.\n" * 22
+        + "\nCondizioni economiche complete: il piano mensile costa 25 euro ogni mese, imposte incluse. "
+        "Il piano annuale costa 120 euro per i primi dodici mesi più 30 euro di attivazione una tantum. "
+        "Dal secondo anno l'annuale costa 240 euro. Entrambi comprendono 100 GB e la stessa assistenza. "
+        "L'annuale si paga anticipatamente e i mesi inutilizzati non sono rimborsati. "
+        "Il mensile è cancellabile ogni mese. Non ci sono altri costi."
+    )
+    await db.documents.insert_one({"id": "price-options", "user_id": owner,
+        "original_filename": "Condizioni archivio digitale.txt", "extracted_text": text})
+    await db.agent_runs.create_index("goal_id", unique=True)
+    original_update = mongomock.collection.Collection.find_one_and_update
+    original_call = StepExecutor._call
+    original_resolve = CapabilityResolver.resolve
+    allowed = {"document.read", "document.create"}
+
+    def update(self, *args, **kwargs):
+        kwargs.pop("projection", None)  # mongomock projection quirk, not production behavior
+        return original_update(self, *args, **kwargs)
+
+    async def resolve(self, owner_id, capability):
+        if capability not in allowed:
+            return await original_resolve(self, owner_id, "unknown_isolated_capability")
+        return await original_resolve(self, owner_id, capability)
+
+    async def available(self, owner_id):
+        return [{"capability": name, "status": "available_real", "can_be_used_now": True,
+                 "changes_something_in_the_world": False} for name in sorted(allowed)]
+
+    async def guarded_call(self, owner_id, goal, step, how, **kwargs):
+        if step.capability_needed not in allowed or how not in ("read", "prepare"):
+            raise RuntimeError("isolated_capability_boundary")
+        return await original_call(self, owner_id, goal, step, how, **kwargs)
+
+    async def deny_effect(self, owner_id, goal, step, *args, **kwargs):
+        return ExecutionResult(step_id=step.id, status="unavailable", error_type="isolated_no_external_effects")
+
+    with ExitStack() as stack:
+        stack.enter_context(patch.object(mongomock.collection.Collection, "find_one_and_update", update))
+        stack.enter_context(patch.object(CapabilityResolver, "resolve", resolve))
+        stack.enter_context(patch.object(CapabilityResolver, "available", available))
+        stack.enter_context(patch.object(StepExecutor, "_call", guarded_call))
+        stack.enter_context(patch.object(StepExecutor, "_touch_the_world", deny_effect))
+        for name in ("_note_ambient", "_consider_visibility", "_observe_life_change"):
+            stack.enter_context(patch.object(AgentService, name, AsyncMock()))
+        for name in ("_open_questions", "_recently_settled", "_places", "_presence", "_routines",
+                     "_comparisons", "_calendar", "_situations", "_disagreements", "_money", "_existing_work"):
+            stack.enter_context(patch.object(snapshot, name, AsyncMock(return_value=[])))
+        discovery = OpportunityDiscovery(db)
+        await discovery.note(owner, source="documents", kind="document.added", entity_ref="price-options", wake=False)
+        reviewed = await discovery.review(owner)
+        report("discovery", ran=reviewed.ran, created=len(reviewed.scan.created) if reviewed.scan else 0)
+        for _ in range(3):
+            await recover_due(db)
+            await recover_due(db)
+            await tick(db, now=datetime.now(timezone.utc)+timedelta(minutes=1))
+            goal = await db.agent_goals.find_one({"owner_id": owner})
+            if goal and (goal["status"] not in ("active", "waiting") or goal.get("requires_user_input")):
+                break
+            if goal and goal["status"] == "active" and goal.get("next_run_at"):
+                # Fast-forward only the technical continuation delay in this
+                # in-memory fixture; do not bypass a human/model waiting state.
+                await db.agent_goals.update_one({"id": goal["id"]},
+                    {"$set": {"next_run_at": datetime.now(timezone.utc).isoformat()}})
+        goal = await db.agent_goals.find_one({"owner_id": owner}) or {}
+        draft = str(goal.get("prepared_text") or "")
+        report("result", status=goal.get("status"), needs_user=bool(goal.get("requires_user_input")),
+               draft=draft, explanation=goal.get("rationale"),
+               evidence_count=await db.agent_evidence.count_documents({"owner_id": owner}))
+        # Fixture oracle: first year 300 - (120 + 30) = 150, with nonrefundability.
+        passed = (goal.get("status") == "completed" and "150" in draft
+                  and "rimbor" in draft.lower() and bool(goal.get("prepared_sources"))
+                  and await db.agent_receipts.count_documents({}) == 0)
+        report("gate", passed=passed, scope="real_model_in_memory_loop_no_delivery_no_external_actions")
+
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.ERROR)
+    try:
+        asyncio.run(asyncio.wait_for(run(), timeout=240))
+    except Exception as exc:
+        report("gate", passed=False, error_type=type(exc).__name__)
