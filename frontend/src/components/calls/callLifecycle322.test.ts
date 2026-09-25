@@ -46,8 +46,10 @@ assert.ok(
 );
 assert.ok(
   detail.includes('testID="continuation-place-call"') &&
-    detail.includes('api.placeCall(nextCallId)'),
-  'a callback must require a fresh explicit dial gesture',
+    detail.includes('api.placeCall(callbackCallId)') &&
+    detail.includes("call?.continuation?.state === 'resumed'") &&
+    detail.includes('call.continuation.resumed_call_id'),
+  'a callback must survive reload and require a fresh explicit dial gesture',
 );
 assert.ok(
   detail.includes("call?.presentation_status !== 'in_corso'") &&

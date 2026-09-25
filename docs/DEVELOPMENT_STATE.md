@@ -3301,3 +3301,9 @@ resta generativa e per-entità; ora recupera automaticamente task persi durante
 riavvii Railway ed errori provider transitori, con massimo tre tentativi.
 Guard Vita/Home e test backend visuals sono il gate locale; la verifica del
 provider sul profilo Railway resta un reality gate di deploy.
+## 2026-09-25 — Richiamata recuperabile dopo reload (locale)
+
+Il dettaglio di una telefonata recupera la richiamata già preparata dal campo
+persistente `continuation.resumed_call_id`. Un reload non nasconde più «Chiama
+ora» dopo la decisione. Nessuna chiamata automatica. TypeScript, test V3.22
+ed export web passati. Non ancora pubblicato né verificato con chiamata reale.

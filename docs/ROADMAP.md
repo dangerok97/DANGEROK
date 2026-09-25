@@ -1099,6 +1099,12 @@ attraverso la UX V3.22.1/2; (2) conflitto reale dell'application layer, senza
 sovrascrivere uno stato cambiato durante la telefonata. Il completamento
 estensivo del debito V3.15.2 resta V5.
 
+**Correzione locale in attesa di pubblicazione — 25/09:** la richiamata pronta
+viene riletta da `continuation.resumed_call_id` dopo un reload del dettaglio.
+Il gesto «Chiama ora» resta esplicito. TypeScript, guardia V3.22 e export web
+passati; il reality gate resta aperto finché il codice non è pubblicato e la
+chiamata non è provata sul cloud.
+
 ### V3.23 — iPhone Reality Gate · PIANIFICATO
 **Obiettivo** — ORA su un iPhone vero tramite Expo/EAS/TestFlight, usando Railway; non una riscrittura nativa completa.
 **Gate** — login, Home, Vita, conversazione, push, posizione, contatti, telefonia, permessi iOS, SecureStore, background/resume e kill/relaunch.

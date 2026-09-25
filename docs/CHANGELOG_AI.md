@@ -4819,3 +4819,9 @@ The remaining Home question handler called `/accept` and hid preparation cards w
   archivia opportunità, suggerimento o spunto; non è un filtro locale.
 - Aggiunto “Non voglio rispondere” alle Domande per te tramite la cancellazione
   persistente della domanda aperta.
+## 2026-09-25 — Richiamata persistente nel dettaglio (locale)
+
+Ripristinato il pulsante «Chiama ora» dopo reload della pagina di una
+telefonata che ha già preparato una richiamata. Riusati l'ID persistito e la
+route di composizione esistente. TypeScript, test V3.22 ed export web passati;
+nessun push o deploy, nessuna nuova dipendenza o modifica database.

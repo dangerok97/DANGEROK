@@ -65,6 +65,13 @@ export default function CallDetailScreen() {
   const [nextCallId, setNextCallId] = useState('');
   const [placingNext, setPlacingNext] = useState(false);
   const [nextCallError, setNextCallError] = useState<string | null>(null);
+  // The resumed call is persisted with the continuation. Recover it after a
+  // reload so a decision cannot strand a prepared callback on this screen.
+  const callbackCallId = nextCallId || (
+    call?.continuation?.state === 'resumed'
+      ? call.continuation.resumed_call_id
+      : ''
+  );
 
   /**
    * La telefonata, riletta.
@@ -99,19 +106,19 @@ export default function CallDetailScreen() {
   }, [call?.presentation_status, load]);
 
   const placeContinuationCall = useCallback(async () => {
-    if (!nextCallId || placingNext) return;
+    if (!callbackCallId || placingNext) return;
     setPlacingNext(true);
     setNextCallError(null);
     try {
-      await api.placeCall(nextCallId);
-      router.replace(`/chiamate/${nextCallId}` as any);
+      await api.placeCall(callbackCallId);
+      router.replace(`/chiamate/${callbackCallId}` as any);
     } catch (e) {
       // If the response was lost after the provider accepted the dial, the
       // same call tells us so. Never prepare/dial a second callback here.
       try {
-        const detail = await api.callDetail(nextCallId);
+        const detail = await api.callDetail(callbackCallId);
         if (detail.call.presentation_status !== 'non_avviata') {
-          router.replace(`/chiamate/${nextCallId}` as any);
+          router.replace(`/chiamate/${callbackCallId}` as any);
           return;
         }
       } catch {
@@ -121,7 +128,7 @@ export default function CallDetailScreen() {
     } finally {
       setPlacingNext(false);
     }
-  }, [nextCallId, placingNext, router]);
+  }, [callbackCallId, placingNext, router]);
 
   /**
    * The transcript, when asked for.
@@ -260,7 +267,7 @@ export default function CallDetailScreen() {
                     </Text>
                   ) : null}
 
-                  {nextCallId ? (
+                  {callbackCallId ? (
                     <View style={[styles.callbackBox, { borderColor: colors.border }]}>
                       <Text style={[styles.aside, { color: colors.textSecondary }]}>
                         Richiamata pronta. La tua decisione ha aggiornato il mandato,

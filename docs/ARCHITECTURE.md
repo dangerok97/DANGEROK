@@ -2653,3 +2653,9 @@ restano nello storage documentale owner-scoped. Un record `queued`,
 `MAX_ATTEMPTS`: i task in memoria non sopravvivono necessariamente a un
 redeploy Railway. `_inflight` impedisce duplicati nello stesso processo. Il
 render non attende mai il provider e riceve l'URL solo dopo persistenza.
+## 2026-09-25 — Identità della richiamata
+
+Il dettaglio telefonico ricava l'ID della chiamata preparata da
+`continuation.resumed_call_id` quando lo stato è `resumed`; lo stato React
+serve solo per il riscontro immediato dopo la decisione. La route di dial
+resta l'unico punto che compone una chiamata dopo il gesto dell'utente.

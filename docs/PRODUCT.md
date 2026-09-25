@@ -825,3 +825,9 @@ focus card non sono fotografie stock assegnate per categoria: ORA genera una
 scena diversa dal significato sanitizzato della singola entità, la conserva e
 la riusa finché quel significato non cambia. Nessun dato identificativo viene
 inviato al generatore.
+## 2026-09-25 — Richiamata dopo reload (locale)
+
+Dopo aver deciso su un esito che richiede risposta, la richiamata preparata
+resta accessibile dal dettaglio anche riaprendo la pagina. Serve sempre il
+gesto esplicito «Chiama ora». Correzione locale, in attesa di pubblicazione e
+prova reale.
