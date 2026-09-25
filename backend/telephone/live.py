@@ -1231,7 +1231,9 @@ class MissionVoiceSession:
             "lui, ma glielo riferisco».\n"
             "- Usa message_delivered solo dopo che ha risposto o ha chiaramente "
             "finito di parlare, riportando la sua risposta con le sue parole "
-            "(e le sue domande per lui). Poi saluta con calore.\n"
+            "(e le sue domande per lui). Poi un solo saluto breve. Non ripetere "
+            "il messaggio, l'esito o la promessa di riferire se li hai già detti. "
+            "Un semplice grazie non richiede un altro riepilogo.\n"
             f"- «Parlo con {nome}?» si chiede una volta. Se ha già detto chi è, "
             "non chiederlo più; se la risposta non era chiara («Pronto?», "
             "«Ciao»), puoi chiederlo ancora una volta sola.\n"
@@ -1919,7 +1921,9 @@ class MissionVoiceSession:
             "turns": [{"role": "user", "parts": [{
                 "text": (
                     "[la missione e' conclusa] Chiudi la telefonata con un "
-                    "saluto breve e cortese, senza fare altre domande."
+                    "solo saluto breve e cortese, senza fare altre domande. "
+                    "Non ripetere il messaggio, l'esito o la promessa di riferire: "
+                    "sono già stati comunicati. Basta «Grazie, buona giornata»."
                 ),
             }]}],
             "turnComplete": True,
@@ -2349,7 +2353,8 @@ class MissionVoiceSession:
             notes=str(argomenti.get("notes") or "")[:400],
         )
         return {"accepted": True,
-                "say": "Certo, glielo riferisco. Ciao!"}
+                "say": "Grazie, buona giornata!",
+                "do_this": "Un solo saluto. Non ripetere il messaggio né la promessa di riferire."}
 
     async def the_carrier_says(self, answered_by: str) -> None:
         """L'operatore ha riconosciuto chi ha risposto: «machine» o «human»."""

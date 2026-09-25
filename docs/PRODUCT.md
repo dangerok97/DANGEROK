@@ -1,5 +1,15 @@
 ## 2026-09-22 — Aggiornamenti: scheda e prossimo passo condivisi
 
+## 2026-09-25 — Voice latency and concise closing (pending deployment)
+
+Standard synchronous Vonage machine detection is now off by default to avoid
+its 3–5 second pre-audio wait. Local two-signal voicemail detection and recipient
+verification remain active; explicit ORA_MACHINE_DETECTION=continue restores
+carrier detection. No paid advanced detection enabled. Message delivery tool
+response now requests only a short farewell instead of repeating the promise
+to relay the reply; closing prompts prohibit repeating the message or outcome.
+Real-call latency and closing quality still require a post-deployment test.
+
 Home, elenco e notifiche opportunità aprono la stessa scheda. Contratto azione discriminato: verifica opportunità con motore AI Core esistente, accettazione suggerimento, percorso già supportato; fallback informativo senza CTA inventate. Proposte separate dalle attività avviate. Fonti opportunità esposte e deduplicate per riferimento; disciplina ragionamento vieta di contare sync ripetute come eventi distinti.
 
 Verifica persistita in update_work, chiave univoca proprietario+aggiornamento, claim prima di eseguire, risposte nella stessa sessione, stato in Home. Errori non implicano risoluzione né retry automatico. La scheda consente continuazione contestuale; passaggi sul dispositivo usano la stessa sessione ORA. Nessuna promessa che ogni futura card abbia una capacità eseguibile: i nuovi tipi devono fornire un’azione supportata.

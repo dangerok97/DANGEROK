@@ -353,6 +353,8 @@ def test_machine_detection_is_asked_to_the_carrier(monkeypatch):
     from telephone.carrier import _machine_detection
 
     monkeypatch.delenv("ORA_MACHINE_DETECTION", raising=False)
+    assert _machine_detection() == {}
+    monkeypatch.setenv("ORA_MACHINE_DETECTION", "continue")
     assert _machine_detection() == {"machine_detection": "continue"}
     monkeypatch.setenv("ORA_MACHINE_DETECTION", "off")
     assert _machine_detection() == {}
@@ -386,7 +388,9 @@ async def test_a_line_drop_mid_conversation_is_not_a_success(monkeypatch):
 async def test_a_line_drop_after_a_validated_outcome_keeps_the_outcome(monkeypatch):
     sess, _ = await _consegna_aperta(monkeypatch)
     await sess._answer_one("recipient_confirmed", {"how_they_confirmed": "sì"})
-    await sess._answer_one("message_delivered", {"recipient_reply": "anch'io"})
+    reply = await sess._answer_one("message_delivered", {"recipient_reply": "anch'io"})
+    assert reply["say"] == "Grazie, buona giornata!"
+    assert "riferisco" not in reply["say"]
     await sess.close()
     assert sess.outcome.status == "success"
     assert sess.outcome.delivery == "delivered"

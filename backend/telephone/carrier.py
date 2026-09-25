@@ -264,11 +264,12 @@ def _machine_detection() -> Dict[str, str]:
     `continue` vuol dire: non riagganciare da solo, manda l'evento e lascia
     decidere a noi. Da solo non basta a dire «segreteria» — lo decide
     `VoicemailWatch`, con un secondo segnale. `ORA_MACHINE_DETECTION=off` lo
-    spegne.
+    spegne. Il default e' off: il rilevamento standard blocca l'audio per
+    3-5 secondi. Restano attivi VoicemailWatch e la verifica del destinatario.
     """
     import os
 
-    modo = (os.environ.get("ORA_MACHINE_DETECTION") or "continue").strip().lower()
+    modo = (os.environ.get("ORA_MACHINE_DETECTION") or "off").strip().lower()
     if modo in ("off", "0", "false", "no", ""):
         return {}
     return {"machine_detection": "continue"}

@@ -1889,6 +1889,7 @@ async def test_after_no_tutto_ok_she_says_goodbye_before_closing(monkeypatch):
         # E la spinta le chiede un saluto, senza altre domande.
         nota = _cosa_ha_chiesto(wire)
         assert "saluto" in nota and "senza fare altre domande" in nota
+        assert "Non ripetere il messaggio" in nota
 
         # Adesso saluta davvero, e la linea si chiude.
         await _dice(wire, "Va bene, allora la saluto. Buona giornata.")
