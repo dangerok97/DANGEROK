@@ -48,15 +48,28 @@ class EnergyOfferService:
         if (user or {}).get("preferences", {}).get("energy_offer_monitoring") is False:
             return False
         identity = {"user_id": user_id, "commodity": profile["commodity"], "supply_key": profile["supply_key"]}
-        previous = await self.db[MONITORS].find_one(identity, {"_id": 0, "document_id": 1})
+        previous = await self.db[MONITORS].find_one(
+            identity, {"_id": 0, "document_id": 1, "annual_consumption": 1,
+                       "current_offer_code": 1, "power_kw": 1, "comparison_ready": 1}
+        )
+        changed_profile = previous is None or any(
+            previous.get(key) != profile.get(key)
+            for key in ("document_id", "annual_consumption", "current_offer_code",
+                        "power_kw", "comparison_ready")
+        )
+        update = {**profile, "user_id": user_id, "enabled": True,
+                  "next_check_at": _iso(_now()), "updated_at": _iso(_now())}
+        if changed_profile:
+            update.update({"candidates": [], "source_url": None,
+                           "source_fetched_at": None, "last_checked_at": None,
+                           "last_error": None})
         await self.db[MONITORS].update_one(
             identity,
-            {"$set": {**profile, "user_id": user_id, "enabled": True,
-                      "next_check_at": _iso(_now()), "updated_at": _iso(_now())},
+            {"$set": update,
              "$setOnInsert": {"created_at": _iso(_now())}},
             upsert=True,
         )
-        return previous is None or previous.get("document_id") != profile["document_id"]
+        return changed_profile
 
     async def _catalog(self, commodity: str, now: datetime) -> dict[str, Any]:
         cached = await self.db[CATALOG].find_one({"commodity": commodity}, {"_id": 0})
