@@ -56,7 +56,8 @@ async def run_case(*, incomplete=False):
     admission = await decide_goal({"what": opportunity.get("what"),
         "why_it_matters": opportunity.get("why_it_matters"),
         "what_ora_offered_to_do": opportunity.get("what_i_can_do"),
-        "how_far_ora_meant_to_go": opportunity.get("initiative"), "who_asked": "agent_initiated"})
+        "how_far_ora_meant_to_go": opportunity.get("initiative"), "who_asked": "agent_initiated",
+        "source_context": snapshot["documents"], "source_context_unavailable": False})
     report("admission", case=case, outcome=(admission or {}).get("outcome"), reason=str((admission or {}).get("reasoning") or "")[:500])
     if not admission or admission.get("outcome") != "create_goal":
         report("gate", case=case, passed=False, reason="no_autonomous_goal")

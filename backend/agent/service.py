@@ -139,8 +139,22 @@ class AgentService:
             if existing is not None:
                 return {"outcome": "already_pursuing", "goal": existing.for_human()}
 
+        # A headline can omit exactly the uncertainty that requires work.
+        # Re-read only cited document previews, with the same ownership/access
+        # boundary as discovery; never infer completeness from a summary.
+        source_context = []
+        context_unavailable = False
+        doc_ids = [ref[9:] for ref in (source_refs or []) if ref.startswith("document:")][:8]
+        if doc_ids:
+            try:
+                from opportunities.snapshot import _documents
+                source_context = await _documents(self.db, owner_id, _now(), document_ids=doc_ids)
+                context_unavailable = len(source_context) < len(set(doc_ids))
+            except Exception:
+                context_unavailable = True
         answer = await decide_goal(
-            {**situation, "who_asked": origin}, language=language
+            {**situation, "who_asked": origin, "source_context": source_context,
+             "source_context_unavailable": context_unavailable}, language=language
         )
         if answer is None:
             # No judgement was available. Nothing is created and nothing is

@@ -137,3 +137,19 @@ utile può essere avviato, mentre una risposta già completa non va trasformata
 in lavoro superfluo. Aggiunto secondo caso diagnostico con condizioni mancanti
 nelle pagine successive. Primo esito preservato; nessun successo live inventato.
 Predeploy diagnostico temporaneo ripristinato a [] dopo la prima esecuzione.
+
+### Seconda diagnostica live: esito misto, contesto ripristinato
+
+SHA b79b91be8a6f55df2f7802f0501102eadfed6a15, deploy
+2dd489a9-8158-43ef-bd7d-be5482092eac. Caso con prezzi completi:
+discovery fondata → create_goal → piano di due passi, lettura della fonte,
+nessuna domanda iniziale o esecuzione esterna: gate parziale live PASS.
+Caso con condizioni nelle pagine successive: discovery fondata ma no_goal,
+gate FAIL. Non si estende il primo successo al secondo caso.
+
+L'ammissione riceveva il riassunto senza gli estratti citati. Ora rilegge solo
+le anteprime documentali citate, filtrate per proprietario/archivio/cancellazione
+e permesso, con troncamento e indisponibilità espliciti. Lo stesso contesto
+entra nella diagnostica isolata. 79 test locali PASS, compileall/diff-check PASS.
+Il gate live dell'approfondimento resta da rieseguire; l'esecuzione completa
+con modello reale non è ancora verificata. Predeploy di nuovo ripristinato a [].

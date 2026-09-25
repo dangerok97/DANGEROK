@@ -582,7 +582,7 @@ def _days_from_now(when: Optional[str], now: datetime) -> Optional[int]:
     return max(0, (start.date() - now.date()).days)
 
 
-async def _documents(db, user_id: str, now: datetime) -> List[Dict[str, Any]]:
+async def _documents(db, user_id: str, now: datetime, *, document_ids=None) -> List[Dict[str, Any]]:
     """Bounded, unverified previews for discovery; fuller reads use document.read."""
     import hashlib
     from agent.capabilities import CapabilityResolver
@@ -590,8 +590,11 @@ async def _documents(db, user_id: str, now: datetime) -> List[Dict[str, Any]]:
     access = await CapabilityResolver(db).resolve(user_id, "document.read")
     if not access.permitted or not access.executable:
         raise PermissionError("document.read unavailable")
+    query = {"user_id": user_id, "deleted": {"$ne": True}, "archived": {"$ne": True}}
+    if document_ids is not None:
+        query["id"] = {"$in": list(document_ids)[:8]}
     rows = await db.documents.find(
-        {"user_id": user_id, "deleted": {"$ne": True}, "archived": {"$ne": True}},
+        query,
         {"_id": 0, "id": 1, "original_filename": 1, "display_title": 1,
          "filename": 1, "extracted_text": 1, "updated_at": 1, "created_at": 1},
     ).sort([("updated_at", -1), ("created_at", -1), ("id", 1)]).limit(MAX_PER_SOURCE).to_list(MAX_PER_SOURCE)
