@@ -3413,3 +3413,19 @@ Deepgram anche con runtime Gemini Live configurato. Il gate ora consulta
 Una chiamata ancora `authorised` risulta «Non avviata» nel dettaglio, così la
 UI non resta in polling dopo un rifiuto. 17 test mirati e compilazione Python
 passati. Verifica cloud della telefonata ancora aperta.
+
+## 2026-09-25 — V4: ciclo documentale e falsi eventi
+
+Il ciclo admission → pianificazione → lettura → evidenze → verifica è
+verificato su documenti sintetici brevi e paginati con decisioni AI controllate.
+Un risultato partial ora attiva reconsider; il modello riceve source_refs e
+observed_at e istruzioni per trattare documenti come dati non attendibili,
+mai come autorizzazioni. Non è prova di iniziativa del modello reale.
+
+La prova UI cloud ha rilevato un falso exhibition_ticket nel documento
+sintetico sui costi: la ricerca per sottostringa leggeva mostra in dimostrativo.
+La tassonomia ora usa confini lessicali, conservando i due stem intenzionali.
+La regressione attraversa anche analyze_document e vieta eventi inventati
+per questa fixture. 60 test mirati PASS; nessuna dipendenza runtime, schema
+Mongo o configurazione nuova. Rianalisi cloud e risultato spontaneo restano
+da verificare dopo il deploy. Nessun acquisto o calendario modificato.

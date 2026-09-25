@@ -4923,3 +4923,19 @@ Allineata la readiness della route al runtime Gemini Live già usato
 dall'health Railway. Deepgram resta richiesto soltanto dal runtime classico.
 Le chiamate preparate non si presentano come in corso dopo un 503. 17 test
 mirati passati; la chiamata reale resta da completare.
+
+## 2026-09-25 — V4: ciclo documentale e falsi eventi
+
+Il ciclo admission → pianificazione → lettura → evidenze → verifica è
+verificato su documenti sintetici brevi e paginati con decisioni AI controllate.
+Un risultato partial ora attiva reconsider; il modello riceve source_refs e
+observed_at e istruzioni per trattare documenti come dati non attendibili,
+mai come autorizzazioni. Non è prova di iniziativa del modello reale.
+
+La prova UI cloud ha rilevato un falso exhibition_ticket nel documento
+sintetico sui costi: la ricerca per sottostringa leggeva mostra in dimostrativo.
+La tassonomia ora usa confini lessicali, conservando i due stem intenzionali.
+La regressione attraversa anche analyze_document e vieta eventi inventati
+per questa fixture. 60 test mirati PASS; nessuna dipendenza runtime, schema
+Mongo o configurazione nuova. Rianalisi cloud e risultato spontaneo restano
+da verificare dopo il deploy. Nessun acquisto o calendario modificato.

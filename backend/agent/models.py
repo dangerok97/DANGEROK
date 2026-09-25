@@ -215,6 +215,8 @@ class ResultProvenance(BaseModel):
     def for_ai(self) -> Dict[str, Any]:
         return {
             "where_this_came_from": self.source_class,
+            "source_refs": list(self.source_refs),
+            "observed_at": self.observed_at,
             "really_happened": self.is_real,
             "how_old": self.freshness,
             "note": self.certainty_note or None,

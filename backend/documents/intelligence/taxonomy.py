@@ -1,6 +1,7 @@
 """Extensible document taxonomy (macro + subcategories)."""
 from __future__ import annotations
 
+import re
 from typing import Any, Optional
 
 # Map legacy deterministic type_key → (macro, sub)
@@ -43,6 +44,14 @@ _ADMIN_KW = (
 )
 
 
+def _has_hint(blob: str, hint: str) -> bool:
+    """Match lexical hints, never unrelated substrings (mostra/dimostrativo)."""
+    hint = hint.strip()
+    # These two stems are intentional in the existing vocabulary.
+    suffix = r"\w*" if hint in {"universit", "ferrovi"} else ""
+    return bool(re.search(r"(?<!\w)" + re.escape(hint) + suffix + r"(?!\w)", blob))
+
+
 def map_legacy(type_key: str) -> tuple[str, str]:
     return LEGACY_TYPE_MAP.get(type_key or "generic", ("generic", "generic"))
 
@@ -60,57 +69,57 @@ def refine_taxonomy(
     macro, sub = map_legacy(type_key)
     reasons: list[str] = [f"Classificatore base: {type_key}"]
 
-    edu_hits = sum(1 for k in _EDU_KW if k in blob)
+    edu_hits = sum(1 for k in _EDU_KW if _has_hint(blob, k))
     if edu_hits >= 2 or type_key in ("cv",):
         if edu_hits >= 2:
             macro, sub = "education", "university_notes"
-            if "esame" in blob:
+            if _has_hint(blob, "esame"):
                 sub = "university_exam"
-            elif "slide" in blob:
+            elif _has_hint(blob, "slide"):
                 sub = "lecture_slides"
-            elif "appunti" in blob or "dispensa" in blob:
-                sub = "school_notes" if "scuola" in blob else "university_notes"
+            elif _has_hint(blob, "appunti") or _has_hint(blob, "dispensa"):
+                sub = "school_notes" if _has_hint(blob, "scuola") else "university_notes"
             reasons.append(f"Segnali studio ({edu_hits})")
 
-    if any(k in blob for k in _TRAVEL_KW):
-        if "volo" in blob or "boarding" in blob:
+    if any(_has_hint(blob, k) for k in _TRAVEL_KW):
+        if _has_hint(blob, "volo") or _has_hint(blob, "boarding"):
             macro, sub = "travel", "flight_booking"
-        elif "treno" in blob or "ferrovi" in blob:
+        elif _has_hint(blob, "treno") or _has_hint(blob, "ferrovi"):
             macro, sub = "travel", "train_ticket"
-        elif "hotel" in blob:
+        elif _has_hint(blob, "hotel"):
             macro, sub = "travel", "hotel_booking"
         else:
             macro, sub = "travel", "generic"
         reasons.append("Segnali viaggio/prenotazione")
 
-    if type_key == "ticket" or (any(k in blob for k in _EVENT_KW) and macro not in ("travel",)):
+    if type_key == "ticket" or (any(_has_hint(blob, k) for k in _EVENT_KW) and macro not in ("travel",)):
         macro = "event"
-        if "cinema" in blob:
+        if _has_hint(blob, "cinema"):
             sub = "cinema_ticket"
-        elif "concerto" in blob:
+        elif _has_hint(blob, "concerto"):
             sub = "concert_ticket"
-        elif "mostra" in blob or "museum" in blob:
+        elif _has_hint(blob, "mostra") or _has_hint(blob, "museum"):
             sub = "exhibition_ticket"
-        elif any(k in blob for k in _MED_APPT_KW):
+        elif any(_has_hint(blob, k) for k in _MED_APPT_KW):
             macro, sub = "medical", "medical_appointment"
         elif sub == "concert_ticket" or type_key == "ticket":
             sub = sub if sub != "generic" else "concert_ticket"
         reasons.append("Segnali evento/appuntamento")
 
-    if type_key == "medical" or (any(k in blob for k in _MED_APPT_KW) and "concerto" not in blob):
-        if any(k in blob for k in ("prescrizione", "farmaco", "ricetta")):
+    if type_key == "medical" or (any(_has_hint(blob, k) for k in _MED_APPT_KW) and not _has_hint(blob, "concerto")):
+        if any(_has_hint(blob, k) for k in ("prescrizione", "farmaco", "ricetta")):
             sub = "prescription"
-        elif any(k in blob for k in ("referto", "esame emato", "diagnosi")):
+        elif any(_has_hint(blob, k) for k in ("referto", "esame emato", "diagnosi")):
             sub = "medical_report"
         else:
             sub = "medical_appointment"
         macro = "medical"
         reasons.append("Segnali sanitari")
 
-    admin_hits = sum(1 for k in _ADMIN_KW if k in blob)
+    admin_hits = sum(1 for k in _ADMIN_KW if _has_hint(blob, k))
     if admin_hits >= 2 and macro in ("generic", "unknown", "event"):
         # Prefer admin over weak event signals when no concert/ticket markers
-        if not any(k in blob for k in ("concerto", "biglietto", "stadio", "treno", "visita specialistica")):
+        if not any(_has_hint(blob, k) for k in ("concerto", "biglietto", "stadio", "treno", "visita specialistica")):
             macro, sub = "administrative", "official_communication"
             reasons.append(f"Segnali amministrativi ({admin_hits})")
 

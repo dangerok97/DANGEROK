@@ -618,7 +618,7 @@ class AgentService:
             },
         )
 
-        if result.status in ("failed", "unavailable", "waiting") or result.error_type:
+        if result.status in ("partial", "failed", "unavailable", "waiting") or result.error_type:
             # Something did not go as the plan assumed — it broke, it was not
             # connected, it found less than was needed. All of those are for
             # the model to weigh, and none of them are for code to route
