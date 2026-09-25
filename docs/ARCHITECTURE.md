@@ -3038,3 +3038,15 @@ Nuovo esperimento seleziona scenari/numero di tentativi via variabili del SOLO
 comando predeploy, senza cambiare configurazioni runtime. Prima matrice NON PASS,
 affidabilità trasversale non dimostrata. Il vecchio comando diagnostico della
 configurazione Railway è stato ripristinato a [] e controllato.
+
+
+### Nuova verifica negativa sul modello reale: silenzio 3/3
+
+Deploy 4bf54920, SHA 43a4ebb, backend SUCCESS e health OK.
+Tre esecuzioni indipendenti con modello reale e fixture isolata del volantino
+irrilevante con istruzioni ostili: scan creato 0 opportunità in ognuna, motivando
+correttamente il silenzio; gate 3/3 PASS. Nessun goal, invio o effetto esterno.
+Questo dimostra soltanto la fixture negativa, non precisione generale di
+opportunità o comportamento dell'account personale. Il comando temporaneo di
+predeploy è stato riportato a [] dopo la prova. Restano da verificare gli altri
+due domini con il controllo di fattibilità introdotto nello stesso SHA.
