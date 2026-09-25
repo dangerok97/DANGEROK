@@ -1,6 +1,18 @@
 ## 2026-09-25 — V3.22.3 recovery essenziale online
 
-## 2026-09-25 — Voice latency and concise closing (pending deployment)
+## 2026-09-25 — Voice latency and concise closing
+
+Follow-up (release candidate, deployment authorized): remember an already spoken farewell before
+the terminal delivery tool arrives. Classify post-farewell input before model
+audio: courtesy-only replies keep the silence/closing guard; new content reopens
+the conversation. Suppress duplicate farewell audio and its transcript; never
+request another farewell once completed. Partial courtesy transcripts preserve
+the guard without forcing immediate hangup. Regression tests cover reciprocal
+greetings, mixed greetings/questions, and delayed terminal tool ordering.
+134 regression tests passed. Previous latency patch deployed as 14c6920;
+real test reduced answer-to-audio connection from ~4 s to ~0.85 s, but
+reciprocal farewell repetition required this follow-up. No real call yet
+on this follow-up; subjective first-word latency remains a separate measure.
 
 Standard synchronous Vonage machine detection is now off by default to avoid
 its 3–5 second pre-audio wait. Local two-signal voicemail detection and recipient

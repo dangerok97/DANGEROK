@@ -911,6 +911,7 @@ class MissionVoiceSession:
         # La missione e' un fatto, la chiusura e' un'intenzione, e il congedo
         # e' un atto: deve succedere, e finche non e' successo non si chiude.
         self._goodbye = "not_started"
+        self._suppressed_goodbye_turn = False
         self._goodbye_story: List[str] = ["not_started"]
         self._goodbye_interrupted = 0
         self._hangup_attempts = 0
@@ -1523,6 +1524,18 @@ class MissionVoiceSession:
 
         content = m.get("serverContent") or {}
 
+        # Input must be classified before audio in the same server packet.
+        if content.get("inputTranscription"):
+            self._heard_this_turn.append(content["inputTranscription"].get("text") or "")
+            if self._goodbye == "completed":
+                words = "".join(self._heard_this_turn).strip()
+                if words and not self._is_closing_reply(words):
+                    self._somebody_is_talking_again()
+                    self._goodbye = "not_started"
+                    self._goodbye_at = None
+                    self._goodbye_story.append("reopened_by_content")
+                    self._suppressed_goodbye_turn = False
+
         if content.get("interrupted"):
             await self._someone_cut_in()
             return
@@ -1532,7 +1545,7 @@ class MissionVoiceSession:
             if dati:
                 await self._pour(dati)
 
-        if content.get("outputTranscription"):
+        if content.get("outputTranscription") and not self._suppressed_goodbye_turn:
             parole = content["outputTranscription"].get("text") or ""
             self._said_this_turn.append(parole)
             if self.intro is not None:
@@ -1544,11 +1557,6 @@ class MissionVoiceSession:
                     else:
                         self._opening = "completed"
                         self._opening_completed_at = time.perf_counter()
-
-        if content.get("inputTranscription"):
-            self._heard_this_turn.append(
-                content["inputTranscription"].get("text") or ""
-            )
 
         if content.get("turnComplete"):
             await self._the_turn_is_over()
@@ -1589,6 +1597,7 @@ class MissionVoiceSession:
             # gia' cominciata finisce — tagliarla a meta' sarebbe il difetto
             # opposto — ma una nuova, dopo il saluto, non parte.
             self._words_after_goodbye += 1
+            self._suppressed_goodbye_turn = True
             return
 
         if self._speaking is None:
@@ -1794,7 +1803,8 @@ class MissionVoiceSession:
         #     PRIMA CHI HA PARLATO, POI CHI HA RISPOSTO.
         # Al contrario il registro mette la risposta sopra la domanda, e
         # rileggendolo sembra che ORA abbia chiuso prima della conferma.
-        self._last_words = "".join(self._said_this_turn).strip()
+        if not self._suppressed_goodbye_turn:
+            self._last_words = "".join(self._said_this_turn).strip()
         self._their_last_words = "".join(self._heard_this_turn).strip()
         self._voicemail.heard(self._their_last_words)
         self._check_the_language("ora", self._last_words)
@@ -1803,6 +1813,17 @@ class MissionVoiceSession:
         await self._write_down("ora", "".join(self._said_this_turn))
         self._said_this_turn.clear()
         self._heard_this_turn.clear()
+        self._suppressed_goodbye_turn = False
+
+        # A farewell already played remains valid even if the terminal tool
+        # arrives later. Do not wait for that tool to remember the goodbye.
+        if (self._recipient_ok and self.packet is not None
+                and self.packet.mission_type == "deliver_message"
+                and self._sounds_like_a_goodbye(self._last_words)
+                and not self._is_a_question(self._last_words)):
+            self._goodbye = "completed"
+            if self._goodbye_at is None:
+                self._goodbye_at = time.perf_counter()
 
         self._turn += 1
         self.mission.a_new_turn_begins()
@@ -1884,12 +1905,37 @@ class MissionVoiceSession:
         basso = parole.lower()
         return any(f in basso for f in FAREWELLS)
 
+    @staticmethod
+    def _is_closing_reply(words: str) -> bool:
+        """Only an entire courtesy reply, never a farewell plus new content."""
+        import re
+        normalized = re.sub(r"[^\w\s]", " ", words.casefold())
+        normalized = " ".join(normalized.split())
+        phrases = ("ciao", "arrivederci", "grazie", "mille", "anche a te",
+                   "anche a lei", "buona giornata", "buona serata", "a presto",
+                   "altrettanto", "va bene", "ok", "perfetto", "sì", "si",
+                   "salve", "buonanotte", "buon lavoro")
+        # Transcripts arrive in fragments: 'arrive' is not new content yet.
+        # A prefix only preserves the quiet-line guard; it never hangs up
+        # immediately, and a later 'ma aspetta' reopens the conversation.
+        remaining = normalized
+        while remaining:
+            match = next((p for p in phrases if remaining == p or
+                          remaining.startswith(p + " ")), None)
+            if match is None:
+                return any(p.startswith(remaining) for p in phrases)
+            remaining = remaining[len(match):].strip()
+        return bool(normalized)
+
     async def _make_sure_she_said_goodbye(self) -> None:
         """
         La missione e' chiusa. La telefonata no, finche' non ci si saluta.
 
             NON SI RIAGGANCIA SENZA SALUTARE.
         """
+        if self._goodbye == "completed":
+            self._start_watching_for_a_quiet_line()
+            return
         if self._is_a_question(self._last_words):
             #     HA APPENA CHIESTO QUALCOSA: TOCCA A LORO.
             # E' esattamente il caso della sesta telefonata: «ci sono

@@ -398,6 +398,21 @@ async def test_a_line_drop_after_a_validated_outcome_keeps_the_outcome(monkeypat
 
 
 @pytest.mark.asyncio
+async def test_farewell_before_delivery_tool_is_remembered(monkeypatch):
+    sess, _ = await _consegna_aperta(monkeypatch)
+    try:
+        await sess._answer_one("recipient_confirmed", {"how_they_confirmed": "sì"})
+        sess._said_this_turn.append("Grazie, buona giornata!")
+        await sess._the_turn_is_over()
+        assert sess._goodbye == "completed"
+        await sess._answer_one("message_delivered", {"recipient_reply": "tutto ok"})
+        await sess._make_sure_she_said_goodbye()
+        assert sess._goodbye_nudges == 0
+    finally:
+        await sess.close()
+
+
+@pytest.mark.asyncio
 async def test_a_drop_with_a_proposal_on_the_table_goes_to_a_person(monkeypatch):
     sess, wire, _, _ = await __import__("test_live_runtime_v313")._aperta(monkeypatch)
     await wire.says({"serverContent": {"inputTranscription": {"text": "alle 18 no"}}})

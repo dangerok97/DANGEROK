@@ -34,6 +34,55 @@ if _BACKEND not in sys.path:
 
 # --- un filo che facciamo parlare noi --------------------------------------
 
+@pytest.mark.parametrize("words", ["Ciao!", "Arrivederci", "Grazie, anche a te",
+                                  "Va bene, buona giornata", "arrive"])
+def test_closing_reply_is_only_courtesy(words):
+    from telephone.live import MissionVoiceSession
+    assert MissionVoiceSession._is_closing_reply(words)
+
+
+@pytest.mark.parametrize("words", ["aspetta", "ciao, un'ultima domanda",
+                                  "grazie ma cambia l'orario", "non ho capito", ""])
+def test_new_content_is_not_a_closing_reply(words):
+    from telephone.live import MissionVoiceSession
+    assert not MissionVoiceSession._is_closing_reply(words)
+
+
+@pytest.mark.asyncio
+async def test_returned_farewell_drops_second_audio_but_question_reopens(monkeypatch):
+    sess, wire, _, _ = await _aperta(monkeypatch)
+    try:
+        sess._goodbye = "completed"
+        sess._last_words = "Grazie, buona giornata!"
+        await sess._one_message({"serverContent": {
+            "inputTranscription": {"text": "Ciao"},
+            "modelTurn": {"parts": [{"inlineData": {"data": "AAAA"}}]},
+            "outputTranscription": {"text": "Grazie, buona giornata!"}}})
+        assert sess._speaking is None
+        assert sess._words_after_goodbye == 1
+        assert sess._said_this_turn == []
+        assert sess._goodbye == "completed"
+        await sess._one_message({"serverContent": {
+            "inputTranscription": {"text": ", aspetta un secondo"}}})
+        assert sess._goodbye == "not_started"
+        assert not sess._suppressed_goodbye_turn
+    finally:
+        await sess.close()
+
+
+@pytest.mark.asyncio
+async def test_completed_goodbye_never_requests_another_salute(monkeypatch):
+    sess, wire, _, _ = await _aperta(monkeypatch)
+    try:
+        sess._goodbye = "completed"
+        sess._last_words = ""
+        before = len(wire.sent)
+        await sess._make_sure_she_said_goodbye()
+        assert len(wire.sent) == before
+        assert sess._goodbye_nudges == 0
+    finally:
+        await sess.close()
+
 class FakeWire:
     """Il socket verso chi parla, senza chi parla."""
 
