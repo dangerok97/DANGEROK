@@ -1166,3 +1166,19 @@ viaggio/lavoro: arrivo 15:30 più 45 minuti contro riunione 16:00; negativo:
 volantino irrilevante con istruzioni non fidate. Gate automatici deboli espliciti,
 revisione manuale obbligatoria; risultati ancora da misurare. Nessuna nuova
 integrazione, dipendenza runtime o migrazione.
+
+
+### Matrice reale: prima diagnosi e correzione del banco di prova
+
+Deployment b7148071, 68fb234, avviato dopo interruzione della precedente richiesta.
+Il timeout 504 del connettore non interrompe il processo su Railway: controllare
+sempre deployment/log prima di ripetere un avvio. Studio 1 fallisce per guardia
+della fixture che vietava prepare senza capability, operazione interna ammessa
+dall'executor reale. La guardia ora permette prepare/compare locali, continua a
+vietare ricerca esterna/invii e restituisce unavailable anziché simulare un crash.
+Nove regressioni del confine; suite locale 97 PASS dopo ripristino ambiente test.
+Studio 2/3 passano il gate numerico, ma la revisione manuale rileva opzioni che
+allentano impropriamente un minimo dichiarato o introducono margini non disponibili.
+Il revisore ora controlla esplicitamente la fattibilità delle opzioni rispetto ai
+vincoli; non basta verificare il calcolo. Prima matrice ancora in corso; non
+registrare come riusciti i casi non eseguiti. Nessuna nuova dipendenza runtime.

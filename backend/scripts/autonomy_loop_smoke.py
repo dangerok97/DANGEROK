@@ -17,6 +17,11 @@ def report(stage, **fields):
     print("AUTONOMY_LOOP_SMOKE " + json.dumps({"stage": stage, **fields}, ensure_ascii=False, default=str), flush=True)
 
 
+def isolated_call_allowed(step, how):
+    return ((how == "read" and step.capability_needed == "document.read")
+            or (how in ("prepare", "compare") and step.capability_needed in ("", "document.create")))
+
+
 async def run(scenario=None):
     import mongomock.collection
     from mongomock_motor import AsyncMongoMockClient
@@ -67,8 +72,10 @@ async def run(scenario=None):
                  "changes_something_in_the_world": False} for name in sorted(allowed)]
 
     async def guarded_call(self, owner_id, goal, step, how, **kwargs):
-        if step.capability_needed not in allowed or how not in ("read", "prepare"):
-            raise RuntimeError("isolated_capability_boundary")
+        if not isolated_call_allowed(step, how):
+            from agent.providers import CapabilityOutcome
+            return CapabilityOutcome(status="unavailable", error_type="isolated_capability_boundary",
+                observation="Questa capacità non è disponibile nell'ambiente isolato.")
         return await original_call(self, owner_id, goal, step, how, **kwargs)
 
     async def deny_effect(self, owner_id, goal, step, *args, **kwargs):
@@ -110,7 +117,7 @@ async def run(scenario=None):
                     {"owner_id": owner, "source_ref": f"goal:{goal['id']}", "status": "pending"},
                     {"$set": {"scheduled_for": datetime.now(timezone.utc).isoformat()}})
         goal = await db.agent_goals.find_one({"owner_id": owner}) or {}
-        report("diagnostics", opportunities=await db.opportunities.find({}, {"_id": 0}).to_list(4), plans=await db.agent_plans.find({}, {"_id": 0}).to_list(10),
+        report("diagnostics", wakes=await db.ambient_wakes.find({}, {"_id": 0, "status": 1, "last_error": 1}).to_list(10), opportunities=await db.opportunities.find({}, {"_id": 0}).to_list(4), plans=await db.agent_plans.find({}, {"_id": 0}).to_list(10),
                journal=await db.agent_journal.find({}, {"_id": 0, "kind": 1, "note": 1, "detail": 1}).to_list(40))
         draft = str(goal.get("prepared_text") or "")
         report("result", status=goal.get("status"), needs_user=bool(goal.get("requires_user_input")),
