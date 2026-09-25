@@ -336,3 +336,15 @@ Questo dimostra soltanto la fixture negativa, non precisione generale di
 opportunità o comportamento dell'account personale. Il comando temporaneo di
 predeploy è stato riportato a [] dopo la prova. Restano da verificare gli altri
 due domini con il controllo di fattibilità introdotto nello stesso SHA.
+
+
+### Matrice ripetuta: studio e viaggio/lavoro (25 settembre, deployment e58582ea)
+
+SHA 7d302137, backend SUCCESS, health check riuscito. Due tentativi per scenario, modello reale e DB sintetico in memoria; nessun invio o effetto esterno. Il comando temporaneo di predeploy è stato rimosso e verificato come [].
+
+- Studio 1: FAIL, discovery ha scartato una proposta senza cosa/perché; nessuna opportunità o goal. Il batch è stato comunque segnato esaminato.
+- Studio 2: gate PASS, 6 ore minime contro 4 disponibili, deficit di 2 ore. La proposta di ricavare tempo dai blocchi già assegnati è solo condizionata: non prova che tali blocchi siano spostabili. Revisione manuale quindi parziale.
+- Viaggio/lavoro 1: gate PASS e revisione manuale positiva sui dati disponibili: 15:30 + almeno 45 minuti = non prima delle 16:15, almeno 15 minuti dopo la riunione. Il collegamento remoto resta subordinato al permesso dell'organizzatore.
+- Viaggio/lavoro 2: FAIL, il calcolo è corretto ma il goal resta active; chiede alternative ferroviarie/trasporto che la fixture isolata non può cercare. Nessuna azione esterna.
+
+I due PASS numerici non chiudono il gate di affidabilità. Una PR bozza conserva le risposte non valutabili per retry, con cooldown senza fingerprint, e corregge l'ID documentale delle fixture (il vecchio ref price-options contaminava i piani di studio/viaggio). Il ramo deve superare test e CI; la correzione non è online e la matrice va ripetuta dopo revisione.

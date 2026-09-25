@@ -3705,3 +3705,8 @@ Questo dimostra soltanto la fixture negativa, non precisione generale di
 opportunità o comportamento dell'account personale. Il comando temporaneo di
 predeploy è stato riportato a [] dopo la prova. Restano da verificare gli altri
 due domini con il controllo di fattibilità introdotto nello stesso SHA.
+
+
+### Checkpoint V4 matrice studio e viaggio/lavoro (25/09/2026)
+
+Deploy diagnostico e58582ea su SHA 7d302137 SUCCESS; modello reale, account sintetico in memoria, due tentativi per scenario, nessun effetto esterno. Studio 1/2 al gate: primo tentativo senza opportunità dopo proposta incompleta, secondo con deficit corretto di due ore ma opzione condizionata da chiarire. Viaggio/lavoro 1/2: primo risultato corretto (arrivo non prima delle 16:15, almeno 15 minuti di ritardo), secondo risultato parziale con goal ancora active per alternative non verificabili dalle capacità isolate. Il predeploy temporaneo è stato ripristinato a [] e verificato. La correzione di retry e dell'ID documentale della fixture è preparata su ramo di revisione; nessun nuovo gate generale PASS.

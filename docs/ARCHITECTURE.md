@@ -3050,3 +3050,8 @@ Questo dimostra soltanto la fixture negativa, non precisione generale di
 opportunità o comportamento dell'account personale. Il comando temporaneo di
 predeploy è stato riportato a [] dopo la prova. Restano da verificare gli altri
 due domini con il controllo di fattibilità introdotto nello stesso SHA.
+
+
+### V4 — retry della discovery non valutabile (25/09/2026)
+
+Quando il modello restituisce una struttura non valida o nessuna proposta valutabile, OpportunityService.scan segnala unavailable. Se un batch contiene anche proposte valide, segnala retry_required senza bloccare il loro percorso verso l'agente. OpportunityDiscovery rilascia il batch di cambiamenti, registra solo l'ora del tentativo e applica il cooldown di 120 secondi; non salva il fingerprint, così gli stessi fatti possono essere rivalutati. Le opportunità valide restano persistite e l'identità evita di crearne copie al retry. Una lista di opportunità esplicitamente vuota resta silenzio intenzionale e consuma il batch. La modifica è su ramo di revisione, non distribuita.

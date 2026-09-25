@@ -50,7 +50,8 @@ async def run(scenario=None):
     )
     if scenario is not None:
         text = scenario["text"]
-    await db.documents.insert_one({"id": "price-options", "user_id": owner,
+    document_id = scenario["id"] if scenario else "price-options"
+    await db.documents.insert_one({"id": document_id, "user_id": owner,
         "original_filename": scenario["title"] if scenario else "Condizioni archivio digitale.txt", "extracted_text": text})
     await db.agent_runs.create_index("goal_id", unique=True)
     original_update = mongomock.collection.Collection.find_one_and_update
@@ -93,7 +94,7 @@ async def run(scenario=None):
                      "_comparisons", "_calendar", "_situations", "_disagreements", "_money", "_existing_work"):
             stack.enter_context(patch.object(snapshot, name, AsyncMock(return_value=[])))
         discovery = OpportunityDiscovery(db)
-        await discovery.note(owner, source="documents", kind="document.added", entity_ref="price-options", wake=False)
+        await discovery.note(owner, source="documents", kind="document.added", entity_ref=document_id, wake=False)
         reviewed = await discovery.review(owner)
         report("discovery", ran=reviewed.ran, created=len(reviewed.scan.created) if reviewed.scan else 0,
                reason=reviewed.scan.reason_for_silence if reviewed.scan else None,
@@ -161,3 +162,4 @@ if __name__ == "__main__":
         asyncio.run(asyncio.wait_for(run(), timeout=240))
     except Exception as exc:
         report("gate", passed=False, error_type=type(exc).__name__)
+
