@@ -144,7 +144,8 @@ async def test_upload_creates_durable_weekly_watch_and_only_changes_wake_review(
     second = EnergyOfferService(db)
     assert (await second.run_due(now=first + timedelta(days=8)))["changed"] == 0
     assert len(seen) == 1
-    replacement = {**doc, "id": "bill-2", "extracted_text":
+    replacement = {**{key: value for key, value in doc.items() if key != "_id"},
+                   "id": "bill-2", "extracted_text":
                    "Energia elettrica\nConsumo annuo: 3500 kWh\nCodice offerta: CURRENT123"}
     await db.documents.insert_one(replacement)
     assert await second.register_bill(user_id, replacement)
