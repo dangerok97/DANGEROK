@@ -1,3 +1,7 @@
+## 2026-09-25 — Monitor periodico offerte luce e gas (proposta)
+
+Aggiunti profilo da bolletta, lettura degli Open Data ufficiali, confronto prudente delle componenti di vendita luce, sorveglianza persistente, deduplica, visibilità e pausa nella pagina Documenti. Nessun invio esterno o cambio fornitore. Verifica live dell'XML ancora richiesta. Dettagli in `ENERGY_OFFER_MONITOR.md`.
+
 ## 2026-09-25 — V3.22.3 recovery essenziale online
 
 ## 2026-09-25 — Voice latency and concise closing

@@ -79,6 +79,9 @@ jobs:
             ai_life_strategist/tests/test_life_experience_documents.py \
             --ignore=tests/test_intelligent_documents_real_verification.py \
             -x
+      - name: Continuous energy offer monitor
+        working-directory: backend
+        run: python -m pytest -q tests/test_energy_offer_monitor.py -x
       - name: Google first sync, cloud sessions, location privacy and polling
         working-directory: backend
         run: |

@@ -1,3 +1,7 @@
+## 2026-09-25 — Sorveglianza continua delle offerte energia
+
+Una bolletta luce o gas avvia una ricerca periodica nelle offerte pubbliche del Portale Offerte. ORA mostra nome, venditore e fonte delle alternative, e segnala una possibile differenza economica solo quando riesce a confrontare le stesse componenti con la tariffa attuale. La pagina Documenti mostra ultimo e prossimo controllo e permette di mettere in pausa la sorveglianza. Dettagli e limiti in `ENERGY_OFFER_MONITOR.md`.
+
 ## 2026-09-22 — Aggiornamenti: scheda e prossimo passo condivisi
 
 ## 2026-09-25 — Voice latency and concise closing

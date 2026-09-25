@@ -584,6 +584,34 @@ export type MissionPreparation = {
   updated_at: string;
 };
 
+export type EnergyOfferCandidate = {
+  code: string;
+  name: string;
+  seller: string;
+  url: string;
+  valid_until: string | null;
+  estimated_seller_year: number | null;
+  current_seller_year: number | null;
+  potential_saving_year: number | null;
+  comparison_basis: 'seller_components_only' | 'current_terms_missing' | 'price_not_comparable' | 'consumption_missing';
+};
+
+export type EnergyOfferSupply = {
+  commodity: 'electricity' | 'gas';
+  document_id: string;
+  annual_consumption: number | null;
+  annual_consumption_estimated: boolean;
+  enabled: boolean;
+  last_checked_at?: string;
+  next_check_at?: string;
+  source_fetched_at?: string;
+  source_url?: string;
+  last_error?: string | null;
+  candidates?: EnergyOfferCandidate[];
+};
+
+export type EnergyOfferMonitoring = { enabled: boolean; supplies: EnergyOfferSupply[] };
+
 export const api = {
   // --- Preparazione di una missione (V3.20.1) ------------------------------
   //
@@ -2031,6 +2059,12 @@ export const api = {
    * Presentation only; the pipeline and the analysis are unchanged behind it.
    */
   getDocumentsLibrary: () => request<DocumentsLibraryResponse>('/documents/library'),
+
+  getEnergyOfferMonitoring: () => request<EnergyOfferMonitoring>('/energy-offers/monitoring'),
+  setEnergyOfferMonitoring: (enabled: boolean) =>
+    request<EnergyOfferMonitoring>('/energy-offers/monitoring', {
+      method: 'PATCH', body: JSON.stringify({ enabled }),
+    }),
 
   documentsHub: (limit = 40) =>
     request<DocumentsHubResponse>(`/documents/hub?limit=${limit}`),

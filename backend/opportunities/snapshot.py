@@ -76,6 +76,7 @@ async def build(
         ("disagreements", _disagreements),
         ("money", _money),
         ("documents", _documents),
+        ("energy_offers", _energy_offers),
         ("existing_work", _existing_work),
     ):
         try:
@@ -617,6 +618,48 @@ async def _documents(db, user_id: str, now: datetime, *, document_ids=None) -> L
     return out
 
 
+async def _energy_offers(db, user_id: str, now: datetime) -> List[Dict[str, Any]]:
+    """Current public offers only; old catalog data cannot support a claim."""
+    rows = await db.energy_offer_monitors.find(
+        {"user_id": user_id, "enabled": True,
+         "source_fetched_at": {"$gte": (now - timedelta(days=10)).isoformat()}},
+        {"_id": 0, "commodity": 1, "document_id": 1, "annual_consumption": 1,
+         "candidates": 1, "source_url": 1, "source_fetched_at": 1},
+    ).limit(MAX_PER_SOURCE).to_list(MAX_PER_SOURCE)
+    out = []
+    for row in rows:
+        active_bill = await db.documents.find_one(
+            {"user_id": user_id, "id": row["document_id"],
+             "deleted": {"$ne": True}, "archived": {"$ne": True}},
+            {"_id": 1},
+        )
+        if not active_bill:
+            continue
+        for offer in (row.get("candidates") or [])[:3]:
+            if offer.get("valid_until") and offer["valid_until"] < now.date().isoformat():
+                continue
+            out.append({
+                "ref": f"energy_offer:{offer['code']}",
+                "commodity": row["commodity"],
+                "name": offer["name"], "seller": offer["seller"],
+                "offer_url": offer["url"], "official_export_url": row["source_url"],
+                "observed_at": row["source_fetched_at"],
+                "valid_until": offer.get("valid_until"),
+                "bill_ref": f"document:{row['document_id']}",
+                "annual_consumption": row["annual_consumption"],
+                "estimated_seller_year": offer["estimated_seller_year"],
+                "current_seller_year": offer.get("current_seller_year"),
+                "potential_saving_year": offer.get("potential_saving_year"),
+                "comparison_basis": offer["comparison_basis"],
+                "caveat": (
+                    "Solo componenti di vendita confrontate; non e' il totale annuo della bolletta."
+                    if offer["comparison_basis"] == "seller_components_only"
+                    else "Offerta presente nella fonte pubblica; convenienza rispetto alla bolletta non verificata."
+                ),
+            })
+    return out[:MAX_PER_SOURCE]
+
+
 async def _existing_work(db, user_id: str, now: datetime) -> List[Dict[str, Any]]:
     """
     What is already on the person's plate.
@@ -667,6 +710,7 @@ def evidence_refs(snapshot: Dict[str, Any]) -> Dict[str, str]:
     take("disagreement", snapshot.get("disagreements"))
     take("existing_work", snapshot.get("existing_work"))
     take("document", snapshot.get("documents"))
+    take("energy_offer", snapshot.get("energy_offers"))
 
     presence = snapshot.get("presence") or {}
     if presence.get("place_ref"):

@@ -1,3 +1,7 @@
+## 2026-09-25 — Fonte offerte energia
+
+`energy_offers` estrae un profilo minimo dalla bolletta, legge l'export XML ufficiale, confronta soltanto tariffe semplici e salva il prossimo controllo in MongoDB. Il runtime `ambient` esegue un controllo dovuto per minuto; `opportunities.snapshot` porta al modello soltanto offerte recenti, con provenienza e limiti del confronto. L'API autenticata e il pannello Documenti danno visibilità e controllo. Contratto e limiti in `ENERGY_OFFER_MONITOR.md`.
+
 ## 2026-09-22 — Aggiornamenti: scheda e prossimo passo condivisi
 
 ## 2026-09-25 — Voice latency and concise closing

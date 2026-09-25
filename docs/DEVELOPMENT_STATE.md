@@ -1,3 +1,7 @@
+## 2026-09-25 — Monitor offerte energia in revisione
+
+Implementato su branch isolato: trigger da bolletta, monitor settimanale persistente, catalogo pubblico con cache, confronto prudente, alternative citabili, pannello Documenti e pausa. Test sintetici locali passati. Da verificare su staging, prima di qualunque attivazione produttiva: download XML reale dal servizio Railway, corrispondenza del tracciato e dell'offerta attuale, lettura di bollette sintetiche, ciclo periodico e UI. Il confronto monetario gas e le offerte complesse restano fuori finché non esiste una stima affidabile. Vedi `ENERGY_OFFER_MONITOR.md`.
+
 ## 2026-09-22 — Aggiornamenti: scheda e prossimo passo condivisi
 
 ## 2026-09-25 — Voice latency and concise closing

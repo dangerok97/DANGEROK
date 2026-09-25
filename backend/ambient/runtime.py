@@ -335,6 +335,14 @@ async def _loop() -> None:
                 _stats["sources_deferred_for_call"] += 1
             else:
                 await read_sources(db)
+                # One due supply per minute, using the ambient loop already
+                # recovered on restart. No second scheduler or per-user timer.
+                if ticks % 6 == 0:
+                    try:
+                        from energy_offers.service import EnergyOfferService
+                        await EnergyOfferService(db).run_due()
+                    except Exception as exc:
+                        logger.info("energy offer poll soft-fail: %s", type(exc).__name__)
             from agent.background import recover_due
             await recover_due(db, admit=not _a_call_is_live())
             await tick(db)
