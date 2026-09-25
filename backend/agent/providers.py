@@ -156,7 +156,7 @@ async def read_internal_state(db, owner_id: str, goal) -> CapabilityOutcome:
     )
 
 
-async def read_documents(db, owner_id: str, goal) -> CapabilityOutcome:
+async def read_documents(db, owner_id: str, goal, *, step=None) -> CapabilityOutcome:
     """
     What documents exist and what they are, structurally.
 
@@ -165,10 +165,13 @@ async def read_documents(db, owner_id: str, goal) -> CapabilityOutcome:
     too; handing over extracted text by default is how a capability called
     "list the documents" ends up disclosing a payslip.
     """
+    if step is not None and step.input_refs:
+        from agent.document_read import read_excerpt
+        return await read_excerpt(db, owner_id, step)
     try:
         docs = await db.documents.find(
             {"user_id": owner_id, "deleted": {"$ne": True}, "archived": {"$ne": True}},
-            {"_id": 0, "id": 1, "filename": 1, "mime_type": 1, "tags": 1,
+            {"_id": 0, "id": 1, "filename": 1, "original_filename": 1, "display_title": 1, "mime_type": 1, "tags": 1,
              "created_at": 1, "detected_language": 1},
         ).sort("created_at", -1).to_list(MAX_DOCUMENTS)
     except Exception as e:
@@ -202,7 +205,7 @@ async def read_documents(db, owner_id: str, goal) -> CapabilityOutcome:
     claims = [
         Claim(
             text=(
-                f"C'e un documento: {d.get('filename') or 'senza nome'}"
+                f"document:{d.get('id')}: {d.get('display_title') or d.get('original_filename') or d.get('filename') or 'senza nome'}"
                 + (f" ({', '.join(d.get('tags') or [])})" if d.get("tags") else "")
             )[:400],
             supports="cosa risulta in archivio",

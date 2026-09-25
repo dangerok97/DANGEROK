@@ -761,6 +761,8 @@ class AgentService:
             intent=intent[:280],
             step_type=step_type,  # type: ignore[arg-type]
             capability_needed=str(raw.get("capability_needed") or "")[:60],
+            input_refs=[str(ref)[:160] for ref in (raw.get("input_refs") or []) if isinstance(ref, str)][:8]
+            if isinstance(raw.get("input_refs"), list) else [],
             expected_result=str(raw.get("expected_result") or "")[:300],
             external_effect=bool(raw.get("external_effect")),
             effect_type=(

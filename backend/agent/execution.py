@@ -231,6 +231,8 @@ class StepExecutor:
         # comparisons, so that no branch in this file can ever come to depend
         # on what a goal happens to be about.
         reader = _READERS.get(capability, providers.read_internal_state)
+        if capability == "document.read":
+            return await reader(self.db, owner_id, goal, step=step)
         return await reader(self.db, owner_id, goal)
 
     async def _as_result(self, owner_id, goal, step, outcome) -> ExecutionResult:

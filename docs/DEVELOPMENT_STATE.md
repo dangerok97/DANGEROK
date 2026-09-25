@@ -4,6 +4,19 @@
 
 ### Nuova priorità 25/09 — autonomia trasversale prima di iPhone
 
+Checkpoint A1 successivo: document.read ora distingue elenco metadati da
+lettura mirata con input_refs=[document:id]. Planner, parser, executor e
+persistenza evidenze conservano riferimento, estratto e versione del testo.
+Ogni lettura verifica proprietario/deleted/archived, oltre al permesso di
+capability nell'executor. Estratti limitati a 4.000 caratteri, continuazione
+esplicita e controllo versione; testo non verificato, nessuna promozione
+automatica a fatto affidabile. Testi assenti non producono successo.
+50 test locali PASS (lettura, admission, background e autonomous action loop),
+compileall e diff-check PASS. Nessuna nuova estrazione/OCR o integrazione:
+riuso del testo estratto Documents V2. Non ancora prova del comportamento
+spontaneo del modello o del confronto utile su provider reali. Restano
+lettura allegati email, selezione/approfondimento live, calcoli e risultati.
+
 Autorizzazione permanente del proprietario, 25/09: commit, push e deploy
 del progetto ORA espressamente autorizzati anche nei passaggi successivi.
 Non richiedere nuovamente consenso per queste operazioni ordinarie.

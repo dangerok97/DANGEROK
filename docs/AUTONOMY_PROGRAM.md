@@ -123,6 +123,14 @@ confermati. Nessuna voce «funziona» basata soltanto sul nome di un modulo.
 
 ### A1 — Informazioni sufficienti e relazioni tra ambiti
 
+Checkpoint 25/09: implementata lettura esplicita del testo estratto tramite
+document.read, preservando riferimenti nel planner/parser/executor. Elenco
+metadati senza input_refs; un documento alla volta con input_refs, estratti
+limitati e offset/versione per continuare. Controlli owner/deleted/archived,
+permesso capability, testo assente e dati cambiati. 50 test locali PASS.
+Non chiude A1: il modello deve ancora dimostrare scelta e lettura spontanea
+nel ciclo completo; nessuna acquisizione nuova di allegati Gmail aggiunta.
+
 - Dal riassunto risalire al documento/fatto originale su necessità motivata,
   con controllo permessi e appartenenza a ogni lettura.
 - Verificare percorso posta → allegato → ingestione documentale esistente;
