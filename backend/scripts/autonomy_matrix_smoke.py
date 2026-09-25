@@ -5,6 +5,7 @@ all attempts, inspect drafts manually, and never substitute stage-only success.
 """
 import asyncio
 import logging
+import os
 from scripts import autonomy_loop_smoke as loop
 
 CASES = [
@@ -34,8 +35,12 @@ CASES = [
 async def main():
     original_report = loop.report
     outcomes = []
+    chosen = {name for name in os.environ.get("ORA_MATRIX_CASES", "").split(",") if name}
+    attempts = min(3, max(1, int(os.environ.get("ORA_MATRIX_ATTEMPTS", "3"))))
     for case in CASES:
-        for attempt in range(1, 4):
+        if chosen and case["id"] not in chosen:
+            continue
+        for attempt in range(1, attempts + 1):
             def contextual(stage, **fields):
                 original_report(stage, case=case["id"], attempt=attempt, **fields)
             loop.report = contextual
