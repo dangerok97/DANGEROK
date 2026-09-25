@@ -1,11 +1,12 @@
 """Produce and persist a grounded draft; an intention is never a deliverable."""
-from agent.evidence import EvidenceStore, REAL_SOURCES, for_verification
+import json
+from agent.evidence import EvidenceStore, REAL_SOURCES
 from agent.models import ResultProvenance
 
 
 async def prepare(db, owner_id, goal, step):
     from agent.providers import CapabilityOutcome, Claim
-    from agent.reasoning import _DISCIPLINE, _dump, _ask_model
+    from agent.reasoning import _DISCIPLINE, _ask_model
 
     provenance = ResultProvenance(source_class="internal_observation",
         capability=step.capability_needed or "prepare", provider="generated_draft",
@@ -19,19 +20,30 @@ async def prepare(db, owner_id, goal, step):
                 if e.provenance.source_class in REAL_SOURCES and e.provenance.provider != "generated_draft"][-12:]
     if not evidence:
         return unavailable("preparation_sources_required")
+    rows = [{"id": e.id, "claim": e.claim, "source_class": e.provenance.source_class,
+             "source_refs": e.provenance.source_refs[:4], "observed_at": e.observed_at,
+             "limits": e.provenance.certainty_note[:180]} for e in evidence]
+    payload = {"goal": goal.for_ai(), "step": step.for_ai(), "evidence": rows, "evidence_truncated": False}
+    while len(json.dumps(payload, ensure_ascii=False, default=str)) > 9000 and len(rows) > 1:
+        rows.pop(0)
+        payload["evidence_truncated"] = True
+    if len(json.dumps(payload, ensure_ascii=False, default=str)) > 9000:
+        return unavailable("preparation_context_too_large")
     answer = await _ask_model(_DISCIPLINE + "\nProduce the actual useful draft requested by the step. "
-        "Never just say it is ready. Use only supplied evidence, preserve uncertainty and restrictions. "
+        "Never just say it is ready or describe having read a source. State the useful findings, "
+        "their implications and tradeoffs. When comparable costs are supplied, show the totals "
+        "including fees and the difference, preserving time periods and constraints. "
+        "Use only supplied evidence, preserve uncertainty and restrictions. "
         "Do not invent prices, sources or executed actions. This is a draft, not independent evidence. "
         "Return JSON {\"content\": \"the complete draft in Italian, maximum 4000 characters\", "
         "\"evidence_ids\": [\"IDs of supplied evidence actually used\"]}. "
         "If the evidence cannot support a useful draft return empty content.",
-        _dump({"goal": goal.for_ai(), "step": step.for_ai(),
-               "evidence": [{**row, "id": item.id} for item, row in zip(evidence, for_verification(evidence))]}))
+        json.dumps(payload, ensure_ascii=False, default=str))
     if not isinstance(answer, dict):
         return unavailable("preparation_model_unavailable", True)
     content = answer.get("content")
     refs = answer.get("evidence_ids")
-    allowed = {e.id for e in evidence}
+    allowed = {row["id"] for row in rows}
     if (not isinstance(content, str) or not content.strip() or len(content) > 4000
             or not isinstance(refs, list) or not refs or len(refs) > 12
             or any(not isinstance(ref, str) or ref not in allowed for ref in refs)):

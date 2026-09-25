@@ -62,12 +62,20 @@ async def test_background_document_goal_reads_and_verifies_without_home(monkeypa
         assert "document:d1" in found
         return {"outcome":"achieved", "reasoning":"Il documento dichiara 120 euro annui; non è un confronto di mercato."}
     monkeypatch.setattr(reasoning,"verify_goal",AsyncMock(side_effect=verify))
+    async def draft(system, payload):
+        import json
+        rows = json.loads(payload)["evidence"]
+        assert "120 euro" in str(rows)
+        return {"content": "Il documento dichiara un costo annuo di 120 euro, non verificato sul mercato.",
+                "evidence_ids": [row["id"] for row in rows]}
+    monkeypatch.setattr(reasoning, "_ask_model", draft)
     await recover_due(db)
     await recover_due(db)
     result = await tick(db, now=datetime.now(timezone.utc)+timedelta(minutes=1))
     goal = await db.agent_goals.find_one({"owner_id":"alice"})
     assert goal["status"] == "completed", (result, await db.ambient_wakes.find({}, {"last_error":1}).to_list(10))
     assert goal["origin"] == "agent_initiated"
+    assert "120 euro" in goal["prepared_text"] and goal["prepared_sources"]
     assert await db.agent_receipts.count_documents({}) == 0
     if len(text)>4000:
         assert replanner.await_count >= 1

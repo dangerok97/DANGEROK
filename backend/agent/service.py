@@ -903,6 +903,31 @@ class AgentService:
         intents = await self.executor.intents_for(owner_id, goal.id)
         receipts = await self.executor.receipts_for(owner_id, goal.id)
 
+        # An autonomous read-only investigation owes the person a concrete
+        # result. Reading sources alone is not a delivered recommendation.
+        # This is a completion contract, not a new decision about relevance.
+        if (goal.origin == "agent_initiated" and goal.opportunity_id and not intents
+                and not receipts and real_support(evidence) and not goal.prepared_text):
+            if budget.exhausted() or budget.cognitive_calls + 1 >= budget.max_cognitive_calls:
+                return await self._continue_later(owner_id, goal, plan, run, "result_budget")
+            result_step = ActionStep(ordinal=len(plan.steps), step_type="prepare", capability_needed="document.create",
+                intent="Consegna le conclusioni utili, con confronto, limiti e conseguenze sostenuti dalle fonti; non il resoconto della lettura.",
+                expected_result=goal.desired_outcome[:300])
+            plan.steps.append(result_step)
+            await self.repo.save_plan(plan)
+            result = await self.executor.run(owner_id, goal, result_step,
+                may_touch_the_world=False, budget=budget)
+            result_step.status = "succeeded" if result.status == "succeeded" else "failed"
+            result_step.actual_result_ref = result.data_ref or (result.result_refs or [""])[0]
+            result_step.attempts = 1
+            run.steps_executed += 1
+            budget.steps_executed += 1
+            await self.repo.save_plan(plan)
+            if result.status != "succeeded" or not goal.prepared_text:
+                return await self._pause(owner_id, goal, plan, run,
+                    "Il risultato utile non è ancora pronto; la sola lettura non conclude il lavoro.")
+            evidence = await self.evidence.for_goal(owner_id, goal.id)
+
         if budget.cognitive_calls >= budget.max_cognitive_calls:
             return await self._continue_later(
                 owner_id, goal, plan, run, "cognitive_calls"
@@ -916,6 +941,7 @@ class AgentService:
                 "what_was_found": for_verification(evidence),
                 "steps": [s.for_ai() for s in plan.steps],
                 "what_was_prepared": intents,
+                "prepared_result": goal.prepared_text or None,
                 # What services said back, and the warning that goes with it.
                 "what_the_services_said": [
                     ExecutionReceipt.model_validate(r).for_ai() for r in receipts

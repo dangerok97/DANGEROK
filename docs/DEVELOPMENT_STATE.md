@@ -3558,3 +3558,23 @@ di invio, mercato reale o dell'intero account. Deadline 240 s; eventuali
 continuazioni tecniche accelerate solo nel DB in memoria. Mongomock-motor
 0.0.36 è dipendenza di test già in requirements-local, installata solo nel
 contenitore diagnostico di predeploy, senza aggiungerla al runtime dell'app.
+
+### Primo ciclo completo con modello reale: lettura completata, risultato assente
+
+Deployment 4e2c72fd-0000-43f5-aa05-3f28443b65e0, SHA f2719cc: diagnostica
+completa effettivamente eseguita. Discovery crea 1 opportunità; goal completed
+senza domanda; 5 evidenze, ma prepared_text vuoto e motivazione limitata a
+«documento letto»: gate FAIL. Questo non soddisfa l'obiettivo del prodotto.
+
+Correzione: per nuove indagini autonome collegate a un'opportunità, senza
+effetti esterni, la conclusione richiede prima un risultato concreto persistito.
+L'executor document.create produce la bozza dalle evidenze, poi il verificatore
+valuta anche quella. Lettura sola non basta. Budget e permessi restano attivi;
+assenza di risultato non diventa completed. La preparazione compatta le fonti
+strutturalmente entro 9.000 caratteri, senza tagliare JSON o permettere citazioni
+a fonti escluse. Ciclo locale breve/paginato ora verifica anche il risultato.
+
+Comando predeploy funzionante: un solo python -c che installa la dipendenza
+di test e poi usa runpy; il comando con && aveva eseguito solo pip. Tentativi
+precedenti senza output diagnostico non conteggiati. Predeploy ripristinato
+a [] dopo ogni prova conclusa. Prossimo gate: riesecuzione del ciclo corretto.
