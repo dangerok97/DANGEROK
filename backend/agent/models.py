@@ -661,6 +661,8 @@ class AutonomousGoal(BaseModel):
     # Durable continuation; absent on legacy goals (no unsolicited replay).
     next_run_at: Optional[str] = None
     background_runs: int = 0
+    prepared_text: str = Field(default="", max_length=4000)
+    prepared_sources: List[str] = Field(default_factory=list, max_length=12)
 
     def touch(self) -> None:
         self.updated_at = now_iso()
@@ -692,6 +694,7 @@ class AutonomousGoal(BaseModel):
             "outcome": self.desired_outcome,
             "why_now": self.why_now or None,
             "source": self.where_it_came_from(),
+            "prepared_text": self.prepared_text or None,
             "needs_you": self.what_it_needs_from_you(),
             #     E SE NON SO QUALE, LO DICO.
             "unclear": (

@@ -493,28 +493,9 @@ async def do_comparison(
 # --- preparing, which changes nothing --------------------------------------
 
 async def prepare_locally(db, owner_id: str, goal, step) -> CapabilityOutcome:
-    """
-    Produce something without touching anything.
-
-    Real in the only sense that matters here — nothing outside ORA is
-    involved, so there is nothing to stand in for. The provenance says
-    `deterministic_computation` because that is what it is: ORA arranged what
-    it already had.
-    """
-    return CapabilityOutcome(
-        status="succeeded",
-        observation=f"Ho preparato: {step.intent}"[:600],
-        provenance=ResultProvenance(
-            source_class="deterministic_computation",
-            capability=step.capability_needed or "prepare",
-            freshness="fresh",
-        ),
-        claims=[Claim(
-            text=f"E pronto: {step.intent}"[:600],
-            supports=(step.expected_result or "")[:300],
-        )],
-        data_ref=f"prep:{step.id}",
-    )
+    """Return success only after a source-grounded draft has been persisted."""
+    from agent.preparation import prepare
+    return await prepare(db, owner_id, goal, step)
 
 
 async def open_navigation(db, owner_id: str, goal, step) -> CapabilityOutcome:

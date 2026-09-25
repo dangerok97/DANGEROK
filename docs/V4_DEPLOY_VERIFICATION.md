@@ -104,3 +104,22 @@ compileall e diff-check PASS. Il modello live ha risposto nei log del cloud,
 ma ciò non dimostra da solo un risultato utile autonomo. Serve ancora il gate
 positivo live in ambiente isolato; la fixture dimostrativa non è un contratto
 reale e non deve produrre false raccomandazioni personali.
+
+## 2026-09-25 — V4: risultato preparato reale, non solo dichiarato
+
+Rimosso il falso successo di prepare_locally: ripeteva il nome dell'azione
+senza creare alcuna bozza. Ora richiede evidenze del medesimo proprietario
+e obiettivo, produce contenuto tramite modello, valida i riferimenti citati
+e salva prepared_text/prepared_sources dentro agent_goals prima del successo.
+Nessuna raccolta o indice nuovo. Bozze precedenti non sono fonti indipendenti.
+Obiettivi chiusi o non appartenenti all'utente non possono essere modificati.
+La bozza completa è visibile nel dettaglio dell'aggiornamento; non equivale
+a un'azione esterna o a un fatto verificato indipendentemente.
+
+78 test mirati PASS, TypeScript noEmit/export web e compilazione Python PASS.
+Script opt-in scripts/autonomy_model_smoke.py: sola diagnostica di discovery,
+admission e piano con modello reale e persona interamente sintetica. Non
+importa deps/server, non legge Mongo e non esegue capability. Deadline 150 s,
+esito esplicito anche su errore; non blocca l'avvio dell'app. Non prova il
+ciclo completo in produzione. Esecuzione manuale nel predeploy temporaneo,
+poi ripristino della configurazione precedente.

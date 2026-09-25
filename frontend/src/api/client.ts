@@ -3091,6 +3091,7 @@ export type NotificationPreferences = {
  * was never given.
  */
 export type HomeAgentWork = {
+  prepared_text?: string | null;
   action?: HomeActionDef;
   id: string;
   what: string;

@@ -19,6 +19,7 @@ import type { HomeV2Response } from '@/src/api/client';
 export type GenereAggiornamento = 'lavoro' | 'suggerimento' | 'spunto' | 'occasione';
 
 export type Aggiornamento = {
+  testo_preparato?: string;
   id: string;
   genere: GenereAggiornamento;
   /** Di che cosa si tratta, in una riga. */
@@ -52,6 +53,7 @@ export function elencoAggiornamenti(home: HomeV2Response | null | undefined): Ag
   const lavori: Aggiornamento[] = (home.agent_work || []).slice(0, 2).map((w) => ({
     id: w.id,
     genere: 'lavoro',
+    testo_preparato: w.prepared_text || '',
     cosa: w.what,
     perche: w.why_now || '',
     fonte: w.source || SENZA_FONTE,

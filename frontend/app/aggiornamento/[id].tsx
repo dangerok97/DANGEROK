@@ -168,6 +168,15 @@ function Dettaglio({ a, onRemoved }: { a: Aggiornamento; onRemoved: () => void }
         testID="dettaglio-facendo"
       />}
 
+      {a.testo_preparato ? <Voce
+        icona="document-text-outline"
+        titolo="Risultato preparato"
+        testo={a.testo_preparato}
+        mancante=""
+        nota="Bozza basata sulle informazioni disponibili; nessuna azione esterna eseguita."
+        testID="dettaglio-risultato"
+      /> : null}
+
       <Voce
         icona="hand-left-outline"
         titolo="Cosa serve a te"
