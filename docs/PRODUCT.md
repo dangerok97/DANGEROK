@@ -1219,3 +1219,8 @@ Questo dimostra soltanto la fixture negativa, non precisione generale di
 opportunità o comportamento dell'account personale. Il comando temporaneo di
 predeploy è stato riportato a [] dopo la prova. Restano da verificare gli altri
 due domini con il controllo di fattibilità introdotto nello stesso SHA.
+
+
+### V4 — iniziativa conservata quando la risposta è incompleta (25/09/2026)
+
+La matrice isolata con modello reale ha dato studio 1/2 e viaggio/lavoro 1/2 al gate automatico. Una proposta di studio senza campi essenziali è stata scartata e il cambiamento è stato segnato come già esaminato: un'occasione utile poteva perdersi. La correzione in PR bozza conserva il cambiamento per un nuovo esame dopo un breve intervallo. Il silenzio esplicito continua a essere una decisione valida. La qualità delle opzioni e la chiusura dei goal restano gate aperti; questi risultati non provano ancora l'autonomia trasversale.

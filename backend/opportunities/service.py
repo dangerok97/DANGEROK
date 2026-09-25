@@ -96,7 +96,14 @@ class OpportunityService:
             )
 
         raw = answer.get("opportunities")
-        if not isinstance(raw, list) or not raw:
+        if not isinstance(raw, list):
+            return ScanResult(
+                silence=True,
+                unavailable=True,
+                unavailable_sources=blind_to,
+                reason_for_silence="risposta non valutabile",
+            )
+        if not raw:
             return ScanResult(
                 silence=True,
                 unavailable_sources=blind_to,
@@ -106,10 +113,12 @@ class OpportunityService:
         allowed_refs = life_snapshot.evidence_refs(state)
         by_identity = {o.identity_key: o for o in known}
         result = ScanResult(silence=False, unavailable_sources=blind_to)
+        invalid_candidates = 0
 
         for item in raw[:MAX_PER_SCAN]:
             candidate, why_not = self._read_candidate(item, allowed_refs)
             if candidate is None:
+                invalid_candidates += 1
                 result.skipped.append({"reason": why_not})
                 continue
 
@@ -190,10 +199,15 @@ class OpportunityService:
             await self._look_before_asking(user_id, opportunity, language)
             result.created.append(opportunity)
 
+        if invalid_candidates:
+            # Keep the source change pending even when another proposal in
+            # this batch was valid: the rejected concern has not been reviewed.
+            result.unavailable = True
         if not result.created and not result.updated:
             result.silence = True
             result.reason_for_silence = (
-                result.reason_for_silence or "nulla è sopravvissuto ai controlli"
+                "proposte non valutabili" if invalid_candidates
+                else result.reason_for_silence or "nulla è sopravvissuto ai controlli"
             )
         return result
 
@@ -506,3 +520,4 @@ class OpportunityService:
 
     async def list_active(self, user_id: str) -> List[Opportunity]:
         return await self.repo.list(user_id, statuses=["active"])
+

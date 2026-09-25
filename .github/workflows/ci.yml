@@ -61,6 +61,11 @@ jobs:
       - name: compileall
         working-directory: backend
         run: python -m compileall -q .
+      - name: Autonomous discovery retry
+        working-directory: backend
+        run: |
+          pip install mongomock-motor==0.0.36
+          python -m pytest -q tests/test_discovery_retry_v4.py
       - name: Vita profile, flow and state semantics
         working-directory: backend
         run: |
@@ -185,3 +190,4 @@ jobs:
       # area/gap-driven. Keep the spec in-repo as legacy coverage until it is
       # rewritten against the current product flow. Do not mark that legacy
       # behavior as a product regression merely to make CI green.
+

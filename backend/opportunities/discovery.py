@@ -183,6 +183,7 @@ class OpportunityDiscovery:
             # back is the difference between "we looked and there was nothing"
             # and "we never looked" — and only one of those is true.
             await self.changes.release(owner_id, batch)
+            await self._defer_retry(owner_id)
             return DiscoveryResult(
                 ran=True, reason=reason, changes_reviewed=len(batch), scan=scan
             )
@@ -228,6 +229,18 @@ class OpportunityDiscovery:
         except Exception as e:
             logger.info("scan state write soft-fail: %s", type(e).__name__)
 
+    async def _defer_retry(self, owner_id: str) -> None:
+        # Rate-limit an invalid or unavailable model response without storing
+        # a fingerprint: the same facts must still be reviewed after cooldown.
+        try:
+            await self.db[STATE].update_one(
+                {"owner_id": owner_id},
+                {"$set": {"last_scan_at": _now().isoformat()}},
+                upsert=True,
+            )
+        except Exception as e:
+            logger.info("scan retry state write soft-fail: %s", type(e).__name__)
+
     async def forget_all(self, owner_id: str) -> Dict[str, int]:
         removed = await self.changes.forget_all(owner_id)
         try:
@@ -235,3 +248,4 @@ class OpportunityDiscovery:
         except Exception:
             pass
         return {"changes_deleted": removed}
+
