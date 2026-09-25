@@ -7,6 +7,7 @@ Only records written through the new save path qualify (no historical backfill).
 import asyncio
 import hashlib
 import json
+import logging
 import uuid
 from datetime import datetime, timedelta, timezone
 
@@ -16,6 +17,7 @@ COLLECTION = "opportunities"
 LEASE_SECONDS = 120
 TIMEOUT_SECONDS = 45
 MAX_ATTEMPTS = 3
+logger = logging.getLogger(__name__)
 
 
 def fingerprint(opportunity):
@@ -113,5 +115,6 @@ async def drain(db, *, owner_id=None, now=None, limit=2):
             {"id": row["id"], "owner_id": row["owner_id"], "agent_review_token": token},
             {"$unset": {"agent_review_token": "", "agent_review_lease_until": ""}},
         )
+        logger.info("agent_admission outcome=%s state=%s attempt=%d", outcome, state, attempts)
         handled += 1
     return handled

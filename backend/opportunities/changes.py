@@ -355,6 +355,10 @@ def fingerprint(snapshot: Dict[str, Any]) -> str:
             "calendar",
             "existing_work",
             "documents",
+            "situations",
+            "disagreements",
+            "money",
+            "unavailable_sources",
             # Coarse temporal facts: what the passing of time has done.
             "temporal",
         )

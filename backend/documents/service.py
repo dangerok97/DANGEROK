@@ -16,6 +16,7 @@ Iterazione 19). Non estrae contenuto (né OCR né AI).
 from __future__ import annotations
 
 import logging
+import hashlib
 import os
 import uuid
 from datetime import datetime, timezone
@@ -282,6 +283,7 @@ class DocumentService:
         payload = {
             "text_extracted": bool(extracted_text),
             "extracted_text": extracted_text,
+            "extracted_text_hash": hashlib.sha256(extracted_text.encode()).hexdigest(),
             "extraction_engine": result.engine,
             "ocr_used": result.ocr_used,
             "pages": result.pages,

@@ -178,6 +178,7 @@ class OpportunityDiscovery:
         )
 
         if scan.unavailable:
+            logger.info("opportunity_review outcome=unavailable changes=%d", len(batch))
             # Nothing was read, so nothing has been reviewed. Putting the batch
             # back is the difference between "we looked and there was nothing"
             # and "we never looked" — and only one of those is true.
@@ -187,6 +188,12 @@ class OpportunityDiscovery:
             )
 
         await self._remember(owner_id, fingerprint=print_)
+        logger.info(
+            "opportunity_review outcome=%s changes=%d documents=%d created=%d updated=%d missing_sources=%d",
+            "silence" if scan.silence else "opportunities", len(batch),
+            len(snapshot.get("documents") or []), len(scan.created), len(scan.updated),
+            len(scan.unavailable_sources),
+        )
         return DiscoveryResult(
             ran=True, reason=reason, changes_reviewed=len(batch), scan=scan
         )

@@ -10,8 +10,7 @@ from agent import reasoning
 from agent.service import AgentService
 from agent.background import recover_due
 from ambient.runtime import tick
-from opportunities.models import Opportunity
-from opportunities.repository import OpportunityRepository
+from opportunities.discovery import OpportunityDiscovery
 
 
 @pytest.mark.asyncio
@@ -26,9 +25,20 @@ async def test_background_document_goal_reads_and_verifies_without_home(monkeypa
     db = AsyncMongoMockClient().test
     await db.agent_runs.create_index("goal_id", unique=True)
     await db.documents.insert_one({"id":"d1", "user_id":"alice", "filename":"PROVA.txt", "extracted_text":text})
-    opp = Opportunity(owner_id="alice", identity_key="fixture:document", status="active",
-                      semantic_summary="Condizioni nuove da verificare", why_it_matters="Conoscere il costo dichiarato", initiative="prepare")
-    await OpportunityRepository(db).save(opp)
+    from opportunities import reasoning as opportunity_reasoning, snapshot
+    for name in ("_open_questions", "_recently_settled", "_places", "_presence", "_routines", "_comparisons", "_calendar", "_situations", "_disagreements", "_money", "_existing_work"):
+        monkeypatch.setattr(snapshot, name, AsyncMock(return_value=[]))
+    async def scan(state, **kwargs):
+        assert state["documents"][0]["ref"] == "document:d1"
+        assert state["documents"][0]["text_available"]
+        return {"opportunities": [{"identity_key": "fixture:document",
+            "what": "Condizioni nuove da verificare", "why_it_matters": "Conoscere il costo dichiarato",
+            "initiative": "prepare", "evidence_refs": ["document:d1"]}]}
+    monkeypatch.setattr(opportunity_reasoning, "scan", AsyncMock(side_effect=scan))
+    discovery = OpportunityDiscovery(db)
+    await discovery.note("alice", source="documents", kind="document.added", entity_ref="d1", wake=False)
+    review = await discovery.review("alice")
+    assert review.ran and len(review.scan.created) == 1
     monkeypatch.setattr(AgentService,"_note_ambient",AsyncMock())
     monkeypatch.setattr(AgentService,"_consider_visibility",AsyncMock())
     monkeypatch.setattr(AgentService,"_observe_life_change",AsyncMock())

@@ -23,7 +23,7 @@ export function suggestionsFrom(items: DocItem[]): Suggerimento[] {
         id: it.id,
         icon: 'alert-circle-outline',
         title: `Verifica «${it.title}»`,
-        body: 'ORA non è riuscita a leggerlo bene: serve una copia più chiara.',
+        body: 'Alcuni dettagli dell’analisi richiedono una verifica. Apri il documento per controllarli.',
       });
     } else if (it.status === 'failed') {
       fuori.push({

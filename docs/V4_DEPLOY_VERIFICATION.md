@@ -81,3 +81,26 @@ Il documento sintetico non rappresenta un contratto reale: non si pretende
 un'offerta commerciale o un risparmio reale come esito del test. Nessun
 confronto spontaneo live validato; la prova locale con modello controllato
 non chiude il gate di qualità dell'iniziativa.
+
+## 2026-09-25 — V4: riesame dopo estrazione e cambiamenti di vita
+
+L'estrazione salva extracted_text_hash insieme al testo. Il sensore documenti
+osserva il digest, senza copiare contenuto nei segnali: il testo arrivato dopo
+la prima osservazione provoca document.updated; una riestrazione identica
+non genera rumore. I record storici privi di hash restano compatibili, senza
+backfill. Nessuna nuova integrazione o dipendenza runtime.
+
+Il fingerprint della discovery comprende ora anche situazioni, disaccordi,
+quadro economico e fonti indisponibili: prima un cambiamento solo in queste
+fonti poteva essere saltato come già esaminato. Log a contatori distinguono
+review silenziosa, opportunità, errore e risultato admission senza contenuti
+o identificativi personali. Il messaggio needs_review non presume più OCR
+fallito o necessità di una copia più chiara.
+
+71 test PASS su nove suite mirate. La prova integrata parte dalla discovery
+documentale effettiva, passa per admission/background e termina con evidenze
+lette; restano controllate le decisioni AI. TypeScript noEmit, export web,
+compileall e diff-check PASS. Il modello live ha risposto nei log del cloud,
+ma ciò non dimostra da solo un risultato utile autonomo. Serve ancora il gate
+positivo live in ambiente isolato; la fixture dimostrativa non è un contratto
+reale e non deve produrre false raccomandazioni personali.

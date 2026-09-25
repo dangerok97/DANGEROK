@@ -39,11 +39,11 @@ MAX_ROWS = 40
 # What a person could notice about a document of theirs. `content` is the
 # file's own hash: whether this is still the same file, which is observable
 # without the file ever being read.
-_OBSERVABLE = ("title", "tags", "notes", "content", "archived", "deleted")
+_OBSERVABLE = ("title", "tags", "notes", "content", "extracted_content", "archived", "deleted")
 
 # Their private annotation, and the file's identity. Compared by digest, so
 # "it changed" is answerable and what it changed to is never written down.
-_WITHHELD = ("notes", "content")
+_WITHHELD = ("notes", "content", "extracted_content")
 
 
 async def read_changes(
@@ -68,7 +68,7 @@ async def read_changes(
             query,
             {"_id": 0, "id": 1, "title": 1, "filename": 1, "created_at": 1,
              "updated_at": 1, "document_type": 1, "tags": 1, "notes": 1,
-             "hash": 1, "archived": 1, "deleted": 1},
+             "hash": 1, "extracted_text_hash": 1, "archived": 1, "deleted": 1},
         ).sort("updated_at", 1).to_list(MAX_ROWS)
     except Exception as e:
         logger.info("documents read soft-fail: %s", type(e).__name__)
@@ -94,6 +94,7 @@ async def _signal_for(seen: SeenState, owner_id: str, row: Dict[str, Any]):
         "tags": ", ".join(str(t) for t in (row.get("tags") or []))[:160],
         "notes": str(row.get("notes") or ""),
         "content": str(row.get("hash") or ""),
+        "extracted_content": str(row.get("extracted_text_hash") or ""),
         "archived": "si" if row.get("archived") else "no",
         "deleted": "si" if row.get("deleted") else "no",
     }
@@ -102,7 +103,8 @@ async def _signal_for(seen: SeenState, owner_id: str, row: Dict[str, Any]):
     # constant nothing consults is a comment that looks like code, and the
     # day somebody edits it expecting an effect is the day a whole kind of
     # change stops being seen.
-    observable = {field: readings[field] for field in _OBSERVABLE}
+    observable = {field: readings[field] for field in _OBSERVABLE
+                  if field != "extracted_content" or row.get("extracted_text_hash")}
     known, changes = await seen.compare(
         owner_id, "documents", doc_id,
         observable=observable, withheld=_WITHHELD,
@@ -164,6 +166,7 @@ def _in_words(name: str, changes) -> str:
         "tags": "le etichette",
         "notes": "le note",
         "content": "il file",
+        "extracted_content": "il testo disponibile",
         "archived": "dov'è",
         "deleted": "dov'è",
     }
