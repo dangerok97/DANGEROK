@@ -177,18 +177,21 @@ class OpportunityDiscovery:
             source_context=reason,
         )
 
-        if scan.unavailable:
-            logger.info("opportunity_review outcome=unavailable changes=%d", len(batch))
-            # Nothing was read, so nothing has been reviewed. Putting the batch
-            # back is the difference between "we looked and there was nothing"
-            # and "we never looked" — and only one of those is true.
+        if scan.unavailable or scan.retry_required:
+            logger.info(
+                "opportunity_review outcome=%s changes=%d",
+                "unavailable" if scan.unavailable else "partial", len(batch),
+            )
+            # A malformed or partly usable answer cannot settle this batch.
+            # Keep valid proposals, and retry the unresolved source change.
             await self.changes.release(owner_id, batch)
             await self._defer_retry(owner_id)
-            return DiscoveryResult(
-                ran=True, reason=reason, changes_reviewed=len(batch), scan=scan
-            )
-
-        await self._remember(owner_id, fingerprint=print_)
+            if scan.unavailable:
+                return DiscoveryResult(
+                    ran=True, reason=reason, changes_reviewed=len(batch), scan=scan
+                )
+        else:
+            await self._remember(owner_id, fingerprint=print_)
         logger.info(
             "opportunity_review outcome=%s changes=%d documents=%d created=%d updated=%d missing_sources=%d",
             "silence" if scan.silence else "opportunities", len(batch),

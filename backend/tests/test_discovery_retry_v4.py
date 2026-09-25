@@ -90,7 +90,8 @@ async def test_partial_batch_keeps_change_pending(monkeypatch):
     await discovery.note(owner, source="documents", kind="document.added",
                          entity_ref="d1", wake=False)
     partial = await discovery.review(owner)
-    assert partial.unavailable and len(partial.scan.created) == 1
+    assert not partial.unavailable and partial.scan.retry_required
+    assert len(partial.scan.created) == 1
     assert len(await discovery.changes.pending(owner)) == 1
     await db.opportunity_scan_state.update_one(
         {"owner_id": owner},

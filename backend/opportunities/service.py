@@ -202,9 +202,11 @@ class OpportunityService:
         if invalid_candidates:
             # Keep the source change pending even when another proposal in
             # this batch was valid: the rejected concern has not been reviewed.
-            result.unavailable = True
+            result.retry_required = True
         if not result.created and not result.updated:
             result.silence = True
+            if invalid_candidates:
+                result.unavailable = True
             result.reason_for_silence = (
                 "proposte non valutabili" if invalid_candidates
                 else result.reason_for_silence or "nulla è sopravvissuto ai controlli"

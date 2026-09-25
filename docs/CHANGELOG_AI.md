@@ -5219,4 +5219,4 @@ due domini con il controllo di fattibilità introdotto nello stesso SHA.
 
 ### 2026-09-25 — discovery incompleta e matrice V4
 
-La matrice con modello reale ha misurato studio 1/2 e viaggio/lavoro 1/2; i FAIL restano visibili. Preparata correzione: risposte malformate o proposte scartate non diventano silenzio definitivo; il cambiamento resta pending con cooldown e senza fingerprint. Aggiunto test che distingue risposta incompleta, batch parziale e silenzio esplicito. Le fixture studio/viaggio usano il proprio ID documento invece di price-options. Modifiche in PR bozza, non distribuite.
+La matrice con modello reale ha misurato studio 1/2 e viaggio/lavoro 1/2; i FAIL restano visibili. Preparata correzione: risposte malformate o proposte scartate non diventano silenzio definitivo; il cambiamento resta pending con cooldown e senza fingerprint. Aggiunto test che distingue risposta incompleta, batch parziale (le proposte valide proseguono), e silenzio esplicito. Le fixture studio/viaggio usano il proprio ID documento invece di price-options. Modifiche in PR bozza, non distribuite.

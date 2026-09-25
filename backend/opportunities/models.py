@@ -379,6 +379,9 @@ class ScanResult(BaseModel):
     # Set when no judgement could be made at all — a provider outage is not
     # silence, and must never be recorded as one.
     unavailable: bool = False
+    # Some proposals were unusable. Keep the source change pending, while
+    # allowing any valid proposals from the same scan to continue downstream.
+    retry_required: bool = False
     # Which parts of the life this scan could not see. A silence reached
     # without the calendar is not the same statement as a silence reached with
     # it, and anything that later says "tutto tranquillo" has to know which
@@ -390,7 +393,9 @@ class ScanResult(BaseModel):
             "silence": self.silence,
             "reason": self.reason_for_silence or None,
             "unavailable": self.unavailable,
+            "retry_required": self.retry_required,
             "created": [o.public() for o in self.created],
             "updated": [o.public() for o in self.updated],
             "skipped": self.skipped,
         }
+
