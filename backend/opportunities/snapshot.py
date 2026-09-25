@@ -75,6 +75,7 @@ async def build(
         ("situations", _situations),
         ("disagreements", _disagreements),
         ("money", _money),
+        ("documents", _documents),
         ("existing_work", _existing_work),
     ):
         try:
@@ -581,6 +582,38 @@ def _days_from_now(when: Optional[str], now: datetime) -> Optional[int]:
     return max(0, (start.date() - now.date()).days)
 
 
+async def _documents(db, user_id: str, now: datetime) -> List[Dict[str, Any]]:
+    """Bounded, unverified previews for discovery; fuller reads use document.read."""
+    import hashlib
+    from agent.capabilities import CapabilityResolver
+
+    access = await CapabilityResolver(db).resolve(user_id, "document.read")
+    if not access.permitted or not access.executable:
+        raise PermissionError("document.read unavailable")
+    rows = await db.documents.find(
+        {"user_id": user_id, "deleted": {"$ne": True}, "archived": {"$ne": True}},
+        {"_id": 0, "id": 1, "original_filename": 1, "display_title": 1,
+         "filename": 1, "extracted_text": 1, "updated_at": 1, "created_at": 1},
+    ).sort([("updated_at", -1), ("created_at", -1), ("id", 1)]).limit(MAX_PER_SOURCE).to_list(MAX_PER_SOURCE)
+    out = []
+    for row in rows:
+        if not row.get("id"):
+            continue
+        text = row.get("extracted_text")
+        text = text if isinstance(text, str) else ""
+        out.append({
+            "ref": f"document:{row['id']}",
+            "title": str(row.get("display_title") or row.get("original_filename") or row.get("filename") or "")[:160],
+            "unverified_excerpt": text[:1200],
+            "text_available": bool(text.strip()),
+            "excerpt_truncated": len(text) > 1200,
+            "text_version": hashlib.sha256(text.encode()).hexdigest()[:16],
+            "updated_at": row.get("updated_at") or row.get("created_at"),
+            "freshness": "unknown",
+        })
+    return out
+
+
 async def _existing_work(db, user_id: str, now: datetime) -> List[Dict[str, Any]]:
     """
     What is already on the person's plate.
@@ -630,6 +663,7 @@ def evidence_refs(snapshot: Dict[str, Any]) -> Dict[str, str]:
     take("life_object", snapshot.get("situations"))
     take("disagreement", snapshot.get("disagreements"))
     take("existing_work", snapshot.get("existing_work"))
+    take("document", snapshot.get("documents"))
 
     presence = snapshot.get("presence") or {}
     if presence.get("place_ref"):

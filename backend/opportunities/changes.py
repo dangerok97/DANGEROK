@@ -354,6 +354,7 @@ def fingerprint(snapshot: Dict[str, Any]) -> str:
             "open_comparisons",
             "calendar",
             "existing_work",
+            "documents",
             # Coarse temporal facts: what the passing of time has done.
             "temporal",
         )

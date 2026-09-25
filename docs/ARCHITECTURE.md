@@ -2774,3 +2774,24 @@ La regressione attraversa anche analyze_document e vieta eventi inventati
 per questa fixture. 60 test mirati PASS; nessuna dipendenza runtime, schema
 Mongo o configurazione nuova. Rianalisi cloud e risultato spontaneo restano
 da verificare dopo il deploy. Nessun acquisto o calendario modificato.
+
+## 2026-09-25 — V4: documenti nella valutazione preventiva
+
+Lo snapshot di discovery ora include fino a sei documenti recenti attivi del
+solo proprietario, con anteprima non verificata di massimo 1.200 caratteri,
+riferimento document:id, versione SHA256 e disponibilità del testo. Accesso
+tramite il gate document.read; fonte indisponibile distinta da archivio vuoto.
+La versione entra nel fingerprint: anche cambiamenti oltre l'anteprima
+richiedono rivalutazione. Il prompt distingue fonti, istruzioni e casi ipotetici.
+Non si forza ogni documento a diventare opportunità e non si presume che
+un documento sintetico rappresenti un contratto reale dell'utente.
+
+65 test mirati PASS (decisioni modello controllate), compileall/diff-check PASS.
+Nessuna dipendenza runtime, configurazione o migrazione. Limite esplicito:
+sei documenti recenti, nessuna garanzia di copertura dell'intero archivio.
+La selezione spontanea con modello live e il risultato utile restano gate aperti.
+
+Il checkpoint precedente 42a3f1f90547012a4356f797c2165ac0b48056db è su Railway,
+deploy c4af7aca-5fef-46fe-94fd-9d0101b4dfaf SUCCESS. Rianalisi UI del documento
+sintetico conferma categoria Documento/generic, senza appuntamento proposto.
+Nessun messaggio, acquisto o evento calendario esterno eseguito.
