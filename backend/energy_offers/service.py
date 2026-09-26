@@ -39,6 +39,16 @@ _FOCUSED_QUESTIONS = {
     "electricity": "Trova offerte luce domestiche italiane a prezzo fisso sottoscrivibili oggi con una pagina per la singola offerta del venditore che esponga esplicitamente sia il prezzo in €/kWh sia i costi di commercializzazione in €/mese o €/anno. Evita pagine che elencano più tariffe.",
     "gas": "Trova offerte gas domestiche italiane a prezzo fisso sottoscrivibili oggi con una pagina per la singola offerta del venditore che esponga esplicitamente sia il prezzo in €/Smc sia i costi di commercializzazione in €/mese o €/anno. Evita pagine che elencano più tariffe.",
 }
+_PRICE_QUERIES = {
+    "electricity": [
+        '"prezzo fisso" "€/kWh" "costi di commercializzazione" "offerta luce" casa',
+        '"prezzo fisso" "€/kWh" "quota fissa" "offerta luce" casa',
+    ],
+    "gas": [
+        '"prezzo fisso" "€/Smc" "costi di commercializzazione" "offerta gas" casa',
+        '"prezzo fisso" "€/Smc" "quota fissa" "offerta gas" casa',
+    ],
+}
 
 
 def _now() -> datetime:
@@ -176,6 +186,52 @@ async def _read_offer_pages(run: Any, candidates: list[dict[str, Any]], commodit
         candidate["source_id"]: terms
         for candidate, terms in zip(wanted, results) if terms
     }
+
+
+async def _direct_offer_search(db: Any, user_id: str, commodity: str):
+    """One bounded price-oriented web search; persist its observed sources."""
+    from conversation_engine.ai_core.tools.web_search import execute_web_search
+    from research.models import EvidenceSource, ResearchNeed, ResearchRun, new_source_id
+    from research.repository import ResearchRepository
+
+    queries = _PRICE_QUERIES.get(commodity)
+    if not queries:
+        return None
+    run = ResearchRun(
+        user_id=user_id,
+        need=ResearchNeed(question=f"Offerte {commodity} con prezzo unitario e quota fissa pubblicati oggi"),
+        situation_ref=f"market_watch_prices:{commodity}",
+        status="insufficient",
+        outcome_note="Risultati diretti: la validità di ciascuna offerta è verificata separatamente.",
+    )
+    seen: set[str] = set()
+    for query in queries:
+        run.queries_run.append(query)
+        try:
+            observation = await execute_web_search({"query": query, "max_results": 8}, {})
+            if observation.status == "failed":
+                continue
+            payload = (observation.payload or {}).get("external") or {}
+            for hit in payload.get("sources") or []:
+                url = str(hit.get("url") or "")
+                if not _public_url(url) or url in seen:
+                    continue
+                seen.add(url)
+                run.sources.append(EvidenceSource(
+                    source_id=new_source_id(), url=url,
+                    title=str(hit.get("title") or "")[:200],
+                    publisher=(urlparse(url).hostname or "")[:120],
+                    snippet=str(hit.get("snippet") or "")[:1000],
+                    found_by_query=query,
+                ))
+        except Exception as exc:
+            logger.info("direct market search unavailable: %s", type(exc).__name__)
+    if not run.sources:
+        return None
+    run.completed_at = _iso(_now())
+    run.valid_until = _iso(_now() + timedelta(hours=24))
+    await ResearchRepository(db).save(run)
+    return run
 
 
 def _advice(row: dict[str, Any], candidates: list[dict[str, Any]]) -> dict[str, Any]:
@@ -483,6 +539,19 @@ class EnergyOfferService:
                             run, candidates = focused, focused_candidates
                 except Exception as exc:
                     logger.info("focused market research unavailable: %s", type(exc).__name__)
+            if (row["commodity"] in _PRICE_QUERIES and row.get("comparison_ready") and
+                not any(c.get("comparison_basis") == "seller_component_estimate" for c in candidates)):
+                try:
+                    direct = await _direct_offer_search(self.db, row["user_id"], row["commodity"])
+                    if direct:
+                        direct_candidates = await _alternatives(direct, row["commodity"])
+                        page_terms = await _read_offer_pages(direct, direct_candidates, row["commodity"])
+                        _apply_savings(row, direct, direct_candidates, page_terms)
+                        if (any(c.get("comparison_basis") == "seller_component_estimate" for c in direct_candidates)
+                            or not candidates and direct_candidates):
+                            run, candidates = direct, direct_candidates
+                except Exception as exc:
+                    logger.info("price-oriented market search unavailable: %s", type(exc).__name__)
             candidates.sort(key=lambda c: (
                 c.get("comparison_basis") != "seller_component_estimate",
                 -(c.get("potential_saving_year") or 0),

@@ -8,7 +8,7 @@ from types import SimpleNamespace
 import pytest
 
 from energy_offers.bill import parse_bill
-from energy_offers.service import EnergyOfferService, _advice, _alternatives, _apply_savings, _profile, _read_offer_pages
+from energy_offers.service import EnergyOfferService, _advice, _alternatives, _apply_savings, _profile, _read_offer_pages, _direct_offer_search
 from energy_offers.savings import offer_terms
 from energy_offers.page import terms_from_html
 
@@ -227,6 +227,33 @@ async def test_energy_can_compare_a_seller_page_observed_but_not_summarized(monk
 
 
 @pytest.mark.asyncio
+async def test_price_oriented_search_records_fresh_public_sources_without_personal_terms(monkeypatch):
+    from research.repository import ResearchRepository
+    import conversation_engine.ai_core.tools.web_search as web_search
+
+    queries = []
+    saved = []
+
+    async def search(arguments, _runtime):
+        queries.append(arguments["query"])
+        return SimpleNamespace(status="ok", payload={"external": {"sources": [
+            {"url": "https://seller.example/casa/luce/piano-fisso",
+             "title": "Piano Fisso Luce", "snippet": "Prezzo fisso 0,159€/kWh + 8,75€ al mese (costi di commercializzazione)"},
+            {"url": "http://127.0.0.1/internal", "title": "Private", "snippet": ""},
+        ]}})
+
+    async def save(_self, run):
+        saved.append(run)
+
+    monkeypatch.setattr(web_search, "execute_web_search", search)
+    monkeypatch.setattr(ResearchRepository, "save", save)
+    run = await _direct_offer_search(object(), "test-owner", "electricity")
+    assert len(queries) == 2 and all("test-owner" not in query for query in queries)
+    assert len(run.sources) == 1 and run.sources[0].url.startswith("https://seller.example/")
+    assert saved == [run] and run.valid_until
+
+
+@pytest.mark.asyncio
 async def test_durable_web_check_repeats_and_only_changes_wake_review(monkeypatch):
     if not os.environ.get("MONGO_URL"):
         pytest.skip("integration test uses the isolated CI Mongo service")
@@ -288,6 +315,9 @@ async def test_durable_web_check_repeats_and_only_changes_wake_review(monkeypatc
     monkeypatch.setattr(research_service, "research_available", lambda: True)
     monkeypatch.setattr(research_service, "ResearchService", FakeResearch)
     monkeypatch.setattr(market_service, "_alternatives", alternatives)
+    async def no_direct(_db, _owner, _commodity):
+        return None
+    monkeypatch.setattr(market_service, "_direct_offer_search", no_direct)
     monkeypatch.setattr(OpportunityDiscovery, "note", note)
 
     first = datetime.now(timezone.utc) + timedelta(minutes=1)
