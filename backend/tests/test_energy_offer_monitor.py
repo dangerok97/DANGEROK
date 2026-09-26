@@ -1,4 +1,5 @@
 """Recurring web research uses real source identities and survives restarts."""
+import json
 import os
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -145,7 +146,8 @@ async def test_energy_category_pages_are_not_presented_as_individual_offers(monk
         citable_sources=lambda: [{"url": category.url}, {"url": named.url}],
     )
 
-    async def choose(_system, _user):
+    async def choose(_system, user_payload):
+        assert [source["source_id"] for source in json.loads(user_payload)["sources"]] == ["named"]
         return {"source_ids": ["category", "named"]}
 
     monkeypatch.setattr("research.reasoning._ask_model", choose)
