@@ -102,6 +102,10 @@ async def _alternatives(run, commodity: str) -> list[dict[str, Any]]:
     from research.reasoning import _ask_model
 
     cited = {s["url"] for s in run.citable_sources()}
+    logger.info(
+        "market watch research category=%s sources=%d cited_sources=%d",
+        commodity, len(run.sources), len(cited),
+    )
     sources = [
         s for s in run.sources
         if s.url in cited and _public_url(s.url)
@@ -267,10 +271,6 @@ class EnergyOfferService:
             )
             if run.status != "completed":
                 raise RuntimeError(f"research_{run.status}")
-            logger.info(
-                "market watch research category=%s sources=%d cited_sources=%d",
-                row["commodity"], len(run.sources), len(run.citable_sources()),
-            )
             candidates = await _alternatives(run, row["commodity"])
             old = [(c["code"], c.get("evidence_digest")) for c in row.get("candidates") or []]
             new = [(c["code"], c.get("evidence_digest")) for c in candidates]
