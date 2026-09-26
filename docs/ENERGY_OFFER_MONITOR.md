@@ -70,7 +70,7 @@ quando la sintesi della ricerca è insufficiente, purché il provider web
 restituisca fonti pubbliche; in caso contrario il controllo viene ritentato.
 Le pagine generali che raccolgono più tariffe non vengono presentate come
 un'offerta individuale. Per la telefonia vengono esclusi anche homepage e
-liste di piani e pagine intitolate soltanto «Offerte», anche quando il
+liste di piani, brochure tariffarie generali e pagine intitolate soltanto «Offerte», anche quando il
 selettore AI le avrebbe proposte: una pagina
 deve identificare un piano specifico prima di apparire come alternativa.
 
