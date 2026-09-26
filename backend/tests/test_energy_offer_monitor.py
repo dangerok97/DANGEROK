@@ -52,6 +52,11 @@ def test_saving_advice_requires_explicit_comparable_seller_terms():
     assert advice["kind"] == "estimated_saving"
     assert "sola componente di vendita" in advice["text"]
     assert "400" not in advice["text"]
+    candidate["comparison_basis"] = "not_comparable"
+    candidate["potential_saving_year"] = None
+    threshold = _advice(profile, [candidate])
+    assert threshold["kind"] == "comparison_needed"
+    assert "738.00 €" in threshold["text"]
 
 
 def test_variable_or_incomplete_offer_cannot_claim_a_saving():
@@ -73,6 +78,22 @@ def test_policy_profile_does_not_send_plate_or_person_to_search():
     assert "AB123CD" not in str(profile)
     assert "Mario Rossi" not in str(profile)
     assert profile["comparison_ready"] is False
+
+
+def test_policy_advice_sets_a_personal_quote_target_without_claiming_a_saving():
+    profile = _profile({
+        "id": "policy-target", "original_filename": "polizza_auto.pdf",
+        "extracted_text": "Polizza RC auto\nPremio annuo: 500 €\n",
+    })
+    assert profile is not None and profile["current_premium_year"] == 500
+    advice = _advice(profile, [{"code": "insurer", "name": "Polizza Alfa"}])
+    assert advice["kind"] == "comparison_needed"
+    assert "500.00 €" in advice["text"]
+    assert "massimali" in advice["text"]
+    assert _profile({
+        "id": "ocr-policy", "original_filename": "polizza_auto.pdf", "ocr_used": True,
+        "extracted_text": "Polizza RC auto\nPremio annuo: 500 €\n",
+    })["current_premium_year"] is None
 
 
 @pytest.mark.asyncio

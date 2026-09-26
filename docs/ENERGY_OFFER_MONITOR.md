@@ -30,9 +30,11 @@ pagina ufficiale citata e una tariffa fissa; tariffe variabili, valori
 multipli, OCR non confermato o consumi annui stimati restano senza cifra.
 La stima riguarda la sola componente di vendita: non include rete, imposte,
 oneri, sconti, requisiti o il totale della bolletta. ORA consiglia di
-verificare il preventivo completo prima del cambio. Se non è calcolabile,
-indica quale confronto o preventivo chiedere; per le polizze non deduce un
-risparmio dal prezzo pubblicitario. Una ricerca fallita non vale come «nessuna
+verificare il preventivo completo prima del cambio. Se la tariffa pubblica è
+incompleta ma la bolletta contiene entrambe le componenti, ORA indica la
+soglia annua che un nuovo preventivo deve battere. Se una polizza riporta un
+premio annuo esplicito, usa quel premio come soglia a parità di coperture;
+non deduce un risparmio dal prezzo pubblicitario. Una ricerca fallita non vale come «nessuna
 offerta» e viene ripetuta dopo dodici ore.
 
 ## Operatività

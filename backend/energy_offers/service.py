@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import urlparse
@@ -77,6 +78,13 @@ def _profile(document: dict[str, Any], analysis: dict[str, Any] | None = None) -
         commodity = None
     if not commodity:
         return None
+    premium = None
+    if commodity.startswith("insurance") and not document.get("ocr_used"):
+        matches = re.findall(r"(?im)^\s*premio\s+annuo\s*[:=\-]?\s*(\d{1,5}(?:[.,]\d{1,2})?)\s*(?:€|euro)(?=\s|$)", text)
+        if len(matches) == 1:
+            amount = float(matches[0].replace(",", "."))
+            if 0 < amount <= 10000:
+                premium = amount
     return {
         "commodity": commodity,
         "document_id": document_id,
@@ -86,6 +94,7 @@ def _profile(document: dict[str, Any], analysis: dict[str, Any] | None = None) -
         "current_offer_code": None,
         "power_kw": None,
         "comparison_ready": False,
+        "current_premium_year": premium,
     }
 
 
@@ -170,8 +179,35 @@ def _advice(row: dict[str, Any], candidates: list[dict[str, Any]]) -> dict[str, 
         }
     first = candidates[0]
     if category.startswith("insurance"):
+        premium = row.get("current_premium_year")
+        if premium:
+            return {
+                "kind": "comparison_needed", "offer_code": first["code"],
+                "text": (
+                    f"Per risparmiare sui {premium:.2f} € annui della polizza attuale, "
+                    f"chiedi un preventivo a {first['name']} e accettalo solo se il premio "
+                    "totale è inferiore a parità di massimali, garanzie, franchigie ed esclusioni."
+                ),
+            }
         action = "chiedi un preventivo personale e confronta premio, massimali, franchigie ed esclusioni"
     elif category in ("electricity", "gas"):
+        if (row.get("annual_consumption") is not None and
+            row.get("current_unit_price") is not None and
+            row.get("current_fixed_year") is not None and
+            not row.get("annual_consumption_estimated") and row.get("comparison_ready")):
+            current_year = seller_year(row["annual_consumption"], {
+                "unit_price": row["current_unit_price"],
+                "fixed_year": row["current_fixed_year"],
+            })
+            return {
+                "kind": "comparison_needed", "offer_code": first["code"],
+                "text": (
+                    f"La tua componente di vendita vale circa {current_year:.2f} € all'anno "
+                    f"ai consumi attuali. Per risparmiare, chiedi il preventivo di {first['name']} "
+                    "e verifica che prezzo per consumo più quota fissa scendano sotto "
+                    "questa cifra. Controlla anche il totale, gli oneri e i requisiti."
+                ),
+            }
         action = "confronta prezzo per consumo e quota fissa con quelli del tuo contratto"
     else:
         action = "confronta canone, limiti e condizioni con il tuo contratto"
@@ -288,7 +324,7 @@ class EnergyOfferService:
             previous.get(key) != profile.get(key)
             for key in ("document_id", "annual_consumption", "current_offer_code",
                         "power_kw", "comparison_ready", "current_unit_price",
-                        "current_fixed_year")
+                        "current_fixed_year", "current_premium_year")
         )
         update = {**profile, "user_id": user_id, "enabled": True, "updated_at": _iso(_now())}
         if changed:
