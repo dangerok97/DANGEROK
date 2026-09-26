@@ -36,6 +36,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 
 import { api, GuidedObjective, GuidedSetupState, type LifeMapResponse } from '@/src/api/client';
+import { EnergyOffersPanel } from '@/src/components/documents/EnergyOffersPanel';
 import { areaIconName } from '@/src/components/life-profile/areaIcon';
 import { requestDevicePosition } from '@/src/life-setup/devicePosition';
 import * as DocumentPicker from 'expo-document-picker';
@@ -107,6 +108,7 @@ export function GuidedSetupScreen() {
     name?: string;
     message?: string;
   }>({ phase: 'idle' });
+  const [uploadedBillId, setUploadedBillId] = useState<string | null>(null);
 
   /*
     Guardare un'area e rispondere a un'area sono due cose diverse.
@@ -253,6 +255,7 @@ export function GuidedSetupScreen() {
       const id = up.document?.id;
       if (!id) throw new Error('Caricamento non riuscito');
       await api.lifeSetupAttachDocument(id, objective.document_type || undefined);
+      if (objective.document_type === 'bolletta') setUploadedBillId(id);
       setDocState({
         phase: 'working',
         name: file.name,
@@ -1283,6 +1286,7 @@ export function GuidedSetupScreen() {
             {intro}
             {profileCard}
             <BankSummaryCard />
+            {uploadedBillId ? <EnergyOffersPanel documentId={uploadedBillId} pollMs={15000} /> : null}
             {error ? (
               <Text style={[styles.error, { color: colors.error }]} testID="guided-error">
                 {error}

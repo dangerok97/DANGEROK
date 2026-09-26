@@ -72,6 +72,22 @@ def test_variable_or_incomplete_offer_cannot_claim_a_saving():
     assert _advice(profile, [candidate])["kind"] == "comparison_needed"
 
 
+def test_official_seller_price_formats_remain_strictly_comparable():
+    assert offer_terms(
+        "Prezzo fisso 0,1073€/kWh + 125€ all'anno (costi di commercializzazione)",
+        "electricity",
+    ) == {"unit_price": 0.1073, "fixed_year": 125.0}
+    assert offer_terms(
+        "Prezzo fisso 0,15€/kWh + 13,25€ costi mensili di commercializzazione",
+        "electricity",
+    ) == {"unit_price": 0.15, "fixed_year": 159.0}
+    assert offer_terms(
+        "Prezzo fisso 0,1073€/kWh + 125€ all'anno (costi di commercializzazione) "
+        "Prezzo fisso 0,15€/kWh + 13,25€ costi mensili di commercializzazione",
+        "electricity",
+    ) is None
+
+
 def test_policy_profile_does_not_send_plate_or_person_to_search():
     profile = _profile({
         "id": "policy-1",
@@ -264,4 +280,90 @@ async def test_search_outage_retries_without_claiming_a_completed_check(monkeypa
     assert row["last_checked_at"] is None
     assert row["candidates"] == []
     assert row["next_check_at"] > moment.isoformat()
+    client.close()
+
+
+@pytest.mark.asyncio
+async def test_uploaded_bill_gets_best_verified_offer_then_new_weekly_comparison(monkeypatch):
+    if not os.environ.get("MONGO_URL"):
+        pytest.skip("integration test uses the isolated CI Mongo service")
+    from motor.motor_asyncio import AsyncIOMotorClient
+    from opportunities.discovery import OpportunityDiscovery
+    import research.service as research_service
+    import energy_offers.service as market_service
+
+    client = AsyncIOMotorClient(os.environ["MONGO_URL"])
+    db = client.get_database(f"ora_market_test_{uuid.uuid4().hex[:12]}")
+    service = EnergyOfferService(db)
+    await service.ensure_indexes()
+    owner = "bill-owner"
+    bill = {
+        "id": "uploaded-bill", "user_id": owner,
+        "extracted_text": "Bolletta energia elettrica\nConsumo annuo: 2700 kWh\n"
+                          "Prezzo materia energia: 0,22 €/kWh\n"
+                          "Quota fissa di commercializzazione: 12 €/mese",
+    }
+    await db.users.insert_one({"user_id": owner, "preferences": {}})
+    await db.documents.insert_one(bill)
+    assert await service.register_document(owner, bill)
+    initial = (await service.status(owner))[0]
+    assert initial["advice"]["kind"] == "comparison_needed"
+    assert initial["next_check_at"] is not None
+
+    source_prices = [
+        ("alpha", "https://seller.example/alpha", "Prezzo fisso 0,15€/kWh + 13,25€ costi mensili di commercializzazione"),
+        ("beta", "https://seller.example/beta", "Prezzo fisso 0,1073€/kWh + 125€ all'anno (costi di commercializzazione)"),
+    ]
+    searches = []
+
+    class FakeResearch:
+        def __init__(self, _db):
+            pass
+
+        async def run(self, user_id, need, **kwargs):
+            searches.append((user_id, need, kwargs))
+            # A new price is observed during the next week's independent search.
+            prices = source_prices if len(searches) == 1 else [
+                source_prices[0],
+                ("beta", source_prices[1][1], "Prezzo fisso 0,20€/kWh + 125€ all'anno (costi di commercializzazione)"),
+            ]
+            sources = [SimpleNamespace(source_id=key, url=url, snippet=snippet) for key, url, snippet in prices]
+            return SimpleNamespace(id=f"research-{len(searches)}", status="completed", sources=sources)
+
+    async def alternatives(run, _category):
+        return [{
+            "code": source.source_id, "name": f"Offerta {source.source_id}",
+            "seller": "seller.example", "url": source.url, "source_id": source.source_id,
+            "valid_until": None, "potential_saving_year": None,
+            "estimated_seller_year": None, "current_seller_year": None,
+            "comparison_basis": "not_comparable", "evidence_digest": source.snippet,
+        } for source in run.sources]
+
+    async def note(_self, *_args, **_kwargs):
+        pass
+
+    monkeypatch.setattr(research_service, "research_available", lambda: True)
+    monkeypatch.setattr(research_service, "ResearchService", FakeResearch)
+    monkeypatch.setattr(market_service, "_alternatives", alternatives)
+    monkeypatch.setattr(OpportunityDiscovery, "note", note)
+
+    first = datetime.now(timezone.utc) + timedelta(minutes=1)
+    assert (await service.run_due(now=first))["checked"] == 1
+    observed = (await service.status(owner))[0]
+    assert observed["advice"]["kind"] == "estimated_saving"
+    assert observed["advice"]["offer_code"] == "beta"
+    assert observed["candidates"][0]["code"] == "beta"
+    assert observed["advice"]["estimated_saving_year"] == 323.29
+    assert observed["next_check_at"] == (first + timedelta(days=7)).isoformat()
+    assert (await service.run_due(now=first + timedelta(days=6)))["checked"] == 0
+
+    restarted = EnergyOfferService(db)
+    assert (await restarted.run_due(now=first + timedelta(days=8)))["checked"] == 1
+    current = (await restarted.status(owner))[0]
+    assert current["advice"]["offer_code"] == "alpha"
+    assert current["candidates"][0]["code"] == "alpha"
+    assert len(searches) == 2 and all(entry[2]["allow_reuse"] is False for entry in searches)
+    assert all("2700" in str(entry[1].already_known) for entry in searches)
+    assert all("0,22" not in str(entry) for entry in searches)
+    await db.drop_collection("energy_offer_monitors")
     client.close()
