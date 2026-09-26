@@ -57,9 +57,9 @@ export function EnergyOffersPanel({ documentId, pollMs }: { documentId?: string;
   if (!supplies.length && !documentId) return null;
   if (!supplies.length) return (
     <View style={{ padding: tokens.spacing.lg, borderRadius: tokens.radius.lg, backgroundColor: colors.surface }}>
-      <Text style={{ color: colors.textPrimary, fontWeight: '600' }}>Confronto della bolletta</Text>
+      <Text style={{ color: colors.textPrimary, fontWeight: '600' }}>Confronto del contratto</Text>
       <Text style={{ color: colors.textSecondary, marginTop: 6 }}>
-        ORA sta leggendo la bolletta. Se riesce a ricavare consumi e prezzi, cercherà offerte online e ti dirà se ne trova una più conveniente.
+        ORA sta leggendo il documento. Cercherà alternative online e ti dirà quando trova un possibile risparmio verificabile.
       </Text>
     </View>
   );
@@ -116,6 +116,15 @@ export function EnergyOffersPanel({ documentId, pollMs }: { documentId?: string;
                 {supply.advice.text}
               </Text>
             </View>
+          ) : null}
+          {supply.commodity === 'insurance_auto' ? (
+            <Text style={{ color: colors.textSecondary, fontSize: 12, lineHeight: 18 }}>
+              Per confrontare i premi RC auto sul tuo profilo puoi usare anche il{' '}
+              <Text accessibilityRole="link" style={{ textDecorationLine: 'underline' }}
+                onPress={() => { void Linking.openURL('https://www.preventivass.it/').catch(() => setError(true)); }}>
+                preventivatore pubblico IVASS
+              </Text>. ORA non invia i tuoi dati ai preventivatori.
+            </Text>
           ) : null}
           {(supply.candidates || []).slice(0, 3).map((offer) => (
             <Pressable key={offer.code} accessibilityRole="link"

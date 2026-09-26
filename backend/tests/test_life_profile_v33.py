@@ -483,6 +483,16 @@ def test_a_document_step_is_an_action_not_a_field():
     assert "offerte più convenienti" in bill.question
     assert "ogni settimana" in bill.hint
 
+    policy = objective("doc.polizza")
+    assert policy.document_type == "polizza"
+    assert "ogni settimana" in policy.hint
+
+    telephone = objective("doc.contratto_telefono")
+    assert telephone.document_type == "contratto_telefono"
+    assert "ogni settimana" in telephone.hint
+    assert not telephone.relevant({"servizi.fornitori": ["internet"]})
+    assert telephone.relevant({"servizi.fornitori": ["telefono", "internet"]})
+
     for obj in GUIDED_OBJECTIVES:
         if obj.id.startswith("doc."):
             assert obj.control == "document_upload", f"{obj.id} is not a field"

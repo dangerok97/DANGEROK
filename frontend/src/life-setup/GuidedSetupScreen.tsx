@@ -108,7 +108,7 @@ export function GuidedSetupScreen() {
     name?: string;
     message?: string;
   }>({ phase: 'idle' });
-  const [uploadedBillId, setUploadedBillId] = useState<string | null>(null);
+  const [uploadedContractId, setUploadedContractId] = useState<string | null>(null);
 
   /*
     Guardare un'area e rispondere a un'area sono due cose diverse.
@@ -255,7 +255,9 @@ export function GuidedSetupScreen() {
       const id = up.document?.id;
       if (!id) throw new Error('Caricamento non riuscito');
       await api.lifeSetupAttachDocument(id, objective.document_type || undefined);
-      if (objective.document_type === 'bolletta') setUploadedBillId(id);
+      if (['bolletta', 'polizza', 'contratto_telefono'].includes(objective.document_type || '')) {
+        setUploadedContractId(id);
+      }
       setDocState({
         phase: 'working',
         name: file.name,
@@ -1286,7 +1288,7 @@ export function GuidedSetupScreen() {
             {intro}
             {profileCard}
             <BankSummaryCard />
-            {uploadedBillId ? <EnergyOffersPanel documentId={uploadedBillId} pollMs={15000} /> : null}
+            {uploadedContractId ? <EnergyOffersPanel documentId={uploadedContractId} pollMs={15000} /> : null}
             {error ? (
               <Text style={[styles.error, { color: colors.error }]} testID="guided-error">
                 {error}

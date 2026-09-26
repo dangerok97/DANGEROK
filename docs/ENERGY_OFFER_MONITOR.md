@@ -9,9 +9,11 @@ aperta. La pagina Documenti mostra ultimo controllo, prossimo controllo,
 alternative con link alla pagina del venditore e un comando per sospendere la
 ricerca. Un risultato nuovo entra nel normale flusso delle opportunità: ORA
 decide se vale la pena proporlo, senza creare un avviso a ogni controllo.
-Durante il primo percorso, dopo il caricamento della bolletta compare anche
-lo stato del confronto: si aggiorna mentre ORA legge il documento e ricerca
-le offerte, senza interrompere le domande successive.
+Durante il primo percorso, dopo il caricamento di bolletta, polizza o contratto
+telefonico compare anche lo stato del confronto: si aggiorna mentre ORA legge
+il documento e ricerca le offerte, senza interrompere le domande successive.
+Il percorso propone il caricamento del contratto telefonico a chi indica il
+telefono tra i servizi ricorrenti.
 
 ## Fonti e limiti
 
@@ -41,7 +43,13 @@ verificare il preventivo completo prima del cambio. Se la tariffa pubblica è
 incompleta ma la bolletta contiene entrambe le componenti, ORA indica la
 soglia annua che un nuovo preventivo deve battere. Se una polizza riporta un
 premio annuo esplicito, usa quel premio come soglia a parità di coperture;
-non deduce un risparmio dal prezzo pubblicitario. Una ricerca fallita non vale come «nessuna
+non deduce un risparmio dal prezzo pubblicitario. Per la RC auto la schermata
+offre anche il collegamento al preventivatore pubblico IVASS: il questionario
+personale viene compilato dall'utente e ORA non trasmette dati della polizza.
+Se un contratto telefonico riporta un canone mensile esplicito e non proviene
+da OCR non confermato, ORA lo usa come soglia; chiede di verificare traffico,
+roaming, copertura, attivazione, requisiti e promozioni. Non dichiara un
+risparmio numerico dal solo canone pubblicato. Una ricerca fallita non vale come «nessuna
 offerta» e viene ripetuta dopo dodici ore. Anche una ricerca senza pagine
 specifiche verificabili viene ripetuta dopo dodici ore, mantenendo il
 consiglio sulla soglia personale se il documento la permette.
@@ -55,7 +63,9 @@ Se anche questa è inconcludente, due query di prezzo precise interrogano
 direttamente il provider web già configurato; le fonti osservate vengono
 registrate con data e URL e le singole pagine sono valutate con le stesse
 regole prudenziali. Le query non contengono dati della bolletta né un elenco
-predefinito di venditori.
+predefinito di venditori. Se la prima ricerca su assicurazioni o telefonia non
+trova pagine di offerte specifiche, ORA interroga anche il provider web con
+una ricerca pubblica mirata senza dati personali.
 Le pagine generali che raccolgono più tariffe non vengono presentate come
 un'offerta individuale.
 

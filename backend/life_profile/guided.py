@@ -680,7 +680,10 @@ _ASSICURAZIONI: List[GuidedObjective] = [
         id="doc.polizza",
         area_id="assicurazioni",
         question="Vuoi aggiungere una polizza?",
-        hint="ORA ne ricava compagnia, copertura e scadenza. Puoi farlo più tardi.",
+        hint=(
+            "ORA legge copertura, premio e scadenza, cerca alternative online e ricontrolla "
+            "ogni settimana, anche quando l'app è chiusa. Puoi farlo più tardi."
+        ),
         control="document_upload",
         document_type="polizza",
         weight=0.6,
@@ -705,6 +708,20 @@ _SERVIZI: List[GuidedObjective] = [
             _o("abbonamenti", "Abbonamenti digitali", sets={"abbonamenti.list": True}),
             _o("nessuno", "Nessuno di questi"),
         ],
+    ),
+    GuidedObjective(
+        id="doc.contratto_telefono",
+        area_id="servizi",
+        question="Vuoi aggiungere il contratto telefonico per cercare offerte più convenienti?",
+        hint=(
+            "ORA cerca alternative online e ripete il controllo ogni settimana, "
+            "anche quando l'app è chiusa. Puoi farlo più tardi."
+        ),
+        control="document_upload",
+        document_type="contratto_telefono",
+        weight=0.6,
+        allow_other=False,
+        depends_on=[Condition(key="servizi.fornitori", equals=("telefono",))],
     ),
 ]
 
