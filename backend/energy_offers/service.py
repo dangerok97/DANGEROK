@@ -33,6 +33,10 @@ _QUESTIONS = {
     "insurance": "Quali polizze assicurative in Italia sono attualmente disponibili, con coperture, esclusioni e condizioni consultabili presso l'assicuratore?",
     "telephone": "Quali offerte di telefonia mobile in Italia sono attualmente sottoscrivibili, con canone, limiti e condizioni consultabili presso l'operatore?",
 }
+_FOCUSED_QUESTIONS = {
+    "electricity": "Trova offerte luce domestiche italiane a prezzo fisso sottoscrivibili oggi con una pagina per la singola offerta del venditore che esponga esplicitamente sia il prezzo in €/kWh sia i costi di commercializzazione in €/mese o €/anno. Evita pagine che elencano più tariffe.",
+    "gas": "Trova offerte gas domestiche italiane a prezzo fisso sottoscrivibili oggi con una pagina per la singola offerta del venditore che esponga esplicitamente sia il prezzo in €/Smc sia i costi di commercializzazione in €/mese o €/anno. Evita pagine che elencano più tariffe.",
+}
 
 
 def _now() -> datetime:
@@ -114,8 +118,10 @@ def _generic_energy_listing(title: str, url: str, commodity: str) -> bool:
     label = title.strip().lower()
     path = urlparse(url).path.lower().rstrip("/")
     return (
-        label.startswith(("offerte luce", "offerte gas", "offerte energia")) or
-        path.endswith(("/offerte-luce", "/offerte-gas", "/gas-e-luce", "/luce-e-gas"))
+        label.startswith(("offerte luce", "offerte gas", "offerte energia",
+                          "scopri le nostre tariffe", "le nostre tariffe")) or
+        path.endswith(("/offerte-luce", "/offerte-gas", "/gas-e-luce",
+                       "/luce-e-gas", "/le-nostre-tariffe"))
     )
 
 
@@ -427,6 +433,29 @@ class EnergyOfferService:
                 raise RuntimeError(f"research_{run.status}")
             candidates = await _alternatives(run, row["commodity"])
             _apply_savings(row, run, candidates)
+            if (row["commodity"] in _FOCUSED_QUESTIONS and row.get("comparison_ready") and
+                not any(c.get("comparison_basis") == "seller_component_estimate" for c in candidates)):
+                try:
+                    focused = await ResearchService(self.db).run(
+                        row["user_id"],
+                        ResearchNeed(
+                            question=_FOCUSED_QUESTIONS[row["commodity"]],
+                            purpose="Trovare prezzi espliciti di singole offerte per un confronto di risparmio verificabile.",
+                            already_known=context,
+                        ),
+                        situation_ref=f"market_watch_focused:{row['commodity']}:{row['supply_key']}",
+                        context_lines=context,
+                        locale_hint="it-IT",
+                        allow_reuse=False,
+                    )
+                    if focused.status == "completed":
+                        focused_candidates = await _alternatives(focused, row["commodity"])
+                        _apply_savings(row, focused, focused_candidates)
+                        if (any(c.get("comparison_basis") == "seller_component_estimate" for c in focused_candidates)
+                            or not candidates and focused_candidates):
+                            run, candidates = focused, focused_candidates
+                except Exception as exc:
+                    logger.info("focused market research unavailable: %s", type(exc).__name__)
             candidates.sort(key=lambda c: (
                 c.get("comparison_basis") != "seller_component_estimate",
                 -(c.get("potential_saving_year") or 0),

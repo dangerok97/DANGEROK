@@ -148,8 +148,8 @@ async def test_only_cited_seller_pages_can_be_shown(monkeypatch):
 @pytest.mark.asyncio
 async def test_energy_category_pages_are_not_presented_as_individual_offers(monkeypatch):
     category = SimpleNamespace(
-        source_id="category", url="https://seller.example/casa/offerte-luce",
-        title="Offerte luce per la casa a prezzo fisso e variabile",
+        source_id="category", url="https://seller.example/le-nostre-tariffe",
+        title="Scopri le nostre tariffe - Venditore",
         snippet="Scopri le nostre offerte luce", publisher="seller.example",
     )
     named = SimpleNamespace(
@@ -246,7 +246,7 @@ async def test_durable_web_check_repeats_and_only_changes_wake_review(monkeypatc
     restarted = EnergyOfferService(db)
     assert (await restarted.run_due(now=first + timedelta(days=8)))["changed"] == 0
     assert len(notices) == 2
-    assert len(searches) == 3
+    assert len(searches) == 5  # A focused second search follows each inconclusive bill check.
     assert all(item[3]["allow_reuse"] is False for item in searches)
     assert all("AB123CD" not in str(item) for item in searches)
     status = await restarted.status(user_id)
@@ -322,8 +322,12 @@ async def test_uploaded_bill_gets_best_verified_offer_then_new_weekly_comparison
 
         async def run(self, user_id, need, **kwargs):
             searches.append((user_id, need, kwargs))
+            # The broad query is inconclusive; a second, focused online
+            # search provides explicit prices on each check.
+            if len(searches) % 2:
+                return SimpleNamespace(id=f"research-{len(searches)}", status="completed", sources=[])
             # A new price is observed during the next week's independent search.
-            prices = source_prices if len(searches) == 1 else [
+            prices = source_prices if len(searches) == 2 else [
                 source_prices[0],
                 ("beta", source_prices[1][1], "Prezzo fisso 0,20€/kWh + 125€ all'anno (costi di commercializzazione)"),
             ]
@@ -362,7 +366,8 @@ async def test_uploaded_bill_gets_best_verified_offer_then_new_weekly_comparison
     current = (await restarted.status(owner))[0]
     assert current["advice"]["offer_code"] == "alpha"
     assert current["candidates"][0]["code"] == "alpha"
-    assert len(searches) == 2 and all(entry[2]["allow_reuse"] is False for entry in searches)
+    assert len(searches) == 4 and all(entry[2]["allow_reuse"] is False for entry in searches)
+    assert "prezzi espliciti" in searches[1][1].purpose
     assert all("2700" in str(entry[1].already_known) for entry in searches)
     assert all("0,22" not in str(entry) for entry in searches)
     await db.drop_collection("energy_offer_monitors")
