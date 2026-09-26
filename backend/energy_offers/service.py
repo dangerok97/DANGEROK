@@ -256,6 +256,7 @@ async def _alternatives(run, commodity: str) -> list[dict[str, Any]]:
     sources = [
         s for s in run.sources
         if s.url in cited and _public_url(s.url)
+        and not _generic_energy_listing(s.title, s.url, commodity)
     ][:12]
     if not sources:
         logger.info(
@@ -285,8 +286,6 @@ async def _alternatives(run, commodity: str) -> list[dict[str, Any]]:
     out = []
     for source in sources:
         if source.source_id not in selected:
-            continue
-        if _generic_energy_listing(source.title, source.url, commodity):
             continue
         host = (urlparse(source.url).hostname or "").removeprefix("www.")
         out.append({
