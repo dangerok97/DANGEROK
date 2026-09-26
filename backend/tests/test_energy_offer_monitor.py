@@ -263,6 +263,33 @@ async def test_energy_category_pages_are_not_presented_as_individual_offers(monk
 
 
 @pytest.mark.asyncio
+async def test_mobile_homepages_and_tariff_lists_are_not_named_offers(monkeypatch):
+    sources = [
+        SimpleNamespace(source_id="wind-list", url="https://www.windtre.it/all-inclusive",
+                        title="Offerte Telefonia Mobile e Sim Dati Illimitati | All Inclusive",
+                        snippet="Più piani", publisher="windtre.it"),
+        SimpleNamespace(source_id="ho-list", url="https://www.ho-mobile.it/tutte-le-offerte",
+                        title="Tutte le Offerte Mobile | ho. Mobile",
+                        snippet="Più piani", publisher="ho-mobile.it"),
+        SimpleNamespace(source_id="very-home", url="https://verymobile.it/",
+                        title="Very Mobile: offerte telefonia mobile",
+                        snippet="Più piani", publisher="verymobile.it"),
+        SimpleNamespace(source_id="single", url="https://operator.example/mobile/piano-250",
+                        title="Piano 250 GB", snippet="Piano mobile attivabile",
+                        publisher="operator.example"),
+    ]
+    run = SimpleNamespace(sources=sources, citable_sources=lambda: [{"url": s.url} for s in sources])
+
+    async def choose(_system, payload):
+        assert [s["source_id"] for s in json.loads(payload)["sources"]] == ["single"]
+        return {"source_ids": [s.source_id for s in sources]}
+
+    monkeypatch.setattr("research.reasoning._ask_model", choose)
+    offers = await _alternatives(run, "telephone")
+    assert [offer["url"] for offer in offers] == [sources[-1].url]
+
+
+@pytest.mark.asyncio
 async def test_energy_can_compare_a_seller_page_observed_but_not_summarized(monkeypatch):
     source = SimpleNamespace(
         source_id="seller", url="https://seller.example/piano-verde",
