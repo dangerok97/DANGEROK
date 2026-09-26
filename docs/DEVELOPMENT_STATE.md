@@ -1,6 +1,6 @@
 ## 2026-09-25 — Monitor offerte energia in revisione
 
-Implementato su branch isolato: trigger da bolletta, monitor settimanale persistente, catalogo pubblico con cache, confronto prudente, alternative citabili, pannello Documenti e pausa. Test sintetici locali passati. Da verificare su staging, prima di qualunque attivazione produttiva: download XML reale dal servizio Railway, corrispondenza del tracciato e dell'offerta attuale, lettura di bollette sintetiche, ciclo periodico e UI. Il confronto monetario gas e le offerte complesse restano fuori finché non esiste una stima affidabile. Vedi `ENERGY_OFFER_MONITOR.md`.
+Implementato su branch isolato: trigger da bolletta, monitor settimanale persistente, catalogo pubblico con cache, confronto prudente, alternative citabili, pannello Documenti e pausa. Nove test mirati, incluso Mongo, e CI ordinaria passano. Prova live del 26/09 dalla CI: HTTP 403 sulla pagina Open Data ufficiale; la fonte non è acquisibile da quella rete. Una ridistribuzione del commit precedente su Railway con diagnostica temporanea non ha prodotto un esito leggibile; configurazione ripristinata e servizio sano. La funzione resta bozza, senza attivazione. Servono una fonte aperta raggiungibile e verificata, poi tracciato/offerta attuale, bolletta sintetica, ciclo periodico e UI su staging. Il confronto monetario gas e le offerte complesse restano fuori finché non esiste una stima affidabile. Vedi `ENERGY_OFFER_MONITOR.md`.
 
 ## 2026-09-22 — Aggiornamenti: scheda e prossimo passo condivisi
 

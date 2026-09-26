@@ -82,19 +82,6 @@ jobs:
       - name: Continuous energy offer monitor
         working-directory: backend
         run: python -m pytest -q tests/test_energy_offer_monitor.py -x
-      - name: Live public energy catalog smoke
-        if: github.event_name == 'pull_request' && github.head_ref == 'feat/continuous-energy-offer-monitor'
-        working-directory: backend
-        timeout-minutes: 3
-        continue-on-error: true
-        run: |
-          python - <<'PY'
-          from energy_offers.portal import _fetch_sync
-          for commodity in ("electricity", "gas"):
-              url, offers = _fetch_sync(commodity)
-              print(f"{commodity}: {len(offers)} eligible offers from {url}")
-              assert offers, f"{commodity} catalog has no eligible offers"
-          PY
       - name: Google first sync, cloud sessions, location privacy and polling
         working-directory: backend
         run: |
@@ -108,6 +95,18 @@ jobs:
             tests/test_agent_commanded_v39.py \
             tests/test_calendar_move_v310.py \
             -x
+      - name: Live public energy catalog smoke
+        if: github.event_name == 'pull_request' && github.head_ref == 'feat/continuous-energy-offer-monitor'
+        working-directory: backend
+        timeout-minutes: 3
+        run: |
+          python - <<'PY'
+          from energy_offers.portal import _fetch_sync
+          for commodity in ("electricity", "gas"):
+              url, offers = _fetch_sync(commodity)
+              print(f"{commodity}: {len(offers)} eligible offers from {url}")
+              assert offers, f"{commodity} catalog has no eligible offers"
+          PY
 
 
   telephone-cloud:
