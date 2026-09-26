@@ -45,6 +45,10 @@ Tra le offerte con entrambe le componenti confrontabili, ORA ordina per
 risparmio stimato e propone quella con il valore maggiore. La ricerca chiede
 esplicitamente prezzi e quote fisse alle fonti ufficiali; non definisce
 «migliore sul mercato» una proposta se non ha dati per confrontarla.
+Se la prima ricerca non trova prezzi confrontabili, ORA prova una seconda
+ricerca mirata alle singole pagine con prezzo unitario e quota commerciale.
+Le pagine generali che raccolgono più tariffe non vengono presentate come
+un'offerta individuale.
 
 ## Operatività
 
