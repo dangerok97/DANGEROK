@@ -183,6 +183,25 @@ async def test_upload_creates_durable_weekly_watch_and_only_changes_wake_review(
     assert current["document_id"] == "bill-2"
     assert current["candidates"] == []
     assert current["source_fetched_at"] is None
+    await db.energy_offer_monitors.update_one(
+        {"user_id": user_id}, {"$set": {
+            "source_fetched_at": (datetime.now(timezone.utc) - timedelta(days=11)).isoformat(),
+            "candidates": [{"code": "OLD", "valid_until": None}],
+        }}
+    )
+    stale = (await second.status(user_id))[0]
+    assert stale["source_stale"] is True
+    assert stale["candidates"] == []
+    await db.energy_offer_monitors.update_one(
+        {"user_id": user_id}, {"$set": {
+            "source_fetched_at": datetime.now(timezone.utc).isoformat(),
+            "candidates": [{"code": "EXPIRED", "valid_until":
+                            (datetime.now(timezone.utc) - timedelta(days=1)).date().isoformat()}],
+        }}
+    )
+    expired = (await second.status(user_id))[0]
+    assert expired["source_stale"] is False
+    assert expired["candidates"] == []
     await second.set_enabled(user_id, False)
     assert (await second.run_due(now=first + timedelta(days=16)))["checked"] == 0
 
