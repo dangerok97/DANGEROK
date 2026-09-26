@@ -58,7 +58,8 @@ _PRICE_QUERIES = {
         'polizza assicurativa preventivo online sito ufficiale compagnia Italia',
     ],
     "telephone": [
-        'offerta mobile SIM canone mensile sito ufficiale operatore Italia',
+        '"offerta mobile" "GB" "€/mese" operatore Italia attivabile',
+        '"piano mobile" "GB" "€ al mese" sito ufficiale operatore Italia',
     ],
 }
 
@@ -147,12 +148,21 @@ def _public_url(url: str) -> bool:
     )
 
 
-def _generic_energy_listing(title: str, url: str, commodity: str) -> bool:
-    """A category page is not one energy offer with identifiable terms."""
-    if commodity not in ("electricity", "gas"):
-        return False
+def _generic_offer_listing(title: str, url: str, commodity: str) -> bool:
+    """A homepage or tariff list is not one identifiable offer."""
     label = title.strip().lower()
     path = urlparse(url).path.lower().rstrip("/")
+    if commodity == "telephone":
+        return (
+            path in ("", "/tutte-le-offerte", "/all-inclusive", "/offerte-mobile",
+                     "/offerte-telefonia-mobile", "/offerte-telefonia") or
+            label.startswith(("tutte le offerte", "offerte telefonia mobile",
+                              "offerte mobile", "le nostre offerte mobile"))
+        )
+    if commodity.startswith("insurance"):
+        return path == ""
+    if commodity not in ("electricity", "gas"):
+        return False
     return (
         label.startswith(("offerte luce", "offerte gas", "offerte energia",
                           "scopri le nostre tariffe", "le nostre tariffe")) or
@@ -388,7 +398,7 @@ async def _alternatives(run, commodity: str, *, allow_uncited: bool = False) -> 
     sources = [
         s for s in run.sources
         if (s.url in cited or commodity in ("electricity", "gas") or allow_uncited) and _public_url(s.url)
-        and not _generic_energy_listing(s.title, s.url, commodity)
+        and not _generic_offer_listing(s.title, s.url, commodity)
     ][:24]
     if not sources:
         logger.info(
