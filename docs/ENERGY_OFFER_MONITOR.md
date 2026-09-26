@@ -35,7 +35,9 @@ incompleta ma la bolletta contiene entrambe le componenti, ORA indica la
 soglia annua che un nuovo preventivo deve battere. Se una polizza riporta un
 premio annuo esplicito, usa quel premio come soglia a parità di coperture;
 non deduce un risparmio dal prezzo pubblicitario. Una ricerca fallita non vale come «nessuna
-offerta» e viene ripetuta dopo dodici ore.
+offerta» e viene ripetuta dopo dodici ore. Anche una ricerca senza pagine
+specifiche verificabili viene ripetuta dopo dodici ore, mantenendo il
+consiglio sulla soglia personale se il documento la permette.
 
 ## Operatività
 
