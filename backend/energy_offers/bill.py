@@ -10,6 +10,8 @@ import re
 from datetime import datetime
 from typing import Any
 
+from energy_offers.savings import bill_terms
+
 
 def _number(raw: str) -> float | None:
     value = raw.strip().replace(" ", "")
@@ -71,6 +73,7 @@ def parse_bill(text: str, *, document_id: str) -> dict[str, Any] | None:
         hashlib.sha256(identifier.group(1).upper().encode()).hexdigest()[:20]
         if identifier else "default"
     )
+    terms = bill_terms(text, commodity)
     return {
         "commodity": commodity,
         "document_id": document_id,
@@ -79,5 +82,7 @@ def parse_bill(text: str, *, document_id: str) -> dict[str, Any] | None:
         "annual_consumption_estimated": annual_estimated,
         "current_offer_code": offer.group(1).upper() if offer else None,
         "power_kw": power if power is not None and power <= 30 else None,
-        "comparison_ready": bool(offer) and annual is not None and not annual_estimated and commodity == "electricity",
+        "current_unit_price": terms["unit_price"] if terms else None,
+        "current_fixed_year": terms["fixed_year"] if terms else None,
+        "comparison_ready": terms is not None and annual is not None and not annual_estimated,
     }

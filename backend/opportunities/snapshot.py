@@ -627,7 +627,7 @@ async def _market_offers(db, user_id: str, now: datetime) -> List[Dict[str, Any]
                  {"evidence_valid_until": None},
                  {"evidence_valid_until": {"$gte": now.isoformat()}}]},
         {"_id": 0, "commodity": 1, "document_id": 1, "annual_consumption": 1,
-         "candidates": 1, "source_url": 1, "source_fetched_at": 1},
+         "candidates": 1, "advice": 1, "source_url": 1, "source_fetched_at": 1},
     ).limit(MAX_PER_SOURCE).to_list(MAX_PER_SOURCE)
     out = []
     for row in rows:
@@ -654,7 +654,14 @@ async def _market_offers(db, user_id: str, now: datetime) -> List[Dict[str, Any]
                 "current_seller_year": offer.get("current_seller_year"),
                 "potential_saving_year": offer.get("potential_saving_year"),
                 "comparison_basis": offer["comparison_basis"],
-                "caveat": "Alternativa osservata online; convenienza rispetto al contratto attuale non verificata.",
+                "advice": (row.get("advice") or {}).get("text")
+                if (row.get("advice") or {}).get("offer_code") == offer["code"] else None,
+                "caveat": (
+                    "Stima della sola componente di vendita da prezzi espliciti; "
+                    "bolletta totale, condizioni e requisiti non verificati."
+                    if offer["comparison_basis"] == "seller_component_estimate" else
+                    "Alternativa osservata online; convenienza rispetto al contratto attuale non verificata."
+                ),
             })
     return out[:MAX_PER_SOURCE]
 

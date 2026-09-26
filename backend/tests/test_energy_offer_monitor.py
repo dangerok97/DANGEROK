@@ -7,7 +7,8 @@ from types import SimpleNamespace
 import pytest
 
 from energy_offers.bill import parse_bill
-from energy_offers.service import EnergyOfferService, _alternatives, _profile
+from energy_offers.service import EnergyOfferService, _advice, _alternatives, _apply_savings, _profile
+from energy_offers.savings import offer_terms
 
 
 def test_bill_profile_does_not_expose_identifiers_or_invoice_total():
@@ -20,6 +21,46 @@ def test_bill_profile_does_not_expose_identifiers_or_invoice_total():
     assert profile["annual_consumption"] == 2700
     assert "IT001E12345678" not in str(profile)
     assert "400" not in str(profile)
+
+
+def test_saving_advice_requires_explicit_comparable_seller_terms():
+    profile = parse_bill(
+        "Bolletta energia elettrica\nConsumo annuo: 2700 kWh\n"
+        "Prezzo materia energia: 0,22 €/kWh\n"
+        "Quota fissa di commercializzazione: 12 €/mese\n"
+        "Totale da pagare: 400,00 EUR\n",
+        document_id="bill-advice",
+    )
+    assert profile is not None and profile["comparison_ready"]
+    assert profile["current_fixed_year"] == 144
+    candidate = {
+        "code": "named", "name": "Piano Fisso", "seller": "seller.example",
+        "url": "https://seller.example/piano-fisso", "source_id": "named",
+        "comparison_basis": "not_comparable", "potential_saving_year": None,
+        "current_seller_year": None, "estimated_seller_year": None,
+    }
+    source = SimpleNamespace(
+        source_id="named", url=candidate["url"],
+        snippet="Prezzo fisso 0,159€/kWh + 8,75€ al mese (costi di commercializzazione)",
+    )
+    _apply_savings(profile, SimpleNamespace(sources=[source]), [candidate])
+    assert candidate["comparison_basis"] == "seller_component_estimate"
+    assert candidate["current_seller_year"] == 738
+    assert candidate["estimated_seller_year"] == 534.3
+    assert candidate["potential_saving_year"] == 203.7
+    advice = _advice(profile, [candidate])
+    assert advice["kind"] == "estimated_saving"
+    assert "sola componente di vendita" in advice["text"]
+    assert "400" not in advice["text"]
+
+
+def test_variable_or_incomplete_offer_cannot_claim_a_saving():
+    assert offer_terms("Prezzo indicizzato PUN 0,15 €/kWh, quota fissa 10 €/mese", "electricity") is None
+    assert offer_terms("Prezzo fisso 0,15 €/kWh", "electricity") is None
+    profile = parse_bill("Energia elettrica\nConsumo annuo: 2700 kWh\nTotale da pagare: 700 €", document_id="incomplete")
+    assert profile is not None and not profile["comparison_ready"]
+    candidate = {"code": "x", "name": "Piano X", "comparison_basis": "not_comparable"}
+    assert _advice(profile, [candidate])["kind"] == "comparison_needed"
 
 
 def test_policy_profile_does_not_send_plate_or_person_to_search():
@@ -160,6 +201,7 @@ async def test_durable_web_check_repeats_and_only_changes_wake_review(monkeypatc
     assert all("AB123CD" not in str(item) for item in searches)
     status = await restarted.status(user_id)
     assert {row["commodity"] for row in status} == {"electricity", "insurance_auto"}
+    assert all(row["advice"]["kind"] == "comparison_needed" for row in status)
     await restarted.set_enabled(user_id, False)
     assert (await restarted.run_due(now=first + timedelta(days=16)))["checked"] == 0
     client.close()

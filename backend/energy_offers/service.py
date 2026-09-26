@@ -16,6 +16,7 @@ from urllib.parse import urlparse
 from pymongo import ReturnDocument
 
 from energy_offers.bill import parse_bill
+from energy_offers.savings import offer_terms, seller_year
 
 logger = logging.getLogger("ora.market_watch")
 MONITORS = "energy_offer_monitors"  # Retain the existing owner-scoped collection.
@@ -107,6 +108,77 @@ def _generic_energy_listing(title: str, url: str, commodity: str) -> bool:
         label.startswith(("offerte luce", "offerte gas", "offerte energia")) or
         path.endswith(("/offerte-luce", "/offerte-gas", "/gas-e-luce", "/luce-e-gas"))
     )
+
+
+def _apply_savings(row: dict[str, Any], run: Any, candidates: list[dict[str, Any]]) -> None:
+    """Attach a seller-component estimate only when both sides have explicit terms."""
+    if not row.get("comparison_ready") or row.get("commodity") not in ("electricity", "gas"):
+        return
+    annual = row.get("annual_consumption")
+    current_rate = row.get("current_unit_price")
+    current_fixed = row.get("current_fixed_year")
+    if annual is None or current_rate is None or current_fixed is None:
+        return
+    current_year = seller_year(annual, {"unit_price": current_rate, "fixed_year": current_fixed})
+    sources = {source.source_id: source for source in run.sources}
+    for candidate in candidates:
+        source = sources.get(candidate.get("source_id"))
+        if source is None or source.url != candidate["url"]:
+            continue
+        terms = offer_terms(source.snippet, row["commodity"])
+        if terms is None:
+            continue
+        proposed_year = seller_year(annual, terms)
+        candidate.update({
+            "current_seller_year": current_year,
+            "estimated_seller_year": proposed_year,
+            "potential_saving_year": round(max(0, current_year - proposed_year), 2),
+            "comparison_basis": "seller_component_estimate",
+            "seller_unit_price": terms["unit_price"],
+            "seller_fixed_year": terms["fixed_year"],
+            "current_unit_price": current_rate,
+            "current_fixed_year": current_fixed,
+        })
+
+
+def _advice(row: dict[str, Any], candidates: list[dict[str, Any]]) -> dict[str, Any]:
+    """A concrete next step, with the strength of the evidence made explicit."""
+    category = row["commodity"]
+    if not candidates:
+        return {"kind": "no_verified_offer", "text": "Non ho trovato una proposta verificabile in questo controllo. Continuerò a cercare automaticamente."}
+    better = [c for c in candidates if (c.get("potential_saving_year") or 0) > 0]
+    if better:
+        best = max(better, key=lambda c: c["potential_saving_year"])
+        amount = best["potential_saving_year"]
+        return {
+            "kind": "estimated_saving", "offer_code": best["code"],
+            "estimated_saving_year": amount,
+            "text": (
+                f"Valuta {best['name']}: sui tuoi consumi la sola componente di vendita "
+                f"potrebbe costare circa {amount:.2f} € in meno all'anno. "
+                "Verifica il preventivo completo, imposte, oneri e requisiti prima di cambiare."
+            ),
+        }
+    compared = [c for c in candidates if c.get("comparison_basis") == "seller_component_estimate"]
+    if compared:
+        return {
+            "kind": "keep_current", "text": (
+                "Le offerte con prezzi confrontabili trovate oggi non riducono la "
+                "componente di vendita sui tuoi consumi. Per ora conserva la tariffa attuale; "
+                "continuerò a cercare."
+            ),
+        }
+    first = candidates[0]
+    if category.startswith("insurance"):
+        action = "chiedi un preventivo personale e confronta premio, massimali, franchigie ed esclusioni"
+    elif category in ("electricity", "gas"):
+        action = "confronta prezzo per consumo e quota fissa con quelli del tuo contratto"
+    else:
+        action = "confronta canone, limiti e condizioni con il tuo contratto"
+    return {
+        "kind": "comparison_needed", "offer_code": first["code"],
+        "text": f"Per cercare un risparmio, valuta {first['name']}: {action}. Non ho ancora dati sufficienti per stimare un risparmio affidabile.",
+    }
 
 
 async def _alternatives(run, commodity: str) -> list[dict[str, Any]]:
@@ -215,7 +287,8 @@ class EnergyOfferService:
         changed = previous is None or any(
             previous.get(key) != profile.get(key)
             for key in ("document_id", "annual_consumption", "current_offer_code",
-                        "power_kw", "comparison_ready")
+                        "power_kw", "comparison_ready", "current_unit_price",
+                        "current_fixed_year")
         )
         update = {**profile, "user_id": user_id, "enabled": True, "updated_at": _iso(_now())}
         if changed:
@@ -223,6 +296,7 @@ class EnergyOfferService:
                 "next_check_at": _iso(_now()), "candidates": [],
                 "source_url": None, "source_fetched_at": None,
                 "research_run_id": None, "last_checked_at": None, "last_error": None,
+                "advice": None,
             })
         await self.db[MONITORS].update_one(
             identity, {"$set": update, "$setOnInsert": {"created_at": _iso(_now())}},
@@ -287,9 +361,17 @@ class EnergyOfferService:
             if run.status != "completed":
                 raise RuntimeError(f"research_{run.status}")
             candidates = await _alternatives(run, row["commodity"])
-            old = [(c["code"], c.get("evidence_digest")) for c in row.get("candidates") or []]
-            new = [(c["code"], c.get("evidence_digest")) for c in candidates]
-            changed = old != new
+            _apply_savings(row, run, candidates)
+            logger.info(
+                "market watch advice category=%s comparable=%d positive=%d",
+                row["commodity"],
+                sum(c.get("comparison_basis") == "seller_component_estimate" for c in candidates),
+                sum((c.get("potential_saving_year") or 0) > 0 for c in candidates),
+            )
+            advice = _advice(row, candidates)
+            old = [(c["code"], c.get("evidence_digest"), c.get("potential_saving_year")) for c in row.get("candidates") or []]
+            new = [(c["code"], c.get("evidence_digest"), c.get("potential_saving_year")) for c in candidates]
+            changed = old != new or (bool(candidates) and row.get("advice") != advice)
             valid_until = getattr(run, "valid_until", None)
             next_check = moment + CHECK_EVERY
             if valid_until:
@@ -299,6 +381,7 @@ class EnergyOfferService:
                 next_check = min(next_check, max(moment + RETRY_AFTER, expiry))
             await self.db[MONITORS].update_one(identity, {"$set": {
                 "candidates": candidates,
+                "advice": advice,
                 "source_url": None,
                 "source_fetched_at": _iso(moment),
                 "evidence_valid_until": valid_until,
@@ -313,7 +396,7 @@ class EnergyOfferService:
                     row["user_id"], source="market_watch", kind="offers_changed",
                     entity_ref=f"market_watch:{row['commodity']}:{row['supply_key']}",
                     entity_kind="market_watch",
-                    after=",".join(f"{code}:{digest}" for code, digest in new),
+                    after=",".join(f"{code}:{digest}:{saving}" for code, digest, saving in new),
                 )
             return {"checked": 1, "failed": 0, "changed": int(changed)}
         except Exception as exc:
@@ -343,6 +426,8 @@ class EnergyOfferService:
                 if not row["source_stale"] and
                 (not offer.get("valid_until") or offer["valid_until"] >= today)
             ]
+            if row["source_stale"]:
+                row["advice"] = None
         return rows
 
     async def set_enabled(self, user_id: str, enabled: bool) -> None:
