@@ -179,6 +179,17 @@ class EnergyOfferService:
         rows = await self.db[MONITORS].find(
             {"user_id": user_id}, {"_id": 0, "supply_key": 0, "lease_until": 0}
         ).to_list(30)
+        moment = _now()
+        cutoff = _iso(moment - timedelta(days=10))
+        today = moment.date().isoformat()
+        for row in rows:
+            fetched = row.get("source_fetched_at")
+            row["source_stale"] = not isinstance(fetched, str) or fetched < cutoff
+            row["candidates"] = [
+                offer for offer in row.get("candidates") or []
+                if not row["source_stale"]
+                and (not offer.get("valid_until") or offer["valid_until"] >= today)
+            ]
         return rows
 
     async def set_enabled(self, user_id: str, enabled: bool) -> None:
@@ -189,3 +200,4 @@ class EnergyOfferService:
             {"user_id": user_id}, {"$set": {"enabled": enabled,
                                             "next_check_at": _iso(_now()) if enabled else None}}
         )
+
