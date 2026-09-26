@@ -23,11 +23,18 @@ scompare dalla pagina.
 
 Il testo del documento, nome, indirizzo, POD/PDR, targa e numero di polizza non
 entrano nelle query web. Per l'energia si usa eventualmente il solo consumo
-annuo e l'unità. Una pagina di offerta può dimostrare che esiste
-un'alternativa, ma non che sia la più conveniente per questa persona. Il
-sistema non afferma risparmi o superiorità senza prezzo completo, requisiti,
-coperture e condizioni del contratto attuale confrontabili. Il pannello
-esplicita questa incertezza. Una ricerca fallita non vale come «nessuna
+annuo e l'unità. Prezzo unitario e quota commerciale del contratto attuale
+vengono estratti localmente soltanto da voci esplicitamente etichettate. Un
+confronto numerico richiede le stesse due componenti nello snippet della
+pagina ufficiale citata e una tariffa fissa; tariffe variabili, valori
+multipli, OCR non confermato o consumi annui stimati restano senza cifra.
+La stima riguarda la sola componente di vendita: non include rete, imposte,
+oneri, sconti, requisiti o il totale della bolletta. ORA consiglia di
+verificare il preventivo completo prima del cambio. Se la tariffa pubblica è
+incompleta ma la bolletta contiene entrambe le componenti, ORA indica la
+soglia annua che un nuovo preventivo deve battere. Se una polizza riporta un
+premio annuo esplicito, usa quel premio come soglia a parità di coperture;
+non deduce un risparmio dal prezzo pubblicitario. Una ricerca fallita non vale come «nessuna
 offerta» e viene ripetuta dopo dodici ore.
 
 ## Operatività
@@ -46,12 +53,12 @@ Questa bozza non cambia fornitore, non acquista una polizza e non contatta
 venditori. Eventuali azioni future devono passare per l'autorità ordinaria
 dell'agente ORA.
 
-## Verifica prima dell'attivazione
+## Verifica
 
-I test coprono profili senza identificatori sensibili, polizze, selezione di
-sole fonti citate, periodicità persistente, deduplica e ritentativi. Restano
-da provare con un provider configurato nell'ambiente di esercizio una ricerca
-vera, un documento sintetico end to end e la resa della schermata. I
-risultati di ricerca dipendono dalla disponibilità dei provider e dalle
-pagine pubblicate dai venditori. Per presentare offerte come «più
-convenienti» serve ancora un confronto verificabile di prezzo e condizioni.
+La ricerca reale e il monitor su ORA Staging sono stati provati con bolletta e
+polizza sintetiche. I test coprono anche estrazione prudente delle componenti,
+stima positiva, rifiuto di prezzi variabili o incompleti, deduplica e
+ritentativi. Il consiglio quantificato richiede ancora una prova end to end
+con fonte web che pubblichi entrambi i valori nello snippet e la verifica UI.
+I risultati dipendono dalla disponibilità dei provider e dalle pagine dei
+venditori; un preventivo personale resta necessario per decidere un cambio.

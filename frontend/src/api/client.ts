@@ -593,7 +593,7 @@ export type EnergyOfferCandidate = {
   estimated_seller_year: number | null;
   current_seller_year: number | null;
   potential_saving_year: number | null;
-  comparison_basis: 'not_comparable';
+  comparison_basis: 'not_comparable' | 'seller_component_estimate';
 };
 
 export type EnergyOfferSupply = {
@@ -609,6 +609,12 @@ export type EnergyOfferSupply = {
   source_url?: string;
   last_error?: string | null;
   candidates?: EnergyOfferCandidate[];
+  advice?: {
+    kind: 'estimated_saving' | 'keep_current' | 'comparison_needed' | 'no_verified_offer';
+    text: string;
+    offer_code?: string;
+    estimated_saving_year?: number;
+  } | null;
 };
 
 export type EnergyOfferMonitoring = { enabled: boolean; supplies: EnergyOfferSupply[] };

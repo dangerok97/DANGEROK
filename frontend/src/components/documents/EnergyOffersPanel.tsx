@@ -90,6 +90,16 @@ export function EnergyOffersPanel() {
               Ricerca online del {day(supply.source_fetched_at)}
             </Text>
           ) : null}
+          {supply.advice && !supply.source_stale ? (
+            <View style={{ gap: 4, paddingVertical: 6 }}>
+              <Text style={{ color: colors.textPrimary, fontSize: 13, fontWeight: '600' }}>
+                Consiglio di ORA
+              </Text>
+              <Text style={{ color: colors.textSecondary, fontSize: 13, lineHeight: 19 }}>
+                {supply.advice.text}
+              </Text>
+            </View>
+          ) : null}
           {(supply.candidates || []).slice(0, 3).map((offer) => (
             <Pressable key={offer.code} accessibilityRole="link"
               onPress={() => { void Linking.openURL(offer.url).catch(() => setError(true)); }}
@@ -98,7 +108,9 @@ export function EnergyOffersPanel() {
                 {offer.name} · {offer.seller}
               </Text>
               <Text style={{ color: colors.textSecondary, fontSize: 12, lineHeight: 18 }}>
-                Alternativa trovata online. Prezzo, requisiti e convenienza per te da verificare.
+                {offer.comparison_basis === 'seller_component_estimate'
+                  ? `Stima sulla sola componente di vendita: ${offer.estimated_seller_year?.toFixed(2)} €/anno contro ${offer.current_seller_year?.toFixed(2)} €/anno. Totale bolletta e requisiti da verificare.`
+                  : 'Alternativa trovata online. Prezzo, requisiti e convenienza per te da verificare.'}
               </Text>
             </Pressable>
           ))}

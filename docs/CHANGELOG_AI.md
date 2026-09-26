@@ -1,3 +1,7 @@
+## 2026-09-26 — Consigli di risparmio basati sui costi verificabili
+
+La bolletta fornisce ora prezzo unitario della materia energia e quota commerciale fissa, quando esplicitamente indicati. Se una pagina venditore citata nella ricerca riporta le stesse due componenti per una tariffa fissa, ORA calcola una stima annua sulla sola componente di vendita usando i consumi del documento, mostra un consiglio e passa la stima al giudizio delle opportunità. Se il nuovo prezzo manca, indica la soglia annua della componente di vendita da battere; per una polizza con premio annuo esplicito indica la soglia per un preventivo a parità di coperture. Tariffe indicizzate, prezzi ambigui e dati mancanti restano senza cifra di risparmio. Nessun cambio fornitore automatico.
+
 ## 2026-09-26 — Ricerca web periodica per offerte e polizze
 
 Sostituito il download del catalogo XML con ricerche web nuove a ogni scadenza, tramite il motore `research` esistente. Aggiunti trigger per polizze, selezione di pagine venditore citate, deduplica delle proposte, ritentativi e stato nel pannello Documenti. Rimossi parser XML e controllo CI che dipendeva dal Portale Offerte. Nessun risparmio viene inventato da uno snippet; la funzione resta bozza finché il ciclo reale su staging non è verificato.
