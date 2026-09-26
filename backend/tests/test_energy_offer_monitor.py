@@ -14,6 +14,7 @@ def _offer(code: str, price: str, *, kind="01", end="2026-12-31", extra="") -> s
     return f"""<offerta>
       <COD_OFFERTA>{code}</COD_OFFERTA><NOME_OFFERTA>{code} Casa</NOME_OFFERTA>
       <TIPO_CLIENTE>01</TIPO_CLIENTE><TIPO_OFFERTA>{kind}</TIPO_OFFERTA>
+      <TIPOLOGIA_ATT_CONTR>99</TIPOLOGIA_ATT_CONTR>
       <TIPOLOGIA_FASCE>01</TIPOLOGIA_FASCE><DATA_INIZIO>2026-01-01</DATA_INIZIO>
       <DATA_FINE>{end}</DATA_FINE><URL_OFFERTA>https://example.com/{code}</URL_OFFERTA>
       <URL_SITO_VENDITORE>https://example.com</URL_SITO_VENDITORE>{extra}
@@ -74,6 +75,35 @@ def test_only_simple_live_offers_can_support_a_seller_component_comparison():
     assert candidates[0]["code"] == "BETTER123"
     assert candidates[0]["potential_saving_year"] == 270.0
     assert candidates[0]["comparison_basis"] == "seller_components_only"
+
+
+def test_published_nested_xml_schema_yields_prices_and_rejects_restricted_offers():
+    # Shape and values reflect a 26 September 2026 Portale Offerte export.
+    # The fields are nested; a flat-only parser silently discards the catalog.
+    xml = b"""<ListaOfferteMercatoLibero><offerta>
+      <IdentificativiOfferta><COD_OFFERTA>PUBLIC123</COD_OFFERTA></IdentificativiOfferta>
+      <DettaglioOfferta><TIPO_CLIENTE>01</TIPO_CLIENTE><TIPO_OFFERTA>01</TIPO_OFFERTA>
+        <TIPOLOGIA_ATT_CONTR>99</TIPOLOGIA_ATT_CONTR>
+        <NOME_OFFERTA>Public fixed</NOME_OFFERTA>
+        <Contatti><URL_SITO_VENDITORE>https://seller.example/</URL_SITO_VENDITORE>
+        <URL_OFFERTA>https://seller.example/offer</URL_OFFERTA></Contatti>
+      </DettaglioOfferta>
+      <ValiditaOfferta><DATA_INIZIO>01/09/2026_00:00:00</DATA_INIZIO>
+        <DATA_FINE>30/09/2026_23:59:59</DATA_FINE></ValiditaOfferta>
+      <TipoPrezzo><TIPOLOGIA_FASCE>01</TIPOLOGIA_FASCE></TipoPrezzo>
+      <ComponenteImpresa><IntervalloPrezzi><FASCIA_COMPONENTE>01</FASCIA_COMPONENTE>
+        <PREZZO>0.175</PREZZO><UNITA_MISURA>03</UNITA_MISURA></IntervalloPrezzi></ComponenteImpresa>
+      <ComponenteImpresa><IntervalloPrezzi><PREZZO>144</PREZZO>
+        <UNITA_MISURA>01</UNITA_MISURA></IntervalloPrezzi></ComponenteImpresa>
+    </offerta></ListaOfferteMercatoLibero>"""
+    offer = parse_offers(xml, "electricity", today=date(2026, 9, 26))
+    assert len(offer) == 1
+    assert offer[0]["code"] == "PUBLIC123"
+    assert offer[0]["unit_price"] == .175
+    assert offer[0]["fixed_year"] == 144
+    assert parse_offers(xml.replace(b"</ValiditaOfferta>",
+                                   b"<CONSUMO_MAX>1500</CONSUMO_MAX></ValiditaOfferta>"),
+                        "electricity", today=date(2026, 9, 26)) == []
 
 
 def test_no_incumbent_match_means_no_savings_claim():
@@ -155,3 +185,4 @@ async def test_upload_creates_durable_weekly_watch_and_only_changes_wake_review(
     assert current["source_fetched_at"] is None
     await second.set_enabled(user_id, False)
     assert (await second.run_due(now=first + timedelta(days=16)))["checked"] == 0
+
