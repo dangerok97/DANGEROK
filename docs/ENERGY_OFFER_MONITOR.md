@@ -78,10 +78,13 @@ dell'agente ORA.
 ## Verifica
 
 La ricerca reale e il monitor su ORA Staging sono stati provati con bolletta e
-polizza sintetiche. I test coprono anche estrazione prudente delle componenti,
-stima positiva, rifiuto di prezzi variabili o incompleti, deduplica e
-ritentativi. Il consiglio quantificato richiede ancora una prova end to end
-con fonte web che pubblichi entrambi i valori nello snippet e la verifica UI.
+polizza sintetiche. Il 26/09 una bolletta sintetica da 2.700 kWh/anno con
+prezzo 0,22 €/kWh e quota commerciale 12 €/mese ha prodotto una proposta
+Iren Web Self Luce Prezzo Fisso con stima di 203,70 €/anno in meno sulla sola
+componente di vendita. La pagina ufficiale è stata letta durante il controllo.
+Il prossimo controllo è stato programmato sette giorni dopo; il documento di
+prova è stato rimosso e il monitor sospeso. La resa visiva nell'app installata
+non è ancora stata verificata manualmente.
 Il test integrato usa una bolletta sintetica e due offerte con condizioni
 esplicite: verifica la migliore proposta, un nuovo controllo dopo sette giorni
 con prezzi cambiati e il cambio di consiglio dopo il riavvio del servizio.

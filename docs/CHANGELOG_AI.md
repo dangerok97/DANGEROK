@@ -5236,3 +5236,6 @@ opportunità o comportamento dell'account personale. Il comando temporaneo di
 predeploy è stato riportato a [] dopo la prova. Restano da verificare gli altri
 due domini con il controllo di fattibilità introdotto nello stesso SHA.
 
+## 2026-09-26 — Confronto bolletta verificato su Staging
+
+Il primo percorso spiega perché caricare una bolletta e mostra il consiglio mentre ORA lavora. La ricerca settimanale legge offerte correnti da fonti web, approfondisce quando gli estratti non bastano e propone la migliore fra quelle con prezzi realmente confrontabili. Test live su Staging con bolletta sintetica: proposta Iren Web Self Luce Prezzo Fisso e stima di 203,70 €/anno in meno sulla sola componente di vendita; prossimo controllo dopo sette giorni. Test integrato con otto giorni simulati e prezzi cambiati. Nessun cambio fornitore.
