@@ -102,11 +102,19 @@ async def _alternatives(run, commodity: str) -> list[dict[str, Any]]:
     from research.reasoning import _ask_model
 
     cited = {s["url"] for s in run.citable_sources()}
+    logger.info(
+        "market watch research category=%s sources=%d cited_sources=%d",
+        commodity, len(run.sources), len(cited),
+    )
     sources = [
         s for s in run.sources
         if s.url in cited and _public_url(s.url)
     ][:12]
     if not sources:
+        logger.info(
+            "market watch selection category=%s eligible_sources=0 candidates=0",
+            commodity,
+        )
         return []
     payload = [
         {"source_id": s.source_id, "title": s.title[:160],
@@ -146,6 +154,10 @@ async def _alternatives(run, commodity: str) -> list[dict[str, Any]]:
                 (source.title + "\n" + source.snippet).encode()
             ).hexdigest()[:16],
         })
+    logger.info(
+        "market watch selection category=%s eligible_sources=%d candidates=%d",
+        commodity, len(sources), len(out),
+    )
     return out[:3]
 
 
