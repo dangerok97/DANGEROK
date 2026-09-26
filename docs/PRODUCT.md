@@ -1,5 +1,7 @@
 ## 2026-09-26 — Ricerca periodica online dei contratti
 
+Il consiglio che dipende solo dai costi leggibili nella bolletta o polizza compare appena il documento è elaborato, anche se la prima ricerca web deve ancora partire o deve essere ripetuta. Una stima legata a un'offerta pubblica viene invece nascosta quando la fonte non è più recente.
+
 Una bolletta o una polizza riconosciuta avvia una ricerca online ricorrente, anche quando l'app è chiusa. ORA usa le fonti pubbliche trovate al momento del controllo, presenta alternative con pagina del venditore e data di osservazione, poi decide con il normale flusso delle opportunità se proporle. La persona vede i controlli in Documenti e può sospenderli. Per luce e gas, se la bolletta e una pagina ufficiale riportano prezzo unitario fisso e quota commerciale fissa, ORA stima il risparmio annuo sulla sola componente di vendita e consiglia di valutare il preventivo completo. Se quei dati mancano, consiglia quale confronto o preventivo fare senza dichiarare una cifra. Per le assicurazioni richiede sempre un preventivo personale prima di parlare di risparmio. Nessun catalogo pubblico è scaricato o mantenuto. La ricerca ricorrente è attiva su ORA Staging; il consiglio quantificato richiede ancora verifica end to end con dati sintetici. Dettagli in `ENERGY_OFFER_MONITOR.md`.
 
 ## 2026-09-25 — Sorveglianza continua delle offerte energia

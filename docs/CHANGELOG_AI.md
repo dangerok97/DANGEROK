@@ -1,3 +1,7 @@
+## 2026-09-26 — Consiglio immediato dalla bolletta o polizza
+
+ORA ora registra il consiglio con soglia personale già durante l'elaborazione del documento, prima della prima ricerca online. La scheda Documenti lo mostra anche se il provider web è temporaneamente indisponibile. Quando una fonte di offerta invecchia, la stima legata a quella fonte viene nascosta e resta soltanto il consiglio ricavabile dal documento; un documento rimosso disattiva il monitor e cancella il consiglio.
+
 ## 2026-09-26 — Recupero delle ricerche con campi troppo lunghi
 
 Il modello di ricerca talvolta restituisce un piano o una valutazione JSON corretti nella struttura generale ma con campi annidati oltre i limiti di lunghezza. ORA ora taglia quei campi agli stessi limiti già applicati ai campi esterni, conserva la validazione semantica e registra soltanto percorso e tipo degli errori residui, senza testo del documento o della ricerca.

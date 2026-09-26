@@ -90,7 +90,7 @@ export function EnergyOffersPanel() {
               Ricerca online del {day(supply.source_fetched_at)}
             </Text>
           ) : null}
-          {supply.advice && !supply.source_stale ? (
+          {supply.advice ? (
             <View style={{ gap: 4, paddingVertical: 6 }}>
               <Text style={{ color: colors.textPrimary, fontSize: 13, fontWeight: '600' }}>
                 Consiglio di ORA
