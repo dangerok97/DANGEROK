@@ -8,7 +8,7 @@ from types import SimpleNamespace
 import pytest
 
 from energy_offers.bill import parse_bill
-from energy_offers.service import EnergyOfferService, _advice, _alternatives, _apply_savings, _profile, _read_offer_pages, _direct_offer_search
+from energy_offers.service import EnergyOfferService, _advice, _alternatives, _apply_savings, _profile, _read_offer_pages, _direct_offer_search, _positive_offer_codes, _market_location
 from energy_offers.savings import offer_terms
 from energy_offers.page import terms_from_html
 
@@ -23,6 +23,35 @@ def test_bill_profile_does_not_expose_identifiers_or_invoice_total():
     assert profile["annual_consumption"] == 2700
     assert "IT001E12345678" not in str(profile)
     assert "400" not in str(profile)
+
+
+def test_only_verified_positive_improvements_warrant_market_alert():
+    offers = [
+        {"code": "ad", "comparison_basis": "not_comparable", "potential_saving_year": 999},
+        {"code": "worse", "comparison_basis": "seller_component_estimate", "potential_saving_year": 0},
+        {"code": "better", "comparison_basis": "seller_component_estimate", "potential_saving_year": 12},
+    ]
+    assert _positive_offer_codes(offers) == {"better"}
+
+
+@pytest.mark.asyncio
+async def test_market_location_requires_confirmed_municipality():
+    from life_setup.models import DomainProfile, LifeProfile, ProfileObject
+    from life_setup.profile_service import LifeProfileService
+    class FakeProfiles:
+        async def find_one(self, *_args, **_kwargs):
+            return profile.model_dump()
+    class FakeDb:
+        life_profiles = FakeProfiles()
+    profile = LifeProfile(user_id="owner", domains={"casa": DomainProfile(domain="casa", objects={
+        "casa.citta": ProfileObject(key="casa.citta", value="Milano", source="user_said", status="confirmed")
+    })})
+    assert await _market_location(FakeDb(), "owner") == "Milano"
+    profile.domains["casa"].objects["casa.citta"].value = "Via Roma 12, Milano"
+    assert await _market_location(FakeDb(), "owner") is None
+    profile.domains["casa"].objects["casa.citta"].value = "Roma"
+    profile.domains["casa"].objects["casa.citta"].source = "inferred"
+    assert await _market_location(FakeDb(), "owner") is None
 
 
 def test_saving_advice_requires_explicit_comparable_seller_terms():
@@ -405,14 +434,14 @@ async def test_durable_web_check_repeats_and_only_changes_wake_review(monkeypatc
     first = datetime.now(timezone.utc) + timedelta(minutes=1)
     assert (await service.run_due(now=first))["changed"] == 1
     assert (await service.run_due(now=first))["changed"] == 1
-    assert len(notices) == 2
+    assert len(notices) == 0  # A public listing is not a personalized saving.
     assert (await service.run_due(now=first + timedelta(days=1)))["checked"] == 0
 
     # Persisted due time is consumed after a process restart. Repeated
     # evidence refreshes the check without creating another proposal.
     restarted = EnergyOfferService(db)
     assert (await restarted.run_due(now=first + timedelta(days=8)))["changed"] == 0
-    assert len(notices) == 2
+    assert len(notices) == 0
     assert len(searches) == 5  # A focused second search follows each inconclusive bill check.
     assert all(item[3]["allow_reuse"] is False for item in searches)
     assert all("AB123CD" not in str(item) for item in searches)

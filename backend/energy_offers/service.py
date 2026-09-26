@@ -72,6 +72,34 @@ def _iso(moment: datetime) -> str:
     return moment.isoformat()
 
 
+async def _market_location(db: Any, user_id: str) -> str | None:
+    """Use only an explicitly confirmed municipality, never an address or GPS."""
+    from life_setup.profile_service import LifeProfileService
+
+    profile = await LifeProfileService(db).get(user_id)
+    obj = (profile.domains.get("casa").objects.get("casa.citta")
+           if profile and profile.domains.get("casa") else None)
+    if not obj or obj.source not in ("user_said", "user_confirmed") or obj.status not in ("confirmed", "corrected"):
+        return None
+    city = obj.value
+    if isinstance(city, dict):
+        city = city.get("city") or city.get("comune")
+    if not isinstance(city, str) or not re.fullmatch(r"[A-Za-zÀ-ÿ' .-]{2,65}", city.strip()):
+        return None
+    return city.strip()
+
+
+def _positive_offer_codes(candidates: list[dict[str, Any]]) -> set[str]:
+    """Only a fresh numerical improvement warrants an automatic alert."""
+    return {
+        c["code"] for c in candidates
+        if c.get("comparison_basis") == "seller_component_estimate"
+        and isinstance(c.get("potential_saving_year"), (int, float))
+        and c["potential_saving_year"] > 0
+        and c.get("code")
+    }
+
+
 def _profile(document: dict[str, Any], analysis: dict[str, Any] | None = None) -> dict[str, Any] | None:
     if document.get("deleted") or document.get("archived"):
         return None
@@ -552,6 +580,13 @@ class EnergyOfferService:
                 raise RuntimeError("research_unavailable")
 
             context = []
+            city = await _market_location(self.db, row["user_id"])
+            if city:
+                context.append(f"Comune di riferimento dichiarato: {city}. Verifica esplicitamente che l'offerta sia sottoscrivibile in questo comune; se non risulta, non dichiarare l'idoneità.")
+            if row["commodity"].startswith("insurance"):
+                context.append("Non attribuire un prezzo personale a una polizza senza preventivo sul veicolo, conducente e garanzie; la pagina pubblica è soltanto un punto di partenza.")
+            elif row["commodity"] == "telephone":
+                context.append("Verifica requisiti di portabilità, GB, velocità e copertura; in assenza di verifica locale non dichiarare la copertura.")
             annual = row.get("annual_consumption")
             if annual is not None:
                 unit = "kWh" if row["commodity"] == "electricity" else "Smc"
@@ -637,6 +672,7 @@ class EnergyOfferService:
             old = [(c["code"], c.get("evidence_digest"), c.get("potential_saving_year")) for c in row.get("candidates") or []]
             new = [(c["code"], c.get("evidence_digest"), c.get("potential_saving_year")) for c in candidates]
             changed = old != new or (bool(candidates) and row.get("advice") != advice)
+            newly_better = _positive_offer_codes(candidates) - _positive_offer_codes(row.get("candidates") or [])
             valid_until = getattr(run, "valid_until", None)
             next_check = moment + (CHECK_EVERY if candidates else RETRY_AFTER)
             if valid_until:
@@ -655,13 +691,13 @@ class EnergyOfferService:
                 "next_check_at": _iso(next_check),
                 "lease_until": None, "last_error": None,
             }})
-            if changed:
+            if newly_better:
                 from opportunities.discovery import OpportunityDiscovery
                 await OpportunityDiscovery(self.db).note(
-                    row["user_id"], source="market_watch", kind="offers_changed",
+                    row["user_id"], source="market_watch", kind="better_offer_found",
                     entity_ref=f"market_watch:{row['commodity']}:{row['supply_key']}",
                     entity_kind="market_watch",
-                    after=",".join(f"{code}:{digest}:{saving}" for code, digest, saving in new),
+                    after=",".join(sorted(newly_better)),
                 )
             return {"checked": 1, "failed": 0, "changed": int(changed)}
         except Exception as exc:

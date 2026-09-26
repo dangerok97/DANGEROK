@@ -106,3 +106,22 @@ con prezzi cambiati e il cambio di consiglio dopo il riavvio del servizio.
 Il tempo settimanale viene simulato, senza attendere sette giorni reali.
 I risultati dipendono dalla disponibilità dei provider e dalle pagine dei
 venditori; un preventivo personale resta necessario per decidere un cambio.
+# Personalizzazione e soglia degli avvisi
+
+La ricerca usa il comune soltanto quando è stato dichiarato o confermato
+dall'utente nel profilo: indirizzo, coordinate, targa, POD/PDR e testo integrale
+del documento non vengono inviati come query. Il comune è un vincolo da
+verificare nella fonte: il solo fatto di cercarlo non dimostra che l'offerta
+sia sottoscrivibile lì.
+
+Il monitor registra anche alternative non confrontabili per permettere
+all'utente di aprire la fonte e richiedere un preventivo. Una nuova revisione
+proattiva delle opportunità viene avviata soltanto se compare un'offerta con
+stima positiva della componente di vendita su consumi e condizioni esplicite;
+un cambio di titolo, una tariffa più cara o una pagina generica non costituiscono
+una notizia di risparmio. Per RC auto occorrono un preventivo personale e la
+verifica di veicolo, conducente e garanzie; per telefonia occorrono copertura,
+limiti del piano e requisiti di accesso. Non esiste al momento un catalogo
+completo e verificato di tutte le offerte del mercato né un preventivatore
+personale integrato per assicurazioni: ORA non può garantire la migliore
+offerta assoluta.
