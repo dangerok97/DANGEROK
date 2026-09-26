@@ -107,6 +107,10 @@ async def _alternatives(run, commodity: str) -> list[dict[str, Any]]:
         if s.url in cited and _public_url(s.url)
     ][:12]
     if not sources:
+        logger.info(
+            "market watch selection category=%s eligible_sources=0 candidates=0",
+            commodity,
+        )
         return []
     payload = [
         {"source_id": s.source_id, "title": s.title[:160],
@@ -146,6 +150,10 @@ async def _alternatives(run, commodity: str) -> list[dict[str, Any]]:
                 (source.title + "\n" + source.snippet).encode()
             ).hexdigest()[:16],
         })
+    logger.info(
+        "market watch selection category=%s eligible_sources=%d candidates=%d",
+        commodity, len(sources), len(out),
+    )
     return out[:3]
 
 
@@ -259,6 +267,10 @@ class EnergyOfferService:
             )
             if run.status != "completed":
                 raise RuntimeError(f"research_{run.status}")
+            logger.info(
+                "market watch research category=%s sources=%d cited_sources=%d",
+                row["commodity"], len(run.sources), len(run.citable_sources()),
+            )
             candidates = await _alternatives(run, row["commodity"])
             old = [(c["code"], c.get("evidence_digest")) for c in row.get("candidates") or []]
             new = [(c["code"], c.get("evidence_digest")) for c in candidates]
