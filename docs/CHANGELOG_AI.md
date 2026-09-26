@@ -1,3 +1,7 @@
+## 2026-09-26 — Correzione parser offerte e risultati scaduti
+
+Corretto il parser sulla struttura annidata del catalogo ufficiale: la prova di sola lettura dal computer ora estrae 58 offerte luce e 39 gas dal file del 26/09. Le alternative scadute o basate su dati più vecchi di 10 giorni non vengono mostrate all'utente; il pannello indica la data della fonte. Test backend e TypeScript passano in CI; il controllo live da GitHub resta bloccato da HTTP 403. Rilevata anche una discrepanza fra XML e condizioni del venditore per AJO FISSO 12. Nessun deploy della bozza.
+
 ## 2026-09-25 — Monitor periodico offerte luce e gas (proposta)
 
 Aggiunti profilo da bolletta, lettura degli Open Data ufficiali, confronto prudente delle componenti di vendita luce, sorveglianza persistente, deduplica, visibilità e pausa nella pagina Documenti. Nessun invio esterno o cambio fornitore. Verifica live dell'XML ancora richiesta. Dettagli in `ENERGY_OFFER_MONITOR.md`.
@@ -5219,3 +5223,4 @@ Questo dimostra soltanto la fixture negativa, non precisione generale di
 opportunità o comportamento dell'account personale. Il comando temporaneo di
 predeploy è stato riportato a [] dopo la prova. Restano da verificare gli altri
 due domini con il controllo di fattibilità introdotto nello stesso SHA.
+
