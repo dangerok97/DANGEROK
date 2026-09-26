@@ -15,7 +15,7 @@ Quando ORA legge una bolletta luce o gas, registra una sorveglianza dell'utenza.
 
 ## Operatività
 
-`energy_offer_monitors` contiene un record per utente, commodity e identificatore hash dell'utenza; non memorizza il POD/PDR in chiaro. `energy_offer_catalog` riusa gli export pubblici per 20 ore. Il runtime ambientale lavora un'utenza dovuta al minuto, con lease di 15 minuti. Indici unici e indice su scadenza sono creati all'avvio. L'API autenticata `GET/PATCH /api/energy-offers/monitoring` offre lettura e controllo. Documento cancellato o archiviato, oppure preferenza disattivata, ferma il monitor; una fonte vecchia più di 10 giorni non entra nelle nuove valutazioni.
+`energy_offer_monitors` contiene un record per utente, commodity e identificatore hash dell'utenza; non memorizza il POD/PDR in chiaro. `energy_offer_catalog` riusa gli export pubblici per 20 ore. Il runtime ambientale lavora un'utenza dovuta al minuto, con lease di 15 minuti. Indici unici e indice su scadenza sono creati all'avvio. L'API autenticata `GET/PATCH /api/energy-offers/monitoring` offre lettura e controllo. Documento cancellato o archiviato, oppure preferenza disattivata, ferma il monitor; una fonte vecchia più di 10 giorni non entra nelle nuove valutazioni e le vecchie alternative spariscono dalla pagina Documenti. Anche le offerte scadute non sono mostrate; la pagina espone la data del catalogo.
 
 ## Verifica e limiti
 
