@@ -3714,3 +3714,8 @@ opportunità o comportamento dell'account personale. Il comando temporaneo di
 predeploy è stato riportato a [] dopo la prova. Restano da verificare gli altri
 due domini con il controllo di fattibilità introdotto nello stesso SHA.
 
+## 2026-09-26 — Bolletta, offerta migliore verificabile e controllo settimanale
+
+ORA Staging esegue il ramo `staging/cloud` fino a `09ecfbde61859cc544aa670099f8c8c82bcd494f` (Railway `0ee28237-5afc-490b-aaef-5132e1f04e4e`, SUCCESS). Nel primo percorso chiede esplicitamente una bolletta per cercare risparmio; il pannello si aggiorna durante l'elaborazione. La prova live con file sintetico (2.700 kWh/anno, 0,22 €/kWh e 12 €/mese) ha attraversato domanda, upload, collegamento, consiglio immediato e ricerca web. ORA ha trovato la pagina ufficiale Iren Web Self Luce Prezzo Fisso, confrontato prezzo fisso e quota commerciale e proposto una stima di 203,70 €/anno in meno sulla sola componente di vendita; ha indicato la fonte e programmato il prossimo controllo sette giorni dopo. Il documento sintetico è stato rimosso e il monitor dell'account di prova sospeso. CI: `https://github.com/dangerok97/DANGEROK/actions/runs/36254020842` e i tre controlli precedenti, tutti verdi.
+
+Il test integrato copre un nuovo controllo dopo otto giorni simulati, riavvio del servizio, cambio dei prezzi e scelta di un'altra offerta. Non è stato osservato un intervallo reale di sette giorni né verificata manualmente la resa visiva nell'app installata. Un preventivo completo resta necessario: la stima non include rete, oneri, imposte, eventuali perdite o requisiti commerciali. Nessun cambio di contratto è stato eseguito.
