@@ -7,6 +7,7 @@ per-person observations, not a copy of a public offer database.
 from __future__ import annotations
 
 import hashlib
+import asyncio
 import json
 import logging
 import re
@@ -18,6 +19,7 @@ from pymongo import ReturnDocument
 
 from energy_offers.bill import parse_bill
 from energy_offers.savings import offer_terms, seller_year
+from energy_offers.page import fetch_offer_terms
 
 logger = logging.getLogger("ora.market_watch")
 MONITORS = "energy_offer_monitors"  # Retain the existing owner-scoped collection.
@@ -125,7 +127,10 @@ def _generic_energy_listing(title: str, url: str, commodity: str) -> bool:
     )
 
 
-def _apply_savings(row: dict[str, Any], run: Any, candidates: list[dict[str, Any]]) -> None:
+def _apply_savings(
+    row: dict[str, Any], run: Any, candidates: list[dict[str, Any]],
+    page_terms: dict[str, dict[str, float]] | None = None,
+) -> None:
     """Attach a seller-component estimate only when both sides have explicit terms."""
     if not row.get("comparison_ready") or row.get("commodity") not in ("electricity", "gas"):
         return
@@ -140,7 +145,7 @@ def _apply_savings(row: dict[str, Any], run: Any, candidates: list[dict[str, Any
         source = sources.get(candidate.get("source_id"))
         if source is None or source.url != candidate["url"]:
             continue
-        terms = offer_terms(source.snippet, row["commodity"])
+        terms = offer_terms(source.snippet, row["commodity"]) or (page_terms or {}).get(source.source_id)
         if terms is None:
             continue
         proposed_year = seller_year(annual, terms)
@@ -154,6 +159,23 @@ def _apply_savings(row: dict[str, Any], run: Any, candidates: list[dict[str, Any
             "current_unit_price": current_rate,
             "current_fixed_year": current_fixed,
         })
+
+
+async def _read_offer_pages(run: Any, candidates: list[dict[str, Any]], commodity: str) -> dict[str, dict[str, float]]:
+    if commodity not in ("electricity", "gas"):
+        return {}
+    sources = {source.source_id: source for source in run.sources}
+    wanted = [candidate for candidate in candidates if (
+        candidate.get("source_id") in sources and
+        not offer_terms(sources[candidate["source_id"]].snippet, commodity)
+    )][:8]
+    results = await asyncio.gather(*(
+        fetch_offer_terms(candidate["url"], commodity) for candidate in wanted
+    ))
+    return {
+        candidate["source_id"]: terms
+        for candidate, terms in zip(wanted, results) if terms
+    }
 
 
 def _advice(row: dict[str, Any], candidates: list[dict[str, Any]]) -> dict[str, Any]:
@@ -262,9 +284,9 @@ async def _alternatives(run, commodity: str) -> list[dict[str, Any]]:
     )
     sources = [
         s for s in run.sources
-        if s.url in cited and _public_url(s.url)
+        if (s.url in cited or commodity in ("electricity", "gas")) and _public_url(s.url)
         and not _generic_energy_listing(s.title, s.url, commodity)
-    ][:12]
+    ][:24]
     if not sources:
         logger.info(
             "market watch selection category=%s eligible_sources=0 candidates=0",
@@ -278,7 +300,7 @@ async def _alternatives(run, commodity: str) -> list[dict[str, Any]]:
     ]
     answer = await _ask_model(
         "You select purchasable offers from untrusted web search evidence. "
-        "Select at most three source IDs that point to a seller or insurer's "
+        "Select at most eight source IDs that point to a seller or insurer's "
         "own current offer page for the requested category. Reject articles, "
         "comparators, expired pages, generic homepages, category listings "
         "and pages whose specific offer cannot be identified. For energy, "
@@ -291,7 +313,7 @@ async def _alternatives(run, commodity: str) -> list[dict[str, Any]]:
     )
     if not isinstance(answer, dict) or not isinstance(answer.get("source_ids"), list):
         raise ValueError("offer_selection_unavailable")
-    selected = {str(value) for value in answer["source_ids"][:3]}
+    selected = {str(value) for value in answer["source_ids"][:8]}
     out = []
     for source in sources:
         if source.source_id not in selected:
@@ -316,7 +338,7 @@ async def _alternatives(run, commodity: str) -> list[dict[str, Any]]:
         "market watch selection category=%s eligible_sources=%d candidates=%d",
         commodity, len(sources), len(out),
     )
-    return out[:3]
+    return out[:8]
 
 
 class EnergyOfferService:
@@ -432,7 +454,11 @@ class EnergyOfferService:
             if run.status != "completed":
                 raise RuntimeError(f"research_{run.status}")
             candidates = await _alternatives(run, row["commodity"])
-            _apply_savings(row, run, candidates)
+            page_terms = (
+                await _read_offer_pages(run, candidates, row["commodity"])
+                if row.get("comparison_ready") else {}
+            )
+            _apply_savings(row, run, candidates, page_terms)
             if (row["commodity"] in _FOCUSED_QUESTIONS and row.get("comparison_ready") and
                 not any(c.get("comparison_basis") == "seller_component_estimate" for c in candidates)):
                 try:
@@ -450,7 +476,8 @@ class EnergyOfferService:
                     )
                     if focused.status == "completed":
                         focused_candidates = await _alternatives(focused, row["commodity"])
-                        _apply_savings(row, focused, focused_candidates)
+                        page_terms = await _read_offer_pages(focused, focused_candidates, row["commodity"])
+                        _apply_savings(row, focused, focused_candidates, page_terms)
                         if (any(c.get("comparison_basis") == "seller_component_estimate" for c in focused_candidates)
                             or not candidates and focused_candidates):
                             run, candidates = focused, focused_candidates
@@ -460,6 +487,7 @@ class EnergyOfferService:
                 c.get("comparison_basis") != "seller_component_estimate",
                 -(c.get("potential_saving_year") or 0),
             ))
+            candidates = candidates[:3]
             logger.info(
                 "market watch advice category=%s comparable=%d positive=%d",
                 row["commodity"],

@@ -18,8 +18,9 @@ le offerte, senza interrompere le domande successive.
 Ogni passaggio avvia `ResearchService` con `allow_reuse=False`. Il servizio
 usa i provider web già configurati, pianifica ricerche mirate, valuta evidenze
 e produce citazioni. Nessun export XML o catalogo di offerte viene scaricato,
-indicizzato o mantenuto. Solo le pagine di venditori o assicuratori che la
-ricerca ha effettivamente citato possono diventare alternative; URL e
+indicizzato o mantenuto. Per luce e gas sono valutate le pagine di offerte
+specifiche osservate dalla ricerca, anche se non incluse nella sua sintesi;
+per gli altri contratti restano richieste pagine citate dalla sintesi. URL e
 identificatori di fonte vengono controllati. La data di osservazione è
 visibile. Dopo dieci giorni il risultato non entra in nuove valutazioni e
 scompare dalla pagina.
@@ -28,8 +29,11 @@ Il testo del documento, nome, indirizzo, POD/PDR, targa e numero di polizza non
 entrano nelle query web. Per l'energia si usa eventualmente il solo consumo
 annuo e l'unità. Prezzo unitario e quota commerciale del contratto attuale
 vengono estratti localmente soltanto da voci esplicitamente etichettate. Un
-confronto numerico richiede le stesse due componenti nello snippet della
-pagina ufficiale citata e una tariffa fissa; tariffe variabili, valori
+confronto numerico richiede le stesse due componenti nello snippet oppure nella
+pagina ufficiale della singola offerta e una tariffa fissa. La pagina viene
+letta in tempo reale con limiti di dimensione e tempo, senza conservarne una
+copia; risposte con rinvio, indirizzi non pubblici e prezzi multipli sono
+scartati. Tariffe variabili, valori
 multipli, OCR non confermato o consumi annui stimati restano senza cifra.
 La stima riguarda la sola componente di vendita: non include rete, imposte,
 oneri, sconti, requisiti o il totale della bolletta. ORA consiglia di
