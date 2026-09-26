@@ -1,3 +1,7 @@
+## 2026-09-26 — Monitor offerte energia ancora in bozza
+
+Il parser ora legge i cataloghi ufficiali reali, ma la rete CI riceve 403 e un controllo incrociato ha rilevato un prezzo del venditore diverso dal catalogo. La pagina Documenti nasconde alternative con fonte più vecchia di 10 giorni o scadute. La funzione non è attiva in ORA Staging: niente raccomandazioni automatiche su prezzi non verificati. Dettagli in `ENERGY_OFFER_MONITOR.md`.
+
 ## 2026-09-25 — Sorveglianza continua delle offerte energia
 
 Una bolletta luce o gas avvia una ricerca periodica nelle offerte pubbliche del Portale Offerte. ORA mostra nome, venditore e fonte delle alternative, e segnala una possibile differenza economica solo quando riesce a confrontare le stesse componenti con la tariffa attuale. La pagina Documenti mostra ultimo e prossimo controllo e permette di mettere in pausa la sorveglianza. Dettagli e limiti in `ENERGY_OFFER_MONITOR.md`.
@@ -1223,3 +1227,4 @@ Questo dimostra soltanto la fixture negativa, non precisione generale di
 opportunità o comportamento dell'account personale. Il comando temporaneo di
 predeploy è stato riportato a [] dopo la prova. Restano da verificare gli altri
 due domini con il controllo di fattibilità introdotto nello stesso SHA.
+
