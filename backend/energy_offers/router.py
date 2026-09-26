@@ -1,4 +1,4 @@
-"""Owner-scoped status and control for the ongoing energy offer watch."""
+"""Owner-scoped status and control for recurring market research."""
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
@@ -16,8 +16,8 @@ class MonitoringChoice(BaseModel):
 async def monitoring_status(user=Depends(get_current_user)):
     service = EnergyOfferService(db)
     owner = user["user_id"]
-    record = await db.users.find_one({"user_id": owner}, {"preferences.energy_offer_monitoring": 1})
-    enabled = (record or {}).get("preferences", {}).get("energy_offer_monitoring") is not False
+    record = await db.users.find_one({"user_id": owner}, {"preferences.market_offer_monitoring": 1})
+    enabled = (record or {}).get("preferences", {}).get("market_offer_monitoring") is not False
     return {"enabled": enabled, "supplies": await service.status(owner)}
 
 

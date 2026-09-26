@@ -1,10 +1,10 @@
-## 2026-09-26 — Catalogo reale e scadenza dei risultati
+## 2026-09-26 — Sorveglianza dei mercati tramite ricerca online
 
-`energy_offers.portal` legge i campi annidati dell'XML ufficiale e conserva soltanto offerte fisse semplici compatibili con il confronto. La prova live dalla rete locale legge 58 offerte luce e 39 gas nel catalogo del 26/09; dalla CI la pagina ufficiale risponde 403. `energy_offers.service.status` elimina dalla risposta utente le alternative scadute o con catalogo più vecchio di 10 giorni, senza alterare il dato persistente. La verifica della rete Railway e la coerenza con le condizioni del venditore restano gate di attivazione.
+`energy_offers.service` registra profili minimi da bollette e polizze. Un record proprietario con prossima scadenza e lease è consumato dal runtime `ambient`, anche senza app aperta. Ogni passaggio chiama `ResearchService.run(..., allow_reuse=False)`, che usa i provider web già esistenti, valuta le fonti e conserva solo la ricerca effettuata per quella persona. Un secondo giudizio seleziona soltanto pagine di offerte citate dalla ricerca; URL e identificatori vengono verificati in codice. `opportunities.snapshot` espone le alternative recenti al normale giudizio di ORA. Non esiste una cache di cataloghi pubblici. Ricerca non disponibile: ritentativo dopo 12 ore, senza fingere un controllo riuscito. Contratto in `ENERGY_OFFER_MONITOR.md`.
 
 ## 2026-09-25 — Fonte offerte energia
 
-`energy_offers` estrae un profilo minimo dalla bolletta, legge l'export XML ufficiale, confronta soltanto tariffe semplici e salva il prossimo controllo in MongoDB. Il runtime `ambient` esegue un controllo dovuto per minuto; `opportunities.snapshot` porta al modello soltanto offerte recenti, con provenienza e limiti del confronto. L'API autenticata e il pannello Documenti danno visibilità e controllo. Contratto e limiti in `ENERGY_OFFER_MONITOR.md`.
+Proposta iniziale basata su export XML, sostituita dalla ricerca online descritta sopra.
 
 ## 2026-09-22 — Aggiornamenti: scheda e prossimo passo condivisi
 

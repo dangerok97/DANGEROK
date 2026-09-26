@@ -208,13 +208,15 @@ class IntelligenceService:
                 {"$set": payload},
             )
 
-            # A bill starts or refreshes a durable watch; external reads stay
-            # in the ambient runtime and never block document processing.
+            # A bill or policy starts a durable market watch. External
+            # research runs later in the ambient runtime, never on upload.
             try:
                 from energy_offers.service import EnergyOfferService
-                await EnergyOfferService(self.db).register_bill(user_id, doc)
+                await EnergyOfferService(self.db).register_document(
+                    user_id, doc, analysis=analysis,
+                )
             except Exception:
-                logger.info("energy offer registration soft-fail", exc_info=True)
+                logger.info("market watch registration soft-fail", exc_info=True)
 
             auto = await self._maybe_auto_add_calendar(
                 user_id=user_id,

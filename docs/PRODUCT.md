@@ -1,10 +1,10 @@
-## 2026-09-26 — Monitor offerte energia ancora in bozza
+## 2026-09-26 — Ricerca periodica online dei contratti
 
-Il parser ora legge i cataloghi ufficiali reali, ma la rete CI riceve 403 e un controllo incrociato ha rilevato un prezzo del venditore diverso dal catalogo. La pagina Documenti nasconde alternative con fonte più vecchia di 10 giorni o scadute. La funzione non è attiva in ORA Staging: niente raccomandazioni automatiche su prezzi non verificati. Dettagli in `ENERGY_OFFER_MONITOR.md`.
+Una bolletta o una polizza riconosciuta avvia una ricerca online ricorrente, anche quando l'app è chiusa. ORA usa le fonti pubbliche trovate al momento del controllo, presenta alternative con pagina del venditore e data di osservazione, poi decide con il normale flusso delle opportunità se proporle. La persona vede i controlli in Documenti e può sospenderli. Prezzi e risparmi non vengono dichiarati senza confronto affidabile con il contratto attuale. Nessun catalogo pubblico è scaricato o mantenuto. La funzione è ancora una bozza, non attiva su ORA Staging. Dettagli in `ENERGY_OFFER_MONITOR.md`.
 
 ## 2026-09-25 — Sorveglianza continua delle offerte energia
 
-Una bolletta luce o gas avvia una ricerca periodica nelle offerte pubbliche del Portale Offerte. ORA mostra nome, venditore e fonte delle alternative, e segnala una possibile differenza economica solo quando riesce a confrontare le stesse componenti con la tariffa attuale. La pagina Documenti mostra ultimo e prossimo controllo e permette di mettere in pausa la sorveglianza. Dettagli e limiti in `ENERGY_OFFER_MONITOR.md`.
+Proposta iniziale del monitor luce e gas, poi sostituita dalla ricerca online trasversale descritta sopra.
 
 ## 2026-09-22 — Aggiornamenti: scheda e prossimo passo condivisi
 

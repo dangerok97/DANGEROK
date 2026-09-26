@@ -1,27 +1,57 @@
-# Monitor continuo delle offerte luce e gas
+# Ricerca continua delle offerte online
 
 ## Esperienza
 
-Quando ORA legge una bolletta luce o gas, registra una sorveglianza dell'utenza. Cerca subito nel Portale Offerte pubblico e ripete il controllo ogni sette giorni, finché la sorveglianza resta attiva. La data del prossimo controllo è in MongoDB e sopravvive ai riavvii. La persona vede lo stato nella pagina Documenti e può sospendere o riattivare i controlli. Un'offerta nuova o una differenza materiale aggiornata avvia il normale giudizio delle opportunità; la stessa fotografia del mercato non crea un secondo avviso. Nessun cambio di fornitore è avviato automaticamente.
+Una bolletta luce o gas, una polizza auto, casa o generica oppure un contratto telefonico riconosciuto
+crea un controllo persistente. ORA cerca offerte online subito dopo
+l'elaborazione del documento e poi ogni sette giorni, anche se l'app non è
+aperta. La pagina Documenti mostra ultimo controllo, prossimo controllo,
+alternative con link alla pagina del venditore e un comando per sospendere la
+ricerca. Un risultato nuovo entra nel normale flusso delle opportunità: ORA
+decide se vale la pena proporlo, senza creare un avviso a ogni controllo.
 
-## Fonte e confronto
+## Fonti e limiti
 
-- Fonte: [Open Data del Portale Offerte](https://www.ilportaleofferte.it/portaleOfferte/it/open-data.page), export XML giornaliero collegato dalla pagina ufficiale. Nessuna bolletta o dato personale viene inviato al portale.
-- Ogni alternativa porta codice, nome, dominio del venditore, pagina dell'offerta, data di validità e data di osservazione.
-- Per la luce, una possibile differenza annua viene esposta soltanto se la bolletta contiene consumo annuo effettivo e codice dell'offerta attuale, quest'ultima è ancora presente nell'export, e le due offerte hanno componenti di vendita a prezzo fisso, semplici e confrontabili. Si considerano costo unitario, quota fissa e, quando la potenza è nota, quota potenza. La differenza non include imposte, trasporto, oneri, conguagli o condizioni contrattuali ulteriori: è una pista da verificare, non una promessa sul totale della bolletta.
-- Se manca il consumo annuo, viene stimato dal periodo fatturato solo per orientare la ricerca. Non produce una cifra di risparmio. Se mancano i termini dell'offerta attuale, l'offerta esterna è mostrata come alternativa, senza dichiararla migliore.
-- Il gas viene sorvegliato e può mostrare offerte pubblicate con nome e fonte. La stima economica del gas resta disabilitata finché il tracciato e gli ambiti territoriali non sono coperti da un calcolo verificato.
-- Offerte indicizzate, con sconti, vincoli, fasce, scaglioni o geografia ristretta non alimentano il confronto numerico. Un fallimento della fonte non viene tradotto in «nessuna offerta»: è registrato e ritentato dopo 12 ore.
+Ogni passaggio avvia `ResearchService` con `allow_reuse=False`. Il servizio
+usa i provider web già configurati, pianifica ricerche mirate, valuta evidenze
+e produce citazioni. Nessun export XML o catalogo di offerte viene scaricato,
+indicizzato o mantenuto. Solo le pagine di venditori o assicuratori che la
+ricerca ha effettivamente citato possono diventare alternative; URL e
+identificatori di fonte vengono controllati. La data di osservazione è
+visibile. Dopo dieci giorni il risultato non entra in nuove valutazioni e
+scompare dalla pagina.
+
+Il testo del documento, nome, indirizzo, POD/PDR, targa e numero di polizza non
+entrano nelle query web. Per l'energia si usa eventualmente il solo consumo
+annuo e l'unità. Una pagina di offerta può dimostrare che esiste
+un'alternativa, ma non che sia la più conveniente per questa persona. Il
+sistema non afferma risparmi o superiorità senza prezzo completo, requisiti,
+coperture e condizioni del contratto attuale confrontabili. Il pannello
+esplicita questa incertezza. Una ricerca fallita non vale come «nessuna
+offerta» e viene ripetuta dopo dodici ore.
 
 ## Operatività
 
-`energy_offer_monitors` contiene un record per utente, commodity e identificatore hash dell'utenza; non memorizza il POD/PDR in chiaro. `energy_offer_catalog` riusa gli export pubblici per 20 ore. Il runtime ambientale lavora un'utenza dovuta al minuto, con lease di 15 minuti. Indici unici e indice su scadenza sono creati all'avvio. L'API autenticata `GET/PATCH /api/energy-offers/monitoring` offre lettura e controllo. Documento cancellato o archiviato, oppure preferenza disattivata, ferma il monitor; una fonte vecchia più di 10 giorni non entra nelle nuove valutazioni e le vecchie alternative spariscono dalla pagina Documenti. Anche le offerte scadute non sono mostrate; la pagina espone la data del catalogo.
+`energy_offer_monitors` conserva un record per persona e contratto con
+categoria, riferimento al documento, data di prossima verifica, lease, ID
+della ricerca e un massimo di tre alternative. Il nome della collezione e
+l'endpoint `GET/PATCH /api/energy-offers/monitoring` restano per
+compatibilità; il contenuto ora comprende anche assicurazioni. Il runtime
+`ambient` consuma un controllo dovuto circa ogni minuto. Un documento
+cancellato o archiviato o una preferenza disattivata ferma la sorveglianza.
+La ricerca riparte con una nuova lettura del web dopo ogni scadenza, anche
+dopo un riavvio.
 
-## Verifica e limiti
+Questa bozza non cambia fornitore, non acquista una polizza e non contatta
+venditori. Eventuali azioni future devono passare per l'autorità ordinaria
+dell'agente ORA.
 
-Test: parsing della bolletta, URL ufficiale consentito, offerte scadute/variabili/condizionate escluse, differenza calcolata da componenti omogenee, assenza di affermazione quando manca la tariffa attuale, offerte gas senza cifra. Il test di persistenza usa il Mongo isolato della CI.
+## Verifica prima dell'attivazione
 
-Il 26/09/2026 la prova live dalla CI ha ricevuto HTTP 403 già sulla pagina Open Data del Portale Offerte. Dalla rete locale italiana, invece, pagina e XML ufficiali sono accessibili: dopo la correzione del parser per la struttura annidata, la prova end to end estrae 58 offerte luce a prezzo fisso confrontabili e 39 offerte gas descrittive. La prova su Railway tramite ridistribuzione dello stesso commit non ha prodotto un esito di rete leggibile; la configurazione temporanea è stata ripristinata e il servizio è sano.
-
-In un controllo incrociato, il [catalogo XML del 26/09](https://www.ilportaleofferte.it/portaleOfferte/resources/opendata/csv/offerteML/2026_9/PO_Offerte_E_MLIBERO_20260926.xml) riporta 0,175 €/kWh per AJO FISSO 12, mentre le [condizioni economiche del venditore](https://ajoenergia.it/wp-content/uploads/2026/09/AJO_FISSO_12_0926.pdf) riportano 0,1795 €/kWh per lo stesso codice offerta. La funzione resta in bozza finché l'accesso automatico dalla rete di esercizio, la coerenza dei prezzi col venditore e un ciclo completo su staging con bolletta fittizia non sono verificati.
-
+I test coprono profili senza identificatori sensibili, polizze, selezione di
+sole fonti citate, periodicità persistente, deduplica e ritentativi. Restano
+da provare con un provider configurato nell'ambiente di esercizio una ricerca
+vera, un documento sintetico end to end e la resa della schermata. I
+risultati di ricerca dipendono dalla disponibilità dei provider e dalle
+pagine pubblicate dai venditori. Per presentare offerte come «più
+convenienti» serve ancora un confronto verificabile di prezzo e condizioni.

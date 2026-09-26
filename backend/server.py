@@ -521,9 +521,9 @@ async def startup():
     try:
         from energy_offers.service import EnergyOfferService
         await EnergyOfferService(db).ensure_indexes()
-        logger.info("Energy offer monitoring indexes ready")
+        logger.info("Market watch indexes ready")
     except Exception:
-        logger.exception("Energy offer monitoring indexes failed (non-fatal)")
+        logger.exception("Market watch indexes failed (non-fatal)")
 
     # Ambient presence and delivery (V3.8) — plan lifecycle, and the TTL that
     # keeps the record of ORA's own work a working note rather than a diary.

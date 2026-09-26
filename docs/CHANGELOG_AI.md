@@ -1,6 +1,6 @@
-## 2026-09-26 — Correzione parser offerte e risultati scaduti
+## 2026-09-26 — Ricerca web periodica per offerte e polizze
 
-Corretto il parser sulla struttura annidata del catalogo ufficiale: la prova di sola lettura dal computer ora estrae 58 offerte luce e 39 gas dal file del 26/09. Le alternative scadute o basate su dati più vecchi di 10 giorni non vengono mostrate all'utente; il pannello indica la data della fonte. Test backend e TypeScript passano in CI; il controllo live da GitHub resta bloccato da HTTP 403. Rilevata anche una discrepanza fra XML e condizioni del venditore per AJO FISSO 12. Nessun deploy della bozza.
+Sostituito il download del catalogo XML con ricerche web nuove a ogni scadenza, tramite il motore `research` esistente. Aggiunti trigger per polizze, selezione di pagine venditore citate, deduplica delle proposte, ritentativi e stato nel pannello Documenti. Rimossi parser XML e controllo CI che dipendeva dal Portale Offerte. Nessun risparmio viene inventato da uno snippet; la funzione resta bozza finché il ciclo reale su staging non è verificato.
 
 ## 2026-09-25 — Monitor periodico offerte luce e gas (proposta)
 

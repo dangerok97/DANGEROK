@@ -6,8 +6,15 @@ import { api, type EnergyOfferMonitoring } from '@/src/api/client';
 import { useTheme } from '@/src/theme/ThemeProvider';
 import { tokens } from '@/src/theme/tokens';
 
-const euro = (value: number) => `€${Math.round(value).toLocaleString('it-IT')}`;
 const day = (value?: string) => value ? new Date(value).toLocaleDateString('it-IT') : '';
+const label = (category: string) => ({
+  electricity: 'Luce',
+  gas: 'Gas',
+  insurance_auto: 'Assicurazione auto',
+  insurance_home: 'Assicurazione casa',
+  insurance: 'Assicurazione',
+  telephone: 'Telefonia',
+} as Record<string, string>)[category] || 'Contratto';
 
 export function EnergyOffersPanel() {
   const { colors } = useTheme();
@@ -48,17 +55,17 @@ export function EnergyOffersPanel() {
       borderWidth: 1, borderColor: colors.border,
     }}>
       <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: '600' }}>
-        Offerte luce e gas
+        Alternative per i tuoi contratti
       </Text>
       <Text style={{ color: colors.textSecondary, fontSize: 13, lineHeight: 19 }}>
         {data.enabled
-          ? 'ORA controlla le offerte pubbliche ogni settimana, anche dopo il primo caricamento.'
-          : 'I controlli delle offerte sono in pausa.'}
+          ? 'ORA cerca online nuove alternative ogni settimana, anche quando l’app è chiusa.'
+          : 'Le ricerche periodiche sono in pausa.'}
       </Text>
       {data.supplies.map((supply) => (
         <View key={`${supply.commodity}:${supply.document_id}`} style={{ gap: 8 }}>
           <Text style={{ color: colors.textPrimary, fontWeight: '600' }}>
-            {supply.commodity === 'electricity' ? 'Luce' : 'Gas'}
+            {label(supply.commodity)}
           </Text>
           {supply.last_checked_at ? (
             <Text style={{ color: colors.textTertiary, fontSize: 12 }}>
@@ -70,17 +77,17 @@ export function EnergyOffersPanel() {
           )}
           {supply.source_stale && supply.last_checked_at ? (
             <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
-              I dati delle offerte non sono abbastanza recenti. ORA riproverà automaticamente.
+              L’ultima ricerca non è abbastanza recente. ORA riproverà automaticamente.
             </Text>
           ) : null}
           {!supply.source_stale && !supply.candidates?.length && supply.last_checked_at ? (
             <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
-              Nessuna alternativa confrontabile emersa nell'ultimo controllo.
+              Nessuna offerta verificabile emersa nell’ultimo controllo.
             </Text>
           ) : null}
           {supply.source_fetched_at && !supply.source_stale ? (
             <Text style={{ color: colors.textTertiary, fontSize: 12 }}>
-              Dati offerte del {day(supply.source_fetched_at)}
+              Ricerca online del {day(supply.source_fetched_at)}
             </Text>
           ) : null}
           {(supply.candidates || []).slice(0, 3).map((offer) => (
@@ -91,20 +98,10 @@ export function EnergyOffersPanel() {
                 {offer.name} · {offer.seller}
               </Text>
               <Text style={{ color: colors.textSecondary, fontSize: 12, lineHeight: 18 }}>
-                {offer.potential_saving_year != null
-                  ? `Possibile differenza ${euro(offer.potential_saving_year)}/anno sulle componenti di vendita; verifica le condizioni complete.`
-                  : 'Alternativa pubblicata: convenienza rispetto alla tua bolletta da verificare.'}
+                Alternativa trovata online. Prezzo, requisiti e convenienza per te da verificare.
               </Text>
             </Pressable>
           ))}
-          {supply.source_url ? (
-            <Pressable accessibilityRole="link"
-              onPress={() => { void Linking.openURL(supply.source_url!).catch(() => setError(true)); }}>
-              <Text style={{ color: colors.textSecondary, fontSize: 12, textDecorationLine: 'underline' }}>
-                Dati del Portale Offerte
-              </Text>
-            </Pressable>
-          ) : null}
           {supply.last_error ? (
             <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
               L'ultimo controllo non è riuscito. ORA riproverà automaticamente.

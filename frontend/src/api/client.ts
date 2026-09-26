@@ -593,11 +593,11 @@ export type EnergyOfferCandidate = {
   estimated_seller_year: number | null;
   current_seller_year: number | null;
   potential_saving_year: number | null;
-  comparison_basis: 'seller_components_only' | 'current_terms_missing' | 'price_not_comparable' | 'consumption_missing';
+  comparison_basis: 'not_comparable';
 };
 
 export type EnergyOfferSupply = {
-  commodity: 'electricity' | 'gas';
+  commodity: 'electricity' | 'gas' | 'insurance_auto' | 'insurance_home' | 'insurance' | 'telephone';
   document_id: string;
   annual_consumption: number | null;
   annual_consumption_estimated: boolean;
