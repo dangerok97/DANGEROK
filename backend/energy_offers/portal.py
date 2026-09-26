@@ -23,7 +23,11 @@ def _local(tag: str) -> str:
 
 
 def _direct(element: ET.Element, name: str) -> str:
-    for child in element:
+    # The published XML groups offer fields under IdentificativiOfferta,
+    # DettaglioOfferta, ValiditaOfferta and TipoPrezzo.
+    for child in element.iter():
+        if child is element:
+            continue
         if _local(child.tag) == name:
             return (child.text or "").strip()
     return ""
@@ -118,6 +122,14 @@ def parse_offers(xml: bytes, commodity: str, *, today: date | None = None) -> li
                 continue
             if _direct(node, "TIPO_OFFERTA") != "01":
                 continue  # indexed offers need a current index projection
+            activations = {(c.text or "").strip()
+                           for c in _children(node, "TIPOLOGIA_ATT_CONTR")}
+            if not activations.intersection({"02", "99"}):
+                continue  # switching or every activation type
+            if _direct(node, "DOMESTICO_RESIDENTE") not in ("", "03"):
+                continue  # residence-specific offers need a verified profile
+            if _direct(node, "CONSUMO_MIN") not in ("", "0") or _direct(node, "CONSUMO_MAX"):
+                continue  # usage-restricted offers need profile-aware filtering
             if _direct(node, "TIPOLOGIA_FASCE") not in ("", "01"):
                 continue
             start, end = _day(_direct(node, "DATA_INIZIO")), _day(_direct(node, "DATA_FINE"))
@@ -129,8 +141,6 @@ def parse_offers(xml: bytes, commodity: str, *, today: date | None = None) -> li
                 continue
             if any(True for _ in _children(node, "REGIONE")) or any(True for _ in _children(node, "PROVINCIA")):
                 continue  # bill profile has no verified location yet
-            if any(_direct(c, "TIPOLOGIA_ATT_CONTR") not in ("", "02") for c in _children(node, "TipologieAttivazioneContratto")):
-                continue
             code, name = _direct(node, "COD_OFFERTA"), _direct(node, "NOME_OFFERTA")
             url = _direct(node, "URL_OFFERTA")
             if not code or not name or not _safe_url(url):
@@ -158,7 +168,7 @@ def parse_offers(xml: bytes, commodity: str, *, today: date | None = None) -> li
                     if any(True for _ in _children(interval, "PeriodoValidita")):
                         invalid = True
                         break
-                    if _direct(interval, "FASCIA_COMPONENTE") not in ("", "00", "04"):
+                    if _direct(interval, "FASCIA_COMPONENTE") not in ("", "01"):
                         invalid = True
                         break
                     value = _amount(_direct(interval, "PREZZO"))
@@ -203,3 +213,4 @@ def _fetch_sync(commodity: str) -> tuple[str, list[dict]]:
 
 async def fetch_offers(commodity: str) -> tuple[str, list[dict]]:
     return await asyncio.to_thread(_fetch_sync, commodity)
+
