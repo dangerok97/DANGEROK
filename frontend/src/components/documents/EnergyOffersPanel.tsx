@@ -16,7 +16,7 @@ const label = (category: string) => ({
   telephone: 'Telefonia',
 } as Record<string, string>)[category] || 'Contratto';
 
-export function EnergyOffersPanel() {
+export function EnergyOffersPanel({ documentId, pollMs }: { documentId?: string; pollMs?: number } = {}) {
   const { colors } = useTheme();
   const [data, setData] = useState<EnergyOfferMonitoring | null>(null);
   const [error, setError] = useState(false);
@@ -31,7 +31,12 @@ export function EnergyOffersPanel() {
     }
   }, []);
 
-  useFocusEffect(useCallback(() => { void refresh(); }, [refresh]));
+  useFocusEffect(useCallback(() => {
+    void refresh();
+    if (!pollMs) return;
+    const timer = setInterval(() => { void refresh(); }, pollMs);
+    return () => clearInterval(timer);
+  }, [refresh, pollMs]));
 
   const toggle = async () => {
     if (!data || busy) return;
@@ -46,7 +51,19 @@ export function EnergyOffersPanel() {
     }
   };
 
-  if (!data?.supplies.length) return null;
+  const supplies = documentId
+    ? (data?.supplies || []).filter((supply) => supply.document_id === documentId)
+    : (data?.supplies || []);
+  if (!supplies.length && !documentId) return null;
+  if (!supplies.length) return (
+    <View style={{ padding: tokens.spacing.lg, borderRadius: tokens.radius.lg, backgroundColor: colors.surface }}>
+      <Text style={{ color: colors.textPrimary, fontWeight: '600' }}>Confronto della bolletta</Text>
+      <Text style={{ color: colors.textSecondary, marginTop: 6 }}>
+        ORA sta leggendo la bolletta. Se riesce a ricavare consumi e prezzi, cercherà offerte online e ti dirà se ne trova una più conveniente.
+      </Text>
+    </View>
+  );
+  if (!data) return null;
 
   return (
     <View testID="energy-offers-panel" style={{
@@ -62,7 +79,7 @@ export function EnergyOffersPanel() {
           ? 'ORA cerca online nuove alternative ogni settimana, anche quando l’app è chiusa.'
           : 'Le ricerche periodiche sono in pausa.'}
       </Text>
-      {data.supplies.map((supply) => (
+      {supplies.map((supply) => (
         <View key={`${supply.commodity}:${supply.document_id}`} style={{ gap: 8 }}>
           <Text style={{ color: colors.textPrimary, fontWeight: '600' }}>
             {label(supply.commodity)}

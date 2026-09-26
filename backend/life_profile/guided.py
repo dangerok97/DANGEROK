@@ -262,10 +262,10 @@ _CASA: List[GuidedObjective] = [
     GuidedObjective(
         id="doc.bolletta",
         area_id="casa",
-        question="Vuoi aggiungere una bolletta?",
+        question="Vuoi caricare una bolletta per cercare offerte più convenienti?",
         hint=(
-            "ORA ne ricava fornitore, offerta, consumi e scadenza senza farti "
-            "scrivere nulla. Puoi anche farlo più tardi."
+            "ORA legge i consumi, confronta le offerte online e ripete il controllo "
+            "almeno ogni settimana, anche quando l'app è chiusa. Puoi farlo più tardi."
         ),
         control="document_upload",
         document_type="bolletta",

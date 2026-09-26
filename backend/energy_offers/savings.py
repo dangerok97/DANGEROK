@@ -47,8 +47,22 @@ def _terms(text: str, commodity: str, *, seller_page: bool = False) -> dict[str,
         rf"\s*\([^\n)]{{0,50}}{fixed_label}[^\n)]{{0,20}}\)",
         re.I,
     )
+    # Seller pages often write "125€ all'anno (costi di commercializzazione)"
+    # or "13,25€ costi mensili di commercializzazione". Keep the label and
+    # period adjacent to the amount so unrelated page prices cannot be paired.
+    fixed_annual_after_pattern = re.compile(
+        rf"{_NUMBER}\s*(?:€|euro)\s*all[’']anno\s*"
+        rf"\([^\n)]{{0,50}}{fixed_label}[^\n)]{{0,20}}\)", re.I,
+    )
+    fixed_monthly_after_pattern = re.compile(
+        rf"{_NUMBER}\s*(?:€|euro)\s+(?:costi|quota)\s+mensil[ie]\s+"
+        rf"di\s+commercializzazione\b", re.I,
+    )
     unit_hits = list(unit_pattern.finditer(text))
     fixed_hits = list(fixed_pattern.finditer(text)) + list(fixed_after_pattern.finditer(text))
+    if seller_page:
+        fixed_hits += list(fixed_annual_after_pattern.finditer(text))
+        fixed_hits += list(fixed_monthly_after_pattern.finditer(text))
     if len(unit_hits) != 1 or len(fixed_hits) != 1:
         return None
     unit_hit, fixed_hit = unit_hits[0], fixed_hits[0]
@@ -58,7 +72,10 @@ def _terms(text: str, commodity: str, *, seller_page: bool = False) -> dict[str,
         return None
     if rate > (Decimal("2") if commodity == "electricity" else Decimal("5")):
         return None
-    annual_fixed = fixed * (12 if (fixed_hit.group(2) or fixed_hit.group(3)).lower() == "mese" else 1)
+    period = next((group for group in fixed_hit.groups()[1:] if group), None)
+    if period is None:
+        period = "anno" if fixed_hit.re == fixed_annual_after_pattern else "mese"
+    annual_fixed = fixed * (12 if period.lower() == "mese" else 1)
     if annual_fixed > 2000:
         return None
     return {"unit_price": float(rate), "fixed_year": float(annual_fixed)}

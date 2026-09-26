@@ -9,6 +9,9 @@ aperta. La pagina Documenti mostra ultimo controllo, prossimo controllo,
 alternative con link alla pagina del venditore e un comando per sospendere la
 ricerca. Un risultato nuovo entra nel normale flusso delle opportunità: ORA
 decide se vale la pena proporlo, senza creare un avviso a ogni controllo.
+Durante il primo percorso, dopo il caricamento della bolletta compare anche
+lo stato del confronto: si aggiorna mentre ORA legge il documento e ricerca
+le offerte, senza interrompere le domande successive.
 
 ## Fonti e limiti
 
@@ -38,6 +41,10 @@ non deduce un risparmio dal prezzo pubblicitario. Una ricerca fallita non vale c
 offerta» e viene ripetuta dopo dodici ore. Anche una ricerca senza pagine
 specifiche verificabili viene ripetuta dopo dodici ore, mantenendo il
 consiglio sulla soglia personale se il documento la permette.
+Tra le offerte con entrambe le componenti confrontabili, ORA ordina per
+risparmio stimato e propone quella con il valore maggiore. La ricerca chiede
+esplicitamente prezzi e quote fisse alle fonti ufficiali; non definisce
+«migliore sul mercato» una proposta se non ha dati per confrontarla.
 
 ## Operatività
 
@@ -62,5 +69,9 @@ polizza sintetiche. I test coprono anche estrazione prudente delle componenti,
 stima positiva, rifiuto di prezzi variabili o incompleti, deduplica e
 ritentativi. Il consiglio quantificato richiede ancora una prova end to end
 con fonte web che pubblichi entrambi i valori nello snippet e la verifica UI.
+Il test integrato usa una bolletta sintetica e due offerte con condizioni
+esplicite: verifica la migliore proposta, un nuovo controllo dopo sette giorni
+con prezzi cambiati e il cambio di consiglio dopo il riavvio del servizio.
+Il tempo settimanale viene simulato, senza attendere sette giorni reali.
 I risultati dipendono dalla disponibilità dei provider e dalle pagine dei
 venditori; un preventivo personale resta necessario per decidere un cambio.

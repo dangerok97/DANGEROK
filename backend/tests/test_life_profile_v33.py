@@ -480,6 +480,8 @@ def test_a_document_step_is_an_action_not_a_field():
     assert bill.control == "document_upload"
     assert bill.document_type == "bolletta"
     assert bill.allow_skip, "and it can always be left for later"
+    assert "offerte più convenienti" in bill.question
+    assert "ogni settimana" in bill.hint
 
     for obj in GUIDED_OBJECTIVES:
         if obj.id.startswith("doc."):
