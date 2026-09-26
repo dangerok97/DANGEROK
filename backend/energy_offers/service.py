@@ -154,8 +154,10 @@ def _generic_offer_listing(title: str, url: str, commodity: str) -> bool:
     path = urlparse(url).path.lower().rstrip("/")
     if commodity == "telephone":
         return (
+            label in ("offerte", "offerte mobile", "telefonia mobile", "offerte telefonia") or
             path in ("", "/tutte-le-offerte", "/all-inclusive", "/offerte-mobile",
-                     "/offerte-telefonia-mobile", "/offerte-telefonia") or
+                     "/offerte-telefonia-mobile", "/offerte-telefonia",
+                     "/offerte", "/offerte.html", "/portale/offerte.html") or
             label.startswith(("tutte le offerte", "offerte telefonia mobile",
                               "offerte mobile", "le nostre offerte mobile"))
         )

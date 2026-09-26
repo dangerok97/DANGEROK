@@ -274,6 +274,8 @@ async def test_mobile_homepages_and_tariff_lists_are_not_named_offers(monkeypatc
         SimpleNamespace(source_id="very-home", url="https://verymobile.it/",
                         title="Very Mobile: offerte telefonia mobile",
                         snippet="Più piani", publisher="verymobile.it"),
+        SimpleNamespace(source_id="coop-list", url="https://www.coopvoce.it/portale/offerte.html",
+                        title="Offerte", snippet="Più piani", publisher="coopvoce.it"),
         SimpleNamespace(source_id="single", url="https://operator.example/mobile/piano-250",
                         title="Piano 250 GB", snippet="Piano mobile attivabile",
                         publisher="operator.example"),
