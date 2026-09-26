@@ -57,6 +57,9 @@ def test_saving_advice_requires_explicit_comparable_seller_terms():
     threshold = _advice(profile, [candidate])
     assert threshold["kind"] == "comparison_needed"
     assert "738.00 €" in threshold["text"]
+    no_offer = _advice(profile, [])
+    assert no_offer["kind"] == "comparison_needed"
+    assert "738.00 €" in no_offer["text"]
 
 
 def test_variable_or_incomplete_offer_cannot_claim_a_saving():
@@ -90,6 +93,7 @@ def test_policy_advice_sets_a_personal_quote_target_without_claiming_a_saving():
     assert advice["kind"] == "comparison_needed"
     assert "500.00 €" in advice["text"]
     assert "massimali" in advice["text"]
+    assert "500.00 €" in _advice(profile, [])["text"]
     assert _profile({
         "id": "ocr-policy", "original_filename": "polizza_auto.pdf", "ocr_used": True,
         "extracted_text": "Polizza RC auto\nPremio annuo: 500 €\n",

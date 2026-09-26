@@ -154,6 +154,33 @@ def _advice(row: dict[str, Any], candidates: list[dict[str, Any]]) -> dict[str, 
     """A concrete next step, with the strength of the evidence made explicit."""
     category = row["commodity"]
     if not candidates:
+        if (category in ("electricity", "gas") and row.get("comparison_ready") and
+            row.get("annual_consumption") is not None and
+            row.get("current_unit_price") is not None and
+            row.get("current_fixed_year") is not None):
+            current_year = seller_year(row["annual_consumption"], {
+                "unit_price": row["current_unit_price"],
+                "fixed_year": row["current_fixed_year"],
+            })
+            return {
+                "kind": "comparison_needed",
+                "text": (
+                    f"Ai tuoi consumi, la componente di vendita attuale vale circa "
+                    f"{current_year:.2f} € all'anno. Per risparmiare serve una tariffa "
+                    "con prezzo per consumo più quota fissa sotto questa soglia. "
+                    "Oggi non ho trovato una pagina di offerta verificabile; riproverò automaticamente."
+                ),
+            }
+        if category.startswith("insurance") and row.get("current_premium_year"):
+            return {
+                "kind": "comparison_needed",
+                "text": (
+                    f"Per risparmiare rispetto ai {row['current_premium_year']:.2f} € "
+                    "annui della polizza attuale serve un preventivo inferiore "
+                    "a parità di coperture, massimali e franchigie. "
+                    "Oggi non ho trovato una proposta verificabile; riproverò automaticamente."
+                ),
+            }
         return {"kind": "no_verified_offer", "text": "Non ho trovato una proposta verificabile in questo controllo. Continuerò a cercare automaticamente."}
     better = [c for c in candidates if (c.get("potential_saving_year") or 0) > 0]
     if better:
@@ -409,7 +436,7 @@ class EnergyOfferService:
             new = [(c["code"], c.get("evidence_digest"), c.get("potential_saving_year")) for c in candidates]
             changed = old != new or (bool(candidates) and row.get("advice") != advice)
             valid_until = getattr(run, "valid_until", None)
-            next_check = moment + CHECK_EVERY
+            next_check = moment + (CHECK_EVERY if candidates else RETRY_AFTER)
             if valid_until:
                 expiry = datetime.fromisoformat(valid_until)
                 if expiry.tzinfo is None:
