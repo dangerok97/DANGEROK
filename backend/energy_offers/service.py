@@ -48,6 +48,18 @@ _PRICE_QUERIES = {
         '"prezzo fisso" "€/Smc" "costi di commercializzazione" "offerta gas" casa',
         '"prezzo fisso" "€/Smc" "quota fissa" "offerta gas" casa',
     ],
+    "insurance_auto": [
+        'polizza RC auto preventivo online sito ufficiale compagnia assicurativa Italia',
+    ],
+    "insurance_home": [
+        'polizza casa preventivo online sito ufficiale compagnia assicurativa Italia',
+    ],
+    "insurance": [
+        'polizza assicurativa preventivo online sito ufficiale compagnia Italia',
+    ],
+    "telephone": [
+        'offerta mobile SIM canone mensile sito ufficiale operatore Italia',
+    ],
 }
 
 
@@ -82,25 +94,36 @@ def _profile(document: dict[str, Any], analysis: dict[str, Any] | None = None) -
         text[:2000],
     )).lower()
     if "polizza" in blob or "assicurazione" in blob:
-        if any(word in blob for word in ("rc auto", "polizza auto", "assicurazione auto", "targa")):
+        if any(word in blob for word in ("rc auto", "polizza auto", "polizza_auto", "assicurazione auto", "targa")):
             commodity = "insurance_auto"
-        elif any(word in blob for word in ("polizza casa", "assicurazione casa")):
+        elif any(word in blob for word in ("polizza casa", "polizza_casa", "assicurazione casa")):
             commodity = "insurance_home"
         else:
             commodity = "insurance"
-    elif any(word in blob for word in ("contratto telefon", "contratto mobile", "piano tariffario", "offerta sim")):
+    elif any(word in blob for word in ("contratto telefon", "contratto_telefono", "contratto mobile", "piano tariffario", "offerta sim")):
         commodity = "telephone"
     else:
         commodity = None
     if not commodity:
         return None
     premium = None
+    monthly_fee = None
     if commodity.startswith("insurance") and not document.get("ocr_used"):
         matches = re.findall(r"(?im)^\s*premio\s+annuo\s*[:=\-]?\s*(\d{1,5}(?:[.,]\d{1,2})?)\s*(?:€|euro)(?=\s|$)", text)
         if len(matches) == 1:
             amount = float(matches[0].replace(",", "."))
             if 0 < amount <= 10000:
                 premium = amount
+    if commodity == "telephone" and not document.get("ocr_used"):
+        matches = re.findall(
+            r"(?im)^\s*(?:canone|costo)\s+mensile\s*[:=\-]?\s*"
+            r"(?:€\s*)?(\d{1,3}(?:[.,]\d{1,2})?)\s*(?:€|euro)?\s*"
+            r"(?:/\s*mese|al\s+mese)?\s*$", text,
+        )
+        if len(matches) == 1:
+            amount = float(matches[0].replace(",", "."))
+            if 0 < amount <= 300:
+                monthly_fee = amount
     return {
         "commodity": commodity,
         "document_id": document_id,
@@ -111,6 +134,7 @@ def _profile(document: dict[str, Any], analysis: dict[str, Any] | None = None) -
         "power_kw": None,
         "comparison_ready": False,
         "current_premium_year": premium,
+        "current_monthly_fee": monthly_fee,
     }
 
 
@@ -265,6 +289,16 @@ def _advice(row: dict[str, Any], candidates: list[dict[str, Any]]) -> dict[str, 
                     "Oggi non ho trovato una proposta verificabile; riproverò automaticamente."
                 ),
             }
+        if category == "telephone" and row.get("current_monthly_fee"):
+            return {
+                "kind": "comparison_needed",
+                "text": (
+                    f"Paghi {row['current_monthly_fee']:.2f} € al mese. Per risparmiare "
+                    "serve un'offerta con costo totale inferiore e servizi equivalenti "
+                    "per dati, chiamate, roaming e copertura. Oggi non ho trovato "
+                    "una proposta verificabile; riproverò automaticamente."
+                ),
+            }
         return {"kind": "no_verified_offer", "text": "Non ho trovato una proposta verificabile in questo controllo. Continuerò a cercare automaticamente."}
     better = [c for c in candidates if (c.get("potential_saving_year") or 0) > 0]
     if better:
@@ -302,6 +336,19 @@ def _advice(row: dict[str, Any], candidates: list[dict[str, Any]]) -> dict[str, 
                 ),
             }
         action = "chiedi un preventivo personale e confronta premio, massimali, franchigie ed esclusioni"
+    elif category == "telephone":
+        fee = row.get("current_monthly_fee")
+        if fee:
+            return {
+                "kind": "comparison_needed", "offer_code": first["code"],
+                "text": (
+                    f"Oggi paghi {fee:.2f} € al mese. Valuta {first['name']} "
+                    "solo se il costo totale, inclusi attivazione e periodi promozionali, "
+                    "è inferiore con dati, chiamate, roaming e copertura adeguati. "
+                    "Non ho ancora un prezzo confrontabile per stimare il risparmio."
+                ),
+            }
+        action = "confronta canone totale, attivazione, limiti, copertura e durata delle promozioni"
     elif category in ("electricity", "gas"):
         if (row.get("annual_consumption") is not None and
             row.get("current_unit_price") is not None and
@@ -329,7 +376,7 @@ def _advice(row: dict[str, Any], candidates: list[dict[str, Any]]) -> dict[str, 
     }
 
 
-async def _alternatives(run, commodity: str) -> list[dict[str, Any]]:
+async def _alternatives(run, commodity: str, *, allow_uncited: bool = False) -> list[dict[str, Any]]:
     """Select actual offer pages from this run; never invent a saving."""
     from research.reasoning import _ask_model
 
@@ -340,7 +387,7 @@ async def _alternatives(run, commodity: str) -> list[dict[str, Any]]:
     )
     sources = [
         s for s in run.sources
-        if (s.url in cited or commodity in ("electricity", "gas")) and _public_url(s.url)
+        if (s.url in cited or commodity in ("electricity", "gas") or allow_uncited) and _public_url(s.url)
         and not _generic_energy_listing(s.title, s.url, commodity)
     ][:24]
     if not sources:
@@ -437,7 +484,7 @@ class EnergyOfferService:
             previous.get(key) != profile.get(key)
             for key in ("document_id", "annual_consumption", "current_offer_code",
                         "power_kw", "comparison_ready", "current_unit_price",
-                        "current_fixed_year", "current_premium_year")
+                        "current_fixed_year", "current_premium_year", "current_monthly_fee")
         )
         update = {**profile, "user_id": user_id, "enabled": True, "updated_at": _iso(_now())}
         if changed:
@@ -539,12 +586,13 @@ class EnergyOfferService:
                             run, candidates = focused, focused_candidates
                 except Exception as exc:
                     logger.info("focused market research unavailable: %s", type(exc).__name__)
-            if (row["commodity"] in _PRICE_QUERIES and row.get("comparison_ready") and
-                not any(c.get("comparison_basis") == "seller_component_estimate" for c in candidates)):
+            if (row["commodity"] in _PRICE_QUERIES and
+                not any(c.get("comparison_basis") == "seller_component_estimate" for c in candidates) and
+                (row.get("comparison_ready") or not candidates)):
                 try:
                     direct = await _direct_offer_search(self.db, row["user_id"], row["commodity"])
                     if direct:
-                        direct_candidates = await _alternatives(direct, row["commodity"])
+                        direct_candidates = await _alternatives(direct, row["commodity"], allow_uncited=True)
                         page_terms = await _read_offer_pages(direct, direct_candidates, row["commodity"])
                         _apply_savings(row, direct, direct_candidates, page_terms)
                         if (any(c.get("comparison_basis") == "seller_component_estimate" for c in direct_candidates)

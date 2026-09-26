@@ -5239,3 +5239,7 @@ due domini con il controllo di fattibilità introdotto nello stesso SHA.
 ## 2026-09-26 — Confronto bolletta verificato su Staging
 
 Il primo percorso spiega perché caricare una bolletta e mostra il consiglio mentre ORA lavora. La ricerca settimanale legge offerte correnti da fonti web, approfondisce quando gli estratti non bastano e propone la migliore fra quelle con prezzi realmente confrontabili. Test live su Staging con bolletta sintetica: proposta Iren Web Self Luce Prezzo Fisso e stima di 203,70 €/anno in meno sulla sola componente di vendita; prossimo controllo dopo sette giorni. Test integrato con otto giorni simulati e prezzi cambiati. Nessun cambio fornitore.
+
+## 2026-09-26 — Sorveglianza delle polizze e della telefonia
+
+Nel primo percorso ORA mostra lo stato della ricerca anche dopo il caricamento di una polizza o di un contratto telefonico. Per la telefonia chiede il contratto quando l'utente segnala il servizio. Se la ricerca iniziale non trova una pagina di offerta specifica, effettua una ricerca web pubblica mirata. Usa premio o canone esplicito come soglia di risparmio, senza inventare una cifra quando premio personale, servizi o costi accessori non sono confrontabili. Per RC auto offre l'accesso al preventivatore pubblico IVASS.

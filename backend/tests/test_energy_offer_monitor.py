@@ -155,6 +155,39 @@ def test_policy_advice_sets_a_personal_quote_target_without_claiming_a_saving():
     })["current_premium_year"] is None
 
 
+def test_phone_contract_sets_a_monthly_target_without_claiming_a_saving():
+    profile = _profile({
+        "id": "mobile-contract", "original_filename": "piano.pdf",
+        "analysis": {"subcategory": "contratto_telefono"},
+        "extracted_text": "Piano tariffario mobile\nCanone mensile: 19,99 €/mese\nNumero 3331234567",
+    })
+    assert profile is not None and profile["commodity"] == "telephone"
+    assert profile["current_monthly_fee"] == 19.99
+    assert "3331234567" not in str(profile)
+    advice = _advice(profile, [{"code": "operator", "name": "Offerta Mobile Alfa"}])
+    assert advice["kind"] == "comparison_needed"
+    assert "19.99 €" in advice["text"]
+    assert "Non ho ancora un prezzo confrontabile" in advice["text"]
+    assert "19.99 €" in _advice(profile, [])["text"]
+    assert _profile({
+        "id": "ocr-mobile", "analysis": {"subcategory": "contratto_telefono"},
+        "ocr_used": True,
+        "extracted_text": "Piano tariffario\nCanone mensile: 19,99 €/mese",
+    })["current_monthly_fee"] is None
+
+
+def test_named_insurance_offer_does_not_become_a_saving_from_advertising():
+    profile = _profile({
+        "id": "policy-ad", "analysis": {"subcategory": "polizza_auto"},
+        "extracted_text": "Premio annuo: 500 €\nTarga AB123CD",
+    })
+    assert profile is not None and profile["commodity"] == "insurance_auto"
+    candidate = {"code": "insurer", "name": "Polizza Alfa", "potential_saving_year": None}
+    advice = _advice(profile, [candidate])
+    assert advice["kind"] == "comparison_needed"
+    assert "500.00 €" in advice["text"]
+
+
 @pytest.mark.asyncio
 async def test_only_cited_seller_pages_can_be_shown(monkeypatch):
     source = SimpleNamespace(
@@ -181,6 +214,26 @@ async def test_only_cited_seller_pages_can_be_shown(monkeypatch):
     assert offers[0]["url"] == source.url
     assert offers[0]["potential_saving_year"] is None
     assert offers[0]["comparison_basis"] == "not_comparable"
+
+
+@pytest.mark.asyncio
+async def test_direct_public_search_can_propose_a_named_insurer_page_without_a_saving(monkeypatch):
+    source = SimpleNamespace(
+        source_id="insurer", url="https://insurer.example/rc-auto/polizza-online",
+        title="Polizza RC Auto Online", snippet="Richiedi un preventivo personale",
+        publisher="insurer.example",
+    )
+    run = SimpleNamespace(sources=[source], citable_sources=lambda: [])
+
+    async def choose(_system, _payload):
+        return {"source_ids": ["insurer"]}
+
+    monkeypatch.setattr("research.reasoning._ask_model", choose)
+    assert await _alternatives(run, "insurance_auto") == []
+    offers = await _alternatives(run, "insurance_auto", allow_uncited=True)
+    assert len(offers) == 1
+    assert offers[0]["comparison_basis"] == "not_comparable"
+    assert offers[0]["potential_saving_year"] is None
 
 
 @pytest.mark.asyncio
@@ -339,6 +392,69 @@ async def test_durable_web_check_repeats_and_only_changes_wake_review(monkeypatc
     assert all(row["advice"]["kind"] == "comparison_needed" for row in status)
     await restarted.set_enabled(user_id, False)
     assert (await restarted.run_due(now=first + timedelta(days=16)))["checked"] == 0
+    client.close()
+
+
+@pytest.mark.asyncio
+async def test_phone_contract_is_researched_again_after_a_week(monkeypatch):
+    if not os.environ.get("MONGO_URL"):
+        pytest.skip("integration test uses the isolated CI Mongo service")
+    from motor.motor_asyncio import AsyncIOMotorClient
+    from opportunities.discovery import OpportunityDiscovery
+    import research.service as research_service
+
+    client = AsyncIOMotorClient(os.environ["MONGO_URL"])
+    db = client.get_database(f"ora_market_test_{uuid.uuid4().hex[:12]}")
+    service = EnergyOfferService(db)
+    await service.ensure_indexes()
+    owner = "phone-owner"
+    contract = {
+        "id": "phone-1", "user_id": owner,
+        "original_filename": "contratto_telefono.txt",
+        "extracted_text": "Piano tariffario mobile\nCanone mensile: 19,99 €/mese",
+    }
+    await db.users.insert_one({"user_id": owner, "preferences": {}})
+    await db.documents.insert_one(contract)
+    assert await service.register_document(owner, contract)
+    searches = []
+
+    class FakeResearch:
+        def __init__(self, _db):
+            pass
+
+        async def run(self, _owner, need, **kwargs):
+            searches.append((need.question, kwargs))
+            source = SimpleNamespace(
+                source_id="operator", url="https://operator.example/mobile/piano",
+                title="Piano Mobile", snippet="Piano mobile sottoscrivibile",
+                publisher="operator.example",
+            )
+            return SimpleNamespace(
+                id=f"run-{len(searches)}", status="completed", sources=[source],
+                citable_sources=lambda: [{"url": source.url}],
+            )
+
+    async def choose(_system, _payload):
+        return {"source_ids": ["operator"]}
+
+    async def note(_self, *_args, **_kwargs):
+        pass
+
+    monkeypatch.setattr(research_service, "research_available", lambda: True)
+    monkeypatch.setattr(research_service, "ResearchService", FakeResearch)
+    monkeypatch.setattr("research.reasoning._ask_model", choose)
+    monkeypatch.setattr(OpportunityDiscovery, "note", note)
+    first = datetime.now(timezone.utc) + timedelta(minutes=1)
+    assert (await service.run_due(now=first))["checked"] == 1
+    initial = (await service.status(owner))[0]
+    assert initial["advice"]["kind"] == "comparison_needed"
+    assert "19.99 €" in initial["advice"]["text"]
+    assert initial["candidates"][0]["url"] == "https://operator.example/mobile/piano"
+    assert initial["next_check_at"] == (first + timedelta(days=7)).isoformat()
+    assert (await service.run_due(now=first + timedelta(days=6)))["checked"] == 0
+    assert (await EnergyOfferService(db).run_due(now=first + timedelta(days=8)))["checked"] == 1
+    assert len(searches) == 2 and all(kwargs["allow_reuse"] is False for _, kwargs in searches)
+    await db.drop_collection("energy_offer_monitors")
     client.close()
 
 
