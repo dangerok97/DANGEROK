@@ -1,3 +1,7 @@
+## 2026-09-26 — Catalogo reale e scadenza dei risultati
+
+`energy_offers.portal` legge i campi annidati dell'XML ufficiale e conserva soltanto offerte fisse semplici compatibili con il confronto. La prova live dalla rete locale legge 58 offerte luce e 39 gas nel catalogo del 26/09; dalla CI la pagina ufficiale risponde 403. `energy_offers.service.status` elimina dalla risposta utente le alternative scadute o con catalogo più vecchio di 10 giorni, senza alterare il dato persistente. La verifica della rete Railway e la coerenza con le condizioni del venditore restano gate di attivazione.
+
 ## 2026-09-25 — Fonte offerte energia
 
 `energy_offers` estrae un profilo minimo dalla bolletta, legge l'export XML ufficiale, confronta soltanto tariffe semplici e salva il prossimo controllo in MongoDB. Il runtime `ambient` esegue un controllo dovuto per minuto; `opportunities.snapshot` porta al modello soltanto offerte recenti, con provenienza e limiti del confronto. L'API autenticata e il pannello Documenti danno visibilità e controllo. Contratto e limiti in `ENERGY_OFFER_MONITOR.md`.
@@ -3054,3 +3058,4 @@ Questo dimostra soltanto la fixture negativa, non precisione generale di
 opportunità o comportamento dell'account personale. Il comando temporaneo di
 predeploy è stato riportato a [] dopo la prova. Restano da verificare gli altri
 due domini con il controllo di fattibilità introdotto nello stesso SHA.
+
