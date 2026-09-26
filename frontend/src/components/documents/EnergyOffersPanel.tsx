@@ -68,9 +68,19 @@ export function EnergyOffersPanel() {
           ) : (
             <Text style={{ color: colors.textSecondary, fontSize: 12 }}>Primo controllo in programma.</Text>
           )}
-          {!supply.candidates?.length && supply.last_checked_at ? (
+          {supply.source_stale && supply.last_checked_at ? (
+            <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
+              I dati delle offerte non sono abbastanza recenti. ORA riproverà automaticamente.
+            </Text>
+          ) : null}
+          {!supply.source_stale && !supply.candidates?.length && supply.last_checked_at ? (
             <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
               Nessuna alternativa confrontabile emersa nell'ultimo controllo.
+            </Text>
+          ) : null}
+          {supply.source_fetched_at && !supply.source_stale ? (
+            <Text style={{ color: colors.textTertiary, fontSize: 12 }}>
+              Dati offerte del {day(supply.source_fetched_at)}
             </Text>
           ) : null}
           {(supply.candidates || []).slice(0, 3).map((offer) => (
@@ -113,3 +123,4 @@ export function EnergyOffersPanel() {
     </View>
   );
 }
+
