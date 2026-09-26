@@ -8,8 +8,9 @@ from types import SimpleNamespace
 import pytest
 
 from energy_offers.bill import parse_bill
-from energy_offers.service import EnergyOfferService, _advice, _alternatives, _apply_savings, _profile
+from energy_offers.service import EnergyOfferService, _advice, _alternatives, _apply_savings, _profile, _read_offer_pages
 from energy_offers.savings import offer_terms
+from energy_offers.page import terms_from_html
 
 
 def test_bill_profile_does_not_expose_identifiers_or_invoice_total():
@@ -86,6 +87,43 @@ def test_official_seller_price_formats_remain_strictly_comparable():
         "Prezzo fisso 0,15€/kWh + 13,25€ costi mensili di commercializzazione",
         "electricity",
     ) is None
+
+
+def test_offer_page_extraction_requires_one_unambiguous_price():
+    html = (
+        "<html><script>Prezzo fisso 0,01€/kWh + 1€ al mese (costi di commercializzazione)</script>"
+        "<section><h1>Iren Web Self Luce</h1><p>Prezzo fisso</p>"
+        "<p>0,159€/kWh + 8,75€ al mese (costi di commercializzazione)</p>"
+        "</section></html>"
+    )
+    assert terms_from_html(html, "electricity") == {"unit_price": 0.159, "fixed_year": 105.0}
+    ambiguous = html.replace("</section>", "<p>F1 0,1778 €/kWh</p></section>")
+    assert terms_from_html(ambiguous, "electricity") is None
+
+
+@pytest.mark.asyncio
+async def test_official_page_completes_a_short_search_excerpt(monkeypatch):
+    profile = parse_bill(
+        "Bolletta energia elettrica\nConsumo annuo: 2700 kWh\n"
+        "Prezzo materia energia: 0,22 €/kWh\n"
+        "Quota fissa di commercializzazione: 12 €/mese",
+        document_id="page-bill",
+    )
+    source = SimpleNamespace(source_id="offer", url="https://seller.example/piano-luce",
+                             snippet="Piano Luce: scopri il prezzo fisso")
+    run = SimpleNamespace(sources=[source])
+    candidate = {"source_id": "offer", "url": source.url, "code": "offer",
+                 "name": "Piano Luce", "comparison_basis": "not_comparable"}
+
+    async def page(url, category):
+        assert (url, category) == (source.url, "electricity")
+        return {"unit_price": 0.159, "fixed_year": 105.0}
+
+    monkeypatch.setattr("energy_offers.service.fetch_offer_terms", page)
+    terms = await _read_offer_pages(run, [candidate], "electricity")
+    _apply_savings(profile, run, [candidate], terms)
+    assert candidate["potential_saving_year"] == 203.7
+    assert _advice(profile, [candidate])["kind"] == "estimated_saving"
 
 
 def test_policy_profile_does_not_send_plate_or_person_to_search():
@@ -169,6 +207,23 @@ async def test_energy_category_pages_are_not_presented_as_individual_offers(monk
     monkeypatch.setattr("research.reasoning._ask_model", choose)
     offers = await _alternatives(run, "electricity")
     assert [offer["url"] for offer in offers] == [named.url]
+
+
+@pytest.mark.asyncio
+async def test_energy_can_compare_a_seller_page_observed_but_not_summarized(monkeypatch):
+    source = SimpleNamespace(
+        source_id="seller", url="https://seller.example/piano-verde",
+        title="Piano Verde luce", snippet="Prezzo fisso 0,159€/kWh + 8,75€ al mese (costi di commercializzazione)",
+        publisher="seller.example",
+    )
+    run = SimpleNamespace(sources=[source], citable_sources=lambda: [])
+
+    async def choose(_system, _payload):
+        return {"source_ids": ["seller"]}
+
+    monkeypatch.setattr("research.reasoning._ask_model", choose)
+    offers = await _alternatives(run, "electricity")
+    assert [offer["url"] for offer in offers] == [source.url]
 
 
 @pytest.mark.asyncio
