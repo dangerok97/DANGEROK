@@ -51,6 +51,11 @@ esplicitamente prezzi e quote fisse alle fonti ufficiali; non definisce
 «migliore sul mercato» una proposta se non ha dati per confrontarla.
 Se la prima ricerca non trova prezzi confrontabili, ORA prova una seconda
 ricerca mirata alle singole pagine con prezzo unitario e quota commerciale.
+Se anche questa è inconcludente, due query di prezzo precise interrogano
+direttamente il provider web già configurato; le fonti osservate vengono
+registrate con data e URL e le singole pagine sono valutate con le stesse
+regole prudenziali. Le query non contengono dati della bolletta né un elenco
+predefinito di venditori.
 Le pagine generali che raccolgono più tariffe non vengono presentate come
 un'offerta individuale.
 
