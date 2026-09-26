@@ -76,6 +76,7 @@ async def build(
         ("disagreements", _disagreements),
         ("money", _money),
         ("documents", _documents),
+        ("market_offers", _market_offers),
         ("existing_work", _existing_work),
     ):
         try:
@@ -617,6 +618,47 @@ async def _documents(db, user_id: str, now: datetime, *, document_ids=None) -> L
     return out
 
 
+async def _market_offers(db, user_id: str, now: datetime) -> List[Dict[str, Any]]:
+    """Fresh, source-backed alternatives from recurring public web research."""
+    rows = await db.energy_offer_monitors.find(
+        {"user_id": user_id, "enabled": True,
+         "source_fetched_at": {"$gte": (now - timedelta(days=10)).isoformat()},
+         "$or": [{"evidence_valid_until": {"$exists": False}},
+                 {"evidence_valid_until": None},
+                 {"evidence_valid_until": {"$gte": now.isoformat()}}]},
+        {"_id": 0, "commodity": 1, "document_id": 1, "annual_consumption": 1,
+         "candidates": 1, "source_url": 1, "source_fetched_at": 1},
+    ).limit(MAX_PER_SOURCE).to_list(MAX_PER_SOURCE)
+    out = []
+    for row in rows:
+        active_bill = await db.documents.find_one(
+            {"user_id": user_id, "id": row["document_id"],
+             "deleted": {"$ne": True}, "archived": {"$ne": True}},
+            {"_id": 1},
+        )
+        if not active_bill:
+            continue
+        for offer in (row.get("candidates") or [])[:3]:
+            if offer.get("valid_until") and offer["valid_until"] < now.date().isoformat():
+                continue
+            out.append({
+                "ref": f"market_offer:{row['commodity']}:{offer['code']}",
+                "market": row["commodity"],
+                "name": offer["name"], "seller": offer["seller"],
+                "offer_url": offer["url"],
+                "observed_at": row["source_fetched_at"],
+                "valid_until": offer.get("valid_until"),
+                "bill_ref": f"document:{row['document_id']}",
+                "annual_consumption": row.get("annual_consumption"),
+                "estimated_seller_year": offer.get("estimated_seller_year"),
+                "current_seller_year": offer.get("current_seller_year"),
+                "potential_saving_year": offer.get("potential_saving_year"),
+                "comparison_basis": offer["comparison_basis"],
+                "caveat": "Alternativa osservata online; convenienza rispetto al contratto attuale non verificata.",
+            })
+    return out[:MAX_PER_SOURCE]
+
+
 async def _existing_work(db, user_id: str, now: datetime) -> List[Dict[str, Any]]:
     """
     What is already on the person's plate.
@@ -667,6 +709,7 @@ def evidence_refs(snapshot: Dict[str, Any]) -> Dict[str, str]:
     take("disagreement", snapshot.get("disagreements"))
     take("existing_work", snapshot.get("existing_work"))
     take("document", snapshot.get("documents"))
+    take("market_offer", snapshot.get("market_offers"))
 
     presence = snapshot.get("presence") or {}
     if presence.get("place_ref"):

@@ -1,3 +1,11 @@
+## 2026-09-26 — Sorveglianza dei mercati tramite ricerca online
+
+`energy_offers.service` registra profili minimi da bollette e polizze. Un record proprietario con prossima scadenza e lease è consumato dal runtime `ambient`, anche senza app aperta. Ogni passaggio chiama `ResearchService.run(..., allow_reuse=False)`, che usa i provider web già esistenti, valuta le fonti e conserva solo la ricerca effettuata per quella persona. Un secondo giudizio seleziona soltanto pagine di offerte citate dalla ricerca; URL e identificatori vengono verificati in codice. `opportunities.snapshot` espone le alternative recenti al normale giudizio di ORA. Non esiste una cache di cataloghi pubblici. Ricerca non disponibile: ritentativo dopo 12 ore, senza fingere un controllo riuscito. Contratto in `ENERGY_OFFER_MONITOR.md`.
+
+## 2026-09-25 — Fonte offerte energia
+
+Proposta iniziale basata su export XML, sostituita dalla ricerca online descritta sopra.
+
 ## 2026-09-22 — Aggiornamenti: scheda e prossimo passo condivisi
 
 ## 2026-09-25 — Voice latency and concise closing
@@ -3050,3 +3058,4 @@ Questo dimostra soltanto la fixture negativa, non precisione generale di
 opportunità o comportamento dell'account personale. Il comando temporaneo di
 predeploy è stato riportato a [] dopo la prova. Restano da verificare gli altri
 due domini con il controllo di fattibilità introdotto nello stesso SHA.
+

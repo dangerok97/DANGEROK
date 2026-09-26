@@ -1,3 +1,7 @@
+## 2026-09-26 — Ricerca online autonoma dei mercati in revisione
+
+La bozza è passata dal catalogo XML alla ricerca web già presente in ORA. Bollette e polizze riconosciute creano un monitor persistente che lavora ogni sette giorni nel runtime ambientale. Ogni controllo impone una nuova ricerca, seleziona solo pagine del venditore citate dalla ricerca e passa le alternative al giudizio delle opportunità. La pagina Documenti rende visibili stato, fonti e pausa. Non vengono dichiarati risparmi: per luce, gas e assicurazioni manca ancora un confronto completo e verificato di prezzo, condizioni ed eleggibilità. I risultati più vecchi di dieci giorni spariscono dalla vista; un errore riprova dopo dodici ore. La bozza non è distribuita su ORA Staging. Prima dell'attivazione: test con provider web configurato nell'ambiente di esercizio, documento sintetico, ciclo periodico e verifica UI.
+
 ## 2026-09-22 — Aggiornamenti: scheda e prossimo passo condivisi
 
 ## 2026-09-25 — Voice latency and concise closing
@@ -3705,3 +3709,4 @@ Questo dimostra soltanto la fixture negativa, non precisione generale di
 opportunità o comportamento dell'account personale. Il comando temporaneo di
 predeploy è stato riportato a [] dopo la prova. Restano da verificare gli altri
 due domini con il controllo di fattibilità introdotto nello stesso SHA.
+

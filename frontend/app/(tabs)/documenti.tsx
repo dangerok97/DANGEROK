@@ -36,6 +36,7 @@ import { humanizeError } from '@/src/utils/errors';
 import { haptic } from '@/src/utils/haptic';
 import { buildOraConversationHref } from '@/src/ora/oraNav';
 import { SuggestedPanel } from '@/src/components/documents/SuggestedPanel';
+import { EnergyOffersPanel } from '@/src/components/documents/EnergyOffersPanel';
 import {
   ActionCard,
   CapabilitiesPanel,
@@ -307,6 +308,7 @@ export default function DocumentiScreen() {
   const rail = (
     <>
       <SummaryPanel rows={library?.summary || []} />
+      <EnergyOffersPanel />
       <CapabilitiesPanel />
       <ExpiringPanel expiring={library?.expiring || []} onOpen={openDocument} />
       <SuggestedPanel items={items as any} onOpen={openDocument} />

@@ -6,6 +6,7 @@ from lifesearch.router import router as lifesearch_router
 from connectors.gmail.router import router as gmail_router
 from connectors.google_calendar import google_calendar_router
 from documents import documents_router
+from energy_offers.router import router as energy_offers_router
 from goal_engine import goal_engine_router
 from home import router as home_router
 from intent_engine import intent_engine_router
@@ -71,6 +72,7 @@ ALL_ROUTERS = [
     behavior_shadow_router.router,
     calendar_events_router.router,
     documents_router,
+    energy_offers_router,
     home_router,
     intent_engine_router,
     action_engine_router,

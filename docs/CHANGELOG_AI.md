@@ -1,3 +1,11 @@
+## 2026-09-26 — Ricerca web periodica per offerte e polizze
+
+Sostituito il download del catalogo XML con ricerche web nuove a ogni scadenza, tramite il motore `research` esistente. Aggiunti trigger per polizze, selezione di pagine venditore citate, deduplica delle proposte, ritentativi e stato nel pannello Documenti. Rimossi parser XML e controllo CI che dipendeva dal Portale Offerte. Nessun risparmio viene inventato da uno snippet; la funzione resta bozza finché il ciclo reale su staging non è verificato.
+
+## 2026-09-25 — Monitor periodico offerte luce e gas (proposta)
+
+Aggiunti profilo da bolletta, lettura degli Open Data ufficiali, confronto prudente delle componenti di vendita luce, sorveglianza persistente, deduplica, visibilità e pausa nella pagina Documenti. Nessun invio esterno o cambio fornitore. Verifica live dell'XML ancora richiesta. Dettagli in `ENERGY_OFFER_MONITOR.md`.
+
 ## 2026-09-25 — V3.22.3 recovery essenziale online
 
 ## 2026-09-25 — Voice latency and concise closing
@@ -5215,3 +5223,4 @@ Questo dimostra soltanto la fixture negativa, non precisione generale di
 opportunità o comportamento dell'account personale. Il comando temporaneo di
 predeploy è stato riportato a [] dopo la prova. Restano da verificare gli altri
 due domini con il controllo di fattibilità introdotto nello stesso SHA.
+

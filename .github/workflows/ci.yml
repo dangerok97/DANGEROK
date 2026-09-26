@@ -79,6 +79,9 @@ jobs:
             ai_life_strategist/tests/test_life_experience_documents.py \
             --ignore=tests/test_intelligent_documents_real_verification.py \
             -x
+      - name: Continuous online market watch
+        working-directory: backend
+        run: python -m pytest -q tests/test_energy_offer_monitor.py -x
       - name: Google first sync, cloud sessions, location privacy and polling
         working-directory: backend
         run: |
@@ -92,8 +95,6 @@ jobs:
             tests/test_agent_commanded_v39.py \
             tests/test_calendar_move_v310.py \
             -x
-
-
   telephone-cloud:
     name: Telephone cloud safety
     runs-on: ubuntu-latest

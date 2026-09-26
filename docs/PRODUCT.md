@@ -1,3 +1,11 @@
+## 2026-09-26 — Ricerca periodica online dei contratti
+
+Una bolletta o una polizza riconosciuta avvia una ricerca online ricorrente, anche quando l'app è chiusa. ORA usa le fonti pubbliche trovate al momento del controllo, presenta alternative con pagina del venditore e data di osservazione, poi decide con il normale flusso delle opportunità se proporle. La persona vede i controlli in Documenti e può sospenderli. Prezzi e risparmi non vengono dichiarati senza confronto affidabile con il contratto attuale. Nessun catalogo pubblico è scaricato o mantenuto. La funzione è ancora una bozza, non attiva su ORA Staging. Dettagli in `ENERGY_OFFER_MONITOR.md`.
+
+## 2026-09-25 — Sorveglianza continua delle offerte energia
+
+Proposta iniziale del monitor luce e gas, poi sostituita dalla ricerca online trasversale descritta sopra.
+
 ## 2026-09-22 — Aggiornamenti: scheda e prossimo passo condivisi
 
 ## 2026-09-25 — Voice latency and concise closing
@@ -1219,3 +1227,4 @@ Questo dimostra soltanto la fixture negativa, non precisione generale di
 opportunità o comportamento dell'account personale. Il comando temporaneo di
 predeploy è stato riportato a [] dopo la prova. Restano da verificare gli altri
 due domini con il controllo di fattibilità introdotto nello stesso SHA.
+
