@@ -1,5 +1,7 @@
 ## 2026-09-26 — Sorveglianza dei mercati tramite ricerca online
 
+La validazione del modello `research.reasoning` adatta ricorsivamente i limiti di lunghezza di piani, domande, valutazioni e conflitti prima di convalidarne lo schema. Valori mancanti o semanticamente invalidi restano errori; i log espongono solo percorso e tipo della violazione.
+
 `energy_offers.service` registra profili minimi da bollette e polizze. Un record proprietario con prossima scadenza e lease è consumato dal runtime `ambient`, anche senza app aperta. Ogni passaggio chiama `ResearchService.run(..., allow_reuse=False)`, che usa i provider web già esistenti, valuta le fonti e conserva solo la ricerca effettuata per quella persona. Le pagine generiche di raccolta tariffe vengono tolte prima della selezione; un secondo giudizio seleziona soltanto pagine di offerte specifiche citate dalla ricerca, con URL e identificatori verificati in codice. `energy_offers.savings` estrae solo prezzo unitario e quota commerciale fissa esplicitamente etichettati da bolletta e snippet della pagina venditore citata; tariffe variabili, scaglioni e componenti incomplete non producono una stima. Il calcolo usa i consumi annui e riguarda solo la componente di vendita. `opportunities.snapshot` espone alternative, stima e limiti al normale giudizio di ORA. Non esiste una cache di cataloghi pubblici. Ricerca non disponibile: ritentativo dopo 12 ore, senza fingere un controllo riuscito. Contratto in `ENERGY_OFFER_MONITOR.md`.
 
 ## 2026-09-25 — Fonte offerte energia

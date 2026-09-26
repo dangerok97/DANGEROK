@@ -47,6 +47,34 @@ def _now():
     return datetime.now(timezone.utc)
 
 
+def test_nested_model_field_bounds_do_not_discard_a_valid_research_run():
+    from research.models import ResearchAssessment, ResearchPlan
+    from research.reasoning import _fit
+
+    plan = ResearchPlan.model_validate(_fit({
+        "goal": "find a current offer",
+        "questions": [{
+            "ref": "q" * 150,
+            "question": "find an offer",
+            "source_fitness": "seller page " * 40,
+            "queries": [f"query {index}" for index in range(8)],
+        }],
+    }, ResearchPlan))
+    assert len(plan.questions[0].ref) == 120
+    assert len(plan.questions[0].source_fitness) == 300
+    assert len(plan.questions[0].queries) == 6
+
+    assessment = ResearchAssessment.model_validate(_fit({
+        "sufficiency": "conflicted",
+        "conflicts": [{
+            "about": "price disagreement " * 30,
+            "positions": [str(index) for index in range(6)],
+        }],
+    }, ResearchAssessment))
+    assert len(assessment.conflicts[0].about) == 300
+    assert len(assessment.conflicts[0].positions) == 4
+
+
 async def _db():
     from motor.motor_asyncio import AsyncIOMotorClient
 

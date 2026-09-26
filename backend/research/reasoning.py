@@ -21,7 +21,9 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, get_args
+
+from pydantic import BaseModel, ValidationError
 
 from research.models import (
     EvidenceSource,
@@ -141,7 +143,7 @@ def _parse_json(text: str) -> Optional[Dict[str, Any]]:
 
 def _fit(data: Dict[str, Any], model) -> Dict[str, Any]:
     """
-    Trim over-long lists to what the contract allows.
+    Trim over-long fields, including nested model objects, to contract bounds.
 
     A model that returns nine next searches instead of five has not
     misunderstood the question; it has overshot a bound. Throwing the whole
@@ -162,6 +164,16 @@ def _fit(data: Dict[str, Any], model) -> Dict[str, Any]:
         )
         if cap and len(value) > cap:
             out[name] = value[:cap]
+        nested = next(
+            (arg for arg in get_args(field.annotation)
+             if isinstance(arg, type) and issubclass(arg, BaseModel)),
+            None,
+        )
+        if nested is not None:
+            out[name] = [
+                _fit(item, nested) if isinstance(item, dict) else item
+                for item in out[name]
+            ]
     # Same for a sentence that ran long. Cutting it keeps what was said;
     # discarding the object would lose a whole round of real reasoning to a
     # character count.
@@ -176,6 +188,16 @@ def _fit(data: Dict[str, Any], model) -> Dict[str, Any]:
         if cap and len(value) > cap:
             out[name] = value[:cap]
     return out
+
+
+def _validation_shape(exc: Exception) -> str:
+    """Safe diagnostic: field locations and error kinds, never rejected values."""
+    if not isinstance(exc, ValidationError):
+        return type(exc).__name__
+    return ",".join(
+        ".".join(str(part) for part in error["loc"]) + ":" + error["type"]
+        for error in exc.errors()[:4]
+    )
 
 
 _DISCIPLINE = """You are the part of ORA that goes and finds things out.
@@ -263,7 +285,7 @@ async def plan_research(
     try:
         plan = ResearchPlan.model_validate(_fit(data, ResearchPlan))
     except Exception as e:
-        logger.info("research plan rejected: %s", type(e).__name__)
+        logger.info("research plan rejected: %s", _validation_shape(e))
         return None
     # The only structural requirement: a plan with nothing to run is not a
     # plan. What to run, and how much of it, stays the model's.
@@ -346,7 +368,7 @@ async def assess_evidence(
     try:
         return ResearchAssessment.model_validate(_fit(data, ResearchAssessment))
     except Exception as e:
-        logger.info("research assessment rejected: %s", type(e).__name__)
+        logger.info("research assessment rejected: %s", _validation_shape(e))
         return None
 
 
@@ -424,7 +446,7 @@ async def synthesize(
     try:
         synthesis = ResearchSynthesis.model_validate(_fit(data, ResearchSynthesis))
     except Exception as e:
-        logger.info("research synthesis rejected: %s", type(e).__name__)
+        logger.info("research synthesis rejected: %s", _validation_shape(e))
         return None
 
     # A claim that names no source is the model talking, not evidence. Dropped
