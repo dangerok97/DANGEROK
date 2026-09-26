@@ -63,6 +63,31 @@ async def test_only_cited_seller_pages_can_be_shown(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_energy_category_pages_are_not_presented_as_individual_offers(monkeypatch):
+    category = SimpleNamespace(
+        source_id="category", url="https://seller.example/casa/offerte-luce",
+        title="Offerte luce per la casa a prezzo fisso e variabile",
+        snippet="Scopri le nostre offerte luce", publisher="seller.example",
+    )
+    named = SimpleNamespace(
+        source_id="named", url="https://seller.example/casa/offerte-luce/piano-verde",
+        title="Piano Verde luce a prezzo fisso",
+        snippet="Piano Verde disponibile", publisher="seller.example",
+    )
+    run = SimpleNamespace(
+        sources=[category, named],
+        citable_sources=lambda: [{"url": category.url}, {"url": named.url}],
+    )
+
+    async def choose(_system, _user):
+        return {"source_ids": ["category", "named"]}
+
+    monkeypatch.setattr("research.reasoning._ask_model", choose)
+    offers = await _alternatives(run, "electricity")
+    assert [offer["url"] for offer in offers] == [named.url]
+
+
+@pytest.mark.asyncio
 async def test_durable_web_check_repeats_and_only_changes_wake_review(monkeypatch):
     if not os.environ.get("MONGO_URL"):
         pytest.skip("integration test uses the isolated CI Mongo service")
