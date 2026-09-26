@@ -358,7 +358,7 @@ class EnergyOfferService:
                 "next_check_at": _iso(_now()), "candidates": [],
                 "source_url": None, "source_fetched_at": None,
                 "research_run_id": None, "last_checked_at": None, "last_error": None,
-                "advice": None,
+                "advice": _advice(profile, []),
             })
         await self.db[MONITORS].update_one(
             identity, {"$set": update, "$setOnInsert": {"created_at": _iso(_now())}},
@@ -397,7 +397,7 @@ class EnergyOfferService:
                 (row["commodity"] in ("electricity", "gas") and
                  preferences.get("energy_offer_monitoring") is False)):
                 await self.db[MONITORS].update_one(identity, {"$set": {
-                    "enabled": False, "lease_until": None, "candidates": [],
+                    "enabled": False, "lease_until": None, "candidates": [], "advice": None,
                 }})
                 return {"checked": 0, "failed": 0, "changed": 0}
             if not research_available():
@@ -489,7 +489,8 @@ class EnergyOfferService:
                 (not offer.get("valid_until") or offer["valid_until"] >= today)
             ]
             if row["source_stale"]:
-                row["advice"] = None
+                fallback = _advice(row, [])
+                row["advice"] = fallback if fallback["kind"] == "comparison_needed" else None
         return rows
 
     async def set_enabled(self, user_id: str, enabled: bool) -> None:

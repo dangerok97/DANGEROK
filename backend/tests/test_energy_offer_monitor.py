@@ -172,17 +172,24 @@ async def test_durable_web_check_repeats_and_only_changes_wake_review(monkeypatc
     bill = {
         "id": "bill-1", "user_id": user_id,
         "extracted_text": "Energia elettrica\nConsumo annuo: 2700 kWh\n"
-                          "Codice offerta: CURRENT123",
+                          "Codice offerta: CURRENT123\n"
+                          "Prezzo materia energia: 0,22 €/kWh\n"
+                          "Quota fissa di commercializzazione: 12 €/mese",
     }
     policy = {
         "id": "policy-1", "user_id": user_id,
         "original_filename": "polizza_auto.pdf",
-        "extracted_text": "Polizza RC auto\nTarga AB123CD",
+        "extracted_text": "Polizza RC auto\nTarga AB123CD\nPremio annuo: 500 €",
     }
     await db.users.insert_one({"user_id": user_id, "preferences": {}})
     await db.documents.insert_many([bill, policy])
     assert await service.register_document(user_id, bill)
     assert await service.register_document(user_id, policy)
+    before_search = await service.status(user_id)
+    assert {row["commodity"]: row["advice"]["kind"] for row in before_search} == {
+        "electricity": "comparison_needed", "insurance_auto": "comparison_needed",
+    }
+    assert all(row["last_checked_at"] is None for row in before_search)
 
     searches = []
     notices = []
@@ -193,7 +200,7 @@ async def test_durable_web_check_repeats_and_only_changes_wake_review(monkeypatc
 
         async def run(self, owner, need, **kwargs):
             searches.append((owner, need.question, need.already_known, kwargs))
-            return SimpleNamespace(id=f"run-{len(searches)}", status="completed")
+            return SimpleNamespace(id=f"run-{len(searches)}", status="completed", sources=[])
 
     async def alternatives(_run, category):
         return [{
