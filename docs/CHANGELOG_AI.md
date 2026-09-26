@@ -1,3 +1,7 @@
+## 2026-09-26 — Recupero delle ricerche con campi troppo lunghi
+
+Il modello di ricerca talvolta restituisce un piano o una valutazione JSON corretti nella struttura generale ma con campi annidati oltre i limiti di lunghezza. ORA ora taglia quei campi agli stessi limiti già applicati ai campi esterni, conserva la validazione semantica e registra soltanto percorso e tipo degli errori residui, senza testo del documento o della ricerca.
+
 ## 2026-09-26 — Consigli di risparmio basati sui costi verificabili
 
 La bolletta fornisce ora prezzo unitario della materia energia e quota commerciale fissa, quando esplicitamente indicati. Se una pagina venditore citata nella ricerca riporta le stesse due componenti per una tariffa fissa, ORA calcola una stima annua sulla sola componente di vendita usando i consumi del documento, mostra un consiglio e passa la stima al giudizio delle opportunità. Le pagine generiche vengono filtrate prima della scelta delle offerte specifiche. Se il nuovo prezzo manca, indica la soglia annua della componente di vendita da battere; per una polizza con premio annuo esplicito indica la soglia per un preventivo a parità di coperture. Tariffe indicizzate, prezzi ambigui e dati mancanti restano senza cifra di risparmio. Nessun cambio fornitore automatico.
