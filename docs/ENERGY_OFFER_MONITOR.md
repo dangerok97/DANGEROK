@@ -65,7 +65,9 @@ registrate con data e URL e le singole pagine sono valutate con le stesse
 regole prudenziali. Le query non contengono dati della bolletta né un elenco
 predefinito di venditori. Se la prima ricerca su assicurazioni o telefonia non
 trova pagine di offerte specifiche, ORA interroga anche il provider web con
-una ricerca pubblica mirata senza dati personali.
+una ricerca pubblica mirata senza dati personali. Lo stesso recupero avviene
+quando la sintesi della ricerca è insufficiente, purché il provider web
+restituisca fonti pubbliche; in caso contrario il controllo viene ritentato.
 Le pagine generali che raccolgono più tariffe non vengono presentate come
 un'offerta individuale.
 

@@ -557,8 +557,16 @@ class EnergyOfferService:
                 allow_reuse=False,
             )
             if run.status != "completed":
-                raise RuntimeError(f"research_{run.status}")
-            candidates = await _alternatives(run, row["commodity"])
+                # The full research synthesis can be insufficient even when
+                # live search works. Try a bounded, public query before
+                # treating this as a provider outage.
+                direct = await _direct_offer_search(self.db, row["user_id"], row["commodity"])
+                if direct is None:
+                    raise RuntimeError(f"research_{run.status}")
+                run = direct
+                candidates = await _alternatives(run, row["commodity"], allow_uncited=True)
+            else:
+                candidates = await _alternatives(run, row["commodity"])
             page_terms = (
                 await _read_offer_pages(run, candidates, row["commodity"])
                 if row.get("comparison_ready") else {}
