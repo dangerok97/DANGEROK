@@ -605,6 +605,7 @@ export type EnergyOfferSupply = {
   last_checked_at?: string;
   next_check_at?: string;
   source_fetched_at?: string;
+  source_stale?: boolean;
   source_url?: string;
   last_error?: string | null;
   candidates?: EnergyOfferCandidate[];
@@ -3875,3 +3876,4 @@ export type CallTranscriptResponse = {
   /** Why there is nothing to read, when there is nothing to read. */
   why_empty: string;
 };
+
