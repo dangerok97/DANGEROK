@@ -77,6 +77,7 @@ async def build(
         ("money", _money),
         ("documents", _documents),
         ("market_offers", _market_offers),
+        ("life_profile", _life_profile),
         ("existing_work", _existing_work),
     ):
         try:
@@ -88,6 +89,27 @@ async def build(
 
     snapshot["temporal"] = _temporal_facts(snapshot, now)
     return snapshot
+
+
+async def _life_profile(db, user_id: str, now: datetime) -> List[Dict[str, Any]]:
+    """Bounded, owner-scoped confirmed context; suggestions are not facts."""
+    from life_setup.profile_service import LifeProfileService
+
+    profile = await LifeProfileService(db).get(user_id)
+    if not profile:
+        return []
+    facts = [obj for domain in profile.domains.values() for obj in domain.objects.values()
+             if obj.status in ("confirmed", "corrected")
+             and obj.value not in (None, "", [], {})]
+    # Recent changes must be visible even in a large profile. Timestamps select
+    # the bounded context but do not themselves trigger another review.
+    facts.sort(key=lambda obj: (obj.updated_at, obj.key), reverse=True)
+    return sorted([
+        {"ref": f"life_profile:{obj.key}", "key": obj.key,
+         "value": str(obj.value)[:240], "source": obj.source,
+         "status": obj.status}
+        for obj in facts[:80]
+    ], key=lambda fact: fact["key"])
 
 
 def _temporal_facts(snapshot: Dict[str, Any], now: datetime) -> Dict[str, Any]:
@@ -718,6 +740,7 @@ def evidence_refs(snapshot: Dict[str, Any]) -> Dict[str, str]:
     take("existing_work", snapshot.get("existing_work"))
     take("document", snapshot.get("documents"))
     take("market_offer", snapshot.get("market_offers"))
+    take("profile_fact", snapshot.get("life_profile"))
 
     presence = snapshot.get("presence") or {}
     if presence.get("place_ref"):

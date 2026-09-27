@@ -21,6 +21,8 @@ import {
   View,
 } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { startOraConversation } from '@/src/ora/startOraConversation';
+import { humanizeError } from '@/src/utils/errors';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -51,6 +53,23 @@ export default function PlaceDetailScreen() {
   const [relocating, setRelocating] = useState(false);
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
+  const [journeyError, setJourneyError] = useState<string | null>(null);
+
+  const prepareJourney = async () => {
+    if (busy || !detail) return;
+    setBusy(true);
+    setJourneyError(null);
+    try {
+      await startOraConversation(router, {
+        entryPoint: 'vita',
+        text: `Prepara uno spostamento verso il mio luogo salvato «${detail.place.label}» (riferimento ${placeId}). Usa i dati di quel luogo, verifica la partenza e gli orari necessari, il meteo e il traffico se disponibili. Distingui le stime dai dati aggiornati.`,
+      });
+    } catch (error) {
+      setJourneyError(humanizeError(error, 'default'));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const load = useCallback(async () => {
     if (!placeId) return;
@@ -242,6 +261,8 @@ export default function PlaceDetailScreen() {
 
         <View style={styles.block}>
           <Text style={[styles.blockLabel, { color: colors.textTertiary }]}>AZIONI</Text>
+          <Action label={busy ? 'Preparazione…' : 'Prepara il percorso'} icon="navigate-outline" colors={colors} onPress={() => void prepareJourney()} testID="place-action-journey" />
+          {journeyError ? <Text accessibilityRole="alert" style={{ color: colors.error }}>{journeyError}</Text> : null}
           {renaming ? (
             <View style={styles.renameRow}>
               <TextInput

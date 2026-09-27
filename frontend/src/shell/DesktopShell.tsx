@@ -34,6 +34,7 @@ export function railKeyFor(pathname: string): RailKey {
   // di menu: tre indirizzi, una sola cosa nella testa di chi guarda.
   if (
     pathname.startsWith('/vita')
+    || pathname.startsWith('/luoghi')
     || pathname.startsWith('/life-setup')
     || pathname.startsWith('/contesti')
   ) return 'contesti';

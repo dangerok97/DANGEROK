@@ -292,7 +292,7 @@ def _is_negative(value: Any) -> bool:
         return True
     if not isinstance(value, str):
         return False
-    text = " ".join(value.strip().lower().split())
+    text = " ".join(value.strip().lower().replace("_", " ").split())
     # The profile stores values as text, so a boolean arrives as "False".
     if text in ("false", "no", "0"):
         return True
@@ -317,7 +317,8 @@ def _is_present(value: Any) -> bool:
     if value is None or value is False:
         return False
     if isinstance(value, str):
-        return bool(value.strip())
+        text = " ".join(value.strip().lower().replace("_", " ").split())
+        return bool(text) and not any(text.startswith(x) for x in _IGNORANCE)
     if isinstance(value, (list, tuple, dict, set)):
         return bool(value)
     return True
@@ -397,6 +398,14 @@ def applicable(objectives: Sequence[KnowledgeObjective], facts: Dict[str, Any]) 
     out: List[KnowledgeObjective] = []
     for obj in objectives:
         if obj.state == "not_applicable":
+            continue
+        # Preserve the actual choice conditions, not merely the existence of
+        # their keys: renting must not open mortgage questions; employment
+        # must not open self-employment questions.
+        from life_profile.guided import objective as guided_objective
+        guided = guided_objective(obj.ref)
+        if (guided and guided.depends_on and not guided.relevant(facts)
+            and (not obj.resolved or all(c.key in facts for c in guided.depends_on))):
             continue
         # Something ORA already knows evidently applies, whatever its gate says.
         # Found live: a bill was uploaded, the pipeline read the supplier and

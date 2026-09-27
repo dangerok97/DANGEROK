@@ -57,6 +57,7 @@ import {
 } from './OraChrome';
 import { OraTurns, type Turn } from './OraTurns';
 import { OraContextRail } from './OraContextRail';
+import { OraWelcome } from './OraWelcome';
 import type { OraJourneyView } from './OraJourney';
 import { DesktopShell } from '@/src/shell';
 import { useBreakpoint } from '@/src/theme/responsive';
@@ -1321,7 +1322,12 @@ export function OraConversationScreen({
             )}
           </View>
 
-          {emptyStart ? (
+          {emptyStart && !planId && !objectId && !documentId && !questionId && !needId && !opportunityId && !goalId ? (
+            <ScrollView contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 16) }} keyboardShouldPersistTaps="handled">
+              <OraWelcome onPrompt={setText}>{composer}</OraWelcome>
+              {asides}
+            </ScrollView>
+          ) : emptyStart ? (
             <View
               style={[styles.startBlock, { paddingBottom: Math.max(insets.bottom, 8) }]}
               testID={`${testID}-start`}

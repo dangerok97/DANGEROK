@@ -319,7 +319,7 @@ def test_an_objective_waits_for_the_thing_it_depends_on():
     latent = applicable(resolve(objs, facts={}), facts={})
     assert dependent.ref not in _refs(latent)
 
-    awake = applicable(resolve(objs, facts={gate: "sì"}), facts={gate: "sì"})
+    awake = applicable(resolve(objs, facts={gate: "proprieta"}), facts={gate: "proprieta"})
     assert dependent.ref in _refs(awake)
 
 
@@ -332,8 +332,8 @@ def test_two_people_in_the_same_area_are_asked_different_things():
     dependent = next(o for o in objs if o.depends_on)
     gate = dependent.depends_on[0]
 
-    owner = area_completeness(_casa(), facts={gate: "sì"})
-    renter = area_completeness(_casa(), facts={gate: False})
+    owner = area_completeness(_casa(), facts={gate: "proprieta"})
+    renter = area_completeness(_casa(), facts={gate: "affitto"})
 
     owner_open = {o["ref"] for o in owner.open_objectives}
     renter_open = {o["ref"] for o in renter.open_objectives}
@@ -762,7 +762,7 @@ def test_learning_outside_the_setup_moves_the_number():
     gate = next(o for o in objs if not o.depends_on and not o.satisfied_by)
     # With the gate already answered the shape of the area is settled, so the
     # comparison is about knowledge arriving and nothing else.
-    settled = {gate.ref: "di proprietà"}
+    settled = {gate.ref: "proprieta"}
     later = next(o for o in objs if o.depends_on and gate.ref in o.depends_on)
 
     before = area_completeness(_casa(), facts=dict(settled))
@@ -788,7 +788,7 @@ def test_learning_something_can_widen_an_area_and_that_is_honest():
     assert any(gate.ref in o.depends_on for o in objs), "the fixture needs a real gate"
 
     before = area_completeness(_casa(), facts={})
-    after = area_completeness(_casa(), facts={gate.ref: "di proprietà"})
+    after = area_completeness(_casa(), facts={gate.ref: "proprieta"})
 
     assert after.known_count > before.known_count, "the answer was recorded"
     assert after.applicable_count > before.applicable_count, (

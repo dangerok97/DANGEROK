@@ -152,6 +152,16 @@ class AgentService:
                 context_unavailable = len(source_context) < len(set(doc_ids))
             except Exception:
                 context_unavailable = True
+        profile_refs = {ref for ref in (source_refs or []) if ref.startswith("life_profile:")}
+        if profile_refs:
+            try:
+                from opportunities.snapshot import _life_profile
+                facts = await _life_profile(self.db, owner_id, _now())
+                cited = [fact for fact in facts if fact["ref"] in profile_refs]
+                source_context.extend(cited)
+                context_unavailable = context_unavailable or len(cited) < len(profile_refs)
+            except Exception:
+                context_unavailable = True
         answer = await decide_goal(
             {**situation, "who_asked": origin, "source_context": source_context,
              "source_context_unavailable": context_unavailable}, language=language

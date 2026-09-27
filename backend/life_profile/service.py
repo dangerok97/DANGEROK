@@ -91,6 +91,8 @@ class LifeProfileService:
 
         for domain in (profile.domains or {}).values():
             for key, obj in (domain.objects or {}).items():
+                if getattr(obj, "status", "") in ("rejected", "suggested"):
+                    continue
                 # `False` is kept deliberately. "No, I don't own a car" is an
                 # answer, and filtering falsey values is exactly what made an
                 # area unfinishable for the people it did not apply to.

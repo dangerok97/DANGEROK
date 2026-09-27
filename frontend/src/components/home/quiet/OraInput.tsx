@@ -2,7 +2,7 @@
  * Universal Capture / Ask Bar — Apple Search calm, never chat chrome.
  * Production entry → AI Core via /ora (not Conversation Engine / Action Engine).
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   View, Text, TextInput, Pressable, StyleSheet, ActivityIndicator,
 } from 'react-native';
@@ -18,21 +18,23 @@ type Props = {
   onError?: (msg: string) => void;
   /** Ambient ORA tab vs Home ask bar */
   entryPoint?: 'home' | 'ora';
+  suggestedText?: string;
 };
 
-export function OraInput({ onError, entryPoint = 'home' }: Props) {
+export function OraInput({ onError, entryPoint = 'home', suggestedText }: Props) {
   const { colors, isDark } = useTheme();
   const router = useRouter();
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
-  const [voiceHint, setVoiceHint] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => { if (suggestedText) setText(suggestedText); }, [suggestedText]);
   const canSend = Boolean(text.trim()) && !busy;
 
   const submit = async (origin: 'home' | 'voice' = 'home') => {
     const t = text.trim();
     if (!t || busy) return;
     setBusy(true);
-    setVoiceHint(null);
+    setError(null);
     try {
       void triggerHaptic('selection');
       await startOraConversation(router, {
@@ -46,7 +48,9 @@ export function OraInput({ onError, entryPoint = 'home' }: Props) {
       setBusy(false);
     } catch (e: any) {
       void triggerHaptic('error');
-      onError?.(humanizeError(e, 'default'));
+      const message = humanizeError(e, 'default');
+      setError(message);
+      onError?.(message);
       setBusy(false);
     }
   };
@@ -62,37 +66,21 @@ export function OraInput({ onError, entryPoint = 'home' }: Props) {
           },
         ]}
       >
-        <Pressable
-          testID="parla-mic"
-          accessibilityLabel="Voce (riconoscimento non ancora attivo — usa il testo)"
-          accessibilityRole="button"
-          style={({ pressed }) => [
-            styles.iconBtn,
-            { opacity: pressed ? 0.55 : 0.72 },
-          ]}
-          onPress={() => {
-            void triggerHaptic('selection');
-            setVoiceHint(
-              'Voce pronta nella struttura: per ora digita il testo — stesso motore, niente STT.',
-            );
-            if (text.trim()) void submit('voice');
-          }}
-          disabled={busy}
-        >
-          <Ionicons name="mic-outline" size={18} color={colors.textTertiary} />
-        </Pressable>
+        <View style={styles.iconBtn} accessibilityElementsHidden>
+          <Ionicons name="sparkles-outline" size={18} color={colors.textTertiary} />
+        </View>
         <TextInput
           testID="parla-input"
           value={text}
           onChangeText={setText}
-          placeholder="Cosa vuoi raccontare a ORA…"
+          placeholder="Raccontami cosa hai in mente…"
           placeholderTextColor={colors.placeholder}
           style={[styles.input, { color: colors.textPrimary }]}
           editable={!busy}
           returnKeyType="send"
           onSubmitEditing={() => void submit('home')}
           keyboardAppearance={isDark ? 'dark' : 'light'}
-          accessibilityLabel="Scrivi o parla con ORA"
+          accessibilityLabel="Scrivi a ORA"
         />
         <Pressable
           testID="parla-send"
@@ -119,9 +107,9 @@ export function OraInput({ onError, entryPoint = 'home' }: Props) {
           )}
         </Pressable>
       </View>
-      {voiceHint ? (
-        <Text style={[styles.hint, { color: colors.textTertiary }]} testID="parla-voice-stub-hint">
-          {voiceHint}
+      {error ? (
+        <Text accessibilityRole="alert" style={[styles.hint, { color: colors.error }]} testID="parla-error">
+          {error}
         </Text>
       ) : null}
     </View>

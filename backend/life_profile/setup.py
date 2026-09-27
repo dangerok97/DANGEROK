@@ -461,6 +461,20 @@ class GuidedSetupService:
         else:
             facts_to_write: Dict[str, Any] = {}
             chosen = [o for o in (option_ids or []) if o]
+            if (any(option_of(obj.id, option_id) is None for option_id in chosen)
+                or (obj.control != "multi" and len(chosen) > 1)
+                or (not chosen and value in (None, "", [], {}) and not (other_text or "").strip())):
+                return {"ok": False, "error": "invalid_answer"}
+            # A revised answer reopens branches retired by the former choice.
+            facts = await self._facts(user_id)
+            previous = facts.get(obj.id)
+            previous_choices = previous if isinstance(previous, list) else [previous]
+            for previous_id in previous_choices:
+                previous_option = option_of(obj.id, str(previous_id))
+                if previous_option:
+                    not_applicable = [ref for ref in not_applicable if ref not in previous_option.not_applicable]
+            declined = [ref for ref in declined if ref != obj.id]
+            sess.refused_keys = [ref for ref in (sess.refused_keys or []) if ref != obj.id]
             for option_id in chosen:
                 opt = option_of(obj.id, option_id)
                 if not opt:
@@ -540,12 +554,13 @@ class GuidedSetupService:
                     domain=domain,
                     key=str(key),
                     value=value,
-                    source="user_said",
+                    source="user_confirmed",
                     confidence=0.9,
                     confirmed=True,
                 )
             except Exception:
                 logger.exception("setup fact write failed key=%s", key)
+                raise
 
     async def _set_canonical_name(self, user_id: str, name: Any) -> None:
         """

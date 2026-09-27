@@ -1,4 +1,5 @@
 import { BankSummaryCard } from './BankSummaryCard';
+import { PlacesSection } from '@/src/components/vita/PlacesSection';
 /**
  * The guided first setup.
  *
@@ -172,6 +173,7 @@ export function GuidedSetupScreen() {
       setBusy(true);
       try {
         const res = await api.guidedSetupAnswer(body);
+        if (!res.ok) throw new Error('La risposta non è stata salvata. Controllala e riprova.');
         setState(res);
         reset();
         setError(null);
@@ -192,7 +194,7 @@ export function GuidedSetupScreen() {
     reverse geocoder and a town comes back, which is what somebody setting up
     their home should read, and correct if it is wrong.
   */
-  const useMyLocation = useCallback(async () => {
+  const locateDevice = useCallback(async () => {
     if (locating) return;
     setLocating(true);
     setLocationNote(null);
@@ -439,7 +441,7 @@ export function GuidedSetupScreen() {
       </Text>
       <Text style={[styles.introText, { color: colors.textSecondary }]}>
         ORA vuole conoscere le diverse parti della tua vita per aiutarti davvero ogni giorno.{' '}
-        Compiliamo un'area alla volta. Puoi saltare o tornare quando vuoi.
+        Compiliamo un’area alla volta. Puoi saltare o tornare quando vuoi.
       </Text>
     </View>
   );
@@ -717,7 +719,7 @@ export function GuidedSetupScreen() {
       {objective.control === 'location' && !otherOpen ? (
         <View style={styles.docBox} testID="guided-location">
           <Pressable
-            onPress={() => void useMyLocation()}
+            onPress={() => void locateDevice()}
             disabled={locating}
             accessibilityRole="button"
             accessibilityLabel="Usa la mia posizione"
@@ -951,11 +953,11 @@ export function GuidedSetupScreen() {
                 */}
                 <View style={styles.pillole}>
                   {(current.known || []).slice(0, 6).map((k) => (
-                    <View key={k.ref} style={styles.pillola} testID={`guided-known-${k.ref}`}>
+                    <Pressable key={k.ref} accessibilityRole="button" accessibilityLabel={`Modifica ${k.label || k.value}`} onPress={() => void goNextArea(current.area_id, k.source_ref || k.ref)} style={styles.pillola} testID={`guided-known-${k.ref}`}>
                       <Text style={[oraType.small, { color: ora.ink2 }]} numberOfLines={2}>
                         {k.label ? `${k.label}: ${k.value}` : k.value}
                       </Text>
-                    </View>
+                    </Pressable>
                   ))}
                   <View style={styles.pillola}>
                     <Text style={[oraType.small, { color: ora.ink3 }]}>
@@ -1287,6 +1289,14 @@ export function GuidedSetupScreen() {
             {perche}
             {intro}
             {profileCard}
+            <Pressable accessibilityRole="button" onPress={() => router.push('/luoghi' as any)} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 18, borderRadius: 16, backgroundColor: ora.surfaceTint }}>
+              <Ionicons name="location-outline" size={23} color={ora.cta} />
+              <View style={{ flex: 1, gap: 4 }}>
+                <Text style={[oraType.title, { color: ora.ink }]}>I tuoi luoghi</Text>
+                <Text style={[oraType.small, { color: ora.ink2 }]}>Casa, lavoro, arrivi e partenze. Ritrovali e prepara un percorso.</Text>
+              </View>
+              <Ionicons name="arrow-forward" size={19} color={ora.cta} />
+            </Pressable>
             <BankSummaryCard />
             {uploadedContractId ? <EnergyOffersPanel documentId={uploadedContractId} pollMs={15000} /> : null}
             {error ? (
@@ -1299,7 +1309,10 @@ export function GuidedSetupScreen() {
           </View>
           {twoColumn ? <View style={{ width: RAIL }}>{rail}</View> : rail}
         </View>
-        <View style={[styles.page, { maxWidth: 1240 }]}>{periodo}</View>
+        <View style={[styles.page, { maxWidth: 1240, flexDirection: 'column', gap: 20 }]}>
+          <PlacesSection compact={!twoColumn} onOpenOra={() => router.push('/ora' as any)} />
+          {periodo}
+        </View>
       </ScrollView>
       </View>
     </SafeAreaView>

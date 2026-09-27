@@ -106,6 +106,25 @@ class LifeProfileService:
         dom.source = source
         self._refresh_domain(dom)
         await self.repo.save_profile(profile)
+        if (field_status in ("confirmed", "corrected") and
+            (existing is None or existing.value != value or existing.status != field_status)):
+            try:
+                import hashlib
+                import json
+                from opportunities.discovery import OpportunityDiscovery
+
+                # Values stay in the governed profile. The change log carries
+                # an identity, not a second copy of a sensitive answer.
+                digest = hashlib.sha256(json.dumps(value, sort_keys=True, default=str).encode()).hexdigest()[:24]
+                await OpportunityDiscovery(self.repo.db).note(
+                    user_id, source="life_profile", kind="fact.confirmed",
+                    entity_ref=f"life_profile:{key}", entity_kind="profile_fact",
+                    after=digest,
+                )
+            except Exception:
+                # An unavailable reasoning service must not discard an answer.
+                import logging
+                logging.getLogger(__name__).warning("profile review unavailable key=%s", key)
         # A changed confirmed municipality or car model may alter which
         # contracts can be bought. Recheck owned monitors promptly, including
         # on profile changes that happen after the document was uploaded.

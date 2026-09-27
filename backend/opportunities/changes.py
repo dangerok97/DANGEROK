@@ -56,6 +56,8 @@ STALE_AFTER_SECONDS = 900
 # the whole check: a domain cannot invent a kind that means something special,
 # because the set of kinds is fixed here and every one of them is a fact.
 KNOWN_SOURCES: Dict[str, tuple] = {
+    "life_profile": ("fact.confirmed",),
+    "market_watch": ("potential_saving_found",),
     "calendar": ("event.added", "event.updated", "event.removed"),
     "places": ("presence.changed", "place.added", "place.updated"),
     "documents": ("document.added", "document.facts_changed"),
@@ -358,6 +360,8 @@ def fingerprint(snapshot: Dict[str, Any]) -> str:
             "situations",
             "disagreements",
             "money",
+            "life_profile",
+            "market_offers",
             "unavailable_sources",
             # Coarse temporal facts: what the passing of time has done.
             "temporal",

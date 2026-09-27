@@ -7,7 +7,8 @@ from pymongo.errors import DuplicateKeyError
 def evidence_labels(evidence):
     # Repeated references are not independent confirmations.
     unique = {(e.kind, e.ref): e for e in evidence}
-    return list(dict.fromkeys(e.summary or e.kind for e in unique.values()))
+    labels = {"profile_fact": "La tua Vita", "market_offer": "Offerte online"}
+    return list(dict.fromkeys(e.summary or labels.get(e.kind, e.kind) for e in unique.values()))
 
 
 async def update_work(db, owner, opportunity, *, start=False, reply='', source_kind='opportunity'):

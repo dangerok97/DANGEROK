@@ -1,3 +1,17 @@
+## 2026-09-27 — Vita che alimenta l'iniziativa
+
+Le risposte confermate del profilo diventano contesto citabile per la revisione
+proattiva; modificare una risposta aggiorna il fatto canonico. La percentuale
+misura conoscenza pertinente, non risposte vuote, rifiuti o «non so». Ogni fatto
+visibile in Vita è modificabile. Una risposta non è autorizzazione ad agire fuori
+ORA e non deve generare una notifica senza un motivo concreto.
+
+La conversazione propone quattro spunti editabili e conserva voce, allegati e
+contesto delle aperture da altre schermate. Vita espone Luoghi; da un luogo si
+può chiedere la preparazione del percorso. Sul web il testo distingue posizione
+in primo piano da rilevamento in background nell'app nativa. Il traffico dipende
+ancora dalla configurazione di un provider reale.
+
 ## 2026-09-26 — Ricerca periodica online dei contratti
 
 Il consiglio che dipende solo dai costi leggibili nella bolletta o polizza compare appena il documento è elaborato, anche se la prima ricerca web deve ancora partire o deve essere ripetuta. Una stima legata a un'offerta pubblica viene invece nascosta quando la fonte non è più recente.

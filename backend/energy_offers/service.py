@@ -140,6 +140,17 @@ def _positive_offer_codes(candidates: list[dict[str, Any]]) -> set[str]:
     }
 
 
+def _improved_offers(candidates: list[dict[str, Any]], previous: list[dict[str, Any]]) -> dict[str, float]:
+    """New savings, including a further price drop on an existing offer."""
+    def amounts(rows):
+        positive = _positive_offer_codes(rows)
+        return {c["code"]: round(float(c["potential_saving_year"]), 2)
+                for c in rows if c.get("code") in positive}
+    old = amounts(previous)
+    return {code: amount for code, amount in amounts(candidates).items()
+            if amount > old.get(code, 0)}
+
+
 def _profile(document: dict[str, Any], analysis: dict[str, Any] | None = None) -> dict[str, Any] | None:
     if document.get("deleted") or document.get("archived"):
         return None
@@ -724,7 +735,10 @@ class EnergyOfferService:
             old = [(c["code"], c.get("evidence_digest"), c.get("potential_saving_year")) for c in row.get("candidates") or []]
             new = [(c["code"], c.get("evidence_digest"), c.get("potential_saving_year")) for c in candidates]
             changed = old != new or (bool(candidates) and row.get("advice") != advice)
-            newly_better = _positive_offer_codes(candidates) - _positive_offer_codes(row.get("candidates") or [])
+            # Only advance this baseline after the change log accepts the
+            # signal. Earlier versions sent an unregistered source, so their
+            # saved candidates are not proof of a successful review request.
+            newly_better = _improved_offers(candidates, row.get("reviewed_candidates") or [])
             valid_until = getattr(run, "valid_until", None)
             next_check = moment + (CHECK_EVERY if candidates else RETRY_AFTER)
             if valid_until:
@@ -745,12 +759,16 @@ class EnergyOfferService:
             }})
             if newly_better:
                 from opportunities.discovery import OpportunityDiscovery
-                await OpportunityDiscovery(self.db).note(
+                admission = await OpportunityDiscovery(self.db).note(
                     row["user_id"], source="market_watch", kind="potential_saving_found",
                     entity_ref=f"market_watch:{row['commodity']}:{row['supply_key']}",
                     entity_kind="market_watch",
-                    after=",".join(sorted(newly_better)),
+                    after=hashlib.sha256(json.dumps(newly_better, sort_keys=True).encode()).hexdigest()[:24],
                 )
+                if admission.get("outcome") in ("accepted", "coalesced", "duplicate"):
+                    await self.db[MONITORS].update_one(identity, {"$set": {
+                        "reviewed_candidates": candidates,
+                    }})
             return {"checked": 1, "failed": 0, "changed": int(changed)}
         except Exception as exc:
             logger.info("market watch failed: %s", type(exc).__name__)
@@ -762,7 +780,7 @@ class EnergyOfferService:
 
     async def status(self, user_id: str) -> list[dict[str, Any]]:
         rows = await self.db[MONITORS].find(
-            {"user_id": user_id}, {"_id": 0, "supply_key": 0, "lease_until": 0}
+            {"user_id": user_id}, {"_id": 0, "supply_key": 0, "lease_until": 0, "reviewed_candidates": 0}
         ).to_list(30)
         cutoff = _iso(_now() - SOURCE_FRESH_FOR)
         current = _iso(_now())

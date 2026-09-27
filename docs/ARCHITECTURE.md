@@ -1,3 +1,19 @@
+## 2026-09-27 — Collegamento profilo e sorveglianza alla discovery
+
+`upsert_fact` segnala mutazioni confirmed/corrected al ChangeLog con un hash del
+valore, senza duplicarlo nel registro. Fonte life_profile/fact.confirmed, snapshot
+owner-scoped di massimo 80 fatti recenti, provenienza esplicita, riferimenti
+life_profile:key; admission rilegge solo i fatti citati. Fonti suggerite/rifiutate
+non vengono promosse a confermate. Wake riusa lo scheduler esistente; la scrittura
+del profilo sopravvive a un errore del servizio di revisione (errore registrato).
+
+market_watch/potential_saving_found è ammesso; market_offers e life_profile entrano
+nel fingerprint. reviewed_candidates è un checkpoint interno escluso dalla risposta
+pubblica, avanzato dopo accepted/coalesced/duplicate. Confronto numerico segnala
+miglioramenti della stessa offerta; nuova lettura web invariata non crea un segnale.
+Il serializer AI conserva JSON valido e ogni sezione, segnala la riduzione e
+mantiene invariati riferimenti e URL. Nessun nuovo orchestratore o indice.
+
 ## 2026-09-26 — Sorveglianza dei mercati tramite ricerca online
 
 La registrazione del documento salva subito un consiglio calcolato solo dalle componenti locali disponibili. `status()` mantiene questo consiglio durante un errore della ricerca o dopo la scadenza delle fonti, ma sostituisce le stime basate su offerte scadute con la sola soglia ricavata dal documento.

@@ -519,6 +519,7 @@ async def test_durable_web_check_repeats_and_only_changes_wake_review(monkeypatc
 
     async def note(_self, owner, **kwargs):
         notices.append((owner, kwargs))
+        return {"outcome": "accepted"}
 
     monkeypatch.setattr(research_service, "research_available", lambda: True)
     monkeypatch.setattr(research_service, "ResearchService", FakeResearch)
@@ -600,7 +601,7 @@ async def test_phone_contract_is_researched_again_after_a_week(monkeypatch):
         return {"source_ids": ["operator"]}
 
     async def note(_self, *_args, **_kwargs):
-        pass
+        return {"outcome": "accepted"}
 
     monkeypatch.setattr(research_service, "research_available", lambda: True)
     monkeypatch.setattr(research_service, "ResearchService", FakeResearch)
@@ -709,7 +710,7 @@ async def test_uploaded_bill_gets_best_verified_offer_then_new_daily_comparison(
         } for source in run.sources]
 
     async def note(_self, *_args, **_kwargs):
-        pass
+        return {"outcome": "accepted"}
 
     monkeypatch.setattr(research_service, "research_available", lambda: True)
     monkeypatch.setattr(research_service, "ResearchService", FakeResearch)

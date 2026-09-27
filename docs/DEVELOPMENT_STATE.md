@@ -1,3 +1,33 @@
+## 2026-09-27 — Ripresa V3.22: Vita, iniziativa e luoghi
+
+Base verificata: `23f06a6`, backend e frontend Railway SUCCESS, predeploy vuoto,
+health 200 e polling Gmail/Calendar attivo. Le vecchie cartelle di lavoro non
+rappresentano il ramo remoto: questa ripresa usa un checkout isolato.
+
+Correzioni: condizioni delle domande preservate nel calcolo percentuali; «non so»
+non conta come conoscenza; risposte esplicite possono correggere fatti confermati;
+fallimenti di scrittura non avanzano il percorso. Le esclusioni della precedente
+scelta vengono riaperte. Le risposte confermate alimentano il registro cambiamenti,
+lo snapshot con provenienza, le citazioni ammesse e l'ammissione dell'agente.
+Non garantisce che ogni risposta produca un compito: l'utilità resta un giudizio.
+
+Offerte: riparata la fonte market_watch mancante dall'ammissione e dal fingerprint;
+anche il miglioramento della stessa offerta merita riesame, senza ripetere prezzi
+invariati. Il segnale viene considerato registrato solo dopo risposta positiva del
+registro. Contesto AI ridotto strutturalmente, senza spezzare il JSON né perdere
+intere fonti per posizione nella serializzazione.
+
+UI: nuovo ingresso nella conversazione canonica /ora, quattro spunti modificabili,
+composer con allegati/voce esistente preservato. Luoghi esposto in Vita e /luoghi;
+il dettaglio avvia una richiesta contestuale di percorso, con errore visibile.
+Fatti noti modificabili singolarmente. Build web e TypeScript PASS; test e
+pubblicazione conclusiva registrati in RESUME_2026_09_27.md.
+
+Limiti: browser cloud non autenticato; nessuna verifica visiva dopo login o iPhone.
+Traffico live non configurato (ROUTING_PROVIDER/ROUTING_API_KEY assenti dal servizio).
+Nessun nuovo provider, permesso, push reale, telefonata o promessa di GPS continuo.
+I gate telefonici V3.22 rimangono rinviati su decisione del proprietario.
+
 ## 2026-09-26 — Ricerca online autonoma dei mercati in revisione
 
 Il consiglio documentale viene ora creato all'iscrizione del monitor e mostrato anche prima del primo controllo web o mentre un controllo è in ritentativo. Le stime basate su fonti esterne scadute non restano visibili. Resta da verificare su Staging questa nuova garanzia con un documento sintetico e ricerca temporaneamente incompleta.

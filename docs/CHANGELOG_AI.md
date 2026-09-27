@@ -1,3 +1,15 @@
+## 2026-09-27 — Ripresa: risposte Vita utilizzabili e accesso ai luoghi
+
+- Riparati conteggio condizionale, risposte «non so», correzione di fatti già
+  confermati e avanzamento dopo salvataggi falliti.
+- Collegate risposte a registro cambiamenti, contesto, citazioni e ammissione;
+  corrette le omissioni market_watch/market_offers e i ribassi della stessa offerta.
+- Riduzione del contesto AI con JSON valido e flag di troncamento.
+- Nuovo ingresso ORA nella schermata canonica, Vita → Luoghi → prepara percorso,
+  modifica dei singoli fatti e feedback degli errori.
+- Nessuna dipendenza runtime o modifica distruttiva DB; mongomock-motor in CI
+  solo per le regressioni isolate. Gate reali rimanenti nel checkpoint di ripresa.
+
 ## 2026-09-26 — Consiglio immediato dalla bolletta o polizza
 
 ORA ora registra il consiglio con soglia personale già durante l'elaborazione del documento, prima della prima ricerca online. La scheda Documenti lo mostra anche se il provider web è temporaneamente indisponibile. Quando una fonte di offerta invecchia, la stima legata a quella fonte viene nascosta e resta soltanto il consiglio ricavabile dal documento; un documento rimosso disattiva il monitor e cancella il consiglio.
