@@ -1,3 +1,31 @@
+## Verificato online — 27 settembre 2026, focus delle aree
+
+Correzione conclusa e verificata nel browser autenticato. Prima della modifica,
+una domanda sulle pareti ingrandiva Memoria. Dopo: Casa, Persone e Impegni
+mostrano ciascuna la propria area; nuovo primo messaggio sulla casa ora conserva
+lo zoom, quindi torna a «Sono qui» e alla URL della sessione. Osservata anche
+l'espansione iniziale dal punto. Screenshot di prova della nuova sessione:
+`ora-focus-casa-verificata.jpg` (artefatto separato, non nel repository).
+
+- Backend bdece6111c53be35b680941678fea8a9975c3d26, deployment
+  6222d1c2-8d60-44ef-817b-d799a96fa076: SUCCESS.
+- Web 5efffcafab089d415b98060033970d35a25f2ce6, deployment
+  b1f0fce8-2974-4cdb-a9f8-e9428e40256b: SUCCESS.
+- Bundle caricato nel browser: entry-32ef5e283c7922da0f4a6b075145123b.js.
+- CI 36349853078: tutti i cinque job SUCCESS; anche CI del backend 36349431087
+  SUCCESS. Locali: 36 test backend, 50 frontend complessivi, TS, compileall,
+  lint senza errori (11 warning preesistenti), export web/iOS PASS.
+- Configurazione Railway confrontata prima/dopo: identica, nessuna modifica
+  staged; backend preDeployCommand=[] e volume documenti preservati. Nessuna
+  nuova dipendenza o migrazione. Prove con domande dimostrative; nessuna
+  telefonata, messaggio a terzi o creazione di appuntamenti.
+
+Il fuoco tematico è una presentazione della conversazione; non certifica dati
+consultati né espone ragionamenti interni. È neutro prima di un segnale valido.
+La richiesta originale comprendeva anche conversazioni senza strumenti: il
+modello restituisce l'etichetta nella risposta esistente, senza una nuova
+chiamata AI. I dettagli storici delle tre correzioni sono riportati sotto.
+
 ## 2026-09-27 — Focus del primo messaggio preservato al cambio URL
 
 La prova browser ha isolato un secondo difetto: il nuovo ID di sessione causava
