@@ -401,7 +401,7 @@ type Props = {
 };
 
 export function OraConversationScreen(props: Props) {
-  return <ThemeSurface scheme="dark" colors={presenceColors}><OraConversationBody {...props} /></ThemeSurface>;
+  return <ThemeSurface scheme="dark" colors={presenceColors}><OraConversationBody key={props.sessionId || 'new'} {...props} /></ThemeSurface>;
 }
 
 function OraConversationBody({
@@ -428,6 +428,9 @@ function OraConversationBody({
   const [busy, setBusy] = useState(false);
   const currentActivityRequest = useRef<string | null>(null);
   const [activityRequestId, setActivityRequestId] = useState<string | null>(null);
+  const [openingTurn, setOpeningTurn] = useState<string | null>(null);
+  const firstOpening = useRef(false);
+  const openingStartedAt = useRef(0);
   const [presenceActivity, setPresenceActivity] = useState<PresenceActivity | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [boot, setBoot] = useState(Boolean(paramId));
@@ -872,6 +875,11 @@ function OraConversationBody({
   const dispatch = useCallback(
     async (clientMessageId: string, payload: Outbox) => {
       const { text: msg, attachments: pendingAttach } = payload;
+      if (!sessionId && !firstOpening.current) {
+        firstOpening.current = true;
+        openingStartedAt.current = Date.now();
+        setOpeningTurn(clientMessageId);
+      }
       const requestId = newClientMessageId();
       currentActivityRequest.current = requestId;
       setActivityRequestId(requestId);
@@ -952,29 +960,7 @@ function OraConversationBody({
           if (id) {
             res = await applyAiCoreResponse(res, id);
           }
-          if (id && !paramId && !liveRef.current?.on) {
-            /*
-              La prima frase di una conversazione crea la sessione, e finora
-              subito dopo la schermata si spostava su `/ora/{id}` — che in
-              una conversazione scritta non si vede nemmeno, e in una parlata
-              rimonta tutto: la modalità vocale spariva a metà della prima
-              risposta, e la persona si ritrovava davanti alla chat senza aver
-              toccato niente. Finché si sta parlando, l'indirizzo aspetta: la
-              sessione è già in mano a questa schermata, e l'unica cosa che
-              cambierebbe è la barra dell'indirizzo.
-            */
-            const q = new URLSearchParams({
-              ...(planId ? { planId: String(planId) } : {}),
-              ...(objectId ? { objectId: String(objectId) } : {}),
-              ...(planItemId ? { planItemId: String(planItemId) } : {}),
-              ...(documentId ? { documentId: String(documentId) } : {}),
-              ...(opportunityId ? { opportunityId: String(opportunityId) } : {}),
-              ...(needId ? { needId: String(needId) } : {}),
-              ...(goalId ? { goalId: String(goalId) } : {}),
-              entry: entryPoint,
-            });
-            router.replace(`/ora/${id}?${q.toString()}` as any);
-          }
+
         } else {
           if (pendingAttach.length) setWorkingHint('Sto verificando…');
           res = await api.aiCoreMessage(sessionId, {
@@ -1080,6 +1066,27 @@ function OraConversationBody({
   });
   const liveRef = useRef(live);
   liveRef.current = live;
+
+  // A fast response is rendered immediately. Only URL replacement waits for
+  // the entrance to finish; remounting sooner would cut the animation short.
+  // Voice and any in-flight turn keep ownership of this screen until finished.
+  useEffect(() => {
+    if (!sessionId || paramId || live.on || busy) return;
+    const q = new URLSearchParams({
+      ...(planId ? { planId: String(planId) } : {}),
+      ...(objectId ? { objectId: String(objectId) } : {}),
+      ...(planItemId ? { planItemId: String(planItemId) } : {}),
+      ...(documentId ? { documentId: String(documentId) } : {}),
+      ...(opportunityId ? { opportunityId: String(opportunityId) } : {}),
+      ...(needId ? { needId: String(needId) } : {}),
+      ...(goalId ? { goalId: String(goalId) } : {}),
+      entry: entryPoint,
+    });
+    const remaining = Math.max(0, openingStartedAt.current + 2800 - Date.now());
+    const timer = setTimeout(() => router.replace(`/ora/${sessionId}?${q.toString()}` as any), remaining);
+    return () => clearTimeout(timer);
+  }, [sessionId, paramId, live.on, busy, planId, objectId, planItemId, documentId,
+    opportunityId, needId, goalId, entryPoint, router]);
 
   const send = useCallback(async () => {
     const msg = text.trim();
@@ -1304,7 +1311,7 @@ function OraConversationBody({
         conversazione continua a vivere qui sotto, e chiudendola i turni sono
         già tutti al loro posto perché non sono mai stati altrove.
       */}
-      <LiveVoiceScreen live={live} activity={presenceActivity} />
+      <LiveVoiceScreen live={live} activity={presenceActivity} openingKey={openingTurn} />
       {/*
         No offset, because there is nothing left to offset.
 
@@ -1332,6 +1339,7 @@ function OraConversationBody({
           </View>
 
           <OraPresence
+            openingKey={openingTurn}
             expanded
             onBack={!wide && !context ? goBack : undefined}
             mode={presenceMode(busy, voice.state.phase)}

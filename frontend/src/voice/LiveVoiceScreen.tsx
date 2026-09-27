@@ -16,7 +16,7 @@ import type { LiveVoice } from './useLiveVoice';
 import { OraPresence } from '@/src/components/ora/presence/OraPresence';
 import { presenceMode, type PresenceActivity } from '@/src/components/ora/presence/state';
 
-export function LiveVoiceScreen({ live, activity = null }: { live: LiveVoice; activity?: PresenceActivity | null }) {
+export function LiveVoiceScreen({ live, activity = null, openingKey = null }: { live: LiveVoice; activity?: PresenceActivity | null; openingKey?: string | null }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const listening = live.state.phase === 'listening' || live.state.phase === 'asking';
@@ -35,7 +35,7 @@ export function LiveVoiceScreen({ live, activity = null }: { live: LiveVoice; ac
         </View>
 
         <View style={styles.middle}>
-          <OraPresence mode={presenceMode(false, live.state.phase)} activity={activity} />
+          <OraPresence openingKey={openingKey} mode={presenceMode(false, live.state.phase)} activity={activity} />
           {speaking || preparing ? <Pressable
             onPress={speaking || preparing ? live.interrupt : undefined} accessibilityRole="button"
             accessibilityLabel="Interrompi ORA e parla" style={styles.interrupt} testID="live-voice-orb"

@@ -22,7 +22,7 @@ class Collection:
 def setup(monkeypatch):
     orch = SimpleNamespace(get=AsyncMock(return_value={'ok': False}), start=AsyncMock(return_value={'ok': True, 'session_id': 'session', 'question': 'Quale data?', 'ora_text': 'Manca la data'}), message=AsyncMock(return_value={'ok': True, 'session_id': 'session', 'ora_text': 'Controllato'}))
     monkeypatch.setitem(sys.modules, 'conversation_engine.ai_core.orchestrator', SimpleNamespace(AICoreOrchestrator=lambda db: orch))
-    db = SimpleNamespace(update_work=Collection(), opportunities=SimpleNamespace(update_one=AsyncMock()))
+    db = SimpleNamespace(update_work=Collection(), opportunities=SimpleNamespace(update_one=AsyncMock(), find_one=AsyncMock(return_value=None)))
     opp = SimpleNamespace(id='opp_1234', semantic_summary='Da verificare', what_ora_can_do='Controlla', evidence=[])
     return db, opp, orch
 

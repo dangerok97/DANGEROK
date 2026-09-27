@@ -1,3 +1,16 @@
+## 2026-09-27 — Continuità automazioni: verifica locale completata, rilascio in verifica
+
+Implementati ingresso al primo messaggio di ogni nuova conversazione e recuperi
+admission/goal/runtime descritti in `AUTOMATION_VERIFICATION_2026_09_27.md`.
+109 test backend deterministici PASS; 41 test frontend PASS; product guards
+Home/Vita/chiamate PASS; TypeScript, compileall ed export web/iOS PASS.
+Lint senza errori (warning preesistenti di stile/dependency array).
+Scena reale renderizzata e ispezionata a 0/0,75/1,5/2,9 s, desktop/mobile.
+Mongo locale non avviabile (`open: Operation not permitted`): il gate aggiunto
+in CI prova le stesse regressioni anche con Mongo 6 reale. Stato di CI e
+produzione da verificare dopo il commit, senza presumere il successo.
+Nessun invio reale, chiamata reale, nuovo grant o dato personale nelle prove.
+
 ## Rilascio finale verificato — 27 settembre 2026
 
 Web 68db1df3fc23aff326da54681557dae4776cd541, deployment
@@ -241,7 +254,7 @@ risoluzione esplicita (correzione/condivisione/altro numero) in preparazione e c
 Ricontrollo prima della composizione anche per chiamate già preparate. Registri
 storici conservati; nessuna telefonata reale avviata durante lo sviluppo.
 
-95 test mirati locali PASS, inclusi 16 nuovi casi di regressione; suite telefonica
+95 test mirati locali PASS, inclusi 17 nuovi casi di regressione; suite telefonica
 più ampia con 289 PASS prima degli ultimi casi aggiunti e quattro fixture HTTP
 rimandate alla CI con Mongo. TypeScript, lint sui componenti UI modificati,
 guardia ciclo chiamate, compileall e build web PASS. Nessuna nuova dipendenza o

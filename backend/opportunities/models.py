@@ -303,6 +303,9 @@ class Opportunity(BaseModel):
         }
 
     work_status: str = ""
+    # Admission owns these persisted fields; presentation saves must not rewrite them.
+    agent_review_question: str = Field(default="", exclude=True)
+    agent_review_outcome: Optional[str] = Field(default=None, exclude=True)
 
     def for_home(self) -> Dict[str, Any]:
         """
@@ -323,7 +326,7 @@ class Opportunity(BaseModel):
             # una parola di sistema: e' la meta' della frase per cui questa
             # riga vale la pena di essere letta.
             "what_ora_can_do": self.what_ora_can_do or None,
-            "question": self.clarifying_question or None,
+            "question": (self.agent_review_question if self.agent_review_outcome == "clarify" else self.clarifying_question) or None,
             "seen": bool(self.seen_at),
             "work_status": self.work_status,
             "sources": evidence_labels(self.evidence),

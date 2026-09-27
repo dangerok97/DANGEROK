@@ -116,7 +116,7 @@ class EvidenceStore:
         self, owner_id: str, goal_id: str, *, limit: int = 40
     ) -> List[AgentEvidence]:
         docs = await self.db[EVIDENCE].find(
-            {"owner_id": owner_id, "goal_id": goal_id}, {"_id": 0, "expires_at": 0}
+            {"owner_id": owner_id, "goal_id": goal_id, "superseded": {"$ne": True}}, {"_id": 0, "expires_at": 0}
         ).sort("observed_at", 1).to_list(limit)
         out: List[AgentEvidence] = []
         for doc in docs:

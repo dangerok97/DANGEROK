@@ -11,12 +11,19 @@ def evidence_labels(evidence):
     return list(dict.fromkeys(e.summary or labels.get(e.kind, e.kind) for e in unique.values()))
 
 
-async def update_work(db, owner, opportunity, *, start=False, reply='', source_kind='opportunity'):
+async def update_work(db, owner, opportunity, *, start=False, reply='', source_kind='opportunity', question_revision=''):
     key = {'_id': f'{owner}:{opportunity.id}', 'owner_id': owner}
     source_col = db.opportunities if source_kind == 'opportunity' else db.proactive_suggestions
     source_key = {'owner_id' if source_kind == 'opportunity' else 'user_id': owner, 'id': opportunity.id}
     col = db.update_work
     row = await col.find_one(key)
+    if source_kind == 'opportunity' and (not row or question_revision):
+        from agent.clarifications import answer_question, work_view
+        if start and question_revision:
+            await answer_question(db, owner, opportunity.id, reply, question_revision)
+        automatic = await work_view(db, owner, opportunity.id)
+        if automatic is not None:
+            return automatic
     if not start:
         if row and row.get('session_id') and row.get('status') in ('ready', 'needs_user'):
             from conversation_engine.ai_core.orchestrator import AICoreOrchestrator

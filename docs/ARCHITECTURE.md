@@ -1,3 +1,36 @@
+## 2026-09-27 — Continuità per revisione e ingresso per conversazione
+
+- L'ingresso nasce nel dispatcher comune testo/voce con l'identità del primo
+  turno, prima della rete. `openingSession` protegge rimontaggi chat/voce e
+  reload, per proprietario; conserva soltanto identificatori, al massimo 128.
+  Il corpo della conversazione è keyed per sessione. La scena condivisa web/
+  WebView interpola coordinate, nodi e segmenti in 2,8 s; input e rete restano
+  utilizzabili. Riduci movimento salta l'ingresso; sfondo sospende i frame.
+- `agent/clarifications.py` collega il dettaglio aggiornamento all'admission
+  esistente: risposta atomica sulla revisione della domanda, retry idempotente,
+  massimo tre risposte conservate, owner/expiry fence. Risposta fattuale ≠
+  autorizzazione. Non crea una chat o una coda alternativa.
+- `source_refresh.py` riattiva lo stesso goal su revisione della fonte. Sotto
+  la lease già presente ritira piano, evidence e preparazione superati e chiude
+  le vecchie richieste. Controlli ulteriori prima di un effetto e della chiusura
+  impediscono di promuovere un risultato già superato. La scadenza usa il due
+  persistito dell'admission anche se il goal aspetta la persona.
+- Il runtime ambient conserva le claim atomiche. Sette attività concorrenti
+  massime, una per lane (due per i lavori dovuti), con timeout e cancellazione
+  all'arresto. Nessun nuovo scheduler. Timeout handler 240 s < lease 300 s.
+  Ultimo tentativo fallito/scaduto diventa terminale e libera l'identità della
+  sveglia. Complete/retry non riaprono una sveglia annullata o di altro worker.
+- Cancellazione circoscritta a `goal:<id>`; scritture tardive non rianimano il
+  goal, release del run vincolata al worker. Risposte ordinarie soddisfano solo
+  blocker informativi. Il timer di rinvio si riarma in segmenti fino a sei ore
+  e si sostituisce se la scadenza cambia.
+
+Campi opzionali nelle collezioni esistenti: chiarimenti/revisioni della domanda
+nelle opportunities, revisione/contesto della fonte nei goal, evidence superata.
+Riutilizzati indici già esistenti (id unico, goal aperto/opportunity, due/lease).
+Nessun backfill dei goal storici e nessuna nuova configurazione richiesta.
+Vedi `AUTOMATION_VERIFICATION_2026_09_27.md` per i confini della verifica.
+
 Il recupero audio dopo errore non aggiunge una seconda sintesi se il tentativo progressivo ha già impiegato almeno quattro secondi; resta la risposta scritta con riascolto.
 
 ## 2026-09-27 — Voce originale più morbida e audio progressivo

@@ -1,3 +1,23 @@
+## 2026-09-27 — Apertura per conversazione e continuità delle automazioni
+
+La rete si dispiega da un punto al **primo messaggio di ogni nuova sessione di
+conversazione**, scritto o vocale (circa 2,8 s). Non riparte per un secondo
+messaggio, un tentativo di invio ripetuto, il ritorno alla chat o il passaggio
+alla voce. Una risposta veloce appare subito: soltanto il cambio di URL aspetta
+la fine dell'ingresso. Rimangono rotazione, selezione, pulsazione leggera,
+pausa e rispetto di «riduci movimento».
+
+ORA ora permette di rispondere alle domande emerse prima della creazione di un
+lavoro automatico, riprende lo stesso lavoro quando le informazioni cambiano,
+ritira risultati e richieste superati, e ferma soltanto l'attività annullata.
+Ricerche lente non trattengono gli altri lavori in scadenza; rinvii lunghi e
+nuove scadenze continuano senza richiedere il riavvio del server.
+
+Dettagli, prove e limiti: `AUTOMATION_VERIFICATION_2026_09_27.md`.
+Nessuna nuova dipendenza applicativa, migrazione distruttiva o modifica ai
+segreti/configurazione Railway. Questo intervento non dichiara concluso V4:
+restano i gate longitudinali e le verifiche esterne documentate.
+
 Il recupero audio dopo errore non aggiunge una seconda sintesi se il tentativo progressivo ha già impiegato almeno quattro secondi; resta la risposta scritta con riascolto.
 
 Verifiche streaming locali: 25 test backend PASS, 21 runtime frontend e 42 guardie voce PASS; TypeScript, lint senza errori ed export web PASS.

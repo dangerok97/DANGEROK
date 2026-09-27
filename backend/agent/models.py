@@ -661,6 +661,11 @@ class AutonomousGoal(BaseModel):
     # Durable continuation; absent on legacy goals (no unsolicited replay).
     next_run_at: Optional[str] = None
     background_runs: int = 0
+    clarifications: List[Dict[str, str]] = Field(default_factory=list, max_length=3)
+    opportunity_revision: str = ""
+    source_situation: Dict[str, str] = Field(default_factory=dict)
+    # Written independently by admission. A running goal must not overwrite it.
+    source_review_pending: str = Field(default="", exclude=True)
     prepared_text: str = Field(default="", max_length=4000)
     prepared_sources: List[str] = Field(default_factory=list, max_length=12)
 
@@ -764,6 +769,8 @@ class AutonomousGoal(BaseModel):
             "objective": self.objective,
             "source_kind": self.source_kind,
             "source_refs": self.source_refs,
+            "user_clarifications_not_authority": self.clarifications,
+            "current_source_situation": self.source_situation,
             "desired_outcome": self.desired_outcome,
             "why_now": self.why_now or None,
             "success_criteria": self.success_criteria,

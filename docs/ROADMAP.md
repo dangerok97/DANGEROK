@@ -1,3 +1,10 @@
+## 2026-09-27 — Continuità operativa e apertura della rete
+
+Corrette le lacune di admission, aggiornamento fonti, cancellazione selettiva,
+retry, rinvii lunghi e conservazione delle sveglie future. Ingresso della mappa
+al primo messaggio di ogni nuova conversazione. Verifiche e limiti in
+`AUTOMATION_VERIFICATION_2026_09_27.md`; gate V4 live/longitudinale ancora aperti.
+
 # ORA — Roadmap canonica verso 1.0
 
 **Questo documento è la source of truth del progetto.** Versione corrente,

@@ -90,6 +90,15 @@ jobs:
       - name: Continuous online market watch
         working-directory: backend
         run: python -m pytest -q tests/test_energy_offer_monitor.py -x
+      - name: Autonomous work, clarification, source changes and scheduled recovery
+        working-directory: backend
+        run: |
+          python -m pytest -q tests/test_autonomy_continuity_v4.py \
+            tests/test_background_agent_loop.py tests/test_opportunity_admission_v4.py \
+            tests/test_admission_source_context_v4.py tests/test_agent_preparation_v4.py \
+            tests/test_agent_pending_steps_v4.py tests/test_autonomous_document_cycle_v4.py \
+            tests/test_update_work.py tests/test_ambient_runtime_v38.py tests/test_ambient_reliability_v38.py -x
+          CONTINUITY_REAL_MONGO=1 python -m pytest -q tests/test_autonomy_continuity_v4.py -x
       - name: Google first sync, cloud sessions, location privacy and polling
         working-directory: backend
         run: |
@@ -189,7 +198,7 @@ jobs:
           npm run test:v3213d
           npm run test:v3213e
           npm run test:v322
-          node --test --experimental-strip-types src/components/ora/presence/presence.test.ts src/components/ora/presence/scene.test.mjs src/voice/voice313.test.ts src/voice/voiceRuntime.test.ts src/components/ora/ora14.test.ts
+          node --test --experimental-strip-types src/components/ora/presence/presence.test.ts src/components/ora/presence/openingSession.test.ts src/components/ora/presence/scene.test.mjs src/voice/voice313.test.ts src/voice/voiceRuntime.test.ts src/components/ora/ora14.test.ts
 
       # The former life-experience-documents Playwright spec is intentionally
       # not a blocking CI gate here. It navigates the pre-V3.21 greedy

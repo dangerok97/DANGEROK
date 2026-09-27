@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createPresenceScene } from './scene.js';
 
-function harness() {
+function harness(options = {}) {
   let next = 0, time = 0;
   const pending = new Map(), listeners = new Map();
   const on = (name, fn) => listeners.set(name, fn);
@@ -18,13 +18,54 @@ function harness() {
   const selections = [];
   const canvas = { style: {}, getContext: () => ctx, getBoundingClientRect: () => ({ width: 360, height: 240, left: 30, top: 60 }), addEventListener: on, removeEventListener: off };
   const palette = new Proxy({}, { get: () => '170,200,220' });
-  const scene = createPresenceScene(canvas, { mode: 'idle', active: true }, palette, { onSelect: node => selections.push(node) });
+  const scene = createPresenceScene(canvas, { mode: 'idle', active: true, ...options }, palette, { onSelect: node => selections.push(node) });
   function frames(n) { for (let i = 0; i < n; i++) { const batch = [...pending]; pending.clear(); time += 16.67; for (const [, fn] of batch) fn(time); } }
   function pointer(event, x, y, type = 'mouse', id = 1) {
     listeners.get(event)({ clientX: x + 30, clientY: y + 60, pointerId: id, pointerType: type, button: 0 });
   }
   return { scene, frames, pending, listeners, pointer, selections, draws: () => draws };
 }
+
+test('opening grows from one central point to the full 3D network, once', () => {
+  const h = harness({ reveal: true });
+  assert.equal(h.scene.snapshot().visiblePoints, 1);
+  assert.equal(h.scene.snapshot().projected[0].x, 180);
+  h.frames(65);
+  const midway = h.scene.snapshot();
+  assert.ok(midway.visiblePoints > 1 && midway.visiblePoints < 402);
+  h.frames(120);
+  assert.equal(h.scene.snapshot().opening, 1);
+  assert.equal(h.scene.snapshot().visiblePoints, 402);
+  h.scene.update({ reveal: true, resetKey: 1 });
+  assert.equal(h.scene.snapshot().opening, 1, 'updates and centre never replay');
+  h.scene.destroy();
+});
+
+test('opening respects background, reduced motion and immediate interaction', () => {
+  const h = harness({ reveal: true, active: false });
+  h.frames(200);
+  assert.equal(h.scene.snapshot().opening, 0);
+  h.scene.update({ active: true }); h.frames(5);
+  assert.ok(h.scene.snapshot().opening > 0);
+  h.pointer('pointerdown', 180, 120, 'touch');
+  assert.equal(h.scene.snapshot().visiblePoints, 402);
+  h.scene.destroy();
+  const quiet = harness({ reveal: true, reduced: true });
+  assert.equal(quiet.scene.snapshot().opening, 1);
+  assert.equal(quiet.pending.size, 0);
+  quiet.scene.destroy();
+  const work = harness({ reveal: true });
+  work.scene.update({ mode: 'think', area: 'calendar' });
+  assert.equal(work.scene.snapshot().opening, 0, 'the first working turn can unfold while the request runs');
+  work.frames(180);
+  assert.equal(work.scene.snapshot().opening, 1);
+  work.scene.update({ revealKey: 'second-session' });
+  assert.equal(work.scene.snapshot().opening, 0);
+  work.frames(180);
+  work.scene.update({ revealKey: 'second-session' });
+  assert.equal(work.scene.snapshot().opening, 1);
+  work.scene.destroy();
+});
 
 test('camera approaches the real selected area smoothly and returns to standby', () => {
   const h = harness();

@@ -133,10 +133,14 @@ class AgentService:
         depending on who started it.
         """
         from agent.reasoning import decide_goal
+        from agent.source_refresh import queue_existing, context
 
+        source = None
         if opportunity_id:
+            source = await self.db.opportunities.find_one({"id": opportunity_id, "owner_id": owner_id})
             existing = await self.repo.goal_for_opportunity(owner_id, opportunity_id)
             if existing is not None:
+                await queue_existing(self.db, owner_id, opportunity_id, source)
                 return {"outcome": "already_pursuing", "goal": existing.for_human()}
 
         # A headline can omit exactly the uncertainty that requires work.
@@ -192,6 +196,12 @@ class AgentService:
             source_kind=source_kind[:40],
             source_refs=[str(r)[:120] for r in (source_refs or [])][:8],
             opportunity_id=opportunity_id,
+            opportunity_revision=str((source or {}).get("agent_review_revision") or ""),
+            source_situation=context(source or {}),
+            clarifications=[{str(k): str(v)[:2000] for k, v in item.items()
+                             if k in ("question", "answer", "answered_at")}
+                            for item in (situation.get("user_clarifications") or [])[-3:]
+                            if isinstance(item, dict)],
             rationale=str(answer.get("reasoning") or "")[:300],
         )
         if not goal.objective or not goal.desired_outcome:
@@ -203,7 +213,9 @@ class AgentService:
             # A persistence failure is not evidence of another worker's goal.
             # Admission must retry unless the competing goal can be read back.
             existing = await self.repo.goal_for_opportunity(owner_id, opportunity_id) if opportunity_id else None
-            return {"outcome": "already_pursuing" if existing is not None else "unavailable"}
+            if existing is not None:
+                return {"outcome": "already_pursuing", "goal": existing.for_human(), "goal_id": existing.id}
+            return {"outcome": "unavailable"}
 
         await self.repo.journal(
             owner_id, goal.id, kind="goal_created", note=goal.objective,
@@ -243,26 +255,34 @@ class AgentService:
                 "goal": goal.for_human(),
             }
 
-        if worker_id.startswith("ambient:"):
-            if goal.background_runs >= 3:
-                goal.next_run_at = None
-                await self.repo.save_goal(goal)
-                await self.repo.release(goal_id, stopped_because="background_budget")
-                return {"ok": True, "state": "background_paused"}
-            goal.background_runs += 1
-        # Persist recovery before execution: a killed worker leaves a due goal.
-        goal.next_run_at = (_now() + timedelta(minutes=5)).isoformat()
-        await self.repo.save_goal(goal)
         run = AgentRun(owner_id=owner_id, goal_id=goal.id, background=worker_id.startswith("ambient:"))
         allowance = budget or AgentBudget()
         try:
+            from agent.source_refresh import refresh
+            # Reload after the lease: a cancellation while waiting must win.
+            goal = await self.repo.get_goal(owner_id, goal_id)
+            if goal is None or not goal.is_open:
+                return {"ok": True, "state": goal.status if goal else "goal_closed"}
+            await refresh(self, goal)
+            if not goal.is_open:
+                return {"ok": True, "state": goal.status}
+            if run.background:
+                if goal.background_runs >= 3:
+                    goal.next_run_at = None
+                    await self.repo.save_goal(goal)
+                    run.stopped_because = "background_budget"
+                    return {"ok": True, "state": "background_paused"}
+                goal.background_runs += 1
+            # Persist recovery before execution; cancellation leaves due work.
+            goal.next_run_at = (_now() + timedelta(minutes=5)).isoformat()
+            await self.repo.save_goal(goal)
             result = await self._work(owner_id, goal, run, allowance, language=language)
             if (not goal.is_open or goal.requires_user_input or goal.requires_user_authority
                     or (run.background and goal.background_runs >= 3)):
                 goal.next_run_at = None
             await self.repo.save_goal(goal)
         finally:
-            await self.repo.release(goal_id, stopped_because=run.stopped_because)
+            await self.repo.release(goal_id, stopped_because=run.stopped_because, worker_id=worker)
 
         # Whether any of that was worth their knowing. Asked once, at the end,
         # about the run as a whole — a decision per step would be the
@@ -294,6 +314,15 @@ class AgentService:
                 return await self._stop(goal, run, "il piano non era formulabile")
 
         while True:
+            from agent.source_refresh import changed, refresh
+            current = await self.repo.get_goal(owner_id, goal.id)
+            if current is None or current.status == "cancelled":
+                goal.status, goal.next_run_at = "cancelled", None
+                return {"ok": True, "state": "cancelled"}
+            if await changed(self.db, goal):
+                await refresh(self, goal)
+                run.stopped_because = "source_changed"
+                return {"ok": True, "state": "source_changed" if goal.is_open else goal.status}
             if run.iterations >= MAX_ITERATIONS:
                 run.stopped_because = "iterations"
                 return await self._continue_later(owner_id, goal, plan, run, "iterations")
@@ -575,6 +604,11 @@ class AgentService:
             is touched. Ten minutes is long enough for somebody to change
             their mind, and an answer computed then is a claim about then.
             """
+            from agent.source_refresh import changed
+            from agent.models import EffectiveAuthority
+            latest = await self.repo.get_goal(owner_id, goal.id)
+            if latest is None or not latest.is_open or await changed(self.db, goal):
+                return EffectiveAuthority(reason_code="consent_stale")
             return await self.authority.effective_authority(
                 owner_id, intent, assessment
             ) if step.step_type == "execute" else None
@@ -1003,7 +1037,8 @@ class AgentService:
             result = await self._close(
                 owner_id, goal, plan, run, "completed", verification.reasoning
             )
-            await self._observe_life_change(owner_id, goal, verification, evidence)
+            if result.get("state") == "completed":
+                await self._observe_life_change(owner_id, goal, verification, evidence)
             return result
 
         if verification.outcome in ("waiting_for_external_result", "needs_followup"):
@@ -1119,11 +1154,22 @@ class AgentService:
     async def _close(
         self, owner_id, goal, plan: ActionPlan, run: AgentRun, status: str, note: str
     ) -> Dict[str, Any]:
+        from agent.source_refresh import changed, refresh
+        if await changed(self.db, goal):
+            await refresh(self, goal)
+            return {"ok": True, "state": "source_changed" if goal.is_open else goal.status}
+        latest = await self.repo.get_goal(owner_id, goal.id)
+        if latest and latest.status == "cancelled":
+            goal.status = "cancelled"
+            goal.next_run_at = None
+            return {"ok": True, "state": "cancelled"}
         goal.status = status  # type: ignore[assignment]
         goal.rationale = note[:300]
         goal.completed_at = _now().isoformat()
         plan.status = "completed" if status == "completed" else "cancelled"
         await self.repo.save_goal(goal)
+        if goal.status != status:
+            return {"ok": True, "state": goal.status}
         await self.repo.save_plan(plan)
         await self.repo.journal(owner_id, goal.id, kind=f"goal_{status}", note=note)
         # A goal that ended has no use for the question it was going to ask.
@@ -1163,6 +1209,8 @@ class AgentService:
             return None
 
         what_happened = await self._run_facts(owner_id, goal, run)
+        if goal.status == "cancelled":
+            return None
         if not what_happened["refs"]:
             # The run left no trace, so there is nothing that could be shown
             # with proof behind it. Not a decision that it was uninteresting.
@@ -1176,6 +1224,10 @@ class AgentService:
         decision = await self.visibility.consider(
             owner_id, goal, what_happened=what_happened, language=language
         )
+        latest = await self.repo.get_goal(owner_id, goal_id)
+        from agent.source_refresh import changed
+        if latest is None or latest.status == "cancelled" or (goal.is_open and await changed(self.db, goal)):
+            return None
         await self.repo.journal(
             owner_id, goal_id, kind="visibility",
             note=decision.headline or decision.quietened_by_code or decision.reasoning,
@@ -1309,6 +1361,7 @@ class AgentService:
             return {"ok": False, "reason": "unknown_goal"}
 
         goal.status = "cancelled"
+        goal.next_run_at = None
         goal.decision_provenance = "user"
         goal.rationale = (reason or "l'utente ha detto di lasciar perdere")[:300]
         await self.repo.save_goal(goal)
@@ -1321,7 +1374,7 @@ class AgentService:
         try:
             from ambient.repository import AmbientRepository
 
-            await AmbientRepository(self.db).cancel_for(owner_id)
+            await AmbientRepository(self.db).cancel_for(owner_id, source_ref=f"goal:{goal_id}")
         except Exception as e:
             logger.info("agent wake cancel soft-fail: %s", type(e).__name__)
 
@@ -1341,8 +1394,10 @@ class AgentService:
         """A person supplied what was missing. Carry on from where it stopped."""
         goal = await self.repo.get_goal(owner_id, goal_id)
         plan = await self.repo.plan_for(owner_id, goal_id)
-        if goal is None or plan is None:
+        if goal is None or plan is None or not goal.is_open:
             return {"ok": False, "reason": "unknown_goal"}
+        if not reply.strip():
+            return {"ok": False, "reason": "empty_answer"}
 
         # The answer attaches to the blocker it answers, and becomes
         # evidence like anything else — with `user_statement` as its
@@ -1350,7 +1405,7 @@ class AgentService:
         # different kind of source from having looked.
         answered = None
         for step in plan.steps:
-            if step.step_type == "ask_user" and step.status == "blocked":
+            if step.step_type == "ask_user" and step.status == "blocked" and step.ask_kind == "knowledge":
                 if step_id and step.id != step_id:
                     continue
                 step.status = "succeeded"
@@ -1373,8 +1428,11 @@ class AgentService:
                 ),
             ))
 
+        if answered is None:
+            return {"ok": False, "reason": "question_not_open"}
         goal.status = "active"
         goal.requires_user_input = False
+        goal.background_runs = 0
         plan.status = "active"
         await self.repo.save_goal(goal)
         await self.repo.save_plan(plan)

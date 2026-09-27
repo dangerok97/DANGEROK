@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { api, ApiUser, authToken } from '@/src/api/client';
+import { openingSession } from '@/src/components/ora/presence/openingSession';
 
 type AuthState = {
   user: ApiUser | null;
@@ -25,12 +26,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const t = await authToken.get();
       if (!t) {
+        openingSession.reset();
         setUser(null);
         return;
       }
       const u = await api.me();
       setUser(u);
     } catch {
+      openingSession.reset();
       await authToken.clear();
       setUser(null);
     }
@@ -49,6 +52,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await authToken.clear();
       throw new Error('auth_storage_failed');
     }
+    openingSession.reset();
     setUser(u);
   }, []);
 
@@ -64,6 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await runtime.shutdown();
     } catch {}
     await authToken.clear();
+    openingSession.reset();
     setUser(null);
   }, []);
 

@@ -58,7 +58,7 @@ class OpportunityRepository:
             # with no durable request for admission. Preserve any current lease.
             values.update({"agent_review_fingerprint": digest,
                            "agent_review_revision": uuid.uuid4().hex,
-                           "agent_review_due": datetime.now(timezone.utc).isoformat() if opportunity.status == "active" else None,
+                           "agent_review_due": datetime.now(timezone.utc).isoformat() if opportunity.status != "candidate" else None,
                            "agent_review_state": "pending" if opportunity.status == "active" else "inactive",
                            "agent_review_attempts": 0,
                            "agent_review_outcome": None,

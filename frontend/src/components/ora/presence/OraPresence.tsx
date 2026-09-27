@@ -4,15 +4,20 @@ import { Ionicons } from '@expo/vector-icons';
 import { presencePalette as palette, presenceColors } from '@/src/theme/presence';
 import { PresenceCanvas } from './PresenceCanvas';
 import { AREA_LABELS, AREA_DETAILS, AREA_IDS, type PresenceActivity, type PresenceMode, type PresenceNode } from './state';
+import { useAuth } from '@/src/contexts/AuthContext';
+import { openingSession } from './openingSession';
 
 export function OraPresence({ mode = 'idle', activity = null, compact = false, active = true,
-  expanded = false, footer, conversation, onAreaPrompt, onBack }: {
+  expanded = false, openingKey = null, footer, conversation, onAreaPrompt, onBack }: {
   mode?: PresenceMode; activity?: PresenceActivity | null; compact?: boolean; active?: boolean;
-  expanded?: boolean; footer?: React.ReactNode; conversation?: React.ReactNode; onAreaPrompt?: (prompt: string) => void; onBack?: () => void;
+  expanded?: boolean; openingKey?: string | null; footer?: React.ReactNode; conversation?: React.ReactNode; onAreaPrompt?: (prompt: string) => void; onBack?: () => void;
 }) {
   const { width, height: windowHeight } = useWindowDimensions();
+  const { user } = useAuth();
   const [paused, setPaused] = useState(false);
   const [reduced, setReduced] = useState(true);
+  const [motionReady, setMotionReady] = useState(false);
+  const [opening, setOpening] = useState<string | null>(null);
   const [foreground, setForeground] = useState(AppState.currentState !== 'background');
   const [unavailable, setUnavailable] = useState(false);
   const [info, setInfo] = useState(false);
@@ -35,15 +40,20 @@ export function OraPresence({ mode = 'idle', activity = null, compact = false, a
     const changed = () => { if (media) setReduced(media.matches); };
     if (Platform.OS === 'web' && typeof window !== 'undefined' && window.matchMedia) {
       media = window.matchMedia('(prefers-reduced-motion: reduce)'); changed(); media.addEventListener('change', changed);
+      setMotionReady(true);
     } else {
-      void AccessibilityInfo.isReduceMotionEnabled().then(value => { if (alive) setReduced(value); }).catch(() => {});
+      void AccessibilityInfo.isReduceMotionEnabled().then(value => { if (alive) setReduced(value); }).catch(() => {}).finally(() => { if (alive) setMotionReady(true); });
     }
     return () => { alive = false; app.remove(); motion.remove(); media?.removeEventListener('change', changed); };
   }, []);
+  useEffect(() => {
+    if (!openingKey || opening === openingKey || !motionReady || !active || !foreground || !user) return;
+    if (openingSession.claim(user.user_id, openingKey) && !reduced) setOpening(openingKey);
+  }, [openingKey, opening, motionReady, active, foreground, user, reduced]);
   const working = mode === 'think' || mode === 'speak';
   const area = working && activity?.phase !== 'error' ? activity?.area || null : null;
   const hasConversation = Boolean(conversation);
-  const options = useMemo(() => ({ mode, area, paused, reduced, active: active && foreground, selectedIndex: selected?.index ?? null, resetKey, centerY: expanded && hasConversation && showConversation ? .40 : .50 }), [mode, area, paused, reduced, active, foreground, selected, resetKey, expanded, hasConversation, showConversation]);
+  const options = useMemo(() => ({ mode, area, paused, reduced, reveal: !!opening, revealKey: opening, active: active && foreground, selectedIndex: selected?.index ?? null, resetKey, centerY: expanded && hasConversation && showConversation ? .40 : .50 }), [mode, area, paused, reduced, opening, active, foreground, selected, resetKey, expanded, hasConversation, showConversation]);
   const caption = mode === 'listen' ? 'Ti ascolto' : mode === 'speak' ? 'Ti rispondo' : mode === 'think' ? 'Sto lavorando' : 'Sono qui';
   const label = caption + (area ? ` · ${AREA_LABELS[area]}` : '');
   const height = compact ? (windowHeight < 650 ? 128 : width < 650 ? 200 : 260) : Math.min(350, Math.max(240, windowHeight * .36));
@@ -67,7 +77,7 @@ export function OraPresence({ mode = 'idle', activity = null, compact = false, a
       </View>
     </View>
     <View style={expanded ? [styles.stage, tight && { minHeight: 0 }] : { height }} testID="ora-presence-map" onLayout={event => setStageHeight(event.nativeEvent.layout.height)}>
-      {unavailable ? <View style={styles.fallback}><Text style={styles.fallbackText}>ORA</Text></View> : <PresenceCanvas options={options} onUnavailable={fail} onSelect={select} />}
+      {unavailable ? <View style={styles.fallback}><Text style={styles.fallbackText}>ORA</Text></View> : motionReady ? <PresenceCanvas options={options} onUnavailable={fail} onSelect={select} /> : null}
       {areas || selected || info ? <View style={[styles.overlay, width < 650 && styles.overlayMobile]}>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.detailContent}>
           <View style={styles.detailHead}>

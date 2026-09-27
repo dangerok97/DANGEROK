@@ -72,9 +72,18 @@ class AgentRepository:
 
     async def save_goal(self, goal: AutonomousGoal) -> AutonomousGoal:
         goal.touch()
-        await self.db[GOALS].update_one(
-            {"id": goal.id}, {"$set": goal.model_dump()}, upsert=True
-        )
+        from pymongo.errors import DuplicateKeyError
+        query = {"id": goal.id, "owner_id": goal.owner_id}
+        if goal.status != "cancelled":
+            query["status"] = {"$ne": "cancelled"}
+        try:
+            await self.db[GOALS].update_one(query, {"$set": goal.model_dump()}, upsert=True)
+        except DuplicateKeyError:
+            # A concurrent stop cannot be undone by a worker's older copy.
+            latest = await self.get_goal(goal.owner_id, goal.id)
+            if latest is None or latest.status != "cancelled":
+                raise
+            goal.status, goal.next_run_at = "cancelled", None
         return goal
 
     async def create_goal(self, goal: AutonomousGoal) -> Optional[AutonomousGoal]:
@@ -177,18 +186,18 @@ class AgentRepository:
                 return False
 
         taken = await self.db[RUNS].find_one_and_update(
-            {"goal_id": goal_id, "lease_until": {"$lte": moment.isoformat()}},
+            {"goal_id": goal_id, "owner_id": owner_id, "lease_until": {"$lte": moment.isoformat()}},
             {"$set": {"worker_id": worker_id, "lease_until": lease,
                       "updated_at": moment.isoformat()}},
             projection={"_id": 0, "goal_id": 1},
         )
         return taken is not None
 
-    async def release(self, goal_id: str, *, stopped_because: str = "") -> None:
+    async def release(self, goal_id: str, *, stopped_because: str = "", worker_id: str = "") -> None:
         """Let go, so the next wake does not have to wait out the lease."""
         try:
             await self.db[RUNS].update_one(
-                {"goal_id": goal_id},
+                {"goal_id": goal_id, **({"worker_id": worker_id} if worker_id else {})},
                 {"$set": {"lease_until": _now().isoformat(),
                           "stopped_because": stopped_because[:120],
                           "updated_at": _now().isoformat()}},

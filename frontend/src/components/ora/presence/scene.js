@@ -11,6 +11,9 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
   let rotation=-.06,activeHub=-1,hovered=-1,selected=-1;
   let pointer=null,pointerId=null,downX=0,downY=0,moved=false;
   let labels=[];
+  const openingSeconds=2.8;
+  let opening=options.reveal&&!options.reduced?0:openingSeconds;
+  const ease=value=>{const v=Math.max(0,Math.min(1,value));return v*v*(3-2*v);};
   const camera={x:0,y:0,z:0,zoom:1};
   const cleanups=[];
   function on(target,event,fn){target.addEventListener(event,fn);cleanups.push(()=>target.removeEventListener(event,fn));}
@@ -40,6 +43,7 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     points.push({x:Math.cos(a)*r*s,y:u*r*.91,z:Math.sin(a)*r*s*.86,group:-1,hub:false,radius:.45+random()*.85,phase:random()*6.28});
   }
   points.forEach(p=>p.distance=Math.hypot(p.x-hubs[0].x,p.y-hubs[0].y,p.z-hubs[0].z));
+  const furthest=Math.max(...points.map(p=>p.distance));
   const edges=[],edgeKeys=new Set();
   function addEdge(a,b,trunk=false){if(a===b)return;const key=Math.min(a,b)+':'+Math.max(a,b);if(edgeKeys.has(key))return;edgeKeys.add(key);edges.push({a,b,trunk,phase:random(),packet:random()<.12||trunk});}
   for(let i=0;i<points.length;i++){
@@ -60,7 +64,7 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
   function hitTest(x,y,touch=false){
     for(let i=labels.length-1;i>=0;i--){const b=labels[i];if(x>=b.x-4&&x<=b.x+b.w+4&&Math.abs(y-b.y)<=12)return b.index;}
     let best=-1,score=Infinity;
-    projected.forEach((q,i)=>{if(q.x<0||q.x>width||q.y<0||q.y>height)return;
+    projected.forEach((q,i)=>{if(q.appear<.9||q.x<0||q.x>width||q.y<0||q.y>height)return;
       const d=Math.hypot(x-q.x,y-q.y),radius=touch?22:12;
       const candidate=d-(points[i].hub?2:0)-q.depth*.3;
       if(d<=radius&&candidate<score){best=i;score=candidate;}});
@@ -76,9 +80,10 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
   }
   function projectPoint(p,yaw,pitch,scale,breathing){
     const drift=p.hub?.002:.009;
-    let x=(p.x+Math.sin(t*.36+p.phase)*drift)*breathing-camera.x;
-    let y=(p.y+Math.cos(t*.30+p.phase)*drift)*breathing-camera.y;
-    let z=(p.z+Math.sin(t*.29+p.phase)*drift)*breathing-camera.z;
+    const spread=ease(opening/openingSeconds);
+    let x=(p.x+Math.sin(t*.36+p.phase)*drift)*breathing*spread-camera.x;
+    let y=(p.y+Math.cos(t*.30+p.phase)*drift)*breathing*spread-camera.y;
+    let z=(p.z+Math.sin(t*.29+p.phase)*drift)*breathing*spread-camera.z;
     const rx=x*Math.cos(yaw)+z*Math.sin(yaw),rz=z*Math.cos(yaw)-x*Math.sin(yaw);
     const ry=y*Math.cos(pitch)-rz*Math.sin(pitch),zz=y*Math.sin(pitch)+rz*Math.cos(pitch);
     const perspective=3.8/(3.8-zz);
@@ -99,6 +104,7 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     const yaw=rotation+dragYaw,pitch=.06+Math.sin(t*.10)*.09+dragPitch;
     for(let i=0;i<points.length;i++){
       const p=points[i],q=projectPoint(p,yaw,pitch,scale,breathe);
+      q.appear=i===0?1:ease((opening/openingSeconds-p.distance/furthest*.65-.06)/.29);
       const focus=activeHub>=0?hubs[activeHub]:hubs[0];
       const distance=Math.hypot(p.x-focus.x,p.y-focus.y,p.z-focus.z);
       const phase=((t*state.speed-distance*.44)%1+1)%1;
@@ -111,11 +117,15 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     ctx.globalCompositeOperation='lighter';
     edges.forEach(e=>{
       const a=projected[e.a],b=projected[e.b];const depth=(a.depth+b.depth)*.5,energy=(a.energy+b.energy)*.5;
+      const appear=Math.min(a.appear,b.appear);
+      if(appear<.005)return;
+      ctx.globalAlpha=appear;
       const related=inspected>=0&&(e.a===inspected||e.b===inspected);
       const alpha=Math.min(.9,(.028+depth*.12+energy*.22)*(e.trunk?1.5:1)*state.light+(related?.45:0));
       const warm=activeHub>=0?(e.a===activeHub||e.b===activeHub):e.trunk&&e.a===0&&(e.b===4||e.b===1);
-      ctx.strokeStyle=warm?'rgba('+palette.warmEdge+','+alpha+')':'rgba('+palette.edge+','+alpha+')';ctx.lineWidth=related?1.45:e.trunk?.8:.45+depth*.25;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
-      if(e.packet&&mode!=='idle'){
+      const first=points[e.a].distance<=points[e.b].distance?a:b,second=first===a?b:a;
+      ctx.strokeStyle=warm?'rgba('+palette.warmEdge+','+alpha+')':'rgba('+palette.edge+','+alpha+')';ctx.lineWidth=related?1.45:e.trunk?.8:.45+depth*.25;ctx.beginPath();ctx.moveTo(first.x,first.y);ctx.lineTo(first.x+(second.x-first.x)*appear,first.y+(second.y-first.y)*appear);ctx.stroke();
+      if(e.packet&&mode!=='idle'&&appear===1){
         const u=(t*(e.trunk?.34:.19)*state.speed+e.phase)%1;const strength=Math.sin(u*Math.PI)*(.25+energy*.85)*state.light;
         const px=a.x+(b.x-a.x)*u,py=a.y+(b.y-a.y)*u;
         const u0=Math.max(0,u-.09);
@@ -127,6 +137,8 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     sorted.sort((a,b)=>projected[a].z-projected[b].z);
     for(const i of sorted){
       const p=points[i],q=projected[i],bright=(.19+q.depth*.64+q.energy*.32)*state.light;
+      if(q.appear<.005)continue;
+      ctx.globalAlpha=q.appear;
       const isInspected=i===inspected;
       const r=p.radius*q.scale*(.64+q.depth*.38)*(1+q.energy*.28)+(isInspected?2.8:0);
       if(isInspected){glow(q.x,q.y,24,.95);ctx.strokeStyle=palette.label;ctx.lineWidth=1;ctx.beginPath();ctx.arc(q.x,q.y,9,0,Math.PI*2);ctx.stroke();}
@@ -137,12 +149,14 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
       if(p.hub&&q.energy>.35){ctx.strokeStyle='rgba('+palette.cross+','+(q.energy*.33)+')';ctx.lineWidth=.6;ctx.beginPath();ctx.moveTo(q.x-7-q.energy*4,q.y);ctx.lineTo(q.x+7+q.energy*4,q.y);ctx.moveTo(q.x,q.y-6-q.energy*3);ctx.lineTo(q.x,q.y+6+q.energy*3);ctx.stroke();}
     }
     ctx.globalCompositeOperation='source-over';
+    ctx.globalAlpha=ease((opening/openingSeconds-.68)/.32);
     const occupied=[],labelIndices=activeHub>=0?[activeHub]:height<180?[0,1,5]:width<430?[0,1,2,5]:[0,1,2,3,4,5,6,7];
     if(inspected>=0&&!labelIndices.includes(points[inspected].areaGroup))labelIndices.push(points[inspected].areaGroup);
     labels=[];
     ctx.font='500 11px ui-monospace, SFMono-Regular, Consolas, monospace';ctx.textBaseline='middle';
     labelIndices.forEach(i=>{
       const h=hubs[i],p=projected[i],tw=ctx.measureText(h.name).width;
+      if(p.appear<.99||opening/openingSeconds<.72)return;
       if(p.x<0||p.x>width||p.y<0||p.y>height)return;
       let x=p.x+h.dx,y=p.y+h.dy;let left=h.align==='right'?x-tw:x;
       left=Math.max(15,Math.min(width-tw-15,left));y=Math.max(18,Math.min(height-20,y));
@@ -164,14 +178,19 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
   function stop(){if(frame)cancelAnimationFrame(frame);frame=0;last=0;}
   function tick(now){
     frame=0;const dt=last?Math.min(.05,(now-last)/1000):.016;last=now;
+    opening=Math.min(openingSeconds,opening+dt);
     // Inspecting a point holds it still so a click can reliably reach it.
-    if(!dragging&&hovered<0&&selected<0){t+=dt;rotation+=dt*(mode==='idle'?.045:.012);moveCamera(dt);dragYaw+=inertia;inertia*=.93;}
+    if(!dragging&&hovered<0&&selected<0){t+=dt;rotation+=dt*(mode==='idle'?.045:.012);if(opening===openingSeconds)moveCamera(dt);dragYaw+=inertia;inertia*=.93;}
     draw();schedule();
   }
   function size(){const box=canvas.getBoundingClientRect();width=Math.max(1,box.width);height=Math.max(1,box.height);pixelRatio=Math.min(window.devicePixelRatio||1,1.75);canvas.width=Math.round(width*pixelRatio);canvas.height=Math.round(height*pixelRatio);draw();}
   function update(next){
+    const reveal=next.revealKey&&next.revealKey!==options.revealKey;
     const reset=next.resetKey!==undefined&&next.resetKey!==options.resetKey;
     options={...options,...next};mode=modes[options.mode]?options.mode:'idle';
+    // The first user turn triggers the entrance without delaying the actual work.
+    if(reveal)opening=0;
+    if(options.reduced||options.paused)opening=openingSeconds;
     selected=Number.isInteger(options.selectedIndex)&&points[options.selectedIndex]?options.selectedIndex:-1;
     if(reset){rotation=-.06;dragYaw=0;dragPitch=0;inertia=0;hovered=-1;pointer=null;camera.x=0;camera.y=0;camera.z=0;camera.zoom=1;}
     if(!options.paused&&options.reduced)moveCamera(0,true);
@@ -179,6 +198,7 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
   }
   on(canvas,'pointerdown',e=>{
     if(e.button!==undefined&&e.button!==0||pointerId!==null)return;
+    opening=openingSeconds;draw();
     pointerId=e.pointerId;pointer=localPointer(e);downX=dragX=e.clientX;downY=dragY=e.clientY;
     moved=false;dragging=false;inertia=0;hovered=hitTest(pointer.x,pointer.y,pointer.touch);
     canvas.setPointerCapture?.(e.pointerId);draw();
@@ -212,5 +232,5 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
   size();update(initial);
   return {update,destroy(){destroyed=true;stop();cleanups.forEach(fn=>fn());},
     // Deterministic geometry inspection, with no personal data.
-    snapshot(){return {camera:{...camera},rotation:{yaw:dragYaw,pitch:dragPitch},hovered,selected,activeHub,points:points.length,edges:edges.length,frame,mode,projected:projected.map((p,i)=>({x:p.x,y:p.y,...nodeInfo(i)}))};}};
+    snapshot(){return {camera:{...camera},rotation:{yaw:dragYaw,pitch:dragPitch},hovered,selected,activeHub,points:points.length,edges:edges.length,frame,mode,opening:opening/openingSeconds,visiblePoints:projected.filter(p=>p.appear>.01).length,projected:projected.map((p,i)=>({x:p.x,y:p.y,...nodeInfo(i)}))};}};
 }

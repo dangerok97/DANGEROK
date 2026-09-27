@@ -40,7 +40,7 @@ async def drain(db, *, owner_id=None, now=None, limit=2):
     handled = 0
     for _ in range(limit):
         query = {
-            "status": "active",
+            "status": {"$in": ["active", "dismissed", "suppressed", "resolved", "expired"]},
             "agent_review_due": {"$type": "string", "$lte": stamp},
             "$or": [{"agent_review_lease_until": {"$exists": False}},
                     {"agent_review_lease_until": {"$lte": stamp}}],
@@ -61,12 +61,19 @@ async def drain(db, *, owner_id=None, now=None, limit=2):
                  "agent_review_token": token, "agent_review_revision": row["agent_review_revision"]}
         answer = {"outcome": "unavailable"}
         error_kind = ""
+        expiry = None
         try:
             opp = Opportunity.model_validate(row)
             expiry = datetime.fromisoformat(opp.valid_until) if opp.valid_until else None
             if expiry is not None and expiry.tzinfo is None:
                 expiry = expiry.replace(tzinfo=timezone.utc)
-            if expiry is not None and expiry <= moment:
+            if opp.status != "active":
+                from agent.source_refresh import queue_existing
+                await queue_existing(db, opp.owner_id, opp.id, row, now=moment)
+                answer = {"outcome": "closed"}
+            elif expiry is not None and expiry <= moment:
+                from agent.source_refresh import queue_existing
+                await queue_existing(db, opp.owner_id, opp.id, row, now=moment)
                 answer = {"outcome": "expired"}
             elif int(row["agent_review_attempts"]) > MAX_ATTEMPTS:
                 answer = {"outcome": "paused"}
@@ -82,6 +89,7 @@ async def drain(db, *, owner_id=None, now=None, limit=2):
                         "what_ora_offered_to_do": opp.what_ora_can_do or None,
                         "needs_research": opp.needs_research,
                         "research_question": opp.research_question or None,
+                        "user_clarifications": row.get("agent_review_answers", [])[-3:],
                     }, origin="agent_initiated", opportunity_id=opp.id,
                     source_kind="opportunity", source_refs=[e.ref for e in opp.evidence][:4],
                 ), timeout=TIMEOUT_SECONDS)
@@ -92,7 +100,7 @@ async def drain(db, *, owner_id=None, now=None, limit=2):
         if not isinstance(answer, dict):
             answer = {"outcome": "unavailable"}
         outcome = answer.get("outcome", "unavailable")
-        known = {"no_goal", "create_goal", "already_pursuing", "clarify", "wait", "expired", "paused", "unavailable"}
+        known = {"no_goal", "create_goal", "already_pursuing", "clarify", "wait", "expired", "closed", "paused", "unavailable"}
         if outcome not in known:
             outcome = "unavailable"
         attempts = int(row["agent_review_attempts"])
@@ -101,6 +109,10 @@ async def drain(db, *, owner_id=None, now=None, limit=2):
             delay = 3600 if outcome == "wait" else 60 * (5 ** (attempts - 1))
             due = (moment + timedelta(seconds=delay)).isoformat()
         state = "pending" if due else ("paused" if outcome in ("unavailable", "wait", "paused") else "settled")
+        # An unchanged source can still expire while a goal waits for a person.
+        # Reuse this durable due field; no model call is needed at expiry.
+        if due is None and state == "settled" and expiry and expiry > moment and opp.status == "active":
+            due = expiry.isoformat()
         await db[COLLECTION].update_one(fence, {"$set": {
             "agent_review_due": due, "agent_review_state": state,
             "agent_review_outcome": outcome,

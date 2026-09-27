@@ -6,7 +6,7 @@ The thing that wakes ORA when nobody is looking.
 
 Sprint 1 could decide "check again at 07:15" and had no way to be there at
 07:15. This is that: a small loop that asks the database what is due, takes
-exactly one thing at a time, hands it to whatever knows how to do it, and
+up to two independent due jobs, hands each to whatever knows how to do it, and
 goes back to sleep.
 
 It is deliberately stupid. It does not know what an opportunity is, cannot
@@ -73,6 +73,9 @@ def _relations_every_ticks() -> int:
 _task: Optional[asyncio.Task] = None
 _stopping = False
 _worker_id = ""
+_jobs: Dict[str, asyncio.Task] = {}
+# A handler must finish/cancel before its 300-second database lease expires.
+HANDLER_TIMEOUT_SECONDS = 240
 
 _stats: Dict[str, int] = {
     "ticks": 0,
@@ -131,6 +134,8 @@ async def tick(db, *, now: Optional[datetime] = None, limit: int = MAX_PER_TICK)
     moment = now or _now()
 
     for _ in range(max(1, limit)):
+        if now is None:
+            moment = _now()
         wake = await repo.claim_due(worker_id=worker_id(), now=moment)
         if wake is None:
             break
@@ -140,30 +145,27 @@ async def tick(db, *, now: Optional[datetime] = None, limit: int = MAX_PER_TICK)
         logger.info("wake_claimed reason=%s attempt=%s", wake.reason, wake.attempts)
 
         try:
-            outcome = await _handle(db, wake)
+            outcome = await asyncio.wait_for(_handle(db, wake), timeout=HANDLER_TIMEOUT_SECONDS)
         except Exception as exc:
             outcome = None
             logger.info("wake handler soft-fail: %s", type(exc).__name__)
-            await _retry(repo, wake, error=type(exc).__name__, now=moment)
-            handled["retried"] += 1
-            _stats["wakes_retried"] += 1
+            status = await _retry(repo, wake, error=type(exc).__name__, now=moment)
+            handled[status] += 1
+            _stats[f"wakes_{status}"] += 1
             continue
 
         if outcome is not None and outcome.retry_after_seconds is not None:
             # A technical failure: the model was unreachable, the channel was
             # down. Nothing was decided, so nothing is recorded as a decision.
-            await repo.release(
-                wake.id,
-                when=(moment + timedelta(seconds=outcome.retry_after_seconds)).isoformat(),
-                error=outcome.error or "retry",
-            )
-            handled["retried"] += 1
-            _stats["wakes_retried"] += 1
+            status = await _retry(repo, wake, error=outcome.error or "retry", now=moment,
+                                  delay=outcome.retry_after_seconds)
+            handled[status] += 1
+            _stats[f"wakes_{status}"] += 1
             logger.info("wake_retry reason=%s in=%ss", wake.reason, outcome.retry_after_seconds)
             continue
 
         result = outcome.result if outcome else ""
-        await repo.complete(wake.id, result=result)
+        await repo.complete(wake.id, result=result, worker_id=wake.worker_id)
         handled["completed"] += 1
         _stats["wakes_completed"] += 1
         logger.info("wake_completed reason=%s result=%s", wake.reason, result)
@@ -292,10 +294,62 @@ async def _handle(db, wake) -> Any:
     return await service.review_life(wake)
 
 
-async def _retry(repo, wake, *, error: str, now: datetime) -> None:
+async def _retry(repo, wake, *, error: str, now: datetime, delay=None) -> str:
     """Exponential backoff with a ceiling. Never asked of a model."""
-    delay = min(RETRY_MAX_SECONDS, RETRY_BASE_SECONDS * (2 ** max(0, wake.attempts - 1)))
-    await repo.release(wake.id, when=(now + timedelta(seconds=delay)).isoformat(), error=error)
+    from ambient.repository import MAX_ATTEMPTS
+    if wake.attempts >= MAX_ATTEMPTS:
+        await repo.fail(wake.id, error=error, worker_id=wake.worker_id)
+        return "failed"
+    if delay is None:
+        delay = min(RETRY_MAX_SECONDS, RETRY_BASE_SECONDS * (2 ** max(0, wake.attempts - 1)))
+    await repo.release(wake.id, when=(now + timedelta(seconds=delay)).isoformat(), error=error, worker_id=wake.worker_id)
+    return "retried"
+
+
+def _launch(name, operation, *, timeout):
+    """One bounded in-flight operation per lane in this existing runtime.
+
+    Source/research latency must not delay another person's due work. Durable
+    claims stay in their owning services; these tasks are only accelerators.
+    """
+    if name in _jobs and not _jobs[name].done():
+        return False
+    async def run():
+        try:
+            await asyncio.wait_for(operation(), timeout=timeout)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logger.info("ambient lane=%s error=%s", name, type(exc).__name__)
+    _jobs[name] = asyncio.create_task(run(), name=f"ora-ambient-{name}")
+    return True
+
+
+async def _cycle(db, ticks):
+    if _a_call_is_live():
+        _stats["sources_deferred_for_call"] += 1
+        return
+    from agent.background import recover_due
+    from energy_offers.service import EnergyOfferService
+    _launch("sources", lambda: read_sources(db), timeout=120)
+    _launch("admission", lambda: recover_due(db), timeout=110)
+    # Two due jobs can make progress, never an unbounded task per user.
+    for n in range(2):
+        _launch(f"work-{n}", lambda: tick(db, limit=1), timeout=HANDLER_TIMEOUT_SECONDS + 10)
+    if ticks % max(1, int(60 / max(1, TICK_SECONDS))) == 0:
+        _launch("market", lambda: EnergyOfferService(db).run_due(), timeout=240)
+    if ticks % _relations_every_ticks() == 0:
+        _launch("relations", lambda: keep_relations_current(db), timeout=120)
+    if ticks % _fallback_every_ticks() == 0:
+        _launch("recovery", lambda: sweep(db), timeout=120)
+
+
+async def _stop_jobs():
+    pending = list(_jobs.values())
+    _jobs.clear()
+    for task in pending:
+        task.cancel()
+    await asyncio.gather(*pending, return_exceptions=True)
 
 
 async def _loop() -> None:
@@ -317,50 +371,17 @@ async def _loop() -> None:
         logger.info("ambient recovery soft-fail: %s", type(exc).__name__)
 
     ticks = 0
-    while not _stopping:
-        try:
-            # Two passes, in this order and for this reason: reading the
-            # world can produce a wake, and doing it before the wakes are
-            # drained means what just arrived is handled in the same tick
-            # rather than a tick later.
-            #     UNA TELEFONATA IN CORSO HA LA PRECEDENZA.
-            # Le letture delle fonti aprono connessioni nuove, e una
-            # connessione nuova ferma questo processo per mezzo secondo
-            # mentre carica i certificati. Sul gate V3.20 è successo due
-            # volte durante l'apertura di una telefonata: due strappi da più
-            # di un secondo nella voce, con otto secondi di audio pronti. Le
-            # fonti si leggono a telefonata finita — qualche decina di secondi
-            # dopo — e nient'altro cambia.
-            if _a_call_is_live():
-                _stats["sources_deferred_for_call"] += 1
-            else:
-                await read_sources(db)
-                # One due contract per minute. Research happens even when
-                # the app is closed, with no second scheduler.
-                if ticks % 6 == 0:
-                    try:
-                        from energy_offers.service import EnergyOfferService
-                        await EnergyOfferService(db).run_due()
-                    except Exception as exc:
-                        logger.info("market watch poll soft-fail: %s", type(exc).__name__)
-            from agent.background import recover_due
-            await recover_due(db, admit=not _a_call_is_live())
-            await tick(db)
+    try:
+        while not _stopping:
+            try:
+                await _cycle(db, ticks)
+            except Exception as exc:
+                logger.info("ambient cycle error=%s", type(exc).__name__)
             ticks += 1
-            # Le relazioni: piu' lente delle letture, piu' rapide della rete
-            # di sicurezza. Su una vita ferma questo passaggio non trova
-            # niente e non chiama nessuno.
-            if ticks % _relations_every_ticks() == 0:
-                await keep_relations_current(db)
-            if ticks % _fallback_every_ticks() == 0:
-                await sweep(db)
-        except Exception as exc:
-            # The loop must outlive anything that happens inside it.
-            logger.info("ambient tick soft-fail: %s", type(exc).__name__)
-        try:
             await asyncio.sleep(TICK_SECONDS)
-        except asyncio.CancelledError:
-            break
+    finally:
+        # Shutdown owns every task; cancelled work remains durable/reclaimable.
+        await _stop_jobs()
     logger.info("ambient runtime stopped")
 
 

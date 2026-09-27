@@ -27,13 +27,13 @@ export function UpdateNextStep({ a }: { a: Aggiornamento }) {
     void read();
     const timer = setInterval(() => { void read(); }, 10000);
     return () => { active = false; clearInterval(timer); };
-  }, [a.id, a.lavoro]);
+  }, [a.id, isPreparation, usesWork]);
   const go = async () => {
     if (busy || (!a.azione && !usesWork)) return;
     setBusy(true); setError('');
     try {
       if (usesWork) {
-        setWork(await (isPreparation ? api.runSuggestionWork(a.id, reply) : api.runUpdateWork(a.id, reply))); setReply('');
+        setWork(await (isPreparation ? api.runSuggestionWork(a.id, reply) : api.runUpdateWork(a.id, reply, work?.question_revision))); setReply('');
       } else if (a.azione?.kind === 'suggestion') {
         const accepted = await api.acceptSuggestion(a.id);
         const result = accepted.result as any;
@@ -69,8 +69,9 @@ export function UpdateNextStep({ a }: { a: Aggiornamento }) {
       {work?.result?.sources?.map((source, index) => <Text key={index} style={[oraType.small, { color: ora.ink2 }]}>Fonte consultata: {source.title || source.url}</Text>)}
       {work?.result?.pending_turn?.status === 'awaiting_client' && <Text>Serve un passaggio sul dispositivo. Apri la sessione per completarlo.</Text>}
       {work?.session_id && <Pressable accessibilityRole="link" onPress={() => router.push(`/ora/${encodeURIComponent(work.session_id!)}` as never)}><Text style={{ color: ora.cta }}>Apri la stessa sessione per ulteriori operazioni →</Text></Pressable>}
+      {work?.result?.route?.startsWith('/ora?') && <Pressable accessibilityRole="link" onPress={() => router.push(work.result!.route as never)}><Text style={{ color: ora.cta }}>Continua con ORA →</Text></Pressable>}
       {work?.result?.question && <Text style={[oraType.body, { color: ora.ink }]}>{work.result.question}</Text>}
-      {hasRun && !running && work?.session_id && !['failed', 'interrupted'].includes(work.status) && (
+      {hasRun && !running && (work?.session_id || work?.question_revision) && !['failed', 'interrupted'].includes(work.status) && (
         <TextInput accessibilityLabel="Risposta sul prossimo passo" placeholder="Rispondi o chiedi un chiarimento…" value={reply} onChangeText={setReply} maxLength={2000} multiline style={{ borderWidth: 1, borderColor: ora.ink3, borderRadius: 12, padding: 12, color: ora.ink }} />
       )}
       {!!error && <Text accessibilityRole="alert" style={{ color: ora.attention }}>{error}</Text>}

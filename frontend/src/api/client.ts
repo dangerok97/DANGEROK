@@ -1148,7 +1148,7 @@ export const api = {
   getSuggestionWork: (id: string) => request<UpdateWork>(`/suggestions/${encodeURIComponent(id)}/work`),
   runSuggestionWork: (id: string, reply = '') => request<UpdateWork>(`/suggestions/${encodeURIComponent(id)}/work`, { method: 'POST', body: JSON.stringify({ reply }) }),
   getUpdateWork: (id: string) => request<UpdateWork>(`/opportunities/${encodeURIComponent(id)}/work`),
-  runUpdateWork: (id: string, reply = '') => request<UpdateWork>(`/opportunities/${encodeURIComponent(id)}/work`, { method: 'POST', body: JSON.stringify({ reply }) }),
+  runUpdateWork: (id: string, reply = '', question_revision = '') => request<UpdateWork>(`/opportunities/${encodeURIComponent(id)}/work`, { method: 'POST', body: JSON.stringify({ reply, question_revision }) }),
   getOpportunity: (id: string) => request<HomeOpportunity>(`/opportunities/${id}`),
 
   /** What a tap from an agent need lands on. */
@@ -3087,7 +3087,7 @@ export type HomeInsight = {
  * hidden by this interface; the backend never sends it to a screen. A card
  * that could render `urgency: soon` would eventually render it.
  */
-export type UpdateWork = { status: string; message?: string; session_id?: string; result?: { ok: boolean; ora_text?: string; question?: string | null; route?: string; sources?: { title?: string; url?: string }[]; pending_turn?: { status?: string }; }; };
+export type UpdateWork = { status: string; message?: string; session_id?: string; question_revision?: string; result?: { ok: boolean; ora_text?: string; question?: string | null; route?: string | null; sources?: { title?: string; url?: string }[]; pending_turn?: { status?: string }; }; };
 
 export type HomeOpportunity = {
   sources?: string[];

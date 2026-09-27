@@ -28,8 +28,8 @@ async def recover_due(db, *, now=None, limit=2, admit=True):
     rows = await db.agent_goals.find({
         "status": {"$in": ["active", "waiting"]},
         "next_run_at": {"$type": "string", "$lte": moment.isoformat()},
-        "requires_user_input": {"$ne": True},
-        "requires_user_authority": {"$ne": True},
+        "$or": [{"requires_user_input": {"$ne": True}, "requires_user_authority": {"$ne": True}},
+                {"source_review_pending": {"$type": "string", "$gt": ""}}],
     }, {"_id": 0, "id": 1, "owner_id": 1}).sort("next_run_at", 1).to_list(limit)
     scheduled = 0
     for row in rows:
@@ -56,7 +56,7 @@ async def advance_wake(db, wake):
     if goal is None or not goal.is_open:
         outcome.result = "goal_closed"
         return outcome
-    if goal.requires_user_input or goal.requires_user_authority:
+    if (goal.requires_user_input or goal.requires_user_authority) and not goal.source_review_pending:
         outcome.result = "waiting_for_person"
         return outcome
     now = datetime.now(timezone.utc)

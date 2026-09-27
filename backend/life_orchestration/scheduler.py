@@ -56,14 +56,14 @@ logger = logging.getLogger("ora.life_orchestration.scheduler")
 MAX_QUEUE_SIZE = 1000
 # How long after boot recovery runs, so it never competes with startup.
 RECOVERY_DELAY_SECONDS = 3
-# A deferral further out than this is left to a future boot rather than held
-# as a live timer for days.
+# Long deferrals rearm one timer at a time; they never depend on a future boot.
 MAX_DEFER_TIMER_SECONDS = 6 * 3600
 
 _queue: Optional[asyncio.Queue] = None
 _worker_task: Optional[asyncio.Task] = None
 _recovery_task: Optional[asyncio.Task] = None
 _deferred_tasks: Dict[str, asyncio.Task] = {}
+_deferred_due: Dict[str, str] = {}
 _started = False
 _stopping = False
 
@@ -428,21 +428,23 @@ async def arm_deferred_timer(user_id: str, svc: Any = None) -> bool:
         return False
 
     delay = _seconds_until(when)
-    if delay is None or delay > MAX_DEFER_TIMER_SECONDS:
-        # Too far out to hold a live timer; a future boot will recover it.
+    if delay is None:
         return False
 
     existing = _deferred_tasks.get(user_id)
     if existing and not existing.done():
-        return False
+        if _deferred_due.get(user_id) == when:
+            return False
+        existing.cancel()
 
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:
         return False
 
+    _deferred_due[user_id] = when
     _deferred_tasks[user_id] = loop.create_task(
-        _deferred_wake(user_id, max(0.0, delay)), name=f"ora-defer-{user_id[:12]}"
+        _deferred_wake(user_id, min(MAX_DEFER_TIMER_SECONDS, max(0.0, delay))), name=f"ora-defer-{user_id[:12]}"
     )
     _stats["deferred_scheduled"] += 1
     return True
@@ -462,6 +464,7 @@ async def _deferred_wake(user_id: str, delay: float) -> None:
     except asyncio.CancelledError:
         return
     _deferred_tasks.pop(user_id, None)
+    _deferred_due.pop(user_id, None)
     if _stopping:
         return
     try:
@@ -471,6 +474,8 @@ async def _deferred_wake(user_id: str, delay: float) -> None:
         if await OrchestrationService(db).has_due_deferral(user_id):
             _stats["deferred_recovered"] += 1
             await schedule_user_reasoning(user_id, reason="deferred")
+        else:
+            await arm_deferred_timer(user_id)
     except Exception as exc:
         logger.info("deferred wake soft-fail: %s", type(exc).__name__)
 
@@ -600,6 +605,7 @@ async def stop_orchestrator() -> None:
         if task and not task.done():
             task.cancel()
     _deferred_tasks.clear()
+    _deferred_due.clear()
     _scheduled.clear()
     _active.clear()
     _redo.clear()

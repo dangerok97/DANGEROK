@@ -46,6 +46,16 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _retained_until(when: str) -> datetime:
+    moment = _now()
+    try:
+        due = datetime.fromisoformat(when)
+        due = due if due.tzinfo else due.replace(tzinfo=timezone.utc)
+    except (TypeError, ValueError):
+        due = moment
+    return max(moment, due) + timedelta(days=WAKE_RETENTION_DAYS)
+
+
 class AmbientRepository:
     def __init__(self, db):
         self.db = db
@@ -88,7 +98,7 @@ class AmbientRepository:
         """
         doc = wake.model_dump()
         doc["identity"] = wake.identity
-        doc["expires_at"] = _now() + timedelta(days=WAKE_RETENTION_DAYS)
+        doc["expires_at"] = _retained_until(wake.scheduled_for)
         try:
             await self.db[WAKES].insert_one(doc)
             return wake
@@ -102,6 +112,7 @@ class AmbientRepository:
         doc = await self.db[WAKES].find_one_and_update(
             {"id": wake_id},
             {"$set": {"scheduled_for": when, "status": "pending",
+                      "expires_at": _retained_until(when),
                       "claimed_at": None, "lease_until": None, "worker_id": "",
                       "updated_at": _now().isoformat()}},
             projection={"_id": 0},
@@ -121,6 +132,12 @@ class AmbientRepository:
         moment = now or _now()
         stamp = moment.isoformat()
         lease = (moment + timedelta(seconds=LEASE_SECONDS)).isoformat()
+
+        # Exhausted crashes must release the unique open identity too. Otherwise
+        # durable recovery can never arrange a fresh wake for still-due work.
+        await self.db[WAKES].update_many({"attempts": {"$gte": MAX_ATTEMPTS}, "$or": [
+            {"status": "pending"}, {"status": "claimed", "lease_until": {"$lt": stamp}},
+        ]}, {"$set": {"status": "failed", "updated_at": stamp, "last_error": "retry_limit"}})
 
         doc = await self.db[WAKES].find_one_and_update(
             {
@@ -149,9 +166,9 @@ class AmbientRepository:
         )
         return AmbientWake.model_validate(doc) if doc else None
 
-    async def complete(self, wake_id: str, *, result: str = "") -> None:
+    async def complete(self, wake_id: str, *, result: str = "", worker_id: str = "") -> None:
         await self.db[WAKES].update_one(
-            {"id": wake_id},
+            {"id": wake_id, "status": "claimed", **({"worker_id": worker_id} if worker_id else {})},
             {"$set": {
                 "status": "completed",
                 "completed_at": _now().isoformat(),
@@ -160,13 +177,14 @@ class AmbientRepository:
             }},
         )
 
-    async def release(self, wake_id: str, *, when: str, error: str = "") -> None:
+    async def release(self, wake_id: str, *, when: str, error: str = "", worker_id: str = "") -> None:
         """Put it back for later — a technical retry, not a new judgement."""
         await self.db[WAKES].update_one(
-            {"id": wake_id},
+            {"id": wake_id, "status": "claimed", **({"worker_id": worker_id} if worker_id else {})},
             {"$set": {
                 "status": "pending",
                 "scheduled_for": when,
+                "expires_at": _retained_until(when),
                 "claimed_at": None,
                 "lease_until": None,
                 "worker_id": "",
@@ -176,21 +194,23 @@ class AmbientRepository:
             }},
         )
 
-    async def fail(self, wake_id: str, *, error: str) -> None:
+    async def fail(self, wake_id: str, *, error: str, worker_id: str = "") -> None:
         await self.db[WAKES].update_one(
-            {"id": wake_id},
+            {"id": wake_id, "status": "claimed", **({"worker_id": worker_id} if worker_id else {})},
             {"$set": {"status": "failed", "last_error": error[:80],
                       "updated_at": _now().isoformat()}},
         )
 
     async def cancel_for(
-        self, owner_id: str, *, opportunity_id: str = "", plan_id: str = ""
+        self, owner_id: str, *, opportunity_id: str = "", plan_id: str = "", source_ref: str = ""
     ) -> int:
         query: Dict[str, Any] = {"owner_id": owner_id, "status": {"$in": list(OPEN)}}
         if opportunity_id:
             query["opportunity_id"] = opportunity_id
         if plan_id:
             query["delivery_plan_id"] = plan_id
+        if source_ref:
+            query["source_ref"] = source_ref
         result = await self.db[WAKES].update_many(
             query,
             {"$set": {"status": "cancelled", "updated_at": _now().isoformat()}},

@@ -213,6 +213,7 @@ async def one(opportunity_id: str, user=Depends(get_current_user)):
 
 class UpdateWorkIn(BaseModel):
     reply: str = Field(default='', max_length=2000)
+    question_revision: str = Field(default='', max_length=64)
 
 
 @router.get('/{opportunity_id}/work')
@@ -234,4 +235,4 @@ async def begin_update_work(opportunity_id: str, body: UpdateWorkIn, user=Depend
         raise HTTPException(404, 'unknown_opportunity')
     if found.status in ('dismissed', 'suppressed', 'resolved', 'expired'):
         raise HTTPException(409, 'Questo aggiornamento è già chiuso.')
-    return await update_work(db, user['user_id'], found, start=True, reply=body.reply.strip())
+    return await update_work(db, user['user_id'], found, start=True, reply=body.reply.strip(), question_revision=body.question_revision)
