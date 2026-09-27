@@ -341,7 +341,9 @@ async def run_cognitive_loop(
     )
 
     _t = time.perf_counter()
-    await report_activity(db, sess, "context", area="memory")
+    # Baseline account/context loading happens on every turn, not just memory
+    # conversations. Keep the map neutral until a meaningful signal exists.
+    await report_activity(db, sess, "context")
     context_facts = await broker.retrieve(
         user_id=sess.user_id,
         user_message=user_message,
@@ -624,6 +626,10 @@ async def run_cognitive_loop(
                 )
 
         last_decision = decision
+        await report_activity(
+            db, sess, "processing", area=decision.display_area, basis="topic",
+            keep_area=decision.display_area is None,
+        )
         if "repeated_clarification" in gov.errors:
             trace["repeated_question_prevented"] = int(
                 trace.get("repeated_question_prevented") or 0
@@ -2020,7 +2026,8 @@ async def run_cognitive_loop(
                 if step + 1 < max_steps:
                     continue
                 break
-            await report_activity(db, sess, "context", area="memory")
+            # Generic retrieval spans all life sources; it is not a memory tool.
+            await report_activity(db, sess, "context", keep_area=True)
             more = await broker.retrieve(
                 user_id=sess.user_id,
                 user_message=user_message,
@@ -2187,7 +2194,10 @@ async def run_cognitive_loop(
             # c'è lo strumento che sta davvero girando, scritto dove la chat
             # può leggerlo — e sparisce appena il turno finisce.
             await _say_what_is_happening(db, sess, what_is_happening(cap))
-            await report_activity(db, sess, "tool", area=CAPABILITY_AREAS.get(cap))
+            await report_activity(
+                db, sess, "tool", area=CAPABILITY_AREAS.get(cap), basis="tool",
+                keep_area=cap not in CAPABILITY_AREAS,
+            )
             obs = await tools.execute(
                 cap,
                 args,

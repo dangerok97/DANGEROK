@@ -1,3 +1,16 @@
+## 2026-09-27 — Focus di presenza: tema e capacità
+
+`CognitiveDecision.display_area` è un'etichetta opzionale solo per la UI,
+prodotta nella chiamata AI esistente e validata con allowlist fail-soft. Nessun
+routing, permesso, evidenza o azione dipende da questa etichetta. Telemetria
+owner/request-scoped con `basis=topic|tool`: Stage A neutro, Stage B e capacità
+generiche conservano il tema, capacità specifiche usano identità esatte.
+`search_my_life` e `get_profile_snapshot` non sono sinonimi di Memoria.
+Il frontend conserva il focus `done` per 4 s dalla ricezione (timer locale,
+chiave richiesta+sequenza); errore, ascolto o nuova richiesta lo interrompono.
+Il renderer ammette focus in idle senza battito di lavoro; poi torna al centro.
+Stesso renderer web/WebView, nessuna nuova dipendenza o migrazione.
+
 ## 2026-09-27 — Apertura esplicita nel passaggio Home → chat
 
 `startOraConversation` aggiunge `opening=1` solo dopo un nuovo `aiCoreStart`

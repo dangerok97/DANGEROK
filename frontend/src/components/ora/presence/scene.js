@@ -95,7 +95,7 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     const atmosphere=ctx.createRadialGradient(width*.49,height*.47,0,width*.5,height*.5,Math.max(width,height)*.55);atmosphere.addColorStop(0,palette.atmosphere);atmosphere.addColorStop(.60,palette.depth);atmosphere.addColorStop(1,palette.background);ctx.fillStyle=atmosphere;ctx.fillRect(0,0,width,height);
     dust.forEach(s=>{const x=(s.x*width+Math.sin(t*.04+s.phase)*9+width)%width,y=s.y*height;ctx.fillStyle='rgba('+palette.dust+','+(.09+s.z*.22)+')';ctx.beginPath();ctx.arc(x,y,.35+s.z*.6,0,Math.PI*2);ctx.fill();});
     const active=mode==='think'||mode==='speak';
-    activeHub=active?hubs.findIndex(h=>h.id===options.area):-1;
+    activeHub=hubs.findIndex(h=>h.id===options.area);
     // A small, broad double pulse: activity should feel alive without jolting the map.
     const beatPhase=(t%1.65)/1.65;
     const beat=active&&!options.reduced&&!options.paused?(Math.exp(-Math.pow((beatPhase-.16)/.085,2))+.38*Math.exp(-Math.pow((beatPhase-.37)/.105,2))):0;
@@ -168,11 +168,11 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
   }
   function moveCamera(dt,instant=false){
     const active=mode==='think'||mode==='speak';
-    activeHub=active?hubs.findIndex(h=>h.id===options.area):-1;
+    activeHub=hubs.findIndex(h=>h.id===options.area);
     const target=activeHub>=0?hubs[activeHub]:{x:0,y:0,z:0};
     const mix=instant?1:1-Math.exp(-dt*3.2);
     for(const axis of ['x','y','z'])camera[axis]+=(target[axis]*.82-camera[axis])*mix;
-    camera.zoom+=((active?(activeHub>=0?1.65:1.12):1)-camera.zoom)*mix;
+    camera.zoom+=((activeHub>=0?1.65:active?1.12:1)-camera.zoom)*mix;
   }
   function schedule(){if(!frame&&!destroyed&&!options.paused&&!options.reduced&&options.active&&visible&&inViewport)frame=requestAnimationFrame(tick);}
   function stop(){if(frame)cancelAnimationFrame(frame);frame=0;last=0;}

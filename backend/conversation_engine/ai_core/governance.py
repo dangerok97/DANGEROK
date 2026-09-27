@@ -414,6 +414,7 @@ def validate_decision(
 
         decision = CognitiveDecision(
             response_mode=mode,  # type: ignore[arg-type]
+            display_area=data.get("display_area"),
             user_intent_summary=str(data.get("user_intent_summary") or "")[:400],
             active_goal_summary=(
                 str(data["active_goal_summary"])[:400]

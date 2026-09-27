@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from context_graph.models import ContextEdgeUpdate
 from situations.models import SituationUpdate
 
@@ -243,6 +243,16 @@ class ActiveGoal(BaseModel):
 
 class CognitiveDecision(BaseModel):
     response_mode: ResponseMode = "answer"
+    # Decorative topic hint only; never used for routing, evidence or authority.
+    display_area: Optional[str] = None
+
+    @field_validator("display_area", mode="before")
+    @classmethod
+    def validate_display_area(cls, value):
+        from .activity import display_area
+
+        return display_area(value)
+
     user_intent_summary: str = ""
     active_goal_summary: Optional[str] = None
     reasoning_status: ReasoningStatus = "enough_information"

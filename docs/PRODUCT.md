@@ -1,3 +1,12 @@
+## 2026-09-27 — La mappa segue l'argomento corrente
+
+Eliminato il fuoco sistematico su Memoria: il caricamento iniziale del contesto
+resta neutro. La mappa può seguire il tema della conversazione anche senza
+strumenti (incluse Casa e Persone); durante una capacità specifica mostra la
+relativa area. Dopo una risposta rapida mantiene il fuoco per quattro secondi,
+poi torna alla vista completa. Nessuna attesa aggiunta alla risposta o alla voce.
+La spiegazione della mappa distingue un tema da una consultazione di dati.
+
 ## 2026-09-27 — Correzione apertura dal primo messaggio nella Home
 
 Il primo messaggio inviato dalla Home apre la rete anche se la sessione è già

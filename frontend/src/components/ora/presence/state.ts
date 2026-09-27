@@ -9,6 +9,7 @@ export type PresenceActivity = {
   request_id: string; sequence: number;
   phase: 'processing' | 'context' | 'tool' | 'done' | 'error';
   area: PresenceArea | null; touched: PresenceArea[]; updated_at: number;
+  basis?: 'topic' | 'tool' | null;
 };
 export function readPresenceActivity(value: unknown, requestId: string, previous: PresenceActivity | null = null, now = Date.now()): PresenceActivity | null {
   if (!value || typeof value !== 'object') return null;
@@ -19,8 +20,21 @@ export function readPresenceActivity(value: unknown, requestId: string, previous
   if (previous?.request_id === requestId && previous.sequence > a.sequence) return previous;
   return { request_id: requestId, sequence: a.sequence, phase: a.phase, updated_at: a.updated_at,
     area: a.area && Object.hasOwn(AREA_LABELS, a.area) ? a.area : null,
+    basis: a.basis === 'topic' || a.basis === 'tool' ? a.basis : null,
     touched: Array.isArray(a.touched) ? a.touched.filter(x => Object.hasOwn(AREA_LABELS, x)).slice(0, 8) : [],
   };
+}
+
+export const COMPLETED_FOCUS_MS = 4000;
+export function completionFocusKey(activity: PresenceActivity | null): string | null {
+  return activity?.phase === 'done' && activity.area ? `${activity.request_id}:${activity.sequence}` : null;
+}
+/** Fast replies may deliver their first meaningful focus with the answer. */
+export function presenceFocus(activity: PresenceActivity | null, mode: PresenceMode, expiredKey: string | null): PresenceArea | null {
+  if (!activity || activity.phase === 'error' || mode === 'listen') return null;
+  if (mode === 'think' || mode === 'speak') return activity.area;
+  const key = completionFocusKey(activity);
+  return key && key !== expiredKey ? activity.area : null;
 }
 export function presenceMode(busy: boolean, phase?: string): PresenceMode {
   if (phase === 'listening' || phase === 'asking') return 'listen';

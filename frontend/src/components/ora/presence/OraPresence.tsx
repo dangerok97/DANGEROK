@@ -3,7 +3,7 @@ import { AccessibilityInfo, AppState, Platform, Pressable, ScrollView, StyleShee
 import { Ionicons } from '@expo/vector-icons';
 import { presencePalette as palette, presenceColors } from '@/src/theme/presence';
 import { PresenceCanvas } from './PresenceCanvas';
-import { AREA_LABELS, AREA_DETAILS, AREA_IDS, type PresenceActivity, type PresenceMode, type PresenceNode } from './state';
+import { AREA_LABELS, AREA_DETAILS, AREA_IDS, COMPLETED_FOCUS_MS, completionFocusKey, presenceFocus, type PresenceActivity, type PresenceMode, type PresenceNode } from './state';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { openingSession } from './openingSession';
 
@@ -29,6 +29,13 @@ export function OraPresence({ mode = 'idle', activity = null, compact = false, a
   const [stageHeight, setStageHeight] = useState(windowHeight * .6);
   const [showConversation, setShowConversation] = useState(true);
   const [reading, setReading] = useState(false);
+  const [expiredFocus, setExpiredFocus] = useState<string | null>(null);
+  const completedFocus = completionFocusKey(activity);
+  useEffect(() => {
+    if (!completedFocus) return;
+    const timer = setTimeout(() => setExpiredFocus(completedFocus), COMPLETED_FOCUS_MS);
+    return () => clearTimeout(timer);
+  }, [completedFocus]);
   const fail = useCallback(() => setUnavailable(true), []);
   const select = useCallback((node: PresenceNode | null) => { setSelected(node); setInfo(false); setAreas(false); }, []);
   // A new working turn exposes its result even if the previous transcript was folded.
@@ -55,8 +62,7 @@ export function OraPresence({ mode = 'idle', activity = null, compact = false, a
   // A Home handoff already has its first message. Resolve its entrance before
   // mounting the canvas, so the first visible frame is a point, not a full map.
   const canvasReady = motionReady && (!openingKey || resolvedOpening === openingKey);
-  const working = mode === 'think' || mode === 'speak';
-  const area = working && activity?.phase !== 'error' ? activity?.area || null : null;
+  const area = presenceFocus(activity, mode, expiredFocus);
   const hasConversation = Boolean(conversation);
   const options = useMemo(() => ({ mode, area, paused, reduced, reveal: !!opening, revealKey: opening, active: active && foreground, selectedIndex: selected?.index ?? null, resetKey, centerY: expanded && hasConversation && showConversation ? .40 : .50 }), [mode, area, paused, reduced, opening, active, foreground, selected, resetKey, expanded, hasConversation, showConversation]);
   const caption = mode === 'listen' ? 'Ti ascolto' : mode === 'speak' ? 'Ti rispondo' : mode === 'think' ? 'Sto lavorando' : 'Sono qui';
@@ -94,7 +100,7 @@ export function OraPresence({ mode = 'idle', activity = null, compact = false, a
             <Text style={styles.note}>{selected.kind === 'connection' ? 'Collegamento visivo vicino a quest’area.' : 'Nodo illustrativo di quest’area.'} Non è un singolo dato personale.</Text>
             {activity?.touched.includes(selected.area) ? <Text style={styles.activity}>Area coinvolta nell’ultimo turno.</Text> : null}
             {onAreaPrompt ? <Pressable accessibilityRole="button" onPress={() => { onAreaPrompt(detail.prompt); setSelected(null); }} style={styles.promptButton}><Text style={styles.promptText}>Parliamone ↗</Text></Pressable> : null}
-          </> : <Text style={styles.detailText}>Le aree seguono le informazioni consultate e gli strumenti usati in questa conversazione. Punti e filamenti rappresentano visivamente i collegamenti; non sono i neuroni del modello. Trascina per ruotare, anche in pausa. Tocca un nodo per esplorarlo.</Text>}
+          </> : <Text style={styles.detailText}>Le aree seguono il tema della conversazione e gli strumenti usati. Un’area illuminata può indicare l’argomento di cui parliamo: non significa che ORA abbia consultato dati personali. Punti e filamenti sono una rappresentazione visiva, non i neuroni del modello. Trascina per ruotare, anche in pausa. Tocca un nodo per esplorarlo.</Text>}
         </ScrollView>
       </View> : null}
       {conversation && !tight ? <View style={styles.transcriptPosition} pointerEvents="box-none">

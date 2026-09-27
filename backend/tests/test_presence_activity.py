@@ -8,6 +8,103 @@ from conversation_engine.models import ConversationSession, StartBody, MessageBo
 from conversation_engine.ai_core.activity import CAPABILITY_AREAS, report_activity, read_activity
 from conversation_engine.ai_core.orchestrator import AICoreOrchestrator
 
+
+@pytest.mark.asyncio
+async def test_real_loop_changes_topic_without_defaulting_to_memory_or_extra_ai_calls():
+    from conversation_engine.ai_core.loop import run_cognitive_loop
+    from conversation_engine.ai_core.activity import public_activity
+    sess = ConversationSession(user_id="synthetic-owner", meta={"ui_mode": "ai_core", "ai_core": {}})
+    # Same session, new requests and subjects. No tool calls or external effects.
+    for index, area in enumerate(("home", "people", "calendar", "places", "documents", "finances", "calls", "memory", None)):
+        sess.meta["activity_request_id"] = f"request-{index}"
+        await report_activity(None, sess, "processing", reset=True)
+        observed = []
+        async def decide(system, user):
+            observed.append(public_activity(sess.meta))
+            return {"response_mode": "answer", "message_to_user": "Risposta sintetica.", "display_area": area}
+        result = await run_cognitive_loop(sess=sess, user_message="Esempio inventato.", db=None, decision_fn=decide)
+        await report_activity(None, sess, "done", keep_area=True)
+        assert result.ok and result.ai_calls == 1 and result.tool_calls == 0
+        assert len(observed) == 1 and observed[0]["area"] is None
+        signal = public_activity(sess.meta)
+        assert signal["area"] == area
+        assert signal["basis"] == ("topic" if area else None)
+        assert signal["touched"] == ([area] if area else [])
+        assert "Esempio" not in str(signal)
+
+
+@pytest.mark.parametrize("value", ["unknown", "MEMORIA", {}, [], 42])
+def test_bad_visual_hint_never_invalidates_a_conversation_decision(value):
+    from conversation_engine.ai_core.governance import validate_decision
+    from conversation_engine.ai_core.models import CognitiveDecision
+    from conversation_engine.ai_core.tool_registry import ToolRegistry
+    payload = {"response_mode": "answer", "message_to_user": "Risposta.", "display_area": value}
+    assert CognitiveDecision.model_validate(payload).display_area is None
+    result = validate_decision(payload, tools=ToolRegistry(None))
+    assert result.ok and result.decision.display_area is None
+
+
+@pytest.mark.asyncio
+async def test_topic_and_real_tool_are_distinct_and_cannot_cross_requests():
+    sess = ConversationSession(user_id="synthetic-owner", meta={"activity_request_id": "one"})
+    await report_activity(None, sess, "processing", area="home", basis="topic")
+    await report_activity(None, sess, "tool", area=CAPABILITY_AREAS["read_document"], basis="tool")
+    assert sess.meta["presence_activity"]["area"] == "documents"
+    assert sess.meta["presence_activity"]["basis"] == "tool"
+    assert sess.meta["presence_activity"]["touched"] == ["home", "documents"]
+    sess.meta["activity_request_id"] = "two"
+    await report_activity(None, sess, "processing", keep_area=True)
+    assert sess.meta["presence_activity"]["area"] is None
+    assert sess.meta["presence_activity"]["touched"] == []
+    assert CAPABILITY_AREAS.get("search_my_life") is None
+    assert CAPABILITY_AREAS.get("get_profile_snapshot") is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("capability,expected", [("search_life_memory", "memory"), ("search_my_life", "home")])
+async def test_real_loop_uses_tool_identity_without_mislabeling_generic_retrieval(monkeypatch, capability, expected):
+    import conversation_engine.ai_core.loop as mod
+    from conversation_engine.ai_core.models import Observation
+    sess = ConversationSession(user_id="synthetic-owner", meta={"activity_request_id": "request-tools"})
+    executed = []
+    async def execute(self, cap, args, runtime):
+        executed.append((cap, dict(sess.meta["presence_activity"])))
+        return Observation(kind="tool", name=cap, status="ok", payload={"facts": []})
+    monkeypatch.setattr(mod.ToolRegistry, "execute", execute)
+    decisions = [
+        {"response_mode": "tool", "display_area": "home", "tool_call": {"capability": capability, "arguments": {"query": "esempio casa"}}},
+        {"response_mode": "answer", "message_to_user": "Nessuna informazione disponibile."},
+    ]
+    async def decide(system, user):
+        return decisions.pop(0)
+    result = await mod.run_cognitive_loop(sess=sess, user_message="Esempio inventato.", db=None, decision_fn=decide)
+    assert result.ok and result.ai_calls == 2 and result.tool_calls == 1
+    assert len(executed) == 1 and executed[0][0] == capability
+    signal = executed[0][1]
+    assert signal["phase"] == "tool" and signal["area"] == expected
+    assert signal["basis"] == ("tool" if expected == "memory" else "topic")
+
+
+@pytest.mark.asyncio
+async def test_targeted_context_retains_the_topic_instead_of_forcing_memory(monkeypatch):
+    import conversation_engine.ai_core.loop as mod
+    sess = ConversationSession(user_id="synthetic-owner", meta={"activity_request_id": "request-context"})
+    signals = []
+    async def record(db, session, phase, **kwargs):
+        await report_activity(db, session, phase, **kwargs)
+        signals.append(dict(session.meta["presence_activity"]))
+    monkeypatch.setattr(mod, "report_activity", record)
+    decisions = [
+        {"response_mode": "context", "display_area": "people", "context_query": "esempio relazione"},
+        {"response_mode": "answer", "display_area": "people", "message_to_user": "Nessuna informazione disponibile."},
+    ]
+    async def decide(system, user):
+        return decisions.pop(0)
+    result = await mod.run_cognitive_loop(sess=sess, user_message="Esempio inventato.", db=None, decision_fn=decide)
+    assert result.ok and result.ai_calls == 2 and result.context_calls == 2  # baseline + targeted
+    assert [s["area"] for s in signals if s["phase"] == "context"] == [None, "people"]
+    assert all(s["area"] != "memory" for s in signals)
+
 @pytest.mark.asyncio
 async def test_first_request_is_visible_without_session_id_and_is_owner_scoped():
     db = FintoDb()

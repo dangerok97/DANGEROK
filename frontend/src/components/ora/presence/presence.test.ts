@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
-import { readPresenceActivity, presenceMode, readPresenceNode, AREA_IDS, AREA_DETAILS } from './state.ts';
+import { readPresenceActivity, presenceMode, readPresenceNode, AREA_IDS, AREA_DETAILS, completionFocusKey, presenceFocus } from './state.ts';
 import { sceneSource } from './sceneSource.ts';
 const now = Date.now();
 const activity = { request_id: 'turn-a', sequence: 2, phase: 'tool', area: 'calendar', touched: ['memory', 'calendar'], updated_at: now / 1000 };
@@ -24,6 +24,23 @@ test('listening, processing, actual speech and idle are distinct states', () => 
   assert.equal(presenceMode(false, 'preparing'), 'think');
   assert.equal(presenceMode(false, 'speaking'), 'speak');
   assert.equal(presenceMode(false, 'blocked'), 'idle');
+});
+test('completed focus remains visible until expiry, then releases; new turns do not inherit it', () => {
+  for (const area of AREA_IDS) {
+    const done = readPresenceActivity({ ...activity, phase: 'done', area, basis: 'topic' }, 'turn-a', null, now)!;
+    const key = completionFocusKey(done);
+    assert.equal(presenceFocus(done, 'idle', null), area);
+    assert.equal(presenceFocus(done, 'idle', key), null);
+    assert.equal(presenceFocus(done, 'speak', key), area, 'speech retains focus even after the visual hold');
+    assert.equal(presenceFocus(done, 'listen', null), null);
+    assert.equal(presenceFocus({ ...done, phase: 'error' }, 'think', null), null);
+    const next = { ...done, request_id: 'turn-b' };
+    assert.equal(presenceFocus(next, 'idle', key), area, 'same topic in another turn gets a fresh hold');
+    assert.equal(presenceFocus({ ...next, phase: 'processing', area: null }, 'think', key), null);
+    assert.equal(done.basis, 'topic');
+  }
+  assert.equal(presenceFocus(null, 'think', null), null);
+  assert.equal(readPresenceActivity({ ...activity, basis: 'secret source' }, 'turn-a', null, now)?.basis, null);
 });
 test('native embeds the exact renderer, independent of Metro helper closures', () => {
   assert.equal(sceneSource, readFileSync(new URL('./scene.js', import.meta.url), 'utf8').replace('export function createPresenceScene', 'function createPresenceScene'));

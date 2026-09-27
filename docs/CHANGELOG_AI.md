@@ -1,3 +1,12 @@
+## 2026-09-27 — Fix: tutte le conversazioni ingrandivano Memoria
+
+Baseline neutra e tema visivo opzionale (otto aree), senza seconda chiamata AI.
+Ricerca generica non equivale più a Memoria; strumenti specifici conservano
+segnali propri. Nuova richiesta azzera il tema precedente. Breve permanenza
+finale rende visibili anche le risposte veloci, senza ritardarle. Copy della
+mappa aggiornato per non confondere tema e dati consultati. Test sul loop reale,
+valori malformati, cambio tema, isolamento, camera, voce e apertura sessioni.
+
 ## 2026-09-27 — Fix: espansione saltata entrando dalla Home
 
 Il messaggio della Home precede la navigazione: ora porta un flag di apertura

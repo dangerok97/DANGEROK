@@ -104,7 +104,20 @@ test('camera approaches the real selected area smoothly and returns to standby',
   assert.equal(h.scene.snapshot().activeHub, 5);
   assert.ok(h.scene.snapshot().camera.zoom > 1.6);
   assert.ok(h.scene.snapshot().camera.x > .6);
-  h.scene.update({ mode: 'idle' }); h.frames(150);
+  h.scene.update({ mode: 'idle', area: null }); h.frames(150);
+  assert.equal(h.scene.snapshot().activeHub, -1);
+  assert.ok(Math.abs(h.scene.snapshot().camera.zoom - 1) < .001);
+  h.scene.destroy();
+});
+test('a fast completed reply can focus each topic in idle, then release it', () => {
+  const h = harness();
+  const areas = ['memory', 'calendar', 'people', 'places', 'home', 'documents', 'finances', 'calls'];
+  for (const [index, area] of areas.entries()) {
+    h.scene.update({ mode: 'idle', area }); h.frames(120);
+    assert.equal(h.scene.snapshot().activeHub, index);
+    assert.ok(h.scene.snapshot().camera.zoom > 1.6);
+  }
+  h.scene.update({ area: null }); h.frames(150);
   assert.equal(h.scene.snapshot().activeHub, -1);
   assert.ok(Math.abs(h.scene.snapshot().camera.zoom - 1) < .001);
   h.scene.destroy();

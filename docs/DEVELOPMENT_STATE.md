@@ -1,3 +1,16 @@
+## 2026-09-27 — Fix del fuoco bloccato su Memoria
+
+Riprodotto nel browser autenticato: domanda inventata sulle pareti di una casa,
+ma stato «Sto lavorando · Memoria». Causa: baseline e recupero mirato marcati
+sempre come memory, Casa/Persone prive di segnale, risposta finale e idle nello
+stesso aggiornamento UI. Correzione: tema opzionale nella risposta AI esistente,
+baseline neutra, strumenti specifici distinti, permanenza finale di 4 s.
+Verifiche locali: frontend 49 test PASS, TypeScript/lint ed export web/iOS PASS.
+Backend: 36 test presenza e core nativo PASS; compileall PASS.
+Due test legacy `test_ai_native_tools_v22` falliscono anche sul checkout pulito
+precedente a615e58: sources web_search e parola vietata in commento calendar.
+Non alterati. Pubblicazione e prove browser della correzione ancora da chiudere.
+
 ## 2026-09-27 — Hotfix apertura della rete: pubblicato e verificato
 
 Segnalazione utente: l'espansione da un punto non funziona. Il precedente
