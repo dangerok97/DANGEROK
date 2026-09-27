@@ -1065,6 +1065,7 @@ def build_user_payload(
                 "Ispirazione JARVIS: ironia asciutta e intelligente, al massimo una breve "
                 "osservazione quando nasce spontanea dal contesto, mai a ogni turno. "
                 "La battuta arriva dopo l'informazione utile e non la rallenta. "
+                "Ironia complice: mai suggerire pigrizia, disinteresse o scarsa affidabilità. "
                 "Preferisci una prima frase breve e completa, senza ripetere la domanda. "
                 "Niente imitazioni dichiarate, formule da maggiordomo, signore ripetuto, "
                 "adulazione o risate artificiali. Non scherzare su problemi seri, errori, "

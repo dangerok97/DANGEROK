@@ -1,3 +1,26 @@
+## 2026-09-27 — Streaming verificato sul provider reale
+
+Backend 03a0da82244ef0f142cee5a64409c011a6d086b1, deploy
+58b36023-8c3d-43bf-9ca8-d1dfd9ae9fb1 SUCCESS. Gemini 3.1 streaming e Algieba
+funzionano con le credenziali esistenti. Tre frasi sintetiche complete:
+83/167/152 blocchi PCM, durata audio 3,32/6,68/6,08 s; marker done ricevuto.
+Log server: primo PCM 1026/632/641 ms; un quarto turno 631 ms.
+Completamento sintesi 1694/3210/2527 ms. Il primo PCM precede la fine effettiva.
+
+Distinguere tempi server e client di prova: il client remoto misura primi PCM
+9,23/6,65/7,61 s; la connessione di prova aggiunge vari secondi anche a /health
+(6–9 s dal client contro 6 ms Railway). Nessuna scorciatoia all'autenticazione.
+Prova di turno canonico, input testuale con response_channel=voice: Railway
+1507 ms per la risposta, provider primo PCM 631 ms; client totale 16,02 s.
+Non dichiarare quindi 0,6 s dal microfono all'altoparlante o latenza zero.
+La validazione reale di sintesi e trasporto è riuscita; playback fisico e
+riconoscimento sul dispositivo dell'utente non sono stati misurati.
+
+Voce originale, nessuna replica. Ironia resa complice e utile, senza frasi che
+suggeriscano pigrizia o inaffidabilità. Web progressivo da attivare sul commit
+verificato. Configurazione Railway, volumi e preDeployCommand=[] invariati.
+Nessuna telefonata a persone. Account sintetico e frasi sintetiche per i probe.
+
 Verifiche streaming locali: 25 test backend PASS, 21 runtime frontend e 42 guardie voce PASS; TypeScript, lint senza errori ed export web PASS.
 
 ## 2026-09-27 — Voce originale più morbida e audio progressivo
