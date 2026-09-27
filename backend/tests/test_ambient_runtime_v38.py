@@ -57,6 +57,21 @@ async def _db():
     return client, client[DBNAME]
 
 
+@pytest.fixture(autouse=True)
+def isolated_ambient_database(monkeypatch):
+    # tick() serves every owner. Separate test clocks/providers must not race
+    # over a shared queue; concurrency inside each test still uses one real DB.
+    monkeypatch.setattr(sys.modules[__name__], "DBNAME", f"ora_test_ambient_{uuid.uuid4().hex}")
+    yield
+    async def remove_fixture_database():
+        client, database = await _db()
+        try:
+            await client.drop_database(database.name)
+        finally:
+            client.close()
+    _run(remove_fixture_database())
+
+
 async def _clean(db, uid):
     for coll in (
         "ambient_wakes", "push_endpoints", "app_presence", "delivery_plans",

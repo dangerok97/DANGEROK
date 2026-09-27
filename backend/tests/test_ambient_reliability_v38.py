@@ -56,6 +56,21 @@ async def _db():
     return client, client[DBNAME]
 
 
+@pytest.fixture(autouse=True)
+def isolated_ambient_database(monkeypatch):
+    # Recovery and tick operate on the whole queue, including other owners.
+    # Each synthetic test therefore owns its database, not just its user ID.
+    monkeypatch.setattr(sys.modules[__name__], "DBNAME", f"ora_test_recovery_{uuid.uuid4().hex}")
+    yield
+    async def remove_fixture_database():
+        client, database = await _db()
+        try:
+            await client.drop_database(database.name)
+        finally:
+            client.close()
+    _run(remove_fixture_database())
+
+
 async def _clean(db, uid):
     for coll in (
         "ambient_wakes", "ambient_locks", "ambient_fallback_state", "ambient_activity",
