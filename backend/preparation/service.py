@@ -70,6 +70,9 @@ async def start(
     chiave = request_key_for(owner_id, frase)
     esistente = await by_key(db, chiave)
     if esistente is not None:
+        had_conflicts = bool(esistente.identity_conflicts)
+        if await _check_identity(db, esistente) or had_conflicts:
+            return await _settle(db, esistente, operation)
         return esistente, ""
 
     from telephone.mission import kind_of_request, the_message_in
@@ -120,6 +123,7 @@ async def look_around(
     prep.known_context = frasi
     prep.context_refs = refs
 
+    await _check_identity(db, prep)
     prep = await evaluate(db, prep, operation=_op(prep, operation))
     prep = _rebuild_the_brief(prep, _op(prep, operation))
     await save(db, prep)
@@ -243,11 +247,13 @@ async def _the_person_said_it(
     prep.contact_candidates = [prep.selected_contact]
     prep.number_source = "user"
     prep.contact_identity = identita
+    if not prep.counterparty:
+        prep.counterparty = chi
+    if await _check_identity(db, prep):
+        return prep
     prep.number_confirmed = True
     prep.number_rejected = False
     prep.number_trust = "confirmed_now"
-    if not prep.counterparty:
-        prep.counterparty = chi
     if di_chi:
         await trust.confirm(
             db, owner_id=prep.owner_id, identity=identita, display_name=chi,
@@ -319,6 +325,8 @@ async def confirm_number(
     if yes:
         if c is None:
             return prep, "non c'è nessun numero da confermare"
+        if await _check_identity(db, prep):
+            return await _settle(db, prep, operation)
         identita = prep.contact_identity or c.contact_identity or _identity_of(
             prep.counterparty or c.name)
         await trust.confirm(
@@ -417,7 +425,7 @@ async def set_contact_number(
     from preparation import trust
 
     prep, perche = await change_number(db, prep, number=number, operation=operation)
-    if perche:
+    if perche or prep.identity_conflicts:
         return prep, perche
     c = prep.selected_contact
     await trust.confirm(
@@ -433,10 +441,83 @@ async def set_contact_number(
 async def _settle(
     db, prep: MissionPreparation, operation: str,
 ) -> Tuple[MissionPreparation, str]:
+    await _check_identity(db, prep)
     prep = await evaluate(db, prep, operation=_op(prep, operation))
     prep = _rebuild_the_brief(prep, _op(prep, operation))
     await save(db, prep)
     return prep, ""
+
+
+async def _check_identity(db, prep: MissionPreparation) -> bool:
+    from preparation.trust import identity_conflicts
+
+    c = prep.selected_contact
+    conflicts = await identity_conflicts(
+        db, prep.owner_id, prep.contact_identity or c.contact_identity or c.name,
+        c.number,
+    ) if c else []
+    if conflicts != prep.identity_conflicts:
+        prep.identity_conflict_shown_in = ""
+    prep.identity_conflicts = conflicts
+    if conflicts:
+        prep.number_confirmed = False
+        prep.number_trust = ""
+        prep.conversation_ready = False
+        prep.summary_shown_in = ""
+    return bool(conflicts)
+
+
+async def resolve_identity_conflict(
+    db, prep: MissionPreparation, *, resolution: str, operation: str = "",
+) -> Tuple[MissionPreparation, str]:
+    """An explicit correction or shared number, after showing the conflict."""
+    from preparation import trust
+
+    if resolution not in ("replace", "shared"):
+        return prep, "dimmi se correggere l'associazione o se il numero è condiviso"
+    shown = list(prep.identity_conflicts)
+    await _check_identity(db, prep)
+    if not shown or prep.identity_conflicts != shown:
+        # Another preparation may have changed the claims while the dialog
+        # was open. Show the new state before accepting any correction.
+        return await _settle(db, prep, operation)
+    c = prep.selected_contact
+    identity = prep.contact_identity or c.contact_identity or trust.identity_of(c.name)
+    others = [row["identity"] for row in shown]
+    await trust.confirm(
+        db, owner_id=prep.owner_id, identity=identity, display_name=c.name,
+        number=c.number, kind=c.kind, source="user",
+        source_detail="associazione chiarita da te",
+        shared_with=others if resolution == "shared" else [],
+    )
+    for other in shown:
+        if resolution == "replace":
+            await trust.remember_seen(
+                db, owner_id=prep.owner_id, identity=other["identity"],
+                display_name=other["name"], number=c.number, source=other["source"],
+            )
+            await trust.retire(
+                db, owner_id=prep.owner_id, identity=other["identity"], number=c.number,
+                why=f"hai chiarito che il numero è di {c.name}",
+            )
+        else:
+            previous = await db[trust.TRUSTED].find_one({
+                "_id": trust.key_for(prep.owner_id, other["identity"], c.number),
+            })
+            shared = (set((previous or {}).get("shared_with") or [])
+                      | {identity} | set(others)) - {other["identity"]}
+            await trust.confirm(
+                db, owner_id=prep.owner_id, identity=other["identity"],
+                display_name=other["name"], number=c.number, source="user",
+                source_detail="numero condiviso confermato da te", shared_with=sorted(shared),
+            )
+    prep.identity_conflicts = []
+    prep.identity_conflict_shown_in = ""
+    prep.number_confirmed = True
+    prep.number_rejected = False
+    prep.number_trust = "confirmed_now"
+    prep.summary_shown_in = ""
+    return await _settle(db, prep, operation)
 
 
 def _identity_of(nome: str) -> str:
@@ -563,6 +644,9 @@ async def turn_into_a_call(
     a parte, e passa dalla porta di sempre.
     """
     operation = _op(prep, operation)
+    if await _check_identity(db, prep):
+        await _settle(db, prep, operation)
+        return None, prep.readiness_says
     if not prep.can_become_a_call():
         manca = []
         if not prep.number_confirmed or not prep.number_trust:
@@ -602,7 +686,15 @@ async def turn_into_a_call(
         if existing is not None and existing.state in (
             "authorised", "dialling", "talking"
         ):
-            return existing, ""
+            if (existing.state != "authorised" or (
+                existing.to_number == contatto.number
+                and _identity_of(existing.calling_whom) == _identity_of(contatto.name)
+            )):
+                return existing, ""
+            # The person changed the contact while the call was prepared.
+            # Never reuse an authorised call addressed to the previous target.
+            await telephone.mark(existing, "expired")
+            prep.call_id = ""
 
     riassunto = prep.mission_brief or il_riassunto.build(prep, operation=operation)
     consegna = operation == "deliver_message" and bool(prep.message_to_deliver)
@@ -722,6 +814,7 @@ def as_a_card(prep: MissionPreparation) -> Dict[str, Any]:
         #     PERCHÉ QUEL NUMERO SI PUÒ USARE, DETTO A UNA PERSONA.
         "number_note": _why_this_number(prep),
         "number_conflict": bool(prep.number_conflict),
+        "identity_conflicts": list(prep.identity_conflicts),
         "what_ora_knows": list(prep.known_context),
         #     IL MESSAGGIO DA CONSEGNARE, CON LE PAROLE DI CHI LO MANDA.
         # La schermata lo rilegge prima del via libera: è l'ultima occasione
@@ -786,6 +879,8 @@ def _what_you_can_answer(prep: MissionPreparation) -> List[str]:
     Mostrare un pulsante che non serve è chiedere una decisione a chi non ne
     deve prendere nessuna.
     """
+    if prep.identity_conflicts:
+        return ["resolve_identity", "give_number"]
     if prep.number_rejected:
         return ["give_number"]
     if prep.selected_contact is None and len(prep.contact_candidates) > 1:

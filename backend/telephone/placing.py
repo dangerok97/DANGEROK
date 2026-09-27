@@ -40,6 +40,27 @@ async def dial(
         await service.mark(call, "expired")
         return None, "questa telefonata era stata preparata troppo tempo fa: preparala di nuovo"
 
+    # Check again at the last shared gate, including calls prepared through
+    # older/direct APIs. New information can arrive after the summary.
+    from preparation.trust import conflict_message, identity_conflicts, identity_of
+
+    try:
+        conflicts = await identity_conflicts(
+            db, owner_id, identity_of(call.calling_whom), call.to_number,
+        )
+    except Exception:
+        logger.exception("contact identity could not be checked before dialing")
+        return None, "Non riesco a verificare a chi appartiene il numero. Riprova prima di chiamare."
+    if conflicts:
+        if (call.session_ref or "").startswith("prep_"):
+            from preparation.preparation import by_id
+            from preparation.service import _settle
+
+            prep = await by_id(db, owner_id, call.session_ref)
+            if prep:
+                await _settle(db, prep, prep.operation)
+        return None, conflict_message(call.to_number, call.calling_whom, conflicts)
+
     permission = await service.may_i_call(owner_id)
     if permission["denied"]:
         return None, "aveva già detto di no alle telefonate"

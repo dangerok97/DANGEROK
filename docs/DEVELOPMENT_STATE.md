@@ -1,3 +1,27 @@
+## 2026-09-27 — Discordanza Francesco/Asia sullo stesso numero
+
+Richiesta utente: ricordare che un numero attribuito prima a Francesco e poi ad
+Asia richiede chiarimento. Implementata ricerca inversa owner-scoped, avviso e
+risoluzione esplicita (correzione/condivisione/altro numero) in preparazione e chat.
+Ricontrollo prima della composizione anche per chiamate già preparate. Registri
+storici conservati; nessuna telefonata reale avviata durante lo sviluppo.
+
+95 test mirati locali PASS, inclusi 16 nuovi casi di regressione; suite telefonica
+più ampia con 289 PASS prima degli ultimi casi aggiunti e quattro fixture HTTP
+rimandate alla CI con Mongo. TypeScript, lint sui componenti UI modificati,
+guardia ciclo chiamate, compileall e build web PASS. Nessuna nuova dipendenza o
+chiave. Due indici non unici e campi opzionali; nessuna migrazione distruttiva.
+Pubblicazione e prova API cloud registrate nel checkpoint di ripresa.
+
+## 2026-09-27 — Riquadro chiamate in ORA
+
+Richiesta successiva: rendere le chiamate visibili anche nell'ingresso ORA.
+OraWelcome aggiunge «Una chiamata per te», con accesso alla preparazione.
+Su correzione esplicita dell'utente, nessuna scorciatoia duplicata alla cronologia.
+Riusata la route esistente; nessuna nuova dipendenza, configurazione o modifica
+al backend/DB. Le prove telefoniche reali restano rinviate; questa modifica
+non avvia telefonate. Verifiche e pubblicazione nel checkpoint di ripresa.
+
 ## 2026-09-27 — Ripresa V3.22: Vita, iniziativa e luoghi
 
 Base verificata: `23f06a6`, backend e frontend Railway SUCCESS, predeploy vuoto,

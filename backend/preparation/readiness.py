@@ -162,6 +162,13 @@ def _anything_that_blocks(prep: MissionPreparation) -> Optional[Tuple[str, str]]
 
         SENZA UN NUMERO NON C'È NIENTE DA PREPARARE.
     """
+    if prep.identity_conflicts and prep.selected_contact:
+        from preparation.trust import conflict_message
+
+        return ("AMBIGUOUS", conflict_message(
+            prep.selected_contact.number, prep.selected_contact.name,
+            prep.identity_conflicts,
+        ))
     if prep.number_rejected:
         return ("BLOCKED",
                 "Mi hai detto che il numero non è quello giusto: "

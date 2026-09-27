@@ -114,6 +114,10 @@ async def _one_pass(db, quale: str) -> int:
                     [("owner_id", 1), ("authorised_at", -1), ("id", -1)])
                 await db["phone_calls"].create_index(
                     [("owner_id", 1), ("status_reads", 1), ("authorised_at", -1)])
+                await db["phone_calls"].create_index(
+                    [("owner_id", 1), ("to_number", 1), ("state", 1)])
+                await db["trusted_numbers"].create_index(
+                    [("owner_id", 1), ("phone_number", 1)])
             except Exception as e:  # pragma: no cover
                 logger.info("indici delle telefonate non creati: %s", type(e).__name__)
             await write_how_they_read(db)

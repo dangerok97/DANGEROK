@@ -1215,6 +1215,16 @@ class ToolRegistry:
                                 "Their answer to «È questo il numero corretto?»."
                             ),
                         },
+                        "identity_resolution": {
+                            "type": "string",
+                            "enum": ["replace", "shared"],
+                            "description": (
+                                "Only after showing a same-number/different-person conflict: "
+                                "replace if the user explicitly corrects who owns it, shared "
+                                "if they explicitly say both people use it. A generic yes is "
+                                "not enough. Never combine this with go_ahead."
+                            ),
+                        },
                         "choose_number": {
                             "type": "string",
                             "description": "Which of several numbers they picked.",

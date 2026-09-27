@@ -96,7 +96,8 @@ async def prepare_a_phone_call(
     # del numero e il riassunto da leggere prima del sì. Resta diretto solo il
     # percorso di sempre — un numero e una ragione, senza messaggio.
     if (arguments.get("preparation_id") or arguments.get("message")
-            or arguments.get("counterparty") or not arguments.get("to_number")):
+            or arguments.get("counterparty") or arguments.get("calling_whom")
+            or not arguments.get("to_number")):
         return await _through_the_preparation(arguments, runtime, db, uid)
 
     try:
@@ -250,6 +251,7 @@ async def _through_the_preparation(
         change_number,
         choose_contact,
         confirm_number,
+        resolve_identity_conflict,
         turn_into_a_call,
     )
 
@@ -266,7 +268,7 @@ async def _through_the_preparation(
 
         #     LA RICHIESTA E' QUELLA SCRITTA, NON QUELLA RIASSUNTA.
         richiesta = detto.strip() or " ".join(filter(None, (
-            f"chiama {arguments.get('counterparty') or ''}".strip(),
+            f"chiama {arguments.get('counterparty') or arguments.get('calling_whom') or ''}".strip(),
             str(arguments.get("why_calling") or ""),
         )))
         numero = str(arguments.get("to_number") or "").strip()
@@ -275,7 +277,7 @@ async def _through_the_preparation(
         messaggio = the_message_in(detto) or str(arguments.get("message") or "")
         _plan, prep, perche = await plan_a_request(
             db, owner_id=uid, user_request=richiesta,
-            counterparty=str(arguments.get("counterparty") or ""),
+            counterparty=str(arguments.get("counterparty") or arguments.get("calling_whom") or ""),
             operation=str(arguments.get("operation") or ""),
             goal=str(arguments.get("why_calling") or ""),
             message=messaggio,
@@ -285,7 +287,15 @@ async def _through_the_preparation(
 
     #     LE RISPOSTE DELLA PERSONA, UNA PER VOLTA.
     rifiutato = ""
-    if arguments.get("choose_number"):
+    resolution = str(arguments.get("identity_resolution") or "")
+    if resolution:
+        if (not prep.identity_conflict_shown_in
+                or prep.identity_conflict_shown_in == _this_turn(runtime)
+                or _identity_resolution_in(detto, prep) != resolution):
+            rifiutato = "serve un chiarimento esplicito dopo aver mostrato il conflitto sul numero"
+        else:
+            prep, rifiutato = await resolve_identity_conflict(db, prep, resolution=resolution)
+    elif arguments.get("choose_number"):
         prep, rifiutato = await choose_contact(
             db, prep, number=str(arguments.get("choose_number")))
     elif arguments.get("give_number"):
@@ -306,7 +316,7 @@ async def _through_the_preparation(
     chiamata = ""
     gia_partita = False
     turno = _this_turn(runtime)
-    if arguments.get("go_ahead"):
+    if arguments.get("go_ahead") and not resolution:
         if not prep.summary_shown_in or prep.summary_shown_in == turno:
             #     PRIMA SI LEGGE IL RIASSUNTO, POI SI DICE SÌ.
             # Un sì dato prima di aver visto il riassunto — o nello stesso
@@ -325,8 +335,11 @@ async def _through_the_preparation(
 
             gia = await TelephoneService(db).get(uid, prep.call_id)
             if gia is not None and gia.state == "authorised":
-                fatta, rifiutato = await _dial_from_the_chat(db, uid, gia, runtime)
+                fatta, rifiutato = await turn_into_a_call(db, prep, operation=prep.operation)
+                if fatta is not None and not rifiutato:
+                    fatta, rifiutato = await _dial_from_the_chat(db, uid, fatta, runtime)
                 chiamata = fatta.id if fatta is not None and not rifiutato else ""
+                carta = as_a_card(prep)
             else:
                 chiamata, gia_partita = prep.call_id, True
         elif not prep.can_become_a_call():
@@ -342,6 +355,9 @@ async def _through_the_preparation(
             rifiutato = perche
             carta = as_a_card(prep)
 
+    if carta.get("identity_conflicts") and not prep.identity_conflict_shown_in:
+        prep.identity_conflict_shown_in = turno
+        await save(db, prep)
     if carta["ready"] and not chiamata and not prep.summary_shown_in:
         #     DA QUI IN POI IL RIASSUNTO E' STATO DETTO.
         prep.summary_shown_in = turno
@@ -370,6 +386,7 @@ async def _through_the_preparation(
             "candidates": carta["candidates"],
             "number_confirmed": carta["number_confirmed"],
             "number_note": carta["number_note"],
+            "identity_conflicts": carta["identity_conflicts"],
             "question": carta["question"],
             "summary": carta["summary"] or None,
             "not_accepted": rifiutato or None,
@@ -398,6 +415,8 @@ def _the_sentence(carta: Dict[str, Any], preparata: bool,
         if gia_partita:
             return f"Sto già chiamando{a_chi}: ti dico com'è andata appena finisce."
         return f"Sto chiamando{a_chi}… Ti dico com'è andata appena finisce."
+    if carta.get("identity_conflicts"):
+        return carta["says"]
     if carta["ready"]:
         #     «VUOI CHE CHIAMI FRANCESCO?», NON «VUOI CHE LA CHIAMI?».
         # Il genere di chi si chiama non lo sappiamo: il nome sì.
@@ -458,6 +477,12 @@ def _what_to_say_now(carta: Dict[str, Any], preparata: bool) -> str:
     if preparata:
         return intera + ("La telefonata è partita adesso: non dire com'è "
                          "andata, lo saprai quando finisce.")
+    if carta.get("identity_conflicts"):
+        name = (carta.get("contact") or {}).get("name") or "questa persona"
+        return (intera + "Fermati: non confermare il numero e non chiamare. "
+                f"Chiedi di rispondere ‘correggi: è di {name}’ oppure ‘è condiviso’. "
+                "Solo nel turno successivo usa identity_resolution=replace o shared "
+                "secondo la risposta esplicita, oppure give_number per un numero diverso.")
     if carta["ready"]:
         return (intera + "Poi fermati e aspetta la sua risposta: in questo turno "
                 "non richiamare lo strumento. Solo quando, nel messaggio "
@@ -472,6 +497,26 @@ def _what_to_say_now(carta: Dict[str, Any], preparata: bool) -> str:
         return (intera + "Poi richiama con preparation_id e answer con la "
                 "sua risposta.")
     return intera + "Se ti dà un numero, richiama con give_number."
+
+
+def _identity_resolution_in(text: str, prep) -> str:
+    """The model cannot turn a generic yes into a contact reassignment."""
+    import re
+    from preparation.trust import identity_of
+
+    message = identity_of(text)
+    if re.search(r"\b(non|no|forse)\b", message) or "?" in text:
+        return ""
+    if any(part in message for part in ("è condiviso", "numero condiviso", "lo usano entrambi")):
+        return "shared"
+    name = identity_of(prep.selected_contact.name if prep.selected_contact else "")
+    named = bool(name and re.search(r"(?:^| )" + re.escape(name) + r"(?: |$)", message))
+    if "correggi" in message and named:
+        return "replace"
+    if named and (f"è di {name}" in message or f"appartiene a {name}" in message
+                 or f"appartiene ad {name}" in message):
+        return "replace"
+    return ""
 
 
 async def _tie_it_to_something(

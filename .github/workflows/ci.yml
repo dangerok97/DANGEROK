@@ -136,6 +136,8 @@ jobs:
             tests/test_post_call_recovery_v322.py \
             tests/test_post_call_application_v315.py \
             tests/test_mission_preparation_v3201.py \
+            tests/test_contact_trust_v3201_final.py \
+            tests/test_phone_identity_conflict.py \
             -x
 
   frontend-tsc:

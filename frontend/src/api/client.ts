@@ -570,6 +570,8 @@ export type MissionPreparation = {
   number_note: string;
   /** Due numeri per la stessa persona, e uno era già confermato. */
   number_conflict: boolean;
+  /** Same number previously associated with a different person. */
+  identity_conflicts?: { identity: string; name: string; version: string; source: string }[];
   /** Quello che ORA sapeva già, e che quindi non ha chiesto. */
   what_ora_knows: string[];
   /** Il messaggio da consegnare, con le parole di chi lo manda. */
@@ -670,6 +672,12 @@ export const api = {
     request<{ ok: boolean; preparation: MissionPreparation }>(
       `/preparation/${id}/change-number`,
       { method: 'POST', body: JSON.stringify({ number, operation }) },
+    ),
+
+  resolvePreparationIdentity: (id: string, resolution: 'replace' | 'shared') =>
+    request<{ ok: boolean; preparation: MissionPreparation }>(
+      `/preparation/${id}/resolve-identity`,
+      { method: 'POST', body: JSON.stringify({ resolution }) },
     ),
 
   answerPreparation: (id: string, text: string, opts?: { field?: string; operation?: string }) =>
@@ -3883,4 +3891,3 @@ export type CallTranscriptResponse = {
   /** Why there is nothing to read, when there is nothing to read. */
   why_empty: string;
 };
-

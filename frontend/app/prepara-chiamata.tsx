@@ -49,6 +49,7 @@ export default function PreparaChiamata() {
       try {
         const res = await azione();
         setPrep(res.preparation);
+        setChiamata('');
         setRisposta('');
         setAltroNumero('');
         setCambio(false);
@@ -120,7 +121,16 @@ export default function PreparaChiamata() {
     };
 
     void avvia()
-      .catch((e: unknown) => setErrore(humanizeError(e)))
+      .catch(async (e: unknown) => {
+        setErrore(humanizeError(e));
+        try {
+          const fresh = await api.readPreparation(prep.preparation_id);
+          setPrep(fresh.preparation);
+          setChiamata('');
+        } catch {
+          // Keep the original error visible if the refresh also fails.
+        }
+      })
       .finally(() => setInCorso(''));
   }, [prep, inCorso, chiamata, router]);
 
@@ -216,7 +226,7 @@ export default function PreparaChiamata() {
           {prep ? (
             <>
               {/* ---- 1 · chi ho trovato, e da dove ---- */}
-              <Passo numero={1} titolo="Contatto trovato" sottotitolo={prep.contact ? `Ho trovato ${nome} nella tua rubrica.` : prep.status_label}>
+              <Passo numero={1} titolo={prep.identity_conflicts?.length ? 'Verifichiamo il contatto' : 'Contatto trovato'} sottotitolo={prep.contact ? prep.contact.source_label : prep.status_label}>
                 {prep.contact ? (
                   <View style={styles.contattoRiga} testID="prep-contact">
                     <Avatar name={nome} size={56} />
@@ -288,6 +298,30 @@ export default function PreparaChiamata() {
                         </Text>
                       </Pressable>
                     ))}
+                  </View>
+                ) : null}
+
+                {puo('resolve_identity') ? (
+                  <View style={styles.blocco} testID="prep-identity-conflict">
+                    <Text style={[oraType.section, { color: ora.ink }]}>Questo numero era associato a un altro nome</Text>
+                    <Text accessibilityRole="alert" style={[oraType.body, { color: ora.ink2 }]}>{prep.says}</Text>
+                    <View style={styles.riga}>
+                      <OraButton
+                        label={`Correggi: è di ${nome}`}
+                        testID="prep-identity-replace"
+                        busy={inCorso === 'identity-replace'}
+                        disabled={!!inCorso}
+                        onPress={() => void fai('identity-replace', () => api.resolvePreparationIdentity(prep.preparation_id, 'replace'))}
+                      />
+                      <OraButton
+                        label="È un numero condiviso"
+                        kind="quiet"
+                        testID="prep-identity-shared"
+                        busy={inCorso === 'identity-shared'}
+                        disabled={!!inCorso}
+                        onPress={() => void fai('identity-shared', () => api.resolvePreparationIdentity(prep.preparation_id, 'shared'))}
+                      />
+                    </View>
                   </View>
                 ) : null}
 

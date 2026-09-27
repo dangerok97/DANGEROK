@@ -211,6 +211,24 @@ async def answer(
     return {"ok": True, "preparation": as_a_card(prep)}
 
 
+@router.post("/{preparation_id}/resolve-identity")
+async def resolve_identity(
+    preparation_id: str,
+    payload: Dict[str, Any] = Body(default={}),
+    user: dict = Depends(get_current_user),
+) -> Dict[str, Any]:
+    from preparation.service import as_a_card, resolve_identity_conflict
+
+    prep = await _mine(user, preparation_id)
+    prep, reason = await resolve_identity_conflict(
+        db, prep, resolution=str(payload.get("resolution") or ""),
+    )
+    if reason:
+        raise HTTPException(400, reason)
+    await _tell_the_plan(prep)
+    return {"ok": True, "preparation": as_a_card(prep)}
+
+
 @router.post("/{preparation_id}/prepare-call")
 async def prepare_call(
     preparation_id: str,

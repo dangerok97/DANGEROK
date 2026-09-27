@@ -45,6 +45,27 @@ export function OraWelcome({ children, onPrompt }: { children: React.ReactNode; 
             <Text style={[styles.caption, { color: colors.textTertiary }]}>Puoi scegliere uno spunto qui sotto e modificarlo prima di inviarlo.</Text>
           </View>
           <Text style={[styles.eyebrow, { color: colors.textTertiary, marginTop: 12 }]}>DA DOVE COMINCIAMO?</Text>
+          <View style={[styles.callCard, { backgroundColor: colors.surface, borderColor: colors.border }]} testID="ora-calls">
+            <View style={styles.callHeading}>
+              <View style={[styles.callIcon, { backgroundColor: colors.backgroundSecondary }]}>
+                <Ionicons name="call-outline" size={24} color={colors.accent} />
+              </View>
+              <View style={styles.callCopy}>
+                <Text accessibilityRole="header" style={[styles.callTitle, { color: colors.textPrimary }]}>Una chiamata per te</Text>
+                <Text style={[styles.cardDetail, { color: colors.textSecondary }]}>Scegli chi contattare e cosa chiedere. Prepariamo la telefonata, poi dai tu il via.</Text>
+              </View>
+            </View>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Prepara una chiamata con ORA"
+                onPress={() => router.push('/prepara-chiamata' as any)}
+                testID="ora-prepare-call"
+                style={({ pressed }) => [styles.callButton, { alignSelf: compact ? 'stretch' : 'flex-start', backgroundColor: colors.accent, opacity: pressed ? 0.8 : 1 }]}
+              >
+                <Text style={[styles.callButtonText, { color: colors.onAccent }]}>Prepara una chiamata</Text>
+                <Ionicons name="arrow-forward" size={18} color={colors.onAccent} />
+              </Pressable>
+          </View>
           <View style={styles.grid}>
             {STARTERS.map(item => (
               <Pressable key={item.title} accessibilityRole="button" accessibilityLabel={`Prepara una richiesta: ${item.title}`} onPress={() => onPrompt(item.text)} style={({ pressed }) => [styles.card, { width: compact ? '100%' : '48.5%', backgroundColor: pressed ? colors.backgroundSecondary : colors.surface, borderColor: colors.border }]}>
@@ -76,6 +97,13 @@ const styles = StyleSheet.create({
   body: { fontSize: 16, lineHeight: 24, textAlign: 'center', maxWidth: 480 },
   composer: { padding: 14, borderRadius: 24, borderWidth: StyleSheet.hairlineWidth, gap: 12 },
   caption: { fontSize: 12, lineHeight: 18, textAlign: 'center' },
+  callCard: { borderRadius: 20, borderWidth: StyleSheet.hairlineWidth, padding: 20, gap: 18 },
+  callHeading: { flexDirection: 'row', alignItems: 'flex-start', gap: 14 },
+  callIcon: { width: 48, height: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  callCopy: { flex: 1, gap: 6 },
+  callTitle: { fontSize: 20, lineHeight: 26, fontWeight: '600' },
+  callButton: { minHeight: 48, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
+  callButtonText: { fontSize: 14, lineHeight: 20, fontWeight: '600', flexShrink: 1 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 14 },
   card: { borderRadius: 20, borderWidth: StyleSheet.hairlineWidth, padding: 20, gap: 8, minHeight: 150 },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },

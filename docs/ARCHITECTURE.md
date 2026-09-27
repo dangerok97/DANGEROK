@@ -1,3 +1,26 @@
+## 2026-09-27 — Verifica inversa identità/numero
+
+preparation.trust.identity_conflicts legge le associazioni dello stesso owner per
+numero normalizzato, incluse dichiarazioni utente e chiamate storiche anteriori
+al registro. Stati stale/rejected prevalgono sulla storia. MissionPreparation
+persiste identity_conflicts; readiness e can_become_a_call bloccano fino al
+chiarimento esplicito replace/shared. La route resolve-identity verifica che
+l'insieme mostrato non sia cambiato. shared_with richiede riconoscimento reciproco.
+
+La chat riporta la frase di conflitto completa; il chiarimento deve arrivare in
+un turno successivo e non può anche avviare la chiamata. turn_into_a_call e
+telephone.placing.dial rileggono le associazioni: un errore di lettura non consente
+la composizione. La UI ricarica la preparazione se il blocco emerge tardi. Un cambio
+destinatario/numero invalida la chiamata preparata precedente invece di riutilizzarla.
+Campi opzionali compatibili con record precedenti; indici non unici owner+numero
+su trusted_numbers e owner+numero+stato su phone_calls, nel bootstrap esistente.
+
+## 2026-09-27 — Accesso alle chiamate da ORA
+
+OraWelcome apre /prepara-chiamata, riusando preparazione e conferma esistenti.
+La cronologia resta nella sua sezione. Nessuna chiamata API telefonica dal
+riquadro; pulsante a larghezza piena su schermi compatti.
+
 ## 2026-09-27 — Collegamento profilo e sorveglianza alla discovery
 
 `upsert_fact` segnala mutazioni confirmed/corrected al ChangeLog con un hash del
@@ -3078,4 +3101,3 @@ Questo dimostra soltanto la fixture negativa, non precisione generale di
 opportunità o comportamento dell'account personale. Il comando temporaneo di
 predeploy è stato riportato a [] dopo la prova. Restano da verificare gli altri
 due domini con il controllo di fattibilità introdotto nello stesso SHA.
-

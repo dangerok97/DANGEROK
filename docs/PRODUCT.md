@@ -1,3 +1,19 @@
+## 2026-09-27 — Un numero associato a persone diverse
+
+Se un numero indicato per Asia era già stato associato a Francesco dallo stesso
+utente, ORA espone la discordanza prima di chiamare. La persona può correggere
+l'associazione, dichiarare che il numero è condiviso oppure fornire un altro
+numero. Un «sì» generico non risolve la discordanza. Correggere conserva la storia
+e rende obsoleta la vecchia associazione; i numeri condivisi chiariti non generano
+lo stesso avviso a ogni chiamata. La conferma finale della telefonata resta distinta.
+
+## 2026-09-27 — Chiamate nell'ingresso ORA
+
+Il riquadro «Una chiamata per te» nella schermata iniziale ORA apre la preparazione
+della telefonata. La cronologia resta nella sezione Chiamate già esistente, come
+richiesto dall'utente. Numero, richiesta e riepilogo passano dal flusso esistente;
+la telefonata parte solo con il via esplicito.
+
 ## 2026-09-27 — Vita che alimenta l'iniziativa
 
 Le risposte confermate del profilo diventano contesto citabile per la revisione
@@ -1243,4 +1259,3 @@ Questo dimostra soltanto la fixture negativa, non precisione generale di
 opportunità o comportamento dell'account personale. Il comando temporaneo di
 predeploy è stato riportato a [] dopo la prova. Restano da verificare gli altri
 due domini con il controllo di fattibilità introdotto nello stesso SHA.
-

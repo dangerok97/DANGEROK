@@ -81,6 +81,8 @@ class TrustedNumber(BaseModel):
     confirmed_by_user: bool = False
     confirmed_at: str = Field(default="", max_length=40)
     status: Status = "active"
+    # Other identities explicitly acknowledged as sharing this number.
+    shared_with: List[str] = Field(default_factory=list)
     # Perché non è più attivo, detto a una persona.
     status_says: str = Field(default="", max_length=200)
     discovered_at: str = Field(default_factory=now_iso)
@@ -157,6 +159,71 @@ async def still_trusted(db, owner_id: str, identity: str, number: str) -> bool:
         return False
 
 
+async def identity_conflicts(
+    db, owner_id: str, identity: str, number: str,
+) -> List[Dict[str, str]]:
+    """Reverse lookup, owner-scoped. A failed read must never mean no conflict."""
+    from preparation.contacts import _clean_number
+
+    number = _clean_number(number)
+    identity = identity_of(identity)
+    if not number or not identity or identity == "questo numero":
+        return []
+    rows = await db[TRUSTED].find(
+        {"owner_id": owner_id, "phone_number": number}, {"_id": 0},
+    ).to_list(length=None)
+    known = {r["contact_identity"]: r for r in rows if r.get("contact_identity")}
+    current = known.get(identity, {})
+    shared = set(current.get("shared_with") or []) if (
+        current.get("status") == "active" and current.get("confirmed_by_user")
+    ) else set()
+    conflicts: Dict[str, Dict[str, str]] = {}
+    for other, row in known.items():
+        if other == identity or other == "questo numero":
+            continue
+        if row.get("status") != "active" or not (
+            row.get("confirmed_by_user") or row.get("source") == "user"
+        ):
+            continue
+        if other in shared and identity in (row.get("shared_with") or []):
+            continue
+        conflicts[other] = {
+            "identity": other, "name": str(row.get("display_name") or other),
+            "version": str(row.get("confirmed_at") or row.get("discovered_at") or ""),
+            "source": "confirmed" if row.get("confirmed_by_user") else "user",
+        }
+    # Older calls may predate the trust register. Retired/rejected pairs in
+    # the register take precedence over historical calls, so corrections stick.
+    calls = await db["phone_calls"].find(
+        {"owner_id": owner_id, "to_number": number,
+         "state": {"$in": ["dialling", "talking", "ended", "failed"]}},
+        {"_id": 0, "calling_whom": 1, "id": 1},
+    ).to_list(length=None)
+    for call in calls:
+        name = str(call.get("calling_whom") or "")[:160]
+        other = identity_of(name)
+        if not other or other in (identity, "questo numero") or other in conflicts:
+            continue
+        previous = known.get(other, {})
+        if previous and (previous.get("status") in ("stale", "rejected")
+                         or previous.get("confirmed_by_user")):
+            continue
+        conflicts.setdefault(other, {
+            "identity": other, "name": name,
+            "version": str(call.get("id") or ""), "source": "past_call",
+        })
+    return [conflicts[key] for key in sorted(conflicts)]
+
+
+def conflict_message(number: str, name: str, conflicts: List[Dict[str, str]]) -> str:
+    names = ", ".join(c["name"][:45] for c in conflicts[:2])
+    if len(conflicts) > 2:
+        names += " e altri"
+    return (f"Il numero {number} era associato a {names}. "
+            f"Ora lo indichi per {name[:50]}. "
+            "È una correzione o un numero condiviso?")
+
+
 # ---------------------------------------------------------------------------
 # Scrivere — e ognuna di queste funzioni si può chiamare due volte
 # ---------------------------------------------------------------------------
@@ -166,6 +233,7 @@ async def confirm(
     db, *, owner_id: str, identity: str, display_name: str, number: str,
     kind: str = "unknown", source: str = "", source_detail: str = "",
     source_url: str = "",
+    shared_with: Optional[List[str]] = None,
 ) -> TrustedNumber:
     """
     Una persona ha detto «sì, è questo». Da adesso la coppia è affidabile.
@@ -188,11 +256,16 @@ async def confirm(
                 f"sostituito il {_oggi()} da un altro numero che hai confermato",
             )
 
+    previous = await db[TRUSTED].find_one(
+        {"_id": key_for(owner_id, identity, number)}, {"_id": 0},
+    )
     record = TrustedNumber(
         owner_id=owner_id, contact_identity=identity,
         display_name=display_name or identity, phone_number=number, kind=kind,
         source=source, source_detail=source_detail, source_url=source_url,
         confirmed_by_user=True, confirmed_at=adesso, status="active",
+        shared_with=(shared_with if shared_with is not None else
+                     list((previous or {}).get("shared_with") or [])),
         last_seen_at=adesso, updated_at=adesso,
     )
     await _upsert(db, record, keep_first_seen=True)

@@ -155,6 +155,9 @@ class MissionPreparation(BaseModel):
     #     DUE NUMERI PER LA STESSA PERSONA, E UNO ERA GIÀ CONFERMATO.
     # Non si sceglie da soli e non si sovrascrive: si mostrano tutti e due.
     number_conflict: bool = False
+    # Same number, different people: requires a specific clarification.
+    identity_conflicts: List[Dict[str, str]] = Field(default_factory=list)
+    identity_conflict_shown_in: str = Field(default="", max_length=120)
 
     # --- che cosa ORA sa già ----------------------------------------------
     # Fatti già in mano, in italiano: «la partita è venerdì alle 20:30». Ogni
@@ -205,6 +208,7 @@ class MissionPreparation(BaseModel):
         """
         return (
             bool(self.number_confirmed)
+            and not self.identity_conflicts
             and not self.number_rejected
             and self.number_trust in ("trusted", "confirmed_now")
             and bool(self.contact_identity)

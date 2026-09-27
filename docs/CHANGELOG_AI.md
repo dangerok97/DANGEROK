@@ -1,3 +1,20 @@
+## 2026-09-27 — Discordanze tra nome e numero nelle chiamate
+
+- Confronto con associazioni e chiamate precedenti dello stesso utente; avviso
+  persistente con i due nomi e blocco fino a chiarimento.
+- Correzione esplicita conserva la vecchia associazione come stale; condivisione
+  riconosciuta per entrambe le identità. Nessun riutilizzo automatico del nuovo nome.
+- Controllo ripetuto prima di preparare/comporre; la UI recupera il nuovo avviso.
+- 16 nuove regressioni: persistenza, isolamento, normalizzazione, correzione,
+  condivisione, nuove informazioni, chat e divieto di raggiungere il carrier.
+
+## 2026-09-27 — Chiamate accessibili dalla schermata ORA
+
+- Riquadro dedicato per preparare una telefonata. Cronologia nella sezione già
+  esistente, senza accesso duplicato in ORA, su indicazione dell'utente.
+- Pulsante da almeno 48 px, a larghezza piena su mobile, colori del tema esistente.
+- Riutilizzati i flussi di preparazione e conferma; nessuna telefonata avviata.
+
 ## 2026-09-27 — Ripresa: risposte Vita utilizzabili e accesso ai luoghi
 
 - Riparati conteggio condizionale, risposte «non so», correzione di fatti già
