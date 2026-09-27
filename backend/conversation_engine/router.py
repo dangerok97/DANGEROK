@@ -154,6 +154,7 @@ async def ai_core_start(body: StartBody, user=Depends(get_current_user)):
         object_id=body.object_id,
         opportunity_id=body.opportunity_id,
         attachments=list(body.attachments or []),
+        activity_request_id=body.activity_request_id,
     )
     if not res.get("ok") and res.get("error"):
         _raise(res)
@@ -170,6 +171,7 @@ async def ai_core_message(session_id: str, body: MessageBody, user=Depends(get_c
         session_id,
         text=body.text or "",
         attachments=list(body.attachments or []),
+        activity_request_id=body.activity_request_id,
         client_message_id=getattr(body, "client_message_id", None),
     )
     if not res.get("ok") and res.get("error"):
@@ -196,6 +198,15 @@ async def ai_core_client_resume(
     if not res.get("ok") and res.get("error"):
         _raise(res)
     return res
+
+
+@router.get("/ai-core/requests/{request_id}/progress")
+async def ai_core_request_progress(request_id: str, user: dict = Depends(get_current_user)):
+    from conversation_engine.ai_core.activity import read_activity
+
+    if not request_id or len(request_id) > 64:
+        return {"ok": True, "activity": None, "working_on": ""}
+    return await read_activity(db, user["user_id"], request_id)
 
 
 @router.get("/ai-core/{session_id}/progress")

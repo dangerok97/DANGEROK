@@ -1,3 +1,14 @@
+## 2026-09-27 — ORA Presenza, rete 3D collegata a chat e voce
+
+- Integrato il renderer approvato, con rotazione in standby, focus progressivo
+  sull'area consultata e doppio battito durante il lavoro; riquadro stabile.
+- Segnale minimale owner-scoped anche al primo messaggio, con correlazione,
+  sequenze, scadenza e chiusura su errore; unico percorso AI Core preservato.
+- Voce con stessa rete e interruzione esplicita; pausa, reduced motion,
+  sospensione in background e fallback senza bloccare i messaggi.
+- Regressioni su isolamento, primo turno, messaggi, client-resume, segnali tardivi,
+  zoom/rientro, cleanup e identità del renderer nativo. CI aggiornata.
+
 ## 2026-09-27 — Discordanze tra nome e numero nelle chiamate
 
 - Confronto con associazioni e chiamate precedenti dello stesso utente; avviso

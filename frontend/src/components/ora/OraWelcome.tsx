@@ -1,7 +1,6 @@
 import type React from 'react';
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/src/theme/ThemeProvider';
 import { tokens } from '@/src/theme/tokens';
@@ -28,12 +27,7 @@ export function OraWelcome({ children, onPrompt }: { children: React.ReactNode; 
             </Pressable>
           </View>
           <View style={styles.hero}>
-            <View style={[styles.orbit, { borderColor: colors.border, backgroundColor: colors.surface }]} accessibilityElementsHidden>
-              <LinearGradient colors={[colors.accent, colors.textPrimary]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.core}>
-                <Ionicons name="sparkles" size={29} color={colors.onAccent} />
-              </LinearGradient>
-            </View>
-            <Text accessibilityRole="header" style={[styles.title, { color: colors.textPrimary, fontSize: compact ? 34 : 46, lineHeight: compact ? 41 : 54 }]}>
+            <Text accessibilityRole="header" style={[styles.title, { color: colors.textPrimary, fontSize: compact ? 24 : 30, lineHeight: compact ? 31 : 38 }]}>
               Una cosa in meno{ '\n' }a cui pensare.
             </Text>
             <Text style={[styles.body, { color: colors.textSecondary }]}>
@@ -86,13 +80,11 @@ export function OraWelcome({ children, onPrompt }: { children: React.ReactNode; 
   );
 }
 const styles = StyleSheet.create({
-  root: { flex: 1 }, inner: { flexGrow: 1, paddingTop: 28, gap: 20, maxWidth: 880, width: '100%', alignSelf: 'center' },
+  root: { flex: 1 }, inner: { flexGrow: 1, paddingTop: 4, gap: 16, maxWidth: 880, width: '100%', alignSelf: 'center' },
   topline: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' },
   lifeLink: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 },
   eyebrow: { fontSize: 11, fontWeight: '600', letterSpacing: 1.4 },
   hero: { alignItems: 'center', paddingTop: 16, paddingBottom: 12, gap: 18 },
-  orbit: { width: 88, height: 88, borderRadius: 44, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  core: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center' },
   title: { fontWeight: '600', letterSpacing: -1.2, textAlign: 'center' },
   body: { fontSize: 16, lineHeight: 24, textAlign: 'center', maxWidth: 480 },
   composer: { padding: 14, borderRadius: 24, borderWidth: StyleSheet.hairlineWidth, gap: 12 },

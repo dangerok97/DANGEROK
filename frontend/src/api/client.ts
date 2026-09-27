@@ -737,6 +737,10 @@ export const api = {
    * del tasto, sul riassunto che si sta leggendo.
    */
   /** Che cosa sta facendo ORA adesso in questa conversazione, se lo sta facendo. */
+  aiCoreRequestProgress: (requestId: string) =>
+    request<{ ok: boolean; activity?: unknown; working_on: string }>(
+      `/conversation/ai-core/requests/${encodeURIComponent(requestId)}/progress`,
+    ),
   aiCoreProgress: (sessionId: string) =>
     request<{ ok: boolean; working_on: string }>(
       `/conversation/ai-core/${sessionId}/progress`,
@@ -1296,6 +1300,7 @@ export const api = {
   /** AI Core — production ORA runtime (also used by DEV /ora-ai harness) */
   aiCoreStart: (body: {
     text?: string;
+    activity_request_id?: string;
     origin?: string;
     entry_point?: string;
     plan_id?: string;
@@ -1345,6 +1350,7 @@ export const api = {
         mime_type?: string;
       }>;
       client_message_id?: string;
+      activity_request_id?: string;
     },
   ) =>
     request<{

@@ -7,6 +7,7 @@ import uuid
 from typing import Any, Dict, Optional
 
 from conversation_engine.ai_core.loop import DecisionFn, run_cognitive_loop
+from conversation_engine.ai_core.activity import public_activity, report_activity
 from conversation_engine.ai_core import state as state_mod
 from conversation_engine.models import ConversationSession, new_session_id
 from conversation_engine.repository import ConversationRepository
@@ -56,6 +57,17 @@ class AICoreOrchestrator:
         self.repo = ConversationRepository(db)
         self.decision_fn = decision_fn
 
+    async def _observed_turn(self, **kwargs):
+        sess = kwargs["sess"]
+        await report_activity(self.db, sess, "processing", reset=not kwargs.get("resume_client", False))
+        phase = "error"
+        try:
+            result = await run_cognitive_loop(**kwargs)
+            phase = "error" if result.error else "done"
+            return result
+        finally:
+            await report_activity(self.db, sess, phase, keep_area=True)
+
     async def start(
         self,
         user_id: str,
@@ -67,6 +79,7 @@ class AICoreOrchestrator:
         object_id: Optional[str] = None,
         opportunity_id: Optional[str] = None,
         attachments: Optional[list] = None,
+        activity_request_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         text = (text or "").strip()
         attachments = list(attachments or [])
@@ -99,6 +112,7 @@ class AICoreOrchestrator:
                 "ui_mode": "ai_core",
                 "ai_core": {},
                 "entry_point": ep,
+                "activity_request_id": activity_request_id,
             },
         )
         if opportunity_id:
@@ -154,7 +168,7 @@ class AICoreOrchestrator:
                 else {"message_id": user_mid}
             ),
         )
-        result = await run_cognitive_loop(
+        result = await self._observed_turn(
             sess=sess,
             user_message=user_msg,
             db=self.db,
@@ -324,6 +338,7 @@ class AICoreOrchestrator:
         *,
         text: str,
         attachments: Optional[list] = None,
+        activity_request_id: Optional[str] = None,
         client_message_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         text = (text or "").strip()
@@ -335,6 +350,8 @@ class AICoreOrchestrator:
             return {"ok": False, "error": "not_found"}
         if sess.status in ("completed", "cancelled"):
             return {"ok": False, "error": "session_closed"}
+
+        sess.meta["activity_request_id"] = activity_request_id
 
         # Bind attachments before cognition (ownership enforced)
         bound: list = []
@@ -387,7 +404,7 @@ class AICoreOrchestrator:
             except Exception as e:  # pragma: no cover
                 logger.info("open questions not closed: %s", type(e).__name__)
 
-        result = await run_cognitive_loop(
+        result = await self._observed_turn(
             sess=sess,
             user_message=user_msg,
             db=self.db,
@@ -453,7 +470,7 @@ class AICoreOrchestrator:
         st["client_actions_completed"] = list(completed or [])[-8:]
         state_mod.save_ai_state(sess, st)
 
-        result = await run_cognitive_loop(
+        result = await self._observed_turn(
             sess=sess,
             user_message=pending,
             db=self.db,
@@ -571,6 +588,7 @@ class AICoreOrchestrator:
             # Come arrivarci, confrontato: la chat lo disegna come modulo.
             "journey": dict(getattr(result, "journey", None) or {}),
             "working_hint": getattr(result, "working_hint", None),
+            "activity": public_activity(sess.meta),
             "client_actions": actions,
             "pending_turn": pending,
             "trace": result.trace,

@@ -276,6 +276,8 @@ _ADAPT_CLAIM_RE = re.compile(
     r")\b"
 )
 
+from conversation_engine.ai_core.activity import CAPABILITY_AREAS, report_activity
+
 DecisionFn = Callable[[str, str], Awaitable[Dict[str, Any]]]
 
 
@@ -322,6 +324,7 @@ async def run_cognitive_loop(
     )
 
     _t = time.perf_counter()
+    await report_activity(db, sess, "context", area="memory")
     context_facts = await broker.retrieve(
         user_id=sess.user_id,
         user_message=user_message,
@@ -329,6 +332,7 @@ async def run_cognitive_loop(
         stage="A",
         session_id=sess.id,
     )
+    await report_activity(db, sess, "processing", keep_area=True)
     _fase("context", _t)
     # Merge temporary current_facts (do not overwrite durable Profile)
     context_facts = merge_context_with_current(context_facts, st)
@@ -1991,6 +1995,7 @@ async def run_cognitive_loop(
                 if step + 1 < max_steps:
                     continue
                 break
+            await report_activity(db, sess, "context", area="memory")
             more = await broker.retrieve(
                 user_id=sess.user_id,
                 user_message=user_message,
@@ -2000,6 +2005,7 @@ async def run_cognitive_loop(
                 stage="B",
                 session_id=sess.id,
             )
+            await report_activity(db, sess, "processing", keep_area=True)
             trace["context_calls"] = int(trace.get("context_calls") or 0) + 1
             existing = {f.ref or f.statement or f.fact for f in context_facts}
             for f in more:
@@ -2154,6 +2160,7 @@ async def run_cognitive_loop(
             # c'è lo strumento che sta davvero girando, scritto dove la chat
             # può leggerlo — e sparisce appena il turno finisce.
             await _say_what_is_happening(db, sess, what_is_happening(cap))
+            await report_activity(db, sess, "tool", area=CAPABILITY_AREAS.get(cap))
             obs = await tools.execute(
                 cap,
                 args,
@@ -2175,6 +2182,7 @@ async def run_cognitive_loop(
                     "pending_act": (st.get("pending_act") or None),
                 },
             )
+            await report_activity(db, sess, "processing", keep_area=True)
             _fase("tools", _t)
             tool_calls += 1
             trace["tool_calls"] = tool_calls

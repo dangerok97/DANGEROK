@@ -1,3 +1,17 @@
+## 2026-09-27 — Presenza tridimensionale in ORA
+
+La rete approvata dall'utente entra nella conversazione scritta e vocale.
+In attesa ruota lentamente; durante il lavoro la vista si avvicina all'area
+consultata e pulsa con un doppio battito. A turno concluso torna gradualmente
+alla visione d'insieme. Il riquadro resta stabile e la conversazione scorre sotto.
+Ascolto, elaborazione e voce seguono gli stati effettivi del flusso esistente.
+
+Il focus rappresenta strumenti e contesto realmente consultati. Punti e filamenti
+sono una rappresentazione visiva, non neuroni del modello né relazioni personali
+verificate: il pannello Info lo spiega. Una capacità non mappata resta generica;
+Casa e Persone non si attivano solo perché nominate nel testo. Pausa e riduci
+movimento sono rispettati; la voce conserva un pulsante esplicito per interrompere.
+
 ## 2026-09-27 — Un numero associato a persone diverse
 
 Se un numero indicato per Asia era già stato associato a Francesco dallo stesso

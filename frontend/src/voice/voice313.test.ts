@@ -555,24 +555,22 @@ test('§4 se la risposta non arriva non si ritenta all’infinito', () => {
 // Il movimento, per chi ne ha chiesto di meno
 // ---------------------------------------------------------------------------
 
-test('§2 chi ha chiesto meno movimento non trova niente che pulsa', () => {
+test('§2 la presenza condivisa rispetta meno movimento anche nella voce', () => {
   const screenFile = readCode(LIVE_SCREEN);
-  assert.ok(/prefers-reduced-motion/.test(screenFile), 'la preferenza non viene letta');
-  assert.ok(/isReduceMotionEnabled/.test(screenFile), 'su dispositivo non viene letta');
-  assert.ok(
-    /if \(!live\.on \|\| calm\) \{[\s\S]{0,80}setValue\(0\)/.test(screenFile),
-    'la preferenza viene letta e ignorata',
-  );
+  const presence = readCode('src/components/ora/presence/OraPresence.tsx');
+  assert.ok(/OraPresence/.test(screenFile), 'la voce non usa la presenza condivisa');
+  assert.ok(/prefers-reduced-motion/.test(presence), 'la preferenza web non viene letta');
+  assert.ok(/isReduceMotionEnabled/.test(presence), 'la preferenza nativa non viene letta');
+  assert.ok(/reduceMotionChanged/.test(presence), 'i cambiamenti della preferenza non vengono letti');
 });
 
-test('§2 il testo sta fuori dall’elemento che si muove', () => {
+test('§2 il testo e l’interruzione stanno fuori dalla rete che si muove', () => {
   const screenFile = readCode(LIVE_SCREEN);
-  const orb = screenFile.indexOf('testID="live-voice-orb"');
+  const scene = screenFile.indexOf('<OraPresence');
   const state = screenFile.indexOf('testID="live-voice-state"');
-  assert.ok(orb > 0 && state > orb, 'lo stato è dentro l’elemento animato');
-  // Il segno centrale è contenuto, non un disco grande con dentro le parole.
-  const mark = /mark: \{ width: (\d+)/.exec(screenFile);
-  assert.ok(mark && Number(mark[1]) <= 56, `l’elemento centrale è ancora grande: ${mark?.[1]}`);
+  const interrupt = screenFile.indexOf('testID="live-voice-orb"');
+  assert.ok(scene > 0 && state > scene && interrupt > scene);
+  assert.ok(/<OraPresence[^>]+\/>/.test(screenFile), 'la risposta è stata inserita nella rete');
 });
 
 // ---------------------------------------------------------------------------

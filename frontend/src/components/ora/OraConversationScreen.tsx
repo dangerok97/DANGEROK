@@ -58,6 +58,8 @@ import {
 import { OraTurns, type Turn } from './OraTurns';
 import { OraContextRail } from './OraContextRail';
 import { OraWelcome } from './OraWelcome';
+import { OraPresence } from './presence/OraPresence';
+import { presenceMode, readPresenceActivity, type PresenceActivity } from './presence/state';
 import type { OraJourneyView } from './OraJourney';
 import { DesktopShell } from '@/src/shell';
 import { useBreakpoint } from '@/src/theme/responsive';
@@ -78,6 +80,7 @@ type PendingTurn = {
 };
 
 type AiCoreRes = {
+  activity?: PresenceActivity | null;
   ok?: boolean;
   session_id?: string;
   ora_text?: string;
@@ -424,6 +427,9 @@ export function OraConversationScreen({
   const [turns, setTurns] = useState<Turn[]>([]);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
+  const currentActivityRequest = useRef<string | null>(null);
+  const [activityRequestId, setActivityRequestId] = useState<string | null>(null);
+  const [presenceActivity, setPresenceActivity] = useState<PresenceActivity | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [boot, setBoot] = useState(Boolean(paramId));
   const [workingHint, setWorkingHint] = useState<string | null>(null);
@@ -866,6 +872,10 @@ export function OraConversationScreen({
   const dispatch = useCallback(
     async (clientMessageId: string, payload: Outbox) => {
       const { text: msg, attachments: pendingAttach } = payload;
+      const requestId = newClientMessageId();
+      currentActivityRequest.current = requestId;
+      setActivityRequestId(requestId);
+      setPresenceActivity(null);
       setBusy(true);
       setError(null);
       setWorkingHint(
@@ -914,6 +924,7 @@ export function OraConversationScreen({
           // turns for one thing the person said — and the first answer was ORA
           // explaining it could not read a file that had not been bound yet.
           res = await api.aiCoreStart({
+            activity_request_id: requestId,
             text: startText,
             origin: startedByVoice.current
               ? 'voice'
@@ -965,12 +976,14 @@ export function OraConversationScreen({
         } else {
           if (pendingAttach.length) setWorkingHint('Sto verificando…');
           res = await api.aiCoreMessage(sessionId, {
+            activity_request_id: requestId,
             text: msg || '',
             attachments: pendingAttach,
             client_message_id: clientMessageId,
           });
           res = await applyAiCoreResponse(res, sessionId);
         }
+        setPresenceActivity(previous => readPresenceActivity(res.activity, requestId, previous));
         applyTurns(res, clientMessageId, sessionId || res.session_id || null);
         // Se la domanda è stata fatta a voce, la risposta si ascolta — ed è
         // parola per parola quella che si legge sopra. Se è stata scritta,
@@ -1173,20 +1186,26 @@ export function OraConversationScreen({
     attività inventata per riempire il silenzio.
   */
   useEffect(() => {
-    if (!busy || !sessionId) return;
+    if (!busy || !activityRequestId) return;
     let alive = true;
+    let inFlight = false;
     const tick = async () => {
+      if (inFlight) return;
+      inFlight = true;
       try {
-        const p = await api.aiCoreProgress(sessionId);
-        if (alive && p?.working_on) setWorkingHint(p.working_on);
+        const progress = await api.aiCoreRequestProgress(activityRequestId);
+        if (alive && currentActivityRequest.current === activityRequestId) {
+          setPresenceActivity(previous => readPresenceActivity(progress.activity, activityRequestId, previous));
+          setWorkingHint(progress.working_on || 'Sto ragionando…');
+        }
       } catch {
-        // niente
-      }
+        if (alive && currentActivityRequest.current === activityRequestId) setPresenceActivity(null);
+      } finally { inFlight = false; }
     };
-    const t = setInterval(() => void tick(), 1200);
+    const timer = setInterval(() => void tick(), 1000);
     void tick();
-    return () => { alive = false; clearInterval(t); };
-  }, [busy, sessionId]);
+    return () => { alive = false; clearInterval(timer); };
+  }, [busy, activityRequestId]);
 
   const emptyStart = !boot && turns.length === 0 && !busy;
   const auth = useAuth();
@@ -1279,7 +1298,7 @@ export function OraConversationScreen({
         conversazione continua a vivere qui sotto, e chiudendola i turni sono
         già tutti al loro posto perché non sono mai stati altrove.
       */}
-      <LiveVoiceScreen live={live} />
+      <LiveVoiceScreen live={live} activity={presenceActivity} />
       {/*
         No offset, because there is nothing left to offset.
 
@@ -1320,6 +1339,10 @@ export function OraConversationScreen({
             ) : (
               <OraHeader context={context} onBack={goBack} />
             )}
+          </View>
+
+          <View style={styles.presence}>
+            <OraPresence mode={presenceMode(busy, voice.state.phase)} activity={presenceActivity} compact active={!live.on} />
           </View>
 
           {emptyStart && !planId && !objectId && !documentId && !questionId && !needId && !opportunityId && !goalId ? (
@@ -1388,6 +1411,7 @@ export function OraConversationScreen({
 }
 
 const styles = StyleSheet.create({
+  presence: { paddingHorizontal: tokens.spacing.lg, paddingBottom: tokens.spacing.sm },
   flex: { flex: 1 },
   wrap: { flex: 1, width: '100%' },
   headerPad: { paddingHorizontal: tokens.spacing.lg, paddingTop: tokens.spacing.sm },

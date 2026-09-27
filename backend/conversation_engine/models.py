@@ -222,11 +222,14 @@ class StartBody(BaseModel):
     # opportunity through the context broker like any other evidence, and
     # opening a thread about something is not agreeing to do anything about it.
     opportunity_id: Optional[str] = None
+    # Optional UI correlation; never an authorization or idempotency key.
+    activity_request_id: Optional[str] = Field(default=None, min_length=1, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")
     # V2.6 attachments
     attachments: Optional[List[Dict[str, Any]]] = None
 
 
 class MessageBody(BaseModel):
+    activity_request_id: Optional[str] = Field(default=None, min_length=1, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")
     text: Optional[str] = None
     option_id: Optional[str] = None
     value: Any = None

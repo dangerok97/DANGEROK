@@ -1,3 +1,20 @@
+## 2026-09-27 — Integrazione ORA Presenza
+
+Base `499c6527` / applicazione `8b6d7cef`, ramo di destinazione `staging/cloud`.
+Implementata la rete 3D approvata: camera verso area reale, battito, standby,
+chat e modalità vocale. Non cambia il motore decisionale né i gate di azione.
+Telemetria facoltativa e owner-scoped anche prima della risposta al primo messaggio.
+
+194 test backend PASS (6 telemetria/ciclo, 106 voce/identità telefonica,
+82 core/allegati/GPS). Frontend: 7 nuove prove presenza, 42 guardie voce
+e suite ora14 PASS. TypeScript, lint dei nuovi componenti, export web
+ed export bundle iOS riusciti.
+Rendering Canvas verificato con @napi-rs/canvas su desktop/mobile; non equivale
+a un test su iPhone fisico. Il browser cloud non raggiunge localhost
+(ERR_BLOCKED_BY_CLIENT), quindi la verifica UI locale autenticata non è eseguita.
+Le prove native di microfono, prestazioni, GPS e push rimangono gate su dispositivo.
+Nessuna telefonata reale; nessuna modifica a predeploy, variabili o volumi Railway.
+
 ## 2026-09-27 — Discordanza Francesco/Asia sullo stesso numero
 
 Richiesta utente: ricordare che un numero attribuito prima a Francesco e poi ad

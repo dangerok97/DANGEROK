@@ -1,3 +1,29 @@
+## 2026-09-27 — Presenza come proiezione della conversazione
+
+`components/ora/presence` contiene il renderer Canvas con coordinate 3D,
+proiezione prospettica, profondità, camera interpolata e doppio impulso. Web usa
+Canvas direttamente; native usa lo stesso sorgente in WebView locale con CSP,
+senza rete né ponte per azioni. `sceneSource.ts` è generato da `scene.js`: il test
+verifica l'identità del sorgente, evitando serializzazione di funzioni trasformate
+da Metro. Colori semantici in `theme/presence.ts`; nessuna nuova dipendenza.
+Cleanup su unmount, stop per background/fuori viewport, pausa e riduci movimento.
+Un errore del renderer lascia disponibile la conversazione e una presenza statica.
+
+`activity_request_id` opzionale su start/message correla anche il primo turno,
+prima che il client conosca la sessione. GET autenticata
+`/api/conversation/ai-core/requests/{request_id}/progress` legge solo la sessione
+dello stesso user. Pubblica fase, area, sequenza, aree toccate e timestamp,
+senza argomenti degli strumenti, contenuti o ragionamento privato. Il broker
+attiva Memoria quando viene consultato; le capacità vengono mappate per identità
+esatta prima dell'esecuzione. Nessuna inferenza dalle parole dell'utente.
+
+Il wrapper osserva l'unico cognitive loop esistente e chiude lo stato anche in
+caso d'errore; client-resume continua la correlazione del turno. Persistenza della
+telemetria best effort; nessuna nuova autorità, sessione parallela o chiamata LLM.
+Il client interroga ogni secondo solo durante un invio, evita sovrapposizioni,
+scarta correlazioni errate/sequenze precedenti e scade dati oltre 120 secondi.
+L'endpoint progress precedente resta compatibile. Nessuna migrazione necessaria.
+
 ## 2026-09-27 — Verifica inversa identità/numero
 
 preparation.trust.identity_conflicts legge le associazioni dello stesso owner per
