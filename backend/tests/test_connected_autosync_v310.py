@@ -10,8 +10,8 @@ every twenty seconds, a failed read reported as an empty calendar, a restart
 that re-imports somebody's whole mailbox, ORA waking itself up over an event
 it wrote.
 
-Nothing here reaches Google: providers are fakes, and the runtime loop is
-never started — `poll_once` is called with an explicit clock, which is what
+Nothing here reaches Google: providers are fakes. Apart from the lifecycle
+boundary check, `poll_once` is called with an explicit clock, which is what
 makes a two-hour backoff testable in a millisecond.
 """
 
@@ -662,31 +662,54 @@ def _code_only(node):
     return clone
 
 
-def test_the_background_loop_actually_reads_the_sources():
-    """
-    §3: registration is the thing that silently disappears.
+def test_the_background_loop_actually_reads_the_sources(monkeypatch):
+    """Actual lifecycle reaches polling and due work, then cancels both.
 
-    Everything else in this file tests `poll_once` directly, which would keep
-    passing forever if nobody ever called it. This checks the one line that
-    makes it happen at all — inside the loop that already exists, not in a
-    scheduler of its own.
+    Source network latency must not hold unrelated work. Exercise the real
+    _loop -> read_sources -> poll_once path, rather than its source spelling.
     """
-    tree = _code_only(_tree("ambient/runtime.py"))
-    loop = next(
-        n for n in ast.walk(tree)
-        if isinstance(n, ast.AsyncFunctionDef) and n.name == "_loop"
-    )
-    called = ast.unparse(loop)
-    assert "read_sources(db)" in called, "il loop non legge le sorgenti"
-    assert called.index("read_sources") < called.index("await tick"), (
-        "le sorgenti vengono lette dopo i wake: quello che arriva aspetta un giro"
-    )
+    import asyncio
+    from unittest.mock import AsyncMock
+    import deps
+    from ambient import runtime, eligibility
+    from connected import polling
+    from agent import background
+    from energy_offers.service import EnergyOfferService
 
-    reader = next(
-        n for n in ast.walk(tree)
-        if isinstance(n, ast.AsyncFunctionDef) and n.name == "read_sources"
-    )
-    assert "poll_once" in ast.unparse(reader)
+    async def body():
+        polled, worked, cancelled = asyncio.Event(), asyncio.Event(), asyncio.Event()
+        database = object()
+        async def poll(db, **kwargs):
+            assert db is database
+            polled.set()
+            try:
+                await asyncio.Event().wait()
+            finally:
+                cancelled.set()
+        async def work(db, **kwargs):
+            assert db is database
+            worked.set()
+        monkeypatch.setattr(deps, "db", database)
+        monkeypatch.setattr(runtime, "_stopping", False)
+        monkeypatch.setattr(runtime, "_jobs", {})
+        monkeypatch.setattr(runtime, "_a_call_is_live", lambda: False)
+        monkeypatch.setattr(polling, "poll_once", poll)
+        monkeypatch.setattr(runtime, "tick", work)
+        monkeypatch.setattr(eligibility, "recover_after_downtime", AsyncMock(return_value={}))
+        monkeypatch.setattr(background, "recover_due", AsyncMock())
+        monkeypatch.setattr(EnergyOfferService, "run_due", AsyncMock())
+        monkeypatch.setattr(runtime, "keep_relations_current", AsyncMock())
+        monkeypatch.setattr(runtime, "sweep", AsyncMock())
+        task = asyncio.create_task(runtime._loop())
+        try:
+            await asyncio.wait_for(polled.wait(), 2)
+            await asyncio.wait_for(worked.wait(), 2)
+            assert not runtime._jobs["sources"].done()
+        finally:
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+        assert cancelled.is_set() and not runtime._jobs
+    _run(body())
 
 
 def test_no_second_scheduler_was_built():
