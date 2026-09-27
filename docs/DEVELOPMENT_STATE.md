@@ -1,3 +1,22 @@
+## 2026-09-27 — Verifica pubblicazione voce naturale
+
+Commit applicativo caf780830063a1241883a6e55f8214587bb9aca3 pubblicato:
+backend 22b59b06-0d8a-4431-9a0f-83afb0420e75 e web
+4fd29d7b-dd26-40cd-8981-d6d2498ccf3e entrambi SUCCESS sullo stesso SHA.
+Health backend/web HTTP 200. Bundle pubblico contiene natural_voice_unavailable
+e systemFallback:false. Config backend verificata: preDeployCommand=[], volume
+/data/documents, root/Dockerfile, dominio e health invariati.
+
+CI 36323393011: tutti i cinque job SUCCESS, incluse le guardie prodotto.
+
+Due campioni consecutivi dal servizio reale: HTTP 200 Gemini WAV,
+111930 byte in 11,02 s e 148410 byte in 8,65 s. Tempi della richiesta audio,
+non dell'intero turno e non una misura statistica. Recupero della voce neurale
+verificato; la latenza resta troppo alta per dichiarare qualità da chiamata.
+Nessuna prova percettiva di identità con Nino D'Agata; nessun clone integrato.
+Non sono state effettuate chiamate reali. Il problema del numero telefonico
+resta corretto dal precedente b45e006, incluso in questo deploy.
+
 ## 2026-09-27 — Riferimento JARVIS e qualità vocale live
 
 Ricerca documentata in JARVIS_VOICE_REFERENCE.md: Nino D'Agata confermato come
