@@ -6,14 +6,23 @@ import { PresenceCanvas } from './PresenceCanvas';
 import { AREA_LABELS, AREA_DETAILS, AREA_IDS, COMPLETED_FOCUS_MS, completionFocusKey, presenceFocus, type PresenceActivity, type PresenceMode, type PresenceNode } from './state';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { openingSession } from './openingSession';
+import { geometryFor, type KnowledgeMap } from './knowledge';
+import { useKnowledgeMap } from './useKnowledgeMap';
+import { useRouter } from 'expo-router';
 
 export function OraPresence({ mode = 'idle', activity = null, compact = false, active = true,
-  expanded = false, openingKey = null, footer, conversation, onAreaPrompt, onBack }: {
+  expanded = false, openingKey = null, footer, conversation, onAreaPrompt, onBack, knowledge, knowledgeRefreshKey }: {
+  knowledge?: KnowledgeMap | null; knowledgeRefreshKey?: unknown;
   mode?: PresenceMode; activity?: PresenceActivity | null; compact?: boolean; active?: boolean;
   expanded?: boolean; openingKey?: string | null; footer?: React.ReactNode; conversation?: React.ReactNode; onAreaPrompt?: (prompt: string) => void; onBack?: () => void;
 }) {
   const { width, height: windowHeight } = useWindowDimensions();
   const { user } = useAuth();
+  const router = useRouter();
+  const refreshKey = knowledgeRefreshKey ?? (activity?.phase === 'done' ? activity.request_id : null);
+  const learned = useKnowledgeMap(user?.user_id, active && knowledge === undefined, refreshKey);
+  const map = knowledge === undefined ? learned.data : knowledge;
+  const stars = useMemo(() => geometryFor(map), [map]);
   const [paused, setPaused] = useState(false);
   const [reduced, setReduced] = useState(true);
   const [motionReady, setMotionReady] = useState(false);
@@ -64,11 +73,15 @@ export function OraPresence({ mode = 'idle', activity = null, compact = false, a
   const canvasReady = motionReady && (!openingKey || resolvedOpening === openingKey);
   const area = presenceFocus(activity, mode, expiredFocus);
   const hasConversation = Boolean(conversation);
-  const options = useMemo(() => ({ mode, area, paused, reduced, reveal: !!opening, revealKey: opening, active: active && foreground, selectedIndex: selected?.index ?? null, resetKey, centerY: expanded && hasConversation && showConversation ? .40 : .50 }), [mode, area, paused, reduced, opening, active, foreground, selected, resetKey, expanded, hasConversation, showConversation]);
+  const selectedGeometry = selected?.id ? stars.findIndex(s => s.id === selected.id) : -1;
+  const selectedIndex = selected?.kind === 'area' ? selected.index : selectedGeometry >= 0 ? selectedGeometry + 8 : null;
+  const options = useMemo(() => ({ stars, mode, area, paused, reduced, reveal: !!opening, revealKey: opening, active: active && foreground, selectedIndex: selectedIndex !== null && selectedIndex >= 0 ? selectedIndex : null, resetKey, centerY: expanded && hasConversation && showConversation ? .40 : .50 }), [stars, mode, area, paused, reduced, opening, active, foreground, selectedIndex, resetKey, expanded, hasConversation, showConversation]);
   const caption = mode === 'listen' ? 'Ti ascolto' : mode === 'speak' ? 'Ti rispondo' : mode === 'think' ? 'Sto lavorando' : 'Sono qui';
   const label = caption + (area ? ` · ${AREA_LABELS[area]}` : '');
   const height = compact ? (windowHeight < 650 ? 128 : width < 650 ? 200 : 260) : Math.min(350, Math.max(240, windowHeight * .36));
   const tight = expanded && panelHeight < 390;
+  const fact = map?.stars.find(s => s.id === selected?.id);
+  const branch = map?.branches.find(b => `branch_${b.area_id}` === selected?.id);
   const detail = selected ? AREA_DETAILS[selected.area] : null;
   const transcriptHeight = Math.max(60, reading ? stageHeight - 70 : Math.min(164, panelHeight * .24));
   return <View style={[styles.root, expanded && styles.expanded]} testID="ora-presence" onLayout={event => setPanelHeight(event.nativeEvent.layout.height)}>
@@ -87,20 +100,39 @@ export function OraPresence({ mode = 'idle', activity = null, compact = false, a
         <Pressable accessibilityRole="button" accessibilityLabel="Come funziona la rete di ORA" accessibilityState={{ expanded: info }} onPress={() => { setInfo(value => !value); setSelected(null); setAreas(false); }} style={styles.button}><Ionicons name="information-circle-outline" size={19} color={palette.muted} /></Pressable>
       </View>
     </View>
+    <View style={styles.knowledgeStrip} testID="knowledge-map-progress">
+      <Text style={styles.note} accessibilityLiveRegion="polite">{map ? `${map.count} stelle · VITA ${map.percent}%` : learned.error ? 'Mappa da aggiornare' : 'Carico le tue stelle…'}</Text>
+      {knowledge === undefined && learned.error ? <Pressable accessibilityRole="button" accessibilityLabel="Riprova caricamento della mappa" onPress={learned.reload}><Text style={styles.control}>Riprova</Text></Pressable> : map && map.count === 0 ? <Text style={styles.note}>La prima stella nasce da ciò che mi racconti.</Text> : null}
+    </View>
     <View style={expanded ? [styles.stage, tight && { minHeight: 0 }] : { height }} testID="ora-presence-map" onLayout={event => setStageHeight(event.nativeEvent.layout.height)}>
       {unavailable ? <View style={styles.fallback}><Text style={styles.fallbackText}>ORA</Text></View> : canvasReady ? <PresenceCanvas options={options} onUnavailable={fail} onSelect={select} /> : null}
       {areas || selected || info ? <View style={[styles.overlay, width < 650 && styles.overlayMobile]}>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.detailContent}>
           <View style={styles.detailHead}>
-            <Text accessibilityRole="header" style={styles.detailTitle}>{selected ? AREA_LABELS[selected.area] : areas ? 'Esplora la mappa' : 'Una mappa del tuo contesto'}</Text>
+            <Text accessibilityRole="header" style={styles.detailTitle}>{fact ? 'Un punto della tua vita' : branch ? branch.title : selected ? AREA_LABELS[selected.area] : areas ? 'Esplora la mappa' : 'La tua mappa cresce con te'}</Text>
             <Pressable accessibilityRole="button" accessibilityLabel="Chiudi dettagli della mappa" onPress={() => { setSelected(null); setAreas(false); setInfo(false); }} style={styles.button}><Text style={styles.control}>Chiudi</Text></Pressable>
           </View>
-          {areas ? <View style={styles.areaList}>{AREA_IDS.map((id, index) => <Pressable key={id} accessibilityRole="button" onPress={() => select({ index, area: id, kind: 'area' })} style={styles.areaButton}><Text style={styles.control}>{AREA_LABELS[id]}</Text></Pressable>)}</View> : selected && detail ? <>
+          {areas ? <>
+            <Text style={styles.note}>Ogni stella è un’informazione salvata. Scegli un’area per leggerle anche senza usare la mappa.</Text>
+            <View style={styles.areaList}>{AREA_IDS.map((id, index) => <Pressable key={id} accessibilityRole="button" onPress={() => select({ index, area: id, kind: 'area' })} style={styles.areaButton}><Text style={styles.control}>{AREA_LABELS[id]} · {map?.stars.filter(s => s.area === id).length ?? 0}</Text></Pressable>)}</View>
+          </> : fact ? <>
+            <Text style={styles.detailText}>{fact.statement}</Text>
+            <Text style={styles.note}>{fact.provenance} · {fact.status === 'likely' ? 'Da verificare' : 'Informazione salvata'}</Text>
+            {fact.updated_at ? <Text style={styles.note}>Aggiornato il {new Date(fact.updated_at).toLocaleDateString('it-IT')}</Text> : null}
+            {fact.branch_id ? <Pressable accessibilityRole="button" style={styles.promptButton} onPress={() => router.push({ pathname: '/life-setup', params: { area: fact.branch_id } } as any)}><Text style={styles.promptText}>Apri in VITA ↗</Text></Pressable> : null}
+          </> : branch ? <>
+            <Text style={styles.detailText}>{branch.purpose}</Text>
+            <Text style={styles.activity}>{branch.star_count} stelle · {branch.percent}% · {branch.complete ? 'Ramo completato' : branch.state_label}</Text>
+            <Pressable accessibilityRole="button" style={styles.promptButton} onPress={() => router.push({ pathname: '/life-setup', params: { area: branch.area_id } } as any)}><Text style={styles.promptText}>Continua in VITA ↗</Text></Pressable>
+          </> : selected && detail ? <>
             <Text style={styles.detailText}>{detail.description}</Text>
-            <Text style={styles.note}>{selected.kind === 'connection' ? 'Collegamento visivo vicino a quest’area.' : 'Nodo illustrativo di quest’area.'} Non è un singolo dato personale.</Text>
             {activity?.touched.includes(selected.area) ? <Text style={styles.activity}>Area coinvolta nell’ultimo turno.</Text> : null}
+            {map?.branches.filter(b => b.area === selected.area && b.star_count > 0).map(b => <Pressable key={b.area_id} accessibilityRole="button" style={styles.areaButton} onPress={() => select({ index: 8 + stars.findIndex(s => s.id === `branch_${b.area_id}`), id: `branch_${b.area_id}`, area: b.area, kind: 'branch' })}><Text style={styles.control}>{b.complete ? '✦ ' : ''}{b.title} · {b.percent}%</Text></Pressable>)}
+            {map?.stars.filter(s => s.area === selected.area).map(s => <Pressable key={s.id} accessibilityRole="button" style={styles.starRow} onPress={() => select({ index: 8 + stars.findIndex(n => n.id === s.id), id: s.id, area: s.area, kind: 'node' })}><Text numberOfLines={2} style={styles.detailText}>✦ {s.statement}</Text><Text style={styles.note}>{s.status === 'likely' ? 'Da verificare' : s.provenance}</Text></Pressable>)}
+            {!map?.stars.some(s => s.area === selected.area) ? <Text style={styles.note}>Non ci sono ancora informazioni salvate in quest’area.</Text> : null}
             {onAreaPrompt ? <Pressable accessibilityRole="button" onPress={() => { onAreaPrompt(detail.prompt); setSelected(null); }} style={styles.promptButton}><Text style={styles.promptText}>Parliamone ↗</Text></Pressable> : null}
-          </> : <Text style={styles.detailText}>Le aree seguono il tema della conversazione e gli strumenti usati. Un’area illuminata può indicare l’argomento di cui parliamo: non significa che ORA abbia consultato dati personali. Punti e filamenti sono una rappresentazione visiva, non i neuroni del modello. Trascina per ruotare, anche in pausa. Tocca un nodo per esplorarlo.</Text>}
+          </> : <Text style={styles.detailText}>Ogni stella rappresenta un’informazione salvata nel tuo profilo o in memoria. Tocca una stella per leggerla e conoscerne la fonte. Le informazioni da verificare hanno una luce ambrata. Un alone segnala i rami completati in VITA. Il conteggio delle stelle e la percentuale di VITA misurano cose diverse: informazioni salvate e completezza delle aree. I collegamenti mostrano come le informazioni si raggruppano; il movimento segue il tema della conversazione, non il ragionamento interno del modello. Trascina per ruotare, anche in pausa.</Text>}
+
         </ScrollView>
       </View> : null}
       {conversation && !tight ? <View style={styles.transcriptPosition} pointerEvents="box-none">
@@ -120,6 +152,8 @@ export function OraPresence({ mode = 'idle', activity = null, compact = false, a
   </View>;
 }
 const styles = StyleSheet.create({
+  knowledgeStrip: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'space-between', paddingHorizontal: 20, paddingBottom: 8 },
+  starRow: { paddingVertical: 12, gap: 4, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.border },
   root: { width: '100%', borderRadius: 20, overflow: 'hidden', backgroundColor: palette.background },
   expanded: { flex: 1, minHeight: 0, borderRadius: 0 }, stage: { flex: 1, minHeight: 64, position: 'relative' },
   top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 32, paddingTop: 18, paddingBottom: 10, minHeight: 78 },

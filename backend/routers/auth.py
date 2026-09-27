@@ -6,7 +6,8 @@ from typing import Any, Optional
 
 import httpx
 from fastapi import APIRouter, Depends, File, Header, HTTPException, Response, UploadFile
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, model_validator
+from account_identity import IdentityIn
 
 from deps import (
     DEMO_EMAILS,
@@ -35,6 +36,17 @@ class RegisterIn(BaseModel):
     email: EmailStr
     password: str
     name: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+
+    @model_validator(mode="after")
+    def paired_identity(self):
+        # Older installed clients can still register; the welcome screen asks
+        # them to complete their identity. New clients always supply both.
+        if self.first_name is not None or self.last_name is not None:
+            identity = IdentityIn(first_name=self.first_name or "", last_name=self.last_name or "")
+            self.first_name, self.last_name = identity.first_name, identity.last_name
+        return self
 
 
 class LoginIn(BaseModel):
@@ -65,6 +77,10 @@ class UserOut(BaseModel):
     user_id: str
     email: str
     name: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    identity_confirmed: bool = False
+    knowledge_tutorial_version: int = 0
     picture: Optional[str] = None
     provider: str
     # When the account was opened. Already written at registration; it was
@@ -83,6 +99,9 @@ def user_to_out(u: dict) -> UserOut:
         user_id=u["user_id"],
         email=u["email"],
         name=u.get("name"),
+        first_name=u.get("first_name"), last_name=u.get("last_name"),
+        identity_confirmed=bool(u.get("identity_confirmed_at")),
+        knowledge_tutorial_version=u.get("knowledge_tutorial_version", 0),
         picture=u.get("picture"),
         provider=u.get("provider", "email"),
         member_since=u.get("created_at"),
@@ -119,11 +138,15 @@ async def register(body: RegisterIn):
         raise HTTPException(status_code=409, detail="Email già registrata")
     user = await upsert_user(
         email=body.email,
-        name=body.name,
+        name=f"{body.first_name} {body.last_name}" if body.first_name else body.name,
         picture=None,
         provider="email",
         password_hash=hash_password(body.password),
     )
+    if body.first_name and body.last_name and not existing:
+        updates = IdentityIn(first_name=body.first_name, last_name=body.last_name).updates()
+        await db.users.update_one({"user_id": user["user_id"]}, {"$set": updates})
+        user.update(updates)
     await _ensure_password_identity(user)
     return await _auth_out(user)
 
@@ -237,6 +260,13 @@ async def list_identities(user=Depends(get_current_user)):
 @router.get("/me", response_model=UserOut)
 async def me(user=Depends(get_current_user)):
     return user_to_out(user)
+
+
+@router.put("/identity", response_model=UserOut)
+async def update_identity(body: IdentityIn, user=Depends(get_current_user)):
+    updates = body.updates()
+    await db.users.update_one({"user_id": user["user_id"]}, {"$set": updates})
+    return user_to_out({**user, **updates})
 
 
 # --- profile photo -----------------------------------------------------------

@@ -1,5 +1,5 @@
 /** The approved 3D scene. Self-contained so native uses exactly the same renderer.
- * Dots/edges are visual geometry; only domain focus is live application telemetry.
+ * Each knowledge star is a saved information ID. Hubs and edges are navigation geometry.
  */
 export function createPresenceScene(canvas, initial, palette, events={}) {
   const ctx=canvas.getContext('2d',{alpha:false});
@@ -30,37 +30,40 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     {x:-.55,y:.55,z:-.41,id:'finances',name:'FINANZE',dx:-14,dy:24,align:'right'},
     {x:.10,y:-.07,z:-.68,id:'calls',name:'CHIAMATE',dx:16,dy:-20,align:'left'}
   ];
-  const points=hubs.map((h,i)=>({...h,group:i,hub:true,radius:2.4+random(),phase:random()*6.28}));
-  for(let g=0;g<hubs.length;g++){
-    const h=hubs[g];
-    for(let j=0;j<34;j++){
-      const a=random()*Math.PI*2,u=random()*2-1,r=Math.cbrt(random())*.235,s=Math.sqrt(1-u*u);
-      points.push({x:h.x+Math.cos(a)*r*s,y:h.y+u*r*.80,z:h.z+Math.sin(a)*r*s,group:g,hub:false,radius:.50+random()*1.15,phase:random()*6.28});
+  let points=[],edges=[],projected=[],sorted=[],furthest=1,geometryKey='';
+  let growth=1;
+  const births=new Map();
+  function rebuild(nodes,first=false){
+    const key=JSON.stringify(nodes||[]);if(key===geometryKey)return;geometryKey=key;
+    const oldIds=new Set(points.map(p=>p.id));
+    points=hubs.map((h,i)=>({...h,group:i,areaGroup:i,hub:true,radius:2.7,phase:i*.83,distance:0}));
+    const groups=hubs.map(()=>[]);
+    for(const node of nodes||[]){
+      const g=hubs.findIndex(h=>h.id===node.area);if(g<0||!node.id)continue;
+      let hash=2166136261;for(const c of node.id)hash=Math.imul(hash^c.charCodeAt(0),16777619)>>>0;
+      seed=hash;
+      const h=hubs[g],a=random()*Math.PI*2,u=random()*2-1,r=.10+Math.cbrt(random())*.32,v=Math.sqrt(1-u*u);
+      const branch=node.kind==='branch';
+      const p={x:h.x+Math.cos(a)*r*v,y:h.y+u*r*.85,z:h.z+Math.sin(a)*r*v,
+        id:node.id,kind:branch?'branch':'node',tentative:!!node.tentative,complete:!!node.complete,
+        group:g,areaGroup:g,hub:false,radius:branch?2.5:1.3+random()*.65,phase:random()*6.28};
+      if(!births.has(p.id)||!oldIds.has(p.id))births.set(p.id,first?t-2:t);
+      points.push(p);groups[g].push(points.length-1);
     }
+    const liveIds=new Set(points.map(p=>p.id));for(const id of births.keys())if(!liveIds.has(id))births.delete(id);
+    points.forEach(p=>p.distance=Math.hypot(p.x-hubs[0].x,p.y-hubs[0].y,p.z-hubs[0].z));
+    furthest=Math.max(1,...points.map(p=>p.distance));edges=[];
+    const keys=new Set();
+    const add=(a,b,trunk=false)=>{const key=Math.min(a,b)+':'+Math.max(a,b);if(a===b||keys.has(key))return;keys.add(key);edges.push({a,b,trunk,phase:random(),packet:trunk||random()<.12});};
+    [[0,1],[0,2],[0,3],[0,4],[0,6],[0,7],[1,3],[1,5],[1,7],[2,4],[2,6],[2,7],[3,4],[3,5],[3,7],[4,5],[4,6],[5,7],[6,7]].forEach(([a,b])=>add(a,b,true));
+    groups.forEach((group,g)=>group.forEach((index,j)=>{add(index,g);for(let k=1;k<=3&&k<=j;k++)add(index,group[j-k]);if(j%4===0)add(index,(g+3)%8);}));
+    projected=points.map(()=>({x:0,y:0,z:0,depth:0,scale:0,energy:0}));sorted=points.map((_,i)=>i);
+    if(first)growth=.55+.45*(1-Math.exp(-(nodes||[]).filter(n=>n.kind!=='branch').length/35));
+    hovered=-1;pointer=null;
   }
-  for(let j=0;j<122;j++){
-    const a=random()*Math.PI*2,u=random()*2-1,r=Math.cbrt(random())*.93,s=Math.sqrt(1-u*u);
-    points.push({x:Math.cos(a)*r*s,y:u*r*.91,z:Math.sin(a)*r*s*.86,group:-1,hub:false,radius:.45+random()*.85,phase:random()*6.28});
-  }
-  points.forEach(p=>p.distance=Math.hypot(p.x-hubs[0].x,p.y-hubs[0].y,p.z-hubs[0].z));
-  const furthest=Math.max(...points.map(p=>p.distance));
-  const edges=[],edgeKeys=new Set();
-  function addEdge(a,b,trunk=false){if(a===b)return;const key=Math.min(a,b)+':'+Math.max(a,b);if(edgeKeys.has(key))return;edgeKeys.add(key);edges.push({a,b,trunk,phase:random(),packet:random()<.12||trunk});}
-  for(let i=0;i<points.length;i++){
-    const p=points[i],near=[];
-    for(let j=0;j<points.length;j++){if(i===j)continue;const q=points[j];near.push({j,d:(p.x-q.x)**2+(p.y-q.y)**2+(p.z-q.z)**2});}
-    near.sort((a,b)=>a.d-b.d);for(let k=0;k<(p.hub?11:4);k++)addEdge(i,near[k].j);
-    if(p.group>=0&&!p.hub&&i%5===0)addEdge(i,p.group);
-    if(!p.hub&&i%7===0)addEdge(i,0);
-    if(p.group>=0&&!p.hub&&i%3===0)addEdge(i,(p.group+3)%hubs.length);
-  }
-  const trunkPairs=[[0,1],[0,2],[0,3],[0,4],[0,6],[0,7],[1,3],[1,5],[1,7],[2,4],[2,6],[2,7],[3,4],[3,5],[3,7],[4,5],[4,6],[5,7],[6,7]];
-  trunkPairs.forEach(([a,b])=>addEdge(a,b,true));
-  const dust=Array.from({length:150},()=>({x:random(),y:random(),z:random(),phase:random()*6.28}));
-  // Every visible point has an honest domain identity, not an invented personal record.
-  points.forEach(p=>{p.areaGroup=p.group>=0?p.group:hubs.reduce((best,h,i)=>
-    Math.hypot(p.x-h.x,p.y-h.y,p.z-h.z)<Math.hypot(p.x-hubs[best].x,p.y-hubs[best].y,p.z-hubs[best].z)?i:best,0);});
-  function nodeInfo(index){const p=points[index];return p?{index,area:hubs[p.areaGroup].id,kind:p.hub?'area':p.group<0?'connection':'node'}:null;}
+  rebuild(options.stars,true);
+  const dust=Array.from({length:90},()=>({x:random(),y:random(),z:random(),phase:random()*6.28}));
+  function nodeInfo(index){const p=points[index];return p?{index,area:hubs[p.areaGroup].id,kind:p.hub?'area':p.kind,...(p.hub?{}:{id:p.id})}:null;}
   function hitTest(x,y,touch=false){
     for(let i=labels.length-1;i>=0;i--){const b=labels[i];if(x>=b.x-4&&x<=b.x+b.w+4&&Math.abs(y-b.y)<=12)return b.index;}
     let best=-1,score=Infinity;
@@ -71,8 +74,6 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     return best;
   }
   function localPointer(e){const box=canvas.getBoundingClientRect();return {x:e.clientX-(box.left||0),y:e.clientY-(box.top||0),touch:e.pointerType==='touch'};}
-  const projected=points.map(()=>({x:0,y:0,z:0,depth:0,scale:0,energy:0}));
-  const sorted=points.map((_,i)=>i);
   function glow(x,y,r,power,warm=false){
     if(power<.01)return;
     const c=warm?palette.warmGlow:palette.glow;
@@ -80,10 +81,13 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
   }
   function projectPoint(p,yaw,pitch,scale,breathing){
     const drift=p.hub?.002:.009;
-    const spread=ease(opening/openingSeconds);
-    let x=(p.x+Math.sin(t*.36+p.phase)*drift)*breathing*spread-camera.x;
-    let y=(p.y+Math.cos(t*.30+p.phase)*drift)*breathing*spread-camera.y;
-    let z=(p.z+Math.sin(t*.29+p.phase)*drift)*breathing*spread-camera.z;
+    const born=p.hub||options.reduced||options.paused?1:ease((t-(births.get(p.id)??t))/1.35);
+    const spread=ease(opening/openingSeconds)*growth;
+    const h=hubs[p.group];
+    const px=p.hub?p.x:h.x+(p.x-h.x)*born,py=p.hub?p.y:h.y+(p.y-h.y)*born,pz=p.hub?p.z:h.z+(p.z-h.z)*born;
+    let x=(px+Math.sin(t*.36+p.phase)*drift)*breathing*spread-camera.x;
+    let y=(py+Math.cos(t*.30+p.phase)*drift)*breathing*spread-camera.y;
+    let z=(pz+Math.sin(t*.29+p.phase)*drift)*breathing*spread-camera.z;
     const rx=x*Math.cos(yaw)+z*Math.sin(yaw),rz=z*Math.cos(yaw)-x*Math.sin(yaw);
     const ry=y*Math.cos(pitch)-rz*Math.sin(pitch),zz=y*Math.sin(pitch)+rz*Math.cos(pitch);
     const perspective=3.8/(3.8-zz);
@@ -104,7 +108,7 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     const yaw=rotation+dragYaw,pitch=.06+Math.sin(t*.10)*.09+dragPitch;
     for(let i=0;i<points.length;i++){
       const p=points[i],q=projectPoint(p,yaw,pitch,scale,breathe);
-      q.appear=i===0?1:ease((opening/openingSeconds-p.distance/furthest*.65-.06)/.29);
+      q.appear=(i===0?1:ease((opening/openingSeconds-p.distance/furthest*.65-.06)/.29))*(p.hub||options.reduced||options.paused?1:ease((t-(births.get(p.id)??t))/1.35));
       const focus=activeHub>=0?hubs[activeHub]:hubs[0];
       const distance=Math.hypot(p.x-focus.x,p.y-focus.y,p.z-focus.z);
       const phase=((t*state.speed-distance*.44)%1+1)%1;
@@ -142,9 +146,11 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
       const isInspected=i===inspected;
       const r=p.radius*q.scale*(.64+q.depth*.38)*(1+q.energy*.28)+(isInspected?2.8:0);
       if(isInspected){glow(q.x,q.y,24,.95);ctx.strokeStyle=palette.label;ctx.lineWidth=1;ctx.beginPath();ctx.arc(q.x,q.y,9,0,Math.PI*2);ctx.stroke();}
-      const warm=activeHub>=0?p.group===activeHub:i===0||i===4;
+      const warm=p.complete||p.tentative||(activeHub>=0?p.group===activeHub:i===0||i===4);
       if(p.hub){glow(q.x,q.y,16+q.energy*19,.25+q.energy*.53,warm);glow(q.x,q.y,5+q.energy*4,.60,warm);}
-      else if(q.energy>.35&&i%3===0)glow(q.x,q.y,4+q.energy*4,q.energy*.3);
+      else {glow(q.x,q.y,p.complete?17:8,.22+q.energy*.3,warm);}
+      if(p.kind==='branch'){ctx.strokeStyle='rgba('+palette.warmNode+','+(p.complete?.85:.2)+')';ctx.lineWidth=p.complete?1.5:.6;ctx.beginPath();ctx.arc(q.x,q.y,6,0,Math.PI*2);ctx.stroke();}
+      if(!p.hub&&p.kind==='node'&&!p.tentative){ctx.strokeStyle='rgba('+palette.point+','+(.3+q.energy*.3)+')';ctx.lineWidth=.7;ctx.beginPath();ctx.moveTo(q.x-3.6,q.y);ctx.lineTo(q.x+3.6,q.y);ctx.moveTo(q.x,q.y-3.6);ctx.lineTo(q.x,q.y+3.6);ctx.stroke();}
       ctx.fillStyle='rgba('+(warm?palette.warmNode:palette.node)+','+Math.min(.98,bright)+')';ctx.beginPath();ctx.arc(q.x,q.y,r,0,Math.PI*2);ctx.fill();
       if(p.hub&&q.energy>.35){ctx.strokeStyle='rgba('+palette.cross+','+(q.energy*.33)+')';ctx.lineWidth=.6;ctx.beginPath();ctx.moveTo(q.x-7-q.energy*4,q.y);ctx.lineTo(q.x+7+q.energy*4,q.y);ctx.moveTo(q.x,q.y-6-q.energy*3);ctx.lineTo(q.x,q.y+6+q.energy*3);ctx.stroke();}
     }
@@ -171,7 +177,7 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     activeHub=hubs.findIndex(h=>h.id===options.area);
     const target=activeHub>=0?hubs[activeHub]:{x:0,y:0,z:0};
     const mix=instant?1:1-Math.exp(-dt*3.2);
-    for(const axis of ['x','y','z'])camera[axis]+=(target[axis]*.82-camera[axis])*mix;
+    for(const axis of ['x','y','z'])camera[axis]+=(target[axis]*.82*growth-camera[axis])*mix;
     camera.zoom+=((activeHub>=0?1.65:active?1.12:1)-camera.zoom)*mix;
   }
   function schedule(){if(!frame&&!destroyed&&!options.paused&&!options.reduced&&options.active&&visible&&inViewport)frame=requestAnimationFrame(tick);}
@@ -179,6 +185,8 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
   function tick(now){
     frame=0;const dt=last?Math.min(.05,(now-last)/1000):.016;last=now;
     opening=Math.min(openingSeconds,opening+dt);
+    const targetGrowth=.55+.45*(1-Math.exp(-points.filter(p=>p.kind==='node').length/35));
+    growth+=(targetGrowth-growth)*(1-Math.exp(-dt*2));
     // Inspecting a point holds it still so a click can reliably reach it.
     if(!dragging&&hovered<0&&selected<0){t+=dt;rotation+=dt*(mode==='idle'?.045:.012);if(opening===openingSeconds)moveCamera(dt);dragYaw+=inertia;inertia*=.93;}
     draw();schedule();
@@ -188,6 +196,8 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     const reveal=next.revealKey&&next.revealKey!==options.revealKey;
     const reset=next.resetKey!==undefined&&next.resetKey!==options.resetKey;
     options={...options,...next};mode=modes[options.mode]?options.mode:'idle';
+    rebuild(options.stars);
+    if(options.reduced||options.paused)growth=.55+.45*(1-Math.exp(-points.filter(p=>p.kind==='node').length/35));
     // The first user turn triggers the entrance without delaying the actual work.
     if(reveal){opening=0;camera.x=0;camera.y=0;camera.z=0;camera.zoom=1;hovered=-1;pointer=null;}
     if(options.reduced||options.paused)opening=openingSeconds;
@@ -232,5 +242,5 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
   size();update(initial);
   return {update,destroy(){destroyed=true;stop();cleanups.forEach(fn=>fn());},
     // Deterministic geometry inspection, with no personal data.
-    snapshot(){return {camera:{...camera},rotation:{yaw:dragYaw,pitch:dragPitch},hovered,selected,activeHub,points:points.length,edges:edges.length,frame,mode,opening:opening/openingSeconds,visiblePoints:projected.filter(p=>p.appear>.01).length,projected:projected.map((p,i)=>({x:p.x,y:p.y,...nodeInfo(i)}))};}};
+    snapshot(){return {camera:{...camera},rotation:{yaw:dragYaw,pitch:dragPitch},hovered,selected,activeHub,points:points.length,knowledgeStars:points.filter(p=>p.kind==='node').length,edges:edges.length,frame,mode,opening:opening/openingSeconds,visiblePoints:projected.filter(p=>p.appear>.01).length,projected:projected.map((p,i)=>({x:p.x,y:p.y,...nodeInfo(i)}))};}};
 }

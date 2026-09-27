@@ -86,7 +86,7 @@ def test_name_and_reason_together_make_a_valid_introduction():
     """§16.1: le due cose ci sono, e l'apertura è completa."""
     reg = _ledger()
     reg.we_said(
-        "Buongiorno, sono l'assistente di Francesco. Chiamo per spostare il "
+        "Buongiorno, sono l'assistente di Francesco Cefalà. Chiamo per spostare il "
         "suo appuntamento dal dentista di oggi: vorremmo spostarlo dalle 16 "
         "alle 18."
     )
@@ -141,7 +141,7 @@ def test_claiming_to_be_the_person_is_not_a_shorter_introduction():
 def test_saying_who_without_saying_why_is_not_enough():
     """§16.4: si presenta e poi tace sul motivo."""
     reg = _ledger()
-    reg.we_said("Buongiorno, sono l'assistente di Francesco.")
+    reg.we_said("Buongiorno, sono l'assistente di Francesco Cefalà.")
     assert reg.state == "partial"
     manca = reg.what_still_has_to_be_said()
     assert "chiami per" in manca
@@ -179,7 +179,7 @@ def test_an_interrupted_opening_is_finished_not_restarted():
     assert "Ripeti per intera la frase" in nota
     assert "non riprendere da dove ti hanno tagliato" in nota
 
-    reg.we_said("Chiamo per spostare il suo appuntamento dal dentista di oggi "
+    reg.we_said("Sono l'assistente di Francesco Cefalà. Chiamo per spostare il suo appuntamento dal dentista di oggi "
                 "dalle 16 alle 18.")
     assert reg.state == "completed"
     assert reg.is_settled()
@@ -199,7 +199,7 @@ def test_a_finished_introduction_is_never_asked_for_again():
     """
     reg = _ledger()
     reg.we_said(
-        "Buongiorno, sono l'assistente di Francesco. Chiamo per spostare il "
+        "Buongiorno, sono l'assistente di Francesco Cefalà. Chiamo per spostare il "
         "suo appuntamento dal dentista di oggi dalle 16 alle 18."
     )
     for _ in range(5):

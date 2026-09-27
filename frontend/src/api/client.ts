@@ -115,6 +115,10 @@ export type ApiUser = {
   user_id: string;
   email: string;
   name?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  identity_confirmed?: boolean;
+  knowledge_tutorial_version?: number;
   picture?: string | null;
   provider: string;
   /** ISO date the account was opened. Absent on accounts old enough to predate it. */
@@ -761,8 +765,13 @@ export const api = {
   callTranscript: (callId: string) =>
     request<CallTranscriptResponse>(`/telephone/calls/${callId}/transcript`),
 
-  register: (email: string, password: string, name?: string) =>
-    request<ApiAuth>('/auth/register', { method: 'POST', body: JSON.stringify({ email, password, name }) }, false),
+  register: (email: string, password: string, first_name: string, last_name: string) =>
+    request<ApiAuth>('/auth/register', { method: 'POST', body: JSON.stringify({ email, password, first_name, last_name }) }, false),
+
+  updateIdentity: (first_name: string, last_name: string, tutorial_seen = false) =>
+    request<ApiUser>('/auth/identity', { method: 'PUT', body: JSON.stringify({ first_name, last_name, tutorial_seen }) }),
+
+  knowledgeMap: () => request<import('@/src/components/ora/presence/knowledge').KnowledgeMap>('/life-profile/knowledge-map'),
 
   login: (email: string, password: string) =>
     request<ApiAuth>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }, false),

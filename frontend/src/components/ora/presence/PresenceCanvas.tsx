@@ -19,7 +19,7 @@ export function PresenceCanvas({ options, onUnavailable, onSelect }: CanvasProps
         const message = JSON.parse(event.nativeEvent.data);
         if (message.type !== 'select') return;
         if (message.node === null) onSelect(null);
-        else { const node = readPresenceNode(message.node); if (node) onSelect(node); }
+        else { const node = readPresenceNode(message.node, latest.current.stars); if (node) onSelect(node); }
       } catch { /* Invalid bridge payloads never affect the conversation. */ }
     }}
     onLoadEnd={sendOptions} onError={onUnavailable} onContentProcessDidTerminate={onUnavailable}

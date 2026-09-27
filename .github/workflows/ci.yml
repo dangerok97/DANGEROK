@@ -84,6 +84,9 @@ jobs:
       - name: Conversation presence isolation and lifecycle
         working-directory: backend
         run: python -m pytest -q tests/test_presence_activity.py -x
+      - name: Knowledge stars, account identity and full-name telephone introductions
+        working-directory: backend
+        run: python -m pytest -q tests/test_knowledge_map.py tests/test_introduction_contract_v313.py -x
       - name: Voice lifecycle and phone recipient corrections
         working-directory: backend
         run: python -m pytest -q tests/test_voice_streaming.py tests/test_live_voice_fluidity.py tests/test_voice_output_v313.py tests/test_voice_life_continuity_v313.py tests/test_phone_identity_conflict.py -x

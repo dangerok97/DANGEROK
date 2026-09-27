@@ -1,3 +1,25 @@
+## 27 settembre 2026 — Knowledge stars: implementazione e gate locali
+
+Implementati mappa di conoscenze reali, nome/cognome in registrazione e
+aggiornamento autenticato, tutorial VITA, fonte al tocco, alone dei rami
+completi, crescita incrementale e cognome nella presentazione telefonica.
+Nessuna dipendenza, indice o migrazione nuovi; soli campi users additivi.
+
+Verifiche locali: 120 test backend PASS (knowledge map, identità, isolamento,
+VITA, contratto di introduzione, missione e presenza). Frontend: renderer,
+bridge, ingresso sessione, voce, VITA e layout ORA PASS; TypeScript e build
+web/iOS PASS. Lint: 0 errori, 4 warning preesistenti in GuidedSetupScreen.
+Due vecchie guardie Google auth falliscono su Settings perché cercano
+l'adapter di login in una pagina che ormai contiene i connettori: Settings
+è identico al baseline, nessuna modifica in questa consegna. Le prove
+telefoniche che richiedono Mongo reale sono affidate al job CI dedicato;
+il tentativo locale senza Mongo non è contato come verifica superata.
+
+Pubblicazione esatta e verifica web ancora in corso: aggiornare qui dopo
+SUCCESS dei due servizi e prova del bundle effettivamente caricato. Preservare
+Railway preDeployCommand=[], variabili e volume documenti. Nessuna telefonata,
+email o messaggio reale eseguiti durante le prove.
+
 ## Verificato online — 27 settembre 2026, focus delle aree
 
 Correzione conclusa e verificata nel browser autenticato. Prima della modifica,

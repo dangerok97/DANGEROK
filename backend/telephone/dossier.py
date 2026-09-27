@@ -106,11 +106,10 @@ async def prepare_while_it_rings(db, call) -> TelephoneCallDossier:
     step = time.perf_counter()
     try:
         row = await db.users.find_one(
-            {"user_id": call.owner_id}, {"_id": 0, "name": 1, "first_name": 1},
+            {"user_id": call.owner_id}, {"_id": 0, "name": 1, "first_name": 1, "last_name": 1},
         )
-        nome = str(
-            (row or {}).get("first_name") or (row or {}).get("name") or ""
-        ).strip()
+        from account_identity import owner_full_name
+        nome = owner_full_name(row or {})
         #     «FRANCESCO», NON «FRANCESCO» SCRITTO COME L'HA SCRITTO LUI.
         # Il nome del profilo era tutto minuscolo e la voce lo diceva nelle
         # trascrizioni così: un nome proprio ha la maiuscola.

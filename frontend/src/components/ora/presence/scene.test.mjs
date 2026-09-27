@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createPresenceScene } from './scene.js';
 
+const fixtureStars = Array.from({length:394}, (_,i) => ({id:`star_test_${i}`, area:['memory','calendar','people','places','home','documents','finances','calls'][i%8], kind:'node'}));
 function harness(options = {}) {
   let next = 0, time = 0;
   const pending = new Map(), listeners = new Map();
@@ -18,7 +19,7 @@ function harness(options = {}) {
   const selections = [];
   const canvas = { style: {}, getContext: () => ctx, getBoundingClientRect: () => ({ width: 360, height: 240, left: 30, top: 60 }), addEventListener: on, removeEventListener: off };
   const palette = new Proxy({}, { get: () => '170,200,220' });
-  const scene = createPresenceScene(canvas, { mode: 'idle', active: true, ...options }, palette, { onSelect: node => selections.push(node) });
+  const scene = createPresenceScene(canvas, { mode: 'idle', active: true, stars: fixtureStars, ...options }, palette, { onSelect: node => selections.push(node) });
   function frames(n) { for (let i = 0; i < n; i++) { const batch = [...pending]; pending.clear(); time += 16.67; for (const [, fn] of batch) fn(time); } }
   function pointer(event, x, y, type = 'mouse', id = 1) {
     listeners.get(event)({ clientX: x + 30, clientY: y + 60, pointerId: id, pointerType: type, button: 0 });
@@ -206,5 +207,35 @@ test('dialogue framing moves the drawn map and keeps node hit targets aligned', 
   assert.equal(after.x, before.x); assert.ok(after.y < before.y);
   h.pointer('pointerdown', after.x, after.y, 'touch'); h.pointer('pointerup', after.x, after.y, 'touch');
   assert.equal(h.selections[0]?.area, 'people');
+  h.scene.destroy();
+});
+
+
+test('empty accounts contain no invented knowledge and additions grow without replaying the session', () => {
+  const h = harness({ stars: [] });
+  assert.equal(h.scene.snapshot().knowledgeStars, 0);
+  const first = { id: 'star_first', area: 'memory', kind: 'node' };
+  h.scene.update({ stars: [first] });
+  assert.equal(h.scene.snapshot().knowledgeStars, 1);
+  assert.equal(h.scene.snapshot().opening, 1);
+  const born = h.scene.snapshot().projected.find(p => p.id === first.id);
+  h.frames(120);
+  const grown = h.scene.snapshot().projected.find(p => p.id === first.id);
+  assert.notDeepEqual(born, grown);
+  h.scene.update({ stars: [first, {id:'star_second', area:'home', kind:'node'}] });
+  assert.equal(h.scene.snapshot().knowledgeStars, 2);
+  assert.equal(h.scene.snapshot().opening, 1);
+  h.scene.update({ stars: [first], paused: true });
+  assert.equal(h.scene.snapshot().knowledgeStars, 1, 'forgotten information leaves the scene');
+  assert.equal(h.pending.size, 0);
+  h.scene.destroy();
+});
+
+test('knowledge selections identify the exact saved fact, including on touch', () => {
+  const h = harness({ stars: [{id:'star_exact',area:'home',kind:'node'}], reduced: true });
+  const p = h.scene.snapshot().projected.find(p => p.id === 'star_exact');
+  h.pointer('pointerdown', p.x, p.y, 'touch'); h.pointer('pointerup', p.x, p.y, 'touch');
+  assert.equal(h.selections[0]?.id, 'star_exact');
+  assert.equal(h.selections[0]?.kind, 'node');
   h.scene.destroy();
 });

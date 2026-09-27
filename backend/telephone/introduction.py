@@ -318,6 +318,7 @@ class IntroductionLedger:
     def __init__(self, intro: Introduction) -> None:
         self.intro = intro
         self._who = False
+        self._identity_started = False
         self._why = False
         self._pretended_to_be_them = False
         self._nudges = 0
@@ -346,14 +347,16 @@ class IntroductionLedger:
         detto = _plain(self._voice)
 
         nome = _plain(self.intro.assistant_for).strip()
-        # Basta il nome, non il cognome: al telefono si dice «di Francesco».
+        # Deliver the complete owner identity, including compound surnames.
         primo = nome.split()[0] if nome else ""
-        c_e_il_nome = bool(primo) and primo in detto
+        c_e_il_nome = bool(nome) and bool(re.search(r"\b" + r"\s+".join(map(re.escape, nome.split())) + r"\b", detto))
         si_dichiara_assistente = any(m in detto for m in _ASSISTANT_MARKERS)
+        if si_dichiara_assistente:
+            self._identity_started = True
 
         if c_e_il_nome and si_dichiara_assistente:
             self._who = True
-        elif c_e_il_nome and re.search(rf"\bsono\s+{re.escape(primo)}\b", detto):
+        elif primo and re.search(rf"\bsono\s+{re.escape(primo)}\b", detto):
             #     QUESTA NON È UN'APERTURA INCOMPLETA. È UN'ALTRA PERSONA.
             self._pretended_to_be_them = True
 
@@ -373,7 +376,7 @@ class IntroductionLedger:
     def state(self) -> IntroductionState:
         if self._who and self._why:
             return "completed"
-        if self._who or self._why:
+        if self._who or self._why or self._identity_started:
             return "partial"
         return "not_started"
 

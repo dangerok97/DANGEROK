@@ -44,7 +44,7 @@ export function presenceMode(busy: boolean, phase?: string): PresenceMode {
 }
 
 export const AREA_IDS = Object.keys(AREA_LABELS) as PresenceArea[];
-export type PresenceNode = { index: number; area: PresenceArea; kind: 'area' | 'node' | 'connection' };
+export type PresenceNode = { index: number; area: PresenceArea; kind: 'area' | 'node' | 'branch'; id?: string };
 export const AREA_DETAILS: Record<PresenceArea, { description: string; prompt: string }> = {
   memory: { description: 'Il contesto che hai condiviso con ORA: preferenze, informazioni e cose da tenere presenti.', prompt: 'Riepiloga le informazioni che conosci su di me e indicami da dove arrivano. Distingui ciò che sai dalle ipotesi.' },
   calendar: { description: 'Appuntamenti, scadenze e disponibilità: il tempo su cui organizzare la tua giornata.', prompt: 'Controlla i miei impegni e aiutami a organizzare la giornata. Prima di modificare qualcosa, mostrami la proposta.' },
@@ -56,13 +56,13 @@ export const AREA_DETAILS: Record<PresenceArea, { description: string; prompt: s
   calls: { description: 'Le telefonate che puoi preparare con ORA: destinatario, richiesta e riepilogo prima del tuo via.', prompt: 'Vorrei preparare una telefonata. Aiutami a chiarire destinatario e richiesta; non avviarla senza la mia conferma.' },
 };
 /** A WebView can report a selection only. It cannot request an action or provide content. */
-export function readPresenceNode(value: unknown): PresenceNode | null {
+export function readPresenceNode(value: unknown, geometry: readonly { id: string; area: PresenceArea; kind: string }[] = []): PresenceNode | null {
   if (!value || typeof value !== 'object') return null;
   const node = value as PresenceNode;
-  if (!Number.isInteger(node.index) || node.index < 0 || node.index >= 402
-    || !Object.hasOwn(AREA_LABELS, node.area) || !['area', 'node', 'connection'].includes(node.kind)) return null;
-  const expectedGroup = node.index < 8 ? node.index : node.index < 280 ? Math.floor((node.index - 8) / 34) : null;
-  const expectedKind = node.index < 8 ? 'area' : node.index < 280 ? 'node' : 'connection';
-  if (node.kind !== expectedKind || expectedGroup !== null && AREA_IDS[expectedGroup] !== node.area) return null;
-  return { index: node.index, area: node.area, kind: node.kind };
+  if (!Number.isSafeInteger(node.index) || node.index < 0 || !Object.hasOwn(AREA_LABELS, node.area)) return null;
+  if (node.index < 8) return node.kind === 'area' && AREA_IDS[node.index] === node.area
+    ? { index: node.index, area: node.area, kind: 'area' } : null;
+  const expected = geometry[node.index - 8];
+  if (!expected || expected.id !== node.id || expected.area !== node.area || expected.kind !== node.kind) return null;
+  return { index: node.index, area: node.area, kind: node.kind, id: node.id };
 }

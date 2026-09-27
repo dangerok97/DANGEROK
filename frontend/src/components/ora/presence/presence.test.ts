@@ -51,7 +51,9 @@ test('selection bridge accepts only a known node identity and drops arbitrary co
   for (let i = 0; i < 8; i++) {
     const area = AREA_IDS[i];
     assert.deepEqual(readPresenceNode({ index: i, area, kind: 'area', secret: 'ignored' }), { index: i, area, kind: 'area' });
-    assert.equal(readPresenceNode({ index: 8 + i * 34, area, kind: 'node' })?.area, area);
+    const geometry = [{ id: `star_${i}`, area, kind: 'node' }];
+    assert.equal(readPresenceNode({ index: 8, id: `star_${i}`, area, kind: 'node' }, geometry)?.area, area);
+    assert.equal(readPresenceNode({ index: 8, id: 'forged', area, kind: 'node' }, geometry), null);
     assert.ok(AREA_DETAILS[area].description && AREA_DETAILS[area].prompt);
   }
   for (const invalid of [null, {}, {index: 402, area: 'home', kind: 'node'}, {index: 0, area: 'home', kind: 'area'}, {index: 0, area: 'memory', kind: 'node'}, {index: 9.5, area: 'memory', kind: 'node'}, {index: 0, area: 'constructor', kind: 'area'}]) assert.equal(readPresenceNode(invalid), null);

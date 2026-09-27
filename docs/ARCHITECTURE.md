@@ -1,3 +1,29 @@
+## 27 settembre 2026 — Proiezione knowledge-map e identità
+
+`GET /life-profile/knowledge-map` è autenticato, owner-scoped, `private,
+no-store`. Legge users, life_profiles, memories e la completezza esistente;
+non crea un secondo archivio, non chiama LLM, non scrive né migra dati.
+Identificatori SHA stabili per slot, governance dei sinonimi per slot,
+provenienza e stato epistemico espliciti. Tutte le note attive sono lette,
+senza il limite di 40 della presentazione Memory; dati rifiutati, dimenticati,
+scaduti e superseded sono esclusi. Non è una rappresentazione di ogni parola
+contenuta in file, email o chat: le stelle sono le conoscenze persistite.
+
+`users` riceve campi additivi first_name, last_name, identity_confirmed_at,
+knowledge_tutorial_version/seen_at. Registrazione retrocompatibile per client
+installati: una coppia parziale è invalida, il nuovo client richiede entrambi.
+`PUT /auth/identity` modifica soltanto il proprietario del JWT; il client non
+può impostare identità di altri né completezza VITA. I nomi composti e gli
+accenti sono preservati, con validazione dei caratteri e del limite telefonico.
+
+Il renderer condiviso web/native mantiene gli otto hub di focus e disegna
+punti stabili dai soli ID opachi. Testo personale fuori dalla WebView; bridge
+validato contro la geometria corrente. Collegamenti O(n), crescita dei soli
+nuovi punti, conteggi senza dot decorativi. Hook senza persistenza locale e
+con isolamento delle risposte tra account; refresh al termine dei turni,
+dopo risposte VITA e al ritorno in foreground. Riduzione movimento, pausa,
+mouse/touch e session opening restano operativi.
+
 ## Verificato online — 27 settembre 2026, focus delle aree
 
 Correzione conclusa e verificata nel browser autenticato. Prima della modifica,

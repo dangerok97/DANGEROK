@@ -1,4 +1,8 @@
 import { BankSummaryCard } from './BankSummaryCard';
+import { KnowledgeWelcome } from './KnowledgeWelcome';
+import { OraPresence } from '@/src/components/ora/presence/OraPresence';
+import { useKnowledgeMap } from '@/src/components/ora/presence/useKnowledgeMap';
+import { useAuth } from '@/src/contexts/AuthContext';
 import { PlacesSection } from '@/src/components/vita/PlacesSection';
 /**
  * The guided first setup.
@@ -85,6 +89,7 @@ function Bar({ percent, color, track }: { percent: number; color: string; track:
 }
 
 export function GuidedSetupScreen() {
+  const { user } = useAuth();
   const { colors } = useTheme();
   const router = useRouter();
   const { width } = useWindowDimensions();
@@ -127,6 +132,8 @@ export function GuidedSetupScreen() {
   const areas = state?.areas ?? [];
   const current = areas.find((a) => a.area_id === state?.current_area_id) || null;
   const primoGiro = !!state && !state.finished;
+  const knowledgeKey = useMemo(() => ({ state, name: user?.name, tutorial: user?.knowledge_tutorial_version }), [state, user?.name, user?.knowledge_tutorial_version]);
+  const knowledge = useKnowledgeMap(user?.user_id, !loading, knowledgeKey);
   const mostraDomanda = !!objective && (primoGiro || !!current?.in_progress);
 
   /*
@@ -421,8 +428,7 @@ export function GuidedSetupScreen() {
       <View style={{ flex: 1, gap: 6 }}>
         <Text style={[oraType.small, { color: ora.ink2 }]}>
           ORA usa quello che le dici per ricordarti le cose al momento giusto e per
-          non chiedertele due volte. Niente di tutto questo esce da qui, e da Vita
-          puoi correggere o togliere quello che vuoi, quando vuoi.
+          non chiedertele due volte. Le informazioni servono alle attività che richiedi. Le stelle mostrano quello che è stato salvato e la sua fonte.
         </Text>
         {current?.purpose ? (
           <Text style={[oraType.small, { color: ora.ink2 }]}>
@@ -496,7 +502,7 @@ export function GuidedSetupScreen() {
               : 'Stiamo costruendo il quadro della tua vita.'}
           </Text>
           <Text style={[oraType.body, { color: ora.ink2, marginTop: 6 }]}>
-            Conosce il {percent}% di ciò che può aiutarti. Aggiungi il resto quando vuoi, da Vita.
+            Hai completato il {percent}% delle informazioni previste nelle aree di VITA. Puoi aggiungere il resto quando vuoi.
           </Text>
         </View>
         <Text style={[styles.profilePercent, { color: ora.ink }]} testID="guided-percent">
@@ -1287,7 +1293,15 @@ export function GuidedSetupScreen() {
           <View style={styles.main}>
             {header}
             {perche}
-            {intro}
+            {primoGiro ? null : intro}
+            <View style={{ gap: 8 }}>
+              <OraPresence knowledge={knowledge.data} />
+              <Text accessibilityLiveRegion="polite" style={[oraType.small, { color: ora.ink2 }]} testID="knowledge-growth">
+                {knowledge.error ? 'Non riesco ad aggiornare le stelle. Le tue risposte restano salvate.' : knowledge.added > 0 ? `${knowledge.added === 1 ? 'Una nuova stella si è accesa' : `${knowledge.added} nuove stelle si sono accese`} nella tua mappa.` : 'Ogni risposta salvata fa crescere la tua mappa. Tocca una stella per esplorarla.'}
+              </Text>
+              {knowledge.error ? <Pressable accessibilityRole="button" onPress={knowledge.reload} style={styles.back}><Text style={{ color: colors.accent }}>Riprova aggiornamento della mappa</Text></Pressable> : null}
+            </View>
+            {state ? <KnowledgeWelcome firstRun={primoGiro && !user?.knowledge_tutorial_version} /> : null}
             {profileCard}
             <Pressable accessibilityRole="button" onPress={() => router.push('/luoghi' as any)} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 18, borderRadius: 16, backgroundColor: ora.surfaceTint }}>
               <Ionicons name="location-outline" size={23} color={ora.cta} />

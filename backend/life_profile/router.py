@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Any, List, Literal, Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response
 from pydantic import BaseModel, Field
 
 from deps import db, get_current_user
@@ -19,6 +19,13 @@ from life_profile.service import get_life_profile_service
 from life_profile.setup import get_guided_setup_service
 
 router = APIRouter(prefix="/life-profile", tags=["life-profile"])
+
+
+@router.get("/knowledge-map")
+async def personal_knowledge_map(response: Response, user=Depends(get_current_user)):
+    from life_profile.knowledge_map import knowledge_map
+    response.headers["Cache-Control"] = "private, no-store"
+    return await knowledge_map(db, user["user_id"])
 
 
 class NotApplicableBody(BaseModel):

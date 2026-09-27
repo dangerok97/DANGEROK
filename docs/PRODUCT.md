@@ -1,3 +1,25 @@
+## 27 settembre 2026 — Stelle della conoscenza e primo incontro
+
+La mappa ORA rappresenta le informazioni personali salvate nel Life Profile e
+nella memoria governata. Una stella per informazione, fonte leggibile al tocco,
+luce ambrata per ciò che resta da verificare. Correzioni mantengono l'identità
+del punto; ricordi dimenticati e proposte non accettate non alimentano la mappa.
+I nodi grandi sono aree di navigazione, i collegamenti sono un raggruppamento
+visivo: non il ragionamento interno o i neuroni del modello.
+
+La registrazione email chiede nome e cognome separati. Il breve tutorial VITA
+spiega la loro utilità nelle chiamate, la crescita dei rami e la libertà di
+saltare le domande. Gli account social o precedenti possono completare e
+correggere il nome da VITA. La presentazione telefonica legge l'identità del
+proprietario e mantiene il cognome; l'introduction ledger verifica l'intero
+nome, anche se pronunciato in più frammenti. Nessuna nuova autorizzazione a
+telefonare: restano validi mandato e conferma esistenti.
+
+VITA e ORA mostrano la stessa mappa e la percentuale canonica. Stelle e
+completezza sono distinte: i due dati del nome non gonfiano la percentuale.
+Ogni risposta salvata aggiorna punti e rami; un ramo al 100% con conoscenze
+reali accende un alone. Non ci sono punti guadagnati per skip o rifiuti.
+
 ## Verificato online — 27 settembre 2026, focus delle aree
 
 Correzione conclusa e verificata nel browser autenticato. Prima della modifica,

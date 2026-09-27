@@ -121,6 +121,7 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [busy, setBusy] = useState<Busy>(null);
   const [err, setErr] = useState<string | null>(null);
   const [appleNative, setAppleNative] = useState(false);
@@ -256,10 +257,14 @@ export default function LoginScreen() {
       setErr('Inserisci email e password');
       return;
     }
+    if (isRegister && (!name.trim() || !lastName.trim())) {
+      setErr('Inserisci nome e cognome: ORA li userà quando si presenterà come tua assistente.');
+      return;
+    }
     try {
       setBusy('email');
       const auth = isRegister
-        ? await api.register(email, password, name || undefined)
+        ? await api.register(email, password, name.trim(), lastName.trim())
         : await api.login(email, password);
       await signIn(auth.token, auth.user);
       await routeAfterAuth(router, auth.user.user_id);
@@ -432,7 +437,11 @@ export default function LoginScreen() {
               {mode === 'email' && (
                 <View style={styles.form}>
                   {isRegister ? (
+                    <>
+                    <Text style={{ color: colors.textSecondary, fontSize: 14, lineHeight: 21 }}>Ogni informazione che scegli di condividere accende una stella nella tua mappa. Partiamo da te.</Text>
                     <AppInput
+                      textContentType="givenName"
+                      autoComplete="given-name"
                       testID="login-name-input"
                       label="Nome"
                       placeholder="Nome"
@@ -442,6 +451,9 @@ export default function LoginScreen() {
                       editable={!anyBusy}
                       returnKeyType="next"
                     />
+                    <AppInput testID="login-last-name-input" label="Cognome" placeholder="Cognome" value={lastName} onChangeText={setLastName} autoCapitalize="words" textContentType="familyName" autoComplete="family-name" editable={!anyBusy} returnKeyType="next" />
+                    <Text style={{ color: colors.textSecondary, fontSize: 13, lineHeight: 20 }}>Quando autorizzi una chiamata, ORA dirà: «Sono ORA, l’assistente di {name.trim() || 'Nome'} {lastName.trim() || 'Cognome'}». Le prossime domande aiuteranno a collegare casa, impegni e persone. Potrai saltarle e completare VITA quando vuoi.</Text>
+                    </>
                   ) : null}
                   <AppInput
                     testID="login-email-input"

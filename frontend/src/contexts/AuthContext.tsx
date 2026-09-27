@@ -8,6 +8,7 @@ type AuthState = {
   signIn: (token: string, user: ApiUser) => Promise<void>;
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
+  updateUser: (user: ApiUser) => void;
 };
 
 const Ctx = createContext<AuthState>({
@@ -16,6 +17,7 @@ const Ctx = createContext<AuthState>({
   signIn: async () => {},
   signOut: async () => {},
   refresh: async () => {},
+  updateUser: () => {},
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -72,7 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   }, []);
 
-  return <Ctx.Provider value={{ user, loading, signIn, signOut, refresh }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ user, loading, signIn, signOut, refresh, updateUser: setUser }}>{children}</Ctx.Provider>;
 }
 
 export const useAuth = () => useContext(Ctx);
