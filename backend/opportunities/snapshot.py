@@ -620,9 +620,10 @@ async def _documents(db, user_id: str, now: datetime, *, document_ids=None) -> L
 
 async def _market_offers(db, user_id: str, now: datetime) -> List[Dict[str, Any]]:
     """Fresh, source-backed alternatives from recurring public web research."""
+    from energy_offers.service import SOURCE_FRESH_FOR
     rows = await db.energy_offer_monitors.find(
         {"user_id": user_id, "enabled": True,
-         "source_fetched_at": {"$gte": (now - timedelta(days=10)).isoformat()},
+         "source_fetched_at": {"$gte": (now - SOURCE_FRESH_FOR).isoformat()},
          "$or": [{"evidence_valid_until": {"$exists": False}},
                  {"evidence_valid_until": None},
                  {"evidence_valid_until": {"$gte": now.isoformat()}}]},

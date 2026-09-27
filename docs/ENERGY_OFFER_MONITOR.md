@@ -17,7 +17,7 @@ nel comune dichiarato.
 
 Una bolletta luce o gas, una polizza auto, casa o generica oppure un contratto telefonico riconosciuto
 crea un controllo persistente. ORA cerca offerte online subito dopo
-l'elaborazione del documento e poi ogni sette giorni, anche se l'app non è
+l'elaborazione del documento e poi ogni giorno, anche se l'app non è
 aperta. La pagina Documenti mostra ultimo controllo, prossimo controllo,
 alternative con link alla pagina del venditore e un comando per sospendere la
 ricerca. Un nuovo risparmio stimato positivo sulla componente di vendita
@@ -39,7 +39,7 @@ indicizzato o mantenuto. Per luce e gas sono valutate le pagine di offerte
 specifiche osservate dalla ricerca, anche se non incluse nella sua sintesi;
 per gli altri contratti restano richieste pagine citate dalla sintesi. URL e
 identificatori di fonte vengono controllati. La data di osservazione è
-visibile. Dopo dieci giorni il risultato non entra in nuove valutazioni e
+visibile. Dopo 24 ore senza una nuova ricerca riuscita il risultato non entra in nuove valutazioni e
 scompare dalla pagina.
 
 Il testo del documento, nome, indirizzo, POD/PDR, targa e numero di polizza non
@@ -99,7 +99,10 @@ compatibilità; il contenuto ora comprende anche assicurazioni. Il runtime
 `ambient` consuma un controllo dovuto circa ogni minuto. Un documento
 cancellato o archiviato o una preferenza disattivata ferma la sorveglianza.
 La ricerca riparte con una nuova lettura del web dopo ogni scadenza, anche
-dopo un riavvio.
+dopo un riavvio. Al passaggio dalla vecchia frequenza settimanale, i controlli
+già programmati oltre le prossime 24 ore vengono anticipati all'avvio.
+Se il provider web non risponde, il monitor ritenta dopo sei ore; il vecchio
+risultato non resta pubblicato oltre la finestra di freschezza.
 
 Questa bozza non cambia fornitore, non acquista una polizza e non contatta
 venditori. Eventuali azioni future devono passare per l'autorità ordinaria
@@ -112,13 +115,14 @@ polizza sintetiche. Il 26/09 una bolletta sintetica da 2.700 kWh/anno con
 prezzo 0,22 €/kWh e quota commerciale 12 €/mese ha prodotto una proposta
 Iren Web Self Luce Prezzo Fisso con stima di 203,70 €/anno in meno sulla sola
 componente di vendita. La pagina ufficiale è stata letta durante il controllo.
-Il prossimo controllo è stato programmato sette giorni dopo; il documento di
+All'epoca il prossimo controllo era programmato sette giorni dopo; il documento di
 prova è stato rimosso e il monitor sospeso. La resa visiva nell'app installata
 non è ancora stata verificata manualmente.
 Il test integrato usa una bolletta sintetica e due offerte con condizioni
-esplicite: verifica la migliore proposta, un nuovo controllo dopo sette giorni
+esplicite: verifica la migliore proposta, un nuovo controllo dopo un giorno
 con prezzi cambiati e il cambio di consiglio dopo il riavvio del servizio.
-Il tempo settimanale viene simulato, senza attendere sette giorni reali.
+Il giorno successivo viene simulato; la cadenza reale di 24 ore deve ancora
+essere osservata nel servizio distribuito.
 I risultati dipendono dalla disponibilità dei provider e dalle pagine dei
 venditori; un preventivo personale resta necessario per decidere un cambio.
 # Personalizzazione e soglia degli avvisi

@@ -23,9 +23,9 @@ from energy_offers.page import fetch_offer_terms
 
 logger = logging.getLogger("ora.market_watch")
 MONITORS = "energy_offer_monitors"  # Retain the existing owner-scoped collection.
-CHECK_EVERY = timedelta(days=7)
-RETRY_AFTER = timedelta(hours=12)
-SOURCE_FRESH_FOR = timedelta(days=10)
+CHECK_EVERY = timedelta(days=1)
+RETRY_AFTER = timedelta(hours=6)
+SOURCE_FRESH_FOR = timedelta(days=1)
 
 _QUESTIONS = {
     "electricity": "Quali offerte luce domestiche in Italia sono acquistabili oggi? Cerca pagine ufficiali dei venditori con nome dell'offerta, prezzo fisso in €/kWh, quota di commercializzazione in €/mese o €/anno e condizioni di validità, così da confrontarle sui consumi annui.",
@@ -537,6 +537,14 @@ class EnergyOfferService:
             [("user_id", 1), ("commodity", 1), ("supply_key", 1)], unique=True
         )
         await self.db[MONITORS].create_index([("enabled", 1), ("next_check_at", 1)])
+        # Existing monitors may still be scheduled a week ahead by the old
+        # cadence. Bring them forward once on startup; subsequent daily dates
+        # are already within this window and are left untouched.
+        moment = _now()
+        await self.db[MONITORS].update_many(
+            {"enabled": True, "next_check_at": {"$gt": _iso(moment + CHECK_EVERY)}},
+            {"$set": {"next_check_at": _iso(moment)}},
+        )
 
     async def register_bill(self, user_id: str, document: dict[str, Any]) -> bool:
         return await self.register_document(user_id, document)

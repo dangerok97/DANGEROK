@@ -13,6 +13,44 @@ from energy_offers.savings import offer_terms
 from energy_offers.page import terms_from_html
 
 
+@pytest.mark.asyncio
+async def test_daily_web_watch_migrates_old_weekly_due_times():
+    from energy_offers.service import CHECK_EVERY, SOURCE_FRESH_FOR
+    assert CHECK_EVERY == SOURCE_FRESH_FOR == timedelta(days=1)
+    calls = []
+    class Collection:
+        async def create_index(self, *_args, **_kwargs):
+            pass
+        async def update_many(self, selector, update):
+            calls.append((selector, update))
+    class Db:
+        def __getitem__(self, _name):
+            return Collection()
+    await EnergyOfferService(Db()).ensure_indexes()
+    assert len(calls) == 1
+    assert calls[0][0]["enabled"] is True
+    assert calls[0][0]["next_check_at"]["$gt"] > calls[0][1]["$set"]["next_check_at"]
+
+
+@pytest.mark.asyncio
+async def test_opportunity_snapshot_discards_web_findings_older_than_one_day():
+    from opportunities.snapshot import _market_offers
+    checked = []
+    class Collection:
+        def find(self, query, _projection):
+            checked.append(query)
+            return self
+        def limit(self, _limit):
+            return self
+        async def to_list(self, _limit):
+            return []
+    class Db:
+        energy_offer_monitors = Collection()
+    now = datetime.now(timezone.utc)
+    assert await _market_offers(Db(), "owner", now) == []
+    assert checked[0]["source_fetched_at"]["$gte"] == (now - timedelta(days=1)).isoformat()
+
+
 def test_bill_profile_does_not_expose_identifiers_or_invoice_total():
     profile = parse_bill(
         "Bolletta energia elettrica\nPOD: IT001E12345678\n"
@@ -494,12 +532,12 @@ async def test_durable_web_check_repeats_and_only_changes_wake_review(monkeypatc
     assert (await service.run_due(now=first))["changed"] == 1
     assert (await service.run_due(now=first))["changed"] == 1
     assert len(notices) == 0  # A public listing is not a personalized saving.
-    assert (await service.run_due(now=first + timedelta(days=1)))["checked"] == 0
+    assert (await service.run_due(now=first + timedelta(hours=23)))["checked"] == 0
 
     # Persisted due time is consumed after a process restart. Repeated
     # evidence refreshes the check without creating another proposal.
     restarted = EnergyOfferService(db)
-    assert (await restarted.run_due(now=first + timedelta(days=8)))["changed"] == 0
+    assert (await restarted.run_due(now=first + timedelta(days=1)))["changed"] == 0
     assert len(notices) == 0
     assert len(searches) == 5  # A focused second search follows each inconclusive bill check.
     assert all(item[3]["allow_reuse"] is False for item in searches)
@@ -575,9 +613,9 @@ async def test_phone_contract_is_researched_again_after_a_week(monkeypatch):
     assert initial["advice"]["kind"] == "comparison_needed"
     assert "19.99 €" in initial["advice"]["text"]
     assert initial["candidates"][0]["url"] == "https://operator.example/mobile/piano"
-    assert initial["next_check_at"] == (first + timedelta(days=7)).isoformat()
-    assert (await service.run_due(now=first + timedelta(days=6)))["checked"] == 0
-    assert (await EnergyOfferService(db).run_due(now=first + timedelta(days=8)))["checked"] == 1
+    assert initial["next_check_at"] == (first + timedelta(days=1)).isoformat()
+    assert (await service.run_due(now=first + timedelta(hours=23)))["checked"] == 0
+    assert (await EnergyOfferService(db).run_due(now=first + timedelta(days=1)))["checked"] == 1
     assert len(searches) == len(direct_checks) == 2
     assert all(kwargs["allow_reuse"] is False for _, kwargs in searches)
     await db.drop_collection("energy_offer_monitors")
@@ -611,7 +649,7 @@ async def test_search_outage_retries_without_claiming_a_completed_check(monkeypa
 
 
 @pytest.mark.asyncio
-async def test_uploaded_bill_gets_best_verified_offer_then_new_weekly_comparison(monkeypatch):
+async def test_uploaded_bill_gets_best_verified_offer_then_new_daily_comparison(monkeypatch):
     if not os.environ.get("MONGO_URL"):
         pytest.skip("integration test uses the isolated CI Mongo service")
     from motor.motor_asyncio import AsyncIOMotorClient
@@ -653,7 +691,7 @@ async def test_uploaded_bill_gets_best_verified_offer_then_new_weekly_comparison
             # search provides explicit prices on each check.
             if len(searches) % 2:
                 return SimpleNamespace(id=f"research-{len(searches)}", status="completed", sources=[])
-            # A new price is observed during the next week's independent search.
+            # A new price is observed during the next day's independent search.
             prices = source_prices if len(searches) == 2 else [
                 source_prices[0],
                 ("beta", source_prices[1][1], "Prezzo fisso 0,20€/kWh + 125€ all'anno (costi di commercializzazione)"),
@@ -685,11 +723,11 @@ async def test_uploaded_bill_gets_best_verified_offer_then_new_weekly_comparison
     assert observed["advice"]["offer_code"] == "beta"
     assert observed["candidates"][0]["code"] == "beta"
     assert observed["advice"]["estimated_saving_year"] == 323.29
-    assert observed["next_check_at"] == (first + timedelta(days=7)).isoformat()
-    assert (await service.run_due(now=first + timedelta(days=6)))["checked"] == 0
+    assert observed["next_check_at"] == (first + timedelta(days=1)).isoformat()
+    assert (await service.run_due(now=first + timedelta(hours=23)))["checked"] == 0
 
     restarted = EnergyOfferService(db)
-    assert (await restarted.run_due(now=first + timedelta(days=8)))["checked"] == 1
+    assert (await restarted.run_due(now=first + timedelta(days=1)))["checked"] == 1
     current = (await restarted.status(owner))[0]
     assert current["advice"]["offer_code"] == "alpha"
     assert current["candidates"][0]["code"] == "alpha"

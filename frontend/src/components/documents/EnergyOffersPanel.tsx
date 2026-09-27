@@ -76,7 +76,7 @@ export function EnergyOffersPanel({ documentId, pollMs }: { documentId?: string;
       </Text>
       <Text style={{ color: colors.textSecondary, fontSize: 13, lineHeight: 19 }}>
         {data.enabled
-          ? 'ORA cerca online nuove alternative ogni settimana, anche quando l’app è chiusa.'
+          ? 'ORA cerca online nuove alternative ogni giorno, anche quando l’app è chiusa.'
           : 'Le ricerche periodiche sono in pausa.'}
       </Text>
       {supplies.map((supply) => (
@@ -170,4 +170,3 @@ export function EnergyOffersPanel({ documentId, pollMs }: { documentId?: string;
     </View>
   );
 }
-
