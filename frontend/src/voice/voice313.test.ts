@@ -360,12 +360,13 @@ test('§10 la conversazione non sa di chi sia la voce', () => {
   }
 });
 
-test('§11 se la voce buona non c’è, parla quella di sistema', () => {
+test('§11 recupero di sistema disponibile ma escluso dalla conversazione naturale', () => {
   const out = readCode(OUTPUT);
   assert.ok(
-    /if \(await premium\.isAvailable\(\)\) \{[\s\S]{0,400}catch \(error\) \{[\s\S]{0,200}\}[\s\S]{0,120}system\.speak/.test(out),
+    /if \(await premium\.isAvailable\(\)\) \{[\s\S]{0,400}catch \(error\) \{[\s\S]{0,200}\}[\s\S]{0,220}system\.speak/.test(out),
     'un fallimento della voce premium non passa a quella di sistema',
   );
+  assert.ok(readCode(LIVE).includes('systemFallback: false'));
   // Un 204 non è un errore da mostrare: vuol dire «parla tu».
   assert.ok(/answer\.status === 204/.test(out));
   // E fermarsi ferma tutte e due.

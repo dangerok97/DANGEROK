@@ -96,6 +96,7 @@ class SpeechOutputProvider(Protocol):
 # account aveva credito e i modelli giusti, e non gli e' mai stato chiesto
 # niente. Due righe di catena, e mesi di voce robotica.
 _GEMINI_KEYS = ("GEMINI_API_KEY", "GEMINI2_API_KEY")
+_gemini_key_failures: dict[str, float] = {}
 
 
 class GeminiSpeech:
@@ -121,7 +122,7 @@ class GeminiSpeech:
         self.voice = (os.environ.get("ORA_VOICE_NAME") or "Charon").strip()
 
     def is_available(self) -> bool:
-        return bool(self.keys)
+        return any(time.monotonic() >= _gemini_key_failures.get(name, 0) for name, _ in self.keys)
 
     async def speak(self, text: str, *, language: str = "it") -> Optional[Spoken]:
         if not self.is_available():
@@ -145,6 +146,8 @@ class GeminiSpeech:
         )
 
         for name, key in self.keys:
+            if time.monotonic() < _gemini_key_failures.get(name, 0):
+                continue
             client = genai.Client(api_key=key)
             try:
                 answer = await asyncio.wait_for(client.aio.models.generate_content(
@@ -154,15 +157,18 @@ class GeminiSpeech:
                 # Il nome della variabile d'ambiente, non il suo contenuto:
                 # serve a sapere quale account e' finito, e non e' un segreto.
                 logger.info("voce gemini via %s: %s status=%s", name, type(e).__name__, _error_status(e))
+                _gemini_key_failures[name] = time.monotonic() + _QUIET_FOR_S
                 continue
             finally:
                 await client.aio.aclose()
             raw = _first_audio(answer)
             if raw:
+                _gemini_key_failures.pop(name, None)
                 return Spoken(
                     audio=_as_wav(raw), mime="audio/wav",
                     voice=self.voice, provider=self.name,
                 )
+            _gemini_key_failures[name] = time.monotonic() + _QUIET_FOR_S
         return None
 
 

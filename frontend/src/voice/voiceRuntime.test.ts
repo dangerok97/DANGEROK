@@ -140,8 +140,31 @@ test('premium fetch timeout aborts the request and does not hang', async t => {
     init.signal.addEventListener('abort', () => reject(new Error('aborted')));
   }));
   const result = assert.rejects(voice.speak('Ciao.'));
-  t.mock.timers.tick(10501);
+  t.mock.timers.tick(13501);
   await result;
+});
+
+test('natural conversation reports unavailable audio without substituting the browser voice', async () => {
+  for (const available of [false, true]) {
+    const voice = oraVoice(async path => path.endsWith('available') ? Response.json({ premium: available }) : new Response(null, { status: 204 }), { systemFallback: false });
+    await assert.rejects(voice.speak('La risposta rimane in chat.'), /natural_voice_unavailable/);
+    assert.equal(await voice.isAvailable(), false);
+  }
+  assert.deepEqual(synthesized, []);
+});
+
+test('a late successful neural response is not aborted at the former browser deadline', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  autoEnd = true;
+  const reply = deferred<Response>();
+  let signal: AbortSignal | undefined;
+  const voice = premiumVoice(async (_path, init) => { signal = init.signal; return reply.promise; });
+  const speaking = voice.speak('Sono qui.');
+  t.mock.timers.tick(10820);
+  assert.equal(signal?.aborted, false);
+  reply.resolve(audioResponse());
+  await speaking;
+  assert.equal(played.length, 1);
 });
 
 test('availability recovers after a transient failure instead of caching forever', async t => {

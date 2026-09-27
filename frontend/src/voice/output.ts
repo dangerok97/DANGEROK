@@ -55,7 +55,8 @@ export function premiumVoice(request: (path: string, init?: any) => Promise<Resp
     if (mine !== epoch) throw aborted();
     const controller = new AbortController();
     pending.add(controller);
-    const timer = setTimeout(() => controller.abort(), 10500);
+    // Leave headroom for authentication and transfer around the 9 s server budget.
+    const timer = setTimeout(() => controller.abort(), 13500);
     try {
       const answer = await request(SAY, {
         method: 'POST', signal: controller.signal,
@@ -216,13 +217,17 @@ export function italianVoice(): SpeechSynthesisVoice | null {
   return italian[0] || null;
 }
 
-export function oraVoice(request: (path: string, init?: any) => Promise<Response>): SpeechOutputProvider {
+export function oraVoice(
+  request: (path: string, init?: any) => Promise<Response>,
+  options: { systemFallback?: boolean } = {},
+): SpeechOutputProvider {
   const premium = premiumVoice(request);
   const system = systemVoice();
+  const allowSystem = options.systemFallback !== false;
   let epoch = 0;
   return {
     name: 'ora',
-    isAvailable: async () => (await premium.isAvailable()) || system.isAvailable(),
+    isAvailable: async () => (await premium.isAvailable()) || (allowSystem && system.isAvailable()),
     async speak(text, hooks) {
       const mine = ++epoch;
       premium.stop(); system.stop();
@@ -238,6 +243,7 @@ export function oraVoice(request: (path: string, init?: any) => Promise<Response
         catch (error) { if (error instanceof SpeechFailure) remaining = error.remaining; }
       }
       if (mine !== epoch) return;
+      if (!allowSystem) throw new Error('natural_voice_unavailable');
       await system.speak(remaining, once);
     },
     stop() { epoch += 1; premium.stop(); system.stop(); },

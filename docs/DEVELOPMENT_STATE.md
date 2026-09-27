@@ -1,3 +1,19 @@
+## 2026-09-27 — Riferimento JARVIS e qualità vocale live
+
+Ricerca documentata in JARVIS_VOICE_REFERENCE.md: Nino D'Agata confermato come
+voce italiana; sample pubblico Castle escluso come prova del JARVIS filmico.
+Nessuna identità acustica dimostrata e nessun modello dedicato integrato.
+Il deploy backend 09ea0eb / e48b6c7d è SUCCESS; CI 36322568180 SUCCESS.
+Prova successiva: Gemini HTTP 200 WAV 133050 byte in 10,82 s; prima credenziale
+402, seconda funzionante. Il vecchio timeout browser (10,5 s) poteva annullarla.
+
+Correzione successiva: cooldown della singola credenziale fallita, deadline
+client 13,5 s e niente browser TTS automatico nel dialogo live. Nessuna attesa
+minima aggiunta. Verifiche: 19 test backend, 15 runtime frontend e 42 guardie voce
+PASS; TypeScript PASS, lint zero errori (un avviso preesistente), export web PASS.
+Nessuna nuova dipendenza o migrazione. Pubblicazione successiva da verificare;
+nessuna prova microfono/dispositivo né promessa di identicità o latenza zero.
+
 ## 2026-09-27 — Verifica della voce cloud e taratura del recupero
 
 Commit voce 0c3f25ee pubblicato su backend b3ddf759 e web a0fdbd08, entrambi

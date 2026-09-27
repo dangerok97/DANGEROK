@@ -36,6 +36,7 @@ def reset_voice_circuits(monkeypatch):
     from voice import providers
     monkeypatch.setattr(providers, "_last_failure", 0.0)
     monkeypatch.setattr(providers, "_provider_failures", {})
+    monkeypatch.setattr(providers, "_gemini_key_failures", {})
 
 HERE = Path(_BACKEND)
 

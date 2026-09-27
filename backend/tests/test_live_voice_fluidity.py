@@ -16,6 +16,7 @@ from test_post_call_application_v315 import FintoDb, _combacia
 def circuits(monkeypatch):
     monkeypatch.setattr(providers, '_last_failure', 0.0)
     monkeypatch.setattr(providers, '_provider_failures', {})
+    monkeypatch.setattr(providers, '_gemini_key_failures', {})
 
 
 @pytest.mark.asyncio
@@ -128,3 +129,37 @@ def test_provider_diagnostics_do_not_expose_error_details():
     assert providers._error_status(SimpleNamespace(code=429, message="private")) == 429
     assert providers._error_status(SimpleNamespace(code="private")) == 0
     assert providers._error_status(SimpleNamespace(response=SimpleNamespace(status_code=401))) == 401
+
+
+@pytest.mark.asyncio
+async def test_failed_gemini_account_is_skipped_until_cooldown_expires(monkeypatch):
+    from google import genai
+    from types import SimpleNamespace
+    calls, closed = [], []
+    recovered = False
+    class NoCredit(Exception):
+        code = 402
+    class Client:
+        def __init__(self, api_key):
+            self.key = api_key
+            self.aio = SimpleNamespace(models=self, aclose=self.close)
+        async def generate_content(self, **kwargs):
+            calls.append(self.key)
+            if self.key == 'first-fixture' and not recovered:
+                raise NoCredit()
+            return object()
+        async def close(self): closed.append(self.key)
+    monkeypatch.setenv('GEMINI_API_KEY', 'first-fixture')
+    monkeypatch.setenv('GEMINI2_API_KEY', 'second-fixture')
+    monkeypatch.setattr(genai, 'Client', Client)
+    monkeypatch.setattr(providers, '_first_audio', lambda answer: b'\x00\x01' * 10)
+    for words in ('Uno', 'Due'):
+        assert (await providers.GeminiSpeech().speak(words)).provider == 'gemini'
+    assert calls == ['first-fixture', 'second-fixture', 'second-fixture']
+    assert closed == calls
+    assert set(providers._gemini_key_failures) == {'GEMINI_API_KEY'}
+    recovered = True
+    providers._gemini_key_failures['GEMINI_API_KEY'] = 0
+    assert await providers.GeminiSpeech().speak('Tre')
+    assert calls[-1] == 'first-fixture'
+    assert not providers._gemini_key_failures

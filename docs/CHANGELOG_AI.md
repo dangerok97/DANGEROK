@@ -1,3 +1,14 @@
+## 2026-09-27 — Voce naturale: account in errore e riferimento italiano
+
+- Documentati crediti, fonti e limiti del confronto con JARVIS italiano.
+- Evitato il tentativo ripetuto sulla credenziale Gemini in errore a ogni frase;
+  cooldown temporaneo, senza valori segreti nei log o nella chiave della cache.
+- Corretto il margine tra timeout HTTP del client e tempo reale di sintesi.
+- Disattivata la sostituzione automatica con voce browser nel dialogo live;
+  resta il recupero testo/ascolto già esistente.
+- 19 test backend e 15 runtime audio/ascolto PASS; 42 guardie voce, TypeScript,
+  lint senza errori ed export web PASS. Nessuna dipendenza o modifica al DB.
+
 ## 2026-09-27 — Verifica della voce cloud e taratura del recupero
 
 Commit voce 0c3f25ee pubblicato su backend b3ddf759 e web a0fdbd08, entrambi

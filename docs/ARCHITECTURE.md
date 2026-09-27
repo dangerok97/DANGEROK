@@ -1,3 +1,14 @@
+## 2026-09-27 — Recupero della sintesi senza cambiare identità vocale
+
+GeminiSpeech conserva un cooldown per nome della credenziale in errore, senza
+salvarne il valore; una richiesta successiva passa direttamente a quella sana.
+Il cooldown scade e consente il recupero dell'account. Il timeout browser di
+/voice/say è 13,5 s, con margine sul budget server di 9 s e sul tempo di rete/auth.
+oraVoice conserva il recupero di sistema opzionale; useLiveVoice lo disattiva
+esplicitamente. L'errore audio percorre il recupero già presente testo/ascolto.
+Il futuro modello dedicato si integra in SpeechOutputProvider; nessun provider
+fittizio o duplicazione della memoria. Vedere JARVIS_VOICE_REFERENCE.md.
+
 ## 2026-09-27 — Dialogo vocale: turni, interruzioni e voce composta
 
 La voce in-app usa response_channel per turno, con la stessa sessione, memoria,

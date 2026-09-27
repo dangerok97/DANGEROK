@@ -1,3 +1,12 @@
+## 2026-09-27 — Fedeltà vocale e assenza di sostituzioni robotiche
+
+Il riferimento richiesto è JARVIS nel doppiaggio italiano di Nino D'Agata,
+verificato nel pressbook di Iron Man 2. Il modello stock resta un'approssimazione:
+non chiamarlo identico. Ricerca e criteri in [JARVIS_VOICE_REFERENCE.md](JARVIS_VOICE_REFERENCE.md).
+Nel dialogo live una sintesi non disponibile lascia la risposta scritta e
+riprende l'ascolto con l'indicazione esistente, senza passare automaticamente
+alla voce del dispositivo. Nessuna modifica alla sessione o all'autorità.
+
 ## 2026-09-27 — Dialogo vocale: turni, interruzioni e voce composta
 
 La voce in-app usa response_channel per turno, con la stessa sessione, memoria,

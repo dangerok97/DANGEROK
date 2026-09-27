@@ -97,7 +97,7 @@ export function useLiveVoice(opts: {
   */
   const turn = useRef(0);
 
-  const voice = useMemo(() => opts.voice || oraVoice(defaultRequest), [opts.voice]);
+  const voice = useMemo(() => opts.voice || oraVoice(defaultRequest, { systemFallback: false }), [opts.voice]);
 
   useEffect(() => {
     alive.current = true;
