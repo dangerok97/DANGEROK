@@ -1,3 +1,21 @@
+## Rilascio finale verificato — 27 settembre 2026
+
+Web 68db1df3fc23aff326da54681557dae4776cd541, deployment
+11bcde3a-63f6-4ee1-a140-43246ca65ec1 SUCCESS. Backend resta
+dfbad3d39c5ebca53ff21057d5db86a43514b2c4, deployment
+d0c57a3f-fb0b-4c99-9c49-57c6bd1c9429 SUCCESS.
+CI 36325678013: tutti i cinque job SUCCESS. Health e bundle pubblico verificati:
+streaming PCM attivo, niente browser TTS nel dialogo, limite al secondo tentativo.
+25 test backend mirati, 22 runtime frontend e 42 guardie voce PASS;
+TypeScript, lint senza errori ed export web PASS. Nessuna nuova dipendenza o
+migrazione, nessuna modifica a credenziali/configurazione Railway.
+
+Voce originale Algieba e ironia discreta. Primo PCM misurato lato provider
+0,63–1,03 s; non è una misura microfono-altoparlante. Test remoto influenzato
+dall'overhead del collegamento di prova, verificato anche su health. Restano
+prove percettive e di microfono su dispositivo reale; interruzione con tocco,
+non barge-in vocale automatico. Nessuna replica di attori, nessuna chiamata reale.
+
 Verifica aggiuntiva: 22 test runtime frontend e 42 guardie voce PASS; TypeScript, lint ed export web PASS.
 
 ## 2026-09-27 — Audio progressivo online e limite al recupero lento
