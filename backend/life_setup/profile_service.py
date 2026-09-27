@@ -106,6 +106,23 @@ class LifeProfileService:
         dom.source = source
         self._refresh_domain(dom)
         await self.repo.save_profile(profile)
+        # A changed confirmed municipality or car model may alter which
+        # contracts can be bought. Recheck owned monitors promptly, including
+        # on profile changes that happen after the document was uploaded.
+        if (key in ("casa.citta", "auto.modello") and
+            source in ("user_said", "user_confirmed") and
+            field_status in ("confirmed", "corrected") and
+            (existing is None or existing.value != value)):
+            try:
+                await self.repo.db.energy_offer_monitors.update_many(
+                    {"user_id": user_id, "enabled": True,
+                     "commodity": {"$in": (["electricity", "gas", "telephone", "insurance_auto", "insurance_home"]
+                                          if key == "casa.citta" else ["insurance_auto"])}},
+                    {"$set": {"next_check_at": now_iso()}},
+                )
+            except Exception:
+                # Profile confirmation must succeed even during monitor outages.
+                pass
         return profile
 
     async def apply_facts(

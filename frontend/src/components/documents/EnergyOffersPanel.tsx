@@ -117,6 +117,18 @@ export function EnergyOffersPanel({ documentId, pollMs }: { documentId?: string;
               </Text>
             </View>
           ) : null}
+          {supply.verification_needs?.length ? (
+            <View style={{ gap: 3 }}>
+              <Text style={{ color: colors.textSecondary, fontSize: 12, fontWeight: '600' }}>
+                Prima di confermare che conviene per te
+              </Text>
+              {supply.verification_needs.map((need) => (
+                <Text key={need} style={{ color: colors.textSecondary, fontSize: 12, lineHeight: 18 }}>
+                  · {need}
+                </Text>
+              ))}
+            </View>
+          ) : null}
           {supply.commodity === 'insurance_auto' ? (
             <Text style={{ color: colors.textSecondary, fontSize: 12, lineHeight: 18 }}>
               Per confrontare i premi RC auto sul tuo profilo puoi usare anche il{' '}

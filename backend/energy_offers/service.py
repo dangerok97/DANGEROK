@@ -89,6 +89,46 @@ async def _market_location(db: Any, user_id: str) -> str | None:
     return city.strip()
 
 
+async def _market_vehicle(db: Any, user_id: str) -> str | None:
+    """A confirmed model can focus research; identifiers must never enter queries."""
+    from life_setup.profile_service import LifeProfileService
+
+    profile = await LifeProfileService(db).get(user_id)
+    obj = (profile.domains.get("auto").objects.get("auto.modello")
+           if profile and profile.domains.get("auto") else None)
+    if not obj or obj.source not in ("user_said", "user_confirmed") or obj.status not in ("confirmed", "corrected"):
+        return None
+    model = obj.value
+    if not isinstance(model, str) or not re.fullmatch(r"[A-Za-zÀ-ÿ0-9' .-]{2,55}", model.strip()):
+        return None
+    # Only make and model: long numeric runs may be registration identifiers.
+    if re.search(r"\d{4,}", model):
+        return None
+    return model.strip()
+
+
+def _verification_needs(row: dict[str, Any]) -> list[str]:
+    category = row.get("commodity")
+    if category in ("electricity", "gas"):
+        needs = []
+        if not row.get("comparison_ready"):
+            needs.append("Confermare consumi annui e prezzi attuali del documento")
+        needs.extend(("Verificare disponibilità nel comune e requisiti dell'offerta",
+                      "Ottenere il preventivo completo con imposte e oneri"))
+        return needs
+    if category == "insurance_auto":
+        return ["Confermare veicolo, conducente e classe di merito",
+                "Confrontare garanzie, massimali, franchigie ed esclusioni",
+                "Ottenere un preventivo personale dall'assicuratore"]
+    if category and category.startswith("insurance"):
+        return ["Confrontare garanzie, massimali, franchigie ed esclusioni",
+                "Ottenere un preventivo personale dall'assicuratore"]
+    if category == "telephone":
+        return ["Confrontare dati, chiamate, roaming e durata della promozione",
+                "Verificare copertura locale, portabilità e costi di attivazione"]
+    return []
+
+
 def _positive_offer_codes(candidates: list[dict[str, Any]]) -> set[str]:
     """Only a fresh numerical improvement warrants an automatic alert."""
     return {
@@ -585,6 +625,10 @@ class EnergyOfferService:
                 context.append(f"Comune di riferimento dichiarato: {city}. Verifica esplicitamente che l'offerta sia sottoscrivibile in questo comune; se non risulta, non dichiarare l'idoneità.")
             if row["commodity"].startswith("insurance"):
                 context.append("Non attribuire un prezzo personale a una polizza senza preventivo sul veicolo, conducente e garanzie; la pagina pubblica è soltanto un punto di partenza.")
+                if row["commodity"] == "insurance_auto":
+                    vehicle = await _market_vehicle(self.db, row["user_id"])
+                    if vehicle:
+                        context.append(f"Marca e modello confermati dall'utente: {vehicle}. Non equivale a un preventivo personale; non ricercare targa o telaio.")
             elif row["commodity"] == "telephone":
                 context.append("Verifica requisiti di portabilità, GB, velocità e copertura; in assenza di verifica locale non dichiarare la copertura.")
             annual = row.get("annual_consumption")
@@ -694,7 +738,7 @@ class EnergyOfferService:
             if newly_better:
                 from opportunities.discovery import OpportunityDiscovery
                 await OpportunityDiscovery(self.db).note(
-                    row["user_id"], source="market_watch", kind="better_offer_found",
+                    row["user_id"], source="market_watch", kind="potential_saving_found",
                     entity_ref=f"market_watch:{row['commodity']}:{row['supply_key']}",
                     entity_kind="market_watch",
                     after=",".join(sorted(newly_better)),
@@ -716,6 +760,7 @@ class EnergyOfferService:
         current = _iso(_now())
         today = _now().date().isoformat()
         for row in rows:
+            row["verification_needs"] = _verification_needs(row)
             fetched = row.get("source_fetched_at")
             expiry = row.get("evidence_valid_until")
             row["source_stale"] = (

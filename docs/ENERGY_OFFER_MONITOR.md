@@ -1,5 +1,18 @@
 # Ricerca continua delle offerte online
 
+## Personalizzazione dopo il caricamento
+
+La ricerca rilegge i fatti confermati del profilo al momento di ogni controllo.
+Oltre al comune dichiarato, per RC auto può usare la marca e il modello
+confermati (per esempio dopo la verifica del libretto). Targa, telaio, indirizzo
+e documenti integrali non entrano nelle query. Una modifica confermata al
+comune o al modello anticipa il prossimo controllo dei monitor pertinenti;
+non richiede che l'utente ricarichi il contratto. Il pannello mostra i
+passaggi ancora necessari per verificare copertura, requisiti e preventivo
+personale per ciascuna categoria. Il modello auto da solo non determina il
+premio e la stima di vendita luce/gas non prova che la tariffa sia acquistabile
+nel comune dichiarato.
+
 ## Esperienza
 
 Una bolletta luce o gas, una polizza auto, casa o generica oppure un contratto telefonico riconosciuto
@@ -7,8 +20,10 @@ crea un controllo persistente. ORA cerca offerte online subito dopo
 l'elaborazione del documento e poi ogni sette giorni, anche se l'app non è
 aperta. La pagina Documenti mostra ultimo controllo, prossimo controllo,
 alternative con link alla pagina del venditore e un comando per sospendere la
-ricerca. Un risultato nuovo entra nel normale flusso delle opportunità: ORA
-decide se vale la pena proporlo, senza creare un avviso a ogni controllo.
+ricerca. Un nuovo risparmio stimato positivo sulla componente di vendita
+innesca la revisione delle opportunità: ORA valuta se comunicarlo. Le pagine
+senza confronto personale restano visibili come piste per un preventivo e non
+innescano da sole un avviso di risparmio.
 Durante il primo percorso, dopo il caricamento di bolletta, polizza o contratto
 telefonico compare anche lo stato del confronto: si aggiorna mentre ORA legge
 il documento e ricerca le offerte, senza interrompere le domande successive.

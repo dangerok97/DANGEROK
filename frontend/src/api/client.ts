@@ -609,6 +609,7 @@ export type EnergyOfferSupply = {
   source_url?: string;
   last_error?: string | null;
   candidates?: EnergyOfferCandidate[];
+  verification_needs?: string[];
   advice?: {
     kind: 'estimated_saving' | 'keep_current' | 'comparison_needed' | 'no_verified_offer';
     text: string;

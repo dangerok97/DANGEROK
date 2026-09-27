@@ -8,7 +8,7 @@ from types import SimpleNamespace
 import pytest
 
 from energy_offers.bill import parse_bill
-from energy_offers.service import EnergyOfferService, _advice, _alternatives, _apply_savings, _profile, _read_offer_pages, _direct_offer_search, _positive_offer_codes, _market_location
+from energy_offers.service import EnergyOfferService, _advice, _alternatives, _apply_savings, _profile, _read_offer_pages, _direct_offer_search, _positive_offer_codes, _market_location, _market_vehicle, _verification_needs
 from energy_offers.savings import offer_terms
 from energy_offers.page import terms_from_html
 
@@ -52,6 +52,65 @@ async def test_market_location_requires_confirmed_municipality():
     profile.domains["casa"].objects["casa.citta"].value = "Roma"
     profile.domains["casa"].objects["casa.citta"].source = "inferred"
     assert await _market_location(FakeDb(), "owner") is None
+
+
+@pytest.mark.asyncio
+async def test_vehicle_search_context_never_uses_unconfirmed_or_identifying_data():
+    from life_setup.models import DomainProfile, LifeProfile, ProfileObject
+    class Profiles:
+        async def find_one(self, *_args, **_kwargs):
+            return profile.model_dump()
+    class Db:
+        life_profiles = Profiles()
+    fact = ProfileObject(key="auto.modello", value="Fiat Panda", source="user_confirmed", status="confirmed")
+    profile = LifeProfile(user_id="owner", domains={"auto": DomainProfile(domain="auto", objects={"auto.modello": fact})})
+    assert await _market_vehicle(Db(), "owner") == "Fiat Panda"
+    fact.value = "IT01ABC123456789"
+    assert await _market_vehicle(Db(), "owner") is None
+    fact.value = "Fiat Panda"
+    fact.source = "document_extract"
+    assert await _market_vehicle(Db(), "owner") is None
+    assert "conducente" in " ".join(_verification_needs({"commodity": "insurance_auto"}))
+
+
+@pytest.mark.asyncio
+async def test_confirmed_city_change_rechecks_owned_monitors(monkeypatch):
+    # Avoid importing the document router just to load two pure version helpers.
+    import sys
+    from types import ModuleType
+    versions = ModuleType("documents.intelligence.versions")
+    versions.coerce_analysis_revision = lambda value: value
+    versions.is_semantic_version_string = lambda value: isinstance(value, str)
+    documents = ModuleType("documents")
+    documents.__path__ = []
+    intelligence = ModuleType("documents.intelligence")
+    intelligence.__path__ = []
+    monkeypatch.setitem(sys.modules, "documents", documents)
+    monkeypatch.setitem(sys.modules, "documents.intelligence", intelligence)
+    monkeypatch.setitem(sys.modules, "documents.intelligence.versions", versions)
+    from life_setup.models import LifeProfile
+    import life_setup.profile_service as profile_service
+    calls = []
+    class Monitors:
+        async def update_many(self, selector, update):
+            calls.append((selector, update))
+    class Db:
+        energy_offer_monitors = Monitors()
+    class Repo:
+        def __init__(self, db):
+            self.db = db
+        async def get_profile(self, owner):
+            return profile
+        async def save_profile(self, updated):
+            pass
+    profile = LifeProfile(user_id="owner")
+    monkeypatch.setattr(profile_service, "LifeSetupRepository", Repo)
+    service = profile_service.LifeProfileService(Db())
+    await service.upsert_fact("owner", domain="casa", key="casa.citta", value="Milano", source="user_confirmed", confirmed=True)
+    assert calls and calls[0][0]["user_id"] == "owner"
+    assert "telephone" in calls[0][0]["commodity"]["$in"]
+    await service.upsert_fact("owner", domain="casa", key="casa.citta", value="Milano", source="user_confirmed", confirmed=True)
+    assert len(calls) == 1
 
 
 def test_saving_advice_requires_explicit_comparable_seller_terms():
