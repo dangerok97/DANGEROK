@@ -106,6 +106,17 @@ async def test_minimum_context_facts_follow_their_vita_branch(db):
 
 
 @pytest.mark.asyncio
+async def test_stars_use_the_same_human_option_labels_as_vita(db):
+    await facts(db, casa={"casa.situazione": {"value": "uso_gratuito"},
+                          "casa.convivenza": {"value": "solo"},
+                          "casa.utenze": {"value": "mie"}})
+    result = await knowledge_map(db, "a")
+    statements = " ".join(s["statement"] for s in result["stars"])
+    assert "uso_gratuito" not in statements and "intestate a me" in statements
+    assert "Vivi da solo" in statements and "uso gratuito" in statements
+
+
+@pytest.mark.asyncio
 async def test_name_update_is_owned_and_registration_does_not_drop_surname(db, monkeypatch):
     import deps
     from routers import auth

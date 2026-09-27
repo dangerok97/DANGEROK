@@ -1,3 +1,19 @@
+## 27 settembre 2026 — Verifica web delle stelle
+
+Primo deploy 8d995711: backend e web SUCCESS. Browser autenticato:
+11 stelle reali, VITA 21%, Casa 7, Finanze 3, Memoria 1; esplorazione,
+fonte, dettaglio e apertura dell'area VITA verificati senza modificare i dati.
+Tutorial e validazione nome/cognome presenti. Account tecnico isolato:
+registrazione produce 2 stelle, prima risposta Casa produce 5 stelle e VITA
+passa 0→4%; lo skip successivo non crea stelle; identità/tutorial persistono.
+
+Il controllo visivo ha individuato etichette enum grezze nei dettagli:
+la proiezione ora riusa la traduzione canonica di VITA. Aggiornata anche la
+fixture del runtime telefonico al requisito nome+cognome: il vecchio test
+chiamava completa una presentazione col solo nome. Le verifiche negative
+continuano a richiedere il cognome; nessuna guardia è stata rimossa.
+CI/deploy della rifinitura da confermare dopo pubblicazione.
+
 ## 27 settembre 2026 — Stelle della conoscenza e primo incontro
 
 La mappa ORA rappresenta le informazioni personali salvate nel Life Profile e

@@ -9,7 +9,8 @@ from life_memory.identity import resolve_memory_candidates
 from life_memory.statements import normalize_slot, statement_for_profile_fact
 from life_profile.areas import all_areas, area_for_domain
 from life_profile.objectives import objectives_for_area
-from life_profile.human import appartiene_all_area, come_si_chiama, come_si_dice_il_fatto, come_si_dice_il_valore
+from life_profile.human import appartiene_all_area, come_si_chiama, come_si_dice_il_fatto
+from life_profile.gaps import _come_si_dice_il_valore as profile_display_value
 from life_profile.service import LifeProfileService, _PROVENANCE_LABEL
 from life_setup.profile_service import LifeProfileService as ProfileStore
 
@@ -63,7 +64,12 @@ async def knowledge_map(db, user_id: str) -> dict:
             known = obj.confirmed or obj.status in ("confirmed", "corrected") or obj.source in ("user_said", "user_confirmed", "system")
             objective = catalogue.get(key)
             label = come_si_chiama(key, objective.label if objective else key.split(".")[-1].replace("_", " ").capitalize())
-            statement = come_si_dice_il_fatto(key, come_si_dice_il_valore(obj.value)) or statement_for_profile_fact(domain=domain, key=key, value=obj.value)
+            value_text = profile_display_value(key, obj.value)
+            statement = come_si_dice_il_fatto(key, value_text)
+            if not statement and value_text:
+                statement = f"{label}: {value_text}"
+            if not statement:
+                statement = statement_for_profile_fact(domain=domain, key=key, value=obj.value)
             if not statement:
                 statement = f"{label}: {display_value(obj.value)}"
             owning_area = next((a for a in all_areas() if appartiene_all_area(key, a.id)), None)

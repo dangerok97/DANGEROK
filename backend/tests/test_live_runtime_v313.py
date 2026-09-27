@@ -1724,7 +1724,7 @@ async def test_a_completed_opening_is_never_asked_for_again(monkeypatch):
         quante_prima = len(wire.what_it_sent("clientContent"))
 
         await wire.says({"serverContent": {"outputTranscription": {
-            "text": "Buongiorno, sono l'assistente di Francesco. Chiamo per "
+            "text": "Buongiorno, sono l'assistente di Francesco Cefalà. Chiamo per "
                     "spostare il suo appuntamento dal dentista di oggi, "
                     "dalle 16 alle 18.",
         }}})
