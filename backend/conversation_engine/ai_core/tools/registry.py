@@ -1231,7 +1231,7 @@ class ToolRegistry:
                         },
                         "give_number": {
                             "type": "string",
-                            "description": "A number they gave you.",
+                            "description": "A new number explicitly given by the user. With preparation_id, replaces the current candidate, even during an identity conflict. Use this instead of identity_resolution when the number itself changes.",
                         },
                         "answer": {
                             "type": "string",

@@ -87,6 +87,66 @@ async def test_explicit_correction_retires_old_association_and_survives_new_call
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("extra", [
+    {}, {"to_number": "3330000009"}, {"identity_resolution": "replace"},
+    {"number_is_right": True},
+    {"give_number": "3330000009", "identity_resolution": "replace", "go_ahead": True},
+])
+async def test_new_number_in_current_turn_replaces_stale_conflict(db, extra):
+    from telephone.caps import _through_the_preparation
+
+    await claim(db)
+    prep = await prepare(db)
+    args = {"preparation_id": prep.preparation_id}
+    runtime = {"session_id": "chat", "reasoning_epoch": "one", "user_message": prep.user_request}
+    await _through_the_preparation(args, runtime, db, "owner")
+    result = await _through_the_preparation(
+        {**args, **extra},
+        {**runtime, "reasoning_epoch": "two", "user_message": "No, il numero corretto è 3330000009"},
+        db, "owner",
+    )
+    assert result.payload["contact"]["number"] == "+393330000009"
+    assert not result.payload["identity_conflicts"]
+    assert not result.payload["number_confirmed"]
+    assert not result.payload["call_id"]
+    assert not result.payload["not_accepted"]
+    assert await trust.still_trusted(db, "owner", "francesco", NUMBER)
+    assert db["phone_calls"].righe == []
+    saved = await by_id(db, "owner", prep.preparation_id)
+    assert saved.selected_contact.number == "+393330000009"
+
+
+@pytest.mark.asyncio
+async def test_changed_number_invalidates_previous_summary_even_if_already_trusted(db):
+    from preparation.preparation import save
+
+    prep = await prepare(db)
+    prep, _ = await confirm_number(db, prep, yes=True)
+    prep.summary_shown_in = "previous-turn"
+    await save(db, prep)
+    await trust.confirm(db, owner_id="owner", identity="asia", display_name="Asia",
+                        number="+393330000009", source="user")
+    prep, error = await change_number(db, prep, number="3330000009")
+    assert not error
+    assert prep.number_confirmed
+    assert not prep.summary_shown_in
+
+
+@pytest.mark.parametrize("message", [
+    "Non usare 3330000009", "Il numero è 3330000009?",
+    "Il numero di Carlo è 3330000009", "Usa 3330000009 oppure 3330000008",
+])
+def test_ambiguous_number_is_not_an_automatic_correction(message):
+    from telephone.caps import _replacement_number_in
+    from preparation.preparation import MissionPreparation
+    from preparation.contacts import ContactCandidate
+
+    prep = MissionPreparation(owner_id="owner", counterparty="Asia",
+                              selected_contact=ContactCandidate(name="Asia", number=NUMBER))
+    assert not _replacement_number_in(message, prep, {"to_number": "3330000009"})
+
+
+@pytest.mark.asyncio
 async def test_shared_number_keeps_both_people_without_repeated_warning(db):
     await claim(db)
     prep = await prepare(db)
@@ -281,3 +341,18 @@ async def test_chat_cannot_resolve_in_same_turn_or_dial_while_resolving(db):
     assert fixed.payload["call_id"] is None
     assert db["phone_calls"].righe == []
     assert await trust.still_trusted(db, "owner", "asia", NUMBER)
+
+
+@pytest.mark.asyncio
+async def test_chat_routes_current_number_to_owners_active_preparation(db):
+    from conversation_engine.ai_core.loop import _phone_number_correction
+
+    prep = await prepare(db)
+    state = {"active_preparation_id": prep.preparation_id}
+    text = "È sbagliato, il numero di Asia è 3330000009"
+    assert await _phone_number_correction(db, "owner", state, text) == {
+        "preparation_id": prep.preparation_id, "give_number": "+393330000009",
+    }
+    assert not await _phone_number_correction(db, "other", state, text)
+    assert not await _phone_number_correction(db, "owner", {}, text)
+    assert not await _phone_number_correction(db, "owner", state, "è quello di prima")

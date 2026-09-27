@@ -1,3 +1,20 @@
+## 2026-09-27 — Correzione del numero durante la preparazione telefonica
+
+Riprodotto il ciclo segnalato: il nuovo numero veniva ignorato quando il modello
+usava to_number o identity_resolution sul conflitto precedente. Un solo numero
+nuovo esplicito, riferito al destinatario corrente, ora aggiorna il candidato
+prima degli altri argomenti. La correzione riprende la preparazione attiva dello
+stesso utente, passa dallo strumento e non autorizza una chiamata. Cambiare
+numero invalida il riepilogo precedente. L'associazione dell'altra persona al
+vecchio numero rimane intatta. Nessuna modifica manuale ai contatti reali.
+
+Verifica: 27 test identità/correzione PASS; suite messaggi telefonici combinata
+92 PASS, 1 fallimento già riprodotto sul commit base 530326e (test legacy del
+percorso business: attende prepared, riceve ready). Dieci nuovi casi fallivano
+prima della correzione. Dati sintetici, nessuna telefonata reale, nessuna
+migrazione o dipendenza aggiunta. Pubblicazione da verificare sul commit esatto.
+Il miglioramento della conversazione vocale resta il lavoro successivo attivo.
+
 ## 2026-09-27 — Superficie ORA locale e scena estesa
 
 `ThemeSurface` applica il tema solo al sottoalbero della conversazione, senza

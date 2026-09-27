@@ -380,6 +380,7 @@ async def change_number(
     nome = (prima.name if prima else "") or prep.counterparty or "questo numero"
 
     if prima is not None and prima.number != nuovo:
+        prep.summary_shown_in = ""
         await trust.retire(
             db, owner_id=prep.owner_id, identity=identita, number=prima.number,
             why=f"hai chiesto di usare un altro numero ({nuovo})",

@@ -214,6 +214,23 @@ _PHONE_ACTION_ASK_RE = re.compile(
 _PHONE_CAPABILITY = "prepare_a_phone_call"
 
 
+
+async def _phone_number_correction(db, user_id: str, state: dict, text: str) -> dict:
+    """Only an explicit new number may resume the owner's pending preparation."""
+    from preparation.contacts import _UN_NUMERO
+    from preparation.preparation import by_id
+    from telephone.caps import _replacement_number_in
+
+    ref = state.get("active_preparation_id")
+    if not ref or not _UN_NUMERO.search(text):
+        return {}
+    prep = await by_id(db, user_id, ref)
+    if prep is None or prep.call_id:
+        return {}
+    number = _replacement_number_in(text, prep, {})
+    return {"preparation_id": ref, "give_number": number} if number else {}
+
+
 def _phone_action_requested(text: str) -> bool:
     """Whether this turn explicitly asks ORA to make a phone call."""
     return bool(_PHONE_ACTION_ASK_RE.search(text or ""))
@@ -365,6 +382,7 @@ async def run_cognitive_loop(
     # Where this turn's observations begin: what came before belongs to turns
     # the person has already read.
     turn_start = len(observations)
+    phone_correction = await _phone_number_correction(db, sess.user_id, st, user_message)
     # Set only when the turn ends on a question the reasoning called blocking.
     blocking_ask: Optional[Dict[str, Any]] = None
     # What guidance decided to ask, once it had resolved everything it could.
@@ -512,7 +530,9 @@ async def run_cognitive_loop(
                 context_facts=[f.model_dump() for f in context_facts],
                 tools=tools.list_public(),
                 observations=observations[-6:],
-                current_facts=st.get("current_facts") or {},
+                current_facts={**(st.get("current_facts") or {}), **(
+                    {"pending_phone_number_correction": phone_correction} if phone_correction else {}
+                )},
                 life_os=life_os_payload,
                 # Da dove è entrata la frase decide come esce la risposta — e
                 # nient'altro. Al telefono viene ascoltata, e si dice diversamente
@@ -1152,7 +1172,7 @@ async def run_cognitive_loop(
             # permission: the capability itself resolves the number, exposes
             # provider failures honestly, and obtains the required staged
             # confirmations before anything rings.
-            phone_requested = _phone_action_requested(user_message)
+            phone_requested = bool(phone_correction) or _phone_action_requested(user_message)
             phone_observed = _has_phone_observation(observations[turn_start:])
             if (
                 mode in ("answer", "ask", "finish", "act")
@@ -1170,12 +1190,13 @@ async def run_cognitive_loop(
                         payload={
                             "failure_code": "PHONE_CAPABILITY_REQUIRED",
                             "reason": (
-                                "The user explicitly asked ORA to make a phone call. "
+                                "The user requested a call or corrected the number in an active preparation. "
                                 "Do not answer, refuse, or redirect them to call manually. "
                                 "Call prepare_a_phone_call now. Resolve the counterparty "
                                 "from the visible conversation/update context, pass the "
                                 "calendar_ref when the call concerns a calendar event, and "
                                 "continue an existing preparation_id when one is visible. "
+                                "For a pending_phone_number_correction use its preparation_id and give_number; do not repeat the previous conflict. "
                                 "The capability owns number resolution, staged confirmation, "
                                 "provider readiness, and dialing."
                             ),
@@ -2122,6 +2143,8 @@ async def run_cognitive_loop(
                 continue
 
             args = dict(decision.tool_call.arguments or {})
+            if cap == "prepare_a_phone_call" and phone_correction and not args.get("preparation_id"):
+                args["preparation_id"] = phone_correction["preparation_id"]
             # Prefer active plan / object from state when AI omits ids
             if cap in (
                 "update_plan",

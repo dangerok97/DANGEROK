@@ -287,8 +287,14 @@ async def _through_the_preparation(
 
     #     LE RISPOSTE DELLA PERSONA, UNA PER VOLTA.
     rifiutato = ""
+    replacement = _replacement_number_in(detto, prep, arguments)
     resolution = str(arguments.get("identity_resolution") or "")
-    if resolution:
+    if replacement:
+        # A new number corrects this preparation; it does not reassign the old
+        # number to another person. Current user words outrank stale tool args.
+        resolution = ""
+        prep, rifiutato = await change_number(db, prep, number=replacement)
+    elif resolution:
         if (not prep.identity_conflict_shown_in
                 or prep.identity_conflict_shown_in == _this_turn(runtime)
                 or _identity_resolution_in(detto, prep) != resolution):
@@ -316,7 +322,7 @@ async def _through_the_preparation(
     chiamata = ""
     gia_partita = False
     turno = _this_turn(runtime)
-    if arguments.get("go_ahead") and not resolution:
+    if arguments.get("go_ahead") and not resolution and not replacement:
         if not prep.summary_shown_in or prep.summary_shown_in == turno:
             #     PRIMA SI LEGGE IL RIASSUNTO, POI SI DICE SÌ.
             # Un sì dato prima di aver visto il riassunto — o nello stesso
@@ -482,7 +488,7 @@ def _what_to_say_now(carta: Dict[str, Any], preparata: bool) -> str:
         return (intera + "Fermati: non confermare il numero e non chiamare. "
                 f"Chiedi di rispondere ‘correggi: è di {name}’ oppure ‘è condiviso’. "
                 "Solo nel turno successivo usa identity_resolution=replace o shared "
-                "secondo la risposta esplicita, oppure give_number per un numero diverso.")
+                "secondo la risposta esplicita. Se scrive un numero diverso, richiama subito con lo stesso preparation_id e give_number: aggiorna il candidato, non usare identity_resolution sul numero vecchio.")
     if carta["ready"]:
         return (intera + "Poi fermati e aspetta la sua risposta: in questo turno "
                 "non richiamare lo strumento. Solo quando, nel messaggio "
@@ -497,6 +503,37 @@ def _what_to_say_now(carta: Dict[str, Any], preparata: bool) -> str:
         return (intera + "Poi richiama con preparation_id e answer con la "
                 "sua risposta.")
     return intera + "Se ti dà un numero, richiama con give_number."
+
+
+
+def _replacement_number_in(text: str, prep, arguments: Dict[str, Any]) -> str:
+    """Extract one explicit replacement for this recipient, never an assent."""
+    import re
+    from preparation.contacts import _UN_NUMERO, _clean_number
+    from preparation.service import _number_in_the_request
+    from preparation.trust import identity_of
+
+    if not prep.selected_contact or "?" in text:
+        return ""
+    normalized = identity_of(text)
+    if re.search(r"\bnon\s+(?:usare|chiamare|è|e)\b", normalized):
+        return ""
+    numbers = {_clean_number(m.group()) for m in _UN_NUMERO.finditer(text)} - {""}
+    if len(numbers) != 1:
+        return ""
+    number = numbers.pop()
+    if number == prep.selected_contact.number:
+        return ""
+    _number, named_owner = _number_in_the_request(text)
+    if named_owner and identity_of(named_owner) not in {
+        identity_of(prep.counterparty), identity_of(prep.selected_contact.name),
+    }:
+        return ""
+    specified = any(_clean_number(str(arguments.get(key) or "")) == number
+                    for key in ("give_number", "to_number", "choose_number"))
+    correcting = bool(re.search(r"\b(?:numero|num|corretto|correggi|usa|invece)\b", normalized))
+    bare = not re.search(r"[A-Za-zÀ-ÿ]", text)
+    return number if specified or correcting or bare else ""
 
 
 def _identity_resolution_in(text: str, prep) -> str:
