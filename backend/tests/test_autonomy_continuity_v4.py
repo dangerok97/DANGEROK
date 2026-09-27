@@ -63,6 +63,15 @@ async def concern(db, owner='alice'):
 
 
 @pytest.mark.asyncio
+async def test_opening_pending_automatic_work_cannot_start_a_parallel_session(db):
+    opp = await concern(db)
+    for start in (False, True):
+        result = await update_work(db, 'alice', opp, start=start)
+        assert result['status'] == 'running' and not result.get('session_id')
+    assert await db.update_work.count_documents({}) == 0
+
+
+@pytest.mark.asyncio
 async def test_admission_question_reply_drives_same_durable_work_without_chat(db, monkeypatch):
     opp = await concern(db)
     decide = AsyncMock(side_effect=[{'outcome': 'clarify', 'question': 'Quale piano è attivo?'},

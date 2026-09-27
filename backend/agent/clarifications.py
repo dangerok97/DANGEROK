@@ -57,6 +57,13 @@ async def work_view(db, owner, opportunity_id):
     if row.get("agent_review_outcome") == "clarify" and row.get("agent_review_question"):
         return {"status": "needs_user", "question_revision": row["agent_review_revision"],
                 "result": {"ok": True, "question": row["agent_review_question"]}}
+    if row.get("agent_review_state") == "pending":
+        # Admission already owns the work, including the first write-to-wake
+        # gap and a revised source. Do not launch a parallel manual session or
+        # expose an older preparation while its replacement is still pending.
+        return {"status": "running", "message": (
+            "Risposta ricevuta. Riprendo la verifica." if row.get("agent_review_answers")
+            else "Sto verificando questo aggiornamento.")}
     goal_id = row.get("agent_review_goal_id")
     if goal_id:
         from agent.service import AgentService
