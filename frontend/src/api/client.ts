@@ -765,8 +765,8 @@ export const api = {
   callTranscript: (callId: string) =>
     request<CallTranscriptResponse>(`/telephone/calls/${callId}/transcript`),
 
-  register: (email: string, password: string, first_name: string, last_name: string) =>
-    request<ApiAuth>('/auth/register', { method: 'POST', body: JSON.stringify({ email, password, first_name, last_name }) }, false),
+  register: (email: string, password: string, first_name: string, last_name: string, tutorial_seen = false) =>
+    request<ApiAuth>('/auth/register', { method: 'POST', body: JSON.stringify({ email, password, first_name, last_name, tutorial_seen }) }, false),
 
   updateIdentity: (first_name: string, last_name: string, tutorial_seen = false) =>
     request<ApiUser>('/auth/identity', { method: 'PUT', body: JSON.stringify({ first_name, last_name, tutorial_seen }) }),

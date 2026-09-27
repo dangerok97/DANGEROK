@@ -1,3 +1,14 @@
+## 28 settembre 2026 — Introduzione durante la registrazione
+
+«Nuovo? Crea un account» apre una guida in tre passaggi prima dei campi
+email/password: mappa 3D che nasce dal punto; nome e cognome con le prime
+due stelle in anteprima e la presentazione telefonica; esempi Casa, Impegni
+e Persone con spiegazione di stelle, fonti, rami e domande facoltative.
+I nuovi utenti Google/Apple che non l'hanno ancora vista ricevono la stessa
+guida al primo ingresso nel percorso VITA. Gli accessi successivi non la
+ripetono. In VITA «Rivedi l’introduzione a ORA» consente la sola anteprima,
+senza modificare l'identità salvata.
+
 ## 27 settembre 2026 — VITA veloce, verifica online
 
 Web fd49fdd50d48bc73a0f50b1690f9ff2c35e2c72f, deployment

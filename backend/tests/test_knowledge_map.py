@@ -135,6 +135,7 @@ async def test_name_update_is_owned_and_registration_does_not_drop_surname(db, m
         assert created.status_code == 200
         user = created.json()["user"]
         assert user["name"] == "Giulia De Luca" and user["identity_confirmed"]
+        assert user["knowledge_tutorial_version"] == 0, "old clients still receive the introduction"
         headers = {"Authorization": "Bearer " + created.json()["token"]}
         assert (await client.get("/life-profile/knowledge-map")).status_code == 401
         projection = await client.get("/life-profile/knowledge-map", headers=headers)
@@ -144,6 +145,28 @@ async def test_name_update_is_owned_and_registration_does_not_drop_surname(db, m
         assert edited.json()["knowledge_tutorial_version"] == 1
         assert (await db.users.find_one({"user_id": user["user_id"]}))["last_name"] == "D’Angelo"
         assert await db.users.find_one({"user_id": "victim"}) is None
+
+
+@pytest.mark.asyncio
+async def test_registration_remembers_completed_intro_without_inflating_life_progress(db, monkeypatch):
+    import deps
+    from routers import auth
+    monkeypatch.setattr(deps, "db", db)
+    monkeypatch.setattr(auth, "db", db)
+    monkeypatch.setattr(auth, "prepare_user_decisions", AsyncMock())
+    app = FastAPI()
+    app.include_router(auth.router)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        created = await client.post("/auth/register", json={"email": "intro@example.com", "password": "synthetic-only", "first_name": "Giulia", "last_name": "De Luca", "tutorial_seen": True})
+        assert created.status_code == 200
+        user = created.json()["user"]
+        assert user["knowledge_tutorial_version"] == 1 and user["identity_confirmed"]
+        stored = await db.users.find_one({"user_id": user["user_id"]})
+        assert stored["knowledge_tutorial_seen_at"]
+        projection = await knowledge_map(db, user["user_id"])
+        assert projection["count"] == 2 and projection["percent"] == 0
+        login = await client.post("/auth/login", json={"email": "intro@example.com", "password": "synthetic-only"})
+        assert login.json()["user"]["knowledge_tutorial_version"] == 1
 
 
 def test_names_preserve_accents_and_cannot_embed_markup_or_instructions():

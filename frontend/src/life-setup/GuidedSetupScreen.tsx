@@ -1,5 +1,6 @@
 import { BankSummaryCard } from './BankSummaryCard';
 import { KnowledgeWelcome } from './KnowledgeWelcome';
+import { RegistrationWelcome } from './RegistrationWelcome';
 import { OraPresence } from '@/src/components/ora/presence/OraPresence';
 import { useKnowledgeMap } from '@/src/components/ora/presence/useKnowledgeMap';
 import { useAuth } from '@/src/contexts/AuthContext';
@@ -379,6 +380,8 @@ export function GuidedSetupScreen() {
       setBusy(false);
     }
   }, [reset, state?.current_area_id, refreshKnowledge]);
+
+  if (primoGiro && user && !user.knowledge_tutorial_version) return <RegistrationWelcome />;
 
   if (loading) {
     return (

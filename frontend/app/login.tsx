@@ -32,6 +32,7 @@ import {
 import { useGoogleAuth } from '@/src/auth/googleAuth';
 import { signInWithApple, isAppleNativeAvailable } from '@/src/auth/appleSignIn';
 import { routeAfterAuth } from '@/src/life-setup/routeAfterAuth';
+import { RegistrationIntro, RegistrationMap } from '@/src/life-setup/RegistrationIntro';
 import { humanizeError } from '@/src/utils/errors';
 import type { GoogleAuthResult } from '@/src/auth/googleAuth.types';
 
@@ -118,6 +119,7 @@ export default function LoginScreen() {
 
   const [mode, setMode] = useState<Mode>('buttons');
   const [isRegister, setIsRegister] = useState(false);
+  const [introDone, setIntroDone] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -264,7 +266,7 @@ export default function LoginScreen() {
     try {
       setBusy('email');
       const auth = isRegister
-        ? await api.register(email, password, name.trim(), lastName.trim())
+        ? await api.register(email, password, name.trim(), lastName.trim(), introDone)
         : await api.login(email, password);
       await signIn(auth.token, auth.user);
       await routeAfterAuth(router, auth.user.user_id);
@@ -282,6 +284,7 @@ export default function LoginScreen() {
 
   const showAppleButton = Platform.OS === 'ios' || appleConfiguredForPlatform();
   const anyBusy = !!busy;
+  const showingIntro = mode === 'email' && isRegister && !introDone;
 
   const enter = reducedMotion ? undefined : FadeIn.duration(tokens.motion.fadeIn.duration);
 
@@ -307,7 +310,7 @@ export default function LoginScreen() {
         >
           <Animated.View
             entering={enter}
-            style={[styles.column, isDesktop && styles.columnDesktop]}
+            style={[styles.column, isDesktop && styles.columnDesktop, showingIntro && { maxWidth: 560, gap: 20 }]}
           >
             <View style={styles.identity}>
               <Text
@@ -317,7 +320,7 @@ export default function LoginScreen() {
               >
                 ORA
               </Text>
-              <Text
+              {!showingIntro ? <Text
                 style={[
                   styles.headline,
                   {
@@ -329,9 +332,9 @@ export default function LoginScreen() {
                 ]}
                 accessibilityRole="header"
               >
-                Tutto ciò che conta, nel momento giusto.
-              </Text>
-              <Text
+                {isRegister ? 'Le tue prime stelle.' : 'Tutto ciò che conta, nel momento giusto.'}
+              </Text> : null}
+              {!showingIntro ? <Text
                 style={[
                   styles.supporting,
                   {
@@ -342,8 +345,8 @@ export default function LoginScreen() {
                   },
                 ]}
               >
-                Accedi per continuare.
-              </Text>
+                {isRegister ? 'Crea il tuo account per salvarle e continuare in VITA.' : 'Accedi per continuare.'}
+              </Text> : null}
             </View>
 
             <View style={styles.actions}>
@@ -427,6 +430,7 @@ export default function LoginScreen() {
                     disabled={anyBusy}
                     onPress={() => {
                       setIsRegister(true);
+                      setIntroDone(false);
                       setMode('email');
                       setErr(null);
                     }}
@@ -434,11 +438,13 @@ export default function LoginScreen() {
                 </>
               )}
 
-              {mode === 'email' && (
+              {showingIntro ? <RegistrationIntro first={name} last={lastName} onFirstChange={setName} onLastChange={setLastName} onComplete={() => setIntroDone(true)} onExit={() => { setIsRegister(false); setMode('buttons'); setErr(null); }} /> : null}
+
+              {mode === 'email' && !showingIntro && (
                 <View style={styles.form}>
                   {isRegister ? (
                     <>
-                    <Text style={{ color: colors.textSecondary, fontSize: 14, lineHeight: 21 }}>Ogni informazione che scegli di condividere accende una stella nella tua mappa. Partiamo da te.</Text>
+                    <RegistrationMap first={name} last={lastName} />
                     <AppInput
                       textContentType="givenName"
                       autoComplete="given-name"
@@ -452,7 +458,7 @@ export default function LoginScreen() {
                       returnKeyType="next"
                     />
                     <AppInput testID="login-last-name-input" label="Cognome" placeholder="Cognome" value={lastName} onChangeText={setLastName} autoCapitalize="words" textContentType="familyName" autoComplete="family-name" editable={!anyBusy} returnKeyType="next" />
-                    <Text style={{ color: colors.textSecondary, fontSize: 13, lineHeight: 20 }}>Quando autorizzi una chiamata, ORA dirà: «Sono ORA, l’assistente di {name.trim() || 'Nome'} {lastName.trim() || 'Cognome'}». Le prossime domande aiuteranno a collegare casa, impegni e persone. Potrai saltarle e completare VITA quando vuoi.</Text>
+                    <Text style={{ color: colors.textSecondary, fontSize: 13, lineHeight: 20 }}>Quando autorizzi una chiamata, ORA dirà: «Sono ORA, l’assistente di {name.trim() || 'Nome'} {lastName.trim() || 'Cognome'}».</Text>
                     </>
                   ) : null}
                   <AppInput
@@ -498,6 +504,7 @@ export default function LoginScreen() {
                     disabled={anyBusy}
                     onPress={() => {
                       setIsRegister((v) => !v);
+                      setIntroDone(false);
                       setErr(null);
                     }}
                   />
@@ -506,6 +513,8 @@ export default function LoginScreen() {
                     disabled={anyBusy}
                     onPress={() => {
                       setMode('buttons');
+                      setIsRegister(false);
+                      setIntroDone(false);
                       setErr(null);
                     }}
                     hitSlop={12}

@@ -1,3 +1,17 @@
+## 28 settembre 2026 — Guida alla mappa nel flusso account
+
+RegistrationIntro/RegistrationMap riusano PresenceCanvas e renderer approvato
+web/native. La bozza nome/cognome vive soltanto nello stato React; al canvas
+arrivano ID fissi e geometria, mai i nomi. Gli esempi sono marcati e non
+chiamano knowledge-map né scrivono fatti. Login mostra il tutorial prima di
+email/password e invia tutorial_seen solo dopo il terzo passo. RegisterIn
+rimane retrocompatibile (default false); il flag aggiorna i campi tutorial
+esistenti soltanto nella creazione di un nuovo account con identità completa.
+Al primo percorso VITA, RegistrationWelcome usa PUT /auth/identity per i
+nuovi utenti social/vecchi client, con retry e conferma della risposta server.
+Nessun blocco aggiunto alle sessioni già concluse. La rotta autenticata
+/benvenuto riusa la guida in modalità sola anteprima, senza API di scrittura.
+
 ## 27 settembre 2026 — VITA veloce, verifica online
 
 Web fd49fdd50d48bc73a0f50b1690f9ff2c35e2c72f, deployment

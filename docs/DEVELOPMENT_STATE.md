@@ -1,3 +1,18 @@
+## 28 settembre 2026 — Correzione intro registrazione
+
+La precedente consegna aveva soltanto una breve frase nel form account e il
+tutorial completo in VITA. Ora il form account è preceduto da tre passaggi
+visivi; nome e cognome alimentano subito l'anteprima e si conservano nel
+passaggio alle credenziali. Tutorial già visto persistito alla registrazione;
+nuovi social e vecchi client lo completano al primo percorso VITA. Replay
+accessibile agli utenti esistenti, senza cambi al profilo.
+Verifiche: cinque test frontend comportamentali inclusa esecuzione del vero
+LoginScreen; 28 ulteriori test VITA/renderer/handoff superati. 73 test backend
+(identità, conoscenze, profilo, presentazione telefonica) PASS. TypeScript,
+lint dei nuovi file (zero errori/warning), export web e iOS PASS. Nessuna
+dipendenza, nuova collezione, indice o migrazione; riuso dei campi tutorial.
+Pubblicazione e controllo visuale sul web in corso.
+
 ## 27 settembre 2026 — VITA veloce, verifica online
 
 Web fd49fdd50d48bc73a0f50b1690f9ff2c35e2c72f, deployment

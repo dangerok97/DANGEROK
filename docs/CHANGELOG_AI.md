@@ -1,3 +1,14 @@
+## 28 settembre 2026 — Intro prima dell'account
+
+Spostata la spiegazione della mappa all'inizio della registrazione email,
+con la stessa guida nel primo percorso VITA per nuovi account social.
+Tre passaggi, apertura dal punto, due stelle legate alla bozza nome/cognome,
+esempi dichiarati e presentazione telefonica. Aggiunta /benvenuto per rivedere
+la guida dall'account esistente. Il completamento email è persistito per
+non ripetere l'introduzione in VITA. Fallback dei client precedenti conservato.
+Test: 5 nuovi frontend + 28 regressioni esistenti e 73 backend PASS;
+TypeScript, lint, build web/iOS PASS. Deploy/verifica web in corso.
+
 ## 27 settembre 2026 — VITA veloce, verifica online
 
 Web fd49fdd50d48bc73a0f50b1690f9ff2c35e2c72f, deployment

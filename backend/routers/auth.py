@@ -38,6 +38,7 @@ class RegisterIn(BaseModel):
     name: Optional[str] = None
     first_name: Optional[str] = None
     last_name: Optional[str] = None
+    tutorial_seen: bool = False
 
     @model_validator(mode="after")
     def paired_identity(self):
@@ -144,7 +145,7 @@ async def register(body: RegisterIn):
         password_hash=hash_password(body.password),
     )
     if body.first_name and body.last_name and not existing:
-        updates = IdentityIn(first_name=body.first_name, last_name=body.last_name).updates()
+        updates = IdentityIn(first_name=body.first_name, last_name=body.last_name, tutorial_seen=body.tutorial_seen).updates()
         await db.users.update_one({"user_id": user["user_id"]}, {"$set": updates})
         user.update(updates)
     await _ensure_password_identity(user)

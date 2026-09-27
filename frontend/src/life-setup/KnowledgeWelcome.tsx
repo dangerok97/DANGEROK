@@ -6,11 +6,13 @@ import { AppInput } from '@/src/components/ui/AppInput';
 import { AppButton } from '@/src/components/ui/AppButton';
 import { useTheme } from '@/src/theme/ThemeProvider';
 import { tokens } from '@/src/theme/tokens';
+import { useRouter } from 'expo-router';
 
 /** No fabricated preview facts: the map below reads the saved account/profile. */
 export function KnowledgeWelcome({ firstRun }: { firstRun: boolean }) {
   const { user, updateUser } = useAuth();
   const { colors } = useTheme();
+  const router = useRouter();
   const complete = !!(user?.identity_confirmed && user.first_name && user.last_name);
   const [edit, setEdit] = useState(false);
   const [first, setFirst] = useState(user?.first_name || '');
@@ -19,9 +21,10 @@ export function KnowledgeWelcome({ firstRun }: { firstRun: boolean }) {
   const [error, setError] = useState('');
   const [show, setShow] = useState(firstRun);
   const tutorial = !user?.knowledge_tutorial_version;
-  if (!show && !edit) return <Pressable accessibilityRole="button" onPress={() => { setShow(true); setEdit(!complete); }} style={styles.cue}>
+  const replay = <Pressable accessibilityRole="button" onPress={() => router.push('/benvenuto' as any)} style={styles.cue}><Text style={{ color: colors.accent }}>Rivedi l’introduzione a ORA →</Text></Pressable>;
+  if (!show && !edit) return <View>{replay}<Pressable accessibilityRole="button" onPress={() => { setShow(true); setEdit(!complete); }} style={styles.cue}>
     <Text style={{ color: colors.accent }}>{complete ? 'Nome nelle chiamate e guida alla mappa' : 'Completa nome e cognome per le chiamate'} ↗</Text>
-  </Pressable>;
+  </Pressable></View>;
   const save = async () => {
     if (busy) return;
     if (!first.trim() || !last.trim()) { setError('Inserisci sia il nome sia il cognome.'); return; }
@@ -34,6 +37,7 @@ export function KnowledgeWelcome({ firstRun }: { firstRun: boolean }) {
   };
   return <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]} testID="knowledge-welcome">
     <Text accessibilityRole="header" style={[styles.title, { color: colors.textPrimary }]}>{tutorial ? 'La tua mappa comincia da te' : 'Il tuo nome, la tua mappa'}</Text>
+    {replay}
     <Text style={[styles.text, { color: colors.textSecondary }]}>1. Ogni informazione salvata diventa una stella. Nome e cognome sono le prime: quando autorizzi una chiamata, ORA si presenta come tua assistente.</Text>
     {complete && !edit ? <>
       <Text style={[styles.text, { color: colors.textPrimary }]}>«Sono ORA, l’assistente di {user?.first_name} {user?.last_name}».</Text>
