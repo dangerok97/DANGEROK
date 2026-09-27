@@ -1,3 +1,10 @@
+## 27 settembre 2026 — Apertura di VITA
+
+Profilo e domande diventano disponibili appena arriva lo stato guidato.
+Stelle e situazioni si caricano indipendentemente; il riepilogo delle
+situazioni usa le evidenze salvate senza richiedere una nuova interpretazione
+AI. Le risposte salvate continuano ad accendere le stelle e aggiornare VITA.
+
 ## 27 settembre 2026 — Verifica web delle stelle
 
 Primo deploy 8d995711: backend e web SUCCESS. Browser autenticato:
@@ -12,7 +19,7 @@ la proiezione ora riusa la traduzione canonica di VITA. Aggiornata anche la
 fixture del runtime telefonico al requisito nome+cognome: il vecchio test
 chiamava completa una presentazione col solo nome. Le verifiche negative
 continuano a richiedere il cognome; nessuna guardia è stata rimossa.
-CI/deploy della rifinitura da confermare dopo pubblicazione.
+Rifinitura 01e07df9 online: backend deployment 7c392a53-f750-4967-80b7-b9f92ec90cb2 SUCCESS. CI 36353441071: tutti i cinque job SUCCESS. Web 8d995711 (frontend invariato nella rifinitura).
 
 ## 27 settembre 2026 — Stelle della conoscenza e primo incontro
 

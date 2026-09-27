@@ -132,8 +132,9 @@ export function GuidedSetupScreen() {
   const areas = state?.areas ?? [];
   const current = areas.find((a) => a.area_id === state?.current_area_id) || null;
   const primoGiro = !!state && !state.finished;
-  const knowledgeKey = useMemo(() => ({ state, name: user?.name, tutorial: user?.knowledge_tutorial_version }), [state, user?.name, user?.knowledge_tutorial_version]);
-  const knowledge = useKnowledgeMap(user?.user_id, !loading, knowledgeKey);
+  const knowledgeKey = useMemo(() => ({ name: user?.name, tutorial: user?.knowledge_tutorial_version }), [user?.name, user?.knowledge_tutorial_version]);
+  const knowledge = useKnowledgeMap(user?.user_id, true, knowledgeKey);
+  const refreshKnowledge = knowledge.reload;
   const mostraDomanda = !!objective && (primoGiro || !!current?.in_progress);
 
   /*
@@ -143,28 +144,32 @@ export function GuidedSetupScreen() {
   */
   const [situations, setSituations] = useState<LifeMapResponse['situations']>([]);
 
-  const load = useCallback(async () => {
-    try {
-      const res = await api.guidedSetupState();
-      setState(res);
-      setError(null);
-      try {
-        const mappa = await api.getLifeMap();
-        setSituations(mappa.situations || []);
-      } catch {
-        // Le situazioni sono un di più: se non arrivano, la pagina resta
-        // quella che serve — il profilo e quello che manca.
-      }
-    } catch (e) {
-      setError(humanizeError(e, 'default'));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
-    void load();
-  }, [load]);
+    let live = true;
+    const loadProfile = async () => {
+      try {
+        const res = await api.guidedSetupState();
+        if (live) { setState(res); setError(null); }
+      } catch (e) {
+        if (live) setError(humanizeError(e, 'default'));
+      } finally {
+        if (live) setLoading(false);
+      }
+    };
+    const loadSituations = async () => {
+      try {
+        // This overview needs saved evidence, not a fresh AI interpretation.
+        // A slow or unavailable secondary section must never hold the profile.
+        const mappa = await api.getLifeMap({ enrich: false });
+        if (live) setSituations(mappa.situations || []);
+      } catch {
+        // Keep profile and questions available when this optional read fails.
+      }
+    };
+    void loadProfile();
+    void loadSituations();
+    return () => { live = false; };
+  }, []);
 
   const reset = useCallback(() => {
     setPicked([]);
@@ -182,6 +187,7 @@ export function GuidedSetupScreen() {
         const res = await api.guidedSetupAnswer(body);
         if (!res.ok) throw new Error('La risposta non è stata salvata. Controllala e riprova.');
         setState(res);
+        refreshKnowledge();
         reset();
         setError(null);
       } catch (e) {
@@ -190,7 +196,7 @@ export function GuidedSetupScreen() {
         setBusy(false);
       }
     },
-    [busy, reset],
+    [busy, reset, refreshKnowledge],
   );
 
   /*
@@ -365,13 +371,14 @@ export function GuidedSetupScreen() {
     setBusy(true);
     try {
       setState(await api.guidedSetupSkipArea(state.current_area_id));
+      refreshKnowledge();
       reset();
     } catch (e) {
       setError(humanizeError(e, 'default'));
     } finally {
       setBusy(false);
     }
-  }, [reset, state?.current_area_id]);
+  }, [reset, state?.current_area_id, refreshKnowledge]);
 
   if (loading) {
     return (

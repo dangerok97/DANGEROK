@@ -114,7 +114,7 @@ const SCHERMO = 'src/life-setup/GuidedSetupScreen.tsx';
   const schermo = leggi(SCHERMO);
 
   assert.ok(schermo.includes('In questo periodo'), 'le situazioni in corso restano');
-  assert.ok(schermo.includes('api.getLifeMap()'), 'e vengono dalla stessa fonte di prima');
+  assert.ok(schermo.includes('api.getLifeMap({ enrich: false })'), 'le situazioni vengono dalla stessa fonte, senza attendere nuove interpretazioni AI');
 }
 
 console.log('V3.21.3c Vita guards: tutte le asserzioni passate');

@@ -1,3 +1,14 @@
+## 27 settembre 2026 — VITA disponibile senza attendere i riepiloghi
+
+Fix: caricamenti paralleli di profilo, stelle e situazioni; la disponibilità
+del profilo non dipende più dalla sezione secondaria. Riepilogo life-map senza
+nuove interpretazioni AI. Nessuna richiesta duplicata di stelle al primo
+stato ricevuto; rilettura dopo risposte/skip e aggiornamento identità.
+Aggiunti cinque test comportamentali con promesse sospese/errori/cleanup al
+gate CI; aggiornato il controllo della fonte situazioni. 34 test mirati,
+TypeScript, lint senza errori e build web superati. Nessuna dipendenza o
+modifica DB/configurazione. Verifica online in corso.
+
 ## 27 settembre 2026 — Verifica web delle stelle
 
 Primo deploy 8d995711: backend e web SUCCESS. Browser autenticato:
@@ -12,7 +23,7 @@ la proiezione ora riusa la traduzione canonica di VITA. Aggiornata anche la
 fixture del runtime telefonico al requisito nome+cognome: il vecchio test
 chiamava completa una presentazione col solo nome. Le verifiche negative
 continuano a richiedere il cognome; nessuna guardia è stata rimossa.
-CI/deploy della rifinitura da confermare dopo pubblicazione.
+Rifinitura 01e07df9 online: backend deployment 7c392a53-f750-4967-80b7-b9f92ec90cb2 SUCCESS. CI 36353441071: tutti i cinque job SUCCESS. Web 8d995711 (frontend invariato nella rifinitura).
 
 ## 27 settembre 2026 — Knowledge stars: implementazione e gate locali
 

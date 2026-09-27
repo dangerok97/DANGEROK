@@ -1,3 +1,13 @@
+## 27 settembre 2026 — Caricamento indipendente di VITA
+
+GuidedSetupScreen avvia in parallelo setup, knowledge-map e life-map.
+Soltanto guidedSetupState governa il caricamento iniziale del profilo;
+life-map(enrich=false) è secondario e non può ritardarlo. Cleanup ignora
+risposte arrivate dopo l'uscita. Knowledge-map parte subito e viene riletta
+su risposte/skip salvati o aggiornamento dell'identità, non all'arrivo dello
+stato iniziale né a ogni semplice selezione di area. Nessuna cache persistente
+aggiunta e nessuna modifica a backend, database o configurazione Railway.
+
 ## 27 settembre 2026 — Verifica web delle stelle
 
 Primo deploy 8d995711: backend e web SUCCESS. Browser autenticato:
@@ -12,7 +22,7 @@ la proiezione ora riusa la traduzione canonica di VITA. Aggiornata anche la
 fixture del runtime telefonico al requisito nome+cognome: il vecchio test
 chiamava completa una presentazione col solo nome. Le verifiche negative
 continuano a richiedere il cognome; nessuna guardia è stata rimossa.
-CI/deploy della rifinitura da confermare dopo pubblicazione.
+Rifinitura 01e07df9 online: backend deployment 7c392a53-f750-4967-80b7-b9f92ec90cb2 SUCCESS. CI 36353441071: tutti i cinque job SUCCESS. Web 8d995711 (frontend invariato nella rifinitura).
 
 ## 27 settembre 2026 — Proiezione knowledge-map e identità
 

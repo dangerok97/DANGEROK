@@ -202,7 +202,7 @@ jobs:
           npm run test:v3213d
           npm run test:v3213e
           npm run test:v322
-          node --test --experimental-strip-types src/components/ora/presence/presence.test.ts src/components/ora/presence/openingSession.test.ts src/components/ora/presence/scene.test.mjs src/ora/openingHandoff.test.ts src/voice/voice313.test.ts src/voice/voiceRuntime.test.ts src/components/ora/ora14.test.ts
+          node --test --experimental-strip-types src/components/ora/presence/presence.test.ts src/components/ora/presence/openingSession.test.ts src/components/ora/presence/scene.test.mjs src/ora/openingHandoff.test.ts src/voice/voice313.test.ts src/voice/voiceRuntime.test.ts src/components/ora/ora14.test.ts src/life-setup/vitaLoading.test.ts
 
       # The former life-experience-documents Playwright spec is intentionally
       # not a blocking CI gate here. It navigates the pre-V3.21 greedy

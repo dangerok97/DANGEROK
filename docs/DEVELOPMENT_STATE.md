@@ -1,3 +1,16 @@
+## 27 settembre 2026 — Correzione attesa VITA
+
+Rimosso il waterfall setup → life-map → knowledge-map. Profilo e domande non
+attendono più il riepilogo facoltativo; richiesta life-map esplicita senza
+nuovo arricchimento AI. Le stelle partono insieme al profilo, senza rilettura
+duplicata iniziale. Aggiornamento dopo salvataggio preservato.
+34 test frontend PASS, inclusi cinque casi reali dell'effetto di caricamento:
+richiesta secondaria pendente/fallita, errore primario, ordine inverso e uscita.
+TypeScript e build web PASS; lint zero errori, quattro warning preesistenti.
+Misura browser precedente, ingresso caldo: 955 ms fino a PROFILO VITA
+(compreso overhead del controllo DOM; non rappresenta tutti i dispositivi).
+Pubblicazione web e misura successiva da registrare dopo il deploy.
+
 ## 27 settembre 2026 — Verifica web delle stelle
 
 Primo deploy 8d995711: backend e web SUCCESS. Browser autenticato:
@@ -12,7 +25,7 @@ la proiezione ora riusa la traduzione canonica di VITA. Aggiornata anche la
 fixture del runtime telefonico al requisito nome+cognome: il vecchio test
 chiamava completa una presentazione col solo nome. Le verifiche negative
 continuano a richiedere il cognome; nessuna guardia è stata rimossa.
-CI/deploy della rifinitura da confermare dopo pubblicazione.
+Rifinitura 01e07df9 online: backend deployment 7c392a53-f750-4967-80b7-b9f92ec90cb2 SUCCESS. CI 36353441071: tutti i cinque job SUCCESS. Web 8d995711 (frontend invariato nella rifinitura).
 
 ## 27 settembre 2026 — Knowledge stars: implementazione e gate locali
 
