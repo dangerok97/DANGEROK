@@ -56,7 +56,7 @@ import {
 } from './OraChrome';
 import { OraTurns, type Turn } from './OraTurns';
 import { OraPresence } from './presence/OraPresence';
-import { presenceMode, readPresenceActivity, type PresenceActivity } from './presence/state';
+import { COMPLETED_FOCUS_MS, presenceMode, readPresenceActivity, type PresenceActivity } from './presence/state';
 import type { OraJourneyView } from './OraJourney';
 import { DesktopShell } from '@/src/shell';
 import { useBreakpoint } from '@/src/theme/responsive';
@@ -434,6 +434,7 @@ function OraConversationBody({
   const [openingTurn, setOpeningTurn] = useState<string | null>(entryOpeningKey || null);
   const firstOpening = useRef(false);
   const openingStartedAt = useRef(0);
+  const focusCompletedAt = useRef(0);
   const [presenceActivity, setPresenceActivity] = useState<PresenceActivity | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [boot, setBoot] = useState(Boolean(paramId));
@@ -887,6 +888,7 @@ function OraConversationBody({
       currentActivityRequest.current = requestId;
       setActivityRequestId(requestId);
       setPresenceActivity(null);
+      focusCompletedAt.current = 0;
       setBusy(true);
       setError(null);
       setWorkingHint(
@@ -975,7 +977,9 @@ function OraConversationBody({
           });
           res = await applyAiCoreResponse(res, sessionId);
         }
-        setPresenceActivity(previous => readPresenceActivity(res.activity, requestId, previous));
+        const completedActivity = readPresenceActivity(res.activity, requestId);
+        if (completedActivity?.phase === 'done' && completedActivity.area) focusCompletedAt.current = Date.now();
+        setPresenceActivity(previous => readPresenceActivity(completedActivity, requestId, previous));
         applyTurns(res, clientMessageId, sessionId || res.session_id || null);
         // Se la domanda è stata fatta a voce, la risposta si ascolta — ed è
         // parola per parola quella che si legge sopra. Se è stata scritta,
@@ -1071,7 +1075,8 @@ function OraConversationBody({
   liveRef.current = live;
 
   // A fast response is rendered immediately. Only URL replacement waits for
-  // the entrance to finish; remounting sooner would cut the animation short.
+  // the entrance and final focus to finish; remounting sooner loses activity
+  // because stored conversation history does not carry the live work signal.
   // Voice and any in-flight turn keep ownership of this screen until finished.
   useEffect(() => {
     if (!sessionId || paramId || live.on || busy) return;
@@ -1085,7 +1090,9 @@ function OraConversationBody({
       ...(goalId ? { goalId: String(goalId) } : {}),
       entry: entryPoint,
     });
-    const remaining = Math.max(0, openingStartedAt.current + 2800 - Date.now());
+    const now = Date.now();
+    const remaining = Math.max(0, openingStartedAt.current + 2800 - now,
+      focusCompletedAt.current ? focusCompletedAt.current + COMPLETED_FOCUS_MS - now : 0);
     const timer = setTimeout(() => router.replace(`/ora/${sessionId}?${q.toString()}` as any), remaining);
     return () => clearTimeout(timer);
   }, [sessionId, paramId, live.on, busy, planId, objectId, planItemId, documentId,

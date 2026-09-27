@@ -1,3 +1,15 @@
+## 2026-09-27 — Focus del primo messaggio preservato al cambio URL
+
+La prova browser ha isolato un secondo difetto: il nuovo ID di sessione causava
+un rimontaggio subito dopo la risposta e scartava il segnale di area. Ora solo
+la sostituzione dell'URL attende la fine del focus (4 s dalla ricezione); testo,
+voce e messaggi successivi non attendono. Il nuovo test esegue il vero effetto
+di navigazione, coprendo risposte lente/rapide, cancellazione e voce attiva.
+50 test frontend complessivi PASS dopo la correzione, TypeScript e build web/iOS
+PASS; lint zero errori e 11 warning già presenti. Backend bdece61 distribuito,
+CI 36349431087 cinque job PASS. Browser già verificato su Casa, Persone e
+Impegni; da verificare il primo messaggio con questo seguito frontend.
+
 Aggiornamento verifica: commit 1fd48fe distribuito su backend e web; CI 36348823133, tutti i cinque job PASS. Nel browser osservato zoom Casa e ritorno idle; alcuni messaggi non espongono ancora un tema. Rafforzato il contratto visivo e il promemoria nel payload, anche per esempi e scenari ipotetici. Nuova prova live necessaria dopo questo seguito backend.
 
 ## 2026-09-27 — Fix: tutte le conversazioni ingrandivano Memoria

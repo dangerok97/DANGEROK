@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import ts from 'typescript';
 import * as navigation from './oraNav.ts';
 import { createOpeningSession } from '../components/ora/presence/openingSession.ts';
+import { COMPLETED_FOCUS_MS } from '../components/ora/presence/state.ts';
 
 // Execute the production handoff and Expo route with only their external
 // boundaries replaced. No API request, login or copied navigation logic.
@@ -85,4 +86,49 @@ test('opening is a fixed flag, only valid with an opaque session id', () => {
   assert.equal(navigation.buildOraConversationHref({ sessionId: '../bad', opening: true }), '/ora');
   const h = harness();
   assert.equal(h.arrive('/ora/session_existing?opening=anything').openingKey, undefined);
+});
+
+test('production URL handoff preserves the first reply focus, including replies after the entrance', () => {
+  const source = readFileSync(new URL('../components/ora/OraConversationScreen.tsx', import.meta.url), 'utf8');
+  const tree = ts.createSourceFile('screen.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  let callback = '';
+  function visit(node: ts.Node) {
+    if (ts.isCallExpression(node) && node.expression.getText(tree) === 'useEffect'
+      && node.arguments[0]?.getText(tree).includes('openingStartedAt.current')) callback = node.arguments[0].getText(tree);
+    ts.forEachChild(node, visit);
+  }
+  visit(tree);
+  assert.ok(callback, 'execute the real navigation effect');
+  const compiled = ts.transpileModule(`module.exports = ${callback}`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
+  let timer: { callback: () => void; delay: number } | null = null;
+  const routes: string[] = [];
+  const context = {
+    sessionId: 'new-session', paramId: null as string | null, busy: false, live: { on: false },
+    planId: null, objectId: null, planItemId: null, documentId: null,
+    opportunityId: null, needId: null, goalId: null, entryPoint: 'ora',
+    openingStartedAt: { current: 1000 }, focusCompletedAt: { current: 9000 }, COMPLETED_FOCUS_MS,
+    Date: { now: () => 9000 }, router: { replace: (url: string) => routes.push(url) },
+    setTimeout: (callback: () => void, delay: number) => { timer = { callback, delay }; return 1; },
+    clearTimeout: () => { timer = null; },
+  };
+  function run() {
+    const module = { exports: null as unknown as () => (() => void) | undefined };
+    new Function('module', ...Object.keys(context), compiled)(module, ...Object.values(context));
+    return module.exports();
+  }
+  const cleanup = run();
+  assert.equal(timer!.delay, COMPLETED_FOCUS_MS, 'a slow reply must not remount immediately');
+  assert.deepEqual(routes, []);
+  cleanup?.();
+  assert.equal(timer, null, 'another turn cancels pending navigation');
+  context.busy = true; run(); assert.equal(timer, null);
+  context.busy = false; context.live.on = true; run(); assert.equal(timer, null);
+  context.live.on = false; context.focusCompletedAt.current = 0;
+  context.Date.now = () => 1500;
+  run(); assert.equal(timer!.delay, 2300, 'without a topic, finish the entrance only');
+  context.focusCompletedAt.current = 1200;
+  run(); assert.equal(timer!.delay, 3700, 'fast reply focus also survives');
+  context.Date.now = () => 10000;
+  run(); assert.equal(timer!.delay, 0, 'do not hold navigation after expiry');
+  timer!.callback(); assert.deepEqual(routes, ['/ora/new-session?entry=ora']);
 });
