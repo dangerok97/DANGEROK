@@ -97,7 +97,8 @@ jobs:
             tests/test_background_agent_loop.py tests/test_opportunity_admission_v4.py \
             tests/test_admission_source_context_v4.py tests/test_agent_preparation_v4.py \
             tests/test_agent_pending_steps_v4.py tests/test_autonomous_document_cycle_v4.py \
-            tests/test_update_work.py tests/test_ambient_runtime_v38.py tests/test_ambient_reliability_v38.py -x
+            tests/test_document_extraction_signal_v4.py tests/test_update_work.py \
+            tests/test_ambient_runtime_v38.py tests/test_ambient_reliability_v38.py -x
           CONTINUITY_REAL_MONGO=1 python -m pytest -q tests/test_autonomy_continuity_v4.py -x
       - name: Google first sync, cloud sessions, location privacy and polling
         working-directory: backend

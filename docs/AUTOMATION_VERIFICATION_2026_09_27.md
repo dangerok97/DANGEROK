@@ -43,16 +43,26 @@ non certificano da sole la qualità di una raccomandazione generata dal modello.
 
 ## Evidenza al commit applicativo
 
-109 test backend locali PASS (12 file, inclusi 17 nuovi casi di continuità).
+110 test backend locali PASS (12 file, inclusi 18 nuovi casi di continuità).
 41 test frontend PASS, oltre ai product guard Home/Vita/chiamate. TypeScript,
 compileall, lint senza errori ed export web/iOS PASS. Renderer della scena
 condivisa ispezionato su desktop e mobile: quattro istanti dell'ingresso.
 
 Il container locale non avvia Mongo (`open: Operation not permitted`); nessun
 aggiramento. CI aggiunge suite ambient, continuità e documento automatico,
-più una seconda esecuzione dei 17 nuovi casi su database Mongo 6 isolati.
+più una seconda esecuzione dei 18 nuovi casi su database Mongo 6 isolati.
 Ciò verifica gli indici/claim con il database reale, oltre al mock locale.
-Esito CI e distribuzione saranno registrati nel verbale di rilascio.
+CI finale 36330185896 su `7dea1f6b5d91df8d6c91381f2d4f6b2866e9bb04`:
+cinque job SUCCESS. Backend: 513 esecuzioni PASS e 5 skip legacy; telefonia:
+281 PASS. Nei 513 sono compresi 116 test di autonomia/ambient e 18 casi
+rieseguiti con Mongo reale: i conteggi includono quindi le ripetizioni deliberate.
+
+Due controlli storici sono stati corretti senza ridurre la copertura: database
+isolato per ciascuna suite ambient (le code globali di utenti sintetici diversi
+si consumavano fra loro), e prova comportamentale del lifecycle di polling al
+posto dell'obbligo di una chiamata sequenziale nel testo sorgente. La nuova
+prova avvia il loop, osserva polling e lavoro dovuto, mantiene la fonte lenta e
+verifica la cancellazione pulita all'arresto. Nessun test è stato escluso.
 
 ## Limiti ancora aperti
 
@@ -70,3 +80,23 @@ Esito CI e distribuzione saranno registrati nel verbale di rilascio.
 
 Nessuna nuova dipendenza di runtime, migrazione distruttiva, modifica alle
 credenziali, telefonata o comunicazione reale. Dataset di prova sintetici.
+
+## Correzione emersa nella prova pubblica: account con soli documenti
+
+La prima prova dopo il deploy ha caricato ed estratto correttamente un documento
+sintetico, ma non ha generato letture automatiche: il selettore cercava nuovi
+utenti soltanto fra i connettori esterni. Un account con soli documenti e senza
+visita alla Home poteva quindi restare fuori dalla coda.
+
+Caricamento ed estrazione ora scrivono un marker nello stesso documento. Il
+polling già esistente ammette quei marker nella propria coda; li rimuove solo
+dopo la scrittura riuscita e sulla stessa revisione. Un crash non perde il
+passaggio, un'estrazione successiva conserva la propria richiesta e una lettura
+in corso non può rinviare per mezz'ora una modifica appena arrivata. Un indice
+parziale additivo (`document_read_handoff`) limita la scansione ai marker.
+Nessun nuovo scheduler, modello nel caricamento, connettore o backfill storico.
+
+Due nuove prove coprono account senza Google/Home, lettura ed estrazione
+successiva, isolamento del proprietario e assenza di backfill. 21 prove locali
+PASS: 20 casi di continuità più il test del segnale di estrazione differita.
+Questo seguito richiede un nuovo gate CI e una nuova verifica pubblica.

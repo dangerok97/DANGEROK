@@ -102,6 +102,8 @@ class DocumentService:
             await col.create_index([("user_id", 1), ("archived", 1), ("deleted", 1)], name="user_state")
             await col.create_index([("user_id", 1), ("filename", "text"), ("notes", "text"), ("tags", "text"), ("extracted_text", "text")], name="user_text")
             await col.create_index([("user_id", 1), ("pipeline_status", 1)], name="user_pipeline")
+            await col.create_index("connected_read_pending", name="document_read_handoff",
+                                   partialFilterExpression={"connected_read_pending": {"$exists": True}})
         except Exception:
             logger.debug("documents index creation swallowed", exc_info=True)
 
@@ -222,6 +224,9 @@ class DocumentService:
             "life_node_id": life_node_id,
             "knowledge_synced": knowledge_synced,
             "version": 1,
+            # Durable handoff to the existing document sensor, even when this
+            # owner has never connected Google or opened Home.
+            "connected_read_pending": uuid.uuid4().hex,
             "created_at": now,
             "updated_at": now,
         }
@@ -293,6 +298,7 @@ class DocumentService:
             "extraction_warnings": result.warnings[:20],
             "extraction_duration_ms": round(result.duration_ms, 1),
             "extracted_at": _ext_now(),
+            "connected_read_pending": uuid.uuid4().hex,
             "updated_at": _ext_now(),
         }
         await self.db.documents.update_one(

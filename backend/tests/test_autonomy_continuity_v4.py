@@ -72,6 +72,49 @@ async def test_opening_pending_automatic_work_cannot_start_a_parallel_session(db
 
 
 @pytest.mark.asyncio
+async def test_document_only_upload_enters_existing_source_queue_without_home(db, monkeypatch):
+    from documents.service import DocumentService
+    from documents.storage import StoredObject
+    from documents.intelligence import worker
+    from connected.polling import _what_to_read
+    from connected.documents_sensor import read_changes
+    monkeypatch.setenv('DOCUMENT_EXTRACTION_ENABLED', 'true')
+    monkeypatch.setattr(worker, 'enqueue_document_job', AsyncMock())
+    content = b'Condizioni sintetiche: costo annuo 120 euro.'
+    storage = SimpleNamespace(put=AsyncMock(return_value=StoredObject(
+        provider='test', key='test:contract', size=len(content), hash='fixture-hash')))
+    service = DocumentService(db=db, storage=storage)
+    result = await service.upload(user_id='alice', content=content,
+        original_filename='condizioni.txt', mime_type='text/plain')
+    doc_id = result['document']['id']
+    assert await db.connector_instances.count_documents({}) == 0
+    # This read is the same one reached from the background loop. No owner hint,
+    # Home route, chat, connected-provider registration or explicit sync.
+    queue, _ = await _what_to_read(db, now=datetime.now(timezone.utc), limit=10)
+    assert [(owner, source.id) for owner, source in queue] == [('alice', 'documents')]
+    assert (await read_changes(db, 'alice'))[0].signal_type == 'document.added'
+    assert await read_changes(db, 'alice') == []
+    assert not (await db.documents.find_one({'id': doc_id})).get('connected_read_pending')
+    # A delayed extraction wakes the shelf again, even after normal scheduling.
+    await db.connected_source_attempts.update_one({'owner_id': 'alice'},
+        {'$set': {'next_attempt_at': (datetime.now(timezone.utc) + timedelta(minutes=30)).isoformat()}})
+    await service._extract_and_persist(user_id='alice', doc_id=doc_id,
+        blob=b'Costo corretto: 100 euro.', mime_type='text/plain', life_node_id=None)
+    queue, _ = await _what_to_read(db, now=datetime.now(timezone.utc), limit=10)
+    assert [(owner, source.id) for owner, source in queue] == [('alice', 'documents')]
+    assert (await read_changes(db, 'alice'))[0].signal_type == 'document.updated'
+    assert await read_changes(db, 'bob') == []
+
+
+@pytest.mark.asyncio
+async def test_new_document_handoff_does_not_backfill_untouched_history(db):
+    from connected.polling import _what_to_read
+    await db.documents.insert_one({'id': 'historical', 'user_id': 'bob', 'filename': 'old.txt'})
+    queue, _ = await _what_to_read(db, now=datetime.now(timezone.utc), limit=10)
+    assert queue == []
+
+
+@pytest.mark.asyncio
 async def test_admission_question_reply_drives_same_durable_work_without_chat(db, monkeypatch):
     opp = await concern(db)
     decide = AsyncMock(side_effect=[{'outcome': 'clarify', 'question': 'Quale piano è attivo?'},

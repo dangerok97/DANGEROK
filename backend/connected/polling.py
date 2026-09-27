@@ -401,6 +401,33 @@ async def owners_to_look_at(
     return seen[: max(1, limit) * 2]
 
 
+async def _admit_document_reads(db, *, now: datetime, limit: int) -> None:
+    """Bridge committed uploads/extractions to the existing source schedule.
+
+    The marker is written with the document, so a crash before scheduling does
+    not strand a document-only account. A later extraction keeps its own marker
+    if it races this handoff. No historical backfill and no model call here.
+    """
+    rows = await db.documents.find({
+        "connected_read_pending": {"$type": "string"},
+        "deleted": {"$ne": True}, "archived": {"$ne": True},
+    }, {"_id": 0, "id": 1, "user_id": 1, "connected_read_pending": 1}).limit(max(1, limit)).to_list(max(1, limit))
+    for row in rows:
+        owner = str(row.get("user_id") or "")
+        if not owner:
+            continue
+        await db[ATTEMPTS].update_one(
+            {"owner_id": owner, "source_id": "documents"},
+            {"$min": {"next_attempt_at": now.isoformat()},
+             "$setOnInsert": {"owner_id": owner, "source_id": "documents", "failures": 0}},
+            upsert=True,
+        )
+        await db.documents.update_one({
+            "id": row["id"], "user_id": owner,
+            "connected_read_pending": row["connected_read_pending"],
+        }, {"$unset": {"connected_read_pending": ""}})
+
+
 async def _what_to_read(
     db, *, now: datetime, limit: int,
 ) -> Tuple[List[Tuple[str, ConnectedSource]], int]:
@@ -425,6 +452,11 @@ async def _what_to_read(
     """
     from connected.service import ConnectedLifeService
 
+    try:
+        await _admit_document_reads(db, now=now, limit=limit)
+    except Exception as exc:
+        # Keep the document's durable marker and allow other sources to run.
+        logger.info("document handoff soft-fail: %s", type(exc).__name__)
     try:
         rows = await db[ATTEMPTS].find(
             {"next_attempt_at": {"$lte": now.isoformat()}},
