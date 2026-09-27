@@ -1,3 +1,25 @@
+## 28 settembre 2026 — Introduzione verificata online
+
+Codice 5e026156c6b7077081d1e67b0a2dd3acea378fc5. Backend deployment
+602bbb24-b376-4c7d-866a-bd6f8a6a6fdd e web
+50bfe694-3631-4581-803e-9454a55c3f93 entrambi SUCCESS. Bundle browser
+entry-a8d9b1181f860a906121df985727ed7a.js.
+
+Provati nel browser autenticato il collegamento da VITA, tutti e tre i
+passaggi, l'apertura dal singolo punto, la crescita 0→1→2 stelle in anteprima,
+la presentazione con nome+cognome, il cambio esempio e il ritorno a VITA.
+Replay senza modificare dati o identità dell'account. Screenshot:
+ora-introduzione-registrazione.jpg (artefatto separato, dati dimostrativi).
+Il vero LoginScreen e il passaggio intro→credenziali sono eseguiti dai test;
+non è stata disconnessa la sessione reale del browser. API live con un nuovo
+account tecnico: registrazione 200, identità completa, tutorial_version=1,
+2 stelle/VITA 0%; accesso successivo conserva il completamento.
+
+Configurazioni Railway verificate contro il baseline documentato, con
+preDeployCommand=[] e volume documenti invariati. Nessuna comunicazione reale.
+CI codice 36356989561: tutti i cinque job SUCCESS (TypeScript, backend,
+sicurezza telefonica, secret scan e guardie frontend con test del tutorial).
+
 ## 28 settembre 2026 — Guida alla mappa nel flusso account
 
 RegistrationIntro/RegistrationMap riusano PresenceCanvas e renderer approvato
