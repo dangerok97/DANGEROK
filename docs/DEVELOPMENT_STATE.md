@@ -1,3 +1,13 @@
+## 2026-09-27 — Verifica della voce cloud e taratura del recupero
+
+Commit voce 0c3f25ee pubblicato su backend b3ddf759 e web a0fdbd08, entrambi
+SUCCESS; bundle pubblico e health HTTP 200 verificati. Il campione successivo
+ha restituito 204 in 9,89 s: OpenAI risponde 429 e Gemini ClientError.
+Rimessa Gemini come prima scelta già funzionante nel campione iniziale;
+timeout HTTP SDK almeno 12 s, limite applicativo 8 s per provider e 9 s totale.
+Il limite per credenziale non viene più dimezzato arbitrariamente; diagnostica
+registra il solo codice HTTP, senza corpo, chiavi o testo. Nuovo campione necessario.
+
 ## 2026-09-27 — Dialogo vocale: turni, interruzioni e voce composta
 
 La voce in-app usa response_channel per turno, con la stessa sessione, memoria,

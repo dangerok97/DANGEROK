@@ -121,3 +121,10 @@ async def test_switching_text_and_voice_keeps_session_and_navigation(monkeypatch
     await orch.message('owner', sid, text='Ora parlo', client_message_id='three', response_channel='voice')
     await orch.client_resume('owner', sid, completed=[])
     assert seen == [(sid, 'ora', mode) for mode in ('voice', 'text', 'voice', 'voice')]
+
+
+def test_provider_diagnostics_do_not_expose_error_details():
+    from types import SimpleNamespace
+    assert providers._error_status(SimpleNamespace(code=429, message="private")) == 429
+    assert providers._error_status(SimpleNamespace(code="private")) == 0
+    assert providers._error_status(SimpleNamespace(response=SimpleNamespace(status_code=401))) == 401

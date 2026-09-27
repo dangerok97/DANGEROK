@@ -307,7 +307,7 @@ def test_the_logs_carry_a_type_never_a_word_of_what_was_said():
             # `name` è il nome della variabile d'ambiente — «GEMINI2_API_KEY» —
             # e serve a sapere quale account è finito. Il suo contenuto non
             # passa di qui e non deve passarci mai.
-            assert written in ("type(e).__name__", "provider.name", "name"), (
+            assert written in ("type(e).__name__", "provider.name", "name", "_error_status(e)"), (
                 f"un log porta con sé qualcosa che non è un tipo: {written}"
             )
     assert seen, "nessun log da controllare: la guardia non guarda niente"

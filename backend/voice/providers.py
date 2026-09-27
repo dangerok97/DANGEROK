@@ -40,7 +40,7 @@ MAX_CHARS = 4000
 
 # Quanto si aspetta prima di rinunciare e lasciare la parola alla voce di
 # sistema. Una voce piu' bella che arriva in ritardo e' una voce peggiore.
-TIMEOUT_S = float(os.environ.get("ORA_VOICE_TIMEOUT_S", "5"))
+TIMEOUT_S = float(os.environ.get("ORA_VOICE_TIMEOUT_S", "8"))
 
 
 VOICE_DIRECTION = (
@@ -50,6 +50,14 @@ VOICE_DIRECTION = (
     "Pronuncia esclusivamente il testo fornito, senza aggiunte o introduzioni."
 )
 TOTAL_BUDGET_S = 9.0
+
+
+def _error_status(error) -> int:
+    """Log an HTTP status only: never the response body, URL or credential."""
+    code = getattr(error, "code", None)
+    if not isinstance(code, int):
+        code = getattr(getattr(error, "response", None), "status_code", 0)
+    return code if isinstance(code, int) else 0
 
 
 @dataclass
@@ -133,7 +141,7 @@ class GeminiSpeech:
                     ),
                 ),
             ),
-            http_options=types.HttpOptions(timeout=int(TIMEOUT_S * 1000)),
+            http_options=types.HttpOptions(timeout=max(12000, int(TIMEOUT_S * 1000))),
         )
 
         for name, key in self.keys:
@@ -141,11 +149,11 @@ class GeminiSpeech:
             try:
                 answer = await asyncio.wait_for(client.aio.models.generate_content(
                     model=self.model, contents=f"{VOICE_DIRECTION}\n\nTesto:\n{text[:MAX_CHARS]}", config=config,
-                ), timeout=max(1.0, TIMEOUT_S / len(self.keys)))
+                ), timeout=TIMEOUT_S)
             except Exception as e:
                 # Il nome della variabile d'ambiente, non il suo contenuto:
                 # serve a sapere quale account e' finito, e non e' un segreto.
-                logger.info("voce gemini via %s: %s", name, type(e).__name__)
+                logger.info("voce gemini via %s: %s status=%s", name, type(e).__name__, _error_status(e))
                 continue
             finally:
                 await client.aio.aclose()
@@ -201,7 +209,7 @@ class OpenAISpeech:
                     voice=self.voice, provider=self.name,
                 )
         except Exception as e:
-            logger.info("voce openai non disponibile: %s", type(e).__name__)
+            logger.info("voce openai non disponibile: %s status=%s", type(e).__name__, _error_status(e))
             return None
 
 
@@ -242,7 +250,7 @@ def _as_wav(pcm: bytes, *, rate: int = 24000, channels: int = 1, width: int = 2)
 
 # L'ordine in cui si prova. Il primo che risponde parla; se non risponde
 # nessuno, parla il browser — che e' sempre li' e non ha bisogno di niente.
-_ORDER = (OpenAISpeech, GeminiSpeech)
+_ORDER = (GeminiSpeech, OpenAISpeech)
 
 # Quanto si ricorda un tentativo andato male prima di riprovarci.
 #
