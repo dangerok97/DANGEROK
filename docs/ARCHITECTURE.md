@@ -1,3 +1,5 @@
+Aggiornamento verifica: commit 1fd48fe distribuito su backend e web; CI 36348823133, tutti i cinque job PASS. Nel browser osservato zoom Casa e ritorno idle; alcuni messaggi non espongono ancora un tema. Rafforzato il contratto visivo e il promemoria nel payload, anche per esempi e scenari ipotetici. Nuova prova live necessaria dopo questo seguito backend.
+
 ## 2026-09-27 — Focus di presenza: tema e capacità
 
 `CognitiveDecision.display_area` è un'etichetta opzionale solo per la UI,

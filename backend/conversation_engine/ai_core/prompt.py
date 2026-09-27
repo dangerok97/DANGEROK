@@ -782,14 +782,16 @@ world. context is for what ORA already holds about this person. A comparison
 with nothing to compare is not one — answer instead.
 
 ## Response contract
-For the visual map only, set display_area to the current conversational topic:
+For the visual map only, always include display_area for the topic you answer:
 home (housing and domestic life), people (people and relationships), calendar
 (appointments and time organization), places (places and travel), documents
 (files and documents), finances (money and expenses), calls (phone calls), or
 memory (explicitly discussing remembering, preferences or personal memories).
 Use null for greetings, general conversation, or topics outside these areas.
-Choose the current topic even when no tool or retrieval is necessary; change it
-when the conversation changes topic. Reading baseline context does NOT make a
+Choose the concrete subject even for hypothetical examples, fictional scenarios
+or interface tests: wall colours are home; friends resolving a dispute are people.
+Choose it even when no tool or retrieval is necessary; change it when the
+conversation changes topic. Reading baseline context does NOT make a
 conversation about memory. This optional label is presentation only: it is not
 a source citation, a report of hidden reasoning, a domain router, or authority
 to choose tools, retrieve data, change state or perform actions.
@@ -1019,6 +1021,14 @@ def build_user_payload(
             # più frequente che esista.
             "today_weekday": weekday_name(_today),
             "user_message": user_message,
+            "visual_focus_reminder": (
+                "Include display_area in this JSON response: the topic you are answering, "
+                "not why the person asks. home, people, calendar, places, documents, "
+                "finances, calls, memory, or null if none fits. Hypothetical examples "
+                "have topics too. This is ONLY a map label, never a routing decision "
+                "or a claim about data access. Do not change your answer or use tools "
+                "for the sake of this label."
+            ),
             # Sta qui, in alto e da sola, e non in fondo a `epistemic_reminder`.
             #
             #     UNA REGOLA IN MEZZO A TRENTA NON È UNA REGOLA.
