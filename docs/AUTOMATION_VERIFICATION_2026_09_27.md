@@ -52,7 +52,7 @@ Il container locale non avvia Mongo (`open: Operation not permitted`); nessun
 aggiramento. CI aggiunge suite ambient, continuità e documento automatico,
 più una seconda esecuzione dei 18 nuovi casi su database Mongo 6 isolati.
 Ciò verifica gli indici/claim con il database reale, oltre al mock locale.
-CI finale 36330185896 su `7dea1f6b5d91df8d6c91381f2d4f6b2866e9bb04`:
+CI del primo checkpoint 36330185896 su `7dea1f6b5d91df8d6c91381f2d4f6b2866e9bb04`:
 cinque job SUCCESS. Backend: 513 esecuzioni PASS e 5 skip legacy; telefonia:
 281 PASS. Nei 513 sono compresi 116 test di autonomia/ambient e 18 casi
 rieseguiti con Mongo reale: i conteggi includono quindi le ripetizioni deliberate.
@@ -99,4 +99,39 @@ Nessun nuovo scheduler, modello nel caricamento, connettore o backfill storico.
 Due nuove prove coprono account senza Google/Home, lettura ed estrazione
 successiva, isolamento del proprietario e assenza di backfill. 21 prove locali
 PASS: 20 casi di continuità più il test del segnale di estrazione differita.
-Questo seguito richiede un nuovo gate CI e una nuova verifica pubblica.
+Il seguito è stato verificato in CI e pubblicamente, come registrato di seguito.
+
+## Rilascio verificato — 27 settembre 2026, continuità e apertura per sessione
+
+- Backend `e85d93567aea9e9b35290f096001ca4f79d2f29d`, deployment
+  `1da90de3-41ff-460d-a6e1-96481491252b`: SUCCESS.
+- Web `7dea1f6b5d91df8d6c91381f2d4f6b2866e9bb04`, deployment
+  `2bbeef90-7c8d-407d-bea9-50c62b070409`: SUCCESS. Il seguito modifica solo il
+  backend; il frontend di e85d935 è identico a quello distribuito.
+- CI `36330958522`: tutti i cinque job SUCCESS. Backend 518 esecuzioni PASS,
+  cinque skip legacy; telefonia 281 PASS. Nel backend: 119 prove di continuità/
+  ambient/documenti e 20 casi rieseguiti su Mongo 6 reale (totali con ripetizioni).
+- Frontend: 41 test mirati PASS, product guards e TypeScript PASS; export web
+  e iOS PASS. Scena effettiva ispezionata su desktop/mobile a quattro istanti.
+  Bundle pubblico `entry-d5db9877d0d3511f11a0d1aef9dbed3f.js` con gate per
+  sessione, revealKey, risposte revisionate e streaming PCM. Health HTTP 200.
+- Prova pubblica: account sintetico nuovo, solo upload; niente Home, chat o
+  sincronizzazione manuale. Documento estratto e letto dal sensore dopo
+  **8.42 secondi**. Nessun obiettivo per il materiale esplicitamente
+  dimostrativo; il log del relativo giro registra un segnale classificato come
+  rumore. Questa prova dimostra ingestione autonoma, non una raccomandazione live.
+- Configurazione Railway e volume documenti invariati; `preDeployCommand=[]`.
+  Nessuna nuova dipendenza. Un solo indice additivo sui marker dei documenti,
+  creato dal normale bootstrap. Nessuna migrazione manuale o distruttiva,
+  telefonata, messaggio o push reale nelle prove.
+
+La rete si apre al primo messaggio scritto/vocale di **ogni nuova conversazione**;
+riapertura della stessa, secondo messaggio e retry non la ripetono. Il dettaglio
+degli aggiornamenti segue il lavoro automatico, raccoglie chiarimenti e non
+avvia copie. Fonti cambiate/scadute, cancellazioni, rinvii e retry hanno recuperi
+verificati. Nuovi account con soli documenti entrano nella coda senza Google.
+
+Limiti ancora aperti e matrice di verifica:
+`AUTOMATION_VERIFICATION_2026_09_27.md`. V4 non è dichiarata completa: restano
+la qualità della matrice live, l'osservazione longitudinale, configurazioni/
+prove push e banca, e l'ingestione degli allegati Gmail.

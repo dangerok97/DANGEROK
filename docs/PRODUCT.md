@@ -1,3 +1,11 @@
+## 2026-09-27 — Documenti seguiti anche senza collegare Google
+
+Un nuovo documento caricato o estratto entra nella sorveglianza automatica anche
+per un account che non ha collegamenti esterni e non apre Home/chat. Il marker
+persistito evita di perdere il passaggio dopo un'interruzione. Il giudizio può
+concludere che non occorre agire: una lettura non promette una nuova attività.
+Verifica pubblica su dati sintetici: lettura dopo 8,42 s dall'estrazione.
+
 ## 2026-09-27 — Apertura per conversazione e continuità delle automazioni
 
 La rete si dispiega da un punto al **primo messaggio di ogni nuova sessione di

@@ -1,3 +1,19 @@
+## 2026-09-27 — Handoff persistito per gli account con soli documenti
+
+`DocumentService.upload` e `_extract_and_persist` scrivono il marker opzionale
+`connected_read_pending` nello stesso insert/update del documento. All'inizio
+il polling ambient consuma un lotto limitato di questi marker, porta avanti il
+due nella coda `connected_source_attempts` già esistente e rimuove il marker
+sulla revisione e proprietario letti. Se la scrittura fallisce resta il marker;
+se il documento cambia durante il passaggio resta la nuova revisione. Il normale
+sensore deduplica i segnali; non vi sono chiamate modello nella scrittura.
+
+Indice Mongo additivo `document_read_handoff`, parziale sui soli marker, nel
+bootstrap `DocumentService.ensure_ready`. Nessun nuovo scheduler, collezione,
+configurazione, migrazione distruttiva o backfill dei documenti storici intatti.
+Verificato con upload reale del servizio e Mongo 6, inclusa estrazione differita,
+e con account tecnico pubblico senza Home/chat/connettori esterni.
+
 ## 2026-09-27 — Continuità per revisione e ingresso per conversazione
 
 - L'ingresso nasce nel dispatcher comune testo/voce con l'identità del primo

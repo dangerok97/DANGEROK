@@ -1,9 +1,11 @@
 ## 2026-09-27 — Continuità operativa e apertura della rete
 
 Corrette le lacune di admission, aggiornamento fonti, cancellazione selettiva,
-retry, rinvii lunghi e conservazione delle sveglie future. Ingresso della mappa
+retry, rinvii lunghi e conservazione delle sveglie future. Corretto anche il
+passaggio persistito dei nuovi account con soli documenti alla coda automatica. Ingresso della mappa
 al primo messaggio di ogni nuova conversazione. Verifiche e limiti in
-`AUTOMATION_VERIFICATION_2026_09_27.md`; gate V4 live/longitudinale ancora aperti.
+`AUTOMATION_VERIFICATION_2026_09_27.md`; CI e distribuzione verificati (backend e85d935, web 7dea1f6);
+gate V4 live/longitudinale ancora aperti.
 
 # ORA — Roadmap canonica verso 1.0
 

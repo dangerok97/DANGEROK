@@ -1,3 +1,13 @@
+## 2026-09-27 — Rilascio verificato: sessioni e recuperi automatici
+
+Distribuiti frontend 7dea1f6 e backend e85d935; CI 36330958522: cinque job SUCCESS.
+Oltre all'ingresso per nuova conversazione, completati chiarimenti, recuperi su
+fonte cambiata/scaduta, stop selettivo, retry e rinvii. La prova pubblica ha
+rivelato e corretto la mancata ammissione degli account con soli documenti:
+nuovo marker persistito e indice parziale; lettura automatica osservata in 8,42 s.
+Nessuna nuova dipendenza o modifica alla configurazione Railway.
+Esiti completi e limiti in `AUTOMATION_VERIFICATION_2026_09_27.md`.
+
 ## 2026-09-27 — Apertura per conversazione e continuità delle automazioni
 
 La rete si dispiega da un punto al **primo messaggio di ogni nuova sessione di
