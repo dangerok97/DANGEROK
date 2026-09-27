@@ -1,3 +1,5 @@
+Il recupero audio dopo errore non aggiunge una seconda sintesi se il tentativo progressivo ha già impiegato almeno quattro secondi; resta la risposta scritta con riascolto.
+
 ## 2026-09-27 — Voce originale più morbida e audio progressivo
 
 L'utente rinuncia alla replica identica e chiede naturalezza, ironia discreta e

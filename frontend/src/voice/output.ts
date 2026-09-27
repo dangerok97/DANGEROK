@@ -394,8 +394,13 @@ export function oraVoice(
         started = true; hooks?.onStart?.();
       } };
       if (progressive && await progressive.isAvailable() && text.length <= 4000) {
+        const attemptStarted = Date.now();
         try { await progressive.speak(text, once); return; }
-        catch (error) { if (started || (error instanceof StreamFailure && error.partial)) throw new Error('speech_interrupted'); }
+        catch (error) {
+          if (started || (error instanceof StreamFailure && error.partial)) throw new Error('speech_interrupted');
+          // A failed slow attempt must not add a second full synthesis wait.
+          if (Date.now() - attemptStarted >= 4000) throw new Error('natural_voice_unavailable');
+        }
         if (mine !== epoch) return;
       }
       if (await premium.isAvailable()) {

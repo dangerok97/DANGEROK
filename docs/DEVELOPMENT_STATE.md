@@ -1,3 +1,21 @@
+Verifica aggiuntiva: 22 test runtime frontend e 42 guardie voce PASS; TypeScript, lint ed export web PASS.
+
+## 2026-09-27 — Audio progressivo online e limite al recupero lento
+
+Applicazione dfbad3d39c5ebca53ff21057d5db86a43514b2c4 pubblicata:
+backend d0c57a3f-fb0b-4c99-9c49-57c6bd1c9429 e web
+8ed51b88-8495-4b1d-896f-c359384d6da0 SUCCESS sullo stesso SHA.
+CI 36325377866: cinque job SUCCESS. Health HTTP 200 e bundle pubblico verificati:
+/voice/stream, PCM, createBufferSource, progressive:true, systemFallback:false.
+Configurazione backend riletta: preDeployCommand=[], volume /data/documents,
+root, Dockerfile, dominio e health invariati.
+
+Ultima protezione client: se lo streaming fallisce dopo almeno 4 secondi non
+aggiunge una seconda attesa di sintesi. Il recupero bufferizzato resta per
+errori rapidi prima di qualsiasi campione; altrimenti testo e riascolto.
+Nessuna latenza artificiale: è un limite al recupero dopo errore. Voce e
+streaming reali già verificati; nessuna prova microfono/speaker su dispositivo.
+
 ## 2026-09-27 — Streaming verificato sul provider reale
 
 Backend 03a0da82244ef0f142cee5a64409c011a6d086b1, deploy

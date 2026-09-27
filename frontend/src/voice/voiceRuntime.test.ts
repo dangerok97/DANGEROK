@@ -153,6 +153,17 @@ test('stream failure before audio can recover through natural buffered synthesis
   assert.equal(played.length, 1); assert.deepEqual(synthesized, []);
 });
 
+test('a slow failed stream does not stack another synthesis delay', async t => {
+  t.mock.timers.enable({ apis: ['Date', 'setTimeout'] });
+  enablePcm(); const stream = streamResponse(); const paths: string[] = [];
+  const voice = oraVoice(async path => { paths.push(path); return stream.response; }, { progressive: true, systemFallback: false });
+  const rejected = assert.rejects(voice.speak('Sono qui.'), /natural_voice_unavailable/);
+  await flush(); t.mock.timers.tick(5000);
+  stream.send(JSON.stringify({ type: 'error' }) + '\n');
+  await rejected;
+  assert.deepEqual(paths, ['/voice/stream']); assert.deepEqual(synthesized, []);
+});
+
 test('long answers preserve every word and have a short first phrase', () => {
   const text = 'Ho controllato il calendario e ho trovato tre impegni importanti. ' + 'Il prossimo appuntamento è domani alle dieci. '.repeat(45);
   const chunks = speechChunks(text);
