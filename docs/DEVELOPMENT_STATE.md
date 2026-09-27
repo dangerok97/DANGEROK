@@ -1,3 +1,20 @@
+## 2026-09-27 — Presenza: integrazione, esplorazione e battito leggero
+
+Pannello principale ampliato, rail destro rimosso, compositore unico dentro la
+mappa, transcript richiudibile e azioni originali preservate. Drag mouse/touch
+anche in pausa/reduced motion; hover/selezione/dettagli, accesso alternativo da
+«Aree», bozza da «Parliamone», reset «Centra». Battito attenuato su richiesta:
+1,4% anziché 5,5%, impulso largo e minore variazione luminosa.
+
+Verifica locale: TypeScript PASS, lint senza errori (11 avvisi preesistenti nella
+schermata), 12 test presenza + 42 voce e guardie ora14 PASS; home3, navigazione,
+Vita b/c/d/e e ciclo chiamate PASS. Export web e bundle iOS PASS. Renderer reale
+ispezionato a 1220×580 e 360×420 con selezione. Static web avviato localmente.
+Limite: non effettuata una prova UI autenticata end-to-end o su iPhone fisico;
+browser cloud non raggiunge localhost. I test touch esercitano Pointer Events
+nel renderer, non un dispositivo. Backend e infrastruttura invariati.
+Pubblicazione web da verificare nel checkpoint di ripresa; nessuna telefonata.
+
 ## 2026-09-27 — Integrazione ORA Presenza
 
 Base `499c6527` / applicazione `8b6d7cef`, ramo di destinazione `staging/cloud`.

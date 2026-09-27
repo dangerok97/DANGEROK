@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/src/theme/ThemeProvider';
+import { presencePalette } from '@/src/theme/presence';
 import { tokens } from '@/src/theme/tokens';
 import { OraAttachMenu, type AttachKind } from './OraAttachMenu';
 
@@ -76,6 +77,7 @@ type Props = {
    * cutting the invitation in half.
    */
   divider?: boolean;
+  appearance?: 'default' | 'presence';
 };
 
 export function OraComposer({
@@ -98,8 +100,16 @@ export function OraComposer({
   voiceHint = null,
   onVoiceModePress,
   divider = true,
+  appearance = 'default',
 }: Props) {
-  const { colors, isDark } = useTheme();
+  const { colors: themeColors, isDark: themeIsDark } = useTheme();
+  const isDark = appearance === 'presence' || themeIsDark;
+  const colors = appearance === 'presence' ? {
+    ...themeColors, surface: presencePalette.atmosphere, backgroundPrimary: presencePalette.background,
+    backgroundSecondary: presencePalette.depth, textPrimary: presencePalette.text,
+    textSecondary: presencePalette.muted, textTertiary: presencePalette.muted,
+    placeholder: presencePalette.muted, border: presencePalette.border, accent: presencePalette.label,
+  } : themeColors;
   /*
     Il campo cresce con quello che ci si scrive, entro un limite. Senza
     questo, su web un campo multilinea resta alto una riga e il testo scorre
@@ -230,6 +240,7 @@ export function OraComposer({
       <View
         style={[
           styles.shellWrap,
+          appearance === 'presence' && { paddingHorizontal: 0, paddingBottom: 0 },
           { borderTopColor: divider ? colors.border : 'transparent' },
         ]}
       >
@@ -245,6 +256,7 @@ export function OraComposer({
         >
           <TextInput
             testID={`${testID}-input`}
+            accessibilityLabel="Messaggio a ORA"
             value={shown}
             onChangeText={onChangeText}
             placeholder={listening ? 'Ti ascolto…' : placeholder}
@@ -366,7 +378,7 @@ export function OraComposer({
               ]}
             >
               {busy ? (
-                <ActivityIndicator color={colors.backgroundPrimary} size="small" />
+                <ActivityIndicator color={colors.textPrimary} size="small" />
               ) : (
                 <Ionicons
                   name="arrow-up"

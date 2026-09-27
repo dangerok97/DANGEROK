@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
-import { readPresenceActivity, presenceMode } from './state.ts';
+import { readPresenceActivity, presenceMode, readPresenceNode, AREA_IDS, AREA_DETAILS } from './state.ts';
 import { sceneSource } from './sceneSource.ts';
 const now = Date.now();
 const activity = { request_id: 'turn-a', sequence: 2, phase: 'tool', area: 'calendar', touched: ['memory', 'calendar'], updated_at: now / 1000 };
@@ -28,4 +28,14 @@ test('listening, processing, actual speech and idle are distinct states', () => 
 test('native embeds the exact renderer, independent of Metro helper closures', () => {
   assert.equal(sceneSource, readFileSync(new URL('./scene.js', import.meta.url), 'utf8').replace('export function createPresenceScene', 'function createPresenceScene'));
   assert.equal(typeof new Function(`${sceneSource}; return createPresenceScene;`)(), 'function');
+});
+
+test('selection bridge accepts only a known node identity and drops arbitrary content', () => {
+  for (let i = 0; i < 8; i++) {
+    const area = AREA_IDS[i];
+    assert.deepEqual(readPresenceNode({ index: i, area, kind: 'area', secret: 'ignored' }), { index: i, area, kind: 'area' });
+    assert.equal(readPresenceNode({ index: 8 + i * 34, area, kind: 'node' })?.area, area);
+    assert.ok(AREA_DETAILS[area].description && AREA_DETAILS[area].prompt);
+  }
+  for (const invalid of [null, {}, {index: 402, area: 'home', kind: 'node'}, {index: 0, area: 'home', kind: 'area'}, {index: 0, area: 'memory', kind: 'node'}, {index: 9.5, area: 'memory', kind: 'node'}, {index: 0, area: 'constructor', kind: 'area'}]) assert.equal(readPresenceNode(invalid), null);
 });

@@ -1,3 +1,20 @@
+## 2026-09-27 — Mappa interattiva e dialogo integrato
+
+La presenza occupa il pannello principale di ORA, senza la colonna di contesto
+sulla destra. Scrittura, dettatura, conversazione vocale e allegati sono nella
+parte inferiore dello stesso pannello, disponibili anche prima del primo turno.
+La conversazione scorre in un riquadro richiudibile; l'input resta al suo posto.
+Le scorciatoie di documenti e preparazione chiamata restano accessibili.
+
+Pausa ferma l'animazione automatica; mouse e touch possono sempre ruotare la
+mappa sui due assi. Passaggio/tocco illuminano il nodo e i filamenti incidenti;
+un clic apre il significato dell'area. «Aree» offre anche accesso da tastiera e
+screen reader; «Centra» ripristina la vista. «Parliamone» prepara una bozza senza
+inviarla. I punti restano illustrativi, senza inventare dati personali.
+
+Su correzione dell'utente il battito è più leggiadro: espansione da 5,5% a 1,4%,
+impulsi più larghi e luce attenuata. Standby e focus sugli strumenti reali restano.
+
 ## 2026-09-27 — Presenza tridimensionale in ORA
 
 La rete approvata dall'utente entra nella conversazione scritta e vocale.

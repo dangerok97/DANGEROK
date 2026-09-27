@@ -3,15 +3,17 @@ import { createPresenceScene, type Scene } from './scene';
 import { presencePalette } from '@/src/theme/presence';
 import type { CanvasProps } from './types';
 
-export function PresenceCanvas({ options, onUnavailable }: CanvasProps) {
+export function PresenceCanvas({ options, onUnavailable, onSelect }: CanvasProps) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const scene = useRef<Scene | null>(null);
   const initial = useRef(options);
+  const select = useRef(onSelect);
+  select.current = onSelect;
   useEffect(() => {
-    try { if (canvas.current) scene.current = createPresenceScene(canvas.current, initial.current, presencePalette); }
+    try { if (canvas.current) scene.current = createPresenceScene(canvas.current, initial.current, presencePalette, { onSelect: node => select.current(node) }); }
     catch { onUnavailable(); }
     return () => { scene.current?.destroy(); scene.current = null; };
   }, [onUnavailable]);
   useEffect(() => { scene.current?.update(options); }, [options]);
-  return <canvas ref={canvas} aria-hidden="true" style={{ width: '100%', height: '100%', display: 'block', touchAction: 'pan-y' }} />;
+  return <canvas ref={canvas} aria-hidden="true" style={{ width: '100%', height: '100%', display: 'block', touchAction: 'none' }} />;
 }

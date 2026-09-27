@@ -1,3 +1,20 @@
+## 2026-09-27 — Interazioni della presenza e compositore nello stesso pannello
+
+`OraPresence` accoglie footer e conversazione; `OraConversationScreen` monta
+un solo `OraComposer`, con variante cromatica presence, e rimuove il rail destro.
+Il layout si adatta allo spazio disponibile e riduce la mappa con la tastiera;
+turni, errori, allegati, invio, voce e conferme usano i percorsi già esistenti.
+Il transcript mantiene una larghezza leggibile indipendente dalla mappa.
+
+Il renderer usa Pointer Events con cattura, soglia di trascinamento, cancellazione
+e coordinate CSS indipendenti dal DPR. Il drag ridisegna anche senza RAF in pausa
+o reduced motion. Hit test su punti e label; selezione e hover mantengono ferma
+la geometria, evidenziando i filamenti incidenti. I punti di raccordo riportano
+l'area geometricamente più vicina, senza affermare una relazione personale reale.
+Il ponte WebView accetta solo identità nodo validate: indice, area, categoria;
+nessun testo o comando arbitrario. CSP, cleanup e sospensione restano attivi.
+Nessun endpoint, dipendenza, schema, indice Mongo o variabile nuova.
+
 ## 2026-09-27 — Presenza come proiezione della conversazione
 
 `components/ora/presence` contiene il renderer Canvas con coordinate 3D,

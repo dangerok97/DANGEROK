@@ -1,3 +1,14 @@
+## 2026-09-27 — Presenza esplorabile e dialogo nella mappa
+
+- Recuperato lo spazio del rail destro; campo testo, microfono e voce nel footer
+  della presenza. Rimosso il blocco introduttivo che spingeva l'input fuori vista.
+- Rotazione mouse/touch anche in pausa, nodi illuminati e schede per area,
+  reset della vista e alternativa accessibile da elenco. Bozze mai autoinviate.
+- Battito reso più lieve su richiesta: meno espansione e picchi luminosi graduali.
+- Test su coordinate CSS, pausa, touch, drag/click, annullamento, seconda pointer,
+  selezione, ponte validato e parità renderer web/native. Guardie layout aggiornate.
+- Percorsi chat/voce/allegati/conferme e backend preservati. Build web/iOS PASS.
+
 ## 2026-09-27 — ORA Presenza, rete 3D collegata a chat e voce
 
 - Integrato il renderer approvato, con rotazione in standby, focus progressivo

@@ -260,7 +260,7 @@ const SESSION_ROUTE = 'app/ora/[sessionId].tsx';
 }
 
 // ---------------------------------------------------------------------------
-// I — Opening state: invitation and composer are one block
+// I — Map and composer stay together, before and after the first turn
 // ---------------------------------------------------------------------------
 {
   const screen = readCode(SCREEN);
@@ -269,14 +269,16 @@ const SESSION_ROUTE = 'app/ora/[sessionId].tsx';
     'the opening layout must be chosen by whether anything has been said yet',
   );
   assert.ok(
-    /startSpacerTop|startBlock/.test(screen),
-    'with no turns the composer must sit with the invitation, not at the page foot',
+    /footer=\{composerBlock\}/.test(screen) && (screen.match(/<OraComposer\b/g) || []).length === 1,
+    'one composer stays inside the map panel across conversation states',
   );
   assert.ok(
-    /divider=\{!emptyStart\}/.test(screen),
-    'the composer rule belongs to the anchored layout only',
+    /divider=\{false\}/.test(screen) && /appearance="presence"/.test(screen),
+    'the integrated composer uses the map surface without a stray divider',
   );
 
+  assert.ok(!/<OraContextRail|<OraWelcome/.test(screen), 'map gets the full main panel without a side rail or introductory scroll');
+  assert.ok(/onAreaPrompt=\{setText\}/.test(screen), 'exploring a domain only prepares a draft');
   const chrome = readCode('src/components/ora/OraChrome.tsx');
   assert.ok(/Ci sono\./.test(chrome), 'the contextual opening must state that ORA is ready');
   assert.ok(

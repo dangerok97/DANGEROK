@@ -1,2 +1,3 @@
 import type { SceneOptions } from './scene';
-export type CanvasProps = { options: SceneOptions; onUnavailable: () => void };
+import type { PresenceNode } from './state';
+export type CanvasProps = { options: SceneOptions; onUnavailable: () => void; onSelect: (node: PresenceNode | null) => void };

@@ -26,7 +26,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { triggerHaptic } from '@/src/theme/haptics';
 import { useAuth } from '@/src/contexts/AuthContext';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { api, type AgentNeed, type HomeOpportunity } from '@/src/api/client';
 import {
@@ -56,15 +55,14 @@ import {
   OraWorking,
 } from './OraChrome';
 import { OraTurns, type Turn } from './OraTurns';
-import { OraContextRail } from './OraContextRail';
-import { OraWelcome } from './OraWelcome';
 import { OraPresence } from './presence/OraPresence';
 import { presenceMode, readPresenceActivity, type PresenceActivity } from './presence/state';
 import type { OraJourneyView } from './OraJourney';
 import { DesktopShell } from '@/src/shell';
 import { useBreakpoint } from '@/src/theme/responsive';
 import { titleCase } from '@/src/shell/RailAccount';
-import { ora, oraType } from '@/src/theme/oraSurface';
+import { ora } from '@/src/theme/oraSurface';
+import { presencePalette } from '@/src/theme/presence';
 import { greetingFor } from '@/src/components/home/v3/HomeChrome';
 
 /** Conversation reading width — long reasoning stays legible, never full-bleed. */
@@ -420,7 +418,6 @@ export function OraConversationScreen({
 }: Props) {
   const router = useRouter();
   const { colors } = useTheme();
-  const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);
 
   const [sessionId, setSessionId] = useState<string | null>(paramId || null);
@@ -1132,13 +1129,6 @@ export function OraConversationScreen({
     return context ? <OraContextOpening /> : <OraEmpty />;
   }, [turns.length, context, contextResolving, raised, need, answeringNeed, answerNeed]);
 
-  /**
-   * Before the first turn there is no conversation to scroll, so anchoring the
-   * composer to the bottom of the screen left the opening line stranded at the
-   * top with a page of nothing between them — a surface that reads as
-   * unfinished rather than as waiting. With nothing said yet, the invitation
-   * and the place to answer it are one block, held together in the middle.
-   */
   /*
     Una telefonata partita da questa chat: si aspetta che finisca e poi si
     rilegge la conversazione, dove il backend ha scritto com'è andata.
@@ -1214,8 +1204,8 @@ export function OraConversationScreen({
   const primoNome = titleCase(auth.user?.name || '').split(/\s+/)[0] || null;
 
   /*
-    Le scorciatoie sotto il composer. Non sono decorazione: due mandano
-    davvero un messaggio a ORA, una apre i documenti, una apre le chiamate.
+    Le scorciatoie sotto il composer. Non sono decorazione: due preparano
+    un messaggio a ORA, una apre i documenti, una apre le chiamate.
     Niente bottoni che non fanno niente.
   */
   const quickActions: { label: string; run: () => void }[] = [
@@ -1228,12 +1218,13 @@ export function OraConversationScreen({
       run: () => { setText('Riepiloga le mie attività aperte.'); void triggerHaptic('selection'); },
     },
     { label: 'Cerca un documento', run: () => router.push('/documenti' as any) },
-    { label: 'Chiama qualcuno', run: () => router.push('/prepara-chiamata' as any) },
+    { label: 'Prepara una chiamata', run: () => router.push('/prepara-chiamata' as any) },
   ];
 
   const composer = (
     <OraComposer
-      divider={!emptyStart}
+      divider={false}
+      appearance="presence"
       value={text}
       onChangeText={setText}
       onSend={() => void send()}
@@ -1261,10 +1252,10 @@ export function OraConversationScreen({
     </>
   );
 
-  const composerBlock = wide ? (
+  const composerBlock = (
     <View style={styles.composerWrap}>
       {composer}
-      <View style={styles.quickRow} testID="ora-quick-actions">
+      {emptyStart && !text ? <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.quickRow} testID="ora-quick-actions">
         {quickActions.map((q) => (
           <Pressable
             key={q.label}
@@ -1272,22 +1263,20 @@ export function OraConversationScreen({
             accessibilityRole="button"
             style={({ pressed, hovered }: any) => [
               styles.quickChip,
-              hovered && { backgroundColor: ora.hover },
+              hovered && { backgroundColor: presencePalette.border },
               pressed && { opacity: 0.7 },
             ]}
           >
-            <Ionicons name="add" size={15} color={ora.ink3} />
-            <Text style={[oraType.small, { color: ora.ink2 }]}>{q.label}</Text>
+            <Ionicons name="add" size={15} color={presencePalette.muted} />
+            <Text style={{ fontSize: 12, color: presencePalette.muted }}>{q.label}</Text>
           </Pressable>
         ))}
-      </View>
+      </ScrollView> : null}
     </View>
-  ) : (
-    composer
   );
 
   const schermo = (
-    <FocusScreen testID={testID} maxWidth={wide ? 860 : READING_MAX_WIDTH}>
+    <FocusScreen testID={testID} maxWidth={1600} contentStyle={{ paddingHorizontal: wide ? 24 : 8, paddingBottom: 8 }}>
       <LocationPermissionSheet
         visible={locPermVisible}
         onAllow={() => resolveLocationPreference(true)}
@@ -1327,13 +1316,10 @@ export function OraConversationScreen({
               schermata a sé: al posto del «‹ ORA» c'è chi sei e che cosa si
               può chiedere. Su telefono resta l'intestazione di sempre.
             */}
-            {wide ? (
+            {wide && !context ? (
               <View style={styles.deskHead} testID="ora-desktop-header">
-                <Text style={[oraType.display, { color: ora.ink }]} accessibilityRole="header">
+                <Text style={[styles.greeting, { color: ora.ink }]} accessibilityRole="header">
                   {greetingFor()}, {primoNome || 'ciao'}.
-                </Text>
-                <Text style={[oraType.body, { color: ora.ink2 }]}>
-                  Dimmi cosa posso fare per te oggi.
                 </Text>
               </View>
             ) : (
@@ -1341,56 +1327,32 @@ export function OraConversationScreen({
             )}
           </View>
 
-          <View style={styles.presence}>
-            <OraPresence mode={presenceMode(busy, voice.state.phase)} activity={presenceActivity} compact active={!live.on} />
-          </View>
-
-          {emptyStart && !planId && !objectId && !documentId && !questionId && !needId && !opportunityId && !goalId ? (
-            <ScrollView contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 16) }} keyboardShouldPersistTaps="handled">
-              <OraWelcome onPrompt={setText}>{composer}</OraWelcome>
-              {asides}
-            </ScrollView>
-          ) : emptyStart ? (
-            <View
-              style={[styles.startBlock, { paddingBottom: Math.max(insets.bottom, 8) }]}
-              testID={`${testID}-start`}
-            >
-              {/* Uneven spacers: the block sits above centre so the header
-                  keeps company instead of floating alone at the top. */}
-              <View style={styles.startSpacerTop} />
-              <View style={styles.startIntro}>
-                {opening}
-                {asides}
-              </View>
-              {composerBlock}
-              <View style={styles.startSpacerBottom} />
-            </View>
-          ) : (
-            <>
+          <OraPresence
+            expanded
+            mode={presenceMode(busy, voice.state.phase)}
+            activity={presenceActivity}
+            active={!live.on}
+            onAreaPrompt={setText}
+            footer={composerBlock}
+            conversation={!emptyStart || context || need || raised || error ? (
               <ScrollView
                 ref={scrollRef}
-                style={styles.scroll}
+                style={[styles.scroll, { backgroundColor: colors.backgroundPrimary }]}
                 contentContainerStyle={styles.scrollContent}
                 keyboardShouldPersistTaps="handled"
-                showsVerticalScrollIndicator={false}
+                showsVerticalScrollIndicator
                 testID={`${testID}-scroll`}
                 onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
               >
-                {boot ? (
-                  <OraWorking hint="Sto recuperando la conversazione…" />
-                ) : (
-                  <>
-                    {opening}
-                    <OraTurns turns={turns} onRetry={(t) => void retry(t)} />
-                    {busy ? <OraWorking hint={workingHint} /> : null}
-                    {asides}
-                  </>
-                )}
+                {boot ? <OraWorking hint="Sto recuperando la conversazione…" /> : <>
+                  {opening}
+                  <OraTurns turns={turns} onRetry={(t) => void retry(t)} />
+                  {busy ? <OraWorking hint={workingHint} /> : null}
+                  {asides}
+                </>}
               </ScrollView>
-
-              <View style={{ paddingBottom: Math.max(insets.bottom, 8) }}>{composerBlock}</View>
-            </>
-          )}
+            ) : null}
+          />
         </View>
       </KeyboardAvoidingView>
     </FocusScreen>
@@ -1400,54 +1362,28 @@ export function OraConversationScreen({
 
   return (
     <DesktopShell active="ora">
-      <View style={styles.deskRow}>
-        <View style={styles.deskMain}>{schermo}</View>
-        <View style={styles.deskRailWrap}>
-          <OraContextRail activeContext={context?.goal || null} />
-        </View>
-      </View>
+      {schermo}
     </DesktopShell>
   );
 }
 
 const styles = StyleSheet.create({
-  presence: { paddingHorizontal: tokens.spacing.lg, paddingBottom: tokens.spacing.sm },
-  flex: { flex: 1 },
-  wrap: { flex: 1, width: '100%' },
-  headerPad: { paddingHorizontal: tokens.spacing.lg, paddingTop: tokens.spacing.sm },
+  flex: { flex: 1, minHeight: 0 },
+  wrap: { flex: 1, minHeight: 0, width: '100%' },
+  headerPad: { paddingHorizontal: 8, paddingTop: 4 },
   scroll: { flex: 1 },
   scrollContent: {
-    paddingHorizontal: tokens.spacing.lg,
-    paddingTop: tokens.spacing.xs,
-    paddingBottom: tokens.spacing.xxl,
+    width: '100%', maxWidth: READING_MAX_WIDTH, alignSelf: 'center',
+    paddingHorizontal: tokens.spacing.lg, paddingVertical: tokens.spacing.md,
   },
-  /**
-   * Invitation and composer as one block, held in the space that is there.
-   *
-   * Biased above centre on purpose: dead-centre leaves the header stranded at
-   * the top of the page with nothing beneath it, which is the same "suspended"
-   * feeling in a different place.
-   */
-  startBlock: { flex: 1, gap: tokens.spacing.lg },
-  /**
-   * The gap above is capped. On a tall desktop window a truly centred block
-   * pushes the invitation half a screen below the header, which leaves the
-   * header stranded — the same suspended feeling the centring was meant to
-   * remove. On short windows the cap never binds and the block sits centred.
-   */
-  startSpacerTop: { flex: 2, maxHeight: 140 },
-  startSpacerBottom: { flex: 3 },
-  startIntro: { paddingHorizontal: tokens.spacing.lg },
-  deskHead: { paddingTop: 18, paddingBottom: 10, gap: 6 },
-  deskRow: { flex: 1, flexDirection: 'row' },
-  deskMain: { flex: 1, minWidth: 0 },
-  deskRailWrap: { paddingRight: 28, paddingTop: 26, paddingBottom: 20 },
-  composerWrap: { gap: 12 },
-  quickRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingHorizontal: 4 },
+  deskHead: { paddingTop: 12, paddingBottom: 16 },
+  greeting: { fontSize: 26, lineHeight: 34, fontWeight: '500' },
+  composerWrap: { gap: 6 },
+  quickRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 4 },
   quickChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 14, paddingVertical: 8,
-    borderRadius: 999, borderWidth: StyleSheet.hairlineWidth, borderColor: ora.hairline,
+    flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44,
+    paddingHorizontal: 12, paddingVertical: 8,
+    borderRadius: 999, borderWidth: StyleSheet.hairlineWidth, borderColor: presencePalette.border,
   },
   devBanner: { fontSize: 12, paddingBottom: 4 },
 });
