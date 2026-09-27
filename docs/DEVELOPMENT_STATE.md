@@ -1,3 +1,19 @@
+## 2026-09-27 — Ridisegno completo della pagina ORA richiesto dall'utente
+
+L'utente ha visto `21bb6c6c` e chiesto di rifare la pagina: piccolo grafo e
+transcript chiaro erano ancora incoerenti. Nuova superficie scura end-to-end,
+rail compatto (88 px), mappa estesa, messaggi sovrapposti ampliabili/richiudibili,
+compositore centrato e status nell'intestazione. Tema circoscritto a ORA;
+navigazione, dati, invio, allegati, voce e conferme preservati.
+
+Verifiche: TypeScript, lint senza errori, 13 test presenza, 42 voce e guardie
+ora14 e regressioni Home/navigazione/Vita/chiamate PASS. Export web e iOS PASS.
+Static web avviato: index e bundle HTTP 200, componenti nuovi presenti.
+Limiti: browser cloud non accede a localhost né a preview data URL; nessuna
+verifica visiva autenticata dichiarata o prova su iPhone fisico. Screenshot
+utente usato per correggere il problema, senza riprodurne i dati nelle fixture.
+Stato finale di build e deploy nel checkpoint di ripresa.
+
 ## 2026-09-27 — Presenza: integrazione, esplorazione e battito leggero
 
 Pannello principale ampliato, rail destro rimosso, compositore unico dentro la

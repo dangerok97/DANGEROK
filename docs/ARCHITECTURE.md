@@ -1,3 +1,15 @@
+## 2026-09-27 — Superficie ORA locale e scena estesa
+
+`ThemeSurface` applica il tema solo al sottoalbero della conversazione, senza
+modificare preferenze persistite o aspetto globale. `presenceColors` raccorda
+rete, transcript, composer, allegati, errori, fonti e schede dei percorsi.
+`DesktopShell immersive` abilita la variante compatta del `SideRail` esistente:
+stesse destinazioni e account, nessun secondo sistema di navigazione.
+`OraPresence` mantiene il Canvas a piena altezza; il transcript è sovrapposto,
+con espansione limitata allo spazio misurato della scena. Il framing verticale
+riserva spazio al dialogo senza ridurre l'altezza del Canvas. I target dei nodi
+usano le stesse coordinate proiettate. Nessun cambiamento a backend o invio.
+
 ## 2026-09-27 — Interazioni della presenza e compositore nello stesso pannello
 
 `OraPresence` accoglie footer e conversazione; `OraConversationScreen` monta

@@ -30,11 +30,13 @@ export function SideRail({
   onNavigate,
   topInset = 0,
   bottomInset = 0,
+  compact = false,
 }: {
   active: RailKey;
   onNavigate: (key: AmbientNavKey | 'profilo') => void;
   topInset?: number;
   bottomInset?: number;
+  compact?: boolean;
 }) {
   const { colors } = useTheme();
   const { user } = useAuth();
@@ -44,6 +46,20 @@ export function SideRail({
     if (Platform.OS !== 'web') void Haptics.selectionAsync();
     onNavigate(key);
   };
+
+  if (compact) return <View style={[styles.compactRail, { paddingTop: Math.max(topInset, 24), paddingBottom: Math.max(bottomInset, 18), backgroundColor: colors.backgroundPrimary, borderRightColor: colors.border }]} testID="ambient-rail" accessibilityLabel="Navigazione ORA">
+    <View style={styles.compactBrand}><OraBrand size={24} /></View>
+    <View style={styles.compactItems}>
+      {AMBIENT_NAV_ITEMS.map(item => {
+        const selected = active === item.key;
+        return <Pressable key={item.key} onPress={() => go(item.route as AmbientNavKey)} accessibilityRole="tab" accessibilityState={{ selected }} accessibilityLabel={item.accessibilityLabel} testID={`ambient-tab-${item.key}`} style={({ pressed, hovered }: any) => [styles.compactItem, { backgroundColor: selected || hovered ? colors.surface : 'transparent' }, pressed && { opacity: .65 }]}>
+          <Ionicons name={selected ? item.iconActive : item.icon} size={21} color={selected ? colors.accent : colors.textSecondary} />
+          <Text style={{ fontSize: 10, color: selected ? colors.textPrimary : colors.textSecondary }}>{item.label}</Text>
+        </Pressable>;
+      })}
+    </View>
+    <Pressable onPress={() => go(AMBIENT_ACCOUNT_ITEM.route as 'profilo')} accessibilityRole="button" accessibilityLabel={`Profilo e account di ${nome}`} testID="rail-account" style={styles.compactAccount}><Avatar name={nome} picture={user?.picture} size={34} /></Pressable>
+  </View>;
 
   return (
     <View
@@ -166,6 +182,11 @@ export function SideRail({
 }
 
 const styles = StyleSheet.create({
+  compactRail: { width: 88, alignItems: 'center', borderRightWidth: StyleSheet.hairlineWidth },
+  compactBrand: { padding: 6, borderRadius: 10, backgroundColor: ora.canvas },
+  compactItems: { gap: 5, marginTop: 32 },
+  compactItem: { width: 62, minHeight: 58, alignItems: 'center', justifyContent: 'center', gap: 5, borderRadius: 14 },
+  compactAccount: { marginTop: 'auto', minHeight: 48, minWidth: 48, alignItems: 'center', justifyContent: 'center' },
   rail: {
     width: AMBIENT_RAIL_WIDTH,
     alignSelf: 'stretch',

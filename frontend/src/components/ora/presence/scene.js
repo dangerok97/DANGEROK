@@ -82,7 +82,7 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     const rx=x*Math.cos(yaw)+z*Math.sin(yaw),rz=z*Math.cos(yaw)-x*Math.sin(yaw);
     const ry=y*Math.cos(pitch)-rz*Math.sin(pitch),zz=y*Math.sin(pitch)+rz*Math.cos(pitch);
     const perspective=3.8/(3.8-zz);
-    return {x:width*.5+rx*scale*perspective,y:height*.515+ry*scale*perspective,z:zz,depth:Math.max(.14,Math.min(1,(zz+1.22)/2.25)),scale:perspective};
+    return {x:width*.5+rx*scale*perspective,y:height*(options.centerY??.515)+ry*scale*perspective,z:zz,depth:Math.max(.14,Math.min(1,(zz+1.22)/2.25)),scale:perspective};
   }
   function draw(){
     const state=modes[mode];

@@ -116,3 +116,14 @@ test('inspection holds the selected node still until details close, without losi
   assert.notDeepEqual(h.scene.snapshot().projected[2], held.projected[2]);
   h.scene.destroy();
 });
+
+test('dialogue framing moves the drawn map and keeps node hit targets aligned', () => {
+  const h = harness(); h.scene.update({ paused: true });
+  const before = h.scene.snapshot().projected[2];
+  h.scene.update({ centerY: .4 });
+  const after = h.scene.snapshot().projected[2];
+  assert.equal(after.x, before.x); assert.ok(after.y < before.y);
+  h.pointer('pointerdown', after.x, after.y, 'touch'); h.pointer('pointerup', after.x, after.y, 'touch');
+  assert.equal(h.selections[0]?.area, 'people');
+  h.scene.destroy();
+});

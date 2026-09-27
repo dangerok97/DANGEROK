@@ -1,3 +1,15 @@
+## 2026-09-27 — Pagina ORA ridisegnata dopo la prova utente
+
+La prima integrazione, pur funzionante, è stata rifiutata: rete compressa e
+striscia chiara della conversazione interrompevano la pagina. La nuova ORA ha
+una superficie scura continua, navigazione desktop compatta e mappa che occupa
+l'altezza disponibile. Rimossi saluto esterno e separatori superflui.
+I messaggi sono raccolti in una scheda scura sovrapposta in basso: si può
+ampliare per leggere, ridurre o nascondere per esplorare. Il compositore resta
+centrato sotto la mappa, con scrittura, allegati, dettatura e dialogo vocale.
+La navigazione completa resta disponibile; le altre pagine mantengono il tema.
+Restano rotazione in pausa, dettagli dei nodi e battito leggero già richiesti.
+
 ## 2026-09-27 — Mappa interattiva e dialogo integrato
 
 La presenza occupa il pannello principale di ORA, senza la colonna di contesto

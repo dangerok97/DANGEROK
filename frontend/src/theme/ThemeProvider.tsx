@@ -142,3 +142,17 @@ export function useTheme(): ThemeContextValue {
 export function useColors(): AppColorTokens {
   return useTheme().colors;
 }
+
+/** Local surface theme: no stored preference changes and no global appearance side effects. */
+export function ThemeSurface({ children, scheme, colors: overrides }: {
+  children: React.ReactNode; scheme: ResolvedScheme; colors?: Partial<AppColorTokens>;
+}) {
+  const parent = useTheme();
+  const value = useMemo<ThemeContextValue>(() => {
+    const shadows = getShadows(scheme);
+    return { ...parent, scheme, isDark: scheme === 'dark',
+      colors: { ...colorsFromPalette(scheme === 'dark' ? darkColors : lightColors), ...overrides },
+      shadows, shadow: (level: ShadowLevel) => shadows[level] as ViewStyle };
+  }, [parent, scheme, overrides]);
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+}

@@ -277,6 +277,7 @@ const SESSION_ROUTE = 'app/ora/[sessionId].tsx';
     'the integrated composer uses the map surface without a stray divider',
   );
 
+  assert.ok(/<ThemeSurface scheme="dark"/.test(screen), 'the whole conversation, including its readable text, must share the dark surface');
   assert.ok(!/<OraContextRail|<OraWelcome/.test(screen), 'map gets the full main panel without a side rail or introductory scroll');
   assert.ok(/onAreaPrompt=\{setText\}/.test(screen), 'exploring a domain only prepares a draft');
   const chrome = readCode('src/components/ora/OraChrome.tsx');

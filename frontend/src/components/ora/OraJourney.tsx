@@ -12,6 +12,7 @@ import { Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-nati
 import { Ionicons } from '@expo/vector-icons';
 
 import { OraBadge, OraButton, OraCard } from '@/src/components/ora-ui';
+import { useTheme } from '@/src/theme/ThemeProvider';
 import { ora, oraType } from '@/src/theme/oraSurface';
 
 export type JourneyOption = {
@@ -40,14 +41,15 @@ export function OraJourney({
   journey: OraJourneyView;
   navigation?: { id: string; label: string; url: string }[];
 }) {
+  const { colors } = useTheme();
   if (!journey?.options?.length) {
     // Senza un servizio che conosca i percorsi non si confronta niente: lo si
     // dice, e restano i link alle mappe che funzionano davvero.
     if (!journey?.unavailable) return null;
     return (
       <View style={styles.nota} testID="ora-journey-unavailable">
-        <Ionicons name="information-circle-outline" size={16} color={ora.ink3} />
-        <Text style={[oraType.small, { color: ora.ink3, flex: 1 }]}>
+        <Ionicons name="information-circle-outline" size={16} color={colors.textTertiary} />
+        <Text style={[oraType.small, { color: colors.textTertiary, flex: 1 }]}>
           Non posso confrontare i tempi di percorrenza: {journey.unavailable}.
         </Text>
       </View>
@@ -56,12 +58,12 @@ export function OraJourney({
   const apri = navigation?.[0];
 
   return (
-    <OraCard style={styles.card} testID="ora-journey">
+    <OraCard style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]} testID="ora-journey">
       <View style={styles.head}>
-        <Ionicons name="car-outline" size={22} color={ora.deep} />
+        <Ionicons name="car-outline" size={22} color={colors.accent} />
         <View style={{ flex: 1 }}>
-          <Text style={[oraType.section, { color: ora.ink }]}>Le migliori opzioni per te</Text>
-          <Text style={[oraType.small, { color: ora.ink3 }]}>
+          <Text style={[oraType.section, { color: colors.textPrimary }]}>Le migliori opzioni per te</Text>
+          <Text style={[oraType.small, { color: colors.textTertiary }]}>
             Aggiornate con i tempi di percorrenza di adesso.
           </Text>
         </View>
@@ -71,26 +73,26 @@ export function OraJourney({
         {journey.options.map((o) => (
           <View
             key={o.mode}
-            style={[styles.opzione, o.recommended && styles.consigliata]}
+            style={[styles.opzione, { backgroundColor: colors.backgroundSecondary, borderColor: o.recommended ? colors.accent : colors.border, borderWidth: o.recommended ? 1.5 : StyleSheet.hairlineWidth }]}
             testID={`ora-journey-${o.mode}`}
           >
             <View style={styles.opzioneHead}>
-              <Ionicons name={(o.icon as any) || 'navigate-outline'} size={20} color={ora.deep} />
-              <Text style={[oraType.body, { color: ora.ink, fontWeight: '600', flex: 1 }]}>
+              <Ionicons name={(o.icon as any) || 'navigate-outline'} size={20} color={colors.accent} />
+              <Text style={[oraType.body, { color: colors.textPrimary, fontWeight: '600', flex: 1 }]}>
                 {o.label}
               </Text>
               {o.recommended ? <OraBadge label="Consigliato" tone="info" /> : null}
             </View>
-            <Text style={[styles.durata, { color: ora.ink }]}>{o.duration_label}</Text>
+            <Text style={[styles.durata, { color: colors.textPrimary }]}>{o.duration_label}</Text>
             {o.distance_meters ? (
-              <Text style={[oraType.small, { color: ora.ink3 }]}>
+              <Text style={[oraType.small, { color: colors.textTertiary }]}>
                 {(o.distance_meters / 1000).toFixed(1).replace('.', ',')} km
               </Text>
             ) : null}
             {o.reflects_current_traffic ? (
               <View style={styles.traffico}>
                 <View style={styles.pallino} />
-                <Text style={[oraType.small, { color: ora.ink2 }]}>Tiene conto del traffico</Text>
+                <Text style={[oraType.small, { color: colors.textSecondary }]}>Tiene conto del traffico</Text>
               </View>
             ) : null}
             {o.recommended && apri ? (
@@ -107,9 +109,9 @@ export function OraJourney({
       </View>
 
       {journey.advice ? (
-        <View style={styles.consiglio} testID="ora-journey-advice">
-          <Ionicons name="time-outline" size={18} color={ora.deep} />
-          <Text style={[oraType.small, { color: ora.ink2, flex: 1 }]}>{journey.advice}</Text>
+        <View style={[styles.consiglio, { backgroundColor: colors.backgroundSecondary }]} testID="ora-journey-advice">
+          <Ionicons name="time-outline" size={18} color={colors.accent} />
+          <Text style={[oraType.small, { color: colors.textSecondary, flex: 1 }]}>{journey.advice}</Text>
         </View>
       ) : null}
 
@@ -122,7 +124,7 @@ export function OraJourney({
               accessibilityRole="link"
               style={({ pressed }) => [styles.appLink, pressed && { opacity: 0.7 }]}
             >
-              <Text style={[oraType.small, { color: ora.cta }]}>Apri in {n.label}</Text>
+              <Text style={[oraType.small, { color: colors.accent }]}>Apri in {n.label}</Text>
             </Pressable>
           ))}
         </View>

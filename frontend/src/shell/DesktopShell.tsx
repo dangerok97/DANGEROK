@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useBreakpoint } from '@/src/theme/responsive';
 import { ora } from '@/src/theme/oraSurface';
+import { useTheme } from '@/src/theme/ThemeProvider';
 import { AMBIENT_NAV_ITEMS } from './navItems';
 import { SideRail, type RailKey } from './SideRail';
 
@@ -45,8 +46,9 @@ export function railKeyFor(pathname: string): RailKey {
   return null;
 }
 
-export function DesktopShell({ children, active }: { children: ReactNode; active?: RailKey }) {
+export function DesktopShell({ children, active, immersive = false }: { children: ReactNode; active?: RailKey; immersive?: boolean }) {
   const bp = useBreakpoint();
+  const { colors } = useTheme();
   const router = useRouter();
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
@@ -54,8 +56,9 @@ export function DesktopShell({ children, active }: { children: ReactNode; active
   if (bp !== 'desktop') return <>{children}</>;
 
   return (
-    <View style={[styles.row, { backgroundColor: ora.canvas }]}>
+    <View style={[styles.row, { backgroundColor: immersive ? colors.backgroundPrimary : ora.canvas }]}>
       <SideRail
+        compact={immersive}
         active={active ?? railKeyFor(pathname)}
         topInset={insets.top}
         bottomInset={insets.bottom}

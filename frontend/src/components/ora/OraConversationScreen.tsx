@@ -24,8 +24,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { triggerHaptic } from '@/src/theme/haptics';
-import { useAuth } from '@/src/contexts/AuthContext';
 
 import { api, type AgentNeed, type HomeOpportunity } from '@/src/api/client';
 import {
@@ -38,7 +38,7 @@ import { LocationPermissionSheet } from '@/src/components/ora/LocationPermission
 import { requestForegroundPosition } from '@/src/location/foregroundGeo';
 import { FocusScreen } from '@/src/shell';
 import type { OraNavigationOption } from '@/src/components/ora/OraTurns';
-import { useTheme } from '@/src/theme/ThemeProvider';
+import { useTheme, ThemeSurface } from '@/src/theme/ThemeProvider';
 import { useVoice } from '@/src/voice/useVoice';
 import { useLiveVoice } from '@/src/voice/useLiveVoice';
 import { LiveVoiceScreen } from '@/src/voice/LiveVoiceScreen';
@@ -60,10 +60,7 @@ import { presenceMode, readPresenceActivity, type PresenceActivity } from './pre
 import type { OraJourneyView } from './OraJourney';
 import { DesktopShell } from '@/src/shell';
 import { useBreakpoint } from '@/src/theme/responsive';
-import { titleCase } from '@/src/shell/RailAccount';
-import { ora } from '@/src/theme/oraSurface';
-import { presencePalette } from '@/src/theme/presence';
-import { greetingFor } from '@/src/components/home/v3/HomeChrome';
+import { presencePalette, presenceColors } from '@/src/theme/presence';
 
 /** Conversation reading width — long reasoning stays legible, never full-bleed. */
 const READING_MAX_WIDTH = 720;
@@ -402,7 +399,11 @@ type Props = {
   testID?: string;
 };
 
-export function OraConversationScreen({
+export function OraConversationScreen(props: Props) {
+  return <ThemeSurface scheme="dark" colors={presenceColors}><OraConversationBody {...props} /></ThemeSurface>;
+}
+
+function OraConversationBody({
   sessionId: paramId,
   planId,
   objectId,
@@ -1198,10 +1199,8 @@ export function OraConversationScreen({
   }, [busy, activityRequestId]);
 
   const emptyStart = !boot && turns.length === 0 && !busy;
-  const auth = useAuth();
   const bp = useBreakpoint();
   const wide = bp === 'desktop';
-  const primoNome = titleCase(auth.user?.name || '').split(/\s+/)[0] || null;
 
   /*
     Le scorciatoie sotto il composer. Non sono decorazione: due preparano
@@ -1276,7 +1275,8 @@ export function OraConversationScreen({
   );
 
   const schermo = (
-    <FocusScreen testID={testID} maxWidth={1600} contentStyle={{ paddingHorizontal: wide ? 24 : 8, paddingBottom: 8 }}>
+    <FocusScreen testID={testID} maxWidth={2600} contentStyle={{ paddingHorizontal: 0 }}>
+      <StatusBar style="light" />
       <LocationPermissionSheet
         visible={locPermVisible}
         onAllow={() => resolveLocationPreference(true)}
@@ -1311,24 +1311,12 @@ export function OraConversationScreen({
                 DEV / diagnostica — usa /ora in produzione
               </Text>
             ) : null}
-            {/*
-              Sul desktop la conversazione è una stanza del prodotto, non una
-              schermata a sé: al posto del «‹ ORA» c'è chi sei e che cosa si
-              può chiedere. Su telefono resta l'intestazione di sempre.
-            */}
-            {wide && !context ? (
-              <View style={styles.deskHead} testID="ora-desktop-header">
-                <Text style={[styles.greeting, { color: ora.ink }]} accessibilityRole="header">
-                  {greetingFor()}, {primoNome || 'ciao'}.
-                </Text>
-              </View>
-            ) : (
-              <OraHeader context={context} onBack={goBack} />
-            )}
+            {context ? <OraHeader context={context} onBack={goBack} /> : null}
           </View>
 
           <OraPresence
             expanded
+            onBack={!wide && !context ? goBack : undefined}
             mode={presenceMode(busy, voice.state.phase)}
             activity={presenceActivity}
             active={!live.on}
@@ -1337,7 +1325,7 @@ export function OraConversationScreen({
             conversation={!emptyStart || context || need || raised || error ? (
               <ScrollView
                 ref={scrollRef}
-                style={[styles.scroll, { backgroundColor: colors.backgroundPrimary }]}
+                style={styles.scroll}
                 contentContainerStyle={styles.scrollContent}
                 keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator
@@ -1361,7 +1349,7 @@ export function OraConversationScreen({
   if (!wide) return schermo;
 
   return (
-    <DesktopShell active="ora">
+    <DesktopShell active="ora" immersive>
       {schermo}
     </DesktopShell>
   );
@@ -1370,20 +1358,18 @@ export function OraConversationScreen({
 const styles = StyleSheet.create({
   flex: { flex: 1, minHeight: 0 },
   wrap: { flex: 1, minHeight: 0, width: '100%' },
-  headerPad: { paddingHorizontal: 8, paddingTop: 4 },
+  headerPad: { paddingHorizontal: 16 },
   scroll: { flex: 1 },
   scrollContent: {
     width: '100%', maxWidth: READING_MAX_WIDTH, alignSelf: 'center',
     paddingHorizontal: tokens.spacing.lg, paddingVertical: tokens.spacing.md,
   },
-  deskHead: { paddingTop: 12, paddingBottom: 16 },
-  greeting: { fontSize: 26, lineHeight: 34, fontWeight: '500' },
-  composerWrap: { gap: 6 },
+  composerWrap: { width: '100%', maxWidth: 860, alignSelf: 'center', gap: 8 },
   quickRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 4 },
   quickChip: {
     flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44,
     paddingHorizontal: 12, paddingVertical: 8,
-    borderRadius: 999, borderWidth: StyleSheet.hairlineWidth, borderColor: presencePalette.border,
+    borderRadius: 999,
   },
   devBanner: { fontSize: 12, paddingBottom: 4 },
 });

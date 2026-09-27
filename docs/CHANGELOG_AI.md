@@ -1,3 +1,13 @@
+## 2026-09-27 — ORA a pagina intera
+
+- Rifatta la pagina dopo il rifiuto del primo layout: fondo scuro continuo,
+  navigazione compatta, mappa alta, dialogo sovrapposto e ampliabile.
+- Tema limitato alla conversazione, comprese fonti, errori, allegati e percorsi;
+  nessuna modifica alla preferenza globale o alle altre pagine.
+- Composer centrato, status nell'intestazione, controlli della scena discreti;
+  preservati battito tenue, esplorazione mouse/touch e percorso unico di invio.
+- Test di hit target dopo il nuovo framing e guardia sulla superficie completa.
+
 ## 2026-09-27 — Presenza esplorabile e dialogo nella mappa
 
 - Recuperato lo spazio del rail destro; campo testo, microfono e voce nel footer
