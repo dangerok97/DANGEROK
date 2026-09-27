@@ -1,3 +1,33 @@
+Verifiche streaming locali: 25 test backend PASS, 21 runtime frontend e 42 guardie voce PASS; TypeScript, lint senza errori ed export web PASS.
+
+## 2026-09-27 — Voce originale più morbida e audio progressivo
+
+L'utente rinuncia alla replica identica e chiede naturalezza, ironia discreta e
+riduzione della latenza. In-app: voce stock Algieba con direzione italiana
+morbida e conversazionale, senza imitare l'attore; la battuta segue l'informazione
+utile. Nessuna modifica alla voce delle telefonate verso terzi.
+
+Nuovo /api/voice/stream autenticato: TTS incrementale, PCM 24 kHz mono 16 bit,
+trasportato come NDJSON senza cache. Modello streaming configurabile, default
+gemini-3.1-flash-tts-preview, separato dal fallback bufferizzato 2.5. SDK e
+chiavi esistenti; nessuna dipendenza aggiunta o migrazione. Il modello 3.1 è
+un preview: disponibilità e prestazioni reali vanno verificate sul servizio.
+
+Il client sblocca Web Audio nel gesto iniziale, programma i campioni su un unico
+orologio audio e comincia prima della fine del download, con 60 ms di margine
+iniziale. Evitata la richiesta /available sul percorso progressivo. Stop annulla
+rete, reader e buffer già in coda. Nessuna ripetizione della risposta in caso
+di errore dopo i primi campioni. Fallback alla sintesi naturale bufferizzata
+solo prima del primo audio o sui browser senza Web Audio. Il dialogo live non
+passa alla voce robotica del sistema. Testo, ragionamento, prove, memoria e
+permessi restano nel percorso canonico; niente secondo agente conversazionale.
+
+Verifica locale mirata: 21 test runtime frontend e 42 guardie voce PASS.
+Nuovi test backend: prima emissione prima della fine, cancellazione, account
+in errore, troncamento, formato, autenticazione e no-store. Misurare dopo deploy
+il primo PCM (non i soli header HTTP), la fine e il numero di blocchi. Non
+promettere latenza zero: il primo audio segue ancora la risposta validata.
+
 ## 2026-09-27 — Voce naturale: account in errore e riferimento italiano
 
 - Documentati crediti, fonti e limiti del confronto con JARVIS italiano.

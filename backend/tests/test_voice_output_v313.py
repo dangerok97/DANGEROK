@@ -243,7 +243,7 @@ def test_the_words_are_not_rewritten_only_the_delivery():
     """
     source = (HERE / "voice" / "providers.py").read_text(encoding="utf-8")
     assert "Parla in italiano" in source
-    assert "mai da call" in source
+    assert "Dialogo a tu per tu" in source
     # Il testo che si manda è quello che arriva, tagliato solo in lunghezza.
     assert "text[:MAX_CHARS]" in source
     for forbidden in ("summar", "riassum", "rewrite", "riscriv"):

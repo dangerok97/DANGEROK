@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test, beforeEach, afterEach } from 'node:test';
-import { premiumVoice, oraVoice, systemVoice, speechChunks, italianVoice } from './output.ts';
+import { premiumVoice, oraVoice, systemVoice, speechChunks, italianVoice, pcmPlayer, streamingVoice } from './output.ts';
 import { listen } from './speech.ts';
 
 const flush = async () => { for (let i = 0; i < 24; i++) await Promise.resolve(); };
@@ -53,6 +53,105 @@ beforeEach(() => {
 });
 afterEach(() => Object.assign(globalThis, saved));
 const audioResponse = () => ({ status: 200, ok: true, blob: async () => new Blob(['audio'], { type: 'audio/wav' }) } as Response);
+
+const pcmNodes: any[] = [];
+class PcmContext {
+  state = 'running'; currentTime = 0; destination = {};
+  resume() { return Promise.resolve(); }
+  createBuffer(_channels: number, length: number, rate: number) {
+    const data = new Float32Array(length);
+    return { duration: length / rate, getChannelData: () => data };
+  }
+  createBufferSource() {
+    const node = { buffer: null as any, at: 0, stopped: false, onended: null as any,
+      start(at: number) { this.at = at; }, stop() { this.stopped = true; }, connect() {}, disconnect() {} };
+    pcmNodes.push(node); return node;
+  }
+}
+const packet = (bytes = [0, 64]) => JSON.stringify({ type: 'audio', data: btoa(String.fromCharCode(...bytes)), sample_rate: 24000, encoding: 'pcm_s16le' }) + '\n';
+const donePacket = JSON.stringify({ type: 'done' }) + '\n';
+function streamResponse() {
+  let controller!: ReadableStreamDefaultController<Uint8Array>;
+  const body = new ReadableStream<Uint8Array>({ start(c) { controller = c; } });
+  return { response: new Response(body, { headers: { 'Content-Type': 'application/x-ndjson' } }),
+    send: (s: string) => controller.enqueue(new TextEncoder().encode(s)), close: () => controller.close() };
+}
+function enablePcm() { pcmNodes.length = 0; (globalThis as any).window.AudioContext = PcmContext; }
+
+test('PCM handles odd network boundaries and schedules continuous signed samples', async () => {
+  pcmNodes.length = 0;
+  const player = pcmPlayer(new PcmContext() as any);
+  player.push(new Uint8Array([0, 64, 0]));
+  player.push(new Uint8Array([128]));
+  assert.equal(pcmNodes[0].buffer.getChannelData(0)[0], .5);
+  assert.equal(pcmNodes[1].buffer.getChannelData(0)[0], -1);
+  assert.equal(pcmNodes[1].at, pcmNodes[0].at + pcmNodes[0].buffer.duration);
+  let finished = false;
+  const drained = player.finish().then(() => { finished = true; });
+  await flush(); assert.equal(finished, false);
+  pcmNodes[0].onended(); pcmNodes[1].onended();
+  await drained; player.stop();
+});
+
+test('stream starts audio before response ends and avoids the availability round trip', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  enablePcm();
+  const stream = streamResponse(); const paths: string[] = [];
+  const voice = oraVoice(async path => { paths.push(path); return stream.response; }, { progressive: true, systemFallback: false });
+  let starts = 0; let finished = false;
+  const speaking = voice.speak('Sono qui.', { onStart: () => starts++ }).then(() => { finished = true; });
+  await flush();
+  const audio = packet(); stream.send(audio.slice(0, 12)); stream.send(audio.slice(12));
+  await flush(); t.mock.timers.tick(61);
+  assert.equal(starts, 1); assert.equal(finished, false);
+  assert.deepEqual(paths, ['/voice/stream']);
+  assert.equal(pcmNodes.length, 1);
+  stream.send(donePacket); stream.close(); await flush();
+  assert.equal(finished, false);
+  pcmNodes[0].onended(); await speaking;
+});
+
+test('interrupt aborts the download, stops queued PCM and settles the reply', async () => {
+  enablePcm(); const stream = streamResponse(); let signal: AbortSignal | undefined;
+  const voice = streamingVoice(async (_path, init) => { signal = init.signal; return stream.response; });
+  const speaking = voice.speak('Sono qui.');
+  await flush(); stream.send(packet()); await flush();
+  voice.stop(); await speaking;
+  assert.equal(signal?.aborted, true);
+  assert.equal(pcmNodes[0].stopped, true);
+  assert.deepEqual(synthesized, []);
+});
+
+test('partial stream failure never repeats a spoken prefix with buffered synthesis', async () => {
+  enablePcm(); const stream = streamResponse(); const paths: string[] = [];
+  const voice = oraVoice(async path => { paths.push(path); return stream.response; }, { progressive: true, systemFallback: false });
+  const rejected = assert.rejects(voice.speak('Sono qui.'), /speech_interrupted/);
+  await flush(); stream.send(packet() + JSON.stringify({ type: 'error' }) + '\n');
+  await rejected;
+  assert.deepEqual(paths, ['/voice/stream']);
+  assert.equal(pcmNodes[0].stopped, true);
+});
+
+test('EOF without the completion marker is a failure, not a completed reply', async () => {
+  enablePcm(); const stream = streamResponse();
+  const voice = streamingVoice(async () => stream.response);
+  const rejected = assert.rejects(voice.speak('Sono qui.'));
+  await flush(); stream.send(packet()); stream.close(); await rejected;
+  assert.equal(pcmNodes[0].stopped, true);
+});
+
+test('stream failure before audio can recover through natural buffered synthesis', async () => {
+  enablePcm(); autoEnd = true; const paths: string[] = [];
+  const voice = oraVoice(async path => {
+    paths.push(path);
+    if (path.endsWith('stream')) return new Response(null, { status: 503 });
+    if (path.endsWith('available')) return Response.json({ premium: true });
+    return audioResponse();
+  }, { progressive: true, systemFallback: false });
+  await voice.speak('Sono qui.');
+  assert.deepEqual(paths, ['/voice/stream', '/voice/available', '/voice/say']);
+  assert.equal(played.length, 1); assert.deepEqual(synthesized, []);
+});
 
 test('long answers preserve every word and have a short first phrase', () => {
   const text = 'Ho controllato il calendario e ho trovato tre impegni importanti. ' + 'Il prossimo appuntamento è domani alle dieci. '.repeat(45);

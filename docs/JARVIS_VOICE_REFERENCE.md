@@ -1,3 +1,12 @@
+## Aggiornamento 27 settembre 2026 — Nuovo obiettivo concordato
+
+L'utente sceglie una voce originale quanto più naturale e vicina al carattere
+richiesto, con ironia discreta. Non si cerca più una replica identica dell'attore.
+La nuova base in-app è Algieba; direzione morbida, tono composto, frasi legate.
+Audio progressivo tramite gemini-3.1-flash-tts-preview e Web Audio; nessuna
+voce personalizzata o registrazione dell'attore caricata. Verifiche cloud e
+limiti aggiornati in RESUME_2026_09_27.md.
+
 # JARVIS — riferimento vocale per ORA
 
 Ricerca del 27 settembre 2026. Richiesta: voce identica al JARVIS di Iron Man,

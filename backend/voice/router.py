@@ -12,9 +12,10 @@ niente, non scrive niente — e non tiene l'audio da nessuna parte.
 from __future__ import annotations
 
 import logging
+import json
 
 from fastapi import APIRouter, Depends
-from fastapi.responses import Response
+from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
 
 from deps import get_current_user
@@ -67,3 +68,19 @@ async def voice_say(body: Say, user=Depends(get_current_user)):
             "Cache-Control": "no-store",
         },
     )
+
+
+@router.post("/stream")
+async def voice_stream(body: Say, user=Depends(get_current_user)):
+    from voice.streaming import speech_events
+    from contextlib import aclosing
+
+    async def chunks():
+        async with aclosing(speech_events(body.text)) as events:
+            async for event in events:
+                yield json.dumps(event, separators=(",", ":")) + "\n"
+
+    return StreamingResponse(chunks(), media_type="application/x-ndjson", headers={
+        "Cache-Control": "no-store, no-transform", "X-Accel-Buffering": "no",
+        "X-Content-Type-Options": "nosniff",
+    })

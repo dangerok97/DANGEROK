@@ -44,9 +44,11 @@ TIMEOUT_S = float(os.environ.get("ORA_VOICE_TIMEOUT_S", "8"))
 
 
 VOICE_DIRECTION = (
-    "Parla in italiano con voce maschile adulta, medio-bassa, composta e nitida. "
-    "Ritmo conversazionale scorrevole, pause brevi, calore discreto e ironia asciutta "
-    "solo quando è già nelle parole. Mai teatrale e mai da call center. "
+    "Parla in italiano naturale, voce maschile adulta medio-bassa, morbida e calda. "
+    "Dialogo a tu per tu: tono composto, dizione nitida senza scandire ogni sillaba, "
+    "frasi legate e pause brevi solo dove serve al senso. Niente impostazione da "
+    "annunciatore, enfasi teatrale, sussurri o voce metallica. L'ironia, se già "
+    "presente nel testo, è sottile e asciutta, come un sorriso appena accennato. "
     "Pronuncia esclusivamente il testo fornito, senza aggiunte o introduzioni."
 )
 TOTAL_BUDGET_S = 9.0
@@ -119,7 +121,7 @@ class GeminiSpeech:
         self.model = (
             os.environ.get("ORA_VOICE_MODEL") or "gemini-2.5-flash-preview-tts"
         ).strip()
-        self.voice = (os.environ.get("ORA_VOICE_NAME") or "Charon").strip()
+        self.voice = (os.environ.get("ORA_VOICE_NAME") or "Algieba").strip()
 
     def is_available(self) -> bool:
         return any(time.monotonic() >= _gemini_key_failures.get(name, 0) for name, _ in self.keys)
