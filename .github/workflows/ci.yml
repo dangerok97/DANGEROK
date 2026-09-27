@@ -84,6 +84,9 @@ jobs:
       - name: Conversation presence isolation and lifecycle
         working-directory: backend
         run: python -m pytest -q tests/test_presence_activity.py -x
+      - name: Voice lifecycle and phone recipient corrections
+        working-directory: backend
+        run: python -m pytest -q tests/test_live_voice_fluidity.py tests/test_voice_output_v313.py tests/test_voice_life_continuity_v313.py tests/test_phone_identity_conflict.py -x
       - name: Continuous online market watch
         working-directory: backend
         run: python -m pytest -q tests/test_energy_offer_monitor.py -x
@@ -186,7 +189,7 @@ jobs:
           npm run test:v3213d
           npm run test:v3213e
           npm run test:v322
-          node --test --experimental-strip-types src/components/ora/presence/presence.test.ts src/components/ora/presence/scene.test.mjs src/voice/voice313.test.ts src/components/ora/ora14.test.ts
+          node --test --experimental-strip-types src/components/ora/presence/presence.test.ts src/components/ora/presence/scene.test.mjs src/voice/voice313.test.ts src/voice/voiceRuntime.test.ts src/components/ora/ora14.test.ts
 
       # The former life-experience-documents Playwright spec is intentionally
       # not a blocking CI gate here. It navigates the pre-V3.21 greedy

@@ -1,220 +1,264 @@
-/**
- * Chi dà voce a una risposta, e perché la conversazione non deve saperlo.
- *
- *     LA VOCE DI SISTEMA È LA RETE, NON LA VOCE DI ORA.
- *
- * `speechSynthesis` legge l'italiano e si sente che lo sta leggendo:
- * scandisce, non respira, mette l'accento dove capita. Come rete di sicurezza
- * è perfetta — c'è sempre, non costa niente, funziona senza rete — e come voce
- * di ORA no.
- *
- * Quindi qui c'è un contratto e non un fornitore. `SpeechOutputProvider` dice
- * soltanto: sai dire questa frase, sai smettere, e adesso puoi. Sotto ci sono
- * due implementazioni; sopra non c'è niente che sappia quale delle due sta
- * parlando. Il giorno che ne arriva una migliore si aggiunge qui.
- */
-
+/** Audio delivery only. Conversation, memory and authority stay in AI Core. */
 export type SpeechOutputProvider = {
-  /** Come si chiama, per chi guarda cosa sta succedendo. Mai sullo schermo. */
   readonly name: string;
-  /** Se in questo momento può parlare. */
   isAvailable: () => Promise<boolean> | boolean;
-  /** Dice la frase. Risolve quando ha finito di dirla. */
   speak: (text: string, hooks?: SpeakHooks) => Promise<void>;
-  /** Zitta, subito. */
   stop: () => void;
 };
-
-export type SpeakHooks = {
-  /** Ha cominciato: è il momento in cui una persona sente la prima parola. */
-  onStart?: () => void;
-};
-
-/** Dove il server tiene la voce. Il resto dell'app non lo sa. */
+export type SpeakHooks = { onStart?: () => void };
 const SAY = '/voice/say';
 const AVAILABLE = '/voice/available';
+const aborted = () => new Error('voice_cancelled');
 
-// ---------------------------------------------------------------------------
+/** Short first breath; complete text, split only at a sentence or word boundary. */
+export function speechChunks(text: string): string[] {
+  let rest = text.trim();
+  const chunks: string[] = [];
+  while (rest) {
+    const limit = chunks.length ? 480 : 220;
+    if (rest.length <= limit) { chunks.push(rest); break; }
+    const prefix = rest.slice(0, limit + 1);
+    const stops = [...prefix.matchAll(/[.!?;:]\s+/g)].filter(m => (m.index || 0) >= 45);
+    const stop = stops.at(-1);
+    const cut = stop ? stop.index! + 1 : prefix.lastIndexOf(' ');
+    // An indivisible token is kept whole; the server accepts up to 4000 chars.
+    const boundary = cut > 0 ? cut : (rest.indexOf(' ') > 0 ? rest.indexOf(' ') : rest.length);
+    chunks.push(rest.slice(0, boundary));
+    rest = rest.slice(boundary).trim();
+  }
+  return chunks;
+}
 
-/**
- * La voce buona: nasce sul server, arriva come suono, non resta da nessuna
- * parte.
- *
- * Un 204 non è un errore: vuol dire che là dietro non c'era nessuno e che
- * tocca alla rete. Lo stesso vale per una rete lenta o per un file che il
- * browser non sa suonare — in tutti e tre i casi la frase viene detta lo
- * stesso, con l'altra voce, e nessuno vede un messaggio d'errore.
- */
-export function premiumVoice(
-  request: (path: string, init?: any) => Promise<Response>,
-): SpeechOutputProvider {
+class SpeechFailure extends Error {
+  remaining: string;
+  constructor(remaining: string) { super('audio_failed'); this.remaining = remaining; }
+}
+let unlockedAudio: HTMLAudioElement | null = null;
+
+export function premiumVoice(request: (path: string, init?: any) => Promise<Response>): SpeechOutputProvider {
+  let epoch = 0;
   let playing: HTMLAudioElement | null = null;
-  let known: boolean | null = null;
+  let releasePlayback: (() => void) | null = null;
+  const pending = new Set<AbortController>();
+  let known: { value: boolean; until: number } | null = null;
 
+  const stop = () => {
+    epoch += 1;
+    for (const controller of pending) controller.abort();
+    pending.clear();
+    playing?.pause();
+    releasePlayback?.();
+    releasePlayback = null;
+    playing = null;
+  };
+  async function load(text: string, mine: number): Promise<Blob> {
+    if (mine !== epoch) throw aborted();
+    const controller = new AbortController();
+    pending.add(controller);
+    const timer = setTimeout(() => controller.abort(), 10500);
+    try {
+      const answer = await request(SAY, {
+        method: 'POST', signal: controller.signal,
+        body: JSON.stringify({ text, language: 'it' }),
+      });
+      if (mine !== epoch || controller.signal.aborted) throw aborted();
+      if (answer.status === 204) {
+        known = { value: false, until: Date.now() + 30000 };
+        throw new Error('no_premium_voice');
+      }
+      if (!answer.ok) throw new Error(`voice_${answer.status}`);
+      const sound = await answer.blob();
+      if (mine !== epoch || controller.signal.aborted) throw aborted();
+      return sound;
+    } finally {
+      clearTimeout(timer);
+      pending.delete(controller);
+    }
+  }
   return {
     name: 'premium',
     async isAvailable() {
       if (typeof window === 'undefined' || typeof Audio === 'undefined') return false;
-      if (known !== null) return known;
+      if (known && known.until > Date.now()) return known.value;
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 2000);
+      pending.add(controller);
       try {
-        const answer = await request(AVAILABLE);
+        const answer = await request(AVAILABLE, { signal: controller.signal });
         const body = await answer.json();
-        known = Boolean(body?.premium);
+        known = { value: answer.ok && Boolean(body?.premium), until: Date.now() + 30000 };
       } catch {
-        known = false;
+        known = { value: false, until: Date.now() + 5000 };
+      } finally {
+        clearTimeout(timer);
+        pending.delete(controller);
       }
-      return known;
+      return known.value;
     },
     async speak(text, hooks) {
-      const answer = await request(SAY, {
-        method: 'POST',
-        body: JSON.stringify({ text, language: 'it' }),
-      });
-      if (answer.status === 204) throw new Error('no_premium_voice');
-      if (!answer.ok) throw new Error(`voice_${answer.status}`);
-      const sound = await answer.blob();
-      const url = URL.createObjectURL(sound);
-      const audio = new Audio(url);
-      playing = audio;
-      try {
-        await new Promise<void>((done, fail) => {
-          audio.onplaying = () => hooks?.onStart?.();
-          audio.onended = () => done();
-          audio.onerror = () => fail(new Error('audio_failed'));
-          void audio.play().catch(fail);
-        });
-      } finally {
-        playing = null;
-        URL.revokeObjectURL(url);
+      stop();
+      const mine = epoch;
+      const chunks = speechChunks(text);
+      // Rejections are handled immediately, even while the previous chunk plays.
+      const preload = (words: string) => load(words, mine).then(
+        blob => ({ blob, error: null }), error => ({ blob: null, error }),
+      );
+      let next = chunks.length ? preload(chunks[0]) : null;
+      let started = false;
+      for (let i = 0; i < chunks.length; i += 1) {
+        try {
+          const result = await next!;
+          if (mine !== epoch) return;
+          if (result.error || !result.blob) throw result.error;
+          next = i + 1 < chunks.length ? preload(chunks[i + 1]) : null;
+          const url = URL.createObjectURL(result.blob);
+          const audio = unlockedAudio || new Audio();
+          playing = audio;
+          audio.src = url;
+          audio.volume = 1;
+          try {
+            await new Promise<void>((done, fail) => {
+              let timer: ReturnType<typeof setTimeout>;
+              let settled = false;
+              const finish = (error?: Error) => {
+                if (settled) return;
+                settled = true;
+                clearTimeout(timer);
+                audio.onplaying = audio.onended = audio.onerror = null;
+                if (releasePlayback === cancel) releasePlayback = null;
+                if (error) fail(error); else done();
+              };
+              const cancel = () => finish();
+              releasePlayback = cancel;
+              timer = setTimeout(() => finish(new Error('audio_start_timeout')), 6000);
+              audio.onplaying = () => {
+                if (mine !== epoch) { audio.pause(); finish(); return; }
+                clearTimeout(timer);
+                timer = setTimeout(() => finish(new Error('audio_end_timeout')), Math.max(20000, chunks[i].length * 160));
+                if (!started) { started = true; hooks?.onStart?.(); }
+              };
+              audio.onended = () => finish();
+              audio.onerror = () => finish(new Error('audio_failed'));
+              void audio.play().catch(error => finish(error));
+            });
+          } finally {
+            audio.pause();
+            if (playing === audio) playing = null;
+            URL.revokeObjectURL(url);
+          }
+          if (mine !== epoch) return;
+        } catch {
+          if (mine !== epoch) return;
+          stop();
+          throw new SpeechFailure(chunks.slice(i).join(' '));
+        }
       }
     },
-    stop() {
-      try {
-        playing?.pause();
-      } catch {
-        /* già ferma */
-      }
-      playing = null;
-    },
+    stop,
   };
 }
 
-/**
- * La voce del browser. Sempre lì, e si sente che è una macchina.
- *
- * iOS non lascia parlare nessuno che non sia stato toccato: la prima
- * pronuncia deve partire dentro un gesto della persona, e la risposta di ORA
- * arriva secondi dopo. Per questo `unlock()` esiste e viene chiamato al
- * tocco — dice una cosa vuota a volume zero e da lì in poi la voce è libera.
- */
 export function systemVoice(): SpeechOutputProvider {
+  let release: (() => void) | null = null;
+  const stop = () => {
+    release?.();
+    release = null;
+    try { window.speechSynthesis?.cancel(); } catch { /* already stopped */ }
+  };
   return {
     name: 'system',
     isAvailable: () => typeof window !== 'undefined' && 'speechSynthesis' in window,
     speak(text, hooks) {
-      return new Promise<void>((done) => {
+      stop();
+      return new Promise<void>((done, fail) => {
         if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-          done();
-          return;
+          fail(new Error('no_speech_output')); return;
         }
-        try {
-          window.speechSynthesis.cancel();
-          const utterance = new SpeechSynthesisUtterance(text);
-          utterance.lang = 'it-IT';
-          utterance.rate = 0.98;
-          utterance.pitch = 1.0;
-          const voice = italianVoice();
-          if (voice) utterance.voice = voice;
-          utterance.onstart = () => hooks?.onStart?.();
-          utterance.onend = () => done();
-          utterance.onerror = () => done();
-          window.speechSynthesis.speak(utterance);
-        } catch {
-          done();
-        }
+        let timer: ReturnType<typeof setTimeout>;
+        const finish = (error?: Error) => {
+          clearTimeout(timer);
+          if (release === cancel) release = null;
+          utterance.onstart = utterance.onend = utterance.onerror = null;
+          if (error) fail(error); else done();
+        };
+        const cancel = () => finish();
+        const utterance = new SpeechSynthesisUtterance(text);
+        release = cancel;
+        utterance.lang = 'it-IT';
+        utterance.rate = 1.02;
+        utterance.pitch = 0.95;
+        const voice = italianVoice();
+        if (voice) utterance.voice = voice;
+        timer = setTimeout(() => { finish(new Error('speech_start_timeout')); window.speechSynthesis.cancel(); }, 6000);
+        utterance.onstart = () => {
+          clearTimeout(timer);
+          timer = setTimeout(() => { finish(new Error('speech_end_timeout')); window.speechSynthesis.cancel(); }, Math.max(20000, text.length * 180));
+          hooks?.onStart?.();
+        };
+        utterance.onend = () => finish();
+        utterance.onerror = () => finish(new Error('speech_failed'));
+        try { window.speechSynthesis.speak(utterance); } catch { finish(new Error('speech_failed')); }
       });
     },
-    stop() {
-      try {
-        window.speechSynthesis?.cancel();
-      } catch {
-        /* niente da fermare */
-      }
-    },
+    stop,
   };
 }
 
-/** La voce italiana che suona meno da robot fra quelle che ci sono. */
 export function italianVoice(): SpeechSynthesisVoice | null {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) return null;
-  let voices: SpeechSynthesisVoice[] = [];
-  try {
-    voices = window.speechSynthesis.getVoices() || [];
-  } catch {
-    return null;
-  }
-  const italian = voices.filter((v) => (v.lang || '').toLowerCase().startsWith('it'));
-  if (!italian.length) return null;
-  const preferred = ['alice', 'federica', 'luca', 'siri'];
-  for (const name of preferred) {
-    const found = italian.find((v) => (v.name || '').toLowerCase().includes(name));
+  let voices: SpeechSynthesisVoice[];
+  try { voices = window.speechSynthesis.getVoices() || []; } catch { return null; }
+  const italian = voices.filter(v => (v.lang || '').toLowerCase().startsWith('it'));
+  for (const name of ['luca', 'cosimo', 'diego', 'elsa', 'alice', 'federica']) {
+    const found = italian.find(v => (v.name || '').toLowerCase().includes(name));
     if (found) return found;
   }
-  return italian[0];
+  return italian[0] || null;
 }
 
-/**
- * La voce di ORA: la migliore che c'è adesso, e se non c'è, quella che c'è.
- *
- * Chi chiama non sa quale delle due ha parlato e non deve saperlo. Quello che
- * sa è che la frase è stata detta — o, nel caso peggiore in cui non parli
- * nessuno, che è comunque scritta sullo schermo, perché è sempre la stessa.
- */
-export function oraVoice(
-  request: (path: string, init?: any) => Promise<Response>,
-): SpeechOutputProvider {
+export function oraVoice(request: (path: string, init?: any) => Promise<Response>): SpeechOutputProvider {
   const premium = premiumVoice(request);
   const system = systemVoice();
-  let spokenBy: SpeechOutputProvider | null = null;
-
+  let epoch = 0;
   return {
     name: 'ora',
-    isAvailable: () => true,
+    isAvailable: async () => (await premium.isAvailable()) || system.isAvailable(),
     async speak(text, hooks) {
+      const mine = ++epoch;
+      premium.stop(); system.stop();
+      let remaining = text;
+      let started = false;
+      const once: SpeakHooks = { onStart: () => {
+        if (mine !== epoch || started) return;
+        started = true; hooks?.onStart?.();
+      } };
       if (await premium.isAvailable()) {
-        try {
-          spokenBy = premium;
-          await premium.speak(text, hooks);
-          return;
-        } catch {
-          // La voce buona non ce l'ha fatta. Non è una cosa da dire a
-          // nessuno: si parla lo stesso, con l'altra.
-        }
+        if (mine !== epoch) return;
+        try { await premium.speak(text, once); return; }
+        catch (error) { if (error instanceof SpeechFailure) remaining = error.remaining; }
       }
-      spokenBy = system;
-      await system.speak(text, hooks);
+      if (mine !== epoch) return;
+      await system.speak(remaining, once);
     },
-    stop() {
-      premium.stop();
-      system.stop();
-      spokenBy = null;
-    },
+    stop() { epoch += 1; premium.stop(); system.stop(); },
   };
 }
 
-/**
- * iOS: il permesso di parlare si prende una volta, dentro un tocco.
- *
- * È un trucco, e sta scritto che è un trucco. Senza, Safari resta muto per
- * tutta la sessione e nessuno capisce perché.
- */
+/** Unlock both audio paths during the user's opening gesture (Safari). */
 export function unlockSpeaking(): void {
-  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+  if (typeof window === 'undefined') return;
   try {
-    const silence = new SpeechSynthesisUtterance('');
-    silence.volume = 0;
-    window.speechSynthesis.speak(silence);
-  } catch {
-    /* se non si sblocca, si legge */
-  }
+    if (typeof Audio !== 'undefined') {
+      unlockedAudio ||= new Audio();
+      const audio = unlockedAudio;
+      audio.src = 'data:audio/wav;base64,UklGRiYAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQIAAAAAAA==';
+      audio.volume = 0;
+      void audio.play().then(() => { audio.pause(); audio.volume = 1; }).catch(() => {});
+    }
+    if ('speechSynthesis' in window) {
+      const silence = new SpeechSynthesisUtterance('');
+      silence.volume = 0;
+      window.speechSynthesis.speak(silence);
+    }
+  } catch { /* The written answer remains available. */ }
 }

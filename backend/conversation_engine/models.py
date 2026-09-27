@@ -207,6 +207,7 @@ class ConversationSession(BaseModel):
 
 
 class StartBody(BaseModel):
+    response_channel: Literal["text", "voice"] = "text"
     text: Optional[str] = None
     origin: Origin = "text"
     voice_meta: Optional[Dict[str, Any]] = None
@@ -229,6 +230,7 @@ class StartBody(BaseModel):
 
 
 class MessageBody(BaseModel):
+    response_channel: Literal["text", "voice"] = "text"
     activity_request_id: Optional[str] = Field(default=None, min_length=1, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")
     text: Optional[str] = None
     option_id: Optional[str] = None

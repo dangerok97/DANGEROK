@@ -58,15 +58,15 @@ export type LiveVoice = {
   /** Riprova l'ultima cosa detta, quando la risposta non era arrivata. */
   retry: () => void;
   /** Una risposta è arrivata: qui viene detta. */
-  answered: (text: string) => void;
+  answered: (text: string, ticket?: number) => void;
   /** La risposta non è arrivata affatto. */
-  stumbled: () => void;
+  stumbled: (ticket?: number) => void;
   marks: VoiceMarks;
 };
 
 export function useLiveVoice(opts: {
   /** La stessa funzione che manda quello che viene scritto. */
-  speak: (words: string) => void | Promise<void>;
+  speak: (words: string, ticket: number, retry?: boolean) => void | Promise<void>;
   /** La voce di ORA. Chi chiama non sa di chi sia. */
   voice?: SpeechOutputProvider;
 }): LiveVoice {
@@ -82,6 +82,13 @@ export function useLiveVoice(opts: {
   const mutedRef = useRef(false);
   const waiting = useRef(false);
   const lastSaid = useRef('');
+  const requestTicket = useRef(0);
+  const pendingTicket = useRef<number | null>(null);
+  const restartTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const quietCount = useRef(0);
+  const optsRef = useRef(opts);
+  optsRef.current = opts;
+
   /*
     Il numero di questo giro. Cambia a ogni cosa che rende vecchio quello che
     stava succedendo: un nuovo ascolto, un'interruzione, una pausa, la
@@ -98,6 +105,8 @@ export function useLiveVoice(opts: {
       alive.current = false;
       open.current = false;
       turn.current += 1;
+      pendingTicket.current = null;
+      if (restartTimer.current) clearTimeout(restartTimer.current);
       session.current?.cancel();
       voice.stop();
     };
@@ -119,16 +128,32 @@ export function useLiveVoice(opts: {
     [],
   );
 
+  const submit = useCallback((said: string, retry = false) => {
+    const ticket = ++requestTicket.current;
+    pendingTicket.current = ticket;
+    waiting.current = true;
+    void Promise.resolve().then(() => {
+      if (!alive.current || !open.current || pendingTicket.current !== ticket) return;
+      return optsRef.current.speak(said, ticket, retry);
+    }).catch(() => {
+      if (!alive.current || !open.current || pendingTicket.current !== ticket) return;
+      pendingTicket.current = null;
+      waiting.current = false;
+      setStuck(true);
+      fire({ type: 'done' });
+    });
+  }, []);
+
   const startListening = useCallback(() => {
     if (!open.current || mutedRef.current || waiting.current) return;
     if (!canListen()) {
       fire({ type: 'trouble', why: 'not_supported' });
       return;
     }
+    if (restartTimer.current) clearTimeout(restartTimer.current);
     turn.current += 1;
     const mine = turn.current;
     setStuck(false);
-    setReadable(false);
     marks.current = { mic: Date.now() };
     fire({ type: 'ask' });
     session.current = listen({
@@ -143,32 +168,36 @@ export function useLiveVoice(opts: {
         if (!said) {
           // Silenzio. Non è un guaio e non è la fine della conversazione:
           // si riascolta, come farebbe una persona che aspetta.
-          startListening();
+          restartTimer.current = setTimeout(() => current(mine) && startListening(), Math.min(2000, 350 * ++quietCount.current));
           return;
         }
+        quietCount.current = 0;
+        setReadable(false);
         lastSaid.current = said;
         waiting.current = true;
         mark('asked');
         fire({ type: 'sent' });
-        void Promise.resolve(opts.speak(said));
+        submit(said);
       },
       onTrouble: (why) => {
         if (!current(mine)) return;
         session.current = null;
         if (why === 'heard_nothing') {
-          startListening();
+          restartTimer.current = setTimeout(() => current(mine) && startListening(), Math.min(2000, 350 * ++quietCount.current));
           return;
         }
         fire({ type: 'trouble', why });
       },
     });
     if (session.current) fire({ type: 'allowed' });
-  }, [current, mark, opts]);
+  }, [current, mark, submit]);
 
   const answered = useCallback(
-    (text: string) => {
-      if (!open.current) return;
+    (text: string, ticket?: number) => {
+      if (!alive.current || !open.current || ticket === undefined || pendingTicket.current !== ticket) return;
+      pendingTicket.current = null;
       waiting.current = false;
+      if (mutedRef.current) return;
       setStuck(false);
       mark('answer');
       const words = forSpeaking(text);
@@ -201,13 +230,13 @@ export function useLiveVoice(opts: {
         .finally(() => {
           if (!current(mine)) return;
           fire({ type: 'done' });
-          startListening();
+          restartTimer.current = setTimeout(() => current(mine) && startListening(), 150);
         });
     },
     [current, mark, startListening, voice],
   );
 
-  const stumbled = useCallback(() => {
+  const stumbled = useCallback((ticket?: number) => {
     /*
       La richiesta non è arrivata a destinazione — rete caduta, modello
       irraggiungibile, qualunque cosa. Non si riprova da soli: un ciclo che
@@ -215,7 +244,8 @@ export function useLiveVoice(opts: {
       consumare la batteria di qualcuno mentre gli si dice «sto pensando».
       Si dice cosa è successo e si lascia a lei la mossa.
     */
-    if (!open.current) return;
+    if (!open.current || ticket === undefined || pendingTicket.current !== ticket) return;
+    pendingTicket.current = null;
     waiting.current = false;
     turn.current += 1;
     session.current?.cancel();
@@ -226,17 +256,19 @@ export function useLiveVoice(opts: {
 
   const retry = useCallback(() => {
     const words = lastSaid.current.trim();
-    if (!open.current || !words) return;
+    if (!open.current || mutedRef.current || waiting.current || !words) return;
     setStuck(false);
     waiting.current = true;
     fire({ type: 'sent' });
-    void Promise.resolve(opts.speak(words));
-  }, [opts]);
+    submit(words, true);
+  }, [submit]);
 
   const openLive = useCallback(() => {
     // L'unico momento in cui iOS lascia sbloccare la voce è dentro il tocco
     // che apre: da qui in poi ORA può parlare senza che nessuno la tocchi.
     unlockSpeaking();
+    void voice.isAvailable();
+    pendingTicket.current = null;
     open.current = true;
     waiting.current = false;
     setOn(true);
@@ -245,10 +277,12 @@ export function useLiveVoice(opts: {
     setReadable(false);
     mutedRef.current = false;
     startListening();
-  }, [startListening]);
+  }, [startListening, voice]);
 
   const closeLive = useCallback(() => {
     open.current = false;
+    pendingTicket.current = null;
+    if (restartTimer.current) clearTimeout(restartTimer.current);
     waiting.current = false;
     turn.current += 1;
     session.current?.cancel();

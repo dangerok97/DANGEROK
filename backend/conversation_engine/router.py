@@ -155,6 +155,7 @@ async def ai_core_start(body: StartBody, user=Depends(get_current_user)):
         opportunity_id=body.opportunity_id,
         attachments=list(body.attachments or []),
         activity_request_id=body.activity_request_id,
+        response_channel=body.response_channel,
     )
     if not res.get("ok") and res.get("error"):
         _raise(res)
@@ -172,6 +173,7 @@ async def ai_core_message(session_id: str, body: MessageBody, user=Depends(get_c
         text=body.text or "",
         attachments=list(body.attachments or []),
         activity_request_id=body.activity_request_id,
+        response_channel=body.response_channel,
         client_message_id=getattr(body, "client_message_id", None),
     )
     if not res.get("ok") and res.get("error"):

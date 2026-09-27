@@ -80,6 +80,7 @@ class AICoreOrchestrator:
         opportunity_id: Optional[str] = None,
         attachments: Optional[list] = None,
         activity_request_id: Optional[str] = None,
+        response_channel: str = "text",
     ) -> Dict[str, Any]:
         text = (text or "").strip()
         attachments = list(attachments or [])
@@ -113,6 +114,7 @@ class AICoreOrchestrator:
                 "ai_core": {},
                 "entry_point": ep,
                 "activity_request_id": activity_request_id,
+                "response_channel": "voice" if response_channel == "voice" else "text",
             },
         )
         if opportunity_id:
@@ -339,6 +341,7 @@ class AICoreOrchestrator:
         text: str,
         attachments: Optional[list] = None,
         activity_request_id: Optional[str] = None,
+        response_channel: str = "text",
         client_message_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         text = (text or "").strip()
@@ -352,6 +355,7 @@ class AICoreOrchestrator:
             return {"ok": False, "error": "session_closed"}
 
         sess.meta["activity_request_id"] = activity_request_id
+        sess.meta["response_channel"] = "voice" if response_channel == "voice" else "text"
 
         # Bind attachments before cognition (ownership enforced)
         bound: list = []

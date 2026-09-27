@@ -1,3 +1,37 @@
+## 2026-09-27 — Dialogo vocale: turni, interruzioni e voce composta
+
+La voce in-app usa response_channel per turno, con la stessa sessione, memoria,
+strumenti e autorità della chat. Risposte brevi e orali; personalità ispirata alla
+precisione e ironia asciutta di JARVIS, esclusa da conferme, identità e problemi
+seri. Voce stock Cedar (OpenAI) e Charon (Gemini), direzione italiana composta,
+maschile, con pause brevi. Voce del dispositivo come recupero; nessun clone.
+
+Audio diviso su frasi/parole senza perdere la coda delle risposte, prima porzione
+220 caratteri e successive 480; una porzione anticipata durante la riproduzione.
+Stop annulla download e riproduzione, risolve le attese e impedisce audio tardivo
+anche nel fallback. Timeout, cache disponibilità con scadenza, cooldown dei
+provider e budget totale server di 9 s evitano catene indefinite. Nessun file audio
+persistito dal servizio. Ascolto con pausa di 700–1500 ms, protezione onend mancante,
+risultati rivisti senza duplicazione e ripartenza con attesa sul silenzio.
+Risposte correlate alla singola richiesta: chiusura/riapertura e pausa non
+fanno parlare un turno vecchio; retry riusa l'identità del messaggio in uscita.
+Interruzione mediante tocco; non dichiarare barge-in automatico/full duplex.
+
+Verifiche: 50 test backend isolati PASS; 13 nuovi test eseguibili audio/ascolto,
+42 guardie voce esistenti, 13 presenza e ora14 PASS; TypeScript e compileall PASS;
+lint senza errori; export web e iOS PASS. Tre integrazioni Mongo non eseguibili
+localmente (127.0.0.1:27017 assente): ora incluse nel gate CI con Mongo. Vecchio
+test latency_budget ha errore import tests._loop_harness nell'ambiente locale;
+il percorso aggiornato è coperto dalla prova di alternanza voce/testo/resume.
+Nessuna dipendenza o migrazione. Nessuna prova con microfono su dispositivo reale.
+Prima della modifica, un campione breve dal servizio Gemini impiegava 8,35 s
+per la sola sintesi (non una misura dell'intero turno). Confronto finale da
+completare dopo deploy; non promettere latenza zero o voce identica a un attore.
+
+Hotfix numero già live: b45e0061a3408ffa66761457c24f2727f81e8885,
+backend 5a4459fd-130b-401b-b35d-2ce034af2998 SUCCESS; CI 36321301089 SUCCESS.
+Configurazione Railway, variabili, domini, volume e preDeployCommand=[] preservati.
+
 ## 2026-09-27 — Correzione del numero durante la preparazione telefonica
 
 Riprodotto il ciclo segnalato: il nuovo numero veniva ignorato quando il modello

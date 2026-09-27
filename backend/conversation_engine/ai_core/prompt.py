@@ -965,6 +965,7 @@ def build_user_payload(
     current_facts: dict | None = None,
     life_os: dict | None = None,
     spoken_out_loud: bool = False,
+    in_app_voice: bool = False,
     calendar_next_48h: dict | None = None,
     today_where_they_are=None,
 ) -> str:
@@ -1037,7 +1038,7 @@ def build_user_payload(
             **(
                 {
                     "you_are_being_heard_not_read": (
-                        "This answer will be HEARD on a telephone, not read. "
+                        "This answer will be HEARD in a live conversation, not read. "
                         "Same meaning, different form — nothing about what you "
                         "decided changes: not the mode, not the tools, not the "
                         "authority, not what you know or refuse to claim. "
@@ -1058,6 +1059,17 @@ def build_user_payload(
                 if spoken_out_loud
                 else {}
             ),
+            **({"voice_presence": (
+                "Sei ORA, in dialogo vocale con la persona che assisti. Italiano naturale, "
+                "tono composto, preciso, caldo e sicuro: prima la risposta utile. "
+                "Ispirazione JARVIS: ironia asciutta e intelligente, al massimo una breve "
+                "osservazione quando nasce spontanea dal contesto, mai a ogni turno. "
+                "Niente imitazioni dichiarate, formule da maggiordomo, signore ripetuto, "
+                "adulazione o risate artificiali. Non scherzare su problemi seri, errori, "
+                "conflitti di identità, destinatari o conferme operative. "
+                "Non aggiungere preamboli, domande finali inutili né promesse di azioni "
+                "non concluse. Stesse prove, strumenti e conferme della chat scritta."
+            )} if in_app_voice else {}),
             "recent_turns": recent_turns[-12:],
             "active_goal": active_goal,
             "current_facts": current_facts or {},

@@ -463,6 +463,7 @@ type Recognition = {
   onerror: ((e: any) => void) | null;
   onend: (() => void) | null;
   onspeechend: (() => void) | null;
+  onspeechstart: (() => void) | null;
 };
 
 function recognizer(): Recognition | null {
@@ -506,68 +507,81 @@ export function listen(opts: {
   }
   rec.lang = 'it-IT';
   rec.interimResults = true;
-  rec.continuous = false;
+  rec.continuous = true;
   rec.maxAlternatives = 1;
-
   let best = '';
+  let interim = '';
   let finished = false;
-
-  rec.onresult = (e: any) => {
-    let interim = '';
-    let settled = '';
-    for (let i = e.resultIndex; i < e.results.length; i += 1) {
-      const alt = e.results[i][0]?.transcript || '';
-      if (e.results[i].isFinal) settled += alt;
-      else interim += alt;
-    }
-    if (settled) best = (best + ' ' + settled).trim();
-    opts.onHearing((best + ' ' + interim).trim());
-  };
-
-  rec.onspeechend = () => {
-    opts.onEndOfSpeech?.();
-  };
-
-  rec.onerror = (e: any) => {
-    const kind = String(e?.error || '');
+  let stopping = false;
+  let endpoint: ReturnType<typeof setTimeout> | undefined;
+  let watchdog: ReturnType<typeof setTimeout> | undefined;
+  const clear = () => { clearTimeout(endpoint); clearTimeout(watchdog); };
+  const finish = () => {
+    if (finished) return;
     finished = true;
+    clear();
+    try { rec.abort(); } catch { /* already ended */ }
+    opts.onHeard((best + ' ' + interim).trim());
+  };
+  const stop = () => {
+    if (finished || stopping) return;
+    stopping = true;
+    clear();
+    opts.onEndOfSpeech?.();
+    // Some engines never emit onend after stop. Finish exactly once anyway.
+    watchdog = setTimeout(finish, 800);
+    try { rec.stop(); } catch { finish(); }
+  };
+  const arm = (delay: number) => {
+    clearTimeout(endpoint);
+    endpoint = setTimeout(stop, delay);
+  };
+  rec.onresult = (e: any) => {
+    if (finished) return;
+    // Rebuild from indexed results: revised finals must not be appended twice.
+    best = ''; interim = '';
+    for (let i = 0; i < e.results.length; i += 1) {
+      const words = e.results[i][0]?.transcript || '';
+      if (e.results[i].isFinal) best += ' ' + words;
+      else interim += ' ' + words;
+    }
+    best = best.trim(); interim = interim.trim();
+    opts.onHearing((best + ' ' + interim).trim());
+    clearTimeout(watchdog);
+    if (!stopping) arm(interim ? 1500 : 1000);
+    else watchdog = setTimeout(finish, 800);
+  };
+  rec.onspeechstart = () => {
+    if (stopping || finished) return;
+    clearTimeout(endpoint); clearTimeout(watchdog);
+    watchdog = setTimeout(stop, 15000);
+  };
+  rec.onspeechend = () => { if (!stopping) arm(interim ? 1100 : 700); };
+  rec.onerror = (e: any) => {
+    if (finished) return;
+    finished = true;
+    clear();
+    const kind = String(e?.error || '');
     if (kind === 'not-allowed' || kind === 'service-not-allowed') opts.onTrouble('no_permission');
     else if (kind === 'audio-capture') opts.onTrouble('no_microphone');
     else if (kind === 'no-speech') opts.onTrouble('heard_nothing');
     else if (kind === 'network') opts.onTrouble('network');
-    else if (kind === 'aborted') {
-      /* L'ha fermato la persona: non è un guaio e non si dice niente. */
-    } else opts.onTrouble('could_not_understand');
+    else opts.onTrouble('could_not_understand');
   };
-
-  rec.onend = () => {
-    if (finished) return;
-    finished = true;
-    opts.onHeard(best.trim());
-  };
-
+  rec.onend = finish;
   try {
+    watchdog = setTimeout(stop, 15000);
     rec.start();
   } catch {
+    finished = true; clear();
     opts.onTrouble('not_supported');
     return null;
   }
-
   return {
-    stop: () => {
-      try {
-        rec.stop();
-      } catch {
-        /* già finito */
-      }
-    },
+    stop,
     cancel: () => {
-      finished = true;
-      try {
-        rec.abort();
-      } catch {
-        /* già finito */
-      }
+      finished = true; clear();
+      try { rec.abort(); } catch { /* already ended */ }
     },
   };
 }

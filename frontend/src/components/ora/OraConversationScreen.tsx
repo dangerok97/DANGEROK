@@ -349,6 +349,7 @@ async function announceFocus(args: {
 /** What a failed send needs in order to be retried under the same identity. */
 type Outbox = {
   text: string;
+  voiceTicket?: number;
   attachments: Array<{
     file_id: string;
     document_id?: string;
@@ -437,6 +438,7 @@ function OraConversationBody({
     niente di quello che succede dopo: è provenienza, non comportamento.
   */
   const startedByVoice = useRef(false);
+  const lastLiveMessageId = useRef<string | null>(null);
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const [locPermVisible, setLocPermVisible] = useState(false);
   const locPermResolver = useRef<((v: boolean) => void) | null>(null);
@@ -907,6 +909,7 @@ function OraConversationBody({
           pendingQuestion.current = null;
           const fresh = (await api.aiCoreGet(sessionId)) as AiCoreRes;
           setTurns(withRememberedSources(sessionId, historyToTurns(fresh.history || [])));
+          liveRef.current?.answered(String(fresh.ora_text || fresh.question || ''), payload.voiceTicket);
           requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
           return;
         }
@@ -923,6 +926,7 @@ function OraConversationBody({
           // explaining it could not read a file that had not been bound yet.
           res = await api.aiCoreStart({
             activity_request_id: requestId,
+            response_channel: payload.voiceTicket !== undefined ? 'voice' : 'text',
             text: startText,
             origin: startedByVoice.current
               ? 'voice'
@@ -975,6 +979,7 @@ function OraConversationBody({
           if (pendingAttach.length) setWorkingHint('Sto verificando…');
           res = await api.aiCoreMessage(sessionId, {
             activity_request_id: requestId,
+            response_channel: payload.voiceTicket !== undefined ? 'voice' : 'text',
             text: msg || '',
             attachments: pendingAttach,
             client_message_id: clientMessageId,
@@ -986,7 +991,7 @@ function OraConversationBody({
         // Se la domanda è stata fatta a voce, la risposta si ascolta — ed è
         // parola per parola quella che si legge sopra. Se è stata scritta,
         // questo non fa niente.
-        liveRef.current?.answered(String(res.ora_text || res.question || ''));
+        liveRef.current?.answered(String(res.ora_text || res.question || ''), payload.voiceTicket);
         requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
       } catch (e: any) {
         // The turn is already on screen. Say plainly that it did not arrive
@@ -997,7 +1002,7 @@ function OraConversationBody({
         setError(oraErrorMessage(e));
         // Chi sta parlando a voce non vede l'errore scritto: senza questo
         // resterebbe davanti a «Sto pensando» finché non tocca lo schermo.
-        liveRef.current?.stumbled();
+        liveRef.current?.stumbled(payload.voiceTicket);
       } finally {
         sendingRef.current = false;
         setBusy(false);
@@ -1031,14 +1036,26 @@ function OraConversationBody({
    * seconda di come ha aperto bocca.
    */
   const sendWords = useCallback(
-    async (words: string) => {
+    async (words: string, voiceTicket?: number, retry = false) => {
       const msg = words.trim();
+      if (sendingRef.current && voiceTicket !== undefined) throw new Error('voice_turn_busy');
       if (!msg || sendingRef.current) return;
+      const previousId = retry ? lastLiveMessageId.current : null;
+      const previous = previousId ? outbox.current.get(previousId) : null;
+      if (previousId && previous && previous.text === msg) {
+        sendingRef.current = true;
+        const payload = { ...previous, voiceTicket };
+        outbox.current.set(previousId, payload);
+        await dispatch(previousId, payload);
+        return;
+      }
       sendingRef.current = true;
       const clientMessageId = newClientMessageId();
       setTurns((prev) => [...prev, { role: 'user', text: msg, messageId: clientMessageId }]);
-      outbox.current.set(clientMessageId, { text: msg, attachments: [] });
-      await dispatch(clientMessageId, { text: msg, attachments: [] });
+      const payload = { text: msg, attachments: [], voiceTicket };
+      if (voiceTicket !== undefined) lastLiveMessageId.current = clientMessageId;
+      outbox.current.set(clientMessageId, payload);
+      await dispatch(clientMessageId, payload);
     },
     [dispatch],
   );
@@ -1056,9 +1073,9 @@ function OraConversationBody({
     stessa, con la risposta detta ad alta voce invece che solo scritta.
   */
   const live = useLiveVoice({
-    speak: (words) => {
+    speak: (words, ticket, retry) => {
       startedByVoice.current = true;
-      return sendWords(words);
+      return sendWords(words, ticket, retry);
     },
   });
   const liveRef = useRef(live);

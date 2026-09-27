@@ -22,6 +22,8 @@ diventa un file su un disco perche' l'ha chiesto a voce.
 
 from __future__ import annotations
 
+import asyncio
+import time
 import base64
 import logging
 import os
@@ -34,11 +36,20 @@ logger = logging.getLogger("ora.voice")
 # Quanto puo' essere lunga una cosa detta ad alta voce. Non e' una regola di
 # stile: e' quanto audio si e' disposti a far generare e scaricare in una
 # volta. Le risposte di ORA sono corte per altre ragioni.
-MAX_CHARS = 1200
+MAX_CHARS = 4000
 
 # Quanto si aspetta prima di rinunciare e lasciare la parola alla voce di
 # sistema. Una voce piu' bella che arriva in ritardo e' una voce peggiore.
-TIMEOUT_S = float(os.environ.get("ORA_VOICE_TIMEOUT_S", "12"))
+TIMEOUT_S = float(os.environ.get("ORA_VOICE_TIMEOUT_S", "5"))
+
+
+VOICE_DIRECTION = (
+    "Parla in italiano con voce maschile adulta, medio-bassa, composta e nitida. "
+    "Ritmo conversazionale scorrevole, pause brevi, calore discreto e ironia asciutta "
+    "solo quando è già nelle parole. Mai teatrale e mai da call center. "
+    "Pronuncia esclusivamente il testo fornito, senza aggiunte o introduzioni."
+)
+TOTAL_BUDGET_S = 9.0
 
 
 @dataclass
@@ -99,17 +110,7 @@ class GeminiSpeech:
         self.model = (
             os.environ.get("ORA_VOICE_MODEL") or "gemini-2.5-flash-preview-tts"
         ).strip()
-        # La voce di ORA e' Kore, e non l'ha scelta il codice.
-        #
-        #     UNA VOCE SI SCEGLIE ASCOLTANDOLA.
-        #
-        # Il valore precedente era stato messo qui leggendo la descrizione che
-        # il fornitore pubblica accanto a ogni voce — «warm», «gentle»,
-        # «soft» — che e' un modo educato di tirare a indovinare. Sei
-        # campioni della stessa frase italiana sono stati generati e
-        # ascoltati, e la scelta e' quella. Resta in una riga di
-        # configurazione perche' un giorno qualcuno potrebbe riascoltarle.
-        self.voice = (os.environ.get("ORA_VOICE_NAME") or "Kore").strip()
+        self.voice = (os.environ.get("ORA_VOICE_NAME") or "Charon").strip()
 
     def is_available(self) -> bool:
         return bool(self.keys)
@@ -138,14 +139,16 @@ class GeminiSpeech:
         for name, key in self.keys:
             client = genai.Client(api_key=key)
             try:
-                answer = await client.aio.models.generate_content(
-                    model=self.model, contents=text[:MAX_CHARS], config=config,
-                )
+                answer = await asyncio.wait_for(client.aio.models.generate_content(
+                    model=self.model, contents=f"{VOICE_DIRECTION}\n\nTesto:\n{text[:MAX_CHARS]}", config=config,
+                ), timeout=max(1.0, TIMEOUT_S / len(self.keys)))
             except Exception as e:
                 # Il nome della variabile d'ambiente, non il suo contenuto:
                 # serve a sapere quale account e' finito, e non e' un segreto.
                 logger.info("voce gemini via %s: %s", name, type(e).__name__)
                 continue
+            finally:
+                await client.aio.aclose()
             raw = _first_audio(answer)
             if raw:
                 return Spoken(
@@ -165,7 +168,7 @@ class OpenAISpeech:
     def __init__(self) -> None:
         self.key = (os.environ.get("OPENAI_API_KEY") or "").strip()
         self.model = (os.environ.get("ORA_VOICE_MODEL_OPENAI") or "gpt-4o-mini-tts").strip()
-        self.voice = (os.environ.get("ORA_VOICE_NAME_OPENAI") or "alloy").strip()
+        self.voice = (os.environ.get("ORA_VOICE_NAME_OPENAI") or "cedar").strip()
 
     def is_available(self) -> bool:
         return bool(self.key)
@@ -189,13 +192,7 @@ class OpenAISpeech:
                         "response_format": "mp3",
                         # Come deve suonare, non cosa deve dire. Il testo non
                         # si tocca: e' parola per parola quello che si legge.
-                        "instructions": (
-                            "Parla in italiano, con la calma di qualcuno che "
-                            "conosce bene la persona a cui sta parlando. Tono "
-                            "adulto e tranquillo, mai teatrale e mai da call "
-                            "center. Rispetta la punteggiatura e prenditi le "
-                            "pause dove ci sono."
-                        ),
+                        "instructions": VOICE_DIRECTION,
                     },
                 )
                 answer.raise_for_status()
@@ -245,7 +242,7 @@ def _as_wav(pcm: bytes, *, rate: int = 24000, channels: int = 1, width: int = 2)
 
 # L'ordine in cui si prova. Il primo che risponde parla; se non risponde
 # nessuno, parla il browser — che e' sempre li' e non ha bisogno di niente.
-_ORDER = (GeminiSpeech, OpenAISpeech)
+_ORDER = (OpenAISpeech, GeminiSpeech)
 
 # Quanto si ricorda un tentativo andato male prima di riprovarci.
 #
@@ -260,6 +257,7 @@ _ORDER = (GeminiSpeech, OpenAISpeech)
 # ricarica, e ORA non deve restare muta fino al riavvio.
 _QUIET_FOR_S = float(os.environ.get("ORA_VOICE_RETRY_AFTER_S", "300"))
 _last_failure: float = 0.0
+_provider_failures: dict[str, float] = {}
 
 
 def _recently_failed() -> bool:
@@ -281,7 +279,7 @@ def a_voice() -> Optional[SpeechOutputProvider]:
         return None
     for make in _ORDER:
         provider = make()
-        if provider.is_available():
+        if provider.is_available() and time.monotonic() >= _provider_failures.get(provider.name, 0):
             return provider
     return None
 
@@ -295,24 +293,33 @@ async def say_it(text: str, *, language: str = "it") -> Optional[Spoken]:
     si legge c'e' comunque, ed e' la stessa.
     """
     words = (text or "").strip()
-    if not words:
+    if not words or _recently_failed():
         return None
+    deadline = time.monotonic() + TOTAL_BUDGET_S
     global _last_failure
     for make in _ORDER:
         provider = make()
         try:
-            if not provider.is_available():
+            if not provider.is_available() or time.monotonic() < _provider_failures.get(provider.name, 0):
                 continue
-            spoken = await provider.speak(words, language=language)
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            spoken = await asyncio.wait_for(
+                provider.speak(words, language=language), timeout=min(TIMEOUT_S, remaining),
+            )
         except Exception as e:
             # Un fornitore che cade non porta giu' la voce: si prova il
             # prossimo, e se non ce n'e' nessuno tocca al browser. Le
             # implementazioni qui dentro si proteggono gia' da sole; questo
             # vale per la prossima, che non e' ancora stata scritta.
             logger.info("voce %s caduta: %s", provider.name, type(e).__name__)
+            _provider_failures[provider.name] = time.monotonic() + _QUIET_FOR_S
             continue
         if spoken and spoken.audio:
             _last_failure = 0.0
+            _provider_failures.pop(provider.name, None)
             return spoken
+        _provider_failures[provider.name] = time.monotonic() + _QUIET_FOR_S
     _remember_failure()
     return None

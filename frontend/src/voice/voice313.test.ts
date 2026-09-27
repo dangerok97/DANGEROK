@@ -205,7 +205,7 @@ test('§4 quello che si dice e quello che si scrive passano dalla stessa porta',
     'la voce non manda le parole dalla stessa funzione del testo',
   );
   assert.ok(
-    /const sendWords[\s\S]{0,900}dispatch\(clientMessageId/.test(screen),
+    /const sendWords[\s\S]{0,1800}dispatch\(clientMessageId/.test(screen),
     'le parole dette non finiscono nella conversazione',
   );
   // Una sola sessione, una sola conversazione: nessun `sessionId` parallelo.
@@ -283,10 +283,10 @@ test('§4 la modalità vocale usa la stessa conversazione, non una sua', () => {
   for (const forbidden of ['aiCoreStart', 'aiCoreMessage', 'sessionId', 'localStorage']) {
     assert.ok(!live.includes(forbidden), `la modalità vocale si è messa in proprio: ${forbidden}`);
   }
-  assert.ok(/opts\.speak\(said\)/.test(live), 'non manda le parole a chi già parla con ORA');
+  assert.ok(/optsRef\.current\.speak\(said, ticket, retry\)/.test(live), 'non manda le parole a chi già parla con ORA');
   const screen = readCode(SCREEN);
   assert.ok(
-    /useLiveVoice\(\{[\s\S]{0,200}sendWords\(words\)/.test(screen),
+    /useLiveVoice\(\{[\s\S]{0,200}sendWords\(words, ticket, retry\)/.test(screen),
     'la modalità vocale non passa dalla porta del testo',
   );
 });
@@ -363,7 +363,7 @@ test('§10 la conversazione non sa di chi sia la voce', () => {
 test('§11 se la voce buona non c’è, parla quella di sistema', () => {
   const out = readCode(OUTPUT);
   assert.ok(
-    /if \(await premium\.isAvailable\(\)\) \{[\s\S]{0,400}catch \{[\s\S]{0,200}\}[\s\S]{0,120}system\.speak/.test(out),
+    /if \(await premium\.isAvailable\(\)\) \{[\s\S]{0,400}catch \(error\) \{[\s\S]{0,200}\}[\s\S]{0,120}system\.speak/.test(out),
     'un fallimento della voce premium non passa a quella di sistema',
   );
   // Un 204 non è un errore da mostrare: vuol dire «parla tu».

@@ -537,7 +537,10 @@ async def run_cognitive_loop(
                 # Da dove è entrata la frase decide come esce la risposta — e
                 # nient'altro. Al telefono viene ascoltata, e si dice diversamente
                 # da come si scrive.
-                spoken_out_loud=(sess.meta or {}).get("entry_point") == "phone",
+                spoken_out_loud=((sess.meta or {}).get("entry_point") == "phone"
+                                 or (sess.meta or {}).get("response_channel") == "voice"),
+                in_app_voice=((sess.meta or {}).get("response_channel") == "voice"
+                              and (sess.meta or {}).get("entry_point") != "phone"),
                 calendar_next_48h=calendar_ahead,
                 today_where_they_are=oggi_da_lei,
             )
@@ -551,7 +554,8 @@ async def run_cognitive_loop(
                 # decidere di non rispondere, e quella è una decisione di ORA, non
                 # dell'infrastruttura.
                 latency_budget_s=_how_long_we_wait(
-                    str((sess.meta or {}).get("entry_point") or "")
+                    "voice" if (sess.meta or {}).get("response_channel") == "voice"
+                    else str((sess.meta or {}).get("entry_point") or "")
                 ),
             )
             _fase("model", _t)

@@ -28,6 +28,15 @@ if _BACKEND not in sys.path:
 
 import _loop_harness  # tests/_loop_harness.py: the one place a loop is chosen
 
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def reset_voice_circuits(monkeypatch):
+    from voice import providers
+    monkeypatch.setattr(providers, "_last_failure", 0.0)
+    monkeypatch.setattr(providers, "_provider_failures", {})
+
 HERE = Path(_BACKEND)
 
 

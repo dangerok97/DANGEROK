@@ -1300,6 +1300,7 @@ export const api = {
   /** AI Core — production ORA runtime (also used by DEV /ora-ai harness) */
   aiCoreStart: (body: {
     text?: string;
+    response_channel?: 'text' | 'voice';
     activity_request_id?: string;
     origin?: string;
     entry_point?: string;
@@ -1343,6 +1344,7 @@ export const api = {
     sessionId: string,
     body: {
       text?: string;
+    response_channel?: 'text' | 'voice';
       attachments?: Array<{
         file_id?: string;
         document_id?: string;
