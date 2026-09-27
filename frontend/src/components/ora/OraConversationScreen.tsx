@@ -360,6 +360,8 @@ type Outbox = {
 
 type Props = {
   sessionId?: string | null;
+  /** First message already sent by Home; only the visual entrance is pending. */
+  openingKey?: string | null;
   planId?: string | null;
   objectId?: string | null;
   planItemId?: string | null;
@@ -406,6 +408,7 @@ export function OraConversationScreen(props: Props) {
 
 function OraConversationBody({
   sessionId: paramId,
+  openingKey: entryOpeningKey,
   planId,
   objectId,
   planItemId,
@@ -428,7 +431,7 @@ function OraConversationBody({
   const [busy, setBusy] = useState(false);
   const currentActivityRequest = useRef<string | null>(null);
   const [activityRequestId, setActivityRequestId] = useState<string | null>(null);
-  const [openingTurn, setOpeningTurn] = useState<string | null>(null);
+  const [openingTurn, setOpeningTurn] = useState<string | null>(entryOpeningKey || null);
   const firstOpening = useRef(false);
   const openingStartedAt = useRef(0);
   const [presenceActivity, setPresenceActivity] = useState<PresenceActivity | null>(null);

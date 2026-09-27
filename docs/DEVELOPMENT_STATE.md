@@ -1,3 +1,23 @@
+## 2026-09-27 — Hotfix apertura della rete: verifica locale completata
+
+Segnalazione utente: l'espansione da un punto non funziona. Il precedente
+collaudo della scena non copriva il percorso Home → sessione già creata:
+`dispatch` avviava la rete solo senza sessionId. Corretto il passaggio esplicito
+del nuovo ingresso, la preparazione del primo frame e il reset della camera.
+
+47 test mirati PASS (nuovi test eseguono il vero helper e la vera route con API
+simulate). I nuovi test eseguiti contro HEAD precedente rilevano 3 fallimenti,
+quindi espongono realmente il difetto. TypeScript PASS, lint 0 errori / 11 warning
+preesistenti, export Expo web e iOS PASS. Guardie Home3, questions32 e navigazione
+PASS. Il vecchio questions31 fallisce sul conteggio nella sezione domande non
+modificata: prova legacy fuori dal gate corrente, non eliminata né alterata.
+Il browser di verifica ha restituito timeout: non dichiarato un collaudo UI
+end-to-end autenticato o una prova su dispositivo fisico.
+
+Distribuzione web da verificare sul commit del presente hotfix. Backend e
+configurazione Railway non richiedono modifiche. Nessuna nuova dipendenza,
+migrazione, chiamata o comunicazione reale. Il resto dei limiti V4 resta valido.
+
 ## Rilascio verificato — 27 settembre 2026, continuità e apertura per sessione
 
 - Backend `e85d93567aea9e9b35290f096001ca4f79d2f29d`, deployment

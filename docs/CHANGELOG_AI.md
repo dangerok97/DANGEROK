@@ -1,3 +1,12 @@
+## 2026-09-27 — Fix: espansione saltata entrando dalla Home
+
+Il messaggio della Home precede la navigazione: ora porta un flag di apertura
+alla sessione già creata. Prima il trigger era limitato alla chat senza ID.
+Eliminato il primo frame della rete completa; un nuovo reveal parte dal centro
+anche dopo uno spostamento della camera. Invariati tempi della risposta e gate
+per conversazione. Nuovi test riproducono 3 difetti sulla versione precedente;
+47 test mirati, TypeScript e build web/iOS passano sulla correzione.
+
 ## 2026-09-27 — Rilascio verificato: sessioni e recuperi automatici
 
 Distribuiti frontend 7dea1f6 e backend e85d935; CI 36330958522: cinque job SUCCESS.

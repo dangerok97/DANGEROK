@@ -1,3 +1,11 @@
+## 2026-09-27 — Correzione apertura dal primo messaggio nella Home
+
+Il primo messaggio inviato dalla Home apre la rete anche se la sessione è già
+stata creata dal server prima di entrare nella chat. Il primo fotogramma visibile
+è un punto; l'espansione dura circa 2,8 secondi. Ogni nuova conversazione ha
+l'ingresso; ritorni nella stessa, retry e passaggi testo/voce non lo ripetono.
+Restano rispettate pausa, app in background e preferenza movimento ridotto.
+
 ## 2026-09-27 — Documenti seguiti anche senza collegare Google
 
 Un nuovo documento caricato o estratto entra nella sorveglianza automatica anche

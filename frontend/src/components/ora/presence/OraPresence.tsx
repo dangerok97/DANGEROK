@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { AccessibilityInfo, AppState, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { presencePalette as palette, presenceColors } from '@/src/theme/presence';
@@ -18,6 +18,7 @@ export function OraPresence({ mode = 'idle', activity = null, compact = false, a
   const [reduced, setReduced] = useState(true);
   const [motionReady, setMotionReady] = useState(false);
   const [opening, setOpening] = useState<string | null>(null);
+  const [resolvedOpening, setResolvedOpening] = useState<string | null>(null);
   const [foreground, setForeground] = useState(AppState.currentState !== 'background');
   const [unavailable, setUnavailable] = useState(false);
   const [info, setInfo] = useState(false);
@@ -46,10 +47,14 @@ export function OraPresence({ mode = 'idle', activity = null, compact = false, a
     }
     return () => { alive = false; app.remove(); motion.remove(); media?.removeEventListener('change', changed); };
   }, []);
-  useEffect(() => {
-    if (!openingKey || opening === openingKey || !motionReady || !active || !foreground || !user) return;
+  useLayoutEffect(() => {
+    if (!openingKey || resolvedOpening === openingKey || !motionReady || !active || !foreground || !user) return;
     if (openingSession.claim(user.user_id, openingKey) && !reduced) setOpening(openingKey);
-  }, [openingKey, opening, motionReady, active, foreground, user, reduced]);
+    setResolvedOpening(openingKey);
+  }, [openingKey, resolvedOpening, motionReady, active, foreground, user, reduced]);
+  // A Home handoff already has its first message. Resolve its entrance before
+  // mounting the canvas, so the first visible frame is a point, not a full map.
+  const canvasReady = motionReady && (!openingKey || resolvedOpening === openingKey);
   const working = mode === 'think' || mode === 'speak';
   const area = working && activity?.phase !== 'error' ? activity?.area || null : null;
   const hasConversation = Boolean(conversation);
@@ -77,7 +82,7 @@ export function OraPresence({ mode = 'idle', activity = null, compact = false, a
       </View>
     </View>
     <View style={expanded ? [styles.stage, tight && { minHeight: 0 }] : { height }} testID="ora-presence-map" onLayout={event => setStageHeight(event.nativeEvent.layout.height)}>
-      {unavailable ? <View style={styles.fallback}><Text style={styles.fallbackText}>ORA</Text></View> : motionReady ? <PresenceCanvas options={options} onUnavailable={fail} onSelect={select} /> : null}
+      {unavailable ? <View style={styles.fallback}><Text style={styles.fallbackText}>ORA</Text></View> : canvasReady ? <PresenceCanvas options={options} onUnavailable={fail} onSelect={select} /> : null}
       {areas || selected || info ? <View style={[styles.overlay, width < 650 && styles.overlayMobile]}>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.detailContent}>
           <View style={styles.detailHead}>

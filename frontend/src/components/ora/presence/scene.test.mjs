@@ -41,6 +41,33 @@ test('opening grows from one central point to the full 3D network, once', () => 
   h.scene.destroy();
 });
 
+test('a late first-message trigger restarts at the centre after the mounted map has moved', () => {
+  const h = harness({ mode: 'think', area: 'calendar' });
+  h.frames(180);
+  assert.notEqual(h.scene.snapshot().camera.x, 0);
+  h.scene.update({ revealKey: 'first-message' });
+  assert.equal(h.scene.snapshot().visiblePoints, 1);
+  assert.equal(h.scene.snapshot().projected[0].x, 180);
+  assert.equal(h.scene.snapshot().camera.zoom, 1);
+  h.frames(65);
+  assert.ok(h.scene.snapshot().visiblePoints > 1 && h.scene.snapshot().visiblePoints < 402);
+  h.scene.update({ mode: 'speak', revealKey: 'first-message' });
+  h.frames(120);
+  assert.equal(h.scene.snapshot().opening, 1);
+  h.scene.update({ revealKey: 'first-message' });
+  assert.equal(h.scene.snapshot().opening, 1);
+  h.scene.destroy();
+});
+
+test('a Home handoff starts with a point on its very first canvas frame', () => {
+  const h = harness({ revealKey: 'home-session' });
+  assert.equal(h.scene.snapshot().visiblePoints, 1);
+  assert.equal(h.scene.snapshot().opening, 0);
+  h.frames(180);
+  assert.equal(h.scene.snapshot().visiblePoints, 402);
+  h.scene.destroy();
+});
+
 test('opening respects background, reduced motion and immediate interaction', () => {
   const h = harness({ reveal: true, active: false });
   h.frames(200);

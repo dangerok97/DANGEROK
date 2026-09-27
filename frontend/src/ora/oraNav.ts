@@ -19,6 +19,8 @@ export type OraEntryPoint =
 
 export type OraConversationParams = {
   sessionId?: string | null;
+  /** The first message was sent before navigation (Home / contextual entry). */
+  opening?: boolean;
   planId?: string | null;
   objectId?: string | null;
   planItemId?: string | null;
@@ -87,6 +89,7 @@ export function buildOraConversationHref(p: OraConversationParams): string {
   const sessionId = opaque(p.sessionId);
   const base = sessionId ? `/ora/${sessionId}` : '/ora';
   const q = new URLSearchParams();
+  if (sessionId && p.opening) q.set('opening', '1');
   const planId = opaque(p.planId);
   const objectId = opaque(p.objectId);
   const planItemId = opaque(p.planItemId);

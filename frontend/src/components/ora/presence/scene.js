@@ -12,7 +12,7 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
   let pointer=null,pointerId=null,downX=0,downY=0,moved=false;
   let labels=[];
   const openingSeconds=2.8;
-  let opening=options.reveal&&!options.reduced?0:openingSeconds;
+  let opening=(options.reveal||options.revealKey)&&!options.reduced?0:openingSeconds;
   const ease=value=>{const v=Math.max(0,Math.min(1,value));return v*v*(3-2*v);};
   const camera={x:0,y:0,z:0,zoom:1};
   const cleanups=[];
@@ -189,7 +189,7 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     const reset=next.resetKey!==undefined&&next.resetKey!==options.resetKey;
     options={...options,...next};mode=modes[options.mode]?options.mode:'idle';
     // The first user turn triggers the entrance without delaying the actual work.
-    if(reveal)opening=0;
+    if(reveal){opening=0;camera.x=0;camera.y=0;camera.z=0;camera.zoom=1;hovered=-1;pointer=null;}
     if(options.reduced||options.paused)opening=openingSeconds;
     selected=Number.isInteger(options.selectedIndex)&&points[options.selectedIndex]?options.selectedIndex:-1;
     if(reset){rotation=-.06;dragYaw=0;dragPitch=0;inertia=0;hovered=-1;pointer=null;camera.x=0;camera.y=0;camera.z=0;camera.zoom=1;}

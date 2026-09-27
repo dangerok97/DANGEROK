@@ -1,3 +1,18 @@
+## 2026-09-27 — Apertura esplicita nel passaggio Home → chat
+
+`startOraConversation` aggiunge `opening=1` solo dopo un nuovo `aiCoreStart`
+riuscito. `oraNav` ammette il flag solo con session ID opaco; la route di sessione
+lo traduce in `openingKey=sessionId` per `OraConversationScreen`. Nessun testo,
+credenziale o nuovo invio viaggia nella navigazione. Resume/message esistenti
+non impostano il flag. Il gate owner/sessione già presente impedisce replay
+ritornando allo stesso URL.
+
+`OraPresence` risolve il gate prima di montare il canvas, con un layout effect;
+la scena riceve il reveal dal primo frame, senza un lampo della rete completa.
+Il renderer riconosce anche il revealKey iniziale e ricentra la camera quando
+il trigger arriva dopo il mount. La stringa del renderer nativo è rigenerata
+con parità verificata. Nessun cambiamento a backend, dati o dipendenze.
+
 ## 2026-09-27 — Handoff persistito per gli account con soli documenti
 
 `DocumentService.upload` e `_extract_and_persist` scrivono il marker opzionale

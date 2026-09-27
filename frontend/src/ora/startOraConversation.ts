@@ -105,6 +105,7 @@ export async function startOraConversation(
   router.push(
     buildOraConversationHref({
       sessionId: id,
+      opening: true,
       planId: opts.planId,
       objectId: opts.objectId,
       planItemId: opts.planItemId,
