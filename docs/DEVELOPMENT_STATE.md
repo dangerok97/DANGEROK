@@ -1,4 +1,4 @@
-## 2026-09-27 — Hotfix apertura della rete: verifica locale completata
+## 2026-09-27 — Hotfix apertura della rete: pubblicato e verificato
 
 Segnalazione utente: l'espansione da un punto non funziona. Il precedente
 collaudo della scena non copriva il percorso Home → sessione già creata:
@@ -14,9 +14,15 @@ modificata: prova legacy fuori dal gate corrente, non eliminata né alterata.
 Il browser di verifica ha restituito timeout: non dichiarato un collaudo UI
 end-to-end autenticato o una prova su dispositivo fisico.
 
-Distribuzione web da verificare sul commit del presente hotfix. Backend e
-configurazione Railway non richiedono modifiche. Nessuna nuova dipendenza,
-migrazione, chiamata o comunicazione reale. Il resto dei limiti V4 resta valido.
+Web `1268e70fba980a6ec9fe0c6d5d44a7ba64e7e9b2`, deployment
+`e38862c5-963c-48c5-b70b-f37452a337e3`: SUCCESS. CI `36339525270`:
+tutti e cinque i job SUCCESS, compresi i nuovi test nel gate frontend.
+HTTP 200 su /ora, /healthz e bundle pubblico
+`entry-3128e251956165ad620006edb1f6a3b6.js`; verificati flag opening,
+passaggio della chiave nella route, gate e reveal iniziale nel codice servito.
+Configurazione web riletta identica prima/dopo. Backend e85d935 invariato.
+Nessuna nuova dipendenza, migrazione, chiamata o comunicazione reale.
+Il resto dei limiti V4 resta valido.
 
 ## Rilascio verificato — 27 settembre 2026, continuità e apertura per sessione
 

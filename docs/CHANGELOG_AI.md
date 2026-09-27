@@ -6,6 +6,8 @@ Eliminato il primo frame della rete completa; un nuovo reveal parte dal centro
 anche dopo uno spostamento della camera. Invariati tempi della risposta e gate
 per conversazione. Nuovi test riproducono 3 difetti sulla versione precedente;
 47 test mirati, TypeScript e build web/iOS passano sulla correzione.
+Pubblicato frontend 1268e70, deployment e38862c5 SUCCESS, CI 36339525270:
+cinque job SUCCESS. Bundle pubblico e configurazione invariata verificati.
 
 ## 2026-09-27 — Rilascio verificato: sessioni e recuperi automatici
 
