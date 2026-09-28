@@ -316,7 +316,11 @@ def _routing_note() -> Dict[str, Any]:
     c = routing.capabilities()
     return {
         "available": bool(c.get("available")),
-        "why_unavailable": c.get("why_unavailable") or "",
+        "why_unavailable": (
+            "il servizio per confrontare i percorsi non è ancora attivo; "
+            "la mappa mostrerà il traffico quando la apri"
+            if not c.get("available") else ""
+        ),
     }
 
 

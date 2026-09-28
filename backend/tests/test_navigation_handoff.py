@@ -53,6 +53,7 @@ def test_navigation_rescue_produces_link_when_model_skips_tool(monkeypatch):
     response = run(loop._ensure_navigation(observations, 0, message, object(), "u"))
     assert "Google Maps" in response
     assert len(loop._navigation_options(observations)) == 1
+    assert loop._navigation_options(observations)[0]["label"] == "Google Maps"
     assert "destination=colosseo" in loop._navigation_options(observations)[0]["url"]
     run(loop._ensure_navigation(observations, 0, message, object(), "u"))
     assert len(observations) == 1

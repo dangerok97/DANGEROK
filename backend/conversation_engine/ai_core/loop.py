@@ -2966,10 +2966,15 @@ def _navigation_options(observations) -> list:
         if payload.get("capability") != "open_navigation" or not payload.get("ready"):
             continue
         if payload.get("url") and payload.get("app"):
+            app = str(payload["app"])
             return [
                 {
-                    "id": str(payload["app"])[:32],
-                    "label": str(payload["app"])[:40],
+                    "id": app[:32],
+                    "label": {
+                        "google_maps": "Google Maps",
+                        "apple_maps": "Apple Maps",
+                        "waze": "Waze",
+                    }.get(app, app)[:40],
                     "url": str(payload["url"])[:600],
                 }
             ]
