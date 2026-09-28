@@ -4439,3 +4439,16 @@ Il link dell'obiettivo legge ora la singola scheda proprietaria tramite
 Home né dalla disponibilità dell'intero riepilogo. Test di regressione su
 bozza, fonte, isolamento tra account e annullamento; prove build e verifica
 online da registrare dopo il rilascio. Nessuna nuova dipendenza o migrazione.
+
+Rilascio `594ce9e` su backend `8b8de9dd` e web `b0eaefec`, entrambi
+SUCCESS. Test mirato, TypeScript ed export web PASS; lint zero errori e
+45 avvisi preesistenti in `client.ts`. La pagina Aggiornamenti dell'account
+autenticato è stata verificata online e risulta vuota: screenshot
+`ora-aggiornamenti-online-1790627995862.jpg`. Il dettaglio di un goal reale
+non è stato visualizzato in questo account, che al momento non ne espone;
+la continuità e il vincolo proprietario sono coperti dal test mirato.
+
+Il precedente incremento dell'orario nel focus è online sul web `1844ffc`,
+deployment `52e47de5` SUCCESS. Screenshot autenticato
+`ora-focus-orario-chat-1790627433891.jpg`: appuntamento del 30 settembre
+20:00–20:45 e tasto Apri nello stesso riquadro.

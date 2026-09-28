@@ -5796,3 +5796,12 @@ della Home e controllo del proprietario. La pagina aggiornamento usa il suo ID
 direttamente per i goal, così la bozza rimane raggiungibile dopo il cambio
 di priorità. Obiettivi annullati o completati senza evidenza non sono mostrati.
 Verifica pubblicata e screenshot da aggiungere dopo il deploy.
+
+`594ce9e` distribuito: backend `8b8de9dd`, web `b0eaefec`, SUCCESS.
+Test di isolamento, annullamento e bozza PASS; TypeScript ed export web PASS.
+Screenshot della schermata Aggiornamenti online:
+`ora-aggiornamenti-online-1790627995862.jpg`, vuota nell'account autenticato;
+non è una verifica visuale di un goal concreto.
+
+Anche l'orario del focus in chat è stato verificato sul web `1844ffc`:
+`ora-focus-orario-chat-1790627433891.jpg` mostra l'intervallo e Apri.
