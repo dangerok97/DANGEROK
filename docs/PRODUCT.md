@@ -1721,3 +1721,9 @@ Dal focus ambiguo, `Ricordamelo` passa direttamente alla scelta del momento:
 tra un'ora, domani, tra tre giorni o tra una settimana. Il promemoria viene
 creato dopo questa scelta; non viene richiesta una seconda conferma del tipo
 di aiuto. `Organizzala` conserva la guida alla checklist o al promemoria.
+## 28 settembre 2026 — Il focus in chat apre la sua destinazione
+
+Il tasto contestuale del focus nella conversazione usa la destinazione
+concreta indicata da Home. Un appuntamento già presente apre il suo dettaglio
+di calendario; la guida resta disponibile quando la scheda richiede davvero
+di organizzare qualcosa e non ha una schermata specifica.

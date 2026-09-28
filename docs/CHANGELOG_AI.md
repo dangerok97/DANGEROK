@@ -5761,3 +5761,9 @@ percorso a due risposte e quattro per i ritardi effettivi. Dopo la prima
 prova live, eliminata la risposta `support` derivata che faceva mostrare
 `3 di 6`; aggiunta compatibilità per una guida già a metà. Rilascio della
 correzione del progresso e screenshot da completare.
+## 28 settembre 2026 — Focus della chat verso il dettaglio corretto
+
+La route di Home ora prevale sul testo `Apri` nel navigatore condiviso:
+un evento esistente non apre più la guida generica dalla conversazione.
+Restano guidate le schede con `/action/open` o prive di destinazione.
+Quattro test mirati PASS; build e pubblicazione web da completare.

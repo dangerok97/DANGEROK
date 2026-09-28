@@ -3,6 +3,9 @@ import { Router } from 'expo-router';
 import { HomeActionDef, HomeItem } from '@/src/api/client';
 import { ActionEngine } from '@/src/action-engine';
 import { ConversationEngine } from '@/src/conversation-engine';
+import { isGuidedAction } from './homeRoute';
+
+export { isGuidedAction } from './homeRoute';
 
 export function openMapsQuery(query?: string | null) {
   if (!query) return;
@@ -15,16 +18,6 @@ export function openMapsQuery(query?: string | null) {
   Linking.openURL(url).catch(() => {
     Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${q}`);
   });
-}
-
-/** True when this action must open the guided Action Engine (never empty page). */
-export function isGuidedAction(action: HomeActionDef): boolean {
-  if (action.kind === 'guide') return true;
-  if (action.kind === 'open') return true;
-  if (action.route === '/action/open') return true;
-  if (action.route?.startsWith('/action/') && action.kind === 'resume') return false;
-  const labels = (action.label || '').toLowerCase();
-  return ['apri', 'organizza', 'inizia'].some((l) => labels === l || labels.startsWith(l + ' '));
 }
 
 export async function navigateHomeAction(

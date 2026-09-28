@@ -3634,3 +3634,11 @@ espone nel frattempo il progresso effettivo `2 di 2` anche per la vecchia
 sessione.
 Il calcolo degli effetti usa `timedelta` per ora/giorni e la stessa
 persistenza proprietaria dei promemoria. Altri flussi generici non cambiano.
+## 28 settembre 2026 — Priorità della route Home nella chat
+
+`homeNav.isGuidedAction` ora distingue `/action/open` dalla route concreta
+fornita dall'azione Home. La route concreta precede l'euristica basata su
+`label=Apri`; il fallback Action Engine si applica solo ad azioni senza
+route o con route esplicita `/action/open`. `OraConversationScreen` continua
+a usare `navigateHomeAction` e quindi segue la stessa destinazione canonica.
+Test puro delle quattro diramazioni in `homeRoute.test.ts`.

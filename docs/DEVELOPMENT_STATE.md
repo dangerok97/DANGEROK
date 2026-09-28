@@ -4397,3 +4397,11 @@ inclusi i tempi salvati. La prova live ha trovato il contatore `3 di 6`
 causato dalla risposta derivata `support`; il percorso ora ha due turni
 effettivi e una compatibilità per la sessione già aperta. Compilazione,
 lint e verifica online del contatore da registrare dopo il rilascio.
+## 28 settembre 2026 — Collegamento del focus della chat
+
+La prova nell'account mostrava una discrepanza: `Apri` su Home apriva
+`/calendar-event/ing_...`, mentre `Apri` nella conversazione apriva Action
+Engine per la stessa scheda. L'euristica della label `Apri` prevaleva sulla
+route esplicita nell'helper della chat. Ora la route concreta ha priorità;
+quattro casi di regressione passano. TypeScript, export web e verifica live
+da registrare dopo il rilascio.
