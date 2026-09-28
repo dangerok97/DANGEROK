@@ -62,6 +62,7 @@ class DiscoveryResult(BaseModel):
     reason: ScanReason = "state_changed"
     skipped: str = ""
     changes_reviewed: int = 0
+    retry_after_seconds: Optional[int] = None
     scan: Optional[ScanResult] = None
 
     @property
@@ -134,6 +135,7 @@ class OpportunityDiscovery:
         *,
         reason: ScanReason = "state_changed",
         force: bool = False,
+        scheduled: bool = False,
         language: str = "it",
     ) -> DiscoveryResult:
         """
@@ -143,7 +145,7 @@ class OpportunityDiscovery:
         from opportunities.service import OpportunityService
 
         pending = await self.changes.pending(owner_id)
-        if not pending and not force:
+        if not pending and not force and not scheduled:
             return DiscoveryResult(reason=reason, skipped="niente è cambiato")
 
         state = await self._state(owner_id)
@@ -151,7 +153,8 @@ class OpportunityDiscovery:
         if not force and self._cooling(state):
             # The changes stay pending: the next review takes them.
             return DiscoveryResult(
-                reason=reason, skipped="una revisione è appena avvenuta"
+                reason=reason, skipped="una revisione è appena avvenuta",
+                retry_after_seconds=COOLDOWN_SECONDS
             )
 
         snapshot = await life_snapshot.build(self.db, owner_id)

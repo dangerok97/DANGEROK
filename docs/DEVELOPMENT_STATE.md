@@ -4337,3 +4337,8 @@ Corretto il difetto segnalato alle 16:45: il payload conteneva solo la data loca
 ## 28 settembre 2026 — Impegni Home nel lavoro autonomo
 
 Il riepilogo proattivo include ora gli impegni Home con fine, luogo e note, riferimenti canonici e ordinamento per istante. La nuova capacità di sola lettura calendar.local.read consente all’agente di approfondirli senza connessione Google; non concede accesso ai calendari esterni. Le revisioni cancellate o spostate non fanno riapparire vecchie copie del provider. Data e giorno del riepilogo seguono il fuso locale. 18 test mirati PASS (fonti, isolamento, cancellazione, fusi, lettura reale locale e recupero background); verifica cloud separata ancora da eseguire. Nessuna dipendenza o migrazione DB.
+
+
+## 28 settembre 2026 — Continuità dei riesami programmati
+
+I risvegli opportunity_revisit/ambient_review possono rivalutare i fatti temporali senza nuovi cambiamenti. Mantengono cooldown e fingerprint; un cooldown rinvia il risveglio invece di perderlo. Un provider indisponibile resta ritentabile. 12 test PASS sul ciclo programmato e recovery, inclusa esecuzione dal runtime senza Home/chat. Prima prova cloud del rilascio precedente: due impegni sintetici sovrapposti hanno prodotto un’opportunità autonomamente, ma il consiglio conteneva minuti errati e alternativa non fattibile; qualità non ancora accettata, nessun goal avviato. Nessun invio o scrittura esterna.

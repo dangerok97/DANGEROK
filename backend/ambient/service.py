@@ -226,10 +226,13 @@ class AmbientService:
         out = WakeOutcome(wake_id=wake.id, reason=wake.reason)
         discovery = OpportunityDiscovery(self.db)
 
-        outcome = await discovery.review(wake.owner_id, reason="opportunity_recheck")
+        # A due scheduled review is itself a reason to examine temporal facts.
+        # It still obeys cooldown/fingerprint guards; it is never a forced scan.
+        scheduled = wake.reason in ("opportunity_revisit", "ambient_review")
+        outcome = await discovery.review(wake.owner_id, reason="opportunity_recheck", scheduled=scheduled)
         if not outcome.ran:
-            if await discovery.changes.pending(wake.owner_id):
-                out.retry_after_seconds = 120
+            if getattr(outcome, "retry_after_seconds", None) or await discovery.changes.pending(wake.owner_id):
+                out.retry_after_seconds = getattr(outcome, "retry_after_seconds", None) or 120
                 out.error = "review_deferred"
                 return out
             out.handled = True
