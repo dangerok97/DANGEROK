@@ -4351,3 +4351,6 @@ Le sovrapposizioni vengono calcolate sugli istanti dal codice, non dal modello. 
 
 ## 28 settembre 2026 — Esito autonomia cloud e provenienza
 Provata su account sintetico la catena senza nuovi messaggi: recupero dopo riavvio, opportunità, goal, lettura e bozza persistita, poi attesa del consenso. Conservata la provenienza calendar_event quando arriva una change notification. Rafforzato il controllo delle bozze contro promesse di consegna e disponibilità non provate; accuratezza live non ancora pienamente accettata. OpenAI verificato ma indisponibile per quota, fallback attivi. Dettagli e limiti in AUTONOMY_LIVE_2026_09_28.md.
+
+## 28 settembre 2026 — Preparazione calendariale e Amazon
+19 test mirati su preparazione e proattività, 2 sulla ricerca Amazon PASS localmente. Resta il gate live dopo il nuovo rilascio. Amazon: la ricerca è un handoff; per un catalogo ufficiale servono idoneità e credenziali Creators API, da valutare anche rispetto ai termini per una app generalista. Nessun ordine retail automatizzato disponibile tramite la capacità implementata. Nessuna migrazione DB o dipendenza runtime.

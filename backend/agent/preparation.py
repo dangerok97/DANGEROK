@@ -20,6 +20,24 @@ async def prepare(db, owner_id, goal, step):
                 if e.provenance.source_class in REAL_SOURCES and e.provenance.provider != "generated_draft"][-12:]
     if not evidence:
         return unavailable("preparation_sources_required")
+    from agent.calendar_conflict import overlap_draft, is_home_calendar_pair
+    overlap = await overlap_draft(db, owner_id, goal, evidence)
+    if overlap:
+        content, refs = overlap
+        saved = await db.agent_goals.update_one(
+            {"id": goal.id, "owner_id": owner_id, "status": {"$in": ["active", "waiting"]}},
+            {"$set": {"prepared_text": content, "prepared_sources": refs}},
+        )
+        if saved.matched_count != 1:
+            return unavailable("preparation_goal_unavailable")
+        goal.prepared_text, goal.prepared_sources = content, refs
+        provenance.provider, provenance.source_refs = "calendar_overlap_draft", refs
+        return CapabilityOutcome(status="succeeded", observation="Proposta basata sugli orari attuali; nessuna azione esterna eseguita.",
+            provenance=provenance, data_ref=f"goal:{goal.id}:preparation",
+            claims=[Claim(text="Bozza generata (non prova indipendente):\n"+content[i:i+500], supports="contenuto della bozza salvata")
+                    for i in range(0, len(content), 500)])
+    if is_home_calendar_pair(goal):
+        return unavailable("preparation_calendar_changed", True)
     rows = [{"id": e.id, "claim": e.claim, "source_class": e.provenance.source_class,
              "source_refs": e.provenance.source_refs[:4], "observed_at": e.observed_at,
              "limits": e.provenance.certainty_note[:180]} for e in evidence]

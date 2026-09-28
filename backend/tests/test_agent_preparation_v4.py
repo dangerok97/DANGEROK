@@ -99,3 +99,39 @@ async def test_only_source_reviewed_content_is_persisted(monkeypatch):
     assert result.status == "succeeded"
     assert saved["prepared_text"] == goal.prepared_text == corrected
     assert "obbligato" not in result.claims[0].text
+
+
+@pytest.mark.asyncio
+async def test_calendar_conflict_prepares_exact_safe_request_without_model(monkeypatch):
+    from datetime import datetime, timedelta
+    from zoneinfo import ZoneInfo
+    from home.manual_event import create_manual_event, archive_manual_event, home_event_times
+    db = AsyncMongoMockClient().test
+    # Far enough in the future for a stable test independent of the clock.
+    day = (datetime.now(ZoneInfo("Europe/Rome")) + timedelta(days=2)).date().isoformat()
+    first_start, first_end = home_event_times(day, "10:00", "Europe/Rome")
+    second_start, second_end = home_event_times(day, "10:15", "Europe/Rome")
+    first = await create_manual_event(db, "alice", title="Ritiro modulo", start=first_start,
+        end=first_end, tz_name="Europe/Rome", description="Portare il modulo originale")
+    second = await create_manual_event(db, "alice", title="Consegna al tecnico", start=second_start,
+        end=second_end, tz_name="Europe/Rome")
+    refs = ["calendar:" + first["id"], "calendar:" + second["id"]]
+    goal = AutonomousGoal(owner_id="alice", objective="Risolvere il conflitto", desired_outcome="Un piano",
+        status="active", source_kind="opportunity", opportunity_id="opp_1", source_refs=refs)
+    await db.agent_goals.insert_one(goal.model_dump())
+    for ref in refs:
+        await db.agent_evidence.insert_one(AgentEvidence(owner_id="alice", goal_id=goal.id,
+            claim="Impegno letto dal calendario", supports=ref,
+            provenance=ResultProvenance(source_class="internal_observation", provider="ora_local_calendar")).model_dump())
+    model = AsyncMock()
+    monkeypatch.setattr(reasoning, "_ask_model", model)
+    result = await prepare_locally(db, "alice", goal, ActionStep(intent="Prepara la richiesta", step_type="prepare"))
+    assert result.status == "succeeded" and "45 minuti" in goal.prepared_text
+    assert "nessun messaggio è stato inviato" in goal.prepared_text.lower()
+    assert "corriere" not in goal.prepared_text.lower()
+    assert "disponibilità alternativa" in goal.prepared_text
+    assert len(goal.prepared_sources) == 2
+    model.assert_not_awaited()
+    await archive_manual_event(db, "alice", second["id"])
+    another = await prepare_locally(db, "alice", goal, ActionStep(intent="Rivedi", step_type="prepare"))
+    assert another.error_type == "preparation_calendar_changed"

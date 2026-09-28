@@ -3590,3 +3590,6 @@ Le sovrapposizioni vengono calcolate sugli istanti dal codice, non dal modello. 
 
 ## 28 settembre 2026 — Esito autonomia cloud e provenienza
 Provata su account sintetico la catena senza nuovi messaggi: recupero dopo riavvio, opportunità, goal, lettura e bozza persistita, poi attesa del consenso. Conservata la provenienza calendar_event quando arriva una change notification. Rafforzato il controllo delle bozze contro promesse di consegna e disponibilità non provate; accuratezza live non ancora pienamente accettata. OpenAI verificato ma indisponibile per quota, fallback attivi. Dettagli e limiti in AUTONOMY_LIVE_2026_09_28.md.
+
+## 28 settembre 2026 — Confini delle preparazioni e Amazon
+`agent.calendar_conflict.overlap_draft` usa due riferimenti Home, lettura per proprietario e istanti correnti; accetta solo due eventi attivi con sovrapposizione reale ed evidenze lette. `prepare_locally` salva la bozza e i riferimenti, oppure sospende la preparazione se le fonti sono cambiate. La nuova capacità AI Core `prepare_amazon_search` restituisce un URL codificato verso Amazon.it e metadati espliciti su ciò che non è stato verificato. È `READ_ONLY`: nessun token Amazon, scraping, API retail checkout o azione di pagamento.

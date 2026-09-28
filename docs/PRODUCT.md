@@ -1683,3 +1683,6 @@ Le sovrapposizioni vengono calcolate sugli istanti dal codice, non dal modello. 
 
 ## 28 settembre 2026 — Esito autonomia cloud e provenienza
 Provata su account sintetico la catena senza nuovi messaggi: recupero dopo riavvio, opportunità, goal, lettura e bozza persistita, poi attesa del consenso. Conservata la provenienza calendar_event quando arriva una change notification. Rafforzato il controllo delle bozze contro promesse di consegna e disponibilità non provate; accuratezza live non ancora pienamente accettata. OpenAI verificato ma indisponibile per quota, fallback attivi. Dettagli e limiti in AUTONOMY_LIVE_2026_09_28.md.
+
+## 28 settembre 2026 — Bozze calendario e ricerca Amazon
+Per due impegni Home sovrapposti, ORA prepara una richiesta con orari calcolati e nessuna disponibilità alternativa inventata. Una richiesta di acquisto su Amazon può ottenere un link di ricerca Amazon.it per il tipo di oggetto richiesto, da verificare e acquistare direttamente su Amazon. Non attribuire a ORA ordini, prezzi o prodotti controllati quando il catalogo non è collegato.

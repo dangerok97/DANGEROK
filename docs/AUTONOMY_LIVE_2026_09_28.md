@@ -24,3 +24,8 @@ Qualità ancora NON pienamente accettata: nella bozza il modello trasforma un co
 Corretto anche il tipo delle fonti: una notifica di cambiamento non deve sovrascrivere calendar_event con change. Regressione dedicata.
 
 Prova effettiva OpenAI su account sintetico: provider configurato ma failure_kind=quota, runtime_state=cooldown. La risposta viene dai fallback; non è prova di uso OpenAI e non è stato cambiato il provider primario.
+
+## Preparazione deterministica e ricerca Amazon — verifica in corso
+La lettura autenticata del caso sintetico ha confermato che `/opportunities/{id}/work` e `/agent` espongono la bozza salvata, ma la vecchia bozza inventa un corriere garantito nello stesso giorno. Per una coppia di impegni Home ancora attivi e sovrapposti, la nuova preparazione rilegge le due fonti del proprietario, calcola l'intersezione e produce una richiesta di spostamento senza attribuire disponibilità, tempi di percorrenza o invii già eseguiti. Se i due impegni cambiano o non sono più sovrapposti, non prepara il vecchio conflitto. Non modifica le bozze già persistite.
+
+La capacità conversazionale `prepare_amazon_search` genera una ricerca su Amazon.it per una categoria specifica con query minima e senza dati personali. È un passaggio all'utente: nessun catalogo, prezzo, disponibilità, carrello, ordine o collegamento dell'account Amazon è verificato da questa capacità. Un catalogo ufficiale richiede accesso e approvazione per Amazon Creators API; Amazon Pay serve a pagare presso un proprio commerciante, non a ordinare prodotti retail da Amazon per conto del cliente. Prove cloud del nuovo rilascio ancora da eseguire.
