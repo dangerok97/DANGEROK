@@ -141,7 +141,13 @@ export async function enable(): Promise<{ ok: boolean; reason?: string }> {
   }
 
   const Location = await locationModule();
-  await Location.startLocationUpdatesAsync(LOCATION_TASK, {
+  try {
+    await api.placesSetMonitoring(true);
+  } catch {
+    return { ok: false, reason: 'ORA non riesce ad attivare il riconoscimento dei luoghi adesso. Riprova quando sei online.' };
+  }
+  try {
+    await Location.startLocationUpdatesAsync(LOCATION_TASK, {
     // Balanced, not Highest: a hundred-metre zone does not need a
     // three-metre fix, and asking for one is what empties a battery.
     accuracy: Location.Accuracy.Balanced,
@@ -154,7 +160,11 @@ export async function enable(): Promise<{ ok: boolean; reason?: string }> {
       notificationBody:
         'Serve per accorgersi di quando arrivi o esci. Puoi disattivarlo dal Profilo.',
     },
-  });
+    });
+  } catch (error) {
+    await api.placesSetMonitoring(false).catch(() => undefined);
+    throw error;
+  }
 
   await AsyncStorage.setItem(ENABLED_KEY, '1');
   await syncRegions();
@@ -169,6 +179,8 @@ export async function enable(): Promise<{ ok: boolean; reason?: string }> {
  */
 export async function disable(): Promise<void> {
   await AsyncStorage.setItem(ENABLED_KEY, '0');
+  const { clear } = await import('./presenceBuffer');
+  await clear();
   if (!native()) return;
   const Location = await locationModule();
   const TaskManager = await import('expo-task-manager');
@@ -179,6 +191,7 @@ export async function disable(): Promise<void> {
   if (await TaskManager.isTaskRegisteredAsync(GEOFENCE_TASK)) {
     await Location.stopGeofencingAsync(GEOFENCE_TASK).catch(() => undefined);
   }
+  await api.placesSetMonitoring(false);
 }
 
 /**
@@ -231,6 +244,12 @@ export async function syncRegions(): Promise<{ regions: number }> {
  * that never arrived.
  */
 export async function reconcile(): Promise<{ sent: number; left: number }> {
+  if (!(await isEnabled())) {
+    // Also retries a revocation made offline. No GPS fix is taken.
+    await api.placesSetMonitoring(false).catch(() => undefined);
+    return { sent: 0, left: 0 };
+  }
+  await api.placesSetMonitoring(true);
   if (native()) {
     try {
       const Location = await locationModule();
@@ -259,6 +278,7 @@ export async function reconcile(): Promise<{ sent: number; left: number }> {
 let inFlightDelivery: Promise<{ sent: number; left: number }> | null = null;
 
 export async function sendPending(): Promise<{ sent: number; left: number }> {
+  if (!(await isEnabled())) return { sent: 0, left: 0 };
   if (inFlightDelivery) return inFlightDelivery;
   inFlightDelivery = flush(async (entry) => {
     try {

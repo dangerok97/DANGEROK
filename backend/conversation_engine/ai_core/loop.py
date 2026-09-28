@@ -213,6 +213,39 @@ _PHONE_ACTION_ASK_RE = re.compile(
 )
 _PHONE_CAPABILITY = "prepare_a_phone_call"
 
+# Direct departure commands must end with an actual map handoff. This narrow
+# extraction is a terminal safety net when a provider answers "Ok." without
+# calling the capability. Questions about routes and durations remain with AI.
+_NAVIGATION_COMMAND_RE = re.compile(
+    r"(?i)^\s*(?:portami|accompagnami|guidami|naviga|avvia\s+(?:la\s+)?navigazione)"
+    r"(?:\s+dalla\s+mia\s+posizione)?\s+(?:a|al|alla|allo|all['’]|verso|fino\s+a)\s+(.+?)\s*[.!?]?\s*$"
+)
+
+
+def _navigation_destination(message: str) -> str:
+    match = _NAVIGATION_COMMAND_RE.match(message or "")
+    if not match:
+        return ""
+    return re.sub(r"(?i)\s+per\s+favore$", "", match.group(1).strip(" .!?"))[:160]
+
+
+async def _ensure_navigation(observations, turn_start: int, message: str, db, uid: str) -> str:
+    """Produce the map link once for an explicit departure, even on model failure."""
+    destination = _navigation_destination(message)
+    if not destination or db is None or not uid:
+        return ""
+    current = [o for o in observations[turn_start:] if isinstance(o, dict)
+               and o.get("name") == "open_navigation"]
+    if current:
+        payload = current[-1].get("payload") or {}
+    else:
+        from places.caps import open_navigation
+
+        obs = await open_navigation({"destination": destination}, {"db": db, "user_id": uid, "platform": "web"})
+        observations.append(obs.model_dump())
+        payload = obs.payload or {}
+    return str(payload.get("say_this") or payload.get("why") or "")
+
 
 
 async def _phone_number_correction(db, user_id: str, state: dict, text: str) -> dict:
@@ -1711,6 +1744,15 @@ async def run_cognitive_loop(
                 # A terminal non-question represents progress, deferral or refusal
                 # handling. Do not turn semantic refs into permanent session bans.
                 st["clarification_history"] = []
+            navigation_text = await _ensure_navigation(
+                observations, turn_start, user_message, db, sess.user_id
+            )
+            if navigation_text:
+                ora = navigation_text
+                mode = "answer"
+                blocking_ask = None
+                decision.question = None
+                add_step(trace, event="NAVIGATION_HANDOFF")
             # ORA proposing an external effect and waiting is a fact about the
             # conversation, and until now it lived only in the model's memory
             # of its own last turn. Written down, it becomes something code
@@ -2464,6 +2506,12 @@ async def run_cognitive_loop(
             "Ho aggiornato la situazione, ma non sono riuscita a riconciliare il piano "
             "collegato. Il piano potrebbe essere ancora attivo: non lo considero annullato."
         )
+    navigation_text = await _ensure_navigation(
+        observations, turn_start, user_message, db, sess.user_id
+    )
+    if navigation_text:
+        ora = navigation_text
+        add_step(trace, event="NAVIGATION_HANDOFF_BOUND")
     state_mod.append_turn(st, role="ora", text=ora, kind="answer")
     st["observations"] = observations[-12:]
     state_mod.save_ai_state(sess, st)
@@ -2499,6 +2547,8 @@ async def run_cognitive_loop(
         external_queries=external_queries,
         elapsed_ms=int((time.perf_counter() - t0) * 1000),
         sources=public_sources[:MAX_SOURCES_UI],
+        navigation=_navigation_options(observations[turn_start:]),
+        journey=_journey_from(observations[turn_start:]),
         ui_actions=_ui_actions_from(observations[turn_start:]),
         working_hint=working_hint,
         error="loop_bound" if ai_calls >= max_steps else None,
@@ -2819,7 +2869,7 @@ def _compose_user_text(decision: CognitiveDecision, observations=None) -> str:
 
 # Gli strumenti la cui frase per la persona è parte del risultato, non un
 # suggerimento: quello che chiedono di confermare non si riassume.
-_TOOLS_THAT_SPEAK = ("prepare_a_phone_call",)
+_TOOLS_THAT_SPEAK = ("prepare_a_phone_call", "open_navigation")
 
 
 def _the_tool_s_own_sentence(observations) -> str:

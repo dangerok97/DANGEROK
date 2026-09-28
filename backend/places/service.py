@@ -333,6 +333,7 @@ class PlacesService:
 
         candidate = await self._cluster_into_candidate(user_id, observation)
         await self.repo.add_observation(observation)
+        await self._schedule_candidate_review(user_id, candidate)
         return {
             "recorded": True,
             "candidate_id": candidate.id,
@@ -690,21 +691,51 @@ class PlacesService:
                 last_seen=observation.observed_at,
             )
         observation.candidate_id = candidate.id
-        candidate.distinct_days = await self._distinct_days(user_id, candidate)
+        candidate.distinct_days = await self._distinct_days(user_id, candidate, observation)
         candidate.spread_m = max(
             candidate.spread_m,
             round(geometry.distance_meters(candidate.centroid, observation.coordinates), 1),
         )
         return await self.repo.save_candidate(candidate)
 
-    async def _distinct_days(self, user_id: str, candidate: PlaceCandidate) -> int:
+    async def _distinct_days(
+        self, user_id: str, candidate: PlaceCandidate, current: PresenceObservation
+    ) -> int:
         recent = await self.repo.recent_observations(user_id)
         mine = [o for o in recent if o.candidate_id == candidate.id]
-        return max(candidate.distinct_days, geometry.distinct_days(mine) if mine else 1)
+        # The new observation has not been inserted yet at this point.
+        return max(candidate.distinct_days, geometry.distinct_days([*mine, current]))
+
+    async def _schedule_candidate_review(self, user_id: str, candidate: PlaceCandidate) -> None:
+        """Arrange a bounded judgement after repeated days, while consent is on."""
+        if candidate.muted or candidate.outcome != "pending":
+            return
+        days = candidate.distinct_days
+        if days < max(3, candidate.review_requested_days * 2):
+            return
+        try:
+            from ambient.service import AmbientService
+
+            record = await self.db.users.find_one(
+                {"user_id": user_id}, {"preferences.place_monitoring_enabled": 1}
+            )
+            if (record or {}).get("preferences", {}).get("place_monitoring_enabled") is not True:
+                return
+            wake = await AmbientService(self.db).schedule(
+                user_id, reason="ambient_review", when=_now(),
+                source_ref=f"place_candidate:{candidate.id}",
+            )
+            if wake is not None:
+                candidate.review_requested_days = days
+                await self.repo.save_candidate(candidate)
+        except Exception as exc:
+            logger.info("place review schedule soft-fail: %s", type(exc).__name__)
 
     # --- from a pattern to a question ----------------------------------
 
-    async def review_candidates(self, user_id: str, *, language: str = "it") -> List[Dict[str, Any]]:
+    async def review_candidates(
+        self, user_id: str, *, language: str = "it", candidate_id: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
         """
         Ask the model whether any repeated spot is worth raising.
 
@@ -718,7 +749,7 @@ class PlacesService:
         candidates = [
             c
             for c in await self.repo.list_candidates(user_id, outcomes=["pending"])
-            if not c.muted
+            if not c.muted and (candidate_id is None or c.id == candidate_id)
         ]
         if not candidates:
             return []
@@ -737,6 +768,8 @@ class PlacesService:
             if candidate is None:
                 continue
             question_id = await self._raise_question(candidate, decision)
+            if question_id is None:
+                raise RuntimeError("place_question_unavailable")
             candidate.outcome = "asked"
             candidate.question_id = question_id
             await self.repo.save_candidate(candidate)

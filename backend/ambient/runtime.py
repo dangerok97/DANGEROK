@@ -282,6 +282,20 @@ async def _handle(db, wake) -> Any:
     from ambient.service import AmbientService
 
     service = AmbientService(db)
+    if wake.reason == "ambient_review" and wake.source_ref.startswith("place_candidate:"):
+        from ambient.models import WakeOutcome
+        from places.service import PlacesService
+
+        record = await db.users.find_one(
+            {"user_id": wake.owner_id}, {"preferences.place_monitoring_enabled": 1}
+        )
+        if (record or {}).get("preferences", {}).get("place_monitoring_enabled") is not True:
+            return WakeOutcome(wake_id=wake.id, reason=wake.reason, handled=True, result="monitoring_off")
+        raised = await PlacesService(db).review_candidates(
+            wake.owner_id, candidate_id=wake.source_ref.removeprefix("place_candidate:")
+        )
+        return WakeOutcome(wake_id=wake.id, reason=wake.reason, handled=True,
+                           result=f"place_questions:{len(raised)}")
     if wake.reason == "opportunity_revisit" and wake.source_ref.startswith("goal:"):
         from agent.background import advance_wake
         return await advance_wake(db, wake)

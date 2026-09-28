@@ -325,6 +325,9 @@ class PlaceCandidate(BaseModel):
     centroid: Coordinates
     observation_count: int = Field(default=0, ge=0)
     distinct_days: int = Field(default=0, ge=0)
+    # Last sample size that arranged a background review. A quiet model may
+    # look again after substantially more evidence, not on every GPS fix.
+    review_requested_days: int = Field(default=0, ge=0)
     total_dwell_seconds: int = Field(default=0, ge=0)
     first_seen: str = Field(default_factory=now_iso)
     last_seen: str = Field(default_factory=now_iso)

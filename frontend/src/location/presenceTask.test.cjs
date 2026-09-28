@@ -59,6 +59,14 @@ test('background location fixes are delivered without reopening ORA', async () =
   assert.equal(h.deliveries, 1);
 });
 
+test('revoked monitoring ignores late callbacks without buffering coordinates', async () => {
+  const h = harness(outside, false);
+  await h.tasks['ora-presence-location']({ data: { locations: [outside] } });
+  await h.tasks['ora-presence-geofence']({ data: { region, eventType: 2 } });
+  assert.equal(h.saved.length, 0);
+  assert.equal(h.deliveries, 0);
+});
+
 test('geofence wake requests a measured fix when no recent fix exists', async () => {
   const h = harness(null, true, outside);
   await h.tasks['ora-presence-geofence']({ data: { region, eventType: 2 } });

@@ -26,6 +26,26 @@ NAVIGATION_APPS: Dict[str, Dict[str, str]] = {
 TravelMode = str  # driving | walking | transit | cycling — passed through, not policed
 
 
+def search_handoff(label: str, mode: TravelMode = "driving") -> Dict[str, object]:
+    """Open a named public destination in Maps, from the device's position.
+
+    No geocoding claim is made here: Maps resolves the query and shows its
+    current traffic after the person taps. Keep this distinct from a confirmed
+    Life Place with coordinates.
+    """
+    destination = quote(label.strip()[:160], safe="")
+    return {
+        "needs_choice": False,
+        "app": "google_maps",
+        "url": (
+            "https://www.google.com/maps/dir/?api=1"
+            f"&destination={destination}&travelmode={quote(_google_mode(mode))}"
+            "&dir_action=navigate"
+        ),
+        "destination_label": label.strip()[:160],
+    }
+
+
 def available_apps(platform: str = "web") -> List[Dict[str, str]]:
     """
     What can be offered here.

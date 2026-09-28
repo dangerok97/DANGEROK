@@ -3657,3 +3657,23 @@ del focus che ORA già mostra nell'ingresso alla conversazione.
 obiettivi aperti; quelli completati richiedono evidenza reale, quelli annullati
 non sono esposti. La route `/aggiornamento/gol_*` usa questo endpoint diretto,
 senza dipendere dalla classifica Home. Nessuna migrazione o nuovo indice.
+## Revisione autonoma dei luoghi — 28 settembre 2026
+
+`PlacesService.record_observation` include il campione corrente nel conteggio
+dei giorni distinti. Per un candidato non nominato, dopo almeno tre giorni e
+consenso `preferences.place_monitoring_enabled=true`, programma un wake
+`ambient_review` con `source_ref=place_candidate:<id>`. La proiezione non
+contiene coordinate nel wake. Il runtime rilegge consenso e candidato al
+momento dell'esecuzione; `review_candidates(candidate_id=...)` passa le sole
+misure al modello e crea una domanda soltanto se il modello la giudica utile.
+Un esito silenzioso si rivaluta solo dopo un raddoppio dei giorni osservati.
+
+`PUT /places/monitoring` registra la scelta autenticata e cancella i wake
+pendenti alla revoca. Il client native sincronizza la scelta, elimina il buffer
+locale alla disattivazione, ignora callback tardivi e ritenta la revoca
+all'apertura. Non cambia la struttura delle collezioni né richiede migrazione;
+il nuovo campo `review_requested_days` ha default zero per i record esistenti.
+
+## Handoff di navigazione per destinazioni nominate (28 settembre 2026)
+
+`places.navigation.search_handoff` costruisce un Maps URL `api=1`, `destination` codificato e `dir_action=navigate` senza origin fissato. `places.caps.open_navigation` lo usa se la destinazione non è un Life Place confermato, tranne ruoli personali/nomi duplicati. Il risultato espone `destination_unverified`, nessuna rotta stimata e una frase verificabile. `ai_core.loop._ensure_navigation` intercetta solo comandi espliciti di partenza quando il modello omette lo strumento, riusa una osservazione già prodotta e aggiunge il link al risultato persistito. L'app mappe calcola il traffico; ORA può confrontare durate in proprio solo con un routing provider configurato.

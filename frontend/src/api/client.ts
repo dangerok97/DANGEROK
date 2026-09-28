@@ -1522,6 +1522,10 @@ export const api = {
     request<{ raised: { candidate_id: string; question: string; question_id: string }[] }>(
       '/places/candidates/review', { method: 'POST' },
     ),
+  placesSetMonitoring: (enabled: boolean) =>
+    request<{ enabled: boolean }>('/places/monitoring', {
+      method: 'PUT', body: JSON.stringify({ enabled }),
+    }),
 
   locationGetPreference: () =>
     request<{

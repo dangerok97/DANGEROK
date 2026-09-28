@@ -52,6 +52,8 @@ type GeofencePayload = {
 TaskManager.defineTask<LocationPayload>(LOCATION_TASK, async ({ data, error }) => {
   if (error || !data?.locations?.length) return;
   try {
+    const runtime = await import('./presenceRuntime');
+    if (!(await runtime.isEnabled())) return;
     for (const fix of data.locations) {
       await remember({
         observed_at: new Date(fix.timestamp).toISOString(),
@@ -61,8 +63,7 @@ TaskManager.defineTask<LocationPayload>(LOCATION_TASK, async ({ data, error }) =
         source: 'background_update',
       });
     }
-    const runtime = await import('./presenceRuntime');
-    if (await runtime.isEnabled()) await runtime.sendPending();
+    await runtime.sendPending();
   } catch {
     /* see above: never throw out of a background task */
   }
@@ -78,6 +79,8 @@ TaskManager.defineTask<LocationPayload>(LOCATION_TASK, async ({ data, error }) =
 TaskManager.defineTask<GeofencePayload>(GEOFENCE_TASK, async ({ data, error }) => {
   if (error || !data?.region) return;
   try {
+    const runtime = await import('./presenceRuntime');
+    if (!(await runtime.isEnabled())) return;
     const { eventType } = data;
     let fix = await Location.getLastKnownPositionAsync({ maxAge: 15_000, requiredAccuracy: 100 });
     if (!fix) {
@@ -108,8 +111,7 @@ TaskManager.defineTask<GeofencePayload>(GEOFENCE_TASK, async ({ data, error }) =
           ? 'geofence_enter'
           : 'geofence_exit',
     });
-    const runtime = await import('./presenceRuntime');
-    if (await runtime.isEnabled()) await runtime.sendPending();
+    await runtime.sendPending();
   } catch {
     /* as above */
   }

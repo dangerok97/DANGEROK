@@ -40,9 +40,8 @@ function usePresenceReconciliation() {
       void (async () => {
         try {
           const runtime = await import('@/src/location/presenceRuntime');
-          if (!(await runtime.isEnabled())) return;
           await runtime.reconcile();
-          await runtime.syncRegions();
+          if (await runtime.isEnabled()) await runtime.syncRegions();
         } catch {
           /* offline, or no permission: both are ordinary and neither is fatal */
         }

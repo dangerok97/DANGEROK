@@ -5805,3 +5805,16 @@ non è una verifica visuale di un goal concreto.
 
 Anche l'orario del focus in chat è stato verificato sul web `1844ffc`:
 `ora-focus-orario-chat-1790627433891.jpg` mostra l'intervallo e Apri.
+## 28 settembre 2026 — Revisione autonoma dei luoghi ricorrenti
+
+I giorni distinti includono il campione appena arrivato. Con consenso
+esplicito, dopo ripetizioni su più giorni ORA programma una revisione in
+background; il modello decide se chiedere il nome del luogo, senza indovinarlo.
+Riesamina solo quando l'evidenza cresce, non a ogni fix. Disattivare il
+riconoscimento cancella wake e campioni non inviati e blocca callback tardivi.
+Il controllo all'apertura di VITA non è più il trigger. Nessuna dipendenza o
+migrazione. Build e prova pubblicata da registrare dopo il rilascio.
+
+## 28 settembre 2026 — Portami davvero al luogo richiesto
+
+La chat non può terminare con «Ok.» davanti a un comando esplicito di partenza. Anche senza un luogo personale salvato, offre un link di navigazione Google Maps dalla posizione del dispositivo verso il nome pronunciato e chiede di verificare la destinazione risolta. Per luoghi personali ambigui non indovina. Il backend non inventa traffico o ETA quando manca il provider di routing. Test e verifica pubblicata da registrare dopo il deploy.

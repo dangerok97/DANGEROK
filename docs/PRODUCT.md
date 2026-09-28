@@ -1739,3 +1739,16 @@ Un obiettivo avviato da ORA conserva un dettaglio apribile con il proprio
 link anche quando altri aggiornamenti lo spostano fuori dalle prime schede
 della Home. Il dettaglio mostra stato, provenienza, eventuale bozza e richiesta
 alla persona; un obiettivo annullato non resta presentato come attivo.
+## 28 settembre 2026 — Luoghi che ORA riconosce anche ad app chiusa
+
+Con il riconoscimento dei luoghi attivato nell'app installata, le osservazioni
+di giorni diversi possono far riprendere ORA in background. ORA decide se
+chiedere «Che posto è?»; soltanto la risposta dell'utente dà un nome al luogo.
+Le presenze e le durate dei luoghi confermati restano consultabili in VITA e
+utilizzabili per rispondere a domande sui propri spostamenti. Spegnere il
+riconoscimento interrompe nuovi campioni, svuota quelli non inviati e revoca
+la revisione autonoma. Il browser non offre monitoraggio in background.
+
+## Navigazione dalla chat verso luoghi pubblici (28 settembre 2026)
+
+«Portami dalla mia posizione al Colosseo» restituisce un tasto Google Maps. La mappa usa la posizione attuale del dispositivo e calcola percorso e traffico quando si apre. ORA non attribuisce coordinate o tempi propri a un nome pubblico non verificato: invita a controllare il risultato nella mappa. Le destinazioni personali ambigue e i ruoli non confermati restano da chiarire.

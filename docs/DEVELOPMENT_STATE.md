@@ -4452,3 +4452,17 @@ Il precedente incremento dell'orario nel focus è online sul web `1844ffc`,
 deployment `52e47de5` SUCCESS. Screenshot autenticato
 `ora-focus-orario-chat-1790627433891.jpg`: appuntamento del 30 settembre
 20:00–20:45 e tasto Apri nello stesso riquadro.
+## 28 settembre 2026 — Luoghi: continuità senza aprire VITA
+
+Il vecchio trigger della revisione dei candidati era l'apertura della sezione
+Luoghi. Ora l'osservazione ripetuta organizza un wake durevole, e il worker
+valuta il candidato anche ad app chiusa, con consenso server attivo. Il client
+native non accoda né invia nuovi campioni dopo la revoca; il buffer preesistente
+si svuota. Test mirati su conteggio, cadenza, consenso e callback tardivi PASS.
+Verifica cloud e screenshot da aggiungere dopo il rilascio. Le offerte luce e
+gas, il traffico aggiornato e le abitudini predittive sono flussi separati
+esistenti ma non validati in questo incremento come promessa end to end.
+
+## Navigazione chat — 28 settembre 2026
+
+Riparata la richiesta esplicita «portami ...»: handoff Maps per luoghi pubblici non salvati, tasto cliccabile anche quando il modello salta `open_navigation`, posizione risolta dal dispositivo all'apertura della mappa. Test mirati PASS. Senza `ROUTING_PROVIDER`/`ROUTING_API_KEY`, il backend non può promettere tempi né alternative di traffico prima dell'apertura della mappa. Rilascio e prova web da registrare dopo il deploy.

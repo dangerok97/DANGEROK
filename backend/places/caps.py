@@ -174,6 +174,29 @@ async def open_navigation(arguments: Dict[str, Any], runtime: Dict[str, Any]) ->
     spoken = str(arguments.get("destination") or arguments.get("name") or "").strip()
     resolution = await service.resolve_destination(uid, spoken)
     if not resolution.resolved or resolution.place is None:
+        # A named public destination need not already be in the person's Life
+        # Places. Maps can resolve it at handoff, without ORA pretending to
+        # know its coordinates or current traffic. Keep personal roles and
+        # genuinely ambiguous saved names out of this query fallback.
+        if (spoken and len(spoken) <= 160
+                and spoken.casefold() not in {"casa", "home", "lavoro", "work"}
+                and not resolution.reason.startswith("più luoghi")):
+            from places.navigation import search_handoff
+
+            return _ok("open_navigation", {
+                "ready": True,
+                "destination_unverified": True,
+                "has_origin": False,
+                "route": None,
+                "journey_options": [],
+                "routing": _routing_note(),
+                "say_this": (
+                    f"Ti porto verso «{spoken}»: apri Google Maps qui sotto. "
+                    "Userà la posizione del dispositivo e mostrerà percorso e traffico aggiornati. "
+                    "Controlla che abbia trovato la destinazione giusta."
+                ),
+                **search_handoff(spoken, str(arguments.get("mode") or "driving")),
+            }, uid, status="needs_client")
         return _ok(
             "open_navigation",
             {
@@ -214,7 +237,10 @@ async def open_navigation(arguments: Dict[str, Any], runtime: Dict[str, Any]) ->
         latitude=place.coordinates.latitude,
         longitude=place.coordinates.longitude,
         label=place.label,
-        origin=origin,
+        # The navigation app uses the device's live fix at tap time. A cached
+        # ORA presence can support an estimate but must not pin the start of
+        # turn-by-turn guidance to a place the person has since left.
+        origin=None,
         mode=str(arguments.get("mode") or "driving"),
         preferred_app=await _preferred_app(runtime["db"], uid),
         platform=str(runtime.get("platform") or "web"),
@@ -263,6 +289,11 @@ async def open_navigation(arguments: Dict[str, Any], runtime: Dict[str, Any]) ->
             "journey_options": scelte,
             "advice": consiglio,
             "routing": None if scelte else _routing_note(),
+            "say_this": (
+                f"Ti porto a «{place.label}»: scegli l'app mappe qui sotto per avviare la navigazione. "
+                + (f"{consiglio} " if consiglio else "")
+                + ("Il confronto dei percorsi tiene conto del traffico attuale. " if scelte and any(x.get("reflects_current_traffic") for x in scelte) else "L'app mappe mostrerà il traffico aggiornato.")
+            ),
             **plan,
         },
         uid,

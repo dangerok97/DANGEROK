@@ -667,7 +667,8 @@ class ToolRegistry:
             CapabilitySpec(
                 capability="open_navigation",
                 description=(
-                    "Prepare turn-by-turn in the map app the person uses. Call "
+                    "Prepare turn-by-turn in the map app the person uses, including "
+                    "named public destinations that are not saved Life Places. Call "
                     "it when they want to GO somewhere — not when they asked "
                     "how long it takes or which way it runs. Returns a link, or "
                     "the choice of app when they have not picked one. When a "

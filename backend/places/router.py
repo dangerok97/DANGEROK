@@ -85,6 +85,28 @@ class ZoneIn(BaseModel):
     exit_radius_m: float = Field(..., ge=25, le=2000)
 
 
+class MonitoringIn(BaseModel):
+    enabled: bool
+
+
+@router.put("/monitoring")
+async def set_monitoring(body: MonitoringIn, user=Depends(get_current_user)):
+    """The device's explicit choice, also checked by background reviews."""
+    from deps import db
+
+    uid = user["user_id"]
+    await db.users.update_one(
+        {"user_id": uid}, {"$set": {"preferences.place_monitoring_enabled": body.enabled}}
+    )
+    if not body.enabled:
+        await db.ambient_wakes.update_many(
+            {"owner_id": uid, "source_ref": {"$regex": "^place_candidate:"},
+             "status": {"$in": ["pending", "claimed"]}},
+            {"$set": {"status": "cancelled"}},
+        )
+    return {"enabled": body.enabled}
+
+
 @router.get("")
 async def list_places(user=Depends(get_current_user)):
     """
