@@ -88,6 +88,19 @@ def _sid() -> str:
     return f"aes_{uuid.uuid4().hex[:14]}"
 
 
+def _purpose_for_ambiguous_home_card(intent: IntentResult, *, is_home_card: bool) -> IntentResult:
+    if not is_home_card or not intent.needs_clarify:
+        return intent
+    # A Home card already has a title and a source. The classifier's default
+    # exam/event alternatives are guesses about ORA's own card. Ask what help
+    # the person wants with this exact item instead. A confident intent keeps
+    # its specialist flow; a typed request still gets its clarifier.
+    return intent.model_copy(update={
+        "intent": "generic", "subtype": None, "needs_clarify": False,
+        "clarify_options": [], "reason": "home_card_needs_purpose",
+    })
+
+
 # Card types that name something ORA is holding.
 #
 # The distinction is what the type *is*. "study" or "event" on a card is the
@@ -172,10 +185,10 @@ class ActionEngineService:
         # 1) Explicit precomputed Intent on body
         if body.intent and isinstance(body.intent, dict) and body.intent.get("intent"):
             try:
-                return IntentResult(**{
+                return _purpose_for_ambiguous_home_card(IntentResult(**{
                     k: v for k, v in body.intent.items()
                     if k in IntentResult.model_fields
-                })
+                }), is_home_card=bool(body.home_item))
             except Exception:
                 pass
 
@@ -234,13 +247,14 @@ class ActionEngineService:
             return declared
 
         # 3) Classify via Intent Engine (deterministic; Action Engine does not parse text for flow)
-        return classify_text(
+        inferred = classify_text(
             ctx.get("title") or "",
             description=ctx.get("description"),
             source_type=ctx.get("source_type"),
             item_type=None,  # do not trust erroneous home type for routing
             meta={"source_item_type": ctx.get("item_type")},
         )
+        return _purpose_for_ambiguous_home_card(inferred, is_home_card=bool(body.home_item))
 
     def _ctx_with_intent(self, ctx: Dict[str, Any], intent: IntentResult) -> Dict[str, Any]:
         entities = intent.entities.as_dict() if hasattr(intent.entities, "as_dict") else dict(intent.entities or {})
@@ -340,6 +354,39 @@ class ActionEngineService:
             )
             if existing:
                 sess = ActionSession(**existing)
+                # Repair only an unanswered legacy clarifier. Once a person
+                # has answered, their choice is authoritative and cannot be
+                # replaced by a newer routing rule.
+                if (
+                    body.home_item and sess.flow == "clarify"
+                    and sess.current_turn_id == "clarify_intent"
+                    and not sess.turn_history and not sess.answers
+                ):
+                    intent = self._intent_from_body(body, ctx)
+                    if intent.intent == "generic" and not intent.needs_clarify:
+                        turns = build_flow_turns("generic", self._ctx_with_intent(ctx, intent))
+                        sess.flow = "generic"
+                        sess.turns = turns
+                        sess.current_turn_id = turns[0].id
+                        sess.meta.update({
+                            "intent": intent.intent,
+                            "intent_subtype": intent.subtype,
+                            "intent_confidence": intent.confidence,
+                            "needs_clarify": False,
+                            "intent_reason": intent.reason,
+                        })
+                        sess.updated_at = now_iso()
+                        saved = await self.col.replace_one(
+                            {"id": sess.id, "user_id": user_id, "status": "active",
+                             "current_turn_id": "clarify_intent", "turn_history": []},
+                            sess.model_dump(),
+                        )
+                        if not saved.matched_count:
+                            current = await self.col.find_one(
+                                {"id": sess.id, "user_id": user_id}, {"_id": 0},
+                            )
+                            if current:
+                                sess = ActionSession(**current)
                 return {"session": sess.public(), "resumed": True}
 
         # === Intent Classification Engine (mandatory brain for flow choice) ===
@@ -353,6 +400,7 @@ class ActionEngineService:
                 item_type=None,
                 use_llm=True,
             )
+            intent = _purpose_for_ambiguous_home_card(intent, is_home_card=bool(body.home_item))
 
         flow = resolve_flow_from_intent(
             intent.intent,

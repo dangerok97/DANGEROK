@@ -5740,3 +5740,7 @@ Rilascio web `2988723` SUCCESS. La Home sintetica fornisce un'opportunità attiv
 Il refresh della scheda contestuale ora legge la proiezione delle opportunità visibili, senza ricostruire e salvare la Home ogni minuto. Stesso contenuto, minore lavoro di lettura e nessuna crescita di snapshot causata da questa schermata.
 
 La prima verifica autenticata ha scoperto che il pannello iniziale restava nascosto sopra la mappa, rendendo invisibile la scheda. Il pannello si apre solo quando un'opportunità è presente e offre più altezza per leggere e toccare il tasto. Prova visiva sul nuovo bundle in corso.
+
+## 28 settembre 2026 — Chiarimento utile sul focus ambiguo
+
+Una scheda Home con intento incerto non manda più la persona a scegliere fra esame ed evento per default. La guida usa il titolo del focus e offre modi di procedere senza fingere un dominio. Le sessioni di chiarimento ancora intatte vengono riparate alla riapertura con una sostituzione condizionale; le risposte già date non cambiano. Cinque regressioni specifiche PASS, tre test di provenienza delle schede PASS, compilazione Python PASS. Verifica cloud e screenshot dopo il rilascio ancora aperti.

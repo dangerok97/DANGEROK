@@ -1702,3 +1702,7 @@ Le risposte possono offrire un tasto per aprire una ricerca Amazon.it effettivam
 Quando una nuova conversazione si apre senza un contesto specifico, ORA può mettere in evidenza la prima opportunità ancora aperta che Home ha scelto per quella persona. La scheda mostra il motivo e l'azione proposta, se presenti, e apre il dettaglio già esistente. Si aggiorna al ritorno nella chat e ogni minuto mentre è visibile. In assenza di opportunità valide resta l'invito semplice a parlare con ORA.
 
 La scheda contestuale apre il pannello della conversazione anche prima del primo messaggio e dispone dello spazio necessario per rendere visibile il tasto. La mappa resta sullo sfondo e si può tornare a vederla nascondendo il pannello.
+
+## 28 settembre 2026 — Un focus ambiguo resta utile
+
+Quando il tasto di un focus Home apre la guida e ORA non riconosce con sicurezza il tipo di lavoro, la prima domanda usa il titolo della scheda e chiede quale aiuto serve. Non offre più la coppia fissa «preparare un esame / creare un evento» per un titolo che non prova nessuna delle due cose. Una richiesta libera dell'utente conserva la sua normale domanda di chiarimento; una scheda con intento attendibile conserva il percorso specializzato. Le guide già aperte e ancora senza risposte adottano la nuova domanda alla riapertura. Non viene reinterpretata una scelta già data.

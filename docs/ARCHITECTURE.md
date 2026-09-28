@@ -3609,3 +3609,7 @@ Quando il modello propone un'opportunità con esattamente due eventi Home sovrap
 L'ingresso vuoto in `OraConversationScreen` usa `GET /opportunities/surface`, la stessa proiezione già mostrata dalla Home, solo se non è legato a una sessione o a un oggetto. Evita di costruire e persistere uno snapshot Home a ogni refresh. `pickOraOpportunity` conserva l'ordine della proiezione ed esclude record chiusi, senza titolo o con id non opaco. `useFocusEffect` rilegge i dati al focus e ogni 60 secondi fino all'uscita dalla schermata. `OraEmpty` renderizza al massimo una scheda con route `/aggiornamento/{id}`.
 
 La presenza di una scheda contestuale attiva il prop `conversation` di `OraPresence` anche a chat vuota. `prominentConversation` aumenta l'altezza del pannello solo in questo caso per rendere leggibile l'azione senza dover ampliare manualmente la trascrizione.
+
+## 28 settembre 2026 — Ripiego della guida da Home
+
+`ActionEngineService._intent_from_body` conserva l'intento esplicito o persistito attendibile. Se una `home_item` completa arriva con `needs_clarify`, `_purpose_for_ambiguous_home_card` seleziona il flusso generico legato al titolo, senza attribuire un dominio inventato. La stessa regola vale per un risultato precomputato o del classificatore opzionale. `open` ripara solo sessioni `clarify` attive sul primo turno e senza risposte; la sostituzione condizionale su stato e `turn_history=[]` evita di sovrascrivere una risposta concorrente. Gli input testuali senza scheda mantengono il chiarimento di intento.
