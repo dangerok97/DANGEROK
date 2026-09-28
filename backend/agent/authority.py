@@ -105,9 +105,9 @@ _NEVER_AUTONOMOUS = {
 # different answer, and it is the situation approve/deny exists for.
 # ---------------------------------------------------------------------------
 
-# Capabilities where a person's own instruction may carry the authority. One,
-# and adding to it is a decision somebody has to make on purpose.
-_COMMANDABLE = {"calendar.write"}
+# A personal calendar command covers the connected or ORA-local calendar.
+# Local authority never grants access to an external calendar.
+_COMMANDABLE = {"calendar.write", "calendar.local.write"}
 
 # Kinds of change an instruction may authorise. Making something and changing
 # something; deliberately not un-making it.

@@ -61,6 +61,21 @@ async def _row(db, user_id: str, item_id: str) -> Optional[Dict[str, Any]]:
     nomi della stessa cosa e vengono accettati entrambi, perche' chiedere alla
     persona di sapere quale sia sarebbe assurdo.
     """
+    from home.manual_event import get_manual_event
+    local = await get_manual_event(db, user_id, item_id)
+    if local:
+        attrs = local.get("attributes") or {}
+        return {
+            "id": local["id"], "external_id": "", "ora_manual": True,
+            "updated_at": local.get("updated_at"),
+            "normalized_payload": {
+                "title": local["label"], "starts_at": attrs.get("starts_at"),
+                "ends_at": attrs.get("ends_at"), "timezone": attrs.get("timezone"),
+                "location": attrs.get("location"), "description": local.get("description"),
+                "calendar_name": "Calendario ORA", "all_day": False,
+                "status": "confirmed" if local.get("status") == "active" else "cancelled",
+            },
+        }
     for field in ("id", "external_id"):
         found = await db.ingestion_events.find_one(
             {
@@ -166,7 +181,10 @@ async def event_detail(db, user_id: str, item_id: str) -> Optional[Dict[str, Any
         "where_it_comes_from": (
             payload.get("calendar_name") or payload.get("calendar_id") or "Google Calendar"
         ),
-        "provider": "Google Calendar",
+        "provider": "ORA" if row.get("ora_manual") else "Google Calendar",
+        "is_local": bool(row.get("ora_manual")),
+        "timezone": payload.get("timezone"),
+        "updated_at": row.get("updated_at"),
         "state": "annullato" if cancelled else "in calendario",
         "cancelled": cancelled,
         # ORA puo' spostarlo e toglierlo solo se e' un calendario su cui puo'
@@ -178,6 +196,7 @@ async def event_detail(db, user_id: str, item_id: str) -> Optional[Dict[str, Any
 
 async def delete_event(
     db, user_id: str, item_id: str, *, confirmed_title: str = "",
+    command=None, answered_proposal: bool = True,
 ) -> Dict[str, Any]:
     """
     Toglilo dal calendario vero, e dillo solo dopo averlo verificato.
@@ -215,7 +234,7 @@ async def delete_event(
             "title": title, "say_it_as": "eliminato",
         }
 
-    if confirmed_title and confirmed_title.strip() != title.strip():
+    if (row.get("ora_manual") and not confirmed_title) or (confirmed_title and confirmed_title.strip() != title.strip()):
         return {
             "ok": False, "reason": "confirmation_does_not_match",
             "title": title,
@@ -225,7 +244,7 @@ async def delete_event(
     effect = commanded.calendar_effect({"title": title, "delete": True})
     act = await commanded.assess(
         db, user_id,
-        capability="calendar.write",
+        capability="calendar.local.write" if row.get("ora_manual") else "calendar.write",
         effect=effect,
         parameters={
             "title": title,
@@ -233,17 +252,18 @@ async def delete_event(
             # stesso nome sono due atti diversi, e il si' dato a uno non
             # arriva all'altro.
             "google_event_id": external_id,
+            "calendar_ref": str(row.get("id") or "") if only_ours else external_id,
             "starts_at": str(payload.get("starts_at") or ""),
             "operation": "delete",
         },
         summary=f"Togliere dal calendario: {title}",
         expected=f"«{title}» non risulta più in calendario.",
-        command=commanded.UserCommand(
-            spoken=f"elimina {title}",
+        command=command or commanded.UserCommand(
+            spoken="sì",
             words=f"elimina {title}",
             asked_for=f"eliminare «{title}»",
         ),
-        answered_proposal=True,
+        answered_proposal=answered_proposal,
     )
     if not act.may_execute:
         return {"ok": False, "reason": "authority_required", "title": title}
@@ -258,14 +278,21 @@ async def delete_event(
         return {"ok": False, "reason": "already_running", "title": title}
 
     if only_ours:
-        await db.calendar_event_drafts.update_many(
-            {"user_id": user_id, "id": str(row.get("id") or "")},
-            {"$set": {"status": "cancelled", "updated_at": _now().isoformat()}},
-        )
+        observed = True
+        if row.get("ora_manual"):
+            from home.manual_event import archive_manual_event
+            observed = await archive_manual_event(db, user_id, str(row["id"]))
+        else:
+            await db.calendar_event_drafts.update_many(
+                {"user_id": user_id, "id": str(row.get("id") or "")},
+                {"$set": {"status": "cancelled", "updated_at": _now().isoformat()}},
+            )
         await commanded.settle(
             db, act, provider="calendar", external_ref="",
-            accepted=True, observed=True,
+            accepted=True, observed=observed,
         )
+        if not observed:
+            return {"ok": False, "reason": "not_confirmed_gone", "title": title}
         return {
             "ok": True, "operation": "deleted", "verified": True,
             "deleted_on_google": False, "title": title,

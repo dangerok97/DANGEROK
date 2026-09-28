@@ -63,6 +63,7 @@ _FACTS: Dict[str, CapabilityFacts] = {
     "comparison.run": CapabilityFacts("comparison.run", False, "easily"),
     "mail.draft": CapabilityFacts("mail.draft", False, "easily"),
     # Touching the world.
+    "calendar.local.write": CapabilityFacts("calendar.local.write", True, "easily"),
     "calendar.write": CapabilityFacts("calendar.write", True, "easily"),
     "mail.send": CapabilityFacts(
         "mail.send", True, "irreversible", reaches_third_party=True
@@ -103,6 +104,7 @@ _EXECUTABLE = {
     # it. A write whose only evidence is its own 200 teaches a system to
     # believe itself.
     "calendar.write",
+    "calendar.local.write",
     # One world-changing capability with a stub behind it, deliberately the
     # mildest one there is: opening a map reaches nobody, costs nothing and
     # undoes itself by being ignored. It exists so the "there is already a
@@ -134,6 +136,7 @@ except Exception:
 # honestly per person rather than by being absent from this set.
 _REAL = {
     "calendar.write",
+    "calendar.local.write",
     "information.read",
     "document.read",
     "calendar.read",
@@ -308,6 +311,10 @@ class CapabilityResolver:
             logger.info("grant read soft-fail: %s", type(e).__name__)
 
         for name in sorted(_FACTS):
+            # Local calendar authority is used by the conversation and Home
+            # handlers. The generic goal executor has no local write adapter.
+            if name == "calendar.local.write":
+                continue
             resolution = await self.resolve(owner_id, name)
             status = resolution.status
             # Something that changes the world and has no standing permission

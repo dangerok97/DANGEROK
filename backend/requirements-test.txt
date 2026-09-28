@@ -1,0 +1,3 @@
+# Optional isolated persistence tests; not installed in production images.
+-r requirements-cloud.txt
+mongomock-motor==0.0.36

@@ -705,7 +705,7 @@ def test_the_conversation_delete_uses_the_same_provider_identity(monkeypatch):
 
             obs = await calendar_caps.cancel_calendar_event(
                 {"calendar_ref": "calendar:ced_conv"},
-                {"user_id": uid, "db": db, "user_message": "elimina la visita"},
+                {"user_id": uid, "db": db, "user_message": "sì", "pending_act": {"kind": "delete"}},
             )
 
             assert obs.status == "ok"
@@ -741,7 +741,7 @@ def test_the_conversation_never_says_deleted_before_the_reading_confirms(monkeyp
 
             obs = await calendar_caps.cancel_calendar_event(
                 {"calendar_ref": "calendar:ced_stub"},
-                {"user_id": uid, "db": db, "user_message": "elimina la visita"},
+                {"user_id": uid, "db": db, "user_message": "sì", "pending_act": {"kind": "delete"}},
             )
 
             assert obs.status == "failed"
@@ -771,7 +771,7 @@ def test_asking_the_conversation_twice_is_one_deletion(monkeypatch):
                              title="Visita", starts_at=_soon())
             await _draft_for(db, uid, draft_id="ced_twice",
                              external_id="ev_twice_conv", title="Visita")
-            runtime = {"user_id": uid, "db": db, "user_message": "elimina la visita"}
+            runtime = {"user_id": uid, "db": db, "user_message": "sì", "pending_act": {"kind": "delete"}}
 
             first = await calendar_caps.cancel_calendar_event(
                 {"calendar_ref": "calendar:ced_twice"}, runtime)
@@ -811,7 +811,7 @@ def test_what_the_conversation_deleted_leaves_the_home_screen(monkeypatch):
 
             await calendar_caps.cancel_calendar_event(
                 {"calendar_ref": "calendar:ced_home"},
-                {"user_id": uid, "db": db, "user_message": "elimina la visita"},
+                {"user_id": uid, "db": db, "user_message": "sì", "pending_act": {"kind": "delete"}},
             )
 
             after, _ = await load_google_calendar_events(db, uid)
@@ -843,7 +843,7 @@ def test_a_deletion_from_the_conversation_is_our_own_work_too(monkeypatch):
 
             await calendar_caps.cancel_calendar_event(
                 {"calendar_ref": "calendar:ced_ours"},
-                {"user_id": uid, "db": db, "user_message": "elimina la visita"},
+                {"user_id": uid, "db": db, "user_message": "sì", "pending_act": {"kind": "delete"}},
             )
 
             assert "ev_conv_ours" in await _ora_handles(db, uid)

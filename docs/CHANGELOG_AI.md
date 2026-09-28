@@ -5668,3 +5668,12 @@ Corretta la selezione OpenAI per utente senza override condiviso fra account.
 ## 28 settembre 2026 — Impegni dalla griglia Home
 
 Aggiunto il comando «Aggiungi impegno» nel pannello del giorno selezionato, con titolo e ora; salvataggio nel Life Graph di ORA, lettura del giorno e gestione della scheda locale. L'interfaccia specifica che non inserisce l'evento in calendari esterni.
+
+## 2026-09-28 — Calendario ORA: da scheda isolata a impegno gestibile
+
+- Modulo condiviso Home/scheda: durata, luogo, note, modifica giorno e ora, feedback e retry.
+- Salvataggio idempotente e aggiornamento con controllo revisione; nessuna migrazione distruttiva.
+- Lettura, risoluzione e modifica degli eventi locali nei tool della conversazione; permessi locali separati da Google.
+- Cancellazione con conferma verificabile e pulizia dei collegamenti del grafo.
+- Agenda e marcatori del mese coerenti con il fuso; segnalazione delle modifiche al worker esistente.
+- 116 regressioni Python su database in memoria, controlli TypeScript/Home, lint senza errori e build web. Prova live da registrare dopo il rilascio.

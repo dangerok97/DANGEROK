@@ -461,7 +461,8 @@ async def get_calendar_events(arguments: Dict[str, Any], runtime: Dict[str, Any]
     # e chi ragiona sa quale parola usare molto meglio di quanto il codice
     # sappia indovinare una finestra. Le date esplicite, quando ci sono,
     # restano quelle: sono piu' precise di qualunque parola.
-    asked = _window_for(arguments.get("when"), datetime.now(timezone.utc))
+    user_zone = ZoneInfo((await resolve_user_timezone(db, uid)).tz_name)
+    asked = _window_for(arguments.get("when"), datetime.now(user_zone))
     if asked and not time_min and not time_max:
         time_min, time_max = asked
     if not time_min:
@@ -475,6 +476,10 @@ async def get_calendar_events(arguments: Dict[str, Any], runtime: Dict[str, Any]
         from datetime import timedelta
 
         time_max = time_min + timedelta(days=_DEFAULT_WINDOW_DAYS)
+    if time_min.tzinfo is None or time_max.tzinfo is None:
+        zone = ZoneInfo((await resolve_user_timezone(db, uid)).tz_name)
+        time_min = time_min if time_min.tzinfo else time_min.replace(tzinfo=zone)
+        time_max = time_max if time_max.tzinfo else time_max.replace(tzinfo=zone)
     if (time_max - time_min).days > _MAX_WINDOW_DAYS:
         from datetime import timedelta
 
@@ -598,7 +603,19 @@ async def get_calendar_events(arguments: Dict[str, Any], runtime: Dict[str, Any]
                 "sync_status": "synced",
             })
 
-    items.sort(key=lambda x: x.get("start_datetime") or "")
+    from home.manual_event import manual_events_between
+    local_events = await manual_events_between(db, uid, time_min, time_max, limit=_MAX_EVENTS_RETURNED)
+    items.extend({
+        "calendar_ref": _ref(e["id"]), "source": "ora_local", "title": e["title"],
+        "start_datetime": e["starts_at"], "end_datetime": e["ends_at"],
+        "timezone": e["timezone"], "location": e["location"], "description": e["description"],
+        "all_day": False, "status": "confirmed", "sync_status": "local_only",
+    } for e in local_events)
+    def event_instant(item):
+        at = _parse_dt(item.get("start_datetime")) or time_min
+        return at if at.tzinfo else at.replace(tzinfo=user_zone)
+    items.sort(key=event_instant)
+    items = items[:_MAX_EVENTS_RETURNED]
 
     # Bounded, deterministic overlap detection — evidence only; the AI
     # decides whether a conflict matters, this never blocks/asks by itself.
@@ -788,6 +805,14 @@ async def _named_calendar_ref_resolution(
             "source": "google_external",
         })
 
+    from home.manual_event import manual_events_between
+    for e in await manual_events_between(db, uid, start, end):
+        all_events.append({
+            "calendar_ref": _ref(e["id"]), "title": e["title"],
+            "start_datetime": e["starts_at"], "end_datetime": e["ends_at"],
+            "timezone": e["timezone"], "source": "ora_local",
+        })
+
     exact = [
         item for item in all_events
         if _same_thing(item.get("title") or "") == wanted
@@ -899,10 +924,13 @@ async def _already_have_one(db, uid: str, *, title: str, start: str) -> Optional
         ).to_list(40)
     except Exception:
         return None
+    from home.manual_event import manual_events_between
+    local = await manual_events_between(db, uid, when - timedelta(days=14), when + timedelta(days=14))
+    rows.extend({"id": e["id"], "title": e["title"], "start_datetime": e["starts_at"]} for e in local)
     for row in rows:
         if _same_thing(row.get("title")) != wanted:
             continue
-        if str(row.get("start_datetime") or "")[:16] == str(start)[:16]:
+        if _parse_dt(row.get("start_datetime")) == when:
             #     LA DURATA NON FA DI UN IMPEGNO UN ALTRO IMPEGNO.
             #
             # Qui c'era scritto che dello stesso nome alla stessa ora si
@@ -1375,6 +1403,8 @@ async def update_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
             "calendar_ref or exact target_title required",
         )
 
+    from home.manual_event import get_manual_event, manual_event_public, update_manual_event
+    local_node = await get_manual_event(db, uid, draft_id)
     existing = await db.calendar_event_drafts.find_one(
         {"id": draft_id, "user_id": uid},
         {
@@ -1383,6 +1413,10 @@ async def update_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
             "google_event_id": 1,
         },
     )
+    if local_node:
+        local = manual_event_public(local_node)
+        existing = {**local, "start_datetime": local["starts_at"], "end_datetime": local["ends_at"],
+                    "status": "cancelled" if local["status"] != "active" else "confirmed"}
     if not existing:
         linked = await _linked_google_draft(db, uid, draft_id)
         if linked:
@@ -1418,17 +1452,18 @@ async def update_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
             },
         )
 
-    sync = await _sync_service(db)
-    instance_id = await _active_instance_id(sync, uid)
-    try:
-        await require_calendar_consent(db, user_id=uid, write=True, connector_instance_id=instance_id)
-    except ConsentDenied:
-        return Observation(
-            kind="tool", name="update_calendar_event", status="consent_required",
-            payload={"status": "consent_required", "calendar_ref": _ref(draft_id)},
-        )
-    except (CapabilityDisabled, CapabilityUnknown):
-        return _fail("update_calendar_event", "CAPABILITY_UNAVAILABLE")
+    if not local_node:
+        sync = await _sync_service(db)
+        instance_id = await _active_instance_id(sync, uid)
+        try:
+            await require_calendar_consent(db, user_id=uid, write=True, connector_instance_id=instance_id)
+        except ConsentDenied:
+            return Observation(
+                kind="tool", name="update_calendar_event", status="consent_required",
+                payload={"status": "consent_required", "calendar_ref": _ref(draft_id)},
+            )
+        except (CapabilityDisabled, CapabilityUnknown):
+            return _fail("update_calendar_event", "CAPABILITY_UNAVAILABLE")
 
     # Il manico dell'evento com'e' adesso, per poter dire dopo se e' lo
     # stesso evento o un altro.
@@ -1493,7 +1528,7 @@ async def update_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
 
     # “Spostalo alle 15” changes the beginning, not the duration. Preserve
     # the observed duration when the caller does not repeat the end time.
-    if fields.get("start_datetime") and "end_datetime" not in fields:
+    if not local_node and fields.get("start_datetime") and "end_datetime" not in fields:
         current = await db.calendar_event_drafts.find_one(
             {"id": draft_id, "user_id": uid},
             {"_id": 0, "start_datetime": 1, "end_datetime": 1},
@@ -1516,8 +1551,8 @@ async def update_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
     from connected.ownership import reaches_other_people
 
     effect = commanded.calendar_effect(
-        arguments,
-        reaches_others=await reaches_other_people(db, uid, draft_id),
+        {**arguments, "calendar_ref": draft_id},
+        reaches_others=False if local_node else await reaches_other_people(db, uid, draft_id),
     )
     command = _user_command(arguments, runtime)
     if _answered_a_proposal(runtime) and not commanded.reads_as_an_approval(spoken):
@@ -1525,10 +1560,11 @@ async def update_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
 
     act = await commanded.assess(
         db, uid,
-        capability="calendar.write",
+        capability="calendar.local.write" if local_node else "calendar.write",
         effect=effect,
         parameters={
             "calendar_ref": draft_id,
+            **({"revision": local_node.get("updated_at")} if local_node else {}),
             **{k: str(v)[:200] for k, v in fields.items()},
         },
         summary="Cambiare un evento già in calendario",
@@ -1557,6 +1593,27 @@ async def update_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
                 "status": "already_running",
                 "reason": "Questa stessa cosa la sta già facendo un'altra richiesta.",
             },
+        )
+
+    if local_node:
+        try:
+            updated = await update_manual_event(
+                db, uid, draft_id, fields, expected_updated_at=local_node.get("updated_at"),
+            )
+        except (ValueError, KeyError) as exc:
+            await commanded.settle(db, act, provider="ora_calendar", external_ref=draft_id,
+                                   accepted=False, observed=False, error_type=str(exc))
+            return _fail("update_calendar_event", str(exc).upper())
+        await commanded.settle(db, act, provider="ora_calendar", external_ref=draft_id,
+                               accepted=True, observed=True)
+        return Observation(
+            kind="tool", name="update_calendar_event", status="ok",
+            payload={"status": "ok", "operation": "updated", "verified": True,
+                     "calendar_ref": _ref(draft_id), "source": "ora_local", "updated_on_google": False,
+                     "title": updated["title"], "start_datetime": updated["starts_at"],
+                     "end_datetime": updated["ends_at"], "location": updated["location"],
+                     "description": updated["description"]},
+            provenance=[_ref(draft_id)],
         )
 
     try:
@@ -1735,10 +1792,19 @@ async def cancel_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
             },
         )
 
-    out = await delete_event(db, uid, handle, confirmed_title=detail["title"])
+    out = await delete_event(
+        db, uid, handle, confirmed_title=detail["title"],
+        command=_user_command(arguments, runtime), answered_proposal=_answered_a_proposal(runtime),
+    )
 
     if not out.get("ok"):
         why = str(out.get("reason") or "delete_failed")
+        if why == "authority_required":
+            return Observation(
+                kind="tool", name="cancel_calendar_event", status="partial",
+                payload={"status": "authority_required", "calendar_ref": _ref(ref),
+                         "reason": "Proponi la cancellazione di questo impegno con response_mode=act e attendi la conferma. Non è stato eliminato."},
+            )
         return Observation(
             kind="tool", name="cancel_calendar_event", status="failed",
             payload={

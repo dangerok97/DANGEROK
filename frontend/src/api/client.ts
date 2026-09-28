@@ -388,6 +388,18 @@ export type CalendarEventDetail = {
   state?: string;
   cancelled?: boolean;
   can_be_changed?: boolean;
+  is_local?: boolean;
+  timezone?: string;
+  updated_at?: string;
+};
+
+export type HomeEventInput = {
+  day: string; time: string; title: string; duration_minutes: number;
+  location: string; description: string; timezone: string; request_id?: string;
+};
+export type HomeCalendarEvent = {
+  id: string; title: string; starts_at: string; ends_at: string; timezone: string;
+  location: string; description: string; source: string; updated_at: string;
 };
 
 export type CalendarEventDeleted = {
@@ -963,13 +975,17 @@ export const api = {
   calendarEvent: (itemId: string) =>
     request<CalendarEventDetail>(`/calendar/events/${encodeURIComponent(itemId)}`),
   homeDayEvents: (day: string) =>
-    request<{ id: string; title: string; starts_at: string }[]>(`/calendar/events/home/day?day=${encodeURIComponent(day)}`),
+    request<HomeCalendarEvent[]>(`/calendar/events/home/day?day=${encodeURIComponent(day)}&timezone=${encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone || "Europe/Rome")}`),
   homeMonthDays: (month: string) =>
-    request<string[]>(`/calendar/events/home/month?month=${encodeURIComponent(month)}`),
-  createHomeEvent: (body: { day: string; time: string; title: string }) =>
-    request<{ id: string; title: string; starts_at: string; source: string }>(
-      '/calendar/events/home', { method: 'POST', body: JSON.stringify(body) },
+    request<string[]>(`/calendar/events/home/month?month=${encodeURIComponent(month)}&timezone=${encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone || "Europe/Rome")}`),
+  createHomeEvent: (body: HomeEventInput, signal?: AbortSignal) =>
+    request<HomeCalendarEvent>(
+      '/calendar/events/home', { method: 'POST', body: JSON.stringify(body), signal },
     ),
+  updateHomeEvent: (itemId: string, body: HomeEventInput & { expected_updated_at: string }, signal?: AbortSignal) =>
+    request<CalendarEventDetail>(`/calendar/events/${encodeURIComponent(itemId)}`, {
+      method: 'PATCH', body: JSON.stringify(body), signal,
+    }),
   calendarEventDelete: (itemId: string, confirmed_title: string) =>
     request<CalendarEventDeleted>(
       `/calendar/events/${encodeURIComponent(itemId)}/delete`,

@@ -21,6 +21,7 @@ import { tokens } from '@/src/theme/tokens';
 import { api, CalendarEventDetail } from '@/src/api/client';
 import { haptic } from '@/src/utils/haptic';
 import { humanizeError } from '@/src/utils/errors';
+import { CalendarEventForm } from '@/src/components/calendar/CalendarEventForm';
 import { ConfirmDialog } from '@/src/components/ui/ConfirmDialog';
 import { buildOraConversationHref } from '@/src/ora/oraNav';
 
@@ -71,6 +72,7 @@ export default function CalendarEventScreen() {
   const [asking, setAsking] = useState(false);
   const [busy, setBusy] = useState(false);
   const [gone, setGone] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -121,6 +123,7 @@ export default function CalendarEventScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.header}>
         <Pressable
+          disabled={busy}
           onPress={() => router.back()}
           style={styles.back}
           accessibilityRole="button"
@@ -181,13 +184,21 @@ export default function CalendarEventScreen() {
 
               {error ? <Text style={styles.error}>{error}</Text> : null}
 
-              <View style={styles.actions}>
+              {editing ? <View style={styles.card}>
+                <CalendarEventForm
+                  event={event}
+                  onBusyChange={setBusy}
+                  onCancel={() => { setEditing(false); void load(); }}
+                  onSaved={(saved) => { setEvent(saved as CalendarEventDetail); setEditing(false); setError(null); void haptic('success'); }}
+                />
+              </View> : event.can_be_changed ? <View style={styles.actions}>
                 <Pressable
                   style={styles.primary}
                   testID="event-edit"
                   accessibilityRole="button"
                   onPress={() => {
                     void haptic('tap');
+                    if (event.is_local) { setEditing(true); return; }
                     // Lo spostamento passa dalla conversazione, che e' dove
                     // vive il percorso di modifica gia' corretto: un intento
                     // di spostare non puo' essere soddisfatto creando.
@@ -212,10 +223,10 @@ export default function CalendarEventScreen() {
                   <Ionicons name="trash-outline" size={18} color={tokens.color.error} />
                   <Text style={styles.dangerText}>Elimina evento</Text>
                 </Pressable>
-              </View>
+              </View> : null}
 
               <Text style={styles.footnote}>
-                Eliminandolo lo tolgo anche dal tuo Google Calendar.
+                {event.is_local ? 'Questo impegno è salvato nel calendario ORA.' : 'Le modifiche si applicano anche al tuo Google Calendar.'}
               </Text>
             </>
           ) : null}
@@ -228,7 +239,7 @@ export default function CalendarEventScreen() {
         body={
           event
             ? `«${event.title}»${day ? `, ${day}` : ''}${time ? ` alle ${time}` : ''}. `
-              + 'Lo tolgo anche dal tuo Google Calendar.'
+              + (event.is_local ? 'Lo tolgo dal calendario ORA.' : 'Lo tolgo anche dal tuo Google Calendar.')
             : ''
         }
         confirmLabel="Elimina"

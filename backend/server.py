@@ -158,6 +158,10 @@ async def startup():
     # Life Graph
     await db.life_nodes.create_index("id", unique=True)
     await db.life_nodes.create_index([("user_id", 1), ("status", 1), ("type", 1)])
+    await db.life_nodes.create_index(
+        [("user_id", 1), ("type", 1), ("status", 1), ("attributes.starts_at", 1)],
+        name="owner_event_starts",
+    )
     await db.life_edges.create_index("id", unique=True)
     await db.life_edges.create_index([("user_id", 1), ("from_node", 1)])
     await db.life_edges.create_index([("user_id", 1), ("to_node", 1)])

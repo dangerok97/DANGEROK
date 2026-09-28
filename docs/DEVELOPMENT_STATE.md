@@ -4311,3 +4311,9 @@ la modifica globale del provider, aggiunti test sintetici di isolamento.
 ## 28 settembre 2026 — Calendario Home
 
 Implementato in locale: dopo la selezione di un giorno, modulo per creare un impegno nell'agenda interna. API autenticata, validazione data e ora, lettura del giorno e del mese e apertura/cancellazione della scheda. Verificati TypeScript, test Home, quattro casi di ora legale e build web; resta da verificare la scrittura end-to-end con un account di prova su un backend avviato. Nessun deploy implicito.
+
+## 28 settembre 2026 — Verifica calendario Home/ORA
+
+Implementati dati completi, modifica locale, origine corretta, letture della chat, aggiornamento sullo stesso riferimento, cancellazione confermata, gestione retry e fusi. Verifica prima del rilascio: 116 test Python superati su Mongo simulato in memoria (12 nuove prove di lifecycle HTTP/dominio, 4 sui tempi, regressioni calendario e autorità), TypeScript e contratto Home superati, build Expo web riuscita. ESLint dei file modificati: zero errori, avvisi preesistenti nel client API.
+
+Il database Mongo locale non si avvia in questo ambiente (Operation not permitted); la simulazione non dimostra da sola persistenza o provider reali. Il browser del sito richiede login: il flusso autenticato touch non è stato verificato visivamente. È prevista una prova HTTP autenticata su Railway con account sintetico dopo il deploy. Nessuna nuova dipendenza runtime; `requirements-test.txt` aggiunge mongomock-motor esclusivamente ai test. Le funzionalità Google restano soggette ai consensi esistenti; la creazione dalla chat continua a usare Google, mentre gli impegni locali si creano dalla Home.

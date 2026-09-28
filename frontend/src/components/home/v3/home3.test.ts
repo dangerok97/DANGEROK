@@ -342,8 +342,9 @@ const item = (o: Record<string, unknown> = {}) => ({
   assert.ok(rail.includes('const byDay = useMemo('), 'events are indexed by day in memory');
   assert.ok(rail.includes('api.homeDayEvents(dayKey)'), 'saved commitments reload for any selected day');
   assert.ok(rail.includes('api.homeMonthDays(monthKey)'), 'saved commitments mark their day after navigating months');
-  assert.ok(rail.includes('api.createHomeEvent('), 'the form persists its event');
-  assert.ok(rail.includes('Salvato in ORA; non viene aggiunto al calendario esterno.'), 'the storage destination is clear');
+  const eventForm = readCode('src/components/calendar/CalendarEventForm.tsx');
+  assert.ok(eventForm.includes('api.createHomeEvent('), 'the shared form persists its event');
+  assert.ok(eventForm.includes('Calendario ORA'), 'the storage destination is clear');
   assert.ok(rail.includes('Nessun impegno per questa giornata'), 'an empty day says so');
   // Selected / today / has-events must not be told apart by colour alone.
   assert.ok(rail.includes('borderColor: colors.accent'), 'the selected day carries a ring');

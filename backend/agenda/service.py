@@ -18,6 +18,8 @@ from __future__ import annotations
 import logging
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List
+from zoneinfo import ZoneInfo
+from timezone_service import resolve_user_timezone
 
 logger = logging.getLogger("ora.agenda")
 
@@ -55,8 +57,9 @@ class AgendaService:
         l'informazione che serve a chi la guarda.
         """
         quanti = max(1, min(int(days or DEFAULT_DAYS), MAX_DAYS))
-        oggi = datetime.now(timezone.utc).date()
-        inizio = datetime(oggi.year, oggi.month, oggi.day, tzinfo=timezone.utc)
+        zone = ZoneInfo((await resolve_user_timezone(self.db, user_id)).tz_name)
+        oggi = datetime.now(zone).date()
+        inizio = datetime(oggi.year, oggi.month, oggi.day, tzinfo=zone)
         fine = inizio + timedelta(days=quanti)
 
         eventi = await self._events_between(user_id, inizio, fine)
@@ -101,8 +104,8 @@ class AgendaService:
             "type": "event",
             "status": "active",
             "attributes.starts_at": {
-                "$gte": inizio.isoformat(),
-                "$lt": fine.isoformat(),
+                "$gte": (inizio - timedelta(days=1)).date().isoformat(),
+                "$lt": (fine + timedelta(days=1)).date().isoformat(),
             },
         }
         try:
@@ -116,6 +119,20 @@ class AgendaService:
         fuori: List[Dict[str, Any]] = []
         for d in docs:
             attrs = d.get("attributes") or {}
+            try:
+                start = datetime.fromisoformat(str(attrs.get("starts_at")).replace("Z", "+00:00"))
+                if start.tzinfo is None:
+                    start = start.replace(tzinfo=ZoneInfo(attrs.get("timezone") or str(inizio.tzinfo)))
+                if not inizio <= start < fine:
+                    continue
+                attrs = {**attrs, "starts_at": start.astimezone(inizio.tzinfo).isoformat()}
+                if attrs.get("ends_at"):
+                    end = datetime.fromisoformat(str(attrs["ends_at"]).replace("Z", "+00:00"))
+                    if end.tzinfo is None:
+                        end = end.replace(tzinfo=start.tzinfo)
+                    attrs["ends_at"] = end.astimezone(inizio.tzinfo).isoformat()
+            except (ValueError, TypeError, KeyError):
+                continue
             fuori.append({
                 "id": d.get("id"),
                 "title": d.get("label") or "Appuntamento",

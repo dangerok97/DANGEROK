@@ -1647,3 +1647,7 @@ La scelta OpenAI di un utente non cambia il modello degli altri account.
 ## 28 settembre 2026 — Aggiunta impegni dalla Home
 
 Selezionando un giorno nella griglia della Home, la persona può inserire titolo e ora e salvare l'impegno in ORA. Il pannello lo mostra subito e lo ritrova anche quando si torna sul giorno. Il modulo dichiara che l'inserimento non scrive su Google o Apple Calendar.
+
+## 28 settembre 2026 — Impegni utilizzabili da ORA
+
+Dalla Home si crea un impegno nel giorno scelto con ora, durata, luogo e note. La scheda locale permette di modificare anche il giorno e di cancellare con conferma. Home, agenda e strumenti della conversazione leggono lo stesso evento: ORA può ritrovarlo, usarne luogo e note e spostarlo senza crearne un secondo. La provenienza «Calendario ORA» è esplicita; nessuna sincronizzazione Google viene dichiarata per un evento locale.

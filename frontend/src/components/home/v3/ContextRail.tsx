@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
+import { CalendarEventForm } from '@/src/components/calendar/CalendarEventForm';
 import { useTheme } from '@/src/theme/ThemeProvider';
 import { ora, oraShadow, oraType } from '@/src/theme/oraSurface';
 import { OraLink } from '@/src/components/ora-ui';
@@ -26,8 +27,8 @@ function itemDate(i: HomeItem): Date | null {
 /**
  * The contextual rail — what is around the decision, not the decision itself.
  *
- * Everything here is derived from the Home payload the page already loaded:
- * no extra fetch, no second source of truth. The month grid is a real calendar
+ * Home supplies its current items; local events are also read for the selected
+ * day and month, including dates beyond the Home summary window. The month grid is a real calendar
  * of the user's own items — a day is marked because something of theirs falls
  * on it, never to make the grid look populated. If no items carry dates, the
  * marks simply do not appear.
@@ -69,10 +70,10 @@ export function ContextRail({
   const [selected, setSelected] = useState<Date | null>(null);
   const [manual, setManual] = useState<{ id: string; title: string; starts_at: string }[]>([]);
   const [manualMarks, setManualMarks] = useState<string[]>([]);
-  const [draftTitle, setDraftTitle] = useState('');
-  const [draftTime, setDraftTime] = useState('09:00');
   const [saving, setSaving] = useState(false);
   const [dayError, setDayError] = useState('');
+  const [dayLoading, setDayLoading] = useState(false);
+  const [dayNotice, setDayNotice] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [reloadDay, setReloadDay] = useState(0);
   const dayKey = selected ? localDay(selected) : null;
@@ -81,6 +82,7 @@ export function ContextRail({
   useEffect(() => {
     setManual([]);
     setDayError('');
+    setDayNotice('');
     setShowForm(false);
   }, [dayKey]);
 
@@ -99,31 +101,13 @@ export function ContextRail({
   useEffect(() => {
     if (!dayKey) { setManual([]); return; }
     let live = true;
+    setDayLoading(true);
     api.homeDayEvents(dayKey).then((rows) => {
-      if (live) setManual(rows);
-    }).catch(() => { if (live) setDayError('Non riesco a leggere gli impegni salvati.'); });
+      if (live) { setManual(rows); setDayError(''); }
+    }).catch(() => { if (live) setDayError('Non riesco a leggere gli impegni salvati.'); })
+      .finally(() => { if (live) setDayLoading(false); });
     return () => { live = false; };
   }, [dayKey, reloadDay, items]);
-
-  async function saveEvent() {
-    if (!dayKey || saving) return;
-    if (!draftTitle.trim()) { setDayError('Scrivi cosa devi fare.'); return; }
-    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(draftTime)) {
-      setDayError('Inserisci l’ora nel formato 09:00.'); return;
-    }
-    setSaving(true);
-    setDayError('');
-    try {
-      const saved = await api.createHomeEvent({ day: dayKey, time: draftTime, title: draftTitle.trim() });
-      setManual((rows) => [...rows, saved].sort((a, b) => a.starts_at.localeCompare(b.starts_at)));
-      setDraftTitle('');
-      setShowForm(false);
-      setReloadDay((n) => n + 1);
-      onEventSaved?.();
-    } catch {
-      setDayError('Non sono riuscita a salvare l’impegno. Riprova.');
-    } finally { setSaving(false); }
-  }
 
   const dated = useMemo(
     () => items.map((i) => ({ item: i, at: itemDate(i) })).filter((x) => !!x.at) as { item: HomeItem; at: Date }[],
@@ -131,9 +115,8 @@ export function ContextRail({
   );
 
   /*
-    Impegni grouped by calendar day, derived from the items Home already
-    loaded. No request is made when a day is tapped: the events for the period
-    are in memory, so selecting a day is a lookup, not a round trip.
+    Group the already-loaded Home items by day. The local-calendar request
+    supplements these entries for dates outside the Home summary window.
   */
   const byDay = useMemo(() => {
     const map = new Map<string, { item: HomeItem; at: Date }[]>();
@@ -240,6 +223,7 @@ export function ContextRail({
               panel header is exactly as tall as it was.
             */}
             <Pressable
+              disabled={saving}
               onPress={() => shiftMonth(-1)}
               style={styles.navBtn}
               accessibilityRole="button"
@@ -248,6 +232,7 @@ export function ContextRail({
               <Ionicons name="chevron-back" size={15} color={colors.textTertiary} />
             </Pressable>
             <Pressable
+              disabled={saving}
               onPress={() => { const n = new Date(); setCursor(startOfMonth(n)); setSelected(n); }}
               style={styles.navBtn}
               accessibilityRole="button"
@@ -257,6 +242,7 @@ export function ContextRail({
               <Text style={[styles.todayBtn, { color: colors.textSecondary }]}>Oggi</Text>
             </Pressable>
             <Pressable
+              disabled={saving}
               onPress={() => shiftMonth(1)}
               style={styles.navBtn}
               accessibilityRole="button"
@@ -289,13 +275,14 @@ export function ContextRail({
               <Pressable
                 key={`d${day}`}
                 style={styles.cell}
+                disabled={saving}
                 onPress={() => setSelected(isSelected ? null : cellDate)}
                 accessibilityRole="button"
                 accessibilityState={{ selected: isSelected }}
                 accessibilityLabel={
                   count
                     ? `${day} ${cursor.toLocaleDateString('it-IT', { month: 'long' })}, ${count} impegn${count === 1 ? 'o' : 'i'}`
-                    : `${day} ${cursor.toLocaleDateString('it-IT', { month: 'long' })}, nessun impegno`
+                    : `${day} ${cursor.toLocaleDateString('it-IT', { month: 'long' })}, ${marked ? 'impegni presenti' : 'nessun impegno'}`
                 }
                 testID={`rail-day-${day}`}
               >
@@ -351,7 +338,8 @@ export function ContextRail({
                 .toUpperCase()}`}
             </Text>
             <Pressable
-              onPress={() => setSelected(null)}
+              disabled={saving}
+                onPress={() => setSelected(null)}
               hitSlop={8}
               style={styles.closeDay}
               accessibilityRole="button"
@@ -389,29 +377,32 @@ export function ContextRail({
             ))}
             {manual.filter((e) => !selectedEntries.some(({ item }) => item.source_id === e.id)).map((e) => (
               <Pressable key={e.id} onPress={() => onOpenManualEvent?.(e.id)} style={styles.upRow} testID={`rail-day-item-${e.id}`}>
-                <Text style={[styles.dayTime, { color: colors.textSecondary }]}>{e.starts_at.slice(11, 16)}</Text>
+                <Text style={[styles.dayTime, { color: colors.textSecondary }]}>{new Date(e.starts_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}</Text>
                 <Text style={[styles.upTitle, { color: colors.textPrimary }]}>{e.title}</Text>
               </Pressable>
             ))}
             </>
-          ) : (
+          ) : dayLoading ? <ActivityIndicator accessibilityLabel="Caricamento impegni" color={colors.accent} /> : !dayError ? (
             <Text style={[styles.emptyDay, { color: colors.textTertiary }]} testID="rail-day-empty">
               Nessun impegno per questa giornata.
             </Text>
-          )}
+          ) : null}
+          {dayNotice ? <Text accessibilityRole="alert" style={{ color: colors.success }}>{dayNotice}</Text> : null}
           {showForm ? (
-            <View style={styles.eventForm} testID="rail-new-event-form">
-              <TextInput value={draftTitle} onChangeText={setDraftTitle} placeholder="Che impegno hai?" placeholderTextColor={colors.textTertiary} style={[styles.eventInput, { color: colors.textPrimary, borderColor: colors.border }]} maxLength={200} accessibilityLabel="Titolo dell'impegno" />
-              <View style={styles.eventActions}>
-                <TextInput value={draftTime} onChangeText={setDraftTime} placeholder="09:00" keyboardType="numbers-and-punctuation" style={[styles.timeInput, { color: colors.textPrimary, borderColor: colors.border }]} maxLength={5} accessibilityLabel="Ora dell'impegno, formato 09:00" />
-                <Pressable onPress={() => void saveEvent()} disabled={saving} accessibilityRole="button" accessibilityLabel="Salva impegno" style={[styles.addButton, { backgroundColor: colors.accent }]} testID="rail-save-event">
-                  {saving ? <ActivityIndicator color={colors.onAccent} /> : <Text style={{ color: colors.onAccent, fontWeight: '700' }}>Salva</Text>}
-                </Pressable>
-              </View>
-              <Text style={[oraType.small, { color: colors.textTertiary }]}>Salvato in ORA; non viene aggiunto al calendario esterno.</Text>
-            </View>
+            <CalendarEventForm
+              key={dayKey!}
+              day={dayKey!}
+              onBusyChange={setSaving}
+              onCancel={() => setShowForm(false)}
+              onSaved={() => {
+                setDayNotice('Impegno salvato.');
+                setShowForm(false);
+                setReloadDay((n) => n + 1);
+                onEventSaved?.();
+              }}
+            />
           ) : (
-            <Pressable onPress={() => { setShowForm(true); setDayError(''); }} style={styles.addEvent} accessibilityRole="button" accessibilityLabel={`Aggiungi impegno il ${selected.getDate()} ${selected.toLocaleDateString('it-IT', { month: 'long' })}`} testID="rail-add-event">
+            <Pressable onPress={() => { setShowForm(true); setDayNotice(''); }} style={styles.addEvent} accessibilityRole="button" accessibilityLabel={`Aggiungi impegno il ${selected.getDate()} ${selected.toLocaleDateString('it-IT', { month: 'long' })}`} testID="rail-add-event">
               <Ionicons name="add-circle-outline" size={20} color={ora.deep} />
               <Text style={[oraType.body, { color: ora.deep, fontWeight: '600' }]}>Aggiungi impegno</Text>
             </Pressable>
@@ -559,11 +550,6 @@ const styles = StyleSheet.create({
   upRow: { flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.md, minHeight: 44 },
   dayTime: { width: 46, fontSize: 12, fontWeight: '600' },
   addEvent: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  eventForm: { gap: 9 },
-  eventActions: { flexDirection: 'row', gap: 10, alignItems: 'center' },
-  eventInput: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, minHeight: 44 },
-  timeInput: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, minHeight: 44, width: 90 },
-  addButton: { borderRadius: 10, minHeight: 44, minWidth: 90, alignItems: 'center', justifyContent: 'center' },
   closeDay: { marginLeft: 'auto', padding: 2 },
   emptyDay: { fontSize: 13, lineHeight: 19, paddingVertical: 6 },
   upDate: { width: 34, alignItems: 'center' },
