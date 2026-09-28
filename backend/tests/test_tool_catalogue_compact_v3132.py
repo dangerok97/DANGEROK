@@ -137,3 +137,26 @@ def test_the_payload_carries_the_compact_form():
     intero = "\n".join(catalogo)
     for tool in tools:
         assert (tool.get("capability") or "") in intero
+
+
+def test_nested_authority_fields_survive_the_actual_calendar_catalogue():
+    from conversation_engine.ai_core.tools.registry import ToolRegistry
+    from conversation_engine.ai_core.tools.compact import as_one_line
+    for name in ("create_calendar_event", "update_calendar_event"):
+        row = as_one_line(ToolRegistry().get(name).public())
+        assert "requested_by_user:bool" in row
+        assert "user_words:str" in row
+        assert "what_they_asked_for:str" in row
+    assert "preserve_duration?:bool=true" in row
+
+
+def test_nested_array_schema_keeps_required_fields_and_enum():
+    from conversation_engine.ai_core.tools.compact import as_one_line
+    row = as_one_line({"capability": "example", "input_schema": {
+        "properties": {"actions": {"type": "array", "items": {
+            "type": "object", "required": ["kind"], "properties": {
+                "kind": {"type": "string", "enum": ["read", "write"]},
+                "target": {"type": "object", "properties": {"ref": {"type": "string"}}},
+            },
+        }}}}})
+    assert "list[obj{kind:read|write, target?:obj{ref?:str}}]" in row

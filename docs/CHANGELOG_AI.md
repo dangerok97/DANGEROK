@@ -5681,3 +5681,5 @@ Aggiunto il comando «Aggiungi impegno» nel pannello del giorno selezionato, co
 Prova live 49f6965: sette controlli API reali PASS; individuata e corretta perdita delle note nel contesto delle prossime 48 ore. Aggiunta etichetta data/giorno della settimana calcolata. 117 regressioni PASS.
 
 Spostamento locale: durata preservata dal dominio per default anche se il modello propone una fine incongruente; nuova durata richiede preserve_duration=false. Aggiunti esiti operativi non sensibili ai log dei tool calendario.
+
+Fix catalogo strumenti: preservati schemi annidati e default, incluso il consenso citato dal messaggio dell’utente. Non viene sintetizzata né ampliata alcuna autorizzazione.

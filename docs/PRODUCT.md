@@ -1653,3 +1653,5 @@ Selezionando un giorno nella griglia della Home, la persona può inserire titolo
 Dalla Home si crea un impegno nel giorno scelto con ora, durata, luogo e note. La scheda locale permette di modificare anche il giorno e di cancellare con conferma. Home, agenda e strumenti della conversazione leggono lo stesso evento: ORA può ritrovarlo, usarne luogo e note e spostarlo senza crearne un secondo. La provenienza «Calendario ORA» è esplicita; nessuna sincronizzazione Google viene dichiarata per un evento locale.
 
 Il contesto rapido della chat conserva anche le note degli impegni. Giorno della settimana e data sono forniti dal calendario, anziché calcolati a voce dal modello.
+
+Gli ordini espliciti di spostamento possono portare al tool l’autorizzazione completa; il catalogo compatto conserva la struttura degli oggetti e delle liste annidate.

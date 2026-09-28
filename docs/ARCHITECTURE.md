@@ -3560,3 +3560,5 @@ Provider Manager; l'endpoint preferenze non modifica un override globale.
 Il pre-caricamento `calendar_ahead` riusa i campi `description`, `timezone` e `day_label` dei tool. Il giorno della settimana è calcolato sul timestamp nel fuso dell’utente; le note restano dati, non istruzioni operative.
 
 Negli spostamenti locali via tool `preserve_duration` è true per default: il dominio ricalcola la fine dalla durata osservata, ignorando un end_datetime ipotizzato dal modello. Per cambiare esplicitamente la durata il tool deve passare false e la nuova fine.
+
+Corretto `tools/compact.py`: la rappresentazione ricorsiva preserva proprietà annidate, campi obbligatori, enum e default. Prima `user_authority` diventava soltanto obj e perdeva requested_by_user; il tool poteva quindi ricevere un oggetto incompleto e ritornare no_grant. Gli schemi create/update ora richiedono tutti e tre i campi quando user_authority è presente. I controlli di grounding e consenso restano operativi.

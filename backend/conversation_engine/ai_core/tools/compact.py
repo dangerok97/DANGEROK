@@ -35,6 +35,8 @@ resa perdesse un argomento o un valore, quella prova cade.
 
 from __future__ import annotations
 
+import json
+
 from typing import Any, Dict, List
 
 # Come si scrivono i tipi. Il modello li riconosce tutti, e costano un quarto.
@@ -63,10 +65,12 @@ def _un_tipo(spec: Dict[str, Any]) -> str:
     if isinstance(scelte, list) and scelte:
         return "|".join(str(s) for s in scelte)
     tipo = _TIPI.get(str(spec.get("type") or ""), str(spec.get("type") or "any"))
+    if tipo == "obj" and spec.get("properties"):
+        return "obj{" + _gli_argomenti(spec) + "}"
     if tipo == "list":
         dentro = spec.get("items") or {}
-        if isinstance(dentro, dict) and dentro.get("type"):
-            return f"list[{_TIPI.get(str(dentro['type']), str(dentro['type']))}]"
+        if isinstance(dentro, dict) and dentro:
+            return f"list[{_un_tipo(dentro)}]"
     return tipo
 
 
@@ -74,6 +78,8 @@ def _un_argomento(nome: str, spec: Any, obbligatorio: bool) -> str:
     if not isinstance(spec, dict):
         return nome
     pezzo = f"{nome}{'' if obbligatorio else '?'}:{_un_tipo(spec)}"
+    if "default" in spec:
+        pezzo += "=" + json.dumps(spec["default"], ensure_ascii=False)
     detto = str(spec.get("description") or "").strip()
     if detto:
         # La descrizione di un argomento non è decorazione: è dove sta scritto

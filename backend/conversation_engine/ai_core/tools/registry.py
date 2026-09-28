@@ -996,6 +996,7 @@ class ToolRegistry:
                                 "standing permission and it does not cover an "
                                 "action bigger than what they described."
                             ),
+                            "required": ["requested_by_user", "user_words", "what_they_asked_for"],
                             "properties": {
                                 "requested_by_user": {"type": "boolean"},
                                 "user_words": {"type": "string"},
@@ -1077,6 +1078,7 @@ class ToolRegistry:
                                 "standing permission and it does not cover an "
                                 "action bigger than what they described."
                             ),
+                            "required": ["requested_by_user", "user_words", "what_they_asked_for"],
                             "properties": {
                                 "requested_by_user": {"type": "boolean"},
                                 "user_words": {"type": "string"},
