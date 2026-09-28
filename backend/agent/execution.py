@@ -74,6 +74,7 @@ _BY_STEP_TYPE = {
 # capability here is wiring, and nothing about the situation reaches it.
 _READERS = {
     "calendar.read": providers.read_calendar,
+    "calendar.local.read": providers.read_local_calendar,
     "document.read": providers.read_documents,
     "information.read": providers.read_internal_state,
 }

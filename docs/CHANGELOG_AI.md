@@ -5692,3 +5692,8 @@ Verifica finale 28/09: ciclo live completato (lettura, spostamento, cancellazion
 ## 28 settembre 2026 — Ora locale della conversazione
 
 Fix ora corrente conversazionale: contesto temporale esplicito condiviso tra data e ora, fuso e provenienza dichiarati, nessuna conversione manuale +2. Aggiunte regressioni estate/inverno, mezzanotte, cambi DST, altro fuso, indisponibilità DB e passaggio attraverso il loop.
+
+
+## 28 settembre 2026 — Impegni Home nel lavoro autonomo
+
+Il riepilogo proattivo include ora gli impegni Home con fine, luogo e note, riferimenti canonici e ordinamento per istante. La nuova capacità di sola lettura calendar.local.read consente all’agente di approfondirli senza connessione Google; non concede accesso ai calendari esterni. Le revisioni cancellate o spostate non fanno riapparire vecchie copie del provider. Data e giorno del riepilogo seguono il fuso locale. 18 test mirati PASS (fonti, isolamento, cancellazione, fusi, lettura reale locale e recupero background); verifica cloud separata ancora da eseguire. Nessuna dipendenza o migrazione DB.

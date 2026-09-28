@@ -3571,3 +3571,8 @@ Verifica finale 28/09: ciclo live completato (lettura, spostamento, cancellazion
 ## 28 settembre 2026 — Ora locale della conversazione
 
 AI Core risolve user_clock_context a ogni turno tramite timezone_service; data, ora e offset derivano dallo stesso istante. Il payload conserva autorità del fuso; timestamp storici UTC non rappresentano l’ora attuale. In caso di errore DB usa Europe/Rome con autorità system_fallback.
+
+
+## 28 settembre 2026 — Impegni Home nel lavoro autonomo
+
+Il riepilogo proattivo include ora gli impegni Home con fine, luogo e note, riferimenti canonici e ordinamento per istante. La nuova capacità di sola lettura calendar.local.read consente all’agente di approfondirli senza connessione Google; non concede accesso ai calendari esterni. Le revisioni cancellate o spostate non fanno riapparire vecchie copie del provider. Data e giorno del riepilogo seguono il fuso locale. 18 test mirati PASS (fonti, isolamento, cancellazione, fusi, lettura reale locale e recupero background); verifica cloud separata ancora da eseguire. Nessuna dipendenza o migrazione DB.

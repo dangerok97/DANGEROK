@@ -48,9 +48,12 @@ async def build(
     is missing, and a judgement made on less is still a judgement, whereas no
     judgement at all is a silence for the wrong reason.
     """
-    now = _now()
+    from timezone_service import user_clock_context
+    clock = await user_clock_context(db, user_id, now=_now())
+    now = datetime.fromisoformat(clock["local_datetime"])
     snapshot: Dict[str, Any] = {
         "now": now.isoformat(),
+        "clock": clock,
         "local_weekday": now.strftime("%A").lower(),
         "horizon_days": HORIZON_DAYS,
         # What moved since last time, when the caller knows. It focuses
@@ -331,9 +334,9 @@ async def _calendar(db, user_id: str, now: datetime) -> List[Dict[str, Any]]:
     """
     What is on the calendar within the horizon.
 
-    Titles and times. No attendees, no locations, no descriptions: a judgement
-    about whether an event needs preparing does not require reading who else
-    is coming.
+    Bounded event evidence from connected calendars and Home commitments.
+    End times, places and preparation notes matter to feasibility; attendees
+    and unrelated personal information are not included.
     """
     horizon = now + timedelta(days=HORIZON_DAYS)
     out: List[Dict[str, Any]] = []
@@ -341,7 +344,8 @@ async def _calendar(db, user_id: str, now: datetime) -> List[Dict[str, Any]]:
     rows = await db.calendar_events.find(
         {
             "user_id": user_id,
-            "start_at": {"$gte": now.isoformat(), "$lte": horizon.isoformat()},
+            "start_at": {"$gte": now.astimezone(timezone.utc).isoformat(), "$lte": horizon.astimezone(timezone.utc).isoformat()},
+            "status": {"$nin": ["cancelled", "archived"]},
         },
         {"_id": 0, "id": 1, "title": 1, "start_at": 1, "end_at": 1, "all_day": 1},
     ).sort("start_at", 1).to_list(MAX_PER_SOURCE)
@@ -350,6 +354,7 @@ async def _calendar(db, user_id: str, now: datetime) -> List[Dict[str, Any]]:
             "ref": r.get("id"),
             "title": (r.get("title") or "")[:120],
             "starts_at": r.get("start_at"),
+            "ends_at": r.get("end_at"),
             "in_days": _days_from_now(r.get("start_at"), now),
             "all_day": bool(r.get("all_day")),
         })
@@ -372,12 +377,36 @@ async def _calendar(db, user_id: str, now: datetime) -> List[Dict[str, Any]]:
             "ref": row["ref"],
             "title": row["title"],
             "starts_at": row["starts_at"],
+            "ends_at": row.get("ends_at"),
+            "timezone": row.get("timezone"),
+            "location": row.get("location", ""),
+            "preparation_notes": row.get("preparation_notes", ""),
             "in_days": _days_from_now(row["starts_at"], now),
             "all_day": row["all_day"],
         })
 
-    out.sort(key=lambda r: str(r.get("starts_at") or ""))
+    from home.manual_event import manual_events_between
+    for row in await manual_events_between(db, user_id, now, horizon, limit=MAX_PER_SOURCE):
+        ref = f"calendar:{row['id']}"
+        if ref in seen:
+            continue
+        seen.add(ref)
+        out.append({
+            "ref": ref, "title": row["title"][:120],
+            "starts_at": row["starts_at"], "ends_at": row["ends_at"],
+            "timezone": row["timezone"], "source": "ora_local",
+            "location": row["location"][:300],
+            "preparation_notes": row["description"][:800],
+            "in_days": _days_from_now(row["starts_at"], now), "all_day": False,
+        })
+
+    out.sort(key=lambda r: _event_instant(r.get("starts_at"), now))
     return out[:MAX_PER_SOURCE]
+
+
+def _event_instant(value, now):
+    instant = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    return instant if instant.tzinfo else instant.replace(tzinfo=now.tzinfo or timezone.utc)
 
 
 async def _appointments_that_still_stand(
@@ -411,6 +440,7 @@ async def _appointments_that_still_stand(
                 "user_id": user_id,
                 "source_record_type": "calendar_event",
                 "ingestion_status": {"$ne": "superseded"},
+                "source_status": {"$ne": "detached"},
             },
             {"_id": 0, "external_id": 1, "normalized_payload": 1, "ingested_at": 1},
         ).sort("ingested_at", -1).to_list(400)
@@ -423,17 +453,25 @@ async def _appointments_that_still_stand(
     same_thing: set = set()
     for row in rows:
         payload = plain(row.get("normalized_payload"))
+        ref = str(row.get("external_id") or "")
+        if not ref or ref in by_ref:
+            continue
+        # The newest provider revision wins, including cancellation/moving away.
+        by_ref.add(ref)
         starts = str(payload.get("starts_at") or "")
-        if not starts or not (now.isoformat()[:19] <= starts <= horizon.isoformat()):
+        try:
+            instant = _event_instant(starts, now)
+        except (ValueError, TypeError):
+            continue
+        if not now <= instant <= horizon:
             continue
         if str(payload.get("status") or "").lower() == "cancelled":
             continue
-        ref = str(row.get("external_id") or "")
         title = str(payload.get("title") or "").strip()[:120]
-        if not ref or not title or ref in by_ref:
+        if not title:
             continue
         # La stessa cosa alla stessa ora, arrivata due volte, e' una cosa.
-        twice = (title.lower(), starts)
+        twice = (title.lower(), instant.astimezone(timezone.utc).isoformat())
         if twice in same_thing:
             continue
         by_ref.add(ref)
@@ -442,6 +480,10 @@ async def _appointments_that_still_stand(
             "ref": ref,
             "title": title,
             "starts_at": starts,
+            "ends_at": payload.get("ends_at"),
+            "timezone": payload.get("timezone"),
+            "location": str(payload.get("location") or "")[:300],
+            "preparation_notes": str(payload.get("description") or "")[:800],
             "all_day": len(starts) == 10
             or str(payload.get("all_day") or "").lower() == "true",
         })
@@ -602,7 +644,7 @@ def _days_from_now(when: Optional[str], now: datetime) -> Optional[int]:
         return None
     if start.tzinfo is None:
         start = start.replace(tzinfo=timezone.utc)
-    return max(0, (start.date() - now.date()).days)
+    return max(0, (start.astimezone(now.tzinfo or timezone.utc).date() - now.date()).days)
 
 
 async def _documents(db, user_id: str, now: datetime, *, document_ids=None) -> List[Dict[str, Any]]:

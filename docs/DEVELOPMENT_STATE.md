@@ -4332,3 +4332,8 @@ Verifica finale 28/09: ciclo live completato (lettura, spostamento, cancellazion
 ## 28 settembre 2026 — Ora locale della conversazione
 
 Corretto il difetto segnalato alle 16:45: il payload conteneva solo la data locale, senza ora corrente. Aggiunto orologio locale con fuso, offset DST e autorità, aggiornato a ogni turno. Pubblicato f8104f8 su staging/cloud: Railway 1a279e67-014e-4653-98ce-58550c0ddecf SUCCESS. 35 test locali PASS (orologio, giorni e lifecycle calendario), compilazione e controlli statici PASS; tutti i cinque job CI 36439578094 SUCCESS. Prova HTTP autenticata con account sintetico alle 16:58: domanda esatta «Che ore sono?» → «Sono le 16:58 di lunedì 28 settembre 2026 (ora legale, fuso orario Europa/Roma)». Nessuna nuova dipendenza runtime, schema DB o configurazione. Nessuna prova visuale sul dispositivo personale. Il semplice redeploy riusa il vecchio SHA: per questo rilascio è stato richiesto esplicitamente il nuovo commit.
+
+
+## 28 settembre 2026 — Impegni Home nel lavoro autonomo
+
+Il riepilogo proattivo include ora gli impegni Home con fine, luogo e note, riferimenti canonici e ordinamento per istante. La nuova capacità di sola lettura calendar.local.read consente all’agente di approfondirli senza connessione Google; non concede accesso ai calendari esterni. Le revisioni cancellate o spostate non fanno riapparire vecchie copie del provider. Data e giorno del riepilogo seguono il fuso locale. 18 test mirati PASS (fonti, isolamento, cancellazione, fusi, lettura reale locale e recupero background); verifica cloud separata ancora da eseguire. Nessuna dipendenza o migrazione DB.

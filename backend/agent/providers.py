@@ -28,7 +28,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from typing import List
 
 from agent.models import ResultProvenance
 
@@ -223,6 +223,29 @@ async def read_documents(db, owner_id: str, goal, *, step=None) -> CapabilityOut
         ),
         claims=claims[:MAX_CLAIMS],
         data_ref=f"documents:{len(docs)}",
+    )
+
+
+async def read_local_calendar(db, owner_id: str, goal) -> CapabilityOutcome:
+    """Read Home commitments only. This grants no access to provider calendars."""
+    from home.manual_event import manual_events_between
+    try:
+        now = _now()
+        events = await manual_events_between(db, owner_id, now, now + timedelta(days=14), limit=MAX_CLAIMS)
+    except Exception:
+        return _unavailable("calendar.local.read", "read_failed", "Non sono riuscita a leggere gli impegni ORA.")
+    claims = [Claim(
+        text=(f"Impegno ORA {event['id']}: {event['title']} — {event['starts_at']} / {event['ends_at']}; "
+              f"fuso: {event['timezone']}; luogo: {event['location']}; note: {event['description']}"),
+        supports=f"calendar:{event['id']}",
+    ) for event in events]
+    return CapabilityOutcome(
+        status="succeeded",
+        observation=f"Ho letto {len(events)} impegni dal calendario interno ORA nei prossimi 14 giorni. "
+                    "Questa lettura non comprende calendari esterni né prova che gli altri orari siano liberi.",
+        provenance=ResultProvenance(source_class="internal_observation", capability="calendar.local.read",
+                                    provider="ora_local_calendar", freshness="fresh"),
+        claims=claims, data_ref="calendar:local",
     )
 
 
