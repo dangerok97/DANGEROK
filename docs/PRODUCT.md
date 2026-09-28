@@ -1698,3 +1698,5 @@ Una sola scheda rappresenta la stessa coppia di impegni: data, orari, durata del
 ## 28 settembre 2026 — Azioni contestuali nella conversazione
 
 Le risposte possono offrire un tasto per aprire una ricerca Amazon.it effettivamente preparata o il piano di lavoro effettivamente restituito da uno strumento. I tasti restano sul messaggio dopo la riapertura della chat, insieme a fonti e percorsi. Il tipo e la destinazione sono limitati a capacità implementate: la risposta AI non può inventare nuove schermate o avviare acquisti. Il link Amazon porta alla ricerca; la scelta e il pagamento restano sul sito.
+
+Quando una nuova conversazione si apre senza un contesto specifico, ORA può mettere in evidenza la prima opportunità ancora aperta che Home ha scelto per quella persona. La scheda mostra il motivo e l'azione proposta, se presenti, e apre il dettaglio già esistente. Si aggiorna al ritorno nella chat e ogni minuto mentre è visibile. In assenza di opportunità valide resta l'invito semplice a parlare con ORA.

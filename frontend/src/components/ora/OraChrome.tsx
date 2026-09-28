@@ -83,10 +83,15 @@ export function OraHeader({
 /**
  * ORA opened from the navigation bar, with nothing in hand.
  *
- * An invitation, not a menu. Suggested prompts would teach the user that ORA
- * handles a fixed catalogue of things, which is the opposite of what it is.
+ * An invitation, with one current concern when Home has raised one.
  */
-export function OraEmpty() {
+export function OraEmpty({
+  opportunity,
+  onOpenOpportunity,
+}: {
+  opportunity?: { title: string; why_now?: string; what_ora_can_do?: string | null } | null;
+  onOpenOpportunity?: () => void;
+}) {
   const { colors } = useTheme();
   return (
     <View style={styles.empty} testID="ora-empty">
@@ -96,6 +101,24 @@ export function OraEmpty() {
       <Text style={[styles.emptyBody, { color: colors.textSecondary }]}>
         Puoi anche aggiungere un documento.
       </Text>
+      {opportunity && onOpenOpportunity ? (
+        <View style={[styles.contextualCard, { backgroundColor: colors.surface, borderColor: colors.divider }]} testID="ora-contextual-opportunity">
+          <Text style={[styles.contextEyebrow, { color: colors.textTertiary }]}>ORA HA TROVATO QUALCOSA PER TE</Text>
+          <Text style={[styles.contextualTitle, { color: colors.textPrimary }]} numberOfLines={2}>{opportunity.title}</Text>
+          {opportunity.why_now ? <Text style={[styles.contextualDetail, { color: colors.textSecondary }]} numberOfLines={3}>{opportunity.why_now}</Text> : null}
+          {opportunity.what_ora_can_do ? <Text style={[styles.contextualDetail, { color: colors.textSecondary }]} numberOfLines={2}>{opportunity.what_ora_can_do}</Text> : null}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Apri aggiornamento: ${opportunity.title}`}
+            testID="ora-open-contextual-opportunity"
+            onPress={onOpenOpportunity}
+            style={({ pressed }) => [styles.contextualButton, { borderColor: colors.border, opacity: pressed ? 0.7 : 1 }]}
+          >
+            <Text style={[styles.contextualButtonText, { color: colors.textPrimary }]}>Apri l’aggiornamento</Text>
+            <Ionicons name="arrow-forward" size={16} color={colors.textPrimary} />
+          </Pressable>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -144,7 +167,7 @@ export function OraRaisedOpening({
       </Text>
       {opportunity.why_now ? (
         <Text style={[styles.emptyBody, { color: colors.textSecondary }]}>
-          Te l'ho segnalato perché {lowerFirst(opportunity.why_now)}
+          Te l&apos;ho segnalato perché {lowerFirst(opportunity.why_now)}
         </Text>
       ) : null}
       {opportunity.question ? (
@@ -385,6 +408,11 @@ const styles = StyleSheet.create({
   empty: { gap: 6, maxWidth: 460 },
   emptyTitle: { fontSize: 24, fontWeight: '700', letterSpacing: -0.5, lineHeight: 31 },
   emptyBody: { fontSize: 15, lineHeight: 22 },
+  contextualCard: { marginTop: 28, padding: 20, borderRadius: tokens.radius.lg, borderWidth: StyleSheet.hairlineWidth, gap: 9, maxWidth: 460 },
+  contextualTitle: { fontSize: 17, fontWeight: '600', lineHeight: 23 },
+  contextualDetail: { fontSize: 13, lineHeight: 19 },
+  contextualButton: { marginTop: 7, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 14 },
+  contextualButtonText: { fontSize: 13, fontWeight: '600' },
 
   needDone: {
     gap: 2,

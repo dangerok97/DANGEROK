@@ -23,7 +23,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { triggerHaptic } from '@/src/theme/haptics';
 
@@ -55,6 +55,7 @@ import {
   OraWorking,
 } from './OraChrome';
 import { OraTurns, type Turn } from './OraTurns';
+import { pickOraOpportunity } from './entryOpportunity';
 import { OraPresence } from './presence/OraPresence';
 import { COMPLETED_FOCUS_MS, presenceMode, readPresenceActivity, type PresenceActivity } from './presence/state';
 import type { OraJourneyView } from './OraJourney';
@@ -432,6 +433,7 @@ function OraConversationBody({
 
   const [sessionId, setSessionId] = useState<string | null>(paramId || null);
   const [turns, setTurns] = useState<Turn[]>([]);
+  const [suggestedOpportunity, setSuggestedOpportunity] = useState<HomeOpportunity | null>(null);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const currentActivityRequest = useRef<string | null>(null);
@@ -443,6 +445,29 @@ function OraConversationBody({
   const [presenceActivity, setPresenceActivity] = useState<PresenceActivity | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [boot, setBoot] = useState(Boolean(paramId));
+
+  // Home already ranks concerns from this person's real data. Reuse that
+  // judgement in the empty conversation, and re-read it while this screen is
+  // open: a dismissed or resolved item must not linger as an invitation.
+  useFocusEffect(useCallback(() => {
+    if (paramId || sessionId || planId || objectId || documentId || opportunityId || needId || questionId || goalId) {
+      setSuggestedOpportunity(null);
+      return;
+    }
+    let alive = true;
+    const refresh = async () => {
+      try {
+        const home = await api.getHome();
+        if (!alive) return;
+        setSuggestedOpportunity(pickOraOpportunity(home.opportunities));
+      } catch {
+        if (alive) setSuggestedOpportunity(null);
+      }
+    };
+    void refresh();
+    const timer = setInterval(() => void refresh(), 60000);
+    return () => { alive = false; clearInterval(timer); };
+  }, [paramId, sessionId, planId, objectId, documentId, opportunityId, needId, questionId, goalId]));
   const [workingHint, setWorkingHint] = useState<string | null>(null);
   /*
     Se la conversazione comincia parlando, la sessione nasce con origine
@@ -1167,8 +1192,11 @@ function OraConversationBody({
         />
       );
     if (raised) return <OraRaisedOpening opportunity={raised} />;
-    return context ? <OraContextOpening /> : <OraEmpty />;
-  }, [turns.length, context, contextResolving, raised, need, answeringNeed, answerNeed]);
+    return context ? <OraContextOpening /> : <OraEmpty
+      opportunity={suggestedOpportunity}
+      onOpenOpportunity={suggestedOpportunity ? () => router.push(`/aggiornamento/${encodeURIComponent(suggestedOpportunity.id)}` as any) : undefined}
+    />;
+  }, [turns.length, context, contextResolving, raised, need, answeringNeed, answerNeed, suggestedOpportunity, router]);
 
   /*
     Una telefonata partita da questa chat: si aspetta che finisca e poi si

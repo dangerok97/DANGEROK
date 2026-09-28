@@ -5732,3 +5732,5 @@ Quarta prova cloud `cacc387`: una sola opportunità, un solo goal e bozza pronta
 ## 28 settembre 2026 — Tasti contestuali persistenti
 
 AI Core crea azioni di interfaccia solo da risultati di strumenti riusciti e con destinazioni convalidate: ricerca Amazon.it e piano di lavoro. L'orchestratore le salva per messaggio insieme a fonti e percorso; la chat le mostra come tasti realmente cliccabili e le ricostruisce dopo riapertura. Nessun acquisto o codice UI arbitrario eseguito. 6 test backend PASS; type-check, lint mirato ed export web PASS. Pubblicazione e verifica cloud ancora in corso.
+
+Rilascio `799630d` attivo su backend e web. Prova cloud: l'azione di ricerca Amazon è presente nella risposta e nella rilettura della sessione. L'ingresso vuoto della chat ora può mostrare la prima opportunità Home ancora attiva con un tasto al suo dettaglio; rilegge i dati al focus e ogni minuto, rimuovendo schede superate. Due regressioni di selezione PASS, verifica web del nuovo incremento ancora da eseguire.
