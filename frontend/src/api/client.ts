@@ -962,6 +962,14 @@ export const api = {
   // «sì» resta legato a quell'evento e non vale per un altro.
   calendarEvent: (itemId: string) =>
     request<CalendarEventDetail>(`/calendar/events/${encodeURIComponent(itemId)}`),
+  homeDayEvents: (day: string) =>
+    request<{ id: string; title: string; starts_at: string }[]>(`/calendar/events/home/day?day=${encodeURIComponent(day)}`),
+  homeMonthDays: (month: string) =>
+    request<string[]>(`/calendar/events/home/month?month=${encodeURIComponent(month)}`),
+  createHomeEvent: (body: { day: string; time: string; title: string }) =>
+    request<{ id: string; title: string; starts_at: string; source: string }>(
+      '/calendar/events/home', { method: 'POST', body: JSON.stringify(body) },
+    ),
   calendarEventDelete: (itemId: string, confirmed_title: string) =>
     request<CalendarEventDeleted>(
       `/calendar/events/${encodeURIComponent(itemId)}/delete`,

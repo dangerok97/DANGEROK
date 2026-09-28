@@ -5665,3 +5665,6 @@ eventi geofence, revisione AI dei luoghi ripetuti nella schermata VITA.
 Architettura e verifiche necessarie per usare OpenAI come motore principale e
 proporre pulsanti/schede governati in `docs/ORA_PRESENCE_AND_LIVING_AI.md`.
 Corretta la selezione OpenAI per utente senza override condiviso fra account.
+## 28 settembre 2026 — Impegni dalla griglia Home
+
+Aggiunto il comando «Aggiungi impegno» nel pannello del giorno selezionato, con titolo e ora; salvataggio nel Life Graph di ORA, lettura del giorno e gestione della scheda locale. L'interfaccia specifica che non inserisce l'evento in calendari esterni.

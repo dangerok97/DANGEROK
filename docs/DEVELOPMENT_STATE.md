@@ -4308,3 +4308,6 @@ presenza. Verifica nativa e selezione OpenAI come provider primario ancora
 necessarie. Dettagli: `docs/ORA_PRESENCE_AND_LIVING_AI.md`.
 La preferenza OpenAI per account è applicata a ogni chiamata AI Core; rimossa
 la modifica globale del provider, aggiunti test sintetici di isolamento.
+## 28 settembre 2026 — Calendario Home
+
+Implementato in locale: dopo la selezione di un giorno, modulo per creare un impegno nell'agenda interna. API autenticata, validazione data e ora, lettura del giorno e del mese e apertura/cancellazione della scheda. Verificati TypeScript, test Home, quattro casi di ora legale e build web; resta da verificare la scrittura end-to-end con un account di prova su un backend avviato. Nessun deploy implicito.

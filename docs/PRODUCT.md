@@ -1644,3 +1644,6 @@ e riconciliazione. L'evoluzione verso OpenAI come motore principale e schede
 create dall'AI è definita in `docs/ORA_PRESENCE_AND_LIVING_AI.md`; presenza
 continua garantita e generazione di nuovo codice non sono promesse attuali.
 La scelta OpenAI di un utente non cambia il modello degli altri account.
+## 28 settembre 2026 — Aggiunta impegni dalla Home
+
+Selezionando un giorno nella griglia della Home, la persona può inserire titolo e ora e salvare l'impegno in ORA. Il pannello lo mostra subito e lo ritrova anche quando si torna sul giorno. Il modulo dichiara che l'inserimento non scrive su Google o Apple Calendar.

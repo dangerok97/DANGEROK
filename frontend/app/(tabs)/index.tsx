@@ -578,6 +578,8 @@ export default function HomeScreen() {
                   // andando. Finivano tutti e due su «Situazione completa».
                   onSeeAgenda={() => router.push('/agenda')}
                   onSeeSummary={() => router.push('/ora-sintesi')}
+                  onEventSaved={() => void load({ silent: true })}
+                  onOpenManualEvent={(id) => router.push(`/calendar-event/${encodeURIComponent(id)}` as never)}
                 />
               ) : null}
             </View>
@@ -593,6 +595,8 @@ export default function HomeScreen() {
                 onOpenItem={openItem}
                 onSeeAgenda={() => router.push('/agenda')}
                 onSeeSummary={() => router.push('/ora-sintesi')}
+                onEventSaved={() => void load({ silent: true })}
+                onOpenManualEvent={(id) => router.push(`/calendar-event/${encodeURIComponent(id)}` as never)}
               />
             ) : null}
           </>

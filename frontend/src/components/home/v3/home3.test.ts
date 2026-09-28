@@ -336,11 +336,14 @@ const item = (o: Record<string, unknown> = {}) => ({
 // ---------------------------------------------------------------------------
 {
   const rail = readCode('src/components/home/v3/ContextRail.tsx');
-  // Days must be reachable, and a tap must not cost a request: the events for
-  // the period are already in memory.
+  // Home events are already in memory; manually saved events also remain
+  // available for days beyond Home's short upcoming window.
   assert.ok(/testID={`rail-day-\${day}`}/.test(rail), 'calendar days must be tappable');
   assert.ok(rail.includes('const byDay = useMemo('), 'events are indexed by day in memory');
-  assert.ok(!/fetch\(|api\./.test(rail), 'selecting a day must never trigger a request');
+  assert.ok(rail.includes('api.homeDayEvents(dayKey)'), 'saved commitments reload for any selected day');
+  assert.ok(rail.includes('api.homeMonthDays(monthKey)'), 'saved commitments mark their day after navigating months');
+  assert.ok(rail.includes('api.createHomeEvent('), 'the form persists its event');
+  assert.ok(rail.includes('Salvato in ORA; non viene aggiunto al calendario esterno.'), 'the storage destination is clear');
   assert.ok(rail.includes('Nessun impegno per questa giornata'), 'an empty day says so');
   // Selected / today / has-events must not be told apart by colour alone.
   assert.ok(rail.includes('borderColor: colors.accent'), 'the selected day carries a ring');

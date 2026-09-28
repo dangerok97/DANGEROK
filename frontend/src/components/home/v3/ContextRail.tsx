@@ -1,17 +1,20 @@
-import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useTheme } from '@/src/theme/ThemeProvider';
 import { ora, oraShadow, oraType } from '@/src/theme/oraSurface';
 import { OraLink } from '@/src/components/ora-ui';
 import { tokens } from '@/src/theme/tokens';
-import type { HomeCurrentSituation, HomeItem } from '@/src/api/client';
+import { api, type HomeCurrentSituation, type HomeItem } from '@/src/api/client';
 
 const WEEKDAYS = ['LUN', 'MAR', 'MER', 'GIO', 'VEN', 'SAB', 'DOM'];
 
 function startOfMonth(d: Date) { return new Date(d.getFullYear(), d.getMonth(), 1); }
 function isSameDay(a: Date, b: Date) { return a.toDateString() === b.toDateString(); }
+function localDay(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 
 function itemDate(i: HomeItem): Date | null {
   const raw = i.start_at || i.due_at || i.goal_target_date;
@@ -36,6 +39,8 @@ export function ContextRail({
   onOpenItem,
   onSeeAgenda,
   onSeeSummary,
+  onEventSaved,
+  onOpenManualEvent,
 }: {
   items: HomeItem[];
   situation?: HomeCurrentSituation | null;
@@ -50,6 +55,8 @@ export function ContextRail({
   onSeeAgenda?: () => void;
   /** Dove porta «Vedi tutto»: lo stato delle cose, non il calendario. */
   onSeeSummary?: () => void;
+  onEventSaved?: () => void;
+  onOpenManualEvent?: (id: string) => void;
 }) {
   const { colors } = useTheme();
   const today = useMemo(() => new Date(), []);
@@ -60,6 +67,63 @@ export function ContextRail({
     not a mode you have to leave.
   */
   const [selected, setSelected] = useState<Date | null>(null);
+  const [manual, setManual] = useState<{ id: string; title: string; starts_at: string }[]>([]);
+  const [manualMarks, setManualMarks] = useState<string[]>([]);
+  const [draftTitle, setDraftTitle] = useState('');
+  const [draftTime, setDraftTime] = useState('09:00');
+  const [saving, setSaving] = useState(false);
+  const [dayError, setDayError] = useState('');
+  const [showForm, setShowForm] = useState(false);
+  const [reloadDay, setReloadDay] = useState(0);
+  const dayKey = selected ? localDay(selected) : null;
+  const monthKey = localDay(cursor).slice(0, 7);
+
+  useEffect(() => {
+    setManual([]);
+    setDayError('');
+    setShowForm(false);
+  }, [dayKey]);
+
+  useEffect(() => {
+    setManualMarks([]);
+  }, [monthKey]);
+
+  useEffect(() => {
+    let live = true;
+    api.homeMonthDays(monthKey).then((days) => {
+      if (live) setManualMarks(days);
+    }).catch(() => undefined);
+    return () => { live = false; };
+  }, [monthKey, reloadDay, items]);
+
+  useEffect(() => {
+    if (!dayKey) { setManual([]); return; }
+    let live = true;
+    api.homeDayEvents(dayKey).then((rows) => {
+      if (live) setManual(rows);
+    }).catch(() => { if (live) setDayError('Non riesco a leggere gli impegni salvati.'); });
+    return () => { live = false; };
+  }, [dayKey, reloadDay, items]);
+
+  async function saveEvent() {
+    if (!dayKey || saving) return;
+    if (!draftTitle.trim()) { setDayError('Scrivi cosa devi fare.'); return; }
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(draftTime)) {
+      setDayError('Inserisci l’ora nel formato 09:00.'); return;
+    }
+    setSaving(true);
+    setDayError('');
+    try {
+      const saved = await api.createHomeEvent({ day: dayKey, time: draftTime, title: draftTitle.trim() });
+      setManual((rows) => [...rows, saved].sort((a, b) => a.starts_at.localeCompare(b.starts_at)));
+      setDraftTitle('');
+      setShowForm(false);
+      setReloadDay((n) => n + 1);
+      onEventSaved?.();
+    } catch {
+      setDayError('Non sono riuscita a salvare l’impegno. Riprova.');
+    } finally { setSaving(false); }
+  }
 
   const dated = useMemo(
     () => items.map((i) => ({ item: i, at: itemDate(i) })).filter((x) => !!x.at) as { item: HomeItem; at: Date }[],
@@ -89,14 +153,14 @@ export function ContextRail({
   );
 
   const markedDays = useMemo(() => {
-    const set = new Set<string>();
+    const set = new Set<string>(manualMarks.map((day) => String(Number(day))));
     for (const { at } of dated) {
       if (at.getFullYear() === cursor.getFullYear() && at.getMonth() === cursor.getMonth()) {
         set.add(String(at.getDate()));
       }
     }
     return set;
-  }, [dated, cursor]);
+  }, [dated, cursor, manualMarks]);
 
   const upcoming = useMemo(
     () =>
@@ -298,8 +362,9 @@ export function ContextRail({
             </Pressable>
           </View>
 
-          {selectedEntries.length ? (
-            selectedEntries.map(({ item, at }) => (
+          {selectedEntries.length || manual.some((e) => !selectedEntries.some(({ item }) => item.source_id === e.id)) ? (
+            <>
+            {selectedEntries.map(({ item, at }) => (
               <Pressable
                 key={item.id}
                 onPress={() => onOpenItem(item)}
@@ -321,12 +386,37 @@ export function ContextRail({
                   ) : null}
                 </View>
               </Pressable>
-            ))
+            ))}
+            {manual.filter((e) => !selectedEntries.some(({ item }) => item.source_id === e.id)).map((e) => (
+              <Pressable key={e.id} onPress={() => onOpenManualEvent?.(e.id)} style={styles.upRow} testID={`rail-day-item-${e.id}`}>
+                <Text style={[styles.dayTime, { color: colors.textSecondary }]}>{e.starts_at.slice(11, 16)}</Text>
+                <Text style={[styles.upTitle, { color: colors.textPrimary }]}>{e.title}</Text>
+              </Pressable>
+            ))}
+            </>
           ) : (
             <Text style={[styles.emptyDay, { color: colors.textTertiary }]} testID="rail-day-empty">
               Nessun impegno per questa giornata.
             </Text>
           )}
+          {showForm ? (
+            <View style={styles.eventForm} testID="rail-new-event-form">
+              <TextInput value={draftTitle} onChangeText={setDraftTitle} placeholder="Che impegno hai?" placeholderTextColor={colors.textTertiary} style={[styles.eventInput, { color: colors.textPrimary, borderColor: colors.border }]} maxLength={200} accessibilityLabel="Titolo dell'impegno" />
+              <View style={styles.eventActions}>
+                <TextInput value={draftTime} onChangeText={setDraftTime} placeholder="09:00" keyboardType="numbers-and-punctuation" style={[styles.timeInput, { color: colors.textPrimary, borderColor: colors.border }]} maxLength={5} accessibilityLabel="Ora dell'impegno, formato 09:00" />
+                <Pressable onPress={() => void saveEvent()} disabled={saving} accessibilityRole="button" accessibilityLabel="Salva impegno" style={[styles.addButton, { backgroundColor: colors.accent }]} testID="rail-save-event">
+                  {saving ? <ActivityIndicator color={colors.onAccent} /> : <Text style={{ color: colors.onAccent, fontWeight: '700' }}>Salva</Text>}
+                </Pressable>
+              </View>
+              <Text style={[oraType.small, { color: colors.textTertiary }]}>Salvato in ORA; non viene aggiunto al calendario esterno.</Text>
+            </View>
+          ) : (
+            <Pressable onPress={() => { setShowForm(true); setDayError(''); }} style={styles.addEvent} accessibilityRole="button" accessibilityLabel={`Aggiungi impegno il ${selected.getDate()} ${selected.toLocaleDateString('it-IT', { month: 'long' })}`} testID="rail-add-event">
+              <Ionicons name="add-circle-outline" size={20} color={ora.deep} />
+              <Text style={[oraType.body, { color: ora.deep, fontWeight: '600' }]}>Aggiungi impegno</Text>
+            </Pressable>
+          )}
+          {dayError ? <Text style={{ color: colors.warning }} testID="rail-event-error">{dayError}</Text> : null}
         </View>
       ) : upcoming.length ? (
         <View style={[styles.panel, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -468,6 +558,12 @@ const styles = StyleSheet.create({
   dotSpacer: { width: 3, height: 3, marginTop: 1 },
   upRow: { flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.md, minHeight: 44 },
   dayTime: { width: 46, fontSize: 12, fontWeight: '600' },
+  addEvent: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  eventForm: { gap: 9 },
+  eventActions: { flexDirection: 'row', gap: 10, alignItems: 'center' },
+  eventInput: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, minHeight: 44 },
+  timeInput: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, minHeight: 44, width: 90 },
+  addButton: { borderRadius: 10, minHeight: 44, minWidth: 90, alignItems: 'center', justifyContent: 'center' },
   closeDay: { marginLeft: 'auto', padding: 2 },
   emptyDay: { fontSize: 13, lineHeight: 19, paddingVertical: 6 },
   upDate: { width: 34, alignItems: 'center' },

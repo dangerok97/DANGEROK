@@ -3547,3 +3547,6 @@ OpenAI è già nel Provider Manager; progetto dell'AI continua e interfaccia
 dichiarativa in `docs/ORA_PRESENCE_AND_LIVING_AI.md`.
 AI Core legge `preferences.llm_provider` una volta per turno e la passa al
 Provider Manager; l'endpoint preferenze non modifica un override globale.
+## Impegni inseriti dalla Home
+
+`POST /api/calendar/events/home` crea un nodo `life_nodes` di tipo `event`, origine `home_calendar` e `attributes.kind=home_manual`, nel fuso dell'utente. `GET /api/calendar/events/home/day` legge gli impegni del giorno e `GET /api/calendar/events/home/month` legge i giorni marcati, sempre per la persona autenticata; il rail unisce questi risultati agli elementi Home, evitando i doppioni. La scheda `/api/calendar/events/{id}` e la cancellazione riconoscono i nodi manuali. Questa via non modifica calendari esterni.
