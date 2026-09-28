@@ -166,6 +166,16 @@ class AgentService:
                 context_unavailable = context_unavailable or len(cited) < len(profile_refs)
             except Exception:
                 context_unavailable = True
+        calendar_refs = {ref for ref in (source_refs or []) if ref.startswith("calendar:")}
+        if calendar_refs:
+            try:
+                from opportunities.snapshot import _calendar
+                appointments = await _calendar(self.db, owner_id, _now())
+                cited = [row for row in appointments if row["ref"] in calendar_refs]
+                source_context.extend(cited)
+                context_unavailable = context_unavailable or len(cited) < len(calendar_refs)
+            except Exception:
+                context_unavailable = True
         answer = await decide_goal(
             {**situation, "who_asked": origin, "source_context": source_context,
              "source_context_unavailable": context_unavailable}, language=language

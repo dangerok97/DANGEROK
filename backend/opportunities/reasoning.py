@@ -218,6 +218,13 @@ async def scan(
         "facts give you and no other count. It was worked out from the "
         "real dates; a number you arrive at yourself is the one part of "
         "the sentence a person checks against their own calendar.\n\n"
+        "For calendar conflicts, use temporal.calendar_overlaps for interval arithmetic. "
+        "A booked slot is not proof of actual processing time. Do not assume travel time "
+        "or availability at another hour. Respect explicit opening times and prerequisites. "
+        "If a practical resolution still needs reading or a usable draft, choose prepare "
+        "and describe that internal outcome rather than asking the person to investigate. "
+        "Cite calendar/document refs for substantive claims, not merely change refs: "
+        "a change tells you something moved, not what the source says.\n\n"
         "Cite the facts you used by their `ref`, exactly as given. A claim "
         "with no ref behind it will be dropped.\n\n"
         "Return JSON:\n"
@@ -256,7 +263,38 @@ async def scan(
     data = await _ask_model(_DISCIPLINE + "\n\n" + instruction, _dump(payload))
     if not isinstance(data, dict):
         return None
-    return data
+    if not data.get("opportunities"):
+        return data  # Silence does not need another paid inference.
+    return await audit_proposals(snapshot, data)
+
+
+async def audit_proposals(snapshot, proposed):
+    """Check a nonempty proposal against its sources before it can be surfaced."""
+    review = await _ask_model(
+        _DISCIPLINE + "\nAudit these proposed opportunities against the supplied snapshot. "
+        "Return the SAME JSON opportunity schema, corrected, with verified=true. "
+        "Do not add new concerns. Preserve identity_key for retained concerns. Remove "
+        "unsupported concerns; an empty opportunities array is valid. Check arithmetic "
+        "against temporal.calendar_overlaps and source times; do not confuse start "
+        "differences with overlap duration. Keep explicit opening hours, prerequisites "
+        "and constraints. Do not invent transit time or available slots. A booked slot "
+        "does not prove the task necessarily takes the whole slot. Proposed options "
+        "must be feasible under known constraints; changed conditions must be explicit. "
+        "Cite actual source refs, not changes alone. When a concrete useful draft or "
+        "check remains, use initiative=prepare and first-person what_i_can_do without "
+        "asking permission for internal work. Never claim that work is already done. "
+        "If no grounded answer can be produced return verified=false.",
+        _dump({"snapshot": snapshot, "proposed": proposed}),
+    )
+    if not isinstance(review, dict) or review.get("verified") is not True:
+        return None
+    items = review.get("opportunities")
+    if not isinstance(items, list):
+        return None
+    allowed = {x.get("identity_key") for x in proposed.get("opportunities", []) if isinstance(x, dict)}
+    if any(not isinstance(x, dict) or x.get("identity_key") not in allowed for x in items):
+        return None
+    return review
 
 
 async def settle_it(

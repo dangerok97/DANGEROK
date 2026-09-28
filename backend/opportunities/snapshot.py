@@ -142,6 +142,7 @@ def _temporal_facts(snapshot: Dict[str, Any], now: datetime) -> Dict[str, Any]:
     return {
         # Coarse on purpose: the hour, not the minute.
         "hour_bucket": now.strftime("%Y-%m-%dT%H"),
+        "calendar_overlaps": _calendar_overlaps(snapshot.get("calendar") or [], now),
         "weekday": now.strftime("%A").lower(),
         "minutes_to_next_commitment": _bucket(soonest),
         "something_within_the_hour": bool(soonest is not None and soonest <= 60),
@@ -152,6 +153,26 @@ def _temporal_facts(snapshot: Dict[str, Any], now: datetime) -> Dict[str, Any]:
             (row.get("in_days") == 1) for row in (snapshot.get("calendar") or [])
         ),
     }
+
+
+def _calendar_overlaps(events, now):
+    """Interval arithmetic only; whether an overlap matters remains a judgement."""
+    result = []
+    for i, first in enumerate(events):
+        for second in events[i + 1:]:
+            if first.get("all_day") or second.get("all_day"):
+                continue
+            try:
+                a, b = (_event_instant(first[k], now) for k in ("starts_at", "ends_at"))
+                c, d = (_event_instant(second[k], now) for k in ("starts_at", "ends_at"))
+                seconds = (min(b, d) - max(a, c)).total_seconds()
+                if b > a and d > c and seconds > 0:
+                    result.append({"refs": [first["ref"], second["ref"]],
+                                   "overlap_minutes": seconds / 60,
+                                   "from": max(a, c).isoformat(), "until": min(b, d).isoformat()})
+            except (ValueError, TypeError, KeyError):
+                continue
+    return result
 
 
 def _minutes_until(when: Optional[str], now: datetime) -> Optional[int]:
