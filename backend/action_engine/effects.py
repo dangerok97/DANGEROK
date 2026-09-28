@@ -421,8 +421,13 @@ async def apply_completion_effects(
     else:  # generic
         intent = answers.get("intent") or "organize"
         when = answers.get("when") or "today"
-        days = {"now": 0, "today": 0, "this_week": 3, "later": 7}.get(str(when), 1)
-        due = datetime.now(timezone.utc) + timedelta(days=days)
+        delay = {
+            "now": timedelta(0), "today": timedelta(0),
+            "this_week": timedelta(days=3), "later": timedelta(days=7),
+            "in_1_hour": timedelta(hours=1), "tomorrow": timedelta(days=1),
+            "in_3_days": timedelta(days=3), "in_1_week": timedelta(days=7),
+        }.get(str(when), timedelta(days=1))
+        due = datetime.now(timezone.utc) + delay
         if intent == "done":
             actions.append(ProposedAction(
                 id="done", kind="decision", label="Puoi segnare fatto da Home", status="proposed",

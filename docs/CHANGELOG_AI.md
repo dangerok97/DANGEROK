@@ -5752,3 +5752,10 @@ le risposte esistenti restano intatte. `Checklist breve` e `Crea un
 mini-progetto` non creano più promemoria o appuntamenti come effetto
 collaterale. Cinque scenari di effetti espliciti e sette regressioni della
 guida PASS. Pubblicazione e screenshot live da completare.
+## 28 settembre 2026 — Due tocchi per un promemoria dal focus
+
+Il percorso `Ricordamelo` salta la domanda ridondante sul supporto e offre
+quattro ritardi verificabili. Conserva il percorso precedente per
+`Organizzala` e per il testo libero. Cinque test aggiunti: uno per il
+percorso a due risposte e quattro per i ritardi effettivi. Trenta test
+pertinenti PASS; pubblicazione e prova visiva da completare.

@@ -1715,3 +1715,9 @@ quale aiuto creare: checklist o promemoria. Non propone calendario o
 mini-progetto da un titolo ambiguo. La checklist crea una decisione con passi
 iniziali; il promemoria viene creato solo se richiesto esplicitamente. Le
 schede con intento riconosciuto conservano i loro percorsi specifici.
+## 28 settembre 2026 — Promemoria Home in due tocchi
+
+Dal focus ambiguo, `Ricordamelo` passa direttamente alla scelta del momento:
+tra un'ora, domani, tra tre giorni o tra una settimana. Il promemoria viene
+creato dopo questa scelta; non viene richiesta una seconda conferma del tipo
+di aiuto. `Organizzala` conserva la guida alla checklist o al promemoria.

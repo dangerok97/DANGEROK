@@ -13,7 +13,7 @@ from action_engine.brain import (
 )
 from action_engine.effects import apply_completion_effects
 from action_engine.flows import build_flow_turns, resolve_flow_from_intent
-from action_engine.flows.base import next_unanswered
+from action_engine.flows.base import next_unanswered, opt
 from action_engine.models import (
     ENGINE_VERSION,
     ActionSession,
@@ -810,6 +810,24 @@ class ActionEngineService:
             value=value,
             text=body.text,
         ))
+
+        # A Home reminder already specifies the kind of help. Ask only for
+        # its delivery time instead of requiring a redundant support choice.
+        if (
+            sess.flow == "generic" and turn.id == "intent" and value == "remind"
+            and sess.meta.get("intent_reason") == "home_card_needs_purpose"
+        ):
+            sess.answers["support"] = "reminder"
+            for follow_up in sess.turns:
+                if follow_up.id == "when":
+                    follow_up.question = "Quando vuoi che te lo ricordi?"
+                    follow_up.options = [
+                        opt("in_1_hour", "Tra un'ora", "in_1_hour"),
+                        opt("tomorrow", "Domani", "tomorrow"),
+                        opt("in_3_days", "Tra tre giorni", "in_3_days"),
+                        opt("in_1_week", "Tra una settimana", "in_1_week"),
+                    ]
+                    break
 
         if self.knowledge and sess.brain_node_id:
             await record_answer(

@@ -4388,3 +4388,9 @@ condizionale. La scelta di checklist o progetto nel generico non crea più
 promemoria/eventi implicitamente. Venticinque test pertinenti PASS; verifica live e
 rilascio da registrare dopo il deployment. Il precedente incremento di
 chiarimento è già online, verificato nell'account autenticato.
+## 28 settembre 2026 — Promemoria contestuale più rapido
+
+Se la guida Home ambigua sceglie `Ricordamelo`, il turno successivo chiede
+quando ricordarlo con quattro ritardi definiti. La risposta conclude senza
+il terzo turno `support`. Test locale: 30 regressioni pertinenti PASS,
+inclusi i tempi salvati; compile/lint e rilascio live da registrare.

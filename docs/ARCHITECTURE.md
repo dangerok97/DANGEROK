@@ -3623,3 +3623,11 @@ modo condizionale i turni obsoleti; sessioni avviate non vengono mutate.
 `effects.apply_completion_effects` crea promemoria solo per `remind` o
 `support=reminder`, eventi solo per `intent=calendar`, decisioni checklist
 solo per `support=checklist`. Nessun cambio di schema o indice.
+## 28 settembre 2026 — Percorso breve del promemoria
+
+Nel turno `intent` del flusso generico Home con ragione
+`home_card_needs_purpose`, la risposta `remind` deriva internamente
+`support=reminder` e sostituisce le opzioni del turno `when` con ritardi
+espliciti. `next_unanswered` salta quindi `support` e completa dopo `when`.
+Il calcolo degli effetti usa `timedelta` per ora/giorni e la stessa
+persistenza proprietaria dei promemoria. Altri flussi generici non cambiano.

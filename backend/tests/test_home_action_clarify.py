@@ -2,13 +2,14 @@
 from __future__ import annotations
 
 import asyncio
-from types import SimpleNamespace
+from datetime import datetime, timedelta, timezone
+from types import MethodType, SimpleNamespace
 
 import pytest
 
 from action_engine import effects
 from action_engine.flows import build_flow_turns, resolve_flow_from_intent
-from action_engine.models import ActionSession, OpenBody, TurnAnswer
+from action_engine.models import ActionSession, AnswerBody, OpenBody, TurnAnswer
 from action_engine.service import ActionEngineService
 
 
@@ -34,6 +35,7 @@ def _service(session: ActionSession) -> tuple[ActionEngineService, Sessions]:
     collection = Sessions(session)
     service = object.__new__(ActionEngineService)
     service.db = SimpleNamespace(action_sessions=collection)
+    service.knowledge = None
     return service, collection
 
 
@@ -110,6 +112,32 @@ def test_answered_home_guide_keeps_its_original_turns():
     assert collection.replacements == 0
 
 
+def test_home_reminder_needs_only_a_delivery_time():
+    session = _old_session()
+    session.flow = "generic"
+    session.turns = build_flow_turns("generic", {
+        "title": session.title, "intent_reason": "home_card_needs_purpose",
+    })
+    session.current_turn_id = "intent"
+    session.meta["intent_reason"] = "home_card_needs_purpose"
+    service, collection = _service(session)
+    first = asyncio.run(service.answer("u_test", session.id, AnswerBody(option_id="remind")))
+    assert first["session"]["current_turn"]["question"] == "Quando vuoi che te lo ricordi?"
+    assert [o["id"] for o in first["session"]["current_turn"]["options"]] == [
+        "in_1_hour", "tomorrow", "in_3_days", "in_1_week",
+    ]
+    assert collection.row["answers"]["support"] == "reminder"
+
+    async def completed(self, user_id, session_id):
+        return {"completed": True, "session": self.col.row}
+
+    service.complete = MethodType(completed, service)
+    second = asyncio.run(service.answer("u_test", session.id, AnswerBody(option_id="tomorrow")))
+    assert second["completed"]
+    assert second["session"]["answers"]["when"] == "tomorrow"
+    assert len(second["session"]["turn_history"]) == 2
+
+
 def test_answered_clarifier_keeps_the_persons_choice():
     session = _old_session()
     session.turn_history.append(TurnAnswer(turn_id="clarify_intent", option_id="clarify_study", value={"intent": "study"}))
@@ -162,3 +190,27 @@ def test_generic_effects_follow_explicit_choices(monkeypatch, intent, support, r
     assert calls == {"reminders": reminders, "events": events, "decisions": decisions}
     assert len(result["reminder_ids"]) == reminders
     assert len(result["calendar_ids"]) == events
+
+
+@pytest.mark.parametrize("when,delta", [
+    ("in_1_hour", timedelta(hours=1)),
+    ("tomorrow", timedelta(days=1)),
+    ("in_3_days", timedelta(days=3)),
+    ("in_1_week", timedelta(days=7)),
+])
+def test_home_reminder_delivery_is_scheduled_after_selected_delay(monkeypatch, when, delta):
+    captured = []
+
+    async def reminder(*args, **kwargs):
+        captured.append(kwargs["due_at"])
+        return {"id": "rem_test"}
+
+    monkeypatch.setattr(effects, "_create_reminder", reminder)
+    before = datetime.now(timezone.utc)
+    asyncio.run(effects.apply_completion_effects(
+        db=None, life_graph=None, knowledge=None, decisions=None,
+        session={"id": "s1", "user_id": "u_test", "flow": "generic", "title": "Una priorità",
+                 "answers": {"intent": "remind", "support": "reminder", "when": when}},
+    ))
+    assert len(captured) == 1
+    assert before + delta <= captured[0] <= datetime.now(timezone.utc) + delta
