@@ -4306,3 +4306,5 @@ schermata Luoghi avvia la revisione AI dei candidati pendenti, una volta per
 montaggio. Invariati il consenso, la conferma umana e la macchina a stati di
 presenza. Verifica nativa e selezione OpenAI come provider primario ancora
 necessarie. Dettagli: `docs/ORA_PRESENCE_AND_LIVING_AI.md`.
+La preferenza OpenAI per account è applicata a ogni chiamata AI Core; rimossa
+la modifica globale del provider, aggiunti test sintetici di isolamento.

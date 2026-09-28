@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from deps import db, get_current_user
-from llm.manager import DEFAULT_PRIORITY, VALID_PROVIDERS, get_manager, set_runtime_preferred
+from llm.manager import DEFAULT_PRIORITY, VALID_PROVIDERS, get_manager
 
 router = APIRouter(prefix="/llm", tags=["llm"])
 
@@ -52,8 +52,8 @@ async def patch_llm_preference(body: LLMPreferenceIn, user=Depends(get_current_u
         {"user_id": user["user_id"]},
         {"$set": {"preferences.llm_provider": store}},
     )
-    # Also set process runtime preferred for this instance (dev convenience)
-    set_runtime_preferred(store)
+    # A person's selection belongs to their requests, never a process-wide
+    # override that changes the model used for unrelated accounts.
     status = await get_manager().status(user_preference=store)
     return {
         "ok": True,

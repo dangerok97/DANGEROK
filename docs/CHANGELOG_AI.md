@@ -5664,3 +5664,4 @@ Invio opportunistico del buffer nativo, correzione della posizione sugli
 eventi geofence, revisione AI dei luoghi ripetuti nella schermata VITA.
 Architettura e verifiche necessarie per usare OpenAI come motore principale e
 proporre pulsanti/schede governati in `docs/ORA_PRESENCE_AND_LIVING_AI.md`.
+Corretta la selezione OpenAI per utente senza override condiviso fra account.

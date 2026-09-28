@@ -15,6 +15,8 @@
   trasformare un candidato in luogo confermato. VITA mostra la domanda.
 - `llm/manager.py` supporta già `openai` tra i provider, con preferenza tramite
   `LLM_PROVIDER`; `llm/providers/openai_provider.py` usa una chiave server.
+  AI Core applica anche la preferenza persistita di ogni utente ai suoi turni,
+  senza cambiare il modello degli altri account nello stesso processo.
   `conversation_engine/ai_core` contiene già capacità governate per memoria,
   web, calendario, piani e telefonate; `ambient/runtime.py` possiede un worker
   persistente con lease e risveglio su lavori dovuti. Home ha azioni rese da
@@ -72,6 +74,8 @@ automaticamente. La via implementabile è l'API OpenAI sul backend con chiave
 server, costo e quota propri. L'adattatore esistente permette una prima
 attivazione configurando e verificando `OPENAI_API_KEY`, `OPENAI_MODEL` e
 `LLM_PROVIDER=openai`; mantenere il fallback gestito dal Provider Manager.
+La preferenza individuale `openai` è ora propagata alla conversazione AI Core;
+chiave, quota e risultato di una richiesta reale restano da verificare.
 Per evolvere la conversazione testuale usare Responses API con tool espliciti,
 stato della conversazione controllato da ORA e ricerca web quando necessaria.
 Per voce naturale usare una sessione Realtime e delegare le azioni al backend

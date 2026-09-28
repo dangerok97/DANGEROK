@@ -320,6 +320,7 @@ async def run_cognitive_loop(
     tools = ToolRegistry(db)
     broker = ContextBroker(db)
     st = state_mod.get_ai_state(sess)
+    user_llm_preference = await _user_llm_preference(db, sess.user_id)
 
     # Client-resume continues the SAME user turn — do not duplicate recent_turns.
     if not resume_client:
@@ -551,6 +552,7 @@ async def run_cognitive_loop(
                 decision_fn=decision_fn,
                 system=COGNITIVE_SYSTEM_PROMPT,
                 user=payload,
+                user_preference=user_llm_preference,
                 # Vale a ogni passo del ragionamento, e non c'è nessun tetto per
                 # il turno intero: interrompere un turno a metà vorrebbe dire
                 # decidere di non rispondere, e quella è una decisione di ORA, non
@@ -592,6 +594,7 @@ async def run_cognitive_loop(
                     system=COGNITIVE_SYSTEM_PROMPT
                     + "\nPrevious output was invalid. Return valid JSON only.",
                     user=payload,
+                    user_preference=user_llm_preference,
                 )
                 ai_calls += 1
                 trace["ai_calls"] = ai_calls
@@ -2594,12 +2597,27 @@ async def _say_what_is_happening(db, sess, phrase: str) -> None:
         pass
 
 
+async def _user_llm_preference(db, user_id: str) -> Optional[str]:
+    if db is None or not user_id:
+        return None
+    try:
+        account = await db.users.find_one(
+            {"user_id": user_id}, {"_id": 0, "preferences.llm_provider": 1},
+        )
+        preference = ((account or {}).get("preferences") or {}).get("llm_provider")
+        return preference if isinstance(preference, str) else None
+    except Exception:
+        # Missing preferences must not interrupt a conversation.
+        return None
+
+
 async def _call_ai(
     *,
     decision_fn: Optional[DecisionFn],
     system: str,
     user: str,
     latency_budget_s: Optional[float] = None,
+    user_preference: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
     if decision_fn is not None:
         try:
@@ -2613,6 +2631,7 @@ async def _call_ai(
         res = await mgr.chat(
             system=system, user=user, json_mode=True,
             latency_budget_s=latency_budget_s,
+            user_preference=user_preference,
         )
         text = getattr(res, "text", None) or ""
         return _parse_json(text)

@@ -3545,3 +3545,5 @@ con isteresi, permanenza e più campioni. VITA avvia la revisione dei candidati
 ancora in sospeso; il modello propone la domanda e la persona nomina il posto.
 OpenAI è già nel Provider Manager; progetto dell'AI continua e interfaccia
 dichiarativa in `docs/ORA_PRESENCE_AND_LIVING_AI.md`.
+AI Core legge `preferences.llm_provider` una volta per turno e la passa al
+Provider Manager; l'endpoint preferenze non modifica un override globale.

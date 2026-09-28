@@ -1643,3 +1643,4 @@ ricevere osservazioni mentre l'app nativa è in background, con verifica GPS
 e riconciliazione. L'evoluzione verso OpenAI come motore principale e schede
 create dall'AI è definita in `docs/ORA_PRESENCE_AND_LIVING_AI.md`; presenza
 continua garantita e generazione di nuovo codice non sono promesse attuali.
+La scelta OpenAI di un utente non cambia il modello degli altri account.
