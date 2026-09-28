@@ -444,7 +444,7 @@ export default function LoginScreen() {
                 <View style={styles.form}>
                   {isRegister ? (
                     <>
-                    <RegistrationMap first={name} last={lastName} />
+                    <RegistrationMap first={name} last={lastName} firstStepComplete />
                     <AppInput
                       textContentType="givenName"
                       autoComplete="given-name"

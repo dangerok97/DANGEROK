@@ -34,7 +34,7 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
   let growth=1;
   const births=new Map();
   function rebuild(nodes,first=false){
-    const key=JSON.stringify(nodes||[]);if(key===geometryKey)return;geometryKey=key;
+    const key=JSON.stringify([!!options.intro,nodes||[]]);if(key===geometryKey)return;geometryKey=key;
     const oldIds=new Set(points.map(p=>p.id));
     points=hubs.map((h,i)=>({...h,group:i,areaGroup:i,hub:true,radius:2.7,phase:i*.83,distance:0}));
     const groups=hubs.map(()=>[]);
@@ -42,21 +42,25 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
       const g=hubs.findIndex(h=>h.id===node.area);if(g<0||!node.id)continue;
       let hash=2166136261;for(const c of node.id)hash=Math.imul(hash^c.charCodeAt(0),16777619)>>>0;
       seed=hash;
-      const h=hubs[g],a=random()*Math.PI*2,u=random()*2-1,r=.10+Math.cbrt(random())*.32,v=Math.sqrt(1-u*u);
+      const h=hubs[g],a=random()*Math.PI*2,u=random()*2-1,r=options.intro?.63+random()*.28:.10+Math.cbrt(random())*.32,v=Math.sqrt(1-u*u);
       const branch=node.kind==='branch';
-      const p={x:h.x+Math.cos(a)*r*v,y:h.y+u*r*.85,z:h.z+Math.sin(a)*r*v,
+      const p={x:(options.intro?0:h.x)+Math.cos(a)*r*v,y:(options.intro?0:h.y)+u*r*.85,z:(options.intro?0:h.z)+Math.sin(a)*r*v,
         id:node.id,kind:branch?'branch':'node',tentative:!!node.tentative,complete:!!node.complete,
         group:g,areaGroup:g,hub:false,radius:branch?2.5:1.3+random()*.65,phase:random()*6.28};
       if(!births.has(p.id)||!oldIds.has(p.id))births.set(p.id,first?t-2:t);
       points.push(p);groups[g].push(points.length-1);
     }
     const liveIds=new Set(points.map(p=>p.id));for(const id of births.keys())if(!liveIds.has(id))births.delete(id);
-    points.forEach(p=>p.distance=Math.hypot(p.x-hubs[0].x,p.y-hubs[0].y,p.z-hubs[0].z));
+    points.forEach(p=>p.distance=Math.hypot(p.x-(options.intro?0:hubs[0].x),p.y-(options.intro?0:hubs[0].y),p.z-(options.intro?0:hubs[0].z)));
     furthest=Math.max(1,...points.map(p=>p.distance));edges=[];
     const keys=new Set();
     const add=(a,b,trunk=false)=>{const key=Math.min(a,b)+':'+Math.max(a,b);if(a===b||keys.has(key))return;keys.add(key);edges.push({a,b,trunk,phase:random(),packet:trunk||random()<.12});};
-    [[0,1],[0,2],[0,3],[0,4],[0,6],[0,7],[1,3],[1,5],[1,7],[2,4],[2,6],[2,7],[3,4],[3,5],[3,7],[4,5],[4,6],[5,7],[6,7]].forEach(([a,b])=>add(a,b,true));
-    groups.forEach((group,g)=>group.forEach((index,j)=>{add(index,g);for(let k=1;k<=3&&k<=j;k++)add(index,group[j-k]);if(j%4===0)add(index,(g+3)%8);}));
+    if(options.intro){
+      for(let i=8;i<points.length;i++){add(0,i,true);if(i>8)add(i-1,i);}
+    }else{
+      [[0,1],[0,2],[0,3],[0,4],[0,6],[0,7],[1,3],[1,5],[1,7],[2,4],[2,6],[2,7],[3,4],[3,5],[3,7],[4,5],[4,6],[5,7],[6,7]].forEach(([a,b])=>add(a,b,true));
+      groups.forEach((group,g)=>group.forEach((index,j)=>{add(index,g);for(let k=1;k<=3&&k<=j;k++)add(index,group[j-k]);if(j%4===0)add(index,(g+3)%8);}));
+    }
     projected=points.map(()=>({x:0,y:0,z:0,depth:0,scale:0,energy:0}));sorted=points.map((_,i)=>i);
     if(first)growth=.55+.45*(1-Math.exp(-(nodes||[]).filter(n=>n.kind!=='branch').length/35));
     hovered=-1;pointer=null;
@@ -83,8 +87,10 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     const drift=p.hub?.002:.009;
     const born=p.hub||options.reduced||options.paused?1:ease((t-(births.get(p.id)??t))/1.35);
     const spread=ease(opening/openingSeconds)*growth;
-    const h=hubs[p.group];
-    const px=p.hub?p.x:h.x+(p.x-h.x)*born,py=p.hub?p.y:h.y+(p.y-h.y)*born,pz=p.hub?p.z:h.z+(p.z-h.z)*born;
+    const h=options.intro?{x:0,y:0,z:0}:hubs[p.group];
+    const px=p.hub&&options.intro&&p.group===0?0:p.hub?p.x:h.x+(p.x-h.x)*born;
+    const py=p.hub&&options.intro&&p.group===0?0:p.hub?p.y:h.y+(p.y-h.y)*born;
+    const pz=p.hub&&options.intro&&p.group===0?0:p.hub?p.z:h.z+(p.z-h.z)*born;
     let x=(px+Math.sin(t*.36+p.phase)*drift)*breathing*spread-camera.x;
     let y=(py+Math.cos(t*.30+p.phase)*drift)*breathing*spread-camera.y;
     let z=(pz+Math.sin(t*.29+p.phase)*drift)*breathing*spread-camera.z;
@@ -108,7 +114,7 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     const yaw=rotation+dragYaw,pitch=.06+Math.sin(t*.10)*.09+dragPitch;
     for(let i=0;i<points.length;i++){
       const p=points[i],q=projectPoint(p,yaw,pitch,scale,breathe);
-      q.appear=(i===0?1:ease((opening/openingSeconds-p.distance/furthest*.65-.06)/.29))*(p.hub||options.reduced||options.paused?1:ease((t-(births.get(p.id)??t))/1.35));
+      q.appear=(options.intro&&p.hub&&i!==0?0:i===0?1:ease((opening/openingSeconds-p.distance/furthest*.65-.06)/.29))*(p.hub||options.reduced||options.paused?1:ease((t-(births.get(p.id)??t))/1.35));
       const focus=activeHub>=0?hubs[activeHub]:hubs[0];
       const distance=Math.hypot(p.x-focus.x,p.y-focus.y,p.z-focus.z);
       const phase=((t*state.speed-distance*.44)%1+1)%1;
@@ -156,7 +162,7 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     }
     ctx.globalCompositeOperation='source-over';
     ctx.globalAlpha=ease((opening/openingSeconds-.68)/.32);
-    const occupied=[],labelIndices=activeHub>=0?[activeHub]:height<180?[0,1,5]:width<430?[0,1,2,5]:[0,1,2,3,4,5,6,7];
+    const occupied=[],labelIndices=options.intro?[]:activeHub>=0?[activeHub]:height<180?[0,1,5]:width<430?[0,1,2,5]:[0,1,2,3,4,5,6,7];
     if(inspected>=0&&!labelIndices.includes(points[inspected].areaGroup))labelIndices.push(points[inspected].areaGroup);
     labels=[];
     ctx.font='500 11px ui-monospace, SFMono-Regular, Consolas, monospace';ctx.textBaseline='middle';
@@ -171,10 +177,21 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
       ctx.strokeStyle='rgba('+palette.leader+',.28)';ctx.lineWidth=.65;ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(h.align==='right'?left+tw+4:left-4,y);ctx.stroke();
       ctx.fillStyle=palette.labelBackground;ctx.fillRect(left-3,y-8,tw+6,16);ctx.fillStyle=i===0?palette.warmLabel:palette.label;ctx.textAlign='left';ctx.fillText(h.name,left,y);
     });
+    if(options.intro){
+      for(let i=8;i<points.length;i++){
+        const id=points[i].id;
+        const name=id==='intro_step_one'?'INIZIO':id==='draft_first_name'?'NOME':id==='draft_last_name'?'COGNOME':id.startsWith('intro_example_')?'ESEMPIO':null;
+        const p=projected[i];if(!name||p.appear<.85)continue;
+        const tw=ctx.measureText(name).width,x=Math.min(width-tw-12,Math.max(12,p.x+9)),y=Math.min(height-14,Math.max(14,p.y-11));
+        ctx.globalAlpha=p.appear;ctx.fillStyle=palette.labelBackground;ctx.fillRect(x-3,y-8,tw+6,16);
+        ctx.fillStyle=palette.label;ctx.textAlign='left';ctx.fillText(name,x,y);
+      }
+      ctx.globalAlpha=1;
+    }
   }
   function moveCamera(dt,instant=false){
     const active=mode==='think'||mode==='speak';
-    activeHub=hubs.findIndex(h=>h.id===options.area);
+    activeHub=options.intro?-1:hubs.findIndex(h=>h.id===options.area);
     const target=activeHub>=0?hubs[activeHub]:{x:0,y:0,z:0};
     const mix=instant?1:1-Math.exp(-dt*3.2);
     for(const axis of ['x','y','z'])camera[axis]+=(target[axis]*.82*growth-camera[axis])*mix;

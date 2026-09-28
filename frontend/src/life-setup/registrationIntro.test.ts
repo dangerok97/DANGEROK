@@ -52,25 +52,33 @@ const button = (tree: Element, label: string) => {
   assert.ok(found, `button ${label}`); return found;
 };
 
-test('registration shows three steps, requires both names and preserves drafts going back', () => {
+test('registration adds a star only after each separate name step is confirmed', () => {
   const h = harness(); let completed = 0;
   const props = { first: '', last: '', onFirstChange: (v: string) => { props.first = v; }, onLastChange: (v: string) => { props.last = v; }, onComplete: () => completed++, onExit: () => {} };
   const render = () => h.render(h.intro.RegistrationIntro, props);
+  assert.deepEqual(find(render(), e => e.type === h.intro.RegistrationMap)!.props, { first: '', last: '', example: null, firstStepComplete: false, reveal: true });
   button(render(), 'Fammi vedere').props.onPress();
-  button(render(), 'Continua').props.onPress();
+  assert.equal(find(render(), e => e.type === h.intro.RegistrationMap)!.props.firstStepComplete, true);
+  button(render(), 'Conferma nome').props.onPress();
   assert.ok(find(render(), e => e.props?.accessibilityRole === 'alert'));
   button(render(), 'Nome').props.onChangeText('Giulia');
-  button(render(), 'Continua').props.onPress();
+  assert.equal(find(render(), e => e.type === h.intro.RegistrationMap)!.props.first, '', 'typing alone does not earn the star');
+  button(render(), 'Conferma nome').props.onPress();
+  assert.equal(find(render(), e => e.type === h.intro.RegistrationMap)!.props.first, 'Giulia');
+  button(render(), 'Conferma cognome').props.onPress();
+  assert.ok(find(render(), e => e.props?.accessibilityRole === 'alert'));
   assert.equal(completed, 0);
   button(render(), 'Cognome').props.onChangeText('De Luca');
-  button(render(), 'Continua').props.onPress();
+  assert.equal(find(render(), e => e.type === h.intro.RegistrationMap)!.props.last, '', 'surname star waits for confirmation');
+  button(render(), 'Conferma cognome').props.onPress();
   let tree = render();
-  assert.equal(find(tree, e => e.type === h.intro.RegistrationMap)!.props.example, 'home');
+  assert.equal(find(tree, e => e.type === h.intro.RegistrationMap)!.props.last, 'De Luca');
+  assert.equal(find(tree, e => e.type === h.intro.RegistrationMap)!.props.example, null, 'examples wait for the choice');
   find(tree, e => e.props?.accessibilityState?.selected === false && find(e, child => child.props?.children === 'Persone') !== undefined)!.props.onPress();
   assert.equal(find(render(), e => e.type === h.intro.RegistrationMap)!.props.example, 'people');
   find(render(), e => e.type === 'Pressable' && find(e, child => child.props?.children === '← Indietro') !== undefined)!.props.onPress();
-  assert.equal(button(render(), 'Nome').props.value, 'Giulia');
-  button(render(), 'Continua').props.onPress();
+  assert.equal(button(render(), 'Cognome').props.value, 'De Luca');
+  button(render(), 'Conferma cognome').props.onPress();
   button(render(), 'Continua con la registrazione').props.onPress();
   assert.equal(completed, 1);
 });
@@ -91,7 +99,7 @@ test('review can finish without personal data and exposes no persistence boundar
   const h = harness(); let completed = 0;
   const props = { first: '', last: '', onFirstChange: () => {}, onLastChange: () => {}, onComplete: () => completed++, onExit: () => {}, preview: true };
   const render = () => h.render(h.intro.RegistrationIntro, props);
-  button(render(), 'Fammi vedere').props.onPress(); button(render(), 'Continua').props.onPress();
+  button(render(), 'Fammi vedere').props.onPress(); button(render(), 'Conferma nome').props.onPress(); button(render(), 'Conferma cognome').props.onPress();
   button(render(), 'Torna a VITA').props.onPress(); assert.equal(completed, 1);
 });
 
@@ -99,7 +107,7 @@ test('a failed first-access save keeps the form available; pending save cannot s
   const h = harness(); let completed = 0;
   const props = { first: 'Giulia', last: 'De Luca', onFirstChange: () => {}, onLastChange: () => {}, onComplete: () => completed++, onExit: () => {}, savedIdentity: true, busy: false, submitError: '' };
   const render = () => h.render(h.intro.RegistrationIntro, props);
-  button(render(), 'Fammi vedere').props.onPress(); button(render(), 'Continua').props.onPress();
+  button(render(), 'Fammi vedere').props.onPress(); button(render(), 'Conferma nome').props.onPress(); button(render(), 'Conferma cognome').props.onPress();
   props.busy = true; button(render(), 'Iniziamo dalla mia vita').props.onPress(); assert.equal(completed, 0);
   props.busy = false; props.submitError = 'Non ho salvato il nome';
   assert.ok(find(render(), e => e.props?.children === props.submitError));

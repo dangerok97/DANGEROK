@@ -1,3 +1,16 @@
+## 28 settembre 2026 — Correzione della mappa già completa nell'intro
+
+Riprodotto dallo screenshot: il renderer base disegnava tutti gli otto hub e
+19 archi prima di raccogliere informazioni. Ora solo la registrazione usa la
+modalità intro: nucleo unico, primo collegamento alla conferma della guida,
+stella Nome dopo conferma, stella Cognome dopo conferma, esempio soltanto al
+tocco dell'area. Quattro passi al posto dei precedenti tre. I conteggi delle
+stelle personali partono da zero e aumentano solo al completamento dei due
+campi; esempio e guida sono marcati come anteprima e non salvati.
+28 test mirati renderer/intro PASS, inclusi assenza degli hub e modalità a
+movimento ridotto. TypeScript, lint (zero errori) ed export web PASS; verifica
+iOS e online in corso. Nessuna dipendenza, modifica backend/DB o migrazione.
+
 ## 28 settembre 2026 — Introduzione verificata online
 
 Codice 5e026156c6b7077081d1e67b0a2dd3acea378fc5. Backend deployment

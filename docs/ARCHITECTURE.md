@@ -1,3 +1,15 @@
+## 28 settembre 2026 — Geometria di registrazione progressiva
+
+La modalità opzionale `intro` della scena condivisa nasconde i sette hub di
+navigazione e i loro archi, centra l'hub rimasto come nucleo e disegna soltanto
+punti/collegamenti presenti in `stars`. La modalità ordinaria continua a
+mostrare gli otto hub. La guida passa all'unica scena le geometrie opache di
+passo guida completato, nome confermato, cognome confermato e, dopo scelta
+esplicita, un solo esempio sostituibile. Il renderer riproduce la nascita
+incrementale dei punti; testo personale resta in React, mai nel WebView.
+Stessa logica su web e native tramite sceneSource generato identico a scene.js.
+Nessuna modifica a servizi o dati persistiti.
+
 ## 28 settembre 2026 — Introduzione verificata online
 
 Codice 5e026156c6b7077081d1e67b0a2dd3acea378fc5. Backend deployment

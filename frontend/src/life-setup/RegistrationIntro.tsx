@@ -19,8 +19,8 @@ export function registrationStars(first: string, last: string): KnowledgeGeometr
   ];
 }
 
-export function RegistrationMap({ first, last, example = null, reveal = false }: {
-  first: string; last: string; example?: PresenceArea | null; reveal?: boolean;
+export function RegistrationMap({ first, last, example = null, reveal = false, firstStepComplete = false }: {
+  first: string; last: string; example?: PresenceArea | null; reveal?: boolean; firstStepComplete?: boolean;
 }) {
   const reduced = useReducedMotion();
   const [foreground, setForeground] = useState(AppState.currentState !== 'background');
@@ -33,12 +33,13 @@ export function RegistrationMap({ first, last, example = null, reveal = false }:
     return () => sub.remove();
   }, []);
   const stars = useMemo(() => [
+    ...(firstStepComplete ? [{ id: 'intro_step_one', area: 'memory' as const, kind: 'node' as const }] : []),
     ...registrationStars(first, last),
     ...(example ? [{ id: `intro_example_${example}`, area: example, kind: 'node' as const }] : []),
-  ], [first, last, example]);
+  ], [firstStepComplete, first, last, example]);
   const options = useMemo(() => ({
     mode: 'idle' as const, area: example, stars, paused, reduced, active: foreground,
-    reveal, revealKey: reveal ? 'registration-intro' : null,
+    reveal, revealKey: reveal ? 'registration-intro' : null, intro: true,
   }), [example, stars, paused, reduced, foreground, reveal]);
   const count = Number(!!first.trim()) + Number(!!last.trim());
   return <View style={styles.mapCard} testID="registration-map">
@@ -67,42 +68,43 @@ export function RegistrationIntro({ first, last, onFirstChange, onLastChange, on
 }) {
   const { colors } = useTheme();
   const [step, setStep] = useState(0);
-  const [example, setExample] = useState(0);
+  const [example, setExample] = useState(-1);
   const [error, setError] = useState('');
   const next = () => {
     if (busy) return;
-    if (step === 1 && !preview && (!first.trim() || !last.trim())) {
-      setError('Inserisci nome e cognome per accendere le tue prime due stelle.'); return;
-    }
+    if (step === 1 && !preview && !first.trim()) { setError('Inserisci il nome per accendere la prima stella.'); return; }
+    if (step === 2 && !preview && !last.trim()) { setError('Inserisci il cognome per accendere la seconda stella.'); return; }
     setError('');
-    if (step < 2) setStep(step + 1); else onComplete();
+    if (step < 3) setStep(step + 1); else onComplete();
   };
   return <View style={styles.intro} testID="registration-intro">
     <View style={styles.progress}>
-      <Text style={{ color: colors.textSecondary }}>Conosci ORA · {step + 1} di 3</Text>
+      <Text style={{ color: colors.textSecondary }}>Conosci ORA · {step + 1} di 4</Text>
       <Pressable accessibilityRole="button" disabled={busy} onPress={() => { if (step) { setError(''); setStep(step - 1); } else onExit(); }} style={styles.back}><Text style={{ color: colors.textSecondary }}>← Indietro</Text></Pressable>
     </View>
     <Text accessibilityRole="header" style={[styles.title, { color: colors.textPrimary }]}>
-      {step === 0 ? 'La tua vita prende forma.' : step === 1 ? 'Partiamo da te.' : 'Ogni stella ha uno scopo.'}
+      {step === 0 ? 'La tua vita prende forma.' : step === 1 ? 'Partiamo da te.' : step === 2 ? 'La seconda stella è il tuo cognome.' : 'Ogni stella ha uno scopo.'}
     </Text>
     <Text style={[styles.body, { color: colors.textSecondary }]}>
-      {step === 0 ? 'Ogni informazione che scegli di condividere diventa una stella. I collegamenti raccontano ciò che ORA conosce della tua vita e la aiutano a rendersi utile.' : step === 1 ? 'Nome e cognome sono le tue prime due stelle. Servono anche a presentarmi correttamente quando mi chiedi di chiamare per te.' : 'Casa, impegni, persone: prova a toccare un ramo e scopri a cosa può servire un’informazione.'}
+      {step === 0 ? 'Ogni informazione che scegli di condividere diventa una stella. I collegamenti raccontano ciò che ORA conosce della tua vita e la aiutano a rendersi utile.' : step === 1 ? 'Dimmi il tuo nome. Quando lo confermi, si accende la prima stella della tua mappa.' : step === 2 ? 'Il cognome accende la seconda stella. Quando mi chiederai di chiamare qualcuno, mi presenterò con il tuo nome completo.' : 'Casa, impegni, persone: prova a toccare un ramo e scopri a cosa può servire un’informazione.'}
     </Text>
-    <RegistrationMap first={step === 0 ? '' : first} last={step === 0 ? '' : last} example={step === 2 ? EXAMPLES[example].area : null} reveal />
+    <RegistrationMap first={step >= 2 ? first : ''} last={step >= 3 ? last : ''} example={step === 3 && example >= 0 ? EXAMPLES[example].area : null} firstStepComplete={step > 0} reveal />
     {step === 1 ? <View style={styles.fields}>
       <AppInput label="Nome" accessibilityLabel="Il tuo nome" value={first} onChangeText={onFirstChange} autoCapitalize="words" autoComplete="given-name" textContentType="givenName" maxLength={60} editable={!busy} />
+      <Text style={[styles.small, { color: colors.textSecondary }]}>Il nome resta in anteprima finché non crei l’account.</Text>
+    </View> : step === 2 ? <View style={styles.fields}>
       <AppInput label="Cognome" accessibilityLabel="Il tuo cognome" value={last} onChangeText={onLastChange} autoCapitalize="words" autoComplete="family-name" textContentType="familyName" maxLength={60} editable={!busy} />
       <Text style={[styles.quote, { color: colors.textPrimary }]}>«Sono ORA, l’assistente di {first.trim() || 'Nome'} {last.trim() || 'Cognome'}».</Text>
       <Text style={[styles.small, { color: colors.textSecondary }]}>{preview ? 'Stai rivedendo la guida: questi campi non modificano il tuo profilo.' : savedIdentity ? 'Confermeremo nome e cognome nel tuo account quando entrerai in VITA.' : 'Questa è un’anteprima. Salveremo nome e cognome quando creerai l’account.'}</Text>
-    </View> : step === 2 ? <View style={styles.fields}>
+    </View> : step === 3 ? <View style={styles.fields}>
       <View style={styles.tabs}>{EXAMPLES.map((item, index) => <Pressable key={item.area} accessibilityRole="button" accessibilityState={{ selected: example === index }} onPress={() => setExample(index)} style={[styles.tab, { borderColor: example === index ? colors.accent : colors.border, backgroundColor: example === index ? colors.accentMuted : colors.surface }]}><Text style={{ color: colors.textPrimary }}>{item.label}</Text></Pressable>)}</View>
-      <Text accessibilityLiveRegion="polite" style={[styles.body, { color: colors.textPrimary }]}>{EXAMPLES[example].text}</Text>
+      <Text accessibilityLiveRegion="polite" style={[styles.body, { color: colors.textPrimary }]}>{example >= 0 ? EXAMPLES[example].text : 'Scegli un ramo per vedere un esempio. Si accenderà soltanto quello che tocchi.'}</Text>
       <Text style={[styles.small, { color: colors.textSecondary }]}>In VITA ogni risposta salvata aggiunge conoscenza alla mappa. Un ramo completo si illumina. Puoi saltare le domande e riprenderle quando vuoi: saltare non crea stelle.</Text>
       <Text style={[styles.small, { color: colors.textSecondary }]}>Tocca una stella in ORA per leggere l’informazione e la sua fonte. Gli esempi di questa guida non vengono salvati.</Text>
     </View> : <Text style={[styles.small, { color: colors.textSecondary }]}>Una breve guida, poi le tue prime stelle. La mappa crescerà con ciò che deciderai di raccontarmi.</Text>}
     {error ? <Text accessibilityRole="alert" style={{ color: colors.error }}>{error}</Text> : null}
     {submitError ? <Text accessibilityRole="alert" style={{ color: colors.error }}>{submitError}</Text> : null}
-    <AppButton label={step === 0 ? 'Fammi vedere' : step === 1 ? 'Continua' : preview ? 'Torna a VITA' : savedIdentity ? 'Iniziamo dalla mia vita' : 'Continua con la registrazione'} onPress={next} loading={busy} disabled={busy} fullWidth />
+    <AppButton label={step === 0 ? 'Fammi vedere' : step === 1 ? 'Conferma nome' : step === 2 ? 'Conferma cognome' : preview ? 'Torna a VITA' : savedIdentity ? 'Iniziamo dalla mia vita' : 'Continua con la registrazione'} onPress={next} loading={busy} disabled={busy} fullWidth />
   </View>;
 }
 

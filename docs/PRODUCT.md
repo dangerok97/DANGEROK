@@ -1,3 +1,14 @@
+## 28 settembre 2026 — Stelle progressive nella registrazione
+
+L'introduzione apre con un solo punto. «Fammi vedere» aggiunge il primo
+collegamento della guida; il nome accende una stella soltanto dopo «Conferma
+nome» e il cognome dopo «Conferma cognome». L'ultimo passaggio mostra tre
+rami come scelte, ancora spenti: un esempio si accende solo quando la persona
+tocca Casa, Impegni o Persone. L'anteprima non presenta già tutta la mappa.
+L'account salva solo le due informazioni confermate sul nome; gli esempi
+dimostrativi non diventano conoscenze personali. La mappa di ORA cresce poi
+con le informazioni reali che l'utente decide di aggiungere in VITA.
+
 ## 28 settembre 2026 — Introduzione verificata online
 
 Codice 5e026156c6b7077081d1e67b0a2dd3acea378fc5. Backend deployment

@@ -1,3 +1,12 @@
+## 28 settembre 2026 — Crescita reale dell'anteprima
+
+La guida account non mostra più gli hub completi all'inizio. Separati i
+passaggi Nome e Cognome, con accensione soltanto alla conferma; gli esempi si
+accendono alla scelta. Scena ORA abituale preservata. Aggiunti due test
+comportamentali del renderer per progressione, rimozione degli esempi e
+accessibilità a movimento ridotto. Renderer web/native mantenuto identico.
+28 test mirati, TypeScript, lint, export web PASS; pubblicazione in corso.
+
 ## 28 settembre 2026 — Introduzione verificata online
 
 Codice 5e026156c6b7077081d1e67b0a2dd3acea378fc5. Backend deployment

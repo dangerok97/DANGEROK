@@ -27,6 +27,43 @@ function harness(options = {}) {
   return { scene, frames, pending, listeners, pointer, selections, draws: () => draws };
 }
 
+test('registration starts with one nucleus and reveals only completed steps', () => {
+  const h = harness({ intro: true, reveal: true, stars: [] });
+  assert.equal(h.scene.snapshot().visiblePoints, 1);
+  h.frames(180);
+  assert.equal(h.scene.snapshot().visiblePoints, 1, 'empty registration never exposes the eight navigation hubs');
+  assert.equal(h.scene.snapshot().edges, 0);
+  const start = { id: 'intro_step_one', area: 'memory', kind: 'node' };
+  const name = { id: 'draft_first_name', area: 'memory', kind: 'node' };
+  const surname = { id: 'draft_last_name', area: 'memory', kind: 'node' };
+  h.scene.update({ stars: [start] }); h.frames(100);
+  assert.equal(h.scene.snapshot().visiblePoints, 2, 'the first completed step adds one star');
+  h.scene.update({ stars: [start, name] }); h.frames(100);
+  assert.equal(h.scene.snapshot().visiblePoints, 3, 'writing a name adds one more');
+  h.scene.update({ stars: [start, name, surname] }); h.frames(100);
+  assert.equal(h.scene.snapshot().visiblePoints, 4, 'the surname adds one more');
+  const example = { id: 'intro_example_home', area: 'home', kind: 'node' };
+  h.scene.update({ stars: [start, name, surname, example] }); h.frames(100);
+  assert.equal(h.scene.snapshot().visiblePoints, 5, 'finishing the identity step reveals its example');
+  assert.equal(h.scene.snapshot().edges, 7, 'only links to unlocked stars exist');
+  h.scene.update({ stars: [start, name, surname, { ...example, id: 'intro_example_people', area: 'people' }] }); h.frames(100);
+  assert.equal(h.scene.snapshot().visiblePoints, 5, 'changing demo areas replaces the example, rather than accumulating stars');
+  assert.equal(h.scene.snapshot().projected.filter(p => p.id === 'intro_example_home').length, 0);
+  h.scene.destroy();
+});
+
+test('the progressive introduction respects reduced motion; normal ORA still has its navigation hubs', () => {
+  const h = harness({ intro: true, reduced: true, stars: [] });
+  assert.equal(h.scene.snapshot().visiblePoints, 1);
+  assert.equal(h.pending.size, 0);
+  h.scene.update({ stars: [{ id: 'draft_first_name', area: 'memory', kind: 'node' }] });
+  assert.equal(h.scene.snapshot().visiblePoints, 2);
+  h.scene.destroy();
+  const ora = harness({ intro: false, stars: [] });
+  assert.equal(ora.scene.snapshot().visiblePoints, 8, 'the conversational map retains all navigation hubs');
+  ora.scene.destroy();
+});
+
 test('opening grows from one central point to the full 3D network, once', () => {
   const h = harness({ reveal: true });
   assert.equal(h.scene.snapshot().visiblePoints, 1);
