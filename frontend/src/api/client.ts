@@ -1184,6 +1184,8 @@ export const api = {
   getUpdateWork: (id: string) => request<UpdateWork>(`/opportunities/${encodeURIComponent(id)}/work`),
   runUpdateWork: (id: string, reply = '', question_revision = '') => request<UpdateWork>(`/opportunities/${encodeURIComponent(id)}/work`, { method: 'POST', body: JSON.stringify({ reply, question_revision }) }),
   getOpportunity: (id: string) => request<HomeOpportunity>(`/opportunities/${id}`),
+  getVisibleOpportunities: () =>
+    request<{ opportunities: HomeOpportunity[] }>('/opportunities/surface'),
 
   /** What a tap from an agent need lands on. */
   getAgentNeed: (needId: string) => request<AgentNeed>(`/agent/needs/${needId}`),

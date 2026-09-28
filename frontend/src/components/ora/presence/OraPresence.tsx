@@ -11,11 +11,11 @@ import { useKnowledgeMap } from './useKnowledgeMap';
 import { useRouter } from 'expo-router';
 
 export function OraPresence({ mode = 'idle', activity = null, compact = false, active = true,
-  expanded = false, openingKey = null, footer, conversation, onAreaPrompt, onBack, knowledge, knowledgeRefreshKey, spotlightId = null }: {
+  expanded = false, openingKey = null, footer, conversation, prominentConversation = false, onAreaPrompt, onBack, knowledge, knowledgeRefreshKey, spotlightId = null }: {
   knowledge?: KnowledgeMap | null; knowledgeRefreshKey?: unknown;
   spotlightId?: string | null;
   mode?: PresenceMode; activity?: PresenceActivity | null; compact?: boolean; active?: boolean;
-  expanded?: boolean; openingKey?: string | null; footer?: React.ReactNode; conversation?: React.ReactNode; onAreaPrompt?: (prompt: string) => void; onBack?: () => void;
+  expanded?: boolean; openingKey?: string | null; footer?: React.ReactNode; conversation?: React.ReactNode; prominentConversation?: boolean; onAreaPrompt?: (prompt: string) => void; onBack?: () => void;
 }) {
   const { width, height: windowHeight } = useWindowDimensions();
   const { user } = useAuth();
@@ -84,7 +84,7 @@ export function OraPresence({ mode = 'idle', activity = null, compact = false, a
   const fact = map?.stars.find(s => s.id === selected?.id);
   const branch = map?.branches.find(b => `branch_${b.area_id}` === selected?.id);
   const detail = selected ? AREA_DETAILS[selected.area] : null;
-  const transcriptHeight = Math.max(60, reading ? stageHeight - 70 : Math.min(164, panelHeight * .24));
+  const transcriptHeight = Math.max(60, reading ? stageHeight - 70 : prominentConversation ? Math.min(330, stageHeight - 70) : Math.min(164, panelHeight * .24));
   return <View style={[styles.root, expanded && styles.expanded]} testID="ora-presence" onLayout={event => setPanelHeight(event.nativeEvent.layout.height)}>
     <View style={[styles.top, width < 650 && styles.topMobile]}>
       <View style={styles.identity}>

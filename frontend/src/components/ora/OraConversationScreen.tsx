@@ -446,9 +446,8 @@ function OraConversationBody({
   const [error, setError] = useState<string | null>(null);
   const [boot, setBoot] = useState(Boolean(paramId));
 
-  // Home already ranks concerns from this person's real data. Reuse that
-  // judgement in the empty conversation, and re-read it while this screen is
-  // open: a dismissed or resolved item must not linger as an invitation.
+  // Reuse Home's surfaced concerns without rebuilding Home's entire snapshot
+  // on each refresh. A dismissed or resolved item must not linger here.
   useFocusEffect(useCallback(() => {
     if (paramId || sessionId || planId || objectId || documentId || opportunityId || needId || questionId || goalId) {
       setSuggestedOpportunity(null);
@@ -457,9 +456,9 @@ function OraConversationBody({
     let alive = true;
     const refresh = async () => {
       try {
-        const home = await api.getHome();
+        const visible = await api.getVisibleOpportunities();
         if (!alive) return;
-        setSuggestedOpportunity(pickOraOpportunity(home.opportunities));
+        setSuggestedOpportunity(pickOraOpportunity(visible.opportunities));
       } catch {
         if (alive) setSuggestedOpportunity(null);
       }
@@ -1391,7 +1390,8 @@ function OraConversationBody({
             active={!live.on}
             onAreaPrompt={setText}
             footer={composerBlock}
-            conversation={!emptyStart || context || need || raised || error ? (
+            prominentConversation={Boolean(emptyStart && suggestedOpportunity)}
+            conversation={!emptyStart || context || need || raised || error || suggestedOpportunity ? (
               <ScrollView
                 ref={scrollRef}
                 style={styles.scroll}

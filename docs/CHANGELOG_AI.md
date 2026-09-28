@@ -5736,3 +5736,7 @@ AI Core crea azioni di interfaccia solo da risultati di strumenti riusciti e con
 Rilascio `799630d` attivo su backend e web. Prova cloud: l'azione di ricerca Amazon è presente nella risposta e nella rilettura della sessione. L'ingresso vuoto della chat ora può mostrare la prima opportunità Home ancora attiva con un tasto al suo dettaglio; rilegge i dati al focus e ogni minuto, rimuovendo schede superate. Due regressioni di selezione PASS, verifica web del nuovo incremento ancora da eseguire.
 
 Rilascio web `2988723` SUCCESS. La Home sintetica fornisce un'opportunità attiva, il suo dettaglio risponde sullo stesso id e il bundle web distribuito include la scheda. Lo screenshot della funzionalità dietro accesso resta da ottenere; un tentativo Google nel browser di prova è stato interrotto e non è stato ripetuto.
+
+Il refresh della scheda contestuale ora legge la proiezione delle opportunità visibili, senza ricostruire e salvare la Home ogni minuto. Stesso contenuto, minore lavoro di lettura e nessuna crescita di snapshot causata da questa schermata.
+
+La prima verifica autenticata ha scoperto che il pannello iniziale restava nascosto sopra la mappa, rendendo invisibile la scheda. Il pannello si apre solo quando un'opportunità è presente e offre più altezza per leggere e toccare il tasto. Prova visiva sul nuovo bundle in corso.
