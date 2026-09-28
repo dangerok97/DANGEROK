@@ -176,10 +176,29 @@ class AgentService:
                 context_unavailable = context_unavailable or len(cited) < len(calendar_refs)
             except Exception:
                 context_unavailable = True
-        answer = await decide_goal(
-            {**situation, "who_asked": origin, "source_context": source_context,
-             "source_context_unavailable": context_unavailable}, language=language
-        )
+        # Two current Home commitments that demonstrably overlap need a
+        # prepared resolution. Missing travel data affects a proposed new
+        # slot, not whether a request to reschedule can be drafted.
+        pair = None
+        if source_kind == "opportunity" and opportunity_id:
+            from agent.calendar_conflict import active_home_pair
+            pair = await active_home_pair(self.db, owner_id, source_refs or [])
+        if pair:
+            answer = {
+                "outcome": "create_goal",
+                "objective": "Preparare una richiesta per risolvere i due impegni sovrapposti",
+                "desired_outcome": "Una bozza concreta per chiedere di spostare il secondo impegno senza inventare disponibilità o invii",
+                "why_now": "I due impegni attivi si sovrappongono e serve decidere prima che inizino.",
+                "success_criteria": ["Bozza fondata sui due impegni attivi e sugli orari verificati"],
+                "stop_conditions": ["Uno degli impegni viene annullato o gli orari non sono più sovrapposti"],
+                "reasoning": "Sovrapposizione dei due impegni Home calcolata dalle fonti attive.",
+                "decision_provenance": "code",
+            }
+        else:
+            answer = await decide_goal(
+                {**situation, "who_asked": origin, "source_context": source_context,
+                 "source_context_unavailable": context_unavailable}, language=language
+            )
         if answer is None:
             # No judgement was available. Nothing is created and nothing is
             # recorded as a decision that there was nothing to do.
@@ -213,6 +232,7 @@ class AgentService:
                             for item in (situation.get("user_clarifications") or [])[-3:]
                             if isinstance(item, dict)],
             rationale=str(answer.get("reasoning") or "")[:300],
+            decision_provenance=answer.get("decision_provenance", "model"),
         )
         if not goal.objective or not goal.desired_outcome:
             # A goal that cannot say what it is for is not a goal.
@@ -226,6 +246,30 @@ class AgentService:
             if existing is not None:
                 return {"outcome": "already_pursuing", "goal": existing.for_human(), "goal_id": existing.id}
             return {"outcome": "unavailable"}
+
+        if pair:
+            # The preparation is fully determined by two owner-scoped Home
+            # events. Record the reads first; if they changed or persistence
+            # failed, leave the goal due for the ordinary worker to retry.
+            for start, end, zone, event, ref in pair[0]:
+                await self.evidence.record(AgentEvidence(
+                    owner_id=owner_id, goal_id=goal.id,
+                    claim=(f"Impegno ORA {event['title']}: {event['starts_at']} / {event['ends_at']}; "
+                           f"luogo: {event['location']}; note: {event['description']}")[:600],
+                    supports=ref,
+                    provenance=ResultProvenance(source_class="internal_observation",
+                        provider="ora_local_calendar", capability="calendar.local.read",
+                        source_refs=[ref], freshness="fresh"),
+                ))
+            from agent.preparation import prepare
+            drafted = await prepare(self.db, owner_id, goal,
+                ActionStep(intent="Preparare la richiesta di spostamento", step_type="prepare"))
+            if drafted.status == "succeeded" and goal.prepared_text:
+                goal.status, goal.next_run_at = "waiting", None
+                await self.repo.save_goal(goal)
+                await self.repo.journal(owner_id, goal.id, kind="waiting",
+                    note="Bozza pronta; la richiesta di spostamento attende la tua scelta.",
+                    detail={"draft": True, "provider": "calendar_overlap_draft"})
 
         await self.repo.journal(
             owner_id, goal.id, kind="goal_created", note=goal.objective,

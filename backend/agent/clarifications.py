@@ -70,6 +70,10 @@ async def work_view(db, owner, opportunity_id):
         service = AgentService(db)
         goal = await service.repo.get_goal(owner, goal_id)
         if goal:
+            from agent.calendar_conflict import active_home_pair, is_home_calendar_pair
+            if is_home_calendar_pair(goal) and not await active_home_pair(db, owner, goal.source_refs):
+                return {"status": "running", "message": "Gli impegni sono cambiati; sto aggiornando la proposta.",
+                        "result": {"ok": True, "ora_text": None}}
             needs = await service.needs.open_for_goal(owner, goal_id)
             need = next((n for n in needs if n.requires_response), None)
             route = f"/ora?needId={need.id}&goalId={goal.id}" if need else None

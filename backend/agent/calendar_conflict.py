@@ -17,9 +17,9 @@ def is_home_calendar_pair(goal):
             and len(refs) == 2 and all(r.startswith("calendar:node_home_") for r in refs))
 
 
-async def overlap_draft(db, owner_id, goal, evidence):
-    refs = list(dict.fromkeys(goal.source_refs))
-    if not is_home_calendar_pair(goal):
+async def active_home_pair(db, owner_id, refs):
+    refs = list(dict.fromkeys(refs))
+    if len(refs) != 2 or not all(r.startswith("calendar:node_home_") for r in refs):
         return None
     events = []
     for ref in refs:
@@ -45,6 +45,18 @@ async def overlap_draft(db, owner_id, goal, evidence):
     minutes = round((overlap_end - overlap_start).total_seconds() / 60)
     if not minutes:
         return None
+    return events, overlap_start, overlap_end, minutes
+
+
+async def overlap_draft(db, owner_id, goal, evidence):
+    refs = list(dict.fromkeys(goal.source_refs))
+    if not is_home_calendar_pair(goal):
+        return None
+    pair = await active_home_pair(db, owner_id, refs)
+    if pair is None:
+        return None
+    events, overlap_start, overlap_end, minutes = pair
+    first, second = events
     # The goal must actually have read these sources. A goal merely citing two
     # event IDs is insufficient to mark a prepared deliverable as supported.
     ids = []

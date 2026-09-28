@@ -5717,3 +5717,6 @@ La bozza per conflitti fra due impegni Home è calcolata dalle fonti attive, non
 
 ## 28 settembre 2026 — Handoff Amazon resistente ai guasti AI
 Le richieste testuali esplicite di ricerca o acquisto su Amazon passano direttamente alla capacità READ_ONLY, mantenendo cronologia e link apribile nella chat. Primo test cloud prima della correzione: provider in quota/timeout e risposta generica senza link. I turni con allegati o senza richiesta esplicita mantengono il normale percorso di ragionamento. Copertura locale del caso di guasto, della persistenza e della privacy; verifica cloud dopo il nuovo rilascio necessaria.
+
+## 28 settembre 2026 — Preparazione autonoma di conflitti Home accertati
+Nel secondo smoke cloud i due impegni reali di test erano sovrapposti ma il modello ha chiesto dati geografici prima di creare un goal. In questo caso ristretto il codice convalida i due eventi del proprietario e la sovrapposizione, crea l'obiettivo, salva evidenze e bozza fondata sugli orari prima di mostrarla. Il dettaglio non espone bozze superate dopo cancellazione/cambio degli impegni; nessun messaggio viene inviato. Verifica cloud da ripetere.

@@ -1688,3 +1688,5 @@ Provata su account sintetico la catena senza nuovi messaggi: recupero dopo riavv
 Per due impegni Home sovrapposti, ORA prepara una richiesta con orari calcolati e nessuna disponibilità alternativa inventata. Una richiesta di acquisto su Amazon può ottenere un link di ricerca Amazon.it per il tipo di oggetto richiesto, da verificare e acquistare direttamente su Amazon. Non attribuire a ORA ordini, prezzi o prodotti controllati quando il catalogo non è collegato.
 
 La richiesta esplicita «compra/cerca su Amazon» riceve il collegamento anche se il motore AI è indisponibile. La ricerca si apre dalla chat; l'utente sceglie prodotto, verifica prezzo e disponibilità e completa l'acquisto sul sito Amazon. Quando non indica alcun oggetto, ORA chiede quale cercare. Suggerimenti di acquisto legati agli obiettivi richiedono ancora ragionamento e fonti pertinenti; non sono un'automazione d'ordine.
+
+Se due impegni Home attivi si sovrappongono, ORA prepara la richiesta di spostamento già durante l'ammissione dell'obiettivo: l'indirizzo non è necessario per formulare una domanda al referente. Se uno degli impegni cambia, la bozza precedente non viene più mostrata.
