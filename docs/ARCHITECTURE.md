@@ -3642,3 +3642,11 @@ fornita dall'azione Home. La route concreta precede l'euristica basata su
 route o con route esplicita `/action/open`. `OraConversationScreen` continua
 a usare `navigateHomeAction` e quindi segue la stessa destinazione canonica.
 Test puro delle quattro diramazioni in `homeRoute.test.ts`.
+## 28 settembre 2026 — Contesto temporale nella scheda ORA
+
+`OraEmpty` legge `start_at`, `end_at`, `due_at`, `location` e l'eventuale
+`meta.all_day` dallo stesso `HomeItem` che decide il focus. La funzione pura
+`focusDetails` formatta i valori nella data locale del dispositivo, omette
+date invalide e conserva il giorno per una data senza orario. Nessuna nuova
+API, lettura periodica o dato persistito: cambia soltanto la presentazione
+del focus che ORA già mostra nell'ingresso alla conversazione.

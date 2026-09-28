@@ -4425,3 +4425,10 @@ Il gate autonomo del conflitto di calendario era già stato registrato
 su account sintetico nella quarta prova `cacc387`: una opportunità, un goal
 e una bozza `ready` senza chat né intervento umano. La verifica attuale
 non ha ripetuto quel gate; nessun invio o cambio calendario è stato fatto.
+## 28 settembre 2026 — Orario del focus già visibile nella chat
+
+La scheda contestuale dell'appuntamento mostrava titolo e note, ma richiedeva
+il clic per sapere quando iniziava. Ora presenta giorno e intervallo,
+oltre al luogo quando Home lo ha. Test puro per intervallo, data senza ora
+e valori invalidi PASS. TypeScript, lint mirato ed export web PASS.
+Rilascio e screenshot autenticato da registrare dopo il deploy.

@@ -1727,3 +1727,9 @@ Il tasto contestuale del focus nella conversazione usa la destinazione
 concreta indicata da Home. Un appuntamento già presente apre il suo dettaglio
 di calendario; la guida resta disponibile quando la scheda richiede davvero
 di organizzare qualcosa e non ha una schermata specifica.
+## 28 settembre 2026 — Il focus in chat mostra l'orario
+
+Quando il focus Home ha un orario, la scheda d'ingresso in ORA mostra giorno
+e intervallo prima delle note. Mostra anche il luogo, se noto. Una scadenza
+solo con data viene presentata come giornata intera, senza inventare
+un'ora. Il tasto apre sempre la destinazione concreta già indicata da Home.

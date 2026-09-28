@@ -5782,3 +5782,10 @@ dettaglio del medesimo appuntamento già aperto da Home. Screenshot
 `ora-chat-apre-appuntamento-1790625216637.jpg`; TypeScript, lint ed
 export web PASS. La bozza autonoma per il conflitto era stata verificata
 separatamente su account sintetico nella quarta prova cloud `cacc387`.
+## 28 settembre 2026 — Orario e luogo del focus nella conversazione
+
+La scheda d'ingresso in ORA usa gli orari già presenti nel focus Home,
+mostra la durata di un appuntamento e il luogo se disponibile. Le date
+senza ora restano una giornata, senza indicare una mezzanotte fittizia.
+Tre casi mirati PASS; TypeScript, lint e build web PASS. Pubblicazione e
+verifica visiva da completare.

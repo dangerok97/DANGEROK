@@ -5,6 +5,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/src/theme/ThemeProvider';
 import { tokens } from '@/src/theme/tokens';
 import type { OraContextView } from './conversationContext';
+import type { HomeItem } from '@/src/api/client';
+import { focusDetails } from './focusDetails';
 
 /* -------------------------------------------------------------------------- */
 /* Header                                                                     */
@@ -94,11 +96,12 @@ export function OraEmpty({
 }: {
   opportunity?: { title: string; why_now?: string; what_ora_can_do?: string | null } | null;
   onOpenOpportunity?: () => void;
-  focus?: { title: string; subtitle?: string | null; description?: string | null } | null;
+  focus?: Pick<HomeItem, 'title' | 'subtitle' | 'description' | 'start_at' | 'end_at' | 'due_at' | 'location' | 'meta'> | null;
   focusActionLabel?: string;
   onOpenFocus?: () => void;
 }) {
   const { colors } = useTheme();
+  const details = focusDetails(focus);
   return (
     <View style={styles.empty} testID="ora-empty">
       <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
@@ -129,6 +132,8 @@ export function OraEmpty({
         <View style={[styles.contextualCard, { backgroundColor: colors.surface, borderColor: colors.divider }]} testID="ora-contextual-focus">
           <Text style={[styles.contextEyebrow, { color: colors.textTertiary }]}>IL TUO FOCUS DI OGGI</Text>
           <Text style={[styles.contextualTitle, { color: colors.textPrimary }]} numberOfLines={2}>{focus.title}</Text>
+          {details.when ? <Text style={[styles.contextualDetail, { color: colors.textPrimary }]} testID="ora-focus-when">{details.when}</Text> : null}
+          {details.place ? <Text style={[styles.contextualDetail, { color: colors.textSecondary }]} numberOfLines={1} testID="ora-focus-place">{details.place}</Text> : null}
           {focus.subtitle || focus.description ? (
             <Text style={[styles.contextualDetail, { color: colors.textSecondary }]} numberOfLines={3}>{focus.subtitle || focus.description}</Text>
           ) : null}
