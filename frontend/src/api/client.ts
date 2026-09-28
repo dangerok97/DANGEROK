@@ -1189,6 +1189,7 @@ export const api = {
 
   /** What a tap from an agent need lands on. */
   getAgentNeed: (needId: string) => request<AgentNeed>(`/agent/needs/${needId}`),
+  getAgentGoal: (goalId: string) => request<HomeAgentWork>(`/agent/${encodeURIComponent(goalId)}`),
 
   /**
    * They said yes to what was prepared.

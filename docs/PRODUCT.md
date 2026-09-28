@@ -1733,3 +1733,9 @@ Quando il focus Home ha un orario, la scheda d'ingresso in ORA mostra giorno
 e intervallo prima delle note. Mostra anche il luogo, se noto. Una scadenza
 solo con data viene presentata come giornata intera, senza inventare
 un'ora. Il tasto apre sempre la destinazione concreta già indicata da Home.
+## 28 settembre 2026 — Dettaglio continuo del lavoro autonomo
+
+Un obiettivo avviato da ORA conserva un dettaglio apribile con il proprio
+link anche quando altri aggiornamenti lo spostano fuori dalle prime schede
+della Home. Il dettaglio mostra stato, provenienza, eventuale bozza e richiesta
+alla persona; un obiettivo annullato non resta presentato come attivo.

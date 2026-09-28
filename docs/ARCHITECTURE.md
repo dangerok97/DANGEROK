@@ -3650,3 +3650,10 @@ Test puro delle quattro diramazioni in `homeRoute.test.ts`.
 date invalide e conserva il giorno per una data senza orario. Nessuna nuova
 API, lettura periodica o dato persistito: cambia soltanto la presentazione
 del focus che ORA già mostra nell'ingresso alla conversazione.
+## Dettaglio dell'obiettivo autonomo — 28 settembre 2026
+
+`GET /agent/{goal_id}` richiede autenticazione e legge `agent_goals` con
+`owner_id`. La risposta usa la stessa proiezione umana di `for_home` per gli
+obiettivi aperti; quelli completati richiedono evidenza reale, quelli annullati
+non sono esposti. La route `/aggiornamento/gol_*` usa questo endpoint diretto,
+senza dipendere dalla classifica Home. Nessuna migrazione o nuovo indice.

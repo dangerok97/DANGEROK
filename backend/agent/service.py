@@ -1722,24 +1722,34 @@ class AgentService:
                 "source": await self._where_it_really_came_from(owner_id, goal),
                 "needs_you": "", "unknown": ""})
         for goal in await self.repo.open_goals(owner_id, limit=3):
-            scheda = {
-                **goal.for_human(),
-                "state": await self._progress_of(owner_id, goal),
-            }
-            scheda["source"] = await self._where_it_really_came_from(owner_id, goal)
-            #     UNA SOLA RIGA PER QUELLO CHE ORA NON SA.
-            # Il modello sa dire *di quale cosa* non è sicuro; il servizio sa
-            # dire che non c'è niente a cui agganciarla. La prima è più
-            # precisa, e quando c'è vince.
-            scheda["unknown"] = (
-                scheda.pop("unclear", "") or self._what_is_still_vague(goal)
-            )
-            needs = await self.needs.open_for_goal(owner_id, goal.id)
-            if needs:
-                scheda["action"] = {"id": needs[0].id, "kind": "route", "label": "Rispondi alla richiesta",
-                    "route": "/ora", "params": {"needId": needs[0].id, "goalId": goal.id, "entry": "agent_need"}}
-            out.append(scheda)
+            out.append(await self._open_card(owner_id, goal))
         return out
+
+    async def for_detail(self, owner_id: str, goal_id: str) -> Optional[Dict[str, Any]]:
+        """Read one owner's still relevant goal, independently of Home ranking."""
+        goal = await self.repo.get_goal(owner_id, goal_id)
+        if goal is None:
+            return None
+        if goal.is_open:
+            return await self._open_card(owner_id, goal)
+        if goal.status == "completed":
+            evidence = await self.evidence.for_goal(owner_id, goal.id)
+            if real_support(evidence):
+                return {**goal.for_human(), "state": "Verifica completata",
+                    "outcome": goal.rationale, "why_now": goal.rationale,
+                    "source": await self._where_it_really_came_from(owner_id, goal),
+                    "needs_you": "", "unknown": ""}
+        return None
+
+    async def _open_card(self, owner_id: str, goal: AutonomousGoal) -> Dict[str, Any]:
+        scheda = {**goal.for_human(), "state": await self._progress_of(owner_id, goal)}
+        scheda["source"] = await self._where_it_really_came_from(owner_id, goal)
+        scheda["unknown"] = scheda.pop("unclear", "") or self._what_is_still_vague(goal)
+        needs = await self.needs.open_for_goal(owner_id, goal.id)
+        if needs:
+            scheda["action"] = {"id": needs[0].id, "kind": "route", "label": "Rispondi alla richiesta",
+                "route": "/ora", "params": {"needId": needs[0].id, "goalId": goal.id, "entry": "agent_need"}}
+        return scheda
 
     async def _where_it_really_came_from(self, owner_id: str, goal) -> str:
         """

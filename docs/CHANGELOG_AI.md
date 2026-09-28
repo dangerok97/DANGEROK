@@ -5789,3 +5789,10 @@ mostra la durata di un appuntamento e il luogo se disponibile. Le date
 senza ora restano una giornata, senza indicare una mezzanotte fittizia.
 Tre casi mirati PASS; TypeScript, lint e build web PASS. Pubblicazione e
 verifica visiva da completare.
+## 28 settembre 2026 — Link durevole al lavoro preparato
+
+Nuova lettura autenticata del singolo goal, con la stessa presentazione
+della Home e controllo del proprietario. La pagina aggiornamento usa il suo ID
+direttamente per i goal, così la bozza rimane raggiungibile dopo il cambio
+di priorità. Obiettivi annullati o completati senza evidenza non sono mostrati.
+Verifica pubblicata e screenshot da aggiungere dopo il deploy.

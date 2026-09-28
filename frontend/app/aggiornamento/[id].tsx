@@ -40,6 +40,8 @@ export default function DettaglioAggiornamento() {
 
   const leggi = useCallback(async () => {
     setCarico(true);
+    setHome(null);
+    setFallback(null);
     try {
       // Detail is durable and independent of Home ranking/expiration.
       if (String(id).startsWith('psug_')) {
@@ -48,17 +50,18 @@ export default function DettaglioAggiornamento() {
         setErrore(null);
         return;
       }
+      if (String(id).startsWith('gol_')) {
+        const goal = await api.getAgentGoal(String(id));
+        setFallback(elencoAggiornamenti({ agent_work: [goal] } as HomeV2Response)[0] || null);
+        setErrore(null);
+        return;
+      }
       const result = await api.getHome();
       setHome(result);
       if (!elencoAggiornamenti(result).some(x => x.id === id)) {
         try {
-          if (String(id).startsWith('psug_')) {
-            const result = await api.getSuggestion(String(id));
-            setFallback(elencoAggiornamenti({ ora_ti_consiglia: [result.suggestion] } as HomeV2Response)[0] || null);
-          } else {
-            const opportunity = await api.getOpportunity(String(id));
-            setFallback(elencoAggiornamenti({ opportunities: [opportunity] } as HomeV2Response)[0] || null);
-          }
+          const opportunity = await api.getOpportunity(String(id));
+          setFallback(elencoAggiornamenti({ opportunities: [opportunity] } as HomeV2Response)[0] || null);
         } catch { setFallback(null); }
       }
       setErrore(null);

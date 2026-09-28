@@ -4432,3 +4432,10 @@ il clic per sapere quando iniziava. Ora presenta giorno e intervallo,
 oltre al luogo quando Home lo ha. Test puro per intervallo, data senza ora
 e valori invalidi PASS. TypeScript, lint mirato ed export web PASS.
 Rilascio e screenshot autenticato da registrare dopo il deploy.
+## 28 settembre 2026 — Continuità del dettaglio autonomo
+
+Il link dell'obiettivo legge ora la singola scheda proprietaria tramite
+`GET /agent/{goal_id}`. Il percorso non dipende dal limite di tre obiettivi
+Home né dalla disponibilità dell'intero riepilogo. Test di regressione su
+bozza, fonte, isolamento tra account e annullamento; prove build e verifica
+online da registrare dopo il rilascio. Nessuna nuova dipendenza o migrazione.

@@ -129,6 +129,18 @@ async def need(need_id: str, user=Depends(get_current_user)):
     }
 
 
+@router.get("/{goal_id}")
+async def goal_detail(goal_id: str, user=Depends(get_current_user)):
+    """The same human card as Home, even after it falls outside Home ranking."""
+    from agent.service import AgentService
+    from deps import db
+
+    card = await AgentService(db).for_detail(user["user_id"], goal_id)
+    if card is None:
+        raise HTTPException(status_code=404, detail="unknown_goal")
+    return card
+
+
 @router.post("/consider")
 async def consider(body: ConsiderIn, user=Depends(get_current_user)):
     """
