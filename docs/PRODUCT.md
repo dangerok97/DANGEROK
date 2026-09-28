@@ -1655,3 +1655,5 @@ Dalla Home si crea un impegno nel giorno scelto con ora, durata, luogo e note. L
 Il contesto rapido della chat conserva anche le note degli impegni. Giorno della settimana e data sono forniti dal calendario, anziché calcolati a voce dal modello.
 
 Gli ordini espliciti di spostamento possono portare al tool l’autorizzazione completa; il catalogo compatto conserva la struttura degli oggetti e delle liste annidate.
+
+La conferma di cancellazione è collegata all’impegno mostrato: il sì esegue e verifica quell’operazione; una modifica intervenuta nel frattempo richiede una nuova conferma.

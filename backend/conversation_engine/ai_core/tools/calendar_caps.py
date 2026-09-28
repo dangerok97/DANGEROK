@@ -1803,6 +1803,17 @@ async def cancel_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
             },
         )
 
+    snapshot = {key: detail.get(key) for key in (
+        "title", "starts_at", "ends_at", "location", "description", "updated_at",
+    )}
+    expected = arguments.get("confirmation_snapshot")
+    if expected is not None and expected != snapshot:
+        return Observation(
+            kind="tool", name="cancel_calendar_event", status="rejected",
+            payload={"status": "rejected", "failure_kind": "event_changed",
+                     "reason": "L’impegno è cambiato dopo la proposta. Rileggilo e chiedi una nuova conferma; non è stato eliminato."},
+        )
+
     out = await delete_event(
         db, uid, handle, confirmed_title=detail["title"],
         command=_user_command(arguments, runtime), answered_proposal=_answered_a_proposal(runtime),
@@ -1811,10 +1822,19 @@ async def cancel_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
     if not out.get("ok"):
         why = str(out.get("reason") or "delete_failed")
         if why == "authority_required":
+            zone = ZoneInfo((await resolve_user_timezone(db, uid)).tz_name)
+            at = _parse_dt(detail.get("starts_at"))
+            when = ""
+            if at:
+                local = at.astimezone(zone) if at.tzinfo else at.replace(tzinfo=zone)
+                when = f" del {local:%d/%m/%Y}" + ("" if detail.get("all_day") else f" alle {local:%H:%M}")
+            question = f"Elimino «{detail['title']}»{when} dal calendario {'ORA' if detail.get('is_local') else 'Google'}?"
             return Observation(
                 kind="tool", name="cancel_calendar_event", status="partial",
                 payload={"status": "authority_required", "calendar_ref": _ref(ref),
-                         "reason": "Proponi la cancellazione di questo impegno con response_mode=act e attendi la conferma. Non è stato eliminato."},
+                         "confirmation_request": {"question": question, "arguments": {
+                             "calendar_ref": _ref(ref), "confirmation_snapshot": snapshot}},
+                         "reason": "Mostra la domanda di conferma preparata. Non è stato eliminato."},
             )
         return Observation(
             kind="tool", name="cancel_calendar_event", status="failed",

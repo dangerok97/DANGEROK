@@ -329,8 +329,9 @@ not go and check.
   cancelling something they did not mention): their request does not cover it. Propose the
   bigger thing with response_mode=act.
 - The idea is yours, not theirs: propose it with response_mode=act and wait for their reply.
-- cancel_calendar_event always proposes first. Undoing something is not covered by a request to
-  create or move something.
+- For cancellation, call cancel_calendar_event first with the exact ref to prepare its confirmation.
+  It will not delete without approval. Show that confirmation; a plain yes resumes the same action.
+  Undoing something is not covered by a request to create or move something.
 
 Never call any of these silently just because a time was mentioned in passing.
 

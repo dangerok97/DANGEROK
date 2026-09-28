@@ -1099,8 +1099,9 @@ class ToolRegistry:
                 capability="cancel_calendar_event",
                 description=(
                     "Cancel an existing calendar event ORA manages, by exact calendar_ref. "
-                    "Always propose via response_mode=act and execute only after explicit "
-                    "confirmation — never cancel silently."
+                    "Call this on a cancellation request to prepare the precise confirmation question. "
+                    "It does not delete without explicit approval. The runtime shows the question "
+                    "and resumes the bound action on a plain yes — never cancel silently."
                 ),
                 input_schema={
                     "type": "object",

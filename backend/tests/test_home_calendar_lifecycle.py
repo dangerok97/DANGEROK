@@ -193,6 +193,46 @@ class HomeCalendarLifecycle(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(ahead["events"][0]["description"], self.body["description"])
         self.assertEqual(ahead["events"][0]["calendar_ref"], "calendar:" + event["id"])
 
+    async def test_plain_yes_replays_prepared_cancel_without_another_model_call(self):
+        from conversation_engine.models import ConversationSession
+        from conversation_engine.ai_core.loop import run_cognitive_loop
+        event = await self.create()
+        sess = ConversationSession(user_id=self.user)
+        async def choose_cancel(system, user):
+            return {"response_mode": "tool", "confidence": 1.0, "tool_call": {
+                "capability": "cancel_calendar_event", "arguments": {"calendar_ref": "calendar:" + event["id"]}}}
+        proposal = await run_cognitive_loop(sess=sess, user_message="Elimina Visita di prova", db=self.db, decision_fn=choose_cancel)
+        self.assertEqual(proposal.mode, "act", proposal.ora_text)
+        self.assertIn(event["title"], proposal.ora_text)
+        self.assertEqual(await self.db.life_nodes.count_documents({"status": "active"}), 1)
+        async def must_not_generate(system, user):
+            raise AssertionError("A plain approval must resume the existing action, not ask the AI to select again")
+        result = await run_cognitive_loop(sess=sess, user_message="Sì", db=self.db, decision_fn=must_not_generate)
+        self.assertEqual(result.ai_calls, 0)
+        self.assertEqual(result.tool_calls, 1)
+        self.assertIn("Ho eliminato", result.ora_text)
+        self.assertEqual(await self.db.life_nodes.count_documents({"status": "active"}), 0)
+
+    async def test_confirmation_does_not_delete_an_event_edited_since_proposal(self):
+        event = await self.create()
+        runtime = {"db": self.db, "user_id": self.user, "user_message": "Elimina Visita di prova"}
+        proposed = await caps.cancel_calendar_event({"calendar_ref": "calendar:" + event["id"]}, runtime)
+        request = proposed.payload["confirmation_request"]
+        await update_manual_event(self.db, self.user, event["id"], {"title": "Visita modificata"})
+        result = await caps.cancel_calendar_event(request["arguments"], {**runtime, "user_message": "sì", "pending_act": {"kind": "delete"}})
+        self.assertEqual(result.payload["failure_kind"], "event_changed")
+        self.assertEqual(await self.db.life_nodes.count_documents({"status": "active"}), 1)
+
+    def test_only_plain_approval_resumes_the_bound_cancel(self):
+        from conversation_engine.ai_core.calendar_confirmation import next_decision
+        pending = {"at": datetime.now(timezone.utc).isoformat(), "calendar_cancel": {
+            "arguments": {"calendar_ref": "calendar:test", "confirmation_snapshot": {"title": "Test"}},
+            "question": "Elimino Test?"}}
+        for text in ("no", "non farlo", "sì ma sposta invece", "quale evento?"):
+            self.assertIsNone(next_decision(pending, text, [], 0))
+        self.assertEqual(next_decision(pending, "Sì", [], 0)["tool_call"]["arguments"], pending["calendar_cancel"]["arguments"])
+        self.assertIsNone(next_decision(None, "Sì", [], 0))
+
     async def test_move_across_dst_preserves_real_duration(self):
         event = await self.create(day="2026-10-24", time="02:30", duration_minutes=90)
         moved = await update_manual_event(self.db, self.user, event["id"],

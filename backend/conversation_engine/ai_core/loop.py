@@ -482,7 +482,18 @@ async def run_cognitive_loop(
         # come tutte le altre, così la domanda aperta nasce con i suoi
         # riferimenti e la Home resta d'accordo con la chat.
         frase_pronta = _the_tool_s_own_sentence(observations[-1:]) if step else ""
-        if frase_pronta:
+        from conversation_engine.ai_core.calendar_confirmation import next_decision, pending_request
+        calendar_decision = next_decision(st.get("pending_act"), user_message, observations[turn_start:], step)
+        if calendar_decision:
+            gov = validate_decision(
+                calendar_decision, tools=tools, recent_tool_signatures=recent_tool_sigs,
+                external_query_count=external_queries, max_external_queries=MAX_EXTERNAL_QUERIES,
+                clarification_attempts=clarification_attempts,
+            )
+            decision = gov.decision or CognitiveDecision.model_validate(calendar_decision)
+            validated_raw = calendar_decision
+            trace["generations_saved"] = int(trace.get("generations_saved") or 0) + 1
+        elif frase_pronta:
             #     UNA DOMANDA CHE FERMA IL LAVORO SI DICHIARA TALE.
             # Misurato in app: senza questo, la frase arrivava in chat e in
             # Home non compariva niente — la domanda esisteva solo finché la
@@ -1710,7 +1721,8 @@ async def run_cognitive_loop(
             # One turn deep on purpose. A proposal three messages ago is not
             # what the person is replying to now.
             st["pending_act"] = (
-                {"at": _now_iso(), "asked": str(ora or "")[:300]}
+                {"at": _now_iso(), "asked": str(ora or "")[:300],
+                 "calendar_cancel": pending_request(observations[turn_start:])}
                 if mode == "act" else None
             )
             st["observations"] = observations[-12:]

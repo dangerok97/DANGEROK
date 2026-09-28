@@ -5683,3 +5683,5 @@ Prova live 49f6965: sette controlli API reali PASS; individuata e corretta perdi
 Spostamento locale: durata preservata dal dominio per default anche se il modello propone una fine incongruente; nuova durata richiede preserve_duration=false. Aggiunti esiti operativi non sensibili ai log dei tool calendario.
 
 Fix catalogo strumenti: preservati schemi annidati e default, incluso il consenso citato dal messaggio dell’utente. Non viene sintetizzata né ampliata alcuna autorizzazione.
+
+Conferme calendario collegate all’azione preparata; eliminata la reinterpretazione del sì da parte dell’AI. Snapshot riletto prima dell’effetto, nessuna cancellazione dopo modifiche concorrenti. 125 regressioni PASS.
