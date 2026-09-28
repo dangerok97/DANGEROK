@@ -24,7 +24,7 @@ import { PlacesSection } from '@/src/components/vita/PlacesSection';
  * question in the middle, every area and its state on the right, and the
  * profile figure above. On a phone the same pieces stack in the same order.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Platform,
@@ -100,6 +100,7 @@ export function GuidedSetupScreen() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const pageScroll = useRef<ScrollView>(null);
 
   // What the person has picked but not yet sent. Cleared on every new question.
   const [picked, setPicked] = useState<string[]>([]);
@@ -138,7 +139,10 @@ export function GuidedSetupScreen() {
   const refreshKnowledge = knowledge.reload;
   const [trailer, setTrailer] = useState<{ ids: string[]; index: number } | null>(null);
   useEffect(() => {
-    if (knowledge.addedStars.length) setTrailer({ ids: knowledge.addedStars.map(star => star.id), index: 0 });
+    if (knowledge.addedStars.length) {
+      setTrailer({ ids: knowledge.addedStars.map(star => star.id), index: 0 });
+      pageScroll.current?.scrollTo({ y: 0, animated: true });
+    }
   }, [knowledge.addedStars, knowledge.data?.revision]);
   useEffect(() => {
     if (!trailer) return;
@@ -1309,7 +1313,7 @@ export function GuidedSetupScreen() {
           è la barra laterale del prodotto, la stessa della Home — e questa
           schermata smette di sembrare un'altra applicazione.
         */}
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scroll}>
+      <ScrollView ref={pageScroll} style={{ flex: 1 }} contentContainerStyle={styles.scroll}>
         <View style={[styles.page, twoColumn && styles.pageWide]}>
           <View style={styles.main}>
             {header}
