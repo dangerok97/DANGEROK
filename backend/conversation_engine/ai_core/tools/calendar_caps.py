@@ -55,6 +55,8 @@ from documents.intelligence.google_sync import DEFAULT_EVENT_MINUTES as _DEFAULT
 _MAX_WINDOW_DAYS = 60
 _DEFAULT_WINDOW_DAYS = 7
 _MAX_EVENTS_RETURNED = 20
+_WEEKDAYS_IT = ("lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato", "domenica")
+_MONTHS_IT = ("gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre")
 
 
 def _fail(name: str, code: str, detail: str = "") -> Observation:
@@ -497,7 +499,7 @@ async def get_calendar_events(arguments: Dict[str, Any], runtime: Dict[str, Any]
         },
         {
             "_id": 0, "id": 1, "title": 1, "start_datetime": 1, "end_datetime": 1,
-            "timezone": 1, "all_day": 1, "location": 1, "status": 1,
+            "timezone": 1, "all_day": 1, "location": 1, "description": 1, "status": 1,
             "sync_status": 1, "provider": 1,
             # Il manico del provider: serve per chiedere al calendario se
             # l'evento c'e' davvero. Non esce mai da questa funzione.
@@ -516,6 +518,7 @@ async def get_calendar_events(arguments: Dict[str, Any], runtime: Dict[str, Any]
             "timezone": d.get("timezone"),
             "all_day": bool(d.get("all_day")),
             "location": d.get("location"),
+            "description": str(d.get("description") or "")[:_MAX_DESCRIPTION],
             "status": d.get("status"),
             "sync_status": d.get("sync_status"),
         }
@@ -599,6 +602,7 @@ async def get_calendar_events(arguments: Dict[str, Any], runtime: Dict[str, Any]
                 "timezone": p.get("timezone"),
                 "all_day": bool(p.get("all_day")),
                 "location": p.get("location"),
+                "description": str(p.get("description") or "")[:_MAX_DESCRIPTION],
                 "status": "confirmed",
                 "sync_status": "synced",
             })
@@ -616,6 +620,11 @@ async def get_calendar_events(arguments: Dict[str, Any], runtime: Dict[str, Any]
         return at if at.tzinfo else at.replace(tzinfo=user_zone)
     items.sort(key=event_instant)
     items = items[:_MAX_EVENTS_RETURNED]
+    for item in items:
+        at = event_instant(item)
+        # All-day dates retain their calendar day; timed events use the viewer's zone.
+        day = at if item.get("all_day") else at.astimezone(user_zone)
+        item["day_label"] = f"{_WEEKDAYS_IT[day.weekday()]} {day.day} {_MONTHS_IT[day.month - 1]} {day.year}"
 
     # Bounded, deterministic overlap detection — evidence only; the AI
     # decides whether a conflict matters, this never blocks/asks by itself.
@@ -1473,6 +1482,8 @@ async def update_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
     for key in ("title", "start_datetime", "end_datetime", "location", "description"):
         if arguments.get(key) is not None:
             fields[key] = arguments[key]
+    if local_node and "start_datetime" in fields and arguments.get("preserve_duration", True):
+        fields.pop("end_datetime", None)
     tz = arguments.get("timezone")
     if tz and is_valid_iana_timezone(str(tz)):
         fields["timezone"] = tz

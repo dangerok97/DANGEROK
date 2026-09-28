@@ -78,7 +78,7 @@ def _one_each(events: Any) -> list:
             k: e.get(k)
             for k in (
                 "calendar_ref", "title", "start_datetime", "end_datetime",
-                "all_day", "location", "source",
+                "all_day", "location", "source", "description", "timezone", "day_label",
             )
             if e.get(k) not in (None, "")
         })

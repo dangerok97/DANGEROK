@@ -121,6 +121,7 @@ class HomeCalendarLifecycle(unittest.IsolatedAsyncioTestCase):
         spoken = "Sposta Visita di prova alle 15"
         new_start, _ = home_event_times(self.day, "15:00", "Europe/Rome")
         moved = await caps.update_calendar_event({"calendar_ref": ref, "start_datetime": new_start,
+            "end_datetime": self.day + "T17:00:00+02:00",
             "user_authority": {"requested_by_user": True, "user_words": spoken, "what_they_asked_for": spoken}},
             {"db": self.db, "user_id": self.user, "user_message": spoken})
         self.assertEqual(moved.status, "ok", moved.payload)
@@ -178,6 +179,19 @@ class HomeCalendarLifecycle(unittest.IsolatedAsyncioTestCase):
             await update_manual_event(self.db, self.user, event["id"], {"start_datetime": "2027-03-28T02:30:00"})
         with self.assertRaises(ValueError):
             await update_manual_event(self.db, self.user, event["id"], {"start_datetime": self.day + "T10:15:00-04:00"})
+
+    async def test_preloaded_calendar_keeps_notes_and_computed_weekday(self):
+        from conversation_engine.ai_core.calendar_ahead import _one_each, the_next_two_days
+        event = await self.create(day="2026-09-30")
+        result = await caps.get_calendar_events({"time_min": "2026-09-30T00:00:00+02:00", "time_max": "2026-10-01T00:00:00+02:00"}, {"db": self.db, "user_id": self.user})
+        compact = _one_each(result.payload["events"])
+        self.assertEqual(compact[0]["description"], self.body["description"])
+        self.assertEqual(compact[0]["day_label"], "mercoledì 30 settembre 2026")
+        with patch("conversation_engine.ai_core.calendar_ahead.datetime") as clock:
+            clock.now.return_value = datetime(2026, 9, 29, tzinfo=timezone.utc)
+            ahead = await the_next_two_days(self.db, self.user)
+        self.assertEqual(ahead["events"][0]["description"], self.body["description"])
+        self.assertEqual(ahead["events"][0]["calendar_ref"], "calendar:" + event["id"])
 
     async def test_move_across_dst_preserves_real_duration(self):
         event = await self.create(day="2026-10-24", time="02:30", duration_minutes=90)

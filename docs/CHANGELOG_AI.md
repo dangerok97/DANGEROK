@@ -5677,3 +5677,7 @@ Aggiunto il comando «Aggiungi impegno» nel pannello del giorno selezionato, co
 - Cancellazione con conferma verificabile e pulizia dei collegamenti del grafo.
 - Agenda e marcatori del mese coerenti con il fuso; segnalazione delle modifiche al worker esistente.
 - 116 regressioni Python su database in memoria, controlli TypeScript/Home, lint senza errori e build web. Prova live da registrare dopo il rilascio.
+
+Prova live 49f6965: sette controlli API reali PASS; individuata e corretta perdita delle note nel contesto delle prossime 48 ore. Aggiunta etichetta data/giorno della settimana calcolata. 117 regressioni PASS.
+
+Spostamento locale: durata preservata dal dominio per default anche se il modello propone una fine incongruente; nuova durata richiede preserve_duration=false. Aggiunti esiti operativi non sensibili ai log dei tool calendario.

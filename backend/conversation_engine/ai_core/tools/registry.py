@@ -1016,7 +1016,9 @@ class ToolRegistry:
             CapabilitySpec(
                 capability="update_calendar_event",
                 description=(
-                    "Update or reschedule an existing OR imported Google Calendar event. Prefer "
+                    "Update or reschedule an ORA-local event or an existing/imported Google event. Local events "
+                    "do not require Google access. For a direct user instruction always include user_authority "
+                    "with their exact words, so they do not have to confirm twice. Prefer "
                     "the exact calendar_ref from prior evidence. If the user supplied an event "
                     "title but no ref was resolved, pass their wording as target_title. The tool "
                     "first resolves one exact future match; if the wording is only close to a "
@@ -1027,12 +1029,18 @@ class ToolRegistry:
                     "to a pending proposal is NOT approval: only a plain explicit yes confirms it. "
                     "For start/end use the event's local wall-clock with an offset matching the "
                     "IANA timezone (for example 20:00+02:00 for Europe/Rome in September, never "
-                    "20:00Z while claiming Europe/Rome). Only provided fields change."
+                    "20:00Z while claiming Europe/Rome). For a move omit end_datetime: the stored duration "
+                    "is preserved by code. Only set preserve_duration=false and a new end when the user "
+                    "explicitly asks to change the duration or end time. Only provided fields change."
                 ),
                 input_schema={
                     "type": "object",
                     "properties": {
                         "calendar_ref": {"type": "string"},
+                        "preserve_duration": {
+                            "type": "boolean", "default": True,
+                            "description": "Keep the observed duration when moving a local event; false only for an explicit new duration/end.",
+                        },
                         "target_title": {
                             "type": "string",
                             "description": (
@@ -1503,7 +1511,12 @@ class ToolRegistry:
             rt = dict(runtime or {})
             if "db" not in rt:
                 rt["db"] = self.db
-            return await spec.handler(arguments or {}, rt)
+            result = await spec.handler(arguments or {}, rt)
+            if name in ("create_calendar_event", "update_calendar_event", "cancel_calendar_event"):
+                payload = result.payload or {}
+                logger.info("calendar tool=%s status=%s outcome=%s", name, result.status,
+                            str(payload.get("failure_kind") or payload.get("basis") or payload.get("status") or "")[:80])
+            return result
         except Exception as e:
             logger.info("tool %s failed: %s", name, type(e).__name__)
             return Observation(
