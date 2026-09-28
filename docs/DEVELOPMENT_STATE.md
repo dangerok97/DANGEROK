@@ -4354,3 +4354,6 @@ Provata su account sintetico la catena senza nuovi messaggi: recupero dopo riavv
 
 ## 28 settembre 2026 — Preparazione calendariale e Amazon
 19 test mirati su preparazione e proattività, 2 sulla ricerca Amazon PASS localmente. Resta il gate live dopo il nuovo rilascio. Amazon: la ricerca è un handoff; per un catalogo ufficiale servono idoneità e credenziali Creators API, da valutare anche rispetto ai termini per una app generalista. Nessun ordine retail automatizzato disponibile tramite la capacità implementata. Nessuna migrazione DB o dipendenza runtime.
+
+## 28 settembre 2026 — Recupero della richiesta Amazon durante indisponibilità AI
+Il primo smoke cloud su richiesta esplicita di una lampada Amazon ha restituito soltanto «Sto ancora ragionando» dopo errori quota/timeout dei provider: la capacità registrata da sola non assicurava un risultato. Ora i turni testuali espliciti preparano direttamente una ricerca Amazon.it usando la medesima capacità READ_ONLY e ne salvano il link nella sessione, senza attendere il modello. Query corta, dati di contatto rimossi, nessun prodotto/prezzo/disponibilità o ordine dichiarato. Le raccomandazioni spontanee pertinenti agli obiettivi restano soggette al ragionamento AI. Gate locale 43 test mirati PASS; smoke cloud della correzione in attesa. Nessuna dipendenza, migrazione o configurazione nuova.

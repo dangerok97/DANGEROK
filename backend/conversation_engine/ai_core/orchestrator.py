@@ -170,12 +170,15 @@ class AICoreOrchestrator:
                 else {"message_id": user_mid}
             ),
         )
-        result = await self._observed_turn(
-            sess=sess,
-            user_message=user_msg,
-            db=self.db,
-            decision_fn=self.decision_fn,
-        )
+        from conversation_engine.ai_core.amazon_handoff import explicit_amazon_handoff
+        result = await explicit_amazon_handoff(user_msg) if not bound else None
+        if result is None:
+            result = await self._observed_turn(
+                sess=sess,
+                user_message=user_msg,
+                db=self.db,
+                decision_fn=self.decision_fn,
+            )
         if (result.ora_text or "").strip():
             ora_mid = _new_message_id()
             sess.append_history(
@@ -408,12 +411,15 @@ class AICoreOrchestrator:
             except Exception as e:  # pragma: no cover
                 logger.info("open questions not closed: %s", type(e).__name__)
 
-        result = await self._observed_turn(
-            sess=sess,
-            user_message=user_msg,
-            db=self.db,
-            decision_fn=self.decision_fn,
-        )
+        from conversation_engine.ai_core.amazon_handoff import explicit_amazon_handoff
+        result = await explicit_amazon_handoff(user_msg) if not bound else None
+        if result is None:
+            result = await self._observed_turn(
+                sess=sess,
+                user_message=user_msg,
+                db=self.db,
+                decision_fn=self.decision_fn,
+            )
         # Memory candidates are governed inside the cognitive loop. Keeping a
         # second pending queue would create a competing, unaudited write path.
 

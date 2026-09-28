@@ -3593,3 +3593,5 @@ Provata su account sintetico la catena senza nuovi messaggi: recupero dopo riavv
 
 ## 28 settembre 2026 — Confini delle preparazioni e Amazon
 `agent.calendar_conflict.overlap_draft` usa due riferimenti Home, lettura per proprietario e istanti correnti; accetta solo due eventi attivi con sovrapposizione reale ed evidenze lette. `prepare_locally` salva la bozza e i riferimenti, oppure sospende la preparazione se le fonti sono cambiate. La nuova capacità AI Core `prepare_amazon_search` restituisce un URL codificato verso Amazon.it e metadati espliciti su ciò che non è stato verificato. È `READ_ONLY`: nessun token Amazon, scraping, API retail checkout o azione di pagamento.
+
+`ai_core.amazon_handoff.explicit_amazon_handoff` intercetta soltanto richieste esplicite di ricerca/acquisto su Amazon nei turni testuali senza allegati. Il percorso conserva la cronologia e usa `prepare_amazon_search` direttamente, così un guasto dei provider non impedisce il link. La categoria viene accorciata e ripulita prima di inserirla nell'URL; il testo dichiara espressamente che ORA non ha consultato il catalogo o ordinato. I turni diversi seguono il normale ciclo cognitivo.

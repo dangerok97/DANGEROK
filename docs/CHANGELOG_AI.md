@@ -5714,3 +5714,6 @@ Provata su account sintetico la catena senza nuovi messaggi: recupero dopo riavv
 
 ## 28 settembre 2026 — Preparazioni calendariali e Amazon
 La bozza per conflitti fra due impegni Home è calcolata dalle fonti attive, non da un revisore che può ripetere promesse senza prove. Query Amazon.it minima in AI Core per richieste di acquisto o proposte legate a un obiettivo; link di ricerca e checkout sul sito del venditore, senza dichiarare ordini eseguiti. 21 test mirati PASS; smoke live ancora aperto.
+
+## 28 settembre 2026 — Handoff Amazon resistente ai guasti AI
+Le richieste testuali esplicite di ricerca o acquisto su Amazon passano direttamente alla capacità READ_ONLY, mantenendo cronologia e link apribile nella chat. Primo test cloud prima della correzione: provider in quota/timeout e risposta generica senza link. I turni con allegati o senza richiesta esplicita mantengono il normale percorso di ragionamento. Copertura locale del caso di guasto, della persistenza e della privacy; verifica cloud dopo il nuovo rilascio necessaria.
