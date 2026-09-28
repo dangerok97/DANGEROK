@@ -272,7 +272,11 @@ async def audit_proposals(snapshot, proposed):
     """Check a nonempty proposal against its sources before it can be surfaced."""
     review = await _ask_model(
         _DISCIPLINE + "\nAudit these proposed opportunities against the supplied snapshot. "
-        "Return the SAME JSON opportunity schema, corrected, with verified=true. "
+        'Return exactly {"verified": true, "opportunities": [corrected opportunity objects], '
+        '"reason_for_silence": ""}. verified MUST be a top-level boolean; opportunities '
+        'MUST be a top-level array. Copy ALL fields of each original opportunity and edit '
+        'only what needs correction. Do not wrap your answer in another object. '
+
         "Do not add new concerns. Preserve identity_key for retained concerns. Remove "
         "unsupported concerns; an empty opportunities array is valid. Check arithmetic "
         "against temporal.calendar_overlaps and source times; do not confuse start "
@@ -283,17 +287,25 @@ async def audit_proposals(snapshot, proposed):
         "Cite actual source refs, not changes alone. When a concrete useful draft or "
         "check remains, use initiative=prepare and first-person what_i_can_do without "
         "asking permission for internal work. Never claim that work is already done. "
-        "If no grounded answer can be produced return verified=false.",
+        "Rejecting a bad suggestion does not require rejecting the supported concern: "
+        "remove the bad option, retain supported facts and offer useful internal preparation. "
+        "If no concern is supported, return verified=true with opportunities=[]. "
+        "Use verified=false only when the supplied sources cannot be assessed.",
         _dump({"snapshot": snapshot, "proposed": proposed}),
     )
     if not isinstance(review, dict) or review.get("verified") is not True:
+        logger.info("proposal_audit outcome=%s", "unavailable" if not isinstance(review, dict)
+                    else "rejected" if review.get("verified") is False else "invalid_verdict")
         return None
     items = review.get("opportunities")
     if not isinstance(items, list):
+        logger.info("proposal_audit outcome=invalid_items")
         return None
     allowed = {x.get("identity_key") for x in proposed.get("opportunities", []) if isinstance(x, dict)}
     if any(not isinstance(x, dict) or x.get("identity_key") not in allowed for x in items):
+        logger.info("proposal_audit outcome=identity_changed")
         return None
+    logger.info("proposal_audit outcome=verified count=%d", len(items))
     return review
 
 
