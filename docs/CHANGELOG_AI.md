@@ -5818,3 +5818,5 @@ migrazione. Build e prova pubblicata da registrare dopo il rilascio.
 ## 28 settembre 2026 — Portami davvero al luogo richiesto
 
 La chat non può terminare con «Ok.» davanti a un comando esplicito di partenza. Anche senza un luogo personale salvato, offre un link di navigazione Google Maps dalla posizione del dispositivo verso il nome pronunciato e chiede di verificare la destinazione risolta. Per luoghi personali ambigui non indovina. Il backend non inventa traffico o ETA quando manca il provider di routing. Test e verifica pubblicata da registrare dopo il deploy.
+
+Rilascio online: `dc1330c` backend/web, rifinitura backend `4dea30e`; entrambi i deploy finali SUCCESS. Nella prova web autenticata la frase originale produce il tasto «Google Maps», e il click apre una rotta al Colosseo dalla posizione del browser. Screenshot: `ora-colosseo-navigazione-finale-1790629864226.jpg`. Cinque test mirati PASS, TypeScript ed export web PASS. La domanda per un luogo ricorrente sarà verificabile solo dopo tre giorni distinti di osservazioni con consenso.

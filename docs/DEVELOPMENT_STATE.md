@@ -4466,3 +4466,5 @@ esistenti ma non validati in questo incremento come promessa end to end.
 ## Navigazione chat — 28 settembre 2026
 
 Riparata la richiesta esplicita «portami ...»: handoff Maps per luoghi pubblici non salvati, tasto cliccabile anche quando il modello salta `open_navigation`, posizione risolta dal dispositivo all'apertura della mappa. Test mirati PASS. Senza `ROUTING_PROVIDER`/`ROUTING_API_KEY`, il backend non può promettere tempi né alternative di traffico prima dell'apertura della mappa. Rilascio e prova web da registrare dopo il deploy.
+
+Rilascio verificato: backend `4dea30e` (Railway `8d13e64f`, SUCCESS), web `dc1330c` (Railway `196b57bd`, SUCCESS). Su account autenticato, «portami dalla mia posizione al Colosseo» genera il tasto «Google Maps» e il tap apre la rotta corretta. Screenshot `ora-colosseo-navigazione-finale-1790629864226.jpg`. Il riconoscimento autonomo dei luoghi ha 2 test PASS e build web PASS; una domanda reale richiede osservazioni autorizzate distribuite su almeno tre giorni e non viene simulata nell'account.
