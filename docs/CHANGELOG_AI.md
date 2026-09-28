@@ -5723,3 +5723,8 @@ Nel secondo smoke cloud i due impegni reali di test erano sovrapposti ma il mode
 
 ## 28 settembre 2026 — Una scheda affidabile per la coppia Home
 Terza prova cloud conferma la bozza autonoma ma ha creato due opportunità per la stessa coppia, una con giorno della settimana errato. Le proposte con esattamente due impegni Home attivi e sovrapposti ora usano identità derivata dai riferimenti, date e tempi calcolati, note dei due eventi e offerta limitata alla richiesta di spostamento. Il modello continua a decidere se la situazione merita un'opportunità. Test di regressione sulla doppia formulazione del modello; prova cloud dopo il rilascio da eseguire.
+
+## 28 settembre 2026 — Domande Amazon aperte
+La via diretta alla ricerca richiede un oggetto concreto. «Cosa potrei comprare?» lascia al motore il giudizio sull'obiettivo; «comprami qualcosa» chiede il tipo di prodotto, senza aprire una ricerca per un termine generico.
+
+Quarta prova cloud `cacc387`: una sola opportunità, un solo goal e bozza pronta per la coppia Home, senza richieste alla chat né comandi di analisi. La cancellazione nella terza prova ha nascosto subito la bozza superata. Nessun invio eseguito.

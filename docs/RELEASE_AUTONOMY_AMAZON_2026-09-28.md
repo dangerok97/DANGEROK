@@ -10,3 +10,5 @@ Aggiornamento: il primo test cloud Amazon ha evidenziato una risposta senza coll
 Verifica successiva: rilascio Amazon `113fb2f` SUCCESS e prova autenticata con link effettivo e limiti corretti. La seconda prova del calendario ha rilevato il conflitto ma chiesto indirizzi invece di preparare la bozza. La nuova correzione per due eventi Home attivi prepara immediatamente la bozza dalle fonti e nasconde quella superata dopo un cambiamento; 59 test locali mirati PASS. Resta la prova cloud di quest'ultima correzione.
 
 Terza prova cloud sul rilascio `1e71f5c`: bozza autonoma pronta, con tempi esatti e nessun invio. Due schede duplicate e una data settimanale errata hanno richiesto un'ulteriore normalizzazione dei riferimenti Home prima della verifica finale.
+
+Rilascio `cacc387` verificato in cloud: una scheda, un goal e una bozza utile ad app in background. La ricerca Amazon esplicita era stata verificata sul rilascio `113fb2f`, con risposta in circa sette secondi e senza simulare un ordine. Un comando generico di raccomandazione passa al ragionamento sul goal; un oggetto indeterminato richiede chiarimento. Nessun accesso all'account Amazon o acquisto automatico.

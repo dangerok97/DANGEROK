@@ -3596,6 +3596,8 @@ Provata su account sintetico la catena senza nuovi messaggi: recupero dopo riavv
 
 `ai_core.amazon_handoff.explicit_amazon_handoff` intercetta soltanto richieste esplicite di ricerca/acquisto su Amazon nei turni testuali senza allegati. Il percorso conserva la cronologia e usa `prepare_amazon_search` direttamente, così un guasto dei provider non impedisce il link. La categoria viene accorciata e ripulita prima di inserirla nell'URL; il testo dichiara espressamente che ORA non ha consultato il catalogo o ordinato. I turni diversi seguono il normale ciclo cognitivo.
 
+Le domande aperte di raccomandazione e gli oggetti generici non sono categorie di ricerca: le prime tornano al ragionamento sul goal, i secondi ricevono una domanda sul tipo di oggetto.
+
 `AgentService.consider` verifica due riferimenti Home attivi con `active_home_pair`: in questo caso circoscritto ammette il goal senza una domanda arbitraria del modello, registra le due letture come evidenza interna e richiama la stessa `prepare` che calcola la bozza. Il goal resta in attesa della scelta della persona, senza un invio effettuato. `work_view` rilegge gli eventi prima di mostrare una bozza già pronta, così una cancellazione o un cambiamento non espone il testo superato.
 
 Quando il modello propone un'opportunità con esattamente due eventi Home sovrapposti, `OpportunityService.scan` ne stabilizza l'identità sull'insieme dei riferimenti. Riscrive solo le proprietà verificabili della scheda (orari, durata, note, fattibilità di una bozza e scadenza), lasciando al modello la scelta di segnalarla. Questo evita schede duplicate quando il modello cambia parole o sbaglia giorno della settimana.

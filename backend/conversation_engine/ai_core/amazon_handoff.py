@@ -15,6 +15,8 @@ from conversation_engine.ai_core.tools.sanitize import sanitize_external_query
 _AMAZON = re.compile(r"\bamazon(?:\.it)?\b", re.I)
 _ACTION = re.compile(r"\b(?:compra(?:re|mi)?|acquista(?:re|mi)?|ordina(?:re|mi)?|cerca(?:re|mi)?)\b", re.I)
 _FILLER = re.compile(r"^(?:su|da|di|un|uno|una|il|lo|la|i|gli|le|dei|delle|per favore)\s+", re.I)
+_ADVICE = re.compile(r"\b(?:cosa|quale|quali|consigl\w*|sugger\w*|propon\w*|potrei|dovrei)\b", re.I)
+_VAGUE = re.compile(r"^(?:qualcosa|oggett[oi]|prodott[oi]|articol[oi]|cos[ae])\b", re.I)
 
 
 def _item(text: str) -> str:
@@ -40,11 +42,17 @@ def _item(text: str) -> str:
     if not part:
         return ""
     part = re.sub(r"[^\w\s\-]", " ", part, flags=re.UNICODE)
-    return " ".join(part.split()[:7]).strip(" -")
+    item = " ".join(part.split()[:7]).strip(" -")
+    return "" if _VAGUE.match(item) else item
 
 
 async def explicit_amazon_handoff(text: str) -> CognitiveTurnResult | None:
-    if not _AMAZON.search(text) or not _ACTION.search(text):
+    action = _ACTION.search(text)
+    if not _AMAZON.search(text) or not action:
+        return None
+    # An open request for a recommendation needs the goal and its evidence;
+    # turning "what should I buy?" into a search for "what" is not help.
+    if _ADVICE.search(text[:action.start()]):
         return None
     item = _item(text)
     if not item:

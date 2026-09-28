@@ -54,10 +54,14 @@ async def test_amazon_handoff_in_existing_session_and_missing_item_question():
     response = await explicit_amazon_handoff("Cerca su Amazon cuffie wireless")
     assert "k=cuffie+wireless" in response.ora_text
     assert await explicit_amazon_handoff("Ho comprato cuffie su Amazon ieri") is None
+    assert await explicit_amazon_handoff("Cosa potrei comprare su Amazon per studiare?") is None
     private = await explicit_amazon_handoff("Compra lampada mario@example.com su Amazon")
     assert "mario" not in private.ora_text and "lampada" in private.ora_text
     first = await explicit_amazon_handoff("Acquista su Amazon")
     assert first.mode == "ask" and "Che tipo di oggetto" in first.ora_text
+    vague = await explicit_amazon_handoff("Comprami qualcosa su Amazon")
+    assert vague.mode == "ask" and "Che tipo di oggetto" in vague.ora_text
+    assert (await explicit_amazon_handoff("Comprami un oggetto su Amazon")).mode == "ask"
     # Use an existing session via the same deterministic start path.
     started = await orch.start("u", text="Comprami una lampada su Amazon")
     next_turn = await orch.message("u", started["session_id"], text="Cerca su Amazon cuffie wireless")
