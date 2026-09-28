@@ -62,3 +62,9 @@ async def test_goal_admission_reads_cited_home_details_with_owner_scope(monkeypa
     await AgentService(db).consider('bob',situation={},source_refs=['calendar:'+event['id']])
     assert decide.call_args.args[0]['source_context']==[]
     assert decide.call_args.args[0]['source_context_unavailable']
+
+
+def test_change_notice_does_not_erase_source_provenance():
+    from opportunities.snapshot import evidence_refs
+    assert evidence_refs({"calendar":[{"ref":"calendar:event"}],
+        "what_changed":[{"ref":"calendar:event","what_moved":"calendar:event.updated"}]})["calendar:event"]=="calendar_event"

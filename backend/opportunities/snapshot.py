@@ -811,5 +811,5 @@ def evidence_refs(snapshot: Dict[str, Any]) -> Dict[str, str]:
 
     for change in snapshot.get("what_changed") or []:
         if isinstance(change, dict) and change.get("ref"):
-            found[str(change["ref"])] = str(change.get("kind") or "change")
+            found.setdefault(str(change["ref"]), str(change.get("kind") or "change"))
     return found

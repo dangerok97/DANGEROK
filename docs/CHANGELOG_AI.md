@@ -5707,3 +5707,7 @@ I risvegli opportunity_revisit/ambient_review possono rivalutare i fatti tempora
 ## 28 settembre 2026 — Fattibilità delle iniziative
 
 Le sovrapposizioni vengono calcolate sugli istanti dal codice, non dal modello. Prima di salvare proposte non vuote, un controllo AI confronta testo e opzioni con le fonti, corregge calcoli e vincoli, può rimuovere proposte ma non aggiungere nuove identità; indisponibilità del controllo rinvia la valutazione invece di pubblicare testo non verificato. Nessun costo aggiuntivo sul silenzio. L’ammissione dell’obiettivo rilegge gli impegni locali citati per conservare vincoli e note. 17 regressioni PASS; la coerenza del revisore non è garanzia di verità o accuratezza universale. Prova live del nuovo comportamento ancora da eseguire.
+
+
+## 28 settembre 2026 — Esito autonomia cloud e provenienza
+Provata su account sintetico la catena senza nuovi messaggi: recupero dopo riavvio, opportunità, goal, lettura e bozza persistita, poi attesa del consenso. Conservata la provenienza calendar_event quando arriva una change notification. Rafforzato il controllo delle bozze contro promesse di consegna e disponibilità non provate; accuratezza live non ancora pienamente accettata. OpenAI verificato ma indisponibile per quota, fallback attivi. Dettagli e limiti in AUTONOMY_LIVE_2026_09_28.md.
