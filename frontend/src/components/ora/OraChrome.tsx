@@ -88,9 +88,15 @@ export function OraHeader({
 export function OraEmpty({
   opportunity,
   onOpenOpportunity,
+  focus,
+  focusActionLabel,
+  onOpenFocus,
 }: {
   opportunity?: { title: string; why_now?: string; what_ora_can_do?: string | null } | null;
   onOpenOpportunity?: () => void;
+  focus?: { title: string; subtitle?: string | null; description?: string | null } | null;
+  focusActionLabel?: string;
+  onOpenFocus?: () => void;
 }) {
   const { colors } = useTheme();
   return (
@@ -115,6 +121,25 @@ export function OraEmpty({
             style={({ pressed }) => [styles.contextualButton, { borderColor: colors.border, opacity: pressed ? 0.7 : 1 }]}
           >
             <Text style={[styles.contextualButtonText, { color: colors.textPrimary }]}>Apri l’aggiornamento</Text>
+            <Ionicons name="arrow-forward" size={16} color={colors.textPrimary} />
+          </Pressable>
+        </View>
+      ) : null}
+      {!opportunity && focus && onOpenFocus ? (
+        <View style={[styles.contextualCard, { backgroundColor: colors.surface, borderColor: colors.divider }]} testID="ora-contextual-focus">
+          <Text style={[styles.contextEyebrow, { color: colors.textTertiary }]}>IL TUO FOCUS DI OGGI</Text>
+          <Text style={[styles.contextualTitle, { color: colors.textPrimary }]} numberOfLines={2}>{focus.title}</Text>
+          {focus.subtitle || focus.description ? (
+            <Text style={[styles.contextualDetail, { color: colors.textSecondary }]} numberOfLines={3}>{focus.subtitle || focus.description}</Text>
+          ) : null}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${focusActionLabel || 'Apri in Home'}: ${focus.title}`}
+            testID="ora-open-contextual-focus"
+            onPress={onOpenFocus}
+            style={({ pressed }) => [styles.contextualButton, { borderColor: colors.border, opacity: pressed ? 0.7 : 1 }]}
+          >
+            <Text style={[styles.contextualButtonText, { color: colors.textPrimary }]}>{focusActionLabel || 'Apri in Home'}</Text>
             <Ionicons name="arrow-forward" size={16} color={colors.textPrimary} />
           </Pressable>
         </View>

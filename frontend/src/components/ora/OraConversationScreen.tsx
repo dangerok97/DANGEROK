@@ -15,6 +15,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
+  AppState,
   Platform,
   Pressable,
   ScrollView,
@@ -27,7 +28,9 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { triggerHaptic } from '@/src/theme/haptics';
 
-import { api, type AgentNeed, type HomeOpportunity } from '@/src/api/client';
+import { api, type AgentNeed, type HomeItem, type HomeOpportunity } from '@/src/api/client';
+import { navigateHomeAction } from '@/src/components/home/v2/homeNav';
+import { primaryActionOf } from '@/src/components/home/v3/homeItemView';
 import {
   OraComposer,
   PendingAttachment,
@@ -434,6 +437,7 @@ function OraConversationBody({
   const [sessionId, setSessionId] = useState<string | null>(paramId || null);
   const [turns, setTurns] = useState<Turn[]>([]);
   const [suggestedOpportunity, setSuggestedOpportunity] = useState<HomeOpportunity | null>(null);
+  const [suggestedFocus, setSuggestedFocus] = useState<HomeItem | null>(null);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const currentActivityRequest = useRef<string | null>(null);
@@ -451,21 +455,34 @@ function OraConversationBody({
   useFocusEffect(useCallback(() => {
     if (paramId || sessionId || planId || objectId || documentId || opportunityId || needId || questionId || goalId) {
       setSuggestedOpportunity(null);
+      setSuggestedFocus(null);
       return;
     }
     let alive = true;
-    const refresh = async () => {
+    const refresh = async (includeFocus = false) => {
       try {
         const visible = await api.getVisibleOpportunities();
         if (!alive) return;
-        setSuggestedOpportunity(pickOraOpportunity(visible.opportunities));
+        const opportunity = pickOraOpportunity(visible.opportunities);
+        setSuggestedOpportunity(opportunity);
+        if (opportunity) setSuggestedFocus(null);
+        else if (includeFocus) {
+          const home = await api.getHome();
+          if (alive) setSuggestedFocus(home.primary_focus?.title?.trim() ? home.primary_focus : null);
+        }
       } catch {
-        if (alive) setSuggestedOpportunity(null);
+        if (alive) {
+          setSuggestedOpportunity(null);
+          if (includeFocus) setSuggestedFocus(null);
+        }
       }
     };
-    void refresh();
+    void refresh(true);
     const timer = setInterval(() => void refresh(), 60000);
-    return () => { alive = false; clearInterval(timer); };
+    const focusTimer = setInterval(() => {
+      if (AppState.currentState === 'active') void refresh(true);
+    }, 300000);
+    return () => { alive = false; clearInterval(timer); clearInterval(focusTimer); };
   }, [paramId, sessionId, planId, objectId, documentId, opportunityId, needId, questionId, goalId]));
   const [workingHint, setWorkingHint] = useState<string | null>(null);
   /*
@@ -1191,11 +1208,20 @@ function OraConversationBody({
         />
       );
     if (raised) return <OraRaisedOpening opportunity={raised} />;
+    const primary = primaryActionOf(suggestedFocus);
+    const focusAction = primary && ['resume', 'continue', 'guide', 'open', 'navigate', 'maps', 'study'].includes(primary.kind)
+      ? primary : null;
     return context ? <OraContextOpening /> : <OraEmpty
       opportunity={suggestedOpportunity}
       onOpenOpportunity={suggestedOpportunity ? () => router.push(`/aggiornamento/${encodeURIComponent(suggestedOpportunity.id)}` as any) : undefined}
+      focus={suggestedOpportunity ? null : suggestedFocus}
+      focusActionLabel={focusAction?.label || 'Apri in Home'}
+      onOpenFocus={suggestedFocus ? () => {
+        if (focusAction) void navigateHomeAction(router, focusAction, suggestedFocus);
+        else router.push('/' as any);
+      } : undefined}
     />;
-  }, [turns.length, context, contextResolving, raised, need, answeringNeed, answerNeed, suggestedOpportunity, router]);
+  }, [turns.length, context, contextResolving, raised, need, answeringNeed, answerNeed, suggestedOpportunity, suggestedFocus, router]);
 
   /*
     Una telefonata partita da questa chat: si aspetta che finisca e poi si
@@ -1390,8 +1416,8 @@ function OraConversationBody({
             active={!live.on}
             onAreaPrompt={setText}
             footer={composerBlock}
-            prominentConversation={Boolean(emptyStart && suggestedOpportunity)}
-            conversation={!emptyStart || context || need || raised || error || suggestedOpportunity ? (
+            prominentConversation={Boolean(emptyStart && (suggestedOpportunity || suggestedFocus))}
+            conversation={!emptyStart || context || need || raised || error || suggestedOpportunity || suggestedFocus ? (
               <ScrollView
                 ref={scrollRef}
                 style={styles.scroll}
