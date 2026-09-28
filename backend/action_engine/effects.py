@@ -428,7 +428,7 @@ async def apply_completion_effects(
                 id="done", kind="decision", label="Puoi segnare fatto da Home", status="proposed",
             ))
         else:
-            if answers.get("support") in ("reminder", "checklist", "project") or intent == "remind":
+            if answers.get("support") == "reminder" or intent == "remind":
                 rem = await _create_reminder(
                     db, user_id=user_id, title=title, due_at=due, meta={"kind": "generic"},
                 )
@@ -436,7 +436,7 @@ async def apply_completion_effects(
                 actions.append(ProposedAction(
                     id=f"rem_{rem['id']}", kind="reminder", label="Promemoria creato", status="done",
                 ))
-            if intent == "calendar" or answers.get("support") == "project":
+            if intent == "calendar":
                 node = await _create_life_event(
                     life_graph, user_id=user_id, title=title, starts_at=due,
                     attributes={"kind": "generic"},

@@ -9,18 +9,22 @@ from action_engine.models import QuestionTurn
 
 def build_turns(ctx: Dict[str, Any]) -> List[QuestionTurn]:
     title = ctx.get("title") or "questa priorità"
+    home_focus = ctx.get("intent_reason") == "home_card_needs_purpose"
     return [
         turn(
             "intent",
             f"Cosa vuoi fare con «{title}»?",
             explanation="Una domanda alla volta — ti guido senza chat infinita.",
-            options=[
+            options=([
+                opt("organize", "Organizzala", "organize"),
+                opt("remind", "Ricordamelo", "remind"),
+            ] if home_focus else [
                 opt("organize", "Organizzala", "organize"),
                 opt("remind", "Solo un promemoria", "remind"),
                 opt("calendar", "Mettila in calendario", "calendar"),
                 opt("done", "Segna come fatta", "done"),
                 opt("clarify", "Capire meglio", "clarify"),
-            ],
+            ]),
             brain_key="generic_intent",
         ),
         turn(
@@ -37,12 +41,15 @@ def build_turns(ctx: Dict[str, Any]) -> List[QuestionTurn]:
         turn(
             "support",
             "Come ti aiuto nel concreto?",
-            options=[
+            options=([
+                opt("checklist", "Checklist breve", "checklist"),
+                opt("reminder", "Promemoria", "reminder"),
+            ] if home_focus else [
                 opt("checklist", "Checklist breve", "checklist"),
                 opt("reminder", "Promemoria", "reminder"),
                 opt("project", "Crea un mini-progetto", "project"),
                 opt("none", "Basta così", "none"),
-            ],
+            ]),
             brain_key="generic_support",
         ),
     ]

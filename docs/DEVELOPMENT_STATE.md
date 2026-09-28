@@ -4379,3 +4379,12 @@ Verifica visuale autenticata: `OraPresence` non montava il pannello quando la co
 ## 28 settembre 2026 — Guida di un focus senza dominio attendibile
 
 La prova del tasto `Apri` sul focus Home `TEST ORA — continuazione` ha raggiunto Action Engine ma ha presentato la coppia fissa esame/evento. Il focus non dichiarava un intento sufficientemente attendibile per una delle due scelte. Il ripiego ora apre il flusso generico che domanda cosa fare con il titolo esatto; solo una guida ancora senza risposte viene aggiornata alla riapertura. Intento specializzato con evidenza e scelta dell'utente restano autoritativi. Cinque test isolati PASS, più tre test mirati delle schede Home; `compileall` PASS. Rilascio e verifica live ancora da eseguire.
+## 28 settembre 2026 — Secondo incremento della guida Home
+
+Le due opzioni del primo turno per un focus ambiguo sono ora `Organizzala` e
+`Ricordamelo`; il supporto finale offre checklist e promemoria. Una sessione
+generica ancora intatta migra ai nuovi turni alla riapertura mediante update
+condizionale. La scelta di checklist o progetto nel generico non crea più
+promemoria/eventi implicitamente. Venticinque test pertinenti PASS; verifica live e
+rilascio da registrare dopo il deployment. Il precedente incremento di
+chiarimento è già online, verificato nell'account autenticato.

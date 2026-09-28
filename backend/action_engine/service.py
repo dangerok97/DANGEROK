@@ -269,6 +269,7 @@ class ActionEngineService:
             "intent": intent.intent,
             "intent_subtype": intent.subtype,
             "intent_confidence": intent.confidence,
+            "intent_reason": intent.reason,
             "intent_entities": entities,
             "clarify_options": (
                 [c.model_dump() if hasattr(c, "model_dump") else c for c in (intent.clarify_options or [])]
@@ -379,6 +380,31 @@ class ActionEngineService:
                         saved = await self.col.replace_one(
                             {"id": sess.id, "user_id": user_id, "status": "active",
                              "current_turn_id": "clarify_intent", "turn_history": []},
+                            sess.model_dump(),
+                        )
+                        if not saved.matched_count:
+                            current = await self.col.find_one(
+                                {"id": sess.id, "user_id": user_id}, {"_id": 0},
+                            )
+                            if current:
+                                sess = ActionSession(**current)
+                # Rebuild an untouched Home guide after its choice contract
+                # changes. A started guide always keeps the person's answers.
+                if (
+                    body.home_item and sess.flow == "generic"
+                    and sess.meta.get("intent_reason") == "home_card_needs_purpose"
+                    and sess.current_turn_id == "intent"
+                    and not sess.turn_history and not sess.answers
+                ):
+                    turns = build_flow_turns("generic", {
+                        **ctx, "intent_reason": "home_card_needs_purpose",
+                    })
+                    if sess.turns != turns:
+                        sess.turns = turns
+                        sess.updated_at = now_iso()
+                        saved = await self.col.replace_one(
+                            {"id": sess.id, "user_id": user_id, "status": "active",
+                             "current_turn_id": "intent", "turn_history": [], "answers": {}},
                             sess.model_dump(),
                         )
                         if not saved.matched_count:

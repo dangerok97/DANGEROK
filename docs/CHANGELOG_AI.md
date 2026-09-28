@@ -5744,3 +5744,11 @@ La prima verifica autenticata ha scoperto che il pannello iniziale restava nasco
 ## 28 settembre 2026 — Chiarimento utile sul focus ambiguo
 
 Una scheda Home con intento incerto non manda più la persona a scegliere fra esame ed evento per default. La guida usa il titolo del focus e offre modi di procedere senza fingere un dominio. Le sessioni di chiarimento ancora intatte vengono riparate alla riapertura con una sostituzione condizionale; le risposte già date non cambiano. Cinque regressioni specifiche PASS, tre test di provenienza delle schede PASS, compilazione Python PASS. Verifica cloud e screenshot dopo il rilascio ancora aperti.
+## 28 settembre 2026 — Scelte Home senza effetti collaterali
+
+Ridotte le scelte iniziali della guida generica per focus ambiguo a due
+azioni eseguibili. Le sessioni senza risposte ricevono i turni aggiornati;
+le risposte esistenti restano intatte. `Checklist breve` e `Crea un
+mini-progetto` non creano più promemoria o appuntamenti come effetto
+collaterale. Cinque scenari di effetti espliciti e sette regressioni della
+guida PASS. Pubblicazione e screenshot live da completare.

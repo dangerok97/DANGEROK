@@ -1706,3 +1706,12 @@ La scheda contestuale apre il pannello della conversazione anche prima del primo
 ## 28 settembre 2026 — Un focus ambiguo resta utile
 
 Quando il tasto di un focus Home apre la guida e ORA non riconosce con sicurezza il tipo di lavoro, la prima domanda usa il titolo della scheda e chiede quale aiuto serve. Non offre più la coppia fissa «preparare un esame / creare un evento» per un titolo che non prova nessuna delle due cose. Una richiesta libera dell'utente conserva la sua normale domanda di chiarimento; una scheda con intento attendibile conserva il percorso specializzato. Le guide già aperte e ancora senza risposte adottano la nuova domanda alla riapertura. Non viene reinterpretata una scelta già data.
+
+## 28 settembre 2026 — Azioni del focus proporzionate alla scelta
+
+Quando il titolo di una scheda Home non rivela un dominio affidabile, la guida
+offre `Organizzala` e `Ricordamelo`. Il seguito chiede quando affrontarla e
+quale aiuto creare: checklist o promemoria. Non propone calendario o
+mini-progetto da un titolo ambiguo. La checklist crea una decisione con passi
+iniziali; il promemoria viene creato solo se richiesto esplicitamente. Le
+schede con intento riconosciuto conservano i loro percorsi specifici.

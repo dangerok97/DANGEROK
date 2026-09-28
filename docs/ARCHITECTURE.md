@@ -3613,3 +3613,13 @@ La presenza di una scheda contestuale attiva il prop `conversation` di `OraPrese
 ## 28 settembre 2026 — Ripiego della guida da Home
 
 `ActionEngineService._intent_from_body` conserva l'intento esplicito o persistito attendibile. Se una `home_item` completa arriva con `needs_clarify`, `_purpose_for_ambiguous_home_card` seleziona il flusso generico legato al titolo, senza attribuire un dominio inventato. La stessa regola vale per un risultato precomputato o del classificatore opzionale. `open` ripara solo sessioni `clarify` attive sul primo turno e senza risposte; la sostituzione condizionale su stato e `turn_history=[]` evita di sovrascrivere una risposta concorrente. Gli input testuali senza scheda mantengono il chiarimento di intento.
+## 28 settembre 2026 — Contratto delle scelte generiche Home
+
+`_ctx_with_intent` passa la ragione dell'intento al builder `generic`.
+`home_card_needs_purpose` seleziona le sole scelte supportate dalla guida
+generica per una scheda senza dominio verificato. Alla riapertura, una
+sessione Home generica con questa ragione e nessuna risposta sostituisce in
+modo condizionale i turni obsoleti; sessioni avviate non vengono mutate.
+`effects.apply_completion_effects` crea promemoria solo per `remind` o
+`support=reminder`, eventi solo per `intent=calendar`, decisioni checklist
+solo per `support=checklist`. Nessun cambio di schema o indice.
