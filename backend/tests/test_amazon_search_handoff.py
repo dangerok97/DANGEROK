@@ -4,6 +4,10 @@ import pytest
 
 from conversation_engine.ai_core.amazon_handoff import explicit_amazon_handoff
 from conversation_engine.ai_core.orchestrator import AICoreOrchestrator
+from conversation_engine.ai_core.orchestrator import _ui_actions, _public_history, _answer_meta
+from conversation_engine.ai_core.loop import _ui_actions_from
+from conversation_engine.ai_core.models import CognitiveTurnResult
+from conversation_engine.models import ConversationSession
 from conversation_engine.ai_core.tools.amazon_search import prepare_amazon_search
 from conversation_engine.ai_core.tools.registry import ToolRegistry
 from conversation_engine.tests.test_ora_surface_v25 import FakeDB
@@ -20,6 +24,39 @@ def test_amazon_handoff_is_a_search_and_never_an_order():
     assert not result.payload["order_placed"]
     assert not result.payload["catalog_checked"]
     assert not result.payload["price_checked"]
+
+
+def test_ui_actions_only_from_successful_tool_observations():
+    observations = [
+        {"name": "prepare_amazon_search", "status": "failed", "payload": {"search_url": "https://www.amazon.it/s?k=wrong"}},
+        {"name": "prepare_amazon_search", "status": "ok", "payload": {"search_url": "https://evil.example/s?k=wrong"}},
+        {"name": "prepare_amazon_search", "status": "ok", "payload": {"search_url": "https://www.amazon.it/s?k=lampada"}},
+        {"name": "create_plan", "status": "ok", "payload": {"plan_id": "lop_valid123"}},
+    ]
+    actions = _ui_actions_from(observations)
+    assert {a["kind"] for a in actions} == {"amazon_search", "workspace"}
+    assert _ui_actions([{"kind": "amazon_search", "url": "https://www.amazon.it.evil.example/s?k=x"}]) == []
+    assert _ui_actions([{"kind": "workspace", "plan_id": "../../admin"}]) == []
+
+
+def test_past_answers_keep_their_own_interfaces():
+    sess = ConversationSession(user_id="u")
+    first = CognitiveTurnResult(ora_text="Prima risposta", ui_actions=[
+        {"kind": "amazon_search", "url": "https://www.amazon.it/s?k=lampada"}],
+        sources=[{"title": "Fonte", "url": "https://example.org"}])
+    second = CognitiveTurnResult(ora_text="Seconda risposta", navigation=[
+        {"label": "Maps", "url": "https://maps.google.com/?q=Roma"}],
+        journey={"unavailable": "dati assenti"})
+    sess.append_history(role="ora", kind="answer", text=first.ora_text,
+                        meta=_answer_meta("one", first))
+    sess.append_history(role="ora", kind="answer", text=second.ora_text,
+                        meta=_answer_meta("two", second))
+    history = _public_history(sess)
+    assert history[0]["meta"]["ui_actions"][0]["kind"] == "amazon_search"
+    assert history[0]["meta"]["sources"][0]["title"] == "Fonte"
+    assert history[1]["meta"]["navigation"][0]["label"] == "Maps"
+    assert history[1]["meta"]["journey"]["unavailable"] == "dati assenti"
+    assert "ui_actions" not in history[1]["meta"]
 
 
 def test_amazon_query_drops_contact_details_before_handoff():
@@ -45,6 +82,8 @@ async def test_explicit_purchase_persists_clickable_search_without_a_model():
     assert "né ho aggiunto articoli al carrello o effettuato un ordine" in response["ora_text"]
     stored = await orch.get("u", response["session_id"])
     assert stored["ora_text"] == response["ora_text"]
+    assert response["ui_actions"][0]["kind"] == "amazon_search"
+    assert stored["history"][-1]["meta"]["ui_actions"] == response["ui_actions"]
     assert (await orch.get("other", response["session_id"]))["error"] == "not_found"
 
 

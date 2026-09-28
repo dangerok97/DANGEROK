@@ -1763,6 +1763,7 @@ async def run_cognitive_loop(
                 elapsed_ms=int((time.perf_counter() - t0) * 1000),
                 sources=public_sources[:MAX_SOURCES_UI],
                 navigation=_navigation_options(observations),
+                ui_actions=_ui_actions_from(observations[turn_start:]),
                 journey=_journey_from(observations),
                 working_hint=None,
                 situation=(situation_result or {}).get("situation")
@@ -2498,6 +2499,7 @@ async def run_cognitive_loop(
         external_queries=external_queries,
         elapsed_ms=int((time.perf_counter() - t0) * 1000),
         sources=public_sources[:MAX_SOURCES_UI],
+        ui_actions=_ui_actions_from(observations[turn_start:]),
         working_hint=working_hint,
         error="loop_bound" if ai_calls >= max_steps else None,
         situation=(situation_result or {}).get("situation")
@@ -2864,6 +2866,38 @@ def _journey_from(observations) -> dict:
             "advice": str(payload.get("advice") or "")[:300],
         }
     return {}
+
+
+def _ui_actions_from(observations) -> list:
+    """Only successful, openable destinations produced during this turn."""
+    from urllib.parse import parse_qs, urlparse
+    import re
+
+    out = []
+    for obs in reversed(list(observations or [])):
+        payload = getattr(obs, "payload", None) or (
+            obs.get("payload") if isinstance(obs, dict) else None
+        ) or {}
+        status = getattr(obs, "status", None) or (
+            obs.get("status") if isinstance(obs, dict) else None
+        )
+        if status not in ("ok", "success"):
+            continue
+        capability = getattr(obs, "name", None) or (
+            obs.get("name") if isinstance(obs, dict) else None
+        )
+        if capability == "prepare_amazon_search" and not any(a["kind"] == "amazon_search" for a in out):
+            url = str(payload.get("search_url") or "")
+            try:
+                parsed = urlparse(url)
+                if parsed.scheme == "https" and parsed.netloc == "www.amazon.it" and parsed.path == "/s" and parse_qs(parsed.query).get("k") and len(url) <= 600:
+                    out.append({"kind": "amazon_search", "label": "Apri la ricerca su Amazon", "url": url})
+            except ValueError:
+                pass
+        plan_id = str(payload.get("plan_id") or "")
+        if plan_id and re.fullmatch(r"lop_[A-Za-z0-9_-]{4,76}", plan_id) and not any(a["kind"] == "workspace" for a in out):
+            out.append({"kind": "workspace", "label": "Apri il piano", "plan_id": plan_id})
+    return out[:2]
 
 
 def _navigation_options(observations) -> list:

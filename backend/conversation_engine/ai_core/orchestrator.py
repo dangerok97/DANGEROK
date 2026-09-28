@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import logging
+import re
 import uuid
 from typing import Any, Dict, Optional
+from urllib.parse import parse_qs, urlparse
 
 from conversation_engine.ai_core.loop import DecisionFn, run_cognitive_loop
 from conversation_engine.ai_core.activity import public_activity, report_activity
@@ -49,6 +51,61 @@ def _public_attachments(meta: Optional[Dict[str, Any]]) -> list:
         if name:
             out.append({"name": name, "text_available": bool(a.get("text_available"))})
     return out[:6]
+
+
+def _ui_actions(actions) -> list:
+    """Project only destinations that this client knows how to open."""
+    out = []
+    for action in (actions or [])[:3]:
+        if not isinstance(action, dict):
+            continue
+        if action.get("kind") == "amazon_search":
+            url = str(action.get("url") or "")
+            try:
+                parsed = urlparse(url)
+                if parsed.scheme == "https" and parsed.netloc == "www.amazon.it" and parsed.path == "/s" and parse_qs(parsed.query).get("k") and len(url) <= 600:
+                    out.append({"kind": "amazon_search", "label": "Apri la ricerca su Amazon", "url": url})
+            except ValueError:
+                continue
+        elif action.get("kind") == "workspace":
+            plan_id = str(action.get("plan_id") or "")
+            if re.fullmatch(r"lop_[A-Za-z0-9_-]{4,76}", plan_id):
+                out.append({"kind": "workspace", "label": "Apri il piano", "plan_id": plan_id})
+    return out[:2]
+
+
+def _answer_meta(message_id: str, result) -> dict:
+    meta = {"message_id": message_id}
+    for key, limit in (("sources", 5), ("navigation", 3)):
+        values = getattr(result, key, None) or []
+        if values:
+            meta[key] = [v for v in values[:limit] if isinstance(v, dict)]
+    journey = getattr(result, "journey", None)
+    if isinstance(journey, dict) and journey:
+        meta["journey"] = journey
+    actions = _ui_actions(getattr(result, "ui_actions", None))
+    if actions:
+        meta["ui_actions"] = actions
+    return meta
+
+
+def _public_history(sess: ConversationSession) -> list:
+    turns = []
+    for h in (sess.history or [])[-40:]:
+        meta = h.meta or {}
+        display_meta = {key: meta[key] for key in ("sources", "navigation", "journey") if meta.get(key)}
+        attachments = _public_attachments(meta)
+        if attachments:
+            display_meta["attachments"] = attachments
+        actions = _ui_actions(meta.get("ui_actions"))
+        if actions:
+            display_meta["ui_actions"] = actions
+        turns.append({
+            "role": h.role, "text": h.text, "kind": h.kind,
+            "message_id": h.step_id or meta.get("message_id"), "at": h.at,
+            "meta": display_meta or None,
+        })
+    return turns
 
 
 class AICoreOrchestrator:
@@ -186,7 +243,7 @@ class AICoreOrchestrator:
                 kind=result.mode,
                 text=result.ora_text[:ORA_HISTORY_TEXT_LIMIT],
                 step_id=ora_mid,
-                meta={"message_id": ora_mid},
+                meta=_answer_meta(ora_mid, result),
             )
             st = state_mod.get_ai_state(sess)
             if not (getattr(result, "client_actions", None) or []):
@@ -430,7 +487,7 @@ class AICoreOrchestrator:
                 kind=result.mode,
                 text=result.ora_text[:ORA_HISTORY_TEXT_LIMIT],
                 step_id=ora_mid,
-                meta={"message_id": ora_mid},
+                meta=_answer_meta(ora_mid, result),
             )
             if not (getattr(result, "client_actions", None) or []):
                 st = state_mod.get_ai_state(sess)
@@ -496,7 +553,7 @@ class AICoreOrchestrator:
                 kind=result.mode,
                 text=result.ora_text[:ORA_HISTORY_TEXT_LIMIT],
                 step_id=ora_mid,
-                meta={"message_id": ora_mid},
+                meta=_answer_meta(ora_mid, result),
             )
         more_actions = list(getattr(result, "client_actions", None) or [])
         st = state_mod.get_ai_state(sess)
@@ -538,19 +595,7 @@ class AICoreOrchestrator:
             "active_goal_id": st.get("active_goal_id"),
             "active_situation": st.get("active_situation_ref"),
             "artifact_ids": list(st.get("artifact_ids") or [])[-12:],
-            "history": [
-                {
-                    "role": h.role,
-                    "text": h.text,
-                    "kind": h.kind,
-                    "message_id": h.step_id or (h.meta or {}).get("message_id"),
-                    "at": h.at,
-                    "meta": {"attachments": _public_attachments(h.meta)}
-                    if _public_attachments(h.meta)
-                    else None,
-                }
-                for h in (sess.history or [])[-40:]
-            ],
+            "history": _public_history(sess),
             "pending_turn": pending,
             "client_actions": (
                 list(pending.get("client_actions") or [])
@@ -595,6 +640,7 @@ class AICoreOrchestrator:
             # ending "con quale app vuoi navigare?" beside no buttons is a
             # question nobody can answer.
             "navigation": list(getattr(result, "navigation", None) or [])[:3],
+            "ui_actions": _ui_actions(getattr(result, "ui_actions", None)),
             # Come arrivarci, confrontato: la chat lo disegna come modulo.
             "journey": dict(getattr(result, "journey", None) or {}),
             "working_hint": getattr(result, "working_hint", None),
@@ -603,17 +649,5 @@ class AICoreOrchestrator:
             "pending_turn": pending,
             "trace": result.trace,
             "error": result.error,
-            "history": [
-                {
-                    "role": h.role,
-                    "text": h.text,
-                    "kind": h.kind,
-                    "message_id": h.step_id or (h.meta or {}).get("message_id"),
-                    "at": h.at,
-                    "meta": {"attachments": _public_attachments(h.meta)}
-                    if _public_attachments(h.meta)
-                    else None,
-                }
-                for h in (sess.history or [])[-40:]
-            ],
+            "history": _public_history(sess),
         }

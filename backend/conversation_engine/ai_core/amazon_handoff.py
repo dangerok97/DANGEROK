@@ -66,4 +66,5 @@ async def explicit_amazon_handoff(text: str) -> CognitiveTurnResult | None:
                   f"[apri la ricerca]({payload['search_url']}).\n\n"
                   "Non ho verificato prodotti, prezzi o disponibilità, né ho aggiunto articoli al carrello "
                   "o effettuato un ordine. Scegli il prodotto e completa l'acquisto su Amazon."),
+        ui_actions=[{"kind": "amazon_search", "label": "Apri la ricerca su Amazon", "url": payload["search_url"]}],
         trace={"handoff": "amazon_search", "order_placed": False})

@@ -5728,3 +5728,7 @@ Terza prova cloud conferma la bozza autonoma ma ha creato due opportunità per l
 La via diretta alla ricerca richiede un oggetto concreto. «Cosa potrei comprare?» lascia al motore il giudizio sull'obiettivo; «comprami qualcosa» chiede il tipo di prodotto, senza aprire una ricerca per un termine generico.
 
 Quarta prova cloud `cacc387`: una sola opportunità, un solo goal e bozza pronta per la coppia Home, senza richieste alla chat né comandi di analisi. La cancellazione nella terza prova ha nascosto subito la bozza superata. Nessun invio eseguito.
+
+## 28 settembre 2026 — Tasti contestuali persistenti
+
+AI Core crea azioni di interfaccia solo da risultati di strumenti riusciti e con destinazioni convalidate: ricerca Amazon.it e piano di lavoro. L'orchestratore le salva per messaggio insieme a fonti e percorso; la chat le mostra come tasti realmente cliccabili e le ricostruisce dopo riapertura. Nessun acquisto o codice UI arbitrario eseguito. 6 test backend PASS; type-check, lint mirato ed export web PASS. Pubblicazione e verifica cloud ancora in corso.

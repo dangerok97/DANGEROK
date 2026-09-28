@@ -1694,3 +1694,7 @@ Una domanda aperta come «cosa potrei comprare su Amazon per questo obiettivo?»
 Se due impegni Home attivi si sovrappongono, ORA prepara la richiesta di spostamento già durante l'ammissione dell'obiettivo: l'indirizzo non è necessario per formulare una domanda al referente. Se uno degli impegni cambia, la bozza precedente non viene più mostrata.
 
 Una sola scheda rappresenta la stessa coppia di impegni: data, orari, durata del conflitto e note provengono dagli eventi attivi. La scheda offre la preparazione di una richiesta, senza promettere sportelli alternativi o servizi di consegna non verificati.
+
+## 28 settembre 2026 — Azioni contestuali nella conversazione
+
+Le risposte possono offrire un tasto per aprire una ricerca Amazon.it effettivamente preparata o il piano di lavoro effettivamente restituito da uno strumento. I tasti restano sul messaggio dopo la riapertura della chat, insieme a fonti e percorsi. Il tipo e la destinazione sono limitati a capacità implementate: la risposta AI non può inventare nuove schermate o avviare acquisti. Il link Amazon porta alla ricerca; la scelta e il pagamento restano sul sito.

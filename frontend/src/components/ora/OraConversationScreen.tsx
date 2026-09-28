@@ -37,7 +37,7 @@ import {
 import { LocationPermissionSheet } from '@/src/components/ora/LocationPermissionSheet';
 import { requestForegroundPosition } from '@/src/location/foregroundGeo';
 import { FocusScreen } from '@/src/shell';
-import type { OraNavigationOption } from '@/src/components/ora/OraTurns';
+import type { OraNavigationOption, OraUiAction } from '@/src/components/ora/OraTurns';
 import { useTheme, ThemeSurface } from '@/src/theme/ThemeProvider';
 import { useVoice } from '@/src/voice/useVoice';
 import { useLiveVoice } from '@/src/voice/useLiveVoice';
@@ -81,6 +81,7 @@ type AiCoreRes = {
   ora_text?: string;
   question?: string | null;
   sources?: Array<{ title?: string; url?: string }>;
+  ui_actions?: OraUiAction[];
   working_hint?: string | null;
   client_actions?: ClientAction[];
   pending_turn?: PendingTurn;
@@ -89,7 +90,7 @@ type AiCoreRes = {
     text?: string;
     kind?: string;
     message_id?: string;
-    meta?: { attachments?: Array<{ name?: string }> };
+    meta?: { attachments?: Array<{ name?: string }>; sources?: Array<{ title?: string; url?: string }>; navigation?: OraNavigationOption[]; journey?: OraJourneyView; ui_actions?: OraUiAction[] };
   }>;
   error?: string;
 };
@@ -194,7 +195,7 @@ function historyToTurns(
     role?: string;
     text?: string;
     message_id?: string;
-    meta?: { attachments?: Array<{ name?: string }> };
+    meta?: { attachments?: Array<{ name?: string }>; sources?: Array<{ title?: string; url?: string }>; navigation?: OraNavigationOption[]; journey?: OraJourneyView; ui_actions?: OraUiAction[] };
   }>,
 ): Turn[] {
   return hist
@@ -204,6 +205,10 @@ function historyToTurns(
       text: h.text as string,
       messageId: h.message_id,
       attachments: h.meta?.attachments,
+      sources: h.meta?.sources,
+      navigation: h.meta?.navigation,
+      journey: h.meta?.journey,
+      uiActions: h.meta?.ui_actions,
     }));
 }
 
@@ -715,7 +720,7 @@ function OraConversationBody({
                 setTurns((prev) => {
                   const last = prev[prev.length - 1];
                   if (last?.role === 'ora' && last.text === ora) return prev;
-                  return [...prev, { role: 'ora', text: ora, sources, navigation }];
+                  return [...prev, { role: 'ora', text: ora, sources, navigation, uiActions: res.ui_actions }];
                 });
               }
             }
@@ -835,6 +840,7 @@ function OraConversationBody({
           text,
           ...(sources.length ? { sources } : {}),
           ...(navigation.length ? { navigation } : {}),
+          ...(res.ui_actions?.length ? { uiActions: res.ui_actions } : {}),
           ...(journey?.options?.length || journey?.unavailable ? { journey } : {}),
         };
       }
@@ -857,7 +863,7 @@ function OraConversationBody({
         const journey = ((res as any).journey || null) as OraJourneyView | null;
         const next = ora
           ? [...cleared, {
-              role: 'ora' as const, text: ora, sources, navigation,
+              role: 'ora' as const, text: ora, sources, navigation, uiActions: res.ui_actions,
               ...(journey?.options?.length || journey?.unavailable ? { journey } : {}),
             }]
           : cleared;

@@ -1,11 +1,13 @@
 import * as React from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 
 import { RichOraText } from '@/src/components/ora-ai/RichOraText';
 import { useTheme } from '@/src/theme/ThemeProvider';
 import { OraJourney, type OraJourneyView } from './OraJourney';
 import { tokens } from '@/src/theme/tokens';
+import { buildGoalWorkspaceHref } from '@/src/ora/oraNav';
 
 export type OraSource = { title?: string; url?: string };
 
@@ -15,6 +17,7 @@ export type Turn = {
   messageId?: string;
   sources?: OraSource[];
   navigation?: OraNavigationOption[];
+  uiActions?: OraUiAction[];
   /** Come arrivarci, confrontato: il modulo della reference. */
   journey?: OraJourneyView;
   attachments?: Array<{ name?: string }>;
@@ -117,6 +120,7 @@ function OraTurnView({
         secondaryColor={colors.textSecondary}
         linkColor={colors.accent}
       />
+      <OraActions actions={turn.uiActions} />
       {turn.journey?.options?.length ? (
         <OraJourney journey={turn.journey} navigation={turn.navigation as any} />
       ) : (
@@ -131,6 +135,52 @@ function OraTurnView({
 }
 
 export type OraNavigationOption = { id?: string; label?: string; url?: string };
+export type OraUiAction = {
+  kind: 'amazon_search' | 'workspace';
+  label: string;
+  url?: string;
+  plan_id?: string;
+};
+
+/** A bounded interface assembled from verified destinations in this answer. */
+export function OraActions({ actions }: { actions?: OraUiAction[] }) {
+  const { colors } = useTheme();
+  const router = useRouter();
+  const valid = (actions || []).filter((a) => {
+    if (a.kind === 'workspace') return /^lop_[A-Za-z0-9_-]{4,76}$/.test(a.plan_id || '');
+    if (a.kind === 'amazon_search') {
+      try {
+        const u = new URL(a.url || '');
+        return u.protocol === 'https:' && u.hostname === 'www.amazon.it' &&
+          u.pathname === '/s' && Boolean(u.searchParams.get('k'));
+      } catch { return false; }
+    }
+    return false;
+  }).slice(0, 2);
+  if (!valid.length) return null;
+  return (
+    <View style={styles.navigation} testID="ora-actions">
+      {valid.map((a) => (
+        <Pressable
+          key={`${a.kind}-${a.url || a.plan_id}`}
+          onPress={() => a.kind === 'workspace'
+            ? router.push(buildGoalWorkspaceHref(a.plan_id || '') as any)
+            : void Linking.openURL(a.url || '')}
+          style={({ pressed }) => [styles.navButton, {
+            borderColor: colors.border, backgroundColor: colors.surface,
+            opacity: pressed ? 0.7 : 1,
+          }]}
+          accessibilityRole={a.kind === 'workspace' ? 'button' : 'link'}
+          accessibilityLabel={a.label}
+          testID={`ora-action-${a.kind}`}
+        >
+          <Ionicons name={a.kind === 'workspace' ? 'layers-outline' : 'open-outline'} size={14} color={colors.accent} />
+          <Text style={[styles.navButtonText, { color: colors.textPrimary }]}>{a.label}</Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
 
 /**
  * The map apps ORA just offered, as buttons that open them.

@@ -325,6 +325,9 @@ class CognitiveTurnResult(BaseModel):
     # sources, for the same reason: something the answer points at that the
     # person has to be able to actually reach.
     navigation: List[Dict[str, str]] = Field(default_factory=list)
+    # Small, typed UI actions derived from successful tool observations.
+    # The model may select a capability, but cannot invent a destination.
+    ui_actions: List[Dict[str, str]] = Field(default_factory=list)
     #     COME ANDARCI, CONFRONTATO — PRIMA DEI LINK.
     # V3.21.3: «portami a lavoro» tornava tre link a tre mappe. Qui dentro ci
     # sono i modi con i tempi veri e il consiglio su quando partire; vuoto
