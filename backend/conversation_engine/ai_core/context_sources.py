@@ -268,7 +268,14 @@ class ContextSourceRegistry:
                         provenance=[source],
                     )
                 )
-        return out[:24]
+        # A filled VITA can exceed 24 fields. The former insertion-order cut
+        # silently hid later areas (insurance, services, health) from ORA.
+        # Rank the bounded source slice for the question before the broker's
+        # final evidence ranking; no wholesale profile dump reaches the model.
+        words = _tokens(" ".join([need.query, need.purpose or "", *need.desired_evidence]))
+        if words:
+            out.sort(key=lambda fact: -len(words & _tokens(f"{fact.ref} {fact.statement}")))
+        return out[:30]
 
     async def _memory(
         self, user_id: str, need: ContextNeed, session_id: Optional[str]

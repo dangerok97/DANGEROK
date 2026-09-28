@@ -107,9 +107,9 @@ _CATEGORY_HINTS: Dict[str, Tuple[str, ...]] = {
 # Profile slot families per category — unavoidable schema maps to read Life Profile.
 _CATEGORY_SLOTS: Dict[str, frozenset] = {
     "identity": frozenset({"identity.name"}),
-    "residence": frozenset({"casa.city", "casa.address"}),
-    "employment": frozenset({"lavoro.role"}),
-    "study": frozenset({"studio.university", "studio.course"}),
+    "residence": frozenset({"casa.city", "casa.address", "casa.situazione"}),
+    "employment": frozenset({"lavoro.role", "lavoro.active"}),
+    "study": frozenset({"studio.university", "studio.course", "studio.tipo", "studio.active"}),
 }
 
 STAGE_A_MAX = 4

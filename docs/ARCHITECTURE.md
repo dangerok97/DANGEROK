@@ -3528,3 +3528,12 @@ Questo dimostra soltanto la fixture negativa, non precisione generale di
 opportunità o comportamento dell'account personale. Il comando temporaneo di
 predeploy è stato riportato a [] dopo la prova. Restano da verificare gli altri
 due domini con il controllo di fattibilità introdotto nello stesso SHA.
+# Lettura VITA in conversazione — audit 28 settembre 2026
+
+La guida persiste risposte in LifeProfile; `life_memory/statements.py` traduce
+le scelte guidate in etichette leggibili; ContextSourceRegistry seleziona
+candidati del profilo per domanda prima del budget del broker. Il tool
+`get_profile_snapshot` legge direttamente account e fatti del profilo,
+anziché lo Stage A privo del profilo. La classificazione delle capacità e
+la verifica di autorizzazione restano il confine per effetti esterni.
+Dettagli e limiti: `docs/VITA_ORA_ACTIONABILITY_AUDIT.md`.

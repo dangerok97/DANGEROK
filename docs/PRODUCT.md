@@ -1629,3 +1629,10 @@ Questo dimostra soltanto la fixture negativa, non precisione generale di
 opportunità o comportamento dell'account personale. Il comando temporaneo di
 predeploy è stato riportato a [] dopo la prova. Restano da verificare gli altri
 due domini con il controllo di fattibilità introdotto nello stesso SHA.
+# VITA e compiti ORA — audit 28 settembre 2026
+
+La compilazione di VITA alimenta il contesto usato da ORA in tutte e dieci le
+aree. La disponibilità del dato non equivale al completamento di un compito:
+calendario e telefonate richiedono dati, autorizzazione e connettori pronti;
+pagamenti, prenotazioni e rinnovi presso terzi non sono capacità generiche.
+Matrice per area e prove: `docs/VITA_ORA_ACTIONABILITY_AUDIT.md`.

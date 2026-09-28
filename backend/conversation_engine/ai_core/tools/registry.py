@@ -1620,7 +1620,14 @@ class ToolRegistry:
 
         uid = runtime.get("user_id") or ""
         broker = ContextBroker(self.db)
-        facts = await broker.retrieve(user_id=uid, user_message="", stage="A")
+        # Stage A intentionally contains only an account/situation index.
+        # This explicit profile tool must return the small set of actual
+        # profile facts promised by its catalogue entry.
+        account = await broker._account_facts(uid) if uid else []
+        profile = await broker._profile_facts(
+            uid, categories={"identity", "residence", "employment", "study"}, query="",
+        ) if uid else []
+        facts = (account + profile)[:8]
         return Observation(
             kind="tool",
             name="get_profile_snapshot",

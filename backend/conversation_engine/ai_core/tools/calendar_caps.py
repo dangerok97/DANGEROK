@@ -606,7 +606,7 @@ async def get_calendar_events(arguments: Dict[str, Any], runtime: Dict[str, Any]
     #     UN ORNAMENTO CHE ESPLODE NON DEVE PORTARSI VIA LA PROVA.
     #
     # Questo pezzo decora gli impegni con le sovrapposizioni, e per farlo
-    # confronta due istanti. Un giorno intero — «San Francesco d'Assisi»,
+    # confronta due istanti. Un giorno intero — una ricorrenza nel calendario,
     # `2026-10-04`, senza ora e senza fuso — e un appuntamento alle undici con
     # il suo `+00:00` non sono confrontabili, e Python solleva. Il risultato,
     # visto da fuori, era che l'intera lettura del calendario falliva: chi

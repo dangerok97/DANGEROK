@@ -4290,3 +4290,11 @@ Il test integrato copre un nuovo controllo dopo otto giorni simulati, riavvio de
 ## 2026-09-26 — Estensione a polizze e telefonia
 
 Il percorso iniziale propone il caricamento della polizza dopo la scelta del tipo di assicurazione e del contratto telefonico a chi indica il telefono tra i servizi ricorrenti. In entrambi i casi il pannello mostra subito lo stato della ricerca. Il monitor persistente effettua una nuova ricerca web a ogni scadenza; se la prima ricerca non seleziona un'offerta, usa anche una query pubblica mirata senza dati personali. Un premio annuo esplicito o un canone telefonico mensile esplicito diventa la soglia da superare. ORA mostra pagine di offerte nominate, ma non attribuisce un risparmio numerico a prezzi assicurativi pubblicitari o a canoni telefonici senza verifica di attivazione, vincoli e servizi inclusi. Per RC auto è disponibile il link al preventivatore pubblico IVASS; nessun dato personale viene inviato da ORA.
+## 28 settembre 2026 — Audit VITA → compiti ORA
+
+Tracciati tutti i 38 obiettivi guidati, dieci aree, persistenza, memoria,
+ricerca contestuale, strumenti e carte beneficio. Corrette la perdita delle
+scelte multiple, l'esclusione delle aree tardive per taglio dei primi 24 fatti
+e la lettura vuota dello snapshot del profilo. I test sintetici coprono
+recupero ed evidenza per tutte le aree. La verifica NON attesta pagamenti,
+prenotazioni o rinnovi reali: vedere `docs/VITA_ORA_ACTIONABILITY_AUDIT.md`.

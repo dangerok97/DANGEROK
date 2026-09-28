@@ -5652,3 +5652,9 @@ Il primo percorso spiega perché caricare una bolletta e mostra il consiglio men
 ## 2026-09-26 — Sorveglianza delle polizze e della telefonia
 
 Nel primo percorso ORA mostra lo stato della ricerca anche dopo il caricamento di una polizza o di un contratto telefonico. Per la telefonia chiede il contratto quando l'utente segnala il servizio. Se la ricerca iniziale non trova una pagina di offerta specifica, effettua una ricerca web pubblica mirata. Usa premio o canone esplicito come soglia di risparmio, senza inventare una cifra quando premio personale, servizi o costi accessori non sono confrontabili. Per RC auto offre l'accesso al preventivatore pubblico IVASS.
+## 28 settembre 2026 — Verifica approfondita VITA e azioni
+
+Audit di tutte le dieci aree VITA e dei 38 obiettivi guidati. Corretto il
+recupero di risposte multiple, la selezione contestuale dei fatti in profili
+molto ricchi e lo strumento di riepilogo del profilo. Documentati i confini
+reali delle automazioni in `docs/VITA_ORA_ACTIONABILITY_AUDIT.md`.

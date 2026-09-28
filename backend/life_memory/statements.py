@@ -106,6 +106,10 @@ def is_sensitive_key(key: str) -> bool:
 
 def is_transient_key(key: str) -> bool:
     k = (key or "").lower()
+    # These are durable answers to VITA's explicit yes/no questions, not a
+    # runtime presence flag. In particular, "non studio" must remain usable.
+    if k in ("lavoro.active", "studio.active"):
+        return False
     if k.endswith(".active") or k.endswith(".current_situation") or k in (
         "active",
         "current_situation",
@@ -162,6 +166,18 @@ def statement_for_profile_fact(
     """Return a calm Italian statement, or None if not presentable as memory."""
     if is_sensitive_key(key) or is_transient_key(key):
         return None
+    # Guided answers are stored as option IDs (or lists of IDs). Translate
+    # them with the same catalogue the person saw, before generic formatting
+    # drops lists/booleans or exposes internal enum names to the assistant.
+    from life_profile.guided import objective as guided_objective
+
+    guided = guided_objective(key)
+    if guided and guided.options:
+        chosen = value if isinstance(value, (list, tuple)) else [value]
+        if chosen and len(chosen) <= 12:
+            labels = [opt.label for item in chosen for opt in guided.options if opt.id == item]
+            if len(labels) == len(chosen):
+                return f"{guided.question.rstrip(' ?')}: {', '.join(labels)}."
     # Bare `active` keys are operational flags
     leaf = key.split(".")[-1].lower()
     if leaf in ("active", "current_situation"):
