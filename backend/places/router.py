@@ -100,6 +100,9 @@ async def list_places(user=Depends(get_current_user)):
     candidates = [
         c for c in await svc.repo.list_candidates(uid, outcomes=["asked"]) if not c.muted
     ]
+    pending_candidates = any(
+        not c.muted for c in await svc.repo.list_candidates(uid, outcomes=["pending"])
+    )
 
     permission = {"preference": "off", "state": "not_requested"}
     try:
@@ -144,6 +147,7 @@ async def list_places(user=Depends(get_current_user)):
             }
             for c in candidates
         ],
+        "pending_candidates": pending_candidates,
         "permission": permission,
     }
 

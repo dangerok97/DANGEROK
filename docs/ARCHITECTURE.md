@@ -3537,3 +3537,11 @@ candidati del profilo per domanda prima del budget del broker. Il tool
 anziché lo Stage A privo del profilo. La classificazione delle capacità e
 la verifica di autorizzazione restano il confine per effetti esterni.
 Dettagli e limiti: `docs/VITA_ORA_ACTIONABILITY_AUDIT.md`.
+## 28 settembre 2026 — Confine sensori e modello
+
+Il task nativo registra e invia solo coordinate realmente misurate; l'evento
+geofence è una sveglia, non la prova dell'ingresso o uscita. Il server decide
+con isteresi, permanenza e più campioni. VITA avvia la revisione dei candidati
+ancora in sospeso; il modello propone la domanda e la persona nomina il posto.
+OpenAI è già nel Provider Manager; progetto dell'AI continua e interfaccia
+dichiarativa in `docs/ORA_PRESENCE_AND_LIVING_AI.md`.

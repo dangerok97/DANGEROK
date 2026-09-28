@@ -4298,3 +4298,11 @@ scelte multiple, l'esclusione delle aree tardive per taglio dei primi 24 fatti
 e la lettura vuota dello snapshot del profilo. I test sintetici coprono
 recupero ed evidenza per tutte le aree. La verifica NON attesta pagamenti,
 prenotazioni o rinnovi reali: vedere `docs/VITA_ORA_ACTIONABILITY_AUDIT.md`.
+## 28 settembre 2026 — Continuità dei luoghi e piano OpenAI
+
+In background il task tenta ora la consegna del buffer; il callback geofence
+non invia più il centro della regione al posto della posizione reale. La
+schermata Luoghi avvia la revisione AI dei candidati pendenti, una volta per
+montaggio. Invariati il consenso, la conferma umana e la macchina a stati di
+presenza. Verifica nativa e selezione OpenAI come provider primario ancora
+necessarie. Dettagli: `docs/ORA_PRESENCE_AND_LIVING_AI.md`.

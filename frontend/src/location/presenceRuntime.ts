@@ -252,7 +252,15 @@ export async function reconcile(): Promise<{ sent: number; left: number }> {
     }
   }
 
-  return flush(async (entry) => {
+  return sendPending();
+}
+
+/** Deliver buffered observations while a native background task is awake. */
+let inFlightDelivery: Promise<{ sent: number; left: number }> | null = null;
+
+export async function sendPending(): Promise<{ sent: number; left: number }> {
+  if (inFlightDelivery) return inFlightDelivery;
+  inFlightDelivery = flush(async (entry) => {
     try {
       await api.placesRecordObservation({
         latitude: entry.latitude,
@@ -266,6 +274,11 @@ export async function reconcile(): Promise<{ sent: number; left: number }> {
       return false;
     }
   });
+  try {
+    return await inFlightDelivery;
+  } finally {
+    inFlightDelivery = null;
+  }
 }
 
 /** Logging out must not leave a phone watching for somebody who left. */

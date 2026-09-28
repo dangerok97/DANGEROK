@@ -5658,3 +5658,9 @@ Audit di tutte le dieci aree VITA e dei 38 obiettivi guidati. Corretto il
 recupero di risposte multiple, la selezione contestuale dei fatti in profili
 molto ricchi e lo strumento di riepilogo del profilo. Documentati i confini
 reali delle automazioni in `docs/VITA_ORA_ACTIONABILITY_AUDIT.md`.
+## 28 settembre 2026 — Luoghi in background e disegno dell'AI viva
+
+Invio opportunistico del buffer nativo, correzione della posizione sugli
+eventi geofence, revisione AI dei luoghi ripetuti nella schermata VITA.
+Architettura e verifiche necessarie per usare OpenAI come motore principale e
+proporre pulsanti/schede governati in `docs/ORA_PRESENCE_AND_LIVING_AI.md`.

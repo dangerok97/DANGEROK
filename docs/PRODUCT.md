@@ -1636,3 +1636,10 @@ aree. La disponibilità del dato non equivale al completamento di un compito:
 calendario e telefonate richiedono dati, autorizzazione e connettori pronti;
 pagamenti, prenotazioni e rinnovi presso terzi non sono capacità generiche.
 Matrice per area e prove: `docs/VITA_ORA_ACTIONABILITY_AUDIT.md`.
+## 28 settembre 2026 — Presenza e AI continua
+
+VITA può proporre di nominare un luogo osservato ripetutamente e ORA può
+ricevere osservazioni mentre l'app nativa è in background, con verifica GPS
+e riconciliazione. L'evoluzione verso OpenAI come motore principale e schede
+create dall'AI è definita in `docs/ORA_PRESENCE_AND_LIVING_AI.md`; presenza
+continua garantita e generazione di nuovo codice non sono promesse attuali.

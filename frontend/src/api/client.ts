@@ -367,6 +367,7 @@ export type PlaceCandidate = {
 export type PlacesResponse = {
   places: LifePlace[];
   candidates: PlaceCandidate[];
+  pending_candidates?: boolean;
   permission: {
     preference: 'off' | 'while_using';
     state: string;
@@ -1489,6 +1490,10 @@ export const api = {
     request<{ ok: boolean; outcome: string; place?: LifePlace }>(
       `/places/candidates/${encodeURIComponent(candidateId)}/answer`,
       { method: 'POST', body: JSON.stringify({ answer }) },
+    ),
+  placesReviewCandidates: () =>
+    request<{ raised: { candidate_id: string; question: string; question_id: string }[] }>(
+      '/places/candidates/review', { method: 'POST' },
     ),
 
   locationGetPreference: () =>

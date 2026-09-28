@@ -101,6 +101,7 @@ export function PlacesSection({ compact, onOpenOra }: Props) {
   const [answering, setAnswering] = React.useState<string | null>(null);
   const [answer, setAnswer] = React.useState('');
   const [busy, setBusy] = React.useState(false);
+  const reviewedThisMount = React.useRef(false);
 
   const load = React.useCallback(async () => {
     try {
@@ -120,6 +121,20 @@ export function PlacesSection({ compact, onOpenOra }: Props) {
   React.useEffect(() => {
     void load();
   }, [load]);
+
+  // The model reviews anonymous repeat spots; only the person can name one.
+  // Run once per screen mount so simply refreshing the list cannot repeatedly
+  // spend model calls. An unanswered question remains in the ordinary queue.
+  React.useEffect(() => {
+    if (status !== 'ready' || reviewedThisMount.current || !data?.pending_candidates ||
+        data?.permission.preference === 'off' || data?.permission.state === 'denied') return;
+    reviewedThisMount.current = true;
+    void api.placesReviewCandidates()
+      .then((result) => {
+        if (result.raised.length) void load();
+      })
+      .catch(() => undefined);
+  }, [status, data?.pending_candidates, data?.permission.preference, data?.permission.state, load]);
 
   // Vita resta montata mentre il dettaglio le sta sopra, quindi tornare
   // indietro non rimonta niente: senza questi due, la lista continua a

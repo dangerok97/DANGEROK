@@ -26,6 +26,15 @@ import { remember } from './presenceBuffer';
 export const LOCATION_TASK = 'ora-presence-location';
 export const GEOFENCE_TASK = 'ora-presence-geofence';
 
+function distanceMeters(a: { latitude: number; longitude: number }, b: { latitude: number; longitude: number }): number {
+  const rad = Math.PI / 180;
+  const dLat = (a.latitude - b.latitude) * rad;
+  const dLon = (a.longitude - b.longitude) * rad;
+  const v = Math.sin(dLat / 2) ** 2 + Math.cos(a.latitude * rad) *
+    Math.cos(b.latitude * rad) * Math.sin(dLon / 2) ** 2;
+  return 12742000 * Math.atan2(Math.sqrt(v), Math.sqrt(1 - v));
+}
+
 type LocationPayload = { locations?: Location.LocationObject[] };
 type GeofencePayload = {
   eventType?: Location.GeofencingEventType;
@@ -52,6 +61,8 @@ TaskManager.defineTask<LocationPayload>(LOCATION_TASK, async ({ data, error }) =
         source: 'background_update',
       });
     }
+    const runtime = await import('./presenceRuntime');
+    if (await runtime.isEnabled()) await runtime.sendPending();
   } catch {
     /* see above: never throw out of a background task */
   }
@@ -60,25 +71,45 @@ TaskManager.defineTask<LocationPayload>(LOCATION_TASK, async ({ data, error }) =
 /**
  * Crossing the edge of a monitored region.
  *
- * Recorded as an observation with the region's own centre when the payload
- * carries no fix of its own — which is the honest thing to store, since what
- * the OS actually told us is "you are somewhere near this region", not a
- * position. The server decides what, if anything, that means.
+ * A region event contains its centre, not the phone's coordinates. Never
+ * submit that centre as a GPS fix: on exit it would falsely claim the phone
+ * is still inside. Take a real, recent fix; the server then applies dwell.
  */
 TaskManager.defineTask<GeofencePayload>(GEOFENCE_TASK, async ({ data, error }) => {
   if (error || !data?.region) return;
   try {
-    const { region, eventType } = data;
+    const { eventType } = data;
+    let fix = await Location.getLastKnownPositionAsync({ maxAge: 15_000, requiredAccuracy: 100 });
+    if (!fix) {
+      // A geofence often wakes a paused location subscription. Give the OS a
+      // short window for a measured fix, then leave the event unasserted.
+      let timeout: ReturnType<typeof setTimeout> | undefined;
+      try {
+        fix = await Promise.race([
+          Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
+            .catch(() => null),
+          new Promise<null>((resolve) => { timeout = setTimeout(() => resolve(null), 8_000); }),
+        ]);
+      } finally {
+        if (timeout) clearTimeout(timeout);
+      }
+    }
+    if (!fix) return;
+    const inside = distanceMeters(fix.coords, data.region) <= data.region.radius;
+    if (eventType === Location.GeofencingEventType.Exit && inside) return;
+    if (eventType === Location.GeofencingEventType.Enter && !inside) return;
     await remember({
-      observed_at: new Date().toISOString(),
-      latitude: region.latitude,
-      longitude: region.longitude,
-      accuracy_meters: region.radius ?? null,
+      observed_at: new Date(fix.timestamp).toISOString(),
+      latitude: fix.coords.latitude,
+      longitude: fix.coords.longitude,
+      accuracy_meters: fix.coords.accuracy ?? null,
       source:
         eventType === Location.GeofencingEventType.Enter
           ? 'geofence_enter'
           : 'geofence_exit',
     });
+    const runtime = await import('./presenceRuntime');
+    if (await runtime.isEnabled()) await runtime.sendPending();
   } catch {
     /* as above */
   }
