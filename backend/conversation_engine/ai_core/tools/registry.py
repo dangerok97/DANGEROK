@@ -8,6 +8,7 @@ from conversation_engine.ai_core.models import Observation
 from conversation_engine.ai_core.tools.capability import CapabilitySpec
 from conversation_engine.ai_core.tools.web_search import availability as web_search_availability
 from conversation_engine.ai_core.tools.web_search import execute_web_search
+from conversation_engine.ai_core.tools.amazon_search import prepare_amazon_search
 
 logger = logging.getLogger("ora.ai_core.tools")
 
@@ -22,6 +23,22 @@ class ToolRegistry:
         self._register_defaults()
 
     def _register_defaults(self) -> None:
+        self.register(
+            CapabilitySpec(
+                capability="prepare_amazon_search",
+                description=(
+                    "Prepare an Amazon.it search link for a specific useful product category "
+                    "or an explicit request to buy on Amazon. Give only a minimal product query, "
+                    "without personal details. The result is a search handoff, NOT a verified "
+                    "product, price, stock, cart, order or account connection. The person "
+                    "reviews the item and completes checkout on Amazon."
+                ),
+                input_schema={"type": "object", "properties": {"query": {"type": "string"}},
+                              "required": ["query"]},
+                classification="external", side_effect="READ_ONLY", freshness="n/a",
+                risk="read", handler=prepare_amazon_search, tags=["shopping"],
+            )
+        )
         self.register(
             CapabilitySpec(
                 capability="search_life_memory",
