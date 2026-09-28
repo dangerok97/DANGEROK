@@ -4325,3 +4325,5 @@ La prova di spostamento con AI reale ha proposto 120 minuti per un evento di 90 
 Seconda prova live: note e giorno corretti; update bloccato con no_grant, nessuna scrittura. Individuata perdita strutturale dei campi annidati nel catalogo compatto fornito al modello; fix ricorsivo e nuove regressioni. Ripetere il comando con AI reale dopo il rilascio.
 
 Su 8173764 lo spostamento naturale reale è riuscito senza seconda conferma: stesso ID, 15:00–16:30, durata 90 minuti, luogo e note intatti. La cancellazione aveva ancora un difetto di orchestrazione: dopo sì il modello non chiamava il tool, e il controllo impediva correttamente il falso successo. Implementata ripresa dell’azione preparata dal runtime, con snapshot e verifica. 125 test PASS, incluso il loop completo proposta→sì→cancellazione con zero nuove chiamate AI nella conferma.
+
+Verifica finale 28/09: ciclo live completato (lettura, spostamento, cancellazione dopo sì, rilettura di giorno/mese/agenda), 125 test PASS. Backend fb668c8 e frontend 49f6965 entrambi SUCCESS. Esiti, misure e limiti: [QA calendario](QA_CALENDAR_2026-09-28.md).

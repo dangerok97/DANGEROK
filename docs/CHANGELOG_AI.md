@@ -5685,3 +5685,5 @@ Spostamento locale: durata preservata dal dominio per default anche se il modell
 Fix catalogo strumenti: preservati schemi annidati e default, incluso il consenso citato dal messaggio dell’utente. Non viene sintetizzata né ampliata alcuna autorizzazione.
 
 Conferme calendario collegate all’azione preparata; eliminata la reinterpretazione del sì da parte dell’AI. Snapshot riletto prima dell’effetto, nessuna cancellazione dopo modifiche concorrenti. 125 regressioni PASS.
+
+Verifica finale 28/09: ciclo live completato (lettura, spostamento, cancellazione dopo sì, rilettura di giorno/mese/agenda), 125 test PASS. Backend fb668c8 e frontend 49f6965 entrambi SUCCESS. Esiti, misure e limiti: [QA calendario](QA_CALENDAR_2026-09-28.md).
