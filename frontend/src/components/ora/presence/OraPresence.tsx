@@ -11,8 +11,9 @@ import { useKnowledgeMap } from './useKnowledgeMap';
 import { useRouter } from 'expo-router';
 
 export function OraPresence({ mode = 'idle', activity = null, compact = false, active = true,
-  expanded = false, openingKey = null, footer, conversation, onAreaPrompt, onBack, knowledge, knowledgeRefreshKey }: {
+  expanded = false, openingKey = null, footer, conversation, onAreaPrompt, onBack, knowledge, knowledgeRefreshKey, spotlightId = null }: {
   knowledge?: KnowledgeMap | null; knowledgeRefreshKey?: unknown;
+  spotlightId?: string | null;
   mode?: PresenceMode; activity?: PresenceActivity | null; compact?: boolean; active?: boolean;
   expanded?: boolean; openingKey?: string | null; footer?: React.ReactNode; conversation?: React.ReactNode; onAreaPrompt?: (prompt: string) => void; onBack?: () => void;
 }) {
@@ -75,7 +76,7 @@ export function OraPresence({ mode = 'idle', activity = null, compact = false, a
   const hasConversation = Boolean(conversation);
   const selectedGeometry = selected?.id ? stars.findIndex(s => s.id === selected.id) : -1;
   const selectedIndex = selected?.kind === 'area' ? selected.index : selectedGeometry >= 0 ? selectedGeometry + 8 : null;
-  const options = useMemo(() => ({ stars, mode, area, paused, reduced, reveal: !!opening, revealKey: opening, active: active && foreground, selectedIndex: selectedIndex !== null && selectedIndex >= 0 ? selectedIndex : null, resetKey, centerY: expanded && hasConversation && showConversation ? .40 : .50 }), [stars, mode, area, paused, reduced, opening, active, foreground, selectedIndex, resetKey, expanded, hasConversation, showConversation]);
+  const options = useMemo(() => ({ stars, mode, area, paused, reduced, reveal: !!opening, revealKey: opening, active: active && foreground, selectedIndex: selectedIndex !== null && selectedIndex >= 0 ? selectedIndex : null, resetKey, centerY: expanded && hasConversation && showConversation ? .40 : .50, spotlightId }), [stars, mode, area, paused, reduced, opening, active, foreground, selectedIndex, resetKey, expanded, hasConversation, showConversation, spotlightId]);
   const caption = mode === 'listen' ? 'Ti ascolto' : mode === 'speak' ? 'Ti rispondo' : mode === 'think' ? 'Sto lavorando' : 'Sono qui';
   const label = caption + (area ? ` · ${AREA_LABELS[area]}` : '');
   const height = compact ? (windowHeight < 650 ? 128 : width < 650 ? 200 : 260) : Math.min(350, Math.max(240, windowHeight * .36));

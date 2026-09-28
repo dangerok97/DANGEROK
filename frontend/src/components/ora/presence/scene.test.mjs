@@ -64,6 +64,24 @@ test('the progressive introduction respects reduced motion; normal ORA still has
   ora.scene.destroy();
 });
 
+test('saving a new life fact moves the camera to its star and restores the resting map', () => {
+  const h = harness({ stars: [] });
+  h.frames(180);
+  const star = { id: 'saved_life_fact', area: 'home', kind: 'node' };
+  h.scene.update({ stars: [star], spotlightId: star.id });
+  const before = h.scene.snapshot();
+  assert.equal(before.knowledgeStars, 1);
+  h.frames(120);
+  const focused = h.scene.snapshot();
+  assert.ok(Math.hypot(focused.camera.x, focused.camera.y) > .05, 'camera follows the new star');
+  assert.ok(focused.camera.zoom > 1.2, 'new fact is brought closer without resetting the map');
+  h.scene.update({ spotlightId: null });
+  h.frames(180);
+  assert.ok(h.scene.snapshot().camera.zoom < 1.05, 'focus ends after the trailer');
+  assert.equal(h.scene.snapshot().knowledgeStars, 1, 'saved information remains in the map');
+  h.scene.destroy();
+});
+
 test('opening grows from one central point to the full 3D network, once', () => {
   const h = harness({ reveal: true });
   assert.equal(h.scene.snapshot().visiblePoints, 1);

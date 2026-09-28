@@ -48,7 +48,7 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
       const p={x:introPosition?.[0]??h.x+Math.cos(a)*r*v,y:introPosition?.[1]??h.y+u*r*.85,z:introPosition?.[2]??h.z+Math.sin(a)*r*v,
         id:node.id,kind:branch?'branch':'node',tentative:!!node.tentative,complete:!!node.complete,
         group:g,areaGroup:g,hub:false,radius:branch?2.5:1.3+random()*.65,phase:random()*6.28};
-      if(!births.has(p.id)||!oldIds.has(p.id))births.set(p.id,first?t-2:t);
+      if(!births.has(p.id)||!oldIds.has(p.id))births.set(p.id,first?t-4:t);
       points.push(p);groups[g].push(points.length-1);
     }
     const liveIds=new Set(points.map(p=>p.id));for(const id of births.keys())if(!liveIds.has(id))births.delete(id);
@@ -112,6 +112,7 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     const beat=active&&!options.reduced&&!options.paused?(Math.exp(-Math.pow((beatPhase-.16)/.085,2))+.38*Math.exp(-Math.pow((beatPhase-.37)/.105,2))):0;
     const breathe=1+Math.sin(t*1.48)*state.breath+beat*.014;
     const scale=Math.min(width*(options.intro?.43:.39),height*(options.intro?.76:.43))*camera.zoom;
+    const spotlight=points.findIndex(p=>p.id===options.spotlightId);
     const yaw=rotation+dragYaw,pitch=.06+Math.sin(t*.10)*.09+dragPitch;
     for(let i=0;i<points.length;i++){
       const p=points[i],q=projectPoint(p,yaw,pitch,scale,breathe);
@@ -132,10 +133,17 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
       if(appear<.005)return;
       ctx.globalAlpha=appear;
       const related=inspected>=0&&(e.a===inspected||e.b===inspected);
-      const alpha=Math.min(.9,(.028+depth*.12+energy*.22)*(e.trunk?1.5:1)*state.light+(related?.45:0));
-      const warm=activeHub>=0?(e.a===activeHub||e.b===activeHub):e.trunk&&e.a===0&&(e.b===4||e.b===1);
+      const birthId=points[e.b].id,birthAge=t-(births.get(birthId)??-100);
+      const arrival=!options.reduced&&!options.paused&&e.b===spotlight&&birthAge>=0&&birthAge<2.8;
+      const trail=arrival?Math.sin(Math.PI*birthAge/2.8)*.55:0;
+      const alpha=Math.min(.9,(.028+depth*.12+energy*.22)*(e.trunk?1.5:1)*state.light+(related?.45:0)+trail);
+      const warm=arrival||activeHub>=0?(arrival||e.a===activeHub||e.b===activeHub):e.trunk&&e.a===0&&(e.b===4||e.b===1);
       const first=points[e.a].distance<=points[e.b].distance?a:b,second=first===a?b:a;
       ctx.strokeStyle=warm?'rgba('+palette.warmEdge+','+alpha+')':'rgba('+palette.edge+','+alpha+')';ctx.lineWidth=related?1.45:e.trunk?.8:.45+depth*.25;ctx.beginPath();ctx.moveTo(first.x,first.y);ctx.lineTo(first.x+(second.x-first.x)*appear,first.y+(second.y-first.y)*appear);ctx.stroke();
+      if(arrival&&appear>.2){
+        const u=ease(birthAge/1.35),px=a.x+(b.x-a.x)*u,py=a.y+(b.y-a.y)*u;
+        glow(px,py,16,.55*appear,true);
+      }
       if(e.packet&&mode!=='idle'&&appear===1){
         const u=(t*(e.trunk?.34:.19)*state.speed+e.phase)%1;const strength=Math.sin(u*Math.PI)*(.25+energy*.85)*state.light;
         const px=a.x+(b.x-a.x)*u,py=a.y+(b.y-a.y)*u;
@@ -151,11 +159,19 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
       if(q.appear<.005)continue;
       ctx.globalAlpha=q.appear;
       const isInspected=i===inspected;
+      const age=t-(births.get(p.id)??-100);
+      const arriving=!p.hub&&!options.reduced&&!options.paused&&age>=0&&age<2.8;
+      const bloom=arriving?Math.sin(Math.PI*age/2.8):0;
       const r=p.radius*q.scale*(.64+q.depth*.38)*(1+q.energy*.28)+(isInspected?2.8:0);
       if(isInspected){glow(q.x,q.y,24,.95);ctx.strokeStyle=palette.label;ctx.lineWidth=1;ctx.beginPath();ctx.arc(q.x,q.y,9,0,Math.PI*2);ctx.stroke();}
       const warm=p.complete||p.tentative||(activeHub>=0?p.group===activeHub:i===0||i===4);
       if(p.hub){glow(q.x,q.y,16+q.energy*19,.25+q.energy*.53,warm);glow(q.x,q.y,5+q.energy*4,.60,warm);}
-      else {glow(q.x,q.y,p.complete?17:8,.22+q.energy*.3,warm);}
+      else {glow(q.x,q.y,p.complete?17:8,Math.max(.22+q.energy*.3,bloom*.9),warm||arriving);}
+      if(arriving&&q.appear>.12){
+        ctx.strokeStyle='rgba('+palette.warmNode+','+(bloom*.65*q.appear)+')';ctx.lineWidth=1.2;
+        ctx.beginPath();ctx.arc(q.x,q.y,5+age*11,0,Math.PI*2);ctx.stroke();
+        glow(q.x,q.y,24+age*9,bloom*.42,true);
+      }
       if(p.kind==='branch'){ctx.strokeStyle='rgba('+palette.warmNode+','+(p.complete?.85:.2)+')';ctx.lineWidth=p.complete?1.5:.6;ctx.beginPath();ctx.arc(q.x,q.y,6,0,Math.PI*2);ctx.stroke();}
       if(!p.hub&&p.kind==='node'&&!p.tentative){ctx.strokeStyle='rgba('+palette.point+','+(.3+q.energy*.3)+')';ctx.lineWidth=.7;ctx.beginPath();ctx.moveTo(q.x-3.6,q.y);ctx.lineTo(q.x+3.6,q.y);ctx.moveTo(q.x,q.y-3.6);ctx.lineTo(q.x,q.y+3.6);ctx.stroke();}
       ctx.fillStyle='rgba('+(warm?palette.warmNode:palette.node)+','+Math.min(.98,bright)+')';ctx.beginPath();ctx.arc(q.x,q.y,r,0,Math.PI*2);ctx.fill();
@@ -193,10 +209,11 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
   function moveCamera(dt,instant=false){
     const active=mode==='think'||mode==='speak';
     activeHub=options.intro?-1:hubs.findIndex(h=>h.id===options.area);
-    const target=activeHub>=0?hubs[activeHub]:{x:0,y:0,z:0};
+    const focused=points.find(p=>p.id===options.spotlightId);
+    const target=focused||(activeHub>=0?hubs[activeHub]:{x:0,y:0,z:0});
     const mix=instant?1:1-Math.exp(-dt*3.2);
     for(const axis of ['x','y','z'])camera[axis]+=(target[axis]*.82*growth-camera[axis])*mix;
-    camera.zoom+=((activeHub>=0?1.65:active?1.12:1)-camera.zoom)*mix;
+    camera.zoom+=((focused?1.38:activeHub>=0?1.65:active?1.12:1)-camera.zoom)*mix;
   }
   function schedule(){if(!frame&&!destroyed&&!options.paused&&!options.reduced&&options.active&&visible&&inViewport)frame=requestAnimationFrame(tick);}
   function stop(){if(frame)cancelAnimationFrame(frame);frame=0;last=0;}

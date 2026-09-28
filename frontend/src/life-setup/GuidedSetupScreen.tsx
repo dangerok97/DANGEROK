@@ -136,6 +136,17 @@ export function GuidedSetupScreen() {
   const knowledgeKey = useMemo(() => ({ name: user?.name, tutorial: user?.knowledge_tutorial_version }), [user?.name, user?.knowledge_tutorial_version]);
   const knowledge = useKnowledgeMap(user?.user_id, true, knowledgeKey);
   const refreshKnowledge = knowledge.reload;
+  const [trailer, setTrailer] = useState<{ ids: string[]; index: number } | null>(null);
+  useEffect(() => {
+    if (knowledge.addedStars.length) setTrailer({ ids: knowledge.addedStars.map(star => star.id), index: 0 });
+  }, [knowledge.addedStars, knowledge.data?.revision]);
+  useEffect(() => {
+    if (!trailer) return;
+    const timer = setTimeout(() => setTrailer(current => current && current.index + 1 < current.ids.length
+      ? { ...current, index: current.index + 1 } : null), 2800);
+    return () => clearTimeout(timer);
+  }, [trailer]);
+  const trailerStar = trailer && knowledge.data?.stars.find(star => star.id === trailer.ids[trailer.index]);
   const mostraDomanda = !!objective && (primoGiro || !!current?.in_progress);
 
   /*
@@ -1305,7 +1316,11 @@ export function GuidedSetupScreen() {
             {perche}
             {primoGiro ? null : intro}
             <View style={{ gap: 8 }}>
-              <OraPresence knowledge={knowledge.data} />
+              <OraPresence knowledge={knowledge.data} spotlightId={trailerStar?.id} />
+              {trailerStar ? <View style={{ padding: 14, borderRadius: 14, backgroundColor: ora.surfaceTint }} testID="knowledge-trailer">
+                <Text accessibilityLiveRegion="polite" style={[oraType.small, { color: ora.ink }]}>✦ Nuova stella · {trailer!.index + 1} di {trailer!.ids.length}</Text>
+                <Text style={[oraType.title, { color: ora.ink }]}>{trailerStar.statement}</Text>
+              </View> : null}
               <Text accessibilityLiveRegion="polite" style={[oraType.small, { color: ora.ink2 }]} testID="knowledge-growth">
                 {knowledge.error ? 'Non riesco ad aggiornare le stelle. Le tue risposte restano salvate.' : knowledge.added > 0 ? `${knowledge.added === 1 ? 'Una nuova stella si è accesa' : `${knowledge.added} nuove stelle si sono accese`} nella tua mappa.` : 'Ogni risposta salvata fa crescere la tua mappa. Tocca una stella per esplorarla.'}
               </Text>

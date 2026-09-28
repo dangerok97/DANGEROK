@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, Pressable, StyleSheet, Text, View } from 'react-native';
 import { PresenceCanvas } from '@/src/components/ora/presence/PresenceCanvas';
 import type { KnowledgeGeometry } from '@/src/components/ora/presence/knowledge';
@@ -26,6 +26,8 @@ export function RegistrationMap({ first, last, example = null, reveal = false, f
   const [foreground, setForeground] = useState(AppState.currentState !== 'background');
   const [unavailable, setUnavailable] = useState(false);
   const [paused, setPaused] = useState(false);
+  const [bornLabel, setBornLabel] = useState('');
+  const previousStage = useRef('');
   const failed = useCallback(() => setUnavailable(true), []);
   const select = useCallback(() => {}, []);
   useEffect(() => {
@@ -37,6 +39,21 @@ export function RegistrationMap({ first, last, example = null, reveal = false, f
     ...registrationStars(first, last),
     ...(example ? [{ id: `intro_example_${example}`, area: example, kind: 'node' as const }] : []),
   ], [firstStepComplete, first, last, example]);
+  const stage = `${Number(firstStepComplete)}:${Number(!!first.trim())}:${Number(!!last.trim())}:${example ?? ''}`;
+  useEffect(() => {
+    const previous = previousStage.current;
+    previousStage.current = stage;
+    if (!previous || reduced) return;
+    const [hadIntro, hadFirst, hadLast, hadExample] = previous.split(':');
+    const label = last.trim() && hadLast === '0' ? 'COGNOME'
+      : first.trim() && hadFirst === '0' ? 'NOME'
+      : firstStepComplete && hadIntro === '0' ? 'INIZIO'
+      : example && hadExample !== example ? 'ESEMPIO' : '';
+    setBornLabel(label);
+    if (!label) return;
+    const timer = setTimeout(() => setBornLabel(''), 2800);
+    return () => clearTimeout(timer);
+  }, [stage, firstStepComplete, first, last, example, reduced]);
   const options = useMemo(() => ({
     mode: 'idle' as const, area: example, stars, paused, reduced, active: foreground,
     reveal, revealKey: reveal ? 'registration-intro' : null, intro: true,
@@ -44,7 +61,7 @@ export function RegistrationMap({ first, last, example = null, reveal = false, f
   const count = Number(!!first.trim()) + Number(!!last.trim());
   return <View style={styles.mapCard} testID="registration-map">
     <View style={styles.mapTop}>
-      <Text style={styles.mapCaption}>{example ? 'ESEMPIO DIMOSTRATIVO' : 'LA TUA MAPPA PRENDE FORMA'}</Text>
+      <Text accessibilityLiveRegion="polite" testID="registration-trailer" style={[styles.mapCaption, bornLabel && { color: palette.text }]}>{bornLabel ? `✦ ${bornLabel} · NUOVA STELLA` : example ? 'ESEMPIO DIMOSTRATIVO' : 'LA TUA MAPPA PRENDE FORMA'}</Text>
       {!reduced && !unavailable ? <Pressable accessibilityRole="button" accessibilityLabel={paused ? 'Riprendi anteprima' : 'Metti in pausa anteprima'} onPress={() => setPaused(v => !v)} style={styles.pause}><Text style={styles.mapNote}>{paused ? 'Riprendi' : 'Pausa'}</Text></Pressable> : null}
     </View>
     <View style={styles.canvas} pointerEvents="none">

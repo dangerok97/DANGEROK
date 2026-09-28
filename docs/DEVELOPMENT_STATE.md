@@ -1,3 +1,17 @@
+## 28 settembre 2026 — Trailer della crescita di VITA
+
+Ogni nuova stella confermata entra ora con un breve movimento dal suo ramo,
+un alone che si espande e un collegamento che si illumina. Nell'introduzione
+il nome, il cognome e l'esempio ricevono anche un titolo temporaneo sopra
+la mappa; digitare senza confermare non crea stelle. In VITA, dopo la risposta
+salvata e la lettura della mappa aggiornata, ORA porta la nuova informazione
+in primo piano per 2,8 secondi, mostra la frase nel testo accessibile e torna
+alla vista precedente. Se una risposta genera più stelle, ciascuna ha il suo
+turno. Il primo caricamento di dati già presenti non riproduce un falso
+trailer. Movimento ridotto e pausa mostrano la stella senza animazione.
+Renderer web/native identico; API, dati persistiti e mappa conversazionale
+invariati. Verifica web e deployment da registrare dopo la pubblicazione.
+
 ## 28 settembre 2026 — Verifica finale delle stelle progressive
 
 Staging web 215697e1954d488770d0f9cc81fcf60f36d869b0, deployment
