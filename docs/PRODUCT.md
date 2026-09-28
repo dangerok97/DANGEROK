@@ -1690,3 +1690,5 @@ Per due impegni Home sovrapposti, ORA prepara una richiesta con orari calcolati 
 La richiesta esplicita «compra/cerca su Amazon» riceve il collegamento anche se il motore AI è indisponibile. La ricerca si apre dalla chat; l'utente sceglie prodotto, verifica prezzo e disponibilità e completa l'acquisto sul sito Amazon. Quando non indica alcun oggetto, ORA chiede quale cercare. Suggerimenti di acquisto legati agli obiettivi richiedono ancora ragionamento e fonti pertinenti; non sono un'automazione d'ordine.
 
 Se due impegni Home attivi si sovrappongono, ORA prepara la richiesta di spostamento già durante l'ammissione dell'obiettivo: l'indirizzo non è necessario per formulare una domanda al referente. Se uno degli impegni cambia, la bozza precedente non viene più mostrata.
+
+Una sola scheda rappresenta la stessa coppia di impegni: data, orari, durata del conflitto e note provengono dagli eventi attivi. La scheda offre la preparazione di una richiesta, senza promettere sportelli alternativi o servizi di consegna non verificati.

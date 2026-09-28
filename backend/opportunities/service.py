@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import logging
 import re
+import hashlib
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -112,6 +113,45 @@ class OpportunityService:
             if candidate is None:
                 result.skipped.append({"reason": why_not})
                 continue
+
+            # The model chose to raise this concern; the two cited Home
+            # intervals determine its identity, date and feasible offer.
+            # A wording change must not create another card for the same pair.
+            from agent.calendar_conflict import active_home_pair
+            pair = await active_home_pair(self.db, user_id, [e.ref for e in candidate.evidence])
+            if pair:
+                events, overlap_start, overlap_end, minutes = pair
+                first, second = events
+                refs = sorted(event[4] for event in events)
+                candidate.identity_key = "home_overlap:" + hashlib.sha256("|".join(refs).encode()).hexdigest()[:24]
+                day = first[0].astimezone(first[2]).strftime("%d/%m/%Y")
+                def clock(event):
+                    return (f"{event[0].astimezone(event[2]):%H:%M}–"
+                            f"{event[1].astimezone(event[2]):%H:%M}")
+                candidate.semantic_summary = (
+                    f"Il {day} hai due impegni sovrapposti per {minutes} minuti: "
+                    f"{first[3]['title']} ({clock(first)}) e {second[3]['title']} ({clock(second)})."
+                )[:280]
+                notes = "; ".join(event[3]["description"][:140] for event in events
+                                  if event[3]["description"])
+                candidate.why_it_matters = (
+                    f"Gli orari si sovrappongono dalle {overlap_start.astimezone(first[2]):%H:%M} "
+                    f"alle {overlap_end.astimezone(first[2]):%H:%M}. "
+                    + (f"Note degli impegni: {notes}. " if notes else "")
+                    + "Un nuovo orario richiede conferma del referente e verifica dei tempi necessari."
+                )[:600]
+                candidate.why_now = f"Il primo impegno inizia il {day} alle {first[0].astimezone(first[2]):%H:%M}."
+                candidate.what_ora_can_do = (
+                    "Posso preparare una richiesta per spostare il secondo impegno, "
+                    "senza supporre disponibilità alternative o inviare messaggi."
+                )
+                candidate.initiative = "prepare"
+                candidate.time_sensitivity = "perishable"
+                candidate.requires_clarification = False
+                candidate.clarifying_question = ""
+                candidate.needs_research = False
+                candidate.research_question = ""
+                candidate.valid_until = overlap_end.astimezone(timezone.utc).isoformat()
 
             existing = by_identity.get(candidate.identity_key) or await self.repo.by_identity(
                 user_id, candidate.identity_key

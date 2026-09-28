@@ -5720,3 +5720,6 @@ Le richieste testuali esplicite di ricerca o acquisto su Amazon passano direttam
 
 ## 28 settembre 2026 — Preparazione autonoma di conflitti Home accertati
 Nel secondo smoke cloud i due impegni reali di test erano sovrapposti ma il modello ha chiesto dati geografici prima di creare un goal. In questo caso ristretto il codice convalida i due eventi del proprietario e la sovrapposizione, crea l'obiettivo, salva evidenze e bozza fondata sugli orari prima di mostrarla. Il dettaglio non espone bozze superate dopo cancellazione/cambio degli impegni; nessun messaggio viene inviato. Verifica cloud da ripetere.
+
+## 28 settembre 2026 — Una scheda affidabile per la coppia Home
+Terza prova cloud conferma la bozza autonoma ma ha creato due opportunità per la stessa coppia, una con giorno della settimana errato. Le proposte con esattamente due impegni Home attivi e sovrapposti ora usano identità derivata dai riferimenti, date e tempi calcolati, note dei due eventi e offerta limitata alla richiesta di spostamento. Il modello continua a decidere se la situazione merita un'opportunità. Test di regressione sulla doppia formulazione del modello; prova cloud dopo il rilascio da eseguire.
