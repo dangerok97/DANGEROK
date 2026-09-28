@@ -126,7 +126,11 @@ def test_home_reminder_needs_only_a_delivery_time():
     assert [o["id"] for o in first["session"]["current_turn"]["options"]] == [
         "in_1_hour", "tomorrow", "in_3_days", "in_1_week",
     ]
-    assert collection.row["answers"]["support"] == "reminder"
+    assert "support" not in collection.row["answers"]
+    assert [turn["id"] for turn in collection.row["turns"]] == ["intent", "when"]
+    assert first["session"]["meta"]["step_index"] == 2
+    assert first["session"]["meta"]["step_count"] == 2
+    assert first["session"]["progress"] == 0.5
 
     async def completed(self, user_id, session_id):
         return {"completed": True, "session": self.col.row}
@@ -136,6 +140,31 @@ def test_home_reminder_needs_only_a_delivery_time():
     assert second["completed"]
     assert second["session"]["answers"]["when"] == "tomorrow"
     assert len(second["session"]["turn_history"]) == 2
+
+
+def test_existing_home_reminder_reports_real_progress():
+    session = _old_session()
+    session.flow = "generic"
+    session.turns = build_flow_turns("generic", {"title": session.title})
+    session.current_turn_id = "when"
+    session.meta["intent_reason"] = "home_card_needs_purpose"
+    session.answers = {"intent": "remind", "support": "reminder"}
+    session.turn_history = [TurnAnswer(turn_id="intent", option_id="remind", value="remind")]
+    public = session.public()
+    assert public["meta"]["step_index"] == 2
+    assert public["meta"]["step_count"] == 2
+    assert public["progress"] == 0.5
+
+    service, collection = _service(session)
+
+    async def completed(self, user_id, session_id):
+        return {"completed": True, "session": self.col.row}
+
+    service.complete = MethodType(completed, service)
+    result = asyncio.run(service.answer("u_test", session.id, AnswerBody(option_id="today")))
+    assert result["completed"]
+    assert [turn["id"] for turn in collection.row["turns"]] == ["intent", "when"]
+    assert "support" not in collection.row["answers"]
 
 
 def test_answered_clarifier_keeps_the_persons_choice():

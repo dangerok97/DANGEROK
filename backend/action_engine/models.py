@@ -108,6 +108,29 @@ class ActionSession(BaseModel):
         if self.turns:
             answered = len(self.turn_history)
             progress = min(1.0, answered / max(1, len(self.turns)))
+        public_meta = {
+            k: v for k, v in self.meta.items()
+            if k in (
+                "merge_proposal", "next_focus_hint", "home_invalidate",
+                "intent", "intent_subtype", "intent_confidence", "intent_entities",
+                "classifier_version", "needs_clarify", "study_plan_id",
+                "study_preview", "study_documents", "travel_project_id",
+                "travel_preview", "travel_documents", "home_place",
+                "google_connected", "google_banner", "validation_error",
+                "duplicate_plan", "timezone", "known_slots", "gap",
+                "next_slot", "next_best_question", "understood_summary",
+            )
+        }
+        if (
+            self.flow == "generic" and self.meta.get("intent_reason") == "home_card_needs_purpose"
+            and self.answers.get("intent") == "remind"
+        ):
+            # The original three-turn session may already have been answered
+            # once before the shorter route was deployed. Show the real two
+            # choices for both old and new sessions.
+            progress = min(1.0, len(self.turn_history) / 2)
+            public_meta["step_index"] = min(2, len(self.turn_history) + (0 if done else 1))
+            public_meta["step_count"] = 2
         return {
             "id": self.id,
             "status": self.status,
@@ -130,37 +153,7 @@ class ActionSession(BaseModel):
             "created_at": self.created_at,
             "updated_at": self.updated_at,
             "completed_at": self.completed_at,
-            "meta": {
-                k: v for k, v in self.meta.items()
-                if k in (
-                    "merge_proposal",
-                    "next_focus_hint",
-                    "home_invalidate",
-                    "intent",
-                    "intent_subtype",
-                    "intent_confidence",
-                    "intent_entities",
-                    "classifier_version",
-                    "needs_clarify",
-                    "study_plan_id",
-                    "study_preview",
-                    "study_documents",
-                    "travel_project_id",
-                    "travel_preview",
-                    "travel_documents",
-                    "home_place",
-                    "google_connected",
-                    "google_banner",
-                    "validation_error",
-                    "duplicate_plan",
-                    "timezone",
-                    "known_slots",
-                    "gap",
-                    "next_slot",
-                    "next_best_question",
-                    "understood_summary",
-                )
-            },
+            "meta": public_meta,
             "turns": [t.model_dump() for t in self.turns],
             "turn_history": [
                 {"turn_id": t.turn_id, "option_id": t.option_id, "value": t.value}

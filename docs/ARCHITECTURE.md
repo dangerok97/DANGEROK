@@ -3626,8 +3626,11 @@ solo per `support=checklist`. Nessun cambio di schema o indice.
 ## 28 settembre 2026 — Percorso breve del promemoria
 
 Nel turno `intent` del flusso generico Home con ragione
-`home_card_needs_purpose`, la risposta `remind` deriva internamente
-`support=reminder` e sostituisce le opzioni del turno `when` con ritardi
-espliciti. `next_unanswered` salta quindi `support` e completa dopo `when`.
+`home_card_needs_purpose`, la risposta `remind` rimuove il turno `support`
+ridondante e sostituisce le opzioni del turno `when` con ritardi espliciti.
+`next_unanswered` completa quindi dopo `when`. Una sessione già a `when`
+viene normalizzata al prossimo answer senza perdere la scelta; `public()`
+espone nel frattempo il progresso effettivo `2 di 2` anche per la vecchia
+sessione.
 Il calcolo degli effetti usa `timedelta` per ora/giorni e la stessa
 persistenza proprietaria dei promemoria. Altri flussi generici non cambiano.

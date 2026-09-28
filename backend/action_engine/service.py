@@ -745,6 +745,15 @@ class ActionEngineService:
         if sess.status != "active":
             return {"ok": False, "error": "not_active", "session": sess.public()}
 
+        if (
+            sess.flow == "generic" and sess.meta.get("intent_reason") == "home_card_needs_purpose"
+            and sess.current_turn_id == "when" and sess.answers.get("intent") == "remind"
+            and len(sess.turn_history) == 1
+        ):
+            # Continue a reminder opened before the compact route existed.
+            sess.turns = [follow_up for follow_up in sess.turns if follow_up.id != "support"]
+            sess.answers.pop("support", None)
+
         turn = None
         for t in sess.turns:
             if t.id == sess.current_turn_id:
@@ -817,7 +826,7 @@ class ActionEngineService:
             sess.flow == "generic" and turn.id == "intent" and value == "remind"
             and sess.meta.get("intent_reason") == "home_card_needs_purpose"
         ):
-            sess.answers["support"] = "reminder"
+            sess.turns = [follow_up for follow_up in sess.turns if follow_up.id != "support"]
             for follow_up in sess.turns:
                 if follow_up.id == "when":
                     follow_up.question = "Quando vuoi che te lo ricordi?"

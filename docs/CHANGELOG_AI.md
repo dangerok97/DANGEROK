@@ -5757,5 +5757,7 @@ guida PASS. Pubblicazione e screenshot live da completare.
 Il percorso `Ricordamelo` salta la domanda ridondante sul supporto e offre
 quattro ritardi verificabili. Conserva il percorso precedente per
 `Organizzala` e per il testo libero. Cinque test aggiunti: uno per il
-percorso a due risposte e quattro per i ritardi effettivi. Trenta test
-pertinenti PASS; pubblicazione e prova visiva da completare.
+percorso a due risposte e quattro per i ritardi effettivi. Dopo la prima
+prova live, eliminata la risposta `support` derivata che faceva mostrare
+`3 di 6`; aggiunta compatibilità per una guida già a metà. Rilascio della
+correzione del progresso e screenshot da completare.

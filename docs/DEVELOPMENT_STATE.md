@@ -4393,4 +4393,7 @@ chiarimento è già online, verificato nell'account autenticato.
 Se la guida Home ambigua sceglie `Ricordamelo`, il turno successivo chiede
 quando ricordarlo con quattro ritardi definiti. La risposta conclude senza
 il terzo turno `support`. Test locale: 30 regressioni pertinenti PASS,
-inclusi i tempi salvati; compile/lint e rilascio live da registrare.
+inclusi i tempi salvati. La prova live ha trovato il contatore `3 di 6`
+causato dalla risposta derivata `support`; il percorso ora ha due turni
+effettivi e una compatibilità per la sessione già aperta. Compilazione,
+lint e verifica online del contatore da registrare dopo il rilascio.
