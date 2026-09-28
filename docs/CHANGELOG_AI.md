@@ -5767,3 +5767,18 @@ La route di Home ora prevale sul testo `Apri` nel navigatore condiviso:
 un evento esistente non apre più la guida generica dalla conversazione.
 Restano guidate le schede con `/action/open` o prive di destinazione.
 Quattro test mirati PASS; build e pubblicazione web da completare.
+
+## 28 settembre 2026 — Rilasci e prove completati
+
+I tre incrementi della guida Home sono online: `e422450` per scelte ed
+effetti espliciti, `ff4665d` per il promemoria breve, `b35dd16` per il
+progresso reale delle sessioni esistenti. Ultimo backend Railway
+`c7116ede` SUCCESS; 31 test pertinenti PASS. Screenshot della guida
+`ora-focus-scelte-esplicite-1790624170084.jpg` e del secondo passo
+`ora-promemoria-due-tocchi-1790624799746.jpg`.
+
+Il web `8a8deb6`, Railway `bc9b1721` SUCCESS, apre dalla scheda chat il
+dettaglio del medesimo appuntamento già aperto da Home. Screenshot
+`ora-chat-apre-appuntamento-1790625216637.jpg`; TypeScript, lint ed
+export web PASS. La bozza autonoma per il conflitto era stata verificata
+separatamente su account sintetico nella quarta prova cloud `cacc387`.

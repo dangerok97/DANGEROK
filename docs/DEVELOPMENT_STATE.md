@@ -4405,3 +4405,23 @@ Engine per la stessa scheda. L'euristica della label `Apri` prevaleva sulla
 route esplicita nell'helper della chat. Ora la route concreta ha priorità;
 quattro casi di regressione passano. TypeScript, export web e verifica live
 da registrare dopo il rilascio.
+
+## 28 settembre 2026 — Verifica finale dei focus in chat
+
+Backend `e422450` (Railway `8c4dba43`) SUCCESS: focus Home ambiguo con
+due scelte, senza effetti impliciti da checklist/progetto. Screenshot
+`ora-focus-scelte-esplicite-1790624170084.jpg`. Backend `ff4665d` e
+correzione `b35dd16` (Railway `c7116ede`) SUCCESS: `Ricordamelo` arriva
+alla scelta dei quattro ritardi con contatore `2 di 2`; screenshot
+`ora-promemoria-due-tocchi-1790624799746.jpg`. Trentuno test backend
+pertinenti, compilazione e lint mirato PASS. Web `8a8deb6` (Railway
+`bc9b1721`) SUCCESS: il tasto `Apri` nella chat porta al dettaglio
+`/calendar-event/ing_1d8827f4ec2c4d4d`, con l'appuntamento già presente,
+come da Home. Screenshot `ora-chat-apre-appuntamento-1790625216637.jpg`.
+Quattro casi mirati, TypeScript, lint ed export web PASS. Le note sopra
+«da completare» descrivono le fasi precedenti a questa verifica.
+
+Il gate autonomo del conflitto di calendario era già stato registrato
+su account sintetico nella quarta prova `cacc387`: una opportunità, un goal
+e una bozza `ready` senza chat né intervento umano. La verifica attuale
+non ha ripetuto quel gate; nessun invio o cambio calendario è stato fatto.
