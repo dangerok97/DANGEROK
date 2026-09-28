@@ -1,3 +1,18 @@
+## 28 settembre 2026 — Verifica finale delle stelle progressive
+
+Staging web 215697e1954d488770d0f9cc81fcf60f36d869b0, deployment
+8d397bc3-1c9f-494b-8947-a36ba53f6656 SUCCESS. La guida /benvenuto
+parte da un solo nucleo: dopo «Fammi vedere» compare INIZIO, dopo conferma
+nome compare NOME, dopo conferma cognome compare COGNOME. Digitare senza
+confermare non crea stelle. I punti confermati sono ora distanziati e le
+etichette leggibili; un esempio si accende solo dopo la selezione e cambiarlo
+lo sostituisce. Screenshot verificato: ora-stelle-progressive-verificata.jpg.
+Replay browser senza scritture utente: tornando a VITA restano Francesco,
+11 stelle e 21%. Renderer normale ORA e backend invariati. 28 test mirati,
+TypeScript, lint, export web/iOS PASS; CI del fix iniziale 36384592969
+SUCCESS. Le note precedenti «in corso» qui sotto descrivono lo stato prima
+di questa verifica.
+
 ## 28 settembre 2026 — Crescita reale dell'anteprima
 
 La guida account non mostra più gli hub completi all'inizio. Separati i
