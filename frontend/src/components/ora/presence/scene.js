@@ -42,9 +42,10 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
       const g=hubs.findIndex(h=>h.id===node.area);if(g<0||!node.id)continue;
       let hash=2166136261;for(const c of node.id)hash=Math.imul(hash^c.charCodeAt(0),16777619)>>>0;
       seed=hash;
-      const h=hubs[g],a=random()*Math.PI*2,u=random()*2-1,r=options.intro?.63+random()*.28:.10+Math.cbrt(random())*.32,v=Math.sqrt(1-u*u);
+      const h=hubs[g],a=random()*Math.PI*2,u=random()*2-1,r=.10+Math.cbrt(random())*.32,v=Math.sqrt(1-u*u);
       const branch=node.kind==='branch';
-      const p={x:(options.intro?0:h.x)+Math.cos(a)*r*v,y:(options.intro?0:h.y)+u*r*.85,z:(options.intro?0:h.z)+Math.sin(a)*r*v,
+      const introPosition=node.id==='intro_step_one'?[-.52,-.30,.08]:node.id==='draft_first_name'?[.28,-.65,.18]:node.id==='draft_last_name'?[.68,.30,-.12]:node.id.startsWith('intro_example_')?[-.48,.60,-.08]:null;
+      const p={x:introPosition?.[0]??h.x+Math.cos(a)*r*v,y:introPosition?.[1]??h.y+u*r*.85,z:introPosition?.[2]??h.z+Math.sin(a)*r*v,
         id:node.id,kind:branch?'branch':'node',tentative:!!node.tentative,complete:!!node.complete,
         group:g,areaGroup:g,hub:false,radius:branch?2.5:1.3+random()*.65,phase:random()*6.28};
       if(!births.has(p.id)||!oldIds.has(p.id))births.set(p.id,first?t-2:t);
@@ -110,7 +111,7 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     const beatPhase=(t%1.65)/1.65;
     const beat=active&&!options.reduced&&!options.paused?(Math.exp(-Math.pow((beatPhase-.16)/.085,2))+.38*Math.exp(-Math.pow((beatPhase-.37)/.105,2))):0;
     const breathe=1+Math.sin(t*1.48)*state.breath+beat*.014;
-    const scale=Math.min(width*.39,height*.43)*camera.zoom;
+    const scale=Math.min(width*(options.intro?.43:.39),height*(options.intro?.76:.43))*camera.zoom;
     const yaw=rotation+dragYaw,pitch=.06+Math.sin(t*.10)*.09+dragPitch;
     for(let i=0;i<points.length;i++){
       const p=points[i],q=projectPoint(p,yaw,pitch,scale,breathe);
