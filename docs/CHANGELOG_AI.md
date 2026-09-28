@@ -1,3 +1,17 @@
+## 28 settembre 2026 — Trailer pubblicato e verificato
+
+Web Railway 6b13a563-2f09-4239-a788-bb8eed4d6750, commit
+f8c4c94efcd33e85e535753ca95fe06ee73674fa, SUCCESS. Browser replay
+/benvenuto: conferma dei passi INIZIO, NOME e COGNOME, etichette di nuova
+stella e nascita progressiva nella mappa; digitazione senza conferma non
+sblocca una stella. Ritorno a VITA conferma profilo Francesco invariato,
+11 stelle, 21%. Il flusso di nuova risposta VITA non è stato eseguito sui
+dati reali dell'utente: renderer e integrazione verificati dai test mirati,
+TypeScript e lint; il primo caricamento non produce stelle fittizie. Quando
+la risposta aggiunge una stella la pagina scrolla alla mappa e la illumina
+per 2,8 secondi per ogni nuovo fatto. Le note precedenti «in corso» qui
+sotto precedono la verifica web.
+
 ## 28 settembre 2026 — Trailer della crescita di VITA
 
 Ogni nuova stella confermata entra ora con un breve movimento dal suo ramo,
