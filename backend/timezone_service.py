@@ -1,7 +1,7 @@
 """Minimal, general-purpose user-timezone resolver.
 
 Not a reasoning engine: a bounded, local-only, authority-tiered lookup used by
-Calendar (and, later, AI Core) to resolve "what timezone should this datetime
+Calendar and AI Core to resolve "what timezone should this datetime
 be interpreted in". No external calls, no GPS-derived residence inference, no
 new UI/wizard — this only READS signals that already exist elsewhere in the
 system, or falls back to a single, explicitly-labeled system default.
@@ -109,3 +109,28 @@ def localize_naive_datetime(
     if naive.tzinfo is not None:
         return naive
     return naive.replace(tzinfo=ZoneInfo(resolved.tz_name))
+
+
+async def user_clock_context(db, user_id: str, *, now: Optional[datetime] = None) -> dict:
+    """Fresh, timezone-aware clock evidence for a conversational turn.
+
+    Database outages retain an explicitly labelled system fallback; UTC
+    timestamps in conversation history are never the person's local clock.
+    """
+    from datetime import timezone
+
+    try:
+        resolved = await resolve_user_timezone(db, user_id)
+    except Exception:
+        resolved = ResolvedTimezone(DEFAULT_SYSTEM_TIMEZONE, "system_fallback")
+    instant = now if now is not None else datetime.now(timezone.utc)
+    if instant.tzinfo is None:
+        raise ValueError("Clock instant must include a timezone")
+    local = instant.astimezone(ZoneInfo(resolved.tz_name))
+    return {
+        "local_datetime": local.isoformat(timespec="seconds"),
+        "local_time": local.strftime("%H:%M"),
+        "local_date": local.date().isoformat(),
+        "timezone": resolved.tz_name,
+        "authority": resolved.authority,
+    }

@@ -990,10 +990,11 @@ def build_user_payload(
     in_app_voice: bool = False,
     calendar_next_48h: dict | None = None,
     today_where_they_are=None,
+    clock_context: dict | None = None,
 ) -> str:
     import json
 
-    from datetime import datetime, timezone
+    from datetime import date, datetime, timezone
 
     from conversation_engine.ai_core.tools.compact import compact_catalogue
     from day_names import weekday_name
@@ -1009,7 +1010,8 @@ def build_user_payload(
     #
     # Chi chiama passa la data del fuso della persona; senza, resta UTC —
     # che è quello che facevano tutti fino a ieri.
-    _today = today_where_they_are or datetime.now(timezone.utc).date()
+    _today = (date.fromisoformat(clock_context["local_date"]) if clock_context
+              else today_where_they_are or datetime.now(timezone.utc).date())
 
     return json.dumps(
         {
@@ -1027,6 +1029,15 @@ def build_user_payload(
             # ogni volta — su «che giorno è oggi», che al telefono è la domanda
             # più frequente che esista.
             "today_weekday": weekday_name(_today),
+            "current_clock": clock_context,
+            "clock_reminder": (
+                "Use current_clock.local_time for the current time and its local_date "
+                "for today. Both already include the resolved IANA timezone and DST: "
+                "do not convert them again. Conversation timestamps are historical UTC "
+                "metadata, not the current local clock. If authority is system_fallback, "
+                "name the timezone when answering a time question; it is not a confirmed "
+                "user location. If current_clock is absent, do not invent an exact time."
+            ),
             "user_message": user_message,
             "visual_focus_reminder": (
                 "Include display_area in this JSON response: the topic you are answering, "

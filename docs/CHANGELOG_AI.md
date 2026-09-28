@@ -5687,3 +5687,8 @@ Fix catalogo strumenti: preservati schemi annidati e default, incluso il consens
 Conferme calendario collegate all’azione preparata; eliminata la reinterpretazione del sì da parte dell’AI. Snapshot riletto prima dell’effetto, nessuna cancellazione dopo modifiche concorrenti. 125 regressioni PASS.
 
 Verifica finale 28/09: ciclo live completato (lettura, spostamento, cancellazione dopo sì, rilettura di giorno/mese/agenda), 125 test PASS. Backend fb668c8 e frontend 49f6965 entrambi SUCCESS. Esiti, misure e limiti: [QA calendario](QA_CALENDAR_2026-09-28.md).
+
+
+## 28 settembre 2026 — Ora locale della conversazione
+
+Fix ora corrente conversazionale: contesto temporale esplicito condiviso tra data e ora, fuso e provenienza dichiarati, nessuna conversione manuale +2. Aggiunte regressioni estate/inverno, mezzanotte, cambi DST, altro fuso, indisponibilità DB e passaggio attraverso il loop.

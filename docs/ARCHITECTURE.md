@@ -3566,3 +3566,8 @@ Corretto `tools/compact.py`: la rappresentazione ricorsiva preserva proprietà a
 `calendar_confirmation.py` conserva in pending_act la richiesta prodotta dal tool (riferimento e snapshot titolo/orari/luogo/note/revisione). La domanda proviene dall’evento riletto. Un sì semplice entro 15 minuti riprende quella chiamata nello stesso loop governato, senza far riselezionare il target al modello. Rifiuti, correzioni e sì senza proposta non attivano la ripresa. Il tool confronta lo snapshot e rivalida proprietà e autorità prima dell’effetto. La risposta di successo è formattata solo dalla cancellazione verificata.
 
 Verifica finale 28/09: ciclo live completato (lettura, spostamento, cancellazione dopo sì, rilettura di giorno/mese/agenda), 125 test PASS. Backend fb668c8 e frontend 49f6965 entrambi SUCCESS. Esiti, misure e limiti: [QA calendario](QA_CALENDAR_2026-09-28.md).
+
+
+## 28 settembre 2026 — Ora locale della conversazione
+
+AI Core risolve user_clock_context a ogni turno tramite timezone_service; data, ora e offset derivano dallo stesso istante. Il payload conserva autorità del fuso; timestamp storici UTC non rappresentano l’ora attuale. In caso di errore DB usa Europe/Rome con autorità system_fallback.

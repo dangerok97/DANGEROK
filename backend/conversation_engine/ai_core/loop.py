@@ -459,11 +459,10 @@ async def run_cognitive_loop(
 
     calendar_ahead = await the_next_two_days(db, sess.user_id)
 
-    #     E che giorno è, dove sta la persona.
-    # Il fuso lo risolve il servizio che già lo risolve per il calendario:
-    # locale, senza chiamate esterne, sicuro da chiamare a ogni turno. Se non
-    # si riesce, si resta su UTC — come si è sempre fatto.
-    oggi_da_lei = await _what_day_it_is_for_them(db, sess.user_id)
+    # Resolve one local clock per turn: date and time share the same instant.
+    from timezone_service import user_clock_context
+
+    clock_context = await user_clock_context(db, sess.user_id)
 
     for step in range(max(1, max_steps)):
         #     SE LO STRUMENTO HA GIA' DETTO LA FRASE, NON SI RIGENERA.
@@ -556,7 +555,7 @@ async def run_cognitive_loop(
                 in_app_voice=((sess.meta or {}).get("response_channel") == "voice"
                               and (sess.meta or {}).get("entry_point") != "phone"),
                 calendar_next_48h=calendar_ahead,
-                today_where_they_are=oggi_da_lei,
+                clock_context=clock_context,
             )
             _t = time.perf_counter()
             raw = await _call_ai(

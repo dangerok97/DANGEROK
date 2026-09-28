@@ -1659,3 +1659,8 @@ Gli ordini espliciti di spostamento possono portare al tool l’autorizzazione c
 La conferma di cancellazione è collegata all’impegno mostrato: il sì esegue e verifica quell’operazione; una modifica intervenuta nel frattempo richiede una nuova conferma.
 
 Verifica finale 28/09: ciclo live completato (lettura, spostamento, cancellazione dopo sì, rilettura di giorno/mese/agenda), 125 test PASS. Backend fb668c8 e frontend 49f6965 entrambi SUCCESS. Esiti, misure e limiti: [QA calendario](QA_CALENDAR_2026-09-28.md).
+
+
+## 28 settembre 2026 — Ora locale della conversazione
+
+Le risposte sull’ora corrente usano un orologio locale esplicito, con fuso IANA e ora legale. Se manca una preferenza confermata, ORA dichiara il fuso di riferimento.
