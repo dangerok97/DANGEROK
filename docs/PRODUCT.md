@@ -1754,3 +1754,7 @@ la revisione autonoma. Il browser non offre monitoraggio in background.
 «Portami dalla mia posizione al Colosseo» restituisce un tasto Google Maps. La mappa usa la posizione attuale del dispositivo e calcola percorso e traffico quando si apre. ORA non attribuisce coordinate o tempi propri a un nome pubblico non verificato: invita a controllare il risultato nella mappa. Le destinazioni personali ambigue e i ruoli non confermati restano da chiarire.
 
 Prova web pubblicata: il comando originale verso il Colosseo mostra il tasto Google Maps; il tap apre in Google Maps la navigazione verso il Colosseo dalla posizione del browser. Screenshot `ora-colosseo-navigazione-finale-1790629864226.jpg`.
+
+## Partenza immediata dalla chat (29 settembre 2026)
+
+Un comando esplicito «portami ...» prepara direttamente il tasto di navigazione, senza attendere il ragionamento generale. Le domande su tempi e itinerari continuano a essere ragionate normalmente. Nessun servizio di traffico viene simulato.

@@ -3679,3 +3679,7 @@ il nuovo campo `review_requested_days` ha default zero per i record esistenti.
 `places.navigation.search_handoff` costruisce un Maps URL `api=1`, `destination` codificato e `dir_action=navigate` senza origin fissato. `places.caps.open_navigation` lo usa se la destinazione non è un Life Place confermato, tranne ruoli personali/nomi duplicati. Il risultato espone `destination_unverified`, nessuna rotta stimata e una frase verificabile. `ai_core.loop._ensure_navigation` intercetta solo comandi espliciti di partenza quando il modello omette lo strumento, riusa una osservazione già prodotta e aggiunge il link al risultato persistito. L'app mappe calcola il traffico; ORA può confrontare durate in proprio solo con un routing provider configurato.
 
 Verifica di handoff sul web pubblicato: il controllo `OraNavigation` ha aperto una nuova scheda Google Maps con una rotta dalla posizione corrente al Colosseo. Per la chat non si conserva una posizione di partenza nell'URL preparato dal server.
+
+## Fast path della navigazione esplicita (29 settembre 2026)
+
+`run_cognitive_loop` riconosce la forma imperativa stretta tramite `_navigation_destination`, invoca il cap read-only `open_navigation`, conserva osservazione e due turni nella sessione e restituisce navigation/journey senza chiamata LLM o Context Broker. Se il cap fallisce, resta disponibile il percorso cognitivo con il recupero terminale già presente. Il client-resume non ripete l'handoff.

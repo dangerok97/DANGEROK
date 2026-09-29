@@ -353,11 +353,43 @@ async def run_cognitive_loop(
     tools = ToolRegistry(db)
     broker = ContextBroker(db)
     st = state_mod.get_ai_state(sess)
-    user_llm_preference = await _user_llm_preference(db, sess.user_id)
 
     # Client-resume continues the SAME user turn — do not duplicate recent_turns.
     if not resume_client:
         state_mod.append_turn(st, role="user", text=user_message)
+        # A clear departure command already has a read-only capability that
+        # prepares the map handoff. Deliver it without waiting for a general
+        # reasoning pass, which previously made even a one-tap journey wait
+        # tens of seconds and could end on a bare "Ok.".
+        if _navigation_destination(user_message) and db is not None:
+            observations = list(st.get("observations") or [])
+            turn_start = len(observations)
+            try:
+                navigation_text = await _ensure_navigation(
+                    observations, turn_start, user_message, db, sess.user_id
+                )
+            except Exception as exc:
+                logger.warning("navigation fast path failed: %s", type(exc).__name__)
+                navigation_text = ""
+            if navigation_text:
+                state_mod.append_turn(st, role="ora", text=navigation_text, kind="answer")
+                st["pending_act"] = None
+                st["clarification_history"] = []
+                st["observations"] = observations[-12:]
+                state_mod.save_ai_state(sess, st)
+                add_step(trace, event="NAVIGATION_FAST_PATH")
+                return CognitiveTurnResult(
+                    ok=True,
+                    mode="answer",
+                    ora_text=navigation_text,
+                    session_id=sess.id,
+                    active_goal=ActiveGoal.model_validate(st.get("active_goal") or {}),
+                    trace=public_trace(trace),
+                    tool_calls=1,
+                    elapsed_ms=int((time.perf_counter() - t0) * 1000),
+                    navigation=_navigation_options(observations[turn_start:]),
+                    journey=_journey_from(observations[turn_start:]),
+                )
         # New user message: allow another foreground refresh after timeout/unavailable.
         if db is not None and sess.user_id:
             try:
@@ -373,6 +405,7 @@ async def run_cognitive_loop(
         event="TURN_RESUME" if resume_client else "TURN",
         user_message=user_message[:200],
     )
+    user_llm_preference = await _user_llm_preference(db, sess.user_id)
 
     _t = time.perf_counter()
     # Baseline account/context loading happens on every turn, not just memory

@@ -72,3 +72,33 @@ def test_unknown_personal_role_does_not_search_maps(monkeypatch):
     obs = run(caps.open_navigation({"destination": "casa"}, {"db": object(), "user_id": "u"}))
     assert obs.payload["ready"] is False
     assert "url" not in obs.payload
+
+
+def test_explicit_departure_bypasses_model_and_persists_handoff(monkeypatch):
+    from conversation_engine.ai_core.loop import run_cognitive_loop
+    from conversation_engine.ai_core.state import get_ai_state
+    from conversation_engine.models import ConversationSession
+    from places import caps
+    from places.models import PlaceResolution
+
+    class Service:
+        async def resolve_destination(self, uid, spoken):
+            return PlaceResolution(reason="non conosco ancora nessun luogo")
+
+    monkeypatch.setattr(caps, "_service", lambda runtime: Service())
+
+    async def model_must_not_run(*args):
+        raise AssertionError("A direct departure must not wait for the model")
+
+    sess = ConversationSession(user_id="navigation-test-owner")
+    result = run(run_cognitive_loop(
+        sess=sess,
+        user_message="portami dalla mia posizione al Colosseo",
+        db=object(),
+        decision_fn=model_must_not_run,
+    ))
+    assert result.ok and result.ai_calls == 0 and result.context_calls == 0
+    assert result.tool_calls == 1
+    assert result.navigation[0]["label"] == "Google Maps"
+    assert "Colosseo" in result.ora_text
+    assert get_ai_state(sess)["recent_turns"][-1]["text"] == result.ora_text
