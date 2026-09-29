@@ -261,3 +261,54 @@ def test_download_word_con_e_senza_spiegazioni(ctx):
     assert b"Spiegazione" in __import__("zipfile").ZipFile(__import__("io").BytesIO(r1.content)).read("word/document.xml")
     assert b"Spiegazione" not in __import__("zipfile").ZipFile(__import__("io").BytesIO(r0.content)).read("word/document.xml")
     assert c.get(f"/pratiche/{pid}/atto/{aid}/word").status_code == 200
+
+
+def test_calcoli_da_interfaccia_fino_al_word(ctx):
+    c = entra(ctx)
+    pid = nuova_pratica(c)
+    tok = csrf(c, f"/pratiche/{pid}/calcoli")
+    for et, val, fonte in [("Fatturato 2023", "96.400,00", "fatture, all. 2"), ("Dichiarato 2023", "93.000,00", "rigo LM22, all. 3")]:
+        assert c.post(f"/pratiche/{pid}/calcoli/dato", data={"csrf": tok, "etichetta": et, "valore": val, "fonte": fonte}).status_code == 303
+    assert c.post(f"/pratiche/{pid}/calcoli/dato", data={"csrf": tok, "etichetta": "x", "valore": "abc", "fonte": "f"}).status_code == 400
+    assert c.post(f"/pratiche/{pid}/calcoli/op", data={"csrf": tok, "tipo": "differenza", "etichetta": "Differenza",
+                                                       "operandi": "D1, D2"}).status_code == 303
+    assert c.post(f"/pratiche/{pid}/calcoli/op", data={"csrf": tok, "tipo": "differenza", "etichetta": "Errata",
+                                                       "operandi": "D1, D9"}).status_code == 400
+    assert "3.400,00" in c.get(f"/pratiche/{pid}/calcoli").text
+    ctx.fake_testo = "Differenza di {{IMPORTO:C1}} tra fatturato e dichiarato."
+    tok = csrf(c, f"/pratiche/{pid}/atto/nuovo?fase=avvio")
+    ctx.fake._create_orig = ctx.fake._create
+    def _c(**kw):
+        ctx.fake.richieste.append(kw)
+        return SimpleNamespace(stop_reason="end_turn", model="m", content=[SimpleNamespace(type="text", text=ctx.fake_testo)])
+    ctx.fake.beta.messages.create = _c
+    r = c.post(f"/pratiche/{pid}/atto/nuovo", data={"fase": "avvio", "azione": "genera", "conferma": "1", "appunti": "x",
+                                                   "giornata": "", "csrf": tok})
+    assert r.status_code == 303
+    pagina = c.get(r.headers["location"]).text
+    assert "euro 3.400,00" in pagina and "Calcolo C1" in pagina and "96.400,00" in pagina
+
+
+def test_url_database_normalizzato_e_salute(ctx):
+    from app.config import normalizza_database_url as n
+    assert n("postgres://u:p@h/db") == "postgresql+psycopg://u:p@h/db"
+    assert n("postgresql://u:p@h/db") == "postgresql+psycopg://u:p@h/db"
+    assert n("sqlite:///x.db") == "sqlite:///x.db"
+    assert ctx.c.get("/salute").json() == {"stato": "ok"}
+    from sqlalchemy import create_engine
+    create_engine(n("postgres://u:p@localhost/db"))      # il driver psycopg e' installabile
+
+
+def test_bootstrap_utente_da_variabili(tmp_path, monkeypatch):
+    st = Settings(database_url=f"sqlite:///{tmp_path}/b.db", data_key=security.nuova_chiave_fernet(),
+                  session_secret="y" * 40, https_only=False, anthropic_model="m")
+    SM = crea_sessionmaker(crea_engine(st.database_url))
+    seg = security.nuovo_segreto_totp()
+    monkeypatch.setenv("BOOTSTRAP_PASSWORD_HASH", security.hash_password(PW))
+    monkeypatch.setenv("BOOTSTRAP_TOTP_SECRET", seg)
+    app = create_app(st, SM)
+    create_app(st, SM)                                   # secondo avvio: non crea un secondo utente
+    with SM() as s:
+        assert len(s.scalars(select(Utente)).all()) == 1
+    x = SimpleNamespace(c=TestClient(app, follow_redirects=False), segreto=seg)
+    entra(x)                                             # l'accesso funziona con password + TOTP

@@ -32,25 +32,10 @@ ISTRUZIONI = {
 }
 
 
-def _bootstrap_utente(SM, cif) -> None:
-    """Primo avvio su un server senza terminale: crea l'UNICO utente da due variabili d'ambiente generate in
-    locale con `python -m app.cli prepara-accesso` (hash della password e segreto TOTP; mai la password).
-    Dopo il primo avvio le variabili vanno RIMOSSE. Se esiste gia' un utente non fa nulla."""
-    import os
-    h, t = os.environ.get("BOOTSTRAP_PASSWORD_HASH"), os.environ.get("BOOTSTRAP_TOTP_SECRET")
-    if not (h and t):
-        return
-    with SM() as s:
-        if s.scalar(select(Utente.id)) is None:
-            s.add(Utente(nome="utente", password_hash=h, totp_cifrato=cif.cifra_testo(t)))
-            s.commit()
-
-
 def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=None) -> FastAPI:
     st = settings or Settings.load()
     SM = sessionmaker or crea_sessionmaker(crea_engine(st.database_url))
     cif = security.Cifratore(st.data_key)
-    _bootstrap_utente(SM, cif)
     app = FastAPI(title="Dangerok", docs_url=None, redoc_url=None, openapi_url=None)
     app.add_middleware(SessionMiddleware, secret_key=st.session_secret, max_age=st.session_max_age,
                        same_site="strict", https_only=st.https_only, session_cookie="dgk")

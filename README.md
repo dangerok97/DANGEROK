@@ -32,7 +32,10 @@ python -m app.cli anonimizza atto.docx --persona "Nome Cognome" --ente "Ditta S.
 Produce `atto.anon.docx` e una mappa `*.mappa.json` (**resta in locale, non caricarla**). Si ferma se il file
 contiene immagini/oggetti incorporati. I `.doc` vanno prima convertiti in `.docx`. Controllare sempre a mano.
 
-## Pubblicazione online (da fare)
+## Pubblicazione online
+Guida completa: `docs/PUBBLICAZIONE.md` (Dockerfile e supporto Postgres pronti).
+
+### Note generali
 Serve un hosting con HTTPS obbligatorio, Postgres (`DATABASE_URL`) e i segreti nelle variabili d'ambiente del
 servizio, mai nel repository. Prima di usare dati reali: verificare le regole del proprio Comando sull'uso di
 servizi cloud e di AI esterne. Fino ad allora usare solo dati fittizi.

@@ -42,25 +42,6 @@ def crea_utente(a):
     print("Segreto:", segreto)
 
 
-def prepara_accesso(_):
-    """Genera in locale hash della password e segreto TOTP da incollare come variabili d'ambiente sul server."""
-    pw = getpass.getpass("Password (min. 12 caratteri): ")
-    if len(pw) < 12 or pw != getpass.getpass("Ripeti password: "):
-        sys.exit("Password troppo corta o diversa.")
-    segreto = security.nuovo_segreto_totp()
-    print("\nInquadra il QR con la tua app di autenticazione:")
-    try:
-        import qrcode
-        qr = qrcode.QRCode(border=1)
-        qr.add_data(security.uri_totp(segreto, "utente"))
-        qr.print_ascii(invert=True)
-    except Exception:
-        print("(QR non disponibile) Segreto da inserire a mano:", segreto)
-    print("\nIncolla queste due variabili nel servizio di hosting, avvia, fai il primo accesso e poi RIMUOVILE:")
-    print("BOOTSTRAP_PASSWORD_HASH=" + security.hash_password(pw))
-    print("BOOTSTRAP_TOTP_SECRET=" + segreto)
-
-
 def anonimizza(a):
     from .privacy.docx_tool import OggettiIncorporati, anonimizza_docx, salva_mappa
     from .privacy.pseudonymizer import Pseudonymizer
@@ -95,7 +76,6 @@ def main():
     sp = ap.add_subparsers(dest="cmd", required=True)
     sp.add_parser("genera-chiavi").set_defaults(fn=genera_chiavi)
     c = sp.add_parser("crea-utente"); c.add_argument("--nome", default="utente"); c.set_defaults(fn=crea_utente)
-    sp.add_parser("prepara-accesso").set_defaults(fn=prepara_accesso)
     z = sp.add_parser("anonimizza", help="Anonimizza un .docx in locale")
     z.add_argument("input"); z.add_argument("-o", "--output")
     z.add_argument("--persona", action="append", help="nome e cognome (ripetibile)")
