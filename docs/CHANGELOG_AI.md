@@ -5858,3 +5858,13 @@ Pubblicati backend `1e7515f0` e web `ba7180d5`, entrambi SUCCESS sul commit `1aa
 - Il recupero di una consegna scaduta cancella il piano precedente senza
   giudizio o push; scadenza malformata blocca l'invio e registra errore.
   Suite mirata aggiornata: 30 PASS.
+## 2026-09-29 — P1: partire per arrivare a un'ora esplicita
+
+- Il comando «portami a ... oggi alle HH:MM» porta l'ora nel briefing e
+  lascia al geocoder solo il nome del luogo; funziona anche con «e dimmi il
+  traffico» dopo l'orario.
+- Per un arrivo imminente calcola la partenza dal tempo del percorso e da
+  10 minuti di margine. Arrivi lontani sono indicativi; domani non usa il
+  traffico di oggi come previsione affidabile.
+- 41 test mirati PASS; nessuna schermata fotografata perché il rilascio non è
+  stato consentito dal controllo automatico sulla destinazione del push.

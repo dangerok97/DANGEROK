@@ -183,7 +183,9 @@ async def open_navigation(arguments: Dict[str, Any], runtime: Dict[str, Any]) ->
                 and not resolution.reason.startswith("più luoghi")):
             from places.navigation import search_handoff
 
-            preview = await _public_route_preview(spoken, runtime)
+            preview = await _public_route_preview(
+                spoken, runtime, arrival_request=arguments.get("arrival_request")
+            )
             return _ok("open_navigation", {
                 "ready": True,
                 "destination_unverified": True,
@@ -298,6 +300,7 @@ async def open_navigation(arguments: Dict[str, Any], runtime: Dict[str, Any]) ->
                                         first_route=route, first_mode=requested_mode)
         consiglio, parti_entro = await _when_to_leave(
             runtime["db"], uid, scelte, place, requested_mode,
+            arrival_request=arguments.get("arrival_request"),
         )
         if requested_mode == "drive" and route.get("available"):
             raw_alternatives = route.get("alternatives") or []
@@ -348,7 +351,7 @@ async def open_navigation(arguments: Dict[str, Any], runtime: Dict[str, Any]) ->
     )
 
 
-async def _public_route_preview(name: str, runtime: Dict[str, Any]) -> Dict[str, Any] | None:
+async def _public_route_preview(name: str, runtime: Dict[str, Any], *, arrival_request=None) -> Dict[str, Any] | None:
     """A temporary coordinate lookup, only with a current origin and exact unique name."""
     from places import briefing, routing
     from places.navigation import navigation_url
@@ -387,6 +390,7 @@ async def _public_route_preview(name: str, runtime: Dict[str, Any]) -> Dict[str,
         deadline, _ = await _when_to_leave(
             runtime["db"], runtime["user_id"], choices,
             SimpleNamespace(label=destination["label"], address=destination["context"]),
+            arrival_request=arrival_request,
         )
         if deadline:
             advice = deadline
@@ -490,7 +494,8 @@ async def _how_to_get_there(origin, destination, *, first_route=None, first_mode
     return fuori
 
 
-async def _when_to_leave(db, uid: str, scelte: List[Dict[str, Any]], place, requested_mode="drive"):
+async def _when_to_leave(db, uid: str, scelte: List[Dict[str, Any]], place,
+                         requested_mode="drive", *, arrival_request=None, now_utc=None):
     """
     A che ora conviene partire, solo per un impegno in quel luogo.
 
@@ -507,9 +512,51 @@ async def _when_to_leave(db, uid: str, scelte: List[Dict[str, Any]], place, requ
         from datetime import datetime, timedelta, timezone
         from agenda.service import AgendaService
         from timezone_service import resolve_user_timezone
+        from zoneinfo import ZoneInfo
 
+        now = now_utc or datetime.now(timezone.utc)
+        local = ZoneInfo((await resolve_user_timezone(db, uid)).tz_name)
+        if isinstance(arrival_request, dict) and arrival_request.get("day") in ("oggi", "domani"):
+            from datetime import time
+
+            hour = int(arrival_request["hour"])
+            minute = int(arrival_request["minute"])
+            if not (0 <= hour <= 23 and 0 <= minute <= 59):
+                return "", ""
+            local_day = now.astimezone(local).date()
+            if arrival_request["day"] == "domani":
+                return (
+                    f"Per arrivare domani alle {hour:02d}:{minute:02d}, "
+                    "i tempi e il traffico qui mostrati sono di adesso: "
+                    "non posso indicare ancora un orario di partenza affidabile. "
+                    "Ricontrolla il percorso domani prima di uscire."
+                ), ""
+            target = datetime.combine(local_day, time(hour, minute), tzinfo=local).astimezone(timezone.utc)
+            if target <= now:
+                return f"L'orario di arrivo delle {hour:02d}:{minute:02d} è già passato oggi.", ""
+            partenza = target - timedelta(seconds=consigliato["duration_seconds"], minutes=10)
+            if partenza <= now:
+                return (
+                    f"Per arrivare a «{place.label}» alle {hour:02d}:{minute:02d}, "
+                    "parti ora: il tempo di percorso stimato e 10 minuti di margine "
+                    "superano l'orario prudente di partenza. Ricontrolla il traffico."
+                ), "ora"
+            ora = partenza.astimezone(local).strftime("%H:%M")
+            if target > now + timedelta(minutes=90):
+                return (
+                    f"Per arrivare a «{place.label}» alle {hour:02d}:{minute:02d}, "
+                    f"la partenza indicativa è alle {ora}: "
+                    f"{_minuti(int(consigliato['duration_seconds']))} di percorso {consigliato['label'].lower()} "
+                    "e 10 minuti di margine, usando il traffico di adesso. "
+                    "Ricontrolla prima di uscire: il traffico futuro può cambiare."
+                ), ora
+            return (
+                f"Per arrivare a «{place.label}» alle {hour:02d}:{minute:02d}, "
+                f"parti entro le {ora}: "
+                f"{_minuti(int(consigliato['duration_seconds']))} di percorso stimato {consigliato['label'].lower()} "
+                "e 10 minuti di margine. Ricontrolla il traffico prima di uscire."
+            ), ora
         agenda = await AgendaService(db).days_ahead(uid, days=2)
-        now = datetime.now(timezone.utc)
         matches = []
         for day in agenda.get("days") or []:
             for event in day.get("events") or []:
@@ -532,9 +579,6 @@ async def _when_to_leave(db, uid: str, scelte: List[Dict[str, Any]], place, requ
         margine = timedelta(minutes=10)
         partenza = quando - timedelta(seconds=consigliato["duration_seconds"]) - margine
         titolo = str(primo.get("title") or primo.get("label") or "il tuo impegno")
-        from zoneinfo import ZoneInfo
-
-        local = ZoneInfo((await resolve_user_timezone(db, uid)).tz_name)
         if partenza <= now:
             return (
                 f"Per «{titolo}» alle {quando.astimezone(local).strftime('%H:%M')}, "

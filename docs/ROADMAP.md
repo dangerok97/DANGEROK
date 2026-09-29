@@ -1216,6 +1216,14 @@ e i provider esterni possono modificare la sequenza tecnica.
 | **P6 · Presenza sul telefono** | Ricevere un aiuto quando serve | Chiudere il minimo V3.23: build iPhone installata, posizione e push autorizzati, registrazione token, ricevute/errori di invio, apertura dell'azione, geofencing e riconciliazione dopo kill/relaunch; permessi negati e revocati | Tre prove reali per scenario con app non aperta; evidenza del messaggio ricevuto sul device, tap che apre il contesto giusto, presenza nei luoghi confermati e nessuna promessa di consegna quando il canale non funziona |
 | **P7 · Alpha e consolidamento** | Valore ricorrente per più persone | Gate V4.1 e basi V9–V10: isolamento utenti, revoca, segreti, backup con restore, osservabilità, costi, recovery e prova di 3–5 persone | Almeno sette giorni cloud e di uso reale, scenari ripetuti con app chiusa; beneficio misurato rispetto al lavoro manuale, falsi allarmi e occasioni perse registrati; problemi bloccanti risolti prima di ampliare l'accesso |
 
+**Checkpoint P1, locale:** il comando diretto «portami al Colosseo, devo
+arrivare oggi alle 15:00» porta l'ora di arrivo al calcolo basato sul percorso
+disponibile e 10 minuti di margine. La destinazione non contiene il testo
+dell'orario. Per un arrivo lontano il consiglio è indicativo e avverte che
+il traffico futuro può cambiare; per domani non dichiara un orario affidabile.
+41 test mirati PASS. Mancano verifica web/app dopo rilascio, avviso proattivo
+e ricalcolo prima della partenza: P1 non è chiusa.
+
 **Tagli verticali.** P1–P3 riusano lo stesso ciclo di autorità, stato ed
 evidenze; niente nuovo motore generale per ogni dominio. P4 inizia con
 consenso e osservazioni, ma non promette suggerimenti personalizzati prima di

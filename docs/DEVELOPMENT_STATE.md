@@ -4502,3 +4502,10 @@ Non eseguito sul database cloud in questo checkpoint.
 Guardia aggiuntiva: delivery arretrata oltre `valid_until` non viene valutata
 né inviata; data illeggibile ritenta e poi si ferma con errore osservabile.
 Suite mirata aggiornata: 30 PASS.
+## 29 settembre 2026 — P1 orario di arrivo esplicito (locale)
+
+Comando di navigazione con ora esplicita, anche seguito da richiesta di
+traffico, porta l'orario fino al briefing senza contaminarne il luogo. Calcolo
+basato su tempo di percorso e margine; limite dichiarato per traffico futuro.
+41 test mirati PASS, incluso passaggio attraverso il fast path della chat.
+Non ancora pubblicato né verificato nella UI reale.

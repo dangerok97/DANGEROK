@@ -1782,3 +1782,11 @@ non ogni situazione diventa una notifica. Verifica locale: 27 test mirati PASS;
 consegna cloud e telefono non ancora provati per questa modifica.
 Un audit interno mostra soltanto quanti lavori sono in attesa, conclusi o
 fermi; nessun contenuto personale entra nel rapporto.
+## 29 settembre 2026 — Orario di arrivo esplicito nella navigazione (locale)
+
+«Portami al Colosseo, devo arrivare oggi alle 15:00» separa il luogo
+dall'orario richiesto e mostra quando partire usando il tempo di percorso
+disponibile e 10 minuti di margine. Se l'orario è lontano, ORA lo chiama
+indicativo perché il traffico futuro non è conosciuto; per domani chiede di
+ricontrollare. Sono 41 test mirati PASS. La resa nell'app distribuita e un
+avviso spontaneo prima di uscire non sono ancora verificati.

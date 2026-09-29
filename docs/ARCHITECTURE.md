@@ -3716,3 +3716,13 @@ segreti. Nessuna nuova collection, API pubblica o job periodico.
 Prima del giudizio di consegna il consumer controlla `valid_until`: una fonte
 scaduta chiude l'intenzione di notificare; un valore invalido non diventa un
 permesso implicito a inviare, ma segue il retry tecnico limitato.
+## 29 settembre 2026 — Ora di arrivo in un comando di navigazione
+
+Il fast path di `conversation_engine.ai_core.loop` estrae un suffisso
+esplicito «oggi/domani alle HH:MM», lo esclude dal nome del luogo e lo passa
+come `arrival_request` al cap di navigazione. `places.caps._when_to_leave`
+usa fuso orario della persona, durata del percorso richiesto e margine
+esplicito. Oltre 90 minuti non spaccia il traffico attuale per previsione;
+per domani non calcola una partenza affidabile. Il percorso navigabile resta
+un handoff alla mappa scelta, che può ricalcolarlo. Nessun nuovo provider,
+permesso o dato persistente. Verifica live aperta.

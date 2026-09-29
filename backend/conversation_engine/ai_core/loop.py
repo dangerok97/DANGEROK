@@ -220,6 +220,28 @@ _NAVIGATION_COMMAND_RE = re.compile(
     r"(?i)^\s*(?:portami|accompagnami|guidami|naviga|avvia\s+(?:la\s+)?navigazione)"
     r"(?:\s+dalla\s+mia\s+posizione)?\s+(?:a|al|alla|allo|all['’]|il|la|lo|l['’]|verso|fino\s+a)\s+(.+?)\s*[.!?]?\s*$"
 )
+_ARRIVAL_TAIL_RE = re.compile(
+    r"(?i)(?:,\s*(?:devo|voglio)\s+arrivare\s+|\s+)"
+    r"(?:(oggi|domani)\s+)?(?:entro\s+le|alle)\s+"
+    r"([01]?\d|2[0-3])(?::([0-5]\d))?\s*[.!?]?\s*$"
+)
+
+
+def _arrival_request(message: str) -> dict:
+    """Only an explicit time in a direct departure command, never a guess."""
+    match = _NAVIGATION_COMMAND_RE.match(message or "")
+    tail = _ARRIVAL_TAIL_RE.search(_navigation_subject(match.group(1))) if match else None
+    if not tail:
+        return {}
+    return {"day": (tail.group(1) or "oggi").lower(),
+            "hour": int(tail.group(2)), "minute": int(tail.group(3) or 0)}
+
+
+def _navigation_subject(raw: str) -> str:
+    return re.split(
+        r"(?i)(?:\s*,?\s+e\s+|\s*,\s*)(?:dimmi|mostrami|indicami|confronta|controlla|verifica|spiegami|fammi\s+sapere)\b",
+        raw, maxsplit=1,
+    )[0].strip(" ,.!?")
 
 
 def _navigation_destination(message: str) -> str:
@@ -230,10 +252,8 @@ def _navigation_destination(message: str) -> str:
     # One utterance can ask to be taken somewhere AND ask for the briefing.
     # Keep the place name, but do not pass "e dimmi traffico..." to Maps or
     # a geocoder as if it were part of the address.
-    destination = re.split(
-        r"(?i)(?:\s*,?\s+e\s+|\s*,\s*)(?:dimmi|mostrami|indicami|confronta|controlla|verifica|spiegami|fammi\s+sapere)\b",
-        destination, maxsplit=1,
-    )[0].strip(" ,.!?")
+    destination = _navigation_subject(destination)
+    destination = _ARRIVAL_TAIL_RE.sub("", destination).strip(" ,.!?")
     return re.sub(r"(?i)\s+per\s+favore$", "", destination)[:160]
 
 
@@ -249,7 +269,10 @@ async def _ensure_navigation(observations, turn_start: int, message: str, db, ui
     else:
         from places.caps import open_navigation
 
-        obs = await open_navigation({"destination": destination}, {"db": db, "user_id": uid, "platform": "web"})
+        obs = await open_navigation(
+            {"destination": destination, "arrival_request": _arrival_request(message)},
+            {"db": db, "user_id": uid, "platform": "web"},
+        )
         observations.append(obs.model_dump())
         payload = obs.payload or {}
     return str(payload.get("say_this") or payload.get("why") or "")
