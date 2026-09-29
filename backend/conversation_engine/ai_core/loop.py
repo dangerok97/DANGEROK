@@ -218,7 +218,7 @@ _PHONE_CAPABILITY = "prepare_a_phone_call"
 # calling the capability. Questions about routes and durations remain with AI.
 _NAVIGATION_COMMAND_RE = re.compile(
     r"(?i)^\s*(?:portami|accompagnami|guidami|naviga|avvia\s+(?:la\s+)?navigazione)"
-    r"(?:\s+dalla\s+mia\s+posizione)?\s+(?:a|al|alla|allo|all['’]|verso|fino\s+a)\s+(.+?)\s*[.!?]?\s*$"
+    r"(?:\s+dalla\s+mia\s+posizione)?\s+(?:a|al|alla|allo|all['’]|il|la|lo|l['’]|verso|fino\s+a)\s+(.+?)\s*[.!?]?\s*$"
 )
 
 
@@ -226,7 +226,15 @@ def _navigation_destination(message: str) -> str:
     match = _NAVIGATION_COMMAND_RE.match(message or "")
     if not match:
         return ""
-    return re.sub(r"(?i)\s+per\s+favore$", "", match.group(1).strip(" .!?"))[:160]
+    destination = match.group(1).strip(" .!?")
+    # One utterance can ask to be taken somewhere AND ask for the briefing.
+    # Keep the place name, but do not pass "e dimmi traffico..." to Maps or
+    # a geocoder as if it were part of the address.
+    destination = re.split(
+        r"(?i)(?:\s*,?\s+e\s+|\s*,\s*)(?:dimmi|mostrami|indicami|confronta|controlla|verifica|spiegami|fammi\s+sapere)\b",
+        destination, maxsplit=1,
+    )[0].strip(" ,.!?")
+    return re.sub(r"(?i)\s+per\s+favore$", "", destination)[:160]
 
 
 async def _ensure_navigation(observations, turn_start: int, message: str, db, uid: str) -> str:

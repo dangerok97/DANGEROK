@@ -50,6 +50,9 @@ def test_public_destination_prepares_traffic_without_saving_place(monkeypatch):
         freshness = "CURRENT"
         latitude = 42.25
         longitude = 11.75
+        source = "foreground_device"
+        acquisition_error = None
+        last_seen_at = __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat()
 
     async def presence(self, uid):
         return Presence()
@@ -88,6 +91,23 @@ def test_public_destination_prepares_traffic_without_saving_place(monkeypatch):
     assert obs.payload["route_provider"] == "mapbox"
     assert parse_qs(urlparse(obs.payload["url"]).query)["destination"] == ["41.89,12.49"]
     assert "Roma, Italia" in obs.payload["say_this"]
+
+
+def test_navigation_origin_requires_fix_from_this_departure():
+    from datetime import datetime, timedelta, timezone
+    from types import SimpleNamespace
+    from places.caps import _navigation_origin
+
+    now = datetime.now(timezone.utc)
+    presence = SimpleNamespace(freshness="CURRENT", latitude=42.25, longitude=11.75,
+                               source="foreground_device", acquisition_error=None,
+                               last_seen_at=(now - timedelta(seconds=20)).isoformat())
+    assert _navigation_origin(presence) == {"latitude": 42.25, "longitude": 11.75}
+    presence.last_seen_at = (now - timedelta(minutes=4)).isoformat()
+    assert _navigation_origin(presence) is None
+    presence.last_seen_at = now.isoformat()
+    presence.acquisition_error = "timeout"
+    assert _navigation_origin(presence) is None
 
 
 def test_public_search_requires_unique_exact_match(monkeypatch):
@@ -174,6 +194,12 @@ def test_navigation_rescue_produces_link_when_model_skips_tool(monkeypatch):
     observations = []
     message = "portami dalla mia posizione al colosseo"
     assert loop._navigation_destination(message) == "colosseo"
+    assert loop._navigation_destination(
+        "Portami al Colosseo e dimmi traffico, alternative e meteo lungo il percorso."
+    ) == "Colosseo"
+    assert loop._navigation_destination("Portami a Via Roma e mostrami il meteo") == "Via Roma"
+    assert loop._navigation_destination("Portami a Castiglione della Pescaia, dimmi quando partire") == "Castiglione della Pescaia"
+    assert loop._navigation_destination("portami il Colosseo") == "Colosseo"
     response = run(loop._ensure_navigation(observations, 0, message, object(), "u"))
     assert "Google Maps" in response
     assert len(loop._navigation_options(observations)) == 1

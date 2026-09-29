@@ -974,6 +974,37 @@ function OraConversationBody({
           return;
         }
 
+        // A direct departure is answered by the backend's fast path. Refresh
+        // the browser's actual position before that request, with the same ORA
+        // consent used by the ordinary location capability. The map handoff
+        // still works if permission or geolocation is unavailable.
+        if (Platform.OS === 'web' && /^\s*(?:portami|accompagnami|guidami|naviga|avvia\s+(?:la\s+)?navigazione)\b/i.test(msg)) {
+          try {
+            const preference = await api.locationGetPreference();
+            const allowed = preference.mode === 'while_using' || await askLocationPreference();
+            if (allowed) {
+              if (preference.mode !== 'while_using') await api.locationSetPreference('while_using');
+              setWorkingHint('Sto verificando la tua posizione…');
+              const position = await requestForegroundPosition({ timeoutMs: 12000, maximumAgeMs: 0 });
+              if (position.ok) {
+                await api.locationPostSignal({
+                  latitude: position.latitude,
+                  longitude: position.longitude,
+                  accuracy_meters: position.accuracyMeters,
+                  session_id: sessionId || undefined,
+                  reverse_geocode: true,
+                });
+              } else {
+                await api.locationPermissionOutcome(position.reason === 'denied' ? 'denied' : 'unavailable').catch(() => null);
+              }
+            } else {
+              await api.locationPermissionOutcome('denied').catch(() => null);
+            }
+          } catch {
+            // A map link remains actionable when the location bridge fails.
+          }
+        }
+
         let res: AiCoreRes;
         if (!sessionId) {
           // Need a session before attaching file-only; start with text or placeholder
@@ -1062,6 +1093,7 @@ function OraConversationBody({
       answerInThread,
       applyAiCoreResponse,
       applyTurns,
+      askLocationPreference,
     ],
   );
 

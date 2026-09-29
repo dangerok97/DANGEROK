@@ -242,9 +242,7 @@ async def open_navigation(arguments: Dict[str, Any], runtime: Dict[str, Any]) ->
         from location.service import LocationService
 
         presence = await LocationService(runtime["db"]).build_presence(uid)
-        if (presence and presence.freshness == "CURRENT"
-                and presence.latitude is not None and presence.longitude is not None):
-            origin = {"latitude": presence.latitude, "longitude": presence.longitude}
+        origin = _navigation_origin(presence)
     except Exception:
         origin = None
 
@@ -361,10 +359,9 @@ async def _public_route_preview(name: str, runtime: Dict[str, Any]) -> Dict[str,
         from location.service import LocationService
 
         presence = await LocationService(runtime["db"]).build_presence(runtime["user_id"])
-        if (not presence or presence.freshness != "CURRENT"
-                or presence.latitude is None or presence.longitude is None):
+        origin = _navigation_origin(presence)
+        if origin is None:
             return None
-        origin = {"latitude": presence.latitude, "longitude": presence.longitude}
         destination = await preview_destination(name, origin)
         if not destination:
             return None
@@ -393,6 +390,27 @@ async def _public_route_preview(name: str, runtime: Dict[str, Any]) -> Dict[str,
     except Exception as e:
         logger.info("public route preview soft-fail: %s", type(e).__name__)
         return None
+
+
+def _navigation_origin(presence) -> Dict[str, float] | None:
+    """Only a device fix from this departure, never a five-minute-old sighting."""
+    from datetime import datetime, timedelta, timezone
+
+    if (not presence or presence.freshness != "CURRENT"
+            or presence.latitude is None or presence.longitude is None
+            or presence.acquisition_error or presence.source not in ("foreground_device", "background_device")
+            or not presence.last_seen_at):
+        return None
+    try:
+        observed = datetime.fromisoformat(presence.last_seen_at.replace("Z", "+00:00"))
+        if observed.tzinfo is None:
+            return None
+        age = datetime.now(timezone.utc) - observed.astimezone(timezone.utc)
+        if not timedelta(seconds=-5) <= age <= timedelta(seconds=120):
+            return None
+    except (ValueError, TypeError):
+        return None
+    return {"latitude": presence.latitude, "longitude": presence.longitude}
 
 
 def _mapbox_enabled() -> bool:
