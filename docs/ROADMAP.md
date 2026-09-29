@@ -1190,6 +1190,9 @@ dopo un arresto. Stato, esito, errori e tentativi restano osservabili. Test
 mirati con cinque opportunità, aggiornamento, due worker e provider
 indisponibile: 27 PASS insieme alle regressioni adiacenti. Restano da provare
 Mongo/cloud, invio su dispositivo e la matrice P0 completa; non è P0 chiusa.
+Una diagnostica di soli conteggi distingue ora delivery pending/settled/paused,
+record storici senza stato, admission dell'agente, goal e wake: non stampa
+testi, ID né credenziali. Verifica locale complessiva aggiornata: 28 PASS.
 
 Questa sequenza rende verificabile il beneficio per la persona. Non sostituisce
 i gate di V4, V3.23 e V4.1. Prima si provano i risultati e le azioni con le

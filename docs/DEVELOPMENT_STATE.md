@@ -4496,3 +4496,6 @@ persistente, lease, revision fence, retry e stato consultabile. Recovery
 limitato nel runtime ambient. 27 test mirati PASS; una suite ambient estesa
 richiede Mongo locale, non presente nel checkout. Nessun rilascio cloud o
 screenshot di interfaccia: lo step non modifica schermate.
+Secondo step P0: audit read-only a soli conteggi per active/pending/settled/
+paused/legacy, goal e wake, con filtro account opzionale; 28 test mirati PASS.
+Non eseguito sul database cloud in questo checkpoint.

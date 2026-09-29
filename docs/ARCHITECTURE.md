@@ -3708,3 +3708,8 @@ passaggio; la lane esistente di `ambient.runtime` recupera il resto. Non c'è un
 nuovo scheduler né una promozione automatica a push: il giudizio resta nel
 servizio delivery. I record storici senza due non vengono rianalizzati in
 massa. Verifica Mongo/cloud e device ancora aperta.
+`ambient.audit.pipeline_counts` usa query di conteggio sulle collection
+esistenti, con filtro proprietario opzionale. Lo script
+`backend/scripts/audit_ambient_pipeline.py` richiede URL e DB da environment,
+ma non stampa identificatori, testi o eccezioni di connessione contenenti
+segreti. Nessuna nuova collection, API pubblica o job periodico.

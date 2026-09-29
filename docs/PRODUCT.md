@@ -1780,3 +1780,5 @@ sono trattate subito e le altre nei cicli successivi, senza chiedere di aprire
 Home o chat. Restano in vigore silenzio, limiti alle interruzioni e permessi:
 non ogni situazione diventa una notifica. Verifica locale: 27 test mirati PASS;
 consegna cloud e telefono non ancora provati per questa modifica.
+Un audit interno mostra soltanto quanti lavori sono in attesa, conclusi o
+fermi; nessun contenuto personale entra nel rapporto.
