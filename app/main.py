@@ -14,15 +14,25 @@ from sqlalchemy import select
 from starlette.middleware.sessions import SessionMiddleware
 
 from . import ai as ai_mod
-from . import atti_word, calcoli, invito_word, llm_compat, norme, scheda_ai, piano as piano_mod, schede, security, tipologie, workflow, wordexport
+from . import atti_word, calcoli, pvoc as pvoc_mod, invito_word, llm_compat, norme, scheda_ai, piano as piano_mod, schede, security, tipologie, workflow, wordexport
 from .config import Settings
 from .db import crea_engine, crea_sessionmaker
 from .models import Atto, FasePratica, FonteNormativa, Impostazione, LogAI, Pratica, Utente
 
 BASE = pathlib.Path(__file__).parent
 ISTRUZIONI = {
-    "PVOC": "Redigi la bozza del processo verbale di operazioni compiute per la giornata indicata, "
-            "per la fase indicata, seguendo la struttura e il lessico del Reparto.",
+    "PVOC": "Redigi il processo verbale di operazioni compiute per la giornata indicata (giornata SUCCESSIVA alla prima), "
+            "per la fase indicata. Struttura OBBLIGATORIA, senza inventare titoletti ne' sezioni: (1) apertura \"Il giorno "
+            "[data], alle ore [ora], in Tarquinia (VT), presso gli uffici del Reparto operante, viene riaperto il processo "
+            "verbale relativo alle operazioni di controllo intraprese in data [data primo giorno] nei confronti della "
+            "[parte], per far constatare che i sottoscritti militari verbalizzanti:\"; (2) elenco dei verbalizzanti, uno "
+            "per riga con \"- \"; (3) \"hanno ripreso le operazioni di controllo senza la presenza della parte.\" (o con "
+            "la parte, se presente); (4) riga in MAIUSCOLO \"OPERAZIONI DI CONTROLLO ESEGUITE NEL GIORNO gg.mm.aaaa\"; "
+            "(5) titolo dell'attivita' svolta (una sola) e descrizione in prosa formale; (6) chiusura: \"Il presente atto che "
+            "si compone di n. [X] foglio/fogli, viene redatto in due esemplari di cui uno verra' consegnato alla parte alla "
+            "prima favorevole occasione.\", \"Le operazioni come sopra descritte si sono concluse alle ore [ora] circa di "
+            "oggi stesso.\", \"Fatto, letto e chiuso in data e luogo come sopra, viene confermato e sottoscritto dai soli "
+            "verbalizzanti.\" e la riga \"I VERBALIZZANTI\". Non scrivere il paragrafo di apertura del primo giorno.",
     "PVV": "Redigi la bozza del processo verbale di verifica per la giornata indicata, "
            "per la fase indicata, seguendo la struttura e il lessico del Reparto.",
     "PVC": "Redigi la bozza del processo verbale di constatazione (Vol. IV, Allegato 19) con le sezioni "
@@ -490,6 +500,8 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
             raise HTTPException(400, "Questa fase non prevede un atto")
         if f.atto == "INVITO":
             return RedirectResponse(f"/pratiche/{pid}/invito", status_code=303)
+        if f.atto == "PVOC" and f.chiave == "avvio":
+            return RedirectResponse(f"/pratiche/{pid}/pvoc-primo", status_code=303)
         return render(request, "atto_nuovo.html", p=p, f=f, anteprima=None, appunti="", giornata="",
                       errore=None, bozza=None)
 
@@ -536,6 +548,42 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
         except ai_mod.AIRifiutata as e:
             ctx["errore"] = str(e)
         return render(request, "atto_nuovo.html", **ctx)
+
+    def pvoc_primo_iniziale(p: Pratica, d: dict) -> dict:
+        sog = d.get("soggetto", {})
+        persone, enti = sog.get("persone", []), sog.get("enti", [])
+        base = {k: "" for k in pvoc_mod.CAMPI}
+        base.update({"titolo": "Il Sig.", "tributo": "I.V.A.",
+                     "denominazione": (enti[0] if enti else (persone[0] if persone else "")),
+                     "rappresentante": persone[0] if persone else "", "luogo": (sog.get("indirizzi") or [""])[0],
+                     "residenza": (sog.get("indirizzi") or [""])[0], "cf": (sog.get("codici_fiscali") or [""])[0],
+                     "piva": (sog.get("partite_iva") or [""])[0],
+                     "ragione": d.get("profilo", {}).get("ragione", "")})
+        return {**base, **d.get("pvoc_primo", {})}
+
+    @app.get("/pratiche/{pid}/pvoc-primo", response_class=HTMLResponse)
+    def pvoc_primo_form(request: Request, pid: int, u=Depends(utente_corrente), s=Depends(db)):
+        p = carica(s, pid)
+        d = dati_di(p)
+        return render(request, "pvoc_primo.html", p=p, v=pvoc_primo_iniziale(p, d), verbalizzanti=d.get("verbalizzanti", []))
+
+    @app.post("/pratiche/{pid}/pvoc-primo")
+    async def pvoc_primo_crea(request: Request, pid: int, u=Depends(utente_corrente), s=Depends(db)):
+        f = await request.form()
+        check_csrf(request, f.get("csrf", ""))
+        p = carica(s, pid)
+        d = dati_di(p)
+        dati = {k: str(f.get(k, "")).strip() for k in pvoc_mod.CAMPI}
+        dati["ivi"] = bool(f.get("ivi"))
+        d["pvoc_primo"] = dati
+        salva_dati(p, d)
+        testo = pvoc_mod.primo_giorno(dati, d.get("verbalizzanti", []),
+                                      impresa=d.get("profilo", {}).get("forma", "impresa") == "impresa")
+        a = Atto(pratica_id=p.id, tipo="PVOC", fase="avvio", giornata=dati["data"], generato_da_ai=0,
+                 contenuto_cifrato=cif.cifra_testo(testo))
+        s.add(a)
+        s.commit()
+        return RedirectResponse(f"/pratiche/{pid}/atto/{a.id}", status_code=303)
 
     @app.get("/pratiche/{pid}/atto/{aid}", response_class=HTMLResponse)
     def atto_vista(request: Request, pid: int, aid: int, u=Depends(utente_corrente), s=Depends(db)):

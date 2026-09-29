@@ -148,8 +148,8 @@ def test_scheda_salvataggio(ctx):
 def test_ai_invia_solo_dati_pseudonimizzati_e_ripristina(ctx):
     c = entra(ctx)
     pid = nuova_pratica(c)
-    tok = csrf(c, f"/pratiche/{pid}/atto/nuovo?fase=avvio")
-    base = {"fase": "avvio", "appunti": "Il Sig. Mario Rossi ha esibito le fatture. Alfa Costruzioni S.r.l. presente.",
+    tok = csrf(c, f"/pratiche/{pid}/atto/nuovo?fase=controllo_contabile")
+    base = {"fase": "controllo_contabile", "appunti": "Il Sig. Mario Rossi ha esibito le fatture. Alfa Costruzioni S.r.l. presente.",
             "giornata": "01/01/2026", "csrf": tok}
     r = c.post(f"/pratiche/{pid}/atto/nuovo", data={**base, "azione": "anteprima"})
     assert "[PERSONA_1]" in r.text and "Rossi" not in r.text.split("Testo che sara")[1]
@@ -172,9 +172,9 @@ def test_ai_invia_solo_dati_pseudonimizzati_e_ripristina(ctx):
 def test_email_non_in_anagrafica_viene_sostituita(ctx):
     c = entra(ctx)
     pid = nuova_pratica(c)
-    tok = csrf(c, f"/pratiche/{pid}/atto/nuovo?fase=avvio")
+    tok = csrf(c, f"/pratiche/{pid}/atto/nuovo?fase=controllo_contabile")
     r = c.post(f"/pratiche/{pid}/atto/nuovo", data={
-        "fase": "avvio", "azione": "genera", "conferma": "1", "giornata": "", "csrf": tok,
+        "fase": "controllo_contabile", "azione": "genera", "conferma": "1", "giornata": "", "csrf": tok,
         "appunti": "Scrivere a terzo@esempio.it per il documento."})
     assert r.status_code == 303
     inviato = ctx.fake.richieste[0]["messages"][0]["content"]
@@ -187,9 +187,9 @@ def test_blocco_invio_se_il_filtro_lascia_residui(ctx, monkeypatch):
     monkeypatch.setattr(Pseudonymizer, "anonimizza", lambda self, t: t)
     c = entra(ctx)
     pid = nuova_pratica(c)
-    tok = csrf(c, f"/pratiche/{pid}/atto/nuovo?fase=avvio")
+    tok = csrf(c, f"/pratiche/{pid}/atto/nuovo?fase=controllo_contabile")
     r = c.post(f"/pratiche/{pid}/atto/nuovo", data={
-        "fase": "avvio", "azione": "genera", "conferma": "1", "giornata": "", "csrf": tok, "appunti": "Mario Rossi"})
+        "fase": "controllo_contabile", "azione": "genera", "conferma": "1", "giornata": "", "csrf": tok, "appunti": "Mario Rossi"})
     assert "BLOCCATO" in r.text and not ctx.fake.richieste
     with ctx.SM() as s:
         assert s.scalars(select(LogAI)).all()[-1].esito == "bloccato"
@@ -202,8 +202,8 @@ def test_ai_disattivata_senza_chiave(ctx, monkeypatch):
     x = SimpleNamespace(c=c, segreto=ctx.segreto)
     entra(x)
     pid = nuova_pratica(c)
-    tok = csrf(c, f"/pratiche/{pid}/atto/nuovo?fase=avvio")
-    r = c.post(f"/pratiche/{pid}/atto/nuovo", data={"fase": "avvio", "azione": "genera", "conferma": "1",
+    tok = csrf(c, f"/pratiche/{pid}/atto/nuovo?fase=controllo_contabile")
+    r = c.post(f"/pratiche/{pid}/atto/nuovo", data={"fase": "controllo_contabile", "azione": "genera", "conferma": "1",
                                                      "appunti": "x", "giornata": "", "csrf": tok})
     assert "disattivato" in r.text
 
@@ -280,13 +280,13 @@ def test_calcoli_da_interfaccia_fino_al_word(ctx):
                                                        "operandi": "D1, D9"}).status_code == 400
     assert "3.400,00" in c.get(f"/pratiche/{pid}/calcoli").text
     ctx.fake_testo = "Differenza di {{IMPORTO:C1}} tra fatturato e dichiarato."
-    tok = csrf(c, f"/pratiche/{pid}/atto/nuovo?fase=avvio")
+    tok = csrf(c, f"/pratiche/{pid}/atto/nuovo?fase=controllo_contabile")
     ctx.fake._create_orig = ctx.fake._create
     def _c(**kw):
         ctx.fake.richieste.append(kw)
         return SimpleNamespace(stop_reason="end_turn", model="m", content=[SimpleNamespace(type="text", text=ctx.fake_testo)])
     ctx.fake.beta.messages.create = _c
-    r = c.post(f"/pratiche/{pid}/atto/nuovo", data={"fase": "avvio", "azione": "genera", "conferma": "1", "appunti": "x",
+    r = c.post(f"/pratiche/{pid}/atto/nuovo", data={"fase": "controllo_contabile", "azione": "genera", "conferma": "1", "appunti": "x",
                                                    "giornata": "", "csrf": tok})
     assert r.status_code == 303
     pagina = c.get(r.headers["location"]).text
@@ -467,3 +467,24 @@ def test_risposta_ai_vuota_non_crea_un_atto():
                     return SimpleNamespace(stop_reason="max_tokens", model="x", content=[SimpleNamespace(type="text", text="PROCESSO VERBALE DI OPERAZIONI COMPIUTE")])
     with pytest.raises(ai_mod.AIRifiutata):
         ai_mod.genera_bozza(Pseudonymizer(), istruzione="i", contesto="c", checklist=[], client=Vuoto())
+
+
+def test_pvoc_primo_giorno_da_interfaccia_senza_ai(ctx):
+    import io
+    import docx
+    c = entra(ctx)
+    pid = nuova_pratica(c)
+    r = c.get(f"/pratiche/{pid}/atto/nuovo?fase=avvio")
+    assert r.status_code == 303 and r.headers["location"] == f"/pratiche/{pid}/pvoc-primo"
+    assert "PVOC del primo giorno" in c.get(f"/pratiche/{pid}/pvoc-primo").text
+    tok = csrf(c, f"/pratiche/{pid}/pvoc-primo")
+    r = c.post(f"/pratiche/{pid}/pvoc-primo", data={"csrf": tok, "data": "10/10/2023", "ora_presentazione": "09:00",
+                                                    "documenti": "fatture di vendita 2023"})
+    assert r.status_code == 303
+    loc = r.headers["location"]
+    assert "/atto/" in loc
+    w = c.get(loc + "/word?spiegazioni=0")
+    d = docx.Document(io.BytesIO(w.content))
+    t = "\n".join(p.text for p in d.paragraphs)
+    assert "Il giorno 10/10/2023 in Tarquinia" in t and "alle ore 09:00" in t and "-\tfatture di vendita 2023" in t
+    assert "Fatto, letto e chiuso in data e luogo come sopra, viene confermato e sottoscritto." in t

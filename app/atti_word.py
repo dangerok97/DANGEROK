@@ -42,7 +42,7 @@ FORMATI = {
 _RE_TITOLO = re.compile(r"^\s*PROCESSO VERBALE\b", re.I)
 _RE_TITOLO_PREFISSO = re.compile(r"^\s*PROCESSO VERBALE(?: DI [A-ZÀ-Ü' ]+?)?(?=\s+[A-Z][a-zà-ü]|\s*[:\-–.]|\s*$)[\s:\-–.]*")
 _RE_FIRME = re.compile(r"^\s*I VERBALIZZANTI\b")
-_RE_ELENCO = re.compile(r"^\s*(?:[-•–]\s+)(.*)$")
+_RE_ELENCO = re.compile(r"^\s*(--|-|•|–|\+)\s+(.*)$")
 
 
 def _logo() -> bytes:
@@ -82,12 +82,19 @@ def _campo(par, istruzione: str, **fmt):
 
 def _riga(par, testo: str, con_spiegazioni: bool, size=12, bold=False, italic=False):
     """Scrive il testo nel paragrafo applicando giallo (spiegazioni) e turchese (dati da compilare)."""
+    grassetto = False                                        # **testo** = grassetto (anche a cavallo dei segmenti)
     for t, k in wordexport.segmenti(testo, con_spiegazioni):
-        r = _font(par.add_run(t), size=size, bold=bold or None, italic=True if (k == "spiega" or italic) else None)
-        if k == "spiega":
-            r.font.highlight_color = WD_COLOR_INDEX.YELLOW
-        elif k == "dacomp":
-            r.font.highlight_color = WD_COLOR_INDEX.TURQUOISE
+        for i, parte in enumerate(t.split("**") if k != "spiega" else [t]):
+            if i:
+                grassetto = not grassetto
+            if not parte:
+                continue
+            r = _font(par.add_run(parte), size=size, bold=(bold or grassetto) or None,
+                      italic=True if (k == "spiega" or italic) else None)
+            if k == "spiega":
+                r.font.highlight_color = WD_COLOR_INDEX.YELLOW
+            elif k == "dacomp":
+                r.font.highlight_color = WD_COLOR_INDEX.TURQUOISE
 
 
 def _par(d, allineamento=AL.JUSTIFY, prima=6, dopo=None, rientro=None, sporgente=None):
@@ -162,7 +169,7 @@ def crea_atto(tipo: str, testo: str, *, con_spiegazioni: bool = True, data: str 
     titolo_visto = not fmt["titolo"]
     elenco_militari = False                                 # righe dopo VERBALIZZANTI: nominativi centrati
     for riga in righe:
-        r = re.sub(r"^\s*#{1,6}\s+", "", riga.replace("\r", "")).replace("**", "").rstrip()   # niente resti di markdown
+        r = re.sub(r"^\s*#{1,6}\s+", "", riga.replace("\r", "")).rstrip()   # niente titoli markdown
         if not r.strip():
             _par(d, prima=6)
             continue
@@ -176,16 +183,26 @@ def crea_atto(tipo: str, testo: str, *, con_spiegazioni: bool = True, data: str 
                 continue
             nudo = wordexport.pulisci(r).strip()
         if _RE_FIRME.match(nudo):
+            colonne = [c.strip() for c in re.split(r"\s{2,}|\t+", nudo) if c.strip()]
+            posizioni = {1: [3.5], 2: [3.5, 13.0], 3: [3.5, 9.0, 14.25]}.get(len(colonne), [3.5, 13.0])
             p = _par(d, AL.LEFT, prima=18)
-            p.paragraph_format.tab_stops.add_tab_stop(Cm(3.5), WD_TAB_ALIGNMENT.CENTER)
-            p.paragraph_format.tab_stops.add_tab_stop(Cm(13.0), WD_TAB_ALIGNMENT.CENTER)
-            _font(p.add_run("\tI VERBALIZZANTI\tLA PARTE"), size=12, bold=True)
+            for x in posizioni:
+                p.paragraph_format.tab_stops.add_tab_stop(Cm(x), WD_TAB_ALIGNMENT.CENTER)
+            _font(p.add_run("".join("\t" + c for c in colonne)), size=12)
             continue
         m = _RE_ELENCO.match(r)
         if m:
-            p = _par(d, rientro=1.0, sporgente=0.5)
-            _riga(p, "•\t" + m.group(1), con_spiegazioni)
-            p.paragraph_format.tab_stops.add_tab_stop(Cm(1.0))
+            seg, corpo = m.group(1), m.group(2)
+            if seg == "+":                                   # capoverso rientrato, senza trattino
+                _riga(_par(d, rientro=0.635), corpo, con_spiegazioni)
+            elif seg == "--":                                # sotto-punto (come gli elenchi annidati degli atti)
+                p = _par(d, rientro=1.386, sporgente=0.635)
+                p.paragraph_format.tab_stops.add_tab_stop(Cm(1.386))
+                _riga(p, "\t" + corpo, con_spiegazioni)
+            else:
+                p = _par(d, rientro=0.635, sporgente=0.635)
+                p.paragraph_format.tab_stops.add_tab_stop(Cm(0.635))
+                _riga(p, "-\t" + corpo, con_spiegazioni)
             continue
         if nudo.isupper() and 3 <= len(nudo) <= 90 and not re.search(r"\d{3,}", nudo):
             centrato = nudo.startswith("VERBALIZZANTI") or nudo == "OPERAZIONI DI CONTROLLO ESEGUITE NEL GIORNO"

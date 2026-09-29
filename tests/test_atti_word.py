@@ -67,3 +67,21 @@ def test_markdown_ripulito():
     d = docx.Document(io.BytesIO(atti_word.crea_atto("PVV", "## **FATTO**\nTesto con **grassetto**.")))
     t = "\n".join(p.text for p in d.paragraphs)
     assert "**" not in t and "##" not in t and "FATTO" in t
+
+
+def test_pvoc_primo_giorno_struttura_e_formato():
+    from app import pvoc
+    t = pvoc.primo_giorno({"data": "06/03/2026", "denominazione": "Rossi Mario", "cf": "RSSMRA80A01H501U", "assistente": "la dott.ssa X"},
+                          ["Ten. Uno UNO", "Mar. Due DUE"])
+    d = docx.Document(io.BytesIO(atti_word.crea_atto("PVOC", t, data="06/03/2026", soggetto="D.I. Rossi Mario", con_spiegazioni=False)))
+    p = [x.text for x in d.paragraphs]
+    assert p.count("PROCESSO VERBALE DI OPERAZIONI COMPIUTE") == 1
+    assert "Il giorno 06/03/2026 in Tarquinia, presso gli uffici del Reparto in intestazione, viene compilato il presente atto." in p
+    assert p.index("VERBALIZZANTI") < p.index("PARTE") < p.index("FATTO")
+    assert "Ten. Uno UNO" in p and "-\tche il Reparto operante presso cui è possibile ottenere informazioni complete in ordine all’attività ispettiva è la Compagnia di Tarquinia e che il Direttore dell’attività di controllo è il [DA COMPILARE: grado, nome e cognome del Direttore del controllo]." in p
+    assert "\tI VERBALIZZANTI\tLA PERSONA DI FIDUCIA\tLA PARTE" in p
+    assert not any("SPIEGA" in x or "Spiegazione" in x for x in p)
+    cf = next(x for x in d.paragraphs if x.text.startswith("codice fiscale:"))
+    assert [r.bold for r in cf.runs if r.text.strip()][-1] is True
+    con = docx.Document(io.BytesIO(atti_word.crea_atto("PVOC", t)))
+    assert any("Spiegazione" in x.text for x in con.paragraphs)
