@@ -1183,30 +1183,31 @@ da controllare, non blocker noto.
 ### Sequenza di prodotto verso un assistente quotidiano — 29/09
 
 Questa sequenza rende verificabile il beneficio per la persona. Non sostituisce
-i gate di V4, V3.23 e V4.1: porta il gate minimo su iPhone dentro ogni prova
-di valore, perché un'iniziativa che resta soltanto nel backend non aiuta chi
-ha il telefono in tasca. Ogni fase termina con una prova su dati di test
-autorizzati, un risultato osservabile e un elenco dei difetti ancora aperti.
+i gate di V4, V3.23 e V4.1. Prima si provano i risultati e le azioni con le
+fonti disponibili; la presenza completa sul telefono è il penultimo gate,
+necessario prima dell'alpha. Una prova cloud ad app chiusa verifica il backend,
+non la ricezione di una notifica su iPhone. Ogni fase termina con una prova su
+dati di test autorizzati, un risultato osservabile e i difetti ancora aperti.
 I tempi si stimano dopo la baseline P0; gli account, i permessi del dispositivo
 e i provider esterni possono modificare la sequenza tecnica.
 
 | Ordine | Esperienza da consegnare | Lavoro essenziale | Prova di uscita |
 |---|---|---|---|
 | **P0 · Verità operativa** | Sapere cosa ORA porta a termine oggi | Inventario dei flussi live e delle configurazioni, correlazione fonte → iniziativa → risultato → consegna, metriche e casi di errore; chiudere A0–A2 senza perdere lavoro | Matrice per calendario, posta, documenti, posizione e offerte: successo/fallimento/assenza di permesso distinguibili; test con app chiusa, burst, restart e fonte modificata |
-| **P1 · Presenza sul telefono** | Ricevere un aiuto quando serve | Chiudere il minimo V3.23: build iPhone installata, posizione e push autorizzati, registrazione token, ricevute/errori di invio, apertura dell'azione, riconciliazione dopo kill/relaunch; permessi negati e revocati | Tre prove reali per scenario con app non aperta; evidenza del messaggio ricevuto sul device, tap che apre il contesto giusto e nessuna promessa di consegna quando il canale non funziona |
-| **P2 · Arrivare al momento giusto** | «Portami lì» e avvisami prima che sia tardi | Collegare evento, luogo, posizione attuale, tempi di preparazione, traffico e meteo; calcolare orario limite di partenza; aggiornare il consiglio se cambia il percorso; lasciare navigare nell'app scelta | Su appuntamenti con luogo valido ORA suggerisce quando partire e perché, con orari e fonti; ricalcola dopo cambiamenti; distingue percorso stimato da navigazione effettiva e non inventa incidenti |
-| **P3 · Occupatene tu** | Risolvere un conflitto invece di limitarsi a segnalarlo | Estendere A3–A6 e la continuità V5: piano persistente, bozza/azione autorizzata, gestione needs-user, retry, esito verificato, annullamento quando cambiano i fatti | Con due impegni sovrapposti ORA prepara una soluzione fattibile senza comando; dopo una scelta autorizzata applica l'azione possibile, verifica calendario/risposta e chiude o riapre il goal senza duplicati |
-| **P4 · Risparmio dimostrabile** | Capire se cambiare contratto conviene davvero | Lettura dei termini confermati; confronto omogeneo del costo annuo completo quando i dati lo consentono; disponibilità e requisiti; proposta, passaggio autorizzato e verifica della bolletta seguente | Nessun «risparmio totale» dalla sola componente vendita; ogni cifra ha fonte, data, periodo e condizioni; un caso reale confermato segue il percorso fino al risparmio osservato o al motivo documentato per cui non si può procedere |
-| **P5 · Conoscere la persona** | Usare luoghi e abitudini per ridurre il lavoro mentale | Presenza nativa opt-in; richiesta di conferma per casa/lavoro/luoghi frequenti; apprendimento di routine, tempi e preferenze con correzione, cancellazione e revoca | Prova longitudinale su device: entrate/uscite, app chiusa e riavvii; luoghi incerti non diventano fatti; almeno un consiglio cambia utilmente grazie a una preferenza confermata |
-| **P6 · Interfaccia che segue il lavoro** | Azioni pertinenti, chiare e davvero cliccabili | Comporre chat, Home e workspace con componenti validati e azioni collegate a capacità disponibili; mostrare stato, fonte, conseguenze e prossimo passo; nessun bottone inventato dal modello | Per P2–P5 il tap esegue o apre l'azione promessa; loading, errore, successo e ripresa sono verificati su iPhone; conferme soltanto dove l'effetto lo richiede |
+| **P1 · Arrivare al momento giusto** | «Portami lì» e indicami quando partire | Collegare evento, luogo, posizione attuale disponibile, tempi di preparazione, traffico e meteo; calcolare orario limite di partenza; aggiornare il consiglio se cambia il percorso; lasciare navigare nell'app scelta | Su appuntamenti con luogo valido ORA calcola quando partire e perché, con orari e fonti; ricalcola dopo cambiamenti; distingue percorso stimato da navigazione effettiva e non inventa incidenti. La consegna push è nel gate P6 |
+| **P2 · Occupatene tu** | Risolvere un conflitto invece di limitarsi a segnalarlo | Estendere A3–A6 e la continuità V5: piano persistente, bozza/azione autorizzata, gestione needs-user, retry, esito verificato, annullamento quando cambiano i fatti | Con due impegni sovrapposti ORA prepara una soluzione fattibile senza comando; dopo una scelta autorizzata applica l'azione possibile, verifica calendario/risposta e chiude o riapre il goal senza duplicati |
+| **P3 · Risparmio dimostrabile** | Capire se cambiare contratto conviene davvero | Lettura dei termini confermati; confronto omogeneo del costo annuo completo quando i dati lo consentono; disponibilità e requisiti; proposta, passaggio autorizzato e verifica della bolletta seguente | Nessun «risparmio totale» dalla sola componente vendita; ogni cifra ha fonte, data, periodo e condizioni; un caso reale confermato segue il percorso fino al risparmio osservato o al motivo documentato per cui non si può procedere |
+| **P4 · Conoscere la persona** | Usare luoghi e abitudini per ridurre il lavoro mentale | Con fonti e posizione disponibili, chiedere conferma di casa/lavoro/luoghi frequenti; apprendere routine, tempi e preferenze con correzione, cancellazione e revoca; rinviare la presenza nativa continua a P6 | Luoghi incerti non diventano fatti; almeno un consiglio cambia utilmente grazie a una preferenza confermata. Entrate/uscite con app chiusa restano da dimostrare in P6 |
+| **P5 · Interfaccia che segue il lavoro** | Azioni pertinenti, chiare e davvero cliccabili | Comporre chat, Home e workspace con componenti validati e azioni collegate a capacità disponibili; mostrare stato, fonte, conseguenze e prossimo passo; nessun bottone inventato dal modello | Per P1–P4 il tap esegue o apre l'azione promessa; loading, errore, successo e ripresa sono verificati; conferme soltanto dove l'effetto lo richiede. La prova push sul dispositivo è P6 |
+| **P6 · Presenza sul telefono** | Ricevere un aiuto quando serve | Chiudere il minimo V3.23: build iPhone installata, posizione e push autorizzati, registrazione token, ricevute/errori di invio, apertura dell'azione, geofencing e riconciliazione dopo kill/relaunch; permessi negati e revocati | Tre prove reali per scenario con app non aperta; evidenza del messaggio ricevuto sul device, tap che apre il contesto giusto, presenza nei luoghi confermati e nessuna promessa di consegna quando il canale non funziona |
 | **P7 · Alpha e consolidamento** | Valore ricorrente per più persone | Gate V4.1 e basi V9–V10: isolamento utenti, revoca, segreti, backup con restore, osservabilità, costi, recovery e prova di 3–5 persone | Almeno sette giorni cloud e di uso reale, scenari ripetuti con app chiusa; beneficio misurato rispetto al lavoro manuale, falsi allarmi e occasioni perse registrati; problemi bloccanti risolti prima di ampliare l'accesso |
 
-**Tagli verticali.** P0/P1 non sono mesi di infrastruttura isolata: la prima
-prova device attraversa già un caso P2 o P3. P2, P3 e P4 riusano lo stesso
-ciclo di autorità, stato ed evidenze; niente nuovo motore generale per ogni
-dominio. P5 inizia con consenso e osservazioni, ma non promette suggerimenti
-personalizzati prima di dati sufficienti. P6 accompagna i casi precedenti;
-la sua uscita richiede che tutti i pulsanti eseguano il comportamento mostrato.
+**Tagli verticali.** P1–P3 riusano lo stesso ciclo di autorità, stato ed
+evidenze; niente nuovo motore generale per ogni dominio. P4 inizia con
+consenso e osservazioni, ma non promette suggerimenti personalizzati prima di
+dati sufficienti. P5 accompagna i casi precedenti e richiede pulsanti veri.
+Il gate P6 verifica su iPhone la consegna e le osservazioni in background già
+preparate; fino ad allora non si dichiara completato l'aiuto a telefono chiuso.
 
 **Misure da registrare per ogni caso.** Tempo fonte → risultato → consegna
 (p50/p95), risultato utile completato, tempo o denaro effettivamente
