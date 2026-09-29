@@ -38,7 +38,7 @@ import {
   pickOraAttachment,
 } from '@/src/components/ora/OraComposer';
 import { LocationPermissionSheet } from '@/src/components/ora/LocationPermissionSheet';
-import { requestForegroundPosition } from '@/src/location/foregroundGeo';
+import { requestDeparturePosition, requestForegroundPosition } from '@/src/location/foregroundGeo';
 import { FocusScreen } from '@/src/shell';
 import type { OraNavigationOption, OraUiAction } from '@/src/components/ora/OraTurns';
 import { useTheme, ThemeSurface } from '@/src/theme/ThemeProvider';
@@ -978,14 +978,14 @@ function OraConversationBody({
         // the browser's actual position before that request, with the same ORA
         // consent used by the ordinary location capability. The map handoff
         // still works if permission or geolocation is unavailable.
-        if (Platform.OS === 'web' && /^\s*(?:portami|accompagnami|guidami|naviga|avvia\s+(?:la\s+)?navigazione)\b/i.test(msg)) {
+        if (/^\s*(?:portami|accompagnami|guidami|naviga|avvia\s+(?:la\s+)?navigazione)\b/i.test(msg)) {
           try {
             const preference = await api.locationGetPreference();
             const allowed = preference.mode === 'while_using' || await askLocationPreference();
             if (allowed) {
               if (preference.mode !== 'while_using') await api.locationSetPreference('while_using');
               setWorkingHint('Sto verificando la tua posizione…');
-              const position = await requestForegroundPosition({ timeoutMs: 12000, maximumAgeMs: 0 });
+              const position = await requestDeparturePosition();
               if (position.ok) {
                 await api.locationPostSignal({
                   latitude: position.latitude,

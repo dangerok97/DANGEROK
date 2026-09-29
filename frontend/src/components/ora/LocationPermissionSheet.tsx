@@ -2,7 +2,7 @@
  * Quiet Premium location permission affordance — shown only when ORA needs location.
  */
 import React from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { LOCATION_PERMISSION_COPY } from '@/src/location/foregroundGeo';
 import { useTheme } from '@/src/theme/ThemeProvider';
@@ -45,7 +45,7 @@ export function LocationPermissionSheet({ visible, onAllow, onDeny }: Props) {
             {LOCATION_PERMISSION_COPY}
           </Text>
           <Text style={[styles.meta, { color: colors.textTertiary }]}>
-            Solo mentre usi ORA. Lo sfondo non è disponibile.
+            {Platform.OS === 'web' ? 'Solo mentre usi ORA. Lo sfondo non è disponibile.' : 'Solo mentre usi ORA per preparare questo tragitto.'}
           </Text>
           <View style={styles.row}>
             <Pressable

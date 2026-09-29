@@ -80,5 +80,30 @@ export function requestForegroundPosition(
   });
 }
 
+/** Fresh departure fix, including installed iOS/Android builds. */
+export async function requestDeparturePosition(): Promise<ForegroundGeoResult> {
+  if (Platform.OS === 'web') {
+    return requestForegroundPosition({ timeoutMs: 12000, maximumAgeMs: 0 });
+  }
+  if (Platform.OS !== 'ios' && Platform.OS !== 'android') {
+    return { ok: false, reason: 'native_unsupported' };
+  }
+  try {
+    // Keep the native module out of the web bundle, like presenceRuntime does.
+    const Location = await import('expo-location');
+    const permission = await Location.requestForegroundPermissionsAsync();
+    if (permission.status !== 'granted') return { ok: false, reason: 'denied' };
+    const fix = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+    return {
+      ok: true,
+      latitude: fix.coords.latitude,
+      longitude: fix.coords.longitude,
+      accuracyMeters: fix.coords.accuracy ?? undefined,
+    };
+  } catch {
+    return { ok: false, reason: 'position_unavailable' };
+  }
+}
+
 export const LOCATION_PERMISSION_COPY =
   "ORA può usare la tua posizione mentre usi l'app per capire meglio dove ti trovi e aiutarti quando il luogo è rilevante.";
