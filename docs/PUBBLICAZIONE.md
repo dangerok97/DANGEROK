@@ -4,12 +4,35 @@
 > l'app per visionarla e provarla. Non caricare atti o dati di contribuenti reali su un servizio esterno senza
 > aver verificato le regole del Comando (cloud, AI esterne, localizzazione dei dati).
 
-## Scelta consigliata per la prova: Render (regione Frankfurt) + Postgres gestito
-Ho scelto Render perche' pubblica direttamente da un repository GitHub con un `Dockerfile` (gia' pronto),
-offre certificato HTTPS automatico, un database Postgres gestito e la regione di Francoforte (UE). Non ho potuto
-consultare le pagine ufficiali di prezzi e piani: **controlla tu i costi prima di attivare qualsiasi servizio**.
-Alternative equivalenti: Railway, Fly.io; per un controllo maggiore dei dati, un provider europeo con server
-dedicato/VPS (es. Hetzner, OVHcloud, Scaleway), che richiede piu' gestione.
+## Soluzione GRATUITA per la prova: Render (sito) + Neon (database)
+Verificato a settembre 2026 su fonti pubbliche secondarie (non ho potuto aprire le pagine ufficiali di prezzi):
+le condizioni cambiano, **ricontrollale prima di iscriverti**.
+- **Render, Web Service gratuito** (Docker): 512 MB di memoria, 750 ore gratuite al mese. Dopo 15 minuti senza visite
+  il sito si "addormenta" e la prima apertura successiva e' lenta. Il disco non e' persistente: per questo i dati
+  vanno in un database esterno.
+- **Non usare il Postgres gratuito di Render**: scade 30 giorni dopo la creazione (poi 14 giorni prima della cancellazione).
+- **Neon, Postgres gratuito**: 0,5 GB, 100 ore di calcolo al mese, regione **Frankfurt** disponibile, si sospende da
+  solo quando non serve. I progetti gratuiti inattivi per 90 giorni possono essere cancellati (regola indicata con
+  decorrenza 5 ottobre 2026).
+- Alternativa per il database: **Supabase** (500 MB, si mette in pausa dopo 1 settimana di inattivita', senza backup).
+- **Railway** (molto comodo: sito e Postgres si creano insieme): NON e' gratuito in pratica. La prova da 5 dollari e'
+  una tantum e dura al massimo 30 giorni; poi c'e' un piano gratuito con 1 dollaro di credito al mese, troppo poco per
+  un sito acceso piu' un database; il piano Hobby costa 5 dollari al mese (con 5 dollari di utilizzo inclusi) e richiede
+  una carta di pagamento. Utile per una prova di un fine settimana, oppure a pagamento se vuoi la strada piu' semplice.
+- **Da evitare se cerchi il gratis**: Fly.io e Koyeb non hanno piu' un piano gratuito vero per i nuovi iscritti
+  (solo prove). Google Cloud Run ha una quota gratuita ma richiede una carta.
+- Il gratuito non ha backup ne' garanzie di servizio: va bene per **guardare e provare l'app con dati inventati**,
+  non per lavorare.
+
+Con il gratuito il passo 3 diventa: crea un progetto **Neon** nella regione *AWS Europe (Frankfurt)*, copia l'indirizzo
+di connessione (`postgresql://...?sslmode=require`) e incollalo in `DATABASE_URL`. Se il piano gratuito di Render non
+offre Francoforte, scegli la regione europea piu' vicina disponibile.
+
+## Scelta a pagamento per lavorare davvero: Render (Frankfurt) + Postgres gestito
+Render pubblica direttamente da un repository GitHub con il `Dockerfile` (gia' pronto), offre HTTPS automatico, un
+Postgres gestito e la regione di Francoforte (UE). **Controlla tu i costi prima di attivare qualsiasi servizio.**
+Per un controllo maggiore dei dati, un provider europeo con server dedicato/VPS (es. Hetzner, OVHcloud, Scaleway)
+richiede piu' gestione.
 
 ## Perche' non MongoDB
 L'app usa un database **relazionale** (SQL). MongoDB e' un'altra famiglia: per usarlo andrebbe riscritto il livello
