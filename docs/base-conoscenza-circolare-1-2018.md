@@ -28,3 +28,19 @@ I riferimenti (Vol. / capitolo / paragrafo / allegato) servono a ritrovare il te
 
 ## Da approfondire nei prossimi passi (non ancora studiato in dettaglio)
 Vol. III cap. 6 (IVA, frodi carosello), cap. 3-5 (reddito d'impresa, lavoro autonomo, IRAP), cap. 2 §5 (forfetari), cap. 7 (evasori totali, sintetico); Vol. II P. III cap. 5 (art. 220 disp. att. c.p.p.); **superbonus: nessuna occorrenza nei 4 volumi (verificato con ricerca testuale; la circolare è del 2017)**: servirà normativa/circolari successive che mi fornirai.
+
+## Principi di progetto (fissati dall'utente)
+1. **La circolare è la fonte di verità.** L'app segue i passaggi della Circolare 1/2018 e le fasi/modelli del Volume IV, **in ordine**, senza discostarsene.
+2. **Gli esempi servono per il lessico, non per giudicare.** Verifiche e controlli già conclusi servono a far imparare all'app il linguaggio usato dal Reparto. Non si usano per "trovare errori" negli esempi né come fonte normativa.
+3. **Nessun dato reale nel repository.** Gli esempi vengono anonimizzati prima; nel repository entra solo la libreria di formule/lessico ripulita.
+
+## Ordine delle fasi da rispettare (Vol. II, Parte III, cap. 3 §7-§10; da approfondire nel dettaglio)
+1. Controllo contabile (§7)
+2. Controllo sostanziale (§8), nell'ordine:
+   a. riscontro materiale
+   b. riscontro di coerenza: interna, poi esterna
+   c. riscontro indiretto-presuntivo
+   d. riscontro analitico-normativo
+   e. riscontro su obblighi di effettuazione/versamento ritenute e liquidazione/versamento imposte
+3. Conclusione: PVC (Allegato 19), sezioni nell'ordine dell'Allegato 19.
+Per il controllo: Vol. II, P. III, cap. 4 (scheda Allegato 23 → foglio di servizio → PVOC giornalieri → PVC).
