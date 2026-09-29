@@ -228,7 +228,8 @@ async def open_navigation(arguments: Dict[str, Any], runtime: Dict[str, Any]) ->
         from location.service import LocationService
 
         presence = await LocationService(runtime["db"]).build_presence(uid)
-        if presence and presence.latitude is not None and presence.longitude is not None:
+        if (presence and presence.freshness == "CURRENT"
+                and presence.latitude is not None and presence.longitude is not None):
             origin = {"latitude": presence.latitude, "longitude": presence.longitude}
     except Exception:
         origin = None
@@ -253,13 +254,18 @@ async def open_navigation(arguments: Dict[str, Any], runtime: Dict[str, Any]) ->
     journey = None
     scelte: List[Dict[str, Any]] = []
     consiglio = ""
+    road_choices: List[Dict[str, Any]] = []
+    route_weather: List[Dict[str, Any]] = []
+    destination_weather = None
+    requested_mode = _travel_mode(arguments.get("mode"))
     if origin is not None:
-        from places import routing
+        from places import routing, briefing
 
         route = await routing.get_route(
             origin=origin,
             destination=place.coordinates.precise(),
-            travel_mode=_travel_mode(arguments.get("mode")),
+            travel_mode=requested_mode,
+            alternatives=requested_mode == "drive",
         )
         if route.get("available"):
             journey = {
@@ -273,10 +279,31 @@ async def open_navigation(arguments: Dict[str, Any], runtime: Dict[str, Any]) ->
         # uscire. Ogni riga esiste solo se il servizio ha risposto per quel
         # modo — niente tempi inventati, e se non risponde nessuno non c'è
         # nessun confronto da mostrare.
-        scelte = await _how_to_get_there(origin, place.coordinates.precise())
+        scelte = await _how_to_get_there(origin, place.coordinates.precise(),
+                                        first_route=route, first_mode=requested_mode)
         consiglio, parti_entro = await _when_to_leave(
-            runtime["db"], uid, scelte,
+            runtime["db"], uid, scelte, place, requested_mode,
         )
+        if requested_mode == "drive" and route.get("available"):
+            raw_alternatives = route.get("alternatives") or []
+            road_choices = briefing.route_choices(raw_alternatives)
+            best = min(raw_alternatives, key=lambda r: r["duration_seconds"], default=None)
+            if best and best.get("polyline"):
+                route_weather = await briefing.weather_along_route(
+                    best["polyline"], best["duration_seconds"],
+                )
+    if not route_weather:
+        # Current weather at the confirmed destination is useful even without
+        # live routing, but must never be described as weather along the road.
+        from weather import now_at
+
+        current = await now_at(lat=place.coordinates.latitude,
+                               lon=place.coordinates.longitude, place=place.label)
+        if current.get("available"):
+            destination_weather = {
+                "condition": current.get("condition_label"),
+                "temperature_c": current.get("temperature_c"),
+            }
 
     return _ok(
         "open_navigation",
@@ -288,10 +315,14 @@ async def open_navigation(arguments: Dict[str, Any], runtime: Dict[str, Any]) ->
             #     PRIMA IL CONSIGLIO, POI I LINK.
             "journey_options": scelte,
             "advice": consiglio,
+            "road_choices": road_choices,
+            "route_weather": route_weather,
+            "destination_weather": destination_weather,
             "routing": None if scelte else _routing_note(),
             "say_this": (
                 f"Ti porto a «{place.label}»: scegli l'app mappe qui sotto per avviare la navigazione. "
                 + (f"{consiglio} " if consiglio else "")
+                + (f"A destinazione adesso: {destination_weather['condition'].lower()}, {destination_weather['temperature_c']}°. " if destination_weather else "")
                 + ("Il confronto dei percorsi tiene conto del traffico attuale. " if scelte and any(x.get("reflects_current_traffic") for x in scelte) else "L'app mappe mostrerà il traffico aggiornato.")
             ),
             **plan,
@@ -324,7 +355,7 @@ def _routing_note() -> Dict[str, Any]:
     }
 
 
-async def _how_to_get_there(origin, destination) -> List[Dict[str, Any]]:
+async def _how_to_get_there(origin, destination, *, first_route=None, first_mode="drive") -> List[Dict[str, Any]]:
     """
     Quanto ci vuole per ognuno dei modi, da chi lo sa davvero.
 
@@ -336,7 +367,8 @@ async def _how_to_get_there(origin, destination) -> List[Dict[str, Any]]:
 
     fuori: List[Dict[str, Any]] = []
     for modo, etichetta, icona in _MODI:
-        r = await routing.get_route(origin=origin, destination=destination, travel_mode=modo)
+        r = (first_route if modo == first_mode and first_route is not None
+             else await routing.get_route(origin=origin, destination=destination, travel_mode=modo))
         if not r.get("available") or not r.get("duration_seconds"):
             continue
         fuori.append({
@@ -356,9 +388,9 @@ async def _how_to_get_there(origin, destination) -> List[Dict[str, Any]]:
     return fuori
 
 
-async def _when_to_leave(db, uid: str, scelte: List[Dict[str, Any]]):
+async def _when_to_leave(db, uid: str, scelte: List[Dict[str, Any]], place, requested_mode="drive"):
     """
-    A che ora conviene partire, dal primo impegno di oggi.
+    A che ora conviene partire, solo per un impegno in quel luogo.
 
     Torna (frase, ora_di_partenza). Senza un impegno o senza un tempo di
     percorrenza non c'è niente da consigliare, e la frase resta vuota: meglio
@@ -366,29 +398,77 @@ async def _when_to_leave(db, uid: str, scelte: List[Dict[str, Any]]):
     """
     if not scelte:
         return "", ""
-    consigliato = next((s for s in scelte if s.get("recommended")), scelte[0])
+    consigliato = next((s for s in scelte if s.get("mode") == requested_mode), None)
+    if consigliato is None:
+        return "", ""
     try:
-        from datetime import datetime, timedelta
+        from datetime import datetime, timedelta, timezone
+        from agenda.service import AgendaService
+        from timezone_service import resolve_user_timezone
 
-        from deps import get_daily_summary_service
-
-        giornata = await get_daily_summary_service().today(uid, tz_name="Europe/Rome")
-        d = giornata.to_dict() if hasattr(giornata, "to_dict") else giornata
-        eventi = [e for e in (d.get("events") or []) if e.get("start")]
-        if not eventi:
+        agenda = await AgendaService(db).days_ahead(uid, days=2)
+        now = datetime.now(timezone.utc)
+        matches = []
+        for day in agenda.get("days") or []:
+            for event in day.get("events") or []:
+                if event.get("all_day") or not _event_at_destination(event, place):
+                    continue
+                try:
+                    starts = datetime.fromisoformat(str(event.get("starts_at") or "").replace("Z", "+00:00"))
+                    if starts.tzinfo is None:
+                        continue
+                    starts = starts.astimezone(timezone.utc)
+                except (TypeError, ValueError):
+                    continue
+                # A live traffic estimate is useful for an imminent departure,
+                # not as a promise about tomorrow's road conditions.
+                if now < starts <= now + timedelta(minutes=90):
+                    matches.append((starts, event))
+        if not matches:
             return "", ""
-        primo = eventi[0]
-        quando = datetime.fromisoformat(str(primo["start"]).replace("Z", "+00:00"))
+        quando, primo = min(matches, key=lambda pair: pair[0])
         margine = timedelta(minutes=10)
         partenza = quando - timedelta(seconds=consigliato["duration_seconds"]) - margine
         titolo = str(primo.get("title") or primo.get("label") or "il tuo impegno")
+        from zoneinfo import ZoneInfo
+
+        local = ZoneInfo((await resolve_user_timezone(db, uid)).tz_name)
+        if partenza <= now:
+            return (
+                f"Per «{titolo}» alle {quando.astimezone(local).strftime('%H:%M')}, "
+                "parti ora: con il tempo di percorrenza stimato "
+                f"{consigliato['label'].lower()} e 10 minuti di margine, "
+                "l'orario prudente di partenza è già passato. Ricontrolla il traffico."
+            ), "ora"
         return (
-            f"Ti consiglio di partire entro le {partenza.strftime('%H:%M')} per arrivare "
-            f"con un po' di margine a {titolo} delle {quando.strftime('%H:%M')}."
-        ), partenza.strftime("%H:%M")
+            f"Per «{titolo}» alle {quando.astimezone(local).strftime('%H:%M')}, "
+            f"parti entro le {partenza.astimezone(local).strftime('%H:%M')}: "
+            f"{_minuti(int(consigliato['duration_seconds']))} di percorso stimato {consigliato['label'].lower()} "
+            "e 10 minuti di margine. Ricontrolla il traffico prima di uscire."
+        ), partenza.astimezone(local).strftime("%H:%M")
     except Exception as e:  # pragma: no cover
         logger.info("consiglio di partenza non calcolato: %s", type(e).__name__)
         return "", ""
+
+
+def _event_at_destination(event: Dict[str, Any], place) -> bool:
+    """An agenda location must actually name the confirmed destination."""
+    import re
+    import unicodedata
+
+    def words(value):
+        normalized = unicodedata.normalize("NFKD", str(value or "").casefold())
+        normalized = "".join(c for c in normalized if not unicodedata.combining(c))
+        return re.findall(r"[a-z0-9]+", normalized)
+
+    location = words(event.get("location"))
+    if not location:
+        return False
+    for candidate in (place.label, place.address):
+        needle = words(candidate)
+        if needle and any(location[i:i + len(needle)] == needle for i in range(len(location) - len(needle) + 1)):
+            return True
+    return False
 
 
 def _minuti(secondi: int) -> str:

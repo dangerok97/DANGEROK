@@ -5826,3 +5826,7 @@ Rilascio online: `dc1330c` backend/web, rifinitura backend `4dea30e`; entrambi i
 Il tasto mappe per «portami dalla mia posizione al Colosseo» viene preparato dal cap read-only prima della chiamata AI. Risposta, osservazione e URL rimangono nella sessione. Test di integrazione PASS; prova pubblicata da registrare dopo il deploy.
 
 Backend `63dd565` distribuito e verificato. Il comando originale produce il tasto nel percorso rapido e l'apertura reale della rotta Google Maps. Screenshot `ora-navigazione-rapida-1790661746206.jpg`; 6 test PASS. Il provider di traffico server resta non configurato.
+
+## 29 settembre 2026 — Briefing di viaggio prima del navigatore
+
+Corretto il consiglio di partenza che leggeva una struttura agenda priva di eventi; ora sceglie un evento imminente nel luogo confermato e il modo richiesto, con fuso dell'utente. Il provider Routes richiede alternative, tempi senza traffico e geometria; ORA presenta i rallentamenti misurati e il meteo previsto in tre punti del percorso. In assenza di traffico server mostra il meteo attuale nella destinazione e dichiara il limite. 30 test mirati PASS, TypeScript ed export web PASS. La chiave routing manca nel servizio pubblicato, perciò nessun confronto live è promesso.

@@ -4474,3 +4474,7 @@ Rilascio verificato: backend `4dea30e` (Railway `8d13e64f`, SUCCESS), web `dc133
 Percorso rapido per comandi espliciti di partenza, con AI calls 0 e context calls 0, risposta e tasto persistiti. Test di integrazione verifica il bypass del modello e la sessione. Rilascio e screenshot da registrare dopo la prova cloud.
 
 Pubblicato backend `63dd565` su Railway `46c63eda` SUCCESS. Sei test mirati PASS. Prova autenticata: «portami dalla mia posizione al Colosseo» mostra il tasto e apre Google Maps con la rotta. Screenshot `ora-navigazione-rapida-1790661746206.jpg`. Nessuna chiave `ROUTING_PROVIDER`/`ROUTING_API_KEY` presente nell'ambiente: i consigli live pre-apertura rimangono indisponibili.
+
+## Briefing materiale per il tragitto — 29 settembre 2026
+
+Implementati confronto di strade Google Routes, ritardi rispetto alla durata senza traffico, passi principali, meteo Open-Meteo lungo la polilinea e partenza per un impegno nel luogo confermato entro 90 minuti. I test con risposte simulate verificano fonti, matching agenda, meteo e degrado senza provider; TypeScript ed export web passano. La chiave Google Routes non è configurata in Railway: il confronto live non è verificabile in produzione finché un amministratore non abilita l'API e configura la chiave server. ORA non conosce incidenti specifici né garantisce che il navigatore scelga automaticamente la stessa alternativa suggerita. Il meteo attuale nella destinazione confermata resta utilizzabile senza questa chiave. Rilascio e prova UI da aggiungere dopo deploy.

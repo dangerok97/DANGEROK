@@ -222,41 +222,47 @@ async def test_without_a_routing_provider_nothing_is_invented(monkeypatch):
 @pytest.mark.asyncio
 async def test_the_advice_says_when_to_leave(monkeypatch):
     import places.caps as caps
-
-    class Giornata:
-        @staticmethod
-        def to_dict():
-            return {"events": [{"title": "riunione Team Prodotto",
-                                "start": "2026-09-20T11:00:00+02:00"}]}
+    from datetime import datetime, timedelta, timezone
+    from types import SimpleNamespace
 
     class Servizio:
-        async def today(self, uid, tz_name=""):
-            return Giornata()
+        def __init__(self, db):
+            pass
 
-    monkeypatch.setattr("deps.get_daily_summary_service", lambda: Servizio())
-    scelte = [{"mode": "drive", "duration_seconds": 1320, "recommended": True}]
-    frase, quando = await caps._when_to_leave(None, "u1", scelte)
-    assert "partire entro le 10:28" in frase
-    assert "riunione Team Prodotto delle 11:00" in frase
-    assert quando == "10:28"
+        async def days_ahead(self, uid, days=2):
+            return {"days": [{"events": [
+                {"title": "altro", "starts_at": (datetime.now(timezone.utc) + timedelta(minutes=30)).isoformat(), "location": "Altrove"},
+                {"title": "riunione Team Prodotto", "starts_at": (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(), "location": "Ufficio"},
+            ]}]}
+
+    async def zone(db, uid):
+        return SimpleNamespace(tz_name="Europe/Rome")
+
+    monkeypatch.setattr("agenda.service.AgendaService", Servizio)
+    monkeypatch.setattr("timezone_service.resolve_user_timezone", zone)
+    scelte = [{"mode": "drive", "label": "In auto", "duration_seconds": 1320, "recommended": True}]
+    frase, quando = await caps._when_to_leave(None, "u1", scelte, SimpleNamespace(label="Ufficio", address=""))
+    assert "riunione Team Prodotto" in frase
+    assert "22 min di percorso stimato in auto" in frase
+    assert "10 minuti di margine" in frase
+    assert quando in frase
 
 
 @pytest.mark.asyncio
 async def test_no_calendar_no_advice(monkeypatch):
     import places.caps as caps
 
-    class Vuota:
-        @staticmethod
-        def to_dict():
-            return {"events": []}
-
     class Servizio:
-        async def today(self, uid, tz_name=""):
-            return Vuota()
+        def __init__(self, db):
+            pass
 
-    monkeypatch.setattr("deps.get_daily_summary_service", lambda: Servizio())
+        async def days_ahead(self, uid, days=2):
+            return {"days": [{"events": []}]}
+
+    monkeypatch.setattr("agenda.service.AgendaService", Servizio)
     frase, quando = await caps._when_to_leave(
-        None, "u1", [{"mode": "drive", "duration_seconds": 600, "recommended": True}])
+        None, "u1", [{"mode": "drive", "duration_seconds": 600, "recommended": True}],
+        type("Place", (), {"label": "Ufficio", "address": ""})())
     assert frase == "" and quando == ""
 
 

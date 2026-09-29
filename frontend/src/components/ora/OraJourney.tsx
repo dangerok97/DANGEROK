@@ -32,6 +32,9 @@ export type OraJourneyView = {
   advice?: string;
   /** Perché non c'è un confronto dei tempi. Mai un numero al posto suo. */
   unavailable?: string;
+  road_choices?: { label: string; duration_seconds: number; delay_minutes?: number | null; recommended: boolean; reason: string; main_steps?: string[] }[];
+  route_weather?: { label: string; condition: string; temperature_c: number; rain_chance_pct: number }[];
+  destination_weather?: { condition: string; temperature_c: number } | null;
 };
 
 export function OraJourney({
@@ -45,13 +48,18 @@ export function OraJourney({
   if (!journey?.options?.length) {
     // Senza un servizio che conosca i percorsi non si confronta niente: lo si
     // dice, e restano i link alle mappe che funzionano davvero.
-    if (!journey?.unavailable) return null;
+    if (!journey?.unavailable && !journey?.destination_weather) return null;
     return (
-      <View style={styles.nota} testID="ora-journey-unavailable">
-        <Ionicons name="information-circle-outline" size={16} color={colors.textTertiary} />
-        <Text style={[oraType.small, { color: colors.textTertiary, flex: 1 }]}>
-          Non posso confrontare i tempi di percorrenza: {journey.unavailable}.
-        </Text>
+      <View testID="ora-journey-unavailable" style={styles.notaColumn}>
+        {journey?.destination_weather ? <Text style={[oraType.small, { color: colors.textPrimary }]}>
+          A destinazione adesso: {journey.destination_weather.condition}, {journey.destination_weather.temperature_c}°.
+        </Text> : null}
+        {journey?.unavailable ? <View style={styles.nota}>
+          <Ionicons name="information-circle-outline" size={16} color={colors.textTertiary} />
+          <Text style={[oraType.small, { color: colors.textTertiary, flex: 1 }]}>
+            Non posso confrontare i tempi di percorrenza: {journey.unavailable}.
+          </Text>
+        </View> : null}
       </View>
     );
   }
@@ -115,6 +123,36 @@ export function OraJourney({
         </View>
       ) : null}
 
+      {journey.road_choices?.length ? (
+        <View style={styles.section} testID="ora-road-choices">
+          <Text style={[oraType.body, { color: colors.textPrimary, fontWeight: '600' }]}>Quale strada conviene</Text>
+          {journey.road_choices.map((road, i) => (
+            <Text key={i} style={[oraType.small, { color: colors.textSecondary }]}>
+              {road.label}: {Math.round(road.duration_seconds / 60)} min
+              {road.delay_minutes != null ? `, ${road.delay_minutes} min di rallentamento stimato` : ''}. {road.reason}
+              {road.main_steps?.length ? ` Indicazioni principali: ${road.main_steps.join('; ')}.` : ''}
+            </Text>
+          ))}
+          <Text style={[oraType.small, { color: colors.textTertiary }]}>La mappa conferma strade e deviazioni al momento dell&apos;apertura.</Text>
+        </View>
+      ) : null}
+
+      {journey.route_weather?.length ? (
+        <View style={styles.section} testID="ora-route-weather">
+          <Text style={[oraType.body, { color: colors.textPrimary, fontWeight: '600' }]}>Meteo lungo il tragitto</Text>
+          {journey.route_weather.map((point, i) => (
+            <Text key={i} style={[oraType.small, { color: colors.textSecondary }]}>
+              {point.label}: {point.condition}, {point.temperature_c}°, probabilità di pioggia {point.rain_chance_pct}%.
+            </Text>
+          ))}
+          <Text style={[oraType.small, { color: colors.textTertiary }]}>Previsione nei punti del percorso, all&apos;ora approssimativa di passaggio.</Text>
+        </View>
+      ) : journey.destination_weather ? (
+        <Text style={[oraType.small, { color: colors.textSecondary }]}>
+          A destinazione adesso: {journey.destination_weather.condition}, {journey.destination_weather.temperature_c}°.
+        </Text>
+      ) : null}
+
       {navigation && navigation.length > 1 ? (
         <View style={styles.altreApp}>
           {navigation.slice(1).map((n) => (
@@ -166,5 +204,7 @@ const styles = StyleSheet.create({
   },
   altreApp: { flexDirection: 'row', gap: 16, flexWrap: 'wrap' },
   nota: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
+  notaColumn: { gap: 8, marginTop: 10 },
+  section: { gap: 8, padding: 14, borderRadius: ora.radius.inner },
   appLink: { paddingVertical: 4 },
 });

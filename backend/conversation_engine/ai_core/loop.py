@@ -2942,11 +2942,17 @@ def _journey_from(observations) -> dict:
             #     NIENTE TEMPI: SI DICE PERCHE', NON SI INVENTANO.
             nota = payload.get("routing") or {}
             perche = str(nota.get("why_unavailable") or "")
-            return {"unavailable": perche} if perche else {}
+            return {
+                "unavailable": perche,
+                "destination_weather": payload.get("destination_weather"),
+            } if perche or payload.get("destination_weather") else {}
         return {
             "destination": ((payload.get("place") or {}).get("label") or "")[:120],
             "options": scelte[:3],
             "advice": str(payload.get("advice") or "")[:300],
+            "road_choices": (payload.get("road_choices") or [])[:3],
+            "route_weather": (payload.get("route_weather") or [])[:3],
+            "destination_weather": payload.get("destination_weather"),
         }
     return {}
 

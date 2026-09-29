@@ -1760,3 +1760,7 @@ Prova web pubblicata: il comando originale verso il Colosseo mostra il tasto Goo
 Un comando esplicito «portami ...» prepara direttamente il tasto di navigazione, senza attendere il ragionamento generale. Le domande su tempi e itinerari continuano a essere ragionate normalmente. Nessun servizio di traffico viene simulato.
 
 Prova web del 29 settembre: richiesta verso il Colosseo e pulsante Google Maps visibili nella conversazione. Il tap apre una rotta dalla posizione del browser al Colosseo. Screenshot `ora-navigazione-rapida-1790661746206.jpg`.
+
+## Briefing di viaggio verificabile (29 settembre 2026)
+
+Per un luogo personale confermato con coordinate e posizione corrente, ORA prepara tempi per il modo richiesto, alternative stradali con durata e rallentamento stimato, meteo alla partenza, lungo il percorso e all'arrivo, e orario prudente per un appuntamento imminente proprio in quella destinazione. Mostra i passaggi principali delle strade quando il provider li restituisce. Il meteo lungo strada è una previsione all'ora approssimativa di transito; non identifica incidenti o chiusure. Il tasto apre ancora il navigatore per le istruzioni svolta per svolta. Senza un provider di routing attivo, mostra soltanto il meteo attuale della destinazione confermata e spiega perché manca il confronto. Un luogo pubblico risolto solo per nome resta un handoff non verificato.

@@ -72,6 +72,7 @@ async def get_route(
     origin: Dict[str, float],
     destination: Dict[str, float],
     travel_mode: str = "drive",
+    alternatives: bool = False,
 ) -> Dict[str, Any]:
     """
     Distance and duration for one journey, from the configured provider.
@@ -87,7 +88,7 @@ async def get_route(
     mode = travel_mode if travel_mode in TRAVEL_MODES else "drive"
     try:
         if provider == "google_routes":
-            return await _google_routes(origin, destination, mode)
+            return await _google_routes(origin, destination, mode, alternatives=alternatives)
         return {
             "available": False,
             "provider": provider,
@@ -112,7 +113,8 @@ _GOOGLE_MODES = {
 
 
 async def _google_routes(
-    origin: Dict[str, float], destination: Dict[str, float], mode: str
+    origin: Dict[str, float], destination: Dict[str, float], mode: str,
+    *, alternatives: bool = False,
 ) -> Dict[str, Any]:
     """
     Google Routes API v2. Traffic-aware for driving, plain otherwise.
@@ -131,14 +133,22 @@ async def _google_routes(
         "destination": {"location": {"latLng": {
             "latitude": destination["latitude"], "longitude": destination["longitude"]}}},
         "travelMode": _GOOGLE_MODES[mode],
+        "languageCode": "it",
     }
     if traffic_aware:
         payload["routingPreference"] = "TRAFFIC_AWARE"
+        if alternatives:
+            payload["computeAlternativeRoutes"] = True
 
     headers = {
         "Content-Type": "application/json",
         "X-Goog-Api-Key": (os.environ.get(KEY_ENV) or "").strip(),
-        "X-Goog-FieldMask": "routes.duration,routes.distanceMeters,routes.staticDuration",
+        "X-Goog-FieldMask": (
+            "routes.duration,routes.distanceMeters,routes.staticDuration,"
+            "routes.routeLabels,routes.polyline.encodedPolyline"
+            + (",routes.legs.steps.navigationInstruction.instructions,"
+               "routes.legs.steps.distanceMeters" if traffic_aware and alternatives else "")
+        ),
     }
     async with httpx.AsyncClient(timeout=12.0) as client:
         response = await client.post(
@@ -161,18 +171,48 @@ async def _google_routes(
             "why_unavailable": "nessun percorso trovato",
         }
 
-    best = routes[0]
+    # Google orders routes by its preference, not necessarily by the shortest
+    # duration. Preserve that order while exposing the reason for our choice.
+    choices = []
+    for item in routes[:3]:
+        duration = _seconds(item.get("duration"))
+        if duration is None:
+            continue
+        baseline = _seconds(item.get("staticDuration"))
+        choices.append({
+            "duration_seconds": duration,
+            "distance_meters": item.get("distanceMeters"),
+            "delay_seconds": max(0, duration - baseline) if baseline is not None else None,
+            "polyline": (item.get("polyline") or {}).get("encodedPolyline") or "",
+            "provider_labels": item.get("routeLabels") or [],
+            "main_steps": [
+                str(step.get("navigationInstruction", {}).get("instructions") or "")[:140]
+                for step in sorted(
+                    [step for leg in item.get("legs") or [] for step in leg.get("steps") or []],
+                    key=lambda step: step.get("distanceMeters") or 0,
+                    reverse=True,
+                )[:2]
+                if step.get("navigationInstruction", {}).get("instructions")
+            ] if alternatives and traffic_aware else [],
+        })
+    if not choices:
+        return {"available": False, "provider": "google_routes", "why_unavailable": "durate non disponibili"}
+    best = min(choices, key=lambda item: item["duration_seconds"])
     return {
         "available": True,
         "provider": "google_routes",
         "travel_mode": mode,
-        "distance_meters": best.get("distanceMeters"),
-        "duration_seconds": _seconds(best.get("duration")),
+        "distance_meters": best["distance_meters"],
+        "duration_seconds": best["duration_seconds"],
         # What it would take with no traffic, when the provider offers it: the
         # gap between the two is the traffic, and saying so is more useful than
         # a single number.
-        "duration_without_traffic_seconds": _seconds(best.get("staticDuration")),
+        "duration_without_traffic_seconds": (
+            best["duration_seconds"] - best["delay_seconds"]
+            if best["delay_seconds"] is not None else None
+        ),
         "reflects_current_traffic": traffic_aware,
+        "alternatives": choices if alternatives and traffic_aware else [],
     }
 
 
