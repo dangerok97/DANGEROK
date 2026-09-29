@@ -392,3 +392,32 @@ def test_scheda_ai_senza_chiave_mostra_errore(ctx, monkeypatch):
     tok = csrf(c, f"/pratiche/{pid}/scheda")
     r = c.post(f"/pratiche/{pid}/scheda/proponi", data={"csrf": tok, "appunti": ""})
     assert r.status_code == 303 and "disattivato" in c.get(r.headers["location"]).text
+
+
+def test_impostazioni_e_prova_ai(ctx, monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-chiave-di-prova-1234")
+    c = entra(ctx)
+    pagina = c.get("/impostazioni").text
+    assert "chiave configurata" in pagina and "1234" in pagina and "sk-ant-chiave" not in pagina   # mascherata
+    tok = csrf(c, "/impostazioni")
+    r = c.post("/impostazioni/prova", data={"csrf": tok})
+    assert r.status_code == 200 and "Collegamento riuscito" in r.text
+
+
+def test_prova_ai_errori_chiari(ctx, monkeypatch):
+    import anthropic
+    import httpx2
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-chiave-di-prova-1234")
+    resp = httpx2.Response(401, request=httpx2.Request("POST", "https://x"))
+    def rifiuta(**kw):
+        raise anthropic.AuthenticationError("no", response=resp, body=None)
+    ctx.fake.beta.messages.create = rifiuta
+    c = entra(ctx)
+    tok = csrf(c, "/impostazioni")
+    assert "Chiave non valida" in c.post("/impostazioni/prova", data={"csrf": tok}).text
+    monkeypatch.delenv("ANTHROPIC_API_KEY")
+    app = create_app(ctx.st, ctx.SM, ai_client=None)
+    c2 = TestClient(app, follow_redirects=False)
+    entra(SimpleNamespace(c=c2, segreto=ctx.segreto))
+    t2 = csrf(c2, "/impostazioni")
+    assert "AI spenta" in c2.get("/impostazioni").text and "disattivato" in c2.post("/impostazioni/prova", data={"csrf": t2}).text

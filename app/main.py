@@ -568,6 +568,47 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
         """Controllo di stato per l'hosting: non espone dati."""
         return {"stato": "ok"}
 
+    # ---------------------------------------------------------------- impostazioni e prova AI
+    def _stato_ai() -> dict:
+        import os
+        chiave = os.environ.get("ANTHROPIC_API_KEY", "")
+        return {"attiva": bool(chiave), "modello": st.anthropic_model,
+                "chiave_mascherata": ("…" + chiave[-4:]) if len(chiave) >= 12 else ""}
+
+    @app.get("/impostazioni", response_class=HTMLResponse)
+    def impostazioni(request: Request, u=Depends(utente_corrente), s=Depends(db)):
+        log = s.scalars(select(LogAI).order_by(LogAI.id.desc()).limit(20)).all()
+        return render(request, "impostazioni.html", ai=_stato_ai(), esito=None, log=log)
+
+    @app.post("/impostazioni/prova", response_class=HTMLResponse)
+    def prova_ai(request: Request, csrf: str = Form(""), u=Depends(utente_corrente), s=Depends(db)):
+        """Chiamata minima (poche centinaia di token, nessun dato della pratica) per verificare chiave e collegamento."""
+        check_csrf(request, csrf)
+        import anthropic
+        esito = {"ok": False, "testo": ""}
+        try:
+            r = client_ai().beta.messages.create(
+                model=st.anthropic_model, max_tokens=1000, output_config={"effort": "low"},
+                messages=[{"role": "user", "content": "Rispondi soltanto con la parola OK."}])
+            risposta = "".join(b.text for b in r.content if getattr(b, "type", "") == "text").strip()
+            u_ = getattr(r, "usage", None)
+            esito = {"ok": True, "testo": f"Risposta: «{risposta[:40]}». Modello: {getattr(r, 'model', st.anthropic_model)}. "
+                     f"Token usati: {getattr(u_, 'input_tokens', '?')} in ingresso, {getattr(u_, 'output_tokens', '?')} in uscita."}
+        except ai_mod.AIDisattivata as e:
+            esito["testo"] = str(e)
+        except anthropic.AuthenticationError:
+            esito["testo"] = "Chiave non valida: controlla di averla copiata per intero, senza spazi."
+        except anthropic.PermissionDeniedError:
+            esito["testo"] = "Accesso negato per questa chiave o questo modello."
+        except anthropic.RateLimitError:
+            esito["testo"] = "Limite di richieste raggiunto: riprova tra poco."
+        except anthropic.APIConnectionError:
+            esito["testo"] = "Impossibile raggiungere il servizio: riprova."
+        except anthropic.APIStatusError as e:
+            esito["testo"] = f"Errore del servizio (codice {e.status_code}). Se parla di credito, verifica il saldo dell'account."
+        log = s.scalars(select(LogAI).order_by(LogAI.id.desc()).limit(20)).all()
+        return render(request, "impostazioni.html", ai=_stato_ai(), esito=esito, log=log)
+
     # ---------------------------------------------------------------- PWA
     @app.get("/manifest.webmanifest")
     def manifest():

@@ -92,3 +92,14 @@ database **online**. Puoi ignorarlo o disinstallarlo. Il database giusto e' Post
 - Backup del database: attiva quelli del provider e verifica come si ripristinano.
 - Aggiornamenti: ogni nuovo commit sul branch collegato ripubblica il sito (se attivi la pubblicazione automatica).
 - `ANTHROPIC_API_KEY`: ogni generazione e ogni ricerca normativa ha un costo a consumo.
+
+## Attivare l'AI (primi esperimenti)
+1. Vai su console.anthropic.com, accedi/registrati (l'account e' separato da quello di Claude.ai).
+2. **Settings > Plans & Billing > Add to credit balance**: aggiungi un piccolo credito (es. pochi euro) con la tua carta. Senza credito la chiave non funziona.
+3. **Limiti di spesa**: nelle impostazioni della workspace (Limits) imposta un tetto **mensile** basso, cosi' un errore non costa di piu'.
+4. **API Keys > Create Key**: dai un nome (es. `dangerok-prova`) e **copia subito la chiave**: non e' piu' recuperabile.
+5. Su Render: servizio *dangerok* > **Environment** > `ANTHROPIC_API_KEY` > incolla la chiave > salva. Il sito si riavvia.
+6. Nell'app apri **Impostazioni** e premi **Prova il collegamento**.
+La chiave e' segreta: non incollarla in chat, in file del repository o in schermate che condividi.
+Modello predefinito: `claude-opus-5-5`. Per gli esperimenti puoi impostare la variabile `ANTHROPIC_MODEL` (es. `claude-sonnet-5-5`,
+meno costoso), a costo di risposte meno accurate.
