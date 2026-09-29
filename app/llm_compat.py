@@ -75,6 +75,9 @@ class CompatClient:
             scelta = (dati.get("choices") or [{}])[0]
             testo = ((scelta.get("message") or {}).get("content")) or ""
             fine = scelta.get("finish_reason")
+            if not testo.strip() and modello != self.modelli[-1]:      # risposta vuota: prova il modello successivo
+                ultimo = ServizioAIErrore(None, "Il servizio ha restituito una risposta vuota.")
+                continue
             stop = "max_tokens" if fine == "length" else "refusal" if fine == "content_filter" else "end_turn"
             u = dati.get("usage") or {}
             return SimpleNamespace(

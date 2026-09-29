@@ -142,6 +142,10 @@ def genera_bozza(pseudo: Pseudonymizer, *, istruzione: str, contesto: str, check
     if getattr(risposta, "stop_reason", None) == "refusal":
         raise AIRifiutata("Il modello ha rifiutato la richiesta (stop_reason=refusal).")
     testo = "".join(b.text for b in risposta.content if getattr(b, "type", "") == "text")
+    corpo = "\n".join(r for r in testo.splitlines() if r.strip() and not r.strip().upper().startswith("PROCESSO VERBALE"))
+    if not corpo.strip():
+        motivo = " (risposta interrotta: limite di lunghezza raggiunto)" if getattr(risposta, "stop_reason", None) == "max_tokens" else ""
+        raise AIRifiutata("Il servizio AI ha restituito un testo vuoto o quasi" + motivo + ". Nulla e' stato salvato: riprova.")
     ripristinato, ignoti = pseudo.ripristina(testo)
     ripristinato = calcoli.risolvi_importi(ripristinato, registro)
     ripristinato, non_tracciati = calcoli.segnala_non_tracciati(ripristinato, registro,

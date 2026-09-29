@@ -40,6 +40,7 @@ FORMATI = {
                 foglio="foglio n. {n}", pt_corrente=10, box=False, logo_cm=(1.93, 1.88), pt_ind=10),
 }
 _RE_TITOLO = re.compile(r"^\s*PROCESSO VERBALE\b", re.I)
+_RE_TITOLO_PREFISSO = re.compile(r"^\s*PROCESSO VERBALE(?: DI [A-ZÀ-Ü' ]+?)?(?=\s+[A-Z][a-zà-ü]|\s*[:\-–.]|\s*$)[\s:\-–.]*")
 _RE_FIRME = re.compile(r"^\s*I VERBALIZZANTI\b")
 _RE_ELENCO = re.compile(r"^\s*(?:[-•–]\s+)(.*)$")
 
@@ -161,14 +162,19 @@ def crea_atto(tipo: str, testo: str, *, con_spiegazioni: bool = True, data: str 
     titolo_visto = not fmt["titolo"]
     elenco_militari = False                                 # righe dopo VERBALIZZANTI: nominativi centrati
     for riga in righe:
-        r = riga.rstrip()
+        r = re.sub(r"^\s*#{1,6}\s+", "", riga.replace("\r", "")).replace("**", "").rstrip()   # niente resti di markdown
         if not r.strip():
             _par(d, prima=6)
             continue
         nudo = wordexport.pulisci(r).strip()
         if not titolo_visto and _RE_TITOLO.match(nudo):
             titolo_visto = True
-            continue                                        # il titolo lo mette il programma, identico agli esempi
+            if nudo.isupper() and len(nudo) < 90:
+                continue                                    # il titolo lo mette il programma, identico agli esempi
+            r = _RE_TITOLO_PREFISSO.sub("", r, count=1).strip()   # titolo e testo sulla stessa riga: si tiene il testo
+            if not r:
+                continue
+            nudo = wordexport.pulisci(r).strip()
         if _RE_FIRME.match(nudo):
             p = _par(d, AL.LEFT, prima=18)
             p.paragraph_format.tab_stops.add_tab_stop(Cm(3.5), WD_TAB_ALIGNMENT.CENTER)

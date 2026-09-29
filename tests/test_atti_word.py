@@ -55,3 +55,15 @@ def test_spiegazioni_gialle_e_versione_pulita():
 def test_dati_mancanti_nell_intestazione_corrente():
     d = docx.Document(io.BytesIO(atti_word.crea_atto("PVC", TESTO)))
     assert "DA COMPILARE" in d.sections[0].header.paragraphs[0].text
+
+
+def test_titolo_e_testo_sulla_stessa_riga_non_si_perde():
+    d = docx.Document(io.BytesIO(atti_word.crea_atto("PVOC", "PROCESSO VERBALE DI OPERAZIONI COMPIUTE Il giorno 01/01 in Tarquinia.\nAltro testo.")))
+    t = "\n".join(p.text for p in d.paragraphs)
+    assert "Il giorno 01/01 in Tarquinia." in t and "Altro testo." in t
+
+
+def test_markdown_ripulito():
+    d = docx.Document(io.BytesIO(atti_word.crea_atto("PVV", "## **FATTO**\nTesto con **grassetto**.")))
+    t = "\n".join(p.text for p in d.paragraphs)
+    assert "**" not in t and "##" not in t and "FATTO" in t

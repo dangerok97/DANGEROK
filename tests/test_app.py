@@ -452,3 +452,18 @@ def test_invito_da_interfaccia_fino_al_word(ctx):
     assert "COMPAGNIA TARQUINIA" in t and "della ditta individuale “ROSSI MARIO”" in t and "(Ten. Nome COGNOME)" in t
     assert "con il Lgt. Uno UNO - Mar. Due DUE" in t and "periodi d’imposta 2022, 2023" in t
     assert round(d.sections[0].page_width.cm, 1) == 21.0
+
+
+def test_risposta_ai_vuota_non_crea_un_atto():
+    from types import SimpleNamespace
+    from app import ai as ai_mod
+    from app.privacy.pseudonymizer import Pseudonymizer
+
+    class Vuoto:
+        class beta:
+            class messages:
+                @staticmethod
+                def create(**kw):
+                    return SimpleNamespace(stop_reason="max_tokens", model="x", content=[SimpleNamespace(type="text", text="PROCESSO VERBALE DI OPERAZIONI COMPIUTE")])
+    with pytest.raises(ai_mod.AIRifiutata):
+        ai_mod.genera_bozza(Pseudonymizer(), istruzione="i", contesto="c", checklist=[], client=Vuoto())
