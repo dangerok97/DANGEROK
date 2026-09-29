@@ -29,8 +29,7 @@ from typing import Any, Dict, Optional
 logger = logging.getLogger(__name__)
 
 # The provider is a configuration decision, not a code decision. One
-# abstraction, one adapter behind it: three adapters for a capability nobody
-# has configured yet would be three things to keep working for no one.
+# abstraction, with the configured adapter selected for the deployment.
 PROVIDER_ENV = "ROUTING_PROVIDER"
 KEY_ENV = "ROUTING_API_KEY"
 
@@ -57,8 +56,8 @@ def capabilities() -> Dict[str, Any]:
     return {
         "available": provider is not None,
         "provider": provider,
-        "live_traffic": provider in {"google_routes", "here"},
-        "modes": list(TRAVEL_MODES),
+        "live_traffic": provider in {"google_routes", "mapbox"},
+        "modes": ["drive", "walk", "bicycle"] if provider == "mapbox" else list(TRAVEL_MODES),
         "why_unavailable": (
             None
             if provider
@@ -89,6 +88,8 @@ async def get_route(
     try:
         if provider == "google_routes":
             return await _google_routes(origin, destination, mode, alternatives=alternatives)
+        if provider == "mapbox":
+            return await _mapbox_routes(origin, destination, mode, alternatives=alternatives)
         return {
             "available": False,
             "provider": provider,
@@ -224,3 +225,103 @@ def _seconds(value: Optional[str]) -> Optional[int]:
         return int(str(value).rstrip("s"))
     except ValueError:
         return None
+
+
+_MAPBOX_PROFILES = {
+    "drive": "driving-traffic", "walk": "walking", "bicycle": "cycling",
+}
+_INCIDENTS_IT = {
+    "accident": "Incidente", "congestion": "Coda", "construction": "Lavori",
+    "disabled_vehicle": "Veicolo fermo", "lane_restriction": "Corsia limitata",
+    "road_closure": "Strada chiusa", "road_hazard": "Pericolo sulla strada",
+    "weather": "Condizioni meteo sulla strada", "planned_event": "Evento programmato",
+}
+
+
+def _mapbox_incidents(route: Dict[str, Any]) -> list[Dict[str, str]]:
+    """Only incidents on this returned route; do not infer their cause."""
+    seen = set()
+    result = []
+    for leg in route.get("legs") or []:
+        for incident in leg.get("incidents") or []:
+            if not isinstance(incident, dict):
+                continue
+            identifier = str(incident.get("id") or "")
+            if identifier and identifier in seen:
+                continue
+            seen.add(identifier)
+            kind = str(incident.get("type") or "").lower()
+            roads = incident.get("affected_road_names") or []
+            road = str(roads[0])[:80] if isinstance(roads, list) and roads else ""
+            label = _INCIDENTS_IT.get(kind, "Disagio segnalato")
+            result.append({"label": label, "road": road})
+            if len(result) >= 3:
+                return result
+    return result
+
+
+async def _mapbox_routes(
+    origin: Dict[str, float], destination: Dict[str, float], mode: str,
+    *, alternatives: bool = False,
+) -> Dict[str, Any]:
+    """Mapbox Directions v5, one request for the route and its alternatives."""
+    import httpx
+    import math
+
+    if mode not in _MAPBOX_PROFILES:
+        return {"available": False, "provider": "mapbox",
+                "why_unavailable": "Mapbox non offre il percorso con i mezzi pubblici"}
+    coords = []
+    for point in (origin, destination):
+        lat, lon = float(point["latitude"]), float(point["longitude"])
+        if not (math.isfinite(lat) and math.isfinite(lon) and -90 <= lat <= 90 and -180 <= lon <= 180):
+            return {"available": False, "provider": "mapbox", "why_unavailable": "coordinate non valide"}
+        coords.append(f"{lon:.6f},{lat:.6f}")
+    profile = _MAPBOX_PROFILES[mode]
+    url = f"https://api.mapbox.com/directions/v5/mapbox/{profile}/{';'.join(coords)}"
+    params = {
+        "access_token": (os.environ.get(KEY_ENV) or "").strip(),
+        "alternatives": "true" if alternatives and mode == "drive" else "false",
+        "overview": "full", "geometries": "polyline", "language": "it",
+    }
+    async with httpx.AsyncClient(timeout=12.0) as client:
+        response = await client.get(url, params=params)
+    if response.status_code != 200:
+        return {"available": False, "provider": "mapbox",
+                "why_unavailable": f"il servizio ha risposto {response.status_code}"}
+    data = response.json() or {}
+    if data.get("code") != "Ok":
+        return {"available": False, "provider": "mapbox",
+                "why_unavailable": "nessun percorso verificato"}
+    choices = []
+    for item in (data.get("routes") or [])[:3]:
+        try:
+            duration = float(item["duration"])
+            distance = float(item["distance"])
+            if not all(math.isfinite(x) and x >= 0 for x in (duration, distance)):
+                continue
+            typical = item.get("duration_typical")
+            typical = float(typical) if typical is not None else None
+            if typical is not None and not math.isfinite(typical):
+                typical = None
+        except (TypeError, ValueError, KeyError):
+            continue
+        choices.append({
+            "duration_seconds": round(duration), "distance_meters": round(distance),
+            "delay_seconds": max(0, round(duration - typical)) if typical is not None else None,
+            "delay_reference": "tempo tipico" if typical is not None else None,
+            "polyline": str(item.get("geometry") or ""),
+            "main_steps": [str(leg.get("summary"))[:140] for leg in item.get("legs") or []
+                           if leg.get("summary")][:2],
+            "incidents": _mapbox_incidents(item) if mode == "drive" else [],
+        })
+    if not choices:
+        return {"available": False, "provider": "mapbox", "why_unavailable": "durate non disponibili"}
+    best = min(choices, key=lambda item: item["duration_seconds"])
+    return {
+        "available": True, "provider": "mapbox", "travel_mode": mode,
+        "distance_meters": best["distance_meters"],
+        "duration_seconds": best["duration_seconds"],
+        "reflects_current_traffic": mode == "drive",
+        "alternatives": choices if alternatives and mode == "drive" else [],
+    }

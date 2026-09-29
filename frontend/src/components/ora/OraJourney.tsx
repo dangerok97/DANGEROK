@@ -8,6 +8,7 @@
  * Tutto quello che si legge qui arriva dal servizio dei percorsi: se non c'è,
  * questo modulo non compare — nessun tempo inventato, nessun traffico finto.
  */
+import { Fragment } from 'react';
 import { Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -32,8 +33,9 @@ export type OraJourneyView = {
   advice?: string;
   /** Perché non c'è un confronto dei tempi. Mai un numero al posto suo. */
   unavailable?: string;
-  road_choices?: { label: string; duration_seconds: number; delay_minutes?: number | null; recommended: boolean; reason: string; main_steps?: string[] }[];
+  road_choices?: { label: string; duration_seconds: number; delay_minutes?: number | null; delay_reference?: string; recommended: boolean; reason: string; main_steps?: string[]; incidents?: { label: string; road?: string }[] }[];
   route_weather?: { label: string; condition: string; temperature_c: number; rain_chance_pct: number }[];
+  route_provider?: string;
   destination_weather?: { condition: string; temperature_c: number } | null;
 };
 
@@ -127,13 +129,21 @@ export function OraJourney({
         <View style={styles.section} testID="ora-road-choices">
           <Text style={[oraType.body, { color: colors.textPrimary, fontWeight: '600' }]}>Quale strada conviene</Text>
           {journey.road_choices.map((road, i) => (
-            <Text key={i} style={[oraType.small, { color: colors.textSecondary }]}>
-              {road.label}: {Math.round(road.duration_seconds / 60)} min
-              {road.delay_minutes != null ? `, ${road.delay_minutes} min di rallentamento stimato` : ''}. {road.reason}
-              {road.main_steps?.length ? ` Indicazioni principali: ${road.main_steps.join('; ')}.` : ''}
-            </Text>
+            <Fragment key={i}>
+              <Text style={[oraType.small, { color: colors.textSecondary }]}>
+                {road.label}: {Math.round(road.duration_seconds / 60)} min
+                {road.delay_minutes != null ? `, ${road.delay_minutes} min di rallentamento stimato rispetto al ${road.delay_reference === 'tempo tipico' ? 'tempo tipico' : 'tempo senza traffico'}` : ''}. {road.reason}
+                {road.main_steps?.length ? ` Indicazioni principali: ${road.main_steps.join('; ')}.` : ''}
+              </Text>
+              {road.incidents?.map((incident, j) => (
+                <Text key={j} style={[oraType.small, { color: colors.textSecondary }]}>
+                  Segnalazione: {incident.label}{incident.road ? ` su ${incident.road}` : ' sul percorso'}.
+                </Text>
+              ))}
+            </Fragment>
           ))}
           <Text style={[oraType.small, { color: colors.textTertiary }]}>La mappa conferma strade e deviazioni al momento dell&apos;apertura.</Text>
+          {journey.route_provider === 'mapbox' ? <Text style={[oraType.small, { color: colors.textTertiary }]}>Dati percorso e incidenti © Mapbox.</Text> : null}
         </View>
       ) : null}
 

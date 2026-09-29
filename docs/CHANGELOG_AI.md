@@ -5831,4 +5831,8 @@ Backend `63dd565` distribuito e verificato. Il comando originale produce il tast
 
 Corretto il consiglio di partenza che leggeva una struttura agenda priva di eventi; ora sceglie un evento imminente nel luogo confermato e il modo richiesto, con fuso dell'utente. Il provider Routes richiede alternative, tempi senza traffico e geometria; ORA presenta i rallentamenti misurati e il meteo previsto in tre punti del percorso. In assenza di traffico server mostra il meteo attuale nella destinazione e dichiara il limite. 30 test mirati PASS, TypeScript ed export web PASS. La chiave routing manca nel servizio pubblicato, perciò nessun confronto live è promesso.
 
+### 2026-09-29 — Mapbox Directions come provider alternativo
+
+`places.routing` ora accetta `ROUTING_PROVIDER=mapbox`: driving-traffic, alternative, durata tipica, geometria e incidenti legati a ogni percorso. `OraJourney` mostra tempo stimato, rallentamento rispetto al tipico, strada interessata e attribuzione. A piedi/bici niente traffico; transit indisponibile. Risposte errate non diventano tempi inventati. 32 test mirati PASS, TypeScript, ESLint ed export web PASS con risposte Mapbox simulate. Il token demo è da impostare nel backend Railway per verificare richieste reali; non va incollato in chat né nel repository. Rilascio da registrare dopo pubblicazione.
+
 Pubblicati backend `1e7515f0` e web `ba7180d5`, entrambi SUCCESS sul commit `1aa9367`. Lo screenshot `ora-briefing-limite-dati-live-1790663049210.jpg` mostra la prova reale su Colosseo e il limite dichiarato in assenza della chiave. Il briefing completo è verificato con risposte di provider simulate nei test, non ancora con traffico live nell'ambiente.

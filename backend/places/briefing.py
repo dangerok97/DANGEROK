@@ -100,7 +100,7 @@ async def weather_along_route(polyline: str, duration_seconds: int) -> List[Dict
 
 
 def route_choices(routes: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Only explain a delay when the provider supplied a no-traffic baseline."""
+    """Only explain a delay when the provider supplied a comparison baseline."""
     valid = [r for r in routes[:3] if r.get("duration_seconds") is not None]
     if not valid:
         return []
@@ -111,6 +111,8 @@ def route_choices(routes: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         "distance_meters": route.get("distance_meters"),
         "main_steps": route.get("main_steps") or [],
         "delay_minutes": round(route["delay_seconds"] / 60) if route.get("delay_seconds") is not None else None,
+        "delay_reference": route.get("delay_reference") or "senza traffico",
+        "incidents": (route.get("incidents") or [])[:3],
         "recommended": route is fastest,
         "reason": (
             "Il più rapido secondo il traffico stimato ora."

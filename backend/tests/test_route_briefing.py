@@ -69,6 +69,71 @@ async def test_google_routes_requests_alternatives_and_keeps_geometry(monkeypatc
 
 
 @pytest.mark.asyncio
+async def test_mapbox_traffic_alternatives_incidents_and_geometry(monkeypatch):
+    from places import routing, briefing
+
+    captured = {}
+
+    class Response:
+        status_code = 200
+
+        def json(self):
+            return {"code": "Ok", "routes": [
+                {"duration": 1800.4, "duration_typical": 1200, "distance": 12000,
+                 "geometry": "_p~iF~ps|U_ulLnnqC_mqNvxq`@",
+                 "legs": [{"summary": "A1", "incidents": [
+                     {"id": "123", "type": "road_closure", "affected_road_names": ["A1"]}]}]},
+                {"duration": 1450, "duration_typical": 1400, "distance": 13500,
+                 "geometry": "_p~iF~ps|U_ulLnnqC_mqNvxq`@",
+                 "legs": [{"summary": "Via Roma", "incidents": []}]},
+            ]}
+
+    class Client:
+        def __init__(self, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            pass
+
+        async def get(self, url, params):
+            captured.update(url=url, params=params)
+            return Response()
+
+    monkeypatch.setenv("ROUTING_PROVIDER", "mapbox")
+    monkeypatch.setenv("ROUTING_API_KEY", "test-token")
+    monkeypatch.setattr("httpx.AsyncClient", Client)
+    result = await routing.get_route(origin={"latitude": 45, "longitude": 9},
+                                     destination={"latitude": 46, "longitude": 10},
+                                     alternatives=True)
+    assert "/mapbox/driving-traffic/9.000000,45.000000;10.000000,46.000000" in captured["url"]
+    assert captured["params"]["alternatives"] == "true"
+    assert captured["params"]["geometries"] == "polyline"
+    assert result["duration_seconds"] == 1450
+    assert result["reflects_current_traffic"] is True
+    assert result["alternatives"][0]["delay_seconds"] == 600
+    assert result["alternatives"][0]["incidents"] == [{"label": "Strada chiusa", "road": "A1"}]
+    assert briefing.route_choices(result["alternatives"])[1]["recommended"] is True
+    assert len(briefing.decode_polyline(result["alternatives"][1]["polyline"])) == 3
+    assert routing.capabilities()["modes"] == ["drive", "walk", "bicycle"]
+
+
+@pytest.mark.asyncio
+async def test_mapbox_refuses_transit_and_does_not_fabricate_eta(monkeypatch):
+    from places import routing
+
+    monkeypatch.setenv("ROUTING_PROVIDER", "mapbox")
+    monkeypatch.setenv("ROUTING_API_KEY", "test-token")
+    result = await routing.get_route(origin={"latitude": 45, "longitude": 9},
+                                     destination={"latitude": 46, "longitude": 10},
+                                     travel_mode="transit")
+    assert result["available"] is False
+    assert "mezzi pubblici" in result["why_unavailable"]
+
+
+@pytest.mark.asyncio
 async def test_route_weather_samples_actual_geometry(monkeypatch):
     from datetime import datetime, timezone
     from places import briefing

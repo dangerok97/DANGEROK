@@ -2952,6 +2952,7 @@ def _journey_from(observations) -> dict:
             "advice": str(payload.get("advice") or "")[:300],
             "road_choices": (payload.get("road_choices") or [])[:3],
             "route_weather": (payload.get("route_weather") or [])[:3],
+            "route_provider": payload.get("route_provider"),
             "destination_weather": payload.get("destination_weather"),
         }
     return {}

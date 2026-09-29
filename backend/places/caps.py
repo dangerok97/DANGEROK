@@ -257,6 +257,7 @@ async def open_navigation(arguments: Dict[str, Any], runtime: Dict[str, Any]) ->
     road_choices: List[Dict[str, Any]] = []
     route_weather: List[Dict[str, Any]] = []
     destination_weather = None
+    route_provider = None
     requested_mode = _travel_mode(arguments.get("mode"))
     if origin is not None:
         from places import routing, briefing
@@ -268,6 +269,7 @@ async def open_navigation(arguments: Dict[str, Any], runtime: Dict[str, Any]) ->
             alternatives=requested_mode == "drive",
         )
         if route.get("available"):
+            route_provider = route.get("provider")
             journey = {
                 "duration_seconds": route.get("duration_seconds"),
                 "distance_meters": route.get("distance_meters"),
@@ -317,6 +319,7 @@ async def open_navigation(arguments: Dict[str, Any], runtime: Dict[str, Any]) ->
             "advice": consiglio,
             "road_choices": road_choices,
             "route_weather": route_weather,
+            "route_provider": route_provider,
             "destination_weather": destination_weather,
             "routing": None if scelte else _routing_note(),
             "say_this": (
