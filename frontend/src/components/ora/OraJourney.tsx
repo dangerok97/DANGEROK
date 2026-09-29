@@ -143,7 +143,7 @@ export function OraJourney({
             </Fragment>
           ))}
           <Text style={[oraType.small, { color: colors.textTertiary }]}>La mappa conferma strade e deviazioni al momento dell&apos;apertura.</Text>
-          {journey.route_provider === 'mapbox' ? <Text style={[oraType.small, { color: colors.textTertiary }]}>Dati percorso e incidenti © Mapbox.</Text> : null}
+          {journey.route_provider === 'mapbox' ? <Text style={[oraType.small, { color: colors.textTertiary }]}>Dati destinazione, percorso e incidenti © Mapbox.</Text> : null}
         </View>
       ) : null}
 

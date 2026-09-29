@@ -183,19 +183,33 @@ async def open_navigation(arguments: Dict[str, Any], runtime: Dict[str, Any]) ->
                 and not resolution.reason.startswith("più luoghi")):
             from places.navigation import search_handoff
 
+            preview = await _public_route_preview(spoken, runtime)
             return _ok("open_navigation", {
                 "ready": True,
                 "destination_unverified": True,
-                "has_origin": False,
-                "route": None,
-                "journey_options": [],
-                "routing": _routing_note(),
+                "has_origin": bool(preview),
+                "route": preview.get("route") if preview else None,
+                "place": {"label": spoken} if preview else None,
+                "journey_options": preview.get("journey_options", []) if preview else [],
+                "road_choices": preview.get("road_choices", []) if preview else [],
+                "route_weather": preview.get("route_weather", []) if preview else [],
+                "route_provider": "mapbox" if preview else None,
+                "routing": None if preview else (
+                    {"available": False, "why_unavailable":
+                     "non ho una posizione attuale e una destinazione univoca da stimare; "
+                     "la mappa cercherà il luogo quando la apri"}
+                    if _mapbox_enabled() else _routing_note()
+                ),
                 "say_this": (
+                    f"Per «{spoken}» ho trovato {preview['label']} ({preview['context']}). "
+                    "Ti mostro i tempi stimati e il traffico. Verifica che sia la destinazione giusta: "
+                    "la navigazione partirà dalla posizione del dispositivo e potrà aggiornare la strada."
+                    if preview else
                     f"Ti porto verso «{spoken}»: apri Google Maps qui sotto. "
                     "Userà la posizione del dispositivo e mostrerà percorso e traffico aggiornati. "
                     "Controlla che abbia trovato la destinazione giusta."
                 ),
-                **search_handoff(spoken, str(arguments.get("mode") or "driving")),
+                **(preview["handoff"] if preview else search_handoff(spoken, str(arguments.get("mode") or "driving"))),
             }, uid, status="needs_client")
         return _ok(
             "open_navigation",
@@ -333,6 +347,58 @@ async def open_navigation(arguments: Dict[str, Any], runtime: Dict[str, Any]) ->
         uid,
         status="needs_client",
     )
+
+
+async def _public_route_preview(name: str, runtime: Dict[str, Any]) -> Dict[str, Any] | None:
+    """A temporary coordinate lookup, only with a current origin and exact unique name."""
+    from places import briefing, routing
+    from places.navigation import navigation_url
+    from places.public_search import preview_destination
+
+    if routing.configured_provider() != "mapbox":
+        return None
+    try:
+        from location.service import LocationService
+
+        presence = await LocationService(runtime["db"]).build_presence(runtime["user_id"])
+        if (not presence or presence.freshness != "CURRENT"
+                or presence.latitude is None or presence.longitude is None):
+            return None
+        origin = {"latitude": presence.latitude, "longitude": presence.longitude}
+        destination = await preview_destination(name, origin)
+        if not destination:
+            return None
+        point = {"latitude": destination["latitude"], "longitude": destination["longitude"]}
+        route = await routing.get_route(origin=origin, destination=point, alternatives=True)
+        if not route.get("available"):
+            return None
+        choices = await _how_to_get_there(origin, point, first_route=route, first_mode="drive")
+        if not choices:
+            return None
+        alternatives = route.get("alternatives") or []
+        best = min(alternatives, key=lambda r: r["duration_seconds"], default=None)
+        weather = await briefing.weather_along_route(best["polyline"], best["duration_seconds"]) if best and best.get("polyline") else []
+        return {
+            "label": destination["label"], "context": destination["context"],
+            "route": {"duration_seconds": route["duration_seconds"],
+                      "distance_meters": route.get("distance_meters"),
+                      "reflects_current_traffic": True, "is_live": True},
+            "journey_options": choices,
+            "road_choices": briefing.route_choices(alternatives), "route_weather": weather,
+            "handoff": {"needs_choice": False, "app": "google_maps",
+                        "url": navigation_url("google_maps", latitude=point["latitude"],
+                                              longitude=point["longitude"]),
+                        "destination_label": destination["label"]},
+        }
+    except Exception as e:
+        logger.info("public route preview soft-fail: %s", type(e).__name__)
+        return None
+
+
+def _mapbox_enabled() -> bool:
+    from places.routing import configured_provider
+
+    return configured_provider() == "mapbox"
 
 
 #     I MODI CHE SI CONFRONTANO, E COME SI CHIAMANO PER CHI LEGGE.

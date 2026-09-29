@@ -37,6 +37,130 @@ def test_public_destination_handoff(monkeypatch):
     assert obs.payload["route"] is None
 
 
+def test_public_destination_prepares_traffic_without_saving_place(monkeypatch):
+    from places import caps, routing, briefing, public_search
+    from places.models import PlaceResolution
+    from location.service import LocationService
+
+    class Service:
+        async def resolve_destination(self, uid, spoken):
+            return PlaceResolution(reason="non conosco ancora nessun luogo")
+
+    class Presence:
+        freshness = "CURRENT"
+        latitude = 42.25
+        longitude = 11.75
+
+    async def presence(self, uid):
+        return Presence()
+
+    async def search(name, origin):
+        assert origin == {"latitude": 42.25, "longitude": 11.75}
+        return {"label": "Colosseo", "context": "Roma, Italia", "latitude": 41.89, "longitude": 12.49}
+
+    async def route(**kwargs):
+        assert kwargs["destination"] == {"latitude": 41.89, "longitude": 12.49}
+        return {"available": True, "provider": "mapbox", "duration_seconds": 3600,
+                "distance_meters": 80000, "reflects_current_traffic": True,
+                "alternatives": [{"duration_seconds": 3600, "distance_meters": 80000,
+                                  "delay_seconds": 600, "delay_reference": "tempo tipico",
+                                  "polyline": "route", "incidents": [{"label": "Coda", "road": "A12"}]}]}
+
+    async def weather(polyline, seconds):
+        assert (polyline, seconds) == ("route", 3600)
+        return [{"label": "Lungo il tragitto", "condition": "pioggia",
+                 "rain_chance_pct": 80, "temperature_c": 15}]
+
+    async def options(*args, **kwargs):
+        return [{"mode": "drive", "duration_seconds": 3600, "duration_label": "1 ora",
+                 "recommended": True, "reflects_current_traffic": True}]
+
+    monkeypatch.setattr(caps, "_service", lambda runtime: Service())
+    monkeypatch.setattr(routing, "configured_provider", lambda: "mapbox")
+    monkeypatch.setattr(LocationService, "build_presence", presence)
+    monkeypatch.setattr(public_search, "preview_destination", search)
+    monkeypatch.setattr(routing, "get_route", route)
+    monkeypatch.setattr(briefing, "weather_along_route", weather)
+    monkeypatch.setattr(caps, "_how_to_get_there", options)
+    obs = run(caps.open_navigation({"destination": "Colosseo"}, {"db": object(), "user_id": "u"}))
+    assert obs.payload["road_choices"][0]["incidents"][0]["road"] == "A12"
+    assert obs.payload["route_weather"][0]["rain_chance_pct"] == 80
+    assert obs.payload["route_provider"] == "mapbox"
+    assert parse_qs(urlparse(obs.payload["url"]).query)["destination"] == ["41.89,12.49"]
+    assert "Roma, Italia" in obs.payload["say_this"]
+
+
+def test_public_search_requires_unique_exact_match(monkeypatch):
+    from places import public_search
+    from places import routing
+
+    class Response:
+        status_code = 200
+
+        def json(self):
+            return {"features": [
+                {"properties": {"name": "Colosseo", "coordinates": {
+                    "latitude": 41.89, "longitude": 12.49}}},
+                {"properties": {"name": "Colosseo", "coordinates": {
+                    "latitude": 40, "longitude": 11}}},
+            ]}
+
+    class Client:
+        def __init__(self, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            pass
+
+        async def get(self, url, params):
+            assert params["auto_complete"] == "false"
+            assert params["proximity"] == "11.75,42.25"
+            return Response()
+
+    monkeypatch.setattr(routing, "configured_provider", lambda: "mapbox")
+    monkeypatch.setenv("ROUTING_API_KEY", "test-token")
+    monkeypatch.setattr("httpx.AsyncClient", Client)
+    found = run(public_search.preview_destination("Colosseo", {"latitude": 42.25, "longitude": 11.75}))
+    assert found is None
+
+
+def test_public_search_uses_routable_entrance(monkeypatch):
+    from places import public_search, routing
+
+    class Response:
+        status_code = 200
+
+        def json(self):
+            return {"features": [{"properties": {
+                "name": "Colosseo", "place_formatted": "Roma, Italia",
+                "coordinates": {"latitude": 41.89, "longitude": 12.49,
+                                "routable_points": [{"latitude": 41.891, "longitude": 12.491}]},
+            }}]}
+
+    class Client:
+        def __init__(self, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            pass
+
+        async def get(self, url, params):
+            return Response()
+
+    monkeypatch.setattr(routing, "configured_provider", lambda: "mapbox")
+    monkeypatch.setenv("ROUTING_API_KEY", "test-token")
+    monkeypatch.setattr("httpx.AsyncClient", Client)
+    found = run(public_search.preview_destination("Colosseo", {"latitude": 42.25, "longitude": 11.75}))
+    assert found == {"label": "Colosseo", "context": "Roma, Italia",
+                     "latitude": 41.891, "longitude": 12.491}
+
+
 def test_navigation_rescue_produces_link_when_model_skips_tool(monkeypatch):
     from conversation_engine.ai_core import loop
     from places import caps
