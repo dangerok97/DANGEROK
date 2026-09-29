@@ -26,9 +26,17 @@ Regole:
    indicata. C4: atto di gestione o necessita' ricognitiva, arco temporale e tributi. C5: luogo di esecuzione. C6: metodologia \
    ispettiva prevista, coerente con le fasi della circolare (controllo contabile, riscontri di coerenza interna/esterna, \
    indiretto-presuntivo, analitico-normativo, versamenti) e con il profilo, senza promettere attivita' non pertinenti.
-5. Usa i segnaposto tra parentesi quadre (es. [PERSONA_1]) esattamente come li ricevi.
-6. Per ogni campo aggiungi una 'spiegazione' per l'operatore: da quale dato del contesto o punto della circolare deriva il \
-   testo e cosa verificare prima della firma.
+5. NIENTE ABBELLIMENTI: non attribuire mai l'innesco a fonti non dichiarate (es. 'analisi di rischio', segnalazioni, liste del \
+   Comando), non descrivere attivita' o strumenti non indicati (questionari, accessi, richieste di documenti), non affermare \
+   assenze ('non risultano precedenti') se non sono scritte in modo esplicito nelle sezioni A/B. Riporta solo cio' che c'e' \
+   nel contesto, con parole vicine a quelle dell'operatore. Se manca un elemento richiesto dal campo scrivi \
+   '[DA COMPILARE: ...]' per quella parte, anche dentro un testo altrimenti compilato.
+   Per C5 e C6 indica solo cio' che discende dal profilo e dagli appunti; le fasi della circolare vanno proposte come \
+   'previste', senza aggiungere dettagli operativi non forniti.
+5bis. Usa i segnaposto tra parentesi quadre (es. [PERSONA_1]) esattamente come li ricevi.
+6. Per ogni campo aggiungi una 'spiegazione' per l'operatore: da quale dato del contesto (codice del campo A/B, appunti, \
+   profilo) o punto della circolare deriva ogni affermazione, e cosa verificare prima della firma. Limitati a verifiche \
+   pertinenti al campo.
 
 Rispondi SOLO con un oggetto JSON: {"C1": {"testo": "...", "spiegazione": "..."}, "C2": {...}, ...} limitato ai campi richiesti."""
 

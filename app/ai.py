@@ -88,11 +88,34 @@ def prepara_richiesta(pseudo: Pseudonymizer, *, istruzione: str, contesto: str, 
     return system, user_anon
 
 
+def configurazione() -> dict:
+    """Quale servizio AI e' configurato. LLM_PROVIDER = anthropic | gemini | openai_compat (vuoto = automatico)."""
+    e = os.environ.get
+    prov = (e("LLM_PROVIDER") or "").lower()
+    if not prov:
+        prov = "anthropic" if e("ANTHROPIC_API_KEY") else "gemini" if e("GEMINI_API_KEY") else "anthropic"
+    if prov == "gemini":
+        from .llm_compat import GEMINI_MODELLO_PREDEFINITO
+        chiave, modello, base = e("GEMINI_API_KEY", ""), e("LLM_MODEL") or GEMINI_MODELLO_PREDEFINITO, None
+    elif prov == "openai_compat":
+        chiave, modello, base = e("LLM_API_KEY", ""), e("LLM_MODEL", ""), e("LLM_BASE_URL", "")
+    else:
+        prov, chiave, modello, base = "anthropic", e("ANTHROPIC_API_KEY", ""), e("ANTHROPIC_MODEL") or "claude-opus-5-5", None
+    attiva = bool(chiave) and (prov != "openai_compat" or bool(base and modello))
+    return {"provider": prov, "attiva": attiva, "modello": modello, "base_url": base, "chiave": chiave,
+            "chiave_mascherata": ("…" + chiave[-4:]) if len(chiave) >= 12 else "",
+            "ricerca_web": prov == "anthropic", "gratuito_con_dati_usati": prov in ("gemini",)}
+
+
 def _client():
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        raise AIDisattivata("ANTHROPIC_API_KEY non configurata: assistente AI disattivato.")
-    import anthropic
-    return anthropic.Anthropic()
+    c = configurazione()
+    if not c["attiva"]:
+        raise AIDisattivata("Assistente AI disattivato: manca la chiave (vedi Impostazioni).")
+    if c["provider"] == "anthropic":
+        import anthropic
+        return anthropic.Anthropic()
+    from .llm_compat import GEMINI_BASE_URL, CompatClient
+    return CompatClient(c["base_url"] or GEMINI_BASE_URL, c["chiave"], c["modello"])
 
 
 def genera_bozza(pseudo: Pseudonymizer, *, istruzione: str, contesto: str, checklist: list[str],

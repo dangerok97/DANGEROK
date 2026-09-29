@@ -13,7 +13,7 @@ from sqlalchemy import select
 from starlette.middleware.sessions import SessionMiddleware
 
 from . import ai as ai_mod
-from . import calcoli, norme, scheda_ai, piano as piano_mod, schede, security, tipologie, workflow, wordexport
+from . import calcoli, llm_compat, norme, scheda_ai, piano as piano_mod, schede, security, tipologie, workflow, wordexport
 from .config import Settings
 from .db import crea_engine, crea_sessionmaker
 from .models import Atto, FasePratica, FonteNormativa, LogAI, Pratica, Utente
@@ -429,7 +429,7 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
             s.commit()
         except ai_mod.LeakError as e:
             errore = f"Quesito BLOCCATO: contiene dati riconoscibili ({e}). Formulalo in modo generale."
-        except ai_mod.AIDisattivata as e:
+        except (ai_mod.AIDisattivata, llm_compat.NonSupportato) as e:
             errore = str(e)
         fonti = s.scalars(select(FonteNormativa).where(FonteNormativa.pratica_id == pid)
                           .order_by(FonteNormativa.id.desc())).all()
@@ -570,10 +570,9 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
 
     # ---------------------------------------------------------------- impostazioni e prova AI
     def _stato_ai() -> dict:
-        import os
-        chiave = os.environ.get("ANTHROPIC_API_KEY", "")
-        return {"attiva": bool(chiave), "modello": st.anthropic_model,
-                "chiave_mascherata": ("…" + chiave[-4:]) if len(chiave) >= 12 else ""}
+        c = ai_mod.configurazione()
+        return {k: c[k] for k in ("provider", "attiva", "modello", "chiave_mascherata", "ricerca_web",
+                                  "gratuito_con_dati_usati")}
 
     @app.get("/impostazioni", response_class=HTMLResponse)
     def impostazioni(request: Request, u=Depends(utente_corrente), s=Depends(db)):
@@ -588,7 +587,7 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
         esito = {"ok": False, "testo": ""}
         try:
             r = client_ai().beta.messages.create(
-                model=st.anthropic_model, max_tokens=1000, output_config={"effort": "low"},
+                model=ai_mod.configurazione()["modello"], max_tokens=1000, output_config={"effort": "low"},
                 messages=[{"role": "user", "content": "Rispondi soltanto con la parola OK."}])
             risposta = "".join(b.text for b in r.content if getattr(b, "type", "") == "text").strip()
             u_ = getattr(r, "usage", None)
@@ -596,6 +595,8 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
                      f"Token usati: {getattr(u_, 'input_tokens', '?')} in ingresso, {getattr(u_, 'output_tokens', '?')} in uscita."}
         except ai_mod.AIDisattivata as e:
             esito["testo"] = str(e)
+        except llm_compat.ServizioAIErrore as e:
+            esito["testo"] = e.messaggio
         except anthropic.AuthenticationError:
             esito["testo"] = "Chiave non valida: controlla di averla copiata per intero, senza spazi."
         except anthropic.PermissionDeniedError:

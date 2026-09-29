@@ -103,3 +103,17 @@ database **online**. Puoi ignorarlo o disinstallarlo. Il database giusto e' Post
 La chiave e' segreta: non incollarla in chat, in file del repository o in schermate che condividi.
 Modello predefinito: `claude-opus-5-5`. Per gli esperimenti puoi impostare la variabile `ANTHROPIC_MODEL` (es. `claude-sonnet-5-5`,
 meno costoso), a costo di risposte meno accurate.
+
+## Usare Gemini (gratuito) invece di Claude
+Variabili su Render (Environment):
+| Nome | Valore |
+|---|---|
+| `GEMINI_API_KEY` | la chiave creata su aistudio.google.com |
+| `LLM_MODEL` | (facoltativa) uno o piu' modelli separati da virgola, in ordine di preferenza. Predefinito: `gemini-3.5-flash,gemini-3.7-flash,gemini-3.8-flash` |
+Se `ANTHROPIC_API_KEY` e' presente vince Anthropic; per forzare il servizio usa `LLM_PROVIDER=gemini`.
+I nomi dei modelli Google cambiano spesso (`gemini-2.5-flash` e' stato ritirato per i nuovi utenti): se compare
+«il modello non e' piu' disponibile» aggiorna `LLM_MODEL` con un nome dell'elenco di AI Studio.
+Il piano gratuito e' instabile (a volte «sovraccarico» o «quota esaurita»): l'app riprova e passa al modello successivo.
+**Piano gratuito Google: i contenuti possono essere usati da Google e letti da revisori: SOLO dati inventati.**
+Con Gemini la ricerca normativa sul web non e' disponibile.
+**Non incollare mai la chiave in chat.** Se e' finita in un messaggio, cancellala da AI Studio e creane una nuova.

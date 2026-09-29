@@ -2,8 +2,10 @@
 {% block corpo %}
 <h1>Impostazioni</h1>
 <div class="card"><h2>Assistente AI</h2>
-{% if ai.attiva %}<p><span class="pill ok">chiave configurata</span> {{ ai.chiave_mascherata }} · modello <b>{{ ai.modello }}</b></p>
-{% else %}<p><span class="pill warn">AI spenta</span> Manca la chiave <code>ANTHROPIC_API_KEY</code> nelle variabili del servizio su Render.</p>{% endif %}
+{% if ai.attiva %}<p><span class="pill ok">chiave configurata</span> {{ ai.chiave_mascherata }} · servizio <b>{{ ai.provider }}</b> · modello <b>{{ ai.modello }}</b></p>
+{% else %}<p><span class="pill warn">AI spenta</span> Manca la chiave nelle variabili del servizio su Render (<code>ANTHROPIC_API_KEY</code> oppure <code>GEMINI_API_KEY</code>).</p>{% endif %}
+{% if ai.gratuito_con_dati_usati %}<p class="err">Attenzione: sul piano gratuito di questo servizio i contenuti inviati possono essere usati dal fornitore per migliorare i suoi prodotti e letti da revisori. Usa SOLO dati inventati.</p>{% endif %}
+{% if ai.attiva and not ai.ricerca_web %}<p class="muted">Con questo servizio la ricerca normativa sul web non e' disponibile.</p>{% endif %}
 <form method="post" action="/impostazioni/prova"><input type="hidden" name="csrf" value="{{ csrf }}">
 <p><button {% if not ai.attiva %}class="sec"{% endif %}>Prova il collegamento</button> <span class="muted">Chiamata minima, senza dati di pratiche: costa una frazione di centesimo.</span></p></form>
 {% if esito %}<p class="{{ 'ok-msg' if esito.ok else 'err' }}">{{ 'Collegamento riuscito. ' if esito.ok else 'Non riuscito. ' }}{{ esito.testo }}</p>{% endif %}</div>
