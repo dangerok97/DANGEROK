@@ -21,12 +21,23 @@ class FakeAI:
     def __init__(self):
         self.richieste = []
         self.beta = SimpleNamespace(messages=SimpleNamespace(create=self._create))
+        self.messages = SimpleNamespace(create=self._web)
+        self.web = []
+
+    def _web(self, **kw):
+        self.web.append(kw)
+        cit = SimpleNamespace(type="web_search_result_location", url="https://www.agenziaentrate.gov.it/c24e",
+                              title="Circolare 24/E", cited_text="Il credito concorre al reddito")
+        return SimpleNamespace(stop_reason="end_turn", content=[
+            SimpleNamespace(type="text", text="Sintesi normativa.", citations=[cit])])
 
     def _create(self, **kw):
         self.richieste.append(kw)
         user = kw["messages"][0]["content"]
         m = re.search(r"\[PERSONA_1\]", user)
         testo = f"Il giorno odierno {m.group(0) if m else '[DA COMPILARE: soggetto]'} ha esibito la documentazione."
+        if "PROMPT" in str(kw.get("system", "")) or "piano di fasi" in str(kw.get("system", "")):
+            testo = '[{"chiave":"indiretto_presuntivo","esito":"consigliata","motivo":"Ragione basata su movimenti."}]'
         return SimpleNamespace(stop_reason="end_turn", model=kw["model"],
                                content=[SimpleNamespace(type="text", text=testo)])
 
@@ -196,3 +207,57 @@ def test_ai_disattivata_senza_chiave(ctx, monkeypatch):
 def test_intestazioni_sicurezza(ctx):
     r = ctx.c.get("/login")
     assert r.headers["cache-control"] == "no-store" and "frame-ancestors 'none'" in r.headers["content-security-policy"]
+
+
+def test_piano_suggerito_e_applicato(ctx):
+    c = entra(ctx)
+    pid = nuova_pratica(c, forma="professionista", regime="forfettario", modalita="reparto", ragione="Soglia 85.000")
+    tok = csrf(c, f"/pratiche/{pid}")
+    assert c.post(f"/pratiche/{pid}/piano/suggerisci", data={"csrf": tok, "con_ai": "1"}).status_code == 303
+    pagina = c.get(f"/pratiche/{pid}").text
+    assert "non pertinente" in pagina and "Ragione basata su movimenti" in pagina and "(AI)" in pagina
+    assert c.post(f"/pratiche/{pid}/piano/applica", data={"csrf": tok}).status_code == 303
+    with ctx.SM() as s:
+        stati = {f.chiave: f.stato for f in s.get(Pratica, pid).fasi}
+    assert stati["riscontro_materiale"] == "non_applicabile" and stati["avvio"] == "da_fare"
+    # l'AI ha ricevuto il profilo senza dati reali
+    assert all("Rossi" not in str(r["messages"]) for r in ctx.fake.richieste)
+
+
+def test_ricerca_normativa_registra_le_fonti(ctx):
+    c = entra(ctx)
+    pid = nuova_pratica(c)
+    tok = csrf(c, f"/pratiche/{pid}/norme")
+    r = c.post(f"/pratiche/{pid}/norme", data={"csrf": tok, "periodo": "2023",
+                                              "quesito": "Trattamento reddituale del credito da sconto in fattura"})
+    assert r.status_code == 200 and "Sintesi normativa." in r.text and "agenziaentrate.gov.it/c24e" in r.text
+    assert "ufficiale" in r.text and "Circolare 24/E" in r.text
+    r = c.get(f"/pratiche/{pid}/norme")
+    assert "Circolare 24/E" in r.text
+
+
+def test_ricerca_normativa_non_invia_dati_del_caso(ctx):
+    c = entra(ctx)
+    pid = nuova_pratica(c)
+    tok = csrf(c, f"/pratiche/{pid}/norme")
+    c.post(f"/pratiche/{pid}/norme", data={"csrf": tok, "periodo": "2023",
+                                          "quesito": f"Situazione di Mario Rossi, {cf_fittizio()}, via dei Test n. 27"})
+    inviato = str(ctx.fake.web[0]["messages"])
+    assert "Rossi" not in inviato and cf_fittizio() not in inviato and "dei Test" not in inviato
+
+
+def test_download_word_con_e_senza_spiegazioni(ctx):
+    c = entra(ctx)
+    pid = nuova_pratica(c)
+    with ctx.SM() as s:
+        from app.models import Atto
+        cif = security.Cifratore(ctx.st.data_key)
+        a = Atto(pratica_id=pid, tipo="PVOC", giornata="01/01/2026", generato_da_ai=1,
+                 contenuto_cifrato=cif.cifra_testo("Testo. {{SPIEGA: motivo}}"))
+        s.add(a); s.commit(); aid = a.id
+    r1 = c.get(f"/pratiche/{pid}/atto/{aid}/word?spiegazioni=1")
+    r0 = c.get(f"/pratiche/{pid}/atto/{aid}/word?spiegazioni=0")
+    assert r1.status_code == 200 and "con-spiegazioni" in r1.headers["content-disposition"]
+    assert b"Spiegazione" in __import__("zipfile").ZipFile(__import__("io").BytesIO(r1.content)).read("word/document.xml")
+    assert b"Spiegazione" not in __import__("zipfile").ZipFile(__import__("io").BytesIO(r0.content)).read("word/document.xml")
+    assert c.get(f"/pratiche/{pid}/atto/{aid}/word").status_code == 200

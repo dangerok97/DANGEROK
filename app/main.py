@@ -6,17 +6,17 @@ import pathlib
 import secrets
 
 from fastapi import Depends, FastAPI, Form, HTTPException, Request
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from starlette.middleware.sessions import SessionMiddleware
 
 from . import ai as ai_mod
-from . import schede, security, tipologie, workflow
+from . import norme, piano as piano_mod, schede, security, tipologie, workflow, wordexport
 from .config import Settings
 from .db import crea_engine, crea_sessionmaker
-from .models import Atto, FasePratica, LogAI, Pratica, Utente
+from .models import Atto, FasePratica, FonteNormativa, LogAI, Pratica, Utente
 
 BASE = pathlib.Path(__file__).parent
 ISTRUZIONI = {
@@ -162,10 +162,13 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
     def nuova(request: Request, tipo: str = Form(...), tipologia: str = Form("generica"), privato: str = Form(""),
               persone: str = Form(""), enti: str = Form(""), codici_fiscali: str = Form(""),
               partite_iva: str = Form(""), indirizzi: str = Form(""), verbalizzanti: str = Form(""),
-              csrf: str = Form(""), u=Depends(utente_corrente), s=Depends(db)):
+              forma: str = Form("impresa"), regime: str = Form("non_noto"), modalita: str = Form("reparto"),
+              ragione: str = Form(""), csrf: str = Form(""), u=Depends(utente_corrente), s=Depends(db)):
         check_csrf(request, csrf)
         if tipo not in workflow.PERCORSI or tipologia not in tipologie.TIPOLOGIE:
             raise HTTPException(400, "Tipo non valido")
+        if forma not in piano_mod.FORME or regime not in piano_mod.REGIMI or modalita not in piano_mod.MODALITA:
+            raise HTTPException(400, "Profilo non valido")
         anno = dt.date.today().year
         n = len(s.scalars(select(Pratica.id).where(Pratica.codice.like(f"%-{anno}-%"))).all()) + 1
         p = Pratica(codice=f"{'C' if tipo == 'controllo' else 'V'}-{anno}-{n:03d}", tipo=tipo, tipologia=tipologia)
@@ -173,7 +176,10 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
                        "soggetto": {"persone": righe(persone), "enti": righe(enti),
                                     "codici_fiscali": righe(codici_fiscali), "partite_iva": righe(partite_iva),
                                     "indirizzi": righe(indirizzi)},
-                       "verbalizzanti": righe(verbalizzanti), "terzi": [], "scheda": {}})
+                       "verbalizzanti": righe(verbalizzanti), "terzi": [], "scheda": {},
+                       "profilo": {"forma": forma, "regime": regime, "modalita": modalita, "ragione": ragione.strip(),
+                                   "documenti": [], "tributi": ["IIDD", "IVA"]},
+                       "piano": []})
         s.add(p)
         s.flush()
         for f in workflow.fasi_per(tipo):
@@ -186,9 +192,13 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
         p = carica(s, pid)
         stati = stati_di(p)
         prox = workflow.prossima_fase(p.tipo, stati)
-        fasi = [{"f": f, "stato": stati.get(f.chiave, "da_fare")} for f in workflow.fasi_per(p.tipo)]
+        d = dati_di(p)
+        sugg = {x["chiave"]: x for x in d.get("piano", [])}
+        fasi = [{"f": f, "stato": stati.get(f.chiave, "da_fare"), "sugg": sugg.get(f.chiave)}
+                for f in workflow.fasi_per(p.tipo)]
         return render(request, "pratica.html", p=p, fasi=fasi, prossima=prox, atti=p.atti,
-                      tip=tipologie.TIPOLOGIE[p.tipologia])
+                      tip=tipologie.TIPOLOGIE[p.tipologia], ha_piano=bool(sugg),
+                      mancanti=piano_mod.promemoria_documenti(d.get("profilo", {})))
 
     @app.post("/pratiche/{pid}/fase/{chiave}")
     def cambia_fase(request: Request, pid: int, chiave: str, azione: str = Form(...), motivo: str = Form(""),
@@ -238,6 +248,76 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
         salva_dati(p, d)
         s.commit()
         return RedirectResponse(f"/pratiche/{pid}/scheda", status_code=303)
+
+    # ---------------------------------------------------------------- piano suggerito
+    def client_ai():
+        return ai_client or ai_mod._client()
+
+    @app.post("/pratiche/{pid}/piano/suggerisci")
+    def piano_suggerisci(request: Request, pid: int, con_ai: str = Form(""), csrf: str = Form(""),
+                         u=Depends(utente_corrente), s=Depends(db)):
+        check_csrf(request, csrf)
+        p = carica(s, pid)
+        d = dati_di(p)
+        profilo = {**piano_mod.profilo_predefinito(), **d.get("profilo", {})}
+        piano = piano_mod.suggerisci_fasi(p.tipo, profilo)
+        avviso = ""
+        if con_ai:
+            try:
+                piano = piano_mod.raffina_con_ai(ai_mod.costruisci_pseudonimizzatore(d), p.tipo, profilo, piano,
+                                                 client=client_ai(), modello=st.anthropic_model)
+            except (ai_mod.AIDisattivata, ai_mod.LeakError) as e:
+                avviso = str(e)
+        d["piano"] = [x.__dict__ for x in piano]
+        salva_dati(p, d)
+        s.commit()
+        return RedirectResponse(f"/pratiche/{pid}" + ("?avviso=1" if avviso else ""), status_code=303)
+
+    @app.post("/pratiche/{pid}/piano/applica")
+    def piano_applica(request: Request, pid: int, csrf: str = Form(""), u=Depends(utente_corrente),
+                      s=Depends(db)):
+        """Segna 'non applicabile' (con la motivazione suggerita) le fasi facoltative non pertinenti, in ordine."""
+        check_csrf(request, csrf)
+        p = carica(s, pid)
+        d = dati_di(p)
+        for x in d.get("piano", []):
+            if x["esito"] != piano_mod.NON_PERTINENTE:
+                continue
+            fase = workflow.fase_per_chiave(p.tipo, x["chiave"])
+            rec = next(f for f in p.fasi if f.chiave == x["chiave"])
+            if fase.facoltativa and rec.stato == "da_fare":
+                rec.stato, rec.motivo_cifrato = "non_applicabile", cif.cifra_testo("Suggerito dall'app: " + x["motivo"])
+        s.commit()
+        return RedirectResponse(f"/pratiche/{pid}", status_code=303)
+
+    # ---------------------------------------------------------------- ricerca normativa
+    @app.get("/pratiche/{pid}/norme", response_class=HTMLResponse)
+    def norme_vista(request: Request, pid: int, u=Depends(utente_corrente), s=Depends(db)):
+        p = carica(s, pid)
+        fonti = s.scalars(select(FonteNormativa).where(FonteNormativa.pratica_id == pid)
+                          .order_by(FonteNormativa.id.desc())).all()
+        return render(request, "norme.html", p=p, fonti=fonti, ricerca=None, errore=None, domini=norme.DOMINI_UFFICIALI)
+
+    @app.post("/pratiche/{pid}/norme", response_class=HTMLResponse)
+    def norme_cerca(request: Request, pid: int, quesito: str = Form(...), periodo: str = Form(...),
+                    csrf: str = Form(""), u=Depends(utente_corrente), s=Depends(db)):
+        check_csrf(request, csrf)
+        p = carica(s, pid)
+        pseudo = ai_mod.costruisci_pseudonimizzatore(dati_di(p))
+        errore, ric = None, None
+        try:
+            ric = norme.ricerca_normativa(pseudo, quesito, periodo, client=client_ai(), modello=st.anthropic_model)
+            for f in ric.fonti:
+                s.add(FonteNormativa(pratica_id=pid, quesito=quesito, periodo=periodo, url=f.url, titolo=f.titolo,
+                                     estratto=f.estratto, dominio=f.dominio, ufficiale=int(f.ufficiale)))
+            s.commit()
+        except ai_mod.LeakError as e:
+            errore = f"Quesito BLOCCATO: contiene dati riconoscibili ({e}). Formulalo in modo generale."
+        except ai_mod.AIDisattivata as e:
+            errore = str(e)
+        fonti = s.scalars(select(FonteNormativa).where(FonteNormativa.pratica_id == pid)
+                          .order_by(FonteNormativa.id.desc())).all()
+        return render(request, "norme.html", p=p, fonti=fonti, ricerca=ric, errore=errore, domini=norme.DOMINI_UFFICIALI)
 
     # ---------------------------------------------------------------- atti e AI
     def contesto_ai(p: Pratica, d: dict, appunti: str, fase: workflow.Fase, giornata: str) -> str:
@@ -314,6 +394,17 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
         if not a or a.pratica_id != pid:
             raise HTTPException(404)
         return render(request, "atto.html", p=a.pratica, a=a, testo=cif.decifra_testo(a.contenuto_cifrato))
+
+    @app.get("/pratiche/{pid}/atto/{aid}/word")
+    def atto_word(pid: int, aid: int, spiegazioni: int = 1, u=Depends(utente_corrente), s=Depends(db)):
+        a = s.get(Atto, aid)
+        if not a or a.pratica_id != pid:
+            raise HTTPException(404)
+        dati = wordexport.crea_docx(cif.decifra_testo(a.contenuto_cifrato), con_spiegazioni=bool(spiegazioni))
+        nome = f"{a.tipo}_{a.pratica.codice}_{(a.giornata or 'bozza').replace('/', '-')}"
+        nome += "_con-spiegazioni" if spiegazioni else "_pulito"
+        return Response(dati, media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        headers={"Content-Disposition": f'attachment; filename="{nome}.docx"'})
 
     @app.post("/pratiche/{pid}/atto/{aid}")
     def atto_salva(request: Request, pid: int, aid: int, testo: str = Form(""), csrf: str = Form(""),

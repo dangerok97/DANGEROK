@@ -18,7 +18,13 @@ Regole inderogabili:
 3. Non inventare mai fatti, importi, date, orari, protocolli, nominativi o esiti. Se un dato manca scrivi [DA COMPILARE: cosa serve].
 4. Usa i segnaposto tra parentesi quadre (es. [PERSONA_1]) esattamente come li ricevi; non tentare di ricostruire i dati reali.
 5. Se il contesto non consente di redigere il passaggio richiesto, dillo in modo esplicito invece di riempire il vuoto.
-6. Rispondi solo con il testo dell'atto (o della sezione), in italiano formale."""
+6. Rispondi solo con il testo dell'atto (o della sezione), in italiano formale.
+7. Dopo OGNI passaggio significativo dell'atto aggiungi, subito dopo, una spiegazione per l'operatore nel formato \
+{{SPIEGA: ...}} (su una sola riga, senza andare a capo dentro le graffe). La spiegazione dice PERCHE' hai scritto quel passaggio: \
+la fase e il punto della circolare o la norma/fonte da cui deriva, il dato o l'appunto su cui si basa, eventuali cautele o \
+verifiche da fare prima della firma. Le spiegazioni sono destinate a essere cancellate dall'operatore: non farle mai \
+parte del testo dell'atto e non usarle per introdurre fatti nuovi. Se non sei certo di un riferimento normativo scrivilo nella \
+spiegazione ('da verificare')."""
 
 
 class AIDisattivata(Exception):

@@ -73,3 +73,19 @@ class LogAI(Base):
     modello: Mapped[str] = mapped_column(String(40), default="")
     testo_inviato: Mapped[str] = mapped_column(Text)
     esito: Mapped[str] = mapped_column(String(20), default="ok")
+
+
+class FonteNormativa(Base):
+    """Istantanea di una fonte consultata dall'AI: URL, data di consultazione ed estratto citato.
+    Serve a rendere riproducibile e verificabile ogni affermazione normativa."""
+    __tablename__ = "fonte_normativa"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    pratica_id: Mapped[int] = mapped_column(Integer)
+    quesito: Mapped[str] = mapped_column(Text)
+    periodo: Mapped[str] = mapped_column(String(40), default="")
+    url: Mapped[str] = mapped_column(String(600))
+    titolo: Mapped[str] = mapped_column(String(300), default="")
+    estratto: Mapped[str] = mapped_column(Text, default="")
+    dominio: Mapped[str] = mapped_column(String(120), default="")
+    ufficiale: Mapped[int] = mapped_column(Integer, default=0)
+    consultata_il: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now)
