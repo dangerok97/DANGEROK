@@ -44,3 +44,11 @@ Vol. III cap. 6 (IVA, frodi carosello), cap. 3-5 (reddito d'impresa, lavoro auto
    e. riscontro su obblighi di effettuazione/versamento ritenute e liquidazione/versamento imposte
 3. Conclusione: PVC (Allegato 19), sezioni nell'ordine dell'Allegato 19.
 Per il controllo: Vol. II, P. III, cap. 4 (scheda Allegato 23 → foglio di servizio → PVOC giornalieri → PVC).
+
+## Regola per l'app: indizi di reato e CNR (Vol. II, P. III, cap. 5 §2-3)
+- **Quando scatta**: se nel corso di un controllo o di una verifica emergono *indizi di reato*, si applica l'**art. 220 disp. att. c.p.p.** Non bastano "meri sospetti", ma servono concreti indizi. Per i reati con soglia di punibilità **non serve provare il superamento**: basta una **concreta probabilità** che la soglia sia superata, con misura anche approssimativa dell'imposta evasa (Cass. pen. 4919/2015).
+- **Cosa comporta**: gli atti necessari ad assicurare le fonti di prova si compiono secondo il c.p.p., altrimenti sono inutilizzabili (es. perquisizione, sequestro, art. 114 disp. att.: avviso del diritto al difensore; sommarie informazioni art. 350; identificazione art. 349; verbali ex art. 357 c.p.p.). L'attività meramente ispettiva resta amministrativa.
+- **Dopo l'emersione**: sullo specifico fatto non si sviluppano ulteriori accertamenti in sede ispettiva fiscale; la verifica/controllo può proseguire su fatti diversi.
+- **Atto finale**: **comunicazione di notizia di reato** (art. 347 c.p.p.), da redigere con analitica rappresentazione dei fatti.
+- **Da fare nell'app**: per ogni pratica, calcolo per periodo d'imposta dell'imposta evasa stimata e confronto con le soglie di punibilità (**D.Lgs. 74/2000**); avviso a chi verbalizza quando la soglia è superata o probabile, con promemoria delle formalità c.p.p. e della CNR. Segnalare anche il profilo di responsabilità dell'ente (**D.Lgs. 231/2001**, reati tributari come presupposto) quando il soggetto è una società.
+- ⚠ Le soglie vanno ricavate dal testo vigente e **versionate per periodo** (sono state modificate nel tempo): non codificare cifre a memoria.
