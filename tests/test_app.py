@@ -449,6 +449,6 @@ def test_invito_da_interfaccia_fino_al_word(ctx):
     assert w.status_code == 200 and "INVITO_C-" in w.headers["content-disposition"]
     d = docx.Document(io.BytesIO(w.content))
     t = "\n".join(p.text for p in d.paragraphs)
-    assert "COMPAGNIA TARQUINIA" in t and "Ditta ind.le ROSSI MARIO" in t and "(Ten. Nome COGNOME)" in t
-    assert "Lgt. Uno UNO o il Mar. Due DUE" in t and "dal 2022 al 2023" in t
+    assert "COMPAGNIA TARQUINIA" in t and "della ditta individuale “ROSSI MARIO”" in t and "(Ten. Nome COGNOME)" in t
+    assert "con il Lgt. Uno UNO - Mar. Due DUE" in t and "periodi d’imposta 2022, 2023" in t
     assert round(d.sections[0].page_width.cm, 1) == 21.0

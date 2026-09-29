@@ -628,8 +628,9 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
         d = dati_di(p)
         campi = ("forma_prefisso", "denominazione", "luogo", "attivita", "codice_attivita", "cf", "piva",
                  "titolo_destinatario", "destinatario", "indirizzo_destinatario", "periodi", "ora", "data",
-                 "documenti", "motivazione")
+                 "documenti", "motivazione", "nascita", "qualita")
         d["invito"] = {k: str(f.get(k, "")).strip() for k in campi}
+        d["invito"]["ivi"] = bool(f.get("ivi"))
         salva_dati(p, d)
         s.commit()
         return RedirectResponse(f"/pratiche/{pid}/invito", status_code=303)
@@ -639,7 +640,8 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
         p = carica(s, pid)
         d = dati_di(p)
         dati = invito_iniziale(p, d)
-        dati["periodi"] = [x.strip() for x in re.split(r"[;,\n]", dati.get("periodi", "")) if x.strip()]
+        if p.tipo != "controllo":                            # il controllo riporta i periodi come scritti (es. «… fino al 16/02»)
+            dati["periodi"] = [x.strip() for x in re.split(r"[;,\n]", dati.get("periodi", "")) if x.strip()]
         contenuto = invito_word.crea_invito(dati, p.tipo, reparto_di(s))
         return Response(contenuto, media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                         headers={"Content-Disposition": f'attachment; filename="INVITO_{p.codice}_{p.tipo}.docx"'})

@@ -16,6 +16,11 @@ import docx
 from docx.enum.text import WD_COLOR_INDEX
 
 MODELLO = pathlib.Path(__file__).parent / "wordtemplates" / "invito.docx"
+MODELLO_CONTROLLO = pathlib.Path(__file__).parent / "wordtemplates" / "invito_controllo.docx"
+
+# posizioni dei paragrafi nel modello del CONTROLLO (invito_controllo.docx)
+C_SOGGETTO, C_INTRO, C_ORA, C_DOC_INTRO, C_DOC, C_CONTATTI = 13, 15, 16, 18, 19, 20
+C_RAGIONI, C_OPERAZIONI, C_COMANDANTE, C_NOME_COMANDANTE = 23, 25, 43, 44
 
 # posizioni dei paragrafi nel modello (contate come nell'originale: solo paragrafi, tabella esclusa)
 I_DITTA, I_CF, I_PIVA, I_AL, I_VIA = 7, 8, 9, 11, 12
@@ -60,15 +65,24 @@ def _lista(v) -> list[str]:
     return [x.strip() for x in (v or []) if str(x).strip()]
 
 
+def _rpr_pulito(r):
+    """Proprieta' del carattere senza evidenziatore (quelli dell'originale segnavano i dati variabili)."""
+    rpr = r._r.find(docx.oxml.ns.qn("w:rPr"))
+    if rpr is None:
+        return None
+    rpr = copy.deepcopy(rpr)
+    for h in rpr.findall(docx.oxml.ns.qn("w:highlight")):
+        rpr.remove(h)
+    return rpr
+
+
 def _rpr_modello(p, italic: bool | None = None):
     """Copia le proprieta' del primo carattere del paragrafo (per mantenere Arial, dimensione, ecc.)."""
     for r in p.runs:
         if italic is None or bool(r.italic) == italic:
-            rpr = r._r.find(docx.oxml.ns.qn("w:rPr"))
-            return copy.deepcopy(rpr) if rpr is not None else None
+            return _rpr_pulito(r)
     for r in p.runs:
-        rpr = r._r.find(docx.oxml.ns.qn("w:rPr"))
-        return copy.deepcopy(rpr) if rpr is not None else None
+        return _rpr_pulito(r)
     return None
 
 
@@ -100,6 +114,8 @@ def _o_da_compilare(valore: str, cosa: str):
 def crea_invito(dati: dict, tipo: str, reparto: dict | None = None, modello: pathlib.Path | str | None = None) -> bytes:
     """`tipo`: 'verifica' o 'controllo'. `reparto`: comandante, in_sv, referenti, telefono."""
     assert tipo in ("verifica", "controllo")
+    if tipo == "controllo":
+        return _crea_invito_controllo(dati, reparto, modello)
     rep = {"comandante": "", "in_sv": True, "referenti": [], "telefono": "0766/856028", **(reparto or {})}
     d = docx.Document(str(modello or MODELLO))
     P = list(d.paragraphs)                                  # riferimenti fissati prima di qualsiasi modifica
@@ -187,6 +203,85 @@ def crea_invito(dati: dict, tipo: str, reparto: dict | None = None, modello: pat
     riscrivi(P[I_COMANDANTE], [("IL COMANDANTE DELLA COMPAGNIA" + (" in s.v." if rep.get("in_sv") else ""), "")])
     com = (rep.get("comandante") or "").strip()
     riscrivi(P[I_NOME_COMANDANTE], [(f"({com})", "")] if com else [("([DA COMPILARE: grado nome cognome del Comandante])", "dc")])
+
+    cp = d.core_properties
+    cp.author = cp.last_modified_by = cp.title = cp.subject = cp.comments = cp.keywords = ""
+    buf = io.BytesIO()
+    d.save(buf)
+    return buf.getvalue()
+
+
+def _crea_invito_controllo(dati: dict, reparto: dict | None, modello) -> bytes:
+    """Invito per un CONTROLLO, identico al modello del Reparto (`invito_controllo.docx`)."""
+    rep = {"comandante": "", "in_sv": True, "referenti": [], "telefono": "0766/856028", **(reparto or {})}
+    d = docx.Document(str(modello or MODELLO_CONTROLLO))
+    P = list(d.paragraphs)
+    grezzo = dati.get("periodi")
+    if isinstance(grezzo, str):
+        elenco = grezzo.strip()
+    else:
+        elenco = ", ".join(_lista(grezzo))
+    elenco_pezzo = (elenco, "") if elenco else ("[DA COMPILARE: periodi d'imposta]", "dc")
+    ditta = (dati.get("forma_prefisso") or "Ditta ind.le").lower().startswith("ditta")
+
+    # chi e' il destinatario
+    den = _o_da_compilare(dati.get("denominazione", ""), "denominazione")
+    persona = _o_da_compilare(dati.get("destinatario", ""), "nome e cognome")
+    nascita = _o_da_compilare(dati.get("nascita", ""), "nato a … (prov.) il …")
+    resid = _o_da_compilare(dati.get("indirizzo_destinatario", "") or dati.get("luogo", ""), "residenza")
+    cf = _o_da_compilare(dati.get("cf", ""), "codice fiscale")
+    qualita = _o_da_compilare(dati.get("qualita", "") or ("titolare dell’omonima ditta individuale" if ditta else ""),
+                              "qualità del destinatario")
+    riscrivi(P[C_SOGGETTO], [persona, (", ", ""), nascita, (" e ivi residente in " if dati.get("ivi") else " e residente in ", ""), resid, (" – C.F.: ", ""), cf,
+                             (", nella sua qualità di ", ""), qualita, (".", "")])
+
+    # formula d'invito
+    chi_ = ("della ditta individuale “", "”", "il titolare dell’omonima D.I.") if ditta else \
+           ("del contribuente “", "”", "la S.V.")
+    riscrivi(P[C_INTRO], [("Al fine di consentire a questo Reparto di intraprendere un controllo fiscale ai fini di P.T., "
+                           "ai sensi e per gli effetti degli artt. 52 e 63 del D.P.R. 26 ottobre 1972, n. 633, 33 del "
+                           "D.P.R. 29 settembre 1973, n. 600, 2 del D.Lgs 68/2001, nonché della L. n. 4/1929, relativo "
+                           "ai periodi d’imposta ", ""), elenco_pezzo,
+                          (f" nei confronti {chi_[0]}", ""), den, (f"{chi_[1]}, si invita {chi_[2]} a comparire di "
+                           "persona - o a mezzo rappresentante assistito da procura speciale:", "")])
+    ora, giorno = (dati.get("ora") or "").strip(), (dati.get("data") or "").strip()
+    if ora or giorno:
+        riscrivi(P[C_ORA], [(f"alle ore {ora or '___:___'} del giorno {giorno or '___/___/______'}, "
+                             "presso la sede del Reparto in intestazione;", "")])
+    if not ditta:
+        riscrivi(P[C_DOC_INTRO], [("La S.V., ovvero il Procuratore Speciale, dovrà recare al seguito la seguente "
+                                   "documentazione: ", "")])
+
+    # documenti da recare
+    docs = _lista(dati.get("documenti")) or ["[DA COMPILARE: documentazione da recare]"]
+    primo = P[C_DOC]
+    riscrivi(primo, [(docs[0], "dc" if docs[0].startswith("[DA COMPILARE") else "")])
+    ultimo = primo._p
+    for voce in docs[1:]:
+        clone = copy.deepcopy(primo._p)
+        ultimo.addnext(clone)
+        ultimo = clone
+        riscrivi(docx.text.paragraph.Paragraph(clone, primo._parent), [(voce, "")])
+
+    # contatti
+    ref = _lista(rep.get("referenti"))
+    contatto = ("con il " + " - ".join(ref)) if ref else "con [DA COMPILARE: militari di riferimento]"
+    riscrivi(P[C_CONTATTI], [("Nell’ipotesi in cui non fosse possibile ottemperare al presente invito nei modi e nei "
+                              "tempi sopra indicati, ovvero nel caso in cui la parte si rende disponibile ad anticipare "
+                              "il giorno di presentazione, la S.V. è pregata di prendere sollecitamente contatti ", ""),
+                             (contatto, "dc" if not ref else ""), (f" - telefono: {rep['telefono']}.", "")])
+
+    # ragioni giustificative e periodi
+    motivo = (dati.get("motivazione") or "").strip()
+    riscrivi(P[C_RAGIONI], [(RAGIONI_CONTROLLO, ""), (motivo if motivo.endswith(".") else motivo + ".", "") if motivo else
+                            ("[DA COMPILARE: motivo dell'intervento]", "dc")])
+    riscrivi(P[C_OPERAZIONI], [("2. le operazioni di controllo prenderanno in esame i periodi d’imposta ", ""),
+                               elenco_pezzo, (".", "")])
+
+    # firma
+    riscrivi(P[C_COMANDANTE], [("IL COMANDANTE DELLA COMPAGNIA " + ("in s.v. " if rep.get("in_sv") else ""), "")])
+    com = (rep.get("comandante") or "").strip()
+    riscrivi(P[C_NOME_COMANDANTE], [(f"({com})", "")] if com else [("([DA COMPILARE: grado nome cognome del Comandante])", "dc")])
 
     cp = d.core_properties
     cp.author = cp.last_modified_by = cp.title = cp.subject = cp.comments = cp.keywords = ""

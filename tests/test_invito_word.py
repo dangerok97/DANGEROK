@@ -79,13 +79,14 @@ def test_formule_fisse_verifica_e_controllo():
     assert "art. 32, comma 1, n. 2) e 3) del D.P.R. 29 settembre 1973, n. 600" in v
     assert "artt. 52 e 63 del D.P.R. 26 ottobre 1972, n. 633" in c and "L. n. 4/1929" in c
     assert "2. le operazioni di verifica prenderanno in esame i periodi d’imposta 2021, 2022, 2023;" in v
-    assert "2. le operazioni di controllo prenderanno in esame i periodi d’imposta 2021, 2022, 2023;" in c
+    assert "2. le operazioni di controllo prenderanno in esame i periodi d’imposta 2021, 2022, 2023." in c
+    assert "riferita agli anni d’imposta dal 2021 al 2023." in v
     for t in (v, c):                                   # blocchi comuni identici al modello
-        assert "riferita agli anni d’imposta dal 2021 al 2023." in t
         assert "▪ \tassistere personalmente alle operazioni di controllo;" in t
         assert "da Euro 258,00 a Euro 2065,00" in t and "RELAZIONE DI NOTIFICAZIONE" in t
         assert "I NOTIFICATORI" in t and "IL NOTIFICATO" in t
-        assert "alle ore ... del giorno …………, presso la sede del Reparto in intestazione." in t
+    assert "alle ore ... del giorno …………, presso la sede del Reparto in intestazione." in v
+    assert "alle ore ___:___ del giorno ___/___/______, presso la sede del Reparto in intestazione;" in c
 
 
 def test_ragioni_giustificative():
@@ -134,3 +135,24 @@ def test_il_modello_non_contiene_dati_personali():
 def test_nessun_segnaposto_del_modello_nel_documento():
     t = _testo(gen()) + gen().tables[0].rows[0].cells[1].text
     assert "{{" not in t and "}}" not in t and "DOC1" not in t
+
+
+def test_controllo_blocco_destinatario_come_il_modello():
+    c = _testo(gen("controllo", dati={"nascita": "nato a Tarquinia (VT) il 01/01/1980", "ivi": True, "periodi": "2023, 2024 fino al 16/02"}))
+    assert ("ROSSI MARIO, nato a Tarquinia (VT) il 01/01/1980 e ivi residente in Via dei Test n. 1 - TARQUINIA – C.F.: "
+            "RSSMRA80A01H501U, nella sua qualità di titolare dell’omonima ditta individuale.") in c
+    assert "nei confronti della ditta individuale “ROSSI MARIO”, si invita il titolare dell’omonima D.I. a comparire" in c
+    assert "relativo ai periodi d’imposta 2023, 2024 fino al 16/02 nei confronti" in c
+    assert "Il titolare come sopra individuato, ovvero il Procuratore Speciale" in c
+
+
+def test_controllo_dati_mancanti_in_turchese_e_nessun_evidenziatore_giallo():
+    d = gen("controllo", dati={"nascita": "", "cf": ""})
+    assert "[DA COMPILARE: nato a … (prov.) il …]" in _testo(d) and "[DA COMPILARE: codice fiscale]" in _testo(d)
+    assert not any(r.font.highlight_color == 7 for p in d.paragraphs for r in p.runs)      # niente giallo: e' riservato alle spiegazioni
+
+
+def test_controllo_senza_ditta_usa_la_s_v():
+    c = _testo(gen("controllo", dati={"forma_prefisso": "Societa'"}))
+    assert "nei confronti del contribuente “ROSSI MARIO”, si invita la S.V. a comparire" in c
+    assert "La S.V., ovvero il Procuratore Speciale, dovrà recare" in c

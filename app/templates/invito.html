@@ -14,11 +14,16 @@
 <label for="cf">Codice fiscale</label><input id="cf" name="cf" value="{{ v.cf }}">
 <label for="piva">Partita IVA (vuota per i privati)</label><input id="piva" name="piva" value="{{ v.piva }}">
 <h2>Destinatario</h2>
+{% if p.tipo == "controllo" %}<p class="muted">Nel controllo il destinatario e' presentato cosi': «Nome, nato a … il … e residente in …, C.F. …, nella sua qualita' di …».</p>
+<label for="nascita">Nascita (es. nato a Tarquinia (VT) il 25/09/1958)</label><input id="nascita" name="nascita" value="{{ v.nascita }}">
+<label class="inl"><input type="checkbox" name="ivi" value="1"{% if v.ivi %} checked{% endif %}> residente nello stesso comune («e ivi residente»)</label>
+<label for="qualita">Qualita' (es. titolare dell'omonima ditta individuale)</label><input id="qualita" name="qualita" value="{{ v.qualita }}">
+{% endif %}
 <label for="titolo_destinatario">Titolo</label><input id="titolo_destinatario" name="titolo_destinatario" value="{{ v.titolo_destinatario }}">
 <label for="destinatario">Nome e cognome</label><input id="destinatario" name="destinatario" value="{{ v.destinatario }}">
 <label for="indirizzo_destinatario">Indirizzo (come va sulla busta)</label><input id="indirizzo_destinatario" name="indirizzo_destinatario" value="{{ v.indirizzo_destinatario }}" placeholder="es. Via ... n. ... - TARQUINIA">
 <h2>Convocazione</h2>
-<label for="periodi">Periodi d'imposta (separati da virgola)</label><input id="periodi" name="periodi" value="{{ v.periodi }}" placeholder="es. 2019, 2020, 2021, 2022, 2023">
+<label for="periodi">Periodi d'imposta (come vanno scritti nell'atto)</label><input id="periodi" name="periodi" value="{{ v.periodi }}" placeholder="es. 2019, 2020, 2021, 2022, 2023">
 <label for="ora">Ora (lasciala vuota per «...»)</label><input id="ora" name="ora" value="{{ v.ora }}">
 <label for="data">Giorno (lascialo vuoto per «…………»)</label><input id="data" name="data" value="{{ v.data }}" placeholder="es. 27/08/2026">
 <label for="documenti">Documentazione da recare (una voce per riga)</label><textarea id="documenti" name="documenti" class="alta2">{{ v.documenti }}</textarea>
