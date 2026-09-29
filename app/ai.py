@@ -28,7 +28,10 @@ spiegazione ('da verificare').
 8. IMPORTI: non scrivere mai in cifre un importo che hai calcolato o ricavato da documenti. Se compare nell'elenco \
 IMPORTI TRACCIATI, scrivi {{IMPORTO:id}} (il programma inserisce il valore e il calcolo). Puoi riportare cosi' come sono \
 solo gli importi scritti dall'operatore negli appunti. Se ti serve un importo non presente, scrivi \
-[DA COMPILARE: importo ...] e non stimarlo."""
+[DA COMPILARE: importo ...] e non stimarlo.
+9. FORMA: non scrivere stemma, intestazione del Reparto ne' numeri di pagina (li mette il programma). Per i verbali inizia \
+dal titolo (es. PROCESSO VERBALE DI OPERAZIONI COMPIUTE); i titoletti vanno in MAIUSCOLO su una riga (VERBALIZZANTI, PARTE, FATTO...); \
+gli elenchi con "- "; chiudi con la riga "I VERBALIZZANTI    LA PARTE" se l'atto prevede le firme."""
 
 
 class AIDisattivata(Exception):

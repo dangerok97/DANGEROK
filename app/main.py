@@ -14,7 +14,7 @@ from sqlalchemy import select
 from starlette.middleware.sessions import SessionMiddleware
 
 from . import ai as ai_mod
-from . import calcoli, invito_word, llm_compat, norme, scheda_ai, piano as piano_mod, schede, security, tipologie, workflow, wordexport
+from . import atti_word, calcoli, invito_word, llm_compat, norme, scheda_ai, piano as piano_mod, schede, security, tipologie, workflow, wordexport
 from .config import Settings
 from .db import crea_engine, crea_sessionmaker
 from .models import Atto, FasePratica, FonteNormativa, Impostazione, LogAI, Pratica, Utente
@@ -549,7 +549,13 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
         a = s.get(Atto, aid)
         if not a or a.pratica_id != pid:
             raise HTTPException(404)
-        dati = wordexport.crea_docx(cif.decifra_testo(a.contenuto_cifrato), con_spiegazioni=bool(spiegazioni))
+        testo = cif.decifra_testo(a.contenuto_cifrato)
+        if a.tipo in atti_word.FORMATI:
+            sog = dati_di(a.pratica).get("soggetto", {})
+            dati = atti_word.crea_atto(a.tipo, testo, con_spiegazioni=bool(spiegazioni), data=a.giornata,
+                                       soggetto=", ".join((sog.get("enti") or sog.get("persone") or [])[:1]))
+        else:
+            dati = wordexport.crea_docx(testo, con_spiegazioni=bool(spiegazioni))
         nome = f"{a.tipo}_{a.pratica.codice}_{(a.giornata or 'bozza').replace('/', '-')}"
         nome += "_con-spiegazioni" if spiegazioni else "_pulito"
         return Response(dati, media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
