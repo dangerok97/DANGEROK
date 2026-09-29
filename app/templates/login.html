@@ -1,0 +1,11 @@
+{% extends "base.html" %}{% block titolo %}Accesso{% endblock %}
+{% block corpo %}
+<div class="card"><h1>Accesso riservato</h1>
+{% if not configurato %}<p class="err">Nessun utente configurato. Esegui <code>python -m app.cli crea-utente</code> sul server.</p>{% else %}
+<form method="post" action="/login" autocomplete="off">
+<input type="hidden" name="csrf" value="{{ csrf }}">
+<label for="password">Password</label><input id="password" name="password" type="password" required autocomplete="current-password">
+<label for="codice">Codice a due fattori (6 cifre)</label><input id="codice" name="codice" inputmode="numeric" pattern="[0-9 ]{6,7}" required autocomplete="one-time-code">
+{% if errore %}<p class="err">{{ errore }}</p>{% endif %}
+<p><button>Accedi</button></p></form>{% endif %}
+</div>{% endblock %}

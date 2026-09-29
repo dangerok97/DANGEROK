@@ -1,0 +1,9 @@
+{% extends "base.html" %}{% block titolo %}Pratiche{% endblock %}
+{% block corpo %}
+<div class="row"><h1>Pratiche</h1><a class="btn" href="/pratiche/nuova">Nuova pratica</a></div>
+{% for r in righe %}
+<div class="card"><a href="/pratiche/{{ r.p.id }}"><b>{{ r.p.codice }}</b></a>
+<span class="tag">{{ r.p.tipo }}</span> <span class="muted">{{ r.p.creata_il.strftime('%d/%m/%Y') }}</span>
+<div class="muted">Prossimo passo: {{ r.prossima }}</div></div>
+{% else %}<p class="muted">Nessuna pratica.</p>{% endfor %}
+{% endblock %}

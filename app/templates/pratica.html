@@ -1,0 +1,21 @@
+{% extends "base.html" %}{% block titolo %}{{ p.codice }}{% endblock %}
+{% block corpo %}
+<h1>{{ p.codice }} <span class="tag">{{ p.tipo }}</span> <span class="tag">{{ tip.nome }}</span></h1>
+{% if prossima %}<div class="card"><b>Prossimo passo:</b> {{ prossima.titolo }}<br><small>{{ prossima.rif }}</small></div>{% endif %}
+{% if p.tipo == 'controllo' %}<p><a class="btn sec" href="/pratiche/{{ p.id }}/scheda">Scheda Allegato 23</a></p>{% endif %}
+<h2>Fasi (nell'ordine della circolare)</h2>
+{% for x in fasi %}{% set f = x.f %}
+<div class="card"><div class="fase"><div><b>{{ loop.index }}. {{ f.titolo }}</b><br><small>{{ f.rif }}{% if f.modello %} · {{ f.modello }}{% endif %}{% if f.condizionale %} · solo se ricorre la condizione{% endif %}</small></div>
+<span class="tag {{ x.stato }}">{{ x.stato.replace('_',' ') }}</span></div>
+{% if f.checklist %}<details><summary class="muted">Contenuti da verificare</summary><ul>{% for c in f.checklist %}<li>{{ c }}</li>{% endfor %}</ul></details>{% endif %}
+{% if x.stato not in ('completata','non_applicabile') %}
+<form method="post" action="/pratiche/{{ p.id }}/fase/{{ f.chiave }}" class="row">
+<input type="hidden" name="csrf" value="{{ csrf }}">
+<button name="azione" value="completa">Segna completata</button>
+{% if f.facoltativa %}<input name="motivo" placeholder="Motivo se non applicabile"><button class="sec" name="azione" value="non_applicabile">Non applicabile</button>{% endif %}
+{% if f.atto %}<a class="btn sec" href="/pratiche/{{ p.id }}/atto/nuovo?fase={{ f.chiave }}">Redigi {{ f.atto }}</a>{% endif %}
+</form>{% endif %}</div>{% endfor %}
+<h2>Atti</h2>
+{% for a in atti %}<div class="card"><a href="/pratiche/{{ p.id }}/atto/{{ a.id }}">{{ a.tipo }} {{ a.giornata }}</a>
+<span class="muted">{{ a.fase }}{% if a.generato_da_ai %} · bozza AI{% endif %}</span></div>{% else %}<p class="muted">Nessun atto.</p>{% endfor %}
+{% endblock %}

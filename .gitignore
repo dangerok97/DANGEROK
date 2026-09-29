@@ -1,0 +1,11 @@
+.env
+*.db
+__pycache__/
+.pytest_cache/
+*.egg-info/
+.venv/
+# Atti reali e mappe di anonimizzazione: MAI nel repository
+uploads/
+esempi_reali/
+*.mappa.json
+*.anon.docx
