@@ -1,6 +1,8 @@
 """Password (Argon2), TOTP e cifratura dei dati sensibili a riposo (Fernet)."""
 from __future__ import annotations
 
+import base64
+import hashlib
 import json
 import secrets
 
@@ -44,9 +46,20 @@ def nuovo_segreto_sessione() -> str:
     return secrets.token_urlsafe(48)
 
 
+def _chiave_fernet(segreto: str) -> bytes:
+    """Una chiave Fernet valida resta com'e' (compatibilita'); qualsiasi altra stringa lunga viene derivata."""
+    try:
+        Fernet(segreto.encode())
+        return segreto.encode()
+    except Exception:
+        if len(segreto) < 24:
+            raise RuntimeError("DATA_KEY troppo corta: servono almeno 24 caratteri casuali")
+        return base64.urlsafe_b64encode(hashlib.sha256(("dangerok|" + segreto).encode()).digest())
+
+
 class Cifratore:
     def __init__(self, chiave: str):
-        self._f = Fernet(chiave.encode())
+        self._f = Fernet(_chiave_fernet(chiave))
 
     def cifra_json(self, obj) -> str:
         return self._f.encrypt(json.dumps(obj, ensure_ascii=False).encode()).decode()

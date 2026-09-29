@@ -312,3 +312,49 @@ def test_bootstrap_utente_da_variabili(tmp_path, monkeypatch):
         assert len(s.scalars(select(Utente)).all()) == 1
     x = SimpleNamespace(c=TestClient(app, follow_redirects=False), segreto=seg)
     entra(x)                                             # l'accesso funziona con password + TOTP
+
+
+def test_chiave_dati_derivata_da_stringa_qualsiasi():
+    a, b = security.Cifratore("una-stringa-casuale-molto-lunga-123456"), security.Cifratore("una-stringa-casuale-molto-lunga-123456")
+    assert b.decifra_testo(a.cifra_testo("ciao")) == "ciao"
+    altra = security.Cifratore("un-altra-stringa-casuale-molto-lunga-99")
+    with pytest.raises(Exception):
+        altra.decifra_testo(a.cifra_testo("ciao"))
+    with pytest.raises(RuntimeError):
+        security.Cifratore("corta")
+    k = security.nuova_chiave_fernet()                 # una chiave Fernet valida resta invariata
+    assert security.Cifratore(k).decifra_testo(security.Cifratore(k).cifra_testo("x")) == "x"
+
+
+def _app_setup(tmp_path, token="tok-di-configurazione-lungo"):
+    st = Settings(database_url=f"sqlite:///{tmp_path}/s.db", data_key="chiave-dati-casuale-molto-lunga-000000",
+                  session_secret="z" * 40, https_only=False, anthropic_model="m", setup_token=token)
+    SM = crea_sessionmaker(crea_engine(st.database_url))
+    return st, SM, TestClient(create_app(st, SM), follow_redirects=False)
+
+
+def test_configurazione_iniziale_da_browser(tmp_path):
+    st, SM, c = _app_setup(tmp_path)
+    assert "configura il tuo accesso" in c.get("/login").text
+    t = csrf(c, "/configura")
+    # codice sbagliato e password debole vengono respinti
+    assert "non valido" in c.post("/configura", data={"fase": "1", "token": "no", "password": PW, "password2": PW, "csrf": t}).text
+    assert "almeno 12" in c.post("/configura", data={"fase": "1", "token": st.setup_token, "password": "corta", "password2": "corta", "csrf": t}).text
+    r = c.post("/configura", data={"fase": "1", "token": st.setup_token, "password": PW, "password2": PW, "csrf": t})
+    assert "data:image/svg+xml;base64," in r.text
+    segreto = re.search(r"<code>([A-Z2-7]{16,})</code>", r.text).group(1)
+    # codice TOTP errato: l'utente non viene creato
+    assert "non corretto" in c.post("/configura", data={"fase": "2", "codice": "000000", "csrf": t}).text
+    with SM() as s:
+        assert s.scalars(select(Utente)).all() == []
+    r = c.post("/configura", data={"fase": "2", "codice": pyotp.TOTP(segreto).now(), "csrf": t})
+    assert r.status_code == 303 and r.headers["location"] == "/login"
+    # la pagina sparisce e l'accesso funziona con la password scelta e il TOTP
+    assert c.get("/configura").status_code == 404
+    x = SimpleNamespace(c=c, segreto=segreto)
+    entra(x)
+
+
+def test_configurazione_disattivata_senza_token(tmp_path):
+    _, _, c = _app_setup(tmp_path, token="")
+    assert c.get("/configura").status_code == 404

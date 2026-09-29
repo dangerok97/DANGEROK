@@ -1,0 +1,29 @@
+# Render Blueprint: crea in un colpo solo il sito (Docker) e il database.
+# Nel pannello Render: New + > Blueprint > scegli il repository. Render legge questo file.
+# ATTENZIONE: il database gratuito di Render SCADE dopo 30 giorni: va bene solo per PROVARE con dati inventati.
+services:
+  - type: web
+    name: dangerok
+    runtime: docker
+    plan: free
+    region: frankfurt
+    healthCheckPath: /salute
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: dangerok-db
+          property: connectionString
+      - key: DATA_KEY
+        generateValue: true
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: SETUP_TOKEN
+        generateValue: true
+      - key: HTTPS_ONLY
+        value: "1"
+      - key: ANTHROPIC_API_KEY
+        sync: false
+databases:
+  - name: dangerok-db
+    plan: free
+    region: frankfurt

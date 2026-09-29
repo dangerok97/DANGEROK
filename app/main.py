@@ -114,11 +114,56 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
             raise HTTPException(404, "Pratica non trovata")
         return p
 
+    # ---------------------------------------------------------------- configurazione iniziale (una sola volta)
+    def _qr_svg(uri: str) -> str:
+        import base64 as b64
+        import qrcode
+        import qrcode.image.svg
+        img = qrcode.make(uri, image_factory=qrcode.image.svg.SvgPathImage, box_size=8)
+        return "data:image/svg+xml;base64," + b64.b64encode(img.to_string()).decode()
+
+    def _setup_attivo(s) -> bool:
+        return bool(st.setup_token) and s.scalar(select(Utente.id)) is None
+
+    @app.get("/configura", response_class=HTMLResponse)
+    def configura_form(request: Request, s=Depends(db)):
+        if not _setup_attivo(s):
+            raise HTTPException(404)
+        return render(request, "configura.html", errore=None, qr=None, segreto=None)
+
+    @app.post("/configura", response_class=HTMLResponse)
+    def configura(request: Request, fase: str = Form(...), token: str = Form(""), password: str = Form(""),
+                  password2: str = Form(""), codice: str = Form(""), csrf: str = Form(""), s=Depends(db)):
+        check_csrf(request, csrf)
+        if not _setup_attivo(s):
+            raise HTTPException(404)
+        if fase == "1":
+            if not hmac.compare_digest(token.strip(), st.setup_token):
+                return render(request, "configura.html", errore="Codice di configurazione non valido.", qr=None,
+                              segreto=None)
+            if len(password) < 12 or password != password2:
+                return render(request, "configura.html", errore="La password deve avere almeno 12 caratteri "
+                              "e coincidere nei due campi.", qr=None, segreto=None)
+            segreto = security.nuovo_segreto_totp()
+            request.session["setup"] = {"hash": security.hash_password(password), "totp": segreto}
+            return render(request, "configura.html", errore=None, segreto=segreto,
+                          qr=_qr_svg(security.uri_totp(segreto, "utente")))
+        pend = request.session.get("setup")
+        if not pend:
+            return render(request, "configura.html", errore="Sessione scaduta: ricomincia.", qr=None, segreto=None)
+        if not security.verifica_totp(pend["totp"], codice):
+            return render(request, "configura.html", errore="Codice non corretto: riprova con quello attuale.",
+                          segreto=pend["totp"], qr=_qr_svg(security.uri_totp(pend["totp"], "utente")))
+        s.add(Utente(nome="utente", password_hash=pend["hash"], totp_cifrato=cif.cifra_testo(pend["totp"])))
+        s.commit()
+        request.session.clear()
+        return RedirectResponse("/login", status_code=303)
+
     # ---------------------------------------------------------------- accesso
     @app.get("/login", response_class=HTMLResponse)
     def login_form(request: Request, s=Depends(db)):
         configurato = s.scalar(select(Utente.id)) is not None
-        return render(request, "login.html", errore=None, configurato=configurato)
+        return render(request, "login.html", errore=None, configurato=configurato, setup=_setup_attivo(s))
 
     @app.post("/login")
     def login(request: Request, password: str = Form(""), codice: str = Form(""), csrf: str = Form(""),
@@ -128,12 +173,12 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
         adesso = dt.datetime.now(dt.timezone.utc)
         generico = "Credenziali non valide o accesso temporaneamente bloccato."
         if not u:
-            return render(request, "login.html", errore=generico, configurato=False)
+            return render(request, "login.html", errore=generico, configurato=False, setup=_setup_attivo(s))
         blocco = u.bloccato_fino
         if blocco is not None and blocco.tzinfo is None:
             blocco = blocco.replace(tzinfo=dt.timezone.utc)
         if blocco and blocco > adesso:
-            return render(request, "login.html", errore=generico, configurato=True)
+            return render(request, "login.html", errore=generico, configurato=True, setup=False)
         ok = security.verify_password(u.password_hash, password) and \
             security.verifica_totp(cif.decifra_testo(u.totp_cifrato), codice)
         if not ok:
@@ -142,7 +187,7 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
                 u.bloccato_fino = adesso + dt.timedelta(minutes=st.lock_minutes)
                 u.tentativi_falliti = 0
             s.commit()
-            return render(request, "login.html", errore=generico, configurato=True)
+            return render(request, "login.html", errore=generico, configurato=True, setup=False)
         u.tentativi_falliti, u.bloccato_fino = 0, None
         s.commit()
         request.session.clear()

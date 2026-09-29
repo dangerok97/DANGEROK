@@ -1,0 +1,21 @@
+{% extends "base.html" %}{% block titolo %}Configurazione{% endblock %}
+{% block corpo %}
+<div class="card"><h1>Configura il tuo accesso</h1>
+<p class="muted">Questa pagina si usa una sola volta e sparisce appena l'accesso e' creato.</p>
+{% if errore %}<p class="err">{{ errore }}</p>{% endif %}
+{% if not qr %}
+<form method="post" action="/configura" autocomplete="off"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="fase" value="1">
+<label for="token">Codice di configurazione (SETUP_TOKEN, lo trovi nelle variabili del servizio su Render)</label>
+<input id="token" name="token" type="password" required>
+<label for="password">Scegli la password (almeno 12 caratteri)</label><input id="password" name="password" type="password" required minlength="12" autocomplete="new-password">
+<label for="password2">Ripeti la password</label><input id="password2" name="password2" type="password" required minlength="12" autocomplete="new-password">
+<p><button>Continua</button></p></form>
+{% else %}
+<p>1. Apri l'app di autenticazione sul telefono (Google Authenticator, Microsoft Authenticator o simili) e inquadra il QR.</p>
+<p><img src="{{ qr }}" alt="Codice QR per l'app di autenticazione" width="220" height="220"></p>
+<p class="muted">Se non puoi inquadrarlo, inserisci a mano questo codice: <code>{{ segreto }}</code></p>
+<form method="post" action="/configura" autocomplete="off"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="fase" value="2">
+<label for="codice">2. Scrivi il codice a 6 cifre che mostra l'app</label>
+<input id="codice" name="codice" inputmode="numeric" pattern="[0-9 ]{6,7}" required autocomplete="one-time-code">
+<p><button>Crea il mio accesso</button></p></form>
+{% endif %}</div>{% endblock %}

@@ -19,6 +19,7 @@ class Settings:
     session_secret: str
     https_only: bool
     anthropic_model: str
+    setup_token: str = ""
     session_max_age: int = 8 * 3600
     max_login_failures: int = 5
     lock_minutes: int = 15
@@ -37,4 +38,5 @@ class Settings:
             session_secret=need("SESSION_SECRET"),
             https_only=os.environ.get("HTTPS_ONLY", "1") != "0",
             anthropic_model=os.environ.get("ANTHROPIC_MODEL", "claude-opus-5-5"),
+            setup_token=os.environ.get("SETUP_TOKEN", ""),
         )

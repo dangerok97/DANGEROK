@@ -1,7 +1,7 @@
 {% extends "base.html" %}{% block titolo %}Accesso{% endblock %}
 {% block corpo %}
 <div class="card"><h1>Accesso riservato</h1>
-{% if not configurato %}<p class="err">Nessun utente configurato. Esegui <code>python -m app.cli crea-utente</code> sul server.</p>{% else %}
+{% if not configurato %}{% if setup %}<p>Primo avvio: <a href="/configura">configura il tuo accesso</a>.</p>{% else %}<p class="err">Nessun utente configurato. Imposta SETUP_TOKEN sul server e apri /configura, oppure usa i comandi della guida.</p>{% endif %}{% else %}
 <form method="post" action="/login" autocomplete="off">
 <input type="hidden" name="csrf" value="{{ csrf }}">
 <label for="password">Password</label><input id="password" name="password" type="password" required autocomplete="current-password">

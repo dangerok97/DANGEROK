@@ -4,7 +4,26 @@
 > l'app per visionarla e provarla. Non caricare atti o dati di contribuenti reali su un servizio esterno senza
 > aver verificato le regole del Comando (cloud, AI esterne, localizzazione dei dati).
 
-## Soluzione GRATUITA per la prova: Render (sito) + Neon (database)
+## PERCORSO RAPIDO (consigliato per provare): un solo Blueprint su Render, senza installare nulla sul computer
+Il file `render.yaml` nella radice del repository descrive tutto: sito (Docker, piano gratuito, Frankfurt) e database.
+Le chiavi (`DATA_KEY`, `SESSION_SECRET`, `SETUP_TOKEN`) le genera Render da solo. Non serve Python.
+1. Registrati su render.com e collega GitHub, dando accesso **solo** al repository `dangerok97/DANGEROK`.
+2. **New +** > **Blueprint** > scegli il repository e il branch `claude/fiscal-verification-automation-yev7yy` >
+   conferma. Se Render segnala un errore nel file, incollamelo: lo correggo.
+3. Attendi che il sito sia "Live" (alcuni minuti al primo avvio).
+4. Nel pannello del sito apri **Environment** e copia il valore di `SETUP_TOKEN`.
+5. Apri l'indirizzo del sito: ti porta a **Configura il tuo accesso**. Incolla il codice, scegli la password
+   (almeno 12 caratteri), inquadra il QR con l'app di autenticazione e scrivi il codice a 6 cifre. Fatto: la pagina
+   di configurazione sparisce e da quel momento entri con password + codice.
+6. Facoltativo: `ANTHROPIC_API_KEY` nelle variabili, per attivare l'AI (a consumo).
+
+**Attenzione:** con questo Blueprint il database e' quello gratuito di Render, che **scade dopo 30 giorni** (poi 14
+giorni prima della cancellazione). Va bene per PROVARE con dati inventati. Per un uso duraturo passa a un database
+esterno (Neon, sotto) cambiando `DATABASE_URL` e togliendo il database dal Blueprint.
+Non ho potuto provare il Blueprint su Render (il sito e' bloccato dal mio ambiente): e' scritto secondo il formato
+documentato e il file e' verificato come YAML valido, ma il primo avvio e' il vero collaudo.
+
+## Percorso manuale: Render (sito) + Neon (database)
 Verificato a settembre 2026 su fonti pubbliche secondarie (non ho potuto aprire le pagine ufficiali di prezzi):
 le condizioni cambiano, **ricontrollale prima di iscriverti**.
 - **Render, Web Service gratuito** (Docker): 512 MB di memoria, 750 ore gratuite al mese. Dopo 15 minuti senza visite
