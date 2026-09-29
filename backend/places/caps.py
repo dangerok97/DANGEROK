@@ -191,6 +191,7 @@ async def open_navigation(arguments: Dict[str, Any], runtime: Dict[str, Any]) ->
                 "route": preview.get("route") if preview else None,
                 "place": {"label": spoken} if preview else None,
                 "journey_options": preview.get("journey_options", []) if preview else [],
+                "advice": preview.get("advice", "") if preview else "",
                 "road_choices": preview.get("road_choices", []) if preview else [],
                 "route_weather": preview.get("route_weather", []) if preview else [],
                 "route_provider": "mapbox" if preview else None,
@@ -375,13 +376,27 @@ async def _public_route_preview(name: str, runtime: Dict[str, Any]) -> Dict[str,
         alternatives = route.get("alternatives") or []
         best = min(alternatives, key=lambda r: r["duration_seconds"], default=None)
         weather = await briefing.weather_along_route(best["polyline"], best["duration_seconds"]) if best and best.get("polyline") else []
+        roads = briefing.route_choices(alternatives)
+        advice = briefing.departure_advice(roads, weather)
+        # A named public place can also be the location of an imminent
+        # appointment; no need to save it in Life Places to give a departure
+        # time. Without such an appointment, only say "parti ora" for an
+        # explicit navigation command.
+        from types import SimpleNamespace
+
+        deadline, _ = await _when_to_leave(
+            runtime["db"], runtime["user_id"], choices,
+            SimpleNamespace(label=destination["label"], address=destination["context"]),
+        )
+        if deadline:
+            advice = deadline
         return {
             "label": destination["label"], "context": destination["context"],
             "route": {"duration_seconds": route["duration_seconds"],
                       "distance_meters": route.get("distance_meters"),
                       "reflects_current_traffic": True, "is_live": True},
             "journey_options": choices,
-            "road_choices": briefing.route_choices(alternatives), "route_weather": weather,
+            "road_choices": roads, "route_weather": weather, "advice": advice,
             "handoff": {"needs_choice": False, "app": "google_maps",
                         "url": navigation_url("google_maps", latitude=point["latitude"],
                                               longitude=point["longitude"]),

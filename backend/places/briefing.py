@@ -105,6 +105,12 @@ def route_choices(routes: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     if not valid:
         return []
     fastest = min(valid, key=lambda item: item["duration_seconds"])
+    def slower_reason(route: Dict[str, Any]) -> str:
+        seconds = max(0, int(route["duration_seconds"]) - int(fastest["duration_seconds"]))
+        minutes = max(1, round(seconds / 60))
+        unit = "minuto" if minutes == 1 else "minuti"
+        return f"Circa {minutes} {unit} più lento secondo il traffico stimato ora."
+
     return [{
         "label": f"Percorso {i + 1}",
         "duration_seconds": int(route["duration_seconds"]),
@@ -117,6 +123,34 @@ def route_choices(routes: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         "reason": (
             "Il più rapido secondo il traffico stimato ora."
             if route is fastest else
-            f"{round((route['duration_seconds'] - fastest['duration_seconds']) / 60)} minuti più lento secondo il traffico stimato ora."
+            slower_reason(route)
         ),
     } for i, route in enumerate(valid)]
+
+
+def departure_advice(roads: List[Dict[str, Any]], weather: List[Dict[str, Any]]) -> str:
+    """A short recommendation from the same route and forecast shown below it."""
+    recommended = next((road for road in roads if road.get("recommended")), None)
+    if not recommended:
+        return ""
+    minutes = max(1, round(recommended["duration_seconds"] / 60))
+    steps = [str(step) for step in recommended.get("main_steps") or [] if step]
+    via = f" via {', '.join(steps)}" if steps else ""
+    result = f"Se parti ora in auto, considera {recommended['label']}{via}: circa {minutes} min."
+    others = [road for road in roads if road is not recommended]
+    if others:
+        next_best = min(others, key=lambda road: road["duration_seconds"])
+        advantage = max(0, round((next_best["duration_seconds"] - recommended["duration_seconds"]) / 60))
+        if advantage >= 2:
+            result += f" Risparmi circa {advantage} min rispetto all'alternativa più vicina."
+        else:
+            result += " Le alternative hanno tempi molto simili."
+    if recommended.get("delay_minutes") is not None:
+        delay = recommended["delay_minutes"]
+        if delay > 0:
+            result += f" Il traffico aggiunge circa {delay} min rispetto al {recommended['delay_reference']}."
+    wet = [point for point in weather if point.get("rain_chance_pct", 0) >= 50]
+    if wet:
+        point = wet[0]
+        result += f" Possibile pioggia {point['label'].lower()} ({point['rain_chance_pct']}%)."
+    return result

@@ -66,6 +66,7 @@ export function OraJourney({
     );
   }
   const apri = navigation?.[0];
+  const recommendedRoad = journey.road_choices?.find((road) => road.recommended);
 
   return (
     <OraCard style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]} testID="ora-journey">
@@ -106,13 +107,21 @@ export function OraJourney({
               </View>
             ) : null}
             {o.recommended && apri ? (
-              <OraButton
-                label="Avvia navigazione"
-                icon="navigate"
-                compact
-                onPress={() => void Linking.openURL(apri.url)}
-                testID="ora-journey-start"
-              />
+              <View style={{ gap: 6 }}>
+                <OraButton
+                  label="Avvia navigazione"
+                  icon="navigate"
+                  compact
+                  onPress={() => void Linking.openURL(apri.url)}
+                  testID="ora-journey-start"
+                />
+                {recommendedRoad ? <Text style={[oraType.small, { color: colors.textTertiary }]}>
+                  Il navigatore ricalcola la strada: verifica
+                  {recommendedRoad.main_steps?.length
+                    ? ` che passi per ${recommendedRoad.main_steps.join(', ')}`
+                    : ' che il tempo corrisponda al percorso consigliato'} prima di partire.
+                </Text> : null}
+              </View>
             ) : null}
           </View>
         ))}
@@ -131,7 +140,7 @@ export function OraJourney({
           {journey.road_choices.map((road, i) => (
             <Fragment key={i}>
               <Text style={[oraType.small, { color: colors.textSecondary }]}>
-                {road.label}: {Math.round(road.duration_seconds / 60)} min
+                {road.label}{road.recommended ? ' · consigliato ora' : ''}: {Math.round(road.duration_seconds / 60)} min
                 {road.delay_minutes != null ? `, ${road.delay_minutes} min di rallentamento stimato rispetto al ${road.delay_reference === 'tempo tipico' ? 'tempo tipico' : 'tempo senza traffico'}` : ''}. {road.reason}
                 {road.main_steps?.length ? ` Indicazioni principali: ${road.main_steps.join('; ')}.` : ''}
               </Text>

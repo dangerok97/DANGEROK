@@ -23,6 +23,20 @@ def test_polyline_and_fastest_route_with_delay():
     assert choices[0]["recommended"] is False
     assert choices[0]["delay_minutes"] == 10
     assert "6 minuti" in choices[0]["reason"]
+    singular = route_choices([
+        {"duration_seconds": 4800, "main_steps": ["A12", "A91"], "delay_seconds": 180,
+         "delay_reference": "tempo tipico"},
+        {"duration_seconds": 4740, "main_steps": ["A12", "SS1"], "delay_seconds": 180,
+         "delay_reference": "tempo tipico"},
+    ])
+    assert "1 minuto più lento" in singular[0]["reason"]
+    advice = __import__("places.briefing", fromlist=["departure_advice"]).departure_advice(
+        singular, [{"label": "Lungo il tragitto", "rain_chance_pct": 70}],
+    )
+    assert "Percorso 2 via A12, SS1" in advice
+    assert "tempi molto simili" in advice
+    assert "3 min rispetto al tempo tipico" in advice
+    assert "Possibile pioggia lungo il tragitto (70%)" in advice
 
 
 @pytest.mark.asyncio

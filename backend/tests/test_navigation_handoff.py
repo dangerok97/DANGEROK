@@ -78,6 +78,9 @@ def test_public_destination_prepares_traffic_without_saving_place(monkeypatch):
         return [{"mode": "drive", "duration_seconds": 3600, "duration_label": "1 ora",
                  "recommended": True, "reflects_current_traffic": True}]
 
+    async def no_appointment(*args, **kwargs):
+        return "", ""
+
     monkeypatch.setattr(caps, "_service", lambda runtime: Service())
     monkeypatch.setattr(routing, "configured_provider", lambda: "mapbox")
     monkeypatch.setattr(LocationService, "build_presence", presence)
@@ -85,10 +88,15 @@ def test_public_destination_prepares_traffic_without_saving_place(monkeypatch):
     monkeypatch.setattr(routing, "get_route", route)
     monkeypatch.setattr(briefing, "weather_along_route", weather)
     monkeypatch.setattr(caps, "_how_to_get_there", options)
+    monkeypatch.setattr(caps, "_when_to_leave", no_appointment)
     obs = run(caps.open_navigation({"destination": "Colosseo"}, {"db": object(), "user_id": "u"}))
     assert obs.payload["road_choices"][0]["incidents"][0]["road"] == "A12"
     assert obs.payload["route_weather"][0]["rain_chance_pct"] == 80
     assert obs.payload["route_provider"] == "mapbox"
+    assert "Percorso 1" in obs.payload["advice"]
+    assert "Il traffico aggiunge circa 10 min" in obs.payload["advice"]
+    from conversation_engine.ai_core.loop import _journey_from
+    assert "Percorso 1" in _journey_from([obs.model_dump()])["advice"]
     assert parse_qs(urlparse(obs.payload["url"]).query)["destination"] == ["41.89,12.49"]
     assert "Roma, Italia" in obs.payload["say_this"]
 
