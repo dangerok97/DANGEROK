@@ -20,6 +20,19 @@ MAX_ATTEMPTS = 3
 logger = logging.getLogger(__name__)
 
 
+def _expiry_state(row, moment):
+    raw = row.get("valid_until")
+    if not raw:
+        return ""
+    try:
+        until = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+    except ValueError:
+        return "invalid_expiry"
+    if until.tzinfo is None:
+        until = until.replace(tzinfo=timezone.utc)
+    return "expired" if until <= moment else ""
+
+
 async def drain(db, *, owner_id=None, now=None, limit=2) -> int:
     from delivery.service import DeliveryService
 
@@ -51,11 +64,19 @@ async def drain(db, *, owner_id=None, now=None, limit=2) -> int:
         error_kind = ""
         try:
             service = DeliveryService(db)
+            expiry_state = _expiry_state(row, moment)
             if row["status"] != "active":
                 await service.cancel_for_opportunity(
                     row["owner_id"], row["id"], reason="la questione non è più aperta"
                 )
                 outcome = "closed"
+            elif expiry_state == "expired":
+                await service.cancel_for_opportunity(
+                    row["owner_id"], row["id"], reason="il momento utile è passato"
+                )
+                outcome = "expired"
+            elif expiry_state == "invalid_expiry":
+                error_kind = "invalid_valid_until"
             else:
                 result = await asyncio.wait_for(
                     service.evaluate(row["owner_id"], row["id"]), TIMEOUT_SECONDS

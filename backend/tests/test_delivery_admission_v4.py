@@ -152,3 +152,36 @@ async def test_background_scan_starts_two_and_later_tick_gets_the_rest(monkeypat
     assert await drain(db) == 2
     assert await drain(db) == 1
     assert {call.args[1] for call in decide.await_args_list} == {row.id for row in rows}
+
+
+@pytest.mark.asyncio
+async def test_expired_concern_cancels_old_delivery_without_new_judgement(monkeypatch):
+    db = AsyncMongoMockClient().test
+    repo = OpportunityRepository(db)
+    row = concern(1)
+    row.valid_until = (datetime.now(timezone.utc) + timedelta(minutes=1)).isoformat()
+    await repo.save(row)
+    decide = AsyncMock()
+    cancel = AsyncMock()
+    monkeypatch.setattr(DeliveryService, "evaluate", decide)
+    monkeypatch.setattr(DeliveryService, "cancel_for_opportunity", cancel)
+
+    later = datetime.now(timezone.utc) + timedelta(minutes=2)
+    assert await drain(db, now=later) == 1
+    assert (await db.opportunities.find_one({"id": row.id}))["delivery_review_outcome"] == "expired"
+    cancel.assert_awaited_once()
+    decide.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_malformed_expiry_never_sends_a_push(monkeypatch):
+    db = AsyncMongoMockClient().test
+    row = await OpportunityRepository(db).save(concern(1))
+    await db.opportunities.update_one({"id": row.id}, {"$set": {"valid_until": "broken-date"}})
+    decide = AsyncMock()
+    monkeypatch.setattr(DeliveryService, "evaluate", decide)
+    await drain(db)
+    saved = await db.opportunities.find_one({"id": row.id})
+    assert saved["delivery_review_state"] == "pending"
+    assert saved["delivery_review_error_kind"] == "invalid_valid_until"
+    decide.assert_not_awaited()

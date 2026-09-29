@@ -4499,3 +4499,6 @@ screenshot di interfaccia: lo step non modifica schermate.
 Secondo step P0: audit read-only a soli conteggi per active/pending/settled/
 paused/legacy, goal e wake, con filtro account opzionale; 28 test mirati PASS.
 Non eseguito sul database cloud in questo checkpoint.
+Guardia aggiuntiva: delivery arretrata oltre `valid_until` non viene valutata
+né inviata; data illeggibile ritenta e poi si ferma con errore osservabile.
+Suite mirata aggiornata: 30 PASS.

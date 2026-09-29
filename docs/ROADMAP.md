@@ -1193,6 +1193,8 @@ Mongo/cloud, invio su dispositivo e la matrice P0 completa; non è P0 chiusa.
 Una diagnostica di soli conteggi distingue ora delivery pending/settled/paused,
 record storici senza stato, admission dell'agente, goal e wake: non stampa
 testi, ID né credenziali. Verifica locale complessiva aggiornata: 28 PASS.
+Il recupero delivery scarta un'opportunità già scaduta, cancellando il piano
+precedente; una scadenza illeggibile va in retry senza provare a notificare.
 
 Questa sequenza rende verificabile il beneficio per la persona. Non sostituisce
 i gate di V4, V3.23 e V4.1. Prima si provano i risultati e le azioni con le

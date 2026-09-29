@@ -3713,3 +3713,6 @@ esistenti, con filtro proprietario opzionale. Lo script
 `backend/scripts/audit_ambient_pipeline.py` richiede URL e DB da environment,
 ma non stampa identificatori, testi o eccezioni di connessione contenenti
 segreti. Nessuna nuova collection, API pubblica o job periodico.
+Prima del giudizio di consegna il consumer controlla `valid_until`: una fonte
+scaduta chiude l'intenzione di notificare; un valore invalido non diventa un
+permesso implicito a inviare, ma segue il retry tecnico limitato.

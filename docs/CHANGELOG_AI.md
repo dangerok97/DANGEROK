@@ -5855,3 +5855,6 @@ Pubblicati backend `1e7515f0` e web `ba7180d5`, entrambi SUCCESS sul commit `1aa
 - Audit CLI read-only dei conteggi per trovare code, pause e record legacy
   senza mostrare dati personali. Prova con due account separati; 28 test
   mirati PASS complessivi. Non ancora eseguito su database cloud.
+- Il recupero di una consegna scaduta cancella il piano precedente senza
+  giudizio o push; scadenza malformata blocca l'invio e registra errore.
+  Suite mirata aggiornata: 30 PASS.
