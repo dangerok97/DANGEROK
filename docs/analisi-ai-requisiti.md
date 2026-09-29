@@ -34,3 +34,15 @@ Circolare 1/2018 deve applicare la normativa e la prassi sostanziale (imposte di
 - **Ragionamento visibile e tracciabile**: assunzioni, calcoli, fonti e dubbi restano registrati nella pratica e
   confluiscono, dopo revisione, nei prospetti allegati (es. "cfr. all. N") e nelle "situazioni rilevanti" del PVOC/PVV.
 - Il regime del soggetto (ordinario / forfettario / altro) si ricava dai documenti e guida quali controlli applicare.
+
+## Allegato 23: arriva dalla banca dati e va completato (requisito dell'utente)
+- Il modulo (Vol. IV, All. 23) NON si compila da zero: lo fornisce una banca dati in uso al Corpo circa **un giorno dopo la richiesta**,
+  con alcuni campi lasciati vuoti che l'operatore deve completare.
+- Nell'app: **sezione per caricare l'Allegato 23** ricevuto; l'app lo legge in locale, riconosce i campi gia' valorizzati e
+  quelli vuoti (codici A1-A10, B1-B8, C1-C6), e **l'AI propone il contenuto dei campi vuoti** usando solo cio' che risulta
+  dalla pratica (ragione dell'intervento, documenti acquisiti, ricerche fatte, tipologia). Un campo che non si puo' ricavare
+  resta `[DA COMPILARE: ...]`: niente dati inventati, in particolare per precedenti, risultanze e accertamenti svolti.
+- Ogni campo completato dall'AI porta la sua spiegazione (da dove viene il dato) e resta da confermare dall'operatore.
+- Tracciare la richiesta alla banca dati (data di richiesta, in attesa) perche' il documento arriva il giorno dopo.
+- Da definire con gli esempi che l'utente inviera': formato del file ricevuto (Word, PDF, Excel), quali campi arrivano
+  compilati e quali vuoti, come vengono di solito completati (lessico), quali fonti si usano per i campi C.
