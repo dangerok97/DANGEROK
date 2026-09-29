@@ -25,7 +25,7 @@ class Fase:
 FASI_CONTROLLO: tuple[Fase, ...] = (
     Fase("prep_autorizzazione", "Preparazione e autorizzazione del controllo",
          "Vol. II, P. III, cap. 4 §3", "All. 23",
-         checklist=("Sezioni A (dati identificativi), B (posizione fiscale) e C (selezione e strategie) compilate",
+         checklist=("Sezioni A e B ricevute dalla banca dati; sezione C (selezione e strategie) completata",
                     "Ragioni giustificative e fonte di innesco indicate (C3)",
                     "Oggetto, arco temporale e tributi indicati (C4)",
                     "Esiti delle banche dati e adesione a istituti di compliance (B5)",

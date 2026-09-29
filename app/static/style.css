@@ -18,3 +18,4 @@ button.sec{background:transparent;color:var(--accent);border:1px solid var(--acc
 .err{color:var(--bad);font-weight:600}pre{white-space:pre-wrap;word-break:break-word;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .inl{width:auto}.alta{min-height:60vh}input[name=motivo]{max-width:280px}
+.giallo{background:var(--giallo);color:#1a1a1a;font-style:italic;padding:6px 8px;border-radius:6px;margin:6px 0 0}

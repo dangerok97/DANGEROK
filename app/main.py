@@ -13,7 +13,7 @@ from sqlalchemy import select
 from starlette.middleware.sessions import SessionMiddleware
 
 from . import ai as ai_mod
-from . import calcoli, norme, piano as piano_mod, schede, security, tipologie, workflow, wordexport
+from . import calcoli, norme, scheda_ai, piano as piano_mod, schede, security, tipologie, workflow, wordexport
 from .config import Settings
 from .db import crea_engine, crea_sessionmaker
 from .models import Atto, FasePratica, FonteNormativa, LogAI, Pratica, Utente
@@ -294,8 +294,12 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
         p = carica(s, pid)
         d = dati_di(p)
         campi = schede.campi_allegato23(d.get("privato", False))
-        return render(request, "scheda.html", p=p, campi=campi, valori=d.get("scheda", {}),
-                      mancanti=schede.completezza(d.get("scheda", {}), d.get("privato", False)))
+        valori = d.get("scheda", {})
+        mancanti = schede.completezza(valori, d.get("privato", False))
+        return render(request, "scheda.html", p=p, campi=campi, valori=valori,
+                      spieg=d.get("scheda_spiegazioni", {}),
+                      da_importare=[c for c in mancanti if c[0] in "AB"],
+                      da_completare=[c for c in mancanti if c[0] == "C"], errore=request.query_params.get("errore"))
 
     @app.post("/pratiche/{pid}/scheda")
     async def scheda_salva(request: Request, pid: int, u=Depends(utente_corrente), s=Depends(db)):
@@ -430,6 +434,34 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
         fonti = s.scalars(select(FonteNormativa).where(FonteNormativa.pratica_id == pid)
                           .order_by(FonteNormativa.id.desc())).all()
         return render(request, "norme.html", p=p, fonti=fonti, ricerca=ric, errore=errore, domini=norme.DOMINI_UFFICIALI)
+
+    @app.post("/pratiche/{pid}/scheda/proponi")
+    def scheda_proponi(request: Request, pid: int, appunti: str = Form(""), csrf: str = Form(""),
+                       u=Depends(utente_corrente), s=Depends(db)):
+        """L'AI propone SOLO i campi C ancora vuoti; non tocca cio' che l'operatore ha scritto."""
+        check_csrf(request, csrf)
+        p = carica(s, pid)
+        d = dati_di(p)
+        privato = d.get("privato", False)
+        valori = d.get("scheda", {})
+        vuoti = [c for c in schede.campi_allegato23(privato)
+                 if c.codice.startswith("C") and not (valori.get(c.codice) or "").strip()]
+        if not vuoti:
+            return RedirectResponse(f"/pratiche/{pid}/scheda", status_code=303)
+        try:
+            prop = scheda_ai.proponi_sezione_c(ai_mod.costruisci_pseudonimizzatore(d), valori=valori,
+                                               profilo=d.get("profilo", {}), appunti=appunti, campi=vuoti,
+                                               client=client_ai(), modello=st.anthropic_model)
+        except (ai_mod.AIDisattivata, ai_mod.LeakError, RuntimeError) as e:
+            return RedirectResponse(f"/pratiche/{pid}/scheda?errore={str(e)[:160]}", status_code=303)
+        sp = d.setdefault("scheda_spiegazioni", {})
+        for cod, v in prop.items():
+            valori[cod] = v["testo"]
+            sp[cod] = v["spiegazione"]
+        d["scheda"] = valori
+        salva_dati(p, d)
+        s.commit()
+        return RedirectResponse(f"/pratiche/{pid}/scheda", status_code=303)
 
     # ---------------------------------------------------------------- atti e AI
     def contesto_ai(p: Pratica, d: dict, appunti: str, fase: workflow.Fase, giornata: str) -> str:

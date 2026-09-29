@@ -36,7 +36,11 @@ class FakeAI:
         user = kw["messages"][0]["content"]
         m = re.search(r"\[PERSONA_1\]", user)
         testo = f"Il giorno odierno {m.group(0) if m else '[DA COMPILARE: soggetto]'} ha esibito la documentazione."
-        if "PROMPT" in str(kw.get("system", "")) or "piano di fasi" in str(kw.get("system", "")):
+        if "SEZIONE C" in str(kw.get("system", "")):
+            import json as _j
+            testo = _j.dumps({c: {"testo": f"Testo proposto {c} su [PERSONA_1]", "spiegazione": f"Derivato dai dati A/B per {c}"}
+                              for c in ("C1", "C2", "C3", "C4", "C5", "C6")})
+        elif "PROMPT" in str(kw.get("system", "")) or "piano di fasi" in str(kw.get("system", "")):
             testo = '[{"chiave":"indiretto_presuntivo","esito":"consigliata","motivo":"Ragione basata su movimenti."}]'
         return SimpleNamespace(stop_reason="end_turn", model=kw["model"],
                                content=[SimpleNamespace(type="text", text=testo)])
@@ -358,3 +362,33 @@ def test_configurazione_iniziale_da_browser(tmp_path):
 def test_configurazione_disattivata_senza_token(tmp_path):
     _, _, c = _app_setup(tmp_path, token="")
     assert c.get("/configura").status_code == 404
+
+
+def test_scheda_ai_completa_solo_la_sezione_c_e_non_sovrascrive(ctx):
+    c = entra(ctx)
+    pid = nuova_pratica(c)
+    tok = csrf(c, f"/pratiche/{pid}/scheda")
+    # A e B arrivano dalla banca dati (qui inseriti a mano); C3 e' gia' stato scritto dall'operatore
+    c.post(f"/pratiche/{pid}/scheda", data={"csrf": tok, "A1": piva_fittizia(), "A2": cf_fittizio(),
+           "A3": "Sede in via dei Test n. 27, Mario Rossi", "B1": "2023, 2024", "C3": "Testo scritto da me"})
+    r = c.post(f"/pratiche/{pid}/scheda/proponi", data={"csrf": tok, "appunti": "Controllo d'iniziativa"})
+    assert r.status_code == 303
+    pagina = c.get(f"/pratiche/{pid}/scheda").text
+    assert "Testo scritto da me" in pagina                       # non sovrascritto
+    assert "Testo proposto C1 su Mario Rossi" in pagina           # segnaposto ripristinato
+    assert "Derivato dai dati A/B per C1" in pagina and "Derivato dai dati A/B per C3" not in pagina
+    inviato = str(ctx.fake.richieste[-1])
+    for dato in ("Rossi", cf_fittizio(), piva_fittizia(), "dei Test"):
+        assert dato not in inviato
+    assert "SEZIONE C" in ctx.fake.richieste[-1]["system"] and '"A2"' in ctx.fake.richieste[-1]["messages"][0]["content"]
+
+
+def test_scheda_ai_senza_chiave_mostra_errore(ctx, monkeypatch):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    app = create_app(ctx.st, ctx.SM, ai_client=None)
+    c = TestClient(app, follow_redirects=False)
+    entra(SimpleNamespace(c=c, segreto=ctx.segreto))
+    pid = nuova_pratica(c)
+    tok = csrf(c, f"/pratiche/{pid}/scheda")
+    r = c.post(f"/pratiche/{pid}/scheda/proponi", data={"csrf": tok, "appunti": ""})
+    assert r.status_code == 303 and "disattivato" in c.get(r.headers["location"]).text
