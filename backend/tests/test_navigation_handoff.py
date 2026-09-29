@@ -181,6 +181,43 @@ def test_public_search_uses_routable_entrance(monkeypatch):
                      "latitude": 41.891, "longitude": 12.491}
 
 
+def test_public_search_skips_nearby_nonmatch_and_collapses_same_landmark(monkeypatch):
+    from places import public_search, routing
+
+    class Response:
+        status_code = 200
+
+        def json(self):
+            return {"features": [
+                {"properties": {"name": "Bar Colosseo", "coordinates": {
+                    "latitude": 42.24, "longitude": 11.75}}},
+                {"properties": {"name": "Colosseo", "place_formatted": "Roma, Italia",
+                                "coordinates": {"latitude": 41.89021, "longitude": 12.49223}}},
+                {"properties": {"name_preferred": "Colosseo", "name": "Colosseum",
+                                "coordinates": {"latitude": 41.89025, "longitude": 12.49229}}},
+            ]}
+
+    class Client:
+        def __init__(self, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            pass
+
+        async def get(self, url, params):
+            return Response()
+
+    monkeypatch.setattr(routing, "configured_provider", lambda: "mapbox")
+    monkeypatch.setenv("ROUTING_API_KEY", "test-token")
+    monkeypatch.setattr("httpx.AsyncClient", Client)
+    found = run(public_search.preview_destination("Colosseo", {"latitude": 42.24, "longitude": 11.75}))
+    assert found == {"label": "Colosseo", "context": "Roma, Italia",
+                     "latitude": 41.89021, "longitude": 12.49223}
+
+
 def test_navigation_rescue_produces_link_when_model_skips_tool(monkeypatch):
     from conversation_engine.ai_core import loop
     from places import caps
