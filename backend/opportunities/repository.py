@@ -39,6 +39,7 @@ class OpportunityRepository:
             )
             await self.db[OPPORTUNITIES].create_index([("owner_id", 1), ("status", 1)])
             await self.db[OPPORTUNITIES].create_index([("status", 1), ("agent_review_due", 1)])
+            await self.db[OPPORTUNITIES].create_index([("status", 1), ("delivery_review_due", 1)])
             await self.db[DECISIONS].create_index([("owner_id", 1), ("opportunity_id", 1)])
         except Exception:
             logger.exception("indici opportunities non creati (non fatale)")
@@ -66,6 +67,15 @@ class OpportunityRepository:
                            "agent_review_error_kind": "",
                            "agent_review_question": "",
                            "agent_review_reason": ""})
+            # The same source revision also needs a durable delivery judgement.
+            # A batch limit may postpone it, but must never drop item three.
+            values.update({"delivery_review_revision": uuid.uuid4().hex,
+                           "delivery_review_due": datetime.now(timezone.utc).isoformat()
+                           if opportunity.status != "candidate" else None,
+                           "delivery_review_state": "pending" if opportunity.status == "active" else "inactive",
+                           "delivery_review_attempts": 0,
+                           "delivery_review_outcome": None,
+                           "delivery_review_error_kind": ""})
         await self.db[OPPORTUNITIES].update_one(
             identity,
             {"$set": values},

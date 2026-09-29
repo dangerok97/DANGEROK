@@ -4488,3 +4488,11 @@ Commit `075ffca` pubblicato su `staging/cloud`; backend deploy `b7dd3b23` e web 
 Secondo incremento `b43a50e` su backend `21299c50` e web `b02d1900` SUCCESS. `ROUTING_PROVIDER=mapbox` e token Mapbox configurati solo su `ora-backend`; deploy con variabili `f888e3d7` SUCCESS. Prova chat web reale ha svelato che una frase composta «portami al Colosseo e dimmi traffico...» veniva passata intera come destinazione, e che la sessione cloud non aveva una posizione CURRENT. Correzione in corso: parsing destinazione e acquisizione foreground prima del fast path, con limite di 120 secondi per l'origine. Prova live dal dispositivo dell'utente ancora pendente.
 
 Correzione del fast path pubblicata con `95dcacd`: backend `342f45f3` e web `6c0d1c07` SUCCESS, 36 test mirati e bundle web passati. Il browser remoto di verifica non espone la posizione reale del telefono; «portami al Colosseo» conserva quindi onestamente la ricerca Maps senza ETA. Completato in seguito il percorso nativo iOS/Android con `expo-location` per il nuovo rilevamento alla partenza. Bundle nativo e pubblicazione da registrare; richiesta reale dall'iPhone ancora pendente.
+## 29 settembre 2026 — P0, delivery oltre il batch (locale)
+
+Rimosso il taglio `scan.created[:2]` come unico ingresso al giudizio di
+consegna. Nuove opportunità e revisioni significative hanno un due
+persistente, lease, revision fence, retry e stato consultabile. Recovery
+limitato nel runtime ambient. 27 test mirati PASS; una suite ambient estesa
+richiede Mongo locale, non presente nel checkout. Nessun rilascio cloud o
+screenshot di interfaccia: lo step non modifica schermate.

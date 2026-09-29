@@ -5842,3 +5842,13 @@ Secondo incremento `b43a50e` pubblicato, token demo Mapbox configurato nel backe
 Fast path `95dcacd` pubblicato su backend/web. Aggiunto `requestDeparturePosition` per build native iOS/Android con `expo-location`, permesso foreground e fix nuovo alla partenza; il web continua con Geolocation API senza cache. Il permesso ORA anticipa quello del sistema operativo. La sessione di prova cloud non può rappresentare la posizione dell'iPhone dell'utente; la verifica con dati live resta distinta dai test del parser e del contratto backend.
 
 Pubblicati backend `1e7515f0` e web `ba7180d5`, entrambi SUCCESS sul commit `1aa9367`. Lo screenshot `ora-briefing-limite-dati-live-1790663049210.jpg` mostra la prova reale su Colosseo e il limite dichiarato in assenza della chiave. Il briefing completo è verificato con risposte di provider simulate nei test, non ancora con traffico live nell'ambiente.
+## 2026-09-29 — P0: recupero dei giudizi di consegna oltre due opportunità
+
+- Ogni opportunità nuova o modificata porta nel record la richiesta
+  persistente di valutare consegna/silenzio; passaggi limitati e ripresa dopo
+  riavvio sostituiscono il taglio dei soli primi due elementi dello scan.
+- Lease, fence sulla revisione, esito, errore e massimo tre tentativi rendono
+  visibile se il giudizio si è chiuso o si è fermato. Chiusura della fonte
+  cancella eventuali piani di consegna superati.
+- 27 test locali mirati PASS; verifica cloud/Mongo e dispositivo aperta.
+  Nessuna schermata cambiata e nessuna notifica reale inviata nella prova.

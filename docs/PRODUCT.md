@@ -1772,3 +1772,11 @@ Con Mapbox configurato, una destinazione pubblica pronunciata per nome può rice
 Per «portami al Colosseo», la chat acquisisce la posizione del dispositivo al momento dell'invio (chiedendo il consenso ORA se non è stato dato), poi la registra prima della richiesta di percorso. Il backend ammette come origine soltanto un rilevamento del dispositivo entro 120 secondi, senza errore di acquisizione. Una vecchia posizione non diventa un tempo di partenza. Eventuali richieste aggiuntive «e dimmi traffico/meteo» non entrano nel nome del luogo.
 
 Questo rilevamento di partenza usa la geolocalizzazione del browser sul web e `expo-location` su iPhone/Android installati. Il permesso nativo è richiesto solo quando serve per il tragitto. Se manca o il dispositivo non risponde, ORA offre comunque il navigatore, ma non un ETA attribuito alla posizione corrente.
+## 29 settembre 2026 — P0: nessuna opportunità saltata nella consegna (locale)
+
+Se ORA riconosce più di due situazioni in una revisione, ora conserva per
+ciascuna la necessità di decidere se e come informare la persona. Le prime due
+sono trattate subito e le altre nei cicli successivi, senza chiedere di aprire
+Home o chat. Restano in vigore silenzio, limiti alle interruzioni e permessi:
+non ogni situazione diventa una notifica. Verifica locale: 27 test mirati PASS;
+consegna cloud e telefono non ancora provati per questa modifica.

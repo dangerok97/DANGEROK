@@ -1182,6 +1182,15 @@ da controllare, non blocker noto.
 
 ### Sequenza di prodotto verso un assistente quotidiano — 29/09
 
+**Checkpoint P0, locale:** il limite di due giudizi di consegna per revisione
+lasciava senza riesame le opportunità successive. Ora ogni revisione
+semantica salva nello stesso record una richiesta persistente di valutazione
+delivery; il runtime ne consuma due per passaggio e recupera il resto, anche
+dopo un arresto. Stato, esito, errori e tentativi restano osservabili. Test
+mirati con cinque opportunità, aggiornamento, due worker e provider
+indisponibile: 27 PASS insieme alle regressioni adiacenti. Restano da provare
+Mongo/cloud, invio su dispositivo e la matrice P0 completa; non è P0 chiusa.
+
 Questa sequenza rende verificabile il beneficio per la persona. Non sostituisce
 i gate di V4, V3.23 e V4.1. Prima si provano i risultati e le azioni con le
 fonti disponibili; la presenza completa sul telefono è il penultimo gate,

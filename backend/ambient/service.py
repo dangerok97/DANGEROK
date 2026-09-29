@@ -250,13 +250,11 @@ class AmbientService:
         scan = outcome.scan
         if scan is not None and (scan.created or scan.updated):
             await SurfacingService(self.db).decide(wake.owner_id)
-            from delivery.service import DeliveryService
+            from delivery.admission import drain as review_delivery
 
-            delivery = DeliveryService(self.db)
-            for opportunity in list(scan.created)[:2]:
-                verdict = await delivery.evaluate(wake.owner_id, opportunity.id)
-                if verdict.plan is not None:
-                    await self.schedule_for_plan(verdict.plan)
+            # The source record owns every pending judgement. This bounded pass
+            # starts work now; the ambient recovery lane drains the remainder.
+            await review_delivery(self.db, owner_id=wake.owner_id)
 
         if scan is not None:
             from agent.background import consider_opportunities

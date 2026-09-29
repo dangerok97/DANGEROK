@@ -3697,3 +3697,14 @@ L'adattatore `ROUTING_PROVIDER=mapbox` in `places.routing` interroga Directions 
 Il fast path di navigazione in `ai_core.loop` estrae la destinazione prima delle clausole di briefing («e dimmi…», «, mostrami…»). In `OraConversationScreen.dispatch` i comandi espliciti chiedono preferenza/consenso ORA e `requestForegroundPosition(maximumAgeMs=0)` prima di inviare il messaggio; il segnale viene registrato tramite `/location/signal`. `places.caps._navigation_origin` richiede `CURRENT`, sorgente dispositivo, `last_seen_at` con età ≤120 s e nessun errore di acquisizione, per luoghi personali e pubblici. Il link Google Maps continua ad aprirsi anche se il consenso viene negato o il dispositivo non dà una posizione; in quel caso non si calcola un ETA dal vecchio segnale.
 
 `requestDeparturePosition` in `frontend/src/location/foregroundGeo.ts` usa il browser con cache disabilitata o, per build native, importa dinamicamente `expo-location`, richiede il permesso foreground OS e legge `getCurrentPositionAsync` con accuratezza Balanced. Solo questa acquisizione di partenza viene fatta prima del fast path; gli altri flussi di posizione mantengono il proprio contratto. L'import dinamico evita di trascinare il modulo nativo nel bundle web.
+## 29 settembre 2026 — Admission persistente della consegna
+
+`OpportunityRepository.save` registra `delivery_review_revision`, `due`,
+`state` e tentativi nello stesso `$set` della revisione semantica. Il consumer
+`delivery.admission.drain` reclama per lease con fence sulla revisione, valuta
+massimo due record per giro, registra esito/errore e riprova indisponibilità
+temporanee fino a tre volte. `ambient.service.review_life` avvia il primo
+passaggio; la lane esistente di `ambient.runtime` recupera il resto. Non c'è un
+nuovo scheduler né una promozione automatica a push: il giudizio resta nel
+servizio delivery. I record storici senza due non vengono rianalizzati in
+massa. Verifica Mongo/cloud e device ancora aperta.

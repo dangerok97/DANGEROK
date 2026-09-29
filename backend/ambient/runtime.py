@@ -344,9 +344,11 @@ async def _cycle(db, ticks):
         _stats["sources_deferred_for_call"] += 1
         return
     from agent.background import recover_due
+    from delivery.admission import drain as review_delivery
     from energy_offers.service import EnergyOfferService
     _launch("sources", lambda: read_sources(db), timeout=120)
     _launch("admission", lambda: recover_due(db), timeout=110)
+    _launch("delivery-admission", lambda: review_delivery(db), timeout=125)
     # Two due jobs can make progress, never an unbounded task per user.
     for n in range(2):
         _launch(f"work-{n}", lambda: tick(db, limit=1), timeout=HANDLER_TIMEOUT_SECONDS + 10)
