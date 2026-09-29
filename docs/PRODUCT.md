@@ -1758,3 +1758,5 @@ Prova web pubblicata: il comando originale verso il Colosseo mostra il tasto Goo
 ## Partenza immediata dalla chat (29 settembre 2026)
 
 Un comando esplicito «portami ...» prepara direttamente il tasto di navigazione, senza attendere il ragionamento generale. Le domande su tempi e itinerari continuano a essere ragionate normalmente. Nessun servizio di traffico viene simulato.
+
+Prova web del 29 settembre: richiesta verso il Colosseo e pulsante Google Maps visibili nella conversazione. Il tap apre una rotta dalla posizione del browser al Colosseo. Screenshot `ora-navigazione-rapida-1790661746206.jpg`.

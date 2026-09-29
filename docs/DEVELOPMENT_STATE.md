@@ -4472,3 +4472,5 @@ Rilascio verificato: backend `4dea30e` (Railway `8d13e64f`, SUCCESS), web `dc133
 ## Navigazione immediata — 29 settembre 2026
 
 Percorso rapido per comandi espliciti di partenza, con AI calls 0 e context calls 0, risposta e tasto persistiti. Test di integrazione verifica il bypass del modello e la sessione. Rilascio e screenshot da registrare dopo la prova cloud.
+
+Pubblicato backend `63dd565` su Railway `46c63eda` SUCCESS. Sei test mirati PASS. Prova autenticata: «portami dalla mia posizione al Colosseo» mostra il tasto e apre Google Maps con la rotta. Screenshot `ora-navigazione-rapida-1790661746206.jpg`. Nessuna chiave `ROUTING_PROVIDER`/`ROUTING_API_KEY` presente nell'ambiente: i consigli live pre-apertura rimangono indisponibili.

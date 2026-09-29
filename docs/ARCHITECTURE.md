@@ -3683,3 +3683,5 @@ Verifica di handoff sul web pubblicato: il controllo `OraNavigation` ha aperto u
 ## Fast path della navigazione esplicita (29 settembre 2026)
 
 `run_cognitive_loop` riconosce la forma imperativa stretta tramite `_navigation_destination`, invoca il cap read-only `open_navigation`, conserva osservazione e due turni nella sessione e restituisce navigation/journey senza chiamata LLM o Context Broker. Se il cap fallisce, resta disponibile il percorso cognitivo con il recupero terminale già presente. Il client-resume non ripete l'handoff.
+
+Il fast path è stato verificato sul backend pubblicato (`63dd565`): nessuna chiamata LLM nel test di integrazione, osservazione e URL persistiti; in browser il pulsante ha aperto Google Maps con origine dalla posizione corrente.
