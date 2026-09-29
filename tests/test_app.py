@@ -421,3 +421,34 @@ def test_prova_ai_errori_chiari(ctx, monkeypatch):
     entra(SimpleNamespace(c=c2, segreto=ctx.segreto))
     t2 = csrf(c2, "/impostazioni")
     assert "AI spenta" in c2.get("/impostazioni").text and "disattivato" in c2.post("/impostazioni/prova", data={"csrf": t2}).text
+
+
+def test_invito_da_interfaccia_fino_al_word(ctx):
+    import io
+    import docx
+    c = entra(ctx)
+    pid = nuova_pratica(c)
+    tok = csrf(c, "/impostazioni")
+    c.post("/impostazioni/reparto", data={"csrf": tok, "comandante": "Ten. Nome COGNOME", "in_sv": "1",
+                                          "referenti": "Lgt. Uno UNO\nMar. Due DUE", "telefono": "0766/856028"})
+    assert "Ten. Nome COGNOME" in c.get("/impostazioni").text
+    # la fase invito porta al modulo dedicato, non all'AI
+    r = c.get(f"/pratiche/{pid}/atto/nuovo?fase=invito")
+    assert r.status_code == 303 and r.headers["location"] == f"/pratiche/{pid}/invito"
+    pagina = c.get(f"/pratiche/{pid}/invito").text
+    assert "MARIO ROSSI" in pagina.upper() and "Documentazione da recare" in pagina
+    tok = csrf(c, f"/pratiche/{pid}/invito")
+    r = c.post(f"/pratiche/{pid}/invito", data={"csrf": tok, "forma_prefisso": "Ditta ind.le", "denominazione": "ROSSI MARIO",
+                                                "luogo": "Tarquinia (VT) via dei Test, nr. 1", "cf": cf_fittizio(), "piva": piva_fittizia(),
+                                                "titolo_destinatario": "Sig.", "destinatario": "ROSSI MARIO",
+                                                "indirizzo_destinatario": "Via dei Test n. 1 - TARQUINIA",
+                                                "periodi": "2022, 2023", "documenti": "Fatture di vendita\nFatture di acquisto",
+                                                "motivazione": "emergono scostamenti"})
+    assert r.status_code == 303
+    w = c.get(f"/pratiche/{pid}/invito/word")
+    assert w.status_code == 200 and "INVITO_C-" in w.headers["content-disposition"]
+    d = docx.Document(io.BytesIO(w.content))
+    t = "\n".join(p.text for p in d.paragraphs)
+    assert "COMPAGNIA TARQUINIA" in t and "Ditta ind.le ROSSI MARIO" in t and "(Ten. Nome COGNOME)" in t
+    assert "Lgt. Uno UNO o il Mar. Due DUE" in t and "dal 2022 al 2023" in t
+    assert round(d.sections[0].page_width.cm, 1) == 21.0

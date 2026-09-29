@@ -3,6 +3,7 @@ from __future__ import annotations
 import datetime as dt
 import hmac
 import pathlib
+import re
 import secrets
 
 from fastapi import Depends, FastAPI, Form, HTTPException, Request
@@ -13,10 +14,10 @@ from sqlalchemy import select
 from starlette.middleware.sessions import SessionMiddleware
 
 from . import ai as ai_mod
-from . import calcoli, llm_compat, norme, scheda_ai, piano as piano_mod, schede, security, tipologie, workflow, wordexport
+from . import calcoli, invito_word, llm_compat, norme, scheda_ai, piano as piano_mod, schede, security, tipologie, workflow, wordexport
 from .config import Settings
 from .db import crea_engine, crea_sessionmaker
-from .models import Atto, FasePratica, FonteNormativa, LogAI, Pratica, Utente
+from .models import Atto, FasePratica, FonteNormativa, Impostazione, LogAI, Pratica, Utente
 
 BASE = pathlib.Path(__file__).parent
 ISTRUZIONI = {
@@ -487,6 +488,8 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
             raise HTTPException(404)
         if not f.atto:
             raise HTTPException(400, "Questa fase non prevede un atto")
+        if f.atto == "INVITO":
+            return RedirectResponse(f"/pratiche/{pid}/invito", status_code=303)
         return render(request, "atto_nuovo.html", p=p, f=f, anteprima=None, appunti="", giornata="",
                       errore=None, bozza=None)
 
@@ -568,6 +571,73 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
         """Controllo di stato per l'hosting: non espone dati."""
         return {"stato": "ok"}
 
+    # ---------------------------------------------------------------- impostazioni del Reparto e invito
+    def reparto_di(s) -> dict:
+        r = s.get(Impostazione, "reparto")
+        base = {"comandante": "", "in_sv": True, "referenti": [], "telefono": "0766/856028"}
+        return {**base, **(cif.decifra_json(r.valore_cifrato) if r else {})}
+
+    @app.post("/impostazioni/reparto")
+    def salva_reparto(request: Request, comandante: str = Form(""), in_sv: str = Form(""), referenti: str = Form(""),
+                      telefono: str = Form("0766/856028"), csrf: str = Form(""), u=Depends(utente_corrente),
+                      s=Depends(db)):
+        check_csrf(request, csrf)
+        val = {"comandante": comandante.strip(), "in_sv": bool(in_sv), "referenti": righe(referenti),
+               "telefono": telefono.strip() or "0766/856028"}
+        r = s.get(Impostazione, "reparto") or Impostazione(chiave="reparto")
+        r.valore_cifrato = cif.cifra_json(val)
+        s.merge(r)
+        s.commit()
+        return RedirectResponse("/impostazioni", status_code=303)
+
+    def invito_iniziale(p: Pratica, d: dict) -> dict:
+        """Valori proposti nel modulo dell'invito, ricavati dalla pratica; quelli salvati dall'utente hanno la precedenza."""
+        sog = d.get("soggetto", {})
+        persone, enti = sog.get("persone", []), sog.get("enti", [])
+        forma = d.get("profilo", {}).get("forma", "impresa")
+        denom = (enti[0] if enti else (persone[0].upper() if persone else ""))
+        anni = re.findall(r"\b(?:19|20)\d{2}\b", d.get("scheda", {}).get("B1", ""))
+        base = {"forma_prefisso": {"impresa": "Ditta ind.le", "professionista": "Prof.", "ente": "Ente",
+                                    "privato": "Sig."}.get(forma, "Ditta ind.le"),
+                "denominazione": denom, "luogo": (sog.get("indirizzi") or [""])[0], "attivita": "", "codice_attivita": "",
+                "cf": (sog.get("codici_fiscali") or [""])[0], "piva": (sog.get("partite_iva") or [""])[0],
+                "titolo_destinatario": "Sig.", "destinatario": (persone[0].upper() if persone else ""),
+                "indirizzo_destinatario": (sog.get("indirizzi") or [""])[0], "periodi": ", ".join(anni),
+                "ora": "", "data": "", "documenti": "\n".join(tipologie.TIPOLOGIE[p.tipologia]["documenti"]),
+                "motivazione": d.get("profilo", {}).get("ragione", "")}
+        return {**base, **d.get("invito", {})}
+
+    @app.get("/pratiche/{pid}/invito", response_class=HTMLResponse)
+    def invito_form(request: Request, pid: int, u=Depends(utente_corrente), s=Depends(db)):
+        p = carica(s, pid)
+        d = dati_di(p)
+        return render(request, "invito.html", p=p, v=invito_iniziale(p, d), rep=reparto_di(s), intro=invito_word.INTRO_RAGIONI[p.tipo],
+                      salvato=bool(d.get("invito")))
+
+    @app.post("/pratiche/{pid}/invito")
+    async def invito_salva(request: Request, pid: int, u=Depends(utente_corrente), s=Depends(db)):
+        f = await request.form()
+        check_csrf(request, f.get("csrf", ""))
+        p = carica(s, pid)
+        d = dati_di(p)
+        campi = ("forma_prefisso", "denominazione", "luogo", "attivita", "codice_attivita", "cf", "piva",
+                 "titolo_destinatario", "destinatario", "indirizzo_destinatario", "periodi", "ora", "data",
+                 "documenti", "motivazione")
+        d["invito"] = {k: str(f.get(k, "")).strip() for k in campi}
+        salva_dati(p, d)
+        s.commit()
+        return RedirectResponse(f"/pratiche/{pid}/invito", status_code=303)
+
+    @app.get("/pratiche/{pid}/invito/word")
+    def invito_word_dl(pid: int, u=Depends(utente_corrente), s=Depends(db)):
+        p = carica(s, pid)
+        d = dati_di(p)
+        dati = invito_iniziale(p, d)
+        dati["periodi"] = [x.strip() for x in re.split(r"[;,\n]", dati.get("periodi", "")) if x.strip()]
+        contenuto = invito_word.crea_invito(dati, p.tipo, reparto_di(s))
+        return Response(contenuto, media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        headers={"Content-Disposition": f'attachment; filename="INVITO_{p.codice}_{p.tipo}.docx"'})
+
     # ---------------------------------------------------------------- impostazioni e prova AI
     def _stato_ai() -> dict:
         c = ai_mod.configurazione()
@@ -577,7 +647,7 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
     @app.get("/impostazioni", response_class=HTMLResponse)
     def impostazioni(request: Request, u=Depends(utente_corrente), s=Depends(db)):
         log = s.scalars(select(LogAI).order_by(LogAI.id.desc()).limit(20)).all()
-        return render(request, "impostazioni.html", ai=_stato_ai(), esito=None, log=log)
+        return render(request, "impostazioni.html", ai=_stato_ai(), esito=None, log=log, rep=reparto_di(s))
 
     @app.post("/impostazioni/prova", response_class=HTMLResponse)
     def prova_ai(request: Request, csrf: str = Form(""), u=Depends(utente_corrente), s=Depends(db)):
@@ -608,7 +678,7 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
         except anthropic.APIStatusError as e:
             esito["testo"] = f"Errore del servizio (codice {e.status_code}). Se parla di credito, verifica il saldo dell'account."
         log = s.scalars(select(LogAI).order_by(LogAI.id.desc()).limit(20)).all()
-        return render(request, "impostazioni.html", ai=_stato_ai(), esito=esito, log=log)
+        return render(request, "impostazioni.html", ai=_stato_ai(), esito=esito, log=log, rep=reparto_di(s))
 
     # ---------------------------------------------------------------- PWA
     @app.get("/manifest.webmanifest")

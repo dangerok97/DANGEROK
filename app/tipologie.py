@@ -11,7 +11,7 @@ TIPOLOGIE: dict[str, dict] = {
     "verifica_contabilita": {
         "nome": "Verifica con esame della contabilita' (invito a presentarsi)",
         "base_normativa_invito": "art. 32, c. 1, nn. 2) e 3) DPR 600/1973 e art. 51, c. 2, nn. 2) e 3) DPR 633/1972 e art. 2 D.Lgs. 68/2001",
-        "documenti": ["Registri IVA degli acquisti e delle fatture emesse", "Registri degli incassi e dei pagamenti",
+        "documenti": ["Registri Iva degli acquisti e delle fatture emesse;", "Registri degli incassi e dei pagamenti",
                       "Fatture di acquisto", "Fatture di vendita", "Registro dei beni ammortizzabili"],
     },
     "inversione_contabile": {

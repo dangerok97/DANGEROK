@@ -89,3 +89,10 @@ class FonteNormativa(Base):
     dominio: Mapped[str] = mapped_column(String(120), default="")
     ufficiale: Mapped[int] = mapped_column(Integer, default=0)
     consultata_il: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class Impostazione(Base):
+    """Impostazioni dell'utente (es. dati del Reparto per gli atti), cifrate."""
+    __tablename__ = "impostazione"
+    chiave: Mapped[str] = mapped_column(String(40), primary_key=True)
+    valore_cifrato: Mapped[str] = mapped_column(Text, default="")

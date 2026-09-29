@@ -1,0 +1,27 @@
+{% extends "base.html" %}{% block titolo %}Invito a presentarsi{% endblock %}
+{% block corpo %}
+<h1>Invito a presentarsi <span class="pill">{{ p.tipo }}</span></h1>
+<p><a href="/pratiche/{{ p.id }}">← {{ p.codice }}</a> · Vol. IV, All. 14</p>
+<p class="muted">Il documento Word e' identico al modello del Reparto (intestazione della Compagnia di Tarquinia con stemma, carattere Arial, formule fisse). Qui inserisci solo i dati del caso. Comandante e militari di riferimento si impostano una volta in <a href="/impostazioni">Impostazioni</a>.</p>
+{% if not rep.comandante or not rep.referenti %}<p class="err">Mancano i dati del Reparto (Comandante o militari di riferimento): vai in Impostazioni.</p>{% endif %}
+<form method="post" action="/pratiche/{{ p.id }}/invito" class="card"><input type="hidden" name="csrf" value="{{ csrf }}">
+<h2>Contribuente</h2>
+<label for="forma_prefisso">Qualifica (es. Ditta ind.le, Societa', Studio)</label><input id="forma_prefisso" name="forma_prefisso" value="{{ v.forma_prefisso }}">
+<label for="denominazione">Denominazione</label><input id="denominazione" name="denominazione" value="{{ v.denominazione }}">
+<label for="luogo">Domicilio fiscale e luogo di esercizio</label><input id="luogo" name="luogo" value="{{ v.luogo }}" placeholder="es. Tarquinia (VT) via ..., nr. ...">
+<label for="attivita">Attivita' esercitata (facoltativo)</label><input id="attivita" name="attivita" value="{{ v.attivita }}">
+<label for="codice_attivita">Codice attivita' (facoltativo)</label><input id="codice_attivita" name="codice_attivita" value="{{ v.codice_attivita }}">
+<label for="cf">Codice fiscale</label><input id="cf" name="cf" value="{{ v.cf }}">
+<label for="piva">Partita IVA (vuota per i privati)</label><input id="piva" name="piva" value="{{ v.piva }}">
+<h2>Destinatario</h2>
+<label for="titolo_destinatario">Titolo</label><input id="titolo_destinatario" name="titolo_destinatario" value="{{ v.titolo_destinatario }}">
+<label for="destinatario">Nome e cognome</label><input id="destinatario" name="destinatario" value="{{ v.destinatario }}">
+<label for="indirizzo_destinatario">Indirizzo (come va sulla busta)</label><input id="indirizzo_destinatario" name="indirizzo_destinatario" value="{{ v.indirizzo_destinatario }}" placeholder="es. Via ... n. ... - TARQUINIA">
+<h2>Convocazione</h2>
+<label for="periodi">Periodi d'imposta (separati da virgola)</label><input id="periodi" name="periodi" value="{{ v.periodi }}" placeholder="es. 2019, 2020, 2021, 2022, 2023">
+<label for="ora">Ora (lasciala vuota per «...»)</label><input id="ora" name="ora" value="{{ v.ora }}">
+<label for="data">Giorno (lascialo vuoto per «…………»)</label><input id="data" name="data" value="{{ v.data }}" placeholder="es. 27/08/2026">
+<label for="documenti">Documentazione da recare (una voce per riga)</label><textarea id="documenti" name="documenti" class="alta2">{{ v.documenti }}</textarea>
+<label for="motivazione">Ragioni giustificative: completa la frase «{{ intro }}»</label><textarea id="motivazione" name="motivazione">{{ v.motivazione }}</textarea>
+<p class="row"><button>Salva</button><a class="btn" href="/pratiche/{{ p.id }}/invito/word">Scarica il Word</a></p>
+<p class="muted">Il Word si genera dai dati salvati: premi prima «Salva» se hai cambiato qualcosa.</p></form>{% endblock %}
