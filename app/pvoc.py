@@ -39,16 +39,24 @@ def primo_giorno(d: dict, verbalizzanti: list[str], impresa: bool = True) -> str
     a("")
     a("PARTE")
     a("")
-    a(f"{prefisso}“{parte_nome.upper() if d.get('denominazione') else parte_nome}”, con luogo di esercizio in {g('luogo', 'luogo di esercizio')}, in atti "
-      f"rappresentata da: {g('rappresentante', 'nome e cognome del rappresentante')}, "
-      f"{g('nascita', 'nato a … (prov.) il …')} e {ivi} {g('residenza', 'residenza')}, riconosciuto a mezzo "
-      f"{g('documento', 'documento di identità: tipo, numero, ente e data di rilascio')}, nella sua qualità di "
-      f"{g('qualita', 'qualità (es. titolare dell’omonima ditta)')}. {{{{SPIEGA: Identificazione della parte e di chi la "
-      "rappresenta: i dati anagrafici e del documento vanno riportati dal documento esibito, non sono ricavabili "
-      "dall'AI.}}")
-    a(f"codice fiscale: **{g('cf', 'codice fiscale')}**")
-    a(f"partita I.V.A.:\t **{g('piva', 'partita IVA')}**")
-    a(f"codice attività: **{g('codice_attivita', 'codice attività')}**")
+    if impresa:
+        a(f"{prefisso}“{parte_nome.upper() if d.get('denominazione') else parte_nome}”, con luogo di esercizio in {g('luogo', 'luogo di esercizio')}, in atti "
+          f"rappresentata da: {g('rappresentante', 'nome e cognome del rappresentante')}, "
+          f"{g('nascita', 'nato a … (prov.) il …')} e {ivi} {g('residenza', 'residenza')}, riconosciuto a mezzo "
+          f"{g('documento', 'documento di identità: tipo, numero, ente e data di rilascio')}, nella sua qualità di "
+          f"{g('qualita', 'qualità (es. titolare dell’omonima ditta)')}. {{{{SPIEGA: Identificazione della parte e di chi la "
+          "rappresenta: i dati anagrafici e del documento vanno riportati dal documento esibito, non sono ricavabili "
+          "dall'AI.}}")
+        a(f"codice fiscale: **{g('cf', 'codice fiscale')}**")
+        a(f"partita I.V.A.:\t **{g('piva', 'partita IVA')}**")
+        a(f"codice attività: **{g('codice_attivita', 'codice attività')}**")
+    else:                                                   # persona fisica (es. lavoratore autonomo, privato)
+        a(f"Sig. {g('rappresentante', 'nome e cognome').upper() if d.get('rappresentante') else g('rappresentante', 'nome e cognome')}, "
+          f"{g('nascita', 'nato a … (prov.) il …')} e {ivi} {g('residenza', 'residenza')}, identificato a mezzo "
+          f"{g('documento', 'documento di identità: tipo, numero, ente e data di rilascio')}, nella sua qualità di "
+          f"{(d.get('qualita') or 'diretto interessato').strip()}. {{{{SPIEGA: Identificazione della parte: i dati anagrafici e del "
+          "documento vanno riportati dal documento esibito.}}")
+        a(f"Codice Fiscale: **{g('cf', 'codice fiscale')}**.")
     a("")
     a("FATTO")
     a("")
@@ -65,12 +73,14 @@ def primo_giorno(d: dict, verbalizzanti: list[str], impresa: bool = True) -> str
     a("La parte, quindi, veniva resa edotta, ai sensi delle disposizioni di cui alla Legge 27 luglio 2000, n. 212 "
       "(Statuto dei Diritti del Contribuente): {{SPIEGA: Informativa dei diritti obbligatoria il primo giorno "
       "(art. 12 L. 212/2000; art. 7 c. 2 lett. a; art. 6-bis). Testo fisso del Reparto.}}")
-    a(f"- che l’attività ispettiva è avviata d’iniziativa ed è volta al controllo della parte, in quanto "
-      f"{g('ragione', 'ragione del controllo: riscontri già in possesso del Reparto')}; {{{{SPIEGA: Le ragioni vengono "
-      "dalla scheda di preparazione (Allegato 23) e dai riscontri del Reparto: le scrive l'operatore.}}")
-    a("+ nonché ai fini dell’acquisizione e del reperimento degli elementi utili ai fini dell’accertamento delle "
-      "imposte dovute e per la repressione delle violazioni, dal D.Lgs. n. 68/2001, dalla L. n. 4/29 e dal D.P.R. "
-      "n. 600/73;")
+    a("- che l’attività ispettiva è avviata d’iniziativa e deriva da autonoma attività info-investigativa e/o da risultanze agli "
+      "atti del Reparto e si inquadra nell’ambito delle generali funzioni attribuite alla Guardia di Finanza dal D.Lgs. n. 68/2001, "
+      "dalla L. n. 4/29 e dai DD.P.R. nn. 600/73 e 633/72, ai fini della ricerca, prevenzione e repressione delle violazioni in "
+      "materia di entrate dello Stato, delle Regioni, degli Enti locali e dell’Unione Europea, nonché dell’acquisizione e del "
+      "reperimento degli elementi utili all’accertamento delle imposte.")
+    a(f"+ In particolare {g('ragione', 'ragione del controllo: riscontri già in possesso del Reparto, es. «il contribuente risulta aver ...»')}. "
+      "{{SPIEGA: Formula d'apertura usata dal Reparto per l'avvio d'iniziativa; la ragione specifica (analisi di rischio, riscontri "
+      "delle banche dati, incongruenze) viene dalla scheda di preparazione (Allegato 23) e la scrive l'operatore.}}")
     a("- della facoltà di:")
     for t in ("farsi assistere da un professionista abilitato alla difesa innanzi agli organi di giustizia tributaria "
               "nonché di farsi assistere ovvero rappresentare da un procuratore generale o speciale;",

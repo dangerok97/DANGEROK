@@ -16,14 +16,14 @@ OK_MAIUSCOLE = {"arco", "argo", "atecо", "ateco", "fatture", "corrispettivi", "
                 "controllo", "contabile", "controlli", "sostanziali", "violazioni", "formali", "sostanziali", "sezione",
                 "conclusiva", "riscontri", "coerenza", "interna", "analitico", "normativo", "tarquinia", "codice", "attivita",
                 "costi", "ricavi", "imposta", "reddito", "impresa", "operazioni", "controllo", "eseguite", "giorno", "riscontro",
-                "amministratore", "unico", "uffici", "ufficio", "finanziari", "finanziaria", "amministrazione", "societa", "sociale", "ditta", "individuale", "regime", "forfettario", "direttore", "verbale", "ogni", "giornata", "giornate", "successiva", "successive", "ordine", "tuir", "pvc", "pvoc", "pvv", "cnr", "iva", "irpef", "irap", "lgt", "mar", "ten", "cap", "sig"}
+                "primo", "enti", "esterni", "territoriale", "indiretto", "presuntivo", "presuntivi", "analitico", "amministratore", "unico", "uffici", "ufficio", "finanziari", "finanziaria", "amministrazione", "societa", "sociale", "ditta", "individuale", "regime", "forfettario", "direttore", "verbale", "ogni", "giornata", "giornate", "successiva", "successive", "ordine", "tuir", "pvc", "pvoc", "pvv", "cnr", "iva", "irpef", "irap", "lgt", "mar", "ten", "cap", "sig"}
 
 
 def _pulito(t: str) -> str:
     for a in AMMESSI:
         t = t.replace(a, " ")
     # date di atti normativi o di prassi (circolari, risoluzioni, leggi): pubbliche
-    return re.sub(r"(?:Circolare|Risoluzione|Legge|legge|Sentenza|sentenza|Ordinanza)[^.;\n]{0,60}?del \d{1,2}[/.]\d{1,2}[/.](?:19|20)\d{2}", " ", t)
+    return re.sub(r"(?:circolare|risoluzione|legge|sentenza|ordinanza)[^;\n]{0,160}?(?:del|datata) \d{1,2}[/.]\d{1,2}[/.](?:19|20)\d{2}", " ", t, flags=re.I)
 
 
 @pytest.mark.parametrize("f", FILE, ids=lambda p: p.name)
