@@ -1,0 +1,42 @@
+{% extends "base.html" %}{% block titolo %}PVOC del primo giorno{% endblock %}
+{% block corpo %}
+<h1>PVOC del primo giorno</h1>
+<p><a href="/pratiche/{{ p.id }}">← {{ p.codice }}</a> · Vol. II, P. III, cap. 4 §4</p>
+<p class="muted">Le formule (Statuto del contribuente, art. 6-bis, ravvedimento, avvertimenti art. 52, ecc.) sono quelle del Reparto e restano identiche: qui inserisci solo i dati del caso. Cio' che lasci vuoto resta come [DA COMPILARE]. Nessun dato esce verso servizi AI.</p>
+{% if not verbalizzanti %}<p class="err">Mancano i verbalizzanti nella pratica.</p>{% endif %}
+<form method="post" action="/pratiche/{{ p.id }}/pvoc-primo" class="card"><input type="hidden" name="csrf" value="{{ csrf }}">
+<h2>Atto</h2>
+<label for="data">Data del giorno (gg/mm/aaaa)</label><input id="data" name="data" value="{{ v.data }}">
+<h2>Parte</h2>
+<label for="denominazione">Denominazione (D.I. “…”)</label><input id="denominazione" name="denominazione" value="{{ v.denominazione }}">
+<label for="luogo">Luogo di esercizio</label><input id="luogo" name="luogo" value="{{ v.luogo }}">
+<label for="rappresentante">Rappresentante (nome e cognome)</label><input id="rappresentante" name="rappresentante" value="{{ v.rappresentante }}">
+<label for="titolo">Come nominarlo nel testo (Il Sig. / La Sig.ra)</label><input id="titolo" name="titolo" value="{{ v.titolo }}">
+<label for="nascita">Nascita</label><input id="nascita" name="nascita" value="{{ v.nascita }}" placeholder="nato a Tarquinia (VT), il 25/09/1958">
+<label class="inl"><input type="checkbox" name="ivi" value="1"{% if v.ivi %} checked{% endif %}> «e ivi residente»</label>
+<label for="residenza">Residenza</label><input id="residenza" name="residenza" value="{{ v.residenza }}">
+<label for="documento">Documento di identita'</label><input id="documento" name="documento" value="{{ v.documento }}" placeholder="carta d'identita' n. … rilasciata dal Comune di … in data …">
+<label for="qualita">Qualita'</label><input id="qualita" name="qualita" value="{{ v.qualita }}" placeholder="titolare dell'omonima ditta">
+<label for="cf">Codice fiscale</label><input id="cf" name="cf" value="{{ v.cf }}">
+<label for="piva">Partita IVA</label><input id="piva" name="piva" value="{{ v.piva }}">
+<label for="codice_attivita">Codice attivita'</label><input id="codice_attivita" name="codice_attivita" value="{{ v.codice_attivita }}">
+<h2>Fatto</h2>
+<label for="data_invito">Data di notifica dell'invito</label><input id="data_invito" name="data_invito" value="{{ v.data_invito }}">
+<label for="ora_presentazione">Ora di presentazione</label><input id="ora_presentazione" name="ora_presentazione" value="{{ v.ora_presentazione }}">
+<label for="ragione">Ragione del controllo: completa «…volta al controllo della parte, in quanto …»</label><textarea id="ragione" name="ragione">{{ v.ragione }}</textarea>
+<label for="direttore">Direttore del controllo (grado nome cognome)</label><input id="direttore" name="direttore" value="{{ v.direttore }}">
+<label for="tributo">Tributo</label><input id="tributo" name="tributo" value="{{ v.tributo }}">
+<label for="dal">Periodo dal (gg/mm/aaaa)</label><input id="dal" name="dal" value="{{ v.dal }}">
+<label for="al">Periodo al (gg/mm/aaaa)</label><input id="al" name="al" value="{{ v.al }}">
+<h2>Dichiarazioni e documenti</h2>
+<label for="garanzie">Dichiarazione della parte sulle garanzie (testuale)</label><textarea id="garanzie" name="garanzie">{{ v.garanzie }}</textarea>
+<label for="assistente">Assistente di fiducia (vuoto se non c'e')</label><input id="assistente" name="assistente" value="{{ v.assistente }}" placeholder="la dott.ssa … , nata il … a …">
+<label for="delega">Dichiarazione/delega all'assistente (testuale, se c'e')</label><textarea id="delega" name="delega">{{ v.delega }}</textarea>
+<label for="documenti">Documenti esibiti (uno per riga)</label><textarea id="documenti" name="documenti" class="alta2">{{ v.documenti }}</textarea>
+<label for="dichiarazione_finale">Dichiarazione finale della parte (testuale)</label><textarea id="dichiarazione_finale" name="dichiarazione_finale">{{ v.dichiarazione_finale }}</textarea>
+<h2>Chiusura</h2>
+<label for="ora_fine">Ora di chiusura</label><input id="ora_fine" name="ora_fine" value="{{ v.ora_fine }}">
+<label for="fogli">Numero fogli</label><input id="fogli" name="fogli" value="{{ v.fogli }}">
+<label for="allegati">Numero allegati</label><input id="allegati" name="allegati" value="{{ v.allegati }}">
+<p class="row"><button>Crea il PVOC</button></p>
+</form>{% endblock %}

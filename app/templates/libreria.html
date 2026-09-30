@@ -1,0 +1,46 @@
+{% extends "base.html" %}{% block titolo %}Libreria del Reparto{% endblock %}
+{% block corpo %}
+<h1>Libreria del Reparto</h1>
+<p class="muted">Il metodo del Reparto: come ragioniamo, cosa riscontriamo e come scriviamo. Quando redige PVOC e PVC l'assistente mette insieme due fonti: la <b>base normativa</b> trovata sulle fonti aperte e questo <b>metodo</b> (precedenti, spunti operativi, stile). I precedenti vengono ripuliti dai dati personali prima di essere conservati o inviati all'AI.</p>
+{% if not ai.attiva %}<p class="err">Assistente AI disattivato: il ragionamento dei precedenti non puo' essere estratto (vedi Impostazioni).</p>{% endif %}
+{% if errore %}<p class="err">{{ errore }}</p>{% endif %}
+{% if nota %}<p class="muted">{{ nota }}</p>{% endif %}
+
+{% for v in da_rivedere %}
+<form method="post" action="/libreria/{{ v.id }}/revisione" class="card"><input type="hidden" name="csrf" value="{{ csrf }}">
+<b>Da controllare prima dell'uso: {{ v.titolo }}</b> <span class="tag">{{ v.atto or v.tipo }}</span>
+<p class="muted">Dati riconoscibili (codici fiscali, partite IVA, indirizzi, e-mail...) sono gia' stati sostituiti. Questi nomi potrebbero essere persone o enti: indica cosa sono.</p>
+{% for n in v.sospetti %}<div class="row"><input type="hidden" name="nome" value="{{ n }}"><span>{{ n }}</span>
+<select name="tipo"><option value="persona">persona</option><option value="ente">ente / societa'</option><option value="ignora">non e' un dato personale</option></select></div>{% endfor %}
+<p><button>Conferma</button></p></form>
+{% endfor %}
+
+<div class="card"><h2>Carica un atto gia' redatto</h2>
+<form method="post" action="/libreria/precedente" enctype="multipart/form-data"><input type="hidden" name="csrf" value="{{ csrf }}">
+<label for="pfile">File (Word, PDF con testo, testo)</label><input id="pfile" type="file" name="file">
+<label for="patto">Tipo di atto</label><select id="patto" name="atto"><option>PVOC</option><option>PVV</option><option>PVC</option><option>CNR</option></select>
+<label for="ptitolo">Titolo (senza nomi)</label><input id="ptitolo" name="titolo" placeholder="es. Controllo forfettario - reverse charge">
+<label for="ptag">Parole chiave (fattispecie, tributo, istituto)</label><input id="ptag" name="tag" placeholder="es. regime forfettario, reverse charge, IVA">
+<p><button>Carica, ripulisci ed estrai il ragionamento</button></p></form></div>
+
+<div class="card"><h2>Aggiungi uno spunto operativo</h2>
+<form method="post" action="/libreria/spunto"><input type="hidden" name="csrf" value="{{ csrf }}">
+<label for="stitolo">Titolo</label><input id="stitolo" name="titolo" placeholder="es. Forfettari: prime verifiche">
+<label for="stag">Parole chiave</label><input id="stag" name="tag" placeholder="es. regime forfettario, cause di esclusione">
+<label for="satto">Vale per</label><select id="satto" name="atto"><option value="">tutti gli atti</option><option>PVOC</option><option>PVV</option><option>PVC</option><option>CNR</option></select>
+<label for="stesto">Come ragioniamo e cosa facciamo (senza nomi ne' dati di contribuenti)</label><textarea id="stesto" name="testo" rows="6" placeholder="es. Sui forfettari controlliamo prima ... poi ... Nel PVOC scriviamo ..."></textarea>
+<p><button>Salva lo spunto</button></p></form></div>
+
+<h2>Contenuti in libreria ({{ voci|length }})</h2>
+{% for v in voci %}<div class="card"><div class="fase"><div><b>{{ v.titolo }}</b> <span class="tag">{{ 'spunto' if v.tipo == 'spunto' else 'precedente' }}{% if v.atto %} · {{ v.atto }}{% endif %}{% if v.integrato %} · integrato nel programma{% endif %}</span>{% if v.stato != 'pronto' %} <span class="tag in_corso">da controllare</span>{% endif %}<br><small>{{ v.tag }}</small></div></div>
+{% if v.tipo == 'spunto' %}<div class="testo-pre">{{ v.testo }}</div>
+{% elif v.integrato %}<details><summary class="muted">Ragionamento (integrato, non modificabile da qui)</summary><div class="testo-pre">{{ v.scheda }}</div></details>
+{% else %}
+<details><summary class="muted">Ragionamento estratto (modificabile)</summary>
+<form method="post" action="/libreria/{{ v.id }}/scheda"><input type="hidden" name="csrf" value="{{ csrf }}">
+<textarea name="scheda" rows="12">{{ v.scheda }}</textarea>
+<p class="row"><button name="azione" value="salva">Salva</button><button name="azione" value="rigenera" class="sec">Estrai di nuovo il ragionamento</button></p></form></details>
+<details><summary class="muted">Testo ripulito</summary><div class="testo-pre">{{ v.testo }}</div></details>{% endif %}
+{% if not v.integrato %}<form method="post" action="/libreria/{{ v.id }}/elimina"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="sec">Elimina</button></form>{% endif %}</div>
+{% else %}<p class="muted">Ancora vuota. Carica i tuoi atti gia' conclusi e scrivi gli spunti che usate: piu' materiale c'e', piu' l'assistente lavora come il Reparto.</p>{% endfor %}
+{% endblock %}

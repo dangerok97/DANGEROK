@@ -1,0 +1,26 @@
+{% extends "base.html" %}{% block titolo %}Nuova pratica{% endblock %}
+{% block corpo %}
+<h1>Nuova pratica</h1>
+<form method="post" action="/pratiche/nuova" class="card">
+<input type="hidden" name="csrf" value="{{ csrf }}">
+<label for="tipo">Tipo di intervento</label>
+<select id="tipo" name="tipo"><option value="controllo">Controllo (PVOC)</option><option value="verifica">Verifica (PVV)</option></select>
+<label for="tipologia">Tipologia</label>
+<select id="tipologia" name="tipologia">{% for k,n in tipologie %}<option value="{{ k }}">{{ n }}</option>{% endfor %}</select>
+<label for="forma">Soggetto</label>
+<select id="forma" name="forma"><option value="impresa">Impresa</option><option value="professionista">Professionista</option><option value="privato">Privato</option><option value="ente">Ente</option></select>
+<label for="regime">Regime dichiarato</label>
+<select id="regime" name="regime"><option value="non_noto">Non noto</option><option value="ordinario">Ordinario</option><option value="semplificato">Semplificato</option><option value="forfettario">Forfettario</option></select>
+<label for="modalita">Dove si svolge</label>
+<select id="modalita" name="modalita"><option value="reparto">Presso il Reparto (invito)</option><option value="accesso">Con accesso presso il soggetto</option></select>
+<label for="ragione">Ragione dell'intervento (sintesi)</label><textarea id="ragione" name="ragione"></textarea>
+<label><input type="checkbox" name="privato" value="1" class="inl"> Soggetto privato non imprenditore (Allegato 23, note 2 e 4)</label>
+<h2>Anagrafica per il filtro privacy</h2>
+<p class="muted">Un elemento per riga. Serve a sostituire questi dati con segnaposto prima di ogni invio all'AI. I dati restano cifrati nel database.</p>
+<label for="persone">Persone (soggetto, rappresentanti, assistenti)</label><textarea id="persone" name="persone"></textarea>
+<label for="enti">Enti/ditte</label><textarea id="enti" name="enti"></textarea>
+<label for="codici_fiscali">Codici fiscali</label><textarea id="codici_fiscali" name="codici_fiscali"></textarea>
+<label for="partite_iva">Partite IVA</label><textarea id="partite_iva" name="partite_iva"></textarea>
+<label for="indirizzi">Indirizzi</label><textarea id="indirizzi" name="indirizzi"></textarea>
+<label for="verbalizzanti">Verbalizzanti (grado e nome)</label><textarea id="verbalizzanti" name="verbalizzanti"></textarea>
+<p><button>Crea pratica</button></p></form>{% endblock %}

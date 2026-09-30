@@ -1,0 +1,19 @@
+{% extends "base.html" %}{% block titolo %}Biblioteca della prassi{% endblock %}
+{% block corpo %}
+<h1>Biblioteca della prassi</h1>
+<p class="muted">Circolari, risoluzioni e risposte dell'Agenzia delle Entrate (e altre fonti ufficiali) sui temi dei tuoi controlli. Il programma le scarica da solo dai siti ufficiali quando riconosce il tema del caso, ne estrae i paragrafi pertinenti e li passa all'assistente; le fonti ufficiali trovate dalle sue ricerche entrano da sole. Qui puoi controllare lo stato, riprovare gli scaricamenti falliti e aggiungere un documento.</p>
+{% if nota %}<p class="ok">{{ nota }}</p>{% endif %}
+<p><b>{{ b.pronti }}</b> documenti scaricati su {{ b.totale }}{% if b.errori %} · <span class="err">{{ b.errori }} in errore</span>{% endif %}</p>
+<form method="post" action="/prassi/aggiorna" class="row"><input type="hidden" name="csrf" value="{{ csrf }}"><button>Scarica / riprova tutti</button></form>
+{% for x in b.documenti %}<div class="card"><b>{{ x.tipo }} {{ x.numero }} {% if x.anno %}del {{ x.anno }}{% endif %}</b> <span class="tag {{ x.stato }}">{{ x.stato.replace('_', ' ') }}</span> <span class="muted">({{ x.origine }})</span><br>{{ x.titolo }}<br>
+<small class="muted">Temi: {{ x.temi }} · {{ x.caratteri }} caratteri{% if x.errore %} · <span class="err">{{ x.errore }}</span>{% endif %}</small></div>{% endfor %}
+<form method="post" action="/prassi/aggiungi" class="card"><input type="hidden" name="csrf" value="{{ csrf }}"><h2>Aggiungi un documento</h2>
+<label for="url">Indirizzo (solo siti ufficiali: agenziaentrate.gov.it, finanze.gov.it, normattiva.it, gazzettaufficiale.it, ...)</label><input id="url" name="url">
+<label for="titolo">Titolo</label><input id="titolo" name="titolo"><label for="temi">Temi (parole chiave separate da virgola)</label><input id="temi" name="temi" placeholder="superbonus, sconto in fattura">
+<p class="row"><button>Aggiungi e scarica</button></p></form>
+<form method="post" action="/prassi/carica" enctype="multipart/form-data" class="card"><input type="hidden" name="csrf" value="{{ csrf }}"><h2>Carica un PDF scaricato a mano</h2>
+<p class="muted">Se il sito ufficiale non e' raggiungibile dal server: scarica tu il PDF e caricalo qui (puoi indicare il codice di un documento dell'elenco, es. CIRC-23E-2022, per completarlo).</p>
+<label for="file">File (PDF, Word, testo)</label><input id="file" type="file" name="file"><label for="codice">Codice (facoltativo)</label><input id="codice" name="codice">
+<label for="titolo2">Titolo (se nuovo)</label><input id="titolo2" name="titolo"><label for="temi2">Temi</label><input id="temi2" name="temi" placeholder="superbonus, sconto in fattura">
+<p class="row"><button>Carica</button></p></form>
+{% endblock %}

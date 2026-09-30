@@ -1,0 +1,23 @@
+{% extends "base.html" %}{% block titolo %}Impostazioni{% endblock %}
+{% block corpo %}
+<h1>Impostazioni</h1>
+<div class="card"><h2>Assistente AI</h2>
+{% if ai.attiva %}<p><span class="pill ok">chiave configurata</span> {{ ai.chiave_mascherata }} · servizio <b>{{ ai.provider }}</b> · modello <b>{{ ai.modello }}</b></p>
+{% else %}<p><span class="pill warn">AI spenta</span> Manca la chiave nelle variabili del servizio su Render (<code>ANTHROPIC_API_KEY</code> oppure <code>GEMINI_API_KEY</code>).</p>{% endif %}
+{% if ai.gratuito_con_dati_usati %}<p class="err">Attenzione: sul piano gratuito di questo servizio i contenuti inviati possono essere usati dal fornitore per migliorare i suoi prodotti e letti da revisori. Usa SOLO dati inventati.</p>{% endif %}
+{% if ai.attiva and not ai.ricerca_web %}<p class="muted">Con questo servizio la ricerca normativa sul web non e' disponibile.</p>{% endif %}
+<form method="post" action="/impostazioni/prova"><input type="hidden" name="csrf" value="{{ csrf }}">
+<p><button {% if not ai.attiva %}class="sec"{% endif %}>Prova il collegamento</button> <span class="muted">Chiamata minima, senza dati di pratiche: costa una frazione di centesimo.</span></p></form>
+{% if esito %}<p class="{{ 'ok-msg' if esito.ok else 'err' }}">{{ 'Collegamento riuscito. ' if esito.ok else 'Non riuscito. ' }}{{ esito.testo }}</p>{% endif %}</div>
+<div class="card"><h2>Dati del Reparto per gli atti</h2>
+<p class="muted">Compaiono negli inviti a presentarsi (firma e contatti). Intestazione, indirizzo e logo sono quelli della Compagnia di Tarquinia.</p>
+<form method="post" action="/impostazioni/reparto"><input type="hidden" name="csrf" value="{{ csrf }}">
+<label for="comandante">Comandante (grado nome cognome), come va scritto tra parentesi</label><input id="comandante" name="comandante" value="{{ rep.comandante }}" placeholder="es. Ten. Nome Cognome">
+<label><input type="checkbox" name="in_sv" value="1" class="inl" {% if rep.in_sv %}checked{% endif %}> Firma «in s.v.» dopo IL COMANDANTE DELLA COMPAGNIA</label>
+<label for="referenti">Militari di riferimento per i contatti (uno per riga, come vanno scritti: es. «Lgt. C.s. Nome COGNOME»)</label><textarea id="referenti" name="referenti">{{ rep.referenti|join('\n') }}</textarea>
+<label for="telefono">Telefono</label><input id="telefono" name="telefono" value="{{ rep.telefono }}">
+<p><button>Salva</button></p></form></div>
+<div class="card"><h2>Cosa e' partito verso l'AI (ultimi 20 invii)</h2>
+<p class="muted">Sono registrati solo i testi gia' privi di dati identificativi (nomi, codici fiscali, partite IVA, indirizzi sostituiti da segnaposto).</p>
+{% for l in log %}<details><summary>{{ l.quando.strftime('%d/%m/%Y %H:%M') }} · {{ l.sezione }} · {{ l.esito }}</summary><pre>{{ l.testo_inviato }}</pre></details>{% else %}<p class="muted">Nessun invio finora.</p>{% endfor %}</div>
+{% endblock %}

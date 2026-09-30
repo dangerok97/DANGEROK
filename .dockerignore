@@ -1,0 +1,10 @@
+.git
+.env
+*.db
+tests
+docs
+*.pdf
+__pycache__
+.pytest_cache
+uploads
+esempi_reali

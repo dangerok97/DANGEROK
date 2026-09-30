@@ -1,0 +1,23 @@
+{% extends "base.html" %}{% block titolo %}Allegato 23{% endblock %}
+{% block corpo %}
+<h1>Scheda di preparazione e autorizzazione del controllo <small>(Allegato 23)</small></h1>
+<p><a href="/pratiche/{{ p.id }}">← {{ p.codice }}</a></p>
+<p class="muted">Le sezioni <b>A e B</b> arrivano gia' compilate dalla banca dati. La sezione <b>C</b> la completi tu, con l'aiuto dell'AI.</p>
+{% if errore %}<p class="err">{{ errore }}</p>{% endif %}
+{% if da_importare %}<p class="muted">Sezioni A/B non ancora importate: {{ da_importare|join(', ') }}. (A breve: caricamento del file ricevuto; per ora puoi incollare i dati a mano.)</p>{% endif %}
+<form method="post" action="/pratiche/{{ p.id }}/scheda/proponi" class="card"><input type="hidden" name="csrf" value="{{ csrf }}">
+<h2>Proposta dell'AI per la sezione C</h2>
+<p class="muted">Compila solo i campi C ancora vuoti, usando le sezioni A e B e il profilo della pratica. Non sovrascrive quello che hai scritto e non inventa dati: cio' che non e' ricavabile resta «DA COMPILARE».</p>
+<label for="appunti">Appunti utili (facoltativi): come e' nato il controllo, cosa hai gia' verificato</label>
+<textarea id="appunti" name="appunti"></textarea>
+<p><button>Proponi i campi C</button>{% if da_completare %} <span class="muted">Da completare: {{ da_completare|join(', ') }}</span>{% endif %}</p></form>
+<form method="post" action="/pratiche/{{ p.id }}/scheda" class="card">
+<input type="hidden" name="csrf" value="{{ csrf }}">
+{% set ns = namespace(sez='') %}
+{% for c in campi %}{% if c.sezione != ns.sez %}{% set ns.sez = c.sezione %}<h2>{{ c.sezione }}{% if c.codice[0] in 'AB' %} <span class="pill">dalla banca dati</span>{% else %} <span class="pill warn">da completare</span>{% endif %}</h2>{% endif %}
+<label for="{{ c.codice }}">{{ c.codice }}. {{ c.etichetta }}</label>{% if c.aiuto %}<small>{{ c.aiuto }}</small>{% endif %}
+{% if c.multilinea %}<textarea id="{{ c.codice }}" name="{{ c.codice }}">{{ valori.get(c.codice,'') }}</textarea>
+{% else %}<input id="{{ c.codice }}" name="{{ c.codice }}" value="{{ valori.get(c.codice,'') }}">{% endif %}
+{% if spieg.get(c.codice) %}<p class="giallo">(Spiegazione: {{ spieg[c.codice] }})</p>{% endif %}
+{% endfor %}
+<p><button>Salva</button></p></form>{% endblock %}
