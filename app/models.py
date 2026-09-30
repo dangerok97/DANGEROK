@@ -139,3 +139,22 @@ class ConoscenzaReparto(Base):
     stato: Mapped[str] = mapped_column(String(16), default="pronto")   # da_revisionare | pronto
     dati_cifrati: Mapped[str] = mapped_column(Text, default="")  # {titolo, tag, testo, scheda, sospetti}
     creato_il: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class PrassiDocumento(Base):
+    """Biblioteca della prassi (circolari, risoluzioni, risposte a interpello, sentenze di fonte ufficiale): testo pubblico scaricato
+    in automatico dai siti ufficiali e interrogato per paragrafi. Vale per tutte le pratiche; non contiene dati personali."""
+    __tablename__ = "prassi_documento"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    codice: Mapped[str] = mapped_column(String(40), unique=True)   # es. CIRC-23E-2022
+    tipo: Mapped[str] = mapped_column(String(20), default="circolare")
+    numero: Mapped[str] = mapped_column(String(20), default="")
+    anno: Mapped[int] = mapped_column(Integer, default=0)
+    titolo: Mapped[str] = mapped_column(String(400), default="")
+    url: Mapped[str] = mapped_column(String(600), default="")
+    temi: Mapped[str] = mapped_column(String(400), default="")     # parole chiave separate da virgola
+    origine: Mapped[str] = mapped_column(String(12), default="indice")   # indice | scoperto | manuale
+    testo: Mapped[str] = mapped_column(Text, default="")
+    stato: Mapped[str] = mapped_column(String(12), default="da_scaricare")   # da_scaricare | pronto | errore
+    errore: Mapped[str] = mapped_column(String(300), default="")
+    aggiornato_il: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now)

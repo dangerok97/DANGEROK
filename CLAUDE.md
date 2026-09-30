@@ -32,6 +32,11 @@ FATTISPECIE / STRUTTURA / RAGIONAMENTO OPERATIVO / COME SI CONSTATA / SPUNTI OPE
 Frasi e capoversi tipici, anonimizzati.
 ```
 
+## Biblioteca della prassi (automatica)
+- `app/knowledge/prassi_indice.json` elenca per tema le circolari/risoluzioni ufficiali (solo URL verificati); l'app le scarica da sola
+  (`app/prassi.py`, pagina `/prassi`), ne estrae i paragrafi pertinenti a ogni caso e li passa all'AI; le fonti ufficiali trovate dalle
+  ricerche entrano da sole. Quando emerge un tema nuovo aggiungere qui i documenti (URL ufficiali verificati) e le parole chiave del tema.
+
 ## Vincoli di riservatezza (dell'utente)
 - Gli atti reali non entrano mai nel repository ne' nei test: solo schede anonimizzate e lessico.
 - Finche' il Comando non autorizza, l'app si prova solo con dati inventati.

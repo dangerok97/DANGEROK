@@ -1,0 +1,108 @@
+{
+ "temi": {
+  "superbonus": [
+   "superbonus",
+   "110%",
+   "art. 119",
+   "sismabonus",
+   "ecobonus",
+   "cilas",
+   "sal",
+   "stato di avanzamento",
+   "asseverazione"
+  ],
+  "bonus edilizi cessione sconto in fattura": [
+   "sconto in fattura",
+   "cessione del credito",
+   "art. 121",
+   "codice tributo 7719",
+   "cessionario",
+   "piattaforma cessione crediti",
+   "visto di conformita",
+   "bonus edilizi",
+   "bonus facciate"
+  ],
+  "regime forfettario": [
+   "forfettario",
+   "forfetario",
+   "regime agevolato",
+   "coefficiente di redditivita",
+   "imposta sostitutiva 15%",
+   "lm"
+  ]
+ },
+ "documenti": [
+  {
+   "codice": "CIRC-24E-2020",
+   "tipo": "circolare",
+   "numero": "24/E",
+   "anno": 2020,
+   "titolo": "Detrazione per interventi di efficientamento energetico e di riduzione del rischio sismico degli edifici (Superbonus), opzione per cessione o sconto in fattura",
+   "temi": "superbonus,bonus edilizi cessione sconto in fattura",
+   "url": "https://www.agenziaentrate.gov.it/portale/documents/20143/2624559/Circolare+n.+24+del+8+agosto+2020.pdf/"
+  },
+  {
+   "codice": "CIRC-30E-2020",
+   "tipo": "circolare",
+   "numero": "30/E",
+   "anno": 2020,
+   "titolo": "Ulteriori chiarimenti sul Superbonus: visto di conformita', asseverazioni, condomini",
+   "temi": "superbonus,bonus edilizi cessione sconto in fattura",
+   "url": "https://www.agenziaentrate.gov.it/portale/documents/20143/0/Circolare+n.+30+del+22+dicembre+2020.pdf/"
+  },
+  {
+   "codice": "CIRC-19E-2022",
+   "tipo": "circolare",
+   "numero": "19/E",
+   "anno": 2022,
+   "titolo": "Cessione dei crediti e sconto in fattura: chiarimenti sulle novita' del decreto Sostegni-ter",
+   "temi": "bonus edilizi cessione sconto in fattura,superbonus",
+   "url": "https://www.agenziaentrate.gov.it/portale/documents/20143/4419702/circolare+cessione+crediti+REV+n.+19+del+27+maggio+2022.pdf/"
+  },
+  {
+   "codice": "CIRC-23E-2022",
+   "tipo": "circolare",
+   "numero": "23/E",
+   "anno": 2022,
+   "titolo": "Detrazione per interventi di efficientamento energetico e rischio sismico (Superbonus), opzione per la cessione o lo sconto (artt. 119 e 121 D.L. 34/2020)",
+   "temi": "superbonus,bonus edilizi cessione sconto in fattura",
+   "url": "https://www.agenziaentrate.gov.it/portale/documents/20143/4495900/Circolare+Superbonus++23.06.2022.pdf/"
+  },
+  {
+   "codice": "CIRC-33E-2022",
+   "tipo": "circolare",
+   "numero": "33/E",
+   "anno": 2022,
+   "titolo": "Cessione dei crediti ai correntisti, indici di diligenza, errori nelle comunicazioni (decreti Aiuti e Aiuti-bis)",
+   "temi": "bonus edilizi cessione sconto in fattura,superbonus",
+   "url": "https://www.agenziaentrate.gov.it/portale/documents/20143/4723049/Circolare+n.+33+del+6+ottobre+2022.pdf/"
+  },
+  {
+   "codice": "CIRC-27E-2023",
+   "tipo": "circolare",
+   "numero": "27/E",
+   "anno": 2023,
+   "titolo": "Modifiche del D.L. 11/2023 alla disciplina della cessione del credito e dello sconto in fattura (art. 121 D.L. 34/2020) e altre disposizioni in tema di bonus edilizi",
+   "temi": "bonus edilizi cessione sconto in fattura,superbonus",
+   "url": "https://www.agenziaentrate.gov.it/portale/documents/20143/5519468/Circolare_n_27_del_07_09_2023.pdf/"
+  },
+  {
+   "codice": "CIRC-10E-2016",
+   "tipo": "circolare",
+   "numero": "10/E",
+   "anno": 2016,
+   "titolo": "Regime forfetario - legge 23 dicembre 2014, n. 190, articolo 1, commi da 54 a 89",
+   "temi": "regime forfettario",
+   "url": "https://www.agenziaentrate.gov.it/portale/documents/20143/298247/Circolare+10E+del+4+aprile+2016_Circolare+n.+10_E+del+4+aprile+2016.pdf/"
+  },
+  {
+   "codice": "CIRC-9E-2019",
+   "tipo": "circolare",
+   "numero": "9/E",
+   "anno": 2019,
+   "titolo": "Modifiche al regime forfetario - articolo 1, commi da 9 a 11 della legge 30 dicembre 2018, n. 145",
+   "temi": "regime forfettario",
+   "url": "https://www.agenziaentrate.gov.it/portale/documents/20143/297183/Circolare+n+9+del+10+aprile+2019_Circolare+9+del+10+aprile+2019.pdf/"
+  }
+ ]
+}

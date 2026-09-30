@@ -16,10 +16,11 @@ from sqlalchemy import select
 from starlette.middleware.sessions import SessionMiddleware
 
 from . import ai as ai_mod
+from . import prassi as prassi_mod
 from . import analisi, atti_word, calcoli, chat as chat_mod, metodo as metodo_mod, pvoc as pvoc_mod, pvc as pvc_mod, invito_word, llm_compat, norme, scheda_ai, piano as piano_mod, schede, security, tipologie, workflow, wordexport
 from .config import Settings
 from .db import crea_engine, crea_sessionmaker
-from .models import Atto, ConoscenzaReparto, DocumentoPratica, FasePratica, FatturaPratica, FonteNormativa, Impostazione, LogAI, MessaggioChat, Pratica, Utente
+from .models import PrassiDocumento, Atto, ConoscenzaReparto, DocumentoPratica, FasePratica, FatturaPratica, FonteNormativa, Impostazione, LogAI, MessaggioChat, Pratica, Utente
 
 BASE = pathlib.Path(__file__).parent
 ISTRUZIONI = {
@@ -856,6 +857,28 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
         voci = libreria_di(s)
         return metodo_mod.metodo_testo(metodo_mod.seleziona(voci, q, atto)), metodo_mod.esempi_di_stile(voci, q, atto) if atto else []
 
+    def prassi_per(s, d: dict, p: Pratica, docs: list[dict], extra: str = "") -> str:
+        """Paragrafi di prassi pertinenti al caso, dalla biblioteca; scarica in background i documenti dei temi riconosciuti."""
+        fasc = d.get("fascicolo", {}) or {}
+        caso = " ".join([tipologie.TIPOLOGIE[p.tipologia]["nome"], p.tipologia.replace("_", " "), fasc.get("motivazione", ""), fasc.get("obiettivo", "")]
+                        + [x["testo"][:2500] for x in docs[:8]] + [r["descrizione"] + " " + r.get("ragionamento", "") for r in d.get("riscontri", [])] + [extra])
+        temi = prassi_mod.temi_del_caso(caso)
+        try:
+            prassi_mod.scopri_da_fonti(s, d.get("base_normativa", []))
+            if temi:
+                prassi_mod.assicura_indice(s)
+                attesa = [x for x in s.scalars(select(PrassiDocumento)).all()
+                          if x.stato != "pronto" and any(t.lower() in x.temi.lower() for t in temi)]
+                if attesa:
+                    prassi_mod.sincronizza_in_background(SM, temi)
+            passaggi = prassi_mod.cerca(s, caso[:6000], temi or None)
+            st_b = prassi_mod.stato_biblioteca(s)
+        except Exception:                                      # noqa: BLE001 - la biblioteca non deve mai bloccare la chat
+            return ""
+        stato = (f"BIBLIOTECA: {st_b['pronti']} documenti scaricati su {st_b['totale']}; temi riconosciuti nel caso: "
+                 f"{', '.join(temi) or 'nessuno'}" + (" (scaricamento in corso per altri documenti: riprova tra poco)" if temi and st_b["pronti"] < st_b["totale"] else ""))
+        return prassi_mod.passaggi_testo(passaggi, stato)
+
     def catalogo_per(d: dict, p: Pratica, docs: list[dict]) -> str:
         """Catalogo dei ragionamenti sulle violazioni, con le aree piu' pertinenti al caso in evidenza."""
         fasc = d.get("fascicolo", {}) or {}
@@ -881,7 +904,8 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
                                         [{"tipo": a.tipo, "giornata": a.giornata, "fase": a.fase} for a in p.atti],
                                         pvoc_primo_iniziale(p, d), prospetto=d.get("prospetto_fatture", ""),
                                         voci=registro_sicuro(d).elenco_per_prompt(), base_normativa=d.get("base_normativa", []),
-                                        metodo=metodo_per(s, d, p)[0], catalogo=catalogo_per(d, p, docs_ctx))
+                                        metodo=metodo_per(s, d, p)[0], catalogo=catalogo_per(d, p, docs_ctx),
+                                        prassi=prassi_per(s, d, p, docs_ctx, testo_utente))
             return pseudo.anonimizza_o_blocca(chat_mod.system() + "\n\nMODO DI OPERARE DEL REPARTO:\n"
                                               + ai_mod.playbook() + "\n\nSTATO DELLA PRATICA:\n" + ctx_txt)
         visibili: list[str] = []
@@ -1114,6 +1138,60 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
         salva_dati(p, d)
         s.commit()
         return RedirectResponse(f"/pratiche/{pid}/atto/{a.id}", status_code=303)
+
+    # ---------------------------------------------------------------- biblioteca della prassi
+    @app.get("/prassi", response_class=HTMLResponse)
+    def prassi_pagina(request: Request, u=Depends(utente_corrente), s=Depends(db)):
+        prassi_mod.assicura_indice(s)
+        return render(request, "prassi.html", b=prassi_mod.stato_biblioteca(s), nota=request.query_params.get("nota"))
+
+    @app.post("/prassi/aggiorna")
+    def prassi_aggiorna(request: Request, csrf: str = Form(""), u=Depends(utente_corrente), s=Depends(db)):
+        check_csrf(request, csrf)
+        prassi_mod.assicura_indice(s)
+        for x in s.scalars(select(PrassiDocumento).where(PrassiDocumento.stato == "errore")).all():
+            x.aggiornato_il = dt.datetime(2000, 1, 1, tzinfo=dt.timezone.utc)
+        s.commit()
+        prassi_mod.sincronizza_in_background(SM, None)
+        return RedirectResponse("/prassi?nota=Scaricamento+avviato:+ricarica+la+pagina+tra+qualche+istante", status_code=303)
+
+    @app.post("/prassi/aggiungi")
+    def prassi_aggiungi(request: Request, url: str = Form(""), titolo: str = Form(""), temi: str = Form(""), csrf: str = Form(""),
+                        u=Depends(utente_corrente), s=Depends(db)):
+        check_csrf(request, csrf)
+        url = url.strip()
+        if not prassi_mod.host_ammesso(url):
+            return RedirectResponse("/prassi?nota=Indirizzo+non+ufficiale:+non+aggiunto", status_code=303)
+        if s.scalar(select(PrassiDocumento).where(PrassiDocumento.url == url)) is None:
+            s.add(PrassiDocumento(codice=f"MAN-{abs(hash(url)) % 100000}", tipo="documento", titolo=titolo.strip()[:400] or url[-80:], url=url,
+                                  temi=(temi.strip() or "manuale")[:400], origine="manuale"))
+            s.commit()
+        prassi_mod.sincronizza_in_background(SM, None)
+        return RedirectResponse("/prassi?nota=Documento+aggiunto:+scaricamento+avviato", status_code=303)
+
+    @app.post("/prassi/carica")
+    async def prassi_carica(request: Request, u=Depends(utente_corrente), s=Depends(db)):
+        """Se il sito ufficiale non e' raggiungibile dal server: si carica il PDF scaricato a mano e entra in biblioteca come gli altri."""
+        f = await request.form()
+        check_csrf(request, f.get("csrf", ""))
+        up = f.get("file")
+        if up is None or not getattr(up, "filename", ""):
+            return RedirectResponse("/prassi?nota=Scegli+un+file", status_code=303)
+        try:
+            _, testo, _ = chat_mod.estrai_testo(up.filename, await up.read())
+        except ValueError as e:
+            return RedirectResponse("/prassi?nota=" + str(e).replace(" ", "+")[:80], status_code=303)
+        cod = str(f.get("codice", "")).strip().upper()
+        d = s.scalar(select(PrassiDocumento).where(PrassiDocumento.codice == cod)) if cod else None
+        if d is None:
+            d = PrassiDocumento(codice=cod or f"MAN-{abs(hash(up.filename)) % 100000}", tipo="documento", titolo=str(f.get("titolo", "")).strip()[:400] or up.filename[:200],
+                                url="", origine="manuale")
+            s.add(d)
+        d.testo, d.stato, d.errore = testo[:900000], "pronto", ""
+        if str(f.get("temi", "")).strip():
+            d.temi = str(f.get("temi")).strip()[:400]
+        s.commit()
+        return RedirectResponse("/prassi?nota=Documento+caricato", status_code=303)
 
     # ---------------------------------------------------------------- libreria del Reparto (metodo, precedenti, spunti)
     def libreria_di(s) -> list[dict]:

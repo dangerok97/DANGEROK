@@ -86,6 +86,12 @@ schede di ragionamento, spunti operativi). Ragiona come ragiona il Reparto (qual
 constatare) ma fondando ogni violazione sulla base normativa raccolta. Se il caso e' nuovo e la libreria non offre nulla di \
 pertinente, procedi con norma e circolare e dillo all'operatore, suggerendo di arricchire la libreria con i suoi precedenti.
 
+PRASSI. Nel contesto trovi la sezione "PRASSI DELL'AGENZIA DELLE ENTRATE E FONTI UFFICIALI IN BIBLIOTECA": sono paragrafi di circolari, \
+risoluzioni e risposte gia' scaricati dal programma sul tema del caso e scelti per pertinenza con i fatti e i riscontri. Per ogni riscontro \
+verifica se la prassi tratta esattamente il punto: se si', riporta la conclusione dell'Agenzia citando documento e sezione (es. "circolare 23/E \
+del 2022, sez. ...") anche quando e' sfavorevole o diversa dalla tua ipotesi, e adegua il riscontro; se la prassi non copre il punto, dillo e \
+emetti una ricerca mirata (le fonti ufficiali trovate entrano da sole in biblioteca). Non citare numeri di paragrafo che non leggi nel contesto.
+
 Regole inderogabili:
 - La Circolare 1/2018 e' la fonte di verita' per le fasi e per i contenuti degli atti; gli esempi del Reparto servono per il lessico.
 - Non inventare mai fatti, importi, date, orari, protocolli, nominativi o esiti. Gli importi calcolati si producono solo con i \
@@ -357,7 +363,7 @@ def quote_documenti(lunghezze: list[int], totale: int = 0, massimo: int = 0, min
 
 def contesto(p_tipo: str, tipologia_nome: str, fasi: list[dict], d: dict, documenti: list[dict], atti: list[dict],
              pvoc_iniziale: dict, prospetto: str = "", voci: str = "", base_normativa: list | None = None,
-             metodo: str = "", catalogo: str = "") -> str:
+             metodo: str = "", catalogo: str = "", prassi: str = "") -> str:
     fasc = d.get("fascicolo", {}) or {}
     sog = d.get("soggetto", {}) or {}
     righe = [f"TIPO DI INTERVENTO: {p_tipo}. TIPOLOGIA: {tipologia_nome}.",
@@ -390,6 +396,9 @@ def contesto(p_tipo: str, tipologia_nome: str, fasi: list[dict], d: dict, docume
     righe += ["", "BASE NORMATIVA RACCOLTA (ricerche su fonti aperte gia' eseguite; id | quesito | periodo):", base_normativa_testo(base_normativa or [])]
     righe += ["", "METODO DEL REPARTO PERTINENTE (precedenti, schede di ragionamento, spunti operativi dalla libreria):",
               metodo or "- nessun precedente o spunto pertinente in libreria"]
+    if prassi:
+        righe += ["", "PRASSI DELL'AGENZIA DELLE ENTRATE E FONTI UFFICIALI IN BIBLIOTECA (paragrafi pertinenti al caso e ai riscontri, estratti in automatico; "
+                      "cita sempre documento e sezione):", prassi]
     if catalogo:
         righe += ["", "CATALOGO DEI RAGIONAMENTI PER FAR EMERGERE LE VIOLAZIONI (schemi segnale -> ipotesi -> verifiche -> norma -> "
                       "quantificazione -> effetti a catena; le norme vanno verificate con le ricerche):", catalogo]
