@@ -4,7 +4,7 @@
 <p><a href="/pratiche/{{ p.id }}">← Pratica e fasi</a> · <a href="/impostazioni">Impostazioni AI</a></p>
 {% if not ai.attiva %}<p class="err">Assistente AI disattivato: manca la chiave (vedi Impostazioni).</p>{% endif %}
 {% if ai.gratuito_con_dati_usati %}<p class="muted">Servizio AI gratuito: i contenuti possono essere usati dal fornitore. Usa solo dati inventati finche' il Comando non ha autorizzato l'uso.</p>{% endif %}
-{% if in_corso %}<div class="card" id="job" data-url="/pratiche/{{ p.id }}/chat/stato" data-msg="{{ in_corso }}"><b>Elaborazione in corso…</b> L'assistente sta consultando le fonti aperte e analizzando i documenti: puo' richiedere qualche minuto. La pagina si aggiorna da sola.<br><small class="muted">«{{ in_corso }}»</small></div>{% endif %}
+{% if in_corso %}<div class="card" id="job" data-url="/pratiche/{{ p.id }}/chat/stato" data-msg="{{ in_corso }}"><b>Elaborazione in corso…</b> L'assistente sta consultando le fonti aperte e analizzando i documenti: puo' richiedere qualche minuto. La pagina si aggiorna da sola.<br><small class="muted">«{{ in_corso }}» · <a href="/diagnosi-ai" target="_blank">diagnosi AI</a></small></div>{% endif %}
 {% if errore %}<p class="err">{{ errore }}</p>{% endif %}
 {% if nota %}<p class="muted">{{ nota }}</p>{% endif %}
 

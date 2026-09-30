@@ -17,6 +17,9 @@ GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai"
 GEMINI_MODELLO_PREDEFINITO = "gemini-3.5-flash,gemini-3.7-flash,gemini-3.8-flash"
 
 
+TIMEOUT_CHIAMATA = httpx2.Timeout(60.0, connect=10.0)     # per ogni tentativo: se un modello e' bloccato si passa al successivo
+
+
 class ServizioAIErrore(Exception):
     def __init__(self, codice: int | None, messaggio: str):
         super().__init__(messaggio)
@@ -100,7 +103,7 @@ class CompatClient:
         import json as _j
         corpo = {**corpo, "stream": True}
         testo, fine = [], None
-        with self._http.stream("POST", f"{self.base_url}/chat/completions", headers=hdr, json=corpo) as r:
+        with self._http.stream("POST", f"{self.base_url}/chat/completions", headers=hdr, json=corpo, timeout=TIMEOUT_CHIAMATA) as r:
             if r.status_code >= 400:
                 r.read()
                 return SimpleNamespace(status_code=r.status_code, json=lambda: {})
@@ -134,14 +137,13 @@ class CompatClient:
                     corpo["reasoning_effort"] = "low"                 # meno "ragionamento interno": risposte molto piu' rapide
                 hdr = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
                 invia = (lambda: self._flusso(corpo, hdr, on_delta)) if on_delta else \
-                    (lambda: self._http.post(f"{self.base_url}/chat/completions", headers=hdr, json=corpo))
+                    (lambda: self._http.post(f"{self.base_url}/chat/completions", headers=hdr, json=corpo, timeout=TIMEOUT_CHIAMATA))
                 r = invia()
                 if r.status_code == 400 and "reasoning_effort" in corpo:
                     corpo.pop("reasoning_effort")
                     r = invia()
             except httpx2.TimeoutException as e:
-                raise ServizioAIErrore(None, "Il servizio AI non ha risposto in tempo (probabile sovraccarico del piano gratuito): "
-                                             "riprova tra un minuto.") from e
+                return SimpleNamespace(status_code=408, json=lambda: {})
             except httpx2.HTTPError as e:
                 raise ServizioAIErrore(None, f"Impossibile raggiungere il servizio ({type(e).__name__}).") from e
             if r.status_code == 503 and tentativo < 2:
@@ -165,6 +167,9 @@ class CompatClient:
                 continue
             if r.status_code == 404:
                 ultimo = ServizioAIErrore(404, f"Il modello «{modello}» non e' piu' disponibile: aggiorna LLM_MODEL.")
+                continue
+            if r.status_code == 408:
+                ultimo = ServizioAIErrore(408, f"Il modello «{modello}» non ha risposto entro 60 secondi (servizio sovraccarico o modello troppo lento).")
                 continue
             if r.status_code >= 400:
                 raise ServizioAIErrore(r.status_code, f"Errore del servizio (codice {r.status_code}).")

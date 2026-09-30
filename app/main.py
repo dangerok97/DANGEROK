@@ -11,7 +11,7 @@ import secrets
 import threading
 
 from fastapi import Depends, FastAPI, Form, HTTPException, Request
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
+from fastapi.responses import PlainTextResponse, FileResponse, HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
@@ -1498,6 +1498,25 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
         c = ai_mod.configurazione()
         return {k: c[k] for k in ("provider", "attiva", "modello", "chiave_mascherata", "ricerca_web",
                                   "gratuito_con_dati_usati")}
+
+    @app.get("/diagnosi-ai", response_class=PlainTextResponse)
+    def diagnosi_ai(u=Depends(utente_corrente)):
+        """Prova ogni modello configurato con una domanda minima e riporta tempo alla prima parola ed esito (nessun dato personale)."""
+        import time as _t
+        c = ai_mod.config_ai() if hasattr(ai_mod, "config_ai") else {}
+        client = ai_client or ai_mod._client()
+        righe = [f"Modelli configurati: {getattr(client, 'modelli', '?')}"]
+        for m in getattr(client, "modelli", [st.anthropic_model]):
+            t0, primo = _t.time(), []
+            sub = llm_compat.CompatClient(client.base_url, client.api_key, m) if hasattr(client, "base_url") else client
+            try:
+                r = sub.beta.messages.create(max_tokens=50, system="Rispondi con una parola.",
+                                             messages=[{"role": "user", "content": "Scrivi: ok"}],
+                                             on_delta=lambda t: primo.append(_t.time() - t0) if not primo else None)
+                righe.append(f"- {m}: OK in {_t.time() - t0:.1f}s (prima parola dopo {primo[0] if primo else float('nan'):.1f}s): {r.content[0].text[:40]!r}")
+            except Exception as e:                                # noqa: BLE001
+                righe.append(f"- {m}: ERRORE dopo {_t.time() - t0:.1f}s -> {getattr(e, 'messaggio', None) or type(e).__name__}")
+        return "\n".join(righe)
 
     @app.get("/impostazioni", response_class=HTMLResponse)
     def impostazioni(request: Request, u=Depends(utente_corrente), s=Depends(db)):
