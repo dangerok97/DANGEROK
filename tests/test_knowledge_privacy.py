@@ -11,7 +11,11 @@ FILE = sorted((pathlib.Path(metodo.__file__).parent / "knowledge").rglob("*.md")
 # dati istituzionali pubblici del Reparto, ammessi
 AMMESSI = ["via Delle Fiamme Gialle, n. 1", "via delle Fiamme Gialle n. 1", "0766/856028", "vt1120000p@pec.gdf.it"]
 # parole che in un atto sono maiuscole ma non sono nomi di persone o enti
-OK_MAIUSCOLE = {"arco", "argo", "atecо", "ateco", "fatture", "corrispettivi", "verbalizzanti", "parte", "fatto", "scheda", "brani",
+OK_MAIUSCOLE = {"amministrazioni", "centrali", "gli", "ufficiali", "utilizzato", "dalla", "riscontri", "materiali", "materiale",
+                "comunicazioni", "lipe", "nucleo", "speciale", "relativo", "agli", "obblighi", "differenze", "rispetto",
+                "presunzione", "legale", "conclusioni", "sul", "credito", "esterna", "pubblici", "piano", "industria",
+                "nazionale", "ispettorato", "processi", "verbali", "liquidazione", "versamento", "imposte", "effettuazione",
+                "ritenute", "analitico", "normativo", "situazioni", "rilevanti", "violazioni", "differenza","arco", "argo", "atecо", "ateco", "fatture", "corrispettivi", "verbalizzanti", "parte", "fatto", "scheda", "brani",
                 "stile", "fattispecie", "struttura", "ragionamento", "operativo", "spunti", "operativi", "formule", "lessico",
                 "controllo", "contabile", "controlli", "sostanziali", "violazioni", "formali", "sostanziali", "sezione",
                 "conclusiva", "riscontri", "coerenza", "interna", "analitico", "normativo", "tarquinia", "codice", "attivita",
@@ -22,6 +26,7 @@ OK_MAIUSCOLE = {"arco", "argo", "atecо", "ateco", "fatture", "corrispettivi", "
 def _pulito(t: str) -> str:
     for a in AMMESSI:
         t = t.replace(a, " ")
+    t = re.sub(r"via (?:delle )?Fiamme Gialle,? n\. ?1", " ", t, flags=re.I)
     # date di atti normativi o di prassi (circolari, risoluzioni, leggi): pubbliche
     return re.sub(r"(?:circolare|risoluzione|legge|sentenza|ordinanza)[^;\n]{0,160}?(?:del|datata) \d{1,2}[/.]\d{1,2}[/.](?:19|20)\d{2}", " ", t, flags=re.I)
 
