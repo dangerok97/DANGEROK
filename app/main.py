@@ -6,6 +6,7 @@ import datetime as dt
 import hmac
 import pathlib
 import re
+import os
 import secrets
 import threading
 
@@ -915,8 +916,7 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
         piano = chat_mod.piano_da_testo(testo, massimo)
         ok = esegui_ricerche(s, p, d, pseudo, client, piano) if piano else 0
         try:
-            if prassi_mod.scopri_da_fonti(s, d.get("base_normativa", [])):
-                prassi_mod.sincronizza_in_background(SM, None)
+            prassi_mod.scopri_da_fonti(s, d.get("base_normativa", []))
         except Exception:                                          # noqa: BLE001
             pass
         for r in riscontri or []:
@@ -951,7 +951,7 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
                 prassi_mod.assicura_indice(s)
                 attesa = [x for x in s.scalars(select(PrassiDocumento)).all()
                           if x.stato != "pronto" and any(t.lower() in x.temi.lower() for t in temi)]
-                if attesa:
+                if attesa and os.environ.get("PRASSI_DOWNLOAD", "0") == "1":   # di default niente scaricamenti: la prassi si cerca sul web
                     prassi_mod.sincronizza_in_background(SM, temi)
             passaggi = prassi_mod.cerca(s, caso[:6000], temi or None)
             st_b = prassi_mod.stato_biblioteca(s)

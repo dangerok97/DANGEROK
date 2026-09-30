@@ -99,9 +99,17 @@ class CompatClient:
         """Una richiesta a un modello, con 2 nuovi tentativi se il servizio e' momentaneamente sovraccarico (503)."""
         for tentativo in range(3):
             try:
-                r = self._http.post(f"{self.base_url}/chat/completions",
-                                    headers={"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"},
-                                    json={"model": modello, "messages": msgs, "max_tokens": max_tokens})
+                corpo = {"model": modello, "messages": msgs, "max_tokens": max_tokens}
+                if "generativelanguage.googleapis.com" in self.base_url:
+                    corpo["reasoning_effort"] = "low"                 # meno "ragionamento interno": risposte molto piu' rapide
+                hdr = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
+                r = self._http.post(f"{self.base_url}/chat/completions", headers=hdr, json=corpo)
+                if r.status_code == 400 and "reasoning_effort" in corpo:
+                    corpo.pop("reasoning_effort")
+                    r = self._http.post(f"{self.base_url}/chat/completions", headers=hdr, json=corpo)
+            except httpx2.TimeoutException as e:
+                raise ServizioAIErrore(None, "Il servizio AI non ha risposto in tempo (probabile sovraccarico del piano gratuito): "
+                                             "riprova tra un minuto.") from e
             except httpx2.HTTPError as e:
                 raise ServizioAIErrore(None, f"Impossibile raggiungere il servizio ({type(e).__name__}).") from e
             if r.status_code == 503 and tentativo < 2:

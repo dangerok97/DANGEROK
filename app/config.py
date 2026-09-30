@@ -41,6 +41,6 @@ class Settings:
             https_only=os.environ.get("HTTPS_ONLY", "1") != "0",
             anthropic_model=os.environ.get("ANTHROPIC_MODEL", "claude-opus-5-5"),
             setup_token=os.environ.get("SETUP_TOKEN", ""),
-            istruttoria_auto=os.environ.get("ISTRUTTORIA_AUTO", "1") != "0",
+            istruttoria_auto=os.environ.get("ISTRUTTORIA_AUTO", "0") == "1",
             chat_asincrona=os.environ.get("CHAT_ASINCRONA", "1") != "0",
         )
