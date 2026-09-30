@@ -118,3 +118,12 @@ class DocumentoPratica(Base):
     testo_cifrato: Mapped[str] = mapped_column(Text, default="")
     caratteri: Mapped[int] = mapped_column(Integer, default=0)
     creato_il: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class FatturaPratica(Base):
+    """Dati strutturati di una fattura elettronica caricata (cifrati), per i riscontri calcolati dal programma."""
+    __tablename__ = "fattura_pratica"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    pratica_id: Mapped[int] = mapped_column(ForeignKey("pratica.id"))
+    documento_id: Mapped[int] = mapped_column(Integer, default=0)
+    dati_cifrati: Mapped[str] = mapped_column(Text, default="")

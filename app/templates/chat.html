@@ -36,6 +36,14 @@
 <input id="file" type="file" name="file"><p><button class="sec">Carica e analizza</button></p>
 <p class="muted">Del file si conserva il testo estratto, cifrato. I nomi delle fatture elettroniche sono pseudonimizzati in automatico.</p></form>
 
+{% if riscontri %}<div class="card"><h2>Riscontri e violazioni</h2>
+<p class="muted">Proposti dal programma (anomalie oggettive nei documenti) o dall'assistente. Solo quelli che <b>confermi</b> vengono constatati nei PVOC della relativa fase e nel PVC. Le cifre stanno nei calcoli tracciati.</p>
+{% if riscontri|selectattr('stato', 'equalto', 'proposto')|list %}<form method="post" action="/pratiche/{{ p.id }}/chat/riscontro" class="row"><input type="hidden" name="csrf" value="{{ csrf }}"><button name="azione" value="conferma_tutti" class="sec">Conferma tutti quelli proposti</button></form>{% endif %}
+{% for r in riscontri %}<div class="card"><div class="fase"><div><b>{{ r.id }}</b> · {{ titoli_fasi.get(r.fase, r.fase) }} · {{ r.periodo }} · {{ r.tipo }} <span class="muted">({{ 'programma' if r.origine == 'programma' else 'assistente' }})</span><br>{{ r.descrizione }}<br><small>Norma: {{ r.norma }}{% if r.importi %} · importi: {{ r.importi|join(', ') }}{% endif %}</small></div>
+<span class="tag {{ r.stato }}">{{ r.stato }}</span></div>
+<form method="post" action="/pratiche/{{ p.id }}/chat/riscontro" class="row"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="rid" value="{{ r.id }}">
+{% if r.stato != 'confermato' %}<button name="azione" value="conferma">Conferma</button>{% endif %}{% if r.stato != 'scartato' %}<button name="azione" value="scarta" class="sec">Scarta</button>{% endif %}{% if r.stato != 'proposto' %}<button name="azione" value="riapri" class="sec">Rimetti in discussione</button>{% endif %}</form></div>{% endfor %}</div>{% endif %}
+{% if prospetto %}<details class="card"><summary><b>Prospetto delle fatture</b> (calcolato dal programma)</summary><pre>{{ prospetto }}</pre></details>{% endif %}
 <div class="card"><h2>Fascicolo</h2>
 <p><b>Motivazione:</b> {{ fascicolo.motivazione or '—' }}</p><p><b>Obiettivo:</b> {{ fascicolo.obiettivo or '—' }}</p>
 {% if fascicolo.richieste %}<p><b>Documenti richiesti</b></p><ul>{% for r in fascicolo.richieste %}<li>{{ r.voce }} <span class="tag {{ r.stato }}">{{ r.stato.replace('_', ' ') }}</span></li>{% endfor %}</ul>{% endif %}

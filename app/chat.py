@@ -12,6 +12,7 @@ import json
 import re
 import zipfile
 
+from . import analisi, calcoli
 from . import pvoc as pvoc_mod
 
 MAX_CARATTERI_DOC = 400_000
@@ -40,6 +41,14 @@ del PVOC del primo giorno, poi delle giornate successive (una attivita' per gior
 (es. possibile superamento delle soglie del D.Lgs. 74/2000) ricorda l'art. 220 disp. att. c.p.p. e la comunicazione di notizia \
 di reato (art. 347 c.p.p.).
 
+6. DEDURRE al posto dell'operatore: analizza i documenti acquisiti (prospetto e dati tracciati calcolati dal programma, \
+estratti dei documenti) e individua le irregolarita' e le eventuali violazioni, fase per fase, nell'ordine della circolare. \
+Per ogni violazione che ritieni sussistere proponi un RISCONTRO: fase in cui va constatata, periodo d'imposta, tipo \
+(formale | sostanziale | indizio_reato), descrizione fattuale senza cifre, norma violata, e gli ID dei dati/calcoli tracciati \
+che ne quantificano l'importo. Proponi un riscontro solo se i dati lo sostengono: se manca un documento o un dato, dillo e \
+chiedilo. Le violazioni proposte vengono constatate nei PVOC delle giornate successive solo dopo la conferma dell'operatore. \
+Se ti serve un importo che non c'e', proponi un CALCOLO tra voci tracciate (somma, differenza, percentuale): lo esegue il programma.
+
 Regole inderogabili:
 - La Circolare 1/2018 e' la fonte di verita' per le fasi e per i contenuti degli atti; gli esempi del Reparto servono per il lessico.
 - Non inventare mai fatti, importi, date, orari, protocolli, nominativi o esiti. Gli importi calcolati si producono solo con i \
@@ -54,11 +63,16 @@ tutte le chiavi facoltative), che l'operatore non vede:
 {"fascicolo": {"motivazione": "...", "obiettivo": "..."},
  "pvoc_primo": {"campo": "valore"},
  "richieste": [{"voce": "Fatture di acquisto 2023-2025", "stato": "richiesto"}],
+ "riscontri": [{"fase": "coerenza_interna", "periodo": "2023", "tipo": "sostanziale", "descrizione": "...", "norma": "...", "importi": ["ID1", "ID2"]}],
+ "calcoli": [{"tipo": "differenza", "etichetta": "...", "operandi": ["ID1", "ID2"]}],
  "proposte": [{"fase": "avvio", "giornata": "gg/mm/aaaa", "motivo": "perche' ora"}]}
 <<FINE>>
 - "fascicolo": motivazione e obiettivo riassunti dalle parole dell'operatore (testo formale, senza abbellimenti).
 - "pvoc_primo": chiavi ammesse: __CAMPI__.
 - "richieste": stato = richiesto | acquisito | non_disponibile. Riporta l'elenco completo aggiornato solo se cambia.
+- "riscontri": solo nuovi riscontri (i gia' presenti sono nel contesto); "importi" = ID di dati/calcoli tracciati esistenti.
+- "calcoli": tipo = somma | differenza | percentuale (per la percentuale aggiungi "param": "22"); gli operandi sono ID esistenti; \
+l'ID del risultato lo assegna il programma e lo trovi nel contesto alla risposta successiva.
 - "proposte": fasi (chiavi dell'elenco fasi del contesto) di cui proponi la redazione ora; "giornata" solo se l'operatore l'ha indicata.
 """
 
@@ -113,6 +127,48 @@ def _fattura_xml(radice) -> tuple[str, list[tuple[str, str]]] | None:
     return "\n".join(righe), nomi
 
 
+def fatture_xml(dati: bytes) -> list[dict]:
+    """Dati strutturati delle fatture elettroniche (per i riscontri del programma). Lista vuota se non e' una FatturaPA."""
+    from lxml import etree
+    try:
+        radice = etree.fromstring(dati, parser=etree.XMLParser(resolve_entities=False, no_network=True, huge_tree=False))
+    except etree.XMLSyntaxError:
+        return []
+
+    def tutti(base, nome):
+        return base.xpath(f".//*[local-name()='{nome}']")
+
+    def primo(base, nome):
+        r = tutti(base, nome)
+        return _txt(r[0]) if r else ""
+
+    def anagr(nodo):
+        if not nodo:
+            return {"denominazione": "", "piva": "", "cf": ""}
+        n = nodo[0]
+        den = primo(n, "Denominazione") or (primo(n, "Nome") + " " + primo(n, "Cognome")).strip()
+        return {"denominazione": den, "piva": primo(n, "IdCodice"), "cf": primo(n, "CodiceFiscale")}
+    ced = anagr(radice.xpath("//*[local-name()='CedentePrestatore']"))
+    com = anagr(radice.xpath("//*[local-name()='CessionarioCommittente']"))
+
+    def num(x):
+        try:
+            return float(x)
+        except ValueError:
+            return 0.0
+    out = []
+    for body in radice.xpath("//*[local-name()='FatturaElettronicaBody']"):
+        data = primo(body, "Data")
+        riep = [{"aliquota": num(primo(r, "AliquotaIVA")), "imponibile": num(primo(r, "ImponibileImporto")),
+                 "imposta": num(primo(r, "Imposta")), "natura": primo(r, "Natura")}
+                for r in tutti(body, "DatiRiepilogo")]
+        out.append({"numero": primo(body, "Numero"), "data": data, "anno": int(data[:4]) if data[:4].isdigit() else 0,
+                    "tipo_doc": primo(body, "TipoDocumento"), "cedente": ced, "cessionario": com,
+                    "totale": num(primo(body, "ImportoTotaleDocumento")), "bollo": num(primo(body, "ImportoBollo")),
+                    "riepilogo": riep})
+    return out
+
+
 def estrai_testo(nome: str, dati: bytes) -> tuple[str, str, list[tuple[str, str]]]:
     """(tipo, testo, nomi da pseudonimizzare [(nome, persona|ente)]). Solleva ValueError se il formato non e' leggibile."""
     n = nome.lower()
@@ -162,7 +218,7 @@ def estrai_testo(nome: str, dati: bytes) -> tuple[str, str, list[tuple[str, str]
 
 # ---------------------------------------------------------------- contesto per il modello
 def contesto(p_tipo: str, tipologia_nome: str, fasi: list[dict], d: dict, documenti: list[dict], atti: list[dict],
-             pvoc_iniziale: dict) -> str:
+             pvoc_iniziale: dict, prospetto: str = "", voci: str = "") -> str:
     fasc = d.get("fascicolo", {}) or {}
     sog = d.get("soggetto", {}) or {}
     righe = [f"TIPO DI INTERVENTO: {p_tipo}. TIPOLOGIA: {tipologia_nome}.",
@@ -193,6 +249,13 @@ def contesto(p_tipo: str, tipologia_nome: str, fasi: list[dict], d: dict, docume
         righe.append(f"--- {doc['nome']} ({doc['tipo']}, {doc['caratteri']} caratteri) ---\n{estr}")
     if not documenti:
         righe.append("- nessuno")
+    if prospetto:
+        righe += ["", "PROSPETTO DELLE FATTURE (calcolato dal programma sui file XML caricati):", prospetto]
+    righe += ["", "DATI E CALCOLI TRACCIATI DISPONIBILI (id - etichetta: valore):", voci or "- nessuno"]
+    righe += ["", "RISCONTRI (id | fase | periodo | tipo | stato | origine): descrizione [norma] [importi]"]
+    ris = d.get("riscontri") or []
+    righe += [f"- {r['id']} | {r['fase']} | {r['periodo']} | {r['tipo']} | {r['stato']} | {r['origine']}: {r['descrizione']} "
+              f"[{r['norma']}] [{', '.join(r['importi'])}]" for r in ris] or ["- nessuno"]
     righe += ["", "ATTI GIA' REDATTI: " + (", ".join(f"{a['tipo']} {a['giornata'] or ''} ({a['fase']})" for a in atti) or "nessuno")]
     return "\n".join(righe)
 
@@ -229,7 +292,7 @@ def _mappa(o, f):
     return o
 
 
-def valida_azioni(az: dict | None, restore, fasi_valide: dict[str, str]) -> dict:
+def valida_azioni(az: dict | None, restore, fasi_valide: dict[str, str], id_voci: set[str] | frozenset = frozenset()) -> dict:
     """Filtra le azioni: solo chiavi note, tipi corretti; i segnaposto tornano dati reali. `fasi_valide`: chiave -> atto."""
     if not az:
         return {}
@@ -251,6 +314,26 @@ def valida_azioni(az: dict | None, restore, fasi_valide: dict[str, str]) -> dict
     if isinstance(ri, list):
         out["richieste"] = [{"voce": str(r["voce"]).strip()[:200], "stato": r.get("stato") if r.get("stato") in ("richiesto", "acquisito", "non_disponibile") else "richiesto"}
                             for r in ri if isinstance(r, dict) and str(r.get("voce", "")).strip()][:60]
+    rs = az.get("riscontri")
+    if isinstance(rs, list):
+        out["riscontri"] = []
+        for r in rs:
+            if not (isinstance(r, dict) and r.get("fase") in fasi_valide and str(r.get("descrizione", "")).strip()):
+                continue
+            imp = [i for i in (r.get("importi") or []) if isinstance(i, str) and i in id_voci]
+            out["riscontri"].append({
+                "fase": r["fase"], "periodo": str(r.get("periodo", "") or "").strip()[:40],
+                "tipo": r.get("tipo") if r.get("tipo") in ("formale", "sostanziale", "indizio_reato") else "sostanziale",
+                "descrizione": str(r["descrizione"]).strip()[:1500], "norma": str(r.get("norma", "") or "da verificare").strip()[:300],
+                "importi": imp, "origine": "ai"})
+        out["riscontri"] = out["riscontri"][:20]
+    ca = az.get("calcoli")
+    if isinstance(ca, list):
+        out["calcoli"] = [{"tipo": c["tipo"], "etichetta": str(c.get("etichetta", "") or "").strip()[:200],
+                           "operandi": [str(x) for x in c.get("operandi", []) if isinstance(x, str)],
+                           "param": str(c.get("param", "") or "")}
+                          for c in ca if isinstance(c, dict) and c.get("tipo") in ("somma", "differenza", "percentuale")
+                          and isinstance(c.get("operandi"), list) and str(c.get("etichetta", "")).strip()][:10]
     pr = az.get("proposte")
     if isinstance(pr, list):
         out["proposte"] = [{"fase": r["fase"], "giornata": str(r.get("giornata", "") or "").strip()[:10],
@@ -269,6 +352,18 @@ def applica_azioni(d: dict, az: dict) -> None:
         fasc["richieste"] = az["richieste"]
     if "proposte" in az:
         fasc["proposte"] = az["proposte"]
+    if az.get("riscontri"):
+        nuovi = [{**r, "chiave": analisi.chiave_ai(r)} for r in az["riscontri"]]
+        d["riscontri"] = analisi.unisci_riscontri(d.get("riscontri", []), nuovi + [
+            r for r in d.get("riscontri", []) if r["chiave"] not in {n["chiave"] for n in nuovi}])
+    for c in az.get("calcoli", []):
+        cfg = d.setdefault("calcoli", {"dati": [], "calcoli": []})
+        nuovo = {"id": f"C{len(cfg['calcoli']) + 1}", **c}
+        try:
+            calcoli.registro_da_dati({"dati": cfg["dati"], "calcoli": cfg["calcoli"] + [nuovo]})
+        except Exception:                                     # operandi inesistenti o operazione non valida: si scarta
+            continue
+        cfg["calcoli"].append(nuovo)
 
 
 # ---------------------------------------------------------------- nomi non in anagrafica (controllo in piu' sul testo libero)

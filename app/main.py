@@ -14,10 +14,10 @@ from sqlalchemy import select
 from starlette.middleware.sessions import SessionMiddleware
 
 from . import ai as ai_mod
-from . import atti_word, calcoli, chat as chat_mod, pvoc as pvoc_mod, invito_word, llm_compat, norme, scheda_ai, piano as piano_mod, schede, security, tipologie, workflow, wordexport
+from . import analisi, atti_word, calcoli, chat as chat_mod, pvoc as pvoc_mod, invito_word, llm_compat, norme, scheda_ai, piano as piano_mod, schede, security, tipologie, workflow, wordexport
 from .config import Settings
 from .db import crea_engine, crea_sessionmaker
-from .models import Atto, DocumentoPratica, FasePratica, FonteNormativa, Impostazione, LogAI, MessaggioChat, Pratica, Utente
+from .models import Atto, DocumentoPratica, FasePratica, FatturaPratica, FonteNormativa, Impostazione, LogAI, MessaggioChat, Pratica, Utente
 
 BASE = pathlib.Path(__file__).parent
 ISTRUZIONI = {
@@ -713,6 +713,26 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
     def messaggi_di(s, p: Pratica) -> list[MessaggioChat]:
         return list(s.scalars(select(MessaggioChat).where(MessaggioChat.pratica_id == p.id).order_by(MessaggioChat.id)).all())
 
+    def registro_sicuro(d: dict) -> calcoli.Registro:
+        try:
+            return calcoli.registro_da_dati(d.get("calcoli", {"dati": [], "calcoli": []}))
+        except calcoli.CalcoloErrore:
+            return calcoli.Registro()
+
+    def fatture_di(s, p: Pratica) -> list[dict]:
+        righe = s.scalars(select(FatturaPratica).where(FatturaPratica.pratica_id == p.id).order_by(FatturaPratica.id)).all()
+        return [cif.decifra_json(x.dati_cifrati) for x in righe]
+
+    def aggiorna_analisi(s, p: Pratica, d: dict) -> None:
+        """Ricalcola prospetto, dati tracciati automatici e riscontri oggettivi dalle fatture caricate (le decisioni restano)."""
+        sog = d.get("soggetto", {}) or {}
+        ids = {analisi._norm_id(x) for x in (sog.get("partite_iva", []) or []) + (sog.get("codici_fiscali", []) or [])} - {""}
+        res = analisi.analizza(fatture_di(s, p), ids, p.tipologia)
+        cfg = d.setdefault("calcoli", {"dati": [], "calcoli": []})
+        cfg["dati"] = [x for x in cfg["dati"] if not x.get("auto")] + res["dati"]
+        d["riscontri"] = analisi.unisci_riscontri(d.get("riscontri", []), res["riscontri"])
+        d["prospetto_fatture"] = res["prospetto"]
+
     def ctx_chat(s, p: Pratica, **extra) -> dict:
         d = dati_di(p)
         fasc = d.get("fascicolo", {}) or {}
@@ -721,6 +741,8 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
                 for x in fasc.get("proposte", []) if x.get("fase") in fasi_val]
         base = dict(p=p, msgs=[(m.ruolo, cif.decifra_testo(m.contenuto_cifrato)) for m in messaggi_di(s, p)],
                     documenti=documenti_di(s, p), fascicolo=fasc, proposte=prop, ai=_stato_ai(),
+                    riscontri=d.get("riscontri", []), prospetto=d.get("prospetto_fatture", ""),
+                    titoli_fasi={f["chiave"]: f["titolo"] for f in fasi_chat(p)},
                     bozza="", errore=None, sospetti=None, nota=None)
         base.update(extra)
         return base
@@ -752,7 +774,8 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
             fasi = fasi_chat(p)
             ctx_txt = chat_mod.contesto(p.tipo, tipologie.TIPOLOGIE[p.tipologia]["nome"], fasi, d, documenti_di(s, p),
                                         [{"tipo": a.tipo, "giornata": a.giornata, "fase": a.fase} for a in p.atti],
-                                        pvoc_primo_iniziale(p, d))
+                                        pvoc_primo_iniziale(p, d), prospetto=d.get("prospetto_fatture", ""),
+                                        voci=registro_sicuro(d).elenco_per_prompt())
             system = pseudo.anonimizza_o_blocca(chat_mod.system() + "\n\nMODO DI OPERARE DEL REPARTO:\n"
                                                 + ai_mod.playbook() + "\n\nSTATO DELLA PRATICA:\n" + ctx_txt)
             msgs = [{"role": r, "content": pseudo.anonimizza_o_blocca(t)} for r, t in storia]
@@ -775,7 +798,8 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
             return ctx_chat(s, p, bozza=testo_utente, errore=f"Errore del servizio AI ({type(e).__name__}). Riprova.")
         visibile_anon, azioni = chat_mod.separa_azioni(testo)
         visibile, _ = pseudo.ripristina(visibile_anon)
-        validate = chat_mod.valida_azioni(azioni, pseudo.ripristina, {f["chiave"]: f["atto"] for f in fasi})
+        validate = chat_mod.valida_azioni(azioni, pseudo.ripristina, {f["chiave"]: f["atto"] for f in fasi},
+                                          set(registro_sicuro(d).voci))
         chat_mod.applica_azioni(d, validate)
         salva_dati(p, d)
         s.add(LogAI(pratica_id=p.id, sezione="chat", modello=modello, testo_inviato=system + "\n\n" + "\n".join(
@@ -839,11 +863,35 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
             return render(request, "chat.html", **ctx_chat(s, p, errore=str(e)))
         d = dati_di(p)
         registra_nomi(d, nomi)
+        doc = DocumentoPratica(pratica_id=p.id, nome_cifrato=cif.cifra_testo(up.filename[:200]), tipo=tipo,
+                               testo_cifrato=cif.cifra_testo(testo_doc), caratteri=len(testo_doc))
+        s.add(doc)
+        s.flush()
+        if tipo == "xml_fattura":
+            for ft in chat_mod.fatture_xml(dati_file):
+                s.add(FatturaPratica(pratica_id=p.id, documento_id=doc.id, dati_cifrati=cif.cifra_json(ft)))
+            s.flush()
+            aggiorna_analisi(s, p, d)
         salva_dati(p, d)
-        s.add(DocumentoPratica(pratica_id=p.id, nome_cifrato=cif.cifra_testo(up.filename[:200]), tipo=tipo,
-                               testo_cifrato=cif.cifra_testo(testo_doc), caratteri=len(testo_doc)))
         s.commit()
         return render(request, "chat.html", **turno(request, s, p, f"Ho caricato il documento «{up.filename[:120]}» ({tipo}, {len(testo_doc)} caratteri). Cosa ne deduci e cosa manca?"))
+
+    @app.post("/pratiche/{pid}/chat/riscontro", response_class=HTMLResponse)
+    def chat_riscontro(request: Request, pid: int, rid: str = Form(""), azione: str = Form(...), csrf: str = Form(""),
+                       u=Depends(utente_corrente), s=Depends(db)):
+        """L'operatore conferma o scarta un riscontro proposto (dal programma o dall'AI): solo i confermati vanno negli atti."""
+        check_csrf(request, csrf)
+        p = carica(s, pid)
+        d = dati_di(p)
+        stato = {"conferma": "confermato", "scarta": "scartato", "riapri": "proposto", "conferma_tutti": "confermato"}.get(azione)
+        if not stato:
+            raise HTTPException(400, "Azione non valida")
+        for r in d.get("riscontri", []):
+            if (azione == "conferma_tutti" and r["stato"] == "proposto") or r["id"] == rid:
+                r["stato"] = stato
+        salva_dati(p, d)
+        s.commit()
+        return render(request, "chat.html", **ctx_chat(s, p))
 
     @app.post("/pratiche/{pid}/chat/genera", response_class=HTMLResponse)
     def chat_genera(request: Request, pid: int, fase: str = Form(...), giornata: str = Form(""), csrf: str = Form(""),
@@ -878,9 +926,20 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
                        "DOCUMENTI ACQUISITI:\n" + "\n".join(f"--- {x['nome']} ---\n{x['testo'][:chat_mod.MAX_DOC_NEL_PROMPT]}" for x in docs)
                        + "\nINDICAZIONI DELL'OPERATORE NELLA CHAT:\n"
                        + "\n".join(cif.decifra_testo(m.contenuto_cifrato) for m in messaggi_di(s, p) if m.ruolo == "user")[-12000:])
+            ris = [r for r in d.get("riscontri", []) if r["stato"] == "confermato" and (f.atto == "PVC" or r["fase"] == fase)]
+            istruzione = ISTRUZIONI[f.atto]
+            if ris:
+                appunti += ("\nRISCONTRI CONFERMATI DA CONSTATARE IN QUESTO ATTO (id | periodo | tipo):\n" + "\n".join(
+                    f"- {r['id']} | {r['periodo']} | {r['tipo']}: {r['descrizione']} Norma: {r['norma']}. Importi tracciati: "
+                    + (", ".join("{{IMPORTO:" + i + "}}" for i in r["importi"]) or "nessuno") for r in ris))
+                istruzione += (" Nell'atto CONSTATA, una per una, le violazioni elencate in RISCONTRI CONFERMATI: fatto accertato, periodo "
+                               "d'imposta, norma violata e, se presenti, gli importi con {{IMPORTO:id}}. Non constatare violazioni non elencate, "
+                               "non attenuare ne' enfatizzare, non inventare importi.")
+                if f.atto == "PVC":
+                    istruzione += " Nel PVC raggruppa le violazioni per periodo d'imposta e per tributo, distinguendo formali e sostanziali."
             try:
                 contesto = contesto_ai(p, d, appunti, f, giornata)
-                registro = calcoli.registro_da_dati(d.get("calcoli", {}))
+                registro = registro_sicuro(d)
                 ignora = set(d.get("chat_ignora", []))
                 libero = "\n".join([fasc.get("motivazione", ""), fasc.get("obiettivo", "")] + [x["testo"] for x in docs]
                                     + [cif.decifra_testo(mm.contenuto_cifrato) for mm in messaggi_di(s, p) if mm.ruolo == "user"])
@@ -888,7 +947,7 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
                 if sosp:
                     return render(request, "chat.html", **ctx_chat(s, p, sospetti=sosp, bozza="",
                                                                   errore="Prima di redigere l'atto indica come trattare questi nomi."))
-                b = ai_mod.genera_bozza(pseudo, istruzione=ISTRUZIONI[f.atto], contesto=contesto, checklist=list(f.checklist),
+                b = ai_mod.genera_bozza(pseudo, istruzione=istruzione, contesto=contesto, checklist=list(f.checklist),
                                         modello=st.anthropic_model, client=ai_client, registro=registro)
             except ai_mod.LeakError as e:
                 return render(request, "chat.html", **ctx_chat(s, p, errore=f"Invio BLOCCATO: {e}."))
