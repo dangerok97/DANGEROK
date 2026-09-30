@@ -122,6 +122,11 @@ def _pattern_da_variante(v: str) -> str:
     return "".join(out)
 
 
+def _chiave(t: str) -> str:
+    """Forma normalizzata di una variante (maiuscole, spazi e apostrofi), per risalire alla voce di anagrafica."""
+    return re.sub(r"['’`´]", "'", re.sub(r"\s+", " ", t.strip())).lower()
+
+
 @dataclass
 class Pseudonymizer:
     _voci: list[tuple[str, str, list[str]]] = field(default_factory=list)  # (categoria, canonico, varianti)
@@ -193,17 +198,33 @@ class Pseudonymizer:
             segmenti[i] = rx.sub(fn, segmenti[i])
         return "".join(segmenti)
 
+    def _regex_anagrafica(self):
+        """(regex unica, {variante normalizzata: (categoria, canonico)}) dell'anagrafica; ricostruita solo se cambia."""
+        firma = (len(self._voci), sum(len(v[2]) for v in self._voci))
+        if getattr(self, "_cache_rx", None) and self._cache_rx[0] == firma:
+            return self._cache_rx[1], self._cache_rx[2]
+        tutte = sorted(((len(v), cat, canon, v) for cat, canon, vs in self._voci for v in vs), key=lambda x: -x[0])
+        mappa: dict[str, tuple[str, str]] = {}
+        pezzi = []
+        for _, cat, canon, v in tutte:
+            k = _chiave(v)
+            if k in mappa:
+                continue
+            mappa[k] = (cat, canon)
+            pezzi.append(_pattern_da_variante(v))
+        rx = (re.compile(r"(?<![A-Za-z0-9À-ÿ])(?:" + "|".join(pezzi) + r")(?![A-Za-z0-9À-ÿ])", re.IGNORECASE) if pezzi else None)
+        self._cache_rx = (firma, rx, mappa)
+        return rx, mappa
+
     # -- anonimizzazione --------------------------------------------------------------
     def anonimizza(self, testo: str) -> str:
         # 0) e-mail/PEC intere per prime: contengono spesso nomi e domini identificativi
         testo = self._applica(testo, RE_EMAIL, lambda m: self._token("EMAIL", m.group(0)))
 
         # 1) anagrafica nota (varianti piu' lunghe per prime, su tutte le categorie)
-        tutte = [(len(v), cat, canon, v) for cat, canon, vs in self._voci for v in vs]
-        tutte.sort(key=lambda x: -x[0])
-        for _, cat, canon, v in tutte:
-            rx = re.compile(r"(?<![A-Za-z0-9À-ÿ])" + _pattern_da_variante(v) + r"(?![A-Za-z0-9À-ÿ])", re.IGNORECASE)
-            testo = self._applica(testo, rx, lambda m, c=cat, k=canon: self._token(c, k))
+        rx_anagrafica, mappa = self._regex_anagrafica()
+        if rx_anagrafica is not None:                           # un solo passaggio con tutte le varianti (prima le piu' lunghe)
+            testo = self._applica(testo, rx_anagrafica, lambda m: self._token(*mappa[_chiave(m.group(0))]))
 
         # 2) contesti con etichetta (documenti, nascita, P.IVA/CF numerici con etichetta)
         testo = self._applica(testo, RE_DOC, lambda m: m.group(1) + self._token("DOC", m.group(2)))
