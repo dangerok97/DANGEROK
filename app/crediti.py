@@ -117,6 +117,34 @@ def analizza(mov: list[dict], ids: set[str], fatture_vendita_per_anno: dict[int,
         prospetto.append(f"- confronto: 110% delle fatture di vendita {anno} (imponibile + IVA, se a sconto integrale) = euro {calcoli.euro(vf * Decimal('1.1'))}")
 
     riscontri = []
+    # maggior credito (10%) riconosciuto al fornitore che applica lo sconto: credito = 110% della spesa, corrispettivo = 100%
+    per_esito = defaultdict(Decimal)
+    for m in unici:
+        if acc(m) and propri(m):
+            per_esito[m["data_esito"][:4] or "n.d."] += _d(m["importo"])
+    if per_esito:
+        imp_ecc = []
+        for anno_e, v in sorted(per_esito.items()):
+            ecc = v / Decimal(11)                                   # 10/110 del credito accettato (aliquota 110%: da verificare per l'anno)
+            dati.append({"id": f"CR_ECC10_{anno_e}", "etichetta": f"Maggior credito (10/110) accettato nel {anno_e}", "valore": str(calcoli.q(ecc)),
+                         "fonte": f"credito accettato nel {anno_e} (data accettazione) diviso 11: quota eccedente il corrispettivo se l'aliquota e' 110% - da verificare",
+                         "unita": "euro", "auto": True})
+            imp_ecc.append(f"CR_ECC10_{anno_e}")
+            righe.append(f"- maggior credito (10/110) sui crediti accettati nel {anno_e}: euro {calcoli.euro(ecc)} (id dati: CR_ECC10_{anno_e})")
+        prospetto += [r for r in righe[-len(per_esito):]]
+        riscontri.append({
+            "chiave": "cr:eccedenza10", "fase": "coerenza_interna", "periodo": "anni di accettazione " + ", ".join(sorted(per_esito)), "tipo": "sostanziale",
+            "descrizione": "Il soggetto ha ricevuto crediti accettati per un importo superiore al corrispettivo delle fatture a sconto (credito pari al 110% della spesa): "
+                           "la quota eccedente (importi nei dati tracciati per anno di accettazione) e' un vantaggio economico per il professionista. "
+                           "Verificare se e' stata dichiarata come componente positivo di reddito (compensi, altri proventi) e ai fini IRAP.",
+            "norma": "artt. 9 e 54 TUIR (compensi percepiti in natura: valore normale, principio di cassa); art. 121 D.L. 34/2020; prassi dell'Agenzia sul "
+                     "trattamento del maggior credito da verificare con ricerca; art. 1 D.P.R. 600/73 (dichiarazione); art. 19 D.Lgs. 446/97 (IRAP)",
+            "ragionamento": "sconto integrale in fattura -> il fornitore incassa il credito (110% della spesa) al posto del corrispettivo (100%) -> la differenza e' "
+                            "un ricavo non fatturato -> se la dichiarazione espone solo i compensi fatturati, il 10% non e' stato dichiarato",
+            "verifiche": ["dichiarazione dei redditi degli anni di accettazione (quadro RE: RE2, RE3, RE5; IRAP)", "registro incassi e pagamenti: come e' stata registrata la differenza",
+                          "data di acquisizione del credito (accettazione) per la competenza per cassa", "prassi dell'Agenzia sul trattamento del maggior credito"],
+            "effetti": ["maggior reddito di lavoro autonomo (IRPEF e addizionali)", "maggiore base IRAP", "dichiarazione infedele per gli anni interessati"],
+            "affidabilita": "probabile", "importi": imp_ecc[:4], "origine": "programma"})
     if tot["auto_acc"] or tot["auto_rif"]:
         riscontri.append({
             "chiave": "cr:autocessione", "fase": "coerenza_interna", "periodo": "quote " + "-".join(str(a) for a in (min(per_anno), max(per_anno))),

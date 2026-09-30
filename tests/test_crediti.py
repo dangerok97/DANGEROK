@@ -38,8 +38,12 @@ def test_xlsx_riconosciuto_e_ricostruito():
     d = {x["id"]: x["valore"] for x in r["dati"]}
     assert d["CR_RICACC_2024"] == "100.00" and d["CR_AUTOACC_2024"] == "20.00" and d["CR_DISP_2024"] == "120.00"   # il duplicato a3 conta una volta
     assert d["CR_DISP_TOT"] == "220.00"
+    assert {"CR_ECC10_n.d.", "CR_ECC10_"} & set(d) or any(k.startswith("CR_ECC10_") for k in d)        # 10/110 del credito accettato, per anno di accettazione
     chiavi = {x["chiave"] for x in r["riscontri"]}
-    assert {"cr:autocessione", "cr:duplicati", "cr:rifiutati"} <= chiavi
+    assert {"cr:autocessione", "cr:duplicati", "cr:rifiutati", "cr:eccedenza10"} <= chiavi
+    ecc = next(x for x in r["riscontri"] if x["chiave"] == "cr:eccedenza10")
+    assert ecc["verifiche"] and ecc["affidabilita"] == "probabile" and ecc["importi"][0].startswith("CR_ECC10_")
+    assert round(Decimal(d[ecc["importi"][0]]), 2) == round(Decimal("220.00") / 11, 2)
     auto = next(x for x in r["riscontri"] if x["chiave"] == "cr:autocessione")
     assert auto["verifiche"] and auto["ragionamento"] and auto["importi"] == ["CR_AUTOACC_2024"]
     assert "99,00" in r["prospetto"] or "99.00" in r["prospetto"]            # 110% di 90
