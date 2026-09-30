@@ -248,11 +248,10 @@ class Pseudonymizer:
     def verifica(self, testo_anonimo: str) -> list[str]:
         problemi: list[str] = []
         pulito = TOKEN_RE.sub(" ", testo_anonimo)
-        for cat, canon, vs in self._voci:
-            for v in vs:
-                if re.search(r"(?<![A-Za-z0-9À-ÿ])" + _pattern_da_variante(v) + r"(?![A-Za-z0-9À-ÿ])", pulito, re.IGNORECASE):
-                    problemi.append(f"{cat} ancora presente")
-                    break
+        rx, mappa = self._regex_anagrafica()
+        if rx is not None:
+            for m in rx.finditer(pulito):
+                problemi.append(f"{mappa[_chiave(m.group(0))][0]} ancora presente")
         checks = [("CF", RE_CF), ("P.IVA/CF numerico", RE_PIVA), ("e-mail", RE_EMAIL), ("indirizzo", RE_INDIRIZZO)]
         for nome, rx in checks:
             if rx.search(pulito):
