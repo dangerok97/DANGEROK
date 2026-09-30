@@ -14,10 +14,10 @@ from sqlalchemy import select
 from starlette.middleware.sessions import SessionMiddleware
 
 from . import ai as ai_mod
-from . import analisi, atti_word, calcoli, chat as chat_mod, pvoc as pvoc_mod, invito_word, llm_compat, norme, scheda_ai, piano as piano_mod, schede, security, tipologie, workflow, wordexport
+from . import analisi, atti_word, calcoli, chat as chat_mod, metodo as metodo_mod, pvoc as pvoc_mod, invito_word, llm_compat, norme, scheda_ai, piano as piano_mod, schede, security, tipologie, workflow, wordexport
 from .config import Settings
 from .db import crea_engine, crea_sessionmaker
-from .models import Atto, DocumentoPratica, FasePratica, FatturaPratica, FonteNormativa, Impostazione, LogAI, MessaggioChat, Pratica, Utente
+from .models import Atto, ConoscenzaReparto, DocumentoPratica, FasePratica, FatturaPratica, FonteNormativa, Impostazione, LogAI, MessaggioChat, Pratica, Utente
 
 BASE = pathlib.Path(__file__).parent
 ISTRUZIONI = {
@@ -794,6 +794,14 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
                     voce["esito"], voce["sintesi"] = "non_riuscita", f"Errore della ricerca ({type(e).__name__})."
             base.append(voce)
 
+    def metodo_per(s, d: dict, p: Pratica, atto: str = "", extra: str = "") -> tuple[str, list[str]]:
+        """(metodo del Reparto pertinente al caso, brani di stile) dalla libreria."""
+        fasc = d.get("fascicolo", {}) or {}
+        q = " ".join([tipologie.TIPOLOGIE[p.tipologia]["nome"], p.tipologia.replace("_", " "), fasc.get("motivazione", ""),
+                      fasc.get("obiettivo", ""), " ".join(v.get("quesito", "") for v in d.get("base_normativa", [])), extra])
+        voci = libreria_di(s)
+        return metodo_mod.metodo_testo(metodo_mod.seleziona(voci, q, atto)), metodo_mod.esempi_di_stile(voci, q, atto) if atto else []
+
     def turno(request: Request, s, p: Pratica, testo_utente: str, forza: bool = False):
         """Un giro di conversazione. Ritorna (risposta_html_ctx). Nulla viene salvato se qualcosa fallisce o viene bloccato."""
         d = dati_di(p)
@@ -810,7 +818,8 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
             ctx_txt = chat_mod.contesto(p.tipo, tipologie.TIPOLOGIE[p.tipologia]["nome"], fasi, d, docs_ctx,
                                         [{"tipo": a.tipo, "giornata": a.giornata, "fase": a.fase} for a in p.atti],
                                         pvoc_primo_iniziale(p, d), prospetto=d.get("prospetto_fatture", ""),
-                                        voci=registro_sicuro(d).elenco_per_prompt(), base_normativa=d.get("base_normativa", []))
+                                        voci=registro_sicuro(d).elenco_per_prompt(), base_normativa=d.get("base_normativa", []),
+                                        metodo=metodo_per(s, d, p)[0])
             return pseudo.anonimizza_o_blocca(chat_mod.system() + "\n\nMODO DI OPERARE DEL REPARTO:\n"
                                               + ai_mod.playbook() + "\n\nSTATO DELLA PRATICA:\n" + ctx_txt)
         visibili: list[str] = []
@@ -986,6 +995,9 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
                 appunti += "\nBASE NORMATIVA RACCOLTA (fonti aperte, ricerche automatiche):\n" + chat_mod.base_normativa_testo(d["base_normativa"], 9000)
             istruzione += (" Riferimenti normativi, di prassi e giurisprudenziali: usa solo quelli presenti in BASE NORMATIVA RACCOLTA o nei "
                            "RISCONTRI; se te ne serve un altro scrivi [DA COMPILARE: riferimento da verificare].")
+            metodo_txt, esempi = metodo_per(s, d, p, f.atto, f.titolo)
+            appunti += "\nMETODO DEL REPARTO PERTINENTE (precedenti, schede di ragionamento, spunti operativi):\n" + metodo_txt
+            istruzione += "\n\n" + metodo_mod.REGOLA_CONCILIAZIONE
             if ris:
                 appunti += ("\nRISCONTRI CONFERMATI DA CONSTATARE IN QUESTO ATTO (id | periodo | tipo):\n" + "\n".join(
                     f"- {r['id']} | {r['periodo']} | {r['tipo']}: {r['descrizione']} Norma: {r['norma']}. Importi tracciati: "
@@ -1006,7 +1018,7 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
                     return render(request, "chat.html", **ctx_chat(s, p, sospetti=sosp, bozza="",
                                                                   errore="Prima di redigere l'atto indica come trattare questi nomi."))
                 b = ai_mod.genera_bozza(pseudo, istruzione=istruzione, contesto=contesto, checklist=list(f.checklist),
-                                        modello=st.anthropic_model, client=ai_client, registro=registro)
+                                        esempi=esempi, modello=st.anthropic_model, client=ai_client, registro=registro)
             except ai_mod.LeakError as e:
                 return render(request, "chat.html", **ctx_chat(s, p, errore=f"Invio BLOCCATO: {e}."))
             except (ai_mod.AIDisattivata, ai_mod.AIRifiutata, llm_compat.ServizioAIErrore) as e:
@@ -1024,6 +1036,134 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
         salva_dati(p, d)
         s.commit()
         return RedirectResponse(f"/pratiche/{pid}/atto/{a.id}", status_code=303)
+
+    # ---------------------------------------------------------------- libreria del Reparto (metodo, precedenti, spunti)
+    def libreria_di(s) -> list[dict]:
+        out = []
+        for x in s.scalars(select(ConoscenzaReparto).order_by(ConoscenzaReparto.id)).all():
+            v = cif.decifra_json(x.dati_cifrati) or {}
+            out.append({"id": x.id, "tipo": x.tipo, "atto": x.atto, "stato": x.stato, "titolo": v.get("titolo", ""),
+                        "tag": v.get("tag", ""), "testo": v.get("testo", ""), "scheda": v.get("scheda", ""),
+                        "sospetti": v.get("sospetti", [])})
+        return out
+
+    def voce_salva(x: ConoscenzaReparto, **campi) -> None:
+        v = cif.decifra_json(x.dati_cifrati) or {}
+        v.update(campi)
+        x.dati_cifrati = cif.cifra_json(v)
+
+    def libreria_ctx(s, **extra) -> dict:
+        voci = libreria_di(s)
+        return {"voci": voci, "da_rivedere": [v for v in voci if v["stato"] == "da_revisionare"], "errore": None, "nota": None,
+                "ai": _stato_ai(), **extra}
+
+    def distilla_voce(s, x: ConoscenzaReparto) -> str | None:
+        """Estrae la scheda di ragionamento da un precedente pronto. Ritorna un messaggio d'errore oppure None."""
+        v = cif.decifra_json(x.dati_cifrati) or {}
+        try:
+            scheda = metodo_mod.distilla(ai_client or ai_mod._client(), st.anthropic_model, x.atto, v.get("testo", ""))
+        except ai_mod.LeakError as e:
+            return f"Scheda non estratta: nel testo resta qualcosa di riconoscibile ({e})."
+        except (ai_mod.AIDisattivata, ai_mod.AIRifiutata, llm_compat.ServizioAIErrore) as e:
+            return f"Scheda non estratta: {e}"
+        except Exception as e:
+            return f"Scheda non estratta ({type(e).__name__}): riprova dal pulsante «Estrai di nuovo il ragionamento»."
+        voce_salva(x, scheda=scheda)
+        return None
+
+    def inserisci_voce(s, tipo: str, atto: str, titolo: str, tag: str, testo: str) -> tuple[ConoscenzaReparto, str | None]:
+        pulito, sospetti = metodo_mod.ripulisci(testo)
+        x = ConoscenzaReparto(tipo=tipo, atto=atto if atto in ("PVOC", "PVV", "PVC", "CNR") else "",
+                              stato="da_revisionare" if sospetti else "pronto")
+        x.dati_cifrati = cif.cifra_json({"titolo": titolo.strip()[:200] or "Senza titolo", "tag": tag.strip()[:200],
+                                         "testo": pulito, "scheda": "", "sospetti": sospetti})
+        s.add(x)
+        s.flush()
+        errore = None
+        if tipo == "precedente" and not sospetti:
+            errore = distilla_voce(s, x)
+        s.commit()
+        return x, errore
+
+    @app.get("/libreria", response_class=HTMLResponse)
+    def libreria_vista(request: Request, u=Depends(utente_corrente), s=Depends(db)):
+        return render(request, "libreria.html", **libreria_ctx(s))
+
+    @app.post("/libreria/spunto", response_class=HTMLResponse)
+    def libreria_spunto(request: Request, titolo: str = Form(...), tag: str = Form(""), atto: str = Form(""),
+                        testo: str = Form(...), csrf: str = Form(""), u=Depends(utente_corrente), s=Depends(db)):
+        check_csrf(request, csrf)
+        if not testo.strip():
+            return render(request, "libreria.html", **libreria_ctx(s, errore="Scrivi il testo dello spunto."))
+        inserisci_voce(s, "spunto", atto, titolo, tag, testo.strip()[:8000])
+        return render(request, "libreria.html", **libreria_ctx(s, nota="Spunto salvato."))
+
+    @app.post("/libreria/precedente", response_class=HTMLResponse)
+    async def libreria_precedente(request: Request, u=Depends(utente_corrente), s=Depends(db)):
+        f = await request.form()
+        check_csrf(request, f.get("csrf", ""))
+        up = f.get("file")
+        if up is None or not getattr(up, "filename", ""):
+            return render(request, "libreria.html", **libreria_ctx(s, errore="Scegli il file dell'atto."))
+        dati_file = await up.read()
+        if len(dati_file) > 15 * 1024 * 1024:
+            return render(request, "libreria.html", **libreria_ctx(s, errore="File troppo grande (massimo 15 MB)."))
+        try:
+            _, testo, _ = chat_mod.estrai_testo(up.filename, dati_file)
+        except ValueError as e:
+            return render(request, "libreria.html", **libreria_ctx(s, errore=str(e)))
+        x, errore = inserisci_voce(s, "precedente", str(f.get("atto", "")), str(f.get("titolo", "")) or up.filename.rsplit(".", 1)[0],
+                                   str(f.get("tag", "")), testo)
+        nota = ("Atto caricato. Prima di usarlo controlla i nomi dubbi qui sotto." if x.stato == "da_revisionare"
+                else "Atto caricato e ripulito dai dati personali." + ("" if errore else " Ragionamento estratto."))
+        return render(request, "libreria.html", **libreria_ctx(s, nota=nota, errore=errore))
+
+    @app.post("/libreria/{vid}/revisione", response_class=HTMLResponse)
+    async def libreria_revisione(request: Request, vid: int, u=Depends(utente_corrente), s=Depends(db)):
+        """L'operatore classifica i nomi dubbi (persona / ente / non e' un dato personale); poi il testo e' pronto."""
+        f = await request.form()
+        check_csrf(request, f.get("csrf", ""))
+        x = s.get(ConoscenzaReparto, vid)
+        if not x:
+            raise HTTPException(404)
+        v = cif.decifra_json(x.dati_cifrati) or {}
+        scelte = {str(n): str(t) for n, t in zip(f.getlist("nome"), f.getlist("tipo"))}
+        testo = metodo_mod.applica_nomi(v.get("testo", ""), scelte)
+        testo, ancora = metodo_mod.ripulisci(testo)
+        ignorati = {n for n, t in scelte.items() if t == "ignora"}
+        ancora = [n for n in ancora if n not in ignorati]
+        voce_salva(x, testo=testo, sospetti=ancora)
+        x.stato = "da_revisionare" if ancora else "pronto"
+        errore = None
+        if x.stato == "pronto" and x.tipo == "precedente":
+            errore = distilla_voce(s, x)
+        s.commit()
+        return render(request, "libreria.html", **libreria_ctx(s, errore=errore,
+                                                               nota="Testo pronto." if x.stato == "pronto" else "Restano nomi da classificare."))
+
+    @app.post("/libreria/{vid}/scheda", response_class=HTMLResponse)
+    def libreria_scheda(request: Request, vid: int, scheda: str = Form(""), azione: str = Form("salva"), csrf: str = Form(""),
+                        u=Depends(utente_corrente), s=Depends(db)):
+        check_csrf(request, csrf)
+        x = s.get(ConoscenzaReparto, vid)
+        if not x:
+            raise HTTPException(404)
+        errore = None
+        if azione == "rigenera":
+            errore = distilla_voce(s, x)
+        else:
+            voce_salva(x, scheda=scheda.strip()[:6000])
+        s.commit()
+        return render(request, "libreria.html", **libreria_ctx(s, errore=errore))
+
+    @app.post("/libreria/{vid}/elimina")
+    def libreria_elimina(request: Request, vid: int, csrf: str = Form(""), u=Depends(utente_corrente), s=Depends(db)):
+        check_csrf(request, csrf)
+        x = s.get(ConoscenzaReparto, vid)
+        if x:
+            s.delete(x)
+            s.commit()
+        return RedirectResponse("/libreria", status_code=303)
 
     # ---------------------------------------------------------------- impostazioni e prova AI
     def _stato_ai() -> dict:

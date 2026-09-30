@@ -127,3 +127,15 @@ class FatturaPratica(Base):
     pratica_id: Mapped[int] = mapped_column(ForeignKey("pratica.id"))
     documento_id: Mapped[int] = mapped_column(Integer, default=0)
     dati_cifrati: Mapped[str] = mapped_column(Text, default="")
+
+
+class ConoscenzaReparto(Base):
+    """Metodo del Reparto, valido per tutte le pratiche: atti precedenti (gia' ripuliti da dati personali), schede di
+    ragionamento ricavate da essi e spunti operativi scritti dall'operatore. I testi stanno nel blocco cifrato."""
+    __tablename__ = "conoscenza_reparto"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tipo: Mapped[str] = mapped_column(String(12))                # precedente | spunto
+    atto: Mapped[str] = mapped_column(String(10), default="")    # PVOC | PVV | PVC | CNR | (vuoto)
+    stato: Mapped[str] = mapped_column(String(16), default="pronto")   # da_revisionare | pronto
+    dati_cifrati: Mapped[str] = mapped_column(Text, default="")  # {titolo, tag, testo, scheda, sospetti}
+    creato_il: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now)

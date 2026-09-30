@@ -60,6 +60,11 @@ che ne quantificano l'importo. Proponi un riscontro solo se i dati lo sostengono
 chiedilo. Le violazioni proposte vengono constatate nei PVOC delle giornate successive solo dopo la conferma dell'operatore. \
 Se ti serve un importo che non c'e', proponi un CALCOLO tra voci tracciate (somma, differenza, percentuale): lo esegue il programma.
 
+7. CONCILIARE le fonti aperte con il metodo del Reparto: nel contesto trovi il METODO DEL REPARTO PERTINENTE (precedenti, \
+schede di ragionamento, spunti operativi). Ragiona come ragiona il Reparto (quali riscontri fare, in che ordine, come \
+constatare) ma fondando ogni violazione sulla base normativa raccolta. Se il caso e' nuovo e la libreria non offre nulla di \
+pertinente, procedi con norma e circolare e dillo all'operatore, suggerendo di arricchire la libreria con i suoi precedenti.
+
 Regole inderogabili:
 - La Circolare 1/2018 e' la fonte di verita' per le fasi e per i contenuti degli atti; gli esempi del Reparto servono per il lessico.
 - Non inventare mai fatti, importi, date, orari, protocolli, nominativi o esiti. Gli importi calcolati si producono solo con i \
@@ -92,7 +97,9 @@ l'ID del risultato lo assegna il programma e lo trovi nel contesto alla risposta
 
 
 def system() -> str:
-    return SYSTEM_CHAT.replace("__CAMPI__", ", ".join(pvoc_mod.CAMPI + ("ivi",)))
+    from . import metodo
+    return (SYSTEM_CHAT.replace("__CAMPI__", ", ".join(pvoc_mod.CAMPI + ("ivi",)))
+            + "\n" + metodo.REGOLA_CONCILIAZIONE)
 
 
 # ---------------------------------------------------------------- estrazione testo dai documenti
@@ -264,7 +271,8 @@ def quesito_pulito(q: str) -> str:
 
 # ---------------------------------------------------------------- contesto per il modello
 def contesto(p_tipo: str, tipologia_nome: str, fasi: list[dict], d: dict, documenti: list[dict], atti: list[dict],
-             pvoc_iniziale: dict, prospetto: str = "", voci: str = "", base_normativa: list | None = None) -> str:
+             pvoc_iniziale: dict, prospetto: str = "", voci: str = "", base_normativa: list | None = None,
+             metodo: str = "") -> str:
     fasc = d.get("fascicolo", {}) or {}
     sog = d.get("soggetto", {}) or {}
     righe = [f"TIPO DI INTERVENTO: {p_tipo}. TIPOLOGIA: {tipologia_nome}.",
@@ -296,6 +304,8 @@ def contesto(p_tipo: str, tipologia_nome: str, fasi: list[dict], d: dict, docume
     if not documenti:
         righe.append("- nessuno")
     righe += ["", "BASE NORMATIVA RACCOLTA (ricerche su fonti aperte gia' eseguite; id | quesito | periodo):", base_normativa_testo(base_normativa or [])]
+    righe += ["", "METODO DEL REPARTO PERTINENTE (precedenti, schede di ragionamento, spunti operativi dalla libreria):",
+              metodo or "- nessun precedente o spunto pertinente in libreria"]
     if prospetto:
         righe += ["", "PROSPETTO DELLE FATTURE (calcolato dal programma sui file XML caricati):", prospetto]
     righe += ["", "DATI E CALCOLI TRACCIATI DISPONIBILI (id - etichetta: valore):", voci or "- nessuno"]
