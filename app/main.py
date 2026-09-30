@@ -14,10 +14,10 @@ from sqlalchemy import select
 from starlette.middleware.sessions import SessionMiddleware
 
 from . import ai as ai_mod
-from . import atti_word, calcoli, pvoc as pvoc_mod, invito_word, llm_compat, norme, scheda_ai, piano as piano_mod, schede, security, tipologie, workflow, wordexport
+from . import atti_word, calcoli, chat as chat_mod, pvoc as pvoc_mod, invito_word, llm_compat, norme, scheda_ai, piano as piano_mod, schede, security, tipologie, workflow, wordexport
 from .config import Settings
 from .db import crea_engine, crea_sessionmaker
-from .models import Atto, FasePratica, FonteNormativa, Impostazione, LogAI, Pratica, Utente
+from .models import Atto, DocumentoPratica, FasePratica, FonteNormativa, Impostazione, LogAI, MessaggioChat, Pratica, Utente
 
 BASE = pathlib.Path(__file__).parent
 ISTRUZIONI = {
@@ -559,13 +559,22 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
                      "residenza": (sog.get("indirizzi") or [""])[0], "cf": (sog.get("codici_fiscali") or [""])[0],
                      "piva": (sog.get("partite_iva") or [""])[0],
                      "ragione": d.get("profilo", {}).get("ragione", "")})
-        return {**base, **d.get("pvoc_primo", {})}
+        manuale = {k: v for k, v in d.get("pvoc_primo", {}).items() if v not in ("", None)}
+        return {**base, **d.get("fascicolo", {}).get("pvoc_primo", {}), **manuale}
 
     @app.get("/pratiche/{pid}/pvoc-primo", response_class=HTMLResponse)
     def pvoc_primo_form(request: Request, pid: int, u=Depends(utente_corrente), s=Depends(db)):
         p = carica(s, pid)
         d = dati_di(p)
         return render(request, "pvoc_primo.html", p=p, v=pvoc_primo_iniziale(p, d), verbalizzanti=d.get("verbalizzanti", []))
+
+    def crea_pvoc_primo(s, p: Pratica, d: dict, dati: dict) -> Atto:
+        testo = pvoc_mod.primo_giorno(dati, d.get("verbalizzanti", []),
+                                      impresa=d.get("profilo", {}).get("forma", "impresa") == "impresa")
+        a = Atto(pratica_id=p.id, tipo="PVOC", fase="avvio", giornata=dati.get("data", ""), generato_da_ai=0,
+                 contenuto_cifrato=cif.cifra_testo(testo))
+        s.add(a)
+        return a
 
     @app.post("/pratiche/{pid}/pvoc-primo")
     async def pvoc_primo_crea(request: Request, pid: int, u=Depends(utente_corrente), s=Depends(db)):
@@ -577,11 +586,7 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
         dati["ivi"] = bool(f.get("ivi"))
         d["pvoc_primo"] = dati
         salva_dati(p, d)
-        testo = pvoc_mod.primo_giorno(dati, d.get("verbalizzanti", []),
-                                      impresa=d.get("profilo", {}).get("forma", "impresa") == "impresa")
-        a = Atto(pratica_id=p.id, tipo="PVOC", fase="avvio", giornata=dati["data"], generato_da_ai=0,
-                 contenuto_cifrato=cif.cifra_testo(testo))
-        s.add(a)
+        a = crea_pvoc_primo(s, p, d, dati)
         s.commit()
         return RedirectResponse(f"/pratiche/{pid}/atto/{a.id}", status_code=303)
 
@@ -693,6 +698,215 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
         contenuto = invito_word.crea_invito(dati, p.tipo, reparto_di(s))
         return Response(contenuto, media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                         headers={"Content-Disposition": f'attachment; filename="INVITO_{p.codice}_{p.tipo}.docx"'})
+
+    # ---------------------------------------------------------------- assistente conversazionale
+    def fasi_chat(p: Pratica) -> list[dict]:
+        stati = stati_di(p)
+        return [{"chiave": f.chiave, "titolo": f.titolo, "stato": stati.get(f.chiave, "da_fare"), "atto": f.atto,
+                 "condizionale": f.condizionale} for f in workflow.fasi_per(p.tipo)]
+
+    def documenti_di(s, p: Pratica) -> list[dict]:
+        docs = s.scalars(select(DocumentoPratica).where(DocumentoPratica.pratica_id == p.id).order_by(DocumentoPratica.id)).all()
+        return [{"id": x.id, "nome": cif.decifra_testo(x.nome_cifrato), "tipo": x.tipo, "caratteri": x.caratteri,
+                 "testo": cif.decifra_testo(x.testo_cifrato)} for x in docs]
+
+    def messaggi_di(s, p: Pratica) -> list[MessaggioChat]:
+        return list(s.scalars(select(MessaggioChat).where(MessaggioChat.pratica_id == p.id).order_by(MessaggioChat.id)).all())
+
+    def ctx_chat(s, p: Pratica, **extra) -> dict:
+        d = dati_di(p)
+        fasc = d.get("fascicolo", {}) or {}
+        fasi_val = {f["chiave"]: f["atto"] for f in fasi_chat(p)}
+        prop = [{**x, "titolo": next((f["titolo"] for f in fasi_chat(p) if f["chiave"] == x["fase"]), x["fase"])}
+                for x in fasc.get("proposte", []) if x.get("fase") in fasi_val]
+        base = dict(p=p, msgs=[(m.ruolo, cif.decifra_testo(m.contenuto_cifrato)) for m in messaggi_di(s, p)],
+                    documenti=documenti_di(s, p), fascicolo=fasc, proposte=prop, ai=_stato_ai(),
+                    bozza="", errore=None, sospetti=None, nota=None)
+        base.update(extra)
+        return base
+
+    def pseudo_per(d: dict):
+        pseudo = ai_mod.costruisci_pseudonimizzatore(d)
+        for n in d.get("chat_persone", []):
+            pseudo.aggiungi_persona(n)
+        for n in d.get("chat_enti", []):
+            pseudo.aggiungi_ente(n)
+        return pseudo
+
+    def registra_nomi(d: dict, nomi: list[tuple[str, str]]) -> None:
+        """Aggiunge all'anagrafica (quindi alla pseudonimizzazione) persone/enti citati nei documenti o indicati dall'operatore."""
+        for n, tipo in nomi:
+            chiave = "chat_enti" if tipo == "ente" else "chat_persone"
+            if n and n not in d.setdefault(chiave, []):
+                d[chiave].append(n)
+
+    def turno(request: Request, s, p: Pratica, testo_utente: str, forza: bool = False):
+        """Un giro di conversazione. Ritorna (risposta_html_ctx). Nulla viene salvato se qualcosa fallisce o viene bloccato."""
+        d = dati_di(p)
+        pseudo = pseudo_per(d)
+        storia = [(m.ruolo, cif.decifra_testo(m.contenuto_cifrato)) for m in messaggi_di(s, p)][-30:]
+        if storia and storia[0][0] != "user":
+            storia = storia[1:]
+        storia.append(("user", testo_utente))
+        try:
+            fasi = fasi_chat(p)
+            ctx_txt = chat_mod.contesto(p.tipo, tipologie.TIPOLOGIE[p.tipologia]["nome"], fasi, d, documenti_di(s, p),
+                                        [{"tipo": a.tipo, "giornata": a.giornata, "fase": a.fase} for a in p.atti],
+                                        pvoc_primo_iniziale(p, d))
+            system = pseudo.anonimizza_o_blocca(chat_mod.system() + "\n\nMODO DI OPERARE DEL REPARTO:\n"
+                                                + ai_mod.playbook() + "\n\nSTATO DELLA PRATICA:\n" + ctx_txt)
+            msgs = [{"role": r, "content": pseudo.anonimizza_o_blocca(t)} for r, t in storia]
+            libero = "\n".join(m["content"] for m, (r, _) in zip(msgs, storia) if r == "user") + "\n" + "\n".join(
+                pseudo.anonimizza(x["testo"]) for x in documenti_di(s, p))          # solo testo scritto/caricato dall'operatore
+            ignora = set(d.get("chat_ignora", []))
+            sospetti = [n for n in chat_mod.nomi_sospetti(libero) if n not in ignora]
+            if sospetti and not forza:
+                return ctx_chat(s, p, bozza=testo_utente, sospetti=sospetti)
+            testo, stop, modello = ai_mod.chiama_chat(ai_client or ai_mod._client(), st.anthropic_model, system, msgs)
+        except ai_mod.LeakError as e:
+            s.add(LogAI(pratica_id=p.id, sezione="chat", testo_inviato="(bloccato)", esito="bloccato"))
+            s.commit()
+            return ctx_chat(s, p, bozza=testo_utente, errore=f"Invio BLOCCATO: {e}. Aggiungi il dato all'anagrafica della pratica.")
+        except (ai_mod.AIDisattivata, ai_mod.AIRifiutata) as e:
+            return ctx_chat(s, p, bozza=testo_utente, errore=str(e))
+        except llm_compat.ServizioAIErrore as e:
+            return ctx_chat(s, p, bozza=testo_utente, errore=str(e))
+        except Exception as e:                                   # errori di rete/servizio: non perdere il messaggio
+            return ctx_chat(s, p, bozza=testo_utente, errore=f"Errore del servizio AI ({type(e).__name__}). Riprova.")
+        visibile_anon, azioni = chat_mod.separa_azioni(testo)
+        visibile, _ = pseudo.ripristina(visibile_anon)
+        validate = chat_mod.valida_azioni(azioni, pseudo.ripristina, {f["chiave"]: f["atto"] for f in fasi})
+        chat_mod.applica_azioni(d, validate)
+        salva_dati(p, d)
+        s.add(LogAI(pratica_id=p.id, sezione="chat", modello=modello, testo_inviato=system + "\n\n" + "\n".join(
+            f"[{m['role']}] {m['content']}" for m in msgs)))
+        s.add(MessaggioChat(pratica_id=p.id, ruolo="user", contenuto_cifrato=cif.cifra_testo(testo_utente)))
+        s.add(MessaggioChat(pratica_id=p.id, ruolo="assistant", contenuto_cifrato=cif.cifra_testo(visibile)))
+        s.commit()
+        nota = "Risposta interrotta per lunghezza: chiedi di proseguire." if stop == "max_tokens" else None
+        return ctx_chat(s, p, nota=nota)
+
+    @app.get("/pratiche/{pid}/chat", response_class=HTMLResponse)
+    def chat_vista(request: Request, pid: int, u=Depends(utente_corrente), s=Depends(db)):
+        p = carica(s, pid)
+        return render(request, "chat.html", **ctx_chat(s, p))
+
+    @app.post("/pratiche/{pid}/chat", response_class=HTMLResponse)
+    async def chat_invia(request: Request, pid: int, u=Depends(utente_corrente), s=Depends(db)):
+        f = await request.form()
+        check_csrf(request, f.get("csrf", ""))
+        p = carica(s, pid)
+        testo = str(f.get("messaggio", "")).strip()
+        if not testo:
+            return render(request, "chat.html", **ctx_chat(s, p, errore="Scrivi un messaggio."))
+        return render(request, "chat.html", **turno(request, s, p, testo[:8000], forza=bool(f.get("forza"))))
+
+    @app.post("/pratiche/{pid}/chat/anagrafica", response_class=HTMLResponse)
+    async def chat_anagrafica(request: Request, pid: int, u=Depends(utente_corrente), s=Depends(db)):
+        """Per ogni nome segnalato: e' una persona, un ente oppure non e' un dato personale. Poi il messaggio riparte."""
+        f = await request.form()
+        check_csrf(request, f.get("csrf", ""))
+        p = carica(s, pid)
+        d = dati_di(p)
+        nomi, tipi = f.getlist("nome"), f.getlist("tipo")
+        for n, t in zip(nomi, tipi):
+            n = str(n).strip()
+            if t in ("persona", "ente"):
+                registra_nomi(d, [(n, t)])
+            elif t == "ignora" and n not in d.setdefault("chat_ignora", []):
+                d["chat_ignora"].append(n)
+        salva_dati(p, d)
+        s.commit()
+        testo = str(f.get("messaggio", "")).strip()
+        if not testo:
+            return render(request, "chat.html", **ctx_chat(s, p))
+        return render(request, "chat.html", **turno(request, s, p, testo))
+
+    @app.post("/pratiche/{pid}/chat/documento", response_class=HTMLResponse)
+    async def chat_documento(request: Request, pid: int, u=Depends(utente_corrente), s=Depends(db)):
+        f = await request.form()
+        check_csrf(request, f.get("csrf", ""))
+        p = carica(s, pid)
+        up = f.get("file")
+        if up is None or not getattr(up, "filename", ""):
+            return render(request, "chat.html", **ctx_chat(s, p, errore="Scegli un file da caricare."))
+        dati_file = await up.read()
+        if len(dati_file) > 15 * 1024 * 1024:
+            return render(request, "chat.html", **ctx_chat(s, p, errore="File troppo grande (massimo 15 MB)."))
+        try:
+            tipo, testo_doc, nomi = chat_mod.estrai_testo(up.filename, dati_file)
+        except ValueError as e:
+            return render(request, "chat.html", **ctx_chat(s, p, errore=str(e)))
+        d = dati_di(p)
+        registra_nomi(d, nomi)
+        salva_dati(p, d)
+        s.add(DocumentoPratica(pratica_id=p.id, nome_cifrato=cif.cifra_testo(up.filename[:200]), tipo=tipo,
+                               testo_cifrato=cif.cifra_testo(testo_doc), caratteri=len(testo_doc)))
+        s.commit()
+        return render(request, "chat.html", **turno(request, s, p, f"Ho caricato il documento «{up.filename[:120]}» ({tipo}, {len(testo_doc)} caratteri). Cosa ne deduci e cosa manca?"))
+
+    @app.post("/pratiche/{pid}/chat/genera", response_class=HTMLResponse)
+    def chat_genera(request: Request, pid: int, fase: str = Form(...), giornata: str = Form(""), csrf: str = Form(""),
+                    u=Depends(utente_corrente), s=Depends(db)):
+        check_csrf(request, csrf)
+        p = carica(s, pid)
+        try:
+            f = workflow.fase_per_chiave(p.tipo, fase)
+        except KeyError:
+            raise HTTPException(404)
+        if not f.atto:
+            raise HTTPException(400, "Questa fase non prevede un atto")
+        if f.atto == "INVITO":
+            return RedirectResponse(f"/pratiche/{pid}/invito", status_code=303)
+        try:
+            workflow.puo_avviare(p.tipo, fase, stati_di(p))
+        except workflow.OrdineViolato as e:
+            return render(request, "chat.html", **ctx_chat(s, p, errore=f"Ordine della circolare: {e}"))
+        d = dati_di(p)
+        giornata = giornata.strip()
+        rec = next((x for x in p.fasi if x.chiave == fase), None)
+        if p.tipo == "controllo" and fase == "avvio":            # PVOC del primo giorno: formule fisse del Reparto, senza AI
+            dati = pvoc_primo_iniziale(p, d)
+            if giornata:
+                dati["data"] = giornata
+            a = crea_pvoc_primo(s, p, d, dati)
+        else:
+            pseudo = pseudo_per(d)
+            fasc = d.get("fascicolo", {}) or {}
+            docs = documenti_di(s, p)
+            appunti = (f"MOTIVAZIONE DEL CONTROLLO: {fasc.get('motivazione', '')}\nOBIETTIVO: {fasc.get('obiettivo', '')}\n"
+                       "DOCUMENTI ACQUISITI:\n" + "\n".join(f"--- {x['nome']} ---\n{x['testo'][:chat_mod.MAX_DOC_NEL_PROMPT]}" for x in docs)
+                       + "\nINDICAZIONI DELL'OPERATORE NELLA CHAT:\n"
+                       + "\n".join(cif.decifra_testo(m.contenuto_cifrato) for m in messaggi_di(s, p) if m.ruolo == "user")[-12000:])
+            try:
+                contesto = contesto_ai(p, d, appunti, f, giornata)
+                registro = calcoli.registro_da_dati(d.get("calcoli", {}))
+                ignora = set(d.get("chat_ignora", []))
+                libero = "\n".join([fasc.get("motivazione", ""), fasc.get("obiettivo", "")] + [x["testo"] for x in docs]
+                                    + [cif.decifra_testo(mm.contenuto_cifrato) for mm in messaggi_di(s, p) if mm.ruolo == "user"])
+                sosp = [n for n in chat_mod.nomi_sospetti(pseudo.anonimizza(libero)) if n not in ignora]
+                if sosp:
+                    return render(request, "chat.html", **ctx_chat(s, p, sospetti=sosp, bozza="",
+                                                                  errore="Prima di redigere l'atto indica come trattare questi nomi."))
+                b = ai_mod.genera_bozza(pseudo, istruzione=ISTRUZIONI[f.atto], contesto=contesto, checklist=list(f.checklist),
+                                        modello=st.anthropic_model, client=ai_client, registro=registro)
+            except ai_mod.LeakError as e:
+                return render(request, "chat.html", **ctx_chat(s, p, errore=f"Invio BLOCCATO: {e}."))
+            except (ai_mod.AIDisattivata, ai_mod.AIRifiutata, llm_compat.ServizioAIErrore) as e:
+                return render(request, "chat.html", **ctx_chat(s, p, errore=str(e)))
+            except Exception as e:
+                return render(request, "chat.html", **ctx_chat(s, p, errore=f"Errore del servizio AI ({type(e).__name__}). Riprova."))
+            s.add(LogAI(pratica_id=p.id, sezione=f"{f.atto}/{f.chiave}", modello=b.modello, testo_inviato=b.inviato))
+            a = Atto(pratica_id=p.id, tipo=f.atto, fase=f.chiave, giornata=giornata, generato_da_ai=1,
+                     contenuto_cifrato=cif.cifra_testo(b.testo))
+            s.add(a)
+        if rec is not None and rec.stato == "da_fare":
+            rec.stato = "in_corso"
+        fasc = d.setdefault("fascicolo", {})
+        fasc["proposte"] = [x for x in fasc.get("proposte", []) if x.get("fase") != fase]
+        salva_dati(p, d)
+        s.commit()
+        return RedirectResponse(f"/pratiche/{pid}/atto/{a.id}", status_code=303)
 
     # ---------------------------------------------------------------- impostazioni e prova AI
     def _stato_ai() -> dict:

@@ -488,3 +488,135 @@ def test_pvoc_primo_giorno_da_interfaccia_senza_ai(ctx):
     t = "\n".join(p.text for p in d.paragraphs)
     assert "Il giorno 10/10/2023 in Tarquinia" in t and "alle ore 09:00" in t and "-\tfatture di vendita 2023" in t
     assert "Fatto, letto e chiuso in data e luogo come sopra, viene confermato e sottoscritto." in t
+
+
+# ------------------------------------------------------------------ assistente conversazionale (chat)
+def _chat_ai(ctx, risposte):
+    """Il finto servizio risponde in ordine con i testi indicati e registra cio' che riceve."""
+    visti = []
+
+    def crea(**kw):
+        visti.append(kw)
+        t = risposte[min(len(visti) - 1, len(risposte) - 1)]
+        return SimpleNamespace(stop_reason="end_turn", model="finto", content=[SimpleNamespace(type="text", text=t)])
+    ctx.fake.beta.messages.create = crea
+    return visti
+
+
+def _invia(c, pid, testo, **extra):
+    tok = csrf(c, f"/pratiche/{pid}/chat")
+    return c.post(f"/pratiche/{pid}/chat", data={"csrf": tok, "messaggio": testo, **extra})
+
+
+AZIONI = ('Mi serve la documentazione: fatture e registri IVA.\n<<AZIONI>>\n{"fascicolo": {"motivazione": "Anomalie su [ENTE_1]", '
+          '"obiettivo": "Verificare il regime"}, "pvoc_primo": {"ragione": "presentava acquisti in reverse charge", "ora_presentazione": "09:00", '
+          '"campo_inventato": "x"}, "richieste": [{"voce": "Fatture di acquisto 2023", "stato": "richiesto"}], '
+          '"proposte": [{"fase": "avvio", "giornata": "10/10/2023", "motivo": "ho i dati minimi"}, {"fase": "inesistente"}]}\n<<FINE>>')
+
+
+def test_chat_pseudonimizza_applica_azioni_e_propone(ctx):
+    c = entra(ctx)
+    pid = nuova_pratica(c)
+    visti = _chat_ai(ctx, [AZIONI])
+    r = _invia(c, pid, "Il controllo su Alfa Costruzioni S.r.l. nasce da anomalie. Contatto Mario Rossi.")
+    assert r.status_code == 200
+    inviato = str(visti[0]["system"]) + str(visti[0]["messages"])
+    assert "Alfa Costruzioni" not in inviato and "Mario Rossi" not in inviato and "[ENTE_1]" in inviato
+    assert "Mi serve la documentazione" in r.text and "AZIONI" not in r.text and "campo_inventato" not in r.text
+    assert "Anomalie su Alfa Costruzioni S.r.l." in r.text                       # segnaposto ripristinati
+    assert "Fatture di acquisto 2023" in r.text and "campo_inventato" not in r.text
+    assert "Redigi PVOC" in r.text and "inesistente" not in r.text
+    with ctx.SM() as s:
+        p = s.get(Pratica, pid)
+        d = ctx_dati(ctx, p)
+        assert d["fascicolo"]["pvoc_primo"] == {"ragione": "presentava acquisti in reverse charge", "ora_presentazione": "09:00"}
+        raw = s.execute(text("select contenuto_cifrato from messaggio_chat")).scalars().all()
+    assert raw and all("Alfa" not in x and "Rossi" not in x for x in raw)
+
+
+def ctx_dati(ctx, p):
+    from app import security
+    return security.Cifratore(ctx.st.data_key).decifra_json(p.dati_cifrati)
+
+
+def test_chat_blocca_nomi_non_in_anagrafica_e_poi_li_registra(ctx):
+    c = entra(ctx)
+    pid = nuova_pratica(c)
+    visti = _chat_ai(ctx, ["Ricevuto."])
+    r = _invia(c, pid, "Il fornitore Giovanni Verdi ha emesso le fatture.")
+    assert "Possibili nomi non in anagrafica" in r.text and "Giovanni Verdi" in r.text and not visti
+    tok = csrf(c, f"/pratiche/{pid}/chat")
+    r = c.post(f"/pratiche/{pid}/chat/anagrafica", data={"csrf": tok, "nome": "Giovanni Verdi", "tipo": "persona",
+                                                          "messaggio": "Il fornitore Giovanni Verdi ha emesso le fatture."})
+    assert r.status_code == 200 and visti
+    assert "Verdi" not in str(visti[0]["messages"]) and "[PERSONA_" in str(visti[0]["messages"])
+
+
+def test_chat_documento_fattura_xml_registra_i_nomi(ctx):
+    c = entra(ctx)
+    pid = nuova_pratica(c)
+    visti = _chat_ai(ctx, ["Letta la fattura."])
+    xml = ('<?xml version="1.0"?><p:FatturaElettronica xmlns:p="http://ivaservizi.agenziaentrate.gov.it/docs/xsd/fatture/v1.2">'
+           '<FatturaElettronicaHeader><CedentePrestatore><DatiAnagrafici><IdFiscaleIVA><IdPaese>IT</IdPaese><IdCodice>01234567897</IdCodice></IdFiscaleIVA>'
+           '<Anagrafica><Denominazione>Fornitura Zeta S.r.l.</Denominazione></Anagrafica></DatiAnagrafici></CedentePrestatore>'
+           '<CessionarioCommittente><DatiAnagrafici><Anagrafica><Denominazione>Alfa Costruzioni S.r.l.</Denominazione></Anagrafica></DatiAnagrafici></CessionarioCommittente></FatturaElettronicaHeader>'
+           '<FatturaElettronicaBody><DatiGenerali><DatiGeneraliDocumento><TipoDocumento>TD01</TipoDocumento><Data>2023-05-02</Data><Numero>12</Numero>'
+           '<ImportoTotaleDocumento>1220.00</ImportoTotaleDocumento></DatiGeneraliDocumento></DatiGenerali><DatiBeniServizi><DatiRiepilogo><AliquotaIVA>22.00</AliquotaIVA>'
+           '<ImponibileImporto>1000.00</ImponibileImporto><Imposta>220.00</Imposta></DatiRiepilogo></DatiBeniServizi></FatturaElettronicaBody></p:FatturaElettronica>').encode()
+    tok = csrf(c, f"/pratiche/{pid}/chat")
+    r = c.post(f"/pratiche/{pid}/chat/documento", data={"csrf": tok}, files={"file": ("fattura12.xml", xml, "text/xml")})
+    assert r.status_code == 200 and visti, r.text[:500]
+    inviato = str(visti[0]["system"]) + str(visti[0]["messages"])
+    assert "Fornitura Zeta" not in inviato and "Fattura TD01 n. 12 del 2023-05-02" in inviato and "1220.00" in inviato
+    assert "fattura12.xml" in r.text
+
+
+def test_chat_documento_formato_non_supportato(ctx):
+    c = entra(ctx)
+    pid = nuova_pratica(c)
+    tok = csrf(c, f"/pratiche/{pid}/chat")
+    r = c.post(f"/pratiche/{pid}/chat/documento", data={"csrf": tok}, files={"file": ("x.exe", b"MZ", "application/octet-stream")})
+    assert "Formato non supportato" in r.text
+
+
+def test_chat_genera_pvoc_primo_senza_ai_e_rispetta_l_ordine(ctx):
+    c = entra(ctx)
+    pid = nuova_pratica(c)
+    visti = _chat_ai(ctx, [AZIONI])
+    _invia(c, pid, "Il controllo su Alfa Costruzioni S.r.l. nasce da anomalie.")
+    n = len(visti)
+    tok = csrf(c, f"/pratiche/{pid}/chat")
+    r = c.post(f"/pratiche/{pid}/chat/genera", data={"csrf": tok, "fase": "avvio", "giornata": "10/10/2023"})
+    assert r.status_code == 200 and "Ordine della circolare" in r.text and len(visti) == n     # fasi precedenti non chiuse
+    for f in ("prep_autorizzazione", "foglio_servizio", "invito"):
+        c.post(f"/pratiche/{pid}/fase/{f}", data={"azione": "completa", "csrf": tok})
+    r = c.post(f"/pratiche/{pid}/chat/genera", data={"csrf": tok, "fase": "avvio", "giornata": "10/10/2023"})
+    assert r.status_code == 303 and len(visti) == n                                              # nessuna chiamata AI
+    t = c.get(r.headers["location"]).text
+    assert "presentava acquisti in reverse charge" in t and "09:00" in t and "10/10/2023" in t
+
+
+def test_chat_genera_giornata_successiva_con_ai(ctx):
+    c = entra(ctx)
+    pid = nuova_pratica(c)
+    tok = csrf(c, f"/pratiche/{pid}/chat")
+    for f in ("prep_autorizzazione", "foglio_servizio", "invito", "avvio"):
+        c.post(f"/pratiche/{pid}/fase/{f}", data={"azione": "completa", "csrf": tok})
+    visti = _chat_ai(ctx, ["Il giorno 12/10/2023 viene riaperto il processo verbale relativo a operazioni di [PERSONA_1]. {{SPIEGA: apertura}}"])
+    r = c.post(f"/pratiche/{pid}/chat/genera", data={"csrf": tok, "fase": "controllo_contabile", "giornata": "12/10/2023"})
+    assert r.status_code == 303, re.findall(r"class=.err.>(.*?)</p>", r.text, re.S)
+    assert "Mario Rossi" not in str(visti[0]["messages"])
+    assert "Mario Rossi" in c.get(r.headers["location"]).text
+
+
+def test_chat_errore_del_servizio_non_perde_il_messaggio(ctx):
+    c = entra(ctx)
+    pid = nuova_pratica(c)
+
+    def guasto(**kw):
+        raise RuntimeError("giu")
+    ctx.fake.beta.messages.create = guasto
+    r = _invia(c, pid, "Prova di messaggio")
+    assert "Errore del servizio AI" in r.text and "Prova di messaggio" in r.text
+    with ctx.SM() as s:
+        assert s.execute(text("select count(*) from messaggio_chat")).scalar() == 0

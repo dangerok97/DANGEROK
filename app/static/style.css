@@ -20,3 +20,10 @@ button.sec{background:transparent;color:var(--accent);border:1px solid var(--acc
 .inl{width:auto}.alta{min-height:60vh}input[name=motivo]{max-width:280px}
 .giallo{background:var(--giallo);color:#1a1a1a;font-style:italic;padding:6px 8px;border-radius:6px;margin:6px 0 0}
 .alta2{min-height:160px}
+.chat{display:flex;flex-direction:column;gap:.6rem;margin:1rem 0}
+.msg{max-width:92%;padding:.6rem .8rem;border-radius:10px;border:1px solid var(--bordo,#ccc)}
+.msg.user{align-self:flex-end;background:rgba(80,120,200,.12)}
+.msg.assistant{align-self:flex-start;background:rgba(120,120,120,.10)}
+.msg .chi{font-size:.75rem;opacity:.7;margin-bottom:.2rem}
+.msg .testo{white-space:pre-wrap}
+.propo{justify-content:space-between;align-items:center}

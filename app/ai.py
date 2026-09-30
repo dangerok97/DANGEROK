@@ -152,3 +152,17 @@ def genera_bozza(pseudo: Pseudonymizer, *, istruzione: str, contesto: str, check
                                                                 calcoli.importi_da_testo(contesto))
     return Bozza(ripristinato, system + "\n\n" + user, ignoti, getattr(risposta, "model", modello),
                  non_tracciati)
+
+
+def chiama_chat(client, modello: str, system: str, messaggi: list[dict], max_tokens: int = 8000):
+    """Un turno di conversazione (system e messaggi gia' pseudonimizzati). Restituisce (testo, stop_reason, modello)."""
+    risposta = client.beta.messages.create(
+        model=modello, max_tokens=max_tokens, system=system, messages=messaggi,
+        thinking={"type": "adaptive"}, output_config={"effort": "medium"},
+        betas=["server-side-fallback-2026-07-01"], fallbacks="default")
+    if getattr(risposta, "stop_reason", None) == "refusal":
+        raise AIRifiutata("Il modello ha rifiutato la richiesta (stop_reason=refusal).")
+    testo = "".join(b.text for b in risposta.content if getattr(b, "type", "") == "text")
+    if not testo.strip():
+        raise AIRifiutata("Il servizio AI ha restituito una risposta vuota: riprova.")
+    return testo, getattr(risposta, "stop_reason", None), getattr(risposta, "model", modello)

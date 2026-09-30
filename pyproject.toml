@@ -9,7 +9,7 @@ description = "Assistente privato per controlli e verifiche fiscali (Circolare 1
 requires-python = ">=3.11"
 dependencies = [
   "fastapi>=0.110", "uvicorn[standard]", "sqlalchemy>=2", "jinja2", "python-multipart", "itsdangerous",
-  "pyotp", "argon2-cffi", "cryptography", "python-docx", "anthropic>=1.9", "qrcode",
+  "pyotp", "argon2-cffi", "cryptography", "python-docx", "anthropic>=1.9", "qrcode", "lxml", "pypdf",
 ]
 [project.optional-dependencies]
 dev = ["pytest", "httpx"]

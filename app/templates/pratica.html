@@ -1,6 +1,7 @@
 {% extends "base.html" %}{% block titolo %}{{ p.codice }}{% endblock %}
 {% block corpo %}
 <h1>{{ p.codice }} <span class="tag">{{ p.tipo }}</span> <span class="tag">{{ tip.nome }}</span></h1>
+<p><a class="btn" href="/pratiche/{{ p.id }}/chat">Assistente (chat): racconta il caso e sviluppa gli atti</a></p>
 {% if prossima %}<div class="card"><b>Prossimo passo:</b> {{ prossima.titolo }}<br><small>{{ prossima.rif }}</small></div>{% endif %}
 {% if p.tipo == 'controllo' %}<p><a class="btn sec" href="/pratiche/{{ p.id }}/scheda">Scheda Allegato 23</a></p>{% endif %}
 <div class="card"><h2>Piano suggerito</h2>

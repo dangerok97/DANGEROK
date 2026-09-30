@@ -1,0 +1,45 @@
+{% extends "base.html" %}{% block titolo %}Assistente{% endblock %}
+{% block corpo %}
+<h1>Assistente <span class="tag">{{ p.codice }}</span></h1>
+<p><a href="/pratiche/{{ p.id }}">← Pratica e fasi</a> · <a href="/impostazioni">Impostazioni AI</a></p>
+{% if not ai.attiva %}<p class="err">Assistente AI disattivato: manca la chiave (vedi Impostazioni).</p>{% endif %}
+{% if ai.gratuito_con_dati_usati %}<p class="muted">Servizio AI gratuito: i contenuti possono essere usati dal fornitore. Usa solo dati inventati finche' il Comando non ha autorizzato l'uso.</p>{% endif %}
+{% if errore %}<p class="err">{{ errore }}</p>{% endif %}
+{% if nota %}<p class="muted">{{ nota }}</p>{% endif %}
+
+<div class="chat" id="chat">
+{% for ruolo, testo in msgs %}<div class="msg {{ ruolo }}"><div class="chi">{{ 'Tu' if ruolo == 'user' else 'Assistente' }}</div><div class="testo">{{ testo }}</div></div>
+{% else %}<div class="card"><b>Come iniziare.</b> Scrivi perche' si apre questo {{ p.tipo }} (riscontri gia' in possesso del Reparto, anomalie, segnalazioni) e a cosa vuoi arrivare. L'assistente ti chiedera' i documenti che servono (fatture, registri, libri contabili, dichiarazioni...) e poi, passo dopo passo e nell'ordine della circolare, prepara il PVOC del primo giorno, le giornate successive e il PVC.</div>{% endfor %}
+</div>
+
+{% if sospetti %}
+<form method="post" action="/pratiche/{{ p.id }}/chat/anagrafica" class="card"><input type="hidden" name="csrf" value="{{ csrf }}">
+<input type="hidden" name="messaggio" value="{{ bozza }}">
+<b>Possibili nomi non in anagrafica.</b> Prima di inviare, indica cosa sono: i nomi di persone ed enti vengono sostituiti con segnaposto prima di uscire verso l'AI.
+{% for n in sospetti %}<div class="row"><input type="hidden" name="nome" value="{{ n }}"><span>{{ n }}</span>
+<select name="tipo"><option value="persona">persona</option><option value="ente">ente / societa'</option><option value="ignora">non e' un dato personale</option></select></div>{% endfor %}
+<p><button>Applica e invia</button></p></form>
+{% endif %}
+
+{% if proposte %}<div class="card"><b>Proposte dell'assistente</b>
+{% for x in proposte %}<form method="post" action="/pratiche/{{ p.id }}/chat/genera" class="row propo"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="fase" value="{{ x.fase }}">
+<div><b>{{ x.titolo }}</b> <span class="tag">{{ x.atto }}</span>{% if x.motivo %}<br><small>{{ x.motivo }}</small>{% endif %}</div>
+<input name="giornata" value="{{ x.giornata }}" placeholder="gg/mm/aaaa" size="10"><button>Redigi {{ x.atto }}</button></form>{% endfor %}</div>{% endif %}
+
+<form method="post" action="/pratiche/{{ p.id }}/chat" class="card" id="invio"><input type="hidden" name="csrf" value="{{ csrf }}">
+<label for="messaggio">Scrivi all'assistente</label>
+<textarea id="messaggio" name="messaggio" rows="5" placeholder="Es. Il controllo nasce da ... Vorrei arrivare a verificare ...">{{ bozza if not sospetti else '' }}</textarea>
+<p class="row"><button id="invia">Invia</button><span class="muted" id="attesa" hidden>Sto elaborando…</span></p></form>
+
+<form method="post" action="/pratiche/{{ p.id }}/chat/documento" enctype="multipart/form-data" class="card"><input type="hidden" name="csrf" value="{{ csrf }}">
+<label for="file">Carica un documento (XML fatture, PDF con testo, Word, CSV, testo)</label>
+<input id="file" type="file" name="file"><p><button class="sec">Carica e analizza</button></p>
+<p class="muted">Del file si conserva il testo estratto, cifrato. I nomi delle fatture elettroniche sono pseudonimizzati in automatico.</p></form>
+
+<div class="card"><h2>Fascicolo</h2>
+<p><b>Motivazione:</b> {{ fascicolo.motivazione or '—' }}</p><p><b>Obiettivo:</b> {{ fascicolo.obiettivo or '—' }}</p>
+{% if fascicolo.richieste %}<p><b>Documenti richiesti</b></p><ul>{% for r in fascicolo.richieste %}<li>{{ r.voce }} <span class="tag {{ r.stato }}">{{ r.stato.replace('_', ' ') }}</span></li>{% endfor %}</ul>{% endif %}
+{% if documenti %}<p><b>Documenti acquisiti</b></p><ul>{% for x in documenti %}<li>{{ x.nome }} <span class="muted">({{ x.tipo }}, {{ x.caratteri }} caratteri)</span></li>{% endfor %}</ul>{% endif %}
+</div>
+<script src="/static/chat.js" defer></script>
+{% endblock %}

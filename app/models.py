@@ -96,3 +96,25 @@ class Impostazione(Base):
     __tablename__ = "impostazione"
     chiave: Mapped[str] = mapped_column(String(40), primary_key=True)
     valore_cifrato: Mapped[str] = mapped_column(Text, default="")
+
+
+class MessaggioChat(Base):
+    """Conversazione con l'assistente: il testo e' cifrato a riposo (contiene i dati reali, non i segnaposto)."""
+    __tablename__ = "messaggio_chat"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    pratica_id: Mapped[int] = mapped_column(ForeignKey("pratica.id"))
+    ruolo: Mapped[str] = mapped_column(String(10))               # user | assistant
+    contenuto_cifrato: Mapped[str] = mapped_column(Text, default="")
+    creato_il: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class DocumentoPratica(Base):
+    """Documento acquisito nel fascicolo: si conserva il testo estratto (cifrato), non il file originale."""
+    __tablename__ = "documento_pratica"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    pratica_id: Mapped[int] = mapped_column(ForeignKey("pratica.id"))
+    nome_cifrato: Mapped[str] = mapped_column(Text, default="")
+    tipo: Mapped[str] = mapped_column(String(16), default="testo")   # xml_fattura | testo | csv | docx | pdf
+    testo_cifrato: Mapped[str] = mapped_column(Text, default="")
+    caratteri: Mapped[int] = mapped_column(Integer, default=0)
+    creato_il: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now)
