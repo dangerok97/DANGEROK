@@ -23,6 +23,7 @@ class Settings:
     session_max_age: int = 8 * 3600
     max_login_failures: int = 5
     lock_minutes: int = 15
+    istruttoria_auto: bool = False      # istruttoria normativa automatica (ricerche su fonti aperte senza che l'AI le chieda)
 
     @staticmethod
     def load() -> "Settings":
@@ -39,4 +40,5 @@ class Settings:
             https_only=os.environ.get("HTTPS_ONLY", "1") != "0",
             anthropic_model=os.environ.get("ANTHROPIC_MODEL", "claude-opus-5-5"),
             setup_token=os.environ.get("SETUP_TOKEN", ""),
+            istruttoria_auto=os.environ.get("ISTRUTTORIA_AUTO", "1") != "0",
         )

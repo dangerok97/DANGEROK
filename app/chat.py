@@ -29,7 +29,10 @@ con tono professionale e sintetico. Il militare e' l'autore degli atti e ne rest
 Il tuo compito, in ordine:
 0. INFORMARTI, sempre e da solo. Ogni controllo e' un caso a se' e l'operatore puo' trovarsi davanti fattispecie che non ha \
 mai trattato: non contare su precedenti e non affidarti alla memoria per norme, circolari, risposte a interpello, sentenze. \
-Appena hai capito di che fattispecie si tratta, e ogni volta che ti serve chiarire un punto (requisiti e cause di esclusione di un \
+Il programma esegue GIA' da solo un'istruttoria normativa automatica (un pianificatore sceglie le ricerche su fonti aperte e ufficiali, \
+comprese circolari, risoluzioni e risposte dell'Agenzia delle Entrate, e le esegue prima che tu risponda; lo stesso vale per ogni nuovo rilievo): \
+leggi con attenzione BASE NORMATIVA RACCOLTA e PRASSI in biblioteca e usale; emetti tu altre ricerche solo per punti specifici che non risultano \
+coperti. Appena hai capito di che fattispecie si tratta, e ogni volta che ti serve chiarire un punto (requisiti e cause di esclusione di un \
 regime, presupposti di un'agevolazione, regole di fatturazione/registrazione, obblighi dichiarativi, sanzioni, termini, profili \
 penali e soglie, orientamenti della Cassazione e delle Corti di giustizia tributaria), emetti una o piu' "ricerche": il programma \
 consulta le fonti aperte e ufficiali (Normattiva, Gazzetta Ufficiale, Agenzia delle Entrate con circolari, risoluzioni e risposte \
@@ -563,3 +566,34 @@ def nomi_sospetti(testo_anonimo: str) -> list[str]:
         if all(w.lower() not in _NON_NOME for w in parole):
             out.append(m.group(0))
     return sorted(set(out))
+
+
+# ---------------------------------------------------------------- istruttoria normativa automatica
+SYSTEM_PIANO = """Sei il pianificatore delle ricerche su fonti aperte di un militare della Guardia di Finanza che deve istruire un \
+controllo o una verifica fiscale. Ricevi la descrizione del caso (senza dati personali) e, se presenti, i rilievi gia' emersi. Devi decidere \
+QUALI ricerche su fonti aperte ufficiali servono per istruire il caso con competenza, come farebbe un esperto che non conosce la materia: \
+(a) disciplina e presupposti dell'istituto o dell'agevolazione e cause di esclusione; (b) adempimenti e obblighi del soggetto controllato \
+(contabili, dichiarativi, di documentazione, certificazioni); (c) trattamento fiscale per il soggetto controllato dei vantaggi o dei \
+corrispettivi ricevuti (reddito, IVA, IRAP, ritenute, momento di rilevanza); (d) PRASSI dell'Agenzia delle Entrate: circolari, risoluzioni, \
+risposte a interpello e FAQ sul tema, con i numeri se li conosci (es. "circolare 23/E del 2022"); (e) violazioni e sanzioni applicabili, norme \
+sanzionatorie e termini; (f) profili penali e soglie (D.Lgs. 74/2000) e competenze della Guardia di Finanza; (g) orientamenti della Corte \
+di Cassazione e delle Corti di giustizia tributaria; (h) per ogni rilievo gia' emerso: cosa dice la prassi e la giurisprudenza su quel punto \
+esatto. Non ripetere le ricerche gia' eseguite. Scrivi ogni quesito in forma GENERALE, autosufficiente, senza nomi, importi, date o luoghi del caso, \
+indicando nel quesito il tipo di fonte cercata. Rispondi SOLO con un array JSON, al massimo {massimo} elementi, esattamente: \
+[{"quesito": "...", "periodo": "2023"}]"""
+
+
+def piano_da_testo(testo: str, massimo: int = 10) -> list[dict]:
+    """Quesiti validi dalla risposta del pianificatore (array JSON anche dentro testo o blocchi di codice); vuota se illeggibile."""
+    m = re.search(r"\[.*\]", testo, re.S)
+    if not m:
+        return []
+    try:
+        dati = json.loads(m.group(0))
+    except json.JSONDecodeError:
+        return []
+    out = []
+    for x in dati if isinstance(dati, list) else []:
+        if isinstance(x, dict) and str(x.get("quesito", "")).strip():
+            out.append({"quesito": str(x["quesito"]).strip()[:600], "periodo": str(x.get("periodo", "") or "").strip()[:40] or "in corso"})
+    return out[:massimo]

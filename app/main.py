@@ -818,36 +818,97 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
             if n and n not in d.setdefault(chiave, []):
                 d[chiave].append(n)
 
-    def esegui_ricerche(s, p: Pratica, d: dict, pseudo, client, ricerche: list[dict]) -> None:
-        """Consulta le fonti aperte per i quesiti generali proposti dall'assistente e ne registra esito e fonti."""
+    def esegui_ricerche(s, p: Pratica, d: dict, pseudo, client, ricerche: list[dict], budget_s: float = 80.0) -> int:
+        """Consulta le fonti aperte per i quesiti generali (in parallelo, entro un tempo massimo) e ne registra esito e fonti.
+        Ritorna quante ricerche sono andate a buon fine."""
+        import concurrent.futures as cf
         base = d.setdefault("base_normativa", [])
+        lavori = []                                               # (voce, quesito, periodo)
         for r in ricerche:
             q = chat_mod.quesito_pulito(r["quesito"])
-            voce = {"id": f"Q{len(base) + 1}", "quesito": q or "(quesito scartato: sembrava contenere nomi propri)",
+            voce = {"id": f"Q{len(base) + len(lavori) + 1}", "quesito": q or "(quesito scartato: sembrava contenere nomi propri)",
                     "periodo": r["periodo"], "data": dt.datetime.now(dt.timezone.utc).strftime("%d/%m/%Y"), "sintesi": "", "fonti": []}
             if not q:
                 voce["esito"] = "scartato"
-            elif any(x["quesito"] == q and x["periodo"] == r["periodo"] and x.get("esito") == "ok" for x in base):
+                base.append(voce)
+                voce["id"] = f"Q{len(base)}"
+            elif any(x["quesito"] == q and x["periodo"] == r["periodo"] and x.get("esito") == "ok" for x in base) or any(v[1] == q for v in lavori):
                 continue                                                          # gia' consultata
             else:
-                try:
-                    ric = norme.ricerca_normativa(pseudo, q, r["periodo"], client=client, modello=st.anthropic_model)
+                lavori.append((voce, q, r["periodo"]))
+        if not lavori:
+            return 0
+
+        def una(q, periodo):
+            try:
+                return norme.ricerca_normativa(pseudo, q, periodo, client=client, modello=st.anthropic_model), None
+            except Exception as e:                                # noqa: BLE001 - l'esito viene classificato sotto
+                return None, e
+        ex = cf.ThreadPoolExecutor(max_workers=min(4, len(lavori)))
+        futuri = [ex.submit(una, q, per) for _, q, per in lavori]
+        cf.wait(futuri, timeout=budget_s)
+        ex.shutdown(wait=False, cancel_futures=True)
+        ok = 0
+        for (voce, q, per), fu in zip(lavori, futuri):
+            if not fu.done():
+                voce["esito"], voce["sintesi"] = "non_riuscita", "Tempo scaduto: la ricerca verra' ripetuta al prossimo messaggio."
+            else:
+                ric, e = fu.result()
+                if e is None:
                     voce["esito"] = "ok"
+                    ok += 1
                     voce["sintesi"] = ric.risposta[:6000]
                     voce["fonti"] = [{"url": f.url, "titolo": f.titolo[:200], "dominio": f.dominio, "ufficiale": f.ufficiale,
                                       "estratto": f.estratto[:600]} for f in ric.fonti][:20]
                     for f in ric.fonti[:20]:
-                        s.add(FonteNormativa(pratica_id=p.id, quesito=q, periodo=r["periodo"], url=f.url[:600], titolo=f.titolo[:300],
+                        s.add(FonteNormativa(pratica_id=p.id, quesito=q, periodo=per, url=f.url[:600], titolo=f.titolo[:300],
                                              estratto=f.estratto, dominio=f.dominio[:120], ufficiale=int(f.ufficiale)))
-                except ai_mod.LeakError:
+                elif isinstance(e, ai_mod.LeakError):
                     voce["esito"], voce["quesito"] = "scartato", "(quesito scartato: conteneva dati riconoscibili)"
-                except llm_compat.NonSupportato as e:
+                elif isinstance(e, llm_compat.NonSupportato):
                     voce["esito"], voce["sintesi"] = "non_riuscita", str(e)
-                except llm_compat.ServizioAIErrore as e:
+                elif isinstance(e, llm_compat.ServizioAIErrore):
                     voce["esito"], voce["sintesi"] = "non_riuscita", e.messaggio
-                except Exception as e:
+                else:
                     voce["esito"], voce["sintesi"] = "non_riuscita", f"Errore della ricerca ({type(e).__name__})."
             base.append(voce)
+        return ok
+
+    def riscontri_da_istruire(d: dict) -> list[dict]:
+        return [r for r in d.get("riscontri", []) if r.get("stato") == "proposto" and not r.get("ricerca_prassi") and not r.get("fonti")][:6]
+
+    def istruttoria(s, p: Pratica, d: dict, pseudo, client, descrizione_caso: str, riscontri: list[dict] | None = None, massimo: int = 8) -> int:
+        """ISTRUTTORIA NORMATIVA AUTOMATICA: un pianificatore AI decide quali ricerche su fonti aperte servono al caso (e ai rilievi gia'
+        emersi), il programma le esegue e le fonti ufficiali trovate entrano nella biblioteca della prassi. Ritorna le ricerche riuscite."""
+        fatte = [v["quesito"] for v in d.get("base_normativa", []) if v.get("esito") == "ok"]
+        parti = ["CASO:\n" + descrizione_caso[:5000]]
+        if riscontri:
+            parti.append("RILIEVI GIA' EMERSI DA VERIFICARE CON LA PRASSI:\n" + "\n".join(
+                f"- {r['descrizione'][:400]} [norma indicata: {r.get('norma', '')[:150]}]" for r in riscontri))
+        parti.append("RICERCHE GIA' ESEGUITE (non ripeterle):\n" + ("\n".join(f"- {q}" for q in fatte[-25:]) or "- nessuna"))
+        try:
+            testo, _, _ = ai_mod.chiama_chat(client, st.anthropic_model, chat_mod.SYSTEM_PIANO.replace("{massimo}", str(massimo)),
+                                             [{"role": "user", "content": pseudo.anonimizza_o_blocca("\n\n".join(parti))}], max_tokens=3000)
+        except (ai_mod.AIRifiutata, llm_compat.ServizioAIErrore):
+            return 0
+        piano = chat_mod.piano_da_testo(testo, massimo)
+        ok = esegui_ricerche(s, p, d, pseudo, client, piano) if piano else 0
+        try:
+            if prassi_mod.scopri_da_fonti(s, d.get("base_normativa", [])):
+                prassi_mod.sincronizza_in_background(SM, None)
+        except Exception:                                          # noqa: BLE001
+            pass
+        for r in riscontri or []:
+            r["ricerca_prassi"] = True
+        return ok
+
+    def descrizione_caso(d: dict, p: Pratica, testo_utente: str) -> str:
+        fasc = d.get("fascicolo", {}) or {}
+        prof = d.get("profilo", {}) or {}
+        return "\n".join(x for x in [f"Tipo di intervento: {p.tipo}. Tipologia: {tipologie.TIPOLOGIE[p.tipologia]['nome']}.",
+                                     f"Forma del soggetto: {prof.get('forma', '')}; regime: {prof.get('regime', '')}.",
+                                     f"Motivazione: {fasc.get('motivazione', '')}", f"Obiettivo: {fasc.get('obiettivo', '')}",
+                                     f"Messaggio dell'operatore: {testo_utente}"] if x.split(': ', 1)[-1].strip())
 
     def metodo_per(s, d: dict, p: Pratica, atto: str = "", extra: str = "") -> tuple[str, list[str]]:
         """(metodo del Reparto pertinente al caso, brani di stile) dalla libreria."""
@@ -920,6 +981,22 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
             if sospetti and not forza:
                 return ctx_chat(s, p, bozza=testo_utente, sospetti=sospetti)
             client = ai_client or ai_mod._client()
+            eseguite_auto = 0
+            if st.istruttoria_auto:                                # ISTRUTTORIA NORMATIVA AUTOMATICA prima di rispondere
+                ist = d.setdefault("istruttoria", {})
+                if testo_utente.lower().startswith("istruttoria normativa"):
+                    ist.clear()
+                    for r_ in d.get("riscontri", []):
+                        r_.pop("ricerca_prassi", None)
+                fasc_ = d.get("fascicolo", {}) or {}
+                if not ist.get("caso") and (fasc_.get("motivazione") or docs_ctx or len(testo_utente) > 80):
+                    eseguite_auto += istruttoria(s, p, d, pseudo, client, descrizione_caso(d, p, testo_utente))
+                    ist["caso"] = True
+                da_ = riscontri_da_istruire(d)
+                if da_:
+                    eseguite_auto += istruttoria(s, p, d, pseudo, client, descrizione_caso(d, p, testo_utente), da_)
+                if eseguite_auto:
+                    system = costruisci_system()
             testo, stop, modello = ai_mod.chiama_chat(client, st.anthropic_model, system, msgs)
             log_testi.append(system + "\n\n" + "\n".join(f"[{m['role']}] {m['content']}" for m in msgs))
             giro = 0
@@ -929,10 +1006,18 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
                                                   {v["id"] for v in d.get("base_normativa", [])})
                 visibili.append(pseudo.ripristina(visibile_anon)[0])
                 chat_mod.applica_azioni(d, validate)
-                ricerche = validate.get("ricerche", []) if giro < 2 else []
-                if not ricerche:
+                ricerche = validate.get("ricerche", []) if giro < 3 else []
+                auto = False
+                if not ricerche and st.istruttoria_auto and giro < 3:
+                    da_ = riscontri_da_istruire(d)                                    # nuovi rilievi: verifica automatica sulla prassi
+                    if da_:
+                        n_ = istruttoria(s, p, d, pseudo, client, descrizione_caso(d, p, testo_utente), da_)
+                        eseguite_auto += n_
+                        auto = n_ > 0
+                if not ricerche and not auto:
                     break
-                esegui_ricerche(s, p, d, pseudo, client, ricerche)                    # consultazione automatica delle fonti aperte
+                if ricerche:
+                    eseguite_auto += esegui_ricerche(s, p, d, pseudo, client, ricerche)   # consultazione automatica delle fonti aperte
                 giro += 1
                 system = costruisci_system()
                 msgs = msgs + [{"role": "assistant", "content": testo},
@@ -957,6 +1042,8 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
         s.add(MessaggioChat(pratica_id=p.id, ruolo="assistant", contenuto_cifrato=cif.cifra_testo(visibile)))
         s.commit()
         nota = "Risposta interrotta per lunghezza: chiedi di proseguire." if stop == "max_tokens" else None
+        if eseguite_auto:
+            nota = (nota + " " if nota else "") + f"Istruttoria normativa automatica: {eseguite_auto} ricerche su fonti aperte eseguite (vedi «Fonti consultate»)."
         return ctx_chat(s, p, nota=nota)
 
     @app.get("/pratiche/{pid}/chat", response_class=HTMLResponse)

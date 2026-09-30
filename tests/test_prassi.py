@@ -104,3 +104,52 @@ def test_carica_pdf_a_mano_entra_in_biblioteca(ctx, sess):          # noqa: F811
         assert d.stato == "pronto" and "componente positivo di reddito" in d.testo
         r2 = prassi.cerca(s, "fornitore sconto in fattura credito 110 per cento componente positivo di reddito corrispettivo incassato", ["superbonus"])
         assert r2 and r2[0]["codice"] == "CIRC-23E-2022"
+
+
+def _ctx_auto(tmp_path):
+    from types import SimpleNamespace
+    import pyotp
+    from app import security
+    from app.config import Settings
+    from app.main import create_app
+    from app.models import Utente
+    from fastapi.testclient import TestClient
+    from tests.test_app import FakeAI, PW
+    st = Settings(database_url=f"sqlite:///{tmp_path}/a.db", data_key=security.nuova_chiave_fernet(), session_secret="x" * 40,
+                  https_only=False, anthropic_model="claude-opus-5-5", istruttoria_auto=True)
+    SM = crea_sessionmaker(crea_engine(st.database_url))
+    cif = security.Cifratore(st.data_key)
+    seg = security.nuovo_segreto_totp()
+    with SM() as s:
+        s.add(Utente(nome="u", password_hash=security.hash_password(PW), totp_cifrato=cif.cifra_testo(seg)))
+        s.commit()
+    fake = FakeAI()
+    return SimpleNamespace(c=TestClient(create_app(st, SM, ai_client=fake), follow_redirects=False), SM=SM, segreto=seg, fake=fake, st=st)
+
+
+def test_istruttoria_normativa_automatica(tmp_path):
+    from types import SimpleNamespace
+    from tests.test_app import nuova_pratica
+    x = _ctx_auto(tmp_path)
+    c = entra(x)
+    pid = nuova_pratica(c)
+    visti = []
+    piano = '[{"quesito": "Circolari e risposte dell\'Agenzia delle Entrate sul trattamento del maggior credito per il fornitore che applica lo sconto in fattura Superbonus", "periodo": "2023"}, {"quesito": "Obblighi del professionista asseveratore nel Superbonus e sanzioni", "periodo": "2023"}]'
+    risposte = [piano, "Ho consultato le fonti e leggo la prassi. Mi serve la dichiarazione dei redditi."]
+
+    def crea(**kw):
+        visti.append(kw)
+        t = risposte[min(len(visti) - 1, len(risposte) - 1)]
+        return SimpleNamespace(stop_reason="end_turn", model="finto", content=[SimpleNamespace(type="text", text=t)])
+    x.fake.beta.messages.create = crea
+    tok = csrf(c, f"/pratiche/{pid}/chat")
+    msg = "Dobbiamo fare un controllo a un ingegnere che ha asseverato lavori per il superbonus 110% emettendo fatture con sconto in fattura."
+    r = c.post(f"/pratiche/{pid}/chat", data={"csrf": tok, "messaggio": msg})
+    assert r.status_code == 200
+    assert len(visti) == 2                                        # piano delle ricerche + risposta: nessuna richiesta dell'AI
+    assert "PIANIFICATORE" in str(visti[0]["system"]).upper() or "pianificatore" in str(visti[0]["system"])
+    assert len(x.fake.web) == 2                                    # le due ricerche sono state eseguite dal programma
+    assert "Istruttoria normativa automatica: 2 ricerche" in r.text
+    assert "Sintesi normativa" in str(visti[1]["system"])          # i risultati sono nel contesto della risposta
+    with x.SM() as s:
+        assert s.scalar(select(PrassiDocumento).where(PrassiDocumento.origine == "scoperto")) is not None
