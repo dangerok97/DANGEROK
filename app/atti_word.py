@@ -136,6 +136,27 @@ def _intestazione_corrente(sez, fmt, data: str, soggetto: str):
     sez.first_page_header.is_linked_to_previous = False
 
 
+def _tabella(d, righe: list[list[str]], con_spiegazioni: bool):
+    """Tabella delle violazioni: prima riga intestazione in grassetto; colonne lettera / descrizione / fonte normativa."""
+    n = max(len(r) for r in righe)
+    larghezze = {3: (0.75, 11.75, 4.0), 2: (11.75, 4.75)}.get(n, tuple(16.5 / n for _ in range(n)))
+    t = d.add_table(rows=0, cols=n)
+    t.autofit = False
+    tblpr = t._tbl.tblPr
+    tblpr.append(parse_xml(f'<w:tblBorders {nsdecls("w")}>' + "".join(
+        f'<w:{x} w:val="single" w:sz="6" w:space="0" w:color="auto"/>'
+        for x in ("top", "left", "bottom", "right", "insideH", "insideV")) + "</w:tblBorders>"))
+    for i, r in enumerate(righe):
+        cells = t.add_row().cells
+        for j in range(n):
+            cells[j].width = Cm(larghezze[j])
+            par = cells[j].paragraphs[0]
+            par.alignment = AL.JUSTIFY if j else AL.LEFT
+            par.paragraph_format.space_after = Pt(0)
+            _riga(par, r[j] if j < len(r) else "", con_spiegazioni, bold=(i == 0))
+    _par(d, prima=6)
+
+
 def crea_atto(tipo: str, testo: str, *, con_spiegazioni: bool = True, data: str = "", soggetto: str = "") -> bytes:
     fmt = FORMATI[tipo]
     data = data.strip() or "[DA COMPILARE: data dell'atto]"
@@ -168,8 +189,18 @@ def crea_atto(tipo: str, testo: str, *, con_spiegazioni: bool = True, data: str 
     righe = re.sub(r"\{\{\s*SPIEGA:.*?\}\}", lambda m: m.group(0).replace("\n", " "), testo, flags=re.S | re.I).split("\n")
     titolo_visto = not fmt["titolo"]
     elenco_militari = False                                 # righe dopo VERBALIZZANTI: nominativi centrati
+    tab: list[list[str]] = []
     for riga in righe:
         r = re.sub(r"^\s*#{1,6}\s+", "", riga.replace("\r", "")).rstrip()   # niente titoli markdown
+        if r.lstrip().startswith("|"):                       # riga di tabella
+            tab.append([c.strip() for c in r.strip().strip("|").split("|")])
+            continue
+        if tab:
+            _tabella(d, tab, con_spiegazioni)
+            tab = []
+        if r.startswith(">> "):                              # riga centrata in grassetto (FATTO, PERIODO D'IMPOSTA ...)
+            _riga(_par(d, AL.CENTER), r[3:].strip(), con_spiegazioni, bold=True)
+            continue
         if not r.strip():
             _par(d, prima=6)
             continue
@@ -215,6 +246,8 @@ def crea_atto(tipo: str, testo: str, *, con_spiegazioni: bool = True, data: str 
             continue
         _riga(_par(d), r.strip(), con_spiegazioni)
 
+    if tab:
+        _tabella(d, tab, con_spiegazioni)
     d.core_properties.author = d.core_properties.last_modified_by = ""
     buf = io.BytesIO()
     d.save(buf)

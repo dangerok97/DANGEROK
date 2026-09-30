@@ -620,3 +620,22 @@ def test_chat_errore_del_servizio_non_perde_il_messaggio(ctx):
     assert "Errore del servizio AI" in r.text and "Prova di messaggio" in r.text
     with ctx.SM() as s:
         assert s.execute(text("select count(*) from messaggio_chat")).scalar() == 0
+
+
+def test_chat_genera_pvc_parte_fissa_piu_sezioni_ai(ctx):
+    from app import workflow
+    c = entra(ctx)
+    pid = nuova_pratica(c)
+    tok = csrf(c, f"/pratiche/{pid}/chat")
+    for f in workflow.FASI_CONTROLLO:
+        if f.chiave == "conclusione_pvc":
+            break
+        c.post(f"/pratiche/{pid}/fase/{f.chiave}", data={"azione": "completa", "csrf": tok})
+    risposta = ("=== CONTABILE ===\nRegistri regolari.\n=== SOSTANZIALE ===\nRiscontri eseguiti.\n=== FORMALI ===\n"
+                "Nei periodi d'imposta in esame non si rilevano violazioni di carattere formale.\n=== SOSTANZIALI ===\n"
+                ">> PERIODO D'IMPOSTA 2023\nPer il periodo d'imposta in esame non si rilevano violazioni di carattere sostanziale.")
+    _chat_ai(ctx, [risposta])
+    r = c.post(f"/pratiche/{pid}/chat/genera", data={"csrf": tok, "fase": "conclusione_pvc", "giornata": ""})
+    assert r.status_code == 303, re.findall(r"class=.err.>(.*?)</p>", r.text, re.S)
+    t = c.get(r.headers["location"]).text
+    assert "articolo 5-quater" in t and "Registri regolari." in t and "PERIODO D&#39;IMPOSTA 2023" in t.replace("'", "&#39;")

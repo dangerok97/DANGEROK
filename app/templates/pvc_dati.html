@@ -1,0 +1,39 @@
+{% extends "base.html" %}{% block titolo %}Dati del PVC{% endblock %}
+{% block corpo %}
+<h1>Dati del PVC</h1>
+<p><a href="/pratiche/{{ p.id }}/chat">← Chat</a> · Vol. IV, Allegato 19</p>
+<p class="muted">Intestazione, FATTO, avvertimenti, diritti del contribuente e sezione conclusiva sono le formule del Reparto e restano identiche: qui inserisci solo i dati del caso. All'AI spettano solo le sezioni 1-4 (controlli e violazioni). Cio' che lasci vuoto resta come [DA COMPILARE].</p>
+{% if not verbalizzanti %}<p class="err">Mancano i verbalizzanti nella pratica.</p>{% endif %}
+<form method="post" action="/pratiche/{{ p.id }}/pvc-dati" class="card"><input type="hidden" name="csrf" value="{{ csrf }}">
+<h2>Atto</h2>
+<label for="data">Data di redazione (es. 21 ottobre 2025)</label><input id="data" name="data" value="{{ v.data }}">
+<h2>Parte</h2>
+<label for="denominazione">Denominazione</label><input id="denominazione" name="denominazione" value="{{ v.denominazione }}">
+<label for="sede">Sede legale</label><input id="sede" name="sede" value="{{ v.sede }}">
+<label for="luogo">Luogo di esercizio</label><input id="luogo" name="luogo" value="{{ v.luogo }}">
+<label for="rappresentante">Rappresentante (nome e cognome)</label><input id="rappresentante" name="rappresentante" value="{{ v.rappresentante }}">
+<label for="nascita">Nascita</label><input id="nascita" name="nascita" value="{{ v.nascita }}">
+<label class="inl"><input type="checkbox" name="ivi" value="1"{% if v.ivi %} checked{% endif %}> «e ivi residente»</label>
+<label for="residenza">Residenza</label><input id="residenza" name="residenza" value="{{ v.residenza }}">
+<label for="documento">Documento di identita'</label><input id="documento" name="documento" value="{{ v.documento }}">
+<label for="qualita">Qualita'</label><input id="qualita" name="qualita" value="{{ v.qualita }}">
+<label for="cf">Codice fiscale</label><input id="cf" name="cf" value="{{ v.cf }}">
+<label for="piva">Partita IVA</label><input id="piva" name="piva" value="{{ v.piva }}">
+<label for="codice_attivita">Codice attivita'</label><input id="codice_attivita" name="codice_attivita" value="{{ v.codice_attivita }}">
+<h2>Fatto</h2>
+<label for="data_inizio">Data di inizio del controllo</label><input id="data_inizio" name="data_inizio" value="{{ v.data_inizio }}">
+<label for="tributo">Tributo</label><input id="tributo" name="tributo" value="{{ v.tributo }}">
+<label for="ragione">Ragione specifica (segue «nonché ...»; vuoto = solo autonoma attivita' informativa)</label><textarea id="ragione" name="ragione">{{ v.ragione }}</textarea>
+<label for="documenti_richiesti">Documenti richiesti alla parte (completa «hanno invitato la parte ad esibire ...»)</label><textarea id="documenti_richiesti" name="documenti_richiesti">{{ v.documenti_richiesti }}</textarea>
+<label for="direttore">Direttore del controllo</label><input id="direttore" name="direttore" value="{{ v.direttore }}">
+<label for="dal">Periodo dal</label><input id="dal" name="dal" value="{{ v.dal }}">
+<label for="al">Periodo al</label><input id="al" name="al" value="{{ v.al }}">
+<label for="garanzie">Dichiarazione della parte sulle garanzie (vuoto = NULLA)</label><textarea id="garanzie" name="garanzie">{{ v.garanzie }}</textarea>
+<h2>Conclusione</h2>
+<label for="ufficio">Ufficio dell'Agenzia delle Entrate (es. Ufficio dell'Agenzia delle Entrate di Viterbo)</label><input id="ufficio" name="ufficio" value="{{ v.ufficio }}">
+<label for="dichiarazione_parte">Dichiarazione della parte in chiusura (testuale)</label><textarea id="dichiarazione_parte" name="dichiarazione_parte">{{ v.dichiarazione_parte }}</textarea>
+<label for="misure_cautelari">Misure cautelari (vuoto = formula «non sussistendo i presupposti...»; altrimenti completa «Si da' altresi' atto che ...»)</label><textarea id="misure_cautelari" name="misure_cautelari">{{ v.misure_cautelari }}</textarea>
+<label for="fogli">Numero fogli</label><input id="fogli" name="fogli" value="{{ v.fogli }}">
+<label for="allegati">Numero allegati</label><input id="allegati" name="allegati" value="{{ v.allegati }}">
+<p class="row"><button>Salva i dati</button></p>
+</form>{% endblock %}

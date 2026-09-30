@@ -14,7 +14,7 @@ from sqlalchemy import select
 from starlette.middleware.sessions import SessionMiddleware
 
 from . import ai as ai_mod
-from . import analisi, atti_word, calcoli, chat as chat_mod, metodo as metodo_mod, pvoc as pvoc_mod, invito_word, llm_compat, norme, scheda_ai, piano as piano_mod, schede, security, tipologie, workflow, wordexport
+from . import analisi, atti_word, calcoli, chat as chat_mod, metodo as metodo_mod, pvoc as pvoc_mod, pvc as pvc_mod, invito_word, llm_compat, norme, scheda_ai, piano as piano_mod, schede, security, tipologie, workflow, wordexport
 from .config import Settings
 from .db import crea_engine, crea_sessionmaker
 from .models import Atto, ConoscenzaReparto, DocumentoPratica, FasePratica, FatturaPratica, FonteNormativa, Impostazione, LogAI, MessaggioChat, Pratica, Utente
@@ -35,8 +35,18 @@ ISTRUZIONI = {
             "verbalizzanti.\" e la riga \"I VERBALIZZANTI\". Non scrivere il paragrafo di apertura del primo giorno.",
     "PVV": "Redigi la bozza del processo verbale di verifica per la giornata indicata, "
            "per la fase indicata, seguendo la struttura e il lessico del Reparto.",
-    "PVC": "Redigi la bozza del processo verbale di constatazione (Vol. IV, Allegato 19) con le sezioni "
-           "previste, usando solo i fatti presenti negli atti e negli appunti.",
+    "PVC": "Redigi SOLO le quattro sezioni variabili del processo verbale di constatazione; intestazione, FATTO e sezione "
+           "conclusiva le aggiunge il programma con le formule del Reparto, NON scriverle. Rispondi esattamente con quattro "
+           "blocchi, ciascuno preceduto da una riga di marca: \"=== CONTABILE ===\" (esito del controllo contabile: registri "
+           "e libri esaminati), \"=== SOSTANZIALE ===\" (controllo sostanziale: riscontri di coerenza, riscontro analitico "
+           "normativo con i fatti accertati e i conti), \"=== FORMALI ===\" (riga \">> PERIODI D'IMPOSTA ...\" e le violazioni "
+           "formali, oppure \"Nei periodi d'imposta in esame non si rilevano violazioni di carattere formale.\"), "
+           "\"=== SOSTANZIALI ===\" (per ogni periodo: riga \">> PERIODO D'IMPOSTA aaaa\", poi per tributo \"A. Violazioni "
+           "in materia di ...\", una tabella con righe \"| | Descrizione della violazione constatata | Fonte normativa della "
+           "violazione\" e \"| a. | titolo della violazione e descrizione, con gli importi | Norma violata: ...\", poi \"L'autore "
+           "della violazione sub A., lettera a., e' da individuarsi ...\"; per i periodi senza violazioni: \"Per il periodo "
+           "d'imposta in esame non si rilevano violazioni di carattere sostanziale.\"). Usa solo i fatti presenti negli atti e "
+           "negli appunti.",
     "CNR": "Redigi la bozza della comunicazione di notizia di reato ex art. 347 c.p.p. (dati sintetici, premessa, "
            "attivita' operativa, sezioni tematiche, allegati), usando solo i fatti presenti negli atti e negli appunti.",
     "INVITO": "Redigi la bozza dell'invito a presentarsi (Vol. IV, Allegato 14) con le sezioni previste.",
@@ -562,6 +572,36 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
         manuale = {k: v for k, v in d.get("pvoc_primo", {}).items() if v not in ("", None)}
         return {**base, **d.get("fascicolo", {}).get("pvoc_primo", {}), **manuale}
 
+    def pvc_iniziale(p: Pratica, d: dict) -> dict:
+        base = {k: v for k, v in pvoc_primo_iniziale(p, d).items() if k in pvc_mod.CAMPI}
+        base.update({k: "" for k in pvc_mod.CAMPI if k not in base})
+        base["sede"] = base.get("sede") or base.get("luogo", "")
+        base["dal"] = base.get("dal") or d.get("pvoc_primo", {}).get("dal", "")
+        base["al"] = base.get("al") or d.get("pvoc_primo", {}).get("al", "")
+        base["data_inizio"] = base.get("data_inizio") or d.get("pvoc_primo", {}).get("data", "")
+        base["direttore"] = base.get("direttore") or d.get("pvoc_primo", {}).get("direttore", "")
+        base["documenti_richiesti"] = base.get("documenti_richiesti") or d.get("pvoc_primo", {}).get("documenti", "").replace("\n", "; ")
+        return {**base, **{k: v for k, v in d.get("pvc", {}).items() if v not in ("", None)}}
+
+    @app.get("/pratiche/{pid}/pvc-dati", response_class=HTMLResponse)
+    def pvc_dati_form(request: Request, pid: int, u=Depends(utente_corrente), s=Depends(db)):
+        p = carica(s, pid)
+        d = dati_di(p)
+        return render(request, "pvc_dati.html", p=p, v=pvc_iniziale(p, d), verbalizzanti=d.get("verbalizzanti", []))
+
+    @app.post("/pratiche/{pid}/pvc-dati")
+    async def pvc_dati_salva(request: Request, pid: int, u=Depends(utente_corrente), s=Depends(db)):
+        f = await request.form()
+        check_csrf(request, f.get("csrf", ""))
+        p = carica(s, pid)
+        d = dati_di(p)
+        dati = {k: str(f.get(k, "")).strip() for k in pvc_mod.CAMPI}
+        dati["ivi"] = bool(f.get("ivi"))
+        d["pvc"] = dati
+        salva_dati(p, d)
+        s.commit()
+        return RedirectResponse(f"/pratiche/{pid}/chat", status_code=303)
+
     @app.get("/pratiche/{pid}/pvoc-primo", response_class=HTMLResponse)
     def pvoc_primo_form(request: Request, pid: int, u=Depends(utente_corrente), s=Depends(db)):
         p = carica(s, pid)
@@ -1026,8 +1066,17 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
             except Exception as e:
                 return render(request, "chat.html", **ctx_chat(s, p, errore=f"Errore del servizio AI ({type(e).__name__}). Riprova."))
             s.add(LogAI(pratica_id=p.id, sezione=f"{f.atto}/{f.chiave}", modello=b.modello, testo_inviato=b.inviato))
+            testo_atto = b.testo
+            if f.atto == "PVC":                                  # parte fissa del Reparto + sezioni 1-4 dell'AI
+                sez = pvc_mod.separa_sezioni(b.testo)
+                if not sez:
+                    s.commit()
+                    return render(request, "chat.html", **ctx_chat(s, p, errore="La risposta dell'AI non e' nel formato atteso "
+                                                                   "(quattro sezioni marcate). Riprova a generare."))
+                testo_atto = pvc_mod.costruisci(pvc_iniziale(p, d), d.get("verbalizzanti", []),
+                                                impresa=d.get("profilo", {}).get("forma", "impresa") == "impresa", sezioni=sez)
             a = Atto(pratica_id=p.id, tipo=f.atto, fase=f.chiave, giornata=giornata, generato_da_ai=1,
-                     contenuto_cifrato=cif.cifra_testo(b.testo))
+                     contenuto_cifrato=cif.cifra_testo(testo_atto))
             s.add(a)
         if rec is not None and rec.stato == "da_fare":
             rec.stato = "in_corso"
