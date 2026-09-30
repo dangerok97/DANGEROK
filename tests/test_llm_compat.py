@@ -126,7 +126,7 @@ def test_selezione_del_servizio_da_variabili(monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "chiave-finta-di-prova-123")           # automatico: solo Gemini presente
     c = ai.configurazione()
     assert c["provider"] == "gemini" and c["attiva"] and c["modello"].startswith("gemini-3.5-flash") and c["gratuito_con_dati_usati"]
-    assert isinstance(ai._client(), CompatClient) and not c["ricerca_web"]
+    assert isinstance(ai._client(), CompatClient) and c["ricerca_web"]
     monkeypatch.setenv("LLM_MODEL", "gemini-altro")
     assert ai.configurazione()["modello"] == "gemini-altro"
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-finta-1234567890")           # con entrambe vince Anthropic
