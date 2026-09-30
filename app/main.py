@@ -840,7 +840,7 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
             if n and n not in d.setdefault(chiave, []):
                 d[chiave].append(n)
 
-    def esegui_ricerche(s, p: Pratica, d: dict, pseudo, client, ricerche: list[dict], budget_s: float = 80.0) -> int:
+    def esegui_ricerche(s, p: Pratica, d: dict, pseudo, client, ricerche: list[dict], budget_s: float = 45.0) -> int:
         """Consulta le fonti aperte per i quesiti generali (in parallelo, entro un tempo massimo) e ne registra esito e fonti.
         Ritorna quante ricerche sono andate a buon fine."""
         import concurrent.futures as cf
