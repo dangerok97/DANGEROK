@@ -21,6 +21,11 @@
 <label for="piva">Partita IVA</label><input id="piva" name="piva" value="{{ v.piva }}">
 <label for="codice_attivita">Codice attivita'</label><input id="codice_attivita" name="codice_attivita" value="{{ v.codice_attivita }}">
 <h2>Fatto</h2>
+<label for="attivita">Forma dell'intervento</label><select id="attivita" name="attivita"><option value="controllo"{% if v.attivita in ('', 'controllo') %} selected{% endif %}>controllo</option><option value="verifica"{% if v.attivita == 'verifica' %} selected{% endif %}>verifica</option><option value="convertito"{% if v.attivita == 'convertito' %} selected{% endif %}>controllo convertito in verifica</option></select>
+<label for="data_conversione">Data di conversione in verifica (solo se convertito)</label><input id="data_conversione" name="data_conversione" value="{{ v.data_conversione }}">
+<label class="inl"><input type="checkbox" name="senza_formali" value="1"{% if v.senza_formali %} checked{% endif %}> PVC ridotto senza sezione «Violazioni formali» (es. persona fisica senza partita IVA)</label>
+<label class="inl"><input type="checkbox" name="ricerche" value="1"{% if v.ricerche %} checked{% endif %}> Sono state fatte ricerche nei locali (art. 52 DPR 633/72)</label>
+<label for="assistenza">Disamina condotta con ... (es. la saltuaria presenza della parte, accompagnata dal commercialista; vuoto = non scrivere)</label><input id="assistenza" name="assistenza" value="{{ v.assistenza }}">
 <label for="data_inizio">Data di inizio del controllo</label><input id="data_inizio" name="data_inizio" value="{{ v.data_inizio }}">
 <label for="tributo">Tributo</label><input id="tributo" name="tributo" value="{{ v.tributo }}">
 <label for="ragione">Ragione specifica (segue «nonché ...»; vuoto = solo autonoma attivita' informativa)</label><textarea id="ragione" name="ragione">{{ v.ragione }}</textarea>
@@ -33,6 +38,8 @@
 <label for="ufficio">Ufficio dell'Agenzia delle Entrate (es. Ufficio dell'Agenzia delle Entrate di Viterbo)</label><input id="ufficio" name="ufficio" value="{{ v.ufficio }}">
 <label for="dichiarazione_parte">Dichiarazione della parte in chiusura (testuale)</label><textarea id="dichiarazione_parte" name="dichiarazione_parte">{{ v.dichiarazione_parte }}</textarea>
 <label for="misure_cautelari">Misure cautelari (vuoto = formula «non sussistendo i presupposti...»; altrimenti completa «Si da' altresi' atto che ...»)</label><textarea id="misure_cautelari" name="misure_cautelari">{{ v.misure_cautelari }}</textarea>
+<label class="inl"><input type="checkbox" name="trasmissione_pec" value="1"{% if v.trasmissione_pec %} checked{% endif %}> Trasmissione anche «mediante invio all'indirizzo di posta elettronica certificata»</label>
+<label class="inl"><input type="checkbox" name="doc_siglata" value="1"{% if v.doc_siglata %} checked{% endif %}> Documentazione acquisita in fotocopia e siglata da verbalizzanti e parte</label>
 <label for="fogli">Numero fogli</label><input id="fogli" name="fogli" value="{{ v.fogli }}">
 <label for="allegati">Numero allegati</label><input id="allegati" name="allegati" value="{{ v.allegati }}">
 <p class="row"><button>Salva i dati</button></p>

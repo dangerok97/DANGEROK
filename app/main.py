@@ -596,7 +596,10 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
         p = carica(s, pid)
         d = dati_di(p)
         dati = {k: str(f.get(k, "")).strip() for k in pvc_mod.CAMPI}
-        dati["ivi"] = bool(f.get("ivi"))
+        for k in pvc_mod.FLAG:
+            dati[k] = bool(f.get(k))
+        if dati["attivita"] not in pvc_mod.ATTIVITA:
+            dati["attivita"] = "controllo"
         d["pvc"] = dati
         salva_dati(p, d)
         s.commit()

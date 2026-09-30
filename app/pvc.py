@@ -11,7 +11,20 @@ from __future__ import annotations
 
 CAMPI = ("data", "denominazione", "sede", "luogo", "rappresentante", "nascita", "ivi", "residenza", "documento",
          "qualita", "documenti_richiesti", "cf", "piva", "codice_attivita", "data_inizio", "tributo", "ragione", "dal", "al", "direttore",
-         "ufficio", "garanzie", "dichiarazione_parte", "fogli", "allegati", "misure_cautelari")
+         "ufficio", "garanzie", "dichiarazione_parte", "fogli", "allegati", "misure_cautelari", "attivita", "data_conversione",
+         "senza_formali", "ricerche", "assistenza", "trasmissione_pec", "doc_siglata")
+
+FLAG = ("ivi", "senza_formali", "ricerche", "trasmissione_pec", "doc_siglata")     # caselle di spunta del form
+ATTIVITA = ("controllo", "verifica", "convertito")         # forma dell'intervento dichiarata nel FATTO
+
+_RICERCHE = (
+    "Inoltre, ai sensi dell’art. 52 del D.P.R. 26 ottobre 1972, n. 633, richiamato anche dall’art. 33 del D.P.R. 29 "
+    "settembre 1973, n. 600 e dall’art. 35 della legge 7 gennaio 1929, n. 4, sono state effettuate ricerche nell’ambito "
+    "dei locali presso i quali viene esercitata l’attività.")
+_ACCESSO = (
+    "L’accesso nei locali aziendali è stato motivato dall’effettiva esigenza di indagine e controllo presso i luoghi di "
+    "esercizio dell’attività d’impresa in ragione della necessità di reperire documentazione contabile ed extracontabile "
+    "utile all’espletamento del controllo.")
 
 SEZIONI = ("contabile", "sostanziale", "formali", "sostanziali")
 
@@ -49,6 +62,11 @@ def _sez(testo: str, cosa: str) -> str:
 
 def costruisci(d: dict, verbalizzanti: list[str], impresa: bool = True, sezioni: dict | None = None) -> str:
     sezioni = sezioni or {}
+    att = d.get("attivita") if d.get("attivita") in ATTIVITA else "controllo"
+    ver = att in ("verifica", "convertito")
+    cv = "verifica" if ver else "controllo"                   # "sin dall'inizio della verifica" / "del controllo"
+    pv = "p.v. di verifica" if att == "verifica" else "p.v. di operazioni compiute"
+    formali = not d.get("senza_formali")
     g = lambda k, cosa: _v(d.get(k, ""), cosa)          # noqa: E731
     ufficio = g("ufficio", "Ufficio dell’Agenzia delle Entrate competente (es. di Viterbo)")
     L: list[str] = []
@@ -81,15 +99,24 @@ def costruisci(d: dict, verbalizzanti: list[str], impresa: bool = True, sezioni:
         a(f"Codice Fiscale: **{g('cf', 'codice fiscale')}**.")
     a("")
     a(">> FATTO")
-    a(f"Il {g('data_inizio', 'data di inizio del controllo')}, è stata intrapresa un’attività di controllo fiscale nei "
-      f"confronti della parte in rubrica indicata, ai fini dell'{g('tributo', 'tributo, es. I.V.A.')}, ai sensi e per gli "
-      "effetti degli artt. 52 e 63 del D.P.R. 26 ottobre 1972, n. 633, 33 del D.P.R. 29 settembre 1973, n. 600, 2 del "
-      "D.Lgs 68/2001, nonché della L. n. 4/1929.")
+    trib = g("tributo", "tributo, es. I.V.A.")
+    norme = ("ai sensi e per gli effetti degli artt. 52 e 63 del D.P.R. 26 ottobre 1972, n. 633, 33 del D.P.R. 29 settembre "
+             "1973, n. 600, 2 del D.Lgs 68/2001, nonché della L. n. 4/1929.")
+    if att == "convertito":
+        a(f"Il {g('data_inizio', 'data di inizio del controllo')} è stato intrapreso un controllo fiscale nei confronti della "
+          f"parte in rubrica specificata, successivamente convertito il {g('data_conversione', 'data di conversione')} in una "
+          f"verifica fiscale, ai fini dell'{trib}, {norme}")
+    elif att == "verifica":
+        a(f"Il {g('data_inizio', 'data di inizio della verifica')} è stata intrapresa nei confronti della parte una verifica "
+          f"fiscale ai fini dell'{trib}, {norme}")
+    else:
+        a(f"Il {g('data_inizio', 'data di inizio del controllo')}, è stata intrapresa un’attività di controllo fiscale nei "
+          f"confronti della parte in rubrica indicata, ai fini dell'{trib}, {norme}")
     ragione = (d.get("ragione") or "").strip()
     a("Le ragioni che hanno determinato la scelta del contribuente, sono da ricondursi " + _RAGIONE_BASE
       + (f", nonché {ragione}" if ragione else "") + ".")
-    a("I militari verbalizzanti, come dettagliatamente descritto nel p.v. di operazioni compiute, un esemplare del quale è "
-      "stato consegnato alla parte, dopo le presentazioni di rito e l’esibizione dell’ordine di controllo (cfr. all. 1), "
+    a(f"I militari verbalizzanti, come dettagliatamente descritto nel {pv}, un esemplare del quale è "
+      "stato consegnato alla parte, dopo le presentazioni di rito e l’esibizione dell’ordine di " + cv + " (cfr. all. 1), "
       f"hanno invitato la parte ad esibire {g('documenti_richiesti', 'documenti richiesti alla parte')}.")
     a("- secondo quanto disposto dall’art. 52 - quinto comma - del D.P.R. 26 ottobre 1972, n. 633, i libri, i registri, le "
       "scritture ed i documenti di cui venga rifiutata l'esibizione non potranno essere presi in considerazione, a favore "
@@ -106,30 +133,47 @@ def costruisci(d: dict, verbalizzanti: list[str], impresa: bool = True, sezioni:
       "l'Amministrazione finanziaria può determinare il reddito d'impresa in via induttiva nei modi e nei termini previsti "
       "dall'art. 39 del D.P.R. n. 600/73 e può procedere all'accertamento induttivo dell'I.V.A. nei modi e nei termini "
       "previsti dallo stesso art. 55 del D.P.R. n. 633/72.")
+    if d.get("ricerche"):
+        a(_RICERCHE)
+        a(_ACCESSO)
     a("Ai sensi dell’art. 12 della Legge 27/7/2000 n. 212, concernente l’approvazione dello “Statuto dei diritti del "
-      "contribuente”, la parte è stata resa edotta, sin dall’inizio del controllo, delle seguenti facoltà:")
+      f"contribuente”, la parte è stata resa edotta, sin dall’inizio del {cv}, delle seguenti facoltà:")
     for t in _FACOLTA:
-        a("- " + t)
-    a("Parimenti, all’atto dell’avvio dell’attività di controllo, la parte è stata altresì resa edotta che il Reparto "
+        a("- " + (t.replace("acquisito al controllo", "acquisito alla verifica") if ver else t))
+    a(f"Parimenti, all’atto dell’avvio dell’attività di {cv}, la parte è stata altresì resa edotta che il Reparto "
       "presso cui è possibile ottenere informazioni complete in ordine all’attività svolta è la Compagnia di Tarquinia e "
       f"che il Direttore dell’attività ispettiva è il {g('direttore', 'grado, nome e cognome del Direttore del controllo')}.")
     a("In relazione alle garanzie previste dallo Statuto del Contribuente, la parte ha dichiarato:")
     a(f"“””{(d.get('garanzie') or 'NULLA').strip()}”””.")
+    if ver:
+        a("I libri, i registri, le scritture e gli altri documenti esibiti o comunque reperiti in sede di ricerche, relativi "
+          "ai periodi presi in esame, sono stati analiticamente indicati nell’ambito della sezione “Controllo contabile” del "
+          "presente p.v..")
+    if (d.get("assistenza") or "").strip():
+        a("La disamina, sotto il profilo fiscale, degli atti economici posti in essere dal soggetto verificato è stata "
+          f"condotta con {d['assistenza'].strip().rstrip('.')}.")
     a("Le operazioni ispettive hanno preso in esame i seguenti periodi d’imposta:")
     a(f"- ai fini {g('tributo', 'tributo, es. I.V.A.')}, per il periodo:")
     a(f"-- dall’ {g('dal', 'data iniziale')};")
     a(f"-- al {g('al', 'data finale')}.")
-    a("Le procedure seguite nell’esecuzione delle attività ispettive sono state analiticamente descritte nel p.v. di "
-      "operazioni compiute quotidianamente redatto.")
-    a("Il presente atto, nel quale sono raccolti gli esiti delle predette attività ispettive, è articolato nelle seguenti "
-      "sezioni:")
+    if ver:
+        a("Le procedure seguite nell’esecuzione delle attività di verifica sono analiticamente descritte nel relativo p.v. "
+          "quotidianamente redatto.")
+        a("Il presente atto, nel quale sono raccolti gli esiti delle predette attività di verifica, è articolato nelle "
+          "seguenti sezioni:")
+    else:
+        a("Le procedure seguite nell’esecuzione delle attività ispettive sono state analiticamente descritte nel p.v. di "
+          "operazioni compiute quotidianamente redatto.")
+        a("Il presente atto, nel quale sono raccolti gli esiti delle predette attività ispettive, è articolato nelle seguenti "
+          "sezioni:")
     a("- Controllo contabile, in cui sono sinteticamente riportati gli esiti dei controlli sulla regolare istituzione e "
       "conservazione delle scritture e dei documenti;")
     a("- Controllo sostanziale, suddivisa a sua volta nella sottosezione “riscontri di tipo analitico normativo”, nei cui "
       "ambiti vengono sinteticamente esposte le attività poste in essere al fine di riscontrare il rispetto delle "
       "disposizioni dettate dalle leggi d’imposta, la cui violazione comporta sottrazione di materia imponibile;")
-    a("- Violazioni formali, in cui sono compendiate le violazioni riscontrate che non comportano sottrazione di materia "
-      "imponibile;")
+    if formali:
+        a("- Violazioni formali, in cui sono compendiate le violazioni riscontrate che non comportano sottrazione di materia "
+          "imponibile;")
     a("- Violazioni sostanziali, suddivisa a sua volta in sottosezioni raggruppate per periodo d’imposta esaminato e, per "
       "singolo tributo preso in esame, nell’ambito delle quali sono distintamente compendiate le violazioni riscontrate "
       "la cui commissione comporta sottrazione di materia imponibile;")
@@ -141,21 +185,27 @@ def costruisci(d: dict, verbalizzanti: list[str], impresa: bool = True, sezioni:
     a("2.\tCONTROLLO SOSTANZIALE.")
     a(_sez(sezioni.get("sostanziale"), "riscontri di coerenza e riscontro analitico normativo con i fatti accertati"))
     a("")
-    a("3.\tVIOLAZIONI FORMALI.")
-    a(_sez(sezioni.get("formali"), "periodi d’imposta e violazioni formali (o: «Nei periodi d’imposta in esame non si "
-                                   "rilevano violazioni di carattere formale.»)"))
-    a("")
-    a("4.\tVIOLAZIONI SOSTANZIALI.")
+    n = 3
+    if formali:
+        a("3.\tVIOLAZIONI FORMALI.")
+        a(_sez(sezioni.get("formali"), "periodi d’imposta e violazioni formali (o: «Nei periodi d’imposta in esame non si "
+                                       "rilevano violazioni di carattere formale.»)"))
+        a("")
+        n = 4
+    a(f"{n}.\tVIOLAZIONI SOSTANZIALI.")
     a(_sez(sezioni.get("sostanziali"), "violazioni per periodo d’imposta e tributo, con tabella «Descrizione della "
                                        "violazione constatata | Fonte normativa della violazione»"))
     a("")
-    a("5.\tSEZIONE CONCLUSIVA.")
+    a(f"{n + 1}.\tSEZIONE CONCLUSIVA.")
     a("In merito alle operazioni di controllo ed alle sue conclusioni, espresse nel presente atto, la parte, in rubrica "
       "compiutamente generalizzata, dichiara quanto segue:")
     a(f"“”” {_v(d.get('dichiarazione_parte'), 'dichiarazione della parte, testuale')} ”””.")
     a("La documentazione esaminata viene lasciata in custodia alla parte con l’obbligo di conservarla inalterata sino "
       "alla definizione del contesto e, comunque, nel rispetto dei termini previsti dall’art. 22 del D.P.R. n. 600/73, "
       "richiamato anche dall’art. 39 del D.P.R. n. 633/72.")
+    if d.get("doc_siglata"):
+        a("La documentazione comprovante le violazioni oggetto di rilievo, acquisita in fotocopia, è stata siglata dai "
+          "verbalizzanti e dalla parte.")
     a("Resta comunque impregiudicata la facoltà dell’Amministrazione finanziaria di eseguire altre indagini e di "
       "formulare, eventualmente, in base alla sopravvenuta conoscenza di nuovi elementi, ulteriori rilievi fino alla "
       "scadenza dei termini previsti dall’art. 57 del D.P.R. n. 633/72 e dall’art. 43 del D.P.R. n. 600/73.")
@@ -227,7 +277,8 @@ def costruisci(d: dict, verbalizzanti: list[str], impresa: bool = True, sezioni:
     a("- uno viene consegnato alla parte;")
     a("- uno viene conservato agli atti del Reparto operante;")
     a("La trasmissione all’Ufficio Territoriale dell’Agenzia delle Entrate Territorialmente competente, avverrà con "
-      "procedura telematica.")
+      "procedura telematica" + (" mediante invio del presente verbale all’indirizzo di posta elettronica certificata."
+                                if d.get("trasmissione_pec") else "."))
     a("Fatto, letto e chiuso in data e luogo come sopra, il presente atto viene confermato e sottoscritto dai soli "
       "verbalizzanti presenti alla chiusura dell’atto e dalla parte.")
     a("I VERBALIZZANTI    LA PARTE")

@@ -20,7 +20,13 @@ OK_MAIUSCOLE = {"amministrazioni", "centrali", "gli", "ufficiali", "utilizzato",
                 "controllo", "contabile", "controlli", "sostanziali", "violazioni", "formali", "sostanziali", "sezione",
                 "conclusiva", "riscontri", "coerenza", "interna", "analitico", "normativo", "tarquinia", "codice", "attivita",
                 "costi", "ricavi", "imposta", "reddito", "impresa", "operazioni", "controllo", "eseguite", "giorno", "riscontro",
-                "primo", "enti", "esterni", "territoriale", "indiretto", "presuntivo", "presuntivi", "analitico", "amministratore", "unico", "uffici", "ufficio", "finanziari", "finanziaria", "amministrazione", "societa", "sociale", "ditta", "individuale", "regime", "forfettario", "direttore", "verbale", "ogni", "giornata", "giornate", "successiva", "successive", "ordine", "tuir", "pvc", "pvoc", "pvv", "cnr", "iva", "irpef", "irap", "lgt", "mar", "ten", "cap", "sig"}
+                "primo", "enti", "esterni", "territoriale", "indiretto", "presuntivo", "presuntivi", "analitico", "amministratore", "unico", "uffici", "ufficio", "finanziari", "finanziaria", "amministrazione", "societa", "sociale", "ditta", "individuale", "regime", "forfettario", "direttore", "verbale", "ogni", "giornata", "giornate", "successiva", "successive", "ordine", "tuir", "pvc", "pvoc", "pvv", "cnr", "iva", "irpef", "irap", "lgt", "mar", "ten", "cap", "sig",
+                "autorità", "autorita", "giudiziaria", "sostituto", "procuratore", "procura", "repubblica", "europea", "tribunale",
+                "corte", "cassazione", "agenzia", "entrate", "dogane", "monopoli", "guardia", "finanza", "reparto", "reparti",
+                "comandante", "regionale", "comando", "generale", "garante", "contribuente", "statuto", "diritti", "banca", "dati",
+                "black", "list", "conto", "corrente", "tax", "report", "commissione", "tributaria", "provinciale", "regionale",
+                "direzione", "divisione", "settore", "sezione", "analisi", "strategie", "antifrode", "gruppo", "compagnia", "tenenza",
+                "versione", "definitiva", "sulle", "riflessi", "fissa", "persona", "fisica", "evasore", "totale", "comuni", "dirette", "polizia", "economico", "finanziaria", "spa", "srl", "srls", "snc", "sas", "stabilimento", "balneare"}
 
 
 def _pulito(t: str) -> str:

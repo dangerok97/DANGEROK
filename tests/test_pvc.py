@@ -43,3 +43,17 @@ def test_word_pvc_tabella_e_centrati():
     assert round(sec.page_width.cm, 1) == 21.0 and round(sec.left_margin.cm, 2) == 2.0
     assert zipfile.ZipFile(io.BytesIO(b)).testzip() is None
 
+
+
+def test_varianti_forma_intervento():
+    t = pvc.costruisci({**D, "attivita": "convertito", "data_conversione": "26.06.2025", "ricerche": True, "senza_formali": True,
+                        "assistenza": "la saltuaria presenza della parte", "trasmissione_pec": True, "doc_siglata": True},
+                       ["Ten. A"], impresa=False)
+    assert "successivamente convertito il 26.06.2025 in una verifica fiscale" in t
+    assert "sono state effettuate ricerche" in t and "acquisito alla verifica" in t
+    assert "3.\tVIOLAZIONI SOSTANZIALI." in t and "4.\tSEZIONE CONCLUSIVA." in t and "VIOLAZIONI FORMALI" not in t
+    assert "posta elettronica certificata" in t and "siglata dai verbalizzanti e dalla parte" in t
+    v = pvc.costruisci({**D, "attivita": "verifica"}, ["Ten. A"])
+    assert "una verifica fiscale ai fini dell'I.V.A." in v and "p.v. di verifica" in v and "3.\tVIOLAZIONI FORMALI." in v
+    c = pvc.costruisci(D, ["Ten. A"])
+    assert "attività di controllo fiscale" in c and "sin dall’inizio del controllo" in c

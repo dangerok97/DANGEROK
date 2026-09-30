@@ -22,6 +22,8 @@ COME SI CONSTATA NEI PVOC: le violazioni sono gia' enunciate nel corpo della gio
 SPUNTI OPERATIVI: lavorare per anno d'imposta; allegare un prospetto per ogni importo; quando la parte non esibisce, usare portale Fatture e Corrispettivi e banca dati per ricostruire; per gli anni con termini ancora aperti annotare che la dichiarazione non e' ancora dovuta e lasciare i ricavi rilevati all'Ufficio; dare atto della consegna alla parte dei verbali redatti in sua assenza e raccogliere la dichiarazione.
 
 FORMULE E LESSICO: vedi i brani di stile.
+VERSIONE DEFINITIVA (rispetto alla bozza): nei verbali finali il reverse charge e' constatato solo per gli anni per i quali il regime ordinario era dovuto; per le annualita' con imponibile irrisorio si riporta il solo prospetto (senza calcolare l'IVA non versata) e si rimanda alla sezione di constatazione; l'aliquota e la norma sanzionatoria si inseriscono nel PVC.
+
 ## Brani di stile
 Il giorno «data», alle ore «ora», in Tarquinia (VT), presso gli uffici del Reparto operante, viene riaperto il processo verbale relativo alle operazioni di controllo intraprese in data «data» nei confronti della «ditta», per far constatare che i sottoscritti militari verbalizzanti:
 hanno ripreso le operazioni di controllo senza la presenza della parte.
