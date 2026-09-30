@@ -212,6 +212,25 @@ def fatture_xml(dati: bytes) -> list[dict]:
     return out
 
 
+def _testo_pdf_a_colonne(dati: bytes, testo_base: str) -> str:
+    """Modelli precompilati (Redditi, IVA, F24...) hanno i valori in font che pypdf non legge: con pdfplumber (layout) etichetta e
+    valore restano sulla stessa riga. Si usa solo se recupera molte piu' cifre del testo di base."""
+    try:
+        import pdfplumber
+    except ImportError:
+        return testo_base
+    try:
+        with pdfplumber.open(io.BytesIO(dati)) as pdf:
+            pag = [(p.extract_text(layout=True, x_density=4.5) or "") for p in pdf.pages[:80]]
+    except Exception:                                         # noqa: BLE001
+        return testo_base
+    alt = re.sub(r"[ \t]{3,}", "  ", "\n".join(pag))
+    alt = "\n".join(r.rstrip() for r in alt.split("\n") if r.strip())
+    def importi(x: str) -> int:                               # importi con decimali diversi da zero
+        return len({m for m in re.findall(r"\b\d{1,3}(?:\.\d{3})*,\d{2}\b", x) if m.strip("0.,") != ""})
+    return alt if importi(alt) > importi(testo_base) * 1.2 + 5 else testo_base
+
+
 def _metadati_pdf(r) -> str:
     """Riga iniziale con i metadati del PDF (data di creazione/modifica, programma): servono a confrontare la data di un
     documento con quella in cui il file e' stato realmente prodotto."""
@@ -251,6 +270,7 @@ def estrai_testo(nome: str, dati: bytes) -> tuple[str, str, list[tuple[str, str]
             raise ValueError("Lettura dei PDF non disponibile su questo server") from e
         r = PdfReader(io.BytesIO(dati))
         t = "\n".join((pg.extract_text() or "") for pg in r.pages)
+        t = _testo_pdf_a_colonne(dati, t)
         if not t.strip():
             raise ValueError("Il PDF non contiene testo selezionabile (e' una scansione): serve l'OCR, non ancora disponibile.")
         return "pdf", (_metadati_pdf(r) + t)[:MAX_CARATTERI_DOC], []
@@ -524,7 +544,8 @@ _NON_NOME = {"guardia", "finanza", "compagnia", "tarquinia", "sezione", "operati
 
 def nomi_sospetti(testo_anonimo: str) -> list[str]:
     """Sequenze di 2-4 parole maiuscole non riconosciute (possibili nomi di persone/enti fuori dall'anagrafica)."""
-    pulito = re.sub(r"\[[A-Z_]+_\d+\]", " ", testo_anonimo)
+    from .privacy.pseudonymizer import RE_INDIRIZZO
+    pulito = re.sub(r"\[[A-Z_]+_\d+\]", " ", RE_INDIRIZZO.sub(" ", testo_anonimo))   # gli indirizzi vengono gia' pseudonimizzati
     out = []
     for m in _RE_NOME.finditer(pulito):
         parole = m.group(0).split()
