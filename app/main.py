@@ -7,6 +7,7 @@ import hmac
 import pathlib
 import re
 import secrets
+import threading
 
 from fastapi import Depends, FastAPI, Form, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
@@ -800,6 +801,26 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
                     base_normativa=list(reversed(d.get("base_normativa", []))),
                     titoli_fasi={f["chiave"]: f["titolo"] for f in fasi_chat(p)},
                     bozza="", errore=None, sospetti=None, nota=None)
+        job = d.get("job_chat") or {}
+        if job.get("stato") == "in_corso":
+            try:
+                vecchio = (dt.datetime.now(dt.timezone.utc) - dt.datetime.fromisoformat(job["inizio"])) > dt.timedelta(minutes=15)
+            except (KeyError, ValueError):
+                vecchio = True
+            if vecchio:                                        # il processo e' morto (riavvio del server): si sblocca la chat
+                d["job_chat"] = {"stato": "letto"}
+                salva_dati(p, d)
+                s.commit()
+                base["errore"] = "L'elaborazione precedente non si e' conclusa (il server si e' riavviato?). Riinvia il messaggio."
+            else:
+                base["in_corso"] = job.get("messaggio", "")
+        elif job.get("stato") == "finito":
+            for k, v in (job.get("esito") or {}).items():
+                if v and k not in extra:
+                    base[k] = v
+            d["job_chat"] = {"stato": "letto"}
+            salva_dati(p, d)
+            s.commit()
         base.update(extra)
         return base
 
@@ -1051,6 +1072,43 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
         p = carica(s, pid)
         return render(request, "chat.html", **ctx_chat(s, p))
 
+    def avvia_turno(request: Request, s, p: Pratica, testo: str, forza: bool = False):
+        """Con la modalita' asincrona il turno gira in un thread (l'elaborazione puo' durare minuti: ricerche, documenti lunghi) e la
+        pagina si aggiorna da sola; altrimenti risponde subito (test, uso locale)."""
+        if not st.chat_asincrona:
+            return render(request, "chat.html", **turno(request, s, p, testo, forza=forza))
+        d = dati_di(p)
+        job = d.get("job_chat") or {}
+        if job.get("stato") == "in_corso":
+            return render(request, "chat.html", **ctx_chat(s, p, bozza=testo))
+        d["job_chat"] = {"stato": "in_corso", "inizio": dt.datetime.now(dt.timezone.utc).isoformat(), "messaggio": testo[:300]}
+        salva_dati(p, d)
+        s.commit()
+        pid = p.id
+
+        def lavoro():
+            try:
+                with SM() as s2:
+                    p2 = s2.get(Pratica, pid)
+                    try:
+                        ctx = turno(None, s2, p2, testo, forza=forza)
+                    except Exception as e:                      # noqa: BLE001
+                        ctx = {"errore": f"Errore durante l'elaborazione ({type(e).__name__}). Riprova."}
+                    s2.refresh(p2)
+                    d2 = dati_di(p2)
+                    d2["job_chat"] = {"stato": "finito", "esito": {k: ctx.get(k) for k in ("errore", "sospetti", "bozza", "nota") if ctx.get(k)}}
+                    salva_dati(p2, d2)
+                    s2.commit()
+            except Exception:                                  # noqa: BLE001
+                pass
+        threading.Thread(target=lavoro, daemon=True).start()
+        return render(request, "chat.html", **ctx_chat(s, p))
+
+    @app.get("/pratiche/{pid}/chat/stato")
+    def chat_stato(pid: int, u=Depends(utente_corrente), s=Depends(db)):
+        p = carica(s, pid)
+        return {"stato": (dati_di(p).get("job_chat") or {}).get("stato", "nessuno")}
+
     @app.post("/pratiche/{pid}/chat", response_class=HTMLResponse)
     async def chat_invia(request: Request, pid: int, u=Depends(utente_corrente), s=Depends(db)):
         f = await request.form()
@@ -1059,7 +1117,7 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
         testo = str(f.get("messaggio", "")).strip()
         if not testo:
             return render(request, "chat.html", **ctx_chat(s, p, errore="Scrivi un messaggio."))
-        return render(request, "chat.html", **turno(request, s, p, testo[:8000], forza=bool(f.get("forza"))))
+        return avvia_turno(request, s, p, testo[:8000], forza=bool(f.get("forza")))
 
     @app.post("/pratiche/{pid}/chat/anagrafica", response_class=HTMLResponse)
     async def chat_anagrafica(request: Request, pid: int, u=Depends(utente_corrente), s=Depends(db)):
@@ -1080,7 +1138,7 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
         testo = str(f.get("messaggio", "")).strip()
         if not testo:
             return render(request, "chat.html", **ctx_chat(s, p))
-        return render(request, "chat.html", **turno(request, s, p, testo))
+        return avvia_turno(request, s, p, testo)
 
     @app.post("/pratiche/{pid}/chat/documento", response_class=HTMLResponse)
     async def chat_documento(request: Request, pid: int, u=Depends(utente_corrente), s=Depends(db)):
@@ -1114,7 +1172,7 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
             aggiorna_analisi(s, p, d)
         salva_dati(p, d)
         s.commit()
-        return render(request, "chat.html", **turno(request, s, p, f"Ho caricato il documento «{up.filename[:120]}» ({tipo}, {len(testo_doc)} caratteri). Cosa ne deduci e cosa manca?"))
+        return avvia_turno(request, s, p, f"Ho caricato il documento «{up.filename[:120]}» ({tipo}, {len(testo_doc)} caratteri). Cosa ne deduci e cosa manca?")
 
     @app.post("/pratiche/{pid}/chat/riscontro", response_class=HTMLResponse)
     def chat_riscontro(request: Request, pid: int, rid: str = Form(""), azione: str = Form(...), csrf: str = Form(""),

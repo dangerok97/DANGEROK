@@ -639,3 +639,20 @@ def test_chat_genera_pvc_parte_fissa_piu_sezioni_ai(ctx):
     assert r.status_code == 303, re.findall(r"class=.err.>(.*?)</p>", r.text, re.S)
     t = c.get(r.headers["location"]).text
     assert "articolo 5-quater" in t and "Registri regolari." in t and "PERIODO D&#39;IMPOSTA 2023" in t.replace("'", "&#39;")
+
+
+def test_chat_asincrona_elabora_in_background(ctx):
+    import time
+    object.__setattr__(ctx.st, "chat_asincrona", True)
+    c = entra(ctx)
+    pid = nuova_pratica(c)
+    tok = csrf(c, f"/pratiche/{pid}/chat")
+    r = c.post(f"/pratiche/{pid}/chat", data={"csrf": tok, "messaggio": "Controllo su un ingegnere"})
+    assert r.status_code == 200
+    for _ in range(100):
+        if c.get(f"/pratiche/{pid}/chat/stato").json()["stato"] != "in_corso":
+            break
+        time.sleep(0.1)
+    assert c.get(f"/pratiche/{pid}/chat/stato").json()["stato"] == "finito"
+    assert "Controllo su un ingegnere" in c.get(f"/pratiche/{pid}/chat").text
+    assert c.get(f"/pratiche/{pid}/chat/stato").json()["stato"] == "letto"

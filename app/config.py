@@ -23,6 +23,7 @@ class Settings:
     session_max_age: int = 8 * 3600
     max_login_failures: int = 5
     lock_minutes: int = 15
+    chat_asincrona: bool = False        # la chat elabora in background e la pagina si aggiorna da sola (evita i timeout del proxy)
     istruttoria_auto: bool = False      # istruttoria normativa automatica (ricerche su fonti aperte senza che l'AI le chieda)
 
     @staticmethod
@@ -41,4 +42,5 @@ class Settings:
             anthropic_model=os.environ.get("ANTHROPIC_MODEL", "claude-opus-5-5"),
             setup_token=os.environ.get("SETUP_TOKEN", ""),
             istruttoria_auto=os.environ.get("ISTRUTTORIA_AUTO", "1") != "0",
+            chat_asincrona=os.environ.get("CHAT_ASINCRONA", "1") != "0",
         )

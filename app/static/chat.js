@@ -9,4 +9,13 @@
       if (a) { a.hidden = false; }
     });
   }
+  var j = document.getElementById("job");
+  if (j) {
+    var url = j.getAttribute("data-url");
+    setInterval(function () {
+      fetch(url, {credentials: "same-origin"}).then(function (r) { return r.json(); }).then(function (x) {
+        if (x.stato !== "in_corso") { location.reload(); }
+      }).catch(function () {});
+    }, 4000);
+  }
 })();
