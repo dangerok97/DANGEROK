@@ -115,5 +115,5 @@ I nomi dei modelli Google cambiano spesso (`gemini-2.5-flash` e' stato ritirato 
 «il modello non e' piu' disponibile» aggiorna `LLM_MODEL` con un nome dell'elenco di AI Studio.
 Il piano gratuito e' instabile (a volte «sovraccarico» o «quota esaurita»): l'app riprova e passa al modello successivo.
 **Piano gratuito Google: i contenuti possono essere usati da Google e letti da revisori: SOLO dati inventati.**
-Con Gemini la ricerca normativa sul web non e' disponibile.
+Con Gemini la ricerca normativa sul web usa Google Search (API nativa): l'app consulta le fonti da sola e marca come «ufficiali» solo quelle dei domini istituzionali (Agenzia delle Entrate, Normattiva, Cassazione, ...); il piano gratuito ha limiti giornalieri sulle ricerche.
 **Non incollare mai la chiave in chat.** Se e' finita in un messaggio, cancellala da AI Studio e creane una nuova.

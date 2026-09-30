@@ -742,6 +742,7 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
         base = dict(p=p, msgs=[(m.ruolo, cif.decifra_testo(m.contenuto_cifrato)) for m in messaggi_di(s, p)],
                     documenti=documenti_di(s, p), fascicolo=fasc, proposte=prop, ai=_stato_ai(),
                     riscontri=d.get("riscontri", []), prospetto=d.get("prospetto_fatture", ""),
+                    base_normativa=list(reversed(d.get("base_normativa", []))),
                     titoli_fasi={f["chiave"]: f["titolo"] for f in fasi_chat(p)},
                     bozza="", errore=None, sospetti=None, nota=None)
         base.update(extra)
@@ -762,6 +763,37 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
             if n and n not in d.setdefault(chiave, []):
                 d[chiave].append(n)
 
+    def esegui_ricerche(s, p: Pratica, d: dict, pseudo, client, ricerche: list[dict]) -> None:
+        """Consulta le fonti aperte per i quesiti generali proposti dall'assistente e ne registra esito e fonti."""
+        base = d.setdefault("base_normativa", [])
+        for r in ricerche:
+            q = chat_mod.quesito_pulito(r["quesito"])
+            voce = {"id": f"Q{len(base) + 1}", "quesito": q or "(quesito scartato: sembrava contenere nomi propri)",
+                    "periodo": r["periodo"], "data": dt.datetime.now(dt.timezone.utc).strftime("%d/%m/%Y"), "sintesi": "", "fonti": []}
+            if not q:
+                voce["esito"] = "scartato"
+            elif any(x["quesito"] == q and x["periodo"] == r["periodo"] and x.get("esito") == "ok" for x in base):
+                continue                                                          # gia' consultata
+            else:
+                try:
+                    ric = norme.ricerca_normativa(pseudo, q, r["periodo"], client=client, modello=st.anthropic_model)
+                    voce["esito"] = "ok"
+                    voce["sintesi"] = ric.risposta[:6000]
+                    voce["fonti"] = [{"url": f.url, "titolo": f.titolo[:200], "dominio": f.dominio, "ufficiale": f.ufficiale,
+                                      "estratto": f.estratto[:600]} for f in ric.fonti][:20]
+                    for f in ric.fonti[:20]:
+                        s.add(FonteNormativa(pratica_id=p.id, quesito=q, periodo=r["periodo"], url=f.url[:600], titolo=f.titolo[:300],
+                                             estratto=f.estratto, dominio=f.dominio[:120], ufficiale=int(f.ufficiale)))
+                except ai_mod.LeakError:
+                    voce["esito"], voce["quesito"] = "scartato", "(quesito scartato: conteneva dati riconoscibili)"
+                except llm_compat.NonSupportato as e:
+                    voce["esito"], voce["sintesi"] = "non_riuscita", str(e)
+                except llm_compat.ServizioAIErrore as e:
+                    voce["esito"], voce["sintesi"] = "non_riuscita", e.messaggio
+                except Exception as e:
+                    voce["esito"], voce["sintesi"] = "non_riuscita", f"Errore della ricerca ({type(e).__name__})."
+            base.append(voce)
+
     def turno(request: Request, s, p: Pratica, testo_utente: str, forza: bool = False):
         """Un giro di conversazione. Ritorna (risposta_html_ctx). Nulla viene salvato se qualcosa fallisce o viene bloccato."""
         d = dati_di(p)
@@ -770,14 +802,21 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
         if storia and storia[0][0] != "user":
             storia = storia[1:]
         storia.append(("user", testo_utente))
-        try:
-            fasi = fasi_chat(p)
-            ctx_txt = chat_mod.contesto(p.tipo, tipologie.TIPOLOGIE[p.tipologia]["nome"], fasi, d, documenti_di(s, p),
+        fasi = fasi_chat(p)
+        fasi_valide = {f["chiave"]: f["atto"] for f in fasi}
+        docs_ctx = documenti_di(s, p)
+
+        def costruisci_system() -> str:
+            ctx_txt = chat_mod.contesto(p.tipo, tipologie.TIPOLOGIE[p.tipologia]["nome"], fasi, d, docs_ctx,
                                         [{"tipo": a.tipo, "giornata": a.giornata, "fase": a.fase} for a in p.atti],
                                         pvoc_primo_iniziale(p, d), prospetto=d.get("prospetto_fatture", ""),
-                                        voci=registro_sicuro(d).elenco_per_prompt())
-            system = pseudo.anonimizza_o_blocca(chat_mod.system() + "\n\nMODO DI OPERARE DEL REPARTO:\n"
-                                                + ai_mod.playbook() + "\n\nSTATO DELLA PRATICA:\n" + ctx_txt)
+                                        voci=registro_sicuro(d).elenco_per_prompt(), base_normativa=d.get("base_normativa", []))
+            return pseudo.anonimizza_o_blocca(chat_mod.system() + "\n\nMODO DI OPERARE DEL REPARTO:\n"
+                                              + ai_mod.playbook() + "\n\nSTATO DELLA PRATICA:\n" + ctx_txt)
+        visibili: list[str] = []
+        log_testi: list[str] = []
+        try:
+            system = costruisci_system()
             msgs = [{"role": r, "content": pseudo.anonimizza_o_blocca(t)} for r, t in storia]
             libero = "\n".join(m["content"] for m, (r, _) in zip(msgs, storia) if r == "user") + "\n" + "\n".join(
                 pseudo.anonimizza(x["testo"]) for x in documenti_di(s, p))          # solo testo scritto/caricato dall'operatore
@@ -785,7 +824,27 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
             sospetti = [n for n in chat_mod.nomi_sospetti(libero) if n not in ignora]
             if sospetti and not forza:
                 return ctx_chat(s, p, bozza=testo_utente, sospetti=sospetti)
-            testo, stop, modello = ai_mod.chiama_chat(ai_client or ai_mod._client(), st.anthropic_model, system, msgs)
+            client = ai_client or ai_mod._client()
+            testo, stop, modello = ai_mod.chiama_chat(client, st.anthropic_model, system, msgs)
+            log_testi.append(system + "\n\n" + "\n".join(f"[{m['role']}] {m['content']}" for m in msgs))
+            giro = 0
+            while True:
+                visibile_anon, azioni = chat_mod.separa_azioni(testo)
+                validate = chat_mod.valida_azioni(azioni, pseudo.ripristina, fasi_valide, set(registro_sicuro(d).voci),
+                                                  {v["id"] for v in d.get("base_normativa", [])})
+                visibili.append(pseudo.ripristina(visibile_anon)[0])
+                chat_mod.applica_azioni(d, validate)
+                ricerche = validate.get("ricerche", []) if giro < 2 else []
+                if not ricerche:
+                    break
+                esegui_ricerche(s, p, d, pseudo, client, ricerche)                    # consultazione automatica delle fonti aperte
+                giro += 1
+                system = costruisci_system()
+                msgs = msgs + [{"role": "assistant", "content": testo},
+                               {"role": "user", "content": "[Programma] Ricerche completate: i risultati sono nella sezione BASE NORMATIVA "
+                                                           "RACCOLTA del contesto. Prosegui la risposta all'operatore usando solo quelle fonti."}]
+                testo, stop, modello = ai_mod.chiama_chat(client, st.anthropic_model, system, msgs)
+                log_testi.append(f"[seconda chiamata dopo ricerca]\n{system}\n\n" + "\n".join(f"[{m['role']}] {m['content']}" for m in msgs))
         except ai_mod.LeakError as e:
             s.add(LogAI(pratica_id=p.id, sezione="chat", testo_inviato="(bloccato)", esito="bloccato"))
             s.commit()
@@ -796,14 +855,9 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
             return ctx_chat(s, p, bozza=testo_utente, errore=str(e))
         except Exception as e:                                   # errori di rete/servizio: non perdere il messaggio
             return ctx_chat(s, p, bozza=testo_utente, errore=f"Errore del servizio AI ({type(e).__name__}). Riprova.")
-        visibile_anon, azioni = chat_mod.separa_azioni(testo)
-        visibile, _ = pseudo.ripristina(visibile_anon)
-        validate = chat_mod.valida_azioni(azioni, pseudo.ripristina, {f["chiave"]: f["atto"] for f in fasi},
-                                          set(registro_sicuro(d).voci))
-        chat_mod.applica_azioni(d, validate)
+        visibile = "\n\n".join(v for v in visibili if v.strip())
         salva_dati(p, d)
-        s.add(LogAI(pratica_id=p.id, sezione="chat", modello=modello, testo_inviato=system + "\n\n" + "\n".join(
-            f"[{m['role']}] {m['content']}" for m in msgs)))
+        s.add(LogAI(pratica_id=p.id, sezione="chat", modello=modello, testo_inviato="\n\n=====\n\n".join(log_testi)))
         s.add(MessaggioChat(pratica_id=p.id, ruolo="user", contenuto_cifrato=cif.cifra_testo(testo_utente)))
         s.add(MessaggioChat(pratica_id=p.id, ruolo="assistant", contenuto_cifrato=cif.cifra_testo(visibile)))
         s.commit()
@@ -928,6 +982,10 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
                        + "\n".join(cif.decifra_testo(m.contenuto_cifrato) for m in messaggi_di(s, p) if m.ruolo == "user")[-12000:])
             ris = [r for r in d.get("riscontri", []) if r["stato"] == "confermato" and (f.atto == "PVC" or r["fase"] == fase)]
             istruzione = ISTRUZIONI[f.atto]
+            if d.get("base_normativa"):
+                appunti += "\nBASE NORMATIVA RACCOLTA (fonti aperte, ricerche automatiche):\n" + chat_mod.base_normativa_testo(d["base_normativa"], 9000)
+            istruzione += (" Riferimenti normativi, di prassi e giurisprudenziali: usa solo quelli presenti in BASE NORMATIVA RACCOLTA o nei "
+                           "RISCONTRI; se te ne serve un altro scrivi [DA COMPILARE: riferimento da verificare].")
             if ris:
                 appunti += ("\nRISCONTRI CONFERMATI DA CONSTATARE IN QUESTO ATTO (id | periodo | tipo):\n" + "\n".join(
                     f"- {r['id']} | {r['periodo']} | {r['tipo']}: {r['descrizione']} Norma: {r['norma']}. Importi tracciati: "

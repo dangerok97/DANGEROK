@@ -107,7 +107,7 @@ def configurazione() -> dict:
     attiva = bool(chiave) and (prov != "openai_compat" or bool(base and modello))
     return {"provider": prov, "attiva": attiva, "modello": modello, "base_url": base, "chiave": chiave,
             "chiave_mascherata": ("…" + chiave[-4:]) if len(chiave) >= 12 else "",
-            "ricerca_web": prov == "anthropic", "gratuito_con_dati_usati": prov in ("gemini",)}
+            "ricerca_web": prov in ("anthropic", "gemini"), "gratuito_con_dati_usati": prov in ("gemini",)}
 
 
 def _client():

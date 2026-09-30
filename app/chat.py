@@ -26,6 +26,17 @@ Operativa Volante) che conduce un controllo o una verifica fiscale. Conversi con
 con tono professionale e sintetico. Il militare e' l'autore degli atti e ne resta responsabile.
 
 Il tuo compito, in ordine:
+0. INFORMARTI, sempre e da solo. Ogni controllo e' un caso a se' e l'operatore puo' trovarsi davanti fattispecie che non ha \
+mai trattato: non contare su precedenti e non affidarti alla memoria per norme, circolari, risposte a interpello, sentenze. \
+Appena hai capito di che fattispecie si tratta, e ogni volta che ti serve chiarire un punto (requisiti e cause di esclusione di un \
+regime, presupposti di un'agevolazione, regole di fatturazione/registrazione, obblighi dichiarativi, sanzioni, termini, profili \
+penali e soglie, orientamenti della Cassazione e delle Corti di giustizia tributaria), emetti una o piu' "ricerche": il programma \
+consulta le fonti aperte e ufficiali (Normattiva, Gazzetta Ufficiale, Agenzia delle Entrate con circolari, risoluzioni e risposte \
+a interpello, MEF, Corte di Cassazione, Corte costituzionale, Corti di giustizia tributaria, UE) e ti restituisce i risultati nella \
+sezione BASE NORMATIVA RACCOLTA del contesto. Scrivi i quesiti in forma GENERALE, senza nomi, importi o dati del caso, e indica il \
+periodo d'imposta. Dopo la ricerca ragiona su norma vigente nel periodo, prassi e giurisprudenza prevalente, segnalando gli \
+orientamenti contrastanti. Cita solo cio' che e' nella BASE NORMATIVA (indica l'id della ricerca, es. Q2); se una fonte ufficiale \
+non e' stata trovata, dillo.
 1. CAPIRE il caso: ragioni che hanno portato ad aprire il controllo/verifica, tipologia, soggetto, periodi d'imposta, \
 tributi, obiettivo (a cosa si vuole arrivare). Fai poche domande alla volta (al massimo tre), le piu' utili.
 2. CHIEDERE i documenti e le informazioni necessari a svolgere gli accertamenti: fatture (di vendita/acquisto), registri IVA, \
@@ -63,13 +74,16 @@ tutte le chiavi facoltative), che l'operatore non vede:
 {"fascicolo": {"motivazione": "...", "obiettivo": "..."},
  "pvoc_primo": {"campo": "valore"},
  "richieste": [{"voce": "Fatture di acquisto 2023-2025", "stato": "richiesto"}],
- "riscontri": [{"fase": "coerenza_interna", "periodo": "2023", "tipo": "sostanziale", "descrizione": "...", "norma": "...", "importi": ["ID1", "ID2"]}],
+ "ricerche": [{"quesito": "domanda generale e senza dati del caso", "periodo": "2023"}],
+ "riscontri": [{"fase": "coerenza_interna", "periodo": "2023", "tipo": "sostanziale", "descrizione": "...", "norma": "...", "fonti": ["Q1"], "importi": ["ID1", "ID2"]}],
  "calcoli": [{"tipo": "differenza", "etichetta": "...", "operandi": ["ID1", "ID2"]}],
  "proposte": [{"fase": "avvio", "giornata": "gg/mm/aaaa", "motivo": "perche' ora"}]}
 <<FINE>>
 - "fascicolo": motivazione e obiettivo riassunti dalle parole dell'operatore (testo formale, senza abbellimenti).
 - "pvoc_primo": chiavi ammesse: __CAMPI__.
 - "richieste": stato = richiesto | acquisito | non_disponibile. Riporta l'elenco completo aggiornato solo se cambia.
+- "ricerche": al massimo 3 per risposta. Dopo averle emesse dai una breve frase di cortesia (es. "Mi informo sulla disciplina \
+applicabile"): i risultati ti vengono passati subito e potrai continuare; non inventare l'esito della ricerca.
 - "riscontri": solo nuovi riscontri (i gia' presenti sono nel contesto); "importi" = ID di dati/calcoli tracciati esistenti.
 - "calcoli": tipo = somma | differenza | percentuale (per la percentuale aggiungi "param": "22"); gli operandi sono ID esistenti; \
 l'ID del risultato lo assegna il programma e lo trovi nel contesto alla risposta successiva.
@@ -216,9 +230,41 @@ def estrai_testo(nome: str, dati: bytes) -> tuple[str, str, list[tuple[str, str]
     raise ValueError("Formato non supportato. Carica XML delle fatture, PDF con testo, Word, CSV o testo.")
 
 
+# ---------------------------------------------------------------- base normativa (ricerche automatiche su fonti aperte)
+MAX_BASE_NORMATIVA = 22_000
+
+
+def base_normativa_testo(voci: list[dict], limite: int = MAX_BASE_NORMATIVA) -> str:
+    """Le ricerche piu' recenti per prime, nei limiti di spazio."""
+    if not voci:
+        return "- nessuna ricerca ancora eseguita"
+    out, usati = [], 0
+    for v in reversed(voci):
+        fonti = "; ".join(f"{f.get('titolo') or f.get('dominio')} ({f.get('dominio') or '?'}, "
+                          f"{'UFFICIALE' if f.get('ufficiale') else 'non ufficiale'})" for f in v.get("fonti", [])[:12]) or "nessuna fonte"
+        blocco = (f"--- {v['id']} | {v['quesito']} | {v['periodo']} | esito: {v.get('esito', 'ok')} ---\n{v.get('sintesi', '')}\n"
+                  f"Fonti: {fonti}" + ("\nATTENZIONE: nessuna fonte ufficiale reperita." if v.get("esito", "ok") == "ok"
+                                        and not any(f.get("ufficiale") for f in v.get("fonti", [])) else ""))
+        if usati + len(blocco) > limite:
+            out.append(f"--- {v['id']} | {v['quesito']} (non riportata per limiti di spazio) ---")
+            continue
+        usati += len(blocco)
+        out.append(blocco)
+    return "\n".join(out)
+
+
+_RE_TOKEN = re.compile(r"\[[A-Z_]+_\d+\]")
+
+
+def quesito_pulito(q: str) -> str:
+    """Quesito di ricerca privo di segnaposto e spazi superflui; stringa vuota se sembra contenere nomi propri."""
+    q = re.sub(r"\s+", " ", _RE_TOKEN.sub(" ", q or "")).strip()
+    return "" if nomi_sospetti(q) else q[:600]
+
+
 # ---------------------------------------------------------------- contesto per il modello
 def contesto(p_tipo: str, tipologia_nome: str, fasi: list[dict], d: dict, documenti: list[dict], atti: list[dict],
-             pvoc_iniziale: dict, prospetto: str = "", voci: str = "") -> str:
+             pvoc_iniziale: dict, prospetto: str = "", voci: str = "", base_normativa: list | None = None) -> str:
     fasc = d.get("fascicolo", {}) or {}
     sog = d.get("soggetto", {}) or {}
     righe = [f"TIPO DI INTERVENTO: {p_tipo}. TIPOLOGIA: {tipologia_nome}.",
@@ -249,6 +295,7 @@ def contesto(p_tipo: str, tipologia_nome: str, fasi: list[dict], d: dict, docume
         righe.append(f"--- {doc['nome']} ({doc['tipo']}, {doc['caratteri']} caratteri) ---\n{estr}")
     if not documenti:
         righe.append("- nessuno")
+    righe += ["", "BASE NORMATIVA RACCOLTA (ricerche su fonti aperte gia' eseguite; id | quesito | periodo):", base_normativa_testo(base_normativa or [])]
     if prospetto:
         righe += ["", "PROSPETTO DELLE FATTURE (calcolato dal programma sui file XML caricati):", prospetto]
     righe += ["", "DATI E CALCOLI TRACCIATI DISPONIBILI (id - etichetta: valore):", voci or "- nessuno"]
@@ -292,11 +339,15 @@ def _mappa(o, f):
     return o
 
 
-def valida_azioni(az: dict | None, restore, fasi_valide: dict[str, str], id_voci: set[str] | frozenset = frozenset()) -> dict:
+def valida_azioni(az: dict | None, restore, fasi_valide: dict[str, str], id_voci: set[str] | frozenset = frozenset(),
+                  id_ricerche: set[str] | frozenset = frozenset()) -> dict:
     """Filtra le azioni: solo chiavi note, tipi corretti; i segnaposto tornano dati reali. `fasi_valide`: chiave -> atto."""
     if not az:
         return {}
+    grezze = az.get("ricerche")                                   # i quesiti di ricerca restano pseudonimizzati
     az = _mappa(az, lambda s: restore(s)[0])
+    if grezze is not None:
+        az["ricerche"] = grezze
     out: dict = {}
     fasc = az.get("fascicolo")
     if isinstance(fasc, dict):
@@ -314,6 +365,10 @@ def valida_azioni(az: dict | None, restore, fasi_valide: dict[str, str], id_voci
     if isinstance(ri, list):
         out["richieste"] = [{"voce": str(r["voce"]).strip()[:200], "stato": r.get("stato") if r.get("stato") in ("richiesto", "acquisito", "non_disponibile") else "richiesto"}
                             for r in ri if isinstance(r, dict) and str(r.get("voce", "")).strip()][:60]
+    ric = az.get("ricerche")
+    if isinstance(ric, list):
+        out["ricerche"] = [{"quesito": str(r["quesito"]).strip(), "periodo": str(r.get("periodo", "") or "").strip()[:40] or "in corso"}
+                           for r in ric if isinstance(r, dict) and str(r.get("quesito", "")).strip()][:3]
     rs = az.get("riscontri")
     if isinstance(rs, list):
         out["riscontri"] = []
@@ -325,6 +380,7 @@ def valida_azioni(az: dict | None, restore, fasi_valide: dict[str, str], id_voci
                 "fase": r["fase"], "periodo": str(r.get("periodo", "") or "").strip()[:40],
                 "tipo": r.get("tipo") if r.get("tipo") in ("formale", "sostanziale", "indizio_reato") else "sostanziale",
                 "descrizione": str(r["descrizione"]).strip()[:1500], "norma": str(r.get("norma", "") or "da verificare").strip()[:300],
+                "fonti": [q for q in (r.get("fonti") or []) if isinstance(q, str) and q in id_ricerche],
                 "importi": imp, "origine": "ai"})
         out["riscontri"] = out["riscontri"][:20]
     ca = az.get("calcoli")
@@ -379,6 +435,9 @@ _NON_NOME = {"guardia", "finanza", "compagnia", "tarquinia", "sezione", "operati
              "ordinario", "dpr", "dlgs", "art", "artt", "comma", "iva", "irpef", "irap", "ires", "cnr", "pvoc", "pvv",
              "pvc", "fatture", "registri", "libro", "giornale", "dichiarazione", "dichiarazioni", "cassetto", "fiscale",
              "gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto", "settembre", "ottobre",
+             "corte", "cassazione", "costituzionale", "giustizia", "tributaria", "tributario", "sezioni", "unite",
+             "sentenza", "ordinanza", "risoluzione", "interpello", "risposta", "ministero", "economia", "finanze",
+             "unione", "europea", "gazzetta", "ufficiale", "normattiva", "sezione", "civile", "penale", "commissione",
              "novembre", "dicembre", "del", "della", "delle", "dei", "degli", "per", "con", "che", "non", "sono", "come"}
 
 

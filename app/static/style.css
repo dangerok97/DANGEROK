@@ -27,3 +27,4 @@ button.sec{background:transparent;color:var(--accent);border:1px solid var(--acc
 .msg .chi{font-size:.75rem;opacity:.7;margin-bottom:.2rem}
 .msg .testo{white-space:pre-wrap}
 .propo{justify-content:space-between;align-items:center}
+.testo-pre{white-space:pre-wrap;margin:.4rem 0}

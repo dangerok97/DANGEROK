@@ -79,9 +79,44 @@ def test_chiave_non_valida_non_prova_altri_modelli(monkeypatch):
     assert visti == ["m-ritirato"]
 
 
-def test_ricerca_web_non_supportata():
+def test_ricerca_web_non_supportata_con_altri_servizi():
+    c = CompatClient("https://api.esempio.test/v1", "chiave-finta-di-prova-123", "m",
+                     http_client=httpx2.Client(transport=httpx2.MockTransport(lambda r: httpx2.Response(200, json=OK))))
     with pytest.raises(NonSupportato):
-        client(OK).messages.create(model="m", messages=[])
+        c.messages.create(model="m", messages=[])
+
+
+def test_ricerca_web_con_gemini_restituisce_testo_e_fonti():
+    cat = []
+
+    def h(req):
+        cat.append(req)
+        if "grounding-api-redirect/abc" in str(req.url):
+            return httpx2.Response(302, headers={"location": "https://www.agenziaentrate.gov.it/portale/circolare-9e"})
+        if "grounding-api-redirect/xyz" in str(req.url):
+            return httpx2.Response(302, headers={"location": "https://blogqualunque.com/post"})
+        return httpx2.Response(200, json={"candidates": [{"content": {"parts": [{"text": "Il limite e' 85.000 euro."}]}, "groundingMetadata": {
+            "groundingChunks": [{"web": {"uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/abc", "title": "agenziaentrate.gov.it"}},
+                                {"web": {"uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/xyz", "title": "blogqualunque.com"}}],
+            "groundingSupports": [{"segment": {"text": "limite"}, "groundingChunkIndices": [0]}]}}]})
+    c = CompatClient(GEMINI_BASE_URL, "chiave-finta-di-prova-123", "gemini-x", http_client=httpx2.Client(transport=httpx2.MockTransport(h)))
+    r = c.messages.create(model="m", system="S", max_tokens=100, tools=[{"type": "web_search"}], messages=[{"role": "user", "content": "Quesito"}])
+    body = json.loads(cat[0].content)
+    assert body["tools"] == [{"google_search": {}}] and body["systemInstruction"]["parts"][0]["text"] == "S"
+    assert cat[0].headers["x-goog-api-key"] == "chiave-finta-di-prova-123" and "gemini-x:generateContent" in str(cat[0].url)
+    from app import norme
+    testo, fonti = norme._raccogli(r.content)
+    assert testo == "Il limite e' 85.000 euro."
+    uff = {f.dominio: f for f in fonti}
+    assert uff["agenziaentrate.gov.it"].ufficiale and uff["agenziaentrate.gov.it"].url.startswith("https://www.agenziaentrate.gov.it/")
+    assert not uff["blogqualunque.com"].ufficiale
+
+
+def test_ricerca_web_gemini_errori(monkeypatch):
+    c = client({"error": "x"}, 429)
+    with pytest.raises(ServizioAIErrore) as e:
+        c.messages.create(model="m", messages=[{"role": "user", "content": "q"}])
+    assert "Limite" in e.value.messaggio
 
 
 def test_selezione_del_servizio_da_variabili(monkeypatch):

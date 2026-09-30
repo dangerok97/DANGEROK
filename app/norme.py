@@ -19,6 +19,9 @@ DOMINI_UFFICIALI = [
     "mef.gov.it", "governo.it", "gdf.gov.it", "camera.it", "senato.it", "eur-lex.europa.eu",
     "inps.it", "cortedicassazione.it", "giustiziatributaria.gov.it", "agenziaentrateriscossione.gov.it",
     "mit.gov.it", "enea.it", "gse.it",
+    # giurisprudenza e prassi
+    "italgiure.giustizia.it", "giustizia.it", "cortecostituzionale.it", "giustiziatributaria.gov.it",
+    "def.finanze.gov.it", "curia.europa.eu", "dt.mef.gov.it",
 ]
 
 SYSTEM = """Sei un ricercatore normativo per un ufficio di polizia tributaria italiano. Rispondi a un quesito \
@@ -30,7 +33,9 @@ Regole:
 2. La disciplina tributaria cambia nel tempo: individua la versione vigente nel PERIODO D'IMPOSTA indicato e segnala
    modifiche successive rilevanti (data e atto).
 3. Se le fonti ufficiali sono discordanti, incomplete o non reperite, dillo esplicitamente: non colmare i vuoti.
-4. Distingui norma, prassi amministrativa (circolari, risoluzioni, risposte a interpello) e giurisprudenza.
+4. Distingui norma, prassi amministrativa (circolari, risoluzioni, risposte a interpello) e giurisprudenza (Corte di \
+Cassazione civile e penale, Corte costituzionale, Corti di giustizia tributaria, Corte di giustizia UE): per le sentenze \
+indica organo, numero, data e il principio di diritto; segnala gli orientamenti contrastanti e quello prevalente.
 5. Non hai dati sul caso concreto e non devi chiederli: rispondi solo sul quesito generale.
 6. Struttura: 'Sintesi', 'Norme e prassi applicabili al periodo', 'Punti dubbi o discordanti', 'Fonti'."""
 
@@ -57,9 +62,13 @@ class Ricerca:
         return not any(f.ufficiale for f in self.fonti)
 
 
-def e_ufficiale(url: str) -> bool:
-    host = (urlparse(url).hostname or "").lower()
+def _host_ufficiale(host: str) -> bool:
+    host = (host or "").lower().removeprefix("www.")
     return any(host == d or host.endswith("." + d) for d in DOMINI_UFFICIALI)
+
+
+def e_ufficiale(url: str) -> bool:
+    return _host_ufficiale(urlparse(url).hostname or "")
 
 
 def _get(o, k, d=None):
@@ -75,8 +84,11 @@ def _raccogli(content) -> tuple[str, list[Fonte]]:
             for c in _get(b, "citations", None) or []:
                 url = _get(c, "url", "")
                 if url:
-                    f = visti.setdefault(url, Fonte(url, _get(c, "title", "") or "", "", urlparse(url).hostname or "",
-                                                    e_ufficiale(url)))
+                    dom = urlparse(url).hostname or ""
+                    dichiarato = _get(c, "domain", "") or ""               # Gemini: dominio della fonte (l'URL puo' essere un reindirizzamento)
+                    # il dominio dichiarato vale solo per i reindirizzamenti di Google non risolti; altrimenti conta l'host reale
+                    ufficiale = e_ufficiale(url) or ("vertexaisearch" in dom and _host_ufficiale(dichiarato))
+                    f = visti.setdefault(url, Fonte(url, _get(c, "title", "") or "", "", dichiarato or dom, ufficiale))
                     if not f.estratto:
                         f.estratto = (_get(c, "cited_text", "") or "")[:1200]
         elif tipo == "web_search_tool_result":
