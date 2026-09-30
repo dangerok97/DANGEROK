@@ -54,3 +54,14 @@ def test_valida_azioni_campi_di_ragionamento():
     out = chat.valida_azioni(az, lambda s: (s, []), {"coerenza_interna": ""}, set(), set())
     r = out["riscontri"][0]
     assert r["ragionamento"] == "fatto -> ipotesi" and r["verifiche"] == ["doc A"] and r["effetti"] == ["IRAP"] and r["affidabilita"] == "probabile"
+
+
+def test_quote_documenti_ripartizione_equa():
+    q = chat.quote_documenti([1000, 50000, 60000, 4000])
+    assert q == [1000, 50000, 60000, 4000]                    # tutto entra nel budget
+    q = chat.quote_documenti([200000] * 5)
+    assert sum(q) <= chat.MAX_TOTALE_DOC and min(q) >= chat.MIN_DOC_NEL_PROMPT
+    q = chat.quote_documenti([500, 150000, 150000], totale=100000, massimo=100000)
+    assert q[0] == 500 and q[1] + q[2] <= 99500 and abs(q[1] - q[2]) <= 1
+    ctx = chat.contesto("controllo", "x", [], {}, [{"nome": "a.pdf", "tipo": "pdf", "testo": "x" * 500_000, "caratteri": 500_000}], [], {})
+    assert "TRONCATO ai primi" in ctx

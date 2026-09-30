@@ -16,8 +16,9 @@ from . import analisi, calcoli
 from . import pvoc as pvoc_mod
 
 MAX_CARATTERI_DOC = 400_000
-MAX_DOC_NEL_PROMPT = 6_000          # per documento, gia' riassunto/troncato
-MAX_TOTALE_DOC = 30_000
+MAX_DOC_NEL_PROMPT = 60_000         # massimo per documento (le liste e i registri vanno letti quasi per intero)
+MAX_TOTALE_DOC = 200_000            # budget complessivo dei documenti nel prompt, ripartito in modo equo
+MIN_DOC_NEL_PROMPT = 6_000
 
 INIZIO, FINE = "<<AZIONI>>", "<<FINE>>"
 
@@ -211,6 +212,25 @@ def fatture_xml(dati: bytes) -> list[dict]:
     return out
 
 
+def _metadati_pdf(r) -> str:
+    """Riga iniziale con i metadati del PDF (data di creazione/modifica, programma): servono a confrontare la data di un
+    documento con quella in cui il file e' stato realmente prodotto."""
+    try:
+        m = r.metadata or {}
+        parti = []
+        for k, e in (("/CreationDate", "creato il"), ("/ModDate", "modificato il")):
+            v = str(m.get(k) or "")
+            if v.startswith("D:") and len(v) >= 10:
+                parti.append(f"{e} {v[8:10]}/{v[6:8]}/{v[2:6]}")
+        prod = " / ".join(str(m.get(k)) for k in ("/Producer", "/Creator") if m.get(k))
+        firma = "con campo di firma digitale" if "/AcroForm" in r.trailer["/Root"] else "senza campo di firma digitale"
+        if parti or prod:
+            return f"[Metadati del file PDF: {', '.join(parti) or 'date non indicate'}; programma: {prod or 'n.d.'}; {firma}]\n"
+    except Exception:                                         # noqa: BLE001
+        pass
+    return ""
+
+
 def estrai_testo(nome: str, dati: bytes) -> tuple[str, str, list[tuple[str, str]]]:
     """(tipo, testo, nomi da pseudonimizzare [(nome, persona|ente)]). Solleva ValueError se il formato non e' leggibile."""
     n = nome.lower()
@@ -233,7 +253,15 @@ def estrai_testo(nome: str, dati: bytes) -> tuple[str, str, list[tuple[str, str]
         t = "\n".join((pg.extract_text() or "") for pg in r.pages)
         if not t.strip():
             raise ValueError("Il PDF non contiene testo selezionabile (e' una scansione): serve l'OCR, non ancora disponibile.")
-        return "pdf", t[:MAX_CARATTERI_DOC], []
+        return "pdf", (_metadati_pdf(r) + t)[:MAX_CARATTERI_DOC], []
+    if n.endswith(".xlsx"):
+        from . import crediti
+        try:
+            righe = crediti.righe_da_xlsx(dati)
+        except Exception as e:                                # noqa: BLE001
+            raise ValueError("File Excel non leggibile") from e
+        testo = "\n".join(" | ".join("" if c is None else str(c).strip() for c in r).rstrip(" |") for r in righe)
+        return ("movimenti_crediti" if crediti.movimenti_da_righe(righe) else "xlsx"), testo[:MAX_CARATTERI_DOC], []
     if n.endswith(".docx"):
         import docx
         try:
@@ -255,7 +283,7 @@ def estrai_testo(nome: str, dati: bytes) -> tuple[str, str, list[tuple[str, str]
             righe = list(csv.reader(io.StringIO(testo), delimiter="\t" if n.endswith(".tsv") else (";" if testo.count(";") > testo.count(",") else ",")))
             return "csv", "\n".join(" | ".join(r) for r in righe)[:MAX_CARATTERI_DOC], []
         return "testo", testo[:MAX_CARATTERI_DOC], []
-    raise ValueError("Formato non supportato. Carica XML delle fatture, PDF con testo, Word, CSV o testo.")
+    raise ValueError("Formato non supportato. Carica XML delle fatture, PDF con testo, Word, Excel (.xlsx), CSV o testo.")
 
 
 # ---------------------------------------------------------------- base normativa (ricerche automatiche su fonti aperte)
@@ -291,6 +319,22 @@ def quesito_pulito(q: str) -> str:
 
 
 # ---------------------------------------------------------------- contesto per il modello
+def quote_documenti(lunghezze: list[int], totale: int = 0, massimo: int = 0, minimo: int = 0) -> list[int]:
+    """Caratteri concessi a ciascun documento: ripartizione equa del budget (chi e' piu' corto lascia spazio agli altri)."""
+    totale, massimo, minimo = totale or MAX_TOTALE_DOC, massimo or MAX_DOC_NEL_PROMPT, minimo or MIN_DOC_NEL_PROMPT
+    quote = [min(n, massimo) for n in lunghezze]
+    if sum(quote) <= totale:
+        return quote
+    ordine = sorted(range(len(quote)), key=lambda i: quote[i])
+    restante, n = totale, len(quote)
+    out = [0] * len(quote)
+    for k, i in enumerate(ordine):
+        equa = max(minimo, restante // (n - k))
+        out[i] = min(quote[i], equa)
+        restante -= out[i]
+    return out
+
+
 def contesto(p_tipo: str, tipologia_nome: str, fasi: list[dict], d: dict, documenti: list[dict], atti: list[dict],
              pvoc_iniziale: dict, prospetto: str = "", voci: str = "", base_normativa: list | None = None,
              metodo: str = "", catalogo: str = "") -> str:
@@ -313,15 +357,12 @@ def contesto(p_tipo: str, tipologia_nome: str, fasi: list[dict], d: dict, docume
     for k in pvoc_mod.CAMPI:
         v = pvoc_iniziale.get(k, "")
         righe.append(f"- {k}: {v if v else 'MANCANTE'}")
-    righe += ["", "DOCUMENTI ACQUISITI (estratti):"]
-    tot = 0
-    for doc in documenti:
-        estr = doc["testo"][:MAX_DOC_NEL_PROMPT]
-        if tot + len(estr) > MAX_TOTALE_DOC:
-            righe.append(f"- {doc['nome']}: ({doc['caratteri']} caratteri, non riportato per limiti di spazio)")
-            continue
-        tot += len(estr)
-        righe.append(f"--- {doc['nome']} ({doc['tipo']}, {doc['caratteri']} caratteri) ---\n{estr}")
+    righe += ["", "DOCUMENTI ACQUISITI (testo; se e' stato troncato per limiti di spazio e' indicato):"]
+    quote = quote_documenti([len(x["testo"]) for x in documenti])
+    for doc, q in zip(documenti, quote):
+        estr = doc["testo"][:q]
+        nota = f" - TRONCATO ai primi {q} caratteri su {len(doc['testo'])}" if len(doc["testo"]) > q else ""
+        righe.append(f"--- {doc['nome']} ({doc['tipo']}, {doc['caratteri']} caratteri{nota}) ---\n{estr}")
     if not documenti:
         righe.append("- nessuno")
     righe += ["", "BASE NORMATIVA RACCOLTA (ricerche su fonti aperte gia' eseguite; id | quesito | periodo):", base_normativa_testo(base_normativa or [])]

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from decimal import Decimal
+
 import datetime as dt
 import hmac
 import pathlib
@@ -771,6 +773,15 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
         sog = d.get("soggetto", {}) or {}
         ids = {analisi._norm_id(x) for x in (sog.get("partite_iva", []) or []) + (sog.get("codici_fiscali", []) or [])} - {""}
         res = analisi.analizza(fatture_di(s, p), ids, p.tipologia)
+        if d.get("movimenti_crediti"):
+            from . import crediti
+            vend = {}
+            for x in res["dati"]:
+                if x["id"].startswith("F_V") and x["id"].endswith("_TOT"):
+                    vend[int(x["id"][3:7])] = Decimal(x["valore"])
+            cr = crediti.analizza(d["movimenti_crediti"], ids, vend)
+            res = {"dati": res["dati"] + cr["dati"], "riscontri": res["riscontri"] + cr["riscontri"],
+                   "prospetto": (res["prospetto"] + "\n\n" if res["prospetto"] else "") + cr["prospetto"]}
         cfg = d.setdefault("calcoli", {"dati": [], "calcoli": []})
         cfg["dati"] = [x for x in cfg["dati"] if not x.get("auto")] + res["dati"]
         d["riscontri"] = analisi.unisci_riscontri(d.get("riscontri", []), res["riscontri"])
@@ -981,6 +992,10 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
                                testo_cifrato=cif.cifra_testo(testo_doc), caratteri=len(testo_doc))
         s.add(doc)
         s.flush()
+        if tipo == "movimenti_crediti":
+            from . import crediti
+            d["movimenti_crediti"] = crediti.movimenti_da_righe(crediti.righe_da_xlsx(dati_file))
+            aggiorna_analisi(s, p, d)
         if tipo == "xml_fattura":
             for ft in chat_mod.fatture_xml(dati_file):
                 s.add(FatturaPratica(pratica_id=p.id, documento_id=doc.id, dati_cifrati=cif.cifra_json(ft)))
@@ -1037,7 +1052,7 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
             fasc = d.get("fascicolo", {}) or {}
             docs = documenti_di(s, p)
             appunti = (f"MOTIVAZIONE DEL CONTROLLO: {fasc.get('motivazione', '')}\nOBIETTIVO: {fasc.get('obiettivo', '')}\n"
-                       "DOCUMENTI ACQUISITI:\n" + "\n".join(f"--- {x['nome']} ---\n{x['testo'][:chat_mod.MAX_DOC_NEL_PROMPT]}" for x in docs)
+                       "DOCUMENTI ACQUISITI:\n" + "\n".join(f"--- {x['nome']} ---\n{x['testo'][:q]}" for x, q in zip(docs, chat_mod.quote_documenti([len(y['testo']) for y in docs], totale=120_000)))
                        + "\nINDICAZIONI DELL'OPERATORE NELLA CHAT:\n"
                        + "\n".join(cif.decifra_testo(m.contenuto_cifrato) for m in messaggi_di(s, p) if m.ruolo == "user")[-12000:])
             ris = [r for r in d.get("riscontri", []) if r["stato"] == "confermato" and (f.atto == "PVC" or r["fase"] == fase)]
