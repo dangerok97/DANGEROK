@@ -32,14 +32,15 @@
 <p><button>Salva lo spunto</button></p></form></div>
 
 <h2>Contenuti in libreria ({{ voci|length }})</h2>
-{% for v in voci %}<div class="card"><div class="fase"><div><b>{{ v.titolo }}</b> <span class="tag">{{ 'spunto' if v.tipo == 'spunto' else 'precedente' }}{% if v.atto %} · {{ v.atto }}{% endif %}</span>{% if v.stato != 'pronto' %} <span class="tag in_corso">da controllare</span>{% endif %}<br><small>{{ v.tag }}</small></div></div>
+{% for v in voci %}<div class="card"><div class="fase"><div><b>{{ v.titolo }}</b> <span class="tag">{{ 'spunto' if v.tipo == 'spunto' else 'precedente' }}{% if v.atto %} · {{ v.atto }}{% endif %}{% if v.integrato %} · integrato nel programma{% endif %}</span>{% if v.stato != 'pronto' %} <span class="tag in_corso">da controllare</span>{% endif %}<br><small>{{ v.tag }}</small></div></div>
 {% if v.tipo == 'spunto' %}<div class="testo-pre">{{ v.testo }}</div>
+{% elif v.integrato %}<details><summary class="muted">Ragionamento (integrato, non modificabile da qui)</summary><div class="testo-pre">{{ v.scheda }}</div></details>
 {% else %}
 <details><summary class="muted">Ragionamento estratto (modificabile)</summary>
 <form method="post" action="/libreria/{{ v.id }}/scheda"><input type="hidden" name="csrf" value="{{ csrf }}">
 <textarea name="scheda" rows="12">{{ v.scheda }}</textarea>
 <p class="row"><button name="azione" value="salva">Salva</button><button name="azione" value="rigenera" class="sec">Estrai di nuovo il ragionamento</button></p></form></details>
 <details><summary class="muted">Testo ripulito</summary><div class="testo-pre">{{ v.testo }}</div></details>{% endif %}
-<form method="post" action="/libreria/{{ v.id }}/elimina"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="sec">Elimina</button></form></div>
+{% if not v.integrato %}<form method="post" action="/libreria/{{ v.id }}/elimina"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="sec">Elimina</button></form>{% endif %}</div>
 {% else %}<p class="muted">Ancora vuota. Carica i tuoi atti gia' conclusi e scrivi gli spunti che usate: piu' materiale c'e', piu' l'assistente lavora come il Reparto.</p>{% endfor %}
 {% endblock %}

@@ -141,3 +141,35 @@ def esempi_di_stile(voci: list[dict], interrogazione: str, atto: str, n: int = 2
         brani = inizio + [par[i] for i in sorted(scelti) if par[i] not in inizio]
         out.append(f"{v['titolo']} ({v['atto']}; dati personali sostituiti da segnaposto «...»)\n" + "\n".join(brani)[:max_caratteri + 800])
     return out
+
+
+# ---------------------------------------------------------------- conoscenza integrata nel programma (file del repository)
+import pathlib  # noqa: E402
+
+CARTELLA_METODO = pathlib.Path(__file__).parent / "knowledge" / "metodo"
+
+
+def _leggi_integrato(path: pathlib.Path) -> dict | None:
+    """File `.md` con intestazione `---` (tipo, atto, titolo, tag) e sezioni `## Scheda` e `## Brani di stile`."""
+    t = path.read_text(encoding="utf-8")
+    m = re.match(r"---\n(.*?)\n---\n(.*)", t, re.S)
+    if not m:
+        return None
+    meta = {k.strip(): v.strip() for k, _, v in (r.partition(":") for r in m.group(1).splitlines() if ":" in r)}
+    corpo = m.group(2)
+    parti = re.split(r"^## ", corpo, flags=re.M)
+    sez = {p.split("\n", 1)[0].strip().lower(): (p.split("\n", 1)[1].strip() if "\n" in p else "") for p in parti if p.strip()}
+    return {"id": f"b:{path.stem}", "tipo": meta.get("tipo", "precedente"), "atto": meta.get("atto", ""), "stato": "pronto",
+            "titolo": meta.get("titolo", path.stem), "tag": meta.get("tag", ""), "testo": sez.get("brani di stile", sez.get("testo", "")),
+            "scheda": sez.get("scheda", ""), "sospetti": [], "integrato": True}
+
+
+def integrati() -> list[dict]:
+    if not CARTELLA_METODO.exists():
+        return []
+    out = []
+    for p in sorted(CARTELLA_METODO.glob("*.md")):
+        v = _leggi_integrato(p)
+        if v:
+            out.append(v)
+    return out

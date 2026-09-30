@@ -2,12 +2,19 @@ import io
 from types import SimpleNamespace
 
 import docx
+import pytest
 from sqlalchemy import text
 
 from app import metodo
 from app.models import Pratica
 from tests.conftest import cf_fittizio
 from tests.test_app import csrf, ctx, ctx_dati, entra, nuova_pratica  # noqa: F401
+
+
+@pytest.fixture(autouse=True)
+def _senza_integrati(monkeypatch):
+    """I test usano solo la libreria creata al loro interno, non le schede integrate nel programma."""
+    monkeypatch.setattr(metodo, "integrati", lambda: [])
 
 
 def _voce(tipo="precedente", atto="PVOC", titolo="Forfettario reverse charge", tag="regime forfettario reverse charge",

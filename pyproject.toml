@@ -21,4 +21,4 @@ testpaths = ["tests"]
 include = ["app*"]
 
 [tool.setuptools.package-data]
-app = ["templates/*", "static/*", "knowledge/*", "wordtemplates/*"]
+app = ["templates/*", "static/*", "knowledge/*", "knowledge/metodo/*", "wordtemplates/*"]

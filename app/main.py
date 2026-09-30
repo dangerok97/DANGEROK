@@ -1044,8 +1044,8 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
             v = cif.decifra_json(x.dati_cifrati) or {}
             out.append({"id": x.id, "tipo": x.tipo, "atto": x.atto, "stato": x.stato, "titolo": v.get("titolo", ""),
                         "tag": v.get("tag", ""), "testo": v.get("testo", ""), "scheda": v.get("scheda", ""),
-                        "sospetti": v.get("sospetti", [])})
-        return out
+                        "sospetti": v.get("sospetti", []), "integrato": False})
+        return out + metodo_mod.integrati()
 
     def voce_salva(x: ConoscenzaReparto, **campi) -> None:
         v = cif.decifra_json(x.dati_cifrati) or {}
