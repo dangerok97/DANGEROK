@@ -155,6 +155,22 @@ SEGNALE: dismissioni di cespiti, rettifiche di bilancio, acquisti di beni da sog
 IPOTESI: rateizzazione senza opzione in dichiarazione; ammortamento spettante solo al conferitario (apporti); sopravvenienze attive non tassate; svalutazioni non deducibili per la collocazione (attivo circolante/immobilizzato).
 VERIFICHE: prospetto plusvalenze e variazioni in dichiarazione, libro cespiti vs beni presenti, conti patrimoniali dei soci, principi contabili.
 
+## [redditi] Flat tax incrementale e competenza dei compensi (lavoro autonomo)
+TAG: tassa piatta incrementale flat tax incremento reddito LM12 LM15 competenza per cassa compensi percezione fine anno anticipo compensi professionista sconto in fattura credito accettazione
+SEGNALE: quadro LM con imposta sostitutiva sull'incremento; compensi registrati come incassati alla data della fattura anche se non c'e' stato alcun pagamento (sconto in fattura, compensazioni, crediti); fatture concentrate a fine anno.
+IPOTESI: per il lavoratore autonomo vale il principio di cassa: il compenso e' percepito quando entra la disponibilita' (pagamento, o acquisizione/accettazione del credito), non alla fattura; registrare come incassati nel 2023 compensi percepiti nel 2024 sposta reddito all'anno in cui l'incremento agevolato al 15% e' massimo, e sottrae all'aliquota ordinaria il reddito dell'anno successivo; oltre il tetto dell'incremento l'eccedenza sconta l'aliquota ordinaria.
+VERIFICHE: data di accettazione del credito o di pagamento per ogni fattura; registro incassi e pagamenti; righe LM12-LM15 (reddito di riferimento, massimo del triennio, tetto); dichiarazione dell'anno successivo.
+QUANTIFICAZIONE: rideterminare il reddito per anno di percezione e ricalcolare incremento agevolabile, imposta sostitutiva e IRPEF ordinaria, con i conti visibili.
+EFFETTI A CATENA: dichiarazione infedele per entrambi gli anni, addizionali, IRAP, contributi di cassa.
+
+## [frodi] Fatturazione concentrata, frazionata e a importi tondi a fine anno
+TAG: fatture stesso giorno stesso cliente frazionate importi ripetuti totale tondo fine anno incassate contestualmente corrispettivi predeterminati prestazioni non reali
+SEGNALE: molte fatture emesse lo stesso giorno a pochi clienti, importi ripetuti o frazionati che sommano a cifre tonde (es. 50.000,00 e 25.000,00), incassate il giorno stesso, vicino alla chiusura dell'esercizio.
+IPOTESI: anticipo di ricavi per sfruttare un regime agevolato o compensare altri componenti; prestazioni non reali o riqualificate (operazioni inesistenti); fatturazione di acconti senza prestazione.
+VERIFICHE: contratti e incarichi datati, attivita' effettivamente svolta, estratti conto (chi ha pagato, quando, da quale conto), CU dei sostituti, fatture passive collegate nello stesso periodo, rapporti tra le parti.
+QUANTIFICAZIONE: somma per cliente e per giorno, confronto con la media mensile dei ricavi; se inesistenti: costo indeducibile e IVA indetraibile per il committente, IVA e reddito dell'emittente.
+REATO: artt. 2 e 8 D.Lgs. 74/2000 solo se le operazioni risultano inesistenti.
+
 ## [iva] Aliquote e natura delle operazioni
 TAG: aliquota IVA ridotta 10% 4% errata natura esenzione N2 N4 non imponibile prestazioni edili tabella A appalti pubblica amministrazione fatture emesse
 SEGNALE: fatture con aliquote ridotte o nature di esenzione applicate a prestazioni che potrebbero non rientrarvi (lavori su opere preesistenti, cessioni a privati, servizi misti).
