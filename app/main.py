@@ -805,7 +805,7 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
         job = d.get("job_chat") or {}
         if job.get("stato") == "in_corso":
             try:
-                vecchio = (dt.datetime.now(dt.timezone.utc) - dt.datetime.fromisoformat(job["inizio"])) > dt.timedelta(minutes=15)
+                vecchio = (dt.datetime.now(dt.timezone.utc) - dt.datetime.fromisoformat(job["inizio"])) > dt.timedelta(minutes=5)
             except (KeyError, ValueError):
                 vecchio = True
             if vecchio:                                        # il processo e' morto (riavvio del server): si sblocca la chat
@@ -941,6 +941,8 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
 
     def prassi_per(s, d: dict, p: Pratica, docs: list[dict], extra: str = "") -> str:
         """Paragrafi di prassi pertinenti al caso, dalla biblioteca; scarica in background i documenti dei temi riconosciuti."""
+        if os.environ.get("PRASSI_DOWNLOAD", "0") != "1":        # libreria locale spenta: la prassi si cerca sul web (pesa in memoria e tempo)
+            return ""
         fasc = d.get("fascicolo", {}) or {}
         caso = " ".join([tipologie.TIPOLOGIE[p.tipologia]["nome"], p.tipologia.replace("_", " "), fasc.get("motivazione", ""), fasc.get("obiettivo", "")]
                         + [x["testo"][:2500] for x in docs[:8]] + [r["descrizione"] + " " + r.get("ragionamento", "") for r in d.get("riscontri", [])] + [extra])
@@ -970,6 +972,7 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
         return metodo_mod.catalogo_testo(caso)
 
     parziali: dict[int, str] = {}
+    fasi_job: dict[int, str] = {}
 
     def turno(request: Request, s, p: Pratica, testo_utente: str, forza: bool = False):
         """Un giro di conversazione. Ritorna (risposta_html_ctx). Nulla viene salvato se qualcosa fallisce o viene bloccato."""
@@ -994,8 +997,10 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
                                               + ai_mod.playbook() + "\n\nSTATO DELLA PRATICA:\n" + ctx_txt)
         visibili: list[str] = []
         log_testi: list[str] = []
+        fasi_job[p.id] = "preparo il contesto"
         try:
             system = costruisci_system()
+            fasi_job[p.id] = "interrogo l'AI, in attesa della prima parola"
             msgs = [{"role": r, "content": pseudo.anonimizza_o_blocca(t)} for r, t in storia]
             libero = "\n".join(m["content"] for m, (r, _) in zip(msgs, storia) if r == "user") + "\n" + "\n".join(
                 pseudo.anonimizza(x["testo"]) for x in documenti_di(s, p))          # solo testo scritto/caricato dall'operatore
@@ -1090,6 +1095,19 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
         s.commit()
         pid = p.id
 
+        def scaduto():                                          # rete di sicurezza: la chat non resta mai bloccata
+            with SM() as s3:
+                p3 = s3.get(Pratica, pid)
+                d3 = dati_di(p3)
+                if (d3.get("job_chat") or {}).get("stato") == "in_corso":
+                    d3["job_chat"] = {"stato": "finito", "esito": {"errore": "Il servizio AI non ha risposto entro 4 minuti. Riprova tra poco "
+                                                                   "(nessun dato e' stato perso).", "bozza": testo}}
+                    salva_dati(p3, d3)
+                    s3.commit()
+        cane = threading.Timer(240, scaduto)
+        cane.daemon = True
+        cane.start()
+
         def lavoro():
             try:
                 with SM() as s2:
@@ -1101,6 +1119,9 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
                     parziali.pop(pid, None)
                     s2.refresh(p2)
                     d2 = dati_di(p2)
+                    cane.cancel()
+                    if (d2.get("job_chat") or {}).get("stato") != "in_corso":
+                        return                                  # scaduto nel frattempo: l'esito non si usa
                     d2["job_chat"] = {"stato": "finito", "esito": {k: ctx.get(k) for k in ("errore", "sospetti", "bozza", "nota") if ctx.get(k)}}
                     salva_dati(p2, d2)
                     s2.commit()
@@ -1113,7 +1134,7 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
     def chat_stato(pid: int, u=Depends(utente_corrente), s=Depends(db)):
         p = carica(s, pid)
         stato = (dati_di(p).get("job_chat") or {}).get("stato", "nessuno")
-        return {"stato": stato, "parziale": parziali.get(pid, "") if stato == "in_corso" else ""}
+        return {"stato": stato, "parziale": parziali.get(pid, "") if stato == "in_corso" else "", "fase": fasi_job.get(pid, "") if stato == "in_corso" else ""}
 
     @app.post("/pratiche/{pid}/chat", response_class=HTMLResponse)
     async def chat_invia(request: Request, pid: int, u=Depends(utente_corrente), s=Depends(db)):
@@ -1523,4 +1544,14 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
     def sw():
         return FileResponse(BASE / "static" / "sw.js", media_type="application/javascript")
 
+    try:                                                      # un riavvio del server uccide i lavori in corso: si sbloccano le chat
+        with SM() as s0:
+            for p0 in s0.scalars(select(Pratica)).all():
+                d0 = dati_di(p0)
+                if (d0.get("job_chat") or {}).get("stato") == "in_corso":
+                    d0["job_chat"] = {"stato": "finito", "esito": {"errore": "Il server si e' riavviato durante l'elaborazione: riinvia il messaggio."}}
+                    salva_dati(p0, d0)
+            s0.commit()
+    except Exception:                                         # noqa: BLE001
+        pass
     return app

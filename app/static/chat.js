@@ -32,6 +32,7 @@
     setInterval(function () {
       fetch(url, {credentials: "same-origin"}).then(function (r) { return r.json(); }).then(function (x) {
         if (x.stato !== "in_corso") { location.reload(); return; }
+        if (!x.parziale && x.fase && vivo) { vivo.querySelector(".testo").textContent = "sto scrivendo… (" + x.fase + ")"; }
         if (x.parziale && vivo) { vivo.querySelector(".testo").textContent = x.parziale; vivo.scrollIntoView({block: "end"}); }
       }).catch(function () {});
     }, 1000);
