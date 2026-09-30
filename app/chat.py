@@ -16,8 +16,8 @@ from . import analisi, calcoli
 from . import pvoc as pvoc_mod
 
 MAX_CARATTERI_DOC = 400_000
-MAX_DOC_NEL_PROMPT = 120_000        # massimo per documento (le liste e i registri vanno letti quasi per intero)
-MAX_TOTALE_DOC = 450_000            # budget complessivo dei documenti nel prompt, ripartito in modo equo
+MAX_DOC_NEL_PROMPT = 40_000        # massimo per documento (le liste e i registri vanno letti quasi per intero)
+MAX_TOTALE_DOC = 100_000            # budget complessivo dei documenti nel prompt, ripartito in modo equo
 MIN_DOC_NEL_PROMPT = 6_000
 
 INIZIO, FINE = "<<AZIONI>>", "<<FINE>>"

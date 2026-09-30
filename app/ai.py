@@ -154,12 +154,13 @@ def genera_bozza(pseudo: Pseudonymizer, *, istruzione: str, contesto: str, check
                  non_tracciati)
 
 
-def chiama_chat(client, modello: str, system: str, messaggi: list[dict], max_tokens: int = 8000):
+def chiama_chat(client, modello: str, system: str, messaggi: list[dict], max_tokens: int = 8000, on_delta=None):
     """Un turno di conversazione (system e messaggi gia' pseudonimizzati). Restituisce (testo, stop_reason, modello)."""
+    extra = {"on_delta": on_delta} if on_delta and type(client).__name__ == "CompatClient" else {}
     risposta = client.beta.messages.create(
         model=modello, max_tokens=max_tokens, system=system, messages=messaggi,
         thinking={"type": "adaptive"}, output_config={"effort": "medium"},
-        betas=["server-side-fallback-2026-07-01"], fallbacks="default")
+        betas=["server-side-fallback-2026-07-01"], fallbacks="default", **extra)
     if getattr(risposta, "stop_reason", None) == "refusal":
         raise AIRifiutata("Il modello ha rifiutato la richiesta (stop_reason=refusal).")
     testo = "".join(b.text for b in risposta.content if getattr(b, "type", "") == "text")

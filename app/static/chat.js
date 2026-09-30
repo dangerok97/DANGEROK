@@ -9,9 +9,10 @@
     if (c) { c.appendChild(m); m.scrollIntoView({block: "end"}); }
     return m;
   }
+  var vivo = null;
   function inCorso(testo) {
     if (testo) { bolla("Tu", testo, "user"); }
-    bolla("Assistente", "sto scrivendo…", "assistant attesa");
+    vivo = bolla("Assistente", "sto scrivendo…", "assistant attesa");
   }
   var f = document.getElementById("invio");
   if (f) {
@@ -30,8 +31,9 @@
     inCorso(j.getAttribute("data-msg"));
     setInterval(function () {
       fetch(url, {credentials: "same-origin"}).then(function (r) { return r.json(); }).then(function (x) {
-        if (x.stato !== "in_corso") { location.reload(); }
+        if (x.stato !== "in_corso") { location.reload(); return; }
+        if (x.parziale && vivo) { vivo.querySelector(".testo").textContent = x.parziale; vivo.scrollIntoView({block: "end"}); }
       }).catch(function () {});
-    }, 1500);
+    }, 1000);
   }
 })();

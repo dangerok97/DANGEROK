@@ -969,6 +969,8 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
                         + [x["testo"][:1500] for x in docs[:6]] + [r["descrizione"] for r in d.get("riscontri", [])])
         return metodo_mod.catalogo_testo(caso)
 
+    parziali: dict[int, str] = {}
+
     def turno(request: Request, s, p: Pratica, testo_utente: str, forza: bool = False):
         """Un giro di conversazione. Ritorna (risposta_html_ctx). Nulla viene salvato se qualcosa fallisce o viene bloccato."""
         d = dati_di(p)
@@ -1018,7 +1020,9 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
                     eseguite_auto += istruttoria(s, p, d, pseudo, client, descrizione_caso(d, p, testo_utente), da_)
                 if eseguite_auto:
                     system = costruisci_system()
-            testo, stop, modello = ai_mod.chiama_chat(client, st.anthropic_model, system, msgs)
+            def mostra(t: str, _pid=p.id) -> None:
+                parziali[_pid] = chat_mod.separa_azioni(t)[0].rsplit("<<", 1)[0] if t.rstrip().endswith(("<", "<<", "<<A", "<<AZ", "<<AZI", "<<AZIO", "<<AZION", "<<AZIONI", "<<AZIONI>")) else chat_mod.separa_azioni(t)[0]
+            testo, stop, modello = ai_mod.chiama_chat(client, st.anthropic_model, system, msgs, on_delta=mostra)
             log_testi.append(system + "\n\n" + "\n".join(f"[{m['role']}] {m['content']}" for m in msgs))
             giro = 0
             while True:
@@ -1094,6 +1098,7 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
                         ctx = turno(None, s2, p2, testo, forza=forza)
                     except Exception as e:                      # noqa: BLE001
                         ctx = {"errore": f"Errore durante l'elaborazione ({type(e).__name__}). Riprova."}
+                    parziali.pop(pid, None)
                     s2.refresh(p2)
                     d2 = dati_di(p2)
                     d2["job_chat"] = {"stato": "finito", "esito": {k: ctx.get(k) for k in ("errore", "sospetti", "bozza", "nota") if ctx.get(k)}}
@@ -1107,7 +1112,8 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
     @app.get("/pratiche/{pid}/chat/stato")
     def chat_stato(pid: int, u=Depends(utente_corrente), s=Depends(db)):
         p = carica(s, pid)
-        return {"stato": (dati_di(p).get("job_chat") or {}).get("stato", "nessuno")}
+        stato = (dati_di(p).get("job_chat") or {}).get("stato", "nessuno")
+        return {"stato": stato, "parziale": parziali.get(pid, "") if stato == "in_corso" else ""}
 
     @app.post("/pratiche/{pid}/chat", response_class=HTMLResponse)
     async def chat_invia(request: Request, pid: int, u=Depends(utente_corrente), s=Depends(db)):

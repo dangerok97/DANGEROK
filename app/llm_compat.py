@@ -95,7 +95,37 @@ class CompatClient:
                                    content=[SimpleNamespace(type="text", text=testo, citations=cit)])
         raise ultimo or ServizioAIErrore(None, "Nessun modello configurato.")
 
-    def _una_chiamata(self, modello: str, msgs: list, max_tokens: int):
+    def _flusso(self, corpo: dict, hdr: dict, on_delta):
+        """Risposta in streaming (SSE): chiama on_delta(testo_finora) a ogni porzione. Ritorna un oggetto simile a una risposta httpx."""
+        import json as _j
+        corpo = {**corpo, "stream": True}
+        testo, fine = [], None
+        with self._http.stream("POST", f"{self.base_url}/chat/completions", headers=hdr, json=corpo) as r:
+            if r.status_code >= 400:
+                r.read()
+                return SimpleNamespace(status_code=r.status_code, json=lambda: {})
+            for riga in r.iter_lines():
+                if not riga.startswith("data:"):
+                    continue
+                dato = riga[5:].strip()
+                if dato == "[DONE]":
+                    break
+                try:
+                    sc = (_j.loads(dato).get("choices") or [{}])[0]
+                except ValueError:
+                    continue
+                pezzo = (sc.get("delta") or {}).get("content") or ""
+                if pezzo:
+                    testo.append(pezzo)
+                    try:
+                        on_delta("".join(testo))
+                    except Exception:                          # noqa: BLE001
+                        pass
+                fine = sc.get("finish_reason") or fine
+        dati = {"choices": [{"message": {"content": "".join(testo)}, "finish_reason": fine}]}
+        return SimpleNamespace(status_code=200, json=lambda: dati)
+
+    def _una_chiamata(self, modello: str, msgs: list, max_tokens: int, on_delta=None):
         """Una richiesta a un modello, con 2 nuovi tentativi se il servizio e' momentaneamente sovraccarico (503)."""
         for tentativo in range(3):
             try:
@@ -103,10 +133,12 @@ class CompatClient:
                 if "generativelanguage.googleapis.com" in self.base_url:
                     corpo["reasoning_effort"] = "low"                 # meno "ragionamento interno": risposte molto piu' rapide
                 hdr = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
-                r = self._http.post(f"{self.base_url}/chat/completions", headers=hdr, json=corpo)
+                invia = (lambda: self._flusso(corpo, hdr, on_delta)) if on_delta else \
+                    (lambda: self._http.post(f"{self.base_url}/chat/completions", headers=hdr, json=corpo))
+                r = invia()
                 if r.status_code == 400 and "reasoning_effort" in corpo:
                     corpo.pop("reasoning_effort")
-                    r = self._http.post(f"{self.base_url}/chat/completions", headers=hdr, json=corpo)
+                    r = invia()
             except httpx2.TimeoutException as e:
                 raise ServizioAIErrore(None, "Il servizio AI non ha risposto in tempo (probabile sovraccarico del piano gratuito): "
                                              "riprova tra un minuto.") from e
@@ -118,11 +150,11 @@ class CompatClient:
             return r
         return r
 
-    def _create(self, *, max_tokens: int = 4096, system: str | None = None, messages: list | None = None, **_ignorati):
+    def _create(self, *, max_tokens: int = 4096, system: str | None = None, messages: list | None = None, on_delta=None, **_ignorati):
         msgs = ([{"role": "system", "content": system}] if system else []) + list(messages or [])
         ultimo: ServizioAIErrore | None = None
         for modello in self.modelli:
-            r = self._una_chiamata(modello, msgs, max_tokens)
+            r = self._una_chiamata(modello, msgs, max_tokens, on_delta)
             if r.status_code in (401, 403):
                 raise ServizioAIErrore(r.status_code, "Chiave non valida o non autorizzata per questo modello.")
             if r.status_code == 429:
