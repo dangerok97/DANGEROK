@@ -14,7 +14,7 @@ Ogni volta che l'utente (militare della Guardia di Finanza, Compagnia di Tarquin
 4. **Se la struttura dell'atto e' fissa** (formule identiche da un caso all'altro) aggiornare anche i generatori
    deterministici (`app/pvoc.py`, `app/invito_word.py`, modelli in `app/wordtemplates/`) e i formati Word (`app/atti_word.py`),
    verificando con test che il risultato sia identico all'esempio.
-5. **Aggiornare** `app/knowledge/playbook_reparto.md` se emerge una regola generale nuova.
+5. **Aggiornare il catalogo dei ragionamenti** `app/knowledge/catalogo_violazioni.md` se l'atto mostra uno schema nuovo (segnale -> ipotesi -> verifiche -> norma -> quantificazione -> effetti a catena) e **aggiornare** `app/knowledge/playbook_reparto.md` se emerge una regola generale nuova.
 6. `pytest` deve restare verde: c'e' un test che impedisce di committare dati personali nei file di conoscenza.
 7. Riferire all'utente, in breve, cosa l'app ha imparato e cosa non e' stato possibile (es. formati illeggibili).
 

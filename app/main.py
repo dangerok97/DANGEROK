@@ -845,6 +845,14 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
         voci = libreria_di(s)
         return metodo_mod.metodo_testo(metodo_mod.seleziona(voci, q, atto)), metodo_mod.esempi_di_stile(voci, q, atto) if atto else []
 
+    def catalogo_per(d: dict, p: Pratica, docs: list[dict]) -> str:
+        """Catalogo dei ragionamenti sulle violazioni, con le aree piu' pertinenti al caso in evidenza."""
+        fasc = d.get("fascicolo", {}) or {}
+        caso = " ".join([tipologie.TIPOLOGIE[p.tipologia]["nome"], p.tipologia.replace("_", " "), d.get("profilo", {}).get("regime", ""),
+                         d.get("profilo", {}).get("forma", ""), fasc.get("motivazione", ""), fasc.get("obiettivo", "")]
+                        + [x["testo"][:1500] for x in docs[:6]] + [r["descrizione"] for r in d.get("riscontri", [])])
+        return metodo_mod.catalogo_testo(caso)
+
     def turno(request: Request, s, p: Pratica, testo_utente: str, forza: bool = False):
         """Un giro di conversazione. Ritorna (risposta_html_ctx). Nulla viene salvato se qualcosa fallisce o viene bloccato."""
         d = dati_di(p)
@@ -862,7 +870,7 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
                                         [{"tipo": a.tipo, "giornata": a.giornata, "fase": a.fase} for a in p.atti],
                                         pvoc_primo_iniziale(p, d), prospetto=d.get("prospetto_fatture", ""),
                                         voci=registro_sicuro(d).elenco_per_prompt(), base_normativa=d.get("base_normativa", []),
-                                        metodo=metodo_per(s, d, p)[0])
+                                        metodo=metodo_per(s, d, p)[0], catalogo=catalogo_per(d, p, docs_ctx))
             return pseudo.anonimizza_o_blocca(chat_mod.system() + "\n\nMODO DI OPERARE DEL REPARTO:\n"
                                               + ai_mod.playbook() + "\n\nSTATO DELLA PRATICA:\n" + ctx_txt)
         visibili: list[str] = []
@@ -1043,7 +1051,10 @@ def create_app(settings: Settings | None = None, sessionmaker=None, ai_client=No
             istruzione += "\n\n" + metodo_mod.REGOLA_CONCILIAZIONE
             if ris:
                 appunti += ("\nRISCONTRI CONFERMATI DA CONSTATARE IN QUESTO ATTO (id | periodo | tipo):\n" + "\n".join(
-                    f"- {r['id']} | {r['periodo']} | {r['tipo']}: {r['descrizione']} Norma: {r['norma']}. Importi tracciati: "
+                    f"- {r['id']} | {r['periodo']} | {r['tipo']}: {r['descrizione']} Norma: {r['norma']}."
+                    + (f" Ragionamento: {r['ragionamento']}." if r.get("ragionamento") else "")
+                    + (f" Effetti a catena da constatare a parte: {'; '.join(r['effetti'])}." if r.get("effetti") else "")
+                    + " Importi tracciati: "
                     + (", ".join("{{IMPORTO:" + i + "}}" for i in r["importi"]) or "nessuno") for r in ris))
                 istruzione += (" Nell'atto CONSTATA, una per una, le violazioni elencate in RISCONTRI CONFERMATI: fatto accertato, periodo "
                                "d'imposta, norma violata e, se presenti, gli importi con {{IMPORTO:id}}. Non constatare violazioni non elencate, "

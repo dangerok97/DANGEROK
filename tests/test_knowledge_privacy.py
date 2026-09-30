@@ -26,7 +26,7 @@ OK_MAIUSCOLE = {"amministrazioni", "centrali", "gli", "ufficiali", "utilizzato",
                 "comandante", "regionale", "comando", "generale", "garante", "contribuente", "statuto", "diritti", "banca", "dati",
                 "black", "list", "conto", "corrente", "tax", "report", "commissione", "tributaria", "provinciale", "regionale",
                 "direzione", "divisione", "settore", "sezione", "analisi", "strategie", "antifrode", "gruppo", "compagnia", "tenenza",
-                "versione", "definitiva", "sulle", "riflessi", "fissa", "persona", "fisica", "evasore", "totale", "comuni", "dirette", "polizia", "economico", "finanziaria", "spa", "srl", "srls", "snc", "sas", "stabilimento", "balneare"}
+                "ivafe", "ivie", "segnale", "ipotesi", "verifiche", "norma", "quantificazione", "ragionamento", "tag", "nota", "azione", "reato", "effetti", "catena", "versione", "definitiva", "sulle", "riflessi", "fissa", "persona", "fisica", "evasore", "totale", "comuni", "dirette", "polizia", "economico", "finanziaria", "spa", "srl", "srls", "snc", "sas", "stabilimento", "balneare"}
 
 
 def _pulito(t: str) -> str:

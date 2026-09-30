@@ -52,13 +52,33 @@ del PVOC del primo giorno, poi delle giornate successive (una attivita' per gior
 (es. possibile superamento delle soglie del D.Lgs. 74/2000) ricorda l'art. 220 disp. att. c.p.p. e la comunicazione di notizia \
 di reato (art. 347 c.p.p.).
 
-6. DEDURRE al posto dell'operatore: analizza i documenti acquisiti (prospetto e dati tracciati calcolati dal programma, \
-estratti dei documenti) e individua le irregolarita' e le eventuali violazioni, fase per fase, nell'ordine della circolare. \
-Per ogni violazione che ritieni sussistere proponi un RISCONTRO: fase in cui va constatata, periodo d'imposta, tipo \
-(formale | sostanziale | indizio_reato), descrizione fattuale senza cifre, norma violata, e gli ID dei dati/calcoli tracciati \
-che ne quantificano l'importo. Proponi un riscontro solo se i dati lo sostengono: se manca un documento o un dato, dillo e \
-chiedilo. Le violazioni proposte vengono constatate nei PVOC delle giornate successive solo dopo la conferma dell'operatore. \
+6. DEDURRE al posto dell'operatore, e non fermarti alle violazioni banali. Analizza i documenti acquisiti (prospetto e dati \
+tracciati calcolati dal programma, estratti dei documenti) e individua irregolarita' e violazioni, fase per fase, nell'ordine \
+della circolare. Le violazioni piu' macchinose non saltano all'occhio in un documento solo: emergono dal confronto fra fonti \
+indipendenti e da un ragionamento. Applica SEMPRE questo protocollo:
+   a) MAPPA: chi sono i soggetti (parte, controparti, rappresentanti, amministratori di fatto), quali periodi, quali tributi, \
+quali operazioni e flussi finanziari compaiono nei documenti.
+   b) RASSEGNA SISTEMATICA: scorri il CATALOGO DEI RAGIONAMENTI del contesto area per area (e le altre aree elencate in fondo) e, per \
+ciascuna area applicabile al caso, chiediti cosa ti aspetteresti di trovare e se nei documenti c'e' il segnale. Non limitarti a cio' \
+che l'operatore ti ha indicato come motivo del controllo: ogni controllo puo' rivelare altro.
+   c) RICONCILIAZIONE: confronta almeno due fonti indipendenti per ogni grandezza rilevante (fatture/registri/dichiarazioni/F24/banca/\
+contratti/terzi). Ogni differenza e' un fatto da spiegare: scrivi le spiegazioni innocenti e quelle violative.
+   d) IPOTESI ALTERNATIVE: per ogni anomalia formula piu' ipotesi (incluse quelle favorevoli al contribuente) e indica il documento o \
+l'accertamento che le distingue. Non scartare un'ipotesi perche' manca un dato: chiedilo ("richieste") e proponi comunque il riscontro \
+con affidabilita' "da_verificare".
+   e) EFFETTI A CATENA: da ogni violazione deriva altro (altri tributi, IVA/II.DD./IRAP/riscossione, reato e soglie, autore della \
+violazione, sanzione di competenza dell'Ufficio): proponi un riscontro anche per ciascuna conseguenza.
+   f) QUANTIFICAZIONE: per ogni violazione individua i dati tracciati o proponi i calcoli che ne danno l'importo; mostra sempre i conti.
+   g) CHIUSURA: prima di proporre il PVC verifica per ogni periodo e tributo di aver coperto le aree applicabili e che ogni violazione abbia \
+fatto, periodo, norma violata, norma sanzionatoria, autore e importo.
+Per ogni violazione che ritieni sussistere (o che potrebbe sussistere) proponi un RISCONTRO: fase in cui va constatata, periodo d'imposta, \
+tipo (formale | sostanziale | indizio_reato), descrizione fattuale senza cifre, norma violata, il "ragionamento" (la catena \
+fatto -> ipotesi -> norma), le "verifiche" ancora necessarie, gli "effetti" a catena, l'"affidabilita'" (certa | probabile | \
+da_verificare) e gli ID dei dati/calcoli tracciati che ne quantificano l'importo. Le violazioni proposte vengono constatate nei PVOC delle \
+giornate successive solo dopo la conferma dell'operatore: e' quindi corretto proporre anche quelle da verificare, segnalandolo. \
 Se ti serve un importo che non c'e', proponi un CALCOLO tra voci tracciate (somma, differenza, percentuale): lo esegue il programma.
+   Quando l'operatore chiede un "riesame sistematico" esegui la rassegna completa del catalogo: per ogni area elenca in breve se si \
+applica, cosa hai trovato, cosa manca; proponi i riscontri nuovi e le richieste di documenti che ne derivano.
 
 7. CONCILIARE le fonti aperte con il metodo del Reparto: nel contesto trovi il METODO DEL REPARTO PERTINENTE (precedenti, \
 schede di ragionamento, spunti operativi). Ragiona come ragiona il Reparto (quali riscontri fare, in che ordine, come \
@@ -80,7 +100,7 @@ tutte le chiavi facoltative), che l'operatore non vede:
  "pvoc_primo": {"campo": "valore"},
  "richieste": [{"voce": "Fatture di acquisto 2023-2025", "stato": "richiesto"}],
  "ricerche": [{"quesito": "domanda generale e senza dati del caso", "periodo": "2023"}],
- "riscontri": [{"fase": "coerenza_interna", "periodo": "2023", "tipo": "sostanziale", "descrizione": "...", "norma": "...", "fonti": ["Q1"], "importi": ["ID1", "ID2"]}],
+ "riscontri": [{"fase": "coerenza_interna", "periodo": "2023", "tipo": "sostanziale", "descrizione": "...", "norma": "...", "ragionamento": "fatto -> ipotesi -> norma", "verifiche": ["documento o accertamento che manca"], "effetti": ["conseguenze su altri tributi, reato, autore"], "affidabilita": "certa|probabile|da_verificare", "fonti": ["Q1"], "importi": ["ID1", "ID2"]}],
  "calcoli": [{"tipo": "differenza", "etichetta": "...", "operandi": ["ID1", "ID2"]}],
  "proposte": [{"fase": "avvio", "giornata": "gg/mm/aaaa", "motivo": "perche' ora"}]}
 <<FINE>>
@@ -89,7 +109,8 @@ tutte le chiavi facoltative), che l'operatore non vede:
 - "richieste": stato = richiesto | acquisito | non_disponibile. Riporta l'elenco completo aggiornato solo se cambia.
 - "ricerche": al massimo 3 per risposta. Dopo averle emesse dai una breve frase di cortesia (es. "Mi informo sulla disciplina \
 applicabile"): i risultati ti vengono passati subito e potrai continuare; non inventare l'esito della ricerca.
-- "riscontri": solo nuovi riscontri (i gia' presenti sono nel contesto); "importi" = ID di dati/calcoli tracciati esistenti.
+- "riscontri": solo nuovi riscontri (i gia' presenti sono nel contesto); "importi" = ID di dati/calcoli tracciati esistenti; \
+"ragionamento", "verifiche", "effetti" e "affidabilita'" sono facoltativi ma vanno compilati per i riscontri non banali.
 - "calcoli": tipo = somma | differenza | percentuale (per la percentuale aggiungi "param": "22"); gli operandi sono ID esistenti; \
 l'ID del risultato lo assegna il programma e lo trovi nel contesto alla risposta successiva.
 - "proposte": fasi (chiavi dell'elenco fasi del contesto) di cui proponi la redazione ora; "giornata" solo se l'operatore l'ha indicata.
@@ -272,7 +293,7 @@ def quesito_pulito(q: str) -> str:
 # ---------------------------------------------------------------- contesto per il modello
 def contesto(p_tipo: str, tipologia_nome: str, fasi: list[dict], d: dict, documenti: list[dict], atti: list[dict],
              pvoc_iniziale: dict, prospetto: str = "", voci: str = "", base_normativa: list | None = None,
-             metodo: str = "") -> str:
+             metodo: str = "", catalogo: str = "") -> str:
     fasc = d.get("fascicolo", {}) or {}
     sog = d.get("soggetto", {}) or {}
     righe = [f"TIPO DI INTERVENTO: {p_tipo}. TIPOLOGIA: {tipologia_nome}.",
@@ -306,13 +327,18 @@ def contesto(p_tipo: str, tipologia_nome: str, fasi: list[dict], d: dict, docume
     righe += ["", "BASE NORMATIVA RACCOLTA (ricerche su fonti aperte gia' eseguite; id | quesito | periodo):", base_normativa_testo(base_normativa or [])]
     righe += ["", "METODO DEL REPARTO PERTINENTE (precedenti, schede di ragionamento, spunti operativi dalla libreria):",
               metodo or "- nessun precedente o spunto pertinente in libreria"]
+    if catalogo:
+        righe += ["", "CATALOGO DEI RAGIONAMENTI PER FAR EMERGERE LE VIOLAZIONI (schemi segnale -> ipotesi -> verifiche -> norma -> "
+                      "quantificazione -> effetti a catena; le norme vanno verificate con le ricerche):", catalogo]
     if prospetto:
         righe += ["", "PROSPETTO DELLE FATTURE (calcolato dal programma sui file XML caricati):", prospetto]
     righe += ["", "DATI E CALCOLI TRACCIATI DISPONIBILI (id - etichetta: valore):", voci or "- nessuno"]
     righe += ["", "RISCONTRI (id | fase | periodo | tipo | stato | origine): descrizione [norma] [importi]"]
     ris = d.get("riscontri") or []
     righe += [f"- {r['id']} | {r['fase']} | {r['periodo']} | {r['tipo']} | {r['stato']} | {r['origine']}: {r['descrizione']} "
-              f"[{r['norma']}] [{', '.join(r['importi'])}]" for r in ris] or ["- nessuno"]
+              f"[{r['norma']}] [{', '.join(r['importi'])}]"
+              + (f" (da verificare: {'; '.join(r['verifiche'])})" if r.get("verifiche") and r["stato"] == "proposto" else "")
+              for r in ris] or ["- nessuno"]
     righe += ["", "ATTI GIA' REDATTI: " + (", ".join(f"{a['tipo']} {a['giornata'] or ''} ({a['fase']})" for a in atti) or "nessuno")]
     return "\n".join(righe)
 
@@ -390,9 +416,13 @@ def valida_azioni(az: dict | None, restore, fasi_valide: dict[str, str], id_voci
                 "fase": r["fase"], "periodo": str(r.get("periodo", "") or "").strip()[:40],
                 "tipo": r.get("tipo") if r.get("tipo") in ("formale", "sostanziale", "indizio_reato") else "sostanziale",
                 "descrizione": str(r["descrizione"]).strip()[:1500], "norma": str(r.get("norma", "") or "da verificare").strip()[:300],
+                "ragionamento": str(r.get("ragionamento", "") or "").strip()[:1200],
+                "verifiche": [str(x).strip()[:300] for x in (r.get("verifiche") or []) if isinstance(x, str) and x.strip()][:8],
+                "effetti": [str(x).strip()[:300] for x in (r.get("effetti") or []) if isinstance(x, str) and x.strip()][:8],
+                "affidabilita": r.get("affidabilita") if r.get("affidabilita") in ("certa", "probabile", "da_verificare") else "probabile",
                 "fonti": [q for q in (r.get("fonti") or []) if isinstance(q, str) and q in id_ricerche],
                 "importi": imp, "origine": "ai"})
-        out["riscontri"] = out["riscontri"][:20]
+        out["riscontri"] = out["riscontri"][:30]
     ca = az.get("calcoli")
     if isinstance(ca, list):
         out["calcoli"] = [{"tipo": c["tipo"], "etichetta": str(c.get("etichetta", "") or "").strip()[:200],

@@ -140,6 +140,71 @@ def analizza(fatture: list[dict], ids: set[str], tipologia: str = "") -> dict:
                                + "; ".join(anomale[:10]) + (f"; altre {len(anomale) - 10}" if len(anomale) > 10 else "") + ".",
                 "norma": "art. 21, comma 2, D.P.R. 633/72 (contenuto della fattura)", "importi": [], "origine": "programma"})
 
+        # fatture duplicate o doppie (stessa fattura registrata due volte, stessa operazione con numero diverso)
+        visti, doppie, stessa_op = defaultdict(list), [], defaultdict(list)
+        for f in fs:
+            cp = _norm_id(f["cedente"].get("piva") or f["cedente"].get("cf"))
+            visti[(cp, f["numero"].strip().upper(), f["anno"])].append(f)
+            stessa_op[(cp, f["data"], calcoli.q(_d(f["totale"])), _norm_id(f["cessionario"].get("piva") or f["cessionario"].get("cf")))].append(f)
+        doppie = [f"n. {k[1]} ({len(v)} volte)" for k, v in visti.items() if len(v) > 1 and r == "acquisto"]
+        stesse = [f"n. {', '.join(x['numero'] for x in v)} del {k[1]} per euro {calcoli.euro(k[2])}"
+                  for k, v in stessa_op.items() if len({x['numero'] for x in v}) > 1 and k[2] > 0]
+        if doppie:
+            riscontri.append({
+                "chiave": f"dup:{r}:{anno}", "fase": "coerenza_interna", "periodo": str(anno), "tipo": "sostanziale",
+                "descrizione": f"Fatture di acquisto {anno} presenti piu' volte con lo stesso numero dello stesso fornitore: " + "; ".join(doppie[:10])
+                               + ". Possibile doppia registrazione e doppia detrazione dell'IVA.",
+                "norma": "art. 19 D.P.R. 633/72 (detrazione); art. 6, comma 6, D.Lgs. 471/97 (da verificare)",
+                "ragionamento": "stessa fattura acquisita piu' volte -> se registrata due volte l'IVA e' stata detratta due volte -> detrazione indebita",
+                "verifiche": ["registro IVA acquisti: quante registrazioni per ciascun numero", "estratti conto: quanti pagamenti"],
+                "effetti": ["costo dedotto due volte (II.DD.)", "IVA indebitamente detratta"], "affidabilita": "da_verificare",
+                "importi": [], "origine": "programma"})
+        if stesse:
+            riscontri.append({
+                "chiave": f"stessa:{r}:{anno}", "fase": "coerenza_interna", "periodo": str(anno), "tipo": "sostanziale",
+                "descrizione": f"Fatture di {r} {anno} con stessa data, stesse parti e stesso totale ma numeri diversi: " + "; ".join(stesse[:10])
+                               + ". Da chiarire se siano operazioni distinte o la stessa operazione documentata due volte.",
+                "norma": "art. 21 D.P.R. 633/72 (una fattura per operazione); art. 19 (detrazione)",
+                "ragionamento": "stessa operazione apparente con numeri diversi -> documentazione doppia -> ricavi/costi duplicati",
+                "verifiche": ["descrizione delle righe", "ordini o contratti", "pagamenti corrispondenti"],
+                "effetti": ["se acquisti: costo e IVA duplicati", "se vendite: ricavi e IVA a debito duplicati"], "affidabilita": "da_verificare",
+                "importi": [], "origine": "programma"})
+
+        # natura e aliquota incoerenti
+        incoerenti = [f"n. {f['numero']} del {f['data']} ({'aliquota 0 senza natura' if not rr['natura'] else 'aliquota ' + str(rr['aliquota']) + ' con natura ' + rr['natura']})"
+                      for f in fs for rr in f["riepilogo"]
+                      if (_d(rr["aliquota"]) == 0 and not rr["natura"] and _d(rr["imponibile"]) != 0)
+                      or (_d(rr["aliquota"]) > 0 and rr["natura"])]
+        if incoerenti:
+            riscontri.append({
+                "chiave": f"nat:{r}:{anno}", "fase": "coerenza_interna", "periodo": str(anno), "tipo": "formale",
+                "descrizione": f"Fatture di {r} {anno} con aliquota e natura dell'operazione incoerenti: " + "; ".join(incoerenti[:10])
+                               + ". Verificare il trattamento IVA corretto dell'operazione.",
+                "norma": "art. 21, comma 2, lett. g) e h), D.P.R. 633/72 (aliquota, natura e riferimento normativo)",
+                "ragionamento": "aliquota zero senza natura, o natura con aliquota -> il trattamento IVA indicato non e' spiegato -> possibile IVA non applicata",
+                "verifiche": ["natura reale dell'operazione", "norma di esenzione o non imponibilita' invocata"],
+                "effetti": ["IVA non esposta e non versata", "per gli acquisti: fattura irregolare da regolarizzare (art. 6, c. 8, D.Lgs. 471/97)"],
+                "affidabilita": "da_verificare", "importi": [], "origine": "programma"})
+
+        # inversione contabile negli acquisti
+        if r == "acquisto":
+            rc = [f for f in fs if f["tipo_doc"] in ("TD16", "TD17", "TD18", "TD19") or any(x["natura"].startswith("N6") for x in f["riepilogo"])]
+            if rc:
+                imp_rc = sum((_d(x["imponibile"]) for f in rc for x in f["riepilogo"]
+                              if f["tipo_doc"] in ("TD16", "TD17", "TD18", "TD19") or x["natura"].startswith("N6")), Decimal(0))
+                dati.append({"id": f"{base}_RC_IMP", "etichetta": f"Imponibile acquisti in inversione contabile {anno}",
+                             "valore": str(calcoli.q(imp_rc)), "fonte": f"somma programmatica su {len(rc)} fatture (natura N6 o tipo documento TD16-TD19)",
+                             "unita": "euro", "auto": True})
+                riscontri.append({
+                    "chiave": f"rc:{anno}", "fase": "coerenza_interna", "periodo": str(anno), "tipo": "sostanziale",
+                    "descrizione": f"Acquisti {anno} soggetti a inversione contabile ({len(rc)} fatture, importo nei dati tracciati): verificare che il "
+                                   "soggetto abbia integrato le fatture, applicato l'aliquota, registrato e versato l'IVA, anche se in regime agevolato.",
+                    "norma": "art. 17 D.P.R. 633/72; art. 6 D.Lgs. 471/97 (commi da verificare)",
+                    "ragionamento": "fattura ricevuta senza IVA per inversione contabile -> l'acquirente deve integrarla e versare l'IVA -> senza registrazione o F24 l'IVA non e' stata assolta",
+                    "verifiche": ["registri IVA acquisti e vendite dell'anno", "liquidazioni periodiche e F24 con codice tributo IVA", "natura reale della prestazione"],
+                    "effetti": ["omesso versamento IVA (riscossione)", "violazione degli obblighi di registrazione", "se in regime forfettario: verificare anche l'uscita dal regime"],
+                    "affidabilita": "probabile", "importi": [f"{base}_RC_IMP"], "origine": "programma"})
+
         # regime forfettario: soglia dei ricavi
         if tipologia == "regime_forfettario" and r == "vendita":
             s = soglia_forfettario(anno)

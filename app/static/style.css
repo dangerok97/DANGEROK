@@ -28,3 +28,4 @@ button.sec{background:transparent;color:var(--accent);border:1px solid var(--acc
 .msg .testo{white-space:pre-wrap}
 .propo{justify-content:space-between;align-items:center}
 .testo-pre{white-space:pre-wrap;margin:.4rem 0}
+.tag.certa{border-color:#2e7d32}.tag.probabile{border-color:#b26a00}.tag.da_verificare{border-color:#c62828}

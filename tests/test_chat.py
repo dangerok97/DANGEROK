@@ -32,3 +32,25 @@ def test_estrai_testo_csv_e_errori():
     import pytest
     with pytest.raises(ValueError):
         chat.estrai_testo("x.bin", b"\x00")
+
+
+def test_catalogo_e_protocollo_di_ragionamento():
+    from app import metodo
+    sez = metodo.catalogo_sezioni()
+    assert len(sez) >= 20 and all(x["tag"] for x in sez)
+    t = metodo.catalogo_testo("forfettario reverse charge acquisti edilizia cartiera frode carosello")
+    assert "Regime forfettario" in t and "Reverse charge" in t and "Cartiera" in t and "Effetti a catena e autore" in t
+    assert "ALTRE AREE DEL CATALOGO" in t
+    s = chat.system()
+    for k in ("RASSEGNA SISTEMATICA", "IPOTESI ALTERNATIVE", "EFFETTI A CATENA", "riesame sistematico", '"affidabilita"'):
+        assert k in s
+    ctx = chat.contesto("controllo", "x", [], {}, [], [], {}, catalogo=t)
+    assert "CATALOGO DEI RAGIONAMENTI" in ctx
+
+
+def test_valida_azioni_campi_di_ragionamento():
+    az = {"riscontri": [{"fase": "coerenza_interna", "periodo": "2023", "tipo": "sostanziale", "descrizione": "x", "norma": "n",
+                         "ragionamento": "fatto -> ipotesi", "verifiche": ["doc A", 5], "effetti": ["IRAP"], "affidabilita": "boh"}]}
+    out = chat.valida_azioni(az, lambda s: (s, []), {"coerenza_interna": ""}, set(), set())
+    r = out["riscontri"][0]
+    assert r["ragionamento"] == "fatto -> ipotesi" and r["verifiche"] == ["doc A"] and r["effetti"] == ["IRAP"] and r["affidabilita"] == "probabile"

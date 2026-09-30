@@ -8,6 +8,8 @@ generici senza numero, per non confonderli con quelli della pratica in corso) e 
 """
 from __future__ import annotations
 
+import pathlib
+
 import re
 
 from . import chat
@@ -173,3 +175,49 @@ def integrati() -> list[dict]:
         if v:
             out.append(v)
     return out
+
+
+# ---------------------------------------------------------------- catalogo dei ragionamenti sulle violazioni
+CATALOGO = pathlib.Path(__file__).parent / "knowledge" / "catalogo_violazioni.md"
+
+
+def catalogo_sezioni() -> list[dict]:
+    """[{'titolo','aree','tag','testo'}] dal file del catalogo (una sezione per «## [area] titolo»)."""
+    if not CATALOGO.exists():
+        return []
+    out = []
+    for blocco in re.split(r"^## ", CATALOGO.read_text(encoding="utf-8"), flags=re.M)[1:]:
+        riga, _, corpo = blocco.partition("\n")
+        m = re.match(r"\[([^\]]+)\]\s*(.*)", riga.strip())
+        area, titolo = (m.group(1), m.group(2)) if m else ("", riga.strip())
+        tag = re.search(r"^TAG:\s*(.*)$", corpo, re.M)
+        out.append({"titolo": titolo, "area": area, "tag": tag.group(1) if tag else "", "testo": corpo.strip()})
+    return out
+
+
+def catalogo_testo(caso: str, limite: int = 11000) -> str:
+    """Le sezioni trasversali sempre, poi le piu' pertinenti al caso per sovrapposizione di parole (come `seleziona`)."""
+    sez = catalogo_sezioni()
+    if not sez:
+        return "- catalogo non disponibile"
+    q = parole(caso)
+    fisse = [x for x in sez if x["area"] == "trasversale" or x["area"] == "chiusura"]
+    altre = []
+    for x in sez:
+        if x in fisse:
+            continue
+        pt = len(q & parole(x["tag"] + " " + x["titolo"])) * 3 + len(q & parole(x["testo"]))
+        altre.append((pt, x))
+    altre.sort(key=lambda t: -t[0])
+    scelte = [x for pt, x in altre if pt > 0][:8]
+    rimaste = [x["titolo"] for pt, x in altre if x not in scelte]
+    blocchi, usati = [], 0
+    for x in fisse[:3] + scelte + fisse[3:]:
+        b = f"--- {x['titolo']} ---\n{x['testo']}"
+        if usati + len(b) > limite:
+            continue
+        usati += len(b)
+        blocchi.append(b)
+    if rimaste:
+        blocchi.append("ALTRE AREE DEL CATALOGO NON APPROFONDITE QUI (valuta comunque se si applicano): " + "; ".join(rimaste))
+    return "\n".join(blocchi)

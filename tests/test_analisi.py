@@ -69,3 +69,17 @@ def test_unisci_riscontri_mantiene_le_decisioni():
     assert [(r["id"], r["stato"], r["descrizione"]) for r in di_nuovo] == [("R1", "confermato", "d2"), ("R2", "proposto", "e")]
     sparito = analisi.unisci_riscontri(di_nuovo, [])
     assert [r["id"] for r in sparito] == ["R1"]           # il proposto del programma non piu' valido cade, il confermato resta
+
+
+def test_nuovi_riscontri_duplicati_natura_inversione():
+    dup = [fatt("10", "2023-04-01", 100.0, ced="99999999999", com="01234567897") for _ in range(2)]
+    nat = fatt("11", "2023-05-01", 50.0, aliq=0.0, ced="99999999999", com="01234567897")
+    rc = fatt("12", "2023-06-01", 300.0, aliq=0.0, ced="88888888888", com="01234567897", tipo="TD17")
+    rc["riepilogo"][0]["natura"] = "N6.3"
+    r = analisi.analizza(dup + [nat, rc], {"01234567897"})
+    chiavi = {x["chiave"] for x in r["riscontri"]}
+    assert {"dup:acquisto:2023", "nat:acquisto:2023", "rc:2023"} <= chiavi
+    d = {x["id"]: x for x in r["dati"]}
+    assert d["F_A2023_RC_IMP"]["valore"] == "300.00"
+    rcr = next(x for x in r["riscontri"] if x["chiave"] == "rc:2023")
+    assert rcr["importi"] == ["F_A2023_RC_IMP"] and rcr["verifiche"] and rcr["affidabilita"] == "probabile"
