@@ -16,8 +16,8 @@ from . import analisi, calcoli
 from . import pvoc as pvoc_mod
 
 MAX_CARATTERI_DOC = 400_000
-MAX_DOC_NEL_PROMPT = 60_000         # massimo per documento (le liste e i registri vanno letti quasi per intero)
-MAX_TOTALE_DOC = 200_000            # budget complessivo dei documenti nel prompt, ripartito in modo equo
+MAX_DOC_NEL_PROMPT = 120_000        # massimo per documento (le liste e i registri vanno letti quasi per intero)
+MAX_TOTALE_DOC = 450_000            # budget complessivo dei documenti nel prompt, ripartito in modo equo
 MIN_DOC_NEL_PROMPT = 6_000
 
 INIZIO, FINE = "<<AZIONI>>", "<<FINE>>"
@@ -378,7 +378,9 @@ def contesto(p_tipo: str, tipologia_nome: str, fasi: list[dict], d: dict, docume
         v = pvoc_iniziale.get(k, "")
         righe.append(f"- {k}: {v if v else 'MANCANTE'}")
     righe += ["", "DOCUMENTI ACQUISITI (testo; se e' stato troncato per limiti di spazio e' indicato):"]
-    quote = quote_documenti([len(x["testo"]) for x in documenti])
+    # le liste gia' elaborate dal programma (movimenti crediti) entrano solo in sintesi: i conti sono nel prospetto e nei dati tracciati
+    lung = [min(len(x["testo"]), 8_000) if x.get("tipo") == "movimenti_crediti" else len(x["testo"]) for x in documenti]
+    quote = quote_documenti(lung)
     for doc, q in zip(documenti, quote):
         estr = doc["testo"][:q]
         nota = f" - TRONCATO ai primi {q} caratteri su {len(doc['testo'])}" if len(doc["testo"]) > q else ""
