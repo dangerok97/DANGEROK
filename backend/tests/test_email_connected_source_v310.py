@@ -493,11 +493,27 @@ def test_a_relevant_attachment_enters_document_service_once(monkeypatch, tmp_pat
             assert await db.documents.count_documents({"user_id": uid}) == 1
             stored = await db.documents.find_one({"user_id": uid}, {"_id": 0})
             assert stored["upload_source"] == "gmail_relevant_attachment"
+            assert stored.get("connected_read_pending")
             assert len(stored["source_refs"]) == 1
             assert stored["source_refs"][0].startswith(
                 f"email_attachment:{instance_id}:m_att:"
             )
             assert len(mailbox.attachment_reads) == 1
+
+            # The imported file immediately becomes a normal document sensor
+            # input. This is the bridge from Gmail relevance to the existing
+            # P0 document/autonomous pipeline; no special Gmail agent exists.
+            from connected import documents_sensor
+            signals = await documents_sensor.read_changes(db, uid)
+            assert len(signals) == 1
+            assert signals[0].signal_type == "document.added"
+            assert signals[0].source_object_ref == imported["document_id"]
+            assert "condizioni.txt" in signals[0].payload_summary
+            assert any(
+                change.field == "extracted_content"
+                and change.content_withheld
+                for change in signals[0].changed_fields
+            )
 
             second = await service.import_relevant_attachments(
                 user_id=uid, instance_id=instance_id, message_id="m_att",
