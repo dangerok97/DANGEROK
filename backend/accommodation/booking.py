@@ -285,3 +285,66 @@ class BookingDemandClient:
                  or "")
             )[:500],
         }
+
+    async def preview(
+        self,
+        *,
+        accommodation_id: int | str,
+        checkin: str,
+        checkout: str,
+        products: List[Dict[str, Any]],
+        currency: str = "EUR",
+        country: Optional[str] = None,
+        platform: Optional[str] = None,
+        travel_purpose: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Validate the selected rooms and get current order terms.
+
+        Preview does not book anything. The returned order token is short-lived
+        and is handed to the secure server-side booking layer, never logged.
+        """
+        booker: Dict[str, Any] = {
+            "country": (country or self.booker_country).strip().lower(),
+            "platform": (platform or self.platform).strip().lower(),
+            "user_groups": ["authenticated"],
+        }
+        if travel_purpose in ("business", "leisure"):
+            booker["travel_purpose"] = travel_purpose
+
+        selected = []
+        for product in products:
+            product_id = str(product.get("id") or "").strip()
+            adults = int(product.get("number_of_adults") or 0)
+            children = [int(age) for age in (product.get("children") or [])]
+            if not product_id or adults < 1 or any(age < 0 or age > 17 for age in children):
+                raise BookingProviderError(
+                    "invalid_product_allocation",
+                    "La composizione degli ospiti non è valida.",
+                    retryable=False,
+                )
+            selected.append({
+                "id": product_id,
+                "allocation": {
+                    "number_of_adults": adults,
+                    "children": children,
+                },
+            })
+
+        if not selected:
+            raise BookingProviderError(
+                "products_required",
+                "Serve almeno una camera/prodotto da verificare.",
+                retryable=False,
+            )
+
+        payload = {
+            "currency": currency.upper(),
+            "accommodation": {
+                "id": int(accommodation_id),
+                "booker": booker,
+                "checkin": checkin,
+                "checkout": checkout,
+                "products": selected,
+            },
+        }
+        return await self._post("orders/preview", payload)
