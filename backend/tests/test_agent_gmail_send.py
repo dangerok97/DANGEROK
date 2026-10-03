@@ -2,7 +2,8 @@ import pytest
 from mongomock_motor import AsyncMongoMockClient
 
 from agent.effects import mail_send
-from agent.models import ActionIntent
+from agent.mail_draft import freeze_for_send
+from agent.models import ActionEffect, ActionIntent, ActionStep, AutonomousGoal
 from connectors.gmail.provider import FakeGmailProvider
 from connectors.gmail.service import GmailReadService
 from permissions.errors import ConsentDenied
@@ -91,8 +92,26 @@ async def test_agent_effect_uses_exact_connected_gmail_and_reports_only_sender_s
     import deps
     monkeypatch.setattr(deps, "get_gmail_service", lambda: service)
 
+    goal = AutonomousGoal(
+        id="goal_mail", owner_id="alice", objective="Spostare l'appuntamento",
+        desired_outcome="Lo studio riceve la richiesta corretta", status="active",
+        prepared_text="Possiamo spostarlo alle 12?",
+        prepared_sources=["ev_1"],
+    )
+    step = ActionStep(
+        id="step_mail", intent="Inviare una mail allo studio", step_type="execute",
+        capability_needed="mail.send", reaches_somebody_else=True,
+        reversibility="irreversible",
+        parameters={
+            "instance_id": instance["id"],
+            "to": "studio@example.com",
+            "subject": "Cambio appuntamento",
+        },
+    )
+    draft, why = await freeze_for_send(db, "alice", goal, step)
+    assert why == "" and draft is not None
     intent = ActionIntent(
-        owner_id="alice", goal_id="goal_mail", step_id="step_mail",
+        owner_id="alice", goal_id=goal.id, step_id=step.id,
         capability="mail.send", effect_summary="Inviare una mail allo studio",
         target_ref="studio@example.com",
         authority_required="explicit_yes",
@@ -100,10 +119,14 @@ async def test_agent_effect_uses_exact_connected_gmail_and_reports_only_sender_s
         reversibility="irreversible",
         parameters={
             "instance_id": instance["id"],
-            "to": "studio@example.com",
-            "subject": "Cambio appuntamento",
-            "body": "Possiamo spostarlo alle 12?",
+            "draft_id": draft["id"],
+            "draft_hash": draft["content_hash"],
         },
+        effect=ActionEffect(
+            effect_type="send", target="studio@example.com",
+            external_party=True, reversibility="irreversible",
+            effect_binding=draft["content_hash"],
+        ),
     )
     outcome = await mail_send(db, "alice", intent)
 
@@ -112,3 +135,37 @@ async def test_agent_effect_uses_exact_connected_gmail_and_reports_only_sender_s
     assert outcome.receipt.external_ref
     assert len(provider.sent_messages) == 1
     assert "destinatario" not in outcome.observation.lower() or "letto" not in outcome.observation.lower()
+
+
+@pytest.mark.asyncio
+async def test_changed_mail_body_changes_authority_fingerprint():
+    db = AsyncMongoMockClient().test
+    goal = AutonomousGoal(
+        id="goal_hash", owner_id="alice", objective="Scrivere allo studio",
+        desired_outcome="Richiesta inviata", status="active",
+        prepared_text="Prima versione",
+        prepared_sources=["ev_1"],
+    )
+    step = ActionStep(
+        id="step_hash", intent="Inviare la richiesta", step_type="execute",
+        capability_needed="mail.send", reaches_somebody_else=True,
+        reversibility="irreversible",
+        parameters={"to": "studio@example.com", "subject": "Richiesta"},
+    )
+    first, why = await freeze_for_send(db, "alice", goal, step)
+    assert why == "" and first
+
+    goal.prepared_text = "Seconda versione"
+    second, why = await freeze_for_send(db, "alice", goal, step)
+    assert why == "" and second
+    assert first["content_hash"] != second["content_hash"]
+
+    a = ActionEffect(
+        effect_type="send", target="studio@example.com", external_party=True,
+        reversibility="irreversible", effect_binding=first["content_hash"],
+    )
+    b = ActionEffect(
+        effect_type="send", target="studio@example.com", external_party=True,
+        reversibility="irreversible", effect_binding=second["content_hash"],
+    )
+    assert a.fingerprint() != b.fingerprint()
