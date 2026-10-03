@@ -1,3 +1,19 @@
+## 4 ottobre 2026 — Accommodation e presence-driven reasoning
+
+### Accommodation provider boundary
+`backend/accommodation/` è un adapter provider-agnostic. Il primo provider è
+Booking.com Demand API v3.2. Search è un read esterno: produce offerte osservate,
+non decisioni e non effetti. La futura creazione di un ordine deve essere
+esposta come capability world-changing/financiale nel Personal Agent, con
+preview fresca, authority esplicita, idempotenza e read-back del risultato.
+
+### Presence as evidence, not a trigger rule
+Il client nativo registra fix/geofence con `expo-location`; `PlacesService`
+applica zone, hysteresis e dwell. Quando lo stato di un luogo confermato cambia,
+il backend registra una MeaningfulChange via `OpportunityDiscovery.note`.
+Questo sveglia il ciclo esistente ma non crea automaticamente un goal, una
+notifica o un'azione: il significato resta una decisione AI.
+
 ## 28 settembre 2026 — Trailer pubblicato e verificato
 
 Web Railway 6b13a563-2f09-4239-a788-bb8eed4d6750, commit
