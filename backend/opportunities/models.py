@@ -258,6 +258,17 @@ class Opportunity(BaseModel):
         self.updated_at = now_iso()
 
     @property
+    def evidence_refs(self) -> List[str]:
+        """Compatibility view of the canonical structured evidence list.
+
+        Older callers used flat string refs. Evidence is now structured so it
+        can carry a human-readable summary too, but read-only callers still
+        need a stable way to ask which facts an opportunity rests on.
+        """
+        return [e.ref for e in self.evidence if e.ref]
+
+
+    @property
     def order_key(self) -> tuple:
         """
         A deterministic order from words, for surfaces that need one.
