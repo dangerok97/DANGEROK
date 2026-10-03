@@ -1,13 +1,13 @@
 """
-Reading a mailbox the way ORA reads a calendar: incrementally, and minimally.
+Reading a mailbox minimally, and sending only through an explicitly send-scoped account.
 
     A MAILBOX IS NOT A THING TO COPY. IT IS A THING TO NOTICE CHANGES IN.
 
-This is the smallest connector that can honestly be called a read: connect,
+The sensing path remains the smallest connector that can honestly be called a read: connect,
 resume from where we were, fetch the headers of what is new, write an
-ingestion row per message, move the cursor. There is no send, no reply, no
-label, no archive and no delete, because none of those verbs exists anywhere
-in this package.
+ingestion row per message, move the cursor. Sending is a separate gated verb: it requires Google's gmail.send scope,
+ORA's per-account mail.send consent and the agent's authority for the exact
+frozen message. There is still no label, archive or delete mutation.
 
 Three things it is careful about.
 
@@ -199,7 +199,7 @@ def normalize(message: Dict[str, Any], *, account: str, known: set) -> Dict[str,
 
 
 class GmailReadService:
-    """Connect a mailbox, read what is new, and stop there."""
+    """Mailbox connector; the historical class name is retained for compatibility."""
 
     def __init__(self, *, db, permissions, vault, provider: Optional[GmailProviderProtocol] = None):
         self.db = db
