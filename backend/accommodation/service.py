@@ -1,6 +1,8 @@
 """Provider-agnostic accommodation search for ORA."""
 from __future__ import annotations
 
+import hashlib
+import json
 import math
 import os
 import unicodedata
@@ -112,6 +114,7 @@ async def _resolve_destination(name: str) -> Optional[Dict[str, Any]]:
 
 class AccommodationService:
     PREVIEWS = "accommodation_order_previews"
+    CHECKOUTS = "accommodation_checkouts"
 
     def __init__(self, db=None) -> None:
         self.db = db
@@ -126,35 +129,55 @@ class AccommodationService:
         await self.db[self.PREVIEWS].create_index(
             [("status", 1), ("expires_at", 1)], name="preview_expiry"
         )
+        await self.db[self.CHECKOUTS].create_index(
+            [("owner_id", 1), ("id", 1)], unique=True, name="owner_checkout_id"
+        )
+        await self.db[self.CHECKOUTS].create_index(
+            [("status", 1), ("expires_at", 1)], name="checkout_expiry"
+        )
 
     async def cleanup_expired(self) -> int:
-        """Revoke expired provider tokens before deleting their metadata."""
+        """Revoke expired secrets before deleting checkout/preview metadata."""
         if self.db is None:
             return 0
         now = datetime.now(timezone.utc)
-        rows = await self.db[self.PREVIEWS].find(
+        from deps import get_token_vault
+        vault = get_token_vault()
+        removed = 0
+
+        # Checkout payload may contain traveller PII. Revoke it first.
+        checkouts = await self.db[self.CHECKOUTS].find(
+            {"status": "ready", "expires_at": {"$lte": now}},
+            {"_id": 0, "id": 1, "owner_id": 1, "payload_ref": 1},
+        ).to_list(100)
+        for row in checkouts:
+            ref = str(row.get("payload_ref") or "")
+            if ref:
+                try:
+                    await vault.revoke(ref)
+                except Exception:
+                    continue
+            await self.db[self.CHECKOUTS].delete_one({
+                "id": row.get("id"), "owner_id": row.get("owner_id")
+            })
+            removed += 1
+
+        previews = await self.db[self.PREVIEWS].find(
             {"status": "ready", "expires_at": {"$lte": now}},
             {"_id": 0, "id": 1, "owner_id": 1, "token_ref": 1},
         ).to_list(100)
-        if not rows:
-            return 0
-        from deps import get_token_vault
-        vault = get_token_vault()
-        revoked = 0
-        for row in rows:
+        for row in previews:
             ref = str(row.get("token_ref") or "")
             if ref:
                 try:
                     await vault.revoke(ref)
                 except Exception:
-                    # The provider token is expired already; keep the record so
-                    # a later cleanup can retry removing the encrypted copy.
                     continue
             await self.db[self.PREVIEWS].delete_one({
                 "id": row.get("id"), "owner_id": row.get("owner_id")
             })
-            revoked += 1
-        return revoked
+            removed += 1
+        return removed
 
     def readiness(self) -> Dict[str, Any]:
         return {
@@ -351,3 +374,366 @@ class AccommodationService:
             "data": public_data,
             "creates_reservation": False,
         }
+
+
+    async def prepare_checkout(
+        self,
+        *,
+        owner_id: str,
+        preview_id: str,
+        booker: Dict[str, Any],
+        products: List[Dict[str, Any]],
+        payment: Dict[str, Any],
+        remarks: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Freeze a provider-validated, cardless checkout behind an opaque id.
+
+        Sensitive traveller data is encrypted in the vault. The model and
+        agent receive only checkout_id, terms_hash and a safe authority summary.
+        Raw card data is intentionally rejected until a compliant tokenised
+        payment path is configured.
+        """
+        if self.db is None:
+            raise AccommodationError("storage_not_configured", "Checkout storage unavailable.")
+        await self.ensure_indexes()
+        await self.cleanup_expired()
+        now = datetime.now(timezone.utc)
+        preview = await self.db[self.PREVIEWS].find_one(
+            {
+                "id": str(preview_id),
+                "owner_id": owner_id,
+                "status": "ready",
+                "expires_at": {"$gt": now},
+            },
+            {"_id": 0},
+        )
+        if not preview:
+            raise AccommodationError(
+                "preview_expired_or_missing",
+                "Il preventivo non è più valido: serve un nuovo preview.",
+            )
+
+        selected_ids = [str(p.get("id") or "").strip() for p in products]
+        preview_ids = [str(x or "").strip() for x in (preview.get("product_ids") or [])]
+        if not selected_ids or sorted(selected_ids) != sorted(preview_ids):
+            raise AccommodationError(
+                "selection_changed",
+                "Le camere selezionate non coincidono più con il preview.",
+            )
+
+        _validate_booker(booker)
+        _validate_guests(products)
+
+        method = str(payment.get("method") or "").strip()
+        timing = str(payment.get("timing") or "").strip()
+        if not method or not timing:
+            raise AccommodationError(
+                "payment_choice_required",
+                "Metodo e momento del pagamento devono provenire dal preview.",
+            )
+        if method == "card" or payment.get("card"):
+            raise AccommodationError(
+                "card_tokenization_required",
+                "Questa prenotazione richiede un percorso di pagamento carta tokenizzato e conforme.",
+            )
+        if not _preview_allows_payment(preview.get("preview") or {}, method, timing):
+            raise AccommodationError(
+                "payment_not_in_preview",
+                "Il metodo di pagamento scelto non è tra quelli del preview corrente.",
+            )
+
+        from deps import get_token_vault
+        from security.token_vault import VaultError, is_configured
+        vault = get_token_vault()
+        if not is_configured(vault):
+            raise AccommodationError(
+                "secure_vault_unavailable",
+                "Il vault sicuro non è disponibile.",
+            )
+
+        secure_payload = {
+            "booker": booker,
+            "accommodation": {
+                "products": products,
+                **({"remarks": remarks} if remarks else {}),
+            },
+            "payment": payment,
+        }
+        checkout_id = f"aco_{secrets.token_hex(8)}"
+        safe_terms = {
+            "preview_id": str(preview_id),
+            "request_id": str(preview.get("request_id") or ""),
+            "accommodation_id": str(preview.get("accommodation_id") or ""),
+            "checkin": str(preview.get("checkin") or ""),
+            "checkout": str(preview.get("checkout") or ""),
+            "product_ids": preview_ids,
+            "payment_method": method,
+            "payment_timing": timing,
+            "price": _preview_price(preview.get("preview") or {}),
+        }
+        terms_hash = hashlib.sha256(
+            json.dumps(safe_terms, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        ).hexdigest()
+        authority_summary = _authority_summary(safe_terms)
+
+        try:
+            payload_ref = await vault.put(
+                user_id=owner_id,
+                purpose="booking_checkout_payload",
+                payload=secure_payload,
+                metadata={"checkout_id": checkout_id, "terms_hash": terms_hash},
+            )
+        except VaultError as exc:
+            raise AccommodationError(
+                "secure_vault_unavailable",
+                "Non riesco a proteggere i dati del checkout.",
+            ) from exc
+
+        await self.db[self.CHECKOUTS].insert_one({
+            "id": checkout_id,
+            "owner_id": owner_id,
+            "preview_id": str(preview_id),
+            "payload_ref": payload_ref,
+            "terms_hash": terms_hash,
+            "authority_summary": authority_summary,
+            "safe_terms": safe_terms,
+            "expires_at": preview.get("expires_at"),
+            "created_at": now,
+            "status": "ready",
+        })
+        return {
+            "status": "ready",
+            "checkout_id": checkout_id,
+            "terms_hash": terms_hash,
+            "authority_summary": authority_summary,
+            "expires_at": _iso(preview.get("expires_at")),
+            "creates_reservation": False,
+        }
+
+    async def checkout_for_authority(
+        self, *, owner_id: str, checkout_id: str, terms_hash: str = ""
+    ) -> Dict[str, Any]:
+        if self.db is None:
+            raise AccommodationError("storage_not_configured", "Checkout storage unavailable.")
+        now = datetime.now(timezone.utc)
+        row = await self.db[self.CHECKOUTS].find_one(
+            {
+                "id": checkout_id,
+                "owner_id": owner_id,
+                "status": "ready",
+                "expires_at": {"$gt": now},
+            },
+            {"_id": 0, "payload_ref": 0},
+        )
+        if not row:
+            raise AccommodationError(
+                "checkout_expired_or_missing",
+                "Il checkout non è più valido: serve un nuovo preview.",
+            )
+        if terms_hash and terms_hash != str(row.get("terms_hash") or ""):
+            raise AccommodationError(
+                "checkout_terms_changed",
+                "I termini del checkout non corrispondono a quelli autorizzati.",
+            )
+        return row
+
+    async def create_order_from_checkout(
+        self, *, owner_id: str, checkout_id: str, terms_hash: str
+    ) -> Dict[str, Any]:
+        """Execute one frozen checkout and verify the resulting order."""
+        row = await self.checkout_for_authority(
+            owner_id=owner_id, checkout_id=checkout_id, terms_hash=terms_hash
+        )
+        preview = await self.db[self.PREVIEWS].find_one(
+            {
+                "id": row["preview_id"],
+                "owner_id": owner_id,
+                "status": "ready",
+                "expires_at": {"$gt": datetime.now(timezone.utc)},
+            },
+            {"_id": 0},
+        )
+        if not preview:
+            raise AccommodationError(
+                "preview_expired_or_missing",
+                "Il preview è scaduto prima della prenotazione.",
+            )
+
+        from deps import get_token_vault
+        from security.token_vault import VaultError
+        vault = get_token_vault()
+        try:
+            token_payload = await vault.get(str(preview["token_ref"]), user_id=owner_id)
+            checkout_payload = await vault.get(str(row["payload_ref"]), user_id=owner_id)
+        except VaultError as exc:
+            raise AccommodationError(
+                "secure_payload_missing",
+                "I dati protetti del checkout non sono più disponibili.",
+            ) from exc
+
+        order_token = str(token_payload.get("order_token") or "").strip()
+        if not order_token:
+            raise AccommodationError("order_token_missing", "Il token ordine non è disponibile.")
+
+        create_payload = {
+            **checkout_payload,
+            "order_token": order_token,
+        }
+        try:
+            created = await self.booking.create_order(create_payload)
+        except BookingProviderError as exc:
+            raise AccommodationError(exc.code, str(exc), retryable=exc.retryable) from exc
+
+        data = created.get("data") or {}
+        order_id = str(data.get("order") or "").strip()
+        if not order_id:
+            raise AccommodationError(
+                "provider_create_unconfirmed",
+                "Il provider non ha restituito un ordine confermabile.",
+                retryable=True,
+            )
+
+        details_data: Dict[str, Any] = {}
+        try:
+            details = await self.booking.accommodation_order_details(
+                order_id=order_id,
+                currency=str((row.get("safe_terms") or {}).get("price", {}).get("currency") or "EUR"),
+            )
+            candidates = details.get("data") or []
+            details_data = next(
+                (item for item in candidates if str(item.get("id") or "") == order_id),
+                candidates[0] if candidates else {},
+            )
+        except BookingProviderError:
+            details_data = {}
+
+        status = str(details_data.get("status") or data.get("status") or "").strip().lower()
+        observed = bool(details_data) and status not in ("", "cancelled", "failed")
+        if not observed:
+            raise AccommodationError(
+                "order_not_observed",
+                "L'ordine è stato accettato ma non è ancora stato riletto come attivo.",
+                retryable=True,
+            )
+
+        reservation = str(
+            ((details_data.get("accommodation") or details_data.get("accommodations") or {})
+             .get("reservation") or data.get("reservation") or "")
+        )
+        await self.db[self.CHECKOUTS].update_one(
+            {"id": checkout_id, "owner_id": owner_id},
+            {"$set": {
+                "status": "booked",
+                "order_id": order_id,
+                "reservation_id": reservation,
+                "booked_at": datetime.now(timezone.utc),
+            }},
+        )
+        await self.db[self.PREVIEWS].update_one(
+            {"id": row["preview_id"], "owner_id": owner_id},
+            {"$set": {"status": "consumed", "consumed_at": datetime.now(timezone.utc)}},
+        )
+        for ref in (str(row.get("payload_ref") or ""), str(preview.get("token_ref") or "")):
+            if ref:
+                try:
+                    await vault.revoke(ref)
+                except Exception:
+                    pass
+
+        return {
+            "status": "booked",
+            "provider": "booking.com",
+            "order_id": order_id,
+            "reservation_id": reservation,
+            "provider_status": status,
+            "observed": True,
+            "request_id": str(created.get("request_id") or "")[:120],
+        }
+
+
+
+def _validate_booker(booker: Dict[str, Any]) -> None:
+    required = ("email", "telephone", "name", "address")
+    if not isinstance(booker, dict) or any(not booker.get(key) for key in required):
+        raise AccommodationError(
+            "booker_incomplete",
+            "Mancano dati obbligatori del titolare della prenotazione.",
+        )
+    name = booker.get("name") or {}
+    address = booker.get("address") or {}
+    if not name.get("first_name") or not name.get("last_name"):
+        raise AccommodationError("booker_incomplete", "Nome e cognome del titolare sono obbligatori.")
+    for key in ("address_line", "city", "country", "post_code"):
+        if not address.get(key):
+            raise AccommodationError("booker_incomplete", "L'indirizzo del titolare è incompleto.")
+
+
+def _validate_guests(products: List[Dict[str, Any]]) -> None:
+    for product in products:
+        if not str(product.get("id") or "").strip():
+            raise AccommodationError("guests_incomplete", "Manca l'identificativo della camera.")
+        guests = product.get("guests") or []
+        if not guests:
+            raise AccommodationError("guests_incomplete", "Serve almeno un ospite per ogni camera.")
+        for guest in guests:
+            if not str(guest.get("name") or "").strip() or not str(guest.get("email") or "").strip():
+                raise AccommodationError("guests_incomplete", "Nome ed email sono obbligatori per ogni ospite.")
+
+
+def _preview_allows_payment(preview: Dict[str, Any], method: str, timing: str) -> bool:
+    accommodation = preview.get("accommodation") or {}
+    payment = accommodation.get("payment") or {}
+    methods = payment.get("methods")
+    if isinstance(methods, list) and methods:
+        names = {
+            str(item.get("method") or item.get("type") or item) if isinstance(item, dict) else str(item)
+            for item in methods
+        }
+        if method not in names:
+            return False
+    blob = json.dumps(payment, sort_keys=True)
+    # When preview explicitly names timings, never allow a different one.
+    known_timings = {
+        name for name in (
+            "pay_at_the_property", "pay_online_later", "pay_online_now",
+            "pay_partial_online", "pay_at_pickup",
+        ) if name in blob
+    }
+    if known_timings and timing not in known_timings:
+        return False
+    return True
+
+
+def _preview_price(preview: Dict[str, Any]) -> Dict[str, Any]:
+    accommodation = preview.get("accommodation") or {}
+    price = accommodation.get("price") or {}
+    currency = ""
+    currencies = preview.get("currency") or preview.get("currencies") or {}
+    if isinstance(currencies, str):
+        currency = currencies
+    elif isinstance(currencies, dict):
+        currency = str(currencies.get("booker") or currencies.get("product") or "")
+    return {
+        "total": price.get("total"),
+        "display": price.get("display"),
+        "chargeable_online": price.get("chargeable_online"),
+        "currency": currency,
+    }
+
+
+def _authority_summary(terms: Dict[str, Any]) -> str:
+    price = terms.get("price") or {}
+    total = price.get("display") or price.get("total")
+    amount = json.dumps(total, ensure_ascii=False)[:120] if total is not None else "prezzo del preview"
+    return (
+        f"Prenotare l'alloggio {terms.get('accommodation_id')} dal "
+        f"{terms.get('checkin')} al {terms.get('checkout')}; "
+        f"pagamento {terms.get('payment_timing')}/{terms.get('payment_method')}; "
+        f"totale mostrato: {amount}"
+    )[:300]
+
+
+def _iso(value: Any) -> str:
+    if isinstance(value, datetime):
+        return value.astimezone(timezone.utc).isoformat()
+    return str(value or "")
