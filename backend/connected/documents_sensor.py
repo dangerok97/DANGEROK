@@ -29,7 +29,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, List, Optional
 
-from connected.models import ConnectedSignal, SignalType, now_iso
+from connected.models import ConnectedSignal, FieldChange, SignalType, now_iso
 from connected.seen import SeenState
 
 logger = logging.getLogger("ora.connected.documents")
