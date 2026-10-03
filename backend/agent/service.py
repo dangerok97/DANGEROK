@@ -265,11 +265,68 @@ class AgentService:
             drafted = await prepare(self.db, owner_id, goal,
                 ActionStep(intent="Preparare la richiesta di spostamento", step_type="prepare"))
             if drafted.status == "succeeded" and goal.prepared_text:
+                # A useful preparation must end in a decision somebody can
+                # actually answer, not in a draft card with no continuation.
+                # Keep that decision as ordinary agent state so reloads and
+                # process restarts resume the same goal instead of creating a
+                # second conflict workflow.
+                question = (
+                    "Quale dei due impegni vuoi mantenere invariato e quale vuoi "
+                    "spostare? Se sai già il nuovo orario, scrivilo."
+                )
+                choice = ActionStep(
+                    ordinal=0,
+                    intent="Scegliere quale impegno spostare e, se noto, il nuovo orario",
+                    step_type="ask_user",
+                    asks=question,
+                    ask_kind="knowledge",
+                    status="blocked",
+                )
+                plan = ActionPlan(
+                    owner_id=owner_id,
+                    goal_id=goal.id,
+                    status="waiting",
+                    plan_summary=(
+                        "Risolvere la sovrapposizione senza modificare o contattare "
+                        "nessuno finché la persona non sceglie come procedere."
+                    ),
+                    expected_outcome=(
+                        "Una scelta esplicita su quale impegno spostare, seguita "
+                        "soltanto da azioni autorizzate e verificabili."
+                    ),
+                    known_constraints=[
+                        "Nessun nuovo orario viene inventato.",
+                        "Una bozza non equivale a una modifica o a una prenotazione confermata.",
+                    ],
+                    steps=[choice],
+                )
+                await self.repo.save_plan(plan)
                 goal.status, goal.next_run_at = "waiting", None
+                goal.requires_user_input = True
                 await self.repo.save_goal(goal)
+                need = await self.needs.raise_need(CommunicationNeed(
+                    owner_id=owner_id,
+                    goal_id=goal.id,
+                    kind="needs_information",
+                    summary=question,
+                    reason=(
+                        "Ho verificato una sovrapposizione reale e preparato il "
+                        "prossimo passo; serve la tua scelta prima di cambiare qualcosa."
+                    ),
+                    source_refs=list(dict.fromkeys(refs))[:8],
+                    requires_response=True,
+                    response_kind="information",
+                    work_already_done=[
+                        "Ho verificato i due impegni e preparato una richiesta senza modificare il calendario."
+                    ],
+                    what_is_missing=question,
+                    provenance="code",
+                ))
                 await self.repo.journal(owner_id, goal.id, kind="waiting",
                     note="Bozza pronta; la richiesta di spostamento attende la tua scelta.",
-                    detail={"draft": True, "provider": "calendar_overlap_draft"})
+                    detail={"draft": True, "provider": "calendar_overlap_draft",
+                            "step_id": choice.id, "need_id": need.id})
+                await self.needs.offer_to_delivery(owner_id, need)
 
         await self.repo.journal(
             owner_id, goal.id, kind="goal_created", note=goal.objective,
