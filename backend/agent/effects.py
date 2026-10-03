@@ -392,6 +392,128 @@ async def local_calendar_write(db, owner_id: str, intent: ActionIntent) -> Effec
     )
 
 
+async def mail_send(db, owner_id: str, intent: ActionIntent) -> EffectOutcome:
+    """Send one exact email through one send-scoped Gmail account.
+
+    A provider acceptance is not promoted to a recipient outcome. When Gmail
+    can read the resulting message back from Sent we can prove the send-side
+    effect; whether somebody read or agreed remains a separate goal fact.
+    """
+    receipt = ExecutionReceipt(
+        owner_id=owner_id,
+        goal_id=intent.goal_id,
+        action_intent_id=intent.id,
+        idempotency_key=intent.idempotency_key,
+        capability=intent.capability,
+        provider="gmail",
+    )
+    params = dict(intent.parameters or {})
+    to = str(params.get("to") or "").strip()
+    subject = str(params.get("subject") or "").strip()
+    body = str(params.get("body") or "").strip()
+    thread_id = str(params.get("thread_id") or "").strip()
+    if not to or not subject or not body:
+        return _refused(
+            receipt, "missing_message_fields",
+            "La mail non è pronta: servono destinatario, oggetto e testo.",
+        )
+
+    try:
+        from connectors.gmail.scopes import CONNECTOR_ID
+        instance_id = str(params.get("instance_id") or "").strip()
+        if instance_id:
+            instance = await db.connector_instances.find_one(
+                {
+                    "id": instance_id, "user_id": owner_id,
+                    "connector_id": CONNECTOR_ID,
+                    "status": {"$in": ["connected", "active", "authorized"]},
+                },
+                {"_id": 0},
+            )
+        else:
+            instance = await db.connector_instances.find_one(
+                {
+                    "user_id": owner_id, "connector_id": CONNECTOR_ID,
+                    "status": {"$in": ["connected", "active", "authorized"]},
+                    "authorized_scopes": {
+                        "$elemMatch": {"$regex": "gmail.send"}
+                    },
+                },
+                {"_id": 0},
+                sort=[("updated_at", -1)],
+            )
+        if not instance:
+            return _refused(
+                receipt, "requires_send_connection",
+                "Non c'è un account Gmail collegato con permesso di invio.",
+            )
+
+        try:
+            from deps import get_gmail_service
+            gmail = get_gmail_service()
+        except Exception:
+            from connectors.gmail.service import GmailReadService
+            from permissions import PermissionService
+            from security import get_token_vault
+            gmail = GmailReadService(
+                db=db, permissions=PermissionService(db), vault=get_token_vault()
+            )
+
+        result = await gmail.send_message(
+            user_id=owner_id,
+            instance_id=str(instance.get("id") or ""),
+            to=to, subject=subject, body=body, thread_id=thread_id,
+        )
+    except ValueError as exc:
+        return _refused(
+            receipt, str(exc)[:80] or "invalid_message",
+            "La mail non è stata inviata perché destinatario o contenuto non sono validi.",
+        )
+    except Exception as exc:
+        # Gmail has no caller-supplied idempotency key for send. If a network
+        # failure happens after Google accepted the message, an automatic
+        # retry could duplicate it. Fail closed and ask for a fresh decision.
+        logger.info("gmail send failed/unknown: %s", type(exc).__name__)
+        return _refused(
+            receipt, "delivery_unknown",
+            "Non posso confermare che la mail sia partita; non la ritento automaticamente per evitare duplicati.",
+            retryable=False,
+        )
+
+    receipt.external_ref = str(result.get("message_id") or "")
+    receipt.provider_status = "succeeded" if result.get("observed") else "accepted"
+    receipt.answered_at = _now().isoformat()
+    observed = bool(result.get("observed"))
+    claims = []
+    if observed:
+        claims.append((
+            f"Gmail mostra tra i messaggi dell'account l'invio a {result.get('to') or to} con oggetto «{result.get('subject') or subject}».",
+            "la mail è stata inviata dall'account Gmail selezionato",
+        ))
+    return EffectOutcome(
+        receipt=receipt,
+        observation=(
+            "Gmail ha confermato e riletto il messaggio tra gli inviati."
+            if observed else
+            "Gmail ha accettato l'invio, ma la rilettura non è ancora riuscita; non considero verificato che il destinatario l'abbia ricevuto."
+        ),
+        claims=claims,
+        provenance=ResultProvenance(
+            source_class="connected_provider",
+            capability=intent.capability,
+            provider="gmail",
+            source_refs=[f"gmail:{receipt.external_ref}"] if receipt.external_ref else [],
+            freshness="fresh",
+            certainty_note=(
+                "messaggio riletto nell'account mittente; nessuna prova di lettura del destinatario"
+                if observed else
+                "provider ha accettato la richiesta; rilettura non disponibile"
+            ),
+        ),
+        observed=observed,
+    )
+
+
 async def phone_call(db, owner_id: str, intent: ActionIntent) -> EffectOutcome:
     """Place one already-prepared phone mission and never redial it on retry.
 
@@ -592,6 +714,7 @@ def _refused(
 _RUNNERS = {
     "calendar.write": calendar_write,
     "calendar.local.write": local_calendar_write,
+    "mail.send": mail_send,
     "phone.call": phone_call,
 }
 
