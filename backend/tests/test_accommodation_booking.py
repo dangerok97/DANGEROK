@@ -161,3 +161,32 @@ def test_ai_core_catalogue_exposes_search_and_preview_but_not_booking_effect():
     assert public["search_accommodations"]["side_effect"] == "READ_ONLY"
     assert public["preview_accommodation"]["side_effect"] == "READ_ONLY"
     assert "book_accommodation" not in public
+
+
+@pytest.mark.asyncio
+async def test_expired_preview_revokes_vault_secret_before_deleting(monkeypatch):
+    from datetime import datetime, timedelta, timezone
+    from mongomock_motor import AsyncMongoMockClient
+
+    db = AsyncMongoMockClient().test_accommodation_cleanup
+    vault_calls = []
+
+    class Vault:
+        async def revoke(self, ref):
+            vault_calls.append(ref)
+            return True
+
+    monkeypatch.setattr("deps.get_token_vault", lambda: Vault())
+    service = AccommodationService(db)
+    await service.ensure_indexes()
+    await db[service.PREVIEWS].insert_one({
+        "id": "apv_old",
+        "owner_id": "u1",
+        "status": "ready",
+        "token_ref": "sv_old",
+        "expires_at": datetime.now(timezone.utc) - timedelta(seconds=1),
+    })
+
+    assert await service.cleanup_expired() == 1
+    assert vault_calls == ["sv_old"]
+    assert await db[service.PREVIEWS].count_documents({}) == 0
