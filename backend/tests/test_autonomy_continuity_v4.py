@@ -250,17 +250,22 @@ async def test_old_worker_cannot_release_new_workers_lease(db):
 
 
 @pytest.mark.asyncio
-async def test_slow_market_does_not_block_due_work_and_shutdown_cancels(monkeypatch):
+@pytest.mark.parametrize('slow_lane', ['market', 'delivery-admission'])
+async def test_slow_lane_does_not_block_due_work_and_shutdown_cancels(monkeypatch, slow_lane):
     from ambient import runtime
     from agent import background
+    from delivery import admission
     from energy_offers.service import EnergyOfferService
     slow, reached, cancelled = asyncio.Event(), asyncio.Event(), asyncio.Event()
-    async def market(*args, **kwargs):
+    async def slow_operation(*args, **kwargs):
         slow.set()
         try: await asyncio.Event().wait()
         finally: cancelled.set()
     async def tick(*args, **kwargs): reached.set()
-    monkeypatch.setattr(EnergyOfferService, 'run_due', market)
+    monkeypatch.setattr(EnergyOfferService, 'run_due',
+                        slow_operation if slow_lane == 'market' else AsyncMock())
+    monkeypatch.setattr(admission, 'drain',
+                        slow_operation if slow_lane == 'delivery-admission' else AsyncMock())
     monkeypatch.setattr(runtime, 'tick', tick)
     monkeypatch.setattr(runtime, 'read_sources', AsyncMock())
     monkeypatch.setattr(runtime, 'keep_relations_current', AsyncMock())
@@ -270,10 +275,12 @@ async def test_slow_market_does_not_block_due_work_and_shutdown_cancels(monkeypa
         await runtime._cycle(object(), 0)
         await asyncio.wait_for(slow.wait(), .5)
         await asyncio.wait_for(reached.wait(), .5)
-        task = runtime._jobs['market']
+        task = runtime._jobs[slow_lane]
         await runtime._cycle(object(), 0)
-        assert runtime._jobs['market'] is task, 'never overlap this research lane'
-        assert len(runtime._jobs) <= 7
+        assert runtime._jobs[slow_lane] is task, 'never overlap a pending lane'
+        # Six service lanes (including durable delivery recovery) and two
+        # due-work slots. P0 added recovery without an unbounded task per user.
+        assert len(runtime._jobs) <= 8
     finally:
         await runtime._stop_jobs()
     assert cancelled.is_set() and not runtime._jobs

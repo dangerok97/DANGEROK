@@ -4527,5 +4527,19 @@ fallimenti indipendenti dal prodotto.
 Verifiche locali: 77 test identità/fiducia/preparazione PASS, TypeScript,
 test frontend V3.22, lint della schermata chiamate, compileall e build web
 PASS. Nessuna dipendenza o migrazione. Browser online fermo al login:
-nessuna prova visiva autenticata dichiarata. Rilascio e verifica API da
-registrare al completamento; nessuna chiamata reale autorizzata o eseguita.
+nessuna prova visiva autenticata dichiarata. Nessuna chiamata reale eseguita.
+
+Pubblicato commit applicativo `8595d32eef841e3824d2751237215c933c70267f`;
+backend Railway `b82d6e91-1aba-47f7-898d-79a3c84cabf0` SUCCESS. Configurazione
+confrontata prima/dopo e identica, incluse variabili, preDeployCommand=[] e
+volume documenti. Frontend invariato dal baseline. API live con account
+tecnico isolato: 20 verifiche PASS, inclusi conflitto persistito, sì generico
+respinto, prepare-call 409, condivisione con tre persone, correzione definitiva
+e nuova segnalazione per l'attribuzione ritirata; zero chiamate create/inviate.
+
+CI `37143085369`: telefono 284 PASS; TypeScript e secret scan SUCCESS. Il job
+backend ha isolato un test precedente al recupero delivery P0: attendeva sette
+job, mentre il runtime dal commit `7c97a5b` ne prevede otto. Aggiornata la prova
+per coprire sia ricerca lenta sia delivery lenta: entrambi devono consentire
+il lavoro dovuto, non duplicarsi e cancellarsi allo shutdown. Nessuna modifica
+al runtime o al limite operativo; CI finale da registrare dopo il nuovo run.

@@ -5877,3 +5877,7 @@ Pubblicati backend `1e7515f0` e web `ba7180d5`, entrambi SUCCESS sul commit `1aa
   della correzione; resa indipendente dalla data reale la fixture calcetto.
 - 77 test backend mirati PASS; TypeScript, guardie V3.22, lint e build web
   PASS. Nessuna modifica UI, dipendenza, migrazione o chiamata reale.
+- Rilascio backend `8595d32` SUCCESS, 20 verifiche API live PASS e 284 test
+  telefonici cloud PASS. Aggiornata la regressione sulla concorrenza ambient
+  alla lane delivery già introdotta in P0, verificandone progresso, assenza
+  di duplicati e cancellazione insieme alla ricerca offerte lenta.
