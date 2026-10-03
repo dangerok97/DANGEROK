@@ -392,6 +392,83 @@ async def local_calendar_write(db, owner_id: str, intent: ActionIntent) -> Effec
     )
 
 
+async def phone_call(db, owner_id: str, intent: ActionIntent) -> EffectOutcome:
+    """Place one already-prepared phone mission and never redial it on retry.
+
+    Preparing the mission happens before authority is requested. This runner
+    only crosses the last boundary: it takes the exact call id that was shown,
+    re-reads that call, and asks the shared telephone gate to dial it. A call
+    already dialling/talking is observed, not repeated.
+    """
+    receipt = ExecutionReceipt(
+        owner_id=owner_id,
+        goal_id=intent.goal_id,
+        action_intent_id=intent.id,
+        idempotency_key=intent.idempotency_key,
+        capability=intent.capability,
+        provider="vonage",
+    )
+    call_id = str((intent.parameters or {}).get("call_id") or "").strip()
+    if not call_id:
+        return _refused(receipt, "missing_call", "La telefonata preparata non è identificabile.")
+
+    from telephone.service import TelephoneService
+    service = TelephoneService(db)
+    call = await service.get(owner_id, call_id)
+    if call is None:
+        return _refused(receipt, "unknown_call", "La telefonata preparata non esiste più.")
+
+    receipt.external_ref = call.id
+    receipt.answered_at = _now().isoformat()
+    if call.state in ("dialling", "talking"):
+        receipt.provider_status = "accepted"
+        return EffectOutcome(
+            receipt=receipt,
+            observation=f"La chiamata a {call.calling_whom or 'questa persona'} è in corso; attendo l'esito reale.",
+            provenance=ResultProvenance(
+                source_class="connected_provider", capability=intent.capability,
+                provider="vonage", source_refs=[f"phone:{call.id}"],
+                freshness="fresh", certainty_note="chiamata avviata, esito non ancora disponibile",
+            ),
+            observed=False,
+        )
+    if call.state in ("ended", "failed", "expired"):
+        return _refused(
+            receipt, "call_already_finished",
+            "Questa telefonata è già terminata: non la ripeto automaticamente."
+        )
+    if call.state != "authorised":
+        return _refused(receipt, "call_not_ready", "Questa telefonata non è pronta per partire.")
+
+    from telephone.placing import dial
+    placed, why = await dial(
+        db, owner_id, call, authority_ref=(intent.authority_required or "explicit_yes")[:64]
+    )
+    if why or placed is None:
+        return _refused(
+            receipt, "provider_refused",
+            (f"La chiamata non è partita: {why}" if why else "La chiamata non è partita.")[:600],
+            retryable=False,
+        )
+
+    receipt.external_ref = placed.id
+    receipt.provider_status = "accepted"
+    receipt.answered_at = _now().isoformat()
+    return EffectOutcome(
+        receipt=receipt,
+        observation=(
+            f"Ho avviato la chiamata a {placed.calling_whom or 'questa persona'}. "
+            "Non considero confermato nulla finché non arriva l'esito della conversazione."
+        ),
+        provenance=ResultProvenance(
+            source_class="connected_provider", capability=intent.capability,
+            provider="vonage", source_refs=[f"phone:{placed.id}"], freshness="fresh",
+            certainty_note="operatore telefonico ha accettato la chiamata; esito ancora aperto",
+        ),
+        observed=False,
+    )
+
+
 async def _read_back(gcal, access: str, calendar_id: str, event_id: str):
     """
     Go and look at what was just written.
@@ -515,6 +592,7 @@ def _refused(
 _RUNNERS = {
     "calendar.write": calendar_write,
     "calendar.local.write": local_calendar_write,
+    "phone.call": phone_call,
 }
 
 
