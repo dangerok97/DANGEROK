@@ -323,6 +323,50 @@ class StepExecutor:
                 "draft_hash": draft["content_hash"],
             }
 
+        if step.capability_needed == "external.booking":
+            checkout_id = str((step.parameters or {}).get("checkout_id") or "").strip()
+            if not checkout_id:
+                return ExecutionResult(
+                    step_id=step.id,
+                    status="partial",
+                    observation="La prenotazione non è collegata a un checkout verificato.",
+                    error_type="booking_checkout_not_ready",
+                    retryable=False,
+                    provenance=ResultProvenance(
+                        source_class="internal_observation",
+                        capability="external.booking",
+                        certainty_note="nessuna prenotazione eseguita",
+                    ),
+                )
+            try:
+                from accommodation.service import AccommodationService, AccommodationError
+                frozen = await AccommodationService(self.db).checkout_for_authority(
+                    owner_id=owner_id, checkout_id=checkout_id
+                )
+            except AccommodationError as exc:
+                return ExecutionResult(
+                    step_id=step.id,
+                    status="partial",
+                    observation=str(exc)[:600],
+                    error_type=exc.code,
+                    retryable=exc.retryable,
+                    provenance=ResultProvenance(
+                        source_class="connected_provider",
+                        capability="external.booking",
+                        provider="booking.com",
+                    ),
+                )
+            step.parameters = {
+                "checkout_id": checkout_id,
+                "terms_hash": str(frozen.get("terms_hash") or ""),
+            }
+            step.input_refs = [f"booking_checkout:{checkout_id}"]
+            step.intent = str(frozen.get("authority_summary") or step.intent)[:280]
+            step.effect_target = f"booking_checkout:{checkout_id}"
+            step.external_effect = True
+            step.reaches_somebody_else = True
+            step.reversibility = "with_effort"
+
         intent = self._intent_for(owner_id, goal, step)
 
         existing = await self._already_done(intent)
