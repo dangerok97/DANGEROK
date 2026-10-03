@@ -4,8 +4,9 @@ from __future__ import annotations
 import math
 import os
 import unicodedata
-from datetime import date
-from typing import Any, Dict, Optional
+import secrets
+from datetime import date, datetime, timedelta, timezone
+from typing import Any, Dict, List, Optional
 
 import httpx
 
@@ -21,6 +22,19 @@ class AccommodationError(RuntimeError):
 
 def _normal(text: str) -> str:
     return " ".join(unicodedata.normalize("NFKC", text).casefold().split())
+
+
+def _strip_secret(value: Any, secret_key: str) -> Any:
+    """Deep-copy provider data while removing a named secret field."""
+    if isinstance(value, dict):
+        return {
+            key: _strip_secret(child, secret_key)
+            for key, child in value.items()
+            if key != secret_key
+        }
+    if isinstance(value, list):
+        return [_strip_secret(child, secret_key) for child in value]
+    return value
 
 
 def _validate_dates(checkin: str, checkout: str) -> None:
@@ -97,8 +111,21 @@ async def _resolve_destination(name: str) -> Optional[Dict[str, Any]]:
 
 
 class AccommodationService:
-    def __init__(self) -> None:
+    PREVIEWS = "accommodation_order_previews"
+
+    def __init__(self, db=None) -> None:
+        self.db = db
         self.booking = BookingDemandClient()
+
+    async def ensure_indexes(self) -> None:
+        if self.db is None:
+            return
+        await self.db[self.PREVIEWS].create_index(
+            [("owner_id", 1), ("id", 1)], unique=True, name="owner_preview_id"
+        )
+        await self.db[self.PREVIEWS].create_index(
+            "expires_at", expireAfterSeconds=0, name="preview_ttl"
+        )
 
     def readiness(self) -> Dict[str, Any]:
         return {
@@ -182,4 +209,114 @@ class AccommodationService:
                 "Risultati reali del provider configurato; non viene dichiarata "
                 "copertura dell'intero web."
             ),
+        }
+
+
+    async def preview(
+        self,
+        *,
+        owner_id: str,
+        accommodation_id: int | str,
+        checkin: str,
+        checkout: str,
+        products: List[Dict[str, Any]],
+        currency: str = "EUR",
+        country: Optional[str] = None,
+        platform: Optional[str] = None,
+        travel_purpose: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Get current price/policies and keep the short-lived token encrypted."""
+        _validate_dates(checkin, checkout)
+        if self.db is None:
+            raise AccommodationError(
+                "storage_not_configured",
+                "Il preview di prenotazione richiede lo storage server.",
+            )
+        if not self.booking.is_configured:
+            raise AccommodationError(
+                "provider_not_configured",
+                "Booking.com Demand API non è configurata.",
+            )
+
+        try:
+            result = await self.booking.preview(
+                accommodation_id=accommodation_id,
+                checkin=checkin,
+                checkout=checkout,
+                products=products,
+                currency=currency,
+                country=country,
+                platform=platform,
+                travel_purpose=travel_purpose,
+            )
+        except BookingProviderError as exc:
+            raise AccommodationError(
+                exc.code, str(exc), retryable=exc.retryable
+            ) from exc
+
+        data = result.get("data") or {}
+        if not isinstance(data, dict):
+            raise AccommodationError(
+                "provider_invalid_response",
+                "Booking.com non ha restituito un preview valido.",
+                retryable=True,
+            )
+        order_token = str(data.get("order_token") or "").strip()
+        if not order_token:
+            raise AccommodationError(
+                "order_token_missing",
+                "Il provider non ha restituito il token necessario alla prenotazione.",
+                retryable=True,
+            )
+
+        from deps import get_token_vault
+        from security.token_vault import VaultError, is_configured
+
+        vault = get_token_vault()
+        if not is_configured(vault):
+            raise AccommodationError(
+                "secure_vault_unavailable",
+                "Il vault sicuro non è disponibile: non conservo il token di prenotazione.",
+            )
+
+        preview_id = f"apv_{secrets.token_hex(8)}"
+        expires_at = datetime.now(timezone.utc) + timedelta(minutes=15)
+        try:
+            token_ref = await vault.put(
+                user_id=owner_id,
+                purpose="booking_order_preview",
+                payload={"order_token": order_token},
+                metadata={"preview_id": preview_id, "provider": "booking.com"},
+            )
+        except VaultError as exc:
+            raise AccommodationError(
+                "secure_vault_unavailable",
+                "Non riesco a proteggere il token di prenotazione.",
+                retryable=False,
+            ) from exc
+
+        public_data = _strip_secret(data, "order_token")
+        await self.ensure_indexes()
+        await self.db[self.PREVIEWS].insert_one({
+            "id": preview_id,
+            "owner_id": owner_id,
+            "provider": "booking.com",
+            "request_id": str(result.get("request_id") or "")[:120],
+            "token_ref": token_ref,
+            "accommodation_id": str(accommodation_id)[:80],
+            "checkin": checkin,
+            "checkout": checkout,
+            "product_ids": [str(p.get("id") or "")[:160] for p in products][:12],
+            "preview": public_data,
+            "created_at": datetime.now(timezone.utc),
+            "expires_at": expires_at,
+            "status": "ready",
+        })
+        return {
+            "status": "ready",
+            "preview_id": preview_id,
+            "expires_at": expires_at.isoformat(),
+            "request_id": str(result.get("request_id") or "")[:120],
+            "data": public_data,
+            "creates_reservation": False,
         }
