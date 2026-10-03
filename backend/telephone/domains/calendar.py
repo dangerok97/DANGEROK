@@ -196,11 +196,7 @@ async def apply(db, *, call, binding, outcome) -> Verdict:
 async def _apply_reschedule(db, *, call, binding, outcome) -> Verdict:
     """Sposta l'appuntamento, se è ancora quello di cui si stava parlando."""
     ref = binding.target.entity_id
-    draft = await db.calendar_event_drafts.find_one(
-        {"id": ref, "user_id": binding.owner_id},
-        {"_id": 0, "id": 1, "status": 1, "start_datetime": 1,
-         "end_datetime": 1, "timezone": 1},
-    )
+    draft = await _calendar_row(db, binding.owner_id, ref)
     if not draft:
         return Verdict("failed", error="l'appuntamento non è più nel calendario")
     if draft.get("status") == "cancelled":
@@ -242,6 +238,44 @@ async def _apply_reschedule(db, *, call, binding, outcome) -> Verdict:
     negato = _what_the_authority_says(binding, outcome)
     if negato is not None:
         return negato
+
+    if str(draft.get("storage") or "") == "home_manual":
+        # Home is already ORA's canonical calendar. The exact id and the
+        # revision captured before the call are the safety boundary here.
+        expected_revision = str(binding.expected.get("updated_at") or "")
+        if not expected_revision:
+            return Verdict("skipped", error="manca la revisione dell'impegno ORA")
+        try:
+            from home.manual_event import update_manual_event
+            await update_manual_event(
+                db, binding.owner_id, ref,
+                {
+                    "start_datetime": campi.get("start_datetime"),
+                    "end_datetime": campi.get("end_datetime"),
+                    "timezone": binding.expected.get("timezone") or "Europe/Rome",
+                },
+                expected_updated_at=expected_revision,
+            )
+        except ValueError as e:
+            code = str(e)
+            return Verdict(
+                "conflict" if code == "event_changed" else "failed",
+                error=(
+                    "l'impegno ORA è cambiato dopo la telefonata"
+                    if code == "event_changed"
+                    else "il calendario ORA non ha accettato lo spostamento"
+                ),
+            )
+        observed = await _calendar_row(db, binding.owner_id, ref)
+        if observed and _same_moment(
+            str(observed.get("start_datetime") or ""), campi["start_datetime"]
+        ):
+            return Verdict("applied", writes=[f"calendar:{ref}"], fields=campi)
+        return Verdict(
+            "failed",
+            error="la modifica è stata richiesta ma il calendario ORA non la conferma",
+            fields=campi,
+        )
 
     calendario = _the_calendar(db)
 
@@ -363,10 +397,7 @@ async def reconcile(db, *, call, binding, outcome) -> Verdict:
     if negato is not None:
         return negato
 
-    draft = await db.calendar_event_drafts.find_one(
-        {"id": binding.target.entity_id, "user_id": binding.owner_id},
-        {"_id": 0, "id": 1, "status": 1, "start_datetime": 1},
-    )
+    draft = await _calendar_row(db, binding.owner_id, binding.target.entity_id)
     if not draft:
         return Verdict("failed", error="l'appuntamento non è più nel calendario")
     if draft.get("status") == "cancelled":
@@ -460,9 +491,7 @@ async def look(db, *, binding) -> Optional[Dict[str, Any]]:
     ref = binding.target.entity_id or binding.created_entity_id
     if not ref:
         return None
-    return await db.calendar_event_drafts.find_one(
-        {"id": ref, "user_id": binding.owner_id}, {"_id": 0},
-    )
+    return await _calendar_row(db, binding.owner_id, ref)
 
 
 def remembers(row: Dict[str, Any]) -> Dict[str, str]:
@@ -480,6 +509,8 @@ def remembers(row: Dict[str, Any]) -> Dict[str, str]:
         "end_datetime": str((row or {}).get("end_datetime") or ""),
         "timezone": str((row or {}).get("timezone") or "Europe/Rome"),
         "title": str((row or {}).get("title") or "")[:120],
+        "updated_at": str((row or {}).get("updated_at") or ""),
+        "storage": str((row or {}).get("storage") or "calendar_draft"),
     }
 
 
@@ -534,6 +565,12 @@ def says(operation: str, fields: Dict[str, str]) -> str:
         "book": f"Prenotazione effettuata{' alle ' + ora if ora else ''}.",
         "cancel": "Appuntamento disdetto.",
     }.get(operation, "Fatto.")
+
+
+async def _calendar_row(db, owner_id: str, ref: str):
+    """Read either a connected-calendar draft or a Home manual event."""
+    from telephone.binding import calendar_event_snapshot
+    return await calendar_event_snapshot(db, owner_id, ref)
 
 
 def _the_calendar(db):
