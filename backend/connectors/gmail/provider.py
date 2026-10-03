@@ -452,6 +452,21 @@ class FakeGmailProvider:
             "to": str(to), "subject": str(subject), "body": str(body),
         }
         self.sent_messages.append(row)
+        self.messages[row["id"]] = {
+            "id": row["id"],
+            "threadId": row["threadId"],
+            "labelIds": ["SENT"],
+            "internalDate": "0",
+            "payload": {
+                "headers": [
+                    {"name": "To", "value": row["to"]},
+                    {"name": "Subject", "value": row["subject"]},
+                ],
+                "parts": [],
+            },
+        }
+        self.bodies[row["id"]] = row["body"]
+        self.order.append(row["id"])
         return {"id": row["id"], "threadId": row["threadId"], "labelIds": ["SENT"]}
 
     async def attachment_manifest(
