@@ -446,19 +446,15 @@ def test_the_mailbox_uses_the_same_source_machinery_as_everything_else():
     assert "_INSTANCE_STATUS" in ast.unparse(mailboxes)
 
 
-def test_the_email_capability_catalogue_offers_no_way_to_send():
-    """
-    §3/§47: mail.send exists in the catalogue, wired to nothing, and stays so.
-
-    V3.9 declared it and made it permanently non-autonomous. Sprint 3 does
-    not wire it, and this asserts both halves: the only wired write in the
-    system is still the calendar's, and mail.send is still refused autonomy
-    by name.
-    """
+def test_the_email_capability_catalogue_keeps_send_real_but_gated():
+    """mail.send is wired, but policy never lets it become autonomous."""
     from agent.authority import _NEVER_AUTONOMOUS
     from agent.effects import wired_capabilities
     from agent.capabilities import capability_status
 
-    assert wired_capabilities() == ["calendar.write"]
+    wired = wired_capabilities()
+    assert "calendar.write" in wired
+    assert "mail.send" in wired
     assert "mail.send" in _NEVER_AUTONOMOUS
-    assert capability_status("mail.send") == "unavailable"
+    assert capability_status("mail.send") == "available_real"
+

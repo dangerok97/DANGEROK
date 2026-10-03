@@ -96,3 +96,62 @@ def test_background_review_rechecks_consent_before_asking(monkeypatch):
         assert asked == [("u", "same")]
 
     _loop_harness.run(check())
+
+
+def test_known_place_transition_wakes_ordinary_opportunity_reasoning(monkeypatch):
+    from opportunities.discovery import OpportunityDiscovery
+    from places.service import PlacesService
+
+    notes = []
+
+    class Users:
+        async def find_one(self, query, projection):
+            return {"preferences": {"place_monitoring_enabled": True}}
+
+    class DB:
+        users = Users()
+
+    async def note(self, owner_id, **kwargs):
+        notes.append((owner_id, kwargs))
+        return {"outcome": "accepted", "reason": ""}
+
+    async def check():
+        monkeypatch.setattr(OpportunityDiscovery, "note", note)
+        service = PlacesService(DB())
+        await service._note_presence_transitions(
+            "u",
+            {"entered": ["home", "work"], "returned": ["work"], "exited": ["gym"]},
+        )
+        assert [(row[1]["kind"], row[1]["entity_ref"]) for row in notes] == [
+            ("presence.entered", "place:home"),
+            ("presence.returned", "place:work"),
+            ("presence.exited", "place:gym"),
+        ]
+        assert all(row[1]["source"] == "places" for row in notes)
+
+    _loop_harness.run(check())
+
+
+def test_known_place_transition_respects_monitoring_consent(monkeypatch):
+    from opportunities.discovery import OpportunityDiscovery
+    from places.service import PlacesService
+
+    notes = []
+
+    class Users:
+        async def find_one(self, query, projection):
+            return {"preferences": {"place_monitoring_enabled": False}}
+
+    class DB:
+        users = Users()
+
+    async def note(self, owner_id, **kwargs):
+        notes.append((owner_id, kwargs))
+
+    async def check():
+        monkeypatch.setattr(OpportunityDiscovery, "note", note)
+        service = PlacesService(DB())
+        await service._note_presence_transitions("u", {"entered": ["home"]})
+        assert notes == []
+
+    _loop_harness.run(check())

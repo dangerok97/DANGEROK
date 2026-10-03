@@ -1,3 +1,14 @@
+## 4 ottobre 2026 — ORA usa davvero posizione mobile e ricerca alloggi
+
+- Aggiunto un provider reale Booking.com Demand API v3.2 per cercare alloggi
+  disponibili; se le credenziali partner non sono configurate ORA dichiara il
+  limite e non inventa risultati.
+- La chat ORA può ottenere una posizione corrente anche nelle build native
+  iOS/Android tramite `expo-location`; il web continua a usare la Geolocation API.
+- Arrivi, ritorni e uscite da luoghi confermati possono ora risvegliare il
+  normale ciclo di opportunità, sempre sotto il consenso di monitoraggio luoghi.
+- Ripristinata la vista compatibile `evidence_refs` sulle opportunità.
+
 ## 28 settembre 2026 — Trailer pubblicato e verificato
 
 Web Railway 6b13a563-2f09-4239-a788-bb8eed4d6750, commit

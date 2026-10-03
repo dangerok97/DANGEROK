@@ -187,8 +187,8 @@ const SESSION_ROUTE = 'app/ora/[sessionId].tsx';
     'StrictMode protection on pending client actions must remain',
   );
   assert.ok(
-    /LocationPermissionSheet/.test(screen) && /requestForegroundPosition/.test(screen),
-    'the location client capability must not regress',
+    /LocationPermissionSheet/.test(screen) && /requestCurrentPosition/.test(screen),
+    'the cross-platform location client capability must not regress',
   );
   assert.ok(
     !/ora-ai\/(?!RichOraText)/.test(screen),

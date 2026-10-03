@@ -1,3 +1,15 @@
+## 4 ottobre 2026 — Vita connessa: viaggio e presenza
+
+ORA può usare i luoghi come contesto vivo: quando il monitoraggio è stato
+attivato dalla persona, un arrivo o un'uscita può far rivalutare ciò che conta
+in quel momento senza trasformare il GPS in una regola di notifica.
+
+Per i viaggi, ORA dispone ora del primo percorso di ricerca alloggi con
+inventario reale via provider. Il prodotto deve distinguere sempre tre stati:
+**trovato**, **pronto da prenotare**, **prenotato e verificato**. L'ultimo stato
+non può derivare da una ricerca o da una preview, ma solo dalla conferma del
+provider dopo un'azione autorizzata.
+
 ## 28 settembre 2026 — Trailer pubblicato e verificato
 
 Web Railway 6b13a563-2f09-4239-a788-bb8eed4d6750, commit

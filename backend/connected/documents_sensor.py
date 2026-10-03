@@ -29,7 +29,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, List, Optional
 
-from connected.models import ConnectedSignal, SignalType, now_iso
+from connected.models import ConnectedSignal, FieldChange, SignalType, now_iso
 from connected.seen import SeenState
 
 logger = logging.getLogger("ora.connected.documents")
@@ -121,6 +121,18 @@ async def _signal_for(seen: SeenState, owner_id: str, row: Dict[str, Any]):
             # document that is already filed is noise by construction, and
             # the memory now knows about it either way.
             return None
+        # A first sighting has no "before", but the reasoning layer still
+        # needs to know that private content exists and is intentionally
+        # withheld. Otherwise a Gmail attachment can become document.added
+        # without giving the connected-life bridge any reason to request the
+        # extracted text that was produced during import.
+        initial_changes: List[FieldChange] = []
+        for field in _WITHHELD:
+            if observable.get(field):
+                initial_changes.append(
+                    FieldChange(field=field, content_withheld=True)
+                )
+        changes = sorted(initial_changes, key=lambda item: item.field)
         kind: SignalType = "document.added"
         summary = f"È arrivato un documento: «{name}»."
     elif gone and any(c.field in ("archived", "deleted") for c in changes):

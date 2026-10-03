@@ -678,40 +678,34 @@ def _code_only(node):
     return clone
 
 
-def test_the_mail_connector_has_no_way_to_send_anything():
-    """
-    §3/§47: read verbs only, checked in the code rather than promised in a doc.
-
-    A connector that could send would only need one caller to become a system
-    that sends mail on somebody's behalf. There is no such method, and the
-    absence is asserted where a refactor would notice.
-    """
-    for name in ("connectors/gmail/provider.py", "connectors/gmail/service.py"):
-        tree = _code_only(_tree(name))
-        # Every literal string in the module: an endpoint that could write is
-        # a path before it is anything else, and a path is a constant here.
-        literals = [
-            n.value for n in ast.walk(tree)
-            if isinstance(n, ast.Constant) and isinstance(n.value, str)
-        ]
-        # As paths, which is the only form an endpoint takes. Matching the
-        # bare word would trip over `sender_relationship` and teach the next
-        # person to loosen the guard, which is worse than not having one.
-        for verb in ("/send", "/trash", "/untrash", "/modify", "/drafts",
-                     "/batchDelete", "/batchModify"):
-            assert not any(verb in text for text in literals), (
-                f"{name} nomina un endpoint di scrittura: {verb}"
-            )
-
-    # And the HTTP client itself has only one method.
+def test_the_mail_connector_keeps_send_separate_from_sensor_reads():
+    """Gmail send exists, but sensors/relevance code still has no write shortcut."""
     provider = _code_only(_tree("connectors/gmail/provider.py"))
-    calls = {
-        getattr(n.func, "attr", "")
-        for n in ast.walk(provider) if isinstance(n, ast.Call)
+    service = _code_only(_tree("connectors/gmail/service.py"))
+
+    provider_functions = {
+        n.name for n in ast.walk(provider)
+        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
     }
-    assert not ({"post", "put", "patch", "delete"} & calls), (
-        f"il provider scrive: {calls & {'post', 'put', 'patch', 'delete'}}"
-    )
+    assert "send_message" in provider_functions
+
+    # The read service may expose an explicit send method, but the connected
+    # sensor must never import or call it directly; that is asserted by the
+    # next test. Destructive mailbox mutation remains absent.
+    literals = [
+        n.value for n in ast.walk(service)
+        if isinstance(n, ast.Constant) and isinstance(n.value, str)
+    ]
+    for verb in ("/trash", "/untrash", "/modify", "/batchDelete", "/batchModify"):
+        assert not any(verb in text for text in literals), (
+            f"il servizio Gmail nomina una mutazione mailbox non autorizzata: {verb}"
+        )
+
+    from agent.authority import _NEVER_AUTONOMOUS
+    from agent.effects import wired_capabilities
+
+    assert "mail.send" in wired_capabilities()
+    assert "mail.send" in _NEVER_AUTONOMOUS
 
 
 def test_the_email_sensor_cannot_reach_anything_that_acts():

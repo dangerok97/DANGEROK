@@ -93,6 +93,9 @@ jobs:
       - name: Continuous online market watch
         working-directory: backend
         run: python -m pytest -q tests/test_energy_offer_monitor.py -x
+      - name: Accommodation provider contract
+        working-directory: backend
+        run: python -m pytest -q tests/test_accommodation_booking.py -x
       - name: Calendar departure freshness and background continuity
         working-directory: backend
         run: |
