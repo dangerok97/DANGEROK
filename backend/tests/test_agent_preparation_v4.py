@@ -143,6 +143,7 @@ async def test_active_home_overlap_admits_preparation_without_unnecessary_addres
     from zoneinfo import ZoneInfo
     from home.manual_event import create_manual_event, archive_manual_event, home_event_times
     from agent.calendar_conflict import active_home_pair
+    from agent.needs import NeedService
     from agent.service import AgentService
     db = AsyncMongoMockClient().test
     day = (datetime.now(ZoneInfo("Europe/Rome")) + timedelta(days=2)).date().isoformat()
@@ -152,6 +153,8 @@ async def test_active_home_overlap_admits_preparation_without_unnecessary_addres
     second = await create_manual_event(db, "alice", title="Consegna", start=b, end=b_end, tz_name="Europe/Rome")
     await db.opportunities.insert_one({"id": "opp_pair", "owner_id": "alice", "agent_review_revision": "rev"})
     monkeypatch.setattr(AgentService, "_note_ambient", AsyncMock())
+    delivery = AsyncMock()
+    monkeypatch.setattr(NeedService, "offer_to_delivery", delivery)
     decision = AsyncMock(side_effect=AssertionError("no model decision for an established overlap"))
     monkeypatch.setattr(reasoning, "decide_goal", decision)
     refs = ["calendar:" + first["id"], "calendar:" + second["id"]]
@@ -164,13 +167,25 @@ async def test_active_home_overlap_admits_preparation_without_unnecessary_addres
     assert "45 minuti" in goal["prepared_text"]
     assert "nessun messaggio è stato inviato" in goal["prepared_text"].lower()
     assert len(goal["prepared_sources"]) == 2
+    assert goal["requires_user_input"] is True
+    plan = await db.agent_plans.find_one({"goal_id": goal["id"]})
+    assert plan["status"] == "waiting" and len(plan["steps"]) == 1
+    assert plan["steps"][0]["step_type"] == "ask_user"
+    assert plan["steps"][0]["status"] == "blocked"
+    assert plan["steps"][0]["ask_kind"] == "knowledge"
+    need = await db.agent_needs.find_one({"goal_id": goal["id"], "status": "open"})
+    assert need["requires_response"] is True and need["response_kind"] == "information"
+    assert "quale dei due impegni" in need["summary"].lower()
+    delivery.assert_awaited_once()
     decision.assert_not_awaited()
     from agent.clarifications import work_view
     await db.opportunities.update_one({"id": "opp_pair"}, {"$set": {
         "status": "active", "agent_review_state": "settled",
         "agent_review_outcome": "create_goal", "agent_review_goal_id": goal["id"]}})
     ready = await work_view(db, "alice", "opp_pair")
-    assert ready["status"] == "ready" and "45 minuti" in ready["result"]["ora_text"]
+    assert ready["status"] == "needs_user"
+    assert "45 minuti" in ready["result"]["ora_text"]
+    assert ready["result"]["route"] == f"/ora?needId={need['id']}&goalId={goal['id']}"
     await archive_manual_event(db, "alice", second["id"])
     assert await active_home_pair(db, "alice", refs) is None
     stale = await work_view(db, "alice", "opp_pair")
