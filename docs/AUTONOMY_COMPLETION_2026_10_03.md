@@ -11,7 +11,7 @@ autorizzazione concreta; sviluppare i flussi non equivale a effettuarli.
 
 | Passo | Risultato da dimostrare | Stato |
 |---|---|---|
-| P1 — Partenze | Appuntamento → percorso corrente → valutazione utile → riesame, invalidazione e navigazione | 68 test locali PASS; primo deployment riuscito, avviso cloud non ancora dimostrato |
+| P1 — Partenze | Appuntamento → percorso corrente → valutazione utile → riesame, invalidazione e navigazione | 70 test locali PASS; percorsi cloud reali, decisione avviso ancora in verifica |
 | P0 — Iniziativa | Calendario, documenti, comunicazioni e cambi vita avviano lavoro utile senza duplicati o falsa completezza | Da consolidare con scenari completi |
 | P2 — Occupatene tu | Lavoro autorizzato prosegue dopo attese e riavvii, verifica il risultato, comunica esito o blocco concreto | Da completare |
 | P3 — Risparmio | Costi annui completi, condizioni ed eleggibilità distinguibili dalle sole componenti di vendita; risultato misurabile | Da completare |
@@ -72,3 +72,23 @@ i fatti di percorso e gli stati di indisponibilità del solo proprietario,
 riusando il servizio esistente e senza forzare avvisi. 68 test mirati PASS.
 La nuova prova cloud deve distinguere dati di percorso, decisione del
 modello e lavoro in background. Nessun esito positivo anticipato.
+
+## P1 — Secondo checkpoint: errore nel confronto temporale
+
+`3161c4f99bc63288bf51ed4c14686da462d37c71`: CI `37147549552`, cinque
+job SUCCESS. Backend `28ffc4d0-1008-4a9d-b8e8-1896bd82ca76` SUCCESS;
+configurazione e nomi variabili identici al baseline, nessuna modifica pendente.
+La seconda prova ha letto percorsi Mapbox reali per auto, piedi e bici,
+traffico e meteo, posizione corrente e wake persistenti. Nessuna scheda.
+La scansione ha motivato il silenzio con mezzo non scelto e partenza già
+passata, benché auto e bici fossero ancora nei tempi. Il payload mescolava
+ora locale e UTC, e solo l'opzione a piedi aveva già perso il margine.
+
+Aggiunta aritmetica per ogni lettura: ora locale, secondi residui per mezzo,
+margine ancora disponibile e ritardo stimato partendo ora. Questi fatti
+si aggiornano anche con cache riusata, senza cambiare la scadenza della
+stima. Discovery e audit devono confrontare ogni mezzo separatamente;
+la scelta del mezzo resta dell'utente, quella della rilevanza resta del modello.
+70 test locali PASS, inclusi fusi misti e cambio all'ora solare. La terza
+prova aspetta fino a sei minuti senza scansioni forzate né lettura preventiva
+dell'endpoint dei percorsi: osserva il lavoro avviato dal calendario.

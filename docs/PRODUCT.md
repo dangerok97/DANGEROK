@@ -1815,3 +1815,6 @@ La verifica cloud e visiva è tracciata in AUTONOMY_COMPLETION_2026_10_03.md.
 Un nuovo rilevamento nello stesso punto conserva una stima ancora valida,
 ma non ne prolunga la scadenza. Dopo la scadenza serve un nuovo percorso.
 Il primo scenario cloud non ha ancora prodotto un avviso: P1 resta in verifica.
+
+Il confronto distingue i mezzi ancora nei tempi da quelli che hanno perso
+il margine; nessuna scelta di mezzo è presunta.

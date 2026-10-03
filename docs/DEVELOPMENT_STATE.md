@@ -4567,3 +4567,7 @@ Primo scenario cloud sintetico: tre verifiche PASS, avviso non osservato
 anche dopo scansione esplicita. Non è un completamento P1. Corretto
 il cambio timestamp GPS a parità di punto e aggiunta superficie autenticata
 dei fatti; regressione locale complessiva 68 PASS. Dettagli nel checkpoint.
+
+Seconda prova cloud: percorsi reali e wake verificati, decisione erronea di
+silenzio per orari considerati passati. Aritmetica temporale per mezzo
+esplicita e regressioni fusi/DST: 70 test PASS. P1 resta aperto.

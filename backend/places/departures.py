@@ -53,6 +53,27 @@ def current_origin(presence, now):
     return {"latitude": lat, "longitude": lon}
 
 
+def with_timing(evidence, now, clock):
+    """Arithmetic for this read, not a model's comparison of UTC/local clocks."""
+    from zoneinfo import ZoneInfo
+
+    if evidence.get("status") != "ready":
+        return evidence
+    zone = ZoneInfo(clock["timezone"])
+    options = []
+    for option in evidence["options"]:
+        leave = _instant(option["leave_at"])
+        remaining = math.floor((leave - now).total_seconds())
+        options.append({**option, "leave_local": leave.astimezone(zone).isoformat(),
+                        "seconds_until_departure": remaining,
+                        "full_margin_still_available": remaining >= 0,
+                        "estimated_lateness_if_leaving_now_seconds": max(
+                            0, -remaining - MARGIN_MINUTES * 60)})
+    return {**evidence, "options": options, "timing_as_of": now.astimezone(zone).isoformat(),
+            "timezone": clock["timezone"], "timezone_authority": clock["authority"],
+            "event_local": _instant(evidence["starts_at"]).astimezone(zone).isoformat()}
+
+
 class DepartureService:
     def __init__(self, db):
         self.db = db
@@ -109,7 +130,9 @@ class DepartureService:
                           "refresh_after": (now + timedelta(seconds=60)).isoformat(),
                           "expires_at": now + timedelta(hours=2), "evidence": evidence}}, upsert=True)
             output.append(evidence)
-        return output
+        from timezone_service import user_clock_context
+        clock = await user_clock_context(self.db, owner_id, now=now)
+        return [with_timing(row, now, clock) for row in output]
 
     async def _estimate(self, owner_id, event, base, origin, presence, now):
         from places import routing, briefing

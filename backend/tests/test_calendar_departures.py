@@ -56,7 +56,8 @@ async def ready_opportunity(world):
 async def test_routes_have_separate_modes_margin_freshness_and_one_durable_wake(world):
     a = (await world.svc.collect("alice", [world.event], now=world.now))[0]
     b = (await world.svc.collect("alice", [world.event], now=world.now + timedelta(seconds=20)))[0]
-    assert a == b and world.routes.await_count == 2
+    assert a["ref"] == b["ref"] and world.routes.await_count == 2
+    assert b["options"][0]["seconds_until_departure"] == a["options"][0]["seconds_until_departure"] - 20
     assert a["status"] == "ready" and a["mode_selected"] is False
     assert [r["mode"] for r in a["options"]] == ["drive", "walk"]
     assert datetime.fromisoformat(a["options"][0]["leave_at"]) == world.now + timedelta(minutes=20)
@@ -66,6 +67,34 @@ async def test_routes_have_separate_modes_margin_freshness_and_one_durable_wake(
     saved = await world.db[COLLECTION].find_one({"owner_id": "alice"})
     assert "latitude" not in str(saved) and "longitude" not in str(saved)
     assert await world.db.opportunities.count_documents({}) == 0  # Facts don't create an alert.
+
+
+def test_mixed_timezones_and_one_past_mode_do_not_hide_remaining_options():
+    from places.departures import with_timing
+    now = datetime.fromisoformat("2026-10-03T21:26:00+02:00")
+    facts = {"status": "ready", "starts_at": "2026-10-03T21:48:00+02:00", "options": [
+        {"mode": "drive", "leave_at": "2026-10-03T19:30:00+00:00"},
+        {"mode": "walk", "leave_at": "2026-10-03T19:15:00+00:00"},
+        {"mode": "bicycle", "leave_at": "2026-10-03T19:31:00+00:00"}]}
+    result = with_timing(facts, now, {"timezone": "Europe/Rome", "authority": "system_fallback"})
+    drive, walk, bike = result["options"]
+    assert drive["leave_local"] == "2026-10-03T21:30:00+02:00"
+    assert [o["seconds_until_departure"] for o in result["options"]] == [240, -660, 300]
+    assert drive["full_margin_still_available"] and bike["full_margin_still_available"]
+    assert not walk["full_margin_still_available"]
+    assert drive["estimated_lateness_if_leaving_now_seconds"] == 0
+    assert walk["estimated_lateness_if_leaving_now_seconds"] == 60
+    assert "leave_local" not in facts["options"][0]  # Cache remains the original observation.
+
+
+def test_departure_arithmetic_keeps_dst_instants_distinct():
+    from places.departures import with_timing
+    now = datetime.fromisoformat("2026-10-25T02:50:00+02:00")
+    facts = {"status": "ready", "starts_at": "2026-10-25T03:00:00+01:00", "options": [
+        {"mode": "drive", "leave_at": "2026-10-25T01:10:00+00:00"}]}
+    option = with_timing(facts, now, {"timezone": "Europe/Rome", "authority": "user_confirmed"})["options"][0]
+    assert option["leave_local"] == "2026-10-25T02:10:00+01:00"
+    assert option["seconds_until_departure"] == 1200  # Earlier local clock, later instant.
 
 
 @pytest.mark.asyncio

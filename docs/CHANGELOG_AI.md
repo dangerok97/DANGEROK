@@ -5902,3 +5902,7 @@ nessuna proroga automatica dell'evidenza. GET autenticato delle partenze
 riusa la raccolta owner-scoped e rende distinguibili i motivi di indisponibilità.
 Tre regressioni aggiunte, 68 test mirati PASS. Il primo deployment P1
 è riuscito, ma la prova cloud non ha ancora dimostrato l'avviso: punto aperto.
+
+Corretto anche il contesto temporale consegnato al modello: orari locali,
+secondi residui e perdita di margine per mezzo sono fatti calcolati, evitando
+il confronto tra ore nude in fusi diversi. Suite mirata: 70 PASS.

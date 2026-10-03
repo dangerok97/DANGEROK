@@ -3763,3 +3763,7 @@ restano indipendenti e bloccanti; una nuova osservazione non estende la
 vecchia stima. GET `/places/departures` legge calendario e servizio
 DepartureService con l'owner autenticato, esponendo anche gli stati non
 ready. Non crea un percorso alternativo per decidere o inviare avvisi.
+
+Il contesto temporale delle partenze espone orari locali e differenze in
+secondi per ciascun mezzo, ricalcolati anche alla lettura della cache;
+la validità del percorso non viene estesa. Coperto anche il cambio DST.
