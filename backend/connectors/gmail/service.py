@@ -499,16 +499,34 @@ class GmailReadService:
         message_id = str(result.get("id") or "")
         if not message_id:
             raise GmailAPIError(502, "gmail_send_missing_id")
+        observed = False
+        observed_subject = ""
+        try:
+            check = await self.provider.metadata_of(
+                access_token=token, message_id=message_id,
+            )
+            observed_to = _address(_header(check, "To"))
+            observed_subject = _header(check, "Subject").strip()
+            observed = (
+                observed_to == recipient.lower()
+                and observed_subject == clean_subject
+            )
+        except Exception as exc:
+            logger.info("gmail sent-message readback soft-fail: %s", type(exc).__name__)
+
         await self.permissions.audit.log(
             user_id=user_id, event_type="mail.send", connector_id=CONNECTOR_ID,
             connector_instance_id=instance_id, capability_id=CAPABILITY_SEND_ID,
-            success=True, records_returned=1, reason_code="provider_accepted",
+            success=True, records_returned=1,
+            reason_code="read_back" if observed else "provider_accepted",
             data_classification="sensitive",
         )
         return {
             "message_id": message_id,
             "thread_id": str(result.get("threadId") or ""),
             "to": recipient,
+            "subject": observed_subject if observed else clean_subject,
+            "observed": observed,
         }
 
     # --- reading ---------------------------------------------------------
