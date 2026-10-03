@@ -306,6 +306,7 @@ class PlacesService:
         places = [p for p in await self.repo.list_places(user_id) if p.coordinates]
         found = presence.hits(point, places)
         transitions = await self._advance_presence(user_id, observation, places, found)
+        await self._note_presence_transitions(user_id, transitions)
 
         # Inside somewhere they already named? Then there is nothing to cluster.
         settled = presence.unambiguous(found)
@@ -340,6 +341,57 @@ class PlacesService:
             "times_seen": candidate.observation_count,
             **transitions,
         }
+
+    async def _note_presence_transitions(
+        self, user_id: str, transitions: Dict[str, Any]
+    ) -> None:
+        """Wake the ordinary life-reasoning loop when a known-place state moves.
+
+        A geofence callback is evidence, not a notification rule. This only
+        records the semantic transition and wakes the same opportunity review
+        used by calendar, mail and other life changes. The model still decides
+        whether the change matters enough to surface anything.
+        """
+        entered = [str(x) for x in (transitions.get("entered") or []) if x]
+        exited = [str(x) for x in (transitions.get("exited") or []) if x]
+        returned = {str(x) for x in (transitions.get("returned") or []) if x}
+        if not entered and not exited:
+            return
+
+        try:
+            record = await self.db.users.find_one(
+                {"user_id": user_id},
+                {"preferences.place_monitoring_enabled": 1},
+            )
+            if (record or {}).get("preferences", {}).get("place_monitoring_enabled") is not True:
+                return
+
+            from opportunities.discovery import OpportunityDiscovery
+
+            discovery = OpportunityDiscovery(self.db)
+            for place_id in entered:
+                kind = "presence.returned" if place_id in returned else "presence.entered"
+                await discovery.note(
+                    user_id,
+                    source="places",
+                    kind=kind,
+                    entity_ref=f"place:{place_id}",
+                    entity_kind="place_presence",
+                    after=kind.removeprefix("presence."),
+                )
+            for place_id in exited:
+                await discovery.note(
+                    user_id,
+                    source="places",
+                    kind="presence.exited",
+                    entity_ref=f"place:{place_id}",
+                    entity_kind="place_presence",
+                    after="exited",
+                )
+        except Exception as exc:
+            # Presence recording is sensor evidence and must not fail because
+            # cognition is unavailable. The next observation can wake it again.
+            logger.info("place transition wake soft-fail: %s", type(exc).__name__)
 
     async def _advance_presence(
         self,
