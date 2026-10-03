@@ -119,6 +119,7 @@ async def preview_accommodation(
             "request_id": result.get("request_id"),
             "price": data.get("price") if isinstance(data, dict) else None,
             "accommodation": accommodation,
+            "payment_options": result.get("payment_options") or [],
             "creates_reservation": False,
             "how_to_say_it": (
                 "Questo è il preview corrente del provider: mostra prezzo, "
