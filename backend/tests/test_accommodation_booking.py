@@ -150,3 +150,14 @@ async def test_service_keeps_order_token_out_of_plain_preview_storage(monkeypatc
         {"order_token": "secret", "nested": {"order_token": "secret2", "ok": 1}},
         "order_token",
     ) == {"nested": {"ok": 1}}
+
+
+def test_ai_core_catalogue_exposes_search_and_preview_but_not_booking_effect():
+    from conversation_engine.ai_core.tools.registry import ToolRegistry
+
+    public = {item["capability"]: item for item in ToolRegistry(db=None).list_public()}
+    assert "search_accommodations" in public
+    assert "preview_accommodation" in public
+    assert public["search_accommodations"]["side_effect"] == "READ_ONLY"
+    assert public["preview_accommodation"]["side_effect"] == "READ_ONLY"
+    assert "book_accommodation" not in public
