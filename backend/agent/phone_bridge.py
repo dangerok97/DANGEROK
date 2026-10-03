@@ -53,10 +53,14 @@ async def on_call_finished(db, call) -> bool:
             if binding is not None and row:
                 from agent.evidence import EvidenceStore
                 from agent.models import AgentEvidence, ResultProvenance
+                attempt = await db.agent_action_attempts.find_one(
+                    {"id": receipt.get("action_intent_id"), "owner_id": call.owner_id},
+                    {"_id": 0, "step_id": 1},
+                )
                 await EvidenceStore(db).record(AgentEvidence(
                     owner_id=call.owner_id,
                     goal_id=goal_id,
-                    step_id=str(receipt.get("action_intent_id") or ""),
+                    step_id=str((attempt or {}).get("step_id") or ""),
                     kind="verify",
                     claim=(
                         f"Nel calendario ORA «{row.get('title') or 'l’impegno'}» "
