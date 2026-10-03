@@ -316,3 +316,158 @@ async def test_local_calendar_agent_write_refuses_stale_revision(monkeypatch):
     current = await get_manual_event(db, "alice", event["id"])
     assert datetime.fromisoformat(current["attributes"]["starts_at"]).strftime("%H:%M") == "09:00"
 
+
+
+@pytest.mark.asyncio
+async def test_calendar_conflict_authorisation_survives_service_restart(monkeypatch):
+    """A process restart between proposal and approval resumes the same effect once."""
+    from datetime import datetime, timedelta
+    from zoneinfo import ZoneInfo
+    from home import manual_event as manual_calendar
+    from home.manual_event import create_manual_event, get_manual_event, home_event_times
+    from agent.needs import NeedService
+    from agent.service import AgentService
+
+    db = AsyncMongoMockClient().test
+    day = (datetime.now(ZoneInfo("Europe/Rome")) + timedelta(days=5)).date().isoformat()
+    first_start, first_end = home_event_times(day, "10:00", "Europe/Rome")
+    second_start, second_end = home_event_times(day, "10:15", "Europe/Rome")
+    first = await create_manual_event(db, "alice", title="Primo impegno",
+        start=first_start, end=first_end, tz_name="Europe/Rome")
+    second = await create_manual_event(db, "alice", title="Secondo impegno",
+        start=second_start, end=second_end, tz_name="Europe/Rome")
+    refs = ["calendar:" + first["id"], "calendar:" + second["id"]]
+    await db.opportunities.insert_one({
+        "id": "opp_restart", "owner_id": "alice", "status": "active",
+        "agent_review_revision": "rev_restart",
+    })
+
+    monkeypatch.setattr(AgentService, "_note_ambient", AsyncMock())
+    monkeypatch.setattr(AgentService, "_consider_visibility", AsyncMock(return_value=None))
+    monkeypatch.setattr(NeedService, "offer_to_delivery", AsyncMock())
+    monkeypatch.setattr(reasoning, "decide_goal",
+        AsyncMock(side_effect=AssertionError("overlap is code-grounded")))
+    monkeypatch.setattr(reasoning, "interpret_calendar_conflict_choice", AsyncMock(
+        return_value={"target_ref": refs[1], "requested_time": "12:00",
+                      "requested_date": "", "reasoning": "secondo alle dodici"}))
+    monkeypatch.setattr(reasoning, "choose_next_action", AsyncMock(
+        return_value={"decision": "execute", "step_id": "", "reasoning": "procedi"}))
+    monkeypatch.setattr(reasoning, "assess_authority", AsyncMock(return_value={
+        "outcome": "prepare_then_confirm", "reasoning": "modifica personale",
+        "reversibility": "easily", "financial_effect": False,
+        "external_communication": False, "third_party_impact": False,
+        "privacy_disclosure": False, "legal_effect": False, "security_effect": False,
+    }))
+    monkeypatch.setattr(reasoning, "verify_goal", AsyncMock(return_value={
+        "outcome": "achieved", "reasoning": "spostamento riletto",
+        "what_is_missing": "", "revisit_in_hours": None,
+    }))
+    monkeypatch.setattr(manual_calendar, "_wake", AsyncMock())
+
+    before_restart = AgentService(db)
+    created = await before_restart.consider("alice", situation={},
+        opportunity_id="opp_restart", source_kind="opportunity", source_refs=refs)
+    goal_id = created["goal_id"]
+    waiting = await before_restart.answer(
+        "alice", goal_id, reply="Lascia il primo e sposta il secondo alle 12"
+    )
+    assert waiting["state"] == "awaiting_authority"
+
+    # New service instance: nothing useful may live only in process memory.
+    after_restart = AgentService(db)
+    done = await after_restart.authorise("alice", goal_id)
+    assert done["state"] == "completed"
+    moved = await get_manual_event(db, "alice", second["id"])
+    assert datetime.fromisoformat(moved["attributes"]["starts_at"]).strftime("%H:%M") == "12:00"
+    assert await db.agent_receipts.count_documents(
+        {"owner_id": "alice", "goal_id": goal_id}) == 1
+    assert await db.agent_action_attempts.count_documents(
+        {"owner_id": "alice", "goal_id": goal_id}) == 1
+
+    # A repeated approval after completion cannot create a second effect.
+    again = await AgentService(db).authorise("alice", goal_id)
+    assert again["ok"] is False
+    assert await db.agent_receipts.count_documents(
+        {"owner_id": "alice", "goal_id": goal_id}) == 1
+
+
+@pytest.mark.asyncio
+async def test_calendar_conflict_concurrent_change_wins_over_old_approval(monkeypatch):
+    """If the target changes after the proposal, the old approval cannot overwrite it."""
+    from datetime import datetime, timedelta
+    from zoneinfo import ZoneInfo
+    from home import manual_event as manual_calendar
+    from home.manual_event import create_manual_event, get_manual_event, home_event_times, update_manual_event
+    from agent.needs import NeedService
+    from agent.service import AgentService
+
+    db = AsyncMongoMockClient().test
+    day = (datetime.now(ZoneInfo("Europe/Rome")) + timedelta(days=6)).date().isoformat()
+    first_start, first_end = home_event_times(day, "10:00", "Europe/Rome")
+    second_start, second_end = home_event_times(day, "10:15", "Europe/Rome")
+    first = await create_manual_event(db, "alice", title="Primo impegno",
+        start=first_start, end=first_end, tz_name="Europe/Rome")
+    second = await create_manual_event(db, "alice", title="Secondo impegno",
+        start=second_start, end=second_end, tz_name="Europe/Rome")
+    refs = ["calendar:" + first["id"], "calendar:" + second["id"]]
+    await db.opportunities.insert_one({
+        "id": "opp_concurrent", "owner_id": "alice", "status": "active",
+        "agent_review_revision": "rev_concurrent",
+    })
+
+    monkeypatch.setattr(AgentService, "_note_ambient", AsyncMock())
+    monkeypatch.setattr(AgentService, "_consider_visibility", AsyncMock(return_value=None))
+    monkeypatch.setattr(NeedService, "offer_to_delivery", AsyncMock())
+    monkeypatch.setattr(reasoning, "decide_goal",
+        AsyncMock(side_effect=AssertionError("overlap is code-grounded")))
+    monkeypatch.setattr(reasoning, "interpret_calendar_conflict_choice", AsyncMock(
+        return_value={"target_ref": refs[1], "requested_time": "12:00",
+                      "requested_date": "", "reasoning": "secondo alle dodici"}))
+    monkeypatch.setattr(reasoning, "choose_next_action", AsyncMock(
+        return_value={"decision": "execute", "step_id": "", "reasoning": "procedi"}))
+    monkeypatch.setattr(reasoning, "assess_authority", AsyncMock(return_value={
+        "outcome": "prepare_then_confirm", "reasoning": "modifica personale",
+        "reversibility": "easily", "financial_effect": False,
+        "external_communication": False, "third_party_impact": False,
+        "privacy_disclosure": False, "legal_effect": False, "security_effect": False,
+    }))
+    # A stale proposal must stop/replan honestly, never be verified as completed.
+    monkeypatch.setattr(reasoning, "reconsider", AsyncMock(return_value={
+        "decision": "abandon",
+        "reasoning": "L'impegno è cambiato dopo la proposta; serve ripartire dai dati correnti.",
+        "revised_steps": [], "wait_hours": None, "asks": "", "ask_kind": None,
+    }))
+    monkeypatch.setattr(manual_calendar, "_wake", AsyncMock())
+
+    service = AgentService(db)
+    created = await service.consider("alice", situation={},
+        opportunity_id="opp_concurrent", source_kind="opportunity", source_refs=refs)
+    goal_id = created["goal_id"]
+    waiting = await service.answer(
+        "alice", goal_id, reply="Lascia il primo e sposta il secondo alle 12"
+    )
+    assert waiting["state"] == "awaiting_authority"
+
+    proposed = await get_manual_event(db, "alice", second["id"])
+    concurrent_start, concurrent_end = home_event_times(day, "13:00", "Europe/Rome")
+    changed = await update_manual_event(
+        db, "alice", second["id"],
+        {"start_datetime": concurrent_start, "end_datetime": concurrent_end},
+        expected_updated_at=proposed["updated_at"],
+    )
+    assert datetime.fromisoformat(changed["starts_at"]).strftime("%H:%M") == "13:00"
+
+    result = await AgentService(db).authorise("alice", goal_id)
+    assert result["state"] == "abandoned"
+    current = await get_manual_event(db, "alice", second["id"])
+    assert datetime.fromisoformat(current["attributes"]["starts_at"]).strftime("%H:%M") == "13:00"
+    receipts = await db.agent_receipts.find(
+        {"owner_id": "alice", "goal_id": goal_id}, {"_id": 0}
+    ).to_list(10)
+    assert receipts and receipts[-1]["provider_status"] == "failed"
+    assert receipts[-1]["error_type"] == "event_changed"
+    attempts = await db.agent_action_attempts.find(
+        {"owner_id": "alice", "goal_id": goal_id}, {"_id": 0}
+    ).to_list(10)
+    assert len(attempts) == 1
+    assert attempts[0]["status"] == "prepared"
