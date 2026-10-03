@@ -352,7 +352,9 @@ def resolution_is_stubbed(capability: str) -> bool:
     """
     name = (capability or "").strip()
     facts = _FACTS.get(name)
-    return bool(facts and facts.writes and name in _EXECUTABLE)
+    return bool(
+        facts and facts.writes and name in _SIMULATED and name in _EXECUTABLE
+    )
 
 
 def _status_of(capability: str, permitted: bool) -> str:
