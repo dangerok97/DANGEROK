@@ -357,3 +357,34 @@ class BookingDemandClient:
             },
         }
         return await self._post("orders/preview", payload)
+
+    async def create_order(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Create an accommodation order from a valid preview token."""
+        if not isinstance(payload, dict) or not str(payload.get("order_token") or "").strip():
+            raise BookingProviderError(
+                "order_token_missing",
+                "Manca il token del preview necessario alla prenotazione.",
+                retryable=False,
+            )
+        return await self._post("orders/create", payload)
+
+    async def accommodation_order_details(
+        self, *, order_id: str, currency: str = "EUR"
+    ) -> Dict[str, Any]:
+        """Read back one accommodation order after creation."""
+        oid = str(order_id or "").strip()
+        if not oid:
+            raise BookingProviderError(
+                "order_id_missing",
+                "Il provider non ha restituito un identificativo ordine.",
+                retryable=False,
+            )
+        return await self._post(
+            "orders/details/accommodations",
+            {
+                "orders": [oid],
+                "currency": currency.upper(),
+                "extras": ["accommodation", "policies"],
+                "languages": ["it", "en-gb"],
+            },
+        )
