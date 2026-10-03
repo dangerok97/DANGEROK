@@ -18,6 +18,7 @@ autorizzazione concreta; sviluppare i flussi non equivale a effettuarli.
 | P4 — Conoscenza | Routine e preferenze aiutano decisioni; luoghi nominati/confermati, nessuna attribuzione inventata | Da completare |
 | P5 — Interfaccia | Azioni pertinenti e funzionanti lungo l'intero percorso del lavoro | Da completare |
 | Ricerca prodotti | Dati verificabili su prezzo/disponibilità e limiti operativi espliciti, oltre al collegamento Amazon | Da completare |
+| Prenotazione alloggi | Ricerca multi-provider (Booking e altri canali accessibili), confronto del costo finale/condizioni, scelta esplicita, prenotazione reale e rilettura della conferma | Da completare |
 | VITA | Ogni area distingue dati, preparazione e azione realmente supportata; niente finte esecuzioni | Da completare |
 | Telefonia | Esito needs_user → decisione → richiamo autorizzato; cambio calendario concorrente; saluto finale | Gate reali rinviati dall'utente, da riaprire al momento opportuno |
 | P6 — iPhone | Push, permessi, geofence, background, riavvio e revoca verificati su dispositivo | Penultima fase, dipende dal dispositivo |
@@ -115,3 +116,17 @@ Report P1 consegnato con screenshot; prossimo lavoro già avviato: P0/P2.
 Rischi da coprire: esecuzione autorizzata dopo riavvio, concorrenza sulle
 modifiche calendario, scelta non equivalente a prenotazione confermata,
 esito osservato prima di chiudere il lavoro, nessun duplicato.
+
+
+## Requisito aggiunto — prenotazione alloggi
+
+Richiesta utente: comandi come «prenotami una stanza a Milano dal 23 al 25
+ottobre» devono avviare un flusso reale, non una semplice ricerca. ORA deve
+cercare sui provider e portali effettivamente accessibili online, confrontare
+prezzo finale, disponibilità, posizione, condizioni, cancellazione, tasse e
+vincoli; deve dichiarare chiaramente la copertura quando non può verificare
+l'intero mercato. La scelta finale dell'alloggio e qualsiasi spesa richiedono
+autorità esplicita. Dopo l'azione, ORA considera la prenotazione riuscita solo
+dopo rilettura di una conferma reale con struttura, date, importo e riferimento
+prenotazione. Un carrello, un redirect, una pagina compilata o una risposta
+HTTP non equivalgono a prenotazione confermata.
