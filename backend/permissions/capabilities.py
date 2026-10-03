@@ -19,7 +19,7 @@ from __future__ import annotations
 from types import MappingProxyType
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
-CAPABILITY_REGISTRY_VERSION = "1.0.0"
+CAPABILITY_REGISTRY_VERSION = "1.1.0"
 
 
 def _cap(
@@ -111,6 +111,18 @@ _CAPABILITIES: Tuple[Dict[str, Any], ...] = (
         sensitivity="personal",
         requires_oauth=True,
         purposes=("bill_detection",),
+    ),
+    _cap(
+        id="mail.send",
+        connector_domain="mail",
+        verb="send",
+        display_name="Invia email in tuo nome",
+        description="Invia un messaggio email solo dopo autorizzazione sul singolo invio o una regola esplicita compatibile.",
+        data_categories=("recipients", "subjects", "message_content"),
+        sensitivity="sensitive",
+        requires_oauth=True,
+        purposes=("external_communication",),
+        default_status="available",
     ),
     # -------- Messaging --------
     _cap(
