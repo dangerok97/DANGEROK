@@ -137,6 +137,45 @@ class CallMissionBinding(BaseModel):
     created_at: str = Field(default_factory=now_iso)
 
 
+async def calendar_event_snapshot(db, owner_id: str, ref: str) -> Optional[Dict[str, Any]]:
+    """Return one calendar row in the common shape used by call missions.
+
+    Home-created events live in the Life Graph rather than in
+    `calendar_event_drafts`. A phone mission must bind to the canonical object
+    that the person actually sees, not to a synthetic mirror, so both stores
+    are reduced here to the same small snapshot.
+    """
+    draft = await db.calendar_event_drafts.find_one(
+        {"id": ref, "user_id": owner_id},
+        {"_id": 0, "id": 1, "status": 1, "start_datetime": 1,
+         "end_datetime": 1, "timezone": 1, "title": 1, "updated_at": 1},
+    )
+    if draft:
+        row = dict(draft)
+        row["storage"] = "calendar_draft"
+        return row
+    if not str(ref or "").startswith("node_home_"):
+        return None
+    try:
+        from home.manual_event import get_manual_event
+        node = await get_manual_event(db, owner_id, ref)
+    except Exception:
+        return None
+    if not node:
+        return None
+    attrs = node.get("attributes") or {}
+    return {
+        "id": str(node.get("id") or ""),
+        "status": str(node.get("status") or ""),
+        "start_datetime": str(attrs.get("starts_at") or ""),
+        "end_datetime": str(attrs.get("ends_at") or ""),
+        "timezone": str(attrs.get("timezone") or "Europe/Rome"),
+        "title": str(node.get("label") or ""),
+        "updated_at": str(node.get("updated_at") or ""),
+        "storage": "home_manual",
+    }
+
+
 async def bind_a_calendar_event(
     db, *, call, calendar_ref: str = "", even_if_it_is_past: bool = False,
     desired_datetime: str = "", desired_minutes: int = 0,
@@ -180,11 +219,7 @@ async def bind_a_calendar_event(
     if not ref:
         return None, "non mi hai detto quale appuntamento", False
 
-    draft = await db.calendar_event_drafts.find_one(
-        {"id": ref, "user_id": call.owner_id},
-        {"_id": 0, "id": 1, "title": 1, "start_datetime": 1,
-         "end_datetime": 1, "timezone": 1, "status": 1},
-    )
+    draft = await calendar_event_snapshot(db, call.owner_id, ref)
     if not draft:
         #     NON SI CERCA UN RIPIEGO.
         # Un evento che non c'è, o che è di qualcun altro, non si sostituisce
@@ -192,6 +227,8 @@ async def bind_a_calendar_event(
         return None, "questo appuntamento non è nel tuo calendario", False
     if draft.get("status") == "cancelled":
         return None, "questo appuntamento risulta disdetto", False
+    if draft.get("storage") == "home_manual" and tipo != "reschedule":
+        return None, "per gli impegni creati nella Home posso ancora applicare solo uno spostamento", False
     if not draft.get("start_datetime"):
         return None, "questo appuntamento non ha un orario da spostare", False
 
@@ -226,6 +263,8 @@ async def bind_a_calendar_event(
             "end_datetime": str(draft.get("end_datetime") or ""),
             "timezone": str(draft.get("timezone") or "Europe/Rome"),
             "title": str(draft.get("title") or "")[:120],
+            "updated_at": str(draft.get("updated_at") or ""),
+            "storage": str(draft.get("storage") or "calendar_draft"),
         },
         authority=_the_policy(
             call, tipo, entity_id=ref,
