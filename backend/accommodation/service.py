@@ -372,6 +372,7 @@ class AccommodationService:
             "expires_at": expires_at.isoformat(),
             "request_id": str(result.get("request_id") or "")[:120],
             "data": public_data,
+            "payment_options": _preview_payment_options(public_data),
             "creates_reservation": False,
         }
 
@@ -426,21 +427,37 @@ class AccommodationService:
 
         method = str(payment.get("method") or "").strip()
         timing = str(payment.get("timing") or "").strip()
-        if not method or not timing:
+        if not timing:
             raise AccommodationError(
                 "payment_choice_required",
-                "Metodo e momento del pagamento devono provenire dal preview.",
+                "Il momento del pagamento deve provenire dal preview.",
             )
-        if method == "card" or payment.get("card"):
-            raise AccommodationError(
-                "card_tokenization_required",
-                "Questa prenotazione richiede un percorso di pagamento carta tokenizzato e conforme.",
-            )
-        if not _preview_allows_payment(preview.get("preview") or {}, method, timing):
+        policy = _preview_payment_policy(preview.get("preview") or {}, timing)
+        if policy is None:
             raise AccommodationError(
                 "payment_not_in_preview",
-                "Il metodo di pagamento scelto non è tra quelli del preview corrente.",
+                "Il momento del pagamento scelto non è tra quelli del preview corrente.",
             )
+        if bool(policy.get("method_required")):
+            # Booking.com requires a real method for this timing. ORA does not
+            # accept PAN/CVC through the model or persistent JSON. Until a
+            # compliant direct payment component is connected, fail closed.
+            raise AccommodationError(
+                "secure_payment_method_required",
+                "Questo alloggio richiede un metodo di pagamento/garanzia sicuro prima della prenotazione.",
+            )
+        # method_required=false means no payment method is required up front.
+        # Keep the timing (the provider still needs the selected schedule) and
+        # omit a method rather than inventing one.
+        if method:
+            raise AccommodationError(
+                "payment_method_not_required",
+                "Il preview non richiede un metodo di pagamento anticipato: non ne invio uno arbitrario.",
+            )
+        payment = {
+            "timing": timing,
+            "include_receipt": bool(payment.get("include_receipt", True)),
+        }
 
         from deps import get_token_vault
         from security.token_vault import VaultError, is_configured
@@ -467,7 +484,7 @@ class AccommodationService:
             "checkin": str(preview.get("checkin") or ""),
             "checkout": str(preview.get("checkout") or ""),
             "product_ids": preview_ids,
-            "payment_method": method,
+            "payment_method": str(payment.get("method") or ""),
             "payment_timing": timing,
             "price": _preview_price(preview.get("preview") or {}),
         }
@@ -682,28 +699,37 @@ def _validate_guests(products: List[Dict[str, Any]]) -> None:
                 raise AccommodationError("guests_incomplete", "Nome ed email sono obbligatori per ogni ospite.")
 
 
-def _preview_allows_payment(preview: Dict[str, Any], method: str, timing: str) -> bool:
+def _preview_payment_policy(preview: Dict[str, Any], timing: str) -> Optional[Dict[str, Any]]:
+    """Return exactly one payment timing from Booking's authoritative preview."""
     accommodation = preview.get("accommodation") or {}
-    payment = accommodation.get("payment") or {}
-    methods = payment.get("methods")
-    if isinstance(methods, list) and methods:
-        names = {
-            str(item.get("method") or item.get("type") or item) if isinstance(item, dict) else str(item)
-            for item in methods
-        }
-        if method not in names:
-            return False
-    blob = json.dumps(payment, sort_keys=True)
-    # When preview explicitly names timings, never allow a different one.
-    known_timings = {
-        name for name in (
-            "pay_at_the_property", "pay_online_later", "pay_online_now",
-            "pay_partial_online", "pay_at_pickup",
-        ) if name in blob
-    }
-    if known_timings and timing not in known_timings:
-        return False
-    return True
+    general = accommodation.get("general_policies") or {}
+    payment = general.get("payment") or {}
+    # Compatibility with early v3.2 responses documented during migration.
+    if not payment and isinstance(accommodation.get("payment"), dict):
+        payment = accommodation.get("payment") or {}
+    option = payment.get(timing) if isinstance(payment, dict) else None
+    return option if isinstance(option, dict) else None
+
+
+def _preview_payment_options(preview: Dict[str, Any]) -> List[Dict[str, Any]]:
+    accommodation = preview.get("accommodation") or {}
+    payment = ((accommodation.get("general_policies") or {}).get("payment") or {})
+    if not payment and isinstance(accommodation.get("payment"), dict):
+        payment = accommodation.get("payment") or {}
+    out: List[Dict[str, Any]] = []
+    for timing in ("pay_online_now", "pay_online_later", "pay_at_the_property"):
+        option = payment.get(timing) if isinstance(payment, dict) else None
+        if not isinstance(option, dict):
+            continue
+        methods = option.get("methods") or {}
+        out.append({
+            "timing": timing,
+            "method_required": bool(option.get("method_required")),
+            "methods": methods if isinstance(methods, dict) else {},
+            "dates": list(option.get("dates") or [])[:8],
+            "can_prepare_without_payment_method": not bool(option.get("method_required")),
+        })
+    return out
 
 
 def _preview_price(preview: Dict[str, Any]) -> Dict[str, Any]:
