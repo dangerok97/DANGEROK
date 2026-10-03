@@ -355,6 +355,7 @@ def fingerprint(snapshot: Dict[str, Any]) -> str:
             "routines",
             "open_comparisons",
             "calendar",
+            "departures",
             "existing_work",
             "documents",
             "situations",

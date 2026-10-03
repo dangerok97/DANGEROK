@@ -518,6 +518,8 @@ async def startup():
 
         await OpportunityRepository(db).ensure_indexes()
         await OpportunityDiscovery(db).ensure_indexes()
+        from places.departures import DepartureService
+        await DepartureService(db).ensure_indexes()
         logger.info("Opportunity indexes ready")
     except Exception:
         logger.exception("Opportunity indexes failed (non-fatal)")

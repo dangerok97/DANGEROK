@@ -1798,3 +1798,14 @@ prima di preparare la chiamata. Se un numero già condiviso viene associato a
 un'altra persona e l'utente conferma la condivisione, ORA conserva anche le
 precedenti conferme valide. Non ripropone lo stesso dubbio a ogni telefonata e
 non ripristina persone rimosse o numeri rifiutati.
+
+## 3 ottobre 2026 — Partenze collegate agli appuntamenti (P1, verifica in corso)
+
+Gli eventi con destinazione alimentano stime separate per i mezzi realmente
+supportati dal servizio percorsi. Il margine esplicito è di 10 minuti; nessun
+mezzo è presunto scelto. ORA può valutarne l'utilità tramite Opportunity e
+Delivery e ricontrollarli con il runtime esistente anche ad app chiusa.
+Posizione scaduta, permesso revocato, evento modificato/annullato e destinazione
+ambigua impediscono di mostrare o inviare una vecchia stima. L'avviso dipende
+da una posizione del dispositivo recente: la prova nativa iPhone resta P6.
+La verifica cloud e visiva è tracciata in AUTONOMY_COMPLETION_2026_10_03.md.

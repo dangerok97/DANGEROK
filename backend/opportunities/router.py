@@ -208,6 +208,10 @@ async def one(opportunity_id: str, user=Depends(get_current_user)):
     found = await OpportunityService(db).repo.get(user["user_id"], opportunity_id)
     if found is None:
         raise HTTPException(status_code=404, detail="unknown_opportunity")
+    if any(e.kind == "departure" for e in found.evidence):
+        from places.departures import DepartureService
+        if not await DepartureService(db).evidence_is_current(user["user_id"], found):
+            raise HTTPException(status_code=409, detail="Il percorso va aggiornato: l'appuntamento o la posizione sono cambiati.")
     return found.for_home()
 
 

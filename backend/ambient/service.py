@@ -244,6 +244,13 @@ class AmbientService:
             out.error = "model_unavailable"
             return out
 
+        from places.departures import WAKE_SOURCE
+        if wake.source_ref == WAKE_SOURCE and {"calendar", "departures"}.intersection(
+                getattr(outcome.scan, "unavailable_sources", []) or []):
+            out.retry_after_seconds = RETRY_SECONDS
+            out.error = "departure_sources_unavailable"
+            return out
+
         # Real work happened. That, and only that, entitles anybody to say so.
         await self._note(wake.owner_id, outcome)
 

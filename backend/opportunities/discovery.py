@@ -178,6 +178,7 @@ class OpportunityDiscovery:
             changes=[c.for_ai() for c in batch],
             language=language,
             source_context=reason,
+            prepared_snapshot={**snapshot, "what_changed": [c.for_ai() for c in batch]},
         )
 
         if scan.unavailable:

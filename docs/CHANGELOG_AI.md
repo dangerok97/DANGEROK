@@ -5881,3 +5881,16 @@ Pubblicati backend `1e7515f0` e web `ba7180d5`, entrambi SUCCESS sul commit `1aa
   telefonici cloud PASS. Aggiornata la regressione sulla concorrenza ambient
   alla lane delivery già introdotta in P0, verificandone progresso, assenza
   di duplicati e cancellazione insieme alla ricerca offerte lenta.
+
+## 2026-10-03 — P1 calendario → partenza → riesame
+
+- Aggiunte evidenze di percorso ancorate a evento e fix corrente, con modi
+  espliciti, margine, alternative e meteo quando disponibili.
+- Riutilizzato ambient wake per il ricontrollo ad app chiusa; niente push
+  automatico a soglia e niente secondo motore decisionale.
+- Vecchie stime bloccate dopo annullamento, spostamento, cambio destinazione,
+  cambio fix, scadenza o revoca. Ultimo controllo prima del provider push.
+- Una stessa partenza mantiene l'identità; un rifiuto resta rispettato.
+- Aggiunti test di sicurezza/continuità e relativo gate CI.
+- Locale: 65 test, TypeScript, compileall e diff-check PASS. Pubblicazione e
+  prova cloud sono registrate nel checkpoint del programma, senza anticiparle.

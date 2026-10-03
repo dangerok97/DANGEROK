@@ -131,6 +131,17 @@ class DeliveryService:
         kind = source_of(subject)
         subject_id = getattr(subject, "id", "")
 
+        if any(e.kind == "departure" for e in getattr(subject, "evidence", [])):
+            from places.departures import DepartureService
+            try:
+                current = await DepartureService(self.db).evidence_is_current(user_id, subject)
+            except Exception:
+                current = False
+            if not current:
+                await self.cancel_for_source(user_id, subject_id, source_type=kind,
+                                             reason="il percorso richiede una nuova verifica")
+                return DeliveryResult(blocked_by="departure_evidence_stale")
+
         if await self._muted(user_id, subject_id):
             # "Non notificarmi per questa cosa." Checked before anything is
             # spent: a person saying stop should not depend on a model
@@ -359,12 +370,29 @@ class DeliveryService:
                 continue
 
             await self._send(user_id, plan)
-            sent += 1
+            sent += int(plan.status == "delivered")
+            cancelled += int(plan.status == "cancelled")
+            held += int(plan.status == "held")
 
         return {"sent": sent, "cancelled": cancelled, "held": held}
 
     async def _send(self, user_id: str, plan: DeliveryPlan) -> None:
         from delivery.provider import get_provider
+
+        # Revalidate at the provider boundary too: the AI decision can take
+        # longer than the remaining lifetime of a route estimate.
+        if plan.source_type == "opportunity":
+            from opportunities.repository import OpportunityRepository
+            subject = await OpportunityRepository(self.db).get(user_id, plan.source_id)
+            if subject and any(e.kind == "departure" for e in subject.evidence):
+                from places.departures import DepartureService
+                try:
+                    current = await DepartureService(self.db).evidence_is_current(user_id, subject)
+                except Exception:
+                    current = False
+                if not current:
+                    await self._cancel(plan, "il percorso richiede una nuova verifica", "code_safety")
+                    return
 
         public = plan.words.public()
         outcome = await get_provider().send(

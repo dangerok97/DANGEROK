@@ -88,6 +88,20 @@ class LocationService:
             "while_using" if str(mode).strip().lower() == "while_using" else "off"
         )
         await self.repo.set_preference(user_id, pref)
+        if pref == "off":
+            from places.departures import COLLECTION, WAKE_SOURCE
+            await self.db[COLLECTION].delete_many({"owner_id": user_id})
+            await self.db.ambient_wakes.update_many(
+                {"owner_id": user_id, "source_ref": WAKE_SOURCE, "status": {"$in": ["pending", "claimed"]}},
+                {"$set": {"status": "cancelled"}})
+        else:
+            try:
+                from opportunities.discovery import OpportunityDiscovery
+                await OpportunityDiscovery(self.db).note(
+                    user_id, source="places", kind="presence.changed", entity_ref="device_location",
+                    entity_kind="presence", after="posizione autorizzata dalla persona")
+            except Exception as exc:
+                logger.info("location preference wake unavailable: %s", type(exc).__name__)
         return pref
 
     async def ingest_foreground_signal(
@@ -146,6 +160,13 @@ class LocationService:
         await self.repo.insert_signal(signal)
         presence = self._presence_from_signal(user_id, signal, preference=pref)
         await self.repo.upsert_presence(presence)
+        try:
+            from opportunities.discovery import OpportunityDiscovery
+            await OpportunityDiscovery(self.db).note(
+                user_id, source="places", kind="presence.changed", entity_ref="device_location",
+                entity_kind="presence", after="posizione aggiornata dal dispositivo")
+        except Exception as exc:
+            logger.info("location review wake unavailable: %s", type(exc).__name__)
         logger.info(
             "location_signal user=%s freshness=%s has_label=%s precision=%s",
             user_id[:12],

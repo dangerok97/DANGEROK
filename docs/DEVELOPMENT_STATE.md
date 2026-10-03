@@ -4543,3 +4543,18 @@ job, mentre il runtime dal commit `7c97a5b` ne prevede otto. Aggiornata la prova
 per coprire sia ricerca lenta sia delivery lenta: entrambi devono consentire
 il lavoro dovuto, non duplicarsi e cancellarsi allo shutdown. Nessuna modifica
 al runtime o al limite operativo; CI finale da registrare dopo il nuovo run.
+
+## 3 ottobre 2026 — Programma di completamento autonomie, passo P1
+
+Autorizzazione utente: completare le mancanze in sequenza, con commit/push,
+report e screenshot pertinenti a ogni passo, continuando autonomamente.
+Registro operativo: `AUTONOMY_COMPLETION_2026_10_03.md`.
+
+Implementati stime collegate al calendario, wake durevole e controlli contro
+evidenze scadute/modificate. Verifica locale: 65 test mirati PASS (partenze,
+arrivo esplicito, sovrapposizioni, continuità pianificata, delivery admission,
+fingerprint e continuità autonomia), TypeScript e compileall PASS. Test di
+provider e giudizio controllati su account sintetici: non è ancora una prova
+del servizio routing cloud né dell'iPhone. CI e deployment da registrare nel
+checkpoint dopo il push. Nessuna nuova dipendenza o variabile richiesta;
+una nuova collezione temporanea con indici non distruttivi.

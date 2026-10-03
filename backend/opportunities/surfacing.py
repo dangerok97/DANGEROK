@@ -75,6 +75,8 @@ class SurfacingService:
         now = _now().isoformat()
         out: List[Opportunity] = []
         for opportunity in await self.repo.list(user_id, statuses=["active"]):
+            if not await self._current(user_id, opportunity, now):
+                continue
             if opportunity.surface_state != "surfaced":
                 continue
             if opportunity.deferred_until and opportunity.deferred_until > now:
@@ -244,10 +246,21 @@ class SurfacingService:
         now = _now().isoformat()
         out = []
         for opportunity in await self.repo.list(user_id, statuses=["active"]):
+            if not await self._current(user_id, opportunity, now):
+                continue
             if opportunity.deferred_until and opportunity.deferred_until > now:
                 continue
             out.append(opportunity)
         return sorted(out, key=lambda o: o.order_key)[:MAX_CONSIDERED]
+
+    async def _current(self, user_id, opportunity, now):
+        if any(e.kind == "departure" for e in opportunity.evidence):
+            from places.departures import DepartureService
+            try:
+                return await DepartureService(self.db).evidence_is_current(user_id, opportunity)
+            except Exception:
+                return False
+        return True
 
     @staticmethod
     def _for_ai(opportunity: Opportunity) -> Dict[str, Any]:

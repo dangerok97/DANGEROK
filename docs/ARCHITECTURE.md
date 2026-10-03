@@ -3735,3 +3735,22 @@ record stale/rejected e associazioni di altri owner non entrano nel gruppo.
 La correzione replace continua a ritirare soltanto le attribuzioni mostrate.
 Nessun nuovo campo, indice, dipendenza o migrazione. I controlli prima della
 preparazione e prima del carrier restano invariati e bloccanti.
+
+## 3 ottobre 2026 — Evidenze di partenza e riesame persistente
+
+`places/departures.py` riusa calendario unificato, LocationService, risoluzione
+luoghi, routing, alternative/meteo e AmbientService. Massimo due eventi nelle
+prossime 24 ore per raccolta; calendario osservato fino a 14 giorni, wake
+limitato a 72 ore e riarmato. Nessun motore decisionale o scheduler aggiunto.
+La raccolta calcola fatti; Opportunity/Surfacing/Delivery decidono cosa proporre
+e se interrompere. Lo snapshot preparato è riusato dalla discovery, evitando
+il doppio accesso ai provider nello stesso riesame.
+
+Cache `calendar_departure_estimates`: indice unico owner/event_ref, TTL due
+ore, posizione rappresentata da hash senza coordinate aggiuntive. Stime
+valide al massimo 120 secondi dal fix, precisione richiesta <=200 m. Cache
+riusata per 60 secondi soltanto con lo stesso evento e fix. Revoca posizione:
+cache cancellata e wake specifico annullato. Controlli dell'evidenza prima
+della superficie, del dettaglio, del giudizio delivery e al confine provider.
+Identità stabile per appuntamento; una nuova stima non riapre un rifiuto
+esplicito. Runtime ritenta se calendario o raccolta non sono leggibili.

@@ -90,6 +90,17 @@ async def build(
             snapshot[name] = []
             snapshot["unavailable_sources"].append(name)
 
+    # Calendar routes depend on the current calendar, so collect them after
+    # that source. A failed calendar read must never cancel its arranged wake.
+    snapshot["departures"] = []
+    if "calendar" not in snapshot["unavailable_sources"]:
+        try:
+            from places.departures import DepartureService
+            snapshot["departures"] = await DepartureService(db).collect(
+                user_id, snapshot["calendar"], now=now.astimezone(timezone.utc))
+        except Exception as e:
+            logger.info("snapshot source departures unavailable: %s", type(e).__name__)
+            snapshot["unavailable_sources"].append("departures")
     snapshot["temporal"] = _temporal_facts(snapshot, now)
     return snapshot
 
@@ -368,7 +379,7 @@ async def _calendar(db, user_id: str, now: datetime) -> List[Dict[str, Any]]:
             "start_at": {"$gte": now.astimezone(timezone.utc).isoformat(), "$lte": horizon.astimezone(timezone.utc).isoformat()},
             "status": {"$nin": ["cancelled", "archived"]},
         },
-        {"_id": 0, "id": 1, "title": 1, "start_at": 1, "end_at": 1, "all_day": 1},
+        {"_id": 0, "id": 1, "title": 1, "start_at": 1, "end_at": 1, "all_day": 1, "location": 1},
     ).sort("start_at", 1).to_list(MAX_PER_SOURCE)
     for r in rows:
         out.append({
@@ -378,6 +389,7 @@ async def _calendar(db, user_id: str, now: datetime) -> List[Dict[str, Any]]:
             "ends_at": r.get("end_at"),
             "in_days": _days_from_now(r.get("start_at"), now),
             "all_day": bool(r.get("all_day")),
+            "location": str(r.get("location") or "")[:300],
         })
 
     # E quelli che arrivano dal calendario collegato.
@@ -798,6 +810,7 @@ def evidence_refs(snapshot: Dict[str, Any]) -> Dict[str, str]:
     take("routine", snapshot.get("routines"))
     take("comparison", snapshot.get("open_comparisons"))
     take("calendar_event", snapshot.get("calendar"))
+    take("departure", [r for r in snapshot.get("departures") or [] if r.get("status") == "ready"])
     take("life_object", snapshot.get("situations"))
     take("disagreement", snapshot.get("disagreements"))
     take("existing_work", snapshot.get("existing_work"))

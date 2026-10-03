@@ -63,6 +63,7 @@ class OpportunityService:
         changes: Optional[List[Dict[str, Any]]] = None,
         language: str = "it",
         source_context: str = "manual_scan",
+        prepared_snapshot: Optional[Dict[str, Any]] = None,
     ) -> ScanResult:
         """
         Ask whether anything in this life is worth raising.
@@ -74,7 +75,7 @@ class OpportunityService:
         """
         from opportunities.reasoning import scan as ask
 
-        state = await life_snapshot.build(self.db, user_id, changes=changes)
+        state = prepared_snapshot if prepared_snapshot is not None else await life_snapshot.build(self.db, user_id, changes=changes)
         # What this scan could not see, carried on every outcome. A silence
         # reached without the calendar is a different statement from a silence
         # reached with it, and anything that later tells a person their life
@@ -114,11 +115,23 @@ class OpportunityService:
                 result.skipped.append({"reason": why_not})
                 continue
 
+            departures = [row for row in state.get("departures") or []
+                          if row.get("status") == "ready"
+                          and row["ref"] in {e.ref for e in candidate.evidence}]
+            if departures:
+                from places.departures import ground_candidate
+                # One event per departure concern; unrelated route evidence
+                # cannot acquire the first event's identity or expiry.
+                if len(departures) != 1:
+                    result.skipped.append({"reason": "partenze distinte richiedono evidenze separate"})
+                    continue
+                ground_candidate(candidate, departures[0], (state.get("clock") or {}).get("timezone", "UTC"))
+
             # The model chose to raise this concern; the two cited Home
             # intervals determine its identity, date and feasible offer.
             # A wording change must not create another card for the same pair.
             from agent.calendar_conflict import active_home_pair
-            pair = await active_home_pair(self.db, user_id, [e.ref for e in candidate.evidence])
+            pair = None if departures else await active_home_pair(self.db, user_id, [e.ref for e in candidate.evidence])
             if pair:
                 events, overlap_start, overlap_end, minutes = pair
                 first, second = events
@@ -158,7 +171,10 @@ class OpportunityService:
             )
             if existing is not None and existing.status in CLOSED:
                 fresh = self._what_is_new(existing, candidate)
-                if existing.status == "suppressed" or not fresh:
+                same_departure = departures and any(
+                    e.ref.startswith("departure:" + departures[0]["event_version"] + ":")
+                    for e in existing.evidence)
+                if existing.status == "suppressed" or not fresh or (same_departure and existing.status in ("dismissed", "resolved")):
                     # Already settled. Raising it again would be ORA
                     # forgetting an answer it was given.
                     result.skipped.append(
