@@ -227,6 +227,8 @@ async def bind_a_calendar_event(
         return None, "questo appuntamento non è nel tuo calendario", False
     if draft.get("status") == "cancelled":
         return None, "questo appuntamento risulta disdetto", False
+    if draft.get("storage") == "home_manual" and draft.get("status") != "active":
+        return None, "questo impegno non è più attivo nel calendario ORA", False
     if draft.get("storage") == "home_manual" and tipo != "reschedule":
         return None, "per gli impegni creati nella Home posso ancora applicare solo uno spostamento", False
     if not draft.get("start_datetime"):
