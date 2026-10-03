@@ -1,6 +1,9 @@
 /**
- * Foreground web geolocation — shared helper (no expo-location).
- * Native: unsupported in V2.7.1.
+ * Device geolocation helpers.
+ *
+ * Browser requests stay on the browser API. Installed iOS/Android builds use
+ * expo-location. AI Core asks the client for a current fix, so a native client
+ * must not answer that request with the old web-only native_unsupported path.
  *
  * Default getCurrentPosition options:
  * - enableHighAccuracy: false
@@ -80,20 +83,33 @@ export function requestForegroundPosition(
   });
 }
 
-/** Fresh departure fix, including installed iOS/Android builds. */
-export async function requestDeparturePosition(): Promise<ForegroundGeoResult> {
+/**
+ * Current device fix for an AI Core client action.
+ *
+ * Web uses navigator.geolocation; installed iOS/Android builds use
+ * expo-location. The result shape stays identical for the caller.
+ */
+export async function requestCurrentPosition(
+  opts?: { timeoutMs?: number; maximumAgeMs?: number },
+): Promise<ForegroundGeoResult> {
   if (Platform.OS === 'web') {
-    return requestForegroundPosition({ timeoutMs: 12000, maximumAgeMs: 0 });
+    return requestForegroundPosition(opts);
   }
   if (Platform.OS !== 'ios' && Platform.OS !== 'android') {
     return { ok: false, reason: 'native_unsupported' };
   }
   try {
-    // Keep the native module out of the web bundle, like presenceRuntime does.
     const Location = await import('expo-location');
-    const permission = await Location.requestForegroundPermissionsAsync();
-    if (permission.status !== 'granted') return { ok: false, reason: 'denied' };
-    const fix = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+    const currentPermission = await Location.getForegroundPermissionsAsync();
+    let status = currentPermission.status;
+    if (status !== 'granted') {
+      status = (await Location.requestForegroundPermissionsAsync()).status;
+    }
+    if (status !== 'granted') return { ok: false, reason: 'denied' };
+
+    const fix = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.Balanced,
+    });
     return {
       ok: true,
       latitude: fix.coords.latitude,
@@ -103,6 +119,11 @@ export async function requestDeparturePosition(): Promise<ForegroundGeoResult> {
   } catch {
     return { ok: false, reason: 'position_unavailable' };
   }
+}
+
+/** Fresh departure fix, including installed iOS/Android builds. */
+export async function requestDeparturePosition(): Promise<ForegroundGeoResult> {
+  return requestCurrentPosition({ timeoutMs: 12000, maximumAgeMs: 0 });
 }
 
 export const LOCATION_PERMISSION_COPY =
