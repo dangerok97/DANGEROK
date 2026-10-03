@@ -258,6 +258,12 @@ class Opportunity(BaseModel):
         self.updated_at = now_iso()
 
     @property
+    def evidence_refs(self) -> List[str]:
+        """Read-only compatibility view of the canonical structured evidence."""
+        return [e.ref for e in self.evidence if e.ref]
+
+
+    @property
     def order_key(self) -> tuple:
         """
         A deterministic order from words, for surfaces that need one.
