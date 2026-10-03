@@ -408,15 +408,31 @@ async def mail_send(db, owner_id: str, intent: ActionIntent) -> EffectOutcome:
         provider="gmail",
     )
     params = dict(intent.parameters or {})
-    to = str(params.get("to") or "").strip()
-    subject = str(params.get("subject") or "").strip()
-    body = str(params.get("body") or "").strip()
-    thread_id = str(params.get("thread_id") or "").strip()
-    if not to or not subject or not body:
+    draft_id = str(params.get("draft_id") or "").strip()
+    draft_hash = str(params.get("draft_hash") or "").strip()
+    if not draft_id or not draft_hash:
         return _refused(
-            receipt, "missing_message_fields",
-            "La mail non è pronta: servono destinatario, oggetto e testo.",
+            receipt, "mail_draft_not_frozen",
+            "La mail non è stata inviata: il contenuto non era congelato prima del consenso.",
         )
+    from agent.mail_draft import load_frozen
+    draft, draft_error = await load_frozen(
+        db, owner_id, draft_id=draft_id, expected_hash=draft_hash
+    )
+    if draft is None:
+        return _refused(
+            receipt, draft_error or "mail_draft_changed",
+            "La mail preparata è cambiata o non è più disponibile: serve una nuova autorizzazione.",
+        )
+    if str(draft.get("goal_id") or "") not in ("", intent.goal_id):
+        return _refused(
+            receipt, "mail_draft_goal_mismatch",
+            "La mail preparata appartiene a un altro lavoro e non è stata inviata.",
+        )
+    to = str(draft.get("to") or "").strip()
+    subject = str(draft.get("subject") or "").strip()
+    body = str(draft.get("body") or "").strip()
+    thread_id = str(params.get("thread_id") or "").strip()
 
     try:
         from connectors.gmail.scopes import CONNECTOR_ID
@@ -482,6 +498,21 @@ async def mail_send(db, owner_id: str, intent: ActionIntent) -> EffectOutcome:
 
     receipt.external_ref = str(result.get("message_id") or "")
     receipt.provider_status = "succeeded" if result.get("observed") else "accepted"
+    try:
+        await db.agent_outbound_drafts.update_one(
+            {
+                "id": draft_id, "owner_id": owner_id,
+                "content_hash": draft_hash,
+            },
+            {"$set": {
+                "status": "sent" if result.get("observed") else "provider_accepted",
+                "provider": "gmail",
+                "provider_message_id": receipt.external_ref,
+                "sent_at": _now().isoformat(),
+            }},
+        )
+    except Exception as exc:
+        logger.info("mail draft receipt soft-fail: %s", type(exc).__name__)
     receipt.answered_at = _now().isoformat()
     observed = bool(result.get("observed"))
     claims = []
