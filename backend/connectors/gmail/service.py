@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import logging
 import os
+from email.utils import parseaddr
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -53,7 +54,10 @@ from ingestion.event_model import IngestionEventRepository, compute_payload_hash
 
 from .oauth import FLOW, resolve_gmail_redirect_uri, scopes_requested
 from .provider import GmailAPIError, GmailProviderProtocol, build_gmail_provider
-from .scopes import CAPABILITY_ID, CAPABILITY_READ_ID, CONNECTOR_ID, EMAIL_RECORD_TYPE
+from .scopes import (
+    CAPABILITY_ID, CAPABILITY_READ_ID, CAPABILITY_SEND_ID,
+    CONNECTOR_ID, EMAIL_RECORD_TYPE,
+)
 
 logger = logging.getLogger("ora.connectors.gmail")
 
@@ -352,6 +356,16 @@ class GmailReadService:
                 scopes=scopes_requested(),
                 actor_type="user",
             )
+            if any("gmail.send" in scope for scope in granted):
+                await self.permissions.grant(
+                    user_id=user_id,
+                    capability_id=CAPABILITY_SEND_ID,
+                    connector_id=CONNECTOR_ID,
+                    connector_instance_id=instance["id"],
+                    purpose_id="external_communication",
+                    scopes=[scope for scope in granted if "gmail.send" in scope],
+                    actor_type="user",
+                )
         except Exception:
             logger.exception("permissions grant failed post-callback")
 
@@ -398,7 +412,7 @@ class GmailReadService:
                 logger.exception("gmail token revoke at google failed")
             await self.vault.revoke(instance["secret_reference"])
 
-        for capability in (CAPABILITY_ID, CAPABILITY_READ_ID):
+        for capability in (CAPABILITY_ID, CAPABILITY_READ_ID, CAPABILITY_SEND_ID):
             try:
                 await self.permissions.revoke(
                     user_id=user_id, capability_id=capability,
@@ -438,6 +452,63 @@ class GmailReadService:
                 and os.environ.get("GOOGLE_OAUTH_CLIENT_SECRET")
             ),
             "callback_registered": bool(gmail_redirect_uris()),
+        }
+
+    # --- sending ---------------------------------------------------------
+
+    async def send_message(
+        self, *, user_id: str, instance_id: str, to: str, subject: str,
+        body: str, thread_id: str = "",
+    ) -> Dict[str, Any]:
+        """Send one plain-text email through one explicitly connected account."""
+        instance = await self.instances.get(user_id, instance_id)
+        if not instance:
+            raise LookupError("instance_not_found")
+        await self._require_consent(
+            user_id=user_id, instance_id=instance_id,
+            capability_id=CAPABILITY_SEND_ID, purpose_id="external_communication",
+        )
+        granted = [str(scope) for scope in (instance.get("authorized_scopes") or [])]
+        if not any("gmail.send" in scope for scope in granted):
+            raise ConsentDenied(
+                capability_id=CAPABILITY_SEND_ID, connector_id=CONNECTOR_ID,
+                connector_instance_id=instance_id,
+            )
+
+        _, recipient = parseaddr(str(to or "").strip())
+        if (
+            not recipient or "@" not in recipient or "\n" in recipient
+            or "\r" in recipient or "," in recipient
+        ):
+            raise ValueError("invalid_recipient")
+        clean_subject = str(subject or "").replace("\r", " ").replace("\n", " ").strip()
+        clean_body = str(body or "").strip()
+        if not clean_subject or not clean_body:
+            raise ValueError("empty_message")
+        if len(clean_subject) > 240 or len(clean_body) > 12000:
+            raise ValueError("message_too_large")
+
+        token = await self._access_token(user_id=user_id, instance=instance)
+        result = await self.provider.send_message(
+            access_token=token,
+            to=recipient,
+            subject=clean_subject,
+            body=clean_body,
+            thread_id=str(thread_id or "")[:200],
+        )
+        message_id = str(result.get("id") or "")
+        if not message_id:
+            raise GmailAPIError(502, "gmail_send_missing_id")
+        await self.permissions.audit.log(
+            user_id=user_id, event_type="mail.send", connector_id=CONNECTOR_ID,
+            connector_instance_id=instance_id, capability_id=CAPABILITY_SEND_ID,
+            success=True, records_returned=1, reason_code="provider_accepted",
+            data_classification="sensitive",
+        )
+        return {
+            "message_id": message_id,
+            "thread_id": str(result.get("threadId") or ""),
+            "to": recipient,
         }
 
     # --- reading ---------------------------------------------------------
@@ -644,12 +715,13 @@ class GmailReadService:
     async def _require_consent(
         self, *, user_id: str, instance_id: str,
         capability_id: str = CAPABILITY_ID,
+        purpose_id: str = "context_assembly",
     ) -> None:
         from permissions.errors import ConsentDenied
 
         ok = await self.permissions.check_access(
             user_id=user_id, capability_id=capability_id, connector_id=CONNECTOR_ID,
-            connector_instance_id=instance_id, purpose_id="context_assembly",
+            connector_instance_id=instance_id, purpose_id=purpose_id,
         )
         if not ok:
             raise ConsentDenied(
