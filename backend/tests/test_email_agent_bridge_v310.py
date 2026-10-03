@@ -17,6 +17,7 @@ import ast
 import os
 import sys
 import uuid
+from unittest.mock import AsyncMock
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -56,16 +57,24 @@ async def _clean(db, uid):
         await db[coll].delete_many({"owner_id": uid})
 
 
-async def _mail_signal(db, uid, *, subject, message_id, thread_id="t1"):
+async def _mail_signal(
+    db, uid, *, subject, message_id, thread_id="t1", attachments=0,
+):
     from connected.models import ConnectedSignal, FieldChange
     from connected.signals import SignalService
 
+    changed = [FieldChange(field="subject", after=subject)]
+    if attachments:
+        changed.append(FieldChange(
+            field="attachments_present",
+            after=f"{attachments} allegati",
+        ))
     signal = ConnectedSignal(
         owner_id=uid, source_type="email", source_id="inst_mail",
         signal_type="email.message.added", source_object_ref=message_id,
         payload_summary=f"È arrivato un messaggio: «{subject}».",
         after=subject, effective_at=datetime.now(timezone.utc).isoformat(),
-        changed_fields=[FieldChange(field="subject", after=subject)],
+        changed_fields=changed,
         provenance={"thread_ref": thread_id},
     )
     await SignalService(db).record(signal)
@@ -107,6 +116,100 @@ def _meaning(text="Qualcosa è cambiato."):
 def _no_link():
     return {"relationship": "new_situation", "target_ref": "",
             "confidence": 0.5, "why": "Nuova.", "relied_on": []}
+
+
+
+
+def test_an_attachment_is_read_only_when_the_judgement_asks(monkeypatch):
+    """The first judgement may request the file; the second sees only a bounded extract."""
+    async def body():
+        client, db = await _db()
+        uid = f"s3_{uuid.uuid4().hex[:8]}"
+        try:
+            await _mail_signal(
+                db, uid, subject="Condizioni aggiornate",
+                message_id="m_att", attachments=1,
+            )
+
+            importer = AsyncMock(return_value={
+                "documents": [{
+                    "document_id": "doc_1",
+                    "filename": "condizioni.pdf",
+                    "mime_type": "application/pdf",
+                    "duplicate": False,
+                    "text_available": True,
+                    "excerpt": "Costo annuo 120 euro, recesso senza penali.",
+                }],
+                "skipped": [],
+                "manifest_count": 1,
+            })
+            class Mail:
+                import_relevant_attachments = importer
+            monkeypatch.setattr("deps.get_gmail_service", lambda: Mail())
+
+            model = Recorded([
+                {
+                    "outcome": "may_need_action",
+                    "what_it_means": "Potrebbero esserci nuove condizioni.",
+                    "relates_to": "un contratto",
+                    "reasoning": "Il dettaglio è nel file.",
+                    "needs_content": False,
+                    "why_content": "",
+                    "needs_attachments": True,
+                    "why_attachments": "Verificare costo e recesso.",
+                    "touches_money": False,
+                },
+                {
+                    **_meaning("Le condizioni indicano 120 euro annui e recesso senza penali."),
+                    "needs_attachments": False,
+                    "why_attachments": "",
+                },
+            ])
+            _install(monkeypatch, model)
+            out = await _service(db).interpret(uid)
+
+            assert out["passed_on"] == 1
+            assert out["asked_for_attachments"] == 1
+            importer.assert_awaited_once_with(
+                user_id=uid, instance_id="inst_mail", message_id="m_att",
+            )
+            assert len(model.seen_payloads) == 2
+            assert "what_you_asked_to_see" in model.seen_payloads[1]
+            assert "condizioni.pdf" in model.seen_payloads[1]
+            assert "120 euro" in model.seen_payloads[1]
+        finally:
+            await _clean(db, uid)
+            client.close()
+
+    _run(body())
+
+
+def test_an_attachment_is_not_read_just_because_it_exists(monkeypatch):
+    """Existence is evidence, never an instruction to import a mailbox file."""
+    async def body():
+        client, db = await _db()
+        uid = f"s3_{uuid.uuid4().hex[:8]}"
+        try:
+            await _mail_signal(
+                db, uid, subject="Allegato informativo",
+                message_id="m_quiet", attachments=1,
+            )
+            importer = AsyncMock()
+            class Mail:
+                import_relevant_attachments = importer
+            monkeypatch.setattr("deps.get_gmail_service", lambda: Mail())
+
+            _install(monkeypatch, Recorded([_meaning("È solo un aggiornamento informativo.")]))
+            out = await _service(db).interpret(uid)
+
+            assert out["passed_on"] == 1
+            assert out["asked_for_attachments"] == 0
+            importer.assert_not_awaited()
+        finally:
+            await _clean(db, uid)
+            client.close()
+
+    _run(body())
 
 
 # ---------------------------------------------------------------------------

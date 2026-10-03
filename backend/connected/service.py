@@ -239,6 +239,7 @@ class ConnectedLifeService:
         life = await self._life(owner_id)
         sources = {s.id: s for s in await self.sources.list(owner_id)}
         looked_at = noise = passed_on = own = asked_for_content = linked = 0
+        asked_for_attachments = 0
 
         for signal in pending:
             # ORA's own work coming back round. Recorded as seen, never
@@ -287,6 +288,7 @@ class ConnectedLifeService:
             # local name below is the only place it ever lives: nothing in
             # this branch stores it, and the audit row records that a read
             # happened without recording what was read.
+            seen_content = None
             if answer.get("needs_content"):
                 from connected import content as private
 
@@ -305,6 +307,64 @@ class ConnectedLifeService:
                     )
                     looked_at += 1
                     asked_for_content += 1
+                    if second is not None:
+                        answer = second
+
+            # An attachment is persisted only when the judgement explicitly
+            # says it is needed AND the signal itself says a file exists.
+            # The model cannot manufacture that fact, and ordinary mailbox
+            # sync never reaches this branch.
+            has_attachments = (
+                signal.source_type == "email"
+                and any(
+                    change.field == "attachments_present"
+                    for change in signal.changed_fields
+                )
+            )
+            if answer.get("needs_attachments") and has_attachments:
+                try:
+                    from deps import get_gmail_service
+
+                    imported = await get_gmail_service().import_relevant_attachments(
+                        user_id=owner_id,
+                        instance_id=signal.source_id,
+                        message_id=signal.source_object_ref,
+                    )
+                except Exception as exc:
+                    logger.info(
+                        "mail attachment relevance read soft-fail: %s",
+                        type(exc).__name__,
+                    )
+                    imported = {"documents": []}
+
+                docs = list(imported.get("documents") or [])[:3]
+                if docs:
+                    pieces = []
+                    for doc in docs:
+                        filename = str(doc.get("filename") or "allegato")[:120]
+                        mime = str(doc.get("mime_type") or "")[:80]
+                        excerpt = str(doc.get("excerpt") or "").replace("\n", " ")[:180]
+                        detail = f"{filename} ({mime})"
+                        if excerpt:
+                            detail += f": {excerpt}"
+                        pieces.append(detail)
+                    attachment_content = {
+                        "attachments": "\n".join(pieces)[:700]
+                    }
+                    combined = {
+                        **(seen_content or {}),
+                        **attachment_content,
+                    }
+                    second = await interpret_signal(
+                        signal.for_ai(),
+                        life=life,
+                        source=source.for_ai() if source else {},
+                        recent=recent,
+                        language=language,
+                        content=combined,
+                    )
+                    looked_at += 1
+                    asked_for_attachments += 1
                     if second is not None:
                         answer = second
 
@@ -333,6 +393,7 @@ class ConnectedLifeService:
             "ok": True, "looked_at": looked_at, "noise": noise,
             "passed_on": passed_on, "own_work": own,
             "asked_for_content": asked_for_content,
+            "asked_for_attachments": asked_for_attachments,
             "linked": linked,
         }
 

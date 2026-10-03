@@ -113,6 +113,12 @@ async def interpret_signal(
         "and the answer is often no even when the message mentions a "
         "price: an advertisement for loans names sums and says nothing "
         "about theirs.\n\n"
+        "For email only, an attachment is a separate private source from the "
+        "message body. If the signal says attachments exist and the decision "
+        "genuinely depends on one of them — for example the terms, bill or "
+        "confirmation are in the file rather than the body — set "
+        "needs_attachments=true. Do not ask for an attachment merely because "
+        "one exists.\n\n"
         "Return JSON: {\"outcome\": \"noise|worth_knowing|"
         "changes_something_known|may_need_action\", "
         "\"what_it_means\": \"one sentence about their life, empty when "
@@ -122,6 +128,8 @@ async def interpret_signal(
         "\"reasoning\": \"one short sentence, never shown to them\", "
         "\"needs_content\": false, "
         "\"why_content\": \"what you would decide with it, when asking\", "
+        "\"needs_attachments\": false, "
+        "\"why_attachments\": \"what the attachment would settle, when asking\", "
         "\"touches_money\": false}\n\n"
         "Write anything a person reads in their language."
     )
@@ -150,6 +158,14 @@ async def interpret_signal(
         return None
     data["outcome"] = outcome
     data["needs_content"] = bool(data.get("needs_content")) and content is None
+    # Attachments are requested at most once. Once their bounded document
+    # extracts are in this judgement, asking for them again cannot cause
+    # another provider read.
+    already_has_attachments = bool(content and content.get("attachments"))
+    data["needs_attachments"] = (
+        bool(data.get("needs_attachments")) and not already_has_attachments
+    )
+    data["why_attachments"] = str(data.get("why_attachments") or "")[:200]
     # Se questa cosa parla dei soldi di questa persona. E' una domanda a parte
     # da «conta qualcosa», e la risposta e' spesso no anche quando il
     # messaggio nomina delle cifre.
