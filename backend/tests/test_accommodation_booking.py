@@ -101,3 +101,52 @@ async def test_service_rejects_half_coordinates(monkeypatch):
             checkout="2026-10-25",
         )
     assert caught.value.code == "incomplete_coordinates"
+
+
+@pytest.mark.asyncio
+async def test_booking_preview_uses_current_selection(monkeypatch):
+    monkeypatch.setenv("BOOKING_DEMAND_TOKEN", "test-token")
+    monkeypatch.setenv("BOOKING_AFFILIATE_ID", "123")
+    client = BookingDemandClient()
+    seen = {}
+
+    async def fake_post(path, payload):
+        seen["path"] = path
+        seen["payload"] = payload
+        return {
+            "request_id": "preview-req",
+            "data": {
+                "order_token": "secret-order-token",
+                "accommodation": {"id": 7},
+                "price": {"total": {"booker_currency": 250.0}},
+            },
+        }
+
+    monkeypatch.setattr(client, "_post", fake_post)
+    result = await client.preview(
+        accommodation_id=7,
+        checkin="2026-10-23",
+        checkout="2026-10-25",
+        products=[{"id": "room-1", "number_of_adults": 2, "children": []}],
+        currency="EUR",
+        country="it",
+        platform="android",
+        travel_purpose="leisure",
+    )
+    assert seen["path"] == "orders/preview"
+    assert seen["payload"]["accommodation"]["products"] == [{
+        "id": "room-1",
+        "allocation": {"number_of_adults": 2, "children": []},
+    }]
+    assert seen["payload"]["accommodation"]["booker"]["platform"] == "android"
+    assert result["data"]["order_token"] == "secret-order-token"
+
+
+@pytest.mark.asyncio
+async def test_service_keeps_order_token_out_of_plain_preview_storage(monkeypatch):
+    from accommodation.service import _strip_secret
+
+    assert _strip_secret(
+        {"order_token": "secret", "nested": {"order_token": "secret2", "ok": 1}},
+        "order_token",
+    ) == {"nested": {"ok": 1}}
