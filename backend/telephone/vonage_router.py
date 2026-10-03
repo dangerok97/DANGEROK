@@ -394,6 +394,16 @@ async def _apply_what_was_agreed(call, session) -> None:
         await on_call_finished(db, call)
     except Exception as e:  # pragma: no cover
         logger.info("applicazione non tentata: %s", type(e).__name__)
+
+    # Se questa chiamata appartiene anche al ciclo agente, il fatto terminale
+    # torna allo stesso goal. Qui non si decide che cosa significhi: il bridge
+    # registra solo applicazione e stato canonico, poi risveglia il worker.
+    try:
+        from agent.phone_bridge import on_call_finished as wake_agent_goal
+        await wake_agent_goal(db, call)
+    except Exception as e:  # pragma: no cover
+        logger.info("agent non risvegliato dalla chiamata: %s", type(e).__name__)
+
     #     E LA CHAT DA CUI E' PARTITA VIENE A SAPERE COM'E' ANDATA.
     from telephone.chat_report import tell_the_chat
 
