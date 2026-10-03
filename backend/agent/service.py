@@ -313,7 +313,7 @@ class AgentService:
                         "Ho verificato una sovrapposizione reale e preparato il "
                         "prossimo passo; serve la tua scelta prima di cambiare qualcosa."
                     ),
-                    source_refs=list(dict.fromkeys(refs))[:8],
+                    source_refs=list(dict.fromkeys(goal.source_refs))[:8],
                     requires_response=True,
                     response_kind="information",
                     work_already_done=[
