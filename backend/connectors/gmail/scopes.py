@@ -26,6 +26,7 @@ from __future__ import annotations
 
 GMAIL_SCOPES = (
     "https://www.googleapis.com/auth/gmail.readonly",
+    "https://www.googleapis.com/auth/gmail.send",
     "openid",
     "email",
     "profile",
@@ -44,6 +45,7 @@ GMAIL_METADATA_SCOPES = (
 CONNECTOR_ID = "mail_gmail"
 CAPABILITY_ID = "mail.metadata"
 CAPABILITY_READ_ID = "mail.read"
+CAPABILITY_SEND_ID = "mail.send"
 
 # The record type every mail row carries into ingestion. The email sensor
 # reads by this and not by `source_type`, which holds the connector's own id.
