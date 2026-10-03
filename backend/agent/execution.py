@@ -294,6 +294,35 @@ class StepExecutor:
         Everything that runs runs behind an atomic claim. Two workers and a
         double-tapped button reach here together, and exactly one gets past.
         """
+        if step.capability_needed == "mail.send":
+            from agent.mail_draft import freeze_for_send
+            draft, why = await freeze_for_send(self.db, owner_id, goal, step)
+            if draft is None:
+                return ExecutionResult(
+                    step_id=step.id,
+                    status="partial",
+                    observation=(
+                        "La mail non è ancora pronta in una forma immutabile che "
+                        "possa essere autorizzata senza cambiare sotto al tuo sì."
+                    ),
+                    error_type=why or "mail_draft_not_ready",
+                    retryable=False,
+                    provenance=ResultProvenance(
+                        source_class="internal_observation",
+                        capability="mail.send",
+                        certainty_note="nessun invio eseguito",
+                    ),
+                )
+            keep = {
+                k: v for k, v in dict(step.parameters or {}).items()
+                if k in ("instance_id", "thread_id")
+            }
+            step.parameters = {
+                **keep,
+                "draft_id": draft["id"],
+                "draft_hash": draft["content_hash"],
+            }
+
         intent = self._intent_for(owner_id, goal, step)
 
         existing = await self._already_done(intent)
@@ -488,6 +517,10 @@ class StepExecutor:
                 external_party=step.reaches_somebody_else,
                 reversibility=step.reversibility,
                 expected_outcome=step.expected_result[:300],
+                effect_binding=(
+                    str((step.parameters or {}).get("draft_hash") or "")[:128]
+                    if step.capability_needed == "mail.send" else ""
+                ),
             ),
         )
 
