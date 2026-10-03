@@ -1,9 +1,9 @@
 """
-The Gmail data plane: four reads, and no way to write.
+The Gmail data plane: minimal reads plus one explicitly gated send.
 
     A CONNECTOR THAT CAN ONLY READ CANNOT BE TALKED INTO SENDING.
 
-The protocol below is the whole surface: the mailbox's own position
+The protocol below keeps mailbox sensing read-minimal: the mailbox's own position
 (`profile`), what has happened since a position (`history`), a first look when
 there is no position yet (`list`), the headers of a message (`metadata`), and
 — separately, deliberately awkward to reach — the text of one message.
@@ -100,7 +100,7 @@ class GmailProviderProtocol(Protocol):
 
 
 class GmailProvider:
-    """The real one. Read verbs only, because there are no others."""
+    """The real provider. Reads stay minimal; send exists only through Gmail OAuth."""
 
     def __init__(self, *, timeout: float = 20.0):
         self.timeout = timeout
