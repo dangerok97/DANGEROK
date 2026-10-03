@@ -16,10 +16,10 @@ second flow needs a second registered URI. It is derived from the one the
 calendar already uses rather than typed again, so the pair stays consistent
 and the URI to register is a function of what is registered already.
 
-**The scopes.** A mailbox is a different question from a calendar, and this
-asks only its own: `gmail.readonly` plus the identity scopes the shared flow
-already uses. Nothing here can ask for send, compose or modify — those
-strings do not exist in this package.
+**The scopes.** A mailbox is a different question from a calendar. ORA asks
+for `gmail.readonly` for sensing and `gmail.send` for the separately gated
+outbound action, plus the identity scopes the shared flow already uses. It
+does not ask for modify, labels, archive or delete privileges.
 
 **Which flow a state belongs to.** The two connectors share one state store,
 so a state minted for Gmail must not be spendable at the calendar callback or
@@ -84,7 +84,7 @@ def scopes_requested() -> List[str]:
     """
     What ORA asks Google for when somebody connects a mailbox.
 
-    Read and identity. The list is returned rather than exported as a mutable
+    Read, send and identity. The list is returned rather than exported as a mutable
     constant so a caller cannot append to it in passing — which sounds
     paranoid until you consider what appending one string here would let this
     application do.
