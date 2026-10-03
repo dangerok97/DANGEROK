@@ -12,15 +12,15 @@ autorizzazione concreta; sviluppare i flussi non equivale a effettuarli.
 | Passo | Risultato da dimostrare | Stato |
 |---|---|---|
 | P1 — Partenze | Appuntamento → percorso corrente → valutazione utile → riesame, invalidazione e navigazione | Verificato backend/cloud e navigazione web; push su dispositivo resta P6 |
-| P0 — Iniziativa | Calendario, documenti, comunicazioni e cambi vita avviano lavoro utile senza duplicati o falsa completezza | Da consolidare con scenari completi |
-| P2 — Occupatene tu | Lavoro autorizzato prosegue dopo attese e riavvii, verifica il risultato, comunica esito o blocco concreto | In corso: esecuzione locale e ripresa autorizzata |
+| P0 — Iniziativa | Calendario, documenti, comunicazioni e cambi vita avviano lavoro utile senza duplicati o falsa completezza | Checkpoint backend/cloud: conflitti calendario e segnali email proseguono; restano scenari trasversali |
+| P2 — Occupatene tu | Lavoro autorizzato prosegue dopo attese e riavvii, verifica il risultato, comunica esito o blocco concreto | Checkpoint backend/cloud: modifica locale e conferma telefonica esterna collegate; gate reale terzo resta da autorizzare |
 | P3 — Risparmio | Costi annui completi, condizioni ed eleggibilità distinguibili dalle sole componenti di vendita; risultato misurabile | Da completare |
 | P4 — Conoscenza | Routine e preferenze aiutano decisioni; luoghi nominati/confermati, nessuna attribuzione inventata | Da completare |
 | P5 — Interfaccia | Azioni pertinenti e funzionanti lungo l'intero percorso del lavoro | Da completare |
 | Ricerca prodotti | Dati verificabili su prezzo/disponibilità e limiti operativi espliciti, oltre al collegamento Amazon | Da completare |
 | Prenotazione alloggi | Ricerca multi-provider (Booking e altri canali accessibili), confronto del costo finale/condizioni, scelta esplicita, prenotazione reale e rilettura della conferma | Da completare |
 | VITA | Ogni area distingue dati, preparazione e azione realmente supportata; niente finte esecuzioni | Da completare |
-| Telefonia | Esito needs_user → decisione → richiamo autorizzato; cambio calendario concorrente; saluto finale | Gate reali rinviati dall'utente, da riaprire al momento opportuno |
+| Telefonia | Esito needs_user → decisione → richiamo autorizzato; cambio calendario concorrente; saluto finale | Backend collegato al goal agente; chiamata reale non eseguita senza autorizzazione concreta della singola missione |
 | P6 — iPhone | Push, permessi, geofence, background, riavvio e revoca verificati su dispositivo | Penultima fase, dipende dal dispositivo |
 | P7 — Alpha | 3–5 persone, almeno 7 giorni, esiti osservati e difetti risolti | Ultima fase, durata e partecipanti necessari |
 
@@ -130,3 +130,47 @@ autorità esplicita. Dopo l'azione, ORA considera la prenotazione riuscita solo
 dopo rilettura di una conferma reale con struttura, date, importo e riferimento
 prenotazione. Un carrello, un redirect, una pagina compilata o una risposta
 HTTP non equivalgono a prenotazione confermata.
+
+
+## P0/P2 — Conferma esterna reale senza falsa completezza
+
+Checkpoint pubblicato il 3 ottobre 2026. Il ramo di risoluzione dei conflitti
+non tratta più «sposta il tecnico alle 12» come equivalente a un appuntamento
+confermato quando il nuovo orario dipende da una persona o struttura esterna.
+
+Il percorso ora è: scelta dell'impegno e del nuovo orario → chiarimento se la
+decisione è solo personale → preparazione di una missione telefonica limitata
+all'orario scelto → autorità esplicita sulla singola chiamata → chiamata reale
+tramite il carrier già configurato → esito della controparte → applicazione
+soltanto se la missione riporta una conferma valida → rilettura dell'evento
+Home → risveglio dello stesso goal agente.
+
+L'evento Home viene legato prima della chiamata con identificativo canonico e
+revisione. Se nel frattempo viene modificato o archiviato, l'esito telefonico
+vecchio non può sovrascriverlo. L'accettazione del carrier resta uno stato
+intermedio: non chiude il goal e non vale come conferma. Il bridge del goal
+accetta come successo solo un'applicazione telefonica già verificata nello
+stato canonico.
+
+Commit principali: `4006d1d`, `5e8b80a`, `f933d361`, `ad4f655`,
+`efd05b8`, `a8f1aa8`, `20b7936`, `fa0cc3a`, `dd2c726`,
+`23a16ff`, `0a507e5`, `48625da`.
+
+Railway backend deployment `3b89d935-263e-428f-a4ba-81e65de27739`:
+SUCCESS sul commit `48625da66da207e0f3c8a055444be2ae0a1dad7c`.
+Avvio applicazione completo; healthcheck `/api/health` osservato HTTP 200.
+Il worker ambient e il recovery delle applicazioni telefoniche risultano
+avviati. Nessuna chiamata reale è stata effettuata durante questa verifica.
+
+Aggiunti test di regressione per: preparazione senza composizione del numero,
+binding all'esatto evento Home, applicazione idempotente della conferma,
+rifiuto di una revisione concorrente e risveglio del goal soltanto dopo
+applicazione verificata. Questi test sono presenti nel commit/deploy; il
+Dockerfile staging non esegue pytest in build, quindi non vengono dichiarati
+PASS finché non passano una corsa test dedicata.
+
+Prossimo lavoro P0/P2: completare gli altri percorsi trasversali che ancora
+terminano su capability conosciute ma non collegate (in particolare invio
+mail e prenotazione esterna), mantenendo la stessa regola: preparare senza
+effetto, chiedere autorità sul singolo atto, eseguire una volta, rileggere il
+risultato reale e solo allora chiudere il goal.
