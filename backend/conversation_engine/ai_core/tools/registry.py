@@ -506,6 +506,7 @@ class ToolRegistry:
         self._register_files()
         self._register_location()
         self._register_places()
+        self._register_accommodation()
         self._register_presence_history()
         self._register_calendar()
         self._register_financial()
@@ -695,6 +696,100 @@ class ToolRegistry:
                 risk="read",
                 handler=place_caps.open_navigation,
                 tags=["places", "navigation"],
+            )
+        )
+
+    def _register_accommodation(self) -> None:
+        from accommodation import caps as accommodation_caps
+
+        self.register(
+            CapabilitySpec(
+                capability="search_accommodations",
+                description=(
+                    "Search REAL current accommodation availability and prices from the "
+                    "configured booking provider for a destination and exact stay dates. "
+                    "Use this for hotel/room/accommodation requests instead of web_search. "
+                    "It does not cover the entire web and it does not reserve anything."
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "destination": {"type": "string"},
+                        "checkin": {"type": "string", "description": "YYYY-MM-DD"},
+                        "checkout": {"type": "string", "description": "YYYY-MM-DD"},
+                        "adults": {"type": "integer", "minimum": 1},
+                        "rooms": {"type": "integer", "minimum": 1},
+                        "radius_km": {"type": "number"},
+                        "currency": {"type": "string"},
+                        "rows": {"type": "integer"},
+                        "max_price": {"type": "number"},
+                        "min_review_score": {"type": "number"},
+                    },
+                    "required": ["destination", "checkin", "checkout"],
+                },
+                classification="external",
+                side_effect="READ_ONLY",
+                freshness="live",
+                risk="read",
+                handler=accommodation_caps.search_accommodations,
+                tags=["travel", "accommodation", "booking"],
+            )
+        )
+        self.register(
+            CapabilitySpec(
+                capability="preview_accommodation",
+                description=(
+                    "Validate one selected accommodation product against the provider "
+                    "immediately before booking. Returns the CURRENT total, policies, "
+                    "payment options and a short-lived preview_id. This is consultative: "
+                    "it NEVER creates a reservation. Use it after the person selected a "
+                    "specific search result and before asking for authority to spend."
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "accommodation_id": {
+                            "description": "Accommodation id from search",
+                            "anyOf": [{"type": "integer"}, {"type": "string"}],
+                        },
+                        "checkin": {"type": "string", "description": "YYYY-MM-DD"},
+                        "checkout": {"type": "string", "description": "YYYY-MM-DD"},
+                        "products": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "id": {"type": "string"},
+                                    "number_of_adults": {"type": "integer", "minimum": 1},
+                                    "children": {
+                                        "type": "array",
+                                        "items": {"type": "integer", "minimum": 0, "maximum": 17},
+                                    },
+                                },
+                                "required": ["id", "number_of_adults"],
+                            },
+                        },
+                        "currency": {"type": "string"},
+                        "country": {"type": "string"},
+                        "platform": {
+                            "type": "string",
+                            "enum": ["android", "desktop", "ios", "mobile", "tablet"],
+                        },
+                        "travel_purpose": {
+                            "type": "string",
+                            "enum": ["business", "leisure"],
+                        },
+                    },
+                    "required": [
+                        "accommodation_id", "checkin", "checkout", "products"
+                    ],
+                },
+                classification="external",
+                side_effect="READ_ONLY",
+                freshness="live",
+                risk="read",
+                handler=accommodation_caps.preview_accommodation,
+                tags=["travel", "accommodation", "booking"],
             )
         )
 
