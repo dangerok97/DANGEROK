@@ -100,6 +100,7 @@ _EXECUTABLE = {
     "document.create",
     "comparison.run",
     "mail.draft",
+    "mail.send",
     # V3.9 Sprint 3 — the first real write. A personal calendar entry is
     # reversible in two taps, costs nothing, commits nobody, reaches nobody
     # else, and can be read back afterwards — which is what actually decided
@@ -147,6 +148,7 @@ _REAL = {
     "comparison.run",
     "document.create",
     "mail.draft",
+    "mail.send",
     "phone.call",
 }
 
