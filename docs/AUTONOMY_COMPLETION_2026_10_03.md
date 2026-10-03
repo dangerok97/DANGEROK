@@ -11,9 +11,9 @@ autorizzazione concreta; sviluppare i flussi non equivale a effettuarli.
 
 | Passo | Risultato da dimostrare | Stato |
 |---|---|---|
-| P1 — Partenze | Appuntamento → percorso corrente → valutazione utile → riesame, invalidazione e navigazione | 70 test locali PASS; percorsi cloud reali, decisione avviso ancora in verifica |
+| P1 — Partenze | Appuntamento → percorso corrente → valutazione utile → riesame, invalidazione e navigazione | Verificato backend/cloud e navigazione web; push su dispositivo resta P6 |
 | P0 — Iniziativa | Calendario, documenti, comunicazioni e cambi vita avviano lavoro utile senza duplicati o falsa completezza | Da consolidare con scenari completi |
-| P2 — Occupatene tu | Lavoro autorizzato prosegue dopo attese e riavvii, verifica il risultato, comunica esito o blocco concreto | Da completare |
+| P2 — Occupatene tu | Lavoro autorizzato prosegue dopo attese e riavvii, verifica il risultato, comunica esito o blocco concreto | In corso: esecuzione locale e ripresa autorizzata |
 | P3 — Risparmio | Costi annui completi, condizioni ed eleggibilità distinguibili dalle sole componenti di vendita; risultato misurabile | Da completare |
 | P4 — Conoscenza | Routine e preferenze aiutano decisioni; luoghi nominati/confermati, nessuna attribuzione inventata | Da completare |
 | P5 — Interfaccia | Azioni pertinenti e funzionanti lungo l'intero percorso del lavoro | Da completare |
@@ -92,3 +92,26 @@ la scelta del mezzo resta dell'utente, quella della rilevanza resta del modello.
 70 test locali PASS, inclusi fusi misti e cambio all'ora solare. La terza
 prova aspetta fino a sei minuti senza scansioni forzate né lettura preventiva
 dell'endpoint dei percorsi: osserva il lavoro avviato dal calendario.
+
+## P1 — Prova positiva e passaggio a P0/P2
+
+Commit applicativo `c5235bb6bf170535ec68977f051aa0dfc09178d0`, CI
+`37148119354` SUCCESS; backend `ac97c24d-4da8-49cc-94f3-390c21d05e85`
+SUCCESS. 70 test mirati locali PASS. Terza prova cloud: 13 verifiche PASS.
+La scheda è apparsa autonomamente dopo circa 160 secondi, senza Home/chat,
+scansione manuale o lettura preventiva dell'endpoint partenze. Percorsi reali
+Mapbox per tre mezzi; margine esplicito; dettaglio leggibile; wake durevole;
+spostamento evento e revoca posizione rendono la vecchia scheda illeggibile
+(409); revoca cancella il riesame. Nessuna chiamata né push a persone.
+
+Browser autenticato: comando «Portami al Colosseo, devo arrivare oggi alle
+22:15». In assenza di posizione utilizzabile ORA dichiara il limite, non
+inventa tempi e offre Google Maps. Tap verificato: si apre Maps sul Colosseo.
+La posizione usata dal browser cloud non rappresenta quella dell'iPhone.
+Screenshot reale salvato: `ora-p1-navigation-without-position-20261003.jpg`.
+La prova nativa e le notifiche ricevute rimangono esplicitamente P6.
+
+Report P1 consegnato con screenshot; prossimo lavoro già avviato: P0/P2.
+Rischi da coprire: esecuzione autorizzata dopo riavvio, concorrenza sulle
+modifiche calendario, scelta non equivalente a prenotazione confermata,
+esito osservato prima di chiudere il lavoro, nessun duplicato.
