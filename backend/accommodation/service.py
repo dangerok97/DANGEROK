@@ -124,8 +124,37 @@ class AccommodationService:
             [("owner_id", 1), ("id", 1)], unique=True, name="owner_preview_id"
         )
         await self.db[self.PREVIEWS].create_index(
-            "expires_at", expireAfterSeconds=0, name="preview_ttl"
+            [("status", 1), ("expires_at", 1)], name="preview_expiry"
         )
+
+    async def cleanup_expired(self) -> int:
+        """Revoke expired provider tokens before deleting their metadata."""
+        if self.db is None:
+            return 0
+        now = datetime.now(timezone.utc)
+        rows = await self.db[self.PREVIEWS].find(
+            {"status": "ready", "expires_at": {"$lte": now}},
+            {"_id": 0, "id": 1, "owner_id": 1, "token_ref": 1},
+        ).to_list(100)
+        if not rows:
+            return 0
+        from deps import get_token_vault
+        vault = get_token_vault()
+        revoked = 0
+        for row in rows:
+            ref = str(row.get("token_ref") or "")
+            if ref:
+                try:
+                    await vault.revoke(ref)
+                except Exception:
+                    # The provider token is expired already; keep the record so
+                    # a later cleanup can retry removing the encrypted copy.
+                    continue
+            await self.db[self.PREVIEWS].delete_one({
+                "id": row.get("id"), "owner_id": row.get("owner_id")
+            })
+            revoked += 1
+        return revoked
 
     def readiness(self) -> Dict[str, Any]:
         return {
@@ -238,6 +267,9 @@ class AccommodationService:
                 "Booking.com Demand API non è configurata.",
             )
 
+        await self.ensure_indexes()
+        await self.cleanup_expired()
+
         try:
             result = await self.booking.preview(
                 accommodation_id=accommodation_id,
@@ -296,7 +328,6 @@ class AccommodationService:
             ) from exc
 
         public_data = _strip_secret(data, "order_token")
-        await self.ensure_indexes()
         await self.db[self.PREVIEWS].insert_one({
             "id": preview_id,
             "owner_id": owner_id,
