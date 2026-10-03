@@ -166,9 +166,9 @@ _SIMULATED = {"navigation.open"}
 _CONNECTOR = {
     "calendar.read": "calendar_google",
     "calendar.write": "calendar_google",
-    "mail.read": "mail",
-    "mail.metadata": "mail",
-    "mail.send": "mail",
+    "mail.read": "mail_gmail",
+    "mail.metadata": "mail_gmail",
+    "mail.send": "mail_gmail",
     "contacts.read": "contacts",
     "location.read": "location",
 }
@@ -177,7 +177,7 @@ _CONNECTOR = {
 # the connector at large. Asking with a wildcard where the person granted one
 # instance is the same shape of mistake as asking the wrong connector, and it
 # fails the same silent way.
-_PER_INSTANCE = {"calendar_google"}
+_PER_INSTANCE = {"calendar_google", "mail_gmail"}
 
 
 @dataclass
