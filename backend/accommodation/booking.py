@@ -337,10 +337,19 @@ class BookingDemandClient:
                 retryable=False,
             )
 
+        try:
+            accommodation_number = int(accommodation_id)
+        except (TypeError, ValueError) as exc:
+            raise BookingProviderError(
+                "invalid_accommodation_id",
+                "L'identificativo dell'alloggio non è valido.",
+                retryable=False,
+            ) from exc
+
         payload = {
             "currency": currency.upper(),
             "accommodation": {
-                "id": int(accommodation_id),
+                "id": accommodation_number,
                 "booker": booker,
                 "checkin": checkin,
                 "checkout": checkout,
