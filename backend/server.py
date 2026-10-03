@@ -531,6 +531,15 @@ async def startup():
     except Exception:
         logger.exception("Market watch indexes failed (non-fatal)")
 
+    try:
+        from accommodation.service import AccommodationService
+        accommodation = AccommodationService(db)
+        await accommodation.ensure_indexes()
+        await accommodation.cleanup_expired()
+        logger.info("Accommodation preview indexes ready")
+    except Exception:
+        logger.exception("Accommodation preview bootstrap failed (non-fatal)")
+
     # Ambient presence and delivery (V3.8) — plan lifecycle, and the TTL that
     # keeps the record of ORA's own work a working note rather than a diary.
     try:
