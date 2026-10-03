@@ -1,3 +1,17 @@
+## 3 ottobre 2026 — Primo provider reale per ricerca alloggi
+
+Aggiunto il dominio `accommodation` con adattatore Booking.com Demand API
+v3.2. La ricerca usa disponibilità e prezzi del provider, recupera i dettagli
+delle strutture, normalizza prezzo/currency/product id e non dichiara mai
+copertura dell'intero web. La destinazione può arrivare come coordinate oppure
+essere risolta con il Mapbox già configurato; omonimi geografici distinti non
+vengono scelti automaticamente. Nuove rotte autenticate:
+`GET /api/accommodations/providers` e `POST /api/accommodations/search`.
+Senza credenziali partner il sistema risponde esplicitamente
+`provider_not_configured`: nessun dato simulato e nessuna finta disponibilità.
+Questo blocco è read-only; preview ordine, consenso alla spesa e creazione
+della prenotazione restano nel blocco successivo.
+
 ## 28 settembre 2026 — Trailer pubblicato e verificato
 
 Web Railway 6b13a563-2f09-4239-a788-bb8eed4d6750, commit
