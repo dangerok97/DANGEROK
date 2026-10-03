@@ -222,6 +222,8 @@ async def test_calendar_conflict_choice_becomes_one_authorised_verified_local_mo
     monkeypatch.setattr(reasoning, "interpret_calendar_conflict_choice", AsyncMock(
         return_value={"target_ref": refs[1], "requested_time": "12:00",
                       "requested_date": "", "reasoning": "Ha scelto il secondo."}))
+    monkeypatch.setattr(reasoning, "interpret_calendar_coordination", AsyncMock(
+        return_value={"mode": "direct", "reasoning": "È un impegno personale."}))
     monkeypatch.setattr(reasoning, "choose_next_action", AsyncMock(
         return_value={"decision": "execute", "step_id": "", "reasoning": "La scelta è completa."}))
     monkeypatch.setattr(reasoning, "assess_authority", AsyncMock(return_value={
@@ -242,12 +244,19 @@ async def test_calendar_conflict_choice_becomes_one_authorised_verified_local_mo
     goal_id = created["goal_id"]
     before = await get_manual_event(db, "alice", second["id"])
 
-    prepared = await service.answer(
+    coordination = await service.answer(
         "alice", goal_id, reply="Tieni il primo e sposta il secondo alle 12"
     )
-    assert prepared["state"] == "awaiting_authority"
+    assert coordination["state"] == "waiting_for_person"
+    assert "confermato" in coordination["asks"].lower()
     still = await get_manual_event(db, "alice", second["id"])
     assert still["attributes"]["starts_at"] == before["attributes"]["starts_at"]
+
+    prepared = await service.answer(
+        "alice", goal_id,
+        reply="È solo un impegno mio: puoi spostarlo direttamente."
+    )
+    assert prepared["state"] == "awaiting_authority"
     plan = await service.repo.plan_for("alice", goal_id)
     move = [s for s in plan.steps if s.step_type == "execute"][-1]
     assert move.status == "blocked"
@@ -350,6 +359,8 @@ async def test_calendar_conflict_authorisation_survives_service_restart(monkeypa
     monkeypatch.setattr(reasoning, "interpret_calendar_conflict_choice", AsyncMock(
         return_value={"target_ref": refs[1], "requested_time": "12:00",
                       "requested_date": "", "reasoning": "secondo alle dodici"}))
+    monkeypatch.setattr(reasoning, "interpret_calendar_coordination", AsyncMock(
+        return_value={"mode": "direct", "reasoning": "È un impegno personale."}))
     monkeypatch.setattr(reasoning, "choose_next_action", AsyncMock(
         return_value={"decision": "execute", "step_id": "", "reasoning": "procedi"}))
     monkeypatch.setattr(reasoning, "assess_authority", AsyncMock(return_value={
@@ -368,8 +379,12 @@ async def test_calendar_conflict_authorisation_survives_service_restart(monkeypa
     created = await before_restart.consider("alice", situation={},
         opportunity_id="opp_restart", source_kind="opportunity", source_refs=refs)
     goal_id = created["goal_id"]
-    waiting = await before_restart.answer(
+    coordination = await before_restart.answer(
         "alice", goal_id, reply="Lascia il primo e sposta il secondo alle 12"
+    )
+    assert coordination["state"] == "waiting_for_person"
+    waiting = await before_restart.answer(
+        "alice", goal_id, reply="È soltanto mio, spostalo nel calendario."
     )
     assert waiting["state"] == "awaiting_authority"
 
@@ -423,6 +438,8 @@ async def test_calendar_conflict_concurrent_change_wins_over_old_approval(monkey
     monkeypatch.setattr(reasoning, "interpret_calendar_conflict_choice", AsyncMock(
         return_value={"target_ref": refs[1], "requested_time": "12:00",
                       "requested_date": "", "reasoning": "secondo alle dodici"}))
+    monkeypatch.setattr(reasoning, "interpret_calendar_coordination", AsyncMock(
+        return_value={"mode": "direct", "reasoning": "È un impegno personale."}))
     monkeypatch.setattr(reasoning, "choose_next_action", AsyncMock(
         return_value={"decision": "execute", "step_id": "", "reasoning": "procedi"}))
     monkeypatch.setattr(reasoning, "assess_authority", AsyncMock(return_value={
@@ -443,8 +460,12 @@ async def test_calendar_conflict_concurrent_change_wins_over_old_approval(monkey
     created = await service.consider("alice", situation={},
         opportunity_id="opp_concurrent", source_kind="opportunity", source_refs=refs)
     goal_id = created["goal_id"]
-    waiting = await service.answer(
+    coordination = await service.answer(
         "alice", goal_id, reply="Lascia il primo e sposta il secondo alle 12"
+    )
+    assert coordination["state"] == "waiting_for_person"
+    waiting = await service.answer(
+        "alice", goal_id, reply="È soltanto mio, spostalo nel calendario."
     )
     assert waiting["state"] == "awaiting_authority"
 
@@ -471,3 +492,69 @@ async def test_calendar_conflict_concurrent_change_wins_over_old_approval(monkey
     ).to_list(10)
     assert len(attempts) == 1
     assert attempts[0]["status"] == "prepared"
+
+
+@pytest.mark.asyncio
+async def test_external_calendar_commitment_is_not_moved_without_real_confirmation(monkeypatch):
+    from datetime import datetime, timedelta
+    from zoneinfo import ZoneInfo
+    from home.manual_event import create_manual_event, get_manual_event, home_event_times
+    from agent.needs import NeedService
+    from agent.service import AgentService
+
+    db = AsyncMongoMockClient().test
+    day = (datetime.now(ZoneInfo("Europe/Rome")) + timedelta(days=7)).date().isoformat()
+    first_start, first_end = home_event_times(day, "10:00", "Europe/Rome")
+    second_start, second_end = home_event_times(day, "10:15", "Europe/Rome")
+    first = await create_manual_event(
+        db, "alice", title="Ritiro documento",
+        start=first_start, end=first_end, tz_name="Europe/Rome",
+    )
+    second = await create_manual_event(
+        db, "alice", title="Appuntamento con il tecnico",
+        start=second_start, end=second_end, tz_name="Europe/Rome",
+    )
+    refs = ["calendar:" + first["id"], "calendar:" + second["id"]]
+    await db.opportunities.insert_one({
+        "id": "opp_external", "owner_id": "alice", "status": "active",
+        "agent_review_revision": "rev_external",
+    })
+
+    monkeypatch.setattr(AgentService, "_note_ambient", AsyncMock())
+    monkeypatch.setattr(NeedService, "offer_to_delivery", AsyncMock())
+    monkeypatch.setattr(reasoning, "decide_goal",
+        AsyncMock(side_effect=AssertionError("overlap is code-grounded")))
+    monkeypatch.setattr(reasoning, "interpret_calendar_conflict_choice", AsyncMock(
+        return_value={"target_ref": refs[1], "requested_time": "12:00",
+                      "requested_date": "", "reasoning": "secondo alle dodici"}))
+    monkeypatch.setattr(reasoning, "interpret_calendar_coordination", AsyncMock(
+        return_value={"mode": "needs_confirmation",
+                      "reasoning": "Il tecnico deve accettare il nuovo orario."}))
+
+    service = AgentService(db)
+    created = await service.consider(
+        "alice", situation={}, opportunity_id="opp_external",
+        source_kind="opportunity", source_refs=refs,
+    )
+    goal_id = created["goal_id"]
+    before = await get_manual_event(db, "alice", second["id"])
+
+    coordination = await service.answer(
+        "alice", goal_id, reply="Sposta il tecnico alle 12"
+    )
+    assert coordination["state"] == "waiting_for_person"
+    external = await service.answer(
+        "alice", goal_id,
+        reply="Deve confermarlo il tecnico, non posso deciderlo da solo."
+    )
+    assert external["state"] == "waiting_for_person"
+    assert "non sposto ancora" in external["asks"].lower()
+
+    after = await get_manual_event(db, "alice", second["id"])
+    assert after["attributes"]["starts_at"] == before["attributes"]["starts_at"]
+    assert await db.agent_action_attempts.count_documents(
+        {"owner_id": "alice", "goal_id": goal_id}
+    ) == 0
+    assert await db.agent_receipts.count_documents(
+        {"owner_id": "alice", "goal_id": goal_id}
+    ) == 0

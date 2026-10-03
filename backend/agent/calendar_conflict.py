@@ -187,25 +187,109 @@ async def resolution_step_from_answer(db, owner_id, goal, reply, *, language="it
     if not node or node.get("status") != "active":
         return None, "calendar_changed"
 
+    proposal = {
+        "target_ref": target_ref,
+        "title": title,
+        "day": day,
+        "requested_time": requested_time,
+        "start_datetime": new_start_raw,
+        "end_datetime": new_end_raw,
+        "timezone": target[2].key,
+        "expected_revision": str(node.get("updated_at") or ""),
+    }
     return ActionStep(
-        intent=f"Spostare «{title}» al {day} alle {requested_time}",
+        intent=f"Verificare se «{title}» può essere spostato direttamente",
+        step_type="ask_user",
+        asks=(
+            f"«{title}» è un impegno solo tuo, che posso spostare nel tuo "
+            "calendario, oppure il nuovo orario deve essere confermato da "
+            "un'altra persona o struttura?"
+        ),
+        ask_kind="knowledge",
+        parameters={**proposal, "conflict_followup": "coordination"},
+    ), ""
+
+
+
+async def resolution_step_from_coordination_answer(
+    db, owner_id, goal, prior_step, reply, *, language="it"
+):
+    """Continue a prepared conflict only after real-world ownership is clear."""
+    from agent.models import ActionStep
+    from agent.reasoning import interpret_calendar_coordination
+
+    params = dict(prior_step.parameters or {})
+    target_ref = str(params.get("target_ref") or "")
+    if params.get("conflict_followup") != "coordination" or not target_ref:
+        return None, "not_coordination"
+
+    pair = await active_home_pair(db, owner_id, goal.source_refs)
+    if pair is None:
+        return None, "calendar_changed"
+    node = await get_manual_event(db, owner_id, target_ref.removeprefix("calendar:"))
+    if not node or node.get("status") != "active":
+        return None, "calendar_changed"
+    if str(node.get("updated_at") or "") != str(params.get("expected_revision") or ""):
+        return None, "calendar_changed"
+
+    answer = await interpret_calendar_coordination(reply, language=language)
+    if answer is None:
+        return None, "choice_unavailable"
+    mode = answer.get("mode")
+
+    if mode == "unclear":
+        return ActionStep(
+            intent="Chiarire chi deve confermare lo spostamento",
+            step_type="ask_user",
+            asks=(
+                "Per evitare di dirti che un appuntamento è spostato quando "
+                "ho cambiato solo il calendario: questo nuovo orario dipende "
+                "solo da te oppure deve accettarlo qualcun altro?"
+            ),
+            ask_kind="knowledge",
+            parameters={**params, "conflict_followup": "coordination"},
+        ), ""
+
+    if mode == "needs_confirmation":
+        return ActionStep(
+            intent="Ottenere la conferma reale del nuovo orario",
+            step_type="ask_user",
+            asks=(
+                f"Non sposto ancora «{params.get('title') or 'l’impegno'}»: "
+                "serve una conferma esterna. Dimmi chi deve confermare e, se "
+                "vuoi che me ne occupi io, il canale o recapito verificabile "
+                "da usare."
+            ),
+            ask_kind="knowledge",
+            parameters={
+                **params,
+                "conflict_followup": "external_confirmation",
+                "requires_external_confirmation": True,
+            },
+        ), ""
+
+    return ActionStep(
+        intent=(
+            f"Spostare «{params.get('title') or 'l’impegno'}» al "
+            f"{params.get('day')} alle {params.get('requested_time')}"
+        ),
         step_type="execute",
         capability_needed="calendar.local.write",
         input_refs=[target_ref],
         expected_result=(
-            f"«{title}» risulta nel calendario ORA al {day} alle {requested_time} "
-            "e la modifica è stata riletta."
+            f"«{params.get('title') or 'L’impegno'}» risulta nel calendario ORA "
+            f"al {params.get('day')} alle {params.get('requested_time')} e la "
+            "modifica è stata riletta."
         ),
         external_effect=True,
         effect_type="modify",
         effect_target="il tuo calendario ORA",
         reaches_somebody_else=False,
         parameters={
-            "start_datetime": new_start_raw,
-            "end_datetime": new_end_raw,
-            "timezone": target[2].key,
-            "expected_revision": str(node.get("updated_at") or ""),
+            "start_datetime": params.get("start_datetime"),
+            "end_datetime": params.get("end_datetime"),
+            "timezone": params.get("timezone"),
+            "expected_revision": params.get("expected_revision"),
         },
         reversibility="easily",
     ), ""
-

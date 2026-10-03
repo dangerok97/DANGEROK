@@ -368,6 +368,44 @@ async def interpret_calendar_conflict_choice(
     }
 
 
+async def interpret_calendar_coordination(
+    reply: str, *, language: str = "it",
+) -> Optional[Dict[str, Any]]:
+    """Classify who must agree to a proposed calendar move.
+
+    This never grants authority and never changes an event. It only separates
+    a personal calendar edit from a real-world appointment that another person
+    or organisation still has to confirm.
+    """
+    instruction = (
+        "The person is answering whether a proposed calendar move is purely "
+        "their own commitment or whether somebody else (a doctor, office, "
+        "technician, hotel, colleague, business, etc.) has to agree.\n\n"
+        "Return direct only when they clearly say it is their own commitment "
+        "or explicitly say changing their calendar is enough. Return "
+        "needs_confirmation when another person/organisation must accept the "
+        "new time, or when they say it is an appointment/booking that has to be "
+        "changed with the provider. Otherwise return unclear.\n\n"
+        "Do not treat permission to edit a calendar as confirmation from a "
+        "third party.\n\n"
+        "Return JSON: {\"mode\": \"direct|needs_confirmation|unclear\", "
+        "\"reasoning\": \"one short sentence\"}."
+    )
+    data = await _ask_model(
+        _DISCIPLINE + "\n\n" + instruction,
+        _dump({"reply": reply[:1200]}),
+    )
+    if not isinstance(data, dict):
+        return None
+    mode = str(data.get("mode") or "").strip()
+    if mode not in ("direct", "needs_confirmation", "unclear"):
+        mode = "unclear"
+    return {
+        "mode": mode,
+        "reasoning": str(data.get("reasoning") or "")[:300],
+    }
+
+
 async def verify_goal(
     goal: Dict[str, Any],
     *,

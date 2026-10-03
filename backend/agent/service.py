@@ -1553,10 +1553,50 @@ class AgentService:
         continuation_reason = ""
         from agent.calendar_conflict import is_home_calendar_pair
         if is_home_calendar_pair(goal):
-            from agent.calendar_conflict import resolution_step_from_answer
-            continuation, continuation_reason = await resolution_step_from_answer(
-                self.db, owner_id, goal, reply, language=language
-            )
+            followup = str((answered.parameters or {}).get("conflict_followup") or "")
+            if followup == "coordination":
+                from agent.calendar_conflict import resolution_step_from_coordination_answer
+                continuation, continuation_reason = await resolution_step_from_coordination_answer(
+                    self.db, owner_id, goal, answered, reply, language=language
+                )
+            elif followup == "external_confirmation":
+                continuation = ActionStep(
+                    ordinal=len(plan.steps),
+                    intent="Preparare il contatto per ottenere la conferma esterna",
+                    step_type="ask_user",
+                    asks=(
+                        "Ho registrato chi deve confermare. Non considero ancora "
+                        "spostato l’appuntamento finché non arriva una conferma "
+                        "reale. Preferisci che la richiesta parta come messaggio "
+                        "o come chiamata?"
+                    ),
+                    ask_kind="knowledge",
+                    parameters={
+                        **dict(answered.parameters or {}),
+                        "conflict_followup": "external_channel",
+                    },
+                )
+            elif followup == "external_channel":
+                continuation = ActionStep(
+                    ordinal=len(plan.steps),
+                    intent="Collegare un canale reale per chiedere lo spostamento",
+                    step_type="ask_user",
+                    asks=(
+                        "La richiesta è pronta, ma non la considero inviata né "
+                        "l’appuntamento spostato finché un canale reale non la "
+                        "consegna e la risposta non viene verificata."
+                    ),
+                    ask_kind="knowledge",
+                    parameters={
+                        **dict(answered.parameters or {}),
+                        "conflict_followup": "external_channel",
+                    },
+                )
+            else:
+                from agent.calendar_conflict import resolution_step_from_answer
+                continuation, continuation_reason = await resolution_step_from_answer(
+                    self.db, owner_id, goal, reply, language=language
+                )
             if continuation_reason == "choice_unavailable":
                 # The person did answer. A temporary interpretation failure is
                 # not permission to guess, and not a reason to mark the answer
