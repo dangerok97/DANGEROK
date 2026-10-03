@@ -389,6 +389,11 @@ class ActionEffect(BaseModel):
 
     reversibility: Reversibility = "easily"
     expected_outcome: str = Field(default="", max_length=300)
+    # Opaque semantic binding for an immutable prepared artifact (for example
+    # the hash of an outbound email draft or booking quote). It is deliberately
+    # not rendered to the person, but it participates in the approval hash so
+    # changing the prepared content invalidates an earlier yes.
+    effect_binding: str = Field(default="", max_length=128)
 
     def fingerprint(self) -> str:
         """
@@ -406,6 +411,7 @@ class ActionEffect(BaseModel):
             "1" if self.legal_effect else "0",
             "1" if self.public_visibility else "0",
             "1" if self.destructive else "0",
+            self.effect_binding.strip().lower(),
         ])
         return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:32]
 
