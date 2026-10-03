@@ -37,6 +37,11 @@ WANTED_HEADERS = ("From", "To", "Cc", "Subject", "Date", "List-Unsubscribe")
 # more of somebody's mail.
 MAX_BODY_CHARS = 1200
 
+# Attachments are never part of the ordinary mailbox sync. They can be read
+# only after the relevance judgement asks for one, and even then this is the
+# hard provider-side ceiling before bytes can leave the connector.
+MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024
+
 
 class GmailAPIError(Exception):
     def __init__(self, status_code: int, message: str = ""):
@@ -77,6 +82,15 @@ class GmailProviderProtocol(Protocol):
     async def body_of(
         self, *, access_token: str, message_id: str,
     ) -> str: ...
+
+    async def attachment_manifest(
+        self, *, access_token: str, message_id: str,
+    ) -> List[Dict[str, Any]]: ...
+
+    async def attachment_bytes(
+        self, *, access_token: str, message_id: str,
+        attachment_id: str = "", part_id: str = "",
+    ) -> bytes: ...
 
 
 class GmailProvider:
@@ -177,6 +191,84 @@ class GmailProvider:
             text = str(data.get("snippet") or "")
         return text[:MAX_BODY_CHARS]
 
+    async def attachment_manifest(
+        self, *, access_token: str, message_id: str,
+    ) -> List[Dict[str, Any]]:
+        """Read descriptors only. No attachment bytes leave Gmail here."""
+        data = await self._get(
+            f"/messages/{message_id}", access_token=access_token,
+            params=[("format", "full")],
+        )
+        return _attachment_parts(data.get("payload") or {})
+
+    async def attachment_bytes(
+        self, *, access_token: str, message_id: str,
+        attachment_id: str = "", part_id: str = "",
+    ) -> bytes:
+        """Read one attachment using a locator returned by the manifest."""
+        raw = ""
+        if attachment_id:
+            data = await self._get(
+                f"/messages/{message_id}/attachments/{attachment_id}",
+                access_token=access_token,
+            )
+            raw = str(data.get("data") or "")
+        elif part_id:
+            data = await self._get(
+                f"/messages/{message_id}", access_token=access_token,
+                params=[("format", "full")],
+            )
+            part = _part_by_id(data.get("payload") or {}, part_id)
+            raw = str(((part or {}).get("body") or {}).get("data") or "")
+        blob = _decode_urlsafe(raw)
+        if len(blob) > MAX_ATTACHMENT_BYTES:
+            raise GmailAPIError(413, "attachment_too_large")
+        return blob
+
+
+def _decode_urlsafe(raw: str) -> bytes:
+    if not raw:
+        return b""
+    try:
+        padded = raw + ("=" * (-len(raw) % 4))
+        return base64.urlsafe_b64decode(padded.encode("ascii"))
+    except Exception:
+        return b""
+
+
+def _part_by_id(part: Dict[str, Any], part_id: str) -> Optional[Dict[str, Any]]:
+    if str(part.get("partId") or "") == str(part_id or ""):
+        return part
+    for child in part.get("parts") or []:
+        found = _part_by_id(child, part_id)
+        if found is not None:
+            return found
+    return None
+
+
+def _attachment_parts(part: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Flatten named file parts without returning body text or bytes."""
+    out: List[Dict[str, Any]] = []
+    filename = str(part.get("filename") or "").strip()
+    body = part.get("body") or {}
+    if filename:
+        disposition = ""
+        for header in part.get("headers") or []:
+            if str(header.get("name") or "").lower() == "content-disposition":
+                disposition = str(header.get("value") or "").lower()
+                break
+        out.append({
+            "filename": filename[:255],
+            "mime_type": str(part.get("mimeType") or "application/octet-stream")[:120],
+            "attachment_id": str(body.get("attachmentId") or "")[:300],
+            "part_id": str(part.get("partId") or "")[:120],
+            "size": int(body.get("size") or 0),
+            "inline": disposition.startswith("inline"),
+        })
+    for child in part.get("parts") or []:
+        out.extend(_attachment_parts(child))
+    return out
+
 
 def _plain_text(part: Dict[str, Any]) -> str:
     """Depth-first walk for the first text/plain body. No HTML rendering."""
@@ -217,10 +309,24 @@ class FakeGmailProvider:
         # una cosa che succede da sola in ogni casella viva.
         self.vanished: set = set()
         self.body_reads: List[str] = []
+        self.attachment_reads: List[str] = []
+        self.attachment_blobs: Dict[str, bytes] = {}
 
     def add(self, message_id: str, *, thread_id: str, headers: Dict[str, str],
             body: str = "", labels: Optional[List[str]] = None,
             internal_date: Optional[str] = None, attachments: int = 0) -> None:
+        parts: List[Dict[str, Any]] = []
+        for n in range(attachments):
+            aid = f"{message_id}:a{n}"
+            blob = b"%PDF-1.4\n% fake attachment\n%%EOF"
+            self.attachment_blobs[aid] = blob
+            parts.append({
+                "partId": f"a{n}",
+                "filename": f"a{n}.pdf",
+                "mimeType": "application/pdf",
+                "headers": [{"name": "Content-Disposition", "value": "attachment"}],
+                "body": {"attachmentId": aid, "size": len(blob)},
+            })
         self.messages[message_id] = {
             "id": message_id,
             "threadId": thread_id,
@@ -229,12 +335,35 @@ class FakeGmailProvider:
             "snippet": (body or "")[:80],
             "payload": {
                 "headers": [{"name": k, "value": v} for k, v in headers.items()],
-                "parts": [{"filename": f"a{n}.pdf"} for n in range(attachments)],
+                "parts": parts,
             },
         }
         self.bodies[message_id] = body
         self.order.append(message_id)
         self.history_id = str(int(self.history_id) + 1)
+
+    def add_attachment(
+        self, message_id: str, *, filename: str, mime_type: str,
+        content: bytes, inline: bool = False,
+    ) -> str:
+        if message_id not in self.messages:
+            raise KeyError(message_id)
+        parts = (self.messages[message_id].get("payload") or {}).setdefault("parts", [])
+        idx = len(parts)
+        aid = f"{message_id}:att{idx}"
+        blob = bytes(content)
+        self.attachment_blobs[aid] = blob
+        parts.append({
+            "partId": f"att{idx}",
+            "filename": filename,
+            "mimeType": mime_type,
+            "headers": [{
+                "name": "Content-Disposition",
+                "value": "inline" if inline else "attachment",
+            }],
+            "body": {"attachmentId": aid, "size": len(blob)},
+        })
+        return aid
 
     async def profile(self, *, access_token: str) -> Dict[str, Any]:
         return {"emailAddress": self.address, "historyId": self.history_id}
@@ -272,6 +401,22 @@ class FakeGmailProvider:
     async def body_of(self, *, access_token: str, message_id: str) -> str:
         self.body_reads.append(message_id)
         return str(self.bodies.get(message_id) or "")[:MAX_BODY_CHARS]
+
+    async def attachment_manifest(
+        self, *, access_token: str, message_id: str,
+    ) -> List[Dict[str, Any]]:
+        found = self.messages.get(message_id) or {}
+        return _attachment_parts((found.get("payload") or {}))
+
+    async def attachment_bytes(
+        self, *, access_token: str, message_id: str,
+        attachment_id: str = "", part_id: str = "",
+    ) -> bytes:
+        self.attachment_reads.append(f"{message_id}:{attachment_id or part_id}")
+        blob = bytes(self.attachment_blobs.get(attachment_id, b""))
+        if len(blob) > MAX_ATTACHMENT_BYTES:
+            raise GmailAPIError(413, "attachment_too_large")
+        return blob
 
 
 def build_gmail_provider() -> GmailProviderProtocol:

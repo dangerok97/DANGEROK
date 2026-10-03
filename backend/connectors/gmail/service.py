@@ -62,6 +62,21 @@ logger = logging.getLogger("ora.connectors.gmail")
 # work — the rest is still there on the next pass.
 MAX_PER_SYNC = 25
 
+# Reading attachments is a relevance action, never a sync action. These hard
+# bounds make the cost/privacy surface finite even if a message carries many
+# files or lies about what it contains.
+MAX_RELEVANT_ATTACHMENTS = 3
+MAX_RELEVANT_ATTACHMENT_BYTES = 10 * 1024 * 1024
+_RELEVANT_ATTACHMENT_MIMES = {
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "text/plain", "text/csv", "text/markdown",
+    "image/png", "image/jpeg", "image/webp", "image/heic", "image/heif",
+}
+
 # How far back a resync reaches when the cursor has expired. Recent enough to
 # recover the gap, short enough not to become an import of somebody's archive.
 RESYNC_QUERY = "newer_than:7d"
@@ -626,16 +641,19 @@ class GmailReadService:
             return None
         return str(profile.get("historyId") or "") or None
 
-    async def _require_consent(self, *, user_id: str, instance_id: str) -> None:
+    async def _require_consent(
+        self, *, user_id: str, instance_id: str,
+        capability_id: str = CAPABILITY_ID,
+    ) -> None:
         from permissions.errors import ConsentDenied
 
         ok = await self.permissions.check_access(
-            user_id=user_id, capability_id=CAPABILITY_ID, connector_id=CONNECTOR_ID,
+            user_id=user_id, capability_id=capability_id, connector_id=CONNECTOR_ID,
             connector_instance_id=instance_id, purpose_id="context_assembly",
         )
         if not ok:
             raise ConsentDenied(
-                capability_id=CAPABILITY_ID, connector_id=CONNECTOR_ID,
+                capability_id=capability_id, connector_id=CONNECTOR_ID,
                 connector_instance_id=instance_id,
             )
 
@@ -674,7 +692,10 @@ class GmailReadService:
         instance = await self.instances.get(user_id, instance_id)
         if not instance:
             raise LookupError("instance_not_found")
-        await self._require_consent(user_id=user_id, instance_id=instance_id)
+        await self._require_consent(
+            user_id=user_id, instance_id=instance_id,
+            capability_id=CAPABILITY_READ_ID,
+        )
         token = await self._access_token(user_id=user_id, instance=instance)
         text = await self.provider.body_of(access_token=token, message_id=message_id)
         await self.permissions.audit.log(
@@ -684,3 +705,144 @@ class GmailReadService:
             data_classification="sensitive",
         )
         return text
+
+
+    async def import_relevant_attachments(
+        self, *, user_id: str, instance_id: str, message_id: str,
+        limit: int = MAX_RELEVANT_ATTACHMENTS,
+    ) -> Dict[str, Any]:
+        """Persist only files a relevance judgement explicitly asked to inspect."""
+        instance = await self.instances.get(user_id, instance_id)
+        if not instance:
+            raise LookupError("instance_not_found")
+        await self._require_consent(
+            user_id=user_id, instance_id=instance_id,
+            capability_id=CAPABILITY_READ_ID,
+        )
+        token = await self._access_token(user_id=user_id, instance=instance)
+        manifest = await self.provider.attachment_manifest(
+            access_token=token, message_id=message_id,
+        )
+        await self.permissions.audit.log(
+            user_id=user_id,
+            event_type="mail.attachment_manifest_read",
+            connector_id=CONNECTOR_ID,
+            connector_instance_id=instance_id,
+            capability_id=CAPABILITY_READ_ID,
+            success=True,
+            records_returned=min(len(manifest), 50),
+            reason_code="judgement_asked",
+            data_classification="sensitive",
+        )
+
+        chosen: List[Dict[str, Any]] = []
+        skipped: List[str] = []
+        max_items = max(1, min(int(limit or 1), MAX_RELEVANT_ATTACHMENTS))
+        for item in manifest:
+            if len(chosen) >= max_items:
+                skipped.append("limit")
+                continue
+            filename = str(item.get("filename") or "").strip()
+            mime = str(
+                item.get("mime_type") or "application/octet-stream"
+            ).lower().split(";")[0].strip()
+            size = int(item.get("size") or 0)
+            if not filename or bool(item.get("inline")):
+                skipped.append("inline_or_unnamed")
+                continue
+            if mime not in _RELEVANT_ATTACHMENT_MIMES:
+                skipped.append("mime")
+                continue
+            if size <= 0 or size > MAX_RELEVANT_ATTACHMENT_BYTES:
+                skipped.append("size")
+                continue
+            if not item.get("attachment_id") and not item.get("part_id"):
+                skipped.append("locator")
+                continue
+            chosen.append(item)
+
+        from deps import get_document_service
+        from documents.service import DocumentValidationError
+
+        documents = get_document_service()
+        imported: List[Dict[str, Any]] = []
+        for item in chosen:
+            try:
+                blob = await self.provider.attachment_bytes(
+                    access_token=token,
+                    message_id=message_id,
+                    attachment_id=str(item.get("attachment_id") or ""),
+                    part_id=str(item.get("part_id") or ""),
+                )
+                if not blob or len(blob) > MAX_RELEVANT_ATTACHMENT_BYTES:
+                    skipped.append("download_size")
+                    continue
+                uploaded = await documents.upload(
+                    user_id=user_id,
+                    content=blob,
+                    original_filename=str(item.get("filename") or "allegato"),
+                    mime_type=str(
+                        item.get("mime_type") or "application/octet-stream"
+                    ),
+                    tags=["email"],
+                    upload_source="gmail_relevant_attachment",
+                )
+                doc = uploaded.get("document") or {}
+                doc_id = str(doc.get("id") or "")
+                locator = str(
+                    item.get("attachment_id") or item.get("part_id") or ""
+                )
+                source_ref = (
+                    f"email_attachment:{instance_id}:{message_id}:{locator}"
+                )[:500]
+                if doc_id:
+                    await self.db.documents.update_one(
+                        {"id": doc_id, "user_id": user_id},
+                        {"$addToSet": {"source_refs": source_ref}},
+                    )
+                    stored = await self.db.documents.find_one(
+                        {"id": doc_id, "user_id": user_id},
+                        {
+                            "_id": 0,
+                            "id": 1, "filename": 1, "mime_type": 1,
+                            "extracted_text": 1, "text_extracted": 1,
+                        },
+                    ) or doc
+                else:
+                    stored = doc
+                imported.append({
+                    "document_id": doc_id,
+                    "filename": str(
+                        stored.get("filename") or item.get("filename") or ""
+                    )[:255],
+                    "mime_type": str(
+                        stored.get("mime_type") or item.get("mime_type") or ""
+                    )[:120],
+                    "duplicate": bool(uploaded.get("duplicate")),
+                    "text_available": bool(stored.get("text_extracted")),
+                    "excerpt": str(stored.get("extracted_text") or "")[:400],
+                })
+                await self.permissions.audit.log(
+                    user_id=user_id,
+                    event_type="mail.attachment_read",
+                    connector_id=CONNECTOR_ID,
+                    connector_instance_id=instance_id,
+                    capability_id=CAPABILITY_READ_ID,
+                    success=True,
+                    records_returned=1,
+                    reason_code="judgement_asked",
+                    data_classification="sensitive",
+                )
+            except DocumentValidationError as exc:
+                skipped.append(f"document_{exc.code}")
+            except Exception as exc:
+                logger.info(
+                    "mail attachment import soft-fail: %s", type(exc).__name__
+                )
+                skipped.append(type(exc).__name__)
+
+        return {
+            "documents": imported,
+            "skipped": skipped[:20],
+            "manifest_count": len(manifest),
+        }

@@ -22,6 +22,7 @@ import ast
 import os
 import sys
 import uuid
+from unittest.mock import AsyncMock
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -432,6 +433,129 @@ def test_one_mailbox_never_answers_for_another_person():
         finally:
             await _clean(db, mine)
             await _clean(db, theirs)
+            client.close()
+
+    _run(body())
+
+
+
+
+def test_a_relevant_attachment_enters_document_service_once(monkeypatch, tmp_path):
+    """A requested attachment reuses the document pipeline and its dedupe."""
+    async def body():
+        client, db = await _db()
+        uid = f"s3_{uuid.uuid4().hex[:8]}"
+        try:
+            from connectors.gmail.provider import FakeGmailProvider
+            from documents.service import DocumentService
+            from documents.storage import LocalFilesystemStorage
+
+            mailbox = FakeGmailProvider()
+            mailbox.add(
+                "m_att", thread_id="t_att",
+                headers={"From": "fornitore@example.com",
+                         "Subject": "Documento richiesto"},
+            )
+            mailbox.add_attachment(
+                "m_att", filename="condizioni.txt", mime_type="text/plain",
+                content=b"Costo annuo 120 euro. Recesso senza penali.",
+            )
+            mailbox.add_attachment(
+                "m_att", filename="logo.png", mime_type="image/png",
+                content=b"decorazione", inline=True,
+            )
+            instance_id = await _instance(db, uid)
+
+            documents = DocumentService(
+                db=db,
+                storage=LocalFilesystemStorage(str(tmp_path / "docs")),
+                life_graph=None,
+                knowledge=None,
+            )
+            monkeypatch.setattr("deps.get_document_service", lambda: documents)
+            try:
+                monkeypatch.setattr(
+                    "documents.intelligence.worker.enqueue_document_job",
+                    AsyncMock(),
+                )
+            except Exception:
+                pass
+
+            service = _service(db, mailbox)
+            first = await service.import_relevant_attachments(
+                user_id=uid, instance_id=instance_id, message_id="m_att",
+            )
+            assert len(first["documents"]) == 1
+            imported = first["documents"][0]
+            assert imported["filename"] == "condizioni.txt"
+            assert imported["text_available"] is True
+            assert "Costo annuo" in imported["excerpt"]
+            assert await db.documents.count_documents({"user_id": uid}) == 1
+            stored = await db.documents.find_one({"user_id": uid}, {"_id": 0})
+            assert stored["upload_source"] == "gmail_relevant_attachment"
+            assert len(stored["source_refs"]) == 1
+            assert stored["source_refs"][0].startswith(
+                f"email_attachment:{instance_id}:m_att:"
+            )
+            assert len(mailbox.attachment_reads) == 1
+
+            second = await service.import_relevant_attachments(
+                user_id=uid, instance_id=instance_id, message_id="m_att",
+            )
+            assert len(second["documents"]) == 1
+            assert second["documents"][0]["duplicate"] is True
+            assert await db.documents.count_documents({"user_id": uid}) == 1
+            assert len(mailbox.attachment_reads) == 2
+        finally:
+            await _clean(db, uid)
+            client.close()
+
+    _run(body())
+
+
+def test_private_mail_content_requires_mail_read_consent():
+    """Metadata consent alone cannot open a body or an attachment."""
+    async def body():
+        client, db = await _db()
+        uid = f"s3_{uuid.uuid4().hex[:8]}"
+        try:
+            from connectors.gmail.service import GmailReadService
+            from permissions.errors import ConsentDenied
+
+            mailbox = _mailbox()
+            mailbox.add(
+                "m_private", thread_id="t",
+                headers={"Subject": "Privato"},
+                body="contenuto", attachments=1,
+            )
+            instance_id = await _instance(db, uid)
+
+            class MetadataOnly(AlwaysConsents):
+                async def check_access(self, **kw):
+                    return kw.get("capability_id") == "mail.metadata"
+
+            service = GmailReadService(
+                db=db, permissions=MetadataOnly(),
+                vault=OpenVault(), provider=mailbox,
+            )
+            assert (
+                await service.sync(user_id=uid, instance_id=instance_id)
+            )["ok"] is True
+
+            with pytest.raises(ConsentDenied):
+                await service.body_for(
+                    user_id=uid, instance_id=instance_id,
+                    message_id="m_private",
+                )
+            with pytest.raises(ConsentDenied):
+                await service.import_relevant_attachments(
+                    user_id=uid, instance_id=instance_id,
+                    message_id="m_private",
+                )
+            assert mailbox.body_reads == []
+            assert mailbox.attachment_reads == []
+        finally:
+            await _clean(db, uid)
             client.close()
 
     _run(body())

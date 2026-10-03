@@ -160,6 +160,11 @@ class DocumentService:
         doc_id = _new_id()
         life_node_id: Optional[str] = None
         knowledge_synced = False
+        source_type = (
+            "user_upload"
+            if upload_source in ("web", "mobile", "user_upload")
+            else str(upload_source or "user_upload")[:60]
+        )
 
         # 1. Crea nodo Life Graph (type=document)
         if self.life_graph is not None:
@@ -174,11 +179,11 @@ class DocumentService:
                         "mime_type": mime,
                         "size": size,
                         "hash": stored.hash,
-                        "source": "user_upload",
+                        "source": source_type,
                         "upload_source": upload_source,
                         "created_at": now,
                     },
-                    origin="user_upload",
+                    origin=source_type,
                 )
                 life_node_id = node["id"]
             except Exception:
@@ -196,7 +201,7 @@ class DocumentService:
                         "tags": list(tags or []),
                         "notes": (notes or "")[:1000],
                     },
-                    source_type="user_upload",
+                    source_type=source_type,
                     actor_type="user",
                     actor_id=user_id,
                     reason=f"document:{doc_id}",
