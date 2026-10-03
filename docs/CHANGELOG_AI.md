@@ -5868,3 +5868,12 @@ Pubblicati backend `1e7515f0` e web `ba7180d5`, entrambi SUCCESS sul commit `1aa
   traffico di oggi come previsione affidabile.
 - 41 test mirati PASS; nessuna schermata fotografata perché il rilascio non è
   stato consentito dal controllo automatico sulla destinazione del push.
+## 2026-10-03 — Conservare i chiarimenti dei numeri condivisi
+
+- Corretto un falso conflitto quando una terza attribuzione viene chiarita
+  su un numero già condiviso: le conferme reciproche attive restano valide.
+- Esclusi dal gruppo record rifiutati/ritirati e dati di altri utenti.
+- Aggiunti tre casi di regressione, incluso il difetto riprodotto prima
+  della correzione; resa indipendente dalla data reale la fixture calcetto.
+- 77 test backend mirati PASS; TypeScript, guardie V3.22, lint e build web
+  PASS. Nessuna modifica UI, dipendenza, migrazione o chiamata reale.

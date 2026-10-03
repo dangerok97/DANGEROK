@@ -4509,3 +4509,23 @@ traffico, porta l'orario fino al briefing senza contaminarne il luogo. Calcolo
 basato su tempo di percorso e margine; limite dichiarato per traffico futuro.
 41 test mirati PASS, incluso passaggio attraverso il fast path della chat.
 Non ancora pubblicato né verificato nella UI reale.
+## 3 ottobre 2026 — Ripresa delle verifiche di identità telefonica
+
+Baseline verificato: `831cb93` su staging/cloud, backend Railway
+`b07a8de7-1e1f-4604-ab2a-e08cdf1227d3` e web
+`792b3c38-0f57-47f9-b735-3c0ac4deb72d`, entrambi SUCCESS. Preservati tutti
+gli aggiornamenti successivi al precedente checkpoint telefonico.
+
+Riprodotto e corretto un falso conflitto: aggiungere una nuova attribuzione
+a un numero già condiviso perdeva la conferma di un partecipante precedente.
+Ora il gruppo mantiene le sole conferme reciproche attive, con isolamento
+owner e senza riattivare record stale/rejected. Tre nuovi casi di regressione.
+La fixture delle preparazioni fissa l'orologio dello scenario: il suo evento
+del 25 settembre era ormai fuori dalla finestra temporale, causando due
+fallimenti indipendenti dal prodotto.
+
+Verifiche locali: 77 test identità/fiducia/preparazione PASS, TypeScript,
+test frontend V3.22, lint della schermata chiamate, compileall e build web
+PASS. Nessuna dipendenza o migrazione. Browser online fermo al login:
+nessuna prova visiva autenticata dichiarata. Rilascio e verifica API da
+registrare al completamento; nessuna chiamata reale autorizzata o eseguita.

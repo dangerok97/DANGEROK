@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import os
 import sys
+from datetime import datetime, timezone
 
 import pytest
 
@@ -63,6 +64,17 @@ def mondo(monkeypatch):
     modello se lo mettono loro.
     """
     import preparation.readiness as valutatore
+    import preparation.context as contesto
+
+    class ScenarioClock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            instant = cls(2026, 9, 23, 12, tzinfo=timezone.utc)
+            return instant.astimezone(tz) if tz else instant.replace(tzinfo=None)
+
+    # The match is two days away in this scenario, irrespective of when CI
+    # runs. A fixed event with the real clock eventually falls out of range.
+    monkeypatch.setattr(contesto, "datetime", ScenarioClock)
 
     async def nessun_modello(_prep):
         return None

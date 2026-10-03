@@ -160,6 +160,51 @@ async def test_shared_number_keeps_both_people_without_repeated_warning(db):
 
 
 @pytest.mark.asyncio
+async def test_extending_a_shared_number_keeps_the_previous_clarification(db):
+    await claim(db)
+    prep = await prepare(db)
+    prep, _ = await resolve_identity_conflict(db, prep, resolution="shared")
+    # A later call introduces a third attribution. Asia/Francesco have
+    # already been acknowledged as sharing; only Carlo needs clarification.
+    await claim(db, "Carlo")
+    prep = await prepare(db, suffix="con Carlo")
+    assert {c["name"] for c in prep.identity_conflicts} == {"Carlo"}
+    prep, error = await resolve_identity_conflict(db, prep, resolution="shared")
+    assert not error and prep.can_become_a_call()
+    for name in ("Asia", "Francesco", "Carlo"):
+        reopened = await prepare(db, name, suffix="dopo il chiarimento")
+        assert not reopened.identity_conflicts, name
+    assert db["phone_calls"].righe == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status", ["stale", "rejected"])
+async def test_extending_shared_number_does_not_restore_a_retired_person(db, status):
+    await claim(db)
+    prep = await prepare(db)
+    prep, _ = await resolve_identity_conflict(db, prep, resolution="shared")
+    if status == "stale":
+        await trust.retire(db, owner_id="owner", identity="francesco", number=NUMBER,
+                           why="non usa più questo numero")
+    else:
+        await trust.reject(db, owner_id="owner", identity="francesco",
+                           display_name="Francesco", number=NUMBER)
+    await claim(db, "Carlo")
+    await claim(db, "Francesco", owner="other")
+    prep = await prepare(db, suffix="con Carlo")
+    prep, error = await resolve_identity_conflict(db, prep, resolution="shared")
+    assert not error and prep.can_become_a_call()
+    assert not await trust.still_trusted(db, "owner", "francesco", NUMBER)
+    assert await trust.still_trusted(db, "other", "francesco", NUMBER)
+    for name in ("Asia", "Carlo"):
+        assert not (await prepare(db, name, suffix="dopo il chiarimento")).identity_conflicts
+    row = await db[trust.TRUSTED].find_one({
+        "_id": trust.key_for("owner", "asia", NUMBER),
+    })
+    assert "francesco" not in row["shared_with"]
+
+
+@pytest.mark.asyncio
 async def test_names_case_and_phone_format_are_normalized_and_owners_isolated(db):
     await claim(db, "ASIA", owner="other")
     await claim(db)

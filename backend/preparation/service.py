@@ -484,15 +484,30 @@ async def resolve_identity_conflict(
         return await _settle(db, prep, operation)
     c = prep.selected_contact
     identity = prep.contact_identity or c.contact_identity or trust.identity_of(c.name)
-    others = [row["identity"] for row in shown]
+    participants = {row["identity"]: row["name"] for row in shown}
+    if resolution == "shared":
+        # A new clarification extends a shared number. Keep only reciprocal,
+        # still-active acknowledgements; retired people and other owners must
+        # never be reintroduced through an old shared_with list.
+        rows = await db[trust.TRUSTED].find(
+            {"owner_id": prep.owner_id, "phone_number": c.number}, {"_id": 0},
+        ).to_list(length=None)
+        active = {row["contact_identity"]: row for row in rows
+                  if row.get("contact_identity") and row.get("status") == "active"
+                  and row.get("confirmed_by_user")}
+        previous = active.get(identity, {})
+        for other in previous.get("shared_with") or []:
+            row = active.get(other, {})
+            if other != identity and identity in (row.get("shared_with") or []):
+                participants[other] = str(row.get("display_name") or other)
     await trust.confirm(
         db, owner_id=prep.owner_id, identity=identity, display_name=c.name,
         number=c.number, kind=c.kind, source="user",
         source_detail="associazione chiarita da te",
-        shared_with=others if resolution == "shared" else [],
+        shared_with=sorted(participants) if resolution == "shared" else [],
     )
-    for other in shown:
-        if resolution == "replace":
+    if resolution == "replace":
+        for other in shown:
             await trust.remember_seen(
                 db, owner_id=prep.owner_id, identity=other["identity"],
                 display_name=other["name"], number=c.number, source=other["source"],
@@ -501,15 +516,16 @@ async def resolve_identity_conflict(
                 db, owner_id=prep.owner_id, identity=other["identity"], number=c.number,
                 why=f"hai chiarito che il numero è di {c.name}",
             )
-        else:
+    else:
+        for other, name in participants.items():
             previous = await db[trust.TRUSTED].find_one({
-                "_id": trust.key_for(prep.owner_id, other["identity"], c.number),
+                "_id": trust.key_for(prep.owner_id, other, c.number),
             })
             shared = (set((previous or {}).get("shared_with") or [])
-                      | {identity} | set(others)) - {other["identity"]}
+                      | {identity} | set(participants)) - {other}
             await trust.confirm(
-                db, owner_id=prep.owner_id, identity=other["identity"],
-                display_name=other["name"], number=c.number, source="user",
+                db, owner_id=prep.owner_id, identity=other,
+                display_name=name, number=c.number, source="user",
                 source_detail="numero condiviso confermato da te", shared_with=sorted(shared),
             )
     prep.identity_conflicts = []

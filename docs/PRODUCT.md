@@ -1790,3 +1790,11 @@ disponibile e 10 minuti di margine. Se l'orario è lontano, ORA lo chiama
 indicativo perché il traffico futuro non è conosciuto; per domani chiede di
 ricontrollare. Sono 41 test mirati PASS. La resa nell'app distribuita e un
 avviso spontaneo prima di uscire non sono ancora verificati.
+## 3 ottobre 2026 — Chiarimenti sui numeri condivisi
+
+Il controllo delle attribuzioni discordanti resta attivo: un numero prima
+associato a Francesco e poi indicato per Asia richiede un chiarimento esplicito
+prima di preparare la chiamata. Se un numero già condiviso viene associato a
+un'altra persona e l'utente conferma la condivisione, ORA conserva anche le
+precedenti conferme valide. Non ripropone lo stesso dubbio a ogni telefonata e
+non ripristina persone rimosse o numeri rifiutati.

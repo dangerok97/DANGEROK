@@ -3726,3 +3726,12 @@ esplicito. Oltre 90 minuti non spaccia il traffico attuale per previsione;
 per domani non calcola una partenza affidabile. Il percorso navigabile resta
 un handoff alla mappa scelta, che può ricalcolarlo. Nessun nuovo provider,
 permesso o dato persistente. Verifica live aperta.
+## 3 ottobre 2026 — Estensione delle identità su un numero condiviso
+
+`preparation.service.resolve_identity_conflict` estende il gruppo condiviso
+con i collegamenti reciproci già confermati e tuttora attivi per lo stesso
+owner e numero. La risoluzione aggiorna reciprocamente tutti i partecipanti;
+record stale/rejected e associazioni di altri owner non entrano nel gruppo.
+La correzione replace continua a ritirare soltanto le attribuzioni mostrate.
+Nessun nuovo campo, indice, dipendenza o migrazione. I controlli prima della
+preparazione e prima del carrier restano invariati e bloccanti.
