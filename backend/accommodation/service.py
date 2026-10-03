@@ -609,29 +609,31 @@ class AccommodationService:
 
         status = str(details_data.get("status") or data.get("status") or "").strip().lower()
         observed = bool(details_data) and status not in ("", "cancelled", "failed")
-        if not observed:
-            raise AccommodationError(
-                "order_not_observed",
-                "L'ordine è stato accettato ma non è ancora stato riletto come attivo.",
-                retryable=True,
-            )
-
         reservation = str(
             ((details_data.get("accommodation") or details_data.get("accommodations") or {})
              .get("reservation") or data.get("reservation") or "")
         )
+
+        # Once /orders/create returned an order id, the effect may already
+        # exist in the real world. Never leave this checkout retryable: a
+        # read-back outage must become reconciliation work, not a duplicate
+        # reservation.
+        final_state = "booked" if observed else "create_accepted"
+        now = datetime.now(timezone.utc)
         await self.db[self.CHECKOUTS].update_one(
             {"id": checkout_id, "owner_id": owner_id},
             {"$set": {
-                "status": "booked",
+                "status": final_state,
                 "order_id": order_id,
                 "reservation_id": reservation,
-                "booked_at": datetime.now(timezone.utc),
+                "provider_status": status,
+                "create_accepted_at": now,
+                **({"booked_at": now} if observed else {}),
             }},
         )
         await self.db[self.PREVIEWS].update_one(
             {"id": row["preview_id"], "owner_id": owner_id},
-            {"$set": {"status": "consumed", "consumed_at": datetime.now(timezone.utc)}},
+            {"$set": {"status": "consumed", "consumed_at": now}},
         )
         for ref in (str(row.get("payload_ref") or ""), str(preview.get("token_ref") or "")):
             if ref:
@@ -641,12 +643,12 @@ class AccommodationService:
                     pass
 
         return {
-            "status": "booked",
+            "status": "booked" if observed else "accepted_not_observed",
             "provider": "booking.com",
             "order_id": order_id,
             "reservation_id": reservation,
             "provider_status": status,
-            "observed": True,
+            "observed": observed,
             "request_id": str(created.get("request_id") or "")[:120],
         }
 
