@@ -384,7 +384,7 @@ class BookingDemandClient:
             {
                 "orders": [oid],
                 "currency": currency.upper(),
-                "extras": ["accommodation", "policies"],
+                "extras": ["policies"],
                 "languages": ["it", "en-gb"],
             },
         )
