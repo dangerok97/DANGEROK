@@ -92,11 +92,13 @@ class DepartureService:
                 output.append({**base, "status": "routing_unavailable", "options": []})
                 continue
             # Hash the short-lived fix; don't create another coordinate history.
-            origin_key = _digest([origin, presence.last_seen_at])
+            origin_key = _digest(origin)
             stored = await self.db[COLLECTION].find_one(
                 {"owner_id": owner_id, "event_ref": event["ref"]}, {"_id": 0})
             if (stored and stored.get("origin_key") == origin_key
                     and stored.get("event_version") == base["event_version"]
+                    and (stored["evidence"].get("status") != "ready"
+                         or (_instant(stored["evidence"].get("valid_until")) or now) > now)
                     and (_instant(stored.get("refresh_after")) or now) > now):
                 output.append(stored["evidence"])
                 continue
@@ -198,7 +200,7 @@ class DepartureService:
             return False
         events = await _calendar(self.db, owner_id, now)
         versions = {e["ref"]: event_version(e) for e in events}
-        origin_key = _digest([origin, presence.last_seen_at])
+        origin_key = _digest(origin)
         for ref in refs:
             row = await self.db[COLLECTION].find_one(
                 {"owner_id": owner_id, "evidence.ref": ref}, {"_id": 0})

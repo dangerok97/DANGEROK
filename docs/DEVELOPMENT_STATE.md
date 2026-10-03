@@ -4558,3 +4558,12 @@ provider e giudizio controllati su account sintetici: non è ancora una prova
 del servizio routing cloud né dell'iPhone. CI e deployment da registrare nel
 checkpoint dopo il push. Nessuna nuova dipendenza o variabile richiesta;
 una nuova collezione temporanea con indici non distruttivi.
+
+## 3 ottobre 2026 — P1 pubblicato, prova funzionale ancora aperta
+
+`03b734c`: cinque job CI SUCCESS, backend Railway
+`fadf2960-75a3-4ee0-b015-63a89b36de55` SUCCESS, configurazione invariata.
+Primo scenario cloud sintetico: tre verifiche PASS, avviso non osservato
+anche dopo scansione esplicita. Non è un completamento P1. Corretto
+il cambio timestamp GPS a parità di punto e aggiunta superficie autenticata
+dei fatti; regressione locale complessiva 68 PASS. Dettagli nel checkpoint.

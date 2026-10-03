@@ -1809,3 +1809,9 @@ Posizione scaduta, permesso revocato, evento modificato/annullato e destinazione
 ambigua impediscono di mostrare o inviare una vecchia stima. L'avviso dipende
 da una posizione del dispositivo recente: la prova nativa iPhone resta P6.
 La verifica cloud e visiva è tracciata in AUTONOMY_COMPLETION_2026_10_03.md.
+
+## 3 ottobre 2026 — Continuità delle stime di partenza
+
+Un nuovo rilevamento nello stesso punto conserva una stima ancora valida,
+ma non ne prolunga la scadenza. Dopo la scadenza serve un nuovo percorso.
+Il primo scenario cloud non ha ancora prodotto un avviso: P1 resta in verifica.

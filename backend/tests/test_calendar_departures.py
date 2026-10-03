@@ -125,6 +125,27 @@ async def test_provider_boundary_checks_again_after_ai_latency(world, monkeypatc
 
 
 @pytest.mark.asyncio
+async def test_same_position_with_new_fix_keeps_the_still_fresh_estimate(world):
+    _, opportunity = await ready_opportunity(world)
+    # A fresh observation of the same point is not a changed origin. It must
+    # not make a valid card disappear while the delivery model is deciding.
+    world.presence.last_seen_at = datetime.now(timezone.utc).isoformat()
+    assert await world.svc.evidence_is_current("alice", opportunity)
+
+
+@pytest.mark.asyncio
+async def test_new_fix_does_not_extend_an_old_estimates_deadline(world, monkeypatch):
+    evidence, opportunity = await ready_opportunity(world)
+    later = world.now + timedelta(seconds=121)
+    monkeypatch.setattr("places.departures._now", lambda: later)
+    world.presence.last_seen_at = later.isoformat()
+    assert not await world.svc.evidence_is_current("alice", opportunity)
+    refreshed = (await world.svc.collect("alice", [world.event], now=later))[0]
+    assert refreshed["ref"] != evidence["ref"] and world.routes.await_count == 4
+    assert datetime.fromisoformat(refreshed["valid_until"]) > later
+
+
+@pytest.mark.asyncio
 async def test_cancellation_and_revocation_stop_wakes_and_clear_derived_cache(world):
     await world.svc.collect("alice", [world.event], now=world.now)
     await world.svc.collect("alice", [], now=world.now)
@@ -197,6 +218,17 @@ async def test_distant_event_arranges_bounded_recheck_without_routing(world):
     wake = await world.db.ambient_wakes.find_one({"owner_id": "alice", "source_ref": WAKE_SOURCE})
     assert datetime.fromisoformat(wake["scheduled_for"]) <= datetime.now(timezone.utc) + timedelta(hours=72)
     world.routes.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_departure_http_surface_reads_only_the_authenticated_owners_calendar(world, monkeypatch):
+    from places.router import calendar_departures
+    monkeypatch.setattr("deps.db", world.db)
+    alice = await calendar_departures(user={"user_id": "alice"})
+    bob = await calendar_departures(user={"user_id": "bob"})
+    assert alice["departures"][0]["event_ref"] == world.event["ref"]
+    assert alice["departures"][0]["status"] == "ready"
+    assert bob == {"departures": []}
 
 
 @pytest.mark.asyncio

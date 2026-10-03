@@ -11,7 +11,7 @@ autorizzazione concreta; sviluppare i flussi non equivale a effettuarli.
 
 | Passo | Risultato da dimostrare | Stato |
 |---|---|---|
-| P1 — Partenze | Appuntamento → percorso corrente → valutazione utile → riesame, invalidazione e navigazione | Codice e 65 test locali PASS; cloud/UI da verificare |
+| P1 — Partenze | Appuntamento → percorso corrente → valutazione utile → riesame, invalidazione e navigazione | 68 test locali PASS; primo deployment riuscito, avviso cloud non ancora dimostrato |
 | P0 — Iniziativa | Calendario, documenti, comunicazioni e cambi vita avviano lavoro utile senza duplicati o falsa completezza | Da consolidare con scenari completi |
 | P2 — Occupatene tu | Lavoro autorizzato prosegue dopo attese e riavvii, verifica il risultato, comunica esito o blocco concreto | Da completare |
 | P3 — Risparmio | Costi annui completi, condizioni ed eleggibilità distinguibili dalle sole componenti di vendita; risultato misurabile | Da completare |
@@ -44,7 +44,7 @@ fisso indipendente dalla realtà.
 
 ## Verifiche
 
-- 65 test mirati locali PASS; provider e modelli controllati dove indicato.
+- 68 test mirati locali PASS; provider e modelli controllati dove indicato.
 - TypeScript, compilazione Python e `git diff --check` PASS.
 - Build web Expo PASS (esportazione completa); frontend invariato.
 - CI, commit, deployment e prove API cloud: da aggiornare dopo l'esecuzione,
@@ -54,3 +54,21 @@ fisso indipendente dalla realtà.
 
 Prossimo passo automatico dopo la consegna P1: P0/P2, iniziativa e chiusura
 verificata del lavoro autorizzato.
+
+## P1 — Primo checkpoint cloud e correzione del fix GPS
+
+Commit `03b734cd505e168b63c00e70d9ed8e4770778e5a`: CI `37146068797`,
+tutti i cinque job SUCCESS. Backend Railway
+`fadf2960-75a3-4ee0-b015-63a89b36de55` SUCCESS; configurazione invariata.
+Il primo scenario sintetico ha verificato salute, assenza di endpoint push
+e salvataggio dell'appuntamento, ma non ha prodotto la scheda partenza
+né in background né dopo scansione esplicita. P1 resta aperto.
+
+Corretto un difetto riprodotto: un nuovo fix allo stesso punto invalidava
+una stima ancora fresca. L'identità della posizione dipende dal punto;
+la scadenza originale non viene estesa. Un nuovo fix dopo la scadenza
+richiede il ricalcolo. Nuovo GET autenticato `/places/departures` espone
+i fatti di percorso e gli stati di indisponibilità del solo proprietario,
+riusando il servizio esistente e senza forzare avvisi. 68 test mirati PASS.
+La nuova prova cloud deve distinguere dati di percorso, decisione del
+modello e lavoro in background. Nessun esito positivo anticipato.

@@ -107,6 +107,19 @@ async def set_monitoring(body: MonitoringIn, user=Depends(get_current_user)):
     return {"enabled": body.enabled}
 
 
+@router.get("/departures")
+async def calendar_departures(user=Depends(get_current_user)):
+    """Current route facts for the calendar, with explicit unavailability states."""
+    from datetime import datetime, timezone
+    from deps import db
+    from opportunities.snapshot import _calendar
+    from places.departures import DepartureService
+
+    now = datetime.now(timezone.utc)
+    events = await _calendar(db, user["user_id"], now)
+    return {"departures": await DepartureService(db).collect(user["user_id"], events, now=now)}
+
+
 @router.get("")
 async def list_places(user=Depends(get_current_user)):
     """

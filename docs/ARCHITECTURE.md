@@ -3754,3 +3754,12 @@ cache cancellata e wake specifico annullato. Controlli dell'evidenza prima
 della superficie, del dettaglio, del giudizio delivery e al confine provider.
 Identità stabile per appuntamento; una nuova stima non riapre un rifiuto
 esplicito. Runtime ritenta se calendario o raccolta non sono leggibili.
+
+## 3 ottobre 2026 — Identità del punto e superficie dei fatti di partenza
+
+La cache delle partenze usa l'hash del punto, senza includere il timestamp
+del fix. Il controllo di freschezza del fix e la scadenza dell'evidenza
+restano indipendenti e bloccanti; una nuova osservazione non estende la
+vecchia stima. GET `/places/departures` legge calendario e servizio
+DepartureService con l'owner autenticato, esponendo anche gli stati non
+ready. Non crea un percorso alternativo per decidere o inviare avvisi.

@@ -5894,3 +5894,11 @@ Pubblicati backend `1e7515f0` e web `ba7180d5`, entrambi SUCCESS sul commit `1aa
 - Aggiunti test di sicurezza/continuità e relativo gate CI.
 - Locale: 65 test, TypeScript, compileall e diff-check PASS. Pubblicazione e
   prova cloud sono registrate nel checkpoint del programma, senza anticiparle.
+
+## 3 ottobre 2026 — Correzione continuità GPS nelle partenze
+
+Il nuovo fix nello stesso punto non invalida più una stima ancora fresca;
+nessuna proroga automatica dell'evidenza. GET autenticato delle partenze
+riusa la raccolta owner-scoped e rende distinguibili i motivi di indisponibilità.
+Tre regressioni aggiunte, 68 test mirati PASS. Il primo deployment P1
+è riuscito, ma la prova cloud non ha ancora dimostrato l'avviso: punto aperto.
