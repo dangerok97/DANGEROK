@@ -545,6 +545,108 @@ async def mail_send(db, owner_id: str, intent: ActionIntent) -> EffectOutcome:
     )
 
 
+async def accommodation_booking(
+    db, owner_id: str, intent: ActionIntent
+) -> EffectOutcome:
+    """Create one frozen accommodation order, then read it back.
+
+    The only values visible to the agent are opaque checkout_id/terms_hash.
+    Traveller PII and payment fields stay in the encrypted checkout vault.
+    """
+    receipt = ExecutionReceipt(
+        owner_id=owner_id,
+        goal_id=intent.goal_id,
+        action_intent_id=intent.id,
+        idempotency_key=intent.idempotency_key,
+        capability=intent.capability,
+        provider="booking.com",
+    )
+    params = dict(intent.parameters or {})
+    checkout_id = str(params.get("checkout_id") or "").strip()
+    terms_hash = str(params.get("terms_hash") or "").strip()
+    if not checkout_id or not terms_hash:
+        return _refused(
+            receipt,
+            "booking_checkout_not_frozen",
+            "La prenotazione non è stata eseguita: checkout o termini non erano congelati.",
+        )
+
+    try:
+        from accommodation.service import AccommodationError, AccommodationService
+        result = await AccommodationService(db).create_order_from_checkout(
+            owner_id=owner_id,
+            checkout_id=checkout_id,
+            terms_hash=terms_hash,
+        )
+    except AccommodationError as exc:
+        return _refused(
+            receipt,
+            exc.code,
+            str(exc)[:600],
+            retryable=bool(exc.retryable),
+        )
+    except Exception as exc:
+        # We do not know whether a network failure occurred before or after
+        # provider acceptance. Never auto-retry a financial third-party effect.
+        logger.info("booking create unknown outcome: %s", type(exc).__name__)
+        return _refused(
+            receipt,
+            "booking_outcome_unknown",
+            "Non posso stabilire se la richiesta di prenotazione sia stata accettata; non la ritento automaticamente.",
+            retryable=False,
+        )
+
+    order_id = str(result.get("order_id") or "")
+    reservation_id = str(result.get("reservation_id") or "")
+    observed = bool(result.get("observed"))
+    receipt.external_ref = order_id
+    receipt.provider_status = "succeeded" if observed else "accepted"
+    receipt.error_type = "" if observed else "accepted_not_observed"
+    receipt.retryable = False
+    receipt.answered_at = _now().isoformat()
+
+    claims = []
+    if observed:
+        claims.append((
+            (
+                f"Booking.com riporta l'ordine {order_id}"
+                + (f" / prenotazione {reservation_id}" if reservation_id else "")
+                + " come attivo."
+            )[:600],
+            intent.expected_effect[:300] or "la prenotazione risulta confermata",
+        ))
+
+    return EffectOutcome(
+        receipt=receipt,
+        observation=(
+            (
+                f"Prenotazione verificata su Booking.com"
+                + (f" (ordine {order_id})" if order_id else "")
+                + "."
+            )
+            if observed else
+            (
+                f"Booking.com ha restituito l'ordine {order_id}, ma la rilettura "
+                "non è ancora disponibile. Non ripeto la prenotazione."
+            )
+        )[:600],
+        claims=claims,
+        provenance=ResultProvenance(
+            source_class="connected_provider",
+            capability=intent.capability,
+            provider="booking.com",
+            source_refs=[f"booking_order:{order_id}"] if order_id else [],
+            freshness="fresh",
+            certainty_note=(
+                "ordine riletto dal provider dopo la creazione"
+                if observed else
+                "provider ha restituito un order id; rilettura non disponibile"
+            ),
+        ),
+        observed=observed,
+    )
+
+
 async def phone_call(db, owner_id: str, intent: ActionIntent) -> EffectOutcome:
     """Place one already-prepared phone mission and never redial it on retry.
 
@@ -746,6 +848,7 @@ _RUNNERS = {
     "calendar.write": calendar_write,
     "calendar.local.write": local_calendar_write,
     "mail.send": mail_send,
+    "external.booking": accommodation_booking,
     "phone.call": phone_call,
 }
 
