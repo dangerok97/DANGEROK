@@ -147,6 +147,7 @@ _REAL = {
     "comparison.run",
     "document.create",
     "mail.draft",
+    "phone.call",
 }
 
 # What has a stand-in behind it, and says so. Kept to one, on purpose: the
