@@ -47,3 +47,19 @@ test('Home does not request device permission without existing ORA consent', asy
   assert.equal(await module.refreshConsentedPosition(), false);
   assert.equal(calls.length, 0);
 });
+
+
+test('ORA chat current-location client action is native-capable', () => {
+  const geo = fs.readFileSync(__dirname + '/foregroundGeo.ts', 'utf8');
+  const screen = fs.readFileSync(__dirname + '/../components/ora/OraConversationScreen.tsx', 'utf8');
+
+  assert.match(geo, /export async function requestCurrentPosition/);
+  assert.match(geo, /await import\('expo-location'\)/);
+  assert.match(geo, /getCurrentPositionAsync/);
+
+  const start = screen.indexOf('const runGeo');
+  const end = screen.indexOf('const postSignal');
+  const runGeo = screen.slice(start, end);
+  assert.match(runGeo, /requestCurrentPosition/);
+  assert.doesNotMatch(runGeo, /requestForegroundPosition/);
+});
