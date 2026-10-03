@@ -314,10 +314,6 @@ class CapabilityResolver:
             logger.info("grant read soft-fail: %s", type(e).__name__)
 
         for name in sorted(_FACTS):
-            # Local calendar authority is used by the conversation and Home
-            # handlers. The generic goal executor has no local write adapter.
-            if name == "calendar.local.write":
-                continue
             resolution = await self.resolve(owner_id, name)
             status = resolution.status
             # Something that changes the world and has no standing permission

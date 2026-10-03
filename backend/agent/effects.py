@@ -273,6 +273,125 @@ async def calendar_write(db, owner_id: str, intent: ActionIntent) -> EffectOutco
     )
 
 
+async def local_calendar_write(db, owner_id: str, intent: ActionIntent) -> EffectOutcome:
+    """Modify one owner-scoped ORA calendar event and read it back.
+
+    This adapter is intentionally narrower than the conversation calendar
+    tool: the autonomous agent may only MODIFY the exact local event named by
+    its source ref, against the revision it prepared from. No create, delete,
+    guest, or fuzzy target exists here.
+    """
+    receipt = ExecutionReceipt(
+        owner_id=owner_id,
+        goal_id=intent.goal_id,
+        action_intent_id=intent.id,
+        idempotency_key=intent.idempotency_key,
+        capability=intent.capability,
+        provider="ora_calendar",
+    )
+    if intent.effect.effect_type != "modify":
+        return _refused(
+            receipt, "unsupported_effect",
+            "Questa porta può solo modificare un impegno ORA esistente."
+        )
+
+    ref = str(intent.target_ref or "")
+    event_id = ref.removeprefix("calendar:")
+    if not ref.startswith("calendar:node_home_") or not event_id:
+        return _refused(
+            receipt, "invalid_target",
+            "L'impegno da modificare non è identificato in modo verificabile."
+        )
+
+    params = dict(intent.parameters or {})
+    expected = str(params.pop("expected_revision", "") or "")
+    if not expected:
+        return _refused(
+            receipt, "missing_revision",
+            "Manca la revisione dell'impegno: lo rileggo prima di modificarlo."
+        )
+
+    from home.manual_event import get_manual_event, update_manual_event
+    before = await get_manual_event(db, owner_id, event_id)
+    if not before or before.get("status") != "active":
+        return _refused(
+            receipt, "event_unavailable",
+            "L'impegno non è più attivo nel calendario ORA."
+        )
+    if str(before.get("updated_at") or "") != expected:
+        return _refused(
+            receipt, "event_changed",
+            "L'impegno è cambiato dopo la proposta: non applico una scelta vecchia."
+        )
+
+    fields = {
+        key: value for key, value in {
+            "start_datetime": params.get("start_datetime"),
+            "end_datetime": params.get("end_datetime"),
+            "timezone": params.get("timezone"),
+        }.items() if value
+    }
+    if not fields.get("start_datetime"):
+        return _refused(
+            receipt, "missing_parameters",
+            "Non c'è un nuovo orario verificabile da applicare."
+        )
+
+    try:
+        updated = await update_manual_event(
+            db, owner_id, event_id, fields, expected_updated_at=expected
+        )
+    except (ValueError, KeyError) as exc:
+        return _refused(
+            receipt, str(exc)[:80],
+            "Il calendario ORA non ha applicato la modifica perché i dati sono cambiati."
+        )
+
+    receipt.external_ref = event_id
+    receipt.answered_at = _now().isoformat()
+    observed = await get_manual_event(db, owner_id, event_id)
+    attrs = (observed or {}).get("attributes") or {}
+    wanted_start = str(updated.get("starts_at") or "")
+    wanted_end = str(updated.get("ends_at") or "")
+    seen = bool(
+        observed
+        and observed.get("status") == "active"
+        and str(attrs.get("starts_at") or "") == wanted_start
+        and str(attrs.get("ends_at") or "") == wanted_end
+    )
+    receipt.provider_status = "succeeded" if seen else "accepted"
+    receipt.result_refs = [event_id] if seen else []
+    title = str((observed or {}).get("label") or updated.get("title") or "")
+    observation = (
+        f"Ho spostato «{title}» e ho riletto il nuovo orario nel calendario ORA."
+        if seen else
+        "La modifica è stata accettata, ma la rilettura non conferma ancora il nuovo orario."
+    )
+    claims = []
+    if seen:
+        claims.append((
+            f"Nel calendario ORA «{title}» risulta da {wanted_start} a {wanted_end}."[:600],
+            intent.effect.expected_outcome[:300] or "l'impegno risulta spostato",
+        ))
+    return EffectOutcome(
+        receipt=receipt,
+        observation=observation,
+        claims=claims,
+        provenance=ResultProvenance(
+            source_class="internal_observation",
+            capability=intent.capability,
+            provider="ora_calendar",
+            source_refs=[ref],
+            freshness="fresh",
+            certainty_note=(
+                "riletto dal calendario ORA dopo la modifica"
+                if seen else "modifica accettata, rilettura non confermata"
+            ),
+        ),
+        observed=seen,
+    )
+
+
 async def _read_back(gcal, access: str, calendar_id: str, event_id: str):
     """
     Go and look at what was just written.
@@ -395,6 +514,7 @@ def _refused(
 # a decision somebody should have to make on purpose.
 _RUNNERS = {
     "calendar.write": calendar_write,
+    "calendar.local.write": local_calendar_write,
 }
 
 

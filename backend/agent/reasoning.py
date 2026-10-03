@@ -321,6 +321,53 @@ async def reconsider(
     return data
 
 
+async def interpret_calendar_conflict_choice(
+    reply: str,
+    *,
+    events: List[Dict[str, Any]],
+    language: str = "it",
+) -> Optional[Dict[str, Any]]:
+    """Turn the person's answer into a bounded choice, never into an action.
+
+    The model may understand language here; code still validates the selected
+    event and builds the effect. A time or date that was not said is left
+    empty rather than guessed.
+    """
+    instruction = (
+        "The person is answering a question about two overlapping calendar "
+        "commitments. Work out which ONE commitment they want moved and, only "
+        "when they clearly said it, the requested clock time/date.\n\n"
+        "If they say to keep one commitment, the other is the one to move. "
+        "If they say first/second, use the order in the supplied list. A title "
+        "may be paraphrased, but target_ref must be copied exactly from the "
+        "matching supplied event.\n\n"
+        "Never invent availability, a date, a clock time or a different event. "
+        "If the target is unclear, return an empty target_ref. If no new time "
+        "was supplied, return an empty requested_time. If only a clock time "
+        "was supplied, requested_date must stay empty: code will keep the "
+        "event's existing local date.\n\n"
+        "Return JSON: {\"target_ref\": \"\", \"requested_time\": "
+        "\"HH:MM or empty\", \"requested_date\": \"YYYY-MM-DD or empty\", "
+        "\"reasoning\": \"one short sentence\"}."
+    )
+    data = await _ask_model(
+        _DISCIPLINE + "\n\n" + instruction,
+        _dump({"reply": reply[:1200], "events": events[:2]}),
+    )
+    if not isinstance(data, dict):
+        return None
+    allowed = {str(item.get("ref") or "") for item in events}
+    target = str(data.get("target_ref") or "").strip()
+    if target not in allowed:
+        target = ""
+    return {
+        "target_ref": target,
+        "requested_time": str(data.get("requested_time") or "").strip()[:5],
+        "requested_date": str(data.get("requested_date") or "").strip()[:10],
+        "reasoning": str(data.get("reasoning") or "")[:300],
+    }
+
+
 async def verify_goal(
     goal: Dict[str, Any],
     *,

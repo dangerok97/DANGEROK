@@ -186,10 +186,17 @@ class AgentService:
         if pair:
             answer = {
                 "outcome": "create_goal",
-                "objective": "Preparare una richiesta per risolvere i due impegni sovrapposti",
-                "desired_outcome": "Una bozza concreta per chiedere di spostare il secondo impegno senza inventare disponibilità o invii",
+                "objective": "Risolvere i due impegni sovrapposti",
+                "desired_outcome": (
+                    "Una scelta esplicita su quale impegno spostare e, quando "
+                    "autorizzata, una modifica verificata che elimini la sovrapposizione"
+                ),
                 "why_now": "I due impegni attivi si sovrappongono e serve decidere prima che inizino.",
-                "success_criteria": ["Bozza fondata sui due impegni attivi e sugli orari verificati"],
+                "success_criteria": [
+                    "La scelta su quale impegno spostare è esplicita",
+                    "Qualsiasi modifica autorizzata viene riletta dal calendario",
+                    "I due impegni attivi non risultano più sovrapposti",
+                ],
                 "stop_conditions": ["Uno degli impegni viene annullato o gli orari non sono più sovrapposti"],
                 "reasoning": "Sovrapposizione dei due impegni Home calcolata dalle fonti attive.",
                 "decision_provenance": "code",
@@ -1541,12 +1548,35 @@ class AgentService:
 
         if answered is None:
             return {"ok": False, "reason": "question_not_open"}
-        goal.status = "active"
-        goal.requires_user_input = False
-        goal.background_runs = 0
-        plan.status = "active"
-        await self.repo.save_goal(goal)
-        await self.repo.save_plan(plan)
+
+        continuation = None
+        continuation_reason = ""
+        from agent.calendar_conflict import is_home_calendar_pair
+        if is_home_calendar_pair(goal):
+            from agent.calendar_conflict import resolution_step_from_answer
+            continuation, continuation_reason = await resolution_step_from_answer(
+                self.db, owner_id, goal, reply, language=language
+            )
+            if continuation_reason == "choice_unavailable":
+                # The person did answer. A temporary interpretation failure is
+                # not permission to guess, and not a reason to mark the answer
+                # consumed and silently close the work.
+                answered.status = "blocked"
+                answered.note = "risposta ricevuta; interpretazione non disponibile"
+                await self.repo.save_plan(plan)
+                return {"ok": False, "reason": "interpretation_unavailable"}
+            if continuation_reason == "calendar_changed":
+                from agent.source_refresh import refresh
+                await refresh(self, goal)
+                await self.repo.journal(
+                    owner_id, goal_id, kind="answered", note=reply[:200],
+                    detail={"source_changed": True},
+                )
+                return {"ok": True, "state": "source_changed", "goal": goal.for_human()}
+            if continuation is not None:
+                continuation.ordinal = len(plan.steps)
+                plan.steps.append(continuation)
+
         # They answered. That settles the need — and only an answer does: a
         # notification that was delivered, or opened, or ignored, leaves it
         # exactly as open as it was.
@@ -1555,6 +1585,52 @@ class AgentService:
                 await self.needs.satisfy(
                     owner_id, need.id, how="ha risposto", by="user"
                 )
+
+        if continuation is not None and continuation.step_type == "ask_user":
+            continuation.status = "blocked"
+            goal.status = "waiting"
+            goal.requires_user_input = True
+            goal.requires_user_authority = False
+            goal.background_runs = 0
+            plan.status = "waiting"
+            await self.repo.save_goal(goal)
+            await self.repo.save_plan(plan)
+            raised = await self.needs.raise_need(CommunicationNeed(
+                owner_id=owner_id,
+                goal_id=goal_id,
+                kind="needs_information",
+                summary=continuation.asks or continuation.intent,
+                reason="Serve un dettaglio in più prima di cambiare il calendario.",
+                source_refs=list(dict.fromkeys(goal.source_refs))[:8],
+                requires_response=True,
+                response_kind="information",
+                what_is_missing=continuation.asks or continuation.intent,
+                provenance="code",
+            ))
+            await self.needs.offer_to_delivery(owner_id, raised)
+            await self.repo.journal(
+                owner_id, goal_id, kind="answered", note=reply[:200],
+                detail={"next_question": continuation.id},
+            )
+            await self.repo.journal(
+                owner_id, goal_id, kind="asked",
+                note=continuation.asks or continuation.intent,
+                detail={"kind": "knowledge", "step_id": continuation.id},
+            )
+            return {
+                "ok": True,
+                "state": "waiting_for_person",
+                "asks": continuation.asks or continuation.intent,
+                "kind": "knowledge",
+                "goal": goal.for_human(),
+            }
+
+        goal.status = "active"
+        goal.requires_user_input = False
+        goal.background_runs = 0
+        plan.status = "active"
+        await self.repo.save_goal(goal)
+        await self.repo.save_plan(plan)
         await self.repo.journal(owner_id, goal_id, kind="answered", note=reply[:200])
         return await self.advance(owner_id, goal_id, language=language)
 

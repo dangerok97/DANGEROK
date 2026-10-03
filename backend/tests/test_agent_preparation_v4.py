@@ -190,3 +190,129 @@ async def test_active_home_overlap_admits_preparation_without_unnecessary_addres
     assert await active_home_pair(db, "alice", refs) is None
     stale = await work_view(db, "alice", "opp_pair")
     assert stale["result"]["ora_text"] is None
+
+@pytest.mark.asyncio
+async def test_calendar_conflict_choice_becomes_one_authorised_verified_local_move(monkeypatch):
+    from datetime import datetime, timedelta
+    from zoneinfo import ZoneInfo
+    from home import manual_event as manual_calendar
+    from home.manual_event import create_manual_event, get_manual_event, home_event_times
+    from agent.needs import NeedService
+    from agent.service import AgentService
+
+    db = AsyncMongoMockClient().test
+    day = (datetime.now(ZoneInfo("Europe/Rome")) + timedelta(days=3)).date().isoformat()
+    a, a_end = home_event_times(day, "10:00", "Europe/Rome")
+    b, b_end = home_event_times(day, "10:15", "Europe/Rome")
+    first = await create_manual_event(db, "alice", title="Ritiro documento",
+        start=a, end=a_end, tz_name="Europe/Rome")
+    second = await create_manual_event(db, "alice", title="Consegna al tecnico",
+        start=b, end=b_end, tz_name="Europe/Rome")
+    refs = ["calendar:" + first["id"], "calendar:" + second["id"]]
+    await db.opportunities.insert_one({
+        "id": "opp_move", "owner_id": "alice", "status": "active",
+        "agent_review_revision": "rev_move",
+    })
+
+    monkeypatch.setattr(AgentService, "_note_ambient", AsyncMock())
+    monkeypatch.setattr(AgentService, "_consider_visibility", AsyncMock(return_value=None))
+    monkeypatch.setattr(NeedService, "offer_to_delivery", AsyncMock())
+    monkeypatch.setattr(reasoning, "decide_goal",
+        AsyncMock(side_effect=AssertionError("established overlap is code-grounded")))
+    monkeypatch.setattr(reasoning, "interpret_calendar_conflict_choice", AsyncMock(
+        return_value={"target_ref": refs[1], "requested_time": "12:00",
+                      "requested_date": "", "reasoning": "Ha scelto il secondo."}))
+    monkeypatch.setattr(reasoning, "choose_next_action", AsyncMock(
+        return_value={"decision": "execute", "step_id": "", "reasoning": "La scelta è completa."}))
+    monkeypatch.setattr(reasoning, "assess_authority", AsyncMock(return_value={
+        "outcome": "prepare_then_confirm", "reasoning": "È una modifica personale reversibile.",
+        "reversibility": "easily", "financial_effect": False,
+        "external_communication": False, "third_party_impact": False,
+        "privacy_disclosure": False, "legal_effect": False, "security_effect": False,
+    }))
+    monkeypatch.setattr(reasoning, "verify_goal", AsyncMock(return_value={
+        "outcome": "achieved", "reasoning": "Il secondo impegno risulta spostato e riletto.",
+        "what_is_missing": "", "revisit_in_hours": None,
+    }))
+    monkeypatch.setattr(manual_calendar, "_wake", AsyncMock())
+
+    service = AgentService(db)
+    created = await service.consider("alice", situation={},
+        opportunity_id="opp_move", source_kind="opportunity", source_refs=refs)
+    goal_id = created["goal_id"]
+    before = await get_manual_event(db, "alice", second["id"])
+
+    prepared = await service.answer(
+        "alice", goal_id, reply="Tieni il primo e sposta il secondo alle 12"
+    )
+    assert prepared["state"] == "awaiting_authority"
+    still = await get_manual_event(db, "alice", second["id"])
+    assert still["attributes"]["starts_at"] == before["attributes"]["starts_at"]
+    plan = await service.repo.plan_for("alice", goal_id)
+    move = [s for s in plan.steps if s.step_type == "execute"][-1]
+    assert move.status == "blocked"
+    assert move.capability_needed == "calendar.local.write"
+    assert move.effect_type == "modify"
+    assert move.input_refs == [refs[1]]
+    assert move.parameters["expected_revision"] == before["updated_at"]
+
+    done = await service.authorise("alice", goal_id)
+    assert done["state"] == "completed"
+    after = await get_manual_event(db, "alice", second["id"])
+    assert datetime.fromisoformat(after["attributes"]["starts_at"]).strftime("%H:%M") == "12:00"
+    first_after = await get_manual_event(db, "alice", first["id"])
+    assert first_after["attributes"]["starts_at"] == a
+    receipts = await db.agent_receipts.find(
+        {"owner_id": "alice", "goal_id": goal_id}, {"_id": 0}
+    ).to_list(10)
+    assert len(receipts) == 1
+    assert receipts[0]["provider"] == "ora_calendar"
+    assert receipts[0]["provider_status"] == "succeeded"
+    attempts = await db.agent_action_attempts.find(
+        {"owner_id": "alice", "goal_id": goal_id}, {"_id": 0}
+    ).to_list(10)
+    assert len(attempts) == 1 and attempts[0]["status"] == "verified"
+
+
+@pytest.mark.asyncio
+async def test_local_calendar_agent_write_refuses_stale_revision(monkeypatch):
+    from datetime import datetime, timedelta
+    from zoneinfo import ZoneInfo
+    from home import manual_event as manual_calendar
+    from home.manual_event import create_manual_event, get_manual_event, home_event_times, update_manual_event
+    from agent.execution import StepExecutor
+    from agent.models import ActionStep, AutonomousGoal
+
+    db = AsyncMongoMockClient().test
+    day = (datetime.now(ZoneInfo("Europe/Rome")) + timedelta(days=4)).date().isoformat()
+    start, end = home_event_times(day, "09:00", "Europe/Rome")
+    event = await create_manual_event(db, "alice", title="Impegno",
+        start=start, end=end, tz_name="Europe/Rome")
+    monkeypatch.setattr(manual_calendar, "_wake", AsyncMock())
+    original = await get_manual_event(db, "alice", event["id"])
+    await update_manual_event(
+        db, "alice", event["id"], {"location": "Nuovo luogo"},
+        expected_updated_at=original["updated_at"],
+    )
+
+    new_start, new_end = home_event_times(day, "12:00", "Europe/Rome")
+    step = ActionStep(
+        intent="Spostare l'impegno", step_type="execute",
+        capability_needed="calendar.local.write",
+        input_refs=["calendar:" + event["id"]],
+        effect_type="modify", external_effect=True,
+        effect_target="il tuo calendario ORA",
+        parameters={"start_datetime": new_start, "end_datetime": new_end,
+                    "timezone": "Europe/Rome",
+                    "expected_revision": original["updated_at"]},
+    )
+    goal = AutonomousGoal(owner_id="alice", objective="Spostare",
+        desired_outcome="Impegno spostato", status="active")
+    result = await StepExecutor(db).run(
+        "alice", goal, step, may_touch_the_world=True
+    )
+    assert result.status == "failed"
+    assert result.error_type == "event_changed"
+    current = await get_manual_event(db, "alice", event["id"])
+    assert datetime.fromisoformat(current["attributes"]["starts_at"]).strftime("%H:%M") == "09:00"
+
