@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import base64
 import os
+from email.message import EmailMessage
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Protocol
 
@@ -92,6 +93,11 @@ class GmailProviderProtocol(Protocol):
         attachment_id: str = "", part_id: str = "",
     ) -> bytes: ...
 
+    async def send_message(
+        self, *, access_token: str, to: str, subject: str, body: str,
+        thread_id: str = "",
+    ) -> Dict[str, Any]: ...
+
 
 class GmailProvider:
     """The real one. Read verbs only, because there are no others."""
@@ -109,6 +115,19 @@ class GmailProvider:
         if r.status_code >= 400:
             # The body of an error can echo request content back. Only the
             # status travels.
+            raise GmailAPIError(r.status_code)
+        return r.json()
+
+    async def _post(
+        self, path: str, *, access_token: str, payload: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            r = await client.post(
+                f"{API}{path}",
+                headers={"Authorization": f"Bearer {access_token}"},
+                json=payload,
+            )
+        if r.status_code >= 400:
             raise GmailAPIError(r.status_code)
         return r.json()
 
@@ -190,6 +209,26 @@ class GmailProvider:
         if not text:
             text = str(data.get("snippet") or "")
         return text[:MAX_BODY_CHARS]
+
+    async def send_message(
+        self, *, access_token: str, to: str, subject: str, body: str,
+        thread_id: str = "",
+    ) -> Dict[str, Any]:
+        """Send one plain-text RFC message through the account that owns the token."""
+        message = EmailMessage()
+        message["To"] = str(to or "").strip()
+        message["Subject"] = str(subject or "").strip()
+        message.set_content(str(body or ""))
+        raw = base64.urlsafe_b64encode(message.as_bytes()).decode("ascii")
+        payload: Dict[str, Any] = {"raw": raw}
+        if thread_id:
+            payload["threadId"] = str(thread_id)[:200]
+        data = await self._post("/messages/send", access_token=access_token, payload=payload)
+        return {
+            "id": str(data.get("id") or ""),
+            "threadId": str(data.get("threadId") or ""),
+            "labelIds": [str(x) for x in (data.get("labelIds") or [])][:12],
+        }
 
     async def attachment_manifest(
         self, *, access_token: str, message_id: str,
@@ -311,6 +350,7 @@ class FakeGmailProvider:
         self.body_reads: List[str] = []
         self.attachment_reads: List[str] = []
         self.attachment_blobs: Dict[str, bytes] = {}
+        self.sent_messages: List[Dict[str, str]] = []
 
     def add(self, message_id: str, *, thread_id: str, headers: Dict[str, str],
             body: str = "", labels: Optional[List[str]] = None,
@@ -401,6 +441,18 @@ class FakeGmailProvider:
     async def body_of(self, *, access_token: str, message_id: str) -> str:
         self.body_reads.append(message_id)
         return str(self.bodies.get(message_id) or "")[:MAX_BODY_CHARS]
+
+    async def send_message(
+        self, *, access_token: str, to: str, subject: str, body: str,
+        thread_id: str = "",
+    ) -> Dict[str, Any]:
+        row = {
+            "id": f"sent_{len(self.sent_messages) + 1}",
+            "threadId": thread_id or f"thread_sent_{len(self.sent_messages) + 1}",
+            "to": str(to), "subject": str(subject), "body": str(body),
+        }
+        self.sent_messages.append(row)
+        return {"id": row["id"], "threadId": row["threadId"], "labelIds": ["SENT"]}
 
     async def attachment_manifest(
         self, *, access_token: str, message_id: str,
