@@ -1,3 +1,27 @@
+## 4 ottobre 2026 — Alloggi reali + posizione nativa + luoghi che svegliano ORA
+
+Tre gap di autonomia sono stati chiusi nello stesso ramo di integrazione.
+
+1. **Ricerca alloggi reale**: nuovo dominio `accommodation`, adapter Booking.com
+Demand API v3.2, rotte autenticate `/api/accommodations/providers` e
+`/api/accommodations/search`, prezzi/prodotti normalizzati e nessun dato
+simulato quando le credenziali partner mancano. La ricerca è read-only:
+l'ordine resta separato e dovrà passare dal confine di authority del Personal
+Agent.
+2. **Posizione nella chat su iOS/Android**: le client actions di AI Core ora
+usano `requestCurrentPosition`, che su web usa Geolocation e su app installata
+usa `expo-location`. Il vecchio percorso web-only restituiva
+`native_unsupported` proprio quando ORA chiedeva un fix dalla conversazione.
+3. **Ingresso/uscita dai luoghi → autonomia**: una transizione semantica
+`entered/returned/exited` di un luogo confermato, con monitoraggio esplicitamente
+attivo, entra ora nel normale ChangeLog/OpportunityDiscovery e sveglia lo stesso
+ciclo di ragionamento usato dal resto della vita. Nessuna regola decide cosa
+mostrare: il cambio di luogo è un fatto, il modello decide se conta.
+
+Aggiunta inoltre una proprietà read-only `Opportunity.evidence_refs` come
+compatibilità verso il nuovo modello strutturato `evidence`, correggendo il gate
+CI del ponte Life Profile → Opportunity. Nessuna migrazione distruttiva.
+
 ## 28 settembre 2026 — Trailer pubblicato e verificato
 
 Web Railway 6b13a563-2f09-4239-a788-bb8eed4d6750, commit
