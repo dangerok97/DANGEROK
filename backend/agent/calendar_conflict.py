@@ -293,3 +293,149 @@ async def resolution_step_from_coordination_answer(
         },
         reversibility="easily",
     ), ""
+
+
+async def external_confirmation_step_from_answer(
+    db, owner_id, goal, prior_step, reply, *, language="it"
+):
+    """Prepare one real phone mission for a conflict that needs a third party.
+
+    This function never dials. It only resolves the exact number supplied by
+    the person, prepares the bounded mandate, and binds the mission to the
+    same Home event/revision that produced the conflict. The ordinary agent
+    authority gate is still the only thing that can make the phone ring.
+    """
+    from agent.models import ActionStep
+    import re
+
+    params = dict(prior_step.parameters or {})
+    target_ref = str(params.get("target_ref") or "")
+    if params.get("conflict_followup") != "external_channel" or not target_ref:
+        return None, "not_external_channel"
+
+    node = await get_manual_event(db, owner_id, target_ref.removeprefix("calendar:"))
+    if not node or node.get("status") != "active":
+        return None, "calendar_changed"
+    if str(node.get("updated_at") or "") != str(params.get("expected_revision") or ""):
+        return None, "calendar_changed"
+
+    previous = str(params.get("external_contact_reply") or "")
+    combined = f"{previous} {reply}".strip()
+    lower = combined.lower()
+    if "messagg" in lower and not any(w in lower for w in ("chiam", "telefon")):
+        return ActionStep(
+            intent="Scegliere un canale reale disponibile per chiedere la conferma",
+            step_type="ask_user",
+            asks=(
+                "L'invio di messaggi verso terzi non è ancora collegato a un "
+                "provider reale in questo flusso. Posso invece preparare una "
+                "chiamata: indicami il numero verificabile da usare."
+            ),
+            ask_kind="knowledge",
+            parameters={**params, "conflict_followup": "external_channel"},
+        ), ""
+
+    # Accept Italian mobile/landline forms with spaces, dots, dashes or the
+    # international prefix. Dates and times are too short to match this gate.
+    raw_number = ""
+    for match in re.finditer(r"(?:\+39|0039)?(?:[\s().-]*\d){9,12}", combined):
+        candidate = match.group(0).strip(" .-()")
+        digits = re.sub(r"\D", "", candidate)
+        if 9 <= len(digits) <= 13:
+            raw_number = candidate
+            break
+    from telephone.service import TelephoneService, _national
+    if not raw_number or not _national(raw_number):
+        return ActionStep(
+            intent="Conoscere il numero verificabile della controparte",
+            step_type="ask_user",
+            asks=(
+                "Per fare davvero la chiamata mi serve il numero italiano "
+                "verificabile della persona o struttura che deve confermare."
+            ),
+            ask_kind="knowledge",
+            parameters={**params, "conflict_followup": "external_channel"},
+        ), ""
+
+    who_source = previous or combined
+    calling_whom = re.sub(r"(?:\+39|0039)?(?:[\s().-]*\d){9,12}", " ", who_source)
+    calling_whom = re.sub(
+        r"\b(chiam(?:a|alo|ala|are|ata)?|telefon(?:a|are|o)?|numero|al|allo|alla|il|la)\b",
+        " ", calling_whom, flags=re.I,
+    )
+    calling_whom = " ".join(calling_whom.split()).strip(" ,.;:-") or "la controparte"
+
+    title = str(params.get("title") or "l'appuntamento")
+    day = str(params.get("day") or "")
+    clock = str(params.get("requested_time") or "")
+    desired = str(params.get("start_datetime") or "")
+    end = str(params.get("end_datetime") or "")
+    minutes = 0
+    try:
+        start_dt = datetime.fromisoformat(desired.replace("Z", "+00:00"))
+        end_dt = datetime.fromisoformat(end.replace("Z", "+00:00"))
+        minutes = max(5, round((end_dt - start_dt).total_seconds() / 60))
+    except Exception:
+        minutes = 0
+
+    from telephone.models import Mandate
+    mandate = Mandate(
+        why_calling=f"Spostare {title} al {day} alle {clock}",
+        may_agree_to=[f"{day} alle {clock}"],
+        must_bring_back=[
+            "ottenere conferma esplicita che il nuovo orario è stato registrato"
+        ],
+        minutes=5,
+    )
+    call = await TelephoneService(db).prepare(
+        owner_id,
+        to_number=raw_number,
+        calling_whom=calling_whom,
+        mandate=mandate,
+        session_ref=f"agent:{goal.id}",
+    )
+    if not call.to_number:
+        return None, "invalid_phone"
+
+    from telephone.binding import bind_a_calendar_event
+    binding, why, is_question = await bind_a_calendar_event(
+        db,
+        call=call,
+        calendar_ref=target_ref.removeprefix("calendar:"),
+        desired_datetime=desired,
+        desired_minutes=minutes,
+        allowed_alternatives=[],
+        same_day_only=True,
+    )
+    if binding is None:
+        # The prepared call has not rung. Mark it expired so it can never be
+        # launched later through a stale UI if binding failed.
+        await TelephoneService(db).mark(call, "expired")
+        if is_question:
+            return ActionStep(
+                intent="Chiarire la missione telefonica prima di chiamare",
+                step_type="ask_user", asks=why or "Mi serve una conferma prima di chiamare.",
+                ask_kind="knowledge",
+                parameters={**params, "conflict_followup": "external_channel"},
+            ), ""
+        return None, "calendar_changed" if "calendario" in (why or "").lower() else "binding_failed"
+
+    return ActionStep(
+        intent=(
+            f"Chiamare {calling_whom} per chiedere di spostare «{title}» "
+            f"al {day} alle {clock}"
+        ),
+        step_type="execute",
+        capability_needed="phone.call",
+        input_refs=[f"phone:{call.id}", target_ref],
+        expected_result=(
+            f"{calling_whom} conferma esplicitamente lo spostamento di «{title}» "
+            f"al {day} alle {clock}; solo dopo il calendario ORA risulta aggiornato."
+        ),
+        external_effect=True,
+        effect_type="send",
+        effect_target=f"una chiamata a {calling_whom}",
+        reaches_somebody_else=True,
+        parameters={"call_id": call.id},
+        reversibility="hardly",
+    ), ""
