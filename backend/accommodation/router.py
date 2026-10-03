@@ -66,7 +66,8 @@ class BookingProductIn(BaseModel):
 
 class CardlessPaymentIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    method: str = Field(min_length=1, max_length=40)
+    # Omitted when Booking preview says method_required=false.
+    method: str | None = Field(default=None, max_length=40)
     timing: str = Field(min_length=1, max_length=40)
     include_receipt: bool = True
 
