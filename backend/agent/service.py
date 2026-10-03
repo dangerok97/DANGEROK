@@ -1560,37 +1560,42 @@ class AgentService:
                     self.db, owner_id, goal, answered, reply, language=language
                 )
             elif followup == "external_confirmation":
-                continuation = ActionStep(
-                    ordinal=len(plan.steps),
-                    intent="Preparare il contatto per ottenere la conferma esterna",
-                    step_type="ask_user",
-                    asks=(
-                        "Ho registrato chi deve confermare. Non considero ancora "
-                        "spostato l’appuntamento finché non arriva una conferma "
-                        "reale. Preferisci che la richiesta parta come messaggio "
-                        "o come chiamata?"
-                    ),
-                    ask_kind="knowledge",
-                    parameters={
-                        **dict(answered.parameters or {}),
-                        "conflict_followup": "external_channel",
-                    },
-                )
+                prepared_params = {
+                    **dict(answered.parameters or {}),
+                    "conflict_followup": "external_channel",
+                    "external_contact_reply": reply[:300],
+                }
+                # If the person already said «chiamalo» and supplied the
+                # contact in the same answer, do not ask them to choose the
+                # channel a second time. The helper still only PREPARES the
+                # call; the ordinary authority step is what can make it ring.
+                if any(word in reply.lower() for word in ("chiam", "telefon")):
+                    from agent.calendar_conflict import external_confirmation_step_from_answer
+                    prepared = ActionStep(
+                        ordinal=len(plan.steps), intent="Preparare la chiamata di conferma",
+                        step_type="ask_user", parameters=prepared_params,
+                    )
+                    continuation, continuation_reason = await external_confirmation_step_from_answer(
+                        self.db, owner_id, goal, prepared, reply, language=language
+                    )
+                else:
+                    continuation = ActionStep(
+                        ordinal=len(plan.steps),
+                        intent="Preparare il contatto per ottenere la conferma esterna",
+                        step_type="ask_user",
+                        asks=(
+                            "Ho registrato chi deve confermare. Non considero ancora "
+                            "spostato l’appuntamento finché non arriva una conferma "
+                            "reale. Preferisci che la richiesta parta come messaggio "
+                            "o come chiamata?"
+                        ),
+                        ask_kind="knowledge",
+                        parameters=prepared_params,
+                    )
             elif followup == "external_channel":
-                continuation = ActionStep(
-                    ordinal=len(plan.steps),
-                    intent="Collegare un canale reale per chiedere lo spostamento",
-                    step_type="ask_user",
-                    asks=(
-                        "La richiesta è pronta, ma non la considero inviata né "
-                        "l’appuntamento spostato finché un canale reale non la "
-                        "consegna e la risposta non viene verificata."
-                    ),
-                    ask_kind="knowledge",
-                    parameters={
-                        **dict(answered.parameters or {}),
-                        "conflict_followup": "external_channel",
-                    },
+                from agent.calendar_conflict import external_confirmation_step_from_answer
+                continuation, continuation_reason = await external_confirmation_step_from_answer(
+                    self.db, owner_id, goal, answered, reply, language=language
                 )
             else:
                 from agent.calendar_conflict import resolution_step_from_answer
@@ -1613,6 +1618,14 @@ class AgentService:
                     detail={"source_changed": True},
                 )
                 return {"ok": True, "state": "source_changed", "goal": goal.for_human()}
+            if continuation is None and continuation_reason:
+                # The answer was received but did not produce an executable
+                # real-world path. Keep the question open rather than letting
+                # a dead end look like completed work.
+                answered.status = "blocked"
+                answered.note = f"risposta ricevuta; {continuation_reason}"[:200]
+                await self.repo.save_plan(plan)
+                return {"ok": False, "reason": continuation_reason}
             if continuation is not None:
                 continuation.ordinal = len(plan.steps)
                 plan.steps.append(continuation)
