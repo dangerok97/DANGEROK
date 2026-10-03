@@ -38,7 +38,7 @@ import {
   pickOraAttachment,
 } from '@/src/components/ora/OraComposer';
 import { LocationPermissionSheet } from '@/src/components/ora/LocationPermissionSheet';
-import { requestDeparturePosition, requestForegroundPosition } from '@/src/location/foregroundGeo';
+import { requestCurrentPosition, requestDeparturePosition } from '@/src/location/foregroundGeo';
 import { FocusScreen } from '@/src/shell';
 import type { OraNavigationOption, OraUiAction } from '@/src/components/ora/OraTurns';
 import { useTheme, ThemeSurface } from '@/src/theme/ThemeProvider';
@@ -122,7 +122,7 @@ async function fulfillLocationClientActions(
   };
 
   const runGeo = async (refresh: boolean) =>
-    requestForegroundPosition(
+    requestCurrentPosition(
       refresh
         ? { timeoutMs: 12000, maximumAgeMs: 0 }
         : { timeoutMs: 12000, maximumAgeMs: 60000 },
