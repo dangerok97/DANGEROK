@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from fastapi import HTTPException, Request
+from pymongo import ReturnDocument
 
 
 def _client_ip(request: Request) -> str:
@@ -52,7 +53,7 @@ async def enforce_rate_limit(
             },
         },
         upsert=True,
-        return_document=True,
+        return_document=ReturnDocument.AFTER,
     )
     count = int((row or {}).get("count") or 1)
     if count > limit:
