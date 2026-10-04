@@ -15,7 +15,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 
-import { api, LifePlace, PlaceCandidate, PlacePresence, PlacesResponse } from '@/src/api/client';
+import { api, LifePlace, PlaceCandidate, PlacePresence, PlaceRoutine, PlacesResponse } from '@/src/api/client';
 import { PlaceEditor } from '@/src/components/vita/PlaceEditor';
 import { invalidatePlace, useRevalidate } from '@/src/lib/revalidate';
 import { useTheme } from '@/src/theme/ThemeProvider';
@@ -163,6 +163,20 @@ export function PlacesSection({ compact, onOpenOra }: Props) {
     [],
   );
 
+  const setRoutineState = React.useCallback(
+    async (routineId: string, state: 'accepted' | 'dismissed') => {
+      if (busy) return;
+      setBusy(true);
+      try {
+        await api.placesSetRoutineState(routineId, state);
+        await load();
+      } finally {
+        setBusy(false);
+      }
+    },
+    [busy, load],
+  );
+
   const submitAnswer = React.useCallback(
     async (candidateId: string) => {
       const said = answer.trim();
@@ -210,7 +224,7 @@ export function PlacesSection({ compact, onOpenOra }: Props) {
     );
   }
 
-  const { places, candidates, permission } = data;
+  const { places, candidates, routines, permission } = data;
   const locationOff = permission.preference === 'off' || permission.state === 'denied';
 
   return (
@@ -276,6 +290,33 @@ export function PlacesSection({ compact, onOpenOra }: Props) {
           onSubmit={() => void submitAnswer(candidate.id)}
         />
       ))}
+
+      {routines.length ? (
+        <View style={styles.routines} testID="places-routines">
+          <View style={styles.routineHeading}>
+            <Ionicons name="sparkles-outline" size={16} color={colors.accent} />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.routineHeadingTitle, { color: colors.textPrimary }]}>
+                ORA ha notato
+              </Text>
+              <Text style={[styles.rowMeta, { color: colors.textTertiary }]}>
+                Pattern osservati nei tuoi spostamenti. Sono ipotesi, non regole.
+              </Text>
+            </View>
+          </View>
+          {routines.map((routine) => (
+            <RoutineRow
+              key={routine.id}
+              routine={routine}
+              colors={colors}
+              compact={compact}
+              busy={busy}
+              onAccept={() => void setRoutineState(routine.id, 'accepted')}
+              onDismiss={() => void setRoutineState(routine.id, 'dismissed')}
+            />
+          ))}
+        </View>
+      ) : null}
 
       {!locationOff ? (
         <Pressable
@@ -414,6 +455,95 @@ function PlaceRow({
       </View>
       <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
     </Pressable>
+  );
+}
+
+function RoutineRow({
+  routine,
+  colors,
+  compact,
+  busy,
+  onAccept,
+  onDismiss,
+}: {
+  routine: PlaceRoutine;
+  colors: ReturnType<typeof useTheme>['colors'];
+  compact?: boolean;
+  busy: boolean;
+  onAccept: () => void;
+  onDismiss: () => void;
+}) {
+  const route = routine.place_names.filter(Boolean).join(' → ');
+  const when = [
+    routine.weekdays?.join(', '),
+    routine.typical_start ? `verso le ${routine.typical_start}` : null,
+  ].filter(Boolean).join(' · ');
+  const accepted = routine.state === 'accepted';
+
+  return (
+    <View
+      style={[styles.routineRow, compact && styles.routineRowStacked, { borderColor: colors.divider }]}
+      testID={`routine-${routine.id}`}
+    >
+      <View style={styles.routineIcon}>
+        <Ionicons name="repeat-outline" size={16} color={colors.accent} />
+      </View>
+      <View style={styles.rowBody}>
+        <Text style={[styles.rowTitle, { color: colors.textPrimary }]}>
+          {routine.what_ora_thinks || route || 'Routine osservata'}
+        </Text>
+        {route ? (
+          <Text style={[styles.rowMeta, { color: colors.textSecondary }]} numberOfLines={2}>
+            {route}
+          </Text>
+        ) : null}
+        {when ? (
+          <Text style={[styles.rowMeta, { color: colors.textTertiary }]} numberOfLines={2}>
+            {when}
+          </Text>
+        ) : null}
+        {routine.proactive_review ? (
+          <Text style={[styles.rowMeta, { color: colors.textTertiary }]}>
+            ORA può ricontrollare il contesto prima del momento tipico, senza notificarti automaticamente.
+          </Text>
+        ) : null}
+      </View>
+      <View style={[styles.routineActions, compact && styles.routineActionsStacked]}>
+        <View
+          style={[
+            styles.badge,
+            { backgroundColor: accepted ? colors.successBg : colors.warningBg },
+          ]}
+        >
+          <Text
+            style={[
+              styles.badgeText,
+              { color: accepted ? colors.success : colors.warning },
+            ]}
+          >
+            {accepted ? 'Confermata' : 'Ipotesi'}
+          </Text>
+        </View>
+        {!accepted ? (
+          <Pressable
+            onPress={onAccept}
+            disabled={busy}
+            style={[styles.confirmButton, { borderColor: colors.border, opacity: busy ? 0.5 : 1 }]}
+            testID={`routine-accept-${routine.id}`}
+          >
+            <Text style={[styles.confirmButtonText, { color: colors.textPrimary }]}>È corretto</Text>
+          </Pressable>
+        ) : null}
+        <Pressable
+          onPress={onDismiss}
+          disabled={busy}
+          style={[styles.confirmButton, { borderColor: colors.border, opacity: busy ? 0.5 : 1 }]}
+          testID={`routine-dismiss-${routine.id}`}
+        >
+          <Text style={[styles.confirmButtonText, { color: colors.textSecondary }]}>Non è così</Text>
+        </Pressable>
+      </View>
+    </View>
   );
 }
 
@@ -595,6 +725,30 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
   },
   confirmButtonText: { fontSize: 12, fontWeight: '500' },
+  routines: {
+    gap: tokens.spacing.sm,
+    marginTop: tokens.spacing.sm,
+    paddingTop: tokens.spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  routineHeading: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: tokens.spacing.sm,
+    paddingBottom: 4,
+  },
+  routineHeadingTitle: { fontSize: 14, fontWeight: '600' },
+  routineRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: tokens.spacing.md,
+    paddingVertical: tokens.spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  routineRowStacked: { flexDirection: 'column', alignItems: 'stretch' },
+  routineIcon: { width: 22, alignItems: 'center' },
+  routineActions: { flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.sm, flexWrap: 'wrap' },
+  routineActionsStacked: { paddingLeft: 22 + tokens.spacing.md },
   candidateForm: { gap: tokens.spacing.md, paddingBottom: tokens.spacing.md },
   primaryButton: {
     borderRadius: tokens.radius.md,
