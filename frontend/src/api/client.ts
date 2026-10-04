@@ -1588,6 +1588,30 @@ export const api = {
     }),
   locationGetPresence: () =>
     request<{ ok: boolean; presence?: Record<string, unknown> }>('/location/presence'),
+
+  contactsStatus: () =>
+    request<{ ok: boolean; permitted: boolean; contacts: number }>('/contacts/status'),
+  contactsSync: (body: {
+    permission: 'granted' | 'limited' | 'denied' | 'unavailable' | 'not_requested';
+    contacts: Array<{
+      device_contact_id: string;
+      name?: string;
+      organization?: string;
+      aliases?: string[];
+      phones: Array<{ number: string } | string>;
+    }>;
+  }) =>
+    request<{
+      ok: boolean;
+      permission: string;
+      stored?: number;
+      removed?: number;
+      deleted?: boolean;
+      truncated?: boolean;
+    }>('/contacts/device/sync', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
   aiCoreFileUpload: async (
     file: { uri: string; name: string; type: string },
     sessionId?: string | null,

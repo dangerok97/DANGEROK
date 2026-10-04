@@ -45,6 +45,14 @@ function usePresenceReconciliation() {
         } catch {
           /* offline, or no permission: both are ordinary and neither is fatal */
         }
+        try {
+          // Never asks here. If the person enabled Rubrica already, bring the
+          // minimal callable index back in sync when ORA returns to foreground.
+          const contacts = await import('@/src/contacts/deviceContacts');
+          await contacts.reconcile();
+        } catch {
+          /* offline/native module unavailable: retry on the next foreground */
+        }
       })();
     };
 
