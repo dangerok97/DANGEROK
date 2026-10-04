@@ -654,6 +654,34 @@ export type EnergyOfferSupply = {
 export type EnergyOfferMonitoring = { enabled: boolean; supplies: EnergyOfferSupply[] };
 
 export const api = {
+  // --- Rubrica dispositivo -------------------------------------------------
+  contactsDeviceStatus: () =>
+    request<{ ok: boolean; status: string; synced_at: string; contact_count: number }>(
+      '/contacts/device',
+    ),
+
+  contactsDeviceSync: (
+    permission: 'granted' | 'denied',
+    contacts: Array<{
+      id: string;
+      name: string;
+      organization: string;
+      aliases: string[];
+      phones: string[];
+      kind: 'person' | 'business';
+    }>,
+  ) =>
+    request<{ ok: boolean; status: string; synced_at: string; contact_count: number }>(
+      '/contacts/device',
+      { method: 'POST', body: JSON.stringify({ permission, contacts }) },
+    ),
+
+  contactsDeviceRevoke: () =>
+    request<{ ok: boolean; status: string; synced_at: string; contact_count: number }>(
+      '/contacts/device',
+      { method: 'DELETE' },
+    ),
+
   // --- Preparazione di una missione (V3.20.1) ------------------------------
   //
   //     NESSUNA DI QUESTE PORTE FA SQUILLARE NIENTE.
