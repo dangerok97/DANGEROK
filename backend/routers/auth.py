@@ -5,7 +5,7 @@ import os
 from typing import Any, Optional
 
 import httpx
-from fastapi import APIRouter, Depends, File, Header, HTTPException, Response, UploadFile
+from fastapi import APIRouter, Depends, File, Header, HTTPException, Request, Response, UploadFile
 from pydantic import BaseModel, EmailStr, Field, model_validator
 from account_identity import IdentityIn
 
@@ -21,6 +21,7 @@ from deps import (
 from profile_media import InvalidAvatar, ProfileMediaService
 from social_auth import SocialAuthService, social_auth_status
 from social_auth.store import IdentityStore
+from security.rate_limit import enforce_rate_limit
 
 from ._seed import prepare_user_decisions
 
@@ -133,7 +134,8 @@ async def _auth_out(user: dict) -> AuthOut:
 
 # --- Email -----------------------------------------------------------
 @router.post("/register", response_model=AuthOut)
-async def register(body: RegisterIn):
+async def register(body: RegisterIn, request: Request):
+    await enforce_rate_limit(db, request, scope="auth.register", limit=8, window_seconds=3600)
     existing = await db.users.find_one({"email": body.email}, {"_id": 0})
     if existing and existing.get("password_hash"):
         raise HTTPException(status_code=409, detail="Email già registrata")
@@ -153,7 +155,8 @@ async def register(body: RegisterIn):
 
 
 @router.post("/login", response_model=AuthOut)
-async def login(body: LoginIn):
+async def login(body: LoginIn, request: Request):
+    await enforce_rate_limit(db, request, scope="auth.login", limit=20, window_seconds=300)
     user = await db.users.find_one({"email": body.email}, {"_id": 0})
     if not user or not user.get("password_hash"):
         raise HTTPException(status_code=401, detail="Credenziali non valide")
@@ -169,7 +172,8 @@ async def login(body: LoginIn):
 
 # --- Legacy Emergent (kept, gated) -----------------------------------
 @router.post("/google-session", response_model=AuthOut)
-async def google_session(body: GoogleSessionIn):
+async def google_session(body: GoogleSessionIn, request: Request):
+    await enforce_rate_limit(db, request, scope="auth.google_session", limit=20, window_seconds=300)
     """Legacy Emergent Google bridge — disabled unless EMERGENT_GOOGLE_AUTH=1."""
     if os.environ.get("EMERGENT_GOOGLE_AUTH", "0").lower() not in ("1", "true", "yes"):
         raise HTTPException(
@@ -204,7 +208,8 @@ async def providers_status():
 
 
 @router.post("/google", response_model=AuthOut)
-async def google_login(body: GoogleIdTokenIn):
+async def google_login(body: GoogleIdTokenIn, request: Request):
+    await enforce_rate_limit(db, request, scope="auth.google", limit=30, window_seconds=300)
     svc = _social()
     verified = svc.verify_google(body.id_token, nonce=body.nonce)
     user = await svc.login_with_verified(verified)
@@ -212,7 +217,8 @@ async def google_login(body: GoogleIdTokenIn):
 
 
 @router.post("/apple", response_model=AuthOut)
-async def apple_login(body: AppleIdTokenIn):
+async def apple_login(body: AppleIdTokenIn, request: Request):
+    await enforce_rate_limit(db, request, scope="auth.apple", limit=30, window_seconds=300)
     svc = _social()
     verified = svc.verify_apple(body.id_token, nonce=body.nonce)
     full = body.full_name or {}
