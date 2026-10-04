@@ -702,7 +702,16 @@ export function AgentWorkRow({
           <Text style={[oraType.body, { color: ora.ink, fontWeight: '600', flexShrink: 1 }]}>
             {work.what}
           </Text>
-          <OraBadge label={work.needs_you ? 'Serve una risposta' : 'In corso'} tone={work.needs_you ? 'attention' : 'info'} />
+          <OraBadge
+            label={
+              work.needs_you
+                ? 'Serve una risposta'
+                : work.autonomous
+                  ? 'ORA si è mossa'
+                  : 'In corso'
+            }
+            tone={work.needs_you ? 'attention' : 'info'}
+          />
         </View>
         {/*
           La fonte, detta per intero. Quando l'originale non è ricostruibile la
@@ -716,17 +725,34 @@ export function AgentWorkRow({
             {work.unknown}
           </Text>
         ) : null}
-        {work.why_now ? (
-          <Text style={[oraType.small, { color: ora.ink2 }]} numberOfLines={2}>
-            {work.why_now}
+        {work.detected || work.why_now ? (
+          <Text style={[oraType.small, { color: ora.ink2 }]} numberOfLines={3}>
+            <Text style={{ fontWeight: '700' }}>Rilevato: </Text>
+            {work.detected || work.why_now}
           </Text>
         ) : null}
-        <Text style={[oraType.small, { color: ora.ink2 }]} numberOfLines={2}>
-          {work.state}
-        </Text>
-        <Text style={[oraType.small, { color: work.needs_you ? ora.attention : ora.ink3 }]}>
-          {work.needs_you || 'Non serve nulla per ora.'}
-        </Text>
+        {work.already_done ? (
+          <Text style={[oraType.small, { color: ora.ink2 }]} numberOfLines={3}>
+            <Text style={{ fontWeight: '700' }}>Ho già fatto: </Text>
+            {work.already_done}
+          </Text>
+        ) : (
+          <Text style={[oraType.small, { color: ora.ink2 }]} numberOfLines={2}>
+            {work.state}
+          </Text>
+        )}
+        {work.next_step || work.needs_you ? (
+          <Text
+            style={[
+              oraType.small,
+              { color: work.needs_you ? ora.attention : ora.ink2 },
+            ]}
+            numberOfLines={3}
+          >
+            <Text style={{ fontWeight: '700' }}>Prossimo passo: </Text>
+            {work.next_step || work.needs_you}
+          </Text>
+        ) : null}
         {/*
           Nessun bottone morto: se non c'è dove aprire, il bottone non c'è.
         */}
