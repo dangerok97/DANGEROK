@@ -507,3 +507,9 @@ async def test_explicit_name_correction_retargets_active_preparation(db):
         "preparation_id": prep.preparation_id,
         "correct_counterparty": "Asia",
     }
+
+
+def test_relationship_phrase_does_not_turn_quindi_into_a_contact_name():
+    from telephone.requests import who_in
+
+    assert who_in("Chiama la mia ragazza quindi e dille che la amo") == "la mia ragazza"
