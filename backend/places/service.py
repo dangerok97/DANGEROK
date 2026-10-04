@@ -742,7 +742,26 @@ class PlacesService:
             await self._cancel_routine_reviews(user_id)
             return None
 
+        existing_doc = await self.db.observed_routines.find_one(
+            {"user_id": user_id, "place_sequence": read["place_ids"]}, {"_id": 0}
+        )
+        existing = None
+        if existing_doc:
+            try:
+                existing = ObservedRoutine.model_validate(existing_doc)
+            except Exception:
+                existing = None
+
+        # A user's verdict outranks a future model reread. Re-observing the
+        # same pattern may update timing/occurrences, but it must never turn a
+        # dismissed routine back into a candidate behind their back.
+        preserved_state = (
+            existing.state
+            if existing and existing.state in {"accepted", "dismissed"}
+            else "candidate"
+        )
         routine = ObservedRoutine(
+            id=existing.id if existing else None,
             user_id=user_id,
             place_sequence=read["place_ids"],
             weekdays=read["weekdays"],
@@ -750,15 +769,22 @@ class PlacesService:
             typical_end=read["typical_end"],
             occurrences=read["occurrences"],
             interpretation=read["interpretation"],
-            proactive_review_lead_minutes=read.get("proactive_review_lead_minutes", 0),
-            state="candidate",
+            proactive_review_lead_minutes=(
+                0 if preserved_state == "dismissed"
+                else read.get("proactive_review_lead_minutes", 0)
+            ),
+            state=preserved_state,
         )
         await self.db.observed_routines.update_one(
             {"user_id": user_id, "place_sequence": routine.place_sequence},
             {"$set": routine.model_dump()},
             upsert=True,
         )
-        scheduled = await self._schedule_routine_review(user_id, routine)
+        scheduled = (
+            await self._schedule_routine_review(user_id, routine)
+            if routine.state != "dismissed"
+            else False
+        )
         return {
             "routine": routine.public(),
             "worth_asking": read["worth_asking"],
@@ -834,9 +860,59 @@ class PlacesService:
 
     async def list_routines(self, user_id: str) -> List[Dict[str, Any]]:
         docs = await self.db.observed_routines.find(
-            {"user_id": user_id}, {"_id": 0}
+            {"user_id": user_id, "state": {"$ne": "dismissed"}}, {"_id": 0}
         ).to_list(20)
-        return [ObservedRoutine.model_validate(d).public() for d in docs]
+        names = {p.id: p.label for p in await self.repo.list_places(user_id)}
+        out: List[Dict[str, Any]] = []
+        for doc in docs:
+            try:
+                routine = ObservedRoutine.model_validate(doc)
+            except Exception:
+                continue
+            public = routine.public()
+            public["place_names"] = [
+                names.get(pid, "Luogo")
+                for pid in routine.place_sequence
+            ]
+            public["proactive_review"] = bool(routine.proactive_review_lead_minutes)
+            out.append(public)
+        return out
+
+    async def set_routine_state(
+        self, user_id: str, routine_id: str, state: str
+    ) -> Optional[Dict[str, Any]]:
+        """Let the person confirm or reject ORA's interpretation."""
+        if state not in {"accepted", "dismissed"}:
+            return None
+        doc = await self.db.observed_routines.find_one(
+            {"user_id": user_id, "id": routine_id}, {"_id": 0}
+        )
+        if not doc:
+            return None
+        try:
+            routine = ObservedRoutine.model_validate(doc)
+        except Exception:
+            return None
+
+        routine.state = state  # type: ignore[assignment]
+        routine.updated_at = _now().isoformat()
+        if state == "dismissed":
+            routine.proactive_review_lead_minutes = 0
+            await self.db.ambient_wakes.update_many(
+                {
+                    "owner_id": user_id,
+                    "source_ref": f"routine_review:{routine.id}",
+                    "status": {"$in": ["pending", "claimed"]},
+                },
+                {"$set": {"status": "cancelled", "updated_at": _now().isoformat()}},
+            )
+        await self.db.observed_routines.update_one(
+            {"user_id": user_id, "id": routine.id},
+            {"$set": routine.model_dump()},
+        )
+        if state == "accepted":
+            await self._schedule_routine_review(user_id, routine)
+        return routine.public()
 
     async def set_zone(
         self, user_id: str, place_id: str, *, entry_radius_m: float, exit_radius_m: float
