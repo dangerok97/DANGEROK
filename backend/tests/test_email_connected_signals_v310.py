@@ -417,6 +417,11 @@ def test_a_message_that_matters_knocks_on_the_doors_that_already_exist(monkeypat
             assert changes[0]["source"] == "communications"
             assert changes[0]["kind"] == "message.received"
             assert await db.ambient_wakes.count_documents({"owner_id": uid}) == 1
+            wake = await db.ambient_wakes.find_one({"owner_id": uid}, {"_id": 0})
+            scheduled = datetime.fromisoformat(wake["scheduled_for"])
+            # A change that may cost the person something is reviewed promptly;
+            # informational changes keep the wider coalescing window.
+            assert scheduled <= datetime.now(timezone.utc) + timedelta(seconds=30)
 
             # Nothing decided to do anything.
             for collection in ("autonomous_goals", "action_intents", "agent_receipts"):
