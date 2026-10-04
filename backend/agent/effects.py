@@ -201,17 +201,60 @@ async def calendar_write(db, owner_id: str, intent: ActionIntent) -> EffectOutco
                         "Non sono riuscita a raggiungere il calendario.", retryable=True)
 
     receipt.external_ref = ""
+    modifying = intent.effect.effect_type == "modify"
+    target = str(intent.target_ref or "").strip()
+    if target.startswith("calendar:"):
+        target = target.removeprefix("calendar:")
+
+    existing = None
+    if modifying:
+        if not target:
+            return _refused(
+                receipt, "target_required",
+                "Per spostare un appuntamento devo sapere esattamente quale evento modificare.",
+            )
+        try:
+            existing = await gcal.provider.get_event(
+                access_token=access, calendar_id=calendar_id, event_id=target
+            )
+        except Exception as e:
+            status = getattr(e, "status_code", None)
+            return _refused(
+                receipt,
+                f"google_http_{status}" if status else "target_unavailable",
+                "Non riesco a rileggere l'evento da modificare.",
+                retryable=bool(status and int(status) >= 500),
+            )
+        if existing.get("attendees"):
+            return _refused(
+                receipt, "shared_event_requires_separate_authority",
+                "L'evento coinvolge altre persone: non lo modifico come se fosse solo personale.",
+            )
+        updated_body = dict(existing)
+        updated_body.update({
+            "summary": body["summary"],
+            "description": body.get("description", ""),
+            "start": body["start"],
+            "end": body["end"],
+        })
+        body = updated_body
+
     try:
-        created = await gcal.provider.create_event(
-            access_token=access, calendar_id=calendar_id, body=body
-        )
+        if modifying:
+            changed = await gcal.provider.update_event(
+                access_token=access,
+                calendar_id=calendar_id,
+                event_id=target,
+                body=body,
+                etag=str((existing or {}).get("etag") or "") or None,
+            )
+        else:
+            changed = await gcal.provider.create_event(
+                access_token=access, calendar_id=calendar_id, body=body
+            )
     except Exception as e:
         logger.info("calendar write failed: %s", type(e).__name__)
         receipt.provider_status = "failed"
-        # The status code, when the provider gave one. «GoogleCalendarAPIError»
-        # is a receipt nobody can act on: a 409 means the thing is already
-        # there, a 401 means the connection needs renewing, and a 503 means try
-        # again. Same shape the conversation side already records.
         status = getattr(e, "status_code", None)
         receipt.error_type = (
             f"google_http_{status}" if status else type(e).__name__
@@ -227,7 +270,7 @@ async def calendar_write(db, owner_id: str, intent: ActionIntent) -> EffectOutco
             ),
         )
 
-    event_id = str((created or {}).get("id") or "")
+    event_id = target if modifying else str((changed or {}).get("id") or "")
     receipt.external_ref = event_id[:200]
     receipt.answered_at = _now().isoformat()
     # Accepted, and no more than that. What it means is decided by looking.
@@ -256,7 +299,10 @@ async def calendar_write(db, owner_id: str, intent: ActionIntent) -> EffectOutco
     when = _human_when(read_back)
     return EffectOutcome(
         receipt=receipt,
-        observation=f"L'ho messo in calendario: {title}{when}.",
+        observation=(
+            f"Ho aggiornato l'appuntamento in calendario: {title}{when}."
+            if modifying else f"L'ho messo in calendario: {title}{when}."
+        ),
         claims=[(
             f"In calendario risulta: {title}{when}."[:600],
             intent.effect.expected_outcome[:300] or "l'appuntamento è in agenda",
@@ -267,7 +313,10 @@ async def calendar_write(db, owner_id: str, intent: ActionIntent) -> EffectOutco
             provider="calendar",
             source_refs=[event_id],
             freshness="fresh",
-            certainty_note="riletto dal calendario dopo averlo scritto",
+            certainty_note=(
+                "riletto dal calendario dopo la modifica"
+                if modifying else "riletto dal calendario dopo averlo scritto"
+            ),
         ),
         observed=True,
     )
