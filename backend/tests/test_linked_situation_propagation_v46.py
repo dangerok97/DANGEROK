@@ -63,7 +63,7 @@ async def test_linked_email_to_appointment_records_situation_change_not_fake_cal
 
 
 @pytest.mark.asyncio
-async def test_uncertain_or_nonappointment_link_does_not_propagate():
+async def test_uncertain_link_does_not_propagate_but_linked_document_does():
     db = AsyncMongoMockClient().test
     signal = _signal()
 
@@ -94,7 +94,15 @@ async def test_uncertain_or_nonappointment_link_does_not_propagate():
         candidate={"kind": "document", "ref": "doc_1"},
     )
 
-    assert await db.meaningful_changes.count_documents({"owner_id": "alice"}) == 0
+    rows = await db.meaningful_changes.find(
+        {"owner_id": "alice"}, {"_id": 0}
+    ).to_list(10)
+    assert len(rows) == 1
+    assert rows[0]["source"] == "situations"
+    assert rows[0]["kind"] == "linked_source_changed"
+    assert rows[0]["entity_ref"] == "doc_1"
+    assert rows[0]["entity_kind"] == "document"
+    assert rows[0]["after"] == "nuova evidenza collegata da email"
 
 
 @pytest.mark.asyncio
