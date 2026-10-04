@@ -299,7 +299,15 @@ async def test_runtime_after_restart_recalculates_without_home_or_chat(world, mo
     assert outcome["completed"] == 1
     model.assert_awaited_once()
     assert len(await OpportunityRepository(world.db).list("alice")) == 1
-    assert await world.db.ambient_wakes.count_documents({"owner_id": "alice", "status": "pending"}) == 1
+    pending = await world.db.ambient_wakes.find(
+        {"owner_id": "alice", "status": "pending"}, {"_id": 0, "source_ref": 1}
+    ).to_list(10)
+    refs = {row.get("source_ref") for row in pending}
+    # The restart re-arms both layers: a broad calendar horizon check and the
+    # precise pre-departure check for this concrete event.
+    assert WAKE_SOURCE in refs
+    assert any(str(ref or "").startswith("calendar_departure_due:") for ref in refs)
+    assert len(pending) == 2
 
 
 @pytest.mark.asyncio
