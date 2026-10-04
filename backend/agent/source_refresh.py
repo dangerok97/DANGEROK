@@ -72,7 +72,10 @@ async def refresh(service, goal):
     goal.rationale = "La segnalazione di partenza è stata chiusa." if closed else "Rivaluto il lavoro con le informazioni aggiornate."
     goal.next_run_at = None if closed else datetime.now(timezone.utc).isoformat()
     if row:
-        goal.source_refs = [str(e.get("ref"))[:120] for e in row.get("evidence", []) if e.get("ref")][:8]
+        from agent.source_refs import expand_opportunity_source_refs
+        goal.source_refs = await expand_opportunity_source_refs(
+            service.db, goal.owner_id, row.get("evidence", [])
+        )
         goal.why_now = str(row.get("why_now") or "")[:400]
     await service.repo.save_goal(goal)
     await service.db.agent_goals.update_one(

@@ -171,9 +171,22 @@ class AgentService:
             try:
                 from opportunities.snapshot import _calendar
                 appointments = await _calendar(self.db, owner_id, _now())
-                cited = [row for row in appointments if row["ref"] in calendar_refs]
+                cited = [
+                    row for row in appointments
+                    if (
+                        row["ref"] in calendar_refs
+                        or f"calendar:{row['ref']}" in calendar_refs
+                    )
+                ]
                 source_context.extend(cited)
-                context_unavailable = context_unavailable or len(cited) < len(calendar_refs)
+                matched = {
+                    ref for ref in calendar_refs
+                    if any(
+                        row["ref"] == ref or f"calendar:{row['ref']}" == ref
+                        for row in cited
+                    )
+                }
+                context_unavailable = context_unavailable or len(matched) < len(calendar_refs)
             except Exception:
                 context_unavailable = True
         # Two current Home commitments that demonstrably overlap need a
