@@ -197,6 +197,9 @@ jobs:
       - name: Auth provider regressions
         working-directory: frontend
         run: npm run test:auth
+      - name: Siri App Intent handoff
+        working-directory: frontend
+        run: node --experimental-strip-types --test src/siri/siriAppIntent.regression.test.ts
       - name: Device location consent
         working-directory: frontend
         run: node --test src/location/shareForeground.test.cjs
@@ -211,6 +214,17 @@ jobs:
           EXPO_NO_GIT_STATUS: "1"
           EXPO_PUBLIC_BACKEND_URL: https://ora-backend-production-aa56.up.railway.app
         run: npx expo prebuild --platform ios --no-install --clean
+      - name: Verify ORA Siri native source
+        working-directory: frontend
+        shell: bash
+        run: |
+          set -euo pipefail
+          swift_file="$(find ios -name OraSiriIntents.swift -print -quit)"
+          test -n "$swift_file"
+          grep -q 'struct AskOraIntent: AppIntent' "$swift_file"
+          grep -q 'AppShortcutsProvider' "$swift_file"
+          grep -q 'supportedModes' "$swift_file"
+          grep -q 'OraSiriIntents.swift' ios/*.xcodeproj/project.pbxproj
       - name: Export production iOS bundle
         working-directory: frontend
         env:
