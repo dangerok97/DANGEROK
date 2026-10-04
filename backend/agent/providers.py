@@ -493,6 +493,102 @@ async def read_mail_body(db, owner_id: str, goal, *, step) -> CapabilityOutcome:
     )
 
 
+async def read_contacts(db, owner_id: str, goal, *, step) -> CapabilityOutcome:
+    """Resolve one named person/business against the synced device address book.
+
+    The persistent evidence deliberately does not copy phone numbers. The
+    telephone preparation/trust layer re-reads the contact when a call is
+    actually being prepared, which keeps the sensitive value at the boundary
+    that already knows how to confirm and revoke it.
+    """
+    try:
+        state = await db.contacts_device_state.find_one(
+            {"user_id": owner_id}, {"_id": 0, "status": 1, "synced_at": 1}
+        )
+    except Exception as exc:
+        logger.info("contacts state read soft-fail: %s", type(exc).__name__)
+        state = None
+
+    if not state or state.get("status") != "connected":
+        return _unavailable(
+            "contacts.read",
+            "requires_connection",
+            "La rubrica del dispositivo non è collegata a ORA.",
+        )
+
+    who = str((step.parameters or {}).get("who") or "").strip()[:120]
+    if not who:
+        return _unavailable(
+            "contacts.read",
+            "contact_query_required",
+            "Per leggere la rubrica devo sapere quale persona o attività cercare.",
+        )
+
+    try:
+        from preparation.contacts import AddressBook
+        candidates = await AddressBook().look_for(
+            db, owner_id=owner_id, who=who
+        )
+    except Exception as exc:
+        logger.info("contacts read soft-fail: %s", type(exc).__name__)
+        return CapabilityOutcome(
+            status="failed",
+            observation="Non sono riuscita a cercare nella rubrica sincronizzata.",
+            provenance=ResultProvenance(
+                source_class="connected_provider",
+                capability="contacts.read",
+                provider="device_contacts_cache",
+            ),
+            error_type="contacts_read_failed",
+            retryable=True,
+        )
+
+    refs: List[str] = []
+    claims: List[Claim] = []
+    for candidate in candidates[:5]:
+        identity = str(candidate.contact_identity or candidate.name or "").strip()
+        ref = f"contact:{identity}"[:120] if identity else "contact:match"
+        if ref not in refs:
+            refs.append(ref)
+        detail = str(candidate.source_detail or "").strip()
+        text = f"Contatto in rubrica: {candidate.name}; recapito telefonico disponibile"
+        if detail:
+            text += f"; {detail}"
+        claims.append(Claim(text=text[:400], supports=ref))
+
+    if not claims:
+        return CapabilityOutcome(
+            status="succeeded",
+            observation=f"Ho cercato «{who}» nella rubrica sincronizzata e non ho trovato corrispondenze.",
+            provenance=ResultProvenance(
+                source_class="connected_provider",
+                capability="contacts.read",
+                provider="device_contacts_cache",
+                freshness="fresh",
+            ),
+            claims=[Claim(
+                text=f"Nessun contatto in rubrica corrisponde a «{who}».",
+                supports=f"contact_query:{who}"[:120],
+            )],
+            data_ref="contacts:0",
+        )
+
+    return CapabilityOutcome(
+        status="succeeded",
+        observation=f"Ho trovato {len(claims)} corrispondenze nella rubrica sincronizzata per «{who}».",
+        provenance=ResultProvenance(
+            source_class="connected_provider",
+            capability="contacts.read",
+            provider="device_contacts_cache",
+            source_refs=refs[:8],
+            freshness="fresh",
+            certainty_note="numero non copiato nell'evidenza; verrà riletto dal gate telefonico se serve",
+        ),
+        claims=claims[:MAX_CLAIMS],
+        data_ref=refs[0] if refs else "contacts",
+    )
+
+
 async def read_location(db, owner_id: str, goal) -> CapabilityOutcome:
     """Read current/recent presence without persisting raw coordinates as evidence."""
     try:
