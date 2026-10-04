@@ -20,3 +20,32 @@ async def test_model_cannot_reexecute_a_step_outside_pending_candidates(monkeypa
     decision, chosen = await service._next("alice", goal, plan, AgentRun(owner_id="alice"), AgentBudget(), language="it")
     assert decision == "execute" and chosen.id == pending.id
     assert old.status == previous_status
+
+@pytest.mark.asyncio
+async def test_cognitive_budget_exhaustion_does_not_finish_pending_plan(monkeypatch):
+    db = AsyncMongoMockClient().test
+    service = AgentService(db)
+    goal = AutonomousGoal(
+        owner_id="alice",
+        objective="Prepara risultato",
+        desired_outcome="Risultato utile",
+    )
+    pending = ActionStep(intent="Passo ancora da fare", step_type="prepare")
+    plan = ActionPlan(owner_id="alice", goal_id=goal.id, steps=[pending])
+    monkeypatch.setattr(
+        service.evidence,
+        "for_goal",
+        AsyncMock(return_value=[
+            AgentEvidence(owner_id="alice", goal_id=goal.id, claim="Fonte letta")
+        ]),
+    )
+    budget = AgentBudget()
+    budget.cognitive_calls = budget.max_cognitive_calls
+
+    decision, chosen = await service._next(
+        "alice", goal, plan, AgentRun(owner_id="alice"), budget, language="it"
+    )
+
+    assert decision == "budget"
+    assert chosen is None
+    assert pending.status == "pending"
