@@ -80,6 +80,7 @@ _READERS = {
     "mail.metadata": providers.read_mail_metadata,
     "mail.read": providers.read_mail_body,
     "location.read": providers.read_location,
+    "financial.read": providers.read_financial_state,
 }
 
 
