@@ -568,6 +568,137 @@ async def read_location(db, owner_id: str, goal) -> CapabilityOutcome:
     )
 
 
+async def read_financial_state(db, owner_id: str, goal) -> CapabilityOutcome:
+    """Read ORA's governed/observed money state without dumping transactions.
+
+    This is intentionally downstream of the bank/email/document ingestion
+    layers. It reads what ORA already knows, preserving the distinction
+    between governed facts, observations and unknowns.
+    """
+    try:
+        from financial.knowledge import what_ora_knows
+        state = await what_ora_knows(db, owner_id, days=45)
+    except Exception as exc:
+        logger.info("financial state read soft-fail: %s", type(exc).__name__)
+        return CapabilityOutcome(
+            status="failed",
+            observation="Non sono riuscita a ricostruire il quadro finanziario disponibile.",
+            provenance=ResultProvenance(
+                source_class="internal_observation",
+                capability="financial.read",
+                provider="financial_knowledge",
+            ),
+            error_type="financial_read_failed",
+            retryable=True,
+        )
+
+    claims: List[Claim] = []
+    bank = state.get("la_banca") or {}
+    live = bool(bank.get("posso_leggere_adesso"))
+    last_balance = bank.get("ultimo_saldo_osservato") or {}
+    if bank:
+        sentence = (
+            f"Fonte bancaria: stato={str(bank.get('stato') or 'non noto')}; "
+            f"lettura attuale consentita={'sì' if live else 'no'}."
+        )
+        if last_balance:
+            sentence += (
+                f" Ultimo saldo osservato: {str(last_balance.get('quanto') or 'non disponibile')} "
+                f"({str(last_balance.get('tipo') or 'tipo non indicato')}), "
+                f"letto={str(last_balance.get('letto_quando') or 'non disponibile')}."
+            )
+        claims.append(Claim(
+            text=sentence[:600],
+            supports="stato della fonte bancaria e ultima lettura disponibile",
+        ))
+
+    month = state.get("questo_mese") or {}
+    if month:
+        claims.append(Claim(
+            text=(
+                "Movimenti osservati nel mese: "
+                f"entrate={str(month.get('entrate_osservate') or 'non disponibili')}; "
+                f"uscite={str(month.get('uscite_osservate') or 'non disponibili')}; "
+                f"differenza parziale={str(month.get('differenza_parziale') or 'non disponibile')}; "
+                f"movimenti letti={str(month.get('quanti_movimenti') or 0)}. "
+                "È una somma parziale dei movimenti letti, non un saldo né quanto resta."
+            )[:600],
+            supports="andamento osservato del mese",
+        ))
+
+    for row in list(state.get("so") or [])[:3]:
+        claims.append(Claim(
+            text=(
+                f"Fatto finanziario governato: {str(row.get('cosa') or '')}; "
+                f"{str(row.get('quanto') or '')}; {str(row.get('quando') or '')}; "
+                f"{str(row.get('verso') or '')}; fonte={str(row.get('come_lo_so') or '')}."
+            )[:600],
+            supports="fatto finanziario già governato",
+        ))
+
+    for row in list(state.get("ho_letto") or [])[:2]:
+        claims.append(Claim(
+            text=(
+                f"Osservazione finanziaria non ancora promossa a fatto: "
+                f"{str(row.get('cosa') or '')}; {str(row.get('quanto') or '')}; "
+                f"{str(row.get('quando') or '')}; fonte={str(row.get('come_lo_so') or '')}."
+            )[:600],
+            supports="osservazione finanziaria da non trattare come fatto confermato",
+        ))
+
+    horizon = state.get("in_arrivo") or {}
+    outgoing = list(horizon.get("in_uscita") or [])[:3]
+    incoming = list(horizon.get("in_entrata") or [])[:3]
+    unknowns = list(horizon.get("cosa_non_so") or [])[:3]
+    if outgoing or incoming or unknowns:
+        claims.append(Claim(
+            text=(
+                f"Orizzonte {str(horizon.get('periodo') or 'prossimo')}: "
+                f"uscite note={'; '.join(str(x)[:140] for x in outgoing) or 'nessuna elencata'}; "
+                f"entrate note={'; '.join(str(x)[:140] for x in incoming) or 'nessuna elencata'}; "
+                f"buchi dichiarati={'; '.join(str(x)[:120] for x in unknowns) or 'nessuno dichiarato'}. "
+                "Non equivale a una previsione completa del saldo."
+            )[:600],
+            supports="impegni finanziari prossimi e limiti della previsione",
+        ))
+
+    for row in list(state.get("devo_chiederti") or [])[:2]:
+        claims.append(Claim(
+            text=(
+                f"Questione finanziaria ancora da chiarire: {str(row.get('cosa') or '')}; "
+                f"{str(row.get('quanto') or '')}; origine={str(row.get('come_lo_so') or '')}."
+            )[:600],
+            supports="incertezza finanziaria esplicita",
+        ))
+
+    if not claims:
+        claims.append(Claim(
+            text=(
+                "ORA non dispone ancora di informazioni finanziarie governate o "
+                "osservazioni sufficienti per descrivere il quadro economico."
+            ),
+            supports="assenza di contesto finanziario disponibile in ORA",
+        ))
+
+    return CapabilityOutcome(
+        status="succeeded",
+        observation=f"Ho ricostruito {len(claims)} elementi del quadro finanziario disponibile.",
+        provenance=ResultProvenance(
+            source_class="internal_observation",
+            capability="financial.read",
+            provider="financial_knowledge",
+            freshness="fresh" if live else "unknown",
+            certainty_note=(
+                "la fonte bancaria è leggibile adesso; i singoli fatti mantengono il proprio grado"
+                if live else
+                "nessun saldo viene presentato come attuale senza una fonte bancaria leggibile"
+            ),
+        ),
+        claims=claims[:MAX_CLAIMS],
+        data_ref="financial:state",
+    )
+
+
 async def read_calendar(db, owner_id: str, goal) -> CapabilityOutcome:
     """
     What is actually on the calendar — if one is actually connected.
