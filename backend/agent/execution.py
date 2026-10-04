@@ -547,13 +547,14 @@ class StepExecutor:
         the flags come from the step's own declaration, so a step that did not
         say it reaches somebody else cannot quietly grow an attendee here.
         """
+        target_ref = self._target_ref_for(step)
         return ActionIntent(
             owner_id=owner_id,
             goal_id=goal.id,
             step_id=step.id,
             capability=step.capability_needed,
             effect_summary=step.intent[:300],
-            target_ref=(step.input_refs[0] if step.input_refs else ""),
+            target_ref=target_ref,
             parameter_refs=list(step.input_refs)[:8],
             parameters=dict(step.parameters or {}),
             authority_required=step.authority_requirement or step.capability_needed,
@@ -574,6 +575,28 @@ class StepExecutor:
                 ),
             ),
         )
+
+    @staticmethod
+    def _target_ref_for(step: ActionStep) -> str:
+        """Pick the object being changed, not merely the first source consulted.
+
+        A cross-domain step may cite a disagreement, a mail message and a
+        calendar event. For a calendar modification only the calendar handle
+        can be the effect target; taking input_refs[0] would bind authority and
+        idempotency to whichever source happened to be listed first.
+        """
+        refs = [str(ref).strip() for ref in (step.input_refs or []) if str(ref).strip()]
+        if step.capability_needed in ("calendar.write", "calendar.local.write"):
+            calendar_refs = [ref for ref in refs if ref.startswith("calendar:")]
+            if step.effect_type == "modify":
+                return calendar_refs[0] if calendar_refs else ""
+            return calendar_refs[0] if calendar_refs else ""
+        if step.capability_needed in ("mail.send", "mail.draft"):
+            draft_refs = [ref for ref in refs if ref.startswith("mail_draft:")]
+            if draft_refs:
+                return draft_refs[0]
+        return refs[0] if refs else ""
+
 
     async def _as_done(self, owner_id, goal, step, intent, existing) -> ExecutionResult:
         """
