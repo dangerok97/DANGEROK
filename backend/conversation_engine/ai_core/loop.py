@@ -279,20 +279,96 @@ async def _ensure_navigation(observations, turn_start: int, message: str, db, ui
 
 
 
-async def _phone_number_correction(db, user_id: str, state: dict, text: str) -> dict:
-    """Only an explicit new number may resume the owner's pending preparation."""
-    from preparation.contacts import _UN_NUMERO
-    from preparation.preparation import by_id
-    from telephone.caps import _replacement_number_in
+def _spoken_phone_number(text: str) -> str:
+    """Read a complete Italian number even when it is dictated digit by digit."""
+    from preparation.contacts import _clean_number
 
-    ref = state.get("active_preparation_id")
-    if not ref or not _UN_NUMERO.search(text):
+    raw = str(text or "")
+    compact_words = " ".join(raw.lower().split())
+    correcting = bool(re.search(
+        r"(?i)\b(numero|corretto|correggi|sbagliato|usa|invece|è|e')\b", compact_words
+    ))
+    mostly_digits = not bool(re.search(r"[A-Za-zÀ-ÿ]", raw))
+    if not (correcting or mostly_digits):
+        return ""
+    digits = re.sub(r"\D", "", raw)
+    if digits.startswith("39") and 11 <= len(digits) <= 13:
+        return _clean_number("+" + digits)
+    return _clean_number(digits)
+
+
+async def _phone_pending_followup(db, user_id: str, state: dict, text: str) -> dict:
+    """Deterministic continuation for the active phone preparation.
+
+    Short replies such as "no", an explicitly corrected person, and a phone
+    number are state transitions, not open-ended language understanding.
+    """
+    from preparation.preparation import by_id
+    from preparation.trust import identity_of
+
+    ref = str(state.get("active_preparation_id") or "")
+    if not ref:
         return {}
     prep = await by_id(db, user_id, ref)
     if prep is None or prep.call_id:
         return {}
-    number = _replacement_number_in(text, prep, {})
-    return {"preparation_id": ref, "give_number": number} if number else {}
+
+    raw = " ".join(str(text or "").split())
+    if not raw:
+        return {}
+
+    # "il numero di Asia" corrects who this open preparation is about.
+    named = re.fullmatch(
+        r"(?i)(?:il\s+)?numero\s+di\s+([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'’ -]{1,60})[.!?]?",
+        raw,
+    )
+    if named:
+        name = named.group(1).strip()
+        if identity_of(name) != identity_of(prep.counterparty):
+            return {"preparation_id": ref, "correct_counterparty": name}
+
+    number = _spoken_phone_number(raw)
+    if number and (prep.selected_contact is None or number != prep.selected_contact.number):
+        return {"preparation_id": ref, "give_number": number}
+
+    # A clear rejection belongs to the number confirmation only while the
+    # number is still unconfirmed. It must never cancel an already-ready call.
+    pending_number = prep.selected_contact is not None and not prep.number_confirmed
+    negative = bool(re.match(
+        r"(?i)^\s*(?:no\b|non\b|sbagliat[oa]\b|non\s+è\s+quest[oa]\b)", raw
+    ))
+    attempted_correction = bool(re.search(
+        r"(?i)\b(?:numero|corretto|sbagliato|invece)\b", raw
+    ) and re.search(r"\d", raw))
+    if pending_number and (negative or attempted_correction):
+        # If the new digits were incomplete, reject the old number and ask for
+        # the complete one instead of silently falling back to the old candidate.
+        return {"preparation_id": ref, "number_is_right": False}
+    return {}
+
+
+async def _phone_number_correction(db, user_id: str, state: dict, text: str) -> dict:
+    """Compatibility name used by the reasoning payload and phone nudge."""
+    return await _phone_pending_followup(db, user_id, state, text)
+
+
+async def _phone_followup_fast_path(db, user_id: str, state: dict, text: str, *, session_id: str):
+    """Execute an unambiguous phone follow-up without asking the model to route it."""
+    args = await _phone_pending_followup(db, user_id, state, text)
+    if not args:
+        return None
+    from telephone.caps import _through_the_preparation
+
+    return await _through_the_preparation(
+        args,
+        {
+            "session_id": session_id,
+            "reasoning_epoch": new_reasoning_epoch(),
+            "user_message": text,
+        },
+        db,
+        user_id,
+    )
 
 
 def _phone_action_requested(text: str) -> bool:
@@ -388,6 +464,42 @@ async def run_cognitive_loop(
     # Client-resume continues the SAME user turn — do not duplicate recent_turns.
     if not resume_client:
         state_mod.append_turn(st, role="user", text=user_message)
+
+        # An active phone preparation has its own tiny conversational grammar.
+        # "No", "il numero di Asia", and a corrected number must update that
+        # durable state directly; asking a general model to rediscover the
+        # state is what produced the stale-number loop seen in production.
+        if db is not None and sess.user_id and st.get("active_preparation_id"):
+            try:
+                phone_obs = await _phone_followup_fast_path(
+                    db, sess.user_id, st, user_message, session_id=sess.id
+                )
+            except Exception as exc:
+                logger.warning("phone follow-up fast path failed: %s", type(exc).__name__)
+                phone_obs = None
+            if phone_obs is not None:
+                observations = list(st.get("observations") or [])
+                observations.append(phone_obs.model_dump())
+                payload = phone_obs.payload or {}
+                if payload.get("preparation_id"):
+                    st["active_preparation_id"] = str(payload["preparation_id"])[:64]
+                ora = str(payload.get("say_this") or payload.get("ora_says") or "")
+                if ora:
+                    state_mod.append_turn(st, role="ora", text=ora, kind="answer")
+                    st["observations"] = observations[-12:]
+                    state_mod.save_ai_state(sess, st)
+                    add_step(trace, event="PHONE_FOLLOWUP_FAST_PATH")
+                    return CognitiveTurnResult(
+                        ok=True,
+                        mode="answer",
+                        ora_text=ora,
+                        session_id=sess.id,
+                        active_goal=ActiveGoal.model_validate(st.get("active_goal") or {}),
+                        trace=public_trace(trace),
+                        tool_calls=1,
+                        elapsed_ms=int((time.perf_counter() - t0) * 1000),
+                    )
+
         # A clear departure command already has a read-only capability that
         # prepares the map handoff. Deliver it without waiting for a general
         # reasoning pass, which previously made even a one-tap journey wait
