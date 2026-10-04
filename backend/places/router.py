@@ -89,6 +89,10 @@ class MonitoringIn(BaseModel):
     enabled: bool
 
 
+class RoutineStateIn(BaseModel):
+    state: Literal["accepted", "dismissed"]
+
+
 @router.put("/monitoring")
 async def set_monitoring(body: MonitoringIn, user=Depends(get_current_user)):
     """The device's explicit choice, also checked by background reviews."""
@@ -138,6 +142,7 @@ async def list_places(user=Depends(get_current_user)):
     pending_candidates = any(
         not c.muted for c in await svc.repo.list_candidates(uid, outcomes=["pending"])
     )
+    routines = await svc.list_routines(uid)
 
     permission = {"preference": "off", "state": "not_requested"}
     try:
@@ -183,8 +188,21 @@ async def list_places(user=Depends(get_current_user)):
             for c in candidates
         ],
         "pending_candidates": pending_candidates,
+        "routines": routines,
         "permission": permission,
     }
+
+
+@router.patch("/routines/{routine_id}")
+async def update_routine_state(
+    routine_id: str, body: RoutineStateIn, user=Depends(get_current_user)
+):
+    routine = await _svc().set_routine_state(
+        user["user_id"], routine_id, body.state
+    )
+    if routine is None:
+        raise HTTPException(status_code=404, detail="routine non trovata")
+    return {"routine": routine}
 
 
 @router.post("")
