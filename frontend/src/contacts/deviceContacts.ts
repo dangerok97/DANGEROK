@@ -25,6 +25,14 @@ const ENABLED_KEY = 'ora.contacts.enabled.v1';
 const REVOKE_PENDING_KEY = 'ora.contacts.revokePending.v1';
 const MAX_CONTACTS = 2000;
 
+export type ContactsState = {
+  supported: boolean;
+  enabled: boolean;
+  permission: ContactPermission;
+  contacts: number;
+  reason?: string;
+};
+
 function native(): boolean {
   return Platform.OS === 'ios' || Platform.OS === 'android';
 }
