@@ -151,6 +151,65 @@ def _dump(payload: Dict[str, Any]) -> str:
     return json.dumps(payload, ensure_ascii=False)[:6000]
 
 
+async def reassess_known_routines(
+    days: List[Dict[str, Any]],
+    *,
+    routines: List[Dict[str, Any]],
+    place_names: Dict[str, str],
+    language: str = "it",
+) -> List[Dict[str, Any]]:
+    """Ask whether already learned patterns are still supported by recent life.
+
+    Missing observations are never contradiction. A routine may be called
+    contradicted only when the observed days contain positive evidence of a
+    different repeated shape in the same part of the week/day.
+    """
+    if not days or not routines:
+        return []
+
+    instruction = (
+        "You are reviewing routines ORA learned earlier against recent observed "
+        "days. A routine may have been confirmed by the person. Do NOT decide "
+        "that it stopped being true merely because recent data is sparse or "
+        "missing. Missing evidence means unclear.\n\n"
+        "For each supplied routine choose exactly one status:\n"
+        "- supported: recent observations still fit it;\n"
+        "- unclear: there is not enough relevant observation to tell;\n"
+        "- contradicted: there is positive repeated evidence that the person's "
+        "pattern changed in the same relevant days/times.\n\n"
+        "Contradicted requires actual competing observations, not absence. "
+        "Write one short factual note in the person's language; do not advise. "
+        "Return JSON {\"reviews\":[{\"routine_id\":\"...\","
+        "\"status\":\"supported|unclear|contradicted\","
+        "\"note\":\"...\"}]}."
+    )
+    payload = {
+        "language": language,
+        "recent_observed_days": days,
+        "place_names": place_names,
+        "known_routines": routines[:8],
+    }
+    data = await _ask_model(_DISCIPLINE + "\n\n" + instruction, _dump(payload))
+    if not isinstance(data, dict):
+        return []
+
+    known = {str(r.get("id") or "") for r in routines}
+    out: List[Dict[str, Any]] = []
+    for raw in (data.get("reviews") or [])[:8]:
+        if not isinstance(raw, dict):
+            continue
+        routine_id = str(raw.get("routine_id") or "")
+        status = str(raw.get("status") or "")
+        if routine_id not in known or status not in {"supported", "unclear", "contradicted"}:
+            continue
+        out.append({
+            "routine_id": routine_id,
+            "status": status,
+            "note": str(raw.get("note") or "").strip()[:300],
+        })
+    return out
+
+
 async def read_the_shape_of_the_days(
     days: List[Dict[str, Any]],
     *,
