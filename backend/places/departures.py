@@ -130,9 +130,55 @@ class DepartureService:
                           "refresh_after": (now + timedelta(seconds=60)).isoformat(),
                           "expires_at": now + timedelta(hours=2), "evidence": evidence}}, upsert=True)
             output.append(evidence)
+        await self._schedule_departure_checks(owner_id, output, now)
         from timezone_service import user_clock_context
         clock = await user_clock_context(self.db, owner_id, now=now)
         return [with_timing(row, now, clock) for row in output]
+
+    async def _schedule_departure_checks(self, owner_id, evidence_rows, now):
+        """Arrange a precise re-check shortly before the earliest viable departure.
+
+        The first 24h wake discovers that a trip exists. This second wake is
+        when ORA should care again: close enough to departure that traffic,
+        location and weather are useful, but early enough to change course.
+        """
+        from ambient.service import AmbientService
+
+        active_refs = set()
+        for evidence in evidence_rows:
+            if evidence.get("status") != "ready":
+                continue
+            event_ref = str(evidence.get("event_ref") or "")
+            if not event_ref:
+                continue
+            leaves = [_instant(o.get("leave_at")) for o in (evidence.get("options") or [])]
+            leaves = [x for x in leaves if x is not None and x > now]
+            if not leaves:
+                continue
+            # Conservative because the user has not chosen a transport mode:
+            # review before the earliest mode would need to leave.
+            due = min(leaves) - timedelta(minutes=15)
+            due = max(now + timedelta(minutes=2), due)
+            source_ref = f"calendar_departure_due:{event_ref}"[:120]
+            active_refs.add(source_ref)
+            await AmbientService(self.db).schedule(
+                owner_id,
+                reason="ambient_review",
+                when=due,
+                source_ref=source_ref,
+                provenance="code_schedule",
+            )
+
+        # A cancelled/moved event must not leave an old departure alarm behind.
+        await self.db.ambient_wakes.update_many(
+            {
+                "owner_id": owner_id,
+                "status": "pending",
+                "source_ref": {"$regex": "^calendar_departure_due:"},
+                **({"source_ref": {"$regex": "^calendar_departure_due:", "$nin": list(active_refs)}} if active_refs else {}),
+            },
+            {"$set": {"status": "cancelled", "updated_at": now.isoformat()}},
+        )
 
     async def _estimate(self, owner_id, event, base, origin, presence, now):
         from places import routing, briefing
