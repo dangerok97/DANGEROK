@@ -127,11 +127,27 @@ class OpportunityService:
                     continue
                 ground_candidate(candidate, departures[0], (state.get("clock") or {}).get("timezone", "UTC"))
 
+            routine_routes = [
+                row for row in state.get("routine_routes") or []
+                if row.get("status") == "ready"
+                and row["ref"] in {e.ref for e in candidate.evidence}
+            ]
+            if routine_routes:
+                from places.routine_context import ground_candidate as ground_routine_route
+                # One conditional route hypothesis per concern. Combining two
+                # would turn two observed patterns into one invented journey.
+                if len(routine_routes) != 1:
+                    result.skipped.append({
+                        "reason": "routine distinte richiedono evidenze separate"
+                    })
+                    continue
+                ground_routine_route(candidate, routine_routes[0])
+
             # The model chose to raise this concern; the two cited Home
             # intervals determine its identity, date and feasible offer.
             # A wording change must not create another card for the same pair.
             from agent.calendar_conflict import active_home_pair
-            pair = None if departures else await active_home_pair(self.db, user_id, [e.ref for e in candidate.evidence])
+            pair = None if (departures or routine_routes) else await active_home_pair(self.db, user_id, [e.ref for e in candidate.evidence])
             if pair:
                 events, overlap_start, overlap_end, minutes = pair
                 first, second = events
