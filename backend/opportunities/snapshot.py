@@ -73,6 +73,7 @@ async def build(
         ("places", _places),
         ("presence", _presence),
         ("routines", _routines),
+        ("routine_routes", _routine_routes),
         ("open_comparisons", _comparisons),
         ("calendar", _calendar),
         ("situations", _situations),
@@ -333,6 +334,15 @@ async def _routines(db, user_id: str, now: datetime) -> List[Dict[str, Any]]:
         if r.get("what_ora_thinks")
     ]
 
+
+
+async def _routine_routes(db, user_id: str, now: datetime) -> List[Dict[str, Any]]:
+    """Fresh conditional route evidence created by a routine wake."""
+    from places.routine_context import RoutineRouteContextService
+
+    return await RoutineRouteContextService(db).current(
+        user_id, now=now.astimezone(timezone.utc)
+    )
 
 async def _comparisons(db, user_id: str, now: datetime) -> List[Dict[str, Any]]:
     """
@@ -808,6 +818,7 @@ def evidence_refs(snapshot: Dict[str, Any]) -> Dict[str, str]:
     take("settled_question", snapshot.get("recently_settled"))
     take("place", snapshot.get("places"))
     take("routine", snapshot.get("routines"))
+    take("routine_route", snapshot.get("routine_routes"))
     take("comparison", snapshot.get("open_comparisons"))
     take("calendar_event", snapshot.get("calendar"))
     take("departure", [r for r in snapshot.get("departures") or [] if r.get("status") == "ready"])
