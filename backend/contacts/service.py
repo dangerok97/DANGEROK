@@ -14,7 +14,7 @@ from typing import Any, Dict, List
 COLLECTION = "contacts"
 CONNECTOR_ID = "contacts_device"
 CAPABILITY = "contacts.read"
-PURPOSE = "contact_resolution"
+PURPOSE = "name_resolution"
 MAX_CONTACTS = 2000
 MAX_PHONES = 4
 MAX_ALIASES = 6
