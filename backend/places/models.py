@@ -518,6 +518,9 @@ class ObservedRoutine(BaseModel):
     weekdays: List[str] = Field(default_factory=list, max_length=7)
 
     occurrences: int = 0
+    # Model-decided lead for a quiet future re-check. Zero means no proactive
+    # wake. This is not a notification preference and never sends by itself.
+    proactive_review_lead_minutes: int = Field(default=0, ge=0, le=180)
     first_observed: str = Field(default_factory=now_iso)
     last_observed: str = Field(default_factory=now_iso)
     # The stays this was read from. Pointers, not duplicates.
