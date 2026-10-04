@@ -113,7 +113,7 @@ async def drain(db, *, owner_id=None, now=None, limit=2):
         # Reuse this durable due field; no model call is needed at expiry.
         if due is None and state == "settled" and expiry and expiry > moment and opp.status == "active":
             due = expiry.isoformat()
-        await db[COLLECTION].update_one(fence, {"$set": {
+        settled = await db[COLLECTION].update_one(fence, {"$set": {
             "agent_review_due": due, "agent_review_state": state,
             "agent_review_outcome": outcome,
             "agent_review_reason": str(answer.get("reasoning") or "")[:400],
@@ -122,6 +122,32 @@ async def drain(db, *, owner_id=None, now=None, limit=2):
             "agent_review_goal_id": str(answer.get("goal_id") or (answer.get("goal") or {}).get("id") or "")[:64],
             "agent_review_finished_at": datetime.now(timezone.utc).isoformat(),
         }})
+
+        # Admission should hand work to the runtime, not merely leave a goal in
+        # storage and hope the recovery sweep notices it later. Schedule the
+        # first wake immediately once this exact source revision is settled.
+        # Waiting goals are deliberately excluded: a question/authority gate
+        # is a request for a person, not background work.
+        if settled.modified_count and outcome in ("create_goal", "already_pursuing"):
+            goal_id = str(answer.get("goal_id") or (answer.get("goal") or {}).get("id") or "")
+            if goal_id:
+                goal = await db.agent_goals.find_one(
+                    {"id": goal_id, "owner_id": row["owner_id"]},
+                    {"_id": 0, "status": 1, "next_run_at": 1,
+                     "requires_user_input": 1, "requires_user_authority": 1},
+                )
+                if (
+                    goal
+                    and goal.get("status") == "active"
+                    and not goal.get("requires_user_input")
+                    and not goal.get("requires_user_authority")
+                    and (not goal.get("next_run_at") or goal["next_run_at"] <= stamp)
+                ):
+                    from ambient.service import AmbientService
+                    await AmbientService(db).schedule(
+                        row["owner_id"], reason="opportunity_revisit",
+                        when=moment, source_ref=f"goal:{goal_id}",
+                    )
         # Also release a stale revision's lease, but never somebody else's lease.
         await db[COLLECTION].update_one(
             {"id": row["id"], "owner_id": row["owner_id"], "agent_review_token": token},
