@@ -760,8 +760,9 @@ class PlacesService:
             if existing and existing.state in {"accepted", "dismissed"}
             else "candidate"
         )
+        routine_kwargs = {"id": existing.id} if existing else {}
         routine = ObservedRoutine(
-            id=existing.id if existing else None,
+            **routine_kwargs,
             user_id=user_id,
             place_sequence=read["place_ids"],
             weekdays=read["weekdays"],
