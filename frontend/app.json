@@ -1,22 +1,19 @@
 {
   "expo": {
     "name": "ORA",
-    "slug": "frontend",
+    "slug": "ora",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": [
-      "ora",
-      "frontend"
-    ],
+    "scheme": "ora",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.emergent.oradecisionengine.b7escs",
+      "supportsTablet": false,
+      "bundleIdentifier": "com.dangerok97.ora",
       "usesAppleSignIn": true,
       "infoPlist": {
-        "NSCalendarsFullAccessUsageDescription": "Legge i tuoi eventi per aiutarti a organizzare la giornata.",
+        "NSCalendarsFullAccessUsageDescription": "ORA accede al calendario per leggere, creare e aggiornare eventi quando glielo chiedi o quando autorizzi un'azione.",
         "NSLocationWhenInUseUsageDescription": "ORA può usare la posizione mentre la usi per riconoscere i tuoi luoghi e aiutarti negli spostamenti.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Consenti a ORA di riconoscere quando arrivi o lasci i tuoi luoghi anche quando l'app non è aperta.",
         "UIBackgroundModes": [
@@ -30,7 +27,7 @@
         "backgroundColor": "#000000"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.emergent.oradecisionengine.b7escs"
+      "package": "com.dangerok97.ora"
     },
     "web": {
       "bundler": "metro",
