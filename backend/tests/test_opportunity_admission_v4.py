@@ -183,9 +183,9 @@ async def test_goal_storage_failure_is_retryable(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_real_goal_creation_and_wake_without_home(monkeypatch):
+async def test_real_goal_creation_schedules_first_wake_in_same_admission(monkeypatch):
     from agent import reasoning
-    from agent.background import recover_due
+    from agent.admission import drain
     db = AsyncMongoMockClient().test
     row = await OpportunityRepository(db).save(opportunity())
     monkeypatch.setattr(reasoning, "decide_goal", AsyncMock(return_value={
@@ -193,14 +193,51 @@ async def test_real_goal_creation_and_wake_without_home(monkeypatch):
         "desired_outcome": "Sapere quali impegni sono coinvolti"}))
     # Only presentation is excluded; goal persistence and wake scheduling are real code.
     monkeypatch.setattr(AgentService, "_note_ambient", AsyncMock())
-    await recover_due(db)
-    await recover_due(db)
+    await drain(db)
     assert await db.agent_goals.count_documents({"owner_id": "alice"}) == 1
     goal = await db.agent_goals.find_one({"opportunity_id": row.id})
     saved = await db.opportunities.find_one({"id": row.id})
     assert saved["agent_review_goal_id"] == goal["id"]
     assert goal["origin"] == "agent_initiated"
-    assert await db.ambient_wakes.count_documents({"source_ref": f"goal:{goal['id']}"}) == 1
+    assert await db.ambient_wakes.count_documents({
+        "owner_id": "alice",
+        "source_ref": f"goal:{goal['id']}",
+        "status": "pending",
+    }) == 1
+
+
+@pytest.mark.asyncio
+async def test_waiting_goal_does_not_get_background_wake(monkeypatch):
+    from agent.admission import drain
+    db = AsyncMongoMockClient().test
+    row = await OpportunityRepository(db).save(opportunity())
+
+    waiting_goal = {
+        "id": "goal_waiting",
+        "owner_id": "alice",
+        "opportunity_id": row.id,
+        "status": "waiting",
+        "requires_user_input": True,
+        "requires_user_authority": False,
+        "next_run_at": None,
+        "origin": "agent_initiated",
+    }
+    await db.agent_goals.insert_one(waiting_goal)
+    monkeypatch.setattr(
+        AgentService,
+        "consider",
+        AsyncMock(return_value={
+            "outcome": "already_pursuing",
+            "goal_id": "goal_waiting",
+            "goal": {"id": "goal_waiting"},
+        }),
+    )
+
+    await drain(db)
+    assert await db.ambient_wakes.count_documents({
+        "source_ref": "goal:goal_waiting",
+        "status": "pending",
+    }) == 0
 
 
 @pytest.mark.asyncio
