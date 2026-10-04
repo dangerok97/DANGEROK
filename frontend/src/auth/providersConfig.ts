@@ -27,6 +27,16 @@ export function appleConfiguredForPlatform(): boolean {
   return Boolean(appleServiceId());
 }
 
+export function appleProviderReady(
+  platform: string,
+  nativeAvailable: boolean,
+  backendConfigured: boolean | null,
+): boolean {
+  if (backendConfigured !== true) return false;
+  if (platform === 'ios') return nativeAvailable;
+  return Boolean(appleServiceId());
+}
+
 export function notConfiguredMessage() {
   return NOT_CONFIGURED;
 }
