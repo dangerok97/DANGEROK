@@ -47,6 +47,26 @@ PER_USER_INTERVAL_HOURS = float(
     os.environ.get("AMBIENT_FALLBACK_USER_INTERVAL_HOURS", "12")
 )
 
+# Only the safety net becomes more attentive when there is evidence that
+# waiting twelve hours could make the recovery useless. These are not review
+# cadences: ordinary event-driven wakes still do the real work first.
+URGENT_FALLBACK_INTERVAL_HOURS = float(
+    os.environ.get("AMBIENT_FALLBACK_URGENT_INTERVAL_HOURS", "0.5")
+)
+TEMPORAL_FALLBACK_INTERVAL_HOURS = float(
+    os.environ.get("AMBIENT_FALLBACK_TEMPORAL_INTERVAL_HOURS", "2")
+)
+
+
+def fallback_interval_hours(reasons: List[str]) -> float:
+    """How soon the safety net may try this person again, from facts only."""
+    found = set(reasons or [])
+    if found.intersection({"wake_overdue", "changes_unprocessed", "revisit_due"}):
+        return URGENT_FALLBACK_INTERVAL_HOURS
+    if "temporal_window" in found:
+        return TEMPORAL_FALLBACK_INTERVAL_HOURS
+    return PER_USER_INTERVAL_HOURS
+
 # How far ahead a closing window counts as worth looking at. Derived from the
 # per-person interval, because the question it answers is "will this still be
 # open the next time we look at this person?".
@@ -186,17 +206,17 @@ class EligibilityService:
         checked, eligible, scheduled, skipped = 0, 0, 0, 0
         for owner_id in await self._candidates(moment, limit):
             checked += 1
-            if not await self._due_for_fallback(owner_id, moment):
+            # Reasons are cheap indexed facts. Read them before the per-person
+            # throttle so the throttle can tighten only when time itself makes
+            # waiting dangerous. This still performs no model call or snapshot.
+            reasons = await self.reasons_to_look_again(owner_id)
+            if not reasons:
+                continue
+            if not await self._due_for_fallback(owner_id, moment, reasons=reasons):
                 skipped += 1
                 continue
 
-            reasons = await self.reasons_to_look_again(owner_id)
             await self._remember(owner_id, moment, reasons)
-            if not reasons:
-                # Nothing to look at. No wake, no activity, no inference, and
-                # nothing that could later be mistaken for ORA having worked.
-                continue
-
             eligible += 1
             if await self._arrange(owner_id, moment, reasons):
                 scheduled += 1
@@ -243,7 +263,9 @@ class EligibilityService:
 
         return sorted(owners)[:limit]
 
-    async def _due_for_fallback(self, owner_id: str, now: datetime) -> bool:
+    async def _due_for_fallback(
+        self, owner_id: str, now: datetime, *, reasons: Optional[List[str]] = None,
+    ) -> bool:
         """
         Rare, per person.
 
@@ -267,7 +289,8 @@ class EligibilityService:
             return True
         if when.tzinfo is None:
             when = when.replace(tzinfo=timezone.utc)
-        return (now - when) >= timedelta(hours=PER_USER_INTERVAL_HOURS)
+        interval = fallback_interval_hours(reasons or [])
+        return (now - when) >= timedelta(hours=interval)
 
     async def _arrange(self, owner_id: str, now: datetime, reasons: List[str]) -> bool:
         """
