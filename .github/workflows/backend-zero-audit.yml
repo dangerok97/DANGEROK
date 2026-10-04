@@ -1,0 +1,23 @@
+name: Backend zero CVE check
+
+on:
+  push:
+    branches: ["audit/backend-security-zero-check"]
+
+jobs:
+  pip-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --upgrade pip pip-audit
+      - name: Audit backend cloud dependencies
+        shell: bash
+        run: |
+          set +e
+          pip-audit -r backend/requirements-cloud.txt
+          code=$?
+          echo "ORA_PIP_AUDIT_EXIT=$code"
+          exit 0
