@@ -143,7 +143,10 @@ for r in ALL_ROUTERS:
 @app.on_event("startup")
 async def startup():
     from session_revocation import ensure_indexes as ensure_session_indexes
+    from security.rate_limit import ensure_indexes as ensure_rate_limit_indexes
+
     await ensure_session_indexes(db)
+    await ensure_rate_limit_indexes(db)
     # Users
     await db.users.create_index("email", unique=True)
     await db.users.create_index("user_id", unique=True)
