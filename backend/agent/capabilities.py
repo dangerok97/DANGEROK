@@ -116,6 +116,16 @@ _EXECUTABLE = {
     "navigation.open",
 }
 
+# Prenotare esiste davvero solo con un partner Booking configurato.
+_booking_ready = False
+try:
+    from accommodation.booking import configured as _booking_configured
+    _booking_ready = bool(_booking_configured())
+    if _booking_ready:
+        _EXECUTABLE.add("external.booking")
+except Exception:
+    _booking_ready = False
+
 # Telefonare c'è davvero solo se c'è un operatore configurato. Senza, la
 # capacità resta conosciuta e non eseguibile, e chi ragiona lo sente dire —
 # invece di scoprire che non succede niente dopo aver chiesto il permesso.
@@ -151,6 +161,9 @@ _REAL = {
     "mail.send",
     "phone.call",
 }
+
+if _booking_ready:
+    _REAL.add("external.booking")
 
 # What has a stand-in behind it, and says so. Kept to one, on purpose: the
 # moment this set grows, "ORA did it" stops meaning anything.
