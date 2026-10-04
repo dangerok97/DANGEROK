@@ -390,6 +390,30 @@ async def record_link(
         await db[LINKS].insert_one(dict(row))
     except Exception as e:
         logger.info("link write soft-fail: %s", type(e).__name__)
+
+    # A linked source changing is new context about the target situation.
+    # This is deliberately NOT reported as calendar.event.updated: the
+    # calendar itself may still be unchanged. The ordinary opportunity review
+    # will now rebuild disagreements, calendar and departure evidence together.
+    if (
+        signal.source_type == "email"
+        and row["target_kind"] == "appointment"
+        and row["target_ref"]
+        and row["relationship"] in ("same_situation", "related")
+    ):
+        try:
+            from opportunities.discovery import OpportunityDiscovery
+            await OpportunityDiscovery(db).note(
+                owner_id,
+                source="situations",
+                kind="linked_source_changed",
+                entity_ref=row["target_ref"],
+                entity_kind="appointment",
+                after=(row["reason_summary"] or "una fonte collegata all'appuntamento è cambiata")[:160],
+            )
+        except Exception as exc:
+            logger.info("linked situation propagation soft-fail: %s", type(exc).__name__)
+
     row.pop("_id", None)
     return row
 
