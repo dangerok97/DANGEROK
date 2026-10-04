@@ -371,6 +371,12 @@ async def read_location(db, owner_id: str, goal) -> CapabilityOutcome:
         or presence.place_region
     )
     freshness = str(presence.freshness or "UNKNOWN")
+    evidence_freshness = {
+        "CURRENT": "fresh",
+        "RECENT": "recent",
+        "STALE": "stale",
+        "UNKNOWN": "unknown",
+    }.get(freshness, "unknown")
     if freshness not in ("CURRENT", "RECENT"):
         return CapabilityOutcome(
             status="partial",
@@ -379,7 +385,7 @@ async def read_location(db, owner_id: str, goal) -> CapabilityOutcome:
                 source_class="internal_observation",
                 capability="location.read",
                 provider="device_presence",
-                freshness=freshness.lower(),
+                freshness=evidence_freshness,
             ),
             claims=[Claim(
                 text=f"Ultima posizione disponibile: stato={freshness}; luogo non considerato attuale.",
