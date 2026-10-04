@@ -78,6 +78,10 @@ async def drain(db, *, owner_id=None, now=None, limit=2):
             elif int(row["agent_review_attempts"]) > MAX_ATTEMPTS:
                 answer = {"outcome": "paused"}
             else:
+                from agent.source_refs import expand_opportunity_source_refs
+                source_refs = await expand_opportunity_source_refs(
+                    db, row["owner_id"], opp.evidence
+                )
                 answer = await asyncio.wait_for(AgentService(db).consider(
                     row["owner_id"], situation={
                         "what": opp.semantic_summary,
@@ -91,7 +95,7 @@ async def drain(db, *, owner_id=None, now=None, limit=2):
                         "research_question": opp.research_question or None,
                         "user_clarifications": row.get("agent_review_answers", [])[-3:],
                     }, origin="agent_initiated", opportunity_id=opp.id,
-                    source_kind="opportunity", source_refs=[e.ref for e in opp.evidence][:4],
+                    source_kind="opportunity", source_refs=source_refs,
                 ), timeout=TIMEOUT_SECONDS)
         except Exception as exc:
             # Cancellation propagates: a dead worker leaves a reclaimable lease.
