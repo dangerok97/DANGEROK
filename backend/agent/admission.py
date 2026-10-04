@@ -136,17 +136,24 @@ async def drain(db, *, owner_id=None, now=None, limit=2):
                     {"_id": 0, "status": 1, "next_run_at": 1,
                      "requires_user_input": 1, "requires_user_authority": 1},
                 )
+                current_stamp = datetime.now(timezone.utc).isoformat()
+                due_now = (
+                    outcome == "create_goal"
+                    or not goal
+                    or not goal.get("next_run_at")
+                    or goal["next_run_at"] <= current_stamp
+                )
                 if (
                     goal
                     and goal.get("status") == "active"
                     and not goal.get("requires_user_input")
                     and not goal.get("requires_user_authority")
-                    and (not goal.get("next_run_at") or goal["next_run_at"] <= stamp)
+                    and due_now
                 ):
                     from ambient.service import AmbientService
                     await AmbientService(db).schedule(
                         row["owner_id"], reason="opportunity_revisit",
-                        when=moment, source_ref=f"goal:{goal_id}",
+                        when=datetime.now(timezone.utc), source_ref=f"goal:{goal_id}",
                     )
         # Also release a stale revision's lease, but never somebody else's lease.
         await db[COLLECTION].update_one(
