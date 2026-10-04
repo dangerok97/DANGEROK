@@ -4,7 +4,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const FRONTEND = resolve(HERE, '../..');
+const FRONTEND = resolve(HERE, '../../..');
 const read = (rel: string) => readFileSync(resolve(FRONTEND, rel), 'utf8');
 
 const section = read('src/components/vita/PlacesSection.tsx');
