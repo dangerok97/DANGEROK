@@ -345,6 +345,18 @@ def fingerprint(snapshot: Dict[str, Any]) -> str:
     """
     import json
 
+    # Most domains are represented by their current state elsewhere in the
+    # snapshot, so a repeated change envelope alone must not buy another model
+    # call. Communications are the exception: the newly arrived message/thread
+    # is itself the new fact, and no mailbox body/metadata collection is copied
+    # into this life snapshot. Keep only that bounded delta in the fingerprint.
+    communication_delta = [
+        change
+        for change in (snapshot.get("what_changed") or [])
+        if isinstance(change, dict)
+        and str(change.get("what_moved") or "").startswith("communications:")
+    ]
+
     material = {
         key: snapshot.get(key)
         for key in (
@@ -368,5 +380,6 @@ def fingerprint(snapshot: Dict[str, Any]) -> str:
             "temporal",
         )
     }
+    material["communication_delta"] = communication_delta
     raw = json.dumps(material, ensure_ascii=False, sort_keys=True, default=str)
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:32]
