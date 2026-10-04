@@ -169,7 +169,10 @@ class OpportunityDiscovery:
                 retry_after_seconds=COOLDOWN_SECONDS
             )
 
-        snapshot = await life_snapshot.build(self.db, owner_id)
+        pending_ai = [change.for_ai() for change in pending]
+        snapshot = await life_snapshot.build(
+            self.db, owner_id, changes=pending_ai
+        )
         print_ = fingerprint(snapshot)
         if not force and print_ == (state.get("fingerprint") or ""):
             # The facts are the ones the model has already read. Asking again
@@ -190,7 +193,10 @@ class OpportunityDiscovery:
             changes=[c.for_ai() for c in batch],
             language=language,
             source_context=reason,
-            prepared_snapshot={**snapshot, "what_changed": [c.for_ai() for c in batch]},
+            prepared_snapshot={
+                **snapshot,
+                "what_changed": [c.for_ai() for c in batch],
+            },
         )
 
         if scan.unavailable:
