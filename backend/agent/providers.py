@@ -249,6 +249,170 @@ async def read_local_calendar(db, owner_id: str, goal) -> CapabilityOutcome:
     )
 
 
+async def read_mail_metadata(db, owner_id: str, goal) -> CapabilityOutcome:
+    """Read a bounded slice of Gmail metadata already ingested by ORA.
+
+    No body text is fetched or stored here. This capability exists so an
+    autonomous mission can re-check whether a relevant conversation moved
+    without turning the agent evidence store into a copy of somebody's mail.
+    """
+    try:
+        from connectors.gmail.scopes import EMAIL_RECORD_TYPE
+        connected = await db.connector_instances.find_one(
+            {
+                "user_id": owner_id,
+                "connector_id": "mail_gmail",
+                "status": {"$in": ["connected", "active", "healthy"]},
+            },
+            {"_id": 0, "id": 1},
+            sort=[("updated_at", -1)],
+        )
+    except Exception as exc:
+        logger.info("mail metadata connection check soft-fail: %s", type(exc).__name__)
+        connected = None
+
+    if not connected:
+        return _unavailable(
+            "mail.metadata",
+            "requires_connection",
+            "Non c'è una casella Gmail collegata da rileggere.",
+        )
+
+    try:
+        rows = await db.ingestion_events.find(
+            {"user_id": owner_id, "source_record_type": EMAIL_RECORD_TYPE},
+            {
+                "_id": 0,
+                "external_id": 1,
+                "normalized_payload": 1,
+                "ingested_at": 1,
+            },
+        ).sort("ingested_at", -1).to_list(MAX_CLAIMS)
+    except Exception as exc:
+        logger.info("mail metadata read soft-fail: %s", type(exc).__name__)
+        return CapabilityOutcome(
+            status="failed",
+            observation="Non sono riuscita a rileggere le comunicazioni sincronizzate.",
+            provenance=ResultProvenance(
+                source_class="connected_provider",
+                capability="mail.metadata",
+                provider="gmail_sync",
+            ),
+            error_type="mail_metadata_read_failed",
+            retryable=True,
+        )
+
+    claims: List[Claim] = []
+    for row in rows:
+        payload = row.get("normalized_payload") or {}
+        message_ref = str(payload.get("message_ref") or row.get("external_id") or "")
+        subject = str(payload.get("subject") or "").strip()[:180] or "senza oggetto"
+        relation = str(payload.get("sender_relationship") or "unknown")
+        received = str(payload.get("received_at") or "")
+        attachment_note = ""
+        if payload.get("attachments_present"):
+            attachment_note = f"; allegati: {int(payload.get('attachment_count') or 1)}"
+        claims.append(Claim(
+            text=(
+                f"mail:{message_ref}: «{subject}»; mittente={relation}; "
+                f"ricevuta={received or 'non disponibile'}{attachment_note}"
+            )[:500],
+            supports=f"mail:{message_ref}" if message_ref else "gmail:metadata",
+        ))
+
+    return CapabilityOutcome(
+        status="succeeded",
+        observation=(
+            f"Ho riletto {len(claims)} comunicazioni Gmail sincronizzate."
+            if claims
+            else "La casella è collegata, ma non risultano comunicazioni sincronizzate nella finestra letta."
+        ),
+        provenance=ResultProvenance(
+            source_class="connected_provider",
+            capability="mail.metadata",
+            provider="gmail_sync",
+            freshness="fresh",
+        ),
+        claims=claims,
+        data_ref="gmail:metadata",
+    )
+
+
+async def read_location(db, owner_id: str, goal) -> CapabilityOutcome:
+    """Read current/recent presence without persisting raw coordinates as evidence."""
+    try:
+        from location.service import LocationService
+        presence = await LocationService(db).build_presence(owner_id)
+    except Exception as exc:
+        logger.info("location read soft-fail: %s", type(exc).__name__)
+        return CapabilityOutcome(
+            status="failed",
+            observation="Non sono riuscita a rileggere la posizione disponibile.",
+            provenance=ResultProvenance(
+                source_class="internal_observation",
+                capability="location.read",
+                provider="device_presence",
+            ),
+            error_type="location_read_failed",
+            retryable=True,
+        )
+
+    if presence.preference != "while_using":
+        return _unavailable(
+            "location.read",
+            "requires_connection",
+            "La posizione non è stata autorizzata per ORA.",
+        )
+
+    label = (
+        presence.place_label
+        or presence.place_locality
+        or presence.place_municipality
+        or presence.place_region
+    )
+    freshness = str(presence.freshness or "UNKNOWN")
+    evidence_freshness = {
+        "CURRENT": "fresh",
+        "RECENT": "recent",
+        "STALE": "stale",
+        "UNKNOWN": "unknown",
+    }.get(freshness, "unknown")
+    if freshness not in ("CURRENT", "RECENT"):
+        return CapabilityOutcome(
+            status="partial",
+            observation="L'ultima posizione disponibile non è abbastanza recente per presentarla come attuale.",
+            provenance=ResultProvenance(
+                source_class="internal_observation",
+                capability="location.read",
+                provider="device_presence",
+                freshness=evidence_freshness,
+            ),
+            claims=[Claim(
+                text=f"Ultima posizione disponibile: stato={freshness}; luogo non considerato attuale.",
+                supports="device_location",
+            )],
+            data_ref="location:presence",
+            error_type="stale_location",
+            retryable=True,
+        )
+
+    text = f"Posizione {freshness.lower()}: {label or 'luogo non etichettato'}"
+    if presence.last_seen_at:
+        text += f"; osservata={presence.last_seen_at}"
+    return CapabilityOutcome(
+        status="succeeded",
+        observation="Ho verificato la posizione disponibile sul dispositivo.",
+        provenance=ResultProvenance(
+            source_class="internal_observation",
+            capability="location.read",
+            provider="device_presence",
+            freshness=evidence_freshness,
+        ),
+        claims=[Claim(text=text[:400], supports="device_location")],
+        data_ref="location:presence",
+    )
+
+
 async def read_calendar(db, owner_id: str, goal) -> CapabilityOutcome:
     """
     What is actually on the calendar — if one is actually connected.

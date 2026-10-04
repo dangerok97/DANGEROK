@@ -77,6 +77,8 @@ _READERS = {
     "calendar.local.read": providers.read_local_calendar,
     "document.read": providers.read_documents,
     "information.read": providers.read_internal_state,
+    "mail.metadata": providers.read_mail_metadata,
+    "location.read": providers.read_location,
 }
 
 
