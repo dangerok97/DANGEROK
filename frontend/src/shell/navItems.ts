@@ -35,6 +35,7 @@ export type AmbientNavKey =
   | 'contesti'
   | 'ora'
   | 'chiamate'
+  | 'luoghi'
   | 'attivita'
   | 'documenti';
 export type AmbientAccountKey = 'profilo';
@@ -102,6 +103,16 @@ export const AMBIENT_NAV_ITEMS: AmbientNavItem[] = [
     icon: 'ellipse-outline',
     iconActive: 'ellipse',
     center: true,
+  },
+  {
+    key: 'luoghi',
+    route: 'luoghi',
+    href: '/luoghi',
+    label: 'Luoghi',
+    accessibilityLabel: 'I tuoi luoghi',
+    icon: 'location-outline',
+    iconActive: 'location',
+    railOnly: true,
   },
   {
     /*
