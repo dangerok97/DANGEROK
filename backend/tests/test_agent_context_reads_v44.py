@@ -83,6 +83,7 @@ async def test_location_read_persists_semantics_not_coordinates():
         "longitude": 11.75,
         "place_label": "Casa",
         "place_locality": "Tarquinia",
+        "place_resolver_version": "place-label-v2",
         "source": "foreground_device",
         "permission_state": "granted_foreground",
         "preference": "while_using",
