@@ -392,13 +392,29 @@ async def record_link(
         logger.info("link write soft-fail: %s", type(e).__name__)
 
     # A linked source changing is new context about the target situation.
-    # This is deliberately NOT reported as calendar.event.updated: the
-    # calendar itself may still be unchanged. The ordinary opportunity review
-    # will now rebuild disagreements, calendar and departure evidence together.
+    #
+    #     LINKS PROPAGATE CONTEXT, NEVER ACTIONS.
+    #
+    # This is deliberately domain-neutral. Email→appointment was the first
+    # useful case, but the same causal fact holds for email→document,
+    # calendar→life situation, document→appointment, and future connected
+    # sources: a source that the model already linked to a known thing changed.
+    # What that *means* is still decided by Opportunity/Agent after rebuilding
+    # the snapshot; this code never says "update the calendar", "pay", or
+    # "notify".
+    source_kind = {
+        "calendar": "appointment",
+        "documents": "document",
+    }.get(signal.source_type, "")
+    self_link = bool(
+        source_kind
+        and row["target_kind"] == source_kind
+        and row["target_ref"] == signal.source_object_ref
+    )
     if (
-        signal.source_type == "email"
-        and row["target_kind"] == "appointment"
+        row["target_kind"]
         and row["target_ref"]
+        and not self_link
         and row["relationship"] in ("same_situation", "related")
     ):
         try:
@@ -408,8 +424,10 @@ async def record_link(
                 source="situations",
                 kind="linked_source_changed",
                 entity_ref=row["target_ref"],
-                entity_kind="appointment",
-                after=(row["reason_summary"] or "una fonte collegata all'appuntamento è cambiata")[:160],
+                entity_kind=row["target_kind"],
+                # Stable wording keeps batching/dedupe mechanical rather than
+                # dependent on the model's prose in reason_summary.
+                after=f"nuova evidenza collegata da {signal.source_type}"[:160],
             )
         except Exception as exc:
             logger.info("linked situation propagation soft-fail: %s", type(exc).__name__)
