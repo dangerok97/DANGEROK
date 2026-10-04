@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import logging
 import os
+import sys
 
 from fastapi import APIRouter, FastAPI, Response
 from starlette.middleware.cors import CORSMiddleware
@@ -24,6 +25,14 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger("ora")
+if not logger.handlers:
+    _ora_stdout = logging.StreamHandler(sys.stdout)
+    _ora_stdout.setFormatter(
+        logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    )
+    logger.addHandler(_ora_stdout)
+logger.setLevel(logging.INFO)
+logger.propagate = False
 
 
 from public_information import router as public_information_router
