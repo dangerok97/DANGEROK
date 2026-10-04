@@ -79,11 +79,19 @@ def test_the_carrier_routes_are_not_under_api():
         for context in iter_route_contexts(server.app.router.routes)
         if context.path
     }
-    for needed in ("/vonage/answer", "/vonage/event", "/vonage/fallback", "/vonage/socket"):
+    for needed in ("/vonage/answer", "/vonage/event", "/vonage/fallback"):
         assert needed in paths, f"manca la porta {needed}"
         assert f"/api{needed}" not in paths, (
             f"{needed} è finita anche sotto /api: gli indirizzi del pannello si romperebbero"
         )
+
+    # FastAPI >= 0.137 espande i router in modo lazy; l'helper pubblico
+    # iter_route_contexts() espone i path HTTP effettivi, ma nelle versioni
+    # correnti non valorizza ancora il path pubblico degli APIWebSocketRoute
+    # prefissati. url_path_for() verifica invece la rotta realmente risolta.
+    socket_path = str(server.app.url_path_for("socket"))
+    assert socket_path == "/vonage/socket"
+    assert socket_path != "/api/vonage/socket"
 
     # E quelle verso la persona restano dove sono sempre state, autenticate.
     assert "/api/telephone/prepare" in paths
