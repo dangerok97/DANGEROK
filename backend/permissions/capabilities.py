@@ -177,6 +177,7 @@ _CAPABILITIES: Tuple[Dict[str, Any], ...] = (
         sensitivity="sensitive",
         runtime_permission={"ios": "NSContactsUsageDescription", "android": "READ_CONTACTS"},
         purposes=("name_resolution",),
+        default_status="available",
     ),
     # -------- Location --------
     _cap(
