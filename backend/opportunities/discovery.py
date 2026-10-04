@@ -150,6 +150,18 @@ class OpportunityDiscovery:
 
         state = await self._state(owner_id)
 
+        # A place transition is also new evidence about the shape of the
+        # person's days. Refresh routine understanding before building the
+        # snapshot so this very review can reason with the newly learned
+        # pattern. The routine service fingerprints evidence, so repeated
+        # arrivals with no new pattern cost no model call.
+        if any(getattr(change, "source", "") == "places" for change in pending):
+            try:
+                from places.service import PlacesService
+                await PlacesService(self.db).review_routines(owner_id, language=language)
+            except Exception as exc:
+                logger.info("routine learning soft-fail: %s", type(exc).__name__)
+
         if not force and self._cooling(state):
             # The changes stay pending: the next review takes them.
             return DiscoveryResult(

@@ -22,6 +22,7 @@ const ROTTE: Record<string, string> = {
   contesti: '/contesti',
   ora: '/ora',
   chiamate: '/chiamate',
+  luoghi: '/luoghi',
   attivita: '/attivita',
   documenti: '/documenti',
   profilo: '/profilo',
@@ -35,10 +36,10 @@ export function railKeyFor(pathname: string): RailKey {
   // di menu: tre indirizzi, una sola cosa nella testa di chi guarda.
   if (
     pathname.startsWith('/vita')
-    || pathname.startsWith('/luoghi')
     || pathname.startsWith('/life-setup')
     || pathname.startsWith('/contesti')
   ) return 'contesti';
+  if (pathname.startsWith('/luoghi') || pathname.startsWith('/place/')) return 'luoghi';
   if (pathname.startsWith('/prepara-chiamata') || pathname.startsWith('/chiamate')) return 'chiamate';
   if (pathname.startsWith('/document')) return 'documenti';
   if (pathname.startsWith('/attivita')) return 'attivita';

@@ -52,8 +52,13 @@ const readCode = (rel: string) =>
   const labels = AMBIENT_NAV_ITEMS.map((i) => i.label);
   assert.deepEqual(
     labels,
-    ['Home', 'Vita', 'ORA', 'Chiamate', 'Attività', 'Documenti'],
-    'primary navigation must be exactly the five cognitive destinations, in order',
+    ['Home', 'Vita', 'ORA', 'Luoghi', 'Chiamate', 'Attività', 'Documenti'],
+    'desktop rail keeps Luoghi visible while the phone bar preserves its compact primary set',
+  );
+
+  assert.ok(
+    AMBIENT_NAV_ITEMS.some((i) => i.key === 'luoghi' && i.href === '/luoghi' && i.railOnly),
+    'Luoghi must be directly visible on the desktop rail without crowding the phone bar',
   );
 
   // G — Documenti is a destination, not a row inside the account screen.
