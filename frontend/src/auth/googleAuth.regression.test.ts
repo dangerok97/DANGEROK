@@ -60,9 +60,9 @@ test('I: doppio click condivide la stessa operazione pending', () => {
   assert.match(loginSource, /if \(busy\) return/);
 });
 
-test('J: Login e Settings usano lo stesso adapter', () => {
+test('J: Login usa l adapter Google; Settings resta separata dalle credenziali', () => {
   assert.match(loginSource, /from '@\/src\/auth\/googleAuth'/);
-  assert.match(settingsSource, /from '@\/src\/auth\/googleAuth'/);
+  assert.doesNotMatch(settingsSource, /from '@\/src\/auth\/googleAuth'/);
   assert.doesNotMatch(settingsSource, /expo-auth-session\/providers\/google/);
 });
 
@@ -110,7 +110,7 @@ test('S: il login Web usa il button flow GIS ufficiale e non One Tap', () => {
   assert.match(webSource, /text: 'continue_with'/);
   assert.doesNotMatch(webSource, /google\.accounts\.id\.prompt\s*\(/);
   assert.match(loginSource, /renderGoogleButton/);
-  assert.match(settingsSource, /renderGoogleButton/);
+  assert.doesNotMatch(settingsSource, /renderGoogleButton/);
   assert.doesNotMatch(loginSource, /\.click\(\).*google|google.*\.click\(/i);
   assert.match(loginSource, /Platform\.OS === 'web' && googleButtonConfigured/);
   assert.doesNotMatch(loginSource, /Platform\.OS === 'web' && googleReady \?/);
