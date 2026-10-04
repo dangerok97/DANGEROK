@@ -705,7 +705,7 @@ class PlacesService:
         comes back is either nothing — the ordinary outcome — or one pattern
         with the model's own sentence about it, stored as a candidate.
         """
-        from places.reasoning import read_the_shape_of_the_days
+        from places.reasoning import read_the_shape_of_the_days, reassess_known_routines
 
         evidence = await self.routine_evidence(user_id, period=period)
         if len(evidence["days"]) < 2:
@@ -723,6 +723,33 @@ class PlacesService:
         )
         if (previous or {}).get("fingerprint") == fingerprint:
             return {"unchanged": True}
+
+        existing_docs = await self.db.observed_routines.find(
+            {"user_id": user_id, "state": {"$ne": "dismissed"}}, {"_id": 0}
+        ).to_list(20)
+        known = []
+        for doc in existing_docs:
+            try:
+                routine = ObservedRoutine.model_validate(doc)
+            except Exception:
+                continue
+            known.append({
+                "id": routine.id,
+                "places": routine.place_sequence,
+                "weekdays": routine.weekdays,
+                "typical_start": routine.typical_start,
+                "typical_end": routine.typical_end,
+                "state": routine.state,
+                "interpretation": routine.interpretation,
+            })
+
+        reviews = await reassess_known_routines(
+            evidence["days"],
+            routines=known,
+            place_names=evidence["place_names"],
+            language=language,
+        )
+        await self._apply_routine_support_reviews(user_id, reviews)
 
         read = await read_the_shape_of_the_days(
             evidence["days"],
@@ -770,9 +797,15 @@ class PlacesService:
             occurrences=read["occurrences"],
             interpretation=read["interpretation"],
             proactive_review_lead_minutes=(
-                0 if preserved_state == "dismissed"
-                else read.get("proactive_review_lead_minutes", 0)
+                existing.proactive_review_lead_minutes
+                if existing and existing.needs_reconfirmation
+                else (
+                    0 if preserved_state == "dismissed"
+                    else read.get("proactive_review_lead_minutes", 0)
+                )
             ),
+            needs_reconfirmation=bool(existing and existing.needs_reconfirmation),
+            support_note=(existing.support_note if existing else ""),
             state=preserved_state,
         )
         await self.db.observed_routines.update_one(
@@ -791,6 +824,50 @@ class PlacesService:
             "question": read["question"],
             "proactive_review_scheduled": scheduled,
         }
+
+    async def _apply_routine_support_reviews(
+        self, user_id: str, reviews: List[Dict[str, Any]]
+    ) -> None:
+        """Let new evidence weaken AI assumptions without overruling a person."""
+        for review in reviews:
+            routine_id = str(review.get("routine_id") or "")
+            status = str(review.get("status") or "")
+            if not routine_id or status not in {"supported", "unclear", "contradicted"}:
+                continue
+            doc = await self.db.observed_routines.find_one(
+                {"user_id": user_id, "id": routine_id}, {"_id": 0}
+            )
+            if not doc:
+                continue
+            try:
+                routine = ObservedRoutine.model_validate(doc)
+            except Exception:
+                continue
+
+            note = str(review.get("note") or "")[:300]
+            if status == "unclear":
+                # Lack of evidence is not evidence of change.
+                continue
+            if status == "supported":
+                routine.support_note = note
+                routine.needs_reconfirmation = False
+                if routine.state == "stale":
+                    routine.state = "candidate"
+            elif status == "contradicted":
+                routine.support_note = note
+                if routine.state == "accepted":
+                    # The user's statement remains authoritative; ORA merely
+                    # stops acting on the pattern until they reconfirm it.
+                    routine.needs_reconfirmation = True
+                elif routine.state in {"candidate", "stale"}:
+                    routine.state = "stale"
+                await self._cancel_routine_reviews(user_id, routine.id)
+
+            routine.updated_at = _now().isoformat()
+            await self.db.observed_routines.update_one(
+                {"user_id": user_id, "id": routine.id},
+                {"$set": routine.model_dump()},
+            )
 
     async def _cancel_routine_reviews(
         self, user_id: str, routine_id: Optional[str] = None
@@ -820,6 +897,8 @@ class PlacesService:
         action by itself.
         """
         await self._cancel_routine_reviews(user_id, routine.id)
+        if routine.state in {"dismissed", "stale"} or routine.needs_reconfirmation:
+            return False
         lead = int(routine.proactive_review_lead_minutes or 0)
         if lead <= 0:
             return False
@@ -903,6 +982,9 @@ class PlacesService:
 
         routine.state = state  # type: ignore[assignment]
         routine.updated_at = _now().isoformat()
+        if state == "accepted":
+            routine.needs_reconfirmation = False
+            routine.support_note = ""
         if state == "dismissed":
             routine.proactive_review_lead_minutes = 0
             await self.db.ambient_wakes.update_many(
