@@ -174,9 +174,21 @@ class OpportunityDiscovery:
             self.db, owner_id, changes=pending_ai
         )
         print_ = fingerprint(snapshot)
-        if not force and print_ == (state.get("fingerprint") or ""):
-            # The facts are the ones the model has already read. Asking again
-            # would buy a second copy of an answer we have.
+        has_fresh_communication = any(
+            getattr(change, "source", "") == "communications"
+            for change in pending
+        )
+        if (
+            not force
+            and not has_fresh_communication
+            and print_ == (state.get("fingerprint") or "")
+        ):
+            # Most changes have a durable representation in the snapshot, so
+            # an unchanged snapshot means the model would see the same facts.
+            # A fresh communication is different: the message/thread delta is
+            # itself the new fact and is intentionally not copied into the
+            # stable life snapshot. ChangeLog already dedupes it, so let that
+            # one batch through exactly once.
             await self.changes.claim(owner_id, "no_semantic_delta")
             await self._remember(owner_id, fingerprint=print_)
             return DiscoveryResult(
