@@ -108,6 +108,7 @@ jobs:
             tests/test_background_agent_loop.py tests/test_opportunity_admission_v4.py \
             tests/test_admission_source_context_v4.py tests/test_agent_preparation_v4.py \
             tests/test_agent_pending_steps_v4.py tests/test_autonomous_document_cycle_v4.py \
+            tests/test_routine_autonomy_v40.py tests/test_routine_proactive_wakes_v41.py \
             tests/test_document_extraction_signal_v4.py tests/test_update_work.py \
             tests/test_life_profile_opportunity_bridge.py \
             tests/test_ambient_runtime_v38.py tests/test_ambient_reliability_v38.py -x
