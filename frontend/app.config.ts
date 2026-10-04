@@ -13,7 +13,7 @@ function iosGoogleUrlScheme(clientId: string): string | null {
 export default ({ config }: ConfigContext): ExpoConfig => {
   const iosClientId = (process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '').trim();
   const iosUrlScheme = iosGoogleUrlScheme(iosClientId);
-  const plugins = [...(base.plugins || [])];
+  const plugins = [...(base.plugins || []), './plugins/withOraSiri'];
 
   // The native plugin requires the real reversed iOS client ID. Keeping it
   // conditional lets web/email builds remain valid when Google is not configured.
