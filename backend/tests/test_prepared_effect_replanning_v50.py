@@ -108,9 +108,9 @@ def test_action_step_exposes_only_bounded_calendar_parameters_to_next_judgement(
     step.parameters["irrelevant_private_blob"] = "should-not-be-shown"
     shown = step.for_ai()
 
-    assert shown["prepared_parameters"]["title"] == "Dentista"
-    assert shown["prepared_parameters"]["starts_at"].endswith("+02:00")
-    assert "irrelevant_private_blob" not in shown["prepared_parameters"]
+    assert shown["execution_parameters"]["title"] == "Dentista"
+    assert shown["execution_parameters"]["starts_at"].endswith("+02:00")
+    assert "irrelevant_private_blob" not in shown["execution_parameters"]
 
 
 @pytest.mark.asyncio
