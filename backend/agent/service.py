@@ -686,6 +686,34 @@ class AgentService:
 
         may_touch = True
         if step.step_type == "execute":
+            prepared_intent = self.executor._intent_for(owner_id, goal, step)
+            preparation_problem = _unprepared_effect_reason(prepared_intent)
+            if preparation_problem:
+                await self.repo.journal(
+                    owner_id,
+                    goal.id,
+                    kind="effect_not_ready",
+                    note=preparation_problem,
+                    detail={"step_id": step.id, "capability": step.capability_needed},
+                )
+                return await self._reconsider(
+                    owner_id,
+                    goal,
+                    plan,
+                    run,
+                    budget,
+                    what_happened={
+                        "step": step.for_ai(),
+                        "problem": "l'azione non è ancora completamente preparata",
+                        "what_is_missing": preparation_problem,
+                        "instruction": (
+                            "Usa ciò che è già stato trovato per completare target e parametri; "
+                            "non chiedere autorizzazione finché l'atto concreto non è definito."
+                        ),
+                    },
+                    language=language,
+                )
+
             assessment = await self._authority_for(
                 owner_id, goal, step, run, budget, language=language
             )
@@ -714,7 +742,7 @@ class AgentService:
                 )
 
             effective = await self.authority.effective_authority(
-                owner_id, self.executor._intent_for(owner_id, goal, step), assessment
+                owner_id, prepared_intent, assessment
             )
             # The initial autonomous rollout reads/prepares; effects need a user turn.
             may_touch = effective.may_execute and not run.background
@@ -2232,6 +2260,37 @@ class AgentService:
             await OpportunityService(self.db).resolve(owner_id, goal.opportunity_id)
         except Exception as e:
             logger.info("opportunity resolve soft-fail: %s", type(e).__name__)
+
+
+def _unprepared_effect_reason(intent) -> str:
+    """Why an effect is not concrete enough to ask permission for yet.
+
+    This is structural validation, not a judgement about whether the action is
+    desirable. A person can only approve a specific act; missing target/time
+    means there is not yet an act to approve.
+    """
+    capability = str(intent.capability or "")
+    effect_type = str(intent.effect.effect_type or "")
+    params = dict(intent.parameters or {})
+    target = str(intent.target_ref or "")
+
+    if capability == "calendar.write":
+        if effect_type == "modify" and not target.startswith("calendar:"):
+            return "manca il riferimento esatto all'evento Google da modificare"
+        if not str(params.get("title") or "").strip():
+            return "manca il titolo dell'appuntamento da scrivere"
+        if not str(params.get("starts_at") or "").strip():
+            return "manca il nuovo orario verificato dell'appuntamento"
+    elif capability == "calendar.local.write":
+        if effect_type != "modify":
+            return "il calendario ORA autonomo può solo modificare un impegno esistente"
+        if not target.startswith("calendar:node_home_"):
+            return "manca il riferimento esatto all'impegno ORA da modificare"
+        if not str(params.get("start_datetime") or "").strip():
+            return "manca il nuovo orario verificato dell'impegno"
+        if not str(params.get("expected_revision") or "").strip():
+            return "manca la revisione corrente dell'impegno da modificare"
+    return ""
 
 
 def _authority_question(intent) -> str:
