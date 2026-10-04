@@ -74,6 +74,51 @@ def _moment(value: Any) -> Optional[datetime]:
     return found if found.tzinfo else found.replace(tzinfo=timezone.utc)
 
 
+def provider_reality(provider) -> str:
+    """Whether bank reads describe the real world or a deliberate stand-in."""
+    from connectors.bank.provider import FakeBankProvider
+
+    if isinstance(provider, FakeBankProvider):
+        return "simulated"
+    environment = str(getattr(provider, "environment", "") or "").strip().lower()
+    if environment in ("sandbox", "test", "demo", "fake"):
+        return "simulated"
+    return "real"
+
+
+async def agent_bank_status(db, owner_id: str) -> str:
+    """Per-person capability reality: unavailable, simulated, or real."""
+    try:
+        import deps
+        from connectors.bank.link import connection_state
+
+        service = BankReadService(
+            db=db,
+            permissions=deps.get_permissions_service(),
+            vault=deps.get_token_vault(),
+        )
+        state = await connection_state(service, user_id=owner_id)
+        if str(state.get("stato") or "") not in ("collegato", "collegamento_in_corso"):
+            return "unavailable"
+        return provider_reality(service.provider)
+    except Exception as exc:
+        logger.info("bank agent status soft-fail: %s", type(exc).__name__)
+        return "unavailable"
+
+
+async def grant_bank_read_permission(service, user_id: str, instance_id: str) -> None:
+    """Mirror one live bank consent into the generic permission registry."""
+    await service.permissions.grant(
+        user_id=user_id,
+        capability_id=CAPABILITY_ID,
+        connector_id=CONNECTOR_ID,
+        connector_instance_id=instance_id,
+        purpose_id="financial_insight",
+        scopes=["accounts:read", "transactions:read"],
+        actor_type="user",
+    )
+
+
 class BankReadService:
     """Collega un conto, leggi cosa e' successo, e fermati li'."""
 
@@ -113,6 +158,7 @@ class BankReadService:
             # piu' che sufficienti, e sono gentili con la quota del provider.
             poll_interval_min=360,
         )
+        await grant_bank_read_permission(self, user_id, instance["id"])
         return {"ok": True, "instance_id": instance["id"]}
 
     # --- leggere -----------------------------------------------------------
