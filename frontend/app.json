@@ -21,7 +21,8 @@
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Consenti a ORA di riconoscere quando arrivi o lasci i tuoi luoghi anche quando l'app non è aperta.",
         "UIBackgroundModes": [
           "location"
-        ]
+        ],
+        "NSContactsUsageDescription": "Consenti a ORA di usare i contatti salvati per riconoscere chi vuoi contattare."
       }
     },
     "android": {
@@ -46,6 +47,12 @@
         "expo-calendar",
         {
           "calendarPermission": "Leggi gli eventi del tuo calendario per organizzare la giornata."
+        }
+      ],
+      [
+        "expo-contacts",
+        {
+          "contactsPermission": "Consenti a ORA di usare i contatti salvati per riconoscere chi vuoi contattare."
         }
       ],
       [
