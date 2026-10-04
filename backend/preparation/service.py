@@ -135,6 +135,39 @@ async def look_around(
 # ---------------------------------------------------------------------------
 
 
+async def change_counterparty(
+    db, prep: MissionPreparation, *, name: str, operation: str = "",
+) -> Tuple[MissionPreparation, str]:
+    """Explicitly correct who an open phone preparation is about.
+
+    A clarification such as "il numero di Asia" must not keep the stale
+    identity selected by an earlier turn. It changes the person, not ownership
+    of the old number, then resolves contacts again from the canonical sources.
+    """
+    nuovo = " ".join((name or "").strip(" ,.;:!?").split())[:160]
+    if len(nuovo) < 2:
+        return prep, "non ho capito di chi intendi il numero"
+    from preparation.trust import identity_of
+
+    if identity_of(nuovo) == identity_of(prep.counterparty):
+        return prep, ""
+
+    prep.counterparty = nuovo
+    prep.selected_contact = None
+    prep.contact_candidates = []
+    prep.number_source = ""
+    prep.contact_identity = ""
+    prep.number_conflict = False
+    prep.identity_conflicts = []
+    prep.identity_conflict_shown_in = ""
+    prep.number_confirmed = False
+    prep.number_rejected = False
+    prep.number_trust = ""
+    prep.summary_shown_in = ""
+    prep.conversation_ready = False
+    return await look_around(db, prep, operation=operation)
+
+
 async def _who_to_call(db, prep: MissionPreparation) -> MissionPreparation:
     """
     Chi chiamare, tenendo conto di quello che la persona ha già confermato.
@@ -347,9 +380,20 @@ async def confirm_number(
                 display_name=c.name, number=c.number, source=c.source,
                 source_detail=c.source_detail,
             )
+        # Do not leave the rejected candidate selected: otherwise the card can
+        # repeat the exact number the person has just said is wrong.
+        prep.selected_contact = None
+        prep.contact_candidates = []
         prep.number_confirmed = False
         prep.number_rejected = True
         prep.number_trust = ""
+        prep.number_source = ""
+        prep.summary_shown_in = ""
+        # Look once more through trusted/contact sources. The rejection record
+        # filters the old number, so a genuine alternative may be proposed.
+        prep = await _who_to_call(db, prep)
+        if prep.selected_contact is not None or prep.contact_candidates:
+            prep.number_rejected = False
     return await _settle(db, prep, operation)
 
 
