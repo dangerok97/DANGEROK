@@ -123,7 +123,7 @@ async def test_changed_number_invalidates_previous_summary_even_if_already_trust
     prep = await prepare(db)
     prep, _ = await confirm_number(db, prep, yes=True)
     prep.summary_shown_in = "previous-turn"
-    prep = await remember(db, prep)
+    await save(db, prep)
     await trust.confirm(db, owner_id="owner", identity="asia", display_name="Asia",
                         number="+393330000009", source="user")
     prep, error = await change_number(db, prep, number="3330000009")
@@ -483,7 +483,7 @@ async def test_active_phone_followup_routes_no_without_model(db):
 @pytest.mark.asyncio
 async def test_explicit_name_correction_retargets_active_preparation(db):
     from preparation.contacts import ContactCandidate
-    from preparation.preparation import MissionPreparation, save
+    from preparation.preparation import MissionPreparation, remember
     from conversation_engine.ai_core.loop import _phone_pending_followup
 
     candidate = ContactCandidate(
@@ -500,7 +500,7 @@ async def test_explicit_name_correction_retargets_active_preparation(db):
         contact_candidates=[candidate],
         contact_identity="quindi",
     )
-    await save(db, prep)
+    prep = await remember(db, prep)
     state = {"active_preparation_id": prep.preparation_id}
 
     assert await _phone_pending_followup(db, "owner", state, "il numero di Asia") == {
