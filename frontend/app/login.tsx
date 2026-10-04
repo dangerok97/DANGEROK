@@ -27,6 +27,7 @@ import { useAuth } from '@/src/contexts/AuthContext';
 import {
   googleConfiguredForPlatform,
   appleConfiguredForPlatform,
+  appleProviderReady,
   notConfiguredMessage,
 } from '@/src/auth/providersConfig';
 import { useGoogleAuth } from '@/src/auth/googleAuth';
@@ -167,10 +168,11 @@ export default function LoginScreen() {
   const googleButtonConfigured = googleConfiguredForPlatform() && backendGoogle !== false;
   const googleReady =
     googleAuth.availability.status === 'ready' && googleButtonConfigured;
-  const appleReady =
-    Platform.OS === 'ios'
-      ? appleNative || appleConfiguredForPlatform()
-      : appleConfiguredForPlatform() && backendApple !== false;
+  const appleReady = appleProviderReady(
+    Platform.OS,
+    appleNative,
+    backendApple,
+  );
 
   const handleGoogleResult = useCallback(async (res: GoogleAuthResult) => {
     if (!res.ok) {
