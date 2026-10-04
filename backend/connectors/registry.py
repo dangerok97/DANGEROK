@@ -188,6 +188,7 @@ _CONNECTORS: Tuple[Dict[str, Any], ...] = (
         auth_flow="native_permission",
         supports_multi_instance=False,
         icon_key="contacts_device",
+        status="available",
     ),
     # ------- Location -------
     _conn(

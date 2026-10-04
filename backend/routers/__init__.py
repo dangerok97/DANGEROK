@@ -95,6 +95,16 @@ ALL_ROUTERS = [
     llm_router,
 ]
 
+# Device contacts — minimal owner-scoped address-book snapshot. The native
+# permission remains on the device; this surface only receives the fields ORA
+# needs for name resolution and can be revoked by clearing the snapshot.
+try:
+    from contacts.router import router as contacts_router
+
+    ALL_ROUTERS.append(contacts_router)
+except Exception:
+    pass
+
 # Foreground location + presence (V2.7.1)
 try:
     from location.router import router as location_router

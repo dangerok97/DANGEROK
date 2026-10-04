@@ -6,7 +6,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { useIconFonts } from '@/src/hooks/use-icon-fonts';
-import { AuthProvider } from '@/src/contexts/AuthContext';
+import { AuthProvider, useAuth } from '@/src/contexts/AuthContext';
 import { ThemeProvider, useTheme } from '@/src/theme/ThemeProvider';
 import { tokens } from '@/src/theme/tokens';
 import { AuthGate, ShellModeProvider, useShellTransitionMs } from '@/src/shell';
@@ -56,10 +56,45 @@ function usePresenceReconciliation() {
   }, []);
 }
 
+function useDeviceContactsReconciliation() {
+  const { user, loading } = useAuth();
+
+  useEffect(() => {
+    if (Platform.OS !== 'ios' && Platform.OS !== 'android') return undefined;
+    if (loading || !user) return undefined;
+
+    let alive = true;
+    const sync = (requestIfUndetermined: boolean) => {
+      void (async () => {
+        try {
+          const contacts = await import('@/src/contacts/deviceContacts');
+          if (alive) {
+            await contacts.reconcileDeviceContacts({ requestIfUndetermined });
+          }
+        } catch {
+          /* denied/offline/native unavailable: ordinary and non-fatal */
+        }
+      })();
+    };
+
+    // One native prompt after a signed-in session becomes ready. The OS keeps
+    // the decision; subsequent foreground reconciliations never re-prompt.
+    sync(true);
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') sync(false);
+    });
+    return () => {
+      alive = false;
+      sub.remove();
+    };
+  }, [loading, user?.user_id]);
+}
+
 function ThemedStack() {
   const { colors } = useTheme();
   const transitionMs = useShellTransitionMs();
   usePresenceReconciliation();
+  useDeviceContactsReconciliation();
   return (
     <View style={{ flex: 1, backgroundColor: colors.backgroundPrimary }}>
       {/*

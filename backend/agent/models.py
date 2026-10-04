@@ -845,6 +845,9 @@ class ActionStep(BaseModel):
                 )
                 if self.parameters.get(key) not in (None, "")
             }
+        elif self.capability_needed == "contacts.read":
+            who = str(self.parameters.get("who") or "").strip()[:120]
+            execution_parameters = {"who": who} if who else {}
         return {
             "id": self.id,
             "ordinal": self.ordinal,

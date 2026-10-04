@@ -115,6 +115,7 @@ jobs:
             tests/test_disagreement_actionable_calendar_v47.py tests/test_specific_authority_handoff_v48.py \
             tests/test_disagreement_source_refs_v49.py tests/test_planner_calendar_modify_v50.py \
             tests/test_prepared_effect_replanning_v50.py tests/test_generic_causal_propagation_v51.py \
+            tests/test_agent_device_contacts_v52.py \
             tests/test_document_extraction_signal_v4.py tests/test_update_work.py \
             tests/test_life_profile_opportunity_bridge.py \
             tests/test_ambient_runtime_v38.py tests/test_ambient_reliability_v38.py -x
@@ -247,7 +248,7 @@ jobs:
           npm run test:v3213d
           npm run test:v3213e
           npm run test:v322
-          node --test --experimental-strip-types src/components/ora/presence/presence.test.ts src/components/ora/presence/openingSession.test.ts src/components/ora/presence/scene.test.mjs src/ora/openingHandoff.test.ts src/voice/voice313.test.ts src/voice/voiceRuntime.test.ts src/components/ora/ora14.test.ts src/life-setup/vitaLoading.test.ts src/life-setup/registrationIntro.test.ts src/components/vita/routinesPlaces.test.ts
+          node --test --experimental-strip-types src/components/ora/presence/presence.test.ts src/components/ora/presence/openingSession.test.ts src/components/ora/presence/scene.test.mjs src/ora/openingHandoff.test.ts src/voice/voice313.test.ts src/voice/voiceRuntime.test.ts src/components/ora/ora14.test.ts src/life-setup/vitaLoading.test.ts src/life-setup/registrationIntro.test.ts src/components/vita/routinesPlaces.test.ts src/contacts/deviceContacts.test.ts
 
       # The former life-experience-documents Playwright spec is intentionally
       # not a blocking CI gate here. It navigates the pre-V3.21 greedy
