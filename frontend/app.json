@@ -42,7 +42,7 @@
       [
         "expo-calendar",
         {
-          "calendarPermission": "Leggi gli eventi del tuo calendario per organizzare la giornata."
+          "calendarPermission": "ORA accede al calendario per leggere, creare e aggiornare eventi quando glielo chiedi o quando autorizzi un'azione."
         }
       ],
       [
