@@ -196,6 +196,12 @@ jobs:
         env:
           EXPO_PUBLIC_BACKEND_URL: https://ora-backend-production-aa56.up.railway.app
         run: npx expo config --type public >/tmp/ora-expo-ios-config.json
+      - name: Generate native iOS project
+        working-directory: frontend
+        env:
+          EXPO_NO_GIT_STATUS: "1"
+          EXPO_PUBLIC_BACKEND_URL: https://ora-backend-production-aa56.up.railway.app
+        run: npx expo prebuild --platform ios --no-install --clean
       - name: Export production iOS bundle
         working-directory: frontend
         env:
