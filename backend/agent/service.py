@@ -1214,13 +1214,24 @@ class AgentService:
         plan.status = "waiting"
         goal.status = "waiting"
         goal.requires_user_authority = True
+        intent = self.executor._intent_for(owner_id, goal, step)
+        question = _authority_question(intent)
+        step.asks = question
         await self.repo.save_plan(plan)
         await self.repo.save_goal(goal)
+        await self.repo.journal(
+            owner_id, goal.id, kind="awaiting_authority", note=question,
+            detail={
+                "step_id": step.id,
+                "effect_hash": intent.effect_hash,
+                "effect_type": intent.effect.effect_type,
+            },
+        )
         await self._note_ambient(owner_id, "agent_preparation_completed", goal)
         return {
             "ok": True,
             "state": "awaiting_authority",
-            "asks": step.intent,
+            "asks": question,
             "kind": "authority",
             "goal": goal.for_human(),
         }
@@ -1777,7 +1788,7 @@ class AgentService:
             intent = self.executor._intent_for(owner_id, goal, step)
             consent = await self.authority.consent(
                 owner_id, intent, decision="approved", goal_id=goal_id,
-                shown=intent.effect.for_human(),
+                shown=_authority_question(intent),
             )
             step.status = "pending"
             step.attempts = 0
@@ -2208,6 +2219,50 @@ class AgentService:
             await OpportunityService(self.db).resolve(owner_id, goal.opportunity_id)
         except Exception as e:
             logger.info("opportunity resolve soft-fail: %s", type(e).__name__)
+
+
+def _authority_question(intent) -> str:
+    """The exact, human-readable act a one-time approval will authorize.
+
+    Parameters matter because approval is already bound to them in effect_hash.
+    The question should expose the same concrete act without leaking internal
+    refs, hashes, provider names or private message bodies.
+    """
+    params = dict(intent.parameters or {})
+    effect = intent.effect
+    capability = str(intent.capability or "")
+
+    if capability in ("calendar.write", "calendar.local.write"):
+        title = str(params.get("title") or "").strip()
+        starts = str(
+            params.get("starts_at")
+            or params.get("start_datetime")
+            or ""
+        ).strip()
+        when = _human_authority_time(starts)
+        named = f"«{title[:100]}»" if title else "questo appuntamento"
+        if effect.effect_type == "modify":
+            action = f"Ho preparato lo spostamento di {named}"
+        else:
+            action = f"Ho preparato l'aggiunta di {named} al calendario"
+        if when:
+            action += f" per {when}"
+        return (action + ". Vuoi che applichi questa modifica?")[:300]
+
+    summary = str(effect.for_human() or intent.effect_summary or "").strip()
+    if not summary:
+        summary = "l'azione che ho preparato"
+    return f"Ho preparato: {summary[:220]}. Vuoi che proceda?"[:300]
+
+
+def _human_authority_time(value: str) -> str:
+    if not value:
+        return ""
+    try:
+        moment = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return value[:80]
+    return moment.strftime("%d/%m alle %H:%M")
 
 
 def _grant_sentence(effect) -> str:
