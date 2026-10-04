@@ -364,9 +364,23 @@ export type PlaceCandidate = {
   question_id?: string | null;
 };
 
+export type PlaceRoutine = {
+  id: string;
+  places: string[];
+  place_names: string[];
+  typical_start?: string | null;
+  typical_end?: string | null;
+  weekdays: string[];
+  occurrences: number;
+  what_ora_thinks?: string | null;
+  state: 'candidate' | 'accepted' | 'stale';
+  proactive_review?: boolean;
+};
+
 export type PlacesResponse = {
   places: LifePlace[];
   candidates: PlaceCandidate[];
+  routines: PlaceRoutine[];
   pending_candidates?: boolean;
   permission: {
     preference: 'off' | 'while_using';
@@ -1521,6 +1535,11 @@ export const api = {
   placesReviewCandidates: () =>
     request<{ raised: { candidate_id: string; question: string; question_id: string }[] }>(
       '/places/candidates/review', { method: 'POST' },
+    ),
+  placesSetRoutineState: (routineId: string, state: 'accepted' | 'dismissed') =>
+    request<{ routine: PlaceRoutine }>(
+      `/places/routines/${encodeURIComponent(routineId)}`,
+      { method: 'PATCH', body: JSON.stringify({ state }) },
     ),
   placesSetMonitoring: (enabled: boolean) =>
     request<{ enabled: boolean }>('/places/monitoring', {
