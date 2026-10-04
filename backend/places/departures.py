@@ -257,7 +257,19 @@ class DepartureService:
 
         query = {"owner_id": owner_id, "source_ref": WAKE_SOURCE, "status": "pending"}
         if not events:
-            await self.db.ambient_wakes.update_many(query, {"$set": {"status": "cancelled"}})
+            # No future calendar event means neither the broad discovery wake
+            # nor any event-specific pre-departure wake is still meaningful.
+            await self.db.ambient_wakes.update_many(
+                {
+                    "owner_id": owner_id,
+                    "status": "pending",
+                    "$or": [
+                        {"source_ref": WAKE_SOURCE},
+                        {"source_ref": {"$regex": "^calendar_departure_due:"}},
+                    ],
+                },
+                {"$set": {"status": "cancelled", "updated_at": now.isoformat()}},
+            )
             return
         first = min(_instant(e["starts_at"]) for e in events)
         # 24h is an observation horizon, not an instruction to interrupt.
