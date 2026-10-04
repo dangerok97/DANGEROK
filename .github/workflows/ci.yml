@@ -125,6 +125,9 @@ jobs:
       - name: Public auth rate limits
         working-directory: backend
         run: python -m pytest -q tests/test_auth_rate_limit.py -x
+      - name: Backup restore round trip
+        working-directory: backend
+        run: python -m pytest -q tests/test_backup_restore.py -x
       - name: Calendar command target, confirmation and timezone safety
         working-directory: backend
         run: |
