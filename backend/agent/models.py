@@ -845,6 +845,15 @@ class ActionStep(BaseModel):
             "input_refs": list(self.input_refs),
             "document_offset": self.parameters.get("document_offset") if self.capability_needed == "document.read" else None,
             "document_version": self.parameters.get("document_version") if self.capability_needed == "document.read" else None,
+            "prepared_parameters": (
+                {
+                    key: self.parameters.get(key)
+                    for key in ("title", "starts_at", "ends_at", "start_datetime", "end_datetime", "timezone", "expected_revision")
+                    if self.parameters.get(key) not in (None, "")
+                }
+                if self.capability_needed in ("calendar.write", "calendar.local.write")
+                else None
+            ),
             "expected_result": self.expected_result or None,
             "external_effect": self.external_effect,
             "what_kind_of_change": self.effect_type,
