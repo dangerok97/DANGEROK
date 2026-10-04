@@ -40,6 +40,7 @@ logger = logging.getLogger("ora.connected")
 # think, not three, and the wake layer coalesces what arrives in the same
 # window.
 WAKE_DELAY_SECONDS = 90
+ACTION_WAKE_DELAY_SECONDS = 15
 
 # How many judgements one pass will pay for. The bound is the point: a
 # fortnight of catching up must not become a fortnight of model calls.
@@ -505,10 +506,15 @@ class ConnectedLifeService:
         try:
             from ambient.service import AmbientService
 
+            delay_seconds = (
+                ACTION_WAKE_DELAY_SECONDS
+                if answer.get("outcome") == "may_need_action"
+                else WAKE_DELAY_SECONDS
+            )
             await AmbientService(self.db).schedule(
                 owner_id,
                 reason="state_changed",
-                when=_now() + timedelta(seconds=WAKE_DELAY_SECONDS),
+                when=_now() + timedelta(seconds=delay_seconds),
                 # Deliberately not this signal's id. A wake is a knock —
                 # "something moved, come and look" — and what to look at is
                 # the pending signals, which are in their own collection with
