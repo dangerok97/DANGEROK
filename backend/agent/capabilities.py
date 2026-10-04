@@ -59,6 +59,7 @@ _FACTS: Dict[str, CapabilityFacts] = {
     "document.read": CapabilityFacts("document.read", False, "easily"),
     "contacts.read": CapabilityFacts("contacts.read", False, "easily"),
     "location.read": CapabilityFacts("location.read", False, "easily"),
+    "financial.read": CapabilityFacts("financial.read", False, "easily"),
     # Preparing. Produces something, changes nothing outside ORA.
     "document.create": CapabilityFacts("document.create", False, "easily"),
     "comparison.run": CapabilityFacts("comparison.run", False, "easily"),
@@ -102,6 +103,7 @@ _EXECUTABLE = {
     "mail.metadata",
     "mail.read",
     "location.read",
+    "financial.read",
     "mail.draft",
     "mail.send",
     # V3.9 Sprint 3 — the first real write. A personal calendar entry is
@@ -165,6 +167,7 @@ _REAL = {
     "mail.draft",
     "mail.send",
     "location.read",
+    "financial.read",
     "phone.call",
 }
 
