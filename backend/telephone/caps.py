@@ -248,6 +248,7 @@ async def _through_the_preparation(
     from preparation.service import (
         answer_question,
         as_a_card,
+        change_counterparty,
         change_number,
         choose_contact,
         confirm_number,
@@ -289,7 +290,15 @@ async def _through_the_preparation(
     rifiutato = ""
     replacement = _replacement_number_in(detto, prep, arguments)
     resolution = str(arguments.get("identity_resolution") or "")
-    if replacement:
+    corrected_counterparty = str(arguments.get("correct_counterparty") or "").strip()
+    if corrected_counterparty:
+        # Explicitly naming who the active preparation is about outranks the
+        # stale entity inferred in an earlier turn.
+        resolution = ""
+        prep, rifiutato = await change_counterparty(
+            db, prep, name=corrected_counterparty,
+        )
+    elif replacement:
         # A new number corrects this preparation; it does not reassign the old
         # number to another person. Current user words outrank stale tool args.
         resolution = ""
