@@ -142,9 +142,11 @@ class DepartureService:
         when ORA should care again: close enough to departure that traffic,
         location and weather are useful, but early enough to change course.
         """
+        from ambient.repository import AmbientRepository
         from ambient.service import AmbientService
 
         active_refs = set()
+        repo = AmbientRepository(self.db)
         for evidence in evidence_rows:
             if evidence.get("status") != "ready":
                 continue
@@ -161,6 +163,22 @@ class DepartureService:
             due = max(now + timedelta(minutes=2), due)
             source_ref = f"calendar_departure_due:{event_ref}"[:120]
             active_refs.add(source_ref)
+
+            pending = await self.db.ambient_wakes.find_one(
+                {
+                    "owner_id": owner_id,
+                    "status": "pending",
+                    "source_ref": source_ref,
+                },
+                {"_id": 0},
+                sort=[("scheduled_for", 1)],
+            )
+            if pending:
+                current = _instant(pending.get("scheduled_for"))
+                if current is None or abs((current - due).total_seconds()) >= 30:
+                    await repo.reschedule(pending["id"], when=due.isoformat())
+                continue
+
             await AmbientService(self.db).schedule(
                 owner_id,
                 reason="ambient_review",
@@ -170,13 +188,15 @@ class DepartureService:
             )
 
         # A cancelled/moved event must not leave an old departure alarm behind.
+        stale = {
+            "owner_id": owner_id,
+            "status": "pending",
+            "source_ref": {"$regex": "^calendar_departure_due:"},
+        }
+        if active_refs:
+            stale["source_ref"]["$nin"] = list(active_refs)
         await self.db.ambient_wakes.update_many(
-            {
-                "owner_id": owner_id,
-                "status": "pending",
-                "source_ref": {"$regex": "^calendar_departure_due:"},
-                **({"source_ref": {"$regex": "^calendar_departure_due:", "$nin": list(active_refs)}} if active_refs else {}),
-            },
+            stale,
             {"$set": {"status": "cancelled", "updated_at": now.isoformat()}},
         )
 
