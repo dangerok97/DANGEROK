@@ -121,7 +121,12 @@ test('actual login mounts introduction before credentials and sends completed tu
     'expo-router': { useRouter: () => ({}), useLocalSearchParams: () => ({}) },
     '@/src/api/client': { api: { register: async (...args: any[]) => { calls.push(args); return { token: 'synthetic', user: { user_id: 'test' } }; } } },
     '@/src/contexts/AuthContext': { useAuth: () => ({ user: null, loading: false, signIn: async () => {} }) },
-    '@/src/auth/providersConfig': { googleConfiguredForPlatform: () => false, appleConfiguredForPlatform: () => false },
+    '@/src/auth/providersConfig': {
+      googleConfiguredForPlatform: () => false,
+      appleConfiguredForPlatform: () => false,
+      appleProviderReady: () => false,
+      notConfiguredMessage: () => 'Integrazione non configurata in questo ambiente',
+    },
     '@/src/auth/googleAuth': { useGoogleAuth: () => ({ availability: { status: 'unavailable' } }) },
     '@/src/auth/appleSignIn': {}, '@/src/life-setup/routeAfterAuth': { routeAfterAuth: async () => {} },
     '@/src/life-setup/RegistrationIntro': h.intro, '@/src/utils/errors': { humanizeError: () => 'error' },
