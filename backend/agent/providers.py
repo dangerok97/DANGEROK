@@ -493,6 +493,120 @@ async def read_mail_body(db, owner_id: str, goal, *, step) -> CapabilityOutcome:
     )
 
 
+async def read_contacts(db, owner_id: str, goal, *, step) -> CapabilityOutcome:
+    """Resolve one named contact from the synced device address book.
+
+    The full address book is never emitted as agent evidence. The planner must
+    name who it is looking for, and durable evidence records only that a
+    matching callable contact exists — not the phone number itself.
+    """
+    query = str(
+        (step.parameters or {}).get("contact_query")
+        or (step.parameters or {}).get("who")
+        or ""
+    ).strip()[:160]
+    if not query:
+        return _unavailable(
+            "contacts.read",
+            "contact_query_required",
+            "Per leggere la rubrica devo sapere quale persona o attività cercare.",
+        )
+
+    try:
+        from permissions.service import PermissionService
+        permitted = bool(await PermissionService(db).check_access(
+            user_id=owner_id,
+            capability_id="contacts.read",
+            connector_id="contacts_device",
+        ))
+    except Exception as exc:
+        logger.info("contacts permission check soft-fail: %s", type(exc).__name__)
+        permitted = False
+    if not permitted:
+        return _unavailable(
+            "contacts.read",
+            "requires_connection",
+            "La rubrica del dispositivo non è autorizzata per ORA.",
+        )
+
+    try:
+        from preparation.contacts import AddressBook
+        candidates = await AddressBook().look_for(
+            db, owner_id=owner_id, who=query
+        )
+    except Exception as exc:
+        logger.info("device contacts read soft-fail: %s", type(exc).__name__)
+        return CapabilityOutcome(
+            status="failed",
+            observation="Non sono riuscita a rileggere la rubrica sincronizzata.",
+            provenance=ResultProvenance(
+                source_class="connected_provider",
+                capability="contacts.read",
+                provider="device_address_book",
+            ),
+            error_type="contacts_read_failed",
+            retryable=True,
+        )
+
+    if not candidates:
+        return CapabilityOutcome(
+            status="succeeded",
+            observation=f"Ho cercato «{query}» nella rubrica: non risultano contatti corrispondenti.",
+            provenance=ResultProvenance(
+                source_class="connected_provider",
+                capability="contacts.read",
+                provider="device_address_book",
+                source_refs=["contacts_device"],
+                freshness="fresh",
+            ),
+            claims=[Claim(
+                text=f"Nella rubrica sincronizzata non risulta un contatto che corrisponda a «{query}».",
+                supports=f"contatto:{query}",
+            )],
+            data_ref="contacts_device",
+        )
+
+    claims: List[Claim] = []
+    seen = set()
+    for candidate in candidates[:5]:
+        name = str(candidate.name or query).strip()[:160]
+        identity = str(candidate.contact_identity or name).strip().lower()
+        key = identity or name.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        detail = ""
+        if candidate.source_detail:
+            detail = f"; {str(candidate.source_detail)[:120]}"
+        claims.append(Claim(
+            text=f"Rubrica: {name}; recapito telefonico disponibile{detail}."[:400],
+            supports=f"contatto:{identity or query}",
+        ))
+
+    return CapabilityOutcome(
+        status="succeeded" if len(claims) == 1 else "partial",
+        observation=(
+            f"Ho trovato {len(claims)} contatto"
+            + ("" if len(claims) == 1 else "i")
+            + f" compatibile con «{query}» nella rubrica sincronizzata."
+        ),
+        provenance=ResultProvenance(
+            source_class="connected_provider",
+            capability="contacts.read",
+            provider="device_address_book",
+            source_refs=["contacts_device"],
+            freshness="fresh",
+            certainty_note=(
+                "il numero resta nella fonte rubrica e non viene copiato nell'evidenza agentica"
+            ),
+        ),
+        claims=claims,
+        data_ref="contacts_device",
+        error_type="" if len(claims) == 1 else "ambiguous_contact",
+        retryable=False,
+    )
+
+
 async def read_location(db, owner_id: str, goal) -> CapabilityOutcome:
     """Read current/recent presence without persisting raw coordinates as evidence."""
     try:
