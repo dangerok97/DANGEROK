@@ -551,6 +551,19 @@ async def startup():
     except Exception:
         logger.exception("Accommodation preview bootstrap failed (non-fatal)")
 
+    # Daily logical backup — Mongo state + document blobs. Disabled unless
+    # BACKUP_ENABLED is explicitly set; catches up after a restart.
+    try:
+        from ops.backup_scheduler import ensure_backup_indexes, start_backup_scheduler
+
+        await ensure_backup_indexes(db)
+        if start_backup_scheduler(db):
+            logger.info("Daily backup scheduler started")
+        else:
+            logger.info("Daily backup scheduler disabled or already running")
+    except Exception:
+        logger.exception("Daily backup scheduler failed to start (non-fatal)")
+
     # Ambient presence and delivery (V3.8) — plan lifecycle, and the TTL that
     # keeps the record of ORA's own work a working note rather than a diary.
     try:
@@ -650,6 +663,14 @@ async def shutdown():
         await stop_runtime()
     except Exception:
         logger.exception("Ambient runtime shutdown failed (non-fatal)")
+
+    try:
+        from ops.backup_scheduler import stop_backup_scheduler
+
+        await stop_backup_scheduler()
+    except Exception:
+        logger.exception("Daily backup scheduler shutdown failed (non-fatal)")
+
     client.close()
 
 
