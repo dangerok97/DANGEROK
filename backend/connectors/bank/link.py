@@ -278,6 +278,8 @@ async def finish_link(svc, *, user_id: str, instance_id: str) -> Dict[str, Any]:
                 "cosa_posso_fare": WHAT_TO_DO[state]}
 
     await svc.instances.mark_status(user_id, instance_id, "connected")
+    from connectors.bank.service import grant_bank_read_permission
+    await grant_bank_read_permission(svc, user_id, instance_id)
     # I conti arrivano adesso: e' la prima lettura, e la persona si aspetta
     # di vedere qualcosa appena torna indietro.
     read = await svc.sync(user_id=user_id, instance_id=instance_id)
@@ -359,6 +361,8 @@ async def complete_with_code(svc, *, state: str, code: str) -> Dict[str, Any]:
     await svc.db[LINK_STATES].update_one(
         {"state": state}, {"$set": {"used_at": _now_iso()}},
     )
+    from connectors.bank.service import grant_bank_read_permission
+    await grant_bank_read_permission(svc, user_id, instance_id)
 
     # E si legge subito: chi torna indietro si aspetta di vedere qualcosa.
     read = await svc.sync(user_id=user_id, instance_id=instance_id)
@@ -437,6 +441,17 @@ async def disconnect(svc, *, user_id: str, instance_id: str) -> Dict[str, Any]:
 
     await svc.instances.mark_status(user_id, instance_id, "revoked")
     await svc.instances.update(user_id, instance_id, {"secret_reference": ""})
+    try:
+        await svc.permissions.revoke(
+            user_id=user_id,
+            capability_id="banking.read",
+            connector_id="banking_psd2",
+            connector_instance_id=instance_id,
+            reason="bank_disconnected",
+            actor_type="user",
+        )
+    except Exception as exc:
+        logger.info("bank permission revoke soft-fail: %s", type(exc).__name__)
 
     when = _now_iso()
     stale = await _mark_stale(svc.db, user_id, instance_id, when)
