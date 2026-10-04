@@ -273,6 +273,19 @@ class AmbientService:
             from agent.background import consider_opportunities
             await consider_opportunities(self.db, wake.owner_id, scan)
 
+        # A learned routine is recurring evidence, not a one-shot reminder.
+        # After this private review completed, arrange the next occurrence
+        # using the model-decided lead stored with the routine. Nothing here
+        # notifies or assumes the routine will happen.
+        if wake.source_ref.startswith("routine_review:"):
+            try:
+                from places.service import PlacesService
+                await PlacesService(self.db).rearm_routine_review(
+                    wake.owner_id, wake.source_ref.removeprefix("routine_review:")
+                )
+            except Exception as exc:
+                logger.info("routine rearm soft-fail: %s", type(exc).__name__)
+
         out.handled = True
         out.result = "reviewed"
         return out
