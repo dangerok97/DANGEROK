@@ -88,6 +88,36 @@ class LocationService:
             "while_using" if str(mode).strip().lower() == "while_using" else "off"
         )
         await self.repo.set_preference(user_id, pref)
+
+        # Keep the generic capability registry aligned with the concrete
+        # location preference. The agent must not see a second, contradictory
+        # permission state for the same user action.
+        try:
+            from permissions.service import PermissionService
+            permissions = PermissionService(self.db)
+            if pref == "while_using":
+                await permissions.grant(
+                    user_id=user_id,
+                    capability_id="location.read",
+                    connector_id="location_device",
+                    purpose_id="context_assembly",
+                    scopes=["foreground"],
+                    actor_type="user",
+                )
+            else:
+                await permissions.revoke(
+                    user_id=user_id,
+                    capability_id="location.read",
+                    connector_id="location_device",
+                    reason="location_preference_off",
+                    actor_type="user",
+                )
+        except Exception as exc:
+            # The concrete preference remains authoritative. A registry write
+            # failure must not invent permission, and the capability resolver
+            # will fail closed until the mirror succeeds.
+            logger.info("location permission mirror unavailable: %s", type(exc).__name__)
+
         if pref == "off":
             from places.departures import COLLECTION, WAKE_SOURCE
             await self.db[COLLECTION].delete_many({"owner_id": user_id})
