@@ -123,7 +123,7 @@ async def test_changed_number_invalidates_previous_summary_even_if_already_trust
     prep = await prepare(db)
     prep, _ = await confirm_number(db, prep, yes=True)
     prep.summary_shown_in = "previous-turn"
-    await save(db, prep)
+    prep = await remember(db, prep)
     await trust.confirm(db, owner_id="owner", identity="asia", display_name="Asia",
                         number="+393330000009", source="user")
     prep, error = await change_number(db, prep, number="3330000009")
@@ -413,7 +413,7 @@ def test_spoken_phone_number_accepts_digit_by_digit_but_not_incomplete():
 @pytest.mark.asyncio
 async def test_plain_no_invalidates_selected_number_instead_of_repeating_it(db):
     from preparation.contacts import ContactCandidate
-    from preparation.preparation import MissionPreparation, save
+    from preparation.preparation import MissionPreparation, remember
     from preparation.service import as_a_card, confirm_number
 
     candidate = ContactCandidate(
@@ -432,7 +432,7 @@ async def test_plain_no_invalidates_selected_number_instead_of_repeating_it(db):
         contact_identity="quindi",
         number_confirmed=False,
     )
-    await save(db, prep)
+    prep = await remember(db, prep)
 
     prep, error = await confirm_number(db, prep, yes=False)
     assert not error
@@ -446,7 +446,7 @@ async def test_plain_no_invalidates_selected_number_instead_of_repeating_it(db):
 @pytest.mark.asyncio
 async def test_active_phone_followup_routes_no_without_model(db):
     from preparation.contacts import ContactCandidate
-    from preparation.preparation import MissionPreparation, save
+    from preparation.preparation import MissionPreparation, remember
     from conversation_engine.ai_core.loop import _phone_pending_followup
 
     candidate = ContactCandidate(
@@ -465,7 +465,7 @@ async def test_active_phone_followup_routes_no_without_model(db):
         contact_identity="quindi",
         number_confirmed=False,
     )
-    await save(db, prep)
+    prep = await remember(db, prep)
 
     state = {"active_preparation_id": prep.preparation_id}
     assert await _phone_pending_followup(db, "owner", state, "no") == {
