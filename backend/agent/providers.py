@@ -331,10 +331,160 @@ async def read_mail_metadata(db, owner_id: str, goal) -> CapabilityOutcome:
             source_class="connected_provider",
             capability="mail.metadata",
             provider="gmail_sync",
+            source_refs=[
+                f"mail:{str((row.get('normalized_payload') or {}).get('message_ref') or row.get('external_id') or '')}"
+                for row in rows
+                if str((row.get('normalized_payload') or {}).get('message_ref') or row.get('external_id') or '')
+            ][:MAX_CLAIMS],
             freshness="fresh",
         ),
         claims=claims,
         data_ref="gmail:metadata",
+    )
+
+
+async def read_mail_body(db, owner_id: str, goal, *, step) -> CapabilityOutcome:
+    """Read exactly one Gmail body transiently and persist only distilled facts."""
+    refs = [
+        str(ref) for ref in (step.input_refs or [])
+        if str(ref).startswith("mail:")
+    ]
+    if len(refs) != 1:
+        return _unavailable(
+            "mail.read",
+            "mail_reference_required",
+            "Per leggere il contenuto serve un solo messaggio già osservato.",
+        )
+
+    message_ref = refs[0]
+    message_id = message_ref.removeprefix("mail:").strip()
+    if not message_id:
+        return _unavailable(
+            "mail.read",
+            "mail_reference_required",
+            "Il riferimento al messaggio non è valido.",
+        )
+
+    try:
+        from connectors.gmail.scopes import EMAIL_RECORD_TYPE
+        row = await db.ingestion_events.find_one(
+            {
+                "user_id": owner_id,
+                "source_record_type": EMAIL_RECORD_TYPE,
+                "$or": [
+                    {"external_id": message_id},
+                    {"normalized_payload.message_ref": message_id},
+                ],
+            },
+            {"_id": 0, "connector_instance_id": 1},
+            sort=[("ingested_at", -1)],
+        )
+    except Exception as exc:
+        logger.info("mail body reference lookup soft-fail: %s", type(exc).__name__)
+        row = None
+
+    instance_id = str((row or {}).get("connector_instance_id") or "")
+    if not instance_id:
+        return _unavailable(
+            "mail.read",
+            "message_not_observed",
+            "Quel messaggio non risulta fra quelli sincronizzati da ORA.",
+        )
+
+    try:
+        from deps import get_gmail_service
+        body = await get_gmail_service().body_for(
+            user_id=owner_id,
+            instance_id=instance_id,
+            message_id=message_id,
+        )
+    except Exception as exc:
+        logger.info("transient mail body read soft-fail: %s", type(exc).__name__)
+        return CapabilityOutcome(
+            status="failed",
+            observation="Non sono riuscita a leggere quel messaggio in questo momento.",
+            provenance=ResultProvenance(
+                source_class="connected_provider",
+                capability="mail.read",
+                provider="gmail_live_body",
+                source_refs=[message_ref],
+                freshness="fresh",
+            ),
+            error_type="mail_body_read_failed",
+            retryable=True,
+        )
+
+    # The body is intentionally kept in this local variable only. The
+    # distiller returns paraphrased mission facts; nothing below persists or
+    # returns the original text.
+    try:
+        from agent.reasoning import distill_private_mail
+        distilled = await distill_private_mail(
+            goal=goal.for_ai(),
+            step=step.for_ai(),
+            message_ref=message_ref,
+            content=str(body or ""),
+        )
+    except Exception as exc:
+        logger.info("mail distillation soft-fail: %s", type(exc).__name__)
+        distilled = None
+
+    if distilled is None:
+        return CapabilityOutcome(
+            status="failed",
+            observation="Ho letto il messaggio, ma non sono riuscita a ricavarne fatti utilizzabili senza conservarne il testo.",
+            provenance=ResultProvenance(
+                source_class="connected_provider",
+                capability="mail.read",
+                provider="gmail_live_body",
+                source_refs=[message_ref],
+                freshness="fresh",
+            ),
+            error_type="private_content_distillation_unavailable",
+            retryable=True,
+        )
+
+    facts = [
+        Claim(text=str(fact)[:220], supports=step.expected_result or message_ref)
+        for fact in (distilled.get("facts") or [])[:4]
+        if str(fact).strip()
+    ]
+    if not facts:
+        return CapabilityOutcome(
+            status="partial",
+            observation="Ho letto il messaggio: non aggiunge fatti utili a questo passo.",
+            provenance=ResultProvenance(
+                source_class="connected_provider",
+                capability="mail.read",
+                provider="gmail_live_body",
+                source_refs=[message_ref],
+                freshness="fresh",
+                certainty_note="contenuto letto transitoriamente; testo originale non conservato",
+            ),
+            claims=[],
+            data_ref=message_ref,
+            error_type="no_relevant_mail_facts",
+            retryable=False,
+        )
+
+    enough = bool(distilled.get("enough_for_this_step"))
+    return CapabilityOutcome(
+        status="succeeded" if enough else "partial",
+        observation=(
+            f"Ho letto il messaggio e isolato {len(facts)} fatti rilevanti senza conservarne il testo."
+        ),
+        provenance=ResultProvenance(
+            source_class="connected_provider",
+            capability="mail.read",
+            provider="gmail_live_body",
+            source_refs=[message_ref],
+            freshness="fresh",
+            certainty_note="contenuto letto transitoriamente; persistono solo fatti parafrasati",
+        ),
+        claims=facts,
+        data_ref=message_ref,
+        error_type="" if enough else "mail_facts_partial",
+        retryable=False,
     )
 
 
