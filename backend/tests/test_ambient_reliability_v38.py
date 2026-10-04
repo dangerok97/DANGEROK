@@ -730,3 +730,55 @@ def test_no_eligibility_reason_names_a_domain():
         assert f'"{reason}"' in code
     for domain in ("flight", "bill", "invoice", "medical", "home", "work"):
         assert f'reasons.append("{domain}' not in code
+
+
+def test_fallback_cadence_tightens_only_for_time_sensitive_recovery():
+    from ambient.eligibility import fallback_interval_hours
+
+    assert fallback_interval_hours([]) == 12
+    assert fallback_interval_hours(["delivery_pending"]) == 12
+    assert fallback_interval_hours(["temporal_window"]) == 2
+    assert fallback_interval_hours(["wake_overdue"]) == 0.5
+    assert fallback_interval_hours(["changes_unprocessed"]) == 0.5
+    assert fallback_interval_hours(["revisit_due"]) == 0.5
+
+
+def test_per_person_fallback_throttle_uses_the_reason():
+    async def body():
+        client, db = await _db()
+        uid = f"r38_{uuid.uuid4().hex[:8]}"
+        try:
+            from ambient.eligibility import EligibilityService
+
+            now = datetime.now(timezone.utc)
+            await db.ambient_fallback_state.update_one(
+                {"owner_id": uid},
+                {"$set": {
+                    "owner_id": uid,
+                    "last_checked_at": (now - timedelta(hours=1)).isoformat(),
+                }},
+                upsert=True,
+            )
+            service = EligibilityService(db)
+            assert await service._due_for_fallback(
+                uid, now, reasons=["delivery_pending"]
+            ) is False
+            assert await service._due_for_fallback(
+                uid, now, reasons=["temporal_window"]
+            ) is False
+            assert await service._due_for_fallback(
+                uid, now, reasons=["changes_unprocessed"]
+            ) is True
+
+            await db.ambient_fallback_state.update_one(
+                {"owner_id": uid},
+                {"$set": {"last_checked_at": (now - timedelta(hours=3)).isoformat()}},
+            )
+            assert await service._due_for_fallback(
+                uid, now, reasons=["temporal_window"]
+            ) is True
+        finally:
+            await _clean(db, uid)
+            client.close()
+
+    _run(body())
