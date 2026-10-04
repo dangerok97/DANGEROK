@@ -420,7 +420,12 @@ async def read_mail_body(db, owner_id: str, goal, *, step) -> CapabilityOutcome:
     try:
         from agent.reasoning import distill_private_mail
         distilled = await distill_private_mail(
-            goal=goal.for_ai(),
+            goal={
+                "objective": goal.objective,
+                "desired_outcome": goal.desired_outcome,
+                "why_now": goal.why_now,
+                "success_criteria": list(goal.success_criteria),
+            },
             step=step.for_ai(),
             message_ref=message_ref,
             content=str(body or ""),
