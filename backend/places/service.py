@@ -14,6 +14,8 @@ being honest.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -661,11 +663,32 @@ class PlacesService:
         if len(evidence["days"]) < 2:
             return None
 
+        # Presence callbacks can arrive often. A life pattern deserves another
+        # model read only when the evidence actually changed; otherwise the
+        # same commute would be "learned" again on every arrival home.
+        fingerprint = hashlib.sha256(
+            json.dumps(evidence, sort_keys=True, default=str).encode("utf-8")
+        ).hexdigest()[:24]
+        state_key = {"user_id": user_id, "period": period}
+        previous = await self.db.routine_review_state.find_one(
+            state_key, {"_id": 0, "fingerprint": 1}
+        )
+        if (previous or {}).get("fingerprint") == fingerprint:
+            return {"unchanged": True}
+
         read = await read_the_shape_of_the_days(
             evidence["days"],
             place_names=evidence["place_names"],
             journeys=evidence["journeys"],
             language=language,
+        )
+        # Remember the evidence even when the judgement is "no routine".
+        # Otherwise the same unchanged month would buy another model call at
+        # every entrance/exit event.
+        await self.db.routine_review_state.update_one(
+            state_key,
+            {"$set": {"fingerprint": fingerprint, "reviewed_at": _now().isoformat()}},
+            upsert=True,
         )
         if read is None:
             return None
