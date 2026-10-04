@@ -17,7 +17,8 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-from datetime import datetime, timezone
+import unicodedata
+from datetime import datetime, time, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 from places import analytics, geometry, presence
@@ -40,6 +41,53 @@ logger = logging.getLogger(__name__)
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def _weekday_number(value: Any) -> Optional[int]:
+    """Turn model weekday words into Python weekday numbers, or refuse."""
+    raw = str(value or "").strip().casefold()
+    if raw.isdigit() and 1 <= int(raw) <= 7:
+        return int(raw) - 1
+    plain = "".join(
+        ch for ch in unicodedata.normalize("NFD", raw)
+        if unicodedata.category(ch) != "Mn"
+    )
+    names = {
+        "lunedi": 0, "lun": 0, "monday": 0, "mon": 0,
+        "martedi": 1, "mar": 1, "tuesday": 1, "tue": 1,
+        "mercoledi": 2, "mer": 2, "wednesday": 2, "wed": 2,
+        "giovedi": 3, "gio": 3, "thursday": 3, "thu": 3,
+        "venerdi": 4, "ven": 4, "friday": 4, "fri": 4,
+        "sabato": 5, "sab": 5, "saturday": 5, "sat": 5,
+        "domenica": 6, "dom": 6, "sunday": 6, "sun": 6,
+    }
+    return names.get(plain)
+
+
+def _next_routine_review_at(
+    now: datetime, weekdays: List[str], typical_start: str, lead_minutes: int
+) -> Optional[datetime]:
+    """Next quiet re-check derived from the observed routine, not a cron rule."""
+    if now.tzinfo is None or not (15 <= int(lead_minutes or 0) <= 180):
+        return None
+    try:
+        hour, minute = [int(x) for x in str(typical_start).split(":", 1)]
+        clock = time(hour=hour, minute=minute)
+    except (TypeError, ValueError):
+        return None
+    wanted = {n for n in (_weekday_number(x) for x in weekdays) if n is not None}
+    if not wanted:
+        return None
+    options = []
+    for offset in range(0, 9):
+        day = (now + timedelta(days=offset)).date()
+        if day.weekday() not in wanted:
+            continue
+        occurrence = datetime.combine(day, clock, tzinfo=now.tzinfo)
+        due = occurrence - timedelta(minutes=lead_minutes)
+        if due > now + timedelta(seconds=30):
+            options.append(due)
+    return min(options) if options else None
 
 
 class PlacesService:
@@ -691,6 +739,7 @@ class PlacesService:
             upsert=True,
         )
         if read is None:
+            await self._cancel_routine_reviews(user_id)
             return None
 
         routine = ObservedRoutine(
@@ -701,6 +750,7 @@ class PlacesService:
             typical_end=read["typical_end"],
             occurrences=read["occurrences"],
             interpretation=read["interpretation"],
+            proactive_review_lead_minutes=read.get("proactive_review_lead_minutes", 0),
             state="candidate",
         )
         await self.db.observed_routines.update_one(
@@ -708,11 +758,79 @@ class PlacesService:
             {"$set": routine.model_dump()},
             upsert=True,
         )
+        scheduled = await self._schedule_routine_review(user_id, routine)
         return {
             "routine": routine.public(),
             "worth_asking": read["worth_asking"],
             "question": read["question"],
+            "proactive_review_scheduled": scheduled,
         }
+
+    async def _cancel_routine_reviews(self, user_id: str) -> int:
+        result = await self.db.ambient_wakes.update_many(
+            {
+                "owner_id": user_id,
+                "status": "pending",
+                "source_ref": {"$regex": "^routine_review:"},
+            },
+            {"$set": {"status": "cancelled", "updated_at": _now().isoformat()}},
+        )
+        return int(result.modified_count)
+
+    async def _schedule_routine_review(
+        self, user_id: str, routine: ObservedRoutine
+    ) -> bool:
+        """Arrange the model-requested private look at the next occurrence.
+
+        A routine is still a hypothesis. The alarm performs another ordinary
+        life review; it does not create an opportunity, notification, route or
+        action by itself.
+        """
+        await self._cancel_routine_reviews(user_id)
+        lead = int(routine.proactive_review_lead_minutes or 0)
+        if lead <= 0:
+            return False
+
+        record = await self.db.users.find_one(
+            {"user_id": user_id}, {"preferences.place_monitoring_enabled": 1}
+        )
+        if (record or {}).get("preferences", {}).get("place_monitoring_enabled") is not True:
+            return False
+
+        from timezone_service import user_clock_context
+        from ambient.service import AmbientService
+
+        clock = await user_clock_context(self.db, user_id, now=_now())
+        try:
+            local_now = datetime.fromisoformat(str(clock["local_datetime"]))
+        except (KeyError, TypeError, ValueError):
+            return False
+        due = _next_routine_review_at(
+            local_now, routine.weekdays, routine.typical_start, lead
+        )
+        if due is None:
+            return False
+        wake = await AmbientService(self.db).schedule(
+            user_id,
+            reason="ambient_review",
+            when=due.astimezone(timezone.utc),
+            source_ref=f"routine_review:{routine.id}",
+            provenance="model",
+            max_horizon_hours=24 * 14,
+        )
+        return wake is not None
+
+    async def rearm_routine_review(self, user_id: str, routine_id: str) -> bool:
+        doc = await self.db.observed_routines.find_one(
+            {"user_id": user_id, "id": routine_id}, {"_id": 0}
+        )
+        if not doc:
+            return False
+        try:
+            routine = ObservedRoutine.model_validate(doc)
+        except Exception:
+            return False
+        return await self._schedule_routine_review(user_id, routine)
 
     async def list_routines(self, user_id: str) -> List[Dict[str, Any]]:
         docs = await self.db.observed_routines.find(

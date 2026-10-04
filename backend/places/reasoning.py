@@ -182,14 +182,23 @@ async def read_the_shape_of_the_days(
         "If there is one, describe it the way the person would recognise it: "
         "one sentence, their language, concrete about when. Do not predict, do "
         "not advise, do not congratulate. You are noticing, not coaching.\n\n"
-        "Then say separately whether it is worth interrupting them to ask "
-        "about it. Usually it is not: noticing something is not a reason to "
-        "speak.\n\n"
+        "Then make two separate decisions. First: whether it is worth "
+        "interrupting them to ask about the routine. Usually it is not. "
+        "Second: whether ORA itself should quietly look again shortly before "
+        "the next occurrence because fresh context could make the routine "
+        "actionable (for example a repeated trip where traffic, weather or a "
+        "calendar conflict may matter). This second decision DOES NOT notify "
+        "the person. It only schedules another private review. Use it only "
+        "when a fresh re-check could plausibly change what ORA should do.\n\n"
+        "For a quiet re-check, choose how many minutes before the routine's "
+        "typical start ORA should look again: 15 to 180. Return 0 when no "
+        "proactive re-check is warranted.\n\n"
         "Return JSON: {\"routine\": null} when there is nothing, or "
         "{\"routine\": {\"place_ids\": [in order], \"weekdays\": [], "
         "\"typical_start\": \"HH:MM\", \"typical_end\": \"HH:MM\", "
         "\"occurrences\": 0, \"interpretation\": \"one sentence\"}, "
-        "\"worth_asking\": true, \"question\": \"...\"}."
+        "\"worth_asking\": true, \"question\": \"...\", "
+        "\"proactive_review_lead_minutes\": 0}."
     )
 
     data = await _ask_model(
@@ -223,4 +232,12 @@ async def read_the_shape_of_the_days(
         "interpretation": str(routine.get("interpretation") or "").strip()[:400],
         "worth_asking": bool(data.get("worth_asking")),
         "question": str(data.get("question") or "").strip()[:600],
+        # A wake is not a notification. Still fail closed on malformed or
+        # over-eager values so a model cannot create a hot loop.
+        "proactive_review_lead_minutes": (
+            int(data.get("proactive_review_lead_minutes"))
+            if str(data.get("proactive_review_lead_minutes") or "").isdigit()
+            and 15 <= int(data.get("proactive_review_lead_minutes")) <= 180
+            else 0
+        ),
     }

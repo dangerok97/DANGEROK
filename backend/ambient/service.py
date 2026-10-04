@@ -64,6 +64,7 @@ class AmbientService:
         plan_id: str = "",
         source_ref: str = "",
         provenance: str = "code_schedule",
+        max_horizon_hours: int = MAX_HOLD_HOURS,
     ) -> Optional[AmbientWake]:
         """
         Arrange a moment to look again, unless one is already arranged.
@@ -73,7 +74,12 @@ class AmbientService:
         somebody wondered what it was.
         """
         floor = _now() + timedelta(seconds=30)
-        ceiling = _now() + timedelta(hours=MAX_HOLD_HOURS)
+        # Most delivery decisions stay deliberately short-lived (72h). Some
+        # background observations, such as a weekly routine, need a longer
+        # alarm without changing delivery policy. The caller may widen only
+        # this alarm's horizon, bounded here to two weeks.
+        horizon = max(1, min(24 * 14, int(max_horizon_hours or MAX_HOLD_HOURS)))
+        ceiling = _now() + timedelta(hours=horizon)
         moment = max(floor, min(ceiling, when))
 
         return await self.repo.schedule(
@@ -266,6 +272,19 @@ class AmbientService:
         if scan is not None:
             from agent.background import consider_opportunities
             await consider_opportunities(self.db, wake.owner_id, scan)
+
+        # A learned routine is recurring evidence, not a one-shot reminder.
+        # After this private review completed, arrange the next occurrence
+        # using the model-decided lead stored with the routine. Nothing here
+        # notifies or assumes the routine will happen.
+        if wake.source_ref.startswith("routine_review:"):
+            try:
+                from places.service import PlacesService
+                await PlacesService(self.db).rearm_routine_review(
+                    wake.owner_id, wake.source_ref.removeprefix("routine_review:")
+                )
+            except Exception as exc:
+                logger.info("routine rearm soft-fail: %s", type(exc).__name__)
 
         out.handled = True
         out.result = "reviewed"
