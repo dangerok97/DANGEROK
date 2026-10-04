@@ -95,6 +95,14 @@ ALL_ROUTERS = [
     llm_router,
 ]
 
+# Device contacts — minimal callable index from the native address book.
+try:
+    from contacts.router import router as contacts_router
+
+    ALL_ROUTERS.append(contacts_router)
+except Exception:
+    pass
+
 # Foreground location + presence (V2.7.1)
 try:
     from location.router import router as location_router
