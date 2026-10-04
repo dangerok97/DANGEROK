@@ -235,7 +235,13 @@ async def test_checkout_keeps_sensitive_traveller_data_in_vault(monkeypatch):
         "preview": {
             "accommodation": {
                 "price": {"total": {"booker_currency": 250}},
-                "payment": {"methods": ["pay_at_property"]},
+                "payment": {
+                    "pay_at_the_property": {
+                        "method_required": False,
+                        "methods": {},
+                        "dates": [],
+                    }
+                },
             }
         },
         "created_at": datetime.now(timezone.utc),
@@ -268,7 +274,6 @@ async def test_checkout_keeps_sensitive_traveller_data_in_vault(monkeypatch):
             "guests": [{"name": "Test User", "email": "test@example.com"}],
         }],
         payment={
-            "method": "pay_at_property",
             "timing": "pay_at_the_property",
             "include_receipt": True,
         },
