@@ -78,6 +78,7 @@ _READERS = {
     "document.read": providers.read_documents,
     "information.read": providers.read_internal_state,
     "mail.metadata": providers.read_mail_metadata,
+    "mail.read": providers.read_mail_body,
     "location.read": providers.read_location,
 }
 
@@ -236,7 +237,11 @@ class StepExecutor:
         # comparisons, so that no branch in this file can ever come to depend
         # on what a goal happens to be about.
         reader = _READERS.get(capability, providers.read_internal_state)
-        if capability == "document.read":
+        if capability in ("document.read", "mail.read"):
+            if capability == "mail.read" and budget is not None:
+                # One extra cognitive call distills private content into
+                # bounded facts before anything can enter durable evidence.
+                budget.cognitive_calls += 1
             return await reader(self.db, owner_id, goal, step=step)
         return await reader(self.db, owner_id, goal)
 

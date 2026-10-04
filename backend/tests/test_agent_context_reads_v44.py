@@ -158,6 +158,6 @@ def test_agent_registry_uses_real_connector_ids_and_wiring():
     assert _CONNECTOR["contacts.read"] == "contacts_device"
     assert is_really_wired("mail.metadata") is True
     assert is_really_wired("location.read") is True
-    assert is_really_wired("mail.read") is False
+    assert is_really_wired("mail.read") is True
 
 # CI retry marker: context read contract unchanged.
