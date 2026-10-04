@@ -232,6 +232,18 @@ class AmbientService:
         out = WakeOutcome(wake_id=wake.id, reason=wake.reason)
         discovery = OpportunityDiscovery(self.db)
 
+        # A routine wake first refreshes conditional route evidence. This does
+        # not assert that the trip will happen; it only equips the ordinary
+        # life review with current facts in case the learned pattern repeats.
+        if wake.source_ref.startswith("routine_review:"):
+            try:
+                from places.routine_context import RoutineRouteContextService
+                await RoutineRouteContextService(self.db).refresh(
+                    wake.owner_id, wake.source_ref.removeprefix("routine_review:")
+                )
+            except Exception as exc:
+                logger.info("routine route refresh soft-fail: %s", type(exc).__name__)
+
         # A due scheduled review is itself a reason to examine temporal facts.
         # It still obeys cooldown/fingerprint guards; it is never a forced scan.
         scheduled = wake.reason in ("opportunity_revisit", "ambient_review")
