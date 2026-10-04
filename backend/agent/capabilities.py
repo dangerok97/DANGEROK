@@ -102,6 +102,7 @@ _EXECUTABLE = {
     "mail.metadata",
     "mail.read",
     "location.read",
+    "contacts.read",
     "mail.draft",
     "mail.send",
     # V3.9 Sprint 3 — the first real write. A personal calendar entry is
@@ -165,6 +166,7 @@ _REAL = {
     "mail.draft",
     "mail.send",
     "location.read",
+    "contacts.read",
     "phone.call",
 }
 
