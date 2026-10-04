@@ -363,7 +363,7 @@ export default function LoginScreen() {
                         variant="secondary"
                         fullWidth
                         loading={busy === 'apple'}
-                        disabled={anyBusy}
+                        disabled={anyBusy || !appleReady}
                         onPress={handleApple}
                         style={!appleReady ? styles.dimmed : undefined}
                         accessibilityHint={
