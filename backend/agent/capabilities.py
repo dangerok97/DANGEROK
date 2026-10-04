@@ -100,6 +100,7 @@ _EXECUTABLE = {
     "document.create",
     "comparison.run",
     "mail.metadata",
+    "location.read",
     "mail.draft",
     "mail.send",
     # V3.9 Sprint 3 — the first real write. A personal calendar entry is
