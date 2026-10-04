@@ -401,3 +401,109 @@ async def test_chat_routes_current_number_to_owners_active_preparation(db):
     assert not await _phone_number_correction(db, "other", state, text)
     assert not await _phone_number_correction(db, "owner", {}, text)
     assert not await _phone_number_correction(db, "owner", state, "è quello di prima")
+
+
+def test_spoken_phone_number_accepts_digit_by_digit_but_not_incomplete():
+    from conversation_engine.ai_core.loop import _spoken_phone_number
+
+    assert _spoken_phone_number("no, il numero corretto è 3 2 7 7 6 3 1 2 3 4") == "+393277631234"
+    assert _spoken_phone_number("no, il numero corretto è 3 2 7 7 6 3") == ""
+
+
+@pytest.mark.asyncio
+async def test_plain_no_invalidates_selected_number_instead_of_repeating_it(db):
+    from preparation.contacts import ContactCandidate
+    from preparation.preparation import MissionPreparation, save
+    from preparation.service import as_a_card, confirm_number
+
+    candidate = ContactCandidate(
+        name="Quindi", number=NUMBER, kind="person", source="user",
+        confidence=1.0, why="Me l'hai scritto tu.", contact_identity="quindi",
+    )
+    prep = MissionPreparation(
+        owner_id="owner",
+        user_request="Chiama Quindi e dille che la amo",
+        counterparty="Quindi",
+        operation="deliver_message",
+        message_to_deliver="la amo",
+        selected_contact=candidate,
+        contact_candidates=[candidate],
+        number_source="user",
+        contact_identity="quindi",
+        number_confirmed=False,
+    )
+    await save(db, prep)
+
+    prep, error = await confirm_number(db, prep, yes=False)
+    assert not error
+    card = as_a_card(prep)
+    assert not prep.number_confirmed
+    assert prep.selected_contact is None
+    assert NUMBER not in card["says"]
+    assert "dimmi tu quale" in card["says"].lower()
+
+
+@pytest.mark.asyncio
+async def test_active_phone_followup_routes_no_without_model(db):
+    from preparation.contacts import ContactCandidate
+    from preparation.preparation import MissionPreparation, save
+    from conversation_engine.ai_core.loop import _phone_pending_followup
+
+    candidate = ContactCandidate(
+        name="Quindi", number=NUMBER, kind="person", source="user",
+        confidence=1.0, why="Me l'hai scritto tu.", contact_identity="quindi",
+    )
+    prep = MissionPreparation(
+        owner_id="owner",
+        user_request="Chiama Quindi e dille che la amo",
+        counterparty="Quindi",
+        operation="deliver_message",
+        message_to_deliver="la amo",
+        selected_contact=candidate,
+        contact_candidates=[candidate],
+        number_source="user",
+        contact_identity="quindi",
+        number_confirmed=False,
+    )
+    await save(db, prep)
+
+    state = {"active_preparation_id": prep.preparation_id}
+    assert await _phone_pending_followup(db, "owner", state, "no") == {
+        "preparation_id": prep.preparation_id,
+        "number_is_right": False,
+    }
+    assert await _phone_pending_followup(
+        db, "owner", state, "no, il numero corretto è 3 2 7 7 6 3"
+    ) == {
+        "preparation_id": prep.preparation_id,
+        "number_is_right": False,
+    }
+
+
+@pytest.mark.asyncio
+async def test_explicit_name_correction_retargets_active_preparation(db):
+    from preparation.contacts import ContactCandidate
+    from preparation.preparation import MissionPreparation, save
+    from conversation_engine.ai_core.loop import _phone_pending_followup
+
+    candidate = ContactCandidate(
+        name="Quindi", number=NUMBER, kind="person", source="user",
+        confidence=1.0, why="Me l'hai scritto tu.", contact_identity="quindi",
+    )
+    prep = MissionPreparation(
+        owner_id="owner",
+        user_request="Chiama la mia ragazza Quindi e dille che la amo",
+        counterparty="Quindi",
+        operation="deliver_message",
+        message_to_deliver="la amo",
+        selected_contact=candidate,
+        contact_candidates=[candidate],
+        contact_identity="quindi",
+    )
+    await save(db, prep)
+    state = {"active_preparation_id": prep.preparation_id}
+
+    assert await _phone_pending_followup(db, "owner", state, "il numero di Asia") == {
+        "preparation_id": prep.preparation_id,
+        "correct_counterparty": "Asia",
+    }
