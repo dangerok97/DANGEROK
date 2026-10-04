@@ -1,4 +1,5 @@
 from unittest.mock import AsyncMock, patch
+from datetime import datetime, timezone
 
 import pytest
 from mongomock_motor import AsyncMongoMockClient
@@ -25,7 +26,7 @@ async def test_mail_metadata_is_real_bounded_and_omits_message_body():
         "user_id": uid,
         "connector_id": "mail_gmail",
         "status": "connected",
-        "updated_at": "2026-10-04T20:00:00+00:00",
+        "updated_at": datetime.now(timezone.utc).isoformat(),
     })
     await db.ingestion_events.insert_one({
         "id": "ing_1",
@@ -77,7 +78,7 @@ async def test_location_read_persists_semantics_not_coordinates():
     await db.user_presence.insert_one({
         "user_id": uid,
         "freshness": "CURRENT",
-        "last_seen_at": "2026-10-04T20:00:00+00:00",
+        "last_seen_at": datetime.now(timezone.utc).isoformat(),
         "latitude": 42.25,
         "longitude": 11.75,
         "place_label": "Casa",
