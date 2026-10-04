@@ -99,6 +99,8 @@ _EXECUTABLE = {
     "document.read",
     "document.create",
     "comparison.run",
+    "mail.metadata",
+    "mail.read",
     "mail.draft",
     "mail.send",
     # V3.9 Sprint 3 — the first real write. A personal calendar entry is
@@ -157,8 +159,11 @@ _REAL = {
     "web.research",
     "comparison.run",
     "document.create",
+    "mail.metadata",
+    "mail.read",
     "mail.draft",
     "mail.send",
+    "location.read",
     "phone.call",
 }
 
@@ -184,8 +189,8 @@ _CONNECTOR = {
     "mail.read": "mail_gmail",
     "mail.metadata": "mail_gmail",
     "mail.send": "mail_gmail",
-    "contacts.read": "contacts",
-    "location.read": "location",
+    "contacts.read": "contacts_device",
+    "location.read": "location_device",
 }
 
 # Connectors whose consent is recorded per connected account rather than for
