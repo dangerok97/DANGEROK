@@ -460,6 +460,12 @@ class AgentService:
                     owner_id, goal, plan, run, "il giudizio non era disponibile"
                 )
 
+            if decision == "budget":
+                run.stopped_because = "cognitive_budget"
+                return await self._continue_later(
+                    owner_id, goal, plan, run, "cognitive_budget"
+                )
+
             if decision == "wait":
                 return await self._wait(
                     owner_id, goal, plan, step, run, hours=int(run.replans and 6 or 6)
@@ -551,9 +557,11 @@ class AgentService:
             return ("execute", pending[0])
 
         if budget.cognitive_calls >= budget.max_cognitive_calls:
-            # Out of judgement for this run. Taking the next step anyway
-            # would be spending capability calls on a choice nobody made.
-            return ("finish", None)
+            # Out of judgement for this run is NOT the same as out of work.
+            # Pending steps still exist; finishing here asks the completion
+            # verifier to judge an unfinished plan. Persist and resume later
+            # instead, under a fresh bounded budget.
+            return ("budget", None)
 
         from agent.reasoning import choose_next_action
 
