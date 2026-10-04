@@ -89,6 +89,14 @@ type PresenceState = {
   background: 'granted' | 'denied' | 'undetermined';
 };
 
+type ContactsState = {
+  supported: boolean;
+  reason?: string;
+  enabled: boolean;
+  permission: 'granted' | 'limited' | 'denied' | 'unavailable' | 'not_requested';
+  contacts: number;
+};
+
 type ConnectedSourceRow = {
   id: string;
   what: string;
@@ -155,6 +163,7 @@ export default function PermessiScreen() {
   const [busy, setBusy] = useState<string | null>(null);
   const [writeError, setWriteError] = useState<string | null>(null);
   const [presence, setPresence] = useState<PresenceState | null>(null);
+  const [contacts, setContacts] = useState<ContactsState | null>(null);
 
   /*
     I permessi permanenti che ORA ha già.
@@ -282,6 +291,54 @@ export default function PermessiScreen() {
   const mode: LocationMode = location ?? snapshot?.location ?? 'off';
 
   const guard = useInflight();
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const runtime = await import('@/src/contacts/deviceContacts');
+        const current = await runtime.state();
+        if (!cancelled) setContacts(current);
+      } catch {
+        if (!cancelled) {
+          setContacts({
+            supported: false,
+            enabled: false,
+            permission: 'unavailable',
+            contacts: 0,
+            reason: 'La rubrica non è disponibile su questo dispositivo.',
+          });
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const toggleContacts = useCallback(
+    (next: boolean) =>
+      guard(async () => {
+        haptic('tap');
+        setBusy('contacts');
+        setWriteError(null);
+        try {
+          const runtime = await import('@/src/contacts/deviceContacts');
+          if (next) {
+            const result = await runtime.enable();
+            if (!result.ok && result.reason) setWriteError(result.reason);
+          } else {
+            await runtime.disable();
+          }
+          setContacts(await runtime.state());
+        } catch (e) {
+          setWriteError(humanizeError(e));
+        } finally {
+          setBusy(null);
+        }
+      }),
+    [guard],
+  );
 
   const setMode = useCallback((next: LocationMode) => guard(async () => {
     haptic('tap');
@@ -460,6 +517,46 @@ export default function PermessiScreen() {
         ORA può fare, come leggere il calendario o riconoscere i luoghi, e una
         pagina dedicata la farebbe sembrare più importante di quanto sia.
       */}
+      <SettingCard
+        title="Rubrica"
+        detail={
+          contacts?.supported === false
+            ? contacts.reason
+            : 'Serve per capire chi intendi quando dici “chiama Asia” o nomini una persona. ORA sincronizza solo nome, organizzazione, alias e numeri: non email, indirizzi, note, compleanni o foto.'
+        }
+        testID="perm-contacts"
+      >
+        {contacts?.supported !== false ? (
+          <>
+            <ChoiceRow
+              label="Disattivata"
+              detail="ORA non usa la rubrica del dispositivo."
+              selected={!contacts?.enabled}
+              onPress={() => void toggleContacts(false)}
+              busy={busy === 'contacts'}
+              testID="contacts-off"
+            />
+            <ChoiceRow
+              label="Consenti a ORA"
+              detail={
+                contacts?.enabled
+                  ? `${contacts.contacts} contatti utilizzabili per riconoscere nomi e preparare chiamate.`
+                  : 'Il permesso di sistema viene chiesto solo quando scegli questa opzione.'
+              }
+              selected={Boolean(contacts?.enabled)}
+              onPress={() => void toggleContacts(true)}
+              busy={busy === 'contacts'}
+              testID="contacts-on"
+            />
+            {contacts?.permission === 'limited' ? (
+              <BoundaryNote icon="lock-closed-outline">
+                iOS ti ha dato accesso solo ad alcuni contatti: ORA userà soltanto quelli.
+              </BoundaryNote>
+            ) : null}
+          </>
+        ) : null}
+      </SettingCard>
+
       <SettingCard
         title="Notifiche"
         detail="Quanto vuoi che ORA ti interrompa quando non sei nell’app. Qualunque cosa scegli, continui a trovare tutto qui dentro."
