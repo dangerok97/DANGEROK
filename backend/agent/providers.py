@@ -406,7 +406,7 @@ async def read_location(db, owner_id: str, goal) -> CapabilityOutcome:
             source_class="internal_observation",
             capability="location.read",
             provider="device_presence",
-            freshness=freshness.lower(),
+            freshness=evidence_freshness,
         ),
         claims=[Claim(text=text[:400], supports="device_location")],
         data_ref="location:presence",
