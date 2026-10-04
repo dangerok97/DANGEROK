@@ -143,11 +143,13 @@ class ContactSource(Protocol):
 
         IL GIORNO IN CUI ARRIVA LA RUBRICA DI IOS, QUESTO FILE NON CAMBIA.
 
-    È il motivo per cui la forma è questa e non un accesso diretto a una
-    collezione. ORA sarà un'app iOS, e la rubrica vera arriverà da lì: da un
-    permesso di sistema, da un elenco che il telefono passa e che il server non
-    conserva. Quella fonte dovrà solo rispondere a `look_for`, e si infilerà
-    davanti a tutte le altre senza che nessuno la debba montare.
+    È il motivo per cui la forma è questa e non logica telefonica sparsa.
+    ORA riceve dal dispositivo solo il sottoinsieme strutturale necessario a
+    risolvere un nome — nome/organizzazione/alias e recapiti telefonici — dopo
+    un permesso di sistema esplicito. Il backend lo conserva in una cache
+    owner-scoped revocabile, senza note, indirizzi, compleanni o altri campi
+    della rubrica. Questa fonte risponde a `look_for` e resta davanti alle
+    altre senza duplicare il resolver.
 
     `RANK` è il posto in fila, e in fila si sta per certezza, non per comodità.
     """
@@ -219,17 +221,13 @@ class AddressBook:
     """
     La rubrica del dispositivo.
 
-        OGGI È UN POSTO VUOTO, E NON È UN SEGNAPOSTO.
+        È LA CACHE MINIMA DELLA RUBRICA AUTORIZZATA.
 
-    Il connettore `contacts_device` esiste nel registro, dichiara `ios` e
-    `android`, e chiede `contacts.read` — un permesso di sistema che si può
-    dare solo da un telefono. Finché quel permesso non c'è, questa fonte
-    risponde «niente», che è la verità.
-
-    Quello che invece è già vero è la forma: quando i contatti arriveranno,
-    arriveranno così — nome, numero, organizzazione, e come li chiama la
-    persona. Averla scritta adesso vuol dire che la rubrica vera si collega, e
-    non si integra.
+    Il connettore `contacts_device` dichiara iOS/Android e chiede
+    `contacts.read`, un permesso di sistema che si può dare solo dal
+    dispositivo. Senza quel permesso la cache viene cancellata e questa fonte
+    risponde «niente». Con il permesso, il telefono sincronizza soltanto i
+    campi necessari alla risoluzione del nome.
     """
 
     NAME = "address_book"
