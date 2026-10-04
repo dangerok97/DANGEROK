@@ -527,6 +527,11 @@ class ObservedRoutine(BaseModel):
     session_ids: List[str] = Field(default_factory=list, max_length=60)
 
     interpretation: str = Field(default="", max_length=400)
+    # A confirmed routine can become uncertain as life changes without ORA
+    # silently revoking what the person told it. While true, proactive wakes
+    # stop until the person confirms the pattern again.
+    needs_reconfirmation: bool = False
+    support_note: str = Field(default="", max_length=300)
     state: RoutineState = "candidate"
     created_at: str = Field(default_factory=now_iso)
     updated_at: str = Field(default_factory=now_iso)
@@ -543,6 +548,8 @@ class ObservedRoutine(BaseModel):
             "weekdays": self.weekdays,
             "occurrences": self.occurrences,
             "what_ora_thinks": self.interpretation or None,
+            "needs_reconfirmation": self.needs_reconfirmation,
+            "support_note": self.support_note or None,
             "state": self.state,
         }
 
