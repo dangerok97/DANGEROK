@@ -593,7 +593,8 @@ async def _disagreements(db, user_id: str, now: datetime) -> List[Dict[str, Any]
             # un'altra per oggi — restava fuori perche' deciso qualche giorno
             # prima. Qui si chiedono le righe che un disaccordo ce l'hanno.
             {"owner_id": user_id, "disagreements.0": {"$exists": True}},
-            {"_id": 0, "id": 1, "target_ref": 1, "reason_summary": 1,
+            {"_id": 0, "id": 1, "source_type": 1, "source_object_ref": 1,
+             "target_ref": 1, "target_kind": 1, "reason_summary": 1,
              "disagreements": 1, "decided_at": 1},
         ).sort("decided_at", -1).to_list(60)
     except Exception as e:
@@ -617,8 +618,18 @@ async def _disagreements(db, user_id: str, now: datetime) -> List[Dict[str, Any]
     out: List[Dict[str, Any]] = []
     for row in rows:
         for said in (row.get("disagreements") or [])[:2]:
+            source_type = str(row.get("source_type") or "")
+            source_object_ref = str(row.get("source_object_ref") or "")
+            source_ref = (
+                f"mail:{source_object_ref}"
+                if source_type == "email" and source_object_ref
+                else source_object_ref
+            )
             out.append({
                 "ref": str(row.get("id") or ""),
+                "source_ref": source_ref or None,
+                "target_ref": str(row.get("target_ref") or "") or None,
+                "target_kind": str(row.get("target_kind") or "") or None,
                 "about": str(row.get("reason_summary") or "")[:200],
                 "one_source_says": str(said.get("what_this_source_says") or "")[:120],
                 "the_other_says": str(said.get("what_the_other_says") or "")[:120],
@@ -824,6 +835,20 @@ def evidence_refs(snapshot: Dict[str, Any]) -> Dict[str, str]:
     take("departure", [r for r in snapshot.get("departures") or [] if r.get("status") == "ready"])
     take("life_object", snapshot.get("situations"))
     take("disagreement", snapshot.get("disagreements"))
+    for row in snapshot.get("disagreements") or []:
+        if not isinstance(row, dict):
+            continue
+        source_ref = row.get("source_ref")
+        target_ref = row.get("target_ref")
+        if source_ref:
+            found[str(source_ref)] = (
+                "mail_message" if str(source_ref).startswith("mail:") else "linked_source"
+            )
+        if target_ref:
+            found.setdefault(
+                str(target_ref),
+                "calendar_event" if row.get("target_kind") == "appointment" else "linked_target",
+            )
     take("existing_work", snapshot.get("existing_work"))
     take("document", snapshot.get("documents"))
     take("market_offer", snapshot.get("market_offers"))
