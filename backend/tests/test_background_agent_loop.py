@@ -155,7 +155,15 @@ async def test_background_prepares_effect_even_with_standing_authority(db, monke
     from agent.models import ActionStep, ActionPlan, AgentRun, AgentBudget
     g = await goal(db)
     svc = AgentService(db)
-    step = ActionStep(intent='Sposta appuntamento', step_type='execute', capability_needed='calendar.write')
+    step = ActionStep(
+        intent='Aggiungi appuntamento preparato',
+        step_type='execute',
+        capability_needed='calendar.write',
+        parameters={
+            'title': 'Appuntamento preparato',
+            'starts_at': (datetime.now(timezone.utc) + timedelta(days=1)).isoformat(),
+        },
+    )
     plan = ActionPlan(owner_id='alice', goal_id=g.id, steps=[step])
     assessment = SimpleNamespace(effective_outcome='proceed_autonomously', code_reason='', reasoning='', public=lambda: {})
     monkeypatch.setattr(svc, '_authority_for', AsyncMock(return_value=assessment))
