@@ -11,100 +11,21 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
 import { api } from '@/src/api/client';
+import {
+  minimalContact,
+  permissionFromResponse,
+  type ContactPermission,
+  type MinimalContact,
+} from './contract';
+
+export { minimalContact, permissionFromResponse } from './contract';
+export type { ContactPermission, MinimalContact } from './contract';
 
 const ENABLED_KEY = 'ora.contacts.enabled.v1';
 const REVOKE_PENDING_KEY = 'ora.contacts.revokePending.v1';
 const MAX_CONTACTS = 2000;
 const MAX_PHONES = 4;
 const MAX_ALIASES = 6;
-
-export type ContactPermission =
-  | 'granted'
-  | 'limited'
-  | 'denied'
-  | 'unavailable'
-  | 'not_requested';
-
-export type ContactsState = {
-  supported: boolean;
-  enabled: boolean;
-  permission: ContactPermission;
-  contacts: number;
-  reason?: string;
-};
-
-export type MinimalContact = {
-  device_contact_id: string;
-  name: string;
-  organization: string;
-  aliases: string[];
-  phones: Array<{ number: string }>;
-};
-
-function native(): boolean {
-  return Platform.OS === 'ios' || Platform.OS === 'android';
-}
-
-async function contactsModule(): Promise<any> {
-  return await import('expo-contacts');
-}
-
-function cleanText(value: unknown, max = 160): string {
-  return String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
-}
-
-export function permissionFromResponse(response: any): ContactPermission {
-  if (!response) return 'unavailable';
-  const status = String(response.status ?? '').toLowerCase();
-  if (status === 'granted') {
-    return String(response.accessPrivileges ?? '').toLowerCase() === 'limited'
-      ? 'limited'
-      : 'granted';
-  }
-  if (status === 'denied') return 'denied';
-  if (status === 'undetermined') return 'not_requested';
-  return 'unavailable';
-}
-
-export function minimalContact(raw: any): MinimalContact | null {
-  const deviceId = cleanText(raw?.id, 200);
-  if (!deviceId) return null;
-
-  const name =
-    cleanText(raw?.name) ||
-    cleanText([raw?.firstName, raw?.middleName, raw?.lastName].filter(Boolean).join(' '));
-  const organization = cleanText(raw?.company || raw?.organization);
-
-  const aliases: string[] = [];
-  const addAlias = (value: unknown) => {
-    const alias = cleanText(value, 120);
-    if (alias && alias !== name && !aliases.includes(alias) && aliases.length < MAX_ALIASES) {
-      aliases.push(alias);
-    }
-  };
-  addAlias(raw?.nickname);
-  addAlias(raw?.firstName);
-  if (raw?.firstName && raw?.lastName) {
-    addAlias(`${cleanText(raw.firstName, 60)} ${cleanText(raw.lastName, 60)}`);
-  }
-
-  const phones: Array<{ number: string }> = [];
-  for (const item of Array.isArray(raw?.phoneNumbers) ? raw.phoneNumbers : []) {
-    const number = cleanText(item?.number, 40);
-    if (!number || phones.some((p) => p.number === number)) continue;
-    phones.push({ number });
-    if (phones.length >= MAX_PHONES) break;
-  }
-
-  if (!(name || organization) || !phones.length) return null;
-  return {
-    device_contact_id: deviceId,
-    name: name || organization,
-    organization,
-    aliases,
-    phones,
-  };
-}
 
 export function support(): { supported: boolean; reason?: string } {
   if (!native()) {
