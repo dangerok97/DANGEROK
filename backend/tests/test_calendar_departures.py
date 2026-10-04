@@ -53,7 +53,7 @@ async def ready_opportunity(world):
 
 
 @pytest.mark.asyncio
-async def test_routes_have_separate_modes_margin_freshness_and_one_durable_wake(world):
+async def test_routes_have_separate_modes_margin_freshness_and_precise_durable_wakes(world):
     a = (await world.svc.collect("alice", [world.event], now=world.now))[0]
     b = (await world.svc.collect("alice", [world.event], now=world.now + timedelta(seconds=20)))[0]
     assert a["ref"] == b["ref"] and world.routes.await_count == 2
@@ -63,7 +63,15 @@ async def test_routes_have_separate_modes_margin_freshness_and_one_durable_wake(
     assert datetime.fromisoformat(a["options"][0]["leave_at"]) == world.now + timedelta(minutes=20)
     assert datetime.fromisoformat(a["options"][1]["leave_at"]) == world.now - timedelta(minutes=5)
     assert datetime.fromisoformat(a["valid_until"]) <= world.now + timedelta(seconds=120)
-    assert await world.db.ambient_wakes.count_documents({"owner_id": "alice", "status": "pending"}) == 1
+    wakes = await world.db.ambient_wakes.find(
+        {"owner_id": "alice", "status": "pending"}, {"_id": 0}
+    ).to_list(10)
+    assert len(wakes) == 2
+    broad = next(w for w in wakes if w["source_ref"] == WAKE_SOURCE)
+    precise = next(w for w in wakes if w["source_ref"].startswith("calendar_departure_due:"))
+    assert datetime.fromisoformat(broad["scheduled_for"]) <= world.now + timedelta(minutes=3)
+    # Drive leaves in 20m; ORA rechecks 15m before that, without a foreground request.
+    assert datetime.fromisoformat(precise["scheduled_for"]) == world.now + timedelta(minutes=5)
     saved = await world.db[COLLECTION].find_one({"owner_id": "alice"})
     assert "latitude" not in str(saved) and "longitude" not in str(saved)
     assert await world.db.opportunities.count_documents({}) == 0  # Facts don't create an alert.
