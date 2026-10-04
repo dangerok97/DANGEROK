@@ -173,7 +173,7 @@ _CONNECTORS: Tuple[Dict[str, Any], ...] = (
         required_capabilities=("banking.read",),
         auth_flow="special_access",
         special_access="psd2_ais",
-        status="planned",
+        status="available",
         icon_key="banking_generic",
     ),
     # ------- Contacts -------
