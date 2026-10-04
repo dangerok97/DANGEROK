@@ -58,6 +58,7 @@ _FACTS: Dict[str, CapabilityFacts] = {
     "mail.metadata": CapabilityFacts("mail.metadata", False, "easily"),
     "document.read": CapabilityFacts("document.read", False, "easily"),
     "contacts.read": CapabilityFacts("contacts.read", False, "easily"),
+    "banking.read": CapabilityFacts("banking.read", False, "easily", financial=True),
     "location.read": CapabilityFacts("location.read", False, "easily"),
     # Preparing. Produces something, changes nothing outside ORA.
     "document.create": CapabilityFacts("document.create", False, "easily"),
@@ -102,6 +103,7 @@ _EXECUTABLE = {
     "mail.metadata",
     "mail.read",
     "contacts.read",
+    "banking.read",
     "location.read",
     "mail.draft",
     "mail.send",
@@ -164,6 +166,7 @@ _REAL = {
     "mail.metadata",
     "mail.read",
     "contacts.read",
+    "banking.read",
     "mail.draft",
     "mail.send",
     "location.read",
@@ -193,6 +196,7 @@ _CONNECTOR = {
     "mail.metadata": "mail_gmail",
     "mail.send": "mail_gmail",
     "contacts.read": "contacts_device",
+    "banking.read": "banking_psd2",
     "location.read": "location_device",
 }
 
@@ -200,7 +204,7 @@ _CONNECTOR = {
 # the connector at large. Asking with a wildcard where the person granted one
 # instance is the same shape of mistake as asking the wrong connector, and it
 # fails the same silent way.
-_PER_INSTANCE = {"calendar_google", "mail_gmail"}
+_PER_INSTANCE = {"calendar_google", "mail_gmail", "banking_psd2"}
 
 
 @dataclass
@@ -251,17 +255,37 @@ class CapabilityResolver:
             )
 
         permitted = await self._permitted(owner_id, facts.name)
+        executable = facts.name in _EXECUTABLE
+        status = _status_of(facts.name, permitted)
+        reason = "" if permitted else "not_permitted"
+
+        # A bank connector can deliberately be fake/sandbox for development.
+        # That is executable but it is not evidence about somebody's real money.
+        if facts.name == "banking.read" and permitted and executable:
+            try:
+                from connectors.bank.service import agent_bank_status
+                reality = await agent_bank_status(self.db, owner_id)
+            except Exception:
+                reality = "unavailable"
+            if reality == "real":
+                status = "available_real"
+            elif reality == "simulated":
+                status = "available_simulated"
+            else:
+                status = "unavailable"
+                reason = "bank_not_connected"
+
         return Resolution(
             capability=facts.name,
             known=True,
             permitted=permitted,
-            executable=facts.name in _EXECUTABLE,
+            executable=executable,
             writes=facts.writes,
             reversibility=facts.reversibility,
             reaches_third_party=facts.reaches_third_party,
             financial=facts.financial,
-            reason="" if permitted else "not_permitted",
-            status=_status_of(facts.name, permitted),
+            reason=reason,
+            status=status,
         )
 
     async def _permitted(self, owner_id: str, capability: str) -> bool:
