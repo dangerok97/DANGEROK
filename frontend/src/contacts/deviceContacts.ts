@@ -24,8 +24,14 @@ export type { ContactPermission, MinimalContact } from './contract';
 const ENABLED_KEY = 'ora.contacts.enabled.v1';
 const REVOKE_PENDING_KEY = 'ora.contacts.revokePending.v1';
 const MAX_CONTACTS = 2000;
-const MAX_PHONES = 4;
-const MAX_ALIASES = 6;
+
+function native(): boolean {
+  return Platform.OS === 'ios' || Platform.OS === 'android';
+}
+
+async function contactsModule(): Promise<any> {
+  return await import('expo-contacts');
+}
 
 export function support(): { supported: boolean; reason?: string } {
   if (!native()) {
