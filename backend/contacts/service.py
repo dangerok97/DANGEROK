@@ -65,11 +65,13 @@ async def sync_device_contacts(
     contacts: Iterable[Dict[str, Any]],
 ) -> Dict[str, Any]:
     cleaned: List[Dict[str, Any]] = []
+    seen_ids = set()
     for raw in list(contacts or [])[:MAX_CONTACTS]:
         if not isinstance(raw, dict):
             continue
         item = _clean_contact(owner_id, raw)
-        if item is not None:
+        if item is not None and item["id"] not in seen_ids:
+            seen_ids.add(item["id"])
             cleaned.append(item)
 
     # The request is a complete snapshot. Replacing owner-scoped rows makes
