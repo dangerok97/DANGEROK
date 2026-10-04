@@ -100,7 +100,6 @@ _EXECUTABLE = {
     "document.create",
     "comparison.run",
     "mail.metadata",
-    "mail.read",
     "mail.draft",
     "mail.send",
     # V3.9 Sprint 3 — the first real write. A personal calendar entry is
@@ -160,7 +159,6 @@ _REAL = {
     "comparison.run",
     "document.create",
     "mail.metadata",
-    "mail.read",
     "mail.draft",
     "mail.send",
     "location.read",
