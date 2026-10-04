@@ -37,6 +37,15 @@ def who_in(testo: str) -> str:
     if not trovato:
         return ""
     chi = trovato.group(1).strip(" ,.;:!?\"«»")
+    # Voice transcripts sometimes leave a discourse marker attached to a
+    # relationship: "chiama la mia ragazza quindi e dille...". "Quindi" is
+    # not a contact name there. Keep the relationship phrase so the contacts
+    # resolver can map it to the actual person.
+    if re.search(
+        r"(?i)\b(?:mia|mio)\s+(?:ragazza|ragazzo|fidanzata|fidanzato|moglie|marito|compagna|compagno)\s+quindi$",
+        chi,
+    ):
+        chi = re.sub(r"(?i)\s+quindi$", "", chi).strip()
     return chi[:120] if len(chi) >= 2 else ""
 
 
