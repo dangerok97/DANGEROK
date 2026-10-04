@@ -508,6 +508,63 @@ def test_no_judgement_available_means_saying_nothing(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
+# Home proof of autonomous work
+# ---------------------------------------------------------------------------
+
+def test_home_shows_what_autonomous_ora_detected_did_and_will_do_next():
+    async def body():
+        client, db = await _db()
+        uid = f"v39_{uuid.uuid4().hex[:8]}"
+        try:
+            service = await _service(db)
+            goal = _goal(
+                uid,
+                why_now="L'appuntamento si avvicina e il tempo di partenza può cambiare.",
+                next_run_at="2099-01-01T10:00:00+00:00",
+            )
+            await service.repo.create_goal(goal)
+            await _worked(service, uid, goal)
+
+            cards = await service.for_home(uid)
+            card = next(row for row in cards if row["id"] == goal.id)
+
+            assert card["autonomous"] is True
+            assert "appuntamento" in card["detected"].lower()
+            assert card["already_done"] == "Ho cercato le informazioni necessarie."
+            assert "automaticamente" in card["next_step"].lower()
+        finally:
+            await _clean(db, uid)
+            client.close()
+
+    _run(body())
+
+
+def test_home_never_claims_work_was_done_without_a_real_step():
+    async def body():
+        client, db = await _db()
+        uid = f"v39_{uuid.uuid4().hex[:8]}"
+        try:
+            service = await _service(db)
+            goal = _goal(
+                uid,
+                why_now="È comparso un nuovo fatto da verificare.",
+            )
+            await service.repo.create_goal(goal)
+
+            cards = await service.for_home(uid)
+            card = next(row for row in cards if row["id"] == goal.id)
+
+            assert card["autonomous"] is True
+            assert card["already_done"] == ""
+            assert "proseguo da sola" in card["next_step"].lower()
+        finally:
+            await _clean(db, uid)
+            client.close()
+
+    _run(body())
+
+
+# ---------------------------------------------------------------------------
 # Structure
 # ---------------------------------------------------------------------------
 

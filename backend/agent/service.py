@@ -1906,7 +1906,11 @@ class AgentService:
             out.append({**goal.for_human(), "state": "Verifica completata",
                 "outcome": goal.rationale, "why_now": goal.rationale,
                 "source": await self._where_it_really_came_from(owner_id, goal),
-                "needs_you": "", "unknown": ""})
+                "needs_you": "", "unknown": "",
+                "autonomous": goal.origin == "agent_initiated",
+                "detected": goal.why_now or goal.rationale,
+                "already_done": "Ho completato e verificato il risultato.",
+                "next_step": ""})
         for goal in await self.repo.open_goals(owner_id, limit=3):
             out.append(await self._open_card(owner_id, goal))
         return out
@@ -1924,17 +1928,46 @@ class AgentService:
                 return {**goal.for_human(), "state": "Verifica completata",
                     "outcome": goal.rationale, "why_now": goal.rationale,
                     "source": await self._where_it_really_came_from(owner_id, goal),
-                    "needs_you": "", "unknown": ""}
+                    "needs_you": "", "unknown": "",
+                    "autonomous": goal.origin == "agent_initiated",
+                    "detected": goal.why_now or goal.rationale,
+                    "already_done": "Ho completato e verificato il risultato.",
+                    "next_step": ""}
         return None
 
     async def _open_card(self, owner_id: str, goal: AutonomousGoal) -> Dict[str, Any]:
         scheda = {**goal.for_human(), "state": await self._progress_of(owner_id, goal)}
         scheda["source"] = await self._where_it_really_came_from(owner_id, goal)
         scheda["unknown"] = scheda.pop("unclear", "") or self._what_is_still_vague(goal)
+
+        # Proof-of-work narrative for Home. Every sentence below is grounded
+        # either in the goal that admitted the work or in a journal row written
+        # by an action that really happened.
+        history = await self.repo.history(owner_id, goal.id, limit=20)
+        done = [
+            row for row in history
+            if row.get("kind") == "step_done"
+            and (row.get("detail") or {}).get("really_happened")
+        ]
+        last_done = done[-1] if done else None
+        came_from = str(((last_done or {}).get("detail") or {}).get("came_from") or "")
+        scheda["autonomous"] = goal.origin == "agent_initiated"
+        scheda["detected"] = (goal.why_now or "")[:300]
+        scheda["already_done"] = _what_was_done(came_from) if last_done else ""
+
         needs = await self.needs.open_for_goal(owner_id, goal.id)
         if needs:
+            scheda["next_step"] = scheda.get("needs_you") or "Mi serve una tua risposta per continuare."
             scheda["action"] = {"id": needs[0].id, "kind": "route", "label": "Rispondi alla richiesta",
                 "route": "/ora", "params": {"needId": needs[0].id, "goalId": goal.id, "entry": "agent_need"}}
+        elif goal.background_runs >= 3 and not goal.next_run_at:
+            scheda["next_step"] = ""
+        elif goal.next_run_at:
+            scheda["next_step"] = "Ricontrollo automaticamente al prossimo momento utile."
+        elif goal.is_open:
+            scheda["next_step"] = "Proseguo da sola finché non serve una tua decisione."
+        else:
+            scheda["next_step"] = ""
         return scheda
 
     async def _where_it_really_came_from(self, owner_id: str, goal) -> str:
@@ -2307,6 +2340,17 @@ def _what_was_being_done(came_from: str) -> str:
         "internal_observation": "Sto guardando quello che ho già.",
         "user_statement": "Sto tenendo conto di quello che mi hai detto.",
     }.get(came_from, "Me ne sto occupando.")
+
+
+def _what_was_done(came_from: str) -> str:
+    """Past-tense proof of work, only from a real journaled step."""
+    return {
+        "external_research": "Ho cercato le informazioni necessarie.",
+        "deterministic_computation": "Ho confrontato le opzioni disponibili.",
+        "connected_provider": "Ho controllato i dati collegati.",
+        "internal_observation": "Ho verificato ciò che ORA sa già.",
+        "user_statement": "Ho integrato quello che mi hai detto.",
+    }.get(came_from, "Ho completato un passaggio reale.")
 
 
 def _human_state(goal) -> str:

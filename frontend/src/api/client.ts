@@ -3207,6 +3207,14 @@ export type HomeAgentWork = {
   needs_you?: string | null;
   /** Che cosa ORA non sa ancora di questo lavoro. Vuoto quando sa tutto. */
   unknown?: string | null;
+  /** Vero quando il goal è nato da iniziativa di ORA, non da una richiesta esplicita. */
+  autonomous?: boolean;
+  /** Il fatto temporale/situazionale che ha fatto partire ORA. */
+  detected?: string | null;
+  /** Ultimo passaggio reale, verificato dal journal agente. */
+  already_done?: string | null;
+  /** Cosa succede dopo: ORA continua da sola o serve una risposta. */
+  next_step?: string | null;
 };
 
 /**
