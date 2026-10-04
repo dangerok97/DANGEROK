@@ -191,6 +191,16 @@ jobs:
       - name: Device location consent
         working-directory: frontend
         run: node --test src/location/shareForeground.test.cjs
+      - name: Resolve Expo iOS configuration
+        working-directory: frontend
+        env:
+          EXPO_PUBLIC_BACKEND_URL: https://ora-backend-production-aa56.up.railway.app
+        run: npx expo config --type public >/tmp/ora-expo-ios-config.json
+      - name: Export production iOS bundle
+        working-directory: frontend
+        env:
+          EXPO_PUBLIC_BACKEND_URL: https://ora-backend-production-aa56.up.railway.app
+        run: npx expo export --platform ios --output-dir /tmp/ora-ios-export
 
   frontend-product-guards:
     name: Frontend product guards (current Vita)
