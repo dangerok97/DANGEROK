@@ -739,7 +739,6 @@ class PlacesService:
             upsert=True,
         )
         if read is None:
-            await self._cancel_routine_reviews(user_id)
             return None
 
         existing_doc = await self.db.observed_routines.find_one(
@@ -793,13 +792,20 @@ class PlacesService:
             "proactive_review_scheduled": scheduled,
         }
 
-    async def _cancel_routine_reviews(self, user_id: str) -> int:
+    async def _cancel_routine_reviews(
+        self, user_id: str, routine_id: Optional[str] = None
+    ) -> int:
+        query: Dict[str, Any] = {
+            "owner_id": user_id,
+            "status": {"$in": ["pending", "claimed"]},
+        }
+        query["source_ref"] = (
+            f"routine_review:{routine_id}"
+            if routine_id
+            else {"$regex": "^routine_review:"}
+        )
         result = await self.db.ambient_wakes.update_many(
-            {
-                "owner_id": user_id,
-                "status": "pending",
-                "source_ref": {"$regex": "^routine_review:"},
-            },
+            query,
             {"$set": {"status": "cancelled", "updated_at": _now().isoformat()}},
         )
         return int(result.modified_count)
@@ -813,7 +819,7 @@ class PlacesService:
         life review; it does not create an opportunity, notification, route or
         action by itself.
         """
-        await self._cancel_routine_reviews(user_id)
+        await self._cancel_routine_reviews(user_id, routine.id)
         lead = int(routine.proactive_review_lead_minutes or 0)
         if lead <= 0:
             return False
