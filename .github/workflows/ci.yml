@@ -188,6 +188,9 @@ jobs:
       - name: tsc
         working-directory: frontend
         run: npx tsc --noEmit
+      - name: Auth provider regressions
+        working-directory: frontend
+        run: npm run test:auth
       - name: Device location consent
         working-directory: frontend
         run: node --test src/location/shareForeground.test.cjs
