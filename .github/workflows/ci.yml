@@ -111,6 +111,7 @@ jobs:
             tests/test_routine_autonomy_v40.py tests/test_routine_proactive_wakes_v41.py \
             tests/test_routine_route_context_v42.py tests/test_routine_user_control_v43.py \
             tests/test_agent_context_reads_v44.py tests/test_agent_ephemeral_mail_v45.py \
+            tests/test_communication_delta_review_v46.py \
             tests/test_document_extraction_signal_v4.py tests/test_update_work.py \
             tests/test_life_profile_opportunity_bridge.py \
             tests/test_ambient_runtime_v38.py tests/test_ambient_reliability_v38.py -x
