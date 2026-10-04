@@ -72,8 +72,13 @@ def test_the_carrier_routes_are_not_under_api():
     controllare, e stare sotto `/api` suggerirebbe il contrario.
     """
     import server
+    from fastapi.routing import iter_route_contexts
 
-    paths = {getattr(r, "path", "") for r in server.app.routes}
+    paths = {
+        context.path
+        for context in iter_route_contexts(server.app.router.routes)
+        if context.path
+    }
     for needed in ("/vonage/answer", "/vonage/event", "/vonage/fallback", "/vonage/socket"):
         assert needed in paths, f"manca la porta {needed}"
         assert f"/api{needed}" not in paths, (
