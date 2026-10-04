@@ -17,6 +17,7 @@
       "usesAppleSignIn": true,
       "infoPlist": {
         "NSCalendarsFullAccessUsageDescription": "Legge i tuoi eventi per aiutarti a organizzare la giornata.",
+        "NSContactsUsageDescription": "ORA usa i contatti che autorizzi per riconoscere le persone e preparare chiamate senza farti cercare i numeri.",
         "NSLocationWhenInUseUsageDescription": "ORA può usare la posizione mentre la usi per riconoscere i tuoi luoghi e aiutarti negli spostamenti.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Consenti a ORA di riconoscere quando arrivi o lasci i tuoi luoghi anche quando l'app non è aperta.",
         "UIBackgroundModes": [
@@ -46,6 +47,12 @@
         "expo-calendar",
         {
           "calendarPermission": "Leggi gli eventi del tuo calendario per organizzare la giornata."
+        }
+      ],
+      [
+        "expo-contacts",
+        {
+          "contactsPermission": "ORA usa i contatti che autorizzi per riconoscere le persone e preparare chiamate senza farti cercare i numeri."
         }
       ],
       [
