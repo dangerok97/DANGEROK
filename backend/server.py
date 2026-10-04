@@ -218,6 +218,14 @@ async def startup():
     await db.permission_audit.create_index([("user_id", 1), ("timestamp", -1)])
     await db.permission_audit.create_index("event_id", unique=True)
     await db.permission_audit.create_index([("connector_id", 1), ("timestamp", -1)])
+
+    # Device contacts — owner-scoped minimal cache used by the same resolver
+    # that prepares telephone missions.
+    try:
+        from contacts.service import ensure_indexes as ensure_contact_indexes
+        await ensure_contact_indexes(db)
+    except Exception:
+        logger.exception("contacts indexes unavailable (non-fatal)")
     await db.permission_audit.create_index([("capability_id", 1), ("timestamp", -1)])
 
     # Ingestion + Connectors + Vault (Iteration 9)
