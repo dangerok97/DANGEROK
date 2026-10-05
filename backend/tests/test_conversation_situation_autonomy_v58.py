@@ -185,13 +185,13 @@ def test_user_sees_what_ora_will_do_with_a_persisted_situation():
 
     visible = _with_situation_handoff("Ok.", result)
 
-    assert visible != "Ok."
-    assert "situazione attiva" in visible.lower()
+    assert not visible.lower().startswith("ok")
+    assert "sotto controllo" in visible.lower()
     assert "tempi o condizioni esterne" in visible.lower()
     assert "ricontrollare i panni" in visible.lower()
 
 
-def test_situation_handoff_does_not_invent_work_without_attention_intent():
+def test_situation_handoff_still_explains_generic_review_without_attention_intent():
     from conversation_engine.ai_core.loop import _with_situation_handoff
 
     result = {
@@ -200,7 +200,11 @@ def test_situation_handoff_does_not_invent_work_without_attention_intent():
         "situation": {"id": "sit_plain", "attention_intent": None},
     }
 
-    assert _with_situation_handoff("Ok.", result) == "Ok."
+    visible = _with_situation_handoff("Ok.", result)
+    assert not visible.lower().startswith("ok")
+    assert "situazione" in visible.lower()
+    assert "rivaluter" in visible.lower()
+    assert "non ti disturbo" in visible.lower()
 
 
 def test_resolved_situation_does_not_claim_future_attention():
