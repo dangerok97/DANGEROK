@@ -37,6 +37,7 @@ async def setup_running_goal(db):
         next_run_at=datetime.now(timezone.utc).isoformat(),
     )
     repo = AgentRepository(db)
+    await repo.ensure_indexes()
     assert await repo.create_goal(goal) is not None
     await repo.save_plan(
         ActionPlan(
@@ -102,6 +103,18 @@ async def test_defer_moves_existing_goal_and_wake_to_same_moment(monkeypatch):
     }, {"_id": 0})
     assert pending is not None
     assert pending["scheduled_for"] == result["deferred_until"]
+
+    # A worker that started before the tap may still hold an old object. Its
+    # later save must not erase the person's newer "più tardi".
+    goal.status = "active"
+    goal.next_run_at = datetime.now(timezone.utc).isoformat()
+    goal.user_deferred_until = None
+    await AgentRepository(db).save_goal(goal)
+    protected = await AgentRepository(db).get_goal(OWNER, goal.id)
+    assert protected is not None
+    assert protected.status == "waiting"
+    assert protected.next_run_at == result["deferred_until"]
+    assert protected.user_deferred_until == result["deferred_until"]
 
 
 @pytest.mark.asyncio
