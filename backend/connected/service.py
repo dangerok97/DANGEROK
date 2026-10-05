@@ -254,6 +254,19 @@ class ConnectedLifeService:
                 own += 1
                 continue
 
+            # Exact provider-thread evidence outranks semantic guessing. If a
+            # Gmail reply arrives in the thread ORA sent for a waiting goal,
+            # resume that same goal without reading or persisting the body here.
+            if signal.source_type == "email":
+                try:
+                    from agent.followups import resume_email_reply
+                    await resume_email_reply(self.db, owner_id, signal)
+                except Exception as exc:
+                    logger.info(
+                        "external mail follow-up resume soft-fail: %s",
+                        type(exc).__name__,
+                    )
+
             source = sources.get(signal.source_id)
             recent = [
                 s.for_ai() for s in
