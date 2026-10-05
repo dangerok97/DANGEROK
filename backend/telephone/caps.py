@@ -584,6 +584,12 @@ async def _ai_identity_resolution(text: str, prep) -> Dict[str, str]:
     if not message or not prep.identity_conflicts:
         return {"decision": "unclear", "canonical_name": ""}
 
+    # Safety boundary, not language understanding: a bare assent/rejection or
+    # a question never reassigns a person's phone identity.
+    simple = message.casefold().strip(" .!…")
+    if simple in {"si", "sì", "ok", "okay", "va bene", "certo", "no", "nope"} or "?" in message:
+        return {"decision": "unclear", "canonical_name": ""}
+
     selected_name = str(
         prep.selected_contact.name if prep.selected_contact else prep.counterparty or ""
     ).strip()
@@ -595,6 +601,9 @@ async def _ai_identity_resolution(text: str, prep) -> Dict[str, str]:
     allowed = list(dict.fromkeys([selected_name, *conflict_names]))
     allowed_by_identity = {
         identity_of(name): name for name in allowed if identity_of(name)
+    }
+    conflict_by_identity = {
+        identity_of(name): name for name in conflict_names if identity_of(name)
     }
 
     system = (
@@ -630,8 +639,10 @@ async def _ai_identity_resolution(text: str, prep) -> Dict[str, str]:
     canonical = str(answer.get("canonical_name") or "").strip()
     if canonical:
         canonical = allowed_by_identity.get(identity_of(canonical), "")
-    if decision == "same_person" and not canonical:
-        return {"decision": "unclear", "canonical_name": ""}
+    if decision == "same_person":
+        canonical = conflict_by_identity.get(identity_of(canonical), "")
+        if not canonical:
+            return {"decision": "unclear", "canonical_name": ""}
     return {"decision": decision, "canonical_name": canonical}
 
 
