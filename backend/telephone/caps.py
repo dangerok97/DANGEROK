@@ -291,6 +291,16 @@ async def _through_the_preparation(
     replacement = _replacement_number_in(detto, prep, arguments)
     resolution = str(arguments.get("identity_resolution") or "")
     corrected_counterparty = str(arguments.get("correct_counterparty") or "").strip()
+    semantic_resolution: Dict[str, str] = {}
+    if prep.identity_conflicts and not corrected_counterparty and not replacement:
+        semantic_resolution = await _ai_identity_resolution(detto, prep)
+        semantic_decision = semantic_resolution.get("decision") or "unclear"
+        if semantic_decision == "same_person":
+            corrected_counterparty = semantic_resolution.get("canonical_name") or ""
+            resolution = ""
+        elif semantic_decision in ("replace", "shared"):
+            resolution = semantic_decision
+
     if corrected_counterparty:
         # Explicitly naming who the active preparation is about outranks the
         # stale entity inferred in an earlier turn.
@@ -304,12 +314,23 @@ async def _through_the_preparation(
         resolution = ""
         prep, rifiutato = await change_number(db, prep, number=replacement)
     elif resolution:
-        if (not prep.identity_conflict_shown_in
+        semantic_support = (
+            semantic_resolution.get("decision") == resolution
+            if semantic_resolution else False
+        )
+        legacy_support = _identity_resolution_in(detto, prep) == resolution
+        if (resolution not in ("replace", "shared")
+                or not prep.identity_conflict_shown_in
                 or prep.identity_conflict_shown_in == _this_turn(runtime)
-                or _identity_resolution_in(detto, prep) != resolution):
-            rifiutato = "serve un chiarimento esplicito dopo aver mostrato il conflitto sul numero"
+                or not (semantic_support or legacy_support)):
+            rifiutato = (
+                "non ho ancora capito con sufficiente chiarezza come associare "
+                "questo numero alle persone coinvolte"
+            )
         else:
-            prep, rifiutato = await resolve_identity_conflict(db, prep, resolution=resolution)
+            prep, rifiutato = await resolve_identity_conflict(
+                db, prep, resolution=resolution
+            )
     elif arguments.get("choose_number"):
         prep, rifiutato = await choose_contact(
             db, prep, number=str(arguments.get("choose_number")))
@@ -495,9 +516,12 @@ def _what_to_say_now(carta: Dict[str, Any], preparata: bool) -> str:
     if carta.get("identity_conflicts"):
         name = (carta.get("contact") or {}).get("name") or "questa persona"
         return (intera + "Fermati: non confermare il numero e non chiamare. "
-                f"Chiedi di rispondere ‘correggi: è di {name}’ oppure ‘è condiviso’. "
-                "Solo nel turno successivo usa identity_resolution=replace o shared "
-                "secondo la risposta esplicita. Se scrive un numero diverso, richiama subito con lo stesso preparation_id e give_number: aggiorna il candidato, non usare identity_resolution sul numero vecchio.")
+                "Lascia che la persona chiarisca con parole normali chi è chi. "
+                "Nel turno successivo richiama questo stesso strumento con il suo messaggio: "
+                "il resolver AI distinguerà stessa persona, correzione, numero condiviso o "
+                "chiarimento insufficiente. Non pretendere formule come ‘correggi’ o "
+                "‘numero condiviso’. Se scrive un numero diverso, usa subito lo stesso "
+                "preparation_id con give_number.")
     if carta["ready"]:
         return (intera + "Poi fermati e aspetta la sua risposta: in questo turno "
                 "non richiamare lo strumento. Solo quando, nel messaggio "
@@ -543,6 +567,72 @@ def _replacement_number_in(text: str, prep, arguments: Dict[str, Any]) -> str:
     correcting = bool(re.search(r"\b(?:numero|num|corretto|correggi|usa|invece)\b", normalized))
     bare = not re.search(r"[A-Za-zÀ-ÿ]", text)
     return number if specified or correcting or bare else ""
+
+
+async def _ai_identity_resolution(text: str, prep) -> Dict[str, str]:
+    """Let the model understand a natural-language identity clarification.
+
+    Code supplies the closed world: current target, selected contact and the
+    already-observed conflicting identities. The model may only choose what
+    those words mean; it cannot invent a person, a number or permission to call.
+    """
+    import json
+    from preparation.trust import identity_of
+    from research.reasoning import _ask_model
+
+    message = " ".join(str(text or "").split()).strip()
+    if not message or not prep.identity_conflicts:
+        return {"decision": "unclear", "canonical_name": ""}
+
+    selected_name = str(
+        prep.selected_contact.name if prep.selected_contact else prep.counterparty or ""
+    ).strip()
+    conflict_names = [
+        str(row.get("name") or "").strip()
+        for row in prep.identity_conflicts
+        if str(row.get("name") or "").strip()
+    ]
+    allowed = list(dict.fromkeys([selected_name, *conflict_names]))
+    allowed_by_identity = {
+        identity_of(name): name for name in allowed if identity_of(name)
+    }
+
+    system = (
+        "Interpret ONLY the user's latest clarification about who a phone number "
+        "belongs to. Do not decide whether to place a call. The backend has already "
+        "shown a same-number/different-identity conflict. Natural language is valid: "
+        "for example 'la mia ragazza si chiama Asia' means the relational label and "
+        "Asia refer to the same person. Return JSON only: "
+        '{"decision":"same_person|replace|shared|unclear","canonical_name":""}. '
+        "same_person = the requested label/person and one named identity are the same "
+        "human; canonical_name MUST be one of allowed_names. replace = the number "
+        "belongs to the current selected identity instead of the conflicting ones. "
+        "shared = distinct people really share the number. A generic yes/no, a question, "
+        "or uncertainty must be unclear. Never invent a name outside allowed_names."
+    )
+    payload = json.dumps({
+        "latest_user_message": message[:400],
+        "requested_counterparty": prep.counterparty,
+        "selected_contact": selected_name,
+        "conflicting_names": conflict_names,
+        "allowed_names": allowed,
+    }, ensure_ascii=False)
+    try:
+        answer = await _ask_model(system, payload)
+    except Exception:
+        return {"decision": "unclear", "canonical_name": ""}
+    if not isinstance(answer, dict):
+        return {"decision": "unclear", "canonical_name": ""}
+
+    decision = str(answer.get("decision") or "unclear").strip().lower()
+    if decision not in {"same_person", "replace", "shared", "unclear"}:
+        decision = "unclear"
+    canonical = str(answer.get("canonical_name") or "").strip()
+    if canonical:
+        canonical = allowed_by_identity.get(identity_of(canonical), "")
+    if decision == "same_person" and not canonical:
+        return {"decision": "unclear", "canonical_name": ""}
+    return {"decision": decision, "canonical_name": canonical}
 
 
 def _identity_resolution_in(text: str, prep) -> str:
