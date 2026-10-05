@@ -98,7 +98,7 @@ async def agent_bank_status(db, owner_id: str) -> str:
             vault=deps.get_token_vault(),
         )
         state = await connection_state(service, user_id=owner_id)
-        if str(state.get("stato") or "") not in ("collegato", "collegamento_in_corso"):
+        if str(state.get("stato") or "") != "collegato":
             return "unavailable"
         return provider_reality(service.provider)
     except Exception as exc:
