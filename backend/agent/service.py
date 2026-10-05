@@ -1060,6 +1060,24 @@ class AgentService:
             fresh = [s for s in revised if s is not None][: MAX_PLAN_STEPS - len(plan.steps)]
             if not fresh:
                 return await self._pause(owner_id, goal, plan, run, note or "senza altra strada")
+
+            # A replan is not an append-only log. If the model explicitly says
+            # a pending step has been replaced, retire exactly that step so the
+            # obsolete route cannot wake up again after the revised one succeeds.
+            # Completed work is immutable and unknown ids are ignored.
+            pending_ids = {
+                step.id for step in plan.steps
+                if step.status in ("pending", "blocked", "waiting")
+            }
+            replace_ids = {
+                str(step_id) for step_id in (answer.get("replace_step_ids") or [])
+                if str(step_id) in pending_ids
+            }
+            for old in plan.steps:
+                if old.id in replace_ids:
+                    old.status = "skipped"
+                    old.note = "Sostituito dal piano aggiornato."
+
             # The history stays: finished steps are not rewritten, and what
             # was learned is not thrown away.
             plan.steps.extend(fresh)
