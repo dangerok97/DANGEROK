@@ -74,6 +74,14 @@ _task: Optional[asyncio.Task] = None
 _stopping = False
 _worker_id = ""
 _jobs: Dict[str, asyncio.Task] = {}
+
+# Claim selection is serialized only inside this process, not execution. This
+# lets the two runtime slots prefer different owners before both handlers run
+# concurrently. The database claim remains the authority for one wake/worker.
+_claim_lock: Optional[asyncio.Lock] = None
+_claim_loop: Any = None
+_owners_in_flight: Dict[str, int] = {}
+
 # A handler must finish/cancel before its 300-second database lease expires.
 HANDLER_TIMEOUT_SECONDS = 240
 
@@ -119,24 +127,49 @@ def worker_id() -> str:
     return _worker_id
 
 
+def _fair_claim_lock() -> asyncio.Lock:
+    """One short claim gate per event loop; handlers still run in parallel."""
+    global _claim_lock, _claim_loop
+    loop = asyncio.get_running_loop()
+    if _claim_lock is None or _claim_loop is not loop:
+        _claim_lock = asyncio.Lock()
+        _claim_loop = loop
+        _owners_in_flight.clear()
+    return _claim_lock
+
+
 async def tick(db, *, now: Optional[datetime] = None, limit: int = MAX_PER_TICK) -> Dict[str, int]:
     """
     One pass: take what is due, do it, record what happened.
 
-    Separated from the loop so it can be driven by a test clock. The loop only
-    decides when to call this; everything that matters happens here, which is
-    what makes the runtime testable without waiting in real time.
+    Claim selection is fair within the live backend process: when another owner
+    has due work, a second concurrent slot prefers them before reusing an owner
+    already in flight. If nobody else is waiting, the same owner may still use
+    the spare slot, so fairness never becomes artificial throttling.
     """
     from ambient.repository import AmbientRepository
 
     repo = AmbientRepository(db)
     handled = {"claimed": 0, "completed": 0, "retried": 0, "failed": 0}
     moment = now or _now()
+    lock = _fair_claim_lock()
 
     for _ in range(max(1, limit)):
         if now is None:
             moment = _now()
-        wake = await repo.claim_due(worker_id=worker_id(), now=moment)
+
+        async with lock:
+            excluded = {owner for owner, count in _owners_in_flight.items() if count > 0}
+            wake = await repo.claim_due(
+                worker_id=worker_id(), now=moment, exclude_owner_ids=excluded
+            )
+            if wake is None and excluded:
+                # No other owner is due: use the spare capacity rather than
+                # serialising one person's independent work unnecessarily.
+                wake = await repo.claim_due(worker_id=worker_id(), now=moment)
+            if wake is not None:
+                _owners_in_flight[wake.owner_id] = _owners_in_flight.get(wake.owner_id, 0) + 1
+
         if wake is None:
             break
 
@@ -145,30 +178,43 @@ async def tick(db, *, now: Optional[datetime] = None, limit: int = MAX_PER_TICK)
         logger.info("wake_claimed reason=%s attempt=%s", wake.reason, wake.attempts)
 
         try:
-            outcome = await asyncio.wait_for(_handle(db, wake), timeout=HANDLER_TIMEOUT_SECONDS)
-        except Exception as exc:
-            outcome = None
-            logger.info("wake handler soft-fail: %s", type(exc).__name__)
-            status = await _retry(repo, wake, error=type(exc).__name__, now=moment)
-            handled[status] += 1
-            _stats[f"wakes_{status}"] += 1
-            continue
+            try:
+                outcome = await asyncio.wait_for(_handle(db, wake), timeout=HANDLER_TIMEOUT_SECONDS)
+            except Exception as exc:
+                outcome = None
+                logger.info("wake handler soft-fail: %s", type(exc).__name__)
+                status = await _retry(repo, wake, error=type(exc).__name__, now=moment)
+                handled[status] += 1
+                _stats[f"wakes_{status}"] += 1
+                continue
 
-        if outcome is not None and outcome.retry_after_seconds is not None:
-            # A technical failure: the model was unreachable, the channel was
-            # down. Nothing was decided, so nothing is recorded as a decision.
-            status = await _retry(repo, wake, error=outcome.error or "retry", now=moment,
-                                  delay=outcome.retry_after_seconds)
-            handled[status] += 1
-            _stats[f"wakes_{status}"] += 1
-            logger.info("wake_retry reason=%s in=%ss", wake.reason, outcome.retry_after_seconds)
-            continue
+            if outcome is not None and outcome.retry_after_seconds is not None:
+                # A technical failure: the model was unreachable, the channel was
+                # down. Nothing was decided, so nothing is recorded as a decision.
+                status = await _retry(
+                    repo, wake, error=outcome.error or "retry", now=moment,
+                    delay=outcome.retry_after_seconds,
+                )
+                handled[status] += 1
+                _stats[f"wakes_{status}"] += 1
+                logger.info(
+                    "wake_retry reason=%s in=%ss",
+                    wake.reason, outcome.retry_after_seconds,
+                )
+                continue
 
-        result = outcome.result if outcome else ""
-        await repo.complete(wake.id, result=result, worker_id=wake.worker_id)
-        handled["completed"] += 1
-        _stats["wakes_completed"] += 1
-        logger.info("wake_completed reason=%s result=%s", wake.reason, result)
+            result = outcome.result if outcome else ""
+            await repo.complete(wake.id, result=result, worker_id=wake.worker_id)
+            handled["completed"] += 1
+            _stats["wakes_completed"] += 1
+            logger.info("wake_completed reason=%s result=%s", wake.reason, result)
+        finally:
+            async with lock:
+                remaining = _owners_in_flight.get(wake.owner_id, 0) - 1
+                if remaining > 0:
+                    _owners_in_flight[wake.owner_id] = remaining
+                else:
+                    _owners_in_flight.pop(wake.owner_id, None)
 
     if not handled["claimed"]:
         _stats["empty_ticks"] += 1
