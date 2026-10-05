@@ -95,7 +95,7 @@ async def test_exhausted_work_budget_still_gets_one_visibility_judgement(monkeyp
     assert need["summary"] == decision.headline
 
     delivered.assert_awaited_once()
-    subject = delivered.await_args.args[2]
+    subject = delivered.await_args.args[1]
     assert subject.source_type == "agent_need"
     assert subject.goal_id == goal.id
     assert subject.semantic_summary == decision.headline
