@@ -100,12 +100,26 @@ def _wait_hours_for(step: Optional[ActionStep], default: int = 6) -> int:
     return _bounded_wait_hours(value, default=default)
 
 
-def _what_day_it_is() -> dict:
-    """La data e il giorno della settimana, come li vede il codice."""
-    from day_names import weekday_name
+async def _user_clock_context(db, owner_id: str) -> dict:
+    """Fresh local clock evidence for autonomous timing decisions.
 
-    oggi = _now().date()
-    return {"today": oggi.isoformat(), "today_weekday": weekday_name(oggi)}
+    Timezone resolution is the existing bounded resolver: confirmed account
+    timezone first, calendar evidence second, explicitly-labelled system
+    fallback last. No GPS/residence inference is introduced here.
+    """
+    from day_names import weekday_name
+    from timezone_service import user_clock_context
+
+    clock = await user_clock_context(db, owner_id)
+    try:
+        local_day = datetime.fromisoformat(str(clock["local_date"])).date()
+    except Exception:
+        local_day = _now().date()
+    return {
+        **clock,
+        "today": local_day.isoformat(),
+        "today_weekday": weekday_name(local_day),
+    }
 
 class AgentService:
     def __init__(self, db):
@@ -656,6 +670,7 @@ class AgentService:
             candidates=[s.for_ai() for s in pending],
             evidence=for_verification(evidence),
             capabilities=await self.capabilities.available(owner_id),
+            clock_context=await _user_clock_context(self.db, owner_id),
             language=language,
         )
         if answer is None:
@@ -1020,7 +1035,7 @@ class AgentService:
             # calcola il codice, non lo indovina il modello. Vale qui come
             # nella conversazione — un piano fatto per «giovedì» quando è
             # domenica è sbagliato allo stesso modo in tutti e due i posti.
-            context=_what_day_it_is(),
+            context=await _user_clock_context(self.db, owner_id),
             language=language,
         )
         if answer is None:
