@@ -302,6 +302,7 @@ class CapabilityResolver:
             if route_ready:
                 status = "available_real"
             else:
+                executable = False
                 status = "unavailable"
                 reason = "routing_provider_unavailable"
 
