@@ -1447,7 +1447,16 @@ class AgentService:
         except Exception as e:
             logger.info("agent wake soft-fail: %s", type(e).__name__)
 
-        await self.repo.journal(owner_id, goal.id, kind="waiting", note=note)
+        await self.repo.journal(
+            owner_id,
+            goal.id,
+            kind="waiting",
+            note=note,
+            detail={
+                "for_hours": hours,
+                "step_id": (step.id if step is not None else ""),
+            },
+        )
         await self._note_ambient(owner_id, "agent_waiting", goal)
         return {"ok": True, "state": "waiting", "for_hours": hours, "goal": goal.for_human()}
 
