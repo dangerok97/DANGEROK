@@ -1343,10 +1343,22 @@ class ToolRegistry:
                             "type": "string",
                             "enum": ["replace", "shared"],
                             "description": (
-                                "Only after showing a same-number/different-person conflict: "
-                                "replace if the user explicitly corrects who owns it, shared "
-                                "if they explicitly say both people use it. A generic yes is "
+                                "Optional semantic hint after a shown same-number/different-person "
+                                "conflict. Natural-language interpretation is owned by the phone "
+                                "resolver, so never force the user to say magic words. replace means "
+                                "the number belongs to the current identity instead of the conflicting "
+                                "ones; shared means distinct people really share it. A generic yes is "
                                 "not enough. Never combine this with go_ahead."
+                            ),
+                        },
+                        "correct_counterparty": {
+                            "type": "string",
+                            "description": (
+                                "When the user clarifies that the requested relational label and a "
+                                "named contact are the SAME person (for example «la mia ragazza si "
+                                "chiama Asia»), pass the canonical named contact exactly as already "
+                                "shown by the conflict, e.g. «Asia». This retargets the open "
+                                "preparation and re-runs contact resolution; it does not place a call."
                             ),
                         },
                         "choose_number": {
