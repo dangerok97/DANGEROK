@@ -524,6 +524,31 @@ def _pending_navigation_skill_context(state: dict) -> dict:
     }
 
 
+def _pending_calendar_skill_context(state: dict) -> dict:
+    """AI-visible description of a frozen pending calendar confirmation."""
+    pending = state.get("pending_act")
+    if not isinstance(pending, dict):
+        return {}
+    request = pending.get("calendar_cancel")
+    if not isinstance(request, dict):
+        return {}
+    question = str(request.get("question") or "")[:300]
+    if not question:
+        return {}
+    return {
+        "skill": "calendar",
+        "capability": "continue_calendar_action",
+        "awaiting_user_reply": True,
+        "question": question,
+        "created_at": str(pending.get("at") or "")[:40],
+        "instruction": (
+            "Interpret the latest reply naturally. If it confirms the exact "
+            "pending cancellation, call continue_calendar_action. If it declines "
+            "or changes the request, do not execute the pending action."
+        ),
+    }
+
+
 def _now_iso() -> str:
     from datetime import datetime, timezone
 
@@ -765,18 +790,8 @@ async def run_cognitive_loop(
         # come tutte le altre, così la domanda aperta nasce con i suoi
         # riferimenti e la Home resta d'accordo con la chat.
         frase_pronta = _the_tool_s_own_sentence(observations[-1:]) if step else ""
-        from conversation_engine.ai_core.calendar_confirmation import next_decision, pending_request
-        calendar_decision = next_decision(st.get("pending_act"), user_message, observations[turn_start:], step)
-        if calendar_decision:
-            gov = validate_decision(
-                calendar_decision, tools=tools, recent_tool_signatures=recent_tool_sigs,
-                external_query_count=external_queries, max_external_queries=MAX_EXTERNAL_QUERIES,
-                clarification_attempts=clarification_attempts,
-            )
-            decision = gov.decision or CognitiveDecision.model_validate(calendar_decision)
-            validated_raw = calendar_decision
-            trace["generations_saved"] = int(trace.get("generations_saved") or 0) + 1
-        elif frase_pronta:
+        from conversation_engine.ai_core.calendar_confirmation import pending_request
+        if frase_pronta:
             #     UNA DOMANDA CHE FERMA IL LAVORO SI DICHIARA TALE.
             # Misurato in app: senza questo, la frase arrivava in chat e in
             # Home non compariva niente — la domanda esisteva solo finché la
@@ -823,6 +838,7 @@ async def run_cognitive_loop(
             active_skill_state = {
                 "phone": await _active_phone_skill_context(db, sess.user_id, st),
                 "navigation": _pending_navigation_skill_context(st),
+                "calendar": _pending_calendar_skill_context(st),
             }
             active_skill_state = {
                 key: value for key, value in active_skill_state.items() if value
@@ -2054,10 +2070,16 @@ async def run_cognitive_loop(
             #
             # One turn deep on purpose. A proposal three messages ago is not
             # what the person is replying to now.
+            calendar_pending = pending_request(observations[turn_start:])
             st["pending_act"] = (
-                {"at": _now_iso(), "asked": str(ora or "")[:300],
-                 "calendar_cancel": pending_request(observations[turn_start:])}
-                if mode == "act" else None
+                {
+                    "at": _now_iso(),
+                    "asked": str(
+                        (calendar_pending or {}).get("question") or ora or ""
+                    )[:300],
+                    "calendar_cancel": calendar_pending,
+                }
+                if calendar_pending else None
             )
             st["observations"] = observations[-12:]
             navigation_options = _remember_pending_navigation(
