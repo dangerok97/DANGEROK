@@ -861,8 +861,8 @@ async def read_weather(db, owner_id: str, goal, *, step=None) -> CapabilityOutco
 
     # Keep a short chronological profile when the provider supplied it.
     # This is deliberately domain-neutral: the agent may need the trend for
-    # drying, outdoor work, ventilation, comfort or any other temporary life
-    # outcome. No coordinates or raw provider payload are persisted.
+    # any temporary life outcome. No coordinates or raw provider payload are
+    # persisted.
     hourly_profile = []
     for hour in hours[:6]:
         if not isinstance(hour, dict):
