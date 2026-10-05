@@ -16,6 +16,18 @@ def test_cognitive_prompt_declares_ai_first_skill_routing():
     assert "active_skill_state" in prompt
 
 
+def test_phone_input_hint_contains_no_semantic_rejection_router():
+    source = (ROOT / "conversation_engine" / "ai_core" / "loop.py").read_text(
+        encoding="utf-8"
+    )
+    helper = source.split("async def _phone_input_hint", 1)[1].split(
+        "def _phone_action_requested", 1
+    )[0]
+    assert "number_is_right" not in helper
+    assert "sbagliat" not in helper
+    assert "_phone_followup_fast_path" not in source
+
+
 def test_pre_model_phone_and_navigation_fast_path_responses_are_gone():
     source = (ROOT / "conversation_engine" / "ai_core" / "loop.py").read_text(
         encoding="utf-8"
@@ -34,7 +46,7 @@ async def test_relationship_language_is_not_parsed_as_phone_state_machine():
     from preparation.contacts import ContactCandidate
     from preparation.preparation import MissionPreparation, remember
     from preparation.trust import identity_of
-    from conversation_engine.ai_core.loop import _phone_pending_followup
+    from conversation_engine.ai_core.loop import _phone_input_hint
 
     db = FintoDb()
     prep = MissionPreparation(
@@ -60,7 +72,7 @@ async def test_relationship_language_is_not_parsed_as_phone_state_machine():
     prep = await remember(db, prep)
 
     # The mechanical helper must leave semantic relationship language to AI.
-    assert await _phone_pending_followup(
+    assert await _phone_input_hint(
         db,
         "owner",
         {"active_preparation_id": prep.preparation_id},
