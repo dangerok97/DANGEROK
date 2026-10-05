@@ -323,7 +323,7 @@ async def test_everyday_outcome_schedules_recheck_then_surfaces_estimated_moment
         assert "umidità 42%" in blob
         assert "vento 15 km/h" in blob
         return {
-            "outcome": "inform_user",
+            "outcome": "requires_attention",
             "headline": (
                 "Direi che è il momento di raccoglierli: con le condizioni "
                 "rimaste favorevoli dovrebbero essere asciutti."
@@ -344,14 +344,14 @@ async def test_everyday_outcome_schedules_recheck_then_surfaces_estimated_moment
     )
 
     assert result is not None
-    assert result.outcome == "inform_user"
+    assert result.outcome == "requires_attention"
     assert "dovrebbero" in result.headline.lower()
     assert "raccoglierli" in result.headline.lower()
     need = await db.agent_needs.find_one(
         {"owner_id": OWNER, "goal_id": goal.id}, {"_id": 0}
     )
     assert need is not None
-    assert need["kind"] == "useful_result"
+    assert need["kind"] == "important_outcome"
     offered.assert_awaited_once()
 
 
