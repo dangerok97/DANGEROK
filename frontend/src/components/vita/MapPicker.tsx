@@ -75,6 +75,8 @@ export function MapPicker({ center, onPointChange, height = 260, testID }: Props
   const [status, setStatus] = React.useState<Status>('idle');
   const container = React.useRef<any>(null);
   const map = React.useRef<any>(null);
+  const resizeObserver = React.useRef<any>(null);
+  const windowResizeHandler = React.useRef<(() => void) | null>(null);
   const latest = React.useRef(onPointChange);
   latest.current = onPointChange;
 
@@ -114,6 +116,36 @@ export function MapPicker({ center, onPointChange, height = 260, testID }: Props
           const c = map.current.getCenter();
           latest.current({ latitude: c.lat(), longitude: c.lng() });
         });
+
+        // Google Maps measures its viewport only when it is told the host
+        // element's real size. PlaceEditor expands inside a ScrollView, so on
+        // web the map may mount while that width/height is still settling and
+        // leave grey/offset tiles until the next browser resize. Re-measure
+        // whenever the canvas changes size and keep the same geographic centre.
+        const keepCentreOnResize = () => {
+          if (!map.current) return;
+          const current = map.current.getCenter?.();
+          try {
+            g.event.trigger(map.current, 'resize');
+          } catch {}
+          if (current) {
+            map.current.setCenter(current);
+          }
+        };
+
+        if (typeof ResizeObserver !== 'undefined') {
+          resizeObserver.current = new ResizeObserver(() => {
+            requestAnimationFrame(keepCentreOnResize);
+          });
+          resizeObserver.current.observe(container.current);
+        } else if (typeof window !== 'undefined') {
+          windowResizeHandler.current = keepCentreOnResize;
+          window.addEventListener('resize', keepCentreOnResize);
+        }
+
+        // One extra pass after layout/paint fixes the first render in a
+        // freshly-expanded editor instead of waiting for a user resize.
+        requestAnimationFrame(() => requestAnimationFrame(keepCentreOnResize));
         setStatus('ready');
       })
       .catch(() => {
@@ -122,6 +154,14 @@ export function MapPicker({ center, onPointChange, height = 260, testID }: Props
 
     return () => {
       cancelled = true;
+      try {
+        resizeObserver.current?.disconnect?.();
+      } catch {}
+      resizeObserver.current = null;
+      if (typeof window !== 'undefined' && windowResizeHandler.current) {
+        window.removeEventListener('resize', windowResizeHandler.current);
+      }
+      windowResizeHandler.current = null;
     };
     // Only the first centre matters: re-centring on every parent render would
     // fight the person's own dragging.
@@ -193,6 +233,8 @@ const styles = StyleSheet.create({
     borderRadius: tokens.radius.md,
     overflow: 'hidden',
     position: 'relative',
+    width: '100%',
+    minWidth: 0,
   },
   canvas: { flex: 1, width: '100%', height: '100%' },
   loading: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },

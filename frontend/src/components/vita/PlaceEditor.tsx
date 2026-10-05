@@ -355,7 +355,7 @@ export function PlaceEditor({
           <MapPicker
             center={point ?? openedAt.current ?? NEUTRAL_FALLBACK}
             onPointChange={onPointChange}
-            height={compact ? 220 : 280}
+            height={compact ? 290 : 320}
             testID="editor-map"
           />
           <Text style={[styles.fieldLabel, { color: colors.textTertiary }]}>
