@@ -203,6 +203,34 @@ class AgentService:
                 context_unavailable = context_unavailable or len(matched) < len(calendar_refs)
             except Exception:
                 context_unavailable = True
+        situation_refs = {
+            ref for ref in (source_refs or [])
+            if ref.startswith("situation:") and ":" in ref
+        }
+        if situation_refs:
+            try:
+                from situations.repository import SituationRepository
+
+                repository = SituationRepository(self.db)
+                matched_situations = set()
+                for ref in list(situation_refs)[:8]:
+                    sid = ref.split(":", 1)[1]
+                    state = await repository.get(owner_id, sid)
+                    if state is None:
+                        continue
+                    preview = state.context_preview()
+                    source_context.append({
+                        "ref": ref,
+                        "source": "situation",
+                        **preview,
+                    })
+                    matched_situations.add(ref)
+                context_unavailable = (
+                    context_unavailable
+                    or len(matched_situations) < len(situation_refs)
+                )
+            except Exception:
+                context_unavailable = True
         # Two current Home commitments that demonstrably overlap need a
         # prepared resolution. Missing travel data affects a proposed new
         # slot, not whether a request to reschedule can be drafted.

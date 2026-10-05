@@ -13,6 +13,29 @@ from __future__ import annotations
 from typing import Any, Iterable, List
 
 
+_SAFE_SITUATION_LINK_PREFIXES = (
+    "place:",
+    "situation:",
+    "goal:",
+    "plan:",
+    "object:",
+    "document:",
+    "calendar:",
+    "profile:",
+    "file:",
+    "presence:",
+)
+
+
+def _safe_situation_link(value: str) -> str:
+    ref = str(value or "").strip()[:120]
+    if ref.startswith(_SAFE_SITUATION_LINK_PREFIXES):
+        return ref
+    if ref.startswith("mem_") and 6 <= len(ref) <= 44:
+        return ref
+    return ""
+
+
 def _value(item: Any, key: str) -> str:
     if isinstance(item, dict):
         return str(item.get(key) or "").strip()
@@ -43,6 +66,24 @@ async def expand_opportunity_source_refs(
         if _value(item, "kind") == "disagreement" and _value(item, "ref")
     ]
 
+    situation_ids = [
+        _value(item, "ref").split(":", 1)[1]
+        for item in rows
+        if _value(item, "kind") == "situation"
+        and _value(item, "ref").startswith("situation:")
+        and ":" in _value(item, "ref")
+    ]
+    situations = {}
+    if situation_ids:
+        try:
+            docs = await db.situations.find(
+                {"user_id": owner_id, "id": {"$in": situation_ids}},
+                {"_id": 0, "id": 1, "linked_object_refs": 1},
+            ).to_list(len(situation_ids))
+            situations = {str(doc.get("id") or ""): doc for doc in docs}
+        except Exception:
+            situations = {}
+
     links = {}
     if link_ids:
         try:
@@ -65,6 +106,13 @@ async def expand_opportunity_source_refs(
     for item in rows:
         ref = _value(item, "ref")
         _append_unique(out, ref)
+
+        if _value(item, "kind") == "situation" and ref.startswith("situation:"):
+            situation = situations.get(ref.split(":", 1)[1])
+            for linked in (situation or {}).get("linked_object_refs") or []:
+                safe = _safe_situation_link(linked)
+                if safe:
+                    _append_unique(out, safe)
 
         if _value(item, "kind") != "disagreement":
             continue
