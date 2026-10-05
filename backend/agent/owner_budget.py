@@ -20,6 +20,9 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
+from pymongo import ReturnDocument
+from pymongo.errors import DuplicateKeyError
+
 
 COLLECTION = "agent_owner_background_budgets"
 DEFAULT_DAILY_BACKGROUND_RUNS = 12
@@ -100,38 +103,56 @@ class OwnerBackgroundBudget:
     ) -> OwnerBudgetClaim:
         """Atomically consume one owner-scoped background burst.
 
-        Existing rows increment only while they are below the hard limit. When
-        two workers create the day's first row concurrently, the unique index
-        picks one winner and the loser retries the bounded increment path.
-        Storage uncertainty fails closed: background autonomy pauses rather
-        than spending an unbounded amount.
+        The unique (owner_id, day) row is also the counter. upsert=True
+        handles the first claim without a read-before-write race; the
+        used < limit predicate handles every later claim. Once the existing
+        row is full, Mongo attempts an insert that collides with the unique
+        owner/day key; that duplicate-key is the atomic full-budget signal.
+
+        A first-row race can surface as DuplicateKeyError while capacity still
+        remains, so retry one bounded non-upsert increment before deciding the
+        budget is exhausted. Storage uncertainty fails closed.
         """
         moment = (now or _now()).astimezone(timezone.utc)
         day, reset, expires = _window(moment)
         reset_at = reset.isoformat()
+        query = {
+            "owner_id": owner_id,
+            "day": day,
+            "used": {"$lt": self.daily_limit},
+        }
+        update = {
+            "$inc": {"used": 1},
+            "$set": {
+                "updated_at": moment.isoformat(),
+                "limit": self.daily_limit,
+                "reset_at": reset_at,
+                "expires_at": expires,
+            },
+            "$setOnInsert": {
+                "owner_id": owner_id,
+                "day": day,
+                "created_at": moment.isoformat(),
+            },
+        }
 
-        async def increment_existing():
+        async def bounded_increment(*, upsert: bool):
             return await self.db[COLLECTION].find_one_and_update(
-                {
-                    "owner_id": owner_id,
-                    "day": day,
-                    "used": {"$lt": self.daily_limit},
-                },
-                {
-                    "$inc": {"used": 1},
-                    "$set": {
-                        "updated_at": moment.isoformat(),
-                        "limit": self.daily_limit,
-                        "reset_at": reset_at,
-                        "expires_at": expires,
-                    },
-                },
+                query,
+                update,
+                upsert=upsert,
                 projection={"_id": 0, "used": 1},
-                return_document=True,
+                return_document=ReturnDocument.AFTER,
             )
 
         try:
-            row = await increment_existing()
+            try:
+                row = await bounded_increment(upsert=True)
+            except DuplicateKeyError:
+                # Another worker won the first insert race, or the row is
+                # already full. A bounded non-upsert retry distinguishes them.
+                row = await bounded_increment(upsert=False)
+
             if row is not None:
                 return OwnerBudgetClaim(
                     allowed=True,
@@ -144,77 +165,12 @@ class OwnerBackgroundBudget:
                 {"owner_id": owner_id, "day": day},
                 {"_id": 0, "used": 1},
             )
-            if existing is not None:
-                used = int(existing.get("used") or 0)
-                if used >= self.daily_limit:
-                    return OwnerBudgetClaim(
-                        allowed=False,
-                        used=used,
-                        limit=self.daily_limit,
-                        reset_at=reset_at,
-                    )
-                # Another worker may have created the row after our first
-                # update attempt. Retry the same atomic bounded increment
-                # rather than denying useful work while capacity remains.
-                row = await increment_existing()
-                if row is not None:
-                    return OwnerBudgetClaim(
-                        allowed=True,
-                        used=int(row.get("used") or 0),
-                        limit=self.daily_limit,
-                        reset_at=reset_at,
-                    )
-                latest = await self.db[COLLECTION].find_one(
-                    {"owner_id": owner_id, "day": day},
-                    {"_id": 0, "used": 1},
-                )
-                return OwnerBudgetClaim(
-                    allowed=False,
-                    used=int((latest or {}).get("used") or self.daily_limit),
-                    limit=self.daily_limit,
-                    reset_at=reset_at,
-                )
-
-            try:
-                await self.db[COLLECTION].insert_one(
-                    {
-                        "owner_id": owner_id,
-                        "day": day,
-                        "used": 1,
-                        "limit": self.daily_limit,
-                        "created_at": moment.isoformat(),
-                        "updated_at": moment.isoformat(),
-                        "reset_at": reset_at,
-                        "expires_at": expires,
-                    }
-                )
-                return OwnerBudgetClaim(
-                    allowed=True,
-                    used=1,
-                    limit=self.daily_limit,
-                    reset_at=reset_at,
-                )
-            except Exception:
-                # Most commonly: another worker created the same unique row
-                # between our read and insert. Retry the atomic increment once.
-                row = await increment_existing()
-                if row is not None:
-                    return OwnerBudgetClaim(
-                        allowed=True,
-                        used=int(row.get("used") or 0),
-                        limit=self.daily_limit,
-                        reset_at=reset_at,
-                    )
-                existing = await self.db[COLLECTION].find_one(
-                    {"owner_id": owner_id, "day": day},
-                    {"_id": 0, "used": 1},
-                )
-                return OwnerBudgetClaim(
-                    allowed=False,
-                    used=int((existing or {}).get("used") or self.daily_limit),
-                    limit=self.daily_limit,
-                    reset_at=reset_at,
-                )
+            return OwnerBudgetClaim(
+                allowed=False,
+                used=int((existing or {}).get("used") or self.daily_limit),
+                limit=self.daily_limit,
+                reset_at=reset_at,
+            )
         except Exception:
             return OwnerBudgetClaim(
                 allowed=False,
