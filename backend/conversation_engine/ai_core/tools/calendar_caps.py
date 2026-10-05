@@ -1738,6 +1738,61 @@ async def update_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
     )
 
 
+async def continue_calendar_action(
+    arguments: Dict[str, Any], runtime: Dict[str, Any]
+) -> Observation:
+    """Continue the exact calendar action already proposed to the person.
+
+    The AI chooses this skill after understanding the reply. Code verifies the
+    real message is explicit approval, the proposal is recent, and then reuses
+    the frozen backend arguments. The model never reconstructs the event or
+    confirmation snapshot.
+    """
+    from agent.commanded import reads_as_an_approval
+
+    pending = runtime.get("pending_act")
+    if not isinstance(pending, dict):
+        return _fail(
+            "continue_calendar_action",
+            "NO_PENDING_CALENDAR_ACTION",
+            "Non c'è una modifica calendario pendente da continuare.",
+        )
+    request = pending.get("calendar_cancel")
+    if not isinstance(request, dict):
+        return _fail(
+            "continue_calendar_action",
+            "NO_PENDING_CALENDAR_ACTION",
+            "Non c'è una cancellazione calendario pendente.",
+        )
+    try:
+        created = datetime.fromisoformat(str(pending.get("at") or ""))
+        if created.tzinfo is None:
+            created = created.replace(tzinfo=timezone.utc)
+        age = (datetime.now(timezone.utc) - created).total_seconds()
+    except Exception:
+        age = float("inf")
+    if not 0 <= age <= 900:
+        return _fail(
+            "continue_calendar_action",
+            "PENDING_CALENDAR_ACTION_EXPIRED",
+            "La conferma precedente è scaduta: bisogna rileggere l'evento.",
+        )
+    if not reads_as_an_approval(str(runtime.get("user_message") or "")):
+        return _fail(
+            "continue_calendar_action",
+            "USER_CONFIRMATION_REQUIRED",
+            "La persona non ha confermato esplicitamente la cancellazione.",
+        )
+    frozen = request.get("arguments")
+    if not isinstance(frozen, dict) or not frozen.get("calendar_ref"):
+        return _fail(
+            "continue_calendar_action",
+            "INVALID_PENDING_CALENDAR_ACTION",
+            "La proposta non contiene un riferimento calendario verificabile.",
+        )
+    return await cancel_calendar_event(dict(frozen), runtime)
+
+
 async def cancel_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, Any]) -> Observation:
     """
     Togli un impegno dal calendario, dalla conversazione.
