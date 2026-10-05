@@ -574,6 +574,7 @@ async def choose_next_action(
     candidates: List[Dict[str, Any]],
     evidence: List[Dict[str, Any]],
     capabilities: List[Dict[str, Any]],
+    clock_context: Optional[Dict[str, Any]] = None,
     language: str = "it",
 ) -> Optional[Dict[str, Any]]:
     """
@@ -644,6 +645,7 @@ async def choose_next_action(
             "still_to_do": candidates,
             "what_has_been_found": evidence,
             "what_ora_can_do": capabilities,
+            "local_clock": clock_context or {},
         }),
     )
     if not isinstance(data, dict):
