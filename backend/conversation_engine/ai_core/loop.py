@@ -1991,9 +1991,13 @@ async def run_cognitive_loop(
             if detto_dallo_strumento and detto_dallo_strumento not in (ora or ""):
                 ora = detto_dallo_strumento
 
-            ora = _with_situation_handoff(ora, situation_result)
-            if situation_result and ora:
-                add_step(trace, event="SITUATION_HANDOFF_VISIBLE")
+            phone_turn = _has_phone_observation(observations[turn_start:])
+            if not phone_turn:
+                ora = _with_situation_handoff(ora, situation_result)
+                if situation_result and ora:
+                    add_step(trace, event="SITUATION_HANDOFF_VISIBLE")
+            elif situation_result:
+                add_step(trace, event="SITUATION_HANDOFF_SUPPRESSED_FOR_PHONE")
             state_mod.append_turn(st, role="ora", text=ora, kind=mode)
             if mode == "ask" and decision.uncertainty:
                 asked_refs = [
@@ -2827,9 +2831,13 @@ async def run_cognitive_loop(
     if navigation_text:
         ora = navigation_text
         add_step(trace, event="NAVIGATION_HANDOFF_BOUND")
-    ora = _with_situation_handoff(ora, situation_result)
-    if situation_result and ora:
-        add_step(trace, event="SITUATION_HANDOFF_VISIBLE_BOUND")
+    phone_turn = _has_phone_observation(observations[turn_start:])
+    if not phone_turn:
+        ora = _with_situation_handoff(ora, situation_result)
+        if situation_result and ora:
+            add_step(trace, event="SITUATION_HANDOFF_VISIBLE_BOUND")
+    elif situation_result:
+        add_step(trace, event="SITUATION_HANDOFF_SUPPRESSED_FOR_PHONE_BOUND")
     state_mod.append_turn(st, role="ora", text=ora, kind="answer")
     st["observations"] = observations[-12:]
     navigation_options = _remember_pending_navigation(
