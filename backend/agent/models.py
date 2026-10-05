@@ -670,6 +670,10 @@ class AutonomousGoal(BaseModel):
     completed_at: Optional[str] = None
     # Durable continuation; absent on legacy goals (no unsolicited replay).
     next_run_at: Optional[str] = None
+    # A person's explicit "più tardi". Separate from an ordinary model wait:
+    # stale workers may not erase it before this instant, while terminal states
+    # may still close the goal if the world resolves underneath it.
+    user_deferred_until: Optional[str] = None
     background_runs: int = 0
     clarifications: List[Dict[str, str]] = Field(default_factory=list, max_length=3)
     opportunity_revision: str = ""

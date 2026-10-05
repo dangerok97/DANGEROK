@@ -68,9 +68,22 @@ async def refresh(service, goal):
     goal.opportunity_revision = revision
     goal.source_situation = context(row or {})
     goal.background_runs = 0
-    goal.status = "abandoned" if closed else "active"
+
+    now = datetime.now(timezone.utc)
+    deferred_until = None
+    if goal.user_deferred_until:
+        try:
+            parsed = datetime.fromisoformat(goal.user_deferred_until)
+            parsed = parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+            if parsed > now and not closed:
+                deferred_until = parsed.astimezone(timezone.utc).isoformat()
+        except (TypeError, ValueError):
+            deferred_until = None
+
+    goal.status = "abandoned" if closed else ("waiting" if deferred_until else "active")
     goal.rationale = "La segnalazione di partenza è stata chiusa." if closed else "Rivaluto il lavoro con le informazioni aggiornate."
-    goal.next_run_at = None if closed else datetime.now(timezone.utc).isoformat()
+    goal.next_run_at = None if closed else (deferred_until or now.isoformat())
+    goal.user_deferred_until = None if closed else deferred_until
     if row:
         from agent.source_refs import expand_opportunity_source_refs
         goal.source_refs = await expand_opportunity_source_refs(
