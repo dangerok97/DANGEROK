@@ -105,6 +105,7 @@ async def test_time_sensitive_weather_result_becomes_useful_attention_not_narrat
         OWNER, goal.id, run, budget, language="it"
     )
 
+    assert budget.visibility_calls == 1
     assert decision is not None
     assert decision.outcome == "requires_attention"
     assert "rischio di pioggia" in decision.headline.lower()
@@ -160,14 +161,16 @@ async def test_fresh_weather_that_changes_nothing_stays_silent(monkeypatch):
     monkeypatch.setattr(DeliveryService, "note_activity", note_activity)
     monkeypatch.setattr(DeliveryService, "evaluate_subject", delivered)
 
+    budget = AgentBudget()
     decision = await service._consider_visibility(
         OWNER,
         goal.id,
         AgentRun(owner_id=OWNER, goal_id=goal.id, background=True),
-        AgentBudget(),
+        budget,
         language="it",
     )
 
+    assert budget.visibility_calls == 1
     assert decision is not None
     assert decision.outcome == "silent"
     assert await db.agent_needs.count_documents(
