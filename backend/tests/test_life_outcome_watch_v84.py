@@ -355,6 +355,47 @@ async def test_everyday_outcome_schedules_recheck_then_surfaces_estimated_moment
     offered.assert_awaited_once()
 
 
+
+
+
+def test_same_ai_decision_can_persist_situation_and_read_live_weather():
+    from conversation_engine.ai_core.governance import validate_decision
+    from conversation_engine.ai_core.tools.registry import ToolRegistry
+
+    raw = {
+        "response_mode": "tool",
+        "reasoning_status": "enough_information",
+        "tool_call": {
+            "capability": "get_weather_forecast",
+            "arguments": {},
+        },
+        "situation_update": {
+            "operation": "create",
+            "summary": "È iniziata una situazione temporanea con un esito futuro utile.",
+            "semantic_kind": "situazione temporanea con esito atteso",
+            "temporal_scope": "iniziata adesso",
+            "attention_intent": (
+                "stimare il momento utile, ricontrollare le condizioni e avvisare"
+            ),
+            "facts": ["La situazione è iniziata adesso."],
+            "constraints": [],
+            "assumptions": [],
+            "source_refs": ["user_conversation"],
+            "linked_object_refs": [],
+            "source": "user_conversation",
+        },
+    }
+
+    governed = validate_decision(raw, tools=ToolRegistry(db=None))
+
+    assert governed.ok is True
+    assert governed.decision is not None
+    assert governed.decision.tool_call.resolved_capability == "get_weather_forecast"
+    assert governed.decision.situation_update is not None
+    assert governed.decision.situation_update.operation == "create"
+    assert "momento utile" in governed.decision.situation_update.attention_intent
+
+
 def test_life_outcome_policy_is_model_educated_not_domain_hardcoded():
     prompt = (ROOT / "conversation_engine" / "ai_core" / "prompt.py").read_text(
         encoding="utf-8"
