@@ -60,6 +60,7 @@ _FACTS: Dict[str, CapabilityFacts] = {
     "contacts.read": CapabilityFacts("contacts.read", False, "easily"),
     "banking.read": CapabilityFacts("banking.read", False, "easily", financial=True),
     "location.read": CapabilityFacts("location.read", False, "easily"),
+    "weather.read": CapabilityFacts("weather.read", False, "easily"),
     # Preparing. Produces something, changes nothing outside ORA.
     "document.create": CapabilityFacts("document.create", False, "easily"),
     "comparison.run": CapabilityFacts("comparison.run", False, "easily"),
@@ -105,6 +106,7 @@ _EXECUTABLE = {
     "contacts.read",
     "banking.read",
     "location.read",
+    "weather.read",
     "mail.draft",
     "mail.send",
     # V3.9 Sprint 3 — the first real write. A personal calendar entry is
@@ -170,6 +172,7 @@ _REAL = {
     "mail.draft",
     "mail.send",
     "location.read",
+    "weather.read",
     "phone.call",
 }
 
@@ -275,8 +278,7 @@ class CapabilityResolver:
                 status = "unavailable"
                 reason = "bank_not_connected"
 
-        return Resolution(
-            capability=facts.name,
+        # Weather is a real external read, but it may use only a current/recent\n        # device point under the same consent rule as Home weather.\n        if facts.name == "weather.read":\n            try:\n                import weather as meteo\n                from location.service import LocationService\n\n                provider_ready = bool(meteo.capabilities().get("available"))\n                location_allowed = (\n                    await LocationService(self.db).get_preference(owner_id)\n                ) == "while_using"\n            except Exception:\n                provider_ready = False\n                location_allowed = False\n            if not provider_ready:\n                executable = False\n                status = "unavailable"\n                reason = "weather_provider_unavailable"\n            elif not location_allowed:\n                permitted = False\n                status = "requires_connection"\n                reason = "location_not_permitted"\n            else:\n                status = "available_real"\n                reason = ""\n\n        return Resolution(\n            capability=facts.name,
             known=True,
             permitted=permitted,
             executable=executable,
