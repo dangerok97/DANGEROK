@@ -69,6 +69,7 @@ async def test_agent_rereads_exact_situation_preview_without_history(monkeypatch
         summary="I panni sono stesi sul balcone di Casa.",
         semantic_kind="attività temporanea",
         temporal_scope="iniziata questa mattina",
+        attention_intent="valutare se serve ricontrollare la situazione prima di sera",
         participants=[],
         constraints=["Devono asciugarsi prima di sera."],
         facts=["I panni sono all'aperto."],
@@ -116,6 +117,9 @@ async def test_agent_rereads_exact_situation_preview_without_history(monkeypatch
     assert row["facts"] == ["I panni sono all'aperto."]
     assert row["constraints"] == ["Devono asciugarsi prima di sera."]
     assert row["temporal_scope"] == "iniziata questa mattina"
+    assert row["attention_intent"] == (
+        "valutare se serve ricontrollare la situazione prima di sera"
+    )
     assert row["linked_object_refs"] == ["place:home_1"]
     assert captured["payload"]["source_context_unavailable"] is False
 

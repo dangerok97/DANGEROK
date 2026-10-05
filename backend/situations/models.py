@@ -29,6 +29,7 @@ class SituationUpdate(BaseModel):
     summary: Optional[str] = Field(default=None, max_length=400)
     semantic_kind: Optional[str] = Field(default=None, max_length=80)
     temporal_scope: Optional[str] = Field(default=None, max_length=240)
+    attention_intent: Optional[str] = Field(default=None, max_length=300)
     participants: List[str] = Field(default_factory=list, max_length=12)
     constraints: List[str] = Field(default_factory=list, max_length=20)
     facts: List[str] = Field(default_factory=list, max_length=20)
@@ -76,6 +77,7 @@ class SituationState(BaseModel):
     summary: str
     semantic_kind: Optional[str] = None
     temporal_scope: Optional[str] = None
+    attention_intent: Optional[str] = None
     participants: List[str] = Field(default_factory=list)
     constraints: List[str] = Field(default_factory=list)
     facts: List[str] = Field(default_factory=list)
@@ -97,6 +99,7 @@ class SituationState(BaseModel):
             "summary": self.summary,
             "semantic_kind": self.semantic_kind,
             "temporal_scope": self.temporal_scope,
+            "attention_intent": self.attention_intent,
             "participants": self.participants[:6],
             "constraints": self.constraints[:8],
             "facts": self.facts[:8],

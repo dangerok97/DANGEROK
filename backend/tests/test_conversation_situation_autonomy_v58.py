@@ -43,12 +43,16 @@ async def test_conversational_situation_becomes_reviewable_autonomous_goal(monke
             summary="Ho steso i panni adesso sul balcone.",
             semantic_kind="attività temporanea con esito atteso",
             temporal_scope=datetime.now(timezone.utc).isoformat(),
+            attention_intent="valutare se tempi o condizioni esterne rendono utile ricontrollare i panni",
             facts=["I panni sono stati stesi adesso."],
             source_refs=["user_conversation"],
             source="user_conversation",
         ),
     )
     assert result["status"] == "success"
+    assert result["situation"]["attention_intent"] == (
+        "valutare se tempi o condizioni esterne rendono utile ricontrollare i panni"
+    )
     sid = result["situation"]["id"]
     ref = f"situation:{sid}"
 
@@ -68,6 +72,9 @@ async def test_conversational_situation_becomes_reviewable_autonomous_goal(monke
     assert len(rows) == 1
     assert rows[0]["ref"] == ref
     assert "panni" in rows[0]["what_it_is"].lower()
+    assert rows[0]["attention_intent"] == (
+        "valutare se tempi o condizioni esterne rendono utile ricontrollare i panni"
+    )
 
     # Keep discovery focused on the real Situation row while exercising its
     # ordinary evidence allow-list and persistence path.
@@ -158,3 +165,58 @@ async def test_situation_replay_does_not_enqueue_duplicate_opportunity_change(mo
     assert replay.get("deduped") is True
     assert await db.meaningful_changes.count_documents({"owner_id": OWNER}) == 1
     assert wake.await_count == 1
+
+
+
+def test_user_sees_what_ora_will_do_with_a_persisted_situation():
+    from conversation_engine.ai_core.loop import _with_situation_handoff
+
+    result = {
+        "status": "success",
+        "operation": "create",
+        "situation": {
+            "id": "sit_laundry",
+            "attention_intent": (
+                "valutare se tempi o condizioni esterne rendono utile "
+                "ricontrollare i panni"
+            ),
+        },
+    }
+
+    visible = _with_situation_handoff("Ok.", result)
+
+    assert not visible.lower().startswith("ok")
+    assert "sotto controllo" in visible.lower()
+    assert "tempi o condizioni esterne" in visible.lower()
+    assert "ricontrollare i panni" in visible.lower()
+
+
+def test_situation_handoff_still_explains_generic_review_without_attention_intent():
+    from conversation_engine.ai_core.loop import _with_situation_handoff
+
+    result = {
+        "status": "success",
+        "operation": "create",
+        "situation": {"id": "sit_plain", "attention_intent": None},
+    }
+
+    visible = _with_situation_handoff("Ok.", result)
+    assert not visible.lower().startswith("ok")
+    assert "situazione" in visible.lower()
+    assert "rivaluter" in visible.lower()
+    assert "non ti disturbo" in visible.lower()
+
+
+def test_resolved_situation_does_not_claim_future_attention():
+    from conversation_engine.ai_core.loop import _with_situation_handoff
+
+    result = {
+        "status": "success",
+        "operation": "resolve",
+        "situation": {
+            "id": "sit_done",
+            "attention_intent": "ricontrollare qualcosa in futuro",
+        },
+    }
+
+    assert _with_situation_handoff("Fatto.", result) == "Fatto."

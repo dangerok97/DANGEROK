@@ -1991,6 +1991,9 @@ async def run_cognitive_loop(
             if detto_dallo_strumento and detto_dallo_strumento not in (ora or ""):
                 ora = detto_dallo_strumento
 
+            ora = _with_situation_handoff(ora, situation_result)
+            if situation_result and ora:
+                add_step(trace, event="SITUATION_HANDOFF_VISIBLE")
             state_mod.append_turn(st, role="ora", text=ora, kind=mode)
             if mode == "ask" and decision.uncertainty:
                 asked_refs = [
@@ -2824,6 +2827,9 @@ async def run_cognitive_loop(
     if navigation_text:
         ora = navigation_text
         add_step(trace, event="NAVIGATION_HANDOFF_BOUND")
+    ora = _with_situation_handoff(ora, situation_result)
+    if situation_result and ora:
+        add_step(trace, event="SITUATION_HANDOFF_VISIBLE_BOUND")
     state_mod.append_turn(st, role="ora", text=ora, kind="answer")
     st["observations"] = observations[-12:]
     navigation_options = _remember_pending_navigation(
@@ -3158,6 +3164,51 @@ def _guidance_state_from(state: Dict[str, Any]):
         return GoalState.model_validate(raw)
     except Exception:
         return GoalState()
+
+
+_BARE_ACK_RE = re.compile(r"(?i)^\s*(ok|va bene|capito|ricevuto|perfetto)[.!…\s]*$")
+
+
+def _with_situation_handoff(
+    text: str, situation_result: Optional[Dict[str, Any]]
+) -> str:
+    """Make the handling of user-given contextual information visible.
+
+    Every persisted create/update is queued for the ordinary autonomy review.
+    attention_intent carries the AI-owned reason for future attention when one
+    is already known. This function exposes only that persisted/queued truth;
+    it never invents a provider, sensor, notification channel or outcome.
+    """
+    result = situation_result or {}
+    if result.get("status") != "success" or result.get("operation") not in (
+        "create",
+        "update",
+    ):
+        return text or ""
+
+    situation = result.get("situation") or {}
+    intent = " ".join(str(situation.get("attention_intent") or "").split()).strip()
+    intent = intent.rstrip(" .;:")
+
+    if intent:
+        sentence = (
+            "Terrò questa situazione sotto controllo per "
+            f"{intent}. Se emerge qualcosa di utile, te lo segnalo; "
+            "altrimenti non ti disturbo."
+        )
+    else:
+        sentence = (
+            "Terrò questa situazione tra quelle attive e la rivaluterò nelle "
+            "prossime valutazioni di ORA. Se emerge qualcosa di utile, te lo "
+            "segnalo; altrimenti non ti disturbo."
+        )
+
+    base = (text or "").strip()
+    if not base or _BARE_ACK_RE.fullmatch(base):
+        return sentence
+    if intent and intent.casefold() in base.casefold():
+        return base
+    return f"{base}\\n\\n{sentence}"
 
 
 def _compose_user_text(decision: CognitiveDecision, observations=None) -> str:
