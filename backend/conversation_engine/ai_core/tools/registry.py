@@ -697,6 +697,7 @@ class ToolRegistry:
                 handler=place_caps.open_navigation,
                 tags=["places", "navigation"],
             )
+        )
         self.register(
             CapabilitySpec(
                 capability="continue_navigation",
@@ -715,8 +716,6 @@ class ToolRegistry:
                 handler=place_caps.continue_navigation,
                 tags=["places", "navigation", "continuation"],
             )
-        )
-
         )
 
     def _register_accommodation(self) -> None:
