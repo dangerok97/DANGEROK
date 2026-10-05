@@ -1247,6 +1247,7 @@ class ToolRegistry:
                 handler=cal_caps.cancel_calendar_event,
                 tags=["calendar", "temporal"],
             )
+        )
         self.register(
             CapabilitySpec(
                 capability="continue_calendar_action",
@@ -1264,8 +1265,6 @@ class ToolRegistry:
                 handler=cal_caps.continue_calendar_action,
                 tags=["calendar", "temporal", "continuation"],
             )
-        )
-
         )
 
     def _register_files(self) -> None:
