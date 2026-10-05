@@ -61,6 +61,7 @@ from agent.models import (
     ResultProvenance,
 )
 from agent.needs import NeedService
+from agent.owner_budget import OwnerBackgroundBudget
 from agent.repository import AgentRepository
 from agent.visibility import VisibilityService
 
@@ -210,6 +211,7 @@ class AgentService:
         self.evidence = EvidenceStore(db)
         self.visibility = VisibilityService(db)
         self.needs = NeedService(db)
+        self.owner_budget = OwnerBackgroundBudget(db)
 
     async def ensure_indexes(self) -> None:
         await self.repo.ensure_indexes()
@@ -218,6 +220,7 @@ class AgentService:
         await self.evidence.ensure_indexes()
         await self.visibility.ensure_indexes()
         await self.needs.ensure_indexes()
+        await self.owner_budget.ensure_indexes()
 
     # --- the way in --------------------------------------------------------
 
@@ -532,6 +535,49 @@ class AgentService:
             await refresh(self, goal)
             if not goal.is_open:
                 return {"ok": True, "state": goal.status}
+
+            if run.background:
+                owner_claim = await self.owner_budget.claim(owner_id)
+                if not owner_claim.allowed:
+                    run.stopped_because = "owner_background_budget"
+                    goal.status = "waiting"
+                    goal.next_run_at = owner_claim.reset_at
+                    await self.repo.save_goal(goal)
+                    await self.repo.journal(
+                        owner_id,
+                        goal.id,
+                        kind="owner_budget_wait",
+                        note=(
+                            "Limite giornaliero di lavoro autonomo raggiunto; "
+                            "il lavoro riprenderà al reset tecnico."
+                        ),
+                        detail={
+                            "used": owner_claim.used,
+                            "limit": owner_claim.limit,
+                            "reset_at": owner_claim.reset_at,
+                        },
+                    )
+                    try:
+                        from ambient.service import AmbientService
+
+                        await AmbientService(self.db).schedule(
+                            owner_id,
+                            reason="owner_budget_reset",
+                            when=datetime.fromisoformat(owner_claim.reset_at),
+                            source_ref=f"goal:{goal.id}",
+                            provenance="code_schedule",
+                        )
+                    except Exception as exc:
+                        logger.info(
+                            "owner budget reset wake soft-fail: %s",
+                            type(exc).__name__,
+                        )
+                    return {
+                        "ok": True,
+                        "state": "owner_budget_paused",
+                        "until": owner_claim.reset_at,
+                        "goal": goal.for_human(),
+                    }
 
             revisit_due = bool(
                 run.background
