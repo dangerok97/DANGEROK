@@ -700,12 +700,14 @@ async def read_banking(db, owner_id: str, goal, *, step=None) -> CapabilityOutco
     )
 
 
-async def read_weather(db, owner_id: str, goal) -> CapabilityOutcome:
+async def read_weather(db, owner_id: str, goal, *, step=None) -> CapabilityOutcome:
     """Read the same real weather surface ORA already uses on Home.
 
-    The location is resolved by HomeService's consent/freshness rules. Raw
-    coordinates are used only for the provider call and never enter agent
-    evidence; the durable result contains bounded weather claims only.
+    An exact owned place:<id> in the step pins the forecast to that Life
+    Place. This is important for follow-ups: the user may move while the thing
+    being followed stays put. With no place ref, use current device position
+    under HomeService's existing consent/freshness rules. Raw coordinates are
+    used only for the provider call and never enter durable agent evidence.
     """
     try:
         import weather as weather_service
@@ -721,27 +723,65 @@ async def read_weather(db, owner_id: str, goal) -> CapabilityOutcome:
             "weather.read", "provider_unavailable", "Il provider meteo non è disponibile."
         )
 
-    try:
-        point = await HomeService(db)._where_they_are(owner_id)
-    except Exception as exc:
-        logger.info("weather location soft-fail: %s", type(exc).__name__)
-        point = None
-    if point is None:
-        return CapabilityOutcome(
-            status="unavailable",
-            observation=(
-                "Non posso leggere il meteo del posto in cui sei perché non ho "
-                "una posizione corrente autorizzata e abbastanza recente."
-            ),
-            provenance=ResultProvenance(
-                source_class="internal_observation",
-                capability="weather.read",
-                freshness="unknown",
-                certainty_note="nessun punto corrente utilizzabile per il meteo",
-            ),
-            error_type="location_unavailable",
-            retryable=False,
-        )
+    point = None
+    pinned_ref = next(
+        (
+            str(ref).strip()
+            for ref in (getattr(step, "input_refs", None) or [])
+            if str(ref).strip().startswith("place:")
+        ),
+        "",
+    )
+    if pinned_ref:
+        try:
+            from places.service import PlacesService
+
+            place_id = pinned_ref.split(":", 1)[1]
+            saved = await PlacesService(db).get_place(owner_id, place_id)
+            if saved and saved.coordinates is not None and saved.state != "dismissed":
+                point = (
+                    float(saved.coordinates.latitude),
+                    float(saved.coordinates.longitude),
+                    str(saved.locality or saved.label or "").strip(),
+                )
+        except Exception as exc:
+            logger.info("weather pinned-place soft-fail: %s", type(exc).__name__)
+        if point is None:
+            return CapabilityOutcome(
+                status="unavailable",
+                observation="Il luogo fissato per questo controllo non è più disponibile.",
+                provenance=ResultProvenance(
+                    source_class="internal_observation",
+                    capability="weather.read",
+                    source_refs=[pinned_ref],
+                    freshness="unknown",
+                    certainty_note="place ref non risolvibile o senza coordinate",
+                ),
+                error_type="place_unavailable",
+                retryable=False,
+            )
+    else:
+        try:
+            point = await HomeService(db)._where_they_are(owner_id)
+        except Exception as exc:
+            logger.info("weather location soft-fail: %s", type(exc).__name__)
+            point = None
+        if point is None:
+            return CapabilityOutcome(
+                status="unavailable",
+                observation=(
+                    "Non posso leggere il meteo del posto in cui sei perché non ho "
+                    "una posizione corrente autorizzata e abbastanza recente."
+                ),
+                provenance=ResultProvenance(
+                    source_class="internal_observation",
+                    capability="weather.read",
+                    freshness="unknown",
+                    certainty_note="nessun punto corrente utilizzabile per il meteo",
+                ),
+                error_type="location_unavailable",
+                retryable=False,
+            )
 
     lat, lon, place = point
     try:
@@ -859,6 +899,7 @@ async def read_weather(db, owner_id: str, goal) -> CapabilityOutcome:
             source_class="external_research",
             capability="weather.read",
             provider=str(weather_service.configured_provider() or "weather")[:60],
+            source_refs=([pinned_ref] if pinned_ref else []),
             freshness="fresh",
             certainty_note="previsione letta ora dal provider configurato",
         ),
