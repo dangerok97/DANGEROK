@@ -109,6 +109,8 @@ SignalType = Literal[
     # live nowhere in this list.
     "email.message.added",
     "email.thread.updated",
+    "travel.booking.changed",
+    "travel.booking.cancelled",
 ]
 
 # Fields whose difference a person could observe. Everything a provider also
@@ -211,6 +213,7 @@ FRESHNESS_HOURS: Dict[str, tuple] = {
     # calendar: what arrives in it is news for a while, and a reading from
     # this morning is still a fair picture of the day.
     "email": (4, 24),
+    "travel": (1, 12),
 }
 DEFAULT_FRESHNESS_HOURS = (6, 48)
 
@@ -533,12 +536,15 @@ class ConnectedSignal(BaseModel):
             "document.removed": "document.facts_changed",
             "email.message.added": "message.received",
             "email.thread.updated": "thread.updated",
+            "travel.booking.changed": "booking.updated",
+            "travel.booking.cancelled": "booking.cancelled",
         }.get(self.signal_type, "event.updated")
         return {
             "source": {
                 "calendar": "calendar",
                 "documents": "documents",
                 "email": "communications",
+                "travel": "travel",
             }.get(self.source_type, "documents"),
             "kind": kind,
             "entity_ref": self.source_object_ref,
