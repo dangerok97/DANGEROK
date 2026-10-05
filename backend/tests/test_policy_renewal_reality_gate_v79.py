@@ -316,6 +316,69 @@ async def test_near_renewal_document_becomes_read_research_compare_without_world
     assert "mancano massimale e franchigia" in blob
     assert await service.evidence.research_refs(OWNER, goal.id) == ["rr_policy_market"]
 
+    # A read-only autonomous investigation is not complete until it has a
+    # useful grounded result for the person. Exercise that completion contract:
+    # prepare from the evidence, audit the draft, then verify the outcome.
+    import json
+
+    async def draft_and_audit(system, payload):
+        data = json.loads(payload)
+        if "Produce the actual useful draft" in system:
+            rows = data["evidence"]
+            ids = [row["id"] for row in rows]
+            return {
+                "content": (
+                    "La polizza attuale indica 480 euro annui e scadenza il 20 ottobre 2026. "
+                    "Alternativa A indica 410 euro con massimale 500.000 euro e franchigia "
+                    "250 euro; con i dati disponibili è confrontabile. Alternativa B costa "
+                    "meno, ma non ha massimale e franchigia verificabili e quindi non la "
+                    "considero una scelta affidabile."
+                ),
+                "evidence_ids": ids,
+            }
+        rows = data["evidence"]
+        ids = [row["id"] for row in rows]
+        return {
+            "verified": True,
+            "content": (
+                "La polizza attuale indica 480 euro annui e scadenza il 20 ottobre 2026. "
+                "Alternativa A indica 410 euro con massimale 500.000 euro e franchigia "
+                "250 euro; con i dati disponibili è confrontabile. Alternativa B costa "
+                "meno, ma non ha massimale e franchigia verificabili e quindi non la "
+                "considero una scelta affidabile."
+            ),
+            "evidence_ids": ids,
+        }
+
+    async def verify_goal(goal_payload, *, evidence, language="it"):
+        prepared = str(evidence.get("prepared_result") or "")
+        assert "480 euro" in prepared
+        assert "410 euro" in prepared
+        assert "non la considero una scelta affidabile" in prepared
+        return {
+            "outcome": "achieved",
+            "reasoning": (
+                "Il confronto utile è stato preparato da lettura privata, ricerca esterna "
+                "e confronto, senza eseguire modifiche al contratto."
+            ),
+            "what_is_missing": "",
+            "revisit_in_hours": None,
+        }
+
+    monkeypatch.setattr(reasoning, "_ask_model", draft_and_audit)
+    monkeypatch.setattr(reasoning, "verify_goal", verify_goal)
+    monkeypatch.setattr(service, "_observe_life_change", AsyncMock())
+
+    completed = await service._finish(
+        OWNER, goal, plan, run, budget, language="it"
+    )
+    assert completed["state"] == "completed"
+    saved = await service.repo.get_goal(OWNER, goal.id)
+    assert saved is not None
+    assert "Alternativa A" in saved.prepared_text
+    assert "Alternativa B" in saved.prepared_text
+    assert "non la considero una scelta affidabile" in saved.prepared_text
+
     assert await service.executor.intents_for(OWNER, goal.id) == []
     assert await service.executor.receipts_for(OWNER, goal.id) == []
 
