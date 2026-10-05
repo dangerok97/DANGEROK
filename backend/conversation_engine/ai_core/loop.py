@@ -1992,12 +1992,17 @@ async def run_cognitive_loop(
                 ora = detto_dallo_strumento
 
             phone_turn = _has_phone_observation(observations[turn_start:])
-            if not phone_turn:
-                ora = _with_situation_handoff(ora, situation_result)
-                if situation_result and ora:
-                    add_step(trace, event="SITUATION_HANDOFF_VISIBLE")
-            elif situation_result:
-                add_step(trace, event="SITUATION_HANDOFF_SUPPRESSED_FOR_PHONE")
+            ora = _with_situation_handoff(
+                ora, situation_result, suppress=phone_turn
+            )
+            if situation_result and ora:
+                add_step(
+                    trace,
+                    event=(
+                        "SITUATION_HANDOFF_SUPPRESSED_FOR_PHONE"
+                        if phone_turn else "SITUATION_HANDOFF_VISIBLE"
+                    ),
+                )
             state_mod.append_turn(st, role="ora", text=ora, kind=mode)
             if mode == "ask" and decision.uncertainty:
                 asked_refs = [
@@ -2832,12 +2837,17 @@ async def run_cognitive_loop(
         ora = navigation_text
         add_step(trace, event="NAVIGATION_HANDOFF_BOUND")
     phone_turn = _has_phone_observation(observations[turn_start:])
-    if not phone_turn:
-        ora = _with_situation_handoff(ora, situation_result)
-        if situation_result and ora:
-            add_step(trace, event="SITUATION_HANDOFF_VISIBLE_BOUND")
-    elif situation_result:
-        add_step(trace, event="SITUATION_HANDOFF_SUPPRESSED_FOR_PHONE_BOUND")
+    ora = _with_situation_handoff(
+        ora, situation_result, suppress=phone_turn
+    )
+    if situation_result and ora:
+        add_step(
+            trace,
+            event=(
+                "SITUATION_HANDOFF_SUPPRESSED_FOR_PHONE_BOUND"
+                if phone_turn else "SITUATION_HANDOFF_VISIBLE_BOUND"
+            ),
+        )
     state_mod.append_turn(st, role="ora", text=ora, kind="answer")
     st["observations"] = observations[-12:]
     navigation_options = _remember_pending_navigation(
@@ -3178,7 +3188,10 @@ _BARE_ACK_RE = re.compile(r"(?i)^\s*(ok|va bene|capito|ricevuto|perfetto)[.!…\
 
 
 def _with_situation_handoff(
-    text: str, situation_result: Optional[Dict[str, Any]]
+    text: str,
+    situation_result: Optional[Dict[str, Any]],
+    *,
+    suppress: bool = False,
 ) -> str:
     """Make the handling of user-given contextual information visible.
 
@@ -3187,6 +3200,9 @@ def _with_situation_handoff(
     is already known. This function exposes only that persisted/queued truth;
     it never invents a provider, sensor, notification channel or outcome.
     """
+    if suppress:
+        return text or ""
+
     result = situation_result or {}
     if result.get("status") != "success" or result.get("operation") not in (
         "create",
