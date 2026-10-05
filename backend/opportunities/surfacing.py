@@ -87,6 +87,7 @@ class SurfacingService:
             },
             {"_id": 0, "opportunity_id": 1},
         ).sort("created_at", 1).to_list(3)
+        represented_rows = represented_rows[:3]
         represented_opportunities = {
             str(row.get("opportunity_id") or "")
             for row in represented_rows
