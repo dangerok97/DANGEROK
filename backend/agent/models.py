@@ -862,6 +862,7 @@ class ActionStep(BaseModel):
             "document_offset": self.parameters.get("document_offset") if self.capability_needed == "document.read" else None,
             "document_version": self.parameters.get("document_version") if self.capability_needed == "document.read" else None,
             "wait_hours": self.parameters.get("wait_hours") if self.step_type == "wait" else None,
+            "wait_until": self.parameters.get("wait_until") if self.step_type == "wait" else None,
             "execution_parameters": execution_parameters or None,
             "expected_result": self.expected_result or None,
             "external_effect": self.external_effect,
@@ -1145,6 +1146,9 @@ class GoalVerification(BaseModel):
     what_is_missing: str = Field(default="", max_length=300)
     # When the answer depends on something that has not happened yet.
     revisit_in_hours: Optional[int] = None
+    # Offset-aware ISO moment for a precise checkpoint (for example 18:30
+    # local). Runtime validates and bounds it; this model only carries it.
+    revisit_at: Optional[str] = Field(default=None, max_length=80)
     at: str = Field(default_factory=now_iso)
 
 
