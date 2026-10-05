@@ -1991,6 +1991,9 @@ async def run_cognitive_loop(
             if detto_dallo_strumento and detto_dallo_strumento not in (ora or ""):
                 ora = detto_dallo_strumento
 
+            ora = _with_situation_handoff(ora, situation_result)
+            if situation_result and ora:
+                add_step(trace, event="SITUATION_HANDOFF_VISIBLE")
             state_mod.append_turn(st, role="ora", text=ora, kind=mode)
             if mode == "ask" and decision.uncertainty:
                 asked_refs = [
@@ -2824,6 +2827,9 @@ async def run_cognitive_loop(
     if navigation_text:
         ora = navigation_text
         add_step(trace, event="NAVIGATION_HANDOFF_BOUND")
+    ora = _with_situation_handoff(ora, situation_result)
+    if situation_result and ora:
+        add_step(trace, event="SITUATION_HANDOFF_VISIBLE_BOUND")
     state_mod.append_turn(st, role="ora", text=ora, kind="answer")
     st["observations"] = observations[-12:]
     navigation_options = _remember_pending_navigation(
@@ -3158,6 +3164,48 @@ def _guidance_state_from(state: Dict[str, Any]):
         return GoalState.model_validate(raw)
     except Exception:
         return GoalState()
+
+
+_BARE_ACK_RE = re.compile(r"(?i)^\\s*(ok|va bene|capito|ricevuto|perfetto)[.!…\\s]*$")
+
+
+def _with_situation_handoff(
+    text: str, situation_result: Optional[Dict[str, Any]]
+) -> str:
+    """Make the handling of user-given contextual information visible.
+
+    A persisted Situation may wake autonomy later, but that future review is
+    otherwise invisible to the person. attention_intent is AI-owned semantic
+    meaning persisted with the Situation; this function only guarantees that
+    the already-persisted intent is surfaced. It never invents a provider,
+    sensor, notification channel or outcome.
+    """
+    result = situation_result or {}
+    if result.get("status") != "success" or result.get("operation") not in (
+        "create",
+        "update",
+    ):
+        return text or ""
+
+    situation = result.get("situation") or {}
+    intent = " ".join(str(situation.get("attention_intent") or "").split()).strip()
+    if not intent:
+        return text or ""
+
+    intent = intent.rstrip(" .;:")
+    if not intent:
+        return text or ""
+
+    sentence = (
+        "La tengo come situazione attiva: userò questa informazione per "
+        f"{intent}."
+    )
+    base = (text or "").strip()
+    if not base or _BARE_ACK_RE.fullmatch(base):
+        return sentence
+    if intent.casefold() in base.casefold():
+        return base
+    return f"{base}\\n\\n{sentence}"
 
 
 def _compose_user_text(decision: CognitiveDecision, observations=None) -> str:
