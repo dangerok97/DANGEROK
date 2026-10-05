@@ -316,8 +316,8 @@ async def test_near_renewal_document_becomes_read_research_compare_without_world
     assert "mancano massimale e franchigia" in blob
     assert await service.evidence.research_refs(OWNER, goal.id) == ["rr_policy_market"]
 
-    assert await db.agent_intents.count_documents({"owner_id": OWNER, "goal_id": goal.id}) == 0
-    assert await db.agent_receipts.count_documents({"owner_id": OWNER, "goal_id": goal.id}) == 0
+    assert await service.executor.intents_for(OWNER, goal.id) == []
+    assert await service.executor.receipts_for(OWNER, goal.id) == []
 
 
 @pytest.mark.asyncio
