@@ -60,6 +60,7 @@ _FACTS: Dict[str, CapabilityFacts] = {
     "contacts.read": CapabilityFacts("contacts.read", False, "easily"),
     "banking.read": CapabilityFacts("banking.read", False, "easily", financial=True),
     "location.read": CapabilityFacts("location.read", False, "easily"),
+    "weather.read": CapabilityFacts("weather.read", False, "easily"),
     # Preparing. Produces something, changes nothing outside ORA.
     "document.create": CapabilityFacts("document.create", False, "easily"),
     "comparison.run": CapabilityFacts("comparison.run", False, "easily"),
@@ -105,6 +106,7 @@ _EXECUTABLE = {
     "contacts.read",
     "banking.read",
     "location.read",
+    "weather.read",
     "mail.draft",
     "mail.send",
     # V3.9 Sprint 3 — the first real write. A personal calendar entry is
@@ -170,6 +172,7 @@ _REAL = {
     "mail.draft",
     "mail.send",
     "location.read",
+    "weather.read",
     "phone.call",
 }
 
@@ -274,6 +277,18 @@ class CapabilityResolver:
             else:
                 status = "unavailable"
                 reason = "bank_not_connected"
+
+        if facts.name == "weather.read" and permitted and executable:
+            try:
+                import weather as weather_service
+                weather_ready = bool(weather_service.capabilities().get("available"))
+            except Exception:
+                weather_ready = False
+            if weather_ready:
+                status = "available_real"
+            else:
+                status = "unavailable"
+                reason = "weather_provider_unavailable"
 
         return Resolution(
             capability=facts.name,

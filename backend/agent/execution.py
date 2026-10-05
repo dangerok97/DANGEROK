@@ -82,6 +82,7 @@ _READERS = {
     "contacts.read": providers.read_contacts,
     "banking.read": providers.read_banking,
     "location.read": providers.read_location,
+    "weather.read": providers.read_weather,
 }
 
 
