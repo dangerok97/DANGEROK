@@ -3339,7 +3339,7 @@ def _navigation_options(observations) -> list:
         payload = getattr(obs, "payload", None) or (
             obs.get("payload") if isinstance(obs, dict) else None
         ) or {}
-        if payload.get("capability") != "open_navigation" or not payload.get("ready"):
+        if payload.get("capability") not in ("open_navigation", "continue_navigation") or not payload.get("ready"):
             continue
         if payload.get("url") and payload.get("app"):
             app = str(payload["app"])
