@@ -848,6 +848,9 @@ class ActionStep(BaseModel):
         elif self.capability_needed == "contacts.read":
             who = str(self.parameters.get("who") or "").strip()[:120]
             execution_parameters = {"who": who} if who else {}
+        elif self.capability_needed == "route.read":
+            mode = str(self.parameters.get("travel_mode") or "drive").strip().lower()
+            execution_parameters = {"travel_mode": mode}
         return {
             "id": self.id,
             "ordinal": self.ordinal,

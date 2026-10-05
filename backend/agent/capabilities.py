@@ -61,6 +61,7 @@ _FACTS: Dict[str, CapabilityFacts] = {
     "banking.read": CapabilityFacts("banking.read", False, "easily", financial=True),
     "location.read": CapabilityFacts("location.read", False, "easily"),
     "weather.read": CapabilityFacts("weather.read", False, "easily"),
+    "route.read": CapabilityFacts("route.read", False, "easily"),
     # Preparing. Produces something, changes nothing outside ORA.
     "document.create": CapabilityFacts("document.create", False, "easily"),
     "comparison.run": CapabilityFacts("comparison.run", False, "easily"),
@@ -107,6 +108,7 @@ _EXECUTABLE = {
     "banking.read",
     "location.read",
     "weather.read",
+    "route.read",
     "mail.draft",
     "mail.send",
     # V3.9 Sprint 3 — the first real write. A personal calendar entry is
@@ -173,6 +175,7 @@ _REAL = {
     "mail.send",
     "location.read",
     "weather.read",
+    "route.read",
     "phone.call",
 }
 
@@ -289,6 +292,19 @@ class CapabilityResolver:
             else:
                 status = "unavailable"
                 reason = "weather_provider_unavailable"
+
+        if facts.name == "route.read" and permitted and executable:
+            try:
+                from places import routing
+                route_ready = bool(routing.capabilities().get("available"))
+            except Exception:
+                route_ready = False
+            if route_ready:
+                status = "available_real"
+            else:
+                executable = False
+                status = "unavailable"
+                reason = "routing_provider_unavailable"
 
         return Resolution(
             capability=facts.name,

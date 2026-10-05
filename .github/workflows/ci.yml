@@ -121,7 +121,7 @@ jobs:
             tests/test_conversation_situation_autonomy_v58.py tests/test_agent_weather_context_v59.py \
             tests/test_pinned_place_weather_v60.py tests/test_ai_chosen_followup_timing_v60.py \
             tests/test_agent_situation_context_v61.py tests/test_canonical_place_situation_links_v62.py \
-            tests/test_verified_situation_links_v63.py \
+            tests/test_verified_situation_links_v63.py tests/test_autonomous_live_route_v64.py \
             tests/test_document_extraction_signal_v4.py tests/test_update_work.py \
             tests/test_life_profile_opportunity_bridge.py \
             tests/test_ambient_runtime_v38.py tests/test_ambient_reliability_v38.py -x

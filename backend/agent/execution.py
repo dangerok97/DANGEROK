@@ -83,6 +83,7 @@ _READERS = {
     "banking.read": providers.read_banking,
     "location.read": providers.read_location,
     "weather.read": providers.read_weather,
+    "route.read": providers.read_route,
 }
 
 
@@ -240,7 +241,7 @@ class StepExecutor:
         # comparisons, so that no branch in this file can ever come to depend
         # on what a goal happens to be about.
         reader = _READERS.get(capability, providers.read_internal_state)
-        if capability in ("document.read", "mail.read", "contacts.read", "banking.read", "weather.read"):
+        if capability in ("document.read", "mail.read", "contacts.read", "banking.read", "weather.read", "route.read"):
             if capability == "mail.read" and budget is not None:
                 # One extra cognitive call distills private content into
                 # bounded facts before anything can enter durable evidence.
