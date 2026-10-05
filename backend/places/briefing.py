@@ -34,8 +34,17 @@ def decode_polyline(value: str) -> List[tuple[float, float]]:
     return points
 
 
-async def weather_along_route(polyline: str, duration_seconds: int) -> List[Dict[str, Any]]:
+async def weather_along_route(
+    polyline: str,
+    duration_seconds: int,
+    *,
+    start_at: datetime | None = None,
+) -> List[Dict[str, Any]]:
     """Three points on the actual route, at approximate passage times.
+
+    start_at is when the trip is expected to begin. Immediate navigation
+    omits it and uses now; calendar departures pass their computed leave time,
+    so a future journey never receives the weather for the current hour.
 
     Weather is a forecast, never a traffic or road incident report. Sampling
     uses point indices as a rough proxy for progress, so the times are marked
@@ -70,14 +79,18 @@ async def weather_along_route(polyline: str, duration_seconds: int) -> List[Dict
     if not isinstance(forecasts, list) or len(forecasts) != 3:
         return []
 
-    now = datetime.now(timezone.utc)
+    base_time = start_at or datetime.now(timezone.utc)
+    if base_time.tzinfo is None:
+        base_time = base_time.replace(tzinfo=timezone.utc)
+    else:
+        base_time = base_time.astimezone(timezone.utc)
     result = []
     from weather import _WMO, COME_SI_DICE
 
     for i, (label, _) in enumerate(positions):
         hourly = forecasts[i].get("hourly") or {}
         times = hourly.get("time") or []
-        target = now + timedelta(seconds=duration_seconds * i / 2)
+        target = base_time + timedelta(seconds=duration_seconds * i / 2)
         try:
             chosen = min(range(len(times)), key=lambda j: abs(
                 datetime.fromisoformat(times[j]).replace(tzinfo=timezone.utc) - target

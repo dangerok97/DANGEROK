@@ -295,7 +295,7 @@ class DepartureService:
                 roads = briefing.route_choices(alternatives)
                 best = min(alternatives, key=lambda r: r.get("duration_seconds", math.inf), default={})
                 if best.get("polyline"):
-                    weather = await briefing.weather_along_route(best["polyline"], int(duration))
+                    weather = await briefing.weather_along_route(best["polyline"], int(duration), start_at=leave)
         if not options:
             return {**base, "status": "routing_unavailable", "options": []}
         valid_until = min(_instant(presence.last_seen_at) + timedelta(seconds=120),
@@ -369,6 +369,66 @@ class DepartureService:
         return True
 
 
+
+def _connected_departure_context(evidence):
+    """Traffic and weather facts kept conditional on choosing the car.
+
+    The user has not selected a transport mode here. These sentences therefore
+    never turn driving into an assumption; they only preserve measured route
+    facts that would otherwise be lost after the model's proposal is grounded.
+    """
+    parts = []
+    roads = evidence.get("road_choices") or []
+    recommended = next((r for r in roads if r.get("recommended")), None)
+
+    if recommended:
+        minutes = max(1, round(float(recommended.get("duration_seconds") or 0) / 60))
+        steps = [str(x) for x in (recommended.get("main_steps") or []) if x]
+        via = f" via {', '.join(steps[:3])}" if steps else ""
+        sentence = (
+            f"Se scegli l'auto, il percorso più rapido stimato adesso è "
+            f"{recommended.get('label') or 'quello consigliato'}{via}: circa {minutes} min"
+        )
+        delay = recommended.get("delay_minutes")
+        if isinstance(delay, (int, float)) and delay > 0:
+            reference = str(recommended.get("delay_reference") or "tempo di riferimento")
+            sentence += f", con circa {round(delay)} min in più rispetto al {reference}"
+        sentence += "."
+        incidents = []
+        for incident in recommended.get("incidents") or []:
+            if not isinstance(incident, dict):
+                continue
+            label = str(incident.get("label") or "").strip()
+            road = str(incident.get("road") or "").strip()
+            if label:
+                incidents.append(f"{label}{f' su {road}' if road else ''}")
+        if incidents:
+            sentence += " Segnalazioni sul percorso: " + "; ".join(incidents[:2]) + "."
+        if evidence.get("future_traffic_unknown"):
+            sentence += (
+                " Il traffico è una fotografia attuale, non una previsione certa "
+                "per l'orario di partenza: ORA lo ricontrollerà più vicino al momento."
+            )
+        parts.append(sentence)
+
+    weather = [
+        point for point in (evidence.get("route_weather") or [])
+        if isinstance(point, dict)
+        and isinstance(point.get("rain_chance_pct"), (int, float))
+        and point.get("rain_chance_pct") >= 50
+    ]
+    if weather:
+        wettest = max(weather, key=lambda point: point.get("rain_chance_pct") or 0)
+        where = str(wettest.get("label") or "lungo il tragitto").lower()
+        condition = str(wettest.get("condition") or "pioggia").strip()
+        chance = round(float(wettest.get("rain_chance_pct") or 0))
+        parts.append(
+            f"Per il tragitto in auto, la previsione all'orario stimato di passaggio "
+            f"indica {condition} {where}, con probabilità di pioggia {chance}%."
+        )
+    return " ".join(parts)
+
+
 def ground_candidate(candidate, evidence, tz_name):
     """After the model chose relevance, pin the claim to actual route arithmetic."""
     from zoneinfo import ZoneInfo
@@ -386,13 +446,21 @@ def ground_candidate(candidate, evidence, tz_name):
     candidate.semantic_summary = (f"Per «{evidence['title']}» il "
         f"{_instant(evidence['starts_at']).astimezone(zone):%d/%m} alle "
         f"{_instant(evidence['starts_at']).astimezone(zone):%H:%M}: {clocks}.")[:280]
+    connected = _connected_departure_context(evidence)
     candidate.why_it_matters = (
         f"Stime per {evidence['location']}, con {MARGIN_MINUTES} minuti di margine. "
         "Il mezzo di trasporto è da scegliere. "
-        + ("L'orario è indicativo: il traffico futuro può cambiare. " if evidence["future_traffic_unknown"] else "")
+        + (connected + " " if connected else "")
         + "Il percorso va aggiornato prima di partire.")[:600]
-    candidate.why_now = f"Percorso verificato alle {_instant(evidence['observed_at']).astimezone(zone):%H:%M}."
-    candidate.what_ora_can_do = f"Posso aggiornare il percorso e aprire il navigatore per {evidence['location']}."[:600]
+    candidate.why_now = (
+        f"Percorso verificato alle {_instant(evidence['observed_at']).astimezone(zone):%H:%M}. "
+        + ("Il meteo è allineato all'orario stimato di passaggio. "
+           if evidence.get("route_weather") else "")
+    )[:300]
+    candidate.what_ora_can_do = (
+        f"Posso aggiornare percorso, traffico e meteo e aprire il navigatore "
+        f"per {evidence['location']}."
+    )[:600]
     candidate.initiative = "inform"
     candidate.valid_until = evidence["valid_until"]
     candidate.time_sensitivity = "perishable"
