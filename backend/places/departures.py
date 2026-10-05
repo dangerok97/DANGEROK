@@ -303,6 +303,7 @@ class DepartureService:
         return {**base, "status": "ready", "options": options, "road_choices": roads,
                 "route_weather": weather, "observed_at": now.isoformat(),
                 "valid_until": valid_until.isoformat(), "origin_seen_at": presence.last_seen_at,
+                "origin_source": presence.source,
                 "ref": base["ref"] + ":" + _digest([options, now.isoformat()]),
                 "future_traffic_unknown": _instant(event["starts_at"]) > now + timedelta(minutes=90)}
 
