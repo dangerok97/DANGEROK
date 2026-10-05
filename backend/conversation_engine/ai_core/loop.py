@@ -3166,7 +3166,7 @@ def _guidance_state_from(state: Dict[str, Any]):
         return GoalState()
 
 
-_BARE_ACK_RE = re.compile(r"(?i)^\\s*(ok|va bene|capito|ricevuto|perfetto)[.!…\\s]*$")
+_BARE_ACK_RE = re.compile(r"(?i)^\s*(ok|va bene|capito|ricevuto|perfetto)[.!…\s]*$")
 
 
 def _with_situation_handoff(
@@ -3174,11 +3174,10 @@ def _with_situation_handoff(
 ) -> str:
     """Make the handling of user-given contextual information visible.
 
-    A persisted Situation may wake autonomy later, but that future review is
-    otherwise invisible to the person. attention_intent is AI-owned semantic
-    meaning persisted with the Situation; this function only guarantees that
-    the already-persisted intent is surfaced. It never invents a provider,
-    sensor, notification channel or outcome.
+    Every persisted create/update is queued for the ordinary autonomy review.
+    attention_intent carries the AI-owned reason for future attention when one
+    is already known. This function exposes only that persisted/queued truth;
+    it never invents a provider, sensor, notification channel or outcome.
     """
     result = situation_result or {}
     if result.get("status") != "success" or result.get("operation") not in (
@@ -3189,21 +3188,25 @@ def _with_situation_handoff(
 
     situation = result.get("situation") or {}
     intent = " ".join(str(situation.get("attention_intent") or "").split()).strip()
-    if not intent:
-        return text or ""
-
     intent = intent.rstrip(" .;:")
-    if not intent:
-        return text or ""
 
-    sentence = (
-        "La tengo come situazione attiva: userò questa informazione per "
-        f"{intent}."
-    )
+    if intent:
+        sentence = (
+            "Terrò questa situazione sotto controllo per "
+            f"{intent}. Se emerge qualcosa di utile, te lo segnalo; "
+            "altrimenti non ti disturbo."
+        )
+    else:
+        sentence = (
+            "Terrò questa situazione tra quelle attive e la rivaluterò nelle "
+            "prossime valutazioni di ORA. Se emerge qualcosa di utile, te lo "
+            "segnalo; altrimenti non ti disturbo."
+        )
+
     base = (text or "").strip()
     if not base or _BARE_ACK_RE.fullmatch(base):
         return sentence
-    if intent.casefold() in base.casefold():
+    if intent and intent.casefold() in base.casefold():
         return base
     return f"{base}\\n\\n{sentence}"
 
