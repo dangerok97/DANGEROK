@@ -51,6 +51,7 @@ from ingestion.deduplication import (
     DeduplicationService,
 )
 from ingestion.event_model import IngestionEventRepository, compute_payload_hash
+from permissions.errors import ConsentDenied
 
 from .oauth import FLOW, resolve_gmail_redirect_uri, scopes_requested
 from .provider import GmailAPIError, GmailProviderProtocol, build_gmail_provider
