@@ -1379,6 +1379,8 @@ class AgentService:
             outcome=answer["outcome"],
             reasoning=str(answer.get("reasoning") or "")[:400],
             what_is_missing=str(answer.get("what_is_missing") or "")[:300],
+            revisit_at=(str(answer.get("revisit_at") or "").strip() or None),
+            revisit_in_minutes=answer.get("revisit_in_minutes"),
             revisit_in_hours=answer.get("revisit_in_hours"),
         )
         await self.repo.journal(
