@@ -168,7 +168,9 @@ class AgentRepository:
         docs = await self.db[GOALS].find(
             {"owner_id": owner_id, "status": {"$in": list(OPEN)}}, {"_id": 0}
         ).sort("created_at", 1).to_list(limit)
-        return [AutonomousGoal.model_validate(d) for d in docs]
+        # Do not delegate the public limit contract to a driver's interpretation
+        # of to_list(length). The caller asked for at most this many rows.
+        return [AutonomousGoal.model_validate(d) for d in docs[:limit]]
 
     async def goal_for_opportunity(
         self, owner_id: str, opportunity_id: str
