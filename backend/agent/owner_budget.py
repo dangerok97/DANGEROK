@@ -15,6 +15,7 @@ bound unsolicited/background autonomy.
 
 from __future__ import annotations
 
+import asyncio
 import os
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -28,6 +29,19 @@ COLLECTION = "agent_owner_background_budgets"
 DEFAULT_DAILY_BACKGROUND_RUNS = 12
 MAX_CONFIGURED_DAILY_BACKGROUND_RUNS = 96
 RETENTION_DAYS = 7
+
+# Same-process workers do not need to race the database for the same person's
+# daily counter. Mongo's unique key/upsert remains the cross-process guard.
+_CLAIM_LOCKS: dict[str, asyncio.Lock] = {}
+_CLAIM_LOCK_DAY = ""
+
+
+def _claim_lock(owner_id: str, day: str) -> asyncio.Lock:
+    global _CLAIM_LOCK_DAY
+    if _CLAIM_LOCK_DAY != day:
+        _CLAIM_LOCKS.clear()
+        _CLAIM_LOCK_DAY = day
+    return _CLAIM_LOCKS.setdefault(owner_id, asyncio.Lock())
 
 
 def _now() -> datetime:
@@ -103,81 +117,81 @@ class OwnerBackgroundBudget:
     ) -> OwnerBudgetClaim:
         """Atomically consume one owner-scoped background burst.
 
-        The unique (owner_id, day) row is also the counter. upsert=True
-        handles the first claim without a read-before-write race; the
-        used < limit predicate handles every later claim. Once the existing
-        row is full, Mongo attempts an insert that collides with the unique
-        owner/day key; that duplicate-key is the atomic full-budget signal.
-
-        A first-row race can surface as DuplicateKeyError while capacity still
-        remains, so retry one bounded non-upsert increment before deciding the
-        budget is exhausted. Storage uncertainty fails closed.
+        Same-process workers serialize per owner/day so they do not create a
+        needless first-row race. Across processes, the unique (owner_id, day)
+        key plus bounded upsert is still authoritative. Storage uncertainty
+        fails closed.
         """
         moment = (now or _now()).astimezone(timezone.utc)
         day, reset, expires = _window(moment)
         reset_at = reset.isoformat()
-        query = {
-            "owner_id": owner_id,
-            "day": day,
-            "used": {"$lt": self.daily_limit},
-        }
-        update = {
-            "$inc": {"used": 1},
-            "$set": {
-                "updated_at": moment.isoformat(),
-                "limit": self.daily_limit,
-                "reset_at": reset_at,
-                "expires_at": expires,
-            },
-            "$setOnInsert": {
+
+        async with _claim_lock(owner_id, day):
+            query = {
                 "owner_id": owner_id,
                 "day": day,
-                "created_at": moment.isoformat(),
-            },
-        }
+                "used": {"$lt": self.daily_limit},
+            }
+            update = {
+                "$inc": {"used": 1},
+                "$set": {
+                    "updated_at": moment.isoformat(),
+                    "limit": self.daily_limit,
+                    "reset_at": reset_at,
+                    "expires_at": expires,
+                },
+                "$setOnInsert": {
+                    "owner_id": owner_id,
+                    "day": day,
+                    "created_at": moment.isoformat(),
+                },
+            }
 
-        async def bounded_increment(*, upsert: bool):
-            return await self.db[COLLECTION].find_one_and_update(
-                query,
-                update,
-                upsert=upsert,
-                projection={"_id": 0, "used": 1},
-                return_document=ReturnDocument.AFTER,
-            )
-
-        try:
             try:
-                row = await bounded_increment(upsert=True)
-            except DuplicateKeyError:
-                # Another worker won the first insert race, or the row is
-                # already full. A bounded non-upsert retry distinguishes them.
-                row = await bounded_increment(upsert=False)
+                try:
+                    row = await self.db[COLLECTION].find_one_and_update(
+                        query,
+                        update,
+                        upsert=True,
+                        projection={"_id": 0, "used": 1},
+                        return_document=ReturnDocument.AFTER,
+                    )
+                except DuplicateKeyError:
+                    # A different process may have won the insert race. Retry
+                    # only as a bounded increment; never create another row.
+                    row = await self.db[COLLECTION].find_one_and_update(
+                        query,
+                        update,
+                        upsert=False,
+                        projection={"_id": 0, "used": 1},
+                        return_document=ReturnDocument.AFTER,
+                    )
 
-            if row is not None:
+                if row is not None:
+                    return OwnerBudgetClaim(
+                        allowed=True,
+                        used=int(row.get("used") or 0),
+                        limit=self.daily_limit,
+                        reset_at=reset_at,
+                    )
+
+                existing = await self.db[COLLECTION].find_one(
+                    {"owner_id": owner_id, "day": day},
+                    {"_id": 0, "used": 1},
+                )
                 return OwnerBudgetClaim(
-                    allowed=True,
-                    used=int(row.get("used") or 0),
+                    allowed=False,
+                    used=int((existing or {}).get("used") or self.daily_limit),
                     limit=self.daily_limit,
                     reset_at=reset_at,
                 )
-
-            existing = await self.db[COLLECTION].find_one(
-                {"owner_id": owner_id, "day": day},
-                {"_id": 0, "used": 1},
-            )
-            return OwnerBudgetClaim(
-                allowed=False,
-                used=int((existing or {}).get("used") or self.daily_limit),
-                limit=self.daily_limit,
-                reset_at=reset_at,
-            )
-        except Exception:
-            return OwnerBudgetClaim(
-                allowed=False,
-                used=self.daily_limit,
-                limit=self.daily_limit,
-                reset_at=reset_at,
-            )
+            except Exception:
+                return OwnerBudgetClaim(
+                    allowed=False,
+                    used=self.daily_limit,
+                    limit=self.daily_limit,
+                    reset_at=reset_at,
+                )
 
     async def forget_all(self, owner_id: str) -> int:
         result = await self.db[COLLECTION].delete_many({"owner_id": owner_id})
