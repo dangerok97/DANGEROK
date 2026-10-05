@@ -158,7 +158,10 @@ async def test_near_renewal_becomes_grounded_autonomous_comparison(monkeypatch):
     goal_id = considered["goal_id"]
 
     async def make_plan(goal, *, capabilities, context, language="it"):
-        assert context["source_context"][0]["ref"] == "document:policy_v80"
+        assert "document:policy_v80" in goal["source_refs"]
+        assert context["today"] == "2026-10-05"
+        # Planning sees the opaque document handle, not a copied private body.
+        assert "source_context" not in context
         return {
             "plan_summary": "Leggere il contratto e cercare un'alternativa attuale.",
             "expected_outcome": "Confronto utilizzabile prima della finestra decisionale.",
