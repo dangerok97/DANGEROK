@@ -12,6 +12,49 @@ utile, approfondisce, prepara o realizza un risultato entro la propria
 autorità, verifica ciò che è successo e comunica ciò che serve. Non chiede
 all'utente di dirigere ogni passaggio. Non inventa bisogni per generare lavoro.
 
+### 1.1 Ogni informazione spontanea deve poter diventare utile
+
+**Every utterance should earn its keep.** Quando la persona racconta qualcosa
+della propria vita, ORA non deve limitarsi a rispondere o archiviare la frase.
+Deve giudicare, senza template di dominio, se quella nuova informazione crea
+uno stato temporale, una dipendenza futura, un rischio, un esito verificabile
+o un'opportunità di aiuto. Se sì, collega solo le fonti già autorizzate
+(calendario, posizione/presenza, meteo, posta, banca, documenti, contatti,
+web), prepara un'ipotesi di evoluzione, pianifica quando vale la pena guardare
+di nuovo e interviene soltanto quando il beneficio supera il costo
+dell'interruzione.
+
+Contratto generale:
+
+```
+UTENTE DICE UN FATTO
+→ AI: che cosa cambia davvero nella sua vita?
+→ sistema: salva/proponi solo lo stato che merita di durare
+→ AI: quali fonti autorizzate possono ridurre l'incertezza?
+→ tools: osservano il mondo
+→ AI: previsione/condizione/esito atteso
+→ ambient runtime: riesame al momento o al cambio fonte
+→ attention gate: parla solo se c'è un vantaggio concreto
+→ verifica e chiusura
+```
+
+Caso di accettazione canonico, deliberatamente non codificato per categoria:
+«ho steso i panni adesso». L'AI può riconoscere un'attività temporanea con
+esito atteso «panni asciutti», usare ora/luogo autorizzato, stagione,
+temperatura, umidità, vento e pioggia per stimare una finestra, pianificare un
+riesame e avvisare prima se il rischio meteo rende utile agire. Se non c'è
+rischio, può restare silenziosa fino alla finestra in cui l'esito è
+plausibilmente raggiunto. La stessa architettura deve funzionare per una
+pianta appena annaffiata, un pacco atteso, un farmaco da ritirare, un'auto
+lasciata in officina, una torta messa in forno o qualunque altro evento della
+vita senza aggiungere un router per ciascun dominio.
+
+Guardrail: il racconto non autorizza scritture o acquisti; posizione e altre
+fonti si usano solo se consentite; una previsione resta previsione; un fatto
+temporale non diventa memoria permanente automaticamente; nessun “monitoraggio
+continuo” se basta una singola sveglia o un trigger di fonte; il silenzio resta
+un esito valido.
+
 L'autonomia è generale nel ragionamento; la copertura effettiva dipende da
 fonti e strumenti. «Qualsiasi aspetto della vita» è la direzione del prodotto,
 non una promessa che oggi ogni dominio e ogni operazione siano supportati.
