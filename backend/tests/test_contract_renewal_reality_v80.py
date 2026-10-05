@@ -159,7 +159,8 @@ async def test_near_renewal_becomes_grounded_autonomous_comparison(monkeypatch):
 
     async def make_plan(goal, *, capabilities, context, language="it"):
         assert "document:policy_v80" in goal["source_refs"]
-        assert context["today"] == "2026-10-05"
+        assert context["today"] == context["local_date"]
+        assert context["timezone"] == "Europe/Rome"
         # Planning sees the opaque document handle, not a copied private body.
         assert "source_context" not in context
         return {
