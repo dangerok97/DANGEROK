@@ -194,6 +194,12 @@ a Situation. Use the recent Situation context ids supplied by the system; never 
 - update/cancel/resolve: use an existing user-owned situation_id and expected_revision
 - none: no Situation mutation
 Keep semantic_kind an optional open descriptive label only. Do not classify into fixed domains.
+For create/update, when this Situation is worth future attention, set attention_intent to ONE
+short, user-grounded infinitive phrase describing what ORA will use the information for next
+(e.g. "valutare se serve ricontrollare la situazione"). It is not a promise of a specific
+provider, sensor, notification channel or external fact you have not actually secured.
+If there is no useful follow-up, leave attention_intent null. When attention_intent is present,
+the runtime will expose that handling to the person, so do not hide behind a bare acknowledgement.
 Choose cancel when the user says the previously anticipated activity will no longer happen,
 even when the same correction also supplies replacement context. Choose update when the
 activity still exists but its time, participants, constraints or facts changed. Choose resolve
@@ -907,6 +913,7 @@ You MUST reply with a single JSON object:
     "summary": "domain-neutral semantic summary or null",
     "semantic_kind": "optional open descriptive label",
     "temporal_scope": "optional user-grounded time scope",
+    "attention_intent": "optional infinitive phrase explaining what ORA will use this situation for next",
     "participants": [], "constraints": [], "facts": [], "assumptions": [],
     "supersedes": [], "source_refs": ["user_conversation"],
     "linked_plan_id": null, "linked_object_refs": [], "source": "user_conversation"
