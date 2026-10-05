@@ -74,6 +74,7 @@ MAX_PLAN_STEPS = 12
 # The shortest a `wait` may be before looking again. Without a floor, a model
 # that keeps saying "a bit later" produces a loop that looks like diligence.
 MIN_WAIT_HOURS = 1
+MIN_WAIT_MINUTES = 1
 MAX_WAIT_HOURS = 24 * 14
 
 # How long to leave a goal alone when a run ran out of budget rather than out
@@ -98,6 +99,42 @@ def _bounded_wait_hours(value: Any, default: int = 6) -> int:
 def _wait_hours_for(step: Optional[ActionStep], default: int = 6) -> int:
     value = ((step.parameters or {}).get("wait_hours") if step is not None else default)
     return _bounded_wait_hours(value, default=default)
+
+
+def _bounded_wait_until(
+    value: Any, *, now: Optional[datetime] = None
+) -> Optional[datetime]:
+    """Validate an exact checkpoint and bound it to the autonomous horizon.
+
+    Exact waits must carry their own timezone/offset. A naive local-looking
+    time would be ambiguous at DST boundaries and across devices, so it is
+    refused and the caller falls back to wait_hours instead.
+    """
+    if value in (None, ""):
+        return None
+    try:
+        target = (
+            value
+            if isinstance(value, datetime)
+            else datetime.fromisoformat(str(value).strip().replace("Z", "+00:00"))
+        )
+    except (TypeError, ValueError):
+        return None
+    if target.tzinfo is None or target.utcoffset() is None:
+        return None
+
+    moment = (now or _now()).astimezone(timezone.utc)
+    target = target.astimezone(timezone.utc)
+    if target <= moment:
+        return None
+
+    floor = moment + timedelta(minutes=MIN_WAIT_MINUTES)
+    ceiling = moment + timedelta(hours=MAX_WAIT_HOURS)
+    return max(floor, min(ceiling, target))
+
+
+def _wait_until_for(step: Optional[ActionStep]) -> Any:
+    return ((step.parameters or {}).get("wait_until") if step is not None else None)
 
 
 async def _user_clock_context(db, owner_id: str) -> dict:
@@ -562,6 +599,7 @@ class AgentService:
                 return await self._wait(
                     owner_id, goal, plan, step, run,
                     hours=_wait_hours_for(step),
+                    wait_until=_wait_until_for(step),
                     note=(step.intent if step is not None else ""),
                 )
 
@@ -607,7 +645,9 @@ class AgentService:
             if step.step_type == "wait":
                 return await self._wait(
                     owner_id, goal, plan, step, run,
-                    hours=_wait_hours_for(step), note=step.intent,
+                    hours=_wait_hours_for(step),
+                    wait_until=_wait_until_for(step),
+                    note=step.intent,
                 )
 
             # The ceiling is on work done, not on deciding to stop. Checked
@@ -713,6 +753,10 @@ class AgentService:
 
         if decision == "wait":
             wait_hours = _bounded_wait_hours(answer.get("wait_hours"), default=6)
+            exact = _bounded_wait_until(answer.get("wait_until"))
+            wait_parameters: Dict[str, Any] = {"wait_hours": wait_hours}
+            if exact is not None:
+                wait_parameters["wait_until"] = exact.isoformat()
             step = ActionStep(
                 ordinal=len(plan.steps),
                 intent=str(
@@ -720,7 +764,7 @@ class AgentService:
                     or "Aspettare prima di verificare di nuovo l'esito esterno"
                 )[:280],
                 step_type="wait",
-                parameters={"wait_hours": wait_hours},
+                parameters=wait_parameters,
                 expected_result="Arriva il momento giusto per verificare di nuovo con evidenza fresca",
             )
             plan.steps.append(step)
@@ -1189,7 +1233,9 @@ class AgentService:
         if decision == "wait":
             return await self._wait(
                 owner_id, goal, plan, None, run,
-                hours=int(answer.get("wait_hours") or 6), note=note,
+                hours=int(answer.get("wait_hours") or 6),
+                wait_until=answer.get("wait_until"),
+                note=note,
             )
 
         if decision == "ask":
@@ -1278,6 +1324,7 @@ class AgentService:
                     ExecutionReceipt.model_validate(r).for_ai() for r in receipts
                 ],
             },
+            clock_context=await _user_clock_context(self.db, owner_id),
             language=language,
         )
         if answer is None:
@@ -1289,6 +1336,7 @@ class AgentService:
             reasoning=str(answer.get("reasoning") or "")[:400],
             what_is_missing=str(answer.get("what_is_missing") or "")[:300],
             revisit_in_hours=answer.get("revisit_in_hours"),
+            revisit_at=answer.get("revisit_at"),
         )
         await self.repo.journal(
             owner_id, goal.id, kind="verified", note=verification.reasoning,
@@ -1332,6 +1380,7 @@ class AgentService:
             return await self._wait(
                 owner_id, goal, plan, None, run,
                 hours=int(verification.revisit_in_hours or 12),
+                wait_until=verification.revisit_at,
                 note=verification.reasoning,
             )
 
@@ -1458,23 +1507,33 @@ class AgentService:
 
     async def _wait(
         self, owner_id, goal, plan: ActionPlan, step: Optional[ActionStep],
-        run: AgentRun, *, hours: int, note: str = "",
+        run: AgentRun, *, hours: int = 6, wait_until: Any = None, note: str = "",
     ) -> Dict[str, Any]:
         """
         Depend on something that has not happened, and arrange to look again.
 
-            NO POLLING.
+            NO POLLING. AN EXACT CLOCK TIME IS STILL ONLY A CHECKPOINT.
 
-        The ambient runtime already knows how to be somewhere at a time. This
-        borrows it rather than growing a timer of its own.
+        Prefer a validated offset-aware `wait_until`; otherwise keep the
+        existing bounded relative wait. The ambient runtime owns the alarm.
         """
+        now = _now()
         hours = _bounded_wait_hours(hours, default=6)
+        exact = _bounded_wait_until(wait_until, now=now)
+        target = exact or (now + timedelta(hours=hours))
+        for_minutes = max(
+            MIN_WAIT_MINUTES,
+            int(round((target - now).total_seconds() / 60)),
+        )
+
         if step is not None:
             step.status = "waiting"
+            if exact is not None:
+                step.parameters["wait_until"] = target.isoformat()
         plan.status = "waiting"
         goal.status = "waiting"
         goal.background_runs = 0
-        goal.next_run_at = (_now() + timedelta(hours=hours)).isoformat()
+        goal.next_run_at = target.isoformat()
         await self.repo.save_plan(plan)
         await self.repo.save_goal(goal)
 
@@ -1484,9 +1543,10 @@ class AgentService:
             await AmbientService(self.db).schedule(
                 owner_id,
                 reason="opportunity_revisit",
-                when=_now() + timedelta(hours=hours),
+                when=target,
                 source_ref=f"goal:{goal.id}",
                 provenance="model",
+                max_horizon_hours=MAX_WAIT_HOURS,
             )
         except Exception as e:
             logger.info("agent wake soft-fail: %s", type(e).__name__)
@@ -1497,12 +1557,23 @@ class AgentService:
             kind="waiting",
             note=note,
             detail={
-                "for_hours": hours,
+                "timing": "exact" if exact is not None else "relative",
+                "until": target.isoformat(),
+                "for_minutes": for_minutes,
+                "for_hours": hours if exact is None else None,
                 "step_id": (step.id if step is not None else ""),
             },
         )
         await self._note_ambient(owner_id, "agent_waiting", goal)
-        return {"ok": True, "state": "waiting", "for_hours": hours, "goal": goal.for_human()}
+        return {
+            "ok": True,
+            "state": "waiting",
+            "timing": "exact" if exact is not None else "relative",
+            "until": target.isoformat(),
+            "for_minutes": for_minutes,
+            "for_hours": hours if exact is None else for_minutes / 60,
+            "goal": goal.for_human(),
+        }
 
     async def _pause(
         self, owner_id, goal, plan: ActionPlan, run: AgentRun, note: str
