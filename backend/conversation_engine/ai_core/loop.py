@@ -373,10 +373,11 @@ def _spoken_phone_number(text: str) -> str:
 
 
 async def _phone_pending_followup(db, user_id: str, state: dict, text: str) -> dict:
-    """Deterministic continuation for the active phone preparation.
+    """Mechanical hints for an active phone preparation.
 
-    Short replies such as "no", an explicitly corrected person, and a phone
-    number are state transitions, not open-ended language understanding.
+    This does NOT conduct the dialogue. The AI sees these bounded facts and
+    decides which phone skill to invoke. Code only extracts a complete number
+    or an explicit rejection; identity, relationships and intent stay with AI.
     """
     from preparation.preparation import by_id
     from preparation.trust import identity_of
@@ -392,16 +393,9 @@ async def _phone_pending_followup(db, user_id: str, state: dict, text: str) -> d
     if not raw:
         return {}
 
-    # "il numero di Asia" corrects who this open preparation is about.
-    named = re.fullmatch(
-        r"(?i)(?:il\s+)?numero\s+di\s+([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'’ -]{1,60})[.!?]?",
-        raw,
-    )
-    if named:
-        name = named.group(1).strip()
-        if identity_of(name) != identity_of(prep.counterparty):
-            return {"preparation_id": ref, "correct_counterparty": name}
-
+    # Semantic identity/relationship language belongs to the AI. This helper
+    # exposes only mechanical state transitions that code can observe without
+    # understanding language: a complete phone number or an explicit rejection.
     number = _spoken_phone_number(raw)
     if number and (prep.selected_contact is None or number != prep.selected_contact.number):
         return {"preparation_id": ref, "give_number": number}
@@ -457,6 +451,77 @@ def _has_phone_observation(observations: List[Dict[str, Any]]) -> bool:
         isinstance(item, dict) and item.get("name") == _PHONE_CAPABILITY
         for item in observations
     )
+
+
+async def _active_phone_skill_context(db, user_id: str, state: dict) -> dict:
+    """Bounded durable phone state for the conversational AI.
+
+    The model gets enough state to continue the same skill, but never carrier
+    credentials or hidden implementation details. It decides what the person's
+    words mean; the phone capability remains authoritative for validation.
+    """
+    ref = str(state.get("active_preparation_id") or "")
+    if not ref or db is None or not user_id:
+        return {}
+    try:
+        from preparation.preparation import by_id
+        from preparation.service import as_a_card
+
+        prep = await by_id(db, user_id, ref)
+        if prep is None:
+            return {}
+        card = as_a_card(prep)
+        contact = card.get("contact") or {}
+        question = card.get("question") or {}
+        return {
+            "skill": "phone",
+            "capability": _PHONE_CAPABILITY,
+            "preparation_id": ref,
+            "counterparty": str(card.get("counterparty") or prep.counterparty or "")[:160],
+            "operation": str(prep.operation or "")[:40],
+            "message_to_deliver": str(prep.message_to_deliver or "")[:300] or None,
+            "contact": {
+                "name": str(contact.get("name") or "")[:120],
+                "number": str(contact.get("number") or "")[:40],
+                "source_label": str(contact.get("source_label") or "")[:80],
+            } if contact else None,
+            "number_confirmed": bool(card.get("number_confirmed")),
+            "identity_conflicts": [
+                {"name": str(row.get("name") or "")[:120]}
+                for row in (card.get("identity_conflicts") or [])[:6]
+            ],
+            "question": str(question.get("asks") or "")[:300] or None,
+            "summary": str(card.get("summary") or "")[:400] or None,
+            "ready": bool(card.get("ready")),
+            "instruction": (
+                "Interpret the latest user message naturally, then continue this "
+                "same preparation with prepare_a_phone_call. Do not require magic phrases."
+            ),
+        }
+    except Exception as exc:
+        logger.info("active phone skill context soft-fail: %s", type(exc).__name__)
+        return {}
+
+
+def _pending_navigation_skill_context(state: dict) -> dict:
+    """AI-visible description of a verified pending navigation handoff."""
+    pending = state.get("pending_navigation")
+    if not isinstance(pending, dict):
+        return {}
+    options = _safe_navigation_options(pending.get("options"))
+    if not options:
+        return {}
+    return {
+        "skill": "navigation",
+        "capability": "continue_navigation",
+        "awaiting_user_reply": True,
+        "apps": [row["label"] for row in options],
+        "created_at": str(pending.get("created_at") or "")[:40],
+        "instruction": (
+            "Interpret the latest reply. If they want to proceed, call "
+            "continue_navigation; if they decline, answer naturally without the skill."
+        ),
+    }
 
 
 def _now_iso() -> str:
@@ -540,132 +605,9 @@ async def run_cognitive_loop(
     if not resume_client:
         state_mod.append_turn(st, role="user", text=user_message)
 
-        # A prepared navigation is an actionable handoff, not conversational
-        # small talk. "Sì" after "Vuoi che proceda?" consumes that exact,
-        # verified handoff before a general model can reduce it to "Ok.".
-        nav_reply, pending_navigation = _consume_pending_navigation(st, user_message)
-        if nav_reply == "confirm" and pending_navigation:
-            if len(pending_navigation) == 1:
-                option = pending_navigation[0]
-                ora = f"Apro {option['label']} e avvio la navigazione."
-                state_mod.append_turn(st, role="ora", text=ora, kind="answer")
-                state_mod.save_ai_state(sess, st)
-                add_step(trace, event="NAVIGATION_CONFIRM_FAST_PATH")
-                return CognitiveTurnResult(
-                    ok=True,
-                    mode="answer",
-                    ora_text=ora,
-                    session_id=sess.id,
-                    active_goal=ActiveGoal.model_validate(st.get("active_goal") or {}),
-                    trace=public_trace(trace),
-                    elapsed_ms=int((time.perf_counter() - t0) * 1000),
-                    navigation=pending_navigation,
-                    client_actions=[{
-                        "type": "open_navigation",
-                        "url": option["url"],
-                        "label": option["label"],
-                    }],
-                )
-            ora = "La navigazione è pronta. Scegli con quale app vuoi partire."
-            state_mod.append_turn(st, role="ora", text=ora, kind="answer")
-            state_mod.save_ai_state(sess, st)
-            add_step(trace, event="NAVIGATION_CONFIRM_NEEDS_APP")
-            return CognitiveTurnResult(
-                ok=True,
-                mode="answer",
-                ora_text=ora,
-                session_id=sess.id,
-                active_goal=ActiveGoal.model_validate(st.get("active_goal") or {}),
-                trace=public_trace(trace),
-                elapsed_ms=int((time.perf_counter() - t0) * 1000),
-                navigation=pending_navigation,
-            )
-        if nav_reply == "cancel":
-            ora = "Va bene, non avvio la navigazione."
-            state_mod.append_turn(st, role="ora", text=ora, kind="answer")
-            state_mod.save_ai_state(sess, st)
-            add_step(trace, event="NAVIGATION_CANCEL_FAST_PATH")
-            return CognitiveTurnResult(
-                ok=True,
-                mode="answer",
-                ora_text=ora,
-                session_id=sess.id,
-                active_goal=ActiveGoal.model_validate(st.get("active_goal") or {}),
-                trace=public_trace(trace),
-                elapsed_ms=int((time.perf_counter() - t0) * 1000),
-            )
-
-        # An active phone preparation has its own tiny conversational grammar.
-        # "No", "il numero di Asia", and a corrected number must update that
-        # durable state directly; asking a general model to rediscover the
-        # state is what produced the stale-number loop seen in production.
-        if db is not None and sess.user_id and st.get("active_preparation_id"):
-            try:
-                phone_obs = await _phone_followup_fast_path(
-                    db, sess.user_id, st, user_message, session_id=sess.id
-                )
-            except Exception as exc:
-                logger.warning("phone follow-up fast path failed: %s", type(exc).__name__)
-                phone_obs = None
-            if phone_obs is not None:
-                observations = list(st.get("observations") or [])
-                observations.append(phone_obs.model_dump())
-                payload = phone_obs.payload or {}
-                if payload.get("preparation_id"):
-                    st["active_preparation_id"] = str(payload["preparation_id"])[:64]
-                ora = str(payload.get("say_this") or payload.get("ora_says") or "")
-                if ora:
-                    state_mod.append_turn(st, role="ora", text=ora, kind="answer")
-                    st["observations"] = observations[-12:]
-                    state_mod.save_ai_state(sess, st)
-                    add_step(trace, event="PHONE_FOLLOWUP_FAST_PATH")
-                    return CognitiveTurnResult(
-                        ok=True,
-                        mode="answer",
-                        ora_text=ora,
-                        session_id=sess.id,
-                        active_goal=ActiveGoal.model_validate(st.get("active_goal") or {}),
-                        trace=public_trace(trace),
-                        tool_calls=1,
-                        elapsed_ms=int((time.perf_counter() - t0) * 1000),
-                    )
-
-        # A clear departure command already has a read-only capability that
-        # prepares the map handoff. Deliver it without waiting for a general
-        # reasoning pass, which previously made even a one-tap journey wait
-        # tens of seconds and could end on a bare "Ok.".
-        if _navigation_destination(user_message) and db is not None:
-            observations = list(st.get("observations") or [])
-            turn_start = len(observations)
-            try:
-                navigation_text = await _ensure_navigation(
-                    observations, turn_start, user_message, db, sess.user_id
-                )
-            except Exception as exc:
-                logger.warning("navigation fast path failed: %s", type(exc).__name__)
-                navigation_text = ""
-            if navigation_text:
-                state_mod.append_turn(st, role="ora", text=navigation_text, kind="answer")
-                st["pending_act"] = None
-                st["clarification_history"] = []
-                st["observations"] = observations[-12:]
-                navigation_options = _remember_pending_navigation(
-                    st, observations[turn_start:]
-                )
-                state_mod.save_ai_state(sess, st)
-                add_step(trace, event="NAVIGATION_FAST_PATH")
-                return CognitiveTurnResult(
-                    ok=True,
-                    mode="answer",
-                    ora_text=navigation_text,
-                    session_id=sess.id,
-                    active_goal=ActiveGoal.model_validate(st.get("active_goal") or {}),
-                    trace=public_trace(trace),
-                    tool_calls=1,
-                    elapsed_ms=int((time.perf_counter() - t0) * 1000),
-                    navigation=navigation_options,
-                    journey=_journey_from(observations[turn_start:]),
-                )
+        # Conversation is AI-first. Pending skill state is exposed below to the
+        # cognitive model; deterministic code validates execution, but does not
+        # interpret the person's meaning or compose the dialogue before the AI.
         # New user message: allow another foreground refresh after timeout/unavailable.
         if db is not None and sess.user_id:
             try:
@@ -878,6 +820,13 @@ async def run_cognitive_loop(
             add_step(trace, event="TOOL_SENTENCE_STANDS", name="ask")
         else:
             life_os_payload = await build_life_os_ai_payload(db, sess, st)
+            active_skill_state = {
+                "phone": await _active_phone_skill_context(db, sess.user_id, st),
+                "navigation": _pending_navigation_skill_context(st),
+            }
+            active_skill_state = {
+                key: value for key, value in active_skill_state.items() if value
+            }
             payload = build_user_payload(
                 user_message=user_message,
                 recent_turns=st.get("recent_turns") or [],
@@ -885,9 +834,17 @@ async def run_cognitive_loop(
                 context_facts=[f.model_dump() for f in context_facts],
                 tools=tools.list_public(),
                 observations=observations[-6:],
-                current_facts={**(st.get("current_facts") or {}), **(
-                    {"pending_phone_number_correction": phone_correction} if phone_correction else {}
-                )},
+                current_facts={
+                    **(st.get("current_facts") or {}),
+                    **(
+                        {"pending_phone_number_correction": phone_correction}
+                        if phone_correction else {}
+                    ),
+                    **(
+                        {"active_skill_state": active_skill_state}
+                        if active_skill_state else {}
+                    ),
+                },
                 life_os=life_os_payload,
                 # Da dove è entrata la frase decide come esce la risposta — e
                 # nient'altro. Al telefono viene ascoltata, e si dice diversamente
@@ -2613,8 +2570,15 @@ async def run_cognitive_loop(
                     # they said — it has to be able to look.
                     "user_message": user_message,
                     "pending_act": (st.get("pending_act") or None),
+                    "pending_navigation": (st.get("pending_navigation") or None),
                 },
             )
+            if (
+                cap == "continue_navigation"
+                and obs.status in ("ok", "needs_client")
+                and (obs.payload or {}).get("ready")
+            ):
+                st.pop("pending_navigation", None)
             await report_activity(db, sess, "processing", keep_area=True)
             _fase("tools", _t)
             tool_calls += 1
