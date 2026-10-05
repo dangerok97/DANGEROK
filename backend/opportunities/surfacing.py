@@ -73,8 +73,31 @@ class SurfacingService:
         morning.
         """
         now = _now().isoformat()
+
+        # AgentService.for_home exposes the three oldest open goals. When one
+        # of those goals came from an Opportunity, that goal is now the human
+        # representation of the same concern: showing the source card beside
+        # it would make one situation look like two separate things. Mirror the
+        # exact same first-three selection here; a fourth goal that Home does
+        # not show must never make its Opportunity disappear.
+        represented_rows = await self.db.agent_goals.find(
+            {
+                "owner_id": user_id,
+                "status": {"$in": ["proposed", "active", "waiting"]},
+            },
+            {"_id": 0, "opportunity_id": 1},
+        ).sort("created_at", 1).to_list(3)
+        represented_rows = represented_rows[:3]
+        represented_opportunities = {
+            str(row.get("opportunity_id") or "")
+            for row in represented_rows
+            if str(row.get("opportunity_id") or "")
+        }
+
         out: List[Opportunity] = []
         for opportunity in await self.repo.list(user_id, statuses=["active"]):
+            if opportunity.id in represented_opportunities:
+                continue
             if not await self._current(user_id, opportunity, now):
                 continue
             if opportunity.surface_state != "surfaced":
