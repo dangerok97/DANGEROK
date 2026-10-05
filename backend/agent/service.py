@@ -753,6 +753,10 @@ class AgentService:
 
         if decision == "wait":
             wait_hours = _bounded_wait_hours(answer.get("wait_hours"), default=6)
+            exact = _bounded_wait_until(answer.get("wait_until"))
+            wait_parameters: Dict[str, Any] = {"wait_hours": wait_hours}
+            if exact is not None:
+                wait_parameters["wait_until"] = exact.isoformat()
             step = ActionStep(
                 ordinal=len(plan.steps),
                 intent=str(
@@ -760,7 +764,7 @@ class AgentService:
                     or "Aspettare prima di verificare di nuovo l'esito esterno"
                 )[:280],
                 step_type="wait",
-                parameters={"wait_hours": wait_hours},
+                parameters=wait_parameters,
                 expected_result="Arriva il momento giusto per verificare di nuovo con evidenza fresca",
             )
             plan.steps.append(step)
@@ -1320,6 +1324,7 @@ class AgentService:
                     ExecutionReceipt.model_validate(r).for_ai() for r in receipts
                 ],
             },
+            clock_context=await _user_clock_context(self.db, owner_id),
             language=language,
         )
         if answer is None:
