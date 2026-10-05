@@ -166,3 +166,52 @@ async def test_contacts_revocation_clears_cache_and_permission():
 def test_contacts_step_shows_only_lookup_query_to_agent():
     shown = _step("Asia").for_ai()
     assert shown["execution_parameters"] == {"who": "Asia"}
+
+
+@pytest.mark.asyncio
+async def test_contact_snapshot_cleanup_happens_only_after_new_rows_exist(monkeypatch):
+    db = AsyncMongoMockClient().test
+    await sync_device_contacts(
+        db,
+        "alice",
+        contacts=[{
+            "id": "ios-old",
+            "name": "Vecchio Contatto",
+            "phones": ["3270000001"],
+        }],
+    )
+    old = await db.contacts.find_one({"user_id": "alice"}, {"_id": 0})
+    assert old is not None
+
+    collection = db.contacts
+    collection_type = type(collection)
+    original_update = collection_type.update_one
+    calls = 0
+
+    async def interrupted(self, *args, **kwargs):
+        nonlocal calls
+        # Only fail writes to the contacts collection. Other collections use
+        # the same mongomock wrapper class during this test.
+        if getattr(self, "name", "") == "contacts":
+            calls += 1
+            if calls == 2:
+                raise RuntimeError("device sync interrupted")
+        return await original_update(self, *args, **kwargs)
+
+    monkeypatch.setattr(collection_type, "update_one", interrupted)
+
+    with pytest.raises(RuntimeError):
+        await sync_device_contacts(
+            db,
+            "alice",
+            contacts=[
+                {"id": "ios-new-1", "name": "Nuovo Uno", "phones": ["3270000002"]},
+                {"id": "ios-new-2", "name": "Nuovo Due", "phones": ["3270000003"]},
+            ],
+        )
+
+    # The old snapshot is still present because stale cleanup is the final
+    # operation, after all rows in the replacement snapshot have been written.
+    assert await db.contacts.find_one(
+        {"user_id": "alice", "id": old["id"]}, {"_id": 0}
+    ) is not None

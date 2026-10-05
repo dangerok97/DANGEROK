@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List
 
@@ -74,11 +75,22 @@ async def sync_device_contacts(
             seen_ids.add(item["id"])
             cleaned.append(item)
 
-    # The request is a complete snapshot. Replacing owner-scoped rows makes
-    # deletions/revocations truthful instead of leaving old phone numbers alive.
-    await db[CONTACTS].delete_many({"user_id": owner_id})
-    if cleaned:
-        await db[CONTACTS].insert_many(cleaned)
+    # The request is a complete snapshot, but never delete the old snapshot
+    # before the new one exists. A phone going offline halfway through sync
+    # must not make ORA forget a valid address book.
+    sync_id = "sync_" + uuid.uuid4().hex[:16]
+    for item in cleaned:
+        item["sync_id"] = sync_id
+        await db[CONTACTS].update_one(
+            {"user_id": owner_id, "id": item["id"]},
+            {"$set": item},
+            upsert=True,
+        )
+    # Only after every new row has been written is the previous snapshot stale.
+    await db[CONTACTS].delete_many({
+        "user_id": owner_id,
+        "sync_id": {"$ne": sync_id},
+    })
 
     now = _now_iso()
     await db[STATE].update_one(
@@ -158,6 +170,7 @@ async def ensure_indexes(db) -> None:
     try:
         await db[CONTACTS].create_index([("user_id", 1), ("id", 1)], unique=True)
         await db[CONTACTS].create_index([("user_id", 1), ("name", 1)])
+        await db[CONTACTS].create_index([("user_id", 1), ("sync_id", 1)])
         await db[STATE].create_index("user_id", unique=True)
     except Exception:
         logger.exception("contacts indexes unavailable (non-fatal)")
