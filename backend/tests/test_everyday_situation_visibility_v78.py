@@ -100,6 +100,7 @@ async def test_ordinary_followup_stays_silent_when_fresh_evidence_changes_nothin
     ) == 0
     note_activity.assert_not_awaited()
     offered.assert_not_awaited()
+    assert await db.agent_updates.count_documents({"owner_id": OWNER}) == 0
 
 
 @pytest.mark.asyncio
@@ -149,6 +150,9 @@ async def test_material_weather_change_becomes_evidence_backed_user_update(monke
     assert result.outcome == "inform_user"
     assert result.headline
     assert result.refs, "a visible update must have real proof behind it"
+    assert await db.agent_updates.count_documents(
+        {"owner_id": OWNER, "goal_id": goal.id}
+    ) == 1
 
     need = await db.agent_needs.find_one(
         {"owner_id": OWNER, "goal_id": goal.id}, {"_id": 0}
