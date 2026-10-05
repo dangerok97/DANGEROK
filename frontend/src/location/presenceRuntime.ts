@@ -312,6 +312,7 @@ export async function sendPending(): Promise<{ sent: number; left: number }> {
         accuracy_meters: entry.accuracy_meters ?? undefined,
         observed_at: entry.observed_at,
         event_id: entry.event_id,
+        source: entry.source === 'foreground' ? 'foreground_device' : 'background_device',
       });
       return true;
     } catch {
