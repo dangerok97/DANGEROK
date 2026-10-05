@@ -183,17 +183,22 @@ async def test_contact_snapshot_cleanup_happens_only_after_new_rows_exist(monkey
     old = await db.contacts.find_one({"user_id": "alice"}, {"_id": 0})
     assert old is not None
 
-    original_update = db.contacts.update_one
+    collection = db.contacts
+    collection_type = type(collection)
+    original_update = collection_type.update_one
     calls = 0
 
-    async def interrupted(*args, **kwargs):
+    async def interrupted(self, *args, **kwargs):
         nonlocal calls
-        calls += 1
-        if calls == 2:
-            raise RuntimeError("device sync interrupted")
-        return await original_update(*args, **kwargs)
+        # Only fail writes to the contacts collection. Other collections use
+        # the same mongomock wrapper class during this test.
+        if getattr(self, "name", "") == "contacts":
+            calls += 1
+            if calls == 2:
+                raise RuntimeError("device sync interrupted")
+        return await original_update(self, *args, **kwargs)
 
-    monkeypatch.setattr(db.contacts, "update_one", interrupted)
+    monkeypatch.setattr(collection_type, "update_one", interrupted)
 
     with pytest.raises(RuntimeError):
         await sync_device_contacts(
