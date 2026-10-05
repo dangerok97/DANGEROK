@@ -321,3 +321,132 @@ async def test_unreadable_calendar_keeps_its_due_review_retryable(world, monkeyp
     result = await AmbientService(world.db).review_life(AmbientWake(owner_id="alice",
         reason="ambient_review", source_ref=WAKE_SOURCE))
     assert result.retry_after_seconds and result.error == "departure_sources_unavailable"
+
+
+@pytest.mark.asyncio
+async def test_connected_departure_keeps_traffic_incident_and_departure_time_weather(world, monkeypatch):
+    from opportunities.service import OpportunityService
+    from places import briefing
+
+    async def route(**kwargs):
+        if kwargs["travel_mode"] == "drive":
+            return {
+                "available": True,
+                "provider": "controlled_test_provider",
+                "duration_seconds": 900,
+                "distance_meters": 4000,
+                "reflects_current_traffic": True,
+                "alternatives": [{
+                    "duration_seconds": 900,
+                    "distance_meters": 4000,
+                    "delay_seconds": 300,
+                    "delay_reference": "tempo tipico",
+                    "main_steps": ["A12"],
+                    "incidents": [{"label": "Coda", "road": "A12"}],
+                    "polyline": "_p~iF~ps|U_ulLnnqC_mqNvxq`@",
+                }],
+            }
+        return {
+            "available": True,
+            "provider": "controlled_test_provider",
+            "duration_seconds": 2400,
+            "distance_meters": 4000,
+            "reflects_current_traffic": False,
+        }
+
+    world.routes.side_effect = route
+    weather = AsyncMock(return_value=[{
+        "label": "Lungo il tragitto",
+        "time_utc": (world.now + timedelta(minutes=27)).isoformat(),
+        "condition": "pioggia",
+        "rain_chance_pct": 80,
+        "temperature_c": 15,
+    }])
+    monkeypatch.setattr(briefing, "weather_along_route", weather)
+
+    evidence = (await world.svc.collect("alice", [world.event], now=world.now))[0]
+
+    expected_drive_leave = world.now + timedelta(minutes=20)
+    assert weather.await_count == 1
+    assert weather.await_args.kwargs["start_at"] == expected_drive_leave
+    assert evidence["route_weather"][0]["rain_chance_pct"] == 80
+    assert evidence["road_choices"][0]["delay_minutes"] == 5
+    assert evidence["road_choices"][0]["incidents"][0]["road"] == "A12"
+
+    state = {"departures": [evidence], "clock": {"timezone": "Europe/Rome"}}
+    model = AsyncMock(return_value={"opportunities": [{
+        "identity_key": "model_departure",
+        "what": "Parti ora in auto.",
+        "why_it_matters": "Arrivo garantito.",
+        "evidence_refs": [evidence["ref"]],
+    }]})
+    monkeypatch.setattr("opportunities.reasoning.scan", model)
+
+    result = await OpportunityService(world.db).scan("alice", prepared_snapshot=state)
+    card = result.created[0]
+    grounded = card.why_it_matters.lower()
+
+    assert "parti ora" not in card.semantic_summary.lower()
+    assert "mezzo di trasporto è da scegliere" in grounded
+    assert "se scegli l'auto" in grounded
+    assert "5 min in più" in grounded
+    assert "coda su a12" in grounded
+    assert "pioggia" in grounded and "80%" in grounded
+    assert "garantito" not in grounded
+    assert "traffico e meteo" in card.what_ora_can_do.lower()
+
+
+@pytest.mark.asyncio
+async def test_route_weather_sampling_respects_explicit_trip_start(monkeypatch):
+    from places import briefing
+
+    seen = {}
+    times = [
+        "2026-10-05T16:00",
+        "2026-10-05T17:00",
+        "2026-10-05T18:00",
+        "2026-10-05T19:00",
+    ]
+
+    class Response:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return [{
+                "hourly": {
+                    "time": times,
+                    "weather_code": [0, 61, 61, 0],
+                    "precipitation_probability": [0, 70, 80, 0],
+                    "temperature_2m": [20, 18, 17, 16],
+                }
+            } for _ in range(3)]
+
+    class Client:
+        def __init__(self, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            pass
+
+        async def get(self, url, params):
+            seen.update(params)
+            return Response()
+
+    monkeypatch.setattr("httpx.AsyncClient", Client)
+    monkeypatch.setattr("weather.configured_provider", lambda: "open_meteo")
+
+    start = datetime.fromisoformat("2026-10-05T17:00:00+00:00")
+    samples = await briefing.weather_along_route(
+        "_p~iF~ps|U_ulLnnqC_mqNvxq`@",
+        3600,
+        start_at=start,
+    )
+
+    assert seen["timezone"] == "UTC"
+    assert samples[0]["time_utc"] == "2026-10-05T17:00Z"
+    assert samples[-1]["time_utc"] == "2026-10-05T18:00Z"
+    assert samples[-1]["rain_chance_pct"] == 80
