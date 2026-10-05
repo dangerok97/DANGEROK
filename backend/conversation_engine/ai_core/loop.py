@@ -355,32 +355,37 @@ async def _ensure_navigation(observations, turn_start: int, message: str, db, ui
 
 
 def _spoken_phone_number(text: str) -> str:
-    """Read a complete Italian number even when it is dictated digit by digit."""
+    """Extract one complete phone-shaped number without interpreting the words.
+
+    This is normalization, not dialogue understanding. Whether the observed
+    number is a correction, a new contact, an example or unrelated information
+    is for the cognitive model to decide from the conversation.
+    """
     from preparation.contacts import _clean_number
 
     raw = str(text or "")
-    compact_words = " ".join(raw.lower().split())
-    correcting = bool(re.search(
-        r"(?i)\b(numero|corretto|correggi|sbagliato|usa|invece|è|e')\b", compact_words
-    ))
-    mostly_digits = not bool(re.search(r"[A-Za-zÀ-ÿ]", raw))
-    if not (correcting or mostly_digits):
-        return ""
-    digits = re.sub(r"\D", "", raw)
-    if digits.startswith("39") and 11 <= len(digits) <= 13:
-        return _clean_number("+" + digits)
-    return _clean_number(digits)
+    # One contiguous phone-shaped run, allowing ordinary separators. Do not
+    # concatenate unrelated digits elsewhere in the sentence.
+    candidates = re.findall(
+        r"(?<!\d)(?:\+?\d[\s().-]*){9,13}(?!\d)",
+        raw,
+    )
+    normalized = []
+    for candidate in candidates:
+        clean = _clean_number(candidate.strip())
+        if clean and clean not in normalized:
+            normalized.append(clean)
+    return normalized[0] if len(normalized) == 1 else ""
 
 
-async def _phone_pending_followup(db, user_id: str, state: dict, text: str) -> dict:
-    """Mechanical hints for an active phone preparation.
+async def _phone_input_hint(db, user_id: str, state: dict, text: str) -> dict:
+    """Bounded mechanical input for an active phone skill.
 
-    This does NOT conduct the dialogue. The AI sees these bounded facts and
-    decides which phone skill to invoke. Code only extracts a complete number
-    or an explicit rejection; identity, relationships and intent stay with AI.
+    No meaning is assigned here. Code may normalize a complete phone number
+    from the latest message and bind it to the already-owned preparation id.
+    The AI decides whether and how that observation should affect the call.
     """
     from preparation.preparation import by_id
-    from preparation.trust import identity_of
 
     ref = str(state.get("active_preparation_id") or "")
     if not ref:
@@ -389,55 +394,13 @@ async def _phone_pending_followup(db, user_id: str, state: dict, text: str) -> d
     if prep is None or prep.call_id:
         return {}
 
-    raw = " ".join(str(text or "").split())
-    if not raw:
+    number = _spoken_phone_number(text)
+    if not number:
         return {}
-
-    # Semantic identity/relationship language belongs to the AI. This helper
-    # exposes only mechanical state transitions that code can observe without
-    # understanding language: a complete phone number or an explicit rejection.
-    number = _spoken_phone_number(raw)
-    if number and (prep.selected_contact is None or number != prep.selected_contact.number):
-        return {"preparation_id": ref, "give_number": number}
-
-    # A clear rejection belongs to the number confirmation only while the
-    # number is still unconfirmed. It must never cancel an already-ready call.
-    pending_number = prep.selected_contact is not None and not prep.number_confirmed
-    negative = bool(re.match(
-        r"(?i)^\s*(?:no\b|non\b|sbagliat[oa]\b|non\s+è\s+quest[oa]\b)", raw
-    ))
-    attempted_correction = bool(re.search(
-        r"(?i)\b(?:numero|corretto|sbagliato|invece)\b", raw
-    ) and re.search(r"\d", raw))
-    if pending_number and (negative or attempted_correction):
-        # If the new digits were incomplete, reject the old number and ask for
-        # the complete one instead of silently falling back to the old candidate.
-        return {"preparation_id": ref, "number_is_right": False}
-    return {}
-
-
-async def _phone_number_correction(db, user_id: str, state: dict, text: str) -> dict:
-    """Compatibility name used by the reasoning payload and phone nudge."""
-    return await _phone_pending_followup(db, user_id, state, text)
-
-
-async def _phone_followup_fast_path(db, user_id: str, state: dict, text: str, *, session_id: str):
-    """Execute an unambiguous phone follow-up without asking the model to route it."""
-    args = await _phone_pending_followup(db, user_id, state, text)
-    if not args:
-        return None
-    from telephone.caps import _through_the_preparation
-
-    return await _through_the_preparation(
-        args,
-        {
-            "session_id": session_id,
-            "reasoning_epoch": new_reasoning_epoch(),
-            "user_message": text,
-        },
-        db,
-        user_id,
-    )
+    return {
+        "preparation_id": ref,
+        "observed_phone_number": number,
+    }
 
 
 def _phone_action_requested(text: str) -> bool:
@@ -694,7 +657,7 @@ async def run_cognitive_loop(
     # Where this turn's observations begin: what came before belongs to turns
     # the person has already read.
     turn_start = len(observations)
-    phone_correction = await _phone_number_correction(db, sess.user_id, st, user_message)
+    phone_input_hint = await _phone_input_hint(db, sess.user_id, st, user_message)
     # Set only when the turn ends on a question the reasoning called blocking.
     blocking_ask: Optional[Dict[str, Any]] = None
     # What guidance decided to ask, once it had resolved everything it could.
@@ -798,8 +761,8 @@ async def run_cognitive_loop(
             current_facts={
                 **(st.get("current_facts") or {}),
                 **(
-                    {"pending_phone_number_correction": phone_correction}
-                    if phone_correction else {}
+                    {"active_phone_input_hint": phone_input_hint}
+                    if phone_input_hint else {}
                 ),
                 **(
                     {"active_skill_state": active_skill_state}
@@ -1470,7 +1433,7 @@ async def run_cognitive_loop(
             # permission: the capability itself resolves the number, exposes
             # provider failures honestly, and obtains the required staged
             # confirmations before anything rings.
-            phone_requested = bool(phone_correction) or _phone_action_requested(user_message)
+            phone_requested = bool(phone_input_hint) or _phone_action_requested(user_message)
             phone_observed = _has_phone_observation(observations[turn_start:])
             if (
                 mode in ("answer", "ask", "finish", "act")
@@ -1494,7 +1457,7 @@ async def run_cognitive_loop(
                                 "from the visible conversation/update context, pass the "
                                 "calendar_ref when the call concerns a calendar event, and "
                                 "continue an existing preparation_id when one is visible. "
-                                "For a pending_phone_number_correction use its preparation_id and give_number; do not repeat the previous conflict. "
+                                "When active_phone_input_hint is present, it is only a mechanically observed number. Use its preparation_id to continue the same skill, and use observed_phone_number as give_number only if your semantic reading of the user's message says they are correcting the number. "
                                 "The capability owns number resolution, staged confirmation, "
                                 "provider readiness, and dialing."
                             ),
@@ -2474,8 +2437,8 @@ async def run_cognitive_loop(
                 continue
 
             args = dict(decision.tool_call.arguments or {})
-            if cap == "prepare_a_phone_call" and phone_correction and not args.get("preparation_id"):
-                args["preparation_id"] = phone_correction["preparation_id"]
+            if cap == "prepare_a_phone_call" and phone_input_hint and not args.get("preparation_id"):
+                args["preparation_id"] = phone_input_hint["preparation_id"]
             # Prefer active plan / object from state when AI omits ids
             if cap in (
                 "update_plan",
