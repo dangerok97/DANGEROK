@@ -700,6 +700,173 @@ async def read_banking(db, owner_id: str, goal, *, step=None) -> CapabilityOutco
     )
 
 
+async def read_weather(db, owner_id: str, goal) -> CapabilityOutcome:
+    """Read the same real weather surface ORA already uses on Home.
+
+    The location is resolved by HomeService's consent/freshness rules. Raw
+    coordinates are used only for the provider call and never enter agent
+    evidence; the durable result contains bounded weather claims only.
+    """
+    try:
+        import weather as weather_service
+        from home.service import HomeService
+    except Exception as exc:
+        logger.info("weather read import soft-fail: %s", type(exc).__name__)
+        return _unavailable(
+            "weather.read", "not_wired", "Il meteo non è collegato al runtime."
+        )
+
+    if not weather_service.capabilities().get("available"):
+        return _unavailable(
+            "weather.read", "provider_unavailable", "Il provider meteo non è disponibile."
+        )
+
+    try:
+        point = await HomeService(db)._where_they_are(owner_id)
+    except Exception as exc:
+        logger.info("weather location soft-fail: %s", type(exc).__name__)
+        point = None
+    if point is None:
+        return CapabilityOutcome(
+            status="unavailable",
+            observation=(
+                "Non posso leggere il meteo del posto in cui sei perché non ho "
+                "una posizione corrente autorizzata e abbastanza recente."
+            ),
+            provenance=ResultProvenance(
+                source_class="internal_observation",
+                capability="weather.read",
+                freshness="unknown",
+                certainty_note="nessun punto corrente utilizzabile per il meteo",
+            ),
+            error_type="location_unavailable",
+            retryable=False,
+        )
+
+    lat, lon, place = point
+    try:
+        data = await weather_service.forecast_at(lat=lat, lon=lon, place=place)
+    except Exception as exc:
+        logger.info("weather provider soft-fail: %s", type(exc).__name__)
+        return CapabilityOutcome(
+            status="failed",
+            observation="Il servizio meteo non ha risposto.",
+            provenance=ResultProvenance(
+                source_class="external_research",
+                capability="weather.read",
+                provider=str(weather_service.configured_provider() or "weather")[:60],
+            ),
+            error_type="weather_read_failed",
+            retryable=True,
+        )
+
+    if not data.get("available"):
+        return CapabilityOutcome(
+            status="unavailable",
+            observation=str(data.get("why_unavailable") or "Meteo non disponibile.")[:400],
+            provenance=ResultProvenance(
+                source_class="external_research",
+                capability="weather.read",
+                provider=str(weather_service.configured_provider() or "weather")[:60],
+                freshness="unknown",
+            ),
+            error_type="weather_unavailable",
+            retryable=True,
+        )
+
+    claims: List[Claim] = []
+    current_bits = []
+    if data.get("condition_label"):
+        current_bits.append(str(data["condition_label"]))
+    if data.get("temperature_c") is not None:
+        current_bits.append(f"{data['temperature_c']} °C")
+    if data.get("humidity_pct") is not None:
+        current_bits.append(f"umidità {data['humidity_pct']}%")
+    if data.get("wind_kmh") is not None:
+        current_bits.append(f"vento {data['wind_kmh']} km/h")
+    if data.get("precipitation_mm") is not None:
+        current_bits.append(f"precipitazioni {data['precipitation_mm']} mm")
+    place_label = str(data.get("place") or place or "").strip()
+    if current_bits:
+        claims.append(Claim(
+            text=(f"Meteo attuale{f' a {place_label}' if place_label else ''}: " + ", ".join(current_bits))[:500],
+            supports="condizioni meteo attuali",
+        ))
+
+    hours = list(data.get("hours") or [])[:12]
+    rain_values = [
+        h.get("rain_chance_pct") for h in hours
+        if isinstance(h, dict) and isinstance(h.get("rain_chance_pct"), (int, float))
+    ]
+    temps = [
+        h.get("temperature_c") for h in hours
+        if isinstance(h, dict) and isinstance(h.get("temperature_c"), (int, float))
+    ]
+    if rain_values:
+        claims.append(Claim(
+            text=(
+                f"Nelle prossime {len(hours)} ore la probabilità massima di pioggia "
+                f"indicata dal provider è {round(max(rain_values))}%."
+            ),
+            supports="rischio di pioggia nelle prossime ore",
+        ))
+    if temps:
+        claims.append(Claim(
+            text=(
+                f"Nelle prossime ore la temperatura prevista va circa da "
+                f"{round(min(temps))} a {round(max(temps))} °C."
+            ),
+            supports="temperatura nelle prossime ore",
+        ))
+
+    for day in list(data.get("days") or [])[:2]:
+        if not isinstance(day, dict):
+            continue
+        bits = []
+        if day.get("condition_label"):
+            bits.append(str(day["condition_label"]))
+        if day.get("min_c") is not None and day.get("max_c") is not None:
+            bits.append(f"{day['min_c']}–{day['max_c']} °C")
+        if day.get("rain_chance_pct") is not None:
+            bits.append(f"pioggia max {day['rain_chance_pct']}%")
+        if bits:
+            claims.append(Claim(
+                text=f"{str(day.get('label') or day.get('date') or 'Giorno')}: {', '.join(bits)}"[:500],
+                supports="previsione meteo giornaliera",
+            ))
+
+    if not claims:
+        return CapabilityOutcome(
+            status="partial",
+            observation="Il provider meteo ha risposto, ma senza dati utili per questo passo.",
+            provenance=ResultProvenance(
+                source_class="external_research",
+                capability="weather.read",
+                provider=str(weather_service.configured_provider() or "weather")[:60],
+                freshness="fresh",
+            ),
+            error_type="weather_insufficient",
+            retryable=True,
+        )
+
+    return CapabilityOutcome(
+        status="succeeded",
+        observation=(
+            f"Ho letto il meteo reale{f' per {place_label}' if place_label else ''}: "
+            f"{len(claims)} elementi utili."
+        ),
+        provenance=ResultProvenance(
+            source_class="external_research",
+            capability="weather.read",
+            provider=str(weather_service.configured_provider() or "weather")[:60],
+            freshness="fresh",
+            certainty_note="previsione letta ora dal provider configurato",
+        ),
+        claims=claims[:MAX_CLAIMS],
+        data_ref="weather:forecast",
+    )
+
+
 async def read_location(db, owner_id: str, goal) -> CapabilityOutcome:
     """Read current/recent presence without persisting raw coordinates as evidence."""
     try:
