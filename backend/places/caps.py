@@ -11,6 +11,8 @@ reasoning — and reasoning is not a tool call.
 from __future__ import annotations
 
 from typing import Any, Dict, List
+from datetime import datetime, timedelta, timezone
+from urllib.parse import urlparse
 
 import logging
 
@@ -158,6 +160,101 @@ async def record_location_observation(
         dwell_seconds=arguments.get("dwell_seconds"),
     )
     return _ok("record_location_observation", result, uid)
+
+
+def _verified_pending_navigation(raw: Any) -> List[Dict[str, str]]:
+    """Only server-generated map handoffs may be continued."""
+    if not isinstance(raw, dict):
+        return []
+    try:
+        created = datetime.fromisoformat(str(raw.get("created_at") or ""))
+        if created.tzinfo is None:
+            created = created.replace(tzinfo=timezone.utc)
+        if datetime.now(timezone.utc) - created > timedelta(minutes=30):
+            return []
+    except Exception:
+        return []
+
+    out: List[Dict[str, str]] = []
+    for row in list(raw.get("options") or [])[:3]:
+        if not isinstance(row, dict):
+            continue
+        url = str(row.get("url") or "")[:600]
+        label = str(row.get("label") or "")[:40]
+        app_id = str(row.get("id") or "")[:32]
+        parsed = urlparse(url)
+        if parsed.scheme not in ("https", "http") or not parsed.netloc or not label:
+            continue
+        out.append({"id": app_id, "label": label, "url": url})
+    return out
+
+
+def _explicit_navigation_confirmation(text: str) -> bool:
+    """Execution guard only: verify assent from the actual user message."""
+    import re
+
+    return bool(re.match(
+        r"(?i)^\s*(?:s[iì]|certo|va\s+bene|vai|procedi|parti|avvia|fallo|"
+        r"ok(?:\s+(?:vai|procedi|parti|avvia|fallo))?)\s*[.!?]*\s*$",
+        str(text or ""),
+    ))
+
+
+async def continue_navigation(
+    arguments: Dict[str, Any], runtime: Dict[str, Any]
+) -> Observation:
+    """Continue a verified pending navigation after the AI understood the reply.
+
+    The AI chooses this skill. Code only verifies that the real user utterance
+    was explicit assent and that the stored handoff is recent and server-made.
+    """
+    uid = runtime.get("user_id") or ""
+    if not uid:
+        return _fail("continue_navigation", "NOT_CONFIGURED")
+
+    if not _explicit_navigation_confirmation(runtime.get("user_message") or ""):
+        return _fail(
+            "continue_navigation",
+            "USER_CONFIRMATION_REQUIRED",
+            "La persona non ha confermato esplicitamente di avviare la navigazione.",
+        )
+
+    options = _verified_pending_navigation(runtime.get("pending_navigation"))
+    if not options:
+        return _fail(
+            "continue_navigation",
+            "PENDING_NAVIGATION_EXPIRED",
+            "Non c'è più una navigazione recente e verificata da continuare.",
+        )
+
+    if len(options) == 1:
+        option = options[0]
+        return _ok(
+            "continue_navigation",
+            {
+                "ready": True,
+                "say_this": f"Apro {option['label']} e avvio la navigazione.",
+                "url": option["url"],
+                "app": option["id"],
+                "client_action": {
+                    "type": "open_navigation",
+                    "url": option["url"],
+                    "label": option["label"],
+                },
+            },
+            uid,
+            status="needs_client",
+        )
+
+    return _ok(
+        "continue_navigation",
+        {
+            "ready": True,
+            "say_this": "La navigazione è pronta. Scegli con quale app vuoi partire.",
+            "options": options,
+        },
+        uid,
+    )
 
 
 async def open_navigation(arguments: Dict[str, Any], runtime: Dict[str, Any]) -> Observation:
