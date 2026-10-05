@@ -77,6 +77,7 @@ jobs:
           python -m pytest -q \
             tests/test_analysis_versions.py \
             tests/test_ai_document_understanding.py \
+            tests/test_skill_catalogue_education_v86.py \
             tests/test_documents_v2.py \
             ai_life_strategist/tests/test_life_experience_documents.py \
             --ignore=tests/test_intelligent_documents_real_verification.py \
