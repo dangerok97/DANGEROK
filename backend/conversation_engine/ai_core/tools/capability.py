@@ -39,4 +39,8 @@ class CapabilitySpec:
             "input_schema": self.input_schema,
             "availability": self.availability,
             "risk": self.risk,
+            # Compact semantic hints help the cognitive model navigate a broad
+            # skill catalogue. They describe the capability; they never route
+            # a user utterance in code.
+            "tags": [str(tag)[:40] for tag in self.tags[:8]],
         }
