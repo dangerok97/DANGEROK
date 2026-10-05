@@ -821,6 +821,181 @@ async def read_location(db, owner_id: str, goal) -> CapabilityOutcome:
     )
 
 
+async def read_weather(db, owner_id: str, goal) -> CapabilityOutcome:
+    """Read a bounded live forecast at the authorized current/recent device point.
+
+    Coordinates are used only to call the configured weather provider. They are
+    never copied into the observation, claims, data_ref or durable agent evidence.
+    The location rule is deliberately the same one Home uses, so ORA cannot
+    silently keep using an old coordinate after location consent is removed.
+    """
+    try:
+        import weather as meteo
+        from home.service import HomeService
+
+        if not meteo.capabilities().get("available"):
+            return _unavailable(
+                "weather.read", "provider_unavailable",
+                "Il servizio meteo non è disponibile in questa installazione.",
+            )
+        point = await HomeService(db)._where_they_are(owner_id)
+    except Exception as exc:
+        logger.info("weather location read soft-fail: %s", type(exc).__name__)
+        return CapabilityOutcome(
+            status="failed",
+            observation="Non sono riuscita a determinare il punto autorizzato per il meteo.",
+            provenance=ResultProvenance(
+                source_class="internal_observation", capability="weather.read"
+            ),
+            error_type="weather_location_failed",
+            retryable=True,
+        )
+
+    if point is None:
+        return CapabilityOutcome(
+            status="unavailable",
+            observation=(
+                "Non ho una posizione corrente o recente autorizzata da usare per il meteo."
+            ),
+            provenance=ResultProvenance(
+                source_class="internal_observation",
+                capability="weather.read",
+                freshness="unknown",
+                certainty_note="nessuna coordinata usata o persistita",
+            ),
+            error_type="location_not_current",
+            retryable=True,
+        )
+
+    lat, lon, place = point
+    try:
+        forecast = await meteo.forecast_at(lat=lat, lon=lon, place=place)
+    except Exception as exc:
+        logger.info("weather provider soft-fail: %s", type(exc).__name__)
+        return CapabilityOutcome(
+            status="failed",
+            observation="Il provider meteo non ha restituito una previsione utilizzabile.",
+            provenance=ResultProvenance(
+                source_class="external_research",
+                capability="weather.read",
+                provider="weather",
+                freshness="unknown",
+            ),
+            error_type="weather_read_failed",
+            retryable=True,
+        )
+
+    if not forecast.get("available"):
+        return CapabilityOutcome(
+            status="failed",
+            observation=str(
+                forecast.get("why_unavailable") or "Meteo non disponibile."
+            )[:600],
+            provenance=ResultProvenance(
+                source_class="external_research",
+                capability="weather.read",
+                provider=str(
+                    meteo.capabilities().get("provider") or "weather"
+                )[:40],
+                freshness="unknown",
+            ),
+            error_type="weather_provider_unavailable",
+            retryable=True,
+        )
+
+    claims: List[Claim] = []
+    current_bits = []
+    if forecast.get("temperature_c") is not None:
+        current_bits.append(f"{forecast.get('temperature_c')}°C")
+    if forecast.get("condition_label"):
+        current_bits.append(str(forecast.get("condition_label")))
+    if forecast.get("humidity_pct") is not None:
+        current_bits.append(f"umidità {forecast.get('humidity_pct')}%")
+    if forecast.get("wind_kmh") is not None:
+        current_bits.append(f"vento {forecast.get('wind_kmh')} km/h")
+    if forecast.get("precipitation_mm") is not None:
+        current_bits.append(f"precipitazioni {forecast.get('precipitation_mm')} mm")
+    if current_bits:
+        claims.append(Claim(
+            text=(
+                f"Meteo attuale{(' a ' + str(place)) if place else ''}: "
+                + ", ".join(current_bits)
+            )[:400],
+            supports="condizioni meteo osservate al punto corrente autorizzato",
+        ))
+
+    hours = list(forecast.get("hours") or [])[:8]
+    if hours:
+        chances = [
+            h.get("rain_chance_pct")
+            for h in hours
+            if h.get("rain_chance_pct") is not None
+        ]
+        temps = [
+            h.get("temperature_c")
+            for h in hours
+            if h.get("temperature_c") is not None
+        ]
+        window = []
+        if chances:
+            window.append(f"pioggia max {max(chances)}%")
+        if temps:
+            window.append(f"temperatura {min(temps)}–{max(temps)}°C")
+        labels = [
+            f"{str(h.get('time') or '')} {h.get('rain_chance_pct')}% pioggia"
+            for h in hours[:6]
+            if h.get("rain_chance_pct") is not None
+        ]
+        if window or labels:
+            claims.append(Claim(
+                text=(
+                    "Prossime ore: " + ", ".join(window)
+                    + (("; " + "; ".join(labels)) if labels else "")
+                )[:400],
+                supports="previsione oraria del provider meteo",
+            ))
+
+    days = list(forecast.get("days") or [])[:2]
+    if days:
+        labels = []
+        for day in days:
+            bit = str(day.get("label") or day.get("date") or "")
+            if day.get("rain_chance_pct") is not None:
+                bit += f" pioggia max {day.get('rain_chance_pct')}%"
+            if day.get("min_c") is not None and day.get("max_c") is not None:
+                bit += f" {day.get('min_c')}–{day.get('max_c')}°C"
+            labels.append(bit.strip())
+        if labels:
+            claims.append(Claim(
+                text=("Tendenza: " + "; ".join(labels))[:400],
+                supports="previsione giornaliera del provider meteo",
+            ))
+
+    return CapabilityOutcome(
+        status="succeeded" if claims else "partial",
+        observation=(
+            "Ho letto il meteo reale sul punto corrente autorizzato. "
+            "Le coordinate sono state usate solo per la richiesta al provider "
+            "e non sono state salvate nell'evidenza del goal."
+        ),
+        provenance=ResultProvenance(
+            source_class="external_research",
+            capability="weather.read",
+            provider=str(
+                meteo.capabilities().get("provider") or "weather"
+            )[:40],
+            freshness="fresh",
+            certainty_note=(
+                "forecast provider; coordinate non incluse nell'evidenza agentica"
+            ),
+        ),
+        claims=claims[:3],
+        data_ref="weather:forecast",
+        error_type="" if claims else "weather_empty",
+        retryable=not bool(claims),
+    )
+
+
 async def read_calendar(db, owner_id: str, goal) -> CapabilityOutcome:
     """
     What is actually on the calendar — if one is actually connected.
