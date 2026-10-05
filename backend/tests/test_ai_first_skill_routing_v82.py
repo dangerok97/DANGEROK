@@ -1,8 +1,6 @@
 """V82: conversation belongs to AI; code exposes skills and validates effects."""
 
 from pathlib import Path
-from unittest.mock import AsyncMock
-
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -31,44 +29,89 @@ def test_pre_model_phone_and_navigation_fast_path_responses_are_gone():
 
 
 @pytest.mark.asyncio
-async def test_relationship_language_is_not_parsed_as_phone_state_machine(db=None):
+async def test_relationship_language_is_not_parsed_as_phone_state_machine():
+    from test_post_call_application_v315 import FintoDb
+    from preparation.contacts import ContactCandidate
+    from preparation.preparation import MissionPreparation, remember
+    from preparation.trust import identity_of
     from conversation_engine.ai_core.loop import _phone_pending_followup
 
-    class Collection:
-        async def find_one(self, *args, **kwargs):
-            return {
-                "preparation_id": "prep_1",
-                "owner_id": "owner",
-                "counterparty": "la mia ragazza",
-                "operation": "deliver_message",
-                "selected_contact": {
-                    "name": "la mia ragazza",
-                    "number": "+393277631311",
-                    "kind": "person",
-                    "source": "user",
-                    "confidence": 1.0,
-                    "why": "Me l'hai detto tu.",
-                    "contact_identity": "la mia ragazza",
-                },
-                "contact_candidates": [],
-                "number_source": "user",
-                "contact_identity": "la mia ragazza",
-                "identity_conflicts": [
-                    {"identity": "asia", "name": "Asia", "source": "user"}
-                ],
-            }
-
-    class DB:
-        def __getitem__(self, name):
-            return Collection()
+    db = FintoDb()
+    prep = MissionPreparation(
+        owner_id="owner",
+        counterparty="la mia ragazza",
+        operation="deliver_message",
+        selected_contact=ContactCandidate(
+            name="la mia ragazza",
+            number="+393277631311",
+            kind="person",
+            source="user",
+            confidence=1.0,
+            why="Me l'hai detto tu.",
+            contact_identity=identity_of("la mia ragazza"),
+        ),
+        contact_identity=identity_of("la mia ragazza"),
+        identity_conflicts=[{
+            "identity": identity_of("Asia"),
+            "name": "Asia",
+            "source": "user",
+        }],
+    )
+    prep = await remember(db, prep)
 
     # The mechanical helper must leave semantic relationship language to AI.
     assert await _phone_pending_followup(
-        DB(),
+        db,
         "owner",
-        {"active_preparation_id": "prep_1"},
+        {"active_preparation_id": prep.preparation_id},
         "è giusto perché la mia ragazza si chiama Asia",
     ) == {}
+
+
+@pytest.mark.asyncio
+async def test_active_phone_skill_state_is_exposed_to_ai():
+    from test_post_call_application_v315 import FintoDb
+    from preparation.contacts import ContactCandidate
+    from preparation.preparation import MissionPreparation, remember
+    from preparation.trust import identity_of
+    from conversation_engine.ai_core.loop import _active_phone_skill_context
+
+    db = FintoDb()
+    prep = MissionPreparation(
+        owner_id="owner",
+        user_request="Chiama la mia ragazza e dille che la amo",
+        counterparty="la mia ragazza",
+        operation="deliver_message",
+        message_to_deliver="la amo",
+        selected_contact=ContactCandidate(
+            name="la mia ragazza",
+            number="+393277631311",
+            kind="person",
+            source="user",
+            confidence=1.0,
+            why="Me l'hai detto tu.",
+            contact_identity=identity_of("la mia ragazza"),
+        ),
+        contact_identity=identity_of("la mia ragazza"),
+        identity_conflicts=[{
+            "identity": identity_of("Asia"),
+            "name": "Asia",
+            "source": "user",
+        }],
+    )
+    prep = await remember(db, prep)
+
+    state = await _active_phone_skill_context(
+        db, "owner", {"active_preparation_id": prep.preparation_id}
+    )
+
+    assert state["skill"] == "phone"
+    assert state["capability"] == "prepare_a_phone_call"
+    assert state["preparation_id"] == prep.preparation_id
+    assert state["counterparty"] == "la mia ragazza"
+    assert state["identity_conflicts"] == [{"name": "Asia"}]
+    assert state["contact"]["number"] == "+393277631311"
+    assert "magic phrases" in state["instruction"]
 
 
 @pytest.mark.asyncio
