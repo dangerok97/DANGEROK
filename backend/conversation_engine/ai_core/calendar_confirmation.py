@@ -1,8 +1,9 @@
-"""Extract frozen pending calendar confirmation state from tool observations.
+"""Extract governed pending calendar confirmation state.
 
-Conversation semantics belong to the cognitive model. This module only copies
-the exact confirmation request produced by the governed calendar capability so
-it can survive into the next turn.
+Conversation semantics belong to the cognitive AI. This module does not read
+"yes", "no" or any other user language. It only recognizes the exact
+authority-required payload emitted by the calendar capability so the durable
+pending action can be exposed back to AI on the next turn.
 """
 
 
