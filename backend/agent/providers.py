@@ -664,6 +664,12 @@ async def read_banking(db, owner_id: str, goal, *, step=None) -> CapabilityOutco
         ))
 
     source_class = "connected_provider" if reality == "real" else "simulated"
+    from agent.evidence import freshness_of
+    observed_at = str(
+        (balance or {}).get("letto_quando")
+        or ""
+    )
+    freshness = freshness_of(observed_at) if observed_at else "unknown"
     note = (
         "conto reale collegato; valori derivano dall'ultima lettura disponibile"
         if reality == "real"
@@ -684,7 +690,7 @@ async def read_banking(db, owner_id: str, goal, *, step=None) -> CapabilityOutco
                 ref for ref in ("bank:balance" if balance else "", "bank:month" if month else "")
                 if ref
             ],
-            freshness="fresh" if bank.get("posso_leggere_adesso") else "recent",
+            freshness=freshness,
             certainty_note=note,
         ),
         claims=claims[:MAX_CLAIMS],
