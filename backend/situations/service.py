@@ -51,6 +51,8 @@ class SituationService:
     ) -> Dict[str, Any]:
         if update.operation == "none":
             return {"status": "noop"}
+
+        update = await self._govern_linked_refs(user_id, update)
         if update.operation == "create":
             if update.situation_id:
                 raise SituationMutationError("CREATE_WITH_ID")
@@ -177,6 +179,58 @@ class SituationService:
             "operation": update.operation,
             "situation": situation.context_preview(),
         }
+
+    async def _govern_linked_refs(
+        self, user_id: str, update: SituationUpdate
+    ) -> SituationUpdate:
+        """Persist only canonical linked refs that the runtime can trust.
+
+        Place refs are identity-bearing personal data, so prefix validity is
+        not enough: the referenced Life Place must exist for this exact user.
+        Other canonical refs keep their existing ownership checks at the
+        capability that consumes them, but malformed strings never enter the
+        Situation graph. Dropping one bad link must not discard the user's
+        underlying Situation statement.
+        """
+        incoming = list(update.linked_object_refs or [])
+        if not incoming:
+            return update
+
+        try:
+            from context_graph.models import is_recognized_ref
+        except Exception:
+            is_recognized_ref = lambda ref: False  # type: ignore[assignment]
+
+        out: List[str] = []
+        for raw in incoming:
+            ref = str(raw or "").strip()[:160]
+            if not ref or not is_recognized_ref(ref):
+                continue
+
+            if ref.startswith("place:"):
+                place_id = ref.split(":", 1)[1].strip()
+                if not place_id:
+                    continue
+                try:
+                    found = await self.db.life_places.find_one(
+                        {
+                            "user_id": user_id,
+                            "id": place_id,
+                            "state": {"$ne": "dismissed"},
+                        },
+                        {"_id": 0, "id": 1},
+                    )
+                except Exception:
+                    found = None
+                if not found:
+                    continue
+
+            if ref not in out:
+                out.append(ref)
+            if len(out) >= 20:
+                break
+
+        return update.model_copy(update={"linked_object_refs": out})
 
     async def _note_opportunity_change(
         self, user_id: str, situation: SituationState, *, operation: str
