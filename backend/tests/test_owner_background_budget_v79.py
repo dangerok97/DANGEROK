@@ -21,10 +21,12 @@ async def test_owner_budget_is_atomic_shared_and_isolated_between_people():
     budget = OwnerBackgroundBudget(db, daily_limit=2)
     await budget.ensure_indexes()
 
+    # Separate service instances in one process still share the owner/day lock;
+    # cross-process safety remains the database's unique key + bounded upsert.
     claims = await asyncio.gather(
-        budget.claim(OWNER, now=FIXED),
-        budget.claim(OWNER, now=FIXED),
-        budget.claim(OWNER, now=FIXED),
+        OwnerBackgroundBudget(db, daily_limit=2).claim(OWNER, now=FIXED),
+        OwnerBackgroundBudget(db, daily_limit=2).claim(OWNER, now=FIXED),
+        OwnerBackgroundBudget(db, daily_limit=2).claim(OWNER, now=FIXED),
     )
 
     allowed_claims = [claim for claim in claims if claim.allowed]
