@@ -186,3 +186,19 @@ def test_calendar_confirmation_module_only_extracts_governed_pending_request():
         "payload": {"status": "ok", "verified": True},
     }
     assert pending_request([completed]) is None
+
+
+
+def test_no_user_facing_conversation_can_finish_before_first_ai_decision():
+    source = (
+        ROOT / "conversation_engine" / "ai_core" / "loop.py"
+    ).read_text(encoding="utf-8")
+
+    first_ai = source.index("raw = await _call_ai(")
+    prefix = source[:first_ai]
+
+    assert "return CognitiveTurnResult(" not in prefix
+    assert "CognitiveDecision(" not in prefix
+    assert "PHONE_FOLLOWUP_FAST_PATH" not in prefix
+    assert "NAVIGATION_FAST_PATH" not in prefix
+    assert "calendar_decision =" not in prefix
