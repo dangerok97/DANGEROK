@@ -861,6 +861,9 @@ class ActionStep(BaseModel):
             "input_refs": list(self.input_refs),
             "document_offset": self.parameters.get("document_offset") if self.capability_needed == "document.read" else None,
             "document_version": self.parameters.get("document_version") if self.capability_needed == "document.read" else None,
+            "wait_until": self.parameters.get("wait_until") if self.step_type == "wait" else None,
+            "wait_minutes": self.parameters.get("wait_minutes") if self.step_type == "wait" else None,
+            # Legacy v60 plans remain readable while new plans use minute/absolute timing.
             "wait_hours": self.parameters.get("wait_hours") if self.step_type == "wait" else None,
             "execution_parameters": execution_parameters or None,
             "expected_result": self.expected_result or None,
