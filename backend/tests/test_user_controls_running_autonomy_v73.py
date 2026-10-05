@@ -153,8 +153,11 @@ async def test_source_change_refreshes_facts_but_preserves_future_user_defer(mon
     assert latest.status == "waiting"
     assert latest.next_run_at == deferred_until
     assert latest.user_deferred_until == deferred_until
-    plan = await repo.plan_for(OWNER, goal.id)
-    assert plan is not None and plan.status == "cancelled"
+    plan = await db.agent_plans.find_one(
+        {"owner_id": OWNER, "goal_id": goal.id},
+        {"_id": 0, "status": 1},
+    )
+    assert plan is not None and plan["status"] == "cancelled"
 
 
 @pytest.mark.asyncio
