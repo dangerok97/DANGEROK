@@ -861,6 +861,8 @@ class ActionStep(BaseModel):
             "input_refs": list(self.input_refs),
             "document_offset": self.parameters.get("document_offset") if self.capability_needed == "document.read" else None,
             "document_version": self.parameters.get("document_version") if self.capability_needed == "document.read" else None,
+            "wait_until": self.parameters.get("wait_until") if self.step_type == "wait" else None,
+            "wait_minutes": self.parameters.get("wait_minutes") if self.step_type == "wait" else None,
             "wait_hours": self.parameters.get("wait_hours") if self.step_type == "wait" else None,
             "execution_parameters": execution_parameters or None,
             "expected_result": self.expected_result or None,
@@ -1144,6 +1146,10 @@ class GoalVerification(BaseModel):
     reasoning: str = Field(default="", max_length=400)
     what_is_missing: str = Field(default="", max_length=300)
     # When the answer depends on something that has not happened yet.
+    # Precise fields are additive: old persisted/model responses using hours
+    # remain valid while new reasoning can keep a local deadline exact.
+    revisit_at: Optional[str] = Field(default=None, max_length=64)
+    revisit_in_minutes: Optional[int] = None
     revisit_in_hours: Optional[int] = None
     at: str = Field(default_factory=now_iso)
 
