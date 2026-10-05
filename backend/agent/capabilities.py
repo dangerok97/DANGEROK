@@ -278,29 +278,17 @@ class CapabilityResolver:
                 status = "unavailable"
                 reason = "bank_not_connected"
 
-        if facts.name == "weather.read" and executable:
+        if facts.name == "weather.read" and permitted and executable:
             try:
                 import weather as weather_service
-                from location.service import LocationService
-
                 weather_ready = bool(weather_service.capabilities().get("available"))
-                location_allowed = (
-                    await LocationService(self.db).get_preference(owner_id)
-                ) == "while_using"
             except Exception:
                 weather_ready = False
-                location_allowed = False
-            if not weather_ready:
-                executable = False
+            if weather_ready:
+                status = "available_real"
+            else:
                 status = "unavailable"
                 reason = "weather_provider_unavailable"
-            elif not location_allowed:
-                permitted = False
-                status = "requires_connection"
-                reason = "location_not_permitted"
-            else:
-                status = "available_real"
-                reason = ""
 
         return Resolution(
             capability=facts.name,
