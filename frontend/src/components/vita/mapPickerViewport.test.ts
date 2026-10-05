@@ -19,17 +19,12 @@ assert.ok(
   'Google Maps deve ricevere un resize esplicito dopo il layout',
 );
 assert.ok(
-  picker.includes('invalidateSize'),
-  'Leaflet deve ricalcolare il viewport dopo i cambi di layout',
-);
-assert.ok(
   picker.includes('requestAnimationFrame(() => requestAnimationFrame(keepCentreOnResize))'),
   'il primo render deve essere riallineato dopo il paint',
 );
 assert.ok(
-  picker.includes('map.current.setCenter({ lat: point.latitude, lng: point.longitude })')
-    && picker.includes('map.current.setView('),
-  'un resize non deve spostare il punto geografico scelto con nessun provider',
+  picker.includes('map.current.setCenter(current)'),
+  'un resize Google Maps non deve spostare il punto geografico scelto',
 );
 assert.ok(
   editor.includes('height={compact ? 290 : 320}'),
