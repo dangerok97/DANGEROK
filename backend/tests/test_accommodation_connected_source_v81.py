@@ -164,6 +164,11 @@ async def test_provider_date_change_keeps_all_delta_fields(monkeypatch):
     assert fields == {"checkin", "checkout"}
     assert "2026-10-24" in signal.payload_summary
     assert "2026-10-26" in signal.payload_summary
+    change = signal.as_change()
+    assert "2026-10-23" in change["before"]
+    assert "2026-10-25" in change["before"]
+    assert "2026-10-24" in change["after"]
+    assert "2026-10-26" in change["after"]
 
 
 @pytest.mark.asyncio
