@@ -17,6 +17,7 @@ import {
   KeyboardAvoidingView,
   AppState,
   Platform,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -69,7 +70,13 @@ import { presencePalette, presenceColors } from '@/src/theme/presence';
 /** Conversation reading width — long reasoning stays legible, never full-bleed. */
 const READING_MAX_WIDTH = 720;
 
-type ClientAction = { type?: string; reason?: string; refresh?: boolean };
+type ClientAction = {
+  type?: string;
+  reason?: string;
+  refresh?: boolean;
+  url?: string;
+  label?: string;
+};
 
 type PendingTurn = {
   id?: string | null;
@@ -99,7 +106,7 @@ type AiCoreRes = {
   error?: string;
 };
 
-async function fulfillLocationClientActions(
+async function fulfillClientActions(
   sessionId: string,
   actions: ClientAction[],
   opts?: {
@@ -150,6 +157,43 @@ async function fulfillLocationClientActions(
   for (const action of actions) {
     const type = action?.type || '';
     const refresh = Boolean(action?.refresh);
+
+    if (type === 'open_navigation') {
+      const rawUrl = String(action?.url || '').trim();
+      let safeUrl = '';
+      try {
+        const parsed = new URL(rawUrl);
+        const allowedHosts = new Set([
+          'www.google.com',
+          'maps.apple.com',
+          'waze.com',
+          'www.waze.com',
+        ]);
+        if (parsed.protocol === 'https:' && allowedHosts.has(parsed.hostname.toLowerCase())) {
+          safeUrl = parsed.toString();
+        }
+      } catch {
+        safeUrl = '';
+      }
+      if (!safeUrl) {
+        return { resume: false, completed, failure: 'invalid_navigation_url' };
+      }
+
+      completed.push(type);
+      try {
+        if (Platform.OS === 'web') {
+          const location = (globalThis as any)?.location;
+          if (location?.assign) location.assign(safeUrl);
+          else await Linking.openURL(safeUrl);
+        } else {
+          await Linking.openURL(safeUrl);
+        }
+        return { resume: false, completed };
+      } catch {
+        return { resume: false, completed, failure: 'navigation_open_failed' };
+      }
+    }
+
     if (type === 'request_location_permission') {
       const allowed = opts?.onNeedPermission ? await opts.onNeedPermission() : false;
       if (!allowed) {
@@ -679,8 +723,11 @@ function OraConversationBody({
       let guard = 0;
       while ((current.client_actions || []).length && sid && guard < 2) {
         guard += 1;
-        setWorkingHint('Sto usando la tua posizione…');
-        const { resume, completed } = await fulfillLocationClientActions(
+        const isNavigation = (current.client_actions || []).some(
+          (action) => action?.type === 'open_navigation',
+        );
+        setWorkingHint(isNavigation ? 'Apro la navigazione…' : 'Sto usando la tua posizione…');
+        const { resume, completed } = await fulfillClientActions(
           sid,
           current.client_actions || [],
           { onNeedPermission: askLocationPreference },
