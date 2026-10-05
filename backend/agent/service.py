@@ -608,6 +608,26 @@ class AgentService:
             if current is None or current.status == "cancelled":
                 goal.status, goal.next_run_at = "cancelled", None
                 return {"ok": True, "state": "cancelled"}
+            if (
+                current.status == "waiting"
+                and current.next_run_at
+                and current.next_run_at > _now().isoformat()
+                and not current.requires_user_input
+                and not current.requires_user_authority
+            ):
+                # A person can say "più tardi" while a run is already in
+                # flight. The provider call already under way is allowed to
+                # finish, but the next loop boundary must honour the new
+                # schedule instead of continuing from stale in-memory state.
+                goal.status = "waiting"
+                goal.next_run_at = current.next_run_at
+                run.stopped_because = "user_deferred"
+                return {
+                    "ok": True,
+                    "state": "waiting",
+                    "until": current.next_run_at,
+                    "goal": goal.for_human(),
+                }
             if await changed(self.db, goal):
                 await refresh(self, goal)
                 run.stopped_because = "source_changed"
@@ -1830,6 +1850,87 @@ class AgentService:
         }
 
     # --- what a person may do about it -------------------------------------
+
+    async def defer_opportunity_goal(
+        self, owner_id: str, opportunity_id: str, *, until: str,
+        reason: str = "l'utente ha scelto più tardi",
+    ) -> Dict[str, Any]:
+        """Move existing autonomous work to the same moment as its deferred concern.
+
+        This never creates a goal. If the goal is already waiting for a person's
+        information or authority, it is already stopped and its question remains
+        the thing that governs resumption. Otherwise the goal, plan and wake move
+        together so hiding the Opportunity cannot leave ORA working invisibly.
+        """
+        goal = await self.repo.goal_for_opportunity(owner_id, opportunity_id)
+        if goal is None:
+            return {"ok": True, "deferred": False, "reason": "no_open_goal"}
+
+        try:
+            due = datetime.fromisoformat(str(until))
+            if due.tzinfo is None:
+                due = due.replace(tzinfo=timezone.utc)
+            due = due.astimezone(timezone.utc)
+        except (TypeError, ValueError):
+            return {"ok": False, "reason": "invalid_defer_time"}
+        if due <= _now():
+            return {"ok": False, "reason": "defer_time_not_future"}
+
+        if goal.requires_user_input or goal.requires_user_authority:
+            await self.repo.journal(
+                owner_id, goal.id, kind="user_deferred_surface",
+                note=reason,
+                detail={
+                    "until": due.isoformat(),
+                    "work_already_waiting_for_person": True,
+                },
+            )
+            return {
+                "ok": True,
+                "deferred": False,
+                "state": "waiting_for_person",
+                "goal_id": goal.id,
+            }
+
+        plan = await self.repo.plan_for(owner_id, goal.id)
+        goal.status = "waiting"
+        goal.next_run_at = due.isoformat()
+        goal.background_runs = 0
+        goal.decision_provenance = "user"
+        await self.repo.save_goal(goal)
+        if plan is not None and plan.status not in ("completed", "cancelled", "failed"):
+            plan.status = "waiting"
+            await self.repo.save_plan(plan)
+
+        try:
+            from ambient.repository import AmbientRepository
+            from ambient.service import AmbientService
+
+            await AmbientRepository(self.db).cancel_for(
+                owner_id, source_ref=f"goal:{goal.id}"
+            )
+            await AmbientService(self.db).schedule(
+                owner_id,
+                reason="opportunity_revisit",
+                when=due,
+                source_ref=f"goal:{goal.id}",
+                provenance="model",
+            )
+        except Exception as exc:
+            logger.info("agent user defer wake soft-fail: %s", type(exc).__name__)
+
+        await self.repo.journal(
+            owner_id, goal.id, kind="user_deferred",
+            note=reason,
+            detail={"until": due.isoformat(), "opportunity_id": opportunity_id},
+        )
+        return {
+            "ok": True,
+            "deferred": True,
+            "state": "waiting",
+            "until": due.isoformat(),
+            "goal_id": goal.id,
+        }
 
     async def cancel(self, owner_id: str, goal_id: str, *, reason: str = "") -> Dict[str, Any]:
         """
