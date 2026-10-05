@@ -15,7 +15,7 @@ assert.ok(
   'MapPicker deve reagire ai cambi di dimensione del contenitore',
 );
 assert.ok(
-  picker.includes("g.event.trigger(map.current, 'resize')"),
+  picker.includes("event?.trigger(map.current, 'resize')"),
   'Google Maps deve ricevere un resize esplicito dopo il layout',
 );
 assert.ok(
