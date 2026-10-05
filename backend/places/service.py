@@ -670,6 +670,7 @@ class PlacesService:
             "place": names.get(pid),
             "place_id": pid,
             "since": summary[pid].get("since"),
+            "last_seen_at": summary[pid].get("last_seen_at"),
             "seconds_here": summary[pid].get("current_session_seconds"),
         }
 
