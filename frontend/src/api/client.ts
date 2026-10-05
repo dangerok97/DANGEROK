@@ -1508,6 +1508,7 @@ export const api = {
     accuracy_meters?: number;
     observed_at?: string;
     event_id?: string;
+    source?: 'foreground_device' | 'background_device';
   }) =>
     request<{ recorded: boolean; duplicate?: boolean }>('/places/observations', {
       method: 'POST',
