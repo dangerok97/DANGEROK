@@ -7,6 +7,7 @@ from mongomock_motor import AsyncMongoMockClient
 from agent.models import ActionPlan, ActionStep, AutonomousGoal, CommunicationNeed
 from agent.needs import NeedService
 from agent.repository import AgentRepository
+from agent.service import AgentService
 from ambient.service import AmbientService
 from opportunities.models import Opportunity
 from opportunities.repository import OpportunityRepository
@@ -115,6 +116,45 @@ async def test_defer_moves_existing_goal_and_wake_to_same_moment(monkeypatch):
     assert protected.status == "waiting"
     assert protected.next_run_at == result["deferred_until"]
     assert protected.user_deferred_until == result["deferred_until"]
+
+
+@pytest.mark.asyncio
+async def test_source_change_refreshes_facts_but_preserves_future_user_defer(monkeypatch):
+    from agent.source_refresh import refresh
+
+    db = AsyncMongoMockClient().test
+    opp, goal, _old_wake = await setup_running_goal(db)
+    row = await db.opportunities.find_one({"id": opp.id}, {"_id": 0})
+
+    repo = AgentRepository(db)
+    goal = await repo.get_goal(OWNER, goal.id)
+    goal.opportunity_revision = str(row.get("agent_review_revision") or "")
+    await repo.save_goal(goal)
+
+    monkeypatch.setattr(
+        "opportunities.reasoning.decide_revisit",
+        AsyncMock(return_value={
+            "revisit_in_hours": 4,
+            "rationale": "Riprendere più tardi come chiesto.",
+        }),
+    )
+    result = await SurfacingService(db).defer(OWNER, opp.id)
+    deferred_until = result["deferred_until"]
+
+    opp.semantic_summary = "La stessa situazione ha ora un fatto nuovo"
+    await OpportunityRepository(db).save(opp)
+
+    deferred_goal = await repo.get_goal(OWNER, goal.id)
+    assert deferred_goal.user_deferred_until == deferred_until
+    assert await refresh(AgentService(db), deferred_goal) is True
+
+    latest = await repo.get_goal(OWNER, goal.id)
+    assert latest is not None
+    assert latest.status == "waiting"
+    assert latest.next_run_at == deferred_until
+    assert latest.user_deferred_until == deferred_until
+    plan = await repo.plan_for(OWNER, goal.id)
+    assert plan is not None and plan.status == "cancelled"
 
 
 @pytest.mark.asyncio
