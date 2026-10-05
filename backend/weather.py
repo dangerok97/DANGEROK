@@ -221,7 +221,8 @@ async def _detailed_from_open_meteo(*, lat: float, lon: float, place: str) -> Di
         f"?latitude={lat:.4f}&longitude={lon:.4f}"
         "&current=temperature_2m,apparent_temperature,relative_humidity_2m,"
         "wind_speed_10m,precipitation,weather_code"
-        "&hourly=temperature_2m,precipitation_probability,weather_code"
+        "&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m,"
+        "precipitation_probability,weather_code"
         "&daily=weather_code,temperature_2m_max,temperature_2m_min,"
         "precipitation_probability_max,sunrise,sunset"
         "&forecast_days=5&timezone=auto"
@@ -257,6 +258,8 @@ async def _detailed_from_open_meteo(*, lat: float, lon: float, place: str) -> Di
             {
                 "time": str((orarie.get("time") or [])[i])[11:16],
                 "temperature_c": _arrotonda((orarie.get("temperature_2m") or [])[i]),
+                "humidity_pct": _arrotonda((orarie.get("relative_humidity_2m") or [None])[i]),
+                "wind_kmh": _arrotonda((orarie.get("wind_speed_10m") or [None])[i]),
                 "rain_chance_pct": _arrotonda((orarie.get("precipitation_probability") or [None])[i]),
                 "icon": CHE_ICONA.get(_WMO.get(int((orarie.get("weather_code") or [0])[i]), ""), ""),
             }

@@ -3176,9 +3176,11 @@ def _with_situation_handoff(
     base = (text or "").strip()
     if not base or _BARE_ACK_RE.fullmatch(base):
         return sentence
-    if intent and intent.casefold() in base.casefold():
-        return base
-    return f"{base}\\n\\n{sentence}"
+
+    # The cognitive model owns the conversation. Once it produced a
+    # substantive answer, do not append a second backend-authored voice. The
+    # sentence above is only the safety net for an empty/bare acknowledgement.
+    return base
 
 
 def _compose_user_text(decision: CognitiveDecision, observations=None) -> str:

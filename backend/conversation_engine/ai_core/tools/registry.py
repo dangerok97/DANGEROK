@@ -506,6 +506,7 @@ class ToolRegistry:
         self._register_files()
         self._register_location()
         self._register_places()
+        self._register_weather()
         self._register_accommodation()
         self._register_presence_history()
         self._register_calendar()
@@ -715,6 +716,41 @@ class ToolRegistry:
                 risk="read",
                 handler=place_caps.continue_navigation,
                 tags=["places", "navigation", "continuation"],
+            )
+        )
+
+    def _register_weather(self) -> None:
+        from conversation_engine.ai_core.tools import weather_caps
+
+        self.register(
+            CapabilitySpec(
+                capability="get_weather_forecast",
+                description=(
+                    "Read REAL current/local weather plus the next hours: temperature, "
+                    "humidity, wind and rain probability. Use when the user's current "
+                    "decision or a temporary Situation materially depends on environmental "
+                    "conditions. If the Situation is anchored to a confirmed Life Place, "
+                    "first resolve that place and pass its exact place:<id> as place_ref; "
+                    "otherwise the skill may use current authorized device position. "
+                    "This skill supplies live inputs — YOU reason about what those inputs "
+                    "mean for the person's goal. Do not use public web search as a substitute "
+                    "for live weather."
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "place_ref": {
+                            "type": "string",
+                            "description": "Optional exact confirmed place:<id> for the situation.",
+                        }
+                    },
+                },
+                classification="personal",
+                side_effect="READ_ONLY",
+                freshness="live",
+                risk="read",
+                handler=weather_caps.get_weather_forecast,
+                tags=["weather", "environment", "life"],
             )
         )
 
