@@ -176,7 +176,7 @@ async def test_owner_budget_claim_failure_fails_closed(monkeypatch):
 
     monkeypatch.setattr(
         db.agent_owner_background_budgets,
-        "update_one",
+        "find_one_and_update",
         broken,
     )
 
