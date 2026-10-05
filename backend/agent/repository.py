@@ -73,18 +73,74 @@ class AgentRepository:
     async def save_goal(self, goal: AutonomousGoal) -> AutonomousGoal:
         goal.touch()
         from pymongo.errors import DuplicateKeyError
+
         query = {"id": goal.id, "owner_id": goal.owner_id}
+        terminal = goal.status in ("completed", "cancelled", "failed", "abandoned")
         if goal.status != "cancelled":
             query["status"] = {"$ne": "cancelled"}
+
+        # A person's explicit "più tardi" is stronger than an older worker's
+        # in-memory copy. Until that instant passes, non-terminal writes may
+        # not erase the defer. Terminal outcomes still win: if the thing was
+        # actually completed or ceased to exist, waiting longer would be a lie.
+        if not terminal:
+            stamp = _now().isoformat()
+            query["$or"] = [
+                {"user_deferred_until": {"$exists": False}},
+                {"user_deferred_until": None},
+                {"user_deferred_until": {"$lte": stamp}},
+            ]
+
         try:
             await self.db[GOALS].update_one(query, {"$set": goal.model_dump()}, upsert=True)
         except DuplicateKeyError:
-            # A concurrent stop cannot be undone by a worker's older copy.
+            # A concurrent user control or terminal transition cannot be undone
+            # by a worker's older copy. Reflect the durable state back into the
+            # caller rather than pretending its write succeeded.
             latest = await self.get_goal(goal.owner_id, goal.id)
-            if latest is None or latest.status != "cancelled":
+            if latest is None:
                 raise
-            goal.status, goal.next_run_at = "cancelled", None
+            if latest.status == "cancelled":
+                goal.status, goal.next_run_at = "cancelled", None
+                goal.user_deferred_until = None
+                return goal
+            if (
+                latest.user_deferred_until
+                and latest.user_deferred_until > _now().isoformat()
+            ):
+                goal.status = latest.status
+                goal.next_run_at = latest.next_run_at
+                goal.user_deferred_until = latest.user_deferred_until
+                goal.background_runs = latest.background_runs
+                return goal
+            raise
         return goal
+
+    async def defer_goal(
+        self, owner_id: str, goal_id: str, *, until: str
+    ) -> Optional[AutonomousGoal]:
+        """Atomically apply an explicit user defer to an open, autonomous goal."""
+        doc = await self.db[GOALS].find_one_and_update(
+            {
+                "id": goal_id,
+                "owner_id": owner_id,
+                "status": {"$in": list(OPEN)},
+                "requires_user_input": {"$ne": True},
+                "requires_user_authority": {"$ne": True},
+            },
+            {
+                "$set": {
+                    "status": "waiting",
+                    "next_run_at": until,
+                    "user_deferred_until": until,
+                    "background_runs": 0,
+                    "updated_at": _now().isoformat(),
+                }
+            },
+            projection={"_id": 0},
+            return_document=True,
+        )
+        return AutonomousGoal.model_validate(doc) if doc else None
 
     async def create_goal(self, goal: AutonomousGoal) -> Optional[AutonomousGoal]:
         """
