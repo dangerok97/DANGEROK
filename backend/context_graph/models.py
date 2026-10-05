@@ -1,8 +1,8 @@
 """Life Context Graph V1 — domain-neutral relationship model.
 
 An edge connects two CANONICAL refs the AI already sees in its context payload
-(situation:, goal:, plan:, object:, document:, calendar:, profile:, file:,
-presence:, or a bare governed mem_ id). It never duplicates the referenced
+(situation:, goal:, plan:, object:, place:, document:, calendar:, profile:,
+file:, presence:, or a bare governed mem_ id). It never duplicates the referenced
 entity's own data — only the relationship between two existing records.
 
 `predicate` is open free text (AI-authored), never a closed enum: the runtime
@@ -34,6 +34,7 @@ KNOWN_REF_PREFIXES: tuple[str, ...] = (
     "goal:",
     "plan:",
     "object:",
+    "place:",
     "document:",
     "calendar:",
     "profile:",
