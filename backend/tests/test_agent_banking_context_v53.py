@@ -154,3 +154,27 @@ async def test_unconnected_bank_is_not_empty_success(monkeypatch):
     assert outcome.status == "unavailable"
     assert outcome.error_type == "requires_connection"
     assert outcome.claims == []
+
+
+@pytest.mark.asyncio
+async def test_test_bank_connect_mirrors_read_permission_to_exact_instance():
+    from connectors.bank.service import BankReadService
+
+    db = AsyncMongoMockClient().test
+    permissions = PermissionService(db)
+    service = BankReadService(
+        db=db,
+        permissions=permissions,
+        vault=object(),
+        provider=FakeBankProvider(),
+    )
+
+    linked = await service.connect(user_id="alice", institution="Banca di prova")
+    instance_id = linked["instance_id"]
+
+    assert await permissions.check_access(
+        user_id="alice",
+        capability_id="banking.read",
+        connector_id="banking_psd2",
+        connector_instance_id=instance_id,
+    ) is True
