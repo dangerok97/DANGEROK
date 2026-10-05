@@ -13,6 +13,8 @@ import pytest
 from mongomock_motor import AsyncMongoMockClient
 
 from agent.models import (
+    ActionPlan,
+    ActionStep,
     AgentBudget,
     AgentEvidence,
     AgentRun,
@@ -233,11 +235,30 @@ async def test_everyday_outcome_schedules_recheck_then_surfaces_estimated_moment
 
     monkeypatch.setattr(reasoning, "choose_next_action", next_action)
 
+    plan = ActionPlan(
+        goal_id=goal.id,
+        owner_id=OWNER,
+        status="active",
+        plan_summary="Rivalutare l'esito con condizioni ambientali fresche.",
+        steps=[
+            ActionStep(
+                ordinal=0,
+                intent="Rileggere le condizioni al prossimo momento utile.",
+                step_type="verify",
+                capability_needed="weather.read",
+                input_refs=["place:home_v84"],
+                expected_result="Nuova evidenza ambientale al checkpoint",
+            )
+        ],
+        expected_outcome=goal.desired_outcome,
+    )
+    await service.repo.save_plan(plan)
+
     run = AgentRun(owner_id=OWNER, goal_id=goal.id, background=True)
     decision, wait_step = await service._next(
         OWNER,
         goal,
-        type("Plan", (), {"for_ai": lambda self: {}, "steps": []})(),
+        plan,
         run,
         AgentBudget(),
         language="it",
@@ -253,7 +274,7 @@ async def test_everyday_outcome_schedules_recheck_then_surfaces_estimated_moment
     waited = await service._wait(
         OWNER,
         goal,
-        None,
+        plan,
         wait_step,
         run,
         minutes=110,
