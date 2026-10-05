@@ -1232,8 +1232,9 @@ class ToolRegistry:
                 description=(
                     "Cancel an existing calendar event ORA manages, by exact calendar_ref. "
                     "Call this on a cancellation request to prepare the precise confirmation question. "
-                    "It does not delete without explicit approval. The runtime shows the question "
-                    "and resumes the bound action on a plain yes — never cancel silently."
+                    "It does not delete without explicit approval. If the tool returns authority_required, "
+                    "the AI asks the exact prepared question and on a later approval chooses "
+                    "continue_calendar_action; backend code verifies the real assent and frozen target."
                 ),
                 input_schema={
                     "type": "object",
@@ -1245,6 +1246,24 @@ class ToolRegistry:
                 risk="write_soft",
                 handler=cal_caps.cancel_calendar_event,
                 tags=["calendar", "temporal"],
+            )
+        )
+        self.register(
+            CapabilitySpec(
+                capability="continue_calendar_action",
+                description=(
+                    "Continue the exact pending calendar cancellation in "
+                    "current_facts.active_skill_state.calendar after the user "
+                    "naturally confirms it. Do not copy or reconstruct the "
+                    "event arguments yourself. The backend verifies the actual "
+                    "user assent, proposal age, frozen target and snapshot."
+                ),
+                input_schema={"type": "object", "properties": {}},
+                classification="personal",
+                side_effect="REVERSIBLE_WRITE",
+                risk="write_soft",
+                handler=cal_caps.continue_calendar_action,
+                tags=["calendar", "temporal", "continuation"],
             )
         )
 

@@ -524,6 +524,31 @@ def _pending_navigation_skill_context(state: dict) -> dict:
     }
 
 
+def _pending_calendar_skill_context(state: dict) -> dict:
+    """AI-visible description of a frozen pending calendar confirmation."""
+    pending = state.get("pending_act")
+    if not isinstance(pending, dict):
+        return {}
+    request = pending.get("calendar_cancel")
+    if not isinstance(request, dict):
+        return {}
+    question = str(request.get("question") or "")[:300]
+    if not question:
+        return {}
+    return {
+        "skill": "calendar",
+        "capability": "continue_calendar_action",
+        "awaiting_user_reply": True,
+        "question": question,
+        "created_at": str(pending.get("at") or "")[:40],
+        "instruction": (
+            "Interpret the latest reply naturally. If it confirms the exact "
+            "pending cancellation, call continue_calendar_action. If it declines "
+            "or changes the request, do not execute the pending action."
+        ),
+    }
+
+
 def _now_iso() -> str:
     from datetime import datetime, timezone
 
@@ -749,193 +774,129 @@ async def run_cognitive_loop(
     clock_context = await user_clock_context(db, sess.user_id)
 
     for step in range(max(1, max_steps)):
-        #     SE LO STRUMENTO HA GIA' DETTO LA FRASE, NON SI RIGENERA.
-        #
-        # Certi strumenti non restituiscono dati da riassumere: restituiscono
-        # la frase esatta che la persona deve leggere — nome, numero,
-        # provenienza, e la domanda su quelli. Quella frase vince già su
-        # qualunque cosa il modello scriva dopo (`_the_tool_s_own_sentence`):
-        # la generazione successiva veniva prodotta, pagata e poi buttata.
-        #
-        # Misurato (V3.21.3a): una generazione costa 3-6 s, ed era la metà del
-        # tempo di attesa di una preparazione di telefonata.
-        #
-        # Non è una scorciatoia sul percorso della domanda: la decisione si
-        # costruisce qui e poi passa dalla validazione e dal resto del turno
-        # come tutte le altre, così la domanda aperta nasce con i suoi
-        # riferimenti e la Home resta d'accordo con la chat.
-        frase_pronta = _the_tool_s_own_sentence(observations[-1:]) if step else ""
-        from conversation_engine.ai_core.calendar_confirmation import next_decision, pending_request
-        calendar_decision = next_decision(st.get("pending_act"), user_message, observations[turn_start:], step)
-        if calendar_decision:
-            gov = validate_decision(
-                calendar_decision, tools=tools, recent_tool_signatures=recent_tool_sigs,
-                external_query_count=external_queries, max_external_queries=MAX_EXTERNAL_QUERIES,
-                clarification_attempts=clarification_attempts,
-            )
-            decision = gov.decision or CognitiveDecision.model_validate(calendar_decision)
-            validated_raw = calendar_decision
-            trace["generations_saved"] = int(trace.get("generations_saved") or 0) + 1
-        elif frase_pronta:
-            #     UNA DOMANDA CHE FERMA IL LAVORO SI DICHIARA TALE.
-            # Misurato in app: senza questo, la frase arrivava in chat e in
-            # Home non compariva niente — la domanda esisteva solo finché la
-            # pagina restava aperta. È `uncertainty.blocking` a farla durare,
-            # e una conferma chiesta prima di telefonare a qualcuno è per
-            # definizione bloccante.
-            proposta = CognitiveDecision(
-                response_mode="ask",
-                user_intent_summary="conferma chiesta dallo strumento",
-                reasoning_status="needs_user_input",
-                message_to_user=frase_pronta,
-                question=frase_pronta,
-                confidence=0.9,
-                uncertainty=UncertaintyState(
-                    level=0.5,
-                    blocking=True,
-                    operational_reason="Serve la conferma prima di procedere.",
-                    missing_information=[
-                        MissingInformation(
-                            ref="call_confirmation",
-                            description="La conferma di chi chiamare e di che cosa dire.",
-                            purpose="Non si telefona a qualcuno senza che sia confermato.",
-                            importance=0.9,
-                            blocking=True,
-                            strategy="ask",
-                        )
-                    ],
+        # Every conversational step reaches the cognitive model. A tool may
+        # carry exact material facts in say_this, but that is a post-reasoning
+        # truth/confirmation guard, never a pre-model dialogue branch.
+        from conversation_engine.ai_core.calendar_confirmation import pending_request
+
+        life_os_payload = await build_life_os_ai_payload(db, sess, st)
+        active_skill_state = {
+            "phone": await _active_phone_skill_context(db, sess.user_id, st),
+            "navigation": _pending_navigation_skill_context(st),
+            "calendar": _pending_calendar_skill_context(st),
+        }
+        active_skill_state = {
+            key: value for key, value in active_skill_state.items() if value
+        }
+        payload = build_user_payload(
+            user_message=user_message,
+            recent_turns=st.get("recent_turns") or [],
+            active_goal=st.get("active_goal"),
+            context_facts=[f.model_dump() for f in context_facts],
+            tools=tools.list_public(),
+            observations=observations[-6:],
+            current_facts={
+                **(st.get("current_facts") or {}),
+                **(
+                    {"pending_phone_number_correction": phone_correction}
+                    if phone_correction else {}
                 ),
-            )
-            gov = validate_decision(
-                proposta.model_dump(),
-                tools=tools,
-                recent_tool_signatures=recent_tool_sigs,
-                external_query_count=external_queries,
-                max_external_queries=MAX_EXTERNAL_QUERIES,
-                clarification_attempts=clarification_attempts,
-            )
-            decision = gov.decision or proposta
-            validated_raw = proposta.model_dump()
-            trace["generations_saved"] = int(trace.get("generations_saved") or 0) + 1
-            add_step(trace, event="TOOL_SENTENCE_STANDS", name="ask")
-        else:
-            life_os_payload = await build_life_os_ai_payload(db, sess, st)
-            active_skill_state = {
-                "phone": await _active_phone_skill_context(db, sess.user_id, st),
-                "navigation": _pending_navigation_skill_context(st),
-            }
-            active_skill_state = {
-                key: value for key, value in active_skill_state.items() if value
-            }
-            payload = build_user_payload(
-                user_message=user_message,
-                recent_turns=st.get("recent_turns") or [],
-                active_goal=st.get("active_goal"),
-                context_facts=[f.model_dump() for f in context_facts],
-                tools=tools.list_public(),
-                observations=observations[-6:],
-                current_facts={
-                    **(st.get("current_facts") or {}),
-                    **(
-                        {"pending_phone_number_correction": phone_correction}
-                        if phone_correction else {}
-                    ),
-                    **(
-                        {"active_skill_state": active_skill_state}
-                        if active_skill_state else {}
-                    ),
-                },
-                life_os=life_os_payload,
-                # Da dove è entrata la frase decide come esce la risposta — e
-                # nient'altro. Al telefono viene ascoltata, e si dice diversamente
-                # da come si scrive.
-                spoken_out_loud=((sess.meta or {}).get("entry_point") == "phone"
-                                 or (sess.meta or {}).get("response_channel") == "voice"),
-                in_app_voice=((sess.meta or {}).get("response_channel") == "voice"
-                              and (sess.meta or {}).get("entry_point") != "phone"),
-                calendar_next_48h=calendar_ahead,
-                clock_context=clock_context,
-            )
-            _t = time.perf_counter()
-            raw = await _call_ai(
+                **(
+                    {"active_skill_state": active_skill_state}
+                    if active_skill_state else {}
+                ),
+            },
+            life_os=life_os_payload,
+            # Da dove è entrata la frase decide come esce la risposta — e
+            # nient'altro. Al telefono viene ascoltata, e si dice diversamente
+            # da come si scrive.
+            spoken_out_loud=((sess.meta or {}).get("entry_point") == "phone"
+                             or (sess.meta or {}).get("response_channel") == "voice"),
+            in_app_voice=((sess.meta or {}).get("response_channel") == "voice"
+                          and (sess.meta or {}).get("entry_point") != "phone"),
+            calendar_next_48h=calendar_ahead,
+            clock_context=clock_context,
+        )
+        _t = time.perf_counter()
+        raw = await _call_ai(
+            decision_fn=decision_fn,
+            system=COGNITIVE_SYSTEM_PROMPT,
+            user=payload,
+            user_preference=user_llm_preference,
+            # Vale a ogni passo del ragionamento, e non c'è nessun tetto per
+            # il turno intero: interrompere un turno a metà vorrebbe dire
+            # decidere di non rispondere, e quella è una decisione di ORA, non
+            # dell'infrastruttura.
+            latency_budget_s=_how_long_we_wait(
+                "voice" if (sess.meta or {}).get("response_channel") == "voice"
+                else str((sess.meta or {}).get("entry_point") or "")
+            ),
+        )
+        _fase("model", _t)
+        ai_calls += 1
+        trace["ai_calls"] = ai_calls
+
+        if raw is None:
+            add_step(trace, event="PROVIDER_FAIL")
+            state_mod.save_ai_state(sess, st)
+            out = provider_unavailable_result(session_id=sess.id)
+            out.ai_calls = ai_calls
+            out.tool_calls = tool_calls
+            out.context_calls = int(trace.get("context_calls") or 0)
+            out.external_queries = external_queries
+            out.elapsed_ms = int((time.perf_counter() - t0) * 1000)
+            trace["phases_ms"] = dict(fasi)
+            out.trace = public_trace(trace)
+            return out
+
+        gov = validate_decision(
+            raw,
+            tools=tools,
+            recent_tool_signatures=recent_tool_sigs,
+            external_query_count=external_queries,
+            max_external_queries=MAX_EXTERNAL_QUERIES,
+            clarification_attempts=clarification_attempts,
+        )
+        validated_raw: Any = raw
+        if not gov.ok or not gov.decision:
+            raw2 = await _call_ai(
                 decision_fn=decision_fn,
-                system=COGNITIVE_SYSTEM_PROMPT,
+                system=COGNITIVE_SYSTEM_PROMPT
+                + "\nPrevious output was invalid. Return valid JSON only.",
                 user=payload,
                 user_preference=user_llm_preference,
-                # Vale a ogni passo del ragionamento, e non c'è nessun tetto per
-                # il turno intero: interrompere un turno a metà vorrebbe dire
-                # decidere di non rispondere, e quella è una decisione di ORA, non
-                # dell'infrastruttura.
-                latency_budget_s=_how_long_we_wait(
-                    "voice" if (sess.meta or {}).get("response_channel") == "voice"
-                    else str((sess.meta or {}).get("entry_point") or "")
-                ),
             )
-            _fase("model", _t)
             ai_calls += 1
             trace["ai_calls"] = ai_calls
-
-            if raw is None:
-                add_step(trace, event="PROVIDER_FAIL")
-                state_mod.save_ai_state(sess, st)
-                out = provider_unavailable_result(session_id=sess.id)
-                out.ai_calls = ai_calls
-                out.tool_calls = tool_calls
-                out.context_calls = int(trace.get("context_calls") or 0)
-                out.external_queries = external_queries
-                out.elapsed_ms = int((time.perf_counter() - t0) * 1000)
-                trace["phases_ms"] = dict(fasi)
-                out.trace = public_trace(trace)
-                return out
-
             gov = validate_decision(
-                raw,
+                raw2,
                 tools=tools,
                 recent_tool_signatures=recent_tool_sigs,
                 external_query_count=external_queries,
                 max_external_queries=MAX_EXTERNAL_QUERIES,
                 clarification_attempts=clarification_attempts,
             )
-            validated_raw: Any = raw
+            validated_raw = raw2
             if not gov.ok or not gov.decision:
-                raw2 = await _call_ai(
-                    decision_fn=decision_fn,
-                    system=COGNITIVE_SYSTEM_PROMPT
-                    + "\nPrevious output was invalid. Return valid JSON only.",
-                    user=payload,
-                    user_preference=user_llm_preference,
-                )
-                ai_calls += 1
-                trace["ai_calls"] = ai_calls
-                gov = validate_decision(
-                    raw2,
-                    tools=tools,
-                    recent_tool_signatures=recent_tool_sigs,
-                    external_query_count=external_queries,
-                    max_external_queries=MAX_EXTERNAL_QUERIES,
-                    clarification_attempts=clarification_attempts,
-                )
-                validated_raw = raw2
-                if not gov.ok or not gov.decision:
-                    decision = fallback_decision_after_malformed()
-                    add_step(trace, event="MALFORMED_FALLBACK", errors=gov.errors)
-                else:
-                    decision = gov.decision
-                    add_step(trace, event="AI_DECISION_RETRY", mode=decision.response_mode)
+                decision = fallback_decision_after_malformed()
+                add_step(trace, event="MALFORMED_FALLBACK", errors=gov.errors)
             else:
                 decision = gov.decision
-                add_step(
-                    trace,
-                    event="AI_DECISION",
-                    mode=decision.response_mode,
-                    status=decision.reasoning_status,
-                    tool=(
-                        decision.tool_call.resolved_capability
-                        if decision.tool_call
-                        else None
-                    ),
-                    has_question=bool(decision.question),
-                )
+                add_step(trace, event="AI_DECISION_RETRY", mode=decision.response_mode)
+        else:
+            decision = gov.decision
+            add_step(
+                trace,
+                event="AI_DECISION",
+                mode=decision.response_mode,
+                status=decision.reasoning_status,
+                tool=(
+                    decision.tool_call.resolved_capability
+                    if decision.tool_call
+                    else None
+                ),
+                has_question=bool(decision.question),
+            )
 
         last_decision = decision
         await report_activity(
@@ -2054,10 +2015,16 @@ async def run_cognitive_loop(
             #
             # One turn deep on purpose. A proposal three messages ago is not
             # what the person is replying to now.
+            calendar_pending = pending_request(observations[turn_start:])
             st["pending_act"] = (
-                {"at": _now_iso(), "asked": str(ora or "")[:300],
-                 "calendar_cancel": pending_request(observations[turn_start:])}
-                if mode == "act" else None
+                {
+                    "at": _now_iso(),
+                    "asked": str(
+                        (calendar_pending or {}).get("question") or ora or ""
+                    )[:300],
+                    "calendar_cancel": calendar_pending,
+                }
+                if calendar_pending else None
             )
             st["observations"] = observations[-12:]
             navigation_options = _remember_pending_navigation(
