@@ -254,6 +254,20 @@ class ConnectedLifeService:
                 own += 1
                 continue
 
+            # An exact provider thread is stronger than semantic matching.
+            # If this external message answers a thread ORA sent while a goal
+            # is waiting, resume that same goal immediately. The bridge only
+            # adds a mail:<id> handle; it never reads or stores the body here.
+            if signal.source_type == "email":
+                try:
+                    from agent.followups import resume_email_reply
+                    await resume_email_reply(self.db, owner_id, signal)
+                except Exception as exc:
+                    logger.info(
+                        "external mail follow-up resume soft-fail: %s",
+                        type(exc).__name__,
+                    )
+
             source = sources.get(signal.source_id)
             recent = [
                 s.for_ai() for s in
