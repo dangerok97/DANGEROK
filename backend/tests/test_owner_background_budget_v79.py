@@ -27,9 +27,10 @@ async def test_owner_budget_is_atomic_shared_and_isolated_between_people():
         budget.claim(OWNER, now=FIXED),
     )
 
-    assert sum(1 for claim in claims if claim.allowed) == 2
+    allowed_claims = [claim for claim in claims if claim.allowed]
+    assert len(allowed_claims) == 2
     assert sum(1 for claim in claims if not claim.allowed) == 1
-    assert max(claim.used for claim in claims) == 2
+    assert sorted(claim.used for claim in allowed_claims) == [1, 2]
 
     # A different person has a different budget row, even at the same instant.
     bob = await budget.claim("bob", now=FIXED)
