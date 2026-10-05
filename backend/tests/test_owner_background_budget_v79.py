@@ -171,11 +171,16 @@ async def test_owner_budget_claim_failure_fails_closed(monkeypatch):
     db = AsyncMongoMockClient().test
     budget = OwnerBackgroundBudget(db, daily_limit=4)
 
-    async def broken(*args, **kwargs):
+    collection = db.agent_owner_background_budgets
+
+    async def broken(self, *args, **kwargs):
         raise RuntimeError("mongo unavailable")
 
+    # mongomock_motor may hand out a fresh collection wrapper for db[name].
+    # Patch the wrapper class so the exact access path used by production code
+    # is guaranteed to fail.
     monkeypatch.setattr(
-        db.agent_owner_background_budgets,
+        type(collection),
         "find_one_and_update",
         broken,
     )
