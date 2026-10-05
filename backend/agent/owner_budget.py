@@ -121,6 +121,7 @@ class OwnerBackgroundBudget:
                     "$inc": {"used": 1},
                     "$set": {
                         "updated_at": moment.isoformat(),
+                        "limit": self.daily_limit,
                         "reset_at": reset_at,
                         "expires_at": expires,
                     },
@@ -144,9 +145,32 @@ class OwnerBackgroundBudget:
                 {"_id": 0, "used": 1},
             )
             if existing is not None:
+                used = int(existing.get("used") or 0)
+                if used >= self.daily_limit:
+                    return OwnerBudgetClaim(
+                        allowed=False,
+                        used=used,
+                        limit=self.daily_limit,
+                        reset_at=reset_at,
+                    )
+                # Another worker may have created the row after our first
+                # update attempt. Retry the same atomic bounded increment
+                # rather than denying useful work while capacity remains.
+                row = await increment_existing()
+                if row is not None:
+                    return OwnerBudgetClaim(
+                        allowed=True,
+                        used=int(row.get("used") or 0),
+                        limit=self.daily_limit,
+                        reset_at=reset_at,
+                    )
+                latest = await self.db[COLLECTION].find_one(
+                    {"owner_id": owner_id, "day": day},
+                    {"_id": 0, "used": 1},
+                )
                 return OwnerBudgetClaim(
                     allowed=False,
-                    used=int(existing.get("used") or self.daily_limit),
+                    used=int((latest or {}).get("used") or self.daily_limit),
                     limit=self.daily_limit,
                     reset_at=reset_at,
                 )
