@@ -245,7 +245,7 @@ async def test_reality_gate_change_becomes_autonomous_work_then_exact_authority(
 
     choose_calls = []
 
-    async def choose_next(goal, *, plan, candidates, evidence, capabilities, language="it"):
+    async def choose_next(goal, *, plan, candidates, evidence, capabilities, clock_context=None, language="it"):
         choose_calls.append([c.get("capability_needed") for c in candidates])
         mail_steps = [c for c in candidates if c.get("capability_needed") == "mail.read"]
         if mail_steps:
@@ -281,7 +281,7 @@ async def test_reality_gate_change_becomes_autonomous_work_then_exact_authority(
 
     monkeypatch.setattr(reasoning, "choose_next_action", choose_next)
 
-    async def reconsider(goal, *, plan, what_happened, capabilities, language="it"):
+    async def reconsider(goal, *, plan, what_happened, capabilities, clock_context=None, language="it"):
         old = next(
             step for step in plan["steps"]
             if step.get("capability_needed") == "calendar.write"
