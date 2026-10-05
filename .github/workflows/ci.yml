@@ -99,7 +99,7 @@ jobs:
       - name: Calendar departure freshness and background continuity
         working-directory: backend
         run: |
-          python -m pytest -q tests/test_calendar_departures.py tests/test_arrival_departure_advice.py \
+          python -m pytest -q tests/test_calendar_departures.py tests/test_arrival_departure_advice.py tests/test_background_departure_origin_v67.py \
             tests/test_home_overlap_opportunity.py tests/test_scheduled_discovery_continuity.py -x
       - name: Autonomous work, clarification, source changes and scheduled recovery
         working-directory: backend
@@ -255,7 +255,7 @@ jobs:
           npm run test:v3213d
           npm run test:v3213e
           npm run test:v322
-          node --test --experimental-strip-types src/components/ora/presence/presence.test.ts src/components/ora/presence/openingSession.test.ts src/components/ora/presence/scene.test.mjs src/ora/openingHandoff.test.ts src/voice/voice313.test.ts src/voice/voiceRuntime.test.ts src/components/ora/ora14.test.ts src/components/ora/navigationConfirmation.test.ts src/life-setup/vitaLoading.test.ts src/life-setup/registrationIntro.test.ts src/components/vita/routinesPlaces.test.ts src/components/vita/mapPickerViewport.test.ts src/components/vita/googleMapsOnly.test.ts src/components/vita/placeEditorLocationLookup.test.ts src/contacts/deviceContacts.test.ts
+          node --test --experimental-strip-types src/components/ora/presence/presence.test.ts src/components/ora/presence/openingSession.test.ts src/components/ora/presence/scene.test.mjs src/ora/openingHandoff.test.ts src/voice/voice313.test.ts src/voice/voiceRuntime.test.ts src/components/ora/ora14.test.ts src/components/ora/navigationConfirmation.test.ts src/location/backgroundDepartureOrigin.test.ts src/life-setup/vitaLoading.test.ts src/life-setup/registrationIntro.test.ts src/components/vita/routinesPlaces.test.ts src/components/vita/mapPickerViewport.test.ts src/components/vita/googleMapsOnly.test.ts src/components/vita/placeEditorLocationLookup.test.ts src/contacts/deviceContacts.test.ts
 
       # The former life-experience-documents Playwright spec is intentionally
       # not a blocking CI gate here. It navigates the pre-V3.21 greedy
