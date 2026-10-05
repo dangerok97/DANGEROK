@@ -1137,6 +1137,7 @@ class AgentService:
             plan=plan.for_ai(),
             what_happened=what_happened,
             capabilities=await self.capabilities.available(owner_id),
+            clock_context=await _user_clock_context(self.db, owner_id),
             language=language,
         )
         if answer is None:
