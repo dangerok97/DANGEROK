@@ -151,3 +151,39 @@ async def test_next_action_reasoning_receives_same_local_clock(monkeypatch):
     assert '"local_time": "11:28"' in captured["user"]
     assert '"timezone": "Europe/Rome"' in captured["user"]
     assert '"authority": "user_confirmed"' in captured["user"]
+
+
+@pytest.mark.asyncio
+async def test_reconsider_reasoning_receives_local_clock(monkeypatch):
+    from agent import reasoning
+
+    captured = {}
+
+    async def ask_model(system, user):
+        captured["user"] = user
+        return {
+            "decision": "wait",
+            "reasoning": "Aspetto fino al prossimo controllo locale utile.",
+            "replace_step_ids": [],
+            "revised_steps": [],
+            "wait_hours": 2,
+            "asks": "",
+            "ask_kind": None,
+        }
+
+    monkeypatch.setattr(reasoning, "_ask_model", ask_model)
+
+    result = await reasoning.reconsider(
+        {"objective": "Seguire un esito esterno"},
+        plan={"steps": []},
+        what_happened={"problem": "scheduled_external_checkpoint"},
+        capabilities=[],
+        clock_context=dict(CLOCK),
+        language="it",
+    )
+
+    assert result is not None
+    assert result["decision"] == "wait"
+    assert result["wait_hours"] == 2
+    assert '"local_time": "11:28"' in captured["user"]
+    assert '"timezone": "Europe/Rome"' in captured["user"]
