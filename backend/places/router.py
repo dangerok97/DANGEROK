@@ -56,6 +56,7 @@ class ObservationIn(BaseModel):
     longitude: float = Field(..., ge=-180, le=180)
     accuracy_meters: Optional[float] = Field(None, ge=0, le=100000)
     dwell_seconds: Optional[int] = Field(None, ge=0, le=86400)
+    source: Literal["foreground_device", "background_device"] = "foreground_device"
     # When the fix was taken. Absent means now; a queued batch says when.
     observed_at: Optional[str] = Field(None, max_length=40)
     # The device's own id for this sighting, so a repeated delivery is
@@ -395,6 +396,7 @@ async def record_observation(body: ObservationIn, user=Depends(get_current_user)
         longitude=body.longitude,
         accuracy_meters=body.accuracy_meters,
         dwell_seconds=body.dwell_seconds,
+        source=body.source,
         observed_at=body.observed_at,
         event_id=body.event_id,
     )
