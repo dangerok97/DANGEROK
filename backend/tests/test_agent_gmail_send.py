@@ -133,6 +133,8 @@ async def test_agent_effect_uses_exact_connected_gmail_and_reports_only_sender_s
     assert outcome.observed is True
     assert outcome.receipt.provider_status == "succeeded"
     assert outcome.receipt.external_ref
+    assert outcome.receipt.result_refs
+    assert outcome.receipt.result_refs[0].startswith("gmail_thread:")
     assert len(provider.sent_messages) == 1
     assert "destinatario" not in outcome.observation.lower() or "letto" not in outcome.observation.lower()
 
