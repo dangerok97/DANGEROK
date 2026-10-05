@@ -536,7 +536,27 @@ class AgentService:
             if not goal.is_open:
                 return {"ok": True, "state": goal.status}
 
+            revisit_due = bool(
+                run.background
+                and goal.status == "waiting"
+                and goal.next_run_at
+                and goal.next_run_at <= _now().isoformat()
+                and not goal.requires_user_input
+                and not goal.requires_user_authority
+            )
+            if revisit_due:
+                goal.background_runs = 0
+
             if run.background:
+                # The per-goal burst ceiling is checked first: a goal that is
+                # already technically paused must not consume one of the
+                # person's shared daily background credits without doing work.
+                if goal.background_runs >= 3:
+                    goal.next_run_at = None
+                    await self.repo.save_goal(goal)
+                    run.stopped_because = "background_budget"
+                    return {"ok": True, "state": "background_paused"}
+
                 owner_claim = await self.owner_budget.claim(owner_id)
                 if not owner_claim.allowed:
                     run.stopped_because = "owner_background_budget"
@@ -579,23 +599,6 @@ class AgentService:
                         "goal": goal.for_human(),
                     }
 
-            revisit_due = bool(
-                run.background
-                and goal.status == "waiting"
-                and goal.next_run_at
-                and goal.next_run_at <= _now().isoformat()
-                and not goal.requires_user_input
-                and not goal.requires_user_authority
-            )
-            if revisit_due:
-                goal.background_runs = 0
-
-            if run.background:
-                if goal.background_runs >= 3:
-                    goal.next_run_at = None
-                    await self.repo.save_goal(goal)
-                    run.stopped_because = "background_budget"
-                    return {"ok": True, "state": "background_paused"}
                 goal.background_runs += 1
             # Persist recovery before execution; cancellation leaves due work.
             goal.next_run_at = (_now() + timedelta(minutes=5)).isoformat()
