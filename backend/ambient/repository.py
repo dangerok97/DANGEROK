@@ -120,7 +120,10 @@ class AmbientRepository:
         )
         return AmbientWake.model_validate(doc) if doc else None
 
-    async def claim_due(self, *, worker_id: str, now: Optional[datetime] = None) -> Optional[AmbientWake]:
+    async def claim_due(
+        self, *, worker_id: str, now: Optional[datetime] = None,
+        exclude_owner_ids: Optional[set[str]] = None,
+    ) -> Optional[AmbientWake]:
         """
         Take exactly one due wake, atomically, or nothing.
 
@@ -139,17 +142,22 @@ class AmbientRepository:
             {"status": "pending"}, {"status": "claimed", "lease_until": {"$lt": stamp}},
         ]}, {"$set": {"status": "failed", "updated_at": stamp, "last_error": "retry_limit"}})
 
+        due_query: Dict[str, Any] = {
+            "scheduled_for": {"$lte": stamp},
+            "attempts": {"$lt": MAX_ATTEMPTS},
+            "$or": [
+                {"status": "pending"},
+                # A worker that died mid-review: its lease expired and the
+                # work is up for grabs again.
+                {"status": "claimed", "lease_until": {"$lt": stamp}},
+            ],
+        }
+        excluded = sorted({str(x) for x in (exclude_owner_ids or set()) if str(x)})
+        if excluded:
+            due_query["owner_id"] = {"$nin": excluded}
+
         doc = await self.db[WAKES].find_one_and_update(
-            {
-                "scheduled_for": {"$lte": stamp},
-                "attempts": {"$lt": MAX_ATTEMPTS},
-                "$or": [
-                    {"status": "pending"},
-                    # A worker that died mid-review: its lease expired and the
-                    # work is up for grabs again.
-                    {"status": "claimed", "lease_until": {"$lt": stamp}},
-                ],
-            },
+            due_query,
             {
                 "$set": {
                     "status": "claimed",
