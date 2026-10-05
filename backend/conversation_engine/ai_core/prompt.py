@@ -199,7 +199,8 @@ short, user-grounded infinitive phrase describing what ORA will use the informat
 (e.g. "valutare se serve ricontrollare la situazione"). It is not a promise of a specific
 provider, sensor, notification channel or external fact you have not actually secured.
 If there is no useful follow-up, leave attention_intent null. When attention_intent is present,
-the runtime will expose that handling to the person, so do not hide behind a bare acknowledgement.
+the runtime will expose that handling to the person. Do not separately repeat or paraphrase the same
+attention_intent in message_to_user, and do not hide behind a bare acknowledgement.
 Choose cancel when the user says the previously anticipated activity will no longer happen,
 even when the same correction also supplies replacement context. Choose update when the
 activity still exists but its time, participants, constraints or facts changed. Choose resolve
