@@ -358,6 +358,29 @@ async def test_everyday_outcome_schedules_recheck_then_surfaces_estimated_moment
 
 
 
+def test_substantive_ai_situation_reply_is_not_rewritten_by_backend():
+    from conversation_engine.ai_core.loop import _with_situation_handoff
+
+    result = {
+        "status": "success",
+        "operation": "create",
+        "situation": {
+            "attention_intent": (
+                "stimare il momento utile, ricontrollare le condizioni e avvisare"
+            )
+        },
+    }
+    ai_reply = (
+        "Controllo le condizioni di adesso e delle prossime ore. "
+        "Ti do una stima e la ricontrollerò prima di avvisarti."
+    )
+
+    visible = _with_situation_handoff(ai_reply, result)
+
+    assert visible == ai_reply
+    assert "terrò questa situazione" not in visible.lower()
+
+
 def test_same_ai_decision_can_persist_situation_and_read_live_weather():
     from conversation_engine.ai_core.governance import validate_decision
     from conversation_engine.ai_core.tools.registry import ToolRegistry
