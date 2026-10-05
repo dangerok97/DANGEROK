@@ -15,16 +15,21 @@ assert.ok(
   'MapPicker deve reagire ai cambi di dimensione del contenitore',
 );
 assert.ok(
-  picker.includes("g.event.trigger(map.current, 'resize')"),
+  picker.includes("trigger(map.current, 'resize')"),
   'Google Maps deve ricevere un resize esplicito dopo il layout',
+);
+assert.ok(
+  picker.includes('invalidateSize'),
+  'Leaflet deve ricalcolare il viewport dopo i cambi di layout',
 );
 assert.ok(
   picker.includes('requestAnimationFrame(() => requestAnimationFrame(keepCentreOnResize))'),
   'il primo render deve essere riallineato dopo il paint',
 );
 assert.ok(
-  picker.includes('map.current.setCenter(current)'),
-  'un resize non deve spostare il punto geografico scelto',
+  picker.includes('map.current.setCenter({ lat: point.latitude, lng: point.longitude })')
+    && picker.includes('map.current.setView('),
+  'un resize non deve spostare il punto geografico scelto con nessun provider',
 );
 assert.ok(
   editor.includes('height={compact ? 290 : 320}'),
