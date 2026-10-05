@@ -513,3 +513,168 @@ def test_relationship_phrase_does_not_turn_quindi_into_a_contact_name():
     from telephone.requests import who_in
 
     assert who_in("Chiama la mia ragazza quindi e dille che la amo") == "la mia ragazza"
+
+
+
+@pytest.mark.asyncio
+async def test_ai_phone_dialogue_understands_relationship_alias_is_same_person(db, monkeypatch):
+    from preparation.contacts import ContactCandidate
+    from preparation.preparation import MissionPreparation, remember
+    from preparation.trust import identity_of
+    from telephone.caps import _through_the_preparation
+
+    await claim(db, "Asia")
+    alias = "la mia ragazza"
+    candidate = ContactCandidate(
+        name=alias,
+        number=NUMBER,
+        kind="person",
+        source="user",
+        confidence=1.0,
+        why="Me l'hai detto tu.",
+        contact_identity=identity_of(alias),
+    )
+    prep = MissionPreparation(
+        owner_id="owner",
+        user_request="Chiama la mia ragazza e dille che la amo",
+        counterparty=alias,
+        operation="deliver_message",
+        message_to_deliver="la amo",
+        selected_contact=candidate,
+        contact_candidates=[candidate],
+        number_source="user",
+        contact_identity=identity_of(alias),
+        number_confirmed=False,
+        identity_conflicts=[{
+            "identity": identity_of("Asia"),
+            "name": "Asia",
+            "source": "user",
+        }],
+        identity_conflict_shown_in="chat:one",
+    )
+    prep = await remember(db, prep)
+
+    async def classify(system, payload):
+        assert "same_person" in system
+        assert "la mia ragazza si chiama Asia" in payload
+        return {"decision": "same_person", "canonical_name": "Asia"}
+
+    monkeypatch.setattr("research.reasoning._ask_model", classify)
+
+    result = await _through_the_preparation(
+        {"preparation_id": prep.preparation_id},
+        {
+            "session_id": "chat",
+            "reasoning_epoch": "two",
+            "user_message": "è giusto perché la mia ragazza si chiama Asia",
+        },
+        db,
+        "owner",
+    )
+
+    assert result.payload["identity_conflicts"] == []
+    assert result.payload["contact"]["name"] == "Asia"
+    assert result.payload["contact"]["number"] == NUMBER
+    assert result.payload["number_confirmed"] is True
+    assert result.payload["call_id"] is None
+    assert "correzione o un numero condiviso" not in result.payload["say_this"].lower()
+
+
+@pytest.mark.asyncio
+async def test_ai_phone_identity_cannot_invent_a_canonical_person(db, monkeypatch):
+    from preparation.contacts import ContactCandidate
+    from preparation.preparation import MissionPreparation
+    from preparation.trust import identity_of
+    from telephone.caps import _ai_identity_resolution
+
+    prep = MissionPreparation(
+        owner_id="owner",
+        counterparty="la mia ragazza",
+        selected_contact=ContactCandidate(
+            name="la mia ragazza",
+            number=NUMBER,
+            contact_identity=identity_of("la mia ragazza"),
+        ),
+        identity_conflicts=[{
+            "identity": identity_of("Asia"),
+            "name": "Asia",
+            "source": "user",
+        }],
+    )
+
+    async def classify(*args, **kwargs):
+        return {"decision": "same_person", "canonical_name": "Giulia"}
+
+    monkeypatch.setattr("research.reasoning._ask_model", classify)
+    assert await _ai_identity_resolution(
+        "la mia ragazza si chiama Asia", prep
+    ) == {"decision": "unclear", "canonical_name": ""}
+
+
+@pytest.mark.asyncio
+async def test_bare_yes_never_reassigns_phone_identity_even_if_model_would(db, monkeypatch):
+    from preparation.contacts import ContactCandidate
+    from preparation.preparation import MissionPreparation
+    from preparation.trust import identity_of
+    from telephone.caps import _ai_identity_resolution
+
+    prep = MissionPreparation(
+        owner_id="owner",
+        counterparty="la mia ragazza",
+        selected_contact=ContactCandidate(
+            name="la mia ragazza",
+            number=NUMBER,
+            contact_identity=identity_of("la mia ragazza"),
+        ),
+        identity_conflicts=[{
+            "identity": identity_of("Asia"),
+            "name": "Asia",
+            "source": "user",
+        }],
+    )
+
+    called = False
+
+    async def bad_model(*args, **kwargs):
+        nonlocal called
+        called = True
+        return {"decision": "same_person", "canonical_name": "Asia"}
+
+    monkeypatch.setattr("research.reasoning._ask_model", bad_model)
+    assert await _ai_identity_resolution("sì", prep) == {
+        "decision": "unclear", "canonical_name": ""
+    }
+    assert called is False
+
+
+def test_phone_turn_does_not_get_generic_situation_followup():
+    from conversation_engine.ai_core.loop import _with_situation_handoff
+
+    situation = {
+        "status": "success",
+        "operation": "create",
+        "situation": {
+            "attention_intent": "verificare che la chiamata venga completata",
+        },
+    }
+    phone_sentence = "Ho trovato Asia. È questo il numero corretto?"
+
+    assert _with_situation_handoff(
+        phone_sentence, situation, suppress=True
+    ) == phone_sentence
+
+
+def test_phone_conflict_guidance_does_not_require_magic_phrases():
+    from telephone.caps import _what_to_say_now
+
+    card = {
+        "identity_conflicts": [{"name": "Asia"}],
+        "contact": {"name": "la mia ragazza"},
+        "ready": False,
+        "candidates": [],
+        "number_confirmed": False,
+        "question": None,
+    }
+    guidance = _what_to_say_now(card, False).lower()
+    assert "parole normali" in guidance
+    assert "non pretendere formule" in guidance
