@@ -212,6 +212,50 @@ def test_an_attachment_is_not_read_just_because_it_exists(monkeypatch):
     _run(body())
 
 
+def test_neutral_promotional_message_settles_as_noise_without_creating_work(monkeypatch):
+    """A judged-neutral message is silence all the way down, not a quiet task."""
+    async def body():
+        client, db = await _db()
+        uid = f"s3_{uuid.uuid4().hex[:8]}"
+        try:
+            service = _service(db)
+            await _mail_signal(
+                db,
+                uid,
+                subject="Offerta esclusiva: scopri le novità del mese",
+                message_id="m_promo",
+            )
+            model = _install(monkeypatch, Recorded([{
+                "outcome": "noise",
+                "what_it_means": "",
+                "relates_to": "",
+                "reasoning": "Messaggio promozionale senza conseguenze sulla vita corrente.",
+                "needs_content": False,
+                "needs_attachments": False,
+                "touches_money": False,
+            }]))
+
+            out = await service.interpret(uid)
+
+            assert out["looked_at"] == 1
+            assert out["noise"] == 1
+            assert out["passed_on"] == 0
+            assert out["linked"] == 0
+            assert len(model.seen_payloads) == 1
+            assert await service.signals.pending(uid) == []
+            assert await db.meaningful_changes.count_documents({"owner_id": uid}) == 0
+            assert await db.ambient_wakes.count_documents({"owner_id": uid}) == 0
+            assert await db.opportunities.count_documents({"owner_id": uid}) == 0
+            assert await db.agent_goals.count_documents({"owner_id": uid}) == 0
+        finally:
+            await _clean(db, uid)
+            await db.opportunities.delete_many({"owner_id": uid})
+            await db.agent_goals.delete_many({"owner_id": uid})
+            client.close()
+
+    _run(body())
+
+
 # ---------------------------------------------------------------------------
 # One knock, not several
 # ---------------------------------------------------------------------------
