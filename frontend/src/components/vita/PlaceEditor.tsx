@@ -116,9 +116,24 @@ export function PlaceEditor({
       setSearching(true);
       try {
         const res = await api.placesSuggest(typed, sessionToken.current);
-        if (!cancelled) setSuggestions(res.suggestions ?? []);
+        if (!cancelled) {
+          if (!res.available) {
+            setSuggestions([]);
+            setError(
+              res.why_unavailable
+                ? `Ricerca indirizzi non disponibile: ${res.why_unavailable}.`
+                : 'Ricerca indirizzi non disponibile in questo momento.',
+            );
+          } else {
+            setSuggestions(res.suggestions ?? []);
+            setError(null);
+          }
+        }
       } catch {
-        if (!cancelled) setSuggestions([]);
+        if (!cancelled) {
+          setSuggestions([]);
+          setError('Non riesco a cercare gli indirizzi in questo momento.');
+        }
       } finally {
         if (!cancelled) setSearching(false);
       }
@@ -160,8 +175,8 @@ export function PlaceEditor({
     setBusy(true);
     setError(null);
     try {
-      const { requestForegroundPosition } = await import('@/src/location/foregroundGeo');
-      const fix = await requestForegroundPosition({ maximumAgeMs: 0 });
+      const { requestCurrentPosition } = await import('@/src/location/foregroundGeo');
+      const fix = await requestCurrentPosition({ maximumAgeMs: 0 });
       if (!fix.ok) {
         setError(
           fix.reason === 'denied'
@@ -184,6 +199,44 @@ export function PlaceEditor({
       setBusy(false);
     }
   }, []);
+
+  /* --- open map from the real device position -------------------------- */
+  const openMapAtCurrentPosition = React.useCallback(async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const { requestCurrentPosition } = await import('@/src/location/foregroundGeo');
+      const fix = await requestCurrentPosition({ maximumAgeMs: 0 });
+      if (fix.ok) {
+        const next = { latitude: fix.latitude, longitude: fix.longitude };
+        setPoint(next);
+        openedAt.current = next;
+        setMovedByHand(false);
+        setAddress('');
+        setLocality('');
+        setPlaceId('');
+        // GPS is only the starting viewport here. The user still chooses the
+        // actual place on the map, so do not turn this into "Sono qui adesso".
+        setSource('map_selection');
+        setFromCurrentPosition(false);
+        setStep('map');
+        return;
+      }
+
+      // Never pretend that a fallback is the user's position. If a point was
+      // already known (e.g. relocate), preserve it; otherwise the neutral map
+      // remains usable and the UI explains that GPS was unavailable.
+      openedAt.current = point ?? initialPoint ?? null;
+      setStep('map');
+      setError(
+        fix.reason === 'denied'
+          ? 'Non posso centrare la mappa sulla tua posizione senza il permesso GPS. Puoi comunque spostare la mappa manualmente.'
+          : 'Non riesco a leggere il GPS adesso. Puoi comunque spostare la mappa manualmente.',
+      );
+    } finally {
+      setBusy(false);
+    }
+  }, [initialPoint, point]);
 
   /* --- the map has the last word --------------------------------------- */
   const onPointChange = React.useCallback((next: MapPoint) => {
@@ -279,7 +332,11 @@ export function PlaceEditor({
             <Choice
               icon="search-outline"
               label="Inserisci indirizzo"
-              onPress={() => setStep('address')}
+              onPress={() => {
+                setError(null);
+                setSuggestions([]);
+                setStep('address');
+              }}
               disabled={busy || !label.trim()}
               colors={colors}
               testID="editor-address-mode"
@@ -287,10 +344,7 @@ export function PlaceEditor({
             <Choice
               icon="map-outline"
               label="Scegli sulla mappa"
-              onPress={() => {
-                openedAt.current = null;
-                setStep('map');
-              }}
+              onPress={() => void openMapAtCurrentPosition()}
               disabled={busy || !label.trim()}
               colors={colors}
               testID="editor-map-mode"
