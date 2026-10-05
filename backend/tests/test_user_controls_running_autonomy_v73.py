@@ -223,8 +223,11 @@ async def test_dismiss_cancels_linked_goal_plan_wake_and_need():
 
     saved_goal = await AgentRepository(db).get_goal(OWNER, goal.id)
     assert saved_goal is not None and saved_goal.status == "cancelled"
-    plan = await AgentRepository(db).plan_for(OWNER, goal.id)
-    assert plan is not None and plan.status == "cancelled"
+    plan = await db.agent_plans.find_one(
+        {"owner_id": OWNER, "goal_id": goal.id},
+        {"_id": 0, "status": 1},
+    )
+    assert plan is not None and plan["status"] == "cancelled"
     wake = await db.ambient_wakes.find_one({"id": old_wake.id}, {"_id": 0})
     assert wake["status"] == "cancelled"
     saved_need = await needs.get(OWNER, need.id)
