@@ -354,6 +354,7 @@ async def reconsider(
     plan: Dict[str, Any],
     what_happened: Dict[str, Any],
     capabilities: List[Dict[str, Any]],
+    clock_context: Optional[Dict[str, Any]] = None,
     language: str = "it",
 ) -> Optional[Dict[str, Any]]:
     """
@@ -407,6 +408,7 @@ async def reconsider(
             "plan": plan,
             "what_happened": what_happened,
             "what_ora_can_do": capabilities,
+            "local_clock": clock_context or {},
         }),
     )
     if not isinstance(data, dict):
@@ -572,6 +574,7 @@ async def choose_next_action(
     candidates: List[Dict[str, Any]],
     evidence: List[Dict[str, Any]],
     capabilities: List[Dict[str, Any]],
+    clock_context: Optional[Dict[str, Any]] = None,
     language: str = "it",
 ) -> Optional[Dict[str, Any]]:
     """
@@ -605,7 +608,9 @@ async def choose_next_action(
         "- `verify` — enough has been found; check whether the outcome holds.\n"
         "- `wait` — it depends on something that has not happened yet. Set wait_hours "
         "to the smallest evidence-justified integer from 1 to 336 for when ORA should "
-        "look again. The timer is a checkpoint, never proof the outcome occurred.\n"
+        "look again. Use the supplied local clock/timezone when phrases such as morning, "
+        "afternoon, evening, tonight or a local deadline matter. The timer is a checkpoint, "
+        "never proof the outcome occurred.\n"
         "- `ask` — it is blocked on the person, and only on the person.\n"
         "- `replan` — what was found means the route has to change.\n"
         "- `complete` — the outcome is already true.\n\n"
@@ -640,6 +645,7 @@ async def choose_next_action(
             "still_to_do": candidates,
             "what_has_been_found": evidence,
             "what_ora_can_do": capabilities,
+            "local_clock": clock_context or {},
         }),
     )
     if not isinstance(data, dict):
