@@ -313,20 +313,55 @@ class DeliveryService:
 
     # --- sending, much later ----------------------------------------------
 
+    async def _current_subject_for_plan(
+        self, user_id: str, plan: DeliveryPlan
+    ) -> Optional[Any]:
+        """Reload the exact thing a pending notification is about.
+
+        A delivery plan is only an intention. At send time the source must
+        still exist *as the same kind of source* and still be open. Agent
+        needs are not opportunities, so they are reloaded through their own
+        repository and adapted to DeliverySubject only at this boundary.
+        """
+        if plan.source_type == "opportunity":
+            from opportunities.repository import OpportunityRepository
+
+            subject = await OpportunityRepository(self.db).get(
+                user_id, plan.source_id or plan.opportunity_id
+            )
+            return subject if subject is not None and subject.status == "active" else None
+
+        if plan.source_type == "agent_need":
+            from agent.needs import NeedService
+            from agent.repository import AgentRepository
+
+            needs = NeedService(self.db)
+            need = await needs.get(user_id, plan.source_id)
+            if need is None or not need.is_open:
+                return None
+
+            # A need cannot outlive the work that raised it. Normally the
+            # agent closes needs with the goal; this second check prevents a
+            # stale row or race from ever becoming a notification.
+            goal = await AgentRepository(self.db).get_goal(user_id, need.goal_id)
+            if goal is None or not goal.is_open:
+                return None
+
+            return DeliverySubject.model_validate(need.as_subject())
+
+        return None
+
     async def deliver_due(self, user_id: str, *, language: str = "it") -> Dict[str, Any]:
         """
-        Send what is due, having first checked it is still true.
+        Re-decide every due notification from fresh source state.
 
-            RECHECK BEFORE DELIVERY.
+            RECHECK BEFORE DELIVERY MEANS RE-JUDGE, NOT JUST RE-PERMISSION.
 
-        This is the whole reason plans exist rather than immediate sends. The
-        classic failure is a notification that was correct when it was decided
-        and embarrassing by the time it fired — the missing document arrived
-        last night, and ORA says good morning by asking about it.
+        The plan records what seemed worth saying earlier. When its moment
+        arrives, ORA reloads the exact source and asks Delivery again using the
+        current moment. The answer may now be silence, in-app, a later push or
+        a push now. This applies equally to opportunities and agent needs.
         """
-        from opportunities.repository import OpportunityRepository
-
-        opportunities = OpportunityRepository(self.db)
         sent, cancelled, held = 0, 0, 0
 
         for plan in await self.repo.open_plans(user_id):
@@ -334,9 +369,6 @@ class DeliveryService:
                 plan.status = "expired"
                 plan.decision_provenance = "code_expiry"
                 plan.rationale = "il momento utile è passato"
-                # Never `dismissed`: we know the moment passed, not that
-                # anybody refused it. Calling one the other would put a
-                # decision in somebody's mouth.
                 if plan.outcome is None and plan.delivered_at:
                     plan.outcome = "expired"
                 await self.repo.save_plan(plan)
@@ -347,52 +379,70 @@ class DeliveryService:
                 held += 1
                 continue
 
-            opportunity = await opportunities.get(user_id, plan.opportunity_id)
-            if opportunity is None or opportunity.status != "active":
+            subject = await self._current_subject_for_plan(user_id, plan)
+            if subject is None:
                 await self._cancel(
-                    plan, "la questione si è chiusa prima dell'invio", "code_cancel"
+                    plan, "la sorgente non è più aperta prima dell'invio", "code_cancel"
                 )
                 cancelled += 1
                 continue
 
+            # Persist proof that the old intention was revisited even when the
+            # model is temporarily unavailable. An outage is not silence and
+            # leaves the plan open for another bounded attempt.
             plan.last_rechecked_at = _now().isoformat()
-            moment = await delivery_context.build(self.db, user_id)
-            moment["they_muted_this_concern"] = await self._muted(
-                user_id, plan.opportunity_id
-            )
-            allowed, why_not = await self._may_push(user_id, moment)
-            if not allowed:
-                plan.status = "held"
-                plan.decision_provenance = "code_safety"
-                plan.rationale = why_not
-                await self.repo.save_plan(plan)
-                held += 1
-                continue
+            await self.repo.save_plan(plan)
 
-            await self._send(user_id, plan)
-            sent += int(plan.status == "delivered")
-            cancelled += int(plan.status == "cancelled")
-            held += int(plan.status == "held")
+            result = await self.evaluate_subject(
+                user_id, subject, app_state="unknown", language=language
+            )
+
+            current = await self.repo.get_plan(user_id, plan.id)
+            if current is None:
+                cancelled += 1
+                continue
+            if current.status == "delivered":
+                sent += 1
+            elif current.status in ("cancelled", "expired"):
+                cancelled += 1
+            else:
+                # pending for a newly chosen future moment, held by a code
+                # safety gate, or still pending because judgement was
+                # unavailable: all mean "not sent now".
+                held += 1
 
         return {"sent": sent, "cancelled": cancelled, "held": held}
 
     async def _send(self, user_id: str, plan: DeliveryPlan) -> None:
         from delivery.provider import get_provider
 
-        # Revalidate at the provider boundary too: the AI decision can take
-        # longer than the remaining lifetime of a route estimate.
-        if plan.source_type == "opportunity":
-            from opportunities.repository import OpportunityRepository
-            subject = await OpportunityRepository(self.db).get(user_id, plan.source_id)
-            if subject and any(e.kind == "departure" for e in subject.evidence):
-                from places.departures import DepartureService
-                try:
-                    current = await DepartureService(self.db).evidence_is_current(user_id, subject)
-                except Exception:
-                    current = False
-                if not current:
-                    await self._cancel(plan, "il percorso richiede una nuova verifica", "code_safety")
-                    return
+        # A source can close after the re-judgement but before the provider
+        # call. Re-read it at the last possible boundary; no old plan gets to
+        # outlive the fact that justified it.
+        subject = await self._current_subject_for_plan(user_id, plan)
+        if subject is None:
+            await self._cancel(
+                plan, "la sorgente si è chiusa prima dell'invio", "code_cancel"
+            )
+            return
+
+        # Route evidence has an even shorter lifetime. Revalidate it again at
+        # the provider boundary so traffic advice cannot arrive stale.
+        if plan.source_type == "opportunity" and any(
+            e.kind == "departure" for e in getattr(subject, "evidence", [])
+        ):
+            from places.departures import DepartureService
+            try:
+                current = await DepartureService(self.db).evidence_is_current(
+                    user_id, subject
+                )
+            except Exception:
+                current = False
+            if not current:
+                await self._cancel(
+                    plan, "il percorso richiede una nuova verifica", "code_safety"
+                )
+                return
 
         public = plan.words.public()
         outcome = await get_provider().send(
