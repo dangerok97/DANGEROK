@@ -165,3 +165,34 @@ async def test_owner_budget_claim_failure_fails_closed(monkeypatch):
     assert claim.allowed is False
     assert claim.used == 4
     assert claim.limit == 4
+
+
+@pytest.mark.asyncio
+async def test_goal_burst_ceiling_does_not_spend_shared_owner_budget(monkeypatch):
+    db = AsyncMongoMockClient().test
+    service = AgentService(db)
+    goal = AutonomousGoal(
+        id="goal_local_budget_exhausted_v79",
+        owner_id=OWNER,
+        status="active",
+        objective="Goal già arrivato al proprio tetto tecnico",
+        desired_outcome="Non consumare budget condiviso senza lavoro",
+        background_runs=3,
+        source_kind="opportunity",
+        source_refs=["situation:sit_local_limit"],
+    )
+    await service.repo.save_goal(goal)
+
+    claim = AsyncMock()
+    monkeypatch.setattr(service.owner_budget, "claim", claim)
+    monkeypatch.setattr(service, "_work", AsyncMock())
+    monkeypatch.setattr(service, "_consider_visibility", AsyncMock())
+
+    result = await service.advance(
+        OWNER,
+        goal.id,
+        worker_id="ambient:v79-local-limit",
+    )
+
+    assert result["state"] == "background_paused"
+    claim.assert_not_awaited()
