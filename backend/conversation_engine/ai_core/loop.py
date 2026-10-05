@@ -780,7 +780,6 @@ async def run_cognitive_loop(
         from conversation_engine.ai_core.calendar_confirmation import pending_request
 
         life_os_payload = await build_life_os_ai_payload(db, sess, st)
-        life_os_payload = await build_life_os_ai_payload(db, sess, st)
         active_skill_state = {
             "phone": await _active_phone_skill_context(db, sess.user_id, st),
             "navigation": _pending_navigation_skill_context(st),
