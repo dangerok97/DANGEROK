@@ -84,7 +84,7 @@ async def test_calendar_continuation_rejects_non_approval_before_effect(monkeypa
     )
 
     assert obs.status == "error"
-    assert obs.payload["error"] == "USER_CONFIRMATION_REQUIRED"
+    assert obs.payload["failure_kind"] == "USER_CONFIRMATION_REQUIRED"
     assert called is False
 
 
@@ -111,7 +111,7 @@ async def test_calendar_continuation_rejects_stale_proposal(monkeypatch):
     )
 
     assert obs.status == "error"
-    assert obs.payload["error"] == "PENDING_CALENDAR_ACTION_EXPIRED"
+    assert obs.payload["failure_kind"] == "PENDING_CALENDAR_ACTION_EXPIRED"
     assert called is False
 
 
