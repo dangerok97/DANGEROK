@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock
 import pytest
 from mongomock_motor import AsyncMongoMockClient
 
+from agent.capabilities import CapabilityResolver
 from agent.models import (
     ActionPlan,
     ActionStep,
@@ -215,3 +216,30 @@ async def test_model_wait_interval_is_bounded_before_it_enters_plan(monkeypatch)
     assert decision == "wait"
     assert step is not None
     assert step.parameters["wait_hours"] == 336
+
+
+@pytest.mark.asyncio
+async def test_weather_is_advertised_real_only_when_location_is_allowed(monkeypatch):
+    import weather
+
+    db = AsyncMongoMockClient().test
+    monkeypatch.setattr(
+        weather,
+        "capabilities",
+        lambda: {"available": True, "provider": "open_meteo"},
+    )
+
+    off = await CapabilityResolver(db).resolve(OWNER, "weather.read")
+    assert off.permitted is False
+    assert off.usable is False
+    assert off.status == "requires_connection"
+    assert off.reason == "location_not_permitted"
+
+    await db.users.insert_one({
+        "user_id": OWNER,
+        "settings": {"location_mode": "while_using"},
+    })
+    on = await CapabilityResolver(db).resolve(OWNER, "weather.read")
+    assert on.permitted is True
+    assert on.usable is True
+    assert on.status == "available_real"
