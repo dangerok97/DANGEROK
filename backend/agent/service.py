@@ -610,8 +610,8 @@ class AgentService:
                 return {"ok": True, "state": "cancelled"}
             if (
                 current.status == "waiting"
-                and current.next_run_at
-                and current.next_run_at > _now().isoformat()
+                and current.user_deferred_until
+                and current.user_deferred_until > _now().isoformat()
                 and not current.requires_user_input
                 and not current.requires_user_authority
             ):
@@ -1520,6 +1520,7 @@ class AgentService:
         plan.status = "active"
         goal.status = "active"
         goal.next_run_at = None
+        goal.user_deferred_until = None
         await self.repo.save_plan(plan)
         await self.repo.save_goal(goal)
         await self.repo.journal(
@@ -1892,12 +1893,38 @@ class AgentService:
                 "goal_id": goal.id,
             }
 
+        deferred_goal = await self.repo.defer_goal(
+            owner_id, goal.id, until=due.isoformat()
+        )
+        if deferred_goal is None:
+            # It may have completed, been cancelled, or become blocked on the
+            # person between the first read and this atomic transition.
+            latest = await self.repo.get_goal(owner_id, goal.id)
+            if latest is not None and latest.is_open and (
+                latest.requires_user_input or latest.requires_user_authority
+            ):
+                await self.repo.journal(
+                    owner_id, latest.id, kind="user_deferred_surface",
+                    note=reason,
+                    detail={
+                        "until": due.isoformat(),
+                        "work_already_waiting_for_person": True,
+                    },
+                )
+                return {
+                    "ok": True,
+                    "deferred": False,
+                    "state": "waiting_for_person",
+                    "goal_id": latest.id,
+                }
+            return {
+                "ok": True,
+                "deferred": False,
+                "reason": "goal_no_longer_open",
+            }
+
+        goal = deferred_goal
         plan = await self.repo.plan_for(owner_id, goal.id)
-        goal.status = "waiting"
-        goal.next_run_at = due.isoformat()
-        goal.background_runs = 0
-        goal.decision_provenance = "user"
-        await self.repo.save_goal(goal)
         if plan is not None and plan.status not in ("completed", "cancelled", "failed"):
             plan.status = "waiting"
             await self.repo.save_plan(plan)
@@ -1945,6 +1972,7 @@ class AgentService:
 
         goal.status = "cancelled"
         goal.next_run_at = None
+        goal.user_deferred_until = None
         goal.decision_provenance = "user"
         goal.rationale = (reason or "l'utente ha detto di lasciar perdere")[:300]
         await self.repo.save_goal(goal)
