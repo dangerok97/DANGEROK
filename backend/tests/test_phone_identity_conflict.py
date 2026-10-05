@@ -389,18 +389,19 @@ async def test_chat_cannot_resolve_in_same_turn_or_dial_while_resolving(db):
 
 
 @pytest.mark.asyncio
-async def test_chat_routes_current_number_to_owners_active_preparation(db):
-    from conversation_engine.ai_core.loop import _phone_number_correction
+async def test_chat_exposes_observed_number_to_ai_for_owners_active_preparation(db):
+    from conversation_engine.ai_core.loop import _phone_input_hint
 
     prep = await prepare(db)
     state = {"active_preparation_id": prep.preparation_id}
     text = "È sbagliato, il numero di Asia è 3330000009"
-    assert await _phone_number_correction(db, "owner", state, text) == {
-        "preparation_id": prep.preparation_id, "give_number": "+393330000009",
+    assert await _phone_input_hint(db, "owner", state, text) == {
+        "preparation_id": prep.preparation_id,
+        "observed_phone_number": "+393330000009",
     }
-    assert not await _phone_number_correction(db, "other", state, text)
-    assert not await _phone_number_correction(db, "owner", {}, text)
-    assert not await _phone_number_correction(db, "owner", state, "è quello di prima")
+    assert not await _phone_input_hint(db, "other", state, text)
+    assert not await _phone_input_hint(db, "owner", {}, text)
+    assert not await _phone_input_hint(db, "owner", state, "è quello di prima")
 
 
 def test_spoken_phone_number_accepts_digit_by_digit_but_not_incomplete():
@@ -444,10 +445,10 @@ async def test_plain_no_invalidates_selected_number_instead_of_repeating_it(db):
 
 
 @pytest.mark.asyncio
-async def test_active_phone_followup_routes_no_without_model(db):
+async def test_semantic_phone_rejection_is_left_to_ai(db):
     from preparation.contacts import ContactCandidate
     from preparation.preparation import MissionPreparation, remember
-    from conversation_engine.ai_core.loop import _phone_pending_followup
+    from conversation_engine.ai_core.loop import _phone_input_hint
 
     candidate = ContactCandidate(
         name="Quindi", number=NUMBER, kind="person", source="user",
@@ -468,23 +469,17 @@ async def test_active_phone_followup_routes_no_without_model(db):
     prep = await remember(db, prep)
 
     state = {"active_preparation_id": prep.preparation_id}
-    assert await _phone_pending_followup(db, "owner", state, "no") == {
-        "preparation_id": prep.preparation_id,
-        "number_is_right": False,
-    }
-    assert await _phone_pending_followup(
+    assert await _phone_input_hint(db, "owner", state, "no") == {}
+    assert await _phone_input_hint(
         db, "owner", state, "no, il numero corretto è 3 2 7 7 6 3"
-    ) == {
-        "preparation_id": prep.preparation_id,
-        "number_is_right": False,
-    }
+    ) == {}
 
 
 @pytest.mark.asyncio
 async def test_name_clarification_is_left_to_ai_not_phone_parser(db):
     from preparation.contacts import ContactCandidate
     from preparation.preparation import MissionPreparation, remember
-    from conversation_engine.ai_core.loop import _phone_pending_followup
+    from conversation_engine.ai_core.loop import _phone_input_hint
 
     candidate = ContactCandidate(
         name="Quindi", number=NUMBER, kind="person", source="user",
@@ -505,7 +500,7 @@ async def test_name_clarification_is_left_to_ai_not_phone_parser(db):
 
     # Identity and relationship language is semantic. The mechanical helper
     # must not turn words into a contact mutation before AI sees the turn.
-    assert await _phone_pending_followup(
+    assert await _phone_input_hint(
         db, "owner", state, "il numero di Asia"
     ) == {}
 
