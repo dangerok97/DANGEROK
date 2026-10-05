@@ -271,12 +271,16 @@ class AgentBudget(BaseModel):
     """
 
     cognitive_calls: int = 0
+    # Visibility is a separate, bounded judgement after work. It must not be
+    # starved merely because the work itself used every cognitive call.
+    visibility_calls: int = 0
     capability_calls: int = 0
     research_calls: int = 0
     steps_executed: int = 0
     started_at: str = Field(default_factory=now_iso)
 
     max_cognitive_calls: int = 8
+    max_visibility_calls: int = 1
     max_capability_calls: int = 8
     max_research_calls: int = 2
     max_steps: int = 5
