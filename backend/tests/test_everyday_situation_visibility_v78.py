@@ -101,6 +101,7 @@ async def test_unchanged_harmless_conditions_stay_silent(monkeypatch):
 
     assert decision is not None
     assert decision.outcome == "silent"
+    assert decision.refs, "silence must be a judgement over real work, not absence of evidence"
     show.assert_not_awaited()
     offer.assert_not_awaited()
     assert await db.agent_needs.count_documents({
@@ -154,6 +155,7 @@ async def test_material_weather_change_becomes_useful_result(monkeypatch):
 
     assert decision is not None
     assert decision.outcome == "inform_user"
+    assert decision.refs
     assert "pioggia" in decision.headline.lower()
     show.assert_awaited_once()
 
