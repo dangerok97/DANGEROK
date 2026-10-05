@@ -257,6 +257,81 @@ def _navigation_destination(message: str) -> str:
     return re.sub(r"(?i)\s+per\s+favore$", "", destination)[:160]
 
 
+_NAVIGATION_CONFIRM_RE = re.compile(
+    r"(?i)^\s*(?:s[iì]|certo|va\s+bene|vai|procedi|parti|avvia|fallo|"
+    r"ok(?:\s+(?:vai|procedi|parti|avvia|fallo))?)\s*[.!?]*\s*$"
+)
+_NAVIGATION_CANCEL_RE = re.compile(
+    r"(?i)^\s*(?:no|annulla|lascia\s+stare|non\s+pi[uù]|fermo|stop)\s*[.!?]*\s*$"
+)
+
+
+def _safe_navigation_options(raw: Any) -> List[Dict[str, str]]:
+    """Only code-generated navigation providers may survive into a pending action."""
+    from urllib.parse import urlparse
+
+    allowed_hosts = {"www.google.com", "maps.apple.com", "waze.com", "www.waze.com"}
+    out: List[Dict[str, str]] = []
+    for item in raw if isinstance(raw, list) else []:
+        if not isinstance(item, dict):
+            continue
+        url = str(item.get("url") or "").strip()
+        label = str(item.get("label") or "").strip()
+        ident = str(item.get("id") or "").strip()
+        try:
+            parsed = urlparse(url)
+        except ValueError:
+            continue
+        if parsed.scheme != "https" or parsed.netloc.lower() not in allowed_hosts:
+            continue
+        if not label:
+            continue
+        out.append({"id": ident[:32], "label": label[:40], "url": url[:600]})
+    return out[:3]
+
+
+def _remember_pending_navigation(state: Dict[str, Any], observations: Any) -> List[Dict[str, str]]:
+    """Persist one verified handoff for the immediate next conversational reply."""
+    options = _safe_navigation_options(_navigation_options(observations))
+    if options:
+        state["pending_navigation"] = {
+            "options": options,
+            "created_at": _now_iso(),
+        }
+    return options
+
+
+def _consume_pending_navigation(
+    state: Dict[str, Any], text: str
+) -> tuple[str, List[Dict[str, str]]]:
+    """Interpret only the immediate reply to a prepared navigation handoff."""
+    pending = state.pop("pending_navigation", None)
+    if not isinstance(pending, dict):
+        return ("none", [])
+
+    options = _safe_navigation_options(pending.get("options"))
+    if not options:
+        return ("none", [])
+
+    # A stale yes hours later must not launch yesterday's destination.
+    try:
+        from datetime import datetime, timedelta, timezone
+        created = datetime.fromisoformat(str(pending.get("created_at") or ""))
+        if created.tzinfo is None:
+            created = created.replace(tzinfo=timezone.utc)
+        if datetime.now(timezone.utc) - created > timedelta(minutes=30):
+            return ("expired", [])
+    except Exception:
+        return ("expired", [])
+
+    if _NAVIGATION_CONFIRM_RE.match(text or ""):
+        return ("confirm", options)
+    if _NAVIGATION_CANCEL_RE.match(text or ""):
+        return ("cancel", [])
+    # One turn deep by design: another topic invalidates the handoff.
+    return ("other", [])
+
+
 async def _ensure_navigation(observations, turn_start: int, message: str, db, uid: str) -> str:
     """Produce the map link once for an explicit departure, even on model failure."""
     destination = _navigation_destination(message)
@@ -465,6 +540,61 @@ async def run_cognitive_loop(
     if not resume_client:
         state_mod.append_turn(st, role="user", text=user_message)
 
+        # A prepared navigation is an actionable handoff, not conversational
+        # small talk. "Sì" after "Vuoi che proceda?" consumes that exact,
+        # verified handoff before a general model can reduce it to "Ok.".
+        nav_reply, pending_navigation = _consume_pending_navigation(st, user_message)
+        if nav_reply == "confirm" and pending_navigation:
+            if len(pending_navigation) == 1:
+                option = pending_navigation[0]
+                ora = f"Apro {option['label']} e avvio la navigazione."
+                state_mod.append_turn(st, role="ora", text=ora, kind="answer")
+                state_mod.save_ai_state(sess, st)
+                add_step(trace, event="NAVIGATION_CONFIRM_FAST_PATH")
+                return CognitiveTurnResult(
+                    ok=True,
+                    mode="answer",
+                    ora_text=ora,
+                    session_id=sess.id,
+                    active_goal=ActiveGoal.model_validate(st.get("active_goal") or {}),
+                    trace=public_trace(trace),
+                    elapsed_ms=int((time.perf_counter() - t0) * 1000),
+                    navigation=pending_navigation,
+                    client_actions=[{
+                        "type": "open_navigation",
+                        "url": option["url"],
+                        "label": option["label"],
+                    }],
+                )
+            ora = "La navigazione è pronta. Scegli con quale app vuoi partire."
+            state_mod.append_turn(st, role="ora", text=ora, kind="answer")
+            state_mod.save_ai_state(sess, st)
+            add_step(trace, event="NAVIGATION_CONFIRM_NEEDS_APP")
+            return CognitiveTurnResult(
+                ok=True,
+                mode="answer",
+                ora_text=ora,
+                session_id=sess.id,
+                active_goal=ActiveGoal.model_validate(st.get("active_goal") or {}),
+                trace=public_trace(trace),
+                elapsed_ms=int((time.perf_counter() - t0) * 1000),
+                navigation=pending_navigation,
+            )
+        if nav_reply == "cancel":
+            ora = "Va bene, non avvio la navigazione."
+            state_mod.append_turn(st, role="ora", text=ora, kind="answer")
+            state_mod.save_ai_state(sess, st)
+            add_step(trace, event="NAVIGATION_CANCEL_FAST_PATH")
+            return CognitiveTurnResult(
+                ok=True,
+                mode="answer",
+                ora_text=ora,
+                session_id=sess.id,
+                active_goal=ActiveGoal.model_validate(st.get("active_goal") or {}),
+                trace=public_trace(trace),
+                elapsed_ms=int((time.perf_counter() - t0) * 1000),
+            )
+
         # An active phone preparation has its own tiny conversational grammar.
         # "No", "il numero di Asia", and a corrected number must update that
         # durable state directly; asking a general model to rediscover the
@@ -519,6 +649,9 @@ async def run_cognitive_loop(
                 st["pending_act"] = None
                 st["clarification_history"] = []
                 st["observations"] = observations[-12:]
+                navigation_options = _remember_pending_navigation(
+                    st, observations[turn_start:]
+                )
                 state_mod.save_ai_state(sess, st)
                 add_step(trace, event="NAVIGATION_FAST_PATH")
                 return CognitiveTurnResult(
@@ -530,7 +663,7 @@ async def run_cognitive_loop(
                     trace=public_trace(trace),
                     tool_calls=1,
                     elapsed_ms=int((time.perf_counter() - t0) * 1000),
-                    navigation=_navigation_options(observations[turn_start:]),
+                    navigation=navigation_options,
                     journey=_journey_from(observations[turn_start:]),
                 )
         # New user message: allow another foreground refresh after timeout/unavailable.
@@ -1943,6 +2076,9 @@ async def run_cognitive_loop(
                 if mode == "act" else None
             )
             st["observations"] = observations[-12:]
+            navigation_options = _remember_pending_navigation(
+                st, observations[turn_start:]
+            )
             state_mod.save_ai_state(sess, st)
             # What this turn actually amounts to for the person, named once and
             # recorded. A goal under way has to end somewhere real: a question,
@@ -1980,9 +2116,9 @@ async def run_cognitive_loop(
                 external_queries=external_queries,
                 elapsed_ms=int((time.perf_counter() - t0) * 1000),
                 sources=public_sources[:MAX_SOURCES_UI],
-                navigation=_navigation_options(observations),
+                navigation=navigation_options,
                 ui_actions=_ui_actions_from(observations[turn_start:]),
-                journey=_journey_from(observations),
+                journey=_journey_from(observations[turn_start:]),
                 working_hint=None,
                 situation=(situation_result or {}).get("situation")
                 or st.get("active_situation_ref"),
@@ -2690,6 +2826,9 @@ async def run_cognitive_loop(
         add_step(trace, event="NAVIGATION_HANDOFF_BOUND")
     state_mod.append_turn(st, role="ora", text=ora, kind="answer")
     st["observations"] = observations[-12:]
+    navigation_options = _remember_pending_navigation(
+        st, observations[turn_start:]
+    )
     state_mod.save_ai_state(sess, st)
     # The loop ran out of passes. Whatever it ends on is still a turn a person
     # reads, so it is classified like any other.
@@ -2723,7 +2862,7 @@ async def run_cognitive_loop(
         external_queries=external_queries,
         elapsed_ms=int((time.perf_counter() - t0) * 1000),
         sources=public_sources[:MAX_SOURCES_UI],
-        navigation=_navigation_options(observations[turn_start:]),
+        navigation=navigation_options,
         journey=_journey_from(observations[turn_start:]),
         ui_actions=_ui_actions_from(observations[turn_start:]),
         working_hint=working_hint,
