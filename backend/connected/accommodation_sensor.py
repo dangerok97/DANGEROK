@@ -79,6 +79,30 @@ def _summary(current: Dict[str, str], changes) -> str:
     )[:300]
 
 
+def _compact_from_to(changes, current: Dict[str, str]) -> tuple[str, str]:
+    """Preserve the material delta when the signal becomes a MeaningfulChange."""
+    status = next((change for change in changes if change.field == "status"), None)
+    if status is not None:
+        return status.before[:160], status.after[:160]
+
+    date_fields = {
+        change.field: change
+        for change in changes
+        if change.field in ("checkin", "checkout")
+    }
+    if date_fields:
+        old_in = date_fields.get("checkin").before if date_fields.get("checkin") else current.get("checkin", "")
+        old_out = date_fields.get("checkout").before if date_fields.get("checkout") else current.get("checkout", "")
+        new_in = current.get("checkin") or ""
+        new_out = current.get("checkout") or ""
+        before = f"soggiorno {old_in}–{old_out}".strip()
+        after = f"soggiorno {new_in}–{new_out}".strip()
+        return before[:160], after[:160]
+
+    fields = ", ".join(change.field for change in changes)
+    return "", f"prenotazione aggiornata: {fields}"[:160]
+
+
 async def read_changes(db, owner_id: str) -> List[ConnectedSignal]:
     """Read every real active order owned by this person and emit only deltas."""
     from accommodation.service import AccommodationService
@@ -196,10 +220,7 @@ async def read_changes(db, owner_id: str) -> List[ConnectedSignal]:
             if cancelled
             else "travel.booking.changed"
         )
-        status_change = next(
-            (change for change in changes if change.field == "status"),
-            None,
-        )
+        before_text, after_text = _compact_from_to(changes, current)
         signals.append(ConnectedSignal(
             owner_id=owner_id,
             source_id=SOURCE_ID,
@@ -209,8 +230,8 @@ async def read_changes(db, owner_id: str) -> List[ConnectedSignal]:
             effective_at=None,
             source_object_ref=order_id,
             payload_summary=_summary(current, changes),
-            before=(status_change.before if status_change else "")[:160],
-            after=(current.get("status") or "")[:160],
+            before=before_text,
+            after=after_text,
             changed_fields=changes,
             origin="external",
             relationship="own",
