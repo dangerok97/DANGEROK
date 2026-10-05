@@ -26,28 +26,36 @@ def runtime_location_capabilities(
     *,
     preference: LocationPreference = "off",
     platform: str = "web",
+    background_enabled: bool = False,
 ) -> Dict[str, str]:
-    """Honesty map for AI Core — never claim native/background if unsupported.
+    """Truthful runtime map for web and installed native builds.
 
-    Preference ``off`` (default / not yet consented) is NOT device-disabled.
-    It means ORA foreground consent is still required — the model MUST call
-    get_current_location so the client can show the Quiet Premium consent sheet.
+    Foreground consent and continuous background presence are separate choices.
+    Native support existing in the build is not the same thing as the person
+    having enabled background monitoring.
     """
-    native = "unsupported"  # V2.7.1: web foreground only
-    background = "unavailable"
+    platform = str(platform or "web").strip().lower()
+    native_build = platform in ("ios", "android")
+    native = "available" if native_build else "unsupported"
+
     if preference == "off":
-        # Consent not granted to ORA yet — tool will emit needs_client / consent UI
         foreground = "requires_consent"
-    elif platform == "web":
-        foreground = "available"
     else:
-        foreground = "unsupported"
+        foreground = "available"
+
+    if not native_build:
+        background = "unavailable"
+    elif background_enabled:
+        background = "available"
+    else:
+        background = "requires_consent"
+
     return {
         "current_location": foreground,
         "foreground_location": foreground,
         "background_location": background,
         "native_location": native,
-        "presence_history": "limited",  # latest presence only in slice 1
+        "presence_history": "available" if background_enabled else "limited",
         "ora_location_consent": "granted" if preference == "while_using" else "not_requested",
     }
 
@@ -82,6 +90,20 @@ class LocationService:
 
     async def get_preference(self, user_id: str) -> LocationPreference:
         return await self.repo.get_preference(user_id)
+
+    async def background_monitoring_enabled(self, user_id: str) -> bool:
+        """What the device last told ORA about continuous place monitoring."""
+        try:
+            row = await self.db.users.find_one(
+                {"user_id": user_id},
+                {"_id": 0, "preferences.place_monitoring_enabled": 1},
+            )
+            return bool(
+                ((row or {}).get("preferences") or {}).get("place_monitoring_enabled")
+            )
+        except Exception as exc:
+            logger.info("background monitoring state soft-fail: %s", type(exc).__name__)
+            return False
 
     async def set_preference(self, user_id: str, mode: str) -> LocationPreference:
         pref: LocationPreference = (
@@ -290,7 +312,10 @@ class LocationService:
         platform: str = "web",
     ) -> Dict[str, Any]:
         pref = await self.repo.get_preference(user_id)
-        caps = runtime_location_capabilities(preference=pref, platform=platform)
+        background_enabled = await self.background_monitoring_enabled(user_id)
+        caps = runtime_location_capabilities(
+            preference=pref, platform=platform, background_enabled=background_enabled
+        )
         if pref == "off":
             return {
                 "capability": "get_current_location",
@@ -312,15 +337,6 @@ class LocationService:
                     ),
                 },
                 "memory_eligible": False,
-            }
-        if platform != "web" and caps.get("native_location") == "unsupported":
-            return {
-                "capability": "get_current_location",
-                "status": "unavailable",
-                "freshness": "UNKNOWN",
-                "error": "native_unsupported",
-                "runtime_capabilities": caps,
-                "needs_client": False,
             }
         presence = await self.build_presence(user_id, platform=platform)
         if presence.permission_state == "denied" or (
@@ -469,7 +485,10 @@ class LocationService:
         self, user_id: str, *, platform: str = "web"
     ) -> Dict[str, Any]:
         pref = await self.repo.get_preference(user_id)
-        caps = runtime_location_capabilities(preference=pref, platform=platform)
+        background_enabled = await self.background_monitoring_enabled(user_id)
+        caps = runtime_location_capabilities(
+            preference=pref, platform=platform, background_enabled=background_enabled
+        )
         presence = await self.build_presence(user_id, platform=platform)
         needs = False
         client_action = None
