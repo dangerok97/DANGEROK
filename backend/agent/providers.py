@@ -908,6 +908,248 @@ async def read_weather(db, owner_id: str, goal, *, step=None) -> CapabilityOutco
     )
 
 
+async def read_route(db, owner_id: str, goal, *, step=None) -> CapabilityOutcome:
+    """Read one real route without persisting its endpoint coordinates.
+
+    Two exact place refs mean [origin, destination]. One place ref means the
+    destination and the origin may only be the current/recent device position
+    already authorized by the user. Labels and canonical refs may persist as
+    evidence; coordinate pairs never do.
+    """
+    try:
+        from home.service import HomeService
+        from places import routing
+        from places.service import PlacesService
+    except Exception as exc:
+        logger.info("route read import soft-fail: %s", type(exc).__name__)
+        return _unavailable(
+            "route.read", "not_wired", "Il routing live non è collegato al runtime."
+        )
+
+    capabilities = routing.capabilities()
+    if not capabilities.get("available"):
+        return _unavailable(
+            "route.read",
+            "provider_unavailable",
+            "Il servizio di routing live non è disponibile.",
+        )
+
+    refs = [
+        str(ref).strip()
+        for ref in (getattr(step, "input_refs", None) or [])
+        if str(ref).strip().startswith("place:")
+    ]
+    if not refs:
+        return _unavailable(
+            "route.read",
+            "route_destination_required",
+            "Manca un luogo esatto da usare come destinazione del percorso.",
+        )
+    if len(refs) > 2:
+        return _unavailable(
+            "route.read",
+            "route_refs_ambiguous",
+            "Il percorso cita più di due luoghi e non è chiaro quali siano origine e destinazione.",
+        )
+
+    places = PlacesService(db)
+
+    async def saved_point(ref: str):
+        place_id = ref.split(":", 1)[1].strip()
+        if not place_id:
+            return None
+        item = await places.get_place(owner_id, place_id)
+        if not item or item.state == "dismissed" or item.coordinates is None:
+            return None
+        return (
+            {
+                "latitude": float(item.coordinates.latitude),
+                "longitude": float(item.coordinates.longitude),
+            },
+            str(item.label or item.locality or "luogo salvato")[:120],
+        )
+
+    source_refs: List[str] = []
+    if len(refs) == 2:
+        origin_saved = await saved_point(refs[0])
+        destination_saved = await saved_point(refs[1])
+        if origin_saved is None or destination_saved is None:
+            return CapabilityOutcome(
+                status="unavailable",
+                observation="Uno dei luoghi fissati per il percorso non è disponibile per questo utente.",
+                provenance=ResultProvenance(
+                    source_class="internal_observation",
+                    capability="route.read",
+                    source_refs=refs[:2],
+                    freshness="unknown",
+                ),
+                error_type="place_unavailable",
+                retryable=False,
+            )
+        origin, origin_label = origin_saved
+        destination, destination_label = destination_saved
+        source_refs = refs[:2]
+    else:
+        destination_saved = await saved_point(refs[0])
+        if destination_saved is None:
+            return CapabilityOutcome(
+                status="unavailable",
+                observation="La destinazione fissata per il percorso non è disponibile per questo utente.",
+                provenance=ResultProvenance(
+                    source_class="internal_observation",
+                    capability="route.read",
+                    source_refs=refs[:1],
+                    freshness="unknown",
+                ),
+                error_type="place_unavailable",
+                retryable=False,
+            )
+        destination, destination_label = destination_saved
+        try:
+            current = await HomeService(db)._where_they_are(owner_id)
+        except Exception as exc:
+            logger.info("route current-location soft-fail: %s", type(exc).__name__)
+            current = None
+        if current is None:
+            return CapabilityOutcome(
+                status="unavailable",
+                observation=(
+                    "Ho la destinazione, ma non una posizione corrente autorizzata "
+                    "e abbastanza recente da usare come origine."
+                ),
+                provenance=ResultProvenance(
+                    source_class="internal_observation",
+                    capability="route.read",
+                    source_refs=refs[:1],
+                    freshness="unknown",
+                ),
+                error_type="location_unavailable",
+                retryable=True,
+            )
+        lat, lon, label = current
+        origin = {"latitude": float(lat), "longitude": float(lon)}
+        origin_label = str(label or "posizione corrente")[:120]
+        source_refs = ["location:presence", refs[0]]
+
+    mode = str(
+        ((getattr(step, "parameters", None) or {}).get("travel_mode") or "drive")
+    ).strip().lower()
+    if mode not in ("drive", "walk", "bicycle", "transit"):
+        mode = "drive"
+
+    try:
+        route = await routing.get_route(
+            origin=origin,
+            destination=destination,
+            travel_mode=mode,
+            alternatives=False,
+        )
+    except Exception as exc:
+        logger.info("route provider soft-fail: %s", type(exc).__name__)
+        return CapabilityOutcome(
+            status="failed",
+            observation="Il provider di routing non ha restituito un percorso utilizzabile.",
+            provenance=ResultProvenance(
+                source_class="external_research",
+                capability="route.read",
+                provider=str(capabilities.get("provider") or "routing")[:60],
+                source_refs=source_refs,
+                freshness="unknown",
+            ),
+            error_type="route_read_failed",
+            retryable=True,
+        )
+
+    if not route.get("available"):
+        return CapabilityOutcome(
+            status="unavailable",
+            observation=str(
+                route.get("why_unavailable") or "Percorso live non disponibile."
+            )[:500],
+            provenance=ResultProvenance(
+                source_class="external_research",
+                capability="route.read",
+                provider=str(route.get("provider") or capabilities.get("provider") or "routing")[:60],
+                source_refs=source_refs,
+                freshness="unknown",
+            ),
+            error_type="route_unavailable",
+            retryable=True,
+        )
+
+    duration = route.get("duration_seconds")
+    distance = route.get("distance_meters")
+    if not isinstance(duration, (int, float)) or duration < 0:
+        return CapabilityOutcome(
+            status="partial",
+            observation="Il provider ha risposto senza una durata verificabile.",
+            provenance=ResultProvenance(
+                source_class="external_research",
+                capability="route.read",
+                provider=str(route.get("provider") or capabilities.get("provider") or "routing")[:60],
+                source_refs=source_refs,
+                freshness="fresh",
+            ),
+            error_type="route_duration_missing",
+            retryable=True,
+        )
+
+    minutes = max(1, round(float(duration) / 60.0))
+    bits = [f"circa {minutes} min"]
+    if isinstance(distance, (int, float)) and distance >= 0:
+        km = float(distance) / 1000.0
+        bits.append(f"{km:.1f} km")
+
+    traffic = bool(route.get("reflects_current_traffic"))
+    claim = (
+        f"Percorso {origin_label} → {destination_label}: "
+        + ", ".join(bits)
+        + ("; tiene conto del traffico attuale." if traffic else "; traffico live non dichiarato dal provider.")
+    )
+
+    extra_claims: List[Claim] = []
+    without_traffic = route.get("duration_without_traffic_seconds")
+    if (
+        traffic
+        and isinstance(without_traffic, (int, float))
+        and without_traffic >= 0
+        and float(duration) >= float(without_traffic)
+    ):
+        delay = max(0, round((float(duration) - float(without_traffic)) / 60.0))
+        extra_claims.append(Claim(
+            text=f"Il traffico aggiunge circa {delay} min rispetto alla durata senza traffico indicata dal provider.",
+            supports="impatto del traffico sul tempo di percorrenza",
+        ))
+
+    return CapabilityOutcome(
+        status="succeeded",
+        observation=(
+            "Ho letto un percorso reale dal provider configurato. "
+            "Le coordinate degli estremi non sono state salvate nell'evidenza del goal."
+        ),
+        provenance=ResultProvenance(
+            source_class="external_research",
+            capability="route.read",
+            provider=str(route.get("provider") or capabilities.get("provider") or "routing")[:60],
+            source_refs=source_refs,
+            freshness="fresh",
+            certainty_note=(
+                "percorso live con traffico"
+                if traffic
+                else "percorso live; il provider non dichiara traffico corrente"
+            ),
+        ),
+        claims=[
+            Claim(
+                text=claim[:500],
+                supports="tempo e distanza del percorso da verificare",
+            ),
+            *extra_claims,
+        ][:3],
+        data_ref="route:live",
+    )
+
+
 async def read_location(db, owner_id: str, goal) -> CapabilityOutcome:
     """Read current/recent presence without persisting raw coordinates as evidence."""
     try:
