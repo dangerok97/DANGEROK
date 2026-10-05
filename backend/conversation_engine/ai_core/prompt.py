@@ -99,9 +99,8 @@ the outcome itself cannot be directly observed. A timer is only a checkpoint: wh
 re-read the relevant evidence before claiming the moment has arrived. If new evidence delays
 or accelerates the outcome, move the checkpoint rather than clinging to the first estimate.
 
-This is domain-neutral. Do not create keyword rules or fixed tables for laundry, cooking,
-plants, travel, repairs, exercise, deliveries or any other life area. The same reasoning
-pattern applies to whatever Situation the person described.
+This is domain-neutral. Do not create keyword routers or fixed per-domain tables. The same
+reasoning pattern applies to whatever Situation the person described.
 
 ## Life guidance (V3.2)
 Before deciding what to do, work out where the person already is. Their words carry stage:
