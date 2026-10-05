@@ -93,6 +93,21 @@ def _what_day_it_is() -> dict:
     oggi = _now().date()
     return {"today": oggi.isoformat(), "today_weekday": weekday_name(oggi)}
 
+
+def _bounded_wait_hours(value: Any, default: int = 6) -> int:
+    """Technical clamp only; choosing the useful interval belongs to reasoning."""
+    try:
+        hours = int(value)
+    except (TypeError, ValueError):
+        hours = int(default)
+    return max(MIN_WAIT_HOURS, min(MAX_WAIT_HOURS, hours))
+
+
+def _wait_hours_for(step: Optional[ActionStep], default: int = 6) -> int:
+    raw = ((step.parameters or {}).get("wait_hours") if step is not None else None)
+    return _bounded_wait_hours(raw, default)
+
+
 class AgentService:
     def __init__(self, db):
         self.db = db
@@ -504,7 +519,7 @@ class AgentService:
 
             if decision == "wait":
                 return await self._wait(
-                    owner_id, goal, plan, step, run, hours=int(run.replans and 6 or 6)
+                    owner_id, goal, plan, step, run, hours=_wait_hours_for(step)
                 )
 
             if decision == "ask":
@@ -547,7 +562,9 @@ class AgentService:
                 return await self._ask(owner_id, goal, plan, step, run)
 
             if step.step_type == "wait":
-                return await self._wait(owner_id, goal, plan, step, run, hours=6)
+                return await self._wait(
+                    owner_id, goal, plan, step, run, hours=_wait_hours_for(step)
+                )
 
             # The ceiling is on work done, not on deciding to stop. Checked
             # here rather than at the top of the loop because a goal that has
@@ -648,6 +665,31 @@ class AgentService:
             plan.steps.append(step)
             await self.repo.save_plan(plan)
             return ("ask", step)
+
+        if decision == "wait":
+            hours = _bounded_wait_hours(answer.get("wait_hours"), 6)
+            step = chosen
+            if step is None:
+                step = ActionStep(
+                    ordinal=len(plan.steps),
+                    intent=str(
+                        answer.get("reasoning")
+                        or "Aspettare prima di rivalutare il risultato esterno"
+                    )[:280],
+                    step_type="wait",
+                    parameters={"wait_hours": hours},
+                    expected_result=(
+                        "Rivalutare il goal quando il mondo può essere cambiato"
+                    ),
+                )
+                plan.steps.append(step)
+            else:
+                step.parameters = {
+                    **dict(step.parameters or {}),
+                    "wait_hours": hours,
+                }
+            await self.repo.save_plan(plan)
+            return ("wait", step)
 
         return (decision, chosen)
 
@@ -1412,7 +1454,16 @@ class AgentService:
         except Exception as e:
             logger.info("agent wake soft-fail: %s", type(e).__name__)
 
-        await self.repo.journal(owner_id, goal.id, kind="waiting", note=note)
+        await self.repo.journal(
+            owner_id,
+            goal.id,
+            kind="waiting",
+            note=note,
+            detail={
+                "for_hours": hours,
+                "step_id": (step.id if step is not None else ""),
+            },
+        )
         await self._note_ambient(owner_id, "agent_waiting", goal)
         return {"ok": True, "state": "waiting", "for_hours": hours, "goal": goal.for_human()}
 
