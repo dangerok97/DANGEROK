@@ -297,3 +297,83 @@ def test_explicit_departure_bypasses_model_and_persists_handoff(monkeypatch):
     assert result.navigation[0]["label"] == "Google Maps"
     assert "Colosseo" in result.ora_text
     assert get_ai_state(sess)["recent_turns"][-1]["text"] == result.ora_text
+
+
+def test_confirming_prepared_navigation_executes_handoff_without_model():
+    from datetime import datetime, timezone
+    from conversation_engine.ai_core.loop import run_cognitive_loop
+    from conversation_engine.ai_core.state import (
+        get_ai_state, save_ai_state,
+    )
+    from conversation_engine.models import ConversationSession
+
+    sess = ConversationSession(user_id="navigation-confirm-owner")
+    state = get_ai_state(sess)
+    state["pending_navigation"] = {
+        "options": [{
+            "id": "google_maps",
+            "label": "Google Maps",
+            "url": "https://www.google.com/maps/dir/?api=1&destination=38.716%2C16.129",
+        }],
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    save_ai_state(sess, state)
+
+    async def model_must_not_run(*_args, **_kwargs):
+        raise AssertionError("A confirmation of a verified handoff must not go back to the model")
+
+    result = run(run_cognitive_loop(
+        sess=sess,
+        user_message="si",
+        db=object(),
+        decision_fn=model_must_not_run,
+    ))
+
+    assert result.ok
+    assert result.ai_calls == 0
+    assert result.ora_text == "Apro Google Maps e avvio la navigazione."
+    assert result.navigation[0]["label"] == "Google Maps"
+    assert result.client_actions == [{
+        "type": "open_navigation",
+        "url": "https://www.google.com/maps/dir/?api=1&destination=38.716%2C16.129",
+        "label": "Google Maps",
+    }]
+    assert "pending_navigation" not in get_ai_state(sess)
+
+
+def test_rejecting_prepared_navigation_clears_handoff_without_model():
+    from datetime import datetime, timezone
+    from conversation_engine.ai_core.loop import run_cognitive_loop
+    from conversation_engine.ai_core.state import (
+        get_ai_state, save_ai_state,
+    )
+    from conversation_engine.models import ConversationSession
+
+    sess = ConversationSession(user_id="navigation-cancel-owner")
+    state = get_ai_state(sess)
+    state["pending_navigation"] = {
+        "options": [{
+            "id": "google_maps",
+            "label": "Google Maps",
+            "url": "https://www.google.com/maps/dir/?api=1&destination=38.716%2C16.129",
+        }],
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    save_ai_state(sess, state)
+
+    async def model_must_not_run(*_args, **_kwargs):
+        raise AssertionError("A rejection of a pending handoff is deterministic")
+
+    result = run(run_cognitive_loop(
+        sess=sess,
+        user_message="no",
+        db=object(),
+        decision_fn=model_must_not_run,
+    ))
+
+    assert result.ok
+    assert result.ai_calls == 0
+    assert result.client_actions == []
+    assert result.navigation == []
+    assert result.ora_text == "Va bene, non avvio la navigazione."
+    assert "pending_navigation" not in get_ai_state(sess)
