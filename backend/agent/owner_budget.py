@@ -21,6 +21,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
+from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError
 
 
@@ -119,13 +120,10 @@ class OwnerBackgroundBudget:
     ) -> OwnerBudgetClaim:
         """Atomically consume one owner-scoped background burst.
 
-        Same-process workers serialize per owner/day. Across processes, a
-        conditional Mongo update increments only while used is below limit.
-        The first row is created under a unique owner/day key; if another
-        process wins that insert, we retry the same bounded increment.
-
-        We use modified_count rather than relying on return-document semantics:
-        the fact we need is whether this claim consumed a credit.
+        Same-process workers serialize per owner/day. Across processes, Mongo
+        returns the document produced by the bounded increment itself, so the
+        caller never has to infer whether another concurrent claim consumed
+        the credit between an update and a later read.
         """
         moment = (now or _now()).astimezone(timezone.utc)
         day, reset, expires = _window(moment)
@@ -146,27 +144,22 @@ class OwnerBackgroundBudget:
             },
         }
 
-        async def increment_existing() -> Optional[int]:
-            result = await self.db[COLLECTION].update_one(
+        async def increment_existing():
+            return await self.db[COLLECTION].find_one_and_update(
                 query,
                 update,
                 upsert=False,
+                projection={"_id": 0, "used": 1},
+                return_document=ReturnDocument.AFTER,
             )
-            if int(result.modified_count or 0) != 1:
-                return None
-            row = await self.db[COLLECTION].find_one(
-                {"owner_id": owner_id, "day": day},
-                {"_id": 0, "used": 1},
-            )
-            return int((row or {}).get("used") or 0)
 
         async with _claim_lock(owner_id, day):
             try:
-                used = await increment_existing()
-                if used is not None:
+                row = await increment_existing()
+                if row is not None:
                     return OwnerBudgetClaim(
                         allowed=True,
-                        used=used,
+                        used=int(row.get("used") or 0),
                         limit=self.daily_limit,
                         reset_at=reset_at,
                     )
@@ -201,11 +194,11 @@ class OwnerBackgroundBudget:
                         reset_at=reset_at,
                     )
                 except DuplicateKeyError:
-                    used = await increment_existing()
-                    if used is not None:
+                    row = await increment_existing()
+                    if row is not None:
                         return OwnerBudgetClaim(
                             allowed=True,
-                            used=used,
+                            used=int(row.get("used") or 0),
                             limit=self.daily_limit,
                             reset_at=reset_at,
                         )
