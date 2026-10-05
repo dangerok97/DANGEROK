@@ -86,6 +86,24 @@ def _now() -> datetime:
 
 
 
+def _bounded_wait_hours(value: Any, default: int = 6) -> int:
+    """Technical clamp only; choosing the useful interval belongs to reasoning."""
+    try:
+        hours = int(float(value))
+    except (TypeError, ValueError):
+        hours = int(default)
+    return max(MIN_WAIT_HOURS, min(MAX_WAIT_HOURS, hours))
+
+
+def _wait_hours_for(step: Optional[ActionStep], default: int = 6) -> int:
+    value = (
+        (step.parameters or {}).get("wait_hours")
+        if step is not None
+        else default
+    )
+    return _bounded_wait_hours(value, default=default)
+
+
 def _what_day_it_is() -> dict:
     """La data e il giorno della settimana, come li vede il codice."""
     from day_names import weekday_name
@@ -504,7 +522,9 @@ class AgentService:
 
             if decision == "wait":
                 return await self._wait(
-                    owner_id, goal, plan, step, run, hours=int(run.replans and 6 or 6)
+                    owner_id, goal, plan, step, run,
+                    hours=_wait_hours_for(step),
+                    note=(step.intent if step is not None else ""),
                 )
 
             if decision == "ask":
@@ -547,7 +567,10 @@ class AgentService:
                 return await self._ask(owner_id, goal, plan, step, run)
 
             if step.step_type == "wait":
-                return await self._wait(owner_id, goal, plan, step, run, hours=6)
+                return await self._wait(
+                    owner_id, goal, plan, step, run,
+                    hours=_wait_hours_for(step), note=step.intent,
+                )
 
             # The ceiling is on work done, not on deciding to stop. Checked
             # here rather than at the top of the loop because a goal that has
@@ -648,6 +671,24 @@ class AgentService:
             plan.steps.append(step)
             await self.repo.save_plan(plan)
             return ("ask", step)
+
+        if decision == "wait":
+            wait_hours = _bounded_wait_hours(answer.get("wait_hours"), default=6)
+            step = ActionStep(
+                ordinal=len(plan.steps),
+                intent=str(
+                    answer.get("reasoning")
+                    or "Aspettare prima di verificare di nuovo l'esito esterno"
+                )[:280],
+                step_type="wait",
+                parameters={"wait_hours": wait_hours},
+                expected_result=(
+                    "Arriva il momento giusto per verificare di nuovo con evidenza fresca"
+                ),
+            )
+            plan.steps.append(step)
+            await self.repo.save_plan(plan)
+            return ("wait", step)
 
         return (decision, chosen)
 
@@ -1389,7 +1430,7 @@ class AgentService:
         The ambient runtime already knows how to be somewhere at a time. This
         borrows it rather than growing a timer of its own.
         """
-        hours = max(MIN_WAIT_HOURS, min(MAX_WAIT_HOURS, int(hours or 6)))
+        hours = _bounded_wait_hours(hours, default=6)
         if step is not None:
             step.status = "waiting"
         plan.status = "waiting"
@@ -1412,7 +1453,16 @@ class AgentService:
         except Exception as e:
             logger.info("agent wake soft-fail: %s", type(e).__name__)
 
-        await self.repo.journal(owner_id, goal.id, kind="waiting", note=note)
+        await self.repo.journal(
+            owner_id,
+            goal.id,
+            kind="waiting",
+            note=note,
+            detail={
+                "for_hours": hours,
+                "step_id": (step.id if step is not None else ""),
+            },
+        )
         await self._note_ambient(owner_id, "agent_waiting", goal)
         return {"ok": True, "state": "waiting", "for_hours": hours, "goal": goal.for_human()}
 
