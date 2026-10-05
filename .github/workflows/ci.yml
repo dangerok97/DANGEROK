@@ -89,7 +89,7 @@ jobs:
         run: python -m pytest -q tests/test_knowledge_map.py tests/test_introduction_contract_v313.py -x
       - name: Voice lifecycle and phone recipient corrections
         working-directory: backend
-        run: python -m pytest -q tests/test_voice_streaming.py tests/test_live_voice_fluidity.py tests/test_voice_output_v313.py tests/test_voice_life_continuity_v313.py tests/test_phone_identity_conflict.py -x
+        run: python -m pytest -q tests/test_voice_streaming.py tests/test_live_voice_fluidity.py tests/test_voice_output_v313.py tests/test_voice_life_continuity_v313.py tests/test_phone_identity_conflict.py tests/test_ai_first_skill_routing_v82.py -x
       - name: Continuous online market watch
         working-directory: backend
         run: python -m pytest -q tests/test_energy_offer_monitor.py -x
