@@ -127,7 +127,7 @@ def _wait_kwargs_for(step: Optional[ActionStep], default_hours: int = 6) -> Dict
 def _resolve_wait_target(
     *,
     wait_until: Any = None,
-    minutes: Any = None,
+    wait_minutes: Any = None,
     hours: Any = None,
     default_minutes: int = 360,
     now: Optional[datetime] = None,
@@ -165,8 +165,8 @@ def _resolve_wait_target(
         except (TypeError, ValueError, OverflowError):
             pass
 
-    if minutes not in (None, ""):
-        bounded = _bounded_wait_minutes(minutes, default=default_minutes)
+    if wait_minutes not in (None, ""):
+        bounded = _bounded_wait_minutes(wait_minutes, default=default_minutes)
         return base + timedelta(minutes=bounded), {
             "mode": "wait_minutes",
             "for_minutes": bounded,
@@ -198,7 +198,7 @@ def _wait_parameters_from_answer(raw: Dict[str, Any], default_hours: int = 6) ->
     if exact:
         target, meta = _resolve_wait_target(
             wait_until=exact,
-            minutes=None,
+            wait_minutes=None,
             hours=None,
             default_minutes=default_hours * 60,
         )
@@ -1596,7 +1596,7 @@ class AgentService:
         """
         when, timing = _resolve_wait_target(
             wait_until=wait_until,
-            minutes=minutes,
+            wait_minutes=minutes,
             hours=hours,
             default_minutes=360,
         )
