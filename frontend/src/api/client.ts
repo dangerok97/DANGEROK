@@ -1515,7 +1515,12 @@ export const api = {
     }),
   // The Places key stays on the server: the browser asks ORA, not Google.
   placesSuggest: (q: string, session: string) =>
-    request<{ available: boolean; suggestions?: PlaceSuggestion[]; too_short?: boolean }>(
+    request<{
+      available: boolean;
+      suggestions?: PlaceSuggestion[];
+      too_short?: boolean;
+      why_unavailable?: string;
+    }>(
       `/places/lookup/suggest?q=${encodeURIComponent(q)}&session=${encodeURIComponent(session)}`,
     ),
   placesResolve: (placeId: string, session: string) =>
