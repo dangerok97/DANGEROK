@@ -122,6 +122,7 @@ jobs:
             tests/test_pinned_place_weather_v60.py tests/test_ai_chosen_followup_timing_v60.py \
             tests/test_everyday_situation_weather_followup_v77.py \
             tests/test_everyday_situation_visibility_v78.py \
+            tests/test_contract_renewal_reality_v80.py \
             tests/test_agent_situation_context_v61.py tests/test_canonical_place_situation_links_v62.py \
             tests/test_verified_situation_links_v63.py tests/test_local_time_followup_reasoning_v65.py tests/test_autonomous_live_route_v64.py tests/test_proactive_delivery_recheck_v66.py tests/test_ambient_agent_need_recheck_v70.py tests/test_post_run_visibility_budget_v69.py tests/test_exact_minute_followups_v68.py tests/test_user_controls_running_autonomy_v73.py tests/test_opportunity_agent_work_dedupe_v74.py \
             tests/test_document_extraction_signal_v4.py tests/test_update_work.py \
