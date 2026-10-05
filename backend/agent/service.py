@@ -608,6 +608,10 @@ class AgentService:
             if current is None or current.status == "cancelled":
                 goal.status, goal.next_run_at = "cancelled", None
                 return {"ok": True, "state": "cancelled"}
+            if await changed(self.db, goal):
+                await refresh(self, goal)
+                run.stopped_because = "source_changed"
+                return {"ok": True, "state": "source_changed" if goal.is_open else goal.status}
             if (
                 current.status == "waiting"
                 and current.user_deferred_until
@@ -621,6 +625,7 @@ class AgentService:
                 # schedule instead of continuing from stale in-memory state.
                 goal.status = "waiting"
                 goal.next_run_at = current.next_run_at
+                goal.user_deferred_until = current.user_deferred_until
                 run.stopped_because = "user_deferred"
                 return {
                     "ok": True,
@@ -628,10 +633,6 @@ class AgentService:
                     "until": current.next_run_at,
                     "goal": goal.for_human(),
                 }
-            if await changed(self.db, goal):
-                await refresh(self, goal)
-                run.stopped_because = "source_changed"
-                return {"ok": True, "state": "source_changed" if goal.is_open else goal.status}
             if run.iterations >= MAX_ITERATIONS:
                 run.stopped_because = "iterations"
                 return await self._continue_later(owner_id, goal, plan, run, "iterations")
