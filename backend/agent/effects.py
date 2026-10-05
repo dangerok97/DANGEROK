@@ -548,6 +548,8 @@ async def mail_send(db, owner_id: str, intent: ActionIntent) -> EffectOutcome:
         )
 
     receipt.external_ref = str(result.get("message_id") or "")
+    thread_ref = str(result.get("thread_id") or "").strip()
+    receipt.result_refs = [f"gmail_thread:{thread_ref}"] if thread_ref else []
     receipt.provider_status = "succeeded" if result.get("observed") else "accepted"
     try:
         await db.agent_outbound_drafts.update_one(
@@ -559,6 +561,7 @@ async def mail_send(db, owner_id: str, intent: ActionIntent) -> EffectOutcome:
                 "status": "sent" if result.get("observed") else "provider_accepted",
                 "provider": "gmail",
                 "provider_message_id": receipt.external_ref,
+                "provider_thread_id": thread_ref,
                 "sent_at": _now().isoformat(),
             }},
         )
