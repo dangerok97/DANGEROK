@@ -1574,13 +1574,17 @@ export const api = {
       method: 'PUT', body: JSON.stringify({ enabled }),
     }),
 
-  locationGetPreference: () =>
-    request<{
+  locationGetPreference: () => {
+    const platform =
+      Platform.OS === 'ios' ? 'ios' : Platform.OS === 'android' ? 'android' : 'web';
+    return request<{
       ok: boolean;
       mode: 'off' | 'while_using';
       background_available?: boolean;
       native_available?: boolean;
-    }>('/location/preference'),
+      runtime_capabilities?: Record<string, string>;
+    }>(`/location/preference?platform=${platform}`);
+  },
   locationSetPreference: (mode: 'off' | 'while_using') =>
     request<{ ok: boolean; mode: 'off' | 'while_using' }>('/location/preference', {
       method: 'PUT',

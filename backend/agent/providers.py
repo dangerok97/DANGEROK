@@ -740,6 +740,52 @@ async def read_location(db, owner_id: str, goal) -> CapabilityOutcome:
         "UNKNOWN": "unknown",
     }.get(freshness, "unknown")
     if freshness not in ("CURRENT", "RECENT"):
+        # Native background presence is stored by Places, not by the older
+        # foreground-location repository. Prefer that semantic fact when it is
+        # current: it says "at Casa", never exposes the coordinates that woke
+        # the phone up.
+        try:
+            from agent.evidence import freshness_of
+            from places.service import PlacesService
+
+            monitoring = await db.users.find_one(
+                {"user_id": owner_id},
+                {"_id": 0, "preferences.place_monitoring_enabled": 1},
+            )
+            enabled = bool(
+                ((monitoring or {}).get("preferences") or {}).get(
+                    "place_monitoring_enabled"
+                )
+            )
+            where = await PlacesService(db).where_now(owner_id) if enabled else {}
+            seen = str(where.get("last_seen_at") or "")
+            place_freshness = freshness_of(seen) if seen else "unknown"
+            if where.get("at_a_known_place") and place_freshness in ("fresh", "recent"):
+                place_id = str(where.get("place_id") or "")
+                place_name = str(where.get("place") or "luogo conosciuto")
+                return CapabilityOutcome(
+                    status="succeeded",
+                    observation="Ho verificato la presenza osservata dal dispositivo in background.",
+                    provenance=ResultProvenance(
+                        source_class="internal_observation",
+                        capability="location.read",
+                        provider="native_place_presence",
+                        source_refs=[f"place:{place_id}"] if place_id else [],
+                        freshness=place_freshness,
+                        certainty_note="luogo semantico da presenza nativa; coordinate non incluse nell'evidenza",
+                    ),
+                    claims=[Claim(
+                        text=(
+                            f"Presenza {place_freshness}: {place_name}"
+                            + (f"; osservata={seen}" if seen else "")
+                        )[:400],
+                        supports=f"place:{place_id}" if place_id else "device_location",
+                    )],
+                    data_ref=f"place:{place_id}" if place_id else "location:presence",
+                )
+        except Exception as exc:
+            logger.info("background place presence read soft-fail: %s", type(exc).__name__)
+
         return CapabilityOutcome(
             status="partial",
             observation="L'ultima posizione disponibile non è abbastanza recente per presentarla come attuale.",

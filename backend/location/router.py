@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from deps import get_current_user
@@ -32,17 +32,25 @@ class PreferenceIn(BaseModel):
 
 
 @router.get("/preference")
-async def get_preference(user=Depends(get_current_user)):
+async def get_preference(
+    platform: Literal["web", "ios", "android"] = Query(default="web"),
+    user=Depends(get_current_user),
+):
     svc = _svc()
-    pref = await svc.get_preference(user["user_id"])
+    uid = user["user_id"]
+    pref = await svc.get_preference(uid)
+    background_enabled = await svc.background_monitoring_enabled(uid)
+    caps = runtime_location_capabilities(
+        preference=pref,
+        platform=platform,
+        background_enabled=background_enabled,
+    )
     return {
         "ok": True,
         "mode": pref,
-        "background_available": False,
-        "native_available": False,
-        "runtime_capabilities": runtime_location_capabilities(
-            preference=pref, platform="web"
-        ),
+        "background_available": caps["background_location"] == "available",
+        "native_available": caps["native_location"] == "available",
+        "runtime_capabilities": caps,
     }
 
 

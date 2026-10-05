@@ -142,6 +142,10 @@ export async function enable(): Promise<{ ok: boolean; reason?: string }> {
 
   const Location = await locationModule();
   try {
+    // Foreground location and background place monitoring are separate
+    // permissions, but a granted native foreground permission should also be
+    // visible to the generic Agent capability registry.
+    await api.locationSetPreference('while_using');
     await api.placesSetMonitoring(true);
   } catch {
     return { ok: false, reason: 'ORA non riesce ad attivare il riconoscimento dei luoghi adesso. Riprova quando sei online.' };
@@ -191,7 +195,7 @@ export async function disable(): Promise<void> {
   if (await TaskManager.isTaskRegisteredAsync(GEOFENCE_TASK)) {
     await Location.stopGeofencingAsync(GEOFENCE_TASK).catch(() => undefined);
   }
-  await api.placesSetMonitoring(false);
+  await api.placesSetMonitoring(false).catch(() => undefined);
 }
 
 /**
@@ -249,7 +253,27 @@ export async function reconcile(): Promise<{ sent: number; left: number }> {
     await api.placesSetMonitoring(false).catch(() => undefined);
     return { sent: 0, left: 0 };
   }
-  await api.placesSetMonitoring(true);
+
+  if (native()) {
+    // Permissions can be revoked from iOS/Android settings while ORA is
+    // closed. Local "enabled" state is therefore never enough evidence that
+    // background monitoring is still allowed.
+    try {
+      const actual = await permissions();
+      if (actual.background !== 'granted') {
+        await disable();
+        return { sent: 0, left: 0 };
+      }
+    } catch {
+      // Do not re-assert monitoring on the server when the native permission
+      // state itself could not be read. The next foreground reconciliation
+      // can try again.
+      await api.placesSetMonitoring(false).catch(() => undefined);
+      return { sent: 0, left: 0 };
+    }
+  }
+
+  await api.placesSetMonitoring(true).catch(() => undefined);
   if (native()) {
     try {
       const Location = await locationModule();

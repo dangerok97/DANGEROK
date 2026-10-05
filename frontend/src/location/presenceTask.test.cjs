@@ -73,3 +73,15 @@ test('geofence wake requests a measured fix when no recent fix exists', async ()
   assert.equal(h.saved.length, 1);
   assert.equal(h.saved[0].longitude, outside.coords.longitude);
 });
+
+
+test('native reconciliation revokes server monitoring when OS background permission is gone', () => {
+  const runtime = fs.readFileSync(__dirname + '/presenceRuntime.ts', 'utf8');
+  const client = fs.readFileSync(__dirname + '/../api/client.ts', 'utf8');
+
+  assert.match(runtime, /actual\.background !== 'granted'/);
+  assert.match(runtime, /await disable\(\)/);
+  assert.match(runtime, /locationSetPreference\('while_using'\)/);
+  assert.match(runtime, /placesSetMonitoring\(false\)\.catch/);
+  assert.match(client, /location\/preference\?platform=/);
+});
