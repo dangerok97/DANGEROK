@@ -1,4 +1,6 @@
 import asyncio
+import os
+import uuid
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
@@ -17,34 +19,49 @@ FIXED = datetime(2026, 10, 5, 12, 0, tzinfo=timezone.utc)
 
 @pytest.mark.asyncio
 async def test_owner_budget_is_atomic_shared_and_isolated_between_people():
-    db = AsyncMongoMockClient().test
-    budget = OwnerBackgroundBudget(db, daily_limit=2)
-    await budget.ensure_indexes()
+    # Atomicity is a database property. CI already runs a real Mongo service,
+    # so test the production primitive instead of asking mongomock to emulate
+    # concurrent conditional updates.
+    client = None
+    mongo_url = os.environ.get("MONGO_URL")
+    if mongo_url:
+        from motor.motor_asyncio import AsyncIOMotorClient
 
-    # Separate service instances in one process still share the owner/day lock;
-    # cross-process safety remains the database's unique key + bounded upsert.
-    claims = await asyncio.gather(
-        OwnerBackgroundBudget(db, daily_limit=2).claim(OWNER, now=FIXED),
-        OwnerBackgroundBudget(db, daily_limit=2).claim(OWNER, now=FIXED),
-        OwnerBackgroundBudget(db, daily_limit=2).claim(OWNER, now=FIXED),
-    )
+        client = AsyncIOMotorClient(mongo_url)
+        db = client[f"ora_budget_v79_{uuid.uuid4().hex[:10]}"]
+    else:
+        db = AsyncMongoMockClient().test
 
-    allowed_claims = [claim for claim in claims if claim.allowed]
-    assert len(allowed_claims) == 2
-    assert sum(1 for claim in claims if not claim.allowed) == 1
-    assert sorted(claim.used for claim in allowed_claims) == [1, 2]
+    try:
+        budget = OwnerBackgroundBudget(db, daily_limit=2)
+        await budget.ensure_indexes()
 
-    # A different person has a different budget row, even at the same instant.
-    bob = await budget.claim("bob", now=FIXED)
-    assert bob.allowed is True
-    assert bob.used == 1
+        claims = await asyncio.gather(
+            OwnerBackgroundBudget(db, daily_limit=2).claim(OWNER, now=FIXED),
+            OwnerBackgroundBudget(db, daily_limit=2).claim(OWNER, now=FIXED),
+            OwnerBackgroundBudget(db, daily_limit=2).claim(OWNER, now=FIXED),
+        )
 
-    row = await db.agent_owner_background_budgets.find_one(
-        {"owner_id": OWNER, "day": "2026-10-05"}, {"_id": 0}
-    )
-    assert row is not None
-    assert row["used"] == 2
-    assert row["limit"] == 2
+        allowed_claims = [claim for claim in claims if claim.allowed]
+        assert len(allowed_claims) == 2, claims
+        assert sum(1 for claim in claims if not claim.allowed) == 1
+        assert sorted(claim.used for claim in allowed_claims) == [1, 2]
+
+        # A different person has a different budget row, even at the same instant.
+        bob = await budget.claim("bob", now=FIXED)
+        assert bob.allowed is True
+        assert bob.used == 1
+
+        row = await db.agent_owner_background_budgets.find_one(
+            {"owner_id": OWNER, "day": "2026-10-05"}, {"_id": 0}
+        )
+        assert row is not None
+        assert row["used"] == 2
+        assert row["limit"] == 2
+    finally:
+        if client is not None:
+            await client.drop_database(db.name)
+            client.close()
 
 
 @pytest.mark.asyncio
