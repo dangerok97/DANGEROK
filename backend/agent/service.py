@@ -75,6 +75,9 @@ MAX_PLAN_STEPS = 12
 # that keeps saying "a bit later" produces a loop that looks like diligence.
 MIN_WAIT_HOURS = 1
 MAX_WAIT_HOURS = 24 * 14
+# Precise checkpoints may be shorter than an hour, but never become polling.
+MIN_WAIT_MINUTES = 5
+MAX_WAIT_MINUTES = 24 * 14 * 60
 
 # How long to leave a goal alone when a run ran out of budget rather than out
 # of work. Soon enough to be continuing; far enough away to not be a spin.
@@ -96,8 +99,91 @@ def _bounded_wait_hours(value: Any, default: int = 6) -> int:
 
 
 def _wait_hours_for(step: Optional[ActionStep], default: int = 6) -> int:
+    """Legacy compatibility for callers/tests that still use hour waits."""
     value = ((step.parameters or {}).get("wait_hours") if step is not None else default)
     return _bounded_wait_hours(value, default=default)
+
+
+def _bounded_wait_minutes(value: Any, default: int = 360) -> int:
+    try:
+        minutes = int(float(value))
+    except (TypeError, ValueError):
+        minutes = int(default)
+    return max(MIN_WAIT_MINUTES, min(MAX_WAIT_MINUTES, minutes))
+
+
+def _parse_wait_until(value: Any, *, now: Optional[datetime] = None) -> Optional[datetime]:
+    """Read one exact ISO-8601 checkpoint and clamp it to technical bounds.
+
+    Exact model-chosen moments must carry a timezone. A naive timestamp is
+    ambiguous and is therefore ignored rather than guessed.
+    """
+    if not value:
+        return None
+    try:
+        moment = datetime.fromisoformat(str(value).strip().replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return None
+    if moment.tzinfo is None:
+        return None
+    base = now or _now()
+    lower = base + timedelta(minutes=MIN_WAIT_MINUTES)
+    upper = base + timedelta(minutes=MAX_WAIT_MINUTES)
+    moment = moment.astimezone(timezone.utc)
+    if moment < lower:
+        return lower
+    if moment > upper:
+        return upper
+    return moment
+
+
+def _wait_parameters(raw: Optional[Dict[str, Any]], *, now: Optional[datetime] = None,
+                     default_hours: int = 6) -> Dict[str, Any]:
+    """Keep exactly one model-chosen timing form, validated and bounded."""
+    values = raw if isinstance(raw, dict) else {}
+    base = now or _now()
+
+    exact = _parse_wait_until(values.get("wait_until"), now=base)
+    if exact is not None:
+        return {"wait_until": exact.isoformat()}
+
+    if values.get("wait_minutes") not in (None, ""):
+        return {"wait_minutes": _bounded_wait_minutes(values.get("wait_minutes"))}
+
+    return {
+        "wait_hours": _bounded_wait_hours(values.get("wait_hours"), default=default_hours)
+    }
+
+
+def _wait_target(
+    parameters: Optional[Dict[str, Any]] = None,
+    *,
+    hours: Optional[int] = None,
+    now: Optional[datetime] = None,
+    default_hours: int = 6,
+) -> tuple[datetime, int, str]:
+    """Resolve exact/relative/legacy timing into one UTC checkpoint."""
+    base = now or _now()
+    values = dict(parameters or {})
+
+    exact = _parse_wait_until(values.get("wait_until"), now=base)
+    if exact is not None:
+        minutes = max(
+            MIN_WAIT_MINUTES,
+            min(MAX_WAIT_MINUTES, int(round((exact - base).total_seconds() / 60))),
+        )
+        return exact, minutes, "wait_until"
+
+    if values.get("wait_minutes") not in (None, ""):
+        minutes = _bounded_wait_minutes(values.get("wait_minutes"))
+        return base + timedelta(minutes=minutes), minutes, "wait_minutes"
+
+    legacy = values.get("wait_hours") if values.get("wait_hours") not in (None, "") else hours
+    bounded_hours = _bounded_wait_hours(
+        legacy if legacy is not None else default_hours, default=default_hours
+    )
+    minutes = bounded_hours * 60
+    return base + timedelta(minutes=minutes), minutes, "wait_hours"
 
 
 async def _user_clock_context(db, owner_id: str) -> dict:
