@@ -74,6 +74,7 @@ class SituationService:
                 summary=str(update.summary).strip(),
                 semantic_kind=update.semantic_kind,
                 temporal_scope=update.temporal_scope,
+                attention_intent=update.attention_intent,
                 participants=update.participants,
                 constraints=update.constraints,
                 facts=update.facts,
@@ -129,6 +130,8 @@ class SituationService:
             situation.semantic_kind = update.semantic_kind
         if update.temporal_scope is not None:
             situation.temporal_scope = update.temporal_scope
+        if update.attention_intent is not None:
+            situation.attention_intent = update.attention_intent.strip() or None
         for field in (
             "participants",
             "constraints",
