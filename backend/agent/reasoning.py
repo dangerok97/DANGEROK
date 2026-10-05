@@ -153,9 +153,12 @@ async def make_plan(
         "- `ask_user` — only for what one person alone can supply.\n"
         "- `execute` — change something in the world.\n"
         "- `verify` — check the outcome is actually true.\n"
-        "- `wait` — depend on something that has not happened yet. Put the justified "
-        "recheck interval in parameters.wait_hours as an integer from 1 to 336. "
-        "This is when to LOOK AGAIN, never evidence that the expected outcome happened.\n\n"
+        "- `wait` — depend on something that has not happened yet. If the useful "
+        "checkpoint is an exact local clock time or deadline, put it in "
+        "parameters.wait_until as a timezone-aware ISO 8601 timestamp. Otherwise "
+        "put the justified interval in parameters.wait_hours as an integer from 1 to 336. "
+        "Never invent an exact time merely to be precise. This is when to LOOK AGAIN, "
+        "never evidence that the expected outcome happened.\n\n"
         "Do the work before you ask. Everything that can be found out, "
         "compared or drafted should be a step you take, so that when you do "
         "reach them, the sentence is «this is ready, may I» and not «what "
@@ -376,8 +379,9 @@ async def reconsider(
         "Your choices:\n"
         "- `continue` — nothing needs changing.\n"
         "- `modify` — some remaining steps should change. Give only those.\n"
-        "- `wait` — it depends on something that has not happened yet; say "
-        "roughly how long is worth waiting.\n"
+        "- `wait` — it depends on something that has not happened yet. If the "
+        "supplied local clock and evidence identify a real exact checkpoint, return "
+        "wait_until as an offset-aware ISO 8601 timestamp; otherwise return wait_hours.\n"
         "- `ask` — it is blocked on the person. Say which kind and what.\n"
         "- `abandon` — it is not going to work, or is no longer worth it.\n"
         "- `complete` — the outcome has been reached.\n\n"
@@ -399,7 +403,7 @@ async def reconsider(
         "Return JSON: {\"decision\": \"continue|modify|wait|ask|"
         "abandon|complete\", \"reasoning\": \"one short sentence\", "
         "\"replace_step_ids\": [], \"revised_steps\": [], \"wait_hours\": null, "
-        "\"asks\": \"\", \"ask_kind\": null}\n\n"
+        "\"wait_until\": null, \"asks\": \"\", \"ask_kind\": null}\n\n"
         "For `modify`, `replace_step_ids` must contain only ids of still-pending "
         "steps that the revised steps make obsolete. Do not name completed steps, "
         "and do not replace a step merely because another one is being added. "
@@ -514,6 +518,7 @@ async def verify_goal(
     goal: Dict[str, Any],
     *,
     evidence: Dict[str, Any],
+    clock_context: Optional[Dict[str, Any]] = None,
     language: str = "it",
 ) -> Optional[Dict[str, Any]]:
     """
@@ -548,17 +553,23 @@ async def verify_goal(
         "- `uncertain` — you genuinely cannot tell from what you have.\n"
         "- `needs_followup` — something more has to happen.\n"
         "- `waiting_for_external_result` — it depends on somebody else, and "
-        "there is nothing to do but look again later.\n\n"
+        "there is nothing to do but look again later. If evidence plus local_clock "
+        "identify a real exact next checkpoint, use revisit_at; otherwise use "
+        "revisit_in_hours.\n\n"
         "Return JSON: {\"outcome\": \"achieved|partially_achieved|"
         "not_achieved|uncertain|needs_followup|waiting_for_external_result\", "
         "\"reasoning\": \"one short sentence\", "
         "\"what_is_missing\": \"\", \"revisit_in_hours\": null, "
-        "\"relied_on\": [], \"criteria_met\": []}"
+        "\"revisit_at\": null, \"relied_on\": [], \"criteria_met\": []}"
     )
 
     data = await _ask_model(
         _DISCIPLINE + "\n\n" + instruction,
-        _dump({"goal": goal, "what_was_done": evidence}),
+        _dump({
+            "goal": goal,
+            "what_was_done": evidence,
+            "local_clock": clock_context or {},
+        }),
     )
     if not isinstance(data, dict):
         return None
@@ -611,11 +622,12 @@ async def choose_next_action(
         "- `execute` — carry out one of the steps still to do. Say which.\n"
         "- `skip` — one of them is no longer worth doing. Say which and why.\n"
         "- `verify` — enough has been found; check whether the outcome holds.\n"
-        "- `wait` — it depends on something that has not happened yet. Set wait_hours "
-        "to the smallest evidence-justified integer from 1 to 336 for when ORA should "
-        "look again. Use the supplied local clock/timezone when phrases such as morning, "
-        "afternoon, evening, tonight or a local deadline matter. The timer is a checkpoint, "
-        "never proof the outcome occurred.\n"
+        "- `wait` — it depends on something that has not happened yet. If evidence and "
+        "the supplied local clock identify a real exact moment (for example 18:30 local, "
+        "30 minutes before an evidenced deadline, or tonight at a stated hour), return "
+        "wait_until as an offset-aware ISO 8601 timestamp. Otherwise set wait_hours to "
+        "the smallest evidence-justified integer from 1 to 336. Never invent a clock time "
+        "merely to look precise. The timer is a checkpoint, never proof the outcome occurred.\n"
         "- `ask` — it is blocked on the person, and only on the person.\n"
         "- `replan` — what was found means the route has to change.\n"
         "- `complete` — the outcome is already true.\n\n"
@@ -634,8 +646,10 @@ async def choose_next_action(
         "Return JSON: {\"decision\": \"execute|skip|verify|wait|ask|"
         "replan|complete\", \"step_id\": \"\", "
         "\"reasoning\": \"one short sentence\", "
-        "\"asks\": \"\", \"ask_kind\": null, \"wait_hours\": null}\n\n"
-        "`wait_hours` is required only for decision=wait and must be an integer 1..336. "
+        "\"asks\": \"\", \"ask_kind\": null, \"wait_hours\": null, "
+        "\"wait_until\": null}\n\n"
+        "For decision=wait, use `wait_until` only for a justified exact offset-aware "
+        "moment; otherwise use `wait_hours` as an integer 1..336. "
         "`step_id` must be one of the ids you were given, for `execute` and "
         "`skip`. `ask_kind` is \"knowledge\" when only they know the "
         "answer and \"authority\" when you know what to do and may not do "
