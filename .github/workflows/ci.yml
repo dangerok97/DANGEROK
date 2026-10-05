@@ -117,7 +117,7 @@ jobs:
             tests/test_prepared_effect_replanning_v50.py tests/test_generic_causal_propagation_v51.py \
             tests/test_agent_device_contacts_v52.py tests/test_agent_banking_context_v53.py \
             tests/test_native_presence_runtime_v54.py tests/test_autonomy_reality_gate_v55.py \
-            tests/test_autonomous_external_followups_v56.py \
+            tests/test_autonomous_external_followups_v56.py tests/test_external_reply_goal_resume_v57.py \
             tests/test_document_extraction_signal_v4.py tests/test_update_work.py \
             tests/test_life_profile_opportunity_bridge.py \
             tests/test_ambient_runtime_v38.py tests/test_ambient_reliability_v38.py -x
@@ -125,7 +125,8 @@ jobs:
       - name: Gmail relevance attachments and connected-life bridge
         working-directory: backend
         run: |
-          python -m pytest -q tests/test_email_connected_source_v310.py             tests/test_email_agent_bridge_v310.py -x
+          python -m pytest -q tests/test_email_connected_source_v310.py \
+            tests/test_email_agent_bridge_v310.py tests/test_agent_gmail_send.py -x
       - name: Google first sync, cloud sessions, location privacy and polling
         working-directory: backend
         run: |
