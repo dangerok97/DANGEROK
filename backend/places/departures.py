@@ -82,6 +82,62 @@ class DepartureService:
         await self.db[COLLECTION].create_index([("owner_id", 1), ("event_ref", 1)], unique=True)
         await self.db[COLLECTION].create_index("expires_at", expireAfterSeconds=0)
 
+    async def _departure_presence(self, owner_id, now):
+        """Freshest authorized device fix, without creating a second GPS trail.
+
+        Foreground location remains first choice. When the installed app has
+        explicit background monitoring enabled, the already-stored Places
+        observation may supply the same short-lived origin for departure
+        routing. Nothing is copied into LocationService storage.
+        """
+        from location.models import PresenceContext
+        from location.service import LocationService
+        from places.repository import PlacesRepository
+
+        location = LocationService(self.db)
+        presence = await location.build_presence(owner_id)
+        if current_origin(presence, now):
+            return presence
+        if not await location.background_monitoring_enabled(owner_id):
+            return presence
+
+        observations = await PlacesRepository(self.db).recent_observations(
+            owner_id, limit=1
+        )
+        if not observations:
+            return presence
+        latest = observations[0]
+        if latest.source != "background_device":
+            return presence
+
+        observed = _instant(latest.observed_at)
+        accuracy = latest.coordinates.accuracy_meters
+        lat = latest.coordinates.latitude
+        lon = latest.coordinates.longitude
+        if (
+            observed is None
+            or not -5 <= (now - observed).total_seconds() <= 120
+            or accuracy is None
+            or accuracy > 200
+            or not math.isfinite(lat)
+            or not math.isfinite(lon)
+            or not -90 <= lat <= 90
+            or not -180 <= lon <= 180
+        ):
+            return presence
+
+        return PresenceContext(
+            user_id=owner_id,
+            freshness="CURRENT",
+            last_seen_at=latest.observed_at,
+            accuracy_meters=accuracy,
+            latitude=lat,
+            longitude=lon,
+            source="background_device",
+            permission_state="granted_foreground",
+            preference="while_using",
+        )
+
     async def collect(self, owner_id, events, *, now=None):
         """Bounded, owner-scoped facts; an unavailable provider never yields an ETA."""
         from location.service import LocationService
@@ -98,7 +154,7 @@ class DepartureService:
         imminent = [e for e in upcoming if _instant(e["starts_at"]) <= now + timedelta(hours=24)][:2]
         if not imminent:
             return []
-        presence = await location.build_presence(owner_id)
+        presence = await self._departure_presence(owner_id, now)
         origin = current_origin(presence, now)
         output = []
         for event in imminent:
@@ -295,7 +351,7 @@ class DepartureService:
         now = _now()
         if not _instant(opportunity.valid_until) or _instant(opportunity.valid_until) <= now:
             return False
-        presence = await LocationService(self.db).build_presence(owner_id)
+        presence = await self._departure_presence(owner_id, now)
         origin = current_origin(presence, now)
         if not origin:
             return False
