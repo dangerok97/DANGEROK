@@ -134,16 +134,14 @@ class AmbientService:
     # --- what a wake does --------------------------------------------------
 
     async def recheck_delivery(self, wake: AmbientWake) -> WakeOutcome:
-        """
-        The moment arrived. Ask again before anything leaves.
+        """Re-decide one scheduled delivery from its fresh source.
 
-        Every early return here is a case where sending would have been wrong,
-        and each one was decided by something other than the original
-        judgement: the plan is gone, the concern is closed, the channel is
-        unreachable. Only the last step actually asks.
+        The wake knows the plan id; the plan knows whether its source is an
+        Opportunity or an agent_need. Reload that exact source through
+        DeliveryService so the Ambient lane cannot accidentally cancel agent
+        needs merely because they have no opportunity_id.
         """
         from delivery.service import DeliveryService
-        from opportunities.repository import OpportunityRepository
 
         out = WakeOutcome(wake_id=wake.id, reason=wake.reason)
         delivery = DeliveryService(self.db)
@@ -152,20 +150,6 @@ class AmbientService:
         if plan is None or not plan.is_open:
             out.handled = True
             out.result = "plan_gone"
-            return out
-
-        opportunity = await OpportunityRepository(self.db).get(
-            wake.owner_id, plan.opportunity_id
-        )
-        if opportunity is None or opportunity.status != "active":
-            # Resolved, dismissed or expired while this was waiting. The
-            # notification would be about something already dealt with.
-            await delivery.cancel_for_opportunity(
-                wake.owner_id, plan.opportunity_id,
-                reason="la questione si è chiusa prima dell'invio",
-            )
-            out.handled = True
-            out.result = "cancelled_resolved"
             return out
 
         if plan.not_after and plan.not_after < _now().isoformat():
@@ -177,22 +161,28 @@ class AmbientService:
             out.result = "expired"
             return out
 
-        # The recheck itself is a fact worth recording: a plan that went out
-        # without one and a plan that was re-examined and sent anyway look
-        # identical afterwards unless this is stamped.
+        subject = await delivery._current_subject_for_plan(wake.owner_id, plan)
+        if subject is None:
+            await delivery.cancel_for_source(
+                wake.owner_id,
+                plan.source_id or plan.opportunity_id,
+                source_type=plan.source_type,
+                reason="la sorgente si è chiusa prima dell'invio",
+            )
+            out.handled = True
+            out.result = "cancelled_resolved"
+            return out
+
         plan.last_rechecked_at = _now().isoformat()
         await delivery.repo.save_plan(plan)
 
-        # Ask again, with the moment as it is now — not as it was last night.
-        verdict = await delivery.evaluate(
+        verdict = await delivery.evaluate_subject(
             wake.owner_id,
-            plan.opportunity_id,
+            subject,
             app_state=await self.app_state(wake.owner_id),
         )
 
         if verdict.unavailable:
-            # No judgement available. Nothing sent, nothing decided, and the
-            # plan keeps standing so the retry has something to re-examine.
             out.retry_after_seconds = RETRY_SECONDS
             out.error = "model_unavailable"
             return out
@@ -201,14 +191,16 @@ class AmbientService:
         out.result = verdict.mode if not verdict.blocked_by else f"held:{verdict.blocked_by}"
 
         if verdict.blocked_by in ("rate_limited", "too_soon_after_last"):
-            # Fatigue at send time: right when it was decided, noise now
-            # because something else arrived in between. Try later.
             await self.schedule(
                 wake.owner_id,
                 reason="delivery_recheck",
                 when=_now() + timedelta(minutes=MIN_HOLD_MINUTES),
                 opportunity_id=plan.opportunity_id,
                 plan_id=plan.id,
+                source_ref=(
+                    f"{plan.source_type}:{plan.source_id}"
+                    if plan.source_id else ""
+                ),
                 provenance="code_schedule",
             )
         return out
