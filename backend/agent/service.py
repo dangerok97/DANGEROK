@@ -71,8 +71,12 @@ MAX_ITERATIONS = 6
 MAX_MODEL_CALLS = 8
 MAX_PLAN_STEPS = 12
 
-# The shortest a `wait` may be before looking again. Without a floor, a model
-# that keeps saying "a bit later" produces a loop that looks like diligence.
+# Precise follow-ups may be shorter than an hour, but still need a technical
+# floor and horizon. These are safety bounds, not product judgements.
+MIN_WAIT_MINUTES = 1
+MAX_WAIT_MINUTES = 14 * 24 * 60
+
+# Legacy exports kept for old plans/tests that still speak in hours.
 MIN_WAIT_HOURS = 1
 MAX_WAIT_HOURS = 24 * 14
 
@@ -87,7 +91,7 @@ def _now() -> datetime:
 
 
 def _bounded_wait_hours(value: Any, default: int = 6) -> int:
-    """Technical bound for model-chosen follow-up timing."""
+    """Legacy hour contract, retained for persisted plans."""
     try:
         hours = int(float(value))
     except (TypeError, ValueError):
@@ -95,9 +99,124 @@ def _bounded_wait_hours(value: Any, default: int = 6) -> int:
     return max(MIN_WAIT_HOURS, min(MAX_WAIT_HOURS, hours))
 
 
+def _bounded_wait_minutes(value: Any, default: int = 360) -> int:
+    """Technical bound for precise model-chosen follow-up timing."""
+    try:
+        minutes = int(round(float(value)))
+    except (TypeError, ValueError):
+        minutes = int(default)
+    return max(MIN_WAIT_MINUTES, min(MAX_WAIT_MINUTES, minutes))
+
+
 def _wait_hours_for(step: Optional[ActionStep], default: int = 6) -> int:
+    """Legacy helper used by older tests and persisted hour-only plans."""
     value = ((step.parameters or {}).get("wait_hours") if step is not None else default)
     return _bounded_wait_hours(value, default=default)
+
+
+def _wait_kwargs_for(step: Optional[ActionStep], default_hours: int = 6) -> Dict[str, Any]:
+    """Carry the richest persisted wait contract into the scheduler."""
+    params = dict((step.parameters or {}) if step is not None else {})
+    return {
+        "wait_until": params.get("wait_until"),
+        "minutes": params.get("wait_minutes"),
+        "hours": params.get("wait_hours", default_hours),
+    }
+
+
+def _resolve_wait_target(
+    *,
+    wait_until: Any = None,
+    minutes: Any = None,
+    hours: Any = None,
+    default_minutes: int = 360,
+    now: Optional[datetime] = None,
+) -> Tuple[datetime, Dict[str, Any]]:
+    """Resolve one bounded UTC checkpoint without guessing timezone.
+
+    Priority is exact offset-aware timestamp, then minutes, then legacy hours.
+    A malformed/past/out-of-horizon exact timestamp falls through to the next
+    supplied representation rather than ever scheduling in the past.
+    """
+    base = now or _now()
+    if base.tzinfo is None:
+        base = base.replace(tzinfo=timezone.utc)
+    base = base.astimezone(timezone.utc)
+
+    if wait_until:
+        try:
+            raw = str(wait_until).strip().replace("Z", "+00:00")
+            target = datetime.fromisoformat(raw)
+            if target.tzinfo is not None:
+                target_utc = target.astimezone(timezone.utc)
+                delta = target_utc - base
+                total_minutes = max(
+                    1, int((delta.total_seconds() + 59) // 60)
+                )
+                if (
+                    delta.total_seconds() > 0
+                    and total_minutes <= MAX_WAIT_MINUTES
+                ):
+                    return target_utc, {
+                        "mode": "wait_until",
+                        "wait_until": target.isoformat(),
+                        "for_minutes": total_minutes,
+                    }
+        except (TypeError, ValueError, OverflowError):
+            pass
+
+    if minutes not in (None, ""):
+        bounded = _bounded_wait_minutes(minutes, default=default_minutes)
+        return base + timedelta(minutes=bounded), {
+            "mode": "wait_minutes",
+            "for_minutes": bounded,
+        }
+
+    if hours not in (None, ""):
+        try:
+            raw_minutes = float(hours) * 60.0
+        except (TypeError, ValueError):
+            raw_minutes = float(default_minutes)
+        bounded = _bounded_wait_minutes(raw_minutes, default=default_minutes)
+        return base + timedelta(minutes=bounded), {
+            "mode": "wait_hours",
+            "for_minutes": bounded,
+            "for_hours": bounded / 60,
+        }
+
+    bounded = _bounded_wait_minutes(default_minutes, default=default_minutes)
+    return base + timedelta(minutes=bounded), {
+        "mode": "default",
+        "for_minutes": bounded,
+        "for_hours": bounded / 60,
+    }
+
+
+def _wait_parameters_from_answer(raw: Dict[str, Any], default_hours: int = 6) -> Dict[str, Any]:
+    """Persist one precise timing choice from model output, with old hours as fallback."""
+    exact = raw.get("wait_until")
+    if exact:
+        target, meta = _resolve_wait_target(
+            wait_until=exact,
+            minutes=None,
+            hours=None,
+            default_minutes=default_hours * 60,
+        )
+        if meta.get("mode") == "wait_until":
+            return {"wait_until": str(exact)[:64]}
+
+    if raw.get("wait_minutes") not in (None, ""):
+        return {
+            "wait_minutes": _bounded_wait_minutes(
+                raw.get("wait_minutes"), default=default_hours * 60
+            )
+        }
+
+    return {
+        "wait_hours": _bounded_wait_hours(
+            raw.get("wait_hours"), default=default_hours
+        )
+    }
 
 
 async def _user_clock_context(db, owner_id: str) -> dict:
@@ -561,7 +680,7 @@ class AgentService:
             if decision == "wait":
                 return await self._wait(
                     owner_id, goal, plan, step, run,
-                    hours=_wait_hours_for(step),
+                    **_wait_kwargs_for(step),
                     note=(step.intent if step is not None else ""),
                 )
 
@@ -607,7 +726,7 @@ class AgentService:
             if step.step_type == "wait":
                 return await self._wait(
                     owner_id, goal, plan, step, run,
-                    hours=_wait_hours_for(step), note=step.intent,
+                    **_wait_kwargs_for(step), note=step.intent,
                 )
 
             # The ceiling is on work done, not on deciding to stop. Checked
@@ -712,7 +831,7 @@ class AgentService:
             return ("ask", step)
 
         if decision == "wait":
-            wait_hours = _bounded_wait_hours(answer.get("wait_hours"), default=6)
+            timing = _wait_parameters_from_answer(answer, default_hours=6)
             step = ActionStep(
                 ordinal=len(plan.steps),
                 intent=str(
@@ -720,7 +839,7 @@ class AgentService:
                     or "Aspettare prima di verificare di nuovo l'esito esterno"
                 )[:280],
                 step_type="wait",
-                parameters={"wait_hours": wait_hours},
+                parameters=timing,
                 expected_result="Arriva il momento giusto per verificare di nuovo con evidenza fresca",
             )
             plan.steps.append(step)
@@ -1189,7 +1308,10 @@ class AgentService:
         if decision == "wait":
             return await self._wait(
                 owner_id, goal, plan, None, run,
-                hours=int(answer.get("wait_hours") or 6), note=note,
+                wait_until=answer.get("wait_until"),
+                minutes=answer.get("wait_minutes"),
+                hours=answer.get("wait_hours", 6),
+                note=note,
             )
 
         if decision == "ask":
@@ -1331,7 +1453,9 @@ class AgentService:
         if verification.outcome in ("waiting_for_external_result", "needs_followup"):
             return await self._wait(
                 owner_id, goal, plan, None, run,
-                hours=int(verification.revisit_in_hours or 12),
+                wait_until=getattr(verification, "revisit_at", None),
+                minutes=getattr(verification, "revisit_in_minutes", None),
+                hours=verification.revisit_in_hours or 12,
                 note=verification.reasoning,
             )
 
@@ -1458,23 +1582,30 @@ class AgentService:
 
     async def _wait(
         self, owner_id, goal, plan: ActionPlan, step: Optional[ActionStep],
-        run: AgentRun, *, hours: int, note: str = "",
+        run: AgentRun, *, hours: Any = None, minutes: Any = None,
+        wait_until: Any = None, note: str = "",
     ) -> Dict[str, Any]:
         """
-        Depend on something that has not happened, and arrange to look again.
+        Depend on something that has not happened, and arrange one exact recheck.
 
-            NO POLLING.
+            NO POLLING. NO HOUR-ROUNDING.
 
-        The ambient runtime already knows how to be somewhere at a time. This
-        borrows it rather than growing a timer of its own.
+        Exact offset-aware moments win, then minute intervals, then legacy
+        hour intervals. The ambient runtime owns the wake; the agent only
+        persists when it wants to look again.
         """
-        hours = _bounded_wait_hours(hours, default=6)
+        when, timing = _resolve_wait_target(
+            wait_until=wait_until,
+            minutes=minutes,
+            hours=hours,
+            default_minutes=360,
+        )
         if step is not None:
             step.status = "waiting"
         plan.status = "waiting"
         goal.status = "waiting"
         goal.background_runs = 0
-        goal.next_run_at = (_now() + timedelta(hours=hours)).isoformat()
+        goal.next_run_at = when.isoformat()
         await self.repo.save_plan(plan)
         await self.repo.save_goal(goal)
 
@@ -1484,25 +1615,39 @@ class AgentService:
             await AmbientService(self.db).schedule(
                 owner_id,
                 reason="opportunity_revisit",
-                when=_now() + timedelta(hours=hours),
+                when=when,
                 source_ref=f"goal:{goal.id}",
                 provenance="model",
             )
         except Exception as e:
             logger.info("agent wake soft-fail: %s", type(e).__name__)
 
+        detail = {
+            **timing,
+            "scheduled_for": when.isoformat(),
+            "step_id": (step.id if step is not None else ""),
+        }
         await self.repo.journal(
             owner_id,
             goal.id,
             kind="waiting",
             note=note,
-            detail={
-                "for_hours": hours,
-                "step_id": (step.id if step is not None else ""),
-            },
+            detail=detail,
         )
         await self._note_ambient(owner_id, "agent_waiting", goal)
-        return {"ok": True, "state": "waiting", "for_hours": hours, "goal": goal.for_human()}
+
+        result = {
+            "ok": True,
+            "state": "waiting",
+            "for_minutes": timing["for_minutes"],
+            "until": when.isoformat(),
+            "goal": goal.for_human(),
+        }
+        # Preserve the legacy response shape where it is exact enough to be
+        # meaningful, so existing clients/tests do not lose information.
+        if timing["for_minutes"] % 60 == 0:
+            result["for_hours"] = timing["for_minutes"] // 60
+        return result
 
     async def _pause(
         self, owner_id, goal, plan: ActionPlan, run: AgentRun, note: str
