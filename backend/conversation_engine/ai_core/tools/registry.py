@@ -697,6 +697,26 @@ class ToolRegistry:
                 handler=place_caps.open_navigation,
                 tags=["places", "navigation"],
             )
+        self.register(
+            CapabilitySpec(
+                capability="continue_navigation",
+                description=(
+                    "Continue a navigation handoff that ORA already prepared in the "
+                    "previous turn. Use ONLY when current_facts.active_skill_state.navigation "
+                    "exists and the user's latest reply naturally means they want to proceed. "
+                    "Do not reconstruct the destination or URL yourself. The backend verifies "
+                    "the actual user's assent and the freshness of the stored handoff."
+                ),
+                input_schema={"type": "object", "properties": {}},
+                classification="personal",
+                side_effect="READ_ONLY",
+                freshness="fresh",
+                risk="read",
+                handler=place_caps.continue_navigation,
+                tags=["places", "navigation", "continuation"],
+            )
+        )
+
         )
 
     def _register_accommodation(self) -> None:
