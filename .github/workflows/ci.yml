@@ -115,7 +115,7 @@ jobs:
             tests/test_disagreement_actionable_calendar_v47.py tests/test_specific_authority_handoff_v48.py \
             tests/test_disagreement_source_refs_v49.py tests/test_planner_calendar_modify_v50.py \
             tests/test_prepared_effect_replanning_v50.py tests/test_generic_causal_propagation_v51.py \
-            tests/test_agent_device_contacts_v52.py \
+            tests/test_agent_device_contacts_v52.py tests/test_agent_banking_context_v53.py \
             tests/test_document_extraction_signal_v4.py tests/test_update_work.py \
             tests/test_life_profile_opportunity_bridge.py \
             tests/test_ambient_runtime_v38.py tests/test_ambient_reliability_v38.py -x

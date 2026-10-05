@@ -589,6 +589,117 @@ async def read_contacts(db, owner_id: str, goal, *, step) -> CapabilityOutcome:
     )
 
 
+async def read_banking(db, owner_id: str, goal, *, step=None) -> CapabilityOutcome:
+    """Read a bounded financial snapshot without dumping transaction history."""
+    try:
+        from connectors.bank.service import agent_bank_status
+        reality = await agent_bank_status(db, owner_id)
+    except Exception as exc:
+        logger.info("bank reality read soft-fail: %s", type(exc).__name__)
+        reality = "unavailable"
+
+    if reality == "unavailable":
+        return _unavailable(
+            "banking.read",
+            "requires_connection",
+            "Non c'è un conto bancario leggibile collegato a ORA.",
+        )
+
+    try:
+        from financial.observed import the_bank_right_now, this_month, what_was_seen
+
+        bank = await the_bank_right_now(db, owner_id)
+        month = await this_month(db, owner_id)
+        patterns = await what_was_seen(db, owner_id)
+    except Exception as exc:
+        logger.info("banking read soft-fail: %s", type(exc).__name__)
+        return CapabilityOutcome(
+            status="failed",
+            observation="Non sono riuscita a rileggere il contesto bancario disponibile.",
+            provenance=ResultProvenance(
+                source_class=(
+                    "connected_provider" if reality == "real" else "simulated"
+                ),
+                capability="banking.read",
+                provider="banking_psd2",
+            ),
+            error_type="banking_read_failed",
+            retryable=True,
+        )
+
+    claims: List[Claim] = []
+    balance = bank.get("ultimo_saldo_osservato") or {}
+    if balance.get("quanto"):
+        claims.append(Claim(
+            text=(
+                f"Ultimo saldo osservato: {balance.get('quanto')}; "
+                f"tipo={balance.get('tipo') or 'non specificato'}; "
+                f"letto={balance.get('letto_quando') or 'non disponibile'}"
+            )[:400],
+            supports="bank:balance",
+        ))
+
+    if month:
+        claims.append(Claim(
+            text=(
+                f"Questo mese, dai movimenti osservati: entrate "
+                f"{month.get('entrate_osservate') or 'non disponibili'}, uscite "
+                f"{month.get('uscite_osservate') or 'non disponibili'}, differenza "
+                f"{month.get('differenza_parziale') or 'non disponibile'}; "
+                "è una somma parziale dei movimenti letti, non un saldo."
+            )[:500],
+            supports="bank:month",
+        ))
+
+    recurring_in = list(patterns.get("ricorrenti_in_entrata") or [])
+    recurring_out = list(patterns.get("ricorrenti_in_uscita") or [])
+    if recurring_in or recurring_out:
+        claims.append(Claim(
+            text=(
+                f"Pattern osservati sul conto: {len(recurring_in)} entrate ricorrenti "
+                f"e {len(recurring_out)} uscite ricorrenti; ricorrente descrive solo "
+                "la ripetizione, non il significato del movimento."
+            )[:400],
+            supports="bank:patterns",
+        ))
+
+    source_class = "connected_provider" if reality == "real" else "simulated"
+    from agent.evidence import freshness_of
+    observed_at = str(
+        (balance or {}).get("letto_quando")
+        or ""
+    )
+    freshness = freshness_of(observed_at) if observed_at else "unknown"
+    note = (
+        "conto reale collegato; valori derivano dall'ultima lettura disponibile"
+        if reality == "real"
+        else "provider demo/sandbox: questi valori non descrivono il denaro reale della persona"
+    )
+    return CapabilityOutcome(
+        status="succeeded" if claims else "partial",
+        observation=(
+            "Ho letto un riepilogo bancario limitato, senza copiare l'estratto conto."
+            if claims
+            else "Il conto è collegato, ma non ho un riepilogo bancario utilizzabile."
+        ),
+        provenance=ResultProvenance(
+            source_class=source_class,
+            capability="banking.read",
+            provider="banking_psd2",
+            source_refs=[
+                ref for ref in ("bank:balance" if balance else "", "bank:month" if month else "")
+                if ref
+            ],
+            freshness=freshness,
+            certainty_note=note,
+        ),
+        claims=claims[:MAX_CLAIMS],
+        data_ref="bank:summary",
+        error_type="" if claims else "no_bank_summary",
+        retryable=False,
+    )
+
+
 async def read_location(db, owner_id: str, goal) -> CapabilityOutcome:
     """Read current/recent presence without persisting raw coordinates as evidence."""
     try:
