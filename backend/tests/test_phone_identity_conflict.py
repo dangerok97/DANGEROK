@@ -481,7 +481,7 @@ async def test_active_phone_followup_routes_no_without_model(db):
 
 
 @pytest.mark.asyncio
-async def test_explicit_name_correction_retargets_active_preparation(db):
+async def test_name_clarification_is_left_to_ai_not_phone_parser(db):
     from preparation.contacts import ContactCandidate
     from preparation.preparation import MissionPreparation, remember
     from conversation_engine.ai_core.loop import _phone_pending_followup
@@ -503,10 +503,11 @@ async def test_explicit_name_correction_retargets_active_preparation(db):
     prep = await remember(db, prep)
     state = {"active_preparation_id": prep.preparation_id}
 
-    assert await _phone_pending_followup(db, "owner", state, "il numero di Asia") == {
-        "preparation_id": prep.preparation_id,
-        "correct_counterparty": "Asia",
-    }
+    # Identity and relationship language is semantic. The mechanical helper
+    # must not turn words into a contact mutation before AI sees the turn.
+    assert await _phone_pending_followup(
+        db, "owner", state, "il numero di Asia"
+    ) == {}
 
 
 def test_relationship_phrase_does_not_turn_quindi_into_a_contact_name():
