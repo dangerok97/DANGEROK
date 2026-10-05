@@ -304,7 +304,8 @@ class CapabilityResolver:
                 status = "available_real"
                 reason = ""
 
-        return Resolution(\n            capability=facts.name,
+        return Resolution(
+            capability=facts.name,
             known=True,
             permitted=permitted,
             executable=executable,
