@@ -647,7 +647,7 @@ class AgentService:
             if decision == "wait":
                 return await self._wait(
                     owner_id, goal, plan, step, run,
-                    hours=_wait_hours_for(step),
+                    parameters=(step.parameters if step is not None else None),
                     note=(step.intent if step is not None else ""),
                 )
 
@@ -693,7 +693,7 @@ class AgentService:
             if step.step_type == "wait":
                 return await self._wait(
                     owner_id, goal, plan, step, run,
-                    hours=_wait_hours_for(step), note=step.intent,
+                    parameters=step.parameters, note=step.intent,
                 )
 
             # The ceiling is on work done, not on deciding to stop. Checked
@@ -798,7 +798,7 @@ class AgentService:
             return ("ask", step)
 
         if decision == "wait":
-            wait_hours = _bounded_wait_hours(answer.get("wait_hours"), default=6)
+            timing = _wait_parameters(answer, default_hours=6)
             step = ActionStep(
                 ordinal=len(plan.steps),
                 intent=str(
@@ -806,7 +806,7 @@ class AgentService:
                     or "Aspettare prima di verificare di nuovo l'esito esterno"
                 )[:280],
                 step_type="wait",
-                parameters={"wait_hours": wait_hours},
+                parameters=timing,
                 expected_result="Arriva il momento giusto per verificare di nuovo con evidenza fresca",
             )
             plan.steps.append(step)
@@ -1187,7 +1187,12 @@ class AgentService:
             effect_target=str(raw.get("effect_target") or "")[:200],
             reaches_somebody_else=bool(raw.get("reaches_somebody_else")),
             parameters=(
-                raw.get("parameters") if isinstance(raw.get("parameters"), dict) else {}
+                _wait_parameters(
+                    raw.get("parameters") if isinstance(raw.get("parameters"), dict) else {},
+                    default_hours=6,
+                )
+                if step_type == "wait"
+                else (raw.get("parameters") if isinstance(raw.get("parameters"), dict) else {})
             ),
             reversibility=(
                 raw.get("reversibility")
@@ -1275,7 +1280,7 @@ class AgentService:
         if decision == "wait":
             return await self._wait(
                 owner_id, goal, plan, None, run,
-                hours=int(answer.get("wait_hours") or 6), note=note,
+                parameters=_wait_parameters(answer, default_hours=6), note=note,
             )
 
         if decision == "ask":
@@ -1417,7 +1422,14 @@ class AgentService:
         if verification.outcome in ("waiting_for_external_result", "needs_followup"):
             return await self._wait(
                 owner_id, goal, plan, None, run,
-                hours=int(verification.revisit_in_hours or 12),
+                parameters=_wait_parameters(
+                    {
+                        "wait_until": verification.revisit_at,
+                        "wait_minutes": verification.revisit_in_minutes,
+                        "wait_hours": verification.revisit_in_hours,
+                    },
+                    default_hours=12,
+                ),
                 note=verification.reasoning,
             )
 
@@ -1536,7 +1548,8 @@ class AgentService:
 
         if not any(s.status == "pending" for s in plan.steps):
             return await self._wait(
-                owner_id, goal, plan, None, run, hours=6,
+                owner_id, goal, plan, None, run,
+                parameters={"wait_hours": 6},
                 note="Il checkpoint è arrivato ma non c'è ancora nuova evidenza da verificare.",
             )
         return None
@@ -1544,23 +1557,32 @@ class AgentService:
 
     async def _wait(
         self, owner_id, goal, plan: ActionPlan, step: Optional[ActionStep],
-        run: AgentRun, *, hours: int, note: str = "",
+        run: AgentRun, *, parameters: Optional[Dict[str, Any]] = None,
+        hours: Optional[int] = None, note: str = "",
     ) -> Dict[str, Any]:
         """
-        Depend on something that has not happened, and arrange to look again.
+        Depend on something that has not happened and arrange one precise recheck.
 
-            NO POLLING.
-
-        The ambient runtime already knows how to be somewhere at a time. This
-        borrows it rather than growing a timer of its own.
+        Exact local deadlines, short relative waits and legacy hour waits all
+        collapse to one UTC target. The same target is persisted on the goal
+        and handed to AmbientService, so recovery and wake-up cannot disagree.
         """
-        hours = _bounded_wait_hours(hours, default=6)
+        base = _now()
+        target, minutes, timing_source = _wait_target(
+            parameters, hours=hours, now=base, default_hours=6
+        )
         if step is not None:
             step.status = "waiting"
+            # Persist the normalized form, not an ambiguous model string.
+            step.parameters = _wait_parameters(
+                parameters or ({"wait_hours": hours} if hours is not None else {}),
+                now=base,
+                default_hours=6,
+            )
         plan.status = "waiting"
         goal.status = "waiting"
         goal.background_runs = 0
-        goal.next_run_at = (_now() + timedelta(hours=hours)).isoformat()
+        goal.next_run_at = target.isoformat()
         await self.repo.save_plan(plan)
         await self.repo.save_goal(goal)
 
@@ -1570,7 +1592,7 @@ class AgentService:
             await AmbientService(self.db).schedule(
                 owner_id,
                 reason="opportunity_revisit",
-                when=_now() + timedelta(hours=hours),
+                when=target,
                 source_ref=f"goal:{goal.id}",
                 provenance="model",
             )
@@ -1583,12 +1605,23 @@ class AgentService:
             kind="waiting",
             note=note,
             detail={
-                "for_hours": hours,
+                "until": target.isoformat(),
+                "for_minutes": minutes,
+                "for_hours": minutes / 60,
+                "timing_source": timing_source,
                 "step_id": (step.id if step is not None else ""),
             },
         )
         await self._note_ambient(owner_id, "agent_waiting", goal)
-        return {"ok": True, "state": "waiting", "for_hours": hours, "goal": goal.for_human()}
+        return {
+            "ok": True,
+            "state": "waiting",
+            "until": target.isoformat(),
+            "for_minutes": minutes,
+            # Backward-compatible response for existing clients/tests.
+            "for_hours": minutes / 60,
+            "goal": goal.for_human(),
+        }
 
     async def _pause(
         self, owner_id, goal, plan: ActionPlan, run: AgentRun, note: str
