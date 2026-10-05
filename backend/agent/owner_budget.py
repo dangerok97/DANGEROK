@@ -34,13 +34,16 @@ RETENTION_DAYS = 7
 # daily counter. Mongo's unique key/upsert remains the cross-process guard.
 _CLAIM_LOCKS: dict[str, asyncio.Lock] = {}
 _CLAIM_LOCK_DAY = ""
+_CLAIM_LOCK_LOOP_ID = 0
 
 
 def _claim_lock(owner_id: str, day: str) -> asyncio.Lock:
-    global _CLAIM_LOCK_DAY
-    if _CLAIM_LOCK_DAY != day:
+    global _CLAIM_LOCK_DAY, _CLAIM_LOCK_LOOP_ID
+    loop_id = id(asyncio.get_running_loop())
+    if _CLAIM_LOCK_DAY != day or _CLAIM_LOCK_LOOP_ID != loop_id:
         _CLAIM_LOCKS.clear()
         _CLAIM_LOCK_DAY = day
+        _CLAIM_LOCK_LOOP_ID = loop_id
     return _CLAIM_LOCKS.setdefault(owner_id, asyncio.Lock())
 
 
