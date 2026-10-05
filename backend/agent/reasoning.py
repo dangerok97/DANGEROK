@@ -379,9 +379,12 @@ async def reconsider(
         "Never manufacture a missing time.\n\n"
         "Return JSON: {\"decision\": \"continue|modify|wait|ask|"
         "abandon|complete\", \"reasoning\": \"one short sentence\", "
-        "\"revised_steps\": [], \"wait_hours\": null, "
+        "\"replace_step_ids\": [], \"revised_steps\": [], \"wait_hours\": null, "
         "\"asks\": \"\", \"ask_kind\": null}\n\n"
-        "`revised_steps` only for `modify`, in the same shape as a plan step."
+        "For `modify`, `replace_step_ids` must contain only ids of still-pending "
+        "steps that the revised steps make obsolete. Do not name completed steps, "
+        "and do not replace a step merely because another one is being added. "
+        "`revised_steps` uses the same shape as a plan step."
     )
 
     data = await _ask_model(
