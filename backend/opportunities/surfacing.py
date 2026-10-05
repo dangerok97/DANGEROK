@@ -234,10 +234,28 @@ class SurfacingService:
         opportunity.revisit_source = source
         opportunity.revisit_rationale = rationale
         await self.repo.save(opportunity)
+
+        # The card and the work are one concern. If admission has already
+        # turned it into an autonomous goal, "più tardi" must move that same
+        # work instead of only hiding its presentation while ORA continues.
+        goal_sync: Dict[str, Any] = {"ok": True, "deferred": False}
+        try:
+            from agent.service import AgentService
+
+            goal_sync = await AgentService(self.db).defer_opportunity_goal(
+                user_id,
+                opportunity_id,
+                until=opportunity.deferred_until,
+                reason="l'utente ha scelto «Più tardi» sulla stessa situazione",
+            )
+        except Exception as exc:
+            logger.info("opportunity defer goal sync soft-fail: %s", type(exc).__name__)
+
         return {
             "ok": True,
             "deferred_until": opportunity.deferred_until,
             "decided_by": source,
+            "goal_deferred": bool(goal_sync.get("deferred")),
         }
 
     # --- what the model is told -------------------------------------------
