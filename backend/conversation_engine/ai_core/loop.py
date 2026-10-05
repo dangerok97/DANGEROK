@@ -1106,7 +1106,22 @@ async def run_cognitive_loop(
                 )
             except Exception:
                 logger.info("guidance reconstruction soft-fail", exc_info=True)
-        if decision.situation_update and decision.situation_update.operation != "none":
+        phone_owns_turn = _has_phone_observation(observations[turn_start:]) or bool(
+            decision.tool_call
+            and decision.tool_call.resolved_capability == _PHONE_CAPABILITY
+        )
+        if (
+            decision.situation_update
+            and decision.situation_update.operation != "none"
+            and phone_owns_turn
+        ):
+            # A governed phone preparation already owns follow-up, retries and
+            # completion. Creating a second generic Situation for the same call
+            # causes duplicate autonomy and misleading "I'll keep watching"
+            # copy. Keep any relationship/memory updates, but do not create a
+            # parallel situation tracker for work the phone lifecycle owns.
+            add_step(trace, event="SITUATION_MUTATION_SUPPRESSED_FOR_PHONE")
+        elif decision.situation_update and decision.situation_update.operation != "none":
             try:
                 from situations.service import SituationService
 
