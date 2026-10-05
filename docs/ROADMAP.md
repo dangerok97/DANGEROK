@@ -28,6 +28,20 @@ proattivo. Piano operativo, evidenze del codice e criteri di accettazione:
 [AUTONOMY_PROGRAM.md](AUTONOMY_PROGRAM.md). Non è una dichiarazione di
 funzionalità completata. V3.22 conserva le prove rinviate dal proprietario.
 
+**Principio prodotto aggiunto 05/10 — Every utterance should earn its keep.**
+Raccontare qualcosa a ORA deve poter produrre un vantaggio concreto senza
+trasformare ogni frase in un task o una notifica. Una nuova informazione può
+diventare stato temporale, memoria governata, relazione, monitoraggio o niente.
+Il significato e le conseguenze sono decisi dall'AI; il runtime garantisce
+provenienza, permessi, tempi, fonti, dedupe, autorità e silenzio quando non c'è
+nulla di utile da fare. Caso di accettazione canonico, non feature dedicata:
+«ho steso i panni adesso» → ORA collega momento, stagione, luogo autorizzato,
+meteo/umidità/vento, stima quando potrebbero essere asciutti, pianifica un
+riesame e avvisa solo se arriva un rischio utile (es. pioggia) o quando il
+risultato è plausibilmente raggiunto. Nessun ramo di codice deve conoscere la
+parola “panni”: il meccanismo deve valere allo stesso modo per qualsiasi parte
+della vita.
+
 Gli altri due registri restano quello che sono e non ripetono questo:
 `CHANGELOG_AI.md` è il diario datato di che cosa è cambiato,
 `DEVELOPMENT_STATE.md` è lo stato tecnico sprint per sprint.

@@ -397,6 +397,18 @@ class AgentService:
             await refresh(self, goal)
             if not goal.is_open:
                 return {"ok": True, "state": goal.status}
+
+            revisit_due = bool(
+                run.background
+                and goal.status == "waiting"
+                and goal.next_run_at
+                and goal.next_run_at <= _now().isoformat()
+                and not goal.requires_user_input
+                and not goal.requires_user_authority
+            )
+            if revisit_due:
+                goal.background_runs = 0
+
             if run.background:
                 if goal.background_runs >= 3:
                     goal.next_run_at = None
@@ -407,7 +419,10 @@ class AgentService:
             # Persist recovery before execution; cancellation leaves due work.
             goal.next_run_at = (_now() + timedelta(minutes=5)).isoformat()
             await self.repo.save_goal(goal)
-            result = await self._work(owner_id, goal, run, allowance, language=language)
+            result = await self._work(
+                owner_id, goal, run, allowance, language=language,
+                revisit_due=revisit_due,
+            )
             if (not goal.is_open or goal.requires_user_input or goal.requires_user_authority
                     or (run.background and goal.background_runs >= 3)):
                 goal.next_run_at = None
@@ -424,7 +439,8 @@ class AgentService:
         return result
 
     async def _work(
-        self, owner_id, goal, run: AgentRun, budget: AgentBudget, *, language: str
+        self, owner_id, goal, run: AgentRun, budget: AgentBudget, *, language: str,
+        revisit_due: bool = False,
     ) -> Dict[str, Any]:
         """
         Keep going while there is something worth doing and something to spend.
@@ -443,6 +459,13 @@ class AgentService:
             if plan is None:
                 run.stopped_because = "no_plan"
                 return await self._stop(goal, run, "il piano non era formulabile")
+
+        if revisit_due:
+            outcome = await self._resume_due_wait(
+                owner_id, goal, plan, run, budget, language=language
+            )
+            if outcome is not None:
+                return outcome
 
         while True:
             from agent.source_refresh import changed, refresh
@@ -1295,6 +1318,65 @@ class AgentService:
             "goal": goal.for_human(),
         }
 
+    async def _resume_due_wait(
+        self, owner_id, goal, plan: ActionPlan, run: AgentRun, budget: AgentBudget,
+        *, language: str,
+    ) -> Optional[Dict[str, Any]]:
+        """Resume a planned external checkpoint without treating time as evidence."""
+        waiting_steps = [s for s in plan.steps if s.status == "waiting"]
+        for step in waiting_steps:
+            step.status = "succeeded" if step.step_type == "wait" else "pending"
+            if step.step_type == "wait":
+                step.note = "l'intervallo di attesa è trascorso"
+
+        plan.status = "active"
+        goal.status = "active"
+        goal.next_run_at = None
+        await self.repo.save_plan(plan)
+        await self.repo.save_goal(goal)
+        await self.repo.journal(
+            owner_id,
+            goal.id,
+            kind="external_checkpoint_due",
+            note="È arrivato il momento di verificare di nuovo ciò che ORA stava aspettando.",
+            detail={"waiting_steps": [s.id for s in waiting_steps]},
+        )
+
+        if any(s.status == "pending" for s in plan.steps):
+            return None
+
+        outcome = await self._reconsider(
+            owner_id,
+            goal,
+            plan,
+            run,
+            budget,
+            what_happened={
+                "problem": "scheduled_external_checkpoint",
+                "what_happened": (
+                    "È trascorso l'intervallo scelto per aspettare un esito esterno. "
+                    "Il tempo trascorso non prova che l'esito sia avvenuto."
+                ),
+                "instruction": (
+                    "Prima di concludere, aggiungi il più piccolo passo reale che "
+                    "possa rileggere una fonte autorizzata pertinente. Se nessuna "
+                    "fonte può ridurre l'incertezza adesso, aspetta ancora. Non "
+                    "considerare il timer come evidenza del risultato."
+                ),
+            },
+            language=language,
+        )
+        if outcome is not None:
+            return outcome
+
+        if not any(s.status == "pending" for s in plan.steps):
+            return await self._wait(
+                owner_id, goal, plan, None, run, hours=6,
+                note="Il checkpoint è arrivato ma non c'è ancora nuova evidenza da verificare.",
+            )
+        return None
+
+
     async def _wait(
         self, owner_id, goal, plan: ActionPlan, step: Optional[ActionStep],
         run: AgentRun, *, hours: int, note: str = "",
@@ -1312,6 +1394,7 @@ class AgentService:
             step.status = "waiting"
         plan.status = "waiting"
         goal.status = "waiting"
+        goal.background_runs = 0
         goal.next_run_at = (_now() + timedelta(hours=hours)).isoformat()
         await self.repo.save_plan(plan)
         await self.repo.save_goal(goal)
