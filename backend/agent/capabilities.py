@@ -278,7 +278,33 @@ class CapabilityResolver:
                 status = "unavailable"
                 reason = "bank_not_connected"
 
-        # Weather is a real external read, but it may use only a current/recent\n        # device point under the same consent rule as Home weather.\n        if facts.name == "weather.read":\n            try:\n                import weather as meteo\n                from location.service import LocationService\n\n                provider_ready = bool(meteo.capabilities().get("available"))\n                location_allowed = (\n                    await LocationService(self.db).get_preference(owner_id)\n                ) == "while_using"\n            except Exception:\n                provider_ready = False\n                location_allowed = False\n            if not provider_ready:\n                executable = False\n                status = "unavailable"\n                reason = "weather_provider_unavailable"\n            elif not location_allowed:\n                permitted = False\n                status = "requires_connection"\n                reason = "location_not_permitted"\n            else:\n                status = "available_real"\n                reason = ""\n\n        return Resolution(\n            capability=facts.name,
+        # Weather is a real external read, but it may use only a current/recent
+        # device point under the same consent rule as Home weather.
+        if facts.name == "weather.read":
+            try:
+                import weather as meteo
+                from location.service import LocationService
+
+                provider_ready = bool(meteo.capabilities().get("available"))
+                location_allowed = (
+                    await LocationService(self.db).get_preference(owner_id)
+                ) == "while_using"
+            except Exception:
+                provider_ready = False
+                location_allowed = False
+            if not provider_ready:
+                executable = False
+                status = "unavailable"
+                reason = "weather_provider_unavailable"
+            elif not location_allowed:
+                permitted = False
+                status = "requires_connection"
+                reason = "location_not_permitted"
+            else:
+                status = "available_real"
+                reason = ""
+
+        return Resolution(\n            capability=facts.name,
             known=True,
             permitted=permitted,
             executable=executable,
