@@ -1695,11 +1695,14 @@ class AgentService:
             # with proof behind it. Not a decision that it was uninteresting.
             return None
 
-        if budget.cognitive_calls >= budget.max_cognitive_calls:
-            logger.info("visibility skipped: budget spent goal=%s", goal_id)
+        if budget.visibility_calls >= budget.max_visibility_calls:
+            logger.info("visibility skipped: visibility budget spent goal=%s", goal_id)
             return None
 
-        budget.cognitive_calls += 1
+        budget.visibility_calls += 1
+        # Keep run.model_calls as a total count of model judgements this run,
+        # while leaving work-budget accounting untouched.
+        run.model_calls = budget.cognitive_calls + budget.visibility_calls
         decision = await self.visibility.consider(
             owner_id, goal, what_happened=what_happened, language=language
         )
