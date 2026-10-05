@@ -118,6 +118,7 @@ jobs:
             tests/test_agent_device_contacts_v52.py tests/test_agent_banking_context_v53.py \
             tests/test_native_presence_runtime_v54.py tests/test_autonomy_reality_gate_v55.py \
             tests/test_autonomous_external_followups_v56.py tests/test_external_reply_goal_resume_v57.py \
+            tests/test_conversation_situation_autonomy_v58.py \
             tests/test_document_extraction_signal_v4.py tests/test_update_work.py \
             tests/test_life_profile_opportunity_bridge.py \
             tests/test_ambient_runtime_v38.py tests/test_ambient_reliability_v38.py -x

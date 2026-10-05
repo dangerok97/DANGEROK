@@ -535,39 +535,56 @@ async def _appointments_that_still_stand(
 
 
 async def _situations(db, user_id: str, now: datetime) -> List[Dict[str, Any]]:
-    """
-    Le parti di vita aperte di questa persona, e cosa non si sa ancora di esse.
+    """Current governed Situations created by AI Core conversation reasoning.
 
-        NON SI PUO' DECIDERE SE QUALCOSA CONTA SENZA SAPERE COSA STA
-        SUCCEDENDO.
-
-    Erano assenti: il giudizio riceveva ora, luogo e agenda, e nessuna delle
-    situazioni su cui questa persona sta effettivamente vivendo. Un acquisto
-    di casa senza indirizzo non poteva essere notato da nessuno, perche'
-    nessuno lo stava guardando.
+    This is contextual state the user actually established in conversation,
+    not a legacy Life Object projection. Keep it bounded and semantic: no
+    transcript, no history, no raw source payloads. Opportunity reasoning gets
+    enough to judge consequences and can cite the canonical Situation ref.
     """
     try:
-        rows = await db.life_objects.find(
-            {"user_id": user_id, "status": {"$ne": "archived"}},
-            {"_id": 0, "id": 1, "title": 1, "type": 1, "ai_summary": 1,
-             "next_reasoning": 1},
-        ).to_list(MAX_PER_SOURCE)
-    except Exception as e:
-        logger.info("situation read soft-fail: %s", type(e).__name__)
+        rows = await db.situations.find(
+            {"user_id": user_id, "status": {"$in": ["active", "changed"]}},
+            {
+                "_id": 0,
+                "id": 1,
+                "status": 1,
+                "summary": 1,
+                "semantic_kind": 1,
+                "temporal_scope": 1,
+                "participants": 1,
+                "constraints": 1,
+                "facts": 1,
+                "assumptions": 1,
+                "linked_plan_id": 1,
+                "linked_object_refs": 1,
+                "revision": 1,
+                "updated_at": 1,
+            },
+        ).sort("updated_at", -1).to_list(MAX_PER_SOURCE)
+    except Exception as exc:
+        logger.info("situation read soft-fail: %s", type(exc).__name__)
         return []
 
     out: List[Dict[str, Any]] = []
     for row in rows:
-        if not row.get("title"):
+        sid = str(row.get("id") or "").strip()
+        summary = str(row.get("summary") or "").strip()
+        if not sid or not summary:
             continue
         out.append({
-            "ref": row["id"],
-            "what_it_is": str(row["title"])[:100],
-            "kind": row.get("type") or "",
-            "in_a_line": str(row.get("ai_summary") or "")[:200],
-            # Quello che ORA stessa ha gia' scritto di non sapere. E' la cosa
-            # piu' utile della riga: e' una domanda aperta, non una lacuna.
-            "still_unclear": str(row.get("next_reasoning") or "")[:160],
+            "ref": f"situation:{sid}",
+            "what_it_is": summary[:240],
+            "kind": str(row.get("semantic_kind") or "")[:80] or None,
+            "temporal_scope": str(row.get("temporal_scope") or "")[:240] or None,
+            "participants": [str(x)[:120] for x in (row.get("participants") or [])[:6]],
+            "constraints": [str(x)[:200] for x in (row.get("constraints") or [])[:8]],
+            "facts": [str(x)[:200] for x in (row.get("facts") or [])[:8]],
+            "assumptions": [str(x)[:200] for x in (row.get("assumptions") or [])[:4]],
+            "linked_plan_id": row.get("linked_plan_id"),
+            "linked_object_refs": list(row.get("linked_object_refs") or [])[:6],
+            "revision": row.get("revision"),
+            "updated_at": row.get("updated_at"),
         })
     return out
 
@@ -833,7 +850,7 @@ def evidence_refs(snapshot: Dict[str, Any]) -> Dict[str, str]:
     take("comparison", snapshot.get("open_comparisons"))
     take("calendar_event", snapshot.get("calendar"))
     take("departure", [r for r in snapshot.get("departures") or [] if r.get("status") == "ready"])
-    take("life_object", snapshot.get("situations"))
+    take("situation", snapshot.get("situations"))
     take("disagreement", snapshot.get("disagreements"))
     for row in snapshot.get("disagreements") or []:
         if not isinstance(row, dict):

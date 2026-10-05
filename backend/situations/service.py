@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import logging
 import uuid
 from typing import Any, Dict, List, Optional
 
 from situations.models import SituationEvent, SituationState, SituationUpdate, now_iso
 from situations.repository import SituationRepository
+
+logger = logging.getLogger(__name__)
 
 
 class SituationMutationError(Exception):
@@ -17,6 +20,7 @@ class SituationMutationError(Exception):
 
 class SituationService:
     def __init__(self, db):
+        self.db = db
         self.repo = SituationRepository(db)
 
     async def ensure_indexes(self) -> None:
@@ -88,6 +92,7 @@ class SituationService:
                 )
             )
             await self.repo.insert(situation)
+            await self._note_opportunity_change(user_id, situation, operation="create")
             return {
                 "status": "success",
                 "operation": "create",
@@ -166,11 +171,50 @@ class SituationService:
         ]
         if not await self.repo.save(situation, previous_revision=previous_revision):
             raise SituationMutationError("REVISION_CONFLICT")
+        await self._note_opportunity_change(user_id, situation, operation=update.operation)
         return {
             "status": "success",
             "operation": update.operation,
             "situation": situation.context_preview(),
         }
+
+    async def _note_opportunity_change(
+        self, user_id: str, situation: SituationState, *, operation: str
+    ) -> None:
+        """Bridge persisted conversational state into the ordinary autonomy queue.
+
+        Meaning remains with the AI. This records only THAT the governed
+        Situation changed, using its canonical ref and revision; the private
+        summary/facts stay in the Situation store and are read later through
+        the bounded snapshot. A failed review bridge never rolls back the
+        Situation the user just established.
+        """
+        kind = {
+            "create": "situation.created",
+            "update": "situation.updated",
+            "cancel": "situation.cancelled",
+            "resolve": "situation.resolved",
+        }.get(str(operation or ""))
+        if not kind:
+            return
+        try:
+            from opportunities.discovery import OpportunityDiscovery
+
+            await OpportunityDiscovery(self.db).note(
+                user_id,
+                source="situations",
+                kind=kind,
+                entity_ref=f"situation:{situation.id}",
+                entity_kind="situation",
+                after=f"revision:{situation.revision}",
+                occurred_at=situation.updated_at,
+            )
+        except Exception as exc:
+            logger.warning(
+                "situation opportunity bridge soft-fail id=%s error=%s",
+                situation.id,
+                type(exc).__name__,
+            )
 
 
 def _merge(current: List[str], incoming: List[str]) -> List[str]:
