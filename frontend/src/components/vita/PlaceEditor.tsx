@@ -116,9 +116,24 @@ export function PlaceEditor({
       setSearching(true);
       try {
         const res = await api.placesSuggest(typed, sessionToken.current);
-        if (!cancelled) setSuggestions(res.suggestions ?? []);
+        if (!cancelled) {
+          if (!res.available) {
+            setSuggestions([]);
+            setError(
+              res.why_unavailable
+                ? `Ricerca indirizzi non disponibile: ${res.why_unavailable}.`
+                : 'Ricerca indirizzi non disponibile in questo momento.',
+            );
+          } else {
+            setSuggestions(res.suggestions ?? []);
+            setError(null);
+          }
+        }
       } catch {
-        if (!cancelled) setSuggestions([]);
+        if (!cancelled) {
+          setSuggestions([]);
+          setError('Non riesco a cercare gli indirizzi in questo momento.');
+        }
       } finally {
         if (!cancelled) setSearching(false);
       }
@@ -317,7 +332,11 @@ export function PlaceEditor({
             <Choice
               icon="search-outline"
               label="Inserisci indirizzo"
-              onPress={() => setStep('address')}
+              onPress={() => {
+                setError(null);
+                setSuggestions([]);
+                setStep('address');
+              }}
               disabled={busy || !label.trim()}
               colors={colors}
               testID="editor-address-mode"
