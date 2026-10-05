@@ -1128,6 +1128,56 @@ class AgentService:
 
     # --- planning and replanning -------------------------------------------
 
+    async def _planning_source_context(
+        self, owner_id: str, goal: AutonomousGoal
+    ) -> Tuple[List[Dict[str, Any]], bool]:
+        """Re-read bounded governed context behind opaque goal refs.
+
+        Goals deliberately persist handles, not copies of somebody's private
+        life. Planning still needs to know what those handles mean. For
+        conversational Situations we can safely re-read the current
+        owner-scoped preview: no transcript/history, no cross-user fallback,
+        and no semantic routing by keywords. Missing refs are reported as
+        unavailable rather than guessed around.
+
+        Other source kinds keep their existing goal/opportunity summaries and
+        capability reads; this bridge exists because a Situation's meaning is
+        otherwise lost between goal admission and planning.
+        """
+        refs = [
+            str(ref)
+            for ref in list(goal.source_refs or [])[:8]
+            if str(ref).startswith("situation:") and ":" in str(ref)
+        ]
+        if not refs:
+            return [], False
+
+        try:
+            from situations.repository import SituationRepository
+
+            repository = SituationRepository(self.db)
+            out: List[Dict[str, Any]] = []
+            matched = 0
+            for ref in refs:
+                sid = ref.split(":", 1)[1]
+                state = await repository.get(owner_id, sid)
+                if state is None:
+                    continue
+                out.append({
+                    "ref": ref,
+                    "source": "situation",
+                    **state.context_preview(),
+                })
+                matched += 1
+            return out[:4], matched < len(refs)
+        except Exception as exc:
+            logger.info(
+                "planning situation context soft-fail goal=%s error=%s",
+                goal.id,
+                type(exc).__name__,
+            )
+            return [], True
+
     async def _build_plan(
         self, owner_id, goal, run: AgentRun, budget: AgentBudget, *, language: str
     ) -> Optional[ActionPlan]:
@@ -1135,14 +1185,23 @@ class AgentService:
 
         budget.cognitive_calls += 1
         run.model_calls = budget.cognitive_calls
+        planning_context = await _user_clock_context(self.db, owner_id)
+        source_context, source_context_unavailable = await self._planning_source_context(
+            owner_id, goal
+        )
+        if source_context:
+            planning_context["source_context"] = source_context
+        if source_context_unavailable:
+            planning_context["source_context_unavailable"] = True
+
         answer = await make_plan(
             goal.for_ai(),
             capabilities=await self.capabilities.available(owner_id),
-            # Stesso fatto, stesso motivo: il giorno della settimana lo
-            # calcola il codice, non lo indovina il modello. Vale qui come
-            # nella conversazione — un piano fatto per «giovedì» quando è
-            # domenica è sbagliato allo stesso modo in tutti e due i posti.
-            context=await _user_clock_context(self.db, owner_id),
+            # The clock is computed by code; governed source context is re-read
+            # from the exact owner-scoped refs instead of being copied into the
+            # goal. This keeps the durable goal handle-only while letting the
+            # planner understand what it is actually following.
+            context=planning_context,
             language=language,
         )
         if answer is None:
