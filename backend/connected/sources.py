@@ -80,6 +80,9 @@ class SourceRegistry:
         out.extend(await self._calendars(owner_id))
         out.extend(await self._mailboxes(owner_id))
         out.extend(await self._banks(owner_id))
+        accommodation = await self._accommodation(owner_id)
+        if accommodation is not None:
+            out.append(accommodation)
         out.append(await self._documents(owner_id))
         return out
 
@@ -239,6 +242,72 @@ class SourceRegistry:
                 provenance={"connector_id": CONNECTOR_ID, "instance_id": doc["id"]},
             ))
         return sources
+
+    async def _accommodation(self, owner_id: str) -> Optional[ConnectedSource]:
+        """A Booking order becomes a source only after a real order exists."""
+        try:
+            row = await self.db.accommodation_checkouts.find_one(
+                {
+                    "owner_id": owner_id,
+                    "status": {"$in": ["booked", "create_accepted"]},
+                    "order_id": {"$exists": True, "$nin": ["", None]},
+                },
+                {
+                    "_id": 0,
+                    "created_at": 1,
+                    "create_accepted_at": 1,
+                    "booked_at": 1,
+                    "last_provider_observed_at": 1,
+                },
+                sort=[("create_accepted_at", -1), ("created_at", -1)],
+            )
+        except Exception as exc:
+            logger.info("accommodation source soft-fail: %s", type(exc).__name__)
+            return None
+        if not row:
+            return None
+
+        from accommodation.booking import configured
+
+        attempt = await self._attempt(owner_id, "accommodation")
+        last_success = attempt.get("last_successful_sync_at")
+        provider_ready = configured()
+        status: SourceStatus = "connected" if provider_ready else "disconnected"
+        fresh = freshness_of("travel", last_success)
+        if status == "connected" and attempt.get("last_error"):
+            status = "degraded"
+        elif status == "connected" and fresh == "stale":
+            status = "stale"
+
+        created = str(
+            row.get("booked_at")
+            or row.get("create_accepted_at")
+            or row.get("created_at")
+            or now_iso()
+        )
+        updated = str(row.get("last_provider_observed_at") or created)
+        return ConnectedSource(
+            id="accommodation",
+            owner_id=owner_id,
+            source_type="travel",
+            provider="Booking.com",
+            status=status,
+            read_capabilities=["travel.booking.read"] if provider_ready else [],
+            write_capabilities=[],
+            last_successful_sync_at=last_success,
+            last_attempt_at=attempt.get("last_attempt_at"),
+            freshness_state=fresh,
+            health_state=(
+                str(attempt.get("health") or "")[:80]
+                if provider_ready
+                else "provider Booking.com non configurato"
+            ),
+            error_state=str(attempt.get("last_error") or "")[:120],
+            provenance={"provider": "booking.com", "kind": "accommodation_orders"},
+            created_at=created,
+            updated_at=updated,
+        )
+
 
     async def _documents(self, owner_id: str) -> ConnectedSource:
         """ORA's own shelf. Always there; the only question is how full."""
