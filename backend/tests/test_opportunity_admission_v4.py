@@ -34,6 +34,31 @@ async def test_all_persisted_concerns_survive_batch_limit(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_global_admission_shares_batch_across_owners_before_reusing_one(monkeypatch):
+    from agent.admission import drain
+
+    db = AsyncMongoMockClient().test
+    repo = OpportunityRepository(db)
+    for i in range(3):
+        await repo.save(opportunity(i, owner="alice"))
+    await repo.save(opportunity(99, owner="bob"))
+
+    decide = AsyncMock(return_value={"outcome": "no_goal"})
+    monkeypatch.setattr(AgentService, "consider", decide)
+
+    assert await drain(db, limit=2) == 2
+    assert [call.args[0] for call in decide.await_args_list] == ["alice", "bob"]
+    assert await db.opportunities.count_documents({
+        "owner_id": "alice",
+        "agent_review_state": "pending",
+    }) == 2
+    assert await db.opportunities.count_documents({
+        "owner_id": "bob",
+        "agent_review_state": "pending",
+    }) == 0
+
+
+@pytest.mark.asyncio
 async def test_updated_opportunity_reaches_admission(monkeypatch):
     db = AsyncMongoMockClient().test
     repo = OpportunityRepository(db)

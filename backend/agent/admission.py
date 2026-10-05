@@ -38,6 +38,7 @@ async def drain(db, *, owner_id=None, now=None, limit=2):
     moment = now or datetime.now(timezone.utc)
     stamp = moment.isoformat()
     handled = 0
+    owners_seen = set()
     for _ in range(limit):
         query = {
             "status": {"$in": ["active", "dismissed", "suppressed", "resolved", "expired"]},
@@ -47,16 +48,34 @@ async def drain(db, *, owner_id=None, now=None, limit=2):
         }
         if owner_id is not None:
             query["owner_id"] = owner_id
+
+        # A global runtime batch is tiny by design. Give another due owner a
+        # chance before spending both slots on the same person's backlog. If
+        # nobody else is due, fall back immediately so one active user keeps
+        # the full batch throughput. The database claim stays atomic in both
+        # paths; fairness never becomes a second queue or scheduler.
+        fair_query = dict(query)
+        if owner_id is None and owners_seen:
+            fair_query["owner_id"] = {"$nin": sorted(owners_seen)}
+
         token = uuid.uuid4().hex
+        update = {"$set": {"agent_review_token": token,
+                           "agent_review_lease_until": (moment + timedelta(seconds=LEASE_SECONDS)).isoformat()},
+                  "$inc": {"agent_review_attempts": 1}}
         row = await db[COLLECTION].find_one_and_update(
-            query, {"$set": {"agent_review_token": token,
-                             "agent_review_lease_until": (moment + timedelta(seconds=LEASE_SECONDS)).isoformat()},
-                    "$inc": {"agent_review_attempts": 1}},
+            fair_query, update,
             sort=[("agent_review_due", 1), ("id", 1)],
             return_document=ReturnDocument.AFTER,
         )
+        if row is None and owner_id is None and owners_seen:
+            row = await db[COLLECTION].find_one_and_update(
+                query, update,
+                sort=[("agent_review_due", 1), ("id", 1)],
+                return_document=ReturnDocument.AFTER,
+            )
         if row is None:
             break
+        owners_seen.add(row["owner_id"])
         fence = {"id": row["id"], "owner_id": row["owner_id"],
                  "agent_review_token": token, "agent_review_revision": row["agent_review_revision"]}
         answer = {"outcome": "unavailable"}
