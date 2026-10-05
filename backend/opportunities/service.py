@@ -522,7 +522,38 @@ class OpportunityService:
             )
         )
         await self._close_deliveries(user_id, opportunity.id, "respinta dalla persona")
-        return {"ok": True, "status": opportunity.status}
+
+        # Admission may already have turned this concern into autonomous work.
+        # Dismissing the concern must stop that exact goal too; otherwise the
+        # card disappears while ORA keeps working on the thing the person just
+        # declined. A later genuinely new fact may still reopen a dismissed
+        # Opportunity under the existing identity rules; suppressed remains
+        # closed as before.
+        goal_cancelled = False
+        try:
+            from agent.service import AgentService
+
+            agent = AgentService(self.db)
+            goal = await agent.repo.goal_for_opportunity(user_id, opportunity.id)
+            if goal is not None:
+                result = await agent.cancel(
+                    user_id,
+                    goal.id,
+                    reason=(
+                        "l'utente ha scelto di non proseguire con questa situazione"
+                        if not suppress
+                        else "l'utente ha chiesto di non riproporre questa situazione"
+                    ),
+                )
+                goal_cancelled = bool(result.get("ok"))
+        except Exception as exc:
+            logger.info("opportunity dismiss goal sync soft-fail: %s", type(exc).__name__)
+
+        return {
+            "ok": True,
+            "status": opportunity.status,
+            "goal_cancelled": goal_cancelled,
+        }
 
     async def resolve(self, user_id: str, opportunity_id: str) -> Dict[str, Any]:
         """The person says it is dealt with."""
