@@ -477,6 +477,10 @@ class LifePlace(BaseModel):
     def for_ai(self) -> Dict[str, Any]:
         """What reasoning is shown: names and roles, not a coordinate list."""
         return {
+            # Canonical handle for relationships/Situations. Keep place_id for
+            # compatibility with existing callers, but reasoning should carry
+            # refs rather than inventing a second identity format.
+            "ref": f"place:{self.id}",
             "place_id": self.id,
             "name": self.label,
             "role": self.role if self.role_confirmed_by_user else None,
