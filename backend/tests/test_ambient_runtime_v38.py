@@ -417,6 +417,68 @@ def test_two_workers_racing_for_one_wake_produce_one_winner(monkeypatch):
     _run(body())
 
 
+def test_two_runtime_slots_prefer_different_owners_when_both_are_due(monkeypatch):
+    """Two concurrent slots are capacity, not permission for one owner to monopolise them."""
+    async def body():
+        client, db = await _db()
+        alice = f"a38_alice_{uuid.uuid4().hex[:6]}"
+        bob = f"a38_bob_{uuid.uuid4().hex[:6]}"
+        try:
+            import ambient.runtime as runtime
+            from ambient.models import AmbientWake, WakeOutcome
+            from ambient.repository import AmbientRepository
+
+            repo = AmbientRepository(db)
+            await repo.ensure_indexes()
+            due = (datetime.now(timezone.utc) - timedelta(minutes=2)).isoformat()
+            for owner, ref in [
+                (alice, "alice_oldest"),
+                (alice, "alice_second"),
+                (bob, "bob_due"),
+            ]:
+                await repo.schedule(AmbientWake(
+                    owner_id=owner,
+                    reason="ambient_review",
+                    source_ref=ref,
+                    scheduled_for=due,
+                ))
+
+            entered = []
+            both_started = asyncio.Event()
+
+            async def controlled_handle(_db, wake):
+                entered.append(wake.owner_id)
+                if len(entered) >= 2:
+                    both_started.set()
+                await asyncio.wait_for(both_started.wait(), timeout=2)
+                return WakeOutcome(
+                    wake_id=wake.id,
+                    reason=wake.reason,
+                    handled=True,
+                    result="tested",
+                )
+
+            monkeypatch.setattr(runtime, "_handle", controlled_handle)
+            await asyncio.gather(
+                runtime.tick(db, now=datetime.now(timezone.utc), limit=1),
+                runtime.tick(db, now=datetime.now(timezone.utc), limit=1),
+            )
+
+            assert set(entered) == {alice, bob}, entered
+            assert entered.count(alice) == 1
+            assert entered.count(bob) == 1
+            assert await db.ambient_wakes.count_documents({
+                "owner_id": alice,
+                "status": "pending",
+            }) == 1
+        finally:
+            await _clean(db, alice)
+            await _clean(db, bob)
+            client.close()
+
+    _run(body())
+
+
 def test_a_worker_that_dies_does_not_strand_the_work(monkeypatch):
     """The lease, not a flag somebody has to remember to clear."""
     async def body():
