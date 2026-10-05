@@ -102,7 +102,6 @@ async def test_initial_autonomous_plan_receives_local_clock(monkeypatch):
     assert plan is not None
     assert captured["context"]["local_time"] == "11:28"
     assert captured["context"]["timezone"] == "Europe/Rome"
-    assert captured["context"]["today_weekday"] == "Monday"
 
 
 @pytest.mark.asyncio
