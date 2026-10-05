@@ -859,6 +859,31 @@ async def read_weather(db, owner_id: str, goal, *, step=None) -> CapabilityOutco
             supports="temperatura nelle prossime ore",
         ))
 
+    # Keep a short chronological profile when the provider supplied it.
+    # This is deliberately domain-neutral: the agent may need the trend for
+    # drying, outdoor work, ventilation, comfort or any other temporary life
+    # outcome. No coordinates or raw provider payload are persisted.
+    hourly_profile = []
+    for hour in hours[:6]:
+        if not isinstance(hour, dict):
+            continue
+        bits = [str(hour.get("time") or "")[:5]]
+        if hour.get("temperature_c") is not None:
+            bits.append(f"{hour['temperature_c']}°C")
+        if hour.get("humidity_pct") is not None:
+            bits.append(f"umidità {hour['humidity_pct']}%")
+        if hour.get("wind_kmh") is not None:
+            bits.append(f"vento {hour['wind_kmh']} km/h")
+        if hour.get("rain_chance_pct") is not None:
+            bits.append(f"pioggia {hour['rain_chance_pct']}%")
+        if len(bits) > 1:
+            hourly_profile.append(", ".join(bits))
+    if hourly_profile:
+        claims.append(Claim(
+            text=("Profilo previsto: " + " | ".join(hourly_profile))[:700],
+            supports="andamento orario delle condizioni ambientali",
+        ))
+
     for day in list(data.get("days") or [])[:2]:
         if not isinstance(day, dict):
             continue
