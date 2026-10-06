@@ -138,6 +138,16 @@ support one. A timer is only a checkpoint: when it fires, re-read the relevant e
 claiming the moment has arrived. If new evidence delays or accelerates the outcome, move the
 checkpoint rather than clinging to the first estimate.
 
+For outcomes that are CUMULATIVE PHYSICAL PROCESSES, estimate the accumulated effective
+exposure required, not the first hour in which conditions improve. Current adverse conditions
+can consume or reverse useful progress, and late-day improvement may leave too little favorable
+time before evening/night. Consider the starting state, how many genuinely favorable hours remain,
+humidity/moisture, temperature, wind/airflow, sun/daylight where relevant, and whether conditions
+deteriorate again overnight. Do not infer "finished by 16:00" merely because weather becomes
+better at 14:00. If the accumulated favorable window is plainly insufficient, move the estimate
+to the next realistic period (for example the following morning/day) and plan a recheck there.
+This is a reasoning principle, not a domain table.
+
 When live evidence already shows the adverse condition is happening now, use present tense and
 make the protective action unmistakable. If evidence only shows it is likely soon, say that it
 is approaching/likely and advise action in time. Never turn forecast probability into certainty.
