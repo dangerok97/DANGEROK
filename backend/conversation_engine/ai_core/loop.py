@@ -110,6 +110,19 @@ def _effective_capability(
     return ""
 
 
+def _calendar_write_observation_succeeded(
+    requested_cap: str, obs: Observation
+) -> bool:
+    effective = _effective_capability(
+        requested_cap, getattr(obs, "name", ""), _CALENDAR_WRITE_CAPS
+    )
+    return bool(
+        effective
+        and obs.status == "ok"
+        and (obs.payload or {}).get("status") == "ok"
+    )
+
+
 async def _emit_life_change(
     trace: Dict[str, Any],
     source_system: str,
@@ -2730,9 +2743,7 @@ async def run_cognitive_loop(
             if effective_write_cap in _WRITE_CAPS:
                 write_calls += 1
                 trace["write_calls"] = write_calls
-            if effective_calendar_cap and (
-                obs.status == "ok" and (obs.payload or {}).get("status") == "ok"
-            ):
+            if _calendar_write_observation_succeeded(cap, obs):
                 calendar_write_confirmed_this_turn = True
             if effective_calendar_cap:
                 # Emitted for "partial" too: local ORA state really changed
