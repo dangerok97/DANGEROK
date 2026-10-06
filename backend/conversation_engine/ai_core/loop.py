@@ -312,6 +312,7 @@ def _active_skill_plan_state(state: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         name = str(cap or "").strip()
         if name and name not in attempted:
             attempted.append(name)
+    outcomes = _merge_skill_outcomes([], raw.get("capability_outcomes") or [])
     required = required[:MAX_TOOL_CALLS]
     attempted = attempted[: MAX_TOOL_CALLS * 2]
     return {
@@ -319,6 +320,7 @@ def _active_skill_plan_state(state: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         "objective": objective,
         "required_capabilities": required,
         "attempted_capabilities": attempted,
+        "capability_outcomes": outcomes,
         "pending_capabilities": _pending_required_skill_caps(
             required, set(attempted)
         ),
@@ -333,6 +335,7 @@ def _persist_active_skill_plan(
     objective: str,
     required: List[str],
     attempted: Set[str],
+    outcomes=None,
     existing_ref: Optional[str] = None,
     waiting: bool = True,
 ) -> Dict[str, Any]:
@@ -345,6 +348,7 @@ def _persist_active_skill_plan(
         "objective": str(objective or "").strip()[:320] or "Completare la richiesta",
         "required_capabilities": list(required or [])[:MAX_TOOL_CALLS],
         "attempted_capabilities": sorted(set(attempted or set()))[: MAX_TOOL_CALLS * 2],
+        "capability_outcomes": _merge_skill_outcomes([], outcomes or []),
         "waiting": bool(waiting),
         "updated_at": now_iso(),
     }
