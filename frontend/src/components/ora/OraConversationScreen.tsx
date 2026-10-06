@@ -63,6 +63,8 @@ import { OraTurns, type Turn } from './OraTurns';
 import { pickOraOpportunity } from './entryOpportunity';
 import { OraPresence } from './presence/OraPresence';
 import { OraCockpitContext } from './OraCockpitContext';
+import { OraReferenceHeader } from './OraReferenceHeader';
+import { TemporarySituationToast } from './TemporarySituationToast';
 import { useTemporaryMemory } from './presence/useTemporaryMemory';
 import { COMPLETED_FOCUS_MS, presenceMode, readPresenceActivity, type PresenceActivity } from './presence/state';
 import type { OraJourneyView } from './OraJourney';
@@ -1383,6 +1385,8 @@ function OraConversationBody({
   // of clipping controls and hiding the map/right rail.
   const cockpitReady = wide && viewportWidth >= 1120;
   const temporaryMemory = useTemporaryMemory(true, turns.length);
+  const [selectedMapStarId, setSelectedMapStarId] = useState<string | null>(null);
+  const [mapRefreshKey, setMapRefreshKey] = useState(0);
   const latestTemporaryIsRecent = Boolean(
     temporaryMemory.latest &&
     (!temporaryMemory.latest.updated_at ||
@@ -1507,6 +1511,7 @@ function OraConversationBody({
           <View style={styles.situationActions} testID="ora-situation-actions">
             <Pressable
               accessibilityRole="button"
+              accessibilityLabel="Va bene"
               onPress={() => void sendWords('Va bene.')}
               style={({ pressed }) => [styles.situationAction, pressed && styles.actionPressed]}
             >
@@ -1515,6 +1520,7 @@ function OraConversationBody({
             </Pressable>
             <Pressable
               accessibilityRole="button"
+              accessibilityLabel="Avvisami"
               onPress={() => void sendWords('Avvisami quando devo intervenire per questa situazione.')}
               style={({ pressed }) => [styles.situationAction, pressed && styles.actionPressed]}
             >
@@ -1578,35 +1584,25 @@ function OraConversationBody({
   }
 
   return (
-    <DesktopShell active="ora" immersive>
-      <FocusScreen testID={testID} maxWidth={2600} contentStyle={{ paddingHorizontal: 0 }}>
-        <StatusBar style="light" />
-        <LocationPermissionSheet
-          visible={locPermVisible}
-          onAllow={() => resolveLocationPreference(true)}
-          onDeny={() => resolveLocationPreference(false)}
-        />
-        <LiveVoiceScreen live={live} activity={presenceActivity} openingKey={openingTurn} />
-        <KeyboardAvoidingView style={styles.flex}>
-          <View style={styles.cockpit} testID="ora-cockpit-layout">
+    <View style={styles.referenceRoot}>
+      <StatusBar style="light" />
+      <LocationPermissionSheet
+        visible={locPermVisible}
+        onAllow={() => resolveLocationPreference(true)}
+        onDeny={() => resolveLocationPreference(false)}
+      />
+      <LiveVoiceScreen live={live} activity={presenceActivity} openingKey={openingTurn} />
+      <OraReferenceHeader />
+      <KeyboardAvoidingView style={styles.referenceBody}>
+        <View style={styles.cockpit} testID="ora-cockpit-layout">
+          <View style={styles.cockpitLeft}>
             <View style={styles.cockpitChat} testID="ora-cockpit-chat">
-              <View style={styles.cockpitChatHead}>
-                <View style={styles.cockpitTitleRow}>
-                  <View style={styles.cockpitOrb}>
-                    <View style={styles.cockpitOrbCore} />
-                  </View>
-                  <View style={styles.cockpitTitleCol}>
-                    <Text style={styles.cockpitTitle}>CONVERSAZIONE</Text>
-                    <Text style={styles.cockpitSubtitle}>Parla con ORA. La mappa resta viva accanto a te.</Text>
-                  </View>
-                </View>
-                {devHarness ? (
-                  <Text style={[styles.devBanner, { color: colors.textTertiary }]} testID="ora-dev-banner">
-                    DEV / diagnostica
-                  </Text>
-                ) : null}
-                {context ? <OraHeader context={context} onBack={goBack} /> : null}
-              </View>
+              {devHarness ? (
+                <Text style={[styles.devBanner, { color: colors.textTertiary }]} testID="ora-dev-banner">
+                  DEV / diagnostica
+                </Text>
+              ) : null}
+              {context ? <View style={styles.contextInset}><OraHeader context={context} onBack={goBack} /></View> : null}
 
               <View style={styles.cockpitConversation}>
                 {conversationStream('cockpit')}
@@ -1616,27 +1612,43 @@ function OraConversationBody({
                 {cockpitComposerBlock}
               </View>
             </View>
-
-            <View style={styles.cockpitMap} testID="ora-cockpit-map">
-              <OraPresence
-                openingKey={openingTurn}
-                expanded
-                mode={presenceMode(busy, voice.state.phase)}
-                activity={presenceActivity}
-                active={!live.on}
-                onAreaPrompt={setText}
-              />
-            </View>
-
-            <View style={styles.cockpitRail} testID="ora-cockpit-rail">
-              <OraCockpitContext refreshKey={turns.length} />
-            </View>
+            <TemporarySituationToast star={temporaryMemory.latest} inline />
           </View>
-        </KeyboardAvoidingView>
-      </FocusScreen>
-    </DesktopShell>
-  );
-}
+
+          <View style={styles.cockpitMap} testID="ora-cockpit-map">
+            <OraPresence
+              openingKey={openingTurn}
+              expanded
+              cockpitChrome
+              mode={presenceMode(busy, voice.state.phase)}
+              activity={presenceActivity}
+              active={!live.on}
+              knowledgeRefreshKey={`${turns.length}:${mapRefreshKey}`}
+              onAreaPrompt={setText}
+              onSelectNode={(node) => setSelectedMapStarId(node?.kind === 'node' ? node.id || null : null)}
+            />
+          </View>
+
+          <ScrollView
+            style={styles.cockpitRail}
+            contentContainerStyle={styles.cockpitRailContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            testID="ora-cockpit-rail"
+          >
+            <OraCockpitContext
+              refreshKey={`${turns.length}:${mapRefreshKey}`}
+              selectedStarId={selectedMapStarId}
+              onTemporaryChanged={() => {
+                setSelectedMapStarId(null);
+                setMapRefreshKey(value => value + 1);
+              }}
+            />
+          </ScrollView>
+        </View>
+      </KeyboardAvoidingView>
+    </View>
+  );}
 
 const styles = StyleSheet.create({
   flex: { flex: 1, minHeight: 0 },
@@ -1699,6 +1711,15 @@ const styles = StyleSheet.create({
     fontWeight: '650' as any,
   },
   actionPressed: { opacity: 0.68 },
+  referenceRoot: {
+    flex: 1,
+    minHeight: 0,
+    backgroundColor: presencePalette.background,
+  },
+  referenceBody: {
+    flex: 1,
+    minHeight: 0,
+  },
   cockpit: {
     flex: 1,
     minHeight: 0,
@@ -1706,16 +1727,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: presencePalette.background,
   },
+  cockpitLeft: {
+    flexBasis: 420,
+    flexGrow: 0,
+    flexShrink: 1,
+    minWidth: 330,
+    maxWidth: 455,
+    minHeight: 0,
+    padding: 10,
+    gap: 10,
+    backgroundColor: 'rgba(5,11,18,.96)',
+  },
   cockpitChat: {
-    flexBasis: 380,
+    flex: 1,
+    minHeight: 0,
     flexGrow: 0,
     flexShrink: 1,
     minWidth: 300,
-    maxWidth: 430,
-    minHeight: 0,
-    borderRightWidth: StyleSheet.hairlineWidth,
-    borderRightColor: 'rgba(143,204,222,.18)',
-    backgroundColor: 'rgba(5,11,18,.96)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(128,196,219,.18)',
+    borderRadius: 22,
+    backgroundColor: 'rgba(7,15,24,.78)',
+    overflow: 'hidden',
   },
   cockpitChatHead: {
     paddingHorizontal: 18,
@@ -1761,20 +1794,15 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 16,
   },
+  contextInset: { paddingHorizontal: 10, paddingTop: 8 },
   cockpitConversation: {
     flex: 1,
     minHeight: 0,
-    marginHorizontal: 10,
-    marginBottom: 8,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(128,196,219,.14)',
-    borderRadius: 20,
-    backgroundColor: 'rgba(7,15,24,.72)',
     overflow: 'hidden',
   },
   cockpitComposer: {
     paddingHorizontal: 10,
-    paddingBottom: 12,
+    paddingBottom: 10,
   },
   cockpitMap: {
     flex: 1,
@@ -1783,18 +1811,20 @@ const styles = StyleSheet.create({
     backgroundColor: presencePalette.background,
   },
   cockpitRail: {
-    flexBasis: 320,
+    flexBasis: 350,
     flexGrow: 0,
     flexShrink: 1,
-    minWidth: 260,
-    maxWidth: 350,
+    minWidth: 290,
+    maxWidth: 390,
     minHeight: 0,
+    borderLeftWidth: StyleSheet.hairlineWidth,
+    borderLeftColor: 'rgba(143,204,222,.16)',
+    backgroundColor: 'rgba(5,11,18,.94)',
+  },
+  cockpitRailContent: {
     paddingHorizontal: 14,
     paddingTop: 14,
-    paddingBottom: 14,
-    borderLeftWidth: StyleSheet.hairlineWidth,
-    borderLeftColor: 'rgba(143,204,222,.18)',
-    backgroundColor: 'rgba(5,11,18,.94)',
+    paddingBottom: 28,
   },
   devBanner: { fontSize: 12, paddingBottom: 4 },
 });

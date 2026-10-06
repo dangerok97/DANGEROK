@@ -13,6 +13,12 @@ function resolveBackendBaseUrl(): string {
   const fromEnv = String(process.env.EXPO_PUBLIC_BACKEND_URL || '')
     .trim()
     .replace(/\/$/, '');
+  // Deterministic browser QA can opt into the page's exact origin. Production
+  // never uses this sentinel; it avoids localhost/127.0.0.1 CORS differences
+  // between Chromium and WebKit while still exercising the real API client.
+  if (fromEnv === 'same-origin' && typeof window !== 'undefined') {
+    return String(window.location?.origin || '').replace(/\/$/, '');
+  }
   if (fromEnv) return fromEnv;
   // Local web only: keep hostname aligned with the page origin
   // (http://localhost:8081 vs http://127.0.0.1:8081).
@@ -827,6 +833,12 @@ export const api = {
     request<ApiUser>('/auth/identity', { method: 'PUT', body: JSON.stringify({ first_name, last_name, tutorial_seen }) }),
 
   knowledgeMap: () => request<import('@/src/components/ora/presence/knowledge').KnowledgeMap>('/life-profile/knowledge-map'),
+
+  dismissTemporarySituation: (situationId: string) =>
+    request<{ ok: boolean; status: string; operation?: string }>(
+      `/life-profile/knowledge-map/situations/${encodeURIComponent(situationId)}/dismiss`,
+      { method: 'POST' },
+    ),
 
   login: (email: string, password: string) =>
     request<ApiAuth>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }, false),

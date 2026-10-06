@@ -30,6 +30,12 @@ class SituationUpdate(BaseModel):
     semantic_kind: Optional[str] = Field(default=None, max_length=80)
     temporal_scope: Optional[str] = Field(default=None, max_length=240)
     attention_intent: Optional[str] = Field(default=None, max_length=300)
+    # Optional presentation semantics chosen by cognition, never inferred by UI keywords.
+    icon_key: Optional[str] = Field(default=None, max_length=40)
+    location_label: Optional[str] = Field(default=None, max_length=180)
+    current_state_summary: Optional[str] = Field(default=None, max_length=300)
+    expected_outcome_summary: Optional[str] = Field(default=None, max_length=300)
+    next_check_summary: Optional[str] = Field(default=None, max_length=300)
     participants: List[str] = Field(default_factory=list, max_length=12)
     constraints: List[str] = Field(default_factory=list, max_length=20)
     facts: List[str] = Field(default_factory=list, max_length=20)
@@ -78,6 +84,11 @@ class SituationState(BaseModel):
     semantic_kind: Optional[str] = None
     temporal_scope: Optional[str] = None
     attention_intent: Optional[str] = None
+    icon_key: Optional[str] = None
+    location_label: Optional[str] = None
+    current_state_summary: Optional[str] = None
+    expected_outcome_summary: Optional[str] = None
+    next_check_summary: Optional[str] = None
     participants: List[str] = Field(default_factory=list)
     constraints: List[str] = Field(default_factory=list)
     facts: List[str] = Field(default_factory=list)
@@ -100,6 +111,11 @@ class SituationState(BaseModel):
             "semantic_kind": self.semantic_kind,
             "temporal_scope": self.temporal_scope,
             "attention_intent": self.attention_intent,
+            "icon_key": self.icon_key,
+            "location_label": self.location_label,
+            "current_state_summary": self.current_state_summary,
+            "expected_outcome_summary": self.expected_outcome_summary,
+            "next_check_summary": self.next_check_summary,
             "participants": self.participants[:6],
             "constraints": self.constraints[:8],
             "facts": self.facts[:8],

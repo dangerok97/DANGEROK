@@ -75,6 +75,11 @@ class SituationService:
                 semantic_kind=update.semantic_kind,
                 temporal_scope=update.temporal_scope,
                 attention_intent=update.attention_intent,
+                icon_key=update.icon_key,
+                location_label=update.location_label,
+                current_state_summary=update.current_state_summary,
+                expected_outcome_summary=update.expected_outcome_summary,
+                next_check_summary=update.next_check_summary,
                 participants=update.participants,
                 constraints=update.constraints,
                 facts=update.facts,
@@ -132,6 +137,17 @@ class SituationService:
             situation.temporal_scope = update.temporal_scope
         if update.attention_intent is not None:
             situation.attention_intent = update.attention_intent.strip() or None
+        for field in (
+            "icon_key",
+            "location_label",
+            "current_state_summary",
+            "expected_outcome_summary",
+            "next_check_summary",
+        ):
+            incoming = getattr(update, field)
+            if incoming is not None:
+                cleaned = " ".join(str(incoming).split()).strip()
+                setattr(situation, field, cleaned or None)
         for field in (
             "participants",
             "constraints",

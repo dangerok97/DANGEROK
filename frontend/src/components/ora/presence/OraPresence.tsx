@@ -11,9 +11,11 @@ import { useKnowledgeMap } from './useKnowledgeMap';
 import { useRouter } from 'expo-router';
 
 export function OraPresence({ mode = 'idle', activity = null, compact = false, active = true,
-  expanded = false, openingKey = null, footer, conversation, prominentConversation = false, onAreaPrompt, onBack, knowledge, knowledgeRefreshKey, spotlightId = null }: {
+  expanded = false, openingKey = null, footer, conversation, prominentConversation = false, onAreaPrompt, onBack, knowledge, knowledgeRefreshKey, spotlightId = null, cockpitChrome = false, onSelectNode }: {
   knowledge?: KnowledgeMap | null; knowledgeRefreshKey?: unknown;
   spotlightId?: string | null;
+  cockpitChrome?: boolean;
+  onSelectNode?: (node: PresenceNode | null) => void;
   mode?: PresenceMode; activity?: PresenceActivity | null; compact?: boolean; active?: boolean;
   expanded?: boolean; openingKey?: string | null; footer?: React.ReactNode; conversation?: React.ReactNode; prominentConversation?: boolean; onAreaPrompt?: (prompt: string) => void; onBack?: () => void;
 }) {
@@ -56,6 +58,7 @@ export function OraPresence({ mode = 'idle', activity = null, compact = false, a
   const [areas, setAreas] = useState(false);
   const [selected, setSelected] = useState<PresenceNode | null>(null);
   const [resetKey, setResetKey] = useState(0);
+  const [zoomOverride, setZoomOverride] = useState(1);
   const [panelHeight, setPanelHeight] = useState(windowHeight * .7);
   const [stageHeight, setStageHeight] = useState(windowHeight * .6);
   const [showConversation, setShowConversation] = useState(true);
@@ -68,7 +71,12 @@ export function OraPresence({ mode = 'idle', activity = null, compact = false, a
     return () => clearTimeout(timer);
   }, [completedFocus]);
   const fail = useCallback(() => setUnavailable(true), []);
-  const select = useCallback((node: PresenceNode | null) => { setSelected(node); setInfo(false); setAreas(false); }, []);
+  const select = useCallback((node: PresenceNode | null) => {
+    setSelected(node);
+    setInfo(false);
+    setAreas(false);
+    onSelectNode?.(node);
+  }, [onSelectNode]);
   // A new working turn exposes its result even if the previous transcript was folded.
   useEffect(() => { if (mode === 'think') setShowConversation(true); }, [mode]);
   useEffect(() => {
@@ -97,7 +105,7 @@ export function OraPresence({ mode = 'idle', activity = null, compact = false, a
   const hasConversation = Boolean(conversation);
   const selectedGeometry = selected?.id ? stars.findIndex(s => s.id === selected.id) : -1;
   const selectedIndex = selected?.kind === 'area' ? selected.index : selectedGeometry >= 0 ? selectedGeometry + 8 : null;
-  const options = useMemo(() => ({ stars, mode, area, paused, reduced, reveal: !!opening, revealKey: opening, active: active && foreground, selectedIndex: selectedIndex !== null && selectedIndex >= 0 ? selectedIndex : null, resetKey, centerY: expanded && hasConversation && showConversation ? .40 : .50, spotlightId: autoSpotlightId }), [stars, mode, area, paused, reduced, opening, active, foreground, selectedIndex, resetKey, expanded, hasConversation, showConversation, autoSpotlightId]);
+  const options = useMemo(() => ({ stars, mode, area, paused, reduced, reveal: !!opening, revealKey: opening, active: active && foreground, selectedIndex: selectedIndex !== null && selectedIndex >= 0 ? selectedIndex : null, resetKey, centerY: expanded && hasConversation && showConversation ? .40 : .50, spotlightId: autoSpotlightId, zoomOverride }), [stars, mode, area, paused, reduced, opening, active, foreground, selectedIndex, resetKey, expanded, hasConversation, showConversation, autoSpotlightId, zoomOverride]);
   const caption = mode === 'listen' ? 'Ti ascolto' : mode === 'speak' ? 'Ti rispondo' : mode === 'think' ? 'Sto lavorando' : 'Sono qui';
   const label = caption + (area ? ` · ${AREA_LABELS[area]}` : '');
   const height = compact ? (windowHeight < 650 ? 128 : width < 650 ? 200 : 260) : Math.min(350, Math.max(240, windowHeight * .36));
@@ -107,7 +115,7 @@ export function OraPresence({ mode = 'idle', activity = null, compact = false, a
   const detail = selected ? AREA_DETAILS[selected.area] : null;
   const transcriptHeight = Math.max(60, reading ? stageHeight - 70 : prominentConversation ? Math.min(330, stageHeight - 70) : Math.min(164, panelHeight * .24));
   return <View style={[styles.root, expanded && styles.expanded]} testID="ora-presence" onLayout={event => setPanelHeight(event.nativeEvent.layout.height)}>
-    <View style={[styles.top, width < 650 && styles.topMobile]}>
+    {!cockpitChrome ? <>    <View style={[styles.top, width < 650 && styles.topMobile]}>
       <View style={styles.identity}>
         {onBack ? <Pressable accessibilityRole="button" accessibilityLabel="Indietro" onPress={onBack} style={styles.button}><Ionicons name="chevron-back" size={20} color={palette.muted} /></Pressable> : null}
         <View style={{ flexShrink: 1, minWidth: 0 }}>
@@ -122,10 +130,11 @@ export function OraPresence({ mode = 'idle', activity = null, compact = false, a
         <Pressable accessibilityRole="button" accessibilityLabel="Come funziona la rete di ORA" accessibilityState={{ expanded: info }} onPress={() => { setInfo(value => !value); setSelected(null); setAreas(false); }} style={styles.button}><Ionicons name="information-circle-outline" size={19} color={palette.muted} /></Pressable>
       </View>
     </View>
-    <View style={styles.knowledgeStrip} testID="knowledge-map-progress">
+
+        <View style={styles.knowledgeStrip} testID="knowledge-map-progress">
       <Text style={styles.note} accessibilityLiveRegion="polite">{map ? `${map.count} stelle${map.temporary_count ? ` · ${map.temporary_count} temporanee` : ''} · VITA ${map.percent}%` : learned.error ? 'Mappa da aggiornare' : 'Carico le tue stelle…'}</Text>
       {knowledge === undefined && learned.error ? <Pressable accessibilityRole="button" accessibilityLabel="Riprova caricamento della mappa" onPress={learned.reload}><Text style={styles.control}>Riprova</Text></Pressable> : map && map.count === 0 ? <Text style={styles.note}>La prima stella nasce da ciò che mi racconti.</Text> : null}
-    </View>
+    </View></> : null}
     <View style={expanded ? [styles.stage, tight && { minHeight: 0 }] : { height }} testID="ora-presence-map" onLayout={event => setStageHeight(event.nativeEvent.layout.height)}>
       {unavailable ? <View style={styles.fallback}><Text style={styles.fallbackText}>ORA</Text></View> : canvasReady ? <PresenceCanvas options={options} onUnavailable={fail} onSelect={select} /> : null}
       {areas || selected || info ? <View style={[styles.overlay, width < 650 && styles.overlayMobile]}>
@@ -161,6 +170,29 @@ export function OraPresence({ mode = 'idle', activity = null, compact = false, a
 
         </ScrollView>
       </View> : null}
+      {cockpitChrome ? <>
+        <View style={styles.cockpitBrandPill} pointerEvents="none">
+          <View style={styles.cockpitBrandOrb}><View style={styles.cockpitBrandCore} /></View>
+          <View>
+            <Text style={styles.cockpitBrandName}>ORA</Text>
+            <Text style={styles.cockpitBrandSub}>SEMPRE CON TE</Text>
+          </View>
+        </View>
+        <View style={styles.cockpitMapControls}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Centra la mappa" onPress={() => { setSelected(null); onSelectNode?.(null); setResetKey(value => value + 1); }} style={styles.cockpitControlButton}>
+            <Ionicons name="locate-outline" size={18} color={palette.label} />
+          </Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="Riduci zoom" onPress={() => setZoomOverride(value => Math.max(.72, Math.round((value - .12) * 100) / 100))} style={styles.cockpitControlButton}>
+            <Ionicons name="remove" size={18} color={palette.label} />
+          </Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="Aumenta zoom" onPress={() => setZoomOverride(value => Math.min(1.55, Math.round((value + .12) * 100) / 100))} style={styles.cockpitControlButton}>
+            <Ionicons name="add" size={18} color={palette.label} />
+          </Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="Ripristina vista 3D" onPress={() => { setZoomOverride(1); setResetKey(value => value + 1); }} style={styles.cockpit3dButton}>
+            <Text style={styles.cockpit3dText}>3D</Text>
+          </Pressable>
+        </View>
+      </> : null}
       {conversation && !tight ? <View style={styles.transcriptPosition} pointerEvents="box-none">
         {showConversation ? <View style={[styles.transcriptCard, { maxHeight: Math.max(0, stageHeight - 12) }]}>
           <View style={styles.transcriptHead}>
@@ -203,5 +235,30 @@ const styles = StyleSheet.create({
   temporaryNote: { color: '#ff6b6b' },
   areaList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, areaButton: { minHeight: 44, paddingHorizontal: 12, justifyContent: 'center', borderWidth: 1, borderColor: palette.border, borderRadius: 12 },
   promptButton: { minHeight: 44, alignSelf: 'flex-start', justifyContent: 'center', paddingHorizontal: 14, backgroundColor: palette.border, borderRadius: 12 }, promptText: { color: palette.text, fontSize: 13 },
+  cockpitBrandPill: {
+    position: 'absolute', left: '50%', bottom: 22, transform: [{ translateX: -120 }],
+    minWidth: 240, height: 58, borderRadius: 30, borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(122,209,235,.28)', backgroundColor: 'rgba(5,18,28,.88)',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, zIndex: 12,
+  },
+  cockpitBrandOrb: {
+    width: 34, height: 34, borderRadius: 17, borderWidth: 1,
+    borderColor: 'rgba(137,225,255,.65)', backgroundColor: 'rgba(92,193,228,.08)',
+    alignItems: 'center', justifyContent: 'center', shadowColor: '#77dcff', shadowOpacity: .7, shadowRadius: 10,
+  },
+  cockpitBrandCore: { width: 13, height: 13, borderRadius: 7, borderWidth: 2, borderColor: '#c7f5ff' },
+  cockpitBrandName: { color: '#bff0fb', fontSize: 16, letterSpacing: 3 },
+  cockpitBrandSub: { color: '#4f8195', fontSize: 8, letterSpacing: 1.1 },
+  cockpitMapControls: {
+    position: 'absolute', right: 18, bottom: 24, flexDirection: 'row', alignItems: 'center',
+    borderRadius: 22, borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(122,196,220,.25)',
+    backgroundColor: 'rgba(5,16,25,.88)', overflow: 'hidden', zIndex: 12,
+  },
+  cockpitControlButton: {
+    width: 42, height: 42, alignItems: 'center', justifyContent: 'center',
+    borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: 'rgba(122,196,220,.18)',
+  },
+  cockpit3dButton: { minWidth: 48, height: 42, alignItems: 'center', justifyContent: 'center' },
+  cockpit3dText: { color: palette.label, fontSize: 12, fontWeight: '700' },
   fallback: { flex: 1, alignItems: 'center', justifyContent: 'center' }, fallbackText: { fontSize: 24, letterSpacing: 4, color: palette.text },
 });

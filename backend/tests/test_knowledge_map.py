@@ -206,7 +206,14 @@ async def test_active_situation_is_a_temporary_red_star_and_disappears_when_reso
         "user_id": "a",
         "status": "active",
         "summary": "Ho steso i panni sul balcone.",
-        "semantic_kind": "attività temporanea con esito atteso",
+        "semantic_kind": "bucato steso",
+        "icon_key": "shirt",
+        "location_label": "Balcone di casa",
+        "current_state_summary": "Pioggia leggera: conviene ritirare il bucato.",
+        "expected_outcome_summary": "Ricontrollare dopo il miglioramento delle condizioni.",
+        "next_check_summary": "Rivalutare il meteo al prossimo checkpoint.",
+        "facts": ["Pioggia leggera", "Umidità alta"],
+        "constraints": ["Non deve bagnarsi"],
         "created_at": "2026-10-06T09:00:00+00:00",
         "updated_at": "2026-10-06T09:00:00+00:00",
         "revision": 1,
@@ -232,6 +239,15 @@ async def test_active_situation_is_a_temporary_red_star_and_disappears_when_reso
     assert temp[0]["area"] == "memory"
     assert temp[0]["title"] == "Memoria temporanea"
     assert "steso i panni" in temp[0]["statement"]
+    assert temp[0]["semantic_kind"] == "bucato steso"
+    assert temp[0]["icon_key"] == "shirt"
+    assert temp[0]["location_label"] == "Balcone di casa"
+    assert temp[0]["current_state_summary"].startswith("Pioggia")
+    assert temp[0]["expected_outcome_summary"].startswith("Ricontrollare")
+    assert temp[0]["next_check_summary"].startswith("Rivalutare")
+    assert temp[0]["facts"] == ["Pioggia leggera", "Umidità alta"]
+    assert temp[0]["constraints"] == ["Non deve bagnarsi"]
+    assert temp[0]["situation_revision"] == 1
     assert active["temporary_count"] == 1
     assert "BOB PRIVATE" not in str(active)
 
@@ -247,3 +263,50 @@ async def test_active_situation_is_a_temporary_red_star_and_disappears_when_reso
     resolved = await knowledge_map(db, "a")
     assert resolved["temporary_count"] == 0
     assert not any(s.get("situation_id") == "sit_temp_star" for s in resolved["stars"])
+
+
+
+@pytest.mark.asyncio
+async def test_manual_temporary_removal_cancels_only_situation_not_durable_memory(db, monkeypatch):
+    from life_profile import router as life_router
+
+    monkeypatch.setattr(life_router, "db", db)
+    app = FastAPI()
+    app.include_router(life_router.router)
+    app.dependency_overrides[life_router.get_current_user] = lambda: {"user_id": "a"}
+
+    await db.memories.insert_one({
+        "user_id": "a",
+        "id": "durable_keep",
+        "content": "Preferisco risposte concise",
+        "status": "active",
+    })
+    await db.situations.insert_one({
+        "id": "sit_remove_me",
+        "user_id": "a",
+        "session_id": "session-a",
+        "status": "active",
+        "summary": "Situazione temporanea di test",
+        "revision": 1,
+        "history": [],
+        "applied_epochs": [],
+        "created_at": "2026-10-06T09:00:00+00:00",
+        "updated_at": "2026-10-06T09:00:00+00:00",
+    })
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://test",
+    ) as client:
+        result = await client.post(
+            "/life-profile/knowledge-map/situations/sit_remove_me/dismiss",
+        )
+
+    assert result.status_code == 200
+    stored = await db.situations.find_one({"user_id": "a", "id": "sit_remove_me"})
+    assert stored["status"] == "cancelled"
+    assert stored["resolved_at"]
+    assert await db.memories.find_one({"user_id": "a", "id": "durable_keep"}) is not None
+    projected = await knowledge_map(db, "a")
+    assert not any(star.get("situation_id") == "sit_remove_me" for star in projected["stars"])
+    assert any("Preferisco risposte concise" in star["statement"] for star in projected["stars"])

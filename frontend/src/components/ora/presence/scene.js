@@ -231,7 +231,8 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     const target=focused||(activeHub>=0?hubs[activeHub]:{x:0,y:0,z:0});
     const mix=instant?1:1-Math.exp(-dt*3.2);
     for(const axis of ['x','y','z'])camera[axis]+=(target[axis]*.82*growth-camera[axis])*mix;
-    camera.zoom+=((focused?1.38:activeHub>=0?1.65:active?1.12:1)-camera.zoom)*mix;
+    const requestedZoom=Number.isFinite(options.zoomOverride)?Math.max(.72,Math.min(1.55,options.zoomOverride)):1;
+    camera.zoom+=(((focused?1.38:activeHub>=0?1.65:active?1.12:1)*requestedZoom)-camera.zoom)*mix;
   }
   function schedule(){if(!frame&&!destroyed&&!options.paused&&!options.reduced&&options.active&&visible&&inViewport)frame=requestAnimationFrame(tick);}
   function stop(){if(frame)cancelAnimationFrame(frame);frame=0;last=0;}
@@ -252,10 +253,10 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     rebuild(options.stars);
     if(options.reduced||options.paused)growth=.55+.45*(1-Math.exp(-points.filter(p=>p.kind==='node').length/35));
     // The first user turn triggers the entrance without delaying the actual work.
-    if(reveal){opening=0;camera.x=0;camera.y=0;camera.z=0;camera.zoom=1;hovered=-1;pointer=null;}
+    if(reveal){opening=0;camera.x=0;camera.y=0;camera.z=0;camera.zoom=Number.isFinite(options.zoomOverride)?options.zoomOverride:1;hovered=-1;pointer=null;}
     if(options.reduced||options.paused)opening=openingSeconds;
     selected=Number.isInteger(options.selectedIndex)&&points[options.selectedIndex]?options.selectedIndex:-1;
-    if(reset){rotation=-.06;dragYaw=0;dragPitch=0;inertia=0;hovered=-1;pointer=null;camera.x=0;camera.y=0;camera.z=0;camera.zoom=1;}
+    if(reset){rotation=-.06;dragYaw=0;dragPitch=0;inertia=0;hovered=-1;pointer=null;camera.x=0;camera.y=0;camera.z=0;camera.zoom=Number.isFinite(options.zoomOverride)?options.zoomOverride:1;}
     if(!options.paused&&options.reduced)moveCamera(0,true);
     stop();draw();schedule();
   }
