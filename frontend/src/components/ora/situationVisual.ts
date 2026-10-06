@@ -7,7 +7,6 @@ import type { KnowledgeStar } from './presence/knowledge';
  * No statement/keyword parsing lives here: unknown concepts always fall back.
  */
 const ICONS: Record<string, ComponentProps<typeof Ionicons>['name']> = {
-  laundry: 'shirt-outline',
   shirt: 'shirt-outline',
   activity: 'walk-outline',
   travel: 'navigate-outline',
