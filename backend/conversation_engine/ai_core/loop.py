@@ -2911,6 +2911,33 @@ async def run_cognitive_loop(
                         }
                 if isinstance(ca, dict) and ca.get("type"):
                     observations.append(obs.model_dump())
+                    attempted_skill_caps = _record_skill_attempt(
+                        attempted_skill_caps,
+                        cap,
+                        str(getattr(obs, "name", "") or ""),
+                    )
+                    if required_skill_caps:
+                        persisted_plan = _persist_active_skill_plan(
+                            st,
+                            objective=str(
+                                trace.get("skill_plan_objective")
+                                or decision.user_intent_summary
+                                or "Completare la richiesta"
+                            ),
+                            required=required_skill_caps,
+                            attempted=attempted_skill_caps,
+                            existing_ref=(
+                                current_skill_plan_ref
+                                if skill_plan_resumed_this_turn
+                                else None
+                            ),
+                            waiting=True,
+                        )
+                        current_skill_plan_ref = persisted_plan["plan_ref"]
+                        active_execution_plan = _active_skill_plan_state(st)
+                        active_execution_plan_ref = current_skill_plan_ref
+                        trace["skill_plan_paused"] = True
+                        trace["skill_plan_ref"] = current_skill_plan_ref
                     st["pending_client_resume_message"] = user_message
                     st["pending_client_capability"] = {
                         "capability": cap,
