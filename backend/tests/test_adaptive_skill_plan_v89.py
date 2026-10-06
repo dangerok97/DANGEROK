@@ -248,7 +248,14 @@ def test_persisted_outcomes_are_sanitized_metadata_only():
         "failure_kind": "",
     }
     assert "private" not in str(persisted)
-    assert "events" not in str(persisted)
+    outcome_keys = set(persisted["capability_outcomes"][0])
+    assert outcome_keys == {
+        "capability",
+        "observed_capability",
+        "status",
+        "result_status",
+        "failure_kind",
+    }
 
 
 def test_prompt_forbids_silent_skill_drops_and_requires_real_basis():
