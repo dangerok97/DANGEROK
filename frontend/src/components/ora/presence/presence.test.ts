@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
 import { readPresenceActivity, presenceMode, readPresenceNode, AREA_IDS, AREA_DETAILS, completionFocusKey, presenceFocus } from './state.ts';
 import { sceneSource } from './sceneSource.ts';
+import { geometryFor, type KnowledgeMap } from './knowledge.ts';
 const now = Date.now();
 const activity = { request_id: 'turn-a', sequence: 2, phase: 'tool', area: 'calendar', touched: ['memory', 'calendar'], updated_at: now / 1000 };
 test('first turn focus requires a matching, fresh real signal', () => {
@@ -57,4 +58,49 @@ test('selection bridge accepts only a known node identity and drops arbitrary co
     assert.ok(AREA_DETAILS[area].description && AREA_DETAILS[area].prompt);
   }
   for (const invalid of [null, {}, {index: 402, area: 'home', kind: 'node'}, {index: 0, area: 'home', kind: 'area'}, {index: 0, area: 'memory', kind: 'node'}, {index: 9.5, area: 'memory', kind: 'node'}, {index: 0, area: 'constructor', kind: 'area'}]) assert.equal(readPresenceNode(invalid), null);
+});
+
+
+test('temporary knowledge is marked in geometry without leaking personal text', () => {
+  const map: KnowledgeMap = {
+    stars: [
+      {
+        id: 'star_temp',
+        area: 'memory',
+        branch_id: null,
+        title: 'Situazione temporanea',
+        statement: 'PRIVATE TEMPORARY FACT',
+        status: 'known',
+        persistence: 'temporary',
+        provenance: 'Contesto temporaneo',
+      },
+      {
+        id: 'star_durable',
+        area: 'home',
+        branch_id: 'casa',
+        title: 'Casa',
+        statement: 'PRIVATE DURABLE FACT',
+        status: 'known',
+        persistence: 'durable',
+        provenance: 'Confermato da te',
+      },
+    ],
+    count: 2,
+    known_count: 2,
+    temporary_count: 1,
+    durable_count: 1,
+    percent: 0,
+    branches: [],
+    revision: 'r1',
+  };
+  const geometry = geometryFor(map);
+  assert.deepEqual(geometry[0], {
+    id: 'star_temp',
+    area: 'memory',
+    kind: 'node',
+    tentative: false,
+    temporary: true,
+  });
+  assert.equal(geometry[1].temporary, false);
+  assert.ok(!JSON.stringify(geometry).includes('PRIVATE'));
 });
