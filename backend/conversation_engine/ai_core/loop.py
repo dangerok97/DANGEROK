@@ -233,6 +233,49 @@ def _merge_skill_outcomes(current, incoming) -> List[Dict[str, str]]:
     return out[-12:]
 
 
+def _skill_outcome_class(item: Dict[str, str]) -> str:
+    """Classify one sanitized observation as succeeded, waiting, or failed."""
+    status = str((item or {}).get("status") or "").strip().lower()
+    result = str((item or {}).get("result_status") or "").strip().lower()
+    failure = str((item or {}).get("failure_kind") or "").strip().lower()
+    waiting_tokens = set(_USER_WAIT_STATUSES) | {
+        "needs_client",
+        "stale",
+        "permission_required",
+    }
+    if status in waiting_tokens or result in waiting_tokens or failure in waiting_tokens:
+        return "waiting"
+    if status in ("ok", "success") and not failure:
+        return "succeeded"
+    return "failed"
+
+
+def _required_skill_states(
+    required: List[str], outcomes
+) -> Dict[str, List[str]]:
+    """Latest concrete outcome wins for each required capability."""
+    latest: Dict[str, str] = {}
+    for item in outcomes or []:
+        if not isinstance(item, dict):
+            continue
+        state = _skill_outcome_class(item)
+        for key in ("capability", "observed_capability"):
+            cap = str(item.get(key) or "").strip()
+            if cap:
+                latest[cap] = state
+    states = {"succeeded": [], "waiting": [], "failed": [], "unseen": []}
+    for cap in required or []:
+        state = latest.get(cap, "unseen")
+        states[state].append(cap)
+    return states
+
+
+def _required_skill_plan_satisfied(required: List[str], outcomes) -> bool:
+    states = _required_skill_states(required, outcomes)
+    return not (states["waiting"] or states["failed"] or states["unseen"])
+
+
+
 def _words(value: str) -> str:
     return " ".join(str(value or "").split()).casefold()
 
@@ -1067,6 +1110,7 @@ async def run_cognitive_loop(
     current_skill_plan_ref: Optional[str] = None
     skill_plan_declared_this_turn = False
     skill_plan_resumed_this_turn = False
+    skill_failure_nudge_used = False
     clarification_attempts = {
         str(item.get("key")): int(item.get("attempts") or 0)
         for item in (st.get("clarification_history") or [])
@@ -1747,9 +1791,13 @@ async def run_cognitive_loop(
                 or _observations_wait_for_user(observations[turn_start:])
             )
             if mode in ("answer", "finish", "act"):
-                pending_skill_caps = _pending_required_skill_caps(
-                    required_skill_caps, attempted_skill_caps
+                skill_states = _required_skill_states(
+                    required_skill_caps, skill_outcomes
                 )
+                pending_skill_caps = list(skill_states["unseen"])
+                failed_skill_caps = list(skill_states["failed"])
+                waiting_skill_caps = list(skill_states["waiting"])
+                trace["skill_plan_states"] = skill_states
                 if (
                     pending_skill_caps
                     and not skill_plan_waits_for_user
@@ -1784,6 +1832,40 @@ async def run_cognitive_loop(
                         trace,
                         event="SKILL_PLAN_INCOMPLETE_NUDGE",
                         pending=pending_skill_caps,
+                    )
+                    continue
+                if (
+                    failed_skill_caps
+                    and not skill_plan_waits_for_user
+                    and not pending_skill_caps
+                    and not skill_failure_nudge_used
+                    and step + 1 < max_steps
+                ):
+                    skill_failure_nudge_used = True
+                    observations.append(
+                        Observation(
+                            kind="system",
+                            name="declared_skill_plan_failed",
+                            status="nudge",
+                            payload={
+                                "failure_code": "DECLARED_SKILL_PLAN_FAILED",
+                                "failed_capabilities": failed_skill_caps,
+                                "reason": (
+                                    "One or more skills your plan required were "
+                                    "actually attempted but did not succeed. They do "
+                                    "not count as completed. Replan from the real "
+                                    "observation when another route is justified, or "
+                                    "finish by clearly telling the person that the "
+                                    "requested outcome was not completed and why. "
+                                    "Do not claim success merely because the tool ran."
+                                ),
+                            },
+                        ).model_dump()
+                    )
+                    add_step(
+                        trace,
+                        event="SKILL_PLAN_FAILURE_NUDGE",
+                        failed=failed_skill_caps,
                     )
                     continue
                 if pending_skill_caps and not skill_plan_waits_for_user:
@@ -2653,16 +2735,21 @@ async def run_cognitive_loop(
             # Persist unfinished orchestration across turns. This is metadata
             # only: tool arguments and confirmation payloads remain owned by
             # their governed lifecycle state.
-            pending_skill_caps = _pending_required_skill_caps(
-                required_skill_caps, attempted_skill_caps
+            final_skill_states = _required_skill_states(
+                required_skill_caps, skill_outcomes
             )
+            pending_skill_caps = list(final_skill_states["unseen"])
+            waiting_skill_caps = list(final_skill_states["waiting"])
+            failed_skill_caps = list(final_skill_states["failed"])
             waits_for_user_now = bool(
                 mode == "ask"
                 or blocking_ask
                 or calendar_pending
                 or _observations_wait_for_user(observations[turn_start:])
             )
-            if required_skill_caps and (waits_for_user_now or pending_skill_caps):
+            if required_skill_caps and (
+                waits_for_user_now or pending_skill_caps or waiting_skill_caps
+            ):
                 persisted_plan = _persist_active_skill_plan(
                     st,
                     objective=str(
@@ -2685,9 +2772,13 @@ async def run_cognitive_loop(
                 active_execution_plan_ref = current_skill_plan_ref
                 trace["skill_plan_paused"] = True
                 trace["skill_plan_ref"] = current_skill_plan_ref
-            elif skill_plan_declared_this_turn and not pending_skill_caps:
-                # A newly declared plan supersedes any stale paused plan once
-                # it reaches a terminal state with no unfinished capability.
+            elif (
+                skill_plan_declared_this_turn
+                and _required_skill_plan_satisfied(
+                    required_skill_caps, skill_outcomes
+                )
+            ):
+                # Only successful/released required skills constitute completion.
                 _clear_active_skill_plan(
                     st,
                     expected_ref=(
@@ -2699,6 +2790,20 @@ async def run_cognitive_loop(
                 if not skill_plan_resumed_this_turn:
                     st["active_skill_plan"] = None
                 trace["skill_plan_completed"] = True
+            elif skill_plan_declared_this_turn and failed_skill_caps:
+                # A real terminal failure is not left looking like an active,
+                # successful plan. Conversation history + trace retain the why.
+                _clear_active_skill_plan(
+                    st,
+                    expected_ref=(
+                        current_skill_plan_ref
+                        if skill_plan_resumed_this_turn
+                        else None
+                    ),
+                )
+                if not skill_plan_resumed_this_turn:
+                    st["active_skill_plan"] = None
+                trace["skill_plan_failed"] = list(failed_skill_caps)
 
             st["observations"] = observations[-12:]
             navigation_options = _remember_pending_navigation(
