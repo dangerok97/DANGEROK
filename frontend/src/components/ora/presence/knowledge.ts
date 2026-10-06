@@ -2,10 +2,21 @@ import type { PresenceArea } from './state';
 
 export type KnowledgeStar = {
   id: string; area: PresenceArea; branch_id: string | null; title: string;
-  statement: string; status: 'known' | 'likely'; provenance: string; updated_at?: string;
+  statement: string; status: 'known' | 'likely'; provenance: string;
+  created_at?: string; updated_at?: string;
   /** Active Situation projected into the map; never durable Memory. */
   temporary?: boolean;
   situation_id?: string;
+  situation_revision?: number;
+  semantic_kind?: string | null;
+  /** Semantically selected by cognition; UI never infers it from statement keywords. */
+  icon_key?: string | null;
+  location_label?: string | null;
+  current_state_summary?: string | null;
+  expected_outcome_summary?: string | null;
+  next_check_summary?: string | null;
+  facts?: string[];
+  constraints?: string[];
 };
 export type KnowledgeBranch = {
   area_id: string; title: string; purpose: string; percent: number; area: PresenceArea;
