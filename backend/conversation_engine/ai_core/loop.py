@@ -2375,6 +2375,56 @@ async def run_cognitive_loop(
                 }
                 if calendar_pending else None
             )
+
+            # Persist unfinished orchestration across turns. This is metadata
+            # only: tool arguments and confirmation payloads remain owned by
+            # their governed lifecycle state.
+            pending_skill_caps = _pending_required_skill_caps(
+                required_skill_caps, attempted_skill_caps
+            )
+            waits_for_user_now = bool(
+                mode == "ask"
+                or blocking_ask
+                or calendar_pending
+                or _observations_wait_for_user(observations[turn_start:])
+            )
+            if required_skill_caps and (waits_for_user_now or pending_skill_caps):
+                persisted_plan = _persist_active_skill_plan(
+                    st,
+                    objective=str(
+                        trace.get("skill_plan_objective")
+                        or decision.user_intent_summary
+                        or "Completare la richiesta"
+                    ),
+                    required=required_skill_caps,
+                    attempted=attempted_skill_caps,
+                    existing_ref=(
+                        current_skill_plan_ref
+                        if skill_plan_resumed_this_turn
+                        else None
+                    ),
+                    waiting=waits_for_user_now,
+                )
+                current_skill_plan_ref = persisted_plan["plan_ref"]
+                active_execution_plan = _active_skill_plan_state(st)
+                active_execution_plan_ref = current_skill_plan_ref
+                trace["skill_plan_paused"] = True
+                trace["skill_plan_ref"] = current_skill_plan_ref
+            elif skill_plan_declared_this_turn and not pending_skill_caps:
+                # A newly declared plan supersedes any stale paused plan once
+                # it reaches a terminal state with no unfinished capability.
+                _clear_active_skill_plan(
+                    st,
+                    expected_ref=(
+                        current_skill_plan_ref
+                        if skill_plan_resumed_this_turn
+                        else None
+                    ),
+                )
+                if not skill_plan_resumed_this_turn:
+                    st["active_skill_plan"] = None
+                trace["skill_plan_completed"] = True
+
             st["observations"] = observations[-12:]
             navigation_options = _remember_pending_navigation(
                 st, observations[turn_start:]
