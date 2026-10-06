@@ -1820,14 +1820,65 @@ async def cancel_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
 
     from home.calendar_event import delete_event, event_detail
 
-    # Di cosa si sta parlando: la bozza nostra, oppure direttamente il manico
-    # che l'evento ha su Google. Entrambi sono nomi della stessa cosa.
+    # Di cosa si sta parlando: preferisci sempre il manico canonico.
+    # Quando la persona ha nominato l'evento ma il modello non ha ancora il ref,
+    # il codice NON sceglie semanticamente al posto dell'AI: restituisce i
+    # candidati reali owner-scoped. Un exact-normalized unico può essere
+    # risolto direttamente; ogni somiglianza lessicale resta evidence da
+    # valutare nel giro cognitivo successivo.
     ref = _strip_ref(arguments.get("calendar_ref")) or str(
         arguments.get("google_event_id") or ""
     ).strip()
+    target_title = str(arguments.get("target_title") or "").strip()
+    if not ref and target_title:
+        resolution = await _named_calendar_ref_resolution(db, uid, target_title)
+        if resolution.get("status") == "ok" and resolution.get("match"):
+            ref = _strip_ref((resolution["match"] or {}).get("calendar_ref"))
+        elif resolution.get("status") in ("suggestion", "ambiguous_similar", "ambiguous"):
+            candidates = (
+                resolution.get("suggestions")
+                or resolution.get("matches")
+                or []
+            )[:4]
+            return Observation(
+                kind="tool",
+                name="cancel_calendar_event",
+                status="partial",
+                payload={
+                    "status": "target_candidates",
+                    "failure_kind": "calendar_target_needs_ai_resolution",
+                    "requested_title": target_title[:180],
+                    "candidates": candidates,
+                    "reason": (
+                        "Ho trovato eventi reali compatibili con il nome usato. "
+                        "Confrontali semanticamente con il messaggio e il contesto: "
+                        "se uno solo è chiaramente quello inteso, richiama "
+                        "cancel_calendar_event col suo calendar_ref; se più di uno "
+                        "resta plausibile, chiedi quale. Non scegliere per soglia fuzzy."
+                    ),
+                },
+                provenance=[
+                    str(row.get("calendar_ref"))
+                    for row in candidates
+                    if row.get("calendar_ref")
+                ],
+            )
+        else:
+            return Observation(
+                kind="tool",
+                name="cancel_calendar_event",
+                status="not_found",
+                payload={
+                    "status": "not_found",
+                    "requested_title": target_title[:180],
+                    "reason": "Non ho trovato eventi futuri compatibili con quel riferimento.",
+                },
+            )
     if not ref:
         return _fail(
-            "cancel_calendar_event", "INVALID_INPUT", "calendar_ref required",
+            "cancel_calendar_event",
+            "INVALID_INPUT",
+            "calendar_ref or target_title required",
         )
 
     handle = ref
