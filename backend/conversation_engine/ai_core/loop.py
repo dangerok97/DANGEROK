@@ -174,6 +174,125 @@ def _record_skill_attempt(
     return out
 
 
+def _skill_outcome_summary(
+    requested_cap: str, observation
+) -> Dict[str, str]:
+    """Sanitised capability result for cross-turn planning — no tool payload."""
+    if isinstance(observation, dict):
+        observed = str(observation.get("name") or "").strip()
+        status = str(observation.get("status") or "").strip()
+        payload = observation.get("payload") or {}
+    else:
+        observed = str(getattr(observation, "name", "") or "").strip()
+        status = str(getattr(observation, "status", "") or "").strip()
+        payload = getattr(observation, "payload", None) or {}
+    payload = payload if isinstance(payload, dict) else {}
+    return {
+        "capability": str(requested_cap or "").strip()[:120],
+        "observed_capability": observed[:120],
+        "status": status[:40],
+        "result_status": str(payload.get("status") or "")[:60],
+        "failure_kind": str(
+            payload.get("failure_kind")
+            or payload.get("failure_code")
+            or ((payload.get("external") or {}).get("failure_code") if isinstance(payload.get("external"), dict) else "")
+            or ""
+        )[:100],
+    }
+
+
+def _merge_skill_outcomes(current, incoming) -> List[Dict[str, str]]:
+    out: List[Dict[str, str]] = []
+    for raw in [*(current or []), *(incoming or [])]:
+        if not isinstance(raw, dict):
+            continue
+        item = {
+            "capability": str(raw.get("capability") or "")[:120],
+            "observed_capability": str(raw.get("observed_capability") or "")[:120],
+            "status": str(raw.get("status") or "")[:40],
+            "result_status": str(raw.get("result_status") or "")[:60],
+            "failure_kind": str(raw.get("failure_kind") or "")[:100],
+        }
+        if not item["capability"] and not item["observed_capability"]:
+            continue
+        key = (
+            item["capability"],
+            item["observed_capability"],
+            item["status"],
+            item["result_status"],
+            item["failure_kind"],
+        )
+        if key not in {
+            (
+                x["capability"], x["observed_capability"], x["status"],
+                x["result_status"], x["failure_kind"]
+            )
+            for x in out
+        }:
+            out.append(item)
+    return out[-12:]
+
+
+def _words(value: str) -> str:
+    return " ".join(str(value or "").split()).casefold()
+
+
+def _apply_skill_plan_releases(
+    required: List[str],
+    releases,
+    observations,
+    *,
+    persisted_outcomes=None,
+    user_message: str = "",
+) -> tuple[List[str], List[str], List[str]]:
+    """Apply only explicit plan revisions grounded in real evidence/user words."""
+    remaining = list(required or [])
+    observed_names: Set[str] = set()
+    for obs in observations or []:
+        if isinstance(obs, dict):
+            name = str(obs.get("name") or "").strip()
+        else:
+            name = str(getattr(obs, "name", "") or "").strip()
+        if name:
+            observed_names.add(name)
+    for item in persisted_outcomes or []:
+        if not isinstance(item, dict):
+            continue
+        for key in ("capability", "observed_capability"):
+            name = str(item.get(key) or "").strip()
+            if name:
+                observed_names.add(name)
+
+    spoken = _words(user_message)
+    released: List[str] = []
+    rejected: List[str] = []
+    for release in releases or []:
+        cap = str(getattr(release, "capability", "") or "").strip()
+        basis = str(getattr(release, "basis", "") or "").strip()
+        evidence = str(
+            getattr(release, "observation_capability", "") or ""
+        ).strip()
+        quote = str(getattr(release, "user_instruction_quote", "") or "").strip()
+        if not cap or cap not in remaining:
+            if cap:
+                rejected.append(cap)
+            continue
+        if basis == "observation":
+            if not evidence or evidence not in observed_names:
+                rejected.append(cap)
+                continue
+        elif basis == "user_message":
+            if not quote or _words(quote) not in spoken:
+                rejected.append(cap)
+                continue
+        else:
+            rejected.append(cap)
+            continue
+        remaining = [name for name in remaining if name != cap]
+        released.append(cap)
+    return remaining, released, rejected
+
+
 def _active_skill_plan_state(state: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Sanitised persisted execution-plan metadata, never tool arguments."""
     raw = state.get("active_skill_plan")
