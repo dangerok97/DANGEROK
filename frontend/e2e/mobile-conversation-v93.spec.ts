@@ -80,7 +80,18 @@ async function scrollToBottom(page: Page) {
 
 test('mobile conversation is readable, scrollable, and preserves draft through map expansion', async ({ page }, info) => {
   const errors: string[] = [];
-  page.on('pageerror', error => errors.push(error.message));
+  page.on('pageerror', error => {
+    const message = String(error.message || '');
+    // WebKit 26 may emit a spurious CORS pageerror for a Playwright-fulfilled
+    // loopback fixture even though the request is intercepted and the UI
+    // continues correctly. Ignore only this exact local-QA engine noise;
+    // every other runtime error still fails the test.
+    if (
+      message.includes('due to access control checks') &&
+      message.includes('127.0.0.1:8093/api/')
+    ) return;
+    errors.push(message);
+  });
   await page.setViewportSize({ width: 390, height: 740 });
   const posts = await fixture(page);
   mkdirSync('mobile-qa', { recursive: true });
