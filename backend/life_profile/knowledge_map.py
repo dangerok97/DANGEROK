@@ -49,7 +49,7 @@ async def knowledge_map(db, user_id: str) -> dict:
     for field, label in (("first_name", "Nome"), ("last_name", "Cognome")) if explicit_identity else (("name", "Nome del profilo"),):
         if user.get(field):
             stars.append({"id": stable_id("account:" + field), "area": "memory", "branch_id": None,
-                "title": label, "statement": str(user[field]), "status": "known",
+                "title": label, "statement": str(user[field]), "status": "known", "persistence": "durable",
                 "provenance": "Confermato da te" if explicit_identity else "Dal tuo account",
                 "updated_at": user.get("identity_confirmed_at") or user.get("created_at")})
     for domain, part in (profile.domains.items() if profile else []):
@@ -96,9 +96,40 @@ async def knowledge_map(db, user_id: str) -> dict:
             vita = area_for_domain(domain)
             stars.append({"id": stable_id("profile:" + slot), "area": DOMAIN_HUB.get(domain, "memory"),
                 "branch_id": vita.id if vita else None, "title": memory.group_label,
-                "statement": memory.statement, "status": memory.status,
+                "statement": memory.statement, "status": memory.status, "persistence": "durable",
                 "provenance": memory.provenance_label, "updated_at": memory.updated_at})
     now = datetime.now(timezone.utc)
+
+    # Temporary contextual state belongs in the star map while it is alive,
+    # but it is NOT durable Memory. The Situation store is authoritative: when
+    # a situation becomes resolved/cancelled this projection simply stops
+    # returning the star, so there is no second delete path to keep in sync.
+    situations = await db.situations.find(
+        {
+            "user_id": user_id,
+            "status": {"$in": ["active", "changed"]},
+        },
+        {"_id": 0, "id": 1, "summary": 1, "status": 1, "updated_at": 1, "created_at": 1},
+    ).sort("updated_at", -1).limit(24).to_list(24)
+    for situation in situations:
+        sid = str(situation.get("id") or "").strip()
+        statement = " ".join(str(situation.get("summary") or "").split())[:400]
+        if not sid or not statement:
+            continue
+        stars.append({
+            "id": stable_id("situation:" + sid),
+            "area": "memory",
+            "branch_id": None,
+            "title": "Situazione temporanea",
+            "statement": statement,
+            "status": "known",
+            "persistence": "temporary",
+            "source_kind": "situation",
+            "source_ref": f"situation:{sid}",
+            "provenance": "Contesto temporaneo",
+            "updated_at": situation.get("updated_at") or situation.get("created_at"),
+        })
+
     notes = await db.memories.find({"user_id": user_id, "status": {"$nin": ["forgotten", "superseded", "rejected", "expired"]}}, {"_id": 0}).to_list(None)
     for note in notes:
         expiry = note.get("expires_at") or (note.get("temporal_scope") or {}).get("ends_at")
@@ -117,14 +148,22 @@ async def knowledge_map(db, user_id: str) -> dict:
         vita = area_for_domain(domain)
         stars.append({"id": stable_id("memory:" + str(note_id)), "area": DOMAIN_HUB.get(domain, "memory"),
             "branch_id": vita.id if vita else None, "title": "Ricordo", "statement": str(statement),
-            "status": "likely" if note.get("epistemic_status") in ("inferred", "tentative") else "known", "provenance": "Salvato in memoria",
+            "status": "likely" if note.get("epistemic_status") in ("inferred", "tentative") else "known", "persistence": "durable", "provenance": "Salvato in memoria",
             "updated_at": note.get("updated_at") or note.get("created_at")})
     stars.sort(key=lambda s: s["id"])
     area_domains = {a.id: a.domains[0] for a in all_areas()}
     branches = [{**a.model_dump(), "area": DOMAIN_HUB.get(area_domains[a.area_id], "memory"),
                  "star_count": sum(s["branch_id"] == a.area_id for s in stars),
                  "complete": a.percent >= 100 and a.known_count > 0} for a in progress.areas]
-    result = {"stars": stars, "count": len(stars), "known_count": sum(s["status"] == "known" for s in stars),
-              "percent": progress.percent, "branches": branches}
+    temporary_count = sum(s.get("persistence") == "temporary" for s in stars)
+    result = {
+        "stars": stars,
+        "count": len(stars),
+        "known_count": sum(s["status"] == "known" for s in stars),
+        "temporary_count": temporary_count,
+        "durable_count": len(stars) - temporary_count,
+        "percent": progress.percent,
+        "branches": branches,
+    }
     result["revision"] = hashlib.sha256(json.dumps(result, sort_keys=True, default=str).encode()).hexdigest()[:24]
     return result
