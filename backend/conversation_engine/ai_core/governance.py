@@ -11,6 +11,7 @@ from conversation_engine.ai_core.models import (
     ContextNeed,
     ComparisonNeed,
     MemoryCandidate,
+    QuantitativeEstimate,
     ResearchNeed,
     SkillPlan,
     ToolCall,
@@ -383,6 +384,15 @@ def validate_decision(
         except Exception:
             errors.append("skill_plan_invalid")
 
+    quantitative_estimates: List[QuantitativeEstimate] = []
+    for raw_estimate in (data.get("quantitative_estimates") or [])[:6]:
+        try:
+            quantitative_estimates.append(
+                QuantitativeEstimate.model_validate(raw_estimate)
+            )
+        except Exception:
+            errors.append("bad_quantitative_estimate")
+
     graph_updates: List[ContextEdgeUpdate] = []
     for raw_u in (data.get("context_graph_updates") or [])[:2]:
         try:
@@ -453,6 +463,7 @@ def validate_decision(
             memory_candidates=mem_cands,
             confidence=_clamp_conf(data.get("confidence")),
             claim_grounding=data.get("claim_grounding"),
+            quantitative_estimates=quantitative_estimates,
             situation_update=situation_update,
             uncertainty=uncertainty,
             context_graph_updates=graph_updates,

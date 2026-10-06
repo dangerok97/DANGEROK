@@ -832,6 +832,15 @@ async def read_weather(db, owner_id: str, goal, *, step=None) -> CapabilityOutco
             text=(f"Meteo attuale{f' a {place_label}' if place_label else ''}: " + ", ".join(current_bits))[:500],
             supports="condizioni meteo attuali",
         ))
+    current_precip = data.get("precipitation_mm")
+    if isinstance(current_precip, (int, float)) and float(current_precip) > 0:
+        claims.append(Claim(
+            text=(
+                f"Il provider meteo indica precipitazioni in corso"
+                f"{f' a {place_label}' if place_label else ''}: {current_precip} mm."
+            )[:500],
+            supports="presenza attuale di precipitazioni",
+        ))
 
     hours = list(data.get("hours") or [])[:12]
     rain_values = [
@@ -849,6 +858,18 @@ async def read_weather(db, owner_id: str, goal, *, step=None) -> CapabilityOutco
                 f"indicata dal provider è {round(max(rain_values))}%."
             ),
             supports="rischio di pioggia nelle prossime ore",
+        ))
+    near_rain = [
+        h.get("rain_chance_pct") for h in hours[:3]
+        if isinstance(h, dict) and isinstance(h.get("rain_chance_pct"), (int, float))
+    ]
+    if near_rain:
+        claims.append(Claim(
+            text=(
+                "Nelle prossime tre ore la probabilità massima di pioggia "
+                f"indicata dal provider è {round(max(near_rain))}%."
+            ),
+            supports="rischio di pioggia a breve termine",
         ))
     if temps:
         claims.append(Claim(

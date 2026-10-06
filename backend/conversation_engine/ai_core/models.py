@@ -261,6 +261,32 @@ class MemoryCandidate(BaseModel):
         return self
 
 
+class QuantitativeEstimate(BaseModel):
+    """Decision-relevant empirical number and the evidence that calibrates it."""
+
+    statement: str = Field(min_length=1, max_length=320)
+    basis_type: Literal[
+        "external_research",
+        "specialized_capability",
+        "measured_observation",
+        "user_provided_rate",
+        "not_calibrated",
+    ] = "not_calibrated"
+    evidence_refs: List[str] = Field(default_factory=list, max_length=8)
+    uncertainty_note: Optional[str] = Field(default=None, max_length=280)
+    material_to_action: bool = True
+
+    @field_validator("evidence_refs", mode="before")
+    @classmethod
+    def _dedupe_estimate_refs(cls, value):
+        out = []
+        for item in value or []:
+            ref = str(item or "").strip()
+            if ref and ref not in out:
+                out.append(ref[:160])
+        return out[:8]
+
+
 class ActiveGoal(BaseModel):
     summary: str = ""
     desired_outcome: str = ""
@@ -295,6 +321,9 @@ class CognitiveDecision(BaseModel):
     confidence: Optional[float] = None
     # Optional epistemic self-report (not shown to user)
     claim_grounding: Optional[GroundingKind] = None
+    quantitative_estimates: List[QuantitativeEstimate] = Field(
+        default_factory=list, max_length=6
+    )
     situation_update: Optional[SituationUpdate] = None
     uncertainty: Optional[UncertaintyState] = None
     context_graph_updates: List[ContextEdgeUpdate] = Field(

@@ -122,6 +122,25 @@ async def get_weather_forecast(
                 "humidity_pct": data.get("humidity_pct"),
                 "wind_kmh": data.get("wind_kmh"),
                 "precipitation_mm": data.get("precipitation_mm"),
+                # Mechanical fact only: >0 means the provider reports
+                # precipitation now. What that means for the user's Situation
+                # remains the cognitive model's judgement.
+                "precipitation_active": (
+                    isinstance(data.get("precipitation_mm"), (int, float))
+                    and float(data.get("precipitation_mm")) > 0
+                ),
+            },
+            "near_term": {
+                "next_3h_max_rain_chance_pct": (
+                    max(
+                        [
+                            row.get("rain_chance_pct")
+                            for row in hours[:3]
+                            if isinstance(row.get("rain_chance_pct"), (int, float))
+                        ],
+                        default=None,
+                    )
+                ),
             },
             "hours": hours,
             "sunrise": data.get("sunrise"),
