@@ -132,4 +132,5 @@ def test_bare_ok_is_a_guarded_non_outcome():
     )
     assert "BARE_ACK_NOT_PROGRESS" in source
     assert 'event="BARE_ACK_NUDGE"' in source
-    assert "use the capability that can perform or prepare it" in source
+    assert 'event="BARE_ACK_BLOCKED_TERMINAL"' in source
+    assert "bare_ack_nudge_used" in source
