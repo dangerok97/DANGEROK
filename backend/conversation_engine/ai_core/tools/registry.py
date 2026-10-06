@@ -1266,16 +1266,42 @@ class ToolRegistry:
             CapabilitySpec(
                 capability="cancel_calendar_event",
                 description=(
-                    "Cancel an existing calendar event ORA manages, by exact calendar_ref. "
-                    "Call this on a cancellation request to prepare the precise confirmation question. "
-                    "It does not delete without explicit approval. If the tool returns authority_required, "
-                    "the AI asks the exact prepared question and on a later approval chooses "
-                    "continue_calendar_action; backend code verifies the real assent and frozen target."
+                    "Cancel an existing calendar event ORA manages. Prefer an exact calendar_ref "
+                    "from evidence. If the user named the event but no ref is resolved yet, pass "
+                    "their wording as target_title: the tool returns REAL owner-scoped candidates. "
+                    "You, the AI, compare those candidates semantically with the current message "
+                    "and recent conversation; punctuation, a typo, omitted filler words or a slightly "
+                    "different label do NOT by themselves make it a different event. If one candidate "
+                    "is clearly intended, call again with that exact calendar_ref. If two remain "
+                    "plausible, ask which one. The backend never deletes from fuzzy score alone. "
+                    "Cancellation still uses the governed confirmation/authority flow and verified read-back."
                 ),
                 input_schema={
                     "type": "object",
-                    "properties": {"calendar_ref": {"type": "string"}},
-                    "required": ["calendar_ref"],
+                    "properties": {
+                        "calendar_ref": {"type": "string"},
+                        "target_title": {
+                            "type": "string",
+                            "description": (
+                                "The event wording from the user's current message when no exact "
+                                "calendar_ref is available yet."
+                            ),
+                        },
+                        "user_authority": {
+                            "type": "object",
+                            "description": (
+                                "When the current user message itself requests cancellation, quote "
+                                "their exact words here for audit. This does not bypass destructive-"
+                                "effect safeguards; it only preserves who asked for what."
+                            ),
+                            "required": ["requested_by_user", "user_words", "what_they_asked_for"],
+                            "properties": {
+                                "requested_by_user": {"type": "boolean"},
+                                "user_words": {"type": "string"},
+                                "what_they_asked_for": {"type": "string"},
+                            },
+                        },
+                    },
                 },
                 classification="personal",
                 side_effect="REVERSIBLE_WRITE",

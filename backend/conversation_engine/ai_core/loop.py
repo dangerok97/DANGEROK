@@ -712,6 +712,7 @@ async def run_cognitive_loop(
     graph_claim_nudge_used = False
     calendar_write_confirmed_this_turn = False
     calendar_claim_nudge_used = False
+    bare_ack_nudge_used = False
     clarification_attempts = {
         str(item.get("key")): int(item.get("attempts") or 0)
         for item in (st.get("clarification_history") or [])
@@ -1428,6 +1429,50 @@ async def run_cognitive_loop(
                 mode = "answer"
                 ora = _compose_user_text(decision, observations[turn_start:])
                 add_step(trace, event="CALENDAR_CLAIM_BLOCKED_TERMINAL")
+            # A bare acknowledgement is never a completed conversational
+            # outcome. It contains no answer, no question and no evidence that
+            # a requested skill was used. Do not guess which skill in code:
+            # hand the turn back to the cognitive model with the observations
+            # and full capability catalogue still visible.
+            bare_ack = (
+                mode in ("answer", "finish", "act")
+                and bool(_BARE_ACK_RE.fullmatch(str(ora or "").strip()))
+            )
+            if (
+                bare_ack
+                and not bare_ack_nudge_used
+                and step + 1 < max_steps
+            ):
+                bare_ack_nudge_used = True
+                observations.append(
+                    Observation(
+                        kind="system",
+                        name="bare_ack_not_progress",
+                        status="nudge",
+                        payload={
+                            "failure_code": "BARE_ACK_NOT_PROGRESS",
+                            "reason": (
+                                "A bare acknowledgement is not progress. Re-read the "
+                                "user's actual intent and the available ORA skills. If "
+                                "they requested an action, use the capability that can "
+                                "perform or prepare it and wait for its observation. If "
+                                "something essential is missing, ask only for that. "
+                                "Otherwise answer substantively. Do not end on 'Ok'."
+                            ),
+                        },
+                    ).model_dump()
+                )
+                add_step(trace, event="BARE_ACK_NUDGE")
+                continue
+            if bare_ack:
+                decision.message_to_user = (
+                    "Non sono riuscita a completare la richiesta in questo turno."
+                )
+                decision.question = None
+                mode = "answer"
+                ora = _compose_user_text(decision, observations[turn_start:])
+                add_step(trace, event="BARE_ACK_BLOCKED_TERMINAL")
+
             # Capability-before-answer: an explicit request to call must pass
             # through the phone preparation. This is about routing, not
             # permission: the capability itself resolves the number, exposes
