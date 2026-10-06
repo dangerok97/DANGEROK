@@ -257,6 +257,65 @@ async def continue_navigation(
     )
 
 
+async def _route_origin_or_location_request(
+    runtime: Dict[str, Any], uid: str
+) -> tuple[Dict[str, float] | None, Dict[str, Any] | None, str]:
+    """Get a strict CURRENT route origin or the client action needed to get it.
+
+    Route comparison is stricter than generic location context: a RECENT
+    sighting may describe context, but it must not drive a live traffic ETA.
+    Use the existing foreground bridge instead of silently degrading to a map
+    search link when a fresh fix can be requested.
+    """
+    from location.service import LocationService
+
+    svc = LocationService(runtime["db"])
+    try:
+        presence = await svc.build_presence(
+            uid, platform=str(runtime.get("platform") or "web")
+        )
+        origin = _navigation_origin(presence)
+        if origin is not None:
+            return origin, None, ""
+    except Exception as exc:
+        logger.info("navigation presence read soft-fail: %s", type(exc).__name__)
+
+    try:
+        loc = await svc.capability_get_current_location(
+            uid,
+            session_id=runtime.get("session_id"),
+            platform=str(runtime.get("platform") or "web"),
+        )
+    except Exception as exc:
+        logger.info("navigation location refresh soft-fail: %s", type(exc).__name__)
+        return None, None, "location_unavailable"
+
+    status = str(loc.get("status") or "unknown")
+    action = loc.get("client_action")
+    if isinstance(action, dict) and action.get("type"):
+        return None, action, status
+
+    # Generic location context may accept RECENT, but a live route needs CURRENT.
+    if status == "ok" and str(loc.get("freshness") or "") != "CURRENT":
+        return None, {
+            "type": "request_foreground_location",
+            "reason": "Serve una posizione corrente per confrontare i percorsi e il traffico.",
+            "refresh": True,
+        }, "needs_fresh_route_origin"
+
+    return None, None, status
+
+
+def _route_origin_reason(status: str) -> str:
+    return {
+        "denied": "non ho il permesso di leggere la posizione attuale",
+        "timeout": "il rilevamento della posizione attuale è scaduto",
+        "unavailable": "il dispositivo non è riuscito a determinare la posizione attuale",
+        "position_unavailable": "il dispositivo non è riuscito a determinare la posizione attuale",
+        "location_unavailable": "non sono riuscita a leggere una posizione attuale",
+    }.get(status or "", "non ho una posizione attuale abbastanza fresca")
+
+
 async def open_navigation(arguments: Dict[str, Any], runtime: Dict[str, Any]) -> Observation:
     """
     Everything needed to start navigating, or the question of which app.
