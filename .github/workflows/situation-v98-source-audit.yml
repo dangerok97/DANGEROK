@@ -12,9 +12,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: babd836ff9c999b2b886d18fba70c9652322c604
           persist-credentials: false
       - name: Archive tracked application source only
-        run: git archive --format=tar babd836ff9c999b2b886d18fba70c9652322c604 backend frontend .github | gzip > ora-v98-source.tar.gz
+        shell: bash
+        run: |
+          set -euo pipefail
+          git archive --format=tar HEAD backend frontend .github | gzip > ora-v98-source.tar.gz
+          test $(stat -c%s ora-v98-source.tar.gz) -gt 10000
       - uses: actions/upload-artifact@v4
         with:
           name: ora-v98-source
