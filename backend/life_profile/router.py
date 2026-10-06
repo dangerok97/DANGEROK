@@ -10,8 +10,9 @@ percentage that means nothing.
 from __future__ import annotations
 
 from typing import Any, List, Literal, Optional
+import uuid
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, Field
 
 from deps import db, get_current_user
@@ -26,6 +27,47 @@ async def personal_knowledge_map(response: Response, user=Depends(get_current_us
     from life_profile.knowledge_map import knowledge_map
     response.headers["Cache-Control"] = "private, no-store"
     return await knowledge_map(db, user["user_id"])
+
+
+class TemporarySituationDismissBody(BaseModel):
+    expected_revision: Optional[int] = Field(default=None, ge=1)
+
+
+@router.post("/knowledge-map/situations/{situation_id}/dismiss")
+async def dismiss_temporary_situation(
+    situation_id: str,
+    body: TemporarySituationDismissBody,
+    user=Depends(get_current_user),
+):
+    """Stop tracking one active temporary Situation and remove its red star.
+
+    This does not delete durable Memory/Profile data and does not cascade to a
+    linked plan. It is the explicit UI equivalent of abandoning this temporary
+    watch only.
+    """
+    from situations.models import SituationUpdate
+    from situations.service import SituationMutationError, SituationService
+
+    try:
+        result = await SituationService(db).apply(
+            user_id=user["user_id"],
+            session_id="ui:knowledge-map",
+            update=SituationUpdate(
+                operation="cancel",
+                situation_id=situation_id,
+                expected_revision=body.expected_revision,
+                source="user_conversation",
+                source_refs=["knowledge_map_ui"],
+            ),
+            reasoning_epoch=f"ui_temp_remove:{uuid.uuid4().hex}",
+        )
+    except SituationMutationError as exc:
+        if exc.code in ("NOT_FOUND_OR_NOT_OWNED",):
+            raise HTTPException(status_code=404, detail="Situazione non trovata")
+        if exc.code == "REVISION_CONFLICT":
+            raise HTTPException(status_code=409, detail="La situazione è cambiata: aggiorna e riprova")
+        raise HTTPException(status_code=400, detail=exc.code)
+    return {"ok": True, **result}
 
 
 class NotApplicableBody(BaseModel):
