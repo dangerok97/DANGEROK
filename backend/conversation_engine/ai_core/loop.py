@@ -893,6 +893,13 @@ async def run_cognitive_loop(
     bare_ack_nudge_used = False
     required_skill_caps: List[str] = []
     attempted_skill_caps: Set[str] = set()
+    active_execution_plan = _active_skill_plan_state(st)
+    active_execution_plan_ref: Optional[str] = (
+        str((active_execution_plan or {}).get("plan_ref") or "") or None
+    )
+    current_skill_plan_ref: Optional[str] = None
+    skill_plan_declared_this_turn = False
+    skill_plan_resumed_this_turn = False
     clarification_attempts = {
         str(item.get("key")): int(item.get("attempts") or 0)
         for item in (st.get("clarification_history") or [])
@@ -928,6 +935,7 @@ async def run_cognitive_loop(
             "phone": await _active_phone_skill_context(db, sess.user_id, st),
             "navigation": _pending_navigation_skill_context(st),
             "calendar": _pending_calendar_skill_context(st),
+            "execution_plan": active_execution_plan,
         }
         active_skill_state = {
             key: value for key, value in active_skill_state.items() if value
