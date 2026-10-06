@@ -7,32 +7,40 @@ import type { KnowledgeStar } from './presence/knowledge';
  * No statement/keyword parsing lives here: unknown concepts always fall back.
  */
 const ICONS: Record<string, ComponentProps<typeof Ionicons>['name']> = {
-  activity: 'walk-outline',
   shirt: 'shirt-outline',
+  activity: 'walk-outline',
   travel: 'navigate-outline',
   car: 'car-outline',
   airplane: 'airplane-outline',
   timer: 'timer-outline',
   delivery: 'cube-outline',
   package: 'cube-outline',
+  shopping: 'cart-outline',
   event: 'calendar-outline',
   calendar: 'calendar-outline',
   health: 'medkit-outline',
+  medicine: 'medical-outline',
   weather: 'rainy-outline',
   finance: 'wallet-outline',
+  payment: 'card-outline',
   people: 'people-outline',
   document: 'document-text-outline',
   call: 'call-outline',
   home: 'home-outline',
   food: 'restaurant-outline',
   fitness: 'barbell-outline',
+  work: 'briefcase-outline',
+  study: 'school-outline',
+  sleep: 'moon-outline',
+  repair: 'construct-outline',
   key: 'key-outline',
   pet: 'paw-outline',
-  other: 'flash-outline',
+  alarm: 'alarm-outline',
+  other: 'bookmark-outline',
 };
 
 export function situationIcon(key?: string | null): ComponentProps<typeof Ionicons>['name'] {
-  return ICONS[String(key || '').trim().toLowerCase()] || 'flash-outline';
+  return ICONS[String(key || '').trim().toLowerCase()] || 'bookmark-outline';
 }
 
 export function situationTitle(star?: KnowledgeStar | null): string {

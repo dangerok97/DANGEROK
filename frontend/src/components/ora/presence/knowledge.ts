@@ -11,6 +11,7 @@ export type KnowledgeStar = {
   semantic_kind?: string | null;
   /** Semantically selected by cognition; UI never infers it from statement keywords. */
   icon_key?: string | null;
+  tracking_summary?: string | null;
   location_label?: string | null;
   current_state_summary?: string | null;
   expected_outcome_summary?: string | null;
