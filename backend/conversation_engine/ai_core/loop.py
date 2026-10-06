@@ -163,6 +163,19 @@ _GRAPH_LINK_CLAIM_RE = re.compile(
     r"i('|’)?ve\s+linked|i('|’)?ve\s+connected|"
     r"i('|’)?ve\s+related)\b"
 )
+_CALENDAR_ABSENCE_CLAIM_RE = re.compile(
+    r"(?i)\\b("
+    r"non\\s+c(?:'|’|i\\s+)?e\\s+nessun.{0,80}(evento|impegno)|"
+    r"non\\s+esiste.{0,80}(evento|impegno)?|"
+    r"non\\s+ho\\s+trovato.{0,100}(evento|impegno|calendario)|"
+    r"nessun.{0,80}(evento|impegno).{0,40}(calendario)|"
+    r"there\\s+is\\s+no.{0,80}(event|appointment)|"
+    r"no.{0,80}(event|appointment).{0,40}(calendar)|"
+    r"i\\s+couldn.?t\\s+find.{0,80}(event|appointment)"
+    r")\\b"
+)
+
+
 _CALENDAR_CLAIM_RE = re.compile(
     r"(?i)\b("
     r"ho\s+(creato|aggiunto|inserito|messo|spostato|riprogrammato|cancellato|"
@@ -712,6 +725,7 @@ async def run_cognitive_loop(
     graph_claim_nudge_used = False
     calendar_write_confirmed_this_turn = False
     calendar_claim_nudge_used = False
+    calendar_absence_nudge_used = False
     bare_ack_nudge_used = False
     clarification_attempts = {
         str(item.get("key")): int(item.get("attempts") or 0)
@@ -1429,6 +1443,50 @@ async def run_cognitive_loop(
                 mode = "answer"
                 ora = _compose_user_text(decision, observations[turn_start:])
                 add_step(trace, event="CALENDAR_CLAIM_BLOCKED_TERMINAL")
+            scoped_calendar_absence = (
+                mode in ("answer", "finish", "act")
+                and bool(_CALENDAR_ABSENCE_CLAIM_RE.search(ora or ""))
+                and _calendar_empty_read_is_scope_limited(
+                    observations[turn_start:]
+                )
+            )
+            if (
+                scoped_calendar_absence
+                and not calendar_absence_nudge_used
+                and step + 1 < max_steps
+            ):
+                calendar_absence_nudge_used = True
+                observations.append(
+                    Observation(
+                        kind="system",
+                        name="calendar_search_scope_incomplete",
+                        status="nudge",
+                        payload={
+                            "failure_code": "CALENDAR_SEARCH_SCOPE_INCOMPLETE",
+                            "reason": (
+                                "You are about to turn an empty bounded calendar "
+                                "window into a global absence claim. That is not "
+                                "supported. The event may be on another day. For a "
+                                "named action target with no explicit date, broaden "
+                                "the search or call the intended calendar capability "
+                                "with target_title so it can return real candidates. "
+                                "Only say 'not found' with the exact scope you actually searched."
+                            ),
+                        },
+                    ).model_dump()
+                )
+                add_step(trace, event="CALENDAR_SCOPE_NUDGE")
+                continue
+            if scoped_calendar_absence:
+                decision.message_to_user = (
+                    "Non l'ho trovato nella finestra che ho controllato; "
+                    "non posso concludere che non esista nel resto del calendario."
+                )
+                decision.question = None
+                mode = "answer"
+                ora = _compose_user_text(decision, observations[turn_start:])
+                add_step(trace, event="CALENDAR_SCOPE_CLAIM_BLOCKED_TERMINAL")
+
             # A bare acknowledgement is never a completed conversational
             # outcome. It contains no answer, no question and no evidence that
             # a requested skill was used. Do not guess which skill in code:
@@ -2848,6 +2906,33 @@ async def run_cognitive_loop(
         situation=(situation_result or {}).get("situation")
         or st.get("active_situation_ref"),
     )
+
+
+def _calendar_empty_read_is_scope_limited(observations) -> bool:
+    """True when the latest calendar evidence is an empty bounded window.
+
+    This is epistemic validation only: it does not infer what event the person
+    meant or which skill to use. It prevents a local search result from being
+    promoted into a global fact about the calendar.
+    """
+    for obs in reversed(list(observations or [])):
+        name = getattr(obs, "name", None) or (
+            obs.get("name") if isinstance(obs, dict) else None
+        )
+        if name != "get_calendar_events":
+            continue
+        status = getattr(obs, "status", None) or (
+            obs.get("status") if isinstance(obs, dict) else None
+        )
+        payload = getattr(obs, "payload", None) or (
+            obs.get("payload") if isinstance(obs, dict) else None
+        ) or {}
+        return (
+            status == "ok"
+            and isinstance(payload.get("window"), dict)
+            and not list(payload.get("events") or [])
+        )
+    return False
 
 
 def _claims_unverified_life_os_persist(text: str, *, has_active_plan: bool) -> bool:
