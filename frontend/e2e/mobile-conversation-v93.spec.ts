@@ -38,6 +38,16 @@ async function fixture(page: Page) {
       json = { ok: true, session_id: sid, history, ora_text: history[history.length - 1].text, sources: [], ui_actions: [] };
     }
     else if (path.includes('home')) json = { primary_focus: null, current_situation: null, priorities: [], insights: [], opportunities: [], connection_warnings: [], google_calendar: {}, weather: { available: false }, ambient: {}, generated_at: new Date().toISOString() };
+    else if (path === '/api/places') json = {
+      places: [], candidates: [], routines: [], pending_candidates: false,
+      permission: { preference: 'off', state: 'off' },
+    };
+    else if (path === '/api/financial/overview') json = {
+      collegamento: { stato: 'non_collegato', in_parole: 'Nessuna banca collegata.' },
+      conti: [], cosa_ho_capito: [], fonti_non_piu_collegate: [],
+      collegato_alla_tua_vita: [], da_capire: [], movimenti_recenti: [],
+      vale_la_pena_mostrarlo: false,
+    };
     else if (path.includes('opportunit')) json = { opportunities: [] };
     else if (path.includes('location')) json = { preference: 'off', enabled: false, status: 'off' };
     else if (path.includes('call')) json = { calling: false };
