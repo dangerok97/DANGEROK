@@ -519,12 +519,17 @@ async def get_calendar_events(arguments: Dict[str, Any], runtime: Dict[str, Any]
         return _fail("get_calendar_events", "INVALID_WINDOW", "time_max must be after time_min")
 
     tmin_iso, tmax_iso = time_min.isoformat(), time_max.isoformat()
+    # Read a bounded lookback so an appointment already under way is not
+    # mistaken for something that disappeared. Actual overlap is checked
+    # after all calendar sources have been normalized.
+    scan_min = time_min - timedelta(days=7)
+    scan_min_iso = scan_min.isoformat()
 
     drafts_cur = db.calendar_event_drafts.find(
         {
             "user_id": uid,
             "status": {"$ne": "cancelled"},
-            "start_datetime": {"$gte": tmin_iso, "$lt": tmax_iso},
+            "start_datetime": {"$gte": scan_min_iso, "$lt": tmax_iso},
         },
         {
             "_id": 0, "id": 1, "title": 1, "start_datetime": 1, "end_datetime": 1,
@@ -577,7 +582,7 @@ async def get_calendar_events(arguments: Dict[str, Any], runtime: Dict[str, Any]
                 # dentro la sua busta, e un filtro sulla busta non trova
                 # niente — silenziosamente, come se il calendario fosse
                 # vuoto. E' lo stesso errore che teneva la Home a zero.
-                where("starts_at"): {"$gte": tmin_iso, "$lt": tmax_iso},
+                where("starts_at"): {"$gte": scan_min_iso, "$lt": tmax_iso},
             },
             {"_id": 0, "id": 1, "normalized_payload": 1, "external_id": 1},
         ).sort(where("starts_at"), 1).limit(remaining)
@@ -637,13 +642,20 @@ async def get_calendar_events(arguments: Dict[str, Any], runtime: Dict[str, Any]
             })
 
     from home.manual_event import manual_events_between
-    local_events = await manual_events_between(db, uid, time_min, time_max, limit=_MAX_EVENTS_RETURNED)
+    local_events = await manual_events_between(
+        db, uid, scan_min, time_max, limit=max(_MAX_EVENTS_RETURNED * 4, 80)
+    )
     items.extend({
         "calendar_ref": _ref(e["id"]), "source": "ora_local", "title": e["title"],
         "start_datetime": e["starts_at"], "end_datetime": e["ends_at"],
         "timezone": e["timezone"], "location": e["location"], "description": e["description"],
         "all_day": False, "status": "confirmed", "sync_status": "local_only",
     } for e in local_events)
+    items = [
+        item for item in items
+        if _event_overlaps_window(item, time_min, time_max, zone=user_zone)
+    ]
+
     def event_instant(item):
         at = _parse_dt(item.get("start_datetime")) or time_min
         return at if at.tzinfo else at.replace(tzinfo=user_zone)
