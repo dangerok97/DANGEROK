@@ -65,7 +65,12 @@ MAX_OBJECT_GENERATIONS = 2
 MAX_SOURCES_UI = 5
 
 _CALENDAR_WRITE_CAPS = frozenset(
-    {"create_calendar_event", "update_calendar_event", "cancel_calendar_event"}
+    {
+        "create_calendar_event",
+        "update_calendar_event",
+        "cancel_calendar_event",
+        "continue_calendar_action",
+    }
 )
 _WRITE_CAPS = frozenset(
     {
