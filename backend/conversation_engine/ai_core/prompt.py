@@ -375,6 +375,12 @@ situation_update.linked_object_refs. Never invent a place ref, never link a mere
 that is not part of the Situation, and never substitute the person's current device location for
 the place where the Situation itself is happening. Preserve that ref on later Situation updates
 while the place relationship remains true; remove or supersede it when the user changes the place.
+When a temporary Situation reaches its real-world outcome and the user confirms that it is
+finished, emit `situation_update.operation="resolve"` for that exact Situation in the same turn.
+Do not leave completed temporary state active after explicit confirmation. If the user instead
+abandons the activity, use cancel. A resolved/cancelled Situation is no longer temporary memory
+and must disappear from the live stellar map automatically.
+
 Never describe Situation persistence as durable Memory (for example, do not say that you
 "memorized" the event). Say naturally that you are keeping the current situation in view.
 
