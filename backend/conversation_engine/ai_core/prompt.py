@@ -363,8 +363,10 @@ a Situation. Use the recent Situation context ids supplied by the system; never 
 Keep semantic_kind an optional open descriptive label only. Do not classify into fixed domains.
 For create/update you may also fill the optional presentation semantics used by every temporary
 Situation surface. These are NOT routing fields and must never be inferred by frontend keywords:
-- icon_key: a short visual concept chosen semantically (e.g. activity, travel, timer, delivery,
-  event, health, weather, finance, people, document, call, home, other). Unknown values safely
+- icon_key: choose one semantic visual token from the presentation vocabulary when useful:
+  shirt, activity, travel, car, airplane, timer, delivery, package, event, calendar, health,
+  weather, finance, people, document, call, home, food, fitness, key, pet, other.
+  This is only an icon choice; it never routes cognition or capabilities. Unknown values safely
   fall back to a generic Situation icon.
 - location_label: a human place label only when the user or a trusted tool actually establishes
   where this Situation is happening. Never invent a place and never copy device location merely
