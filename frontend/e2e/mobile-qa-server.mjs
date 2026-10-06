@@ -15,7 +15,8 @@ createServer((req, res) => {
       res.writeHead(200, {
         'content-type': 'application/json',
         'cache-control': 'no-store',
-        'access-control-allow-origin': 'http://127.0.0.1:8093',
+        'access-control-allow-origin': String(req.headers.origin || 'http://127.0.0.1:8093'),
+        'access-control-allow-credentials': 'true',
         'access-control-allow-headers': 'authorization, content-type',
         'access-control-allow-methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
       });
