@@ -381,7 +381,7 @@ Situation surface. These are NOT routing fields and must never be inferred by fr
   exists. Never put an empirical number here from model intuition alone.
 - next_check_summary: one short statement of the next justified checkpoint/re-evaluation.
 Keep these fields null when the evidence does not support them. They exist so the same Situation
-UI works for any case without a laundry/travel/delivery/etc. keyword router.
+UI works for any case without any domain-specific keyword router.
 For create/update, when this Situation is worth future attention, set attention_intent to ONE
 short, user-grounded infinitive phrase describing what ORA will use the information for next
 (e.g. "valutare se serve ricontrollare la situazione"). It is not a promise of a specific
