@@ -171,6 +171,35 @@ def _parse_dt(value: Optional[str]) -> Optional[datetime]:
         return None
 
 
+def _aware_dt(value: Any, zone: ZoneInfo) -> Optional[datetime]:
+    dt = _parse_dt(str(value or ""))
+    if dt is None:
+        return None
+    return dt if dt.tzinfo is not None else dt.replace(tzinfo=zone)
+
+
+def _event_overlaps_window(
+    item: Dict[str, Any],
+    start: datetime,
+    end: datetime,
+    *,
+    zone: ZoneInfo,
+) -> bool:
+    """Treat calendar windows as intervals, not start-time buckets.
+
+    An event that began before the window but has not ended yet is current.
+    Missing end times keep the historical start-time behavior because there
+    is no evidence that such an event is still active.
+    """
+    begins = _aware_dt(item.get("start_datetime"), zone)
+    if begins is None:
+        return False
+    finishes = _aware_dt(item.get("end_datetime"), zone)
+    if finishes is None:
+        return start <= begins < end
+    return begins < end and finishes > start
+
+
 def _canonical_update_datetime(value: Any, tz_name: str) -> Optional[str]:
     """Canonicalise an update wall-clock without silently shifting it."""
     dt = _parse_dt(str(value or ""))
@@ -490,12 +519,17 @@ async def get_calendar_events(arguments: Dict[str, Any], runtime: Dict[str, Any]
         return _fail("get_calendar_events", "INVALID_WINDOW", "time_max must be after time_min")
 
     tmin_iso, tmax_iso = time_min.isoformat(), time_max.isoformat()
+    # Read a bounded lookback so an appointment already under way is not
+    # mistaken for something that disappeared. Actual overlap is checked
+    # after all calendar sources have been normalized.
+    scan_min = time_min - timedelta(days=7)
+    scan_min_iso = scan_min.isoformat()
 
     drafts_cur = db.calendar_event_drafts.find(
         {
             "user_id": uid,
             "status": {"$ne": "cancelled"},
-            "start_datetime": {"$gte": tmin_iso, "$lt": tmax_iso},
+            "start_datetime": {"$gte": scan_min_iso, "$lt": tmax_iso},
         },
         {
             "_id": 0, "id": 1, "title": 1, "start_datetime": 1, "end_datetime": 1,
@@ -505,8 +539,20 @@ async def get_calendar_events(arguments: Dict[str, Any], runtime: Dict[str, Any]
             # l'evento c'e' davvero. Non esce mai da questa funzione.
             "google_event_id": 1,
         },
-    ).sort("start_datetime", 1).limit(_MAX_EVENTS_RETURNED)
-    drafts = await drafts_cur.to_list(_MAX_EVENTS_RETURNED)
+    ).sort("start_datetime", 1).limit(max(_MAX_EVENTS_RETURNED * 5, 100))
+    drafts = await drafts_cur.to_list(max(_MAX_EVENTS_RETURNED * 5, 100))
+    drafts = [
+        d for d in drafts
+        if _event_overlaps_window(
+            {
+                "start_datetime": d.get("start_datetime"),
+                "end_datetime": d.get("end_datetime"),
+            },
+            time_min,
+            time_max,
+            zone=user_zone,
+        )
+    ][:_MAX_EVENTS_RETURNED]
 
     items = [
         {
@@ -539,6 +585,7 @@ async def get_calendar_events(arguments: Dict[str, Any], runtime: Dict[str, Any]
 
     remaining = max(0, _MAX_EVENTS_RETURNED - len(items))
     if remaining and google_read_granted:
+        mirror_scan_limit = max(remaining * 5, 100)
         ingested_cur = db.ingestion_events.find(
             {
                 "user_id": uid,
@@ -548,11 +595,23 @@ async def get_calendar_events(arguments: Dict[str, Any], runtime: Dict[str, Any]
                 # dentro la sua busta, e un filtro sulla busta non trova
                 # niente — silenziosamente, come se il calendario fosse
                 # vuoto. E' lo stesso errore che teneva la Home a zero.
-                where("starts_at"): {"$gte": tmin_iso, "$lt": tmax_iso},
+                where("starts_at"): {"$gte": scan_min_iso, "$lt": tmax_iso},
             },
             {"_id": 0, "id": 1, "normalized_payload": 1, "external_id": 1},
-        ).sort(where("starts_at"), 1).limit(remaining)
-        mirrored = await ingested_cur.to_list(remaining)
+        ).sort(where("starts_at"), 1).limit(mirror_scan_limit)
+        mirrored = await ingested_cur.to_list(mirror_scan_limit)
+        mirrored = [
+            e for e in mirrored
+            if _event_overlaps_window(
+                {
+                    "start_datetime": plain(e.get("normalized_payload")).get("starts_at"),
+                    "end_datetime": plain(e.get("normalized_payload")).get("ends_at"),
+                },
+                time_min,
+                time_max,
+                zone=user_zone,
+            )
+        ][:remaining]
 
         # Quello che il calendario conferma davvero.
         #
@@ -608,13 +667,20 @@ async def get_calendar_events(arguments: Dict[str, Any], runtime: Dict[str, Any]
             })
 
     from home.manual_event import manual_events_between
-    local_events = await manual_events_between(db, uid, time_min, time_max, limit=_MAX_EVENTS_RETURNED)
+    local_events = await manual_events_between(
+        db, uid, scan_min, time_max, limit=max(_MAX_EVENTS_RETURNED * 4, 80)
+    )
     items.extend({
         "calendar_ref": _ref(e["id"]), "source": "ora_local", "title": e["title"],
         "start_datetime": e["starts_at"], "end_datetime": e["ends_at"],
         "timezone": e["timezone"], "location": e["location"], "description": e["description"],
         "all_day": False, "status": "confirmed", "sync_status": "local_only",
     } for e in local_events)
+    items = [
+        item for item in items
+        if _event_overlaps_window(item, time_min, time_max, zone=user_zone)
+    ]
+
     def event_instant(item):
         at = _parse_dt(item.get("start_datetime")) or time_min
         return at if at.tzinfo else at.replace(tzinfo=user_zone)
@@ -752,8 +818,9 @@ async def _named_calendar_ref_resolution(
     if not wanted:
         return {"status": "not_found", "matches": [], "suggestions": []}
 
-    start = now or datetime.now(timezone.utc)
-    end = start + timedelta(days=_MAX_WINDOW_DAYS)
+    reference = now or datetime.now(timezone.utc)
+    start = reference - timedelta(days=7)
+    end = reference + timedelta(days=_MAX_WINDOW_DAYS)
     tmin, tmax = start.isoformat(), end.isoformat()
     all_events: List[Dict[str, Any]] = []
     provider_handles = set()
@@ -821,6 +888,15 @@ async def _named_calendar_ref_resolution(
             "start_datetime": e["starts_at"], "end_datetime": e["ends_at"],
             "timezone": e["timezone"], "source": "ora_local",
         })
+
+    # An exact title may refer to an event already in progress. Keep current
+    # and future events; drop anything that has actually ended.
+    all_events = [
+        item for item in all_events
+        if _event_overlaps_window(
+            item, reference, end, zone=ZoneInfo("UTC")
+        )
+    ]
 
     exact = [
         item for item in all_events
@@ -1825,9 +1901,65 @@ async def cancel_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
     ref = _strip_ref(arguments.get("calendar_ref")) or str(
         arguments.get("google_event_id") or ""
     ).strip()
+    target_title = str(arguments.get("target_title") or "").strip()[:_MAX_TITLE]
+
+    if not ref and target_title:
+        resolved = await _named_calendar_ref_resolution(db, uid, target_title)
+        status = str(resolved.get("status") or "")
+        if status == "ok":
+            ref = _strip_ref((resolved.get("match") or {}).get("calendar_ref"))
+        elif status == "suggestion":
+            suggested = resolved.get("suggestion") or {}
+            return Observation(
+                kind="tool", name="cancel_calendar_event", status="partial",
+                payload={
+                    "status": "needs_confirmation",
+                    "failure_kind": "close_title_candidate",
+                    "target_title": target_title,
+                    "suggested_event": suggested,
+                    "alternatives": (resolved.get("suggestions") or [])[1:3],
+                    "reason": (
+                        "Ho trovato un solo titolo molto vicino, ma la somiglianza "
+                        "non autorizza una cancellazione. Chiedi se intende proprio "
+                        "quel candidato."
+                    ),
+                },
+            )
+        elif status in ("ambiguous", "ambiguous_similar"):
+            candidates = (
+                resolved.get("matches") or resolved.get("suggestions") or []
+            )[:5]
+            return Observation(
+                kind="tool", name="cancel_calendar_event", status="partial",
+                payload={
+                    "status": "needs_information",
+                    "failure_kind": "ambiguous_calendar_target",
+                    "target_title": target_title,
+                    "candidates": candidates,
+                    "reason": (
+                        "Più eventi possono corrispondere. Mostra i candidati e "
+                        "chiedi quale intende; non cancellare finché non è univoco."
+                    ),
+                },
+            )
+        else:
+            return Observation(
+                kind="tool", name="cancel_calendar_event", status="not_found",
+                payload={
+                    "status": "not_found",
+                    "target_title": target_title,
+                    "reason": (
+                        f"Non ho trovato un evento in corso o futuro intitolato "
+                        f"«{target_title}»."
+                    ),
+                },
+            )
+
     if not ref:
         return _fail(
-            "cancel_calendar_event", "INVALID_INPUT", "calendar_ref required",
+            "cancel_calendar_event",
+            "INVALID_INPUT",
+            "calendar_ref or target_title required",
         )
 
     handle = ref
