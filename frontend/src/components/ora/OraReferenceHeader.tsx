@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 28,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: 'rgba(133,195,214,.10)',
-    backgroundColor: presencePalette.background,
+    backgroundColor: palette.background,
   },
   brand: { width: 300, gap: 2, justifyContent: 'center' },
   tagline: { color: '#55a8cc', fontSize: 11, letterSpacing: 1.4, marginLeft: 2 },
