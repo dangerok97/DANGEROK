@@ -294,3 +294,19 @@ test('knowledge selections identify the exact saved fact, including on touch', (
   assert.equal(h.selections[0]?.kind, 'node');
   h.scene.destroy();
 });
+
+
+test('temporary stars enter the scene and disappear with the resolved situation', () => {
+  const temporary = { id: 'star_temp_situation', area: 'memory', kind: 'node', temporary: true };
+  const durable = { id: 'star_durable_fact', area: 'home', kind: 'node' };
+  const h = harness({ stars: [temporary, durable], reduced: true });
+
+  assert.equal(h.scene.snapshot().knowledgeStars, 2);
+  assert.equal(h.scene.snapshot().temporaryStars, 1);
+
+  h.scene.update({ stars: [durable] });
+  assert.equal(h.scene.snapshot().knowledgeStars, 1);
+  assert.equal(h.scene.snapshot().temporaryStars, 0, 'resolved temporary situation leaves the star map');
+
+  h.scene.destroy();
+});
