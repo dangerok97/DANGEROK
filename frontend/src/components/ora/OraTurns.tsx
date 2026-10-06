@@ -32,15 +32,16 @@ export type Turn = {
  * than the column. It reads as an aside — the thing you said on the way to the
  * answer — rather than as one half of a ping-pong.
  */
-function UserTurn({ turn, onRetry }: { turn: Turn; onRetry?: () => void }) {
+function UserTurn({ turn, onRetry, cockpit = false }: { turn: Turn; onRetry?: () => void; cockpit?: boolean }) {
   const { colors } = useTheme();
   return (
-    <View style={styles.userRow}>
+    <View style={[styles.userRow, cockpit && styles.userRowCockpit]}>
       <View style={styles.userCol}>
         <View
           style={[
             styles.userBubble,
-            { backgroundColor: colors.surfaceWarm, borderColor: colors.divider },
+            cockpit && styles.userBubbleCockpit,
+            { backgroundColor: cockpit ? 'rgba(24,43,60,.72)' : colors.surfaceWarm, borderColor: cockpit ? 'rgba(120,190,220,.22)' : colors.divider },
             turn.failed && { borderColor: colors.error },
           ]}
         >
@@ -102,17 +103,26 @@ function UserTurn({ turn, onRetry }: { turn: Turn; onRetry?: () => void }) {
 function OraTurnView({
   turn,
   showMark,
+  cockpit = false,
 }: {
   turn: Turn;
   showMark: boolean;
+  cockpit?: boolean;
 }) {
   const { colors } = useTheme();
   return (
-    <View style={styles.oraTurn}>
-      {/* The mark appears when ORA starts speaking after the user, not on
-          every consecutive paragraph — repeating it is noise, not identity. */}
+    <View style={[styles.oraTurn, cockpit && styles.oraTurnCockpit]}>
       {showMark ? (
-        <Text style={[styles.oraMark, { color: colors.textTertiary }]}>ORA</Text>
+        cockpit ? (
+          <View style={styles.oraIdentity}>
+            <View style={styles.oraOrbOuter}>
+              <View style={styles.oraOrbInner} />
+            </View>
+            <Text style={styles.oraMarkCockpit}>ORA</Text>
+          </View>
+        ) : (
+          <Text style={[styles.oraMark, { color: colors.textTertiary }]}>ORA</Text>
+        )
       ) : null}
       <RichOraText
         text={turn.text}
@@ -303,10 +313,13 @@ export function OraSources({ sources }: { sources?: OraSource[] }) {
 export function OraTurns({
   turns,
   onRetry,
+  variant = 'default',
 }: {
   turns: Turn[];
   onRetry?: (turn: Turn) => void;
+  variant?: 'default' | 'cockpit';
 }) {
+  const cockpit = variant === 'cockpit';
   return (
     <>
       {turns.map((t, i) =>
@@ -314,6 +327,7 @@ export function OraTurns({
           <UserTurn
             key={t.messageId || `u-${i}-${t.text.slice(0, 24)}`}
             turn={t}
+            cockpit={cockpit}
             onRetry={t.failed && onRetry ? () => onRetry(t) : undefined}
           />
         ) : (
@@ -321,6 +335,7 @@ export function OraTurns({
             key={t.messageId || `o-${i}-${t.text.slice(0, 24)}`}
             turn={t}
             showMark={turns[i - 1]?.role !== 'ora'}
+            cockpit={cockpit}
           />
         ),
       )}
@@ -330,12 +345,19 @@ export function OraTurns({
 
 const styles = StyleSheet.create({
   userRow: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: tokens.spacing.xl },
+  userRowCockpit: { marginTop: tokens.spacing.md },
   userCol: { maxWidth: '82%', alignItems: 'flex-end', gap: 6 },
   userBubble: {
     borderRadius: tokens.radius.lg,
     borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: tokens.spacing.lg,
     paddingVertical: tokens.spacing.md,
+  },
+  userBubbleCockpit: {
+    borderRadius: 16,
+    shadowColor: '#78dfff',
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
   },
   userText: { fontSize: 15, lineHeight: 22 },
   attachRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, justifyContent: 'flex-end' },
@@ -351,7 +373,44 @@ const styles = StyleSheet.create({
   failedRetryLabel: { fontSize: 12, fontWeight: '600', textDecorationLine: 'underline' },
 
   oraTurn: { marginTop: tokens.spacing.xl, gap: tokens.spacing.sm },
+  oraTurnCockpit: {
+    marginTop: tokens.spacing.lg,
+    paddingHorizontal: 2,
+  },
   oraMark: { fontSize: 11, fontWeight: '700', letterSpacing: 1.3 },
+  oraIdentity: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    marginBottom: 3,
+  },
+  oraOrbOuter: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(137,225,255,.55)',
+    backgroundColor: 'rgba(56,146,190,.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#7fe0ff',
+    shadowOpacity: 0.75,
+    shadowRadius: 10,
+  },
+  oraOrbInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    borderWidth: 2,
+    borderColor: '#b9f0ff',
+    backgroundColor: 'rgba(128,226,255,.20)',
+  },
+  oraMarkCockpit: {
+    color: '#a9e6f4',
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+  },
 
   navigation: {
     flexDirection: 'row',
