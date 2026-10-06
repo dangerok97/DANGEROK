@@ -1235,6 +1235,10 @@ async def run_cognitive_loop(
                     attempted_skill_caps.update(
                         active_execution_plan.get("attempted_capabilities") or []
                     )
+                    skill_outcomes = _merge_skill_outcomes(
+                        skill_outcomes,
+                        active_execution_plan.get("capability_outcomes") or [],
+                    )
                     current_skill_plan_ref = resume_ref
                     skill_plan_resumed_this_turn = True
                     add_step(
@@ -1264,10 +1268,65 @@ async def run_cognitive_loop(
                     add_step(trace, event="SKILL_PLAN_RESUME_REJECTED")
                     if step + 1 < max_steps:
                         continue
+
             required_skill_caps = _merge_required_skill_caps(
                 required_skill_caps,
                 decision.skill_plan.required_capabilities,
             )
+
+            if decision.skill_plan.release_capabilities:
+                (
+                    required_skill_caps,
+                    released_skill_caps,
+                    rejected_skill_releases,
+                ) = _apply_skill_plan_releases(
+                    required_skill_caps,
+                    decision.skill_plan.release_capabilities,
+                    observations[turn_start:],
+                    persisted_outcomes=skill_outcomes,
+                    user_message=user_message,
+                )
+                if released_skill_caps:
+                    trace["skill_plan_released"] = list(
+                        dict.fromkeys(
+                            list(trace.get("skill_plan_released") or [])
+                            + released_skill_caps
+                        )
+                    )
+                    add_step(
+                        trace,
+                        event="SKILL_PLAN_REVISED",
+                        released=released_skill_caps,
+                    )
+                if rejected_skill_releases:
+                    observations.append(
+                        Observation(
+                            kind="system",
+                            name="invalid_skill_plan_release",
+                            status="nudge",
+                            payload={
+                                "failure_code": "INVALID_SKILL_PLAN_RELEASE",
+                                "rejected_capabilities": rejected_skill_releases,
+                                "reason": (
+                                    "A required skill can be released only with "
+                                    "verified evidence. For basis=observation, "
+                                    "observation_capability must match a real current "
+                                    "or persisted capability outcome. For "
+                                    "basis=user_message, user_instruction_quote must "
+                                    "be exact words from the latest user message. "
+                                    "Do not silently drop the skill."
+                                ),
+                            },
+                        ).model_dump()
+                    )
+                    add_step(
+                        trace,
+                        event="SKILL_PLAN_RELEASE_REJECTED",
+                        rejected=rejected_skill_releases,
+                    )
+                    if step + 1 < max_steps:
+                        continue
+
             trace["skill_plan_required"] = list(required_skill_caps)
             trace["skill_plan_objective"] = decision.skill_plan.objective[:240]
             trace["skill_plan_ref"] = current_skill_plan_ref
