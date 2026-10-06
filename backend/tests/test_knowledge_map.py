@@ -299,8 +299,7 @@ async def test_manual_temporary_removal_cancels_only_situation_not_durable_memor
         base_url="http://test",
     ) as client:
         result = await client.post(
-            "/life-profile/knowledge-map/situations/sit_remove_me/dismiss",
-            json={"expected_revision": 1},
+            "/life-profile/knowledge-map/situations/sit_remove_me/dismiss?expected_revision=1",
         )
 
     assert result.status_code == 200
