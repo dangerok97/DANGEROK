@@ -356,7 +356,7 @@ const SESSION_ROUTE = 'app/ora/[sessionId].tsx';
   const visual = readCode('src/components/ora/situationVisual.ts');
   assert.ok(/star\?\.semantic_kind/.test(visual), 'Situation title must come from structured semantic_kind');
   assert.ok(!/star\?\.statement.*includes|statement.*match|statement.*test/.test(visual), 'frontend must never classify a Situation from prose keywords');
-  assert.ok(/laundry: 'shirt-outline'/.test(visual), 'temporary laundry-like state needs a pertinent shirt visual token');
+  assert.ok(/shirt: 'shirt-outline'/.test(visual), 'temporary clothing state needs a pertinent shirt visual token');
   assert.ok(/medicine: 'medical-outline'/.test(visual) && /shopping: 'cart-outline'/.test(visual), 'visual vocabulary must cover common temporary-life states');
   assert.ok(!/flash-outline/.test(visual), 'generic lightning must not be the fallback identity for temporary memories');
 
