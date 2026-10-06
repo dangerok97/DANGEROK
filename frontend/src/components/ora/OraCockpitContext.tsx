@@ -4,28 +4,56 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 import { api, type HomeV2Response } from '@/src/api/client';
-import type { KnowledgeMap, KnowledgeStar } from './presence/knowledge';
 import { presencePalette as palette, presenceColors } from '@/src/theme/presence';
 import { tokens } from '@/src/theme/tokens';
+import { useTemporaryMemory } from './presence/useTemporaryMemory';
 
-type CockpitData = {
-  home: HomeV2Response | null;
-  knowledge: KnowledgeMap | null;
-};
+function timeLabel(iso?: string | null): string {
+  if (!iso) return 'Poco fa';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return 'Poco fa';
+  return d.toLocaleString('it-IT', {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function DetailRow({
+  icon,
+  title,
+  body,
+  danger = false,
+}: {
+  icon: any;
+  title: string;
+  body: string;
+  danger?: boolean;
+}) {
+  return (
+    <View style={styles.detailRow}>
+      <View style={[styles.detailIcon, danger && styles.detailIconDanger]}>
+        <Ionicons name={icon} size={18} color={danger ? '#ff7373' : palette.label} />
+      </View>
+      <View style={styles.detailBody}>
+        <Text style={styles.detailLabel}>{title}</Text>
+        <Text style={[styles.detailText, danger && styles.detailTextDanger]}>{body}</Text>
+      </View>
+    </View>
+  );
+}
 
 export function OraCockpitContext() {
   const router = useRouter();
-  const [data, setData] = useState<CockpitData>({ home: null, knowledge: null });
-  const [error, setError] = useState(false);
+  const [home, setHome] = useState<HomeV2Response | null>(null);
+  const temporary = useTemporaryMemory(true);
 
   const refresh = useCallback(async () => {
-    const [home, knowledge] = await Promise.all([
-      api.getHome().catch(() => null),
-      api.knowledgeMap().catch(() => null),
-    ]);
-    setData({ home, knowledge });
-    setError(!home && !knowledge);
-  }, []);
+    const next = await api.getHome().catch(() => null);
+    if (next) setHome(next);
+    await temporary.refresh();
+  }, [temporary.refresh]);
 
   useEffect(() => {
     void refresh();
@@ -38,11 +66,10 @@ export function OraCockpitContext() {
     return () => { clearInterval(timer); app.remove(); };
   }, [refresh]);
 
-  const temporary = (data.knowledge?.stars || []).filter((star) => star.temporary);
-  const primaryTemp: KnowledgeStar | null = temporary[0] || null;
-  const focus = data.home?.primary_focus || null;
-  const situation = data.home?.current_situation || null;
-  const weather = data.home?.weather?.available ? data.home.weather : null;
+  const current = temporary.latest;
+  const focus = home?.primary_focus || null;
+  const situation = home?.current_situation || null;
+  const weather = home?.weather?.available ? home.weather : null;
 
   return (
     <View style={styles.rail} testID="ora-cockpit-context">
@@ -55,84 +82,102 @@ export function OraCockpitContext() {
           onPress={() => void refresh()}
           style={({ pressed }) => [styles.refresh, pressed && styles.pressed]}
         >
-          <Ionicons name="refresh-outline" size={16} color={palette.muted} />
+          <Ionicons name="refresh-outline" size={16} color={palette.label} />
         </Pressable>
       </View>
 
-      {primaryTemp ? (
-        <View style={[styles.card, styles.tempCard]} testID="ora-cockpit-temporary">
-          <View style={styles.cardHead}>
-            <View style={styles.tempIcon}>
-              <Ionicons name="flash-outline" size={18} color="#ff7373" />
+      {current ? (
+        <View style={styles.primaryCard} testID="ora-cockpit-temporary">
+          <View style={styles.primaryHead}>
+            <View style={styles.tempOrb}>
+              <Ionicons name="flash-outline" size={20} color="#ff7373" />
             </View>
-            <View style={styles.cardTitleCol}>
-              <Text style={styles.tempTitle}>MEMORIA TEMPORANEA</Text>
-              <Text style={styles.cardMeta}>
-                {temporary.length === 1 ? '1 situazione attiva' : `${temporary.length} situazioni attive`}
-              </Text>
+            <View style={styles.primaryTitleCol}>
+              <Text style={styles.primaryTitle}>SITUAZIONE ATTIVA</Text>
+              <Text style={styles.primarySubtitle}>Memoria temporanea</Text>
+            </View>
+            {temporary.count > 1 ? (
+              <View style={styles.countPill}>
+                <Text style={styles.countText}>+{temporary.count - 1}</Text>
+              </View>
+            ) : null}
+          </View>
+
+          <Text style={styles.situationStatement}>{current.statement}</Text>
+
+          <View style={styles.divider} />
+          <DetailRow
+            icon="time-outline"
+            title="Inserita"
+            body={timeLabel(current.updated_at)}
+          />
+          {weather ? (
+            <>
+              <View style={styles.divider} />
+              <DetailRow
+                icon="rainy-outline"
+                title="Stato live"
+                body={[
+                  weather.label,
+                  typeof weather.temperature_c === 'number' ? `${weather.temperature_c}°C` : null,
+                  weather.place,
+                ].filter(Boolean).join(' · ')}
+                danger={/piogg|tempor|allert/i.test(String(weather.label || ''))}
+              />
+            </>
+          ) : null}
+          <View style={styles.divider} />
+          <DetailRow
+            icon="notifications-outline"
+            title="Monitoraggio"
+            body="Attivo. ORA continua a rivalutare la situazione finché resta aperta."
+          />
+
+          <Pressable
+            onPress={() => router.push('/situazione' as any)}
+            accessibilityRole="button"
+            style={({ pressed }) => [styles.primaryAction, pressed && styles.pressed]}
+          >
+            <Text style={styles.primaryActionText}>Apri situazione</Text>
+            <Ionicons name="arrow-forward" size={16} color={palette.label} />
+          </Pressable>
+        </View>
+      ) : (
+        <View style={styles.primaryCard}>
+          <View style={styles.primaryHead}>
+            <View style={styles.calmOrb}>
+              <Ionicons name="sparkles-outline" size={19} color={palette.label} />
+            </View>
+            <View style={styles.primaryTitleCol}>
+              <Text style={styles.cardLabel}>NESSUNA MEMORIA TEMPORANEA</Text>
+              <Text style={styles.primarySubtitle}>ORA non ha situazioni momentanee aperte.</Text>
             </View>
           </View>
-          <Text style={styles.cardText}>{primaryTemp.statement}</Text>
-          <Text style={styles.tempHint}>
-            La stella rossa sparisce quando questa situazione viene risolta.
-          </Text>
         </View>
-      ) : null}
+      )}
 
       {focus ? (
-        <View style={styles.card}>
-          <View style={styles.cardHead}>
-            <Ionicons name="locate-outline" size={19} color={palette.label} />
+        <View style={styles.secondaryCard}>
+          <View style={styles.secondaryHead}>
+            <Ionicons name="locate-outline" size={17} color={palette.label} />
             <Text style={styles.cardLabel}>COSA CONTA ORA</Text>
           </View>
-          <Text style={styles.cardTitle}>{focus.title}</Text>
+          <Text style={styles.secondaryTitle}>{focus.title}</Text>
           {focus.subtitle || focus.description ? (
-            <Text style={styles.cardText} numberOfLines={4}>
+            <Text style={styles.secondaryText} numberOfLines={3}>
               {focus.subtitle || focus.description}
             </Text>
           ) : null}
-          <Pressable
-            onPress={() => router.push('/situazione' as any)}
-            style={({ pressed }) => [styles.linkButton, pressed && styles.pressed]}
-            accessibilityRole="button"
-          >
-            <Text style={styles.linkText}>Apri situazione</Text>
-            <Ionicons name="arrow-forward" size={14} color={palette.label} />
-          </Pressable>
         </View>
       ) : null}
 
-      {situation?.next_commitment ? (
-        <View style={styles.card}>
-          <View style={styles.cardHead}>
-            <Ionicons name="time-outline" size={19} color={palette.label} />
+      {situation?.next_commitment && !current ? (
+        <View style={styles.secondaryCard}>
+          <View style={styles.secondaryHead}>
+            <Ionicons name="time-outline" size={17} color={palette.label} />
             <Text style={styles.cardLabel}>PROSSIMO PASSO</Text>
           </View>
-          <Text style={styles.cardText}>{String(situation.next_commitment)}</Text>
-        </View>
-      ) : null}
-
-      {weather ? (
-        <View style={styles.card}>
-          <View style={styles.cardHead}>
-            <Ionicons name="partly-sunny-outline" size={19} color={palette.label} />
-            <Text style={styles.cardLabel}>METEO LIVE</Text>
-          </View>
-          <Text style={styles.cardTitle}>
-            {[weather.label, typeof weather.temperature_c === 'number' ? `${weather.temperature_c}°C` : null]
-              .filter(Boolean)
-              .join(' · ')}
-          </Text>
-          {weather.place ? <Text style={styles.cardMeta}>{weather.place}</Text> : null}
-        </View>
-      ) : null}
-
-      {!primaryTemp && !focus && !situation?.next_commitment && !weather ? (
-        <View style={styles.empty}>
-          <Ionicons name={error ? 'cloud-offline-outline' : 'sparkles-outline'} size={20} color={palette.muted} />
-          <Text style={styles.emptyText}>
-            {error ? 'Contesto non disponibile.' : 'Nessun contesto urgente. ORA resta in ascolto.'}
-          </Text>
+          <Text style={styles.secondaryText}>{String(situation.next_commitment)}</Text>
         </View>
       ) : null}
     </View>
@@ -162,10 +207,10 @@ const styles = StyleSheet.create({
   },
   eyebrow: {
     flex: 1,
-    color: palette.muted,
+    color: '#b6dce7',
     fontSize: 11,
-    letterSpacing: 1.6,
-    fontWeight: '700',
+    letterSpacing: 1.7,
+    fontWeight: '800',
   },
   refresh: {
     width: tokens.touch.min,
@@ -174,98 +219,156 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  card: {
-    gap: 9,
-    padding: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.border,
-    borderRadius: 18,
-    backgroundColor: 'rgba(12,21,30,.78)',
+  primaryCard: {
+    borderWidth: 1,
+    borderColor: 'rgba(255,92,92,.48)',
+    borderRadius: 20,
+    backgroundColor: 'rgba(28,7,13,.68)',
+    overflow: 'hidden',
+    padding: 18,
+    gap: 13,
   },
-  tempCard: {
-    borderColor: 'rgba(255,92,92,.42)',
-    backgroundColor: 'rgba(44,12,18,.38)',
-  },
-  cardHead: {
+  primaryHead: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 9,
+    gap: 11,
   },
-  tempIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+  tempOrb: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     borderWidth: 1,
-    borderColor: 'rgba(255,92,92,.55)',
+    borderColor: 'rgba(255,92,92,.68)',
     backgroundColor: 'rgba(255,92,92,.08)',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#ff5252',
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
   },
-  cardTitleCol: { flex: 1, gap: 2 },
-  cardLabel: {
+  calmOrb: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1,
+    borderColor: 'rgba(143,213,233,.34)',
+    backgroundColor: 'rgba(143,213,233,.05)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  primaryTitleCol: { flex: 1, gap: 2 },
+  primaryTitle: {
+    color: '#ff7373',
+    fontSize: 13,
+    letterSpacing: 1.1,
+    fontWeight: '850' as any,
+  },
+  primarySubtitle: {
     color: palette.muted,
-    fontSize: 10,
-    letterSpacing: 1.2,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  countPill: {
+    minWidth: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,92,92,.12)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,92,92,.38)',
+  },
+  countText: {
+    color: '#ff9191',
+    fontSize: 11,
     fontWeight: '700',
   },
-  tempTitle: {
-    color: '#ff7373',
-    fontSize: 11,
-    letterSpacing: 1.1,
-    fontWeight: '800',
-  },
-  cardTitle: {
+  situationStatement: {
     color: presenceColors.textPrimary,
     fontSize: 15,
-    lineHeight: 20,
+    lineHeight: 21,
     fontWeight: '650' as any,
   },
-  cardText: {
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: 'rgba(144,190,207,.15)',
+  },
+  detailRow: {
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'flex-start',
+  },
+  detailIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(116,200,226,.06)',
+  },
+  detailIconDanger: {
+    backgroundColor: 'rgba(255,92,92,.08)',
+  },
+  detailBody: { flex: 1, gap: 2 },
+  detailLabel: {
+    color: '#95bcca',
+    fontSize: 11,
+    fontWeight: '650' as any,
+  },
+  detailText: {
     color: presenceColors.textSecondary,
-    fontSize: 13,
-    lineHeight: 19,
+    fontSize: 12,
+    lineHeight: 17,
   },
-  cardMeta: {
-    color: palette.muted,
-    fontSize: 11,
-    lineHeight: 16,
+  detailTextDanger: {
+    color: '#ff9b9b',
   },
-  tempHint: {
-    color: '#df9c9c',
-    fontSize: 11,
-    lineHeight: 16,
-  },
-  linkButton: {
-    minHeight: 38,
-    alignSelf: 'flex-start',
+  primaryAction: {
+    minHeight: 44,
+    marginTop: 2,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(143,213,233,.22)',
+    backgroundColor: 'rgba(143,213,233,.07)',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    borderRadius: 10,
-    backgroundColor: 'rgba(159,206,217,.08)',
+    justifyContent: 'space-between',
   },
-  linkText: {
+  primaryActionText: {
     color: palette.label,
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
   },
-  empty: {
-    minHeight: 120,
+  secondaryCard: {
+    gap: 9,
+    padding: 15,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: palette.border,
     borderRadius: 18,
-    backgroundColor: 'rgba(12,21,30,.45)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    padding: 18,
+    backgroundColor: 'rgba(12,21,30,.64)',
   },
-  emptyText: {
-    color: palette.muted,
+  secondaryHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  cardLabel: {
+    color: '#afd7e2',
+    fontSize: 10,
+    letterSpacing: 1.2,
+    fontWeight: '800',
+  },
+  secondaryTitle: {
+    color: presenceColors.textPrimary,
+    fontSize: 14,
+    lineHeight: 19,
+    fontWeight: '650' as any,
+  },
+  secondaryText: {
+    color: presenceColors.textSecondary,
     fontSize: 12,
     lineHeight: 18,
-    textAlign: 'center',
   },
   pressed: { opacity: 0.7 },
 });
