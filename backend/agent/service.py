@@ -243,6 +243,17 @@ class AgentService:
         from agent.source_refresh import queue_existing, context
 
         source = None
+        situation_refs = [ref for ref in (source_refs or []) if ref.startswith("situation:")]
+        if source_kind == "opportunity" and len(situation_refs) == 1 and all(
+            ref.startswith(("situation:", "place:")) for ref in (source_refs or [])
+        ):
+            dedicated = await self.db.agent_goals.find_one(
+                {"owner_id": owner_id, "source_kind": "situation_followup",
+                 "source_refs": situation_refs[0], "status": {"$in": ["active", "waiting", "proposed"]}},
+                {"_id": 0})
+            if dedicated:
+                existing = AutonomousGoal.model_validate(dedicated)
+                return {"outcome": "already_pursuing", "goal": existing.for_human(), "goal_id": existing.id}
         if opportunity_id:
             source = await self.db.opportunities.find_one({"id": opportunity_id, "owner_id": owner_id})
             existing = await self.repo.goal_for_opportunity(owner_id, opportunity_id)

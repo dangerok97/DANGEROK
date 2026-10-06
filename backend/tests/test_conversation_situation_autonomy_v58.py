@@ -186,7 +186,8 @@ def test_user_sees_what_ora_will_do_with_a_persisted_situation():
     visible = _with_situation_handoff("Ok.", result)
 
     assert not visible.lower().startswith("ok")
-    assert "sotto controllo" in visible.lower()
+    assert "non risulta ancora un controllo automatico programmato" in visible.lower()
+    assert "sotto controllo" not in visible.lower()
     assert "tempi o condizioni esterne" in visible.lower()
     assert "ricontrollare i panni" in visible.lower()
 
@@ -203,8 +204,8 @@ def test_situation_handoff_still_explains_generic_review_without_attention_inten
     visible = _with_situation_handoff("Ok.", result)
     assert not visible.lower().startswith("ok")
     assert "situazione" in visible.lower()
-    assert "rivaluter" in visible.lower()
-    assert "non ti disturbo" in visible.lower()
+    assert "non risulta ancora un controllo automatico programmato" in visible.lower()
+    assert "rivaluter" not in visible.lower()
 
 
 def test_resolved_situation_does_not_claim_future_attention():

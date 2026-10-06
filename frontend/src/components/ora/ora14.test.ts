@@ -345,7 +345,7 @@ const SESSION_ROUTE = 'app/ora/[sessionId].tsx';
   assert.ok(/title="Luogo"/.test(rail), 'right rail must show grounded Situation location when available');
   assert.ok(/title="Stato attuale"/.test(rail), 'right rail must show current evidence when available');
   assert.ok(/title="Stima \/ esito atteso"/.test(rail), 'right rail must show grounded outcome estimates when available');
-  assert.ok(/title="Promemoria attivo"/.test(rail), 'right rail must show the next checkpoint when available');
+  assert.ok(/title="Prossimo controllo"/.test(rail) && /followup\.next_check_at/.test(rail), 'right rail must use persisted scheduler timestamps, not prose intentions');
   assert.ok(/dismissTemporarySituation/.test(rail) && /Rimuovi dalla memoria temporanea/.test(rail), 'temporary state must be explicitly removable');
 
   const sharedNav = readCode('src/shell/navItems.ts');

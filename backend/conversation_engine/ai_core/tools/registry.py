@@ -23,6 +23,8 @@ class ToolRegistry:
         self._register_defaults()
 
     def _register_defaults(self) -> None:
+        from situations.followup import register_followup_tools
+        register_followup_tools(self)
         self.register(
             CapabilitySpec(
                 capability="prepare_amazon_search",
