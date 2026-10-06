@@ -14,9 +14,19 @@ function timeLabel(iso?: string | null): string {
 }
 
 function lifecycleCopy(star: KnowledgeStar): string {
-  const tracking = String(star.tracking_summary || '').trim();
+  const status = star.follow_up?.status || 'unavailable';
+  const confirmed = ['scheduled', 'due', 'running'].includes(status);
+  // Meaning is AI-authored, but a monitoring promise requires persisted work.
+  const tracking = confirmed ? String(star.tracking_summary || '').trim() : '';
+  const state = confirmed
+    ? (status === 'running' ? 'Controllo in corso.' : 'Un controllo risulta programmato nella scheda.')
+    : status === 'not_scheduled' ? 'Non risulta ancora un controllo automatico programmato.'
+    : status === 'runtime_disabled' ? 'I controlli automatici sono disattivati.'
+    : status === 'waiting_for_user' ? 'Il controllo attende informazioni o autorizzazione.'
+    : status === 'recovery_pending' ? 'La programmazione del controllo deve essere recuperata.'
+    : 'La programmazione del controllo non è confermata.';
   const lifecycle = 'Verrà rimossa dalla mappa quando la situazione sarà risolta o annullata.';
-  return tracking ? `${tracking} ${lifecycle}` : lifecycle;
+  return `${state} ${tracking ? tracking + ' ' : ''}${lifecycle}`;
 }
 
 export function TemporarySituationToast({
@@ -51,7 +61,7 @@ export function TemporarySituationToast({
           <Text style={styles.time}>{timeLabel(bornAt)}</Text>
         </View>
         <Text style={styles.title} numberOfLines={1}>{title}</Text>
-        <Text style={styles.body} numberOfLines={3}>
+        <Text style={styles.body}>
           {title} è stata aggiunta alla tua mappa. {lifecycleCopy(star)}
         </Text>
       </View>
