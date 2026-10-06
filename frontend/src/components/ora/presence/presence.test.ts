@@ -85,4 +85,7 @@ test('temporary memory becomes red-star geometry without changing durable semant
   assert.equal(geometry[0]?.tentative, false);
   assert.ok(sceneSource.includes('temporary?palette.temporaryNode'));
   assert.ok(sceneSource.includes('temporary?palette.temporaryGlow'));
+  assert.ok(sceneSource.includes("const inspected=hovered>=0?hovered:selected>=0?selected:spotlight"));
+  assert.ok(sceneSource.includes("i===spotlight?.82"));
+  assert.ok(sceneSource.includes("const label='NUOVA'"));
 });

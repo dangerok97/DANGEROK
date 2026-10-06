@@ -11,6 +11,8 @@ type Props = {
   secondaryColor?: string;
   /** Colour for links; when absent they read as plain text. */
   linkColor?: string;
+  /** Urgent/actionable opening paragraph. */
+  dangerColor?: string;
 };
 
 type Block =
@@ -101,6 +103,12 @@ function parseBlocks(src: string): Block[] {
   return blocks;
 }
 
+function isDangerParagraph(text: string): boolean {
+  return /^(attenzione|allerta|pericolo|urgente|rischio\s+immediato)\b\s*[:.!-]?/i.test(
+    String(text || '').trim(),
+  );
+}
+
 function Inline({
   text,
   color,
@@ -162,7 +170,7 @@ function Inline({
   return <Text style={[styles.body, { color }]}>{nodes}</Text>;
 }
 
-export function RichOraText({ text, color, secondaryColor, linkColor }: Props) {
+export function RichOraText({ text, color, secondaryColor, linkColor, dangerColor }: Props) {
   const blocks = useMemo(() => parseBlocks(preprocess(text)), [text]);
   if (!text?.trim()) return null;
   return (
@@ -198,9 +206,14 @@ export function RichOraText({ text, color, secondaryColor, linkColor }: Props) {
             </View>
           );
         }
+        const urgent = Boolean(dangerColor && isDangerParagraph(b.text));
         return (
-          <View key={idx} style={styles.p}>
-            <Inline text={b.text} color={color} linkColor={linkColor} />
+          <View key={idx} style={[styles.p, urgent && styles.dangerParagraph]}>
+            <Inline
+              text={b.text}
+              color={urgent ? (dangerColor as string) : color}
+              linkColor={linkColor}
+            />
           </View>
         );
       })}
@@ -211,6 +224,11 @@ export function RichOraText({ text, color, secondaryColor, linkColor }: Props) {
 const styles = StyleSheet.create({
   wrap: { gap: 8 },
   p: {},
+  dangerParagraph: {
+    paddingLeft: 10,
+    borderLeftWidth: 2,
+    borderLeftColor: 'rgba(255,92,92,.72)',
+  },
   body: { fontSize: 16, lineHeight: 24 },
   h1: { fontSize: 20, fontWeight: '700', lineHeight: 28, marginTop: 4 },
   h2: { fontSize: 18, fontWeight: '600', lineHeight: 26, marginTop: 4 },

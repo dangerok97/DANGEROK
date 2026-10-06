@@ -129,6 +129,7 @@ function OraTurnView({
         color={colors.textPrimary}
         secondaryColor={colors.textSecondary}
         linkColor={colors.accent}
+        dangerColor={cockpit ? '#ff7373' : colors.error}
       />
       <OraActions actions={turn.uiActions} />
       {turn.journey?.options?.length ? (

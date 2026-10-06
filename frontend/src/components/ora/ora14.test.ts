@@ -228,7 +228,7 @@ const SESSION_ROUTE = 'app/ora/[sessionId].tsx';
 // ---------------------------------------------------------------------------
 {
   const screen = readCode(SCREEN);
-  assert.ok(/placeholder="Scrivi a ORA…"/.test(screen), 'composer placeholder must be short and human');
+  assert.ok(/placeholder="Scrivi un messaggio a ORA…"/.test(screen), 'composer placeholder must match the cockpit reference');
   assert.ok(
     !/La voce non è ancora disponibile/.test(screen),
     'the mic is real now: the old apology must not survive it',
@@ -307,6 +307,9 @@ const SESSION_ROUTE = 'app/ora/[sessionId].tsx';
   assert.ok(/testID="ora-cockpit-rail"/.test(screen), 'live context must occupy the right rail');
   assert.ok(/<OraCockpitContext/.test(screen), 'right rail must be fed by live ORA context');
   assert.ok(/variant=\{variant\}/.test(screen), 'desktop conversation must use the cockpit turn styling');
+  assert.ok(/const cockpitReady = wide && viewportWidth >= 1120/.test(screen), 'three columns must never be forced into a narrow viewport');
+  assert.ok(/testID="ora-situation-actions"/.test(screen), 'active temporary situations need visible follow-up actions');
+  assert.ok(/>Va bene</.test(screen) && />Avvisami</.test(screen), 'reference follow-up actions must be present');
   assert.ok(
     /conversation=\{showConversationSurface \? conversationStream\(\) : null\}/.test(screen),
     'mobile keeps the integrated presence conversation instead of inheriting desktop layout',
@@ -317,8 +320,12 @@ const SESSION_ROUTE = 'app/ora/[sessionId].tsx';
   assert.ok(/oraOrbOuter/.test(turns) && /oraOrbInner/.test(turns), 'ORA identity uses the glowing orb in cockpit mode');
 
   const rail = readCode('src/components/ora/OraCockpitContext.tsx');
-  assert.ok(/api\.getHome/.test(rail) && /api\.knowledgeMap/.test(rail), 'context rail must read real live data');
-  assert.ok(/MEMORIA TEMPORANEA/.test(rail), 'temporary memory is visible in the cockpit rail');
+  assert.ok(/api\.getHome/.test(rail) && /useTemporaryMemory/.test(rail), 'context rail must read real Home + temporary-memory data');
+  assert.ok(/SITUAZIONE ATTIVA/.test(rail) && /Memoria temporanea/.test(rail), 'right rail must lead with the active temporary situation');
+  assert.ok(/title="Inserita"/.test(rail) && /title="Stato live"/.test(rail) && /title="Monitoraggio"/.test(rail), 'reference-style detail rows must be present');
+
+  const rich = readCode('src/components/ora-ai/RichOraText.tsx');
+  assert.ok(/isDangerParagraph/.test(rich) && /dangerColor/.test(rich), 'urgent opening paragraphs must have a dedicated danger treatment');
 }
 
 console.log('ora14: all assertions passed');

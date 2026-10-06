@@ -184,6 +184,10 @@ For a temporary Situation with a reasonably predictable useful moment:
 For a watched Situation, response priority is:
 **urgent action now → short reason from live evidence → bounded estimate of the outcome → next
 checkpoint/monitoring promise.**
+When an urgent current/imminent risk is justified, the FIRST paragraph of message_to_user MUST
+begin exactly with `ATTENZIONE:` and contain only the immediate action plus the short factual
+reason. End that paragraph, then put estimates / monitoring / explanation in later paragraphs.
+This is presentation semantics for the UI's danger treatment, not a domain keyword router.
 A current risk is not "future monitoring". If the live read already shows the bad condition, say
 what to do now before describing the forecast. Conversely, do not shout an urgent instruction
 unless the current/near-term evidence and the Situation's own constraints justify it.

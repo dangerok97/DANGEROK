@@ -24,6 +24,27 @@ export function OraPresence({ mode = 'idle', activity = null, compact = false, a
   const learned = useKnowledgeMap(user?.user_id, active && knowledge === undefined, refreshKey);
   const map = knowledge === undefined ? learned.data : knowledge;
   const stars = useMemo(() => geometryFor(map), [map]);
+  const autoSpotlightId = useMemo(() => {
+    if (spotlightId) return spotlightId;
+    const addedTemporary = [...(learned.addedStars || [])]
+      .filter((star) => star.temporary)
+      .sort((a, b) => {
+        const av = a.updated_at ? new Date(a.updated_at).getTime() : 0;
+        const bv = b.updated_at ? new Date(b.updated_at).getTime() : 0;
+        return bv - av;
+      });
+    if (addedTemporary[0]?.id) return addedTemporary[0].id;
+
+    // A remount immediately after creation has no previous map to diff against.
+    // In that narrow window, the newest temporary Situation is still the thing
+    // the person just created and deserves the same visual focus.
+    const recent = [...(map?.stars || [])]
+      .filter((star) => star.temporary && star.updated_at)
+      .sort((a, b) => new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime())[0];
+    if (!recent?.id || !recent.updated_at) return null;
+    const age = Date.now() - new Date(recent.updated_at).getTime();
+    return age >= 0 && age <= 120_000 ? recent.id : null;
+  }, [spotlightId, learned.addedStars, map]);
   const [paused, setPaused] = useState(false);
   const [reduced, setReduced] = useState(true);
   const [motionReady, setMotionReady] = useState(false);
@@ -76,7 +97,7 @@ export function OraPresence({ mode = 'idle', activity = null, compact = false, a
   const hasConversation = Boolean(conversation);
   const selectedGeometry = selected?.id ? stars.findIndex(s => s.id === selected.id) : -1;
   const selectedIndex = selected?.kind === 'area' ? selected.index : selectedGeometry >= 0 ? selectedGeometry + 8 : null;
-  const options = useMemo(() => ({ stars, mode, area, paused, reduced, reveal: !!opening, revealKey: opening, active: active && foreground, selectedIndex: selectedIndex !== null && selectedIndex >= 0 ? selectedIndex : null, resetKey, centerY: expanded && hasConversation && showConversation ? .40 : .50, spotlightId }), [stars, mode, area, paused, reduced, opening, active, foreground, selectedIndex, resetKey, expanded, hasConversation, showConversation, spotlightId]);
+  const options = useMemo(() => ({ stars, mode, area, paused, reduced, reveal: !!opening, revealKey: opening, active: active && foreground, selectedIndex: selectedIndex !== null && selectedIndex >= 0 ? selectedIndex : null, resetKey, centerY: expanded && hasConversation && showConversation ? .40 : .50, spotlightId: autoSpotlightId }), [stars, mode, area, paused, reduced, opening, active, foreground, selectedIndex, resetKey, expanded, hasConversation, showConversation, autoSpotlightId]);
   const caption = mode === 'listen' ? 'Ti ascolto' : mode === 'speak' ? 'Ti rispondo' : mode === 'think' ? 'Sto lavorando' : 'Sono qui';
   const label = caption + (area ? ` · ${AREA_LABELS[area]}` : '');
   const height = compact ? (windowHeight < 650 ? 128 : width < 650 ? 200 : 260) : Math.min(350, Math.max(240, windowHeight * .36));
