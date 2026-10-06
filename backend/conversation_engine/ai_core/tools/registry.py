@@ -1266,7 +1266,11 @@ class ToolRegistry:
             CapabilitySpec(
                 capability="cancel_calendar_event",
                 description=(
-                    "Cancel an existing calendar event ORA manages, by exact calendar_ref. "
+                    "Cancel an existing calendar event ORA manages. Prefer an exact calendar_ref "
+                    "when already known. If the user names the event but no ref has been read, pass "
+                    "their wording as target_title directly — do not perform a separate calendar read "
+                    "merely to obtain a ref. Exact unique current/future titles may resolve; close or "
+                    "fuzzy titles only return candidates and can never authorize deletion. "
                     "Call this on a cancellation request to prepare the precise confirmation question. "
                     "It does not delete without explicit approval. If the tool returns authority_required, "
                     "the AI asks the exact prepared question and on a later approval chooses "
@@ -1274,8 +1278,19 @@ class ToolRegistry:
                 ),
                 input_schema={
                     "type": "object",
-                    "properties": {"calendar_ref": {"type": "string"}},
-                    "required": ["calendar_ref"],
+                    "properties": {
+                        "calendar_ref": {
+                            "type": "string",
+                            "description": "Exact canonical ref when already known.",
+                        },
+                        "target_title": {
+                            "type": "string",
+                            "description": (
+                                "Event title wording from the user current message "
+                                "when no calendar_ref has been resolved yet."
+                            ),
+                        },
+                    },
                 },
                 classification="personal",
                 side_effect="REVERSIBLE_WRITE",
