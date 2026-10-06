@@ -90,36 +90,38 @@ async def test_exact_title_can_prepare_cancel_without_pre_resolved_ref():
 
 
 @pytest.mark.asyncio
-async def test_similar_title_only_suggests_and_never_reaches_delete(monkeypatch):
+async def test_typo_in_event_name_goes_to_exact_event_confirmation():
     from conversation_engine.ai_core.tools import calendar_caps
 
     db = AsyncMongoMockClient().test
     await db.ingestion_events.insert_one(
-        _google_row(title="Visita dentistica controllo")
+        _google_row(title="TEST ORA — seconda passata")
     )
 
-    deleted = False
-
-    async def must_not_delete(*args, **kwargs):
-        nonlocal deleted
-        deleted = True
-        raise AssertionError("fuzzy title must never reach deletion")
-
-    monkeypatch.setattr("home.calendar_event.delete_event", must_not_delete)
-
     obs = await calendar_caps.cancel_calendar_event(
-        {"target_title": "Visita dentistica"},
+        {"target_title": "TEST ORA seconda passatta"},
         {
             "user_id": OWNER,
             "db": db,
-            "user_message": "cancella visita dentistica",
+            "user_message": "Cancella TEST ORA seconda passatta",
         },
     )
 
-    assert obs.status in ("partial", "not_found")
-    if obs.status == "partial":
-        assert obs.payload["status"] in ("needs_confirmation", "needs_information")
-    assert deleted is False
+    # The person does not have to reproduce exact punctuation/spelling.
+    # A single strong candidate is bound only to the confirmation stage.
+    assert obs.status == "partial"
+    assert obs.payload["status"] == "authority_required"
+    question = obs.payload["confirmation_request"]["question"]
+    assert "TEST ORA — seconda passata" in question
+    frozen = obs.payload["confirmation_request"]["arguments"]
+    assert frozen["calendar_ref"].startswith("calendar:ced_google_")
+
+    # No deletion happened yet; the exact canonical event is merely frozen
+    # for the user's explicit yes/no.
+    row = await db.ingestion_events.find_one(
+        {"user_id": OWNER, "id": "ing_dentista"}, {"_id": 0}
+    )
+    assert row is not None
 
 
 @pytest.mark.asyncio
@@ -180,3 +182,47 @@ async def test_confirmed_local_calendar_cancel_really_archives_event():
     observed = await get_manual_event(db, OWNER, event["id"])
     assert observed is not None
     assert observed["status"] == "archived"
+
+
+
+def test_calendar_confirmation_question_cannot_collapse_to_ok():
+    from conversation_engine.ai_core.loop import _the_tool_s_own_sentence
+
+    question = "Elimino «TEST ORA — seconda passata» dal calendario Google?"
+    observations = [{
+        "name": "cancel_calendar_event",
+        "status": "partial",
+        "payload": {
+            "status": "authority_required",
+            "confirmation_request": {
+                "question": question,
+                "arguments": {"calendar_ref": "calendar:ced_google_test"},
+            },
+        },
+    }]
+
+    assert _the_tool_s_own_sentence(observations) == question
+
+
+def test_calendar_semantic_reference_rule_is_in_cognitive_prompt():
+    from conversation_engine.ai_core.prompt import COGNITIVE_SYSTEM_PROMPT
+
+    prompt = COGNITIVE_SYSTEM_PROMPT
+    assert "Calendar event names are semantic references, not passwords" in prompt
+    assert "Never require the person to repeat an event title character-for-character" in prompt
+    assert "Similarity may identify what to CONFIRM" in prompt
+
+
+def test_bare_ack_progress_guard_is_present():
+    from pathlib import Path
+
+    source = (
+        Path(__file__).resolve().parents[1]
+        / "conversation_engine"
+        / "ai_core"
+        / "loop.py"
+    ).read_text(encoding="utf-8")
+
+    assert "BARE_ACK_WITHOUT_PROGRESS" in source
+    assert "BARE_ACK_PROGRESS_NUDGE" in source
+    assert "choose and run the appropriate ORA skill" in source
