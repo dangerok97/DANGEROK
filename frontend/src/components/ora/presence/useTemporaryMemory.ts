@@ -9,7 +9,7 @@ function stamp(star: KnowledgeStar): number {
   return Number.isFinite(value) ? value : 0;
 }
 
-export function useTemporaryMemory(active = true) {
+export function useTemporaryMemory(active = true, refreshKey?: unknown) {
   const [stars, setStars] = useState<KnowledgeStar[]>([]);
 
   const refresh = useCallback(async () => {
@@ -38,7 +38,7 @@ export function useTemporaryMemory(active = true) {
       clearInterval(timer);
       app.remove();
     };
-  }, [active, refresh]);
+  }, [active, refresh, refreshKey]);
 
   return useMemo(
     () => ({ stars, latest: stars[0] || null, count: stars.length, refresh }),
