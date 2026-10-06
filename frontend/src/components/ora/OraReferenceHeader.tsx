@@ -59,7 +59,7 @@ export function OraReferenceHeader() {
         <Text style={styles.tagline}>IL TUO ASSISTENTE PERSONALE</Text>
       </View>
 
-      <View style={styles.nav} accessibilityRole="tablist">
+      <View style={styles.nav}>
         {NAV.map((item) => {
           const active = item.label === 'Mappa';
           return (
