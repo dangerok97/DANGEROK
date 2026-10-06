@@ -22,6 +22,13 @@ def test_persisted_skill_plan_contains_only_orchestration_metadata():
         objective="Cancella l'impegno e poi prepara lo spostamento",
         required=["cancel_calendar_event", "open_navigation"],
         attempted={"cancel_calendar_event"},
+        outcomes=[{
+            "capability": "cancel_calendar_event",
+            "observed_capability": "cancel_calendar_event",
+            "status": "ok",
+            "result_status": "ok",
+            "failure_kind": "",
+        }],
         waiting=True,
     )
 
