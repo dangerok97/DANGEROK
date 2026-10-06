@@ -539,8 +539,20 @@ async def get_calendar_events(arguments: Dict[str, Any], runtime: Dict[str, Any]
             # l'evento c'e' davvero. Non esce mai da questa funzione.
             "google_event_id": 1,
         },
-    ).sort("start_datetime", 1).limit(_MAX_EVENTS_RETURNED)
-    drafts = await drafts_cur.to_list(_MAX_EVENTS_RETURNED)
+    ).sort("start_datetime", 1).limit(max(_MAX_EVENTS_RETURNED * 5, 100))
+    drafts = await drafts_cur.to_list(max(_MAX_EVENTS_RETURNED * 5, 100))
+    drafts = [
+        d for d in drafts
+        if _event_overlaps_window(
+            {
+                "start_datetime": d.get("start_datetime"),
+                "end_datetime": d.get("end_datetime"),
+            },
+            time_min,
+            time_max,
+            zone=user_zone,
+        )
+    ][:_MAX_EVENTS_RETURNED]
 
     items = [
         {
@@ -573,6 +585,7 @@ async def get_calendar_events(arguments: Dict[str, Any], runtime: Dict[str, Any]
 
     remaining = max(0, _MAX_EVENTS_RETURNED - len(items))
     if remaining and google_read_granted:
+        mirror_scan_limit = max(remaining * 5, 100)
         ingested_cur = db.ingestion_events.find(
             {
                 "user_id": uid,
@@ -585,8 +598,20 @@ async def get_calendar_events(arguments: Dict[str, Any], runtime: Dict[str, Any]
                 where("starts_at"): {"$gte": scan_min_iso, "$lt": tmax_iso},
             },
             {"_id": 0, "id": 1, "normalized_payload": 1, "external_id": 1},
-        ).sort(where("starts_at"), 1).limit(remaining)
-        mirrored = await ingested_cur.to_list(remaining)
+        ).sort(where("starts_at"), 1).limit(mirror_scan_limit)
+        mirrored = await ingested_cur.to_list(mirror_scan_limit)
+        mirrored = [
+            e for e in mirrored
+            if _event_overlaps_window(
+                {
+                    "start_datetime": plain(e.get("normalized_payload")).get("starts_at"),
+                    "end_datetime": plain(e.get("normalized_payload")).get("ends_at"),
+                },
+                time_min,
+                time_max,
+                zone=user_zone,
+            )
+        ][:remaining]
 
         # Quello che il calendario conferma davvero.
         #
