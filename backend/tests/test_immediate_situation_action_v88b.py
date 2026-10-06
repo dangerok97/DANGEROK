@@ -16,6 +16,10 @@ def test_conversation_prompt_leads_with_current_actionable_risk():
     assert "Give them a usable first expectation now" in prompt
     assert "A current risk is not" in prompt
     assert "future monitoring" in prompt
+    assert 'Do not equate "conditions improve at time X"' in prompt
+    assert "when harmful/unfavourable conditions stop" in prompt
+    assert "when the process can actually resume" in prompt
+    assert "when the desired outcome is plausibly reached" in prompt
 
 
 def test_background_reasoning_does_not_wait_on_already_active_risk():
@@ -25,6 +29,9 @@ def test_background_reasoning_does_not_wait_on_already_active_risk():
     assert "lead the headline with the concrete action now" in source
     assert "Do not lead with 'sto monitorando'" in source
     assert "bounded future estimate" in source
+    assert "Do not confuse the time at which live conditions improve" in source
+    assert "setback caused by the bad condition" in source
+    assert "never make the first forecast improvement hour double as the completion time" in source
 
 
 def test_behavior_remains_domain_neutral():
