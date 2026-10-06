@@ -1564,7 +1564,13 @@ function OraConversationBody({
     </FocusScreen>
   );
 
-  if (!cockpitReady) return schermo;
+  if (!cockpitReady) {
+    return wide ? (
+      <DesktopShell active="ora" immersive>
+        {schermo}
+      </DesktopShell>
+    ) : schermo;
+  }
 
   return (
     <DesktopShell active="ora" immersive>
