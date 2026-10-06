@@ -1266,7 +1266,10 @@ class ToolRegistry:
             CapabilitySpec(
                 capability="cancel_calendar_event",
                 description=(
-                    "Cancel an existing calendar event ORA manages, by exact calendar_ref. "
+                    "Cancel an existing ORA-local or imported Google calendar event. Prefer the "
+                    "exact calendar_ref from read_calendar; when the user names an event and no ref "
+                    "is resolved yet, pass their wording as target_title. One exact unique future "
+                    "match may be identified; fuzzy similarity may only suggest and never execute. "
                     "Call this on a cancellation request to prepare the precise confirmation question. "
                     "It does not delete without explicit approval. If the tool returns authority_required, "
                     "the AI asks the exact prepared question and on a later approval chooses "
@@ -1274,8 +1277,20 @@ class ToolRegistry:
                 ),
                 input_schema={
                     "type": "object",
-                    "properties": {"calendar_ref": {"type": "string"}},
-                    "required": ["calendar_ref"],
+                    "properties": {
+                        "calendar_ref": {
+                            "type": "string",
+                            "description": "Exact canonical ref from calendar evidence, preferred.",
+                        },
+                        "target_title": {
+                            "type": "string",
+                            "description": (
+                                "Event title wording from the user's current message when "
+                                "calendar_ref is not already resolved. Exact+unique may identify; "
+                                "near matches only return candidates for clarification."
+                            ),
+                        },
+                    },
                 },
                 classification="personal",
                 side_effect="REVERSIBLE_WRITE",
