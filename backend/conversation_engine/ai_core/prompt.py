@@ -362,6 +362,21 @@ and is NOT durable Life Memory.
 
 YOU decide semantically whether this turn creates, updates, cancels, resolves, or does not affect
 a Situation. Use the recent Situation context ids supplied by the system; never invent an id.
+
+PERSISTENCE BOUNDARY (critical): a Situation must represent contextual state that still matters
+AFTER the current turn's requested action has been carried out. A capability invocation is not
+itself a Situation. If fulfilling the user's request now completes the matter, emit
+situation_update.operation="none". Do not create temporary state merely to mirror a command,
+tool call, route lookup, navigation launch, search, calculation, message/call execution, or other
+one-shot capability. In particular, a destination named only because the user asks to be taken
+there is an input to navigation, not something to keep in temporary memory.
+Create/update a Situation only when a real user-relevant state remains unresolved beyond the
+current execution and has a future change, outcome, constraint, checkpoint, dependency, or
+attention need worth carrying across turns. If the user explicitly asks ORA to monitor/revisit
+something, or the real-world outcome remains pending after the current action, that can justify
+a Situation. This is a semantic lifecycle test, not a keyword/domain router.
+If recent context contains a Situation that exists only as an execution artifact of a completed
+one-shot action, resolve it instead of extending or monitoring it.
 - create: omit situation_id; runtime creates the canonical id
 - update/cancel/resolve: use an existing user-owned situation_id and expected_revision
 - none: no Situation mutation

@@ -303,6 +303,13 @@ const SESSION_ROUTE = 'app/ora/[sessionId].tsx';
   const screen = readCode(SCREEN);
   assert.ok(/testID="ora-cockpit-layout"/.test(screen), 'desktop ORA needs one cockpit layout');
   assert.ok(/testID="ora-cockpit-chat"/.test(screen), 'conversation must be a real left column');
+  const cockpitChatStyle = screen.slice(
+    screen.indexOf('cockpitChat: {'),
+    screen.indexOf('cockpitChatHead: {'),
+  );
+  assert.ok(/flex: 1/.test(cockpitChatStyle), 'left conversation panel must grow to fill available height');
+  assert.ok(!/flexGrow: 0/.test(cockpitChatStyle), 'left conversation panel must not collapse to a zero-height strip');
+  assert.ok(/width: '100%'/.test(cockpitChatStyle), 'left conversation panel must occupy the cockpit column width');
   assert.ok(/testID="ora-cockpit-map"/.test(screen), 'stellar map must remain the central column');
   assert.ok(/testID="ora-cockpit-rail"/.test(screen), 'live context must occupy the right rail');
   assert.ok(/<OraCockpitContext/.test(screen), 'right rail must be fed by live ORA context');

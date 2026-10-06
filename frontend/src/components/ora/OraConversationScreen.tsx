@@ -1741,8 +1741,8 @@ const styles = StyleSheet.create({
   cockpitChat: {
     flex: 1,
     minHeight: 0,
-    flexGrow: 0,
     flexShrink: 1,
+    width: '100%',
     minWidth: 300,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(128,196,219,.18)',
