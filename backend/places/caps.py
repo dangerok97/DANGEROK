@@ -295,8 +295,9 @@ async def _route_origin_or_location_request(
     if isinstance(action, dict) and action.get("type"):
         return None, action, status
 
-    # Generic location context may accept RECENT, but a live route needs CURRENT.
-    if status == "ok" and str(loc.get("freshness") or "") != "CURRENT":
+    # If build_presence did not yield a strict route origin, even an otherwise
+    # usable location observation is not sufficient for a live ETA. Refresh it.
+    if status == "ok":
         return None, {
             "type": "request_foreground_location",
             "reason": "Serve una posizione corrente per confrontare i percorsi e il traffico.",
