@@ -326,7 +326,14 @@ const SESSION_ROUTE = 'app/ora/[sessionId].tsx';
   assert.ok(/variant\?: 'default' \| 'cockpit'/.test(turns), 'turns expose a bounded cockpit presentation');
   assert.ok(/oraOrbOuter/.test(turns) && /oraOrbInner/.test(turns), 'ORA identity uses the glowing orb in cockpit mode');
 
-  assert.ok(/<OraReferenceHeader/.test(screen), 'wide cockpit must use the approved horizontal ORA header');
+  assert.ok(
+    /<DesktopShell active="ora" immersive>/.test(screen),
+    'wide cockpit must stay inside the shared ORA desktop navigation shell',
+  );
+  assert.ok(
+    !/OraReferenceHeader/.test(screen),
+    'wide cockpit must not reintroduce a separate horizontal navigation bar',
+  );
   assert.ok(/<TemporarySituationToast/.test(screen), 'new temporary Situations need the lower-left creation toast');
   assert.ok(/cockpitChrome/.test(screen), 'central map must use cockpit-specific chrome instead of its legacy top toolbar');
   assert.ok(/onSelectNode/.test(screen) && /selectedMapStarId/.test(screen), 'selecting a map star must drive the right rail');
@@ -341,9 +348,9 @@ const SESSION_ROUTE = 'app/ora/[sessionId].tsx';
   assert.ok(/title="Promemoria attivo"/.test(rail), 'right rail must show the next checkpoint when available');
   assert.ok(/dismissTemporarySituation/.test(rail) && /Rimuovi dalla memoria temporanea/.test(rail), 'temporary state must be explicitly removable');
 
-  const header = readCode('src/components/ora/OraReferenceHeader.tsx');
-  for (const label of ['Home', 'Vita', 'Calendario', 'Luoghi', 'Mappa', 'Impostazioni']) {
-    assert.ok(header.includes(label), `reference top navigation missing ${label}`);
+  const sharedNav = readCode('src/shell/navItems.ts');
+  for (const label of ['Home', 'Vita', 'ORA', 'Luoghi', 'Chiamate', 'Attività', 'Documenti']) {
+    assert.ok(sharedNav.includes(`label: '${label}'`), `shared ORA navigation missing ${label}`);
   }
 
   const visual = readCode('src/components/ora/situationVisual.ts');

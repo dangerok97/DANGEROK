@@ -63,7 +63,6 @@ import { OraTurns, type Turn } from './OraTurns';
 import { pickOraOpportunity } from './entryOpportunity';
 import { OraPresence } from './presence/OraPresence';
 import { OraCockpitContext } from './OraCockpitContext';
-import { OraReferenceHeader } from './OraReferenceHeader';
 import { TemporarySituationToast } from './TemporarySituationToast';
 import { useTemporaryMemory } from './presence/useTemporaryMemory';
 import { COMPLETED_FOCUS_MS, presenceMode, readPresenceActivity, type PresenceActivity } from './presence/state';
@@ -1584,16 +1583,16 @@ function OraConversationBody({
   }
 
   return (
-    <View style={styles.referenceRoot}>
-      <StatusBar style="light" />
-      <LocationPermissionSheet
-        visible={locPermVisible}
-        onAllow={() => resolveLocationPreference(true)}
-        onDeny={() => resolveLocationPreference(false)}
-      />
-      <LiveVoiceScreen live={live} activity={presenceActivity} openingKey={openingTurn} />
-      <OraReferenceHeader />
-      <KeyboardAvoidingView style={styles.referenceBody}>
+    <DesktopShell active="ora" immersive>
+      <View style={styles.referenceRoot}>
+        <StatusBar style="light" />
+        <LocationPermissionSheet
+          visible={locPermVisible}
+          onAllow={() => resolveLocationPreference(true)}
+          onDeny={() => resolveLocationPreference(false)}
+        />
+        <LiveVoiceScreen live={live} activity={presenceActivity} openingKey={openingTurn} />
+        <KeyboardAvoidingView style={styles.referenceBody}>
         <View style={styles.cockpit} testID="ora-cockpit-layout">
           <View style={styles.cockpitLeft}>
             <View style={styles.cockpitChat} testID="ora-cockpit-chat">
@@ -1645,9 +1644,10 @@ function OraConversationBody({
               }}
             />
           </ScrollView>
-        </View>
-      </KeyboardAvoidingView>
-    </View>
+          </View>
+        </KeyboardAvoidingView>
+      </View>
+    </DesktopShell>
   );}
 
 const styles = StyleSheet.create({
