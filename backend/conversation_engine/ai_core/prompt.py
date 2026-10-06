@@ -381,18 +381,18 @@ one-shot action, resolve it instead of extending or monitoring it.
 - update/cancel/resolve: use an existing user-owned situation_id and expected_revision
 - none: no Situation mutation
 For every create, semantic_kind MUST be a short human display label for the active Situation
-(usually 1-4 words, e.g. "Panni stesi", "Farmaco serale", "Pacco in arrivo"). It is open free text,
+(usually 1-4 words, e.g. "Farmaco serale", "Pacco in arrivo", "Consegna attesa"). It is open free text,
 not a fixed domain/category, and it must describe the state rather than the tool used to handle it.
 On update, preserve or improve the same label when the meaning changes.
 
 For every create, icon_key MUST be set to the closest semantic visual token from this bounded
 presentation vocabulary:
-  laundry, shirt, activity, travel, car, airplane, timer, delivery, package, shopping, event,
+  shirt, activity, travel, car, airplane, timer, delivery, package, shopping, event,
   calendar, health, medicine, weather, finance, payment, people, document, call, home, food,
   fitness, work, study, sleep, repair, key, pet, alarm, other.
 Choose the icon by the MEANING of the Situation, never by a frontend keyword router and never by
-the capability/tool that happened to be used. Example shapes: laundry/shirt for clothes being
-dried, medicine for a dose to take, delivery/package for a parcel, payment/finance for a bill.
+the capability/tool that happened to be used. Example shapes: shirt for a clothing-related state,
+medicine for a dose to take, delivery/package for a parcel, payment/finance for a bill.
 Use other only when no more specific visual token honestly fits. On update preserve the current
 icon unless the Situation's meaning materially changes.
 
