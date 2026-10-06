@@ -1020,25 +1020,44 @@ async def get_route(arguments, runtime) -> Observation:
             uid,
         )
 
-    origin = None
-    try:
-        from location.service import LocationService
+    if not routing.capabilities().get("available"):
+        return _ok(
+            "get_route",
+            {
+                "available": False,
+                **routing.capabilities(),
+                "why_unavailable": _routing_note().get("why_unavailable"),
+            },
+            uid,
+        )
 
-        presence = await LocationService(runtime["db"]).build_presence(uid)
-        if presence and presence.latitude is not None and presence.longitude is not None:
-            origin = {"latitude": presence.latitude, "longitude": presence.longitude}
-    except Exception:
-        origin = None
+    origin, client_action, location_status = await _route_origin_or_location_request(
+        runtime, uid
+    )
+    if client_action is not None:
+        return _ok(
+            "get_route",
+            {
+                "available": False,
+                "needs_client": True,
+                "needs_current_location": True,
+                "why_unavailable": "serve una posizione corrente per calcolare il percorso live",
+                "location_status": location_status,
+                "client_action": client_action,
+                **routing.capabilities(),
+            },
+            uid,
+            status="needs_client",
+        )
     if origin is None:
         return _ok(
             "get_route",
             {
                 "available": False,
-                "why_unavailable": "non so dove si trova adesso",
+                "why_unavailable": _route_origin_reason(location_status),
                 **routing.capabilities(),
             },
             uid,
-            status="needs_client",
         )
 
     result = await routing.get_route(
