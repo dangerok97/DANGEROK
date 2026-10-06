@@ -61,6 +61,7 @@ import {
 import { OraTurns, type Turn } from './OraTurns';
 import { pickOraOpportunity } from './entryOpportunity';
 import { OraPresence } from './presence/OraPresence';
+import { OraCockpitContext } from './OraCockpitContext';
 import { COMPLETED_FOCUS_MS, presenceMode, readPresenceActivity, type PresenceActivity } from './presence/state';
 import type { OraJourneyView } from './OraJourney';
 import { DesktopShell } from '@/src/shell';
@@ -1446,6 +1447,36 @@ function OraConversationBody({
     </View>
   );
 
+  const showConversationSurface = Boolean(
+    !emptyStart || context || need || raised || error || suggestedOpportunity || suggestedFocus,
+  );
+
+  const conversationStream = (variant: 'default' | 'cockpit' = 'default') => (
+    <ScrollView
+      ref={scrollRef}
+      style={styles.scroll}
+      contentContainerStyle={[
+        styles.scrollContent,
+        variant === 'cockpit' && styles.cockpitScrollContent,
+      ]}
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={variant === 'cockpit'}
+      testID={`${testID}-scroll`}
+      onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
+    >
+      {boot ? <OraWorking hint="Sto recuperando la conversazione…" /> : <>
+        {opening}
+        <OraTurns
+          turns={turns}
+          variant={variant}
+          onRetry={(t) => void retry(t)}
+        />
+        {busy ? <OraWorking hint={workingHint} /> : null}
+        {asides}
+      </>}
+    </ScrollView>
+  );
+
   const schermo = (
     <FocusScreen testID={testID} maxWidth={2600} contentStyle={{ paddingHorizontal: 0 }}>
       <StatusBar style="light" />
@@ -1454,24 +1485,7 @@ function OraConversationBody({
         onAllow={() => resolveLocationPreference(true)}
         onDeny={() => resolveLocationPreference(false)}
       />
-      {/*
-        La modalità vocale sta sopra questa schermata, non al posto suo: la
-        conversazione continua a vivere qui sotto, e chiudendola i turni sono
-        già tutti al loro posto perché non sono mai stati altrove.
-      */}
       <LiveVoiceScreen live={live} activity={presenceActivity} openingKey={openingTurn} />
-      {/*
-        No offset, because there is nothing left to offset.
-
-        `keyboardVerticalOffset` is the distance from the top of the window to
-        the top of this view. FocusScreen already wraps everything in a
-        SafeAreaView that consumes the top inset, so passing `insets.top + 48`
-        counted the notch a second time and added 48 points on top of that —
-        on a modern iPhone that is around 107 points of empty space pushed
-        between the last turn and the keyboard. The product's two other
-        conversation surfaces, Life Setup and login, sit in the same kind of
-        container and pass nothing; this now matches them.
-      */}
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -1496,24 +1510,7 @@ function OraConversationBody({
             onAreaPrompt={setText}
             footer={composerBlock}
             prominentConversation={Boolean(emptyStart && (suggestedOpportunity || suggestedFocus))}
-            conversation={!emptyStart || context || need || raised || error || suggestedOpportunity || suggestedFocus ? (
-              <ScrollView
-                ref={scrollRef}
-                style={styles.scroll}
-                contentContainerStyle={styles.scrollContent}
-                keyboardShouldPersistTaps="handled"
-                showsVerticalScrollIndicator
-                testID={`${testID}-scroll`}
-                onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
-              >
-                {boot ? <OraWorking hint="Sto recuperando la conversazione…" /> : <>
-                  {opening}
-                  <OraTurns turns={turns} onRetry={(t) => void retry(t)} />
-                  {busy ? <OraWorking hint={workingHint} /> : null}
-                  {asides}
-                </>}
-              </ScrollView>
-            ) : null}
+            conversation={showConversationSurface ? conversationStream() : null}
           />
         </View>
       </KeyboardAvoidingView>
@@ -1524,7 +1521,61 @@ function OraConversationBody({
 
   return (
     <DesktopShell active="ora" immersive>
-      {schermo}
+      <FocusScreen testID={testID} maxWidth={2600} contentStyle={{ paddingHorizontal: 0 }}>
+        <StatusBar style="light" />
+        <LocationPermissionSheet
+          visible={locPermVisible}
+          onAllow={() => resolveLocationPreference(true)}
+          onDeny={() => resolveLocationPreference(false)}
+        />
+        <LiveVoiceScreen live={live} activity={presenceActivity} openingKey={openingTurn} />
+        <KeyboardAvoidingView style={styles.flex}>
+          <View style={styles.cockpit} testID="ora-cockpit-layout">
+            <View style={styles.cockpitChat} testID="ora-cockpit-chat">
+              <View style={styles.cockpitChatHead}>
+                <View style={styles.cockpitTitleRow}>
+                  <View style={styles.cockpitOrb}>
+                    <View style={styles.cockpitOrbCore} />
+                  </View>
+                  <View style={styles.cockpitTitleCol}>
+                    <Text style={styles.cockpitTitle}>CONVERSAZIONE</Text>
+                    <Text style={styles.cockpitSubtitle}>Parla con ORA. La mappa resta viva accanto a te.</Text>
+                  </View>
+                </View>
+                {devHarness ? (
+                  <Text style={[styles.devBanner, { color: colors.textTertiary }]} testID="ora-dev-banner">
+                    DEV / diagnostica
+                  </Text>
+                ) : null}
+                {context ? <OraHeader context={context} onBack={goBack} /> : null}
+              </View>
+
+              <View style={styles.cockpitConversation}>
+                {conversationStream('cockpit')}
+              </View>
+
+              <View style={styles.cockpitComposer}>
+                {composerBlock}
+              </View>
+            </View>
+
+            <View style={styles.cockpitMap} testID="ora-cockpit-map">
+              <OraPresence
+                openingKey={openingTurn}
+                expanded
+                mode={presenceMode(busy, voice.state.phase)}
+                activity={presenceActivity}
+                active={!live.on}
+                onAreaPrompt={setText}
+              />
+            </View>
+
+            <View style={styles.cockpitRail} testID="ora-cockpit-rail">
+              <OraCockpitContext />
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </FocusScreen>
     </DesktopShell>
   );
 }
@@ -1538,12 +1589,114 @@ const styles = StyleSheet.create({
     width: '100%', maxWidth: READING_MAX_WIDTH, alignSelf: 'center',
     paddingHorizontal: tokens.spacing.lg, paddingVertical: tokens.spacing.md,
   },
+  cockpitScrollContent: {
+    maxWidth: '100%',
+    paddingHorizontal: 18,
+    paddingTop: 8,
+    paddingBottom: 24,
+  },
   composerWrap: { width: '100%', maxWidth: 860, alignSelf: 'center', gap: 8 },
   quickRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 4 },
   quickChip: {
     flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44,
     paddingHorizontal: 12, paddingVertical: 8,
     borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(145,213,234,.12)',
+    backgroundColor: 'rgba(10,20,30,.42)',
+  },
+  cockpit: {
+    flex: 1,
+    minHeight: 0,
+    width: '100%',
+    flexDirection: 'row',
+    backgroundColor: presencePalette.background,
+  },
+  cockpitChat: {
+    width: 390,
+    minWidth: 340,
+    maxWidth: 430,
+    minHeight: 0,
+    borderRightWidth: StyleSheet.hairlineWidth,
+    borderRightColor: 'rgba(143,204,222,.18)',
+    backgroundColor: 'rgba(5,11,18,.96)',
+  },
+  cockpitChatHead: {
+    paddingHorizontal: 18,
+    paddingTop: 18,
+    paddingBottom: 8,
+    gap: 10,
+  },
+  cockpitTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  cockpitOrb: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(137,225,255,.62)',
+    backgroundColor: 'rgba(74,170,211,.07)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#7fe0ff',
+    shadowOpacity: 0.7,
+    shadowRadius: 12,
+  },
+  cockpitOrbCore: {
+    width: 13,
+    height: 13,
+    borderRadius: 7,
+    borderWidth: 2,
+    borderColor: '#c8f5ff',
+    backgroundColor: 'rgba(124,224,255,.16)',
+  },
+  cockpitTitleCol: { flex: 1, gap: 2 },
+  cockpitTitle: {
+    color: presencePalette.text,
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1.8,
+  },
+  cockpitSubtitle: {
+    color: presencePalette.muted,
+    fontSize: 11,
+    lineHeight: 16,
+  },
+  cockpitConversation: {
+    flex: 1,
+    minHeight: 0,
+    marginHorizontal: 10,
+    marginBottom: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(128,196,219,.14)',
+    borderRadius: 20,
+    backgroundColor: 'rgba(7,15,24,.72)',
+    overflow: 'hidden',
+  },
+  cockpitComposer: {
+    paddingHorizontal: 10,
+    paddingBottom: 12,
+  },
+  cockpitMap: {
+    flex: 1,
+    minWidth: 430,
+    minHeight: 0,
+    backgroundColor: presencePalette.background,
+  },
+  cockpitRail: {
+    width: 320,
+    minWidth: 290,
+    maxWidth: 350,
+    minHeight: 0,
+    paddingHorizontal: 14,
+    paddingTop: 14,
+    paddingBottom: 14,
+    borderLeftWidth: StyleSheet.hairlineWidth,
+    borderLeftColor: 'rgba(143,204,222,.18)',
+    backgroundColor: 'rgba(5,11,18,.94)',
   },
   devBanner: { fontSize: 12, paddingBottom: 4 },
 });
