@@ -164,15 +164,15 @@ _GRAPH_LINK_CLAIM_RE = re.compile(
     r"i('|’)?ve\s+related)\b"
 )
 _CALENDAR_ABSENCE_CLAIM_RE = re.compile(
-    r"(?i)\\b("
-    r"non\\s+c(?:'|’|i\\s+)?e\\s+nessun.{0,80}(evento|impegno)|"
-    r"non\\s+esiste.{0,80}(evento|impegno)?|"
-    r"non\\s+ho\\s+trovato.{0,100}(evento|impegno|calendario)|"
+    r"(?i)\b("
+    r"non\s+c(?:'|’|i\s+)?e\s+nessun.{0,80}(evento|impegno)|"
+    r"non\s+esiste.{0,80}(evento|impegno)?|"
+    r"non\s+ho\s+trovato.{0,100}(evento|impegno|calendario)|"
     r"nessun.{0,80}(evento|impegno).{0,40}(calendario)|"
-    r"there\\s+is\\s+no.{0,80}(event|appointment)|"
+    r"there\s+is\s+no.{0,80}(event|appointment)|"
     r"no.{0,80}(event|appointment).{0,40}(calendar)|"
-    r"i\\s+couldn.?t\\s+find.{0,80}(event|appointment)"
-    r")\\b"
+    r"i\s+couldn.?t\s+find.{0,80}(event|appointment)"
+    r")\b"
 )
 
 
