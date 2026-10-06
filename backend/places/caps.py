@@ -452,13 +452,29 @@ async def open_navigation(arguments: Dict[str, Any], runtime: Dict[str, Any]) ->
     from places.navigation import handoff
 
     origin = None
-    try:
-        from location.service import LocationService
-
-        presence = await LocationService(runtime["db"]).build_presence(uid)
-        origin = _navigation_origin(presence)
-    except Exception:
-        origin = None
+    location_status = ""
+    if _mapbox_enabled():
+        origin, client_action, location_status = await _route_origin_or_location_request(
+            runtime, uid
+        )
+        if client_action is not None:
+            return _ok(
+                "open_navigation",
+                {
+                    "ready": False,
+                    "needs_client": True,
+                    "needs_current_location": True,
+                    "place": place.for_ai(),
+                    "location_status": location_status,
+                    "client_action": client_action,
+                    "say_this": (
+                        "Per confrontare tempi e traffico mi serve una posizione "
+                        "corrente del dispositivo. La aggiorno adesso."
+                    ),
+                },
+                uid,
+                status="needs_client",
+            )
 
     plan = handoff(
         latitude=place.coordinates.latitude,
@@ -548,7 +564,12 @@ async def open_navigation(arguments: Dict[str, Any], runtime: Dict[str, Any]) ->
             "route_weather": route_weather,
             "route_provider": route_provider,
             "destination_weather": destination_weather,
-            "routing": None if scelte else _routing_note(),
+            "routing": (
+                None if scelte else (
+                    {"available": False, "why_unavailable": _route_origin_reason(location_status)}
+                    if _mapbox_enabled() and origin is None else _routing_note()
+                )
+            ),
             "say_this": (
                 f"Ti porto a «{place.label}»: scegli l'app mappe qui sotto per avviare la navigazione. "
                 + (f"{consiglio} " if consiglio else "")
@@ -562,7 +583,13 @@ async def open_navigation(arguments: Dict[str, Any], runtime: Dict[str, Any]) ->
     )
 
 
-async def _public_route_preview(name: str, runtime: Dict[str, Any], *, arrival_request=None) -> Dict[str, Any] | None:
+async def _public_route_preview(
+    name: str,
+    runtime: Dict[str, Any],
+    *,
+    origin: Dict[str, float] | None = None,
+    arrival_request=None,
+) -> Dict[str, Any] | None:
     """A temporary coordinate lookup, only with a current origin and exact unique name."""
     from places import briefing, routing
     from places.navigation import navigation_url
@@ -571,10 +598,13 @@ async def _public_route_preview(name: str, runtime: Dict[str, Any], *, arrival_r
     if routing.configured_provider() != "mapbox":
         return None
     try:
-        from location.service import LocationService
+        if origin is None:
+            from location.service import LocationService
 
-        presence = await LocationService(runtime["db"]).build_presence(runtime["user_id"])
-        origin = _navigation_origin(presence)
+            presence = await LocationService(runtime["db"]).build_presence(
+                runtime["user_id"]
+            )
+            origin = _navigation_origin(presence)
         if origin is None:
             return None
         destination = await preview_destination(name, origin)
