@@ -1876,9 +1876,65 @@ async def cancel_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
     ref = _strip_ref(arguments.get("calendar_ref")) or str(
         arguments.get("google_event_id") or ""
     ).strip()
+    target_title = str(arguments.get("target_title") or "").strip()[:_MAX_TITLE]
+
+    if not ref and target_title:
+        resolved = await _named_calendar_ref_resolution(db, uid, target_title)
+        status = str(resolved.get("status") or "")
+        if status == "ok":
+            ref = _strip_ref((resolved.get("match") or {}).get("calendar_ref"))
+        elif status == "suggestion":
+            suggested = resolved.get("suggestion") or {}
+            return Observation(
+                kind="tool", name="cancel_calendar_event", status="partial",
+                payload={
+                    "status": "needs_confirmation",
+                    "failure_kind": "close_title_candidate",
+                    "target_title": target_title,
+                    "suggested_event": suggested,
+                    "alternatives": (resolved.get("suggestions") or [])[1:3],
+                    "reason": (
+                        "Ho trovato un solo titolo molto vicino, ma la somiglianza "
+                        "non autorizza una cancellazione. Chiedi se intende proprio "
+                        "quel candidato."
+                    ),
+                },
+            )
+        elif status in ("ambiguous", "ambiguous_similar"):
+            candidates = (
+                resolved.get("matches") or resolved.get("suggestions") or []
+            )[:5]
+            return Observation(
+                kind="tool", name="cancel_calendar_event", status="partial",
+                payload={
+                    "status": "needs_information",
+                    "failure_kind": "ambiguous_calendar_target",
+                    "target_title": target_title,
+                    "candidates": candidates,
+                    "reason": (
+                        "Più eventi possono corrispondere. Mostra i candidati e "
+                        "chiedi quale intende; non cancellare finché non è univoco."
+                    ),
+                },
+            )
+        else:
+            return Observation(
+                kind="tool", name="cancel_calendar_event", status="not_found",
+                payload={
+                    "status": "not_found",
+                    "target_title": target_title,
+                    "reason": (
+                        f"Non ho trovato un evento in corso o futuro intitolato "
+                        f"«{target_title}»."
+                    ),
+                },
+            )
+
     if not ref:
         return _fail(
-            "cancel_calendar_event", "INVALID_INPUT", "calendar_ref required",
+            "cancel_calendar_event",
+            "INVALID_INPUT",
+            "calendar_ref or target_title required",
         )
 
     handle = ref
