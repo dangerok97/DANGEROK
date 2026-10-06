@@ -110,9 +110,9 @@ def test_conversation_prompt_prioritizes_action_estimate_and_recheck():
     assert "future estimate belongs in `assumptions`" in prompt
     assert "CUMULATIVE PHYSICAL PROCESSES" in prompt
     assert "do not infer \"finished by 16:00\"" in prompt
-    assert "freshly wet laundry" in prompt
-    assert "84% and precipitation is already occurring" in prompt
-    assert "prefer a later/next-day provisional estimate" in prompt
+    assert "cumulative physical process" in prompt.lower()
+    assert "documented/calibrated" in prompt
+    assert "keep the estimate broad" in prompt
 
 
 def test_background_agent_and_delivery_prioritize_perishable_protective_action():
