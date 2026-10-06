@@ -257,6 +257,98 @@ async def continue_navigation(
     )
 
 
+async def _fresh_origin_or_location_bridge(
+    runtime: Dict[str, Any],
+) -> tuple[Dict[str, float] | None, Dict[str, Any] | None]:
+    """Return a CURRENT origin, or the exact client action needed to get one.
+
+    Route/traffic estimates are only useful from a current device fix. A RECENT
+    or STALE presence is deliberately not enough for "parti adesso". If the
+    client can refresh, pause the navigation skill instead of degrading early
+    to a generic map link.
+    """
+    uid = runtime.get("user_id") or ""
+    db = runtime.get("db")
+    if not uid or db is None:
+        return None, None
+
+    from location.service import LocationService
+
+    svc = LocationService(db)
+    try:
+        presence = await svc.build_presence(
+            uid, platform=str(runtime.get("platform") or "web")
+        )
+    except Exception:
+        presence = None
+
+    origin = _navigation_origin(presence)
+    if origin is not None:
+        return origin, None
+
+    try:
+        location = await svc.capability_get_current_location(
+            uid,
+            session_id=runtime.get("session_id"),
+            platform=str(runtime.get("platform") or "web"),
+        )
+    except Exception:
+        return None, None
+
+    action = location.get("client_action")
+    if isinstance(action, dict) and action.get("type"):
+        return None, {
+            "client_action": action,
+            "location_status": str(location.get("status") or "needs_client"),
+            "location_freshness": str(location.get("freshness") or "UNKNOWN"),
+        }
+
+    # capability_get_current_location intentionally accepts RECENT for general
+    # context. Navigation needs CURRENT, so ask for a foreground refresh when
+    # permission exists and the provider did not return a terminal error.
+    if (
+        str(location.get("freshness") or "") == "RECENT"
+        and str(location.get("status") or "") == "ok"
+    ):
+        return None, {
+            "client_action": {
+                "type": "request_foreground_location",
+                "reason": "Serve una posizione corrente per calcolare tempi e traffico del tragitto.",
+                "refresh": True,
+            },
+            "location_status": "needs_client",
+            "location_freshness": "RECENT",
+        }
+
+    return None, None
+
+
+def _navigation_needs_location(
+    uid: str,
+    spoken: str,
+    bridge: Dict[str, Any],
+) -> Observation:
+    """Pause route preparation until the client returns a fresh device fix."""
+    return _ok(
+        "open_navigation",
+        {
+            "ready": False,
+            "awaiting_location": True,
+            "destination": spoken[:160],
+            "needs_client": True,
+            "client_action": bridge["client_action"],
+            "location_status": bridge.get("location_status"),
+            "location_freshness": bridge.get("location_freshness"),
+            "reason": (
+                "Per confrontare tempi e traffico devo prima avere una posizione "
+                "corrente del dispositivo."
+            ),
+        },
+        uid,
+        status="needs_client",
+    )
+
+
 async def open_navigation(arguments: Dict[str, Any], runtime: Dict[str, Any]) -> Observation:
     """
     Everything needed to start navigating, or the question of which app.
@@ -279,9 +371,19 @@ async def open_navigation(arguments: Dict[str, Any], runtime: Dict[str, Any]) ->
                 and spoken.casefold() not in {"casa", "home", "lavoro", "work"}
                 and not resolution.reason.startswith("più luoghi")):
             from places.navigation import search_handoff
+            from places import routing
+
+            origin = None
+            if routing.configured_provider() is not None:
+                origin, bridge = await _fresh_origin_or_location_bridge(runtime)
+                if origin is None and bridge is not None:
+                    return _navigation_needs_location(uid, spoken, bridge)
 
             preview = await _public_route_preview(
-                spoken, runtime, arrival_request=arguments.get("arrival_request")
+                spoken,
+                runtime,
+                origin=origin,
+                arrival_request=arguments.get("arrival_request"),
             )
             return _ok("open_navigation", {
                 "ready": True,
@@ -337,14 +439,13 @@ async def open_navigation(arguments: Dict[str, Any], runtime: Dict[str, Any]) ->
 
     from places.navigation import handoff
 
-    origin = None
-    try:
-        from location.service import LocationService
+    from places import routing
 
-        presence = await LocationService(runtime["db"]).build_presence(uid)
-        origin = _navigation_origin(presence)
-    except Exception:
-        origin = None
+    origin = None
+    if routing.configured_provider() is not None:
+        origin, bridge = await _fresh_origin_or_location_bridge(runtime)
+        if origin is None and bridge is not None:
+            return _navigation_needs_location(uid, spoken or place.label, bridge)
 
     plan = handoff(
         latitude=place.coordinates.latitude,
@@ -372,7 +473,7 @@ async def open_navigation(arguments: Dict[str, Any], runtime: Dict[str, Any]) ->
     route_provider = None
     requested_mode = _travel_mode(arguments.get("mode"))
     if origin is not None:
-        from places import routing, briefing
+        from places import briefing
 
         route = await routing.get_route(
             origin=origin,
@@ -448,7 +549,13 @@ async def open_navigation(arguments: Dict[str, Any], runtime: Dict[str, Any]) ->
     )
 
 
-async def _public_route_preview(name: str, runtime: Dict[str, Any], *, arrival_request=None) -> Dict[str, Any] | None:
+async def _public_route_preview(
+    name: str,
+    runtime: Dict[str, Any],
+    *,
+    origin: Dict[str, float] | None = None,
+    arrival_request=None,
+) -> Dict[str, Any] | None:
     """A temporary coordinate lookup, only with a current origin and exact unique name."""
     from places import briefing, routing
     from places.navigation import navigation_url
@@ -457,12 +564,11 @@ async def _public_route_preview(name: str, runtime: Dict[str, Any], *, arrival_r
     if routing.configured_provider() != "mapbox":
         return None
     try:
-        from location.service import LocationService
-
-        presence = await LocationService(runtime["db"]).build_presence(runtime["user_id"])
-        origin = _navigation_origin(presence)
         if origin is None:
-            return None
+            fresh, bridge = await _fresh_origin_or_location_bridge(runtime)
+            if bridge is not None or fresh is None:
+                return None
+            origin = fresh
         destination = await preview_destination(name, origin)
         if not destination:
             return None
