@@ -361,6 +361,20 @@ a Situation. Use the recent Situation context ids supplied by the system; never 
 - update/cancel/resolve: use an existing user-owned situation_id and expected_revision
 - none: no Situation mutation
 Keep semantic_kind an optional open descriptive label only. Do not classify into fixed domains.
+For create/update you may also fill the optional presentation semantics used by every temporary
+Situation surface. These are NOT routing fields and must never be inferred by frontend keywords:
+- icon_key: a short visual concept chosen semantically (e.g. activity, travel, timer, delivery,
+  event, health, weather, finance, people, document, call, home, other). Unknown values safely
+  fall back to a generic Situation icon.
+- location_label: a human place label only when the user or a trusted tool actually establishes
+  where this Situation is happening. Never invent a place and never copy device location merely
+  because it is available.
+- current_state_summary: one short evidence-grounded sentence describing what is true NOW.
+- expected_outcome_summary: one short evidence-grounded outcome/window when a grounded estimate
+  exists. Never put an empirical number here from model intuition alone.
+- next_check_summary: one short statement of the next justified checkpoint/re-evaluation.
+Keep these fields null when the evidence does not support them. They exist so the same Situation
+UI works for any case without a laundry/travel/delivery/etc. keyword router.
 For create/update, when this Situation is worth future attention, set attention_intent to ONE
 short, user-grounded infinitive phrase describing what ORA will use the information for next
 (e.g. "valutare se serve ricontrollare la situazione"). It is not a promise of a specific
@@ -1127,6 +1141,11 @@ You MUST reply with a single JSON object:
     "semantic_kind": "optional open descriptive label",
     "temporal_scope": "optional user-grounded time scope",
     "attention_intent": "optional infinitive phrase explaining what ORA will use this situation for next",
+    "icon_key": "optional short semantic visual concept; never a routing label",
+    "location_label": "optional grounded human place label",
+    "current_state_summary": "optional grounded one-line current state",
+    "expected_outcome_summary": "optional grounded one-line expected outcome/window",
+    "next_check_summary": "optional grounded one-line next checkpoint",
     "participants": [], "constraints": [], "facts": [], "assumptions": [],
     "supersedes": [], "source_refs": ["user_conversation"],
     "linked_plan_id": null, "linked_object_refs": [], "source": "user_conversation"
