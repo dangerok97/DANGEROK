@@ -23,6 +23,7 @@ import {
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -62,6 +63,7 @@ import { OraTurns, type Turn } from './OraTurns';
 import { pickOraOpportunity } from './entryOpportunity';
 import { OraPresence } from './presence/OraPresence';
 import { OraCockpitContext } from './OraCockpitContext';
+import { useTemporaryMemory } from './presence/useTemporaryMemory';
 import { COMPLETED_FOCUS_MS, presenceMode, readPresenceActivity, type PresenceActivity } from './presence/state';
 import type { OraJourneyView } from './OraJourney';
 import { DesktopShell } from '@/src/shell';
@@ -1374,6 +1376,13 @@ function OraConversationBody({
   const emptyStart = !boot && turns.length === 0 && !busy;
   const bp = useBreakpoint();
   const wide = bp === 'desktop';
+  const { width: viewportWidth } = useWindowDimensions();
+  // Three columns only when there is genuinely enough room. A browser window
+  // can still report the desktop breakpoint while being too narrow for the
+  // cockpit; in that case fall back to the compact integrated surface instead
+  // of clipping controls and hiding the map/right rail.
+  const cockpitReady = wide && viewportWidth >= 1120;
+  const temporaryMemory = useTemporaryMemory(cockpitReady);
 
   /*
     Le scorciatoie sotto il composer. Non sono decorazione: due preparano
@@ -1401,7 +1410,7 @@ function OraConversationBody({
       onChangeText={setText}
       onSend={() => void send()}
       busy={busy}
-      placeholder="Scrivi a ORA…"
+      placeholder="Scrivi un messaggio a ORA…"
       showAttach
       attachments={attachments}
       onAttachPress={(kind) => void onAttach(kind)}
@@ -1424,26 +1433,41 @@ function OraConversationBody({
     </>
   );
 
+  const quickActionButtons = quickActions.map((q) => (
+    <Pressable
+      key={q.label}
+      onPress={q.run}
+      accessibilityRole="button"
+      style={({ pressed, hovered }: any) => [
+        styles.quickChip,
+        hovered && { backgroundColor: presencePalette.border },
+        pressed && { opacity: 0.7 },
+      ]}
+    >
+      <Ionicons name="add" size={15} color={presencePalette.muted} />
+      <Text style={styles.quickChipText}>{q.label}</Text>
+    </Pressable>
+  ));
+
   const composerBlock = (
     <View style={styles.composerWrap}>
       {composer}
-      {emptyStart && !text ? <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.quickRow} testID="ora-quick-actions">
-        {quickActions.map((q) => (
-          <Pressable
-            key={q.label}
-            onPress={q.run}
-            accessibilityRole="button"
-            style={({ pressed, hovered }: any) => [
-              styles.quickChip,
-              hovered && { backgroundColor: presencePalette.border },
-              pressed && { opacity: 0.7 },
-            ]}
-          >
-            <Ionicons name="add" size={15} color={presencePalette.muted} />
-            <Text style={{ fontSize: 12, color: presencePalette.muted }}>{q.label}</Text>
-          </Pressable>
-        ))}
-      </ScrollView> : null}
+      {emptyStart && !text ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.quickRow} testID="ora-quick-actions">
+          {quickActionButtons}
+        </ScrollView>
+      ) : null}
+    </View>
+  );
+
+  const cockpitComposerBlock = (
+    <View style={styles.composerWrap}>
+      {composer}
+      {emptyStart && !text ? (
+        <View style={styles.cockpitQuickGrid} testID="ora-quick-actions">
+          {quickActionButtons}
+        </View>
+      ) : null}
     </View>
   );
 
@@ -1471,6 +1495,29 @@ function OraConversationBody({
           variant={variant}
           onRetry={(t) => void retry(t)}
         />
+        {variant === 'cockpit' &&
+        temporaryMemory.latest &&
+        turns[turns.length - 1]?.role === 'ora' &&
+        !busy ? (
+          <View style={styles.situationActions} testID="ora-situation-actions">
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => void sendWords('Va bene.')}
+              style={({ pressed }) => [styles.situationAction, pressed && styles.actionPressed]}
+            >
+              <Ionicons name="checkmark-circle-outline" size={17} color={presencePalette.label} />
+              <Text style={styles.situationActionText}>Va bene</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => void sendWords('Avvisami quando devo intervenire per questa situazione.')}
+              style={({ pressed }) => [styles.situationAction, pressed && styles.actionPressed]}
+            >
+              <Ionicons name="notifications-outline" size={17} color={presencePalette.label} />
+              <Text style={styles.situationActionText}>Avvisami</Text>
+            </Pressable>
+          </View>
+        ) : null}
         {busy ? <OraWorking hint={workingHint} /> : null}
         {asides}
       </>}
@@ -1517,7 +1564,7 @@ function OraConversationBody({
     </FocusScreen>
   );
 
-  if (!wide) return schermo;
+  if (!cockpitReady) return schermo;
 
   return (
     <DesktopShell active="ora" immersive>
@@ -1555,7 +1602,7 @@ function OraConversationBody({
               </View>
 
               <View style={styles.cockpitComposer}>
-                {composerBlock}
+                {cockpitComposerBlock}
               </View>
             </View>
 
@@ -1597,6 +1644,12 @@ const styles = StyleSheet.create({
   },
   composerWrap: { width: '100%', maxWidth: 860, alignSelf: 'center', gap: 8 },
   quickRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 4 },
+  cockpitQuickGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 7,
+    paddingHorizontal: 2,
+  },
   quickChip: {
     flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44,
     paddingHorizontal: 12, paddingVertical: 8,
@@ -1604,7 +1657,37 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(145,213,234,.12)',
     backgroundColor: 'rgba(10,20,30,.42)',
+    maxWidth: '100%',
   },
+  quickChipText: {
+    color: presencePalette.muted,
+    fontSize: 11,
+    flexShrink: 1,
+  },
+  situationActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 14,
+    paddingBottom: 2,
+  },
+  situationAction: {
+    minHeight: 42,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    paddingHorizontal: 14,
+    borderRadius: 22,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(143,213,233,.30)',
+    backgroundColor: 'rgba(12,26,38,.72)',
+  },
+  situationActionText: {
+    color: presencePalette.text,
+    fontSize: 12,
+    fontWeight: '650' as any,
+  },
+  actionPressed: { opacity: 0.68 },
   cockpit: {
     flex: 1,
     minHeight: 0,
@@ -1613,8 +1696,10 @@ const styles = StyleSheet.create({
     backgroundColor: presencePalette.background,
   },
   cockpitChat: {
-    width: 390,
-    minWidth: 340,
+    flexBasis: 380,
+    flexGrow: 0,
+    flexShrink: 1,
+    minWidth: 300,
     maxWidth: 430,
     minHeight: 0,
     borderRightWidth: StyleSheet.hairlineWidth,
@@ -1682,13 +1767,15 @@ const styles = StyleSheet.create({
   },
   cockpitMap: {
     flex: 1,
-    minWidth: 430,
+    minWidth: 0,
     minHeight: 0,
     backgroundColor: presencePalette.background,
   },
   cockpitRail: {
-    width: 320,
-    minWidth: 290,
+    flexBasis: 320,
+    flexGrow: 0,
+    flexShrink: 1,
+    minWidth: 260,
     maxWidth: 350,
     minHeight: 0,
     paddingHorizontal: 14,
