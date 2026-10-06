@@ -187,6 +187,9 @@ class SkillPlan(BaseModel):
     objective: str = Field(min_length=1, max_length=320)
     required_capabilities: List[str] = Field(default_factory=list, max_length=5)
     completion_condition: Optional[str] = Field(default=None, max_length=360)
+    # Opaque backend-issued reference. The model may echo it only when the
+    # latest message semantically continues a previously paused execution plan.
+    resume_plan_ref: Optional[str] = Field(default=None, max_length=80)
 
     @field_validator("required_capabilities", mode="before")
     @classmethod

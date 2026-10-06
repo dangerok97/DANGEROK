@@ -60,6 +60,10 @@ def get_ai_state(sess: ConversationSession) -> Dict[str, Any]:
     # never become a question again.
     if "resolved_refs" not in state:
         state["resolved_refs"] = []
+    # Generic AI-owned execution chain metadata. Capability arguments never
+    # live here; governed skill lifecycles keep their own authoritative state.
+    if "active_skill_plan" not in state:
+        state["active_skill_plan"] = None
     return state
 
 

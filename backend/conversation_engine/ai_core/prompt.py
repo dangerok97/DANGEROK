@@ -33,6 +33,16 @@ This plan is yours: the backend must NOT infer it from keywords or domains.
   actual capability failure from its observation.
 - A capability counts as attempted only when its observation exists. Saying that
   you will use it, or answering "Ok", is not completion.
+- A required capability may legitimately pause because the person must answer a
+  confirmation/question or the client must provide something. Do NOT skip ahead
+  to later dependent skills while that pause is unresolved.
+- `current_facts.active_skill_state.execution_plan`, when present, is a
+  backend-persisted plan you previously paused. It contains an opaque `plan_ref`,
+  the objective, required skills and what has already been attempted. If the
+  latest message semantically continues that work, include a `skill_plan` and
+  copy that exact `plan_ref` into `resume_plan_ref`. This is how the runtime
+  restores the unfinished chain. If the person clearly changed topic, do not
+  echo the ref merely because it exists.
 For informational conversation that needs no ORA skill, set `skill_plan` to null.
 
 When `current_facts.active_skill_state` exists, it is durable skill state, not a
@@ -944,7 +954,8 @@ You MUST reply with a single JSON object:
   "skill_plan": {
     "objective": "the concrete result this turn needs",
     "required_capabilities": ["capability_name", "next_capability_name"],
-    "completion_condition": "what must be true before you can honestly finish"
+    "completion_condition": "what must be true before you can honestly finish",
+    "resume_plan_ref": "opaque active execution plan ref, only when semantically continuing it, else null"
   } or null,
   "context_query": "string or null",
   "context_need": {

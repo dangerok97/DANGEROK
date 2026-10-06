@@ -159,6 +159,7 @@ jobs:
             tests/test_calendar_search_completeness_v86.py \
             tests/test_calendar_continuation_observation_v86a.py \
             tests/test_generic_skill_plan_v87.py \
+            tests/test_persistent_skill_plan_v88.py \
             -x
   telephone-cloud:
     name: Telephone cloud safety

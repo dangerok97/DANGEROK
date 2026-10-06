@@ -156,6 +156,106 @@ def _record_skill_attempt(
     return out
 
 
+def _active_skill_plan_state(state: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Sanitised persisted execution-plan metadata, never tool arguments."""
+    raw = state.get("active_skill_plan")
+    if not isinstance(raw, dict):
+        return None
+    plan_ref = str(raw.get("plan_ref") or "").strip()[:80]
+    objective = str(raw.get("objective") or "").strip()[:320]
+    if not plan_ref or not objective:
+        return None
+    required = []
+    for cap in raw.get("required_capabilities") or []:
+        name = str(cap or "").strip()
+        if name and name not in required:
+            required.append(name)
+    attempted = []
+    for cap in raw.get("attempted_capabilities") or []:
+        name = str(cap or "").strip()
+        if name and name not in attempted:
+            attempted.append(name)
+    required = required[:MAX_TOOL_CALLS]
+    attempted = attempted[: MAX_TOOL_CALLS * 2]
+    return {
+        "plan_ref": plan_ref,
+        "objective": objective,
+        "required_capabilities": required,
+        "attempted_capabilities": attempted,
+        "pending_capabilities": _pending_required_skill_caps(
+            required, set(attempted)
+        ),
+        "waiting": bool(raw.get("waiting")),
+        "updated_at": str(raw.get("updated_at") or "")[:80],
+    }
+
+
+def _persist_active_skill_plan(
+    state: Dict[str, Any],
+    *,
+    objective: str,
+    required: List[str],
+    attempted: Set[str],
+    existing_ref: Optional[str] = None,
+    waiting: bool = True,
+) -> Dict[str, Any]:
+    """Persist only orchestration metadata needed to resume a paused chain."""
+    plan_ref = str(existing_ref or "").strip()[:80]
+    if not plan_ref:
+        plan_ref = f"skillplan_{uuid.uuid4().hex[:12]}"
+    doc = {
+        "plan_ref": plan_ref,
+        "objective": str(objective or "").strip()[:320] or "Completare la richiesta",
+        "required_capabilities": list(required or [])[:MAX_TOOL_CALLS],
+        "attempted_capabilities": sorted(set(attempted or set()))[: MAX_TOOL_CALLS * 2],
+        "waiting": bool(waiting),
+        "updated_at": now_iso(),
+    }
+    state["active_skill_plan"] = doc
+    return doc
+
+
+def _clear_active_skill_plan(
+    state: Dict[str, Any], *, expected_ref: Optional[str] = None
+) -> None:
+    current = _active_skill_plan_state(state)
+    if expected_ref and current and current.get("plan_ref") != expected_ref:
+        return
+    state["active_skill_plan"] = None
+
+
+_USER_WAIT_STATUSES = frozenset(
+    {
+        "authority_required",
+        "confirmation_required",
+        "user_confirmation_required",
+        "needs_user_input",
+        "consent_required",
+        "awaiting_confirmation",
+    }
+)
+
+
+def _observations_wait_for_user(observations) -> bool:
+    """Generic pause detector based on capability contract fields, not domains."""
+    for obs in reversed(list(observations or [])):
+        payload = getattr(obs, "payload", None)
+        status = getattr(obs, "status", None)
+        if isinstance(obs, dict):
+            payload = obs.get("payload")
+            status = obs.get("status")
+        payload = payload if isinstance(payload, dict) else {}
+        pstatus = str(payload.get("status") or "").strip().lower()
+        failure = str(payload.get("failure_kind") or "").strip().lower()
+        if isinstance(payload.get("confirmation_request"), dict):
+            return True
+        if pstatus in _USER_WAIT_STATUSES or failure in _USER_WAIT_STATUSES:
+            return True
+        if str(status or "").lower() in ("consent_required",):
+            return True
+    return False
+
+
 async def _emit_life_change(
     trace: Dict[str, Any],
     source_system: str,
@@ -793,6 +893,13 @@ async def run_cognitive_loop(
     bare_ack_nudge_used = False
     required_skill_caps: List[str] = []
     attempted_skill_caps: Set[str] = set()
+    active_execution_plan = _active_skill_plan_state(st)
+    active_execution_plan_ref: Optional[str] = (
+        str((active_execution_plan or {}).get("plan_ref") or "") or None
+    )
+    current_skill_plan_ref: Optional[str] = None
+    skill_plan_declared_this_turn = False
+    skill_plan_resumed_this_turn = False
     clarification_attempts = {
         str(item.get("key")): int(item.get("attempts") or 0)
         for item in (st.get("clarification_history") or [])
@@ -828,6 +935,7 @@ async def run_cognitive_loop(
             "phone": await _active_phone_skill_context(db, sess.user_id, st),
             "navigation": _pending_navigation_skill_context(st),
             "calendar": _pending_calendar_skill_context(st),
+            "execution_plan": active_execution_plan,
         }
         active_skill_state = {
             key: value for key, value in active_skill_state.items() if value
@@ -944,12 +1052,58 @@ async def run_cognitive_loop(
 
         last_decision = decision
         if decision.skill_plan:
+            skill_plan_declared_this_turn = True
+            resume_ref = str(
+                decision.skill_plan.resume_plan_ref or ""
+            ).strip()
+            if resume_ref and not skill_plan_resumed_this_turn:
+                if (
+                    active_execution_plan
+                    and resume_ref == active_execution_plan_ref
+                ):
+                    required_skill_caps = _merge_required_skill_caps(
+                        required_skill_caps,
+                        active_execution_plan.get("required_capabilities") or [],
+                    )
+                    attempted_skill_caps.update(
+                        active_execution_plan.get("attempted_capabilities") or []
+                    )
+                    current_skill_plan_ref = resume_ref
+                    skill_plan_resumed_this_turn = True
+                    add_step(
+                        trace,
+                        event="SKILL_PLAN_RESUMED",
+                        plan_ref=resume_ref,
+                    )
+                else:
+                    observations.append(
+                        Observation(
+                            kind="system",
+                            name="invalid_skill_plan_resume",
+                            status="nudge",
+                            payload={
+                                "failure_code": "INVALID_SKILL_PLAN_RESUME",
+                                "reason": (
+                                    "The resume_plan_ref does not match the active "
+                                    "execution plan shown in current_facts. Re-read "
+                                    "active_skill_state.execution_plan. Continue it "
+                                    "only if the user's latest message semantically "
+                                    "belongs to that work; otherwise start a new plan "
+                                    "without a resume ref."
+                                ),
+                            },
+                        ).model_dump()
+                    )
+                    add_step(trace, event="SKILL_PLAN_RESUME_REJECTED")
+                    if step + 1 < max_steps:
+                        continue
             required_skill_caps = _merge_required_skill_caps(
                 required_skill_caps,
                 decision.skill_plan.required_capabilities,
             )
             trace["skill_plan_required"] = list(required_skill_caps)
             trace["skill_plan_objective"] = decision.skill_plan.objective[:240]
+            trace["skill_plan_ref"] = current_skill_plan_ref
         await report_activity(
             db, sess, "processing", area=decision.display_area, basis="topic",
             keep_area=decision.display_area is None,
@@ -1362,11 +1516,19 @@ async def run_cognitive_loop(
                     "collegato. Il piano potrebbe essere ancora attivo: non lo considero annullato."
                 )
             ora = _compose_user_text(decision, observations[turn_start:])
+            skill_plan_waits_for_user = bool(
+                mode == "ask"
+                or _observations_wait_for_user(observations[turn_start:])
+            )
             if mode in ("answer", "finish", "act"):
                 pending_skill_caps = _pending_required_skill_caps(
                     required_skill_caps, attempted_skill_caps
                 )
-                if pending_skill_caps and step + 1 < max_steps:
+                if (
+                    pending_skill_caps
+                    and not skill_plan_waits_for_user
+                    and step + 1 < max_steps
+                ):
                     observations.append(
                         Observation(
                             kind="system",
@@ -1398,7 +1560,7 @@ async def run_cognitive_loop(
                         pending=pending_skill_caps,
                     )
                     continue
-                if pending_skill_caps:
+                if pending_skill_caps and not skill_plan_waits_for_user:
                     decision.message_to_user = (
                         "Non sono riuscita a completare la richiesta in questo turno."
                     )
@@ -2213,6 +2375,56 @@ async def run_cognitive_loop(
                 }
                 if calendar_pending else None
             )
+
+            # Persist unfinished orchestration across turns. This is metadata
+            # only: tool arguments and confirmation payloads remain owned by
+            # their governed lifecycle state.
+            pending_skill_caps = _pending_required_skill_caps(
+                required_skill_caps, attempted_skill_caps
+            )
+            waits_for_user_now = bool(
+                mode == "ask"
+                or blocking_ask
+                or calendar_pending
+                or _observations_wait_for_user(observations[turn_start:])
+            )
+            if required_skill_caps and (waits_for_user_now or pending_skill_caps):
+                persisted_plan = _persist_active_skill_plan(
+                    st,
+                    objective=str(
+                        trace.get("skill_plan_objective")
+                        or decision.user_intent_summary
+                        or "Completare la richiesta"
+                    ),
+                    required=required_skill_caps,
+                    attempted=attempted_skill_caps,
+                    existing_ref=(
+                        current_skill_plan_ref
+                        if skill_plan_resumed_this_turn
+                        else None
+                    ),
+                    waiting=waits_for_user_now,
+                )
+                current_skill_plan_ref = persisted_plan["plan_ref"]
+                active_execution_plan = _active_skill_plan_state(st)
+                active_execution_plan_ref = current_skill_plan_ref
+                trace["skill_plan_paused"] = True
+                trace["skill_plan_ref"] = current_skill_plan_ref
+            elif skill_plan_declared_this_turn and not pending_skill_caps:
+                # A newly declared plan supersedes any stale paused plan once
+                # it reaches a terminal state with no unfinished capability.
+                _clear_active_skill_plan(
+                    st,
+                    expected_ref=(
+                        current_skill_plan_ref
+                        if skill_plan_resumed_this_turn
+                        else None
+                    ),
+                )
+                if not skill_plan_resumed_this_turn:
+                    st["active_skill_plan"] = None
+                trace["skill_plan_completed"] = True
+
             st["observations"] = observations[-12:]
             navigation_options = _remember_pending_navigation(
                 st, observations[turn_start:]
@@ -2757,6 +2969,33 @@ async def run_cognitive_loop(
                         }
                 if isinstance(ca, dict) and ca.get("type"):
                     observations.append(obs.model_dump())
+                    attempted_skill_caps = _record_skill_attempt(
+                        attempted_skill_caps,
+                        cap,
+                        str(getattr(obs, "name", "") or ""),
+                    )
+                    if required_skill_caps:
+                        persisted_plan = _persist_active_skill_plan(
+                            st,
+                            objective=str(
+                                trace.get("skill_plan_objective")
+                                or decision.user_intent_summary
+                                or "Completare la richiesta"
+                            ),
+                            required=required_skill_caps,
+                            attempted=attempted_skill_caps,
+                            existing_ref=(
+                                current_skill_plan_ref
+                                if skill_plan_resumed_this_turn
+                                else None
+                            ),
+                            waiting=True,
+                        )
+                        current_skill_plan_ref = persisted_plan["plan_ref"]
+                        active_execution_plan = _active_skill_plan_state(st)
+                        active_execution_plan_ref = current_skill_plan_ref
+                        trace["skill_plan_paused"] = True
+                        trace["skill_plan_ref"] = current_skill_plan_ref
                     st["pending_client_resume_message"] = user_message
                     st["pending_client_capability"] = {
                         "capability": cap,
