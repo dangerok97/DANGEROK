@@ -453,7 +453,7 @@ async def open_navigation(arguments: Dict[str, Any], runtime: Dict[str, Any]) ->
 
     origin = None
     location_status = ""
-    if _mapbox_enabled():
+    if _routing_enabled():
         origin, client_action, location_status = await _route_origin_or_location_request(
             runtime, uid
         )
@@ -567,7 +567,7 @@ async def open_navigation(arguments: Dict[str, Any], runtime: Dict[str, Any]) ->
             "routing": (
                 None if scelte else (
                     {"available": False, "why_unavailable": _route_origin_reason(location_status)}
-                    if _mapbox_enabled() and origin is None else _routing_note()
+                    if _routing_enabled() and origin is None else _routing_note()
                 )
             ),
             "say_this": (
@@ -677,6 +677,12 @@ def _mapbox_enabled() -> bool:
     from places.routing import configured_provider
 
     return configured_provider() == "mapbox"
+
+
+def _routing_enabled() -> bool:
+    from places import routing
+
+    return bool(routing.capabilities().get("available"))
 
 
 #     I MODI CHE SI CONFRONTANO, E COME SI CHIAMANO PER CHI LEGGE.
