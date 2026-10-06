@@ -377,3 +377,114 @@ def test_rejecting_prepared_navigation_clears_handoff_without_model():
     assert result.navigation == []
     assert result.ora_text == "Va bene, non avvio la navigazione."
     assert "pending_navigation" not in get_ai_state(sess)
+
+
+
+def test_public_destination_refreshes_stale_origin_before_giving_up(monkeypatch):
+    from datetime import datetime, timedelta, timezone
+    from places import caps, routing
+    from places.models import PlaceResolution
+    from location.service import LocationService
+
+    class Service:
+        async def resolve_destination(self, uid, spoken):
+            assert spoken == "Colosseo"
+            return PlaceResolution(reason="non conosco ancora nessun luogo")
+
+    class Presence:
+        freshness = "CURRENT"
+        latitude = 42.25
+        longitude = 11.75
+        source = "foreground_device"
+        acquisition_error = None
+        permission_state = "granted_foreground"
+        last_seen_at = (datetime.now(timezone.utc) - timedelta(minutes=4)).isoformat()
+
+    async def presence(self, uid, platform="web"):
+        return Presence()
+
+    async def preference(self, uid):
+        return "while_using"
+
+    monkeypatch.setattr(caps, "_service", lambda runtime: Service())
+    monkeypatch.setattr(routing, "configured_provider", lambda: "mapbox")
+    monkeypatch.setattr(LocationService, "build_presence", presence)
+    monkeypatch.setattr(LocationService, "get_preference", preference)
+
+    obs = run(caps.open_navigation(
+        {"destination": "Colosseo"},
+        {"db": object(), "user_id": "u", "platform": "web"},
+    ))
+
+    assert obs.status == "needs_client"
+    assert obs.payload["ready"] is False
+    assert obs.payload["destination_pending"] == "Colosseo"
+    assert obs.payload["needs_client"] is True
+    assert obs.payload["client_action"]["type"] == "request_foreground_location"
+    assert obs.payload["client_action"]["refresh"] is True
+    assert "posizione aggiornata" in obs.payload["say_this"].lower()
+    assert obs.payload.get("url") is None
+
+
+def test_public_destination_without_location_consent_requests_permission(monkeypatch):
+    from places import caps, routing
+    from places.models import PlaceResolution
+    from location.service import LocationService
+
+    class Service:
+        async def resolve_destination(self, uid, spoken):
+            return PlaceResolution(reason="non conosco ancora nessun luogo")
+
+    class Presence:
+        freshness = "UNKNOWN"
+        latitude = None
+        longitude = None
+        source = None
+        acquisition_error = None
+        permission_state = "not_requested"
+        last_seen_at = None
+
+    async def presence(self, uid, platform="web"):
+        return Presence()
+
+    async def preference(self, uid):
+        return "off"
+
+    monkeypatch.setattr(caps, "_service", lambda runtime: Service())
+    monkeypatch.setattr(routing, "configured_provider", lambda: "mapbox")
+    monkeypatch.setattr(LocationService, "build_presence", presence)
+    monkeypatch.setattr(LocationService, "get_preference", preference)
+
+    obs = run(caps.open_navigation(
+        {"destination": "Colosseo"},
+        {"db": object(), "user_id": "u", "platform": "web"},
+    ))
+
+    assert obs.status == "needs_client"
+    assert obs.payload["client_action"]["type"] == "request_location_permission"
+    assert "tempi e traffico" in obs.payload["client_action"]["reason"].lower()
+
+
+def test_public_destination_does_not_request_location_when_routing_is_unavailable(monkeypatch):
+    from places import caps, routing
+    from places.models import PlaceResolution
+
+    class Service:
+        async def resolve_destination(self, uid, spoken):
+            return PlaceResolution(reason="non conosco ancora nessun luogo")
+
+    async def should_not_run(runtime):
+        raise AssertionError("location should not be requested without live routing")
+
+    monkeypatch.setattr(caps, "_service", lambda runtime: Service())
+    monkeypatch.setattr(routing, "configured_provider", lambda: None)
+    monkeypatch.setattr(caps, "_route_origin_or_client", should_not_run)
+
+    obs = run(caps.open_navigation(
+        {"destination": "Colosseo"},
+        {"db": object(), "user_id": "u", "platform": "web"},
+    ))
+
+    assert obs.payload["ready"] is True
+    assert obs.payload["route"] is None
+    assert obs.payload["routing"]["available"] is False
