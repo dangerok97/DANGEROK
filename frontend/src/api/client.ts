@@ -13,6 +13,12 @@ function resolveBackendBaseUrl(): string {
   const fromEnv = String(process.env.EXPO_PUBLIC_BACKEND_URL || '')
     .trim()
     .replace(/\/$/, '');
+  // Deterministic browser QA can opt into the page's exact origin. Production
+  // never uses this sentinel; it avoids localhost/127.0.0.1 CORS differences
+  // between Chromium and WebKit while still exercising the real API client.
+  if (fromEnv === 'same-origin' && typeof window !== 'undefined') {
+    return String(window.location?.origin || '').replace(/\/$/, '');
+  }
   if (fromEnv) return fromEnv;
   // Local web only: keep hostname aligned with the page origin
   // (http://localhost:8081 vs http://127.0.0.1:8081).
