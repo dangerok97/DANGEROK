@@ -86,7 +86,7 @@ export function OraCockpitContext({
     setRemoving(true);
     setRemoveError('');
     try {
-      await api.dismissTemporarySituation(current.situation_id, current.situation_revision);
+      await api.dismissTemporarySituation(current.situation_id);
       await temporary.refresh();
       onTemporaryChanged?.();
     } catch {
@@ -94,7 +94,7 @@ export function OraCockpitContext({
     } finally {
       setRemoving(false);
     }
-  }, [current?.situation_id, current?.situation_revision, removing, temporary.refresh, onTemporaryChanged]);
+  }, [current?.situation_id, removing, temporary.refresh, onTemporaryChanged]);
 
   return (
     <View style={styles.rail} testID="ora-cockpit-context">
