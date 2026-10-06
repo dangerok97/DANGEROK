@@ -32,7 +32,6 @@ async def personal_knowledge_map(response: Response, user=Depends(get_current_us
 @router.post("/knowledge-map/situations/{situation_id}/dismiss")
 async def dismiss_temporary_situation(
     situation_id: str,
-    expected_revision: Optional[int] = None,
     user=Depends(get_current_user),
 ):
     """Stop tracking one active temporary Situation and remove its red star.
@@ -51,7 +50,6 @@ async def dismiss_temporary_situation(
             update=SituationUpdate(
                 operation="cancel",
                 situation_id=situation_id,
-                expected_revision=expected_revision,
                 source="user_conversation",
                 source_refs=["knowledge_map_ui"],
             ),
