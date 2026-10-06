@@ -104,7 +104,7 @@ function parseBlocks(src: string): Block[] {
 }
 
 function isDangerParagraph(text: string): boolean {
-  return /^(attenzione|allerta|pericolo|urgente|rischio\s+immediato)\s*[:.!-]?\b/i.test(
+  return /^(attenzione|allerta|pericolo|urgente|rischio\s+immediato)\b\s*[:.!-]?/i.test(
     String(text || '').trim(),
   );
 }
