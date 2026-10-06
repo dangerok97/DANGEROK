@@ -2697,14 +2697,28 @@ async def run_cognitive_loop(
                 st["external_query_count_session"] = (
                     int(st.get("external_query_count_session") or 0) + 1
                 )
-            if cap in _WRITE_CAPS:
+            # A lifecycle/continuation skill can return the observation of the
+            # concrete capability that actually performed the effect. Count and
+            # verify the observed effect, not only the wrapper the model called.
+            # Example: continue_calendar_action -> cancel_calendar_event.
+            observed_cap = str(getattr(obs, "name", "") or "").strip()
+            effective_write_cap = (
+                observed_cap if observed_cap in _WRITE_CAPS else cap
+            )
+            effective_calendar_cap = (
+                observed_cap
+                if observed_cap in _CALENDAR_WRITE_CAPS
+                else (cap if cap in _CALENDAR_WRITE_CAPS else "")
+            )
+
+            if effective_write_cap in _WRITE_CAPS:
                 write_calls += 1
                 trace["write_calls"] = write_calls
-            if cap in _CALENDAR_WRITE_CAPS and (
+            if effective_calendar_cap and (
                 obs.status == "ok" and (obs.payload or {}).get("status") == "ok"
             ):
                 calendar_write_confirmed_this_turn = True
-            if cap in _CALENDAR_WRITE_CAPS:
+            if effective_calendar_cap:
                 # Emitted for "partial" too: local ORA state really changed
                 # even when the Google-side sync stayed unconfirmed.
                 await _emit_life_change(
@@ -2715,7 +2729,7 @@ async def run_cognitive_loop(
                         user_id=sess.user_id,
                         session_id=sess.id,
                         reasoning_epoch=epoch,
-                        capability=cap,
+                        capability=effective_calendar_cap,
                         observation_status=obs.status,
                         payload=obs.payload or {},
                     ),
