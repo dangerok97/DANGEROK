@@ -99,6 +99,42 @@ async def knowledge_map(db, user_id: str) -> dict:
                 "statement": memory.statement, "status": memory.status,
                 "provenance": memory.provenance_label, "updated_at": memory.updated_at})
     now = datetime.now(timezone.utc)
+    # Temporary memory = active Situation state. This is deliberately NOT
+    # copied into durable Memory: the Situation collection already owns its
+    # lifecycle and disappears from the projection as soon as it is resolved
+    # or cancelled.
+    temporary_situations = await db.situations.find(
+        {
+            "user_id": user_id,
+            "status": {"$in": ["active", "changed"]},
+        },
+        {
+            "_id": 0,
+            "id": 1,
+            "summary": 1,
+            "status": 1,
+            "updated_at": 1,
+            "created_at": 1,
+        },
+    ).sort("updated_at", -1).limit(24).to_list(24)
+    for situation in temporary_situations:
+        situation_id = str(situation.get("id") or "").strip()
+        statement = " ".join(str(situation.get("summary") or "").split())[:400]
+        if not situation_id or not statement:
+            continue
+        stars.append({
+            "id": stable_id("situation:" + situation_id),
+            "area": "memory",
+            "branch_id": None,
+            "title": "Memoria temporanea",
+            "statement": statement,
+            "status": "known",
+            "provenance": "Situazione attiva",
+            "updated_at": situation.get("updated_at") or situation.get("created_at"),
+            "temporary": True,
+            "situation_id": situation_id,
+        })
+
     notes = await db.memories.find({"user_id": user_id, "status": {"$nin": ["forgotten", "superseded", "rejected", "expired"]}}, {"_id": 0}).to_list(None)
     for note in notes:
         expiry = note.get("expires_at") or (note.get("temporal_scope") or {}).get("ends_at")
@@ -124,7 +160,13 @@ async def knowledge_map(db, user_id: str) -> dict:
     branches = [{**a.model_dump(), "area": DOMAIN_HUB.get(area_domains[a.area_id], "memory"),
                  "star_count": sum(s["branch_id"] == a.area_id for s in stars),
                  "complete": a.percent >= 100 and a.known_count > 0} for a in progress.areas]
-    result = {"stars": stars, "count": len(stars), "known_count": sum(s["status"] == "known" for s in stars),
-              "percent": progress.percent, "branches": branches}
+    result = {
+        "stars": stars,
+        "count": len(stars),
+        "known_count": sum(s["status"] == "known" for s in stars),
+        "temporary_count": sum(bool(s.get("temporary")) for s in stars),
+        "percent": progress.percent,
+        "branches": branches,
+    }
     result["revision"] = hashlib.sha256(json.dumps(result, sort_keys=True, default=str).encode()).hexdigest()[:24]
     return result
