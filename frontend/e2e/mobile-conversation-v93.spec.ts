@@ -16,10 +16,13 @@ async function fixture(page: Page) {
     const request = route.request();
     const path = new URL(request.url()).pathname;
     const method = request.method();
+    const requestOrigin = request.headers()['origin'] || 'http://127.0.0.1:8093';
     const headers = {
-      'access-control-allow-origin': '*',
+      'access-control-allow-origin': requestOrigin,
+      'access-control-allow-credentials': 'true',
       'access-control-allow-headers': 'authorization, content-type',
       'access-control-allow-methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+      'vary': 'Origin',
     };
     if (method === 'OPTIONS') { await route.fulfill({ status: 204, headers }); return; }
     let json: any = {};
