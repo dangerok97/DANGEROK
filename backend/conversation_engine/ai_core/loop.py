@@ -363,20 +363,41 @@ _EMPIRICAL_ESTIMATE_RE = re.compile(
 )
 
 
-def _turn_evidence_refs(observations) -> Set[str]:
-    refs: Set[str] = set()
+def _estimate_evidence_sets(observations):
+    """Classify evidence mechanically; no judgement about what it means."""
+    all_refs: Set[str] = set()
+    research_refs: Set[str] = set()
+    calibrated_capability_refs: Set[str] = set()
+    measured_refs: Set[str] = set()
+
     for obs in observations or []:
         if isinstance(obs, dict):
-            for ref in obs.get("provenance") or []:
-                clean = str(ref or "").strip()
-                if clean:
-                    refs.add(clean)
+            kind = str(obs.get("kind") or "")
+            name = str(obs.get("name") or "")
+            payload = obs.get("payload") if isinstance(obs.get("payload"), dict) else {}
+            prov = obs.get("provenance") or []
         else:
-            for ref in getattr(obs, "provenance", None) or []:
-                clean = str(ref or "").strip()
-                if clean:
-                    refs.add(clean)
-    return refs
+            kind = str(getattr(obs, "kind", "") or "")
+            name = str(getattr(obs, "name", "") or "")
+            raw_payload = getattr(obs, "payload", None)
+            payload = raw_payload if isinstance(raw_payload, dict) else {}
+            prov = getattr(obs, "provenance", None) or []
+
+        refs = {str(ref or "").strip() for ref in prov if str(ref or "").strip()}
+        all_refs.update(refs)
+        if kind == "research" or name in ("research", "web_search"):
+            research_refs.update(refs)
+        if payload.get("calibrated_quantitative_estimate") is True:
+            calibrated_capability_refs.update(refs)
+        if payload.get("measurement") is True or payload.get("measured") is True:
+            measured_refs.update(refs)
+
+    return {
+        "all": all_refs,
+        "research": research_refs,
+        "calibrated_capability": calibrated_capability_refs,
+        "measured": measured_refs,
+    }
 
 
 def _quantitative_estimate_issues(
@@ -388,7 +409,7 @@ def _quantitative_estimate_issues(
     if looks_like_estimate and not estimates:
         return ["unstructured_empirical_estimate"]
 
-    refs = _turn_evidence_refs(observations)
+    evidence = _estimate_evidence_sets(observations)
     issues: List[str] = []
     for estimate in estimates:
         if not estimate.material_to_action:
@@ -399,13 +420,25 @@ def _quantitative_estimate_issues(
             continue
         if basis == "user_provided_rate":
             continue
+
         declared = {str(r).strip() for r in estimate.evidence_refs if str(r).strip()}
         if not declared:
             issues.append("material_estimate_missing_refs")
             continue
-        if not declared.intersection(refs):
-            issues.append("material_estimate_refs_not_observed")
+
+        if basis == "external_research":
+            allowed = evidence["research"]
+        elif basis == "specialized_capability":
+            allowed = evidence["calibrated_capability"]
+        elif basis == "measured_observation":
+            allowed = evidence["measured"]
+        else:
+            allowed = set()
+
+        if not declared.intersection(allowed):
+            issues.append(f"material_estimate_basis_unverified:{basis}")
     return list(dict.fromkeys(issues))
+
 
 
 _MEMORY_NOT_FOUND_CLAIM_RE = re.compile(
