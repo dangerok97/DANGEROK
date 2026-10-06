@@ -56,6 +56,14 @@ async def advance_wake(db, wake):
     if goal is None or not goal.is_open:
         outcome.result = "goal_closed"
         return outcome
+    if goal.source_kind == "situation_followup":
+        from situations.repository import SituationRepository
+        refs = [ref for ref in goal.source_refs if ref.startswith("situation:")]
+        source = await SituationRepository(db).get(wake.owner_id, refs[0].split(":", 1)[1]) if len(refs) == 1 else None
+        if source is None or source.status not in ("active", "changed"):
+            await service.cancel(wake.owner_id, goal.id, reason="La situazione non è più attiva.")
+            outcome.result = "situation_closed"
+            return outcome
     if (goal.requires_user_input or goal.requires_user_authority) and not goal.source_review_pending:
         outcome.result = "waiting_for_person"
         return outcome

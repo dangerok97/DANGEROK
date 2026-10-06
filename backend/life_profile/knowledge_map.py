@@ -169,8 +169,11 @@ async def knowledge_map(db, user_id: str) -> dict:
                     location_label = place_labels.get(ref.split(":", 1)[1], "")
                     if location_label:
                         break
+        from situations.followup import read_followup
+        followup = await read_followup(db, user_id, situation_id)
         stars.append({
             "id": stable_id("situation:" + situation_id),
+            "follow_up": followup,
             "area": "memory",
             "branch_id": None,
             "title": "Memoria temporanea",

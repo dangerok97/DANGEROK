@@ -356,9 +356,13 @@ class ContextBroker:
         out: List[ContextFact] = []
         for item in items:
             preview = item.context_preview()
+            from situations.followup import read_followup
+            followup = await read_followup(self.db, user_id, item.id)
+            # Operational facts before optional prose: they must survive truncation.
+            watch = {k: followup.get(k) for k in ("status", "next_check_at", "last_checked_at")}
             statement = (
                 f"Situation {item.id} revision={item.revision} status={item.status}: "
-                f"{item.summary}"
+                f"follow_up={json.dumps(watch)}; {item.summary}"
             )
             if detailed:
                 statement += f"; details={json.dumps(preview, ensure_ascii=False)}"

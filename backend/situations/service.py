@@ -272,6 +272,12 @@ class SituationService:
         }.get(str(operation or ""))
         if not kind:
             return
+        if operation in ("resolve", "cancel"):
+            try:
+                from situations.followup import cancel_dedicated_followup
+                await cancel_dedicated_followup(self.db, user_id, situation.id)
+            except Exception as exc:
+                logger.warning("situation follow-up close failed: %s", type(exc).__name__)
         try:
             from opportunities.discovery import OpportunityDiscovery
 

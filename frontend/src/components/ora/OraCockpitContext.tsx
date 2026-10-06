@@ -80,6 +80,13 @@ export function OraCockpitContext({
   const current = temporary.stars.find(star => star.id === selectedStarId) || temporary.latest;
   const focus = home?.primary_focus || null;
   const currentState = firstSituationState(current);
+  const followup = current?.follow_up;
+  const followupStatus: Record<string, string> = {
+    scheduled: 'Controllo programmato', due: 'Controllo in scadenza', running: 'Controllo in corso',
+    not_scheduled: 'Nessun controllo programmato', recovery_pending: 'Programmazione da recuperare',
+    waiting_for_user: 'In attesa di informazioni o autorizzazione', runtime_disabled: 'Controlli automatici disattivati',
+    stopped: 'Controllo terminato', unavailable: 'Stato del controllo non verificabile',
+  };
 
   const removeCurrent = useCallback(async () => {
     if (!current?.situation_id || removing) return;
@@ -154,27 +161,21 @@ export function OraCockpitContext({
             </>
           ) : null}
 
-          {current.next_check_summary ? (
-            <>
-              <View style={styles.divider} />
-              <DetailRow
-                icon="notifications-outline"
-                title="Promemoria attivo"
-                body={current.next_check_summary}
-              />
-            </>
-          ) : null}
-
-          {!current.next_check_summary && current.provenance ? (
-            <>
-              <View style={styles.divider} />
-              <DetailRow
-                icon="eye-outline"
-                title="Monitoraggio"
-                body="Situazione attiva nella memoria temporanea di ORA."
-              />
-            </>
-          ) : null}
+          <View style={styles.divider} />
+          <DetailRow icon="eye-outline" title="Stato del controllo"
+            body={followupStatus[followup?.status || 'unavailable'] || followupStatus.unavailable} />
+          {followup?.next_check_at ? <>
+            <View style={styles.divider} />
+            <DetailRow icon="time-outline" title="Prossimo controllo" body={timeLabel(followup.next_check_at)} />
+          </> : null}
+          {followup?.last_checked_at ? <>
+            <View style={styles.divider} />
+            <DetailRow icon="checkmark-circle-outline" title="Ultimo controllo eseguito" body={timeLabel(followup.last_checked_at)} />
+          </> : null}
+          {followup?.notify_when ? <>
+            <View style={styles.divider} />
+            <DetailRow icon="notifications-outline" title="Quando ti aggiorno in ORA" body={followup.notify_when} />
+          </> : null}
 
           <Pressable
             onPress={() => router.push('/situazione' as any)}

@@ -1091,6 +1091,7 @@ async def run_cognitive_loop(
     update_object_ok_this_turn = False
     situation_result: Optional[Dict[str, Any]] = None
     situation_plan_nudge_used = False
+    situation_followup_nudge_used = False
     linked_plan_pending_id: Optional[str] = None
     linked_plan_reconciled_this_turn = False
     memory_governance_rounds = 0
@@ -1758,6 +1759,22 @@ async def run_cognitive_loop(
 
         mode = decision.response_mode
         if mode in ("answer", "ask", "finish", "act"):
+            persisted = (situation_result or {}).get("situation") or {}
+            if persisted.get("id") and not phone_owns_turn:
+                from situations.followup import read_followup
+                followup = await read_followup(db, sess.user_id, persisted["id"])
+                situation_result["follow_up"] = followup
+                if (mode in ("answer", "finish") and persisted.get("attention_intent")
+                    and followup["status"] in ("not_scheduled", "recovery_pending")
+                    and not situation_followup_nudge_used and step + 1 < max_steps):
+                    situation_followup_nudge_used = True
+                    observations.append(Observation(kind="system", name="situation_followup_required", status="nudge", payload={
+                        "situation_id": persisted["id"], "expected_revision": persisted.get("revision"),
+                        "follow_up": followup,
+                        "reason": "The Situation was saved but no executable checkpoint is confirmed. You chose an attention_intent. Read needed live evidence and call schedule_situation_check with your own justified checkpoint and notification condition before promising monitoring. Do not ask the user to pick a time or authorize required read-only checks. If required information/provider access is missing, explain that concrete blocker. A time window in prose is not a scheduler entry."
+                    }).model_dump())
+                    add_step(trace, event="SITUATION_FOLLOWUP_NUDGE")
+                    continue
             if linked_plan_pending_id and not linked_plan_reconciled_this_turn:
                 first_nudge = not situation_plan_nudge_used
                 situation_plan_nudge_used = True
@@ -4026,26 +4043,29 @@ def _with_situation_handoff(
     intent = " ".join(str(situation.get("attention_intent") or "").split()).strip()
     intent = intent.rstrip(" .;:")
 
-    if intent:
-        sentence = (
-            "Terrò questa situazione sotto controllo per "
-            f"{intent}. Se emerge qualcosa di utile, te lo segnalo; "
-            "altrimenti non ti disturbo."
-        )
+    followup = result.get("follow_up") or {}
+    confirmed = followup.get("status") in ("scheduled", "due", "running")
+    sentence = "Ho registrato la situazione tra quelle attive."
+    if confirmed:
+        sentence += " Il controllo risulta programmato; puoi consultarne lo stato nella scheda."
     else:
-        sentence = (
-            "Terrò questa situazione tra quelle attive e la rivaluterò nelle "
-            "prossime valutazioni di ORA. Se emerge qualcosa di utile, te lo "
-            "segnalo; altrimenti non ti disturbo."
-        )
+        sentence += " Non risulta ancora un controllo automatico programmato."
+    if intent:
+        sentence += f" Lo scopo del controllo è {intent}."
 
     base = (text or "").strip()
     if not base or _BARE_ACK_RE.fullmatch(base):
         return sentence
 
-    # The cognitive model owns the conversation. Once it produced a
-    # substantive answer, do not append a second backend-authored voice. The
-    # sentence above is only the safety net for an empty/bare acknowledgement.
+    # When the runtime actually checked, surface a missing/failed schedule
+    # rather than letting an intention masquerade as confirmed monitoring.
+    if "follow_up" in result and not confirmed and followup.get("status") != "stopped":
+        status = followup.get("status")
+        note = ("Il controllo automatico è disattivato sul server." if status == "runtime_disabled"
+                else "Il controllo è in attesa di un dato o di un'autorizzazione." if status == "waiting_for_user"
+                else "Non riesco a verificare la programmazione del controllo." if status == "unavailable"
+                else "Il controllo automatico non risulta ancora programmato correttamente.")
+        return base + "\n\n" + note
     return base
 
 
