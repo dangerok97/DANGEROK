@@ -196,3 +196,70 @@ async def test_dossier_and_introduction_deliver_the_entire_owner_name(db, monkey
     assert not ledger.is_settled(), "a missing surname is an incomplete introduction"
     ledger.we_said(" Sono l'assistente di Giulia De Luca.")
     assert ledger.is_settled()
+
+
+@pytest.mark.asyncio
+async def test_active_situation_is_temporary_red_star_and_disappears_when_resolved(db):
+    await db.situations.insert_one({
+        "id": "sit_temp_1",
+        "user_id": "a",
+        "status": "active",
+        "summary": "Ho steso i panni adesso.",
+        "created_at": "2026-10-06T09:00:00+00:00",
+        "updated_at": "2026-10-06T09:00:00+00:00",
+    })
+
+    active = await knowledge_map(db, "a")
+    star = next(s for s in active["stars"] if s.get("source_ref") == "situation:sit_temp_1")
+    assert star["area"] == "memory"
+    assert star["persistence"] == "temporary"
+    assert star["source_kind"] == "situation"
+    assert star["provenance"] == "Contesto temporaneo"
+    assert active["temporary_count"] == 1
+    assert active["percent"] == 0, "temporary context must not inflate VITA completeness"
+
+    await db.situations.update_one(
+        {"user_id": "a", "id": "sit_temp_1"},
+        {"$set": {"status": "resolved", "resolved_at": "2026-10-06T12:00:00+00:00"}},
+    )
+    resolved = await knowledge_map(db, "a")
+    assert not any(s.get("source_ref") == "situation:sit_temp_1" for s in resolved["stars"])
+    assert resolved["temporary_count"] == 0
+    assert resolved["revision"] != active["revision"]
+
+
+@pytest.mark.asyncio
+async def test_temporary_situations_are_owner_scoped_and_cancelled_stays_hidden(db):
+    await db.situations.insert_many([
+        {
+            "id": "sit_a",
+            "user_id": "a",
+            "status": "changed",
+            "summary": "Sto aspettando una consegna.",
+            "created_at": "2026-10-06T09:00:00+00:00",
+            "updated_at": "2026-10-06T09:10:00+00:00",
+        },
+        {
+            "id": "sit_b",
+            "user_id": "b",
+            "status": "active",
+            "summary": "SEGRETO-ALTRO-UTENTE",
+            "created_at": "2026-10-06T09:00:00+00:00",
+            "updated_at": "2026-10-06T09:10:00+00:00",
+        },
+        {
+            "id": "sit_old",
+            "user_id": "a",
+            "status": "cancelled",
+            "summary": "Non deve comparire.",
+            "created_at": "2026-10-06T08:00:00+00:00",
+            "updated_at": "2026-10-06T08:10:00+00:00",
+        },
+    ])
+
+    result = await knowledge_map(db, "a")
+    blob = str(result)
+    assert "Sto aspettando una consegna." in blob
+    assert "SEGRETO-ALTRO-UTENTE" not in blob
+    assert "Non deve comparire." not in blob
+    assert result["temporary_count"] == 1
