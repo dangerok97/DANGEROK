@@ -12,6 +12,7 @@ from conversation_engine.ai_core.models import (
     ComparisonNeed,
     MemoryCandidate,
     ResearchNeed,
+    SkillPlan,
     ToolCall,
     UncertaintyState,
 )
@@ -364,6 +365,24 @@ def validate_decision(
         except Exception:
             errors.append("bad_situation_update")
 
+    skill_plan = None
+    raw_skill_plan = data.get("skill_plan")
+    if isinstance(raw_skill_plan, dict):
+        try:
+            candidate_plan = SkillPlan.model_validate(raw_skill_plan)
+            valid_caps: List[str] = []
+            for cap in candidate_plan.required_capabilities:
+                spec = tools.get(cap)
+                if not spec or spec.availability == "hidden":
+                    errors.append(f"skill_plan_unknown_capability:{cap}")
+                    continue
+                valid_caps.append(cap)
+            skill_plan = candidate_plan.model_copy(
+                update={"required_capabilities": valid_caps}
+            )
+        except Exception:
+            errors.append("skill_plan_invalid")
+
     graph_updates: List[ContextEdgeUpdate] = []
     for raw_u in (data.get("context_graph_updates") or [])[:2]:
         try:
@@ -425,6 +444,7 @@ def validate_decision(
             message_to_user=message,
             question=question,
             tool_call=tc_model,
+            skill_plan=skill_plan,
             context_query=str(context_query)[:240] if context_query else None,
             context_need=context_need,
             research_need=research_need,
