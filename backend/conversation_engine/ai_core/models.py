@@ -176,6 +176,16 @@ class ToolCall(BaseModel):
         return (self.capability or self.name or "").strip()
 
 
+class SkillPlanRelease(BaseModel):
+    """Explicit, evidence-grounded revision of a required capability."""
+
+    capability: str = Field(min_length=1, max_length=120)
+    reason: str = Field(min_length=1, max_length=280)
+    basis: Literal["observation", "user_message"]
+    observation_capability: Optional[str] = Field(default=None, max_length=120)
+    user_instruction_quote: Optional[str] = Field(default=None, max_length=220)
+
+
 class SkillPlan(BaseModel):
     """AI-owned execution plan over ORA's dynamic capability catalogue.
 
@@ -190,6 +200,9 @@ class SkillPlan(BaseModel):
     # Opaque backend-issued reference. The model may echo it only when the
     # latest message semantically continues a previously paused execution plan.
     resume_plan_ref: Optional[str] = Field(default=None, max_length=80)
+    release_capabilities: List[SkillPlanRelease] = Field(
+        default_factory=list, max_length=5
+    )
 
     @field_validator("required_capabilities", mode="before")
     @classmethod
