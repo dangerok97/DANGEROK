@@ -1838,21 +1838,24 @@ async def cancel_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
             )
         elif status == "suggestion":
             suggested = resolved_target.get("suggestion") or {}
-            return Observation(
-                kind="tool", name="cancel_calendar_event", status="partial",
-                payload={
-                    "status": "needs_confirmation",
-                    "failure_kind": "close_title_candidate",
-                    "target_title": target_title,
-                    "suggested_event": suggested,
-                    "alternatives": (resolved_target.get("suggestions") or [])[1:3],
-                    "reason": (
-                        "C'è un candidato chiaramente simile, ma una somiglianza "
-                        "non autorizza mai una cancellazione. Chiedi se si riferisce "
-                        "esattamente a questo evento; non cancellare ancora."
-                    ),
-                },
-                provenance=[str(suggested.get("calendar_ref") or "")],
+            suggested_ref = str(suggested.get("calendar_ref") or "").strip()
+            if not suggested_ref:
+                return Observation(
+                    kind="tool", name="cancel_calendar_event", status="not_found",
+                    payload={
+                        "status": "not_found",
+                        "failure_kind": "candidate_without_ref",
+                        "target_title": target_title,
+                        "reason": "Il candidato non ha un riferimento verificabile; non cancellare.",
+                    },
+                )
+            # A typo/lexical mismatch must not force the person to reproduce
+            # the exact calendar title. We may bind ONE strong candidate only
+            # to the proposal stage: the exact event title/time is shown and
+            # the actual delete still requires the later explicit confirmation.
+            return await cancel_calendar_event(
+                {"calendar_ref": suggested_ref},
+                runtime,
             )
         elif status in ("ambiguous", "ambiguous_similar"):
             candidates = (
