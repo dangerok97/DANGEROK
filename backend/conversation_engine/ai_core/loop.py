@@ -349,6 +349,65 @@ _CALENDAR_CLAIM_RE = re.compile(
     r"i('|’)?ve\s+(created|added|scheduled|moved|rescheduled|cancel(l)?ed|deleted|removed)\b.{0,60}\b(calendar|event)"
     r")\b"
 )
+_EMPIRICAL_ESTIMATE_RE = re.compile(
+    r"(?i)\\b("
+    r"stim(?:o|a|iamo|ato|ata|erei|iamo)|"
+    r"indicativamente|all['’]?incirca|probabilmente|"
+    r"dovrebb(?:e|ero)|potrebb(?:e|ero)|"
+    r"verso\\s+le\\s+\\d{1,2}(?::\\d{2})?|"
+    r"entro\\s+(?:le\\s+)?\\d|"
+    r"tra\\s+\\d+(?:[.,]\\d+)?\\s*(?:minut[oi]|ore?|giorn[oi]|settimane?|mesi)|"
+    r"in\\s+\\d+(?:[.,]\\d+)?\\s*(?:minut[oi]|ore?|giorn[oi]|settimane?|mesi)|"
+    r"circa\\s+\\d+(?:[.,]\\d+)?"
+    r")\\b"
+)
+
+
+def _turn_evidence_refs(observations) -> Set[str]:
+    refs: Set[str] = set()
+    for obs in observations or []:
+        if isinstance(obs, dict):
+            for ref in obs.get("provenance") or []:
+                clean = str(ref or "").strip()
+                if clean:
+                    refs.add(clean)
+        else:
+            for ref in getattr(obs, "provenance", None) or []:
+                clean = str(ref or "").strip()
+                if clean:
+                    refs.add(clean)
+    return refs
+
+
+def _quantitative_estimate_issues(
+    decision: CognitiveDecision, text: str, observations
+) -> List[str]:
+    """Mechanical evidence check; semantics/calibration choice remains AI-owned."""
+    estimates = list(decision.quantitative_estimates or [])
+    looks_like_estimate = bool(_EMPIRICAL_ESTIMATE_RE.search(text or ""))
+    if looks_like_estimate and not estimates:
+        return ["unstructured_empirical_estimate"]
+
+    refs = _turn_evidence_refs(observations)
+    issues: List[str] = []
+    for estimate in estimates:
+        if not estimate.material_to_action:
+            continue
+        basis = str(estimate.basis_type or "")
+        if basis == "not_calibrated":
+            issues.append("material_estimate_not_calibrated")
+            continue
+        if basis == "user_provided_rate":
+            continue
+        declared = {str(r).strip() for r in estimate.evidence_refs if str(r).strip()}
+        if not declared:
+            issues.append("material_estimate_missing_refs")
+            continue
+        if not declared.intersection(refs):
+            issues.append("material_estimate_refs_not_observed")
+    return list(dict.fromkeys(issues))
+
+
 _MEMORY_NOT_FOUND_CLAIM_RE = re.compile(
     r"(?i)\b(non\s+ho\s+trovato.{0,120}\bmemoria|"
     r"non\s+c('|’|i\s+)è\s+alcun[ao].{0,100}\bda\s+dimenticare|"
@@ -891,6 +950,7 @@ async def run_cognitive_loop(
     calendar_claim_nudge_used = False
     calendar_absence_nudge_used = False
     bare_ack_nudge_used = False
+    quantitative_estimate_nudge_used = False
     required_skill_caps: List[str] = []
     attempted_skill_caps: Set[str] = set()
     active_execution_plan = _active_skill_plan_state(st)
@@ -1516,6 +1576,59 @@ async def run_cognitive_loop(
                     "collegato. Il piano potrebbe essere ancora attivo: non lo considero annullato."
                 )
             ora = _compose_user_text(decision, observations[turn_start:])
+            estimate_issues = (
+                _quantitative_estimate_issues(
+                    decision, ora, observations[turn_start:]
+                )
+                if mode in ("answer", "finish", "act")
+                else []
+            )
+            if (
+                estimate_issues
+                and not quantitative_estimate_nudge_used
+                and step + 1 < max_steps
+            ):
+                quantitative_estimate_nudge_used = True
+                observations.append(
+                    Observation(
+                        kind="system",
+                        name="quantitative_estimate_requires_calibration",
+                        status="nudge",
+                        payload={
+                            "failure_code": "QUANTITATIVE_ESTIMATE_NOT_GROUNDED",
+                            "issues": estimate_issues,
+                            "reason": (
+                                "You are about to present a decision-relevant "
+                                "empirical number without a verified calibration "
+                                "basis. Mechanism is not calibration. Use research "
+                                "or a specialized calibrated capability and cite "
+                                "the real evidence refs in quantitative_estimates. "
+                                "If adequate evidence cannot be obtained, remove "
+                                "the precise number and state the uncertainty."
+                            ),
+                        },
+                    ).model_dump()
+                )
+                add_step(
+                    trace,
+                    event="QUANTITATIVE_ESTIMATE_GROUNDING_NUDGE",
+                    issues=estimate_issues,
+                )
+                continue
+            if estimate_issues:
+                decision.message_to_user = (
+                    "Non ho una base documentata sufficiente per darti una "
+                    "stima numerica attendibile in questo momento."
+                )
+                decision.question = None
+                mode = "answer"
+                ora = _compose_user_text(decision, observations[turn_start:])
+                add_step(
+                    trace,
+                    event="QUANTITATIVE_ESTIMATE_BLOCKED_TERMINAL",
+                    issues=estimate_issues,
+                )
+
             skill_plan_waits_for_user = bool(
                 mode == "ask"
                 or _observations_wait_for_user(observations[turn_start:])
