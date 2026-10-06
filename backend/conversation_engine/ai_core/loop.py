@@ -1467,8 +1467,8 @@ async def run_cognitive_loop(
                                 "You are about to turn an empty bounded calendar "
                                 "window into a global absence claim. That is not "
                                 "supported. The event may be on another day. For a "
-                                "named action target with no explicit date, broaden "
-                                "the search or call the intended calendar capability "
+                                "named action target with no explicit date, broaden the search or "
+                                "call the intended calendar capability "
                                 "with target_title so it can return real candidates. "
                                 "Only say 'not found' with the exact scope you actually searched."
                             ),
