@@ -1820,15 +1820,112 @@ async def cancel_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
 
     from home.calendar_event import delete_event, event_detail
 
-    # Di cosa si sta parlando: la bozza nostra, oppure direttamente il manico
-    # che l'evento ha su Google. Entrambi sono nomi della stessa cosa.
+    # Di cosa si sta parlando: preferisci sempre il riferimento canonico.
+    # Se la persona ha nominato l'evento ma il modello non ha ancora un ref,
+    # usa lo stesso resolver sicuro dello spostamento: exact+unique può
+    # identificare, fuzzy può soltanto suggerire, ambiguity deve chiedere.
     ref = _strip_ref(arguments.get("calendar_ref")) or str(
         arguments.get("google_event_id") or ""
     ).strip()
+    target_title = str(arguments.get("target_title") or "").strip()[:_MAX_TITLE]
+
+    if not ref and target_title:
+        resolved_target = await _named_calendar_ref_resolution(db, uid, target_title)
+        status = str(resolved_target.get("status") or "")
+        if status == "ok":
+            ref = _strip_ref(
+                ((resolved_target.get("match") or {}).get("calendar_ref"))
+            )
+        elif status == "suggestion":
+            suggested = resolved_target.get("suggestion") or {}
+            return Observation(
+                kind="tool", name="cancel_calendar_event", status="partial",
+                payload={
+                    "status": "needs_confirmation",
+                    "failure_kind": "close_title_candidate",
+                    "target_title": target_title,
+                    "suggested_event": suggested,
+                    "alternatives": (resolved_target.get("suggestions") or [])[1:3],
+                    "reason": (
+                        "C'è un candidato chiaramente simile, ma una somiglianza "
+                        "non autorizza mai una cancellazione. Chiedi se si riferisce "
+                        "esattamente a questo evento; non cancellare ancora."
+                    ),
+                },
+                provenance=[str(suggested.get("calendar_ref") or "")],
+            )
+        elif status in ("ambiguous", "ambiguous_similar"):
+            candidates = (
+                resolved_target.get("matches")
+                or resolved_target.get("suggestions")
+                or []
+            )
+            return Observation(
+                kind="tool", name="cancel_calendar_event", status="partial",
+                payload={
+                    "status": "needs_information",
+                    "failure_kind": (
+                        "exact_title_ambiguous"
+                        if status == "ambiguous" else "similar_title_ambiguous"
+                    ),
+                    "target_title": target_title,
+                    "candidates": candidates[:3],
+                    "reason": (
+                        "Ci sono più eventi plausibili. Mostra titolo e data/orario "
+                        "e chiedi quale intende; non scegliere e non cancellare."
+                    ),
+                },
+                provenance=[
+                    str(x.get("calendar_ref") or "") for x in candidates[:3]
+                ],
+            )
+        else:
+            return Observation(
+                kind="tool", name="cancel_calendar_event", status="not_found",
+                payload={
+                    "status": "not_found",
+                    "failure_kind": "title_not_found",
+                    "target_title": target_title,
+                    "reason": (
+                        "Non c'è un evento futuro abbastanza vicino a questo titolo. "
+                        "Chiedi un dettaglio utile senza inventare un appuntamento."
+                    ),
+                },
+            )
+
     if not ref:
         return _fail(
-            "cancel_calendar_event", "INVALID_INPUT", "calendar_ref required",
+            "cancel_calendar_event",
+            "INVALID_INPUT",
+            "calendar_ref or target_title required",
         )
+
+    # Canonical reads expose imported Google events as
+    # calendar:google:<owner-scoped-ingestion-id>. Update already resolves this
+    # through _linked_google_draft; cancellation must do the same or a visible
+    # Google event becomes mysteriously 'not found' when the user removes it.
+    if ref.startswith("google:"):
+        linked = await _linked_google_draft(db, uid, ref)
+        if not linked:
+            return Observation(
+                kind="tool", name="cancel_calendar_event", status="not_found",
+                payload={
+                    "status": "not_found",
+                    "failure_kind": "owned_google_event_not_found",
+                    "calendar_ref": _ref(ref),
+                    "reason": (
+                        "L'evento Google non è più disponibile nel calendario "
+                        "collegato; rileggi il calendario prima di riprovare."
+                    ),
+                },
+                provenance=[_ref(ref)],
+            )
+        ref = str(linked.get("id") or "")
+        if not ref:
+            return _fail(
+                "cancel_calendar_event", "INVALID_INPUT",
+                "linked Google event has no writable handle",
+            )
 
     handle = ref
     draft = await db.calendar_event_drafts.find_one(
