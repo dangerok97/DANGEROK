@@ -8,7 +8,7 @@ on:
       - 'backend/ambient/**'
       - 'backend/conversation_engine/ai_core/**'
       - 'backend/life_profile/knowledge_map.py'
-      - 'backend/tests/test_situation_followup_v98.py'
+      - 'backend/tests/test_situation_followup*'
       - 'frontend/src/components/ora/**'
       - '.github/workflows/situation-followup-regressions.yml'
   pull_request:
@@ -51,7 +51,7 @@ jobs:
           mkdir -p /tmp/ora-situation-ci
       - name: Exercise persisted checkpoints, isolation, recovery and cancellation
         working-directory: backend
-        run: python -m pytest -q tests/test_situation_followup_v98.py tests/test_conversation_situation_autonomy_v58.py tests/test_life_outcome_watch_v84.py tests/test_immediate_situation_action_v88b.py -x
+        run: python -m pytest -q tests/test_situation_followup_v98.py tests/test_situation_followup_loop_v98.py tests/test_conversation_situation_autonomy_v58.py tests/test_life_outcome_watch_v84.py tests/test_immediate_situation_action_v88b.py -x
   presentation:
     name: Situation follow-up presentation guards
     runs-on: ubuntu-latest
