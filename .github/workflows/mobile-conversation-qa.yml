@@ -1,0 +1,52 @@
+name: Mobile conversation visual QA
+on:
+  pull_request:
+    branches: ['staging/cloud']
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/mobile-conversation-qa.yml'
+permissions:
+  contents: read
+concurrency:
+  group: mobile-conversation-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  mobile-ui:
+    name: Mobile web layout and interaction (Chromium + WebKit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      CI: 'true'
+      EXPO_PUBLIC_BACKEND_URL: http://127.0.0.1:8000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Typecheck and layout contracts
+        run: |
+          npx tsc --noEmit
+          node --experimental-strip-types --test src/components/ora/presence/mobileConversationLayout.test.ts
+      - name: Export actual production web components
+        run: npx expo export --platform web --output-dir dist-mobile-qa
+      - name: Install mobile browser engines
+        run: npx playwright install --with-deps chromium webkit
+      - name: Check layout, scrolling, actions, map and visual viewport
+        run: npx playwright test --config=e2e/mobile-qa.config.ts
+      - name: Keep screenshots and test results (simulated API data)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-conversation-qa
+          path: |
+            frontend/mobile-qa/
+            frontend/test-results/
+          retention-days: 3
+          if-no-files-found: warn
