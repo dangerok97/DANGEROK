@@ -48,9 +48,11 @@ function DetailRow({
 export function OraCockpitContext({
   refreshKey,
   selectedStarId,
+  onTemporaryChanged,
 }: {
   refreshKey?: unknown;
   selectedStarId?: string | null;
+  onTemporaryChanged?: () => void;
 }) {
   const router = useRouter();
   const [home, setHome] = useState<HomeV2Response | null>(null);
@@ -86,12 +88,13 @@ export function OraCockpitContext({
     try {
       await api.dismissTemporarySituation(current.situation_id, current.situation_revision);
       await temporary.refresh();
+      onTemporaryChanged?.();
     } catch {
       setRemoveError('Non sono riuscita a rimuovere questa situazione. Aggiorna e riprova.');
     } finally {
       setRemoving(false);
     }
-  }, [current?.situation_id, current?.situation_revision, removing, temporary.refresh]);
+  }, [current?.situation_id, current?.situation_revision, removing, temporary.refresh, onTemporaryChanged]);
 
   return (
     <View style={styles.rail} testID="ora-cockpit-context">
