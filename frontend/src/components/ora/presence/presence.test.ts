@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
 import { readPresenceActivity, presenceMode, readPresenceNode, AREA_IDS, AREA_DETAILS, completionFocusKey, presenceFocus } from './state.ts';
 import { sceneSource } from './sceneSource.ts';
+import { geometryFor } from './knowledge.ts';
 const now = Date.now();
 const activity = { request_id: 'turn-a', sequence: 2, phase: 'tool', area: 'calendar', touched: ['memory', 'calendar'], updated_at: now / 1000 };
 test('first turn focus requires a matching, fresh real signal', () => {
@@ -57,4 +58,31 @@ test('selection bridge accepts only a known node identity and drops arbitrary co
     assert.ok(AREA_DETAILS[area].description && AREA_DETAILS[area].prompt);
   }
   for (const invalid of [null, {}, {index: 402, area: 'home', kind: 'node'}, {index: 0, area: 'home', kind: 'area'}, {index: 0, area: 'memory', kind: 'node'}, {index: 9.5, area: 'memory', kind: 'node'}, {index: 0, area: 'constructor', kind: 'area'}]) assert.equal(readPresenceNode(invalid), null);
+});
+
+
+test('temporary memory becomes red-star geometry without changing durable semantics', () => {
+  const geometry = geometryFor({
+    stars: [{
+      id: 'star_temp',
+      area: 'memory',
+      branch_id: null,
+      title: 'Memoria temporanea',
+      statement: 'Situazione momentanea',
+      status: 'known',
+      provenance: 'Situazione attiva',
+      temporary: true,
+      situation_id: 'sit_1',
+    }],
+    count: 1,
+    known_count: 1,
+    temporary_count: 1,
+    percent: 0,
+    branches: [],
+    revision: 'r1',
+  });
+  assert.equal(geometry[0]?.temporary, true);
+  assert.equal(geometry[0]?.tentative, false);
+  assert.ok(sceneSource.includes('temporary?palette.temporaryNode'));
+  assert.ok(sceneSource.includes('temporary?palette.temporaryGlow'));
 });
