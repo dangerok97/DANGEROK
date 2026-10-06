@@ -45,7 +45,13 @@ function DetailRow({
   );
 }
 
-export function OraCockpitContext({ refreshKey }: { refreshKey?: unknown }) {
+export function OraCockpitContext({
+  refreshKey,
+  selectedStarId,
+}: {
+  refreshKey?: unknown;
+  selectedStarId?: string | null;
+}) {
   const router = useRouter();
   const [home, setHome] = useState<HomeV2Response | null>(null);
   const [removing, setRemoving] = useState(false);
@@ -69,7 +75,7 @@ export function OraCockpitContext({ refreshKey }: { refreshKey?: unknown }) {
     return () => { clearInterval(timer); app.remove(); };
   }, [refresh, refreshKey]);
 
-  const current = temporary.latest;
+  const current = temporary.stars.find(star => star.id === selectedStarId) || temporary.latest;
   const focus = home?.primary_focus || null;
   const currentState = firstSituationState(current);
 
