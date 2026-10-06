@@ -1516,11 +1516,19 @@ async def run_cognitive_loop(
                     "collegato. Il piano potrebbe essere ancora attivo: non lo considero annullato."
                 )
             ora = _compose_user_text(decision, observations[turn_start:])
+            skill_plan_waits_for_user = bool(
+                mode == "ask"
+                or _observations_wait_for_user(observations[turn_start:])
+            )
             if mode in ("answer", "finish", "act"):
                 pending_skill_caps = _pending_required_skill_caps(
                     required_skill_caps, attempted_skill_caps
                 )
-                if pending_skill_caps and step + 1 < max_steps:
+                if (
+                    pending_skill_caps
+                    and not skill_plan_waits_for_user
+                    and step + 1 < max_steps
+                ):
                     observations.append(
                         Observation(
                             kind="system",
@@ -1552,7 +1560,7 @@ async def run_cognitive_loop(
                         pending=pending_skill_caps,
                     )
                     continue
-                if pending_skill_caps:
+                if pending_skill_caps and not skill_plan_waits_for_user:
                     decision.message_to_user = (
                         "Non sono riuscita a completare la richiesta in questo turno."
                     )
