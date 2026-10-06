@@ -280,8 +280,35 @@ async def open_navigation(arguments: Dict[str, Any], runtime: Dict[str, Any]) ->
                 and not resolution.reason.startswith("più luoghi")):
             from places.navigation import search_handoff
 
+            route_origin = await _route_origin_or_client(runtime)
+            if route_origin.get("needs_client"):
+                return _ok(
+                    "open_navigation",
+                    {
+                        "ready": False,
+                        "destination_pending": spoken,
+                        "needs_client": True,
+                        "client_action": route_origin["client_action"],
+                        "say_this": (
+                            "Per confrontare davvero tempi e traffico da dove sei adesso, "
+                            "mi serve una posizione aggiornata del dispositivo."
+                        ),
+                    },
+                    uid,
+                    status="needs_client",
+                )
+
             preview = await _public_route_preview(
-                spoken, runtime, arrival_request=arguments.get("arrival_request")
+                spoken,
+                runtime,
+                arrival_request=arguments.get("arrival_request"),
+                origin=route_origin.get("origin"),
+            )
+            terminal_reason = str(route_origin.get("terminal_reason") or "")
+            fallback_why = (
+                route_origin.get("why")
+                if terminal_reason else
+                "non sono riuscita a risolvere in modo univoco la destinazione o il routing live"
             )
             return _ok("open_navigation", {
                 "ready": True,
@@ -295,9 +322,7 @@ async def open_navigation(arguments: Dict[str, Any], runtime: Dict[str, Any]) ->
                 "route_weather": preview.get("route_weather", []) if preview else [],
                 "route_provider": "mapbox" if preview else None,
                 "routing": None if preview else (
-                    {"available": False, "why_unavailable":
-                     "non ho una posizione attuale e una destinazione univoca da stimare; "
-                     "la mappa cercherà il luogo quando la apri"}
+                    {"available": False, "why_unavailable": fallback_why}
                     if _mapbox_enabled() else _routing_note()
                 ),
                 "say_this": (
@@ -305,9 +330,8 @@ async def open_navigation(arguments: Dict[str, Any], runtime: Dict[str, Any]) ->
                     "Ti mostro i tempi stimati e il traffico. Verifica che sia la destinazione giusta: "
                     "la navigazione partirà dalla posizione del dispositivo e potrà aggiornare la strada."
                     if preview else
-                    f"Ti porto verso «{spoken}»: apri Google Maps qui sotto. "
-                    "Userà la posizione del dispositivo e mostrerà percorso e traffico aggiornati. "
-                    "Controlla che abbia trovato la destinazione giusta."
+                    f"Ti porto verso «{spoken}»: apro Google Maps, ma non invento tempi o traffico "
+                    f"che non sono riuscita a verificare ({fallback_why})."
                 ),
                 **(preview["handoff"] if preview else search_handoff(spoken, str(arguments.get("mode") or "driving"))),
             }, uid, status="needs_client")
@@ -448,7 +472,74 @@ async def open_navigation(arguments: Dict[str, Any], runtime: Dict[str, Any]) ->
     )
 
 
-async def _public_route_preview(name: str, runtime: Dict[str, Any], *, arrival_request=None) -> Dict[str, Any] | None:
+async def _route_origin_or_client(runtime: Dict[str, Any]) -> Dict[str, Any]:
+    """Fresh departure origin, or the exact client bridge needed to get one.
+
+    Route ETAs are more time-sensitive than generic presence. A location that
+    is fine for contextual reasoning can already be too old for "how long from
+    here right now". If the stored fix is not fresh enough, ask the device for
+    a foreground refresh instead of silently giving up on ETA/traffic.
+    """
+    uid = str(runtime.get("user_id") or "")
+    db = runtime.get("db")
+    if not uid or db is None:
+        return {"origin": None, "terminal_reason": "missing_runtime"}
+
+    from location.service import LocationService
+
+    svc = LocationService(db)
+    presence = await svc.build_presence(uid, platform=str(runtime.get("platform") or "web"))
+    origin = _navigation_origin(presence)
+    if origin is not None:
+        return {"origin": origin}
+
+    pref = await svc.get_preference(uid)
+    if presence.permission_state == "denied" or (
+        (presence.acquisition_error or "").strip().lower() == "denied"
+    ):
+        return {
+            "origin": None,
+            "terminal_reason": "permission_denied",
+            "why": "non ho il permesso di leggere la posizione attuale",
+        }
+    if presence.permission_state == "unavailable":
+        return {
+            "origin": None,
+            "terminal_reason": "position_unavailable",
+            "why": "il dispositivo non riesce a fornire una posizione attuale",
+        }
+
+    client_action = (
+        {
+            "type": "request_foreground_location",
+            "reason": "Serve una posizione aggiornata per calcolare tempi e traffico da qui.",
+            "refresh": True,
+        }
+        if pref == "while_using"
+        else {
+            "type": "request_location_permission",
+            "reason": (
+                "ORA può usare la tua posizione mentre usi l'app per calcolare "
+                "tempi e traffico dalla tua posizione attuale."
+            ),
+            "refresh": True,
+        }
+    )
+    return {
+        "origin": None,
+        "needs_client": True,
+        "client_action": client_action,
+        "why": "mi serve una posizione aggiornata per stimare tempi e traffico",
+    }
+
+
+async def _public_route_preview(
+    name: str,
+    runtime: Dict[str, Any],
+    *,
+    arrival_request=None,
+    origin: Dict[str, float] | None = None,
+) -> Dict[str, Any] | None:
     """A temporary coordinate lookup, only with a current origin and exact unique name."""
     from places import briefing, routing
     from places.navigation import navigation_url
@@ -459,8 +550,9 @@ async def _public_route_preview(name: str, runtime: Dict[str, Any], *, arrival_r
     try:
         from location.service import LocationService
 
-        presence = await LocationService(runtime["db"]).build_presence(runtime["user_id"])
-        origin = _navigation_origin(presence)
+        if origin is None:
+            presence = await LocationService(runtime["db"]).build_presence(runtime["user_id"])
+            origin = _navigation_origin(presence)
         if origin is None:
             return None
         destination = await preview_destination(name, origin)
