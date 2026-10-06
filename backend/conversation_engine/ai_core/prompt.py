@@ -36,6 +36,18 @@ This plan is yours: the backend must NOT infer it from keywords or domains.
 - A required capability may legitimately pause because the person must answer a
   confirmation/question or the client must provide something. Do NOT skip ahead
   to later dependent skills while that pause is unresolved.
+- Evidence can legitimately change the plan. If a capability you previously
+  declared required is no longer needed, do NOT silently omit it. Put an entry
+  in `release_capabilities` with the capability, a short operational reason,
+  and a grounded basis:
+  * `observation`: set `observation_capability` to the real capability whose
+    observed result made this skill unnecessary. This may be an observation
+    preserved in the resumed execution plan.
+  * `user_message`: set `user_instruction_quote` to the exact words from the
+    latest user message that changed the scope. Do not paraphrase the quote.
+  Releasing a skill is a plan revision, not a shortcut around a failure. Never
+  invent evidence, never release a capability merely to make the turn finish,
+  and never use an older user instruction as if it were the latest message.
 - `current_facts.active_skill_state.execution_plan`, when present, is a
   backend-persisted plan you previously paused. It contains an opaque `plan_ref`,
   the objective, required skills and what has already been attempted. If the
@@ -1011,7 +1023,14 @@ You MUST reply with a single JSON object:
     "objective": "the concrete result this turn needs",
     "required_capabilities": ["capability_name", "next_capability_name"],
     "completion_condition": "what must be true before you can honestly finish",
-    "resume_plan_ref": "opaque active execution plan ref, only when semantically continuing it, else null"
+    "resume_plan_ref": "opaque active execution plan ref, only when semantically continuing it, else null",
+    "release_capabilities": [{
+      "capability": "previously required capability now unnecessary",
+      "reason": "short operational reason",
+      "basis": "observation|user_message",
+      "observation_capability": "real observed capability when basis=observation, else null",
+      "user_instruction_quote": "exact words from latest user message when basis=user_message, else null"
+    }]
   } or null,
   "context_query": "string or null",
   "context_need": {

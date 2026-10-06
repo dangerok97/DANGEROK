@@ -174,6 +174,125 @@ def _record_skill_attempt(
     return out
 
 
+def _skill_outcome_summary(
+    requested_cap: str, observation
+) -> Dict[str, str]:
+    """Sanitised capability result for cross-turn planning — no tool payload."""
+    if isinstance(observation, dict):
+        observed = str(observation.get("name") or "").strip()
+        status = str(observation.get("status") or "").strip()
+        payload = observation.get("payload") or {}
+    else:
+        observed = str(getattr(observation, "name", "") or "").strip()
+        status = str(getattr(observation, "status", "") or "").strip()
+        payload = getattr(observation, "payload", None) or {}
+    payload = payload if isinstance(payload, dict) else {}
+    return {
+        "capability": str(requested_cap or "").strip()[:120],
+        "observed_capability": observed[:120],
+        "status": status[:40],
+        "result_status": str(payload.get("status") or "")[:60],
+        "failure_kind": str(
+            payload.get("failure_kind")
+            or payload.get("failure_code")
+            or ((payload.get("external") or {}).get("failure_code") if isinstance(payload.get("external"), dict) else "")
+            or ""
+        )[:100],
+    }
+
+
+def _merge_skill_outcomes(current, incoming) -> List[Dict[str, str]]:
+    out: List[Dict[str, str]] = []
+    for raw in [*(current or []), *(incoming or [])]:
+        if not isinstance(raw, dict):
+            continue
+        item = {
+            "capability": str(raw.get("capability") or "")[:120],
+            "observed_capability": str(raw.get("observed_capability") or "")[:120],
+            "status": str(raw.get("status") or "")[:40],
+            "result_status": str(raw.get("result_status") or "")[:60],
+            "failure_kind": str(raw.get("failure_kind") or "")[:100],
+        }
+        if not item["capability"] and not item["observed_capability"]:
+            continue
+        key = (
+            item["capability"],
+            item["observed_capability"],
+            item["status"],
+            item["result_status"],
+            item["failure_kind"],
+        )
+        if key not in {
+            (
+                x["capability"], x["observed_capability"], x["status"],
+                x["result_status"], x["failure_kind"]
+            )
+            for x in out
+        }:
+            out.append(item)
+    return out[-12:]
+
+
+def _words(value: str) -> str:
+    return " ".join(str(value or "").split()).casefold()
+
+
+def _apply_skill_plan_releases(
+    required: List[str],
+    releases,
+    observations,
+    *,
+    persisted_outcomes=None,
+    user_message: str = "",
+) -> tuple[List[str], List[str], List[str]]:
+    """Apply only explicit plan revisions grounded in real evidence/user words."""
+    remaining = list(required or [])
+    observed_names: Set[str] = set()
+    for obs in observations or []:
+        if isinstance(obs, dict):
+            name = str(obs.get("name") or "").strip()
+        else:
+            name = str(getattr(obs, "name", "") or "").strip()
+        if name:
+            observed_names.add(name)
+    for item in persisted_outcomes or []:
+        if not isinstance(item, dict):
+            continue
+        for key in ("capability", "observed_capability"):
+            name = str(item.get(key) or "").strip()
+            if name:
+                observed_names.add(name)
+
+    spoken = _words(user_message)
+    released: List[str] = []
+    rejected: List[str] = []
+    for release in releases or []:
+        cap = str(getattr(release, "capability", "") or "").strip()
+        basis = str(getattr(release, "basis", "") or "").strip()
+        evidence = str(
+            getattr(release, "observation_capability", "") or ""
+        ).strip()
+        quote = str(getattr(release, "user_instruction_quote", "") or "").strip()
+        if not cap or cap not in remaining:
+            if cap:
+                rejected.append(cap)
+            continue
+        if basis == "observation":
+            if not evidence or evidence not in observed_names:
+                rejected.append(cap)
+                continue
+        elif basis == "user_message":
+            if not quote or _words(quote) not in spoken:
+                rejected.append(cap)
+                continue
+        else:
+            rejected.append(cap)
+            continue
+        remaining = [name for name in remaining if name != cap]
+        released.append(cap)
+    return remaining, released, rejected
+
+
 def _active_skill_plan_state(state: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Sanitised persisted execution-plan metadata, never tool arguments."""
     raw = state.get("active_skill_plan")
@@ -193,6 +312,7 @@ def _active_skill_plan_state(state: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         name = str(cap or "").strip()
         if name and name not in attempted:
             attempted.append(name)
+    outcomes = _merge_skill_outcomes([], raw.get("capability_outcomes") or [])
     required = required[:MAX_TOOL_CALLS]
     attempted = attempted[: MAX_TOOL_CALLS * 2]
     return {
@@ -200,6 +320,7 @@ def _active_skill_plan_state(state: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         "objective": objective,
         "required_capabilities": required,
         "attempted_capabilities": attempted,
+        "capability_outcomes": outcomes,
         "pending_capabilities": _pending_required_skill_caps(
             required, set(attempted)
         ),
@@ -214,6 +335,7 @@ def _persist_active_skill_plan(
     objective: str,
     required: List[str],
     attempted: Set[str],
+    outcomes=None,
     existing_ref: Optional[str] = None,
     waiting: bool = True,
 ) -> Dict[str, Any]:
@@ -226,6 +348,7 @@ def _persist_active_skill_plan(
         "objective": str(objective or "").strip()[:320] or "Completare la richiesta",
         "required_capabilities": list(required or [])[:MAX_TOOL_CALLS],
         "attempted_capabilities": sorted(set(attempted or set()))[: MAX_TOOL_CALLS * 2],
+        "capability_outcomes": _merge_skill_outcomes([], outcomes or []),
         "waiting": bool(waiting),
         "updated_at": now_iso(),
     }
@@ -936,6 +1059,7 @@ async def run_cognitive_loop(
     bare_ack_nudge_used = False
     required_skill_caps: List[str] = []
     attempted_skill_caps: Set[str] = set()
+    skill_outcomes: List[Dict[str, str]] = []
     active_execution_plan = _active_skill_plan_state(st)
     active_execution_plan_ref: Optional[str] = (
         str((active_execution_plan or {}).get("plan_ref") or "") or None
@@ -1111,6 +1235,10 @@ async def run_cognitive_loop(
                     attempted_skill_caps.update(
                         active_execution_plan.get("attempted_capabilities") or []
                     )
+                    skill_outcomes = _merge_skill_outcomes(
+                        skill_outcomes,
+                        active_execution_plan.get("capability_outcomes") or [],
+                    )
                     current_skill_plan_ref = resume_ref
                     skill_plan_resumed_this_turn = True
                     add_step(
@@ -1140,10 +1268,65 @@ async def run_cognitive_loop(
                     add_step(trace, event="SKILL_PLAN_RESUME_REJECTED")
                     if step + 1 < max_steps:
                         continue
+
             required_skill_caps = _merge_required_skill_caps(
                 required_skill_caps,
                 decision.skill_plan.required_capabilities,
             )
+
+            if decision.skill_plan.release_capabilities:
+                (
+                    required_skill_caps,
+                    released_skill_caps,
+                    rejected_skill_releases,
+                ) = _apply_skill_plan_releases(
+                    required_skill_caps,
+                    decision.skill_plan.release_capabilities,
+                    observations[turn_start:],
+                    persisted_outcomes=skill_outcomes,
+                    user_message=user_message,
+                )
+                if released_skill_caps:
+                    trace["skill_plan_released"] = list(
+                        dict.fromkeys(
+                            list(trace.get("skill_plan_released") or [])
+                            + released_skill_caps
+                        )
+                    )
+                    add_step(
+                        trace,
+                        event="SKILL_PLAN_REVISED",
+                        released=released_skill_caps,
+                    )
+                if rejected_skill_releases:
+                    observations.append(
+                        Observation(
+                            kind="system",
+                            name="invalid_skill_plan_release",
+                            status="nudge",
+                            payload={
+                                "failure_code": "INVALID_SKILL_PLAN_RELEASE",
+                                "rejected_capabilities": rejected_skill_releases,
+                                "reason": (
+                                    "A required skill can be released only with "
+                                    "verified evidence. For basis=observation, "
+                                    "observation_capability must match a real current "
+                                    "or persisted capability outcome. For "
+                                    "basis=user_message, user_instruction_quote must "
+                                    "be exact words from the latest user message. "
+                                    "Do not silently drop the skill."
+                                ),
+                            },
+                        ).model_dump()
+                    )
+                    add_step(
+                        trace,
+                        event="SKILL_PLAN_RELEASE_REJECTED",
+                        rejected=rejected_skill_releases,
+                    )
+                    if step + 1 < max_steps:
+                        continue
+
             trace["skill_plan_required"] = list(required_skill_caps)
             trace["skill_plan_objective"] = decision.skill_plan.objective[:240]
             trace["skill_plan_ref"] = current_skill_plan_ref
@@ -2489,6 +2672,7 @@ async def run_cognitive_loop(
                     ),
                     required=required_skill_caps,
                     attempted=attempted_skill_caps,
+                    outcomes=skill_outcomes,
                     existing_ref=(
                         current_skill_plan_ref
                         if skill_plan_resumed_this_turn
@@ -3065,6 +3249,10 @@ async def run_cognitive_loop(
                         cap,
                         str(getattr(obs, "name", "") or ""),
                     )
+                    skill_outcomes = _merge_skill_outcomes(
+                        skill_outcomes,
+                        [_skill_outcome_summary(cap, obs)],
+                    )
                     if required_skill_caps:
                         persisted_plan = _persist_active_skill_plan(
                             st,
@@ -3075,6 +3263,7 @@ async def run_cognitive_loop(
                             ),
                             required=required_skill_caps,
                             attempted=attempted_skill_caps,
+                            outcomes=skill_outcomes,
                             existing_ref=(
                                 current_skill_plan_ref
                                 if skill_plan_resumed_this_turn
@@ -3239,7 +3428,12 @@ async def run_cognitive_loop(
                 cap,
                 str(obs_dump.get("name") or ""),
             )
+            skill_outcomes = _merge_skill_outcomes(
+                skill_outcomes,
+                [_skill_outcome_summary(cap, obs_dump)],
+            )
             trace["skill_plan_attempted"] = sorted(attempted_skill_caps)
+            trace["skill_plan_outcomes"] = list(skill_outcomes)
 
             # Persist active plan/goal refs for Continue / later turns
             payload = obs.payload or {}

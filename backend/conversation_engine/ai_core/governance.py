@@ -377,8 +377,31 @@ def validate_decision(
                     errors.append(f"skill_plan_unknown_capability:{cap}")
                     continue
                 valid_caps.append(cap)
+            valid_releases = []
+            for release in candidate_plan.release_capabilities:
+                spec = tools.get(release.capability)
+                if not spec or spec.availability == "hidden":
+                    errors.append(
+                        f"skill_plan_release_unknown_capability:{release.capability}"
+                    )
+                    continue
+                if release.basis == "observation":
+                    evidence = str(release.observation_capability or "").strip()
+                    evidence_spec = tools.get(evidence) if evidence else None
+                    if not evidence or not evidence_spec or evidence_spec.availability == "hidden":
+                        errors.append("skill_plan_release_missing_observation")
+                        continue
+                if release.basis == "user_message" and not str(
+                    release.user_instruction_quote or ""
+                ).strip():
+                    errors.append("skill_plan_release_missing_user_quote")
+                    continue
+                valid_releases.append(release)
             skill_plan = candidate_plan.model_copy(
-                update={"required_capabilities": valid_caps}
+                update={
+                    "required_capabilities": valid_caps,
+                    "release_capabilities": valid_releases,
+                }
             )
         except Exception:
             errors.append("skill_plan_invalid")
