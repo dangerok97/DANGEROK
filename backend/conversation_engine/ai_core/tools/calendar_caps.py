@@ -171,6 +171,35 @@ def _parse_dt(value: Optional[str]) -> Optional[datetime]:
         return None
 
 
+def _aware_dt(value: Any, zone: ZoneInfo) -> Optional[datetime]:
+    dt = _parse_dt(str(value or ""))
+    if dt is None:
+        return None
+    return dt if dt.tzinfo is not None else dt.replace(tzinfo=zone)
+
+
+def _event_overlaps_window(
+    item: Dict[str, Any],
+    start: datetime,
+    end: datetime,
+    *,
+    zone: ZoneInfo,
+) -> bool:
+    """Treat calendar windows as intervals, not start-time buckets.
+
+    An event that began before the window but has not ended yet is current.
+    Missing end times keep the historical start-time behavior because there
+    is no evidence that such an event is still active.
+    """
+    begins = _aware_dt(item.get("start_datetime"), zone)
+    if begins is None:
+        return False
+    finishes = _aware_dt(item.get("end_datetime"), zone)
+    if finishes is None:
+        return start <= begins < end
+    return begins < end and finishes > start
+
+
 def _canonical_update_datetime(value: Any, tz_name: str) -> Optional[str]:
     """Canonicalise an update wall-clock without silently shifting it."""
     dt = _parse_dt(str(value or ""))
