@@ -1,0 +1,42 @@
+name: Apply reviewed Situation v98 patch
+on:
+  push:
+    branches: [fix/situation-watch-contract-v98]
+    paths: [.github/workflows/situation-v98-apply.yml]
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify source branch and patch integrity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF_NAME" = "fix/situation-watch-contract-v98"
+          git fetch origin refs/heads/fix/situation-watch-contract-v98
+          test "$(git rev-parse HEAD)" = "$(git rev-parse FETCH_HEAD)"
+          python - <<'PY'
+          import base64, hashlib, pathlib, zlib
+          encoded = ''.join(pathlib.Path(f'scripts/situation-v98-part-{n}.txt').read_text().strip() for n in range(4))
+          patch = zlib.decompress(base64.b64decode(encoded, validate=True))
+          assert hashlib.sha256(patch).hexdigest() == 'd092c20a82014f22933e48ef377fed634b20b3c3d158399092fe075d92d64a53', 'patch checksum mismatch'
+          pathlib.Path('/tmp/situation-v98.patch').write_bytes(patch)
+          PY
+          git apply --check /tmp/situation-v98.patch
+          git apply /tmp/situation-v98.patch
+          git diff --check
+          python -m compileall -q backend/situations backend/conversation_engine/ai_core backend/agent backend/tests/test_situation_followup_v98.py
+      - name: Commit product files and remove temporary audit machinery
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm scripts/situation-v98.patch.b64 scripts/situation-v98-part-*.txt .github/workflows/situation-v98-source-audit.yml .github/workflows/situation-v98-apply.yml
+          git add .github/workflows/ci.yml backend/agent/background.py backend/agent/service.py backend/conversation_engine/ai_core/context_broker.py backend/conversation_engine/ai_core/loop.py backend/conversation_engine/ai_core/prompt.py backend/conversation_engine/ai_core/tools/registry.py backend/life_profile/knowledge_map.py backend/situations/followup.py backend/situations/service.py backend/tests/test_conversation_situation_autonomy_v58.py backend/tests/test_situation_followup_v98.py frontend/src/components/ora/OraCockpitContext.tsx frontend/src/components/ora/ora14.test.ts frontend/src/components/ora/presence/knowledge.ts
+          git config user.name 'ORA maintenance'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'fix: persist and expose executable Situation follow-ups v98'
+          git push origin HEAD:refs/heads/fix/situation-watch-contract-v98
+          git rev-parse HEAD
