@@ -793,8 +793,9 @@ async def _named_calendar_ref_resolution(
     if not wanted:
         return {"status": "not_found", "matches": [], "suggestions": []}
 
-    start = now or datetime.now(timezone.utc)
-    end = start + timedelta(days=_MAX_WINDOW_DAYS)
+    reference = now or datetime.now(timezone.utc)
+    start = reference - timedelta(days=7)
+    end = reference + timedelta(days=_MAX_WINDOW_DAYS)
     tmin, tmax = start.isoformat(), end.isoformat()
     all_events: List[Dict[str, Any]] = []
     provider_handles = set()
@@ -862,6 +863,15 @@ async def _named_calendar_ref_resolution(
             "start_datetime": e["starts_at"], "end_datetime": e["ends_at"],
             "timezone": e["timezone"], "source": "ora_local",
         })
+
+    # An exact title may refer to an event already in progress. Keep current
+    # and future events; drop anything that has actually ended.
+    all_events = [
+        item for item in all_events
+        if _event_overlaps_window(
+            item, reference, end, zone=ZoneInfo("UTC")
+        )
+    ]
 
     exact = [
         item for item in all_events
