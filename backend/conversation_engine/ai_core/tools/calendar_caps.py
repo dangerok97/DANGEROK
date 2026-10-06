@@ -669,6 +669,18 @@ async def get_calendar_events(arguments: Dict[str, Any], runtime: Dict[str, Any]
         payload={
             "status": "ok",
             "window": {"time_min": tmin_iso, "time_max": tmax_iso},
+            "coverage": {
+                "scope": "window_only",
+                "absence_semantics": (
+                    "An empty events list proves only that no visible event was "
+                    "found inside this exact time window. It does NOT prove that "
+                    "the named event does not exist elsewhere in the calendar."
+                ),
+                "next_if_named_target_missing": (
+                    "Broaden the calendar search or call the intended calendar "
+                    "action with target_title so it can surface real future candidates."
+                ),
+            },
             "events": items,
             "conflict_index_pairs": conflicts[:10],
             "truncated": len(items) >= _MAX_EVENTS_RETURNED,
