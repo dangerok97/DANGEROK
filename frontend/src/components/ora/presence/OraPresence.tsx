@@ -102,7 +102,11 @@ export function OraPresence({ mode = 'idle', activity = null, compact = false, a
       </View>
     </View>
     <View style={styles.knowledgeStrip} testID="knowledge-map-progress">
-      <Text style={styles.note} accessibilityLiveRegion="polite">{map ? `${map.count} stelle · VITA ${map.percent}%` : learned.error ? 'Mappa da aggiornare' : 'Carico le tue stelle…'}</Text>
+      <Text style={styles.note} accessibilityLiveRegion="polite">{
+        map
+          ? `${map.count} stelle · VITA ${map.percent}%${map.temporary_count ? ` · ${map.temporary_count} temporanee` : ''}`
+          : learned.error ? 'Mappa da aggiornare' : 'Carico le tue stelle…'
+      }</Text>
       {knowledge === undefined && learned.error ? <Pressable accessibilityRole="button" accessibilityLabel="Riprova caricamento della mappa" onPress={learned.reload}><Text style={styles.control}>Riprova</Text></Pressable> : map && map.count === 0 ? <Text style={styles.note}>La prima stella nasce da ciò che mi racconti.</Text> : null}
     </View>
     <View style={expanded ? [styles.stage, tight && { minHeight: 0 }] : { height }} testID="ora-presence-map" onLayout={event => setStageHeight(event.nativeEvent.layout.height)}>
@@ -118,7 +122,14 @@ export function OraPresence({ mode = 'idle', activity = null, compact = false, a
             <View style={styles.areaList}>{AREA_IDS.map((id, index) => <Pressable key={id} accessibilityRole="button" onPress={() => select({ index, area: id, kind: 'area' })} style={styles.areaButton}><Text style={styles.control}>{AREA_LABELS[id]} · {map?.stars.filter(s => s.area === id).length ?? 0}</Text></Pressable>)}</View>
           </> : fact ? <>
             <Text style={styles.detailText}>{fact.statement}</Text>
-            <Text style={styles.note}>{fact.provenance} · {fact.status === 'likely' ? 'Da verificare' : 'Informazione salvata'}</Text>
+            <Text style={[styles.note, fact.persistence === 'temporary' && { color: palette.temporaryLabel }]}>
+              {fact.persistence === 'temporary'
+                ? 'Temporanea · resta accesa finché questa situazione è in corso'
+                : `${fact.provenance} · ${fact.status === 'likely' ? 'Da verificare' : 'Informazione salvata'}`}
+            </Text>
+            {fact.persistence === 'temporary' ? (
+              <Text style={styles.note}>Quando mi confermi che è conclusa, la stella viene rimossa dalla mappa.</Text>
+            ) : null}
             {fact.updated_at ? <Text style={styles.note}>Aggiornato il {new Date(fact.updated_at).toLocaleDateString('it-IT')}</Text> : null}
             {fact.branch_id ? <Pressable accessibilityRole="button" style={styles.promptButton} onPress={() => router.push({ pathname: '/life-setup', params: { area: fact.branch_id } } as any)}><Text style={styles.promptText}>Apri in VITA ↗</Text></Pressable> : null}
           </> : branch ? <>
@@ -129,10 +140,10 @@ export function OraPresence({ mode = 'idle', activity = null, compact = false, a
             <Text style={styles.detailText}>{detail.description}</Text>
             {activity?.touched.includes(selected.area) ? <Text style={styles.activity}>Area coinvolta nell’ultimo turno.</Text> : null}
             {map?.branches.filter(b => b.area === selected.area && b.star_count > 0).map(b => <Pressable key={b.area_id} accessibilityRole="button" style={styles.areaButton} onPress={() => select({ index: 8 + stars.findIndex(s => s.id === `branch_${b.area_id}`), id: `branch_${b.area_id}`, area: b.area, kind: 'branch' })}><Text style={styles.control}>{b.complete ? '✦ ' : ''}{b.title} · {b.percent}%</Text></Pressable>)}
-            {map?.stars.filter(s => s.area === selected.area).map(s => <Pressable key={s.id} accessibilityRole="button" style={styles.starRow} onPress={() => select({ index: 8 + stars.findIndex(n => n.id === s.id), id: s.id, area: s.area, kind: 'node' })}><Text numberOfLines={2} style={styles.detailText}>✦ {s.statement}</Text><Text style={styles.note}>{s.status === 'likely' ? 'Da verificare' : s.provenance}</Text></Pressable>)}
+            {map?.stars.filter(s => s.area === selected.area).map(s => <Pressable key={s.id} accessibilityRole="button" style={styles.starRow} onPress={() => select({ index: 8 + stars.findIndex(n => n.id === s.id), id: s.id, area: s.area, kind: 'node' })}><Text numberOfLines={2} style={[styles.detailText, s.persistence === 'temporary' && { color: palette.temporaryLabel }]}>✦ {s.statement}</Text><Text style={[styles.note, s.persistence === 'temporary' && { color: palette.temporaryLabel }]}>{s.persistence === 'temporary' ? 'Temporanea' : s.status === 'likely' ? 'Da verificare' : s.provenance}</Text></Pressable>)}
             {!map?.stars.some(s => s.area === selected.area) ? <Text style={styles.note}>Non ci sono ancora informazioni salvate in quest’area.</Text> : null}
             {onAreaPrompt ? <Pressable accessibilityRole="button" onPress={() => { onAreaPrompt(detail.prompt); setSelected(null); }} style={styles.promptButton}><Text style={styles.promptText}>Parliamone ↗</Text></Pressable> : null}
-          </> : <Text style={styles.detailText}>Ogni stella rappresenta un’informazione salvata nel tuo profilo o in memoria. Tocca una stella per leggerla e conoscerne la fonte. Le informazioni da verificare hanno una luce ambrata. Un alone segnala i rami completati in VITA. Il conteggio delle stelle e la percentuale di VITA misurano cose diverse: informazioni salvate e completezza delle aree. I collegamenti mostrano come le informazioni si raggruppano; il movimento segue il tema della conversazione, non il ragionamento interno del modello. Trascina per ruotare, anche in pausa.</Text>}
+          </> : <Text style={styles.detailText}>Ogni stella rappresenta qualcosa che ORA tiene presente. Le stelle chiare sono informazioni durature; quelle rosse sono situazioni temporanee e spariscono quando vengono concluse. Tocca una stella per leggerla e conoscerne la fonte. Le informazioni da verificare hanno una luce ambrata. Un alone segnala i rami completati in VITA. Il conteggio delle stelle e la percentuale di VITA misurano cose diverse: contesto disponibile e completezza delle aree. I collegamenti mostrano come le informazioni si raggruppano; il movimento segue il tema della conversazione, non il ragionamento interno del modello. Trascina per ruotare, anche in pausa.</Text>}
 
         </ScrollView>
       </View> : null}
