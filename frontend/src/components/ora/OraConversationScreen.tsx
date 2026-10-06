@@ -1511,6 +1511,7 @@ function OraConversationBody({
           <View style={styles.situationActions} testID="ora-situation-actions">
             <Pressable
               accessibilityRole="button"
+              accessibilityLabel="Va bene"
               onPress={() => void sendWords('Va bene.')}
               style={({ pressed }) => [styles.situationAction, pressed && styles.actionPressed]}
             >
@@ -1519,6 +1520,7 @@ function OraConversationBody({
             </Pressable>
             <Pressable
               accessibilityRole="button"
+              accessibilityLabel="Avvisami"
               onPress={() => void sendWords('Avvisami quando devo intervenire per questa situazione.')}
               style={({ pressed }) => [styles.situationAction, pressed && styles.actionPressed]}
             >
