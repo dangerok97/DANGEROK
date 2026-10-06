@@ -257,6 +257,66 @@ async def continue_navigation(
     )
 
 
+async def _route_origin_or_location_request(
+    runtime: Dict[str, Any], uid: str
+) -> tuple[Dict[str, float] | None, Dict[str, Any] | None, str]:
+    """Get a strict CURRENT route origin or the client action needed to get it.
+
+    Route comparison is stricter than generic location context: a RECENT
+    sighting may describe context, but it must not drive a live traffic ETA.
+    Use the existing foreground bridge instead of silently degrading to a map
+    search link when a fresh fix can be requested.
+    """
+    from location.service import LocationService
+
+    svc = LocationService(runtime["db"])
+    try:
+        presence = await svc.build_presence(
+            uid, platform=str(runtime.get("platform") or "web")
+        )
+        origin = _navigation_origin(presence)
+        if origin is not None:
+            return origin, None, ""
+    except Exception as exc:
+        logger.info("navigation presence read soft-fail: %s", type(exc).__name__)
+
+    try:
+        loc = await svc.capability_get_current_location(
+            uid,
+            session_id=runtime.get("session_id"),
+            platform=str(runtime.get("platform") or "web"),
+        )
+    except Exception as exc:
+        logger.info("navigation location refresh soft-fail: %s", type(exc).__name__)
+        return None, None, "location_unavailable"
+
+    status = str(loc.get("status") or "unknown")
+    action = loc.get("client_action")
+    if isinstance(action, dict) and action.get("type"):
+        return None, action, status
+
+    # If build_presence did not yield a strict route origin, even an otherwise
+    # usable location observation is not sufficient for a live ETA. Refresh it.
+    if status == "ok":
+        return None, {
+            "type": "request_foreground_location",
+            "reason": "Serve una posizione corrente per confrontare i percorsi e il traffico.",
+            "refresh": True,
+        }, "needs_fresh_route_origin"
+
+    return None, None, status
+
+
+def _route_origin_reason(status: str) -> str:
+    return {
+        "denied": "non ho il permesso di leggere la posizione attuale",
+        "timeout": "il rilevamento della posizione attuale è scaduto",
+        "unavailable": "il dispositivo non è riuscito a determinare la posizione attuale",
+        "position_unavailable": "il dispositivo non è riuscito a determinare la posizione attuale",
+        "location_unavailable": "non sono riuscita a leggere una posizione attuale",
+    }.get(status or "", "non ho una posizione attuale abbastanza fresca")
+
+
 async def open_navigation(arguments: Dict[str, Any], runtime: Dict[str, Any]) -> Observation:
     """
     Everything needed to start navigating, or the question of which app.
@@ -280,36 +340,91 @@ async def open_navigation(arguments: Dict[str, Any], runtime: Dict[str, Any]) ->
                 and not resolution.reason.startswith("più luoghi")):
             from places.navigation import search_handoff
 
+            origin = None
+            location_status = ""
+            if _mapbox_enabled():
+                origin, client_action, location_status = await _route_origin_or_location_request(
+                    runtime, uid
+                )
+                if client_action is not None:
+                    return _ok(
+                        "open_navigation",
+                        {
+                            "ready": False,
+                            "needs_client": True,
+                            "needs_current_location": True,
+                            "destination": spoken,
+                            "location_status": location_status,
+                            "client_action": client_action,
+                            "say_this": (
+                                "Per confrontare tempi e traffico mi serve una posizione "
+                                "corrente del dispositivo. La aggiorno adesso."
+                            ),
+                        },
+                        uid,
+                        status="needs_client",
+                    )
+
             preview = await _public_route_preview(
-                spoken, runtime, arrival_request=arguments.get("arrival_request")
+                spoken,
+                runtime,
+                origin=origin,
+                arrival_request=arguments.get("arrival_request"),
+            )
+            if preview:
+                return _ok("open_navigation", {
+                    "ready": True,
+                    "destination_unverified": True,
+                    "has_origin": True,
+                    "route": preview.get("route"),
+                    "place": {"label": spoken},
+                    "journey_options": preview.get("journey_options", []),
+                    "advice": preview.get("advice", ""),
+                    "road_choices": preview.get("road_choices", []),
+                    "route_weather": preview.get("route_weather", []),
+                    "route_provider": "mapbox",
+                    "routing": None,
+                    "say_this": (
+                        f"Per «{spoken}» ho trovato {preview['label']} ({preview['context']}). "
+                        "Ti mostro i tempi stimati e il traffico. Verifica che sia la "
+                        "destinazione giusta: la navigazione partirà dalla posizione "
+                        "del dispositivo e potrà aggiornare la strada."
+                    ),
+                    **preview["handoff"],
+                }, uid, status="needs_client")
+
+            handoff = search_handoff(
+                spoken, str(arguments.get("mode") or "driving")
+            )
+            why = (
+                _route_origin_reason(location_status)
+                if _mapbox_enabled() and origin is None
+                else (
+                    "non sono riuscita a risolvere questa destinazione pubblica "
+                    "in modo abbastanza univoco per calcolare un percorso live"
+                    if _mapbox_enabled()
+                    else _routing_note().get("why_unavailable") or
+                    "il confronto live dei percorsi non è disponibile"
+                )
             )
             return _ok("open_navigation", {
                 "ready": True,
                 "destination_unverified": True,
-                "has_origin": bool(preview),
-                "route": preview.get("route") if preview else None,
-                "place": {"label": spoken} if preview else None,
-                "journey_options": preview.get("journey_options", []) if preview else [],
-                "advice": preview.get("advice", "") if preview else "",
-                "road_choices": preview.get("road_choices", []) if preview else [],
-                "route_weather": preview.get("route_weather", []) if preview else [],
-                "route_provider": "mapbox" if preview else None,
-                "routing": None if preview else (
-                    {"available": False, "why_unavailable":
-                     "non ho una posizione attuale e una destinazione univoca da stimare; "
-                     "la mappa cercherà il luogo quando la apri"}
-                    if _mapbox_enabled() else _routing_note()
-                ),
+                "has_origin": origin is not None,
+                "route": None,
+                "place": {"label": spoken},
+                "journey_options": [],
+                "advice": "",
+                "road_choices": [],
+                "route_weather": [],
+                "route_provider": None,
+                "routing": {"available": False, "why_unavailable": why},
                 "say_this": (
-                    f"Per «{spoken}» ho trovato {preview['label']} ({preview['context']}). "
-                    "Ti mostro i tempi stimati e il traffico. Verifica che sia la destinazione giusta: "
-                    "la navigazione partirà dalla posizione del dispositivo e potrà aggiornare la strada."
-                    if preview else
-                    f"Ti porto verso «{spoken}»: apri Google Maps qui sotto. "
-                    "Userà la posizione del dispositivo e mostrerà percorso e traffico aggiornati. "
-                    "Controlla che abbia trovato la destinazione giusta."
+                    f"Ti porto verso «{spoken}» con la mappa. "
+                    f"Non posso confrontare i tempi live perché {why}. "
+                    "La mappa userà la posizione del dispositivo quando la apri."
                 ),
-                **(preview["handoff"] if preview else search_handoff(spoken, str(arguments.get("mode") or "driving"))),
+                **handoff,
             }, uid, status="needs_client")
         return _ok(
             "open_navigation",
@@ -338,13 +453,29 @@ async def open_navigation(arguments: Dict[str, Any], runtime: Dict[str, Any]) ->
     from places.navigation import handoff
 
     origin = None
-    try:
-        from location.service import LocationService
-
-        presence = await LocationService(runtime["db"]).build_presence(uid)
-        origin = _navigation_origin(presence)
-    except Exception:
-        origin = None
+    location_status = ""
+    if _routing_enabled():
+        origin, client_action, location_status = await _route_origin_or_location_request(
+            runtime, uid
+        )
+        if client_action is not None:
+            return _ok(
+                "open_navigation",
+                {
+                    "ready": False,
+                    "needs_client": True,
+                    "needs_current_location": True,
+                    "place": place.for_ai(),
+                    "location_status": location_status,
+                    "client_action": client_action,
+                    "say_this": (
+                        "Per confrontare tempi e traffico mi serve una posizione "
+                        "corrente del dispositivo. La aggiorno adesso."
+                    ),
+                },
+                uid,
+                status="needs_client",
+            )
 
     plan = handoff(
         latitude=place.coordinates.latitude,
@@ -434,7 +565,12 @@ async def open_navigation(arguments: Dict[str, Any], runtime: Dict[str, Any]) ->
             "route_weather": route_weather,
             "route_provider": route_provider,
             "destination_weather": destination_weather,
-            "routing": None if scelte else _routing_note(),
+            "routing": (
+                None if scelte else (
+                    {"available": False, "why_unavailable": _route_origin_reason(location_status)}
+                    if _routing_enabled() and origin is None else _routing_note()
+                )
+            ),
             "say_this": (
                 f"Ti porto a «{place.label}»: scegli l'app mappe qui sotto per avviare la navigazione. "
                 + (f"{consiglio} " if consiglio else "")
@@ -448,7 +584,13 @@ async def open_navigation(arguments: Dict[str, Any], runtime: Dict[str, Any]) ->
     )
 
 
-async def _public_route_preview(name: str, runtime: Dict[str, Any], *, arrival_request=None) -> Dict[str, Any] | None:
+async def _public_route_preview(
+    name: str,
+    runtime: Dict[str, Any],
+    *,
+    origin: Dict[str, float] | None = None,
+    arrival_request=None,
+) -> Dict[str, Any] | None:
     """A temporary coordinate lookup, only with a current origin and exact unique name."""
     from places import briefing, routing
     from places.navigation import navigation_url
@@ -457,10 +599,13 @@ async def _public_route_preview(name: str, runtime: Dict[str, Any], *, arrival_r
     if routing.configured_provider() != "mapbox":
         return None
     try:
-        from location.service import LocationService
+        if origin is None:
+            from location.service import LocationService
 
-        presence = await LocationService(runtime["db"]).build_presence(runtime["user_id"])
-        origin = _navigation_origin(presence)
+            presence = await LocationService(runtime["db"]).build_presence(
+                runtime["user_id"]
+            )
+            origin = _navigation_origin(presence)
         if origin is None:
             return None
         destination = await preview_destination(name, origin)
@@ -533,6 +678,12 @@ def _mapbox_enabled() -> bool:
     from places.routing import configured_provider
 
     return configured_provider() == "mapbox"
+
+
+def _routing_enabled() -> bool:
+    from places import routing
+
+    return bool(routing.capabilities().get("available"))
 
 
 #     I MODI CHE SI CONFRONTANO, E COME SI CHIAMANO PER CHI LEGGE.
@@ -869,25 +1020,44 @@ async def get_route(arguments, runtime) -> Observation:
             uid,
         )
 
-    origin = None
-    try:
-        from location.service import LocationService
+    if not routing.capabilities().get("available"):
+        return _ok(
+            "get_route",
+            {
+                **routing.capabilities(),
+                "available": False,
+                "why_unavailable": _routing_note().get("why_unavailable"),
+            },
+            uid,
+        )
 
-        presence = await LocationService(runtime["db"]).build_presence(uid)
-        if presence and presence.latitude is not None and presence.longitude is not None:
-            origin = {"latitude": presence.latitude, "longitude": presence.longitude}
-    except Exception:
-        origin = None
+    origin, client_action, location_status = await _route_origin_or_location_request(
+        runtime, uid
+    )
+    if client_action is not None:
+        return _ok(
+            "get_route",
+            {
+                **routing.capabilities(),
+                "available": False,
+                "needs_client": True,
+                "needs_current_location": True,
+                "why_unavailable": "serve una posizione corrente per calcolare il percorso live",
+                "location_status": location_status,
+                "client_action": client_action,
+            },
+            uid,
+            status="needs_client",
+        )
     if origin is None:
         return _ok(
             "get_route",
             {
-                "available": False,
-                "why_unavailable": "non so dove si trova adesso",
                 **routing.capabilities(),
+                "available": False,
+                "why_unavailable": _route_origin_reason(location_status),
             },
             uid,
-            status="needs_client",
         )
 
     result = await routing.get_route(
