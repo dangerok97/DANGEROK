@@ -196,3 +196,54 @@ async def test_dossier_and_introduction_deliver_the_entire_owner_name(db, monkey
     assert not ledger.is_settled(), "a missing surname is an incomplete introduction"
     ledger.we_said(" Sono l'assistente di Giulia De Luca.")
     assert ledger.is_settled()
+
+
+
+@pytest.mark.asyncio
+async def test_active_situation_is_a_temporary_red_star_and_disappears_when_resolved(db):
+    await db.situations.insert_one({
+        "id": "sit_temp_star",
+        "user_id": "a",
+        "status": "active",
+        "summary": "Ho steso i panni sul balcone.",
+        "semantic_kind": "attività temporanea con esito atteso",
+        "created_at": "2026-10-06T09:00:00+00:00",
+        "updated_at": "2026-10-06T09:00:00+00:00",
+        "revision": 1,
+        "history": [],
+        "applied_epochs": [],
+    })
+    await db.situations.insert_one({
+        "id": "sit_other_owner",
+        "user_id": "b",
+        "status": "active",
+        "summary": "BOB PRIVATE",
+        "created_at": "2026-10-06T09:00:00+00:00",
+        "updated_at": "2026-10-06T09:00:00+00:00",
+        "revision": 1,
+        "history": [],
+        "applied_epochs": [],
+    })
+
+    active = await knowledge_map(db, "a")
+    temp = [s for s in active["stars"] if s.get("temporary")]
+    assert len(temp) == 1
+    assert temp[0]["situation_id"] == "sit_temp_star"
+    assert temp[0]["area"] == "memory"
+    assert temp[0]["title"] == "Memoria temporanea"
+    assert "steso i panni" in temp[0]["statement"]
+    assert active["temporary_count"] == 1
+    assert "BOB PRIVATE" not in str(active)
+
+    await db.situations.update_one(
+        {"user_id": "a", "id": "sit_temp_star"},
+        {"$set": {
+            "status": "resolved",
+            "resolved_at": "2026-10-06T15:00:00+00:00",
+            "updated_at": "2026-10-06T15:00:00+00:00",
+        }},
+    )
+
+    resolved = await knowledge_map(db, "a")
+    assert resolved["temporary_count"] == 0
+    assert not any(s.get("situation_id") == "sit_temp_star" for s in resolved["stars"])
