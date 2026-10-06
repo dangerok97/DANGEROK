@@ -106,6 +106,11 @@ def test_conversation_prompt_prioritizes_action_estimate_and_recheck():
     assert "indicativamente domani verso le 11:00" in prompt
     assert "current observed risk belongs in `facts`" in prompt
     assert "future estimate belongs in `assumptions`" in prompt
+    assert "CUMULATIVE PHYSICAL PROCESSES" in prompt
+    assert "do not infer \"finished by 16:00\"" in prompt
+    assert "freshly wet laundry" in prompt
+    assert "84% and precipitation is already occurring" in prompt
+    assert "prefer a later/next-day provisional estimate" in prompt
 
 
 def test_background_agent_and_delivery_prioritize_perishable_protective_action():
@@ -120,3 +125,5 @@ def test_background_agent_and_delivery_prioritize_perishable_protective_action()
     assert "adverse condition is already happening" in delivery
     assert "prefer push with timing=now" in delivery
     assert "Do not schedule the warning for later" in delivery
+    assert "accumulated effective exposure" in reasoning
+    assert "remaining favorable window is too short" in reasoning
