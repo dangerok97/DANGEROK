@@ -294,6 +294,33 @@ const SESSION_ROUTE = 'app/ora/[sessionId].tsx';
   );
 }
 
+
+
+// ---------------------------------------------------------------------------
+// J — Desktop cockpit: conversation | live map | context
+// ---------------------------------------------------------------------------
+{
+  const screen = readCode(SCREEN);
+  assert.ok(/testID="ora-cockpit-layout"/.test(screen), 'desktop ORA needs one cockpit layout');
+  assert.ok(/testID="ora-cockpit-chat"/.test(screen), 'conversation must be a real left column');
+  assert.ok(/testID="ora-cockpit-map"/.test(screen), 'stellar map must remain the central column');
+  assert.ok(/testID="ora-cockpit-rail"/.test(screen), 'live context must occupy the right rail');
+  assert.ok(/<OraCockpitContext/.test(screen), 'right rail must be fed by live ORA context');
+  assert.ok(/variant=\{variant\}/.test(screen), 'desktop conversation must use the cockpit turn styling');
+  assert.ok(
+    /conversation=\{showConversationSurface \? conversationStream\(\) : null\}/.test(screen),
+    'mobile keeps the integrated presence conversation instead of inheriting desktop layout',
+  );
+
+  const turns = readCode('src/components/ora/OraTurns.tsx');
+  assert.ok(/variant\?: 'default' \| 'cockpit'/.test(turns), 'turns expose a bounded cockpit presentation');
+  assert.ok(/oraOrbOuter/.test(turns) && /oraOrbInner/.test(turns), 'ORA identity uses the glowing orb in cockpit mode');
+
+  const rail = readCode('src/components/ora/OraCockpitContext.tsx');
+  assert.ok(/api\.getHome/.test(rail) && /api\.knowledgeMap/.test(rail), 'context rail must read real live data');
+  assert.ok(/MEMORIA TEMPORANEA/.test(rail), 'temporary memory is visible in the cockpit rail');
+}
+
 console.log('ora14: all assertions passed');
 
 // A reply to an agent need is one continuous interaction: the question stays
