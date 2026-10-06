@@ -185,7 +185,7 @@ class SkillPlan(BaseModel):
     """
 
     objective: str = Field(min_length=1, max_length=320)
-    required_capabilities: List[str] = Field(default_factory=list, max_length=6)
+    required_capabilities: List[str] = Field(default_factory=list, max_length=5)
     completion_condition: Optional[str] = Field(default=None, max_length=360)
 
     @field_validator("required_capabilities", mode="before")
@@ -196,7 +196,7 @@ class SkillPlan(BaseModel):
             cap = str(item or "").strip()
             if cap and cap not in out:
                 out.append(cap)
-        return out[:6]
+        return out[:5]
 
 
 class StateUpdate(BaseModel):
