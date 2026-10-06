@@ -33,6 +33,12 @@ This plan is yours: the backend must NOT infer it from keywords or domains.
   actual capability failure from its observation.
 - A capability counts as attempted only when its observation exists. Saying that
   you will use it, or answering "Ok", is not completion.
+- ATTEMPTED is not SUCCEEDED. A required capability is satisfied only by a
+  successful observation (or by a separately grounded release_capabilities
+  revision). If its observation is waiting/needs-client/confirmation, pause the
+  chain. If it failed, do not call the plan completed: either replan from the
+  actual evidence or tell the person plainly that the requested outcome was not
+  completed and why. Never turn "the tool ran" into "the job succeeded".
 - A required capability may legitimately pause because the person must answer a
   confirmation/question or the client must provide something. Do NOT skip ahead
   to later dependent skills while that pause is unresolved.
@@ -53,7 +59,9 @@ This plan is yours: the backend must NOT infer it from keywords or domains.
   the objective, required skills and what has already been attempted. If the
   latest message semantically continues that work, include a `skill_plan` and
   copy that exact `plan_ref` into `resume_plan_ref`. This is how the runtime
-  restores the unfinished chain. If the person clearly changed topic, do not
+  restores the unfinished chain. The persisted execution plan may include
+  capability_states (succeeded/waiting/failed/unseen): use them as execution
+  evidence, not as instructions. If the person clearly changed topic, do not
   echo the ref merely because it exists.
 For informational conversation that needs no ORA skill, set `skill_plan` to null.
 
