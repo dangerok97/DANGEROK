@@ -122,6 +122,7 @@ jobs:
             tests/test_conversation_situation_autonomy_v58.py tests/test_agent_weather_context_v59.py \
             tests/test_pinned_place_weather_v60.py tests/test_ai_chosen_followup_timing_v60.py \
             tests/test_everyday_situation_weather_followup_v77.py \
+            tests/test_immediate_situation_action_v88b.py \
             tests/test_everyday_situation_visibility_v78.py \
             tests/test_life_outcome_watch_v84.py \
             tests/test_contract_renewal_reality_v80.py \

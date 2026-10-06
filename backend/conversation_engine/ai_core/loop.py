@@ -143,6 +143,24 @@ def _pending_required_skill_caps(
     return [cap for cap in required if cap not in (attempted or set())]
 
 
+def _has_empirical_estimate_evidence(observations) -> bool:
+    """True only when the estimate has external research or a direct estimator."""
+    for obs in reversed(list(observations or [])):
+        if isinstance(obs, dict):
+            kind = str(obs.get("kind") or "")
+            name = str(obs.get("name") or "")
+            status = str(obs.get("status") or "")
+        else:
+            kind = str(getattr(obs, "kind", "") or "")
+            name = str(getattr(obs, "name", "") or "")
+            status = str(getattr(obs, "status", "") or "")
+        if kind == "research" and status == "ok":
+            return True
+        if name in _DIRECT_EMPIRICAL_ESTIMATE_CAPS and status == "ok":
+            return True
+    return False
+
+
 def _record_skill_attempt(
     attempted: Set[str], requested_cap: str, observed_name: str
 ) -> Set[str]:
@@ -349,6 +367,31 @@ _CALENDAR_CLAIM_RE = re.compile(
     r"i('|’)?ve\s+(created|added|scheduled|moved|rescheduled|cancel(l)?ed|deleted|removed)\b.{0,60}\b(calendar|event)"
     r")\b"
 )
+_LIKELY_EMPIRICAL_ESTIMATE_RE = re.compile(
+    r"(?i)("
+    r"\b(circa|indicativamente|all'incirca|approssimativamente|pi[uù]\s+o\s+meno|"
+    r"stimo|stimerei|dovrebbe|dovrebbero|probabilmente|verosimilmente|verso)\b"
+    r".{0,120}"
+    r"(\b\d{1,3}([\.,:]\d{1,2})?\b|"
+    r"\b(minut[oi]|or[ae]|giorn[oi]|settiman[ae]|mes[ei]|euro|€|%|"
+    r"mattina|pomeriggio|sera|notte)\b)"
+    r"|"
+    r"(\b\d{1,3}([\.,:]\d{1,2})?\b|"
+    r"\b(minut[oi]|or[ae]|giorn[oi]|settiman[ae]|mes[ei]|euro|€|%)\b)"
+    r".{0,80}"
+    r"\b(circa|indicativamente|approssimativamente|stimato|stimata|previsto|prevista)\b"
+    r")"
+)
+
+# Direct tools whose returned quantity is itself the operational estimate.
+# This is not domain routing: it only names capabilities whose contract directly
+# returns an ETA/route estimate. Derived physical/process estimates still need
+# research evidence.
+_DIRECT_EMPIRICAL_ESTIMATE_CAPS = frozenset(
+    {"get_route", "get_journeys_between_places"}
+)
+
+
 _MEMORY_NOT_FOUND_CLAIM_RE = re.compile(
     r"(?i)\b(non\s+ho\s+trovato.{0,120}\bmemoria|"
     r"non\s+c('|’|i\s+)è\s+alcun[ao].{0,100}\bda\s+dimenticare|"
@@ -1572,6 +1615,54 @@ async def run_cognitive_loop(
                         event="SKILL_PLAN_INCOMPLETE_TERMINAL",
                         pending=pending_skill_caps,
                     )
+            likely_empirical_estimate = bool(
+                mode in ("answer", "finish", "act")
+                and _LIKELY_EMPIRICAL_ESTIMATE_RE.search(ora or "")
+            )
+            if (
+                likely_empirical_estimate
+                and not _has_empirical_estimate_evidence(
+                    observations[turn_start:]
+                )
+                and step + 1 < max_steps
+            ):
+                observations.append(
+                    Observation(
+                        kind="system",
+                        name="empirical_estimate_requires_evidence",
+                        status="nudge",
+                        payload={
+                            "failure_code": "EMPIRICAL_ESTIMATE_EVIDENCE_REQUIRED",
+                            "reason": (
+                                "Your draft contains an approximate quantitative "
+                                "real-world estimate, but this turn has no research "
+                                "evidence or direct estimating capability supporting it. "
+                                "Do not answer from model intuition. Use response_mode="
+                                "research to find credible external evidence for the "
+                                "empirical rate/range, then combine it with the user's "
+                                "live/personal inputs. If evidence stays weak, widen the "
+                                "range and say what limits it."
+                            ),
+                        },
+                    ).model_dump()
+                )
+                add_step(trace, event="EMPIRICAL_ESTIMATE_EVIDENCE_NUDGE")
+                continue
+            if (
+                likely_empirical_estimate
+                and not _has_empirical_estimate_evidence(
+                    observations[turn_start:]
+                )
+            ):
+                decision.message_to_user = (
+                    "Non ho abbastanza evidenza verificata per darti una stima "
+                    "quantitativa attendibile in questo momento."
+                )
+                decision.question = None
+                mode = "answer"
+                ora = _compose_user_text(decision, observations[turn_start:])
+                add_step(trace, event="EMPIRICAL_ESTIMATE_BLOCKED_TERMINAL")
+
             if decision.uncertainty:
                 trace["uncertainty_turns"] = int(trace.get("uncertainty_turns") or 0) + 1
                 trace["unresolved_uncertainty"] = bool(
