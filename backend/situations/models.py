@@ -32,6 +32,8 @@ class SituationUpdate(BaseModel):
     attention_intent: Optional[str] = Field(default=None, max_length=300)
     # Optional presentation semantics chosen by cognition, never inferred by UI keywords.
     icon_key: Optional[str] = Field(default=None, max_length=40)
+    # Human-facing explanation for the temporary-memory creation card.
+    tracking_summary: Optional[str] = Field(default=None, max_length=300)
     location_label: Optional[str] = Field(default=None, max_length=180)
     current_state_summary: Optional[str] = Field(default=None, max_length=300)
     expected_outcome_summary: Optional[str] = Field(default=None, max_length=300)
@@ -85,6 +87,7 @@ class SituationState(BaseModel):
     temporal_scope: Optional[str] = None
     attention_intent: Optional[str] = None
     icon_key: Optional[str] = None
+    tracking_summary: Optional[str] = None
     location_label: Optional[str] = None
     current_state_summary: Optional[str] = None
     expected_outcome_summary: Optional[str] = None
@@ -112,6 +115,7 @@ class SituationState(BaseModel):
             "temporal_scope": self.temporal_scope,
             "attention_intent": self.attention_intent,
             "icon_key": self.icon_key,
+            "tracking_summary": self.tracking_summary,
             "location_label": self.location_label,
             "current_state_summary": self.current_state_summary,
             "expected_outcome_summary": self.expected_outcome_summary,
