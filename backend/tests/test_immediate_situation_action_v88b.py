@@ -26,6 +26,8 @@ def test_conversation_prompt_leads_with_current_actionable_risk():
     assert "when harmful/unfavourable conditions stop" in prompt
     assert "when the process can actually resume" in prompt
     assert "when the desired outcome is plausibly reached" in prompt
+    assert "FIRST paragraph of message_to_user MUST" in prompt
+    assert "begin exactly with `ATTENZIONE:`" in prompt
 
 
 def test_background_reasoning_does_not_wait_on_already_active_risk():
