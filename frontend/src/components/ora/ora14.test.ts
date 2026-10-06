@@ -319,10 +319,29 @@ const SESSION_ROUTE = 'app/ora/[sessionId].tsx';
   assert.ok(/variant\?: 'default' \| 'cockpit'/.test(turns), 'turns expose a bounded cockpit presentation');
   assert.ok(/oraOrbOuter/.test(turns) && /oraOrbInner/.test(turns), 'ORA identity uses the glowing orb in cockpit mode');
 
+  assert.ok(/<OraReferenceHeader/.test(screen), 'wide cockpit must use the approved horizontal ORA header');
+  assert.ok(/<TemporarySituationToast/.test(screen), 'new temporary Situations need the lower-left creation toast');
+  assert.ok(/cockpitChrome/.test(screen), 'central map must use cockpit-specific chrome instead of its legacy top toolbar');
+  assert.ok(/onSelectNode/.test(screen) && /selectedMapStarId/.test(screen), 'selecting a map star must drive the right rail');
+
   const rail = readCode('src/components/ora/OraCockpitContext.tsx');
   assert.ok(/api\.getHome/.test(rail) && /useTemporaryMemory/.test(rail), 'context rail must read real Home + temporary-memory data');
-  assert.ok(/SITUAZIONE ATTIVA/.test(rail) && /Memoria temporanea/.test(rail), 'right rail must lead with the active temporary situation');
-  assert.ok(/title="Inserita"/.test(rail) && /title="Stato live"/.test(rail) && /title="Monitoraggio"/.test(rail), 'reference-style detail rows must be present');
+  assert.ok(/situationTitle/.test(rail) && /situationIcon/.test(rail), 'Situation name/icon must come from structured semantics, not statement keywords');
+  assert.ok(/title="Inserita"/.test(rail), 'right rail needs insertion time');
+  assert.ok(/title="Luogo"/.test(rail), 'right rail must show grounded Situation location when available');
+  assert.ok(/title="Stato attuale"/.test(rail), 'right rail must show current evidence when available');
+  assert.ok(/title="Stima \/ esito atteso"/.test(rail), 'right rail must show grounded outcome estimates when available');
+  assert.ok(/title="Promemoria attivo"/.test(rail), 'right rail must show the next checkpoint when available');
+  assert.ok(/dismissTemporarySituation/.test(rail) && /Rimuovi dalla memoria temporanea/.test(rail), 'temporary state must be explicitly removable');
+
+  const header = readCode('src/components/ora/OraReferenceHeader.tsx');
+  for (const label of ['Home', 'Vita', 'Calendario', 'Luoghi', 'Mappa', 'Impostazioni']) {
+    assert.ok(header.includes(label), `reference top navigation missing ${label}`);
+  }
+
+  const visual = readCode('src/components/ora/situationVisual.ts');
+  assert.ok(/star\?\.semantic_kind/.test(visual), 'Situation title must come from structured semantic_kind');
+  assert.ok(!/star\?\.statement.*includes|statement.*match|statement.*test/.test(visual), 'frontend must never classify a Situation from prose keywords');
 
   const rich = readCode('src/components/ora-ai/RichOraText.tsx');
   assert.ok(/isDangerParagraph/.test(rich) && /dangerColor/.test(rich), 'urgent opening paragraphs must have a dedicated danger treatment');
