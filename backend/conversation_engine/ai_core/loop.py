@@ -92,6 +92,24 @@ _LIFE_OS_PERSIST_CAPS = frozenset(
     }
 )
 
+def _effective_capability(
+    requested_cap: str, observed_name: str, allowed_caps
+) -> str:
+    """Return the concrete effect capability when a wrapper owns the lifecycle.
+
+    The AI may call a continuation skill, while the observation is emitted by
+    the leaf capability that actually changed the world. Truth guards must
+    credit the leaf observation rather than the wrapper name.
+    """
+    observed = str(observed_name or "").strip()
+    requested = str(requested_cap or "").strip()
+    if observed in allowed_caps:
+        return observed
+    if requested in allowed_caps:
+        return requested
+    return ""
+
+
 async def _emit_life_change(
     trace: Dict[str, Any],
     source_system: str,
@@ -2702,13 +2720,11 @@ async def run_cognitive_loop(
             # verify the observed effect, not only the wrapper the model called.
             # Example: continue_calendar_action -> cancel_calendar_event.
             observed_cap = str(getattr(obs, "name", "") or "").strip()
-            effective_write_cap = (
-                observed_cap if observed_cap in _WRITE_CAPS else cap
+            effective_write_cap = _effective_capability(
+                cap, observed_cap, _WRITE_CAPS
             )
-            effective_calendar_cap = (
-                observed_cap
-                if observed_cap in _CALENDAR_WRITE_CAPS
-                else (cap if cap in _CALENDAR_WRITE_CAPS else "")
+            effective_calendar_cap = _effective_capability(
+                cap, observed_cap, _CALENDAR_WRITE_CAPS
             )
 
             if effective_write_cap in _WRITE_CAPS:
