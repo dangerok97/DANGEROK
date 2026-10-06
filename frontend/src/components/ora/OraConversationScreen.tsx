@@ -1382,7 +1382,12 @@ function OraConversationBody({
   // cockpit; in that case fall back to the compact integrated surface instead
   // of clipping controls and hiding the map/right rail.
   const cockpitReady = wide && viewportWidth >= 1120;
-  const temporaryMemory = useTemporaryMemory(cockpitReady, turns.length);
+  const temporaryMemory = useTemporaryMemory(true, turns.length);
+  const latestTemporaryIsRecent = Boolean(
+    temporaryMemory.latest &&
+    (!temporaryMemory.latest.updated_at ||
+      Date.now() - new Date(temporaryMemory.latest.updated_at).getTime() <= 15 * 60 * 1000),
+  );
 
   /*
     Le scorciatoie sotto il composer. Non sono decorazione: due preparano
@@ -1495,7 +1500,7 @@ function OraConversationBody({
           variant={variant}
           onRetry={(t) => void retry(t)}
         />
-        {variant === 'cockpit' &&
+        {latestTemporaryIsRecent &&
         temporaryMemory.latest &&
         turns[turns.length - 1]?.role === 'ora' &&
         !busy ? (
