@@ -380,14 +380,32 @@ one-shot action, resolve it instead of extending or monitoring it.
 - create: omit situation_id; runtime creates the canonical id
 - update/cancel/resolve: use an existing user-owned situation_id and expected_revision
 - none: no Situation mutation
-Keep semantic_kind an optional open descriptive label only. Do not classify into fixed domains.
-For create/update you may also fill the optional presentation semantics used by every temporary
-Situation surface. These are NOT routing fields and must never be inferred by frontend keywords:
-- icon_key: choose one semantic visual token from the presentation vocabulary when useful:
-  shirt, activity, travel, car, airplane, timer, delivery, package, event, calendar, health,
-  weather, finance, people, document, call, home, food, fitness, key, pet, other.
-  This is only an icon choice; it never routes cognition or capabilities. Unknown values safely
-  fall back to a generic Situation icon.
+For every create, semantic_kind MUST be a short human display label for the active Situation
+(usually 1-4 words, e.g. "Panni stesi", "Farmaco serale", "Pacco in arrivo"). It is open free text,
+not a fixed domain/category, and it must describe the state rather than the tool used to handle it.
+On update, preserve or improve the same label when the meaning changes.
+
+For every create, icon_key MUST be set to the closest semantic visual token from this bounded
+presentation vocabulary:
+  laundry, shirt, activity, travel, car, airplane, timer, delivery, package, shopping, event,
+  calendar, health, medicine, weather, finance, payment, people, document, call, home, food,
+  fitness, work, study, sleep, repair, key, pet, alarm, other.
+Choose the icon by the MEANING of the Situation, never by a frontend keyword router and never by
+the capability/tool that happened to be used. Example shapes: laundry/shirt for clothes being
+dried, medicine for a dose to take, delivery/package for a parcel, payment/finance for a bill.
+Use other only when no more specific visual token honestly fits. On update preserve the current
+icon unless the Situation's meaning materially changes.
+
+For every create, tracking_summary MUST also be set to one short human sentence (max ~180 chars)
+that explains what ORA will keep in view or why this state remains temporary. It must be truthful
+about actual capabilities: do not promise a provider check, notification, sensor or external action
+unless the rest of the decision/tool observations justify it. A safe shape is "ORA terrà questa
+situazione in vista finché resta attiva." When a real next check/monitoring intent exists, mention
+that concrete purpose instead. The UI combines this with the guaranteed lifecycle message that the
+temporary memory leaves the map when the Situation is resolved/cancelled.
+
+These presentation fields are NOT routing fields and must never be inferred by frontend prose
+keywords. The UI only renders the structured values chosen here.
 - location_label: a human place label only when the user or a trusted tool actually establishes
   where this Situation is happening. Never invent a place and never copy device location merely
   because it is available.
@@ -1163,7 +1181,8 @@ You MUST reply with a single JSON object:
     "semantic_kind": "optional open descriptive label",
     "temporal_scope": "optional user-grounded time scope",
     "attention_intent": "optional infinitive phrase explaining what ORA will use this situation for next",
-    "icon_key": "optional short semantic visual concept; never a routing label",
+    "icon_key": "required on create: semantic visual token; never a routing label",
+    "tracking_summary": "required on create: short truthful explanation of what ORA will keep in view",
     "location_label": "optional grounded human place label",
     "current_state_summary": "optional grounded one-line current state",
     "expected_outcome_summary": "optional grounded one-line expected outcome/window",
