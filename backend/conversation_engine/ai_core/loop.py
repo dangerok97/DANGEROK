@@ -156,6 +156,106 @@ def _record_skill_attempt(
     return out
 
 
+def _active_skill_plan_state(state: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Sanitised persisted execution-plan metadata, never tool arguments."""
+    raw = state.get("active_skill_plan")
+    if not isinstance(raw, dict):
+        return None
+    plan_ref = str(raw.get("plan_ref") or "").strip()[:80]
+    objective = str(raw.get("objective") or "").strip()[:320]
+    if not plan_ref or not objective:
+        return None
+    required = []
+    for cap in raw.get("required_capabilities") or []:
+        name = str(cap or "").strip()
+        if name and name not in required:
+            required.append(name)
+    attempted = []
+    for cap in raw.get("attempted_capabilities") or []:
+        name = str(cap or "").strip()
+        if name and name not in attempted:
+            attempted.append(name)
+    required = required[:MAX_TOOL_CALLS]
+    attempted = attempted[: MAX_TOOL_CALLS * 2]
+    return {
+        "plan_ref": plan_ref,
+        "objective": objective,
+        "required_capabilities": required,
+        "attempted_capabilities": attempted,
+        "pending_capabilities": _pending_required_skill_caps(
+            required, set(attempted)
+        ),
+        "waiting": bool(raw.get("waiting")),
+        "updated_at": str(raw.get("updated_at") or "")[:80],
+    }
+
+
+def _persist_active_skill_plan(
+    state: Dict[str, Any],
+    *,
+    objective: str,
+    required: List[str],
+    attempted: Set[str],
+    existing_ref: Optional[str] = None,
+    waiting: bool = True,
+) -> Dict[str, Any]:
+    """Persist only orchestration metadata needed to resume a paused chain."""
+    plan_ref = str(existing_ref or "").strip()[:80]
+    if not plan_ref:
+        plan_ref = f"skillplan_{uuid.uuid4().hex[:12]}"
+    doc = {
+        "plan_ref": plan_ref,
+        "objective": str(objective or "").strip()[:320] or "Completare la richiesta",
+        "required_capabilities": list(required or [])[:MAX_TOOL_CALLS],
+        "attempted_capabilities": sorted(set(attempted or set()))[: MAX_TOOL_CALLS * 2],
+        "waiting": bool(waiting),
+        "updated_at": now_iso(),
+    }
+    state["active_skill_plan"] = doc
+    return doc
+
+
+def _clear_active_skill_plan(
+    state: Dict[str, Any], *, expected_ref: Optional[str] = None
+) -> None:
+    current = _active_skill_plan_state(state)
+    if expected_ref and current and current.get("plan_ref") != expected_ref:
+        return
+    state["active_skill_plan"] = None
+
+
+_USER_WAIT_STATUSES = frozenset(
+    {
+        "authority_required",
+        "confirmation_required",
+        "user_confirmation_required",
+        "needs_user_input",
+        "consent_required",
+        "awaiting_confirmation",
+    }
+)
+
+
+def _observations_wait_for_user(observations) -> bool:
+    """Generic pause detector based on capability contract fields, not domains."""
+    for obs in reversed(list(observations or [])):
+        payload = getattr(obs, "payload", None)
+        status = getattr(obs, "status", None)
+        if isinstance(obs, dict):
+            payload = obs.get("payload")
+            status = obs.get("status")
+        payload = payload if isinstance(payload, dict) else {}
+        pstatus = str(payload.get("status") or "").strip().lower()
+        failure = str(payload.get("failure_kind") or "").strip().lower()
+        if isinstance(payload.get("confirmation_request"), dict):
+            return True
+        if pstatus in _USER_WAIT_STATUSES or failure in _USER_WAIT_STATUSES:
+            return True
+        if str(status or "").lower() in ("consent_required",):
+            return True
+    return False
+
+
 async def _emit_life_change(
     trace: Dict[str, Any],
     source_system: str,
