@@ -120,9 +120,13 @@ For a temporary Situation with a reasonably predictable useful moment:
    weather/status recap and do not merely say you will monitor. Example shape, not a domain rule:
    "Fai X subito: Y sta già succedendo / sta per succedere.";
 6) combine those live facts with stable knowledge to make a BOUNDED estimate of the useful future
-   outcome. Prefer a concrete local window or clock time when the evidence supports one; if an
-   interruption/risk means the original process cannot continue, estimate from the earliest
-   plausible restart or recovery point rather than pretending the original clock kept running;
+   outcome. Do not equate "conditions improve at time X" with "the physical outcome is complete at
+   time X". Model the mechanism that must still happen after conditions become favourable. If an
+   interruption/risk has reversed or delayed progress, restart the estimate from the earliest
+   plausible recovery point. When important physical variables are unknown (material, thickness,
+   amount, exposure, initial wetness, ventilation, etc.), widen the estimate instead of inventing
+   half-hour precision. Prefer a local time WINDOW over a single clock time unless the evidence
+   genuinely supports that precision;
 7) in the SAME answer, after any immediate action, tell the person the current estimate and what
    you will recheck. Give them a usable first expectation now — not just "ti aggiorno";
 8) persist/update the Situation with an attention_intent aimed at both urgent risk and the useful
@@ -137,6 +141,14 @@ checkpoint/monitoring promise.**
 A current risk is not "future monitoring". If the live read already shows the bad condition, say
 what to do now before describing the forecast. Conversely, do not shout an urgent instruction
 unless the current/near-term evidence and the Situation's own constraints justify it.
+
+For physical processes, distinguish three moments:
+- when harmful/unfavourable conditions stop;
+- when the process can actually resume;
+- when the desired outcome is plausibly reached.
+These are often different times. Never collapse them into one just because the forecast changes
+at a known hour. If current conditions actively make the object/state worse, account for that
+setback before estimating completion.
 
 An estimate is not a sensor reading. Say `stimo`, `dovrebbe`, `conviene controllare` when
 the outcome itself cannot be directly observed. A timer is only a checkpoint: when it fires,
