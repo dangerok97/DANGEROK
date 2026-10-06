@@ -212,6 +212,15 @@ _PHONE_ACTION_ASK_RE = re.compile(
     r")\b"
 )
 _PHONE_CAPABILITY = "prepare_a_phone_call"
+_LIFECYCLE_OWNING_CAPS = frozenset({
+    _PHONE_CAPABILITY,
+    "create_calendar_event",
+    "update_calendar_event",
+    "cancel_calendar_event",
+    "continue_calendar_action",
+    "open_navigation",
+    "continue_navigation",
+})
 
 # Direct departure commands must end with an actual map handoff. This narrow
 # extraction is a terminal safety net when a provider answers "Ok." without
@@ -987,21 +996,31 @@ async def run_cognitive_loop(
                 )
             except Exception:
                 logger.info("guidance reconstruction soft-fail", exc_info=True)
-        phone_owns_turn = _has_phone_observation(observations[turn_start:]) or bool(
-            decision.tool_call
-            and decision.tool_call.resolved_capability == _PHONE_CAPABILITY
+        chosen_capability = str(
+            decision.tool_call.resolved_capability
+            if decision.tool_call else ""
+        )
+        lifecycle_observed = any(
+            isinstance(item, dict)
+            and str(item.get("name") or "") in _LIFECYCLE_OWNING_CAPS
+            for item in observations[turn_start:]
+        )
+        lifecycle_owns_turn = (
+            chosen_capability in _LIFECYCLE_OWNING_CAPS or lifecycle_observed
         )
         if (
             decision.situation_update
             and decision.situation_update.operation != "none"
-            and phone_owns_turn
+            and lifecycle_owns_turn
         ):
-            # A governed phone preparation already owns follow-up, retries and
-            # completion. Creating a second generic Situation for the same call
-            # causes duplicate autonomy and misleading "I'll keep watching"
-            # copy. Keep any relationship/memory updates, but do not create a
-            # parallel situation tracker for work the phone lifecycle owns.
-            add_step(trace, event="SITUATION_MUTATION_SUPPRESSED_FOR_PHONE")
+            # These skills already own durable follow-up and verification.
+            # A generic Situation would track the same action twice and add
+            # misleading background-watch copy beside the real lifecycle.
+            add_step(
+                trace,
+                event="SITUATION_MUTATION_SUPPRESSED_FOR_ACTIVE_SKILL",
+                capability=chosen_capability,
+            )
         elif decision.situation_update and decision.situation_update.operation != "none":
             try:
                 from situations.service import SituationService
