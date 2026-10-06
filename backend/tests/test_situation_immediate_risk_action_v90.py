@@ -64,6 +64,8 @@ async def test_agent_weather_evidence_calls_out_precipitation_in_progress(monkey
         "_where_they_are",
         AsyncMock(return_value=(42.25, 11.76, "Tarquinia")),
     )
+    monkeypatch.setattr(weather, "capabilities", lambda: {"available": True})
+    monkeypatch.setattr(weather, "configured_provider", lambda: "test")
     monkeypatch.setattr(
         weather,
         "forecast_at",
@@ -127,3 +129,100 @@ def test_background_agent_and_delivery_prioritize_perishable_protective_action()
     assert "Do not schedule the warning for later" in delivery
     assert "accumulated effective exposure" in reasoning
     assert "remaining favorable window is too short" in reasoning
+
+
+def test_empirical_numeric_estimate_without_structured_basis_is_blocked():
+    from conversation_engine.ai_core.loop import _quantitative_estimate_issues
+    from conversation_engine.ai_core.models import CognitiveDecision
+
+    decision = CognitiveDecision(
+        response_mode="answer",
+        message_to_user="Indicativamente saranno pronti verso le 16:00.",
+        user_intent_summary="stimare un tempo reale",
+    )
+    issues = _quantitative_estimate_issues(
+        decision,
+        decision.message_to_user,
+        [],
+    )
+
+    assert "unstructured_empirical_estimate" in issues
+
+
+def test_live_weather_is_input_not_calibration_for_an_unrelated_rate():
+    from conversation_engine.ai_core.loop import _quantitative_estimate_issues
+    from conversation_engine.ai_core.models import CognitiveDecision, QuantitativeEstimate
+
+    decision = CognitiveDecision(
+        response_mode="answer",
+        message_to_user="Indicativamente saranno pronti verso le 16:00.",
+        user_intent_summary="stimare un tempo reale",
+        quantitative_estimates=[
+            QuantitativeEstimate(
+                statement="pronti verso le 16:00",
+                basis_type="specialized_capability",
+                evidence_refs=["weather:now"],
+                uncertainty_note="dipende dalle condizioni",
+                material_to_action=True,
+            )
+        ],
+    )
+    weather_observation = {
+        "kind": "tool",
+        "name": "get_weather_forecast",
+        "status": "ok",
+        "payload": {"status": "ok"},
+        "provenance": ["weather:now"],
+    }
+
+    issues = _quantitative_estimate_issues(
+        decision,
+        decision.message_to_user,
+        [weather_observation],
+    )
+
+    assert "material_estimate_basis_unverified:specialized_capability" in issues
+
+
+def test_external_research_can_calibrate_empirical_numeric_estimate():
+    from conversation_engine.ai_core.loop import _quantitative_estimate_issues
+    from conversation_engine.ai_core.models import CognitiveDecision, QuantitativeEstimate
+
+    decision = CognitiveDecision(
+        response_mode="answer",
+        message_to_user="Indicativamente la finestra è tra 8 e 12 ore.",
+        user_intent_summary="stimare un tempo reale",
+        quantitative_estimates=[
+            QuantitativeEstimate(
+                statement="tra 8 e 12 ore",
+                basis_type="external_research",
+                evidence_refs=["src_technical_1"],
+                uncertainty_note="range adattato alle condizioni locali",
+                material_to_action=True,
+            )
+        ],
+    )
+    research_observation = {
+        "kind": "research",
+        "name": "research",
+        "status": "ok",
+        "payload": {"grounding": "TOOL_OBSERVATION"},
+        "provenance": ["src_technical_1"],
+    }
+
+    assert _quantitative_estimate_issues(
+        decision,
+        decision.message_to_user,
+        [research_observation],
+    ) == []
+
+
+def test_general_prompt_requires_documented_calibration_for_empirical_numbers():
+    from conversation_engine.ai_core.prompt import COGNITIVE_SYSTEM_PROMPT
+
+    prompt = COGNITIVE_SYSTEM_PROMPT
+    assert "Quantitative real-world estimates need calibration" in prompt
+    assert "Mechanism is not a number" in prompt
+    assert "Live context" in prompt and "not calibration" in prompt
+    assert "quantitative_estimates" in prompt
+    assert "external research from credible/technical sources" in prompt
