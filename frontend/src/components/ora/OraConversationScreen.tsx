@@ -1386,6 +1386,7 @@ function OraConversationBody({
   const cockpitReady = wide && viewportWidth >= 1120;
   const temporaryMemory = useTemporaryMemory(true, turns.length);
   const [selectedMapStarId, setSelectedMapStarId] = useState<string | null>(null);
+  const [mapRefreshKey, setMapRefreshKey] = useState(0);
   const latestTemporaryIsRecent = Boolean(
     temporaryMemory.latest &&
     (!temporaryMemory.latest.updated_at ||
@@ -1620,6 +1621,7 @@ function OraConversationBody({
               mode={presenceMode(busy, voice.state.phase)}
               activity={presenceActivity}
               active={!live.on}
+              knowledgeRefreshKey={`${turns.length}:${mapRefreshKey}`}
               onAreaPrompt={setText}
               onSelectNode={(node) => setSelectedMapStarId(node?.kind === 'node' ? node.id || null : null)}
             />
@@ -1632,7 +1634,14 @@ function OraConversationBody({
             showsVerticalScrollIndicator={false}
             testID="ora-cockpit-rail"
           >
-            <OraCockpitContext refreshKey={turns.length} selectedStarId={selectedMapStarId} />
+            <OraCockpitContext
+              refreshKey={`${turns.length}:${mapRefreshKey}`}
+              selectedStarId={selectedMapStarId}
+              onTemporaryChanged={() => {
+                setSelectedMapStarId(null);
+                setMapRefreshKey(value => value + 1);
+              }}
+            />
           </ScrollView>
         </View>
       </KeyboardAvoidingView>
