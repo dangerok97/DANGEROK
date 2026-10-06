@@ -226,3 +226,10 @@ def test_bare_ack_progress_guard_is_present():
     assert "BARE_ACK_WITHOUT_PROGRESS" in source
     assert "BARE_ACK_PROGRESS_NUDGE" in source
     assert "choose and run the appropriate ORA skill" in source
+
+
+
+def test_calendar_continuation_counts_as_calendar_write():
+    from conversation_engine.ai_core.loop import _CALENDAR_WRITE_CAPS
+
+    assert "continue_calendar_action" in _CALENDAR_WRITE_CAPS
