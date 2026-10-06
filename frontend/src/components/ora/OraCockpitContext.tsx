@@ -44,10 +44,10 @@ function DetailRow({
   );
 }
 
-export function OraCockpitContext() {
+export function OraCockpitContext({ refreshKey }: { refreshKey?: unknown }) {
   const router = useRouter();
   const [home, setHome] = useState<HomeV2Response | null>(null);
-  const temporary = useTemporaryMemory(true);
+  const temporary = useTemporaryMemory(true, refreshKey);
 
   const refresh = useCallback(async () => {
     const next = await api.getHome().catch(() => null);
@@ -64,7 +64,7 @@ export function OraCockpitContext() {
       if (state === 'active') void refresh();
     });
     return () => { clearInterval(timer); app.remove(); };
-  }, [refresh]);
+  }, [refresh, refreshKey]);
 
   const current = temporary.latest;
   const focus = home?.primary_focus || null;
