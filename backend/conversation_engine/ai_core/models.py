@@ -176,6 +176,29 @@ class ToolCall(BaseModel):
         return (self.capability or self.name or "").strip()
 
 
+class SkillPlan(BaseModel):
+    """AI-owned execution plan over ORA's dynamic capability catalogue.
+
+    The backend does not infer domains or choose skills. It only validates that
+    capability names exist and that a turn does not claim completion before
+    the capabilities the AI itself declared necessary have actually run.
+    """
+
+    objective: str = Field(min_length=1, max_length=320)
+    required_capabilities: List[str] = Field(default_factory=list, max_length=5)
+    completion_condition: Optional[str] = Field(default=None, max_length=360)
+
+    @field_validator("required_capabilities", mode="before")
+    @classmethod
+    def _dedupe_capabilities(cls, value):
+        out = []
+        for item in value or []:
+            cap = str(item or "").strip()
+            if cap and cap not in out:
+                out.append(cap)
+        return out[:5]
+
+
 class StateUpdate(BaseModel):
     """Semantic state patch — not domain slot dictionaries."""
 
@@ -259,6 +282,7 @@ class CognitiveDecision(BaseModel):
     message_to_user: Optional[str] = None
     question: Optional[str] = None
     tool_call: Optional[ToolCall] = None
+    skill_plan: Optional[SkillPlan] = None
     context_query: Optional[str] = None
     context_need: Optional[ContextNeed] = None
     research_need: Optional[ResearchNeed] = None
