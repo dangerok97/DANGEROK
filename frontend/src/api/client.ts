@@ -828,16 +828,15 @@ export const api = {
 
   knowledgeMap: () => request<import('@/src/components/ora/presence/knowledge').KnowledgeMap>('/life-profile/knowledge-map'),
 
-  dismissTemporarySituation: (situationId: string, expectedRevision?: number | null) =>
-    request<{ ok: boolean; status: string; operation?: string }>(
-      `/life-profile/knowledge-map/situations/${encodeURIComponent(situationId)}/dismiss`,
-      {
-        method: 'POST',
-        body: JSON.stringify({
-          expected_revision: typeof expectedRevision === 'number' ? expectedRevision : null,
-        }),
-      },
-    ),
+  dismissTemporarySituation: (situationId: string, expectedRevision?: number | null) => {
+    const revision = typeof expectedRevision === 'number'
+      ? `?expected_revision=${encodeURIComponent(String(expectedRevision))}`
+      : '';
+    return request<{ ok: boolean; status: string; operation?: string }>(
+      `/life-profile/knowledge-map/situations/${encodeURIComponent(situationId)}/dismiss${revision}`,
+      { method: 'POST' },
+    );
+  },
 
   login: (email: string, password: string) =>
     request<ApiAuth>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }, false),
