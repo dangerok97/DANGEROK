@@ -283,3 +283,116 @@ async def test_location_denial_falls_back_with_specific_reason_not_combined_gues
     assert "destinazione univoca" not in why.lower()
     assert "non posso confrontare i tempi live" in obs.payload["say_this"].lower()
     assert obs.payload["url"].startswith("https://")
+
+
+
+@pytest.mark.asyncio
+async def test_get_route_uses_same_fresh_location_bridge(monkeypatch):
+    from places import caps, routing
+    from places.service import PlacesService
+    from location.service import LocationService
+
+    db = AsyncMongoMockClient().test
+    place = SimpleNamespace(
+        label="Ufficio",
+        coordinates=Coordinates(latitude=42.093, longitude=11.793),
+    )
+    monkeypatch.setattr(
+        PlacesService,
+        "resolve_destination",
+        AsyncMock(return_value=SimpleNamespace(
+            resolved=True,
+            place=place,
+            candidates=[],
+            reason="",
+        )),
+    )
+    monkeypatch.setattr(
+        routing,
+        "capabilities",
+        lambda: {"available": True, "provider": "mapbox", "live_traffic": True},
+    )
+    monkeypatch.setattr(
+        LocationService,
+        "build_presence",
+        AsyncMock(return_value=_presence(freshness="RECENT")),
+    )
+    monkeypatch.setattr(
+        LocationService,
+        "capability_get_current_location",
+        AsyncMock(return_value={
+            "status": "stale",
+            "freshness": "STALE",
+            "needs_client": True,
+            "client_action": {
+                "type": "request_foreground_location",
+                "reason": "refresh",
+                "refresh": True,
+            },
+        }),
+    )
+    live = AsyncMock()
+    monkeypatch.setattr(routing, "get_route", live)
+
+    obs = await caps.get_route(
+        {"destination": "Ufficio", "travel_mode": "drive"},
+        _runtime(db),
+    )
+
+    assert obs.status == "needs_client"
+    assert obs.payload["needs_current_location"] is True
+    assert obs.payload["client_action"]["type"] == "request_foreground_location"
+    live.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_get_route_never_uses_stale_coordinates_as_live_origin(monkeypatch):
+    from places import caps, routing
+    from places.service import PlacesService
+    from location.service import LocationService
+
+    db = AsyncMongoMockClient().test
+    place = SimpleNamespace(
+        label="Ufficio",
+        coordinates=Coordinates(latitude=42.093, longitude=11.793),
+    )
+    monkeypatch.setattr(
+        PlacesService,
+        "resolve_destination",
+        AsyncMock(return_value=SimpleNamespace(
+            resolved=True,
+            place=place,
+            candidates=[],
+            reason="",
+        )),
+    )
+    monkeypatch.setattr(
+        routing,
+        "capabilities",
+        lambda: {"available": True, "provider": "mapbox", "live_traffic": True},
+    )
+    monkeypatch.setattr(
+        LocationService,
+        "build_presence",
+        AsyncMock(return_value=_presence(freshness="STALE")),
+    )
+    monkeypatch.setattr(
+        LocationService,
+        "capability_get_current_location",
+        AsyncMock(return_value={
+            "status": "denied",
+            "freshness": "UNKNOWN",
+            "needs_client": False,
+        }),
+    )
+    live = AsyncMock()
+    monkeypatch.setattr(routing, "get_route", live)
+
+    obs = await caps.get_route(
+        {"destination": "Ufficio", "travel_mode": "drive"},
+        _runtime(db),
+    )
+
+    assert obs.payload["available"] is False
+    assert "permesso" in obs.payload["why_unavailable"].lower()
+    live.assert_not_awaited()
