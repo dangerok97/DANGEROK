@@ -46,7 +46,7 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
       const branch=node.kind==='branch';
       const introPosition=node.id==='intro_step_one'?[-.52,-.30,.08]:node.id==='draft_first_name'?[.28,-.65,.18]:node.id==='draft_last_name'?[.68,.30,-.12]:node.id.startsWith('intro_example_')?[-.48,.60,-.08]:null;
       const p={x:introPosition?.[0]??h.x+Math.cos(a)*r*v,y:introPosition?.[1]??h.y+u*r*.85,z:introPosition?.[2]??h.z+Math.sin(a)*r*v,
-        id:node.id,kind:branch?'branch':'node',tentative:!!node.tentative,complete:!!node.complete,
+        id:node.id,kind:branch?'branch':'node',tentative:!!node.tentative,complete:!!node.complete,temporary:!!node.temporary,
         group:g,areaGroup:g,hub:false,radius:branch?2.5:1.3+random()*.65,phase:random()*6.28};
       if(!births.has(p.id)||!oldIds.has(p.id))births.set(p.id,first?t-4:t);
       points.push(p);groups[g].push(points.length-1);
@@ -79,9 +79,9 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     return best;
   }
   function localPointer(e){const box=canvas.getBoundingClientRect();return {x:e.clientX-(box.left||0),y:e.clientY-(box.top||0),touch:e.pointerType==='touch'};}
-  function glow(x,y,r,power,warm=false){
+  function glow(x,y,r,power,warm=false,temporary=false){
     if(power<.01)return;
-    const c=warm?palette.warmGlow:palette.glow;
+    const c=temporary?palette.temporaryGlow:warm?palette.warmGlow:palette.glow;
     const grad=ctx.createRadialGradient(x,y,0,x,y,r);grad.addColorStop(0,'rgba('+c+','+(power*.8)+')');grad.addColorStop(.18,'rgba('+c+','+(power*.22)+')');grad.addColorStop(1,'rgba('+c+',0)');ctx.fillStyle=grad;ctx.fillRect(x-r,y-r,r*2,r*2);
   }
   function projectPoint(p,yaw,pitch,scale,breathing){
@@ -163,18 +163,19 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
       const arriving=!p.hub&&!options.reduced&&!options.paused&&age>=0&&age<2.8;
       const bloom=arriving?Math.sin(Math.PI*age/2.8):0;
       const r=p.radius*q.scale*(.64+q.depth*.38)*(1+q.energy*.28)+(isInspected?2.8:0);
-      if(isInspected){glow(q.x,q.y,24,.95);ctx.strokeStyle=palette.label;ctx.lineWidth=1;ctx.beginPath();ctx.arc(q.x,q.y,9,0,Math.PI*2);ctx.stroke();}
+      const temporary=!!p.temporary;
+      if(isInspected){glow(q.x,q.y,24,.95,false,temporary);ctx.strokeStyle=temporary?palette.temporaryLabel:palette.label;ctx.lineWidth=1;ctx.beginPath();ctx.arc(q.x,q.y,9,0,Math.PI*2);ctx.stroke();}
       const warm=p.complete||p.tentative||(activeHub>=0?p.group===activeHub:i===0||i===4);
       if(p.hub){glow(q.x,q.y,16+q.energy*19,.25+q.energy*.53,warm);glow(q.x,q.y,5+q.energy*4,.60,warm);}
-      else {glow(q.x,q.y,p.complete?17:8,Math.max(.22+q.energy*.3,bloom*.9),warm||arriving);}
+      else {glow(q.x,q.y,p.complete?17:temporary?13:8,Math.max(.22+q.energy*.3,bloom*.9),warm||arriving,temporary);}
       if(arriving&&q.appear>.12){
-        ctx.strokeStyle='rgba('+palette.warmNode+','+(bloom*.65*q.appear)+')';ctx.lineWidth=1.2;
+        ctx.strokeStyle='rgba('+(temporary?palette.temporaryNode:palette.warmNode)+','+(bloom*.65*q.appear)+')';ctx.lineWidth=1.2;
         ctx.beginPath();ctx.arc(q.x,q.y,5+age*11,0,Math.PI*2);ctx.stroke();
-        glow(q.x,q.y,24+age*9,bloom*.42,true);
+        glow(q.x,q.y,24+age*9,bloom*.42,true,temporary);
       }
       if(p.kind==='branch'){ctx.strokeStyle='rgba('+palette.warmNode+','+(p.complete?.85:.2)+')';ctx.lineWidth=p.complete?1.5:.6;ctx.beginPath();ctx.arc(q.x,q.y,6,0,Math.PI*2);ctx.stroke();}
-      if(!p.hub&&p.kind==='node'&&!p.tentative){ctx.strokeStyle='rgba('+palette.point+','+(.3+q.energy*.3)+')';ctx.lineWidth=.7;ctx.beginPath();ctx.moveTo(q.x-3.6,q.y);ctx.lineTo(q.x+3.6,q.y);ctx.moveTo(q.x,q.y-3.6);ctx.lineTo(q.x,q.y+3.6);ctx.stroke();}
-      ctx.fillStyle='rgba('+(warm?palette.warmNode:palette.node)+','+Math.min(.98,bright)+')';ctx.beginPath();ctx.arc(q.x,q.y,r,0,Math.PI*2);ctx.fill();
+      if(!p.hub&&p.kind==='node'&&!p.tentative){ctx.strokeStyle='rgba('+(temporary?palette.temporaryNode:palette.point)+','+(.3+q.energy*.3)+')';ctx.lineWidth=temporary?1:.7;ctx.beginPath();ctx.moveTo(q.x-3.6,q.y);ctx.lineTo(q.x+3.6,q.y);ctx.moveTo(q.x,q.y-3.6);ctx.lineTo(q.x,q.y+3.6);ctx.stroke();}
+      ctx.fillStyle='rgba('+(temporary?palette.temporaryNode:warm?palette.warmNode:palette.node)+','+Math.min(.98,bright)+')';ctx.beginPath();ctx.arc(q.x,q.y,r,0,Math.PI*2);ctx.fill();
       if(p.hub&&q.energy>.35){ctx.strokeStyle='rgba('+palette.cross+','+(q.energy*.33)+')';ctx.lineWidth=.6;ctx.beginPath();ctx.moveTo(q.x-7-q.energy*4,q.y);ctx.lineTo(q.x+7+q.energy*4,q.y);ctx.moveTo(q.x,q.y-6-q.energy*3);ctx.lineTo(q.x,q.y+6+q.energy*3);ctx.stroke();}
     }
     ctx.globalCompositeOperation='source-over';
@@ -277,5 +278,5 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
   size();update(initial);
   return {update,destroy(){destroyed=true;stop();cleanups.forEach(fn=>fn());},
     // Deterministic geometry inspection, with no personal data.
-    snapshot(){return {camera:{...camera},rotation:{yaw:dragYaw,pitch:dragPitch},hovered,selected,activeHub,points:points.length,knowledgeStars:points.filter(p=>p.kind==='node').length,edges:edges.length,frame,mode,opening:opening/openingSeconds,visiblePoints:projected.filter(p=>p.appear>.01).length,projected:projected.map((p,i)=>({x:p.x,y:p.y,...nodeInfo(i)}))};}};
+    snapshot(){return {camera:{...camera},rotation:{yaw:dragYaw,pitch:dragPitch},hovered,selected,activeHub,points:points.length,knowledgeStars:points.filter(p=>p.kind==='node').length,temporaryStars:points.filter(p=>p.kind==='node'&&p.temporary).length,edges:edges.length,frame,mode,opening:opening/openingSeconds,visiblePoints:projected.filter(p=>p.appear>.01).length,projected:projected.map((p,i)=>({x:p.x,y:p.y,...nodeInfo(i)}))};}};
 }
