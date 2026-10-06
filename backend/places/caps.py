@@ -1024,8 +1024,8 @@ async def get_route(arguments, runtime) -> Observation:
         return _ok(
             "get_route",
             {
-                "available": False,
                 **routing.capabilities(),
+                "available": False,
                 "why_unavailable": _routing_note().get("why_unavailable"),
             },
             uid,
@@ -1038,13 +1038,13 @@ async def get_route(arguments, runtime) -> Observation:
         return _ok(
             "get_route",
             {
+                **routing.capabilities(),
                 "available": False,
                 "needs_client": True,
                 "needs_current_location": True,
                 "why_unavailable": "serve una posizione corrente per calcolare il percorso live",
                 "location_status": location_status,
                 "client_action": client_action,
-                **routing.capabilities(),
             },
             uid,
             status="needs_client",
@@ -1053,9 +1053,9 @@ async def get_route(arguments, runtime) -> Observation:
         return _ok(
             "get_route",
             {
+                **routing.capabilities(),
                 "available": False,
                 "why_unavailable": _route_origin_reason(location_status),
-                **routing.capabilities(),
             },
             uid,
         )
