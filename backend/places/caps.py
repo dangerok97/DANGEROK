@@ -497,7 +497,7 @@ async def _route_origin_or_client(runtime: Dict[str, Any]) -> Dict[str, Any]:
     from location.service import LocationService
 
     svc = LocationService(db)
-    presence = await svc.build_presence(uid, platform=str(runtime.get("platform") or "web"))
+    presence = await svc.build_presence(uid)
     origin = _navigation_origin(presence)
     if origin is not None:
         return {"origin": origin}
