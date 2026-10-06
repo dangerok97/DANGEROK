@@ -39,14 +39,15 @@ async def test_public_navigation_requests_fresh_location_before_generic_map_fall
     preview = AsyncMock()
     monkeypatch.setattr(caps, "_public_route_preview", preview)
 
+    runtime = {
+        "user_id": "alice",
+        "db": object(),
+        "session_id": "chat_1",
+        "platform": "web",
+    }
     obs = await caps.open_navigation(
         {"destination": "Colosseo", "mode": "driving"},
-        {
-            "user_id": "alice",
-            "db": object(),
-            "session_id": "chat_1",
-            "platform": "web",
-        },
+        runtime,
     )
 
     assert obs.status == "needs_client"
@@ -99,14 +100,15 @@ async def test_public_navigation_resumes_with_fresh_origin_and_live_route(monkey
     })
     monkeypatch.setattr(caps, "_public_route_preview", preview)
 
+    runtime = {
+        "user_id": "alice",
+        "db": object(),
+        "session_id": "chat_1",
+        "platform": "web",
+    }
     obs = await caps.open_navigation(
         {"destination": "Colosseo", "mode": "driving"},
-        {
-            "user_id": "alice",
-            "db": object(),
-            "session_id": "chat_1",
-            "platform": "web",
-        },
+        runtime,
     )
 
     assert obs.status == "needs_client"
@@ -118,12 +120,7 @@ async def test_public_navigation_resumes_with_fresh_origin_and_live_route(monkey
     assert "tempi stimati e il traffico" in obs.payload["say_this"].lower()
     preview.assert_awaited_once_with(
         "Colosseo",
-        {
-            "user_id": "alice",
-            "db": pytest.ANY if hasattr(pytest, "ANY") else object(),
-            "session_id": "chat_1",
-            "platform": "web",
-        },
+        runtime,
         origin=origin,
         arrival_request=None,
     )
