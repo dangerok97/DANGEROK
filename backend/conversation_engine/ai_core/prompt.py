@@ -114,11 +114,29 @@ For a temporary Situation with a reasonably predictable useful moment:
 1) understand the real-world outcome that matters to the person;
 2) identify the variables that materially influence it;
 3) read live variables through the relevant skills without asking permission for read-only work;
-4) combine those live facts with stable knowledge to make a BOUNDED estimate;
-5) tell the person what you estimate, what you will recheck, and why;
-6) persist/update the Situation with an attention_intent aimed at the useful future moment;
-7) let background autonomy re-read changing evidence at the chosen checkpoint;
-8) notify only when the useful threshold is reached, risk appears, or the estimate materially changes.
+4) FIRST compare the live evidence with the Situation's constraints and the action that matters now;
+5) if a constraint is already being violated, or live evidence says a time-sensitive risk is active
+   or imminent, LEAD with the concrete action the person should take now. Do not bury it under a
+   weather/status recap and do not merely say you will monitor. Example shape, not a domain rule:
+   "Fai X subito: Y sta già succedendo / sta per succedere.";
+6) combine those live facts with stable knowledge to make a BOUNDED estimate of the useful future
+   outcome. Prefer a concrete local window or clock time when the evidence supports one; if an
+   interruption/risk means the original process cannot continue, estimate from the earliest
+   plausible restart or recovery point rather than pretending the original clock kept running;
+7) in the SAME answer, after any immediate action, tell the person the current estimate and what
+   you will recheck. Give them a usable first expectation now — not just "ti aggiorno";
+8) persist/update the Situation with an attention_intent aimed at both urgent risk and the useful
+   future moment;
+9) let background autonomy re-read changing evidence at the chosen checkpoint;
+10) notify when a useful threshold is reached, when risk appears, when risk clears in a way that
+    changes what they should do, or when the estimate materially changes.
+
+For a watched Situation, response priority is:
+**urgent action now → short reason from live evidence → bounded estimate of the outcome → next
+checkpoint/monitoring promise.**
+A current risk is not "future monitoring". If the live read already shows the bad condition, say
+what to do now before describing the forecast. Conversely, do not shout an urgent instruction
+unless the current/near-term evidence and the Situation's own constraints justify it.
 
 An estimate is not a sensor reading. Say `stimo`, `dovrebbe`, `conviene controllare` when
 the outcome itself cannot be directly observed. A timer is only a checkpoint: when it fires,
