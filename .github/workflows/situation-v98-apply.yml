@@ -25,16 +25,16 @@ jobs:
           assert hashlib.sha256(patch).hexdigest() == 'd092c20a82014f22933e48ef377fed634b20b3c3d158399092fe075d92d64a53', 'patch checksum mismatch'
           pathlib.Path('/tmp/situation-v98.patch').write_bytes(patch)
           PY
-          git apply --check /tmp/situation-v98.patch
-          git apply /tmp/situation-v98.patch
+          git apply --check --exclude=.github/workflows/ci.yml /tmp/situation-v98.patch
+          git apply --exclude=.github/workflows/ci.yml /tmp/situation-v98.patch
           git diff --check
           python -m compileall -q backend/situations backend/conversation_engine/ai_core backend/agent backend/tests/test_situation_followup_v98.py
-      - name: Commit product files and remove temporary audit machinery
+      - name: Commit application files only
         shell: bash
         run: |
           set -euo pipefail
-          git rm scripts/situation-v98.patch.b64 scripts/situation-v98-part-*.txt .github/workflows/situation-v98-source-audit.yml .github/workflows/situation-v98-apply.yml
-          git add .github/workflows/ci.yml backend/agent/background.py backend/agent/service.py backend/conversation_engine/ai_core/context_broker.py backend/conversation_engine/ai_core/loop.py backend/conversation_engine/ai_core/prompt.py backend/conversation_engine/ai_core/tools/registry.py backend/life_profile/knowledge_map.py backend/situations/followup.py backend/situations/service.py backend/tests/test_conversation_situation_autonomy_v58.py backend/tests/test_situation_followup_v98.py frontend/src/components/ora/OraCockpitContext.tsx frontend/src/components/ora/ora14.test.ts frontend/src/components/ora/presence/knowledge.ts
+          git rm scripts/situation-v98.patch.b64 scripts/situation-v98-part-*.txt
+          git add backend/agent/background.py backend/agent/service.py backend/conversation_engine/ai_core/context_broker.py backend/conversation_engine/ai_core/loop.py backend/conversation_engine/ai_core/prompt.py backend/conversation_engine/ai_core/tools/registry.py backend/life_profile/knowledge_map.py backend/situations/followup.py backend/situations/service.py backend/tests/test_conversation_situation_autonomy_v58.py backend/tests/test_situation_followup_v98.py frontend/src/components/ora/OraCockpitContext.tsx frontend/src/components/ora/ora14.test.ts frontend/src/components/ora/presence/knowledge.ts
           git config user.name 'ORA maintenance'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git commit -m 'fix: persist and expose executable Situation follow-ups v98'
