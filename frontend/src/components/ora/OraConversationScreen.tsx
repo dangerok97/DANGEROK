@@ -1382,7 +1382,7 @@ function OraConversationBody({
   // cockpit; in that case fall back to the compact integrated surface instead
   // of clipping controls and hiding the map/right rail.
   const cockpitReady = wide && viewportWidth >= 1120;
-  const temporaryMemory = useTemporaryMemory(cockpitReady);
+  const temporaryMemory = useTemporaryMemory(cockpitReady, turns.length);
 
   /*
     Le scorciatoie sotto il composer. Non sono decorazione: due preparano
@@ -1618,7 +1618,7 @@ function OraConversationBody({
             </View>
 
             <View style={styles.cockpitRail} testID="ora-cockpit-rail">
-              <OraCockpitContext />
+              <OraCockpitContext refreshKey={turns.length} />
             </View>
           </View>
         </KeyboardAvoidingView>
