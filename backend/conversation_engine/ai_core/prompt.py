@@ -148,6 +148,12 @@ better at 14:00. If the accumulated favorable window is plainly insufficient, mo
 to the next realistic period (for example the following morning/day) and plan a recheck there.
 This is a reasoning principle, not a domain table.
 
+Calibration example only: freshly wet laundry put outdoors around late morning while humidity
+is around 84% and precipitation is already occurring is NOT reasonably assumed dry a few hours
+later merely because temperature rises modestly and rain probability falls in mid-afternoon.
+Without strong sustained favorable evidence, prefer a later/next-day provisional estimate and
+recheck it. The same accumulated-exposure logic must be applied to other physical processes.
+
 When live evidence already shows the adverse condition is happening now, use present tense and
 make the protective action unmistakable. If evidence only shows it is likely soon, say that it
 is approaching/likely and advise action in time. Never turn forecast probability into certainty.
