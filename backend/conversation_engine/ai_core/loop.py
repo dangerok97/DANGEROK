@@ -123,6 +123,26 @@ def _calendar_write_observation_succeeded(
     )
 
 
+def _merge_required_skill_caps(current: List[str], incoming) -> List[str]:
+    """Keep the AI's declared requirements for the whole reasoning turn.
+
+    Requirements are capability names chosen by the model from the live
+    catalogue. Code never infers a domain or adds a capability on its own.
+    """
+    out = list(current or [])
+    for cap in incoming or []:
+        name = str(cap or "").strip()
+        if name and name not in out:
+            out.append(name)
+    return out[:MAX_TOOL_CALLS]
+
+
+def _pending_required_skill_caps(
+    required: List[str], attempted: Set[str]
+) -> List[str]:
+    return [cap for cap in required if cap not in (attempted or set())]
+
+
 async def _emit_life_change(
     trace: Dict[str, Any],
     source_system: str,
@@ -758,6 +778,8 @@ async def run_cognitive_loop(
     calendar_claim_nudge_used = False
     calendar_absence_nudge_used = False
     bare_ack_nudge_used = False
+    required_skill_caps: List[str] = []
+    attempted_skill_caps: Set[str] = set()
     clarification_attempts = {
         str(item.get("key")): int(item.get("attempts") or 0)
         for item in (st.get("clarification_history") or [])
@@ -908,6 +930,13 @@ async def run_cognitive_loop(
             )
 
         last_decision = decision
+        if decision.skill_plan:
+            required_skill_caps = _merge_required_skill_caps(
+                required_skill_caps,
+                decision.skill_plan.required_capabilities,
+            )
+            trace["skill_plan_required"] = list(required_skill_caps)
+            trace["skill_plan_objective"] = decision.skill_plan.objective[:240]
         await report_activity(
             db, sess, "processing", area=decision.display_area, basis="topic",
             keep_area=decision.display_area is None,
@@ -1320,6 +1349,54 @@ async def run_cognitive_loop(
                     "collegato. Il piano potrebbe essere ancora attivo: non lo considero annullato."
                 )
             ora = _compose_user_text(decision, observations[turn_start:])
+            if mode in ("answer", "finish", "act"):
+                pending_skill_caps = _pending_required_skill_caps(
+                    required_skill_caps, attempted_skill_caps
+                )
+                if pending_skill_caps and step + 1 < max_steps:
+                    observations.append(
+                        Observation(
+                            kind="system",
+                            name="declared_skill_plan_incomplete",
+                            status="nudge",
+                            payload={
+                                "failure_code": "DECLARED_SKILL_PLAN_INCOMPLETE",
+                                "objective": (
+                                    decision.skill_plan.objective
+                                    if decision.skill_plan
+                                    else str(trace.get("skill_plan_objective") or "")
+                                ),
+                                "pending_capabilities": pending_skill_caps,
+                                "reason": (
+                                    "Your own execution plan says these ORA skills are "
+                                    "required for the user's requested outcome, but no "
+                                    "observation from them exists yet. Do not finish or "
+                                    "claim completion. Call the next required capability "
+                                    "unless genuinely blocking user input is missing. If "
+                                    "input is blocking, ask only for that input. Do not "
+                                    "replace the skill with manual instructions."
+                                ),
+                            },
+                        ).model_dump()
+                    )
+                    add_step(
+                        trace,
+                        event="SKILL_PLAN_INCOMPLETE_NUDGE",
+                        pending=pending_skill_caps,
+                    )
+                    continue
+                if pending_skill_caps:
+                    decision.message_to_user = (
+                        "Non sono riuscita a completare la richiesta in questo turno."
+                    )
+                    decision.question = None
+                    mode = "answer"
+                    ora = _compose_user_text(decision, observations[turn_start:])
+                    add_step(
+                        trace,
+                        event="SKILL_PLAN_INCOMPLETE_TERMINAL",
+                        pending=pending_skill_caps,
+                    )
             if decision.uncertainty:
                 trace["uncertainty_turns"] = int(trace.get("uncertainty_turns") or 0) + 1
                 trace["unresolved_uncertainty"] = bool(
@@ -2811,6 +2888,14 @@ async def run_cognitive_loop(
             obs_dump = obs.model_dump()
             turn_obs_by_sig[sig] = obs_dump
             observations.append(obs_dump)
+            # A required skill counts only after a real observation exists.
+            # Record both the wrapper the AI invoked and the concrete leaf
+            # capability that emitted the observation.
+            attempted_skill_caps.add(cap)
+            observed_name = str(obs_dump.get("name") or "").strip()
+            if observed_name:
+                attempted_skill_caps.add(observed_name)
+            trace["skill_plan_attempted"] = sorted(attempted_skill_caps)
 
             # Persist active plan/goal refs for Continue / later turns
             payload = obs.payload or {}
