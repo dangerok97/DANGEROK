@@ -157,6 +157,7 @@ jobs:
             tests/test_ai_first_calendar_dialogue_v83.py \
             tests/test_calendar_semantic_action_v85.py \
             tests/test_calendar_search_completeness_v86.py \
+            tests/test_calendar_continuation_observation_v86a.py \
             -x
   telephone-cloud:
     name: Telephone cloud safety

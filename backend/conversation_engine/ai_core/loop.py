@@ -92,6 +92,37 @@ _LIFE_OS_PERSIST_CAPS = frozenset(
     }
 )
 
+def _effective_capability(
+    requested_cap: str, observed_name: str, allowed_caps
+) -> str:
+    """Return the concrete effect capability when a wrapper owns the lifecycle.
+
+    The AI may call a continuation skill, while the observation is emitted by
+    the leaf capability that actually changed the world. Truth guards must
+    credit the leaf observation rather than the wrapper name.
+    """
+    observed = str(observed_name or "").strip()
+    requested = str(requested_cap or "").strip()
+    if observed in allowed_caps:
+        return observed
+    if requested in allowed_caps:
+        return requested
+    return ""
+
+
+def _calendar_write_observation_succeeded(
+    requested_cap: str, obs: Observation
+) -> bool:
+    effective = _effective_capability(
+        requested_cap, getattr(obs, "name", ""), _CALENDAR_WRITE_CAPS
+    )
+    return bool(
+        effective
+        and obs.status == "ok"
+        and (obs.payload or {}).get("status") == "ok"
+    )
+
+
 async def _emit_life_change(
     trace: Dict[str, Any],
     source_system: str,
@@ -2697,14 +2728,24 @@ async def run_cognitive_loop(
                 st["external_query_count_session"] = (
                     int(st.get("external_query_count_session") or 0) + 1
                 )
-            if cap in _WRITE_CAPS:
+            # A lifecycle/continuation skill can return the observation of the
+            # concrete capability that actually performed the effect. Count and
+            # verify the observed effect, not only the wrapper the model called.
+            # Example: continue_calendar_action -> cancel_calendar_event.
+            observed_cap = str(getattr(obs, "name", "") or "").strip()
+            effective_write_cap = _effective_capability(
+                cap, observed_cap, _WRITE_CAPS
+            )
+            effective_calendar_cap = _effective_capability(
+                cap, observed_cap, _CALENDAR_WRITE_CAPS
+            )
+
+            if effective_write_cap in _WRITE_CAPS:
                 write_calls += 1
                 trace["write_calls"] = write_calls
-            if cap in _CALENDAR_WRITE_CAPS and (
-                obs.status == "ok" and (obs.payload or {}).get("status") == "ok"
-            ):
+            if _calendar_write_observation_succeeded(cap, obs):
                 calendar_write_confirmed_this_turn = True
-            if cap in _CALENDAR_WRITE_CAPS:
+            if effective_calendar_cap:
                 # Emitted for "partial" too: local ORA state really changed
                 # even when the Google-side sync stayed unconfirmed.
                 await _emit_life_change(
@@ -2715,7 +2756,7 @@ async def run_cognitive_loop(
                         user_id=sess.user_id,
                         session_id=sess.id,
                         reasoning_epoch=epoch,
-                        capability=cap,
+                        capability=effective_calendar_cap,
                         observation_status=obs.status,
                         payload=obs.payload or {},
                     ),
