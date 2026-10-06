@@ -209,7 +209,8 @@ def test_calendar_semantic_reference_rule_is_in_cognitive_prompt():
 
     prompt = COGNITIVE_SYSTEM_PROMPT
     assert "Calendar event names are semantic references, not passwords" in prompt
-    assert "Never require the person to repeat an event title character-for-character" in prompt
+    normalized = " ".join(prompt.split())
+    assert "Never require the person to repeat an event title character-for-character" in normalized
     assert "Similarity may identify what to CONFIRM" in prompt
 
 
