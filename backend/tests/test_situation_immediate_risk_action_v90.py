@@ -21,6 +21,8 @@ async def test_conversation_weather_exposes_current_precipitation_and_near_term_
         "_where_they_are",
         AsyncMock(return_value=(42.25, 11.76, "Tarquinia")),
     )
+    monkeypatch.setattr(weather, "capabilities", lambda: {"available": True})
+    monkeypatch.setattr(weather, "configured_provider", lambda: "test")
     monkeypatch.setattr(
         weather,
         "forecast_at",
