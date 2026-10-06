@@ -21,7 +21,8 @@ export function TemporarySituationToast({
     return () => clearTimeout(timer);
   }, [star?.id]);
 
-  const age = star?.updated_at ? Date.now() - new Date(star.updated_at).getTime() : Infinity;
+  const bornAt = star?.created_at || star?.updated_at;
+  const age = bornAt ? Date.now() - new Date(bornAt).getTime() : Infinity;
   if (!star || hiddenId === star.id || age < 0 || age > 120000) return null;
   return (
     <View style={[styles.toast, inline && styles.inlineToast]} testID="ora-temporary-toast">
