@@ -143,6 +143,19 @@ def _pending_required_skill_caps(
     return [cap for cap in required if cap not in (attempted or set())]
 
 
+def _record_skill_attempt(
+    attempted: Set[str], requested_cap: str, observed_name: str
+) -> Set[str]:
+    out = set(attempted or set())
+    requested = str(requested_cap or "").strip()
+    observed = str(observed_name or "").strip()
+    if requested:
+        out.add(requested)
+    if observed:
+        out.add(observed)
+    return out
+
+
 async def _emit_life_change(
     trace: Dict[str, Any],
     source_system: str,
@@ -2891,10 +2904,11 @@ async def run_cognitive_loop(
             # A required skill counts only after a real observation exists.
             # Record both the wrapper the AI invoked and the concrete leaf
             # capability that emitted the observation.
-            attempted_skill_caps.add(cap)
-            observed_name = str(obs_dump.get("name") or "").strip()
-            if observed_name:
-                attempted_skill_caps.add(observed_name)
+            attempted_skill_caps = _record_skill_attempt(
+                attempted_skill_caps,
+                cap,
+                str(obs_dump.get("name") or ""),
+            )
             trace["skill_plan_attempted"] = sorted(attempted_skill_caps)
 
             # Persist active plan/goal refs for Continue / later turns
