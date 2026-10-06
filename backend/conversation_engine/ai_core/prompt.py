@@ -157,6 +157,11 @@ Use three kinds of knowledge deliberately:
   or uncertainty could materially change the advice.
 
 For a temporary Situation with a reasonably predictable useful moment:
+Before the final answer, when tool/research observations materially clarify the Situation, UPDATE
+that same Situation (same id/revision) with the grounded presentation semantics that changed:
+current_state_summary, expected_outcome_summary, next_check_summary and location_label when known.
+Do not create a second Situation just to carry display details, and do not fill absent fields by
+guessing. This keeps the stellar map/right rail aligned with the evidence you are using in chat.
 1) understand the real-world outcome that matters to the person;
 2) identify the variables that materially influence it;
 3) read live variables through the relevant skills without asking permission for read-only work;
