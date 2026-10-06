@@ -113,15 +113,61 @@ async def knowledge_map(db, user_id: str) -> dict:
             "id": 1,
             "summary": 1,
             "status": 1,
+            "semantic_kind": 1,
+            "temporal_scope": 1,
+            "attention_intent": 1,
+            "icon_key": 1,
+            "location_label": 1,
+            "current_state_summary": 1,
+            "expected_outcome_summary": 1,
+            "next_check_summary": 1,
+            "facts": 1,
+            "constraints": 1,
+            "linked_object_refs": 1,
+            "revision": 1,
             "updated_at": 1,
             "created_at": 1,
         },
     ).sort("updated_at", -1).limit(24).to_list(24)
+
+    # Resolve only owner-scoped, user-visible place labels. Never expose coordinates.
+    linked_place_ids = {
+        str(ref).split(":", 1)[1]
+        for situation in temporary_situations
+        for ref in (situation.get("linked_object_refs") or [])
+        if isinstance(ref, str) and ref.startswith("place:") and ":" in ref
+    }
+    place_labels = {}
+    if linked_place_ids:
+        place_docs = await db.life_places.find(
+            {
+                "user_id": user_id,
+                "id": {"$in": list(linked_place_ids)},
+                "state": {"$ne": "dismissed"},
+            },
+            {"_id": 0, "id": 1, "label": 1, "locality": 1, "address": 1},
+        ).to_list(None)
+        for place in place_docs:
+            label = (
+                str(place.get("label") or "").strip()
+                or str(place.get("locality") or "").strip()
+                or str(place.get("address") or "").strip()
+            )
+            if label:
+                place_labels[str(place.get("id"))] = label
+
     for situation in temporary_situations:
         situation_id = str(situation.get("id") or "").strip()
         statement = " ".join(str(situation.get("summary") or "").split())[:400]
         if not situation_id or not statement:
             continue
+        location_label = " ".join(str(situation.get("location_label") or "").split())[:180]
+        if not location_label:
+            for ref in situation.get("linked_object_refs") or []:
+                if isinstance(ref, str) and ref.startswith("place:"):
+                    location_label = place_labels.get(ref.split(":", 1)[1], "")
+                    if location_label:
+                        break
         stars.append({
             "id": stable_id("situation:" + situation_id),
             "area": "memory",
@@ -130,9 +176,25 @@ async def knowledge_map(db, user_id: str) -> dict:
             "statement": statement,
             "status": "known",
             "provenance": "Situazione attiva",
+            "created_at": situation.get("created_at"),
             "updated_at": situation.get("updated_at") or situation.get("created_at"),
             "temporary": True,
             "situation_id": situation_id,
+            "situation_revision": situation.get("revision"),
+            "semantic_kind": situation.get("semantic_kind"),
+            "icon_key": situation.get("icon_key") or "other",
+            "location_label": location_label or None,
+            "current_state_summary": situation.get("current_state_summary"),
+            "expected_outcome_summary": (
+                situation.get("expected_outcome_summary")
+                or situation.get("temporal_scope")
+            ),
+            "next_check_summary": (
+                situation.get("next_check_summary")
+                or situation.get("attention_intent")
+            ),
+            "facts": list(situation.get("facts") or [])[:4],
+            "constraints": list(situation.get("constraints") or [])[:4],
         })
 
     notes = await db.memories.find({"user_id": user_id, "status": {"$nin": ["forgotten", "superseded", "rejected", "expired"]}}, {"_id": 0}).to_list(None)
