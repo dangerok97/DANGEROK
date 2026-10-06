@@ -280,7 +280,16 @@ async def open_navigation(arguments: Dict[str, Any], runtime: Dict[str, Any]) ->
                 and not resolution.reason.startswith("più luoghi")):
             from places.navigation import search_handoff
 
-            route_origin = await _route_origin_or_client(runtime)
+            route_origin = (
+                await _route_origin_or_client(runtime)
+                if _mapbox_enabled()
+                else {
+                    "origin": None,
+                    "terminal_reason": "routing_unavailable",
+                    "why": (_routing_note() or {}).get("why_unavailable")
+                    or "il routing live non è configurato",
+                }
+            )
             if route_origin.get("needs_client"):
                 return _ok(
                     "open_navigation",
@@ -494,15 +503,15 @@ async def _route_origin_or_client(runtime: Dict[str, Any]) -> Dict[str, Any]:
         return {"origin": origin}
 
     pref = await svc.get_preference(uid)
-    if presence.permission_state == "denied" or (
-        (presence.acquisition_error or "").strip().lower() == "denied"
+    if getattr(presence, "permission_state", None) == "denied" or (
+        (getattr(presence, "acquisition_error", None) or "").strip().lower() == "denied"
     ):
         return {
             "origin": None,
             "terminal_reason": "permission_denied",
             "why": "non ho il permesso di leggere la posizione attuale",
         }
-    if presence.permission_state == "unavailable":
+    if getattr(presence, "permission_state", None) == "unavailable":
         return {
             "origin": None,
             "terminal_reason": "position_unavailable",
