@@ -1059,6 +1059,7 @@ async def run_cognitive_loop(
     bare_ack_nudge_used = False
     required_skill_caps: List[str] = []
     attempted_skill_caps: Set[str] = set()
+    skill_outcomes: List[Dict[str, str]] = []
     active_execution_plan = _active_skill_plan_state(st)
     active_execution_plan_ref: Optional[str] = (
         str((active_execution_plan or {}).get("plan_ref") or "") or None
