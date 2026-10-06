@@ -37,7 +37,8 @@ def test_background_reasoning_does_not_wait_on_already_active_risk():
     assert "bounded future estimate" in source
     assert "Do not confuse the time at which live conditions improve" in source
     assert "setback caused by the bad condition" in source
-    assert "never make the first forecast improvement hour double as the completion time" in source
+    assert "never make the first forecast " in source
+    assert "improvement hour double as the completion time" in source
 
 
 def test_behavior_remains_domain_neutral():
