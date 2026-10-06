@@ -6,7 +6,13 @@ import type { KnowledgeStar } from './presence/knowledge';
 import { presencePalette as palette, presenceColors } from '@/src/theme/presence';
 import { situationIcon, situationTitle } from './situationVisual';
 
-export function TemporarySituationToast({ star }: { star: KnowledgeStar | null }) {
+export function TemporarySituationToast({
+  star,
+  inline = false,
+}: {
+  star: KnowledgeStar | null;
+  inline?: boolean;
+}) {
   const [hiddenId, setHiddenId] = useState<string | null>(null);
   useEffect(() => {
     if (!star?.id) return;
@@ -15,9 +21,10 @@ export function TemporarySituationToast({ star }: { star: KnowledgeStar | null }
     return () => clearTimeout(timer);
   }, [star?.id]);
 
-  if (!star || hiddenId === star.id) return null;
+  const age = star?.updated_at ? Date.now() - new Date(star.updated_at).getTime() : Infinity;
+  if (!star || hiddenId === star.id || age < 0 || age > 120000) return null;
   return (
-    <View style={styles.toast} testID="ora-temporary-toast">
+    <View style={[styles.toast, inline && styles.inlineToast]} testID="ora-temporary-toast">
       <View style={styles.icon}>
         <Ionicons name={situationIcon(star.icon_key)} size={22} color="#ff7373" />
       </View>
@@ -42,6 +49,10 @@ const styles = StyleSheet.create({
     padding: 14, borderRadius: 18, borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255,92,92,.26)', backgroundColor: 'rgba(7,15,24,.96)',
     shadowColor: '#000', shadowOpacity: .45, shadowRadius: 18,
+  },
+  inlineToast: {
+    position: 'relative', left: undefined, bottom: undefined, width: '100%', maxWidth: '100%',
+    flexShrink: 0,
   },
   icon: {
     width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center',
