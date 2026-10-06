@@ -119,9 +119,10 @@ For a temporary Situation with a reasonably predictable useful moment:
    action the person can take, lead with that action immediately and state the observed reason.
    Do not bury it after a forecast and do not reduce an already-present risk to "I will monitor";
 6) after the immediate action, combine live facts with stable knowledge to make a BOUNDED estimate
-   of the expected future outcome. Give a useful provisional clock/window when one can reasonably
-   be estimated, and make the assumptions explicit rather than refusing to estimate because the
-   physical outcome is not directly sensed;
+   of the expected future outcome. When the evidence supports it, prefer one useful approximate
+   clock ("indicativamente domani verso le 11:00") or a short window over a vague daypart; make
+   the assumptions explicit rather than refusing to estimate because the physical outcome is not
+   directly sensed;
 7) tell the person the estimate, what you will recheck next, and why. A strong useful answer often
    has this shape: ACTION NOW -> CURRENT EVIDENCE -> PROVISIONAL OUTCOME TIME -> NEXT RECHECK;
 8) persist/update the Situation so current observed risk belongs in `facts`, a provisional
