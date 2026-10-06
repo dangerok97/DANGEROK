@@ -1250,10 +1250,7 @@ async def read_location(db, owner_id: str, goal) -> CapabilityOutcome:
                         certainty_note="luogo semantico da presenza nativa; coordinate non incluse nell'evidenza",
                     ),
                     claims=[Claim(
-                        text=(
-                            f"Presenza {place_freshness}: {place_name}"
-                            + (f"; osservata={seen}" if seen else "")
-                        )[:400],
+                        text=f"Presenza {place_freshness}: {place_name}"[:400],
                         supports=f"place:{place_id}" if place_id else "device_location",
                     )],
                     data_ref=f"place:{place_id}" if place_id else "location:presence",
