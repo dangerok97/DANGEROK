@@ -65,7 +65,12 @@ MAX_OBJECT_GENERATIONS = 2
 MAX_SOURCES_UI = 5
 
 _CALENDAR_WRITE_CAPS = frozenset(
-    {"create_calendar_event", "update_calendar_event", "cancel_calendar_event"}
+    {
+        "create_calendar_event",
+        "update_calendar_event",
+        "cancel_calendar_event",
+        "continue_calendar_action",
+    }
 )
 _WRITE_CAPS = frozenset(
     {
@@ -712,6 +717,7 @@ async def run_cognitive_loop(
     graph_claim_nudge_used = False
     calendar_write_confirmed_this_turn = False
     calendar_claim_nudge_used = False
+    bare_ack_nudge_used = False
     clarification_attempts = {
         str(item.get("key")): int(item.get("attempts") or 0)
         for item in (st.get("clarification_history") or [])
@@ -1274,6 +1280,41 @@ async def run_cognitive_loop(
                     "collegato. Il piano potrebbe essere ancora attivo: non lo considero annullato."
                 )
             ora = _compose_user_text(decision, observations[turn_start:])
+
+            # A bare acknowledgement is not completion. This guard is
+            # deliberately domain-neutral: it does not decide what the user's
+            # request means. It only notices that ORA produced "Ok." without
+            # any substantive answer. Give the cognitive model one more pass
+            # to decide whether a skill should be used or to explain clearly
+            # why no action is possible.
+            if (
+                mode in ("answer", "finish", "act")
+                and _BARE_ACK_RE.fullmatch((ora or "").strip())
+                and not _BARE_ACK_RE.fullmatch((user_message or "").strip())
+                and not bare_ack_nudge_used
+                and step + 1 < max_steps
+            ):
+                bare_ack_nudge_used = True
+                observations.append(
+                    Observation(
+                        kind="system",
+                        name="bare_ack_without_progress",
+                        status="nudge",
+                        payload={
+                            "failure_code": "BARE_ACK_WITHOUT_PROGRESS",
+                            "reason": (
+                                "Your proposed user-facing answer is only a bare acknowledgement. "
+                                "Re-read the latest user message semantically. If they asked for an "
+                                "action, choose and run the appropriate ORA skill; if a skill is "
+                                "already active, continue or resolve it. If no action is warranted, "
+                                "give a substantive answer instead of 'Ok.'."
+                            ),
+                        },
+                    ).model_dump()
+                )
+                add_step(trace, event="BARE_ACK_PROGRESS_NUDGE")
+                continue
+
             if decision.uncertainty:
                 trace["uncertainty_turns"] = int(trace.get("uncertainty_turns") or 0) + 1
                 trace["unresolved_uncertainty"] = bool(
@@ -3170,7 +3211,12 @@ def _compose_user_text(decision: CognitiveDecision, observations=None) -> str:
 
 # Gli strumenti la cui frase per la persona è parte del risultato, non un
 # suggerimento: quello che chiedono di confermare non si riassume.
-_TOOLS_THAT_SPEAK = ("prepare_a_phone_call", "open_navigation")
+_TOOLS_THAT_SPEAK = (
+    "prepare_a_phone_call",
+    "open_navigation",
+    "cancel_calendar_event",
+    "continue_calendar_action",
+)
 
 
 def _the_tool_s_own_sentence(observations) -> str:
@@ -3186,9 +3232,18 @@ def _the_tool_s_own_sentence(observations) -> str:
     for o in reversed(observations):
         if not isinstance(o, dict) or str(o.get("name") or "") not in _TOOLS_THAT_SPEAK:
             continue
-        detto = str(((o.get("payload") or {}).get("say_this")) or "").strip()
+        payload = o.get("payload") or {}
+        detto = str(payload.get("say_this") or "").strip()
         if detto:
             return detto
+        # Calendar cancellation carries the exact event title/time in a frozen
+        # confirmation_request rather than say_this. Those facts are part of
+        # what the person is approving and must never disappear into "Ok.".
+        request = payload.get("confirmation_request")
+        if isinstance(request, dict):
+            question = str(request.get("question") or "").strip()
+            if question:
+                return question
     return ""
 
 
