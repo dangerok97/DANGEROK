@@ -1052,12 +1052,58 @@ async def run_cognitive_loop(
 
         last_decision = decision
         if decision.skill_plan:
+            skill_plan_declared_this_turn = True
+            resume_ref = str(
+                decision.skill_plan.resume_plan_ref or ""
+            ).strip()
+            if resume_ref and not skill_plan_resumed_this_turn:
+                if (
+                    active_execution_plan
+                    and resume_ref == active_execution_plan_ref
+                ):
+                    required_skill_caps = _merge_required_skill_caps(
+                        required_skill_caps,
+                        active_execution_plan.get("required_capabilities") or [],
+                    )
+                    attempted_skill_caps.update(
+                        active_execution_plan.get("attempted_capabilities") or []
+                    )
+                    current_skill_plan_ref = resume_ref
+                    skill_plan_resumed_this_turn = True
+                    add_step(
+                        trace,
+                        event="SKILL_PLAN_RESUMED",
+                        plan_ref=resume_ref,
+                    )
+                else:
+                    observations.append(
+                        Observation(
+                            kind="system",
+                            name="invalid_skill_plan_resume",
+                            status="nudge",
+                            payload={
+                                "failure_code": "INVALID_SKILL_PLAN_RESUME",
+                                "reason": (
+                                    "The resume_plan_ref does not match the active "
+                                    "execution plan shown in current_facts. Re-read "
+                                    "active_skill_state.execution_plan. Continue it "
+                                    "only if the user's latest message semantically "
+                                    "belongs to that work; otherwise start a new plan "
+                                    "without a resume ref."
+                                ),
+                            },
+                        ).model_dump()
+                    )
+                    add_step(trace, event="SKILL_PLAN_RESUME_REJECTED")
+                    if step + 1 < max_steps:
+                        continue
             required_skill_caps = _merge_required_skill_caps(
                 required_skill_caps,
                 decision.skill_plan.required_capabilities,
             )
             trace["skill_plan_required"] = list(required_skill_caps)
             trace["skill_plan_objective"] = decision.skill_plan.objective[:240]
+            trace["skill_plan_ref"] = current_skill_plan_ref
         await report_activity(
             db, sess, "processing", area=decision.display_area, basis="topic",
             keep_area=decision.display_area is None,
