@@ -2672,6 +2672,7 @@ async def run_cognitive_loop(
                     ),
                     required=required_skill_caps,
                     attempted=attempted_skill_caps,
+                    outcomes=skill_outcomes,
                     existing_ref=(
                         current_skill_plan_ref
                         if skill_plan_resumed_this_turn
@@ -3248,6 +3249,10 @@ async def run_cognitive_loop(
                         cap,
                         str(getattr(obs, "name", "") or ""),
                     )
+                    skill_outcomes = _merge_skill_outcomes(
+                        skill_outcomes,
+                        [_skill_outcome_summary(cap, obs)],
+                    )
                     if required_skill_caps:
                         persisted_plan = _persist_active_skill_plan(
                             st,
@@ -3258,6 +3263,7 @@ async def run_cognitive_loop(
                             ),
                             required=required_skill_caps,
                             attempted=attempted_skill_caps,
+                            outcomes=skill_outcomes,
                             existing_ref=(
                                 current_skill_plan_ref
                                 if skill_plan_resumed_this_turn
@@ -3422,7 +3428,12 @@ async def run_cognitive_loop(
                 cap,
                 str(obs_dump.get("name") or ""),
             )
+            skill_outcomes = _merge_skill_outcomes(
+                skill_outcomes,
+                [_skill_outcome_summary(cap, obs_dump)],
+            )
             trace["skill_plan_attempted"] = sorted(attempted_skill_caps)
+            trace["skill_plan_outcomes"] = list(skill_outcomes)
 
             # Persist active plan/goal refs for Continue / later turns
             payload = obs.payload or {}
