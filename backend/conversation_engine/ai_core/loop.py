@@ -358,15 +358,19 @@ def _active_skill_plan_state(state: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     outcomes = _merge_skill_outcomes([], raw.get("capability_outcomes") or [])
     required = required[:MAX_TOOL_CALLS]
     attempted = attempted[: MAX_TOOL_CALLS * 2]
+    outcome_states = _required_skill_states(required, outcomes)
     return {
         "plan_ref": plan_ref,
         "objective": objective,
         "required_capabilities": required,
         "attempted_capabilities": attempted,
         "capability_outcomes": outcomes,
-        "pending_capabilities": _pending_required_skill_caps(
-            required, set(attempted)
-        ),
+        "capability_states": outcome_states,
+        "pending_capabilities": [
+            *outcome_states["unseen"],
+            *outcome_states["waiting"],
+            *outcome_states["failed"],
+        ],
         "waiting": bool(raw.get("waiting")),
         "updated_at": str(raw.get("updated_at") or "")[:80],
     }
