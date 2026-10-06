@@ -20,7 +20,7 @@ jobs:
         working-directory: frontend
     env:
       CI: 'true'
-      EXPO_PUBLIC_BACKEND_URL: http://127.0.0.1:8000
+      EXPO_PUBLIC_BACKEND_URL: http://127.0.0.1:8093
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
