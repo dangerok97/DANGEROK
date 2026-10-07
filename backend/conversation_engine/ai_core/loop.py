@@ -515,6 +515,37 @@ _SITUATION_CHECK_WHEN_ASK_RE = re.compile(
 )
 
 
+def _display_focus_ref(decision, observations, situation_result) -> Optional[str]:
+    """Presentation focus for the knowledge map, grounded only in persisted refs."""
+    explicit = str(getattr(decision, "display_focus_ref", None) or "").strip()
+    if explicit:
+        return explicit[:160]
+
+    # A fresh durable Memory write is the most concrete new star this turn.
+    for obs in reversed(list(observations or [])):
+        if not isinstance(obs, dict) or obs.get("name") != "memory_governance":
+            continue
+        payload = obs.get("payload") or {}
+        outcomes = payload.get("outcomes") if isinstance(payload, dict) else None
+        if not isinstance(outcomes, list):
+            continue
+        refs = [
+            str(item.get("memory_id") or "").strip()
+            for item in outcomes
+            if isinstance(item, dict) and item.get("persisted") and item.get("memory_id")
+        ]
+        refs = [ref for ref in refs if ref]
+        if len(refs) == 1:
+            return refs[0][:160]
+        break
+
+    persisted = (situation_result or {}).get("situation") or {}
+    sid = str(persisted.get("id") or "").strip()
+    if sid:
+        return f"situation:{sid}"[:160]
+    return None
+
+
 def _latest_situation_schedule(observations) -> Optional[Dict[str, Any]]:
     # A successful read is as authoritative as an arrange operation. Do not use
     # an older successful schedule after a newer stopped/failed read, nor mix
@@ -3044,6 +3075,9 @@ async def run_cognitive_loop(
                 ok=True,
                 mode=mode,  # type: ignore[arg-type]
                 ora_text=ora,
+                display_focus_ref=_display_focus_ref(
+                    decision, observations[turn_start:], situation_result
+                ),
                 question=decision.question if mode == "ask" else None,
                 blocking_ask=blocking_ask,
                 session_id=sess.id,
