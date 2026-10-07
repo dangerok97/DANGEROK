@@ -156,5 +156,5 @@ def test_connected_reasoning_distinguishes_delivery_states():
     )
     lowered = src.lower()
     assert "never promote one state into another" in lowered
-    assert "shipped is not out for delivery" in lowered
-    assert "out for delivery is not delivered" in lowered
+    assert "accepted, shipped, delayed, out for " in lowered
+    assert "delivery, delivered, failed or redirected" in lowered
