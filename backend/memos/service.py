@@ -147,7 +147,6 @@ class RecurringMemoService:
             },
             {"$set": {"claim_until": claim_until, "updated_at": stamp}},
             sort=[("next_due_at", 1)],
-            projection={"_id": 0},
             return_document=True,
         )
 
