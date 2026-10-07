@@ -110,7 +110,8 @@ test('mobile conversation is readable, scrollable, and preserves draft through m
     expect(composer!.y + composer!.height).toBeLessThanOrEqual(size.height + 2);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(size.width + 2);
     await scrollToBottom(page);
-    await expect(page.getByRole('button', { name: 'Avvisami', exact: true })).toBeInViewport();
+    await expect(page.getByRole('button', { name: 'Avvisami', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Va bene', exact: true })).toHaveCount(0);
   }
   await page.setViewportSize({ width: 390, height: 740 });
   await page.getByTestId('ora-production-scroll').evaluate(element => { element.scrollTop = 0; });
@@ -129,10 +130,9 @@ test('mobile conversation is readable, scrollable, and preserves draft through m
   await input.fill('');
   await input.blur();
   await scrollToBottom(page);
-  await page.getByRole('button', { name: 'Avvisami', exact: true }).click();
-  await expect.poll(() => posts.length).toBe(1);
-  expect(posts[0]).toContain('Avvisami');
-  expect(posts[0]).toContain('client_message_id');
+  await expect(page.getByRole('button', { name: 'Avvisami', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Va bene', exact: true })).toHaveCount(0);
+  expect(posts).toEqual([]);
   expect(errors).toEqual([]);
 });
 

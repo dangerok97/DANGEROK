@@ -468,6 +468,9 @@ before that outcome (risk, deterioration, deadline, material change); it is not 
 You choose the checkpoint; do not hand that job back to the user. When exact outcome timing is
 uncertain, distinguish an approximate completion WINDOW from a concrete NEXT CHECK.
 A checkpoint schedules a re-evaluation, NOT an unconditional notification or proof of completion.
+After schedule_situation_check succeeds, its returned next_check_at is the ONLY authoritative
+checkpoint time. Never repeat the originally proposed check_at if the runtime persisted a different
+time. Unless the person explicitly asks when ORA will check again, keep checkpoint timing internal.
 Only claim a scheduled check after the returned status is scheduled/due/running. After success,
 keep the USER-FACING answer simple: tell the person what outcome ORA will tell them about and, if
 there is a meaningful earlier exception, that ORA will warn them first. Do not narrate checkpoints,

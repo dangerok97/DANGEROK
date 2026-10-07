@@ -1386,12 +1386,6 @@ function OraConversationBody({
   const temporaryMemory = useTemporaryMemory(true, turns.length);
   const [selectedMapStarId, setSelectedMapStarId] = useState<string | null>(null);
   const [mapRefreshKey, setMapRefreshKey] = useState(0);
-  const latestTemporaryIsRecent = Boolean(
-    temporaryMemory.latest &&
-    (!temporaryMemory.latest.updated_at ||
-      Date.now() - new Date(temporaryMemory.latest.updated_at).getTime() <= 15 * 60 * 1000),
-  );
-
   /*
     Le scorciatoie sotto il composer. Non sono decorazione: due preparano
     un messaggio a ORA, una apre i documenti, una apre le chiamate.
@@ -1503,31 +1497,6 @@ function OraConversationBody({
           variant={variant}
           onRetry={(t) => void retry(t)}
         />
-        {latestTemporaryIsRecent &&
-        temporaryMemory.latest &&
-        turns[turns.length - 1]?.role === 'ora' &&
-        !busy ? (
-          <View style={styles.situationActions} testID="ora-situation-actions">
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Va bene"
-              onPress={() => void sendWords('Va bene.')}
-              style={({ pressed }) => [styles.situationAction, pressed && styles.actionPressed]}
-            >
-              <Ionicons name="checkmark-circle-outline" size={17} color={presencePalette.label} />
-              <Text style={styles.situationActionText}>Va bene</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Avvisami"
-              onPress={() => void sendWords('Avvisami quando devo intervenire per questa situazione.')}
-              style={({ pressed }) => [styles.situationAction, pressed && styles.actionPressed]}
-            >
-              <Ionicons name="notifications-outline" size={17} color={presencePalette.label} />
-              <Text style={styles.situationActionText}>Avvisami</Text>
-            </Pressable>
-          </View>
-        ) : null}
         {busy ? <OraWorking hint={workingHint} /> : null}
         {asides}
       </>}

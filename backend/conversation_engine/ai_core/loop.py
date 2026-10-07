@@ -7,6 +7,8 @@ import logging
 import re
 import time
 import uuid
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Set
 
 from conversation_engine.ai_core.context_broker import (
@@ -500,6 +502,62 @@ _PERSIST_CLAIM_RE = re.compile(
     r"here\s+is\s+(your|the)\s+(plan|material|session)"
     r")\b"
 )
+_SITUATION_CHECK_TIME_RE = re.compile(
+    r"(?i)\b(?:controll(?:o|are|er[oò]|eremo)?|ricontroll(?:o|are|er[oò]|eremo)?|"
+    r"verific(?:a|are|her[oò]|heremo)?|checkpoint)\b.{0,100}?"
+    r"(?:alle?|per\s+le|verso\s+le)\s*([01]?\d|2[0-3])(?::([0-5]\d))?\b"
+)
+_SITUATION_CHECK_WHEN_ASK_RE = re.compile(
+    r"(?i)\b(a\s+che\s+ora|quando\s+(?:controll|ricontroll|verific)|"
+    r"che\s+ora.*(?:controll|ricontroll|verific)|when.*(?:check|recheck))"
+)
+
+
+def _latest_situation_schedule(observations) -> Optional[Dict[str, Any]]:
+    for obs in reversed(list(observations or [])):
+        if not isinstance(obs, dict):
+            continue
+        if obs.get("name") != "schedule_situation_check" or obs.get("status") != "ok":
+            continue
+        payload = obs.get("payload") or {}
+        if isinstance(payload, dict) and payload.get("next_check_at"):
+            return payload
+    return None
+
+
+def _local_hhmm(iso_value: str, timezone_name: str) -> Optional[str]:
+    try:
+        instant = datetime.fromisoformat(str(iso_value).replace("Z", "+00:00"))
+        if instant.tzinfo is None:
+            return None
+        return instant.astimezone(ZoneInfo(timezone_name or "Europe/Rome")).strftime("%H:%M")
+    except Exception:
+        return None
+
+
+def _claims_wrong_situation_check_time(text: str, actual_hhmm: Optional[str]) -> bool:
+    if not actual_hhmm:
+        return False
+    for match in _SITUATION_CHECK_TIME_RE.finditer(str(text or "")):
+        claimed = f"{int(match.group(1)):02d}:{int(match.group(2) or 0):02d}"
+        if claimed != actual_hhmm:
+            return True
+    return False
+
+
+def _followup_truth_copy(payload: Dict[str, Any], *, actual_hhmm: Optional[str], include_check_time: bool) -> str:
+    completion = str(payload.get("completion_when") or "").strip().rstrip(".")
+    early = str(payload.get("notify_when") or "").strip().rstrip(".")
+    parts: List[str] = []
+    if include_check_time and actual_hhmm:
+        parts.append(f"Il prossimo controllo è programmato alle {actual_hhmm}.")
+    if completion:
+        parts.append(f"Ti avviso quando {completion.lower()}.")
+    if early:
+        parts.append(f"Se prima {early.lower()}, ti avviso prima.")
+    return " ".join(parts) or "Il controllo risulta programmato in ORA."
+
+
 _DURABLE_MEMORY_CLAIM_RE = re.compile(
     r"(?i)\b(ho\s+memorizzato|ho\s+salvato\s+(in\s+)?memoria|"
     r"ho\s+preso\s+nota|terrò\s+presente\s+(in\s+futuro|d'ora\s+in\s+poi)|"
@@ -1099,6 +1157,7 @@ async def run_cognitive_loop(
     memory_write_decisions_this_turn: List[str] = []
     memory_claim_nudge_used = False
     memory_result_nudge_used = False
+    situation_time_nudge_used = False
     graph_write_confirmed_this_turn = False
     graph_claim_nudge_used = False
     calendar_write_confirmed_this_turn = False
@@ -2077,6 +2136,55 @@ async def run_cognitive_loop(
                 decision.question = None
                 mode = "answer"
                 ora = _compose_user_text(decision, observations[turn_start:])
+            scheduled_followup = _latest_situation_schedule(observations[turn_start:])
+            persisted_check_hhmm = (
+                _local_hhmm(
+                    str((scheduled_followup or {}).get("next_check_at") or ""),
+                    str((clock_context or {}).get("timezone") or "Europe/Rome"),
+                )
+                if scheduled_followup else None
+            )
+            wrong_check_time = bool(
+                scheduled_followup
+                and _claims_wrong_situation_check_time(ora or "", persisted_check_hhmm)
+            )
+            if (
+                wrong_check_time
+                and not situation_time_nudge_used
+                and step + 1 < max_steps
+            ):
+                situation_time_nudge_used = True
+                observations.append(
+                    Observation(
+                        kind="system",
+                        name="situation_schedule_time_consistency",
+                        status="nudge",
+                        payload={
+                            "failure_code": "SITUATION_SCHEDULE_TIME_MISMATCH",
+                            "next_check_at": scheduled_followup.get("next_check_at"),
+                            "local_check_time": persisted_check_hhmm,
+                            "reason": (
+                                "The final answer names a different check time from the persisted "
+                                "schedule. If the user asked when ORA will check again, use the "
+                                "persisted local time exactly. Otherwise keep the checkpoint internal "
+                                "and answer only with the user outcome and any earlier warning."
+                            ),
+                        },
+                    ).model_dump()
+                )
+                add_step(trace, event="SITUATION_SCHEDULE_TIME_NUDGE")
+                continue
+            if wrong_check_time:
+                decision.message_to_user = _followup_truth_copy(
+                    scheduled_followup,
+                    actual_hhmm=persisted_check_hhmm,
+                    include_check_time=bool(_SITUATION_CHECK_WHEN_ASK_RE.search(user_message or "")),
+                )
+                decision.question = None
+                mode = "answer"
+                ora = _compose_user_text(decision, observations[turn_start:])
+                add_step(trace, event="SITUATION_SCHEDULE_TIME_REWRITTEN")
+
             unconfirmed_graph_claim = (
                 mode in ("answer", "finish", "act")
                 and not graph_write_confirmed_this_turn
