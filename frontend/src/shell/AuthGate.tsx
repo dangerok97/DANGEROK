@@ -29,7 +29,7 @@ import { loginHrefFor } from './nextTarget';
  */
 
 /** Routes that must render without a session — otherwise nobody can sign in. */
-const PUBLIC_PREFIXES = ['/login', '/+not-found', '/_sitemap'];
+const PUBLIC_PREFIXES = ['/login', '/privacy', '/terms', '/+not-found', '/_sitemap'];
 
 function isPublic(pathname: string): boolean {
   return PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
