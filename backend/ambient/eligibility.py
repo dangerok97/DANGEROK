@@ -104,6 +104,49 @@ class EligibilityService:
 
     # --- the small question ------------------------------------------------
 
+    async def _has_unattended_situation(self, owner_id: str) -> bool:
+        """Whether an active Situation asked for attention but has no open follow-up.
+
+        This is a recovery fact only. It does not decide that the Situation matters,
+        choose a provider, invent a checkpoint, or create work. A later ordinary
+        opportunity review owns that judgement.
+        """
+        try:
+            rows = await self.db.situations.find(
+                {
+                    "user_id": owner_id,
+                    "status": {"$in": ["active", "changed"]},
+                    "$or": [
+                        {"attention_intent": {"$type": "string", "$gt": ""}},
+                        {"next_check_summary": {"$type": "string", "$gt": ""}},
+                    ],
+                },
+                {"_id": 0, "id": 1},
+            ).sort("updated_at", -1).to_list(8)
+        except Exception as exc:
+            logger.info("eligibility situations soft-fail: %s", type(exc).__name__)
+            return False
+
+        for row in rows:
+            sid = str(row.get("id") or "").strip()
+            if not sid:
+                continue
+            try:
+                open_goal = await self.db.agent_goals.find_one(
+                    {
+                        "owner_id": owner_id,
+                        "status": {"$in": ["proposed", "active", "waiting"]},
+                        "source_refs": f"situation:{sid}",
+                    },
+                    {"_id": 1},
+                )
+            except Exception as exc:
+                logger.info("eligibility situation goal soft-fail: %s", type(exc).__name__)
+                return False
+            if open_goal is None:
+                return True
+        return False
+
     async def reasons_to_look_again(self, owner_id: str) -> List[str]:
         """
         Every concrete reason there is, named. Empty means there is none.
@@ -165,6 +208,12 @@ class EligibilityService:
                 reasons.append("temporal_window")
         except Exception as e:
             logger.info("eligibility opportunities soft-fail: %s", type(e).__name__)
+
+        # A conversational Situation can carry an explicit attention purpose
+        # even when the first executable follow-up failed to be persisted. That
+        # gap must be recoverable without waiting for another user message.
+        if await self._has_unattended_situation(owner_id):
+            reasons.append("situation_unattended")
 
         # Something the person put off, whose moment has arrived.
         try:
@@ -260,6 +309,22 @@ class EligibilityService:
                 owners.update(str(o) for o in found if o)
             except Exception as e:
                 logger.info("candidates %s soft-fail: %s", collection, type(e).__name__)
+
+        if len(owners) < limit:
+            try:
+                found = await self.db.situations.distinct(
+                    "user_id",
+                    {
+                        "status": {"$in": ["active", "changed"]},
+                        "$or": [
+                            {"attention_intent": {"$type": "string", "$gt": ""}},
+                            {"next_check_summary": {"$type": "string", "$gt": ""}},
+                        ],
+                    },
+                )
+                owners.update(str(o) for o in found if o)
+            except Exception as e:
+                logger.info("candidates situations soft-fail: %s", type(e).__name__)
 
         return sorted(owners)[:limit]
 
