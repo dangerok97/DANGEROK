@@ -278,9 +278,10 @@ async def test_slow_lane_does_not_block_due_work_and_shutdown_cancels(monkeypatc
         task = runtime._jobs[slow_lane]
         await runtime._cycle(object(), 0)
         assert runtime._jobs[slow_lane] is task, 'never overlap a pending lane'
-        # Six service lanes (including durable delivery recovery) and two
-        # due-work slots. P0 added recovery without an unbounded task per user.
-        assert len(runtime._jobs) <= 8
+        # Seven bounded service lanes (including recurring Memo + durable
+        # delivery recovery) and two due-work slots. The Memo lane is one
+        # indexed scheduler task, never an unbounded task per user.
+        assert len(runtime._jobs) <= 9
     finally:
         await runtime._stop_jobs()
     assert cancelled.is_set() and not runtime._jobs

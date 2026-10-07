@@ -100,6 +100,24 @@ class MemoryGovernanceService:
                 )
         if candidate.authority == "device":
             return MemoryGovernanceOutcome("REJECT", "DEVICE_SIGNAL_NOT_DURABLE_MEMORY")
+        value = candidate.value if isinstance(candidate.value, dict) else {}
+        try:
+            recurring_month = int(value.get("month"))
+            recurring_day = int(value.get("day"))
+        except (TypeError, ValueError):
+            recurring_month = recurring_day = 0
+        implicit_recurring_personal_date = bool(
+            candidate.identity_key
+            and candidate.kind in ("birthday", "anniversary", "annual_date")
+            and str(candidate.recurrence or "").strip().lower() in ("annual", "yearly")
+            and candidate.authority == "user_stated"
+            and candidate.epistemic_status in ("asserted", "confirmed")
+            and candidate.permanence in ("durable", "indefinite")
+            and candidate.sensitivity == "normal"
+            and candidate.confidence >= 0.95
+            and 1 <= recurring_month <= 12
+            and 1 <= recurring_day <= 31
+        )
         if candidate.permanence == "temporary" or candidate.ends_at:
             return MemoryGovernanceOutcome(
                 "REJECT", "TEMPORARY_CONTEXT_BELONGS_TO_SITUATION"
@@ -117,6 +135,7 @@ class MemoryGovernanceService:
             candidate.authority == "user_stated"
             and candidate.epistemic_status != "confirmed"
             and not candidate.user_authorized
+            and not implicit_recurring_personal_date
         ):
             return MemoryGovernanceOutcome(
                 "CLARIFY", "USER_ASSERTION_REQUIRES_CONFIRMATION"

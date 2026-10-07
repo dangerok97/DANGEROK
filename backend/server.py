@@ -200,6 +200,9 @@ async def startup():
     from life_memory.governance import MemoryGovernanceService
 
     await MemoryGovernanceService(db).ensure_indexes()
+    from memos.service import RecurringMemoService
+
+    await RecurringMemoService(db).ensure_indexes()
 
     # Permissions
     await db.permission_consents.create_index(

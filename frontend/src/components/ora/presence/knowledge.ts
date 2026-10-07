@@ -32,6 +32,15 @@ export type KnowledgeStar = {
   next_check_summary?: string | null;
   facts?: string[];
   constraints?: string[];
+  /** Durable-memory presentation group; never used for routing. */
+  group_kind?: string | null;
+  group_items?: {
+    memory_ref: string;
+    label: string;
+    month?: number | null;
+    day?: number | null;
+    date_label?: string | null;
+  }[];
 };
 export type KnowledgeBranch = {
   area_id: string; title: string; purpose: string; percent: number; area: PresenceArea;

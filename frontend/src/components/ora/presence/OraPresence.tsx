@@ -165,7 +165,7 @@ export function OraPresence({ mode = 'idle', activity = null, compact = false, a
       {unavailable ? <View style={styles.fallback}><Text style={styles.fallbackText}>ORA</Text></View> : canvasReady ? <PresenceCanvas options={options} onUnavailable={fail} onSelect={select} /> : null}
       {areas || selected || info ? <View style={[styles.overlay, width < 650 && styles.overlayMobile]} testID="ora-map-detail">
           <View style={[styles.detailHead, { paddingHorizontal: 16 }]}>
-            <Text accessibilityRole="header" style={styles.detailTitle}>{fact?.temporary ? 'Memoria temporanea' : fact ? 'Un punto della tua vita' : branch ? branch.title : selected ? AREA_LABELS[selected.area] : areas ? 'Esplora la mappa' : 'La tua mappa cresce con te'}</Text>
+            <Text accessibilityRole="header" style={styles.detailTitle}>{fact?.temporary ? 'Memoria temporanea' : fact?.group_kind === 'birthdays' ? 'Compleanni' : fact ? 'Un punto della tua vita' : branch ? branch.title : selected ? AREA_LABELS[selected.area] : areas ? 'Esplora la mappa' : 'La tua mappa cresce con te'}</Text>
             <Pressable accessibilityRole="button" accessibilityLabel="Chiudi dettagli della mappa" onPress={() => { setSelected(null); setAreas(false); setInfo(false); }} style={styles.button}><Text style={styles.control}>Chiudi</Text></Pressable>
           </View>
         <ScrollView keyboardShouldPersistTaps="handled" style={{ minHeight: 0, flexShrink: 1 }} contentContainerStyle={styles.detailContent} testID="ora-map-detail-scroll">
@@ -177,6 +177,27 @@ export function OraPresence({ mode = 'idle', activity = null, compact = false, a
             onTemporaryChanged={() => { refreshKnowledge(); select(null); }}
           /> : fact ? <>
             <Text style={styles.detailText}>{fact.statement}</Text>
+            {fact.group_kind === 'birthdays' && fact.group_items?.length ? (
+              <View style={{ gap: 10, marginTop: 4 }}>
+                {fact.group_items.map(item => (
+                  <View
+                    key={item.memory_ref}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 16,
+                      paddingVertical: 10,
+                      borderBottomWidth: StyleSheet.hairlineWidth,
+                      borderBottomColor: palette.border,
+                    }}
+                  >
+                    <Text style={[styles.detailText, { flex: 1 }]}>{item.label}</Text>
+                    <Text style={styles.note}>{item.date_label || ''}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
             <Text style={[styles.note, fact.temporary && styles.temporaryNote]}>
               {fact.temporary
                 ? 'Memoria temporanea · resta finché la situazione è attiva'
