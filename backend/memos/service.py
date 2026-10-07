@@ -121,7 +121,7 @@ class RecurringMemoService:
             "status": "active",
             "last_fired_at": None,
             "last_fired_year": None,
-            "claim_until": None,
+            "claim_until": "",
             "created_at": now,
             "updated_at": now,
         }
@@ -141,7 +141,6 @@ class RecurringMemoService:
                 "status": "active",
                 "next_due_at": {"$lte": stamp},
                 "$or": [
-                    {"claim_until": None},
                     {"claim_until": {"$exists": False}},
                     {"claim_until": {"$lt": stamp}},
                 ],
@@ -231,7 +230,7 @@ class RecurringMemoService:
                     "last_fired_at": moment.isoformat(),
                     "last_fired_year": year,
                     "next_due_at": next_due.isoformat(),
-                    "claim_until": None,
+                    "claim_until": "",
                     "updated_at": moment.isoformat(),
                 }},
             )
