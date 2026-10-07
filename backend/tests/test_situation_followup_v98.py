@@ -39,7 +39,8 @@ def args(**extra):
     return dict(situation_id=SID, expected_revision=1,
         check_at=(datetime.now(timezone.utc) + timedelta(minutes=20)).isoformat(),
         purpose='Rileggere le condizioni rilevanti al prossimo checkpoint.',
-        notify_when='Segnalare un rischio o il momento utile, senza confondere la stima con una misura.', **extra)
+        completion_when='Quando le evidenze indicano che è arrivato il momento utile per concludere.',
+        notify_when='Segnalare prima un rischio che cambia cosa conviene fare.', **extra)
 
 
 @pytest.mark.asyncio
@@ -182,4 +183,6 @@ def test_tools_are_generic_and_external_authority_is_not_granted():
     registry = ToolRegistry(None)
     assert registry.get('get_situation_followup').side_effect == 'READ_ONLY'
     assert registry.get('schedule_situation_check').side_effect == 'REVERSIBLE_WRITE'
-    assert 'situation_id' in registry.get('schedule_situation_check').input_schema['required']
+    required = registry.get('schedule_situation_check').input_schema['required']
+    assert 'situation_id' in required
+    assert 'completion_when' in required

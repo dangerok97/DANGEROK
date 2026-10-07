@@ -42,7 +42,8 @@ async def test_saved_attention_is_reconsidered_and_real_tool_schedules_it(monkey
                 'capability': 'schedule_situation_check', 'arguments': {
                     'situation_id': state['id'], 'expected_revision': state['revision'],
                     'check_at': due, 'purpose': 'Rivalutare il contesto al prossimo controllo.',
-                    'notify_when': 'Quando una variazione utile cambia il prossimo passo.'}}}
+                    'completion_when': 'Quando le evidenze indicano che è arrivato il momento utile per agire.',
+                    'notify_when': 'Se prima emerge un rischio che cambia il prossimo passo.'}}}
         assert len(calls) == 3, 'the repair must not loop indefinitely'
         return {'response_mode': 'answer', 'message_to_user': 'Il prossimo controllo risulta registrato.'}
 
@@ -71,7 +72,8 @@ async def test_later_conversation_reads_existing_intention_without_rescheduling(
     due = (datetime.now(timezone.utc) + timedelta(minutes=20)).isoformat()
     before = await arrange_followup(db, session.user_id, situation_id=state.id,
         expected_revision=1, check_at=due, purpose='Rivedere le informazioni disponibili.',
-        notify_when='Quando il prossimo passo cambia.')
+        completion_when='Quando le evidenze indicano che è arrivato il momento utile per agire.',
+        notify_when='Se prima il prossimo passo cambia per un rischio.')
     assert before['status'] == 'scheduled'
 
     async def decide(system, payload):

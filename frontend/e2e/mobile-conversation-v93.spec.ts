@@ -163,7 +163,7 @@ test('keyboard visual viewport and landscape keep composer inside visible area',
 // API fixtures test rendering/selection/refresh only, not AI or background execution.
 test('mobile selected Situation exposes real follow-up fields, scrolls and removes only on success', async ({ page }, info) => {
   await page.setViewportSize({ width: 390, height: 740 });
-  const controls = { followup: { status: 'scheduled', next_check_at: '2026-10-08T14:30:00+02:00', last_checked_at: '2026-10-08T13:00:00+02:00', notify_when: 'Una variazione utile rilevata — condizione simulata' }, removeFails: true, dismissed: [] as string[] };
+  const controls = { followup: { status: 'scheduled', next_check_at: '2026-10-08T14:30:00+02:00', last_checked_at: '2026-10-08T13:00:00+02:00', completion_when: 'Il risultato utile è raggiunto — condizione simulata', notify_when: 'Una variazione utile rilevata — condizione simulata' }, removeFails: true, dismissed: [] as string[] };
   const posts = await fixture(page, controls);
   await page.getByTestId('ora-mobile-open-map').click();
   const modal = page.getByTestId('ora-mobile-expanded-map');
@@ -174,7 +174,9 @@ test('mobile selected Situation exposes real follow-up fields, scrolls and remov
   await expect(card).toContainText('Controllo programmato');
   await expect(card).toContainText('Prossimo controllo');
   await expect(card).toContainText('Ultimo controllo eseguito');
-  await expect(card).toContainText('Quando ti aggiorno in ORA');
+  await expect(card).toContainText('Ti avviso quando');
+  await expect(card).toContainText('Il risultato utile è raggiunto — condizione simulata');
+  await expect(card).toContainText('Ti avviso prima se');
   await expect(modal.getByText('Un punto della tua vita', { exact: true })).toHaveCount(0);
   mkdirSync('mobile-qa', { recursive: true });
   await page.screenshot({ path: `mobile-qa/${info.project.name}-situation-v99.png` });
@@ -212,7 +214,7 @@ test('mobile follow-up starts unconfirmed and refreshes without a chat message',
   const card = modal.getByTestId('ora-cockpit-temporary');
   await expect(card).toContainText('Nessun controllo programmato');
   await expect(card.getByText('Prossimo controllo', { exact: true })).toHaveCount(0);
-  controls.followup = { status: 'scheduled', next_check_at: '2026-10-08T14:30:00+02:00', notify_when: 'Condizione di prova' };
+  controls.followup = { status: 'scheduled', next_check_at: '2026-10-08T14:30:00+02:00', completion_when: 'Quando il risultato utile è raggiunto', notify_when: 'Se prima cambia qualcosa di importante' };
   await expect(card).toContainText('Controllo programmato', { timeout: 25000 });
   await expect(card).toContainText('Prossimo controllo');
   await modal.getByRole('button', { name: 'Chiudi dettagli della mappa' }).click();
