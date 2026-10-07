@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
 import { readPresenceActivity, presenceMode, readPresenceNode, AREA_IDS, AREA_DETAILS, completionFocusKey, presenceFocus } from './state.ts';
 import { sceneSource } from './sceneSource.ts';
-import { geometryFor } from './knowledge.ts';
+import { changedStars, geometryFor } from './knowledge.ts';
 const now = Date.now();
 const activity = { request_id: 'turn-a', sequence: 2, phase: 'tool', area: 'calendar', touched: ['memory', 'calendar'], updated_at: now / 1000 };
 test('first turn focus requires a matching, fresh real signal', () => {
@@ -89,4 +89,63 @@ test('temporary memory becomes red-star geometry without changing durable semant
   assert.ok(sceneSource.includes("i===spotlight?.82"));
   assert.ok(sceneSource.includes("const label='NUOVA'"));
   assert.ok(sceneSource.includes('options.zoomOverride'), 'cockpit zoom controls must affect the real camera');
+});
+
+
+test('new and materially updated permanent stars both become spotlight candidates', () => {
+  const base = {
+    stars: [{
+      id: 'star_birthdays',
+      area: 'people',
+      branch_id: null,
+      title: 'Compleanni',
+      statement: '1 compleanno salvato',
+      status: 'known' as const,
+      provenance: 'Salvati in memoria',
+      updated_at: '2026-10-07T20:00:00Z',
+      source_refs: ['mem_elena'],
+      group_kind: 'birthdays',
+      group_items: [{ memory_ref: 'mem_elena', label: 'Elena', date_label: '8 ottobre' }],
+    }],
+    count: 1, known_count: 1, temporary_count: 0, percent: 0, branches: [], revision: 'a',
+  };
+  const grown = {
+    ...base,
+    stars: [{
+      ...base.stars[0],
+      statement: '2 compleanni salvati',
+      updated_at: '2026-10-07T20:01:00Z',
+      source_refs: ['mem_elena', 'mem_marco'],
+      group_items: [
+        { memory_ref: 'mem_elena', label: 'Elena', date_label: '8 ottobre' },
+        { memory_ref: 'mem_marco', label: 'Marco', date_label: '4 agosto' },
+      ],
+    }],
+    revision: 'b',
+  };
+  assert.deepEqual(changedStars(base, grown).map(star => star.id), ['star_birthdays']);
+
+  const born = {
+    ...grown,
+    stars: [...grown.stars, {
+      id: 'star_other',
+      area: 'memory',
+      branch_id: null,
+      title: 'Ricordo',
+      statement: 'Nuovo ricordo',
+      status: 'known' as const,
+      provenance: 'Salvato in memoria',
+      updated_at: '2026-10-07T20:02:00Z',
+      source_refs: ['mem_other'],
+    }],
+    count: 2,
+    revision: 'c',
+  };
+  assert.deepEqual(changedStars(grown, born).map(star => star.id), ['star_other']);
+});
+
+test('spotlight drives both glow and camera target', () => {
+  assert.ok(sceneSource.includes("const focused=points.find(p=>p.id===options.spotlightId)"));
+  assert.ok(sceneSource.includes("const target=focused||"));
+  assert.ok(sceneSource.includes("i===spotlight?.82"));
 });
