@@ -212,7 +212,7 @@ class RecurringMemoService:
                     )
                 ],
                 source_context="recurring_memo",
-                surface_state="visible",
+                surface_state="surfaced",
                 surface_rationale="Promemoria ricorrente richiesto dall'utente.",
             )
             await repo.save(opportunity)
