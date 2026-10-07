@@ -187,6 +187,14 @@ export function OraCockpitContext({
             <View style={styles.divider} />
             <DetailRow icon="checkmark-circle-outline" title="Ultimo controllo eseguito" body={timeLabel(followup.last_checked_at)} />
           </> : null}
+          {followup?.monitoring_goal ? <>
+            <View style={styles.divider} />
+            <DetailRow icon="flag-outline" title="Obiettivo del monitoraggio" body={followup.monitoring_goal} />
+          </> : null}
+          {followup?.ends_when ? <>
+            <View style={styles.divider} />
+            <DetailRow icon="stop-circle-outline" title="Quando termina" body={followup.ends_when} />
+          </> : null}
           {followup?.notify_when ? <>
             <View style={styles.divider} />
             <DetailRow icon="notifications-outline" title="Quando ti aggiorno in ORA" body={followup.notify_when} />

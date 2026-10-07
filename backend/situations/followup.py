@@ -40,6 +40,7 @@ async def read_followup(db, owner, situation_id):
     """Read back a real goal, wake and executed check, never presentation copy."""
     out = {"status": "unavailable", "next_check_at": None, "last_checked_at": None,
            "goal_id": None, "purpose": None, "notify_when": None,
+           "monitoring_goal": None, "ends_when": None,
            "runtime_enabled": _enabled(), "delivery_channel": "in_app",
            "delivery_note": "Gli aggiornamenti sono consultabili in ORA; nessuna push garantita."}
     if db is None or not owner or not situation_id:
@@ -59,7 +60,13 @@ async def read_followup(db, owner, situation_id):
         # pretending old users have no follow-up. Never match titles or keywords.
         goals.sort(key=lambda g: g.get("source_kind") != KIND)
         goal = goals[0]
-        out.update(goal_id=goal["id"], purpose=str(goal.get("rationale") or "")[:300])
+        stop_conditions = [str(x)[:240] for x in (goal.get("stop_conditions") or []) if str(x).strip()]
+        out.update(
+            goal_id=goal["id"],
+            purpose=str(goal.get("rationale") or "")[:300],
+            monitoring_goal=str(goal.get("desired_outcome") or "")[:400] or None,
+            ends_when=(stop_conditions[-1] if stop_conditions else None),
+        )
         arranged = await db.agent_journal.find_one(
             {"owner_id": owner, "goal_id": goal["id"], "kind": "situation_checkpoint_arranged"},
             {"_id": 0, "detail.notify_when": 1}, sort=[("at", -1)])
