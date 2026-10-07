@@ -1753,6 +1753,12 @@ class AgentService:
         if status == "completed":
             await self._note_ambient(owner_id, "agent_goal_completed", goal)
             await self._resolve_opportunity(owner_id, goal)
+            if goal.source_kind == "situation_followup":
+                try:
+                    from situations.followup import settle_completed_followup
+                    await settle_completed_followup(self.db, owner_id, goal)
+                except Exception as exc:
+                    logger.warning("completed Situation follow-up settlement failed: %s", type(exc).__name__)
         return {"ok": True, "state": status, "goal": goal.for_human()}
 
 

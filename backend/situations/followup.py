@@ -59,8 +59,12 @@ async def read_followup(db, owner, situation_id):
         # pretending old users have no follow-up. Never match titles or keywords.
         goals.sort(key=lambda g: g.get("source_kind") != KIND)
         goal = goals[0]
-        out.update(goal_id=goal["id"], purpose=str(goal.get("rationale") or "")[:300],
-                   notify_when=str(goal.get("desired_outcome") or "")[:400])
+        out.update(goal_id=goal["id"], purpose=str(goal.get("rationale") or "")[:300])
+        arranged = await db.agent_journal.find_one(
+            {"owner_id": owner, "goal_id": goal["id"], "kind": "situation_checkpoint_arranged"},
+            {"_id": 0, "detail.notify_when": 1}, sort=[("at", -1)])
+        if arranged:
+            out["notify_when"] = str(((arranged.get("detail") or {}).get("notify_when") or ""))[:400] or None
         checked = await db.agent_journal.find_one(
             {"owner_id": owner, "goal_id": goal["id"], "kind": "step_done",
              "detail.really_happened": True, "detail.status": "succeeded"},
@@ -134,16 +138,33 @@ async def arrange_followup(db, owner, *, situation_id, expected_revision, check_
         prior_due = _moment(goal.next_run_at) if goal else None
         due = max(now + timedelta(seconds=60), prior_due or due)
         if goal is None:
+            outcome_hint = str(
+                fresh.expected_outcome_summary
+                or fresh.temporal_scope
+                or "il prossimo momento utile per la persona"
+            ).strip()[:220]
             goal = AutonomousGoal(
                 id=gid, owner_id=owner, status="active", origin="agent_initiated",
-                objective=f"Seguire la situazione: {fresh.summary}"[:280],
-                desired_outcome=notify_when, why_now=purpose, rationale=purpose,
+                objective=f"Portare la situazione temporanea al suo prossimo esito utile: {fresh.summary}"[:280],
+                desired_outcome=(
+                    "Arrivare a una conclusione utile e verificabile per la persona, "
+                    f"tenendo conto dell'esito atteso ({outcome_hint}), e comunicarla senza "
+                    "continuare a monitorare quando ulteriori controlli non aggiungono valore."
+                )[:400],
+                why_now=purpose, rationale=purpose,
                 source_kind=KIND, source_refs=[f"situation:{situation_id}", *fresh.linked_object_refs][:8],
                 next_run_at=due.isoformat(),
-                success_criteria=["Rileggere fonti reali pertinenti prima di decidere.",
-                                  "Segnalare in ORA un cambiamento utile o un rischio; altrimenti riprogrammare il controllo.",
-                                  "Non scambiare il tempo trascorso per un esito osservato."],
-                stop_conditions=["La situazione originale è risolta o annullata."],
+                success_criteria=[
+                    "Rileggere fonti reali pertinenti prima di decidere.",
+                    "Distinguere una condizione di allarme dal momento utile in cui il monitoraggio può concludersi.",
+                    "Se il momento utile non è ancora raggiunto, programmare un nuovo controllo giustificato.",
+                    "Se il momento utile è raggiunto, comunicarlo e terminare il monitoraggio senza inventare che il mondo fisico sia cambiato.",
+                    "Non scambiare il tempo trascorso per un esito osservato.",
+                ],
+                stop_conditions=[
+                    "La situazione originale è risolta o annullata.",
+                    "Il monitoraggio può terminare quando è stato raggiunto e comunicato un momento utile d'azione o ulteriori controlli non aggiungerebbero valore senza nuovo input della persona.",
+                ],
                 decision_provenance="model")
             if await repo.create_goal(goal) is None:
                 return {"ok": False, "error": "goal_not_persisted"}
@@ -161,6 +182,43 @@ async def arrange_followup(db, owner, *, situation_id, expected_revision, check_
         await repo.release(gid, stopped_because="checkpoint_arranged", worker_id=worker)
     state = await read_followup(db, owner, situation_id)
     return {"ok": state["status"] in ("scheduled", "due", "running"), **state}
+
+
+async def settle_completed_followup(db, owner, goal):
+    """Stop monitoring while preserving the real-world Situation until confirmed.
+
+    A completed monitoring goal means ORA reached the useful action/conclusion
+    moment. It does NOT prove the physical Situation itself has ceased to exist.
+    Clear only the attention/check intent so the safety net cannot restart an
+    already-finished watch; the red Situation may remain until user/world evidence
+    resolves it separately.
+    """
+    if getattr(goal, "source_kind", "") != KIND:
+        return False
+    refs = [str(ref) for ref in (getattr(goal, "source_refs", None) or [])
+            if str(ref).startswith("situation:")]
+    if len(refs) != 1:
+        return False
+    sid = refs[0].split(":", 1)[1]
+    current = await SituationRepository(db).get(owner, sid)
+    if current is None or current.status not in ("active", "changed"):
+        return False
+    from situations.models import SituationUpdate
+    from situations.service import SituationService
+    result = await SituationService(db).apply(
+        user_id=owner,
+        session_id=current.session_id or f"agent:{goal.id}",
+        reasoning_epoch=f"followup-complete:{goal.id}",
+        update=SituationUpdate(
+            operation="update",
+            situation_id=sid,
+            expected_revision=current.revision,
+            attention_intent="",
+            next_check_summary="",
+            source="inferred",
+        ),
+    )
+    return result.get("status") == "success"
 
 
 async def cancel_dedicated_followup(db, owner, situation_id):
