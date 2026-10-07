@@ -239,7 +239,17 @@ class AmbientService:
         # A due scheduled review is itself a reason to examine temporal facts.
         # It still obeys cooldown/fingerprint guards; it is never a forced scan.
         scheduled = wake.reason in ("opportunity_revisit", "ambient_review")
-        outcome = await discovery.review(wake.owner_id, reason="opportunity_recheck", scheduled=scheduled)
+        # An unattended Situation is already a proven persistence gap: the
+        # snapshot may be identical to the last one, but the missing executable
+        # follow-up is itself new operational state. Force exactly this recovery
+        # review so the ordinary AI opportunity path can decide whether to act.
+        force = "situation_unattended" in str(wake.source_ref or "")
+        outcome = await discovery.review(
+            wake.owner_id,
+            reason="opportunity_recheck",
+            scheduled=scheduled,
+            force=force,
+        )
         if not outcome.ran:
             if getattr(outcome, "retry_after_seconds", None) or await discovery.changes.pending(wake.owner_id):
                 out.retry_after_seconds = getattr(outcome, "retry_after_seconds", None) or 120
