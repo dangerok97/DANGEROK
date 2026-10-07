@@ -97,7 +97,7 @@ function MobilePresenceConversation({
   const caption = mode === 'think' ? 'Sto lavorando' : mode === 'listen' ? 'Ti ascolto' : mode === 'speak' ? 'Ti rispondo' : 'Sono qui';
   const openMap = (node?: PresenceNode | null) => {
     Keyboard.dismiss();
-    setInspection(node?.id || highlighted?.id || null);
+    setInspection(node?.id || highlighted?.id || map?.stars.find(star => star.temporary)?.id || null);
     setMapOpen(true);
   };
   const options = useMemo(() => ({
@@ -160,9 +160,10 @@ function MobilePresenceConversation({
               <Ionicons name="chatbubble-outline" size={17} color={palette.label} /><Text style={styles.mapButtonText}>Torna alla chat</Text>
             </Pressable>
           </View>
-          {inspected ? <Text style={styles.modalStatement}>{inspected.statement}</Text> : null}
+          {inspected && !inspected.temporary ? <Text style={styles.modalStatement}>{inspected.statement}</Text> : null}
           <StandardPresence expanded mode={mode} activity={activity} active={active && foreground && mapOpen}
             knowledge={map} spotlightId={inspection || spotlight}
+            initialSelectedStarId={inspection} onKnowledgeChanged={learned.reload} knowledgeError={learned.error}
             onAreaPrompt={onAreaPrompt ? words => { setMapOpen(false); onAreaPrompt(words); } : undefined} />
         </View>
       </Modal>

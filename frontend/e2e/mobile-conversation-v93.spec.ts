@@ -5,7 +5,8 @@ import { mkdirSync } from 'node:fs';
 // No real account, calendar, notification, weather query or provider write occurs.
 const sid = 'ces_mobile_qa_v93';
 const warning = 'ATTENZIONE: questo avviso di prova verifica che il testo importante sia rosso e leggibile.';
-async function fixture(page: Page) {
+async function fixture(page: Page, controls: { followup?: any; removeFails?: boolean; dismissed?: string[] } = {}) {
+  let removed = false;
   const posts: string[] = [];
   const user = { user_id: 'qa_mobile_v93', name: 'Esempio di test', first_name: 'Esempio', last_name: 'Test', email: 'mobile-qa@example.invalid', provider: 'password', identity_confirmed: true, knowledge_tutorial_version: 1 };
   const history: any[] = [
@@ -29,11 +30,17 @@ async function fixture(page: Page) {
     if (path.includes('providers')) json = { google: { configured: false, platforms: {} }, apple: { configured: false, platforms: {} }, password: { configured: true } };
     else if (path.includes('/auth/') && method === 'POST') json = { token: 'offline-qa-token-not-a-credential', user };
     else if (path.endsWith('/me') || path.endsWith('/auth/user')) json = user;
+    else if (path.endsWith('/dismiss')) {
+      controls.dismissed?.push(path);
+      if (controls.removeFails) { await route.fulfill({ status: 503, headers, json: { detail: 'Errore di prova' } }); return; }
+      removed = true;
+      json = { ok: true, status: 'success' };
+    }
     else if (path.includes('knowledge-map')) json = {
       stars: [
-        { id: 'star_qa_temp', area: 'memory', branch_id: null, title: 'Memoria temporanea', statement: 'Ho steso i panni — esempio di test', status: 'known', provenance: 'Dati simulati', temporary: true, situation_id: 'sit_qa_1', updated_at: new Date().toISOString() },
+        ...(!removed ? [{ id: 'star_qa_temp', area: 'memory', branch_id: null, title: 'Memoria temporanea', semantic_kind: 'Panni stesi', icon_key: 'shirt', statement: 'Panni stesi — dati simulati per collaudo UI', status: 'known', provenance: 'Dati simulati', temporary: true, situation_id: 'sit_qa_1', follow_up: controls.followup, updated_at: new Date().toISOString() }] : []),
         { id: 'star_qa_home', area: 'home', branch_id: null, title: 'Casa', statement: 'Informazione di prova', status: 'known', provenance: 'Dati simulati' },
-      ], count: 2, known_count: 2, temporary_count: 1, percent: 21, branches: [], revision: 'qa-v93',
+      ], count: removed ? 1 : 2, known_count: removed ? 1 : 2, temporary_count: removed ? 0 : 1, percent: 21, branches: [], revision: removed ? 'qa-v99-removed' : 'qa-v99',
     };
     else if (path.includes(sid) || /ai.?core|ai\/core/i.test(path)) {
       if (method === 'POST') {
@@ -150,4 +157,66 @@ test('keyboard visual viewport and landscape keep composer inside visible area',
   await page.setViewportSize({ width: 740, height: 390 });
   await expect(page.getByTestId('ora-mobile-map-preview')).not.toBeVisible();
   await expect(page.getByTestId('ora-production-composer-input')).toBeInViewport();
+});
+
+// V99: production mobile map -> the SAME Situation card used on desktop.
+// API fixtures test rendering/selection/refresh only, not AI or background execution.
+test('mobile selected Situation exposes real follow-up fields, scrolls and removes only on success', async ({ page }, info) => {
+  await page.setViewportSize({ width: 390, height: 740 });
+  const controls = { followup: { status: 'scheduled', next_check_at: '2026-10-08T14:30:00+02:00', last_checked_at: '2026-10-08T13:00:00+02:00', notify_when: 'Una variazione utile rilevata — condizione simulata' }, removeFails: true, dismissed: [] as string[] };
+  const posts = await fixture(page, controls);
+  await page.getByTestId('ora-mobile-open-map').click();
+  const modal = page.getByTestId('ora-mobile-expanded-map');
+  const card = modal.getByTestId('ora-cockpit-temporary');
+  const scroll = modal.getByTestId('ora-map-detail-scroll');
+  await expect(card).toBeVisible();
+  await expect(card).toContainText('PANNI STESI');
+  await expect(card).toContainText('Controllo programmato');
+  await expect(card).toContainText('Prossimo controllo');
+  await expect(card).toContainText('Ultimo controllo eseguito');
+  await expect(card).toContainText('Quando ti aggiorno in ORA');
+  await expect(modal.getByText('Un punto della tua vita', { exact: true })).toHaveCount(0);
+  mkdirSync('mobile-qa', { recursive: true });
+  await page.screenshot({ path: `mobile-qa/${info.project.name}-situation-v99.png` });
+  for (const size of [{ width: 320, height: 568 }, { width: 390, height: 740 }, { width: 740, height: 390 }]) {
+    await page.setViewportSize(size);
+    await scroll.evaluate(element => { element.scrollTop = element.scrollHeight; });
+    await expect(card.getByTestId('ora-remove-temporary')).toBeInViewport();
+    await expect(modal.getByRole('button', { name: 'Chiudi dettagli della mappa' })).toBeInViewport();
+    await expect(modal.getByTestId('ora-mobile-close-map')).toBeInViewport();
+    const box = await modal.getByTestId('ora-map-detail').boundingBox();
+    expect(box!.x).toBeGreaterThanOrEqual(0);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(size.width + 1);
+    expect(box!.y + box!.height).toBeLessThanOrEqual(size.height + 1);
+  }
+  await page.setViewportSize({ width: 390, height: 740 });
+  await scroll.evaluate(element => { element.scrollTop = element.scrollHeight; });
+  await card.getByTestId('ora-remove-temporary').click();
+  await expect(card).toContainText('Non sono riuscita a rimuovere');
+  await expect(card).toBeVisible();
+  controls.removeFails = false;
+  await scroll.evaluate(element => { element.scrollTop = element.scrollHeight; });
+  await card.getByTestId('ora-remove-temporary').click();
+  await expect(card).toHaveCount(0);
+  await expect(modal.getByTestId('knowledge-map-progress')).toContainText('1 stelle');
+  expect(controls.dismissed).toEqual(Array(2).fill('/api/life-profile/knowledge-map/situations/sit_qa_1/dismiss'));
+  expect(posts).toEqual([]);
+});
+
+test('mobile follow-up starts unconfirmed and refreshes without a chat message', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 740 });
+  const controls = { followup: { status: 'not_scheduled' } as any };
+  const posts = await fixture(page, controls);
+  await page.getByTestId('ora-mobile-open-map').click();
+  const modal = page.getByTestId('ora-mobile-expanded-map');
+  const card = modal.getByTestId('ora-cockpit-temporary');
+  await expect(card).toContainText('Nessun controllo programmato');
+  await expect(card.getByText('Prossimo controllo', { exact: true })).toHaveCount(0);
+  controls.followup = { status: 'scheduled', next_check_at: '2026-10-08T14:30:00+02:00', notify_when: 'Condizione di prova' };
+  await expect(card).toContainText('Controllo programmato', { timeout: 25000 });
+  await expect(card).toContainText('Prossimo controllo');
+  await modal.getByRole('button', { name: 'Chiudi dettagli della mappa' }).click();
+  await expect(card).toHaveCount(0);
+  await modal.getByTestId('ora-mobile-close-map').click();
+  expect(posts).toEqual([]);
 });
