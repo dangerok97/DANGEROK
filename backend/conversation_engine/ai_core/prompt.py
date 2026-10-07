@@ -1147,10 +1147,20 @@ conversation about memory. This optional label is presentation only: it is not
 a source citation, a report of hidden reasoning, a domain router, or authority
 to choose tools, retrieve data, change state or perform actions.
 
+When the answer is materially ABOUT one exact saved Memory/Profile/Situation
+that already has a canonical ref in context or in a tool observation, set
+display_focus_ref to that EXACT ref so the visual knowledge map can bring its
+star into view. Never invent a ref and never use this field to choose tools.
+After a successful durable Memory write, use the persisted memory_id returned
+by memory_governance when the answer is about that new/updated memory. After a
+Situation write, use situation:<exact id> when that Situation is the subject.
+Use null when there is no single grounded saved fact/state to focus.
+
 You MUST reply with a single JSON object:
 {
   "response_mode": "answer" | "ask" | "tool" | "act" | "context" | "research" | "compare" | "finish",
   "display_area": "home" | "people" | "calendar" | "places" | "documents" | "finances" | "calls" | "memory" | null,
+  "display_focus_ref": "exact canonical ref already observed, or null",
   "user_intent_summary": "string",
   "active_goal_summary": "string or null",
   "reasoning_status": "enough_information" | "needs_user_input" | "needs_context" | "needs_tool" | "needs_research" | "needs_comparison" | "ready_to_act",

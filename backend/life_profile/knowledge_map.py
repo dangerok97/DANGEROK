@@ -51,6 +51,7 @@ async def knowledge_map(db, user_id: str) -> dict:
             stars.append({"id": stable_id("account:" + field), "area": "memory", "branch_id": None,
                 "title": label, "statement": str(user[field]), "status": "known",
                 "provenance": "Confermato da te" if explicit_identity else "Dal tuo account",
+                "source_refs": [f"account:{field}"],
                 "updated_at": user.get("identity_confirmed_at") or user.get("created_at")})
     for domain, part in (profile.domains.items() if profile else []):
         for key, obj in part.objects.items():
@@ -97,7 +98,9 @@ async def knowledge_map(db, user_id: str) -> dict:
             stars.append({"id": stable_id("profile:" + slot), "area": DOMAIN_HUB.get(domain, "memory"),
                 "branch_id": vita.id if vita else None, "title": memory.group_label,
                 "statement": memory.statement, "status": memory.status,
-                "provenance": memory.provenance_label, "updated_at": memory.updated_at})
+                "provenance": memory.provenance_label,
+                "source_refs": list(memory.source_refs or []),
+                "updated_at": memory.updated_at})
     now = datetime.now(timezone.utc)
     # Temporary memory = active Situation state. This is deliberately NOT
     # copied into durable Memory: the Situation collection already owns its
@@ -180,6 +183,7 @@ async def knowledge_map(db, user_id: str) -> dict:
             "statement": statement,
             "status": "known",
             "provenance": "Situazione attiva",
+            "source_refs": [f"situation:{situation_id}"],
             "created_at": situation.get("created_at"),
             "updated_at": situation.get("updated_at") or situation.get("created_at"),
             "temporary": True,
@@ -249,6 +253,7 @@ async def knowledge_map(db, user_id: str) -> dict:
         stars.append({"id": stable_id("memory:" + str(note_id)), "area": DOMAIN_HUB.get(domain, "memory"),
             "branch_id": vita.id if vita else None, "title": "Ricordo", "statement": str(statement),
             "status": "likely" if note.get("epistemic_status") in ("inferred", "tentative") else "known", "provenance": "Salvato in memoria",
+            "source_refs": [str(note_id)],
             "updated_at": note.get("updated_at") or note.get("created_at")})
 
     if birthday_items:
@@ -265,6 +270,7 @@ async def knowledge_map(db, user_id: str) -> dict:
             ),
             "status": "known",
             "provenance": "Salvati in memoria",
+            "source_refs": ["memory_group:birthdays"] + [item["memory_ref"] for item in birthday_items],
             "updated_at": max(birthday_updated) if birthday_updated else None,
             "group_kind": "birthdays",
             "group_items": birthday_items,

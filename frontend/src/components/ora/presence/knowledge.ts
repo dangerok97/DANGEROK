@@ -4,6 +4,8 @@ export type KnowledgeStar = {
   id: string; area: PresenceArea; branch_id: string | null; title: string;
   statement: string; status: 'known' | 'likely'; provenance: string;
   created_at?: string; updated_at?: string;
+  /** Canonical backend refs this visible star represents; presentation lookup only. */
+  source_refs?: string[];
   /** Active Situation projected into the map; never durable Memory. */
   temporary?: boolean;
   situation_id?: string;
@@ -62,4 +64,31 @@ export function newStars(previous: KnowledgeMap | null, next: KnowledgeMap): Kno
   if (!previous) return [];
   const ids = new Set(previous.stars.map(s => s.id));
   return next.stars.filter(s => !ids.has(s.id));
+}
+
+
+function visualStarKey(star: KnowledgeStar): string {
+  return JSON.stringify({
+    id: star.id,
+    area: star.area,
+    statement: star.statement,
+    status: star.status,
+    updated_at: star.updated_at || null,
+    temporary: !!star.temporary,
+    situation_revision: star.situation_revision || null,
+    follow_up: star.follow_up || null,
+    current_state_summary: star.current_state_summary || null,
+    expected_outcome_summary: star.expected_outcome_summary || null,
+    next_check_summary: star.next_check_summary || null,
+    group_kind: star.group_kind || null,
+    group_items: star.group_items || null,
+    source_refs: star.source_refs || [],
+  });
+}
+
+/** Newly created OR materially updated visible stars since the previous map read. */
+export function changedStars(previous: KnowledgeMap | null, next: KnowledgeMap): KnowledgeStar[] {
+  if (!previous) return [];
+  const before = new Map(previous.stars.map(star => [star.id, visualStarKey(star)]));
+  return next.stars.filter(star => before.get(star.id) !== visualStarKey(star));
 }

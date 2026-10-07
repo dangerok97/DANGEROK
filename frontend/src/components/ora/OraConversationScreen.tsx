@@ -91,6 +91,7 @@ type PendingTurn = {
 
 type AiCoreRes = {
   activity?: PresenceActivity | null;
+  display_focus_ref?: string | null;
   ok?: boolean;
   session_id?: string;
   ora_text?: string;
@@ -495,6 +496,7 @@ function OraConversationBody({
   const openingStartedAt = useRef(0);
   const focusCompletedAt = useRef(0);
   const [presenceActivity, setPresenceActivity] = useState<PresenceActivity | null>(null);
+  const [mapFocusRef, setMapFocusRef] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [boot, setBoot] = useState(Boolean(paramId));
 
@@ -786,6 +788,7 @@ function OraConversationBody({
           try {
             res = await applyAiCoreResponse({ ...res, client_actions: actions }, sid);
             if (cancelled) return;
+            setMapFocusRef(String(res.display_focus_ref || '').trim() || null);
             {
               // Whatever the live answer carried is held before history —
               // which knows the words and nothing else — is allowed to win.
@@ -893,6 +896,7 @@ function OraConversationBody({
 
   /** Apply whatever the runtime returned to the visible conversation. */
   const applyTurns = useCallback((res: AiCoreRes, clientMessageId: string, sid: string | null) => {
+    setMapFocusRef(String(res.display_focus_ref || '').trim() || null);
     if (Array.isArray(res.history) && res.history.length) {
       // History is the authority on what was said, but it carries no sources:
       // the runtime reports them alongside the answer it has just produced, not
@@ -1019,6 +1023,7 @@ function OraConversationBody({
           await api.answerQuestion(qid, msg, 'ora');
           pendingQuestion.current = null;
           const fresh = (await api.aiCoreGet(sessionId)) as AiCoreRes;
+          setMapFocusRef(String(fresh.display_focus_ref || '').trim() || null);
           setTurns(withRememberedSources(sessionId, historyToTurns(fresh.history || [])));
           liveRef.current?.answered(String(fresh.ora_text || fresh.question || ''), payload.voiceTicket);
           requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
@@ -1533,6 +1538,8 @@ function OraConversationBody({
             mode={presenceMode(busy, voice.state.phase)}
             activity={presenceActivity}
             active={!live.on}
+            knowledgeRefreshKey={`${turns.length}:${mapRefreshKey}`}
+            spotlightRef={mapFocusRef}
             onAreaPrompt={setText}
             footer={composerBlock}
             prominentConversation={Boolean(emptyStart && (suggestedOpportunity || suggestedFocus))}
@@ -1592,6 +1599,7 @@ function OraConversationBody({
               activity={presenceActivity}
               active={!live.on}
               knowledgeRefreshKey={`${turns.length}:${mapRefreshKey}`}
+              spotlightRef={mapFocusRef}
               onAreaPrompt={setText}
               onSelectNode={(node) => setSelectedMapStarId(node?.kind === 'node' ? node.id || null : null)}
             />

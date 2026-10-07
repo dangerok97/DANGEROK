@@ -12,9 +12,10 @@ import { useRouter } from 'expo-router';
 import { OraCockpitContext } from '../OraCockpitContext';
 
 export function OraPresence({ mode = 'idle', activity = null, compact = false, active = true,
-  expanded = false, openingKey = null, footer, conversation, prominentConversation = false, onAreaPrompt, onBack, knowledge, knowledgeRefreshKey, spotlightId = null, cockpitChrome = false, onSelectNode, initialSelectedStarId = null, onKnowledgeChanged, knowledgeError = false }: {
+  expanded = false, openingKey = null, footer, conversation, prominentConversation = false, onAreaPrompt, onBack, knowledge, knowledgeRefreshKey, spotlightId = null, spotlightRef = null, cockpitChrome = false, onSelectNode, initialSelectedStarId = null, onKnowledgeChanged, knowledgeError = false }: {
   knowledge?: KnowledgeMap | null; knowledgeRefreshKey?: unknown;
   spotlightId?: string | null;
+  spotlightRef?: string | null;
   cockpitChrome?: boolean;
   initialSelectedStarId?: string | null;
   onKnowledgeChanged?: () => void;
@@ -31,26 +32,31 @@ export function OraPresence({ mode = 'idle', activity = null, compact = false, a
   const map = knowledge === undefined ? learned.data : knowledge;
   const stars = useMemo(() => geometryFor(map), [map]);
   const autoSpotlightId = useMemo(() => {
-    if (spotlightId) return spotlightId;
-    const addedTemporary = [...(learned.addedStars || [])]
-      .filter((star) => star.temporary)
+    if (spotlightId && map?.stars.some(star => star.id === spotlightId)) return spotlightId;
+    if (spotlightRef) {
+      const byRef = map?.stars.find(star => (star.source_refs || []).includes(spotlightRef));
+      if (byRef?.id) return byRef.id;
+    }
+
+    // Any visible knowledge change deserves the camera, not only red temporary
+    // Situations. This includes an existing aggregate star whose contents grew.
+    const changed = [...(learned.changedStars || [])]
       .sort((a, b) => {
         const av = a.updated_at ? new Date(a.updated_at).getTime() : 0;
         const bv = b.updated_at ? new Date(b.updated_at).getTime() : 0;
         return bv - av;
       });
-    if (addedTemporary[0]?.id) return addedTemporary[0].id;
+    if (changed[0]?.id) return changed[0].id;
 
-    // A remount immediately after creation has no previous map to diff against.
-    // In that narrow window, the newest temporary Situation is still the thing
-    // the person just created and deserves the same visual focus.
+    // A remount immediately after a write has no previous map to diff against.
+    // The most recently updated star gets one short visual hold.
     const recent = [...(map?.stars || [])]
-      .filter((star) => star.temporary && star.updated_at)
+      .filter((star) => star.updated_at)
       .sort((a, b) => new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime())[0];
     if (!recent?.id || !recent.updated_at) return null;
     const age = Date.now() - new Date(recent.updated_at).getTime();
     return age >= 0 && age <= 120_000 ? recent.id : null;
-  }, [spotlightId, learned.addedStars, map]);
+  }, [spotlightId, spotlightRef, learned.changedStars, map]);
   const [paused, setPaused] = useState(false);
   const [reduced, setReduced] = useState(true);
   const [motionReady, setMotionReady] = useState(false);
@@ -81,6 +87,14 @@ export function OraPresence({ mode = 'idle', activity = null, compact = false, a
     setAreas(false);
     onSelectNode?.(node);
   }, [onSelectNode]);
+
+  // A new/updated/talked-about star takes visual priority over an older manual
+  // selection; otherwise the renderer intentionally freezes the camera on the
+  // selected point and the new spotlight would never come into view.
+  useEffect(() => {
+    if (!autoSpotlightId || !selected?.id || selected.id === autoSpotlightId) return;
+    select(null);
+  }, [autoSpotlightId, selected?.id, select]);
   const appliedInitialSelection = useRef<string | null>(null);
   useEffect(() => {
     if (!initialSelectedStarId) { appliedInitialSelection.current = null; return; }

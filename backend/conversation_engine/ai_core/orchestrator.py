@@ -617,6 +617,7 @@ class AICoreOrchestrator:
             "ok": True,
             "session_id": sess.id,
             "ora_text": result.ora_text,
+            "display_focus_ref": getattr(result, "display_focus_ref", None),
             "question": result.question,
             "mode": result.mode,
             "active_goal": (

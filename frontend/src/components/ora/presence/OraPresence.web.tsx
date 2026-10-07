@@ -32,6 +32,7 @@ function MobilePresenceConversation({
   mode = 'idle', activity = null, active = true, openingKey = null,
   conversation, footer, onBack, onAreaPrompt, knowledge, knowledgeRefreshKey,
   spotlightId: requestedSpotlight = null,
+  spotlightRef: requestedSpotlightRef = null,
 }: Props) {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
@@ -71,19 +72,25 @@ function MobilePresenceConversation({
 
   const candidate = useMemo(() => {
     if (requestedSpotlight && map?.stars.some(star => star.id === requestedSpotlight)) return requestedSpotlight;
-    const added = [...learned.addedStars].filter(star => star.temporary)
+    if (requestedSpotlightRef) {
+      const byRef = map?.stars.find(star => (star.source_refs || []).includes(requestedSpotlightRef));
+      if (byRef?.id) return byRef.id;
+    }
+    const changed = [...learned.changedStars]
       .sort((a, b) => Date.parse(b.updated_at || '') - Date.parse(a.updated_at || ''));
-    if (added[0]) return added[0].id;
-    const recent = [...(map?.stars || [])].filter(star => star.temporary && star.updated_at)
+    if (changed[0]) return changed[0].id;
+    const recent = [...(map?.stars || [])].filter(star => star.updated_at)
       .sort((a, b) => Date.parse(b.updated_at || '') - Date.parse(a.updated_at || ''))[0];
     const age = recent ? Date.now() - Date.parse(recent.updated_at || '') : Infinity;
     return age >= 0 && age < 120000 ? recent?.id || null : null;
-  }, [requestedSpotlight, learned.addedStars, map]);
+  }, [requestedSpotlight, requestedSpotlightRef, learned.changedStars, map]);
 
   useEffect(() => {
     if (!candidate) { setSpotlight(null); return; }
+    // A newly created/updated/talked-about star owns the visual focus. Drop an
+    // older inspected point so the expanded map cannot keep the camera pinned.
+    setInspection(null);
     setSpotlight(candidate);
-    // A new star deserves attention, not permanent camera lock while reading.
     const timer = setTimeout(() => setSpotlight(null), 8000);
     return () => clearTimeout(timer);
   }, [candidate]);
@@ -135,13 +142,20 @@ function MobilePresenceConversation({
         {!canvasFailed ? <PresenceCanvas options={options} onUnavailable={() => setCanvasFailed(true)} onSelect={node => openMap(node)} />
           : <Text style={styles.note}>La mappa non è disponibile. La conversazione resta attiva.</Text>}
       </View>
-      {preview.showPreview && highlighted ? <Pressable accessibilityRole="button" onPress={() => openMap()} style={styles.highlight} testID="ora-mobile-star-detail">
-        <Text style={styles.redStar}>✦</Text>
+      {preview.showPreview && highlighted ? <Pressable
+        accessibilityRole="button"
+        onPress={() => openMap()}
+        style={[styles.highlight, !highlighted.temporary && styles.highlightPermanent]}
+        testID="ora-mobile-star-detail"
+      >
+        <Text style={[styles.redStar, !highlighted.temporary && styles.permanentStar]}>✦</Text>
         <View style={styles.highlightText}>
-          <Text style={styles.highlightLabel}>MEMORIA TEMPORANEA IN EVIDENZA</Text>
+          <Text style={[styles.highlightLabel, !highlighted.temporary && styles.highlightLabelPermanent]}>
+            {highlighted.temporary ? 'MEMORIA TEMPORANEA IN EVIDENZA' : 'STELLA IN EVIDENZA'}
+          </Text>
           <Text style={styles.highlightStatement} numberOfLines={2}>{highlighted.statement}</Text>
         </View>
-        <Ionicons name="chevron-forward" size={16} color="#ffaaaa" />
+        <Ionicons name="chevron-forward" size={16} color={highlighted.temporary ? '#ffaaaa' : palette.label} />
       </Pressable> : null}
 
       <View style={styles.conversation} testID="ora-mobile-conversation-panel">
@@ -185,9 +199,12 @@ const styles = StyleSheet.create({
   retry: { minHeight: 44, paddingHorizontal: 8, justifyContent: 'center' },
   preview: { position: 'relative', flexShrink: 0, overflow: 'hidden', marginHorizontal: 8, borderRadius: 14 },
   highlight: { flexShrink: 0, flexDirection: 'row', alignItems: 'center', gap: 9, minHeight: 44, paddingHorizontal: 12, paddingVertical: 7, marginHorizontal: 10, marginBottom: 6, borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,110,110,.35)', backgroundColor: 'rgba(58,15,24,.55)' },
+  highlightPermanent: { borderColor: palette.border, backgroundColor: 'rgba(10,27,39,.72)' },
   highlightText: { flex: 1, minWidth: 0 },
   redStar: { color: '#ff7373', fontSize: 18 },
+  permanentStar: { color: palette.label },
   highlightLabel: { color: '#ffaaaa', fontSize: 9, letterSpacing: 0.7, lineHeight: 14 },
+  highlightLabelPermanent: { color: palette.label },
   highlightStatement: { color: palette.text, fontSize: 12, lineHeight: 17 },
   conversation: { flex: 1, minHeight: 0, minWidth: 0, marginHorizontal: 8, borderRadius: 18, borderWidth: StyleSheet.hairlineWidth, borderColor: palette.border, backgroundColor: '#09121b', overflow: 'hidden' },
   conversationHead: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 14, minHeight: 30, flexShrink: 0 },
