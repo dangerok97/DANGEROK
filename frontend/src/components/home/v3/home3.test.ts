@@ -245,6 +245,19 @@ const item = (o: Record<string, unknown> = {}) => ({
 }
 
 // ---------------------------------------------------------------------------
+// Agent updates are outcomes/problems, never scheduling theatre
+// ---------------------------------------------------------------------------
+{
+  const sections = readCode('src/components/home/v3/HomeSections.tsx');
+  assert.ok(sections.includes("work.has_real_activity"), 'ORA-si-e-mossa badge requires real activity');
+  assert.ok(sections.includes("work.problem"), 'overdue/failed autonomous work has an attention state');
+  assert.ok(!sections.includes("<Text style={{ fontWeight: '700' }}>Rilevato: </Text>"),
+    'why_now must not be presented as if it were an observed fact');
+  assert.ok(sections.includes("<Text style={{ fontWeight: '700' }}>Perché conta: </Text>"),
+    'the reason a goal matters is labelled as a reason');
+}
+
+// ---------------------------------------------------------------------------
 // O — existing action contracts are unchanged
 // ---------------------------------------------------------------------------
 {
