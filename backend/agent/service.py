@@ -2473,16 +2473,25 @@ class AgentService:
             evidence = await self.evidence.for_goal(owner_id, goal.id)
             if not real_support(evidence):
                 continue
-            out.append({**goal.for_human(), "state": "Verifica completata",
+            card = {**goal.for_human(), "state": "Verifica completata", "progress_kind": "completed",
                 "outcome": goal.rationale, "why_now": goal.rationale,
                 "source": await self._where_it_really_came_from(owner_id, goal),
                 "needs_you": "", "unknown": "",
                 "autonomous": goal.origin == "agent_initiated",
                 "detected": goal.why_now or goal.rationale,
                 "already_done": "Ho completato e verificato il risultato.",
-                "next_step": ""})
-        for goal in await self.repo.open_goals(owner_id, limit=3):
-            out.append(await self._open_card(owner_id, goal))
+                "next_step": ""}
+            from agent.situation_updates import project_situation_card
+            card = await project_situation_card(self.db, owner_id, goal, card)
+            if card.get("show_in_updates") is not False:
+                out.append(card)
+        # Read a bounded larger pool so scheduled-only watches do not crowd out useful work.
+        for goal in await self.repo.open_goals(owner_id, limit=12):
+            card = await self._open_card(owner_id, goal)
+            if card.get("show_in_updates") is not False:
+                out.append(card)
+            if len(out) >= 4:
+                break
         return out
 
     async def for_detail(self, owner_id: str, goal_id: str) -> Optional[Dict[str, Any]]:
@@ -2495,7 +2504,7 @@ class AgentService:
         if goal.status == "completed":
             evidence = await self.evidence.for_goal(owner_id, goal.id)
             if real_support(evidence):
-                return {**goal.for_human(), "state": "Verifica completata",
+                card = {**goal.for_human(), "state": "Verifica completata", "progress_kind": "completed",
                     "outcome": goal.rationale, "why_now": goal.rationale,
                     "source": await self._where_it_really_came_from(owner_id, goal),
                     "needs_you": "", "unknown": "",
@@ -2503,6 +2512,8 @@ class AgentService:
                     "detected": goal.why_now or goal.rationale,
                     "already_done": "Ho completato e verificato il risultato.",
                     "next_step": ""}
+                from agent.situation_updates import project_situation_card
+                return await project_situation_card(self.db, owner_id, goal, card)
         return None
 
     async def _open_card(self, owner_id: str, goal: AutonomousGoal) -> Dict[str, Any]:
@@ -2522,6 +2533,7 @@ class AgentService:
         last_done = done[-1] if done else None
         came_from = str(((last_done or {}).get("detail") or {}).get("came_from") or "")
         scheda["autonomous"] = goal.origin == "agent_initiated"
+        scheda["progress_kind"] = "executed" if last_done and (last_done.get("detail") or {}).get("status") == "succeeded" else "pending"
         scheda["detected"] = (goal.why_now or "")[:300]
         scheda["already_done"] = _what_was_done(came_from) if last_done else ""
 
@@ -2538,7 +2550,8 @@ class AgentService:
             scheda["next_step"] = "Proseguo da sola finché non serve una tua decisione."
         else:
             scheda["next_step"] = ""
-        return scheda
+        from agent.situation_updates import project_situation_card
+        return await project_situation_card(self.db, owner_id, goal, scheda)
 
     async def _where_it_really_came_from(self, owner_id: str, goal) -> str:
         """

@@ -15,6 +15,8 @@ import { IconBubble, OraBadge, OraButton, OraCard, OraLink, SectionTitle } from 
 import { ora, oraType } from '@/src/theme/oraSurface';
 import { ContextualCardVisual } from './ContextualCardVisual';
 import { agoLabel, relativeDayLabel } from './homeItemView';
+import { agentWorkBadge, isAgentUpdate } from './agentWorkView';
+import { situationIcon } from '@/src/components/ora/situationVisual';
 
 /* -------------------------------------------------------------------------- */
 /* Shared section chrome                                                       */
@@ -320,7 +322,7 @@ export function UpdatesFeed({
     wanting to know whether something is handled does not want a project
     board, and ORA doing five things at once is a different problem.
   */
-  const working = (agentWork || []).slice(0, 2);
+  const working = (agentWork || []).filter(isAgentUpdate).slice(0, 2);
   const total = suggestions.length + insights.length + raised.length + working.length;
   if (!total) return null;
 
@@ -696,21 +698,15 @@ export function AgentWorkRow({
 }) {
   return (
     <View style={styles.updateRow} testID={`home-agent-${work.id}`}>
-      <IconBubble name="document-text-outline" />
+      <IconBubble name={work.icon_key ? situationIcon(work.icon_key) : "document-text-outline"} />
       <View style={styles.updateBody}>
         <View style={styles.updateHead}>
           <Text style={[oraType.body, { color: ora.ink, fontWeight: '600', flexShrink: 1 }]}>
             {work.what}
           </Text>
           <OraBadge
-            label={
-              work.needs_you
-                ? 'Serve una risposta'
-                : work.autonomous
-                  ? 'ORA si è mossa'
-                  : 'In corso'
-            }
-            tone={work.needs_you ? 'attention' : 'info'}
+            label={agentWorkBadge(work)}
+            tone={work.needs_you || work.progress_kind === 'problem' ? 'attention' : 'info'}
           />
         </View>
         {/*
@@ -727,7 +723,7 @@ export function AgentWorkRow({
         ) : null}
         {work.detected || work.why_now ? (
           <Text style={[oraType.small, { color: ora.ink2 }]} numberOfLines={3}>
-            <Text style={{ fontWeight: '700' }}>Rilevato: </Text>
+            <Text style={{ fontWeight: '700' }}>Perché: </Text>
             {work.detected || work.why_now}
           </Text>
         ) : null}

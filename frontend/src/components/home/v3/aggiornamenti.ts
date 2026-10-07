@@ -15,6 +15,7 @@
  * resta vuoto, e l'interfaccia lo dichiara invece di riempirlo.
  */
 import type { HomeV2Response } from '@/src/api/client';
+import { isAgentUpdate } from './agentWorkView.ts';
 
 export type GenereAggiornamento = 'lavoro' | 'suggerimento' | 'spunto' | 'occasione';
 
@@ -50,7 +51,7 @@ const SENZA_FONTE = 'originale non disponibile';
 export function elencoAggiornamenti(home: HomeV2Response | null | undefined): Aggiornamento[] {
   if (!home) return [];
 
-  const lavori: Aggiornamento[] = (home.agent_work || []).slice(0, 2).map((w) => ({
+  const lavori: Aggiornamento[] = (home.agent_work || []).filter(isAgentUpdate).slice(0, 2).map((w) => ({
     id: w.id,
     genere: 'lavoro',
     testo_preparato: w.prepared_text || '',
@@ -62,9 +63,9 @@ export function elencoAggiornamenti(home: HomeV2Response | null | undefined): Ag
     cosa_sta_facendo: w.state || '',
     cosa_serve: w.needs_you || '',
     non_so: w.unknown || '',
-    prossimo_passo: w.needs_you || w.outcome || '',
+    prossimo_passo: w.needs_you || w.next_step || (w.source_kind === 'situation_followup' ? '' : w.outcome) || '',
     azione: w.action?.route ? { kind: 'route', label: w.action.label, route: w.action.route, params: w.action.params } : undefined,
-    quando: '',
+    quando: w.update_at || '',
   }));
 
   const occasioni: Aggiornamento[] = (home.opportunities || []).slice(0, 2).map((o) => ({

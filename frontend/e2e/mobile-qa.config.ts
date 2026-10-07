@@ -4,7 +4,7 @@ import path from 'node:path';
 const frontendRoot = path.resolve(__dirname, '..');
 export default defineConfig({
   testDir: '.',
-  testMatch: 'mobile-conversation-v93.spec.ts',
+  testMatch: ['mobile-conversation-v93.spec.ts', 'home-situation-updates-v108.spec.ts'],
   outputDir: path.join(frontendRoot, 'test-results'),
   timeout: 90000,
   expect: { timeout: 15000 },
