@@ -315,8 +315,8 @@ const SESSION_ROUTE = 'app/ora/[sessionId].tsx';
   assert.ok(/<OraCockpitContext/.test(screen), 'right rail must be fed by live ORA context');
   assert.ok(/variant=\{variant\}/.test(screen), 'desktop conversation must use the cockpit turn styling');
   assert.ok(/const cockpitReady = wide && viewportWidth >= 1120/.test(screen), 'three columns must never be forced into a narrow viewport');
-  assert.ok(/testID="ora-situation-actions"/.test(screen), 'active temporary situations need visible follow-up actions');
-  assert.ok(/>Va bene</.test(screen) && />Avvisami</.test(screen), 'reference follow-up actions must be present');
+  assert.ok(!/testID="ora-situation-actions"/.test(screen), 'temporary Situation follow-up must not render duplicate acknowledgement controls');
+  assert.ok(!/>Va bene</.test(screen) && !/>Avvisami</.test(screen), 'temporary Situation follow-up must not render duplicate action buttons');
   assert.ok(
     /conversation=\{showConversationSurface \? conversationStream\(\) : null\}/.test(screen),
     'mobile keeps the integrated presence conversation instead of inheriting desktop layout',
