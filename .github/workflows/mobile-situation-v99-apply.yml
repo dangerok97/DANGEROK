@@ -1,0 +1,29 @@
+name: Apply mobile Situation v99 repair
+on:
+  push:
+    branches: [fix/mobile-situation-details-v99]
+    paths: [.github/workflows/mobile-situation-v99-apply.yml]
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply exact-source repair to application files only
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF_NAME" = "fix/mobile-situation-details-v99"
+          git fetch origin refs/heads/fix/mobile-situation-details-v99
+          test "$(git rev-parse HEAD)" = "$(git rev-parse FETCH_HEAD)"
+          python scripts/mobile_situation_v99.py
+          git diff --check
+          git add frontend/src/components/ora/OraCockpitContext.tsx frontend/src/components/ora/presence/OraPresence.tsx frontend/src/components/ora/presence/OraPresence.web.tsx frontend/e2e/mobile-conversation-v93.spec.ts
+          git rm scripts/mobile_situation_v99.py
+          git config user.name 'ORA maintenance'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'fix: expose shared Situation follow-up card on mobile web v99'
+          git push origin HEAD:refs/heads/fix/mobile-situation-details-v99
+          git rev-parse HEAD
