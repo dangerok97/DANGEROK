@@ -285,6 +285,9 @@ class CognitiveDecision(BaseModel):
     response_mode: ResponseMode = "answer"
     # Decorative topic hint only; never used for routing, evidence or authority.
     display_area: Optional[str] = None
+    # Exact canonical ref already present in context/observations that the map
+    # should visually focus while this answer is about it. Presentation only.
+    display_focus_ref: Optional[str] = Field(default=None, max_length=160)
 
     @field_validator("display_area", mode="before")
     @classmethod
@@ -351,6 +354,8 @@ class CognitiveTurnResult(BaseModel):
     ok: bool = True
     mode: ResponseMode = "answer"
     ora_text: str = ""
+    # Presentation-only canonical ref; frontend resolves it to a visible star.
+    display_focus_ref: Optional[str] = None
     question: Optional[str] = None
     session_id: str = ""
     active_goal: Optional[ActiveGoal] = None
