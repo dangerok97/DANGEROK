@@ -189,7 +189,7 @@ export function OraPresence({ mode = 'idle', activity = null, compact = false, a
                       gap: 16,
                       paddingVertical: 10,
                       borderBottomWidth: StyleSheet.hairlineWidth,
-                      borderBottomColor: palette.line,
+                      borderBottomColor: palette.border,
                     }}
                   >
                     <Text style={[styles.detailText, { flex: 1 }]}>{item.label}</Text>
