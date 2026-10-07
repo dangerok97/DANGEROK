@@ -150,6 +150,7 @@ async def test_due_birthday_raises_one_existing_delivery_opportunity_and_moves_t
     assert len(opportunities) == 1
     assert opportunities[0]["status"] == "active"
     assert opportunities[0]["surface_state"] == "surfaced"
+    assert opportunities[0]["decision_provenance"] == "user"
     assert "Compleanno di Elena" in opportunities[0]["semantic_summary"]
     assert opportunities[0]["delivery_review_state"] == "pending"
 
@@ -176,7 +177,7 @@ async def test_forgotten_memory_disables_due_memo_instead_of_reminding():
         "category": "birthday", "label": "Compleanno X", "person": "X",
         "recurrence": "annual", "month": 3, "day": 13, "timezone": "Europe/Rome",
         "remind_hour_local": 9, "next_due_at": "2026-01-01T00:00:00+00:00",
-        "status": "active", "claim_until": None,
+        "status": "active", "claim_until": "",
     })
     fired = await service.fire_due(now=datetime(2026, 10, 7, 19, 0, tzinfo=timezone.utc))
     assert fired["disabled"] == 1
