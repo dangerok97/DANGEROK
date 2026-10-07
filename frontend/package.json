@@ -10,7 +10,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "test:auth": "node --experimental-strip-types --test src/auth/googleAuth.regression.test.ts src/auth/appleReadiness.regression.test.ts",
+    "test:auth": "node --experimental-strip-types --test src/auth/googleAuth.regression.test.ts src/auth/appleReadiness.regression.test.ts src/auth/publicLegal.regression.test.ts",
     "test:e2e": "playwright test",
     "test:e2e:home": "playwright test e2e/home-v2.spec.ts",
     "test:px11": "node --experimental-strip-types src/shell/px11Foundation.test.ts",
