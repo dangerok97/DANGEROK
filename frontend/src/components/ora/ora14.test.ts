@@ -385,12 +385,13 @@ console.log('ora14: all assertions passed');
   assert.ok(/\.\.\.\(needId \? \{ needId: String\(needId\) \}/.test(screen), 'need handle must survive the session URL');
 }
 
-// v103: finite monitoring is visible and separate from notification trigger.
+// v104: user sees the outcome and the earlier exception, not implementation contracts.
 {
   const cockpit = readCode('src/components/ora/OraCockpitContext.tsx');
   const knowledge = readCode('src/components/ora/presence/knowledge.ts');
-  assert.ok(cockpit.includes('Obiettivo del monitoraggio'));
-  assert.ok(cockpit.includes('Quando termina'));
-  assert.ok(knowledge.includes('monitoring_goal'));
-  assert.ok(knowledge.includes('ends_when'));
+  assert.ok(cockpit.includes('Ti avviso quando'));
+  assert.ok(cockpit.includes('Ti avviso prima se'));
+  assert.ok(!cockpit.includes('Obiettivo del monitoraggio'));
+  assert.ok(!cockpit.includes('Quando termina'));
+  assert.ok(knowledge.includes('completion_when'));
 }
