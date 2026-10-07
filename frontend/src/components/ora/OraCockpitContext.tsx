@@ -181,7 +181,7 @@ export function OraCockpitContext({
             body={followupStatus[followup?.status || 'unavailable'] || followupStatus.unavailable} />
           {followup?.next_check_at ? <>
             <View style={styles.divider} />
-            <DetailRow icon="time-outline" title="Prossimo controllo" body={timeLabel(followup.next_check_at)} />
+            <DetailRow icon="time-outline" title="Prossimo controllo" body={followup.next_check_label || timeLabel(followup.next_check_at)} />
           </> : null}
           {followup?.last_checked_at ? <>
             <View style={styles.divider} />

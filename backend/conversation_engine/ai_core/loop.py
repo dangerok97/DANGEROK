@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import html
+import unicodedata
 import logging
 import re
 import time
@@ -504,8 +506,8 @@ _PERSIST_CLAIM_RE = re.compile(
 )
 _SITUATION_CHECK_TIME_RE = re.compile(
     r"(?i)\b(?:controll(?:o|are|er[oò]|eremo)?|ricontroll(?:o|are|er[oò]|eremo)?|"
-    r"verific(?:a|are|her[oò]|heremo)?|checkpoint)\b.{0,100}?"
-    r"(?:alle?|per\s+le|verso\s+le)\s*([01]?\d|2[0-3])(?::([0-5]\d))?\b"
+    r"verific(?:a|are|her[oò]|heremo)?|checkpoint)\b[^!?;]{0,160}?"
+    r"(?:alle?|per\s+le|verso\s+le)\s*(?:ore\s*)?([01]?\d|2[0-3])(?:\s*[:.]\s*([0-5]\d))?\b"
 )
 _SITUATION_CHECK_WHEN_ASK_RE = re.compile(
     r"(?i)\b(a\s+che\s+ora|quando\s+(?:controll|ricontroll|verific)|"
@@ -514,14 +516,22 @@ _SITUATION_CHECK_WHEN_ASK_RE = re.compile(
 
 
 def _latest_situation_schedule(observations) -> Optional[Dict[str, Any]]:
-    for obs in reversed(list(observations or [])):
-        if not isinstance(obs, dict):
-            continue
-        if obs.get("name") != "schedule_situation_check" or obs.get("status") != "ok":
-            continue
-        payload = obs.get("payload") or {}
-        if isinstance(payload, dict) and payload.get("next_check_at"):
-            return payload
+    # A successful read is as authoritative as an arrange operation. Do not use
+    # an older successful schedule after a newer stopped/failed read, nor mix
+    # two different Situations into one unconditional prose replacement.
+    relevant = [obs for obs in (observations or []) if isinstance(obs, dict)
+                and obs.get("name") in ("schedule_situation_check", "get_situation_followup")]
+    identities = {str((obs.get("payload") or {}).get("situation_id")) for obs in relevant
+                  if isinstance(obs.get("payload"), dict) and (obs.get("payload") or {}).get("situation_id")}
+    if not relevant or len(identities) > 1:
+        return None
+    obs = relevant[-1]
+    payload = obs.get("payload") or {}
+    if (obs.get("status") == "ok" and isinstance(payload, dict)
+            and payload.get("ok") is not False
+            and payload.get("status") in ("scheduled", "due", "running")
+            and payload.get("next_check_at")):
+        return payload
     return None
 
 
@@ -538,7 +548,20 @@ def _local_hhmm(iso_value: str, timezone_name: str) -> Optional[str]:
 def _claims_wrong_situation_check_time(text: str, actual_hhmm: Optional[str]) -> bool:
     if not actual_hhmm:
         return False
-    for match in _SITUATION_CHECK_TIME_RE.finditer(str(text or "")):
+    # Compare rendered clock text, not its formatting. The v106 guard silently
+    # missed "per le **15:00 di oggi**" and newline-separated clauses.
+    rendered = unicodedata.normalize("NFKC", html.unescape(str(text or "")))
+    rendered = re.sub(r"<[^>]*>", "", rendered)
+    rendered = re.sub(r"[*_`]", "", rendered)
+    rendered = " ".join(rendered.split())
+    for match in _SITUATION_CHECK_TIME_RE.finditer(rendered):
+        clause = match.group(0).lower()
+        prefix = re.split(r"[.!?;]", rendered[:match.start()])[-1].lower()
+        # Past executions and explicit denials are not promises of a future check.
+        if re.search(r"\b(?:precedente|ultimo|eseguito|effettuato)\b", clause + " " + prefix):
+            continue
+        if re.search(r"\bnon\b", prefix):
+            continue
         claimed = f"{int(match.group(1)):02d}:{int(match.group(2) or 0):02d}"
         if claimed != actual_hhmm:
             return True
@@ -551,10 +574,12 @@ def _followup_truth_copy(payload: Dict[str, Any], *, actual_hhmm: Optional[str],
     parts: List[str] = []
     if include_check_time and actual_hhmm:
         parts.append(f"Il prossimo controllo è programmato alle {actual_hhmm}.")
+        if payload.get("next_check_label") and payload.get("timezone"):
+            parts.append(f"Data e fuso: {payload['next_check_label']} ({payload['timezone']}).")
     if completion:
-        parts.append(f"Ti avviso quando {completion.lower()}.")
+        parts.append(f"Ti avviso quando: {completion}.")
     if early:
-        parts.append(f"Se prima {early.lower()}, ti avviso prima.")
+        parts.append(f"Ti avviso prima se: {early}.")
     return " ".join(parts) or "Il controllo risulta programmato in ORA."
 
 
@@ -2140,7 +2165,8 @@ async def run_cognitive_loop(
             persisted_check_hhmm = (
                 _local_hhmm(
                     str((scheduled_followup or {}).get("next_check_at") or ""),
-                    str((clock_context or {}).get("timezone") or "Europe/Rome"),
+                    str((scheduled_followup or {}).get("timezone")
+                        or (clock_context or {}).get("timezone") or "Europe/Rome"),
                 )
                 if scheduled_followup else None
             )
@@ -2163,11 +2189,15 @@ async def run_cognitive_loop(
                             "failure_code": "SITUATION_SCHEDULE_TIME_MISMATCH",
                             "next_check_at": scheduled_followup.get("next_check_at"),
                             "local_check_time": persisted_check_hhmm,
+                            "next_check_label": scheduled_followup.get("next_check_label"),
+                            "timezone": scheduled_followup.get("timezone") or clock_context.get("timezone"),
                             "reason": (
                                 "The final answer names a different check time from the persisted "
                                 "schedule. If the user asked when ORA will check again, use the "
                                 "persisted local time exactly. Otherwise keep the checkpoint internal "
-                                "and answer only with the user outcome and any earlier warning."
+                                "and answer only with the user outcome and any earlier warning. "
+                                "Do not offer to perform the ordinary read-only work that ORA already "
+                                "accepted. Do not imply direct observation of an unmeasured physical state."
                             ),
                         },
                     ).model_dump()
