@@ -40,7 +40,7 @@ async def read_followup(db, owner, situation_id):
     """Read back a real goal, wake and executed check, never presentation copy."""
     out = {"status": "unavailable", "next_check_at": None, "last_checked_at": None,
            "goal_id": None, "purpose": None, "notify_when": None,
-           "monitoring_goal": None, "ends_when": None,
+           "completion_when": None, "monitoring_goal": None, "ends_when": None,
            "runtime_enabled": _enabled(), "delivery_channel": "in_app",
            "delivery_note": "Gli aggiornamenti sono consultabili in ORA; nessuna push garantita."}
     if db is None or not owner or not situation_id:
@@ -64,6 +64,7 @@ async def read_followup(db, owner, situation_id):
         out.update(
             goal_id=goal["id"],
             purpose=str(goal.get("rationale") or "")[:300],
+            completion_when=str(goal.get("desired_outcome") or "")[:400] or None,
             monitoring_goal=str(goal.get("desired_outcome") or "")[:400] or None,
             ends_when=(stop_conditions[-1] if stop_conditions else None),
         )
@@ -107,7 +108,7 @@ async def read_followup(db, owner, situation_id):
         return out
 
 
-async def arrange_followup(db, owner, *, situation_id, expected_revision, check_at, purpose, notify_when):
+async def arrange_followup(db, owner, *, situation_id, expected_revision, check_at, purpose, notify_when, completion_when=None):
     """Ensure one real first checkpoint; reusing it must not move its deadline."""
     if not _enabled():
         return {"ok": False, "error": "runtime_disabled", "status": "runtime_disabled"}
@@ -116,6 +117,7 @@ async def arrange_followup(db, owner, *, situation_id, expected_revision, check_
     if due is None or due < now - timedelta(minutes=1) or due > now + timedelta(hours=72):
         return {"ok": False, "error": "timezone_aware_checkpoint_within_72h_required"}
     purpose, notify_when = str(purpose or "").strip(), str(notify_when or "").strip()
+    completion_when = str(completion_when or "").strip()
     if not purpose or not notify_when or len(purpose) > 300 or len(notify_when) > 400:
         return {"ok": False, "error": "bounded_purpose_and_notification_condition_required"}
     situation = await SituationRepository(db).get(owner, situation_id)
@@ -145,19 +147,16 @@ async def arrange_followup(db, owner, *, situation_id, expected_revision, check_
         prior_due = _moment(goal.next_run_at) if goal else None
         due = max(now + timedelta(seconds=60), prior_due or due)
         if goal is None:
-            outcome_hint = str(
+            fallback_outcome = str(
                 fresh.expected_outcome_summary
                 or fresh.temporal_scope
                 or "il prossimo momento utile per la persona"
-            ).strip()[:220]
+            ).strip()[:300]
+            user_outcome = (completion_when or fallback_outcome)[:400]
             goal = AutonomousGoal(
                 id=gid, owner_id=owner, status="active", origin="agent_initiated",
-                objective=f"Portare la situazione temporanea al suo prossimo esito utile: {fresh.summary}"[:280],
-                desired_outcome=(
-                    "Arrivare a una conclusione utile e verificabile per la persona, "
-                    f"tenendo conto dell'esito atteso ({outcome_hint}), e comunicarla senza "
-                    "continuare a monitorare quando ulteriori controlli non aggiungono valore."
-                )[:400],
+                objective=f"Capire quando la situazione raggiunge l'esito utile per la persona: {fresh.summary}"[:280],
+                desired_outcome=user_outcome,
                 why_now=purpose, rationale=purpose,
                 source_kind=KIND, source_refs=[f"situation:{situation_id}", *fresh.linked_object_refs][:8],
                 next_run_at=due.isoformat(),
@@ -184,7 +183,8 @@ async def arrange_followup(db, owner, *, situation_id, expected_revision, check_
             goal.next_run_at = wake.scheduled_for
             await repo.save_goal(goal)
         await repo.journal(owner, gid, kind="situation_checkpoint_arranged", note=purpose,
-                           detail={"situation_id": situation_id, "until": goal.next_run_at, "notify_when": notify_when})
+                           detail={"situation_id": situation_id, "until": goal.next_run_at,
+                                   "notify_when": notify_when, "completion_when": goal.desired_outcome})
     finally:
         await repo.release(gid, stopped_because="checkpoint_arranged", worker_id=worker)
     state = await read_followup(db, owner, situation_id)
@@ -245,7 +245,8 @@ async def get_situation_followup(args, runtime):
 async def schedule_situation_check(args, runtime):
     state = await arrange_followup(runtime.get("db"), runtime.get("user_id"),
         situation_id=str(args.get("situation_id") or ""), expected_revision=args.get("expected_revision"),
-        check_at=args.get("check_at"), purpose=args.get("purpose"), notify_when=args.get("notify_when"))
+        check_at=args.get("check_at"), purpose=args.get("purpose"), notify_when=args.get("notify_when"),
+        completion_when=args.get("completion_when"))
     return Observation(kind="tool", name="schedule_situation_check", status="ok" if state.get("ok") else "error", payload=state)
 
 
@@ -257,5 +258,5 @@ def register_followup_tools(registry):
         classification="personal", side_effect="READ_ONLY", freshness="fresh", handler=get_situation_followup))
     registry.register(CapabilitySpec(
         capability="schedule_situation_check", description="Persist a real first follow-up in the existing background runtime for an active Situation. Choose checkpoint and purpose from current evidence, not by asking the user to supervise ORA. Reuses existing work without postponing it. Does not send a notification, grant external write authority, or prove an outcome. Read the returned status before promising a check.",
-        input_schema={"type": "object", "properties": {"situation_id": {"type": "string"}, "expected_revision": {"type": "integer"}, "check_at": {"type": "string", "description": "Timezone-aware ISO8601, within 72 hours. A recheck time, not a predicted completion."}, "purpose": {"type": "string", "maxLength": 300}, "notify_when": {"type": "string", "maxLength": 400}}, "required": ["situation_id", "expected_revision", "check_at", "purpose", "notify_when"]},
+        input_schema={"type": "object", "properties": {"situation_id": {"type": "string"}, "expected_revision": {"type": "integer"}, "check_at": {"type": "string", "description": "Timezone-aware ISO8601, within 72 hours. A recheck time, not a predicted completion."}, "purpose": {"type": "string", "maxLength": 300}, "completion_when": {"type": "string", "maxLength": 400, "description": "Plain user-facing condition/outcome ORA is trying to reach; no implementation wording. Must be grounded in evidence."}, "notify_when": {"type": "string", "maxLength": 400, "description": "Earlier exceptional condition worth warning about before completion."}}, "required": ["situation_id", "expected_revision", "check_at", "purpose", "completion_when", "notify_when"]},
         classification="personal", side_effect="REVERSIBLE_WRITE", risk="write_soft", freshness="fresh", handler=schedule_situation_check))
