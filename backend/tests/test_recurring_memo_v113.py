@@ -6,6 +6,8 @@ from mongomock_motor import AsyncMongoMockClient
 
 from conversation_engine.ai_core.models import MemoryCandidate
 from conversation_engine.ai_core.tools.registry import ToolRegistry
+from conversation_engine.ai_core.loop import run_cognitive_loop
+from conversation_engine.models import ConversationSession
 from life_memory.governance import MemoryGovernanceService
 from life_profile.knowledge_map import knowledge_map
 from memos.service import RecurringMemoService
@@ -188,3 +190,91 @@ def test_memo_is_an_ai_capability_not_a_dedicated_product_button():
     assert tool is not None
     assert tool.side_effect == "REVERSIBLE_WRITE"
     assert "memo" in tool.tags
+
+
+@pytest.mark.asyncio
+async def test_birthday_turn_persists_memory_then_schedule_before_promising():
+    db = AsyncMongoMockClient().memo_turn_v113
+    await MemoryGovernanceService(db).ensure_indexes()
+    await RecurringMemoService(db).ensure_indexes()
+    session = ConversationSession(
+        user_id="turn-owner",
+        meta={"ui_mode": "ai_core", "ai_core": {}},
+    )
+    calls = 0
+
+    async def decide(system, payload):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return {
+                "response_mode": "answer",
+                "message_to_user": "Lo terrò a mente.",
+                "memory_candidates": [{
+                    "operation": "propose",
+                    "summary": "Il 13 marzo è il compleanno di zia Elena.",
+                    "kind": "birthday",
+                    "identity_key": "birthday:zia_elena",
+                    "value": {"person": "zia Elena", "month": 3, "day": 13},
+                    "confidence": 0.99,
+                    "authority": "user_stated",
+                    "epistemic_status": "asserted",
+                    "provenance": ["user_conversation"],
+                    "permanence": "durable",
+                    "recurrence": "annual",
+                    "sensitivity": "normal",
+                    "reason_for_future_utility": "Ricordare ogni anno il compleanno.",
+                    "requires_confirmation": False,
+                    "user_authorized": False,
+                }],
+                "situation_update": {"operation": "none"},
+            }
+        if calls == 2:
+            memory = await db.memories.find_one(
+                {"user_id": "turn-owner", "identity_key": "birthday:zia_elena"},
+                {"_id": 0},
+            )
+            assert memory is not None, "Memory governance must happen before scheduling"
+            return {
+                "response_mode": "tool",
+                "tool_call": {
+                    "capability": "save_recurring_memo",
+                    "arguments": {
+                        "memory_ref": memory["id"],
+                        "category": "birthday",
+                        "label": "Compleanno di zia Elena",
+                        "person": "zia Elena",
+                        "month": 3,
+                        "day": 13,
+                        "timezone": "Europe/Rome",
+                        "remind_hour_local": 9,
+                    },
+                },
+                "situation_update": {"operation": "none"},
+            }
+        memo = await db.recurring_memos.find_one(
+            {"owner_id": "turn-owner", "category": "birthday"}, {"_id": 0}
+        )
+        assert memo is not None, "Final promise may happen only after recurrence persisted"
+        return {
+            "response_mode": "answer",
+            "message_to_user": "Ok, te lo ricorderò ogni 13 marzo.",
+            "situation_update": {"operation": "none"},
+        }
+
+    result = await run_cognitive_loop(
+        sess=session,
+        user_message="Il 13 marzo è il compleanno di mia zia Elena.",
+        db=db,
+        decision_fn=decide,
+    )
+
+    assert result.ok
+    assert result.ora_text == "Ok, te lo ricorderò ogni 13 marzo."
+    assert await db.memories.count_documents(
+        {"user_id": "turn-owner", "identity_key": "birthday:zia_elena", "status": "active"}
+    ) == 1
+    assert await db.recurring_memos.count_documents(
+        {"owner_id": "turn-owner", "category": "birthday", "status": "active"}
+    ) == 1
+    assert await db.situations.count_documents({"user_id": "turn-owner"}) == 0
