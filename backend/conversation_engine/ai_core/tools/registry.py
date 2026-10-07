@@ -60,6 +60,63 @@ class ToolRegistry:
                 tags=["shipment", "delivery", "commerce"],
             )
         )
+        from memos.caps import save_recurring_memo
+        self.register(
+            CapabilitySpec(
+                capability="save_recurring_memo",
+                description=(
+                    "Persist an executable recurring personal memo that is already backed by "
+                    "a durable governed Memory fact. Use for recurring dates the person expects "
+                    "ORA to remember across years, such as birthdays and anniversaries. "
+                    "Call only after memory_governance returned persisted=true and use that exact "
+                    "memory_id as memory_ref. This schedules the recurrence; it does not create "
+                    "the Memory fact itself. The final answer may promise the reminder only after "
+                    "this tool returns ok=true."
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "memory_ref": {
+                            "type": "string",
+                            "description": "Exact governed memory_id returned this turn.",
+                        },
+                        "category": {
+                            "type": "string",
+                            "enum": ["birthday", "anniversary", "annual_memo"],
+                        },
+                        "label": {
+                            "type": "string",
+                            "description": "Short human memo label.",
+                        },
+                        "person": {
+                            "type": "string",
+                            "description": "Person label when the recurrence is about someone.",
+                        },
+                        "month": {"type": "integer", "minimum": 1, "maximum": 12},
+                        "day": {"type": "integer", "minimum": 1, "maximum": 31},
+                        "timezone": {
+                            "type": "string",
+                            "description": "IANA timezone for the reminder.",
+                        },
+                        "remind_hour_local": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 23,
+                            "description": "Local hour; use 9 when the person gave no clock time.",
+                        },
+                    },
+                    "required": [
+                        "memory_ref", "category", "label", "month", "day", "timezone"
+                    ],
+                },
+                classification="personal",
+                side_effect="REVERSIBLE_WRITE",
+                freshness="stable",
+                risk="write_soft",
+                handler=save_recurring_memo,
+                tags=["memo", "recurring", "memory"],
+            )
+        )
         self.register(
             CapabilitySpec(
                 capability="prepare_amazon_search",
