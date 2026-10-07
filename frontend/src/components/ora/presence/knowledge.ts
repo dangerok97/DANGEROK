@@ -18,6 +18,7 @@ export type KnowledgeStar = {
     last_checked_at?: string | null;
     purpose?: string | null;
     notify_when?: string | null;
+    completion_when?: string | null;
     monitoring_goal?: string | null;
     ends_when?: string | null;
   };
