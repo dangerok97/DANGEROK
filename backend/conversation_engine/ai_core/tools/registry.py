@@ -25,6 +25,41 @@ class ToolRegistry:
     def _register_defaults(self) -> None:
         from situations.followup import register_followup_tools
         register_followup_tools(self)
+        from shipping.caps import get_shipment_status
+        self.register(
+            CapabilitySpec(
+                capability="get_shipment_status",
+                description=(
+                    "Read the user's shipment/delivery status from connected personal evidence. "
+                    "Use when the person asks where a package/order is, whether it shipped, when "
+                    "it is arriving, or what changed with a delivery. First call without "
+                    "message_ref to refresh connected Gmail and receive bounded recent message "
+                    "candidates plus active Situations. Cognition decides which candidate is "
+                    "actually about the shipment. If a subject does not establish the state, "
+                    "call again with that exact message_ref to read one bounded, audited body. "
+                    "This is not live carrier tracking unless the returned evidence itself says so."
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "about": {
+                            "type": "string",
+                            "description": "Optional user wording identifying the package/order.",
+                        },
+                        "message_ref": {
+                            "type": "string",
+                            "description": "Exact candidate message_ref returned by a prior call.",
+                        },
+                    },
+                },
+                classification="personal",
+                side_effect="READ_ONLY",
+                freshness="fresh",
+                risk="read",
+                handler=get_shipment_status,
+                tags=["shipment", "delivery", "commerce"],
+            )
+        )
         self.register(
             CapabilitySpec(
                 capability="prepare_amazon_search",

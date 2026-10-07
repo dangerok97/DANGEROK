@@ -136,7 +136,8 @@ jobs:
         working-directory: backend
         run: |
           python -m pytest -q tests/test_email_connected_source_v310.py \
-            tests/test_email_agent_bridge_v310.py tests/test_agent_gmail_send.py -x
+            tests/test_email_agent_bridge_v310.py tests/test_agent_gmail_send.py \
+            tests/test_shipment_competency_v109.py -x
       - name: Google first sync, cloud sessions, location privacy and polling
         working-directory: backend
         run: |
