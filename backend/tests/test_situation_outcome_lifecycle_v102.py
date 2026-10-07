@@ -42,21 +42,24 @@ async def setup(monkeypatch):
 async def test_notification_trigger_is_not_the_goal_outcome(monkeypatch):
     db, state = await setup(monkeypatch)
     due = (datetime.now(timezone.utc) + timedelta(minutes=20)).isoformat()
-    notify_when = "Se emerge un rischio che richiede attenzione."
+    notify_when = "Se emerge prima un rischio che richiede attenzione."
+    completion_when = "Quando le evidenze indicano che è arrivato il momento utile per concludere."
 
     result = await arrange_followup(
         db, OWNER, situation_id=SID, expected_revision=state.revision,
         check_at=due, purpose="Rileggere le condizioni reali.",
+        completion_when=completion_when,
         notify_when=notify_when,
     )
     assert result["ok"] is True
     goal = await db.agent_goals.find_one({"id": result["goal_id"]}, {"_id": 0})
+    assert goal["desired_outcome"] == completion_when
     assert goal["desired_outcome"] != notify_when
-    assert "conclusione utile" in goal["desired_outcome"]
     assert any("monitoraggio" in x.lower() for x in goal["stop_conditions"])
     followup = await read_followup(db, OWNER, SID)
     assert followup["notify_when"] == notify_when
-    assert "conclusione utile" in followup["monitoring_goal"]
+    assert followup["completion_when"] == completion_when
+    assert followup["monitoring_goal"] == completion_when
     assert "monitoraggio" in followup["ends_when"].lower()
 
 
