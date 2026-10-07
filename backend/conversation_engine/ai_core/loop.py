@@ -3899,6 +3899,9 @@ async def run_cognitive_loop(
         ok=True,
         mode="answer",
         ora_text=ora,
+        display_focus_ref=_display_focus_ref(
+            last_decision, observations[turn_start:], situation_result
+        ),
         session_id=sess.id,
         active_goal=ActiveGoal.model_validate(st.get("active_goal") or {}),
         memory_candidates=list(
