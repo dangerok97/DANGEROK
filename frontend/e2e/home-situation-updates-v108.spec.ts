@@ -1,9 +1,23 @@
 import { test, expect, type Page } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 
+const pageErrors = new WeakMap<Page, string[]>();
+test.beforeEach(async ({ page }) => {
+  const errors: string[] = [];
+  pageErrors.set(page, errors);
+  page.on('pageerror', error => {
+    const message = String(error.message || '');
+    // Existing WebKit fixture-only CORS noise; real JavaScript errors fail.
+    if (message.includes('due to access control checks') && message.includes('127.0.0.1:8093/api/')) return;
+    errors.push(message);
+  });
+});
+test.afterEach(async ({ page }) => { expect(pageErrors.get(page)).toEqual([]); });
+
 // Production Home components; all data below is explicitly simulated and offline.
 async function openHome(page: Page, work: Record<string, unknown>) {
   let homeReads = 0;
+  let monthReads = 0;
   const user = { user_id: 'qa-home-v108', name: 'Esempio Test', first_name: 'Esempio', last_name: 'Test', email: 'home-qa@example.invalid', provider: 'password', identity_confirmed: true };
   await page.route('**/api/**', async route => {
     const request = route.request();
@@ -13,7 +27,9 @@ async function openHome(page: Page, work: Record<string, unknown>) {
     else if (path.includes('/auth/') && request.method() === 'POST') json = { token: 'offline-test-not-a-credential', user };
     else if (path.endsWith('/me') || path.endsWith('/auth/user')) json = user;
     else if (path.includes('life-setup')) json = { enabled: false, session: { status: 'completed' } };
-    else if (path.includes('home')) {
+    else if (path === '/api/calendar/events/home/month') { monthReads += 1; json = []; }
+    else if (path === '/api/calendar/events/home/day') json = [];
+    else if (path === '/api/home' || path === '/api/home/refresh') {
       homeReads += 1;
       json = { primary_focus: null, current_situation: null, priorities: [], insights: [], opportunities: [], connection_warnings: [], google_calendar: {}, weather: { available: false }, ambient: {}, generated_at: new Date().toISOString(), ora_ti_consiglia: [], agent_work: [work], open_questions: [] };
     }
@@ -32,6 +48,8 @@ async function openHome(page: Page, work: Record<string, unknown>) {
   await page.getByTestId('login-submit-button').click();
   await expect(page.getByTestId('home-safe')).toBeVisible({ timeout: 30000 });
   await expect.poll(() => homeReads).toBeGreaterThan(0);
+  await expect.poll(() => monthReads).toBeGreaterThan(0);
+  await expect(page.getByTestId('home-context-rail')).toBeAttached();
 }
 
 const base = { id: 'gol_qa_home', what: 'Panni stesi', outcome: 'Esito desiderato simulato', source: 'Una tua conversazione', source_kind: 'situation_followup', icon_key: 'shirt', autonomous: true };
@@ -47,6 +65,7 @@ test('scheduled-only Situation is not counted as a Home update or an item in the
 test('a published result is readable without internal goal wording or a false execution badge', async ({ page }, info) => {
   await openHome(page, { ...base, progress_kind: 'update', show_in_updates: true, state: 'Esito simulato: è il momento di verificare i capi e raccoglierli.', outcome: 'Esito simulato disponibile.' });
   const row = page.getByTestId('home-agent-gol_qa_home');
+  await expect(row).toBeAttached();
   await row.scrollIntoViewIfNeeded();
   await expect(row).toContainText('Panni stesi');
   await expect(row).toContainText('Esito simulato:');
@@ -62,6 +81,7 @@ test('a published result is readable without internal goal wording or a false ex
 test('a failed or missing control is visible even without executed work', async ({ page }) => {
   await openHome(page, { ...base, progress_kind: 'problem', show_in_updates: true, state: 'Il controllo programmato deve essere recuperato.' });
   const row = page.getByTestId('home-agent-gol_qa_home');
+  await expect(row).toBeAttached();
   await row.scrollIntoViewIfNeeded();
   await expect(row).toContainText('Controllo da verificare');
   await expect(row).toContainText('deve essere recuperato');
