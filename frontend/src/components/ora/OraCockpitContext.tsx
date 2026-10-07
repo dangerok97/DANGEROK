@@ -7,6 +7,7 @@ import { api, type HomeV2Response } from '@/src/api/client';
 import { presencePalette as palette, presenceColors } from '@/src/theme/presence';
 import { tokens } from '@/src/theme/tokens';
 import { useTemporaryMemory } from './presence/useTemporaryMemory';
+import type { KnowledgeStar } from './presence/knowledge';
 import { firstSituationState, situationIcon, situationTitle } from './situationVisual';
 
 function timeLabel(iso?: string | null): string {
@@ -49,16 +50,23 @@ export function OraCockpitContext({
   refreshKey,
   selectedStarId,
   onTemporaryChanged,
+  star,
+  standalone = false,
+  readError = false,
 }: {
   refreshKey?: unknown;
   selectedStarId?: string | null;
   onTemporaryChanged?: () => void;
+  /** A selected map snapshot; never fall back to some other/latest star. */
+  star?: KnowledgeStar | null;
+  standalone?: boolean;
+  readError?: boolean;
 }) {
   const router = useRouter();
   const [home, setHome] = useState<HomeV2Response | null>(null);
   const [removing, setRemoving] = useState(false);
   const [removeError, setRemoveError] = useState('');
-  const temporary = useTemporaryMemory(true, refreshKey);
+  const temporary = useTemporaryMemory(star === undefined, refreshKey);
 
   const refresh = useCallback(async () => {
     const next = await api.getHome().catch(() => null);
@@ -67,6 +75,7 @@ export function OraCockpitContext({
   }, [temporary.refresh]);
 
   useEffect(() => {
+    if (standalone) return;
     void refresh();
     const timer = setInterval(() => {
       if (AppState.currentState === 'active') void refresh();
@@ -75,9 +84,11 @@ export function OraCockpitContext({
       if (state === 'active') void refresh();
     });
     return () => { clearInterval(timer); app.remove(); };
-  }, [refresh, refreshKey]);
+  }, [refresh, refreshKey, standalone]);
 
-  const current = temporary.stars.find(star => star.id === selectedStarId) || temporary.latest;
+  const current = star !== undefined
+    ? star
+    : temporary.stars.find(item => item.id === selectedStarId) || temporary.latest;
   const focus = home?.primary_focus || null;
   const currentState = firstSituationState(current);
   const followup = current?.follow_up;
@@ -93,7 +104,8 @@ export function OraCockpitContext({
     setRemoving(true);
     setRemoveError('');
     try {
-      await api.dismissTemporarySituation(current.situation_id);
+      const result = await api.dismissTemporarySituation(current.situation_id);
+      if (!result.ok) throw new Error('dismiss_not_confirmed');
       await temporary.refresh();
       onTemporaryChanged?.();
     } catch {
@@ -123,6 +135,9 @@ export function OraCockpitContext({
           </View>
 
           <Text style={styles.situationStatement}>{current.statement}</Text>
+          {readError ? <Text accessibilityRole="alert" style={styles.removeError}>
+            Aggiornamento non riuscito: i dati mostrati sono quelli dell'ultima lettura.
+          </Text> : null}
 
           <View style={styles.divider} />
           <DetailRow
@@ -177,20 +192,20 @@ export function OraCockpitContext({
             <DetailRow icon="notifications-outline" title="Quando ti aggiorno in ORA" body={followup.notify_when} />
           </> : null}
 
-          <Pressable
+          {!standalone ? <Pressable
             onPress={() => router.push('/situazione' as any)}
             accessibilityRole="button"
             style={({ pressed }) => [styles.primaryAction, pressed && styles.pressed]}
           >
             <Text style={styles.primaryActionText}>Apri situazione</Text>
             <Ionicons name="arrow-forward" size={16} color={palette.label} />
-          </Pressable>
+          </Pressable> : null}
 
           <Pressable
             onPress={() => void removeCurrent()}
             accessibilityRole="button"
             accessibilityLabel="Rimuovi dalla memoria temporanea"
-            disabled={removing}
+            disabled={removing || !current.situation_id}
             style={({ pressed }) => [styles.removeAction, pressed && styles.pressed, removing && styles.disabled]}
             testID="ora-remove-temporary"
           >
@@ -213,7 +228,7 @@ export function OraCockpitContext({
         </View>
       )}
 
-      {focus ? (
+      {!standalone && focus ? (
         <View style={styles.secondaryCard}>
           <View style={styles.secondaryHead}>
             <Ionicons name="locate-outline" size={17} color={palette.label} />

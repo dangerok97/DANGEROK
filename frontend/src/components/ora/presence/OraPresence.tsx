@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, AppState, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { presencePalette as palette, presenceColors } from '@/src/theme/presence';
@@ -9,12 +9,16 @@ import { openingSession } from './openingSession';
 import { geometryFor, type KnowledgeMap } from './knowledge';
 import { useKnowledgeMap } from './useKnowledgeMap';
 import { useRouter } from 'expo-router';
+import { OraCockpitContext } from '../OraCockpitContext';
 
 export function OraPresence({ mode = 'idle', activity = null, compact = false, active = true,
-  expanded = false, openingKey = null, footer, conversation, prominentConversation = false, onAreaPrompt, onBack, knowledge, knowledgeRefreshKey, spotlightId = null, cockpitChrome = false, onSelectNode }: {
+  expanded = false, openingKey = null, footer, conversation, prominentConversation = false, onAreaPrompt, onBack, knowledge, knowledgeRefreshKey, spotlightId = null, cockpitChrome = false, onSelectNode, initialSelectedStarId = null, onKnowledgeChanged, knowledgeError = false }: {
   knowledge?: KnowledgeMap | null; knowledgeRefreshKey?: unknown;
   spotlightId?: string | null;
   cockpitChrome?: boolean;
+  initialSelectedStarId?: string | null;
+  onKnowledgeChanged?: () => void;
+  knowledgeError?: boolean;
   onSelectNode?: (node: PresenceNode | null) => void;
   mode?: PresenceMode; activity?: PresenceActivity | null; compact?: boolean; active?: boolean;
   expanded?: boolean; openingKey?: string | null; footer?: React.ReactNode; conversation?: React.ReactNode; prominentConversation?: boolean; onAreaPrompt?: (prompt: string) => void; onBack?: () => void;
@@ -77,6 +81,22 @@ export function OraPresence({ mode = 'idle', activity = null, compact = false, a
     setAreas(false);
     onSelectNode?.(node);
   }, [onSelectNode]);
+  const appliedInitialSelection = useRef<string | null>(null);
+  useEffect(() => {
+    if (!initialSelectedStarId) { appliedInitialSelection.current = null; return; }
+    if (appliedInitialSelection.current === initialSelectedStarId) return;
+    const index = stars.findIndex(star => star.id === initialSelectedStarId);
+    if (index < 0) return;
+    appliedInitialSelection.current = initialSelectedStarId;
+    select({ index: index + 8, id: initialSelectedStarId, area: stars[index].area, kind: stars[index].kind });
+  }, [initialSelectedStarId, stars, select]);
+  const refreshKnowledge = useCallback(() => {
+    if (knowledge === undefined) learned.reload();
+    onKnowledgeChanged?.();
+  }, [knowledge === undefined, learned.reload, onKnowledgeChanged]);
+  useEffect(() => {
+    if (selected?.id && map && !stars.some(star => star.id === selected.id)) select(null);
+  }, [map, stars, selected?.id, select]);
   // A new working turn exposes its result even if the previous transcript was folded.
   useEffect(() => { if (mode === 'think') setShowConversation(true); }, [mode]);
   useEffect(() => {
@@ -111,6 +131,12 @@ export function OraPresence({ mode = 'idle', activity = null, compact = false, a
   const height = compact ? (windowHeight < 650 ? 128 : width < 650 ? 200 : 260) : Math.min(350, Math.max(240, windowHeight * .36));
   const tight = expanded && panelHeight < 390;
   const fact = map?.stars.find(s => s.id === selected?.id);
+  useEffect(() => {
+    if (!active || !foreground || !fact?.temporary) return;
+    refreshKnowledge();
+    const timer = setInterval(refreshKnowledge, 15000);
+    return () => clearInterval(timer);
+  }, [active, foreground, fact?.id, fact?.temporary, refreshKnowledge]);
   const branch = map?.branches.find(b => `branch_${b.area_id}` === selected?.id);
   const detail = selected ? AREA_DETAILS[selected.area] : null;
   const transcriptHeight = Math.max(60, reading ? stageHeight - 70 : prominentConversation ? Math.min(330, stageHeight - 70) : Math.min(164, panelHeight * .24));
@@ -137,16 +163,19 @@ export function OraPresence({ mode = 'idle', activity = null, compact = false, a
     </View></> : null}
     <View style={expanded ? [styles.stage, tight && { minHeight: 0 }] : { height }} testID="ora-presence-map" onLayout={event => setStageHeight(event.nativeEvent.layout.height)}>
       {unavailable ? <View style={styles.fallback}><Text style={styles.fallbackText}>ORA</Text></View> : canvasReady ? <PresenceCanvas options={options} onUnavailable={fail} onSelect={select} /> : null}
-      {areas || selected || info ? <View style={[styles.overlay, width < 650 && styles.overlayMobile]}>
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.detailContent}>
-          <View style={styles.detailHead}>
-            <Text accessibilityRole="header" style={styles.detailTitle}>{fact ? 'Un punto della tua vita' : branch ? branch.title : selected ? AREA_LABELS[selected.area] : areas ? 'Esplora la mappa' : 'La tua mappa cresce con te'}</Text>
+      {areas || selected || info ? <View style={[styles.overlay, width < 650 && styles.overlayMobile]} testID="ora-map-detail">
+          <View style={[styles.detailHead, { paddingHorizontal: 16 }]}>
+            <Text accessibilityRole="header" style={styles.detailTitle}>{fact?.temporary ? 'Memoria temporanea' : fact ? 'Un punto della tua vita' : branch ? branch.title : selected ? AREA_LABELS[selected.area] : areas ? 'Esplora la mappa' : 'La tua mappa cresce con te'}</Text>
             <Pressable accessibilityRole="button" accessibilityLabel="Chiudi dettagli della mappa" onPress={() => { setSelected(null); setAreas(false); setInfo(false); }} style={styles.button}><Text style={styles.control}>Chiudi</Text></Pressable>
           </View>
+        <ScrollView keyboardShouldPersistTaps="handled" style={{ minHeight: 0, flexShrink: 1 }} contentContainerStyle={styles.detailContent} testID="ora-map-detail-scroll">
           {areas ? <>
             <Text style={styles.note}>Ogni stella è un’informazione salvata. Scegli un’area per leggerle anche senza usare la mappa.</Text>
             <View style={styles.areaList}>{AREA_IDS.map((id, index) => <Pressable key={id} accessibilityRole="button" onPress={() => select({ index, area: id, kind: 'area' })} style={styles.areaButton}><Text style={styles.control}>{AREA_LABELS[id]} · {map?.stars.filter(s => s.area === id).length ?? 0}</Text></Pressable>)}</View>
-          </> : fact ? <>
+          </> : fact?.temporary ? <OraCockpitContext
+            key={fact.id} star={fact} standalone readError={knowledge === undefined ? learned.error : knowledgeError}
+            onTemporaryChanged={() => { refreshKnowledge(); select(null); }}
+          /> : fact ? <>
             <Text style={styles.detailText}>{fact.statement}</Text>
             <Text style={[styles.note, fact.temporary && styles.temporaryNote]}>
               {fact.temporary
@@ -227,7 +256,7 @@ const styles = StyleSheet.create({
   transcriptHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingLeft: 20, paddingRight: 6, minHeight: 44 },
   transcriptLabel: { color: palette.muted, fontSize: 9, letterSpacing: 1.8 },
   showMessages: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, borderRadius: 22, backgroundColor: presenceColors.surfaceGlass, borderColor: palette.border, borderWidth: StyleSheet.hairlineWidth },
-  overlay: { position: 'absolute', top: 8, right: 24, width: 330, maxHeight: '90%', backgroundColor: palette.atmosphere, borderWidth: 1, borderColor: palette.border, borderRadius: 18, zIndex: 20 },
+  overlay: { position: 'absolute', top: 8, right: 24, width: 330, maxHeight: '90%', backgroundColor: palette.atmosphere, borderWidth: 1, borderColor: palette.border, borderRadius: 18, zIndex: 20, overflow: 'hidden' },
   overlayMobile: { left: 12, right: 12, width: 'auto' }, detailContent: { padding: 16, paddingTop: 4, gap: 8 },
   detailHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   detailTitle: { flex: 1, fontSize: 16, fontWeight: '500', color: palette.text }, detailText: { fontSize: 14, lineHeight: 21, color: palette.text },
