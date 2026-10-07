@@ -706,11 +706,13 @@ export function AgentWorkRow({
             label={
               work.needs_you
                 ? 'Serve una risposta'
-                : work.autonomous
-                  ? 'ORA si è mossa'
-                  : 'In corso'
+                : work.problem
+                  ? 'Richiede attenzione'
+                  : work.has_real_activity
+                    ? 'ORA si è mossa'
+                    : 'In attesa'
             }
-            tone={work.needs_you ? 'attention' : 'info'}
+            tone={work.needs_you || work.problem ? 'attention' : 'info'}
           />
         </View>
         {/*
@@ -727,7 +729,7 @@ export function AgentWorkRow({
         ) : null}
         {work.detected || work.why_now ? (
           <Text style={[oraType.small, { color: ora.ink2 }]} numberOfLines={3}>
-            <Text style={{ fontWeight: '700' }}>Rilevato: </Text>
+            <Text style={{ fontWeight: '700' }}>Perché conta: </Text>
             {work.detected || work.why_now}
           </Text>
         ) : null}
