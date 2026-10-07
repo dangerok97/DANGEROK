@@ -1,8 +1,7 @@
-"""A reply cannot silently abandon an existing follow-up responsibility.
+"""Keep a sourced answer distinct from an executable follow-up promise.
 
-The model selects relevance and the next capability. This module only checks
-owner-scoped state and whether a final reply has accounted for unfinished work.
-It does not classify user prose, choose a domain, query providers, or schedule.
+Cognition selects relevance. This gate checks owner-scoped work and current-turn
+source evidence. A failed schedule must not erase a successful personal read.
 """
 from __future__ import annotations
 
@@ -11,10 +10,11 @@ from pydantic import BaseModel, Field
 
 
 class FollowupDisposition(BaseModel):
-    disposition: Literal['continue', 'unrelated', 'declined', 'blocked']
+    disposition: Literal['continue', 'unrelated', 'declined', 'blocked', 'status_only']
     situation_id: Optional[str] = Field(default=None, max_length=80)
     reason: str = Field(min_length=1, max_length=300)
     user_words: Optional[str] = Field(default=None, max_length=300)
+    evidence_refs: list[str] = Field(default_factory=list, max_length=8)
 
 
 FOLLOWUP_CONTRACT = """
@@ -22,49 +22,86 @@ FOLLOWUP_CONTRACT = """
 If current_facts.situation_followup_contract is present, it lists owner-verified
 active Situations with an existing attention purpose but no confirmed next check.
 These are candidates, NOT orders to act on every Situation. Decide semantically
-whether THIS user message continues one of them. A status query about a delegated
-follow-up continues that responsibility; situation_update.operation=none does
-not mean the delegated work is finished. Do not create/update a Situation merely
-to trigger a guard or schedule. Preserve its identity.
+whether THIS user message continues a delegated task or asks for facts about it.
 
-If relevant: first be honest about the old missing schedule; then use the existing
-context/live read capabilities needed to assess what matters now and schedule the
-justified NEXT CHECK using schedule_situation_check. You choose process, source
+ANSWERING WHAT IS KNOWN AND ACCEPTING FUTURE WORK ARE DIFFERENT RESULTS.
+A factual status question must first receive its evidence-backed answer. Do not
+replace a known date or source statement with a report about scheduler internals.
+A status-only answer neither cancels nor repairs existing delegated work. Do not
+create/update a Situation just to answer a factual question or trigger a guard.
+Preserve the identity and outstanding work of any existing Situation.
+
+For relevant delegated work: read the necessary context/live evidence and schedule
+a justified NEXT CHECK using schedule_situation_check. You choose process, source
 and checkpoint; the person need not choose an arbitrary clock time. Distinguish
-an approximate outcome from the next check. A past weather or provider summary
-is not current evidence. Do not return a menu asking whether to read conditions
-or choose a reminder time. That is still unfinished work, even in response_mode
-answer. Do not promise work outside this turn without a persisted executable job.
+an approximate outcome from the next check. A past provider summary is not current
+evidence. Never promise future work without a persisted executable job.
 
-For a final reply while one of these checks remains unconfirmed, include:
-"situation_followup": {"disposition": "continue|unrelated|declined|blocked",
-"situation_id": "exact candidate id or null only for unrelated",
-"reason": "short operational reason", "user_words": "exact restriction, only for declined"}.
-- continue: the current request is about this responsibility. Do the next necessary
-  tool/context/research step; a final answer is not completion of that work.
-- unrelated: the message is about a different matter, or the candidate's recorded
-  attention purpose is not a real delegated follow-up. Answer normally; no new work.
-- declined: the person EXPLICITLY restricts action/repair in this turn. Quote their
-  restriction exactly in user_words. A question about your prior intention is NOT
-  a restriction or refusal. Do not invent one, schedule, or postpone a check.
-- blocked: name an actual blocker: an essential personal fact with structured
-  uncertainty.missing_information marked required/blocking/ask, a provider or
-  permission error observed this turn, or disabled/unverifiable runtime state.
-  Missing routine read permission or an arbitrary preferred reminder time is NOT
-  a missing personal fact. Respect actual denied consent; never grant it yourself.
+For a final reply while a check remains unconfirmed, include:
+"situation_followup": {"disposition": "continue|unrelated|declined|blocked|status_only",
+"situation_id": "exact candidate id, or null for unrelated/status_only",
+"reason": "short reason", "user_words": "exact restriction, only for declined",
+"evidence_refs": ["exact current-turn source references, required for status_only"]}.
+- continue: this request delegates or repairs a follow-up. Perform the next tool,
+  context or research step. Do not offer a process menu instead of doing the work.
+- status_only: this request asks what a source says NOW, not to start or repair a
+  monitor. Cite the exact factual_readback.ref returned by a successful read this
+  turn. Answer the question, attribute the source, preserve uncertainty, and make
+  NO promise of future checking or alerts. Missing monitoring must not erase facts.
+  This disposition does not satisfy a request to monitor, remind or repair work.
+- unrelated: this message is about a different matter, or the attention purpose is
+  not real delegated work. Answer normally; no new work.
+- declined: the person EXPLICITLY restricts action/repair. Quote the restriction
+  exactly in user_words. A question about your prior intention is NOT a refusal.
+- blocked: name a real blocker: essential personal information with structured
+  uncertainty marked required/blocking/ask, a provider/permission error observed
+  this turn, or disabled/unverifiable runtime state. An arbitrary reminder time
+  or routine process choice is not missing personal information.
 
-Tools still enforce consent, identity and authority. This contract authorizes no
-external write. Existing scheduled work is reused without moving its deadline.
+Only the selected source establishes its claims. A user-authored note or test
+message is NOT confirmation from a merchant, courier or other third party.
+Tools still enforce consent, ownership and authority. This contract authorizes
+no external write. Reuse scheduled work without moving its deadline.
 """
 
 
+def verified_readbacks(observations) -> list[dict[str, str]]:
+    """Only adapter-provided excerpts tied to a successful current-turn read.
+
+    Model prose and source instructions cannot register evidence themselves.
+    The adapter provides the envelope; the excerpt remains quoted source DATA.
+    """
+    out: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for obs in reversed(list(observations or [])):
+        if not isinstance(obs, dict) or obs.get('kind') != 'tool' or obs.get('status') != 'ok':
+            continue
+        payload = obs.get('payload') or {}
+        if not isinstance(payload, dict):
+            continue
+        item = payload.get('factual_readback')
+        if not isinstance(item, dict):
+            continue
+        ref = str(item.get('ref') or '').strip()
+        text = str(item.get('text') or '').strip()
+        if not ref or ref not in (obs.get('provenance') or []) or not text or ref in seen:
+            continue
+        seen.add(ref)
+        out.append({'ref': ref, 'text': text[:1200],
+                    'label': str(item.get('label') or 'Fonte consultata')[:260]})
+        if len(out) == 3:
+            break
+    return out
+
+
 class FollowupTurnGate:
-    """One bounded recovery opportunity per turn; no independent reasoning loop."""
+    """One bounded recovery opportunity; no separate reasoning or scheduler."""
 
     def __init__(self, db, owner: str):
         self.db, self.owner = db, owner
         self.pending: list[dict[str, Any]] = []
         self.nudged = False
+        self._readbacks: list[dict[str, str]] = []
 
     async def refresh(self, facts, focus=None, current=None) -> None:
         from situations.repository import SituationRepository
@@ -74,7 +111,6 @@ class FollowupTurnGate:
         if self.db is None or not self.owner:
             return
         ids = []
-        # Current mutation and prior thread focus take precedence over Stage A.
         for value in (current, focus):
             if isinstance(value, dict) and value.get('id'):
                 ids.append(str(value['id']))
@@ -88,8 +124,6 @@ class FollowupTurnGate:
                 item = await SituationRepository(self.db).get(self.owner, sid)
                 if item is None or item.status not in ('active', 'changed'):
                     continue
-                # An explicit structured attention purpose is an unfinished
-                # responsibility, not evidence of an already scheduled job.
                 purpose = item.attention_intent or item.next_check_summary
                 if not purpose:
                     continue
@@ -102,21 +136,29 @@ class FollowupTurnGate:
                     'follow_up': state,
                 })
             except Exception:
-                # Do not infer an actionable responsibility from an unreadable
-                # or unowned record. Other runtime guards report tool failures.
                 continue
 
     def instruction(self) -> str:
         return FOLLOWUP_CONTRACT if self.pending else ''
 
     def accepts_final(self, decision, user_message: str, observations) -> bool:
+        # The caller supplies only this turn's observations. Never retain a
+        # previous answer when this turn has no evidence of a successful read.
+        self._readbacks = verified_readbacks(observations)
         if not self.pending:
             return True
         handling = getattr(decision, 'situation_followup', None)
         if handling is None:
             return False
         if handling.disposition == 'unrelated':
-            return True  # semantic judgement stays with cognition
+            return True
+        if handling.disposition == 'status_only':
+            refs = set(handling.evidence_refs or [])
+            available = {item['ref'] for item in self._readbacks}
+            return bool(
+                getattr(decision, 'response_mode', '') in ('answer', 'finish')
+                and refs and refs <= available
+            )
         candidate = next((x for x in self.pending if x['situation_id'] == handling.situation_id), None)
         if candidate is None:
             return False
@@ -134,7 +176,6 @@ class FollowupTurnGate:
             for x in uncertainty.missing_information
         ):
             return True
-        # Only actual observations from THIS turn can support a provider block.
         return any(
             x.get('kind') in ('tool', 'error') and
             x.get('status') in ('error', 'failed', 'unavailable', 'denied', 'blocked')
@@ -150,20 +191,27 @@ class FollowupTurnGate:
                 'situation_id': first['situation_id'],
                 'expected_revision': first['expected_revision'],
                 'candidates': self.pending,
+                'available_answer_refs': [item['ref'] for item in self._readbacks],
                 'reason': (
-                    'Your draft leaves an existing follow-up unaccounted for. '
-                    'Choose relevance semantically. For the responsibility continued by this '
-                    'message, read needed evidence and execute the next useful step; do not '
-                    'ask the person to choose whether you should check or what clock time to use. '
-                    'For unrelated work, an explicit restriction, or a genuine blocker, return '
-                    'the structured situation_followup disposition. No other candidate may be '
-                    'scheduled just because it exists. A schedule claim needs persisted read-back.'
+                    'First answer the actual question using current-turn source evidence. '
+                    'A factual status query can use status_only with exact factual_readback refs, '
+                    'without claiming that future work is active. Do not erase a successful read '
+                    'because scheduling failed. For delegated follow-up work, read needed evidence '
+                    'and execute the next useful step. For unrelated work, an explicit restriction '
+                    'or a real blocker, return the corresponding structured disposition. '
+                    'Never schedule other candidates merely because they exist.'
                 ),
             },
         }
 
-    @staticmethod
-    def failure_text() -> str:
+    def failure_text(self) -> str:
+        if self._readbacks:
+            item = self._readbacks[0]
+            return (
+                f"{item['label']}:\n«{item['text']}»\n\n"
+                'Questo è quanto riporta la fonte consultata. '
+                'Non risulta ancora attivo un controllo automatico per la situazione.'
+            )
         return (
             'Non risulta confermato un controllo automatico per la situazione. '
             'Non sono riuscita a completarne la valutazione operativa in questo turno: '
