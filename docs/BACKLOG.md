@@ -2,6 +2,25 @@
 
 Attività piccole e verificabili derivate da `docs/ROADMAP.md` e dall’audit.
 
+## BACKLOG-MEMO-COMPLEANNI — Memoria permanente e ricorrenze annuali
+
+**Richiesta di prodotto registrata il 7 ottobre 2026. Stato: DA IMPLEMENTARE E VERIFICARE.**
+Questa voce aggiunge un requisito al piano; non dichiara la funzione già disponibile e non crea promemoria reali. Non sostituisce il gate aperto sugli avvisi spontanei delle spedizioni.
+
+**Esperienza richiesta.** L'utente comunica naturalmente un compleanno, per esempio «il 13 marzo è il compleanno di mia zia Elena». ORA salva persona, relazione e giorno/mese nella memoria permanente e prende in carico il promemoria annuale. L'esempio è un caso di collaudo, non un dato personale da inserire nell'account. Risposta attesa, soltanto dopo persistenza verificata della memoria e della ricorrenza: «Va bene, te lo ricorderò ogni 13 marzo».
+
+**Regola esplicita di creazione della stella, precisata dall'utente:**
+- Con **un solo compleanno distinto**, memoria permanente e ricorrenza annuale sono già attive, ma **la stella di gruppo “Compleanni” non deve ancora essere creata**.
+- Al salvataggio del **secondo compleanno distinto**, ORA crea automaticamente **una sola stella permanente “Compleanni”**. Il tap apre l'elenco di tutti i compleanni registrati, inclusi il primo e il secondo.
+- Dal terzo compleanno in poi si aggiorna lo stesso gruppo, senza nuove stelle di categoria o duplicazione delle voci.
+- La soglia riguarda compleanni distinti effettivamente salvati, non il numero di messaggi: ripetere o correggere lo stesso compleanno non fa scattare il gruppo. Due persone diverse nate nello stesso giorno sono due compleanni distinti.
+
+**Persistenza e autonomia.** La ricorrenza deve sopravvivere a chiusura dell'app, nuove chat, riavvii e cambio d'anno. Un avviso annuale non cancella la memoria e non esaurisce la ricorrenza: viene preparata l'occorrenza successiva. Memoria e promemoria devono essere verificati separatamente; nessuna promessa di avviso se il lavoro non è stato salvato. Non richiedere l'anno di nascita se non serve: giorno e mese bastano al compleanno annuale; nessuna età inventata. Rispettare fuso orario, preferenze e disponibilità reale dei canali di avviso, senza promettere push non abilitate.
+
+**Modifiche e controllo dell'utente.** Correzioni di data/persona aggiornano la stessa voce e la relativa ricorrenza; disattivare un promemoria non equivale a dimenticare la data. Richieste di cancellazione devono eliminare soltanto i dati e gli avvisi pertinenti, rispettando le conferme previste. Omonimi e date ambigue richiedono il solo chiarimento necessario. La politica per il 29 febbraio e il comportamento del gruppo quando le voci tornano da due a una vanno definiti prima dell'implementazione, senza modificare la soglia iniziale richiesta.
+
+**Criteri di accettazione:** primo compleanno persistito + ricorrenza, nessun gruppo; secondo distinto → un gruppo con entrambe le voci; terzo → stesso gruppo; duplicato/correzione → nessuna nuova voce o ricorrenza; avviso alla ricorrenza senza un secondo messaggio; memoria e promemoria mantenuti per l'anno successivo; isolamento tra utenti; nessuna notifica duplicata dopo retry o riavvio. Competenza della conversazione e della mappa esistente, non un pulsante principale o un'app separata.
+
 ## Priorità corrente — 25 settembre 2026
 
 V4 autonomia trasversale anticipata prima di V3.23 su richiesta del
@@ -66,7 +85,7 @@ Criteri e fasi successive: `ROADMAP.md`, fonte canonica. Nessun GPT-Live, WhatsA
 
 - **Stato:** completato codice + pytest (2026-08-05, branch `feature/home-v2-intelligence`)
 - **Obiettivo:** Home risponde “cosa è più utile sapere/fare adesso” con ranking reale multi-fonte.
-- **Aree:** `backend/home/*`, `frontend/app/(tabs)/index.tsx`, `frontend/src/components/home/v2/*`, `frontend/app/situazione.tsx`, docs `HOME_V2_*`.
+- **Aree:** `backend/home/*`, `frontend/src/components/home/v2/*`, `frontend/app/situazione.tsx`, docs `HOME_V2_*`.
 - **Accettazione:** `/api/home` aggrega fonti fail-soft; UI senza seed/static/dead buttons; Playwright web.
 - **Test:** `tests/test_home_v2.py` (21); Playwright `e2e/home-v2.spec.ts`.
 - **Non verificato:** native mobile.
@@ -76,7 +95,7 @@ Criteri e fasi successive: `ROADMAP.md`, fonte canonica. Nessun GPT-Live, WhatsA
 
 - **Stato:** codice + pytest (2026-08-05, branch `feature/ora-action-engine`)
 - **Obiettivo:** Apri/Organizza/Inizia/card aprono sempre un flusso guidato (mai pagina vuota).
-- **Aree:** `backend/action_engine/*`, `frontend/src/action-engine/*`, `frontend/app/action/*`, Home wiring.
+- **Aree:** `backend/action_engine/*`, CE router/service, `frontend/app/action/*`, Home wiring.
 - **Accettazione:** API open→answer→complete; Brain/project/calendar/reminder; Home refresh; medical senza consigli.
 - **Test:** `tests/test_action_engine.py`; regressione home_v2 / documents_v2.
 - **Non verificato:** Playwright E2E Action Engine; native; weather live.
@@ -86,7 +105,7 @@ Criteri e fasi successive: `ROADMAP.md`, fonte canonica. Nessun GPT-Live, WhatsA
 
 - **Stato:** completato codice + pytest (2026-08-05, branch `feature/complete-study-action-flow`)
 - **Obiettivo:** Intent study → piano confermato con sessioni/materiali/tools/Home/resume.
-- **Aree:** `backend/action_engine/study/*`, AE router/service, Home study adapter, `frontend/app/action/*`, `frontend/app/study-plan/*`.
+- **Aree:** `backend/action_engine/study/*`, AE router/service, `frontend/app/study-plan/*`.
 - **Accettazione:** preview+confirm obbligatori; idempotency; Google/Gemini opzionali; niente complete silenzioso via API.
 - **Test:** `tests/test_study_action_flow.py`; Playwright `e2e/study-action-flow.spec.ts`.
 - **Non verificato:** native mobile; Google sync senza credenziali.
@@ -95,7 +114,7 @@ Criteri e fasi successive: `ROADMAP.md`, fonte canonica. Nessun GPT-Live, WhatsA
 ## BACKLOG-003 — Messaggi UI per LLM assente
 
 - **Obiettivo:** su “Risolvi” e “Chiedi alla memoria”, mostrare copy italiano “AI non configurata” invece di errore grezzo.
-- **Aree:** Home sheets / `memoria.tsx`, `humanizeError`.
+- **Aree:** Home sheets / `memoria.tsx`, `humanizeErrorError`.
 - **Accettazione:** senza `OPENAI_API_KEY`, tap mostra messaggio chiaro; app non crasha.
 - **Test:** UI + HTTP 503 già esistente.
 - **Dipendenze:** nessuna chiave.
