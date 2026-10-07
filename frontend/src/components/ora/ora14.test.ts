@@ -386,7 +386,11 @@ console.log('ora14: all assertions passed');
 }
 
 // v103: finite monitoring is visible and separate from notification trigger.
-assert.ok(cockpit.includes('Obiettivo del monitoraggio'));
-assert.ok(cockpit.includes('Quando termina'));
-assert.ok(knowledge.includes('monitoring_goal'));
-assert.ok(knowledge.includes('ends_when'));
+{
+  const cockpit = readCode('src/components/ora/OraCockpitContext.tsx');
+  const knowledge = readCode('src/components/ora/presence/knowledge.ts');
+  assert.ok(cockpit.includes('Obiettivo del monitoraggio'));
+  assert.ok(cockpit.includes('Quando termina'));
+  assert.ok(knowledge.includes('monitoring_goal'));
+  assert.ok(knowledge.includes('ends_when'));
+}
