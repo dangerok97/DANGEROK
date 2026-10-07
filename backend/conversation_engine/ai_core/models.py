@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Literal, Optional
 from pydantic import BaseModel, Field, field_validator, model_validator
 from context_graph.models import ContextEdgeUpdate
 from situations.models import SituationUpdate
+from situations.turn_followup import FollowupDisposition
 
 ResponseMode = Literal[
     "answer", "ask", "tool", "act", "context", "research", "compare", "finish"
@@ -309,6 +310,7 @@ class CognitiveDecision(BaseModel):
     # Optional epistemic self-report (not shown to user)
     claim_grounding: Optional[GroundingKind] = None
     situation_update: Optional[SituationUpdate] = None
+    situation_followup: Optional[FollowupDisposition] = None
     uncertainty: Optional[UncertaintyState] = None
     context_graph_updates: List[ContextEdgeUpdate] = Field(
         default_factory=list, max_length=2

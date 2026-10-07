@@ -1192,6 +1192,12 @@ You MUST reply with a single JSON object:
     "reason_for_future_utility": "why later turns benefit",
     "requires_confirmation": false, "user_authorized": false
   }],
+  "situation_followup": {
+    "disposition": "continue|unrelated|declined|blocked",
+    "situation_id": "exact current follow-up candidate id, or null for unrelated",
+    "reason": "short operational reason",
+    "user_words": "exact user restriction for declined only, otherwise null"
+  } or null,
   "situation_update": {
     "operation": "none|create|update|cancel|resolve",
     "situation_id": "existing id or null; ALWAYS null for create",
