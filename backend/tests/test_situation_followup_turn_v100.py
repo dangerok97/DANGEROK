@@ -66,7 +66,8 @@ async def test_old_situation_no_mutation_rejects_menu_and_executes_read_then_sch
             return {'response_mode': 'tool', 'tool_call': {'capability': 'schedule_situation_check',
                 'arguments': {'situation_id': state.id, 'expected_revision': 1, 'check_at': due,
                               'purpose': 'Rivalutare i dati reali al prossimo controllo.',
-                              'notify_when': 'Se emerge un rischio o cambia il prossimo passo utile.'}}}
+                              'completion_when': 'Quando le evidenze indicano che è arrivato il momento utile per concludere.',
+                              'notify_when': 'Se prima emerge un rischio o cambia il prossimo passo utile.'}}}
         assert len(calls) == 4
         return {'response_mode': 'answer', 'message_to_user': 'Prima mancava il controllo; ora risulta registrato nella scheda.'}
 
@@ -119,7 +120,9 @@ async def test_already_scheduled_status_read_preserves_deadline(monkeypatch):
     db, session, state = await setup(monkeypatch)
     due = (datetime.now(timezone.utc) + timedelta(minutes=20)).isoformat()
     await arrange_followup(db, session.user_id, situation_id=state.id, expected_revision=1,
-        check_at=due, purpose='Verificare le condizioni.', notify_when='Se cambia il prossimo passo.')
+        check_at=due, purpose='Verificare le condizioni.',
+        completion_when='Quando le evidenze indicano che è arrivato il momento utile per concludere.',
+        notify_when='Se prima cambia il prossimo passo per un rischio.')
     decide = AsyncMock(return_value={'response_mode': 'answer', 'message_to_user': 'Il controllo già registrato resta invariato.'})
     result = await run_cognitive_loop(sess=session, user_message=QUESTION, db=db, decision_fn=decide)
     assert decide.await_count == 1 and result.tool_calls == 0
