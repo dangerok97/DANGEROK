@@ -392,9 +392,14 @@ async def _cycle(db, ticks):
     from agent.background import recover_due
     from delivery.admission import drain as review_delivery
     from energy_offers.service import EnergyOfferService
+    from memos.service import RecurringMemoService
     _launch("sources", lambda: read_sources(db), timeout=120)
     _launch("admission", lambda: recover_due(db), timeout=110)
     _launch("delivery-admission", lambda: review_delivery(db), timeout=125)
+    # Durable recurring memos are cheap when nothing is due: one indexed query.
+    # When one is due it becomes an ordinary Opportunity, so the existing
+    # delivery judgement decides in-app/push rather than this scheduler.
+    _launch("recurring-memos", lambda: RecurringMemoService(db).fire_due(), timeout=30)
     # Two due jobs can make progress, never an unbounded task per user.
     for n in range(2):
         _launch(f"work-{n}", lambda: tick(db, limit=1), timeout=HANDLER_TIMEOUT_SECONDS + 10)
