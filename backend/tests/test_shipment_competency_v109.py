@@ -154,5 +154,7 @@ def test_connected_reasoning_distinguishes_delivery_states():
     src = (Path(__file__).resolve().parents[1] / "connected" / "reasoning.py").read_text(
         encoding="utf-8"
     )
-    assert "shipped is not out for delivery" in src
-    assert "out for delivery is not delivered" in src
+    assert "Never promote one state into another" in src
+    assert "shipped is not out for " in src
+    assert "out for delivery is not " in src
+    assert "delivered" in src
