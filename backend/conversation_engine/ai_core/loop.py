@@ -1090,6 +1090,7 @@ async def run_cognitive_loop(
     life_os_writes_this_turn = 0
     update_object_ok_this_turn = False
     situation_result: Optional[Dict[str, Any]] = None
+    situation_write_confirmed_this_turn = False
     situation_plan_nudge_used = False
     linked_plan_pending_id: Optional[str] = None
     linked_plan_reconciled_this_turn = False
@@ -1537,6 +1538,9 @@ async def run_cognitive_loop(
                 )
                 st["active_situation_ref"] = dict(
                     situation_result.get("situation") or {}
+                )
+                situation_write_confirmed_this_turn = (
+                    str((situation_result or {}).get("status") or "") == "success"
                 )
                 observations.append(
                     Observation(
@@ -2004,36 +2008,75 @@ async def run_cognitive_loop(
                 and step + 1 < max_steps
             ):
                 memory_claim_nudge_used = True
+                if situation_write_confirmed_this_turn:
+                    reason = (
+                        "A temporary Situation was persisted successfully in this turn, but no durable "
+                        "Memory governance write was persisted. Rewrite the answer from the Situation "
+                        "and any successful follow-up observation: say naturally that ORA is keeping "
+                        "the current situation in view and what outcome/early warning it will handle. "
+                        "Do NOT say it was saved 'in memory', and do NOT report a persistence failure."
+                    )
+                    failure_code = "TEMPORARY_SITUATION_IS_NOT_DURABLE_MEMORY"
+                    event = "TEMPORARY_SITUATION_MEMORY_WORDING_NUDGE"
+                else:
+                    reason = (
+                        "No persisted Memory governance outcome exists for this turn. "
+                        "If durable learning is warranted, emit a bounded memory_candidate "
+                        "and wait for memory_governance. Otherwise answer without claiming "
+                        "that anything was remembered, saved, forgotten, or noted for future use."
+                    )
+                    failure_code = "MEMORY_PERSIST_REQUIRED"
+                    event = "MEMORY_PERSIST_NUDGE"
                 observations.append(
                     Observation(
                         kind="system",
                         name="memory_persist_before_claim",
                         status="nudge",
-                        payload={
-                            "failure_code": "MEMORY_PERSIST_REQUIRED",
-                            "reason": (
-                                "No persisted Memory governance outcome exists for this turn. "
-                                "If durable learning is warranted, emit a bounded memory_candidate "
-                                "and wait for memory_governance. Otherwise answer without claiming "
-                                "that anything was remembered, saved, forgotten, or noted for future use."
-                            ),
-                        },
+                        payload={"failure_code": failure_code, "reason": reason},
                     ).model_dump()
                 )
-                add_step(trace, event="MEMORY_PERSIST_NUDGE")
+                add_step(trace, event=event)
                 continue
             if unpersisted_memory_claim:
-                # The model exhausted its reasoning budget without a persisted
-                # governance outcome. Never let a final-turn wording bypass the
-                # persist-before-claim invariant.
-                decision.message_to_user = (
-                    "Non sono riuscita a salvare questa informazione in memoria "
-                    "in questo momento. Possiamo riprovare."
-                )
+                # Keep the durable-Memory invariant, but never turn a successful
+                # temporary Situation write into a false persistence failure.
+                if situation_write_confirmed_this_turn:
+                    followup = next(
+                        (
+                            obs for obs in reversed(observations[turn_start:])
+                            if isinstance(obs, dict)
+                            and obs.get("name") == "schedule_situation_check"
+                            and obs.get("status") == "ok"
+                        ),
+                        None,
+                    )
+                    payload = (followup or {}).get("payload") or {}
+                    completion = str(payload.get("completion_when") or "").strip()
+                    early = str(payload.get("notify_when") or "").strip()
+                    if completion and early:
+                        decision.message_to_user = (
+                            f"Sto seguendo questa situazione. Ti avviso quando {completion.rstrip('.').lower()}. "
+                            f"Se prima {early.rstrip('.').lower()}, ti avviso prima."
+                        )
+                    elif completion:
+                        decision.message_to_user = (
+                            f"Sto seguendo questa situazione. Ti avviso quando {completion.rstrip('.').lower()}."
+                        )
+                    else:
+                        decision.message_to_user = (
+                            "Sto seguendo questa situazione temporanea in ORA. "
+                            "Non l'ho salvata come memoria durevole."
+                        )
+                    add_step(trace, event="TEMPORARY_SITUATION_MEMORY_CLAIM_REWRITTEN")
+                else:
+                    decision.message_to_user = (
+                        "Non sono riuscita a salvare questa informazione in memoria "
+                        "in questo momento. Possiamo riprovare."
+                    )
+                    add_step(trace, event="MEMORY_CLAIM_BLOCKED_TERMINAL")
                 decision.question = None
                 mode = "answer"
                 ora = _compose_user_text(decision, observations[turn_start:])
-                add_step(trace, event="MEMORY_CLAIM_BLOCKED_TERMINAL")
             unconfirmed_graph_claim = (
                 mode in ("answer", "finish", "act")
                 and not graph_write_confirmed_this_turn
