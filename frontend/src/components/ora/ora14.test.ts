@@ -413,3 +413,19 @@ console.log('ora14: all assertions passed');
   assert.ok(presence.includes("fact.group_kind === 'birthdays' && fact.group_items?.length"));
   assert.ok(!presence.includes('btn-birthday-reminder'), 'Memo stays an ORA competency, not a dedicated button');
 }
+
+
+// v114: the map is functional navigation, not decoration. New/updated/talked-about
+// knowledge must reach the scene as a structured spotlight.
+{
+  const screen = readCode(SCREEN);
+  const presence = readCode('src/components/ora/presence/OraPresence.tsx');
+  const mobile = readCode('src/components/ora/presence/OraPresence.web.tsx');
+  assert.ok(screen.includes('display_focus_ref?: string | null'));
+  assert.ok(screen.includes('spotlightRef={mapFocusRef}'));
+  assert.ok(screen.includes('setMapFocusRef(String(res.display_focus_ref ||'));
+  assert.ok(presence.includes('learned.changedStars'));
+  assert.ok(presence.includes('(star.source_refs || []).includes(spotlightRef)'));
+  assert.ok(mobile.includes('learned.changedStars'));
+  assert.ok(mobile.includes("highlighted.temporary ? 'MEMORIA TEMPORANEA IN EVIDENZA' : 'STELLA IN EVIDENZA'"));
+}
