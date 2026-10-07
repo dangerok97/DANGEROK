@@ -1386,12 +1386,6 @@ function OraConversationBody({
   const temporaryMemory = useTemporaryMemory(true, turns.length);
   const [selectedMapStarId, setSelectedMapStarId] = useState<string | null>(null);
   const [mapRefreshKey, setMapRefreshKey] = useState(0);
-  const latestTemporaryIsRecent = Boolean(
-    temporaryMemory.latest &&
-    (!temporaryMemory.latest.updated_at ||
-      Date.now() - new Date(temporaryMemory.latest.updated_at).getTime() <= 15 * 60 * 1000),
-  );
-
   /*
     Le scorciatoie sotto il composer. Non sono decorazione: due preparano
     un messaggio a ORA, una apre i documenti, una apre le chiamate.
