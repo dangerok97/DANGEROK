@@ -163,7 +163,7 @@ test('keyboard visual viewport and landscape keep composer inside visible area',
 // API fixtures test rendering/selection/refresh only, not AI or background execution.
 test('mobile selected Situation exposes real follow-up fields, scrolls and removes only on success', async ({ page }, info) => {
   await page.setViewportSize({ width: 390, height: 740 });
-  const controls = { followup: { status: 'scheduled', next_check_at: '2026-10-08T14:30:00+02:00', last_checked_at: '2026-10-08T13:00:00+02:00', completion_when: 'Il risultato utile è raggiunto — condizione simulata', notify_when: 'Una variazione utile rilevata — condizione simulata' }, removeFails: true, dismissed: [] as string[] };
+  const controls = { followup: { status: 'scheduled', next_check_at: '2026-10-07T15:00:00Z', next_check_label: '7 ott 2026, 17:00', timezone: 'Europe/Rome', last_checked_at: '2026-10-08T13:00:00+02:00', completion_when: 'Il risultato utile è raggiunto — condizione simulata', notify_when: 'Una variazione utile rilevata — condizione simulata' }, removeFails: true, dismissed: [] as string[] };
   const posts = await fixture(page, controls);
   await page.getByTestId('ora-mobile-open-map').click();
   const modal = page.getByTestId('ora-mobile-expanded-map');
@@ -174,6 +174,9 @@ test('mobile selected Situation exposes real follow-up fields, scrolls and remov
   await expect(card).toContainText('Controllo programmato');
   await expect(card).toContainText('Prossimo controllo');
   await expect(card).toContainText('Ultimo controllo eseguito');
+  // Backend local projection wins even when the browser's timezone differs.
+  await expect(card).toContainText('7 ott 2026, 17:00');
+  await expect(card).not.toContainText('7 ott 2026, 15:00');
   await expect(card).toContainText('Ti avviso quando');
   await expect(card).toContainText('Il risultato utile è raggiunto — condizione simulata');
   await expect(card).toContainText('Ti avviso prima se');

@@ -15,6 +15,8 @@ from agent.repository import AgentRepository
 from ambient.service import AmbientService
 from conversation_engine.ai_core.models import Observation
 from situations.repository import SituationRepository
+from situations.clock import local_check_fields
+from timezone_service import user_clock_context
 
 OPEN = ("proposed", "active", "waiting")
 KIND = "situation_followup"
@@ -38,7 +40,9 @@ def goal_id_for(owner, situation_id):
 
 async def read_followup(db, owner, situation_id):
     """Read back a real goal, wake and executed check, never presentation copy."""
-    out = {"status": "unavailable", "next_check_at": None, "last_checked_at": None,
+    out = {"status": "unavailable", "situation_id": situation_id, "next_check_at": None, "last_checked_at": None,
+           "next_check_at_local": None, "next_check_time_local": None, "next_check_label": None,
+           "timezone": None, "timezone_authority": None,
            "goal_id": None, "purpose": None, "notify_when": None,
            "completion_when": None, "monitoring_goal": None, "ends_when": None,
            "runtime_enabled": _enabled(), "delivery_channel": "in_app",
@@ -49,6 +53,8 @@ async def read_followup(db, owner, situation_id):
         situation = await SituationRepository(db).get(owner, situation_id)
         if situation is None:
             return out
+        clock = await user_clock_context(db, owner)
+        out.update(timezone=clock["timezone"], timezone_authority=clock["authority"])
         if situation.status not in ("active", "changed"):
             return {**out, "status": "stopped"}
         ref = f"situation:{situation_id}"
@@ -102,7 +108,8 @@ async def read_followup(db, owner, situation_id):
         if at is None:
             return out
         return {**out, "status": ("runtime_disabled" if not _enabled() else "due" if at <= now else "scheduled"),
-                "next_check_at": at.isoformat()}
+                "next_check_at": at.isoformat(),
+                **local_check_fields(at, clock["timezone"])}
     except Exception:
         # A failed read is not proof that no job was scheduled.
         return out
@@ -257,6 +264,6 @@ def register_followup_tools(registry):
         input_schema={"type": "object", "properties": {"situation_id": {"type": "string"}}, "required": ["situation_id"]},
         classification="personal", side_effect="READ_ONLY", freshness="fresh", handler=get_situation_followup))
     registry.register(CapabilitySpec(
-        capability="schedule_situation_check", description="Persist a real first follow-up in the existing background runtime for an active Situation. Choose checkpoint and purpose from current evidence, not by asking the user to supervise ORA. Reuses existing work without postponing it. Does not send a notification, grant external write authority, or prove an outcome. Read the returned status before promising a check.",
+        capability="schedule_situation_check", description="Persist a real first follow-up in the existing background runtime for an active Situation. Choose checkpoint and purpose from current evidence, not by asking the user to supervise ORA. Reuses existing work without postponing it. Does not send a notification, grant external write authority, or prove an outcome. Read the returned status before promising a check. For dialogue use next_check_label and timezone from the result, not the raw UTC hour or the proposed check_at. This operation does not measure any physical state.",
         input_schema={"type": "object", "properties": {"situation_id": {"type": "string"}, "expected_revision": {"type": "integer"}, "check_at": {"type": "string", "description": "Timezone-aware ISO8601, within 72 hours. A recheck time, not a predicted completion."}, "purpose": {"type": "string", "maxLength": 300}, "completion_when": {"type": "string", "maxLength": 400, "description": "Plain user-facing condition/outcome ORA is trying to reach; no implementation wording. Must be grounded in evidence."}, "notify_when": {"type": "string", "maxLength": 400, "description": "Earlier exceptional condition worth warning about before completion."}}, "required": ["situation_id", "expected_revision", "check_at", "purpose", "completion_when", "notify_when"]},
         classification="personal", side_effect="REVERSIBLE_WRITE", risk="write_soft", freshness="fresh", handler=schedule_situation_check))

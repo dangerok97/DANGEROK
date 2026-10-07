@@ -15,6 +15,10 @@ export type KnowledgeStar = {
   follow_up?: {
     status: string;
     next_check_at?: string | null;
+    next_check_at_local?: string | null;
+    next_check_label?: string | null;
+    timezone?: string | null;
+    timezone_authority?: string | null;
     last_checked_at?: string | null;
     purpose?: string | null;
     notify_when?: string | null;

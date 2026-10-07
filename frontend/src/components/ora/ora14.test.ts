@@ -395,3 +395,9 @@ console.log('ora14: all assertions passed');
   assert.ok(!cockpit.includes('Quando termina'));
   assert.ok(knowledge.includes('completion_when'));
 }
+
+// v107: show the same server-projected local schedule as conversation readback.
+{
+  const rail = readCode('src/components/ora/OraCockpitContext.tsx');
+  assert.ok(rail.includes('followup.next_check_label || timeLabel(followup.next_check_at)'));
+}
