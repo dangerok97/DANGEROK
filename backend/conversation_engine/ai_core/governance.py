@@ -477,6 +477,7 @@ def validate_decision(
             confidence=_clamp_conf(data.get("confidence")),
             claim_grounding=data.get("claim_grounding"),
             situation_update=situation_update,
+            situation_followup=data.get("situation_followup"),
             uncertainty=uncertainty,
             context_graph_updates=graph_updates,
             goal_state=goal_state,

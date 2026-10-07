@@ -1091,7 +1091,6 @@ async def run_cognitive_loop(
     update_object_ok_this_turn = False
     situation_result: Optional[Dict[str, Any]] = None
     situation_plan_nudge_used = False
-    situation_followup_nudge_used = False
     linked_plan_pending_id: Optional[str] = None
     linked_plan_reconciled_this_turn = False
     memory_governance_rounds = 0
@@ -1140,6 +1139,11 @@ async def run_cognitive_loop(
 
     clock_context = await user_clock_context(db, sess.user_id)
 
+    from situations.turn_followup import FollowupTurnGate
+    followup_gate = FollowupTurnGate(db, sess.user_id)
+    if (sess.meta or {}).get("entry_point") != "phone":
+        await followup_gate.refresh(context_facts, st.get("active_situation_ref"))
+
     for step in range(max(1, max_steps)):
         # Every conversational step reaches the cognitive model. A tool may
         # carry exact material facts in say_this, but that is a post-reasoning
@@ -1165,6 +1169,8 @@ async def run_cognitive_loop(
             observations=observations[-6:],
             current_facts={
                 **(st.get("current_facts") or {}),
+                **({"situation_followup_contract": followup_gate.pending}
+                   if followup_gate.pending else {}),
                 **(
                     {"active_phone_input_hint": phone_input_hint}
                     if phone_input_hint else {}
@@ -1188,7 +1194,7 @@ async def run_cognitive_loop(
         _t = time.perf_counter()
         raw = await _call_ai(
             decision_fn=decision_fn,
-            system=COGNITIVE_SYSTEM_PROMPT,
+            system=COGNITIVE_SYSTEM_PROMPT + followup_gate.instruction(),
             user=payload,
             user_preference=user_llm_preference,
             # Vale a ogni passo del ragionamento, e non c'è nessun tetto per
@@ -1229,7 +1235,7 @@ async def run_cognitive_loop(
         if not gov.ok or not gov.decision:
             raw2 = await _call_ai(
                 decision_fn=decision_fn,
-                system=COGNITIVE_SYSTEM_PROMPT
+                system=COGNITIVE_SYSTEM_PROMPT + followup_gate.instruction()
                 + "\nPrevious output was invalid. Return valid JSON only.",
                 user=payload,
                 user_preference=user_llm_preference,
@@ -1764,17 +1770,19 @@ async def run_cognitive_loop(
                 from situations.followup import read_followup
                 followup = await read_followup(db, sess.user_id, persisted["id"])
                 situation_result["follow_up"] = followup
-                if (mode in ("answer", "finish") and persisted.get("attention_intent")
-                    and followup["status"] in ("not_scheduled", "recovery_pending")
-                    and not situation_followup_nudge_used and step + 1 < max_steps):
-                    situation_followup_nudge_used = True
-                    observations.append(Observation(kind="system", name="situation_followup_required", status="nudge", payload={
-                        "situation_id": persisted["id"], "expected_revision": persisted.get("revision"),
-                        "follow_up": followup,
-                        "reason": "The Situation was saved but no executable checkpoint is confirmed. You chose an attention_intent. Read needed live evidence and call schedule_situation_check with your own justified checkpoint and notification condition before promising monitoring. Do not ask the user to pick a time or authorize required read-only checks. If required information/provider access is missing, explain that concrete blocker. A time window in prose is not a scheduler entry."
-                    }).model_dump())
-                    add_step(trace, event="SITUATION_FOLLOWUP_NUDGE")
-                    continue
+            if mode in ("answer", "ask", "finish") and not phone_owns_turn:
+                await followup_gate.refresh(context_facts, st.get("active_situation_ref"), persisted)
+                if not followup_gate.accepts_final(decision, user_message, observations[turn_start:]):
+                    if not followup_gate.nudged and step + 1 < max_steps:
+                        observations.append(followup_gate.observation())
+                        add_step(trace, event="SITUATION_FOLLOWUP_NUDGE")
+                        continue
+                    # A second process menu is a failed turn, not autonomy.
+                    # Keep the failure visible without inventing a job or
+                    # sending a canned question back to the person.
+                    decision = CognitiveDecision(response_mode="answer", message_to_user=followup_gate.failure_text())
+                    mode = "answer"
+                    add_step(trace, event="SITUATION_FOLLOWUP_UNRESOLVED")
             if linked_plan_pending_id and not linked_plan_reconciled_this_turn:
                 first_nudge = not situation_plan_nudge_used
                 situation_plan_nudge_used = True
