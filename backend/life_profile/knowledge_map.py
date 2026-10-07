@@ -203,6 +203,12 @@ async def knowledge_map(db, user_id: str) -> dict:
         })
 
     notes = await db.memories.find({"user_id": user_id, "status": {"$nin": ["forgotten", "superseded", "rejected", "expired"]}}, {"_id": 0}).to_list(None)
+    birthday_items = []
+    birthday_updated = []
+    month_names = (
+        "", "gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno",
+        "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre",
+    )
     for note in notes:
         expiry = note.get("expires_at") or (note.get("temporal_scope") or {}).get("ends_at")
         if expiry:
@@ -216,12 +222,53 @@ async def knowledge_map(db, user_id: str) -> dict:
         note_id = note.get("id") or note.get("memory_id")
         if not statement or not note_id or note.get("status", "active") not in ("active", "known") or note.get("authority") == "device":
             continue
+
+        value = note.get("value") if isinstance(note.get("value"), dict) else {}
+        if note.get("kind") == "birthday":
+            try:
+                month = int(value.get("month"))
+                day = int(value.get("day"))
+            except (TypeError, ValueError):
+                month = day = 0
+            if 1 <= month <= 12 and 1 <= day <= 31:
+                person = str(value.get("person") or "").strip()
+                birthday_items.append({
+                    "memory_ref": str(note_id),
+                    "label": person or str(statement),
+                    "month": month,
+                    "day": day,
+                    "date_label": f"{day} {month_names[month]}",
+                })
+                birthday_updated.append(
+                    str(note.get("updated_at") or note.get("created_at") or "")
+                )
+                continue
+
         domain = note.get("domain") or ""
         vita = area_for_domain(domain)
         stars.append({"id": stable_id("memory:" + str(note_id)), "area": DOMAIN_HUB.get(domain, "memory"),
             "branch_id": vita.id if vita else None, "title": "Ricordo", "statement": str(statement),
             "status": "likely" if note.get("epistemic_status") in ("inferred", "tentative") else "known", "provenance": "Salvato in memoria",
             "updated_at": note.get("updated_at") or note.get("created_at")})
+
+    if birthday_items:
+        birthday_items.sort(key=lambda item: (item["month"], item["day"], item["label"].lower()))
+        count = len(birthday_items)
+        stars.append({
+            "id": stable_id("memory_group:birthdays"),
+            "area": "people",
+            "branch_id": None,
+            "title": "Compleanni",
+            "statement": (
+                f"{count} compleanno salvato" if count == 1
+                else f"{count} compleanni salvati"
+            ),
+            "status": "known",
+            "provenance": "Salvati in memoria",
+            "updated_at": max(birthday_updated) if birthday_updated else None,
+            "group_kind": "birthdays",
+            "group_items": birthday_items,
+        })
     stars.sort(key=lambda s: s["id"])
     area_domains = {a.id: a.domains[0] for a in all_areas()}
     branches = [{**a.model_dump(), "area": DOMAIN_HUB.get(area_domains[a.area_id], "memory"),
