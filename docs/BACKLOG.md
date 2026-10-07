@@ -85,7 +85,7 @@ Criteri e fasi successive: `ROADMAP.md`, fonte canonica. Nessun GPT-Live, WhatsA
 
 - **Stato:** completato codice + pytest (2026-08-05, branch `feature/home-v2-intelligence`)
 - **Obiettivo:** Home risponde “cosa è più utile sapere/fare adesso” con ranking reale multi-fonte.
-- **Aree:** `backend/home/*`, `frontend/src/components/home/v2/*`, `frontend/app/situazione.tsx`, docs `HOME_V2_*`.
+- **Aree:** `backend/home/*`, `frontend/app/(tabs)/index.tsx`, `frontend/src/components/home/v2/*`, `frontend/app/situazione.tsx`, docs `HOME_V2_*`.
 - **Accettazione:** `/api/home` aggrega fonti fail-soft; UI senza seed/static/dead buttons; Playwright web.
 - **Test:** `tests/test_home_v2.py` (21); Playwright `e2e/home-v2.spec.ts`.
 - **Non verificato:** native mobile.
@@ -95,7 +95,7 @@ Criteri e fasi successive: `ROADMAP.md`, fonte canonica. Nessun GPT-Live, WhatsA
 
 - **Stato:** codice + pytest (2026-08-05, branch `feature/ora-action-engine`)
 - **Obiettivo:** Apri/Organizza/Inizia/card aprono sempre un flusso guidato (mai pagina vuota).
-- **Aree:** `backend/action_engine/*`, CE router/service, `frontend/app/action/*`, Home wiring.
+- **Aree:** `backend/action_engine/*`, `frontend/src/action-engine/*`, `frontend/app/action/*`, Home wiring.
 - **Accettazione:** API open→answer→complete; Brain/project/calendar/reminder; Home refresh; medical senza consigli.
 - **Test:** `tests/test_action_engine.py`; regressione home_v2 / documents_v2.
 - **Non verificato:** Playwright E2E Action Engine; native; weather live.
@@ -105,7 +105,7 @@ Criteri e fasi successive: `ROADMAP.md`, fonte canonica. Nessun GPT-Live, WhatsA
 
 - **Stato:** completato codice + pytest (2026-08-05, branch `feature/complete-study-action-flow`)
 - **Obiettivo:** Intent study → piano confermato con sessioni/materiali/tools/Home/resume.
-- **Aree:** `backend/action_engine/study/*`, AE router/service, `frontend/app/study-plan/*`.
+- **Aree:** `backend/action_engine/study/*`, AE router/service, Home study adapter, `frontend/app/action/*`, `frontend/app/study-plan/*`.
 - **Accettazione:** preview+confirm obbligatori; idempotency; Google/Gemini opzionali; niente complete silenzioso via API.
 - **Test:** `tests/test_study_action_flow.py`; Playwright `e2e/study-action-flow.spec.ts`.
 - **Non verificato:** native mobile; Google sync senza credenziali.
@@ -114,7 +114,7 @@ Criteri e fasi successive: `ROADMAP.md`, fonte canonica. Nessun GPT-Live, WhatsA
 ## BACKLOG-003 — Messaggi UI per LLM assente
 
 - **Obiettivo:** su “Risolvi” e “Chiedi alla memoria”, mostrare copy italiano “AI non configurata” invece di errore grezzo.
-- **Aree:** Home sheets / `memoria.tsx`, `humanizeErrorError`.
+- **Aree:** Home sheets / `memoria.tsx`, `humanizeError`.
 - **Accettazione:** senza `OPENAI_API_KEY`, tap mostra messaggio chiaro; app non crasha.
 - **Test:** UI + HTTP 503 già esistente.
 - **Dipendenze:** nessuna chiave.
