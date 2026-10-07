@@ -146,6 +146,27 @@ export default function ConnessioniScreen() {
     }
   }, [router]);
 
+  const startGmailOAuth = useCallback(async () => {
+    if (busy === 'mail_connect') return;
+    haptic('tap');
+    setBusy('mail_connect');
+    setError(null);
+    try {
+      const redirect_after =
+        typeof window !== 'undefined' && window.location?.origin
+          ? `${window.location.origin}/settings`
+          : undefined;
+      const r = await api.gmailOAuthStart({ redirect_after });
+      const win: any = typeof window !== 'undefined' ? window : null;
+      if (win?.location) win.location.assign(r.authorize_url);
+      else router.push('/settings');
+    } catch (e: any) {
+      haptic('error');
+      setError(humanizeError(e, 'connect'));
+      setBusy(null);
+    }
+  }, [busy, router]);
+
   const guard = useInflight();
 
   const onRevoke = useCallback(async () => {
@@ -344,10 +365,22 @@ export default function ConnessioniScreen() {
                     <BoundaryNote icon="lock-closed-outline">{MAIL_BOUNDARY}</BoundaryNote>
                   </>
                 ) : (
-                  <Text style={[styles.reconnectText, { color: colors.textSecondary }]}>
-                    ORA non sta leggendo nessuna casella. Puoi ricollegarla da
-                    Profilo → Permessi e accessi.
-                  </Text>
+                  <View style={styles.reconnect}>
+                    <Text style={[styles.reconnectText, { color: colors.textSecondary }]}>
+                      ORA non sta leggendo nessuna casella. Ricollega Gmail per ripristinare
+                      la sincronizzazione automatica.
+                    </Text>
+                    <View style={styles.actions}>
+                      <ActionBtn
+                        primary
+                        icon="link-outline"
+                        label="Collega Gmail"
+                        onPress={startGmailOAuth}
+                        disabled={busy === 'mail_connect'}
+                        testID="btn-gmail-connect"
+                      />
+                    </View>
+                  </View>
                 )}
               </ServiceCard>
             ) : null}
