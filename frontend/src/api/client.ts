@@ -3263,6 +3263,12 @@ export type NotificationPreferences = {
  * was never given.
  */
 export type HomeAgentWork = {
+  /** Origin never proves execution; these are read-back presentation facts. */
+  source_kind?: string;
+  progress_kind?: string;
+  show_in_updates?: boolean;
+  icon_key?: string | null;
+  update_at?: string | null;
   prepared_text?: string | null;
   action?: HomeActionDef;
   id: string;

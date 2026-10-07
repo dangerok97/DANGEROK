@@ -1,0 +1,55 @@
+name: Situation Home update truth
+on:
+  pull_request:
+    branches: ['staging/cloud']
+  push:
+    branches: ['staging/cloud']
+    paths:
+      - 'backend/agent/**'
+      - 'backend/situations/**'
+      - 'backend/tests/test_situation_home_updates_v108.py'
+      - 'frontend/src/components/home/v3/**'
+      - '.github/workflows/situation-home-updates.yml'
+permissions:
+  contents: read
+concurrency:
+  group: situation-home-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  truth:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      MONGO_URL: mongodb://127.0.0.1:27017
+      DB_NAME: ora_situation_home_ci
+      JWT_SECRET: ci-test-secret-not-for-prod
+      AMBIENT_RUNTIME: '0'
+      DOCUMENT_AI_ENABLED: '0'
+      DOCUMENT_STORAGE_BACKEND: local
+      DOCUMENT_STORAGE_DIR: /tmp/ora-situation-home-ci
+      CALENDAR_PROVIDER_MODE: fake
+      GEMINI_API_KEY: ''
+    services:
+      mongo:
+        image: mongo:6
+        ports: ['27017:27017']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: backend/requirements-cloud.txt
+      - run: |
+          python -m pip install -r backend/requirements-cloud.txt
+          python -m pip install mongomock-motor==0.0.36
+          mkdir -p /tmp/ora-situation-home-ci
+      - name: Pending work, published proof, isolation and failure visibility
+        working-directory: backend
+        run: python -m pytest -q tests/test_situation_home_updates_v108.py -x
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Home and expanded-list count consistency
+        working-directory: frontend
+        run: node --experimental-strip-types --test src/components/home/v3/agentWorkView.test.ts
