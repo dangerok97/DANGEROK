@@ -384,3 +384,9 @@ console.log('ora14: all assertions passed');
   assert.ok(!/const says = String\(\(res as any\)\?\.says/.test(screen), 'generic agent progress must not replace capability outcome');
   assert.ok(/\.\.\.\(needId \? \{ needId: String\(needId\) \}/.test(screen), 'need handle must survive the session URL');
 }
+
+// v103: finite monitoring is visible and separate from notification trigger.
+assert.ok(cockpit.includes('Obiettivo del monitoraggio'));
+assert.ok(cockpit.includes('Quando termina'));
+assert.ok(knowledge.includes('monitoring_goal'));
+assert.ok(knowledge.includes('ends_when'));
