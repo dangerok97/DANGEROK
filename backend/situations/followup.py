@@ -163,7 +163,7 @@ async def arrange_followup(db, owner, *, situation_id, expected_revision, check_
                 ],
                 stop_conditions=[
                     "La situazione originale è risolta o annullata.",
-                    "È stato raggiunto e comunicato un momento utile d'azione o ulteriori controlli non aggiungerebbero valore senza nuovo input della persona.",
+                    "Il monitoraggio può terminare quando è stato raggiunto e comunicato un momento utile d'azione o ulteriori controlli non aggiungerebbero valore senza nuovo input della persona.",
                 ],
                 decision_provenance="model")
             if await repo.create_goal(goal) is None:
