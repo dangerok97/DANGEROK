@@ -215,7 +215,7 @@ async def settle_completed_followup(db, owner, goal):
             expected_revision=current.revision,
             attention_intent="",
             next_check_summary="",
-            source="background_agent",
+            source="inferred",
         ),
     )
     return result.get("status") == "success"
