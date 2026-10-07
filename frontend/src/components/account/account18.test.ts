@@ -415,6 +415,25 @@ const SNAP: AccountSnapshot = {
 }
 
 // ---------------------------------------------------------------------------
+// Gmail reconnect must be possible from the place that reports disconnection
+// ---------------------------------------------------------------------------
+{
+  const connections = readCode(CONNECTIONS);
+  assert.ok(
+    connections.includes('label="Collega Gmail"'),
+    'a disconnected Gmail card must offer reconnection directly',
+  );
+  assert.ok(
+    connections.includes('api.gmailOAuthStart'),
+    'the reconnect control must start the real Gmail OAuth flow',
+  );
+  assert.ok(
+    !connections.includes('Puoi ricollegarla da Profilo → Permessi e accessi'),
+    'the connections page must not send the user elsewhere to reconnect Gmail',
+  );
+}
+
+// ---------------------------------------------------------------------------
 // J — a subpage always knows the way back
 // ---------------------------------------------------------------------------
 {
