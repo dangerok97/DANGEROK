@@ -3282,6 +3282,10 @@ export type HomeAgentWork = {
   detected?: string | null;
   /** Ultimo passaggio reale, verificato dal journal agente. */
   already_done?: string | null;
+  /** Vero solo quando almeno un passaggio del goal è realmente avvenuto. */
+  has_real_activity?: boolean;
+  /** Problema concreto da mostrare, per esempio un controllo scaduto senza esecuzione. */
+  problem?: string | null;
   /** Cosa succede dopo: ORA continua da sola o serve una risposta. */
   next_step?: string | null;
 };

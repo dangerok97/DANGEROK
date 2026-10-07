@@ -707,7 +707,7 @@ def test_progress_comes_from_what_happened_and_not_from_a_placeholder():
             await service.repo.create_goal(goal)
 
             visible = await service.for_home(uid)
-            assert visible[0]["state"] == "Non ho ancora cominciato."
+            assert visible == [], "un goal che non ha fatto nulla non è un aggiornamento Home"
 
             await service.repo.journal(
                 uid, goal.id, kind="step_done", note="Ho cercato.",
@@ -715,16 +715,52 @@ def test_progress_comes_from_what_happened_and_not_from_a_placeholder():
             )
             after = await service.for_home(uid)
             assert after[0]["state"] == "Ho cercato quello che serviva."
+            assert after[0]["has_real_activity"] is True
 
-            # A step that did not really happen does not become progress.
+            # A step that did not really happen does not become progress and
+            # does not produce a card pretending that ORA moved.
             other = _goal(uid, objective="Un'altra cosa.", desired_outcome="Un altro esito.")
             await service.repo.create_goal(other)
             await service.repo.journal(
                 uid, other.id, kind="step_done", note="Finta.",
                 detail={"came_from": "simulated", "really_happened": False},
             )
-            states = {g["what"]: g["state"] for g in await service.for_home(uid)}
-            assert states["Un'altra cosa."] == "Non ho ancora cominciato."
+            shown = {g["what"]: g for g in await service.for_home(uid)}
+            assert "Un'altra cosa." not in shown
+        finally:
+            await _clean(db, uid)
+            client.close()
+
+    _run(body())
+
+
+
+def test_future_schedule_alone_is_not_home_update_but_overdue_without_execution_is():
+    """A timer is not work. A missed timer is a useful problem."""
+    async def body():
+        client, db = await _db()
+        uid = f"e39_{uuid.uuid4().hex[:8]}"
+        try:
+            service = await _service(db)
+
+            future = _goal(
+                uid,
+                objective="Controllo futuro.",
+                desired_outcome="Capire quando intervenire.",
+                next_run_at=(datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(),
+                origin="agent_initiated",
+            )
+            await service.repo.create_goal(future)
+            assert await service.for_home(uid) == []
+
+            future.next_run_at = (datetime.now(timezone.utc) - timedelta(minutes=10)).isoformat()
+            await service.repo.save_goal(future)
+            visible = await service.for_home(uid)
+            assert len(visible) == 1
+            assert visible[0]["problem"]
+            assert "ritardo" in visible[0]["problem"].lower()
+            assert visible[0]["has_real_activity"] is False
+            assert visible[0]["already_done"] == ""
         finally:
             await _clean(db, uid)
             client.close()

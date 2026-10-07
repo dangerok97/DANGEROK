@@ -2481,8 +2481,19 @@ class AgentService:
                 "detected": goal.why_now or goal.rationale,
                 "already_done": "Ho completato e verificato il risultato.",
                 "next_step": ""})
-        for goal in await self.repo.open_goals(owner_id, limit=3):
-            out.append(await self._open_card(owner_id, goal))
+        for goal in await self.repo.open_goals(owner_id, limit=6):
+            card = await self._open_card(owner_id, goal)
+            # A future schedule is not an update. Home is for something that
+            # actually happened, something the person must answer, or a
+            # concrete failure/overdue condition worth surfacing now.
+            if (
+                card.get("has_real_activity")
+                or card.get("needs_you")
+                or card.get("problem")
+            ):
+                out.append(card)
+            if len(out) >= 3:
+                break
         return out
 
     async def for_detail(self, owner_id: str, goal_id: str) -> Optional[Dict[str, Any]]:
@@ -2524,6 +2535,25 @@ class AgentService:
         scheda["autonomous"] = goal.origin == "agent_initiated"
         scheda["detected"] = (goal.why_now or "")[:300]
         scheda["already_done"] = _what_was_done(came_from) if last_done else ""
+        scheda["has_real_activity"] = bool(last_done)
+        scheda["problem"] = ""
+
+        # A due time that has passed without a real execution is a useful
+        # problem. A future due time is merely scheduling state and must not
+        # masquerade as an update.
+        due = _aware_wait_until(goal.next_run_at)
+        if (
+            due is not None
+            and due < _now() - timedelta(minutes=5)
+            and goal.is_open
+            and not last_done
+            and not (goal.requires_user_input or goal.requires_user_authority)
+        ):
+            scheda["problem"] = (
+                "Il controllo previsto è in ritardo: non risulta ancora "
+                "un'esecuzione reale."
+            )
+            scheda["state"] = scheda["problem"]
 
         needs = await self.needs.open_for_goal(owner_id, goal.id)
         if needs:
