@@ -1503,31 +1503,6 @@ function OraConversationBody({
           variant={variant}
           onRetry={(t) => void retry(t)}
         />
-        {latestTemporaryIsRecent &&
-        temporaryMemory.latest &&
-        turns[turns.length - 1]?.role === 'ora' &&
-        !busy ? (
-          <View style={styles.situationActions} testID="ora-situation-actions">
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Va bene"
-              onPress={() => void sendWords('Va bene.')}
-              style={({ pressed }) => [styles.situationAction, pressed && styles.actionPressed]}
-            >
-              <Ionicons name="checkmark-circle-outline" size={17} color={presencePalette.label} />
-              <Text style={styles.situationActionText}>Va bene</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Avvisami"
-              onPress={() => void sendWords('Avvisami quando devo intervenire per questa situazione.')}
-              style={({ pressed }) => [styles.situationAction, pressed && styles.actionPressed]}
-            >
-              <Ionicons name="notifications-outline" size={17} color={presencePalette.label} />
-              <Text style={styles.situationActionText}>Avvisami</Text>
-            </Pressable>
-          </View>
-        ) : null}
         {busy ? <OraWorking hint={workingHint} /> : null}
         {asides}
       </>}
