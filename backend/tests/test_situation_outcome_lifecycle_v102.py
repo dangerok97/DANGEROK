@@ -56,6 +56,8 @@ async def test_notification_trigger_is_not_the_goal_outcome(monkeypatch):
     assert any("monitoraggio" in x.lower() for x in goal["stop_conditions"])
     followup = await read_followup(db, OWNER, SID)
     assert followup["notify_when"] == notify_when
+    assert "conclusione utile" in followup["monitoring_goal"]
+    assert "monitoraggio" in followup["ends_when"].lower()
 
 
 @pytest.mark.asyncio
