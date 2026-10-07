@@ -1,0 +1,27 @@
+name: Situation v100 source
+on:
+  push:
+    branches: [fix/existing-situation-responsibility-v100]
+    paths: [.github/workflows/situation-v100-source.yml]
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 2df88db16b6ab258dacd0707564373f43732df9b
+          persist-credentials: false
+      - name: Archive tracked source, no credentials or account data
+        shell: bash
+        run: |
+          set -euo pipefail
+          git archive --format=tar HEAD backend frontend .github | gzip > ora-v100-source.tar.gz
+          test $(stat -c%s ora-v100-source.tar.gz) -gt 10000
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ora-v100-source
+          path: ora-v100-source.tar.gz
+          retention-days: 1
