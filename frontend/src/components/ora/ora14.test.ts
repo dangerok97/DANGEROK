@@ -401,3 +401,15 @@ console.log('ora14: all assertions passed');
   const rail = readCode('src/components/ora/OraCockpitContext.tsx');
   assert.ok(rail.includes('followup.next_check_label || timeLabel(followup.next_check_at)'));
 }
+
+
+// v113: recurring birthdays live in one permanent Memory star, never temporary Situation UI.
+{
+  const presence = readCode('src/components/ora/presence/OraPresence.tsx');
+  const knowledge = readCode('src/components/ora/presence/knowledge.ts');
+  assert.ok(knowledge.includes('group_kind?: string | null'));
+  assert.ok(knowledge.includes('group_items?:'));
+  assert.ok(presence.includes("fact?.group_kind === 'birthdays' ? 'Compleanni'"));
+  assert.ok(presence.includes("fact.group_kind === 'birthdays' && fact.group_items?.length"));
+  assert.ok(!presence.includes('btn-birthday-reminder'), 'Memo stays an ORA competency, not a dedicated button');
+}
