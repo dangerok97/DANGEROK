@@ -212,6 +212,8 @@ class RecurringMemoService:
                     )
                 ],
                 source_context="recurring_memo",
+                decision_provenance="user",
+                valid_until=(local.replace(hour=23, minute=59, second=59, microsecond=0)).isoformat(),
                 surface_state="surfaced",
                 surface_rationale="Promemoria ricorrente richiesto dall'utente.",
             )
