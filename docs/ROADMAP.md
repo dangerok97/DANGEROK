@@ -1,5 +1,16 @@
 ## 8 ottobre 2026 — Piano di completamento ORA approvato
 
+**Checkpoint v125 della Fase 1:** il loop cognitivo e il modello LLM reale
+hanno superato 3/3 scenari con account tecnico sintetico e tool esterni
+simulati (spostamento multi-skill; panni con Situation/checkpoint persistito;
+compleanno con Memory + memo annuale persistiti). Vedi
+[PHASE1_REAL_MODEL_EVAL.md](PHASE1_REAL_MODEL_EVAL.md). I 3 PASS sono prove
+di scelta skill, sequenza, governance e scritture nel DB *in memoria*,
+non di traffico/messaggi/notifiche/integrazioni live di un utente. Rimangono
+da superare prove su provider di lettura reali, ripresa e autenticazione
+in account tecnico, qualità dei consigli, e infine prove sui dispositivi.
+**La Fase 1 è ancora APERTA.** Nessuno sviluppo automatico orario.
+
 Questo ordine è il **piano canonico di lavoro** concordato con il proprietario
 per arrivare all'assistente personale utile e autonomo. I checkpoint storici
 che seguono restano documentazione, non prevalgono su questo ordine:

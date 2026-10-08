@@ -1,3 +1,28 @@
+## 8 ottobre 2026 — Fase 1: collaudo reale dell'intelligenza con mondo sintetico v125
+
+Implementato `scripts.phase1_cognitive_live_eval`: usa il prompt, il
+gestore LLM, il loop, il catalogo e la governance reali su sessioni
+synthetic-only con `AsyncMongoMockClient`. Le capability di lettura
+ricevono fixture di calendario/routing/meteo; sono consentite soltanto
+`schedule_situation_check` e `save_recurring_memo` contro il database
+fittizio con verifica delle registrazioni. Nessun altro effetto esterno.
+
+Test del runner aggiunti alla CI. GitHub Actions non aveva credenziali
+per eseguire il modello live: la prova LLM è stata effettuata
+temporaneamente su Railway, riusando riferimenti alle chiavi esistenti,
+senza toccare i servizi di produzione. Il servizio temporaneo è stato
+eliminato dopo il collaudo. **Risultato verificato 3/3**: spostamento
+(5 decisioni, 3 letture), panni (5 decisioni, Situation e checkpoint),
+compleanno (6 decisioni, memoria e ricorrenza annuale). Evidenza e
+limiti in `PHASE1_REAL_MODEL_EVAL.md`.
+
+**Non equivale al completamento della Fase 1**: i provider della vita
+reale erano simulati. Restano test di lettura sul proprio account tecnico,
+ripresa dopo errori e riavvii, qualità semantica dei consigli e push nativo.
+Nessuna modifica automatica periodica.
+
+---
+
 ## 8 ottobre 2026 — Fase 1: dichiarazioni finali dopo fallimento (v124)
 
 **Difetto:** quando l'AI eseguiva due tool e il secondo falliva,

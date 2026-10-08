@@ -1,3 +1,19 @@
+## 8 ottobre 2026 — v125, primo benchmark del cervello AI reale
+
+- Aggiunto un runner riutilizzabile con decisioni del modello reale e
+  strumenti simulati, protetto da un confine che vieta effetti esterni.
+- Aggiunte prove per spostamento, Situation con follow-up e ricorrenza
+  annuale, con registrazione di skill, esiti e limiti.
+- CI include i test dell'isolamento (senza chiavi LLM), mentre una workflow
+  separata e opt-in consente il modello live solo in ambiente configurato.
+- Risultato live su Railway temporaneo: 3/3 scenari synthetic-only superati;
+  5/5/6 decisioni AI, rispettivamente. Log/evidenze descritte in
+  `PHASE1_REAL_MODEL_EVAL.md`, servizio temporaneo eliminato.
+- Non testati calendari, routing, meteo e push reali. Fase 1 ancora aperta.
+- Nessuna automazione oraria, acquisto, telefonata o modifica account.
+
+---
+
 ## 8 ottobre 2026 — v124, guardia finale delle commissioni multi-skill
 
 - Una skill obbligatoria fallita non può essere presentata come
