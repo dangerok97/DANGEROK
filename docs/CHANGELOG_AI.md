@@ -1,3 +1,17 @@
+## 8 ottobre 2026 — v124, guardia finale delle commissioni multi-skill
+
+- Una skill obbligatoria fallita non può essere presentata come
+  completamento dell'intero lavoro, anche dopo l'ultimo tentativo AI.
+- Messaggi parziali utili vengono preservati insieme a una nota
+  esplicita di incompletamento; affermazioni dirette di falso
+  successo generale vengono sostituite.
+- Lo storico della sessione salva il testo finale effettivamente
+  restituito, anche quando la navigazione ha riscritto l'handoff.
+- Aggiunti test sintetici di regressione alla CI obbligatoria.
+- Nessun nuovo effetto reale, riavvio automatico o cambio ai permessi.
+
+---
+
 ## 8 ottobre 2026 — v123 Fase 1: route outcome verificato
 
 - Corretta get_route: la semplice esecuzione della chiamata non
