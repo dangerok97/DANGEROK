@@ -10,6 +10,9 @@ from context_graph.models import ContextEdgeUpdate
 from situations.models import SituationUpdate
 from situations.turn_followup import FollowupDisposition
 
+# A declared plan may span turns; this ceiling is distinct from per-turn tool budget.
+MAX_REQUIRED_CAPABILITIES = 12
+
 ResponseMode = Literal[
     "answer", "ask", "tool", "act", "context", "research", "compare", "finish"
 ]
@@ -196,7 +199,7 @@ class SkillPlan(BaseModel):
     """
 
     objective: str = Field(min_length=1, max_length=320)
-    required_capabilities: List[str] = Field(default_factory=list, max_length=5)
+    required_capabilities: List[str] = Field(default_factory=list, max_length=MAX_REQUIRED_CAPABILITIES)
     completion_condition: Optional[str] = Field(default=None, max_length=360)
     # Opaque backend-issued reference. The model may echo it only when the
     # latest message semantically continues a previously paused execution plan.
@@ -213,7 +216,8 @@ class SkillPlan(BaseModel):
             cap = str(item or "").strip()
             if cap and cap not in out:
                 out.append(cap)
-        return out[:5]
+        # Never silently erase required steps: Field.max_length rejects overflow.
+        return out
 
 
 class StateUpdate(BaseModel):
