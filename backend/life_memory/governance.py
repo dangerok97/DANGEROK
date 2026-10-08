@@ -60,6 +60,10 @@ class MemoryGovernanceService:
         await self.db.memories.create_index(
             [("user_id", 1), ("governance_key", 1)], unique=True, sparse=True
         )
+        await self.db.memories.create_index([
+            ("recurring_reconcile.status", 1),
+            ("recurring_reconcile.next_retry_at", 1),
+        ])
 
     async def _owned(
         self, user_id: str, ref: Optional[str]
@@ -184,6 +188,13 @@ class MemoryGovernanceService:
         if outcome.decision not in ("PROMOTE", "SUPERSEDE", "FORGET_ALLOWED"):
             return outcome
         now = now_iso()
+        # Stored atomically with the old Memory status change, before the
+        # replacement exists. A crash at any later boundary leaves a durable
+        # recovery record; the ambient runtime owns its eventual execution.
+        pending_memo = {
+            "status": "pending", "next_retry_at": now,
+            "lease_until": "", "lease_token": "", "attempts": 0,
+        }
         if outcome.decision == "FORGET_ALLOWED":
             await self.db.memories.update_one(
                 {"user_id": user_id, "id": outcome.memory_id},
@@ -193,6 +204,7 @@ class MemoryGovernanceService:
                         "updated_at": now,
                         "governance_key": key,
                         "last_governance_decision": "FORGET_ALLOWED",
+                        "recurring_reconcile": pending_memo,
                     },
                     "$inc": {"revision": 1},
                     "$push": {
@@ -217,6 +229,7 @@ class MemoryGovernanceService:
                             "status": "superseded",
                             "updated_at": now,
                             "superseded_by": memory_id,
+                            "recurring_reconcile": pending_memo,
                         },
                         "$inc": {"revision": 1},
                         "$push": {
@@ -286,6 +299,17 @@ class MemoryGovernanceService:
                 await RecurringMemoService(self.db).reconcile_governed_memory(
                     user_id, old_ref=old_memory_ref,
                     new_ref=(outcome.memory_id if outcome.decision == "SUPERSEDE" else None),
+                )
+                # Ack after all reminder writes succeed. If the process dies
+                # before this update, the pending record is safely replayable.
+                await self.db.memories.update_one(
+                    {"user_id": user_id, "id": old_memory_ref,
+                     "recurring_reconcile.status": "pending",
+                     "recurring_reconcile.lease_token": ""},
+                    {"$set": {
+                        "recurring_reconcile.status": "completed",
+                        "recurring_reconcile.completed_at": now_iso(),
+                    }},
                 )
             except Exception:
                 # Memory is already persisted. Keep the policy decision truthful

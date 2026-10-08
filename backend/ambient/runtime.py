@@ -385,6 +385,22 @@ def _launch(name, operation, *, timeout):
     return True
 
 
+async def _serve_recurring_memos(db, *, reconcile: bool = False):
+    """Keep recovery in the one existing Memo lane, without increasing concurrency."""
+    if reconcile:
+        from memos.recovery import RecurringMemoRecovery
+
+        try:
+            await RecurringMemoRecovery(db).run()
+        except Exception as exc:
+            # Recovery is durable and retries; it must not starve today's
+            # due reminders if Mongo returns a transient error for this scan.
+            logger.info("recurring memo reconciliation deferred: %s", type(exc).__name__)
+    from memos.service import RecurringMemoService
+
+    return await RecurringMemoService(db).fire_due()
+
+
 async def _cycle(db, ticks):
     if _a_call_is_live():
         _stats["sources_deferred_for_call"] += 1
@@ -392,14 +408,16 @@ async def _cycle(db, ticks):
     from agent.background import recover_due
     from delivery.admission import drain as review_delivery
     from energy_offers.service import EnergyOfferService
-    from memos.service import RecurringMemoService
     _launch("sources", lambda: read_sources(db), timeout=120)
     _launch("admission", lambda: recover_due(db), timeout=110)
     _launch("delivery-admission", lambda: review_delivery(db), timeout=125)
     # Durable recurring memos are cheap when nothing is due: one indexed query.
     # When one is due it becomes an ordinary Opportunity, so the existing
     # delivery judgement decides in-app/push rather than this scheduler.
-    _launch("recurring-memos", lambda: RecurringMemoService(db).fire_due(), timeout=30)
+    _launch("recurring-memos",
+            lambda: _serve_recurring_memos(
+                db, reconcile=(ticks % max(1, int(60 / max(1, TICK_SECONDS))) == 0),
+            ), timeout=30)
     # Two due jobs can make progress, never an unbounded task per user.
     for n in range(2):
         _launch(f"work-{n}", lambda: tick(db, limit=1), timeout=HANDLER_TIMEOUT_SECONDS + 10)
