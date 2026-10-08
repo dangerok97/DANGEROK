@@ -36,6 +36,7 @@ from conversation_engine.ai_core.models import (
     MissingInformation,
     Observation,
     UncertaintyState,
+    MAX_REQUIRED_CAPABILITIES,
 )
 from conversation_engine.ai_core.prompt import (
     COGNITIVE_SYSTEM_PROMPT,
@@ -138,7 +139,7 @@ def _merge_required_skill_caps(current: List[str], incoming) -> List[str]:
         name = str(cap or "").strip()
         if name and name not in out:
             out.append(name)
-    return out[:MAX_TOOL_CALLS]
+    return out[:MAX_REQUIRED_CAPABILITIES]
 
 
 def _pending_required_skill_caps(
@@ -237,7 +238,7 @@ def _merge_skill_outcomes(current, incoming) -> List[Dict[str, str]]:
             ) != key
         ]
         out.append(item)
-    return out[-12:]
+    return out[-(MAX_REQUIRED_CAPABILITIES * 3):]
 
 
 def _skill_outcome_class(item: Dict[str, str]) -> str:
@@ -395,8 +396,8 @@ def _active_skill_plan_state(state: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         if name and name not in attempted:
             attempted.append(name)
     outcomes = _merge_skill_outcomes([], raw.get("capability_outcomes") or [])
-    required = required[:MAX_TOOL_CALLS]
-    attempted = attempted[: MAX_TOOL_CALLS * 2]
+    required = required[:MAX_REQUIRED_CAPABILITIES]
+    attempted = attempted[: MAX_REQUIRED_CAPABILITIES * 2]
     outcome_states = _required_skill_states(required, outcomes)
     return {
         "plan_ref": plan_ref,
@@ -432,8 +433,8 @@ def _persist_active_skill_plan(
     doc = {
         "plan_ref": plan_ref,
         "objective": str(objective or "").strip()[:320] or "Completare la richiesta",
-        "required_capabilities": list(required or [])[:MAX_TOOL_CALLS],
-        "attempted_capabilities": sorted(set(attempted or set()))[: MAX_TOOL_CALLS * 2],
+        "required_capabilities": list(required or [])[:MAX_REQUIRED_CAPABILITIES],
+        "attempted_capabilities": sorted(set(attempted or set()))[: MAX_REQUIRED_CAPABILITIES * 2],
         "capability_outcomes": _merge_skill_outcomes([], outcomes or []),
         "waiting": bool(waiting),
         "updated_at": now_iso(),
