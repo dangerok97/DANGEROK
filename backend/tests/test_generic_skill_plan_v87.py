@@ -2,11 +2,15 @@
 
 from pathlib import Path
 
+import pytest
+from pydantic import ValidationError
+
 from conversation_engine.ai_core.governance import validate_decision
 from conversation_engine.ai_core.loop import (
     _merge_required_skill_caps,
     _pending_required_skill_caps,
     _record_skill_attempt,
+    _required_skill_states,
 )
 from conversation_engine.ai_core.models import SkillPlan
 from conversation_engine.ai_core.tools.registry import ToolRegistry
@@ -35,6 +39,7 @@ def test_skill_plan_is_bounded_and_deduplicated():
         "web_search",
         "search_my_life",
         "get_profile_snapshot",
+        "prepare_amazon_search",
     ]
 
 
@@ -112,3 +117,74 @@ def test_prompt_makes_skill_selection_ai_owned_not_keyword_routed():
     assert "required_capabilities" in prompt
     assert "DECLARED_SKILL_PLAN_INCOMPLETE" in loop
     assert 'event="SKILL_PLAN_INCOMPLETE_NUDGE"' in loop
+
+
+def test_required_skills_beyond_single_turn_budget_survive_without_false_success():
+    """Six steps cannot be silently reduced to five because one turn has 5 calls."""
+    from conversation_engine.ai_core.loop import (
+        _persist_active_skill_plan,
+        _active_skill_plan_state,
+        _required_skill_plan_satisfied,
+    )
+
+    required = [
+        "get_calendar_events", "get_route", "get_weather_forecast",
+        "search_my_life", "get_profile_snapshot", "get_current_location",
+    ]
+    plan = SkillPlan(
+        objective="Preparare una partenza completa",
+        required_capabilities=required,
+    )
+    assert plan.required_capabilities == required
+    state = {}
+    outcomes = [{
+        "capability": name, "observed_capability": name,
+        "status": "ok", "result_status": "ok", "failure_kind": "",
+    } for name in required[:5]]
+    _persist_active_skill_plan(
+        state, objective=plan.objective, required=plan.required_capabilities,
+        attempted=set(required[:5]), outcomes=outcomes,
+    )
+    restored = _active_skill_plan_state(state)
+    assert restored is not None
+    assert restored["required_capabilities"] == required
+    assert restored["pending_capabilities"] == ["get_current_location"]
+    assert not _required_skill_plan_satisfied(required, outcomes)
+
+
+def test_plan_above_twelve_skills_must_be_rejected_not_truncated():
+    tools = ToolRegistry(db=None)
+    catalog = [row["capability"] for row in tools.list_public()]
+    assert len(catalog) >= 13
+    with pytest.raises(ValidationError):
+        SkillPlan(objective="Many steps", required_capabilities=catalog[:13])
+    answer = validate_decision({
+        "response_mode": "answer",
+        "reasoning_status": "ready_to_act",
+        "message_to_user": "Fatto.",
+        "skill_plan": {
+            "objective": "Many steps",
+            "required_capabilities": catalog[:13],
+        },
+    }, tools=tools)
+    assert answer.ok is False
+    assert "skill_plan_invalid" in answer.errors
+
+
+def test_plan_state_keeps_successes_beyond_ten_observations():
+    from conversation_engine.ai_core.loop import _merge_skill_outcomes
+    required = [
+        "get_calendar_events", "get_route", "get_weather_forecast",
+        "search_my_life", "get_profile_snapshot", "get_current_location",
+        "get_life_place", "list_life_places", "get_time_at_place",
+        "get_journeys_between_places", "get_day_patterns", "web_search",
+    ]
+    outcomes = _merge_skill_outcomes([], [{
+        "capability": name, "observed_capability": name,
+        "status": "ok", "result_status": "ok", "failure_kind": "",
+    } for name in required])
+    assert len(outcomes) == 12
+    assert all(
+        name in _required_skill_states(required, outcomes)["succeeded"]
+        for name in required
+    )
