@@ -61,6 +61,11 @@ async def test_completed_goal_surfaces_one_in_app_result_and_never_sends_push():
     assert "confronto" in activities[0]["summary"].lower()
     assert goal_id in activities[0]["source_refs"]
     assert activities[0]["cognitive_provenance"]["goal"] == goal_id
+    # This read-only Delivery bridge is exactly what HomeService calls:
+    # the result must be retrievable without opening an ORA chat.
+    from delivery.service import DeliveryService
+    home_line = await DeliveryService(db).ambient_line(OWNER)
+    assert home_line and "confronto" in str(home_line).lower()
 
     updates = await db.agent_updates.find({"owner_id": OWNER}).to_list(8)
     assert len(updates) == 1 and updates[0]["outcome"] == "inform_user"
