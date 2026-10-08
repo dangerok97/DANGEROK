@@ -21,6 +21,7 @@ import * as Crypto from 'expo-crypto';
 import * as SecureStore from 'expo-secure-store';
 
 import { api } from '@/src/api/client';
+import { createInstallationHandle } from './installationHandle';
 
 export type PushCapability = 'native' | 'unsupported';
 
@@ -131,27 +132,9 @@ export async function releasePush(): Promise<void> {
 }
 
 /**
- * Installation-scoped opaque identifier, persistent across sessions and
- * shared between accounts on THIS device only. Using the app slug as a
- * fallback made different phones look like the same device, so registering
- * a second phone revoked the first phone's push endpoint.
- *
- * Never expose a hardware identifier, person name, or Expo token here.
+ * Stable across logins and reloads on the same installation; fresh and unique
+ * for another installation. The injected implementation is unit-tested.
  */
-const PUSH_DEVICE_KEY = 'ora:push:installation-handle:v2';
-let handlePromise: Promise<string> | null = null;
-
-async function deviceHandle(): Promise<string> {
-  if (!handlePromise) {
-    handlePromise = (async () => {
-      const stored = await SecureStore.getItemAsync(PUSH_DEVICE_KEY);
-      const identifier = stored || Crypto.randomUUID();
-      if (!stored) await SecureStore.setItemAsync(PUSH_DEVICE_KEY, identifier);
-      return `${Platform.OS}:${identifier}`;
-    })().catch(error => {
-      handlePromise = null;
-      throw error;
-    });
-  }
-  return handlePromise;
-}
+const deviceHandle = createInstallationHandle(
+  Platform.OS, SecureStore, () => Crypto.randomUUID(),
+);
