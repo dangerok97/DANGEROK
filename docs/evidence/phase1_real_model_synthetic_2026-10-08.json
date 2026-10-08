@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "checkpoint": "2026-10-08-phase1-real-llm-synthetic",
+  "repository": "dangerok97/DANGEROK",
+  "branch": "audit/phase1-real-ai-eval-v125",
+  "benchmark_commit": "fdc8691e41864c7c0eeaa83dfd6581a1e0b24d46",
+  "environment": "temporary isolated Railway service (deleted after test)",
+  "railway_deployment_id": "ca75344a-303b-46e4-84f1-20d1599180f4",
+  "model": "ORA production LLM manager, live responses (provider/failover not asserted)",
+  "user_data": "none; fictional owner, synthetic memory facts, in-memory mongomock-motor",
+  "source_data": "three synthetic scenario prompts; no real calendar/routing/weather API queries",
+  "execution_boundary": "only synthetic read fixtures and two owned synthetic-database writes permitted; all other external effects blocked",
+  "cases": [
+    {
+      "id": "trip",
+      "passed": true,
+      "model_decisions": 5,
+      "tool_calls": 3,
+      "verified_capabilities": [
+        "get_calendar_events",
+        "get_weather_forecast",
+        "get_route"
+      ],
+      "skill_plan_completed": true,
+      "reason_codes": []
+    },
+    {
+      "id": "situation",
+      "passed": true,
+      "model_decisions": 5,
+      "tool_calls": 2,
+      "verified_capabilities": [
+        "get_weather_forecast",
+        "schedule_situation_check"
+      ],
+      "persisted_situations": 1,
+      "persisted_scheduled_checks": 1,
+      "skill_plan_completed": true,
+      "reason_codes": []
+    },
+    {
+      "id": "birthday",
+      "passed": true,
+      "model_decisions": 6,
+      "tool_calls": 1,
+      "verified_capabilities": [
+        "save_recurring_memo"
+      ],
+      "persisted_memories": 1,
+      "persisted_annual_memos": 1,
+      "skill_plan_completed": true,
+      "reason_codes": []
+    }
+  ],
+  "aggregate": {
+    "passed": true,
+    "scenarios": 3,
+    "passed_scenarios": 3,
+    "live_model_executed": true
+  },
+  "exclusions": [
+    "not evidence of real Google Calendar connectivity",
+    "not evidence of traffic/weather provider accuracy",
+    "not evidence of physical phone push delivery",
+    "not a longitudinal or multi-user acceptance test",
+    "model answers not semantically scored for departure advice"
+  ],
+  "access": "no secrets, private identifiers or actual user data recorded"
+}
