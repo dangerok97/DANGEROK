@@ -17,6 +17,8 @@
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
+import * as Crypto from 'expo-crypto';
+import * as SecureStore from 'expo-secure-store';
 
 import { api } from '@/src/api/client';
 
@@ -104,7 +106,7 @@ export async function enablePush(): Promise<PushOutcome> {
     await api.registerPushDevice({
       token,
       platform: Platform.OS === 'ios' ? 'ios' : 'android',
-      device: deviceHandle(),
+      device: await deviceHandle(),
       permission_state: 'granted',
     });
     return { ok: true, state: 'granted' };
@@ -121,19 +123,35 @@ export async function enablePush(): Promise<PushOutcome> {
  */
 export async function releasePush(): Promise<void> {
   if (capability() !== 'native') return;
-  await api.releasePushDevice(deviceHandle()).catch(() => {});
+  try {
+    await api.releasePushDevice(await deviceHandle());
+  } catch {
+    // Logout should still work when the OS key store is unavailable.
+  }
 }
 
 /**
- * A stable-enough handle for this installation.
+ * Installation-scoped opaque identifier, persistent across sessions and
+ * shared between accounts on THIS device only. Using the app slug as a
+ * fallback made different phones look like the same device, so registering
+ * a second phone revoked the first phone's push endpoint.
  *
- * Only its hash is stored server-side. It exists to recognise the same phone
- * signing in again, not to identify anybody.
+ * Never expose a hardware identifier, person name, or Expo token here.
  */
-function deviceHandle(): string {
-  const id =
-    (Constants as unknown as { sessionId?: string }).sessionId ||
-    Constants.expoConfig?.slug ||
-    'unknown';
-  return `${Platform.OS}:${id}`;
+const PUSH_DEVICE_KEY = 'ora:push:installation-handle:v2';
+let handlePromise: Promise<string> | null = null;
+
+async function deviceHandle(): Promise<string> {
+  if (!handlePromise) {
+    handlePromise = (async () => {
+      const stored = await SecureStore.getItemAsync(PUSH_DEVICE_KEY);
+      const identifier = stored || Crypto.randomUUID();
+      if (!stored) await SecureStore.setItemAsync(PUSH_DEVICE_KEY, identifier);
+      return `${Platform.OS}:${identifier}`;
+    })().catch(error => {
+      handlePromise = null;
+      throw error;
+    });
+  }
+  return handlePromise;
 }
