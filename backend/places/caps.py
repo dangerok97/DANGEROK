@@ -947,6 +947,35 @@ async def get_day_patterns(arguments, runtime) -> Observation:
     return _ok("get_day_patterns", result, uid)
 
 
+def _verified_route_result(payload: Dict[str, Any], uid: str, *, status: str = "ok") -> Observation:
+    """A route skill is satisfied only when a real ETA was returned.
+
+    The outer `ok` means the read adapter executed. The nested `status`
+    tells the generic AI skill planner whether an actual usable itinerary
+    exists. A negative provider lookup must remain a truthful observation,
+    not a completed routing capability.
+    """
+    import math
+
+    result = dict(payload)
+    duration = result.get("duration_seconds")
+    valid_duration = (
+        not isinstance(duration, bool)
+        and isinstance(duration, (int, float))
+        and math.isfinite(duration)
+        and duration >= 0
+    )
+    if result.get("available") is not True or not valid_duration:
+        result["available"] = False
+        result["status"] = "unavailable"
+        result["memory_eligible"] = False
+        if not result.get("why_unavailable"):
+            result["why_unavailable"] = "Il servizio non ha restituito un percorso con durata verificabile."
+    else:
+        result["status"] = "ok"
+    return _ok("get_route", result, uid, status=status)
+
+
 async def get_route(arguments, runtime) -> Observation:
     """
     A live journey time from a routing service, or an honest refusal.
@@ -965,8 +994,7 @@ async def get_route(arguments, runtime) -> Observation:
     name = str(arguments.get("destination") or arguments.get("to") or "").strip()
     resolution = await service.resolve_destination(uid, name)
     if not resolution.resolved or resolution.place is None or resolution.place.coordinates is None:
-        return _ok(
-            "get_route",
+        return _verified_route_result(
             {
                 "available": False,
                 "why_unavailable": resolution.reason or "destinazione senza coordinate",
@@ -985,8 +1013,7 @@ async def get_route(arguments, runtime) -> Observation:
     except Exception:
         origin = None
     if origin is None:
-        return _ok(
-            "get_route",
+        return _verified_route_result(
             {
                 "available": False,
                 "why_unavailable": "non so dove si trova adesso",
@@ -1001,4 +1028,6 @@ async def get_route(arguments, runtime) -> Observation:
         destination=resolution.place.coordinates.precise(),
         travel_mode=str(arguments.get("travel_mode") or "drive"),
     )
-    return _ok("get_route", {"destination": resolution.place.label, **result}, uid)
+    return _verified_route_result(
+        {"destination": resolution.place.label, **result}, uid
+    )
