@@ -1,6 +1,9 @@
 """Connect the existing opportunity/agent loop to the durable ambient runtime."""
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import logging
+import uuid
+
+from pymongo import ReturnDocument
 
 from ambient.models import WakeOutcome
 
@@ -36,106 +39,140 @@ async def recover_due(db, *, now=None, limit=2, admit=True):
     if admit:
         await drain(db, now=moment, limit=capacity)
 
-    due_query = {
-        "status": {"$in": ["active", "waiting"]},
-        "next_run_at": {"$type": "string", "$lte": moment.isoformat()},
-        "$or": [
-            {"requires_user_input": {"$ne": True},
-             "requires_user_authority": {"$ne": True}},
-            {"source_review_pending": {"$type": "string", "$gt": ""}},
-        ],
-    }
-    page_size = min(_RECOVERY_MAX_PAGE, max(_RECOVERY_PAGE, capacity * 16))
+    # The cursor is shared across ALL backend replicas. Serialise one
+    # bounded page at a time in Mongo so two workers cannot race its state.
+    # The worker that dies leaves a reclaimable lease; a stale worker's
+    # write is fenced by the token checked at each cursor update.
     state_collection = db.agent_goal_wake_recovery_progress
-    stored = await state_collection.find_one({"_id": _RECOVERY_CURSOR}) or {}
-    after_time = str(stored.get("after_time") or "")
-    after_owner = str(stored.get("after_owner") or "")
-    after_id = str(stored.get("after_id") or "")
-
-    async def page(query):
-        return await db.agent_goals.find(
-            query, {"_id": 0, "id": 1, "owner_id": 1,
-                    "next_run_at": 1},
-        ).sort([("next_run_at", 1), ("owner_id", 1), ("id", 1)]).limit(page_size).to_list(page_size)
-
-    query = due_query
-    if after_time and after_owner and after_id:
-        # Sort and keyset MUST have the same three fields. If records share
-        # the same timestamp and id across owners (legacy/test data), neither
-        # owner may be skipped. Older two-field cursors safely restart once.
-        query = {
-            "$and": [
-                due_query,
-                {"$or": [
-                    {"next_run_at": {"$gt": after_time}},
-                    {"next_run_at": after_time, "owner_id": {"$gt": after_owner}},
-                    {"next_run_at": after_time, "owner_id": after_owner,
-                     "id": {"$gt": after_id}},
-                ]},
-            ],
-        }
-    rows = await page(query)
-    if not rows and after_time:
-        rows = await page(due_query)
-    if not rows:
-        return 0
-
-    refs = [f"goal:{row['id']}" for row in rows if row.get("id")]
-    active = await db.ambient_wakes.find({
-        "source_ref": {"$in": refs},
-        "status": {"$in": ["pending", "claimed"]},
-    }, {"_id": 0, "owner_id": 1, "source_ref": 1}).to_list(page_size)
-    already = {
-        (str(wake.get("owner_id")), str(wake.get("source_ref")))
-        for wake in active
-    }
-    candidates = [
-        row for row in rows
-        if row.get("id") and row.get("owner_id")
-        and (str(row["owner_id"]), f"goal:{row['id']}") not in already
-    ]
-
-    selected = []
-    chosen_ids = set()
-    seen_owners = set()
-    # First give different owners a chance, then fill unused batch capacity.
-    for row in candidates:
-        owner = str(row["owner_id"])
-        if owner not in seen_owners:
-            selected.append(row)
-            chosen_ids.add((owner, str(row["id"])))
-            seen_owners.add(owner)
-            if len(selected) == capacity:
-                break
-    if len(selected) < capacity:
-        for row in candidates:
-            key = (str(row["owner_id"]), str(row["id"]))
-            if key not in chosen_ids:
-                selected.append(row)
-                chosen_ids.add(key)
-                if len(selected) == capacity:
-                    break
-
-    scheduled = 0
-    for row in selected:
-        wake = await AmbientService(db).schedule(
-            row["owner_id"], reason="opportunity_revisit",
-            when=moment, source_ref=f"goal:{row['id']}",
-        )
-        scheduled += bool(wake)
-
-    last = rows[-1]
     await state_collection.update_one(
         {"_id": _RECOVERY_CURSOR},
-        {"$set": {
-            "after_time": str(last.get("next_run_at") or ""),
-            "after_owner": str(last.get("owner_id") or ""),
-            "after_id": str(last.get("id") or ""),
-            "last_scan_at": moment.isoformat(),
+        {"$setOnInsert": {
+            "after_time": "", "after_owner": "", "after_id": "",
         }},
         upsert=True,
     )
-    return scheduled
+    lease_token = uuid.uuid4().hex
+    claimed = await state_collection.find_one_and_update(
+        {"_id": _RECOVERY_CURSOR, "$or": [
+            {"lease_until": {"$exists": False}},
+            {"lease_until": {"$lte": moment.isoformat()}},
+        ]},
+        {"$set": {
+            "lease_token": lease_token,
+            "lease_until": (moment + timedelta(seconds=120)).isoformat(),
+        }},
+        return_document=ReturnDocument.AFTER,
+    )
+    if claimed is None:
+        return 0
+
+    try:
+        due_query = {
+            "status": {"$in": ["active", "waiting"]},
+            "next_run_at": {"$type": "string", "$lte": moment.isoformat()},
+            "$or": [
+                {"requires_user_input": {"$ne": True},
+                 "requires_user_authority": {"$ne": True}},
+                {"source_review_pending": {"$type": "string", "$gt": ""}},
+            ],
+        }
+        page_size = min(_RECOVERY_MAX_PAGE, max(_RECOVERY_PAGE, capacity * 16))
+        after_time = str(claimed.get("after_time") or "")
+        after_owner = str(claimed.get("after_owner") or "")
+        after_id = str(claimed.get("after_id") or "")
+
+        async def page(query):
+            return await db.agent_goals.find(
+                query, {"_id": 0, "id": 1, "owner_id": 1,
+                        "next_run_at": 1},
+            ).sort([("next_run_at", 1), ("owner_id", 1), ("id", 1)]).limit(page_size).to_list(page_size)
+
+        query = due_query
+        if after_time and after_owner and after_id:
+            # Sort and keyset MUST have the same three fields. If records share
+            # the same timestamp and id across owners (legacy/test data), neither
+            # owner may be skipped. Older two-field cursors safely restart once.
+            query = {
+                "$and": [
+                    due_query,
+                    {"$or": [
+                        {"next_run_at": {"$gt": after_time}},
+                        {"next_run_at": after_time, "owner_id": {"$gt": after_owner}},
+                        {"next_run_at": after_time, "owner_id": after_owner,
+                         "id": {"$gt": after_id}},
+                    ]},
+                ],
+            }
+        rows = await page(query)
+        if not rows and after_time:
+            rows = await page(due_query)
+        if not rows:
+            return 0
+
+        refs = [f"goal:{row['id']}" for row in rows if row.get("id")]
+        active = await db.ambient_wakes.find({
+            "source_ref": {"$in": refs},
+            "status": {"$in": ["pending", "claimed"]},
+        }, {"_id": 0, "owner_id": 1, "source_ref": 1}).to_list(page_size)
+        already = {
+            (str(wake.get("owner_id")), str(wake.get("source_ref")))
+            for wake in active
+        }
+        candidates = [
+            row for row in rows
+            if row.get("id") and row.get("owner_id")
+            and (str(row["owner_id"]), f"goal:{row['id']}") not in already
+        ]
+
+        selected = []
+        chosen_ids = set()
+        seen_owners = set()
+        # First give different owners a chance, then fill unused batch capacity.
+        for row in candidates:
+            owner = str(row["owner_id"])
+            if owner not in seen_owners:
+                selected.append(row)
+                chosen_ids.add((owner, str(row["id"])))
+                seen_owners.add(owner)
+                if len(selected) == capacity:
+                    break
+        if len(selected) < capacity:
+            for row in candidates:
+                key = (str(row["owner_id"]), str(row["id"]))
+                if key not in chosen_ids:
+                    selected.append(row)
+                    chosen_ids.add(key)
+                    if len(selected) == capacity:
+                        break
+
+        scheduled = 0
+        for row in selected:
+            wake = await AmbientService(db).schedule(
+                row["owner_id"], reason="opportunity_revisit",
+                when=moment, source_ref=f"goal:{row['id']}",
+            )
+            scheduled += bool(wake)
+
+        last = rows[-1]
+        # Only the worker that still owns this scan may advance the cursor.
+        # Losing its lease must never let a stale worker jump other users.
+        await state_collection.update_one(
+            {"_id": _RECOVERY_CURSOR, "lease_token": lease_token},
+            {"$set": {
+                "after_time": str(last.get("next_run_at") or ""),
+                "after_owner": str(last.get("owner_id") or ""),
+                "after_id": str(last.get("id") or ""),
+                "last_scan_at": moment.isoformat(),
+            }},
+        )
+        return scheduled
+    finally:
+        # Never remove another worker's lease if this one expired.
+        await state_collection.update_one(
+            {"_id": _RECOVERY_CURSOR, "lease_token": lease_token},
+            {"$unset": {"lease_until": "", "lease_token": ""}},
+        )
+
 
 async def advance_wake(db, wake):
     from agent.service import AgentService

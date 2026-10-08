@@ -166,6 +166,9 @@ jobs:
       - name: Autonomous goal wake recovery beyond already scheduled rows
         working-directory: backend
         run: python -m pytest -q tests/test_goal_wake_rotation_v135.py -x
+      - name: Cross-worker wake cursor lease, retries and authority
+        working-directory: backend
+        run: python -m pytest -q tests/test_goal_wake_cursor_lease_v137.py -x
       - name: Multiowner cursor and restarted goal wake recovery
         working-directory: backend
         run: python -m pytest -q tests/test_goal_wake_keyset_v136.py -x
