@@ -21,6 +21,16 @@
   ma semanticamente parziale per il consiglio di partire per evitare traffico.
   Corrette le istruzioni di grounding nel prompt e nel catalogo, con regressione
   sul vero input del modello. Evidenza originaria conservata; nuova prova dovuta.
+- Gate Mongo/processi reale superato nel run `37775978297`: `1 passed` in 6,83 s;
+  224 test Fase 1 nel medesimo job. Risposta e memo persistiti sopravvivono
+  all'uscita del primo processo, con zero chiamate AI nel processo di replay.
+- Il secondo live conserva il blocco del percorso e la risposta incompleta:
+  rilevate lacune nel riferimento canonico dei luoghi e nel linguaggio meteo.
+- Il resolver riconosce ora ref canonici/ID dei luoghi confermati dell'owner,
+  senza approssimare nomi né recuperare luoghi di altri utenti. Il catalogo
+  indica di copiare l'identità ricevuta dal contesto. Regressioni nel gate CI.
+- Prompt e catalogo meteo separano probabilità e intensità della pioggia,
+  attribuiscono i dati correnti al provider e non li presentano come garanzie.
 
 Evidenze finali e limiti: `PHASE1_REAL_READ_EVAL.md`.
 

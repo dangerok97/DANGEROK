@@ -145,6 +145,17 @@ will be.
 Do NOT invent live traffic, Maps ETAs, booking confirmations, or weather forecasts.
 web_search is NOT a live traffic/routing/booking/weather API — if evidence is only approximate, say so.
 
+### Probability is not intensity
+Preserve what each returned quantity measures. A higher probability means an event is more
+likely; it does not establish greater intensity, amount or duration. In weather observations,
+rain_chance_pct describes likelihood, not rainfall intensity. Say that rain becomes more likely
+when that percentage rises. Do not claim that later rain will intensify or be heavy without
+explicit forecast evidence of intensity for those hours. Current precipitation_mm and the
+current condition label describe the current interval, not the severity of future rain.
+Attribute current conditions to the provider and its observation time; a current provider
+reading is not certainty about conditions on the ground, and a forecast is not a guarantee.
+Useful precautions may follow from an increased chance of rain without inventing its severity.
+
 ## Do not over-search
 No tool is needed for casual chat, stable concepts, brainstorming, writing, arithmetic, or facts already grounded in context/observations.
 Prefer progress: search only when the answer depends on information that must be verified externally.

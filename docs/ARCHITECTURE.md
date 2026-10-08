@@ -31,6 +31,13 @@ non una durata statica né percorsi alternativi allo stesso orario. Una regressi
 intercetta l'input del modello dopo la lettura per verificare che il limite
 raggiunga l'AI insieme all'Observation; la sua osservanza richiede il test live.
 
+`PlacesService.resolve_destination` accetta il `ref=place:<id>` e il `place_id`
+esposti da `LifePlace.for_ai` mediante lettura esatta scoped all'owner, soltanto
+se il luogo è confermato. Un riferimento esplicito invalido non ripiega su una
+label somigliante. Nomi esatti e ruoli confermati mantengono la risoluzione
+precedente. Prompt e catalogo meteo distinguono probabilità, intensità e
+intervallo temporale: precipitazione corrente non prova intensità futura.
+
 ---
 
 ## 8 ottobre 2026 — Banco di prova cognitivo, modello reale e confine sintetico

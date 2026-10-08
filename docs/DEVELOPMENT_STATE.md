@@ -21,8 +21,12 @@ Prima CI completa verde sul commit `546bf574` (run `37774894917`), inclusi 223
 test Fase 1. Prima prova live: 4 chiamate LLM, 2 letture reali Mapbox/Open-Meteo,
 valori coerenti, ma consiglio di partenza non supportato da un confronto del
 traffico. Il tentativo resta semanticamente parziale. Corretti prompt e catalogo;
-24 test di regressione superati. Nuovo passaggio live e gate Mongo/processi
-restano da confermare sul commit aggiornato.
+24 test di regressione superati. La CI successiva su `e1990e9` verifica 224 test
+Fase 1 e il gate con Mongo reale e due processi (`1 passed`, 6,83 s): risposta
+identica, zero chiamate AI al replay e memo invariato. Il secondo live rileva
+un riferimento canonico al luogo rifiutato dalla route e un uso improprio della
+probabilità di pioggia come intensità. Le due lacune vengono corrette prima
+della nuova valutazione; il fallimento originario resta nelle evidenze.
 
 La Fase 1 resta aperta: nessuna dichiarazione di collaudo completo multiutente,
 OAuth personale, device o consegna push. Nessuna automazione oraria di sviluppo.

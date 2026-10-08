@@ -23,6 +23,11 @@ immediata per evitare traffico: questo vantaggio richiede un confronto verificat
 tra gli orari. La risposta può motivare una partenza con i fatti disponibili,
 come una scadenza, distinguendoli da ciò che non è stato confrontato.
 
+Le skill possono usare il riferimento preciso di un luogo già salvato e
+confermato, senza ricostruirne il nome. Il riferimento resta vincolato al suo
+proprietario. Nel meteo, una maggiore probabilità di pioggia significa che è
+più probabile che piova: non dimostra pioggia più intensa o più duratura.
+
 ---
 
 ## 8 ottobre 2026 — Fase 1: una commissione con una skill fallita non è conclusa

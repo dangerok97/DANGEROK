@@ -98,6 +98,35 @@ reale alla regola richiede il nuovo tentativo live.
 Evidenza completa, inclusi messaggio, decisioni, Observation, metadati HTTP e
 testo finale: [JSON del collaudo](evidence/phase1_real_provider_read_2026-10-08.json).
 
+### Tentativo 2 — Fallimento del riferimento al luogo, richiesta incompleta dichiarata
+
+Commit: `e1990e923539fac747dfe8bee36d7b50017d2310`.
+Deployment tecnico: `76d35a17-510e-4d6e-a83a-a5fe2789f5e4`.
+Scenario: 8 ottobre, 14:19 Europe/Rome. Sette chiamate reali a Gemini2
+`gemini-flash-lite-latest`, 21.238 ms.
+
+Il modello ha passato prima `Colosseo, Roma`, poi `place:eval-colosseo` alla
+skill percorso. Il resolver ha rifiutato entrambi; nessuna richiesta HTTP di
+routing è stata effettuata. Il secondo valore era il riferimento canonico
+già fornito dal contesto dei luoghi, ma il resolver cercava soltanto label e
+ruoli. Questa è una lacuna del contratto fra contesto e strumento, non un errore
+del provider né un motivo per aggiungere alias sintetici al caso di test.
+
+Open-Meteo è stato interrogato correttamente. Il verdetto tecnico è **FAIL**
+(`missing_usable_dated_provider_read:get_route`), e la risposta dichiara
+esplicitamente che il percorso e la richiesta non sono completati. Nessuna
+durata è stata inventata. La revisione nota anche un'imprecisione meteo:
+l'aumento della probabilità di pioggia viene presentato come intensificazione,
+mentre nelle ore lette manca una misura dell'intensità. Il tentativo resta
+registrato integralmente come `failed_incomplete`.
+
+La correzione del resolver usa la stessa identità esposta da `LifePlace.for_ai`,
+con ricerca esatta per owner e ID e stato `confirmed`. Riferimenti assenti,
+altrui o rimossi non forniscono coordinate; un `place:<id>` invalido non viene
+reinterpretato come nome. Il catalogo preferisce il riferimento copiato dal
+contesto. La correzione meteo separa probabilità e intensità nel prompt e nella
+descrizione della skill. Nessuna modifica alle fixture per nascondere l'errore.
+
 ## Autenticazione e persistenza
 
 `test_phase1_authenticated_resume_v126.py` attraversa il router FastAPI reale,
@@ -121,6 +150,14 @@ sessione e memo invariati e isolamento dell'owner. Un marker permette di
 eliminare soltanto il database creato dal test. Modello e persona restano
 sintetici; il database e i processi sono reali. Il gate deve passare in CI:
 senza flag è esplicitamente saltato, con flag e Mongo assente deve fallire.
+
+**Prova positiva eseguita:** nel run
+[37775978297](https://github.com/dangerok97/DANGEROK/actions/runs/37775978297/job/113306794687),
+commit `e1990e9`, il gate termina `1 passed` in 6,83 secondi (12:22:05 UTC).
+Il primo interprete è uscito dopo il salvataggio; il secondo ha riletto la
+risposta originale, senza chiamare il modello e con un solo memo invariato.
+Il gruppo Fase 1 nello stesso job termina `224 passed`. Evidenza essenziale:
+[JSON del riavvio reale](evidence/phase1_real_restart_2026-10-08.json).
 
 ## Verifiche e riproduzione
 
