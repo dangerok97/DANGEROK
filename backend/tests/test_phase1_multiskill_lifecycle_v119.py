@@ -240,7 +240,7 @@ async def test_sixth_skill_stays_pending_after_five_tool_calls(monkeypatch):
     assert result.ok
     assert result.tool_calls == 5
     assert observed == required[:5]
-    assert "non sono riuscita a completare" in result.ora_text.lower()
+    assert "non ho ancora completato" in result.ora_text.lower()
     plan = sess.meta["ai_core"]["active_skill_plan"]
     assert plan["required_capabilities"] == required
     assert "search_my_life" in plan["required_capabilities"]
