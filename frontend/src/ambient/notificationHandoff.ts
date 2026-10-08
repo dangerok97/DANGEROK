@@ -31,3 +31,24 @@ export function parseNotificationHandoff(payload: unknown): NotificationHandoff 
   ) return null;
   return { planId, route };
 }
+
+
+/**
+ * Server acknowledgement, not Expo payload, decides the actual destination.
+ * Both sources must agree; an error/foreign owner may never open a route.
+ */
+export function canonicalNotificationRoute(
+  handoff: NotificationHandoff,
+  reply: unknown,
+): string | null {
+  if (!reply || typeof reply !== 'object' || Array.isArray(reply)) return null;
+  const result = reply as Record<string, unknown>;
+  if (result.ok !== true || result.outcome !== 'opened'
+      || result.route !== handoff.route) return null;
+  return typeof result.route === 'string' && result.route.length <= 300
+    && parseNotificationHandoff({
+      plan_id: handoff.planId,
+      deep_link: result.route,
+    }) !== null
+    ? result.route : null;
+}
