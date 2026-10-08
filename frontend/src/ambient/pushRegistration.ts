@@ -87,11 +87,10 @@ export async function enablePush(): Promise<PushOutcome> {
   }
 
   if (status !== 'granted') {
-    // Honest degradation: the decision layer is told, so a push it cannot
-    // make becomes a quiet line rather than nothing at all.
-    await api
-      .registerPushDevice({ token: '', permission_state: 'denied' })
-      .catch(() => {});
+    // A missing token cannot unregister a previously authorized endpoint.
+    // Explicitly release THIS installation so ORA cannot keep targeting it
+    // after its owner revoked permission in the OS.
+    await releasePush();
     return { ok: false, state: 'denied' };
   }
 
