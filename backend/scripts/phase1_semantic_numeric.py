@@ -17,7 +17,7 @@ def discrepancies(answer, route, weather):
     problems = []
     distance = number(route.get("distance_meters"))
     if distance is not None:
-        for raw, unit in re.findall(r"([\d.,]+)\s*(km|metri)\b", answer, re.I):
+        for raw, unit in re.findall(r"([\d.,]+)\s*(km|metri)\b(?!\s*/\s*h\b)", answer, re.I):
             value = number(raw, unit.lower())
             if value is None:
                 problems.append("INVALID_DISTANCE")

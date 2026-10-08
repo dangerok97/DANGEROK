@@ -181,6 +181,7 @@ jobs:
             tests/test_phase1_semantic_guard_v127.py \
             tests/test_phase1_semantic_gate_v127.py \
             tests/test_phase1_semantic_integration_v127.py \
+            tests/test_phase1_semantic_live_replay_v127.py \
             -x
       - name: Phase 1 persisted result survives a real process restart
         working-directory: backend

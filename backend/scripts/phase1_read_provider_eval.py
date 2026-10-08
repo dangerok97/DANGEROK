@@ -586,7 +586,10 @@ async def run_case(*, mode: str = "scripted", decide: Callable | None = None,
     final = str(getattr(result, "ora_text", "") or "")
     trace_steps = (getattr(result, "trace", None) or {}).get("steps") or []
     grounding_rewrites = sum(
-        row.get("event") in ("GROUNDING_ADVICE_REWRITTEN", "GROUNDING_ADVICE_REWRITTEN_BOUND")
+        row.get("event") in (
+            "GROUNDING_ADVICE_REWRITTEN", "GROUNDING_ADVICE_REWRITTEN_BOUND",
+            "GROUNDING_MESSAGE_RENDERED", "GROUNDING_MESSAGE_RENDERED_BOUND",
+        )
         for row in trace_steps if isinstance(row, dict)
     )
     semantic_review = review_trip_answer(

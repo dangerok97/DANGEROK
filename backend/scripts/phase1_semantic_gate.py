@@ -23,9 +23,16 @@ def review_trip_answer(answer, observations, *, grounding_rewrites=0):
     if not isinstance(eta, (int, float)) or isinstance(eta, bool) or eta <= 0:
         issues.append("NO_ROUTE_EVIDENCE")
     else:
-        times = re.findall(r"(\d+)\s*(minuti?|min|secondi?)", answer, re.I)
-        if not times:
+        compound_pattern = r"(\d+)\s*minuti?\s+e\s+(\d+)\s*secondi?"
+        compounds = re.findall(compound_pattern, answer, re.I)
+        remaining = re.sub(compound_pattern, "", answer, flags=re.I)
+        times = re.findall(r"(\d+)\s*(minuti?|min|secondi?)", remaining, re.I)
+        if not times and not compounds:
             issues.append("MISSING_ETA")
+        for minutes, seconds_part in compounds:
+            if abs(int(minutes) * 60 + int(seconds_part) - eta) > max(75, eta * 0.12):
+                issues.append("ETA_MISMATCH")
+                break
         for raw, unit in times:
             seconds = int(raw) if unit.lower().startswith("second") else int(raw) * 60
             if abs(seconds - eta) > max(75, eta * 0.12):
