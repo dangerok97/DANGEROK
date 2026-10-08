@@ -1,3 +1,24 @@
+## 8 ottobre 2026 — Fase 1: piano multi-skill oltre il limite del turno v120
+
+Problema verificato nel codice: il modello SkillPlan e tre punti di
+persistenza tagliavano silenziosamente la lista delle capacità obbligatorie
+dopo cinque elementi, usando il budget degli strumenti del singolo turno
+come se fosse il limite dell'intero lavoro. Un sesto passaggio non eseguito
+poteva perciò scomparire senza impedire una risposta di completamento.
+
+Il contratto ora distingue 5 esecuzioni massime per turno da 12 skill
+richieste nel piano recuperabile; stato tentato ed esiti sintetici hanno
+limiti coerenti. Piani più grandi del limite dichiarato sono respinti dalla
+validazione, invece di perdere le ultime skill senza avvisare. Nel caso di
+più di cinque passaggi, ORA deve comunque proseguire in altri turni: questa
+correzione garantisce persistenza e onestà, non esecuzione autonoma illimitata.
+
+Test: piano da sei skill, 12 esiti preservati, input di 13 skill respinto
+dalla governance. La Fase 1 resta aperta finché non sono provati live
+ripresa e completamento con modello reale.
+
+---
+
 ## 8 ottobre 2026 — Fase 1, verità sull'esito dei provider (v118)
 
 Un adapter può restituire un'osservazione tecnica `ok` contenente

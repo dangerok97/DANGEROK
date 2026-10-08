@@ -491,6 +491,9 @@ def validate_decision(
         and (mode != "tool" or decision.tool_call is not None)
         and (mode != "research" or decision.research_need is not None)
         and (mode != "compare" or decision.comparison_need is not None)
+        # Never accept a terminal answer after discarding an invalid required
+        # skill plan (including one larger than the declared safe bound).
+        and "skill_plan_invalid" not in errors
     )
     return GovernanceResult(ok=ok, decision=decision, errors=errors)
 
