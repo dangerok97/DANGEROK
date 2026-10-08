@@ -305,6 +305,37 @@ def _required_skill_plan_satisfied(required: List[str], outcomes) -> bool:
     return not (states["waiting"] or states["failed"] or states["unseen"])
 
 
+# Generic *presentation* protection, never used to choose domain tools.
+# The backend's latest observed skill states, not the model's prose, own whether
+# the complete multi-step job may be represented as finished.
+_TOTAL_SUCCESS_COPY_RE = re.compile(
+    r"(?i)\b(?:ho|abbiamo)\s+(?:gi[aà]\s+)?"
+    r"(?:completat\w*|conclus\w*|finit\w*|eseguit\w*|organizzat\w*)\b"
+    r"|\b(?:tutto|ogni\s+passaggio)\s+(?:fatto|pronto|completato|eseguito)\b"
+)
+
+
+def _unverified_skill_failure_copy(message: str, *, retryable: bool = False) -> str:
+    """Ensure a failed required step is never presented as a completed job."""
+    note = (
+        "La richiesta non è ancora completata: almeno un passaggio necessario "
+        "non ha restituito un risultato verificato."
+    )
+    if retryable:
+        note += " Il servizio consente di riprovare quel controllo."
+    base = str(message or "").strip()
+    if not base or _BARE_ACK_RE.fullmatch(base):
+        return note
+    # A strong model claim of *overall* completion contradicts the real
+    # required-skill state; discard the unsafe prose, not the evidence.
+    if _TOTAL_SUCCESS_COPY_RE.search(base) and not re.search(
+        r"(?i)\bnon\s+(?:ho|abbiamo)\s+(?:completat\w*|conclus\w*|finit\w*|eseguit\w*)",
+        base,
+    ):
+        return note
+    return base if note in base else base + "\n\n" + note
+
+
 def _retryable_failed_skill_caps(
     required: List[str], outcomes, *, tools: Optional[ToolRegistry] = None
 ) -> List[str]:
@@ -3016,7 +3047,8 @@ async def run_cognitive_loop(
                         if phone_turn else "SITUATION_HANDOFF_VISIBLE"
                     ),
                 )
-            state_mod.append_turn(st, role="ora", text=ora, kind=mode)
+            # Append the *final* verified response below, after navigation
+            # handoff and required-skill status gates can still change the text.
             if mode == "ask" and decision.uncertainty:
                 asked_refs = [
                     item.ref
@@ -3186,6 +3218,17 @@ async def run_cognitive_loop(
                     st["active_skill_plan"] = None
                 trace["skill_plan_failed"] = list(failed_skill_caps)
 
+            if mode in ("answer", "finish", "act") and failed_skill_caps:
+                ora = _unverified_skill_failure_copy(
+                    ora, retryable=bool(retryable_failed_caps)
+                )
+                add_step(
+                    trace,
+                    event="SKILL_PLAN_FAILURE_USER_NOTICE",
+                    failed=failed_skill_caps,
+                    retryable=retryable_failed_caps,
+                )
+            state_mod.append_turn(st, role="ora", text=ora, kind=mode)
             st["observations"] = observations[-12:]
             navigation_options = _remember_pending_navigation(
                 st, observations[turn_start:]

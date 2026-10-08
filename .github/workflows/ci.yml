@@ -169,6 +169,7 @@ jobs:
             tests/test_phase1_multiskill_lifecycle_v119.py \
             tests/test_phase1_ready_act_guard_v121.py \
             tests/test_phase1_retryable_skill_v122.py \
+            tests/test_phase1_failed_skill_terminal_v124.py \
             -x
   telephone-cloud:
     name: Telephone cloud safety

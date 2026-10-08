@@ -1,3 +1,16 @@
+## 8 ottobre 2026 — Fase 1: una commissione con una skill fallita non è conclusa
+
+ORA deve distinguere l'avanzamento dal completamento. Anche dopo aver
+letto il calendario, se il controllo necessario del percorso fallisce,
+non può annunciare che l'intera organizzazione è conclusa. Il risultato
+parziale attendibile resta descrivibile, ma è accompagnato dallo stato
+incompleto. Un'affermazione del modello che presenta la commissione
+come interamente completata senza l'esito richiesto viene sostituita
+da un messaggio veritiero. Risposte informative e piani effettivamente
+completati non ricevono avvisi di errore.
+
+---
+
 ## 8 ottobre 2026 — Fase 1: un percorso esiste soltanto se è verificato
 
 Quando ORA usa la skill get_route per aiutare una persona a partire,
