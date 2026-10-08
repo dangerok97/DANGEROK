@@ -1,3 +1,15 @@
+## 8 ottobre 2026 — AI Core: sesta skill non più persa
+
+- Separato il limite degli strumenti per singolo turno dalla capienza
+  di un piano multi-turno: fino a 12 skill richieste conservabili.
+- Rimossa la troncatura silenziosa del piano al quinto requisito.
+- I piani oltre il limite dichiarato richiedono un nuovo output AI valido
+  e non possono essere validati come piani completi senza requisiti.
+- Rafforzati i limiti dello stato di esecuzione e dei risultati sintetici.
+- Aggiunti test su 6/12/13 skill al gate CI.
+
+---
+
 ## 8 ottobre 2026 — AI Core, stato provider prima del successo
 
 - Una chiamata tecnica completata senza eccezioni non vale come azione riuscita
