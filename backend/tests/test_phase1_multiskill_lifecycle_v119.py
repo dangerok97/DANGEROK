@@ -191,3 +191,57 @@ async def test_multi_skill_chain_survives_user_clarification_across_turns(monkey
     assert second.tool_calls == 1
     assert second.trace.get("skill_plan_completed") is True
     assert sess.meta["ai_core"]["active_skill_plan"] is None
+
+
+@pytest.mark.asyncio
+async def test_sixth_skill_stays_pending_after_five_tool_calls(monkeypatch):
+    """The per-turn budget must never turn a 6-step request into 5-step success."""
+    required = [
+        "get_calendar_events", "get_route", "get_weather_forecast",
+        "get_profile_snapshot", "list_life_places", "search_my_life",
+    ]
+    observed = []
+
+    async def execute(self, capability, args, *, runtime):
+        observed.append(capability)
+        return Observation(
+            kind="tool", name=capability, status="ok",
+            payload={"status": "ok"},
+        )
+
+    monkeypatch.setattr(ToolRegistry, "execute", execute)
+    calls = 0
+
+    async def decide(system, payload):
+        nonlocal calls
+        calls += 1
+        if calls <= 6:
+            decision = {
+                "response_mode": "tool",
+                "reasoning_status": "needs_tool",
+                "tool_call": {"capability": required[calls - 1], "arguments": {}},
+                "situation_update": {"operation": "none"},
+            }
+            if calls == 1:
+                decision["skill_plan"] = {
+                    "objective": "Completa sei verifiche necessarie",
+                    "required_capabilities": required,
+                    "completion_condition": "Tutte le sei letture osservate",
+                }
+            return decision
+        return answer("Ho concluso tutto.")
+
+    sess = session()
+    result = await run_cognitive_loop(
+        sess=sess, user_message="Organizza sei verifiche indispensabili.",
+        db=AsyncMongoMockClient().phase1_sixth_skill,
+        decision_fn=decide, max_steps=7,
+    )
+    assert result.ok
+    assert result.tool_calls == 5
+    assert observed == required[:5]
+    assert "non sono riuscita a completare" in result.ora_text.lower()
+    plan = sess.meta["ai_core"]["active_skill_plan"]
+    assert plan["required_capabilities"] == required
+    assert "search_my_life" in plan["required_capabilities"]
+    assert result.trace.get("skill_plan_paused") is True
