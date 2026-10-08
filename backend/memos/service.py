@@ -176,11 +176,46 @@ class RecurringMemoService:
                 continue
 
             timezone_name = str(memo.get("timezone") or "Europe/Rome")
-            local = moment.astimezone(_zone(timezone_name))
-            year = local.year
             reminder_hour = int(
                 memo["remind_hour_local"] if memo.get("remind_hour_local") is not None else 9
             )
+            # A corrected durable date is authoritative. A claimed old
+            # occurrence must never announce the old birthday as "today".
+            # Re-arm the same user-authorized reminder for the corrected date;
+            # do not create a second memo or a second notification.
+            remembered = memory.get("value") if isinstance(memory.get("value"), dict) else {}
+            if remembered.get("month") is not None and remembered.get("day") is not None:
+                try:
+                    corrected_month = int(remembered["month"])
+                    corrected_day = int(remembered["day"])
+                    corrected_due = _next_annual(
+                        month=corrected_month, day=corrected_day,
+                        timezone_name=timezone_name, hour=reminder_hour, now=moment,
+                    )
+                except (TypeError, ValueError):
+                    await self.db[COLLECTION].update_one(
+                        {"id": memo["id"], "owner_id": memo["owner_id"],
+                         "claim_until": memo.get("claim_until")},
+                        {"$set": {"status": "disabled", "claim_until": "",
+                                  "updated_at": moment.isoformat(),
+                                  "disabled_reason": "invalid_memory_date"}},
+                    )
+                    out["disabled"] += 1
+                    continue
+                if (corrected_month, corrected_day) != (int(memo["month"]), int(memo["day"])):
+                    await self.db[COLLECTION].update_one(
+                        {"id": memo["id"], "owner_id": memo["owner_id"],
+                         "claim_until": memo.get("claim_until")},
+                        {"$set": {
+                            "month": corrected_month, "day": corrected_day,
+                            "person": str(remembered.get("person") or memo.get("person") or "")[:120],
+                            "next_due_at": corrected_due.isoformat(),
+                            "claim_until": "", "updated_at": moment.isoformat(),
+                        }},
+                    )
+                    continue
+            local = moment.astimezone(_zone(timezone_name))
+            year = local.year
             # A missed run must not announce yesterday's (or last year's)
             # birthday as happening "today". Re-arm the next valid occurrence.
             if ((local.month, local.day) != (int(memo["month"]), int(memo["day"]))
@@ -198,7 +233,7 @@ class RecurringMemoService:
                     }},
                 )
                 continue
-            person = str(memo.get("person") or "").strip()
+            person = str(remembered.get("person") or memo.get("person") or "").strip()
             label = str(memo.get("label") or memory.get("statement") or "Promemoria").strip()
             if memo.get("category") == "birthday":
                 title = f"Compleanno di {person}" if person else "Compleanno da ricordare"
