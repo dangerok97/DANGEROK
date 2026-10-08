@@ -1,3 +1,15 @@
+## 8 ottobre 2026 — Fase 1: un percorso esiste soltanto se è verificato
+
+Quando ORA usa la skill get_route per aiutare una persona a partire,
+il fatto che il servizio abbia risposto non dimostra che esista un
+itinerario. Un percorso disponibile deve contenere una durata reale
+verificata dal provider. Se manca, ORA conserva la causa e le eventuali
+destinazioni candidate, ma non segna completata la skill che richiede
+l'ETA. Se manca l'origine sul dispositivo resta una richiesta di
+posizione, non un itinerario calcolato. Nessuna ETA fittizia.
+
+---
+
 ## 8 ottobre 2026 — Fase 1: un esito verificato, non un «Ok»
 
 Il comportamento di ORA è quello di un assistente che esegue i passaggi
