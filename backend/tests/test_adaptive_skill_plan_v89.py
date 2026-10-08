@@ -6,6 +6,8 @@ from conversation_engine.ai_core.governance import validate_decision
 from conversation_engine.ai_core.loop import (
     _active_skill_plan_state,
     _apply_skill_plan_releases,
+    _merge_skill_outcomes,
+    _required_skill_states,
     _persist_active_skill_plan,
 )
 from conversation_engine.ai_core.models import (
@@ -272,3 +274,114 @@ def test_prompt_forbids_silent_skill_drops_and_requires_real_basis():
     assert "Never" in prompt and "invent evidence" in prompt
     assert "INVALID_SKILL_PLAN_RELEASE" in loop
     assert 'event="SKILL_PLAN_REVISED"' in loop
+
+
+def _release_after(capability="get_calendar_events"):
+    return SkillPlanRelease(
+        capability="cancel_calendar_event",
+        reason="Skip cancellation after verifying the source.",
+        basis="observation",
+        observation_capability=capability,
+    )
+
+
+def test_failed_observation_cannot_release_required_skill():
+    obs = [Observation(
+        kind="tool", name="get_calendar_events", status="error",
+        payload={"status": "provider_error", "failure_code": "SOURCE_UNAVAILABLE"},
+    ).model_dump()]
+    remaining, released, rejected = _apply_skill_plan_releases(
+        ["get_calendar_events", "cancel_calendar_event"],
+        [_release_after()], obs,
+    )
+    assert remaining == ["get_calendar_events", "cancel_calendar_event"]
+    assert released == []
+    assert rejected == ["cancel_calendar_event"]
+
+
+def test_waiting_observation_cannot_release_required_skill():
+    obs = [Observation(
+        kind="tool", name="get_calendar_events", status="partial",
+        payload={"status": "authority_required"},
+    ).model_dump()]
+    remaining, released, rejected = _apply_skill_plan_releases(
+        ["get_calendar_events", "cancel_calendar_event"],
+        [_release_after()], obs,
+    )
+    assert "cancel_calendar_event" in remaining
+    assert released == []
+    assert rejected == ["cancel_calendar_event"]
+
+
+def test_system_note_mentioning_capability_is_not_execution_evidence():
+    obs = [Observation(
+        kind="system", name="get_calendar_events", status="ok",
+        payload={"status": "ok"},
+    ).model_dump()]
+    remaining, released, rejected = _apply_skill_plan_releases(
+        ["get_calendar_events", "cancel_calendar_event"],
+        [_release_after()], obs,
+    )
+    assert "cancel_calendar_event" in remaining
+    assert released == []
+    assert rejected == ["cancel_calendar_event"]
+
+
+def test_latest_failed_retry_blocks_stale_success_from_releasing_skill():
+    prior = [{
+        "capability": "get_calendar_events",
+        "observed_capability": "get_calendar_events",
+        "status": "ok", "result_status": "ok", "failure_kind": "",
+    }]
+    failed_now = [Observation(
+        kind="tool", name="get_calendar_events", status="failed",
+        payload={"status": "provider_error", "failure_code": "REFRESH_FAILED"},
+    ).model_dump()]
+    remaining, released, rejected = _apply_skill_plan_releases(
+        ["cancel_calendar_event"],
+        [_release_after()], failed_now, persisted_outcomes=prior,
+    )
+    assert remaining == ["cancel_calendar_event"]
+    assert released == []
+    assert rejected == ["cancel_calendar_event"]
+
+
+def test_same_success_retried_after_failure_becomes_latest_observation():
+    def outcome(status, failure=""):
+        return {
+            "capability": "get_calendar_events",
+            "observed_capability": "get_calendar_events",
+            "status": status,
+            "result_status": status,
+            "failure_kind": failure,
+        }
+
+    history = _merge_skill_outcomes(
+        [],
+        [outcome("ok"), outcome("failed", "SOURCE_UNAVAILABLE"), outcome("ok")],
+    )
+    assert [item["status"] for item in history] == ["failed", "ok"]
+    assert _required_skill_states(["get_calendar_events"], history)["succeeded"] == [
+        "get_calendar_events"
+    ]
+
+
+def test_latest_successful_retry_allows_evidence_based_release():
+    prior = [{
+        "capability": "get_calendar_events",
+        "observed_capability": "get_calendar_events",
+        "status": "failed",
+        "result_status": "provider_error",
+        "failure_kind": "SOURCE_UNAVAILABLE",
+    }]
+    successful_now = [Observation(
+        kind="tool", name="get_calendar_events", status="ok",
+        payload={"status": "ok", "events": []},
+    ).model_dump()]
+    remaining, released, rejected = _apply_skill_plan_releases(
+        ["get_calendar_events", "cancel_calendar_event"],
+        [_release_after()], successful_now, persisted_outcomes=prior,
+    )
+    assert remaining == ["get_calendar_events"]
+    assert released == ["cancel_calendar_event"]
+    assert rejected == []
