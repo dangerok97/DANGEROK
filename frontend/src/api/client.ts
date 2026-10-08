@@ -1222,6 +1222,13 @@ export const api = {
       body: JSON.stringify({ device }),
     }),
 
+  /** Only an acknowledged, already-issued delivery plan may open its target. */
+  recordNotificationOpened: (planId: string) =>
+    request<{ ok: boolean; outcome: string; opportunity_id?: string }>(
+      `/delivery/${encodeURIComponent(planId)}/outcome`,
+      { method: 'POST', body: JSON.stringify({ outcome: 'opened' }) },
+    ),
+
   /*
     Whether somebody is looking at ORA right now — app presence, not life
     presence. A fact with a timestamp, never a rule about what may be sent.
