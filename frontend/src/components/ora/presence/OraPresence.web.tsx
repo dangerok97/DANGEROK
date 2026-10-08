@@ -93,7 +93,7 @@ function MobilePresenceConversation({
     setSpotlight(candidate);
     const timer = setTimeout(() => setSpotlight(null), 8000);
     return () => clearTimeout(timer);
-  }, [candidate]);
+  }, [candidate, refreshKey]);
 
   useEffect(() => {
     if (viewport.editing || mode === 'think' || mode === 'listen') setMapOpen(false);
