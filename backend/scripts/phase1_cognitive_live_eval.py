@@ -463,10 +463,17 @@ async def _scripted_model_factory(case_name: str):
     return decide
 
 
-async def main(mode: str, scenario: str, max_steps: int, output: str | None) -> int:
+async def main(
+    mode: str, scenario: str, max_steps: int, output: str | None,
+    delay_between: float = 0,
+) -> int:
     selected = list(SCENARIOS) if scenario == "all" else [scenario]
     rows = []
-    for name in selected:
+    for index, name in enumerate(selected):
+        # Real hosted models can enforce low per-minute quotas. Spacing tests
+        # improves comparability without changing the actual model decisions.
+        if index and delay_between > 0:
+            await asyncio.sleep(min(delay_between, 45))
         try:
             decide = (
                 await _scripted_model_factory(name)
@@ -515,6 +522,8 @@ def _args():
     parser.add_argument("--mode", choices=("live", "scripted"), default="live")
     parser.add_argument("--scenario", choices=("all", *SCENARIOS), default="all")
     parser.add_argument("--max-steps", type=int, default=7)
+    parser.add_argument("--delay-between", type=float, default=0,
+                        help="Seconds between cases (max 45); never runs on a schedule.")
     parser.add_argument("--output", default="")
     return parser.parse_args()
 
@@ -535,5 +544,6 @@ if __name__ == "__main__":
         raise SystemExit(3)
     raise SystemExit(asyncio.run(
         main(args.mode, args.scenario, max(1, min(8, args.max_steps)),
-             args.output or None)
+             args.output or None,
+             delay_between=max(0, min(45, args.delay_between)))
     ))
