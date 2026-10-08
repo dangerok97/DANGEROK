@@ -181,7 +181,7 @@ def _record_skill_attempt(
 
 def _skill_outcome_summary(
     requested_cap: str, observation
-) -> Dict[str, str]:
+) -> Dict[str, Any]:
     """Sanitised capability result for cross-turn planning — no tool payload."""
     if isinstance(observation, dict):
         observed = str(observation.get("name") or "").strip()
@@ -209,8 +209,8 @@ def _skill_outcome_summary(
     }
 
 
-def _merge_skill_outcomes(current, incoming) -> List[Dict[str, str]]:
-    out: List[Dict[str, str]] = []
+def _merge_skill_outcomes(current, incoming) -> List[Dict[str, Any]]:
+    out: List[Dict[str, Any]] = []
     for raw in [*(current or []), *(incoming or [])]:
         if not isinstance(raw, dict):
             continue
@@ -246,7 +246,7 @@ def _merge_skill_outcomes(current, incoming) -> List[Dict[str, str]]:
     return out[-(MAX_REQUIRED_CAPABILITIES * 3):]
 
 
-def _skill_outcome_class(item: Dict[str, str]) -> str:
+def _skill_outcome_class(item: Dict[str, Any]) -> str:
     """Classify one sanitized observation as succeeded, waiting, or failed."""
     status = str((item or {}).get("status") or "").strip().lower()
     result = str((item or {}).get("result_status") or "").strip().lower()
@@ -1284,7 +1284,7 @@ async def run_cognitive_loop(
     ready_act_nudge_used = False
     required_skill_caps: List[str] = []
     attempted_skill_caps: Set[str] = set()
-    skill_outcomes: List[Dict[str, str]] = []
+    skill_outcomes: List[Dict[str, Any]] = []
     active_execution_plan = _active_skill_plan_state(st)
     active_execution_plan_ref: Optional[str] = (
         str((active_execution_plan or {}).get("plan_ref") or "") or None
