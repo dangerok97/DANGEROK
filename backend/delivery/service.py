@@ -714,6 +714,7 @@ class DeliveryService:
         source_refs: Optional[List[str]] = None,
         provenance: Optional[Dict[str, Any]] = None,
         visible: bool = False,
+        activity_id: str = "",
     ) -> AmbientActivity:
         """
         Write down something ORA actually did.
@@ -730,6 +731,7 @@ class DeliveryService:
             source_refs=[str(r)[:120] for r in (source_refs or [])][:8],
             cognitive_provenance=provenance or {},
             visibility="ambient" if visible else "internal",
+            **({"id": activity_id} if activity_id else {}),
         )
         return await self.repo.record_activity(activity)
 
