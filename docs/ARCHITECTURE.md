@@ -1,3 +1,17 @@
+## 8 ottobre 2026 — Contratto route.read fra provider e AI Core
+
+In backend/places/caps.py, _verified_route_result separa lo stato
+di esecuzione dell'adapter dall'esito semantico. Le risposte senza
+available=True e duration_seconds numerico, finito, non negativo
+mantengono i campi descrittivi e l'eventuale lista di candidate ma
+espongono payload.status=unavailable; _skill_outcome_summary e
+_skill_outcome_class del loop generico impediscono di soddisfare la
+skill obbligatoria. Mancanza della posizione resta outer
+status=needs_client, dunque waiting. Il caso di ricerca riuscita
+senza risultati in altri domini non viene toccato.
+
+---
+
 ## 8 ottobre 2026 — AI Core: guardia sull'uscita per budget
 
 Il loop cognitivo (conversation_engine/ai_core/loop.py) ha un ramo terminale
