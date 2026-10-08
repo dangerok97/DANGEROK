@@ -155,7 +155,13 @@ class VisibilityService:
             decision.quietened_by_code = "questa cosa era già stata detta"
             return decision
 
-        await self._record(owner_id, decision)
+        # The preliminary read is only an optimisation. Two workers may both
+        # pass it before either one records the update. Only the successful
+        # atomic insert owns the right to surface and offer this news.
+        if not await self._record(owner_id, decision):
+            decision.outcome = "silent"
+            decision.decided_by = "code"
+            decision.quietened_by_code = "aggiornamento già registrato o archivio non disponibile"
         return decision
 
     async def recent(self, owner_id: str) -> List[Dict[str, Any]]:
@@ -175,16 +181,22 @@ class VisibilityService:
         )
         return found is not None
 
-    async def _record(self, owner_id: str, decision: VisibilityDecision) -> None:
+    async def _record(self, owner_id: str, decision: VisibilityDecision) -> bool:
+        """Only the insert winner may create an activity or delivery need.
+
+        Under concurrent workers both may read 'not said yet'. The unique
+        owner/fingerprint index is the atomic decision, not the earlier read.
+        On a database failure do not claim to have delivered an update.
+        """
         row = decision.model_dump()
         row["owner_id"] = owner_id
         row["expires_at"] = _now() + timedelta(days=SAID_RETENTION_DAYS)
         try:
             await self.db[UPDATES].insert_one(row)
-        except Exception as e:
-            # A duplicate here is the fingerprint working under a race, which
-            # is what it is for.
-            logger.info("visibility record: %s", type(e).__name__)
+            return True
+        except Exception as exc:
+            logger.info("visibility record deferred: %s", type(exc).__name__)
+            return False
 
     async def show(self, owner_id: str, goal, decision: VisibilityDecision) -> bool:
         """
