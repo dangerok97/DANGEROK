@@ -309,9 +309,9 @@ def _required_skill_plan_satisfied(required: List[str], outcomes) -> bool:
 # The backend's latest observed skill states, not the model's prose, own whether
 # the complete multi-step job may be represented as finished.
 _TOTAL_SUCCESS_COPY_RE = re.compile(
-    r"(?i)\\b(?:ho|abbiamo)\\s+(?:gi[aà]\\s+)?"
-    r"(?:completat\\w*|conclus\\w*|finit\\w*|eseguit\\w*|organizzat\\w*)\\b"
-    r"|\\b(?:tutto|ogni\\s+passaggio)\\s+(?:fatto|pronto|completato|eseguito)\\b"
+    r"(?i)\b(?:ho|abbiamo)\s+(?:gi[aà]\s+)?"
+    r"(?:completat\w*|conclus\w*|finit\w*|eseguit\w*|organizzat\w*)\b"
+    r"|\b(?:tutto|ogni\s+passaggio)\s+(?:fatto|pronto|completato|eseguito)\b"
 )
 
 
@@ -329,7 +329,7 @@ def _unverified_skill_failure_copy(message: str, *, retryable: bool = False) -> 
     # A strong model claim of *overall* completion contradicts the real
     # required-skill state; discard the unsafe prose, not the evidence.
     if _TOTAL_SUCCESS_COPY_RE.search(base) and not re.search(
-        r"(?i)\\bnon\\s+(?:ho|abbiamo)\\s+(?:completat\\w*|conclus\\w*|finit\\w*|eseguit\\w*)",
+        r"(?i)\bnon\s+(?:ho|abbiamo)\s+(?:completat\w*|conclus\w*|finit\w*|eseguit\w*)",
         base,
     ):
         return note
