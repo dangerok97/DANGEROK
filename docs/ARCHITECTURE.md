@@ -1,3 +1,16 @@
+## 8 ottobre 2026 — AI Core: guardia sull'uscita per budget
+
+Il loop cognitivo (conversation_engine/ai_core/loop.py) ha un ramo terminale
+quando termina MAX_STEPS. Il ramo deve applicare lo stesso contratto del
+finale normale: classificare gli esiti osservati delle skill richieste
+(succeeded/waiting/failed/unseen), persistere metadati senza parametri
+privati per i piani incompleti, conservare eventuali conferme canoniche
+pendenti ed evitare testi di riuscita senza prova. Il modello resta
+responsabile della scelta delle skill; questa guardia non deduce domini
+o azioni dalle parole dell'utente. Test automatici obbligatori in CI.
+
+---
+
 ## 4 ottobre 2026 — Accommodation e presence-driven reasoning
 
 ### Accommodation provider boundary

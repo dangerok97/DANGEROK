@@ -1,3 +1,43 @@
+## 8 ottobre 2026 — Piano di completamento ORA approvato
+
+Questo ordine è il **piano canonico di lavoro** concordato con il proprietario
+per arrivare all'assistente personale utile e autonomo. I checkpoint storici
+che seguono restano documentazione, non prevalgono su questo ordine:
+
+1. **Fase 1 — Cervello AI affidabile e skill coordinate.** Una richiesta
+   supportata passa da comprensione a skill scelte dal modello, esecuzione,
+   osservazione, verifica e risposta; richieste sospese non diventano «fatto».
+   Prove trasversali: spostamento, Situation temporanea, ricorrenza annuale.
+2. **Fase 2 — Autonomia e completamento lavori.** Dati collegati generano
+   iniziativa utile e il lavoro autorizzato continua fino a esito reale o
+   blocco leggibile, anche attraverso errori e riavvii.
+3. **Fase 3 — Memoria personale e intelligenza contestuale.** Memorie,
+   persone, luoghi, relazioni, abitudini e scadenze governate, senza dati
+   inventati né stelle slegate dalle osservazioni.
+4. **Fase 4 — Connessioni e azioni nel mondo reale.** Email, calendario,
+   ricerca offerte, banca in lettura, telefonate, acquisti e prenotazioni:
+   esecuzione collegata dove possibile, autorizzazione specifica per
+   conseguenze e rilettura delle conferme.
+5. **Fase 5 — Notifiche, posizione e app nativa.** iOS/Android installati,
+   permessi, push ricevuto, geofence, background, riavvio e revoca verificati.
+6. **Fase 6 — Collaudo finale e pubblicazione.** Osservazione su diversi
+   utenti e giorni, privacy, sicurezza, affidabilità, failure recovery,
+   rilascio senza simulare la riuscita.
+
+**Modalità di lavoro scelta dall'utente:** nessuna automazione oraria di
+sviluppo; modifiche solo su sua richiesta. Durante una sessione richiesta
+sono autorizzati commit, push, PR, merge dopo CI verde e verifica dei servizi
+Railway per modifiche ordinarie e reversibili. Non confondere SUCCESS del
+deploy con un collaudo umano su dispositivo e dati reali.
+
+**Primo intervento Fase 1 (v116):** correggere l'uscita per esaurimento
+del budget cognitivo (MAX_STEPS): salvare il piano se incompleto, preservare
+la conferma pendente, dire la verità sul fallimento, non rispondere «Ok» senza
+una conclusione. Il completamento della Fase 1 richiede altri test di
+orchestrazione reale multi-skill: questa correzione da sola non la chiude.
+
+---
+
 ## 2026-09-27 — Continuità operativa e apertura della rete
 
 Corrette le lacune di admission, aggiornamento fonti, cancellazione selettiva,

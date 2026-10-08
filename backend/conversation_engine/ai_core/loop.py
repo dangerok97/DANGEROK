@@ -3873,6 +3873,108 @@ async def run_cognitive_loop(
                 if phone_turn else "SITUATION_HANDOFF_VISIBLE_BOUND"
             ),
         )
+    # A turn that exhausts its reasoning budget still owes the SAME execution
+    # guarantees as a normal final answer. Previously this fallthrough skipped
+    # the required-skill completion gate and lost an unfinished multi-skill
+    # plan, allowing the last model text (sometimes just "Ok") to escape.
+    from conversation_engine.ai_core.calendar_confirmation import pending_request
+
+    calendar_pending = pending_request(observations[turn_start:])
+    st["pending_act"] = (
+        {
+            "at": _now_iso(),
+            "asked": str(calendar_pending.get("question") or "")[:300],
+            "calendar_cancel": calendar_pending,
+        }
+        if calendar_pending else None
+    )
+    bound_skill_states = _required_skill_states(
+        required_skill_caps, skill_outcomes
+    )
+    bound_unseen = list(bound_skill_states["unseen"])
+    bound_waiting = list(bound_skill_states["waiting"])
+    bound_failed = list(bound_skill_states["failed"])
+    trace["skill_plan_states"] = bound_skill_states
+    if bound_unseen or bound_waiting or bound_failed:
+        if bound_unseen or bound_waiting:
+            persisted_plan = _persist_active_skill_plan(
+                st,
+                objective=str(
+                    trace.get("skill_plan_objective")
+                    or (last_decision.user_intent_summary if last_decision else None)
+                    or "Completare la richiesta"
+                ),
+                required=required_skill_caps,
+                attempted=attempted_skill_caps,
+                outcomes=skill_outcomes,
+                existing_ref=(
+                    current_skill_plan_ref if skill_plan_resumed_this_turn else None
+                ),
+                waiting=bool(calendar_pending or _observations_wait_for_user(
+                    observations[turn_start:]
+                )),
+            )
+            trace["skill_plan_paused"] = True
+            trace["skill_plan_ref"] = persisted_plan["plan_ref"]
+        else:
+            # Nothing remains executable in this plan: a failed capability is
+            # not silently marked done or kept as an apparently active plan.
+            _clear_active_skill_plan(
+                st,
+                expected_ref=(
+                    current_skill_plan_ref if skill_plan_resumed_this_turn else None
+                ),
+            )
+            trace["skill_plan_failed"] = bound_failed
+        if calendar_pending:
+            ora = str(calendar_pending["question"]).strip()
+        elif bound_waiting:
+            ora = (
+                "Non ho ancora completato la richiesta: un passaggio attende "
+                "una conferma o un intervento. Non lo considero eseguito."
+            )
+        elif bound_unseen:
+            ora = (
+                "Non ho ancora completato la richiesta: restano passaggi "
+                "che non sono stati eseguiti. Ho conservato lo stato del piano "
+                "per poter riprendere il lavoro."
+            )
+        else:
+            ora = (
+                "Non sono riuscita a completare la richiesta: uno strumento "
+                "necessario ha restituito un errore. Non considero l'azione riuscita."
+            )
+        add_step(
+            trace, event="SKILL_PLAN_BOUND_UNFINISHED",
+            unseen=bound_unseen, waiting=bound_waiting, failed=bound_failed,
+        )
+    elif required_skill_caps:
+        _clear_active_skill_plan(
+            st,
+            expected_ref=(
+                current_skill_plan_ref if skill_plan_resumed_this_turn else None
+            ),
+        )
+        trace["skill_plan_completed"] = True
+        # Last step may have been a tool call: "Ok" is not an answer even if
+        # every declared capability succeeded.
+        if _BARE_ACK_RE.fullmatch(str(ora or "").strip()):
+            ora = (
+                _the_tool_s_own_sentence(observations[turn_start:])
+                or "I passaggi previsti hanno restituito esito positivo, "
+                "ma non ho ancora formulato una risposta completa."
+            )
+        add_step(trace, event="SKILL_PLAN_BOUND_COMPLETED")
+    elif calendar_pending:
+        ora = str(calendar_pending["question"]).strip()
+        add_step(trace, event="CALENDAR_CONFIRMATION_BOUND")
+    elif _BARE_ACK_RE.fullmatch(str(ora or "").strip()):
+        ora = (
+            _the_tool_s_own_sentence(observations[turn_start:])
+            or "Non ho ancora una risposta verificata a questa richiesta."
+        )
+        add_step(trace, event="BARE_ACK_BLOCKED_BOUND")
+
     state_mod.append_turn(st, role="ora", text=ora, kind="answer")
     st["observations"] = observations[-12:]
     navigation_options = _remember_pending_navigation(

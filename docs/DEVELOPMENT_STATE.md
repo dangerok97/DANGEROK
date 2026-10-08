@@ -1,3 +1,21 @@
+## 8 ottobre 2026 — Fase 1/6, prima tranche v116
+
+**Obiettivo:** le skill dichiarate obbligatorie non possono essere
+considerate completate all'uscita per MAX_STEPS senza esiti osservati.
+Riprodotta nel codice precedente l'assenza, nel fallthrough, dei controlli
+di completamento presenti nel finale normale. Aggiunta la conservazione del
+piano sospeso, il passaggio della conferma calendario e una risposta
+esplicitamente incompleta o fallita. Aggiunti quattro test sintetici e
+inseriti nella CI obbligatoria. PR #152; validazione CI/deploy da verificare
+prima di dichiarare la tranche online. Nessuna operazione su dati utente.
+
+**Fase 1 ancora aperta:** esecuzione multi-skill con provider reali,
+ripresa affidabile su più turni, verifica dei risultati finali e collaudi
+cross-domain (spostamento, Situation, compleanno). Segue la roadmap
+approvata, senza sviluppo orario.
+
+---
+
 ## 4 ottobre 2026 — Alloggi reali + posizione nativa + luoghi che svegliano ORA
 
 Tre gap di autonomia sono stati chiusi nello stesso ramo di integrazione.
