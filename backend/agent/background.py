@@ -55,7 +55,7 @@ async def recover_due(db, *, now=None, limit=2, admit=True):
         return await db.agent_goals.find(
             query, {"_id": 0, "id": 1, "owner_id": 1,
                     "next_run_at": 1},
-        ).sort([("next_run_at", 1), ("id", 1)]).to_list(page_size)
+        ).sort([("next_run_at", 1), ("id", 1)]).limit(page_size).to_list(page_size)
 
     query = due_query
     if after_time and after_id:
