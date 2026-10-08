@@ -136,3 +136,59 @@ async def test_information_answer_without_action_is_not_blocked():
     )
     assert result.ok
     assert result.ora_text == "Oggi è giovedì."
+
+
+def _research_model_turn():
+    return {
+        "response_mode": "research",
+        "reasoning_status": "needs_research",
+        "research_need": {
+            "question": "Quali alternative sono disponibili?",
+            "purpose": "Fornire una verifica delle alternative.",
+        },
+        "situation_update": {"operation": "none"},
+    }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status,should_pass", [("completed", True), ("failed", False)])
+async def test_real_research_observation_is_distinct_from_unexecuted_action(
+    monkeypatch, status, should_pass,
+):
+    from research.models import ResearchRun
+    import research.service as research_service
+
+    class ScriptedResearch:
+        async def run(self, user_id, need, **kwargs):
+            return ResearchRun(
+                user_id=user_id, need=need, status=status, iterations=1,
+                outcome_note="Provider read was attempted.",
+            )
+
+    monkeypatch.setattr(
+        research_service, "get_research_service", lambda db: ScriptedResearch()
+    )
+    calls = 0
+
+    async def decide(system, payload):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return _research_model_turn()
+        return {
+            "response_mode": "answer",
+            "reasoning_status": "ready_to_act",
+            "message_to_user": "Ho svolto la verifica.",
+            "situation_update": {"operation": "none"},
+        }
+
+    result = await run_cognitive_loop(
+        sess=session(), user_message="Verifica le alternative.",
+        db=AsyncMongoMockClient()[f"ready_research_{status}"],
+        decision_fn=decide, max_steps=2,
+    )
+    assert result.ok
+    if should_pass:
+        assert result.ora_text == "Ho svolto la verifica."
+    else:
+        assert "non ho ancora eseguito" in result.ora_text.lower()
