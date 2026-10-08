@@ -1,0 +1,350 @@
+{
+  "schema": "ora.phase1.read-evaluation.v1",
+  "date": "2026-10-08",
+  "scope": "Live model and live route/weather HTTP reads; synthetic owner, consent, public landmarks and in-memory database; no real end-user account.",
+  "attempts": [
+    {
+      "commit": "546bf5748790c402dcf0f6555b1e1465ff0df3ec",
+      "deployment_id": "7ec5c235-8bbe-4fc6-995f-0f789fef89a8",
+      "evaluation": {
+        "version": "phase1-read-provider-v126",
+        "case": "trip_today",
+        "requested_mode": "live",
+        "model_mode": "live_llm",
+        "provider_mode": "live_provider_http",
+        "real_model_executed": true,
+        "live_provider_reads": 2,
+        "owner": "synthetic_isolated_no_real_account",
+        "fixture_source": "synthetic_public_landmark_fixture",
+        "synthetic_state": [
+          "account",
+          "consent",
+          "current_location",
+          "saved_public_places",
+          "memory_database"
+        ],
+        "public_points": [
+          {
+            "id": "eval-roma-termini",
+            "label": "Roma Termini",
+            "latitude": 41.901,
+            "longitude": 12.5018
+          },
+          {
+            "id": "eval-colosseo",
+            "label": "Colosseo",
+            "latitude": 41.8902,
+            "longitude": 12.4922
+          }
+        ],
+        "scenario_time": "2026-10-08T14:11:04.593794+02:00",
+        "scenario_message": "Oggi, 2026-10-08, alle 14:11 (Europe/Rome), devo valutare un tragitto in auto con partenza adesso da Roma Termini al Colosseo, entrambi già salvati tra i miei luoghi. La posizione corrente autorizzata è Roma Termini. Verifica il tempo di viaggio con il traffico attuale e il meteo al Colosseo nelle prossime ore. Dimmi cosa hai verificato, la durata stimata e cosa suggerisci per questo spostamento oggi, distinguendo previsioni da certezze. Non avviare la navigazione, creare appuntamenti, impostare notifiche, inviare messaggi o spendere denaro. Questo è un utente sintetico di valutazione: i due punti sono monumenti pubblici, non luoghi privati.",
+        "verdict": {
+          "passed": true,
+          "reasons": [],
+          "verified_reads": [
+            "get_route",
+            "get_weather_forecast"
+          ],
+          "required_reads": [
+            "get_route",
+            "get_weather_forecast"
+          ],
+          "model_decisions": 4,
+          "ai_calls": 4,
+          "tool_calls": 2,
+          "elapsed_ms": 103681,
+          "final_mode": "answer",
+          "semantic_acceptance": "pending_human_review"
+        },
+        "decisions": [
+          {
+            "mode": "tool",
+            "reasoning_status": "ready_to_act",
+            "capability": "",
+            "required": [
+              "get_route",
+              "get_weather_forecast"
+            ],
+            "resume": false,
+            "situation_op": "",
+            "memory_proposals": 0
+          },
+          {
+            "mode": "tool",
+            "reasoning_status": "ready_to_act",
+            "capability": "get_route",
+            "required": [
+              "get_route",
+              "get_weather_forecast"
+            ],
+            "resume": false,
+            "situation_op": "none",
+            "memory_proposals": 0
+          },
+          {
+            "mode": "tool",
+            "reasoning_status": "ready_to_act",
+            "capability": "get_weather_forecast",
+            "required": [
+              "get_route",
+              "get_weather_forecast"
+            ],
+            "resume": false,
+            "situation_op": "create",
+            "memory_proposals": 0
+          },
+          {
+            "mode": "answer",
+            "reasoning_status": "enough_information",
+            "capability": "",
+            "required": [],
+            "resume": false,
+            "situation_op": "",
+            "memory_proposals": 0
+          }
+        ],
+        "model_calls": [
+          {
+            "provider": "mistral",
+            "model": "ministral-8b-2512"
+          },
+          {
+            "provider": "openai",
+            "model": "gpt-4o-mini"
+          },
+          {
+            "provider": "mistral",
+            "model": "ministral-8b-2512"
+          },
+          {
+            "provider": "openai",
+            "model": "gpt-4o-mini"
+          }
+        ],
+        "observations": [
+          {
+            "capability": "get_route",
+            "source": "live_provider_http",
+            "side_effect": "READ_ONLY",
+            "outer_status": "ok",
+            "production_handler_used": true,
+            "handler": "places.caps.get_route",
+            "payload": {
+              "status": "ok",
+              "available": true,
+              "provider": "mapbox",
+              "destination": "Colosseo",
+              "travel_mode": "drive",
+              "duration_seconds": 793,
+              "distance_meters": 2990,
+              "reflects_current_traffic": true
+            },
+            "provenance": [
+              "places:eval-pub"
+            ],
+            "http_refs": [
+              "http:1"
+            ],
+            "session_readback_verified": true
+          },
+          {
+            "capability": "get_weather_forecast",
+            "source": "live_provider_http",
+            "side_effect": "READ_ONLY",
+            "outer_status": "ok",
+            "production_handler_used": true,
+            "handler": "conversation_engine.ai_core.tools.weather_caps.get_weather_forecast",
+            "payload": {
+              "status": "ok",
+              "provider": "open_meteo",
+              "place": "Roma",
+              "current": {
+                "condition": "Nuvoloso",
+                "temperature_c": 25,
+                "humidity_pct": 68,
+                "wind_kmh": 15,
+                "precipitation_mm": 0
+              },
+              "hours": [
+                {
+                  "time": "14:00",
+                  "datetime": "2026-10-08T14:00",
+                  "temperature_c": 25,
+                  "humidity_pct": 68,
+                  "wind_kmh": 15,
+                  "rain_chance_pct": 70
+                },
+                {
+                  "time": "15:00",
+                  "datetime": "2026-10-08T15:00",
+                  "temperature_c": 24,
+                  "humidity_pct": 76,
+                  "wind_kmh": 14,
+                  "rain_chance_pct": 68
+                },
+                {
+                  "time": "16:00",
+                  "datetime": "2026-10-08T16:00",
+                  "temperature_c": 23,
+                  "humidity_pct": 84,
+                  "wind_kmh": 12,
+                  "rain_chance_pct": 75
+                },
+                {
+                  "time": "17:00",
+                  "datetime": "2026-10-08T17:00",
+                  "temperature_c": 22,
+                  "humidity_pct": 86,
+                  "wind_kmh": 13,
+                  "rain_chance_pct": 83
+                },
+                {
+                  "time": "18:00",
+                  "datetime": "2026-10-08T18:00",
+                  "temperature_c": 21,
+                  "humidity_pct": 87,
+                  "wind_kmh": 12,
+                  "rain_chance_pct": 83
+                },
+                {
+                  "time": "19:00",
+                  "datetime": "2026-10-08T19:00",
+                  "temperature_c": 20,
+                  "humidity_pct": 88,
+                  "wind_kmh": 8,
+                  "rain_chance_pct": 90
+                },
+                {
+                  "time": "20:00",
+                  "datetime": "2026-10-08T20:00",
+                  "temperature_c": 20,
+                  "humidity_pct": 89,
+                  "wind_kmh": 7,
+                  "rain_chance_pct": 88
+                },
+                {
+                  "time": "21:00",
+                  "datetime": "2026-10-08T21:00",
+                  "temperature_c": 20,
+                  "humidity_pct": 89,
+                  "wind_kmh": 5,
+                  "rain_chance_pct": 85
+                },
+                {
+                  "time": "22:00",
+                  "datetime": "2026-10-08T22:00",
+                  "temperature_c": 20,
+                  "humidity_pct": 89,
+                  "wind_kmh": 6,
+                  "rain_chance_pct": 85
+                },
+                {
+                  "time": "23:00",
+                  "datetime": "2026-10-08T23:00",
+                  "temperature_c": 20,
+                  "humidity_pct": 89,
+                  "wind_kmh": 3,
+                  "rain_chance_pct": 88
+                },
+                {
+                  "time": "00:00",
+                  "datetime": "2026-10-09T00:00",
+                  "temperature_c": 19,
+                  "humidity_pct": 91,
+                  "wind_kmh": 2,
+                  "rain_chance_pct": 80
+                },
+                {
+                  "time": "01:00",
+                  "datetime": "2026-10-09T01:00",
+                  "temperature_c": 19,
+                  "humidity_pct": 91,
+                  "wind_kmh": 3,
+                  "rain_chance_pct": 78
+                }
+              ],
+              "sunrise": "07:14",
+              "sunset": "18:39",
+              "observed_at": "2026-10-08T14:00",
+              "retrieved_at": "2026-10-08T12:12:24.274973+00:00",
+              "timezone": "Europe/Rome",
+              "utc_offset_seconds": 7200
+            },
+            "provenance": [
+              "place:eval-colosseo"
+            ],
+            "http_refs": [
+              "http:2"
+            ],
+            "session_readback_verified": true
+          }
+        ],
+        "http_reads": [
+          {
+            "id": "http:1",
+            "capability": "get_route",
+            "source": "live_provider_http",
+            "provider": "mapbox",
+            "http_status": 200,
+            "request_started_at": "2026-10-08T12:12:06.153573+00:00",
+            "received_at": "2026-10-08T12:12:06.318375+00:00",
+            "retrieval_time_source": "evaluation_clock_not_provider_observation_time",
+            "metadata_added_to_model_observation": false
+          },
+          {
+            "id": "http:2",
+            "capability": "get_weather_forecast",
+            "source": "live_provider_http",
+            "provider": "open_meteo",
+            "http_status": 200,
+            "request_started_at": "2026-10-08T12:12:23.588317+00:00",
+            "received_at": "2026-10-08T12:12:24.274093+00:00",
+            "retrieval_time_source": "evaluation_clock_not_provider_observation_time",
+            "metadata_added_to_model_observation": false,
+            "provider_timezone": "Europe/Rome",
+            "provider_current_time": "2026-10-08T14:00",
+            "provider_utc_offset_seconds": 7200,
+            "provider_hour_times": [
+              "2026-10-08T14:00",
+              "2026-10-08T15:00",
+              "2026-10-08T16:00",
+              "2026-10-08T17:00",
+              "2026-10-08T18:00",
+              "2026-10-08T19:00",
+              "2026-10-08T20:00",
+              "2026-10-08T21:00",
+              "2026-10-08T22:00",
+              "2026-10-08T23:00",
+              "2026-10-09T00:00",
+              "2026-10-09T01:00"
+            ]
+          }
+        ],
+        "blocked_operations": [],
+        "error_types": [],
+        "final_answer": "Ho verificato il tragitto in auto da Roma Termini al Colosseo. La distanza è di circa 2.990 metri e la durata stimata con il traffico attuale è di circa 13 minuti. \n\nPer quanto riguarda il meteo al Colosseo, attualmente ci sono nuvole con una temperatura di 25°C e un'umidità del 68%. Nelle prossime ore, la temperatura scenderà gradualmente, con una possibilità di pioggia che aumenta fino al 90% entro le 19:00. \n\nTi consiglio di partire ora per evitare il traffico e considerare un ombrello o una giacca impermeabile, dato che le probabilità di pioggia aumentano nel pomeriggio.",
+        "final_answer_truncated": false,
+        "semantic_review": {
+          "status": "required",
+          "automatically_accepted": false,
+          "check": "Compare final prose, dates, travel duration and weather with recorded evidence.",
+          "time_metadata_limit": "Weather provider dates/timezone must reach the model; route retrieval time is the evaluation clock, not a provider as-of timestamp."
+        }
+      },
+      "assistant_semantic_review": {
+        "status": "partial_not_accepted",
+        "review_type": "assistant_review_of_recorded_answer_and_observations",
+        "criteria": {
+          "actual_required_reads": true,
+          "final_answer_completed": true,
+          "route_duration_and_distance_grounded": true,
+          "weather_values_and_day_grounded": true,
+          "departure_recommendation_grounded": false
+        },
+        "finding": "The recommendation to leave now to avoid traffic is unsupported: the tool supplies one current-traffic ETA, not a comparison with future departure times.",
+        "phase1_closed": false
+      }
+    }
+  ]
+}

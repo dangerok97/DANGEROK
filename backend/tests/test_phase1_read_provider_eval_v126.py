@@ -1,6 +1,7 @@
 """Isolated v126 acceptance: real handlers/loop, stubbed HTTP, no live accounts."""
 from contextlib import ExitStack
 from datetime import datetime, timedelta, timezone
+import json
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -8,6 +9,46 @@ import httpx
 import pytest
 
 from scripts import phase1_read_provider_eval as runner
+
+
+@pytest.mark.asyncio
+async def test_current_eta_limit_reaches_model_with_real_route_observation():
+    """The live failure was an unsupported timing recommendation, not a bad ETA.
+
+    Check the actual post-tool model input: the real current ETA and its static
+    baseline must arrive alongside the departure-comparison rule. Scripted
+    decisions test instruction delivery, not whether a live model obeys it.
+    """
+    scripted = await runner._scripted_model_factory()
+    post_route_steps = 0
+
+    async def inspect_decision(system, user):
+        nonlocal post_route_steps
+        payload = json.loads(user)
+        routes = [row for row in payload["observations"]
+                  if row.get("name") == "get_route" and row.get("status") == "ok"]
+        if routes:
+            post_route_steps += 1
+            route = routes[-1]["payload"]
+            assert route["reflects_current_traffic"] is True
+            assert route["duration_seconds"] == 900
+            assert route["duration_without_traffic_seconds"] == 720
+            assert "A single current-traffic ETA" in system
+            assert "Never infer from it alone" in system
+            assert "dated provider evidence comparing the actual" in system
+            assert "A deadline is not evidence of reduced traffic" in system
+            catalogue_entry = next(
+                row for row in payload["available_tools"] if row.startswith("get_route(")
+            )
+            assert "not a comparison of departure times" in catalogue_entry
+            assert "cannot by itself support advice to leave now to avoid or reduce traffic" in catalogue_entry
+            assert "a static or typical duration baseline does not provide that evidence" in catalogue_entry
+        return await scripted(system, user)
+
+    result = await runner.run_case(mode="scripted", decide=inspect_decision, max_steps=5)
+    assert result["verdict"]["passed"] is True, result
+    assert post_route_steps == 2  # Before the weather read and before the final answer.
+    assert result["semantic_review"]["automatically_accepted"] is False
 
 
 @pytest.mark.asyncio

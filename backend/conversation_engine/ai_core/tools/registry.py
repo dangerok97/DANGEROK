@@ -1046,6 +1046,11 @@ class ToolRegistry:
                     "available=false when no service is configured or their "
                     "position is unknown — in that case say so and offer their "
                     "observed history instead, clearly labelled as history. "
+                    "This is a single current-departure ETA, not a comparison of "
+                    "departure times. It cannot by itself support advice to leave "
+                    "now to avoid or reduce traffic. Such claims require dated "
+                    "provider evidence comparing departure times; a static or "
+                    "typical duration baseline does not provide that evidence. "
                     "travel_mode: drive | walk | bicycle | transit; do not "
                     "assume driving."
                 ),

@@ -1,6 +1,17 @@
 ## 8 ottobre 2026 — Piano di completamento ORA approvato
 
-**Checkpoint v125 della Fase 1:** il loop cognitivo e il modello LLM reale
+**Checkpoint v126 della Fase 1 in verifica:** corrette classificazione degli
+errori temporanei dei provider, ripresa del risultato persistito dello stesso
+messaggio e freschezza/consenso della posizione per la skill percorso. Aggiunte
+date/fuso nelle osservazioni meteo e prove HTTP con autenticazione reale e
+account sintetici. La prima prova con LLM + Mapbox + Open-Meteo reali legge e
+riporta correttamente i dati, ma il consiglio sul traffico richiede una
+correzione e nuova verifica. Evidenze e limiti in
+[PHASE1_REAL_READ_EVAL.md](PHASE1_REAL_READ_EVAL.md). La ripresa dopo un vero
+riavvio viene verificata separatamente con Mongo di test e due processi.
+**La Fase 1 è ancora APERTA.**
+
+**Checkpoint precedente v125 della Fase 1:** il loop cognitivo e il modello LLM reale
 hanno superato 3/3 scenari con account tecnico sintetico e tool esterni
 simulati (spostamento multi-skill; panni con Situation/checkpoint persistito;
 compleanno con Memory + memo annuale persistiti). Vedi
