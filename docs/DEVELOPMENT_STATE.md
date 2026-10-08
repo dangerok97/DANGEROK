@@ -1,3 +1,25 @@
+## 8 ottobre 2026 — Fase 1: osservazione di percorso non equivale a ETA (v123)
+
+**Difetto del contratto osservato:** get_route restituiva un
+Observation(status=ok, payload.status=ok) anche se il provider
+segnalava available=false. L'AI Core poteva quindi classificare
+come soddisfatta la skill get_route pur non avendo né durata né
+percorso. Lo stesso accadeva con destinazioni non risolte.
+
+**Correzione:** la capability ora marca l'esito semantico unavailable
+se non dispone di un'ETA provider numerica, finita e non negativa;
+conserva why_unavailable, provider e opzioni di disambiguazione.
+Quando manca l'origine, lo stato needs_client rimane waiting.
+Nessuna modifica alla scelta delle skill da parte dell'AI, né
+alla sorgente dei tempi di percorso.
+
+**Verifica:** regressioni con destinazione ambigua, posizione mancante,
+provider indisponibile, durata mancante/non finita, ETA valida
+e percorso di durata zero; inserite nel blocco navigation della CI.
+Serve ancora collaudo con provider e posizione reali.
+
+---
+
 ## 8 ottobre 2026 — Fase 1: conservazione dei fallimenti esplicitamente ritentabili (v122)
 
 Quando una capability restituisce un errore e il suo provider marca
