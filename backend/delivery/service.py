@@ -130,6 +130,18 @@ class DeliveryService:
 
         kind = source_of(subject)
         subject_id = getattr(subject, "id", "")
+        if kind == "opportunity" and getattr(subject, "source_context", "") == "recurring_memo":
+            from memos.delivery_guard import memo_opportunity_current
+
+            if not await memo_opportunity_current(self.db, subject):
+                await self.cancel_for_source(
+                    user_id, subject_id, source_type=kind,
+                    reason="il promemoria originario non è più valido",
+                )
+                return DeliveryResult(
+                    mode="in_app", blocked_by="recurring_memo_source_changed",
+                    reason="Il ricordo o il promemoria è stato modificato o revocato.",
+                )
 
         if any(e.kind == "departure" for e in getattr(subject, "evidence", [])):
             from places.departures import DepartureService
@@ -329,7 +341,14 @@ class DeliveryService:
             subject = await OpportunityRepository(self.db).get(
                 user_id, plan.source_id or plan.opportunity_id
             )
-            return subject if subject is not None and subject.status == "active" else None
+            if subject is None or subject.status != "active":
+                return None
+            if getattr(subject, "source_context", "") == "recurring_memo":
+                from memos.delivery_guard import memo_opportunity_current
+
+                if not await memo_opportunity_current(self.db, subject):
+                    return None
+            return subject
 
         if plan.source_type == "agent_need":
             from agent.needs import NeedService
