@@ -141,7 +141,26 @@ class DeliveryRepository:
         doc["expires_at"] = datetime.now(timezone.utc) + timedelta(
             days=ACTIVITY_RETENTION_DAYS
         )
-        await self.db[ACTIVITY].insert_one(doc)
+        # A replay may happen after Mongo inserted the record but before
+        # the worker acknowledged it. Upsert by stable id; never duplicate
+        # the same Home entry or overwrite its original occurrence time.
+        from pymongo.errors import DuplicateKeyError
+
+        try:
+            result = await self.db[ACTIVITY].update_one(
+                {"id": activity.id, "owner_id": activity.owner_id},
+                {"$setOnInsert": doc},
+                upsert=True,
+            )
+        except DuplicateKeyError:
+            result = None  # Competing worker inserted exactly this id.
+        if result is None or result.upserted_id is None:
+            existing = await self.db[ACTIVITY].find_one(
+                {"id": activity.id, "owner_id": activity.owner_id}, {"_id": 0},
+            )
+            if existing is None:
+                raise RuntimeError("activity_id_conflict_or_unavailable")
+            return AmbientActivity.model_validate(existing)
         return activity
 
     async def recent_activity(
