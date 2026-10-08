@@ -115,6 +115,8 @@ async def drain(db, *, owner_id=None, now=None, limit=2):
                         "user_clarifications": row.get("agent_review_answers", [])[-3:],
                     }, origin="agent_initiated", opportunity_id=opp.id,
                     source_kind="opportunity", source_refs=source_refs,
+                    admission_revision=str(row["agent_review_revision"]),
+                    admission_token=token,
                 ), timeout=TIMEOUT_SECONDS)
         except Exception as exc:
             # Cancellation propagates: a dead worker leaves a reclaimable lease.
