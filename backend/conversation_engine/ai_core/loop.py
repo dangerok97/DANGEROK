@@ -305,8 +305,15 @@ def _required_skill_plan_satisfied(required: List[str], outcomes) -> bool:
     return not (states["waiting"] or states["failed"] or states["unseen"])
 
 
-def _retryable_failed_skill_caps(required: List[str], outcomes) -> List[str]:
-    """Only a provider-explicit retryable *latest* failure preserves a plan."""
+def _retryable_failed_skill_caps(
+    required: List[str], outcomes, *, tools: Optional[ToolRegistry] = None
+) -> List[str]:
+    """Only explicit retryable failures of READ-ONLY skills preserve a plan.
+
+    A provider timeout after a write may mean its effect already happened.
+    Retrying that write would be unsafe until the world is independently
+    re-read and the action is re-authorised through its own lifecycle.
+    """
     latest: Dict[str, Dict[str, Any]] = {}
     for item in outcomes or []:
         if not isinstance(item, dict):
@@ -321,6 +328,13 @@ def _retryable_failed_skill_caps(required: List[str], outcomes) -> List[str]:
             cap in latest
             and latest[cap].get("retryable") is True
             and _skill_outcome_class(latest[cap]) == "failed"
+            and (
+                tools is None
+                or (
+                    tools.get(cap) is not None
+                    and tools.get(cap).side_effect == "READ_ONLY"
+                )
+            )
         )
     ]
 
@@ -3103,7 +3117,7 @@ async def run_cognitive_loop(
             waiting_skill_caps = list(final_skill_states["waiting"])
             failed_skill_caps = list(final_skill_states["failed"])
             retryable_failed_caps = _retryable_failed_skill_caps(
-                required_skill_caps, skill_outcomes
+                required_skill_caps, skill_outcomes, tools=tools
             )
             waits_for_user_now = bool(
                 mode == "ask"
@@ -4021,7 +4035,7 @@ async def run_cognitive_loop(
     bound_waiting = list(bound_skill_states["waiting"])
     bound_failed = list(bound_skill_states["failed"])
     bound_retryable = _retryable_failed_skill_caps(
-        required_skill_caps, skill_outcomes
+        required_skill_caps, skill_outcomes, tools=tools
     )
     trace["skill_plan_states"] = bound_skill_states
     if bound_unseen or bound_waiting or bound_failed:
