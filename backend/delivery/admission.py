@@ -139,6 +139,15 @@ async def drain_with_receipts(db) -> int:
     delivery pass and cannot gain direct access to notification transport.
     """
     handled = await drain(db)
+    # Replay already-admitted Home news that a crash or transient Mongo error
+    # prevented from becoming a visible AmbientActivity. No new judgement,
+    # notifications or extra scheduler are created.
+    try:
+        from agent.visibility import VisibilityService
+
+        await VisibilityService(db).recover_pending_home()
+    except Exception as exc:
+        logger.info("durable Home delivery deferred: %s", type(exc).__name__)
     # Recreate an authorized retry wake after a crash between persisting a
     # held plan and storing its scheduled alarm. It never sends directly.
     try:
