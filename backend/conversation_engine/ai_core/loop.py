@@ -249,9 +249,26 @@ def _skill_outcome_class(item: Dict[str, str]) -> str:
         "needs_client",
         "stale",
         "permission_required",
+        "pending",
+        "awaiting_user",
+        "awaiting_authority",
+        "requires_confirmation",
+        "requires_consent",
+        "in_progress",
     }
     if status in waiting_tokens or result in waiting_tokens or failure in waiting_tokens:
         return "waiting"
+    # Some adapters wrap a provider error or incomplete result in an 'ok'
+    # observation envelope, meaning only that the adapter returned. The
+    # inner status is still authoritative for whether the required step
+    # actually succeeded. Do not credit an unsuccessful result as completion.
+    failed_results = {
+        "error", "failed", "failure", "provider_error",
+        "unavailable", "not_configured", "unsupported",
+        "timeout", "denied", "rejected", "blocked", "partial",
+    }
+    if result in failed_results:
+        return "failed"
     if status in ("ok", "success") and not failure:
         return "succeeded"
     return "failed"

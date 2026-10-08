@@ -116,3 +116,51 @@ def test_failure_nudge_contract_exists_in_runtime_and_prompt():
     assert 'event="SKILL_PLAN_FAILURE_NUDGE"' in loop
     assert "ATTEMPTED is not SUCCEEDED" in prompt
     assert "Never turn" in prompt and "the tool ran" in prompt
+
+
+def test_successful_envelope_does_not_hide_provider_error():
+    # The Python adapter returned without throwing; the provider did not.
+    item = outcome(
+        "get_route", status="ok", result_status="provider_error",
+    )
+    assert _skill_outcome_class(item) == "failed"
+    assert not _required_skill_plan_satisfied(["get_route"], [item])
+
+
+def test_incomplete_adapter_payload_does_not_complete_required_skill():
+    item = outcome(
+        "search_accommodations", status="ok", result_status="partial",
+    )
+    assert _skill_outcome_class(item) == "failed"
+    assert _required_skill_states(
+        ["search_accommodations"], [item]
+    )["failed"] == ["search_accommodations"]
+
+
+def test_pending_provider_outcome_is_waiting_not_done():
+    item = outcome(
+        "continue_calendar_action", status="ok", result_status="pending",
+    )
+    assert _skill_outcome_class(item) == "waiting"
+    assert not _required_skill_plan_satisfied(
+        ["continue_calendar_action"], [item]
+    )
+
+
+def test_successful_empty_lookup_remains_valid_read_evidence():
+    # A correctly completed search can report not_found without provider failure.
+    item = outcome(
+        "get_calendar_events", status="ok", result_status="not_found",
+    )
+    assert _skill_outcome_class(item) == "succeeded"
+    assert _required_skill_plan_satisfied(["get_calendar_events"], [item])
+
+
+def test_failed_inner_result_then_real_success_is_valid_retry():
+    previous = outcome(
+        "get_route", status="ok", result_status="provider_error",
+    )
+    current = outcome("get_route", status="ok", result_status="ok")
+    assert _required_skill_states(
+        ["get_route"], [previous, current]
+    )["succeeded"] == ["get_route"]

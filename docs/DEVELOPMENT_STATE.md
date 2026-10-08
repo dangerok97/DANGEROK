@@ -1,3 +1,18 @@
+## 8 ottobre 2026 — Fase 1, verità sull'esito dei provider (v118)
+
+Un adapter può restituire un'osservazione tecnica `ok` contenente
+nel payload un esito `provider_error`, `partial`, `unavailable`
+o `pending`: non significa che la skill richiesta sia stata completata.
+Il classificatore degli esiti usa ora anche lo stato effettivo del provider:
+fallimento e parzialità non chiudono il piano; lavoro in attesa resta
+in attesa. Le ricerche effettivamente riuscite con esito `not_found`
+rimangono letture valide, non errori del provider.
+
+Test mirati integrati nel gate CI dei piani v91. Nessuna modifica agli
+adapter o agli effetti esterni. PR e deploy da verificare separatamente.
+
+---
+
 ## 8 ottobre 2026 — Fase 1/6, seconda correzione v117
 
 **Problema individuato:** il modello poteva rimuovere una skill obbligatoria

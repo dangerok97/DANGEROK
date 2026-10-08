@@ -1,3 +1,16 @@
+## 8 ottobre 2026 — AI Core, stato provider prima del successo
+
+- Una chiamata tecnica completata senza eccezioni non vale come azione riuscita
+  se il risultato del provider è un errore, un'incompletezza o un'attesa.
+- Il classificatore delle skill legge lo stato interno verificato della
+  capacità, anche quando l'involucro dell'osservazione è `ok`.
+- Una ricerca completata correttamente ma senza risultati può comunque
+  soddisfare la skill di lettura.
+- Aggiunti cinque test sul contratto dell'esito; verifiche GitHub/Railway
+  ancora necessarie al momento di questa annotazione.
+
+---
+
 ## 8 ottobre 2026 — AI Core: skill rimosse soltanto con prove riuscite
 
 - Una skill obbligatoria non può essere eliminata dal piano citando un
