@@ -335,6 +335,11 @@ class DeliveryPlan(BaseModel):
     opened_at: Optional[str] = None
 
     outcome: Optional[DeliveryOutcome] = None
+    # Explicit rejection by Expo may justify another *judgement*, never an
+    # automatic resend. A timeout/unknown acceptance leaves these empty.
+    transport_retry_attempts: int = Field(default=0, ge=0)
+    transport_retry_due: Optional[str] = None
+    transport_retry_alarm_queued: bool = False
     # Set by Mongo's TTL index, and only once a plan is settled.
     expires_at: Optional[datetime] = None
 
@@ -380,6 +385,8 @@ class DeliveryPlan(BaseModel):
             "delivered_at": self.delivered_at,
             "opened_at": self.opened_at,
             "outcome": self.outcome,
+            "transport_retry_at": self.transport_retry_due,
+            "transport_retry_attempts": self.transport_retry_attempts,
         }
 
 

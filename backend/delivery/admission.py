@@ -139,6 +139,14 @@ async def drain_with_receipts(db) -> int:
     delivery pass and cannot gain direct access to notification transport.
     """
     handled = await drain(db)
+    # Recreate an authorized retry wake after a crash between persisting a
+    # held plan and storing its scheduled alarm. It never sends directly.
+    try:
+        from delivery.transport_retry import recover_unscheduled_retries
+
+        await recover_unscheduled_retries(db)
+    except Exception as exc:
+        logger.info("delivery retry recovery deferred: %s", type(exc).__name__)
     from ambient.push import ExpoNotificationProvider
     from delivery.provider import get_provider
 

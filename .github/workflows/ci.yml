@@ -93,6 +93,9 @@ jobs:
       - name: Closed-app birthday reminder delivery boundary
         working-directory: backend
         run: python -m pytest -q tests/test_recurring_memo_delivery_v131.py -x
+      - name: Safe bounded Expo transport retry and crash recovery
+        working-directory: backend
+        run: python -m pytest -q tests/test_safe_push_retry_v134.py -x
       - name: Expo receipt audit and per-device privacy
         working-directory: backend
         run: python -m pytest -q tests/test_expo_receipt_audit_v132.py -x
