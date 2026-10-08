@@ -266,6 +266,9 @@ jobs:
       - name: Device location consent and native background presence
         working-directory: frontend
         run: node --test src/location/shareForeground.test.cjs src/location/presenceTask.test.cjs
+      - name: Push installation identity across two devices
+        working-directory: frontend
+        run: node --experimental-strip-types --test src/ambient/installationHandle.test.ts
       - name: Resolve Expo iOS configuration
         working-directory: frontend
         env:
