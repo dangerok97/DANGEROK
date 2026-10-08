@@ -171,13 +171,24 @@ class ExpoNotificationProvider:
         try:
             tickets = await self._post(messages)
         except Exception as exc:
-            # Transient until proven otherwise. The plan is not lost.
-            logger.info("expo push transient failure: %s", type(exc).__name__)
+            import httpx
+
+            # A response with HTTP 429 rejects the entire batch explicitly.
+            # A network timeout or an HTTP 5xx can have an unknown acceptance
+            # state. Do NOT blindly resend: a duplicated push is worse than a
+            # held notification whose uncertain outcome is visible.
+            explicit_throttle = (
+                isinstance(exc, httpx.HTTPStatusError)
+                and exc.response.status_code == 429
+            )
+            logger.info("expo push unavailable kind=%s", type(exc).__name__)
             return {
                 "ok": False,
                 "provider": self.name,
                 "transient": True,
-                "reason": type(exc).__name__,
+                "safe_to_retry": explicit_throttle,
+                "reason": "expo_http_429" if explicit_throttle
+                else "transport_acceptance_unknown",
             }
 
         # Missing or surplus tickets make positional endpoint attribution

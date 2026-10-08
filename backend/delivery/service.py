@@ -477,9 +477,36 @@ class DeliveryService:
             plan.status = "held"
             plan.rationale = "il canale non era disponibile"
             plan.decision_provenance = "code_safety"
+            plan.transport_retry_due = None
+            plan.transport_retry_alarm_queued = False
+
+            # Only an explicit proof of zero provider acceptance (Expo HTTP
+            # 429) authorises a later *re-evaluation*. Unknown timeouts,
+            # incomplete ticket sets and partially accepted batches must
+            # never trigger a second blind send.
+            if outcome.get("safe_to_retry") is True:
+                from delivery.transport_retry import next_retry_time
+
+                plan.transport_retry_attempts += 1
+                plan.transport_retry_due = next_retry_time(plan)
+
+            # Persist the intent first. If the process crashes before the
+            # wake is written, the existing delivery-admission lane repairs
+            # that missing alarm from this durable plan record.
             await self.repo.save_plan(plan)
+            if plan.transport_retry_due:
+                try:
+                    from delivery.transport_retry import ensure_retry_wake
+
+                    await ensure_retry_wake(self.db, plan)
+                except Exception as exc:
+                    logger.info(
+                        "push retry wake deferred: %s", type(exc).__name__
+                    )
             return
 
+        plan.transport_retry_due = None
+        plan.transport_retry_alarm_queued = False
         plan.status = "delivered"
         plan.delivered_at = _now().isoformat()
         plan.outcome = "delivered"
@@ -656,7 +683,13 @@ class DeliveryService:
             return False
 
     def _due(self, plan: DeliveryPlan) -> bool:
-        return not plan.not_before or plan.not_before <= _now().isoformat()
+        moment = _now().isoformat()
+        if (plan.status == "held" and plan.transport_retry_due
+                and plan.transport_retry_due > moment):
+            # An explicit retry backoff cannot be skipped by a foreground
+            # /delivery/due request before the original scheduled moment.
+            return False
+        return not plan.not_before or plan.not_before <= moment
 
     def _expired(self, plan: DeliveryPlan) -> bool:
         now = _now()
