@@ -1224,7 +1224,7 @@ export const api = {
 
   /** Only an acknowledged, already-issued delivery plan may open its target. */
   recordNotificationOpened: (planId: string) =>
-    request<{ ok: boolean; outcome: string; opportunity_id?: string }>(
+    request<{ ok: boolean; outcome: string; opportunity_id?: string; route?: string }>(
       `/delivery/${encodeURIComponent(planId)}/outcome`,
       { method: 'POST', body: JSON.stringify({ outcome: 'opened' }) },
     ),
