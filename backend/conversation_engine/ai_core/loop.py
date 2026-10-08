@@ -197,6 +197,9 @@ def _skill_outcome_summary(
         "observed_capability": observed[:120],
         "status": status[:40],
         "result_status": str(payload.get("status") or "")[:60],
+        # Explicitly reported by the provider; never infer retry safety from
+        # an error code or from the model's desire to keep working.
+        "retryable": payload.get("retryable") is True,
         "failure_kind": str(
             payload.get("failure_kind")
             or payload.get("failure_code")
@@ -217,6 +220,7 @@ def _merge_skill_outcomes(current, incoming) -> List[Dict[str, str]]:
             "status": str(raw.get("status") or "")[:40],
             "result_status": str(raw.get("result_status") or "")[:60],
             "failure_kind": str(raw.get("failure_kind") or "")[:100],
+            "retryable": raw.get("retryable") is True,
         }
         if not item["capability"] and not item["observed_capability"]:
             continue
@@ -226,6 +230,7 @@ def _merge_skill_outcomes(current, incoming) -> List[Dict[str, str]]:
             item["status"],
             item["result_status"],
             item["failure_kind"],
+            item["retryable"],
         )
         # Preserve observation order: a repeated successful retry must become
         # the newest result even if an identical success occurred before a
@@ -234,7 +239,7 @@ def _merge_skill_outcomes(current, incoming) -> List[Dict[str, str]]:
             x for x in out
             if (
                 x["capability"], x["observed_capability"], x["status"],
-                x["result_status"], x["failure_kind"]
+                x["result_status"], x["failure_kind"], x["retryable"]
             ) != key
         ]
         out.append(item)
@@ -298,6 +303,26 @@ def _required_skill_states(
 def _required_skill_plan_satisfied(required: List[str], outcomes) -> bool:
     states = _required_skill_states(required, outcomes)
     return not (states["waiting"] or states["failed"] or states["unseen"])
+
+
+def _retryable_failed_skill_caps(required: List[str], outcomes) -> List[str]:
+    """Only a provider-explicit retryable *latest* failure preserves a plan."""
+    latest: Dict[str, Dict[str, Any]] = {}
+    for item in outcomes or []:
+        if not isinstance(item, dict):
+            continue
+        for key in ("capability", "observed_capability"):
+            name = str(item.get(key) or "").strip()
+            if name:
+                latest[name] = item
+    return [
+        cap for cap in required or []
+        if (
+            cap in latest
+            and latest[cap].get("retryable") is True
+            and _skill_outcome_class(latest[cap]) == "failed"
+        )
+    ]
 
 
 
@@ -3077,6 +3102,9 @@ async def run_cognitive_loop(
             pending_skill_caps = list(final_skill_states["unseen"])
             waiting_skill_caps = list(final_skill_states["waiting"])
             failed_skill_caps = list(final_skill_states["failed"])
+            retryable_failed_caps = _retryable_failed_skill_caps(
+                required_skill_caps, skill_outcomes
+            )
             waits_for_user_now = bool(
                 mode == "ask"
                 or blocking_ask
@@ -3085,6 +3113,7 @@ async def run_cognitive_loop(
             )
             if required_skill_caps and (
                 waits_for_user_now or pending_skill_caps or waiting_skill_caps
+                or retryable_failed_caps
             ):
                 persisted_plan = _persist_active_skill_plan(
                     st,
@@ -3108,6 +3137,8 @@ async def run_cognitive_loop(
                 active_execution_plan_ref = current_skill_plan_ref
                 trace["skill_plan_paused"] = True
                 trace["skill_plan_ref"] = current_skill_plan_ref
+                if retryable_failed_caps:
+                    trace["skill_plan_retryable"] = retryable_failed_caps
             elif (
                 skill_plan_declared_this_turn
                 and _required_skill_plan_satisfied(
@@ -3989,9 +4020,12 @@ async def run_cognitive_loop(
     bound_unseen = list(bound_skill_states["unseen"])
     bound_waiting = list(bound_skill_states["waiting"])
     bound_failed = list(bound_skill_states["failed"])
+    bound_retryable = _retryable_failed_skill_caps(
+        required_skill_caps, skill_outcomes
+    )
     trace["skill_plan_states"] = bound_skill_states
     if bound_unseen or bound_waiting or bound_failed:
-        if bound_unseen or bound_waiting:
+        if bound_unseen or bound_waiting or bound_retryable:
             persisted_plan = _persist_active_skill_plan(
                 st,
                 objective=str(
@@ -4011,6 +4045,8 @@ async def run_cognitive_loop(
             )
             trace["skill_plan_paused"] = True
             trace["skill_plan_ref"] = persisted_plan["plan_ref"]
+            if bound_retryable:
+                trace["skill_plan_retryable"] = bound_retryable
         else:
             # Nothing remains executable in this plan: a failed capability is
             # not silently marked done or kept as an apparently active plan.
@@ -4038,6 +4074,10 @@ async def run_cognitive_loop(
             ora = (
                 "Non sono riuscita a completare la richiesta: uno strumento "
                 "necessario ha restituito un errore. Non considero l'azione riuscita."
+                + (
+                    " Il provider permette di riprovare: il piano resta salvato."
+                    if bound_retryable else ""
+                )
             )
         add_step(
             trace, event="SKILL_PLAN_BOUND_UNFINISHED",
