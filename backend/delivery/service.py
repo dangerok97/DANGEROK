@@ -497,6 +497,11 @@ class DeliveryService:
         plan = await self.repo.get_plan(user_id, plan_id)
         if plan is None:
             return {"ok": False, "reason": "unknown_plan"}
+        if (outcome == "opened" and plan.status != "delivered"
+                and plan.outcome != "opened"):
+            # A pending or held notification was never accepted by transport:
+            # a crafted client request cannot claim the user tapped it.
+            return {"ok": False, "reason": "not_delivered"}
 
         # Idempotent, and `opened` is not overwritten by anything later: a
         # person who opened a notification opened it, whatever happened after.
