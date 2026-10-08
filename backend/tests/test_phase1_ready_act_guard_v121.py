@@ -168,6 +168,10 @@ async def test_real_research_observation_is_distinct_from_unexecuted_action(
     monkeypatch.setattr(
         research_service, "get_research_service", lambda db: ScriptedResearch()
     )
+    # Production checks whether the research provider exists before invoking
+    # it. This test replaces that provider, so its readiness must be enabled
+    # too; otherwise it only tests the unavailable-provider early exit.
+    monkeypatch.setattr(research_service, "research_available", lambda: True)
     calls = 0
 
     async def decide(system, payload):
@@ -188,7 +192,11 @@ async def test_real_research_observation_is_distinct_from_unexecuted_action(
         decision_fn=decide, max_steps=2,
     )
     assert result.ok
+    assert any(
+        step.get("event") == "RESEARCH" and step.get("detail") == status
+        for step in result.trace.get("steps", [])
+    ), result.trace
     if should_pass:
-        assert result.ora_text == "Ho svolto la verifica."
+        assert result.ora_text == "Ho svolto la verifica.", result.trace
     else:
-        assert "non ho ancora eseguito" in result.ora_text.lower()
+        assert "non ho ancora eseguito" in result.ora_text.lower(), result.trace
