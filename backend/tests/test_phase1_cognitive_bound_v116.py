@@ -12,6 +12,12 @@ from conversation_engine.ai_core.tools.registry import ToolRegistry
 from conversation_engine.models import ConversationSession
 
 
+@pytest.fixture(autouse=True)
+def _enable_trace_for_fixture(monkeypatch):
+    # CI normally redacts diagnostic steps; these tests use only fake data.
+    monkeypatch.setenv("AI_CORE_TRACE", "1")
+
+
 def _session():
     return ConversationSession(
         user_id="phase1-owner", meta={"ui_mode": "ai_core", "ai_core": {}}
