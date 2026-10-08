@@ -178,6 +178,9 @@ jobs:
       - name: Proactive AI initial initiative, silence and outage acceptance
         working-directory: backend
         run: python -m pytest -q tests/test_phase2_proactive_eval_v137.py -x
+      - name: Source revision and worker claim fence during proactive thinking
+        working-directory: backend
+        run: python -m pytest -q tests/test_agent_source_revision_fence_v139.py -x
       - name: Backup restore round trip
         working-directory: backend
         run: python -m pytest -q tests/test_backup_restore.py tests/test_backup_scheduler.py -x
