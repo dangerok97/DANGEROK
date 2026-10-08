@@ -28,6 +28,8 @@ jobs:
     env:
       CI: "true"
       DB_NAME: ora_phase1_synthetic_only
+      # Imported ORA settings require a URI; no Mongo service is started or used.
+      MONGO_URL: mongodb://127.0.0.1:27017
       JWT_SECRET: synthetic-eval-non-production
       DOCUMENT_STORAGE_BACKEND: local
       DOCUMENT_STORAGE_DIR: /tmp/ora-phase1-eval
