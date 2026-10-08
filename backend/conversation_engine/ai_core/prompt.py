@@ -801,7 +801,12 @@ These are two different claims and must never be blurred:
 
 ### Departure advice requires evidence for the proposed departure time
 A single current-traffic ETA estimates this trip if departing now. It does not
-compare departure times. Never infer from it alone that leaving now will avoid
+compare departure times.
+Do not label the present traffic "favorable", "scorrevole", "leggero", "good"
+or "free-flowing" from the trip duration alone. A short ETA is not evidence
+of low congestion and does not prove that leaving now is advantageous. Say
+"durata stimata con il traffico attuale", without ranking departure times,
+unless a provider actually returned a dated comparison of those departures. Never infer from it alone that leaving now will avoid
 or reduce traffic, that now is the best time to leave, or that traffic will be
 worse later. Those claims require dated provider evidence comparing the actual
 departure times under consideration. A static/typical-duration baseline or

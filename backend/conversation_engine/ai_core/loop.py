@@ -28,6 +28,9 @@ from conversation_engine.ai_core.governance import (
     whole_sentences,
 )
 from conversation_engine.ai_core.grounding.temporal import merge_context_with_current
+from conversation_engine.ai_core.grounding.advice import guard_route_advice
+from conversation_engine.ai_core.grounding.formatting import normalize_route_weather_reply
+from conversation_engine.ai_core.grounding.weather_advice import guard_weather_intensity
 from conversation_engine.ai_core.models import (
     ActiveGoal,
     CognitiveDecision,
@@ -3228,6 +3231,15 @@ async def run_cognitive_loop(
                     failed=failed_skill_caps,
                     retryable=retryable_failed_caps,
                 )
+            ora, formatting_findings = normalize_route_weather_reply(ora, observations[turn_start:])
+            if formatting_findings:
+                add_step(trace, event="GROUNDING_MESSAGE_RENDERED", findings=formatting_findings)
+            ora, grounding_findings = guard_route_advice(ora, observations[turn_start:])
+            if grounding_findings:
+                add_step(trace, event="GROUNDING_ADVICE_REWRITTEN", findings=grounding_findings)
+            ora, weather_findings = guard_weather_intensity(ora, observations[turn_start:])
+            if weather_findings:
+                add_step(trace, event="GROUNDING_WEATHER_REWRITTEN", findings=weather_findings)
             state_mod.append_turn(st, role="ora", text=ora, kind=mode)
             st["observations"] = observations[-12:]
             navigation_options = _remember_pending_navigation(
@@ -4187,6 +4199,15 @@ async def run_cognitive_loop(
         )
         add_step(trace, event="BARE_ACK_BLOCKED_BOUND")
 
+    ora, formatting_findings = normalize_route_weather_reply(ora, observations[turn_start:])
+    if formatting_findings:
+        add_step(trace, event="GROUNDING_MESSAGE_RENDERED_BOUND", findings=formatting_findings)
+    ora, grounding_findings = guard_route_advice(ora, observations[turn_start:])
+    if grounding_findings:
+        add_step(trace, event="GROUNDING_ADVICE_REWRITTEN_BOUND", findings=grounding_findings)
+    ora, weather_findings = guard_weather_intensity(ora, observations[turn_start:])
+    if weather_findings:
+        add_step(trace, event="GROUNDING_WEATHER_REWRITTEN_BOUND", findings=weather_findings)
     state_mod.append_turn(st, role="ora", text=ora, kind="answer")
     st["observations"] = observations[-12:]
     navigation_options = _remember_pending_navigation(

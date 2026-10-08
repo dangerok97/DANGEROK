@@ -34,6 +34,7 @@ from unittest.mock import AsyncMock, patch
 from zoneinfo import ZoneInfo
 
 from scripts.phase1_cognitive_live_eval import _model_signal
+from scripts.phase1_semantic_gate import review_trip_answer
 
 VERSION = "phase1-read-provider-v126"
 OWNER = "eval-public-route-weather-only"
@@ -335,7 +336,8 @@ def _payload_view(capability: str, payload: dict) -> dict:
 
 
 def _verdict(result, decisions: list[dict], observations: list[dict], reads: list[dict],
-             blocked: list[str], *, now: datetime | None = None) -> dict:
+             blocked: list[str], *, now: datetime | None = None,
+             semantic_review: dict | None = None) -> dict:
     now = now or _now()
     verified = []
     reasons = []
@@ -395,15 +397,22 @@ def _verdict(result, decisions: list[dict], observations: list[dict], reads: lis
         reasons.append("no_final_answer_for_review")
     if blocked or any(row.get("source") == "blocked" for row in observations):
         reasons.append("isolation_boundary_attempted")
+    technical_passed = not reasons
+    if semantic_review is not None and not semantic_review.get("passed"):
+        reasons.extend("semantic:" + str(code)[:80]
+                       for code in (semantic_review.get("reasons") or ["UNVERIFIED"]))
     return {
+        "technical_passed": technical_passed,
+        "semantic_gate_passed": (
+            bool(semantic_review.get("passed")) if semantic_review is not None else None
+        ),
         "passed": not reasons, "reasons": reasons, "verified_reads": verified,
         "required_reads": sorted(REQUIRED_READS), "model_decisions": len(decisions),
         "ai_calls": int(getattr(result, "ai_calls", 0) or 0),
         "tool_calls": int(getattr(result, "tool_calls", 0) or 0),
         "elapsed_ms": int(getattr(result, "elapsed_ms", 0) or 0),
         "final_mode": str(getattr(result, "mode", "") or "")[:30],
-        "semantic_acceptance": "pending_human_review",
-    }
+        "semantic_acceptance": "pending_human_review",    }
 
 
 async def _scripted_model_factory():
@@ -574,8 +583,22 @@ async def run_case(*, mode: str = "scripted", decide: Callable | None = None,
             and item.get("provenance") == original["provenance"]
             for item in saved if isinstance(item, dict)
         )
-    verdict = _verdict(result, decisions, observations, boundary.reads, boundary.blocked)
     final = str(getattr(result, "ora_text", "") or "")
+    trace_steps = (getattr(result, "trace", None) or {}).get("steps") or []
+    grounding_rewrites = sum(
+        row.get("event") in (
+            "GROUNDING_ADVICE_REWRITTEN", "GROUNDING_ADVICE_REWRITTEN_BOUND",
+            "GROUNDING_MESSAGE_RENDERED", "GROUNDING_MESSAGE_RENDERED_BOUND",
+        )
+        for row in trace_steps if isinstance(row, dict)
+    )
+    semantic_review = review_trip_answer(
+        final, observations, grounding_rewrites=grounding_rewrites,
+    )
+    verdict = _verdict(
+        result, decisions, observations, boundary.reads, boundary.blocked,
+        semantic_review=semantic_review,
+    )
     return {
         "version": VERSION, "case": "trip_today", "requested_mode": mode,
         "model_mode": "live_llm" if model_live else "scripted_decisions",
@@ -593,9 +616,9 @@ async def run_case(*, mode: str = "scripted", decide: Callable | None = None,
         "final_answer": _safe_text(final, FINAL_ANSWER_LIMIT),
         "final_answer_truncated": len(final) > FINAL_ANSWER_LIMIT,
         "semantic_review": {
-            "status": "required", "automatically_accepted": False,
-            "check": "Compare final prose, dates, travel duration and weather with recorded evidence.",
-            "time_metadata_limit": "Weather provider dates/timezone must reach the model; route retrieval time is the evaluation clock, not a provider as-of timestamp.",
+            **semantic_review,
+            "grounding_rewrites": grounding_rewrites,
+            "time_metadata_limit": "Weather dates/timezone reach the model; routing HTTP retrieval time is not a provider as-of timestamp.",
         },
     }
 
