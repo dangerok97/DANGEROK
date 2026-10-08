@@ -1,3 +1,25 @@
+## 8 ottobre 2026 — Fase 1: conservazione dei fallimenti esplicitamente ritentabili (v122)
+
+Quando una capability restituisce un errore e il suo provider marca
+esplicitamente il risultato come `retryable: true`, ORA deve
+mantenere il piano AI ancora incompleto: la sessione conserva gli esiti
+già riusciti e l'identificativo opaco della catena per un successivo
+`resume_plan_ref`. Non deve ripetere i passaggi completati e non
+considera riuscita la skill fallita. Un errore terminale o senza
+`retryable: true` non attiva questa politica.
+
+La sessione salva solo cinque metadati già esistenti più il nuovo bit
+`retryable`: mai argomenti dei tool, messaggi privati o risultati sensibili.
+La ripresa è innescata da una richiesta semanticamente pertinente dell'utente;
+non esiste in questo intervento un retry periodico o una notifica automatica.
+
+Verifiche: ultimo fallimento vince, retry riuscito rimuove lo stato di errore,
+catena su due turni con una lettura già eseguita, uscita a budget minimo.
+Test inseriti nel gate backend obbligatorio di CI. Restano da dimostrare
+ritentativi e ripresa con provider e modello reali.
+
+---
+
 ## 8 ottobre 2026 — Fase 1: una decisione pronta non equivale a esecuzione (v121)
 
 Quando il modello dichiara esplicitamente `reasoning_status=ready_to_act`
