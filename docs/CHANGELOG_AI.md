@@ -1,14 +1,3 @@
-## 8 ottobre 2026 — Fase 1: test di catene multi-skill reali
-
-- Aggiunto banco di prova del loop cognitivo con due strumenti necessari.
-- Verificati percorso riuscito, provider fallito e ripresa dopo chiarimento
-  attraversando due turni della stessa sessione.
-- Risposte del modello e provider simulate, ma stato e decision gate
-  dell'AI Core reali; nessuna chiamata o modifica a dati degli utenti.
-- Inclusi nel gate CI obbligatorio; pubblicazione subordinata all'esito.
-
----
-
 ## 8 ottobre 2026 — AI Core: skill rimosse soltanto con prove riuscite
 
 - Una skill obbligatoria non può essere eliminata dal piano citando un
