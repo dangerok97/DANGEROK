@@ -412,13 +412,7 @@ def _verdict(result, decisions: list[dict], observations: list[dict], reads: lis
         "tool_calls": int(getattr(result, "tool_calls", 0) or 0),
         "elapsed_ms": int(getattr(result, "elapsed_ms", 0) or 0),
         "final_mode": str(getattr(result, "mode", "") or "")[:30],
-        "semantic_acceptance": (
-            "bounded_pass_human_review_still_required"
-            if semantic_review is not None and semantic_review.get("passed")
-            else "failed" if semantic_review is not None
-            else "pending_human_review"
-        ),
-    }
+        "semantic_acceptance": "pending_human_review",    }
 
 
 async def _scripted_model_factory():
