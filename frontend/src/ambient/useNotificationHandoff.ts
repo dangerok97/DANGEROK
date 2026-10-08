@@ -44,8 +44,13 @@ export function useNotificationHandoff(): void {
         // signed-in account and was sent by Delivery. No cross-account route
         // is opened without that verified read/write.
         const result = await api.recordNotificationOpened(handoff.planId);
-        if (result.ok && active) {
-          router.push(handoff.route as any);
+        // The push payload is not an authority for navigation. Delivery
+        // returns its own canonical route for the authenticated plan, and
+        // the two must agree. Tapping is never an authorisation to act.
+        if (!result.ok || result.outcome !== 'opened'
+            || result.route !== handoff.route) return;
+        if (active) {
+          router.push(result.route as any);
           await module?.clearLastNotificationResponseAsync();
         }
       } catch {
