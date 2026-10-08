@@ -1,3 +1,22 @@
+## 8 ottobre 2026 — Fase 1: una decisione pronta non equivale a esecuzione (v121)
+
+Quando il modello dichiara esplicitamente `reasoning_status=ready_to_act`
+ma conclude la conversazione senza usare strumenti né produrre una scrittura
+confermata, il runtime deve farlo ragionare di nuovo e richiedere una skill
+adatta. Se non arriva alcuna esecuzione, espone il mancato completamento:
+non può rispondere soltanto raccontando un'azione non compiuta.
+
+Il controllo dipende dalla struttura della decisione AI, non da parole chiave
+o dal tema della richiesta. Non blocca risposte informative
+`enough_information` né interventi realmente osservati.
+
+Prove: re-ingresso con successivo tool, secondo tentativo senza esecuzione,
+uscita a budget minimo, conversazione informativa. Provider e decisioni
+scripted, loop e governance reali. I test entrano nella CI; collaudo
+live con modello e servizi rimane aperto.
+
+---
+
 ## 8 ottobre 2026 — Fase 1: piano multi-skill oltre il limite del turno v120
 
 Problema verificato nel codice: il modello SkillPlan e tre punti di
