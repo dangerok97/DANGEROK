@@ -219,3 +219,26 @@ async def test_transient_failure_at_last_reasoning_step_remains_recoverable(
     assert result.trace.get("skill_plan_paused") is True
     assert "provider permette di riprovare" in result.ora_text
     assert sess.meta["ai_core"]["active_skill_plan"] is not None
+
+
+def test_retryable_provider_flag_cannot_resume_a_write_without_readback():
+    tools = ToolRegistry(db=None)
+    read_only = tools.get("get_route")
+    write = tools.get("create_calendar_event")
+    assert read_only is not None and read_only.side_effect == "READ_ONLY"
+    assert write is not None and write.side_effect == "REVERSIBLE_WRITE"
+
+    failed_route = [outcome(
+        "get_route", status="failed", result_status="provider_error",
+        retryable=True,
+    )]
+    failed_write = [outcome(
+        "create_calendar_event", status="failed",
+        result_status="provider_error", retryable=True,
+    )]
+    assert _retryable_failed_skill_caps(
+        ["get_route"], failed_route, tools=tools
+    ) == ["get_route"]
+    assert _retryable_failed_skill_caps(
+        ["create_calendar_event"], failed_write, tools=tools
+    ) == []
