@@ -26,7 +26,10 @@ async def save_recurring_memo(arguments: Dict[str, Any], runtime: Dict[str, Any]
             month=int(arguments.get("month")),
             day=int(arguments.get("day")),
             timezone_name=str(arguments.get("timezone") or "Europe/Rome"),
-            remind_hour_local=int(arguments.get("remind_hour_local") or 9),
+            remind_hour_local=int(
+                arguments["remind_hour_local"]
+                if arguments.get("remind_hour_local") is not None else 9
+            ),
         )
     except (TypeError, ValueError):
         result = {"ok": False, "error": "invalid_annual_date"}
