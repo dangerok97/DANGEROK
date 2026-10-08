@@ -1,18 +1,3 @@
-## 8 ottobre 2026 — Fase 1: primo banco di prova multi-skill v119
-
-Tre regressioni end-to-end del ciclo cognitivo (decisioni AI e risposte
-provider controllate, motore/orchestrazione reali) riproducono:
-1. due skill necessarie con risultato osservato prima della conclusione;
-2. la seconda skill fallisce: ORA non può dichiarare completata la richiesta;
-3. una domanda necessaria divide l'esecuzione in due turni: stato del piano,
-   esito già verificato e resto del lavoro devono sopravvivere e riprendere.
-
-Gate CI backend esteso a questi test, senza dati personali o effetti esterni.
-La prova non certifica ancora il modello AI con servizi autentici: questa
-rimane una condizione di uscita della Fase 1.
-
----
-
 ## 8 ottobre 2026 — Fase 1/6, seconda correzione v117
 
 **Problema individuato:** il modello poteva rimuovere una skill obbligatoria
