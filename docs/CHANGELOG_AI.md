@@ -1,3 +1,16 @@
+## 8 ottobre 2026 — Resumability delle skill dopo errori transitori
+
+- Conservata la catena multi-skill quando la risposta del provider
+  segnala esplicitamente un errore ritentabile.
+- La capacità non è segnata riuscita e il piano non ripete automaticamente
+  gli effetti: gli esiti precedenti rimangono nella sessione per il prossimo
+  turno pertinente.
+- Aggiornati prompt, stato cognitivo e regressioni sul ripristino.
+- Nessuna pianificazione oraria, nuovo connettore o effetto reale su terzi.
+- Test CI/merge/Railway da verificare prima di affermare pubblicazione.
+
+---
+
 ## 8 ottobre 2026 — AI Core: ready-to-act non è fatto
 
 - Corretto un finale in cui il modello dichiarava ready_to_act ma poteva
