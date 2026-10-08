@@ -1,3 +1,24 @@
+## 8 ottobre 2026 — Fase 1/6, seconda correzione v117
+
+**Problema individuato:** il modello poteva rimuovere una skill obbligatoria
+dal piano usando il solo nome di un'osservazione già presente, anche se
+quell'osservazione era un errore, una richiesta di consenso o una nota di
+sistema. La deduplicazione degli esiti poteva inoltre lasciare il fallimento
+come ultimo stato quando un nuovo tentativo identico era invece riuscito.
+
+**Correzione:** il rilascio per osservazione richiede l'esito riuscito più
+recente di una capacità realmente chiamata, oppure un esito riuscito
+persistito. Gli esiti in attesa o falliti non possono autorizzare la
+rimozione di una skill necessaria. I retry mantengono l'ordine temporale.
+Se l'utente cambia esplicitamente richiesta, la revisione per sue parole
+rimane distinta e consentita.
+
+**Verifica:** sei nuovi casi nel test di piano adattivo, riusando il gate CI
+backend esistente. PR separata dal fix v116; non dichiarare pubblicata prima
+di CI e deploy Railway. Non usa dati reali né modifica provider o permessi.
+
+---
+
 ## 8 ottobre 2026 — Fase 1/6, prima tranche v116
 
 **Obiettivo:** le skill dichiarate obbligatorie non possono essere
