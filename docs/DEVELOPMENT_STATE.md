@@ -1,12 +1,15 @@
 ## 8 ottobre 2026 — Fase 1: conservazione dei fallimenti esplicitamente ritentabili (v122)
 
 Quando una capability restituisce un errore e il suo provider marca
-esplicitamente il risultato come `retryable: true`, ORA deve
-mantenere il piano AI ancora incompleto: la sessione conserva gli esiti
+esplicitamente il risultato come `retryable: true` e si tratta
+di una capacità di SOLA LETTURA, ORA deve mantenere il piano AI ancora incompleto: la sessione conserva gli esiti
 già riusciti e l'identificativo opaco della catena per un successivo
 `resume_plan_ref`. Non deve ripetere i passaggi completati e non
 considera riuscita la skill fallita. Un errore terminale o senza
-`retryable: true` non attiva questa politica.
+`retryable: true` non attiva questa politica. Le scritture, inclusi gli
+appuntamenti, non sono ritentate automaticamente: una risposta persa dopo
+una scrittura potrebbe nascondere un effetto già avvenuto e richiede
+prima una rilettura canonica.
 
 La sessione salva solo cinque metadati già esistenti più il nuovo bit
 `retryable`: mai argomenti dei tool, messaggi privati o risultati sensibili.
