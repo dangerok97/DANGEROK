@@ -37,6 +37,12 @@ READ_FIXTURES = frozenset({
     "list_life_places", "get_profile_snapshot", "search_my_life",
     "get_current_location", "search_life_memory", "get_life_place",
 })
+# The ONLY writes allowed are to the brand-new in-memory Mongo for this
+# invocation, using production handlers that never contact outside services.
+SAFE_LOCAL_WRITES = frozenset({
+    "schedule_situation_check", "save_recurring_memo",
+})
+SAFE_LOCAL_READBACKS = frozenset({"get_situation_followup"})
 
 SCENARIOS = {
     "trip": {
@@ -162,7 +168,7 @@ def _verdict(
     case: str, result: Any, decisions: list[dict[str, Any]],
     observations: list[dict[str, Any]], *,
     memory_count: int = 0, reminder_count: int = 0,
-    situation_count: int = 0,
+    situation_count: int = 0, followup_count: int = 0,
 ) -> dict[str, Any]:
     """Conservative evidence gate, never success solely because model said so."""
     seen = {
@@ -181,13 +187,19 @@ def _verdict(
         failure_reasons.append("missing_verified_reads:" + ",".join(missing))
     if case == "situation" and situation_count == 0:
         failure_reasons.append("situation_not_persisted")
+    if case == "situation" and followup_count == 0:
+        failure_reasons.append("followup_not_actually_scheduled")
     if case == "birthday":
         if memory_count == 0:
             failure_reasons.append("permanent_memory_not_persisted")
         if reminder_count == 0:
             failure_reasons.append("annual_reminder_not_persisted")
-    if any(x.get("side_effect") not in ("READ_ONLY", None) for x in observations):
-        # Attempts are safe-blocked, but product autonomy did not complete.
+    if any(
+        x.get("fixture") == "blocked" and x.get("side_effect") != "READ_ONLY"
+        for x in observations
+    ):
+        # Only approved in-memory local writes are allowed; external effects
+        # remain blocked and cannot count towards product acceptance.
         failure_reasons.append("blocked_world_changing_capability")
     if not decisions:
         failure_reasons.append("no_model_decisions")
@@ -198,6 +210,7 @@ def _verdict(
         "verified_reads": sorted(seen),
         "model_decisions": len(decisions),
         "synthetic_situations": situation_count,
+        "synthetic_scheduled_followups": followup_count,
         "synthetic_memories": memory_count,
         "synthetic_recurring_memos": reminder_count,
         "final_mode": str(getattr(result, "mode", "") or "")[:30],
@@ -247,9 +260,31 @@ async def run_case(
             outer = "ok"
             kind = "tool"
             synthetic = FIXTURE_SOURCE
+        elif (
+            spec is not None and spec.handler is not None
+            and (
+                (side_effect == "REVERSIBLE_WRITE"
+                 and capability in SAFE_LOCAL_WRITES)
+                or (side_effect == "READ_ONLY"
+                    and capability in SAFE_LOCAL_READBACKS)
+            )
+        ):
+            # Explicitly allow just two internal persisted operations, against
+            # *this* synthetic Mongo instance. Never forward runtime-supplied
+            # credentials or connection details.
+            observation = await spec.handler(
+                dict(arguments or {}), {"db": db, "user_id": OWNER}
+            )
+            payload = dict(observation.payload or {})
+            outer = str(observation.status or "failed")
+            kind = "tool"
+            synthetic = (
+                "synthetic_db_write" if side_effect == "REVERSIBLE_WRITE"
+                else "synthetic_db_read"
+            )
         else:
-            # Not an instruction to the real provider. No real writes,
-            # device access, phone calls, e-mails, or network requests.
+            # No Google Calendar, telephone, bank, real-world purchase,
+            # location sensor, email or other service may execute.
             payload = {
                 "status": "failed",
                 "failure_code": "EVAL_ISOLATION_BOUNDARY",
@@ -308,6 +343,7 @@ async def run_case(
     # Strict scoped patches: real model remains enabled, but every skill call
     # and outgoing research gateway is either a fixture or a denied boundary.
     from situations.turn_followup import FollowupTurnGate
+    import situations.followup as situation_followup
     with ExitStack() as stack:
         stack.enter_context(patch.object(
             ToolRegistry, "execute", sandbox_execute,
@@ -323,6 +359,11 @@ async def run_case(
         ))
         stack.enter_context(patch.object(
             FollowupTurnGate, "refresh", no_followup_refresh,
+        ))
+        # Enable only the synthetic in-process scheduler. No background
+        # worker, HTTP endpoint or production database is started.
+        stack.enter_context(patch.object(
+            situation_followup, "_enabled", lambda: True,
         ))
         stack.enter_context(patch.object(
             cognitive_loop, "report_activity", AsyncMock(),
@@ -345,11 +386,23 @@ async def run_case(
     # Only synthetic, in-memory Mongo. Counting does not inspect private data.
     reminder_count = await count_any(("recurring_memos",))
     memory_count = await count_any(("life_memories", "memories"))
-    situation_count = await count_any(("situations",))
+    situation_count = await db.situations.count_documents({
+        "user_id": OWNER, "status": {"$in": ["active", "changed"]},
+    })
+    followup_count = 0
+    for saved in await db.situations.find(
+        {"user_id": OWNER}, {"_id": 0, "id": 1}
+    ).to_list(10):
+        # The actual readback contract, not a claim in the LLM's prose.
+        check = await situation_followup.read_followup(
+            db, OWNER, str(saved.get("id") or "")
+        )
+        if check.get("status") in ("scheduled", "due", "running"):
+            followup_count += 1
     verdict = _verdict(
         name, result, decisions, observations,
         memory_count=memory_count, reminder_count=reminder_count,
-        situation_count=situation_count,
+        situation_count=situation_count, followup_count=followup_count,
     )
     return {
         "case": name,
