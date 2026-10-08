@@ -164,6 +164,11 @@ class RecurringMemoService:
             )
             if new_ref else None
         )
+        # If the target Memory was not committed yet (or was itself replaced),
+        # never disable an authorized reminder as a fallback. Retry once the
+        # authoritative replacement becomes available.
+        if new_ref is not None and replacement is None:
+            raise RuntimeError("MEMORY_REPLACEMENT_NOT_READY")
         kind = str((replacement or {}).get("kind") or "")
         value = (replacement or {}).get("value")
         if not isinstance(value, dict):
@@ -278,6 +283,25 @@ class RecurringMemoService:
                 {"_id": 0},
             )
             if not memory:
+                previous = await self.db.memories.find_one(
+                    {"user_id": memo["owner_id"], "id": memo["memory_ref"]},
+                    {"_id": 0, "id": 1, "status": 1, "superseded_by": 1},
+                )
+                if previous and previous.get("status") == "superseded":
+                    # An older Memory was replaced between claiming this due
+                    # memo and reading it. Recover or defer, but NEVER send a
+                    # false notification or discard its original authorization.
+                    from memos.recovery import resolve_replacement
+
+                    action, replacement_id = await resolve_replacement(
+                        self.db, str(memo["owner_id"]), previous
+                    )
+                    if action != "defer":
+                        await self.reconcile_governed_memory(
+                            str(memo["owner_id"]), old_ref=str(memo["memory_ref"]),
+                            new_ref=replacement_id if action == "transfer" else None,
+                        )
+                    continue
                 await self.db[COLLECTION].update_one(
                     {"id": memo["id"]},
                     {"$set": {"status": "disabled", "claim_until": None,
