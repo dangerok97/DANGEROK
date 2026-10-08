@@ -116,6 +116,8 @@ def test_prompt_makes_skill_selection_ai_owned_not_keyword_routed():
     assert "backend must NOT infer it from keywords or domains" in prompt
     assert "required_capabilities" in prompt
     assert "DECLARED_SKILL_PLAN_INCOMPLETE" in loop
+    assert "At most 12 capabilities" in prompt
+    assert "at most 5 tool calls" in prompt
     assert 'event="SKILL_PLAN_INCOMPLETE_NUDGE"' in loop
 
 
