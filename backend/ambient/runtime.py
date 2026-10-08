@@ -385,6 +385,24 @@ def _launch(name, operation, *, timeout):
     return True
 
 
+async def _serve_delivery_admission(db):
+    """Audit accepted Expo tickets in the one bounded delivery-admission lane."""
+    from delivery.admission import drain as review_delivery
+
+    result = await review_delivery(db)
+    from delivery.provider import get_provider
+    from ambient.push import ExpoNotificationProvider
+
+    if isinstance(get_provider(), ExpoNotificationProvider):
+        from delivery.expo_receipts import ExpoReceiptAudit
+
+        try:
+            await ExpoReceiptAudit(db).run_due()
+        except Exception as exc:
+            logger.info("expo receipt audit deferred: %s", type(exc).__name__)
+    return result
+
+
 async def _serve_recurring_memos(db, *, reconcile: bool = False):
     """Keep recovery in the one existing Memo lane, without increasing concurrency."""
     if reconcile:
@@ -406,11 +424,10 @@ async def _cycle(db, ticks):
         _stats["sources_deferred_for_call"] += 1
         return
     from agent.background import recover_due
-    from delivery.admission import drain as review_delivery
     from energy_offers.service import EnergyOfferService
     _launch("sources", lambda: read_sources(db), timeout=120)
     _launch("admission", lambda: recover_due(db), timeout=110)
-    _launch("delivery-admission", lambda: review_delivery(db), timeout=125)
+    _launch("delivery-admission", lambda: _serve_delivery_admission(db), timeout=125)
     # Durable recurring memos are cheap when nothing is due: one indexed query.
     # When one is due it becomes an ordinary Opportunity, so the existing
     # delivery judgement decides in-app/push rather than this scheduler.
