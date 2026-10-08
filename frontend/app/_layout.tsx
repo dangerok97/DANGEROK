@@ -11,6 +11,7 @@ import { ThemeProvider, useTheme } from '@/src/theme/ThemeProvider';
 import { tokens } from '@/src/theme/tokens';
 import { AuthGate, ShellModeProvider, useShellTransitionMs } from '@/src/shell';
 import { installWebGlobals } from '@/src/theme/webGlobals';
+import { useNotificationHandoff } from '@/src/ambient/useNotificationHandoff';
 
 /*
   The background task has to be defined at module scope, before the OS ever
@@ -95,6 +96,7 @@ function ThemedStack() {
   const transitionMs = useShellTransitionMs();
   usePresenceReconciliation();
   useDeviceContactsReconciliation();
+  useNotificationHandoff();
   return (
     <View style={{ flex: 1, backgroundColor: colors.backgroundPrimary }}>
       {/*

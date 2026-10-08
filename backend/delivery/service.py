@@ -491,23 +491,48 @@ class DeliveryService:
     async def record_outcome(
         self, user_id: str, plan_id: str, outcome: str
     ) -> Dict[str, Any]:
-        """Opened, ignored, gone. Kept as a fact, never turned into a score."""
+        """Record a user interaction with an existing, owned delivery plan.
+
+        A client notification is untrusted. A tap cannot invent a delivery,
+        choose its URL, approve an agent action, or cross account boundaries.
+        """
         if outcome not in ("opened", "dismissed", "expired"):
             return {"ok": False, "reason": "unknown_outcome"}
         plan = await self.repo.get_plan(user_id, plan_id)
         if plan is None:
             return {"ok": False, "reason": "unknown_plan"}
 
-        # Idempotent, and `opened` is not overwritten by anything later: a
-        # person who opened a notification opened it, whatever happened after.
-        if plan.outcome == "opened" and outcome != "opened":
-            return {"ok": True, "outcome": plan.outcome, "opportunity_id": plan.opportunity_id}
+        if outcome == "opened":
+            # The provider must have accepted the notification first; a held
+            # plan is not something that the person could have opened.
+            if plan.status != "delivered" and plan.outcome != "opened":
+                return {"ok": False, "reason": "not_delivered"}
+            route = _notification_open_route(plan)
+            if route is None:
+                return {"ok": False, "reason": "invalid_notification_target"}
+            if plan.outcome == "opened":
+                return {
+                    "ok": True, "outcome": "opened",
+                    "opportunity_id": plan.opportunity_id, "route": route,
+                }
+            if plan.opened_at is None:
+                plan.opened_at = _now().isoformat()
+            plan.outcome = "opened"
+            await self.repo.save_plan(plan)
+            return {
+                "ok": True, "outcome": "opened",
+                "opportunity_id": plan.opportunity_id, "route": route,
+            }
 
-        if outcome == "opened" and plan.opened_at is None:
-            plan.opened_at = _now().isoformat()
+        # The original interaction policy is retained: after opening, later
+        # dismiss/expire actions must not erase the fact it was opened.
+        if plan.outcome == "opened":
+            return {"ok": True, "outcome": "opened",
+                    "opportunity_id": plan.opportunity_id}
         plan.outcome = outcome
         await self.repo.save_plan(plan)
-        return {"ok": True, "outcome": outcome, "opportunity_id": plan.opportunity_id}
+        return {"ok": True, "outcome": outcome,
+                "opportunity_id": plan.opportunity_id}
 
     async def cancel_for_opportunity(
         self, user_id: str, opportunity_id: str, *, reason: str
@@ -872,6 +897,27 @@ def _deep_link(opportunity_id: str, *, target: str = "opportunity") -> str:
     if not _OPAQUE_ID.match(str(opportunity_id or "")):
         return ALLOWED_TARGETS["home"]
     return template.format(id=opportunity_id)
+
+
+def _notification_open_route(plan: DeliveryPlan) -> Optional[str]:
+    """Return only a canonical route already authorised by Delivery code."""
+    if plan.source_type == "opportunity":
+        opaque = str(plan.source_id or plan.opportunity_id or "")
+        if not _OPAQUE_ID.fullmatch(opaque):
+            return None
+        expected = _deep_link(opaque, target="opportunity")
+        return expected if plan.deep_link == expected else None
+
+    if plan.source_type == "agent_need":
+        match = re.fullmatch(
+            r"/ora\?needId=([A-Za-z0-9_-]{4,80})"
+            r"&goalId=([A-Za-z0-9_-]{4,80})&entry=agent_need",
+            plan.deep_link or "",
+        )
+        if match and match.group(1) == plan.source_id:
+            return plan.deep_link
+
+    return None
 
 
 def _default_not_after(subject) -> Optional[str]:

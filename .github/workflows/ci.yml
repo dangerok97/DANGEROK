@@ -96,6 +96,9 @@ jobs:
       - name: Expo receipt audit and per-device privacy
         working-directory: backend
         run: python -m pytest -q tests/test_expo_receipt_audit_v132.py -x
+      - name: Authenticated notification tap and canonical navigation
+        working-directory: backend
+        run: python -m pytest -q tests/test_notification_open_handoff_v133.py -x
       - name: Voice lifecycle and phone recipient corrections
         working-directory: backend
         run: python -m pytest -q tests/test_voice_streaming.py tests/test_live_voice_fluidity.py tests/test_voice_output_v313.py tests/test_voice_life_continuity_v313.py tests/test_phone_identity_conflict.py tests/test_ai_first_skill_routing_v82.py -x
@@ -269,6 +272,9 @@ jobs:
       - name: Push installation identity across two devices
         working-directory: frontend
         run: node --experimental-strip-types --test src/ambient/installationHandle.test.ts
+      - name: Notification tap origin and navigation guards
+        working-directory: frontend
+        run: node --experimental-strip-types --test src/ambient/notificationHandoff.test.ts
       - name: Resolve Expo iOS configuration
         working-directory: frontend
         env:
