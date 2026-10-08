@@ -1,7 +1,8 @@
 ## 8 ottobre 2026 — Resumability delle skill dopo errori transitori
 
-- Conservata la catena multi-skill quando la risposta del provider
-  segnala esplicitamente un errore ritentabile.
+- Conservata la catena multi-skill per le sole capacità di LETTURA
+  quando il provider segnala esplicitamente un errore ritentabile.
+  Una scrittura ambigua richiede invece rilettura e autorità governata.
 - La capacità non è segnata riuscita e il piano non ripete automaticamente
   gli effetti: gli esiti precedenti rimangono nella sessione per il prossimo
   turno pertinente.
