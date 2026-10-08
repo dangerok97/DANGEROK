@@ -141,7 +141,10 @@ class ExpoNotificationProvider:
         result says what happened to each: one stale Android token disables
         itself and the iPhone still gets the notification.
         """
-        endpoints = await self.repo.active_endpoints(owner_id)
+        endpoints = [
+            row for row in await self.repo.active_endpoints(owner_id)
+            if row.provider == "expo" and row.permission_state == "granted"
+        ]
         if not endpoints:
             return {"ok": False, "provider": self.name, "reason": "no_endpoint"}
 
@@ -167,10 +170,27 @@ class ExpoNotificationProvider:
                 "reason": type(exc).__name__,
             }
 
-        accepted, failed = 0, []
+        # Missing or surplus tickets make positional endpoint attribution
+        # unsafe. No endpoint is disabled and no receipt is invented.
+        if not isinstance(tickets, list) or len(tickets) != len(endpoints):
+            return {
+                "ok": False, "provider": self.name, "transient": True,
+                "reason": "ticket_count_mismatch",
+            }
+
+        accepted, failed, receipt_tickets = 0, [], []
         for endpoint, ticket in zip(endpoints, tickets):
+            if not isinstance(ticket, dict):
+                failed.append({"endpoint": endpoint.id, "error": "invalid_ticket"})
+                continue
             if str(ticket.get("status")) == "ok":
                 accepted += 1
+                ticket_id = ticket.get("id")
+                if isinstance(ticket_id, str) and ticket_id:
+                    receipt_tickets.append({
+                        "endpoint_id": endpoint.id,
+                        "ticket_id": ticket_id,
+                    })
                 continue
             detail = str((ticket.get("details") or {}).get("error") or "")
             failed.append({"endpoint": endpoint.id, "error": detail or "unknown"})
@@ -179,7 +199,22 @@ class ExpoNotificationProvider:
                 await self.repo.disable_endpoint(token=endpoint.token, reason=detail)
                 logger.info("push endpoint disabled reason=%s", detail)
 
+        tracked = 0
+        if receipt_tickets:
+            try:
+                from delivery.expo_receipts import ExpoReceiptAudit
+
+                tracked = await ExpoReceiptAudit(self.db).track(
+                    owner_id, plan_id, receipt_tickets,
+                )
+            except Exception as exc:
+                # Already accepted tickets must not be resent merely because
+                # the independent receipt ledger could not be written.
+                logger.warning("expo receipt tracking unavailable: %s", type(exc).__name__)
+
         return {
+            "receipt_audit_tracked": tracked,
+            "receipt_audit_untracked": max(0, accepted - tracked),
             "ok": accepted > 0,
             "provider": self.name,
             # Accepted by Expo. NOT the same as shown on a phone, and the
