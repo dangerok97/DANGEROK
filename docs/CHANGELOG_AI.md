@@ -1,3 +1,18 @@
+## 8 ottobre 2026 — Fase 1: correttezza alla fine del ragionamento
+
+- Registrate le sei fasi canoniche concordate in ROADMAP.md.
+- Corretto il fallthrough del loop AI: una skill non osservata, fallita o
+  in attesa non può essere trasformata in una conclusione riuscita.
+- Il piano incompleto conserva solo riferimenti e risultati sintetici;
+  la domanda di conferma del calendario rimane disponibile al prossimo turno.
+- Evitato un «Ok» generico dopo l'ultimo passaggio del modello.
+- Aggiunti quattro test sintetici e collegati al gate CI. Risultati CI
+  e pubblicazione da riportare solo dopo osservazione.
+- Nessuna automazione periodica di sviluppo: gli interventi avvengono
+  quando lo chiede il proprietario.
+
+---
+
 ## 4 ottobre 2026 — ORA usa davvero posizione mobile e ricerca alloggi
 
 - Aggiunto un provider reale Booking.com Demand API v3.2 per cercare alloggi
