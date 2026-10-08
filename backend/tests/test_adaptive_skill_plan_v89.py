@@ -248,6 +248,7 @@ def test_persisted_outcomes_are_sanitized_metadata_only():
         "status": "ok",
         "result_status": "ok",
         "failure_kind": "",
+        "retryable": False,
     }
     assert "private" not in str(persisted)
     outcome_keys = set(persisted["capability_outcomes"][0])
@@ -257,6 +258,7 @@ def test_persisted_outcomes_are_sanitized_metadata_only():
         "status",
         "result_status",
         "failure_kind",
+        "retryable",
     }
 
 
