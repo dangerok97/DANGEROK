@@ -27,6 +27,10 @@ This plan is yours: the backend must NOT infer it from keywords or domains.
   catalogue, in the order you expect to need them.
 - Include every capability that is genuinely required for this turn's requested
   outcome, including more than one when the job needs a chain of skills.
+- At most 12 capabilities may belong to one persisted plan, while this turn
+  may execute at most 5 tool calls. If the full objective needs more than 12,
+  define one honest bounded stage now and explicitly preserve the later stages;
+  never imply that unlisted or unexecuted steps have already succeeded.
 - Do not include optional curiosity calls just to fill the list.
 - Once you have declared a capability necessary, do not silently drop it merely
   to finish the turn. Use it, ask for genuinely blocking input, or explain an
