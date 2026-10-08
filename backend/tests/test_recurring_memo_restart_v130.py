@@ -191,7 +191,8 @@ async def run_child(mode: str, request: dict):
             "old_active": old_memo["status"] == "active",
         }
         # Nothing is left in process memory: the next interpreter has only Mongo.
-        print(json.dumps(result, separators=(",", ":")), flush=True)
+        sys.__stdout__.write(json.dumps(result, separators=(",", ":")) + "\n")
+        sys.__stdout__.flush()
         os._exit(0)
 
     service = RecurringMemoRecovery(db)
