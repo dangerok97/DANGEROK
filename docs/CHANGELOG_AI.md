@@ -1,3 +1,16 @@
+## 8 ottobre 2026 — AI Core: skill rimosse soltanto con prove riuscite
+
+- Una skill obbligatoria non può essere eliminata dal piano citando un
+  risultato fallito, in attesa o una semplice nota di sistema.
+- La prova considerata è l'ultima osservazione valida, non la sola presenza
+  storica di un nome di capacità.
+- Un retry riuscito identico a uno precedente aggiorna nuovamente l'ultimo
+  esito dopo un errore intermedio.
+- Sei nuovi test mirati aggiunti al gate CI già esistente.
+- Nessun nuovo effetto esterno, trigger automatico o dato personale trattato.
+
+---
+
 ## 8 ottobre 2026 — Fase 1: correttezza alla fine del ragionamento
 
 - Registrate le sei fasi canoniche concordate in ROADMAP.md.
