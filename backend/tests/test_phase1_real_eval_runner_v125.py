@@ -44,6 +44,7 @@ async def test_weather_without_saved_situation_is_not_false_pass():
     assert "get_weather_forecast" in result["verdict"]["verified_reads"]
     assert result["verdict"]["passed"] is False
     assert "situation_not_persisted" in result["verdict"]["reasons"]
+    assert "followup_not_actually_scheduled" in result["verdict"]["reasons"]
 
 
 @pytest.mark.asyncio
@@ -113,3 +114,30 @@ def test_model_signals_do_not_export_private_arguments_or_model_text():
     assert result["memory_proposals"] == 1
     assert "do-not-emit" not in str(result)
     assert "opaque-secret-ref" not in str(result)
+
+
+def test_benchmark_accepts_only_local_persisted_followup_as_scheduled():
+    result = SimpleNamespace(
+        ok=True, mode="answer", trace={}, ai_calls=3, tool_calls=2,
+    )
+    events = [{
+        "capability": "get_weather_forecast", "outer_status": "ok",
+        "result_status": "ok", "fixture": FIXTURE_SOURCE,
+        "side_effect": "READ_ONLY",
+    }, {
+        "capability": "schedule_situation_check", "outer_status": "ok",
+        "result_status": "scheduled", "fixture": "synthetic_db_write",
+        "side_effect": "REVERSIBLE_WRITE",
+    }]
+    incomplete = _verdict(
+        "situation", result, [{"mode": "tool"}], events,
+        situation_count=1, followup_count=0,
+    )
+    assert incomplete["passed"] is False
+    assert "followup_not_actually_scheduled" in incomplete["reasons"]
+    complete = _verdict(
+        "situation", result, [{"mode": "tool"}], events,
+        situation_count=1, followup_count=1,
+    )
+    assert complete["passed"] is True
+    assert complete["synthetic_scheduled_followups"] == 1
