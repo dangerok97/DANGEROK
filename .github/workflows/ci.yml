@@ -169,6 +169,9 @@ jobs:
       - name: Multiowner cursor and restarted goal wake recovery
         working-directory: backend
         run: python -m pytest -q tests/test_goal_wake_keyset_v136.py -x
+      - name: Proactive AI initial initiative, silence and outage acceptance
+        working-directory: backend
+        run: python -m pytest -q tests/test_phase2_proactive_eval_v137.py -x
       - name: Backup restore round trip
         working-directory: backend
         run: python -m pytest -q tests/test_backup_restore.py tests/test_backup_scheduler.py -x
