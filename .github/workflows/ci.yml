@@ -145,6 +145,9 @@ jobs:
             tests/test_life_profile_opportunity_bridge.py \
             tests/test_ambient_runtime_v38.py tests/test_ambient_reliability_v38.py -x
           CONTINUITY_REAL_MONGO=1 python -m pytest -q tests/test_autonomy_continuity_v4.py -x
+      - name: Proactive delivery fairness and owner isolation
+        working-directory: backend
+        run: python -m pytest -q tests/test_delivery_fair_admission_v134.py -x
       - name: Gmail relevance attachments and connected-life bridge
         working-directory: backend
         run: |
