@@ -394,9 +394,12 @@ async def run_case(
         {"user_id": OWNER}, {"_id": 0, "id": 1}
     ).to_list(10):
         # The actual readback contract, not a claim in the LLM's prose.
-        check = await situation_followup.read_followup(
-            db, OWNER, str(saved.get("id") or "")
-        )
+        # No production runtime is started; present the synthetic worker as
+        # enabled only while reading back the synthetic scheduled checkpoint.
+        with patch.object(situation_followup, "_enabled", lambda: True):
+            check = await situation_followup.read_followup(
+                db, OWNER, str(saved.get("id") or "")
+            )
         if check.get("status") in ("scheduled", "due", "running"):
             followup_count += 1
     verdict = _verdict(
