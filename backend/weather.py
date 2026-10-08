@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import logging
 import os
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 logger = logging.getLogger("ora.weather")
@@ -132,12 +133,62 @@ def capabilities() -> Dict[str, Any]:
     }
 
 
-def unavailable(reason: str = "") -> Dict[str, Any]:
+def unavailable(
+    reason: str = "", *, failure_code: str = "WEATHER_UNAVAILABLE",
+    retryable: bool = False,
+) -> Dict[str, Any]:
     """Lo stato neutro: quello che la Home mostra quando ORA non sa il tempo."""
     return {
         "available": False,
         "label": "Meteo non disponibile",
         "why_unavailable": reason or (capabilities()["why_unavailable"] or ""),
+        "failure_code": failure_code,
+        "retryable": retryable is True,
+    }
+
+
+def _provider_read_failure(error: Exception) -> Dict[str, Any]:
+    """Only known transient read failures preserve a resumable skill plan."""
+    import httpx
+
+    if isinstance(error, httpx.TimeoutException):
+        return unavailable(
+            "il servizio meteo non ha risposto entro il tempo previsto",
+            failure_code="WEATHER_TIMEOUT", retryable=True,
+        )
+    if isinstance(error, httpx.NetworkError):
+        return unavailable(
+            "il servizio meteo non è raggiungibile",
+            failure_code="WEATHER_NETWORK_ERROR", retryable=True,
+        )
+    if isinstance(error, httpx.HTTPStatusError):
+        code = error.response.status_code
+        return unavailable(
+            f"il servizio meteo ha risposto {code}",
+            failure_code=f"WEATHER_HTTP_{code}",
+            retryable=code == 429 or 500 <= code < 600,
+        )
+    return unavailable(
+        "il servizio meteo non ha restituito dati leggibili",
+        failure_code="WEATHER_READ_FAILED",
+    )
+
+
+def _observation_metadata(data: Dict[str, Any]) -> Dict[str, Any]:
+    """Keep the provider's clock distinct from when ORA fetched the response.
+
+    Open-Meteo's local ISO times are meaningful together with its timezone;
+    absent provider times must stay absent, never become the retrieval time.
+    """
+    observed = (data.get("current") or {}).get("time")
+    zone = data.get("timezone")
+    offset = data.get("utc_offset_seconds")
+    return {
+        "provider": "open_meteo",
+        "retrieved_at": datetime.now(timezone.utc).isoformat(),
+        "observed_at": observed[:64] if isinstance(observed, str) and observed else None,
+        "timezone": zone[:64] if isinstance(zone, str) and zone else None,
+        "utc_offset_seconds": offset if isinstance(offset, int) and not isinstance(offset, bool) else None,
     }
 
 
@@ -151,14 +202,17 @@ async def now_at(*, lat: float, lon: float, place: str = "") -> Dict[str, Any]:
     """
     provider = configured_provider()
     if provider is None:
-        return unavailable()
+        return unavailable(failure_code="WEATHER_NOT_CONFIGURED")
     try:
         if provider == "open_meteo":
             return await _from_open_meteo(lat=lat, lon=lon, place=place)
-        return unavailable(f"provider meteo sconosciuto: {provider}")
+        return unavailable(
+            f"provider meteo sconosciuto: {provider}",
+            failure_code="WEATHER_UNSUPPORTED_PROVIDER",
+        )
     except Exception as e:  # pragma: no cover - dipende dalla rete
         logger.info("meteo non disponibile: %s", type(e).__name__)
-        return unavailable("il servizio meteo non ha risposto")
+        return _provider_read_failure(e)
 
 
 async def _from_open_meteo(*, lat: float, lon: float, place: str) -> Dict[str, Any]:
@@ -172,12 +226,14 @@ async def _from_open_meteo(*, lat: float, lon: float, place: str) -> Dict[str, A
     async with httpx.AsyncClient(timeout=6.0) as client:
         r = await client.get(url)
         r.raise_for_status()
-        dati = (r.json() or {}).get("current") or {}
+        risposta = r.json() or {}
+        dati = risposta.get("current") or {}
     condizione = _WMO.get(int(dati.get("weather_code", -1)), "")
     if not condizione or dati.get("temperature_2m") is None:
         return unavailable("il servizio meteo ha risposto qualcosa che non so leggere")
     return {
         "available": True,
+        **_observation_metadata(risposta),
         "condition": condizione,
         # Il momento della giornata è la metà della frase: dice se quel sereno
         # è quello con cui esci adesso o quello che troverai stasera.
@@ -202,14 +258,17 @@ async def forecast_at(*, lat: float, lon: float, place: str = "") -> Dict[str, A
     """
     provider = configured_provider()
     if provider is None:
-        return unavailable()
+        return unavailable(failure_code="WEATHER_NOT_CONFIGURED")
     if provider != "open_meteo":
-        return unavailable(f"il meteo esteso non è disponibile con {provider}")
+        return unavailable(
+            f"il meteo esteso non è disponibile con {provider}",
+            failure_code="WEATHER_UNSUPPORTED_PROVIDER",
+        )
     try:
         return await _detailed_from_open_meteo(lat=lat, lon=lon, place=place)
     except Exception as e:  # pragma: no cover - dipende dalla rete
         logger.info("meteo esteso non disponibile: %s", type(e).__name__)
-        return unavailable("il servizio meteo non ha risposto")
+        return _provider_read_failure(e)
 
 
 async def _detailed_from_open_meteo(*, lat: float, lon: float, place: str) -> Dict[str, Any]:
@@ -243,6 +302,7 @@ async def _detailed_from_open_meteo(*, lat: float, lon: float, place: str) -> Di
 
     return {
         "available": True,
+        **_observation_metadata(dati),
         "place": place or "",
         "condition": condizione,
         "label": how_it_reads(condizione),
@@ -257,6 +317,7 @@ async def _detailed_from_open_meteo(*, lat: float, lon: float, place: str) -> Di
         "hours": [
             {
                 "time": str((orarie.get("time") or [])[i])[11:16],
+                "datetime": str((orarie.get("time") or [])[i])[:64],
                 "temperature_c": _arrotonda((orarie.get("temperature_2m") or [])[i]),
                 "humidity_pct": _arrotonda((orarie.get("relative_humidity_2m") or [None])[i]),
                 "wind_kmh": _arrotonda((orarie.get("wind_speed_10m") or [None])[i]),

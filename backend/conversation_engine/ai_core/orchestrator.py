@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 import re
 import uuid
+from copy import deepcopy
 from typing import Any, Dict, Optional
 from urllib.parse import parse_qs, urlparse
 
@@ -31,6 +34,48 @@ def _new_message_id() -> str:
 # session document must not grow without limit — just bounded above the length
 # of a real answer rather than below it.
 ORA_HISTORY_TEXT_LIMIT = 4000
+
+# Keep retry receipts bounded, without copying the whole conversation into
+# every receipt. Older user entries retain the completion marker, so eviction
+# cannot turn a duplicate request back into permission to execute it.
+MESSAGE_RECEIPT_LIMIT = 20
+MESSAGE_RECEIPT_MAX_BYTES = 96 * 1024
+
+
+def _message_fingerprint(text: str, attachments: list, response_channel: str) -> str:
+    request = {"text": text, "attachments": attachments, "response_channel": response_channel}
+    encoded = json.dumps(request, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def _record_message_result(sess: ConversationSession, mid: str, fingerprint: str, out: dict) -> None:
+    entry = next((h for h in sess.history if h.role == "user" and
+                  (h.step_id == mid or (h.meta or {}).get("message_id") == mid)), None)
+    if entry is None:
+        return
+    entry.meta = {**(entry.meta or {}), "request_fingerprint": fingerprint, "result_recorded": True}
+    response = deepcopy({key: value for key, value in out.items() if key != "history"})
+    receipt = {"response": response, "history_length": len(sess.history)}
+    if len(json.dumps(receipt, ensure_ascii=False, default=str).encode("utf-8")) <= MESSAGE_RECEIPT_MAX_BYTES:
+        entry.meta["result_receipt"] = receipt
+    else:
+        entry.meta.pop("result_receipt", None)
+    retained = [h for h in sess.history if h.role == "user" and (h.meta or {}).get("result_receipt")]
+    for older in retained[:-MESSAGE_RECEIPT_LIMIT]:
+        older.meta.pop("result_receipt", None)
+
+
+def _replay_message_result(sess: ConversationSession, entry) -> Dict[str, Any]:
+    receipt = (entry.meta or {}).get("result_receipt") or {}
+    response = receipt.get("response")
+    history_length = receipt.get("history_length")
+    if not isinstance(response, dict) or not isinstance(history_length, int) or not 0 < history_length <= len(sess.history):
+        # Legacy/evicted receipts must not silently repeat a completed write.
+        return {"ok": False, "error": "message_result_unavailable"}
+    out = deepcopy(response)
+    snapshot = sess.model_copy(update={"history": sess.history[:history_length]})
+    out["history"] = _public_history(snapshot)
+    return out
 
 def _public_attachments(meta: Optional[Dict[str, Any]]) -> list:
     """Attachment names for one past turn — display names only.
@@ -408,12 +453,29 @@ class AICoreOrchestrator:
         attachments = list(attachments or [])
         if not text and not attachments:
             return {"ok": False, "error": "text_required"}
+        client_id = (client_message_id or "").strip()
+        if len(client_id) > 64:
+            return {"ok": False, "error": "invalid_client_message_id"}
+        response_channel = "voice" if response_channel == "voice" else "text"
         sess = await self.repo.get(user_id, session_id)
         if not sess:
             return {"ok": False, "error": "not_found"}
         if sess.status in ("completed", "cancelled"):
             return {"ok": False, "error": "session_closed"}
-
+        mid = client_id or _new_message_id()
+        fingerprint = _message_fingerprint(text, attachments, response_channel)
+        previous = next((h for h in sess.history if h.role == "user" and
+                         (h.step_id == mid or (h.meta or {}).get("message_id") == mid)), None)
+        if previous is not None:
+            saved_fingerprint = (previous.meta or {}).get("request_fingerprint")
+            if saved_fingerprint and saved_fingerprint != fingerprint:
+                return {"ok": False, "error": "client_message_id_conflict"}
+            if (previous.meta or {}).get("result_recorded"):
+                return _replay_message_result(sess, previous)
+            if not saved_fingerprint:
+                # A pre-receipt session cannot prove which result belongs to
+                # this id. Never guess using the latest assistant response.
+                return {"ok": False, "error": "message_result_unavailable"}
         sess.meta["activity_request_id"] = activity_request_id
         sess.meta["response_channel"] = "voice" if response_channel == "voice" else "text"
 
@@ -437,15 +499,10 @@ class AICoreOrchestrator:
             )
             user_msg = f"[Allegato: {names}]"
 
-        # Idempotency by client message_id only — identical text in two turns is allowed
-        mid = (client_message_id or "").strip()[:64] or _new_message_id()
-        already = any(
-            (h.step_id == mid) or ((h.meta or {}).get("message_id") == mid)
-            for h in (sess.history or [])
-            if h.role == "user"
-        )
-        if not already:
-            hist_meta: Dict[str, Any] = {"message_id": mid}
+        # A new id is a new request, even when the text is identical. The
+        # complete request hash also distinguishes text beyond history's cap.
+        if previous is None:
+            hist_meta: Dict[str, Any] = {"message_id": mid, "request_fingerprint": fingerprint}
             if bound:
                 hist_meta["attachments"] = bound
             sess.append_history(
@@ -505,10 +562,21 @@ class AICoreOrchestrator:
         # created — not a second.
         if durable == "failed":
             return {"ok": False, "error": "blocking_question_not_durable"}
-        await self.repo.replace(sess)
         out = self._public(sess, result)
         if bound:
             out["attachments"] = bound
+        st = state_mod.get_ai_state(sess)
+        if client_id and out.get("client_actions"):
+            st["pending_client_message_id"] = mid
+        else:
+            st.pop("pending_client_message_id", None)
+        state_mod.save_ai_state(sess, st)
+        if client_id:
+            _record_message_result(sess, mid, fingerprint, out)
+        # The result and its receipt become durable in the same session write.
+        # A crash before this write is not a completed request: this does not
+        # claim transactional exactly-once semantics for external side effects.
+        await self.repo.replace(sess)
         return out
 
     async def client_resume(
@@ -525,10 +593,12 @@ class AICoreOrchestrator:
         if sess.status in ("completed", "cancelled"):
             return {"ok": False, "error": "session_closed"}
         st = state_mod.get_ai_state(sess)
+        resumed_message_id = st.get("pending_client_message_id")
         pending = (st.get("pending_client_resume_message") or "").strip()
         if not pending:
             for h in reversed(sess.history or []):
-                if h.role == "user" and (h.text or "").strip():
+                matches_request = not resumed_message_id or h.step_id == resumed_message_id or (h.meta or {}).get("message_id") == resumed_message_id
+                if h.role == "user" and matches_request and (h.text or "").strip():
                     pending = h.text.strip()
                     break
         if not pending:
@@ -572,8 +642,24 @@ class AICoreOrchestrator:
         sess.status = "waiting_user"
         #     FINITO IL TURNO, NON STA PIÙ FACENDO NIENTE.
         sess.meta = {k: v for k, v in (sess.meta or {}).items() if k != "working_on"}
+        out = self._public(sess, result)
+        # Client capability completion belongs to the same user request. A
+        # later retry must return this saved continuation, not stale GPS work.
+        # The pointer was persisted when the action was first handed off; the
+        # latest history entry alone cannot prove which request is resuming.
+        previous = next((h for h in sess.history if h.role == "user" and resumed_message_id and
+                         (h.step_id == resumed_message_id or (h.meta or {}).get("message_id") == resumed_message_id)), None)
+        if previous is not None and (previous.meta or {}).get("result_recorded"):
+            _record_message_result(
+                sess, resumed_message_id,
+                previous.meta["request_fingerprint"], out,
+            )
+        if not out.get("client_actions"):
+            st = state_mod.get_ai_state(sess)
+            st.pop("pending_client_message_id", None)
+            state_mod.save_ai_state(sess, st)
         await self.repo.replace(sess)
-        return self._public(sess, result)
+        return out
 
     async def get(self, user_id: str, session_id: str) -> Dict[str, Any]:
         sess = await self.repo.get(user_id, session_id)

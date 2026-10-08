@@ -11,7 +11,10 @@ from typing import Any, Dict
 from conversation_engine.ai_core.models import Observation
 
 
-def _fail(code: str, detail: str = "") -> Observation:
+def _fail(
+    code: str, detail: str = "", *, failure_code: str = "",
+    retryable: bool = False,
+) -> Observation:
     return Observation(
         kind="tool",
         name="get_weather_forecast",
@@ -21,6 +24,8 @@ def _fail(code: str, detail: str = "") -> Observation:
             "status": "error",
             "error": code,
             "detail": detail[:240],
+            "failure_code": (failure_code or code)[:100],
+            "retryable": retryable is True,
         },
     )
 
@@ -94,6 +99,8 @@ async def get_weather_forecast(
         return _fail(
             "WEATHER_UNAVAILABLE",
             str(data.get("why_unavailable") or "Meteo non disponibile."),
+            failure_code=str(data.get("failure_code") or "WEATHER_UNAVAILABLE"),
+            retryable=data.get("retryable") is True,
         )
 
     hours = []
@@ -102,6 +109,7 @@ async def get_weather_forecast(
             continue
         hours.append({
             "time": str(row.get("time") or "")[:5],
+            "datetime": str(row.get("datetime") or "")[:64] or None,
             "temperature_c": row.get("temperature_c"),
             "humidity_pct": row.get("humidity_pct"),
             "wind_kmh": row.get("wind_kmh"),
@@ -116,6 +124,11 @@ async def get_weather_forecast(
             "capability": "get_weather_forecast",
             "status": "ok",
             "place": str(data.get("place") or label or "")[:120],
+            "provider": str(data.get("provider") or "")[:64] or None,
+            "retrieved_at": str(data.get("retrieved_at") or "")[:64] or None,
+            "observed_at": str(data.get("observed_at") or "")[:64] or None,
+            "timezone": str(data.get("timezone") or "")[:64] or None,
+            "utc_offset_seconds": data.get("utc_offset_seconds"),
             "current": {
                 "condition": data.get("condition_label"),
                 "temperature_c": data.get("temperature_c"),
@@ -128,6 +141,9 @@ async def get_weather_forecast(
             "sunset": data.get("sunset"),
             "why": (
                 "Dati live letti dal provider meteo configurato. "
+                "observed_at e hours.datetime sono orari del provider nel fuso indicato; "
+                "retrieved_at indica solo quando ORA ha letto la risposta, "
+                "non l'aggiornamento dei dati. Se data o fuso mancano non inventarli. "
                 "Usali per la decisione attuale; non trattarli come certi per il futuro."
             ),
         },

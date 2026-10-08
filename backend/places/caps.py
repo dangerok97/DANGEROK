@@ -303,11 +303,11 @@ async def _fresh_origin_or_location_bridge(
             "location_freshness": str(location.get("freshness") or "UNKNOWN"),
         }
 
-    # capability_get_current_location intentionally accepts RECENT for general
-    # context. Navigation needs CURRENT, so ask for a foreground refresh when
-    # permission exists and the provider did not return a terminal error.
+    # General context accepts fixes older than navigation's two-minute limit,
+    # including some classified CURRENT. Ask for a new fix in either case
+    # when permission exists and no terminal acquisition error was returned.
     if (
-        str(location.get("freshness") or "") == "RECENT"
+        str(location.get("freshness") or "") in ("CURRENT", "RECENT")
         and str(location.get("status") or "") == "ok"
     ):
         return None, {
@@ -317,7 +317,7 @@ async def _fresh_origin_or_location_bridge(
                 "refresh": True,
             },
             "location_status": "needs_client",
-            "location_freshness": "RECENT",
+            "location_freshness": str(location.get("freshness")),
         }
 
     return None, None
@@ -619,6 +619,8 @@ def _navigation_origin(presence) -> Dict[str, float] | None:
     from datetime import datetime, timedelta, timezone
 
     if (not presence or presence.freshness != "CURRENT"
+            or getattr(presence, "preference", None) != "while_using"
+            or getattr(presence, "permission_state", None) != "granted_foreground"
             or presence.latitude is None or presence.longitude is None
             or presence.acquisition_error or presence.source not in ("foreground_device", "background_device")
             or not presence.last_seen_at):
@@ -1003,21 +1005,17 @@ async def get_route(arguments, runtime) -> Observation:
             uid,
         )
 
-    origin = None
-    try:
-        from location.service import LocationService
-
-        presence = await LocationService(runtime["db"]).build_presence(uid)
-        if presence and presence.latitude is not None and presence.longitude is not None:
-            origin = {"latitude": presence.latitude, "longitude": presence.longitude}
-    except Exception:
-        origin = None
+    # The AI route skill and navigation share the same consent/freshness
+    # contract; stored coordinates alone never establish a current origin.
+    origin, bridge = await _fresh_origin_or_location_bridge(runtime)
     if origin is None:
         return _verified_route_result(
             {
                 **routing.capabilities(),
                 "available": False,
                 "why_unavailable": "non so dove si trova adesso",
+                "destination": resolution.place.label,
+                **(bridge or {}),
             },
             uid,
             status="needs_client",
