@@ -1015,9 +1015,9 @@ async def get_route(arguments, runtime) -> Observation:
     if origin is None:
         return _verified_route_result(
             {
+                **routing.capabilities(),
                 "available": False,
                 "why_unavailable": "non so dove si trova adesso",
-                **routing.capabilities(),
             },
             uid,
             status="needs_client",
