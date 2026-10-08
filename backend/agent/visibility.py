@@ -83,6 +83,7 @@ class VisibilityService:
     async def ensure_indexes(self) -> None:
         try:
             await self.db[UPDATES].create_index([("owner_id", 1), ("at", -1)])
+            await self.db[UPDATES].create_index([("home_pending", 1), ("home_due_at", 1)])
             await self.db[UPDATES].create_index(
                 [("owner_id", 1), ("fingerprint", 1)], unique=True
             )
@@ -191,6 +192,11 @@ class VisibilityService:
         row = decision.model_dump()
         row["owner_id"] = owner_id
         row["expires_at"] = _now() + timedelta(days=SAID_RETENTION_DAYS)
+        # A visibility judgement is not yet evidence that Home can show it.
+        # Store the Home handoff in the same atomic insert as the decision.
+        # Older rows lack this field and are deliberately not backfilled.
+        row["home_pending"] = True
+        row["home_due_at"] = _now().isoformat()
         try:
             await self.db[UPDATES].insert_one(row)
             return True
@@ -199,19 +205,22 @@ class VisibilityService:
             return False
 
     async def show(self, owner_id: str, goal, decision: VisibilityDecision) -> bool:
-        """
-        Hand a visible update to the channel that already exists.
+        """Materialise an already persisted visibility decision exactly once.
 
-            VISIBILITY IS NOT A DELIVERY MODE.
-
-        The quiet channel — the line on Home that somebody finds when they
-        look — is V3.8's `AmbientActivity`, used as it stands. Nothing here
-        sends, schedules, or pushes: whether anything interrupts is decided
-        by the delivery policy, on its own terms, and there is deliberately
-        no argument to this function that could ask it to.
+        The update ledger is an outbox: if this process stops between its
+        insert and the Home activity insert, the existing Ambient delivery
+        lane can replay it. Activity identity is stable across retries.
+        No AI call, push notification, or world-changing effect happens here.
         """
-        if not decision.is_visible or not decision.headline:
+        if (not decision.is_visible or not decision.headline or not decision.refs
+                or not decision.fingerprint or goal.owner_id != owner_id
+                or goal.id != decision.goal_id):
             return False
+        # A stable owner-scoped id makes the write safe if acknowledgement
+        # fails after Mongo has already inserted the Activity.
+        activity_id = "ambv_" + hashlib.sha256(
+            f"{owner_id}|{decision.fingerprint}".encode("utf-8")
+        ).hexdigest()[:24]
         try:
             from delivery.service import DeliveryService
 
@@ -226,11 +235,75 @@ class VisibilityService:
                     "goal": goal.id,
                 },
                 visible=True,
+                activity_id=activity_id,
+            )
+            # This may fail after the Activity insert. Pending stays durable;
+            # a future pass repeats the same idempotent write.
+            await self.db[UPDATES].update_one(
+                {"owner_id": owner_id, "fingerprint": decision.fingerprint,
+                 "home_pending": True},
+                {"$set": {"home_pending": False,
+                          "home_delivered_at": _now().isoformat()},
+                 "$unset": {"home_due_at": ""}},
             )
             return True
-        except Exception as e:
-            logger.info("visibility surface soft-fail: %s", type(e).__name__)
+        except Exception as exc:
+            logger.info("visibility surface recoverable: %s", type(exc).__name__)
+            try:
+                await self.db[UPDATES].update_one(
+                    {"owner_id": owner_id, "fingerprint": decision.fingerprint,
+                     "home_pending": True},
+                    {"$set": {"home_due_at": (_now() + timedelta(minutes=2)).isoformat()}},
+                )
+            except Exception:
+                pass  # DB outage: the original pending outbox entry remains.
             return False
+
+    async def recover_pending_home(self, *, limit: int = 4) -> Dict[str, int]:
+        """Bounded, owner-scoped Home outbox recovery in the existing lane.
+
+        Reconstruct only a previously accepted visible decision. No model
+        generates new claims during recovery, and no external delivery occurs.
+        """
+        limit = max(1, min(8, int(limit or 1)))
+        stamp = _now().isoformat()
+        rows = await self.db[UPDATES].find({
+            "home_pending": True,
+            "home_due_at": {"$type": "string", "$lte": stamp},
+            "outcome": {"$ne": "silent"},
+        }, {"_id": 0}).sort([("home_due_at", 1), ("at", 1)]).limit(limit).to_list(limit)
+        results = {"checked": len(rows), "shown": 0, "deferred": 0, "stale": 0}
+        from agent.models import AutonomousGoal
+
+        for row in rows:
+            owner = str(row.get("owner_id") or "")
+            goal_id = str(row.get("goal_id") or "")
+            fingerprint = str(row.get("fingerprint") or "")
+            goal_doc = await self.db.agent_goals.find_one(
+                {"id": goal_id, "owner_id": owner}, {"_id": 0},
+            ) if owner and goal_id else None
+            if not goal_doc or goal_doc.get("status") in ("cancelled", "abandoned"):
+                await self.db[UPDATES].update_one(
+                    {"owner_id": owner, "fingerprint": fingerprint, "home_pending": True},
+                    {"$set": {"home_pending": False, "home_skipped": "goal_no_longer_valid"},
+                     "$unset": {"home_due_at": ""}},
+                )
+                results["stale"] += 1
+                continue
+            try:
+                decision = VisibilityDecision.model_validate(row)
+                if (not decision.is_visible or not decision.headline or not decision.refs
+                        or not decision.fingerprint):
+                    raise ValueError("unusable_visibility_record")
+                goal = AutonomousGoal.model_validate(goal_doc)
+                if await self.show(owner, goal, decision):
+                    results["shown"] += 1
+                else:
+                    results["deferred"] += 1
+            except Exception as exc:
+                logger.info("home outbox deferred: %s", type(exc).__name__)
+                results["deferred"] += 1
+        return results
 
     async def forget_all(self, owner_id: str) -> int:
         result = await self.db[UPDATES].delete_many({"owner_id": owner_id})

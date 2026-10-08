@@ -194,6 +194,9 @@ jobs:
       - name: Verified completed work becomes one Home result without push
         working-directory: backend
         run: python -m pytest -q tests/test_phase2_result_visibility_v141.py -x
+      - name: Durable Home result outbox, retry, isolation and crash fencing
+        working-directory: backend
+        run: python -m pytest -q tests/test_phase2_durable_home_outbox_v142.py -x
       - name: Backup restore round trip
         working-directory: backend
         run: python -m pytest -q tests/test_backup_restore.py tests/test_backup_scheduler.py -x
