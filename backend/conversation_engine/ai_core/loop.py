@@ -226,14 +226,17 @@ def _merge_skill_outcomes(current, incoming) -> List[Dict[str, str]]:
             item["result_status"],
             item["failure_kind"],
         )
-        if key not in {
-            (
+        # Preserve observation order: a repeated successful retry must become
+        # the newest result even if an identical success occurred before a
+        # later failure. A set-style dedupe left the stale failure last.
+        out = [
+            x for x in out
+            if (
                 x["capability"], x["observed_capability"], x["status"],
                 x["result_status"], x["failure_kind"]
-            )
-            for x in out
-        }:
-            out.append(item)
+            ) != key
+        ]
+        out.append(item)
     return out[-12:]
 
 
@@ -294,21 +297,36 @@ def _apply_skill_plan_releases(
 ) -> tuple[List[str], List[str], List[str]]:
     """Apply only explicit plan revisions grounded in real evidence/user words."""
     remaining = list(required or [])
-    observed_names: Set[str] = set()
+    # Only concrete successful skill observations may justify releasing
+    # another required skill. Mere mentions, provider errors, client waits and
+    # stale successes superseded by failures are NOT evidence of completion.
+    evidence_outcomes = _merge_skill_outcomes([], persisted_outcomes or [])
     for obs in observations or []:
-        if isinstance(obs, dict):
-            name = str(obs.get("name") or "").strip()
-        else:
-            name = str(getattr(obs, "name", "") or "").strip()
-        if name:
-            observed_names.add(name)
-    for item in persisted_outcomes or []:
-        if not isinstance(item, dict):
-            continue
-        for key in ("capability", "observed_capability"):
-            name = str(item.get(key) or "").strip()
-            if name:
-                observed_names.add(name)
+        kind = str(
+            obs.get("kind") if isinstance(obs, dict)
+            else getattr(obs, "kind", "")
+        ).strip()
+        name = str(
+            obs.get("name") if isinstance(obs, dict)
+            else getattr(obs, "name", "")
+        ).strip()
+        if kind == "tool" and name:
+            evidence_outcomes = _merge_skill_outcomes(
+                evidence_outcomes, [_skill_outcome_summary(name, obs)]
+            )
+    succeeded_evidence = set()
+    evidence_names = {
+        str(item.get(key) or "").strip()
+        for item in evidence_outcomes
+        for key in ("capability", "observed_capability")
+        if isinstance(item, dict)
+    }
+    if evidence_names:
+        succeeded_evidence.update(
+            _required_skill_states(
+                sorted(evidence_names), evidence_outcomes
+            )["succeeded"]
+        )
 
     spoken = _words(user_message)
     released: List[str] = []
@@ -325,7 +343,7 @@ def _apply_skill_plan_releases(
                 rejected.append(cap)
             continue
         if basis == "observation":
-            if not evidence or evidence not in observed_names:
+            if not evidence or evidence not in succeeded_evidence:
                 rejected.append(cap)
                 continue
         elif basis == "user_message":
