@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock
 import pytest
 from mongomock_motor import AsyncMongoMockClient
 
-from ambient.push import ExpoNotificationProvider, PushEndpointService
+from ambient.push import ExpoNotificationProvider, PushEndpointService, is_expo_push_token
 from delivery.expo_receipts import ExpoReceiptAudit
 
 
@@ -242,3 +242,24 @@ async def test_recurring_lifecycle_uses_existing_delivery_lane(monkeypatch):
     assert await runtime._serve_delivery_admission(db) == 2
     admiss.assert_awaited_once_with(db)
     receipt.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_both_expo_push_token_prefixes_are_registered_for_real_provider():
+    db = AsyncMongoMockClient().expo_token_formats_v132
+    assert is_expo_push_token("ExponentPushToken[synthetic-old]")
+    assert is_expo_push_token("ExpoPushToken[synthetic-new]")
+    assert not is_expo_push_token("untrusted-device-token")
+    result = await PushEndpointService(db).register(
+        OWNER, token="ExpoPushToken[synthetic-new]", device="new-synthetic-device",
+        permission_state="granted",
+    )
+    assert result["ok"]
+    assert result["endpoint"]["provider"] == "expo"
+    provider = ExpoNotificationProvider(db)
+    async def stub(messages):
+        assert messages[0]["to"] == "ExpoPushToken[synthetic-new]"
+        return [{"status": "ok", "id": "token-prefix-ticket"}]
+    provider._post = stub
+    outcome = await send(provider)
+    assert outcome["ok"] and outcome["receipt_audit_tracked"] == 1
