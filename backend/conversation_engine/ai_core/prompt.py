@@ -37,6 +37,10 @@ This plan is yours: the backend must NOT infer it from keywords or domains.
   actual capability failure from its observation.
 - A capability counts as attempted only when its observation exists. Saying that
   you will use it, or answering "Ok", is not completion.
+- If you set reasoning_status=ready_to_act, do not answer or finish by merely
+  narrating an action you have not taken. Call the skill that can perform or
+  prepare it, or ask for information that genuinely blocks the next step.
+  When no action is required, use enough_information instead.
 - ATTEMPTED is not SUCCEEDED. A required capability is satisfied only by a
   successful observation (or by a separately grounded release_capabilities
   revision). If its observation is waiting/needs-client/confirmation, pause the

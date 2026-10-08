@@ -1256,6 +1256,7 @@ async def run_cognitive_loop(
     calendar_claim_nudge_used = False
     calendar_absence_nudge_used = False
     bare_ack_nudge_used = False
+    ready_act_nudge_used = False
     required_skill_caps: List[str] = []
     attempted_skill_caps: Set[str] = set()
     skill_outcomes: List[Dict[str, str]] = []
@@ -2446,6 +2447,64 @@ async def run_cognitive_loop(
                 mode = "answer"
                 ora = _compose_user_text(decision, observations[turn_start:])
                 add_step(trace, event="BARE_ACK_BLOCKED_TERMINAL")
+
+            # When the model itself classifies the turn as ready_to_act it
+            # cannot finish by merely describing an action. Unlike keyword
+            # routers, this checks the AI's own structured intent and the
+            # runtime's observed execution, not the user's sentence.
+            ready_act_without_execution = bool(
+                mode in ("answer", "finish")
+                and decision.reasoning_status == "ready_to_act"
+                and not required_skill_caps
+                and tool_calls == 0
+                # Research and comparison are real observed cognitive work,
+                # even though they are not counted as ToolRegistry calls.
+                and str(trace.get("research_status") or "") not in ("completed", "partial")
+                and str(trace.get("comparison_status") or "") != "completed"
+                and not (
+                    life_os_writes_this_turn
+                    or memory_write_confirmed_this_turn
+                    or situation_write_confirmed_this_turn
+                    or graph_write_confirmed_this_turn
+                    or calendar_write_confirmed_this_turn
+                )
+            )
+            if (
+                ready_act_without_execution
+                and not ready_act_nudge_used
+                and step + 1 < max_steps
+            ):
+                ready_act_nudge_used = True
+                observations.append(
+                    Observation(
+                        kind="system",
+                        name="ready_action_without_execution",
+                        status="nudge",
+                        payload={
+                            "failure_code": "READY_TO_ACT_WITHOUT_EXECUTION",
+                            "reason": (
+                                "You declared reasoning_status=ready_to_act but "
+                                "no ORA capability or governed write has actually "
+                                "been observed this turn. Choose an available "
+                                "capability and call it, or ask for genuinely "
+                                "blocking information. Do not claim you did it "
+                                "by describing a plan. If this was an informational "
+                                "answer, correct your reasoning_status."
+                            ),
+                        },
+                    ).model_dump()
+                )
+                add_step(trace, event="READY_ACT_NO_EFFECT_NUDGE")
+                continue
+            if ready_act_without_execution:
+                decision.message_to_user = (
+                    "Non ho ancora eseguito un'azione verificabile per questa "
+                    "richiesta. Non la considero completata."
+                )
+                decision.question = None
+                mode = "answer"
+                ora = _compose_user_text(decision, observations[turn_start:])
+                add_step(trace, event="READY_ACT_NO_EFFECT_BLOCKED")
 
             # Capability-before-answer: an explicit request to call must pass
             # through the phone preparation. This is about routing, not
@@ -4004,6 +4063,26 @@ async def run_cognitive_loop(
     elif calendar_pending:
         ora = str(calendar_pending["question"]).strip()
         add_step(trace, event="CALENDAR_CONFIRMATION_BOUND")
+    elif (
+        last_decision
+        and last_decision.reasoning_status == "ready_to_act"
+        and last_decision.response_mode in ("answer", "finish")
+        and not tool_calls
+        and str(trace.get("research_status") or "") not in ("completed", "partial")
+        and str(trace.get("comparison_status") or "") != "completed"
+        and not (
+            life_os_writes_this_turn
+            or memory_write_confirmed_this_turn
+            or situation_write_confirmed_this_turn
+            or graph_write_confirmed_this_turn
+            or calendar_write_confirmed_this_turn
+        )
+    ):
+        ora = (
+            "Non ho ancora eseguito un'azione verificabile per questa "
+            "richiesta. Non la considero completata."
+        )
+        add_step(trace, event="READY_ACT_NO_EFFECT_BOUND")
     elif _BARE_ACK_RE.fullmatch(str(ora or "").strip()):
         ora = (
             _the_tool_s_own_sentence(observations[turn_start:])

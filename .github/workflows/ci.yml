@@ -166,6 +166,7 @@ jobs:
             tests/test_outcome_aware_skill_plan_v91.py \
             tests/test_phase1_cognitive_bound_v116.py \
             tests/test_phase1_multiskill_lifecycle_v119.py \
+            tests/test_phase1_ready_act_guard_v121.py \
             -x
   telephone-cloud:
     name: Telephone cloud safety

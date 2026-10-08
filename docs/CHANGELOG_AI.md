@@ -1,3 +1,14 @@
+## 8 ottobre 2026 — AI Core: ready-to-act non è fatto
+
+- Corretto un finale in cui il modello dichiarava ready_to_act ma poteva
+  limitarsi a descrivere l'esecuzione senza usare alcuna capability.
+- Il backend chiede di usare la skill corretta o di dichiarare un blocco reale.
+- Se non accade, la risposta finale non afferma un completamento inventato.
+- Conservati i normali messaggi informativi e le azioni già confermate.
+- Quattro casi di test del loop cognitivo inclusi nel gate CI.
+
+---
+
 ## 8 ottobre 2026 — AI Core: sesta skill non più persa
 
 - Separato il limite degli strumenti per singolo turno dalla capienza
