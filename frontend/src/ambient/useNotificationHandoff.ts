@@ -11,7 +11,7 @@ import { useRouter } from 'expo-router';
 
 import { api } from '@/src/api/client';
 import { useAuth } from '@/src/contexts/AuthContext';
-import { parseNotificationHandoff } from './notificationHandoff';
+import { canonicalNotificationRoute, parseNotificationHandoff } from './notificationHandoff';
 
 export function useNotificationHandoff(): void {
   const { user, loading } = useAuth();
@@ -47,10 +47,10 @@ export function useNotificationHandoff(): void {
         // The push payload is not an authority for navigation. Delivery
         // returns its own canonical route for the authenticated plan, and
         // the two must agree. Tapping is never an authorisation to act.
-        if (!result.ok || result.outcome !== 'opened'
-            || result.route !== handoff.route) return;
+        const route = canonicalNotificationRoute(handoff, result);
+        if (!route) return;
         if (active) {
-          router.push(result.route as any);
+          router.push(route as any);
           await module?.clearLastNotificationResponseAsync();
         }
       } catch {
