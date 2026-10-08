@@ -191,6 +191,9 @@ jobs:
         env:
           PHASE2_REAL_MONGO: "1"
         run: python -m pytest -q tests/test_phase2_outcome_restart_v140.py -x
+      - name: Verified completed work becomes one Home result without push
+        working-directory: backend
+        run: python -m pytest -q tests/test_phase2_result_visibility_v141.py -x
       - name: Backup restore round trip
         working-directory: backend
         run: python -m pytest -q tests/test_backup_restore.py tests/test_backup_scheduler.py -x
