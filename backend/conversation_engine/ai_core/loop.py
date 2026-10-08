@@ -2457,6 +2457,10 @@ async def run_cognitive_loop(
                 and decision.reasoning_status == "ready_to_act"
                 and not required_skill_caps
                 and tool_calls == 0
+                # Research and comparison are real observed cognitive work,
+                # even though they are not counted as ToolRegistry calls.
+                and not int(trace.get("research_runs") or 0)
+                and not int(trace.get("comparison_runs") or 0)
                 and not (
                     life_os_writes_this_turn
                     or memory_write_confirmed_this_turn
@@ -4064,6 +4068,8 @@ async def run_cognitive_loop(
         and last_decision.reasoning_status == "ready_to_act"
         and last_decision.response_mode in ("answer", "finish")
         and not tool_calls
+        and not int(trace.get("research_runs") or 0)
+        and not int(trace.get("comparison_runs") or 0)
         and not (
             life_os_writes_this_turn
             or memory_write_confirmed_this_turn
