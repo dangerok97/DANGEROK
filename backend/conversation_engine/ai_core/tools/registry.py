@@ -828,7 +828,10 @@ class ToolRegistry:
                     "otherwise the skill may use current authorized device position. "
                     "This skill supplies live inputs — YOU reason about what those inputs "
                     "mean for the person's goal. Do not use public web search as a substitute "
-                    "for live weather."
+                    "for live weather. rain_chance_pct is probability, not intensity: a higher "
+                    "chance does not show that later rain is heavier. Current precipitation_mm "
+                    "does not establish future intensity. Attribute conditions to the dated "
+                    "provider report; current readings and forecasts are not guarantees."
                 ),
                 input_schema={
                     "type": "object",
@@ -1042,17 +1045,32 @@ class ToolRegistry:
                 capability="get_route",
                 description=(
                     "Live journey time from their current position to one of "
-                    "their places, from a routing service. Returns "
+                    "their places, from a routing service. Prefer the exact "
+                    "place:<id> ref supplied by context or a place read; an existing "
+                    "place_id or exact saved label also works. Do not append a "
+                    "locality to a saved label or invent a reference. Returns "
                     "available=false when no service is configured or their "
                     "position is unknown — in that case say so and offer their "
                     "observed history instead, clearly labelled as history. "
+                    "This is a single current-departure ETA, not a comparison of "
+                    "departure times. It cannot by itself support advice to leave "
+                    "now to avoid or reduce traffic. Such claims require dated "
+                    "provider evidence comparing departure times; a static or "
+                    "typical duration baseline does not provide that evidence. "
                     "travel_mode: drive | walk | bicycle | transit; do not "
                     "assume driving."
                 ),
                 input_schema={
                     "type": "object",
                     "properties": {
-                        "destination": {"type": "string"},
+                        "destination": {
+                            "type": "string",
+                            "description": (
+                                "Exact canonical place:<id> ref (preferred), existing "
+                                "place_id, exact saved label, or confirmed place role. "
+                                "Copy the ref/id/label from context or a place read."
+                            ),
+                        },
                         "travel_mode": {
                             "type": "string",
                             "enum": ["drive", "walk", "bicycle", "transit"],

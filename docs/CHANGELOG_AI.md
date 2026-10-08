@@ -1,3 +1,41 @@
+## 2026-10-08 — Fase 1 v126: continuità dei messaggi e provider di lettura
+
+- Corretto il retry dello stesso `client_message_id` dopo la persistenza:
+  recupero della risposta del turno, senza nuova chiamata AI o riscrittura memo.
+  Fingerprint completa e controllo owner/sessione; ricevute limitate e private.
+- La continuazione GPS aggiorna soltanto la ricevuta individuata dal puntatore
+  persistito; sessioni chiuse e ID conflittuali non eseguono il lavoro.
+- Propagati ai piani gli errori temporanei reali di routing e meteo:
+  timeout/rete/429/5xx ritentabili, configurazione/permessi/errori terminali distinti.
+- Allineata `get_route` al consenso e alla posizione aggiornata del dispositivo.
+- Conservati data, timezone e istanti distinti di rilevazione/lettura meteo,
+  con ore complete anche oltre la mezzanotte e compatibilità dei campi UI.
+- Aggiunto `phase1_read_provider_eval`: stesso loop e handler, account sintetico,
+  due punti pubblici, provider live solo su scelta esplicita e prova linguistica
+  separata dal verdetto tecnico. Il default rimane completamente scriptato.
+- Aggiunte regressioni per HTTP autenticato, revoca, owner isolation,
+  persistenza/ripresa, errori provider e integrità delle evidenze nel gate CI.
+- Aggiunto gate opt-in con Mongo loopback reale e due processi Python distinti:
+  il secondo deve rileggere risposta e memo senza richiamare il modello.
+- Prima CI completa verde (`37774894917`); prima prova live tecnicamente valida
+  ma semanticamente parziale per il consiglio di partire per evitare traffico.
+  Corrette le istruzioni di grounding nel prompt e nel catalogo, con regressione
+  sul vero input del modello. Evidenza originaria conservata; nuova prova dovuta.
+- Gate Mongo/processi reale superato nel run `37775978297`: `1 passed` in 6,83 s;
+  224 test Fase 1 nel medesimo job. Risposta e memo persistiti sopravvivono
+  all'uscita del primo processo, con zero chiamate AI nel processo di replay.
+- Il secondo live conserva il blocco del percorso e la risposta incompleta:
+  rilevate lacune nel riferimento canonico dei luoghi e nel linguaggio meteo.
+- Il resolver riconosce ora ref canonici/ID dei luoghi confermati dell'owner,
+  senza approssimare nomi né recuperare luoghi di altri utenti. Il catalogo
+  indica di copiare l'identità ricevuta dal contesto. Regressioni nel gate CI.
+- Prompt e catalogo meteo separano probabilità e intensità della pioggia,
+  attribuiscono i dati correnti al provider e non li presentano come garanzie.
+
+Evidenze finali e limiti: `PHASE1_REAL_READ_EVAL.md`.
+
+---
+
 ## 8 ottobre 2026 — v125, primo benchmark del cervello AI reale
 
 - Aggiunto un runner riutilizzabile con decisioni del modello reale e

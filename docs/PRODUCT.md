@@ -1,3 +1,35 @@
+## 8 ottobre 2026 — Fase 1 v126: continuità del risultato e letture attendibili
+
+Quando il telefono ritrasmette lo stesso messaggio dopo aver perso una risposta,
+ORA recupera il risultato già registrato per quel messaggio. Non deve richiamare
+l'AI o riscrivere un promemoria già salvato. Un testo identico con un nuovo ID
+resta una nuova richiesta; lo stesso ID con contenuto diverso viene respinto.
+Le sessioni cancellate restano chiuse e ogni accesso rimane vincolato all'utente.
+
+Una difficoltà temporanea di rete, un limite di richieste o un errore 5xx di
+routing/meteo può lasciare il piano recuperabile. Un errore di configurazione,
+permessi, input o risposta illeggibile rimane un blocco da risolvere. Non sono
+aggiunti tentativi automatici senza limite. Anche la skill AI dei percorsi usa
+una posizione del dispositivo autorizzata e non più vecchia di due minuti;
+quando serve, richiede il dato aggiornato prima di attribuire un tempo al viaggio.
+
+Le osservazioni meteo distinguono l'ora della rilevazione del provider da quella
+della lettura di ORA e conservano data e fuso delle previsioni orarie, compreso
+il passaggio a domani. Il collaudo di integrazione usa solo un account sintetico
+e luoghi pubblici. Questo checkpoint non chiude la Fase 1 né il collaudo mobile.
+
+Un tempo di viaggio con traffico corrente non basta a consigliare la partenza
+immediata per evitare traffico: questo vantaggio richiede un confronto verificato
+tra gli orari. La risposta può motivare una partenza con i fatti disponibili,
+come una scadenza, distinguendoli da ciò che non è stato confrontato.
+
+Le skill possono usare il riferimento preciso di un luogo già salvato e
+confermato, senza ricostruirne il nome. Il riferimento resta vincolato al suo
+proprietario. Nel meteo, una maggiore probabilità di pioggia significa che è
+più probabile che piova: non dimostra pioggia più intensa o più duratura.
+
+---
+
 ## 8 ottobre 2026 — Fase 1: una commissione con una skill fallita non è conclusa
 
 ORA deve distinguere l'avanzamento dal completamento. Anche dopo aver

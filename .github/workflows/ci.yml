@@ -171,7 +171,18 @@ jobs:
             tests/test_phase1_retryable_skill_v122.py \
             tests/test_phase1_failed_skill_terminal_v124.py \
             tests/test_phase1_real_eval_runner_v125.py \
+            tests/test_phase1_live_provider_retry_v126.py \
+            tests/test_phase1_route_freshness_v126.py \
+            tests/test_phase1_route_reference_v126.py \
+            tests/test_phase1_resume_idempotency_v126.py \
+            tests/test_phase1_authenticated_resume_v126.py \
+            tests/test_phase1_read_provider_eval_v126.py \
+            tests/test_phase1_weather_grounding_v126.py \
             -x
+      - name: Phase 1 persisted result survives a real process restart
+        working-directory: backend
+        timeout-minutes: 3
+        run: PHASE1_REAL_MONGO=1 python -m pytest -q tests/test_phase1_real_restart_v126.py -x
   telephone-cloud:
     name: Telephone cloud safety
     runs-on: ubuntu-latest

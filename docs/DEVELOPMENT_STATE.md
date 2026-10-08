@@ -1,3 +1,38 @@
+## 8 ottobre 2026 — Fase 1 v126: integrazione provider, ripresa e autenticazione
+
+Ripresa dal checkpoint v125 / PR #161 (`9d46ac3`), che aveva provato il modello
+reale con tre mondi sintetici. Individuati e corretti tre difetti sul percorso
+applicativo: timeout dei provider privi di retryability; messaggio già completato
+che rieseguiva il loop al retry; skill `get_route` che accettava coordinate
+obsolete senza il controllo di consenso/freschezza usato dalla navigazione.
+Aggiunti metadati temporali meteo, ricevute persistite e collaudo isolato dei
+veri handler contro provider di lettura. Nessuna migrazione o nuova dipendenza
+della produzione. I nuovi test sintetici sono nel gate CI ordinario.
+
+La prova HTTP usa router, verifica/revoca JWT, orchestratore e repository reali
+con utenti fittizi: 401 senza token o dopo revoca, 404 per l'altro owner,
+400 per ID riusato con testo diverso, replay del risultato con token valido.
+La prova del modello con traffico/meteo live viene eseguita separatamente in
+un servizio tecnico temporaneo, privo di dominio e senza DB degli utenti.
+I risultati e i limiti definitivi sono riportati nel documento di collaudo
+`PHASE1_REAL_READ_EVAL.md` e nelle evidenze versionate.
+
+Prima CI completa verde sul commit `546bf574` (run `37774894917`), inclusi 223
+test Fase 1. Prima prova live: 4 chiamate LLM, 2 letture reali Mapbox/Open-Meteo,
+valori coerenti, ma consiglio di partenza non supportato da un confronto del
+traffico. Il tentativo resta semanticamente parziale. Corretti prompt e catalogo;
+24 test di regressione superati. La CI successiva su `e1990e9` verifica 224 test
+Fase 1 e il gate con Mongo reale e due processi (`1 passed`, 6,83 s): risposta
+identica, zero chiamate AI al replay e memo invariato. Il secondo live rileva
+un riferimento canonico al luogo rifiutato dalla route e un uso improprio della
+probabilità di pioggia come intensità. Le due lacune vengono corrette prima
+della nuova valutazione; il fallimento originario resta nelle evidenze.
+
+La Fase 1 resta aperta: nessuna dichiarazione di collaudo completo multiutente,
+OAuth personale, device o consegna push. Nessuna automazione oraria di sviluppo.
+
+---
+
 ## 8 ottobre 2026 — Fase 1: collaudo reale dell'intelligenza con mondo sintetico v125
 
 Implementato `scripts.phase1_cognitive_live_eval`: usa il prompt, il

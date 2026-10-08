@@ -1,3 +1,45 @@
+## 8 ottobre 2026 — Fase 1 v126: risultati persistiti e provider reali in isolamento
+
+`AICoreOrchestrator.message` confronta una fingerprint di testo completo,
+allegati e canale per il `client_message_id`, dopo la lettura della sessione
+scoped all'owner. Il risultato pubblico senza cronologia viene salvato nella
+stessa scrittura del turno, con il punto della cronologia da ricostruire. Limiti:
+20 ricevute, ciascuna al massimo 96 KiB. Le ricevute non sono proiettate in
+`_public_history`. Un risultato espulso/legacy non autorizza una nuova esecuzione;
+il client riceve `message_result_unavailable`. `pending_client_message_id`
+lega la continuazione del dispositivo alla ricevuta corretta. Non si pretende
+una transazione fra effetti esterni e Mongo né serializzazione di chiamate
+contemporanee; il confine garantito è il retry dopo la persistenza del risultato.
+
+Gli adapter routing/meteo emettono `failure_code` e `retryable` booleani. Solo
+timeout, errori di rete, HTTP 429 e 5xx sono temporanei; il loop v122 riusa questi
+segnali già esistenti. `get_route` condivide il bridge di posizione corrente con
+`open_navigation`. Il meteo aggiunge `observed_at`, `retrieved_at`, `timezone`,
+`utc_offset_seconds` e `hours[].datetime`, preservando il precedente `time`.
+
+`scripts.phase1_read_provider_eval` mantiene loop, catalogo, governance, manager
+LLM e handler reali; forza Mongo in memoria, account tecnico sintetico e soli
+luoghi pubblici predefiniti. Il controllo HTTP permette soltanto endpoint e
+coordinate previste, senza redirect; sono disabilitati ricerca, scheduling,
+letture di calendari esterni e avvio della navigazione. Provenienza, date e
+rilettura delle Observation precedono il verdetto tecnico. La valutazione della
+risposta linguistica rimane distinta dal successo del trasporto e dei tool.
+
+Prompt e descrizione `get_route` esplicitano il limite dell'ETA corrente:
+confronti di traffico tra partenze richiedono evidenze datate delle partenze,
+non una durata statica né percorsi alternativi allo stesso orario. Una regressione
+intercetta l'input del modello dopo la lettura per verificare che il limite
+raggiunga l'AI insieme all'Observation; la sua osservanza richiede il test live.
+
+`PlacesService.resolve_destination` accetta il `ref=place:<id>` e il `place_id`
+esposti da `LifePlace.for_ai` mediante lettura esatta scoped all'owner, soltanto
+se il luogo è confermato. Un riferimento esplicito invalido non ripiega su una
+label somigliante. Nomi esatti e ruoli confermati mantengono la risoluzione
+precedente. Prompt e catalogo meteo distinguono probabilità, intensità e
+intervallo temporale: precipitazione corrente non prova intensità futura.
+
+---
+
 ## 8 ottobre 2026 — Banco di prova cognitivo, modello reale e confine sintetico
 
 `backend/scripts/phase1_cognitive_live_eval.py` invoca il medesimo

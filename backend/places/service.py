@@ -1147,7 +1147,7 @@ class PlacesService:
         """
         Work out which place somebody meant by what they called it.
 
-        Exact on the name, then on a confirmed role. No fuzzy matching: a
+        Exact owner-scoped ref/id, then name, then a confirmed role. No fuzzy matching: a
         destination resolved by approximate string distance is how somebody
         gets sent to the wrong address, and being asked which one is a much
         smaller cost than being taken somewhere else.
@@ -1155,6 +1155,19 @@ class PlacesService:
         wanted = (spoken or "").strip()
         if not wanted:
             return PlaceResolution(reason="nessuna destinazione indicata")
+
+        # Context and LifePlace.for_ai expose canonical place:<id> handles.
+        # Resolve that identity directly, before considering spoken labels.
+        # An unavailable explicit ref must never fall back to a lookalike name.
+        explicit_ref = wanted.startswith("place:")
+        place_id = wanted.split(":", 1)[1] if explicit_ref else wanted
+        by_id = await self.get_place(user_id, place_id) if place_id else None
+        if explicit_ref or by_id is not None:
+            if by_id is not None and by_id.state == "confirmed":
+                return PlaceResolution(place=by_id)
+            return PlaceResolution(
+                reason="il luogo indicato non è disponibile o non è confermato"
+            )
 
         places = [p for p in await self.list_places(user_id) if p.state == "confirmed"]
         if not places:

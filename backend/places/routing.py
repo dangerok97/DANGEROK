@@ -66,6 +66,28 @@ def capabilities() -> Dict[str, Any]:
     }
 
 
+def _unavailable(
+    provider: Optional[str], reason: str, *,
+    failure_code: str = "ROUTING_UNAVAILABLE", retryable: bool = False,
+) -> Dict[str, Any]:
+    """A failed read, with explicit retry safety and no provider response body."""
+    return {
+        "available": False,
+        "provider": provider,
+        "why_unavailable": reason,
+        "failure_code": failure_code,
+        "retryable": retryable is True,
+    }
+
+
+def _http_failure(provider: str, status_code: int) -> Dict[str, Any]:
+    return _unavailable(
+        provider, f"il servizio ha risposto {status_code}",
+        failure_code=f"ROUTING_HTTP_{status_code}",
+        retryable=status_code == 429 or 500 <= status_code < 600,
+    )
+
+
 async def get_route(
     *,
     origin: Dict[str, float],
@@ -82,7 +104,10 @@ async def get_route(
     """
     provider = configured_provider()
     if provider is None:
-        return {"available": False, **capabilities()}
+        return {
+            **capabilities(), "available": False,
+            "failure_code": "ROUTING_NOT_CONFIGURED", "retryable": False,
+        }
 
     mode = travel_mode if travel_mode in TRAVEL_MODES else "drive"
     try:
@@ -90,19 +115,25 @@ async def get_route(
             return await _google_routes(origin, destination, mode, alternatives=alternatives)
         if provider == "mapbox":
             return await _mapbox_routes(origin, destination, mode, alternatives=alternatives)
-        return {
-            "available": False,
-            "provider": provider,
-            "why_unavailable": f"provider «{provider}» non ha un adattatore qui",
-        }
+        return _unavailable(
+            provider, f"provider «{provider}» non ha un adattatore qui",
+            failure_code="ROUTING_UNSUPPORTED_PROVIDER",
+        )
     except Exception as e:
         # A routing failure is a routing failure, not an ETA of zero.
+        import httpx
+
         logger.info("routing soft-fail: %s", type(e).__name__)
-        return {
-            "available": False,
-            "provider": provider,
-            "why_unavailable": "il servizio di routing non ha risposto",
-        }
+        if isinstance(e, httpx.TimeoutException):
+            failure_code, retryable = "ROUTING_TIMEOUT", True
+        elif isinstance(e, httpx.NetworkError):
+            failure_code, retryable = "ROUTING_NETWORK_ERROR", True
+        else:
+            failure_code, retryable = "ROUTING_READ_FAILED", False
+        return _unavailable(
+            provider, "il servizio di routing non ha risposto",
+            failure_code=failure_code, retryable=retryable,
+        )
 
 
 _GOOGLE_MODES = {
@@ -158,19 +189,14 @@ async def _google_routes(
             content=json.dumps(payload),
         )
     if response.status_code != 200:
-        return {
-            "available": False,
-            "provider": "google_routes",
-            "why_unavailable": f"il servizio ha risposto {response.status_code}",
-        }
+        return _http_failure("google_routes", response.status_code)
 
     routes = (response.json() or {}).get("routes") or []
     if not routes:
-        return {
-            "available": False,
-            "provider": "google_routes",
-            "why_unavailable": "nessun percorso trovato",
-        }
+        return _unavailable(
+            "google_routes", "nessun percorso trovato",
+            failure_code="ROUTING_NO_ROUTE",
+        )
 
     # Google orders routes by its preference, not necessarily by the shortest
     # duration. Preserve that order while exposing the reason for our choice.
@@ -197,7 +223,10 @@ async def _google_routes(
             ] if alternatives and traffic_aware else [],
         })
     if not choices:
-        return {"available": False, "provider": "google_routes", "why_unavailable": "durate non disponibili"}
+        return _unavailable(
+            "google_routes", "durate non disponibili",
+            failure_code="ROUTING_INVALID_RESPONSE",
+        )
     best = min(choices, key=lambda item: item["duration_seconds"])
     return {
         "available": True,
@@ -269,13 +298,18 @@ async def _mapbox_routes(
     import math
 
     if mode not in _MAPBOX_PROFILES:
-        return {"available": False, "provider": "mapbox",
-                "why_unavailable": "Mapbox non offre il percorso con i mezzi pubblici"}
+        return _unavailable(
+            "mapbox", "Mapbox non offre il percorso con i mezzi pubblici",
+            failure_code="ROUTING_UNSUPPORTED_MODE",
+        )
     coords = []
     for point in (origin, destination):
         lat, lon = float(point["latitude"]), float(point["longitude"])
         if not (math.isfinite(lat) and math.isfinite(lon) and -90 <= lat <= 90 and -180 <= lon <= 180):
-            return {"available": False, "provider": "mapbox", "why_unavailable": "coordinate non valide"}
+            return _unavailable(
+                "mapbox", "coordinate non valide",
+                failure_code="ROUTING_INVALID_COORDINATES",
+            )
         coords.append(f"{lon:.6f},{lat:.6f}")
     profile = _MAPBOX_PROFILES[mode]
     url = f"https://api.mapbox.com/directions/v5/mapbox/{profile}/{';'.join(coords)}"
@@ -287,12 +321,13 @@ async def _mapbox_routes(
     async with httpx.AsyncClient(timeout=12.0) as client:
         response = await client.get(url, params=params)
     if response.status_code != 200:
-        return {"available": False, "provider": "mapbox",
-                "why_unavailable": f"il servizio ha risposto {response.status_code}"}
+        return _http_failure("mapbox", response.status_code)
     data = response.json() or {}
     if data.get("code") != "Ok":
-        return {"available": False, "provider": "mapbox",
-                "why_unavailable": "nessun percorso verificato"}
+        return _unavailable(
+            "mapbox", "nessun percorso verificato",
+            failure_code="ROUTING_NO_ROUTE",
+        )
     choices = []
     for item in (data.get("routes") or [])[:3]:
         try:
@@ -316,7 +351,10 @@ async def _mapbox_routes(
             "incidents": _mapbox_incidents(item) if mode == "drive" else [],
         })
     if not choices:
-        return {"available": False, "provider": "mapbox", "why_unavailable": "durate non disponibili"}
+        return _unavailable(
+            "mapbox", "durate non disponibili",
+            failure_code="ROUTING_INVALID_RESPONSE",
+        )
     best = min(choices, key=lambda item: item["duration_seconds"])
     return {
         "available": True, "provider": "mapbox", "travel_mode": mode,

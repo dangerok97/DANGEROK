@@ -51,10 +51,12 @@ def test_public_destination_prepares_traffic_without_saving_place(monkeypatch):
         latitude = 42.25
         longitude = 11.75
         source = "foreground_device"
+        preference = "while_using"
+        permission_state = "granted_foreground"
         acquisition_error = None
         last_seen_at = __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat()
 
-    async def presence(self, uid):
+    async def presence(self, uid, **kwargs):
         return Presence()
 
     async def search(name, origin):
@@ -109,6 +111,7 @@ def test_navigation_origin_requires_fix_from_this_departure():
     now = datetime.now(timezone.utc)
     presence = SimpleNamespace(freshness="CURRENT", latitude=42.25, longitude=11.75,
                                source="foreground_device", acquisition_error=None,
+                               preference="while_using", permission_state="granted_foreground",
                                last_seen_at=(now - timedelta(seconds=20)).isoformat())
     assert _navigation_origin(presence) == {"latitude": 42.25, "longitude": 11.75}
     presence.last_seen_at = (now - timedelta(minutes=4)).isoformat()

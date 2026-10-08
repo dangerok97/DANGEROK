@@ -1,0 +1,13 @@
+{
+  "commit": "e1990e923539fac747dfe8bee36d7b50017d2310",
+  "run_id": 37775978297,
+  "job_id": 113306794687,
+  "test_file": "backend/tests/test_phase1_real_restart_v126.py",
+  "step": "Phase 1 persisted result survives a real process restart",
+  "conclusion": "success",
+  "summary": "2026-10-08T12:22:05.9076710Z 1 passed, 18 warnings in 6.83s",
+  "real_mongo": true,
+  "python_processes": 2,
+  "model_mode": "scripted",
+  "scope": "New ownership-marked UUID database on loopback MongoDB 6; write process exits before replay process starts; no production account data."
+}

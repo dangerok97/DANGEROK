@@ -5,6 +5,7 @@ stored places, current location and external route provider are mocked.
 """
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
+from datetime import datetime, timezone
 
 import pytest
 
@@ -47,7 +48,7 @@ def _mock_presence(monkeypatch, presence):
         def __init__(self, db):
             self.db = db
 
-        async def build_presence(self, uid):
+        async def build_presence(self, uid, **kwargs):
             assert uid == "owner"
             return presence
 
@@ -117,6 +118,9 @@ async def test_route_result_requires_a_real_finite_provider_eta(
     _mock_places(monkeypatch, _resolved())
     _mock_presence(monkeypatch, SimpleNamespace(
         latitude=42.2, longitude=11.6,
+        freshness="CURRENT", preference="while_using",
+        permission_state="granted_foreground", source="foreground_device",
+        acquisition_error=None, last_seen_at=datetime.now(timezone.utc).isoformat(),
     ))
     provider = AsyncMock(return_value=dict(provider_response))
     monkeypatch.setattr(routing, "get_route", provider)
