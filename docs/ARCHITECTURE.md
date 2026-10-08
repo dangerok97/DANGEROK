@@ -1,3 +1,18 @@
+## 8 ottobre 2026 — Boundary del turno: gli esiti delle skill precedono la prosa
+
+Nel loop cognitivo, il testo finale del turno viene conservato solo dopo
+la composizione di guide, navigation handoff e riconciliazione del piano.
+Se l'ultimo stato di una skill obbligatoria è failed, la presentazione
+deve esplicitare che la richiesta non è conclusa; le dichiarazioni
+testuali di completamento non possono sostituire un'osservazione riuscita.
+Il controllo usa la classificazione delle skill, non parole chiave
+dell'utente per scegliere strumenti. Le euristiche testuali servono
+soltanto a non riprodurre frasi di falso successo; i risultati parziali
+utili possono essere conservati. Il turno salvato e quello restituito
+al client devono avere lo stesso testo.
+
+---
+
 ## 8 ottobre 2026 — Contratto route.read fra provider e AI Core
 
 In backend/places/caps.py, _verified_route_result separa lo stato
