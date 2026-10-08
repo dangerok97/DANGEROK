@@ -178,6 +178,9 @@ jobs:
             tests/test_phase1_authenticated_resume_v126.py \
             tests/test_phase1_read_provider_eval_v126.py \
             tests/test_phase1_weather_grounding_v126.py \
+            tests/test_phase1_semantic_guard_v127.py \
+            tests/test_phase1_semantic_gate_v127.py \
+            tests/test_phase1_semantic_integration_v127.py \
             -x
       - name: Phase 1 persisted result survives a real process restart
         working-directory: backend
