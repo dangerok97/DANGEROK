@@ -110,3 +110,23 @@ async def drain(db, *, owner_id=None, now=None, limit=2) -> int:
         logger.info("delivery_admission outcome=%s state=%s attempt=%d", outcome, state, attempts)
         handled += 1
     return handled
+
+async def drain_with_receipts(db, *, owner_id=None, now=None, limit=2) -> int:
+    """Run bounded admission and check Expo receipts without adding a lane.
+
+    This module owns the provider boundary. Ambient only schedules a generic
+    delivery pass and cannot gain direct access to notification transport.
+    """
+    handled = await drain(db, owner_id=owner_id, now=now, limit=limit)
+    from ambient.push import ExpoNotificationProvider
+    from delivery.provider import get_provider
+
+    if isinstance(get_provider(), ExpoNotificationProvider):
+        from delivery.expo_receipts import ExpoReceiptAudit
+
+        try:
+            await ExpoReceiptAudit(db).run_due()
+        except Exception as exc:
+            # Receipt claims remain durable for another pass.
+            logger.info("expo receipt audit deferred: %s", type(exc).__name__)
+    return handled
