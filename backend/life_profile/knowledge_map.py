@@ -256,7 +256,22 @@ async def knowledge_map(db, user_id: str) -> dict:
             "source_refs": [str(note_id)],
             "updated_at": note.get("updated_at") or note.get("created_at")})
 
-    if birthday_items:
+    if len(birthday_items) == 1:
+        # A single saved birthday remains its own permanent star. The shared
+        # "Compleanni" constellation appears only when a second person exists.
+        item = birthday_items[0]
+        stars.append({
+            "id": stable_id("memory:" + item["memory_ref"]),
+            "area": "people",
+            "branch_id": None,
+            "title": "Compleanno",
+            "statement": f"Il {item['date_label']} è il compleanno di {item['label']}.",
+            "status": "known",
+            "provenance": "Salvato in memoria",
+            "source_refs": [item["memory_ref"]],
+            "updated_at": birthday_updated[0] if birthday_updated else None,
+        })
+    elif len(birthday_items) >= 2:
         birthday_items.sort(key=lambda item: (item["month"], item["day"], item["label"].lower()))
         count = len(birthday_items)
         stars.append({

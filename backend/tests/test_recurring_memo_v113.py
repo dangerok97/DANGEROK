@@ -66,6 +66,17 @@ async def test_two_people_are_two_memories_but_one_compleanni_star():
         reasoning_epoch="e1",
         candidates=[birthday_candidate("zia Elena", 3, 13, identity="birthday:zia_elena")],
     )
+    # Before the second distinct person, show one personal permanent star.
+    first_map = await knowledge_map(db, "owner")
+    assert not [s for s in first_map["stars"] if s.get("group_kind") == "birthdays"]
+    personal = [
+        s for s in first_map["stars"]
+        if first[0].memory_id in (s.get("source_refs") or [])
+    ]
+    assert len(personal) == 1
+    assert personal[0]["title"] == "Compleanno"
+    assert "13 marzo" in personal[0]["statement"]
+
     second = await governance.process(
         user_id="owner",
         session_id="s2",
