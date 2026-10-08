@@ -1,3 +1,16 @@
+## 8 ottobre 2026 — Fase 1: un esito verificato, non un «Ok»
+
+Il comportamento di ORA è quello di un assistente che esegue i passaggi
+richiesti, non di un chatbot che accetta istruzioni verbalmente. Quando il
+ciclo cognitivo raggiunge il suo limite di ragionamento, non è consentito
+presentare un piano incompleto come concluso. L'utente riceve un limite
+chiaro, mentre le skill già osservate restano nel piano recuperabile.
+Le conferme del calendario rimangono associate ai dati canonici.
+Questo intervento è una protezione del prodotto, non una dichiarazione
+di completamento di tutta la Fase 1. La roadmap delle sei fasi è in ROADMAP.md.
+
+---
+
 ## 4 ottobre 2026 — Vita connessa: viaggio e presenza
 
 ORA può usare i luoghi come contesto vivo: quando il monitoraggio è stato
