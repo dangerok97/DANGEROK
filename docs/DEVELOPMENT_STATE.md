@@ -1,3 +1,26 @@
+## 8 ottobre 2026 — Fase 1: dichiarazioni finali dopo fallimento (v124)
+
+**Difetto:** quando l'AI eseguiva due tool e il secondo falliva,
+il guard di incompletezza sollecitava una revisione, ma all'ultima
+iterazione una risposta che dichiarava conclusa l'intera commissione
+poteva comunque uscire. Anche il testo visibile poteva differire dal
+recent_turn persistito se la navigazione lo aveva sostituito dopo
+il salvataggio.
+
+**Correzione:** il terminale di una richiesta con skill obbligatorie
+fallite deve sempre esporre una nota di incompletamento; cancella
+una dichiarazione diretta di successo generale incompatibile con il
+risultato. Preserva informazioni parziali non ingannevoli. La risposta
+finale viene aggiunta alla sessione dopo gli eventuali handoff,
+mantenendo parità fra storico e risposta.
+
+**Test:** due skill con secondo strumento fallito e modello che dice
+"Ho completato tutto", conservazione del risultato parziale corretto,
+acknowledgement vuoto, retry esplicito e caso interamente riuscito.
+Test nel gate CI AI Core. Non attiva automazioni o scritture reali.
+
+---
+
 ## 8 ottobre 2026 — Fase 1: osservazione di percorso non equivale a ETA (v123)
 
 **Difetto del contratto osservato:** get_route restituiva un
