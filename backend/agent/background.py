@@ -49,22 +49,28 @@ async def recover_due(db, *, now=None, limit=2, admit=True):
     state_collection = db.agent_goal_wake_recovery_progress
     stored = await state_collection.find_one({"_id": _RECOVERY_CURSOR}) or {}
     after_time = str(stored.get("after_time") or "")
+    after_owner = str(stored.get("after_owner") or "")
     after_id = str(stored.get("after_id") or "")
 
     async def page(query):
         return await db.agent_goals.find(
             query, {"_id": 0, "id": 1, "owner_id": 1,
                     "next_run_at": 1},
-        ).sort([("next_run_at", 1), ("id", 1)]).limit(page_size).to_list(page_size)
+        ).sort([("next_run_at", 1), ("owner_id", 1), ("id", 1)]).limit(page_size).to_list(page_size)
 
     query = due_query
-    if after_time and after_id:
+    if after_time and after_owner and after_id:
+        # Sort and keyset MUST have the same three fields. If records share
+        # the same timestamp and id across owners (legacy/test data), neither
+        # owner may be skipped. Older two-field cursors safely restart once.
         query = {
             "$and": [
                 due_query,
                 {"$or": [
                     {"next_run_at": {"$gt": after_time}},
-                    {"next_run_at": after_time, "id": {"$gt": after_id}},
+                    {"next_run_at": after_time, "owner_id": {"$gt": after_owner}},
+                    {"next_run_at": after_time, "owner_id": after_owner,
+                     "id": {"$gt": after_id}},
                 ]},
             ],
         }
@@ -123,6 +129,7 @@ async def recover_due(db, *, now=None, limit=2, admit=True):
         {"_id": _RECOVERY_CURSOR},
         {"$set": {
             "after_time": str(last.get("next_run_at") or ""),
+            "after_owner": str(last.get("owner_id") or ""),
             "after_id": str(last.get("id") or ""),
             "last_scan_at": moment.isoformat(),
         }},
