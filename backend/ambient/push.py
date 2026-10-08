@@ -37,6 +37,16 @@ EXPO_ENDPOINT = "https://exp.host/--/api/v2/push/send"
 PERMANENT_FAILURES = {"DeviceNotRegistered", "InvalidCredentials", "MessageTooBig"}
 
 
+def is_expo_push_token(value: str) -> bool:
+    """Recognise both documented Expo token prefixes, not raw device tokens."""
+    return (
+        isinstance(value, str)
+        and value.endswith("]")
+        and value.startswith(("ExponentPushToken[", "ExpoPushToken["))
+        and len(value) <= 400
+    )
+
+
 def device_hash(raw: str) -> str:
     """
     A stable handle for a device that is not the device's own identifier.
@@ -81,7 +91,7 @@ class PushEndpointService:
                 owner_id=owner_id,
                 token=token,
                 platform=platform if platform in ("ios", "android", "web") else "unknown",
-                provider="expo" if token.startswith("ExponentPushToken") else "stub",
+                provider="expo" if is_expo_push_token(token) else "stub",
                 device_hash=handle,
                 status="active",
                 permission_state=(
