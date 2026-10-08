@@ -1,3 +1,22 @@
+## 8 ottobre 2026 — Banco di prova cognitivo, modello reale e confine sintetico
+
+`backend/scripts/phase1_cognitive_live_eval.py` invoca il medesimo
+`llm.manager` usato da AI Core tramite `decision_fn`; non scriptiamo
+le decisioni del modello live. Manteniamo loop, governance, ToolRegistry e
+piani della produzione, ma `ToolRegistry.execute` viene intercettato:
+letture da fixture sintetiche, due sole scritture interne
+(situazione-checkpoint e memo ricorrente) su Mongo in memoria, e blocco
+di qualsiasi altro effetto. Il modello riceve soltanto fatti inventati.
+
+Il gate verifica osservazioni reali del loop e read-back del database
+sintetico; non crede a un successo soltanto perché il modello lo ha scritto.
+Un test completamente scriptato dello stesso runner è obbligatorio nella CI.
+L'esecuzione live è opt-in su un ramo di audit o in un processo isolato
+configurato con un provider: non è un trigger della app e non è un worker
+ricorrente. Evidenza/limiti: `PHASE1_REAL_MODEL_EVAL.md`.
+
+---
+
 ## 8 ottobre 2026 — Boundary del turno: gli esiti delle skill precedono la prosa
 
 Nel loop cognitivo, il testo finale del turno viene conservato solo dopo
