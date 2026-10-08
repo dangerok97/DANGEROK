@@ -203,6 +203,19 @@ async def startup():
     from memos.service import RecurringMemoService
 
     await RecurringMemoService(db).ensure_indexes()
+    # A bounded catch-up runs on startup even when ambient autonomy is paused;
+    # incomplete operations remain pending for the regular ambient recovery lane.
+    try:
+        import asyncio
+        from memos.recovery import RecurringMemoRecovery
+
+        recovered_memos = await asyncio.wait_for(
+            RecurringMemoRecovery(db).run(limit=6), timeout=8
+        )
+        if recovered_memos["claimed"]:
+            logger.info("Persistent memo recovery on startup: %s", recovered_memos)
+    except Exception as exc:
+        logger.warning("Persistent memo recovery deferred: %s", type(exc).__name__)
 
     # Permissions
     await db.permission_consents.create_index(
