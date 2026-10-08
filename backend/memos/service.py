@@ -175,8 +175,29 @@ class RecurringMemoService:
                 out["disabled"] += 1
                 continue
 
-            local = moment.astimezone(_zone(str(memo.get("timezone") or "Europe/Rome")))
+            timezone_name = str(memo.get("timezone") or "Europe/Rome")
+            local = moment.astimezone(_zone(timezone_name))
             year = local.year
+            reminder_hour = int(
+                memo["remind_hour_local"] if memo.get("remind_hour_local") is not None else 9
+            )
+            # A missed run must not announce yesterday's (or last year's)
+            # birthday as happening "today". Re-arm the next valid occurrence.
+            if ((local.month, local.day) != (int(memo["month"]), int(memo["day"]))
+                    or local.hour < reminder_hour):
+                next_due = _next_annual(
+                    month=int(memo["month"]), day=int(memo["day"]),
+                    timezone_name=timezone_name, hour=reminder_hour, now=moment,
+                )
+                await self.db[COLLECTION].update_one(
+                    {"id": memo["id"]},
+                    {"$set": {
+                        "next_due_at": next_due.isoformat(),
+                        "claim_until": "",
+                        "updated_at": moment.isoformat(),
+                    }},
+                )
+                continue
             person = str(memo.get("person") or "").strip()
             label = str(memo.get("label") or memory.get("statement") or "Promemoria").strip()
             if memo.get("category") == "birthday":
@@ -218,8 +239,8 @@ class RecurringMemoService:
             await repo.save(opportunity)
             next_due = _next_annual(
                 month=int(memo["month"]), day=int(memo["day"]),
-                timezone_name=str(memo.get("timezone") or "Europe/Rome"),
-                hour=int(memo.get("remind_hour_local") or 9),
+                timezone_name=timezone_name,
+                hour=reminder_hour,
                 now=moment,
                 after_year=year + 1,
             )
