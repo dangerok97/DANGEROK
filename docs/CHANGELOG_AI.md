@@ -1,3 +1,14 @@
+## 8 ottobre 2026 — v123 Fase 1: route outcome verificato
+
+- Corretta get_route: la semplice esecuzione della chiamata non
+  soddisfa una skill necessaria se available=false o manca un'ETA valida.
+- Conservati il motivo dell'indisponibilità e le opzioni di destinazione.
+- La necessità di rinfrescare la posizione rimane uno stato di attesa.
+- Aggiunti sette scenari di test sintetici nel gate CI del routing.
+- Nessuna fonte di ETA simulata nei percorsi reali; nessun effetto esterno.
+
+---
+
 ## 8 ottobre 2026 — Resumability delle skill dopo errori transitori
 
 - Conservata la catena multi-skill per le sole capacità di LETTURA
