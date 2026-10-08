@@ -39,6 +39,7 @@ async def drain(db, *, owner_id=None, now=None, limit=2) -> int:
     moment = now or datetime.now(timezone.utc)
     stamp = moment.isoformat()
     handled = 0
+    owners_seen: set[str] = set()
     for _ in range(limit):
         query = {
             "status": {"$in": ["active", "dismissed", "suppressed", "resolved", "expired"]},
@@ -49,16 +50,36 @@ async def drain(db, *, owner_id=None, now=None, limit=2) -> int:
         if owner_id is not None:
             query["owner_id"] = owner_id
         token = uuid.uuid4().hex
+        # One owner with a deep inbox must not starve another owner whose
+        # first pending update is equally due. The batch remains limited,
+        # atomic Mongo claims are unchanged, and a single active owner still
+        # gets all available slots.
+        fair_query = dict(query)
+        if owner_id is None and owners_seen:
+            fair_query["owner_id"] = {"$nin": sorted(owners_seen)}
+        change = {
+            "$set": {
+                "delivery_review_token": token,
+                "delivery_review_lease_until": (
+                    moment + timedelta(seconds=LEASE_SECONDS)
+                ).isoformat(),
+            },
+            "$inc": {"delivery_review_attempts": 1},
+        }
         row = await db[COLLECTION].find_one_and_update(
-            query,
-            {"$set": {"delivery_review_token": token,
-                      "delivery_review_lease_until": (moment + timedelta(seconds=LEASE_SECONDS)).isoformat()},
-             "$inc": {"delivery_review_attempts": 1}},
+            fair_query, change,
             sort=[("delivery_review_due", 1), ("id", 1)],
             return_document=ReturnDocument.AFTER,
         )
+        if row is None and owner_id is None and owners_seen:
+            row = await db[COLLECTION].find_one_and_update(
+                query, change,
+                sort=[("delivery_review_due", 1), ("id", 1)],
+                return_document=ReturnDocument.AFTER,
+            )
         if row is None:
             break
+        owners_seen.add(str(row["owner_id"]))
 
         outcome = "unavailable"
         error_kind = ""
@@ -118,9 +139,8 @@ async def drain_with_receipts(db) -> int:
     delivery pass and cannot gain direct access to notification transport.
     """
     handled = await drain(db)
-    # Reconstruct a technical retry alarm if a process was killed between
-    # writing a held delivery plan and scheduling its wake. The actual
-    # decision and send still belong to the Ambient delivery recheck.
+    # Recreate an authorized retry wake after a crash between persisting a
+    # held plan and storing its scheduled alarm. It never sends directly.
     try:
         from delivery.transport_retry import recover_unscheduled_retries
 
