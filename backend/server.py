@@ -456,6 +456,9 @@ async def startup():
         await AmbientRepository(db).ensure_indexes()
         await EligibilityService(db).ensure_indexes()
         await PreferenceService(db).ensure_indexes()
+        from delivery.expo_receipts import ExpoReceiptAudit
+
+        await ExpoReceiptAudit(db).ensure_indexes()
         logger.info("Ambient indexes ready; push channel=%s", install_provider(db))
         if start_runtime():
             logger.info("Ambient runtime started")

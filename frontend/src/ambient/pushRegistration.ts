@@ -17,8 +17,11 @@
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
+import * as Crypto from 'expo-crypto';
+import * as SecureStore from 'expo-secure-store';
 
 import { api } from '@/src/api/client';
+import { createInstallationHandle } from './installationHandle';
 
 export type PushCapability = 'native' | 'unsupported';
 
@@ -84,11 +87,10 @@ export async function enablePush(): Promise<PushOutcome> {
   }
 
   if (status !== 'granted') {
-    // Honest degradation: the decision layer is told, so a push it cannot
-    // make becomes a quiet line rather than nothing at all.
-    await api
-      .registerPushDevice({ token: '', permission_state: 'denied' })
-      .catch(() => {});
+    // A missing token cannot unregister a previously authorized endpoint.
+    // Explicitly release THIS installation so ORA cannot keep targeting it
+    // after its owner revoked permission in the OS.
+    await releasePush();
     return { ok: false, state: 'denied' };
   }
 
@@ -104,7 +106,7 @@ export async function enablePush(): Promise<PushOutcome> {
     await api.registerPushDevice({
       token,
       platform: Platform.OS === 'ios' ? 'ios' : 'android',
-      device: deviceHandle(),
+      device: await deviceHandle(),
       permission_state: 'granted',
     });
     return { ok: true, state: 'granted' };
@@ -121,19 +123,17 @@ export async function enablePush(): Promise<PushOutcome> {
  */
 export async function releasePush(): Promise<void> {
   if (capability() !== 'native') return;
-  await api.releasePushDevice(deviceHandle()).catch(() => {});
+  try {
+    await api.releasePushDevice(await deviceHandle());
+  } catch {
+    // Logout should still work when the OS key store is unavailable.
+  }
 }
 
 /**
- * A stable-enough handle for this installation.
- *
- * Only its hash is stored server-side. It exists to recognise the same phone
- * signing in again, not to identify anybody.
+ * Stable across logins and reloads on the same installation; fresh and unique
+ * for another installation. The injected implementation is unit-tested.
  */
-function deviceHandle(): string {
-  const id =
-    (Constants as unknown as { sessionId?: string }).sessionId ||
-    Constants.expoConfig?.slug ||
-    'unknown';
-  return `${Platform.OS}:${id}`;
-}
+const deviceHandle = createInstallationHandle(
+  Platform.OS, SecureStore, () => Crypto.randomUUID(),
+);
