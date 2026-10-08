@@ -133,6 +133,117 @@ class RecurringMemoService:
         saved = await self.db[COLLECTION].find_one({"id": memo_id}, {"_id": 0})
         return {"ok": True, "memo": _public(saved or doc)}
 
+    async def reconcile_governed_memory(
+        self, owner_id: str, *, old_ref: str, new_ref: Optional[str] = None,
+    ) -> Dict[str, int]:
+        """Preserve an already-authorized annual reminder across Memory corrections.
+
+        This NEVER creates a reminder when no active reminder existed for the
+        old owned memory. On forgetting, or a replacement of a different kind,
+        disable the old schedule rather than notifying about a stale fact.
+        New reminders inherit the original hour/timezone without overwriting
+        a newer reminder the person already set for the replacement memory.
+        """
+        outcome = {"transferred": 0, "disabled": 0}
+        if not owner_id or not old_ref or old_ref == new_ref:
+            return outcome
+        old_rows = await self.db[COLLECTION].find(
+            {"owner_id": owner_id, "memory_ref": old_ref, "status": "active"},
+            {"_id": 0},
+        ).to_list(24)
+        if not old_rows:
+            return outcome
+
+        old_memory = await self.db.memories.find_one(
+            {"user_id": owner_id, "id": old_ref}, {"_id": 0, "kind": 1}
+        )
+        replacement = (
+            await self.db.memories.find_one(
+                {"user_id": owner_id, "id": new_ref, "status": "active"},
+                {"_id": 0},
+            )
+            if new_ref else None
+        )
+        kind = str((replacement or {}).get("kind") or "")
+        value = (replacement or {}).get("value")
+        if not isinstance(value, dict):
+            value = {}
+        allowed = bool(
+            replacement and old_memory and kind == old_memory.get("kind")
+            and kind in ("birthday", "anniversary", "annual_date")
+        )
+        try:
+            month = int(value.get("month")) if allowed else 0
+            day = int(value.get("day")) if allowed else 0
+        except (TypeError, ValueError):
+            month = day = 0
+            allowed = False
+
+        stamp = _now().isoformat()
+        for memo in old_rows:
+            category = str(memo.get("category") or "")
+            target_doc = None
+            if allowed and category in ("birthday", "anniversary", "annual_memo"):
+                try:
+                    hour = int(
+                        memo["remind_hour_local"]
+                        if memo.get("remind_hour_local") is not None else 9
+                    )
+                    timezone_name = str(memo.get("timezone") or "Europe/Rome")
+                    due = _next_annual(
+                        month=month, day=day, hour=hour,
+                        timezone_name=timezone_name,
+                    )
+                    new_id = _stable_id(owner_id, str(new_ref), category)
+                    target_doc = {
+                        **{key: item for key, item in memo.items() if key != "_id"},
+                        "id": new_id,
+                        "memory_ref": str(new_ref),
+                        "month": month, "day": day,
+                        "person": str(value.get("person") or memo.get("person") or "")[:120],
+                        "next_due_at": due.isoformat(),
+                        "claim_until": "", "status": "active",
+                        "last_fired_at": None, "last_fired_year": None,
+                        "created_at": stamp, "updated_at": stamp,
+                        "superseded_from": memo.get("id"),
+                    }
+                except (TypeError, ValueError):
+                    target_doc = None
+            if target_doc:
+                lookup = {
+                    "owner_id": owner_id, "memory_ref": str(new_ref),
+                    "category": category,
+                }
+                # Idempotent insert; a later explicit user setting wins.
+                await self.db[COLLECTION].update_one(
+                    lookup, {"$setOnInsert": target_doc}, upsert=True
+                )
+                target = await self.db[COLLECTION].find_one(lookup, {"_id": 0, "id": 1})
+                if not target:
+                    # Do not disable the source if the replacement was not saved.
+                    continue
+                await self.db[COLLECTION].update_one(
+                    {"id": memo.get("id"), "owner_id": owner_id,
+                     "memory_ref": old_ref, "status": "active"},
+                    {"$set": {
+                        "status": "superseded", "claim_until": "",
+                        "superseded_by": target["id"], "updated_at": stamp,
+                    }},
+                )
+                outcome["transferred"] += 1
+            else:
+                await self.db[COLLECTION].update_one(
+                    {"id": memo.get("id"), "owner_id": owner_id,
+                     "memory_ref": old_ref, "status": "active"},
+                    {"$set": {
+                        "status": "disabled", "claim_until": "",
+                        "disabled_reason": "source_memory_replaced_or_forgotten",
+                        "updated_at": stamp,
+                    }},
+                )
+                outcome["disabled"] += 1
+        return outcome
+
     async def _claim_due(self, *, now: datetime) -> Optional[Dict[str, Any]]:
         stamp = now.isoformat()
         claim_until = (now + timedelta(seconds=CLAIM_SECONDS)).isoformat()

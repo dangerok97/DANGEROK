@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 from dataclasses import dataclass
 from typing import Any, Dict, List, Literal, Optional
 
 from conversation_engine.ai_core.models import MemoryCandidate
 from life_memory.models import now_iso
+
+logger = logging.getLogger("ora.memory.governance")
 
 Decision = Literal[
     "PROMOTE", "CLARIFY", "REJECT", "SUPERSEDE", "FORGET_ALLOWED", "FORGET_DENIED"
@@ -177,6 +180,7 @@ class MemoryGovernanceService:
                 True,
             )
         outcome = await self.evaluate(user_id=user_id, candidate=candidate)
+        old_memory_ref = outcome.memory_id if outcome.decision in ("SUPERSEDE", "FORGET_ALLOWED") else None
         if outcome.decision not in ("PROMOTE", "SUPERSEDE", "FORGET_ALLOWED"):
             return outcome
         now = now_iso()
@@ -271,6 +275,23 @@ class MemoryGovernanceService:
             await self.db.memories.insert_one(doc)
             outcome.memory_id = memory_id
             outcome.persisted = True
+        # A recurring reminder is a user-authorized obligation attached to
+        # governed Memory. When governance replaces or forgets that Memory,
+        # update only already-existing reminders belonging to the same owner.
+        # A memory edit alone must never create a new reminder.
+        if old_memory_ref and outcome.persisted:
+            try:
+                from memos.service import RecurringMemoService
+
+                await RecurringMemoService(self.db).reconcile_governed_memory(
+                    user_id, old_ref=old_memory_ref,
+                    new_ref=(outcome.memory_id if outcome.decision == "SUPERSEDE" else None),
+                )
+            except Exception:
+                # Memory is already persisted. Keep the policy decision truthful
+                # and let the due-time stale-memory gate prevent a false alert.
+                logger.exception("recurring_memo_reconciliation_failed")
+
         try:
             from life_memory.service import LifeMemoryService
 
