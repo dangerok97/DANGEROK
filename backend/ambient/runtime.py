@@ -393,6 +393,7 @@ async def _cycle(db, ticks):
     from delivery.admission import drain as review_delivery
     from energy_offers.service import EnergyOfferService
     from memos.service import RecurringMemoService
+    from memos.recovery import RecurringMemoRecovery
     _launch("sources", lambda: read_sources(db), timeout=120)
     _launch("admission", lambda: recover_due(db), timeout=110)
     _launch("delivery-admission", lambda: review_delivery(db), timeout=125)
@@ -404,6 +405,9 @@ async def _cycle(db, ticks):
     for n in range(2):
         _launch(f"work-{n}", lambda: tick(db, limit=1), timeout=HANDLER_TIMEOUT_SECONDS + 10)
     if ticks % max(1, int(60 / max(1, TICK_SECONDS))) == 0:
+        # Recover interrupted durable-Memory updates in the EXISTING runtime.
+        # No new scheduler or AI call; pending rows carry atomic Mongo leases.
+        _launch("memo-reconcile", lambda: RecurringMemoRecovery(db).run(), timeout=30)
         _launch("market", lambda: EnergyOfferService(db).run_due(), timeout=240)
     if ticks % _relations_every_ticks() == 0:
         _launch("relations", lambda: keep_relations_current(db), timeout=120)
