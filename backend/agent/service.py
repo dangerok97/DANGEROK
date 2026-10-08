@@ -231,6 +231,8 @@ class AgentService:
         source_kind: str = "",
         source_refs: Optional[List[str]] = None,
         language: str = "it",
+        admission_revision: str = "",
+        admission_token: str = "",
     ) -> Dict[str, Any]:
         """
         Is there an outcome here worth pursuing?
@@ -243,6 +245,38 @@ class AgentService:
         from agent.source_refresh import queue_existing, context
 
         source = None
+        async def admission_is_current() -> bool:
+            """Do not form a new spontaneous goal from a superseded claim.
+
+            The model can take seconds to think. During that time the source
+            may change, close, expire, or another backend may reclaim its
+            admission lease. Only the owner-scoped source revision AND lease
+            token claimed by admission may authorise this creation.
+            """
+            if not admission_revision:
+                return True  # User-initiated goals do not have an admission.
+            if not (origin == "agent_initiated" and opportunity_id and admission_token):
+                return False
+            current = await self.db.opportunities.find_one({
+                "id": opportunity_id, "owner_id": owner_id,
+                "status": "active",
+                "agent_review_revision": admission_revision,
+                "agent_review_token": admission_token,
+            }, {"_id": 0, "valid_until": 1})
+            if current is None:
+                return False
+            expiry = current.get("valid_until")
+            if expiry:
+                try:
+                    target = datetime.fromisoformat(str(expiry).replace("Z", "+00:00"))
+                    if target.tzinfo is None:
+                        target = target.replace(tzinfo=timezone.utc)
+                    if target <= _now():
+                        return False
+                except (TypeError, ValueError):
+                    return False
+            return True
+
         situation_refs = [ref for ref in (source_refs or []) if ref.startswith("situation:")]
         if source_kind == "opportunity" and len(situation_refs) == 1 and all(
             ref.startswith(("situation:", "place:")) for ref in (source_refs or [])
@@ -378,6 +412,9 @@ class AgentService:
                 "question": str(answer.get("question") or "")[:300] or None,
             }
 
+        if not await admission_is_current():
+            return {"outcome": "unavailable", "reasoning": "Fonte cambiata prima della creazione"}
+
         goal = AutonomousGoal(
             owner_id=owner_id,
             status="active",
@@ -412,6 +449,22 @@ class AgentService:
             if existing is not None:
                 return {"outcome": "already_pursuing", "goal": existing.for_human(), "goal_id": existing.id}
             return {"outcome": "unavailable"}
+
+        # Even the Mongo insert may race a source change after the check.
+        # Invalidate the provisional goal before preparing, journaling or
+        # exposing it. The newer opportunity revision remains pending and
+        # will form its own goal on the next ordinary admission pass.
+        if not await admission_is_current():
+            await self.db.agent_goals.update_one({
+                "id": goal.id, "owner_id": owner_id,
+                "origin": "agent_initiated",
+                "opportunity_revision": admission_revision,
+                "status": {"$in": ["active", "waiting", "proposed"]},
+            }, {"$set": {
+                "status": "abandoned", "next_run_at": None,
+                "rationale": "Fonte cambiata durante il salvataggio dell'obiettivo.",
+            }})
+            return {"outcome": "unavailable", "reasoning": "Fonte cambiata durante il salvataggio"}
 
         if pair:
             # The preparation is fully determined by two owner-scoped Home
