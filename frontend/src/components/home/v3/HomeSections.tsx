@@ -5,6 +5,7 @@ import { useTheme } from '@/src/theme/ThemeProvider';
 import { tokens } from '@/src/theme/tokens';
 import type {
   HomeAgentWork,
+  HomeSituationUpdate,
   HomeInsight,
   HomeItem,
   HomeOpportunity,
@@ -15,6 +16,7 @@ import { IconBubble, OraBadge, OraButton, OraCard, OraLink, SectionTitle } from 
 import { ora, oraType } from '@/src/theme/oraSurface';
 import { ContextualCardVisual } from './ContextualCardVisual';
 import { agoLabel, relativeDayLabel } from './homeItemView';
+import { elencoAggiornamenti } from './aggiornamenti';
 
 /* -------------------------------------------------------------------------- */
 /* Shared section chrome                                                       */
@@ -280,6 +282,8 @@ export function UpdatesFeed({
   insights,
   opportunities,
   agentWork,
+  situationUpdates,
+  onOpenSituation,
   busyId,
   onOpen,
   onDismiss,
@@ -296,6 +300,8 @@ export function UpdatesFeed({
   opportunities?: HomeOpportunity[];
   /** Outcomes ORA is pursuing on their behalf. Usually none. */
   agentWork?: HomeAgentWork[];
+  situationUpdates?: HomeSituationUpdate[];
+  onOpenSituation?: (item: HomeSituationUpdate) => void;
   busyId?: string | null;
   onOpen: (s: ProactiveSuggestion) => void;
   onDismiss: (id: string) => void;
@@ -314,14 +320,21 @@ export function UpdatesFeed({
     it is the last line of defence: whatever arrives, this section stays a
     section and never becomes a list.
   */
-  const raised = (opportunities || []).slice(0, 2);
-  /*
-    Outcomes, not workflow. Two at most, like everything else here: a person
-    wanting to know whether something is handled does not want a project
-    board, and ORA doing five things at once is a different problem.
-  */
-  const working = (agentWork || []).slice(0, 2);
-  const total = suggestions.length + insights.length + raised.length + working.length;
+  // Home, the full list and the detail MUST use the same curated set. One
+  // Situation produces only one result even if several background Goals or
+  // Opportunities are following it.
+  const curated = elencoAggiornamenti({
+    agent_work: agentWork || [],
+    opportunities: opportunities || [],
+    ora_ti_consiglia: suggestions,
+    insights,
+    situation_updates: situationUpdates || [],
+  });
+  const shown = new Set(curated.map((item) => item.id));
+  const raised = (opportunities || []).filter((item) => shown.has(item.id)).slice(0, 2);
+  const working = (agentWork || []).filter((item) => shown.has(item.id)).slice(0, 2);
+  const current = (situationUpdates || []).filter((item) => shown.has(item.id));
+  const total = curated.length;
   if (!total) return null;
 
   return (
@@ -335,6 +348,26 @@ export function UpdatesFeed({
       onFooter={onSeeAll}
       testID="home-updates"
     >
+      {current.map((item) => (
+        <View key={item.id} style={styles.updateRow} testID={`home-situation-${item.situation_id}`}>
+          <IconBubble name="alert-circle-outline" />
+          <View style={styles.updateBody}>
+            <Text style={[oraType.body, { color: colors.textPrimary, fontWeight: '600' }]}>
+              {item.headline}
+            </Text>
+            <Text style={[oraType.small, { color: colors.textSecondary }]} numberOfLines={2}>
+              {item.evidence_summary}
+            </Text>
+            <OraButton
+              label="Ho fatto / È cambiato"
+              kind="secondary"
+              compact
+              onPress={() => onOpenSituation?.(item)}
+              testID={`home-situation-${item.situation_id}-open`}
+            />
+          </View>
+        </View>
+      ))}
       {working.map((w) => (
         <AgentWorkRow
           key={w.id}
