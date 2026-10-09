@@ -2585,13 +2585,43 @@ class AgentService:
         return None
 
     async def _legacy_event_alert_expired(self, owner_id: str, goal) -> bool:
-        if goal.valid_until or not goal.opportunity_id:
+        """No stale pre-event question, even when old records lack an expiry.
+
+        v144 assumed the AI labelled every appointment discrepancy "perishable"
+        and every agent carried an opportunity id. Neither is guaranteed.
+        Use the actual owner-owned calendar target and the stored source handles.
+        """
+        if goal.origin != "agent_initiated" or not goal.is_open:
             return False
         from opportunities.repository import OpportunityRepository
-        from opportunities.source_lifecycle import perishable_opportunity_expired
-        linked = await OpportunityRepository(self.db).get(owner_id, goal.opportunity_id)
-        return bool(linked and await perishable_opportunity_expired(
-            self.db, owner_id, linked))
+        from opportunities.source_lifecycle import (
+            perishable_opportunity_expired, source_event_expired,
+        )
+        if goal.opportunity_id:
+            linked = await OpportunityRepository(self.db).get(
+                owner_id, goal.opportunity_id
+            )
+            if linked and await perishable_opportunity_expired(
+                self.db, owner_id, linked
+            ):
+                return True
+        if goal.source_kind != "opportunity":
+            return False
+        references = list(dict.fromkeys(str(x) for x in (goal.source_refs or [])))[:8]
+        linked_events = [x for x in references if x.startswith("calendar:")]
+        for ref in references:
+            link = await self.db.connected_situation_links.find_one(
+                {"owner_id": owner_id, "id": ref, "target_kind": "appointment"},
+                {"_id": 0, "target_ref": 1},
+            )
+            if link and link.get("target_ref"):
+                linked_events.append(str(link["target_ref"]))
+        # If several events are cited, one still to occur keeps the question
+        # actionable. An unknown source is never treated as a known expiry.
+        return bool(linked_events) and all([
+            await source_event_expired(self.db, owner_id, [ref])
+            for ref in list(dict.fromkeys(linked_events))[:8]
+        ])
 
     async def _open_card(self, owner_id: str, goal: AutonomousGoal) -> Dict[str, Any]:
         from agent.situation_cards import situation_card, concrete_need
