@@ -76,6 +76,7 @@ async def current_situation_updates(db, owner_id: str, *, now: datetime | None =
     rows = await db.agent_updates.find(
         {"owner_id": owner_id,
          "outcome": {"$in": ["inform_user", "requires_attention"]},
+         "moment_type": {"$in": ["action_now", "outcome_estimate"]},
          "at": {"$gte": start, "$lte": moment.isoformat()}},
         {"_id": 0},
     ).sort("at", -1).to_list(MAX_CANDIDATES)
