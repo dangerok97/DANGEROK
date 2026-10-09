@@ -188,3 +188,19 @@ async def test_missing_calendar_source_is_held_without_deleting_old_data():
     assert not await SurfacingService(db)._current(
         OWNER, opp, "2026-10-09T12:22:00+00:00"
     )
+
+
+@pytest.mark.asyncio
+async def test_disconnected_future_calendar_is_held_not_falsely_completed():
+    db = AsyncMongoMockClient().calendar_temporarily_unavailable
+    _, goal, need = await setup(
+        db, when="2030-09-20T21:00:00+02:00",
+    )
+    await db.ingestion_events.delete_many({"user_id": OWNER})
+    result = await AgentService(db).advance(OWNER, goal.id)
+    assert result["state"] == "source_unverifiable"
+    saved = await db.agent_goals.find_one({"owner_id": OWNER, "id": goal.id})
+    assert saved["status"] == "waiting"  # May recover after reconnect.
+    assert saved["requires_user_input"] is True
+    assert await db.agent_needs.count_documents({"owner_id": OWNER, "status": "open"}) == 1
+    assert await AgentService(db).for_detail(OWNER, goal.id) is None
