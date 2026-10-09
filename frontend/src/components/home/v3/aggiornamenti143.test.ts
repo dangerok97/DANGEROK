@@ -53,6 +53,25 @@ test('another unrelated verified update remains visible', () => {
   assert.deepEqual(rows.map(x => x.id), ['su_1234567890', 'opp_other']);
 });
 
+test('old monitored activity never appears as an extra Home card without a new result', () => {
+  const rows = elencoAggiornamenti({
+    agent_work: [{
+      id: 'gol_background', situation_id: sid,
+      what: 'Capire quando la situazione raggiunge esito utile',
+      has_real_activity: true,
+      state: 'Mi manca una cosa che sai solo tu',
+      outcome: 'Attendo',
+    }],
+    opportunities: [{
+      id: 'opp_background', situation_id: sid,
+      title: 'Controllare le condizioni di questa situazione',
+      why_now: 'Va verificata',
+    }],
+    situation_updates: [],
+  });
+  assert.equal(rows.length, 0);
+});
+
 test('without verified evidence there is no invented Situation advice', () => {
   const rows = elencoAggiornamenti({ situation_updates: [] });
   assert.equal(rows.length, 0);
