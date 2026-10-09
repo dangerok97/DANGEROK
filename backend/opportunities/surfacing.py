@@ -295,6 +295,34 @@ class SurfacingService:
         return sorted(out, key=lambda o: o.order_key)[:MAX_CONSIDERED]
 
     async def _current(self, user_id, opportunity, now):
+        # A fast-changing observation is not evergreen. Keep the concern in
+        # storage for re-evaluation, but don't display an old forecast or
+        # journey warning as though it were new. Stable obligations (e.g. an
+        # unresolved document) are NOT silently removed on this age rule.
+        try:
+            from datetime import datetime, timedelta, timezone
+
+            moment = datetime.fromisoformat(str(now).replace("Z", "+00:00"))
+            if moment.tzinfo is None:
+                moment = moment.replace(tzinfo=timezone.utc)
+            if opportunity.valid_until:
+                expiry = datetime.fromisoformat(opportunity.valid_until.replace("Z", "+00:00"))
+                if expiry.tzinfo is None:
+                    expiry = expiry.replace(tzinfo=timezone.utc)
+                if expiry <= moment:
+                    return False
+            if opportunity.time_sensitivity == "perishable":
+                observed = opportunity.last_reviewed_at or opportunity.created_at
+                checked = datetime.fromisoformat(str(observed).replace("Z", "+00:00"))
+                if checked.tzinfo is None:
+                    checked = checked.replace(tzinfo=timezone.utc)
+                if moment - checked > timedelta(hours=24):
+                    return False
+        except (ValueError, TypeError, OverflowError):
+            # Unknown timestamps are not fresh evidence; a perishable case
+            # needs the source to be checked rather than shown as current.
+            if opportunity.time_sensitivity == "perishable":
+                return False
         if any(e.kind == "departure" for e in opportunity.evidence):
             from places.departures import DepartureService
             try:
