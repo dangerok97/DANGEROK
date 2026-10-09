@@ -91,11 +91,16 @@ async def perishable_opportunity_expired(db, owner_id, opportunity, *, now=None)
         return False  # canonical deadline has precedence
     if getattr(opportunity, "time_sensitivity", "") != "perishable":
         return False
-    refs = [
-        e.ref for e in (getattr(opportunity, "evidence", None) or [])
-        if e.kind == "calendar_event" or (
-            e.kind in ("linked_target", "disagreement") and
-            str(e.ref or "").startswith("calendar:")
-        )
-    ]
+    refs = []
+    for evidence in getattr(opportunity, "evidence", None) or []:
+        if evidence.kind in ("calendar_event", "linked_target"):
+            refs.append(evidence.ref)
+        if evidence.kind == "disagreement":
+            # A disagreement is about a *target*, not its email source.
+            # The recorded link knows which appointment is actually at issue.
+            link = await db.connected_situation_links.find_one(
+                {"owner_id": owner_id, "id": evidence.ref, "target_kind": "appointment"},
+                {"_id": 0, "target_ref": 1})
+            if link and link.get("target_ref"):
+                refs.append(link["target_ref"])
     return await source_event_expired(db, owner_id, refs, now=now)
