@@ -186,9 +186,22 @@ export default function ContiEDenaroScreen() {
               ) : null}
 
               <Block title="CONTI COLLEGATI">
+                {data.collegamento?.realta === 'simulated' && (
+                  <View style={styles.item} testID="banca-ambiente-di-prova">
+                    <Text style={styles.itemTitle}>Ambiente bancario di prova</Text>
+                    <Text style={styles.note}>
+                      I saldi e i movimenti mostrati da questa connessione sono simulati.
+                      Non rappresentano denaro reale e non vengono usati come
+                      disponibilità economica effettiva.
+                    </Text>
+                  </View>
+                )}
                 {data.conti.map((c) => (
                   <View key={`${c.banca}-${c.conto}`} style={styles.item}>
                     <Text style={styles.itemTitle}>{c.banca}</Text>
+                    {c.simulato && (
+                      <Text style={styles.note} testID="conto-simulato">CONTO DI PROVA · SALDO SIMULATO</Text>
+                    )}
                     <Text style={styles.itemMeta}>
                       {c.conto}{c.numero ? ' · ' + c.numero : ''}
                     </Text>
@@ -198,11 +211,14 @@ export default function ContiEDenaroScreen() {
                       stessa cosa, quindi si dice quale dei due è.
                     */}
                     <Text style={styles.amount}>
-                      {c.saldo_noto && c.saldo_tipo
-                        ? (c.saldo_tipo === 'disponibile' ? 'Disponibile ' : 'Contabile ') + c.saldo
-                        : c.saldo}
+                      {c.simulato
+                        ? 'Saldo simulato ' + c.saldo
+                        : c.saldo_noto && c.saldo_tipo
+                          ? (c.saldo_tipo === 'disponibile' ? 'Disponibile ' : 'Contabile ') + c.saldo
+                          : c.saldo}
                     </Text>
                     <Text style={styles.itemMeta}>Aggiornato {c.aggiornato}</Text>
+                    {c.avviso_simulazione ? <Text style={styles.note}>{c.avviso_simulazione}</Text> : null}
                     {/*
                       Cosa ORA può e non può fare, a parole. Gli scope tecnici
                       non dicono niente a nessuno, e nascondono proprio la
