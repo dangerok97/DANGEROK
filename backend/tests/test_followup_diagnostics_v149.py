@@ -27,7 +27,12 @@ async def setup(monkeypatch):
     db = AsyncMongoMockClient().test
     await db.agent_goals.create_index("id", unique=True)
     await db.agent_runs.create_index("goal_id", unique=True)
-    await db.ambient_wakes.create_index("identity", unique=True)
+    # Match production's partial uniqueness: a failed alarm releases its
+    # identity and a new durable alarm may be created for that checkpoint.
+    await db.ambient_wakes.create_index(
+        "identity", unique=True,
+        partialFilterExpression={"status": {"$in": ["pending", "claimed"]}},
+    )
     s = SituationState(
         id=SID, user_id=OWNER, session_id="ces_original",
         summary="Panni stesi all'aperto",
