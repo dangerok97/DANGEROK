@@ -496,3 +496,19 @@ console.log('PX1.2 Home 3.0 guards: all assertions passed');
   assert.ok(adapter.includes('"admin": "activity"'),
     'admin flow is not itself evidence of a bill');
 }
+
+
+// v149 — if a situation monitor did not schedule, explain the recorded reason.
+{
+  const card = readCode('src/components/home/v3/UpdateNextStep.tsx');
+  const client = readCode('src/api/client.ts');
+  const backend = readCode('../backend/situations/followup.py');
+  assert.ok(card.includes('motivo-controllo-non-programmato'),
+    'the situation detail needs a visible diagnostic');
+  assert.ok(card.includes('situation.monitor_diagnosis'),
+    'do not replace a source diagnostic with a generic reassurance');
+  assert.ok(client.includes('monitor_diagnosis?:'),
+    'the backend diagnostic must have a typed path to the app');
+  assert.ok(backend.includes('situation_schedule_failed'),
+    'an explicitly failed attempt needs a persisted error, not a silent failure');
+}

@@ -135,6 +135,12 @@ export function UpdateNextStep({ a }: { a: Aggiornamento }) {
                 : 'È registrato un controllo; il suo orario non è disponibile.'
             : 'Non risulta un prossimo controllo confermato: ORA non promette notifiche automatiche.'}
         </Text>
+        {situation.monitor_diagnosis &&
+          !['scheduled', 'due', 'running'].includes(situation.followup_status || '') && (
+          <Text style={[oraType.body, { color: ora.ink2 }]} testID="motivo-controllo-non-programmato">
+            Perché il controllo non è attivo: {situation.monitor_diagnosis}
+          </Text>
+        )}
         {situation.last_checked_at && <Text style={[oraType.small, { color: ora.ink2 }]}>
           Ultima verifica: {quandoAggiornamento(situation.last_checked_at)}
           {situation.last_result ? ` · ${situation.last_result}` : ''}

@@ -224,6 +224,16 @@ class AmbientService:
         out = WakeOutcome(wake_id=wake.id, reason=wake.reason)
         discovery = OpportunityDiscovery(self.db)
 
+        # Repair an existing, already-decided Situation checkpoint before
+        # asking the AI to reassess life. Recovery is bounded and cannot
+        # invent a deadline, notify, or execute external writes.
+        if "situation_unattended" in str(wake.source_ref or ""):
+            try:
+                from situations.followup import repair_missing_dedicated_wakes
+                await repair_missing_dedicated_wakes(self.db, wake.owner_id)
+            except Exception as exc:
+                logger.info("situation wake repair soft-fail: %s", type(exc).__name__)
+
         # A routine wake first refreshes conditional route evidence. This does
         # not assert that the trip will happen; it only equips the ordinary
         # life review with current facts in case the learned pattern repeats.

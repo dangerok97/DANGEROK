@@ -110,7 +110,9 @@ async def test_ignored_recovery_cannot_repeat_menu_or_claim_a_job(monkeypatch):
     result = await run_cognitive_loop(sess=session, user_message=QUESTION, db=db, decision_fn=decide)
     assert decide.await_count == 2
     assert BAD not in result.ora_text and 'Vuoi che' not in result.ora_text
-    assert 'Non risulta confermato' in result.ora_text
+    assert 'Panni stesi' in result.ora_text
+    assert 'non risulta un controllo con data e ora' in result.ora_text
+    assert 'valutazione operativa in questo turno' not in result.ora_text
     assert (await read_followup(db, session.user_id, state.id))['status'] == 'not_scheduled'
     assert await db.ambient_wakes.count_documents({}) == 0
 

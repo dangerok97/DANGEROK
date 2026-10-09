@@ -52,7 +52,7 @@ async def test_active_attention_situation_without_goal_is_recovery_reason():
 
 
 @pytest.mark.asyncio
-async def test_open_goal_for_same_situation_prevents_recovery_duplicate():
+async def test_open_goal_without_checkpoint_triggers_recovery_not_duplicate():
     db = await make_db()
     await insert_situation(db)
     await db.agent_goals.insert_one({
@@ -64,7 +64,11 @@ async def test_open_goal_for_same_situation_prevents_recovery_duplicate():
     })
 
     reasons = await EligibilityService(db).reasons_to_look_again(OWNER)
-    assert "situation_unattended" not in reasons
+    assert "situation_unattended" in reasons, (
+        "a pending goal with no executable checkpoint must be reconsidered; "
+        "the recovery mechanism does not create another goal"
+    )
+    assert await db.agent_goals.count_documents({"owner_id": OWNER}) == 1
 
 
 @pytest.mark.asyncio

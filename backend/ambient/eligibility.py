@@ -138,13 +138,29 @@ class EligibilityService:
                         "status": {"$in": ["proposed", "active", "waiting"]},
                         "source_refs": f"situation:{sid}",
                     },
-                    {"_id": 1},
+                    {"_id": 0, "id": 1, "source_kind": 1, "next_run_at": 1,
+                     "requires_user_input": 1, "requires_user_authority": 1},
                 )
             except Exception as exc:
                 logger.info("eligibility situation goal soft-fail: %s", type(exc).__name__)
                 return False
             if open_goal is None:
                 return True
+            # Previously, the mere existence of an agent goal masked a
+            # missing alarm forever. A lost wake must trigger recovery
+            # even if the goal row is still active.
+            if (
+                open_goal.get("source_kind") == "situation_followup"
+                and not open_goal.get("requires_user_input")
+                and not open_goal.get("requires_user_authority")
+            ):
+                try:
+                    from situations.followup import read_followup
+                    state = await read_followup(self.db, owner_id, sid)
+                    if state["status"] in ("recovery_pending", "not_scheduled"):
+                        return True
+                except Exception as exc:
+                    logger.info("eligibility situation state soft-fail: %s", type(exc).__name__)
         return False
 
     async def reasons_to_look_again(self, owner_id: str) -> List[str]:
