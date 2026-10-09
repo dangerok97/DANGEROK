@@ -41,6 +41,7 @@ async def situation_card(db, owner_id, goal):
         "inactive": False,
         "situation": {
             "id": situation.id,
+            "revision": situation.revision,
             "summary": situation.summary,
             "session_id": situation.session_id,
             "created_at": situation.created_at,
