@@ -370,6 +370,7 @@ export default function ContiEDenaroScreen() {
                     <Text style={styles.movementDay}>{m.quando}</Text>
                     <Text style={styles.movementWhat} numberOfLines={1}>
                       {m.descrizione}
+                      {m.simulato ? ' · MOVIMENTO DI PROVA' : ''}
                       {m.in_sospeso ? ' · in sospeso' : ''}
                     </Text>
                     <Text style={styles.movementAmount}>{m.quanto}</Text>
