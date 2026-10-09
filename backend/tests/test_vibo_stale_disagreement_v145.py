@@ -121,6 +121,9 @@ async def test_no_foreign_calendar_data_or_future_trip_false_expiry():
     ), "a future event may still require a decision"
     assert await AgentService(db).for_detail(OWNER, goal.id) is not None
     assert await AgentService(db).for_detail("foreign-owner", goal.id) is None
+    assert len(await _disagreements(
+        db, OWNER, datetime(2026, 10, 9, 12, tzinfo=timezone.utc)
+    )) == 1
 
 
 @pytest.mark.asyncio
@@ -136,3 +139,25 @@ async def test_old_goal_wake_retired_without_any_external_action():
     assert not stored.get("next_run_at")
     other = await db.agent_needs.find_one({"owner_id": OWNER, "id": need.id})
     assert other["status"] != "open"
+
+
+@pytest.mark.asyncio
+async def test_old_update_url_and_actions_respond_gone_not_prepare(monkeypatch):
+    import deps
+    from fastapi import HTTPException
+    from opportunities.router import one, read_update_work, begin_update_work, UpdateWorkIn
+    from agent.router import need as read_need
+    db = AsyncMongoMockClient().vibo_deeplink
+    _, _, need = await setup(db)
+    monkeypatch.setattr(deps, "db", db)
+    for invoke in [
+        one("opp_vibo_fixture", user={"user_id": OWNER}),
+        read_update_work("opp_vibo_fixture", user={"user_id": OWNER}),
+        begin_update_work("opp_vibo_fixture", UpdateWorkIn(reply="si"),
+                          user={"user_id": OWNER}),
+        read_need(need.id, user={"user_id": OWNER}),
+    ]:
+        with pytest.raises(HTTPException) as err:
+            await invoke
+        assert err.value.status_code == 410
+    assert await db.update_work.count_documents({}) == 0
