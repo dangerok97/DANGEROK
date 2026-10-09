@@ -127,6 +127,13 @@ async def overview(user=Depends(get_current_user)):
     return await money_overview(db, user["user_id"])
 
 
+@router.post("/email-sources/review")
+async def review_email_sources(user=Depends(get_current_user)):
+    """User-requested source review: owner-scoped, bounded, no mail stored."""
+    from financial.source_review import review_email_financial_sources
+    return await review_email_financial_sources(db, user["user_id"], limit=5)
+
+
 def _bank_service():
     """
     Il servizio bancario, con il provider che la configurazione dice.

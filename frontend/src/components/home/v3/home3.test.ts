@@ -464,3 +464,22 @@ console.log('PX1.2 Home 3.0 guards: all assertions passed');
   assert.ok(route.includes("opportunityId && entry !== 'opportunity'"),
     'explicit user-initiated follow-up must not redirect back to the detail');
 }
+
+
+// v147 — a synthetic bank balance is NEVER disposable cash, and a generic
+// Action Engine admin hint is not a real payable bill / Daily Focus.
+{
+  const financeUI = readCode('app/conti-e-denaro.tsx');
+  const financeAPI = readCode('src/api/client.ts');
+  const source = readCode('app/conti-e-denaro.tsx');
+  assert.ok(financeUI.includes('CONTO DI PROVA'), 'demo bank label must be unambiguous');
+  assert.ok(financeUI.includes('Saldo simulato (non reale)'),
+    'simulated balance must not read "Disponibile"');
+  assert.ok(financeAPI.includes('simulato?: boolean'));
+  assert.ok(source.includes('rileggi-email-economiche'));
+  assert.ok(source.includes('api.reviewFinancialEmailSources()'));
+  const adapter = readCode('../backend/home/adapters/action_engine_adapter.py');
+  assert.ok(adapter.includes('if not actionable_refs:'));
+  assert.ok(adapter.includes('"admin": "activity"'),
+    'admin flow is not itself evidence of a bill');
+}

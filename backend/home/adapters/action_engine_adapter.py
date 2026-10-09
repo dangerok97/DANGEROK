@@ -62,12 +62,29 @@ async def load_action_engine_items(db, user_id: str) -> Tuple[List[HomeItem], Li
     for p in projects:
         hint = p.get("next_focus_hint") or p.get("title")
         flow = p.get("flow") or "generic"
+        links = p.get("linked") or {}
+        # The AI-generated hint is not proof of a bill, a real task or a due
+        # date. Legacy administrative projects with no resulting reminder,
+        # task, decision, event or source document must not become Daily Focus
+        # with a fake "Organizza" button. The active session can still be
+        # resumed through its own (separate) truthful row.
+        actionable_refs = [
+            v for kind in (
+                "task_ids", "reminder_ids", "decision_ids",
+                "calendar_event_ids", "documents",
+            )
+            for v in (links.get(kind) or []) if v
+        ]
+        if not actionable_refs:
+            continue
         item_type = {
             "study": "study",
             "event": "event",
             "travel": "travel",
             "medical": "visit",
-            "admin": "bill",
+            # "Admin" is a flow category, not a payment proof. Bills come
+            # from documents/financial facts that have a real amount/date.
+            "admin": "activity",
         }.get(flow, "activity")
         it = HomeItem(
             id=f"ae_proj_{p['id']}",
@@ -95,7 +112,18 @@ async def load_action_engine_items(db, user_id: str) -> Tuple[List[HomeItem], Li
             created_at=p.get("created_at"),
             updated_at=p.get("updated_at") or now.isoformat(),
         )
-        it.actions = actions_for(it)
+        # A project is a container; do not open a *new* generic guided
+        # session with no source context. The existing project session is
+        # the navigable handle if present.
+        sessions = list(p.get("session_ids") or [])
+        if sessions:
+            it.actions = [
+                HomeAction(id="resume_project", label="Riprendi il progetto",
+                           kind="resume", route=f"/action/{sessions[0]}",
+                           primary=True)
+            ]
+        else:
+            it.actions = actions_for(it)
         items.append(it)
 
     return items, []

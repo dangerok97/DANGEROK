@@ -51,6 +51,8 @@ export default function ContiEDenaroScreen() {
   const [data, setData] = useState<MoneyOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [sourceReviewBusy, setSourceReviewBusy] = useState(false);
+  const [sourceReviewNotice, setSourceReviewNotice] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -105,6 +107,21 @@ export default function ContiEDenaroScreen() {
       setError(humanizeError(e, 'default'));
     }
   }, [load]);
+
+  const reviewSources = useCallback(async () => {
+    if (sourceReviewBusy) return;
+    setSourceReviewBusy(true);
+    setSourceReviewNotice(null);
+    try {
+      const outcome = await api.reviewFinancialEmailSources();
+      setSourceReviewNotice(outcome.message);
+      await load();
+    } catch (e: any) {
+      setSourceReviewNotice(humanizeError(e, 'default'));
+    } finally {
+      setSourceReviewBusy(false);
+    }
+  }, [load, sourceReviewBusy]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -188,7 +205,7 @@ export default function ContiEDenaroScreen() {
               <Block title="CONTI COLLEGATI">
                 {data.conti.map((c) => (
                   <View key={`${c.banca}-${c.conto}`} style={styles.item}>
-                    <Text style={styles.itemTitle}>{c.banca}</Text>
+                    <Text style={styles.itemTitle}>{c.banca}{c.simulato ? ' · CONTO DI PROVA' : ''}</Text>
                     <Text style={styles.itemMeta}>
                       {c.conto}{c.numero ? ' · ' + c.numero : ''}
                     </Text>
@@ -198,7 +215,9 @@ export default function ContiEDenaroScreen() {
                       stessa cosa, quindi si dice quale dei due è.
                     */}
                     <Text style={styles.amount}>
-                      {c.saldo_noto && c.saldo_tipo
+                      {c.simulato
+                        ? 'Saldo simulato (non reale): ' + c.saldo
+                        : c.saldo_noto && c.saldo_tipo
                         ? (c.saldo_tipo === 'disponibile' ? 'Disponibile ' : 'Contabile ') + c.saldo
                         : c.saldo}
                     </Text>
@@ -244,6 +263,31 @@ export default function ContiEDenaroScreen() {
                   </View>
                 ))}
               </Block>
+
+              <View style={styles.panel} testID="finanza-rileggi-fonti">
+                <Text style={styles.itemTitle}>Da dove arrivano questi importi?</Text>
+                <Text style={styles.note}>
+                  Se ORA ha letto solo l'oggetto delle email, posso verificare
+                  i messaggi originali collegati per riconoscere servizio,
+                  importo e scadenza. Non salvo il testo delle email.
+                </Text>
+                <Pressable
+                  style={styles.cta}
+                  testID="rileggi-email-economiche"
+                  accessibilityRole="button"
+                  disabled={sourceReviewBusy}
+                  onPress={() => void reviewSources()}
+                >
+                  <Text style={styles.ctaLabel}>
+                    {sourceReviewBusy ? 'Verifica delle fonti…' : 'Rileggi le email economiche'}
+                  </Text>
+                </Pressable>
+                {sourceReviewNotice ? (
+                  <Text style={styles.note} accessibilityLiveRegion="polite">
+                    {sourceReviewNotice}
+                  </Text>
+                ) : null}
+              </View>
 
               <Block title="COSA HO CAPITO">
                 {data.cosa_ho_capito.map((r, n) => (

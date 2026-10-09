@@ -510,6 +510,8 @@ export type MoneyOverview = {
   collegamento?: BankConnection;
   conti: {
     banca: string; conto: string; saldo: string; saldo_noto: boolean;
+    simulato?: boolean;
+    saldo_utilizzabile_per_valutazioni_reali?: boolean;
     // Le ultime quattro cifre, quando servono a dire due conti l'uno
     // dall'altro. Il numero intero non arriva mai fin qui.
     numero?: string;
@@ -1056,6 +1058,10 @@ export const api = {
   // «Conti e denaro»: cosa ORA vede della banca e cosa ne ha capito, già
   // diviso per gradi di certezza.
   moneyOverview: () => request<MoneyOverview>('/financial/overview'),
+  reviewFinancialEmailSources: () => request<{
+    checked: number; read_successfully: number;
+    not_available: number; message: string;
+  }>('/financial/email-sources/review', { method: 'POST' }),
   searchLife: (q: string) =>
     request<LifeSearch>('/search', { method: 'POST', body: JSON.stringify({ q }) }),
   searchSuggestions: () =>
