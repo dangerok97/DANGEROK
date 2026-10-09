@@ -44,3 +44,37 @@ async def email_source_labels(db, owner_id: str, facts: Iterable[FinancialFact])
         if subject:
             by_ref[ref] = f"Email «{subject}»"
     return {fact_id: by_ref[ref] for fact_id, ref in refs.items() if ref in by_ref}
+
+
+def exact_named_zone_timestamp(source_content: dict | None) -> str | None:
+    """Resolve one explicit provider timestamp with an IANA timezone.
+
+    This handles source text such as '2026-10-11 03:25:28 America/Los_Angeles'
+    without treating 'in two days' as more authoritative than the written
+    calendar date. If more than one timestamp is present, no choice is made.
+    It does not decide whether a timestamp denotes a bill, receipt or renewal:
+    that remains the financial judgement's responsibility.
+    """
+    import re
+    from datetime import datetime
+    from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+    text = str((source_content or {}).get("body") or "")
+    matches = re.findall(
+        r"(?<!\\d)(\\d{4}-\\d{2}-\\d{2})[ T]"
+        r"(\\d{2}:\\d{2}:\\d{2})\\s+"
+        r"([A-Za-z][A-Za-z_]+/[A-Za-z_]+(?:/[A-Za-z_]+)?)",
+        text,
+    )
+    if len(set(matches)) != 1:
+        return None
+    day, clock, zone = matches[0]
+    try:
+        at = datetime.fromisoformat(f"{day}T{clock}").replace(tzinfo=ZoneInfo(zone))
+        if at.astimezone(ZoneInfo("UTC")).astimezone(ZoneInfo(zone)).replace(
+            tzinfo=None
+        ) != at.replace(tzinfo=None):
+            return None
+        return at.isoformat()
+    except (ValueError, ZoneInfoNotFoundError):
+        return None
