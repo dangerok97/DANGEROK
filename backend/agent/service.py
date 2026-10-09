@@ -2525,7 +2525,9 @@ class AgentService:
             # A dedicated Situation follow-up is monitoring, not a public
             # update. Material consequences belong to the visibility ledger
             # and are projected as one source-linked situation update.
-            if goal.source_kind == "situation_followup":
+            if (goal.source_kind == "situation_followup"
+                    or (goal.origin == "agent_initiated"
+                        and any(str(ref).startswith("situation:") for ref in goal.source_refs))):
                 continue
             # Only verified work with real evidence becomes a completed card.
             evidence = await self.evidence.for_goal(owner_id, goal.id)
@@ -2540,7 +2542,9 @@ class AgentService:
                 "already_done": "Ho completato e verificato il risultato.",
                 "next_step": ""})
         for goal in await self.repo.open_goals(owner_id, limit=12):
-            if goal.source_kind == "situation_followup":
+            if (goal.source_kind == "situation_followup"
+                    or (goal.origin == "agent_initiated"
+                        and any(str(ref).startswith("situation:") for ref in goal.source_refs))):
                 # No "capire quando..." internal goal exposed as a life
                 # update. A verified actionable result is surfaced separately.
                 continue
