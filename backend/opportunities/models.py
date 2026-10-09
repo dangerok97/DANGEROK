@@ -336,6 +336,10 @@ class Opportunity(BaseModel):
             "seen": bool(self.seen_at),
             "work_status": self.work_status,
             "sources": evidence_labels(self.evidence),
+            # Creation of the alert is not the date of the life event.
+            # Both timestamps must be explicitly available to the interface.
+            "created_at": self.created_at,
+            "valid_until": self.valid_until,
             "status": self.status,
         }
 

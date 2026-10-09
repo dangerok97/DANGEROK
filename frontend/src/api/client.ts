@@ -3212,6 +3212,8 @@ export type UpdateWork = { status: string; message?: string; session_id?: string
 
 export type HomeOpportunity = {
   sources?: string[];
+  created_at?: string | null;
+  valid_until?: string | null;
   work_status?: string;
   status?: string;
   id: string;
@@ -3270,6 +3272,8 @@ export type NotificationPreferences = {
  * was never given.
  */
 export type HomeAgentWork = {
+  created_at?: string | null;
+  valid_until?: string | null;
   prepared_text?: string | null;
   action?: HomeActionDef;
   id: string;

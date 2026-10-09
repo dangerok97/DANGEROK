@@ -38,13 +38,40 @@ export type Aggiornamento = {
   non_so: string;
   /** Il prossimo passo, quando esiste davvero. */
   prossimo_passo: string;
+  /** Quando ORA ha creato la segnalazione, non la data dell'evento. */
   quando: string;
+  /** Termine oltre il quale la segnalazione non e' piu' azionabile. */
+  scade?: string;
   lavoro?: 'verify' | 'prepare';
   preparazione?: { checked_at?: string; summary?: string; question?: string; limits?: string; options?: { event_id: string; title: string; starts_at: string; ends_at: string }[] };
   azione?: { kind: 'verify' | 'prepare' | 'suggestion' | 'route'; label: string; route?: string; params?: Record<string, unknown> };
 };
 
 const SENZA_FONTE = 'originale non disponibile';
+
+/** Date-only values mean "through the named day", not midnight at its start. */
+export function aggiornamentoScaduto(iso?: string | null, now: Date = new Date()): boolean {
+  if (!iso) return false;
+  const parsed = /^\d{4}-\d{2}-\d{2}$/.test(iso)
+    ? new Date(iso + 'T23:59:59.999')
+    : new Date(iso);
+  return !Number.isNaN(parsed.getTime()) && parsed.getTime() < now.getTime();
+}
+
+export function quandoAggiornamento(iso?: string | null): string | null {
+  if (!iso) return null;
+  // A date without a clock has no hour to display. Do not invent 02:00
+  // because the browser happened to parse midnight UTC in Europe/Rome.
+  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+    const [year, month, day] = iso.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null;
+    return date.toLocaleDateString('it-IT', { day: '2-digit', month: 'long', year: 'numeric' });
+  }
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return null;
+  return at.toLocaleString('it-IT', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
 
 /** Tutti gli aggiornamenti della Home, nello stesso ordine in cui si leggono. */
 export function elencoAggiornamenti(home: HomeV2Response | null | undefined): Aggiornamento[] {
@@ -64,7 +91,8 @@ export function elencoAggiornamenti(home: HomeV2Response | null | undefined): Ag
     non_so: w.unknown || '',
     prossimo_passo: w.needs_you || w.outcome || '',
     azione: w.action?.route ? { kind: 'route', label: w.action.label, route: w.action.route, params: w.action.params } : undefined,
-    quando: '',
+    quando: w.created_at || '',
+    scade: w.valid_until || undefined,
   }));
 
   const occasioni: Aggiornamento[] = (home.opportunities || []).slice(0, 2).map((o) => ({
@@ -80,7 +108,8 @@ export function elencoAggiornamenti(home: HomeV2Response | null | undefined): Ag
     non_so: '',
     prossimo_passo: o.what_ora_can_do || '',
     azione: { kind: 'verify', label: 'Verifica con ORA' },
-    quando: '',
+    quando: o.created_at || '',
+    scade: o.valid_until || undefined,
   }));
 
   const suggerimenti: Aggiornamento[] = (home.ora_ti_consiglia || []).slice(0, 3).map((s) => ({
@@ -98,6 +127,7 @@ export function elencoAggiornamenti(home: HomeV2Response | null | undefined): Ag
     prossimo_passo: (s.meta?.preparation as Aggiornamento['preparazione'])?.question || s.action?.label || '',
     azione: s.action && !['expired', 'dismissed', 'completed'].includes(s.status || '') ? { kind: s.action.kind === 'prepare_change' ? 'prepare' : 'suggestion', label: s.action.label, route: s.action.route || undefined, params: s.action.params } : undefined,
     quando: s.created_at || '',
+    scade: s.expires_at || undefined,
   }));
 
   const spunti: Aggiornamento[] = (home.insights || []).map((i) => ({
@@ -113,11 +143,13 @@ export function elencoAggiornamenti(home: HomeV2Response | null | undefined): Ag
     prossimo_passo: i.action?.label || '',
     azione: i.action?.route ? { kind: 'route', label: i.action.label, route: i.action.route, params: i.action.params } : undefined,
     quando: i.created_at || '',
+    scade: i.valid_until || undefined,
   }));
 
   // L'ordine è quello della sezione in Home: prima il lavoro, poi le occasioni
   // sollevate, poi i suggerimenti, poi gli spunti.
-  return [...lavori, ...occasioni, ...suggerimenti, ...spunti];
+  return [...lavori, ...occasioni, ...suggerimenti, ...spunti]
+    .filter(a => !aggiornamentoScaduto(a.scade));
 }
 
 /** Come si chiama, per chi legge, il genere di un aggiornamento. */

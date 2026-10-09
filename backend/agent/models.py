@@ -710,6 +710,8 @@ class AutonomousGoal(BaseModel):
         return {
             "id": self.id,
             "what": cosa,
+            "created_at": self.created_at,
+            "valid_until": self.valid_until,
             "outcome": self.desired_outcome,
             "why_now": self.why_now or None,
             "source": self.where_it_came_from(),

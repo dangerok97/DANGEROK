@@ -2535,6 +2535,11 @@ class AgentService:
                 "already_done": "Ho completato e verificato il risultato.",
                 "next_step": ""})
         for goal in await self.repo.open_goals(owner_id, limit=6):
+            # A pending task tied to a finished event must not remain an
+            # actionable Home update after the source's own validity expires.
+            deadline = _aware_wait_until(goal.valid_until)
+            if deadline is not None and deadline <= _now():
+                continue
             card = await self._open_card(owner_id, goal)
             # A future schedule is not an update. Home is for something that
             # actually happened, something the person must answer, or a
@@ -2555,6 +2560,9 @@ class AgentService:
         if goal is None:
             return None
         if goal.is_open:
+            deadline = _aware_wait_until(goal.valid_until)
+            if deadline is not None and deadline <= _now():
+                return None
             return await self._open_card(owner_id, goal)
         if goal.status == "completed":
             evidence = await self.evidence.for_goal(owner_id, goal.id)

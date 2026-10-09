@@ -24,6 +24,7 @@ import {
   allItems,
 } from './homeItemView.ts';
 import { visualKindFor, visualFor, ALL_VISUAL_KINDS } from './visualKind.ts';
+import { aggiornamentoScaduto, elencoAggiornamenti } from './aggiornamenti.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FRONTEND = resolve(HERE, '../../../..');
@@ -375,3 +376,24 @@ const item = (o: Record<string, unknown> = {}) => ({
 }
 
 console.log('PX1.2 Home 3.0 guards: all assertions passed');
+
+
+// V143 — stale alerts must disappear without deleting recurring memories.
+{
+  const now = Date.now();
+  const expired = new Date(now - 86400000).toISOString();
+  const future = new Date(now + 86400000).toISOString();
+  assert.equal(aggiornamentoScaduto(expired), true);
+  assert.equal(aggiornamentoScaduto(future), false);
+  const rows = elencoAggiornamenti({
+    opportunities: [
+      { id: 'old-birthday', title: 'Compleanno', why_now: 'Ricorrenza', created_at: expired,
+        valid_until: expired, sources: ['Memoria'] },
+      { id: 'future-deadline', title: 'Impegno', why_now: 'Entro domani', created_at: expired,
+        valid_until: future, sources: ['Calendario'] },
+    ],
+  } as any);
+  assert.deepEqual(rows.map(x => x.id), ['future-deadline']);
+  assert.equal(rows[0].quando, expired, 'creation timestamp not confused with event date');
+  assert.equal(rows[0].scade, future, 'expiry is explicit');
+}
