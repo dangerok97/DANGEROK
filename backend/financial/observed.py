@@ -235,7 +235,7 @@ async def the_bank_right_now(db, owner_id: str) -> Dict[str, Any]:
     quella stessa cifra non e' piu' verificabile, e presentarla come il saldo
     di adesso e' la bugia piu' facile di tutto il prodotto.
     """
-    from connectors.bank.service import accounts_of
+    from connectors.bank.service import accounts_of, bank_account_is_simulated
 
     state = "non_collegato"
     try:
@@ -272,6 +272,14 @@ async def the_bank_right_now(db, owner_id: str) -> Dict[str, Any]:
         return out
 
     row = picked[0]
+    if bank_account_is_simulated(row):
+        out["posso_leggere_adesso"] = False
+        out["fonte_simulata"] = True
+        out["come_dirlo"] = (
+            "Il provider è di prova. Non usare mai quel saldo come "
+            "disponibilità economica reale."
+        )
+        return out
     available = row.get("available_balance")
     booked = row.get("current_balance")
     shown = available if available is not None else booked
