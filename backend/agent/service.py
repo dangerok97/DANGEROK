@@ -2137,6 +2137,11 @@ class AgentService:
         plan = await self.repo.plan_for(owner_id, goal_id)
         if goal is None or plan is None or not goal.is_open:
             return {"ok": False, "reason": "unknown_goal"}
+        deadline = _aware_wait_until(goal.valid_until)
+        if (deadline is not None and deadline <= _now()) or (
+            await self._legacy_event_alert_expired(owner_id, goal)
+        ):
+            return {"ok": False, "reason": "expired_source_event"}
         if not reply.strip():
             return {"ok": False, "reason": "empty_answer"}
 
@@ -2381,6 +2386,11 @@ class AgentService:
         plan = await self.repo.plan_for(owner_id, goal_id)
         if goal is None or plan is None:
             return {"ok": False, "reason": "unknown_goal"}
+        deadline = _aware_wait_until(goal.valid_until)
+        if (deadline is not None and deadline <= _now()) or (
+            await self._legacy_event_alert_expired(owner_id, goal)
+        ):
+            return {"ok": False, "reason": "expired_source_event"}
 
         approved: List[Dict[str, Any]] = []
         for step in plan.steps:
