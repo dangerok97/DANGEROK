@@ -30,7 +30,12 @@ export default function OraProductionStart() {
     draft?: string;
   }>();
 
-  if (opportunityId) return <Redirect href={`/aggiornamento/${encodeURIComponent(opportunityId)}` as never} />;
+  // A normal opportunity link opens its detail. An explicit, user-initiated
+  // "Approfondisci con ORA" action opens the real conversation WITH the
+  // exact opportunity handle, not a redirect back to the same card.
+  if (opportunityId && entry !== 'opportunity') {
+    return <Redirect href={`/aggiornamento/${encodeURIComponent(opportunityId)}` as never} />;
+  }
 
   return (
     <OraConversationScreen
