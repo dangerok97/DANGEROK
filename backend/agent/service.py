@@ -596,6 +596,33 @@ class AgentService:
             await refresh(self, goal)
             if not goal.is_open:
                 return {"ok": True, "state": goal.status}
+            # An old disputed time is not a pending mission forever. Retire
+            # its pending actions when the actual appointment has ended.
+            deadline = _aware_wait_until(goal.valid_until)
+            if (deadline is not None and deadline <= _now()) or (
+                await self._legacy_event_alert_expired(owner_id, goal)
+            ):
+                goal.status = "abandoned"
+                goal.next_run_at = None
+                goal.requires_user_input = False
+                goal.requires_user_authority = False
+                goal.rationale = "Il momento utile per questo intervento è passato."
+                await self.repo.save_goal(goal)
+                await self.needs.close_for_goal(
+                    owner_id, goal.id, why="Appuntamento già concluso"
+                )
+                try:
+                    from ambient.repository import AmbientRepository
+                    await AmbientRepository(self.db).cancel_for(
+                        owner_id, source_ref=f"goal:{goal.id}"
+                    )
+                except Exception:
+                    pass  # The terminal goal independently fences subsequent wakes.
+                await self.repo.journal(
+                    owner_id, goal.id, kind="source_expired",
+                    note="La fonte temporale è terminata: lavoro archiviato senza eseguire azioni.",
+                )
+                return {"ok": True, "state": "source_expired"}
 
             revisit_due = bool(
                 run.background
