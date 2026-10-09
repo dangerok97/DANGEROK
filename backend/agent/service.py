@@ -606,7 +606,9 @@ class AgentService:
                 goal.next_run_at = None
                 goal.requires_user_input = False
                 goal.requires_user_authority = False
-                goal.rationale = "Il momento utile per questo intervento è passato."
+                goal.rationale = (
+                    "Il momento utile è passato oppure la fonte non è più verificabile."
+                )
                 await self.repo.save_goal(goal)
                 await self.needs.close_for_goal(
                     owner_id, goal.id, why="Appuntamento già concluso"
@@ -2633,15 +2635,21 @@ class AgentService:
         from opportunities.repository import OpportunityRepository
         from opportunities.source_lifecycle import (
             perishable_opportunity_expired, source_event_expired,
+            appointment_disagreement_unverifiable,
         )
         if goal.opportunity_id:
             linked = await OpportunityRepository(self.db).get(
                 owner_id, goal.opportunity_id
             )
-            if linked and await perishable_opportunity_expired(
-                self.db, owner_id, linked
-            ):
-                return True
+            if linked:
+                if await perishable_opportunity_expired(
+                    self.db, owner_id, linked
+                ):
+                    return True
+                if await appointment_disagreement_unverifiable(
+                    self.db, owner_id, linked
+                ):
+                    return True
         if goal.source_kind != "opportunity":
             return False
         references = list(dict.fromkeys(str(x) for x in (goal.source_refs or [])))[:8]
