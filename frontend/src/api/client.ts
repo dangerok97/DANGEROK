@@ -3297,6 +3297,8 @@ export type MonitoredSituation = {
   tracking?: string | null;
   next_check_reason?: string | null;
   followup_status?: string | null;
+  monitor_diagnosis?: string | null;
+  last_schedule_attempt_at?: string | null;
   next_check_at?: string | null;
   next_check_label?: string | null;
   last_checked_at?: string | null;
