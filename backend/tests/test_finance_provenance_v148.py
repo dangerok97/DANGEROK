@@ -91,6 +91,10 @@ async def test_fake_transactions_do_not_merge_into_real_recurring_charges():
     assert "Movimento di prova" in by_state["SIMULATO"]["cosa"]
     assert "non rappresenta una spesa reale" in by_state["SIMULATO"]["non_so"]
     assert "Movimento di prova" not in by_state["HO VISTO"]["cosa"]
+    from financial.overview import recent_movements
+    recent = await recent_movements(db, "owner")
+    assert any(x["simulato"] for x in recent)
+    assert any(not x["simulato"] for x in recent)
     assert await seen_not_understood(db, "another-owner") == []
 
 
