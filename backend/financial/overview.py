@@ -117,6 +117,17 @@ async def money_overview(db, owner_id: str, *, days: int = 30) -> Dict[str, Any]
         shown = available if available is not None else booked
         currency = str(row.get("currency") or "EUR")
         disconnected = row.get("source_disconnected_at")
+        # Provider metadata wins; older rows may lack the reality flag.
+        # The literal provider label "Mock"/"Demo" is also a declaration
+        # of a test source, not a classification inferred from the amount.
+        institute = str(row.get("institution") or "").strip().lower()
+        simulation_label = institute.startswith(("mock ", "demo ", "test "))
+        simulated = (
+            row.get("source_reality") == "simulated"
+            or (not row.get("source_reality")
+                and connection.get("realta") == "simulated")
+            or simulation_label
+        )
         kind = (
             "disponibile" if available is not None
             else "contabile" if booked is not None else ""
@@ -127,6 +138,7 @@ async def money_overview(db, owner_id: str, *, days: int = 30) -> Dict[str, Any]
                 "banca": row.get("institution") or "Banca",
                 "conto": row.get("display_name") or "Conto",
                 "numero": row.get("masked_number") or "",
+                "simulato": simulated,
                 # Al passato, e detto per intero: e' l'ultima cosa che si e'
                 # potuta leggere, non quello che c'e' adesso.
                 "ultimo_saldo": (
@@ -147,6 +159,7 @@ async def money_overview(db, owner_id: str, *, days: int = 30) -> Dict[str, Any]
         accounts.append({
             "banca": row.get("institution") or "Banca",
             "conto": row.get("display_name") or "Conto",
+            "simulato": simulated,
             # Le ultime quattro cifre, quando ci sono. Mai il numero intero.
             "numero": row.get("masked_number") or "",
             # Il saldo compare solo se la banca lo da'. Uno zero di ripiego
@@ -154,6 +167,11 @@ async def money_overview(db, owner_id: str, *, days: int = 30) -> Dict[str, Any]
             "saldo": _money(shown, currency) if shown is not None
                      else "saldo non comunicato dalla banca",
             "saldo_noto": shown is not None,
+            "saldo_di_prova": simulated,
+            "avviso_simulazione": (
+                "Questo è un conto di prova. Importi e movimenti sono simulati, "
+                "non rappresentano denaro reale."
+            ) if simulated else "",
             "saldo_tipo": kind,
             # Un saldo senza un'ora sopra e' una cifra che si spaccia per
             # adesso. Con l'ora e' un'osservazione, che e' quello che e'.
@@ -279,7 +297,14 @@ async def _connection(db, owner_id: str) -> Dict[str, Any]:
             db=db, permissions=deps.get_permissions_service(),
             vault=deps.get_token_vault(),
         )
-        return await connection_state(service, user_id=owner_id)
+        from connectors.bank.service import provider_reality
+        state = await connection_state(service, user_id=owner_id)
+        state["realta"] = provider_reality(service.provider)
+        if state["realta"] == "simulated":
+            state["avviso"] = (
+                "Collegamento bancario di prova: non è un conto con denaro reale."
+            )
+        return state
     except Exception as e:
         logger.info("connection state soft-fail: %s", type(e).__name__)
         return {"stato": "non_collegato", "in_parole": "Nessun conto collegato."}
