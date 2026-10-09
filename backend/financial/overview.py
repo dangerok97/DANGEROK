@@ -142,7 +142,7 @@ async def money_overview(db, owner_id: str, *, days: int = 30) -> Dict[str, Any]
                 # Al passato, e detto per intero: e' l'ultima cosa che si e'
                 # potuta leggere, non quello che c'e' adesso.
                 "ultimo_saldo": (
-                    f"Ultimo saldo osservato: {_money(shown, currency)}"
+                    f"{'Ultimo saldo simulato' if simulated else 'Ultimo saldo osservato'}: {_money(shown, currency)}"
                     if shown is not None else "Saldo mai comunicato dalla banca"
                 ),
                 "letto_l_ultima_volta": _how_long_ago(
@@ -150,6 +150,8 @@ async def money_overview(db, owner_id: str, *, days: int = 30) -> Dict[str, Any]
                 ),
                 "scollegato": _how_long_ago(disconnected),
                 "in_parole": (
+                    "Questo era un conto di prova. La cifra non rappresenta denaro reale."
+                    if simulated else
                     "Questo conto non è più collegato: non posso più leggerlo, "
                     "e non so se il saldo sia ancora questo."
                 ),
@@ -183,6 +185,20 @@ async def money_overview(db, owner_id: str, *, days: int = 30) -> Dict[str, Any]
 
     said = await what_ora_knows(db, owner_id, days=days)
 
+    from financial.store import FinancialStore
+    from financial.source_display import email_source_labels
+    from financial.durable import governed_facts as durable_facts
+    # Recover only the metadata of the exact, owner-owned message behind
+    # financial facts. Not the mail body and never a guessed payment identity.
+    try:
+        source_facts = (await durable_facts(db, owner_id) +
+                        await FinancialStore(db).known(owner_id, limit=80))
+        source_labels = await email_source_labels(db, owner_id, source_facts)
+    except Exception as e:
+        logger.info("financial source labels soft-fail: %s", type(e).__name__)
+        source_labels = {}
+    bank_simulated = connection.get("realta") == "simulated"
+
     # Cosa ORA ha capito, e con che diritto lo dice.
     #
     #     SO · PENSO · HO VISTO
@@ -197,8 +213,13 @@ async def money_overview(db, owner_id: str, *, days: int = 30) -> Dict[str, Any]
         understood.append({
             "cosa": row["cosa"], "quanto": row["quanto"],
             "ogni_quanto": row.get("quando") or "",
-            "stato": "SO",
-            "perche": row.get("come_lo_so") or "",
+            "stato": "SIMULATO" if bank_simulated and row.get("source_type") == "bank" else "SO",
+            "perche": (
+                "Questo fatto viene da un conto di prova: non è una spesa reale."
+                if bank_simulated and row.get("source_type") == "bank"
+                else row.get("come_lo_so") or ""
+            ),
+            "fonte_email": source_labels.get(row.get("fact_id") or "", ""),
             # Compatibilita' con chi leggeva la versione precedente.
             "quanto_ci_conto": "lo so",
         })
@@ -206,13 +227,19 @@ async def money_overview(db, owner_id: str, *, days: int = 30) -> Dict[str, Any]
         understood.append({
             "cosa": row["cosa"], "quanto": row["quanto"],
             "ogni_quanto": row.get("quando") or "",
-            "stato": "PENSO",
-            "perche": row.get("come_lo_so", ""),
+            "stato": "SIMULATO" if bank_simulated and row.get("source_type") == "bank" else "PENSO",
+            "perche": (
+                "Questo movimento è simulato e non prova una spesa reale."
+                if bank_simulated and row.get("source_type") == "bank"
+                else row.get("come_lo_so", "")
+            ),
+            "fonte_email": source_labels.get(row.get("fact_id") or "", ""),
             "quanto_ci_conto": "penso",
             "come_lo_so": row.get("come_lo_so", ""),
         })
     understood.extend(await seen_not_understood(
         db, owner_id, still_connected=still_connected,
+        simulated=bank_simulated,
     ))
 
     # Collegato alla vita: le situazioni che questi fatti toccano davvero.
@@ -312,6 +339,7 @@ async def _connection(db, owner_id: str) -> Dict[str, Any]:
 
 async def seen_not_understood(
     db, owner_id: str, *, still_connected: bool = True,
+    simulated: bool = False,
 ) -> List[Dict[str, Any]]:
     """
     Le cose che tornano sul conto e che nessuno ha ancora capito.
@@ -377,7 +405,7 @@ async def seen_not_understood(
             ),
             "quanto": _money(abs(newest.amount), newest.currency),
             "ogni_quanto": "",
-            "stato": "HO VISTO",
+            "stato": "SIMULATO" if simulated else "HO VISTO",
             # Al passato quando la fonte non c'e' piu'.
             #
             #     UNA COSA VISTA IERI NON E' UNA COSA CHE STO VEDENDO.
@@ -388,9 +416,12 @@ async def seen_not_understood(
             "perche": (
                 f"l'ho visto {len(members)} volte"
                 + (f", all'incirca ogni {gap} giorni" if gap else "")
-                + ("" if still_connected else ", quando il conto era collegato")
+                + (", su un conto di prova" if simulated
+                   else ("" if still_connected else ", quando il conto era collegato"))
             ),
             "non_so": (
+                "Questo movimento è simulato: non è una spesa reale."
+                if simulated else
                 "Non so ancora che cosa sia." if still_connected
                 else "Non so che cosa sia, e non posso più verificarlo."
             ),
