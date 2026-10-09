@@ -88,20 +88,29 @@ async def perishable_opportunity_expired(db, owner_id, opportunity, *, now=None)
     Only a time-perishable, event-sourced alert qualifies. Other follow-ups
     (refunds, bills, consequences after a trip) must not be thrown away.
     """
-    if getattr(opportunity, "valid_until", None):
-        return False  # canonical deadline has precedence
-    if getattr(opportunity, "time_sensitivity", "") != "perishable":
-        return False
     refs = []
+    disagreement_targets = []
     for evidence in getattr(opportunity, "evidence", None) or []:
         if evidence.kind in ("calendar_event", "linked_target"):
             refs.append(evidence.ref)
         if evidence.kind == "disagreement":
-            # A disagreement is about a *target*, not its email source.
-            # The recorded link knows which appointment is actually at issue.
+            # A calendar discrepancy is perishable because the underlying
+            # appointment ends, regardless of how a historical AI scan
+            # described time_sensitivity ("stable"/"changing"/"perishable").
             link = await db.connected_situation_links.find_one(
                 {"owner_id": owner_id, "id": evidence.ref, "target_kind": "appointment"},
                 {"_id": 0, "target_ref": 1})
             if link and link.get("target_ref"):
-                refs.append(link["target_ref"])
+                disagreement_targets.append(link["target_ref"])
+    if disagreement_targets:
+        # One of several still-current appointments must not be discarded
+        # because another ended. All cited appointment targets must be over.
+        return all([
+            await source_event_expired(db, owner_id, [ref], now=now)
+            for ref in list(dict.fromkeys(disagreement_targets))[:8]
+        ])
+    if getattr(opportunity, "valid_until", None):
+        return False  # canonical deadline governs other opportunity types
+    if getattr(opportunity, "time_sensitivity", "") != "perishable":
+        return False
     return await source_event_expired(db, owner_id, refs, now=now)
