@@ -399,10 +399,7 @@ class ConnectedLifeService:
                 if link is not None:
                     linked += 1
 
-            await self._pass_on(
-                owner_id, signal, answer, link=link,
-                source_content=seen_content,
-            )
+            await self._pass_on(owner_id, signal, answer, link=link)
             await self.signals.settle(owner_id, signal.id, outcome=outcome)
             passed_on += 1
 
@@ -462,7 +459,6 @@ class ConnectedLifeService:
     async def _pass_on(
         self, owner_id: str, signal: ConnectedSignal, answer: Dict[str, Any],
         *, link: Optional[Dict[str, Any]] = None,
-        source_content: Optional[Dict[str, str]] = None,
     ) -> None:
         """
         Hand a meaningful change to the machinery that already handles them.
@@ -491,20 +487,19 @@ class ConnectedLifeService:
                 from financial.bridge import read_money_in
                 from financial.models import Provenance
 
+                facts_only = signal.for_ai()
+                financial_clues = answer.get("financial_observation")
+                if isinstance(financial_clues, dict):
+                    facts_only["financial_observation"] = financial_clues
                 await read_money_in(
                     self.db, owner_id,
-                    observation=signal.for_ai(),
+                    observation=facts_only,
                     provenance=Provenance(
                         source=signal.source_type,
                         source_ref=signal.source_object_ref,
                         how_directly=signal.payload_summary[:200],
                     ),
                     source_refs=[signal.raw_ref] if signal.raw_ref else [],
-                    # The original body was fetched for this judgement.
-                    # Pass it only in memory to the financial judgement:
-                    # never persist an email body in a fact or log.
-                    **({"source_content": source_content}
-                       if source_content else {}),
                 )
             except Exception as e:
                 logger.info("financial soft-fail: %s", type(e).__name__)
