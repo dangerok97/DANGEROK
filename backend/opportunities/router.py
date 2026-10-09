@@ -208,11 +208,22 @@ async def one(opportunity_id: str, user=Depends(get_current_user)):
     found = await OpportunityService(db).repo.get(user["user_id"], opportunity_id)
     if found is None:
         raise HTTPException(status_code=404, detail="unknown_opportunity")
+    await _require_still_useful(db, user["user_id"], found)
     if any(e.kind == "departure" for e in found.evidence):
         from places.departures import DepartureService
         if not await DepartureService(db).evidence_is_current(user["user_id"], found):
             raise HTTPException(status_code=409, detail="Il percorso va aggiornato: l'appuntamento o la posizione sono cambiati.")
     return found.for_home()
+
+
+async def _require_still_useful(db, owner_id: str, opportunity) -> None:
+    """A direct link or action cannot bypass the same expiry as Home."""
+    from datetime import datetime, timezone
+    from opportunities.surfacing import SurfacingService
+    if opportunity.status != "active" or not await SurfacingService(db)._current(
+        owner_id, opportunity, datetime.now(timezone.utc).isoformat()
+    ):
+        raise HTTPException(status_code=410, detail="expired_source_event")
 
 
 class UpdateWorkIn(BaseModel):
@@ -227,6 +238,7 @@ async def read_update_work(opportunity_id: str, user=Depends(get_current_user)):
     found = await OpportunityService(db).repo.get(user['user_id'], opportunity_id)
     if found is None:
         raise HTTPException(404, 'unknown_opportunity')
+    await _require_still_useful(db, user['user_id'], found)
     return await update_work(db, user['user_id'], found)
 
 
@@ -239,4 +251,5 @@ async def begin_update_work(opportunity_id: str, body: UpdateWorkIn, user=Depend
         raise HTTPException(404, 'unknown_opportunity')
     if found.status in ('dismissed', 'suppressed', 'resolved', 'expired'):
         raise HTTPException(409, 'Questo aggiornamento è già chiuso.')
+    await _require_still_useful(db, user['user_id'], found)
     return await update_work(db, user['user_id'], found, start=True, reply=body.reply.strip(), question_revision=body.question_revision)

@@ -414,3 +414,13 @@ console.log('PX1.2 Home 3.0 guards: all assertions passed');
   assert.ok(detail.includes('<UpdateNextStep a={a} />'), 'same situation response remains in details');
   assert.ok(conversation.includes('initialDraft') && conversation.includes('useState((initialDraft'), 'draft must not auto-submit');
 }
+
+
+// v145 — a saved link to a closed September trip is not a new decision.
+{
+  const detail = readCode('app/aggiornamento/[id].tsx');
+  assert.ok(detail.includes('e?.status !== 410'),
+    'Gone must render as no longer active, not an action prompt');
+  assert.ok(detail.includes('non ti chiederà di risolvere un evento già passato'),
+    'the user needs an understandable lifecycle message');
+}

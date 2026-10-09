@@ -88,20 +88,105 @@ async def perishable_opportunity_expired(db, owner_id, opportunity, *, now=None)
     Only a time-perishable, event-sourced alert qualifies. Other follow-ups
     (refunds, bills, consequences after a trip) must not be thrown away.
     """
-    if getattr(opportunity, "valid_until", None):
-        return False  # canonical deadline has precedence
-    if getattr(opportunity, "time_sensitivity", "") != "perishable":
-        return False
     refs = []
+    disagreement_targets = []
     for evidence in getattr(opportunity, "evidence", None) or []:
         if evidence.kind in ("calendar_event", "linked_target"):
             refs.append(evidence.ref)
         if evidence.kind == "disagreement":
-            # A disagreement is about a *target*, not its email source.
-            # The recorded link knows which appointment is actually at issue.
+            # A calendar discrepancy is perishable because the underlying
+            # appointment ends, regardless of how a historical AI scan
+            # described time_sensitivity ("stable"/"changing"/"perishable").
             link = await db.connected_situation_links.find_one(
                 {"owner_id": owner_id, "id": evidence.ref, "target_kind": "appointment"},
                 {"_id": 0, "target_ref": 1})
             if link and link.get("target_ref"):
-                refs.append(link["target_ref"])
+                disagreement_targets.append(link["target_ref"])
+    if disagreement_targets:
+        # One of several still-current appointments must not be discarded
+        # because another ended. All cited appointment targets must be over.
+        return all([
+            await source_event_expired(db, owner_id, [ref], now=now)
+            for ref in list(dict.fromkeys(disagreement_targets))[:8]
+        ])
+    if getattr(opportunity, "valid_until", None):
+        return False  # canonical deadline governs other opportunity types
+    if getattr(opportunity, "time_sensitivity", "") != "perishable":
+        return False
     return await source_event_expired(db, owner_id, refs, now=now)
+
+
+async def source_event_has_verifiable_date(db, owner_id, ref):
+    """Do we still possess an owner-owned, date-bearing original appointment?
+
+    Absence is not proof that an event expired. It *is* proof that an
+    appointment-time discrepancy can no longer be actioned confidently.
+    """
+    event_id = str(ref or "").removeprefix("calendar:")
+    if not event_id:
+        return False
+    if str(ref).startswith("calendar:"):
+        from home.manual_event import get_manual_event
+        row = await get_manual_event(db, owner_id, event_id)
+        if row and row.get("status") == "active":
+            attrs = row.get("attributes") or {}
+            if _instant(
+                attrs.get("ends_at") or attrs.get("starts_at"),
+                zone=str(attrs.get("timezone") or "UTC")
+            ):
+                return True
+    row = await db.calendar_events.find_one(
+        {"user_id": owner_id, "id": event_id,
+         "status": {"$nin": ["cancelled", "archived"]}},
+        {"_id": 0, "start_at": 1, "end_at": 1, "timezone": 1},
+    )
+    if row and _instant(
+        row.get("end_at") or row.get("start_at"),
+        zone=str(row.get("timezone") or "UTC")
+    ):
+        return True
+    row = await db.ingestion_events.find_one(
+        {"user_id": owner_id, "source_record_type": "calendar_event",
+         "external_id": event_id, "ingestion_status": {"$ne": "superseded"}},
+        {"_id": 0, "normalized_payload": 1, "source_status": 1},
+        sort=[("ingested_at", -1)],
+    )
+    if row and row.get("source_status") != "detached":
+        from ingestion.reading import plain
+        payload = plain(row.get("normalized_payload")) or {}
+        if str(payload.get("status") or "").lower() != "cancelled":
+            if _instant(
+                payload.get("ends_at") or payload.get("starts_at"),
+                zone=str(payload.get("timezone") or "UTC")
+            ):
+                return True
+    return False
+
+
+async def appointment_disagreement_unverifiable(db, owner_id, opportunity):
+    """Hide unsupported calendar timing questions, not unrelated concerns.
+
+    This does *not* close the opportunity or invent a deadline: it prevents
+    asking someone to fix a calendar event that ORA can no longer identify.
+    A future/verified event immediately restores eligibility on a later read.
+    """
+    refs = [
+        str(e.ref or "") for e in getattr(opportunity, "evidence", []) or []
+        if e.kind == "disagreement"
+    ][:8]
+    if not refs:
+        return False
+    verified_targets = []
+    for ref in refs:
+        link = await db.connected_situation_links.find_one(
+            {"owner_id": owner_id, "id": ref, "target_kind": "appointment"},
+            {"_id": 0, "target_ref": 1},
+        )
+        if link:
+            target = str(link.get("target_ref") or "").strip()
+            if not target or not await source_event_has_verifiable_date(
+                db, owner_id, target
+            ):
+                return True
+            verified_targets.append(target)
+    return False

@@ -596,6 +596,44 @@ class AgentService:
             await refresh(self, goal)
             if not goal.is_open:
                 return {"ok": True, "state": goal.status}
+            # An old disputed time is not a pending mission forever. Retire
+            # its pending actions when the actual appointment has ended.
+            deadline = _aware_wait_until(goal.valid_until)
+            if (deadline is not None and deadline <= _now()) or (
+                await self._legacy_event_alert_expired(
+                    owner_id, goal, include_unverifiable=False
+                )
+            ):
+                goal.status = "abandoned"
+                goal.next_run_at = None
+                goal.requires_user_input = False
+                goal.requires_user_authority = False
+                goal.rationale = (
+                    "Il momento utile è passato oppure la fonte non è più verificabile."
+                )
+                await self.repo.save_goal(goal)
+                await self.needs.close_for_goal(
+                    owner_id, goal.id, why="Appuntamento già concluso"
+                )
+                try:
+                    from ambient.repository import AmbientRepository
+                    await AmbientRepository(self.db).cancel_for(
+                        owner_id, source_ref=f"goal:{goal.id}"
+                    )
+                except Exception:
+                    pass  # The terminal goal independently fences subsequent wakes.
+                await self.repo.journal(
+                    owner_id, goal.id, kind="source_expired",
+                    note="La fonte temporale è terminata: lavoro archiviato senza eseguire azioni.",
+                )
+                return {"ok": True, "state": "source_expired"}
+            # Missing/disconnected original means no safe action, but is not
+            # proof that a future appointment ended. Pause this run without
+            # erasing work; a later source sync can make it useful again.
+            if await self._legacy_event_alert_expired(
+                owner_id, goal, include_unverifiable=True
+            ):
+                return {"ok": True, "state": "source_unverifiable"}
 
             revisit_due = bool(
                 run.background
@@ -2137,6 +2175,11 @@ class AgentService:
         plan = await self.repo.plan_for(owner_id, goal_id)
         if goal is None or plan is None or not goal.is_open:
             return {"ok": False, "reason": "unknown_goal"}
+        deadline = _aware_wait_until(goal.valid_until)
+        if (deadline is not None and deadline <= _now()) or (
+            await self._legacy_event_alert_expired(owner_id, goal)
+        ):
+            return {"ok": False, "reason": "expired_source_event"}
         if not reply.strip():
             return {"ok": False, "reason": "empty_answer"}
 
@@ -2381,6 +2424,11 @@ class AgentService:
         plan = await self.repo.plan_for(owner_id, goal_id)
         if goal is None or plan is None:
             return {"ok": False, "reason": "unknown_goal"}
+        deadline = _aware_wait_until(goal.valid_until)
+        if (deadline is not None and deadline <= _now()) or (
+            await self._legacy_event_alert_expired(owner_id, goal)
+        ):
+            return {"ok": False, "reason": "expired_source_event"}
 
         approved: List[Dict[str, Any]] = []
         for step in plan.steps:
@@ -2584,14 +2632,69 @@ class AgentService:
                     "next_step": ""}
         return None
 
-    async def _legacy_event_alert_expired(self, owner_id: str, goal) -> bool:
-        if goal.valid_until or not goal.opportunity_id:
+    async def _legacy_event_alert_expired(
+        self, owner_id: str, goal, *, include_unverifiable: bool = True
+    ) -> bool:
+        """No stale pre-event question, even when old records lack an expiry.
+
+        v144 assumed the AI labelled every appointment discrepancy "perishable"
+        and every agent carried an opportunity id. Neither is guaranteed.
+        Use the actual owner-owned calendar target and the stored source handles.
+        """
+        if goal.origin != "agent_initiated" or not goal.is_open:
             return False
         from opportunities.repository import OpportunityRepository
-        from opportunities.source_lifecycle import perishable_opportunity_expired
-        linked = await OpportunityRepository(self.db).get(owner_id, goal.opportunity_id)
-        return bool(linked and await perishable_opportunity_expired(
-            self.db, owner_id, linked))
+        from opportunities.source_lifecycle import (
+            perishable_opportunity_expired, source_event_expired,
+            appointment_disagreement_unverifiable,
+        )
+        if goal.opportunity_id:
+            # Legacy admission fixtures and old migrations can retain only
+            # {id, owner_id, status, revision}, not a complete Opportunity.
+            # Their exact calendar handles are still on the goal itself.
+            # Never let a malformed historic source block a valid new action.
+            from pydantic import ValidationError
+            try:
+                linked = await OpportunityRepository(self.db).get(
+                    owner_id, goal.opportunity_id
+                )
+            except ValidationError:
+                linked = None
+            if linked:
+                if await perishable_opportunity_expired(
+                    self.db, owner_id, linked
+                ):
+                    return True
+                if include_unverifiable and await appointment_disagreement_unverifiable(
+                    self.db, owner_id, linked
+                ):
+                    return True
+        if goal.source_kind != "opportunity":
+            return False
+        references = list(dict.fromkeys(str(x) for x in (goal.source_refs or [])))[:8]
+        linked_events = [x for x in references if x.startswith("calendar:")]
+        for ref in references:
+            link = await self.db.connected_situation_links.find_one(
+                {"owner_id": owner_id, "id": ref, "target_kind": "appointment"},
+                {"_id": 0, "target_ref": 1},
+            )
+            if link and link.get("target_ref"):
+                linked_events.append(str(link["target_ref"]))
+        # A missing original cannot support an actionable "which time?"
+        # prompt. Hide/hold it, without treating it as a proven past event.
+        if include_unverifiable and linked_events:
+            from opportunities.source_lifecycle import source_event_has_verifiable_date
+            for ref in list(dict.fromkeys(linked_events))[:8]:
+                if not await source_event_has_verifiable_date(
+                    self.db, owner_id, ref
+                ):
+                    return True
+        # If several events are cited, one still to occur keeps the question
+        # actionable. An unknown source is never treated as a known expiry.
+        return bool(linked_events) and all([
+            await source_event_expired(self.db, owner_id, [ref])
+            for ref in list(dict.fromkeys(linked_events))[:8]
+        ])
 
     async def _open_card(self, owner_id: str, goal: AutonomousGoal) -> Dict[str, Any]:
         from agent.situation_cards import situation_card, concrete_need

@@ -130,6 +130,41 @@ class DeliveryService:
 
         kind = source_of(subject)
         subject_id = getattr(subject, "id", "")
+        # Do not even ask a model to notify about a provably expired event.
+        # The exact source is rechecked once more just before send.
+        if kind == "opportunity":
+            from opportunities.source_lifecycle import (
+                perishable_opportunity_expired, appointment_disagreement_unverifiable,
+            )
+            from agent.service import _aware_wait_until
+            source_deadline = _aware_wait_until(getattr(subject, "valid_until", None))
+            if (
+                (source_deadline is not None and source_deadline <= datetime.now(timezone.utc))
+                or await perishable_opportunity_expired(self.db, user_id, subject)
+                or await appointment_disagreement_unverifiable(self.db, user_id, subject)
+            ):
+                await self.cancel_for_source(
+                    user_id, subject_id, source_type=kind,
+                    reason="l'appuntamento originario è già terminato",
+                )
+                return DeliveryResult(blocked_by="expired_source_event")
+        if kind == "agent_need" and getattr(subject, "goal_id", None):
+            from agent.repository import AgentRepository
+            from agent.service import AgentService, _aware_wait_until
+            goal = await AgentRepository(self.db).get_goal(
+                user_id, subject.goal_id
+            )
+            if goal is not None:
+                deadline = _aware_wait_until(goal.valid_until)
+                if (
+                    (deadline is not None and deadline <= datetime.now(timezone.utc))
+                    or await AgentService(self.db)._legacy_event_alert_expired(user_id, goal)
+                ):
+                    await self.cancel_for_source(
+                        user_id, subject_id, source_type=kind,
+                        reason="la richiesta dipende da un appuntamento terminato",
+                    )
+                    return DeliveryResult(blocked_by="expired_source_event")
         if kind == "opportunity" and getattr(subject, "source_context", "") == "recurring_memo":
             from memos.delivery_guard import memo_opportunity_current
 
@@ -343,6 +378,20 @@ class DeliveryService:
             )
             if subject is None or subject.status != "active":
                 return None
+            from agent.service import _aware_wait_until
+            deadline = _aware_wait_until(subject.valid_until)
+            if deadline is not None and deadline <= datetime.now(timezone.utc):
+                return None
+            # A successful AI admission is not everlasting authorization
+            # to notify: recheck the owner-owned event before every send.
+            from opportunities.source_lifecycle import (
+                perishable_opportunity_expired, appointment_disagreement_unverifiable,
+            )
+            if (
+                await perishable_opportunity_expired(self.db, user_id, subject)
+                or await appointment_disagreement_unverifiable(self.db, user_id, subject)
+            ):
+                return None
             if getattr(subject, "source_context", "") == "recurring_memo":
                 from memos.delivery_guard import memo_opportunity_current
 
@@ -364,6 +413,14 @@ class DeliveryService:
             # stale row or race from ever becoming a notification.
             goal = await AgentRepository(self.db).get_goal(user_id, need.goal_id)
             if goal is None or not goal.is_open:
+                return None
+            # Do not deliver yesterday's request to resolve a time conflict
+            # for an event already ended, even if its Need remains open.
+            from agent.service import AgentService, _aware_wait_until
+            due = _aware_wait_until(goal.valid_until)
+            if due is not None and due <= datetime.now(timezone.utc):
+                return None
+            if await AgentService(self.db)._legacy_event_alert_expired(user_id, goal):
                 return None
 
             return DeliverySubject.model_validate(need.as_subject())
