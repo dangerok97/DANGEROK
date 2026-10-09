@@ -177,3 +177,47 @@ def test_mock_aspsp_is_explicitly_simulated_even_for_older_accounts():
     assert not bank_account_is_simulated({
         "institution": "Example Bank",
     })
+
+
+@pytest.mark.asyncio
+async def test_connected_email_routes_transient_body_to_financial_model(monkeypatch):
+    """Sender/subject alone is insufficient to identify amount or creditor."""
+    import connected.content as private
+    import financial.bridge as bridge
+    from connected.models import ConnectedSignal, FieldChange
+    from connected.service import ConnectedLifeService
+
+    db = AsyncMongoMockClient().connected_v147
+    source = ConnectedSignal(
+        owner_id="owner", source_id="gmail_instance_1",
+        source_type="email", signal_type="email.message.added",
+        source_object_ref="mail_ing_8_oct",
+        payload_summary="Promemoria dalla tua carta di credito",
+        changed_fields=[FieldChange(field="body", content_withheld=True)],
+    )
+    exact = "Il giorno 10/10/2026 è previsto l'addebito mensile della carta Mastercard Gold."
+    readings = []
+    async def transient(*args, **kwargs):
+        readings.append((args[1], args[2].source_object_ref))
+        return {"body": exact}
+    captures = []
+    async def money(db_, owner_id, *, observation, provenance, source_refs):
+        captures.append((owner_id, observation, provenance, source_refs))
+        return {"outcome": "kept"}
+    monkeypatch.setattr(private, "read_transiently", transient)
+    monkeypatch.setattr(bridge, "read_money_in", money)
+
+    service = ConnectedLifeService(db)
+    await service._pass_on(
+        "owner", source,
+        {"outcome": "worth_knowing", "touches_money": True},
+    )
+    assert readings == [("owner", "mail_ing_8_oct")]
+    assert captures[0][0] == "owner"
+    assert captures[0][1]["private_source_excerpt"] == exact
+    assert captures[0][2].source_ref == "mail_ing_8_oct"
+    assert captures[0][3] == ["mail:mail_ing_8_oct"]
+    # The raw message is never written to the change log or permanent signal.
+    for collection in ("connected_signals", "meaningful_changes", "financial_facts"):
+        rows = await db[collection].find({}).to_list(10)
+        assert exact not in str(rows)
