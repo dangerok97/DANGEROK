@@ -105,3 +105,63 @@ def test_internal_generic_need_is_never_presented_as_question():
         what_is_missing="Dimmi se hai già riportato dentro i panni",
         summary="Serve la tua conferma",
     )) == "Dimmi se hai già riportato dentro i panni"
+
+
+@pytest.mark.asyncio
+async def test_user_can_stop_alerts_without_claiming_situation_resolved(monkeypatch):
+    import deps
+    from agent.router import SituationAlertsIn, situation_alerts
+    from agent.service import AgentService
+
+    db = AsyncMongoMockClient().stop_v144
+    monkeypatch.setattr(deps, "db", db)
+    situation = SituationState(
+        id="sit_active", user_id="owner", session_id="session-own",
+        summary="Situazione temporanea", attention_intent="Controllare prima di avvisare",
+        next_check_summary="Verificare dopo nuove informazioni",
+    )
+    await SituationRepository(db).insert(situation)
+    goal = AutonomousGoal(
+        id="gol_sit_stop", owner_id="owner", status="waiting",
+        source_kind="situation_followup", source_refs=["situation:sit_active"],
+        objective="Monitor", desired_outcome="Controllo",
+    )
+    await db.agent_goals.insert_one(goal.model_dump())
+    cancelled = []
+    async def cancel(service, owner, goal_id, *, reason=""):
+        cancelled.append((owner, goal_id))
+        return {"ok": True, "state": "cancelled"}
+    monkeypatch.setattr(AgentService, "cancel", cancel)
+    result = await situation_alerts(
+        goal.id, SituationAlertsIn(decision="stop_alerts", expected_revision=1),
+        user={"user_id": "owner"},
+    )
+    assert result["monitor_stopped"]
+    after = await SituationRepository(db).get("owner", situation.id)
+    assert after.status == "changed"
+    assert not after.attention_intent
+    assert not after.next_check_summary
+    assert cancelled == [("owner", goal.id)]
+
+
+@pytest.mark.asyncio
+async def test_stale_revision_cannot_cancel_a_newer_situation(monkeypatch):
+    import deps
+    from fastapi import HTTPException
+    from agent.router import SituationAlertsIn, situation_alerts
+
+    db = AsyncMongoMockClient().revision_v144
+    monkeypatch.setattr(deps, "db", db)
+    state = SituationState(id="sit_updated", user_id="owner", summary="Stato aggiornato", revision=2)
+    await SituationRepository(db).insert(state)
+    goal = AutonomousGoal(
+        id="gol_sit_revised", owner_id="owner", source_kind="situation_followup",
+        source_refs=["situation:sit_updated"], objective="Monitoraggio",
+        desired_outcome="Esito",
+    )
+    await db.agent_goals.insert_one(goal.model_dump())
+    with pytest.raises(HTTPException) as raised:
+        await situation_alerts(goal.id, SituationAlertsIn(decision="resolved", expected_revision=1),
+                               user={"user_id": "owner"})
+    assert raised.value.status_code == 409
+    assert (await SituationRepository(db).get("owner", state.id)).status == "active"
