@@ -60,6 +60,14 @@ export function aggiornamentoScaduto(iso?: string | null, now: Date = new Date()
 
 export function quandoAggiornamento(iso?: string | null): string | null {
   if (!iso) return null;
+  // A date without a clock has no hour to display. Do not invent 02:00
+  // because the browser happened to parse midnight UTC in Europe/Rome.
+  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+    const [year, month, day] = iso.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null;
+    return date.toLocaleDateString('it-IT', { day: '2-digit', month: 'long', year: 'numeric' });
+  }
   const at = new Date(iso);
   if (Number.isNaN(at.getTime())) return null;
   return at.toLocaleString('it-IT', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
