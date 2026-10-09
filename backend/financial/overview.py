@@ -465,12 +465,15 @@ async def recent_movements(
     from financial.observation import ObservationStore
 
     out = []
+    account_by_ref = await _bank_observation_reality(db, owner_id)
     for observation in await ObservationStore(db).history(owner_id, limit=limit):
         when = _moment(observation.booked_at)
+        simulated = _observation_is_simulated(observation, account_by_ref)
         out.append({
             "quando": when.strftime("%d/%m") if when else "",
             "descrizione": observation.raw_description or observation.counterparty or "",
             "quanto": _money(abs(observation.amount), observation.currency),
+            "simulato": simulated,
             "verso": "in entrata" if observation.direction == "incoming" else "in uscita",
             "in_sospeso": (observation.provenance or {}).get("status") == "pending",
         })
