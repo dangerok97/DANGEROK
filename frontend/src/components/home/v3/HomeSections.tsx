@@ -15,6 +15,7 @@ import { IconBubble, OraBadge, OraButton, OraCard, OraLink, SectionTitle } from 
 import { ora, oraType } from '@/src/theme/oraSurface';
 import { ContextualCardVisual } from './ContextualCardVisual';
 import { agoLabel, relativeDayLabel } from './homeItemView';
+import { aggiornamentoScaduto, quandoAggiornamento } from './aggiornamenti';
 
 /* -------------------------------------------------------------------------- */
 /* Shared section chrome                                                       */
@@ -314,14 +315,16 @@ export function UpdatesFeed({
     it is the last line of defence: whatever arrives, this section stays a
     section and never becomes a list.
   */
-  const raised = (opportunities || []).slice(0, 2);
+  const raised = (opportunities || []).filter(o => !aggiornamentoScaduto(o.valid_until)).slice(0, 2);
   /*
     Outcomes, not workflow. Two at most, like everything else here: a person
     wanting to know whether something is handled does not want a project
     board, and ORA doing five things at once is a different problem.
   */
-  const working = (agentWork || []).slice(0, 2);
-  const total = suggestions.length + insights.length + raised.length + working.length;
+  const working = (agentWork || []).filter(w => !aggiornamentoScaduto(w.valid_until)).slice(0, 2);
+  const visibleSuggestions = suggestions.filter(s => !aggiornamentoScaduto(s.expires_at)).slice(0, 3);
+  const visibleInsights = insights.filter(i => !aggiornamentoScaduto(i.valid_until)).slice(0, 3);
+  const total = visibleSuggestions.length + visibleInsights.length + raised.length + working.length;
   if (!total) return null;
 
   return (
@@ -350,6 +353,10 @@ export function UpdatesFeed({
       {raised.map((o) => (
         <View key={o.id} style={styles.oppItem} testID={`home-opportunity-${o.id}`}>
           <Text style={[styles.oppTitle, { color: colors.textPrimary }]}>{o.title}</Text>
+          <Text style={[styles.oppWhy, { color: colors.textTertiary }]} testID={`home-opportunity-${o.id}-date`}>
+            Creato: {quandoAggiornamento(o.created_at) || 'data non disponibile'}
+            {o.valid_until ? ` · Scade: ${quandoAggiornamento(o.valid_until) || o.valid_until}` : ''}
+          </Text>
           <Text style={[styles.oppWhy, { color: colors.textTertiary }]} numberOfLines={3}>
             {o.why_now}
           </Text>
@@ -400,7 +407,7 @@ export function UpdatesFeed({
         </View>
       ))}
 
-      {suggestions.slice(0, 3).map((s) => (
+      {visibleSuggestions.map((s) => (
         <Pressable
           key={s.id}
           onPress={() => onOpen(s)}
@@ -451,7 +458,7 @@ export function UpdatesFeed({
         </Pressable>
       ))}
 
-      {insights.slice(0, 3).map((i) => (
+      {visibleInsights.map((i) => (
         <Pressable
           key={i.id}
           onPress={() => onInsight(i)}
