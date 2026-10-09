@@ -61,3 +61,36 @@ def check_financial_extraction(answer: dict, observation: dict) -> dict:
         missing.append("l'importo non è confermato dal messaggio originale")
     corrected["what_is_not_known"] = missing[:8]
     return corrected
+
+
+def explicit_named_zone_due_at(observation: dict) -> str | None:
+    """Preserve one complete datetime with an explicit IANA timezone.
+
+    A message can say "in two days" in the subject but give a full provider
+    timestamp in its content. Only a *single* explicit timestamp is eligible,
+    and this function never decides whether it is a renewal or a payment.
+    The financial judgement must first identify an actual due obligation.
+    """
+    from datetime import datetime
+    from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+    excerpt = str((observation or {}).get("private_source_excerpt") or "")
+    matches = set(re.findall(
+        r"(?<!\\d)(\\d{4}-\\d{2}-\\d{2})[ T]"
+        r"(\\d{2}:\\d{2}:\\d{2})\\s+"
+        r"([A-Za-z_]+/[A-Za-z_]+(?:/[A-Za-z_]+)?)",
+        excerpt,
+    ))
+    if len(matches) != 1:
+        return None
+    date, clock, zone = next(iter(matches))
+    try:
+        z = ZoneInfo(zone)
+        parsed = datetime.fromisoformat(f"{date}T{clock}").replace(tzinfo=z)
+        # Invalid local wall-clock times in DST jumps are not safe deadlines.
+        back = parsed.astimezone(ZoneInfo("UTC")).astimezone(z)
+        if back.replace(tzinfo=None) != parsed.replace(tzinfo=None):
+            return None
+        return parsed.isoformat()
+    except (ValueError, ZoneInfoNotFoundError):
+        return None
