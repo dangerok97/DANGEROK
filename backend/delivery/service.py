@@ -343,6 +343,11 @@ class DeliveryService:
             )
             if subject is None or subject.status != "active":
                 return None
+            # A successful AI admission is not everlasting authorization
+            # to notify: recheck the owner-owned event before every send.
+            from opportunities.source_lifecycle import perishable_opportunity_expired
+            if await perishable_opportunity_expired(self.db, user_id, subject):
+                return None
             if getattr(subject, "source_context", "") == "recurring_memo":
                 from memos.delivery_guard import memo_opportunity_current
 
@@ -364,6 +369,14 @@ class DeliveryService:
             # stale row or race from ever becoming a notification.
             goal = await AgentRepository(self.db).get_goal(user_id, need.goal_id)
             if goal is None or not goal.is_open:
+                return None
+            # Do not deliver yesterday's request to resolve a time conflict
+            # for an event already ended, even if its Need remains open.
+            from agent.service import AgentService, _aware_wait_until
+            due = _aware_wait_until(goal.valid_until)
+            if due is not None and due <= datetime.now(timezone.utc):
+                return None
+            if await AgentService(self.db)._legacy_event_alert_expired(user_id, goal):
                 return None
 
             return DeliverySubject.model_validate(need.as_subject())
