@@ -75,6 +75,67 @@ class FinancialStore:
         if not fact.provenance:
             raise ValueError("un fatto economico senza provenienza non si scrive")
 
+        # A re-read of the EXACT SAME owner-owned email can reveal details
+        # withheld during the first interpretation. This is a correction of
+        # the original observation, not a second bill with a different name.
+        # Never merge two different emails or overwrite a known amount with
+        # a less-supported unknown amount.
+        source = next((
+            p for p in fact.provenance
+            if p.source == "email" and p.source_ref
+        ), None)
+        if source is not None:
+            source_rows = await self.db[FACTS].find({
+                "owner_id": fact.owner_id,
+                "status": {"$in": ["known", "disputed"]},
+                "provenance": {"$elemMatch": {
+                    "source": source.source, "source_ref": source.source_ref,
+                }},
+            }, {"_id": 0}).limit(3).to_list(3)
+            if len(source_rows) == 1:
+                previous = FinancialFact.model_validate(source_rows[0])
+                same = _says_the_same_thing(fact, previous)
+                if same:
+                    await self.db[FACTS].update_one(
+                        {"owner_id": fact.owner_id, "id": previous.id},
+                        {"$set": {"observed_at": fact.observed_at},
+                         "$inc": {"times_seen_again": 1}},
+                    )
+                    return {"outcome": "already_known", "fact_id": previous.id,
+                            "disputes": []}
+                new_specificity = sum(bool(x) for x in (
+                    fact.money.is_known, fact.due_at, fact.counterparty,
+                    fact.cadence == "recurring",
+                ))
+                old_specificity = sum(bool(x) for x in (
+                    previous.money.is_known, previous.due_at,
+                    previous.counterparty, previous.cadence == "recurring",
+                ))
+                improved = (
+                    new_specificity > old_specificity
+                    or (
+                        new_specificity >= old_specificity
+                        and len(fact.what.split()) > len(previous.what.split())
+                    )
+                )
+                if previous.money.is_known and not fact.money.is_known:
+                    improved = False
+                if improved:
+                    await self.db[FACTS].update_one(
+                        {"owner_id": fact.owner_id, "id": previous.id,
+                         "status": {"$in": ["known", "disputed"]}},
+                        {"$set": {"status": "superseded",
+                                  "valid_until": fact.observed_at}},
+                    )
+                    fact.supersedes = previous.id
+                    await self.db[FACTS].insert_one(fact.model_dump())
+                    return {"outcome": "superseded", "fact_id": fact.id,
+                            "disputes": []}
+                # Do not create another active charge from the same email
+                # when the new inference added no evidence.
+                return {"outcome": "already_known", "fact_id": previous.id,
+                        "disputes": []}
+
         siblings = await self.about_the_same_thing(fact)
 
         # QUANDO IL GIUDIZIO DICE COSA STA CAMBIANDO, NON E' UN CONFLITTO.
