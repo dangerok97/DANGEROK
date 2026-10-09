@@ -76,8 +76,8 @@ def explicit_named_zone_due_at(observation: dict) -> str | None:
 
     excerpt = str((observation or {}).get("private_source_excerpt") or "")
     matches = set(re.findall(
-        r"(?<!\\d)(\\d{4}-\\d{2}-\\d{2})[ T]"
-        r"(\\d{2}:\\d{2}:\\d{2})\\s+"
+        r"(?<!\d)(\d{4}-\d{2}-\d{2})[ T]"
+        r"(\d{2}:\d{2}:\d{2})\s+"
         r"([A-Za-z_]+/[A-Za-z_]+(?:/[A-Za-z_]+)?)",
         excerpt,
     ))
