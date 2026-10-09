@@ -3221,6 +3221,8 @@ export type HomeInsight = {
 export type UpdateWork = { status: string; message?: string; session_id?: string; question_revision?: string; result?: { ok: boolean; ora_text?: string; question?: string | null; route?: string | null; sources?: { title?: string; url?: string }[]; pending_turn?: { status?: string }; }; };
 
 export type HomeOpportunity = {
+  /** Canonical Situation, when this opportunity refers to one. */
+  situation_id?: string;
   sources?: string[];
   work_status?: string;
   status?: string;
@@ -3280,6 +3282,8 @@ export type NotificationPreferences = {
  * was never given.
  */
 export type HomeAgentWork = {
+  /** Canonical Situation, when this Goal followed temporary life state. */
+  situation_id?: string;
   prepared_text?: string | null;
   action?: HomeActionDef;
   id: string;
