@@ -85,6 +85,16 @@ async def read_money_in(
     if answer["what_it_is"] == "nothing":
         return {"outcome": "nothing", "why": answer.get("reasoning", "")}
 
+    # Once cognition identified a due obligation, a single exact timestamp
+    # present in the original source (including its timezone) outranks an
+    # approximation like "in two days" from the subject. Do not manufacture
+    # a due date if the model did not identify one in the first place.
+    if answer.get("what_it_is") == "commitment" and answer.get("due_at"):
+        from financial.source_display import exact_named_zone_timestamp
+        exact_due = exact_named_zone_timestamp(source_content)
+        if exact_due:
+            answer["due_at"] = exact_due
+
     fact = _fact_from(
         owner_id, answer, provenance=provenance, source_refs=source_refs or [],
     )
