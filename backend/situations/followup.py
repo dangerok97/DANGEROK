@@ -38,7 +38,98 @@ def goal_id_for(owner, situation_id):
     return "gol_sit_" + hashlib.sha256(f"{owner}:{situation_id}".encode()).hexdigest()[:24]
 
 
+def followup_diagnosis(state):
+    """Explain the actual persisted state; never infer weather or physical results.
+
+    A missing wake is not proof of WHY the model failed to create it. Keep
+    "no registered attempt" distinct from a recorded scheduling rejection.
+    """
+    status = str(state.get("status") or "unavailable")
+    error = str(state.get("last_schedule_error") or "")
+    why = {
+        "runtime_disabled": "Sul server il motore dei controlli automatici non risulta attivo.",
+        "timezone_aware_checkpoint_within_72h_required": (
+            "La proposta di controllo non aveva un orario valido con fuso "
+            "oppure era fuori dalla finestra consentita."
+        ),
+        "bounded_purpose_and_notification_condition_required": (
+            "Mancava uno scopo preciso o la condizione in cui avvisarti."
+        ),
+        "revision_conflict": (
+            "La situazione è cambiata mentre ORA provava a fissare il controllo."
+        ),
+        "situation_changed": (
+            "La situazione è cambiata o è stata chiusa durante la programmazione."
+        ),
+        "active_owned_situation_required": (
+            "Non risulta una situazione attiva utilizzabile per questo controllo."
+        ),
+        "already_being_arranged": (
+            "Un altro tentativo stava già occupandosi della stessa programmazione."
+        ),
+        "goal_not_resumable": (
+            "Il lavoro collegato era già chiuso o in attesa di una risposta/autorizzazione."
+        ),
+        "goal_not_persisted": (
+            "Non è stato possibile registrare il lavoro che avrebbe effettuato il controllo."
+        ),
+        "followup_state_unavailable": (
+            "Non è stato possibile verificare lo stato del controllo nel database."
+        ),
+    }
+    if status in ("scheduled", "due"):
+        label = str(state.get("next_check_label") or "").strip()
+        return ("Risulta programmato un controllo." +
+                (f" Prossima verifica: {label}." if label else ""))
+    if status == "running":
+        return "È in corso una verifica registrata, ma non ne conosco ancora l'esito."
+    if status == "waiting_for_user":
+        return "Il lavoro risulta in attesa di un dato o di un'autorizzazione specifica."
+    if status == "stopped":
+        return "Il monitoraggio è stato chiuso: non è previsto un altro controllo."
+    if status == "runtime_disabled" or state.get("runtime_enabled") is False:
+        return why["runtime_disabled"]
+    if error and error in why:
+        return f"Ultimo tentativo non riuscito: {why[error]}"
+    if status == "recovery_pending":
+        return ("ORA aveva registrato un orario, ma non risulta una sveglia "
+                "eseguibile collegata al lavoro: deve riparare la programmazione.")
+    if status == "not_scheduled":
+        if state.get("goal_id"):
+            return ("La situazione è registrata e il lavoro esiste, ma non "
+                    "risulta una prossima esecuzione confermata.")
+        return ("La situazione è registrata, ma non risulta un controllo "
+                "con data e ora effettivamente salvato. Senza un errore "
+                "registrato non posso attribuire la causa al meteo o ai permessi.")
+    return ("Non riesco a leggere lo stato del controllo dal sistema. "
+            "Questo non prova né che sia programmato né che sia terminato.")
+
+
 async def read_followup(db, owner, situation_id):
+    """Return verified schedule evidence with a meaningful human diagnosis."""
+    state = await _read_followup_snapshot(db, owner, situation_id)
+    if db is not None and owner and situation_id:
+        try:
+            event = await db.agent_journal.find_one(
+                {"owner_id": owner,
+                 "goal_id": goal_id_for(owner, situation_id),
+                 "kind": "situation_schedule_failed"},
+                {"_id": 0, "at": 1, "detail.error_code": 1},
+                sort=[("at", -1)],
+            )
+            if event and state.get("status") not in ("scheduled", "due", "running"):
+                code = str((event.get("detail") or {}).get("error_code") or "")
+                if code:
+                    state["last_schedule_error"] = code[:80]
+                    state["last_schedule_attempt_at"] = event.get("at")
+        except Exception:
+            # An audit lookup failure cannot change the schedule's truth.
+            pass
+    state["diagnosis"] = followup_diagnosis(state)
+    return state
+
+
+async def _read_followup_snapshot(db, owner, situation_id):
     """Read back a real goal, wake and executed check, never presentation copy."""
     out = {"status": "unavailable", "situation_id": situation_id, "next_check_at": None, "last_checked_at": None,
            "next_check_at_local": None, "next_check_time_local": None, "next_check_label": None,
@@ -245,22 +336,58 @@ async def cancel_dedicated_followup(db, owner, situation_id):
 
 
 async def get_situation_followup(args, runtime):
-    state = await read_followup(runtime.get("db"), runtime.get("user_id"), str(args.get("situation_id") or ""))
-    return Observation(kind="tool", name="get_situation_followup", status="ok" if state["status"] != "unavailable" else "error", payload=state)
+    sid = str(args.get("situation_id") or "")
+    state = await read_followup(runtime.get("db"), runtime.get("user_id"), sid)
+    # A successful owner-scoped runtime read is genuine factual evidence
+    # about scheduling status, not evidence that the physical event changed.
+    ref = f"situation:{sid}"
+    if state["status"] != "unavailable":
+        state["factual_readback"] = {
+            "ref": ref,
+            "label": "Stato verificato del monitoraggio ORA",
+            "text": state["diagnosis"],
+        }
+    return Observation(
+        kind="tool", name="get_situation_followup",
+        status="ok" if state["status"] != "unavailable" else "error",
+        payload=state, provenance=[ref] if state["status"] != "unavailable" else [],
+    )
 
 
 async def schedule_situation_check(args, runtime):
-    state = await arrange_followup(runtime.get("db"), runtime.get("user_id"),
-        situation_id=str(args.get("situation_id") or ""), expected_revision=args.get("expected_revision"),
-        check_at=args.get("check_at"), purpose=args.get("purpose"), notify_when=args.get("notify_when"),
+    db, owner = runtime.get("db"), runtime.get("user_id")
+    sid = str(args.get("situation_id") or "")
+    state = await arrange_followup(db, owner,
+        situation_id=sid, expected_revision=args.get("expected_revision"),
+        check_at=args.get("check_at"), purpose=args.get("purpose"),
+        notify_when=args.get("notify_when"),
         completion_when=args.get("completion_when"))
-    return Observation(kind="tool", name="schedule_situation_check", status="ok" if state.get("ok") else "error", payload=state)
+    if not state.get("ok") and db is not None and owner and sid:
+        # Failed attempts need a durable reason. Do not write any user prose,
+        # provider payload, proposed appointment, or raw tool arguments.
+        try:
+            situation = await SituationRepository(db).get(owner, sid)
+            if situation:
+                from agent.repository import AgentRepository
+                code = str(state.get("error") or "not_confirmed")[:80]
+                await AgentRepository(db).journal(
+                    owner, goal_id_for(owner, sid),
+                    kind="situation_schedule_failed", note="Controllo non confermato",
+                    detail={"error_code": code},
+                )
+                state = await read_followup(db, owner, sid)
+                state["ok"] = False
+                state["error"] = code
+        except Exception:
+            pass
+    return Observation(kind="tool", name="schedule_situation_check",
+                       status="ok" if state.get("ok") else "error", payload=state)
 
 
 def register_followup_tools(registry):
     from conversation_engine.ai_core.tools.capability import CapabilitySpec
     registry.register(CapabilitySpec(
-        capability="get_situation_followup", description="Read the actual scheduled next check, last executed check and notification condition of an owned Situation. Active state or presentation copy is not a schedule. Use for when/why ORA planned to revisit or notify.",
+        capability="get_situation_followup", description="Read owner-verified scheduling state, diagnosis and last failed attempt for a Situation. For 'perché non è programmato?', 'a che punto siamo?' or a status-only question, CALL THIS TOOL: it returns a factual_readback with a situation ref. Do not confuse the monitoring status with observation of the physical situation; reading never starts or repairs a job.",
         input_schema={"type": "object", "properties": {"situation_id": {"type": "string"}}, "required": ["situation_id"]},
         classification="personal", side_effect="READ_ONLY", freshness="fresh", handler=get_situation_followup))
     registry.register(CapabilitySpec(
