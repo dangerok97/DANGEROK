@@ -74,6 +74,11 @@ async def read_money_in(
     if answer["what_it_is"] == "nothing":
         return {"outcome": "nothing", "why": answer.get("reasoning", "")}
 
+    # Even a fluent model must not turn a date, a card reference or a plan
+    # capacity into an amount. The original email is available transiently.
+    from financial.source_grounding import check_financial_extraction
+    answer = check_financial_extraction(answer, observation)
+
     fact = _fact_from(
         owner_id, answer, provenance=provenance, source_refs=source_refs or [],
     )
