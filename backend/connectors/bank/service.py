@@ -296,6 +296,9 @@ class BankReadService:
                 "connector_id": CONNECTOR_ID,
                 "instance_id": instance_id,
                 "institution": account.institution,
+                # Test bank rows stay test rows when read from the financial
+                # observation archive, even after a consent is disconnected.
+                "provider_reality": provider_reality(self.provider),
                 # La classificazione del provider viaggia come indizio, in
                 # mezzo alle prove. Non e' la nostra e non deve diventarlo:
                 # un aggregatore che chiama «utilities» un rimborso non
