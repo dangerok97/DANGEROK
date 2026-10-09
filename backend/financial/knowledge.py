@@ -33,7 +33,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from financial.durable import governed_facts, identity_of, needs_your_word
-from financial.models import FinancialFact
+from financial.models import FinancialFact, human_day
 from financial.store import FinancialStore
 
 logger = logging.getLogger("ora.financial.knowledge")
@@ -117,8 +117,11 @@ def _said(
         "cosa": fact.what,
         "quanto": fact.money.for_human(),
         "quando": (
-            f"scade il {fact.due_at[:10]}" if fact.due_at
-            else (fact.recurrence or "")
+            " · ".join(part for part in [
+                f"previsto {human_day(fact.due_at)}"
+                if fact.due_at else "",
+                (fact.recurrence or "") if fact.cadence == "recurring" else "",
+            ] if part)
         ),
         "verso": (
             "in uscita" if fact.direction == "outgoing"
