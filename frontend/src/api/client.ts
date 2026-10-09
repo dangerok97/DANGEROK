@@ -3215,6 +3215,8 @@ export type HomeInsight = {
 export type UpdateWork = { status: string; message?: string; session_id?: string; question_revision?: string; result?: { ok: boolean; ora_text?: string; question?: string | null; route?: string | null; sources?: { title?: string; url?: string }[]; pending_turn?: { status?: string }; }; };
 
 export type HomeOpportunity = {
+  /** No concrete task or explicit question was attached to this observation. */
+  informational_only?: boolean;
   sources?: string[];
   created_at?: string | null;
   valid_until?: string | null;
