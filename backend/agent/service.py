@@ -600,7 +600,9 @@ class AgentService:
             # its pending actions when the actual appointment has ended.
             deadline = _aware_wait_until(goal.valid_until)
             if (deadline is not None and deadline <= _now()) or (
-                await self._legacy_event_alert_expired(owner_id, goal)
+                await self._legacy_event_alert_expired(
+                    owner_id, goal, include_unverifiable=False
+                )
             ):
                 goal.status = "abandoned"
                 goal.next_run_at = None
@@ -625,6 +627,13 @@ class AgentService:
                     note="La fonte temporale è terminata: lavoro archiviato senza eseguire azioni.",
                 )
                 return {"ok": True, "state": "source_expired"}
+            # Missing/disconnected original means no safe action, but is not
+            # proof that a future appointment ended. Pause this run without
+            # erasing work; a later source sync can make it useful again.
+            if await self._legacy_event_alert_expired(
+                owner_id, goal, include_unverifiable=True
+            ):
+                return {"ok": True, "state": "source_unverifiable"}
 
             revisit_due = bool(
                 run.background
@@ -2623,7 +2632,9 @@ class AgentService:
                     "next_step": ""}
         return None
 
-    async def _legacy_event_alert_expired(self, owner_id: str, goal) -> bool:
+    async def _legacy_event_alert_expired(
+        self, owner_id: str, goal, *, include_unverifiable: bool = True
+    ) -> bool:
         """No stale pre-event question, even when old records lack an expiry.
 
         v144 assumed the AI labelled every appointment discrepancy "perishable"
@@ -2654,7 +2665,7 @@ class AgentService:
                     self.db, owner_id, linked
                 ):
                     return True
-                if await appointment_disagreement_unverifiable(
+                if include_unverifiable and await appointment_disagreement_unverifiable(
                     self.db, owner_id, linked
                 ):
                     return True
