@@ -32,7 +32,7 @@ async def setup(db, *, owner=OWNER, when=END, sensitivity="changing"):
         "ingested_at": "2026-09-16T11:00:00+00:00",
         "normalized_payload": {
             "title": "Viaggio a Vibo Marina",
-            "starts_at": "2026-09-20T18:00:00+02:00",
+            "starts_at": ("2030-09-20T18:00:00+02:00" if when.startswith("2030") else "2026-09-20T18:00:00+02:00"),
             "ends_at": when,
             "status": "confirmed",
         },
@@ -120,6 +120,7 @@ async def test_no_foreign_calendar_data_or_future_trip_false_expiry():
         OWNER, opp, "2026-10-09T12:00:00+00:00"
     ), "a future event may still require a decision"
     assert await AgentService(db).for_detail(OWNER, goal.id) is not None
+    assert await AgentService(db).for_detail("foreign-owner", goal.id) is None
 
 
 @pytest.mark.asyncio
