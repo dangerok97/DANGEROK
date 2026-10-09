@@ -525,8 +525,9 @@ export type MoneyOverview = {
   cosa_ho_capito: {
     cosa: string; quanto: string; ogni_quanto?: string;
     // SO · PENSO · HO VISTO. Tre cose diverse, non tre toni della stessa.
-    stato?: 'SO' | 'PENSO' | 'HO VISTO';
+    stato?: 'SO' | 'PENSO' | 'HO VISTO' | 'SIMULATO';
     perche?: string;
+    fonte_email?: string;
     non_so?: string;
     quanto_ci_conto: string; come_lo_so?: string;
   }[];
