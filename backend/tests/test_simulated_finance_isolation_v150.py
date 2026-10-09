@@ -143,9 +143,12 @@ async def test_old_governed_demo_fact_not_in_real_horizon_or_known_finances(monk
         provenance=[Provenance(source="inferred", how_directly="bank")],
         source_refs=["real_recurring"],
     )
-    monkeypatch.setattr(durable, "governed_facts", AsyncMock(return_value=[demo, real]))
+    governed = AsyncMock(return_value=[demo, real])
+    monkeypatch.setattr(durable, "governed_facts", governed)
+    monkeypatch.setattr(knowledge, "governed_facts", governed)
     monkeypatch.setattr(FinancialStore, "known", AsyncMock(return_value=[]))
     monkeypatch.setattr(durable, "needs_your_word", AsyncMock(return_value=[]))
+    monkeypatch.setattr(knowledge, "needs_your_word", AsyncMock(return_value=[]))
     monkeypatch.setattr(observed, "the_bank_right_now", AsyncMock(return_value={}))
     monkeypatch.setattr(observed, "what_was_seen", AsyncMock(return_value={}))
     monkeypatch.setattr(observed, "this_month", AsyncMock(return_value={}))
