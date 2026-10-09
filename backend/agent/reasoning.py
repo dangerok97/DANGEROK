@@ -798,7 +798,7 @@ async def decide_visibility(
         "useful, evidence-backed estimated completion window. When something "
         "needs immediate action, lead with the short action and reason — e.g. "
         "move the relevant thing somewhere safe if a local forecast supports "
-        "an imminent risk. This is not specific to laundry or any topic. "
+        "an imminent risk. The same principle applies to every domain of daily life. "
         "If a physical process is not directly observable, NEVER state its "
         "completion as a confirmed fact merely because time elapsed: say it "
         "may now be ready and invite the person to check. Never use old "
