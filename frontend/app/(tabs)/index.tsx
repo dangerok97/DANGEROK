@@ -421,7 +421,8 @@ export default function HomeScreen() {
   const hasAnything = !!focus || questions.length > 0 || today.length > 0
     || updates.length > 0 || (home?.insights?.length ?? 0) > 0 || horizon.length > 0
     || (home?.opportunities?.length ?? 0) > 0
-    || (home?.agent_work?.length ?? 0) > 0;
+    || (home?.agent_work?.length ?? 0) > 0
+    || (home?.situation_updates?.length ?? 0) > 0;
 
   const mainColumn = (
     <View style={styles.main}>
@@ -500,12 +501,15 @@ export default function HomeScreen() {
             {updateFeed.length
             || (home?.insights?.length ?? 0)
             || (home?.opportunities?.length ?? 0)
-            || (home?.agent_work?.length ?? 0) ? (
+            || (home?.agent_work?.length ?? 0)
+             || (home?.situation_updates?.length ?? 0) ? (
               <UpdatesFeed
                 suggestions={updateFeed}
                 insights={home?.insights || []}
                 opportunities={home?.opportunities || []}
                 agentWork={home?.agent_work || []}
+                situationUpdates={home?.situation_updates || []}
+                onOpenSituation={(item) => router.push(`/aggiornamento/${encodeURIComponent(item.id)}` as never)}
                 busyId={suggestionBusy}
                 onOpen={(s) => router.push(`/aggiornamento/${encodeURIComponent(s.id)}` as never)}
                 onDismiss={onSuggestionDismiss}
