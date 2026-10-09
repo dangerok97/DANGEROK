@@ -319,7 +319,9 @@ class SurfacingService:
         # Historical cards may predate valid_until. Their explicitly cited
         # calendar event can still prove that a perishable alert is over.
         from opportunities.source_lifecycle import perishable_opportunity_expired
-        if await perishable_opportunity_expired(self.db, user_id, opportunity):
+        if await perishable_opportunity_expired(
+                self.db, user_id, opportunity, now=datetime.fromisoformat(now.replace("Z", "+00:00"))
+        ):
             return False
         if any(e.kind == "departure" for e in opportunity.evidence):
             from places.departures import DepartureService
