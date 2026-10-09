@@ -171,6 +171,22 @@ async def money_overview(db, owner_id: str, *, days: int = 30) -> Dict[str, Any]
 
     said = await what_ora_knows(db, owner_id, days=days)
 
+    # An old generic "qualcosa di economico" still has a source handle.
+    # Show the ORIGINAL email subject to let the person identify the notice;
+    # never promote that subject into a new confirmed payment category.
+    from financial.source_display import email_labels_for_facts
+    from financial.store import FinancialStore
+    from financial.durable import governed_facts
+    try:
+        fact_rows = (
+            await governed_facts(db, owner_id)
+            + await FinancialStore(db).known(owner_id, limit=80)
+        )
+        email_labels = await email_labels_for_facts(db, owner_id, fact_rows)
+    except Exception as exc:
+        logger.info("finance email metadata read soft-fail: %s", type(exc).__name__)
+        email_labels = {}
+
     # Cosa ORA ha capito, e con che diritto lo dice.
     #
     #     SO · PENSO · HO VISTO
@@ -187,6 +203,7 @@ async def money_overview(db, owner_id: str, *, days: int = 30) -> Dict[str, Any]
             "ogni_quanto": row.get("quando") or "",
             "stato": "SO",
             "perche": row.get("come_lo_so") or "",
+            "fonte_email": email_labels.get(str(row.get("fact_id") or ""), ""),
             # Compatibilita' con chi leggeva la versione precedente.
             "quanto_ci_conto": "lo so",
         })
@@ -196,6 +213,7 @@ async def money_overview(db, owner_id: str, *, days: int = 30) -> Dict[str, Any]
             "ogni_quanto": row.get("quando") or "",
             "stato": "PENSO",
             "perche": row.get("come_lo_so", ""),
+            "fonte_email": email_labels.get(str(row.get("fact_id") or ""), ""),
             "quanto_ci_conto": "penso",
             "come_lo_so": row.get("come_lo_so", ""),
         })
