@@ -308,6 +308,11 @@ export default function ContiEDenaroScreen() {
                       {r.stato || (r.quanto_ci_conto === 'penso' ? 'PENSO' : 'SO')}
                       {r.perche ? ' — ' + r.perche : ''}
                     </Text>
+                    {!!r.fonte_email && (
+                      <Text style={styles.itemMeta} testID="finanza-fonte-email">
+                        Da dove viene: {r.fonte_email}
+                      </Text>
+                    )}
                     {r.non_so ? (
                       <Text style={styles.itemMeta}>{r.non_so}</Text>
                     ) : null}
@@ -365,6 +370,7 @@ export default function ContiEDenaroScreen() {
                     <Text style={styles.movementDay}>{m.quando}</Text>
                     <Text style={styles.movementWhat} numberOfLines={1}>
                       {m.descrizione}
+                      {m.simulato ? ' · MOVIMENTO DI PROVA' : ''}
                       {m.in_sospeso ? ' · in sospeso' : ''}
                     </Text>
                     <Text style={styles.movementAmount}>{m.quanto}</Text>

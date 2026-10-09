@@ -114,6 +114,10 @@ def _said(
 ) -> Dict[str, Any]:
     """Un fatto come una riga leggibile. Nessun id, nessuno stato tecnico."""
     line = {
+        # Consumed only by Conti e denaro to join an owner-scoped source
+        # label; never exposed to the UI as a technical identifier.
+        "fact_id": fact.id,
+        "source_type": fact.provenance[0].source if fact.provenance else "",
         "cosa": fact.what,
         "quanto": fact.money.for_human(),
         "quando": (

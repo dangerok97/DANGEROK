@@ -375,6 +375,19 @@ const item = (o: Record<string, unknown> = {}) => ({
   assert.ok(!/api\.|update|save/i.test(account), 'casing is display-only, never persisted');
 }
 
+// V148: observed costs must retain their source, mock debits stay mock.
+{
+  const financePage = readCode('app/conti-e-denaro.tsx');
+  const moneyModel = readCode('src/api/client.ts');
+  assert.ok(financePage.includes('Da dove viene: {r.fonte_email}'),
+    'the person sees the precise email behind the claimed charge');
+  assert.ok(moneyModel.includes('fonte_email?: string'));
+  const financeBackend = readCode('../backend/financial/overview.py');
+  assert.ok(financeBackend.includes('SIMULATO') &&
+    financeBackend.includes('Movimento di prova'),
+    'an unidentified mock payment must not look like an actual cost');
+}
+
 console.log('PX1.2 Home 3.0 guards: all assertions passed');
 
 

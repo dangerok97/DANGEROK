@@ -171,6 +171,22 @@ async def money_overview(db, owner_id: str, *, days: int = 30) -> Dict[str, Any]
 
     said = await what_ora_knows(db, owner_id, days=days)
 
+    # An old generic "qualcosa di economico" still has a source handle.
+    # Show the ORIGINAL email subject to let the person identify the notice;
+    # never promote that subject into a new confirmed payment category.
+    from financial.source_display import email_labels_for_facts
+    from financial.store import FinancialStore
+    from financial.durable import governed_facts
+    try:
+        fact_rows = (
+            await governed_facts(db, owner_id)
+            + await FinancialStore(db).known(owner_id, limit=80)
+        )
+        email_labels = await email_labels_for_facts(db, owner_id, fact_rows)
+    except Exception as exc:
+        logger.info("finance email metadata read soft-fail: %s", type(exc).__name__)
+        email_labels = {}
+
     # Cosa ORA ha capito, e con che diritto lo dice.
     #
     #     SO · PENSO · HO VISTO
@@ -187,6 +203,7 @@ async def money_overview(db, owner_id: str, *, days: int = 30) -> Dict[str, Any]
             "ogni_quanto": row.get("quando") or "",
             "stato": "SO",
             "perche": row.get("come_lo_so") or "",
+            "fonte_email": email_labels.get(str(row.get("fact_id") or ""), ""),
             # Compatibilita' con chi leggeva la versione precedente.
             "quanto_ci_conto": "lo so",
         })
@@ -196,6 +213,7 @@ async def money_overview(db, owner_id: str, *, days: int = 30) -> Dict[str, Any]
             "ogni_quanto": row.get("quando") or "",
             "stato": "PENSO",
             "perche": row.get("come_lo_so", ""),
+            "fonte_email": email_labels.get(str(row.get("fact_id") or ""), ""),
             "quanto_ci_conto": "penso",
             "come_lo_so": row.get("come_lo_so", ""),
         })
@@ -291,6 +309,34 @@ async def _connection(db, owner_id: str) -> Dict[str, Any]:
         return {"stato": "non_collegato", "in_parole": "Nessun conto collegato."}
 
 
+async def _bank_observation_reality(db, owner_id: str) -> Dict[str, Dict[str, Any]]:
+    """Owner-scoped account metadata; older fake observations need this lookup."""
+    try:
+        rows = await db.bank_accounts.find(
+            {"owner_id": owner_id}, {"_id": 0, "account_ref": 1,
+                "provider_reality": 1, "institution": 1, "display_name": 1}
+        ).to_list(80)
+        return {str(row["account_ref"]): row for row in rows if row.get("account_ref")}
+    except Exception:
+        return {}
+
+
+def _observation_is_simulated(observation, account_by_ref: Dict[str, Dict[str, Any]]) -> bool:
+    from connectors.bank.service import bank_account_is_simulated
+
+    provenance = observation.provenance or {}
+    explicit = str(provenance.get("provider_reality") or "").lower()
+    if explicit in ("real", "simulated"):
+        return explicit == "simulated"
+    account = account_by_ref.get(str(observation.account_ref), {})
+    if account:
+        return bank_account_is_simulated(account)
+    # Historical observations may remain after an account is no longer
+    # available. "Mock ASPSP" is the provider's own demo label, not a
+    # deduction from amount or recurrence.
+    return bank_account_is_simulated({"institution": provenance.get("institution")})
+
+
 async def seen_not_understood(
     db, owner_id: str, *, still_connected: bool = True,
 ) -> List[Dict[str, Any]]:
@@ -326,12 +372,16 @@ async def seen_not_understood(
     except Exception as e:
         logger.info("fact read soft-fail: %s", type(e).__name__)
 
-    groups: Dict[str, List[Any]] = {}
+    account_by_ref = await _bank_observation_reality(db, owner_id)
+    groups: Dict[tuple[bool, str], List[Any]] = {}
     for observation in history:
-        groups.setdefault(_grouping_key(observation), []).append(observation)
+        is_demo = _observation_is_simulated(observation, account_by_ref)
+        # Do not combine a fake monthly movement with a real one just
+        # because both banks used the same transaction description.
+        groups.setdefault((is_demo, _grouping_key(observation)), []).append(observation)
 
     out: List[Dict[str, Any]] = []
-    for members in groups.values():
+    for (simulated, _), members in groups.items():
         # Se anche uno solo dei movimenti di questo gruppo e' gia' diventato
         # qualcosa, il gruppo intero non e' piu' «da capire».
         #
@@ -353,12 +403,13 @@ async def seen_not_understood(
         gap = _typical_gap(members)
         out.append({
             "cosa": (
-                f"{'Entrata' if newest.direction == 'incoming' else 'Pagamento'} di "
+                f"{'Movimento di prova: ' if simulated else ''}"
+                f"{'entrata' if newest.direction == 'incoming' else 'pagamento'} di "
                 f"{_money(abs(newest.amount), newest.currency)}"
             ),
             "quanto": _money(abs(newest.amount), newest.currency),
             "ogni_quanto": "",
-            "stato": "HO VISTO",
+            "stato": "SIMULATO" if simulated else "HO VISTO",
             # Al passato quando la fonte non c'e' piu'.
             #
             #     UNA COSA VISTA IERI NON E' UNA COSA CHE STO VEDENDO.
@@ -369,9 +420,12 @@ async def seen_not_understood(
             "perche": (
                 f"l'ho visto {len(members)} volte"
                 + (f", all'incirca ogni {gap} giorni" if gap else "")
-                + ("" if still_connected else ", quando il conto era collegato")
+                + (", su un conto di prova" if simulated
+                   else "" if still_connected else ", quando il conto era collegato")
             ),
             "non_so": (
+                "Movimento simulato: non rappresenta una spesa reale."
+                if simulated else
                 "Non so ancora che cosa sia." if still_connected
                 else "Non so che cosa sia, e non posso più verificarlo."
             ),
@@ -411,12 +465,15 @@ async def recent_movements(
     from financial.observation import ObservationStore
 
     out = []
+    account_by_ref = await _bank_observation_reality(db, owner_id)
     for observation in await ObservationStore(db).history(owner_id, limit=limit):
         when = _moment(observation.booked_at)
+        simulated = _observation_is_simulated(observation, account_by_ref)
         out.append({
             "quando": when.strftime("%d/%m") if when else "",
             "descrizione": observation.raw_description or observation.counterparty or "",
             "quanto": _money(abs(observation.amount), observation.currency),
+            "simulato": simulated,
             "verso": "in entrata" if observation.direction == "incoming" else "in uscita",
             "in_sospeso": (observation.provenance or {}).get("status") == "pending",
         })
