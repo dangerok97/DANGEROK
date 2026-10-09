@@ -64,6 +64,7 @@ KNOWN_SOURCES: Dict[str, tuple] = {
     # A mailbox says two things and neither of them is a meaning: something
     # arrived, and a conversation moved on.
     "communications": ("message.received", "thread.updated"),
+    "travel": ("booking.updated", "booking.cancelled"),
     "situations": (
         "linked_source_changed",
         "situation.created",
