@@ -72,10 +72,14 @@ export function elencoAggiornamenti(home: Partial<HomeV2Response> | null | undef
     prossimo_passo: '',
     quando: u.created_at,
   }));
+  // A Situation's ambient watch is private working state. If no fresh
+  // verified consequence exists we show NOTHING about it; if one exists the
+  // single situation_updates row below is its only visible representation.
+  // Do not fall back to a Goal/Opportunity implementation status.
   const represented = new Set((home.situation_updates || []).map((u) => u.situation_id));
 
   const lavori: Aggiornamento[] = (home.agent_work || [])
-    .filter((w) => !w.situation_id || !represented.has(w.situation_id))
+    .filter((w) => !w.situation_id)
     .slice(0, 2).map((w) => ({
     id: w.id,
     genere: 'lavoro',
@@ -94,7 +98,7 @@ export function elencoAggiornamenti(home: Partial<HomeV2Response> | null | undef
   }));
 
   const occasioni: Aggiornamento[] = (home.opportunities || [])
-    .filter((o) => !o.situation_id || !represented.has(o.situation_id))
+    .filter((o) => !o.situation_id)
     .slice(0, 2).map((o) => ({
     id: o.id,
     genere: 'occasione',
