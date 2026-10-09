@@ -75,6 +75,41 @@ async def update_situation_feedback(
         )
     except SituationMutationError as exc:
         raise HTTPException(status_code=409, detail=exc.code) from exc
+    if body.action == "changed" and result.get("status") == "success":
+        # User supplied a new current physical fact; the existing watcher may
+        # now review it immediately. Do not invent a second goal or remove a
+        # user authority/input block. A source-review flag allows fresh reads
+        # instead of completing an old plan against the stale situation.
+        try:
+            from datetime import datetime, timezone
+            from ambient.service import AmbientService
+
+            stamp = datetime.now(timezone.utc)
+            rows = await db.agent_goals.find({
+                "owner_id": owner, "source_kind": "situation_followup",
+                "source_refs": f"situation:{situation_id}",
+                "status": {"$in": ["active", "waiting"]},
+            }, {"_id": 0, "id": 1, "requires_user_authority": 1}).to_list(4)
+            for row in rows:
+                if row.get("requires_user_authority"):
+                    continue
+                await db.agent_goals.update_one(
+                    {"owner_id": owner, "id": row["id"],
+                     "status": {"$in": ["active", "waiting"]}},
+                    {"$set": {
+                        "next_run_at": stamp.isoformat(),
+                        "source_review_pending": stamp.isoformat(),
+                        "updated_at": stamp.isoformat(),
+                    }},
+                )
+                await AmbientService(db).schedule(
+                    owner, reason="opportunity_revisit", when=stamp,
+                    source_ref=f"goal:{row['id']}",
+                )
+        except Exception:
+            # The Situation was already safely persisted. The durable source
+            # change and normal background recovery remain available.
+            pass
     return {
         "ok": result.get("status") == "success",
         "action": body.action,
