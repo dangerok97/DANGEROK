@@ -153,7 +153,7 @@ async def test_money_overview_never_calls_sandbox_balance_available_cash(monkeyp
 
 
 @pytest.mark.asyncio
-async def test_connected_life_forwards_private_content_only_for_meaningful_money(monkeypatch):
+async def test_connected_life_forwards_distilled_facts_never_private_body(monkeypatch):
     from connected.models import ConnectedSignal
     from connected.service import ConnectedLifeService
     from financial import bridge
@@ -168,22 +168,59 @@ async def test_connected_life_forwards_private_content_only_for_meaningful_money
         payload_summary="È arrivato un promemoria economico.",
         raw_ref="mail:message_owned",
     )
-    excerpt = {"body": "Il 10 ottobre si addebiteranno le spese della carta, importo non indicato."}
+    facts = {
+        "purpose": "Addebito della carta di credito",
+        "kind": "card_statement", "amount": None, "currency": "EUR",
+        "due_at": "2026-10-10", "amount_unknown": True,
+        "source_quality": "body",
+    }
     await ConnectedLifeService(db)._pass_on(
         "owner", signal, {
             "outcome": "worth_knowing", "touches_money": True,
-            "what_it_means": "Promemoria carta"
-        }, source_content=excerpt
+            "what_it_means": "Promemoria carta",
+            "financial_observation": facts,
+        }
     )
     assert observed.await_count == 1
-    assert observed.await_args.kwargs["source_content"] == excerpt
-    assert observed.await_args.kwargs["provenance"].source_ref == "message_owned"
+    passed = observed.await_args.kwargs
+    assert passed["observation"]["financial_observation"] == facts
+    assert "source_content" not in passed
+    assert passed["provenance"].source_ref == "message_owned"
 
     observed.reset_mock()
     await ConnectedLifeService(db)._pass_on(
         "owner", signal, {
             "outcome": "worth_knowing", "touches_money": False,
             "what_it_means": "Altro"
-        }, source_content=excerpt
+        }
     )
     observed.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_one_private_read_distills_source_fact_without_body_persistence(monkeypatch):
+    from connected import reasoning
+    from unittest.mock import AsyncMock
+
+    body = ("Il rinnovo costa 0,99 € ogni mese dal giorno "
+            "2026-10-11 03:25:28 America/Los_Angeles.")
+    raw = {
+        "outcome": "worth_knowing", "touches_money": True,
+        "financial_observation": {
+            "purpose": "Rinnovo dello spazio online", "kind": "subscription",
+            "amount": 0.99, "currency": "EUR",
+            "due_at": "2026-10-10", "cadence": "recurring",
+            "amount_unknown": False, "source_quality": "body",
+        }
+    }
+    monkeypatch.setattr(reasoning, "_ask_model", AsyncMock(return_value=raw))
+    answer = await reasoning.interpret_signal(
+        {"what_kind_of_change": "email.message.added"},
+        life={}, source={}, recent=[], content={"body": body},
+    )
+    assert answer["financial_observation"]["amount"] == 0.99
+    assert answer["financial_observation"]["due_at"] == (
+        "2026-10-11T03:25:28-07:00"
+    )
+    assert "body" not in str(answer)
+    assert body not in str(answer)
