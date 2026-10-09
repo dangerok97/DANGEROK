@@ -52,7 +52,7 @@ const SENZA_FONTE = 'originale non disponibile';
 /** Date-only values mean "through the named day", not midnight at its start. */
 export function aggiornamentoScaduto(iso?: string | null, now: Date = new Date()): boolean {
   if (!iso) return false;
-  const parsed = /^\\d{4}-\\d{2}-\\d{2}$/.test(iso)
+  const parsed = /^\d{4}-\d{2}-\d{2}$/.test(iso)
     ? new Date(iso + 'T23:59:59.999')
     : new Date(iso);
   return !Number.isNaN(parsed.getTime()) && parsed.getTime() < now.getTime();
