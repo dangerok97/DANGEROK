@@ -72,14 +72,31 @@ async def load_financial_context(
         # Il titolo dice quanti sono, non quanto fanno. La somma esiste solo
         # se ogni singolo importo e' noto, e anche allora e' «quello che so»,
         # non «quello che spenderai».
+        facts = list(horizon.outgoing) + list(horizon.incoming)
         how_many = len(coming)
-        title = (
-            "Conosco un pagamento entro fine mese" if how_many == 1
-            else f"Conosco {how_many} movimenti entro fine mese"
-        )
-        body = ". ".join(_as_a_person_would_say(c) for c in coming[:4])
+        # A count is not an answer: name the actual item first, before any
+        # button can invite the person to "organise" an unidentified payment.
+        if how_many == 1 and facts:
+            kind = "Pagamento" if facts[0].direction == "outgoing" else "Entrata"
+            title = f"{kind} previsto: {facts[0].what}"[:240]
+        else:
+            title = f"{how_many} movimenti economici nei prossimi 30 giorni"
+        body = ". ".join(_as_a_person_would_say(line) for line in coming[:4])
+        origins = []
+        for fact in facts[:4]:
+            where = (
+                fact.provenance[0].how_directly
+                or fact.provenance[0].source
+                if fact.provenance else ""
+            )
+            if where:
+                origins.append(f"{fact.what}: {where}")
+        if origins:
+            body += ". Origine: " + "; ".join(origins)
         if said["cosa_non_so"]:
-            body = f"{body}. Non so {said['cosa_non_so'][0]}."
+            body += ". Non so " + said["cosa_non_so"][0] + "."
+        observed = [str(f.created_at) for f in facts if f.created_at]
+        first_seen_at = min(observed) if observed else now_iso()
         items.append(HomeItem(
             id=stable_id("fin", user_id, "horizon"),
             type="insight",
@@ -90,9 +107,11 @@ async def load_financial_context(
             source_id="horizon",
             status="open",
             confidence=0.8,
-            created_at=now_iso(),
+            created_at=first_seen_at,
             updated_at=now_iso(),
-            meta={"dedupe_key": "fin:horizon"},
+            # A financial summary is knowledge, not an agreed task. It must
+            # not become the main "Organizza" focus by a generic fallback.
+            meta={"dedupe_key": "fin:horizon", "knowledge_only": True},
         ))
 
     # Quello che ORA ha letto e non puo' credere da sola. Non e' un errore
