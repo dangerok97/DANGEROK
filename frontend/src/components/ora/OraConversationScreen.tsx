@@ -455,6 +455,8 @@ type Props = {
   /** A need ORA raised, and the goal it belongs to. Both, or neither. */
   needId?: string | null;
   goalId?: string | null;
+  /** User-visible proposed reply, never sent until they deliberately press Send. */
+  initialDraft?: string | null;
   entryPoint?: OraEntryPoint;
   devHarness?: boolean;
   testID?: string;
@@ -475,6 +477,7 @@ function OraConversationBody({
   opportunityId,
   needId,
   goalId,
+  initialDraft,
   entryPoint = 'ora',
   devHarness,
   testID = 'ora-conversation',
@@ -487,7 +490,7 @@ function OraConversationBody({
   const [turns, setTurns] = useState<Turn[]>([]);
   const [suggestedOpportunity, setSuggestedOpportunity] = useState<HomeOpportunity | null>(null);
   const [suggestedFocus, setSuggestedFocus] = useState<HomeItem | null>(null);
-  const [text, setText] = useState('');
+  const [text, setText] = useState((initialDraft || '').slice(0, 1400));
   const [busy, setBusy] = useState(false);
   const currentActivityRequest = useRef<string | null>(null);
   const [activityRequestId, setActivityRequestId] = useState<string | null>(null);

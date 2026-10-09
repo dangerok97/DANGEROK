@@ -17,7 +17,7 @@ import { OraConversationScreen } from '@/src/components/ora/OraConversationScree
 import { oraEntryPointFrom } from '@/src/ora/oraNav';
 
 export default function OraProductionStart() {
-  const { planId, objectId, planItemId, documentId, questionId, opportunityId, needId, goalId, entry } = useLocalSearchParams<{
+  const { planId, objectId, planItemId, documentId, questionId, opportunityId, needId, goalId, entry, draft } = useLocalSearchParams<{
     planId?: string;
     objectId?: string;
     planItemId?: string;
@@ -27,6 +27,7 @@ export default function OraProductionStart() {
     needId?: string;
     goalId?: string;
     entry?: string;
+    draft?: string;
   }>();
 
   if (opportunityId) return <Redirect href={`/aggiornamento/${encodeURIComponent(opportunityId)}` as never} />;
@@ -41,6 +42,7 @@ export default function OraProductionStart() {
       opportunityId={opportunityId}
       needId={needId}
       goalId={goalId}
+      initialDraft={draft}
       entryPoint={oraEntryPointFrom(entry)}
       testID="ora-production-start"
     />

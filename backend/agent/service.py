@@ -2540,7 +2540,11 @@ class AgentService:
             deadline = _aware_wait_until(goal.valid_until)
             if deadline is not None and deadline <= _now():
                 continue
+            if await self._legacy_event_alert_expired(owner_id, goal):
+                continue
             card = await self._open_card(owner_id, goal)
+            if card.get("stale"):
+                continue
             # A future schedule is not an update. Home is for something that
             # actually happened, something the person must answer, or a
             # concrete failure/overdue condition worth surfacing now.
@@ -2563,7 +2567,10 @@ class AgentService:
             deadline = _aware_wait_until(goal.valid_until)
             if deadline is not None and deadline <= _now():
                 return None
-            return await self._open_card(owner_id, goal)
+            if await self._legacy_event_alert_expired(owner_id, goal):
+                return None
+            card = await self._open_card(owner_id, goal)
+            return None if card.get("stale") else card
         if goal.status == "completed":
             evidence = await self.evidence.for_goal(owner_id, goal.id)
             if real_support(evidence):
@@ -2577,10 +2584,35 @@ class AgentService:
                     "next_step": ""}
         return None
 
+    async def _legacy_event_alert_expired(self, owner_id: str, goal) -> bool:
+        if goal.valid_until or not goal.opportunity_id:
+            return False
+        from opportunities.repository import OpportunityRepository
+        from opportunities.source_lifecycle import perishable_opportunity_expired
+        linked = await OpportunityRepository(self.db).get(owner_id, goal.opportunity_id)
+        return bool(linked and await perishable_opportunity_expired(
+            self.db, owner_id, linked))
+
     async def _open_card(self, owner_id: str, goal: AutonomousGoal) -> Dict[str, Any]:
+        from agent.situation_cards import situation_card, concrete_need
+        monitored = await situation_card(self.db, owner_id, goal)
+        if monitored and monitored.get("inactive"):
+            return {"stale": True}
         scheda = {**goal.for_human(), "state": await self._progress_of(owner_id, goal)}
-        scheda["source"] = await self._where_it_really_came_from(owner_id, goal)
+        if monitored:
+            situation = monitored["situation"]
+            scheda["situation"] = situation
+            scheda["what"] = situation["summary"]
+            scheda["why_now"] = situation["reason"] or goal.why_now
+            scheda["source"] = "Situazione temporanea registrata in ORA"
+            scheda["outcome"] = situation["expected_outcome"] or goal.desired_outcome
+        if not monitored:
+            scheda["source"] = await self._where_it_really_came_from(owner_id, goal)
         scheda["unknown"] = scheda.pop("unclear", "") or self._what_is_still_vague(goal)
+        # Internal placeholders are not questions. An actual open Need must
+        # supply its own concrete wording before the user is asked anything.
+        if goal.requires_user_input or goal.requires_user_authority:
+            scheda["needs_you"] = ""
 
         # Proof-of-work narrative for Home. Every sentence below is grounded
         # either in the goal that admitted the work or in a journal row written
@@ -2618,9 +2650,14 @@ class AgentService:
 
         needs = await self.needs.open_for_goal(owner_id, goal.id)
         if needs:
-            scheda["next_step"] = scheda.get("needs_you") or "Mi serve una tua risposta per continuare."
-            scheda["action"] = {"id": needs[0].id, "kind": "route", "label": "Rispondi alla richiesta",
-                "route": "/ora", "params": {"needId": needs[0].id, "goalId": goal.id, "entry": "agent_need"}}
+            question = concrete_need(needs[0])
+            if question:
+                scheda["needs_you"] = question
+                scheda["next_step"] = question
+                scheda["action"] = {"id": needs[0].id, "kind": "route", "label": "Rispondi alla richiesta",
+                    "route": "/ora", "params": {"needId": needs[0].id, "goalId": goal.id, "entry": "agent_need"}}
+            else:
+                scheda["next_step"] = "ORA non ha formulato una domanda specifica; non devi indovinare cosa rispondere."
         elif goal.background_runs >= 3 and not goal.next_run_at:
             scheda["next_step"] = ""
         elif goal.next_run_at:
@@ -2629,6 +2666,19 @@ class AgentService:
             scheda["next_step"] = "Proseguo da sola finché non serve una tua decisione."
         else:
             scheda["next_step"] = ""
+        if monitored:
+            tracking = monitored["situation"]
+            label = tracking.get("next_check_label")
+            status = tracking.get("followup_status")
+            if status in ("scheduled", "due") and label:
+                scheda["next_step"] = f"Prossimo controllo programmato: {label}."
+            elif status == "running":
+                scheda["next_step"] = "Sto verificando le condizioni; non presumo che l'esito sia già avvenuto."
+            elif status in ("not_scheduled", "recovery_pending", "runtime_disabled", "unavailable"):
+                scheda["problem"] = "Non risulta un prossimo controllo confermato per questa situazione."
+                scheda["next_step"] = scheda["problem"]
+            if goal.requires_user_input and not scheda.get("needs_you"):
+                scheda["next_step"] = "Serve un chiarimento preciso da ORA prima di poter rispondere."
         return scheda
 
     async def _where_it_really_came_from(self, owner_id: str, goal) -> str:

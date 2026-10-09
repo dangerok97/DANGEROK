@@ -1251,6 +1251,10 @@ export const api = {
   /** What a tap from an agent need lands on. */
   getAgentNeed: (needId: string) => request<AgentNeed>(`/agent/needs/${needId}`),
   getAgentGoal: (goalId: string) => request<HomeAgentWork>(`/agent/${encodeURIComponent(goalId)}`),
+  stopSituationAlerts: (goalId: string, decision: 'stop_alerts' | 'resolved', expected_revision: number) =>
+    request<{ ok: boolean; monitor_stopped: boolean }>(`/agent/${encodeURIComponent(goalId)}/situation-alerts`, {
+      method: 'POST', body: JSON.stringify({ decision, expected_revision }),
+    }),
 
   /**
    * They said yes to what was prepared.
@@ -3271,7 +3275,28 @@ export type NotificationPreferences = {
  * no plan status and no capability name: the interface cannot show what it
  * was never given.
  */
+export type MonitoredSituation = {
+  id: string;
+  revision: number;
+  summary: string;
+  session_id?: string | null;
+  created_at?: string | null;
+  current_state?: string | null;
+  expected_outcome?: string | null;
+  reason?: string | null;
+  tracking?: string | null;
+  next_check_reason?: string | null;
+  followup_status?: string | null;
+  next_check_at?: string | null;
+  next_check_label?: string | null;
+  last_checked_at?: string | null;
+  last_result?: string | null;
+  notify_when?: string | null;
+  purpose?: string | null;
+};
+
 export type HomeAgentWork = {
+  situation?: MonitoredSituation | null;
   created_at?: string | null;
   valid_until?: string | null;
   prepared_text?: string | null;
