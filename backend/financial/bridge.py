@@ -42,6 +42,7 @@ async def read_money_in(
     observation: Dict[str, Any],
     provenance: Provenance,
     source_refs: Optional[List[str]] = None,
+    source_content: Optional[Dict[str, str]] = None,
     language: str = "it",
 ) -> Dict[str, Any]:
     """
@@ -63,8 +64,18 @@ async def read_money_in(
     known = [f.for_ai() for f in await store.known(owner_id, limit=40)]
     life = await _life(db, owner_id)
 
+    # Connected Life already asked to read this source and obtained a
+    # bounded, transient excerpt. Do not discard it and reinterpret only
+    # the email subject: doing so turned credit-card notices into generic
+    # "payments" and lost amounts/dates shown in the body.
+    what_arrived = dict(observation)
+    if source_content:
+        what_arrived["source_excerpt_read_for_this_judgement"] = {
+            k: str(v)[:1200] for k, v in source_content.items()
+            if k in ("body", "attachments", "notes")
+        }
     answer = await read_financial_meaning(
-        observation, life=life, already_known=known, language=language,
+        what_arrived, life=life, already_known=known, language=language,
     )
     if answer is None:
         # Silenzio del giudizio. Non e' «niente»: e' «non lo so», e il mondo
