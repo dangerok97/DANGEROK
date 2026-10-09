@@ -522,7 +522,7 @@ export type MoneyOverview = {
   cosa_ho_capito: {
     cosa: string; quanto: string; ogni_quanto?: string;
     // SO · PENSO · HO VISTO. Tre cose diverse, non tre toni della stessa.
-    stato?: 'SO' | 'PENSO' | 'HO VISTO';
+    stato?: 'SO' | 'PENSO' | 'HO VISTO' | 'SIMULATO';
     perche?: string;
     /** Exact owner-owned source email subject, when available. */
     fonte_email?: string;
@@ -541,7 +541,7 @@ export type MoneyOverview = {
   }[];
   movimenti_recenti: {
     quando: string; descrizione: string; quanto: string;
-    verso: string; in_sospeso: boolean;
+    verso: string; in_sospeso: boolean; simulato?: boolean;
   }[];
   vale_la_pena_mostrarlo: boolean;
 };
