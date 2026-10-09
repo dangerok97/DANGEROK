@@ -82,7 +82,7 @@ async def money_overview(db, owner_id: str, *, days: int = 30) -> Dict[str, Any]
     escono da qui pronte, cosi' che la schermata non debba rifare da sola la
     distinzione fra affermare, riferire e chiedere.
     """
-    from connectors.bank.service import accounts_of
+    from connectors.bank.service import accounts_of, bank_account_is_simulated
     from financial.durable import governed_facts, needs_your_word
     from financial.knowledge import what_ora_knows
     from financial.observation import ObservationStore
@@ -108,6 +108,7 @@ async def money_overview(db, owner_id: str, *, days: int = 30) -> Dict[str, Any]
     accounts = []
     past_sources = []
     for row in await accounts_of(db, owner_id):
+        simulated = bank_account_is_simulated(row)
         # Contabile e disponibile non sono la stessa cosa, e la differenza si
         # vede quando conta: il disponibile tiene conto di quello che e' gia'
         # impegnato e non ancora contabilizzato. Si mostra quello che la
@@ -147,6 +148,7 @@ async def money_overview(db, owner_id: str, *, days: int = 30) -> Dict[str, Any]
         accounts.append({
             "banca": row.get("institution") or "Banca",
             "conto": row.get("display_name") or "Conto",
+            "simulato": simulated,
             # Le ultime quattro cifre, quando ci sono. Mai il numero intero.
             "numero": row.get("masked_number") or "",
             # Il saldo compare solo se la banca lo da'. Uno zero di ripiego
@@ -154,12 +156,16 @@ async def money_overview(db, owner_id: str, *, days: int = 30) -> Dict[str, Any]
             "saldo": _money(shown, currency) if shown is not None
                      else "saldo non comunicato dalla banca",
             "saldo_noto": shown is not None,
+            "saldo_utilizzabile_per_valutazioni_reali": bool(shown is not None and not simulated),
             "saldo_tipo": kind,
             # Un saldo senza un'ora sopra e' una cifra che si spaccia per
             # adesso. Con l'ora e' un'osservazione, che e' quello che e'.
             "aggiornato": _how_long_ago(row.get("balance_at") or row.get("updated_at")),
             "non_piu_aggiornato": False,
-            "cosa_posso_fare": WHAT_ORA_CAN_DO,
+            "cosa_posso_fare": (
+                "Questo conto è di prova: posso mostrarti solo dati simulati, "
+                "non la tua disponibilità reale." if simulated else WHAT_ORA_CAN_DO
+            ),
             "cosa_non_posso_fare": WHAT_ORA_CANNOT_DO,
         })
 
