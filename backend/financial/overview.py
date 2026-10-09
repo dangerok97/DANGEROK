@@ -217,6 +217,18 @@ async def money_overview(db, owner_id: str, *, days: int = 30) -> Dict[str, Any]
             "quanto_ci_conto": "penso",
             "come_lo_so": row.get("come_lo_so", ""),
         })
+    for row in said.get("dati_di_prova") or []:
+        understood.append({
+            "cosa": row.get("cosa") or "Movimento di prova",
+            "quanto": row.get("quanto") or "importo non noto",
+            "ogni_quanto": row.get("quando") or "",
+            "stato": "SIMULATO",
+            "perche": (
+                "Dati storici provenienti da un provider bancario di prova. "
+                "Non rappresentano un impegno o un'entrata reale."
+            ),
+            "quanto_ci_conto": "simulato",
+        })
     understood.extend(await seen_not_understood(
         db, owner_id, still_connected=still_connected,
     ))
