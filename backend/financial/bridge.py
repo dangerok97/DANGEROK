@@ -76,8 +76,16 @@ async def read_money_in(
 
     # Even a fluent model must not turn a date, a card reference or a plan
     # capacity into an amount. The original email is available transiently.
-    from financial.source_grounding import check_financial_extraction
+    from financial.source_grounding import (
+        check_financial_extraction, explicit_named_zone_due_at,
+    )
     answer = check_financial_extraction(answer, observation)
+    # Only a recognized due commitment may use the sole exact provider
+    # timestamp. The excerpt is transient; the normalized date is the fact.
+    if answer.get("what_it_is") == "commitment" and answer.get("due_at"):
+        precise = explicit_named_zone_due_at(observation)
+        if precise:
+            answer["due_at"] = precise
 
     fact = _fact_from(
         owner_id, answer, provenance=provenance, source_refs=source_refs or [],
