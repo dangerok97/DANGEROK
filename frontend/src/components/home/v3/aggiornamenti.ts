@@ -14,7 +14,7 @@
  * superfici. Nessun campo viene inventato: quello che una sorgente non dice
  * resta vuoto, e l'interfaccia lo dichiara invece di riempirlo.
  */
-import type { HomeV2Response } from '@/src/api/client';
+import type { HomeV2Response, MonitoredSituation } from '@/src/api/client';
 
 export type GenereAggiornamento = 'lavoro' | 'suggerimento' | 'spunto' | 'occasione';
 
@@ -42,6 +42,7 @@ export type Aggiornamento = {
   quando: string;
   /** Termine oltre il quale la segnalazione non e' piu' azionabile. */
   scade?: string;
+  situazione?: MonitoredSituation | null;
   lavoro?: 'verify' | 'prepare';
   preparazione?: { checked_at?: string; summary?: string; question?: string; limits?: string; options?: { event_id: string; title: string; starts_at: string; ends_at: string }[] };
   azione?: { kind: 'verify' | 'prepare' | 'suggestion' | 'route'; label: string; route?: string; params?: Record<string, unknown> };
@@ -93,6 +94,7 @@ export function elencoAggiornamenti(home: HomeV2Response | null | undefined): Ag
     azione: w.action?.route ? { kind: 'route', label: w.action.label, route: w.action.route, params: w.action.params } : undefined,
     quando: w.created_at || '',
     scade: w.valid_until || undefined,
+    situazione: w.situation || null,
   }));
 
   const occasioni: Aggiornamento[] = (home.opportunities || []).slice(0, 2).map((o) => ({
