@@ -76,7 +76,6 @@ export function elencoAggiornamenti(home: Partial<HomeV2Response> | null | undef
   // verified consequence exists we show NOTHING about it; if one exists the
   // single situation_updates row below is its only visible representation.
   // Do not fall back to a Goal/Opportunity implementation status.
-  const represented = new Set((home.situation_updates || []).map((u) => u.situation_id));
 
   const lavori: Aggiornamento[] = (home.agent_work || [])
     .filter((w) => !w.situation_id)
