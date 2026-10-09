@@ -147,7 +147,25 @@ async def interpret_signal(
         "\"why_content\": \"what you would decide with it, when asking\", "
         "\"needs_attachments\": false, "
         "\"why_attachments\": \"what the attachment would settle, when asking\", "
-        "\"touches_money\": false}\n\n"
+        "\"touches_money\": false, "
+        "\"financial_observation\": null or {"
+        "\"purpose\": \"what the charge or notice is about, short\", "
+        "\"kind\": \"card_statement|subscription|other|unknown\", "
+        "\"amount\": null or a number actually present in the source, "
+        "\"currency\": \"EUR|USD|...|\", "
+        "\"due_at\": null or ISO datetime/date grounded by the source, "
+        "\"cadence\": \"recurring|one_time|unknown\", "
+        "\"counterparty\": null or explicit source name, "
+        "\"amount_unknown\": true or false, "
+        "\"source_quality\": \"body|summary\"}}\n\n"
+        "When touches_money is true, financial_observation contains a few "
+        "STRUCTURED FACTS, not a quote or copy of private email content. "
+        "For an email saying a credit-card total will be debited without "
+        "stating that total, kind=card_statement, amount=null, amount_unknown=true. "
+        "For a subscription email with an explicit periodic price, record "
+        "only that subscription price and its actual renewal date. "
+        "Never reuse an amount from another item. When the body was read, "
+        "set source_quality=body; do not infer merchant or dates from a title.\n\n"
         "Write anything a person reads in their language."
     )
 
@@ -192,6 +210,31 @@ async def interpret_signal(
     # manderebbe al ragionamento finanziario ogni newsletter che nomina un
     # prezzo, e lascerebbe fuori «da settembre pago sessanta euro in piu'».
     data["touches_money"] = bool(data.get("touches_money"))
+    # Private text goes only into the one reasoning call above. What leaves
+    # this boundary are bounded *facts*, never the raw email/attachment body.
+    raw_fin = data.get("financial_observation")
+    if data["touches_money"] and isinstance(raw_fin, dict):
+        allow = ("purpose", "kind", "amount", "currency", "due_at",
+                 "cadence", "counterparty", "amount_unknown", "source_quality")
+        fin = {k: raw_fin.get(k) for k in allow}
+        for key in ("purpose", "kind", "currency", "due_at", "cadence",
+                    "counterparty", "source_quality"):
+            fin[key] = str(fin.get(key) or "")[:160]
+        amount = fin.get("amount")
+        fin["amount"] = (
+            float(amount) if type(amount) in (int, float) else None
+        )
+        fin["amount_unknown"] = bool(fin.get("amount_unknown"))
+        if fin["amount_unknown"]:
+            fin["amount"] = None
+        if content and fin["due_at"]:
+            from financial.source_display import exact_named_zone_timestamp
+            exact = exact_named_zone_timestamp(content)
+            if exact:
+                fin["due_at"] = exact
+        data["financial_observation"] = fin
+    else:
+        data["financial_observation"] = None
     return data
 
 
