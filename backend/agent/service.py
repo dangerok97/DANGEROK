@@ -2580,6 +2580,11 @@ class AgentService:
 
     async def _open_card(self, owner_id: str, goal: AutonomousGoal) -> Dict[str, Any]:
         scheda = {**goal.for_human(), "state": await self._progress_of(owner_id, goal)}
+        scheda["situation_id"] = next((
+            str(ref).split(":", 1)[1]
+            for ref in goal.source_refs
+            if str(ref).startswith("situation:")
+        ), None)
         scheda["source"] = await self._where_it_really_came_from(owner_id, goal)
         scheda["unknown"] = scheda.pop("unclear", "") or self._what_is_still_vague(goal)
 
