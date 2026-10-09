@@ -1,4 +1,5 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -16,7 +17,24 @@ MAIL_REF = "mail:m1"
 CAL_REF = "calendar:event_123"
 
 
-async def _connected_sources(db):
+def _future_appointment():
+    """The real-world appointment in this gate must still be actionable.
+
+    Fixed 06/10/2026 became past on 09/10/2026; that made the new source
+    guard correctly refuse the test's supposedly actionable workflow.
+    """
+    here = datetime.now(ZoneInfo("Europe/Rome")) + timedelta(days=3)
+    first = here.replace(hour=15, minute=0, second=0, microsecond=0)
+    return {
+        "starts_at": first.isoformat(),
+        "ends_at": first.replace(hour=16).isoformat(),
+        "proposed_start": first.replace(hour=16, minute=30).isoformat(),
+        "proposed_end": first.replace(hour=17, minute=30).isoformat(),
+        "date_label": first.strftime("%d/%m"),
+    }
+
+
+async def _connected_sources(db, appointment):
     now = datetime.now(timezone.utc).isoformat()
     await db.users.insert_one({
         "user_id": OWNER,
@@ -55,6 +73,14 @@ async def _connected_sources(db):
         },
     })
 
+    # The source is an actual future owner-owned appointment, not merely a
+    # static mocked calendar response or an orphaned connected link.
+    await db.calendar_events.insert_one({
+        "user_id": OWNER, "id": "event_123", "title": "Dentista",
+        "status": "active", "start_at": appointment["starts_at"],
+        "end_at": appointment["ends_at"], "timezone": "Europe/Rome",
+    })
+
     from permissions.service import PermissionService
     permissions = PermissionService(db)
     await permissions.grant(
@@ -85,7 +111,7 @@ async def _connected_sources(db):
     )
 
 
-async def _opportunity(db):
+async def _opportunity(db, appointment):
     await db.connected_situation_links.insert_one({
         "id": "link_1",
         "owner_id": OWNER,
@@ -101,7 +127,7 @@ async def _opportunity(db):
         "disagreements": [{
             "about": "orario",
             "what_this_source_says": "L'orario è cambiato.",
-            "what_the_other_says": "06/10 alle 15:00",
+            "what_the_other_says": f"{appointment['date_label']} alle 15:00",
         }],
         "decided_at": datetime.now(timezone.utc).isoformat(),
     })
@@ -140,14 +166,15 @@ async def test_reality_gate_change_becomes_autonomous_work_then_exact_authority(
     import deps
 
     db = AsyncMongoMockClient().test
-    await _connected_sources(db)
-    opportunity = await _opportunity(db)
+    appointment = _future_appointment()
+    await _connected_sources(db, appointment)
+    opportunity = await _opportunity(db, appointment)
 
     calendar_now = AsyncMock(return_value=[{
         "ref": "event_123",
         "title": "Dentista",
-        "starts_at": "2026-10-06T15:00:00+02:00",
-        "ends_at": "2026-10-06T16:00:00+02:00",
+        "starts_at": appointment["starts_at"],
+        "ends_at": appointment["ends_at"],
         "timezone": "Europe/Rome",
         "location": "Studio dentistico",
         "description": "",
@@ -298,8 +325,8 @@ async def test_reality_gate_change_becomes_autonomous_work_then_exact_authority(
                 "input_refs": [CAL_REF],
                 "parameters": {
                     "title": "Dentista",
-                    "starts_at": "2026-10-06T16:30:00+02:00",
-                    "ends_at": "2026-10-06T17:30:00+02:00",
+                    "starts_at": appointment["proposed_start"],
+                    "ends_at": appointment["proposed_end"],
                     "timezone": "Europe/Rome",
                 },
                 "expected_result": "Dentista alle 16:30 nello stesso evento",
@@ -343,7 +370,7 @@ async def test_reality_gate_change_becomes_autonomous_work_then_exact_authority(
 
     assert result["state"] == "awaiting_authority"
     assert "Dentista" in result["asks"]
-    assert "06/10 alle 16:30" in result["asks"]
+    assert f"{appointment['date_label']} alle 16:30" in result["asks"]
     assert "Vuoi che applichi questa modifica?" in result["asks"]
 
     plan = await service.repo.plan_for(OWNER, goal_row["id"])
