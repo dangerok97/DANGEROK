@@ -120,7 +120,7 @@ export function SituationFeedback({
           </Pressable>
         </View>
       ) : null}
-      {message ? <Text accessibilityRole="status" style={{ color: ora.ink2 }}>{message}</Text> : null}
+      {message ? <Text accessibilityLiveRegion="polite" style={{ color: ora.ink2 }}>{message}</Text> : null}
       {error ? <Text accessibilityRole="alert" style={{ color: ora.attention }}>{error}</Text> : null}
     </View>
   );
