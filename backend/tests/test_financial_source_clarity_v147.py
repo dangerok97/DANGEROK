@@ -150,3 +150,40 @@ async def test_money_overview_never_calls_sandbox_balance_available_cash(monkeyp
     assert account["saldo_di_prova"] is True
     assert "simulat" in account["avviso_simulazione"]
     assert account["saldo"] == "€3.250"
+
+
+@pytest.mark.asyncio
+async def test_connected_life_forwards_private_content_only_for_meaningful_money(monkeypatch):
+    from connected.models import ConnectedSignal
+    from connected.service import ConnectedLifeService
+    from financial import bridge
+
+    db = AsyncMongoMockClient().v147_connected
+    observed = AsyncMock(return_value={"outcome": "nothing"})
+    monkeypatch.setattr(bridge, "read_money_in", observed)
+    signal = ConnectedSignal(
+        owner_id="owner", source_id="mail_instance",
+        source_type="email", signal_type="email.message.added",
+        source_object_ref="message_owned",
+        payload_summary="È arrivato un promemoria economico.",
+        raw_ref="mail:message_owned",
+    )
+    excerpt = {"body": "Il 10 ottobre si addebiteranno le spese della carta, importo non indicato."}
+    await ConnectedLifeService(db)._pass_on(
+        "owner", signal, {
+            "outcome": "worth_knowing", "touches_money": True,
+            "what_it_means": "Promemoria carta"
+        }, source_content=excerpt
+    )
+    assert observed.await_count == 1
+    assert observed.await_args.kwargs["source_content"] == excerpt
+    assert observed.await_args.kwargs["provenance"].source_ref == "message_owned"
+
+    observed.reset_mock()
+    await ConnectedLifeService(db)._pass_on(
+        "owner", signal, {
+            "outcome": "worth_knowing", "touches_money": False,
+            "what_it_means": "Altro"
+        }, source_content=excerpt
+    )
+    observed.assert_not_awaited()
