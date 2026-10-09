@@ -57,6 +57,11 @@ class CancelIn(BaseModel):
     reason: str = Field(default="", max_length=300)
 
 
+class SituationAlertsIn(BaseModel):
+    decision: str = Field(pattern="^(stop_alerts|resolved)$")
+    expected_revision: int = Field(ge=1)
+
+
 class DenyIn(BaseModel):
     # Left empty, the capability is taken from whatever is blocked.
     capability: str = Field(default="", max_length=60)
@@ -249,6 +254,62 @@ async def cancel(goal_id: str, body: CancelIn, user=Depends(get_current_user)):
     if not result.get("ok"):
         raise HTTPException(status_code=404, detail=result.get("reason"))
     return result
+
+
+@router.post("/{goal_id}/situation-alerts")
+async def situation_alerts(goal_id: str, body: SituationAlertsIn, user=Depends(get_current_user)):
+    """Explicit user choice: stop monitoring, or confirm a physical resolution.
+
+    Stopping reminders does not claim the physical situation has ended. Only
+    'resolved' changes the Situation's factual lifecycle. Both cancel the
+    matching, owner-scoped background goal, its wake and unanswered needs.
+    """
+    from deps import db
+    from agent.service import AgentService
+    from situations.models import SituationUpdate
+    from situations.repository import SituationRepository
+    from situations.service import SituationMutationError, SituationService
+
+    owner = user["user_id"]
+    service = AgentService(db)
+    goal = await service.repo.get_goal(owner, goal_id)
+    if not goal or goal.source_kind != "situation_followup":
+        raise HTTPException(404, detail="unknown_situation_monitor")
+    refs = [str(ref).split(":", 1)[1] for ref in goal.source_refs
+            if str(ref).startswith("situation:")]
+    if len(refs) != 1:
+        raise HTTPException(409, detail="ambiguous_situation")
+    current = await SituationRepository(db).get(owner, refs[0])
+    if not current:
+        raise HTTPException(404, detail="unknown_situation")
+    if current.revision != body.expected_revision:
+        raise HTTPException(409, detail="situation_changed")
+    if current.status not in ("active", "changed"):
+        raise HTTPException(409, detail="situation_already_closed")
+    try:
+        result = await SituationService(db).apply(
+            user_id=owner, session_id=current.session_id or f"agent:{goal_id}",
+            reasoning_epoch=f"user-stop-monitor:{goal_id}:{body.expected_revision}:{body.decision}",
+            update=SituationUpdate(
+                operation="resolve" if body.decision == "resolved" else "update",
+                situation_id=current.id, expected_revision=current.revision,
+                attention_intent="" if body.decision == "stop_alerts" else None,
+                next_check_summary="" if body.decision == "stop_alerts" else None,
+                source="user_conversation",
+            ),
+        )
+    except SituationMutationError as exc:
+        raise HTTPException(409, detail=exc.code)
+    if result.get("status") != "success":
+        raise HTTPException(409, detail="situation_not_updated")
+    stopped = await service.cancel(owner, goal_id, reason=(
+        "La persona ha confermato che la situazione è conclusa."
+        if body.decision == "resolved" else
+        "La persona ha chiesto di interrompere gli avvisi sulla situazione."
+    ))
+    if not stopped.get("ok"):
+        raise HTTPException(409, detail="monitor_not_stopped")
+    return {"ok": True, "decision": body.decision, "monitor_stopped": True}
 
 
 @router.get("/autonomy")
