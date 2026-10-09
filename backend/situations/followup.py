@@ -289,6 +289,69 @@ async def arrange_followup(db, owner, *, situation_id, expected_revision, check_
     return {"ok": state["status"] in ("scheduled", "due", "running"), **state}
 
 
+async def repair_missing_dedicated_wakes(db, owner, *, limit=8):
+    """Repair a lost persistent alarm WITHOUT inventing a new model decision.
+
+    A goal with an already-approved next_run_at is the sole authority for
+    rearming. No due time means there is nothing safe to repair: the ordinary
+    cognitive review must choose it. This function never reads weather or
+    claims the physical situation has completed.
+    """
+    if not _enabled() or db is None or not owner:
+        return {"repaired": 0, "reason": "runtime_disabled" if not _enabled() else "unavailable"}
+    repo = AgentRepository(db)
+    rows = await db.agent_goals.find(
+        {"owner_id": owner, "source_kind": KIND,
+         "status": {"$in": list(OPEN)}, "next_run_at": {"$ne": None},
+         "requires_user_input": {"$ne": True},
+         "requires_user_authority": {"$ne": True}},
+        {"_id": 0},
+    ).sort("updated_at", -1).to_list(max(1, min(limit, 8)))
+    repaired = 0
+    for raw in rows:
+        refs = [str(x).split(":", 1)[1] for x in (raw.get("source_refs") or [])
+                if str(x).startswith("situation:")]
+        if len(refs) != 1:
+            continue
+        sid = refs[0]
+        situation = await SituationRepository(db).get(owner, sid)
+        if not situation or situation.status not in ("active", "changed"):
+            continue
+        due = _moment(raw.get("next_run_at"))
+        if due is None:
+            continue
+        state = await read_followup(db, owner, sid)
+        if state["status"] != "recovery_pending":
+            continue
+        # The actual due instant was chosen and persisted earlier. The
+        # runtime's standard floor handles a checkpoint missed during outage.
+        alarm = await AmbientService(db).schedule(
+            owner, reason="opportunity_revisit", when=due,
+            source_ref=f"goal:{raw['id']}", provenance="code_schedule",
+        )
+        if alarm is None:
+            # An equivalent alarm may have been created concurrently. Never
+            # claim recovery until a fresh owner-scoped read confirms it.
+            check = await read_followup(db, owner, sid)
+            if check["status"] in ("scheduled", "due", "running"):
+                repaired += 1
+            continue
+        if str(raw.get("next_run_at")) != alarm.scheduled_for:
+            goal = await repo.get_goal(owner, raw["id"])
+            if goal and goal.is_open:
+                goal.next_run_at = alarm.scheduled_for
+                await repo.save_goal(goal)
+        await repo.journal(
+            owner, raw["id"], kind="situation_checkpoint_repaired",
+            note="Ripristinato controllo persistente già previsto",
+            detail={"situation_id": sid},
+        )
+        after = await read_followup(db, owner, sid)
+        if after["status"] in ("scheduled", "due", "running"):
+            repaired += 1
+    return {"repaired": repaired}
+
+
 async def settle_completed_followup(db, owner, goal):
     """Stop monitoring while preserving the real-world Situation until confirmed.
 
