@@ -459,6 +459,8 @@ export type BankConnection = {
   instance_id?: string;
   banca?: string;
   letto_l_ultima_volta?: string;
+  realta?: 'real' | 'simulated';
+  avviso?: string;
 };
 
 /**
@@ -514,6 +516,9 @@ export type MoneyOverview = {
     // dall'altro. Il numero intero non arriva mai fin qui.
     numero?: string;
     saldo_tipo?: string;
+    simulato?: boolean;
+    saldo_di_prova?: boolean;
+    avviso_simulazione?: string;
     non_piu_aggiornato?: boolean;
     aggiornato: string; cosa_posso_fare: string; cosa_non_posso_fare: string;
   }[];
@@ -529,6 +534,7 @@ export type MoneyOverview = {
   // collegato, e non sta nella stessa sezione.
   fonti_non_piu_collegate?: {
     banca: string; conto: string; numero?: string; ultimo_saldo: string;
+    simulato?: boolean;
     letto_l_ultima_volta: string; scollegato: string; in_parole: string;
   }[];
   collegato_alla_tua_vita: { situazione: string; cosa_ci_metto: string[] }[];
