@@ -73,19 +73,15 @@ async def simulated_fact_ids(db, owner_id: str, facts: Iterable) -> Set[str]:
                 SimpleNamespace(**obs), accounts
             )
             truth.setdefault(ref, set()).add(reality)
-    return {
-        str(fact.id)
-        for fact in rows if getattr(fact, "id", None) and (
-            (connected := [
-                truth[ref] for ref in map(str, (fact.source_refs or []))
-                if ref in truth
-            ])
-            and all(group == {True} for group in connected)
-            # An unrecognised source mixed with a mock is not proven synthetic.
-            and all(
-                str(ref) in truth
-                for ref in fact.source_refs
-                if not str(ref).startswith(("mail:", "document:", "calendar:"))
-            )
-        )
-    }
+    excluded: Set[str] = set()
+    for fact in rows:
+        if not getattr(fact, "id", None):
+            continue
+        source_refs = [str(ref) for ref in (fact.source_refs or []) if ref]
+        # An email, document or unrecognised co-source might substantiate a
+        # real obligation even if a matching demo transaction also exists.
+        if not source_refs or any(ref not in truth for ref in source_refs):
+            continue
+        if all(truth[ref] == {True} for ref in source_refs):
+            excluded.add(str(fact.id))
+    return excluded
