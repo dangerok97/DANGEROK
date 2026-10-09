@@ -61,6 +61,7 @@ from agent.models import (
     ResultProvenance,
 )
 from agent.needs import NeedService
+from agent.owner_budget import OwnerBackgroundBudget
 from agent.repository import AgentRepository
 from agent.visibility import VisibilityService
 
@@ -210,6 +211,7 @@ class AgentService:
         self.evidence = EvidenceStore(db)
         self.visibility = VisibilityService(db)
         self.needs = NeedService(db)
+        self.owner_budget = OwnerBackgroundBudget(db)
 
     async def ensure_indexes(self) -> None:
         await self.repo.ensure_indexes()
@@ -218,6 +220,7 @@ class AgentService:
         await self.evidence.ensure_indexes()
         await self.visibility.ensure_indexes()
         await self.needs.ensure_indexes()
+        await self.owner_budget.ensure_indexes()
 
     # --- the way in --------------------------------------------------------
 
@@ -647,11 +650,56 @@ class AgentService:
                 goal.background_runs = 0
 
             if run.background:
+                # Local per-goal ceiling first: a goal that is already paused
+                # must not consume one of the person's shared daily credits.
                 if goal.background_runs >= 3:
                     goal.next_run_at = None
                     await self.repo.save_goal(goal)
                     run.stopped_because = "background_budget"
                     return {"ok": True, "state": "background_paused"}
+
+                owner_claim = await self.owner_budget.claim(owner_id)
+                if not owner_claim.allowed:
+                    run.stopped_because = "owner_background_budget"
+                    goal.status = "waiting"
+                    goal.next_run_at = owner_claim.reset_at
+                    await self.repo.save_goal(goal)
+                    await self.repo.journal(
+                        owner_id,
+                        goal.id,
+                        kind="owner_budget_wait",
+                        note=(
+                            "Limite giornaliero di lavoro autonomo raggiunto; "
+                            "il lavoro riprenderà al reset tecnico."
+                        ),
+                        detail={
+                            "used": owner_claim.used,
+                            "limit": owner_claim.limit,
+                            "reset_at": owner_claim.reset_at,
+                        },
+                    )
+                    try:
+                        from ambient.service import AmbientService
+
+                        await AmbientService(self.db).schedule(
+                            owner_id,
+                            reason="owner_budget_reset",
+                            when=datetime.fromisoformat(owner_claim.reset_at),
+                            source_ref=f"goal:{goal.id}",
+                            provenance="code_schedule",
+                        )
+                    except Exception as exc:
+                        logger.info(
+                            "owner budget reset wake soft-fail: %s",
+                            type(exc).__name__,
+                        )
+                    return {
+                        "ok": True,
+                        "state": "owner_budget_paused",
+                        "until": owner_claim.reset_at,
+                        "goal": goal.for_human(),
+                    }
+
                 goal.background_runs += 1
             # Persist recovery before execution; cancellation leaves due work.
             goal.next_run_at = (_now() + timedelta(minutes=5)).isoformat()
