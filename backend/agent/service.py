@@ -2680,6 +2680,15 @@ class AgentService:
             )
             if link and link.get("target_ref"):
                 linked_events.append(str(link["target_ref"]))
+        # A missing original cannot support an actionable "which time?"
+        # prompt. Hide/hold it, without treating it as a proven past event.
+        if include_unverifiable and linked_events:
+            from opportunities.source_lifecycle import source_event_has_verifiable_date
+            for ref in list(dict.fromkeys(linked_events))[:8]:
+                if not await source_event_has_verifiable_date(
+                    self.db, owner_id, ref
+                ):
+                    return True
         # If several events are cited, one still to occur keeps the question
         # actionable. An unknown source is never treated as a known expiry.
         return bool(linked_events) and all([
