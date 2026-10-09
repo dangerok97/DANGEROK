@@ -52,7 +52,8 @@ async def source_event_expired(db, owner_id, source_refs, *, now=None):
                                     end_of_day=True)
                 if deadline is not None:
                     return moment >= deadline
-            continue
+            # An unknown calendar: prefix is not proof the event was ORA-local.
+            # Fall through to provider lookup rather than silently ignoring it.
         event = await db.calendar_events.find_one(
             {"user_id": owner_id, "id": event_id,
              "status": {"$nin": ["cancelled", "archived"]}},
