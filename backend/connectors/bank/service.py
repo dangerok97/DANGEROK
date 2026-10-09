@@ -86,6 +86,20 @@ def provider_reality(provider) -> str:
     return "real"
 
 
+def bank_account_is_simulated(row: Dict[str, Any]) -> bool:
+    """Structured provider truth; recognize legacy named demo records too."""
+    reality = str(row.get("provider_reality") or "").lower()
+    if reality:
+        return reality == "simulated"
+    # Accounts ingested before provider_reality was persisted need the demo
+    # label the provider explicitly gave them. Never infer real from unknown.
+    label = " ".join(str(row.get(k) or "") for k in (
+        "institution", "display_name", "account_ref"
+    )).lower()
+    import re
+    return bool(re.search(r"(?<![a-z])(?:mock|sandbox|demo)(?![a-z])", label))
+
+
 async def agent_bank_status(db, owner_id: str) -> str:
     """Per-person capability reality: unavailable, simulated, or real."""
     try:
@@ -469,6 +483,7 @@ class BankReadService:
             "currency": account.currency,
             "account_type": account.account_type,
             "owner_relationship": account.owner_relationship,
+            "provider_reality": provider_reality(self.provider),
             "updated_at": _now_iso(),
         }
         if account.current_balance is not None:
