@@ -336,6 +336,11 @@ class Opportunity(BaseModel):
             "seen": bool(self.seen_at),
             "work_status": self.work_status,
             "sources": evidence_labels(self.evidence),
+            "situation_id": next((
+                str(item.ref).split(":", 1)[1]
+                for item in self.evidence
+                if str(item.ref).startswith("situation:")
+            ), None),
             "status": self.status,
         }
 

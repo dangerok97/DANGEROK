@@ -2522,6 +2522,13 @@ class AgentService:
         }, {"_id": 0}).sort("completed_at", -1).to_list(1)
         for row in completed:
             goal = AutonomousGoal.model_validate(row)
+            # A dedicated Situation follow-up is monitoring, not a public
+            # update. Material consequences belong to the visibility ledger
+            # and are projected as one source-linked situation update.
+            if (goal.source_kind == "situation_followup"
+                    or (goal.origin == "agent_initiated"
+                        and any(str(ref).startswith("situation:") for ref in goal.source_refs))):
+                continue
             # Only verified work with real evidence becomes a completed card.
             evidence = await self.evidence.for_goal(owner_id, goal.id)
             if not real_support(evidence):
@@ -2534,7 +2541,13 @@ class AgentService:
                 "detected": goal.why_now or goal.rationale,
                 "already_done": "Ho completato e verificato il risultato.",
                 "next_step": ""})
-        for goal in await self.repo.open_goals(owner_id, limit=6):
+        for goal in await self.repo.open_goals(owner_id, limit=12):
+            if (goal.source_kind == "situation_followup"
+                    or (goal.origin == "agent_initiated"
+                        and any(str(ref).startswith("situation:") for ref in goal.source_refs))):
+                # No "capire quando..." internal goal exposed as a life
+                # update. A verified actionable result is surfaced separately.
+                continue
             card = await self._open_card(owner_id, goal)
             # A future schedule is not an update. Home is for something that
             # actually happened, something the person must answer, or a
@@ -2571,6 +2584,11 @@ class AgentService:
 
     async def _open_card(self, owner_id: str, goal: AutonomousGoal) -> Dict[str, Any]:
         scheda = {**goal.for_human(), "state": await self._progress_of(owner_id, goal)}
+        scheda["situation_id"] = next((
+            str(ref).split(":", 1)[1]
+            for ref in goal.source_refs
+            if str(ref).startswith("situation:")
+        ), None)
         scheda["source"] = await self._where_it_really_came_from(owner_id, goal)
         scheda["unknown"] = scheda.pop("unclear", "") or self._what_is_still_vague(goal)
 
@@ -2609,10 +2627,34 @@ class AgentService:
             scheda["state"] = scheda["problem"]
 
         needs = await self.needs.open_for_goal(owner_id, goal.id)
-        if needs:
-            scheda["next_step"] = scheda.get("needs_you") or "Mi serve una tua risposta per continuare."
-            scheda["action"] = {"id": needs[0].id, "kind": "route", "label": "Rispondi alla richiesta",
-                "route": "/ora", "params": {"needId": needs[0].id, "goalId": goal.id, "entry": "agent_need"}}
+        actual_request = next((
+            need for need in needs
+            if need.requires_response and
+            str(need.what_is_missing or "").strip() and
+            str(need.what_is_missing or "").strip().lower() not in (
+                "mi manca un'informazione che sai solo tu.",
+                "serve il tuo via libera per procedere.",
+            )
+        ), None)
+        if actual_request:
+            scheda["needs_you"] = actual_request.what_is_missing
+            scheda["next_step"] = actual_request.what_is_missing
+            scheda["action"] = {"id": actual_request.id, "kind": "route",
+                "label": "Rispondi alla domanda", "route": "/ora",
+                "params": {"needId": actual_request.id, "goalId": goal.id, "entry": "agent_need"}}
+        elif goal.requires_user_input or goal.requires_user_authority:
+            # A generic blocker without its exact question must not become
+            # a meaningless CTA. Keep it in the durable agent queue instead.
+            scheda["needs_you"] = ""
+            scheda["next_step"] = ""
+        elif needs:
+            useful = next((n for n in needs if n.kind in ("useful_result", "important_outcome")), None)
+            scheda["needs_you"] = ""
+            if useful:
+                scheda["next_step"] = useful.summary
+                scheda["action"] = {"id": useful.id, "kind": "route",
+                    "label": "Vedi risultato", "route": "/ora",
+                    "params": {"needId": useful.id, "goalId": goal.id, "entry": "agent_need"}}
         elif goal.background_runs >= 3 and not goal.next_run_at:
             scheda["next_step"] = ""
         elif goal.next_run_at:

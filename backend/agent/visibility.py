@@ -122,6 +122,11 @@ class VisibilityService:
             goal_id=goal.id,
             outcome=answer["outcome"],
             headline=str(answer.get("headline") or "")[:200].strip(),
+            moment_type=(
+                answer.get("moment_type")
+                if answer.get("moment_type") in ("action_now", "outcome_estimate")
+                else "status_only"
+            ),
             reasoning=str(answer.get("reasoning") or "")[:400],
             refs=[str(r)[:120] for r in (what_happened.get("refs") or [])][:8],
             fingerprint=_fingerprint(
@@ -129,6 +134,19 @@ class VisibilityService:
                 str(answer.get("headline") or ""),
             ),
         )
+
+        # A temporary Situation may be worth checking in background without
+        # being worth telling the person about. An internal status cannot
+        # become a notification or an interruption merely because the model
+        # chose a loud outcome. Only a concrete action or an evidence-based
+        # estimated outcome may leave the monitoring loop.
+        if (goal.source_kind == "situation_followup"
+                and decision.is_visible
+                and decision.moment_type == "status_only"):
+            decision.outcome = "silent"
+            decision.decided_by = "code"
+            decision.quietened_by_code = "solo stato del monitoraggio, nessuna conseguenza utile"
+            return decision
 
         if not decision.is_visible:
             return decision

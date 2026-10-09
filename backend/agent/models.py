@@ -1321,6 +1321,10 @@ class VisibilityDecision(BaseModel):
 
     # The one sentence. Empty when silent, and required when not.
     headline: str = Field(default="", max_length=200)
+    # The model marks the *consequence*, not its monitoring progress. Only a
+    # current action or honest estimated outcome may represent a temporary
+    # Situation in Home. Old untyped records cannot be promoted retroactively.
+    moment_type: Literal["action_now", "outcome_estimate", "status_only"] = "status_only"
 
     # Handles back to what actually happened. Never content.
     refs: List[str] = Field(default_factory=list, max_length=8)

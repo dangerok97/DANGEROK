@@ -1143,6 +1143,16 @@ export const api = {
   getHome: () => request<HomeV2Response>('/home'),
   refreshHome: () => request<HomeV2Response>('/home/refresh', { method: 'POST' }),
   getHomeSituation: () => request<HomeSituationResponse>('/home/situation'),
+  /** User confirmed a changed physical situation, completion or a stopped watch. */
+  updateSituation: (
+    situationId: string,
+    body: { action: 'changed' | 'resolved' | 'stop_monitoring';
+            expected_revision: number; description?: string },
+  ) =>
+    request<{ ok: boolean; action: string; message: string; situation?: Record<string, unknown> }>(
+      `/situations/${encodeURIComponent(situationId)}/feedback`,
+      { method: 'POST', body: JSON.stringify(body) },
+    ),
 
   /*
     What a person does about an opportunity. Three answers, and each one is a
@@ -3211,6 +3221,8 @@ export type HomeInsight = {
 export type UpdateWork = { status: string; message?: string; session_id?: string; question_revision?: string; result?: { ok: boolean; ora_text?: string; question?: string | null; route?: string | null; sources?: { title?: string; url?: string }[]; pending_turn?: { status?: string }; }; };
 
 export type HomeOpportunity = {
+  /** Canonical Situation, when this opportunity refers to one. */
+  situation_id?: string;
   sources?: string[];
   work_status?: string;
   status?: string;
@@ -3270,6 +3282,8 @@ export type NotificationPreferences = {
  * was never given.
  */
 export type HomeAgentWork = {
+  /** Canonical Situation, when this Goal followed temporary life state. */
+  situation_id?: string;
   prepared_text?: string | null;
   action?: HomeActionDef;
   id: string;
@@ -3369,6 +3383,18 @@ export type ProactiveSuggestion = {
   meta?: Record<string, unknown>;
 };
 
+export type HomeSituationUpdate = {
+  id: string;
+  situation_id: string;
+  summary: string;
+  headline: string;
+  evidence_summary: string;
+  evidence_at: string;
+  source_label: string;
+  created_at: string;
+  revision: number;
+};
+
 export type HomeV2Response = {
   primary_focus: HomeItem | null;
   explanation: HomeExplanation | null;
@@ -3381,6 +3407,8 @@ export type HomeV2Response = {
   ambient?: HomeAmbient | null;
   /** Outcomes ORA is pursuing. Usually empty. */
   agent_work?: HomeAgentWork[];
+  /** Fresh, evidence-backed changes for temporary life situations, never internal jobs. */
+  situation_updates?: HomeSituationUpdate[];
   /** Shown only when a real decision is waiting on the permission. */
   notification_prompt?: HomeNotificationPrompt | null;
   resume_item: HomeItem | null;

@@ -471,6 +471,14 @@ class HomeService:
         except Exception as e:
             logger.info("agent work read soft-fail: %s", type(e).__name__)
 
+        situation_updates: List[Dict[str, Any]] = []
+        try:
+            from situations.updates import current_situation_updates
+
+            situation_updates = await current_situation_updates(self.db, user_id)
+        except Exception as e:
+            logger.info("situational consequence projection deferred: %s", type(e).__name__)
+
         primary_public = primary.to_public() if primary else None
         if primary_public:
             try:
@@ -487,6 +495,7 @@ class HomeService:
             opportunities=opportunities,
             ambient=ambient,
             agent_work=agent_work,
+            situation_updates=situation_updates,
             notification_prompt=notification_prompt,
             resume_item=resume,
             ora_ti_consiglia=ora_ti_consiglia[:3],

@@ -3,6 +3,16 @@ import type { Aggiornamento } from './aggiornamenti';
 
 /** Close the update at its canonical source, so it stays gone after refresh. */
 export async function rimuoviAggiornamento(a: Aggiornamento): Promise<void> {
+  if (a.genere === 'situazione') {
+    if (!a.situazione_id || !a.situazione_revisione) {
+      throw new Error('Situazione non verificata. Aggiorna la pagina.');
+    }
+    await api.updateSituation(a.situazione_id, {
+      action: 'stop_monitoring',
+      expected_revision: a.situazione_revisione,
+    });
+    return;
+  }
   if (a.genere === 'lavoro') {
     await api.cancelAgentGoal(a.id);
     return;

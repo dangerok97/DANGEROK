@@ -23,6 +23,7 @@ from life_memory import life_memory_router
 from activity import activity_router
 from agenda.router import router as agenda_router
 from weather_router import router as weather_router
+from situations.router import router as situations_router
 from accommodation.router import router as accommodation_router
 
 from . import (
@@ -91,6 +92,7 @@ ALL_ROUTERS = [
     life_map_router,
     activity_router,
     life_memory_router,
+    situations_router,
     life_os_router.router,
     llm_router,
 ]
