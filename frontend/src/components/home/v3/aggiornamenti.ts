@@ -50,7 +50,7 @@ export type Aggiornamento = {
 const SENZA_FONTE = 'originale non disponibile';
 
 /** Tutti gli aggiornamenti della Home, nello stesso ordine in cui si leggono. */
-export function elencoAggiornamenti(home: HomeV2Response | null | undefined): Aggiornamento[] {
+export function elencoAggiornamenti(home: Partial<HomeV2Response> | null | undefined): Aggiornamento[] {
   if (!home) return [];
 
   // A monitoring Goal or a plan to check later is not an update. Show a
