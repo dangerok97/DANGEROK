@@ -168,6 +168,17 @@ async def test_disagreement_exposes_mail_and_calendar_refs_to_agent():
         "decided_at": datetime.now(timezone.utc).isoformat(),
     })
 
+    # A timing disagreement is actionable only while the original calendar
+    # appointment remains verifiably future. A naked link id is not evidence
+    # that the event still exists; that was the cause of stale trip prompts.
+    start = datetime.now(timezone.utc) + timedelta(days=3)
+    await db.calendar_events.insert_one({
+        "user_id": "alice", "id": "event_123", "status": "active",
+        "start_at": start.isoformat(),
+        "end_at": (start + timedelta(hours=1)).isoformat(),
+        "timezone": "UTC",
+    })
+
     rows = await _disagreements(db, "alice", datetime.now(timezone.utc))
     assert rows
     row = rows[0]
