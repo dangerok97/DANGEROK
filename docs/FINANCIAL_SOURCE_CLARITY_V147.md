@@ -11,7 +11,7 @@ Data 9 ottobre 2026. Riferimento: quattro screenshot iPhone dell'utente.
 
 ## Modifiche
 1. Action Engine: una semplice `next_focus_hint` non è un lavoro. I progetti possono diventare azioni Home solo con una ragione di lavoro esplicita e già verificata; `admin` non equivale automaticamente a `bill`. Il piano resta conservato in Action Engine.
-2. Connected Life: l'estratto privato già letto su richiesta del ragionamento segue il segnale fino al motore finanziario **solo in memoria**, evitando il secondo ragionamento fatto sul titolo impoverito. Non vengono memorizzati né stampati i corpi delle email.
+2. Connected Life: il testo privato letto su richiesta arriva **solo al giudizio che lo ha richiesto**. Quello emette una sintesi di *fatti strutturati* (tipo, causale, importo, ricorrenza, data, fonte/certezza), e **soltanto questi** arrivano al motore finanziario. Non viene inoltrato, memorizzato o stampato il corpo dell'email in altri moduli. Il vincolo è protetto dai test di privacy esistenti.
 3. Interpretazione finanziaria: il prompt distingue l'addebito complessivo di una carta senza cifra, gli abbonamenti con canone esplicito e i movimenti bancari non identificati. L'importo assente resta `None`, non €0.
 4. Date: quando una scadenza è stata riconosciuta e la fonte contiene **un solo timestamp esplicito con fuso IANA**, questo timestamp prevale sulla data relativa approssimata nel titolo; non crea date se non è stata riconosciuta un'obbligazione.
 5. Fonte: la schermata finanziaria usa i metadati dell'email originaria — oggetto, ma non corpo — tramite riferimento owner-scoped, così anche un fatto storico genericamente chiamato «Qualcosa di economico» mostra da quale email deriva. Niente identità del pagamento inferite da somiglianze.
