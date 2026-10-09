@@ -21,6 +21,7 @@ import { OraBadge, OraCard } from '@/src/components/ora-ui';
 import { NienteQui, PaginaOra } from '@/src/components/pagine/PaginaOra';
 import {
   comeSiChiama,
+  quandoAggiornamento,
   elencoAggiornamenti,
   type Aggiornamento,
 } from '@/src/components/home/v3/aggiornamenti';
@@ -114,6 +115,10 @@ function Riga({ a, onRemoved }: { a: Aggiornamento; onRemoved: () => void }) {
 
       <Text style={[oraType.section, { color: ora.ink }]} accessibilityRole="header" aria-level={2}>
         {a.cosa}
+      </Text>
+      <Text style={[oraType.small, { color: ora.ink3 }]} testID={`aggiornamento-${a.id}-date`}>
+        Creato: {quandoAggiornamento(a.quando) || 'data non disponibile'}
+        {a.scade ? ` · Scade: ${quandoAggiornamento(a.scade) || a.scade}` : ' · Scadenza non indicata'}
       </Text>
 
       {a.perche ? <Text style={[oraType.body, { color: ora.ink2 }]}>{a.perche}</Text> : null}
