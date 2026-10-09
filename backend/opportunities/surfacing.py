@@ -295,6 +295,27 @@ class SurfacingService:
         return sorted(out, key=lambda o: o.order_key)[:MAX_CONSIDERED]
 
     async def _current(self, user_id, opportunity, now):
+        # A surfaced opportunity is not allowed to outlive its own deadline.
+        # Expiration must be checked on every Home read, not only during
+        # periodic opportunity scans (which may run after the due moment).
+        if opportunity.valid_until:
+            try:
+                raw = opportunity.valid_until.strip()
+                deadline = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+                if len(raw) == 10:
+                    # Date-only deadlines remain useful through that calendar
+                    # date instead of expiring at the beginning of the day.
+                    deadline += timedelta(days=1)
+                if deadline.tzinfo is None:
+                    deadline = deadline.replace(tzinfo=timezone.utc)
+                moment = datetime.fromisoformat(now.replace("Z", "+00:00"))
+                if moment.tzinfo is None:
+                    moment = moment.replace(tzinfo=timezone.utc)
+                if moment >= deadline:
+                    return False
+            except (TypeError, ValueError, OverflowError):
+                # A malformed expiry is not authority to keep interrupting.
+                return False
         if any(e.kind == "departure" for e in opportunity.evidence):
             from places.departures import DepartureService
             try:
