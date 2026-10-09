@@ -397,3 +397,20 @@ console.log('PX1.2 Home 3.0 guards: all assertions passed');
   assert.equal(rows[0].quando, expired, 'creation timestamp not confused with event date');
   assert.equal(rows[0].scade, future, 'expiry is explicit');
 }
+
+
+// v144: the update is a truthful situation console, not a cryptic agent task.
+{
+  const view = readCode('src/components/home/v3/UpdateNextStep.tsx');
+  const client = readCode('src/api/client.ts');
+  const detail = readCode('app/aggiornamento/[id].tsx');
+  const conversation = readCode('src/components/ora/OraConversationScreen.tsx');
+  assert.ok(view.includes('situation.followup_status') && view.includes('situation.notify_when'));
+  assert.ok(view.includes('situation.last_checked_at'), 'actual last check must be distinguishable from a scheduled check');
+  assert.ok(view.includes("situationDecision('stop_alerts')"), 'user must be able to stop alerts');
+  assert.ok(view.includes("situationDecision('resolved')"), 'physical completion must be explicit');
+  assert.ok(view.includes('Non ancora · Ricalcola') && view.includes('È cambiata · Spiega a ORA'));
+  assert.ok(client.includes('stopSituationAlerts:'));
+  assert.ok(detail.includes('<UpdateNextStep a={a} />'), 'same situation response remains in details');
+  assert.ok(conversation.includes('initialDraft') && conversation.includes('useState((initialDraft'), 'draft must not auto-submit');
+}
