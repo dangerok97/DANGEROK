@@ -3,7 +3,6 @@
 This is deliberately an owner-neutral synthetic test. The annual birthday
 memory is a separate durable record and is never deleted by display gating.
 """
-from datetime import datetime, timezone
 from types import SimpleNamespace
 import pytest
 
@@ -49,7 +48,7 @@ async def test_timezone_and_date_only_expiration():
         "synthetic-owner", item, "2026-10-09T17:00:00+02:00"
     )
     assert not await service._current(
-        "synthetic-owner", item, "2026-10-10T00:00:00+02:00"
+        "synthetic-owner", item, "2026-10-10T02:00:00+02:00"
     )
     item.valid_until = "invalid-date"
     assert not await service._current(
