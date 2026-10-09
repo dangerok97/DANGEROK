@@ -133,12 +133,15 @@ class DeliveryService:
         # Do not even ask a model to notify about a provably expired event.
         # The exact source is rechecked once more just before send.
         if kind == "opportunity":
-            from opportunities.source_lifecycle import perishable_opportunity_expired
+            from opportunities.source_lifecycle import (
+                perishable_opportunity_expired, appointment_disagreement_unverifiable,
+            )
             from agent.service import _aware_wait_until
             source_deadline = _aware_wait_until(getattr(subject, "valid_until", None))
             if (
                 (source_deadline is not None and source_deadline <= datetime.now(timezone.utc))
                 or await perishable_opportunity_expired(self.db, user_id, subject)
+                or await appointment_disagreement_unverifiable(self.db, user_id, subject)
             ):
                 await self.cancel_for_source(
                     user_id, subject_id, source_type=kind,
@@ -381,8 +384,13 @@ class DeliveryService:
                 return None
             # A successful AI admission is not everlasting authorization
             # to notify: recheck the owner-owned event before every send.
-            from opportunities.source_lifecycle import perishable_opportunity_expired
-            if await perishable_opportunity_expired(self.db, user_id, subject):
+            from opportunities.source_lifecycle import (
+                perishable_opportunity_expired, appointment_disagreement_unverifiable,
+            )
+            if (
+                await perishable_opportunity_expired(self.db, user_id, subject)
+                or await appointment_disagreement_unverifiable(self.db, user_id, subject)
+            ):
                 return None
             if getattr(subject, "source_context", "") == "recurring_memo":
                 from memos.delivery_guard import memo_opportunity_current
