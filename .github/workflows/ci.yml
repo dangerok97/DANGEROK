@@ -87,6 +87,9 @@ jobs:
       - name: Knowledge stars, account identity and full-name telephone introductions
         working-directory: backend
         run: python -m pytest -q tests/test_knowledge_map.py tests/test_introduction_contract_v313.py -x
+      - name: Useful Situation update freshness, dedupe and user feedback
+        working-directory: backend
+        run: python -m pytest -q tests/test_useful_situation_updates_v143.py tests/test_situation_feedback_v143.py -x
       - name: Permanent memory and recurring birthday reminders
         working-directory: backend
         run: python -m pytest -q tests/test_recurring_memo_v113.py tests/test_recurring_memo_v115.py tests/test_recurring_memo_corrections_v128.py tests/test_recurring_memo_governance_v129.py tests/test_recurring_memo_recovery_v130.py -x
@@ -312,6 +315,9 @@ jobs:
       - name: Notification tap origin and navigation guards
         working-directory: frontend
         run: node --experimental-strip-types --test src/ambient/notificationHandoff.test.ts
+      - name: Useful one-situation-one-update projection
+        working-directory: frontend
+        run: node --experimental-strip-types --test src/components/home/v3/aggiornamenti143.test.ts
       - name: Resolve Expo iOS configuration
         working-directory: frontend
         env:
