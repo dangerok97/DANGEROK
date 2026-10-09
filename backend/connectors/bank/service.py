@@ -469,6 +469,9 @@ class BankReadService:
             "currency": account.currency,
             "account_type": account.account_type,
             "owner_relationship": account.owner_relationship,
+            # Keep provider reality with each snapshot: a test/sandbox
+            # balance must never appear as a person's spendable money.
+            "source_reality": provider_reality(self.provider),
             "updated_at": _now_iso(),
         }
         if account.current_balance is not None:
