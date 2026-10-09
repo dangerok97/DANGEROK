@@ -204,6 +204,9 @@ class HomeResponse(BaseModel):
     # status: somebody wants to know whether the thing is handled, not how
     # many stages it has.
     agent_work: List[Dict[str, Any]] = Field(default_factory=list)
+    # Only recent, real, source-linked consequences of temporary Situations:
+    # never the planning Goal itself, never a generic monitoring status.
+    situation_updates: List[Dict[str, Any]] = Field(default_factory=list)
     # V3.8 — present only when ORA has actually judged something worth an
     # interruption and could not deliver it. Absent at first launch, absent
     # when nothing is waiting: the question is never asked about a feature.
