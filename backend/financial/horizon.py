@@ -79,10 +79,20 @@ async def what_is_coming(
 
     unknowns: List[str] = []
     facts = await governed_facts(db, owner_id, kinds=["commitment", "income"])
-    lasting = {f"{f.kind}:{' '.join(str(f.what).lower().split())}" for f in facts}
-    for observed in await FinancialStore(db).known(
+    observed_facts = await FinancialStore(db).known(
         owner_id, kinds=["commitment", "income"],
-    ):
+    )
+    from financial.reality import simulated_fact_ids
+    synthetic_ids = await simulated_fact_ids(
+        db, owner_id, [*facts, *observed_facts]
+    )
+    # A historical demo-only memory can remain in audit history without
+    # affecting real commitments, sums, advice, or monthly projections.
+    facts = [f for f in facts if f.id not in synthetic_ids]
+    lasting = {f"{f.kind}:{' '.join(str(f.what).lower().split())}" for f in facts}
+    for observed in observed_facts:
+        if observed.id in synthetic_ids:
+            continue
         key = f"{observed.kind}:{' '.join(str(observed.what).lower().split())}"
         if key in lasting:
             continue

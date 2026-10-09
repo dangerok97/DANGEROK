@@ -83,16 +83,21 @@ async def what_was_seen(db, owner_id: str) -> Dict[str, Any]:
     except Exception as e:
         logger.info("fact read soft-fail: %s", type(e).__name__)
 
-    groups: Dict[str, List[Any]] = {}
+    from financial.reality import account_sources, is_simulated_observation
+    accounts = await account_sources(db, owner_id)
+    groups: Dict[tuple[bool, str], List[Any]] = {}
     for observation in history:
-        groups.setdefault(_grouping_key(observation), []).append(observation)
+        # A demo and a real transaction with identical bank descriptions
+        # can never form one apparent recurring expense.
+        is_demo = is_simulated_observation(observation, accounts)
+        groups.setdefault((is_demo, _grouping_key(observation)), []).append(observation)
 
     incoming: List[Dict[str, Any]] = []
     outgoing: List[Dict[str, Any]] = []
     singles: List[Dict[str, Any]] = []
     isolated = 0
 
-    for members in groups.values():
+    for (simulated, _), members in groups.items():
         members.sort(key=lambda o: str(o.booked_at))
         newest = members[-1]
         name = next(
@@ -108,6 +113,7 @@ async def what_was_seen(db, owner_id: str) -> Dict[str, Any]:
             "quanto": _money(abs(newest.amount), newest.currency),
             "verso": "in entrata" if newest.direction == "incoming" else "in uscita",
             "quante_volte": len(members),
+            "simulato": simulated,
         }
         if name:
             # Se qualcuno l'ha gia' capita, il nome viene da li'.
@@ -142,7 +148,9 @@ async def what_was_seen(db, owner_id: str) -> Dict[str, Any]:
             "importanti, e non che sia noto cosa siano. Le voci con "
             "`identificato: false` non hanno un nome — dille come le scrive "
             "la banca e di' che non hai ancora capito cosa siano. I movimenti "
-            "singoli non sono spese ricorrenti, per quanto grandi."
+            "singoli non sono spese ricorrenti, per quanto grandi. "
+            "Le righe simulato=true vengono da conti di prova: NON sono "
+            "spese, entrate o impegni della persona."
         ),
     }
 
@@ -189,13 +197,28 @@ async def this_month(db, owner_id: str) -> Dict[str, Any]:
         logger.info("observation read soft-fail: %s", type(e).__name__)
         return {}
 
-    inside = [
+    from financial.reality import account_sources, is_simulated_observation
+    accounts = await account_sources(db, owner_id)
+    period_rows = [
         o for o in history
         if (when := _moment(o.booked_at)) is not None
         and when.year == now.year and when.month == now.month
     ]
+    excluded = sum(
+        is_simulated_observation(o, accounts) for o in period_rows
+    )
+    inside = [
+        o for o in period_rows if not is_simulated_observation(o, accounts)
+    ]
     if not inside:
-        return {}
+        return {
+            "dati_di_prova_esclusi": excluded,
+            "che_cosa_e": (
+                "Non risultano movimenti bancari reali in questo riepilogo."
+                if excluded else
+                "Nessun movimento registrato per il periodo."
+            ),
+        } if excluded else {}
 
     currency = inside[0].currency or "EUR"
     incoming = sum(o.amount for o in inside if o.amount > 0)
@@ -211,6 +234,7 @@ async def this_month(db, owner_id: str) -> Dict[str, Any]:
         "uscite_osservate": _money(outgoing, currency),
         "differenza_parziale": _money(incoming - outgoing, currency),
         "quanti_movimenti": len(inside),
+        "dati_di_prova_esclusi": excluded,
         "la_voce_che_pesa_di_piu": {
             "come_lo_scrive_la_banca": heaviest.raw_description or "",
             "quanto": _money(abs(heaviest.amount), heaviest.currency),

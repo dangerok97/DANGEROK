@@ -86,7 +86,24 @@ async def read_what_is_new(
     if not fresh:
         return {"gruppi": 0, "interpretati": 0, "rimandati": 0, "chiamate": 0}
 
-    everything = await ObservationStore(db).history(owner_id)
+    from financial.reality import account_sources, is_simulated_observation
+    accounts = await account_sources(db, owner_id)
+    simulated = [o for o in fresh if is_simulated_observation(o, accounts)]
+    if simulated:
+        # A demo statement is never financial evidence about the person.
+        # Mark it once as a simulated read; do not spend AI calls on it.
+        await _mark(db, owner_id, simulated, outcome="simulated")
+    fresh = [o for o in fresh if not is_simulated_observation(o, accounts)]
+    if not fresh:
+        return {
+            "gruppi": 0, "interpretati": 0, "rimandati": 0,
+            "chiamate": 0, "simulati_esclusi": len(simulated),
+        }
+
+    everything = [
+        o for o in await ObservationStore(db).history(owner_id)
+        if not is_simulated_observation(o, accounts)
+    ]
     groups = _group(fresh)
 
     # Prima i gruppi che si ripetono di piu': se il budget di un passaggio

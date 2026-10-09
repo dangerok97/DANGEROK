@@ -61,6 +61,16 @@ async def what_ora_knows(
             continue
         observed.append(fact)
 
+    # Old demo transactions may already have passed the governance path.
+    # Preserve their audit trail, but never present them as real knowledge.
+    from financial.reality import simulated_fact_ids
+    test_fact_ids = await simulated_fact_ids(
+        db, owner_id, [*known, *observed]
+    )
+    demo_facts = [f for f in [*known, *observed] if f.id in test_fact_ids]
+    known = [f for f in known if f.id not in test_fact_ids]
+    observed = [f for f in observed if f.id not in test_fact_ids]
+
     asking = await needs_your_word(db, owner_id)
     horizon = for_human(await what_is_coming(db, owner_id, days=days))
 
@@ -87,6 +97,10 @@ async def what_ora_knows(
         # con se' da dove viene: senza, «ho letto» e «so» diventano la stessa
         # frase appena qualcuno le rilegge.
         "ho_letto": [_said(f, with_source=True, bank_is_live=live) for f in observed],
+        "dati_di_prova": [
+            {**_said(f, bank_is_live=False), "simulato": True}
+            for f in demo_facts
+        ],
         # Quello su cui serve una parola della persona.
         "devo_chiederti": [
             {
