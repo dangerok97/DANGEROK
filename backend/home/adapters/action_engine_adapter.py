@@ -60,6 +60,17 @@ async def load_action_engine_items(db, user_id: str) -> Tuple[List[HomeItem], Li
         {"_id": 0},
     ).to_list(30)
     for p in projects:
+        # The old action engine stores a narrative "next_focus_hint" even
+        # after merely finishing a conversation. This is not a task, payment
+        # or obligation and must not become the Daily Focus with "Organizza".
+        # A project shell may enter Home only with an explicitly committed
+        # work reason; linked reminders/decisions have their own adapters.
+        explicit_reason = str(p.get("work_reason") or "").strip()
+        if explicit_reason not in (
+            "user_request", "decision", "confirmation_required",
+            "deadline", "risk", "goal_blocker", "opportunity", "consent",
+        ):
+            continue
         hint = p.get("next_focus_hint") or p.get("title")
         flow = p.get("flow") or "generic"
         item_type = {
@@ -67,7 +78,8 @@ async def load_action_engine_items(db, user_id: str) -> Tuple[List[HomeItem], Li
             "event": "event",
             "travel": "travel",
             "medical": "visit",
-            "admin": "bill",
+            # An administrative project is not a bill merely by type.
+            "admin": "activity",
         }.get(flow, "activity")
         it = HomeItem(
             id=f"ae_proj_{p['id']}",
@@ -91,6 +103,7 @@ async def load_action_engine_items(db, user_id: str) -> Tuple[List[HomeItem], Li
                 "flow": flow,
                 "project_id": p["id"],
                 "goal_id": p.get("goal_id"),
+                "work_reason": explicit_reason,
             },
             created_at=p.get("created_at"),
             updated_at=p.get("updated_at") or now.isoformat(),
