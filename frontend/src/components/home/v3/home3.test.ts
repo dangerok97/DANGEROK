@@ -502,7 +502,7 @@ console.log('PX1.2 Home 3.0 guards: all assertions passed');
 {
   const card = readCode('src/components/home/v3/UpdateNextStep.tsx');
   const client = readCode('src/api/client.ts');
-  const backend = readCode('../backend/situations/followup.py'.replace('../backend/', '../backend/'));
+  const backend = readCode('../backend/situations/followup.py');
   assert.ok(card.includes('motivo-controllo-non-programmato'),
     'the situation detail needs a visible diagnostic');
   assert.ok(card.includes('situation.monitor_diagnosis'),
