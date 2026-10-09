@@ -37,6 +37,7 @@ async def fixtures(db, *, at=None):
         await db.agent_updates.insert_one({
             "owner_id": OWNER, "goal_id": goal,
             "outcome": "requires_attention",
+            "moment_type": "action_now",
             "headline": "Metti al riparo l'attività all'aperto: la previsione indica pioggia imminente.",
             "at": iso(now - timedelta(minutes=12 + 2 * index)),
             "refs": [f"evd_synthetic_{index}", "journal:synthetic"],
@@ -110,6 +111,14 @@ async def test_unproven_vague_activity_does_not_become_an_update():
     await db.agent_updates.update_many({}, {
         "$set": {"headline": "Capire quando la situazione raggiunge l'esito utile per la persona."}
     })
+    assert await current_situation_updates(db, OWNER, now=now) == []
+
+
+@pytest.mark.asyncio
+async def test_legacy_monitoring_note_without_verified_moment_cannot_surface():
+    db = AsyncMongoMockClient().v143_legacy_status
+    now = await fixtures(db)
+    await db.agent_updates.update_many({}, {"$unset": {"moment_type": ""}})
     assert await current_situation_updates(db, OWNER, now=now) == []
 
 
