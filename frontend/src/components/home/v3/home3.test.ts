@@ -424,3 +424,43 @@ console.log('PX1.2 Home 3.0 guards: all assertions passed');
   assert.ok(detail.includes('non ti chiederà di risolvere un evento già passato'),
     'the user needs an understandable lifecycle message');
 }
+
+
+// v146 — information-only notices are not fictitious pending missions.
+{
+  const result = elencoAggiornamenti({
+    opportunities: [
+      {
+        id: 'notice_for_today', title: 'Consegna prevista oggi', why_now: 'È indicata una previsione',
+        informational_only: true, sources: ['email'], created_at: '2026-10-09T04:21:00+02:00',
+        valid_until: '2027-10-09T23:59:00+02:00',
+      },
+      {
+        id: 'explicit_investigation', title: 'Una discrepanza da approfondire',
+        why_now: 'Le fonti non coincidono', informational_only: false,
+        what_ora_can_do: 'Posso verificare due fonti disponibili', sources: ['email'],
+      },
+    ],
+  } as any);
+  const info = result[0];
+  const actionable = result[1];
+  assert.equal(info.solo_informazione, true);
+  assert.equal(info.lavoro, undefined, 'an informational notice cannot automatically start a verification');
+  assert.equal(info.azione?.kind, 'route');
+  assert.equal(info.azione?.params?.opportunityId, 'notice_for_today',
+    'the optional follow-up must keep the exact original identity');
+  assert.equal(info.azione?.params?.entry, 'opportunity');
+  assert.ok(!String(info.azione?.params?.draft).includes('Consegna prevista oggi'),
+    'personal information must not be copied into query parameters');
+  assert.equal(actionable.solo_informazione, false);
+  assert.equal(actionable.lavoro, 'verify');
+  assert.equal(actionable.azione?.kind, 'verify');
+
+  const view = readCode('src/components/home/v3/UpdateNextStep.tsx');
+  assert.ok(view.includes('aggiornamento-solo-informativo'));
+  assert.ok(view.includes('Una segnalazione, non un compito'));
+  assert.ok(view.includes('Una previsione non è la prova'));
+  const route = readCode('app/ora/index.tsx');
+  assert.ok(route.includes("opportunityId && entry !== 'opportunity'"),
+    'explicit user-initiated follow-up must not redirect back to the detail');
+}

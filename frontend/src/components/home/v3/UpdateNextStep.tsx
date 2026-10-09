@@ -67,6 +67,46 @@ export function UpdateNextStep({ a }: { a: Aggiornamento }) {
     } catch (e) { setSituationError(humanizeError(e)); }
     finally { setSituationBusy(false); }
   };
+  if (a.solo_informazione) {
+    return (
+      <OraCard style={{ padding: 20, gap: 12 }} testID="aggiornamento-solo-informativo">
+        <Text style={[oraType.section, { color: ora.ink }]}>Una segnalazione, non un compito</Text>
+        <Text style={[oraType.body, { color: ora.ink2 }]}>
+          ORA ti ha riportato un'informazione, ma da questa scheda non risulta
+          un'azione concreta da svolgere né un monitoraggio automatico confermato.
+          Una previsione non è la prova che l'evento si sia verificato.
+        </Text>
+        {a.fonte && <Text style={[oraType.small, { color: ora.ink2 }]}>
+          Fonte indicata: {a.fonte}
+        </Text>}
+        {!!a.scade && <Text style={[oraType.small, { color: ora.ink2 }]}>
+          Questa segnalazione resta utile fino a: {quandoAggiornamento(a.scade) || a.scade}.
+          La scadenza dell'avviso non conferma che il fatto sia avvenuto.
+        </Text>}
+        {usesWork && !loaded && !error && <Text>Sto recuperando la verifica precedente…</Text>}
+        {work?.result?.ora_text && <View style={{ gap: 6 }}>
+          <Text style={[oraType.small, { color: ora.ink3 }]}>Ultima risposta di ORA (non equivale a un monitoraggio attivo)</Text>
+          <Text style={[oraType.body, { color: ora.ink }]}>{work.result.ora_text}</Text>
+        </View>}
+        {work?.status === 'failed' && <Text style={[oraType.small, { color: ora.attention }]}>
+          L'ultima verifica non è riuscita: l'informazione non è stata confermata.
+        </Text>}
+        {work?.session_id && <Pressable accessibilityRole="link"
+          onPress={() => router.push(`/ora/${encodeURIComponent(work.session_id!)}` as never)}>
+          <Text style={{ color: ora.cta }}>Rivedi la conversazione precedente →</Text>
+        </Pressable>}
+        {!!error && <Text accessibilityRole="alert" style={{ color: ora.attention }}>{error}</Text>}
+        {!!a.azione?.route && <Pressable accessibilityRole="button"
+          testID="approfondisci-aggiornamento"
+          onPress={() => router.push({
+            pathname: a.azione!.route!, params: a.azione!.params,
+          } as any)}
+          style={{ padding: 12, borderRadius: 12, backgroundColor: ora.cta, alignSelf: 'flex-start' }}>
+          <Text style={{ color: '#fff', fontWeight: '600' }}>Approfondisci con ORA</Text>
+        </Pressable>}
+      </OraCard>
+    );
+  }
   if (situation) {
     const followupConfirmed = ['scheduled', 'due', 'running'].includes(situation.followup_status || '');
     return (

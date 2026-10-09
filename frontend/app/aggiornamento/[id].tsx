@@ -136,7 +136,9 @@ function Dettaglio({ a, onRemoved }: { a: Aggiornamento; onRemoved: () => void }
       />
       <Voce
         icona="information-circle-outline"
-        titolo={a.genere === 'occasione' ? 'Segnalazione da verificare' : 'Cosa è successo'}
+        titolo={a.genere === 'occasione'
+          ? (a.solo_informazione ? 'Informazione da una fonte' : 'Segnalazione da verificare')
+          : 'Cosa è successo'}
         testo={a.cosa}
         testID="dettaglio-cosa"
       />

@@ -43,6 +43,8 @@ export type Aggiornamento = {
   /** Termine oltre il quale la segnalazione non e' piu' azionabile. */
   scade?: string;
   situazione?: MonitoredSituation | null;
+  /** Information is true to its source, but no concrete next step is committed. */
+  solo_informazione?: boolean;
   lavoro?: 'verify' | 'prepare';
   preparazione?: { checked_at?: string; summary?: string; question?: string; limits?: string; options?: { event_id: string; title: string; starts_at: string; ends_at: string }[] };
   azione?: { kind: 'verify' | 'prepare' | 'suggestion' | 'route'; label: string; route?: string; params?: Record<string, unknown> };
@@ -100,7 +102,13 @@ export function elencoAggiornamenti(home: HomeV2Response | null | undefined): Ag
   const occasioni: Aggiornamento[] = (home.opportunities || []).slice(0, 2).map((o) => ({
     id: o.id,
     genere: 'occasione',
-    lavoro: 'verify',
+    solo_informazione: o.informational_only ??
+      (!String(o.what_ora_can_do || '').trim() && !String(o.question || '').trim()),
+    // Read an already-started investigation, but do not start a new one
+    // simply because a generic informational observation was raised.
+    lavoro: o.work_status || !(o.informational_only ??
+      (!String(o.what_ora_can_do || '').trim() && !String(o.question || '').trim()))
+      ? 'verify' : undefined,
     cosa: o.title,
     perche: o.why_now || '',
     fonte: o.sources?.join(' · ') || SENZA_FONTE,
@@ -109,7 +117,18 @@ export function elencoAggiornamenti(home: HomeV2Response | null | undefined): Ag
     cosa_serve: o.question || '',
     non_so: '',
     prossimo_passo: o.what_ora_can_do || '',
-    azione: { kind: 'verify', label: 'Verifica con ORA' },
+    azione: (o.informational_only ??
+      (!String(o.what_ora_can_do || '').trim() && !String(o.question || '').trim()))
+      ? {
+          kind: 'route', label: 'Approfondisci con ORA', route: '/ora',
+          params: {
+            opportunityId: o.id,
+            entry: 'opportunity',
+            // Never put the person's life details in the URL.
+            draft: 'Controlla questa segnalazione rispetto alle fonti attualmente accessibili. Dimmi che cosa è verificato, che cosa è solo previsto e se un monitoraggio automatico è realmente programmato. Non inventare esiti o notifiche.',
+          },
+        }
+      : { kind: 'verify', label: 'Verifica con ORA' },
     quando: o.created_at || '',
     scade: o.valid_until || undefined,
   }));
