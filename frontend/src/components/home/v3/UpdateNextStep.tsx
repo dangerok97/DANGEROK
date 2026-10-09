@@ -102,14 +102,15 @@ export function UpdateNextStep({ a }: { a: Aggiornamento }) {
         {a.cosa_serve && <Text style={[oraType.body, { color: ora.ink }]}>Domanda per te: {a.cosa_serve}</Text>}
         <Text style={[oraType.small, { color: ora.ink2 }]}>
           ORA può valutare previsioni e segnali disponibili, ma non può osservare direttamente
-          lo stato fisico della situazione. Quando cambia, comunicaglielo.
+          lo stato fisico della situazione. I pulsanti per aggiornarla aprono un messaggio
+          pronto da inviare: puoi modificarlo e confermarlo in chat.
         </Text>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
           <Pressable accessibilityRole="button" testID="situazione-non-ancora"
             onPress={() => openSituationConversation(
               `Per la situazione «${situation.summary}»: non è ancora raggiunto il risultato. Ricontrolla le condizioni con dati aggiornati e, se possibile, programma un nuovo controllo utile senza inventare l'esito.`
             )} style={{ padding: 12, borderRadius: 10, borderWidth: 1, borderColor: ora.ink3 }}>
-            <Text style={{ color: ora.deep }}>Non ancora · Ricalcola</Text>
+            <Text style={{ color: ora.deep }}>Non ancora · Rispondi a ORA</Text>
           </Pressable>
           <Pressable accessibilityRole="button" testID="situazione-cambiata"
             onPress={() => openSituationConversation(
