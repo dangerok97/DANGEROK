@@ -634,6 +634,24 @@ async def _disagreements(db, user_id: str, now: datetime) -> List[Dict[str, Any]
         ahead = set()
     rows.sort(key=lambda r: str(r.get("target_ref") or "") not in ahead)
 
+    # The previous code sorted old appointments last, but then *still sent*
+    # them to the model. That is how a September time discrepancy became a
+    # fresh October request, with an invented "42 days until departure".
+    # An expired appointment disagreement is archive, not actionable input.
+    from opportunities.source_lifecycle import source_event_expired
+    eligible_rows = []
+    for row in rows:
+        if (
+            row.get("target_kind") == "appointment"
+            and row.get("target_ref")
+            and await source_event_expired(
+                db, user_id, [str(row["target_ref"])], now=now
+            )
+        ):
+            continue
+        eligible_rows.append(row)
+    rows = eligible_rows
+
     out: List[Dict[str, Any]] = []
     for row in rows:
         for said in (row.get("disagreements") or [])[:2]:
