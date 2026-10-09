@@ -73,6 +73,17 @@ async def look_at_a_movement(
     observations = ObservationStore(db)
     await observations.record(observation)
 
+    from financial.reality import account_sources, is_simulated_observation
+    accounts = await account_sources(db, observation.owner_id)
+    if is_simulated_observation(observation, accounts):
+        # Demo transactions remain visible in the test-account screen, but
+        # never create an actual commitment, goal, memory or financial impact.
+        return {
+            "outcome": "simulated_observation",
+            "observation_id": observation.id,
+            "persisted_as_real_fact": False,
+        }
+
     history = [
         o for o in await observations.history(observation.owner_id)
         if o.id != observation.id
