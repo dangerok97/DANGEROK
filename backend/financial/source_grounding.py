@@ -48,16 +48,64 @@ def amount_supported(value: object, excerpt: str) -> bool:
 
 
 def check_financial_extraction(answer: dict, observation: dict) -> dict:
-    """Reject unsupported amount without discarding the grounded obligation."""
+    """Reject unsupported amounts and prefer an exact, unique source datetime.
+
+    An email may have a dated body and a subject saying "in two days".
+    When cognition already identified a due commitment, the exact source
+    timestamp and its IANA timezone outrank a rounded, model-inferred day.
+    """
     excerpt = str(observation.get("private_source_excerpt") or "").strip()
-    if not excerpt or answer.get("amount") is None:
-        return answer
-    if amount_supported(answer.get("amount"), excerpt):
+    if not excerpt:
         return answer
     corrected = dict(answer)
-    corrected["amount"] = None
-    missing = [str(v) for v in (answer.get("what_is_not_known") or [])]
-    if not any("importo" in v.lower() for v in missing):
-        missing.append("l'importo non è confermato dal messaggio originale")
-    corrected["what_is_not_known"] = missing[:8]
+    if answer.get("amount") is not None and not amount_supported(
+        answer.get("amount"), excerpt
+    ):
+        corrected["amount"] = None
+        missing = [str(v) for v in (answer.get("what_is_not_known") or [])]
+        if not any("importo" in v.lower() for v in missing):
+            missing.append("l'importo non è confermato dal messaggio originale")
+        corrected["what_is_not_known"] = missing[:8]
+
+    # Do not create a due date if the AI never found an obligation/date.
+    if answer.get("what_it_is") == "commitment" and answer.get("due_at"):
+        exact = exact_source_datetime(excerpt)
+        if exact is not None:
+            corrected["due_at"] = exact
     return corrected
+
+
+def exact_source_datetime(excerpt: str) -> str | None:
+    """Extract one explicit local timestamp with an IANA timezone.
+
+    Multiple timestamps, malformed/unknown zones, DST gaps and ambiguous
+    fall-back hours cannot safely be picked as a due date; return None.
+    Semantic classification remains with cognition.
+    """
+    from datetime import datetime, timezone
+    from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+    candidates = re.findall(
+        r"(?<!\d)(\d{4}-\d{2}-\d{2})[ T]"
+        r"(\d{2}:\d{2}:\d{2})\s+"
+        r"([A-Za-z][A-Za-z_]+/[A-Za-z_]+(?:/[A-Za-z_]+)?)",
+        excerpt or "",
+    )
+    if len(set(candidates)) != 1:
+        return None
+    date_part, time_part, zone_name = candidates[0]
+    try:
+        zone = ZoneInfo(zone_name)
+        local = datetime.fromisoformat(
+            f"{date_part}T{time_part}"
+        ).replace(tzinfo=zone)
+        # Nonexistent hour on spring-forward or ambiguous fall-back.
+        if local.astimezone(timezone.utc).astimezone(zone).replace(
+            tzinfo=None
+        ) != local.replace(tzinfo=None):
+            return None
+        if local.replace(fold=1).utcoffset() != local.utcoffset():
+            return None
+        return local.isoformat()
+    except (ValueError, ZoneInfoNotFoundError, OverflowError):
+        return None

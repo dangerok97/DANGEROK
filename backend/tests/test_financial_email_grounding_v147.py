@@ -10,6 +10,7 @@ from connectors.bank.service import bank_account_is_simulated
 from financial.models import FinancialFact, Money, Provenance
 from financial.source_grounding import (
     amount_supported, check_financial_extraction, source_amounts,
+    exact_source_datetime,
 )
 from financial.source_review import review_email_financial_sources
 from financial.store import FinancialStore
@@ -221,3 +222,39 @@ async def test_connected_email_routes_transient_body_to_financial_model(monkeypa
     for collection in ("connected_signals", "meaningful_changes", "financial_facts"):
         rows = await db[collection].find({}).to_list(10)
         assert exact not in str(rows)
+
+
+def test_explicit_zoned_date_from_email_beats_relative_subject_without_guessing():
+    body = (
+        "Il piano da 50 GB si rinnova per 0,99 € ogni mese a partire dal "
+        "giorno 2026-10-11 03:25:28 America/Los_Angeles."
+    )
+    assert exact_source_datetime(body) == "2026-10-11T03:25:28-07:00"
+    corrected = check_financial_extraction({
+        "what_it_is": "commitment",
+        "in_their_words": "Rinnovo archiviazione online",
+        "amount": 0.99, "due_at": "2026-10-10",
+        "what_is_not_known": [],
+    }, {"private_source_excerpt": body})
+    assert corrected["amount"] == 0.99
+    assert corrected["due_at"] == "2026-10-11T03:25:28-07:00"
+    from zoneinfo import ZoneInfo
+    assert datetime.fromisoformat(corrected["due_at"]).astimezone(
+        ZoneInfo("Europe/Rome")
+    ).strftime("%Y-%m-%d %H:%M") == "2026-10-11 12:25"
+
+    # A source timestamp does not create an obligation that was never found.
+    absent_due = check_financial_extraction({
+        "what_it_is": "commitment", "amount": None, "due_at": None
+    }, {"private_source_excerpt": body})
+    assert absent_due["due_at"] is None
+    no_bill = check_financial_extraction({
+        "what_it_is": "event", "amount": 0.99, "due_at": "2026-10-10"
+    }, {"private_source_excerpt": body})
+    assert no_bill["due_at"] == "2026-10-10"
+
+    # Multiple dates and DST-ambiguous local times cannot be chosen silently.
+    assert exact_source_datetime(
+        body + " Anche il 2026-12-11 03:25:28 America/Los_Angeles"
+    ) is None
+    assert exact_source_datetime("2026-11-01 01:30:00 America/Los_Angeles") is None
