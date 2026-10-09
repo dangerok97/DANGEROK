@@ -2638,9 +2638,17 @@ class AgentService:
             appointment_disagreement_unverifiable,
         )
         if goal.opportunity_id:
-            linked = await OpportunityRepository(self.db).get(
-                owner_id, goal.opportunity_id
-            )
+            # Legacy admission fixtures and old migrations can retain only
+            # {id, owner_id, status, revision}, not a complete Opportunity.
+            # Their exact calendar handles are still on the goal itself.
+            # Never let a malformed historic source block a valid new action.
+            from pydantic import ValidationError
+            try:
+                linked = await OpportunityRepository(self.db).get(
+                    owner_id, goal.opportunity_id
+                )
+            except ValidationError:
+                linked = None
             if linked:
                 if await perishable_opportunity_expired(
                     self.db, owner_id, linked
