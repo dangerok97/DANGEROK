@@ -61,8 +61,8 @@ def exact_named_zone_timestamp(source_content: dict | None) -> str | None:
 
     text = str((source_content or {}).get("body") or "")
     matches = re.findall(
-        r"(?<!\\d)(\\d{4}-\\d{2}-\\d{2})[ T]"
-        r"(\\d{2}:\\d{2}:\\d{2})\\s+"
+        r"(?<!\d)(\d{4}-\d{2}-\d{2})[ T]"
+        r"(\d{2}:\d{2}:\d{2})\s+"
         r"([A-Za-z][A-Za-z_]+/[A-Za-z_]+(?:/[A-Za-z_]+)?)",
         text,
     )
