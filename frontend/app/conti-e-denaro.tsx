@@ -188,7 +188,7 @@ export default function ContiEDenaroScreen() {
               <Block title="CONTI COLLEGATI">
                 {data.conti.map((c) => (
                   <View key={`${c.banca}-${c.conto}`} style={styles.item}>
-                    <Text style={styles.itemTitle}>{c.banca}</Text>
+                    <Text style={styles.itemTitle}>{c.banca}{c.simulato ? ' · CONTO DI PROVA' : ''}</Text>
                     <Text style={styles.itemMeta}>
                       {c.conto}{c.numero ? ' · ' + c.numero : ''}
                     </Text>
@@ -198,7 +198,9 @@ export default function ContiEDenaroScreen() {
                       stessa cosa, quindi si dice quale dei due è.
                     */}
                     <Text style={styles.amount}>
-                      {c.saldo_noto && c.saldo_tipo
+                      {c.simulato
+                        ? 'Saldo simulato (non reale): ' + c.saldo
+                        : c.saldo_noto && c.saldo_tipo
                         ? (c.saldo_tipo === 'disponibile' ? 'Disponibile ' : 'Contabile ') + c.saldo
                         : c.saldo}
                     </Text>
