@@ -161,3 +161,30 @@ async def test_old_update_url_and_actions_respond_gone_not_prepare(monkeypatch):
             await invoke
         assert err.value.status_code == 410
     assert await db.update_work.count_documents({}) == 0
+
+
+@pytest.mark.asyncio
+async def test_missing_calendar_source_is_held_without_deleting_old_data():
+    db = AsyncMongoMockClient().vibo_disconnected
+    opp, goal, need = await setup(db)
+    await db.ingestion_events.delete_many({"user_id": OWNER})
+    # Disconnection or retention must not make a stale question actionable.
+    assert await _disagreements(
+        db, OWNER, datetime(2026, 10, 9, 12, tzinfo=timezone.utc)
+    ) == []
+    assert not await SurfacingService(db)._current(
+        OWNER, opp, "2026-10-09T12:22:00+00:00"
+    )
+    assert await AgentService(db).for_detail(OWNER, goal.id) is None
+    assert await db.opportunities.count_documents({"owner_id": OWNER}) == 1
+    assert await db.agent_needs.count_documents({"owner_id": OWNER}) == 1
+    # Another user's copy with the same external id cannot make this source
+    # magically available to the owner of the stale notification.
+    await db.ingestion_events.insert_one({
+        "user_id": "another_owner", "source_record_type": "calendar_event",
+        "external_id": "vibo_evt_2026", "ingestion_status": "active",
+        "normalized_payload": {"starts_at": "2030-09-20T17:00:00+02:00"}
+    })
+    assert not await SurfacingService(db)._current(
+        OWNER, opp, "2026-10-09T12:22:00+00:00"
+    )
