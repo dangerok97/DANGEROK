@@ -324,15 +324,24 @@ class Opportunity(BaseModel):
         What survives here is a sentence and a reason.
         """
         from opportunities.work import evidence_labels
+        question = (self.agent_review_question
+                    if self.agent_review_outcome == "clarify"
+                    else self.clarifying_question) or None
+        # An informational observation is not an executable mission. The UI
+        # must not promise "Verifica con ORA" merely because a card exists.
+        informational_only = not bool(self.what_ora_can_do.strip()) and not bool(
+            str(question or "").strip()
+        )
         return {
             "id": self.id,
+            "informational_only": informational_only,
             "title": self.semantic_summary,
             "why_now": self.why_now or self.why_it_matters,
             # Il passo successivo, quando ORA se ne prende una parte. Non e'
             # una parola di sistema: e' la meta' della frase per cui questa
             # riga vale la pena di essere letta.
             "what_ora_can_do": self.what_ora_can_do or None,
-            "question": (self.agent_review_question if self.agent_review_outcome == "clarify" else self.clarifying_question) or None,
+            "question": question,
             "seen": bool(self.seen_at),
             "work_status": self.work_status,
             "sources": evidence_labels(self.evidence),
