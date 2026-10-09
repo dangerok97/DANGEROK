@@ -118,10 +118,11 @@ function Riga({ a, onRemoved }: { a: Aggiornamento; onRemoved: () => void }) {
 
       {a.perche ? <Text style={[oraType.body, { color: ora.ink2 }]}>{a.perche}</Text> : null}
 
-      {/* Da dove viene. Sempre, anche quando la risposta è che non si sa. */}
-      <Text style={[oraType.small, { color: ora.ink3 }]} testID={`aggiornamento-${a.id}-fonte`}>
-        Fonte: {a.fonte}
-      </Text>
+      {a.fonte && a.fonte !== 'originale non disponibile' ? (
+        <Text style={[oraType.small, { color: ora.ink3 }]} testID={`aggiornamento-${a.id}-fonte`}>
+          {a.genere === 'situazione' ? 'Verificato con: ' : 'Fonte: '}{a.fonte}
+        </Text>
+      ) : null}
 
       {a.non_so ? (
         <Text style={[oraType.small, { color: ora.attention }]}>{a.non_so}</Text>
@@ -139,7 +140,7 @@ function Riga({ a, onRemoved }: { a: Aggiornamento; onRemoved: () => void }) {
         style={({ pressed }) => [styles.apri, pressed && { opacity: 0.7 }]}
         testID={`aggiornamento-${a.id}-apri`}
       >
-        <Text style={[oraType.small, { color: ora.cta, fontWeight: '600' }]}>Apri dettagli</Text>
+        <Text style={[oraType.small, { color: ora.cta, fontWeight: '600' }]}>{a.genere === 'situazione' ? 'Ho fatto / È cambiato' : 'Apri dettagli'}</Text>
         <Ionicons name="chevron-forward" size={14} color={ora.cta} />
       </Pressable>
       <Pressable
@@ -151,7 +152,7 @@ function Riga({ a, onRemoved }: { a: Aggiornamento; onRemoved: () => void }) {
         testID={`aggiornamento-${a.id}-rimuovi`}
       >
         <Text style={[oraType.small, { color: ora.ink3 }]}>
-          {removing ? 'Rimozione…' : 'Non mi interessa'}
+          {removing ? 'Rimozione…' : a.genere === 'situazione' ? 'Non ricordarmelo più' : 'Non mi interessa'}
         </Text>
       </Pressable>
       </View>
