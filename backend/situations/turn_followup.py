@@ -27,6 +27,11 @@ whether THIS user message continues a delegated task or asks for facts about it.
 ANSWERING WHAT IS KNOWN AND ACCEPTING FUTURE WORK ARE DIFFERENT RESULTS.
 A factual status question must first receive its evidence-backed answer. Do not
 replace a known date or source statement with a report about scheduler internals.
+For "Come mai non hai programmato il controllo?" or "A che punto siamo con
+il monitoraggio?", call get_situation_followup for the exact Situation and
+explain its diagnosis/status. This tool returns an owner-verified readback about
+the SCHEDULE, not an observation that the physical thing is complete.
+If an external provider was not checked, say what is unknown about the world.
 A status-only answer neither cancels nor repairs existing delegated work. Do not
 create/update a Situation just to answer a factual question or trigger a guard.
 Preserve the identity and outstanding work of any existing Situation.
@@ -44,10 +49,12 @@ For a final reply while a check remains unconfirmed, include:
 "evidence_refs": ["exact current-turn source references, required for status_only"]}.
 - continue: this request delegates or repairs a follow-up. Perform the next tool,
   context or research step. Do not offer a process menu instead of doing the work.
-- status_only: this request asks what a source says NOW, not to start or repair a
-  monitor. Cite the exact factual_readback.ref returned by a successful read this
-  turn. Answer the question, attribute the source, preserve uncertainty, and make
-  NO promise of future checking or alerts. Missing monitoring must not erase facts.
+- status_only: this request asks what a source or the recorded monitor says
+  NOW, not to start or repair a monitor. Cite the exact factual_readback.ref
+  returned by a successful get_situation_followup or other source read this
+  turn. Explain the actual scheduling blocker when asked WHY, attribute the
+  source, preserve uncertainty, and make NO promise of future checking or
+  alerts. Missing monitoring must not erase facts.
   This disposition does not satisfy a request to monitor, remind or repair work.
 - unrelated: this message is about a different matter, or the attention purpose is
   not real delegated work. Answer normally; no new work.
@@ -194,9 +201,12 @@ class FollowupTurnGate:
                 'available_answer_refs': [item['ref'] for item in self._readbacks],
                 'reason': (
                     'First answer the actual question using current-turn source evidence. '
-                    'A factual status query can use status_only with exact factual_readback refs, '
-                    'without claiming that future work is active. Do not erase a successful read '
-                    'because scheduling failed. For delegated follow-up work, read needed evidence '
+                    'For a question about WHY the monitor was not scheduled, call '
+                    'get_situation_followup with this exact situation_id and explain the '
+                    'diagnosis from its returned source-backed readback; use status_only '
+                    'with its situation ref. A status question is not permission to invent '
+                    'a new schedule. Do not erase a successful personal read because '
+                    'scheduling failed. For delegated follow-up work, read needed evidence '
                     'and execute the next useful step. For unrelated work, an explicit restriction '
                     'or a real blocker, return the corresponding structured disposition. '
                     'Never schedule other candidates merely because they exist.'
@@ -212,8 +222,20 @@ class FollowupTurnGate:
                 'Questo è quanto riporta la fonte consultata. '
                 'Non risulta ancora attivo un controllo automatico per la situazione.'
             )
+        # This is owner-scoped persisted state captured by refresh().
+        # The model ignored its one recovery opportunity: tell the person
+        # exactly what is known, never repeat the same canned apology.
+        first = self.pending[0] if self.pending else {}
+        state = first.get('follow_up') or {}
+        diagnosis = str(state.get('diagnosis') or '').strip()
+        summary = str(first.get('summary') or 'questa situazione').strip()
+        if diagnosis:
+            return (
+                f"Per «{summary}»: {diagnosis} "
+                "La situazione fisica non è stata verificata da questo stato "
+                "del monitoraggio. Non considerare confermate altre notifiche."
+            )
         return (
-            'Non risulta confermato un controllo automatico per la situazione. '
-            'Non sono riuscita a completarne la valutazione operativa in questo turno: '
-            'non ti dirò che è sotto controllo senza un lavoro effettivamente registrato.'
+            'Non sono riuscita a leggere la ragione operativa del monitoraggio '
+            'in questo turno. Non posso affermare che un controllo sia attivo.'
         )
