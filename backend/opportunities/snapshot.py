@@ -638,17 +638,21 @@ async def _disagreements(db, user_id: str, now: datetime) -> List[Dict[str, Any]
     # them to the model. That is how a September time discrepancy became a
     # fresh October request, with an invented "42 days until departure".
     # An expired appointment disagreement is archive, not actionable input.
-    from opportunities.source_lifecycle import source_event_expired
+    from opportunities.source_lifecycle import (
+        source_event_expired, source_event_has_verifiable_date,
+    )
     eligible_rows = []
     for row in rows:
-        if (
-            row.get("target_kind") == "appointment"
-            and row.get("target_ref")
-            and await source_event_expired(
-                db, user_id, [str(row["target_ref"])], now=now
-            )
-        ):
-            continue
+        if row.get("target_kind") == "appointment":
+            target = str(row.get("target_ref") or "")
+            if not target:
+                continue  # No original appointment: no actionable timing claim.
+            if await source_event_expired(db, user_id, [target], now=now):
+                continue
+            if not await source_event_has_verifiable_date(
+                db, user_id, target
+            ):
+                continue  # Disconnected/unknown source needs a new read.
         eligible_rows.append(row)
     rows = eligible_rows
 
